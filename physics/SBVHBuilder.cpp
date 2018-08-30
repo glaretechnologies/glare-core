@@ -677,7 +677,7 @@ static void arbitraryPartition(const std::vector<SBVHOb>& objects_, int left, in
 
 
 static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const SBVHTri* triangles, const js::AABBox& parent_aabb, int left, int right, 
-	float best_div_val, int best_axis, const js::Vector<int, 16>* unsplits,  PartitionRes& res_out, int& num_left_out, int& num_right_out)
+	float best_div_val, int best_axis, const js::Vector<int, 16>& unsplits,  PartitionRes& res_out, int& num_left_out, int& num_right_out)
 {
 	num_left_out = num_right_out = 0;
 
@@ -694,7 +694,7 @@ static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const
 		assert(parent_aabb.containsAABBox(setWCoordsToOne(aabb)));
 		if(aabb.min_[best_axis] < best_div_val && aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
 		{
-			const int unsplit_tri = unsplits ? ((*unsplits)[cur]) : 0;
+			const int unsplit_tri = unsplits[cur];
 			if(unsplit_tri == 1)
 			{
 				left_aabb.enlargeToHoldAABBox(aabb);
@@ -903,6 +903,7 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 	int& best_axis_out, float& best_div_val_out,
 	float& smallest_split_cost_factor_out, bool& best_split_is_spatial_out, js::Vector<int, 16>& unsplit_out)
 {
+	assert(left == 0); // left is always zero currently.
 	const js::AABBox& centroid_aabb = centroid_aabb_;
 	const SBVHOb* const objects = objects_.data();
 
@@ -913,7 +914,10 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 	float best_div_val = 0;
 	bool best_split_is_spatial = false;
 
-	
+	//===========================================================================================================
+	// Look for object-partitioning splits - where the objects/triangles are partitioned left or right based on the object centroid.
+	// Objects are not clipped to the splitting plane, but instead the left or right AABBs are extended to enclose the objects.
+
 	const int max_B = 32;
 	const int num_buckets = myMin(max_B, (int)(4 + 0.05f * (right - left))); // buckets per axis
 	js::AABBox bucket_aabbs[max_B * 3];
@@ -1057,6 +1061,11 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 	float spatial_best_div_val = -666;
 	float spatial_smallest_split_cost_factor = std::numeric_limits<float>::infinity();
 
+	js::AABBox best_spatial_left_aabb;
+	js::AABBox best_spatial_right_aabb;
+	int best_spatial_left_num = 0;
+	int best_spatial_right_num = 0;
+
 	const js::AABBox inter = intersection(best_left_aabb, best_right_aabb);
 	const float lambda = inter.isEmpty() ? 0 : inter.getSurfaceArea();
 
@@ -1135,10 +1144,12 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 		}
 
 		// Sweep right to left, computing exclusive prefix surface areas and counts
-		// right_area[b] = sum_{i=(b+1)}^{num_buckets} bucket_aabb[b].getHalfSurfaceArea()
+		// right_area[b] = sum_{i=(b+1)}^{num_spatial_buckets} bucket_aabb[b].getHalfSurfaceArea()
 		count = Vec4i(0);
 		for(int i=0; i<3; ++i)
 			right_aabb[i] = empty_aabb;
+
+		js::AABBox right_aabbs[num_spatial_buckets*3];
 
 		for(int b=num_spatial_buckets-1; b>=0; --b)
 		{
@@ -1149,6 +1160,10 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 			float A1 = right_aabb[1].getHalfSurfaceArea();
 			float A2 = right_aabb[2].getHalfSurfaceArea();
 			right_area[b] = Vec4f(A0, A1, A2, A2);
+
+			right_aabbs[b + num_spatial_buckets*0] = right_aabb[0]; // Store right AABBs
+			right_aabbs[b + num_spatial_buckets*1] = right_aabb[1];
+			right_aabbs[b + num_spatial_buckets*2] = right_aabb[2];
 
 			right_aabb[0].enlargeToHoldAABBox(bucket_aabbs[b]);
 			right_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
@@ -1183,6 +1198,10 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 				spatial_smallest_split_cost_factor = elem<0>(cost);
 				spatial_best_axis = 0;
 				spatial_best_div_val = aabb.min_[0] + spatial_axis_len_over_num_buckets[0] * (b + 1);
+				best_spatial_left_aabb = left_aabb[0];
+				best_spatial_right_aabb = right_aabbs[b + num_spatial_buckets*0];
+				best_spatial_left_num = count[0];
+				best_spatial_right_num = right_prefix_counts[b][0];
 			}
 
 			if(aabb_span[1] > 0 && spatial_smallest_split_cost_factor > elem<1>(cost))
@@ -1190,6 +1209,10 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 				spatial_smallest_split_cost_factor = elem<1>(cost);
 				spatial_best_axis = 1;
 				spatial_best_div_val = aabb.min_[1] + spatial_axis_len_over_num_buckets[1] * (b + 1);
+				best_spatial_left_aabb = left_aabb[1];
+				best_spatial_right_aabb = right_aabbs[b + num_spatial_buckets*1];
+				best_spatial_left_num = count[1];
+				best_spatial_right_num = right_prefix_counts[b][1];
 			}
 
 			if(aabb_span[2] > 0 && spatial_smallest_split_cost_factor > elem<2>(cost))
@@ -1197,85 +1220,73 @@ static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, con
 				spatial_smallest_split_cost_factor = elem<2>(cost);
 				spatial_best_axis = 2;
 				spatial_best_div_val = aabb.min_[2] + spatial_axis_len_over_num_buckets[2] * (b + 1);
+				best_spatial_left_aabb = left_aabb[2];
+				best_spatial_right_aabb = right_aabbs[b + num_spatial_buckets*2];
+				best_spatial_left_num = count[2];
+				best_spatial_right_num = right_prefix_counts[b][2];
 			}
 		}
+	}
+
+	if(spatial_smallest_split_cost_factor < smallest_split_cost_factor)
+	{
+		smallest_split_cost_factor = spatial_smallest_split_cost_factor;
+		best_axis = spatial_best_axis;
+		best_div_val = spatial_best_div_val;
+		best_split_is_spatial = true;
 	}
 
 	// Do reference unsplitting at the best spatial split found.
-	const bool DO_UNSPLITTING = true;
-	if(DO_UNSPLITTING)
+	// See http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.550.6560&rep=rep1&type=pdf section 4.4, 'Reference Unsplitting'.
+	// The starting point is the best spatial split.
+	// Note that we want to try this unsplitting even if the spatial split was not better than the object partitioning split, because the unsplit might be.
+	if(spatial_smallest_split_cost_factor < std::numeric_limits<float>::infinity()) // If we had a successful spatial split:
 	{
-		if(spatial_smallest_split_cost_factor < std::numeric_limits<float>::infinity())
+		unsplit_out.resizeNoCopy(right); // We'll store the unsplitting decision for each triangle in this vector.
+
+		const float left_half_area  = best_spatial_left_aabb .getHalfSurfaceArea();
+		const float right_half_area = best_spatial_right_aabb.getHalfSurfaceArea();
+		const float C_split = spatial_smallest_split_cost_factor;
+		const float left_reduced_cost  = left_half_area  * (best_spatial_left_num  - 1);
+		const float right_reduced_cost = right_half_area * (best_spatial_right_num - 1);
+		for(int i=left; i<right; ++i)
 		{
-			unsplit_out.resizeNoCopy(right - left);
+			const js::AABBox ob_aabb = objects[i].aabb;
+			assert(aabb.containsAABBox(setWCoordsToOne(ob_aabb)));
 
-			PartitionRes res;
-			int num_left, num_right;
-			tentativeSpatialPartition(objects_, triangles, aabb, left, right, spatial_best_div_val, spatial_best_axis, /*unsplits=*/NULL, res, num_left, num_right);
-
-			const float left_half_area  = res.left_aabb. getHalfSurfaceArea();
-			const float right_half_area = res.right_aabb.getHalfSurfaceArea();
-			const float C_split = left_half_area * num_left + right_half_area * num_right;
-			//assert(epsEqual(C_split, spatial_smallest_split_cost_factor));
-
-			const float left_reduced_cost  = res.left_aabb.getHalfSurfaceArea()  * (num_left - 1);
-			const float right_reduced_cost = res.right_aabb.getHalfSurfaceArea() * (num_right - 1);
-			int num_unsplit = 0;
-			for(int i=left; i<right; ++i)
+			if(ob_aabb.min_[spatial_best_axis] < spatial_best_div_val && ob_aabb.max_[spatial_best_axis] > spatial_best_div_val) // If triangle straddles split plane:
 			{
-				const js::AABBox ob_aabb = objects[i].aabb;
-				assert(aabb.containsAABBox(setWCoordsToOne(ob_aabb)));
+				// Compute C_1: the cost when putting object i entirely in the left child, and C_2: the cost when putting object i entirely in the right child.
+				const js::AABBox expanded_left_aabb  = AABBUnion(best_spatial_left_aabb, ob_aabb);
+				const js::AABBox expanded_right_aabb = AABBUnion(best_spatial_right_aabb, ob_aabb);
+				const float C_1 = expanded_left_aabb.getHalfSurfaceArea() * best_spatial_left_num + right_reduced_cost;
+				const float C_2 = left_reduced_cost + expanded_right_aabb.getHalfSurfaceArea() * best_spatial_right_num;
 
-				if(ob_aabb.min_[best_axis] < best_div_val && ob_aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
+				unsplit_out[i] = 0;
+				if(C_1 < C_split && C_1 <= C_2) // Only place this tri in the left child:
 				{
-					// Compute C_1: the cost when putting object i entirely in the left child.
-					const js::AABBox expanded_left_aabb  = AABBUnion(res.left_aabb,  ob_aabb);
-					const js::AABBox expanded_right_aabb = AABBUnion(res.right_aabb, ob_aabb);
-					const float C_1 = expanded_left_aabb.getHalfSurfaceArea() * num_left  + right_reduced_cost;
-					const float C_2 = left_reduced_cost + expanded_right_aabb.getHalfSurfaceArea() * num_right;
-
-					unsplit_out[i] = 0;
-					if(C_1 < C_split && C_1 <= C_2)
-					{
-						unsplit_out[i] = 1;
-						num_unsplit++;
-					}
-					else if(C_2 < C_split && C_2 < C_1)
-					{
-						unsplit_out[i] = 2;
-						num_unsplit++;
-					}
+					unsplit_out[i] = 1;
 				}
-				else
-					unsplit_out[i] = 0;
+				else if(C_2 < C_split && C_2 < C_1) // Else if only place this tri in the right child:
+				{
+					unsplit_out[i] = 2;
+				}
 			}
-
-			// Do another pass to get the final cost given our unsplitting decisions
-			tentativeSpatialPartition(objects_, triangles, aabb, left, right, spatial_best_div_val, spatial_best_axis, &unsplit_out, res, num_left, num_right);
-			const float unsplit_cost = res.left_aabb.getHalfSurfaceArea() * num_left + res.right_aabb.getHalfSurfaceArea() * num_right;
-			assert(unsplit_cost <= spatial_smallest_split_cost_factor/* + 1.0e-4f*/); // TODO: investigate the need for this eps
-
-			//if(unsplit_cost < spatial_smallest_split_cost_factor)
-			//	conPrint("unsplit " + toString(num_unsplit) + " / " + toString(right - left) + " tris: unsplit_cost: " + toString(unsplit_cost) + ", old cost: " + toString(spatial_smallest_split_cost_factor));
-
-			if(unsplit_cost < smallest_split_cost_factor)
-			{
-				smallest_split_cost_factor = unsplit_cost;
-				best_axis = spatial_best_axis;
-				best_div_val = spatial_best_div_val;
-				best_split_is_spatial = true;
-			}
+			else
+				unsplit_out[i] = 0;
 		}
-	}
-	else // Else if !DO_UNSPLITTING:
-	{
-		unsplit_out.resizeNoCopy(right - left);
-		for(int i=0; i<right-left; ++i)
-			unsplit_out[i] = 0;
 
-		if(spatial_smallest_split_cost_factor < smallest_split_cost_factor)
+		// Do another pass to get the final cost given our unsplitting decisions.  This is not a conservative estimate of the cost, but an accurate calculation of the 
+		// cost, that may be smaller than the conservative unsplit cost.  We want to do this pass because, even though we know the cost will be <= spatial_smallest_split_cost_factor,
+		// We don't know if it will be smaller than the best object-partitioning cost (which may be smaller than spatial_smallest_split_cost_factor).
+		int num_left, num_right;
+		PartitionRes res;
+		tentativeSpatialPartition(objects_, triangles, aabb, left, right, spatial_best_div_val, spatial_best_axis, unsplit_out, res, num_left, num_right);
+		const float unsplit_cost = res.left_aabb.getHalfSurfaceArea() * num_left + res.right_aabb.getHalfSurfaceArea() * num_right;
+
+		if(unsplit_cost < smallest_split_cost_factor)
 		{
-			smallest_split_cost_factor = spatial_smallest_split_cost_factor;
+			smallest_split_cost_factor = unsplit_cost;
 			best_axis = spatial_best_axis;
 			best_div_val = spatial_best_div_val;
 			best_split_is_spatial = true;
