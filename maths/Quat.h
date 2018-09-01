@@ -127,6 +127,24 @@ template <class Real> const Quat<Real> Quat<Real>::operator - (const Quat<Real>&
 }
 
 
+inline Vec4f negateX(const Vec4f& v)
+{
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0x80000000, 0, 0, 0)).v)); // Flip sign bit
+}
+inline Vec4f negateY(const Vec4f& v)
+{
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0x80000000, 0, 0)).v));
+}
+inline Vec4f negateZ(const Vec4f& v)
+{
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0, 0x80000000, 0)).v));
+}
+inline Vec4f negateW(const Vec4f& v)
+{
+	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0, 0, 0x80000000)).v));
+}
+
+
 template <class Real> const Quat<Real> Quat<Real>::operator * (const Quat<Real>& other) const
 {
 	/*
@@ -199,23 +217,6 @@ template <class Real> const Quat<Real> Quat<Real>::conjugate() const
 	return Quat(_mm_xor_ps(v.v, mask.v));
 }
 
-
-inline Vec4f negateX(const Vec4f& v)
-{
-	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0x80000000, 0, 0, 0)).v)); // Flip sign bit
-}
-inline Vec4f negateY(const Vec4f& v)
-{
-	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0x80000000, 0, 0)).v));
-}
-inline Vec4f negateZ(const Vec4f& v)
-{
-	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0, 0x80000000, 0)).v));
-}
-inline Vec4f negateW(const Vec4f& v)
-{
-	return Vec4f(_mm_xor_ps(v.v, bitcastToVec4f(Vec4i(0, 0, 0, 0x80000000)).v));
-}
 
 // Adapted from Quaternions - Ken Shoemake
 // http://www.cs.ucr.edu/~vbz/resources/quatut.pdf
