@@ -26,11 +26,9 @@ File created by ClassTemplate on Sat Apr 27 16:22:59 2002
 #include <assert.h>
 
 
-/*
-//#if JPEG_LIB_VERSION < 70
-//#error Please compile with Libjpeg 7.0
-//#endif
-*/
+// We use libjpeg-turbo for loading and saving JPEGs.
+// Libjpeg-turbo should be version 2.0.0.  See building_indigo.txt.
+static_assert(LIBJPEG_TURBO_VERSION_NUMBER == 2000000, "LIBJPEG_TURBO_VERSION_NUMBER == 2000000");
 
 
 JPEGDecoder::JPEGDecoder()
@@ -270,7 +268,7 @@ public:
 };
 
 
-// Saves a JPEG with 95% image quality, and in the sRGB colour space. (embeds an ICC sRGB colour profile)
+// Saves a JPEG in the sRGB colour space. (embeds an ICC sRGB colour profile)
 void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string& path, const SaveOptions& options)
 {
 	try
