@@ -248,9 +248,13 @@ Imf::Compression EXRDecoder::EXRCompressionMethod(EXRDecoder::CompressionMethod 
 }
 
 
-//NOTE: This function assumes that the pixel data is densely packed, so that x-stride is sizeof(float) * num_channel and y-stride = x_stride * width.
-void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t height, size_t num_channels, bool save_alpha_channel, const std::string& pathname, const SaveOptions& options)
+//NOTE: This function assumes that the pixel data is densely packed, so that x-stride is sizeof(float) * num_channels and y-stride = x_stride * width.
+void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t height, size_t num_channels, bool save_alpha_channel, const std::string& pathname, 
+	const std::string& layer_name, const SaveOptions& options)
 {
+	if(!(num_channels == 1 || num_channels == 3 || num_channels == 4))
+		throw Indigo::Exception("EXR saving require 1, 3 or 4 components.");
+
 	setEXRThreadPoolSize();
 
 	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
@@ -268,14 +272,27 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 			EXRCompressionMethod(options.compression_method) // compression method
 		);
 
-		header.channels().insert("R", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-		if(num_channels >= 3)
+		int num_channels_to_save; // May be < num_channels, which is related to the stride in the source data.
+		std::vector<std::string> channel_names(num_channels); // Channel names to use in the EXR file.
+		if(num_channels == 1)
 		{
-			header.channels().insert("G", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-			header.channels().insert("B", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
-			if(save_alpha_channel)
-				header.channels().insert("A", Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
+			num_channels_to_save = 1;
+			channel_names[0] = layer_name; // Just use the layer name directly without any channel sub-name.
 		}
+		else
+		{
+			assert(num_channels >= 3);
+			num_channels_to_save = save_alpha_channel ? 4 : 3;
+			channel_names[0] = layer_name + ".R";
+			channel_names[1] = layer_name + ".G";
+			channel_names[2] = layer_name + ".B";
+			if(save_alpha_channel)
+				channel_names[3] = layer_name + ".A";
+		}
+
+		for(int c=0; c<num_channels_to_save; ++c)
+			header.channels().insert(channel_names[c], Imf::Channel(options.bit_depth == BitDepth_32 ? Imf::FLOAT : Imf::HALF));
+
 		Imf::OutputFile file(exr_ofstream, header);
 		Imf::FrameBuffer frameBuffer;
 
@@ -291,34 +308,16 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 			for(size_t i=0; i<num_values; ++i)
 				half_data[i] = half(src_float_data[i]);
 
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::HALF,			// type
-				(char*)half_data.data(),		// base
-				sizeof(half) * N,				// xStride
-				sizeof(half) * N * width)		// yStride
-			);
-			if(num_channels >= 3)
+			for(int c=0; c<num_channels_to_save; ++c)
 			{
-				frameBuffer.insert("G",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(half_data.data() + 1),	// base
-					sizeof(half) * N,				// xStride
-					sizeof(half) * N * width)		// yStride
-				);
-				frameBuffer.insert("B",				// name
-					Imf::Slice(Imf::HALF,			// type
-					(char*)(half_data.data() + 2),	// base
-					sizeof(half) * N,				// xStride
-					sizeof(half) * N * width)		// yStride
-				);
-				if(save_alpha_channel)
-					frameBuffer.insert("A",				// name
-						Imf::Slice(Imf::HALF,			// type
-						(char*)(half_data.data() + 3),	// base
+				frameBuffer.insert(channel_names[c],	// name
+					Imf::Slice(Imf::HALF,				// type
+					(char*)(half_data.data() + c),		// base
 						sizeof(half) * N,				// xStride
 						sizeof(half) * N * width)		// yStride
-					);
+				);
 			}
+
 			file.setFrameBuffer(frameBuffer);
 			file.writePixels((int)height);
 		}
@@ -326,34 +325,16 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 		{
 			assert(options.bit_depth == BitDepth_32);
 
-			frameBuffer.insert("R",				// name
-				Imf::Slice(Imf::FLOAT,			// type
-				(char*)pixel_data,				// base
-				sizeof(float) * N,				// xStride
-				sizeof(float) * N * width)		// yStride
-			);
-			if(num_channels >= 3)
+			for(int c=0; c<num_channels_to_save; ++c)
 			{
-				frameBuffer.insert("G",				// name
-					Imf::Slice(Imf::FLOAT,			// type
-					(char*)(pixel_data + 1),		// base
-					sizeof(float) * N,				// xStride
-					sizeof(float) * N * width)		// yStride
+				frameBuffer.insert(channel_names[c],	// name
+					Imf::Slice(Imf::FLOAT,				// type
+					(char*)(pixel_data + c),			// base
+						sizeof(float) * N,				// xStride
+						sizeof(float) * N * width)		// yStride
 				);
-				frameBuffer.insert("B",				// name
-					Imf::Slice(Imf::FLOAT,			// type
-					(char*)(pixel_data + 2),		// base
-					sizeof(float) * N,				// xStride
-					sizeof(float) * N * width)		// yStride
-				);
-				if(save_alpha_channel)
-					frameBuffer.insert("A",			// name
-						Imf::Slice(Imf::FLOAT,		// type
-						(char*)(pixel_data + 3),	// base
-						sizeof(float) * N,			// xStride
-						sizeof(float) * N * width)	// yStride
-					);
 			}
+
 			file.setFrameBuffer(frameBuffer);
 			file.writePixels((int)height);
 		}
@@ -365,37 +346,37 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 }
 
 
-void EXRDecoder::saveImageToEXR(const Image& image, const std::string& pathname, const SaveOptions& options)
+void EXRDecoder::saveImageToEXR(const Image& image, const std::string& pathname, const std::string& layer_name, const SaveOptions& options)
 {
 	saveImageToEXR(&image.getPixel(0).r, image.getWidth(), image.getHeight(), 
 		3, // num channels
 		false, // save alpha channel
 		pathname,
+		layer_name,
 		options
 	);
 }
 
 
-void EXRDecoder::saveImageToEXR(const Image4f& image, bool save_alpha_channel, const std::string& pathname, const SaveOptions& options)
+void EXRDecoder::saveImageToEXR(const Image4f& image, bool save_alpha_channel, const std::string& pathname, const std::string& layer_name, const SaveOptions& options)
 {
 	saveImageToEXR(&image.getPixel(0).x[0], image.getWidth(), image.getHeight(), 
 		4, // num channels
 		save_alpha_channel, // save alpha channel
 		pathname,
+		layer_name,
 		options
 	);
 }
 
 
-void EXRDecoder::saveImageToEXR(const ImageMapFloat& image, const std::string& pathname, const SaveOptions& options)
+void EXRDecoder::saveImageToEXR(const ImageMapFloat& image, const std::string& pathname, const std::string& layer_name, const SaveOptions& options)
 {
-	if(!(image.getN() == 1 || image.getN() == 3 || image.getN() == 4))
-		throw Indigo::Exception("Require 1, 3 or 4 components.");
-
 	saveImageToEXR(&image.getPixel(0, 0)[0], image.getWidth(), image.getHeight(), 
 		image.getN(), // num channels
 		image.getN() == 4, // save alpha channel
 		pathname,
+		layer_name,
 		options
 	);
 }
@@ -428,7 +409,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 
 			const std::string path = PlatformUtils::getTempDirPath() + "/exr_write_test_a" + toString(i) + ".exr";
 		
-			EXRDecoder::saveImageToEXR(image, path, options);
+			EXRDecoder::saveImageToEXR(image, path, "main layer", options);
 
 			// Now read it to make sure it's a valid EXR
 			Reference<Map2D> im = EXRDecoder::decode(path);
@@ -456,7 +437,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 
 			const std::string path = PlatformUtils::getTempDirPath() + "/exr_write_test_b" + toString(i) + ".exr";
 		
-			EXRDecoder::saveImageToEXR(image, /*save_alpha_channel=*/true, path, options);
+			EXRDecoder::saveImageToEXR(image, /*save_alpha_channel=*/true, path, "main layer", options);
 
 			// Now read it to make sure it's a valid EXR
 			Reference<Map2D> im = EXRDecoder::decode(path);
@@ -484,7 +465,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 
 			const std::string path = PlatformUtils::getTempDirPath() + "/exr_write_test_c" + toString(i) + ".exr";
 		
-			EXRDecoder::saveImageToEXR(image, /*save_alpha_channel=*/false, path, options);
+			EXRDecoder::saveImageToEXR(image, /*save_alpha_channel=*/false, path, "main layer", options);
 
 			// Now read it to make sure it's a valid EXR
 			Reference<Map2D> im = EXRDecoder::decode(path);
@@ -513,7 +494,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 
 			const std::string path = PlatformUtils::getTempDirPath() + "/exr_write_test_d" + toString(i) + ".exr";
 		
-			EXRDecoder::saveImageToEXR(image, path, options);
+			EXRDecoder::saveImageToEXR(image, path, "main layer", options);
 
 			// Now read it to make sure it's a valid EXR
 			Reference<Map2D> im = EXRDecoder::decode(path);
@@ -543,7 +524,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 
 			const std::string path = PlatformUtils::getTempDirPath() + "/exr_write_test_e" + toString(i) + ".exr";
 		
-			EXRDecoder::saveImageToEXR(image, path, options);
+			EXRDecoder::saveImageToEXR(image, path, "main layer", options);
 
 			// Now read it to make sure it's a valid EXR
 			Reference<Map2D> im = EXRDecoder::decode(path);
