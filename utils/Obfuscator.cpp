@@ -370,6 +370,7 @@ void Obfuscator::addWinterKeywords()
 		"ceil",
 		"sqrt",
 		"sin",
+		"asin",
 		"cos",
 		"acos",
 		"tan",
