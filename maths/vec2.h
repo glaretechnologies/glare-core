@@ -1,47 +1,26 @@
-/*===================================================================
-
-  
-  digital liberation front 2001
-  
-  _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
-|	      \| |      |  |/         |  
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
+/*=====================================================================
+vec2.h
+------
+Copyright Glare Technologies Limited 2018 -
+=====================================================================*/
+#pragma once
 
 
-
-Code by Nicholas Chapman
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
-#ifndef __Vec2_H__
-#define __Vec2_H__
-
+#include "mathstypes.h"
+#include "../utils/OutStream.h"
+#include "../utils/InStream.h"
+#include <string>
 
 
 /*=================================================================
 2 component vector class
 ------------------------
-Coded by NIck Chapman in the year 2000
+
 =================================================================*/
-
-#include <string>
-#include "mathstypes.h"
-
-
 template <class Real>
 class Vec2
 {
 public:
-
 	inline Vec2()
 	{}
 
@@ -104,14 +83,14 @@ public:
 		return (x != rhs.x) || (y != rhs.y);
 	}
 
-		//for sorting Vec2's
+	// For sorting Vec2's
 	inline bool operator < (const Vec2& rhs) const
 	{
 		if(x < rhs.x)
 			return true;
 		else if(x > rhs.x)
 			return false;
-		else	//else if x == rhs.x
+		else // else if x == rhs.x:
 		{
 			return y < rhs.y;
 		}
@@ -131,9 +110,6 @@ public:
 
 	inline void normalise()
 	{
-		//if(!x && !y)
-		//	return;
-
 		const Real inverselength = Real(1.0) / length();
 
 		x *= inverselength;
@@ -142,9 +118,6 @@ public:
 
 	inline Real normalise_ret_length()
 	{
-		//if(!x && !y)
-		//	return 0.0f;
-
 		const Real len = length();
 
 		const Real inverselength = Real(1.0) / len;
@@ -242,8 +215,6 @@ public:
 		return dotProduct(rhs);
 	}
 
-	static const Vec2 randomVec(Real component_lowbound, Real component_highbound);
-
 	inline const Real* data() const { return (Real*)this; }
 
 	inline void sub(const Vec2& other)
@@ -263,7 +234,7 @@ public:
 		subMult(unitdir, this->dot(unitdir));
 	}
 
-	// returns true if all components c satisfy c >= minval && c < maxval, i.e. c e [minval, maxval)
+	// Returns true if all components c satisfy c >= minval && c < maxval, i.e. c e [minval, maxval)
 	inline bool inHalfClosedInterval(Real minval, Real maxval) const
 	{
 		return Maths::inHalfClosedInterval(x, minval, maxval) && Maths::inHalfClosedInterval(y, minval, maxval);
@@ -309,30 +280,6 @@ inline Real dot(const Vec2<Real>& v1, const Vec2<Real>& v2)
 	return (v1.x * v2.x) + (v1.y * v2.y);
 }
 
-
-/*inline const Vec2 crossProduct(const Vec2& v1, const Vec2& v2)
-{
-	return Vec2(
-	(v1.y * v2.z) - (v1.z * v2.y),
-	(v1.z * v2.x) - (v1.x * v2.z),
-	(v1.x * v2.y) - (v1.y * v2.x)z
-	);	//NOTE: check me
-
-}*/
-
-	//v1 and v2 unnormalized
-/*inline float angleBetween(Vec2& v1, Vec2& v2)
-{
-	float lf = v1.length() * v2.length();
-
-	if(!lf)
-		return PI_OVER_2; //90 //Pi/2 = 1.57079632679489661923
-
-	float dp = dotProduct(v1, v2);
-
-	return acos( dp / lf);
-}*/
-
 template <class Real>
 inline Real angleBetweenNormalized(const Vec2<Real>& v1, const Vec2<Real>& v2)
 {
@@ -344,13 +291,6 @@ inline Real angleBetweenNormalized(const Vec2<Real>& v1, const Vec2<Real>& v2)
 template <class Real>
 inline const Vec2<Real> normalise(const Vec2<Real>& v)
 {
-	//const Real vlen = v.length();
-
-	//if(!vlen)
-	//	return Vec2<Real>(1.0f, 0.0f);
-
-	//return v * (1.0f / vlen);
-
 	return v / v.length();
 }
 
@@ -366,25 +306,20 @@ inline bool epsEqualWithEps(const Vec2<Real>& a, const Vec2<Real>& b, float eps)
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps);
 }
 
-//#ifdef CYBERSPACE
-/*
-inline MyStream& operator << (MyStream& stream, const Vec2& point)
-{
-	stream << point.x;
-	stream << point.y;	
 
-	return stream;
+template <class Real>
+inline void writeToStream(const Vec2<Real>& v, OutStream& stream)
+{
+	stream.writeData(&v.x, sizeof(Real) * 2);
 }
 
-inline MyStream& operator >> (MyStream& stream, Vec2& point)
+template <class Real>
+inline Vec2<Real> readVec2FromStream(InStream& stream)
 {
-	stream >> point.x;
-	stream >> point.y;	
-
-	return stream;
-}*/
-
-//#endif//CYBERSPACE
+	Vec2<Real> v;
+	stream.readData(&v.x, sizeof(Real) * 2);
+	return v;
+}
 
 
 template <class Real>
@@ -398,6 +333,7 @@ inline const Vec2<float> toVec2f(const Vec2<double>& v)
 {
 	return Vec2<float>((float)v.x, (float)v.y);
 }
+
 inline const Vec2<double> toVec2d(const Vec2<float>& v)
 {
 	return Vec2<double>((double)v.x, (double)v.y);
@@ -406,6 +342,3 @@ inline const Vec2<double> toVec2d(const Vec2<float>& v)
 typedef Vec2<float> Vec2f;
 typedef Vec2<double> Vec2d;
 typedef Vec2<int> Vec2i;
-
-
-#endif //__Vec2_H__
