@@ -1,7 +1,7 @@
 /*=====================================================================
 raymesh.h
 ---------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 =====================================================================*/
 #pragma once
@@ -169,15 +169,10 @@ RayMesh
 -------
 
 =====================================================================*/
-#ifdef _WIN32
-#pragma warning(push)
-#pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
-#endif
 class RayMesh : public Geometry
 {
 public:
 	INDIGO_ALIGNED_NEW_DELETE
-
 
 	RayMesh(const std::string& name, bool enable_shading_normals, 
 		unsigned int max_num_subdivisions = 0, 
@@ -189,7 +184,6 @@ public:
 	);
 
 	virtual ~RayMesh();
-
 
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
@@ -274,6 +268,9 @@ public:
 	TriangleVectorType& getTriangles() { return triangles; }
 	const TriangleVectorType& getTriangles() const { return triangles; }
 
+	QuadVectorType& getQuads() { return quads; }
+	const QuadVectorType& getQuads() const { return quads; }
+
 	std::vector<Vec2f>& getUVs() { return uvs; }
 	const std::vector<Vec2f>& getUVs() const { return uvs; }
 	
@@ -287,19 +284,16 @@ public:
 
 private:
 	void computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose);
-	void doInitAsEmitter();
 	bool built() const { return tritree != NULL; }
 
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;
 	inline const Vec3f& vertPos(unsigned int vertindex) const;
-
 
 	std::string name;
 
 	js::Tree* tritree;
 
 	bool enable_shading_normals;
-
 
 	VertexVectorType vertices;
 	TriangleVectorType triangles;
@@ -336,12 +330,10 @@ private:
 	bool planar;
 	Vec4f planar_normal;
 public:
+#ifndef IS_INDIGO
 	js::Vector<js::Triangle, 32> js_tris; // Not used in Indigo, used for player physics.
-};
-
-#ifdef _WIN32
-#pragma warning(pop)
 #endif
+};
 
 
 const Vec3f& RayMesh::vertPos(unsigned int vertindex) const

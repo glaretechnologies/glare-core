@@ -1,7 +1,7 @@
 /*=====================================================================
 raymesh.cpp
 -----------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 =====================================================================*/
 #ifndef NO_EMBREE
@@ -11,31 +11,28 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "raymesh.h"
 
 
-#include "../maths/vec3.h"
-#include "../maths/Matrix2.h"
-#include "../graphics/image.h"
-#include "../graphics/TriBoxIntersection.h"
-#include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
 #include "../indigo/material.h"
 #include "../indigo/RendererSettings.h"
+#include "../raytracing/hitinfo.h"
 #include "../physics/BVH.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
-#include "../utils/FileUtils.h"
-#include "../utils/Timer.h"
-#include "../utils/Exception.h"
 #include "../indigo/DisplacementUtils.h"
-#include "../indigo/globals.h"
+#include "../dll/include/IndigoMesh.h"
+#include "../dll/IndigoStringUtils.h"
+#include "../maths/vec3.h"
+#include "../maths/Matrix2.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/Numeric.h"
 #include "../utils/Task.h"
 #include "../utils/TaskManager.h"
 #include "../utils/PrintOutput.h"
-#include "../dll/include/IndigoMesh.h"
-#include "../dll/IndigoStringUtils.h"
+#include "../utils/FileUtils.h"
+#include "../utils/Timer.h"
+#include "../utils/Exception.h"
+#include "../utils/ConPrint.h"
 #include <fstream>
 #include <algorithm>
 
@@ -538,6 +535,7 @@ void RayMesh::buildTrisFromQuads()
 // Used in cyberspace code
 void RayMesh::buildJSTris()
 {
+#ifndef IS_INDIGO
 	this->js_tris.resize(this->triangles.size());
 
 	for(size_t i=0; i<triangles.size(); ++i)
@@ -548,6 +546,7 @@ void RayMesh::buildJSTris()
 			vertices[triangles[i].vertex_indices[2]].pos
 		);
 	}
+#endif
 }
 
 
