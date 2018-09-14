@@ -405,7 +405,7 @@ myMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
 #endif
 
 
-static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
+void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
 {
 	meshdata.has_uvs = !uvs.empty();
 	meshdata.has_shading_normals = !normals.empty();
@@ -891,8 +891,10 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 {
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
-	const bool invertible = to_world.getUpperLeftInverseTranspose(object.ob_to_world_inv_tranpose_matrix); // Compute inverse matrix
-	assert(invertible);
+	const bool invertible = to_world.getUpperLeftInverseTranspose(/*result=*/object.ob_to_world_inv_tranpose_matrix); // Compute inverse matrix
+	if(!invertible)
+		object.ob_to_world_inv_tranpose_matrix = object.ob_to_world_matrix; // If not invertible, just use to-world matrix.
+	// Hopefully we won't encounter non-invertible matrices here anyway.
 
 	object.aabb_ws = object.mesh_data->aabb_os.transformedAABBFast(to_world);
 }

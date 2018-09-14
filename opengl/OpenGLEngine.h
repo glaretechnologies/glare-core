@@ -22,6 +22,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../maths/plane.h"
 #include "../maths/Matrix4f.h"
 #include "../utils/Timer.h"
+#include "../utils/Vector.h"
 #include "../utils/Reference.h"
 #include "../utils/RefCounted.h"
 #include "../utils/ThreadSafeRefCounted.h"
@@ -225,6 +226,8 @@ public:
 	static Reference<OpenGLMeshRenderData> makeNameTagQuadMesh(float w, float h);
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(const Vec4f& endpoint_a, const Vec4f& endpoint_b, float radius);
+
+	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 private:
 	struct PhongUniformLocations
 	{
