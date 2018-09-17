@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "../maths/maths.h"
+#include "../maths/Vec4f.h"
 
 
 namespace js
