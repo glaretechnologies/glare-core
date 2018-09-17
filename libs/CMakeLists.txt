@@ -101,7 +101,7 @@ ${ilmbasedir}/IlmThread/IlmThreadPool.h
 #${ilmbasedir}/IlmThread/IlmThreadPosix.cpp     	# Effectively empty
 #${ilmbasedir}/IlmThread/IlmThreadSemaphore.cpp		# Effectively empty
 ${ilmbasedir}/IlmThread/IlmThreadSemaphore.h
-#${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp# Effectively empty
+${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp
 ${ilmbasedir}/IlmThread/IlmThreadSemaphorePosixCompat.cpp
 )
 if(WIN32)
