@@ -19,6 +19,11 @@ Quat
 Quaternion.
 A lot of the definitions below are from 'Quaternions' by Ken Shoemake:
 http://www.cs.ucr.edu/~vbz/resources/quatut.pdf
+
+A unit quaternion corresponds to a rotation of a given angle around a
+unit axis - 
+The vector part of the quaternion is unit_axis * sin(angle/2), 
+scalar part is cos(angle/2).
 =====================================================================*/
 template <class Real>
 class Quat
@@ -31,14 +36,17 @@ public:
 	inline Quat(const Vec3<Real>& v, Real w);
 	explicit inline Quat(const Vec4f& v_) : v(v_) {}
 
-	static inline const Quat identity() { return Quat(Vec4f(0,0,0,1)); }
+	static inline const Quat identity() { return Quat(Vec4f(0,0,0,1)); } // Quaternion corresponding to identity (null) rotation.
 
 	static inline const Quat fromAxisAndAngle(const Vec3<Real>& unit_axis, Real angle);
+
+	inline void toAxisAndAngle(Vec4f& unit_axis_out, Real& angle_out) const;
 
 	inline const Quat operator + (const Quat& other) const;
 	inline const Quat operator - (const Quat& other) const;
 	inline const Quat operator * (const Quat& other) const;
 	inline const Quat operator * (Real factor) const;
+	inline const Quat operator / (Real factor) const;
 	
 	inline bool operator == (const Quat& other) const;
 	inline bool operator != (const Quat& other) const;
@@ -59,7 +67,8 @@ public:
 	// Assumes norm() = 1
 	inline const Vec4f inverseRotateVector(const Vec4f& v) const;
 
-	static const Quat slerp(const Quat& a, const Quat& b, Real t);
+	// a and b should be unit length for slerp and nlerp.
+	static const Quat slerp(const Quat& a, const Quat& b, Real t); 
 	static const Quat nlerp(const Quat& a, const Quat& b, Real t);
 
 	const std::string toString() const;
@@ -73,7 +82,7 @@ void quaternionTests();
 
 template <class Real> inline const Quat<Real> normalise(const Quat<Real>& q)
 {
-	return q * (1 / q.length());
+	return q / q.length();
 }
 
 
@@ -112,6 +121,18 @@ template <class Real> const Quat<Real> Quat<Real>::fromAxisAndAngle(const Vec3<R
 
 	const Real omega = angle * (Real)0.5;
 	return Quat(unit_axis * sin(omega), cos(omega));
+}
+
+
+template <class Real> void Quat<Real>::toAxisAndAngle(Vec4f& unit_axis_out, Real& angle_out) const
+{
+	angle_out = 2 * std::acos(v[3]);
+	const Vec4f vec = maskWToZero(v);
+	const float v_len = vec.length();
+	if(v_len == 0) // If the vector part of the quaternion was zero:
+		unit_axis_out = Vec4f(1, 0, 0, 0);
+	else
+		unit_axis_out = vec / v_len;
 }
 
 
@@ -180,6 +201,12 @@ template <class Real> const Quat<Real> Quat<Real>::operator * (Real factor) cons
 }
 
 
+template <class Real> const Quat<Real> Quat<Real>::operator / (Real factor) const
+{
+	return Quat(v / factor);
+}
+
+
 template <class Real> bool Quat<Real>::operator == (const Quat<Real>& other) const
 {
 	return v == other.v;
@@ -206,7 +233,7 @@ template <class Real> Real Quat<Real>::length() const
 
 template <class Real> const Quat<Real> Quat<Real>::inverse() const
 {
-	return conjugate() * (1 / norm());
+	return conjugate() / norm();
 }
 
 
@@ -295,6 +322,7 @@ template <class Real> Quat<Real> Quat<Real>::fromMatrix(const Matrix4f& mat)
 }
 
 
+// See http://forwardscattering.org/post/54 - 'Fast rotation of a vector by a quaternion'
 // Assumes norm() = 1
 template <class Real> const Vec4f Quat<Real>::rotateVector(const Vec4f& vec) const
 {

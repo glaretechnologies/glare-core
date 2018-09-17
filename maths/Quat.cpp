@@ -27,13 +27,12 @@ const std::string Quat<double>::toString() const
 #if BUILD_TESTS
 
 
+#include "../indigo/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../utils/MTwister.h"
 #include "../utils/Vector.h"
-#include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
-#include "Vec4f.h"
+#include "../utils/ConPrint.h"
 
 
 // Reference non-SSE code for toMatrix().
@@ -121,6 +120,12 @@ void quaternionTests()
 		testAssert(epsEqual(a * 2.0f, Quatf(Vec3f(2, 4, 6), 8)));
 	}
 
+	//================== operator / (float) ====================
+	{
+		Quatf a(Vec3f(1, 2, 3), 4);
+		testAssert(epsEqual(a / 0.5f, Quatf(Vec3f(2, 4, 6), 8)));
+	}
+
 	//================== operator * (Quat) ====================
 	{
 		Quatf a(Vec3f(1, 2, 3), 4);
@@ -188,6 +193,43 @@ void quaternionTests()
 		Quatf b(Vec3f(5, 6, 3), 2);
 		testAssert(epsEqual(dotProduct(a, b), 34.f));
 	}
+
+	//================== fromAxisAndAngle() ====================
+	{
+		// vector part of quat is axis * sin(angle/2), scalar part is cos(angle/2)
+		Vec3f axis(1, 0, 0);
+		float angle = Maths::pi<float>();
+		Quatf q = Quatf::fromAxisAndAngle(axis, angle);
+		testAssert(epsEqual(q.v, Vec4f(1,0,0,0)));
+	}
+	{
+		Vec3f axis = normalise(Vec3f(1, 0.7, 0.2));
+		float angle = 0.9f;
+		Quatf q = Quatf::fromAxisAndAngle(axis, angle);
+		testAssert(epsEqual(q.v, Vec4f(axis.x * sin(angle/2), axis.y * sin(angle/2), axis.z * sin(angle/2), cos(angle/2))));
+	}
+
+	//================== toAxisAndAngle() ====================
+
+	// Test handling of vector part = 0, scalar part = 1 case.
+	{
+		const Quatf q(0, 0, 0, 1);
+		Vec4f unit_axis;
+		float angle;
+		q.toAxisAndAngle(unit_axis, angle);
+		testAssert(unit_axis == Vec4f(1,0,0,0) && angle == 0);
+	}
+
+	// Test a more 'normal' unit quaternion
+	{
+		const Quatf q = normalise(Quatf(0.1f, 0.2f, 0.3f, 0.4f));
+		Vec4f unit_axis;
+		float angle;
+		q.toAxisAndAngle(unit_axis, angle);
+		testAssert(epsEqual(unit_axis, normalise(Vec4f(0.1f, 0.2f, 0.3f, 0.f))));
+		testAssert(epsEqual(cos(angle / 2), q.v[3]));
+	}
+
 
 
 	// Test a rotation
@@ -537,4 +579,4 @@ void quaternionTests()
 }
 
 
-#endif
+#endif // BUILD_TESTS
