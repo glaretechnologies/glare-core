@@ -187,10 +187,13 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/ConPrint.h"
 
 
 void BMPDecoder::test()
 {
+	conPrint("BMPDecoder::test()");
+
 	// Load a RGB BMP
 	try
 	{
@@ -268,6 +271,8 @@ void BMPDecoder::test()
 	catch(ImFormatExcep&)
 	{
 	}
+
+	conPrint("BMPDecoder::test() done.");
 }
 
 
