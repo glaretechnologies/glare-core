@@ -227,7 +227,7 @@ void quaternionTests()
 		float angle;
 		q.toAxisAndAngle(unit_axis, angle);
 		testAssert(epsEqual(unit_axis, normalise(Vec4f(0.1f, 0.2f, 0.3f, 0.f))));
-		testAssert(epsEqual(cos(angle / 2.f), q.v[3]));
+		testAssert(epsEqual(std::cos(angle / 2.f), q.v[3]));
 	}
 
 
