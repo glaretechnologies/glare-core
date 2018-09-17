@@ -92,16 +92,16 @@ ${ilmbasedir}/IlmThread/IlmThread.cpp
 ${ilmbasedir}/IlmThread/IlmThread.h
 ${ilmbasedir}/IlmThread/IlmThreadExport.h
 ${ilmbasedir}/IlmThread/IlmThreadForward.h
-${ilmbasedir}/IlmThread/IlmThreadMutex.cpp
+#${ilmbasedir}/IlmThread/IlmThreadMutex.cpp   		# Effectively empty
 ${ilmbasedir}/IlmThread/IlmThreadMutex.h
-${ilmbasedir}/IlmThread/IlmThreadMutexPosix.cpp
+#${ilmbasedir}/IlmThread/IlmThreadMutexPosix.cpp   	# Effectively empty
 ${ilmbasedir}/IlmThread/IlmThreadNamespace.h
 ${ilmbasedir}/IlmThread/IlmThreadPool.cpp
 ${ilmbasedir}/IlmThread/IlmThreadPool.h
-${ilmbasedir}/IlmThread/IlmThreadPosix.cpp
-${ilmbasedir}/IlmThread/IlmThreadSemaphore.cpp
+#${ilmbasedir}/IlmThread/IlmThreadPosix.cpp     	# Effectively empty
+#${ilmbasedir}/IlmThread/IlmThreadSemaphore.cpp		# Effectively empty
 ${ilmbasedir}/IlmThread/IlmThreadSemaphore.h
-${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp
+#${ilmbasedir}/IlmThread/IlmThreadSemaphorePosix.cpp# Effectively empty
 ${ilmbasedir}/IlmThread/IlmThreadSemaphorePosixCompat.cpp
 )
 if(WIN32)
