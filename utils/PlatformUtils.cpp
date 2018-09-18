@@ -317,8 +317,13 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 	FSRef f;
 	CFURLRef url;
 	std::string filepath = "";
-	
+
+// Supressing warnings about deprecation of FSFindFile. There is no suitable replacement for C++ and
+// apparently is not going to be removed any time soon.
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	if(noErr == FSFindFolder(kUserDomain, kApplicationSupportFolderType, kDontCreateFolder, &f ))
+# pragma clang diagnostic pop
 	{
 		url = CFURLCreateFromFSRef( 0, &f );
 		if(url)
