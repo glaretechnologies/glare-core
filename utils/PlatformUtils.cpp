@@ -732,6 +732,17 @@ void PlatformUtils::setThisProcessPriority(ProcessPriority p)
 }
 
 
+#if defined(_WIN32)
+std::vector<int> PlatformUtils::getProcessorGroups()
+{
+	std::vector<int> res(GetActiveProcessorGroupCount());
+	for(size_t i=0; i<res.size(); ++i)
+		res[i] = GetActiveProcessorCount((WORD)i);
+	return res;
+}
+#endif
+
+
 void PlatformUtils::ignoreUnixSignals()
 {
 #if defined(_WIN32) || defined(_WIN64)

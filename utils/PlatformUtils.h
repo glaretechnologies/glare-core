@@ -125,8 +125,14 @@ enum ProcessPriority
 };
 
 void setThisProcessPriority(ProcessPriority p);
-	
-	
+
+
+// Gets the number of logical processors in each processor group.
+#if defined(_WIN32)
+std::vector<int> getProcessorGroups();
+#endif
+
+
 void ignoreUnixSignals();
 
 

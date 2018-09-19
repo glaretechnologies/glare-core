@@ -166,12 +166,12 @@ void MyThread::setPriority(Priority p)
 
 
 #if defined(_WIN32)
-void MyThread::setAffinity(int32 group)
+void MyThread::setAffinity(int32 group, uint64 proc_affinity_mask)
 {
 	GROUP_AFFINITY affinity;
 	ZeroMemory(&affinity, sizeof(GROUP_AFFINITY));
 	affinity.Group = (WORD)group;
-	//affinity.Mask = 0;
+	affinity.Mask = proc_affinity_mask;
 
 	if (SetThreadGroupAffinity(thread_handle, &affinity, NULL) == 0)
 		throw MyThreadExcep("SetThreadGroupAffinity failed: error code: " + toString((unsigned int)GetLastError()));
