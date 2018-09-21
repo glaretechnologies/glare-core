@@ -225,6 +225,8 @@ public:
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
 
+	void saveToIndigoMeshOnDisk(const std::string& path) const; // Throws Indigo::Exception
+
 	void buildTrisFromQuads(); // Used in cyberspace code
 	void buildJSTris(); // Used in cyberspace code
 
@@ -277,6 +279,8 @@ public:
 	const unsigned int numUVSets() const { return num_uv_sets; }
 
 	bool isUsingShadingNormals() const { return enable_shading_normals; }
+
+	unsigned int getMaxNumSubdivisions() const { return max_num_subdivisions; }
 
 	void setVertexShadingNormalsProvided(bool vertex_shading_normals_provided_) { vertex_shading_normals_provided = vertex_shading_normals_provided_; }
 

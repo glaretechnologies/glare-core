@@ -371,7 +371,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 						}
 #endif	
 				}
-				if(verbose) print_output.print("\tDone.");
+				if(verbose) print_output.print("\tDone.");	
 			}
 			catch(Indigo::Exception& e)
 			{
@@ -1189,6 +1189,52 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		this->quads[i].uv_indices[3] = mesh.quads[i].uv_indices[3];
 
 		this->quads[i].setMatIndexAndUseShadingNormals(mesh.quads[i].mat_index, use_shading_normals_enum);
+	}
+}
+
+
+void RayMesh::saveToIndigoMeshOnDisk(const std::string& path) const
+{
+	try
+	{
+		Indigo::MeshRef mesh = new Indigo::Mesh();
+		mesh->vert_positions.resize(this->vertices.size());
+		mesh->vert_normals.resize(this->vertices.size());
+		mesh->triangles.resize(this->triangles.size());
+		mesh->num_uv_mappings = this->num_uv_sets;
+		mesh->uv_pairs.resize(this->uvs.size());
+
+		for(size_t i=0; i<this->vertices.size(); ++i)
+		{
+			mesh->vert_positions[i].x = this->vertices[i].pos.x;
+			mesh->vert_positions[i].y = this->vertices[i].pos.y;
+			mesh->vert_positions[i].z = this->vertices[i].pos.z;
+			mesh->vert_normals[i].x   = this->vertices[i].normal.x;
+			mesh->vert_normals[i].y   = this->vertices[i].normal.y;
+			mesh->vert_normals[i].z   = this->vertices[i].normal.z;
+		}
+
+		for(size_t i=0; i<this->triangles.size(); ++i)
+		{
+			for(int c=0; c<3; ++c)
+			{
+				mesh->triangles[i].vertex_indices[c] = this->triangles[i].vertex_indices[c];
+				mesh->triangles[i].uv_indices[c]     = this->triangles[i].uv_indices[c];
+				mesh->triangles[i].tri_mat_index     = this->triangles[i].getTriMatIndex();
+			}
+		}
+
+		for(size_t i=0; i<this->uvs.size(); ++i)
+		{
+			mesh->uv_pairs[i].x = this->uvs[i].x;
+			mesh->uv_pairs[i].y = this->uvs[i].y;
+		}
+
+		Indigo::Mesh::writeToFile(toIndigoString(path), *mesh, /*use_compression=*/false);
+	}
+	catch(Indigo::IndigoException& e)
+	{
+		throw Indigo::Exception(toStdString(e.what()));
 	}
 }
 
