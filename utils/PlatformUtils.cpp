@@ -314,16 +314,15 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 
 	return StringUtils::PlatformToUTF8UnicodeEncoding(path);
 #elif defined(OSX)
+	// Supressing warnings about deprecation of FSFindFile (10.8) and CFURLCreateFromFSRef (10.9). There is no suitable replacement for C++ and
+	// apparently is not going to be removed any time soon.
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	FSRef f;
 	CFURLRef url;
 	std::string filepath = "";
 
-// Supressing warnings about deprecation of FSFindFile. There is no suitable replacement for C++ and
-// apparently is not going to be removed any time soon.
-# pragma clang diagnostic push
-# pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	if(noErr == FSFindFolder(kUserDomain, kApplicationSupportFolderType, kDontCreateFolder, &f ))
-# pragma clang diagnostic pop
 	{
 		url = CFURLCreateFromFSRef( 0, &f );
 		if(url)
@@ -341,6 +340,7 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 	}
 	
 	return filepath;
+# pragma clang diagnostic pop
 #else
 	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows and OSX.");
 #endif
