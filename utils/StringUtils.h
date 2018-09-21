@@ -1,7 +1,7 @@
 /*=====================================================================
 StringUtils.h
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #pragma once
 
@@ -149,7 +149,6 @@ const std::string toUpperCase(const std::string& text);
 char toLowerCase(char c);
 char toUpperCase(char c);
 
-bool hasFileTypeExtension(const std::string& filename);
 const std::string getExtension(const std::string& filename); // Returns everything after the last dot.
 
 const std::string eatExtension(const std::string& filename);
@@ -169,11 +168,6 @@ int getNumMatches(const std::string& s, char target);
 
 // Replaces all occurences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest);
-
-inline void concatWithChar(std::string& s, char c)
-{
-	s.push_back(c);
-}
 
 // If first_char_index is >= s.size(), then returns ""
 const std::string getTailSubString(const std::string& s, size_t first_char_index);

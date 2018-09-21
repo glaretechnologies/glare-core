@@ -1,7 +1,7 @@
 /*=====================================================================
 StringUtils.cpp
 -------------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #include "StringUtils.h"
 
@@ -1891,18 +1891,6 @@ void StringUtils::test()
 	}
 
 
-	// ==================================== test concatWithChar() ====================================
-	{
-		std::string s = "a";
-		concatWithChar(s, 'b');
-		testAssert(s == "ab");
-	}
-	{
-		std::string s = "";
-		concatWithChar(s, 'b');
-		testAssert(s == "b");
-	}
-
 	//===================================== test replaceFirst() =======================================
 	// const std::string replaceFirst(const std::string& s, const std::string& target, const std::string& replacement);
 	testAssert(replaceFirst("", "", "01") == "01");
@@ -2397,9 +2385,6 @@ void StringUtils::test()
 	assert(resultint == 42);
 
 */
-	/*assert(::concatWithChar("abc", 'd') == "abcd");
-	assert(::concatWithChar("", 'a') == "a");
-	assert(::concatWithChar("aa", '_') == "aa_");*/
 
 	conPrint("StringUtils::test() done");
 }
