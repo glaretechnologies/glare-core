@@ -273,22 +273,29 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 			EXRCompressionMethod(options.compression_method) // compression method
 		);
 
+		// NOTE: People were having issues loading the EXRs with the layer name, so just use RGBA for now.
+
 		int num_channels_to_save; // May be < num_channels, which is related to the stride in the source data.
 		std::vector<std::string> channel_names(num_channels); // Channel names to use in the EXR file.
 		if(num_channels == 1)
 		{
 			num_channels_to_save = 1;
-			channel_names[0] = layer_name; // Just use the layer name directly without any channel sub-name.
+			channel_names[0] = "R"; // layer_name; // Just use the layer name directly without any channel sub-name.
 		}
 		else
 		{
 			assert(num_channels >= 3);
 			num_channels_to_save = save_alpha_channel ? 4 : 3;
-			channel_names[0] = layer_name + ".R";
+			/*channel_names[0] = layer_name + ".R";
 			channel_names[1] = layer_name + ".G";
 			channel_names[2] = layer_name + ".B";
 			if(save_alpha_channel)
-				channel_names[3] = layer_name + ".A";
+				channel_names[3] = layer_name + ".A";*/
+			channel_names[0] = "R";
+			channel_names[1] = "G";
+			channel_names[2] = "B";
+			if(save_alpha_channel)
+				channel_names[3] = "A";
 		}
 
 		for(int c=0; c<num_channels_to_save; ++c)
