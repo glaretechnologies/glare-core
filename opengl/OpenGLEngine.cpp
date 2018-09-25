@@ -33,7 +33,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Vector.h"
 #include "../utils/IncludeXXHash.h"
 #include "../utils/HashMapInsertOnly2.h"
-#include <half.h> // From OpenEXR
+#include "../utils/IncludeHalf.h"
 #include <algorithm>
 
 

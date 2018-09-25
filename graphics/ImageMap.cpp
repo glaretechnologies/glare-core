@@ -13,14 +13,8 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "../utils/StringUtils.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
-#ifdef _MSC_VER
-#pragma warning(push, 0) // Disable warnings
-#endif
 #if OPENEXR_SUPPORT
-#include <half.h>
-#endif
-#ifdef _MSC_VER
-#pragma warning(pop) // Re-enable warnings
+#include "../utils/IncludeHalf.h"
 #endif
 
 
