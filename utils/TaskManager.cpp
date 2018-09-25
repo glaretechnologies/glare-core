@@ -132,7 +132,7 @@ bool TaskManager::areAllThreadsBusy()
 {
 	Lock lock(num_unfinished_tasks_mutex);
 
-	return num_unfinished_tasks >= threads.size();
+	return num_unfinished_tasks >= (int)threads.size();
 }
 
 
