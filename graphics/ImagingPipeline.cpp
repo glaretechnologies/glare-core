@@ -194,10 +194,10 @@ Multithreaded using task manager.
 */
 struct SumBuffersTaskClosure
 {
-	SumBuffersTaskClosure(const std::vector<Vec3f>& layer_scales_, float image_scale_, float region_image_scale_, const RenderChannels& render_channels_, Image4f& buffer_out_) 
+	SumBuffersTaskClosure(const ArrayRef<Vec3f>& layer_scales_, float image_scale_, float region_image_scale_, const RenderChannels& render_channels_, Image4f& buffer_out_)
 		: layer_scales(layer_scales_), image_scale(image_scale_), region_image_scale(region_image_scale_), render_channels(render_channels_), buffer_out(buffer_out_) {}
 
-	const std::vector<Vec3f>& layer_scales;
+	const ArrayRef<Vec3f>& layer_scales;
 	float image_scale;
 	float region_image_scale;
 	const RenderChannels& render_channels; // Input image data
@@ -328,7 +328,7 @@ public:
 
 
 void sumLightLayers(
-	const std::vector<Vec3f>& layer_scales, // Light layer weights.
+	const ArrayRef<Vec3f>& layer_scales, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
 	const RenderChannels& render_channels, // Input image data
@@ -440,7 +440,7 @@ struct CurveData
 static void doTonemapFullBuffer(
 	const RenderChannels& render_channels,
 	const ArrayRef<RenderRegion>& render_regions,
-	const std::vector<Vec3f>& layer_weights,
+	const ArrayRef<Vec3f>& layer_weights,
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
 	float region_alpha_bias,
@@ -709,7 +709,7 @@ struct ImagePipelineTaskClosure
 {
 	std::vector<Image4f>* per_thread_tile_buffers;
 	const RenderChannels* render_channels;
-	const std::vector<Vec3f>* layer_weights;
+	const ArrayRef<Vec3f>* layer_weights;
 	float image_scale;
 	float region_image_scale;
 	Image4f* ldr_buffer_out;
@@ -1174,7 +1174,7 @@ void doTonemap(
 	const RenderChannels& render_channels,
 	const ChannelInfo* channel,
 	const ArrayRef<RenderRegion>& render_regions,
-	const std::vector<Vec3f>& layer_weights,
+	const ArrayRef<Vec3f>& layer_weights,
 	float image_scale,
 	float region_image_scale,
 	const RendererSettings& renderer_settings,

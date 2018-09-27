@@ -25,30 +25,6 @@ namespace ImagingPipeline
 {
 
 
-/*
-Adds together the weighted pixel values from each light layer.
-Each layer is weighted by layer_scales.
-Then overwrites with any render region data.
-Takes the alpha value from render_channels.alpha (and scales it by image_scale) if it is valid, otherwise uses alpha 1.
-Writes the output to summed_buffer_out.
-Multithreaded using task manager.
-*/
-void sumLightLayers(
-	const std::vector<Vec3f>& layer_weights, // Light layer weights.
-	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
-	float region_image_scale,
-	const RenderChannels& render_channels, // Input image data
-	const ArrayRef<RenderRegion>& render_regions,
-	int margin_ssf1,
-	int ssf,
-	bool zero_alpha_outside_region,
-	float region_alpha_bias,
-	bool render_foreground_alpha,
-	Image4f& summed_buffer_out, 
-	Indigo::TaskManager& task_manager
-);
-
-
 // To avoid repeated allocations and deallocations, keep some data around in this structure, that can be passed in to successive doTonemap() calls.
 struct DoTonemapScratchState
 {
@@ -81,15 +57,15 @@ void doTonemap(
 	const RenderChannels& render_channels, // Input image data
 	const ChannelInfo* channel, // channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	const ArrayRef<RenderRegion>& render_regions,
-	const std::vector<Vec3f>& layer_weights, // Light layer weights.
+	const ArrayRef<Vec3f>& layer_weights, // Light layer weights - used for weighting main beauty layers when blending them together.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
-	float region_image_scale,
+	float region_image_scale, // Scale factor for pixels in render regions.
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
-	const Reference<PostProDiffraction>& post_pro_diffraction,
+	const Reference<PostProDiffraction>& post_pro_diffraction, // May be NULL
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
 	bool& output_is_nonlinear, // Is ldr_buffer_out in a non-linear space?
-	bool XYZ_colourspace, // Are the input layers in XYZ colour space?
+	bool XYZ_colourspace, // Are the input layers in XYZ colour space?  If so, an XYZ -> sRGB conversion is done.
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
 	int subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
