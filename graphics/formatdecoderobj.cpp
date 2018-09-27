@@ -60,52 +60,14 @@ struct Vert
 };
 
 
-// Modified from std::hash: from c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xstddef, renamed from _Hash_seq
-// I copied this version here because the one from vs2010 (vs10) sucks serious balls, so use this one instead.
-static inline size_t use_Hash_seq(const unsigned char *_First, size_t _Count)
-{	// FNV-1a hash function for bytes in [_First, _First+_Count)
-	
-	if(sizeof(size_t) == 8)
-	{
-		const size_t _FNV_offset_basis = 14695981039346656037ULL;
-		const size_t _FNV_prime = 1099511628211ULL;
-
-		size_t _Val = _FNV_offset_basis;
-		for (size_t _Next = 0; _Next < _Count; ++_Next)
-			{	// fold in another byte
-			_Val ^= (size_t)_First[_Next];
-			_Val *= _FNV_prime;
-			}
-
-		_Val ^= _Val >> 32;
-		return _Val;
-	}
-	else
-	{
-		const size_t _FNV_offset_basis = 2166136261U;
-		const size_t _FNV_prime = 16777619U;
-
-		size_t _Val = _FNV_offset_basis;
-		for (size_t _Next = 0; _Next < _Count; ++_Next)
-			{	// fold in another byte
-			_Val ^= (size_t)_First[_Next];
-			_Val *= _FNV_prime;
-			}
-
-		return _Val;
-	}
-}
-
-
 // Hash function for Vert
 class VertHash
 {
 public:
 	inline size_t operator()(const Vert& v) const
 	{	
-		// hash _Keyval to size_t value by pseudorandomizing transform.
 		// Since there shouldn't be a lot of vertices with the same position but different normals, this should hopefully be adequate as a hash function.
-		return use_Hash_seq((const unsigned char*)&v, sizeof(Vert));
+		return hashBytes((const uint8*)&v, sizeof(Vert));
 	}
 };
 
