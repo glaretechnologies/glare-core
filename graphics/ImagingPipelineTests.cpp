@@ -55,9 +55,9 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 
 	std::vector<RenderRegion> render_regions;
 
-	ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+	ImagingPipeline::RunPipelineScratchState tonemap_scratch_state;
 	bool ldr_buffer_is_nonlinear;
-	ImagingPipeline::doTonemap(
+	ImagingPipeline::runPipeline(
 		tonemap_scratch_state,
 		render_channels,
 		NULL, // channel - NULL to blend main layers together.
@@ -137,7 +137,7 @@ void test()
 		ldr_buffer.resize(W, W);
 
 
-		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+		ImagingPipeline::RunPipelineScratchState tonemap_scratch_state;
 		bool ldr_buffer_is_nonlinear = false;
 
 		Timer timer;
@@ -146,7 +146,7 @@ void test()
 		for(int i=0; i<N; ++i)
 		{
 			Timer iter_timer;
-			ImagingPipeline::doTonemap(
+			ImagingPipeline::runPipeline(
 				tonemap_scratch_state,
 				render_channels,
 				NULL, // channel - NULL to blend main layers together.
@@ -166,7 +166,7 @@ void test()
 			mintime = myMin(mintime, iter_timer.elapsed());
 		}
 		const double elapsed = mintime; //  timer.elapsed() / N;
-		conPrint("ImagingPipeline::doTonemap took " + toString(elapsed) + " s");
+		conPrint("ImagingPipeline::runPipeline took " + toString(elapsed) + " s");
 
 		ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
 		Bitmap bitmap(ldr_buffer.getWidth(), ldr_buffer.getHeight(), 4, NULL);
@@ -253,8 +253,8 @@ void test()
 
 		Image4f ldr_image;
 		bool ldr_buffer_is_nonlinear;
-		ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
-		ImagingPipeline::doTonemap(
+		ImagingPipeline::RunPipelineScratchState tonemap_scratch_state;
+		ImagingPipeline::runPipeline(
 			tonemap_scratch_state,
 			render_channels,
 			NULL, // channel - NULL to blend main layers together.
@@ -472,7 +472,7 @@ void test()
 
 	Reference<PostProDiffraction> post_pro_diffraction(NULL); // Don't test post_pro_diffraction currently
 
-	ImagingPipeline::DoTonemapScratchState tonemap_scratch_state;
+	ImagingPipeline::RunPipelineScratchState tonemap_scratch_state;
 	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
 
 	for(int res = 0; res < test_res_num; ++res)
@@ -547,7 +547,7 @@ void test()
 		std::vector<float> filter_data;
 		renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
 
-		ImagingPipeline::doTonemap(
+		ImagingPipeline::runPipeline(
 			tonemap_scratch_state,
 			master_buffer.getRenderChannels(),
 			NULL, // channel - NULL to blend main layers together.

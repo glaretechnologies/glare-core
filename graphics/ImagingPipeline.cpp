@@ -1,7 +1,7 @@
 /*=====================================================================
 ImagingPipeline.cpp
 -------------------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2018 -
 Generated at Wed Jul 13 13:44:31 +0100 2011
 =====================================================================*/
 #include "ImagingPipeline.h"
@@ -437,7 +437,7 @@ struct CurveData
 
 
 // Tonemap HDR image to LDR image
-static void doTonemapFullBuffer(
+static void runPipelineFullBuffer(
 	const RenderChannels& render_channels,
 	const ArrayRef<RenderRegion>& render_regions,
 	const ArrayRef<Vec3f>& layer_weights,
@@ -1161,16 +1161,16 @@ public:
 };
 
 
-DoTonemapScratchState::DoTonemapScratchState()
+RunPipelineScratchState::RunPipelineScratchState()
 {}
 
 
-DoTonemapScratchState::~DoTonemapScratchState()
+RunPipelineScratchState::~RunPipelineScratchState()
 {}
 
 
-void doTonemap(	
-	DoTonemapScratchState& scratch_state,
+void runPipeline(
+	RunPipelineScratchState& scratch_state,
 	const RenderChannels& render_channels,
 	const ChannelInfo* channel,
 	const ArrayRef<RenderRegion>& render_regions,
@@ -1189,7 +1189,7 @@ void doTonemap(
 	bool do_tonemapping
 	)
 {
-	ScopeProfiler _scope("ImagingPipeline::doTonemap", 1);
+	ScopeProfiler _scope("ImagingPipeline::runPipeline", 1);
 
 	const bool no_curves =
 		renderer_settings.overall_curve.isNull() &&
@@ -1244,10 +1244,10 @@ void doTonemap(
 
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
-	// Don't do post-pro diffraction when subres_factor is > 1 (e.g. when doing realtime changes), as doTonemapFullBuffer() doesn't handle subres sizes, also not needed.
+	// Don't do post-pro diffraction when subres_factor is > 1 (e.g. when doing realtime changes), as runPipelineFullBuffer() doesn't handle subres sizes, also not needed.
 	if((channel == NULL) && (subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())))
 	{
-		doTonemapFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
+		runPipelineFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
 	}
