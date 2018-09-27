@@ -254,7 +254,7 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 	const std::string& layer_name, const SaveOptions& options)
 {
 	if(!(num_channels == 1 || num_channels == 3 || num_channels == 4))
-		throw Indigo::Exception("EXR saving require 1, 3 or 4 components.");
+		throw Indigo::Exception("EXR saving requires 1, 3 or 4 components.");
 
 	setEXRThreadPoolSize();
 
@@ -280,7 +280,9 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 		if(num_channels == 1)
 		{
 			num_channels_to_save = 1;
-			channel_names[0] = "R"; // layer_name; // Just use the layer name directly without any channel sub-name.
+			channel_names[0] = "Y"; // layer_name; // Just use the layer name directly without any channel sub-name.
+			// There is some indication 'Y' is the standard name for greyscale channels in EXRs, see http://www.openexr.com/documentation/ReadingAndWritingImageFiles.pdf, 
+			// 'Luminance/Chroma and Gray-Scale Images'.
 		}
 		else
 		{
