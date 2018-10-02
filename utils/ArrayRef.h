@@ -1,7 +1,7 @@
 /*=====================================================================
 ArrayRef.cpp
 -------------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #pragma once
 
@@ -41,7 +41,7 @@ public:
 	inline const T& operator[] (size_t index) const;
 
 	inline size_t size() const { return len; }
-	inline T* data() { return data_; }
+	
 	inline const T* data() const { return data_; }
 
 	inline bool empty() const { return len == 0; }
