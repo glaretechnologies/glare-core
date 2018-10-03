@@ -22,7 +22,7 @@ OpenGLTexture::~OpenGLTexture()
 bool OpenGLTexture::hasAlpha() const
 {
 	assert(texture_handle != 0);
-	return format == Format_SRGBA_Uint8 || format == Format_RGBA_LINEAR_Uint8;
+	return format == Format_SRGBA_Uint8 || format == Format_RGBA_LINEAR_Uint8 || format == Format_Compressed_SRGBA_Uint8;
 }
 
 
@@ -168,7 +168,7 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 }
 
 
-void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const void* tex_data, const Reference<OpenGLEngine>& opengl_engine,
+void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, const Reference<OpenGLEngine>& opengl_engine,
 	Format format_,
 	Filtering filtering,
 	Wrapping wrapping
@@ -185,23 +185,45 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, const void* tex_data,
 	glGenTextures(1, &texture_handle);
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
-	GLint internal_format;
-	GLenum gl_format, gl_type;
-	getGLFormat(format_, internal_format, gl_format, gl_type);
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	{
+		// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt
+		//#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT                   0x83F0
+		#define GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT                  0x8C4C
+		#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT            0x8C4D
+		#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT            0x8C4E
+		#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT            0x8C4F
 
-	assert((uint64)tex_data % 4 == 0); // Assume the texture data is at least 4-byte aligned.
-	setPixelStoreAlignment(tex_xres, gl_format, gl_type);
+		glCompressedTexImage2D(
+			GL_TEXTURE_2D,
+			0, // LOD level
+			(format == Format_Compressed_SRGB_Uint8) ? GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			(GLsizei)tex_data.size(),
+			tex_data.data()
+		);
+	}
+	else
+	{
+		GLint internal_format;
+		GLenum gl_format, gl_type;
+		getGLFormat(format_, internal_format, gl_format, gl_type);
 
-	glTexImage2D(
-		GL_TEXTURE_2D, 
-		0, // LOD level
-		internal_format, // internal format
-		(GLsizei)tex_xres, (GLsizei)tex_yres, 
-		0, // border
-		gl_format, // format
-		gl_type, // type
-		tex_data
-	);
+		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
+		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
+
+		glTexImage2D(
+			GL_TEXTURE_2D,
+			0, // LOD level
+			internal_format, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			gl_format, // format
+			gl_type, // type
+			tex_data.data()
+		);
+	}
 
 	if(wrapping == Wrapping_Clamp)
 	{

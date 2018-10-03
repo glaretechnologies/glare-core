@@ -14,6 +14,9 @@ Copyright Glare Technologies Limited 2016 -
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/SRGBUtils.h"
+#define STB_DXT_STATIC 1
+#define STB_DXT_IMPLEMENTATION 1
+#include "../libs/stb/stb_dxt.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../indigo/TestUtils.h"
@@ -31,9 +34,12 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Exception.h"
 #include "../utils/BitUtils.h"
 #include "../utils/Vector.h"
+#include "../utils/Task.h"
 #include "../utils/IncludeXXHash.h"
+#include "../utils/ArrayRef.h"
 #include "../utils/HashMapInsertOnly2.h"
 #include "../utils/IncludeHalf.h"
+#include "../utils/TaskManager.h"
 #include <algorithm>
 
 
@@ -47,7 +53,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	settings(settings_),
 	draw_wireframes(false),
 	frame_num(0),
-	current_time(0.f)
+	current_time(0.f),
+	task_manager(NULL)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
@@ -68,6 +75,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 
 OpenGLEngine::~OpenGLEngine()
 {
+	delete task_manager;
 }
 
 
@@ -542,6 +550,28 @@ void OpenGLEngine::initialise(const std::string& data_dir_)
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_anisotropy);
 	}
 
+	this->GL_EXT_texture_sRGB_support = false;
+	this->GL_EXT_texture_compression_s3tc_support = false;
+
+	// Check OpenGL extensions
+	GLint n = 0;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &n);
+	for(GLint i = 0; i < n; i++)
+	{
+		const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
+		if(stringEqual(ext, "GL_EXT_texture_sRGB")) this->GL_EXT_texture_sRGB_support = true;
+		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->GL_EXT_texture_compression_s3tc_support = true;
+	}
+	
+
+	// init stb_compress_dxt before it's called from multiple threads
+	{
+		uint8 dummy[16];
+		uint8 src[64];
+		std::memset(src, 0, sizeof(src));
+		stb_compress_dxt_block(dummy, src, /*alpha=*/0, /*mode=*/STB_DXT_NORMAL);
+	}
+
 
 	// Set up the rendering context, define display lists etc.:
 	glClearColor(32.f / 255.f, 32.f / 255.f, 32.f / 255.f, 1.f);
@@ -823,14 +853,14 @@ void OpenGLEngine::buildOutlineTexturesForViewport()
 	outline_tex_h = myMax(16, viewport_h);
 
 	outline_solid_tex = new OpenGLTexture();
-	outline_solid_tex->load(outline_tex_w, outline_tex_h, NULL, NULL, 
+	outline_solid_tex->load(outline_tex_w, outline_tex_h, ArrayRef<uint8>(NULL, 0), NULL, 
 		OpenGLTexture::Format_RGB_LINEAR_Uint8,
 		OpenGLTexture::Filtering_Bilinear,
 		OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 	);
 
 	outline_edge_tex = new OpenGLTexture();
-	outline_edge_tex->load(outline_tex_w, outline_tex_h, NULL, NULL, 
+	outline_edge_tex->load(outline_tex_w, outline_tex_h, ArrayRef<uint8>(NULL, 0), NULL,
 		OpenGLTexture::Format_RGBA_LINEAR_Uint8,
 		OpenGLTexture::Filtering_Bilinear
 	);
@@ -3744,7 +3774,97 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 }
 
 
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d,
+class DXTCompressTask : public Indigo::Task
+{
+public:
+	virtual void run(size_t thread_index)
+	{
+		const unsigned int W = imagemap->getWidth();
+		const unsigned int H = imagemap->getHeight();
+		const unsigned int bytes_pp = imagemap->getBytesPerPixel();
+		const unsigned int num_blocks_x = Maths::roundedUpDivide(W, 4u);
+		const unsigned int num_blocks_y = Maths::roundedUpDivide(H, 4u);
+		uint8* const compressed_data = compressed;
+		if(bytes_pp == 4)
+		{
+			size_t write_i = num_blocks_x * (begin_y / 4) * 16; // as DXT5 (with alpha) is 16 bytes / block
+
+			// Copy to rgba block
+			uint8 rgba_block[4*4*4];
+
+			for(unsigned int by=begin_y; by<end_y; by += 4) // by = y coordinate of block
+				for(unsigned int bx=0; bx<W; bx += 4)
+				{
+					int z = 0;
+					for(unsigned int y=by; y<by+4; ++y)
+						for(unsigned int x=bx; x<bx+4; ++x) // For each pixel in block:
+						{
+							if(x < W && y < H)
+							{
+								const uint8* const pixel = imagemap->getPixel(x, y);
+								rgba_block[z + 0] = pixel[0];
+								rgba_block[z + 1] = pixel[1];
+								rgba_block[z + 2] = pixel[2];
+								rgba_block[z + 3] = pixel[3];
+							}
+							else
+							{
+								rgba_block[z + 0] = 0;
+								rgba_block[z + 1] = 0;
+								rgba_block[z + 2] = 0;
+								rgba_block[z + 3] = 0;
+							}
+							z += 4;
+						}
+
+					stb_compress_dxt_block(&(compressed_data[write_i]), rgba_block, /*alpha=*/1, /*mode=*/STB_DXT_HIGHQUAL);
+					write_i += 16;
+				}
+		}
+		else if(bytes_pp == 3)
+		{
+			size_t write_i = num_blocks_x * (begin_y / 4) * 8; // as DXT1 (no alpha) is 8 bytes / block
+
+			// Copy to rgba block
+			uint8 rgba_block[4*4*4];
+
+			for(unsigned int by=begin_y; by<end_y; by += 4) // by = y coordinate of block
+				for(unsigned int bx=0; bx<W; bx += 4)
+				{
+					int z = 0;
+					for(unsigned int y=by; y<by+4; ++y)
+						for(unsigned int x=bx; x<bx+4; ++x) // For each pixel in block:
+						{
+							if(x < W && y < H)
+							{
+								const uint8* const pixel = imagemap->getPixel(x, y);
+								rgba_block[z + 0] = pixel[0];
+								rgba_block[z + 1] = pixel[1];
+								rgba_block[z + 2] = pixel[2];
+								rgba_block[z + 3] = 0;
+							}
+							else
+							{
+								rgba_block[z + 0] = 0;
+								rgba_block[z + 1] = 0;
+								rgba_block[z + 2] = 0;
+								rgba_block[z + 3] = 0;
+							}
+							z += 4;
+						}
+
+					stb_compress_dxt_block(&(compressed_data[write_i]), rgba_block, /*alpha=*/0, /*mode=*/STB_DXT_HIGHQUAL);
+					write_i += 8;
+				}
+		}
+	}
+	unsigned int begin_y, end_y;
+	uint8* compressed;
+	const ImageMapUInt8* imagemap;
+};
+
+
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(/*Indigo::TaskManager& task_manager, */const Map2D& map2d,
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
@@ -3759,23 +3879,72 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 		auto res = this->opengl_textures.find(key);
 		if(res == this->opengl_textures.end())
 		{
-			// conPrint("Creating new OpenGL texture.");
-
 			// Load texture
-			OpenGLTexture::Format format;
-			if(imagemap->getN() == 1)
-				format = OpenGLTexture::Format_Greyscale_Uint8;
-			else if(imagemap->getN() == 3)
-				format = OpenGLTexture::Format_SRGB_Uint8;
-			else if(imagemap->getN() == 4)
-				format = OpenGLTexture::Format_SRGBA_Uint8;
-			else
-				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
+			// conPrint("Creating new OpenGL texture.");
 			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-			opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), imagemap->getData(), this, 
-				format, filtering, wrapping
-			);
+
+			// Try and load as a DXT texture compression
+			const bool compressed_sRGB_support = GL_EXT_texture_sRGB_support && GL_EXT_texture_compression_s3tc_support;
+			const unsigned int W = imagemap->getWidth();
+			const unsigned int H = imagemap->getHeight();
+			const unsigned int bytes_pp = imagemap->getBytesPerPixel();
+			if(settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
+			{
+				if(!task_manager)
+					task_manager = new Indigo::TaskManager();
+
+				const unsigned int num_blocks_x = Maths::roundedUpDivide(W, 4u);
+				const unsigned int num_blocks_y = Maths::roundedUpDivide(H, 4u);
+				const unsigned int num_blocks = num_blocks_x * num_blocks_y;
+
+				// Timer timer;
+				js::Vector<uint8, 16> compressed((bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16)); // DXT1 is 8 bytes per 4x4 block, DXT5 (with alpha) is 16 bytes per block
+				
+				compress_tasks.resize(myMax<size_t>(1, task_manager->getNumThreads()));
+				for(size_t z=0; z<compress_tasks.size(); ++z)
+				{
+					if(compress_tasks[z].isNull())
+						compress_tasks[z] = new DXTCompressTask();
+
+					const size_t y_blocks_per_task = Maths::roundedUpDivide((size_t)num_blocks_y, compress_tasks.size());
+					assert(y_blocks_per_task * compress_tasks.size() >= num_blocks_y);
+
+					// Set compress_tasks fields
+					assert(dynamic_cast<DXTCompressTask*>(compress_tasks[z].ptr()));
+					DXTCompressTask* task = (DXTCompressTask*)compress_tasks[z].ptr();
+					task->compressed = compressed.data();
+					task->imagemap = imagemap;
+					task->begin_y = (unsigned int)myMin((size_t)H, (z       * y_blocks_per_task) * 4);
+					task->end_y   = (unsigned int)myMin((size_t)H, ((z + 1) * y_blocks_per_task) * 4);
+					assert(task->begin_y >= 0 && task->begin_y <= H && task->end_y >= 0 && task->end_y <= H);
+				}
+				task_manager->addTasks(compress_tasks.data(), compress_tasks.size());
+				task_manager->waitForTasksToComplete();
+
+				// conPrint("DXT compression took " + timer.elapsedString());
+
+				opengl_tex->load(W, H, compressed, this,
+					/*format=*/(bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8, 
+					filtering, wrapping
+				);
+			}
+			else // Else if not using a compressed texture format:
+			{
+				OpenGLTexture::Format format;
+				if(imagemap->getN() == 1)
+					format = OpenGLTexture::Format_Greyscale_Uint8;
+				else if(imagemap->getN() == 3)
+					format = OpenGLTexture::Format_SRGB_Uint8;
+				else if(imagemap->getN() == 4)
+					format = OpenGLTexture::Format_SRGBA_Uint8;
+				else
+					throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+
+				opengl_tex->load(W, H, ArrayRef<uint8>(imagemap->getData(), imagemap->getDataSize()), this,
+					format, filtering, wrapping
+				);
+			}
 
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 			return opengl_tex;
@@ -3803,7 +3972,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, OpenGLTexture::Format_RGB_Linear_Float,
+				opengl_tex->load(tex_xres, tex_yres, ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Float,
 					filtering, wrapping
 				);
 
@@ -3837,7 +4006,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, (uint8*)imagemap->getData(), this, OpenGLTexture::Format_RGB_Linear_Half,
+				opengl_tex->load(tex_xres, tex_yres, ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Half,
 					OpenGLTexture::Filtering_Fancy
 				);
 

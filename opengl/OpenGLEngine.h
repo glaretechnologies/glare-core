@@ -25,9 +25,11 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Vector.h"
 #include "../utils/Reference.h"
 #include "../utils/RefCounted.h"
+#include "../utils/Task.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include <unordered_set>
 namespace Indigo { class Mesh; }
+namespace Indigo { class TaskManager; }
 class Map2D;
 class TextureServer;
 
@@ -131,9 +133,10 @@ typedef Reference<OverlayObject> OverlayObjectRef;
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : shadow_mapping(false) {}
+	OpenGLEngineSettings() : shadow_mapping(false), compress_textures(false) {}
 
 	bool shadow_mapping;
+	bool compress_textures;
 };
 
 
@@ -391,8 +394,16 @@ private:
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
 
+	std::vector<Reference<Indigo::Task> > compress_tasks;
+
 	float current_time;
+
+	Indigo::TaskManager* task_manager; // Used for texture compression processing.  Could be shared with MainWindow task manager, bit tricky due to inialisation tho.
+	// Lazily constructed.
+
 public:
+	bool GL_EXT_texture_sRGB_support;
+	bool GL_EXT_texture_compression_s3tc_support;
 	bool anisotropic_filtering_supported;
 	float max_anisotropy;
 
@@ -400,3 +411,6 @@ public:
 
 	uint64 frame_num;
 };
+#ifdef _WIN32
+#pragma warning(pop)
+#endif

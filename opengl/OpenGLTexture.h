@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/ArrayRef.h"
 #include <vector>
 
 
@@ -46,7 +47,9 @@ public:
 		Format_RGBA_LINEAR_Uint8,
 		Format_RGB_Linear_Float,
 		Format_RGB_Linear_Half,
-		Format_Depth_Float
+		Format_Depth_Float,
+		Format_Compressed_SRGB_Uint8,
+		Format_Compressed_SRGBA_Uint8
 	};
 
 	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, const Reference<OpenGLEngine>& opengl_engine,
@@ -55,7 +58,7 @@ public:
 		Wrapping wrapping = Wrapping_Repeat
 	);
 
-	void load(size_t tex_xres, size_t tex_yres, const void* tex_data, const Reference<OpenGLEngine>& opengl_engine,
+	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, const Reference<OpenGLEngine>& opengl_engine,
 		Format format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat
