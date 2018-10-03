@@ -3783,7 +3783,6 @@ public:
 		const unsigned int H = imagemap->getHeight();
 		const unsigned int bytes_pp = imagemap->getBytesPerPixel();
 		const unsigned int num_blocks_x = Maths::roundedUpDivide(W, 4u);
-		const unsigned int num_blocks_y = Maths::roundedUpDivide(H, 4u);
 		uint8* const compressed_data = compressed;
 		if(bytes_pp == 4)
 		{

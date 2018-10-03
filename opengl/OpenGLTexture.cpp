@@ -70,6 +70,18 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		gl_format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
 		break;
+	case Format_Compressed_SRGB_Uint8:
+		assert(0); // getGLFormat() shouldn't be called for compressed formats
+		internal_format = GL_SRGB8;
+		gl_format = GL_RGB;
+		type = GL_UNSIGNED_BYTE;
+		break;
+	case Format_Compressed_SRGBA_Uint8:
+		assert(0); // getGLFormat() shouldn't be called for compressed formats
+		internal_format = GL_SRGB8;
+		gl_format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
+		break;
 	}
 }
 
