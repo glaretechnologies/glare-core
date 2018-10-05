@@ -25,6 +25,9 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #ifndef PNG_ALLOW_BENIGN_ERRORS
 #error PNG_ALLOW_BENIGN_ERRORS should be defined in preprocessor defs.
 #endif
+#ifndef PNG_INTEL_SSE
+#error PNG_INTEL_SSE should be defined in preprocessor defs.
+#endif
 
 
 PNGDecoder::PNGDecoder()
