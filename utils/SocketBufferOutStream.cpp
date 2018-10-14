@@ -24,8 +24,8 @@ Generated at 2013-01-27 17:56:55 +0000
 #endif
 
 
-SocketBufferOutStream::SocketBufferOutStream(bool use_network_byte_order_)
-:	use_network_byte_order(use_network_byte_order_)
+SocketBufferOutStream::SocketBufferOutStream(UseNetworkByteOrder use_network_byte_order_)
+:	use_network_byte_order(use_network_byte_order_ == DoUseNetworkByteOrder)
 {
 }
 

@@ -19,7 +19,13 @@ Like BufferOutStream, but does any htonl conversion that MySocket does.
 class SocketBufferOutStream : public OutStream
 {
 public:
-	SocketBufferOutStream(bool use_network_byte_order);
+	enum UseNetworkByteOrder
+	{
+		DoUseNetworkByteOrder,
+		DontUseNetworkByteOrder // Use little-endian instead.
+	};
+
+	SocketBufferOutStream(UseNetworkByteOrder use_network_byte_order);
 	virtual ~SocketBufferOutStream();
 
 	virtual void writeData(const void* data, size_t num_bytes);
