@@ -153,7 +153,7 @@ public:
 			socket.writeDouble(1.23456789112233445566);
 
 			//=========== Test SocketBufferOutStream ===========
-			SocketBufferOutStream buffer(/*use_network_byte_order=*/true);
+			SocketBufferOutStream buffer(SocketBufferOutStream::DoUseNetworkByteOrder);
 			buffer.writeUInt32(1);
 			buffer.writeUInt32(2);
 			buffer.writeUInt32(3);
