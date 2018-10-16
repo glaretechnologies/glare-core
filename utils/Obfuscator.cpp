@@ -257,6 +257,8 @@ void Obfuscator::addOpenCLKeywords()
 "length",
 "normalize",
 
+"M_PI_F",
+
 "CLK_NORMALIZED_COORDS_FALSE", "CLK_ADDRESS_CLAMP_TO_EDGE", "CLK_FILTER_NEAREST",
 
 //"ThreadData",
