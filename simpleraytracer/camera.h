@@ -197,6 +197,8 @@ public:
 	inline const TransformPath& getTransformPath() const { return transform_path; }
 
 
+	double originalSensorWidth() const { return original_sensor_width; }
+	double originalSensorHeight() const { return original_sensor_height; }
 protected:
 	TransformPath transform_path; // SSE Aligned
 	js::AABBox bbox_ws; // SSE Aligned
@@ -206,6 +208,8 @@ private:
 
 protected:
 	std::vector<const Medium*> containing_media;
+	double original_sensor_width;
+	double original_sensor_height;
 };
 
 #ifdef _WIN32
