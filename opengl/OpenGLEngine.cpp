@@ -854,14 +854,14 @@ void OpenGLEngine::buildOutlineTexturesForViewport()
 
 	outline_solid_tex = new OpenGLTexture();
 	outline_solid_tex->load(outline_tex_w, outline_tex_h, ArrayRef<uint8>(NULL, 0), NULL, 
-		OpenGLTexture::Format_RGB_LINEAR_Uint8,
+		OpenGLTexture::Format_RGB_Linear_Uint8,
 		OpenGLTexture::Filtering_Bilinear,
 		OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 	);
 
 	outline_edge_tex = new OpenGLTexture();
 	outline_edge_tex->load(outline_tex_w, outline_tex_h, ArrayRef<uint8>(NULL, 0), NULL,
-		OpenGLTexture::Format_RGBA_LINEAR_Uint8,
+		OpenGLTexture::Format_RGBA_Linear_Uint8,
 		OpenGLTexture::Filtering_Bilinear
 	);
 

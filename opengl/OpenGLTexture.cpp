@@ -22,7 +22,7 @@ OpenGLTexture::~OpenGLTexture()
 bool OpenGLTexture::hasAlpha() const
 {
 	assert(texture_handle != 0);
-	return format == Format_SRGBA_Uint8 || format == Format_RGBA_LINEAR_Uint8 || format == Format_Compressed_SRGBA_Uint8;
+	return format == Format_SRGBA_Uint8 || format == Format_RGBA_Linear_Uint8 || format == Format_Compressed_SRGBA_Uint8;
 }
 
 
@@ -45,12 +45,12 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case Format_RGB_LINEAR_Uint8:
+	case Format_RGB_Linear_Uint8:
 		internal_format = GL_RGB;
 		gl_format = GL_RGB;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case Format_RGBA_LINEAR_Uint8:
+	case Format_RGBA_Linear_Uint8:
 		internal_format = GL_RGBA;
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
