@@ -63,9 +63,12 @@ struct BinningResultChunk
 	
 	ResultNode nodes[MAX_RESULT_CHUNK_SIZE];
 
-	size_t size;
-	size_t chunk_offset;
+	size_t size; // Number of ResultNodes written to nodes array.
+	size_t chunk_offset; // Number of previous result chunks * MAX_RESULT_CHUNK_SIZE.
 };
+
+
+static_assert(sizeof(BinningResultChunk) <= (1 << 16), "sizeof(BinningResultChunk) <= (1 << 16)");
 
 
 struct BinningPerThreadTempInfo

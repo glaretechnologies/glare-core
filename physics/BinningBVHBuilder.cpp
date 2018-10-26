@@ -158,11 +158,7 @@ void BinningBVHBuilder::build(
 {
 	Timer build_timer;
 	ScopeProfiler _scope("BVHBuilder::build");
-	js::AABBox root_aabb;
-	js::AABBox centroid_aabb;
-	{
-	ScopeProfiler _scope2("initial init");
-
+	
 	//Timer timer;
 	split_search_time = 0;
 	partition_time = 0;
@@ -188,21 +184,21 @@ void BinningBVHBuilder::build(
 		return;
 	}
 
-	// Build overall AABB
-	root_aabb = aabbs[0];
-	centroid_aabb = js::AABBox(aabbs[0].centroid(), aabbs[0].centroid());
-	for(size_t i = 0; i < num_objects; ++i)
-	{
-		root_aabb.enlargeToHoldAABBox(aabbs[i]);
-		centroid_aabb.enlargeToHoldPoint(aabbs[i].centroid());
-	}
-
-	// Alloc space for objects for each axis
+	// Alloc and build objects array (AABB for each triangle and index).
+	// Compute overall AABB and centroid AABB as well.
 	//timer.reset();
+	const js::AABBox* const use_aabbs = this->aabbs;
+	js::AABBox root_aabb = use_aabbs[0];
+	js::AABBox centroid_aabb = js::AABBox(use_aabbs[0].centroid(), use_aabbs[0].centroid());
+
 	this->objects.resizeNoCopy(num_objects);
+
 	for(size_t i = 0; i < num_objects; ++i)
 	{
-		objects[i].aabb = aabbs[i];
+		root_aabb.enlargeToHoldAABBox(use_aabbs[i]);
+		centroid_aabb.enlargeToHoldPoint(use_aabbs[i].centroid());
+
+		objects[i].aabb = use_aabbs[i];
 		objects[i].setIndex((int)i);
 	}
 	
@@ -210,8 +206,6 @@ void BinningBVHBuilder::build(
 	per_thread_temp_info.resize(task_manager->getNumThreads());
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
 		per_thread_temp_info[i].result_chunk = NULL;
-
-	} // End scope for initial init
 
 
 	Reference<BinningBuildSubtreeTask> task = new BinningBuildSubtreeTask(*this);
@@ -276,8 +270,8 @@ void BinningBVHBuilder::build(
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
-	result_indices.resizeNoCopy(m_num_objects);
-	for(int i=0; i<m_num_objects; ++i)
+	result_indices.resizeNoCopy(num_objects);
+	for(int i=0; i<num_objects; ++i)
 		result_indices[i] = objects[i].getIndex();
 
 
