@@ -50,7 +50,6 @@ public:
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
 	virtual const js::AABBox& getAABBoxWS() const = 0;
-	//virtual const std::string debugName() const = 0;
 
 	virtual void printStats() const = 0;
 	virtual void printTraceStats() const = 0;
