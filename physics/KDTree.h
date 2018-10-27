@@ -57,15 +57,11 @@ public:
 	friend class ThreadedBuilder::ThreadedNLogNKDTreeBuilder;
 
 	typedef uint32 NODE_INDEX;
-	/*=====================================================================
-	KDTree
-	-------
 
-	=====================================================================*/
 	KDTree(RayMesh* raymesh);
 	virtual ~KDTree();
 
-	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws TreeExcep
+	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws Indigo::Exception
 
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;

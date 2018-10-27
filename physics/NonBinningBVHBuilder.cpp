@@ -239,7 +239,7 @@ void NonBinningBVHBuilder::build(
 {
 	Timer build_timer;
 	ScopeProfiler _scope("NonBinningBVHBuilder::build");
-	js::AABBox root_aabb;
+	
 	{
 	ScopeProfiler _scope2("initial init");
 

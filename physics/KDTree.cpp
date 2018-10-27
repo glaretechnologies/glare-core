@@ -27,6 +27,7 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/PrintOutput.h"
+#include "../utils/Exception.h"
 #include "../indigo/ThreadContext.h"
 
 
@@ -551,7 +552,7 @@ void KDTree::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager&
 	if(verbose) print_output.print("\tBuilding kd-tree...");
 
 	if(numTris() == 0)
-		throw TreeExcep("Error, tried to build tree with zero triangles.");
+		throw Indigo::Exception("Error, tried to build tree with zero triangles.");
 
 	try
 	{
@@ -605,7 +606,7 @@ void KDTree::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager&
 
 		SSE::alignedSSEArrayMalloc(num_intersect_tris, intersect_tris);
 		if(!intersect_tris)
-			throw TreeExcep("Memory allocation failed while building kd-tree");
+			throw Indigo::Exception("Memory allocation failed while building kd-tree");
 
 		for(unsigned int i=0; i<num_intersect_tris; ++i)
 			intersect_tris[i].set(triVertPos(i, 0), triVertPos(i, 1), triVertPos(i, 2));
@@ -620,7 +621,7 @@ void KDTree::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager&
 	}
 	catch(std::bad_alloc& )
 	{
-		throw TreeExcep("Memory allocation failed while building kd-tree");
+		throw Indigo::Exception("Memory allocation failed while building kd-tree");
 	}
 }
 

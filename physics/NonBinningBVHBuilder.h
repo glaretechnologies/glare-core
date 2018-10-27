@@ -99,6 +99,8 @@ Multi-threaded SAH non-binning BVH builder.
 class NonBinningBVHBuilder : public BVHBuilder
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
 	// intersection_cost - cost of ray-object intersection for SAH computation.  Relative to traversal cost which is assumed to be 1.
@@ -113,6 +115,8 @@ public:
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
 	);
+
+	virtual const js::AABBox getRootAABB() const { return root_aabb; } // root AABB will have been computed after build() has been called. 
 
 	typedef js::Vector<uint32, 16> ResultObIndicesVec;
 	const ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }// { return objects[0]; }
@@ -160,7 +164,7 @@ private:
 	);
 
 
-
+	js::AABBox root_aabb;
 	const js::AABBox* aabbs;
 	js::Vector<Ob, 64> objects_a[3];
 	js::Vector<Ob, 64> objects_b[3];

@@ -47,35 +47,21 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 	const size_t raymesh_tris_size = raymesh_tris.size();
 	const RayMesh::VertexVectorType& raymesh_verts = raymesh->getVertices();
 
-	// Build tri AABBs, root_aabb
-
-	root_aabb = js::AABBox::emptyAABBox();
-	tri_aabbs.resize(raymesh_tris_size);
-
 	BVHBuilderRef builder;
 
 	const bool USE_SBVH = false;
 	if(USE_SBVH)
 	{
-		js::Vector<SBVHTri, 64> sbvh_tris;
-		sbvh_tris.resize(raymesh_tris_size);
+		js::Vector<SBVHTri, 64> sbvh_tris(raymesh_tris_size);
 
 		for(size_t i=0; i<raymesh_tris_size; ++i)
 		{
 			const RayMeshTriangle& tri = raymesh_tris[i];
-			const Vec4f v0 = raymesh_verts[tri.vertex_indices[0]].pos.toVec4fPoint();
-			const Vec4f v1 = raymesh_verts[tri.vertex_indices[1]].pos.toVec4fPoint();
-			const Vec4f v2 = raymesh_verts[tri.vertex_indices[2]].pos.toVec4fPoint();
-			js::AABBox tri_aabb(v0, v0);
-			tri_aabb.enlargeToHoldPoint(v1);
-			tri_aabb.enlargeToHoldPoint(v2);
-			tri_aabbs[i] = tri_aabb;
-			root_aabb.enlargeToHoldAABBox(tri_aabb);
 
 			SBVHTri t;
-			t.v[0] = v0;
-			t.v[1] = v1;
-			t.v[2] = v2;
+			t.v[0] = raymesh_verts[tri.vertex_indices[0]].pos.toVec4fPoint();
+			t.v[1] = raymesh_verts[tri.vertex_indices[1]].pos.toVec4fPoint();
+			t.v[2] = raymesh_verts[tri.vertex_indices[2]].pos.toVec4fPoint();
 			sbvh_tris[i] = t;
 		}
 
@@ -83,13 +69,21 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 			4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
 			BVHNode::maxNumGeom(), // max_num_objects_per_leaf
 			1.f, // intersection_cost
-			tri_aabbs.data(),
 			sbvh_tris.data(),
-			(int)tri_aabbs.size()
+			(int)raymesh_tris_size
 		);
 	}
 	else
 	{
+		// Make our BVH use BinningBVHBuilder.  This is because our BVH (as opposed to Embree's) is only used when the number of triangles is large, and in that case we want to use the binning builder so that we don't run out of mem.
+		Reference<BinningBVHBuilder> binning_builder = new BinningBVHBuilder(
+			4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
+			BVHNode::maxNumGeom(), // max_num_objects_per_leaf
+			4.f, // intersection_cost
+			(int)raymesh_tris_size
+		);
+		builder = binning_builder;
+
 		for(size_t i=0; i<raymesh_tris_size; ++i)
 		{
 			const RayMeshTriangle& tri = raymesh_tris[i];
@@ -99,18 +93,9 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 			js::AABBox tri_aabb(v0, v0);
 			tri_aabb.enlargeToHoldPoint(v1);
 			tri_aabb.enlargeToHoldPoint(v2);
-			tri_aabbs[i] = tri_aabb;
-			root_aabb.enlargeToHoldAABBox(tri_aabb);
-		}
 
-		// Make our BVH use BinningBVHBuilder.  This is because our BVH (as opposed to Embree's) is only used when the number of triangles is large, and in that case we want to use the binning builder so that we don't run out of mem.
-		builder = new BinningBVHBuilder(
-			4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
-			BVHNode::maxNumGeom(), // max_num_objects_per_leaf
-			4.f, // intersection_cost
-			tri_aabbs.data(),
-			(int)tri_aabbs.size()
-		);
+			binning_builder->setObjectAABB(i, tri_aabb);
+		}
 	}
 	
 	js::Vector<ResultNode, 64> result_nodes;
@@ -121,6 +106,9 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 		result_nodes
 	);
 	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder->getResultObjectIndices();
+
+
+	root_aabb = builder->getRootAABB();
 
 	// Make leafgeom from leaf object indices.
 	leafgeom.reserve(result_ob_indices.size());
@@ -294,10 +282,6 @@ void BVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& ta
 		const RayMeshTriangle& tri = raymesh_tris[i];
 		intersect_tris[i].set(raymesh_verts[tri.vertex_indices[0]].pos, raymesh_verts[tri.vertex_indices[1]].pos, raymesh_verts[tri.vertex_indices[2]].pos);
 	}
-
-
-
-	this->tri_aabbs.clearAndFreeMem(); // only needed during build.
 
 	// conPrint("BVH build done.  Elapsed: " + timer.elapsedStringNPlaces(5));
 }

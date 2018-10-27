@@ -150,9 +150,11 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 
 	{
 		Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
-			aabbs.data(), // aabbs
 			num_objects // num objects
 		);
+
+		for(size_t z=0; z<tris.size(); ++z)
+			builder->setObjectAABB(z, aabbs[z]);
 
 		builder->new_task_num_ob_threshold = 32;
 		builders.push_back(builder);
@@ -160,7 +162,6 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 
 	{
 		Reference<SBVHBuilder> builder = new SBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
-			aabbs.data(), // aabbs
 			tris.data(),
 			num_objects // num objects
 		);
@@ -243,7 +244,7 @@ void test()
 	conPrint("BVHBuilderTests::test()");
 
 	MTwister rng(1);
-	Indigo::TaskManager task_manager(8);
+	Indigo::TaskManager task_manager;
 	StandardPrintOutput print_output;
 
 	
@@ -662,6 +663,11 @@ void test()
 		testBVHBuildersWithNRandomObjects(task_manager,
 			10000
 		);
+
+		testBVHBuildersWithNRandomObjects(task_manager,
+			100000
+		);
+
 		conPrint("Done.");
 	}
 
@@ -913,8 +919,10 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			aabbs[z].enlargeToHoldPoint(v2);
 		}
 
-
-		for(int q=0; q<200; ++q)
+		double sum_time = 0;
+		double min_time = 1.0e100;
+		const int NUM_ITERS = 100;
+		for(int q=0; q<NUM_ITERS; ++q)
 		{
 			//conPrint("------------- perf test --------------");
 			Timer timer;
@@ -922,10 +930,13 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			const int max_num_objects_per_leaf = 16;
 			const float intersection_cost = 1.f;
 			BinningBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost,
-				aabbs.data(),
 				//tris.data(),
 				num_objects
 			);
+
+			for(int z=0; z<num_objects; ++z)
+				builder.setObjectAABB(z, aabbs[z]);
+
 			js::Vector<ResultNode, 64> result_nodes;
 			builder.build(task_manager,
 				print_output,
@@ -933,10 +944,17 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 				result_nodes
 			);
 
-			conPrint("BVH building for " + toString(num_objects) + " objects took " + timer.elapsedString());
+			const double elapsed = timer.elapsed();
+			sum_time += elapsed;
+			min_time = myMin(min_time, elapsed);
+			conPrint("BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
 			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/false);
 		}
+
+		const double av_time = sum_time / NUM_ITERS;
+		conPrint("av_time:  " + toString(av_time) + " s");
+		conPrint("min_time: " + toString(min_time) + " s");
 	}
 
 	//==================== Test varying a build parameter and plotting the resulting speeds ====================

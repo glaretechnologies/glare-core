@@ -38,7 +38,7 @@ public:
 	BVH(const RayMesh* const raymesh);
 	virtual ~BVH();
 
-	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws TreeExcep
+	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws Indigo::Exception
 
 
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
@@ -72,7 +72,6 @@ private:
 	js::Vector<TRI_INDEX, 64> leafgeom; // Indices into the intersect_tris array.
 	std::vector<INTERSECT_TRI_TYPE> intersect_tris;
 	
-	js::Vector<js::AABBox, 64> tri_aabbs; // Triangle AABBs, used only during build process.
 	const RayMesh* const raymesh;
 };
 

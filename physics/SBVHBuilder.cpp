@@ -106,7 +106,6 @@ size_t SBVHPerThreadTempInfo::dataSizeBytes() const
 
 
 SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_,
-	const js::AABBox* aabbs_,
 	const SBVHTri* triangles_,
 	const int num_objects_
 )
@@ -116,7 +115,6 @@ SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per
 {
 	assert(intersection_cost > 0.f);
 
-	aabbs = aabbs_;
 	triangles = triangles_;
 	m_num_objects = num_objects_;
 
@@ -245,8 +243,7 @@ void SBVHBuilder::build(
 {
 	Timer build_timer;
 	ScopeProfiler _scope("BVHBuilder::build");
-	js::AABBox root_aabb;
-	js::AABBox centroid_aabb;
+	js::AABBox root_centroid_aabb;
 	{
 	ScopeProfiler _scope2("initial init");
 
@@ -291,24 +288,26 @@ void SBVHBuilder::build(
 		return;
 	}
 
-	// Build overall AABB
-	root_aabb = aabbs[0];
-	centroid_aabb = js::AABBox(aabbs[0].centroid(), aabbs[0].centroid());
+	root_aabb = empty_aabb;
+	root_centroid_aabb = empty_aabb;
+	this->top_level_objects.resize(num_objects);
+	
 	for(size_t i = 0; i < num_objects; ++i)
 	{
-		root_aabb.enlargeToHoldAABBox(aabbs[i]);
-		centroid_aabb.enlargeToHoldPoint(aabbs[i].centroid());
+		const SBVHTri& tri = triangles[i];
+
+		js::AABBox tri_aabb(tri.v[0], tri.v[0]);
+		tri_aabb.enlargeToHoldPoint(tri.v[1]);
+		tri_aabb.enlargeToHoldPoint(tri.v[2]);
+
+		top_level_objects[i].aabb = tri_aabb;
+		top_level_objects[i].setIndex((int)i);
+
+		root_aabb.enlargeToHoldAABBox(tri_aabb);
+		root_centroid_aabb.enlargeToHoldPoint(tri_aabb.centroid());
 	}
 
 	this->recip_root_node_aabb_area = 1 / root_aabb.getSurfaceArea();
-
-	// Alloc space for objects for each axis
-	this->top_level_objects.resize(num_objects);
-	for(size_t i = 0; i < num_objects; ++i)
-	{
-		top_level_objects[i].aabb = aabbs[i];
-		top_level_objects[i].setIndex((int)i);
-	}
 	
 	
 	// Reserve working space for each thread.
@@ -329,7 +328,7 @@ void SBVHBuilder::build(
 	task->objects = this->top_level_objects;
 	task->depth = 0;
 	task->node_aabb = root_aabb;
-	task->centroid_aabb = centroid_aabb;
+	task->centroid_aabb = root_centroid_aabb;
 	task->result_chunk = root_chunk;
 	task->leaf_result_chunk = root_leaf_chunk;
 	task_manager->addTask(task);

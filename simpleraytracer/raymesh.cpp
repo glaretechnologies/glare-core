@@ -849,32 +849,22 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 	}*/
 #endif
 
-	try
-	{
+
 #ifndef NO_EMBREE
-		if(triangles.size() < (1 << 26))
-		{
-			tritree = new EmbreeAccel(this, embree_spatial);
-		}
-		else
+	if(triangles.size() < (1 << 26))
+	{
+		tritree = new EmbreeAccel(this, embree_spatial);
+	}
+	else
 #endif
-		{
-			tritree = new js::BVH(this);
-		}
-	}
-	catch(js::TreeExcep& e)
 	{
-		throw GeometryExcep("Exception while creating tree: " + e.what());
+		tritree = new js::BVH(this);
 	}
-	catch(std::bad_alloc&)
-	{
-		throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
-	}
+
 
 	//------------------------------------------------------------------------
 	//print out our mem usage
 	//------------------------------------------------------------------------
-
 	if(verbose)
 	{
 		print_output.print("Building Mesh '" + name + "'...");
@@ -886,9 +876,11 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 
 	try
 	{
+		//Timer timer;
 		tritree->build(print_output, verbose, task_manager);
+		//conPrint("tritree->build: " + timer.elapsedString());
 	}
-	catch(js::TreeExcep& e)
+	catch(Indigo::Exception& e)
 	{
 		throw GeometryExcep("Exception while building mesh '" + name + "': " + e.what());
 	}

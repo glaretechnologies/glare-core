@@ -23,14 +23,13 @@ static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 
 
 BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_,
-	const js::AABBox* aabbs_,
 	const int num_objects_
 )
 :	leaf_num_object_threshold(leaf_num_object_threshold_),
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
 	intersection_cost(intersection_cost_),
-	aabbs(aabbs_),
-	m_num_objects(num_objects_)
+	m_num_objects(num_objects_),
+	local_task_manager(NULL)
 {
 	assert(intersection_cost > 0.f);
 
@@ -38,6 +37,10 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 	new_task_num_ob_threshold = 1 << 9;
 
 	static_assert(sizeof(ResultNode) == 48, "sizeof(ResultNode) == 48");
+
+	this->objects.resizeNoCopy(m_num_objects);
+	root_aabb = empty_aabb;
+	root_centroid_aabb = empty_aabb;
 }
 
 
@@ -183,25 +186,6 @@ void BinningBVHBuilder::build(
 		stats.num_leaves = 1;
 		return;
 	}
-
-	// Alloc and build objects array (AABB for each triangle and index).
-	// Compute overall AABB and centroid AABB as well.
-	//timer.reset();
-	const js::AABBox* const use_aabbs = this->aabbs;
-	js::AABBox root_aabb = use_aabbs[0];
-	js::AABBox centroid_aabb = js::AABBox(use_aabbs[0].centroid(), use_aabbs[0].centroid());
-
-	this->objects.resizeNoCopy(num_objects);
-
-	for(size_t i = 0; i < num_objects; ++i)
-	{
-		root_aabb.enlargeToHoldAABBox(use_aabbs[i]);
-		centroid_aabb.enlargeToHoldPoint(use_aabbs[i].centroid());
-
-		objects[i].aabb = use_aabbs[i];
-		objects[i].setIndex((int)i);
-	}
-	
 	
 	per_thread_temp_info.resize(task_manager->getNumThreads());
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
@@ -213,7 +197,7 @@ void BinningBVHBuilder::build(
 	task->end = m_num_objects;
 	task->depth = 0;
 	task->node_aabb = root_aabb;
-	task->centroid_aabb = centroid_aabb;
+	task->centroid_aabb = root_centroid_aabb;
 	task->parent_node_index = -1;
 	task_manager->addTask(task);
 
@@ -454,7 +438,80 @@ static inline void setAABBWToOne(js::AABBox& aabb)
 }
 
 
-static void search(const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& objects_, int left, int right, int& best_axis_out, float& best_div_val_out, float& smallest_split_cost_factor_out)
+static const int max_B = 32;
+
+
+static inline int numBucketsForNumObs(int num_obs)
+{
+	return myMin(max_B, (int)(4 + 0.05f * num_obs));
+}
+
+
+class BinTask : public Indigo::Task
+{
+public:
+	INDIGO_ALIGNED_NEW_DELETE
+
+	virtual void run(size_t thread_index)
+	{
+		const js::AABBox centroid_aabb = this->centroid_aabb_;
+		const BinningOb* const objects = objects_->data();
+
+		const int num_buckets = numBucketsForNumObs(right - left); // buckets per axis
+
+		js::AABBox* const bucket_aabbs = this->bucket_aabbs_;
+		Vec4i* const counts = this->counts_;
+
+		// Zero our local AABBs and counts
+		for(int i=0; i<num_buckets; ++i)
+		{
+			for(int z=0; z<3; ++z)
+				bucket_aabbs[z*max_B + i] = empty_aabb;
+			counts[i] = Vec4i(0);
+		}
+
+		const Vec4f scale = div(Vec4f((float)num_buckets), (centroid_aabb.max_ - centroid_aabb.min_));
+		for(int i=task_left; i<task_right; ++i)
+		{
+			const js::AABBox ob_aabb = objects[i].aabb;
+			const Vec4f centroid = ob_aabb.centroid();
+			assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
+			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+
+			assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
+			assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
+			assert(bucket_i[2] >= 0 && bucket_i[2] < num_buckets);
+
+			// X axis:
+			const int b_x = elem<0>(bucket_i);
+			bucket_aabbs[b_x].enlargeToHoldAABBox(ob_aabb);
+			(counts[b_x])[0]++;
+
+			// Y axis:
+			const int b_y = elem<1>(bucket_i);
+			bucket_aabbs[max_B + b_y].enlargeToHoldAABBox(ob_aabb);
+			(counts[b_y])[1]++;
+
+			// Z axis:
+			const int b_z = elem<2>(bucket_i);
+			bucket_aabbs[max_B*2 + b_z].enlargeToHoldAABBox(ob_aabb);
+			(counts[b_z])[2]++;
+		}
+	}
+
+	js::AABBox bucket_aabbs_[max_B * 3];
+	Vec4i counts_[max_B];
+
+	js::AABBox centroid_aabb_;
+	const js::Vector<BinningOb, 64>* objects_;
+	int left, right, task_left, task_right;
+
+	char padding[64];
+};
+
+
+
+static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& objects_, int left, int right, int& best_axis_out, float& best_div_val_out, float& smallest_split_cost_factor_out)
 {
 	const js::AABBox& centroid_aabb = centroid_aabb_;
 	BinningOb* const objects = objects_.data();
@@ -464,44 +521,132 @@ static void search(const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& 
 	int best_axis = -1;
 	float best_div_val = 0;
 
-	
-	const int max_B = 32;
-	const int num_buckets = myMin(max_B, (int)(4 + 0.05f * (right - left))); // buckets per axis
+	const int num_buckets = numBucketsForNumObs(right - left); // buckets per axis
 	js::AABBox bucket_aabbs[max_B * 3];
 	Vec4i counts[max_B];
 	for(int i=0; i<num_buckets; ++i)
+	{
 		for(int z=0; z<3; ++z)
-		{
 			bucket_aabbs[z*max_B + i] = empty_aabb;
-			counts[i] = Vec4i(0);
+		counts[i] = Vec4i(0);
+	}
+
+	const int N = right - left;
+	const int task_N = 1 << 16;
+	if(N >= task_N)
+	{
+		if(!local_task_manager)
+			local_task_manager = new Indigo::TaskManager();
+
+		const int MAX_NUM_TASKS = 64;
+		const int num_tasks = myClamp((int)local_task_manager->getNumThreads(), 1, MAX_NUM_TASKS);
+
+		Reference<BinTask> tasks[MAX_NUM_TASKS];
+		
+		const int num_per_task = Maths::roundedUpDivide(N, num_tasks);
+
+		for(int i=0; i<num_tasks; ++i)
+		{
+			tasks[i] = new BinTask();
+			BinTask* task = tasks[i].ptr();
+			task->objects_ = &objects_;
+			task->centroid_aabb_ = centroid_aabb;
+			task->left = left;
+			task->right = right;
+			task->task_left  = myMin(left + i       * num_per_task, right);
+			task->task_right = myMin(left + (i + 1) * num_per_task, right);
+			assert(task->task_left >= left && task->task_left <= right && task->task_right >= task->task_left && task->task_right <= right);
+		}
+		local_task_manager->runTasks((Reference<Indigo::Task>*)tasks, num_tasks);
+
+
+		// Merge bucket AABBs and counts from each task
+		for(int t=0; t<num_tasks; ++t)
+		{
+			for(int i=0; i<num_buckets; ++i)
+			{
+				for(int z=0; z<3; ++z)
+					bucket_aabbs[z*max_B + i].enlargeToHoldAABBox(tasks[t]->bucket_aabbs_[z*max_B + i]);
+				counts[i] = counts[i] + tasks[t]->counts_[i];
+			}
 		}
 
-	const Vec4f scale = div(Vec4f((float)num_buckets), (centroid_aabb.max_ - centroid_aabb.min_));
-	for(int i=left; i<right; ++i)
+		// Check against single-threaded reference counts and AABBs:
+#ifndef NDEBUG
+		js::AABBox ref_bucket_aabbs[max_B * 3];
+		Vec4i ref_counts[max_B];
+		for(int i=0; i<num_buckets; ++i)
+		{
+			for(int z=0; z<3; ++z)
+				ref_bucket_aabbs[z*max_B + i] = empty_aabb;
+			ref_counts[i] = Vec4i(0);
+		}
+
+		const Vec4f scale = div(Vec4f((float)num_buckets), (centroid_aabb.max_ - centroid_aabb.min_));
+		for(int i=left; i<right; ++i)
+		{
+			const js::AABBox ob_aabb = objects[i].aabb;
+			const Vec4f centroid = ob_aabb.centroid();
+			assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
+			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+
+			assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
+			assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
+			assert(bucket_i[2] >= 0 && bucket_i[2] < num_buckets);
+
+			// X axis:
+			const int b_x = elem<0>(bucket_i);
+			ref_bucket_aabbs[b_x].enlargeToHoldAABBox(ob_aabb);
+			(ref_counts[b_x])[0]++;
+
+			// Y axis:
+			const int b_y = elem<1>(bucket_i);
+			ref_bucket_aabbs[max_B + b_y].enlargeToHoldAABBox(ob_aabb);
+			(ref_counts[b_y])[1]++;
+
+			// Z axis:
+			const int b_z = elem<2>(bucket_i);
+			ref_bucket_aabbs[max_B*2 + b_z].enlargeToHoldAABBox(ob_aabb);
+			(ref_counts[b_z])[2]++;
+		}
+
+		for(int i=0; i<num_buckets; ++i)
+		{
+			for(int z=0; z<3; ++z)
+				assert(bucket_aabbs[z*max_B + i] == ref_bucket_aabbs[z*max_B + i]);
+			assert(counts[i] == ref_counts[i]);
+		}
+#endif
+	}
+	else
 	{
-		const js::AABBox ob_aabb = objects[i].aabb;
-		const Vec4f centroid = ob_aabb.centroid();
-		assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
-		const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+		const Vec4f scale = div(Vec4f((float)num_buckets), (centroid_aabb.max_ - centroid_aabb.min_));
+		for(int i=left; i<right; ++i)
+		{
+			const js::AABBox ob_aabb = objects[i].aabb;
+			const Vec4f centroid = ob_aabb.centroid();
+			assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
+			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
 
-		assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
-		assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
-		assert(bucket_i[2] >= 0 && bucket_i[2] < num_buckets);
+			assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
+			assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
+			assert(bucket_i[2] >= 0 && bucket_i[2] < num_buckets);
 
-		// X axis:
-		const int b_x = elem<0>(bucket_i);
-		bucket_aabbs[b_x].enlargeToHoldAABBox(ob_aabb);
-		(counts[b_x])[0]++;
+			// X axis:
+			const int b_x = elem<0>(bucket_i);
+			bucket_aabbs[b_x].enlargeToHoldAABBox(ob_aabb);
+			(counts[b_x])[0]++;
 
-		// Y axis:
-		const int b_y = elem<1>(bucket_i);
-		bucket_aabbs[max_B + b_y].enlargeToHoldAABBox(ob_aabb);
-		(counts[b_y])[1]++;
+			// Y axis:
+			const int b_y = elem<1>(bucket_i);
+			bucket_aabbs[max_B + b_y].enlargeToHoldAABBox(ob_aabb);
+			(counts[b_y])[1]++;
 
-		// Z axis:
-		const int b_z = elem<2>(bucket_i);
-		bucket_aabbs[max_B*2 + b_z].enlargeToHoldAABBox(ob_aabb);
-		(counts[b_z])[2]++;
+			// Z axis:
+			const int b_z = elem<2>(bucket_i);
+			bucket_aabbs[max_B*2 + b_z].enlargeToHoldAABBox(ob_aabb);
+			(counts[b_z])[2]++;
+		}
 	}
 
 	// Sweep right to left computing exclusive prefix surface areas and counts
@@ -517,7 +662,7 @@ static void search(const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& 
 		right_prefix_counts[b] = count;
 		count = count + counts[b];
 
-		float A0 = right_aabb[0].getHalfSurfaceArea();
+		float A0 = right_aabb[0].getHalfSurfaceArea(); // AABB w coord will be garbage due to index being stored, but getHalfSurfaceArea() ignores w coord.
 		float A1 = right_aabb[1].getHalfSurfaceArea();
 		float A2 = right_aabb[2].getHalfSurfaceArea();
 		right_area[b] = Vec4f(A0, A1, A2, A2);
@@ -636,7 +781,7 @@ void BinningBVHBuilder::doBuild(
 	//conPrint("Looking for best split...");
 	//Timer timer;
 
-	search(centroid_aabb, objects, left, right, best_axis, best_div_val, smallest_split_cost_factor);
+	search(local_task_manager, *task_manager, centroid_aabb, objects, left, right, best_axis, best_div_val, smallest_split_cost_factor);
 	
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();

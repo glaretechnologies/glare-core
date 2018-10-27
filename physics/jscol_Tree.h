@@ -7,37 +7,19 @@ Copyright Glare Technologies Limited 2013 -
 
 
 #include "../utils/Platform.h"
-#include <istream>
-#include <ostream>
 #include <vector>
-class RayMesh;
 class HitInfo;
-class FullHitInfo;
 class DistanceHitInfo;
-class Object;
 class ThreadContext;
 class PrintOutput;
 class Ray;
 class Vec4f;
-namespace js { class TriTreePerThreadData; };
 namespace js { class AABBox; };
 namespace Indigo { class TaskManager; }
 
 
 namespace js
 {
-
-
-class TreeExcep
-{
-public:
-	TreeExcep(const std::string& message_) : message(message_) {}
-	~TreeExcep(){}
-
-	const std::string& what() const { return message; }
-private:
-	std::string message;
-};
 
 
 /*=====================================================================
@@ -56,7 +38,7 @@ public:
 
 	static const unsigned int MAX_TREE_DEPTH = 63;
 
-	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws TreeExcep
+	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
 

@@ -87,14 +87,17 @@ Multi-threaded SAH BVH builder.
 class BinningBVHBuilder : public BVHBuilder
 {
 public:
+	INDIGO_ALIGNED_NEW_DELETE
+
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
 	// intersection_cost - cost of ray-object intersection for SAH computation.  Relative to traversal cost which is assumed to be 1.
 	BinningBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost,
-		const js::AABBox* aabbs,
 		const int num_objects
 	);
 	~BinningBVHBuilder();
+
+	inline void setObjectAABB(size_t ob_i, const js::AABBox& aabb);
 
 	virtual void build(
 		Indigo::TaskManager& task_manager,
@@ -102,6 +105,8 @@ public:
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
 	);
+
+	virtual const js::AABBox getRootAABB() const { return root_aabb; }
 
 	const BVHBuilder::ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }
 
@@ -127,7 +132,9 @@ private:
 		BinningResultChunk* result_chunk
 	);
 
-	const js::AABBox* aabbs;
+	js::AABBox root_aabb;
+	js::AABBox root_centroid_aabb;
+
 	js::Vector<BinningOb, 64> objects;
 	int m_num_objects;
 	std::vector<BinningPerThreadTempInfo> per_thread_temp_info;
@@ -135,6 +142,7 @@ private:
 	std::vector<BinningResultChunk*> result_chunks;
 	Mutex result_chunks_mutex;
 
+	Indigo::TaskManager* local_task_manager;
 	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
@@ -149,3 +157,13 @@ public:
 	double split_search_time;
 	double partition_time;
 };
+
+
+void BinningBVHBuilder::setObjectAABB(size_t ob_i, const js::AABBox& aabb)
+{
+	root_aabb.enlargeToHoldAABBox(aabb);
+	root_centroid_aabb.enlargeToHoldPoint(aabb.centroid());
+
+	objects[ob_i].aabb = aabb;
+	objects[ob_i].setIndex((int)ob_i);
+}

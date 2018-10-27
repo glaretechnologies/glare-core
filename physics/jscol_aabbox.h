@@ -304,7 +304,7 @@ float AABBox::volume() const
 float AABBox::getSurfaceArea() const
 {
 	const Vec4f diff(max_ - min_);
-	const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = diff.x[0]*diff.x[2] + diff.x[1]*diff.x[0] + diff.x[2]*diff.x[1]
+	const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = (diff.x[0]*diff.x[2], diff.x[1]*diff.x[0], diff.x[2]*diff.x[1], diff.x[3]*diff.x[3])
 	return 2 * (res[0] + res[1] + res[2]);
 }
 
@@ -312,7 +312,7 @@ float AABBox::getSurfaceArea() const
 float AABBox::getHalfSurfaceArea() const
 {
 	const Vec4f diff(max_ - min_);
-	const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = diff.x[0]*diff.x[2] + diff.x[1]*diff.x[0] + diff.x[2]*diff.x[1]
+	const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = (diff.x[0]*diff.x[2], diff.x[1]*diff.x[0], diff.x[2]*diff.x[1], diff.x[3]*diff.x[3])
 	return res[0] + res[1] + res[2];
 }
 

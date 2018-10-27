@@ -59,6 +59,8 @@ public:
 	virtual const ResultObIndicesVec& getResultObjectIndices() const = 0;
 
 	virtual int getMaxLeafDepth() const = 0; // Root node is considered to have depth 0.
+
+	virtual const js::AABBox getRootAABB() const = 0; // root AABB will have been computed after build() has been called. 
 };
 
 
