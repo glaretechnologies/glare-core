@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2013 -
 
 #include "../utils/Platform.h"
 #include <vector>
+#include <cstddef> // For size_t
 class HitInfo;
 class DistanceHitInfo;
 class ThreadContext;
