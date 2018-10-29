@@ -1,52 +1,11 @@
 /*=====================================================================
 BinningBVHBuilder.cpp
 -------------------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2017 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #include "BinningBVHBuilder.h"
 
-
-/*
-Dev notes
----------
-I tried parallelising the partition function. Results:
-
-With MT'd parition
-==================
-
-BVHBuilderTests perf tests:
----------------------------
-av_time:  0.13871507287141413 s
-min_time: 0.1354363030463901 s
-
-bedroom:
---------
-tritree->build: 0.6952134609564382 s
-OpenCLPTSceneBuilder::buildMeshBVH(): BVH build took 0.4618 s
-
-Without MT'd partition
-======================
-
-BVHBuilderTests perf tests:
----------------------------
-av_time:  0.1436770330129184 s
-min_time: 0.13933144048314716 s
-
-bedroom:
---------
-tritree->build: 0.6083853368400014 s
-OpenCLPTSceneBuilder::buildMeshBVH(): BVH build took 0.3879 s
-
-
-
-
-So the MT'd partition, while faster on the BVHBuilderTests perf tests, is quite a bit slower on the bedroom scene.  So we won't use that code.
-MT'd partition is probably slower on the bedroom scene due to the increased memory usage, as the partition cannot be in-place any more.
-
-See 'physics\experiments\BinningBVHBuilder with parallel partition.cpp' for the code.
-
-*/
 
 #include "jscol_aabbox.h"
 #include <algorithm>
@@ -79,7 +38,8 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 
 	static_assert(sizeof(ResultNode) == 48, "sizeof(ResultNode) == 48");
 
-	this->objects.resizeNoCopy(m_num_objects);
+	this->objects_a.resizeNoCopy(m_num_objects);
+	this->objects_b.resizeNoCopy(m_num_objects);
 	this->result_indices.resizeNoCopy(m_num_objects);
 	root_aabb = empty_aabb;
 	root_centroid_aabb = empty_aabb;
@@ -161,6 +121,8 @@ public:
 
 		builder.doBuild(
 			builder.per_thread_temp_info[thread_index],
+			cur_objects,
+			other_objects,
 			node_aabb,
 			centroid_aabb,
 			node_index,
@@ -178,6 +140,8 @@ public:
 	int end;
 	BinningResultChunk* parent_chunk;
 	int parent_node_index;
+	js::Vector<BinningOb, 64>* cur_objects;
+	js::Vector<BinningOb, 64>* other_objects;
 };
 
 
@@ -241,6 +205,8 @@ void BinningBVHBuilder::build(
 	task->node_aabb = root_aabb;
 	task->centroid_aabb = root_centroid_aabb;
 	task->parent_node_index = -1;
+	task->cur_objects = &objects_a;
+	task->other_objects = &objects_b;
 	task_manager->addTask(task);
 
 	task_manager->waitForTasksToComplete();
@@ -296,7 +262,6 @@ void BinningBVHBuilder::build(
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
-
 	// Combine stats from each thread
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
 		this->stats.accumStats(per_thread_temp_info[i].stats);
@@ -308,12 +273,12 @@ void BinningBVHBuilder::build(
 
 		conPrint("----------- BinningBVHBuilder Build Stats ----------");
 		conPrint("Mem usage:");
-		conPrint("objects:                    " + getNiceByteSize(objects.dataSizeBytes()));
+		conPrint("objects:                    " + getNiceByteSize(objects_a.dataSizeBytes() * 2));
 
 		conPrint("result_chunks:              " + getNiceByteSize(result_chunks.size() * sizeof(BinningResultChunk)));
 		conPrint("result_nodes_out:           " + toString(result_nodes_out.size()) + " nodes * " + toString(sizeof(ResultNode)) + "B = " + getNiceByteSize(result_nodes_out.dataSizeBytes()));
 		
-		const size_t total_size = objects.dataSizeBytes() + (result_chunks.size() * sizeof(BinningResultChunk)) + result_nodes_out.dataSizeBytes();
+		const size_t total_size = (objects_a.dataSizeBytes()*2) + (result_chunks.size() * sizeof(BinningResultChunk)) + result_nodes_out.dataSizeBytes();
 		
 		conPrint("total:                      " + getNiceByteSize(total_size));
 		conPrint("");
@@ -321,7 +286,7 @@ void BinningBVHBuilder::build(
 		//conPrint("split_search_time: " + toString(split_search_time) + " s");
 		//conPrint("partition_time:    " + toString(partition_time) + " s");
 
-		conPrint("Num triangles:              " + toString(objects.size()));
+		conPrint("Num triangles:              " + toString(objects_a.size()));
 		conPrint("num interior nodes:         " + toString(stats.num_interior_nodes));
 		conPrint("num leaves:                 " + toString(stats.num_leaves));
 		conPrint("num maxdepth leaves:        " + toString(stats.num_maxdepth_leaves));
@@ -329,7 +294,7 @@ void BinningBVHBuilder::build(
 		conPrint("num cheaper nosplit leaves: " + toString(stats.num_cheaper_nosplit_leaves));
 		conPrint("num could not split leaves: " + toString(stats.num_could_not_split_leaves));
 		conPrint("num arbitrary split leaves: " + toString(stats.num_arbitrary_split_leaves));
-		conPrint("av num tris per leaf:       " + toString((float)objects.size() / stats.num_leaves));
+		conPrint("av num tris per leaf:       " + toString((float)objects_a.size() / stats.num_leaves));
 		conPrint("max num tris per leaf:      " + toString(stats.max_num_tris_per_leaf));
 		conPrint("av leaf depth:              " + toString((float)stats.leaf_depth_sum / stats.num_leaves));
 		conPrint("max leaf depth:             " + toString(stats.max_leaf_depth));
@@ -339,7 +304,192 @@ void BinningBVHBuilder::build(
 }
 
 
-/*
+
+struct PartitionRes
+{
+	js::AABBox left_aabb, left_centroid_aabb;
+	js::AABBox right_aabb, right_centroid_aabb;
+	int split_i; // Index of first object that was partitioned to the right.
+	bool in_place; // Was the partition done in-place?
+};
+
+
+// For objects in [left, right), counts the number of objects going to the left of the split plane,
+// also builds the AABB and centroid AABBs for both the left and right sides.
+class PartitionCountTask : public Indigo::Task
+{
+public:
+	INDIGO_ALIGNED_NEW_DELETE
+
+	virtual void run(size_t thread_index)
+	{
+		const BinningOb* const objects = m_objects;
+		int num_left = 0;
+		js::AABBox left_aabb = empty_aabb;
+		js::AABBox left_centroid_aabb = empty_aabb;
+		js::AABBox right_aabb = empty_aabb;
+		js::AABBox right_centroid_aabb = empty_aabb;
+		const int best_axis = m_best_axis;
+		const float best_div_val = m_best_div_val;
+		const int left = m_left;
+		const int right = m_right;
+
+		for(int i = left; i < right; ++i)
+		{
+			const js::AABBox aabb = objects[i].aabb;
+			const Vec4f centroid = aabb.centroid();
+			if(centroid[best_axis] <= best_div_val) // If object should go on left side:
+			{
+				left_aabb.enlargeToHoldAABBox(aabb);
+				left_centroid_aabb.enlargeToHoldPoint(centroid);
+				num_left++;
+			}
+			else // else if object should go on right side:
+			{
+				right_aabb.enlargeToHoldAABBox(aabb);
+				right_centroid_aabb.enlargeToHoldPoint(centroid);
+			}
+		}
+
+		m_left_aabb = left_aabb;
+		m_left_centroid_aabb = left_centroid_aabb;
+		m_right_aabb = right_aabb;
+		m_right_centroid_aabb = right_centroid_aabb;
+		m_num_left = num_left;
+	}
+
+	js::AABBox m_left_aabb, m_left_centroid_aabb, m_right_aabb, m_right_centroid_aabb;  // Results of the task
+	const BinningOb* m_objects;
+	int m_left, m_right, m_best_axis;
+	int m_num_left; // Result of the task
+	float m_best_div_val;
+};
+
+
+// Does the moving part of the partition.
+// Copies objects from objects_in to objects_out, writing at left_write_i or right_write_i.
+class PartitionPlaceTask : public Indigo::Task
+{
+public:
+	INDIGO_ALIGNED_NEW_DELETE
+
+	virtual void run(size_t thread_index)
+	{
+		const BinningOb* const objects_in = m_objects_in;
+		BinningOb* const objects_out = m_objects_out;
+		int left_write_i  = m_left_write_i;
+		int right_write_i = m_right_write_i;
+		const int best_axis = m_best_axis;
+		const float best_div_val = m_best_div_val;
+		const int left = m_left;
+		const int right = m_right;
+
+		for(int i = left; i < right; ++i)
+		{
+			const js::AABBox aabb = objects_in[i].aabb;
+			const Vec4f centroid = aabb.centroid();
+			if(centroid[best_axis] <= best_div_val) // If object should go on Left side:
+			{
+				objects_out[left_write_i++].aabb = aabb;
+			}
+			else // else if cur object should go on Right side:
+			{
+				objects_out[right_write_i++].aabb = aabb;
+			}
+		}
+	}
+
+	const BinningOb* m_objects_in;
+	BinningOb* m_objects_out;
+	int m_left, m_right, m_best_axis;
+	float m_best_div_val;
+	int m_left_write_i, m_right_write_i;
+};
+
+
+static void partition(Indigo::TaskManager*& local_task_manager, js::Vector<BinningOb, 64>* cur_objects, js::Vector<BinningOb, 64>* other_objects, int left, int right, float best_div_val, int best_axis, PartitionRes& res_out)
+{
+	const int N = right - left;
+	const int task_N = 1 << 19;
+	if(N >= task_N) // If there are enough objects, do with multiple threads:
+	{
+		if(!local_task_manager)
+			local_task_manager = new Indigo::TaskManager();
+
+		const int MAX_NUM_TASKS = 64;
+		const int num_tasks = myClamp((int)local_task_manager->getNumThreads(), 1, MAX_NUM_TASKS);
+		const int num_per_task = Maths::roundedUpDivide(N, num_tasks);
+
+		// Run PartitionCountTasks
+		Reference<PartitionCountTask> tasks[MAX_NUM_TASKS];
+		for(int i=0; i<num_tasks; ++i)
+		{
+			tasks[i] = new PartitionCountTask();
+			PartitionCountTask* task = tasks[i].ptr();
+			task->m_objects = cur_objects->data();
+			task->m_left  = myMin(left + i       * num_per_task, right);
+			task->m_right = myMin(left + (i + 1) * num_per_task, right);
+			task->m_best_axis = best_axis;
+			task->m_best_div_val = best_div_val;
+			assert(task->m_left >= left && task->m_left <= right && task->m_right >= task->m_left && task->m_right <= right);
+		}
+		local_task_manager->runTasks((Reference<Indigo::Task>*)tasks, num_tasks);
+
+		// Transform counts into a prefix sum which will give the write indices, then run PartitionPlaceTasks
+		Reference<PartitionPlaceTask> place_tasks[MAX_NUM_TASKS];
+		int sum = 0;
+		for(int i=0; i<num_tasks; ++i)
+		{
+			place_tasks[i] = new PartitionPlaceTask();
+			PartitionPlaceTask* task = place_tasks[i].ptr();
+			task->m_objects_in  = cur_objects->data();
+			task->m_objects_out = other_objects->data(); // Write objects into other_objects
+			task->m_left  = myMin(left + i       * num_per_task, right);
+			task->m_right = myMin(left + (i + 1) * num_per_task, right);
+			task->m_best_axis = best_axis;
+			task->m_best_div_val = best_div_val;
+
+			task->m_left_write_i = left + sum;
+			sum += tasks[i]->m_num_left;
+		}
+
+		const int total_num_left = sum;
+
+		// Compute place tasks right_write_i.
+		// Right objects get written starting after all left objects.
+		for(int i=0; i<num_tasks; ++i)
+		{
+			place_tasks[i]->m_right_write_i = left + sum;
+			const int task_num_right = (tasks[i]->m_right - tasks[i]->m_left) - tasks[i]->m_num_left;
+			sum += task_num_right;
+		}
+		assert(sum == N);
+
+		local_task_manager->runTasks((Reference<Indigo::Task>*)place_tasks, num_tasks);
+
+		// Compute total left aabb etc., which are the unions of the AABBs from all PartitionCountTasks.
+		js::AABBox left_aabb = empty_aabb;
+		js::AABBox left_centroid_aabb = empty_aabb;
+		js::AABBox right_aabb = empty_aabb;
+		js::AABBox right_centroid_aabb = empty_aabb;
+		for(int i=0; i<num_tasks; ++i)
+		{
+			left_aabb.enlargeToHoldAABBox(tasks[i]->m_left_aabb);
+			left_centroid_aabb.enlargeToHoldAABBox(tasks[i]->m_left_centroid_aabb);
+			right_aabb.enlargeToHoldAABBox(tasks[i]->m_right_aabb);
+			right_centroid_aabb.enlargeToHoldAABBox(tasks[i]->m_right_centroid_aabb);
+		}
+		res_out.left_aabb = left_aabb;
+		res_out.left_centroid_aabb = left_centroid_aabb;
+		res_out.right_aabb = right_aabb;
+		res_out.right_centroid_aabb = right_centroid_aabb;
+		res_out.split_i = left + total_num_left;
+		res_out.in_place = false;
+	}
+	else
+	{
+		// Do serial in-place partition:
+		/*
 
 1 5 8 4 3 9 7 6 2
 
@@ -371,64 +521,57 @@ c               o
 1 5 2 4 3 6 7 9 8
           c
           o
-
 */
 
-// Parition objects in cur_objects for the given axis, based on best_div_val of best_axis.
-// Places the paritioned objects in other_objects.
-struct PartitionRes
-{
-	js::AABBox left_aabb, left_centroid_aabb;
-	js::AABBox right_aabb, right_centroid_aabb;
-	int split_i; // Index of first object that was partitioned to the right.
-};
+		// Partition objects in the objects array based on the object centroid along the best axis, based on best_div_val of best_axis.
+		// Does the partition in-place.
 
-static void partition(js::Vector<BinningOb, 64>& objects_, int left, int right, float best_div_val, int best_axis, PartitionRes& res_out)
-{
-	BinningOb* const objects = objects_.data();
+		BinningOb* const objects = cur_objects->data();
 
-	js::AABBox left_aabb = empty_aabb;
-	js::AABBox left_centroid_aabb = empty_aabb;
-	js::AABBox right_aabb = empty_aabb;
-	js::AABBox right_centroid_aabb = empty_aabb;
-	int cur = left;
-	int other = right - 1;
+		js::AABBox left_aabb = empty_aabb;
+		js::AABBox left_centroid_aabb = empty_aabb;
+		js::AABBox right_aabb = empty_aabb;
+		js::AABBox right_centroid_aabb = empty_aabb;
+		int cur = left;
+		int other = right - 1;
 
-	/*for(int i=0; i<8; ++i)
-	{
-		_mm_prefetch((const char*)(objects + left  + i), _MM_HINT_T0);
-		_mm_prefetch((const char*)(objects + right - i), _MM_HINT_T0);
-	}*/
-
-	while(cur <= other)
-	{
-		//_mm_prefetch((const char*)(objects + cur   + 32), _MM_HINT_T0);
-		//_mm_prefetch((const char*)(objects + other - 32), _MM_HINT_T0);
-
-		const js::AABBox aabb = objects[cur].aabb;
-		const Vec4f centroid = aabb.centroid();
-		if(centroid[best_axis] <= best_div_val) // If object should go on Left side:
+		/*for(int i=0; i<8; ++i)
 		{
-			left_aabb.enlargeToHoldAABBox(aabb);
-			left_centroid_aabb.enlargeToHoldPoint(centroid);
-			cur++;
-		}
-		else // else if cur object should go on Right side:
+			_mm_prefetch((const char*)(objects + left  + i), _MM_HINT_T0);
+			_mm_prefetch((const char*)(objects + right - i), _MM_HINT_T0);
+		}*/
+
+		while(cur <= other)
 		{
-			std::swap(objects[cur], objects[other]); // Swap. After the swap we know obs[other] should be on right, so we can decr other.
+			//_mm_prefetch((const char*)(objects + cur   + 32), _MM_HINT_T0);
+			//_mm_prefetch((const char*)(objects + other - 32), _MM_HINT_T0);
 
-			right_aabb.enlargeToHoldAABBox(aabb);
-			right_centroid_aabb.enlargeToHoldPoint(centroid);
+			const js::AABBox aabb = objects[cur].aabb;
+			const Vec4f centroid = aabb.centroid();
+			if(centroid[best_axis] <= best_div_val) // If object should go on Left side:
+			{
+				left_aabb.enlargeToHoldAABBox(aabb);
+				left_centroid_aabb.enlargeToHoldPoint(centroid);
+				cur++;
+			}
+			else // else if cur object should go on Right side:
+			{
+				std::swap(objects[cur], objects[other]); // Swap. After the swap we know obs[other] should be on right, so we can decr other.
 
-			other--;
+				right_aabb.enlargeToHoldAABBox(aabb);
+				right_centroid_aabb.enlargeToHoldPoint(centroid);
+
+				other--;
+			}
 		}
+
+		res_out.left_aabb = left_aabb;
+		res_out.left_centroid_aabb = left_centroid_aabb;
+		res_out.right_aabb = right_aabb;
+		res_out.right_centroid_aabb = right_centroid_aabb;
+		res_out.split_i = cur;
+		res_out.in_place = true;
 	}
-
-	res_out.left_aabb = left_aabb;
-	res_out.left_centroid_aabb = left_centroid_aabb;
-	res_out.right_aabb = right_aabb;
-	res_out.right_centroid_aabb = right_centroid_aabb;
-	res_out.split_i = cur;
 }
 
 
@@ -465,6 +608,7 @@ static void arbitraryPartition(js::Vector<BinningOb, 64>& objects_, int left, in
 	res_out.right_aabb = right_aabb;
 	res_out.right_centroid_aabb = right_centroid_aabb;
 	res_out.split_i = split_i;
+	res_out.in_place = true;
 }
 
 
@@ -544,15 +688,15 @@ public:
 	const js::Vector<BinningOb, 64>* objects_;
 	int left, right, task_left, task_right;
 
-	char padding[64];
+	char padding[64]; // to avoid false sharing.
 };
 
 
 
 static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& objects_, int left, int right, int& best_axis_out, float& best_div_val_out, float& smallest_split_cost_factor_out)
 {
-	const js::AABBox& centroid_aabb = centroid_aabb_;
-	BinningOb* const objects = objects_.data();
+	const js::AABBox centroid_aabb = centroid_aabb_;
+	const BinningOb* const objects = objects_.data();
 
 	float smallest_split_cost_factor = std::numeric_limits<float>::infinity(); // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
 	//int best_N_L = -1;
@@ -772,6 +916,8 @@ Assumptions: root node for subtree is already created and is at node_index
 */
 void BinningBVHBuilder::doBuild(
 			BinningPerThreadTempInfo& thread_temp_info,
+			js::Vector<BinningOb, 64>* cur_objects,
+			js::Vector<BinningOb, 64>* other_objects,
 			const js::AABBox& aabb,
 			const js::AABBox& centroid_aabb,
 			uint32 node_index, // index in chunk nodes
@@ -797,7 +943,7 @@ void BinningBVHBuilder::doBuild(
 		node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
 		for(int i=left; i<right; ++i)
-			result_indices[i] = objects[i].getIndex();
+			this->result_indices[i] = (*cur_objects)[i].getIndex();
 
 		// Update build stats
 		if(depth >= MAX_DEPTH)
@@ -822,7 +968,7 @@ void BinningBVHBuilder::doBuild(
 	//conPrint("Looking for best split...");
 	//Timer timer;
 
-	search(local_task_manager, *task_manager, centroid_aabb, objects, left, right, best_axis, best_div_val, smallest_split_cost_factor);
+	search(local_task_manager, *task_manager, centroid_aabb, *cur_objects, left, right, best_axis, best_div_val, smallest_split_cost_factor);
 	
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();
@@ -830,7 +976,7 @@ void BinningBVHBuilder::doBuild(
 	PartitionRes res;
 	if(best_axis == -1) // This can happen when all object centres coordinates along the axis are the same.
 	{
-		arbitraryPartition(objects, left, right, res);
+		arbitraryPartition(*cur_objects, left, right, res);
 	}
 	else
 	{
@@ -847,7 +993,7 @@ void BinningBVHBuilder::doBuild(
 			node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
 			for(int i=left; i<right; ++i)
-				result_indices[i] = objects[i].getIndex();
+				this->result_indices[i] = (*cur_objects)[i].getIndex();
 
 			// Update build stats
 			thread_temp_info.stats.num_cheaper_nosplit_leaves++;
@@ -858,16 +1004,20 @@ void BinningBVHBuilder::doBuild(
 			return;
 		}
 
-		partition(objects, left, right, best_div_val, best_axis, res);
+		partition(local_task_manager, cur_objects, other_objects, left, right, best_div_val, best_axis, res);
+		
+		// If the parition wasn't in place, the partitioned object were written to other_objects.  Swap.
+		if(!res.in_place)
+			mySwap(cur_objects, other_objects);
 
-		// Check partitioning
+		// Check partitioning results are correct
 #ifndef NDEBUG
-		const int num_left_tris = res.cur - left;
+		const int num_left_tris = res.split_i - left;
 		for(int i=left; i<left + num_left_tris; ++i)
-			assert(objects[i].aabb.centroid()[best_axis] <= best_div_val);
+			assert((*cur_objects)[i].aabb.centroid()[best_axis] <= best_div_val);
 
 		for(int i=left + num_left_tris; i<right; ++i)
-			assert(objects[i].aabb.centroid()[best_axis] > best_div_val);
+			assert((*cur_objects)[i].aabb.centroid()[best_axis] > best_div_val);
 #endif
 	}
 
@@ -887,7 +1037,7 @@ void BinningBVHBuilder::doBuild(
 
 	if(num_left_tris == 0 || num_left_tris == right - left)
 	{
-		arbitraryPartition(objects, left, right, res);
+		arbitraryPartition(*cur_objects, left, right, res);
 		num_left_tris = res.split_i - left;
 	}
 
@@ -944,6 +1094,8 @@ void BinningBVHBuilder::doBuild(
 	// Build left child
 	doBuild(
 		thread_temp_info,
+		cur_objects,
+		other_objects,
 		res.left_aabb, // aabb
 		res.left_centroid_aabb,
 		(int)left_child, // node index
@@ -964,6 +1116,8 @@ void BinningBVHBuilder::doBuild(
 		subtree_task->end = right;
 		subtree_task->parent_node_index = (int)(node_index);
 		subtree_task->parent_chunk = node_result_chunk;
+		subtree_task->cur_objects = cur_objects;
+		subtree_task->other_objects = other_objects;
 
 		task_manager->addTask(subtree_task);
 	}
@@ -972,6 +1126,8 @@ void BinningBVHBuilder::doBuild(
 		// Build right child
 		doBuild(
 			thread_temp_info,
+			cur_objects,
+			other_objects,
 			res.right_aabb, // aabb
 			res.right_centroid_aabb,
 			right_child, // node index
