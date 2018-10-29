@@ -88,6 +88,7 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 
 BinningBVHBuilder::~BinningBVHBuilder()
 {
+	delete local_task_manager;
 }
 
 
