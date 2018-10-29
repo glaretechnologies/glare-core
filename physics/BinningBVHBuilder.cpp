@@ -862,7 +862,7 @@ void BinningBVHBuilder::doBuild(
 
 		// Check partitioning
 #ifndef NDEBUG
-		const int num_left_tris = res.cur - left;
+		const int num_left_tris = res.split_i - left;
 		for(int i=left; i<left + num_left_tris; ++i)
 			assert(objects[i].aabb.centroid()[best_axis] <= best_div_val);
 
