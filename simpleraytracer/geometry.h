@@ -116,7 +116,8 @@ public:
 
 	struct BuildOptions
 	{
-		BuildOptions() {}
+		BuildOptions() : build_small_bvh(false) {}
+		bool build_small_bvh;
 	};
 	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
 

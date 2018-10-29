@@ -17,6 +17,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../indigo/RendererSettings.h"
 #include "../raytracing/hitinfo.h"
 #include "../physics/BVH.h"
+#include "../physics/SmallBVH.h"
 #include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../indigo/DisplacementUtils.h"
 #include "../dll/include/IndigoMesh.h"
@@ -849,16 +850,22 @@ void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& optio
 	}*/
 #endif
 
-
-#ifndef NO_EMBREE
-	if(triangles.size() < (1 << 26))
+	if(options.build_small_bvh)
 	{
-		tritree = new EmbreeAccel(this, embree_spatial);
+		tritree = new js::SmallBVH(this);
 	}
 	else
-#endif
 	{
-		tritree = new js::BVH(this);
+#ifndef NO_EMBREE
+		if(triangles.size() < (1 << 26))
+		{
+			tritree = new EmbreeAccel(this, embree_spatial);
+		}
+		else
+#endif
+		{
+			tritree = new js::BVH(this);
+		}
 	}
 
 
