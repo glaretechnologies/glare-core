@@ -1,11 +1,50 @@
 /*=====================================================================
 BinningBVHBuilder.cpp
 -------------------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2018 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #include "BinningBVHBuilder.h"
 
+
+/*
+Dev notes
+---------
+I tried parallelising the partition function. Results:
+
+With MT'd parition
+==================
+
+BVHBuilderTests perf tests:
+---------------------------
+av_time:  0.13871507287141413 s
+min_time: 0.1354363030463901 s
+
+bedroom:
+--------
+tritree->build: 0.6952134609564382 s
+OpenCLPTSceneBuilder::buildMeshBVH(): BVH build took 0.4618 s
+
+Without MT'd partition
+======================
+
+BVHBuilderTests perf tests:
+---------------------------
+av_time:  0.1436770330129184 s
+min_time: 0.13933144048314716 s
+
+bedroom:
+--------
+tritree->build: 0.6083853368400014 s
+OpenCLPTSceneBuilder::buildMeshBVH(): BVH build took 0.3879 s
+
+
+
+
+So the MT'd partition, while faster on the BVHBuilderTests perf tests, is quite a bit slower on the bedroom scene.  So we won't use that code.
+MT'd partition is probably slower on the bedroom scene due to the increased memory usage, as the partition cannot be in-place any more.
+
+*/
 
 #include "jscol_aabbox.h"
 #include <algorithm>
@@ -39,6 +78,7 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 	static_assert(sizeof(ResultNode) == 48, "sizeof(ResultNode) == 48");
 
 	this->objects.resizeNoCopy(m_num_objects);
+	this->result_indices.resizeNoCopy(m_num_objects);
 	root_aabb = empty_aabb;
 	root_centroid_aabb = empty_aabb;
 }
@@ -254,10 +294,6 @@ void BinningBVHBuilder::build(
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
-	result_indices.resizeNoCopy(num_objects);
-	for(int i=0; i<num_objects; ++i)
-		result_indices[i] = objects[i].getIndex();
-
 
 	// Combine stats from each thread
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
@@ -342,7 +378,7 @@ struct PartitionRes
 {
 	js::AABBox left_aabb, left_centroid_aabb;
 	js::AABBox right_aabb, right_centroid_aabb;
-	int cur;
+	int split_i; // Index of first object that was partitioned to the right.
 };
 
 static void partition(js::Vector<BinningOb, 64>& objects_, int left, int right, float best_div_val, int best_axis, PartitionRes& res_out)
@@ -390,7 +426,7 @@ static void partition(js::Vector<BinningOb, 64>& objects_, int left, int right, 
 	res_out.left_centroid_aabb = left_centroid_aabb;
 	res_out.right_aabb = right_aabb;
 	res_out.right_centroid_aabb = right_centroid_aabb;
-	res_out.cur = cur;
+	res_out.split_i = cur;
 }
 
 
@@ -426,7 +462,7 @@ static void arbitraryPartition(js::Vector<BinningOb, 64>& objects_, int left, in
 	res_out.left_centroid_aabb = left_centroid_aabb;
 	res_out.right_aabb = right_aabb;
 	res_out.right_centroid_aabb = right_centroid_aabb;
-	res_out.cur = split_i;
+	res_out.split_i = split_i;
 }
 
 
@@ -533,7 +569,7 @@ static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager
 
 	const int N = right - left;
 	const int task_N = 1 << 16;
-	if(N >= task_N)
+	if(N >= task_N) // If there are enough objects, do parallel binning:
 	{
 		if(!local_task_manager)
 			local_task_manager = new Indigo::TaskManager();
@@ -618,7 +654,7 @@ static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager
 		}
 #endif
 	}
-	else
+	else // Else do serial binning:
 	{
 		const Vec4f scale = div(Vec4f((float)num_buckets), (centroid_aabb.max_ - centroid_aabb.min_));
 		for(int i=left; i<right; ++i)
@@ -758,6 +794,9 @@ void BinningBVHBuilder::doBuild(
 		node_result_chunk->nodes[node_index].right = right;
 		node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
+		for(int i=left; i<right; ++i)
+			result_indices[i] = objects[i].getIndex();
+
 		// Update build stats
 		if(depth >= MAX_DEPTH)
 			thread_temp_info.stats.num_maxdepth_leaves++;
@@ -805,6 +844,9 @@ void BinningBVHBuilder::doBuild(
 			node_result_chunk->nodes[node_index].right = right;
 			node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
+			for(int i=left; i<right; ++i)
+				result_indices[i] = objects[i].getIndex();
+
 			// Update build stats
 			thread_temp_info.stats.num_cheaper_nosplit_leaves++;
 			thread_temp_info.stats.leaf_depth_sum += depth;
@@ -839,13 +881,16 @@ void BinningBVHBuilder::doBuild(
 	assert(res.right_aabb.containsAABBox(res.right_centroid_aabb));
 	assert(centroid_aabb.containsAABBox(res.right_centroid_aabb));
 
-	int num_left_tris = res.cur - left;
+	int num_left_tris = res.split_i - left;
 
 	if(num_left_tris == 0 || num_left_tris == right - left)
 	{
 		arbitraryPartition(objects, left, right, res);
-		num_left_tris = res.cur - left;
+		num_left_tris = res.split_i - left;
 	}
+
+	const int split_i = res.split_i;
+	const int num_right_tris = right - split_i;
 
 	//timer.reset();
 	//partition_time += timer.elapsed();
@@ -859,8 +904,7 @@ void BinningBVHBuilder::doBuild(
 	BinningResultChunk* left_child_chunk = thread_temp_info.result_chunk;
 
 
-	const int split_i = left + num_left_tris;
-	const bool do_right_child_in_new_task = (num_left_tris >= new_task_num_ob_threshold) && ((right - split_i) >= new_task_num_ob_threshold);// && !task_manager->areAllThreadsBusy();
+	const bool do_right_child_in_new_task = (num_left_tris >= new_task_num_ob_threshold) && (num_right_tris >= new_task_num_ob_threshold);// && !task_manager->areAllThreadsBusy();
 
 	//if(do_right_child_in_new_task)
 	//	conPrint("Splitting task: num left=" + toString(split_i - left) + ", num right=" + toString(right - split_i));

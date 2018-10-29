@@ -1,7 +1,7 @@
 /*=====================================================================
 BinningBVHBuilder.h
 -------------------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2018 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #pragma once
