@@ -48,7 +48,7 @@ Solution: Use some kind of low-memory acceleration structure for this purpose.
 class SmallBVH : public Tree
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	SmallBVH(const RayMesh* const raymesh);
 	virtual ~SmallBVH();

@@ -29,7 +29,7 @@ template <class Real>
 class Quat
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	inline Quat() {}
 	inline Quat(Real x, Real y, Real z, Real w);

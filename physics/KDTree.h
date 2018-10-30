@@ -51,7 +51,7 @@ Kd-Tree
 class KDTree : public Tree
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	friend class NLogNKDTreeBuilder;
 	friend class ThreadedBuilder::ThreadedNLogNKDTreeBuilder;

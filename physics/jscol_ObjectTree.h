@@ -35,7 +35,7 @@ ObjectTree
 class ObjectTree
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	ObjectTree();
 	~ObjectTree();

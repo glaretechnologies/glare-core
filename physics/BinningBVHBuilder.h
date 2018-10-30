@@ -57,7 +57,7 @@ struct BinningOb
 
 struct BinningResultChunk
 {
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	const static size_t MAX_RESULT_CHUNK_SIZE = ((1 << 16) / sizeof(ResultNode)) - 1; // We want the size of BinningResultChunk to be just under 1 << 16.  (Set nodes size to leave room other member vars)
 	
@@ -87,7 +87,7 @@ Multi-threaded SAH BVH builder.
 class BinningBVHBuilder : public BVHBuilder
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.

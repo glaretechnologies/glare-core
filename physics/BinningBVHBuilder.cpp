@@ -132,7 +132,7 @@ May spawn new BuildSubtreeTasks.
 class BinningBuildSubtreeTask : public Indigo::Task
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	BinningBuildSubtreeTask(BinningBVHBuilder& builder_) : builder(builder_) {}
 	
@@ -489,7 +489,7 @@ static inline int numBucketsForNumObs(int num_obs)
 class BinTask : public Indigo::Task
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	virtual void run(size_t thread_index)
 	{

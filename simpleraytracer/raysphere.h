@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2013 -
 class RaySphere : public Geometry
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	RaySphere(const Vec4f& centre, double radius_);
 	virtual ~RaySphere();

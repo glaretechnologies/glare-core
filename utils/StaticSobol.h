@@ -22,7 +22,7 @@ Based on Carsten Waechter's PhD thesis: http://vts.uni-ulm.de/query/longview.met
 SSE_CLASS_ALIGN StaticSobol
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	const static uint32 num_dims = 21200; // We actually have 21201 dimensions but round it down
 

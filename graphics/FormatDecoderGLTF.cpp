@@ -103,7 +103,7 @@ typedef Reference<GLTFAccessor> GLTFAccessorRef;
 
 struct GLTFNode : public RefCounted
 {
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	GLTFNode() : mesh(std::numeric_limits<size_t>::max()) {}
 
@@ -145,7 +145,7 @@ struct GLTFTextureObject
 
 struct GLTFMaterial : public RefCounted
 {
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false), pbrMetallicRoughness_present(false) {}
 

@@ -30,7 +30,7 @@ Must be 16-byte aligned.
 class AABBox
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	INDIGO_STRONG_INLINE AABBox();
 	INDIGO_STRONG_INLINE AABBox(const Vec4f& _min, const Vec4f& _max);

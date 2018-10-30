@@ -113,9 +113,11 @@ namespace SSE
 };
 
 
-#define INDIGO_ALIGNED_NEW_DELETE \
-	void* operator new(size_t size) { return SSE::alignedMalloc(size, 32); } \
-	void operator delete(void* ptr) { SSE::alignedFree(ptr); }
+#define GLARE_ALIGNED_16_NEW_DELETE \
+	void* operator new  (size_t size) { return SSE::alignedMalloc(size, 16); } \
+	void* operator new[](size_t size) { return SSE::alignedMalloc(size, 16); } \
+	void operator delete  (void* ptr) { SSE::alignedFree(ptr); } \
+	void operator delete[](void* ptr) { SSE::alignedFree(ptr); }
 
 
 // GLARE_ALIGNMENT - get alignment of type

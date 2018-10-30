@@ -23,7 +23,7 @@ Four component vector class that uses SSE 4-vectors.
 SSE_CLASS_ALIGN Vec4f
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	typedef float RealType;
 

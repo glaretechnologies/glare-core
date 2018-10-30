@@ -93,7 +93,7 @@ private:
 SSE_CLASS_ALIGN RayMeshQuad
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	RayMeshQuad(){}
 
@@ -172,7 +172,7 @@ RayMesh
 class RayMesh : public Geometry
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	RayMesh(const std::string& name, bool enable_shading_normals, 
 		unsigned int max_num_subdivisions = 0, 

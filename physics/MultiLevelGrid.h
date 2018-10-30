@@ -33,7 +33,7 @@ template <class CellTest, class Result, class NodeData>
 class MultiLevelGrid
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	inline MultiLevelGrid(const Vec4f& min, const Vec4f& max, const CellTest& cell_test_);
 	inline ~MultiLevelGrid();

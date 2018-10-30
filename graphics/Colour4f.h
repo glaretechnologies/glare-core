@@ -23,7 +23,7 @@ Colour4f
 SSE_CLASS_ALIGN Colour4f
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	typedef float RealType;
 

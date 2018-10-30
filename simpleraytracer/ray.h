@@ -17,7 +17,7 @@ Need not be normalised.
 class Ray
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	INDIGO_STRONG_INLINE Ray() {}
 

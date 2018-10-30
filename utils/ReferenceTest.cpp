@@ -86,7 +86,7 @@ static void functionWithByRefRefParam(const Reference<TestClass>& ref)
 SSE_CLASS_ALIGN AlignedTestClass : public RefCounted
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	AlignedTestClass(int* i_)
 	:	i(i_)

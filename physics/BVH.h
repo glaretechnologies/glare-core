@@ -33,7 +33,7 @@ Triangle mesh acceleration structure.
 class BVH : public Tree
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	BVH(const RayMesh* const raymesh);
 	virtual ~BVH();

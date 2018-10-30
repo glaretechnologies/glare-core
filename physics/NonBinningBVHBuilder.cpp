@@ -177,7 +177,7 @@ May spawn new BuildSubtreeTasks.
 class BuildSubtreeTask : public Indigo::Task
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	BuildSubtreeTask(NonBinningBVHBuilder& builder_) : builder(builder_) {}
 	

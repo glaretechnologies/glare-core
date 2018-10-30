@@ -23,7 +23,7 @@ Optimised for multiplications with Vec4fs.
 SSE_CLASS_ALIGN Matrix4f
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	inline Matrix4f() {}
 	inline Matrix4f(const float* data);

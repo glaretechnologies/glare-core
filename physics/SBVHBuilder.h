@@ -59,7 +59,7 @@ struct SBVHOb
 
 struct SBVHResultChunk
 {
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	const static size_t MAX_RESULT_CHUNK_SIZE = 600;
 
@@ -72,7 +72,7 @@ struct SBVHResultChunk
 
 struct SBVHLeafResultChunk
 {
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	const static size_t MAX_RESULT_CHUNK_SIZE = 600;
 
@@ -116,7 +116,7 @@ https://github.com/embree/embree/blob/master/kernels/builders/heuristic_spatial.
 class SBVHBuilder : public BVHBuilder
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.

@@ -29,7 +29,7 @@ See http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-16-shadow-map
 class ShadowMapping : public RefCounted
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	ShadowMapping();
 	~ShadowMapping();

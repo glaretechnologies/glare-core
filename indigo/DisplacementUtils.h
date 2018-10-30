@@ -138,7 +138,7 @@ struct VertsAndUVs
 struct DUOptions
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	Matrix4f object_to_camera;
 

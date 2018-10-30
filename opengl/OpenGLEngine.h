@@ -48,7 +48,7 @@ public:
 class OpenGLMeshRenderData : public RefCounted
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 	VBORef vert_vbo;
@@ -64,7 +64,7 @@ public:
 class OpenGLMaterial
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	OpenGLMaterial()
 	:	transparent(false),
@@ -106,7 +106,7 @@ public:
 
 struct GLObject : public RefCounted
 {
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_inv_tranpose_matrix; // inverse tranpose of upper-left part of to-world matrix.
@@ -122,7 +122,7 @@ typedef Reference<GLObject> GLObjectRef;
 
 struct OverlayObject : public RefCounted
 {
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	Matrix4f ob_to_world_matrix;
 
@@ -146,7 +146,7 @@ public:
 class OpenGLEngine : public ThreadSafeRefCounted
 {
 public:
-	INDIGO_ALIGNED_NEW_DELETE
+	GLARE_ALIGNED_16_NEW_DELETE
 
 	OpenGLEngine(const OpenGLEngineSettings& settings);
 	~OpenGLEngine();
