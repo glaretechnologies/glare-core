@@ -157,6 +157,7 @@ public:
 class BaseClass : public RefCounted
 {
 public:
+	virtual ~BaseClass() {}
 	virtual void f() {} // Make this class polymorphic
 	int base_x;
 
