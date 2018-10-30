@@ -441,7 +441,7 @@ void circularBufferTest()
 						buf.clear();
 					}
 
-					testAssert(test_struct->getRefCount() == 1 + buf.size());
+					testAssert(test_struct->getRefCount() == (int64)(1 + buf.size()));
 
 					// Test iterating over resulting buffer
 					size_t c = 0;

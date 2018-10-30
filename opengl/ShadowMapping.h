@@ -21,6 +21,11 @@ FrameBuffer
 ---------
 See http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-16-shadow-mapping/
 =====================================================================*/
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
+#endif
+
 class ShadowMapping : public RefCounted
 {
 public:
@@ -58,3 +63,7 @@ public:
 
 	//Reference<FrameBuffer> blur_fb;
 };
+
+#ifdef _WIN32
+#pragma warning(pop)
+#endif

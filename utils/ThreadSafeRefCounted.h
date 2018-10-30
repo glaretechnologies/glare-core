@@ -1,7 +1,7 @@
 /*=====================================================================
 ThreadSafeRefCounted.h
 ----------------------
-Copyright Glare Technologies Limited 2014 - 
+Copyright Glare Technologies Limited 2018 - 
 =====================================================================*/
 #pragma once
 
@@ -13,19 +13,16 @@ Copyright Glare Technologies Limited 2014 -
 /*=====================================================================
 ThreadSafeRefCounted
 --------------------
-derive from this to make class reference counted.
-Raw pointers to this subclasses are illegal.
-Use Reference<Subclass> instead.
+This is a 'mixin' class that adds an atomic refcount and a few methods to increment and decrement the ref count etc..
+Derive from this to make a class reference-counted.
 =====================================================================*/
 class ThreadSafeRefCounted
 {
 public:
-	ThreadSafeRefCounted()
-	:	refcount(0)
-	{
-	}
+	ThreadSafeRefCounted() : refcount(0) {}
 
-	virtual ~ThreadSafeRefCounted()
+	// We don't want a virtual destructor in this class as we don't want to force derived classes to be polymorphic (e.g. to require a vtable).
+	~ThreadSafeRefCounted()
 	{
 		assert(refcount == 0);
 	}

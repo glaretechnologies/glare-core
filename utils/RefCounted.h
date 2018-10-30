@@ -1,7 +1,7 @@
 /*=====================================================================
 RefCounted.h
 ------------
-Copyright Glare Technologies Limited 2013 - 
+Copyright Glare Technologies Limited 2018 - 
 =====================================================================*/
 #pragma once
 
@@ -13,24 +13,16 @@ Copyright Glare Technologies Limited 2013 -
 /*=====================================================================
 RefCounted
 ----------
-derive from this to make class reference counted.
-Raw pointers to this subclasses are illegal.
-Use Reference<Subclass> instead.
+This is a 'mixin' class that adds a refcount and a few methods to increment and decrement the ref count etc..
+Derive from this to make a class reference-counted.
 =====================================================================*/
 class RefCounted
 {
 public:
-	/*=====================================================================
-	RefCounted
-	----------
-	
-	=====================================================================*/
-	RefCounted()
-	:	refcount(0)
-	{
-	}
+	RefCounted() : refcount(0) {}
 
-	virtual ~RefCounted()
+	// We don't want a virtual destructor in this class as we don't want to force derived classes to be polymorphic (e.g. to require a vtable).
+	~RefCounted()
 	{
 		assert(refcount == 0);
 	}
@@ -42,15 +34,15 @@ public:
 	}
 
 	// Returns previous reference count
-	inline int decRefCount() const
+	inline int64 decRefCount() const
 	{ 
-		const int prev_ref_count = refcount;
+		const int64 prev_ref_count = refcount;
 		refcount--;
 		assert(refcount >= 0);
 		return prev_ref_count;
 	}
 
-	inline int getRefCount() const 
+	inline int64 getRefCount() const
 	{ 
 		assert(refcount >= 0);
 		return refcount; 
@@ -61,5 +53,5 @@ private:
 	// as these may cause memory leaks when refcount is copied directly.
 	INDIGO_DISABLE_COPY(RefCounted)
 
-	mutable int refcount;
+	mutable int64 refcount;
 };

@@ -36,7 +36,7 @@ public:
 	{
 		(*i)++;
 	}
-	virtual ~TestClass()
+	~TestClass()
 	{
 		(*i)--;
 	}
@@ -46,6 +46,10 @@ public:
 private:
 	int* i;
 };
+
+// The RefCounted reference count should add 8 bytes, and then the int* pointer will be 4 or 8 bytes, resulting in a total size of 16 bytes.
+static_assert(sizeof(TestClass) == 16, "sizeof(TestClass) == 16");
+
 
 class DerivedTestClass : public TestClass
 {
@@ -89,7 +93,7 @@ public:
 	{
 		(*i)++;
 	}
-	virtual ~AlignedTestClass()
+	~AlignedTestClass()
 	{
 		(*i)--;
 	}
@@ -113,7 +117,7 @@ public:
 	ThreadSafeTestClass()
 	{
 	}
-	virtual ~ThreadSafeTestClass()
+	~ThreadSafeTestClass()
 	{
 	}
 
@@ -153,6 +157,7 @@ public:
 class BaseClass : public RefCounted
 {
 public:
+	virtual void f() {} // Make this class polymorphic
 	int base_x;
 
 };

@@ -99,6 +99,10 @@ public:
 	uint64 userdata;
 };
 
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
+#endif
 
 struct GLObject : public RefCounted
 {
@@ -129,7 +133,6 @@ struct OverlayObject : public RefCounted
 typedef Reference<OverlayObject> OverlayObjectRef;
 
 
-
 class OpenGLEngineSettings
 {
 public:
@@ -140,11 +143,6 @@ public:
 };
 
 
-
-#ifdef _WIN32
-#pragma warning(push)
-#pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
-#endif
 class OpenGLEngine : public ThreadSafeRefCounted
 {
 public:
@@ -411,6 +409,7 @@ public:
 
 	uint64 frame_num;
 };
+
 #ifdef _WIN32
 #pragma warning(pop)
 #endif

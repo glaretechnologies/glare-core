@@ -64,7 +64,7 @@ public:
 	{
 		if(ob)
 		{
-			const int prev_ref_count = ob->decRefCount();
+			const int64 prev_ref_count = ob->decRefCount();
 			if(prev_ref_count == 1)
 				delete ob;
 		}
@@ -88,7 +88,7 @@ public:
 		//-----------------------------------------------------------------
 		if(ob)
 		{
-			const int prev_ref_count = ob->decRefCount();
+			const int64 prev_ref_count = ob->decRefCount();
 			if(prev_ref_count == 1)
 				delete ob;
 		}
@@ -109,7 +109,7 @@ public:
 		//-----------------------------------------------------------------
 		if(ob)
 		{
-			const int prev_ref_count = ob->decRefCount();
+			const int64 prev_ref_count = ob->decRefCount();
 			if(prev_ref_count == 1)
 				delete ob;
 		}
