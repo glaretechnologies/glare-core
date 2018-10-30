@@ -41,12 +41,13 @@ public:
 		refcount++; 
 	}
 
-	// Returns resulting decremented reference count
+	// Returns previous reference count
 	inline int decRefCount() const
 	{ 
+		const int prev_ref_count = refcount;
 		refcount--;
 		assert(refcount >= 0);
-		return refcount;
+		return prev_ref_count;
 	}
 
 	inline int getRefCount() const 

@@ -59,9 +59,9 @@ threadFunction(void* the_thread_)
 	the_thread->run();
 
 	// Decrement the reference count
-	int64 new_ref_count = the_thread->decRefCount();
-	assert(new_ref_count >= 0);
-	if(new_ref_count == 0)
+	const int64 prev_ref_count = the_thread->decRefCount();
+	assert(prev_ref_count >= 0);
+	if(prev_ref_count == 1)
 		delete the_thread;
 
 	return 0;

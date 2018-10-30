@@ -30,10 +30,10 @@ public:
 		assert(refcount == 0);
 	}
 
-	// Returns resulting decremented reference count
+	// Returns previous reference count
 	inline glare_atomic_int decRefCount() const
 	{ 
-		return refcount.decrement() - 1;
+		return refcount.decrement();
 	}
 
 	inline void incRefCount() const

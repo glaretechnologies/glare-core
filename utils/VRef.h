@@ -61,8 +61,8 @@ public:
 	{
 		if(ob)
 		{
-			int64 new_ref_count = ob->decRefCount();
-			if(new_ref_count == 0)
+			const int64 prev_ref_count = ob->decRefCount();
+			if(prev_ref_count == 1)
 				delete ob;
 		}
 	}
@@ -93,8 +93,8 @@ public:
 		// Decrement reference count for the object that this reference used to refer to.
 		if(old_ob)
 		{
-			int64 ref_count = old_ob->decRefCount();
-			if(ref_count == 0)
+			const int64 prev_ref_count = old_ob->decRefCount();
+			if(prev_ref_count == 1)
 				delete old_ob;
 		}
 
