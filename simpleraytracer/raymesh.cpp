@@ -38,6 +38,21 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include <algorithm>
 
 
+// Allocates a little extra memory, so that we do 4-vector loads of vertex data without reading out-of-bounds.
+class PaddingAllocator : public glare::Allocator
+{
+	virtual void* alloc(size_t size, size_t alignment)
+	{
+		return SSE::alignedMalloc(size + 16, alignment);
+	}
+
+	virtual void free(void* ptr)
+	{
+		SSE::alignedFree(ptr);
+	}
+};
+
+
 RayMesh::RayMesh(const std::string& name_, bool enable_shading_normals_, unsigned int max_num_subdivisions_,
 				 double subdivide_pixel_threshold_, bool subdivision_smoothing_, double subdivide_curvature_threshold_, 
 				bool view_dependent_subdivision_,
@@ -61,6 +76,8 @@ RayMesh::RayMesh(const std::string& name_, bool enable_shading_normals_, unsigne
 	vertex_shading_normals_provided = false;
 
 	num_uv_sets = 0;
+
+	this->vertices.setAllocator(new PaddingAllocator());
 }
 
 
@@ -255,7 +272,6 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 		N_s_os_out = N_g_os_out;
 	else
 	{
-		static_assert(offsetof(RayMeshVertex, normal) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
 		const Vec4f v0norm = _mm_loadu_ps(&v0.normal.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
 		const Vec4f v1norm = _mm_loadu_ps(&v1.normal.x);
 		const Vec4f v2norm = _mm_loadu_ps(&v2.normal.x);
@@ -346,6 +362,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 					quads,
 					vertices, // vertices_in_out
 					uvs, // uvs_in_out
+					mean_curvature, // mean curvature out
 					this->num_uv_sets,
 					options,
 					this->enable_shading_normals,
@@ -553,7 +570,7 @@ void RayMesh::buildJSTris()
 
 Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const
 {
-	Reference<RayMesh> new_mesh(new RayMesh(
+	Reference<RayMesh> new_mesh = new RayMesh(
 		name,
 		enable_shading_normals,
 		max_num_subdivisions,
@@ -562,12 +579,13 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 		subdivide_curvature_threshold,
 		view_dependent_subdivision,
 		displacement_error_threshold
-	));
+	);
 
 	// new_mesh->matname_to_index_map = matname_to_index_map;
 
 	// Copy the vertices
 	new_mesh->vertices = vertices;
+	new_mesh->mean_curvature = mean_curvature;
 
 	// Copy the UVs
 	new_mesh->num_uv_sets = num_uv_sets;
@@ -627,11 +645,12 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 				RayMeshVertex new_vert_1;
 				new_vert_1.pos =    Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].pos,    new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].pos,    t_1);
 				new_vert_1.normal = Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].normal, new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].normal, t_1);
-				new_vert_1.H =      Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].H,      new_mesh->vertices[current_triangles[t].vertex_indices[v_i1]].H,		t_1);
+				float new_vert_H =  Maths::uncheckedLerp(new_mesh->mean_curvature[current_triangles[t].vertex_indices[v_i]],  new_mesh->mean_curvature[current_triangles[t].vertex_indices[v_i1]],  t_1);
 
 				// Add it to the vertices list
 				const unsigned int new_vert_1_index = (unsigned int)new_mesh->vertices.size();
 				new_mesh->vertices.push_back(new_vert_1);
+				new_mesh->mean_curvature.push_back(new_vert_H);
 
 				// Make new UV coordinate pairs
 				const unsigned int new_uv_1_index   = (unsigned int)new_mesh->uvs.size();
@@ -658,11 +677,13 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 				RayMeshVertex new_vert_2;
 				new_vert_2.pos =    Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].pos,    new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].pos,    t_2);
 				new_vert_2.normal = Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].normal, new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].normal, t_2);
-				new_vert_2.H =		Maths::uncheckedLerp(new_mesh->vertices[current_triangles[t].vertex_indices[v_i]].H,	  new_mesh->vertices[current_triangles[t].vertex_indices[v_i2]].H,		t_2);
+				new_vert_H =		Maths::uncheckedLerp(new_mesh->mean_curvature[current_triangles[t].vertex_indices[v_i]],  new_mesh->mean_curvature[current_triangles[t].vertex_indices[v_i2]],  t_2);
 
 				// Add it to the vertices list
 				const unsigned int new_vert_2_index = (unsigned int)new_mesh->vertices.size();
 				new_mesh->vertices.push_back(new_vert_2);
+
+				new_mesh->mean_curvature.push_back(new_vert_H);
 
 				// Make new UV coordinate pairs
 				const unsigned int new_uv_2_index   = (unsigned int)new_mesh->uvs.size();
@@ -1060,6 +1081,8 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		vertex_shading_normals_provided = true;
 	}
 
+	this->mean_curvature.resize(mesh.vert_positions.size());
+
 	// Copy UVs from Indigo::Mesh
 	assert(mesh.num_uv_mappings == 0 || (mesh.uv_pairs.size() % mesh.num_uv_mappings == 0));
 
@@ -1246,13 +1269,15 @@ void RayMesh::setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets)
 
 void RayMesh::addVertex(const Vec3f& pos)
 {
-	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.f), 0));
+	vertices.push_back(RayMeshVertex(pos, Vec3f(0.f, 0.f, 0.f)));
+	mean_curvature.push_back(0.f);
 }
 
 
 void RayMesh::addVertex(const Vec3f& pos, const Vec3f& normal)
 {
-	vertices.push_back(RayMeshVertex(pos, normal, 0));
+	vertices.push_back(RayMeshVertex(pos, normal));
+	mean_curvature.push_back(0.f);
 
 	this->vertex_shading_normals_provided = true;
 }
@@ -1446,6 +1471,7 @@ struct ComputePolyInfoTaskClosure
 	RayMesh::QuadVectorType* quads;
 	std::vector<Vec2f>* uvs;
 	int num_uv_sets;
+	RayMesh::FloatVectorType* mean_curvature;
 	//std::vector<RayMesh::VertDerivs>* vert_derivs;
 	bool update_shading_normals;
 	std::vector<int>* vert_num_polys;
@@ -1563,6 +1589,7 @@ public:
 	{
 		const js::Vector<PolyTempInfo, 64>& poly_info = *closure.poly_info;
 		RayMesh::VertexVectorType& vertices = *closure.vertices;
+		RayMesh::FloatVectorType& mean_curvature = *closure.mean_curvature;
 		const RayMesh::TriangleVectorType& triangles = *closure.triangles;
 		const RayMesh::QuadVectorType& quads = *closure.quads;
 		//const int num_uv_sets = closure.num_uv_sets;
@@ -1653,7 +1680,7 @@ public:
 
 			float H_p_len_dot_N = -0.25f * dot(H, vertices[v].normal);
 			float A_p_len = (1.0f / 6.0f) * A.length();
-			vertices[v].H = H_p_len_dot_N / A_p_len;
+			mean_curvature[v] = H_p_len_dot_N / A_p_len;
 
 			/*if(num_polys > 0)
 			{
@@ -1743,6 +1770,7 @@ void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_ma
 	closure.quads = &quads;
 	closure.uvs = &uvs;
 	closure.num_uv_sets = num_uv_sets;
+	closure.mean_curvature = &mean_curvature;
 	//closure.vert_derivs = &vert_derivs;
 	closure.update_shading_normals = update_shading_normals;
 	closure.vert_num_polys = &vert_num_polys;
@@ -1769,11 +1797,11 @@ float RayMesh::meanCurvature(const HitInfo& hitinfo) const
 	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
 
 	const RayMeshTriangle& tri(this->triangles[hitinfo.sub_elem_index]);
-	const RayMeshVertex& v0(vertices[tri.vertex_indices[0]]);
-	const RayMeshVertex& v1(vertices[tri.vertex_indices[1]]);
-	const RayMeshVertex& v2(vertices[tri.vertex_indices[2]]);
+	const float H_0 = mean_curvature[tri.vertex_indices[0]];
+	const float H_1 = mean_curvature[tri.vertex_indices[1]];
+	const float H_2 = mean_curvature[tri.vertex_indices[2]];
 
-	return v0.H * w + v1.H * u + v2.H * v;
+	return H_0 * w + H_1 * u + H_2 * v;
 }
 
 

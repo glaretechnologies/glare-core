@@ -183,6 +183,7 @@ public:
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
 		std::vector<Vec2f>& uvs_in_out,
+		js::Vector<float, 16>& mean_curvature_out,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
 		bool use_shading_normals,

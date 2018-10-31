@@ -848,6 +848,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 	const RayMesh::QuadVectorType& quads_in,
 	RayMesh::VertexVectorType& vertices_in_out,
 	std::vector<Vec2f>& uvs_in_out,
+	js::Vector<float, 16>& mean_curvature_out,
 	unsigned int num_uv_sets,
 	const DUOptions& options,
 	bool use_shading_normals,
@@ -1037,11 +1038,12 @@ bool DisplacementUtils::subdivideAndDisplace(
 	DISPLACEMENT_RESET_TIMER(timer);
 	const size_t temp_verts_size = temp_verts.size();
 	vertices_in_out.resizeNoCopy(temp_verts_size);
+	mean_curvature_out.resizeNoCopy(temp_verts_size);
 	for(size_t i = 0; i < temp_verts_size; ++i)
 	{
 		vertices_in_out[i].pos = temp_verts[i].pos;
 		vertices_in_out[i].normal = temp_verts[i].normal;
-		vertices_in_out[i].H = temp_verts[i].H;
+		mean_curvature_out[i] = temp_verts[i].H;
 	}
 
 	uvs_in_out.resize(current_verts_and_uvs->uvs.size());

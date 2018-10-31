@@ -15,6 +15,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../utils/Platform.h"
 #include "../utils/Reference.h"
 #include "../utils/Vector.h"
+#include "../utils/AllocatorVector.h"
 #include <string>
 #include <memory>
 #include <vector>
@@ -32,16 +33,9 @@ enum RayMesh_ShadingNormals
 };
 
 
-#ifdef _MSC_VER // If we are compiling with visual studio:
-#pragma warning ( push )
-#pragma warning ( disable: 4324 ) // Disable 'structure was padded due to __declspec(align())'
-#endif
-
-
 const int MAX_NUM_UV_SETS = 8;
 
 
-// Should have a size of 32 bytes
 class RayMeshTriangle
 {
 public:
@@ -87,14 +81,12 @@ public:
 private:
 	uint32 tri_mat_index; // Actual mat index is shifted one bit to the left.  Least significant bit is normal smoothing flag.
 };
+static_assert(sizeof(RayMeshTriangle) == 32, "sizeof(RayMeshTriangle) == 32");
 
 
-// Should have a size of 48 bytes.
-SSE_CLASS_ALIGN RayMeshQuad
+class RayMeshQuad
 {
 public:
-	GLARE_ALIGNED_16_NEW_DELETE
-
 	RayMeshQuad(){}
 
 	RayMeshQuad(uint32_t v0_, uint32_t v1_, uint32_t v2_, uint32_t v3_, uint32_t mat_index_, RayMesh_ShadingNormals use_shading_normals) 
@@ -126,23 +118,20 @@ public:
 private:
 	uint32_t mat_index; // least significant bit is normal smoothing flag.
 };
+static_assert(sizeof(RayMeshQuad) == 36, "sizeof(RayMeshQuad) == 36");
 
 
-// Should have a size of 32 bytes.
-SSE_CLASS_ALIGN RayMeshVertex
+class RayMeshVertex
 {
 public:
 	RayMeshVertex(){}
-	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_, float H_) : 
+	RayMeshVertex(const Vec3f& pos_, const Vec3f& normal_) : 
 		pos(pos_), 
-		normal(normal_),
-		H(H_)
+		normal(normal_)
 	{}
 
 	Vec3f pos;
 	Vec3f normal;
-	float H; // Mean curvature
-	//float padding;
 
 	inline bool operator < (const RayMeshVertex& b) const
 	{
@@ -157,11 +146,7 @@ public:
 
 	inline bool operator == (const RayMeshVertex& other) const { return pos == other.pos;/* && normal == other.normal;*/ }
 };
-
-
-#ifdef _MSC_VER // If we are compiling with visual studio:
-#pragma warning ( pop ) // re-enable 'structure was padded due to __declspec(align())'
-#endif
+static_assert(sizeof(RayMeshVertex) == 24, "sizeof(RayMeshVertex) == 24");
 
 
 /*=====================================================================
@@ -231,7 +216,6 @@ public:
 	void buildJSTris(); // Used in cyberspace code
 
 	///// These functions are used by various tests which construct RayMeshes directly. //////
-	// They are also used by World::mergeObjectsToIdentityObject().
 	// None of these functions check the validity of the data being passed in.
 	// This means that all indices should be valid, and normals should be unit length.
 	void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
@@ -259,13 +243,18 @@ public:
 	void printTreeStats();
 	void printTraceStats();
 
-	typedef js::Vector<RayMeshVertex, 32> VertexVectorType;
+	typedef glare::AllocatorVector<RayMeshVertex, 32> VertexVectorType; // We'll use a custom allocator to allocate a little extra memory, 
+	// so that we can do 4-vector loads of vertex data without reading out-of-bounds.
 	typedef js::Vector<RayMeshTriangle, 32> TriangleVectorType;
 	typedef js::Vector<RayMeshQuad, 16> QuadVectorType;
+	typedef js::Vector<float, 16> FloatVectorType;
 
 
 	VertexVectorType& getVertices() { return vertices; }
 	const VertexVectorType& getVertices() const { return vertices; }
+
+	FloatVectorType& getMeanCurvature() { return mean_curvature; }
+	const FloatVectorType& getMeanCurvature() const { return mean_curvature; }
 
 	TriangleVectorType& getTriangles() { return triangles; }
 	const TriangleVectorType& getTriangles() const { return triangles; }
@@ -307,6 +296,8 @@ private:
 	
 	unsigned int num_uv_sets;
 	std::vector<Vec2f> uvs;
+
+	FloatVectorType mean_curvature; // One float per vertex.  Split from other vertex data as it's used less often.
 public:
 	/*struct VertDerivs
 	{
