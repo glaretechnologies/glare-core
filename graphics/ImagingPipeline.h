@@ -46,6 +46,7 @@ Does downsizing of the supersampled internal buffer to the output image resoluti
 ldr_buffer_out should have the correct size - e.g. final width and height, or ceil(final_width / subres_factor) etc..
 
 The input data may be in XYZ colour space (as is the case for the usual rendering), or linear sRGB space (the case for some loaded images).
+XYZ_colourspace should be set accordingly.
 
 Tonemapping can be done by setting do_tonemapping to true.
 
@@ -60,6 +61,9 @@ void runPipeline(
 	RunPipelineScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels, // Input image data
 	const ChannelInfo* channel, // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
+	int final_width,
+	int final_height,
+	int ssf,
 	const ArrayRef<RenderRegion>& render_regions,
 	const ArrayRef<Vec3f>& layer_weights, // Light layer weights - used for weighting main beauty layers when blending them together.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
@@ -100,7 +104,8 @@ uint8_buffer_out will be resized to the same size as ldr_buffer_in_out.
 void toNonLinearSpace(
 	Indigo::TaskManager& task_manager,
 	ToNonLinearSpaceScratchState& scratch_state,
-	const RendererSettings& renderer_settings,
+	bool shadow_pass,
+	bool dithering,
 	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
 	bool input_is_nonlinear, // Is ldr_buffer_in_out in a non-linear colour space?
 	Bitmap* uint8_buffer_out = NULL // May be NULL

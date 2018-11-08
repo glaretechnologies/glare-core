@@ -62,8 +62,11 @@ public:
 
 	void zero();
 
+	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
+	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
+
 private:
-	js::Vector<uint8, 16> data;
+	glare::AllocatorVector<uint8, 16> data;
 
 	size_t width, height;
 	size_t bytespp;

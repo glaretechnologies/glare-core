@@ -359,7 +359,7 @@ void sumLightLayers(
 
 struct ToneMapTaskClosure
 {
-	const RendererSettings* renderer_settings;
+	const ToneMapper* tone_mapper;
 	const ToneMapperParams* tonemap_params;
 	Image4f* temp_summed_buffer;
 	int final_xres, final_yres, x_tiles;
@@ -381,7 +381,7 @@ public:
 			const int x_min  = tile_x * image_tile_size, x_max = std::min<int>(closure.final_xres, (tile_x + 1) * image_tile_size);
 			const int y_min  = tile_y * image_tile_size, y_max = std::min<int>(closure.final_yres, (tile_y + 1) * image_tile_size);
 
-			closure.renderer_settings->tone_mapper->toneMapSubImage(*closure.tonemap_params, *closure.temp_summed_buffer, x_min, y_min, x_max, y_max);
+			closure.tone_mapper->toneMapSubImage(*closure.tonemap_params, *closure.temp_summed_buffer, x_min, y_min, x_max, y_max);
 		}
 	}
 
@@ -440,6 +440,7 @@ struct CurveData
 static void runPipelineFullBuffer(
 	const RenderChannels& render_channels,
 	const ArrayRef<RenderRegion>& render_regions,
+	int ssf,
 	const ArrayRef<Vec3f>& layer_weights,
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
@@ -479,7 +480,7 @@ static void runPipelineFullBuffer(
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
-	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, renderer_settings.super_sample_factor, 
+	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, ssf, 
 		renderer_settings.zero_alpha_outside_region, region_alpha_bias, renderer_settings.render_foreground_alpha, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
@@ -540,10 +541,10 @@ static void runPipelineFullBuffer(
 			}
 
 			// This constant (5.0) is chosen so that offset will be pretty small (~= 1e-7).
-			const int filter_r = (int)ceil(renderer_settings.super_sample_factor * 5.0);
+			const int filter_r = (int)ceil(ssf * 5.0);
 
 			// Get the value of the Gaussian at filter_r
-			const float std_dev = (float)renderer_settings.super_sample_factor;
+			const float std_dev = (float)ssf;
 			const float gaussian_scale_factor = 1 / (Maths::get2Pi<float>() * std_dev*std_dev);
 			const float gaussian_exponent_factor = -1 / (2*std_dev*std_dev);
 
@@ -617,7 +618,7 @@ static void runPipelineFullBuffer(
 		const int num_tiles = x_tiles * y_tiles;
 
 		ToneMapTaskClosure closure;
-		closure.renderer_settings = &renderer_settings;
+		closure.tone_mapper = renderer_settings.tone_mapper.ptr();
 		closure.tonemap_params = &tonemap_params;
 		closure.temp_summed_buffer = &temp_summed_buffer;
 		closure.final_xres = final_xres;
@@ -635,7 +636,7 @@ static void runPipelineFullBuffer(
 
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
-	const size_t supersample_factor = (size_t)renderer_settings.super_sample_factor;
+	const size_t supersample_factor = (size_t)ssf;
 	const size_t border_width = (size_t)margin_ssf1;
 
 	const size_t final_xres = render_channels.getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
@@ -650,7 +651,7 @@ static void runPipelineFullBuffer(
 		Image4f::downsampleImage(
 			supersample_factor, // factor
 			border_width,
-			renderer_settings.getDownsizeFilterFunc().getFilterSpan(renderer_settings.super_sample_factor),
+			renderer_settings.getDownsizeFilterFunc().getFilterSpan(ssf),
 			resize_filter,
 			1.0f, // max component value
 			temp_summed_buffer, // in
@@ -722,6 +723,7 @@ struct ImagePipelineTaskClosure
 	int subres_factor;
 	bool render_foreground_alpha;
 	bool do_tonemapping;
+	int ssf;
 
 	bool skip_curves;
 
@@ -798,7 +800,7 @@ public:
 		//#ifndef NDEBUG
 		const ptrdiff_t yres		= (ptrdiff_t)closure.render_channels->getHeight(); // in intermediate pixels
 		//#endif
-		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.renderer_settings->super_sample_factor;
+		const ptrdiff_t ss_factor   = (ptrdiff_t)closure.ssf;
 		const ptrdiff_t gutter_pix  = (ptrdiff_t)closure.margin_ssf1;
 		const ptrdiff_t filter_span = filter_size / 2 - 1;
 		const ptrdiff_t num_layers  = (ptrdiff_t)closure.render_channels->layers.size();
@@ -1173,6 +1175,9 @@ void runPipeline(
 	RunPipelineScratchState& scratch_state,
 	const RenderChannels& render_channels,
 	const ChannelInfo* channel,
+	int final_width,
+	int final_height,
+	int ssf,
 	const ArrayRef<RenderRegion>& render_regions,
 	const ArrayRef<Vec3f>& layer_weights,
 	float image_scale,
@@ -1237,7 +1242,7 @@ void runPipeline(
 	float region_alpha_bias = 1.f;
 	if(!render_regions.empty())
 	{
-		const std::vector<Rect2f> normed_rrs = RendererSettings::computeNormedRenderRegions(render_regions, renderer_settings.getWidth(), renderer_settings.getHeight(), margin_ssf1);
+		const std::vector<Rect2f> normed_rrs = RendererSettings::computeNormedRenderRegions(render_regions, final_width, final_height, margin_ssf1);
 		region_alpha_bias = RendererSettings::getSumNormedRectArea(normed_rrs);
 	}
 
@@ -1247,14 +1252,14 @@ void runPipeline(
 	// Don't do post-pro diffraction when subres_factor is > 1 (e.g. when doing realtime changes), as runPipelineFullBuffer() doesn't handle subres sizes, also not needed.
 	if((channel == NULL) && (subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())))
 	{
-		runPipelineFullBuffer(render_channels, render_regions, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
+		runPipelineFullBuffer(render_channels, render_regions, ssf, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
 							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
 	}
 	else
 	{
 		// Grab some unsigned constants for convenience
-		const ptrdiff_t ss_factor   = (ptrdiff_t)renderer_settings.super_sample_factor;
+		const ptrdiff_t ss_factor   = (ptrdiff_t)ssf;
 		const ptrdiff_t filter_size = (ptrdiff_t)renderer_settings.getDownsizeFilterFunc().getFilterSpan((int)ss_factor);
 
 		// Compute final dimensions of LDR image.
@@ -1321,6 +1326,7 @@ void runPipeline(
 		closure.margin_ssf1 = margin_ssf1;
 		closure.region_alpha_bias = region_alpha_bias;
 		closure.subres_factor = subres_factor;
+		closure.ssf = ssf;
 
 		closure.skip_curves = skip_curves;
 		if(!skip_curves) closure.curve_data = curve_data;
@@ -1378,11 +1384,12 @@ class ToNonLinearSpaceTask : public Indigo::Task
 public:
 	virtual void run(size_t thread_index)
 	{
-		const bool dithering = renderer_settings->dithering;
+		const bool input_is_nonlinear = m_input_is_nonlinear;
+		const bool dithering = m_dithering;
 		uint8* const uint8_buf_out = uint8_buffer_out ? uint8_buffer_out->getPixelNonConst(0, 0) : NULL;
 
 		// If shadow pass is enabled, don't apply gamma to the alpha, as it looks bad.
-		const Colour4f gamma_mask = renderer_settings->shadow_pass ? Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0)).v);
+		const Colour4f gamma_mask = m_shadow_pass ? Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)).v) : Colour4f(bitcastToVec4f(Vec4i(0, 0, 0, 0)).v);
 
 		Colour4f* const pixel_data = &ldr_buffer_in_out->getPixel(0);
 		for(size_t z = begin; z<end; ++z)
@@ -1432,18 +1439,18 @@ public:
 		}
 	}
 
-	const RendererSettings* renderer_settings;
 	Image4f* ldr_buffer_in_out;
 	Bitmap* uint8_buffer_out;
 	size_t begin, end;
-	bool input_is_nonlinear;
+	bool m_input_is_nonlinear, m_dithering, m_shadow_pass;
 };
 
 
 void toNonLinearSpace(
 	Indigo::TaskManager& task_manager,
 	ToNonLinearSpaceScratchState& scratch_state,
-	const RendererSettings& renderer_settings,
+	bool shadow_pass,
+	bool dithering,
 	Image4f& ldr_buffer_in_out, // Input and output image, has alpha channel.
 	bool input_is_nonlinear,
 	Bitmap* uint8_buffer_out // May be NULL
@@ -1466,10 +1473,11 @@ void toNonLinearSpace(
 	for(size_t i=0; i<num_tasks; ++i)
 	{
 		ToNonLinearSpaceTask* task = scratch_state.tasks[i].downcastToPtr<ToNonLinearSpaceTask>();
-		task->renderer_settings = &renderer_settings;
+		task->m_shadow_pass = shadow_pass;
+		task->m_dithering = dithering;
 		task->ldr_buffer_in_out = &ldr_buffer_in_out;
 		task->uint8_buffer_out = uint8_buffer_out;
-		task->input_is_nonlinear = input_is_nonlinear;
+		task->m_input_is_nonlinear = input_is_nonlinear;
 		task->begin = myMin(num_pixels_per_task * i      , ldr_buffer_in_out.numPixels());
 		task->end   = myMin(num_pixels_per_task * (i + 1), ldr_buffer_in_out.numPixels());
 	}

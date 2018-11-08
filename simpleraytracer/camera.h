@@ -81,8 +81,7 @@ public:
 		double exposure_duration,
 		Reference<Aperture>& aperture,
 		double lens_shift_up_distance,
-		double lens_shift_right_distance,
-		bool build_alpha_splat_factor_data) = 0;
+		double lens_shift_right_distance) = 0;
 
 
 	struct SampleLensResults

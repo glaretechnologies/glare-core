@@ -61,6 +61,9 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 		tonemap_scratch_state,
 		render_channels,
 		NULL, // channel - NULL to blend main layers together.
+		W,
+		W,
+		ssf,
 		render_regions,
 		layer_weights,
 		layer_normalise, // image scale
@@ -77,7 +80,7 @@ static void checkToneMap(const int W, const int ssf, const RenderChannels& rende
 
 	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
 	Bitmap bitmap;
-	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image_out, ldr_buffer_is_nonlinear, &bitmap);
+	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings.shadow_pass, renderer_settings.dithering, ldr_image_out, ldr_buffer_is_nonlinear, &bitmap);
 }
 
 
@@ -150,6 +153,8 @@ void test()
 				tonemap_scratch_state,
 				render_channels,
 				NULL, // channel - NULL to blend main layers together.
+				W, W,
+				ssf,
 				render_regions,
 				layer_weights,
 				layer_normalise, // image scale
@@ -174,7 +179,7 @@ void test()
 		timer.reset();
 		for(int i=0; i<N; ++i)
 		{
-			ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
+			ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings.shadow_pass, renderer_settings.dithering, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
 
 			//::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, &bitmap);
 			// ldr_buffer.copyToBitmap(bitmap);
@@ -258,6 +263,8 @@ void test()
 			tonemap_scratch_state,
 			render_channels,
 			NULL, // channel - NULL to blend main layers together.
+			W, W,
+			ssf,
 			render_regions,
 			layer_weights,
 			layer_normalise, // image scale
@@ -274,7 +281,7 @@ void test()
 
 		ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
 		Bitmap bitmap;
-		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_image, ldr_buffer_is_nonlinear, &bitmap);
+		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings.shadow_pass, renderer_settings.dithering, ldr_image, ldr_buffer_is_nonlinear, &bitmap);
 	}
 
 
@@ -551,6 +558,9 @@ void test()
 			tonemap_scratch_state,
 			master_buffer.getRenderChannels(),
 			NULL, // channel - NULL to blend main layers together.
+			image_final_xres,
+			image_final_yres,
+			image_ss_factor,
 			std::vector<RenderRegion>(),
 			layer_weights,
 			1.0f, // image scale
@@ -565,7 +575,7 @@ void test()
 			task_manager);
 
 		Bitmap bitmap;
-		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
+		ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings.shadow_pass, renderer_settings.dithering, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
 
 		testAssert(image_final_xres == (int)ldr_buffer.getWidth());
 		testAssert(image_final_yres == (int)ldr_buffer.getHeight());
