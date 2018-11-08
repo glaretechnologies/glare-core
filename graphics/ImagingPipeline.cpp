@@ -766,6 +766,7 @@ public:
 		const bool apply_curves = !closure.skip_curves;
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
 		const bool has_spectral_channel = closure.render_channels->hasSpectral();
+		const bool zero_alpha_outside_region = closure.renderer_settings->zero_alpha_outside_region;
 		
 		const bool blend_main_layers = closure.channel == NULL;
 		const int source_render_channel_offset = closure.channel ? closure.channel->offset : 0;
@@ -817,7 +818,7 @@ public:
 										(render_regions[i].y2 + (int)gutter_pix) * (int)ss_factor - rr_margin));
 
 
-		const float alpha_bias_factor        = 1.f + closure.image_scale;
+		const float alpha_bias_factor        = 1.f + image_scale;
 		const float region_alpha_bias_factor = 1.f + region_alpha_bias;
 
 		Image4f* const ldr_buffer_out = closure.ldr_buffer_out;
@@ -877,7 +878,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if we are doing a foreground-alpha render
-					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -911,12 +912,12 @@ public:
 								}
 							}
 
-							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
 						}
 						else
 						{
 							// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
-							if(closure.renderer_settings->zero_alpha_outside_region || (closure.image_scale == 0.0))
+							if(zero_alpha_outside_region || (image_scale == 0.0))
 								sum = Colour4f(0.f);
 						}
 					}
@@ -1052,7 +1053,7 @@ public:
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -1086,12 +1087,12 @@ public:
 								}
 							}
 
-							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
 						}
 						else
 						{
 							// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
-							if(closure.renderer_settings->zero_alpha_outside_region || (closure.image_scale == 0.0))
+							if(zero_alpha_outside_region || (image_scale == 0.0))
 								sum = Colour4f(0.f);
 						}
 					}
