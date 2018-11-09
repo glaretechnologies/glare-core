@@ -76,7 +76,7 @@ const std::string getAsciiTime()
 {
 	// Get current system time
 	time_t current_time;
-	time(&current_time);    
+	time(&current_time);
 
 	return getAsciiTime(current_time);
 }
