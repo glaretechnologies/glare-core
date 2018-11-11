@@ -2822,6 +2822,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 	{
 		shader_prog->useProgram();
 
+		// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
 		if(shader_prog.getPointer() == this->depth_draw_mat.shader_prog.getPointer())
 		{
 			const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
@@ -2840,7 +2841,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
 		}
 
-		// Set uniforms.  NOTE: Setting the uniforms manually in this way is obviously quite hacky.  Improve.
+		
 		if(shader_prog.getPointer() == this->phong_prog.getPointer())
 		{
 			setUniformsForPhongProg(opengl_mat, mesh_data, phong_locations);
@@ -2920,6 +2921,8 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			}
 			if(shader_prog->time_loc >= 0)
 				glUniform1f(shader_prog->time_loc, this->current_time);
+			if(shader_prog->colour_loc >= 0)
+				glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_rgb.r);
 		}
 		
 		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);

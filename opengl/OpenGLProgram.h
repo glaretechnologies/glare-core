@@ -40,6 +40,7 @@ public:
 
 	int campos_ws_loc;
 	int time_loc;
+	int colour_loc;
 
 	Reference<OpenGLShader> vert_shader;
 	Reference<OpenGLShader> frag_shader;

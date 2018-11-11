@@ -34,7 +34,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 :	program(0),
 	prog_name(prog_name_),
 	campos_ws_loc(-1),
-	time_loc(-1)
+	time_loc(-1),
+	colour_loc(-1)
 {
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
@@ -71,6 +72,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 
 	campos_ws_loc     = glGetUniformLocation(program, "campos_ws");
 	time_loc          = glGetUniformLocation(program, "time");
+	colour_loc        = glGetUniformLocation(program, "colour");
 }
 
 
