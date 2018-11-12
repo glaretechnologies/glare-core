@@ -72,6 +72,13 @@ void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
 }
 
 
+void OpenCLBuffer::allocOrResize(cl_context context, size_t new_size, cl_mem_flags flags)
+{
+	if(size != new_size) // If existing size is wrong (including if not allocated at all yet):
+		alloc(context, new_size, flags);
+}
+
+
 void OpenCLBuffer::free()
 {
 	if(!opencl_mem)
