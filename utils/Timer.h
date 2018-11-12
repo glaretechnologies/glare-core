@@ -1,7 +1,7 @@
 /*=====================================================================
 Timer.h
 -------------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #pragma once
 
@@ -15,9 +15,8 @@ class Timer
 {
 public:
 	inline Timer();
-	inline ~Timer();
 
-	inline void setSecondsElapsed(double elapsed_seconds) { timesofar = elapsed_seconds; }
+	inline void setSecondsElapsed(double elapsed_seconds) { time_so_far = elapsed_seconds; }
 	inline double getSecondsElapsed() const;
 	inline double elapsed() const { return getSecondsElapsed(); }
 	const std::string elapsedString() const; // e.g "30.4 s"
@@ -28,44 +27,38 @@ public:
 
 	inline bool isPaused();
 
-	inline void pause();
-	inline void unpause();
+	inline void pause(); // Has no effect if already paused.
+	inline void unpause(); // Has no effect if already running.
 
+	static void test();
 private:
 	double last_time_started;
-	double timesofar;
+	double time_so_far; // Total time of previous periods before being paused.
 	bool paused;
 };
 
 
 Timer::Timer()
 {
-	paused = false;
 	last_time_started = Clock::getCurTimeRealSec();
-	timesofar = 0;
+	time_so_far = 0;
+	paused = false;
 }
-
-
-Timer::~Timer()
-{}
 
 
 double Timer::getSecondsElapsed() const
 {
 	if(paused)
-		return timesofar;
+		return time_so_far;
 	else
-		return timesofar + Clock::getCurTimeRealSec() - last_time_started;
-
-
-	//return GetCurTimeRealSec() - time_started;
+		return time_so_far + Clock::getCurTimeRealSec() - last_time_started;
 }
 
 
 void Timer::reset()
 {
 	last_time_started = Clock::getCurTimeRealSec();
-	timesofar = 0;
+	time_so_far = 0;
 }
 
 
@@ -77,18 +70,19 @@ bool Timer::isPaused()
 
 void Timer::pause()
 {
-//	assert(!paused);
-
-	paused = true;
-
-	timesofar += Clock::getCurTimeRealSec() - last_time_started;
+	if(!paused)
+	{
+		paused = true;
+		time_so_far += Clock::getCurTimeRealSec() - last_time_started;
+	}
 }
+
 
 void Timer::unpause()
 {
-//	assert(paused);
-
-	paused = false;
-
-	last_time_started = Clock::getCurTimeRealSec();
+	if(paused)
+	{
+		paused = false;
+		last_time_started = Clock::getCurTimeRealSec();
+	}
 }

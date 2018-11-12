@@ -1,7 +1,7 @@
 /*=====================================================================
 Timer.cpp
 -------------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
 #include "Timer.h"
 
@@ -25,3 +25,35 @@ const std::string Timer::elapsedStringNSigFigs(int n) const // Print with n deci
 {
 	return ::doubleToStringNSigFigs(this->elapsed(), n) + " s";
 }
+
+
+#if BUILD_TESTS
+
+
+#include "../indigo/TestUtils.h"
+#include "../utils/ConPrint.h"
+#include "../utils/PlatformUtils.h"
+
+
+void Timer::test()
+{
+	{
+		Timer t;
+		t.pause();
+		const double elapsed_a = t.elapsed();
+		PlatformUtils::Sleep(0);
+		const double elapsed_b = t.elapsed();
+		testAssert(elapsed_a == elapsed_b);
+
+		// Test calling pause twice doesn't increase the time.
+		t.pause();
+		testAssert(t.elapsed() == elapsed_a);
+
+		t.unpause();
+		PlatformUtils::Sleep(0);
+		testAssert(t.elapsed() > elapsed_a);
+	}
+}
+
+
+#endif // BUILD_TESTS
