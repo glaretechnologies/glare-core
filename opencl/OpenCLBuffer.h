@@ -41,15 +41,15 @@ public:
 	void allocFrom(cl_context context, const std::vector<T>& src_vec, cl_mem_flags flags);
 
 
-	void copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, cl_bool blocking_write);
+	void copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, bool blocking_write);
 
-	void copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, cl_bool blocking_write);
+	void copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, bool blocking_write);
 
 	template<typename T, size_t align>
-	void copyFrom(cl_command_queue command_queue, const js::Vector<T, align>& src_vec, cl_bool blocking_write);
+	void copyFrom(cl_command_queue command_queue, const js::Vector<T, align>& src_vec, bool blocking_write);
 
 	template<typename T>
-	void copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, cl_bool blocking_write);
+	void copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, bool blocking_write);
 
 	size_t getSize() const { return size; }
 
@@ -83,14 +83,14 @@ void OpenCLBuffer::allocFrom(cl_context context, const std::vector<T>& src_vec, 
 
 
 template<typename T, size_t align>
-void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const js::Vector<T, align>& src_vec, cl_bool blocking_write)
+void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const js::Vector<T, align>& src_vec, bool blocking_write)
 {
 	copyFrom(command_queue, src_vec.data(), src_vec.size() * sizeof(T), blocking_write);
 }
 
 
 template<typename T>
-void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, cl_bool blocking_write)
+void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, bool blocking_write)
 {
 	copyFrom(command_queue, src_vec.data(), src_vec.size() * sizeof(T), blocking_write);
 }

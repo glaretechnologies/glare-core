@@ -127,34 +127,20 @@ void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size
 }
 
 
-void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, cl_bool blocking_write)
+void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, bool blocking_write)
 {
-	assert(size_ <= size);
-
-	cl_int result = getGlobalOpenCL()->clEnqueueWriteBuffer(
-		command_queue, // command queue
-		opencl_mem, // buffer
-		blocking_write, // blocking write
-		0, // offset
-		size_, // size in bytes
-		(void*)src_ptr, // host buffer pointer
-		0, // num events in wait list
-		NULL, // wait list
-		NULL // event
-		);
-	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clEnqueueWriteBuffer failed: " + OpenCL::errorString(result));
+	copyFrom(command_queue, /*dest offset=*/0, src_ptr, size_, blocking_write);
 }
 
 
-void OpenCLBuffer::copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, cl_bool blocking_write)
+void OpenCLBuffer::copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, bool blocking_write)
 {
 	assert(size_ <= size);
 
 	cl_int result = getGlobalOpenCL()->clEnqueueWriteBuffer(
 		command_queue, // command queue
 		opencl_mem, // buffer
-		blocking_write, // blocking write
+		blocking_write ? CL_TRUE : CL_FALSE, // blocking write
 		dest_offset, // offset
 		size_, // size in bytes
 		(void*)src_ptr, // host buffer pointer
