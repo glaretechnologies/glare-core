@@ -24,7 +24,7 @@ inline static float floatCast(const uint32 x)
 }
 
 
-StaticSobol::StaticSobol(const std::string& indigo_base_dir_path)
+StaticSobol::StaticSobol()
 {
 	std::vector<uint32>::const_iterator dir_iter = ::getGlobalSobolData()->direction_nums.begin();
 
@@ -180,7 +180,7 @@ void StaticSobol::test(const std::string& indigo_base_dir_path)
 {
 	try
 	{
-		StaticSobol sobol(indigo_base_dir_path);
+		StaticSobol sobol;
 
 		// Test that we get the desired Sobol sequence
 		{

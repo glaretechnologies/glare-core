@@ -26,7 +26,7 @@ public:
 
 	const static uint32 num_dims = 21200; // We actually have 21201 dimensions but round it down
 
-	StaticSobol(const std::string& indigo_base_dir_path);
+	StaticSobol();
 	~StaticSobol();
 
 
