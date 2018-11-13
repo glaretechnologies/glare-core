@@ -41,6 +41,7 @@ public:
 	void allocFrom(cl_context context, const std::vector<T>& src_vec, cl_mem_flags flags);
 
 
+	// Copy data from a host buffer to a device buffer.  Calls clEnqueueWriteBuffer().
 	void copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, bool blocking_write);
 
 	void copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, bool blocking_write);
@@ -50,6 +51,11 @@ public:
 
 	template<typename T>
 	void copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, bool blocking_write);
+
+
+	// Copy data from a device buffer back to a host buffer.  Calls clEnqueueReadBuffer().
+	void readTo(cl_command_queue command_queue, void* const dest_ptr, size_t size_, bool blocking_read);
+
 
 	size_t getSize() const { return size; }
 
