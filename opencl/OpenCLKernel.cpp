@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2015 -
 
 
 #include "OpenCL.h"
+#include "OpenCLBuffer.h"
 #include "../indigo/globals.h"
 #include "../utils/Platform.h"
 #include "../utils/Exception.h"
@@ -101,11 +102,23 @@ void OpenCLKernel::setKernelArgDouble(size_t index, cl_double val)
 }
 
 
+void OpenCLKernel::setKernelArgBuffer(size_t index, OpenCLBuffer& buffer)
+{
+	setKernelArgBuffer(index, buffer.getDevicePtr());
+}
+
+
 void OpenCLKernel::setKernelArgBuffer(size_t index, cl_mem buffer)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_mem), &buffer);
 	if(result != CL_SUCCESS)
 		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+}
+
+
+void OpenCLKernel::setNextKernelArg(OpenCLBuffer& buffer)
+{
+	setNextKernelArg(buffer.getDevicePtr());
 }
 
 

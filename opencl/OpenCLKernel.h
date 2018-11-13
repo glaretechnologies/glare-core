@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "OpenCL.h"
+class OpenCLBuffer;
 
 
 /*=====================================================================
@@ -36,8 +37,10 @@ public:
 	void setKernelArgUInt(size_t index, cl_uint val);
 	void setKernelArgFloat(size_t index, cl_float val);
 	void setKernelArgDouble(size_t index, cl_double val);
+	void setKernelArgBuffer(size_t index, OpenCLBuffer& buffer);
 	void setKernelArgBuffer(size_t index, cl_mem buffer);
 
+	void setNextKernelArg(OpenCLBuffer& buffer);
 	void setNextKernelArg(cl_mem buffer);
 	void setNextKernelArgUInt(cl_uint val);
 	void setNextKernelArgFloat(cl_float val);

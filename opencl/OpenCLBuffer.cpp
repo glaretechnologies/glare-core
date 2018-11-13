@@ -173,12 +173,6 @@ void OpenCLBuffer::readTo(cl_command_queue command_queue, void* const dest_ptr, 
 }
 
 
-cl_mem& OpenCLBuffer::getDevicePtr()
-{
-	return opencl_mem;
-}
-
-
 cl_uint OpenCLBuffer::getRefCount()
 {
 	cl_uint count = 0;

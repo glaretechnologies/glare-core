@@ -61,7 +61,7 @@ public:
 
 	void free();
 
-	cl_mem& getDevicePtr();
+	cl_mem getDevicePtr() { return opencl_mem; }
 
 	cl_uint getRefCount();
 
