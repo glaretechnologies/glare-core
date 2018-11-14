@@ -19,7 +19,7 @@ Copyright Glare Technologies Limited 2016 -
 #endif
 
 
-class ProgramCache;
+class OpenCLProgramCache;
 
 
 /*=====================================================================
@@ -35,7 +35,7 @@ public:
 
 	cl_context getContext() { return context; }
 
-	Reference<ProgramCache> program_cache; // Built programs are OpenCL context-specific.  So the context will own the program cache, so that
+	Reference<OpenCLProgramCache> program_cache; // Built programs are OpenCL context-specific.  So the context will own the program cache, so that
 	// the lifetime of programs in the in-memory cache is <= the lifetime of the context.
 private:
 	cl_context context;

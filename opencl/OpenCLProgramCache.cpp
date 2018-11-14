@@ -1,10 +1,10 @@
 /*=====================================================================
-ProgramCache.cpp
--------------------
-Copyright Glare Technologies Limited 2016 -
+OpenCLProgramCache.cpp
+----------------------
+Copyright Glare Technologies Limited 2018 -
 Generated at 2016-10-14 15:08:16 +0100
 =====================================================================*/
-#include "ProgramCache.h"
+#include "OpenCLProgramCache.h"
 
 
 #include "../utils/StringUtils.h"
@@ -34,7 +34,7 @@ static uint64 computeProgramHashCode(const std::string& program_source, const st
 }
 
 
-bool ProgramCache::isProgramInCache(
+bool OpenCLProgramCache::isProgramInCache(
 		const std::string cachedir_path,
 		const std::string& program_source,
 		const std::vector<OpenCLDeviceRef>& selected_devices_on_plat, // all devices must share the same platform
@@ -91,7 +91,7 @@ bool ProgramCache::isProgramInCache(
 }
 
 
-ProgramCache::Results ProgramCache::getOrBuildProgram(
+OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 		const std::string cachedir_path,
 		const std::string& program_source,
 		OpenCLContextRef opencl_context,
@@ -110,7 +110,7 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		Lock lock(mem_cache_mutex);
 		auto it = mem_cache.find(hashcode);
 		if(it != mem_cache.end())
-			return ProgramCache::Results(it->second, /*cache_hit=*/true);
+			return OpenCLProgramCache::Results(it->second, /*cache_hit=*/true);
 	}
 
 #ifdef OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do on-disk caching for now on Mac.
@@ -128,7 +128,7 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 	Lock lock(mem_cache_mutex);
 	mem_cache[hashcode] = program;
 
-	return ProgramCache::Results(program, /*cache_hit=*/false);
+	return OpenCLProgramCache::Results(program, /*cache_hit=*/false);
 
 #else // else if not OS X
 
@@ -225,7 +225,7 @@ ProgramCache::Results ProgramCache::getOrBuildProgram(
 		mem_cache[hashcode] = program;
 
 		// Program was successfully loaded and built from cache, so return it
-		return ProgramCache::Results(program, /*cache_hit=*/true);
+		return OpenCLProgramCache::Results(program, /*cache_hit=*/true);
 	}
 	catch(Indigo::Exception& e)
 	{
@@ -292,7 +292,7 @@ build_program:
 	Lock lock(mem_cache_mutex);
 	mem_cache[hashcode] = program;
 
-	return ProgramCache::Results(program, /*cache_hit=*/false);
+	return OpenCLProgramCache::Results(program, /*cache_hit=*/false);
 
 #endif // End else if not OS X
 }

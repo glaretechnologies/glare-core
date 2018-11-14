@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "OpenCL.h"
-#include "ProgramCache.h"
+#include "OpenCLProgramCache.h"
 #include "ConPrint.h"
 
 
@@ -33,7 +33,7 @@ OpenCLContext::OpenCLContext(cl_platform_id platform_id)
 	if(this->context == 0)
 		throw Indigo::Exception("clCreateContextFromType failed: " + OpenCL::errorString(error_code));
 
-	program_cache = new ProgramCache();
+	program_cache = new OpenCLProgramCache();
 }
 
 

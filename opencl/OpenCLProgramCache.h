@@ -1,7 +1,7 @@
 /*=====================================================================
-ProgramCache.h
--------------------
-Copyright Glare Technologies Limited 2016 -
+OpenCLProgramCache.h
+--------------------
+Copyright Glare Technologies Limited 2018 -
 Generated at 2016-10-14 15:08:16 +0100
 =====================================================================*/
 #pragma once
@@ -17,12 +17,12 @@ Generated at 2016-10-14 15:08:16 +0100
 
 
 /*=====================================================================
-ProgramCache
--------------------
-Caches OpenCL program binaries on disk.
+OpenCLProgramCache
+------------------
+Caches OpenCL program binaries on disk, and in memory.
 Especially useful for AMD drivers which don't seem to do caching themselves.
 =====================================================================*/
-class ProgramCache : public RefCounted
+class OpenCLProgramCache : public RefCounted
 {
 public:
 	// Caches based on a key made from program_source and compile_options.
