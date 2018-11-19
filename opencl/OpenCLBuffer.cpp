@@ -79,6 +79,14 @@ void OpenCLBuffer::allocOrResize(cl_context context, size_t new_size, cl_mem_fla
 }
 
 
+void OpenCLBuffer::allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const void* const src_ptr, 
+	size_t new_size, cl_mem_flags flags, bool blocking_write)
+{
+	allocOrResize(context, new_size, flags);
+	copyFrom(command_queue, src_ptr, new_size, blocking_write);
+}
+
+
 void OpenCLBuffer::free()
 {
 	if(!opencl_mem)

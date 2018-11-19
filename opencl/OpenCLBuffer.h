@@ -30,6 +30,10 @@ public:
 	// If existing buffer is wrong size, or is not allocated yet, (re)allocate.
 	void allocOrResize(cl_context context, size_t size_, cl_mem_flags flags);
 
+	// If existing buffer is wrong size, or is not allocated yet, (re)allocate.
+	// Then copy data from host buffer (in src_ptr) to device buffer.
+	void allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const void* const src_ptr, size_t new_size, cl_mem_flags flags, bool blocking_write);
+
 
 	// CL_MEM_COPY_HOST_PTR will be added to flags in all allocFrom() definitions.
 	void allocFrom(cl_context context, const void* const src_ptr, size_t size_, cl_mem_flags flags);
