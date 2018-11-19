@@ -42,6 +42,7 @@ public:
 
 	void setNextKernelArg(OpenCLBuffer& buffer);
 	void setNextKernelArg(cl_mem buffer);
+	void setNextKernelArgInt(cl_int val);
 	void setNextKernelArgUInt(cl_uint val);
 	void setNextKernelArgFloat(cl_float val);
 

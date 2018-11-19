@@ -129,6 +129,13 @@ void OpenCLKernel::setNextKernelArg(cl_mem buffer)
 }
 
 
+void OpenCLKernel::setNextKernelArgInt(cl_int val)
+{
+	setKernelArgInt(kernel_arg_index, val);
+	kernel_arg_index++;
+}
+
+
 void OpenCLKernel::setNextKernelArgUInt(cl_uint val)
 {
 	setKernelArgUInt(kernel_arg_index, val);
