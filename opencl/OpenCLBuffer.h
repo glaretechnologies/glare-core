@@ -34,6 +34,12 @@ public:
 	// Then copy data from host buffer (in src_ptr) to device buffer.
 	void allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const void* const src_ptr, size_t new_size, cl_mem_flags flags, bool blocking_write);
 
+	template<typename T, size_t align>
+	void allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const js::Vector<T, align>& src_vec, cl_mem_flags flags, bool blocking_write);
+
+	template<typename T>
+	void allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const std::vector<T>& src_vec, cl_mem_flags flags, bool blocking_write);
+
 
 	// CL_MEM_COPY_HOST_PTR will be added to flags in all allocFrom() definitions.
 	void allocFrom(cl_context context, const void* const src_ptr, size_t size_, cl_mem_flags flags);
@@ -79,11 +85,23 @@ private:
 
 
 template<typename T, size_t align>
+void OpenCLBuffer::allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const js::Vector<T, align>& src_vec, cl_mem_flags flags_, bool blocking_write)
+{
+	allocOrResizeAndCopyFrom(context, command_queue, src_vec.data(), src_vec.size() * sizeof(T), flags_, blocking_write);
+}
+
+template<typename T>
+void OpenCLBuffer::allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const std::vector<T>& src_vec, cl_mem_flags flags_, bool blocking_write)
+{
+	allocOrResizeAndCopyFrom(context, command_queue, src_vec.data(), src_vec.size() * sizeof(T), flags_, blocking_write);
+}
+
+
+template<typename T, size_t align>
 void OpenCLBuffer::allocFrom(cl_context context, const js::Vector<T, align>& src_vec, cl_mem_flags flags_)
 {
 	allocFrom(context, src_vec.data(), src_vec.size() * sizeof(T), flags_);
 }
-
 
 template<typename T>
 void OpenCLBuffer::allocFrom(cl_context context, const std::vector<T>& src_vec, cl_mem_flags flags_)
@@ -97,7 +115,6 @@ void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const js::Vector<T, 
 {
 	copyFrom(command_queue, src_vec.data(), src_vec.size() * sizeof(T), blocking_write);
 }
-
 
 template<typename T>
 void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const std::vector<T>& src_vec, bool blocking_write)
