@@ -224,7 +224,6 @@ public:
 
 
 	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh();
-	static Reference<OpenGLMeshRenderData> makeNameTagQuadMesh(float w, float h);
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(const Vec4f& endpoint_a, const Vec4f& endpoint_b, float radius);
 

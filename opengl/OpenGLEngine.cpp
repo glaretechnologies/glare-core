@@ -932,7 +932,9 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 
 void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
 {
-	if(material.shader_prog.nonNull())
+	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
+	if(material.shader_prog.nonNull() && 
+		!(material.shader_prog == transparent_prog  || material.shader_prog == phong_with_alpha_test_prog || material.shader_prog == phong_prog))
 		return;
 
 	if(material.transparent)
@@ -3588,54 +3590,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
 	Vec3f v1(1, 0, 0); // bottom right
 	Vec3f v2(1, 1, 0); // top right
 	Vec3f v3(0, 1, 0); // top left
-		
-	verts[0] = v0;
-	verts[1] = v1;
-	verts[2] = v2;
-	verts[3] = v3;
-
-	Vec2f uv0(0, 0);
-	Vec2f uv1(1, 0);
-	Vec2f uv2(1, 1);
-	Vec2f uv3(0, 1);
-		
-	uvs[0] = uv0;
-	uvs[1] = uv1;
-	uvs[2] = uv2;
-	uvs[3] = uv3;
-
-	for(int i=0; i<4; ++i)
-		normals[i] = Vec3f(0, 0, -1);
-
-	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
-	return mesh_data;
-}
-
-
-Reference<OpenGLMeshRenderData> OpenGLEngine::makeNameTagQuadMesh(float w, float h)
-{
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-	
-	js::Vector<Vec3f, 16> verts;
-	verts.resize(4);
-	js::Vector<Vec3f, 16> normals;
-	normals.resize(4);
-	js::Vector<Vec2f, 16> uvs;
-	uvs.resize(4);
-	js::Vector<uint32, 16> indices;
-	indices.resize(6); // two tris per face
-
-	indices[0] = 0; 
-	indices[1] = 1; 
-	indices[2] = 2; 
-	indices[3] = 0;
-	indices[4] = 2;
-	indices[5] = 3;
-	
-	Vec3f v0(-w/2, 0, -h/2); // bottom left
-	Vec3f v1( w/2, 0, -h/2); // bottom right
-	Vec3f v2( w/2, 0,  h/2); // top right
-	Vec3f v3(-w/2, 0,  h/2); // top left
 		
 	verts[0] = v0;
 	verts[1] = v1;
