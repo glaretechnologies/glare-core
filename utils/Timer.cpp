@@ -50,7 +50,7 @@ void Timer::test()
 		testAssert(t.elapsed() == elapsed_a);
 
 		t.unpause();
-		PlatformUtils::Sleep(0);
+		PlatformUtils::Sleep(1);
 		testAssert(t.elapsed() > elapsed_a);
 	}
 }
