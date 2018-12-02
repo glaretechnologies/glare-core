@@ -2253,12 +2253,12 @@ public:
 
 							// Accumulate stuff from this quad
 							Vec3f centroid;
-							Vec3f centroid_normal;
+							Vec3f q_centroid_normal;
 							Vec2f uv_centroid[MAX_NUM_UV_SETS];
 							if(cur_quad_sides == 4)
 							{
 								centroid    = (verts_in[cur_quad.vertex_indices[0]].pos + verts_in[cur_quad.vertex_indices[1]].pos + verts_in[cur_quad.vertex_indices[2]].pos + verts_in[cur_quad.vertex_indices[3]].pos) * 0.25f;
-								centroid_normal = (verts_in[cur_quad.vertex_indices[0]].normal + verts_in[cur_quad.vertex_indices[1]].normal + verts_in[cur_quad.vertex_indices[2]].normal + verts_in[cur_quad.vertex_indices[3]].normal) * 0.25f;
+								q_centroid_normal = (verts_in[cur_quad.vertex_indices[0]].normal + verts_in[cur_quad.vertex_indices[1]].normal + verts_in[cur_quad.vertex_indices[2]].normal + verts_in[cur_quad.vertex_indices[3]].normal) * 0.25f;
 								for(int z = 0; z < num_uv_sets; ++z)
 									uv_centroid[z] = (getUVs(uvs_in, num_uv_sets, cur_quad.vertex_indices[0], z) + getUVs(uvs_in, num_uv_sets, cur_quad.vertex_indices[1], z) +
 										getUVs(uvs_in, num_uv_sets, cur_quad.vertex_indices[2], z) + getUVs(uvs_in, num_uv_sets, cur_quad.vertex_indices[3], z)) * 0.25f;
@@ -2266,13 +2266,13 @@ public:
 							else
 							{
 							 	centroid    = (verts_in[cur_quad.vertex_indices[0]].pos + verts_in[cur_quad.vertex_indices[1]].pos + verts_in[cur_quad.vertex_indices[2]].pos) * (1.f / 3.f);
-								centroid_normal = (verts_in[cur_quad.vertex_indices[0]].normal + verts_in[cur_quad.vertex_indices[1]].normal + verts_in[cur_quad.vertex_indices[2]].normal) * (1.f / 3.f);
+								q_centroid_normal = (verts_in[cur_quad.vertex_indices[0]].normal + verts_in[cur_quad.vertex_indices[1]].normal + verts_in[cur_quad.vertex_indices[2]].normal) * (1.f / 3.f);
 								for(int z = 0; z < num_uv_sets; ++z)
 									uv_centroid[z] = (getUVs(uvs_in, num_uv_sets, cur_quad.vertex_indices[0], z) + getUVs(uvs_in, num_uv_sets, cur_quad.vertex_indices[1], z) +
 										getUVs(uvs_in, num_uv_sets, cur_quad.vertex_indices[2], z)) * (1.f / 3.f);
 							}
 							Q_sum += centroid;
-							Q_sum_n += centroid_normal;
+							Q_sum_n += q_centroid_normal;
 							for(int z=0; z<num_uv_sets; ++z)
 								Q_sum_uvs[z] += uv_centroid[z];
 
@@ -2371,20 +2371,20 @@ public:
 							if(num_adjacent_edges == 2)
 							{
 								// Special case for vertex that is only adjacent to one quad.
-								Vec3f R_sum    = (verts_in[vi].pos + verts_in[vi1].pos * 0.5f + verts_in[v_i_minus_1].pos * 0.5f) * 0.25f;
-								Vec3f R_sum_n  = (verts_in[vi].normal + verts_in[vi1].normal * 0.5f + verts_in[v_i_minus_1].normal * 0.5f) * 0.25f;
-								verts_out[new_vi].pos = verts_in[vi].pos * 0.5f + R_sum;
-								verts_out[new_vi].normal = verts_in[vi].normal * 0.5f + R_sum_n;
+								Vec3f local_R_sum   = (verts_in[vi].pos + verts_in[vi1].pos * 0.5f + verts_in[v_i_minus_1].pos * 0.5f) * 0.25f;
+								Vec3f local_R_sum_n = (verts_in[vi].normal + verts_in[vi1].normal * 0.5f + verts_in[v_i_minus_1].normal * 0.5f) * 0.25f;
+								verts_out[new_vi].pos = verts_in[vi].pos * 0.5f + local_R_sum;
+								verts_out[new_vi].normal = verts_in[vi].normal * 0.5f + local_R_sum_n;
 								for(int z=0; z<num_uv_sets; ++z)
 									getUVs(uvs_out, num_uv_sets, new_vi, z) = getUVs(uvs_in, num_uv_sets, vi, z) * 0.5f + 
 										(getUVs(uvs_in, num_uv_sets, vi, z) + getUVs(uvs_in, num_uv_sets, vi1, z) * 0.5f + getUVs(uvs_in, num_uv_sets, v_i_minus_1, z) * 0.5f) * 0.25f;
 							}
 							else// if(border_vert)
 							{
-								Vec3f R_sum    = (clockwise_border_midpoint    + cntr_clockwise_border_midpoint   ) * 0.25f;
-								Vec3f R_sum_n  = (clockwise_border_n_midpoint  + clockwise_border_n_midpoint      ) * 0.25f;
-								verts_out[new_vi].pos    = verts_in[vi].pos    * 0.5f + R_sum;
-								verts_out[new_vi].normal = verts_in[vi].normal * 0.5f + R_sum_n;
+								Vec3f local_R_sum   = (clockwise_border_midpoint    + cntr_clockwise_border_midpoint   ) * 0.25f;
+								Vec3f local_R_sum_n = (clockwise_border_n_midpoint  + clockwise_border_n_midpoint      ) * 0.25f;
+								verts_out[new_vi].pos    = verts_in[vi].pos    * 0.5f + local_R_sum;
+								verts_out[new_vi].normal = verts_in[vi].normal * 0.5f + local_R_sum_n;
 								for(int z=0; z<num_uv_sets; ++z)
 									getUVs(uvs_out, num_uv_sets, new_vi, z) = getUVs(uvs_in, num_uv_sets, vi, z) * 0.5f + 
 										(clockwise_border_uv_midpoint[z] + cntr_clockwise_border_uv_midpoint[z]) * 0.25f;
