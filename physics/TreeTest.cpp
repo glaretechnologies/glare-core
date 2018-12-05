@@ -938,8 +938,8 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 		const double d = bvh.traceSphere(ray, to_object, to_world, radius, thread_context, hit_normal);
 
 		// Do reference trace against all triangles
-		const Vec3f sourcePoint3(ray.startPos());
-		const Vec3f unitdir3(ray.unitDir());
+		const Vec4f sourcePoint(ray.startPos());
+		const Vec4f unitdir(ray.unitDir());
 		const js::BoundingSphere sphere_os(ray.startPos(), radius);
 		float closest_dist = (float)max_t;
 		Vec4f ref_hit_normal;
@@ -952,29 +952,24 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 			MollerTrumboreTri tri;
 			tri.set(orig_v0, orig_v1, orig_v2);
 
-			const Vec3f v0(tri.data);
-			const Vec3f e1(tri.data + 3);
-			const Vec3f e2(tri.data + 6);
+			const Vec4f v0(tri.data[0], tri.data[1], tri.data[2], 1.f);
+			const Vec4f e1(tri.data[3], tri.data[4], tri.data[5], 0.f);
+			const Vec4f e2(tri.data[6], tri.data[7], tri.data[8], 0.f);
 
-			
-			js::Triangle js_tri(v0, v0 + e1, v0 + e2);
+			const Vec4f normal = normalise(crossProduct(e1, e2));
+			js::Triangle js_tri(v0, e1, e2, normal);
 
-			testEpsEqual(js_tri.v0(), orig_v0);
-			testEpsEqual(js_tri.v1(), orig_v1);
-			testEpsEqual(js_tri.v2(), orig_v2);
-
-			const Vec3f normal = normalise(crossProduct(e1, e2));
 
 			Planef tri_plane(v0, normal);
 
 			// Determine the distance from the plane to the sphere center
-			float pDist = tri_plane.signedDistToPoint(sourcePoint3);
+			float pDist = tri_plane.signedDistToPoint(sourcePoint);
 
 			//-----------------------------------------------------------------
 			//Invert normal if doing backface collision, so 'usenormal' is always facing
 			//towards sphere center.
 			//-----------------------------------------------------------------
-			Vec3f usenormal = normal;
+			Vec4f usenormal = normal;
 			if(pDist < 0)
 			{
 				usenormal *= -1;
@@ -986,7 +981,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 			//-----------------------------------------------------------------
 			//check if sphere is heading away from tri
 			//-----------------------------------------------------------------
-			const float approach_rate = -usenormal.dot(unitdir3);
+			const float approach_rate = -dot(usenormal, unitdir);
 			if(approach_rate <= 0)
 				continue;
 
@@ -1001,20 +996,20 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 			//-----------------------------------------------------------------
 			//calc the point where the sphere intersects with the triangle plane (planeIntersectionPoint)
 			//-----------------------------------------------------------------
-			Vec3f planeIntersectionPoint;
+			Vec4f planeIntersectionPoint;
 
 			// Is the plane embedded in the sphere?
 			if(trans_len_needed <= 0)//pDist <= sphere.getRadius())//make == trans_len_needed < 0
 			{
 				// Calculate the plane intersection point
-				planeIntersectionPoint = tri_plane.closestPointOnPlane(sourcePoint3);
+				planeIntersectionPoint = tri_plane.closestPointOnPlane(sourcePoint);
 
 			}
 			else
 			{
 				assert(trans_len_needed >= 0);
 
-				planeIntersectionPoint = sourcePoint3 + (unitdir3 * trans_len_needed) - (sphere_os.getRadius() * usenormal);
+				planeIntersectionPoint = sourcePoint + (unitdir * trans_len_needed) - (usenormal * sphere_os.getRadius());
 
 				//assert point is actually on plane
 				//			assert(epsEqual(tri.getTriPlane().signedDistToPoint(planeIntersectionPoint), 0.0f, 0.0001f));
@@ -1023,7 +1018,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 			//-----------------------------------------------------------------
 			//now restrict collision point on tri plane to inside tri if neccessary.
 			//-----------------------------------------------------------------
-			Vec3f triIntersectionPoint = planeIntersectionPoint;
+			Vec4f triIntersectionPoint = planeIntersectionPoint;
 
 			const bool point_in_tri = js_tri.pointInTri(triIntersectionPoint);
 			float dist; // Distance until sphere hits triangle
@@ -1037,7 +1032,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 				triIntersectionPoint = js_tri.closestPointOnTriangle(triIntersectionPoint);
 
 				// Using the triIntersectionPoint, we need to reverse-intersect with the sphere
-				dist = sphere_os.rayIntersect(triIntersectionPoint.toVec4fPoint(), -ray.unitDir()); // returns dist till hit sphere or -1 if missed
+				dist = sphere_os.rayIntersect(triIntersectionPoint, -ray.unitDir()); // returns dist till hit sphere or -1 if missed
 			}
 
 			if(dist >= 0 && dist < closest_dist)
@@ -1048,15 +1043,15 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 				//calc hit normal
 				//-----------------------------------------------------------------
 				if(point_in_tri)
-					ref_hit_normal = usenormal.toVec4fVector();
+					ref_hit_normal = usenormal;
 				else
 				{
 					//-----------------------------------------------------------------
 					//calc point sphere will be when it hits edge of tri
 					//-----------------------------------------------------------------
-					const Vec3f hit_spherecenter = sourcePoint3 + unitdir3 * dist;
+					const Vec4f hit_spherecenter = sourcePoint + unitdir * dist;
 
-					ref_hit_normal = normalise((hit_spherecenter - triIntersectionPoint).toVec4fVector());
+					ref_hit_normal = normalise(hit_spherecenter - triIntersectionPoint);
 				}
 			}
 		}
@@ -1190,7 +1185,6 @@ static void testAppendCollPoints(RayMesh& raymesh)
 
 		// Do reference test against all triangles
 		const float radius2 = radius*radius;
-		const Vec3f sphere_pos3(sphere_pos);
 
 		for(unsigned int t=0; t<raymesh.getNumTris(); ++t)
 		{
@@ -1198,31 +1192,34 @@ static void testAppendCollPoints(RayMesh& raymesh)
 			const Vec3f orig_v1 = raymesh.triVertPos(t, 1);
 			const Vec3f orig_v2 = raymesh.triVertPos(t, 2);
 
-			MollerTrumboreTri moller_tri;
-			moller_tri.set(orig_v0, orig_v1, orig_v2);
+			MollerTrumboreTri tri;
+			tri.set(orig_v0, orig_v1, orig_v2);
 
-			const Vec3f v0(moller_tri.data);
-			const Vec3f e1(moller_tri.data + 3);
-			const Vec3f e2(moller_tri.data + 6);
-			js::Triangle tri(v0, v0 + e1, v0 + e2);
+			const Vec4f v0(tri.data[0], tri.data[1], tri.data[2], 1.f);
+			const Vec4f e1(tri.data[3], tri.data[4], tri.data[5], 0.f);
+			const Vec4f e2(tri.data[6], tri.data[7], tri.data[8], 0.f);
+
+			const Vec4f normal = normalise(crossProduct(e1, e2));
+			const js::Triangle js_tri(v0, e1, e2, normal);
+
 
 			// See if sphere is touching plane
-			const Planef tri_plane = tri.getTriPlane();
-			const float disttoplane = tri_plane.signedDistToPoint(sphere_pos3);
+			const Planef tri_plane(v0, normal);
+			const float disttoplane = tri_plane.signedDistToPoint(sphere_pos);
 			if(fabs(disttoplane) > radius)
 				continue;
 
 			// Get closest point on plane to sphere center
-			Vec3f planepoint = tri_plane.closestPointOnPlane(sphere_pos3);
+			Vec4f planepoint = tri_plane.closestPointOnPlane(sphere_pos);
 
 			// Restrict point to inside tri
-			if(!tri.pointInTri(planepoint))
-				planepoint = tri.closestPointOnTriangle(planepoint);
+			if(!js_tri.pointInTri(planepoint))
+				planepoint = js_tri.closestPointOnTriangle(planepoint);
 
-			if(planepoint.getDist2(sphere_pos3) <= radius2)
+			if(planepoint.getDist2(sphere_pos) <= radius2)
 			{
-				if(ref_points_ws.empty() || (planepoint.toVec4fPoint() != ref_points_ws.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
-					ref_points_ws.push_back(planepoint.toVec4fPoint());
+				if(ref_points_ws.empty() || (planepoint != ref_points_ws.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
+					ref_points_ws.push_back(planepoint);
 			}
 		}
 

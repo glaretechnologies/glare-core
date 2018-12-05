@@ -183,7 +183,7 @@ public:
 
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
 		const ArrayRef<Reference<Material> >& materials, const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
-		const std::vector<Plane<Vec3RealType> >& camera_clip_planes, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
+		const std::vector<Planef>& camera_clip_planes, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback);
 
 	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
@@ -192,7 +192,7 @@ public:
 	virtual bool isPlanar(Vec4f& normal_out) const;
 	//////////////////////////////////////////////////////////
 
-	Reference<RayMesh> getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const;
+	Reference<RayMesh> getClippedCopy(const std::vector<Planef>& section_planes_os) const;
 
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
@@ -200,7 +200,6 @@ public:
 	void saveToIndigoMeshOnDisk(const std::string& path) const; // Throws Indigo::Exception
 
 	void buildTrisFromQuads(); // Used in cyberspace code
-	void buildJSTris(); // Used in cyberspace code
 
 	///// These functions are used by various tests which construct RayMeshes directly. //////
 	// None of these functions check the validity of the data being passed in.
@@ -311,10 +310,6 @@ private:
 
 	bool planar;
 	Vec4f planar_normal;
-public:
-#ifndef IS_INDIGO
-	js::Vector<js::Triangle, 32> js_tris; // Not used in Indigo, used for player physics.
-#endif
 };
 
 

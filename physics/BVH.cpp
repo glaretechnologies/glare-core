@@ -550,8 +550,8 @@ static inline float traceRayAgainstSphere(const Vec4f& ray_origin, const Vec4f& 
 void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_world, float radius_ws, 
 	int num_geom, int geom_index, float& closest_dist_ws, Vec4f& hit_normal_ws_out) const
 {
-	const Vec3f sourcePoint3_ws(ray_ws.startPos());
-	const Vec3f unitdir3_ws(ray_ws.unitDir());
+	const Vec4f sourcePoint3_ws(ray_ws.startPos());
+	const Vec4f unitdir3_ws(ray_ws.unitDir());
 
 	for(int i=0; i<num_geom; ++i)
 	{
@@ -568,11 +568,11 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 			const Vec4f e2_ws = to_world.mul3Vector(e2_os);
 
 			// The rest of the intersection will take place in world space.
-			const js::Triangle js_tri(toVec3f(v0_ws), toVec3f(v0_ws + e1_ws), toVec3f(v0_ws + e2_ws));
+			const Vec4f normal = normalise(crossProduct(e1_ws, e2_ws));
 
-			const Vec3f normal = toVec3f(normalise(crossProduct(e1_ws, e2_ws)));
+			const js::Triangle js_tri(v0_ws, e1_ws, e2_ws, normal);
 
-			const Planef tri_plane(toVec3f(v0_ws), normal);
+			const Planef tri_plane(v0_ws, normal);
 
 			// Determine the distance from the plane to the sphere center
 			float pDist = tri_plane.signedDistToPoint(sourcePoint3_ws);
@@ -581,11 +581,11 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 			//Invert normal if doing backface collision, so 'usenormal' is always facing
 			//towards sphere center.
 			//-----------------------------------------------------------------
-			Vec3f usenormal = normal;
+			Vec4f usenormal = normal;
 			if(pDist < 0)
 			{
-				usenormal *= -1;
-				pDist *= -1;
+				usenormal = -usenormal;
+				pDist = -pDist;
 			}
 
 			assert(pDist >= 0);
@@ -593,7 +593,7 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 			//-----------------------------------------------------------------
 			//check if sphere is heading away from tri
 			//-----------------------------------------------------------------
-			const float approach_rate = -usenormal.dot(unitdir3_ws);
+			const float approach_rate = -dot(usenormal, unitdir3_ws);
 			if(approach_rate <= 0)
 				continue;
 
@@ -608,7 +608,7 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 			//-----------------------------------------------------------------
 			//calc the point where the sphere intersects with the triangle plane (planeIntersectionPoint)
 			//-----------------------------------------------------------------
-			Vec3f planeIntersectionPoint;
+			Vec4f planeIntersectionPoint;
 
 			// Is the plane embedded in the sphere?
 			if(trans_len_needed <= 0)//pDist <= sphere.getRadius())//make == trans_len_needed < 0
@@ -621,7 +621,7 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 			{
 				assert(trans_len_needed >= 0);
 
-				planeIntersectionPoint = sourcePoint3_ws + (unitdir3_ws * trans_len_needed) - (radius_ws * usenormal);
+				planeIntersectionPoint = sourcePoint3_ws + (unitdir3_ws * trans_len_needed) - (usenormal * radius_ws);
 
 				//assert point is actually on plane
 				//assert(epsEqual(tri.getTriPlane().signedDistToPoint(planeIntersectionPoint), 0.0f, 0.0001f));
@@ -630,7 +630,7 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 			//-----------------------------------------------------------------
 			//now restrict collision point on tri plane to inside tri if neccessary.
 			//-----------------------------------------------------------------
-			Vec3f triIntersectionPoint = planeIntersectionPoint;
+			Vec4f triIntersectionPoint = planeIntersectionPoint;
 
 			const bool point_in_tri = js_tri.pointInTri(triIntersectionPoint);
 			float dist; // Distance until sphere hits triangle
@@ -644,7 +644,7 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 				triIntersectionPoint = js_tri.closestPointOnTriangle(triIntersectionPoint);
 
 				// Using the triIntersectionPoint, we need to reverse-intersect with the sphere
-				dist = traceRayAgainstSphere(/*ray_origin=*/triIntersectionPoint.toVec4fPoint(), /*ray_unitdir=*/-ray_ws.unitDir(), /*sphere_centre=*/ray_ws.startPos(), radius_ws);
+				dist = traceRayAgainstSphere(/*ray_origin=*/triIntersectionPoint, /*ray_unitdir=*/-ray_ws.unitDir(), /*sphere_centre=*/ray_ws.startPos(), radius_ws);
 			}
 
 			if(dist >= 0 && dist < closest_dist_ws)
@@ -655,15 +655,15 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 				//calc hit normal
 				//-----------------------------------------------------------------
 				if(point_in_tri)
-					hit_normal_ws_out = usenormal.toVec4fVector();
+					hit_normal_ws_out = usenormal;
 				else
 				{
 					//-----------------------------------------------------------------
 					//calc point sphere will be when it hits edge of tri
 					//-----------------------------------------------------------------
-					const Vec3f hit_spherecenter = sourcePoint3_ws + unitdir3_ws * dist;
+					const Vec4f hit_spherecenter = sourcePoint3_ws + unitdir3_ws * dist;
 
-					hit_normal_ws_out = normalise((hit_spherecenter - triIntersectionPoint).toVec4fVector());
+					hit_normal_ws_out = normalise(hit_spherecenter - triIntersectionPoint);
 				}
 			}
 		}
@@ -678,7 +678,6 @@ void BVH::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Ma
 	// The BVH traversal will be done in object space, using the object-space bounds of the sphere.  Intersection with the triangles in the BVH leaves will be done in world space.
 
 	const float radius_ws2 = radius_ws*radius_ws;
-	const Vec3f sphere_pos3_ws(sphere_pos_ws);
 	const js::AABBox sphere_aabb_ws(sphere_pos_ws - Vec4f(radius_ws, radius_ws, radius_ws, 0), sphere_pos_ws + Vec4f(radius_ws, radius_ws, radius_ws, 0));
 	const js::AABBox sphere_aabb_os = sphere_aabb_ws.transformedAABB(to_object);
 
@@ -830,25 +829,26 @@ stack_pop:
 					const Vec4f e2_ws = to_world.mul3Vector(e2_os);
 
 					// The rest of the intersection will take place in world space.
-					const js::Triangle tri(toVec3f(v0_ws), toVec3f(v0_ws + e1_ws), toVec3f(v0_ws + e2_ws));
+					const Vec4f normal = normalise(crossProduct(e1_ws, e2_ws));
+					const js::Triangle tri(v0_ws, e1_ws, e2_ws, normal);
 
 					// See if sphere is touching plane
-					const Planef tri_plane = tri.getTriPlane();
-					const float disttoplane = tri_plane.signedDistToPoint(sphere_pos3_ws);
+					const Planef tri_plane(v0_ws, normal);
+					const float disttoplane = tri_plane.signedDistToPoint(sphere_pos_ws);
 					if(fabs(disttoplane) > radius_ws)
 						continue;
 
 					// Get closest point on plane to sphere center
-					Vec3f planepoint = tri_plane.closestPointOnPlane(sphere_pos3_ws);
+					Vec4f planepoint = tri_plane.closestPointOnPlane(sphere_pos_ws);
 
 					// Restrict point to inside tri
 					if(!tri.pointInTri(planepoint))
 						planepoint = tri.closestPointOnTriangle(planepoint);
 
-					if(planepoint.getDist2(sphere_pos3_ws) <= radius_ws2)
+					if(planepoint.getDist2(sphere_pos_ws) <= radius_ws2)
 					{
-						if(points_ws_in_out.empty() || (planepoint.toVec4fPoint() != points_ws_in_out.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
-							points_ws_in_out.push_back(planepoint.toVec4fPoint());
+						if(points_ws_in_out.empty() || (planepoint != points_ws_in_out.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
+							points_ws_in_out.push_back(planepoint);
 					}
 				}
 
@@ -870,25 +870,26 @@ stack_pop:
 					const Vec4f e2_ws = to_world.mul3Vector(e2_os);
 
 					// The rest of the intersection will take place in world space.
-					const js::Triangle tri(toVec3f(v0_ws), toVec3f(v0_ws + e1_ws), toVec3f(v0_ws + e2_ws));
+					const Vec4f normal = normalise(crossProduct(e1_ws, e2_ws));
+					const js::Triangle tri(v0_ws, e1_ws, e2_ws, normal);
 
 					// See if sphere is touching plane
-					const Planef tri_plane = tri.getTriPlane();
-					const float disttoplane = tri_plane.signedDistToPoint(sphere_pos3_ws);
+					const Planef tri_plane(v0_ws, normal);
+					const float disttoplane = tri_plane.signedDistToPoint(sphere_pos_ws);
 					if(fabs(disttoplane) > radius_ws)
 						continue;
 
 					// Get closest point on plane to sphere center
-					Vec3f planepoint = tri_plane.closestPointOnPlane(sphere_pos3_ws);
+					Vec4f planepoint = tri_plane.closestPointOnPlane(sphere_pos_ws);
 
 					// Restrict point to inside tri
 					if(!tri.pointInTri(planepoint))
 						planepoint = tri.closestPointOnTriangle(planepoint);
 
-					if(planepoint.getDist2(sphere_pos3_ws) <= radius_ws2)
+					if(planepoint.getDist2(sphere_pos_ws) <= radius_ws2)
 					{
-						if(points_ws_in_out.empty() || (planepoint.toVec4fPoint() != points_ws_in_out.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
-							points_ws_in_out.push_back(planepoint.toVec4fPoint());
+						if(points_ws_in_out.empty() || (planepoint != points_ws_in_out.back())) // HACK: Don't add if same as last point.  May happen due to packing of 4 tris together with possible duplicates.
+							points_ws_in_out.push_back(planepoint);
 					}
 				}
 

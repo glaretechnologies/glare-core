@@ -314,7 +314,7 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
 	const ArrayRef<Reference<Material> >& materials,
 	const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
-	const std::vector<Plane<Vec3RealType> >& camera_clip_planes_os, const std::vector<Plane<Vec3RealType> >& section_planes_os, PrintOutput& print_output, bool verbose,
+	const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
 	ShouldCancelCallback* should_cancel_callback
 	)
 {
@@ -497,7 +497,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 			for(size_t i=0; i<section_planes_os.size(); ++i) // For each clipping plane
 			{
 				// If vertex position lies on back-face of section plane, then it will be clipped.
-				if(section_planes_os[i].signedDistToPoint( this->vertices[this->triangles[t].vertex_indices[v]].pos ) < 0)
+				if(section_planes_os[i].signedDistToPoint( this->vertices[this->triangles[t].vertex_indices[v]].pos.toVec4fPoint() ) < 0)
 					return true;
 			}
 		}
@@ -551,25 +551,7 @@ void RayMesh::buildTrisFromQuads()
 }
 
 
-// Used in cyberspace code
-void RayMesh::buildJSTris()
-{
-#ifndef IS_INDIGO
-	this->js_tris.resize(this->triangles.size());
-
-	for(size_t i=0; i<triangles.size(); ++i)
-	{
-		this->js_tris[i] = js::Triangle(
-			vertices[triangles[i].vertex_indices[0]].pos,
-			vertices[triangles[i].vertex_indices[1]].pos,
-			vertices[triangles[i].vertex_indices[2]].pos
-		);
-	}
-#endif
-}
-
-
-Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& section_planes_os) const
+Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Planef>& section_planes_os) const
 {
 	Reference<RayMesh> new_mesh = new RayMesh(
 		name,
@@ -611,7 +593,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Plane<float> >& sec
 		{
 			float d[3]; // signed distance from plane to vertex i
 			for(int i=0; i<3; ++i)
-				d[i] = section_planes_os[p].signedDistToPoint(new_mesh->vertices[current_triangles[t].vertex_indices[i]].pos);
+				d[i] = section_planes_os[p].signedDistToPoint(new_mesh->vertices[current_triangles[t].vertex_indices[i]].pos.toVec4fPoint());
 
 			//printVar(d[0]);
 			if(d[0] >= 0 && d[1] >= 0 && d[2] >= 0)

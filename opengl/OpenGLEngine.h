@@ -313,12 +313,12 @@ private:
 	uint64 num_indices_submitted;
 	uint64 num_aabbs_submitted;
 
-	Plane<float> frustum_clip_planes[6];
+	Planef frustum_clip_planes[6];
 	int num_frustum_clip_planes;
 	Vec4f frustum_verts[8];
 	js::AABBox frustum_aabb;
 
-	Plane<float> shadow_clip_planes[6];
+	Planef shadow_clip_planes[6];
 
 	Reference<OpenGLProgram> phong_prog;
 	Reference<OpenGLProgram> phong_with_alpha_test_prog;

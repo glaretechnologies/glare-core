@@ -156,7 +156,7 @@ public:
 	// properly for adaptively subdivided meshes.
 	unsigned int num_smoothings;
 
-	std::vector<Plane<float> > camera_clip_planes_os; // Camera clip planes in object space.
+	std::vector<Planef> camera_clip_planes_os; // Camera clip planes in object space.
 };
 
 

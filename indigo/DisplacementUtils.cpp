@@ -1945,7 +1945,7 @@ public:
 						bool completely_unclipped = true;
 						for(size_t p=0; p<closure.options->camera_clip_planes_os.size(); ++p)
 							for(uint32_t i = 0; i < 4; ++i)
-								if(closure.options->camera_clip_planes_os[p].signedDistToPoint(quad_verts_pos_os[i]) > 0)
+								if(closure.options->camera_clip_planes_os[p].signedDistToPoint(quad_verts_pos_os[i].toVec4fPoint()) > 0)
 								{
 									completely_unclipped = false;
 									goto done_quad_unclipped_check;

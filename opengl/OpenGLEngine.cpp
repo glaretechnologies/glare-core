@@ -122,32 +122,32 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 	// We won't bother with a culling plane at the near clip plane, since it near draw distance is so close to zero, so it's unlikely to cull any objects.
 
 	planes_cs[0] = Planef(
-		toVec3f(FORWARDS_OS * this->max_draw_dist), // pos.
-		toVec3f(FORWARDS_OS) // normal
+		Vec4f(0,0,0,1) + FORWARDS_OS * this->max_draw_dist, // pos.
+		FORWARDS_OS // normal
 	); // far clip plane of frustum
 
 	const Vec4f left_normal = normalise(crossProduct(UP_OS, lens_center - sensor_right));
 	planes_cs[1] = Planef(
-		toVec3f(lens_center),
-		toVec3f(left_normal)
+		lens_center,
+		left_normal
 	); // left
 
 	const Vec4f right_normal = normalise(crossProduct(lens_center - sensor_left, UP_OS));
 	planes_cs[2] = Planef(
-		toVec3f(lens_center),
-		toVec3f(right_normal)
+		lens_center,
+		right_normal
 	); // right
 
 	const Vec4f bottom_normal = normalise(crossProduct(lens_center - sensor_top, RIGHT_OS));
 	planes_cs[3] = Planef(
-		toVec3f(lens_center),
-		toVec3f(bottom_normal)
+		lens_center,
+		bottom_normal
 	); // bottom
 
 	const Vec4f top_normal = normalise(crossProduct(RIGHT_OS, lens_center - sensor_bottom));
 	planes_cs[4] = Planef(
-		toVec3f(lens_center),
-		toVec3f(top_normal)
+		lens_center,
+		top_normal
 	); // top
 
 	// Transform clipping planes to world space
@@ -156,20 +156,15 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 	for(int i=0; i<5; ++i)
 	{
 		// Get point on plane and plane normal in Camera space.
-		Vec4f plane_point_cs;
-		planes_cs[i].getPointOnPlane().pointToVec4f(plane_point_cs);
+		const Vec4f plane_point_cs = planes_cs[i].getPointOnPlane();
 
-		Vec4f plane_normal_cs;
-		planes_cs[i].getNormal().vectorToVec4f(plane_normal_cs);
+		const Vec4f plane_normal_cs = planes_cs[i].getNormal();
 
 		// Transform from camera space -> world space, then world space -> object space.
 		const Vec4f plane_point_ws = cam_to_world * plane_point_cs;
 		const Vec4f normal_ws = normalise(cam_to_world * plane_normal_cs);
 
-		frustum_clip_planes[i] = Plane<float>(
-			toVec3f(plane_point_ws),
-			toVec3f(normal_ws)
-		);
+		frustum_clip_planes[i] = Planef(plane_point_ws, normal_ws);
 	}
 
 	this->num_frustum_clip_planes = 5;
@@ -260,37 +255,37 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 	Planef planes_cs[6]; // Clipping planes in camera space
 
 	planes_cs[0] = Planef(
-		toVec3f(Vec4f(0.f)), // pos.
-		toVec3f(-FORWARDS_OS) // normal
+		Vec4f(0,0,0,1), // pos.
+		-FORWARDS_OS // normal
 	); // near clip plane of frustum
 
 	planes_cs[1] = Planef(
-		toVec3f(FORWARDS_OS * this->max_draw_dist), // pos.
-		toVec3f(FORWARDS_OS) // normal
+		Vec4f(0, 0, 0, 1) + FORWARDS_OS * this->max_draw_dist, // pos.
+		FORWARDS_OS // normal
 	); // far clip plane of frustum
 
 	const Vec4f left_normal = -RIGHT_OS;
 	planes_cs[2] = Planef(
-		toVec3f(lens_center + left_normal * use_sensor_width/2),
-		toVec3f(left_normal)
+		lens_center + left_normal * use_sensor_width/2,
+		left_normal
 	); // left
 
 	const Vec4f right_normal = RIGHT_OS;
 	planes_cs[3] = Planef(
-		toVec3f(lens_center + right_normal * use_sensor_width/2),
-		toVec3f(right_normal)
+		lens_center + right_normal * use_sensor_width/2,
+		right_normal
 	); // right
 
 	const Vec4f bottom_normal = -UP_OS;
 	planes_cs[4] = Planef(
-		toVec3f(lens_center + bottom_normal * use_sensor_height/2),
-		toVec3f(bottom_normal)
+		lens_center + bottom_normal * use_sensor_height/2,
+		bottom_normal
 	); // bottom
 
 	const Vec4f top_normal = UP_OS;
 	planes_cs[5] = Planef(
-		toVec3f(lens_center + top_normal * use_sensor_height/2),
-		toVec3f(top_normal)
+		lens_center + top_normal * use_sensor_height/2,
+		top_normal
 	); // top
 	
 	// Transform clipping planes to world space
@@ -299,20 +294,15 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 	for(int i=0; i<6; ++i)
 	{
 		// Get point on plane and plane normal in Camera space.
-		Vec4f plane_point_cs;
-		planes_cs[i].getPointOnPlane().pointToVec4f(plane_point_cs);
+		const Vec4f plane_point_cs = planes_cs[i].getPointOnPlane();
 
-		Vec4f plane_normal_cs;
-		planes_cs[i].getNormal().vectorToVec4f(plane_normal_cs);
+		const Vec4f plane_normal_cs = planes_cs[i].getNormal();
 
 		// Transform from camera space -> world space, then world space -> object space.
 		const Vec4f plane_point_ws = cam_to_world * plane_point_cs;
 		const Vec4f normal_ws = normalise(cam_to_world * plane_normal_cs);
 
-		frustum_clip_planes[i] = Plane<float>(
-			toVec3f(plane_point_ws),
-			toVec3f(normal_ws)
-			);
+		frustum_clip_planes[i] = Planef(plane_point_ws, normal_ws);
 	}
 
 	this->num_frustum_clip_planes = 6;
@@ -1083,7 +1073,7 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
 
 
 // http://iquilezles.org/www/articles/frustumcorrect/frustumcorrect.htm
-static bool AABBIntersectsFrustum(const Plane<float>* frustum_clip_planes, int num_frustum_clip_planes, const js::AABBox& frustum_aabb, const js::AABBox& aabb_ws)
+static bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int num_frustum_clip_planes, const js::AABBox& frustum_aabb, const js::AABBox& aabb_ws)
 {
 	const Vec4f min_ws = aabb_ws.min_;
 	const Vec4f max_ws = aabb_ws.max_;
@@ -1096,16 +1086,16 @@ static bool AABBIntersectsFrustum(const Plane<float>* frustum_clip_planes, int n
 #ifndef NDEBUG
 		float refdist;
 		{
-			const Vec3f normal = frustum_clip_planes[z].getNormal();
+			const Vec4f normal = frustum_clip_planes[z].getNormal();
 			float dist = std::numeric_limits<float>::infinity();
-			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], min_ws[1], min_ws[2])));
-			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], min_ws[1], max_ws[2])));
-			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], max_ws[1], min_ws[2])));
-			dist = myMin(dist, dot(normal, Vec3f(min_ws[0], max_ws[1], max_ws[2])));
-			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], min_ws[1], min_ws[2])));
-			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], min_ws[1], max_ws[2])));
-			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], max_ws[1], min_ws[2])));
-			dist = myMin(dist, dot(normal, Vec3f(max_ws[0], max_ws[1], max_ws[2])));
+			dist = myMin(dist, dot(normal, Vec4f(min_ws[0], min_ws[1], min_ws[2], 1.f)));
+			dist = myMin(dist, dot(normal, Vec4f(min_ws[0], min_ws[1], max_ws[2], 1.f)));
+			dist = myMin(dist, dot(normal, Vec4f(min_ws[0], max_ws[1], min_ws[2], 1.f)));
+			dist = myMin(dist, dot(normal, Vec4f(min_ws[0], max_ws[1], max_ws[2], 1.f)));
+			dist = myMin(dist, dot(normal, Vec4f(max_ws[0], min_ws[1], min_ws[2], 1.f)));
+			dist = myMin(dist, dot(normal, Vec4f(max_ws[0], min_ws[1], max_ws[2], 1.f)));
+			dist = myMin(dist, dot(normal, Vec4f(max_ws[0], max_ws[1], min_ws[2], 1.f)));
+			dist = myMin(dist, dot(normal, Vec4f(max_ws[0], max_ws[1], max_ws[2], 1.f)));
 			//if(dist >= frustum_clip_planes[z].getD())
 			//	return false;
 			refdist = dist;
@@ -1113,9 +1103,10 @@ static bool AABBIntersectsFrustum(const Plane<float>* frustum_clip_planes, int n
 		const float refD = frustum_clip_planes[z].getD();
 #endif
 		
-		const Vec4f normal_x(frustum_clip_planes[z].getNormal().x);
-		const Vec4f normal_y(frustum_clip_planes[z].getNormal().y);
-		const Vec4f normal_z(frustum_clip_planes[z].getNormal().z);
+		const Vec4f normal = frustum_clip_planes[z].getNormal();
+		const Vec4f normal_x = copyToAll<0>(normal);
+		const Vec4f normal_y = copyToAll<1>(normal);
+		const Vec4f normal_z = copyToAll<2>(normal);
 
 		const Vec4f min_x(copyToAll<0>(min_ws)); // [min_ws[0], min_ws[0], min_ws[0], min_ws[0]]
 		const Vec4f max_x(copyToAll<0>(max_ws)); // [max_ws[0], max_ws[0], max_ws[0], max_ws[0]]
@@ -1387,12 +1378,12 @@ void OpenGLEngine::draw()
 			view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
 
 			// Compute clipping planes for shadow mapping
-			shadow_clip_planes[0] = Planef(toVec3f( i), max_i);
-			shadow_clip_planes[1] = Planef(toVec3f(-i), -min_i);
-			shadow_clip_planes[2] = Planef(toVec3f( j), max_j);
-			shadow_clip_planes[3] = Planef(toVec3f(-j), -min_j);
-			shadow_clip_planes[4] = Planef(toVec3f( k), use_max_k);
-			shadow_clip_planes[5] = Planef(toVec3f(-k), -min_k);
+			shadow_clip_planes[0] = Planef( i, max_i);
+			shadow_clip_planes[1] = Planef(-i, -min_i);
+			shadow_clip_planes[2] = Planef( j, max_j);
+			shadow_clip_planes[3] = Planef(-j, -min_j);
+			shadow_clip_planes[4] = Planef( k, use_max_k);
+			shadow_clip_planes[5] = Planef(-k, -min_k);
 
 			js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
 			for(int z=0; z<8; ++z)
@@ -1552,12 +1543,12 @@ void OpenGLEngine::draw()
 					view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
 
 					// Compute clipping planes for shadow mapping
-					shadow_clip_planes[0] = Planef(toVec3f(i), max_i);
-					shadow_clip_planes[1] = Planef(toVec3f(-i), -min_i);
-					shadow_clip_planes[2] = Planef(toVec3f(j), max_j);
-					shadow_clip_planes[3] = Planef(toVec3f(-j), -min_j);
-					shadow_clip_planes[4] = Planef(toVec3f(k), use_max_k);
-					shadow_clip_planes[5] = Planef(toVec3f(-k), -min_k);
+					shadow_clip_planes[0] = Planef( i, max_i);
+					shadow_clip_planes[1] = Planef(-i, -min_i);
+					shadow_clip_planes[2] = Planef( j, max_j);
+					shadow_clip_planes[3] = Planef(-j, -min_j);
+					shadow_clip_planes[4] = Planef( k, use_max_k);
+					shadow_clip_planes[5] = Planef(-k, -min_k);
 
 					js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
 					for(int z=0; z<8; ++z)

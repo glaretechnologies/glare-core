@@ -1,291 +1,173 @@
+/*=====================================================================
+jscol_Triangle.cpp
+------------------
+Copyright Glare Technologies Limited 2018 -
+=====================================================================*/
 #include "jscol_triangle.h"
 
 
-#if 1
-/*void js::Triangle::calcNormal()
+// Closest point on line ab to p
+inline static const Vec4f closestPointOnLine(const Vec4f& a, const Vec4f& a_to_b, const Vec4f& p)
 {
-	//Vec3 edge0 = v0() - v1();
-	//Vec3 edge1 = v2() - v1();
-
-	//counter clockwise winding order means looking at *front* face.
-
-	const Vec3 edge0 = v1() - v0();
-	const Vec3 edge1 = v2() - v0();
-
-	//NEWCODE: swapped order of edges
-
-	normal = crossProduct(edge0, edge1);
-
-	normal.normalise();
-
-//	assert( epsEqual(normal.length(), 1) );
-
-	if(normal == Vec3(0,0,0))
-		normal = Vec3(0,0,1);//bit of a hack
-
-	//-----------------------------------------------------------------
-	//build edge plane normals
-	//-----------------------------------------------------------------
-	*//*planenormal[0] = crossProduct(normal, v1()-v0());
-
-	planenormal[1] = crossProduct(normal, v2()-v1());
-
-	planenormal[2] = crossProduct(normal, v0()-v2());*//*
-
-	//ncalced = true;
-}*/
-/*
-
-void js::Triangle::buildPlanes()
-{
-	edgeplanes[0].setUnnormalised(v[0], crossProduct(v[1]-v[0], normal));
-
-	edgeplanes[1].setUnnormalised(v[1], crossProduct(v[2]-v[1], normal));
-
-	edgeplanes[2].setUnnormalised(v[2], crossProduct(v[0]-v[2], normal));
-
-	triplane.set(v[0], normal);
-
-	//NOTE: check me
-}*/
-
-
-
- //closest point on line ab to p
-const Vec3f closestPointOnLine(const Vec3f& a, const Vec3f& b, const Vec3f& p)
-{
-	// Determine t (the length of the vector from ‘a’ to ‘p’)
-	Vec3f c = p - a;
-	Vec3f V = b - a;//Normalized vector [b - a];
-	V.normalise();
-	float d = a.getDist(b);//distance from a to b;
-	float t = dotProduct(V, c);
-
-	// Check to see if ‘t’ is beyond the extents of the line segment
-	
-	if (t < 0) return a;
-	if (t > d) return b;
- 
-	// Return the point between ‘a’ and ‘b’
-
-	V *= t;//set length of V to t;
-	return a + V;
-
-	/*Vec3f c = p - a;
-	Vec3f V = b - a;//Normalized vector [b - a];
-	V.normalise();
-   double d = a.getDist(b);//distance from a to b;
-   double t = dotProduct(V, c);
-
-	// Check to see if ‘t’ is beyond the extents of the line segment
-	
-	if (t < 0) return a;
-	if (t > d) return b;
- 
-	// Return the point between ‘a’ and ‘b’
-
-	V *= t;//set length of V to t;
-	return a + V;*/
-}
-
-//returns closest point out of {Rab, Rbc, Rca} to p
-const Vec3f& closest(const Vec3f& Rab, const Vec3f& Rbc, const Vec3f& Rca, const Vec3f& p)
-{
-	float d1 = p.getDist2(Rab);
-	float d2 = p.getDist2(Rbc);
-	float d3 = p.getDist2(Rca);
-
-	if(d1<=d2 && d1<=d3)
-		return Rab;
-
-	if(d2<=d1 && d2<=d3)
-		return Rbc;
-
-	if(d3<=d1 && d3<=d2)
-    return Rca;
-
-//  ASSERT(0); // the same
-	return Rab;
+	const Vec4f ap = p - a;
+	const float d = dot(ap, a_to_b);
+	if(d <= 0)
+		return a;
+	const float t = myMin(1.f, d / (a_to_b.length2()));
+	return a + a_to_b * t;
 }
 
 
-//closest point on triangle to target.  target must be in triangle plane
-const Vec3f js::Triangle::closestPointOnTriangle(const Vec3f& target) const
+// Returns closest point out of {a, b, c} to p
+static inline const Vec4f closest(const Vec4f& a, const Vec4f& b, const Vec4f& c, const Vec4f& p)
 {
-	const Vec3f Rab = closestPointOnLine(v[0], v[1], target);
-	const Vec3f Rbc = closestPointOnLine(v[1], v[2], target);
-	const Vec3f Rca = closestPointOnLine(v[2], v[0], target);
-    
-	return closest(Rab, Rbc, Rca, target);
-}
+	const float d1 = p.getDist2(a);
+	const float d2 = p.getDist2(b);
+	const float d3 = p.getDist2(c);
 
-
-inline void crossProduct(const Vec3f& v1, const Vec3f& v2, Vec3f& vout)
-{
-	vout.x = (v1.y * v2.z) - (v1.z * v2.y);
-	vout.y = (v1.z * v2.x) - (v1.x * v2.z);
-	vout.z = (v1.x * v2.y) - (v1.y * v2.x);
-}
-
-inline void sub(const Vec3f& v1, const Vec3f& v2, Vec3f& vout)
-{
-	vout.x = v1.x - v2.x;
-	vout.y = v1.y - v2.y;
-	vout.z = v1.z - v2.z;
-}
-
-#if 0
-
-//http://www.acm.org/jgt/papers/MollerTrumbore97/
-
-//#define EPSILON 0.000001
-const float EPSILON = 0.0000001f;
-
-float js::Triangle::traceRayMolTrum(const Ray& ray/*, double *t, double *u, double *v*/)
-{
-	float texu, texv;
-
-	//find vectors for two edges sharing vert0
-	//const Vec3f edge1 = v[1] - v[0];
-	//const Vec3f edge2 = v[2] - v[0];
-	Vec3f edge1, edge2;
-	sub(v[1], v[0], edge1);
-	sub(v[2], v[0], edge2);
-
-	//begin calculating determinant - also used to calculate U parameter
-	//const Vec3f pvec = ::crossProduct(ray.unitdir, edge2);
-	Vec3f pvec;
-	crossProduct(ray.unitDirF(), edge2, pvec);
-
-	//if determinant is near zero, ray lies in plane of triangle
-	const float det = edge1.dot(pvec);
-
-#ifdef TEST_CULL           /* define TEST_CULL if culling is desired */
-   if (det < EPSILON)
-      return 0;
-
-	/* calculate distance from vert0 to ray origin */
-	//SUB(tvec, orig, vert0);
-   const Vec3f tvec = orig - vert0;
-
-   /* calculate U parameter and test bounds */
-   u = tvec.dot(pvec);//DOT(tvec, pvec);
-   if(u < 0.0 || u > det)
-      return -1.0f;//0;
-
-   /* prepare to test V parameter */
-   //CROSS(qvec, tvec, edge1);
-   const Vec3f qvec = ::crossProduct(tvec, edge1);
-   //Vec3f qvec;
-   //crossProduct(tvec, edge1, qvec);
-
-    /* calculate V parameter and test bounds */
-   v = //DOT(dir, qvec);
-   if (*v < 0.0 || *u + *v > det)
-      return 0;
-
-   /* calculate t, scale parameters, ray intersects triangle */
-   float t = edge2.dot(qvec);//DOT(edge2, qvec);
-   const float inv_det = 1.0f / det;
-   t *= inv_det;
-   u *= inv_det;
-   v *= inv_det;
-
-#else                    /* the non-culling branch */
-
-	if(det > -EPSILON && det < EPSILON)
-		return -1.0f;
-
-	const float inv_det = 1.0f / det;
-
-	//calculate distance from vert0 to ray origin
-	//const Vec3f tvec = ray.startpos - v[0];
-	Vec3f tvec;
-	sub(ray.startPosF(), v[0], tvec);
-
-	//calculate U parameter and test bounds
-	texu = tvec.dot(pvec) * inv_det;
-	if(texu < 0.0f || texu > 1.0f)
-		return -1.0f;//0;
-
-	//prepare to test V parameter
-	//const Vec3f qvec = ::crossProduct(tvec, edge1);
-	Vec3f qvec;
-	crossProduct(tvec, edge1, qvec);
-
-	//calculate V parameter and test bounds
-	texv = ray.unitDirF().dot(qvec) * inv_det;
-	if(texv < 0.0f || texu + texv > 1.0f)
-		return -1.0f;//0;
-
-	//calculate t, ray intersects triangle
-	const float t = edge2.dot(qvec) * inv_det;
-
-#endif
-
-   //return 1;
-	return t;
-}
-#endif
-
-const Planef js::Triangle::getEdgePlane(int index) const
-{
-	if(index == 0)
-		return Planef(v[0], normalise(crossProduct(v[1]-v[0], getNormal())));
-	else if(index == 1)
-		return Planef(v[1], normalise(crossProduct(v[2]-v[1], getNormal())));
-	else if(index == 2)
-		return Planef(v[2], normalise(crossProduct(v[0]-v[2], getNormal())));
-	else
+	if(d1 < d2)
 	{
-		assert(0);
-		return Planef(Vec3f(0,0,1), 0);
+		if(d1 < d3)
+			return a;
+		else // else d3 <= d1 && d1 < d2
+			return c;
 	}
-
+	else // else d1 >= d2 => d2 <= d1
+	{
+		if(d2 < d3)
+			return b;
+		else // else d2 >= d3   =>   d3 <= d2 && d2 <= d1
+			return c;
+	}
 }
 
-//point must be in plane
 
-bool js::Triangle::pointInTri(const Vec3f& point) const
+// Closest point on triangle to target.  Target must be in triangle plane and is assumed to be outside the triangle.
+const Vec4f js::Triangle::closestPointOnTriangle(const Vec4f& target) const
 {
-	//-----------------------------------------------------------------
-	//check inside edge 0 (v0 to v1)
-	//-----------------------------------------------------------------
-	if(getEdgePlane(0).pointTouchingFrontHalfSpace(point))
+	const Vec4f e0_closest = closestPointOnLine(v0, e1, target);
+
+	const Vec4f v1 = v0 + e1;
+	const Vec4f v1_to_v2 = e2 - e1;
+	const Vec4f e1_closest = closestPointOnLine(v1, v1_to_v2, target);
+	const Vec4f e2_closest = closestPointOnLine(v0, e2, target);
+
+	return closest(e0_closest, e1_closest, e2_closest, target);
+}
+
+
+// Point must be on triangle plane
+bool js::Triangle::pointInTri(const Vec4f& point) const
+{
+	// Check inside edge 0 (v0 to v1)
+	const Vec4f edge0_normal = crossProduct(e1, normal);
+	const float d0 = dot(v0, edge0_normal);
+	if(dot(point, edge0_normal) > d0)
 		return false;
 
-	//-----------------------------------------------------------------
-	//check inside edge 1 (v1 to v2)
-	//-----------------------------------------------------------------
-	if(getEdgePlane(1).pointTouchingFrontHalfSpace(point))
+	// Check inside edge 1 (v1 to v2)
+	const Vec4f v1 = v0 + e1;
+	const Vec4f v1_to_v2 = e2 - e1;
+	const Vec4f edge1_normal = crossProduct(v1_to_v2, normal);
+	const float d1 = dot(v1, edge1_normal);
+	if(dot(point, edge1_normal) > d1)
 		return false;
 
-	//-----------------------------------------------------------------
-	//check inside edge 2 (v2 to v0)
-	//-----------------------------------------------------------------
-	if(getEdgePlane(2).pointTouchingFrontHalfSpace(point))
+	// Check inside edge 2 (v2 to v0)
+	const Vec4f edge2_normal = crossProduct(normal, e2);
+	const float d2 = dot(v0, edge2_normal);
+	if(dot(point, edge2_normal) > d2)
 		return false;
-
-	//-----------------------------------------------------------------
-	//check inside edge 0 (v0 to v1)
-	//-----------------------------------------------------------------
-	/*if(edgeplanes[0].pointOnFrontSide(point))
-		return false;
-
-	//-----------------------------------------------------------------
-	//check inside edge 1 (v1 to v2)
-	//-----------------------------------------------------------------
-	if(edgeplanes[1].pointOnFrontSide(point))
-		return false;
-
-	//-----------------------------------------------------------------
-	//check inside edge 2 (v2 to v0)
-	//-----------------------------------------------------------------
-	if(edgeplanes[2].pointOnFrontSide(point))
-		return false;*/
 
 	return true;
 }
 
 
-#endif
+#if BUILD_TESTS
+
+
+#include "../indigo/globals.h"
+#include "../indigo/TestUtils.h"
+
+
+void js::Triangle::test()
+{
+	//----------------------- Test closestPointOnLine() --------------------------------
+
+	testAssert(epsEqual(closestPointOnLine(Vec4f(2, 2, 0, 1), Vec4f(5, 0, 0, 0), Vec4f(4, 5, 0, 1)), Vec4f(4, 2, 0, 1)));
+
+	// Point off left side of line
+	testAssert(epsEqual(closestPointOnLine(Vec4f(2, 2, 0, 1), Vec4f(5, 0, 0, 0), Vec4f(1, 5, 0, 1)), Vec4f(2, 2, 0, 1)));
+
+	// Point off right side of line
+	testAssert(epsEqual(closestPointOnLine(Vec4f(2, 2, 0, 1), Vec4f(5, 0, 0, 0), Vec4f(10, 5, 0, 1)), Vec4f(7, 2, 0, 1)));
+
+	// Point above left side of line
+	testAssert(epsEqual(closestPointOnLine(Vec4f(2, 2, 0, 1), Vec4f(5, 0, 0, 0), Vec4f(2, 10, 0, 1)), Vec4f(2, 2, 0, 1)));
+
+	// Point above right side of line
+	testAssert(epsEqual(closestPointOnLine(Vec4f(2, 2, 0, 1), Vec4f(5, 0, 0, 0), Vec4f(7, 10, 0, 1)), Vec4f(7, 2, 0, 1)));
+
+
+	//----------------------- Test closestPointOnTriangle() --------------------------------
+	{
+		Vec4f v0(3, 2, 0, 1);
+		Vec4f v1(13, 4, 0, 1);
+		Vec4f v2(8, 9, 0, 1);
+		js::Triangle tri(v0, v1 - v0, v2 - v0, Vec4f(0, 0, 1, 0));
+
+		testAssert(epsEqual(tri.closestPointOnTriangle(Vec4f(0, 0, 0, 1)), v0));
+		testAssert(epsEqual(tri.closestPointOnTriangle(Vec4f(15, 4, 0, 1)), v1));
+		testAssert(epsEqual(tri.closestPointOnTriangle(Vec4f(8, 10, 0, 1)), v2));
+
+		testAssert(epsEqual(tri.closestPointOnTriangle(Vec4f(9, -2, 0, 1)), Vec4f(8, 3, 0, 1))); // Point below edge v0 to v1
+
+		testAssert(epsEqual(tri.closestPointOnTriangle(Vec4f(13, 9, 0, 1)), Vec4f(10.5f, 6.5f, 0, 1))); // Point above and to the right of edge v1 to v2
+
+		testAssert(epsEqual(tri.closestPointOnTriangle(Vec4f(4, 7, 0, 1)), Vec4f(5.70270252f, 5.78378391f, 0, 1))); // Point above and to the left of edge v0 to v2
+	}
+
+
+	//----------------------- Test pointInTri() --------------------------------
+	{
+		Vec4f v0(3, 2, 0, 1);
+		Vec4f v1(13, 4, 0, 1);
+		Vec4f v2(8, 9, 0, 1);
+		js::Triangle tri(v0, v1 - v0, v2 - v0, Vec4f(0, 0, 1, 0));
+
+		testAssert(tri.pointInTri(v0));
+		testAssert(tri.pointInTri(v1 - Vec4f(1.0e-4f, 0, 0, 0)));
+		testAssert(tri.pointInTri(v2 - Vec4f(0, 1.0e-4f, 0, 0)));
+		testAssert(tri.pointInTri(Vec4f(7, 3, 0, 1)));
+		testAssert(tri.pointInTri(Vec4f(7, 7, 0, 1)));
+		testAssert(tri.pointInTri(Vec4f(12, 4, 0, 1)));
+		testAssert(tri.pointInTri(Vec4f(10, 6, 0, 1)));
+		testAssert(tri.pointInTri(Vec4f(8, 5, 0, 1)));
+
+		// Test that points just outside of v0 are out
+		testAssert(!tri.pointInTri(v0 - Vec4f(1.0e-4f, 0, 0, 0)));
+		testAssert(!tri.pointInTri(v0 - Vec4f(0, 1.0e-4f, 0, 0)));
+
+		// Test that points just outside of v1 are out
+		testAssert(!tri.pointInTri(v1 + Vec4f(1.0e-4f, 0, 0, 0)));
+		testAssert(!tri.pointInTri(v1 + Vec4f(0, 1.0e-4f, 0, 0)));
+		testAssert(!tri.pointInTri(v1 - Vec4f(0, 1.0e-4f, 0, 0)));
+
+		// Test that points just outside of v2 are out
+		testAssert(!tri.pointInTri(v2 + Vec4f(1.0e-4f, 0, 0, 0)));
+		testAssert(!tri.pointInTri(v2 + Vec4f(0, 1.0e-4f, 0, 0)));
+		testAssert(!tri.pointInTri(v2 - Vec4f(1.0e-4f, 0, 0, 0)));
+
+		testAssert(!tri.pointInTri(Vec4f(10, 3, 0, 1)));
+		testAssert(!tri.pointInTri(Vec4f(10, -3, 0, 1)));
+
+		testAssert(!tri.pointInTri(Vec4f(11, 7, 0, 1)));
+		testAssert(!tri.pointInTri(Vec4f(110, 70, 0, 1)));
+		
+		testAssert(!tri.pointInTri(Vec4f(5, 6, 0, 1)));
+		testAssert(!tri.pointInTri(Vec4f(50, 60, 0, 1)));
+	}
+}
+
+
+#endif // BUILD_TESTS

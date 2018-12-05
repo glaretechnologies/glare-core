@@ -135,14 +135,14 @@ void TriBoxIntersection::clipPolyAgainstPlane(const Vec3f* points, unsigned int 
 #endif
 
 
-void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out)
+void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Planef& plane, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out)
 {
 	polygon_verts_out.resize(0);
 	if(polygon_verts.size() == 0)
 		return;
 
 	float current_dist;
-	float next_dist = plane.signedDistToPoint(polygon_verts[0]);
+	float next_dist = plane.signedDistToPoint(polygon_verts[0].toVec4fPoint());
 
 	// For each edge...
 	for(unsigned int edge=0; edge<polygon_verts.size(); ++edge)
@@ -151,9 +151,9 @@ void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, con
 		const Vec3f& next = polygon_verts[(edge + 1) % polygon_verts.size()];
 
 		current_dist = next_dist;
-		next_dist = plane.signedDistToPoint(next);
-		assert(epsEqual(current_dist, plane.signedDistToPoint(current)));
-		assert(epsEqual(next_dist, plane.signedDistToPoint(next)));
+		next_dist = plane.signedDistToPoint(next.toVec4fPoint());
+		assert(epsEqual(current_dist, plane.signedDistToPoint(current.toVec4fPoint())));
+		assert(epsEqual(next_dist, plane.signedDistToPoint(next.toVec4fPoint())));
 
 		if(current_dist <= 0.0f)
 		{
@@ -181,7 +181,7 @@ void TriBoxIntersection::clipPolyToPlaneHalfSpace(const Plane<float>& plane, con
 	}
 }
 
-void TriBoxIntersection::clipPolyToPlaneHalfSpaces(const std::vector<Plane<float> >& planes, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& temp_vert_buffer, std::vector<Vec3f>& polygon_verts_out)
+void TriBoxIntersection::clipPolyToPlaneHalfSpaces(const std::vector<Planef>& planes, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& temp_vert_buffer, std::vector<Vec3f>& polygon_verts_out)
 {
 	temp_vert_buffer = polygon_verts;
 	for(unsigned int i=0; i<planes.size(); ++i)

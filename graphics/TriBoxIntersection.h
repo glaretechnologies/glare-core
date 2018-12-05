@@ -44,10 +44,10 @@ public:
 
 */
 	// clips to half space in the other half from the plane normal.
-	//static void clipPolyToPlaneHalfSpace(const Plane<float>& plane, const Vec3f* points, unsigned int num_points, unsigned int max_num_points_out, Vec3f* points_out, unsigned int& num_points_out);
-	static void clipPolyToPlaneHalfSpace(const Plane<float>& plane, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out);
+	//static void clipPolyToPlaneHalfSpace(const Planef& plane, const Vec3f* points, unsigned int num_points, unsigned int max_num_points_out, Vec3f* points_out, unsigned int& num_points_out);
+	static void clipPolyToPlaneHalfSpace(const Planef& plane, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& polygon_verts_out);
 
-	static void clipPolyToPlaneHalfSpaces(const std::vector<Plane<float> >& planes, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& temp_vert_buffer, std::vector<Vec3f>& polygon_verts_out);
+	static void clipPolyToPlaneHalfSpaces(const std::vector<Planef>& planes, const std::vector<Vec3f>& polygon_verts, std::vector<Vec3f>& temp_vert_buffer, std::vector<Vec3f>& polygon_verts_out);
 
 	static void test();
 

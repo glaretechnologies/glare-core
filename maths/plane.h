@@ -1,186 +1,106 @@
-/*===================================================================
-
-  
-  digital liberation front 2001
-  
-  _______    ______      _______
- /______/\  |______|    /\______\  
-|       \ \ |      |   / /       |    
-|	      \| |      |  |/         |  
-|_____    \ |      |_ /    ______|       
- ____|    | |      |_||    |_____          
-     |____| |________||____|                
-           
+/*=====================================================================
+Plane.h
+-------
+Copyright Glare Technologies Limited 2018 -
+=====================================================================*/
+#pragma once
 
 
-
-Code by Nicholas Chapman[/ Ono-Sendai]
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
-#ifndef __PLANE_H__
-#define __PLANE_H__
+#include "Vec4f.h"
 
 
-#include "vec3.h"
-#include "mathstypes.h"
-#include "coordframe.h"
-
-
-template <class Real>
-class Plane
+class Planef
 {
 public:
-	inline Plane();
-	inline Plane(const Vec3<Real>& origin, const Vec3<Real>& normal);
-	inline Plane(const Vec3<Real>& normal, Real dist_from_origin);
-	//inline Plane(const Plane& rhs);
-	inline ~Plane();
+	GLARE_ALIGNED_16_NEW_DELETE
 
-//	Plane& operator = (const Plane& rhs);
-
-	//inline void set(const Vec3<Real>& normal, Real dist_from_origin);
-	//inline void set(const Vec3<Real>& origin, const Vec3<Real>& normal);
-
-	//inline void setUnnormalised(const Vec3<Real>& origin, const Vec3<Real>& nonunit_normal);
-
-	
+	inline Planef();
+	inline Planef(const Vec4f& origin, const Vec4f& normal);
+	inline Planef(const Vec4f& normal, float dist_from_origin);
 
 
-	inline bool pointTouchingFrontHalfSpace(const Vec3<Real>& point) const;
+	inline bool pointTouchingFrontHalfSpace(const Vec4f& point) const;
 
-	inline bool pointTouchingBackHalfSpace(const Vec3<Real>& point) const;
+	inline bool pointTouchingBackHalfSpace(const Vec4f& point) const;
 
-	//inline bool isPointOnPlane(const Vec3<Real>& point) const;
+	inline const Vec4f getPointOnPlane() const; // Returns a point somewhere on the plane (actually the point closest to the origin)
 
-	inline const Vec3<Real> getPointOnPlane() const; // Returns a point somewhere on the plane (actually the point closest to the origin)
+	inline const Vec4f projOnPlane(const Vec4f& vec) const;
 
-	inline const Vec3<Real> projOnPlane(const Vec3<Real>& vec) const;
+	inline const Vec4f compNormalToPlane(const Vec4f& vec) const;
 
-	inline const Vec3<Real> compNormalToPlane(const Vec3<Real>& vec) const;
+	inline float signedDistToPoint(const Vec4f& p) const;
 
-	inline Real signedDistToPoint(const Vec3<Real>& p) const;
+	inline const Vec4f closestPointOnPlane(const Vec4f& p) const;
 
-	inline const Vec3<Real> closestPointOnPlane(const Vec3<Real>& p) const;
+	inline float getDist() const { return d; }
+	inline float getD() const { return d; }
 
-	inline Real getDist() const { return d; }
-	inline Real getD() const { return d; }
-
-	inline const Vec3<Real>& getNormal() const { return normal; }
+	inline const Vec4f& getNormal() const { return normal; }
 
 	//returns fraction of ray travelled. Will be in range [0, 1] if ray hit
-	inline Real finiteRayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& rayend) const;
+	inline float finiteRayIntersect(const Vec4f& raystart, const Vec4f& rayend) const;
 
-	inline Real rayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const;
+	inline float rayIntersect(const Vec4f& raystart, const Vec4f& ray_unitdir) const;
 
 	//NOTE: will return a position even if ray points AWAY from plane.
-	inline const Vec3<Real> getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const;
+	inline const Vec4f getRayIntersectPos(const Vec4f& raystart, const Vec4f& ray_unitdir) const;
 
-	inline const Plane<Real> transformedToLocal(const CoordFrame<Real>& coordframe) const;
+	//inline const Planef transformedToLocal(const CoordFrame<float>& coordframe) const;
 
-	inline bool isSpherePartiallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const;
-	inline bool isSphereTotallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const;
+	inline bool isSpherePartiallyOnFrontSide(const Vec4f& sphere_center, float radius) const;
+	inline bool isSphereTotallyOnFrontSide(const Vec4f& sphere_center, float radius) const;
 
-	inline bool isPlaneOnFrontSide(const Plane& p) const;
+	inline bool isPlaneOnFrontSide(const Planef& p) const;
 
-	inline const Vec3<Real> reflectPointInPlane(const Vec3<Real>& point) const;
-	inline const Vec3<Real> reflectVectorInPlane(const Vec3<Real>& vec) const;
+	inline const Vec4f reflectPointInPlane(const Vec4f& point) const;
+	inline const Vec4f reflectVectorInPlane(const Vec4f& vec) const;
 
 private:
-	Vec3<Real> normal;
-	Real d;
+	Vec4f normal;
+	float d;
 };
 
 
-typedef Plane<float> Planef;
+//typedef Planef Planef;
 
 
-template <class Real>
-Plane<Real>::Plane()
+Planef::Planef()
 {}
 
 
-template <class Real>
-Plane<Real>::Plane(const Vec3<Real>& origin, const Vec3<Real>& normal_)
+Planef::Planef(const Vec4f& origin, const Vec4f& normal_)
 :	normal(normal_),
 	d(dot(origin, normal))
 {
+	assert(origin[3]  == 1.f);
+	assert(normal_[3] == 0.f);
 	assert(normal.isUnitLength());
 }
 
 
-template <class Real>
-Plane<Real>::Plane(const Vec3<Real>& normal_, Real d_)
+Planef::Planef(const Vec4f& normal_, float d_)
 :	normal(normal_),
 	d(d_)
 {
+	assert(normal_[3] == 0.f);
 	assert(normal.isUnitLength());
 }
 
 
-template <class Real>
-Plane<Real>::~Plane()
-{}
-
-/*Plane& Plane::operator = (const Plane& rhs)
-{
-	normal = rhs.normal;
-	d = rhs.d;
-
-	return *this;
-}*/
-
-/*
-template <class Real>
-void Plane<Real>::set(const Vec3<Real>& normal_, Real dist_from_origin)
-{
-	normal = normal_;
-
-	assert( epsEqual(normal.length(), 1.0) );
-
-	d = dist_from_origin;
-}*/
-
-
-/*
-template <class Real>
-void Plane<Real>::set(const Vec3<Real>& origin, const Vec3<Real>& normal_)
-{
-	normal = normal_;
-
-	assert( epsEqual(normal.length(), 1.0) );
-
-	d = dot(origin, normal);
-}
-
-template <class Real>
-void Plane<Real>::setUnnormalised(const Vec3<Real>& origin, const Vec3<Real>& nonunit_normal)
-{
-	normal = nonunit_normal;
-
-	normal.normalise();
-
-	d = dot(origin, normal);
-}*/
-
-template <class Real>
-bool Plane<Real>::pointTouchingFrontHalfSpace(const Vec3<Real>& point) const
+bool Planef::pointTouchingFrontHalfSpace(const Vec4f& point) const
 {
 	return dot(point, normal) >= d;
 }
 
-template <class Real>
-bool Plane<Real>::pointTouchingBackHalfSpace(const Vec3<Real>& point) const
+
+bool Planef::pointTouchingBackHalfSpace(const Vec4f& point) const
 {
 	return dot(point, normal) <= d;
 }
 
-/*template <class Real>
-bool Plane<Real>::isPointOnPlane(const Vec3<Real>& point) const 
+/*
+bool Planef::isPointOnPlane(const Vec4f& point) const 
 {
 	if(fabs(signedDistToPoint(point)) < 0.00001f)
 		return true;
@@ -189,44 +109,44 @@ bool Plane<Real>::isPointOnPlane(const Vec3<Real>& point) const
 }*/
 
 
-template <class Real>
-const Vec3<Real> Plane<Real>::getPointOnPlane() const
+
+const Vec4f Planef::getPointOnPlane() const
 {
-	return normal * d;
+	return Vec4f(0,0,0,1) + normal * d;
 }
 
-template <class Real>
-const Vec3<Real> Plane<Real>::projOnPlane(const Vec3<Real>& vec) const
+
+const Vec4f Planef::projOnPlane(const Vec4f& vec) const
 {
 	return vec - compNormalToPlane(vec);
 }
 
-template <class Real>
-const Vec3<Real> Plane<Real>::compNormalToPlane(const Vec3<Real>& vec) const
+
+const Vec4f Planef::compNormalToPlane(const Vec4f& vec) const
 {
-	return dot(vec, normal) * normal;
+	return normal * dot(vec, normal);
 }
 
-template <class Real>
-Real Plane<Real>::signedDistToPoint(const Vec3<Real>& p) const
+
+float Planef::signedDistToPoint(const Vec4f& p) const
 {
 	return dot(p, normal) - d;
 }
 
-template <class Real>
-const Vec3<Real> Plane<Real>::closestPointOnPlane(const Vec3<Real>& p) const
+
+const Vec4f Planef::closestPointOnPlane(const Vec4f& p) const
 {
-	return p - (signedDistToPoint(p) * normal);
+	return p - (normal * signedDistToPoint(p));
 }
 
-template <class Real>
-Real Plane<Real>::finiteRayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& rayend) const
+
+float Planef::finiteRayIntersect(const Vec4f& raystart, const Vec4f& rayend) const
 {
-	const Real raystart_dot_n = dot(raystart, normal);
+	const float raystart_dot_n = dot(raystart, normal);
 
-	const Real rayend_dot_n = dot(rayend, normal);
+	const float rayend_dot_n = dot(rayend, normal);
 
-	const Real denom = rayend_dot_n - raystart_dot_n;
+	const float denom = rayend_dot_n - raystart_dot_n;
 
 	if(denom == 0.0f)
 		return -1.0f;
@@ -235,11 +155,11 @@ Real Plane<Real>::finiteRayIntersect(const Vec3<Real>& raystart, const Vec3<Real
 
 }
 
-template <class Real>
-Real Plane<Real>::rayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const
+
+float Planef::rayIntersect(const Vec4f& raystart, const Vec4f& ray_unitdir) const
 {
 
-	const Real start_to_plane_dist = signedDistToPoint(raystart);
+	const float start_to_plane_dist = signedDistToPoint(raystart);
 
 	return start_to_plane_dist / -dot(ray_unitdir, normal);
 
@@ -248,23 +168,23 @@ Real Plane<Real>::rayIntersect(const Vec3<Real>& raystart, const Vec3<Real>& ray
 }
 
 
-template <class Real>
-const Vec3<Real> Plane<Real>::getRayIntersectPos(const Vec3<Real>& raystart, const Vec3<Real>& ray_unitdir) const
+
+const Vec4f Planef::getRayIntersectPos(const Vec4f& raystart, const Vec4f& ray_unitdir) const
 {
-	const Real dist_till_intersect = rayIntersect(raystart, ray_unitdir);
+	const float dist_till_intersect = rayIntersect(raystart, ray_unitdir);
 
 	return raystart + ray_unitdir * dist_till_intersect;
 }
 
-template <class Real>
-const Plane<Real> Plane<Real>::transformedToLocal(const CoordFrame<Real>& coordframe) const
-{
-	// NOTE: there's probably a much faster way of computing this.
-	return Plane<Real>(
-		coordframe.transformPointToLocal(this->getPointOnPlane()),
-		coordframe.transformVecToLocal(this->getNormal())
-		);
-}
+
+//const Planef Planef::transformedToLocal(const CoordFrame<float>& coordframe) const
+//{
+//	// NOTE: there's probably a much faster way of computing this.
+//	return Planef(
+//		coordframe.transformPointToLocal(this->getPointOnPlane()),
+//		coordframe.transformVecToLocal(this->getNormal())
+//		);
+//}
 
 
 /*
@@ -281,36 +201,33 @@ const Plane Plane::transformToLocal(const CoordFrame& coordframe) const
 	//NOTE: check this is right
 }*/
 
-template <class Real>
-bool Plane<Real>::isSpherePartiallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const
+
+bool Planef::isSpherePartiallyOnFrontSide(const Vec4f& sphere_center, float radius) const
 {
-	return signedDistToPoint(sphere_center) <= radius * -1.0f;
+	return signedDistToPoint(sphere_center) <= -radius;
 }
 
-template <class Real>
-bool Plane<Real>::isSphereTotallyOnFrontSide(const Vec3<Real>& sphere_center, Real radius) const
+
+bool Planef::isSphereTotallyOnFrontSide(const Vec4f& sphere_center, float radius) const
 {
 	return signedDistToPoint(sphere_center) >= radius;
 }
 
-template <class Real>
-bool Plane<Real>::isPlaneOnFrontSide(const Plane& p) const
+
+bool Planef::isPlaneOnFrontSide(const Planef& p) const
 {
 	return epsEqual(p.getNormal(), this->getNormal())
 				&& p.getDist() > this->getDist();
 }
 
-template <class Real>
-inline const Vec3<Real> Plane<Real>::reflectPointInPlane(const Vec3<Real>& point) const
-{
-	return point - getNormal() * signedDistToPoint(point) * (Real)2.0;
-}
 
-template <class Real>
-inline const Vec3<Real> Plane<Real>::reflectVectorInPlane(const Vec3<Real>& vec) const
+inline const Vec4f Planef::reflectPointInPlane(const Vec4f& point) const
 {
-	return vec - getNormal() * dot(getNormal(), vec) * (Real)2.0;
+	return point - getNormal() * signedDistToPoint(point) * (float)2.0;
 }
 
 
-#endif //__PLANE_H__
+inline const Vec4f Planef::reflectVectorInPlane(const Vec4f& vec) const
+{
+	return vec - getNormal() * dot(getNormal(), vec) * (float)2.0;
+}
