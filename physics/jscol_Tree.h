@@ -15,6 +15,7 @@ class ThreadContext;
 class PrintOutput;
 class Ray;
 class Vec4f;
+class Matrix4f;
 namespace js { class AABBox; };
 namespace Indigo { class TaskManager; }
 
@@ -43,9 +44,9 @@ public:
 
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
 
-	virtual DistType traceSphere(const Ray& ray, float radius, DistType max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const;
+	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws,/* DistType max_t_ws, */ThreadContext& thread_context, Vec4f& hit_normal_ws_out) const;
 
-	virtual void appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_in_out) const;
+	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const;
 	
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 

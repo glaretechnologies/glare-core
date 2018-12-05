@@ -912,6 +912,9 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 	BVH bvh(&raymesh);
 	bvh.build(print_output, /*verbose=*/true, task_manager);
 
+	const Matrix4f to_world = Matrix4f::identity();
+	const Matrix4f to_object = Matrix4f::identity();
+
 	//------------------------------------------------------------------------
 	//compare tests against all tris with tests against the trees
 	//------------------------------------------------------------------------
@@ -921,17 +924,18 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//test first hit traces
 		//------------------------------------------------------------------------
+		const double max_t = rng.unitRandom() * 2.0f;
 		const Ray ray(
 			Vec4f(0, 0, 0, 1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0)),
 			1.0e-5f, // min_t
-			std::numeric_limits<float>::max(), // max_t
+			(float)max_t, // max_t
 			false // shadow ray
 		);
 		const float radius = rng.unitRandom() * 0.2f;
-		const double max_t = rng.unitRandom() * 2.0f;
+		
 		Vec4f hit_normal;
-		const double d = bvh.traceSphere(ray, radius, max_t, thread_context, hit_normal);
+		const double d = bvh.traceSphere(ray, to_object, to_world, radius, thread_context, hit_normal);
 
 		// Do reference trace against all triangles
 		const Vec3f sourcePoint3(ray.startPos());
@@ -1069,7 +1073,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 			testEpsEqual((float)d, closest_dist);
 
 			if(d > 0) // In the d==0 case, this means one or more triangles were embedded in the sphere.  Therefore we may not get the closest tri, so normals may differ.
-				testEpsEqual(hit_normal, ref_hit_normal);
+				testEpsEqualWithEps(hit_normal, ref_hit_normal, 1.0e-4f);
 			
 			testEpsEqual(ref_hit_normal.length(), 1.0f);
 		}
@@ -1082,7 +1086,23 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
-	MTwister rng(1);
+	
+
+	{
+		// Test with a single triangle in the x-y plane.
+		RayMesh raymesh("raymesh", false);
+		raymesh.addVertex(Vec3f(0.f, 0.f, 0.f));
+		raymesh.addVertex(Vec3f(1.f, 0.f, 0.f));
+		raymesh.addVertex(Vec3f(0.f, 1.f, 0.f));
+		const unsigned int vertex_indices[] = { 0, 1, 2 };
+		const unsigned int uv_indices[] = { 0, 0, 0 };
+		raymesh.addTriangle(vertex_indices, uv_indices, 0);
+
+		raymesh.build(appdata_path, options, print_output, false, task_manager);
+
+		testSphereTracingOnMesh(raymesh);
+	}
+	
 
 	//------------------------------------------------------------------------
 	//try building up a random set of triangles and inserting into a tree
@@ -1092,6 +1112,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 
 		const unsigned int NUM_TRIS = 20;
 		const std::vector<Vec2f> texcoord_sets;
+		MTwister rng(1);
 		for(unsigned int i=0; i<NUM_TRIS; ++i)
 		{
 			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
@@ -1148,6 +1169,9 @@ static void testAppendCollPoints(RayMesh& raymesh)
 	std::vector<Vec4f> points_ws;
 	std::vector<Vec4f> ref_points_ws;
 
+	const Matrix4f to_object = Matrix4f::identity();
+	const Matrix4f to_world = Matrix4f::identity();
+
 	//------------------------------------------------------------------------
 	//compare tests against all tris with tests against the trees
 	//------------------------------------------------------------------------
@@ -1162,7 +1186,7 @@ static void testAppendCollPoints(RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		const Vec4f sphere_pos = Vec4f(0, 0, 0, 1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f;
 		const float radius = rng.unitRandom() * 0.6f;
-		bvh.appendCollPoints(sphere_pos, radius, thread_context, points_ws);
+		bvh.appendCollPoints(sphere_pos, radius, to_object, to_world, thread_context, points_ws);
 
 		// Do reference test against all triangles
 		const float radius2 = radius*radius;

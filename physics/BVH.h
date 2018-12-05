@@ -42,8 +42,8 @@ public:
 
 
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
-	virtual DistType traceSphere(const Ray& ray, float radius, DistType max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const;
-	virtual void appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const;
+	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, ThreadContext& thread_context, Vec4f& hit_normal_ws_out) const;
+	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
@@ -60,8 +60,8 @@ public:
 
 	typedef uint32 TRI_INDEX;
 private:
-	inline void intersectSphereAgainstLeafTris(js::BoundingSphere sphere_os, const Ray& ray,
-		int num_geom, int geom_index, float& closest_dist, Vec4f& hit_normal_out) const;
+	inline void intersectSphereAgainstLeafTris(const Ray& ray_dir_ws, const Matrix4f& to_world, float radius_ws,
+		int num_geom, int geom_index, float& closest_dist, Vec4f& hit_normal_ws_out) const;
 
 	typedef js::Vector<BVHNode, 64> NODE_VECTOR_TYPE;
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;

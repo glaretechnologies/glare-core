@@ -67,9 +67,9 @@ public:
 
 	INDIGO_STRONG_INLINE const Vec4f centroid() const;
 
-	// Get the world space AABB, which encloses object-space AABB corners transformed to world space.
-	inline AABBox transformedAABB(const Matrix4f& matrix) const;
-	inline AABBox transformedAABBFast(const Matrix4f& matrix) const; // Faster, but with possible precision issues.
+	// Get the AABB which encloses the AABB corners transformed by the matrix M.
+	inline AABBox transformedAABB(const Matrix4f& M) const;
+	inline AABBox transformedAABBFast(const Matrix4f& M) const; // Faster, but with possible precision issues.
 
 
 	const std::string toString() const;

@@ -104,21 +104,22 @@ Geometry::DistType RayMesh::traceRay(const Ray& ray, ThreadContext& thread_conte
 }
 
 
-RayMesh::DistType RayMesh::traceSphere(const Ray& ray, float radius, float max_t, ThreadContext& thread_context, Vec4f& hit_normal_out) const
+RayMesh::DistType RayMesh::traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, ThreadContext& thread_context, Vec4f& hit_normal_ws_out) const
 {
 	return tritree->traceSphere(
-		ray,
-		radius,
-		max_t,
+		ray_ws,
+		to_object,
+		to_world,
+		radius_ws,
 		thread_context,
-		hit_normal_out
+		hit_normal_ws_out
 	);
 }
 
 
-void RayMesh::appendCollPoints(const Vec4f& sphere_pos, float radius, ThreadContext& thread_context, std::vector<Vec4f>& points_in_out) const
+void RayMesh::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const
 {
-	tritree->appendCollPoints(sphere_pos, radius, thread_context, points_in_out);
+	tritree->appendCollPoints(sphere_pos_ws, radius_ws, to_object, to_world, thread_context, points_ws_in_out);
 }
 
 
