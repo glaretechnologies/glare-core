@@ -1065,7 +1065,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 			testAssert(d <= max_t);
 			testEpsEqual(hit_normal.length(), 1.0f);
 
-			testEpsEqual((float)d, closest_dist);
+			testEpsEqualWithEps((float)d, closest_dist, 1.0e-4f);
 
 			if(d > 0) // In the d==0 case, this means one or more triangles were embedded in the sphere.  Therefore we may not get the closest tri, so normals may differ.
 				testEpsEqualWithEps(hit_normal, ref_hit_normal, 1.0e-4f);
