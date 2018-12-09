@@ -3001,13 +3001,13 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh(const Vec4f& endp
 	const int res = 20;
 
 	js::Vector<Vec3f, 16> verts;
-	verts.resize(res * 4);
+	verts.resize(res * 4 + 2);
 	js::Vector<Vec3f, 16> normals;
-	normals.resize(res * 4);
+	normals.resize(res * 4 + 2);
 	js::Vector<Vec2f, 16> uvs;
-	uvs.resize(res * 4);
+	uvs.resize(res * 4 + 2);
 	js::Vector<uint32, 16> indices;
-	indices.resize(res * 6); // two tris per quad
+	indices.resize(res * 12); // 4 tris * res
 
 	const Vec3f dir(normalise(endpoint_b - endpoint_a));
 	Matrix4f basis;
@@ -3018,44 +3018,66 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh(const Vec4f& endp
 	const float shaft_r = radius;
 	const float shaft_len = endpoint_a.getDist(endpoint_b);
 
-	// Draw cylinder for shaft of arrow
+	// Make cylinder sides
 	for(int i=0; i<res; ++i)
 	{
 		const float angle      = i       * Maths::get2Pi<float>() / res;
-		const float next_angle = (i + 1) * Maths::get2Pi<float>() / res;
 
-		// Define quad
+		// Set verts
 		{
-			Vec3f normal1(basis_i * cos(angle) + basis_j * sin(angle));
-			Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
+			//v[i*2 + 0] is top of side edge, facing outwards.
+			//v[i*2 + 1] is bottom of side edge, facing outwards.
+			Vec3f bottom_pos = Vec3f(endpoint_a) +  ((basis_i * cos(angle) + basis_j * sin(angle)) * shaft_r);
+			Vec3f top_pos    = bottom_pos + dir * shaft_len;
+			Vec3f normal(basis_i * cos(angle) + basis_j * sin(angle));
+			normals[i*2 + 0] = normal;
+			normals[i*2 + 1] = normal;
+			verts[i*2 + 0] = bottom_pos;
+			verts[i*2 + 1] = top_pos;
+			uvs[i*2 + 0] = Vec2f(0.f);
+			uvs[i*2 + 1] = Vec2f(0.f);
 
-			normals[i*4 + 0] = normal1;
-			normals[i*4 + 1] = normal2;
-			normals[i*4 + 2] = normal2;
-			normals[i*4 + 3] = normal1;
+			//v[2*r + i] is top of side edge, facing upwards
+			normals[2*res + i] = dir;
+			verts[2*res + i] = top_pos;
+			uvs[2*res + i] = Vec2f(0.f);
 
-			Vec3f v0 = Vec3f(endpoint_a) +  ((basis_i * cos(angle) + basis_j * sin(angle)) * shaft_r);
-			Vec3f v1 = Vec3f(endpoint_a) +  ((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r);
-			Vec3f v2 = Vec3f(endpoint_a) +  ((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r + dir * shaft_len);
-			Vec3f v3 = Vec3f(endpoint_a) +  ((basis_i * cos(angle) + basis_j * sin(angle)) * shaft_r + dir * shaft_len);
-
-			verts[i*4 + 0] = v0;
-			verts[i*4 + 1] = v1;
-			verts[i*4 + 2] = v2;
-			verts[i*4 + 3] = v3;
-
-			uvs[i*4 + 0] = Vec2f(0.f);
-			uvs[i*4 + 1] = Vec2f(0.f);
-			uvs[i*4 + 2] = Vec2f(0.f);
-			uvs[i*4 + 3] = Vec2f(0.f);
-
-			indices[i*6 + 0] = i*4 + 0;
-			indices[i*6 + 1] = i*4 + 1;
-			indices[i*6 + 2] = i*4 + 2;
-			indices[i*6 + 3] = i*4 + 0;
-			indices[i*6 + 4] = i*4 + 2;
-			indices[i*6 + 5] = i*4 + 3;
+			//v[3*r + i] is bottom of side edge, facing down
+			normals[3*res + i] = -dir;
+			verts[3*res + i] = bottom_pos;
+			uvs[3*res + i] = Vec2f(0.f);
 		}
+
+		// top centre vert
+		normals[4*res + 0] = dir;
+		verts[4*res + 0] = Vec3f(endpoint_b);
+		uvs[4*res + 0] = Vec2f(0.f);
+
+		// bottom centre vert
+		normals[4*res + 1] = -dir;
+		verts[4*res + 1] = Vec3f(endpoint_a);
+		uvs[4*res + 1] = Vec2f(0.f);
+
+
+		// Set tris
+
+		// Side face triangles
+		indices[i*12 + 0] = i*2 + 0;
+		indices[i*12 + 1] = i*2 + 1;
+		indices[i*12 + 2] = (i*2 + 2) % (2*res);
+		indices[i*12 + 3] = i*2 + 1;
+		indices[i*12 + 4] = (i*2 + 3) % (2*res);
+		indices[i*12 + 5] = (i*2 + 2) % (2*res);
+
+		// top triangle
+		indices[i*12 + 6] = res*2 + i + 0;
+		indices[i*12 + 7] = res*2 + (i + 1) % res;
+		indices[i*12 + 8] = res*4;
+
+		// bottom triangle
+		indices[i*12 + 9]  = res*3 + i + 0;
+		indices[i*12 + 10] = res*3 + (i + 1) % res;
+		indices[i*12 + 11] = res*4 + 1;
 	}
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
