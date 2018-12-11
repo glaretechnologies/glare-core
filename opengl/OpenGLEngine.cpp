@@ -2993,12 +2993,14 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 }
 
 
-// Base will be at origin, other end will lie at (0, 0, length)
-Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh(const Vec4f& endpoint_a, const Vec4f& endpoint_b, float radius)
+// Make a cylinder from (0,0,0), to (0,0,1) with radius 1.
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh()
 {
+	const Vec3f endpoint_a(0, 0, 0);
+	const Vec3f endpoint_b(0, 0, 1);
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
-	const int res = 20;
+	const int res = 16;
 
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(res * 4 + 2);
@@ -3009,27 +3011,25 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh(const Vec4f& endp
 	js::Vector<uint32, 16> indices;
 	indices.resize(res * 12); // 4 tris * res
 
-	const Vec3f dir(normalise(endpoint_b - endpoint_a));
-	Matrix4f basis;
-	basis.constructFromVector(normalise(endpoint_b - endpoint_a));
-	const Vec3f basis_i(basis.getRow(0));//(1, 0, 0);
-	const Vec3f basis_j(basis.getRow(1));// 0, 1, 0);
+	const Vec3f dir(0, 0, 1);
+	const Vec3f basis_i(1, 0, 0);
+	const Vec3f basis_j(0, 1, 0);
 
-	const float shaft_r = radius;
-	const float shaft_len = endpoint_a.getDist(endpoint_b);
+	const float shaft_len = 1;
 
 	// Make cylinder sides
 	for(int i=0; i<res; ++i)
 	{
-		const float angle      = i       * Maths::get2Pi<float>() / res;
+		const float angle = i * Maths::get2Pi<float>() / res;
 
 		// Set verts
 		{
 			//v[i*2 + 0] is top of side edge, facing outwards.
 			//v[i*2 + 1] is bottom of side edge, facing outwards.
-			Vec3f bottom_pos = Vec3f(endpoint_a) +  ((basis_i * cos(angle) + basis_j * sin(angle)) * shaft_r);
-			Vec3f top_pos    = bottom_pos + dir * shaft_len;
-			Vec3f normal(basis_i * cos(angle) + basis_j * sin(angle));
+			const Vec3f normal = basis_i * cos(angle) + basis_j * sin(angle);
+			const Vec3f bottom_pos = endpoint_a + normal;
+			const Vec3f top_pos    = endpoint_b + normal;
+			
 			normals[i*2 + 0] = normal;
 			normals[i*2 + 1] = normal;
 			verts[i*2 + 0] = bottom_pos;
@@ -3050,38 +3050,46 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh(const Vec4f& endp
 
 		// top centre vert
 		normals[4*res + 0] = dir;
-		verts[4*res + 0] = Vec3f(endpoint_b);
+		verts[4*res + 0] = endpoint_b;
 		uvs[4*res + 0] = Vec2f(0.f);
 
 		// bottom centre vert
 		normals[4*res + 1] = -dir;
-		verts[4*res + 1] = Vec3f(endpoint_a);
+		verts[4*res + 1] = endpoint_a;
 		uvs[4*res + 1] = Vec2f(0.f);
 
 
 		// Set tris
 
 		// Side face triangles
-		indices[i*12 + 0] = i*2 + 0;
-		indices[i*12 + 1] = i*2 + 1;
-		indices[i*12 + 2] = (i*2 + 2) % (2*res);
-		indices[i*12 + 3] = i*2 + 1;
-		indices[i*12 + 4] = (i*2 + 3) % (2*res);
-		indices[i*12 + 5] = (i*2 + 2) % (2*res);
+		indices[i*12 + 0] = i*2 + 1; // top
+		indices[i*12 + 1] = i*2 + 0; // bottom 
+		indices[i*12 + 2] = (i*2 + 2) % (2*res); // bottom on next edge
+		indices[i*12 + 3] = i*2 + 1; // top
+		indices[i*12 + 4] = (i*2 + 2) % (2*res); // bottom on next edge
+		indices[i*12 + 5] = (i*2 + 3) % (2*res); // top on next edge
 
 		// top triangle
 		indices[i*12 + 6] = res*2 + i + 0;
 		indices[i*12 + 7] = res*2 + (i + 1) % res;
-		indices[i*12 + 8] = res*4;
+		indices[i*12 + 8] = res*4; // top centre vert
 
 		// bottom triangle
-		indices[i*12 + 9]  = res*3 + i + 0;
-		indices[i*12 + 10] = res*3 + (i + 1) % res;
-		indices[i*12 + 11] = res*4 + 1;
+		indices[i*12 + 9]  = res*3 + (i + 1) % res;
+		indices[i*12 + 10] = res*3 + i + 0;
+		indices[i*12 + 11] = res*4 + 1; // bottom centre vert
 	}
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
+}
+
+
+Reference<OpenGLMeshRenderData> OpenGLEngine::getCylinderMesh() // A cylinder from (0,0,0), to (0,0,1) with radius 1;
+{
+	if(cylinder_meshdata.isNull())
+		cylinder_meshdata = makeCylinderMesh();
+	return cylinder_meshdata;
 }
 
 

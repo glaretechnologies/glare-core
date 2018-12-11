@@ -225,7 +225,8 @@ public:
 
 	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh();
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
-	static Reference<OpenGLMeshRenderData> makeCylinderMesh(const Vec4f& endpoint_a, const Vec4f& endpoint_b, float radius);
+	
+	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 
 	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 private:
@@ -266,6 +267,7 @@ private:
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
+	static Reference<OpenGLMeshRenderData> makeCylinderMesh(); // Make a cylinder from (0,0,0), to (0,0,1) with radius 1;
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -277,6 +279,7 @@ private:
 	Reference<OpenGLMeshRenderData> sphere_meshdata;
 	Reference<OpenGLMeshRenderData> arrow_meshdata;
 	Reference<OpenGLMeshRenderData> cube_meshdata;
+	Reference<OpenGLMeshRenderData> cylinder_meshdata;
 	GLObjectRef env_ob;
 
 	float use_sensor_width;
