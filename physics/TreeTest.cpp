@@ -901,6 +901,32 @@ void TreeTest::buildSpeedTest()
 #endif
 
 
+// Adapted from RaySphere::traceRay().
+static inline float traceRayAgainstSphere(const Vec4f& ray_origin, const Vec4f& ray_unitdir, const Vec4f& sphere_centre, float radius)
+{
+	// We are using a numerically robust ray-sphere intersection algorithm as described here: http://www.cg.tuwien.ac.at/courses/CG1/textblaetter/englisch/10%20Ray%20Tracing%20(engl).pdf
+
+	const Vec4f raystart_to_centre = sphere_centre - ray_origin;
+
+	const float r2 = radius*radius;
+
+	// Return zero if ray origin is inside sphere.
+	if(raystart_to_centre.length2() <= r2)
+		return 0.f;
+
+	const float u_dot_del_p = dot(raystart_to_centre, ray_unitdir);
+
+	const float discriminant = r2 - raystart_to_centre.getDist2(ray_unitdir * u_dot_del_p);
+
+	if(discriminant < 0)
+		return -1; // No intersection.
+
+	const float sqrt_discriminant = std::sqrt(discriminant);
+
+	const float t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
+	return t_0;
+}
+
 
 static void testSphereTracingOnMesh(RayMesh& raymesh)
 {
@@ -1032,7 +1058,8 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 				triIntersectionPoint = js_tri.closestPointOnTriangle(triIntersectionPoint);
 
 				// Using the triIntersectionPoint, we need to reverse-intersect with the sphere
-				dist = sphere_os.rayIntersect(triIntersectionPoint, -ray.unitDir()); // returns dist till hit sphere or -1 if missed
+				//dist = sphere_os.rayIntersect(triIntersectionPoint, -ray.unitDir()); // returns dist till hit sphere or -1 if missed
+				dist = traceRayAgainstSphere(/*ray_origin=*/triIntersectionPoint, /*ray_unitdir=*/-ray.unitDir(), /*sphere_centre=*/ray.startPos(), radius);
 			}
 
 			if(dist >= 0 && dist < closest_dist)
