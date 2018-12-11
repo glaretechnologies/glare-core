@@ -3015,8 +3015,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCylinderMesh()
 	const Vec3f basis_i(1, 0, 0);
 	const Vec3f basis_j(0, 1, 0);
 
-	const float shaft_len = 1;
-
 	// Make cylinder sides
 	for(int i=0; i<res; ++i)
 	{
