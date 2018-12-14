@@ -88,7 +88,8 @@ public:
 	);
 
 
-	void bindAndListen(int port); // throws MySocketExcep
+	// If reuse_address is true, enables SO_REUSEADDR on the socket so that it can be (re)bound during the wait state.
+	void bindAndListen(int port, bool reuse_address = false); // throws MySocketExcep
 
 
 	Reference<MySocket> acceptConnection(); // throws MySocketExcep
@@ -138,6 +139,9 @@ public:
 
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
 	virtual void enableTCPKeepAlive(float period);
+
+	// Enables or disables SO_REUSEADDR - allows a socket to bind to an address/port that is in the wait state.
+	virtual void setAddressReuseEnabled(bool enabled);
 
 	bool readable(double timeout_s);
 	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).  

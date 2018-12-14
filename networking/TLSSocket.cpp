@@ -190,6 +190,12 @@ void TLSSocket::enableTCPKeepAlive(float period)
 }
 
 
+void TLSSocket::setAddressReuseEnabled(bool enabled)
+{
+	plain_socket->setAddressReuseEnabled(enabled);
+}
+
+
 void TLSSocket::readTo(void* buffer, size_t readlen)
 {
 	readTo(buffer, readlen, NULL);

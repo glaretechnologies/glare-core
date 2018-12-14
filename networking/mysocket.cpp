@@ -285,7 +285,7 @@ void MySocket::connect(const IPAddress& ipaddress,
 }
 
 
-void MySocket::bindAndListen(int port)
+void MySocket::bindAndListen(int port, bool reuse_address)
 {
 	Timer timer;
 
@@ -337,6 +337,9 @@ void MySocket::bindAndListen(int port)
 		assert(0);
 		//conPrint("!!!!!!!!!!!! Warning: setsockopt IPV6_V6ONLY failed.");
 	}
+
+	if(reuse_address)
+		this->setAddressReuseEnabled(true);
 
 	// conPrint("binding to " + IPAddress(*addr_to_use->ai_addr).toString() + "...");
 
@@ -831,7 +834,7 @@ bool MySocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 
 void MySocket::setNoDelayEnabled(bool enabled_)
 {
-	int enabled = enabled_ ? 1 : 0;
+	const int enabled = enabled_ ? 1 : 0;
 	if(::setsockopt(sockethandle, // socket handle
 		IPPROTO_TCP, // level
 		TCP_NODELAY, // option name
@@ -908,6 +911,20 @@ void MySocket::enableTCPKeepAlive(float period)
 #endif
 
 #endif
+}
+
+
+// Enables SO_REUSEADDR - allows a socket to bind to an address/port that is in the wait state.
+void MySocket::setAddressReuseEnabled(bool enabled_)
+{
+	const int enabled = enabled_ ? 1 : 0;
+	if(::setsockopt(sockethandle, // socket handle
+		SOL_SOCKET, // level
+		SO_REUSEADDR, // option name
+		(const char*)&enabled, // value
+		sizeof(enabled) // size of value buffer
+	) != 0)
+		throw MySocketExcep("setsockopt failed to set SO_REUSEADDR, error: " + Networking::getError());
 }
 
 

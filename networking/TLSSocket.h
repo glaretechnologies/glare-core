@@ -99,6 +99,8 @@ public:
 
 	virtual void enableTCPKeepAlive(float period);
 
+	virtual void setAddressReuseEnabled(bool enabled);
+
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
 

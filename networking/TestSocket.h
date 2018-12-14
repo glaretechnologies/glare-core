@@ -32,6 +32,7 @@ public:
 
 	virtual void setNoDelayEnabled(bool enabled) {} // NoDelay option is off by default.
 	virtual void enableTCPKeepAlive(float period) {}
+	virtual void setAddressReuseEnabled(bool enabled) {}
 
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
 	//void enableTCPKeepAlive(float period);
