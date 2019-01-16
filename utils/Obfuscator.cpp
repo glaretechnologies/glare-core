@@ -252,6 +252,9 @@ void Obfuscator::addOpenCLKeywords()
 
 "convert_int8",
 
+"all",
+"any",
+
 "dot",
 "cross",
 "length",
