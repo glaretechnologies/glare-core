@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2015 -
 
 #include "OpenCL.h"
 #include "OpenCLBuffer.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../utils/Platform.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
