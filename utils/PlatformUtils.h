@@ -78,14 +78,14 @@ const std::string getCurrentWorkingDirPath(); // throws PlatformUtilsExcep
 /*
 Returns the appdata directory for the application - a directory that is writeable by the app.
 For example, on Windows: 
-C:\Users\Nicolas Chapman\AppData\Roaming\Indigo Renderer
+C:\Users\Nicolas Chapman\AppData\Roaming\app_name
 
 On Linux this will return
 $HOME/.glare_technologies/app_name
 
 The directories are created if they do not yet exist.
 */
-const std::string getOrCreateAppDataDirectory(const std::string& app_base_path, const std::string& app_name); // throws PlatformUtilsExcep.
+const std::string getOrCreateAppDataDirectory(const std::string& app_name); // throws PlatformUtilsExcep.
 
 const std::string getOrCreateAppDataDirectoryWithDummyFallback(); // Doesn't throw.
 
