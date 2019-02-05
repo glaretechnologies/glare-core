@@ -424,10 +424,10 @@ const std::string PlatformUtils::getCurrentWorkingDirPath() // throws PlatformUt
 const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_name)
 {
 #if defined(_WIN32) || defined(_WIN64) || defined(OSX)
-	// e.g. C:\Users\Nicolas Chapman\AppData\Roaming
+	// e.g. C:\Users\Nicholas Chapman\AppData\Roaming
 	const std::string appdatapath_base = PlatformUtils::getAPPDataDirPath();
 
-	// e.g. C:\Users\Nicolas Chapman\AppData\Roaming\Indigo Renderer
+	// e.g. C:\Users\Nicholas Chapman\AppData\Roaming\Indigo Renderer
 	const std::string appdatapath = FileUtils::join(appdatapath_base, app_name);
 
 	// Create the dir if it doesn't exist
@@ -461,13 +461,11 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 }
 
 
-const std::string PlatformUtils::getOrCreateAppDataDirectoryWithDummyFallback() // Doesn't throw.
+const std::string PlatformUtils::getOrCreateAppDataDirectoryWithDummyFallback(const std::string& app_name) // Doesn't throw.
 {
 	try
 	{
-		// Get the 'appdata_path', which will be indigo_base_dir_path on Linux/OS-X, but something like
-		// 'C:\Users\Nicolas Chapman\AppData\Roaming\Indigo Renderer' on Windows.
-		return PlatformUtils::getOrCreateAppDataDirectory("Indigo Renderer");
+		return PlatformUtils::getOrCreateAppDataDirectory(app_name);
 	}
 	catch(PlatformUtils::PlatformUtilsExcep&)
 	{

@@ -87,7 +87,7 @@ The directories are created if they do not yet exist.
 */
 const std::string getOrCreateAppDataDirectory(const std::string& app_name); // throws PlatformUtilsExcep.
 
-const std::string getOrCreateAppDataDirectoryWithDummyFallback(); // Doesn't throw.
+const std::string getOrCreateAppDataDirectoryWithDummyFallback(const std::string& app_name); // Doesn't throw.
 
 const std::string getResourceDirectoryPath(); // throws PlatformUtilsExcep
 	
