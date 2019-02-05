@@ -118,7 +118,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 
 	OpenCLProgramRef program = ::getGlobalOpenCL()->buildProgram(
 		program_source,
-		opencl_context->getContext(),
+		opencl_context,
 		selected_devices_on_plat,
 		compile_options,
 		build_log_out
