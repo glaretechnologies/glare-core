@@ -10,8 +10,9 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-OpenCLProgram::OpenCLProgram(cl_program program_)
-:	program(program_)
+OpenCLProgram::OpenCLProgram(cl_program program_, OpenCLContextRef& context_)
+:	program(program_),
+	context(context_)
 {
 	
 }

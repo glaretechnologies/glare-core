@@ -28,7 +28,7 @@ OpenCLBuffer::OpenCLBuffer()
 }
 
 
-OpenCLBuffer::OpenCLBuffer(cl_context context, size_t size_, cl_mem_flags flags)
+OpenCLBuffer::OpenCLBuffer(OpenCLContextRef& context, size_t size_, cl_mem_flags flags)
 {
 	// Initialise to null state
 	size = 0;
@@ -44,7 +44,7 @@ OpenCLBuffer::~OpenCLBuffer()
 }
 
 
-void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
+void OpenCLBuffer::alloc(OpenCLContextRef& context, size_t size_, cl_mem_flags flags)
 {
 	if(opencl_mem)
 		free();
@@ -53,7 +53,7 @@ void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
 	{
 		cl_int result;
 		opencl_mem = getGlobalOpenCL()->clCreateBuffer(
-			context,
+			context->getContext(),
 			flags,
 			size_, // size
 			NULL, // host ptr
@@ -64,6 +64,7 @@ void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
 	}
 
 	size = size_;
+	used_context = context;
 
 #ifdef OPENCL_MEM_LOG
 	OpenCL_global_alloc += size_;
@@ -72,14 +73,14 @@ void OpenCLBuffer::alloc(cl_context context, size_t size_, cl_mem_flags flags)
 }
 
 
-void OpenCLBuffer::allocOrResize(cl_context context, size_t new_size, cl_mem_flags flags)
+void OpenCLBuffer::allocOrResize(OpenCLContextRef& context, size_t new_size, cl_mem_flags flags)
 {
 	if(size != new_size) // If existing size is wrong (including if not allocated at all yet):
 		alloc(context, new_size, flags);
 }
 
 
-void OpenCLBuffer::allocOrResizeAndCopyFrom(cl_context context, cl_command_queue command_queue, const void* const src_ptr, 
+void OpenCLBuffer::allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCommandQueueRef& command_queue, const void* const src_ptr,
 	size_t new_size, cl_mem_flags flags, bool blocking_write)
 {
 	allocOrResize(context, new_size, flags);
@@ -89,6 +90,8 @@ void OpenCLBuffer::allocOrResizeAndCopyFrom(cl_context context, cl_command_queue
 
 void OpenCLBuffer::free()
 {
+	used_context = NULL;
+
 	if(!opencl_mem)
 		return;
 
@@ -107,7 +110,7 @@ void OpenCLBuffer::free()
 }
 
 
-void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size_t size_, cl_mem_flags flags)
+void OpenCLBuffer::allocFrom(OpenCLContextRef& context, const void* const src_ptr, size_t size_, cl_mem_flags flags)
 {
 	if(opencl_mem)
 		free();
@@ -116,7 +119,7 @@ void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size
 	{
 		cl_int result;
 		opencl_mem = getGlobalOpenCL()->clCreateBuffer(
-			context,
+			context->getContext(),
 			flags | CL_MEM_COPY_HOST_PTR,
 			size_, // size
 			(void*)src_ptr, // host ptr
@@ -127,6 +130,7 @@ void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size
 	}
 
 	size = size_;
+	used_context = context;
 
 #ifdef OPENCL_MEM_LOG
 	OpenCL_global_alloc += size;
@@ -135,19 +139,19 @@ void OpenCLBuffer::allocFrom(cl_context context, const void* const src_ptr, size
 }
 
 
-void OpenCLBuffer::copyFrom(cl_command_queue command_queue, const void* const src_ptr, size_t size_, bool blocking_write)
+void OpenCLBuffer::copyFrom(OpenCLCommandQueueRef& command_queue, const void* const src_ptr, size_t size_, bool blocking_write)
 {
 	copyFrom(command_queue, /*dest offset=*/0, src_ptr, size_, blocking_write);
 }
 
 
-void OpenCLBuffer::copyFrom(cl_command_queue command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, bool blocking_write)
+void OpenCLBuffer::copyFrom(OpenCLCommandQueueRef& command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, bool blocking_write)
 {
 	assert(size_ <= size);
 	if(size_ > 0)
 	{
 		cl_int result = getGlobalOpenCL()->clEnqueueWriteBuffer(
-			command_queue, // command queue
+			command_queue->getCommandQueue(), // command queue
 			opencl_mem, // device buffer
 			blocking_write ? CL_TRUE : CL_FALSE, // blocking write
 			dest_offset, // offset
@@ -163,12 +167,12 @@ void OpenCLBuffer::copyFrom(cl_command_queue command_queue, size_t dest_offset, 
 }
 
 
-void OpenCLBuffer::readTo(cl_command_queue command_queue, void* const dest_ptr, size_t size_, bool blocking_read)
+void OpenCLBuffer::readTo(OpenCLCommandQueueRef& command_queue, void* const dest_ptr, size_t size_, bool blocking_read)
 {
 	assert(size_ <= size);
 
 	cl_int result = getGlobalOpenCL()->clEnqueueReadBuffer(
-		command_queue,
+		command_queue->getCommandQueue(),
 		opencl_mem, // device buffer
 		blocking_read ? CL_TRUE : CL_FALSE, // blocking read
 		0, // offset

@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
+#include "OpenCLContext.h"
 #include <vector>
 
 
@@ -28,7 +29,7 @@ An OpenCL program
 class OpenCLProgram : public ThreadSafeRefCounted
 {
 public:
-	OpenCLProgram(cl_program program);
+	OpenCLProgram(cl_program program, OpenCLContextRef& context);
 	~OpenCLProgram();
 
 	cl_program getProgram() { return program; }
@@ -48,6 +49,8 @@ public:
 
 private:
 	cl_program program;
+
+	OpenCLContextRef context; // Hang on to context, so the context will be destroyed after this object.
 };
 
 

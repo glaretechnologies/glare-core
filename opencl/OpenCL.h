@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "OpenCLProgram.h"
+#include "OpenCLContext.h"
 #include "OpenCLPlatform.h"
 #include "../dll/include/OpenCLDevice.h"
 #include "../utils/IncludeWindows.h"
@@ -131,7 +132,7 @@ public:
 	// Build an OpenCL program from source, for a set of devices on a particular platform.
 	OpenCLProgramRef buildProgram(
 		const std::string& program_source,
-		cl_context opencl_context,
+		OpenCLContextRef& opencl_context,
 		const std::vector<OpenCLDeviceRef>& devices,
 		const std::string& compile_options,
 		std::string& build_log_out // Will be set to a non-empty string on build failure.

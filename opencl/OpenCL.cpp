@@ -612,7 +612,7 @@ OpenCLPlatformRef OpenCL::getPlatformForPlatformID(cl_platform_id platform_id) c
 
 OpenCLProgramRef OpenCL::buildProgram(
 	const std::string& program_source,
-	cl_context opencl_context,
+	OpenCLContextRef& opencl_context,
 	const std::vector<OpenCLDeviceRef>& use_devices,
 	const std::string& compile_options,
 	std::string& build_log_out // Will be set to a non-empty string on build failure.
@@ -649,12 +649,14 @@ OpenCLProgramRef OpenCL::buildProgram(
 
 	cl_int result = CL_SUCCESS;
 	OpenCLProgramRef program = new OpenCLProgram(this->clCreateProgramWithSource(
-		opencl_context,
-		(cl_uint)strings.size(), // count
-		strings.data(),
-		lengths.data(),
-		&result
-	));
+			opencl_context->getContext(),
+			(cl_uint)strings.size(), // count
+			strings.data(),
+			lengths.data(),
+			&result
+		),
+		opencl_context
+	);
 	if(result != CL_SUCCESS)
 		throw Indigo::Exception("clCreateProgramWithSource failed: " + errorString(result));
 

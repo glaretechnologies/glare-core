@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/StringUtils.h"
 
 
-OpenCLKernel::OpenCLKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id, bool profile_)
+OpenCLKernel::OpenCLKernel(OpenCLProgramRef program, const std::string& kernel_name, cl_device_id opencl_device_id, bool profile_)
 {
 	kernel = 0;
 	kernel_arg_index = 0;
@@ -22,6 +22,7 @@ OpenCLKernel::OpenCLKernel(cl_program program, const std::string& kernel_name, c
 	work_group_size_multiple = 1;
 	total_exec_time_s = 0;
 	profile = profile_;
+	used_program = program;
 
 	createKernel(program, kernel_name, opencl_device_id);
 }
@@ -35,12 +36,13 @@ OpenCLKernel::~OpenCLKernel()
 }
 
 
-void OpenCLKernel::createKernel(cl_program program, const std::string& kernel_name_, cl_device_id opencl_device_id)
+void OpenCLKernel::createKernel(OpenCLProgramRef program, const std::string& kernel_name_, cl_device_id opencl_device_id)
 {
 	kernel_name = kernel_name_;
+	used_program = program;
 
 	cl_int result;
-	this->kernel = getGlobalOpenCL()->clCreateKernel(program, kernel_name.c_str(), &result);
+	this->kernel = getGlobalOpenCL()->clCreateKernel(program->getProgram(), kernel_name.c_str(), &result);
 	if(!this->kernel)
 		throw Indigo::Exception("Failed to created kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 

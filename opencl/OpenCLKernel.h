@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "OpenCL.h"
+#include "OpenCLProgram.h"
 class OpenCLBuffer;
 
 
@@ -22,12 +23,12 @@ OpenCLKernel
 class OpenCLKernel : public ThreadSafeRefCounted
 {
 public:
-	OpenCLKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id, bool profile);
+	OpenCLKernel(OpenCLProgramRef program, const std::string& kernel_name, cl_device_id opencl_device_id, bool profile);
 	~OpenCLKernel();
 
 
 	//NOTE: opencl_device_id is just used for querying work group size.
-	void createKernel(cl_program program, const std::string& kernel_name, cl_device_id opencl_device_id);
+	void createKernel(OpenCLProgramRef program, const std::string& kernel_name, cl_device_id opencl_device_id);
 
 	size_t getWorkGroupSizeMulitple() const { return work_group_size; }
 	size_t getWorkGroupSize() const { return work_group_size; }
@@ -68,6 +69,8 @@ private:
 
 	double total_exec_time_s;
 	bool profile;
+
+	OpenCLProgramRef used_program; // Hang on to program, so the program will be destroyed after this object.
 };
 
 

@@ -63,7 +63,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 		std::vector<OpenCLDeviceRef> devices(1, opencl_device);		
 		OpenCLProgramRef program = opencl->buildProgram(
 			contents,
-			context->getContext(),
+			context,
 			devices,
 			options,
 			build_log
@@ -74,7 +74,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 
 		conPrint("Build log:\n" + opencl->getBuildLog(program->getProgram(), opencl_device->opencl_device_id));
 
-		OpenCLKernelRef testKernel = new OpenCLKernel(program->getProgram(), "testKernel", opencl_device->opencl_device_id, /*profile=*/false);
+		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device->opencl_device_id, /*profile=*/false);
 
 
 		//============== Test-specific buffers ====================
@@ -94,7 +94,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 		//tex_descriptors[0].texmatrix_offset		 = scene_builder->used_textures[i].first.texmatrix_offset;
 
 		OpenCLBuffer cl_texture_desc;
-		cl_texture_desc.allocFrom(context->getContext(), tex_descriptors, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+		cl_texture_desc.allocFrom(context, tex_descriptors, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
 
 
 		js::Vector<uint8, 64> texture_data(48);
@@ -112,13 +112,13 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 
 
 		OpenCLBuffer cl_texture_data;
-		cl_texture_data.allocFrom(context->getContext(), texture_data, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+		cl_texture_data.allocFrom(context, texture_data, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
 
 		//============== End test-specific buffers ====================
 
 
 
-		OpenCLBuffer result_buffer(context->getContext(), sizeof(int32) * 1000000, CL_MEM_READ_WRITE);
+		OpenCLBuffer result_buffer(context, sizeof(int32) * 1000000, CL_MEM_READ_WRITE);
 
 		// Launch the kernel:
 		for(int i=0; i<1; ++i)

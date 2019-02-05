@@ -195,14 +195,16 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 
 		cl_int result = CL_SUCCESS;
 		OpenCLProgramRef program = new OpenCLProgram(open_cl->clCreateProgramWithBinary(
-			opencl_context->getContext(),
-			(cl_uint)device_ids.size(), // num devices
-			device_ids.data(), // device list
-			binary_lengths.data(), // lengths
-			binary_pointers.data(), // binaries
-			NULL, // binary status - Individual statuses for each binary.  We won't use this.
-			&result
-		));
+				opencl_context->getContext(),
+				(cl_uint)device_ids.size(), // num devices
+				device_ids.data(), // device list
+				binary_lengths.data(), // lengths
+				binary_pointers.data(), // binaries
+				NULL, // binary status - Individual statuses for each binary.  We won't use this.
+				&result
+			),
+			opencl_context
+		);
 		if(result != CL_SUCCESS)
 			throw Indigo::Exception("clCreateProgramWithSource failed: " + OpenCL::errorString(result));
 
@@ -238,7 +240,7 @@ build_program:
 	// Program binary was not in cache, or building program from binaries failed.  So (re)build program.
 	OpenCLProgramRef program = open_cl->buildProgram(
 		program_source,
-		opencl_context->getContext(),
+		opencl_context,
 		devices,
 		compile_options,
 		build_log_out
