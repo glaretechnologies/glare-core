@@ -38,6 +38,9 @@ public:
 
 	static const std::string hashIfObfuscating(const std::string& t) { return useObfuscatedSource() ? tokenHashString(t) : t; }
 
+	// Returns obfuscated token if 'change_tokens' is enabled, otherwise just returns the passed in token directly.
+	const std::string obfuscatedToken(const std::string& t) const { return change_tokens ? tokenHashString(t) : t; }
+
 	static bool useObfuscatedSource() { return true; }
 
 	static const std::string encryptedFilename(const std::string& plaintext_filename);

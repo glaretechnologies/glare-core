@@ -267,22 +267,6 @@ void Obfuscator::addOpenCLKeywords()
 //"ThreadData",
 //"static_float_data", "dynamic_float_data", "qrng_data", "thread_data",
 
-"l1111l1lllll", // max_parallel_samples
-"lll11l11lll1", // iter_depth
-"l1111l11l111", // num_iterators
-"l11ll11l1ll1", // pal_values
-"ll1l111lll11", // dyn_floats
-"l11llllll1l1", // initDynamicData
-"ll11ll1l111l", // getCameraVectors
-"ll1lll1llll1", // applyTransform
-"l1llll1lllll", // applyCameraTransform
-"l1lll1ll1l11", // Zero kernel
-"l1lllll111l1", // QRNG kernel
-"ll1ll11l1ll1", // Main iteration kernel
-"l111111llll1", // Init state kernel
-"l11ll11l1l1l", // Imaging kernel
-
-
 		// Winter tuple field names
 		"field_0",
 		"field_1",
