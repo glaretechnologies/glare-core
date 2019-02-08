@@ -28,11 +28,10 @@ Generated at Tue May 25 18:32:39 +1200 2010
 #include <algorithm>
 
 
-Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool change_tokens_, /*bool cryptic_tokens_, */Lang lang_)
+Obfuscator::Obfuscator(bool collapse_whitespace_, bool remove_comments_, bool change_tokens_, Lang lang_)
 :	collapse_whitespace(collapse_whitespace_),
 	remove_comments(remove_comments_),
 	change_tokens(change_tokens_),
-	//cryptic_tokens(cryptic_tokens_),
 	lang(lang_)
 {
 	if(lang == Lang_Winter)
@@ -140,7 +139,9 @@ void Obfuscator::addOpenCLKeywords()
 "double16",
 "int8",
 "uint",
+"ulong",
 "uint4",
+"ulong4",
 "texture",
 "__device__",
 "__constant__",
@@ -246,7 +247,9 @@ void Obfuscator::addOpenCLKeywords()
 "as_uint4",
 "as_int4",
 "as_float",
+"as_double",
 "as_uint",
+"as_ulong",
 "vload_half3",
 "vload_half4",
 

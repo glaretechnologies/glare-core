@@ -1,7 +1,7 @@
 /*=====================================================================
 Obfuscator.h
--------------------
-Copyright Glare Technologies Limited 2010 -
+------------
+Copyright Glare Technologies Limited 2019 -
 Generated at Tue May 25 18:32:39 +1200 2010
 =====================================================================*/
 #pragma once
@@ -25,7 +25,7 @@ public:
 		Lang_Winter
 	};
 
-	Obfuscator(bool collapse_whitespace, bool remove_comments, bool change_tokens,/* bool cryptic_tokens, */Lang lang);
+	Obfuscator(bool collapse_whitespace, bool remove_comments, bool change_tokens, Lang lang);
 	~Obfuscator();
 
 	static const std::string tokenHashString(const std::string& t);
@@ -64,7 +64,6 @@ private:
 	bool collapse_whitespace;
 	bool remove_comments;
 	bool change_tokens;
-	//bool cryptic_tokens;
 
 	std::set<std::string> keywords;
 
