@@ -1,7 +1,7 @@
 /*=====================================================================
 Parser.h
 --------
-Copyright Glare Technologies Limited 2015 - 
+Copyright Glare Technologies Limited
 =====================================================================*/
 #pragma once
 
@@ -22,11 +22,11 @@ class Parser
 {
 public:
 	Parser();
-	Parser(const char* text, unsigned int textsize);
+	Parser(const char* text, size_t textsize);
 
 	~Parser();
 
-	void reset(const char* text, unsigned int textsize);
+	void reset(const char* text, size_t textsize);
 
 	// Returns if character was found.
 	// If it was, currentpos will be pointing to the next character.
@@ -59,8 +59,8 @@ public:
 
 	// Only defined if eof() is not true.
 	inline char current() const;
-	inline unsigned int currentPos() const { return currentpos; }
-	inline void setCurrentPos(unsigned int c) { currentpos = c; }
+	inline size_t currentPos() const { return currentpos; }
+	inline void setCurrentPos(size_t c) { currentpos = c; }
 
 	inline bool eof() const;
 	inline bool notEOF() const;
@@ -80,13 +80,13 @@ public:
 	inline void consume(char c) { assert(currentIsChar(c)); advance(); }
 
 	inline const char* getText() const { return text; }
-	inline unsigned int getTextSize() const { return textsize; }
+	inline size_t getTextSize() const { return textsize; }
 
 	static void doUnitTests();
 private:
 	const char* text;
-	unsigned int currentpos;
-	unsigned int textsize;
+	size_t currentpos;
+	size_t textsize;
 	//char decimal_separator;
 };
 
@@ -145,7 +145,7 @@ void Parser::advancePastLine()
 // returns in 'result_out' a string from current to target, not including target.
 bool Parser::parseToChar(char target, string_view& result_out)
 {
-	const int initial_pos = currentpos;
+	const size_t initial_pos = currentpos;
 	while(1)
 	{
 		if(eof())
@@ -162,7 +162,7 @@ bool Parser::parseToChar(char target, string_view& result_out)
 
 bool Parser::parseToOneOfChars(char target_a, char target_b, string_view& result_out)
 {
-	const int initial_pos = currentpos;
+	const size_t initial_pos = currentpos;
 	while(1)
 	{
 		if(eof())
@@ -179,7 +179,7 @@ bool Parser::parseToOneOfChars(char target_a, char target_b, string_view& result
 
 void Parser::parseToCharOrEOF(char target, string_view& result_out)
 {
-	const int initial_pos = currentpos;
+	const size_t initial_pos = currentpos;
 	while(1)
 	{
 		if(eof() || current() == target)

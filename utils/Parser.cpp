@@ -13,7 +13,7 @@ Copyright Glare Technologies Limited 2015 -
 #include <limits>
 
 
-Parser::Parser(const char* text_, unsigned int textsize_)
+Parser::Parser(const char* text_, size_t textsize_)
 :	text(text_),
 	textsize(textsize_)
 {
@@ -50,7 +50,7 @@ Parser::~Parser()
 }
 
 
-void Parser::reset(const char* text_, unsigned int textsize_)
+void Parser::reset(const char* text_, size_t textsize_)
 {
 	this->text = text_;
 	this->textsize = textsize_;
@@ -82,7 +82,7 @@ x + d > 2147483648
 */
 bool Parser::parseInt(int32& result_out)
 {
-	unsigned int pos = currentpos;
+	size_t pos = currentpos;
 
 	/// Parse sign ///
 	int sign = 1;
@@ -97,7 +97,7 @@ bool Parser::parseInt(int32& result_out)
 	}
 
 	/// Parse digits ///
-	const unsigned int digit_start_pos = pos;
+	const size_t digit_start_pos = pos;
 	unsigned int x = 0;
 	for( ; (pos < textsize) && ::isNumeric(text[pos]); ++pos)
 	{
@@ -173,7 +173,7 @@ so x * 10 > 2^63, so overflow.
 */
 bool Parser::parseInt64(int64& result_out)
 {
-	unsigned int pos = currentpos;
+	size_t pos = currentpos;
 
 	/// Parse sign ///
 	int64 sign = 1;
@@ -190,7 +190,7 @@ bool Parser::parseInt64(int64& result_out)
 	const uint64 two_pow_63 = 9223372036854775808ull; // 2^63
 
 	/// Parse digits ///
-	const unsigned int digit_start_pos = pos;
+	const size_t digit_start_pos = pos;
 	uint64 x = 0;
 	for( ; (pos < textsize) && ::isNumeric(text[pos]); ++pos)
 	{
@@ -257,8 +257,8 @@ bool Parser::parseUnsignedInt(uint32& result_out)
 	// Use 64 bit var to make the overflow checks simpler.
 	uint64 x = 0;
 	
-	unsigned int pos = this->currentpos;
-	const unsigned int initial_pos = this->currentpos;
+	size_t pos = this->currentpos;
+	const size_t initial_pos = this->currentpos;
 	
 	for( ;pos < textsize && ::isNumeric(text[pos]); ++pos)
 	{
@@ -290,7 +290,7 @@ bool Parser::parseFloat(float& result_out)
 		NULL // NaN symbol
 	);
 
-	const int remaining_len = textsize - currentpos;
+	const int remaining_len = (int)myMin(textsize - currentpos, (size_t)std::numeric_limits<int>::max());
 
 	int num_processed_chars = 0;
 	const float x = s2d_converter.StringToFloat(&text[currentpos], remaining_len, &num_processed_chars);
@@ -314,7 +314,7 @@ bool Parser::fractionalNumberNext()
 {
 	//TODO FIXME NOTE: this is incorrect.  Returns false on 4e-5f.
 
-	const unsigned int initial_currentpos = currentpos;
+	const size_t initial_currentpos = currentpos;
 
 	if(eof())
 		return false;
@@ -381,7 +381,7 @@ bool Parser::parseDouble(double& result_out)
 		NULL // NaN symbol
 	);
 
-	const int remaining_len = textsize - currentpos;
+	const int remaining_len = (int)myMin(textsize - currentpos, (size_t)std::numeric_limits<int>::max());
 
 	int num_processed_chars = 0;
 	const double x = s2d_converter.StringToDouble(&text[currentpos], remaining_len, &num_processed_chars);
@@ -492,7 +492,7 @@ bool Parser::parseDouble(double& result_out)
 
 bool Parser::parseAlphaToken(string_view& token_out)
 {
-	unsigned int startpos = currentpos;
+	size_t startpos = currentpos;
 	for( ;notEOF() && ::isAlphabetic(text[currentpos]); ++currentpos)
 	{}
 
@@ -503,7 +503,7 @@ bool Parser::parseAlphaToken(string_view& token_out)
 
 bool Parser::parseIdentifier(string_view& token_out)
 {
-	unsigned int startpos = currentpos;
+	size_t startpos = currentpos;
 
 	if(eof() || !(::isAlphabetic(text[currentpos]) || text[currentpos] == '_'))
 		return false;
@@ -520,7 +520,7 @@ bool Parser::parseIdentifier(string_view& token_out)
 
 bool Parser::parseNonWSToken(string_view& token_out)
 {
-	unsigned int startpos = currentpos;
+	size_t startpos = currentpos;
 	for( ;notEOF() && !::isWhitespace(text[currentpos]); ++currentpos)
 	{}
 	token_out = string_view(text + startpos, currentpos - startpos);
@@ -530,9 +530,9 @@ bool Parser::parseNonWSToken(string_view& token_out)
 
 bool Parser::parseString(const std::string& s)
 {
-	const unsigned int initial_pos = currentPos();
+	const size_t initial_pos = currentPos();
 
-	for(unsigned int i=0; i<s.length(); ++i)
+	for(size_t i=0; i<s.length(); ++i)
 	{
 		if(eof() || current() != s[i])
 		{
@@ -547,9 +547,9 @@ bool Parser::parseString(const std::string& s)
 
 bool Parser::parseCString(const char* const s)
 {
-	const unsigned int initial_pos = currentPos();
+	const size_t initial_pos = currentPos();
 
-	for(unsigned int i=0; s[i] != 0; ++i)
+	for(size_t i=0; s[i] != 0; ++i)
 	{
 		if(eof() || current() != s[i])
 		{
@@ -573,7 +573,7 @@ bool Parser::parseCString(const char* const s)
 
 static void testFailsToParseInt(const std::string& s)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	int x;
 	testAssert(!p.parseInt(x));
@@ -583,7 +583,7 @@ static void testFailsToParseInt(const std::string& s)
 
 static void testFailsToParseInt64(const std::string& s)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	int64 x;
 	testAssert(!p.parseInt64(x));
@@ -593,7 +593,7 @@ static void testFailsToParseInt64(const std::string& s)
 
 static void testParseInt(const std::string& s, int target)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	int x;
 	testAssert(p.parseInt(x));
@@ -604,7 +604,7 @@ static void testParseInt(const std::string& s, int target)
 
 static void testParseInt64(const std::string& s, int64 target)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	int64 x;
 	testAssert(p.parseInt64(x));
@@ -615,7 +615,7 @@ static void testParseInt64(const std::string& s, int64 target)
 
 static void testParseIntFromLongerString(const std::string& s, int target)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	int x;
 	testAssert(p.parseInt(x));
@@ -626,7 +626,7 @@ static void testParseIntFromLongerString(const std::string& s, int target)
 
 static void testFailsToParseUnsignedInt(const std::string& s)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	uint32 x;
 	testAssert(!p.parseUnsignedInt(x));
@@ -636,7 +636,7 @@ static void testFailsToParseUnsignedInt(const std::string& s)
 
 static void testParseUnsignedInt(const std::string& s, uint32 target)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	uint32 x;
 	testAssert(p.parseUnsignedInt(x));
@@ -647,7 +647,7 @@ static void testParseUnsignedInt(const std::string& s, uint32 target)
 
 static void testParseUnsignedIntFromLongerString(const std::string& s, uint32 target)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	uint32 x;
 	testAssert(p.parseUnsignedInt(x));
@@ -658,7 +658,7 @@ static void testParseUnsignedIntFromLongerString(const std::string& s, uint32 ta
 
 static void testFailsToParseFloat(const std::string& s)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	float x;
 	testAssert(!p.parseFloat(x));
@@ -668,7 +668,7 @@ static void testFailsToParseFloat(const std::string& s)
 
 static void testParseFloat(const std::string& s, float target)
 {
-	Parser p(s.c_str(), (unsigned int)s.length());
+	Parser p(s.c_str(), s.length());
 
 	float x;
 	testAssert(p.parseFloat(x));
@@ -684,7 +684,7 @@ void Parser::doUnitTests()
 	//===================== parseChar ===============================
 	{
 		const std::string s = "a";
-		Parser p(s.c_str(), (unsigned int)s.length());
+		Parser p(s.c_str(), s.length());
 
 		testAssert(p.parseChar('a'));
 		testAssert(p.currentPos() == 1);
@@ -692,7 +692,7 @@ void Parser::doUnitTests()
 
 	{
 		const std::string s = "a";
-		Parser p(s.c_str(), (unsigned int)s.length());
+		Parser p(s.c_str(), s.length());
 
 		testAssert(!p.parseChar('b'));
 		testAssert(p.currentPos() == 0); // Should not advance if failed to parse char
@@ -712,7 +712,7 @@ void Parser::doUnitTests()
 			size_t sum = 0;
 			for(int i=0; i<N; ++i)
 			{
-				Parser parser(s.c_str(), (unsigned int)s.length());
+				Parser parser(s.c_str(), s.length());
 				uint32 x;
 				parser.parseUnsignedInt(x);
 				sum += x;
@@ -732,7 +732,7 @@ void Parser::doUnitTests()
 			size_t sum = 0;
 			for(int i=0; i<N; ++i)
 			{
-				Parser parser(s.c_str(), (unsigned int)s.length());
+				Parser parser(s.c_str(), s.length());
 				parser.parseWhiteSpace();
 				sum += parser.currentPos();
 			}
@@ -748,13 +748,13 @@ void Parser::doUnitTests()
 	// Test some failure cases
 	{
 		std::string s = "";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(!parser.parseAlphaToken(token));
 	}
 	{
 		std::string s = "1";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(!parser.parseAlphaToken(token));
 	}
@@ -762,7 +762,7 @@ void Parser::doUnitTests()
 	// Test successful cases
 	{
 		std::string s = "a";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseAlphaToken(token));
 		testAssert(token == "a");
@@ -775,13 +775,13 @@ void Parser::doUnitTests()
 	// Test some failure cases
 	{
 		std::string s = "";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(!parser.parseIdentifier(token));
 	}
 	{
 		std::string s = "1";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(!parser.parseIdentifier(token));
 	}
@@ -789,7 +789,7 @@ void Parser::doUnitTests()
 	// Test successful cases
 	{
 		std::string s = "a";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseIdentifier(token));
 		testAssert(token == "a");
@@ -797,7 +797,7 @@ void Parser::doUnitTests()
 
 	{
 		std::string s = "_a";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseIdentifier(token));
 		testAssert(token == "_a");
@@ -805,7 +805,7 @@ void Parser::doUnitTests()
 	
 	{
 		std::string s = "_1";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseIdentifier(token));
 		testAssert(token == "_1");
@@ -813,7 +813,7 @@ void Parser::doUnitTests()
 
 	{
 		std::string s = "_1 a";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseIdentifier(token));
 		testAssert(token == "_1");
@@ -825,13 +825,13 @@ void Parser::doUnitTests()
 	// Test some failure cases
 	{
 		std::string s = "";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(!parser.parseNonWSToken(token));
 	}
 	{
 		std::string s = " ";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(!parser.parseNonWSToken(token));
 	}
@@ -839,7 +839,7 @@ void Parser::doUnitTests()
 	// Test successful cases
 	{
 		std::string s = "a";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseNonWSToken(token));
 		testAssert(token == "a");
@@ -847,7 +847,7 @@ void Parser::doUnitTests()
 
 	{
 		std::string s = "_a";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseNonWSToken(token));
 		testAssert(token == "_a");
@@ -855,7 +855,7 @@ void Parser::doUnitTests()
 	
 	{
 		std::string s = "1";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseNonWSToken(token));
 		testAssert(token == "1");
@@ -863,7 +863,7 @@ void Parser::doUnitTests()
 
 	{
 		std::string s = "_1 a";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseNonWSToken(token));
 		testAssert(token == "_1");
@@ -871,7 +871,7 @@ void Parser::doUnitTests()
 
 	{
 		std::string s = "_1\ta";
-		Parser parser(s.data(), (unsigned int)s.length());
+		Parser parser(s.data(), s.length());
 		string_view token;
 		testAssert(parser.parseNonWSToken(token));
 		testAssert(token == "_1");
@@ -1175,22 +1175,22 @@ void Parser::doUnitTests()
 	{
 		const std::string s = "Hello World";
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(p.parseString("Hello World"));
 		testAssert(p.eof());
 		}
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(p.parseString("Hello"));
 		testAssert(p.currentPos() == 5);
 		}
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(!p.parseString("AHello"));
 		testAssert(p.currentPos() == 0);
 		}
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(!p.parseString("Hello World AA"));
 		testAssert(p.currentPos() == 0);
 		}
@@ -1200,22 +1200,22 @@ void Parser::doUnitTests()
 	{
 		const std::string s = "Hello World";
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(p.parseCString("Hello World"));
 		testAssert(p.eof());
 		}
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(p.parseCString("Hello"));
 		testAssert(p.currentPos() == 5);
 		}
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(!p.parseCString("AHello"));
 		testAssert(p.currentPos() == 0);
 		}
 		{
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		testAssert(!p.parseCString("Hello World AA"));
 		testAssert(p.currentPos() == 0);
 		}
@@ -1225,35 +1225,35 @@ void Parser::doUnitTests()
 
 	{
 		const std::string s = "";
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 0);
 	}
 
 	{
 		const std::string s = " ";
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 1);
 	}
 
 	{
 		const std::string s = " \t\r\n";
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 4);
 	}
 
 	{
 		const std::string s = "a";
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 0);
 	}
 
 	{
 		const std::string s = " a ";
-		Parser p(s.c_str(), (unsigned int)s.size());
+		Parser p(s.c_str(), s.size());
 		p.parseWhiteSpace();
 		testAssert(p.currentPos() == 1);
 		testAssert(p.parseChar('a'));
@@ -1409,7 +1409,7 @@ void Parser::doUnitTests()
 			std::string s(buffer);
 
 			// Convert string back to double
-			Parser p(s.c_str(), (unsigned int)s.size());
+			Parser p(s.c_str(), s.size());
 			double x2;
 			p.parseDouble(x2);
 
@@ -1450,7 +1450,7 @@ void Parser::doUnitTests()
 		// Note that if we compile with floating point model fast (/fp:fast),
 		// then -0 and 0 are treated the same, and "0" will get parsed as -0.
 
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 		
 		double x = 0;
 		testAssert(p.parseDouble(x));
@@ -1465,7 +1465,7 @@ void Parser::doUnitTests()
 
 	// Test parseFloat()
 	{
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 		float f;
 		assert(p.parseFloat(f));
 		assert(f == -456.5456e21f);
@@ -1486,7 +1486,7 @@ void Parser::doUnitTests()
 	
 	// Test parseDouble()
 	{
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 		double f;
 		assert(p.parseDouble(f));
 		assert(f == -456.5456e21);
@@ -1509,7 +1509,7 @@ void Parser::doUnitTests()
 	{
 		std::string text = "167/2/3 4/5/6";
 
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 		unsigned int x;
 		assert(p.parseUnsignedInt(x));
 		assert(x == 167);
@@ -1541,7 +1541,7 @@ void Parser::doUnitTests()
 	// Check parsing of 'f' suffix
 	{
 		const std::string text = "123.456e3f";
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 
 		double x;
 		assert(p.parseDouble(x));
@@ -1571,7 +1571,7 @@ void Parser::doUnitTests()
 
 	{
 	const std::string text = "bleh 123";
-	Parser p(text.c_str(), (unsigned int)text.size());
+	Parser p(text.c_str(), text.size());
 
 	double x;
 	assert(!p.parseDouble(x));
@@ -1579,7 +1579,7 @@ void Parser::doUnitTests()
 
 	{
 	const std::string text = "123 -645 meh";
-	Parser p(text.c_str(), (unsigned int)text.size());
+	Parser p(text.c_str(), text.size());
 
 	int x;
 	assert(p.parseInt(x));
@@ -1597,7 +1597,7 @@ void Parser::doUnitTests()
 
 	{
 	const std::string text = "BLEH";
-	Parser p(text.c_str(), (unsigned int)text.size());
+	Parser p(text.c_str(), text.size());
 
 	assert(!p.parseString("BLEHA"));
 	assert(p.parseString("BL"));
@@ -1606,25 +1606,25 @@ void Parser::doUnitTests()
 
 	{
 		const std::string text = ".";
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 
 		assert(!p.fractionalNumberNext());
 	}
 	{
 		const std::string text = "1.3";
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 
 		assert(p.fractionalNumberNext());
 	}
 	{
 		const std::string text = "13";
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 
 		assert(!p.fractionalNumberNext());
 	}
 	{
 		const std::string text = "4e-5f";
-		Parser p(text.c_str(), (unsigned int)text.size());
+		Parser p(text.c_str(), text.size());
 
 		assert(p.fractionalNumberNext());
 

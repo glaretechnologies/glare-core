@@ -555,7 +555,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 		}
 		if(p.current() == '/' && p.nextIsChar('/')) // C++-style line comment (//)
 		{
-			const int initial_pos = p.currentPos();
+			const size_t initial_pos = p.currentPos();
 
 			p.advancePastLine();
 
@@ -630,7 +630,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 		}*/
 		else if(p.current() == '"') // string
 		{
-			int last_currentpos = p.currentPos();
+			const size_t last_currentpos = p.currentPos();
 			p.parseChar('"');
 
 			while(p.notEOF() && p.current() != '"')
@@ -646,7 +646,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 		}
 		else if(p.current() == '/' && p.nextIsChar('*'))
 		{
-			int last_currentpos = p.currentPos();
+			const size_t last_currentpos = p.currentPos();
 			p.parseChar('/');
 			p.parseChar('*');
 
@@ -662,7 +662,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 		}
 		else if(::isWhitespace(p.current())) // Note that if we are removing whitespace and not removing comments, then newlines at end of comments can give incorrect results
 		{
-			int last_currentpos = p.currentPos();
+			const size_t last_currentpos = p.currentPos();
 			bool parsed_newline = false;
 			for( ;p.notEOF() && ::isWhitespace(p.getText()[p.currentPos()]); p.advance())
 			{
@@ -698,7 +698,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 				'x'
 			};
 
-			int last_currentpos = p.currentPos();
+			const size_t last_currentpos = p.currentPos();
 
 			while(p.notEOF())
 			{
@@ -726,7 +726,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 		}
 		else if(p.fractionalNumberNext())
 		{
-			int last_currentpos = p.currentPos();
+			const size_t last_currentpos = p.currentPos();
 			double val;
 			p.parseDouble(val);
 			res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
@@ -734,7 +734,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 		}
 		else if(::isNumeric(p.current()))
 		{
-			int last_currentpos = p.currentPos();
+			const size_t last_currentpos = p.currentPos();
 
 			int val;
 			const bool valid_int_parse = p.parseInt(val);
