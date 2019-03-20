@@ -136,26 +136,27 @@ inline IntervalSet<T> intervalSetIntersection(const IntervalSet<T>& a, const Int
 	std::vector<IntervalEvent<T> > events;
 	//events.reserve((a.intervals.size() + b.intervals.size()) * 2);
 
+	// Add interval events for the endpoints of the intervals in a and b:
 	for(size_t i=0; i<a.intervals.size(); ++i)
 	{
-		events.push_back(IntervalEvent<T>(a.intervals[i].x, true, true));
-		events.push_back(IntervalEvent<T>(a.intervals[i].y, true, false));
+		events.push_back(IntervalEvent<T>(a.intervals[i].x, /*is_a=*/true, /*is_lower=*/true));
+		events.push_back(IntervalEvent<T>(a.intervals[i].y, /*is_a=*/true, /*is_lower=*/false));
 	}
 
 	for(size_t i=0; i<b.intervals.size(); ++i)
 	{
-		events.push_back(IntervalEvent<T>(b.intervals[i].x, false, true));
-		events.push_back(IntervalEvent<T>(b.intervals[i].y, false, false));
+		events.push_back(IntervalEvent<T>(b.intervals[i].x, /*is_a=*/false, /*is_lower=*/true));
+		events.push_back(IntervalEvent<T>(b.intervals[i].y, /*is_a=*/false, /*is_lower=*/false));
 	}
 
 	std::sort(events.begin(), events.end());
 
 	bool in_a = false;
 	bool in_b = false;
-	T interval_start;
+	T interval_start = 0; // Lower value of an intersection interval.  Assign zero just to shut up compiler warnings.
 	for(size_t i=0; i<events.size(); ++i)
 	{
-		if(events[i].is_lower) // If we are on the lower bound of an interval
+		if(events[i].is_lower) // If we are on the lower bound of an interval:
 		{
 			if(events[i].is_a)
 				in_a = true;
@@ -165,15 +166,15 @@ inline IntervalSet<T> intervalSetIntersection(const IntervalSet<T>& a, const Int
 			if(in_a && in_b)
 				interval_start = events[i].x;
 		}
-		else // We are at the upper bound of an interval
+		else // We are at the upper bound of an interval:
 		{
-			if(events[i].is_a)
+			if(events[i].is_a) // We are at the end of an 'a' interval:
 			{
 				if(in_b)
 					res.intervals.push_back(Vec2<T>(interval_start, events[i].x)); // We are no longer in both a and b, so this is the end of the interval.
 				in_a = false;
 			}
-			else
+			else // Else we are at the end of an 'b' interval:
 			{
 				if(in_a)
 					res.intervals.push_back(Vec2<T>(interval_start, events[i].x)); // We are no longer in both a and b, so this is the end of the interval.
