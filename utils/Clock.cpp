@@ -1,7 +1,7 @@
 /*=====================================================================
 Clock.cpp
 ---------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
 #include "Clock.h"
 
@@ -53,12 +53,7 @@ double getCurTimeRealSec()
 
 	return (double)count.QuadPart * clock_period;
 #else
-
-	/* struct timeval {
-               time_t         tv_sec;    // seconds
-               suseconds_t    tv_usec;  // microseconds
-       };
-	*/
+	// tv_usec is microseconds
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return (double)t.tv_sec + (double)t.tv_usec * 0.000001;
@@ -133,14 +128,14 @@ const std::string getAsciiTime(time_t t)
 
 time_t getSecsSince1970()
 {
-	return time(NULL);                 
+	return time(NULL);
 }
 
 
 const std::string humanReadableDuration(int seconds)
 {
 	if(seconds < 0)
-	    seconds = 0;
+		seconds = 0;
 
 	const int hours = seconds / 3600;
 	seconds -= hours * 3600;
@@ -149,9 +144,9 @@ const std::string humanReadableDuration(int seconds)
 	
 	std::string s;
 	if(hours > 0)
-	    s += ::toString(hours) + " h, ";
+		s += ::toString(hours) + " h, ";
 	if(minutes > 0)
-	    s += ::toString(minutes) + " m, ";
+		s += ::toString(minutes) + " m, ";
 	s += ::toString(seconds) + " s";
 
 	return s;
@@ -205,54 +200,40 @@ const std::string dayAsString(int day_of_week)
 
 const std::string monthString(int month)
 {
-	std::string monthstr;
 	switch(month)
 	{
 	case 0:
-		monthstr = "Jan";
-		break;
+		return "Jan";
 	case 1:
-		monthstr = "Feb";
-		break;
+		return "Feb";
 	case 2:
-		monthstr = "Mar";
-		break;
+		return "Mar";
 	case 3:
-		monthstr = "Apr";
-		break;
+		return "Apr";
 	case 4:
-		monthstr = "May";
-		break;
+		return "May";
 	case 5:
-		monthstr = "Jun";
-		break;
+		return "Jun";
 	case 6:
-		monthstr = "Jul";
-		break;
+		return "Jul";
 	case 7:
-		monthstr = "Aug";
-		break;
+		return "Aug";
 	case 8:
-		monthstr = "Sep";
-		break;
+		return "Sep";
 	case 9:
-		monthstr = "Oct";
-		break;
+		return "Oct";
 	case 10:
-		monthstr = "Nov";
-		break;
+		return "Nov";
 	case 11:
-		monthstr = "Dec";
-		break;
+		return "Dec";
 	default:
 		assert(0);
-		break;
+		return "";
 	};
-	return monthstr;
 }
 
 
-const std::string twoDigitString(int x)
+inline static const std::string twoDigitString(int x)
 {
 	return ::leftPad(::toString(x), '0', 2);
 }

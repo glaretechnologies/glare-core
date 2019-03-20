@@ -1,8 +1,7 @@
 /*=====================================================================
 Condition.cpp
 -------------
-File created by ClassTemplate on Tue Jun 14 06:56:49 2005
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
 #include "Condition.h"
 

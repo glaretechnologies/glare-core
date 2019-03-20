@@ -1,8 +1,7 @@
 /*=====================================================================
 ConPrint.h
 -------------------
-Copyright Glare Technologies Limited 2011 -
-Generated at 2012-05-03 12:20:21 +0100
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
 #pragma once
 
@@ -19,8 +18,6 @@ void conPrint(const std::string& s);
 
 void conPrintStr(const std::string& s);
 
-void fatalError(const std::string& s);
-
-void logPrint(const std::string& s);
-
 void stdErrPrint(const std::string& s);
+
+void fatalError(const std::string& s);

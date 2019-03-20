@@ -1,13 +1,15 @@
 /*=====================================================================
 ArgumentParser.cpp
 ------------------
+Copyright Glare Technologies Limited
 File created by ClassTemplate on Sat Nov 03 18:21:05 2007
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "ArgumentParser.h"
 
-#include <assert.h>
+
 #include "../utils/StringUtils.h"
+#include <assert.h>
+
 
 ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax_)
 :	//args(args_),
@@ -203,13 +205,17 @@ void ArgumentParser::removeArg(const std::string& name)
 
 const std::string ArgumentParser::ParsedArg::toString() const
 {
-	if(type == ArgumentType_string)
+	switch(type)
+	{
+	case ArgumentType_string:
 		return string_val;
-	else if(type == ArgumentType_int)
+	case ArgumentType_int:
 		return ::toString(int_val);
-	else if(type == ArgumentType_double)
+	case ArgumentType_double:
 		return ::toString(double_val);
-	else
-		return "[ERROR]";
+	default:
+		assert(0);
+		return "ERROR";
+	};
 }
 

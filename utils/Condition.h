@@ -1,11 +1,9 @@
 /*=====================================================================
 Condition.h
 -----------
-File created by ClassTemplate on Tue Jun 14 06:56:49 2005
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
-#ifndef __CONDITION_H_666_
-#define __CONDITION_H_666_
+#pragma once
 
 
 #if defined(_WIN32)
@@ -31,13 +29,7 @@ Condition is false/non-signalled upon creation by default.
 class Condition
 {
 public:
-	/*=====================================================================
-	Condition
-	---------
-	
-	=====================================================================*/
 	Condition();
-
 	~Condition();
 
 	// Calling thread is suspended until condition is met.
@@ -57,6 +49,3 @@ public:
 	pthread_cond_t condition;
 #endif
 };
-
-
-#endif //__CONDITION_H_666_

@@ -1,7 +1,7 @@
 /*=====================================================================
 Clock.h
 -------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
 #pragma once
 
@@ -35,6 +35,7 @@ const std::string humanReadableDuration(int seconds);
 
 const std::string getAsciiTime(); // Get time as nicely formatted string
 const std::string getAsciiTime(time_t t); // Get current time as nicely formatted string
+
 
 // See http://www.faqs.org/rfcs/rfc822.html							
 const std::string RFC822FormatedString(); // Returns the current time, formatted.

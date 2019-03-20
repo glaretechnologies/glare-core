@@ -1,16 +1,16 @@
 /*=====================================================================
 ArgumentParser.h
 ----------------
+Copyright Glare Technologies Limited
 File created by ClassTemplate on Sat Nov 03 18:21:05 2007
-Code By Nicholas Chapman.
 =====================================================================*/
-#ifndef __ARGUMENTPARSER_H_666_
-#define __ARGUMENTPARSER_H_666_
+#pragma once
 
 
 #include <vector>
 #include <string>
 #include <map>
+
 
 class ArgumentParserExcep
 {
@@ -24,7 +24,6 @@ private:
 };
 
 
-
 /*=====================================================================
 ArgumentParser
 --------------
@@ -33,8 +32,6 @@ ArgumentParser
 class ArgumentParser
 {
 public:
-
-
 	enum ArgumentType
 	{
 		ArgumentType_string,
@@ -98,11 +95,3 @@ private:
 	std::map<std::string, std::vector<ParsedArg> > parsed_args;
 	std::string unnamed_arg;
 };
-
-
-
-#endif //__ARGUMENTPARSER_H_666_
-
-
-
-
