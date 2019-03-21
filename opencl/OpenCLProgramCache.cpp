@@ -18,6 +18,7 @@ Generated at 2016-10-14 15:08:16 +0100
 
 
 static const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
+static const bool VERBOSE = false;
 
 
 // Computes hash over program source and compilation options, which we will use as the cache key.
@@ -110,7 +111,10 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 		Lock lock(mem_cache_mutex);
 		auto it = mem_cache.find(hashcode);
 		if(it != mem_cache.end())
+		{
+			if(VERBOSE) conPrint("Found OpenCL program in mem cache.");
 			return OpenCLProgramCache::Results(it->second, /*cache_hit=*/true);
+		}
 	}
 
 #ifdef OSX // MacOS Sierra is currently crashing on clGetProgramInfo, so don't do on-disk caching for now on Mac.
@@ -131,8 +135,6 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 	return OpenCLProgramCache::Results(program, /*cache_hit=*/false);
 
 #else // else if not OS X
-
-	const bool VERBOSE = false;
 
 	std::vector<OpenCLDeviceRef> devices; // Devices to build program for.
 
@@ -168,7 +170,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 			// If the binary is not present in the cache, don't throw an exception then print a warning message.
 			if(!FileUtils::fileExists(cachefile_path))
 			{
-				if(VERBOSE) conPrint("Cache miss: " + cachefile_path + " was not in cache.");
+				if(VERBOSE) conPrint("Cache miss: " + cachefile_path + " was not in disk cache.");
 				goto build_program;
 			}
 
@@ -177,7 +179,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 			if(file.fileSize() == 0)
 				throw Indigo::Exception("cached binary had size 0.");
 
-			if(VERBOSE) conPrint("Cache hit for device: " + cachefile_path + " was in cache.");
+			if(VERBOSE) conPrint("Cache hit for device: " + cachefile_path + " was in disk cache.");
 
 			binaries[i].resize(file.fileSize());
 			std::memcpy(binaries[i].data(), file.fileData(), file.fileSize());
