@@ -15,12 +15,12 @@ Code By Nicholas Chapman.
 #include "VRef.h"
 #include "RefCounted.h"
 #include "ThreadSafeRefCounted.h"
+#include "MyThread.h"
+#include "ConPrint.h"
+#include "Timer.h"
+#include "StringUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/SSE.h"
-#include "MyThread.h"
-#include "../indigo/globals.h"
-#include "../utils/Timer.h"
-#include "../utils/StringUtils.h"
 #include <vector>
 
 

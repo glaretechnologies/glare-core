@@ -10,7 +10,7 @@ Generated at 2011-10-05 21:56:22 +0100
 #include "TaskRunnerThread.h"
 #include "PlatformUtils.h"
 #include "StringUtils.h"
-#include "../utils/ConPrint.h"
+#include "ConPrint.h"
 
 
 namespace Indigo

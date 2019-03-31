@@ -9,11 +9,11 @@ Generated at 2011-10-05 22:17:09 +0100
 
 #include "TaskManager.h"
 #include "Task.h"
-#include "../utils/ConPrint.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Timer.h"
-#include "../utils/Clock.h"
-#include "../utils/PlatformUtils.h"
+#include "ConPrint.h"
+#include "StringUtils.h"
+#include "Timer.h"
+#include "Clock.h"
+#include "PlatformUtils.h"
 
 
 //#define TASK_STATS 1
