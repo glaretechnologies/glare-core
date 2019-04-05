@@ -124,7 +124,7 @@ const std::string License::decodeBase64(const std::string& data_)
 		//BIO_free_all(bmem);
 
 		BIO_free_all(b64); // This seems to free up all used memory.
-		
+
 		return rv;
     }
 	catch(...)
@@ -477,7 +477,7 @@ const std::vector<std::string> License::getHardwareIdentifiers()
 	assert(OpenSSL::isInitialised());
 
 	try
-	{	
+	{
 		std::vector<std::string> MAC_addresses;
 		SystemInfo::getMACAddresses(MAC_addresses);
 
@@ -490,7 +490,7 @@ const std::vector<std::string> License::getHardwareIdentifiers()
 		std::vector<std::string> ids(MAC_addresses.size());
 		for(size_t i=0; i<ids.size(); ++i)
 			ids[i] = std::string(cpuinfo.proc_brand) + ":" + MAC_addresses[i];
-		
+
 		return ids;
 	}
 	catch(Indigo::Exception& e)
@@ -523,12 +523,12 @@ const std::string License::getLowerCaseMACAddrHardwareID(const std::string& hard
 	const size_t dotpos = hardware_id.find_last_of(':');
 	if(dotpos == std::string::npos)
 		return hardware_id;
-	
+
 	std::string newstr = hardware_id;
-	
+
 	for(size_t i=dotpos; i<hardware_id.size(); ++i)
 		newstr[i] = ::toLowerCase(newstr[i]);
-	
+
 	return newstr;
 }
 
@@ -758,7 +758,7 @@ uint32 License::maxUnlicensedResolution()
 {
 	return 1000000; // 1.0 MP
 }
-	
+
 
 bool License::dimensionsExceedLicenceDimensions(LicenceType t, int width, int height)
 {
@@ -792,7 +792,7 @@ bool License::tryVerifyNetworkLicence(const std::string& appdata_path, LicenceTy
 {
 	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
 
-	
+
 	try
 	{
 		// Load the signature from disk.
@@ -999,9 +999,9 @@ bool License::tryVerifyOnlineLicence(const std::string& appdata_path, LicenceTyp
 					// Key verified!
 					license_type_out = desired_licence_type;
 					//TEMP:
-					//std::cout << "getSecsSince1970():" << getSecsSince1970() << std::endl;
+					//std::cout << "getSecsSince1970():" << Clock::getSecsSince1970() << std::endl;
 					//std::cout << "end_time:" << end_time << std::endl;
-					//std::cout << "Network licence verified, until " << ((int)end_time - (int)::getSecsSince1970()) << " s from now." << std::endl;
+					//std::cout << "Network licence verified, until " << ((int)end_time - (int)Clock::getSecsSince1970()) << " s from now." << std::endl;
 					error_code_out = LicenceErrorCode_NoError;
 					return true; // We're done here, return
 				}
@@ -1058,7 +1058,7 @@ public:
 		const int N = 1000;
 		for(unsigned int i=0; i<N; ++i)
 		{
-			const std::string encoded_hash = 
+			const std::string encoded_hash =
 				"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
 
 			std::string hash = License::decodeBase64(encoded_hash);
@@ -1163,7 +1163,7 @@ void License::test()
 
 
 	// Test long base-64 encoded block, with no embedded newlines
-	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") 
+	testAssert(decodeBase64("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=")
 		== "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure."
 	);
 
@@ -1185,20 +1185,20 @@ void License::test()
 	const int N = 3;
 	for(unsigned int i=0; i<N; ++i)
 	{
-		const std::string encoded_hash = 
+		const std::string encoded_hash =
 			"KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
 
 		std::string hash = License::decodeBase64(encoded_hash);
 
 		const std::string key = "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E";
-		
+
 		testAssert(License::verifyKey(key, hash, public_key_str));
 	}
 
 	conPrint("License::verifyKey() verification took on average " + toString(timer.elapsed() / N) + " s");
 
 	{
-		const std::string encoded_hash = 
+		const std::string encoded_hash =
 			"Lb+20caATeQVHTMhWiFMbi6/VxVZ1QJlprdIJpZ2srLeQkmLSEtuqD0QN4xKj1PX\n" \
 			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
 			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
@@ -1212,7 +1212,7 @@ void License::test()
 
 	// Test verifyKey returns false on invalid signature.
 	{
-		const std::string encoded_hash = 
+		const std::string encoded_hash =
 			"66620caATeQVHTMhWiFMbi6/VxVZ1QJlprdIJpZ2srLeQkmLSEtuqD0QN4xKj1PX\n" \
 			"KWKyRb676fPCi+YEjlFljew5rGQTUCDtVMQ/lPXBTvKJnXRoJB9KRiCaBJgkK14u\n" \
 			"B9YLu+uRFpupJ6wMn5Kx9mKIzXud6e4HpsuRPRn0sgk=";
@@ -1236,9 +1236,9 @@ void License::test()
 
 		// Original key is "someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E"
 
-		const std::string licence_key = 
+		const std::string licence_key =
 			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 		LicenceErrorCode error_code;
@@ -1260,9 +1260,9 @@ void License::test()
 		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E");
 
 		// NOTE: changed start of licence key to have a '666'.
-		const std::string licence_key = 
+		const std::string licence_key =
 			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;6660oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 		LicenceErrorCode error_code;
@@ -1284,9 +1284,9 @@ void License::test()
 		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E");
 
 		// NOTE: using 'indigo-full-3.x' here instead of 'indigo-full-lifetime'.
-		const std::string licence_key = 
+		const std::string licence_key =
 			"someoneawesome@awesome.com<S. Awesome>;indigo-full-3.x;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 		LicenceErrorCode error_code;
@@ -1302,15 +1302,15 @@ void License::test()
 	}
 
 	// Test verifyLicenceString detects a different user name than was signed.
-	try 
+	try
 	{
 		std::vector<std::string> hardware_ids;
 		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E");
 
 		// NOTE: using 'Mr Bleh' here.
-		const std::string licence_key = 
+		const std::string licence_key =
 			"Mr Bleh;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 		LicenceErrorCode error_code;
@@ -1326,15 +1326,15 @@ void License::test()
 	}
 
 	// Test verifyLicenceString detects a different hardware ID than was signed.
-	try 
+	try
 	{
 		std::vector<std::string> hardware_ids;
 		// NOTE: changed CPU freq here.
 		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 6.66GHz:00-25-21-7F-BB-3E");
 
-		const std::string licence_key = 
+		const std::string licence_key =
 			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 		LicenceErrorCode error_code;
@@ -1351,15 +1351,15 @@ void License::test()
 
 
 	// Test verifyLicenceString doesn't crash on missing MAC address part of hardware ID
-	try 
+	try
 	{
 		std::vector<std::string> hardware_ids;
 		// NOTE: changed CPU freq here.
 		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 6.66GHz");
 
-		const std::string licence_key = 
+		const std::string licence_key =
 			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;KFf0oXSpS2IfGa3pl6BCc1XRJr5hMcOf2ETb8xKMbI4yd+ACk7Qjy6bdy876h1ZTAaGjtQ9CWQlSD31uvRW+WO3fcuD90A/9U2JnNYKrMoV4YmCfbLuzduJ6mfRmAyHV3a9rIUELMdws7coDdwnpEQkl0rg8h2atFAXTmpmUm0Q=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 		LicenceErrorCode error_code;
@@ -1377,7 +1377,7 @@ void License::test()
 
 
 
-	/* 
+	/*
 	Test verifyLicenceString works when the licence key signature has been generated from the hardware ID with the leading whitespace stripped off, e.g. with
 
 	N:\indigo\trunk\signing> ruby .\sign.rb "someoneawesome@awesome.com<S. Awesome>" "Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E" full-lifetime
@@ -1386,9 +1386,9 @@ void License::test()
 		std::vector<std::string> hardware_ids;
 		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E"); // The actual hardware ID on the computer will be unchanged.
 
-		const std::string licence_key = 
+		const std::string licence_key =
 			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;X4HDE8GqCxaiuJmmIFe33JAChHpVyOUhZ/sIaVpvwJpF+VBBSG5lH5RTxInv0UGQHtSQ1WZl+NIN/mT4aQqChHmGtZFil/3EjvEBcNrt81ihD9CclMK1Zj3L5nQ+YDWqg2+SppFRC410d6f49DHAXturu5aMiu08CYOSjkFyiEU=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 
@@ -1408,7 +1408,7 @@ void License::test()
 	}
 
 
-	/* 
+	/*
 	Test verifyLicenceString works when the licence key signature has been generated from the hardware ID with the MAC address lower-cased.
 
 	N:\indigo\trunk\signing> ruby .\sign.rb "someoneawesome@awesome.com<S. Awesome>" "              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7f-bb-3e" full-lifetime
@@ -1417,9 +1417,9 @@ void License::test()
 		std::vector<std::string> hardware_ids;
 		hardware_ids.push_back("              Intel(R) Pentium(R) D CPU 3.40GHz:00-25-21-7F-BB-3E"); // The actual hardware ID on the computer will be unchanged.
 
-		const std::string licence_key = 
+		const std::string licence_key =
 			"someoneawesome@awesome.com<S. Awesome>;indigo-full-lifetime;R2qjttT95f0JouUWCW/NiQ6wr/DbBlLE8I1CJ5vA8O5FDuskG36baoBY/0rwHUL3a+1X6GehAat8HBNuwMgLnGanQxL33wAYjsOH0wd1LrUTmrl3HY0vRlsU914Olfa/bI82i1I1yGE9Qi7yRbVsYGTPZebrY91y08hFy+FLXFw=";
-	
+
 		LicenceType licence_type = UNLICENSED;
 		std::string user_id;
 
