@@ -181,6 +181,7 @@ void Obfuscator::addOpenCLKeywords()
 "isnan",
 "isinf",
 "isfinite",
+"nan",
 
 
 // float4 elements:
@@ -751,8 +752,8 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 
 			res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
 
-			// Parse any integer suffices like 'u'
-			if(p.currentIsChar('u') || p.currentIsChar('l') || p.currentIsChar('L'))
+			// Parse any integer suffices like 'ul'
+			while(p.currentIsChar('u') || p.currentIsChar('l') || p.currentIsChar('L'))
 			{
 				res += p.current();
 				p.advance();
