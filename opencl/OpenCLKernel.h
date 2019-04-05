@@ -48,7 +48,7 @@ public:
 	void setNextKernelArgFloat(cl_float val);
 
 	void resetKernelArgIndex() { kernel_arg_index = 0; }
-	size_t getNextKernelIndex() const { return kernel_arg_index; }
+	size_t getNextKernelArgIndex() const { return kernel_arg_index; }
 
 	// Returns execution time in seconds if profiling was enabled, or 0 otherwise.
 	double launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size);
