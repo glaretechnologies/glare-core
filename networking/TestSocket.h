@@ -22,12 +22,14 @@ class TestSocket : public SocketInterface
 {
 public:
 	TestSocket();
-	
+
 	// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
 	// Returns zero if connection was closed gracefully
 	size_t readSomeBytes(void* buffer, size_t max_num_bytes);
 
 	virtual void ungracefulShutdown() {}
+
+	virtual void waitForGracefulDisconnect() {}
 
 
 	virtual void setNoDelayEnabled(bool enabled) {} // NoDelay option is off by default.
@@ -38,9 +40,9 @@ public:
 	//void enableTCPKeepAlive(float period);
 
 	bool readable(double timeout_s) { return true; }
-	bool readable(EventFD& event_fd) { return true; } // Block until either the socket is readable or the event_fd is signalled (becomes readable).  
+	bool readable(EventFD& event_fd) { return true; } // Block until either the socket is readable or the event_fd is signalled (becomes readable).
 	// Returns true if the socket was readable, false if the event_fd was signalled.
-	
+
 
 
 	//------------------------ InStream ---------------------------------

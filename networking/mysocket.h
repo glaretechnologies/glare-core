@@ -82,7 +82,7 @@ public:
 
 	// Connect given an IP address
 	void connect(
-		const IPAddress& ipaddress, 
+		const IPAddress& ipaddress,
 		const std::string& hostname, // Just for printing out in exceptions.  Can be empty string.
 		int port
 	);
@@ -102,7 +102,7 @@ public:
 	// This allows the use of the 'Client Closes First' method from http://hea-www.harvard.edu/~fine/Tech/addrinuse.html
 	// This is good because it allows the server to rebind to the same port without a long 30s wait on e.g. OS X.
 	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
-	void waitForGracefulDisconnect();
+	virtual void waitForGracefulDisconnect();
 
 	const IPAddress& getOtherEndIPAddress() const{ return otherend_ipaddr; }
 	int getOtherEndPort() const { return otherend_port; }
@@ -144,9 +144,9 @@ public:
 	virtual void setAddressReuseEnabled(bool enabled);
 
 	bool readable(double timeout_s);
-	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).  
+	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).
 	// Returns true if the socket was readable, false if the event_fd was signalled.
-	
+
 	// Determines if bytes are reordered into network byte order in readInt32(), writeInt32() etc..
 	// Network byte order is enabled by default.
 	void setUseNetworkByteOrder(bool use_network_byte_order_) { use_network_byte_order = use_network_byte_order_; }
@@ -173,7 +173,7 @@ private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
 
-	
+
 	void init();
 	void createClientSideSocket();
 	SOCKETHANDLE_TYPE nullSocketHandle() const;

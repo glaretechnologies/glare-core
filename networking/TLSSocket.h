@@ -81,9 +81,9 @@ public:
 	// This allows the use of the 'Client Closes First' method from http://hea-www.harvard.edu/~fine/Tech/addrinuse.html
 	// This is good because it allows the server to rebind to the same port without a long 30s wait on e.g. OS X.
 	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
-	void waitForGracefulDisconnect();
+	virtual void waitForGracefulDisconnect();
 
-	
+
 	//-----------------------------------------------------------------
 	//if you use this directly you must do host->network and vice versa byte reordering yourself
 	//-----------------------------------------------------------------
@@ -104,11 +104,11 @@ public:
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
 
-	
+
 	bool readable(double timeout_s);
-	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).  
+	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).
 	// Returns true if the socket was readable, false if the event_fd was signalled.
-	
+
 
 
 	//------------------------ InStream ---------------------------------
