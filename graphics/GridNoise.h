@@ -23,14 +23,13 @@ namespace GridNoise
 	inline float eval(float x, float y, float z, float w);
 	inline float eval(int x, int y, int z);
 	inline float eval(int x, int y, int z, int w);
+
+	extern const uint8 p_x[256];
+	extern const uint8 p_y[256];
+	extern const uint8 p_z[256];
+	extern const uint8 p_w[256];
+	extern const float data[256];
 }
-
-
-extern const uint8 p_x[256];
-extern const uint8 p_y[256];
-extern const uint8 p_z[256];
-extern const uint8 p_w[256];
-extern const float data[256];
 
 
 /*

@@ -354,12 +354,12 @@ float PerlinNoise::noiseImpl(const Vec4f& point)
 	assert(Y >= 0 && Y < 256);
 	assert(Z >= 0 && Z < 256);
 
-	const int hash_x  = p_x[X];
-	const int hash_x1 = p_x[(X + 1) & 0xFF];
-	const int hash_y  = p_y[Y];
-	const int hash_y1 = p_y[(Y + 1) & 0xFF];
-	const int hash_z  = p_z[Z];
-	const int hash_z1 = p_z[(Z + 1) & 0xFF];
+	const int hash_x  = GridNoise::p_x[X];
+	const int hash_x1 = GridNoise::p_x[(X + 1) & 0xFF];
+	const int hash_y  = GridNoise::p_y[Y];
+	const int hash_y1 = GridNoise::p_y[(Y + 1) & 0xFF];
+	const int hash_z  = GridNoise::p_z[Z];
+	const int hash_z1 = GridNoise::p_z[(Z + 1) & 0xFF];
 
 	
 	const Vec4f fractional = point - floored;
@@ -453,10 +453,10 @@ float PerlinNoise::noiseImpl(float x, float y)
 	const int X = floored_i.x[0];
 	const int Y = floored_i.x[1];
 	
-	const int hash_x  = p_x[X];
-	const int hash_x1 = p_x[(X + 1) & 0xFF];
-	const int hash_y  = p_y[Y];
-	const int hash_y1 = p_y[(Y + 1) & 0xFF];
+	const int hash_x  = GridNoise::p_x[X];
+	const int hash_x1 = GridNoise::p_x[(X + 1) & 0xFF];
+	const int hash_y  = GridNoise::p_y[Y];
+	const int hash_y1 = GridNoise::p_y[(Y + 1) & 0xFF];
 
 	
 	const Vec4f fractional = point - floored;
@@ -525,12 +525,12 @@ const Vec4f PerlinNoise::noise4ValuedImpl(const Vec4f& point)
 	const int Y = floored_i.x[1];
 	const int Z = floored_i.x[2];
 	
-	const int hash_x  = p_x[X];
-	const int hash_x1 = p_x[(X + 1) & 0xFF];
-	const int hash_y  = p_y[Y];
-	const int hash_y1 = p_y[(Y + 1) & 0xFF];
-	const int hash_z  = p_z[Z];
-	const int hash_z1 = p_z[(Z + 1) & 0xFF];
+	const int hash_x  = GridNoise::p_x[X];
+	const int hash_x1 = GridNoise::p_x[(X + 1) & 0xFF];
+	const int hash_y  = GridNoise::p_y[Y];
+	const int hash_y1 = GridNoise::p_y[(Y + 1) & 0xFF];
+	const int hash_z  = GridNoise::p_z[Z];
+	const int hash_z1 = GridNoise::p_z[(Z + 1) & 0xFF];
 
 
 
@@ -670,10 +670,10 @@ const Vec4f PerlinNoise::noise4ValuedImpl(float x, float y)
 	const int X = floored_i.x[0];
 	const int Y = floored_i.x[1];
 	
-	const int hash_x  = p_x[X];
-	const int hash_x1 = p_x[(X + 1) & 0xFF];
-	const int hash_y  = p_y[Y];
-	const int hash_y1 = p_y[(Y + 1) & 0xFF];
+	const int hash_x  = GridNoise::p_x[X];
+	const int hash_x1 = GridNoise::p_x[(X + 1) & 0xFF];
+	const int hash_y  = GridNoise::p_y[Y];
+	const int hash_y1 = GridNoise::p_y[(Y + 1) & 0xFF];
 
 	const Vec4f fractional = point - floored;
 	const Vec4f uvw = fade(fractional);
