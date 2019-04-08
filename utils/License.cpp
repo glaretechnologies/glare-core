@@ -234,8 +234,11 @@ Sets licence_type_out and user_id_out based on the results of the verification.
 
 Also checks for the presence of the Green Button certificate, as well as a network floating licence licence key cached on disk.
 */
-void License::verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out,
-							LicenceErrorCode& local_err_code_out, LicenceErrorCode& network_lic_err_code_out)
+void License::verifyLicense(const std::string& appdata_path,
+	LicenceType& licence_type_out, std::string& user_id_out,
+	LicenceErrorCode& local_err_code_out,
+	LicenceErrorCode& network_lic_err_code_out,
+	bool& is_online_license_out)
 {
 	assert(OpenSSL::isInitialised());
 
@@ -243,10 +246,12 @@ void License::verifyLicense(const std::string& appdata_path, LicenceType& licenc
 	user_id_out = "";
 	local_err_code_out = LicenceErrorCode_NoError;
 	network_lic_err_code_out = LicenceErrorCode_NoError;
+	is_online_license_out = false;
 
 	// Try and verifiy network licence first.
 	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);
 	const bool have_online_licence = tryVerifyOnlineLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);
+	is_online_license_out = have_online_licence;
 	if(have_net_floating_licence || have_online_licence)
 		return;
 	else
@@ -774,15 +779,20 @@ const std::string License::currentLicenseSummaryString(const std::string& appdat
 	LicenceType licence_type = License::UNLICENSED;
 	std::string licence_user_id;
 	License::LicenceErrorCode local_error_code, network_error_code;
+	bool is_online_license;
 	try
 	{
-		License::verifyLicense(appdata_path, licence_type, licence_user_id, local_error_code, network_error_code);
+		License::verifyLicense(appdata_path, licence_type, licence_user_id,
+			local_error_code, network_error_code, is_online_license);
 	}
 	catch(License::LicenseExcep&)
 	{}
 
 	if(licence_type != License::UNLICENSED)
-		return "Licence verified.  \nLicence type: " + License::licenseTypeToString(licence_type) + ".  \nLicensed to '" + licence_user_id + "'";
+		return "Licence verified.  \nLicence type: " +
+			License::licenseTypeToString(licence_type) +
+			(is_online_license ? " (online)" : "") +
+			".  \nLicensed to '" + licence_user_id + "'";
 	else
 		return "Licence not verified, running in free mode.";
 }
@@ -994,7 +1004,7 @@ bool License::tryVerifyOnlineLicence(const std::string& appdata_path, LicenceTyp
 			if(verifyKey(constructed_key, hash, public_key_str))
 			{
 				// Are we in the licence period?
-				if((uint64)Clock::getSecsSince1970() > start_time && (uint64)Clock::getSecsSince1970() < end_time)
+				if((uint64)Clock::getSecsSince1970() >= start_time && (uint64)Clock::getSecsSince1970() <= end_time)
 				{
 					// Key verified!
 					license_type_out = desired_licence_type;

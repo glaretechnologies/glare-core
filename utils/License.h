@@ -93,8 +93,11 @@ public:
 	static const std::string licenseTypeToString(LicenceType t);
 	static const std::string licenseTypeToCodeString(LicenceType t);
 
-	static void verifyLicense(const std::string& appdata_path, LicenceType& licence_type_out, std::string& user_id_out,
-		LicenceErrorCode& local_err_code_out, LicenceErrorCode& network_lic_err_code_out); // throws LicenseExcep
+	static void verifyLicense(const std::string& appdata_path,
+		LicenceType& licence_type_out, std::string& user_id_out,
+		LicenceErrorCode& local_err_code_out,
+		LicenceErrorCode& network_lic_err_code_out,
+		bool& is_online_license_out); // throws LicenseExcep
 
 	// A combination of the CPU type and MAC address
 	static const std::string getPrimaryHardwareIdentifier(); // throws LicenseExcep
@@ -113,9 +116,9 @@ public:
 	static void warmup();
 	static void test();
 private:
-	
+
 	static const std::string getLowerCaseMACAddrHardwareID(const std::string& hardware_id);
-	
+
 	static const std::string decodeBase64(const std::string& data);
 
 	static void verifyLicenceString(const std::string& licence_string, const std::vector<std::string>& hardware_ids, LicenceType& licence_type_out, std::string& user_id_out, LicenceErrorCode& error_code_out);
