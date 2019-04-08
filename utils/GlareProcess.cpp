@@ -300,6 +300,23 @@ void Process::test()
 	{
 		failTest(e.what());
 	}
+
+	// Test trying to start an invalid process, e.g. test exception handling.
+	// Note that on Linux this doesn't actually throw an exception since popen() executes a shell.
+	try
+	{
+		const std::string cmd_exe_path = "invalid_exe_path";
+		std::vector<std::string> command_line_args;
+		command_line_args.push_back(cmd_exe_path);
+		command_line_args.push_back("/all");
+
+		Process p(cmd_exe_path, command_line_args);
+
+		failTest("Expected to throw exception before here.");
+	}
+	catch(Indigo::Exception&)
+	{
+	}
 #else
 	try
 	{
@@ -321,27 +338,6 @@ void Process::test()
 		failTest(e.what());
 	}
 #endif
-
-	// Test trying to start an invalid process, e.g. test exception handling
-	try
-	{
-		const std::string cmd_exe_path = "invalid_exe_path";
-		std::vector<std::string> command_line_args;
-		command_line_args.push_back(cmd_exe_path);
-		command_line_args.push_back("/all");
-		
-		Process p(cmd_exe_path, command_line_args);
-		
-		failTest("Expected to throw exception before here.");
-	}
-	catch(Indigo::Exception&)
-	{
-	}
-
-
-
-
-
 
 
 	/*
