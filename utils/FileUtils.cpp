@@ -24,6 +24,7 @@ Code By Nicholas Chapman.
 #include "MemMappedFile.h"
 #include "Exception.h"
 #include "PlatformUtils.h"
+#include "HandleWrapper.h"
 #include "Timer.h"
 #include <cstring>
 #include <stdlib.h>
@@ -41,17 +42,6 @@ const char PLATFORM_DIR_SEPARATOR_CHAR = '\\';
 #else
 const char* PLATFORM_DIR_SEPARATOR = "/";
 const char PLATFORM_DIR_SEPARATOR_CHAR = '/';
-#endif
-
-
-#if defined(_WIN32)
-// RAII wrapper for HANDLE
-struct HandleWrapper
-{
-	HandleWrapper(HANDLE handle_) : handle(handle_) {}
-	~HandleWrapper() { CloseHandle(handle); }
-	HANDLE handle;
-};
 #endif
 
 

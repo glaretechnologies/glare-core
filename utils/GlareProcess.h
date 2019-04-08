@@ -11,6 +11,7 @@ Generated at 2016-05-08 19:24:12 +0100
 #include <vector>
 #include <stdio.h>
 #include "IncludeWindows.h"
+#include "HandleWrapper.h"
 #include "ArrayRef.h"
 
 
@@ -18,7 +19,8 @@ Generated at 2016-05-08 19:24:12 +0100
 Process
 -------------------
 Creates a process.  The standard output and standard error streams of the 
-process can then be read from.
+process can then be read from, and the standard input stream of the process
+can be written to.
 =====================================================================*/
 class Process
 {
@@ -50,8 +52,8 @@ public:
 private:
 
 #if defined(_WIN32)
-	HANDLE process_handle;
-	HANDLE child_stdout_read_handle, child_stderr_read_handle, child_stdin_write_handle;
+	HandleWrapper child_stdout_read_handle, child_stderr_read_handle, child_stdin_write_handle;
+	HandleWrapper process_handle, thread_handle;
 #else
 	FILE* fp;
 	int exit_code;

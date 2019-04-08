@@ -12,8 +12,25 @@ Generated at 2016-05-08 19:24:12 +0100
 #include "FileUtils.h"
 #include "Exception.h"
 #include "PlatformUtils.h"
+#include "ConPrint.h"
 #if !defined(_WIN32)
 #include <unistd.h>
+#endif
+
+
+#if defined(_WIN32)
+static void createPipe(SECURITY_ATTRIBUTES* sa, HandleWrapper& read_handle_out, HandleWrapper& write_handle_out)
+{
+	if(!CreatePipe(&read_handle_out.handle, &write_handle_out.handle, sa, 0))
+		throw Indigo::Exception("CreatePipe failed: " + PlatformUtils::getLastErrorString());
+}
+
+
+static void setNoInherit(HandleWrapper& handle)
+{
+	if(!SetHandleInformation(handle.handle, HANDLE_FLAG_INHERIT, 0))
+		throw Indigo::Exception("SetHandleInformation failed: " + PlatformUtils::getLastErrorString());
+}
 #endif
 
 
@@ -57,47 +74,35 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 	// also https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
 
 	SECURITY_ATTRIBUTES sa; 
-    // Set the bInheritHandle flag so pipe handles are inherited. 
-    sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
-    sa.bInheritHandle = TRUE; 
-    sa.lpSecurityDescriptor = NULL; 
+	// Set the bInheritHandle flag so pipe handles are inherited. 
+	sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
+	sa.bInheritHandle = TRUE; 
+	sa.lpSecurityDescriptor = NULL; 
+
 
 	// Create a pipe for the child process's STDERR. 
-	HANDLE child_stderr_write_handle;
-    if(!CreatePipe(&child_stderr_read_handle, &child_stderr_write_handle, &sa, 0))
-		throw Indigo::Exception("CreatePipe failed: " + PlatformUtils::getLastErrorString());
-
-    // Ensure the read handle to the pipe for STDERR is not inherited.
-    if(!SetHandleInformation(child_stderr_read_handle, HANDLE_FLAG_INHERIT, 0))
-		throw Indigo::Exception("SetHandleInformation failed: " + PlatformUtils::getLastErrorString());
-
+	HandleWrapper child_stderr_write_handle;
+	createPipe(&sa, this->child_stderr_read_handle, child_stderr_write_handle);
+	setNoInherit(this->child_stderr_read_handle); // Ensure the read handle to the pipe for STDERR is not inherited.
+	
 	// Create a pipe for the child process's STDOUT. 
-	HANDLE child_stdout_write_handle;
-    if(!CreatePipe(&child_stdout_read_handle, &child_stdout_write_handle, &sa, 0))
-		throw Indigo::Exception("CreatePipe failed: " + PlatformUtils::getLastErrorString());
-
-    // Ensure the read handle to the pipe for STDOUT is not inherited.
-    if(!SetHandleInformation(child_stdout_read_handle, HANDLE_FLAG_INHERIT, 0))
-		throw Indigo::Exception("SetHandleInformation failed: " + PlatformUtils::getLastErrorString());
-
+	HandleWrapper child_stdout_write_handle;
+	createPipe(&sa, this->child_stdout_read_handle, child_stdout_write_handle);
+	setNoInherit(this->child_stderr_read_handle); // Ensure the read handle to the pipe for STDOUT is not inherited.
 
 	// Create a pipe for the child process's STDIN. 
-	HANDLE child_stdin_read_handle;
-	if(!CreatePipe(&child_stdin_read_handle, &child_stdin_write_handle, &sa, 0))
-		throw Indigo::Exception("CreatePipe failed: " + PlatformUtils::getLastErrorString());
-
-	// Ensure the write handle to the pipe for STDIN is not inherited. 
-	if(!SetHandleInformation(child_stdin_write_handle, HANDLE_FLAG_INHERIT, 0))
-		throw Indigo::Exception("SetHandleInformation failed: " + PlatformUtils::getLastErrorString());
+	HandleWrapper child_stdin_read_handle;
+	createPipe(&sa, child_stdin_read_handle, this->child_stdin_write_handle);
+	setNoInherit(this->child_stdin_write_handle); // Ensure the write handle to the pipe for STDIN is not inherited. 
 
 
 	STARTUPINFO startupInfo;
 	ZeroMemory(&startupInfo, sizeof(startupInfo));
-    startupInfo.cb = sizeof(startupInfo);
-	startupInfo.hStdError = child_stderr_write_handle;
-    startupInfo.hStdOutput = child_stdout_write_handle;
-	startupInfo.hStdInput = child_stdin_read_handle;
-    startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+	startupInfo.cb = sizeof(startupInfo);
+	startupInfo.hStdError = child_stderr_write_handle.handle;
+	startupInfo.hStdOutput = child_stdout_write_handle.handle;
+	startupInfo.hStdInput = child_stdin_read_handle.handle;
+	startupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
 	PROCESS_INFORMATION procInfo;
 	ZeroMemory(&procInfo, sizeof(procInfo));
@@ -120,10 +125,10 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 		throw Indigo::Exception("CreateProcess Failed: " + PlatformUtils::getLastErrorString());
 	}
 
-	this->process_handle = procInfo.hProcess;
-
-	CloseHandle(child_stderr_write_handle);
-    CloseHandle(child_stdout_write_handle);
+	// "Handles in PROCESS_INFORMATION must be closed with CloseHandle when they are no longer needed." - https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-createprocessa
+	// So hang on to them with HandleWrapper and close later.
+	this->process_handle.handle = procInfo.hProcess;
+	this->thread_handle.handle = procInfo.hThread;
 #else
 	this->exit_code = 0;
 	
@@ -136,9 +141,7 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 
 Process::~Process()
 {
-#if defined(_WIN32)
-	 // TODO: close process handle etc..?
-#else
+#if !defined(_WIN32)
 	if(fp)
 		pclose(fp);
 #endif
@@ -150,7 +153,7 @@ const std::string Process::readStdOut()
 #if defined(_WIN32)
 	char buf[2048]; 
 	DWORD dwRead;
-	const BOOL bSuccess = ReadFile(child_stdout_read_handle, buf, sizeof(buf), &dwRead, NULL);
+	const BOOL bSuccess = ReadFile(child_stdout_read_handle.handle, buf, sizeof(buf), &dwRead, NULL);
 	if(!bSuccess || dwRead == 0)
 		return ""; 
 
@@ -176,7 +179,7 @@ const std::string Process::readStdErr()
 #if defined(_WIN32)
 	char buf[2048]; 
 	DWORD dwRead;
-	const BOOL bSuccess = ReadFile(child_stderr_read_handle, buf, sizeof(buf), &dwRead, NULL);
+	const BOOL bSuccess = ReadFile(child_stderr_read_handle.handle, buf, sizeof(buf), &dwRead, NULL);
 	if(!bSuccess || dwRead == 0)
 		return ""; 
 
@@ -195,7 +198,7 @@ void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
 	while(bytes_written_total < data.size())
 	{
 		DWORD write_size = 0;
-		const BOOL res = WriteFile(child_stdin_write_handle, data.data() + bytes_written_total, (DWORD)(data.size() - bytes_written_total), &write_size, /*lpOverlapped=*/NULL);
+		const BOOL res = WriteFile(child_stdin_write_handle.handle, data.data() + bytes_written_total, (DWORD)(data.size() - bytes_written_total), &write_size, /*lpOverlapped=*/NULL);
 		bytes_written_total += write_size;
 
 		if(res == FALSE)
@@ -217,7 +220,7 @@ int Process::getExitCode() // Throws exception if process not terminated.
 {
 #if defined(_WIN32)
 	DWORD exit_code;
-	if(!GetExitCodeProcess(this->process_handle, &exit_code))
+	if(!GetExitCodeProcess(this->process_handle.handle, &exit_code))
 		throw Indigo::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
 	return exit_code;
 #else
@@ -318,6 +321,29 @@ void Process::test()
 		failTest(e.what());
 	}
 #endif
+
+	// Test trying to start an invalid process, e.g. test exception handling
+	try
+	{
+		const std::string cmd_exe_path = "invalid_exe_path";
+		std::vector<std::string> command_line_args;
+		command_line_args.push_back(cmd_exe_path);
+		command_line_args.push_back("/all");
+		
+		Process p(cmd_exe_path, command_line_args);
+		
+		failTest("Expected to throw exception before here.");
+	}
+	catch(Indigo::Exception&)
+	{
+	}
+
+
+
+
+
+
+
 	/*
 	try
 	{
