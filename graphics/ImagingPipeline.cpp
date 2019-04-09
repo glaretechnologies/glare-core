@@ -255,70 +255,49 @@ public:
 		const float region_alpha_bias_factor = 1.f + closure.region_alpha_bias;
 		const ptrdiff_t main_layer_num_components = closure.render_channels.layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
 
-		if(closure.render_channels.hasSpectral())
+		for(size_t i = begin; i < end; ++i)
 		{
-			for(size_t i = begin; i < end; ++i)
+			Colour4f sum(0.0f);
+			for(int z = 0; z < num_layers; ++z)
 			{
-				Colour4f sum(0.0f);
-				for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels.spectral.num_components; ++z) // For each wavelength bin:
-				{
-					const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels.spectral.num_components;
-					const Vec3f xyz = SingleFreq::getXYZ_CIE_2DegForWavelen(wavelen); // TODO: pull out of the loop.
-					const float pixel_comp_val = closure.render_channels.front_data[i * stride + closure.render_channels.spectral.offset + z] * closure.image_scale;
-					sum[0] += xyz.x * pixel_comp_val;
-					sum[1] += xyz.y * pixel_comp_val;
-					sum[2] += xyz.z * pixel_comp_val;
-				}
-				sum.x[3] = 1;
-				closure.buffer_out.getPixel(i) = sum;
+				const Vec3f& scale = layer_weights[z];
+				sum[0] += front_data[i * stride + z * main_layer_num_components + 0] * scale.x;
+				sum[1] += front_data[i * stride + z * main_layer_num_components + 1] * scale.y;
+				sum[2] += front_data[i * stride + z * main_layer_num_components + 2] * scale.z;
 			}
-		}
-		else
-		{
-			for(size_t i = begin; i < end; ++i)
+
+			// Get alpha from alpha channel if it exists
+			sum.x[3] = render_foreground_alpha ? (front_data[i * stride + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
+
+			if(render_region_enabled)
 			{
-				Colour4f sum(0.0f);
-				for(int z = 0; z < num_layers; ++z)
-				{
-					const Vec3f& scale = layer_weights[z];
-					sum[0] += front_data[i * stride + z * main_layer_num_components + 0] * scale.x;
-					sum[1] += front_data[i * stride + z * main_layer_num_components + 1] * scale.y;
-					sum[2] += front_data[i * stride + z * main_layer_num_components + 2] * scale.z;
-				}
-
-				// Get alpha from alpha channel if it exists
-				sum.x[3] = render_foreground_alpha ? (front_data[i * stride + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
-
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 				const size_t x = i % closure.render_channels.getWidth();
 				const size_t y = i / closure.render_channels.getWidth();
 
-				if(render_region_enabled)
+				if(pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
 				{
-					if(pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
+					sum = Colour4f(0.f);
+					for(ptrdiff_t z = 0; z < num_layers; ++z)
 					{
-						sum = Colour4f(0.f);
-						for(ptrdiff_t z = 0; z < num_layers; ++z)
-						{
-							const Vec3f& scale = region_layer_weights[z];
-							sum[0] += region_data[i * stride + z * main_layer_num_components + 0] * scale.x;
-							sum[1] += region_data[i * stride + z * main_layer_num_components + 1] * scale.y;
-							sum[2] += region_data[i * stride + z * main_layer_num_components + 2] * scale.z;
-						}
+						const Vec3f& scale = region_layer_weights[z];
+						sum[0] += region_data[i * stride + z * main_layer_num_components + 0] * scale.x;
+						sum[1] += region_data[i * stride + z * main_layer_num_components + 1] * scale.y;
+						sum[2] += region_data[i * stride + z * main_layer_num_components + 2] * scale.z;
+					}
 
-						// Get alpha from (region) alpha channel if it exists
-						sum.x[3] = render_foreground_alpha ? (region_data[i * stride + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
-					}
-					else
-					{
-						// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
-						if(closure.zero_alpha_outside_region || (closure.image_scale == 0.0))
-							sum = Colour4f(0.f);
-					}
+					// Get alpha from (region) alpha channel if it exists
+					sum.x[3] = render_foreground_alpha ? (region_data[i * stride + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 				}
-
-				closure.buffer_out.getPixel(i) = sum;
+				else
+				{
+					// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+					if(closure.zero_alpha_outside_region || (closure.image_scale == 0.0))
+						sum = Colour4f(0.f);
+				}
 			}
+
+			closure.buffer_out.getPixel(i) = sum;
 		}
 	}
 
@@ -632,6 +611,7 @@ static void runPipelineFullBuffer(
 
 	// Components should be in range [0, 1]
 	assert(temp_summed_buffer.minPixelComponent() >= 0.0f);
+	//const float max_c = temp_summed_buffer.maxPixelComponent();
 	assert(temp_summed_buffer.maxPixelComponent() <= 1.0f);
 
 	// Compute final dimensions of LDR image.
@@ -698,7 +678,7 @@ static void runPipelineFullBuffer(
 	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
 	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
 
-	// For receiver/spectral rendering (which has margin 0), force alpha values to 1.  
+	// For receiver/spectral rendering (which has margin 0), force alpha values to 1.
 	// Otherwise pixels on the edge of the image get alpha < 1, which results in scaling when doing the alpha divide below.
 	if(render_channels.hasSpectral())
 		for(size_t i=0; i<ldr_buffer_out.numPixels(); ++i)
@@ -739,6 +719,39 @@ inline static Colour4f toColour4f(const Vec3f& v)
 }
 
 
+static const Colour3f colourForDensity(float density, float max_density)
+{
+	//return Colour3f(density / max_density);
+
+	// From http://local.wasp.uwa.edu.au/~pbourke/texture_colour/colourramp/
+	Colour3f c(1);
+
+	const float vmin = 0;
+	const float vmax = max_density;
+	const float dv = vmax - vmin;
+	const float v = density;
+
+	if(v < (vmin + 0.25f * dv)) {
+		c.r = 0;
+		c.g = 4 * (v - vmin) / dv;
+	}
+	else if(v < (vmin + 0.5f * dv)) {
+		c.r = 0;
+		c.b = 1 + 4 * (vmin + 0.25f * dv - v) / dv;
+	}
+	else if(v < (vmin + 0.75f * dv)) {
+		c.r = 4 * (v - vmin - 0.5f * dv) / dv;
+		c.b = 0;
+	}
+	else {
+		c.g = 1 + 4 * (vmin + 0.75f * dv - v) / dv;
+		c.b = 0;
+	}
+
+	return c;
+}
+
+
 // Tonemap and downsizes (if downsizing is needed) a single image tile.
 class ImagePipelineTask : public Indigo::Task
 {
@@ -765,7 +778,6 @@ public:
 		const bool render_foreground_alpha = closure.render_foreground_alpha;
 		const bool apply_curves = !closure.skip_curves;
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
-		const bool has_spectral_channel = closure.render_channels->hasSpectral();
 		const bool zero_alpha_outside_region = closure.renderer_settings->zero_alpha_outside_region;
 		
 		const bool blend_main_layers = closure.channel == NULL;
@@ -849,8 +861,6 @@ public:
 					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
 					Colour4f sum(0.0f);
 
-					assert(!has_spectral_channel);
-					
 					if(blend_main_layers) // blend together main light layers (usual rendering).
 					{
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
@@ -1011,44 +1021,29 @@ public:
 					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
 					Colour4f sum(0.0f);
 
-					if(has_spectral_channel)
+					if(blend_main_layers) // blend together main light layers (usual rendering).
 					{
-						for(ptrdiff_t z = 0; z < (ptrdiff_t)closure.render_channels->spectral.num_components; ++z) // For each wavelength bin:
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
-							const float wavelen = MIN_WAVELENGTH + (0.5f + z) * WAVELENGTH_SPAN / closure.render_channels->spectral.num_components;
-							const Vec3f xyz = SingleFreq::getXYZ_CIE_2DegForWavelen(wavelen); // TODO: pull out of the loop.
-							const float pixel_comp_val = closure.render_channels->front_data[src_pixel_offset + closure.render_channels->spectral.offset + z] * closure.image_scale;
-							sum[0] += xyz.x * pixel_comp_val;
-							sum[1] += xyz.y * pixel_comp_val;
-							sum[2] += xyz.z * pixel_comp_val;
+							float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
+							float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
+							float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
+							sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
 						}
 					}
-					else
+					else // else read from one of the non-main layers.
 					{
-						if(blend_main_layers) // blend together main light layers (usual rendering).
+						if(colour3_channel)
 						{
-							for(ptrdiff_t z = 0; z < num_layers; ++z)
-							{
-								float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
-								float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
-								float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
-								sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
-							}
+							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
+							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
+							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
+							sum += Colour4f(r, g, b, 0.f) * image_scale;
 						}
-						else // else read from one of the non-main layers.
+						else
 						{
-							if(colour3_channel)
-							{
-								float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
-								float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
-								float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-								sum += Colour4f(r, g, b, 0.f) * image_scale;
-							}
-							else
-							{
-								float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
-								sum += Colour4f(v, v, v, 0.f) * image_scale;
-							}
+							float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
+							sum += Colour4f(v, v, v, 0.f) * image_scale;
 						}
 					}
 
@@ -1124,6 +1119,11 @@ public:
 							const Colour4f col = tile_buffer.getPixel(i);
 							const Vec4f sRGB = colour_space_change * Vec4f(col.v); // Standard pipeline: transform from XYZ to sRGB
 							tile_buffer.getPixel(i) = max(Colour4f(sRGB.v), Colour4f(lower_clamping_bound)); // Make sure >= lower_clamping_bound
+
+							// False colour for receiver channel:
+							// const float v = tile_buffer.getPixel(i).x[0];
+							// const Colour3f mapped_col = colourForDensity(v, /*max-val=*/0.6f);
+							// tile_buffer.getPixel(i) = Colour4f(mapped_col.r, mapped_col.g, mapped_col.b, 1.f);
 						}
 					}
 				}
