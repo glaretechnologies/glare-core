@@ -52,7 +52,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 
 
 		// Read test kernel from disk
-		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/OpenCLPathTracingTestKernel.cl";
+		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/test_programs/OpenCLPathTracingTestKernel.cl";
 		std::string contents = FileUtils::readEntireFileTextMode(kernel_path);
 
 		std::string options =	std::string(" -cl-fast-relaxed-math") +
@@ -206,7 +206,7 @@ static void miscompilationTest()
 
 
 		// Read test kernel from disk
-		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1_obfuscated.cl";
+		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/test_programs/miscompilation_test1_obfuscated.cl";
 		const std::string contents = FileUtils::readEntireFileTextMode(kernel_path);
 
 		std::string options = "";//"-cl-opt-disable";
