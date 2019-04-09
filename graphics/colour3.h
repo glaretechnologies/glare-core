@@ -1,20 +1,12 @@
 /*=====================================================================
-Code By Nicholas Chapman.
-
-  nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may *not* use this code for any commercial project.
+colour3.h
+---------
+Copyright Glare Technologies Limited
 =====================================================================*/
-#ifndef __COLOUR3_H__
-#define __COLOUR3_H__
+#pragma once
 
 
-#include "../maths/mathstypes.h"
 #include "../maths/vec3.h"
-#include "../maths/mathstypes.h"
 #include <assert.h>
 
 
@@ -28,7 +20,6 @@ public:
 	:	r(x), g(x), b(x)
 	{}
 
-
 	Colour3(Real r_, Real g_, Real b_)
 	:	r(r_), g(g_), b(b_) 
 	{}
@@ -40,12 +31,6 @@ public:
 	{}
 
 	const Colour3<double> toColour3d() const { return Colour3<double>(r, g, b); }
-
-	static Colour3 red()	{	return Colour3(1.0f ,0.0f ,0.0f); }
-	static Colour3 green()	{	return Colour3(0.0f ,1.0f ,0.0f); }
-	static Colour3 blue() 	{	return Colour3(0.0f ,0.0f ,1.0f); }
-	static Colour3 grey()	{	return Colour3(0.5f ,0.5f ,0.5f); }
-	static Colour3 yellow()	{	return Colour3(0.0f ,1.0f ,1.0f); }
 
 	inline void set(Real r_, Real g_, Real b_)
 	{
@@ -165,25 +150,10 @@ public:
 		r = myClamp(r, 0, 1);
 		g = myClamp(g, 0, 1);
 		b = myClamp(b, 0, 1);
-
-		//if(r < 0.0f) r = 0.0f;
-		//else if(r > 1.0f) r = 1.0f;
-		//if(g < 0.0f) g = 0.0f;
-		//else if(g > 1.0f) g = 1.0f;
-		//if(b < 0.0f) b = 0.0f;
-		//else if(b > 1.0f) b = 1.0f;
 	}
 
 	inline void positiveClipComponents(Real threshold = 1.0f)
 	{
-		/*if(r > threshold)
-			r = threshold;
-
-		if(g > threshold)
-			g = threshold;
-
-		if(b > threshold)
-			b = threshold;*/
 		r = myMin(r, threshold);
 		g = myMin(g, threshold);
 		b = myMin(b, threshold);
@@ -199,7 +169,7 @@ public:
 		return r != 0.0f || g != 0.0f || b != 0.0f;
 	}
 
-	//assuming in linear sRGB space
+	// Assuming in linear sRGB space
 	inline Real luminance() const
 	{
 		//return 0.3f*r + 0.587f*g + 0.114f*b;//approx
@@ -221,11 +191,6 @@ public:
 	{
 		return myMax(r, g, b);
 	}
-
-	/*static inline const Colour3 randomColour3()
-	{
-		return Colour(Random::unit(), Random::unit(), Random::unit());
-	}*/
 
 	const Real* toFloatArray() const { return (const Real*)this; }
 	const Real* data() const { return (const Real*)this; }
@@ -269,7 +234,7 @@ public:
 			myClamp(r, lowerbound, upperbound),
 			myClamp(g, lowerbound, upperbound),
 			myClamp(b, lowerbound, upperbound)
-			);
+		);
 	}
 
 	inline const Vec3<Real> toVec3() const
@@ -282,8 +247,3 @@ public:
 
 typedef Colour3<float> Colour3f;
 typedef Colour3<double> Colour3d;
-
-
-//}//end namespace RayT
-
-#endif //__COLOUR3_H__
