@@ -160,10 +160,8 @@ Vector<T, alignment>::Vector(const T* begin_, const T* end_) // Range constructo
 	// Allocate new memory
 	e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * size_, alignment));
 
-	// Copy-construct new objects from existing objects in 'other'.
-	std::uninitialized_copy(begin_, end_, 
-		e // dest
-	);
+	// Copy-construct new objects from existing objects in [begin_, end_)
+	std::uninitialized_copy(begin_, end_, /*dest=*/e);
 }
 
 
