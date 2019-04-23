@@ -633,6 +633,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_)
 		buildMeshRenderData(*sphere_meshdata, verts, normals, uvs, indices);
 	}
 
+	this->cube_meshdata = makeCubeMesh();
+
 	this->env_ob->mesh_data = sphere_meshdata;
 
 
@@ -1582,18 +1584,18 @@ void OpenGLEngine::draw()
 							bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 							for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 							{
-								const uint32 mat_index = mesh_data.batches[z].material_index;
-								// Draw primitives for the given material
-								if(!ob->materials[mat_index].transparent)
-								{
-									const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-									OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
+									const uint32 mat_index = mesh_data.batches[z].material_index;
+									// Draw primitives for the given material
+									if(!ob->materials[mat_index].transparent)
+									{
+										const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
+										OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
 
-									drawBatch(*ob, view_matrix, proj_matrix,
-										ob->materials[mat_index], // Use tex matrix etc.. from original material
-										use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+										drawBatch(*ob, view_matrix, proj_matrix,
+											ob->materials[mat_index], // Use tex matrix etc.. from original material
+											use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+									}
 								}
-							}
 							unbindMeshData(mesh_data);
 
 							//num_drawn++;
@@ -2811,6 +2813,9 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, 
 	const OpenGLMaterial& opengl_mat, const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
+	if(batch.num_indices == 0)
+		return;
+
 	if(shader_prog.nonNull())
 	{
 		shader_prog->useProgram();
@@ -3442,9 +3447,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 	// z = 0 face
 	{
 		Vec3f v0(0, 0, 0);
-		Vec3f v1(1, 0, 0);
+		Vec3f v1(0, 1, 0);
 		Vec3f v2(1, 1, 0);
-		Vec3f v3(0, 1, 0);
+		Vec3f v3(1, 0, 0);
 		
 		verts[face*4 + 0] = v0;
 		verts[face*4 + 1] = v1;

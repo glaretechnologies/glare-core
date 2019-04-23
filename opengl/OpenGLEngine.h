@@ -191,6 +191,7 @@ public:
 
 
 	Reference<OpenGLMeshRenderData> getSphereMeshData() { return sphere_meshdata; }
+	Reference<OpenGLMeshRenderData> getCubeMeshData() { return cube_meshdata; }
 
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 	void updateObjectTransformData(GLObject& object);
