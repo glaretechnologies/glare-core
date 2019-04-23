@@ -777,7 +777,7 @@ bool RayMesh::isPlanar(Vec4f& normal_out) const
 }
 
 
-void RayMesh::build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
+void RayMesh::build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	Timer timer;
 

@@ -179,7 +179,7 @@ public:
 		ShouldCancelCallback* should_cancel_callback
 		); // throws GeometryExcep
 
-	virtual void build(const std::string& indigo_base_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
+	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
 
 	virtual unsigned int getNumUVCoordSets() const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;

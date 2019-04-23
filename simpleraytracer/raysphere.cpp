@@ -239,7 +239,7 @@ bool RaySphere::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCo
 }
 
 
-void RaySphere::build(const std::string& indigo_base_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {} // throws GeometryExcep
+void RaySphere::build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {} // throws GeometryExcep
 
 
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }

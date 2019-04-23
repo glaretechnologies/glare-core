@@ -97,7 +97,6 @@ void TreeTest::testBuildCorrect()
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	raymesh.build(
-		".",
 		options,
 		print_output,
 		true,
@@ -174,7 +173,6 @@ void TreeTest::testBuildCorrect()
 	StandardPrintOutput print_output;
 	Geometry::BuildOptions options;
 	raymesh.build(
-		".",
 		options,
 		print_output,
 		true,
@@ -252,7 +250,6 @@ void TreeTest::testBuildCorrect()
 	StandardPrintOutput print_output;
 	Geometry::BuildOptions options;
 	raymesh.build(
-		".",
 		options,
 		print_output,
 		true,
@@ -711,7 +708,6 @@ void TreeTest::doVaryingNumtrisBuildTests()
 		Geometry::BuildOptions options;
 
 		raymesh.build(
-			".", // appdata path
 			options,
 			print_output,
 			false, // verbose
@@ -756,7 +752,6 @@ void TreeTest::doSpeedTest(int treetype)
 	Geometry::BuildOptions options;
 	
 	raymesh.build(
-		".", // base indigo dir path
 		options,
 		print_output,
 		true,
@@ -889,7 +884,6 @@ void TreeTest::buildSpeedTest()
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	raymesh.build(
-		".", // base indigo dir path
 		options,
 		print_output,
 		true,
@@ -1120,7 +1114,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 		const unsigned int uv_indices[] = { 0, 0, 0 };
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 
-		raymesh.build(appdata_path, options, print_output, false, task_manager);
+		raymesh.build(options, print_output, false, task_manager);
 
 		testSphereTracingOnMesh(raymesh);
 	}
@@ -1147,7 +1141,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(appdata_path, options, print_output, false, task_manager);
+		raymesh.build(options, print_output, false, task_manager);
 
 		testSphereTracingOnMesh(raymesh);
 	}
@@ -1284,7 +1278,7 @@ void TreeTest::doAppendCollPointsTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(appdata_path, options, print_output, false, task_manager);
+		raymesh.build(options, print_output, false, task_manager);
 
 		testAppendCollPoints(raymesh);
 	}
@@ -1345,7 +1339,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 			Indigo::Mesh::readFromFile(toIndigoString(MODEL_PATH), indigoMesh);
 			raymesh.fromIndigoMesh(indigoMesh);
 
-			raymesh.build(appdata_path, options, print_output, false, task_manager);
+			raymesh.build(options, print_output, false, task_manager);
 		}
 		catch(Indigo::Exception&)
 		{
@@ -1383,7 +1377,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(appdata_path, options, print_output, false, task_manager);
+		raymesh.build(options, print_output, false, task_manager);
 
 		testTree(rng, raymesh);
 	}
@@ -1421,7 +1415,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(appdata_path, options, print_output, false, task_manager);
+		raymesh.build(options, print_output, false, task_manager);
 
 		testTree(rng, raymesh);
 	}

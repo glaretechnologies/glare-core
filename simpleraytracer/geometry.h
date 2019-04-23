@@ -119,7 +119,7 @@ public:
 		BuildOptions() : build_small_bvh(false) {}
 		bool build_small_bvh;
 	};
-	virtual void build(const std::string& cache_dir_path, const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
+	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 

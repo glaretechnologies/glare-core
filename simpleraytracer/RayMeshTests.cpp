@@ -101,7 +101,7 @@ void RayMeshTests::test()
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
 			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
-		mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+		mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 			
 		// Test vertex shading normals
 		for(int i=0; i<4; ++i)
@@ -136,7 +136,7 @@ void RayMeshTests::test()
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
 			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
-		mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+		mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 
 		// Test vertex shading normals - the should be the same as the supplied shading_normal.
 		for(int i=0; i<4; ++i)
@@ -159,7 +159,7 @@ void RayMeshTests::test()
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
 			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
-		mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+		mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 
 		testAssert(mesh.getNumQuads() == 0); // Should have been converted to tris.
 		testAssert(mesh.getNumTris() == 2);
@@ -195,7 +195,7 @@ void RayMeshTests::test()
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
 			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
-		mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+		mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 
 		testAssert(mesh.getNumQuads() == 0); // Should have been converted to tris.
 		testAssert(mesh.getNumTris() == 2);
@@ -224,7 +224,7 @@ void RayMeshTests::test()
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
 			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
-		mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+		mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 
 		testAssert(mesh.getNumQuads() == 0); // Should have been converted to tris.
 		testAssert(mesh.getNumTris() == 2);
@@ -274,7 +274,7 @@ void RayMeshTests::test()
 			mesh.fromIndigoMesh(m);
 			mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
 				print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
-			//mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+			//mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 
 			min_time = myMin(min_time, timer.elapsed());
 		}
@@ -301,7 +301,7 @@ void RayMeshTests::test()
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, context, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
 			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
-		mesh.build(/*cache dir path=*/".", build_options, print_output, /*verbose=*/false, task_manager);
+		mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 
 		HitInfo hitinfo;
 		hitinfo.sub_elem_index = 0;

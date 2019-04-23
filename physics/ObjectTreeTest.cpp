@@ -100,7 +100,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			);
 
 		
-		ob1->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
+		ob1->buildGeometry(thread_context, settings, print_output, true, task_manager);
 		ob1->setObjectIndex(0);
 		ob_tree.insertObject(ob1);
 	}
@@ -115,7 +115,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 
-		ob2->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
+		ob2->buildGeometry(thread_context, settings, print_output, true, task_manager);
 		ob2->setObjectIndex(1);
 		ob_tree.insertObject(ob2);
 	}
@@ -238,7 +238,7 @@ void ObjectTreeTest::doTests()
 			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 		RendererSettings settings;
-		ob->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
+		ob->buildGeometry(thread_context, settings, print_output, true, task_manager);
 		ob->setObjectIndex(i);
 		ob_tree.insertObject(ob);
 
@@ -491,7 +491,7 @@ void ObjectTreeTest::doSpeedTest()
 			std::vector<const IESDatum*>()
 			);
 		RendererSettings settings;
-		ob->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
+		ob->buildGeometry(thread_context, settings, print_output, true, task_manager);
 		ob_tree.insertObject(ob);
 	}
 	ob_tree.build(task_manager, print_output,
@@ -567,8 +567,6 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	conPrint("ObjectTreeTest::instancedMeshSpeedTest()");
 	Indigo::TaskManager task_manager;
 
-	const std::string cache_dir_path = ".";
-
 	MTwister rng(1);
 
 	//------------------------------------------------------------------------
@@ -594,7 +592,6 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	StandardPrintOutput print_output;
 	Geometry::BuildOptions options;
 	raymesh->build(
-		cache_dir_path,
 		options,
 		print_output,
 		true,
@@ -625,7 +622,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			std::vector<const IESDatum*>()
 			);
 		
-		object->buildGeometry(thread_context, "", settings, print_output, true, task_manager);
+		object->buildGeometry(thread_context, settings, print_output, true, task_manager);
 
 		ob_tree.insertObject(object);
 	}
