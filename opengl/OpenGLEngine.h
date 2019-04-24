@@ -224,8 +224,9 @@ public:
 	float getPixelDepth(int pixel_x, int pixel_y);
 
 
-	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh();
+	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
+	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh() { return makeUnitQuadMesh(); }
 	
 	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 

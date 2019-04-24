@@ -3590,7 +3590,7 @@ void OpenGLEngine::addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col
 
 
 // Makes a quad with xspan = 1, yspan = 1, lying on the z = 0 plane.
-Reference<OpenGLMeshRenderData> OpenGLEngine::makeOverlayQuadMesh()
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeUnitQuadMesh()
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 	
