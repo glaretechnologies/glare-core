@@ -3364,10 +3364,10 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
 
-		uvs[face*4 + 0] = Vec2f(0, 0);
-		uvs[face*4 + 1] = Vec2f(0, 1);
-		uvs[face*4 + 2] = Vec2f(1, 1);
-		uvs[face*4 + 3] = Vec2f(1, 0);
+		uvs[face*4 + 0] = Vec2f(1, 0);
+		uvs[face*4 + 1] = Vec2f(1, 1);
+		uvs[face*4 + 2] = Vec2f(0, 1);
+		uvs[face*4 + 3] = Vec2f(0, 0);
 
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(-1, 0, 0);
@@ -3433,10 +3433,10 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 		verts[face*4 + 2] = v2;
 		verts[face*4 + 3] = v3;
 
-		uvs[face*4 + 0] = Vec2f(0, 0);
-		uvs[face*4 + 1] = Vec2f(0, 1);
-		uvs[face*4 + 2] = Vec2f(1, 1);
-		uvs[face*4 + 3] = Vec2f(1, 0);
+		uvs[face*4 + 0] = Vec2f(1, 0);
+		uvs[face*4 + 1] = Vec2f(1, 1);
+		uvs[face*4 + 2] = Vec2f(0, 1);
+		uvs[face*4 + 3] = Vec2f(0, 0);
 
 		for(int i=0; i<4; ++i)
 			normals[face*4 + i] = Vec3f(0, 1, 0);
