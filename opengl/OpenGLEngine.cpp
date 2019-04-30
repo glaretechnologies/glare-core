@@ -54,7 +54,10 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	draw_wireframes(false),
 	frame_num(0),
 	current_time(0.f),
-	task_manager(NULL)
+	task_manager(NULL),
+	target_frame_buffer(0),
+	use_target_frame_buffer(false),
+	texture_server(NULL)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
@@ -353,6 +356,7 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 {
 	this->env_ob->materials[0] = env_mat_;
 	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
+	buildMaterial(this->env_ob->materials[0]);
 }
 
 
@@ -493,9 +497,10 @@ void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog
 }
 
 
-void OpenGLEngine::initialise(const std::string& data_dir_)
+void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_)
 {
 	data_dir = data_dir_;
+	texture_server = texture_server_;
 
 #if !defined(OSX)
 	if(gl3wInit() != 0)
@@ -958,9 +963,9 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
+		buildMaterial(object->materials[i]);
 		assignShaderProgToMaterial(object->materials[i]);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
-	//	buildMaterial(object->materials[i]);
 	}
 
 	if(have_transparent_mat)
@@ -1015,7 +1020,7 @@ void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat)
 }
 
 
-void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object, TextureServer& texture_server)
+void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 {
 	// Add this object to transparent_objects list if it has a transparent material and is not already in the list.
 
@@ -1031,7 +1036,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object, Tex
 		{
 			try
 			{
-				Reference<Map2D> map = texture_server.getTexForPath(".", object->materials[i].albedo_tex_path);
+				Reference<Map2D> map = texture_server->getTexForPath(".", object->materials[i].albedo_tex_path);
 				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(*map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 			}
 			catch(TextureServerExcep& e)
@@ -1071,6 +1076,25 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object, Tex
 
 void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
 {
+	if(opengl_mat.albedo_tex_path.empty())
+		opengl_mat.albedo_texture = NULL; // Delete OpenGL texture
+	else
+	{
+		try
+		{
+			// TEMP HACK: need to set base dir here
+			Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
+			opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(*map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+		}
+		catch(TextureServerExcep& e)
+		{
+			conPrint("Warning: failed to load texture: " + e.what());
+		}
+		catch(Indigo::Exception& e)
+		{
+			conPrint("Warning: failed to load texture: " + e.what());
+		}
+	}
 }
 
 
@@ -1609,6 +1633,9 @@ void OpenGLEngine::draw()
 		}
 		//-------------------- End draw static depth textures ----------------
 
+		if(this->use_target_frame_buffer)
+			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer);
+
 		// Restore viewport
 		glViewport(0, 0, viewport_w, viewport_h);
 
@@ -1627,7 +1654,8 @@ void OpenGLEngine::draw()
 	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
 #endif
 
-
+	if(this->use_target_frame_buffer)
+		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer);
 	
 	// NOTE: We want to clear here first, even if the scene node is null.
 	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
@@ -3631,7 +3659,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeUnitQuadMesh()
 	uvs[3] = uv3;
 
 	for(int i=0; i<4; ++i)
-		normals[i] = Vec3f(0, 0, -1);
+		normals[i] = Vec3f(0, 0, 1);
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
@@ -4025,4 +4053,27 @@ float OpenGLEngine::getPixelDepth(int pixel_x, int pixel_y)
 	float z = depth * 2.0 - 1.0; 
 	float linear_depth = (2.0 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near));	
 	return linear_depth;
+}
+
+
+Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRenderedColourBuffer()
+{
+	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > map = new ImageMap<uint8, UInt8ComponentValueTraits>(viewport_w, viewport_h, 3);
+
+	js::Vector<uint8, 16> data(viewport_w * viewport_h * 3);
+
+	glReadPixels(0, 0, // x, y
+		viewport_w, viewport_h,  // width, height
+		GL_RGB, GL_UNSIGNED_BYTE,
+		data.data()// map->getPixel(0)
+	);
+
+	// Flip image upside down.
+	for(int dy=0; dy<viewport_h; ++dy)
+	{
+		const int sy = viewport_h - dy - 1;
+		std::memcpy(/*dest=*/map->getPixel(0, dy), /*src=*/&data[sy*viewport_w*3], /*size=*/viewport_w*3);
+	}
+
+	return map;
 }

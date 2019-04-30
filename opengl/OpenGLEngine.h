@@ -32,6 +32,8 @@ namespace Indigo { class Mesh; }
 namespace Indigo { class TaskManager; }
 class Map2D;
 class TextureServer;
+class UInt8ComponentValueTraits;
+template <class V, class VTraits> class ImageMap;
 
 
 // Data for a bunch of triangles from a given mesh, that all share the same material.
@@ -151,7 +153,7 @@ public:
 	OpenGLEngine(const OpenGLEngineSettings& settings);
 	~OpenGLEngine();
 
-	void initialise(const std::string& data_dir); // data_dir should have 'shaders' and 'gl_data' in it.
+	void initialise(const std::string& data_dir, TextureServer* texture_server); // data_dir should have 'shaders' and 'gl_data' in it.
 
 	void unloadAllData();
 
@@ -168,7 +170,7 @@ public:
 
 	void newMaterialUsed(OpenGLMaterial& mat);
 
-	void objectMaterialsUpdated(const Reference<GLObject>& object, TextureServer& texture_server);
+	void objectMaterialsUpdated(const Reference<GLObject>& object);
 
 	void draw();
 
@@ -223,6 +225,11 @@ public:
 
 	float getPixelDepth(int pixel_x, int pixel_y);
 
+	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > getRenderedColourBuffer();
+
+	// Set the primary render target frame buffer.
+	void setTargetFrameBuffer(unsigned int target_frame_buffer_) { target_frame_buffer = target_frame_buffer_; use_target_frame_buffer = true; }
+	void dontUseTargetFrameBuffer() { use_target_frame_buffer = false; }
 
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
@@ -403,6 +410,10 @@ private:
 	Indigo::TaskManager* task_manager; // Used for texture compression processing.  Could be shared with MainWindow task manager, bit tricky due to inialisation tho.
 	// Lazily constructed.
 
+	TextureServer* texture_server;
+
+	unsigned int target_frame_buffer;
+	bool use_target_frame_buffer;
 public:
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;
