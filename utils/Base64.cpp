@@ -1,7 +1,7 @@
 /*=====================================================================
 Base64.cpp
 -------------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2019 -
 Generated at 2014-03-22 11:44:41 +0000
 =====================================================================*/
 #include "Base64.h"
@@ -11,7 +11,6 @@ Generated at 2014-03-22 11:44:41 +0000
 #include "StringUtils.h"
 #include "Exception.h"
 #include <limits>
-#include "../indigo/TestUtils.h"
 #include <assert.h>
 
 
@@ -52,35 +51,65 @@ static unsigned char base64_decoding_table[] = {
 
 
 // Modified from http://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
-void encode(const void* data, size_t datalen, std::string& res_out)
+void encode(const void* data_, size_t datalen, std::string& res_out)
 {
 	const size_t remainder = datalen % 3;
 	const size_t required_size = (remainder == 0) ? (4 * (datalen / 3)) : (4 * (1 + (datalen / 3)));
 	res_out.resize(required_size);
+	
+	const unsigned char* const data = (const unsigned char*)data_;
+	char* const res_out_data = (required_size > 0) ? &res_out[0] : NULL;
 
 	size_t j = 0;
-	for (size_t i = 0; i < datalen;)
+	size_t i = 0;
+	if(datalen >= 3)
 	{
-        uint32_t octet_a = i < datalen ? ((unsigned char*)data)[i++] : 0;
-        uint32_t octet_b = i < datalen ? ((unsigned char*)data)[i++] : 0;
-        uint32_t octet_c = i < datalen ? ((unsigned char*)data)[i++] : 0;
+		// Process all input bytes starting up to 3 from the end, so we don't need to bounds check.
+		for(; i < datalen - 3; i += 3)
+		{
+			assert(i + 2 < datalen);
+			// Get 3 bytes (24 bits), OR them together into a 32-bit uint.
+			uint32 octet_a = data[i + 0];
+			uint32 octet_b = data[i + 1];
+			uint32 octet_c = data[i + 2];
 
-        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+			uint32 triple = (octet_a << 16) | (octet_b << 8) | octet_c;
 
-        res_out[j++] = base64_encoding_table[(triple >> 3 * 6) & 0x3F];
-        res_out[j++] = base64_encoding_table[(triple >> 2 * 6) & 0x3F];
-        res_out[j++] = base64_encoding_table[(triple >> 1 * 6) & 0x3F];
-        res_out[j++] = base64_encoding_table[(triple >> 0 * 6) & 0x3F];
-    }
+			// Break the 24 bits up into 4 sextets.
+			assert(j + 3 < res_out.size());
+			res_out_data[j++] = base64_encoding_table[(triple >> 18) & 0x3F];
+			res_out_data[j++] = base64_encoding_table[(triple >> 12) & 0x3F];
+			res_out_data[j++] = base64_encoding_table[(triple >>  6) & 0x3F];
+			res_out_data[j++] = base64_encoding_table[(triple >>  0) & 0x3F];
+		}
+	}
+
+	// Process any remaining input bytes
+	for(; i < datalen;)
+	{
+		// Get 3 bytes (24 bits), OR them together into a 32-bit uint.
+		uint32 octet_a = i < datalen ? data[i++] : 0;
+		uint32 octet_b = i < datalen ? data[i++] : 0;
+		uint32 octet_c = i < datalen ? data[i++] : 0;
+
+		uint32 triple = (octet_a << 16) | (octet_b << 8) | octet_c;
+
+		// Break the 24 bits up into 4 sextets.
+		assert(j + 3 < res_out.size());
+		res_out_data[j++] = base64_encoding_table[(triple >> 18) & 0x3F];
+		res_out_data[j++] = base64_encoding_table[(triple >> 12) & 0x3F];
+		res_out_data[j++] = base64_encoding_table[(triple >>  6) & 0x3F];
+		res_out_data[j++] = base64_encoding_table[(triple >>  0) & 0x3F];
+	}
 
 	if(remainder == 1)
 	{
-		res_out[required_size - 2] = '=';
-		res_out[required_size - 1] = '=';
+		res_out_data[required_size - 2] = '=';
+		res_out_data[required_size - 1] = '=';
 	}
 	else if(remainder == 2)
 	{
-		res_out[required_size - 1] = '=';
+		res_out_data[required_size - 1] = '=';
 	}
 
 	assert(j == res_out.size());
@@ -99,58 +128,76 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 	}
 	assert((input_length % 4 == 0) && (input_length >= 4));
 
+	const unsigned char* const input = (const unsigned char*)s.data();
+
 	size_t output_length = input_length / 4 * 3;
-    if(s[input_length - 1] == '=') output_length--;
-    if(s[input_length - 2] == '=') output_length--;
+	if(s[input_length - 1] == '=') output_length--;
+	if(s[input_length - 2] == '=') output_length--;
 
 	data_out.resize(output_length);
 
-	// Handle intial blocks, which aren't allowed to have padding characters in them.
+	// Handle initial blocks, which aren't allowed to have padding characters in them.
 	size_t last_input_block_index = input_length - 4;
 
 	for(size_t i = 0, j = 0; i < last_input_block_index; i += 4, j += 3)
 	{
-        uint32_t sextet_a = base64_decoding_table[(unsigned char)s[i + 0]];
-        uint32_t sextet_b = base64_decoding_table[(unsigned char)s[i + 1]];
-        uint32_t sextet_c = base64_decoding_table[(unsigned char)s[i + 2]];
-        uint32_t sextet_d = base64_decoding_table[(unsigned char)s[i + 3]];
+		// Get 4 sextets, decode from ASCII to binary
+		assert(i + 3 < input_length);
+		uint32 sextet_a = base64_decoding_table[input[i + 0]];
+		uint32 sextet_b = base64_decoding_table[input[i + 1]];
+		uint32 sextet_c = base64_decoding_table[input[i + 2]];
+		uint32 sextet_d = base64_decoding_table[input[i + 3]];
 
-		if(sextet_a == 64 || sextet_b == 64 || sextet_c == 64 || sextet_d == 64)
+		// If any of the sextets are equal to 64, we have an invalid char.  Test this by checking if the relevant bit (6) is set.
+		if((sextet_a | sextet_b | sextet_c | sextet_d) & 0x40)
 			throw Indigo::Exception("Invalid character");
 
-        uint32_t triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) + (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
+		// Combine them together into a 24 bit value
+		uint32 triple = (sextet_a << 3 * 6) | (sextet_b << 2 * 6) | (sextet_c << 1 * 6) | (sextet_d << 0 * 6);
 
+		// Break into 3 bytes
 		assert(j + 2 < output_length);
-        data_out[j + 0] = (triple >> 2 * 8) & 0xFF;
-        data_out[j + 1] = (triple >> 1 * 8) & 0xFF;
-        data_out[j + 2] = (triple >> 0 * 8) & 0xFF;
-    }
+		data_out[j + 0] = (triple >> 2 * 8) & 0xFF;
+		data_out[j + 1] = (triple >> 1 * 8) & 0xFF;
+		data_out[j + 2] = (triple >> 0 * 8) & 0xFF;
+	}
 
 	// Handle last block, which may have '=' padding characters in it.
 	{
 		size_t i = last_input_block_index;
 		size_t j = last_input_block_index / 4 * 3;
-        uint32_t sextet_a = base64_decoding_table[(unsigned char)s[i]];  i++;
-        uint32_t sextet_b = base64_decoding_table[(unsigned char)s[i]];  i++;
-        uint32_t sextet_c = s[i] == '=' ? 0 : base64_decoding_table[(unsigned char)s[i]];  i++;
-        uint32_t sextet_d = s[i] == '=' ? 0 : base64_decoding_table[(unsigned char)s[i]];  i++;
+		assert(i + 3 < input_length);
+		uint32 sextet_a = base64_decoding_table[input[i + 0]];
+		uint32 sextet_b = base64_decoding_table[input[i + 1]];
+		uint32 sextet_c = s[i + 2] == '=' ? 0 : base64_decoding_table[input[i + 2]];
+		uint32 sextet_d = s[i + 3] == '=' ? 0 : base64_decoding_table[input[i + 3]];
 
-		if(sextet_a == 64 || sextet_b == 64 || sextet_c == 64 || sextet_d == 64)
+		if((sextet_a | sextet_b | sextet_c | sextet_d) & 0x40)
 			throw Indigo::Exception("Invalid character");
 
-        uint32_t triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) + (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
+		uint32 triple = (sextet_a << 3 * 6) | (sextet_b << 2 * 6) | (sextet_c << 1 * 6) | (sextet_d << 0 * 6);
 
-        if (j < output_length) data_out[j++] = (triple >> 2 * 8) & 0xFF;
-        if (j < output_length) data_out[j++] = (triple >> 1 * 8) & 0xFF;
-        if (j < output_length) data_out[j++] = (triple >> 0 * 8) & 0xFF;
-    }
+		if(j < output_length) data_out[j++] = (triple >> 2 * 8) & 0xFF;
+		if(j < output_length) data_out[j++] = (triple >> 1 * 8) & 0xFF;
+		if(j < output_length) data_out[j++] = (triple >> 0 * 8) & 0xFF;
+	}
 }
 
 
 #if BUILD_TESTS
 
 
-//#include <iostream>
+} // End namespace Base64
+
+
+#include "../indigo/TestUtils.h"
+#include "../utils/MTwister.h"
+#include "../utils/Timer.h"
+#include "../utils/ConPrint.h"
+
+
+namespace Base64
+{
 
 
 static void doTest(const std::string& original_text, const std::string& target_encoding)
@@ -219,8 +266,10 @@ static void testDecodingFailure(const std::string& encoded)
 
 void test()
 {
-	static_assert(sizeof(base64_encoding_table) / sizeof(char) == 64, "sizeof(base64_encoding_table) / sizeof(char) == 64");
-	static_assert(sizeof(base64_decoding_table) / sizeof(unsigned char) == 256, "sizeof(base64_decoding_table) / sizeof(unsigned char) == 256");
+	conPrint("Base64::test()");
+
+	static_assert(staticArrayNumElems(base64_encoding_table) == 64, "staticArrayNumElems(base64_encoding_table) == 64");
+	static_assert(staticArrayNumElems(base64_decoding_table) == 256, "staticArrayNumElems(base64_decoding_table) == 256");
 
 	// Make decoding table - effectively a map from base64 char to original sextet
 	/*{
@@ -400,6 +449,107 @@ void test()
 			}
 		}
 	}
+
+	// Perf test
+	if(true)
+	{
+		MTwister rng(1);
+		std::vector<unsigned char> plaintext((int)1.0e6);
+		for(int i = 0; i < plaintext.size(); i++)
+			plaintext[i] = (unsigned char)(rng.unitRandom() * 255.9);
+
+		std::vector<unsigned char> decoded;
+		std::string encoded;
+		Timer encode_timer, decode_timer;
+		encode_timer.pause();
+		decode_timer.pause();
+
+		const int iters = 10;
+		for(int i=0; i<iters; ++i)
+		{
+			encode_timer.unpause();
+			encode(plaintext.data(), plaintext.size(), encoded);
+			encode_timer.pause();
+
+			decode_timer.unpause();
+			decode(encoded, decoded);
+			decode_timer.pause();
+
+			testAssert(plaintext == decoded);
+		}
+
+		const double encode_elapsed = encode_timer.elapsed() / iters;
+		const double decode_elapsed = decode_timer.elapsed() / iters;
+		const double encode_speed = plaintext.size() / encode_elapsed;
+		const double decode_speed = plaintext.size() / decode_elapsed;
+		conPrint("Encode elapsed: " + toString(encode_elapsed) + " s (" + toString(encode_speed * 1.0e-6) + " MB/s");
+		conPrint("Decode elapsed: " + toString(decode_elapsed) + " s (" + toString(decode_speed * 1.0e-6) + " MB/s");
+	}
+
+
+	// Fuzz test encoder and decoder
+#ifdef NDEBUG
+	const int fuzz_iters = (int)1.0e6; // Non-debug mode
+#else
+	const int fuzz_iters = (int)1.0e3; // Debug mode
+#endif
+	if(true)
+	{
+		conPrint("Fuzz testing encoder (" + toString(fuzz_iters) + " iters)...");
+		MTwister rng(1);
+		size_t sum = 0;
+		for(int z=0; z<fuzz_iters; ++z)
+		{
+			const size_t input_len = (size_t)(rng.unitRandom() * 1000);
+			std::vector<unsigned char> plaintext(input_len);
+			for(int i = 0; i < input_len; i++)
+				plaintext[i] = (unsigned char)(rng.unitRandom() * 255.9);
+
+			std::string encoded;
+			encode(plaintext.data(), plaintext.size(), encoded);
+			sum += encoded.size();
+		}
+		printVar(sum);
+	}
+	
+	if(true)
+	{
+		conPrint("Fuzz testing decoder (" + toString(fuzz_iters) + " iters)...");
+		MTwister rng(1);
+		size_t sum = 0;
+		for(int z=0; z<fuzz_iters; ++z)
+		{
+			const size_t encoded_len = (size_t)(rng.unitRandom() * 40);
+
+			std::string encoded(encoded_len, 'a');
+
+			if(rng.unitRandom() < 0.75)
+			{
+				for(int i = 0; i < encoded_len; i++)
+					encoded[i] = base64_encoding_table[(int)(rng.unitRandom() * 63.99)];
+
+				while(rng.unitRandom() < 0.5)
+					encoded.push_back('=');
+			}
+			else
+			{
+				for(int i = 0; i < encoded_len; i++)
+					encoded[i] = (char)(-128 + rng.unitRandom() * 255.9);
+			}
+
+			std::vector<unsigned char> decoded;
+			try
+			{
+				decode(encoded, decoded);
+			}
+			catch(Indigo::Exception&)
+			{}
+			sum += decoded.size();
+		}
+		printVar(sum);
+	}
+
+	conPrint("Base64::test() done.");
 }
 
 

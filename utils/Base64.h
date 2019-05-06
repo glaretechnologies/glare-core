@@ -1,7 +1,7 @@
 /*=====================================================================
 Base64.h
 -------------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2019 -
 Generated at 2014-03-22 11:44:41 +0000
 =====================================================================*/
 #pragma once
