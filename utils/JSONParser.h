@@ -73,8 +73,10 @@ struct JSONNode
 
 /*=====================================================================
 JSONParser
--------------------
-
+----------
+Not super-optimised, mostly due to all the memory allocations made for the nodes
+and the strings they contain etc..
+Parses at about 70 MB/s on my i7-8700K CPU.
 =====================================================================*/
 class JSONParser
 {

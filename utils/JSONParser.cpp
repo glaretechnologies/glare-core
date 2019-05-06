@@ -479,6 +479,7 @@ std::string JSONParser::errorContext(Parser& p)
 
 
 #include "../indigo/TestUtils.h"
+#include "Timer.h"
 
 
 static void testStringEscapeSequence(const std::string& encoded_string, const std::string& target_decoding)
@@ -688,6 +689,22 @@ void JSONParser::test()
 	testInvalidStringEscapeSequence("\\u0z");
 	testInvalidStringEscapeSequence("\\u00z");
 	testInvalidStringEscapeSequence("\\u000z");
+
+	// Perf test
+	if(false)
+	{
+		Timer timer;
+		const int N = 10;
+		for(int i=0; i<N; ++i)
+		{
+			JSONParser p;
+			p.parseFile("D:\\downloads\\parcels.json");
+		}
+
+		const double elapsed = timer.elapsed() / N;
+		const double decode_speed = 2917000 / elapsed;
+		conPrint("elapsed: " + toString(elapsed) + " s (" + toString(decode_speed * 1.0e-6) + " MB/s)");
+	}
 
 	conPrint("JSONParser::test() done.");
 }
