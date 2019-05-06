@@ -70,7 +70,7 @@ public:
 
 	OpenGLMaterial()
 	:	transparent(false),
-		albedo_rgb(0.85f, 0.5f, 0.85f),
+		albedo_rgb(0.85f, 0.85f, 0.85f),
 		alpha(1.f),
 		roughness(0.5f),
 		tex_matrix(1,0,0,1),

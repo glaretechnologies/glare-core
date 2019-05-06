@@ -3872,7 +3872,7 @@ public:
 };
 
 
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(/*Indigo::TaskManager& task_manager, */const Map2D& map2d,
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d,
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
@@ -3892,11 +3892,51 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(/*Indigo::TaskMana
 			// conPrint("Creating new OpenGL texture.");
 			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
 
+			// If we have a 1 or 2 bytes per pixel texture, convert to 3 or 4.
+			// Handling such textures without converting them here would have to be done in the shaders, which we don't do currently.
+			Reference<const ImageMapUInt8> converted_image;
+			if(imagemap->getN() == 1)
+			{
+				// Convert to RGB:
+				ImageMapUInt8Ref new_image = new ImageMapUInt8(imagemap->getWidth(), imagemap->getHeight(), 3);
+				const uint8* const src  = imagemap->getData();
+				      uint8* const dest = new_image->getData();
+				const size_t num_pixels = imagemap->numPixels();
+				for(size_t i=0; i<num_pixels; ++i)
+				{
+					const uint8 r = src[i];
+					dest[i*3 + 0] = r;
+					dest[i*3 + 1] = r;
+					dest[i*3 + 2] = r;
+				}
+				converted_image = new_image;
+			}
+			else if(imagemap->getN() == 2)
+			{
+				// Convert to RGBA:
+				ImageMapUInt8Ref new_image = new ImageMapUInt8(imagemap->getWidth(), imagemap->getHeight(), 4);
+				const uint8* const src  = imagemap->getData();
+				      uint8* const dest = new_image->getData();
+				const size_t num_pixels = imagemap->numPixels();
+				for(size_t i=0; i<num_pixels; ++i)
+				{
+					const uint8 r = src[i*2 + 0];
+					const uint8 a = src[i*2 + 1];
+					dest[i*4 + 0] = r;
+					dest[i*4 + 1] = r;
+					dest[i*4 + 2] = r;
+					dest[i*4 + 3] = a;
+				}
+				converted_image = new_image;
+			}
+			else
+				converted_image = imagemap;
+
 			// Try and load as a DXT texture compression
 			const bool compressed_sRGB_support = GL_EXT_texture_sRGB_support && GL_EXT_texture_compression_s3tc_support;
-			const unsigned int W = imagemap->getWidth();
-			const unsigned int H = imagemap->getHeight();
-			const unsigned int bytes_pp = imagemap->getBytesPerPixel();
+			const unsigned int W = converted_image->getWidth();
+			const unsigned int H = converted_image->getHeight();
+			const unsigned int bytes_pp = converted_image->getBytesPerPixel();
 			if(settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
 			{
 				if(!task_manager)
@@ -3922,7 +3962,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(/*Indigo::TaskMana
 					assert(dynamic_cast<DXTCompressTask*>(compress_tasks[z].ptr()));
 					DXTCompressTask* task = (DXTCompressTask*)compress_tasks[z].ptr();
 					task->compressed = compressed.data();
-					task->imagemap = imagemap;
+					task->imagemap = converted_image.ptr();
 					task->begin_y = (unsigned int)myMin((size_t)H, (z       * y_blocks_per_task) * 4);
 					task->end_y   = (unsigned int)myMin((size_t)H, ((z + 1) * y_blocks_per_task) * 4);
 					assert(task->begin_y >= 0 && task->begin_y <= H && task->end_y >= 0 && task->end_y <= H);
@@ -3940,16 +3980,14 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(/*Indigo::TaskMana
 			else // Else if not using a compressed texture format:
 			{
 				OpenGLTexture::Format format;
-				if(imagemap->getN() == 1)
-					format = OpenGLTexture::Format_Greyscale_Uint8;
-				else if(imagemap->getN() == 3)
+				if(converted_image->getN() == 3)
 					format = OpenGLTexture::Format_SRGB_Uint8;
-				else if(imagemap->getN() == 4)
+				else if(converted_image->getN() == 4)
 					format = OpenGLTexture::Format_SRGBA_Uint8;
 				else
-					throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+					throw Indigo::Exception("Texture has unhandled number of components: " + toString(converted_image->getN()));
 
-				opengl_tex->load(W, H, ArrayRef<uint8>(imagemap->getData(), imagemap->getDataSize()), this,
+				opengl_tex->load(W, H, ArrayRef<uint8>(converted_image->getData(), converted_image->getDataSize()), this,
 					format, filtering, wrapping
 				);
 			}
