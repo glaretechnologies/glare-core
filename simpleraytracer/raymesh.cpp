@@ -1198,7 +1198,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 }
 
 
-void RayMesh::saveToIndigoMeshOnDisk(const std::string& path) const
+void RayMesh::saveToIndigoMeshOnDisk(const std::string& path, bool use_compression) const
 {
 	try
 	{
@@ -1235,7 +1235,7 @@ void RayMesh::saveToIndigoMeshOnDisk(const std::string& path) const
 			mesh->uv_pairs[i].y = this->uvs[i].y;
 		}
 
-		Indigo::Mesh::writeToFile(toIndigoString(path), *mesh, /*use_compression=*/false);
+		Indigo::Mesh::writeToFile(toIndigoString(path), *mesh, use_compression);
 	}
 	catch(Indigo::IndigoException& e)
 	{
