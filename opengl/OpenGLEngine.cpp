@@ -1077,7 +1077,9 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
 {
 	if(opengl_mat.albedo_tex_path.empty())
-		opengl_mat.albedo_texture = NULL; // Delete OpenGL texture
+	{
+		//opengl_mat.albedo_texture = NULL; // Delete OpenGL texture
+	}
 	else
 	{
 		try
