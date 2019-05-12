@@ -57,7 +57,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	task_manager(NULL),
 	target_frame_buffer(0),
 	use_target_frame_buffer(false),
-	texture_server(NULL)
+	texture_server(NULL),
+	outline_colour(0.43, 0.72, 0.95, 1.0)
 {
 	viewport_aspect_ratio = 1;
 	max_draw_dist = 1;
@@ -727,6 +728,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
+		edge_extract_col_location		= edge_extract_prog->getUniformLocation("col");
 
 
 		if(settings.shadow_mapping)
@@ -983,6 +985,12 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 void OpenGLEngine::selectObject(const Reference<GLObject>& object)
 {
 	this->selected_objects.insert(object.getPointer());
+}
+
+
+void OpenGLEngine::setSelectionOutlineColour(const Colour4f& col)
+{
+	outline_colour = col;
 }
 
 
@@ -1788,6 +1796,8 @@ void OpenGLEngine::draw()
 			glActiveTexture(GL_TEXTURE0 + 0);
 			glBindTexture(GL_TEXTURE_2D, outline_solid_tex->texture_handle);
 			glUniform1i(edge_extract_tex_location, 0);
+
+			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
 				
 			glDrawElements(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->index_type, (void*)(uint64)outline_quad_meshdata->batches[0].prim_start_offset);
 		}

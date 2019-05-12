@@ -1,6 +1,7 @@
 #version 150
 
 uniform sampler2D tex;
+uniform vec4 col;
 
 in vec2 texture_coords;
 
@@ -26,5 +27,5 @@ void main()
 	float G_y =  a + 2*b + c - g - 2*h - i;
 	float G = sqrt(G_x*G_x + G_y*G_y) * 0.25;
 
-	colour_out = vec4(112.0 / 255.0, 184.0 / 255.0, 247.0 / 255.0, G);
+	colour_out = vec4(col.x, col.y, col.z, G * col.w);
 }

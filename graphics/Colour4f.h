@@ -61,6 +61,8 @@ public:
 
 	const std::string toString() const;
 
+	static Colour4f fromHTMLHexString(const std::string& s); // From something like "92ac88".  Returns red on failure.
+
 	INDIGO_STRONG_INLINE bool isFinite() const;
 
 

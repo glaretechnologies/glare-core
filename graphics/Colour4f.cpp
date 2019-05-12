@@ -9,6 +9,27 @@ const std::string Colour4f::toString() const
 	return "(" + ::toString(x[0]) + ", " + ::toString(x[1]) + ", " + ::toString(x[2]) + ", " + ::toString(x[3]) + ")";
 }
 
+// From something like "92ac88".  Returns red on failure.
+Colour4f Colour4f::fromHTMLHexString(const std::string& s)
+{
+	if(s.length() < 6)
+		return Colour4f(1, 0, 0, 1);
+
+	try
+	{
+		return Colour4f(
+			::hexStringToUInt32(s.substr(0, 2)) / 255.0,
+			::hexStringToUInt32(s.substr(2, 2)) / 255.0,
+			::hexStringToUInt32(s.substr(4, 2)) / 255.0,
+			1.0
+		);
+	}
+	catch(StringUtilsExcep&)
+	{
+		return Colour4f(1, 0, 0, 1);
+	}
+}
+
 
 #if BUILD_TESTS
 

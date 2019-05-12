@@ -166,6 +166,7 @@ public:
 
 	void selectObject(const Reference<GLObject>& object);
 	void deselectObject(const Reference<GLObject>& object);
+	void setSelectionOutlineColour(const Colour4f& col);
 
 
 	void newMaterialUsed(OpenGLMaterial& mat);
@@ -362,6 +363,8 @@ private:
 
 	Reference<OpenGLProgram> edge_extract_prog;
 	int edge_extract_tex_location;
+	int edge_extract_col_location;
+	Colour4f outline_colour;
 
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
