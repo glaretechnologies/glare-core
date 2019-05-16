@@ -22,4 +22,6 @@ class TextureLoading
 public:
 	static Reference<OpenGLTexture> loadUInt8Map(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine,
 		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
+
+	static void test();
 };
