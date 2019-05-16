@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "OpenGLProgram.h"
 #include "OpenGLShader.h"
 #include "ShadowMapping.h"
+#include "TextureLoading.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
@@ -1094,6 +1095,7 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
 		{
 			// TEMP HACK: need to set base dir here
 			Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
+			// conPrint("OpenGLEngine::buildMaterial: loading tex '" + opengl_mat.albedo_tex_path + "'...");
 			opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(*map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 		}
 		catch(TextureServerExcep& e)
@@ -3795,94 +3797,6 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 }
 
 
-class DXTCompressTask : public Indigo::Task
-{
-public:
-	virtual void run(size_t thread_index)
-	{
-		const unsigned int W = imagemap->getWidth();
-		const unsigned int H = imagemap->getHeight();
-		const unsigned int bytes_pp = imagemap->getBytesPerPixel();
-		const unsigned int num_blocks_x = Maths::roundedUpDivide(W, 4u);
-		uint8* const compressed_data = compressed;
-		if(bytes_pp == 4)
-		{
-			size_t write_i = num_blocks_x * (begin_y / 4) * 16; // as DXT5 (with alpha) is 16 bytes / block
-
-			// Copy to rgba block
-			uint8 rgba_block[4*4*4];
-
-			for(unsigned int by=begin_y; by<end_y; by += 4) // by = y coordinate of block
-				for(unsigned int bx=0; bx<W; bx += 4)
-				{
-					int z = 0;
-					for(unsigned int y=by; y<by+4; ++y)
-						for(unsigned int x=bx; x<bx+4; ++x) // For each pixel in block:
-						{
-							if(x < W && y < H)
-							{
-								const uint8* const pixel = imagemap->getPixel(x, y);
-								rgba_block[z + 0] = pixel[0];
-								rgba_block[z + 1] = pixel[1];
-								rgba_block[z + 2] = pixel[2];
-								rgba_block[z + 3] = pixel[3];
-							}
-							else
-							{
-								rgba_block[z + 0] = 0;
-								rgba_block[z + 1] = 0;
-								rgba_block[z + 2] = 0;
-								rgba_block[z + 3] = 0;
-							}
-							z += 4;
-						}
-
-					stb_compress_dxt_block(&(compressed_data[write_i]), rgba_block, /*alpha=*/1, /*mode=*/STB_DXT_HIGHQUAL);
-					write_i += 16;
-				}
-		}
-		else if(bytes_pp == 3)
-		{
-			size_t write_i = num_blocks_x * (begin_y / 4) * 8; // as DXT1 (no alpha) is 8 bytes / block
-
-			// Copy to rgba block
-			uint8 rgba_block[4*4*4];
-
-			for(unsigned int by=begin_y; by<end_y; by += 4) // by = y coordinate of block
-				for(unsigned int bx=0; bx<W; bx += 4)
-				{
-					int z = 0;
-					for(unsigned int y=by; y<by+4; ++y)
-						for(unsigned int x=bx; x<bx+4; ++x) // For each pixel in block:
-						{
-							if(x < W && y < H)
-							{
-								const uint8* const pixel = imagemap->getPixel(x, y);
-								rgba_block[z + 0] = pixel[0];
-								rgba_block[z + 1] = pixel[1];
-								rgba_block[z + 2] = pixel[2];
-								rgba_block[z + 3] = 0;
-							}
-							else
-							{
-								rgba_block[z + 0] = 0;
-								rgba_block[z + 1] = 0;
-								rgba_block[z + 2] = 0;
-								rgba_block[z + 3] = 0;
-							}
-							z += 4;
-						}
-
-					stb_compress_dxt_block(&(compressed_data[write_i]), rgba_block, /*alpha=*/0, /*mode=*/STB_DXT_HIGHQUAL);
-					write_i += 8;
-				}
-		}
-	}
-	unsigned int begin_y, end_y;
-	uint8* compressed;
-	const ImageMapUInt8* imagemap;
-};
-
 
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d,
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
@@ -3900,109 +3814,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
-
-			// conPrint("Creating new OpenGL texture.");
-			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-
-			// If we have a 1 or 2 bytes per pixel texture, convert to 3 or 4.
-			// Handling such textures without converting them here would have to be done in the shaders, which we don't do currently.
-			Reference<const ImageMapUInt8> converted_image;
-			if(imagemap->getN() == 1)
-			{
-				// Convert to RGB:
-				ImageMapUInt8Ref new_image = new ImageMapUInt8(imagemap->getWidth(), imagemap->getHeight(), 3);
-				const uint8* const src  = imagemap->getData();
-				      uint8* const dest = new_image->getData();
-				const size_t num_pixels = imagemap->numPixels();
-				for(size_t i=0; i<num_pixels; ++i)
-				{
-					const uint8 r = src[i];
-					dest[i*3 + 0] = r;
-					dest[i*3 + 1] = r;
-					dest[i*3 + 2] = r;
-				}
-				converted_image = new_image;
-			}
-			else if(imagemap->getN() == 2)
-			{
-				// Convert to RGBA:
-				ImageMapUInt8Ref new_image = new ImageMapUInt8(imagemap->getWidth(), imagemap->getHeight(), 4);
-				const uint8* const src  = imagemap->getData();
-				      uint8* const dest = new_image->getData();
-				const size_t num_pixels = imagemap->numPixels();
-				for(size_t i=0; i<num_pixels; ++i)
-				{
-					const uint8 r = src[i*2 + 0];
-					const uint8 a = src[i*2 + 1];
-					dest[i*4 + 0] = r;
-					dest[i*4 + 1] = r;
-					dest[i*4 + 2] = r;
-					dest[i*4 + 3] = a;
-				}
-				converted_image = new_image;
-			}
-			else
-				converted_image = imagemap;
-
-			// Try and load as a DXT texture compression
-			const bool compressed_sRGB_support = GL_EXT_texture_sRGB_support && GL_EXT_texture_compression_s3tc_support;
-			const unsigned int W = converted_image->getWidth();
-			const unsigned int H = converted_image->getHeight();
-			const unsigned int bytes_pp = converted_image->getBytesPerPixel();
-			if(settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
-			{
-				if(!task_manager)
-					task_manager = new Indigo::TaskManager();
-
-				const unsigned int num_blocks_x = Maths::roundedUpDivide(W, 4u);
-				const unsigned int num_blocks_y = Maths::roundedUpDivide(H, 4u);
-				const unsigned int num_blocks = num_blocks_x * num_blocks_y;
-
-				// Timer timer;
-				js::Vector<uint8, 16> compressed((bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16)); // DXT1 is 8 bytes per 4x4 block, DXT5 (with alpha) is 16 bytes per block
-				
-				compress_tasks.resize(myMax<size_t>(1, task_manager->getNumThreads()));
-				for(size_t z=0; z<compress_tasks.size(); ++z)
-				{
-					if(compress_tasks[z].isNull())
-						compress_tasks[z] = new DXTCompressTask();
-
-					const size_t y_blocks_per_task = Maths::roundedUpDivide((size_t)num_blocks_y, compress_tasks.size());
-					assert(y_blocks_per_task * compress_tasks.size() >= num_blocks_y);
-
-					// Set compress_tasks fields
-					assert(dynamic_cast<DXTCompressTask*>(compress_tasks[z].ptr()));
-					DXTCompressTask* task = (DXTCompressTask*)compress_tasks[z].ptr();
-					task->compressed = compressed.data();
-					task->imagemap = converted_image.ptr();
-					task->begin_y = (unsigned int)myMin((size_t)H, (z       * y_blocks_per_task) * 4);
-					task->end_y   = (unsigned int)myMin((size_t)H, ((z + 1) * y_blocks_per_task) * 4);
-					assert(task->begin_y >= 0 && task->begin_y <= H && task->end_y >= 0 && task->end_y <= H);
-				}
-				task_manager->addTasks(compress_tasks.data(), compress_tasks.size());
-				task_manager->waitForTasksToComplete();
-
-				// conPrint("DXT compression took " + timer.elapsedString());
-
-				opengl_tex->load(W, H, compressed, this,
-					/*format=*/(bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8, 
-					filtering, wrapping
-				);
-			}
-			else // Else if not using a compressed texture format:
-			{
-				OpenGLTexture::Format format;
-				if(converted_image->getN() == 3)
-					format = OpenGLTexture::Format_SRGB_Uint8;
-				else if(converted_image->getN() == 4)
-					format = OpenGLTexture::Format_SRGBA_Uint8;
-				else
-					throw Indigo::Exception("Texture has unhandled number of components: " + toString(converted_image->getN()));
-
-				opengl_tex->load(W, H, ArrayRef<uint8>(converted_image->getData(), converted_image->getDataSize()), this,
-					format, filtering, wrapping
-				);
-			}
+			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadUInt8Map(imagemap, this, filtering, wrapping);
 
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 			return opengl_tex;
@@ -4084,6 +3896,24 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 	else
 	{
 		throw Indigo::Exception("Unhandled texture type.");
+	}
+}
+
+
+void OpenGLEngine::removeOpenGLTexture(const Map2D& map2d)
+{
+	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
+	{
+		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
+
+		// Compute hash of map
+		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize(), 1);
+
+		this->opengl_textures.erase(key);
+	}
+	else
+	{
+		assert(0);//TODO
 	}
 }
 

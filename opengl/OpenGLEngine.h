@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
+#include "TextureLoading.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../physics/jscol_aabbox.h"
@@ -153,6 +154,8 @@ public:
 	OpenGLEngine(const OpenGLEngineSettings& settings);
 	~OpenGLEngine();
 
+	friend class TextureLoading;
+
 	void initialise(const std::string& data_dir, TextureServer* texture_server); // data_dir should have 'shaders' and 'gl_data' in it.
 
 	void unloadAllData();
@@ -223,6 +226,8 @@ public:
 
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const Map2D& map2d,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
+
+	void removeOpenGLTexture(const Map2D& map2d); // Kind of a temp hack, still needs to hash map to get key, then erases from opengl_textures
 
 	float getPixelDepth(int pixel_x, int pixel_y);
 

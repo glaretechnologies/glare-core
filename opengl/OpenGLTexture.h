@@ -58,6 +58,14 @@ public:
 		Wrapping wrapping = Wrapping_Repeat
 	);
 
+
+	void makeGLTexture(Format format);
+	void setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data);
+	void setTexParams(const Reference<OpenGLEngine>& opengl_engine,
+		Filtering filtering,
+		Wrapping wrapping = Wrapping_Repeat
+	);
+
 	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, const Reference<OpenGLEngine>& opengl_engine,
 		Format format,
 		Filtering filtering,

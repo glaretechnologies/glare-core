@@ -4,6 +4,15 @@
 
 #include "OpenGLEngine.h"
 #include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
+
+
+// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt
+//#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT                   0x83F0
+#define GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT                  0x8C4C
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT            0x8C4D
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT            0x8C4E
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT            0x8C4F
 
 
 OpenGLTexture::OpenGLTexture()
@@ -199,13 +208,6 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 
 	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
 	{
-		// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt
-		//#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT                   0x83F0
-		#define GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT                  0x8C4C
-		#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT            0x8C4D
-		#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT            0x8C4E
-		#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT            0x8C4F
-
 		glCompressedTexImage2D(
 			GL_TEXTURE_2D,
 			0, // LOD level
@@ -261,6 +263,100 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
 
 		glGenerateMipmap(GL_TEXTURE_2D);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	else
+	{
+		assert(0);
+	}
+}
+
+
+void OpenGLTexture::makeGLTexture(Format format_)
+{
+	this->format = format_;
+
+	if(texture_handle)
+	{
+		glDeleteTextures(1, &texture_handle);
+		texture_handle = 0;
+	}
+
+	glGenTextures(1, &texture_handle);
+	glBindTexture(GL_TEXTURE_2D, texture_handle);
+}
+
+
+void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data)
+{
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	{
+		glCompressedTexImage2D(
+			GL_TEXTURE_2D,
+			mipmap_level, // LOD level
+			(format == Format_Compressed_SRGB_Uint8) ? GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			(GLsizei)tex_data.size(),
+			tex_data.data()
+		);
+	}
+	else
+	{
+		GLint internal_format;
+		GLenum gl_format, gl_type;
+		getGLFormat(format, internal_format, gl_format, gl_type);
+
+		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
+		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
+
+		glTexImage2D(
+			GL_TEXTURE_2D,
+			mipmap_level, // LOD level
+			internal_format, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			gl_format, // format
+			gl_type, // type
+			tex_data.data()
+		);
+
+		glGenerateMipmap(GL_TEXTURE_2D);//TEMP
+	}
+}
+
+
+void OpenGLTexture::setTexParams(const Reference<OpenGLEngine>& opengl_engine,
+	Filtering filtering,
+	Wrapping wrapping
+)
+{
+	if(wrapping == Wrapping_Clamp)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+
+
+	if(filtering == Filtering_Nearest)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+	else if(filtering == Filtering_Bilinear)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	else if(filtering == Filtering_Fancy)
+	{
+		// Enable anisotropic texture filtering if supported.
+		if(opengl_engine.nonNull() && opengl_engine->anisotropic_filtering_supported)
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
+
+		//glGenerateMipmap(GL_TEXTURE_2D);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
