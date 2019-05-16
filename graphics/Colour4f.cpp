@@ -18,10 +18,10 @@ Colour4f Colour4f::fromHTMLHexString(const std::string& s)
 	try
 	{
 		return Colour4f(
-			::hexStringToUInt32(s.substr(0, 2)) / 255.0,
-			::hexStringToUInt32(s.substr(2, 2)) / 255.0,
-			::hexStringToUInt32(s.substr(4, 2)) / 255.0,
-			1.0
+			::hexStringToUInt32(s.substr(0, 2)) / 255.0f,
+			::hexStringToUInt32(s.substr(2, 2)) / 255.0f,
+			::hexStringToUInt32(s.substr(4, 2)) / 255.0f,
+			1.0f
 		);
 	}
 	catch(StringUtilsExcep&)
