@@ -99,6 +99,7 @@ public:
 		Real sensitivity_scale;
 		//Real sensorpos_to_lenspos_dist;
 		Real alpha_splat_weight;
+		Real non_vignetting_splat_weight;
 	};
 
 
