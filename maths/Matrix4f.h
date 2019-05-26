@@ -101,6 +101,8 @@ public:
 	// Assumes only the top-left 3x3 matrix is non-zero, apart from the bottom-right elem (which equals 1)
 	bool polarDecomposition(Matrix4f& rot_out, Matrix4f& rest_out) const;
 
+	Matrix3<float> getUpperLeftMatrix() const; // Returns the upper-left 3x3 matrix in a Matrix3<float> object, which is row-major.
+
 	void setToIdentity();
 	static const Matrix4f identity();
 

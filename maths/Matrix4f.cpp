@@ -607,6 +607,20 @@ bool Matrix4f::polarDecomposition(Matrix4f& rot_out, Matrix4f& rest_out) const
 }
 
 
+Matrix3<float> Matrix4f::getUpperLeftMatrix() const
+{
+	/*
+	0	4	8	12
+	1	5	9	13
+	2	6	10	14
+	3	7	11	15
+	*/
+	// Matrix3f is in row-major order.
+	const float new_e[9] ={ e[0], e[4], e[8], e[1], e[5], e[9], e[2], e[6], e[10] };
+	return Matrix3<float>(new_e);
+}
+
+
 #if BUILD_TESTS
 
 
@@ -1240,6 +1254,14 @@ void Matrix4f::test()
 		Matrix4f res;
 		m.rightMultiplyAffine3WithTranslationMatrix(translation, res);
 		testAssert(res == m * Matrix4f::translationMatrix(translation));
+	}
+
+	//---------------------------------- Test getUpperLeftMatrix() ---------------------
+	{
+		const Matrix3f upper_left_mat(Vec3f(1.f, 0.2f, 0.1f), Vec3f(-0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f));
+		const Matrix4f m(upper_left_mat, Vec3f(1.f, 4.f, 5.f));
+		
+		testAssert(m.getUpperLeftMatrix() == upper_left_mat);
 	}
 
 

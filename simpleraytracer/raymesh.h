@@ -197,6 +197,8 @@ public:
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
 
+	const Reference<Indigo::Mesh> toIndigoMesh() const;
+
 	void saveToIndigoMeshOnDisk(const std::string& path, bool use_compression) const; // Throws Indigo::Exception
 
 	void buildTrisFromQuads(); // Used in cyberspace code

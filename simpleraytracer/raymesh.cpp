@@ -1198,42 +1198,61 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 }
 
 
+const Indigo::MeshRef RayMesh::toIndigoMesh() const
+{
+	Indigo::MeshRef mesh = new Indigo::Mesh();
+	mesh->vert_positions.resize(this->vertices.size());
+	if(enable_shading_normals)
+		mesh->vert_normals.resize(this->vertices.size());
+	mesh->triangles.resize(this->triangles.size());
+	mesh->num_uv_mappings = this->num_uv_sets;
+	mesh->uv_pairs.resize(this->uvs.size());
+
+	const RayMeshVertex* const src_verts = this->vertices.data();
+	Indigo::Vec3f* const dest_verts = mesh->vert_positions.data();
+	Indigo::Vec3f* const dest_normals = mesh->vert_normals.data();
+	for(size_t i=0; i<this->vertices.size(); ++i)
+	{
+		dest_verts[i].x = src_verts[i].pos.x;
+		dest_verts[i].y = src_verts[i].pos.y;
+		dest_verts[i].z = src_verts[i].pos.z;
+		if(enable_shading_normals)
+		{
+			dest_normals[i].x = src_verts[i].normal.x;
+			dest_normals[i].y = src_verts[i].normal.y;
+			dest_normals[i].z = src_verts[i].normal.z;
+		}
+	}
+
+	const RayMeshTriangle* const src_tris = this->triangles.data();
+	Indigo::Triangle* const dest_tris = mesh->triangles.data();
+	for(size_t i=0; i<this->triangles.size(); ++i)
+	{
+		for(int c=0; c<3; ++c)
+		{
+			dest_tris[i].vertex_indices[c] = src_tris[i].vertex_indices[c];
+			dest_tris[i].uv_indices[c]     = src_tris[i].uv_indices[c];
+		}
+		dest_tris[i].tri_mat_index     = src_tris[i].getTriMatIndex();
+	}
+
+	const Vec2f* const src_uvs = this->uvs.data();
+	Indigo::Vec2f* const dest_uvs = mesh->uv_pairs.data();
+	for(size_t i=0; i<this->uvs.size(); ++i)
+	{
+		dest_uvs[i].x = src_uvs[i].x;
+		dest_uvs[i].y = src_uvs[i].y;
+	}
+
+	return mesh;
+}
+
+
 void RayMesh::saveToIndigoMeshOnDisk(const std::string& path, bool use_compression) const
 {
 	try
 	{
-		Indigo::MeshRef mesh = new Indigo::Mesh();
-		mesh->vert_positions.resize(this->vertices.size());
-		mesh->vert_normals.resize(this->vertices.size());
-		mesh->triangles.resize(this->triangles.size());
-		mesh->num_uv_mappings = this->num_uv_sets;
-		mesh->uv_pairs.resize(this->uvs.size());
-
-		for(size_t i=0; i<this->vertices.size(); ++i)
-		{
-			mesh->vert_positions[i].x = this->vertices[i].pos.x;
-			mesh->vert_positions[i].y = this->vertices[i].pos.y;
-			mesh->vert_positions[i].z = this->vertices[i].pos.z;
-			mesh->vert_normals[i].x   = this->vertices[i].normal.x;
-			mesh->vert_normals[i].y   = this->vertices[i].normal.y;
-			mesh->vert_normals[i].z   = this->vertices[i].normal.z;
-		}
-
-		for(size_t i=0; i<this->triangles.size(); ++i)
-		{
-			for(int c=0; c<3; ++c)
-			{
-				mesh->triangles[i].vertex_indices[c] = this->triangles[i].vertex_indices[c];
-				mesh->triangles[i].uv_indices[c]     = this->triangles[i].uv_indices[c];
-				mesh->triangles[i].tri_mat_index     = this->triangles[i].getTriMatIndex();
-			}
-		}
-
-		for(size_t i=0; i<this->uvs.size(); ++i)
-		{
-			mesh->uv_pairs[i].x = this->uvs[i].x;
-			mesh->uv_pairs[i].y = this->uvs[i].y;
-		}
+		Indigo::MeshRef mesh = this->toIndigoMesh();
 
 		Indigo::Mesh::writeToFile(toIndigoString(path), *mesh, use_compression);
 	}
