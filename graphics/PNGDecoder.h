@@ -25,17 +25,18 @@ Loading and saving of PNG files.
 class PNGDecoder
 {
 public:
-	PNGDecoder();
-	~PNGDecoder();
+	// All methods throw ImFormatExcep on failure.
 
-
-	// throws ImFormatExcep
 	static Reference<Map2D> decode(const std::string& path);
 	
-	// throws ImFormatExcep
 	static void write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& path);
 	static void write(const Bitmap& bitmap, const std::string& path); // Write with no metadata
+
 	static void write(const ImageMap<uint8, UInt8ComponentValueTraits>& bitmap, const std::string& path); // Write with no metadata
+
+	// Write tightly-packed data laid out in row-major order.
+	static void write(const uint8* data, unsigned int W, unsigned int H, unsigned int N, const std::map<std::string, std::string>& metadata, const std::string& path); // Write with metadata
+	static void write(const uint8* data, unsigned int W, unsigned int H, unsigned int N, const std::string& path); // Write with no metadata
 
 
 	static const std::map<std::string, std::string> getMetaData(const std::string& image_path);

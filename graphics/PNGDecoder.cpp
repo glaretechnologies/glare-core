@@ -30,13 +30,6 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #endif
 
 
-PNGDecoder::PNGDecoder()
-{}
-
-
-PNGDecoder::~PNGDecoder()
-{}
-
 // TRY:
 // png_set_keep_unknown_chunks(png_ptr, 0, NULL, 0);
 // or
@@ -263,17 +256,46 @@ const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::stri
 
 void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& pathname)
 {
-	png_structp png = NULL;
-	png_infop info = NULL;
+	write(bitmap.getPixel(0, 0), (unsigned int)bitmap.getWidth(), (unsigned int)bitmap.getHeight(), (unsigned int)bitmap.getBytesPP(), metadata, pathname);
+}
+
+
+void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
+{
+	std::map<std::string, std::string> metadata;
+	write(bitmap, metadata, pathname);
+}
+
+
+void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagemap, const std::string& pathname) // Write with no metadata
+{
+	write(imagemap.getData(), imagemap.getWidth(), imagemap.getHeight(), imagemap.getN(), pathname);
+}
+
+
+void PNGDecoder::write(const uint8* data, unsigned int W, unsigned int H, unsigned int N, const std::string& pathname) // Write with no metadata
+{
+	std::map<std::string, std::string> metadata;
+	write(data, W, H, N, metadata, pathname);
+}
+
+
+// Write with metadata
+void PNGDecoder::write(const uint8* data, unsigned int W, unsigned int H, unsigned int N, const std::map<std::string, std::string>& metadata, const std::string& pathname)
+{
+	png_struct* png = NULL;
+	png_info* info = NULL;
 
 	try
 	{
 		int colour_type;
-		if(bitmap.getBytesPP() == 1)
+		if(N == 1)
 			colour_type = PNG_COLOR_TYPE_GRAY;
-		else if(bitmap.getBytesPP() == 3)
+		else if(N == 2)
+			colour_type = PNG_COLOR_TYPE_GRAY_ALPHA;
+		else if(N == 3)
 			colour_type = PNG_COLOR_TYPE_RGB;
-		else if(bitmap.getBytesPP() == 4)
+		else if(N == 4)
 			colour_type = PNG_COLOR_TYPE_RGB_ALPHA;
 		else
 			throw ImFormatExcep("Invalid bytes pp");
@@ -302,17 +324,18 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 		//------------------------------------------------------------------------
 		// Set some image info
 		//------------------------------------------------------------------------
-		png_set_IHDR(png, info, (png_uint_32)bitmap.getWidth(), (png_uint_32)bitmap.getHeight(),
-		   8, // bit depth of each channel
-		   colour_type, // colour type
-		   PNG_INTERLACE_NONE, // interlace type
-		   PNG_COMPRESSION_TYPE_DEFAULT, // compression type
-		   PNG_FILTER_TYPE_DEFAULT // filter method
+		png_set_IHDR(png, info, (png_uint_32)W, (png_uint_32)H,
+			8, // bit depth of each channel
+			colour_type, // colour type
+			PNG_INTERLACE_NONE, // interlace type
+			PNG_COMPRESSION_TYPE_DEFAULT, // compression type
+			PNG_FILTER_TYPE_DEFAULT // filter method
 		);
 
 		// Write an ICC sRGB colour profile.
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
 #if !defined NO_LCMS_SUPPORT
+		if(N > 1) // It's not allowed to have a colour profile in a greyscale image.
 		{
 			cmsHPROFILE profile = cmsCreate_sRGBProfile();
 			if(profile == NULL)
@@ -338,7 +361,6 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 #endif
 		}
 #endif
-		
 
 		//------------------------------------------------------------------------
 		// Write metadata pairs if present
@@ -360,137 +382,14 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::st
 			delete[] txt;
 		}
 
-		// Write info
-		png_write_info(png, info);
-
-
-		for(unsigned int y=0; y<bitmap.getHeight(); ++y)
-			png_write_row(
-				png, 
-				(png_bytep)bitmap.getPixel(0, y) // Pointer to row data
-			);
-
-		//------------------------------------------------------------------------
-		//finish writing file
-		//------------------------------------------------------------------------
-		png_write_end(png, info);
-
-		//------------------------------------------------------------------------
-		//free structs
-		//------------------------------------------------------------------------
-		png_destroy_write_struct(&png, &info);
-	}
-	catch(ImFormatExcep& e)
-	{
-		// Free any allocated libPNG structures, then re-throw the exception.
-		if(png && info)
-			png_destroy_write_struct(&png, &info);
-		throw e;
-	}
-	catch(Indigo::Exception& )
-	{
-		if(png && info)
-			png_destroy_write_struct(&png, &info);
-		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
-	}
-}
-
-
-void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
-{
-	std::map<std::string, std::string> metadata;
-	write(bitmap, metadata, pathname);
-}
-
-
-void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagemap, const std::string& pathname) // Write with no metadata
-{
-	png_struct* png = NULL;
-	png_info* info = NULL;
-
-	try
-	{
-		int colour_type;
-		if(imagemap.getN() == 1)
-			colour_type = PNG_COLOR_TYPE_GRAY;
-		else if(imagemap.getN() == 2)
-			colour_type = PNG_COLOR_TYPE_GRAY_ALPHA;
-		else if(imagemap.getN() == 3)
-			colour_type = PNG_COLOR_TYPE_RGB;
-		else if(imagemap.getN() == 4)
-			colour_type = PNG_COLOR_TYPE_RGB_ALPHA;
-		else
-			throw ImFormatExcep("Invalid bytes pp");
-			
-
-		// Open the file
-		FileHandle fp(pathname, "wb");
-		
-		// Create and initialize the png_struct with the desired error handler functions.
-		png = png_create_write_struct(
-			PNG_LIBPNG_VER_STRING,
-			NULL, // error user pointer
-			pngdecoder_error_func, // error func
-			pngdecoder_warning_func // warning func
-		);
-		if(!png)
-			throw ImFormatExcep("Failed to create PNG object.");
-
-		info = png_create_info_struct(png);
-		if(!info)
-			throw ImFormatExcep("Failed to create PNG info object.");
-		
-		// set up the output control if you are using standard C stream
-		png_init_io(png, fp.getFile());
-
-		//------------------------------------------------------------------------
-		// Set some image info
-		//------------------------------------------------------------------------
-		png_set_IHDR(png, info, (png_uint_32)imagemap.getWidth(), (png_uint_32)imagemap.getHeight(),
-		   8, // bit depth of each channel
-		   colour_type, // colour type
-		   PNG_INTERLACE_NONE, // interlace type
-		   PNG_COMPRESSION_TYPE_DEFAULT, // compression type
-		   PNG_FILTER_TYPE_DEFAULT // filter method
-		);
-
-		// Write an ICC sRGB colour profile.
-		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
-#if !defined NO_LCMS_SUPPORT
-		if(imagemap.getN() > 1) // It's not allowed to have a colour profile in a greyscale image.
-		{
-			cmsHPROFILE profile = cmsCreate_sRGBProfile();
-			if(profile == NULL)
-				throw ImFormatExcep("Failed to create colour profile.");
-
-			// Get num bytes needed to store the encoded profile.
-			cmsUInt32Number profile_size = 0;
-			if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
-				throw ImFormatExcep("Failed to save colour profile.");
-
-			std::vector<uint8> buf(profile_size);
-
-			// Now write the actual profile.
-			if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == FALSE)
-				throw ImFormatExcep("Failed to save colour profile.");
-
-			cmsCloseProfile(profile); 
-
-#if PNG_LIBPNG_VER >= 10634
-			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
-#else
-			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
-#endif
-		}
-#endif
 
 		// Write info
 		png_write_info(png, info);
 
-		for(unsigned int y=0; y<imagemap.getHeight(); ++y)
+		for(unsigned int y=0; y<H; ++y)
 			png_write_row(
 				png,
-				(png_bytep)imagemap.getPixel(0, y) // Pointer to row data
+				(png_bytep)(data + y * W * N) // Pointer to row data
 			);
 
 		//------------------------------------------------------------------------
@@ -528,9 +427,52 @@ void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagema
 #include "bitmap.h"
 
 
+// Read a PNG from path and make sure it is the same as target_image.
+static void readAndCompare(const std::string& path, const ImageMapUInt8& target_image)
+{
+	Reference<Map2D> im = PNGDecoder::decode(path);
+	testAssert(dynamic_cast<ImageMapUInt8*>(im.getPointer()) != NULL);
+	const ImageMapUInt8* im_map = im.downcastToPtr<ImageMapUInt8>();
+
+	testAssert(*im_map == target_image);
+}
+
+
 void PNGDecoder::test()
 {
 	conPrint("PNGDecoder::test()");
+
+	try
+	{
+		const std::string path = PlatformUtils::getTempDirPath() + "/indigo_png_write_test3.png";
+
+		const int W = 20;
+		const int H = 10;
+		const int N = 3;
+		Bitmap bitmap(20, 10, 3, NULL);
+		for(int y=0; y<H; ++y)
+			for(int x=0; x<W; ++x)
+				for(int c=0; c<N; ++c)
+					bitmap.getPixelNonConst(x, y)[c] = (uint8)((x + y + c) % 255);
+
+		ImageMapUInt8Ref imagemap = bitmap.toImageMap();
+
+		// Write and read the bitmap
+		PNGDecoder::write(bitmap, path);
+		readAndCompare(path, *imagemap);
+
+		// Read and write the ImageMapUInt8
+		PNGDecoder::write(*imagemap, path);
+		readAndCompare(path, *imagemap);
+
+		// Write as data ptr
+		PNGDecoder::write(imagemap->getData(), W, H, N, path);
+		readAndCompare(path, *imagemap);
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
 
 	/*{
 		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
