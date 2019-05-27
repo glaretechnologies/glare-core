@@ -59,6 +59,7 @@ public:
 	void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, Bitmap& dest, int destx, int desty) const;
 
 	void setFromImageMap(const ImageMap<uint8, UInt8ComponentValueTraits>& image_map);
+	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > toImageMap() const;
 
 	void zero();
 

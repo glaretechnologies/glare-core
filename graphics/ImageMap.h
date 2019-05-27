@@ -94,6 +94,8 @@ public:
 
 	inline ImageMap& operator = (const ImageMap& other);
 
+	inline bool operator == (const ImageMap& other) const;
+
 	void resize(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
 	void resizeNoCopy(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
 
@@ -244,6 +246,16 @@ ImageMap<V, VTraits>& ImageMap<V, VTraits>::operator = (const ImageMap<V, VTrait
 	ds_over_2 = other.ds_over_2;
 	dt_over_2 = other.dt_over_2;
 	return *this;
+}
+
+
+template <class V, class VTraits>
+bool ImageMap<V, VTraits>::operator == (const ImageMap& other) const
+{
+	if(width != other.width || height != other.height || N != other.N)
+		return false;
+
+	return data == other.data;
 }
 
 
