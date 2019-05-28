@@ -30,6 +30,21 @@ File created by ClassTemplate on Wed Jul 26 22:08:57 2006
 #endif
 
 
+// See 'Precompute colour profile data' below.
+static const size_t sRGB_profile_data_size = 592;
+static const uint8 sRGB_profile_data[] = { 0, 0, 2, 80, 108, 99, 109, 115, 4, 48, 0, 0, 109, 110, 116, 114, 82, 71, 66, 32, 88, 89, 90, 32, 7, 227, 0, 5, 0, 28, 0, 6, 0, 20, 0, 39, 97, 99, 115, 112, 77, 83, 70, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 246, 214, 0, 1, 0, 0, 0, 0, 211, 45, 108, 99, 109, 115, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 100, 101, 115, 99, 0, 0, 1, 8, 0, 0, 0, 56, 99, 112, 114, 116, 0, 0, 1, 64, 0, 0, 0, 78, 119, 116, 112, 116, 0, 0, 1, 144, 0, 0, 0, 20, 99, 104, 97, 100, 0, 0, 1, 164, 0, 0, 0, 44, 114,
+	88, 89, 90, 0, 0, 1, 208, 0, 0, 0, 20, 98, 88, 89, 90, 0, 0, 1, 228, 0, 0, 0, 20, 103, 88, 89, 90, 0, 0, 1, 248, 0, 0, 0, 20, 114, 84, 82, 67, 0, 0, 2, 12, 0, 0, 0, 32, 103, 84, 82, 67, 0, 0, 2, 12, 0, 0, 0, 32, 98,
+	84, 82, 67, 0, 0, 2, 12, 0, 0, 0, 32, 99, 104, 114, 109, 0, 0, 2, 44, 0, 0, 0, 36, 109, 108, 117, 99, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 12, 101, 110, 85, 83, 0, 0, 0, 28, 0, 0, 0, 28, 0, 115, 0, 82, 0, 71, 0, 66, 0,
+	32, 0, 98, 0, 117, 0, 105, 0, 108, 0, 116, 0, 45, 0, 105, 0, 110, 0, 0, 109, 108, 117, 99, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 12, 101, 110, 85, 83, 0, 0, 0, 50, 0, 0, 0, 28, 0, 78, 0, 111, 0, 32, 0, 99, 0, 111, 0, 112, 0,
+	121, 0, 114, 0, 105, 0, 103, 0, 104, 0, 116, 0, 44, 0, 32, 0, 117, 0, 115, 0, 101, 0, 32, 0, 102, 0, 114, 0, 101, 0, 101, 0, 108, 0, 121, 0, 0, 0, 0, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 246, 214, 0, 1, 0, 0, 0, 0, 211, 45, 115,
+	102, 51, 50, 0, 0, 0, 0, 0, 1, 12, 74, 0, 0, 5, 227, 255, 255, 243, 42, 0, 0, 7, 155, 0, 0, 253, 135, 255, 255, 251, 162, 255, 255, 253, 163, 0, 0, 3, 216, 0, 0, 192, 148, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 111, 148, 0, 0, 56, 238, 0,
+	0, 3, 144, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 36, 157, 0, 0, 15, 131, 0, 0, 182, 190, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 98, 165, 0, 0, 183, 144, 0, 0, 24, 222, 112, 97, 114, 97, 0, 0, 0, 0, 0, 3, 0, 0, 0, 2, 102, 102, 0,
+	0, 242, 167, 0, 0, 13, 89, 0, 0, 19, 208, 0, 0, 10, 91, 99, 104, 114, 109, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 163, 215, 0, 0, 84, 123, 0, 0, 76, 205, 0, 0, 153, 154, 0, 0, 38, 102, 0, 0, 15, 92
+};
+
+
 // TRY:
 // png_set_keep_unknown_chunks(png_ptr, 0, NULL, 0);
 // or
@@ -334,31 +349,48 @@ void PNGDecoder::write(const uint8* data, unsigned int W, unsigned int H, unsign
 
 		// Write an ICC sRGB colour profile.
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
+		//
+		// Checking embedded ICC profiles can be done with this online tool: 'Jeffrey's Image Metadata Viewer': http://exif.regex.info/exif.cgi
 #if !defined NO_LCMS_SUPPORT
 		if(N > 1) // It's not allowed to have a colour profile in a greyscale image.
 		{
-			cmsHPROFILE profile = cmsCreate_sRGBProfile();
-			if(profile == NULL)
-				throw ImFormatExcep("Failed to create colour profile.");
+#define SAVE_PRECOMPUTED_SRGB_PROFILE 1
+#if SAVE_PRECOMPUTED_SRGB_PROFILE
+				// Use precomputed sRGB profile.
+#if PNG_LIBPNG_VER >= 10634
+				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)sRGB_profile_data, sRGB_profile_data_size);
+#else
+				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)sRGB_profile_data, sRGB_profile_data_size);
+#endif
 
-			// Get num bytes needed to store the encoded profile.
-			cmsUInt32Number profile_size = 0;
-			if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
-				throw ImFormatExcep("Failed to save colour profile.");
+#else // else if !SAVE_PRECOMPUTED_SRGB_PROFILE:
 
-			std::vector<uint8> buf(profile_size);
+				// Else get Little CMS to spit out a fresh profile.
+				cmsHPROFILE profile = cmsCreate_sRGBProfile();
+				if(profile == NULL)
+					throw ImFormatExcep("Failed to create colour profile.");
 
-			// Now write the actual profile.
-			if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == FALSE)
-				throw ImFormatExcep("Failed to save colour profile.");
+				// Get num bytes needed to store the encoded profile.
+				cmsUInt32Number profile_size = 0;
+				if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
+					throw ImFormatExcep("Failed to save colour profile.");
 
-			cmsCloseProfile(profile); 
+				std::vector<uint8> buf(profile_size);
+
+				// Now write the actual profile.
+				if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == FALSE)
+					throw ImFormatExcep("Failed to save colour profile.");
+
+				cmsCloseProfile(profile);
 
 #if PNG_LIBPNG_VER >= 10634
-			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
+				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
 #else
-			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
 #endif
+
+#endif // SAVE_PRECOMPUTED_SRGB_PROFILE
+
 		}
 #endif
 
@@ -441,6 +473,56 @@ static void readAndCompare(const std::string& path, const ImageMapUInt8& target_
 void PNGDecoder::test()
 {
 	conPrint("PNGDecoder::test()");
+
+
+	// Precompute colour profile data
+#if 0
+	if(true)
+	{
+		cmsHPROFILE profile = cmsCreate_sRGBProfile();
+		if(profile == NULL)
+			throw ImFormatExcep("Failed to create colour profile.");
+
+		// Get num bytes needed to store the encoded profile.
+		cmsUInt32Number profile_size = 0;
+		if(cmsSaveProfileToMem(profile, NULL, &profile_size) == 0)
+			throw ImFormatExcep("Failed to save colour profile.");
+
+		std::vector<uint8> buf(profile_size);
+
+		// Now write the actual profile.
+		if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == 0)
+			throw ImFormatExcep("Failed to save colour profile.");
+
+		cmsCloseProfile(profile);
+
+		std::string s = "static const size_t sRGB_profile_data_size = " + toString(profile_size) + ";\n";
+		s += "static const uint8 sRGB_profile_data[] = { ";
+		for(size_t i=0; i<buf.size(); ++i)
+		{
+			s += toString(buf[i]) + ((i + 1 < buf.size()) ? ", " : "");
+			if(i % 60 == 0)
+				s += "\n";
+		}
+		s += " }; \n";
+
+		conPrint(s);
+
+		assert(profile_size == sRGB_profile_data_size);
+
+		std::vector<uint8> precomp_data(sRGB_profile_data, sRGB_profile_data + sRGB_profile_data_size);
+
+		// NOTE: colour profile seems to have the current date in it, so bytes will not be exactly the same, see _cmsEncodeDateTimeNumber.
+
+		//assert(precomp_data == buf);
+
+		/*for(size_t i=0; i<buf.size(); ++i)
+		{
+			conPrint(toString(i) + ": " + toString(buf[i]) + " " + toString(precomp_data[i]));
+			assert(buf[i] == precomp_data[i]);
+		}*/
+	}
+#endif
 
 	try
 	{

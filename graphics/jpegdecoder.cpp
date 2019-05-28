@@ -31,6 +31,21 @@ File created by ClassTemplate on Sat Apr 27 16:22:59 2002
 static_assert(LIBJPEG_TURBO_VERSION_NUMBER == 2000000, "LIBJPEG_TURBO_VERSION_NUMBER == 2000000");
 
 
+// See 'Precompute colour profile data' code in PNGDecoder.cpp.
+static const size_t sRGB_profile_data_size = 592;
+static const uint8 sRGB_profile_data[] = { 0, 0, 2, 80, 108, 99, 109, 115, 4, 48, 0, 0, 109, 110, 116, 114, 82, 71, 66, 32, 88, 89, 90, 32, 7, 227, 0, 5, 0, 28, 0, 6, 0, 20, 0, 39, 97, 99, 115, 112, 77, 83, 70, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 246, 214, 0, 1, 0, 0, 0, 0, 211, 45, 108, 99, 109, 115, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 100, 101, 115, 99, 0, 0, 1, 8, 0, 0, 0, 56, 99, 112, 114, 116, 0, 0, 1, 64, 0, 0, 0, 78, 119, 116, 112, 116, 0, 0, 1, 144, 0, 0, 0, 20, 99, 104, 97, 100, 0, 0, 1, 164, 0, 0, 0, 44, 114,
+	88, 89, 90, 0, 0, 1, 208, 0, 0, 0, 20, 98, 88, 89, 90, 0, 0, 1, 228, 0, 0, 0, 20, 103, 88, 89, 90, 0, 0, 1, 248, 0, 0, 0, 20, 114, 84, 82, 67, 0, 0, 2, 12, 0, 0, 0, 32, 103, 84, 82, 67, 0, 0, 2, 12, 0, 0, 0, 32, 98,
+	84, 82, 67, 0, 0, 2, 12, 0, 0, 0, 32, 99, 104, 114, 109, 0, 0, 2, 44, 0, 0, 0, 36, 109, 108, 117, 99, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 12, 101, 110, 85, 83, 0, 0, 0, 28, 0, 0, 0, 28, 0, 115, 0, 82, 0, 71, 0, 66, 0,
+	32, 0, 98, 0, 117, 0, 105, 0, 108, 0, 116, 0, 45, 0, 105, 0, 110, 0, 0, 109, 108, 117, 99, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 12, 101, 110, 85, 83, 0, 0, 0, 50, 0, 0, 0, 28, 0, 78, 0, 111, 0, 32, 0, 99, 0, 111, 0, 112, 0,
+	121, 0, 114, 0, 105, 0, 103, 0, 104, 0, 116, 0, 44, 0, 32, 0, 117, 0, 115, 0, 101, 0, 32, 0, 102, 0, 114, 0, 101, 0, 101, 0, 108, 0, 121, 0, 0, 0, 0, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 246, 214, 0, 1, 0, 0, 0, 0, 211, 45, 115,
+	102, 51, 50, 0, 0, 0, 0, 0, 1, 12, 74, 0, 0, 5, 227, 255, 255, 243, 42, 0, 0, 7, 155, 0, 0, 253, 135, 255, 255, 251, 162, 255, 255, 253, 163, 0, 0, 3, 216, 0, 0, 192, 148, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 111, 148, 0, 0, 56, 238, 0,
+	0, 3, 144, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 36, 157, 0, 0, 15, 131, 0, 0, 182, 190, 88, 89, 90, 32, 0, 0, 0, 0, 0, 0, 98, 165, 0, 0, 183, 144, 0, 0, 24, 222, 112, 97, 114, 97, 0, 0, 0, 0, 0, 3, 0, 0, 0, 2, 102, 102, 0,
+	0, 242, 167, 0, 0, 13, 89, 0, 0, 19, 208, 0, 0, 10, 91, 99, 104, 114, 109, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 163, 215, 0, 0, 84, 123, 0, 0, 76, 205, 0, 0, 153, 154, 0, 0, 38, 102, 0, 0, 15, 92
+};
+
+
 JPEGDecoder::JPEGDecoder()
 {}
 
@@ -314,6 +329,31 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 		// calling jpeg_write_marker() after jpeg_start_compress() and before the first
 		// call to jpeg_write_scanlines()" - libjpeg.txt
 		{
+#define SAVE_PRECOMPUTED_SRGB_PROFILE 1
+#if SAVE_PRECOMPUTED_SRGB_PROFILE
+
+			// ICC_HEADER_SIZE: The ICC signature is 'ICC_PROFILE' (with null terminator) + 2 bytes.
+			// See http://www.color.org/specification/ICC1v43_2010-12.pdf  (section B.4 Embedding ICC profiles in JPEG files)
+			// and http://repositorium.googlecode.com/svn-history/r164/trunk/FreeImage/Source/PluginJPEG.cpp
+
+			const size_t ICC_HEADER_SIZE = 14;
+			std::vector<uint8> buf(ICC_HEADER_SIZE + sRGB_profile_data_size);
+
+			const char* header_str = "ICC_PROFILE";
+			const size_t HEADER_STR_LEN_WITH_NULL = 12;
+			std::memcpy(&buf[0], header_str, HEADER_STR_LEN_WITH_NULL);
+
+			assert(sRGB_profile_data_size <= 65519);
+			buf[HEADER_STR_LEN_WITH_NULL + 0] = 1; // Sequence number (starts at 1).
+			buf[HEADER_STR_LEN_WITH_NULL + 1] = 1; // Number of markers (1).
+
+			std::memcpy(&buf[ICC_HEADER_SIZE], sRGB_profile_data, sRGB_profile_data_size); // Now write the actual profile.
+
+			const int ICC_MARKER = JPEG_APP0 + 2; // ICC profile marker
+			jpeg_write_marker(&cinfo, ICC_MARKER, &buf[0], (unsigned int)buf.size());
+
+#else // SAVE_PRECOMPUTED_SRGB_PROFILE
+
 			cmsHPROFILE profile = cmsCreate_sRGBProfile();
 			if(profile == NULL)
 				throw ImFormatExcep("Failed to create colour profile.");
@@ -323,10 +363,6 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 			if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
 				throw ImFormatExcep("Failed to save colour profile.");
 
-			// ICC_HEADER_SIZE: The ICC signature is 'ICC_PROFILE' (with null terminator) + 2 bytes.
-			// See http://www.color.org/specification/ICC1v43_2010-12.pdf  (section B.4 Embedding ICC profiles in JPEG files)
-			// and http://repositorium.googlecode.com/svn-history/r164/trunk/FreeImage/Source/PluginJPEG.cpp
-			
 			const size_t ICC_HEADER_SIZE = 14;
 			std::vector<uint8> buf(ICC_HEADER_SIZE + profile_size);
 
@@ -347,6 +383,8 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 
 			const int ICC_MARKER = JPEG_APP0 + 2; // ICC profile marker
 			jpeg_write_marker(&cinfo, ICC_MARKER, &buf[0], (unsigned int)buf.size());
+
+#endif // SAVE_PRECOMPUTED_SRGB_PROFILE
 		}
 
 		while (cinfo.next_scanline < cinfo.image_height) {
