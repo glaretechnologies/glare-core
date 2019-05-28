@@ -489,7 +489,7 @@ void test()
 
 	// Fuzz test encoder and decoder
 #ifdef NDEBUG
-	const int fuzz_iters = (int)1.0e6; // Non-debug mode
+	const int fuzz_iters = (int)1.0e5; // Non-debug mode
 #else
 	const int fuzz_iters = (int)1.0e3; // Debug mode
 #endif
