@@ -1,5 +1,7 @@
 /*=====================================================================
-Copyright Glare Technologies Limited 2015 - 
+IndigoImageMap.h
+----------------
+Copyright Glare Technologies Limited 2019
 =====================================================================*/
 #pragma once
 
@@ -18,11 +20,9 @@ typedef int32 glare_atomic_int;
 #endif
 
 
-/*=====================================================================
-IndigoAtomic
-------------
-Atomic integer.
-=====================================================================*/
+///
+/// Atomic integer.
+///
 class IndigoAtomic
 {
 public:
@@ -40,10 +40,10 @@ public:
 	inline glare_atomic_int operator += (glare_atomic_int x);
 	inline glare_atomic_int operator -= (glare_atomic_int x);
 
-	// Returns the old value. (value before increment)
+	/// Returns the old value. (value before increment)
 	inline glare_atomic_int increment();
 
-	// Returns the old value. (value before decrement)
+	/// Returns the old value. (value before decrement)
 	inline glare_atomic_int decrement();
 
 	static void test();

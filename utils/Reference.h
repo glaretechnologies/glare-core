@@ -1,7 +1,7 @@
 /*=====================================================================
 Reference.h
 -----------
-Copyright Glare Technologies Limited 2015 - 
+Copyright Glare Technologies Limited 2019 - 
 =====================================================================*/
 #pragma once
 
@@ -11,26 +11,21 @@ Copyright Glare Technologies Limited 2015 -
 #include <cassert>
 
 
-/*=====================================================================
-Reference
----------
-Handle to a reference-counted object.
-Referenced object will be automatically deleted when no refs to it remain.
-T must be a subclass of 'RefCounted' or 'ThreadSafeRefCounted'.
-=====================================================================*/
+///
+/// Handle to a reference-counted object.
+/// Referenced object will be automatically deleted when no refs to it remain.
+/// T must be a subclass of 'RefCounted' or 'ThreadSafeRefCounted'.
+///
 template <class T>
 class Reference
 {
 public:
-	/*=====================================================================
-	Reference
-	---------
-	
-	=====================================================================*/
+	/// Initialises to a null reference.
 	Reference()
 	:	ob(0)
 	{}
 
+	/// Initialise as a reference to ob.
 	Reference(T* ob_)
 	{
 		ob = ob_;
@@ -88,13 +83,13 @@ public:
 	}
 
 
-	// An assignment operator from a raw pointer.
-	// We have this method so that the code 
-	//
-	// Reference<T> ref;
-	// ref = new T();
-	//
-	// will work without a temporary reference object being created and then assigned to ref.
+	/// An assignment operator from a raw pointer.
+	/// We have this method so that the code 
+	///
+	/// Reference<T> ref;
+	/// ref = new T();
+	///
+	/// will work without a temporary reference object being created and then assigned to ref.
 	Reference& operator = (T* new_ob)
 	{
 		T* old_ob = ob;
@@ -116,14 +111,14 @@ public:
 	}
 
 
-	// Compares the pointer values.
+	/// Compares the pointer values.
 	bool operator < (const Reference& other) const
 	{
 		return ob < other.ob;
 	}
 
 
-	// Compares the pointer values.
+	/// Compares the pointer values.
 	bool operator == (const Reference& other) const
 	{
 		return ob == other.ob;
@@ -143,19 +138,31 @@ public:
 		return *ob;
 	}
 
-
 	inline T* operator -> () const
 	{
 		return ob;
 	}
 
+	/// Return the pointer value.
+	inline T* getPointer()
+	{
+		return ob;
+	}
+
+	/// Return the pointer value.
 	inline T* getPointer() const
 	{
 		return ob;
 	}
 
-	// Alias for getPointer()
+	/// Alias for getPointer()
 	inline T* ptr() const
+	{
+		return ob;
+	}
+
+	/// Alias for getPointer()
+	inline T* ptr()
 	{
 		return ob;
 	}
@@ -164,23 +171,13 @@ public:
 	{
 		return ob == 0;
 	}
+
 	inline bool nonNull() const
 	{
 		return ob != 0;
 	}
 
-	inline T* getPointer()
-	{
-		return ob;
-	}
-
-	// Alias for getPointer()
-	inline T* ptr()
-	{
-		return ob;
-	}
-
-	// NOTE: These upcast functions are not needed any more.  Valid conversions will be done automatically by the compiler.
+	/// NOTE: These upcast functions are not needed any more.  Valid conversions will be done automatically by the compiler.
 	template <class T2>
 	inline const Reference<T2> upcast() const
 	{
@@ -194,8 +191,9 @@ public:
 	}
 
 
-	// Downcast to a reference to a derived type.  NOTE: only call this if you are sure the pointer is actually to an object of the derived type.
-	// Otherwise behaviour is undefined.
+	/// Downcast to a reference to a derived type.  NOTE: only call this if you are sure the pointer is actually to an object of the derived type.
+	/// Otherwise behaviour is undefined.
+	/// Will assert the downcast is valid if compiled with RTTI.
 	template <class T2>
 	inline const Reference<T2> downcast() const
 	{
@@ -226,6 +224,7 @@ public:
 		return Reference<T2>(static_cast<T2*>(ob));
 	}
 
+	/// Downcast to a pointer instead of a Reference.
 	template <class T2>
 	inline const T2* downcastToPtr() const
 	{
@@ -256,7 +255,7 @@ public:
 		return static_cast<T2*>(ob);
 	}
 
-
+	/// Returns true if ob is of type T2.
 	template <class T2>
 	inline bool isType() const
 	{
