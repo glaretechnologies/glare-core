@@ -455,12 +455,74 @@ void Obfuscator::addWinterKeywords()
 }
 
 
+/*const std::string getNoun(uint64 x)
+{
+	// https://www.ef.com/wwen/english-resources/english-vocabulary/top-50-nouns/
+	const char* nouns[] ={
+		"area",
+		"book",
+		"business",
+		"case",
+		"child",
+		"company",
+		"country",
+		"day",
+		"eye",
+		"fact",
+		"family",
+		"government",
+		"group",
+		"hand",
+		"home",
+		"job",
+		"life",
+		"lot",
+		"man",
+		"money",
+		"month",
+		"mother",
+		"Mr",
+		"night",
+		"number",
+		"part",
+		"people",
+		"place",
+		"point",
+		"problem",
+		"program",
+		"question",
+		"right",
+		"room",
+		"school",
+		"state",
+		"story",
+		"student",
+		"study",
+		"system",
+		"thing",
+		"time",
+		"water",
+		"way",
+		"week",
+		"woman",
+		"word",
+		"work",
+		"world",
+		"year"
+	};
+
+	return nouns[x % staticArrayNumElems(nouns)];
+}*/
+
+
 const std::string Obfuscator::tokenHashString(const std::string& t)
 {
 	// Use hash of token to produce obfuscated token
 	uint64 str_hash = XXH64(t.data(), t.size(), 
 		3835675695284957659ULL // seed - just a somewhat random value.
 	);
+
+	//return getNoun(str_hash) + "_" + toString(str_hash);
 
 	//return t + "_" + toString(str_hash); // Appends hash code to end of token, use this for debugging.
 	
@@ -889,6 +951,7 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 
 		Reference<Winter::BufferRoot> buffer_root = lang_parser.parseBuffer(tokens,
 			source_buffer,
+			false, // check_structures_exist
 			named_types,
 			named_types_ordered,
 			function_order_num
