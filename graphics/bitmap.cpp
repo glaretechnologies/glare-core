@@ -183,7 +183,7 @@ void Bitmap::setFromImageMap(const ImageMap<uint8_t, UInt8ComponentValueTraits>&
 
 Reference<ImageMap<uint8, UInt8ComponentValueTraits> > Bitmap::toImageMap() const
 {
-	ImageMapUInt8Ref map = new ImageMapUInt8(width, height, bytespp);
+	ImageMapUInt8Ref map = new ImageMapUInt8((unsigned int)width, (unsigned int)height, (unsigned int)bytespp);
 	if(width * height * bytespp > 0)
 		std::memcpy(map->getData(), this->data.data(), width * height * bytespp);
 	return map;
