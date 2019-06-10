@@ -50,11 +50,11 @@ const std::string AABBox::toStringNSigFigs(int n) const
 
 
 #include "../indigo/TestUtils.h"
+#include "../maths/PCG32.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/CycleTimer.h"
 #include "../utils/Timer.h"
-#include "../utils/MTwister.h"
 
 
 inline static js::AABBox refTransformedAABB(const js::AABBox& aabb, const Matrix4f& M)
@@ -195,7 +195,7 @@ void js::AABBox::test()
 
 	//----------------- Test transformedAABB() and transformedAABBFast() -------------------
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000; ++i)
 		{
 			// Make a random matrix
@@ -225,7 +225,7 @@ void js::AABBox::test()
 
 	// perf-test transformedAABB() and transformedAABBFast()
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 
 		// Make a random matrix
 		SSE_ALIGN float e[16];

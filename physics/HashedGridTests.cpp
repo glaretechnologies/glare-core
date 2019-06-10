@@ -12,7 +12,7 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 
 #include "HashedGrid.h"
 #include "../utils/Clock.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
@@ -42,7 +42,7 @@ static void perfTests()
 
 	
 
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	
 
@@ -195,7 +195,7 @@ void HashedGridTests::test()
 		int num_random_insertions = grid_res * grid_res * grid_res * 4;//64;
 		//std::cout << "testing insertion at " << num_random_insertions << " random points." << std::endl;
 
-		MTwister rng(1);
+		PCG32 rng(1);
 
 		for(int i = 0; i < num_random_insertions; ++i)
 		{

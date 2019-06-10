@@ -6,7 +6,7 @@
 
 #include "MultiLevelGrid.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../maths/GeometrySampling.h"
 
 
@@ -53,7 +53,7 @@ public:
 
 
 
-static const Vec4f randomDir(MTwister& rng)
+static const Vec4f randomDir(PCG32& rng)
 {
 	return Vec4f(
 		-1 + 2*rng.unitRandom(),
@@ -402,7 +402,7 @@ void test()
 
 
 
-		MTwister rng(1);
+		PCG32 rng(1);
 		int NUM_RAYS = 100000;
 		for(int i=0; i<NUM_RAYS; ++i)
 		{

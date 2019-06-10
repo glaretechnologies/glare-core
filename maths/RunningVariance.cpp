@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 
 #include "mathstypes.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include <vector>
 
 
@@ -68,7 +68,7 @@ void testRunningVariance()
 	}
 
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 
 		const int N = 1000000;
 		std::vector<double> d(N);

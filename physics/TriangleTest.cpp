@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "KDTree.h"
 #include "BVH.h"
 #include "../simpleraytracer/raymesh.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"
 #include "../indigo/FullHitInfo.h"
@@ -97,7 +97,7 @@ static void testTriangleIntersection()
 {
 	conPrint("testTriangleIntersection()");
 
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	MollerTrumboreTri tris[4];
 
@@ -148,7 +148,7 @@ void testBadouelTriIntersection()
 {
 	conPrint("testBadouelTriIntersection()");
 
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	const int N = 1000000;
 

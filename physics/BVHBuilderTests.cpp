@@ -12,11 +12,11 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "SBVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/TestUtils.h"
+#include "../maths/PCG32.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Vector.h"
-#include "../utils/MTwister.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Timer.h"
 #include "../utils/Plotter.h"
@@ -188,7 +188,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 
 static void testBVHBuildersWithNRandomObjects(Indigo::TaskManager& task_manager, int num_objects)
 {
-	MTwister rng(1);
+	PCG32 rng(1);
 	js::Vector<SBVHTri, 16> tris(num_objects);
 	for(int z=0; z<num_objects; ++z)
 	{
@@ -207,7 +207,7 @@ static void testBVHBuildersWithNRandomObjects(Indigo::TaskManager& task_manager,
 #if 0
 static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task_manager, int num_objects, js::Vector<ResultNode, 64>& result_nodes_out)
 {
-	MTwister rng(1);
+	PCG32 rng(1);
 	StandardPrintOutput print_output;
 
 	js::Vector<js::AABBox, 16> aabbs(num_objects);
@@ -243,7 +243,7 @@ void test()
 {
 	conPrint("BVHBuilderTests::test()");
 
-	MTwister rng(1);
+	PCG32 rng(1);
 	Indigo::TaskManager task_manager;
 	StandardPrintOutput print_output;
 
@@ -749,7 +749,7 @@ void test()
 
 
 	{
-		MTwister rng_(1);
+		PCG32 rng_(1);
 		js::Vector<SBVHTri, 16> tris(3);
 
 		// Tris in rect like in paper
@@ -902,7 +902,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 	{
 		const int num_objects = 2000000;
 
-		MTwister rng_(1);
+		PCG32 rng_(1);
 		js::Vector<js::AABBox, 16> aabbs(num_objects);
 		js::Vector<SBVHTri, 16> tris(num_objects);
 		for(int z=0; z<num_objects; ++z)

@@ -1531,7 +1531,7 @@ void SBVHBuilder::doBuild(
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Vector.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Timer.h"
 #include "../utils/Plotter.h"

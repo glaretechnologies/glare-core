@@ -11,8 +11,8 @@ Generated at 2013-05-16 16:42:23 +0100
 
 
 #include "../indigo/TestUtils.h"
+#include "../maths/PCG32.h"
 #include "../utils/Timer.h"
-#include "../utils/MTwister.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/RefCounted.h"
@@ -392,7 +392,7 @@ void circularBufferTest()
 		int64 sum = 0;
 		for(int t=0; t<1000; ++t)
 		{
-			MTwister rng(t);
+			PCG32 rng(t);
 			if(t % 10000 == 0)
 				printVar(t);
 

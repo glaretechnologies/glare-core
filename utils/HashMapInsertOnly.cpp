@@ -12,8 +12,8 @@ Generated at Mon Oct 18 13:13:09 +1300 2010
 
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
+#include "../maths/PCG32.h"
 #include "../utils/Timer.h"
-#include "../utils/MTwister.h"
 #include "../utils/StringUtils.h"
 
 
@@ -211,7 +211,7 @@ void testHashMapInsertOnly()
 		HashMapInsertOnly<int, int> m;
 		const int N = 100000;
 		std::vector<bool> inserted(1000, false);
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = (int)(rng.unitRandom() * 999.99f);
@@ -242,7 +242,7 @@ void testHashMapInsertOnly()
 	//	{
 	//		Timer timer;
 	//		HashMapInsertOnly<int, int> m;
-	//		MTwister rng(1);
+	//		PCG32 rng(1);
 	//		for(int i=0; i<N; ++i)
 	//		{
 	//			const int x = (int)(rng.unitRandom() * N);

@@ -28,9 +28,9 @@ const std::string Quat<double>::toString() const
 
 
 #include "../indigo/TestUtils.h"
+#include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
-#include "../utils/MTwister.h"
 #include "../utils/Vector.h"
 #include "../utils/ConPrint.h"
 
@@ -264,7 +264,7 @@ void quaternionTests()
 
 	// Test rotateVector and toMatrix give the same rotations.
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		const int num = 1000;
 		for(int i=0; i<num; ++i)
 		{
@@ -338,7 +338,7 @@ void quaternionTests()
 			testAssert(::epsEqual(rot_matrix, rot_matrix2));
 		}
 
-		MTwister rng(1);
+		PCG32 rng(1);
 		const int num = 1000;
 		for(int i=0; i<num; ++i)
 		{

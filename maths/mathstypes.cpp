@@ -10,7 +10,7 @@
 #include "../utils/Timer.h"
 #include "../utils/CycleTimer.h"
 #include "../utils/Platform.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include <vector>
 #include <limits>
 
@@ -1243,7 +1243,7 @@ void Maths::test()
 		conPrint("\tsum: " + toString(sum));
 	}
 
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	const int DATA_SIZE = 1 << 20; // 1048576;
 	std::vector<float> data(DATA_SIZE);
@@ -1488,6 +1488,46 @@ void Maths::test()
 				{
 					const float x = (float)i * 0.0001f;
 					sum += powOneOverEight(x);
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+
+		// Test uInt32ToUnitFloatScale
+		conPrint("multiplying with uInt32ToUnitFloatScale()");
+		{
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					const float x = (float)i * uInt32ToUnitFloatScale();
+					sum += x;
+				}
+				elapsed = myMin(elapsed, timer.elapsed());
+			}
+			const double cycles = elapsed / (double)N;
+			conPrint("\tcycles: " + toString(cycles));
+			conPrint("\tsum: " + toString(sum));
+		}
+		conPrint("setting bits");
+		{
+			CycleTimer timer;
+			float sum = 0.0;
+			CycleTimer::CYCLETIME_TYPE elapsed = std::numeric_limits<CycleTimer::CYCLETIME_TYPE>::max();
+			for(int t=0; t<trials; ++t)
+			{
+				for(int i=0; i<N; ++i)
+				{
+					float x;
+					uint32 data = ((1 << 23) - 1) & i;
+					std::memcpy(&x, &data, 4);
+					sum += x;
 				}
 				elapsed = myMin(elapsed, timer.elapsed());
 			}

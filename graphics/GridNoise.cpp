@@ -8,7 +8,7 @@ Generated at 2011-06-22 22:23:03 +0100
 
 
 #include "../maths/mathstypes.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../utils/StringUtils.h"
 #include <fstream>
 
@@ -23,7 +23,7 @@ const float GridNoise::data[256] = { 0.34415323f, 0.36833444f, 0.30091473f, 0.78
 
 void GridNoise::generateData()
 {
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	const int N = 256;
 

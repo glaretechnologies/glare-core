@@ -8,12 +8,12 @@ Copyright Glare Technologies Limited 2017 -
 
 
 #include "Matrix4f.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 
 
 namespace GeometrySampling
@@ -31,7 +31,7 @@ void doTests()
 	if(false)
 	{
 		{
-			MTwister rng(1);
+			PCG32 rng(1);
 			const int N = 100000;
 			std::vector<Vec2f> unitr(N);
 			for(int i=0; i<N; ++i)
@@ -100,7 +100,7 @@ void doTests()
 
 	//=========================== Test sampleSolidAngleCone() ===========================
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		const float theta_max = 0.4;
 		const float one_minus_cos_theta_max = 1 - std::cos(theta_max);
 		const Vec4f n = normalise(Vec4f(1,1,1,0));
@@ -121,7 +121,7 @@ void doTests()
 
 	//=========================== sampleHemisphereCosineWeighted ===========================
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000000; ++i)
 		{
 			const Vec2f u(rng.unitRandom(), rng.unitRandom());
@@ -142,7 +142,7 @@ void doTests()
 
 	//=========================== sampleBothHemispheresCosineWeighted ===========================
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000000; ++i)
 		{
 			const Vec2f u(rng.unitRandom(), rng.unitRandom());
@@ -161,7 +161,7 @@ void doTests()
 
 	//=========================== Check shirleyUnitSquareToDisk and inverse ===========================
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000000; ++i)
 		{
 			const Vec2f u(rng.unitRandom(), rng.unitRandom());
@@ -191,7 +191,7 @@ void doTests()
 	
 	//=========================== Check unitSquareToHemisphere and inverse ===========================
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000000; ++i)
 		{
 			const Vec2f u(rng.unitRandom(), rng.unitRandom());
@@ -216,7 +216,7 @@ void doTests()
 			//testAssert(epsEqual(u, u_primed));
 	}
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000000; ++i)
 		{
 			const Vec2f u(rng.unitRandom(), rng.unitRandom());

@@ -11,7 +11,7 @@ Generated at Wed Apr 07 14:22:30 +1200 2010
 #include "../indigo/ThreadContext.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/vec3.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 
 
 PointTreeTest::PointTreeTest()
@@ -63,7 +63,7 @@ void PointTreeTest::test()
 
 	{
 		std::vector<Vec3f> points;
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000; ++i)
 		{
 			points.push_back(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()));
@@ -86,7 +86,7 @@ void PointTreeTest::test()
 
 	{
 		std::vector<Vec3f> points;
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<1000; ++i)
 		{
 			points.push_back(Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * 1000.0f);

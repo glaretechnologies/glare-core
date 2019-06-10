@@ -1794,7 +1794,7 @@ void StringUtils::test()
 
 		/*{
 			const int N = 100000;
-			MTwister rng(1);
+			PCG32 rng(1);
 			std::vector<int> v(N);
 			for(int i=0; i<N; ++i)
 				v[i] = (int)(rng.unitRandom() * N);

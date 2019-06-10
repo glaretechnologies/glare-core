@@ -8,7 +8,7 @@ Generated at 2012-08-18 21:52:11 +0100
 
 
 #include "../indigo/TestUtils.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include <set>
 
@@ -64,7 +64,7 @@ void doPointMLGTests()
 		std::vector<Point<TestPointData> > points;
 		int num = 128000;
 		points.resize(num);
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<num; ++i)
 		{
 			points[i].pos = Vec3f(2,2,2) + Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * 2.0f;

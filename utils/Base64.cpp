@@ -191,7 +191,7 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 
 
 #include "../indigo/TestUtils.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
 
@@ -453,7 +453,7 @@ void test()
 	// Perf test
 	if(true)
 	{
-		MTwister rng(1);
+		PCG32 rng(1);
 		std::vector<unsigned char> plaintext((int)1.0e6);
 		for(int i = 0; i < plaintext.size(); i++)
 			plaintext[i] = (unsigned char)(rng.unitRandom() * 255.9);
@@ -496,7 +496,7 @@ void test()
 	if(true)
 	{
 		conPrint("Fuzz testing encoder (" + toString(fuzz_iters) + " iters)...");
-		MTwister rng(1);
+		PCG32 rng(1);
 		size_t sum = 0;
 		for(int z=0; z<fuzz_iters; ++z)
 		{
@@ -515,7 +515,7 @@ void test()
 	if(true)
 	{
 		conPrint("Fuzz testing decoder (" + toString(fuzz_iters) + " iters)...");
-		MTwister rng(1);
+		PCG32 rng(1);
 		size_t sum = 0;
 		for(int z=0; z<fuzz_iters; ++z)
 		{

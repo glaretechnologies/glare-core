@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 //#include "../indigo/HaltonSampler.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../maths/GeometrySampling.h"
 #include <fstream>
 
@@ -85,7 +85,7 @@ void PerlinNoise::init()
 		assert(0);
 	}
 
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	const int N = 256;
 	/*for(int i=0; i<N; ++i)

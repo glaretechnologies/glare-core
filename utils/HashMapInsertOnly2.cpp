@@ -19,9 +19,9 @@ Generated at Mon Oct 18 13:13:09 +1300 2010
 #include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
 #include "Timer.h"
-#include "MTwister.h"
 #include "StringUtils.h"
 #include "Plotter.h"
+#include "../maths/PCG32.h"
 #include <unordered_map>
 #include <map>
 #include "IncludeXXHash.h"
@@ -552,7 +552,7 @@ void testHashMapInsertOnly2()
 		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max());
 		const int N = 100000;
 		std::vector<bool> inserted(1000, false);
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<N; ++i)
 		{
 			const int x = (int)(rng.unitRandom() * 999.99f);
@@ -583,7 +583,7 @@ void testHashMapInsertOnly2()
 	//	{
 	//		Timer timer;
 	//		HashMapInsertOnly2<int, int> m;
-	//		MTwister rng(1);
+	//		PCG32 rng(1);
 	//		for(int i=0; i<N; ++i)
 	//		{
 	//			const int x = (int)(rng.unitRandom() * N);
@@ -604,7 +604,7 @@ void testHashMapInsertOnly2()
 		std::vector<TestKey> increasing_testdata(N);
 		std::vector<TestKey> dense_testdata(N);
 		std::vector<TestKey> sparse_testdata(N);
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(int i=0; i<N; ++i)
 			increasing_testdata[i].data = i;
 		for(int i=0; i<N; ++i)
@@ -652,7 +652,7 @@ void testHashMapInsertOnly2()
 
 	std::vector<int> sparse_testdata(N);
 	std::vector<int> dense_testdata(N);
-	MTwister rng(1);
+	PCG32 rng(1);
 	for(int i=0; i<N; ++i)
 		sparse_testdata[i] = (int)(rng.unitRandom() * 1.0e8f);
 	for(int i=0; i<N; ++i)

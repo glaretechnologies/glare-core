@@ -11,7 +11,7 @@ Generated at Sat May 15 15:39:54 +1200 2010
 
 
 #include "Platform.h"
-#include "MTwister.h"
+#include "../maths/PCG32.h"
 #include "Timer.h"
 #include "StringUtils.h"
 #include "ConPrint.h"
@@ -197,7 +197,7 @@ static void testStablePartition(size_t N, size_t num_threads)
 		data[i] = (int)i;
 	
 	// Shuffle
-	MTwister rng(1);
+	PCG32 rng(1);
 	for(int t=(int)N-1; t>=0; --t)
 	{
 		int k = (int)(rng.unitRandom() * t);
@@ -249,7 +249,7 @@ static void stablePartitionPerftest(size_t N, size_t num_threads)
 		data[i] = (int)i;
 	
 	// Shuffle
-	MTwister rng(1);
+	PCG32 rng(1);
 	for(int t=(int)N-1; t>=0; --t)
 	{
 		int k = (int)(rng.unitRandom() * t);
@@ -317,7 +317,7 @@ static void testStableNWayPartition(size_t N, size_t num_threads)
 		data[i] = (int)i;
 	
 	// Shuffle
-	MTwister rng(1);
+	PCG32 rng(1);
 	for(int t=(int)N-1; t>=0; --t)
 	{
 		int k = (int)(rng.unitRandom() * t);
@@ -358,7 +358,7 @@ static double stableNWayPartitionPerfTest(size_t N, size_t num_threads)
 		data[i] = (int)i;
 	
 	// Shuffle
-	MTwister rng(1);
+	PCG32 rng(1);
 	for(int t=(int)N-1; t>=0; --t)
 	{
 		int k = (int)(rng.unitRandom() * t);
@@ -404,7 +404,7 @@ static double stableNWayPartitionPerfTest(size_t N, size_t num_threads)
 
 void test()
 {
-	MTwister rng(1);
+	PCG32 rng(1);
 	Indigo::TaskManager task_manager(8);
 	Timer timer;
 	

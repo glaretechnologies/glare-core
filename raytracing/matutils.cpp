@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "matutils.h"
 
 
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../indigo/globals.h"
 #include "../indigo/SpectralVector.h"
 #include "../graphics/colour3.h"

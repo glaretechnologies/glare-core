@@ -14,7 +14,7 @@ Code By Nicholas Chapman.
 #include "jscol_ObjectTreePerThreadData.h"
 #include "../indigo/Vec3MatParameter.h"
 #include "../simpleraytracer/raysphere.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../utils/Timer.h"
@@ -43,7 +43,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 {
 	conPrint("ObjectTreeTest::doSelfIntersectionAvoidanceTest()");
 
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	ObjectTree ob_tree;
 
@@ -198,7 +198,7 @@ void ObjectTreeTest::doTests()
 	doSelfIntersectionAvoidanceTest();
 
 	conPrint("ObjectTreeTest::doTests()");
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	ObjectTree ob_tree;
 
@@ -464,7 +464,7 @@ void ObjectTreeTest::doTests()
 
 void ObjectTreeTest::doSpeedTest()
 {
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	ObjectTree ob_tree;
 
@@ -567,7 +567,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	conPrint("ObjectTreeTest::instancedMeshSpeedTest()");
 	Indigo::TaskManager task_manager;
 
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	//------------------------------------------------------------------------
 	//load bunny mesh

@@ -16,7 +16,7 @@ Code By Nicholas Chapman.
 #include "jscol_TriTreePerThreadData.h"
 #include "jscol_boundingsphere.h"
 #include "../simpleraytracer/raymesh.h"
-#include "../utils/MTwister.h"
+#include "../maths/PCG32.h"
 #include "../raytracing/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
@@ -395,7 +395,7 @@ static void testSelfIntersectionAvoidance()
 #endif
 
 
-static void testTree(MTwister& rng, RayMesh& raymesh)
+static void testTree(PCG32& rng, RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
@@ -679,7 +679,7 @@ static void doEdgeCaseTests()
 
 void TreeTest::doVaryingNumtrisBuildTests()
 {
-	MTwister rng(1);
+	PCG32 rng(1);
 	Indigo::TaskManager task_manager;
 
 	unsigned int num_tris = 1;
@@ -926,7 +926,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
-	MTwister rng(1);
+	PCG32 rng(1);
 	ThreadContext thread_context;
 
 	BVH bvh(&raymesh);
@@ -1128,7 +1128,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 
 		const unsigned int NUM_TRIS = 20;
 		const std::vector<Vec2f> texcoord_sets;
-		MTwister rng(1);
+		PCG32 rng(1);
 		for(unsigned int i=0; i<NUM_TRIS; ++i)
 		{
 			const Vec3f pos(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f);
@@ -1176,7 +1176,7 @@ static void testAppendCollPoints(RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
-	MTwister rng(1);
+	PCG32 rng(1);
 	ThreadContext thread_context;
 
 	BVH bvh(&raymesh);
@@ -1256,7 +1256,7 @@ void TreeTest::doAppendCollPointsTests(const std::string& appdata_path)
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	//------------------------------------------------------------------------
 	//try building up a random set of triangles and inserting into a tree
@@ -1304,7 +1304,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
-	MTwister rng(1);
+	PCG32 rng(1);
 
 	///////////////////////////////////////
 	/*

@@ -23,7 +23,7 @@ Code By Nicholas Chapman.
 #include "../maths/vec2.h"
 #include "../maths/Matrix2.h"
 #include "../maths/mathstypes.h"
-#include "../utils/MTwister.h" // just for testing
+#include "../maths/PCG32.h" // just for testing
 #include "../indigo/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/TaskManager.h"
@@ -2119,7 +2119,7 @@ static void testConvolutionWithDims(int in_w, int in_h, int f_w, int f_h)
 	printVar(f_w);
 	printVar(f_h);
 
-	MTwister rng(2);
+	PCG32 rng(2);
 
 	Timer t;
 
