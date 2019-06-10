@@ -719,7 +719,7 @@ inline static Colour4f toColour4f(const Vec3f& v)
 }
 
 
-static const Colour3f colourForDensity(float density, float max_density)
+/*static const Colour3f colourForDensity(float density, float max_density)
 {
 	//return Colour3f(density / max_density);
 
@@ -749,7 +749,7 @@ static const Colour3f colourForDensity(float density, float max_density)
 	}
 
 	return c;
-}
+}*/
 
 
 // Tonemap and downsizes (if downsizing is needed) a single image tile.
