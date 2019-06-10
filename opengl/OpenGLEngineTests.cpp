@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "OpenGLEngine.h"
+#include "../graphics/ImageMap.h"
 #include "../indigo/TestUtils.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
@@ -49,6 +50,46 @@ static void doPerfTest(const std::string& indigo_base_dir, const std::string& me
 	{
 		failTest(e.what());
 	}
+}
+
+
+void loadAndUnloadTexture(OpenGLEngine& engine, int W, int H, int num_comp, int num_iters = 1)
+{
+	conPrint("OpenGLEngineTests::loadAndUnloadTexture(): " + toString(W) + " x " + toString(H) + ", num_comp: " + toString(num_comp));
+	ImageMapUInt8Ref map = new ImageMapUInt8(W, H, num_comp);
+	map->set(0);
+
+	for(int i=0; i<num_iters; ++i)
+	{
+		Timer timer;
+
+		Reference<OpenGLTexture> opengl_tex = engine.getOrLoadOpenGLTexture(*map/*, OpenGLTexture::Filtering_Nearest*/);
+
+		engine.removeOpenGLTexture(*map);
+
+		opengl_tex = NULL; // destroy tex
+
+		conPrint("Tex load and destroy took " + timer.elapsedString());
+	}
+}
+
+
+void doTextureLoadingTests(OpenGLEngine& engine)
+{
+	loadAndUnloadTexture(engine, 256, 8, 3);
+	loadAndUnloadTexture(engine, 8, 256, 3);
+	loadAndUnloadTexture(engine, 1, 1, 3);
+	loadAndUnloadTexture(engine, 255, 255, 3);
+	loadAndUnloadTexture(engine, 257, 257, 3);
+
+	loadAndUnloadTexture(engine, 256, 8, 4);
+	loadAndUnloadTexture(engine, 8, 256, 4);
+	loadAndUnloadTexture(engine, 1, 1, 4);
+	loadAndUnloadTexture(engine, 255, 255, 4);
+	loadAndUnloadTexture(engine, 257, 257, 4);
+
+	loadAndUnloadTexture(engine, 3000, 2600, 3, 4);
+	loadAndUnloadTexture(engine, 3000, 2600, 4, 4);
 }
 
 
