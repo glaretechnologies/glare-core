@@ -663,11 +663,12 @@ static void stb__InitDXT()
 void stb_compress_dxt_block(unsigned char *dest, const unsigned char *src, int alpha, int mode)
 {
    unsigned char data[16][4];
-   static int init=1;
-   if (init) {
-      stb__InitDXT();
-      init=0;
-   }
+   // NICK NEW: commented out this init code, relying on having called stb__InitDXT() already.
+   //static int init=1;
+   //if (init) {
+   //   stb__InitDXT();
+   //   init=0;
+   //}
 
    if (alpha) {
       int i;

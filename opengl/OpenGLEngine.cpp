@@ -15,9 +15,6 @@ Copyright Glare Technologies Limited 2016 -
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/SRGBUtils.h"
-#define STB_DXT_STATIC 1
-#define STB_DXT_IMPLEMENTATION 1
-#include "../libs/stb/stb_dxt.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../indigo/TestUtils.h"
@@ -561,13 +558,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	}
 	
 
-	// init stb_compress_dxt before it's called from multiple threads
-	{
-		uint8 dummy[16];
-		uint8 src[64];
-		std::memset(src, 0, sizeof(src));
-		stb_compress_dxt_block(dummy, src, /*alpha=*/0, /*mode=*/STB_DXT_NORMAL);
-	}
+	// Init TextureLoading (in particular stb_compress_dxt lib) before it's called from multiple threads
+	TextureLoading::init();
 
 
 	// Set up the rendering context, define display lists etc.:

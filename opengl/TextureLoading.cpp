@@ -21,6 +21,13 @@ Copyright Glare Technologies Limited 2019 -
 #include "../libs/stb/stb_dxt.h"
 
 
+void TextureLoading::init()
+{
+	// NOTE: This call has to go in the same translation unit as all stb_compress_dxt_block calls because it's initing static data in a header file.
+	stb__InitDXT();
+}
+
+
 // Downsize previous mip level image to current mip level.
 // Just uses kinda crappy 2x2 pixel box filter.
 static Reference<ImageMapUInt8> downSampleToNextMipMapLevel(const ImageMapUInt8& prev_mip_level_image, unsigned int level_W, unsigned int level_H)
