@@ -24,6 +24,8 @@
  *     http://www.pcg-random.org
  */
 
+// Modifed by Nicholas Chapman
+
 #pragma once
 
 

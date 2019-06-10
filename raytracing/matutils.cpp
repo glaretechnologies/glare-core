@@ -761,7 +761,7 @@ static void doTestScatters(const Reference<Material>& material_, float epsilon, 
 
 	// Test non-adjoint scatters
 	const int N = 1000;
-	MTwister rng(1);
+	RNG rng(1);
 	for(int i=0; i<N; ++i)
 	{
 		float qmc_samples[1] = { 0.f };
@@ -887,7 +887,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 
 		
 		SobolSequence seq(32);
-		MTwister rng(1);
+		RNG rng(1);
 
 		const int N = 1000;
 		for(int i=0; i<N; ++i)
