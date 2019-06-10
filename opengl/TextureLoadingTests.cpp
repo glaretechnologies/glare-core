@@ -6,9 +6,15 @@ Copyright Glare Technologies Limited 2019 -
 #include "TextureLoadingTests.h"
 
 
+#if BUILD_TESTS
+
+
 #include "TextureLoading.h"
 #include "../graphics/ImageMap.h"
 #include "../maths/mathstypes.h"
+#include "../graphics/PNGDecoder.h"
+#include "../graphics/jpegdecoder.h"
+#include "../indigo/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/Task.h"
 #include "../utils/TaskManager.h"
@@ -18,14 +24,6 @@ Copyright Glare Technologies Limited 2019 -
 #define STB_DXT_STATIC 1
 #define STB_DXT_IMPLEMENTATION 1
 #include "../libs/stb/stb_dxt.h"
-
-
-#if BUILD_TESTS
-
-
-#include "../graphics/PNGDecoder.h"
-#include "../graphics/jpegdecoder.h"
-#include "../indigo/TestUtils.h"
 
 
 // Generate mipmaps for grey texture, check mipmaps are still same grey value.
@@ -100,4 +98,4 @@ void TextureLoadingTests::test()
 }
 
 
-#endif
+#endif // BUILD_TESTS
