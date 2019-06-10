@@ -21,9 +21,6 @@ Copyright Glare Technologies Limited 2019 -
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/ArrayRef.h"
-#define STB_DXT_STATIC 1
-#define STB_DXT_IMPLEMENTATION 1
-#include "../libs/stb/stb_dxt.h"
 
 
 // Generate mipmaps for grey texture, check mipmaps are still same grey value.
