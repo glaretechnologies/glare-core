@@ -11,11 +11,19 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/RenderChannels.h"
 #include "../utils/ArrayRef.h"
 #include "Image4f.h"
+#include "ImageMap.h"
 #include <vector>
+
+
+//#define DENOISE_SUPPORT 1
 
 
 class PostProDiffraction;
 class Image4f;
+struct OIDNFilterImpl;
+typedef struct OIDNFilterImpl* OIDNFilter;
+struct OIDNDeviceImpl;
+typedef struct OIDNDeviceImpl* OIDNDevice;
 namespace Indigo { class TaskManager; }
 namespace Indigo { class Task; }
 
@@ -29,10 +37,25 @@ struct RunPipelineScratchState
 {
 	RunPipelineScratchState();
 	~RunPipelineScratchState();
+
 	std::vector<Reference<Indigo::Task> > tasks; // These should only actually have type ImagePipelineTask.
 	std::vector<Image4f> per_thread_tile_buffers;
 	Image4f temp_summed_buffer;
 	Image4f temp_AD_buffer;
+
+#if DENOISE_SUPPORT
+	OIDNFilter filter;
+	OIDNDevice denoise_device;
+
+	Image4f* last_committed_colour_buf;
+	Image4f* last_committed_albedo_im;
+	Image4f* last_committed_normals_im;
+	size_t last_committed_w;
+	size_t last_committed_h;
+
+	Image4f albedo_im;
+	Image4f normals_im;
+#endif
 };
 
 

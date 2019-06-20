@@ -30,6 +30,11 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/StringUtils.h"
 #include <algorithm>
 
+#if DENOISE_SUPPORT
+#include <OpenImageDenoise/oidn.h>
+#include "../graphics/PNGDecoder.h"
+#include "../graphics/EXRDecoder.h"
+#endif
 
 /*
 
@@ -693,7 +698,7 @@ struct ImagePipelineTaskClosure
 	const ArrayRef<Vec3f>* layer_weights;
 	float image_scale;
 	float region_image_scale;
-	Image4f* ldr_buffer_out;
+	Image4f* ldr_buffer_out; // Buffer to write to.
 	const RendererSettings* renderer_settings;
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
@@ -709,7 +714,7 @@ struct ImagePipelineTaskClosure
 
 	CurveData curve_data;
 
-	const ChannelInfo* channel;
+	const ChannelInfo* channel; // Channel we want to read from. NULL means blend main layers.
 };
 
 
@@ -783,7 +788,7 @@ public:
 		const bool blend_main_layers = closure.channel == NULL;
 		const int source_render_channel_offset = closure.channel ? closure.channel->offset : 0;
 		const bool colour3_channel = closure.channel ? (closure.channel->num_components >= 3) : false;
-		const bool tonemap_channel = closure.do_tonemapping && (closure.channel == NULL || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
+		const bool tonemap_channel = closure.do_tonemapping && (blend_main_layers || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
 
 		// We want to allow channels like position to take on negative values.
 		// For other channels, like beauty channels, we want values to be >= 0.
@@ -1165,11 +1170,22 @@ public:
 
 
 RunPipelineScratchState::RunPipelineScratchState()
+#if DENOISE_SUPPORT
+:	filter(NULL), denoise_device(NULL), last_committed_colour_buf(NULL), last_committed_albedo_im(NULL), last_committed_normals_im(NULL), last_committed_w(0), last_committed_h(0)
+#endif
 {}
 
 
 RunPipelineScratchState::~RunPipelineScratchState()
-{}
+{
+#if DENOISE_SUPPORT
+	if(filter)
+		oidnReleaseFilter(filter);
+
+	if(denoise_device)
+		oidnReleaseDevice(denoise_device);
+#endif
+}
 
 
 void runPipeline(
@@ -1353,6 +1369,110 @@ void runPipeline(
 		task_manager.runTasks(scratch_state.tasks);
 		
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
+
+		const bool do_denoising = closure.renderer_settings->denoise && ((channel == NULL) || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
+
+#if DENOISE_SUPPORT
+		if(do_denoising)
+		{
+			// TEMP NEW:
+			if(!scratch_state.denoise_device)
+			{
+				scratch_state.denoise_device = oidnNewDevice(OIDN_DEVICE_TYPE_DEFAULT);
+				oidnCommitDevice(scratch_state.denoise_device);
+			}
+
+			// Create a denoising filter
+			if(!scratch_state.filter)
+			{
+				scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RT"); // generic ray tracing filter
+			}
+
+			// Commiting the filter parameters takes quite a while, so avoid if params are still valid.
+			const bool last_commit_valid =
+				(scratch_state.last_committed_colour_buf == &ldr_buffer_out) &&
+				(scratch_state.last_committed_albedo_im == &scratch_state.albedo_im) &&
+				(scratch_state.last_committed_normals_im == &scratch_state.normals_im) &&
+				(scratch_state.last_committed_w == ldr_buffer_out.getWidth()) &&
+				(scratch_state.last_committed_h == ldr_buffer_out.getHeight());
+
+			if(!last_commit_valid)
+			{
+				oidnSetSharedFilterImage(scratch_state.filter, "color", &ldr_buffer_out.getPixel(0), OIDN_FORMAT_FLOAT3, ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight(), 0,
+					/*bytePixelStride=*/sizeof(float)*4, 0);
+
+				if(render_channels.albedo.offset >= 0) // If albedo render channel is enabled:
+				{
+					// Make scaled copy of albedo buffer
+					scratch_state.albedo_im.resizeNoCopy(ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight());
+
+					closure.channel = &render_channels.albedo;
+					closure.ldr_buffer_out = &scratch_state.albedo_im;
+					task_manager.runTasks(scratch_state.tasks);
+
+					// EXRDecoder::saveImageToEXR(scratch_state.albedo_im, /*save_alpha_channel=*/false, "albedo_im.exr", "main", EXRDecoder::SaveOptions());
+
+					oidnSetSharedFilterImage(scratch_state.filter, "albedo",
+						(void*)(&scratch_state.albedo_im.getPixel(0)),
+						OIDN_FORMAT_FLOAT3,
+						scratch_state.albedo_im.getWidth(),
+						scratch_state.albedo_im.getHeight(),
+						0, // byte offset
+						4 * sizeof(float), // pixel stride in bytes
+						0 // byte row stride
+					);
+				}
+
+				if(render_channels.normals.offset >= 0) // If normals render channel is enabled:
+				{
+					// Make scaled copy of normals buffer
+					scratch_state.normals_im.resizeNoCopy(ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight());
+
+					closure.channel = &render_channels.normals;
+					closure.ldr_buffer_out = &scratch_state.normals_im;
+					task_manager.runTasks(scratch_state.tasks);
+
+					// EXRDecoder::saveImageToEXR(scratch_state.normals_im, /*save_alpha_channel=*/false, "normals_im.exr", "main", EXRDecoder::SaveOptions());
+
+					oidnSetSharedFilterImage(scratch_state.filter, "normal",
+						(void*)(&scratch_state.normals_im.getPixel(0)),
+						OIDN_FORMAT_FLOAT3,
+						scratch_state.normals_im.getWidth(),
+						scratch_state.normals_im.getHeight(),
+						0, // byte offset
+						4 * sizeof(float), // pixel stride in bytes
+						0 // byte row stride
+					);
+				}
+
+				oidnSetSharedFilterImage(scratch_state.filter, "output", &ldr_buffer_out.getPixel(0), OIDN_FORMAT_FLOAT3, ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight(), 0,
+					/*bytePixelStride=*/sizeof(float)*4, 0);
+
+				oidnSetFilter1b(scratch_state.filter, "hdr", true); // image is HDR
+
+				Timer timer;
+				oidnCommitFilter(scratch_state.filter);
+				conPrint("oidnCommitFilter took " + timer.elapsedString());
+
+				scratch_state.last_committed_colour_buf = &ldr_buffer_out;
+				scratch_state.last_committed_albedo_im = &scratch_state.albedo_im;
+				scratch_state.last_committed_normals_im = &scratch_state.normals_im;
+				scratch_state.last_committed_w = ldr_buffer_out.getWidth();
+				scratch_state.last_committed_h = ldr_buffer_out.getHeight();
+			}
+
+
+			// Filter the image
+			Timer timer;
+			oidnExecuteFilter(scratch_state.filter);
+			conPrint("Filtering took " + timer.elapsedString());
+
+			// Check for errors
+			const char* errorMessage;
+			if(oidnGetDeviceError(scratch_state.denoise_device, &errorMessage) != OIDN_ERROR_NONE)
+				conPrint("OIDN Error: " + std::string(errorMessage));
+		}
+#endif // DENOISE_SUPPORT
 	}
 	
 	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
