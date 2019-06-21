@@ -911,6 +911,8 @@ const js::AABBox OpenGLEngine::getAABBWSForObjectWithTransform(GLObject& object,
 
 void OpenGLEngine::updateObjectTransformData(GLObject& object)
 {
+	assert(::isFinite(object.ob_to_world_matrix.e[0]));
+
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
 	const bool invertible = to_world.getUpperLeftInverseTranspose(/*result=*/object.ob_to_world_inv_tranpose_matrix); // Compute inverse matrix
