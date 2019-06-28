@@ -813,6 +813,7 @@ const std::string OpenCL::getBuildLog(cl_program program, cl_device_id device)
 static Mutex global_opencl_mutex;
 static OpenCL* global_opencl = NULL;
 static bool open_cl_load_failed = false;
+static std::string last_error_msg;
 
 
 OpenCL* getGlobalOpenCL()
@@ -830,9 +831,12 @@ OpenCL* getGlobalOpenCL()
 			const bool verbose = false;
 			global_opencl = new OpenCL(verbose);
 			global_opencl->queryDevices();
+			last_error_msg = "";
 		}
-		catch(Indigo::Exception&)
+		catch(Indigo::Exception& e)
 		{
+			conPrint("Error initialising OpenCL: " + e.what());
+			last_error_msg = e.what();
 			delete global_opencl; // global_opencl may be non-null if it failed in queryDevices().
 			global_opencl = NULL;
 			open_cl_load_failed = true;
@@ -849,4 +853,11 @@ void destroyGlobalOpenCL()
 	delete global_opencl;
 	global_opencl = NULL;
 	open_cl_load_failed = false;
+}
+
+
+std::string getGlobalOpenCLLastErrorMsg()
+{
+	Lock lock(global_opencl_mutex);
+	return last_error_msg;
 }

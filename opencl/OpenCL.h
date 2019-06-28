@@ -209,3 +209,4 @@ private:
 
 OpenCL* getGlobalOpenCL();
 void destroyGlobalOpenCL();
+std::string getGlobalOpenCLLastErrorMsg();
