@@ -1143,6 +1143,8 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"evalBasicScalarMatParameterConstOnly_FullHitInfo__BasicMaterialData__int_",
 		"evalBasicSpectrumMatParameter_FullHitInfo__vec4__vec4__SpectralVector__BasicMaterialData__int_",
 		"evalBasicSpectrumMatParameterConstOnly_FullHitInfo__vec4__vec4__SpectralVector__BasicMaterialData__int_",
+		"evalRGBBasicSpectrumMatParameter_FullHitInfo__vec4__vec4__BasicMaterialData__int_",
+		"evalRGBBasicSpectrumMatParameterConstOnly_FullHitInfo__vec4__vec4__BasicMaterialData__int_",
 		"evalBasicDisplaceMatParameter_FullHitInfo__BasicMaterialData__int_",
 		"evalBasicDisplaceMatParameterConstOnly_FullHitInfo__BasicMaterialData__int_",
 		"evalBasicPartialDerivs_FullHitInfo__BasicMaterialData__int_",
