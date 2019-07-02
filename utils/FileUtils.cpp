@@ -1130,6 +1130,7 @@ public:
 };
 
 
+#if defined(_WIN32)
 static void testGetRelativePath(const std::string& dir_path, const std::string& path_b, const std::string& expected_res)
 {
 	try
@@ -1141,6 +1142,7 @@ static void testGetRelativePath(const std::string& dir_path, const std::string& 
 		failTest(e.what());
 	}
 }
+#endif
 
 
 // Converts slashes to platform slashes then tests.
