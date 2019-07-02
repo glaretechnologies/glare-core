@@ -28,9 +28,11 @@ private:
 };
 
 
+// Join two paths together using the directory separator.  If filename is an absolute path then just returns it.
 const std::string join(const std::string& dirpath, const std::string& filename);
-const std::string toPlatformSlashes(const std::string& pathname);
 
+// Converts backslashes to forwards slashes on Linux/mac, and forwards slashes to backslashes on Windows.
+const std::string toPlatformSlashes(const std::string& pathname);
 
 void createDir(const std::string& dirname);
 void createDirsForPath(const std::string& path);
@@ -63,8 +65,16 @@ uint64 getFileSize(const std::string& pathname);
 
 void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::string>& dirs_out);
 
-// Returns true if pathname is relative, and does not contain any '..' dirs.
 bool isDirectory(const std::string& pathname);
+
+bool isPathAbsolute(const std::string& p);
+
+// Returns a path to path_b that is relative to dir_path.
+// If path_b is already relative, it just returns path_b.
+// dir_path is treated as a path to a directory, and path_b as a path to a file.
+const std::string getRelativePath(const std::string& dir_path, const std::string& path_b);
+
+// Returns true if pathname is relative, and does not contain any '..' dirs.
 bool isPathSafe(const std::string& pathname);
 
 void readEntireFile(const std::string& pathname, std::string& filecontents_out); // throws FileUtilsExcep
@@ -99,8 +109,6 @@ void deleteFilesInDir(const std::string& path); // Delete just the files, not di
 
 
 uint64 getFileCreatedTime(const std::string& filename);
-
-bool isPathAbsolute(const std::string& p);
 
 // NOTE: this function call is rather vulnerable to handle leaks.  Prefer to use the FileHandle class instead.
 FILE* openFile(const std::string& pathname, const std::string& openmode);

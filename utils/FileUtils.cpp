@@ -26,6 +26,7 @@ Code By Nicholas Chapman.
 #include "PlatformUtils.h"
 #include "HandleWrapper.h"
 #include "Timer.h"
+#include "../maths/mathstypes.h"
 #include <cstring>
 #include <stdlib.h>
 #include <assert.h>
@@ -60,9 +61,16 @@ const std::string join(const std::string& dirpath, const std::string& filename)
 const std::string toPlatformSlashes(const std::string& pathname)
 {
 	std::string result = pathname;
-	//NOTE: inefficient.
-	::replaceChar(result, '\\', PLATFORM_DIR_SEPARATOR_CHAR);
-	::replaceChar(result, '/', PLATFORM_DIR_SEPARATOR_CHAR);
+	for(size_t i=0; i<pathname.size(); ++i)
+	{
+#if defined(_WIN32)
+		if(result[i] == '/')
+			result[i] = PLATFORM_DIR_SEPARATOR_CHAR;
+#else
+		if(result[i] == '\\')
+			result[i] = PLATFORM_DIR_SEPARATOR_CHAR;
+#endif
+	}
 	return result;
 }
 
@@ -812,6 +820,68 @@ bool isPathAbsolute(const std::string& p)
 }
 
 
+
+static inline bool OSTreatsAsDirSeparator(char c)
+{
+#if defined(_WIN32)
+	return c == '\\' || c == '/';
+#else
+	return c == '/';
+#endif
+}
+
+
+/*
+
+Returns a path to path_b that is relative to dir_path.
+If path_b is already relative, it just returns path_b.
+
+c:/a/b/c/d
+c:/a/b/e/f/g
+=> ../../e/f/g
+
+c:/a/b
+c:/a/b/e/f/g
+=>     e/f/g
+
+Note: Could also implement this with platform APIs like PathRelativePathTo.
+*/
+const std::string getRelativePath(const std::string& dir_path, const std::string& path_b)
+{
+	if(!isPathAbsolute(path_b)) // If path_b is already relative, just return path_b.
+		return path_b;
+
+	// Get length of prefix for both strings that is the same.
+	const size_t min_len = myMin(dir_path.size(), path_b.size());
+	size_t pre_len = 0;
+	for(; pre_len < min_len && (dir_path[pre_len] == path_b[pre_len]); ++pre_len)
+	{}
+
+	if(pre_len == 0)
+		throw FileUtilsExcep("paths do not share a common prefix.");
+
+	// Work out number of directories we need to walk up out of dir_path
+	std::string rel_path;
+	if(pre_len < dir_path.size())
+		rel_path += std::string("..") + PLATFORM_DIR_SEPARATOR;
+
+	for(size_t i=pre_len; i<dir_path.size(); ++i)
+		if(dir_path[i] == PLATFORM_DIR_SEPARATOR_CHAR && (i + 1 != dir_path.size())) // If this is a slash char and not a trailing slash:
+			rel_path += std::string("..") + PLATFORM_DIR_SEPARATOR;
+
+	// Work out starting position in path_b to use.  Skip leading slash.
+	size_t path_b_start = pre_len;
+	if(path_b_start < path_b.size() && OSTreatsAsDirSeparator(path_b[path_b_start]))
+		path_b_start++;
+
+	if(path_b_start >= path_b.size())
+		throw FileUtilsExcep("path_b was the same as dir_path.");
+
+	// Now append the rest of path_b:
+	return rel_path + path_b.substr(path_b_start);
+}
+
+
 FILE* openFile(const std::string& pathname, const std::string& openmode)
 {
 #if defined(_WIN32)
@@ -1060,10 +1130,92 @@ public:
 };
 
 
+static void testGetRelativePath(const std::string& dir_path, const std::string& path_b, const std::string& expected_res)
+{
+	try
+	{
+		testStringsEqual(getRelativePath(dir_path, path_b), expected_res);
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+// Converts slashes to platform slashes then tests.
+static void testGetRelativePathWithConvertedSlashes(const std::string& dir_path, const std::string& path_b, const std::string& expected_res)
+{
+	try
+	{
+		testStringsEqual(getRelativePath(toPlatformSlashes(dir_path), toPlatformSlashes(path_b)), toPlatformSlashes(expected_res));
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+static void testGetRelativePathExpectedFailure(const std::string& dir_path, const std::string& path_b)
+{
+	try
+	{
+		getRelativePath(dir_path, path_b);
+		failTest("Expected exception.");
+	}
+	catch(FileUtilsExcep&)
+	{
+	}
+}
+
 
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
+
+
+	//========================= Test toPlatformSlashes() =========================
+#if defined(_WIN32)
+	testAssert(toPlatformSlashes("a/b/c/d") == "a\\b\\c\\d");
+	testAssert(toPlatformSlashes("a\\d") == "a\\d");
+#else
+	testAssert(toPlatformSlashes("a\\b\\c\\d") == "a/b/c/d");
+	testAssert(toPlatformSlashes("a/d") == "a/d");
+#endif
+
+
+	//========================= Test getRelativePath() =========================
+	{
+		testGetRelativePathWithConvertedSlashes("c:/a/b/c/d", "c:/a/b/e/f/g", "../../e/f/g");
+		testGetRelativePathWithConvertedSlashes("c:/a/b/c", "c:/a/b/e/f/g", "../e/f/g");
+		testGetRelativePathWithConvertedSlashes("c:/a/b", "c:/a/b/e/f/g", "e/f/g");
+		testGetRelativePathWithConvertedSlashes("/a/b/c", "/a/b/e", "../e");
+		testGetRelativePathWithConvertedSlashes("/", "/a/b", "a/b");
+		testGetRelativePathWithConvertedSlashes("/", "/a", "a");
+		testGetRelativePathWithConvertedSlashes("/a", "/b", "../b");
+
+		testGetRelativePathExpectedFailure("/a/b/c", "/a/b/c");
+
+		testGetRelativePathExpectedFailure("", "/a/b/c"); // first arg can't be empty.
+		//testGetRelativePathWithConvertedSlashes("/a/b/c", "", "");
+		//testGetRelativePathExpectedFailure("", ""); // second arg can't be empty.
+
+		testGetRelativePathWithConvertedSlashes("c:/a/b/", "c:/a/b/e/f/g", "e/f/g"); // Test with dir path having extra trailing slash.
+
+		// When the second arg is already a relative path, it should just be returned directly.
+		testGetRelativePathWithConvertedSlashes("c:/a/b", "e/f/g", "e/f/g");
+		testGetRelativePathWithConvertedSlashes("c:/a/b", "e", "e");
+
+#if defined(_WIN32)
+		// Test with a mix of backwards and forward slashes.
+		testGetRelativePath("D:/indigo/trunk/testscenes", "D:/indigo/trunk/testscenes/dof_test_saved_meshes\\mesh_10057096803622018655.igmesh", "dof_test_saved_meshes\\mesh_10057096803622018655.igmesh");
+
+		// Test with different path roots, This should result in a failure (exception thrown from getRelativePath)
+		testGetRelativePathExpectedFailure("c:/a/b/", "Z:/a/b/e/f/g");
+#endif
+	}
+
 
 	//========================= Test writeEntireFileAtomically() ================================
 
