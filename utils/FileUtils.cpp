@@ -46,6 +46,16 @@ const char PLATFORM_DIR_SEPARATOR_CHAR = '/';
 #endif
 
 
+static inline bool OSTreatsAsDirSeparator(char c)
+{
+#if defined(_WIN32)
+	return c == '\\' || c == '/';
+#else
+	return c == '/';
+#endif
+}
+
+
 const std::string join(const std::string& dirpath, const std::string& filename)
 {
 	if(dirpath == "")
@@ -136,33 +146,23 @@ void createDirIfDoesNotExist(const std::string& dirname)
 const std::string getDirectory(const std::string& pathname)
 {
 	const int pathname_size = (int)pathname.size();
-	if(pathname_size == 0)
-		return "";
 
 	// Walk backwards from end of string until we hit a slash.
 	for(int i=pathname_size-1; i >= 0; --i)
-		if(pathname[i] == '/' || pathname[i] == '\\')
+		if(OSTreatsAsDirSeparator(pathname[i]))
 			return pathname.substr(0, i);
 
 	return "";
-
-	//const std::string path = toPlatformSlashes(pathname_);
-	//const std::string::size_type lastslashpos = path.find_last_of(PLATFORM_DIR_SEPARATOR_CHAR);
-	//if(lastslashpos == std::string::npos)
-	//	return "";
-	//return path.substr(0, lastslashpos);
 }
 
 
 const std::string getFilename(const std::string& pathname)
 {
 	const int pathname_size = (int)pathname.size();
-	if(pathname_size == 0)
-		return "";
 
 	// Walk backwards from end of string until we hit a slash.
 	for(int i=pathname_size-1; i >= 0; --i)
-		if(pathname[i] == '/' || pathname[i] == '\\')
+		if(OSTreatsAsDirSeparator(pathname[i]))
 			return pathname.substr(i + 1);
 
 	// If there were no slashes, just return whole path.
@@ -820,19 +820,7 @@ bool isPathAbsolute(const std::string& p)
 }
 
 
-
-static inline bool OSTreatsAsDirSeparator(char c)
-{
-#if defined(_WIN32)
-	return c == '\\' || c == '/';
-#else
-	return c == '/';
-#endif
-}
-
-
 /*
-
 Returns a path to path_b that is relative to dir_path.
 If path_b is already relative, it just returns path_b.
 
@@ -894,17 +882,16 @@ FILE* openFile(const std::string& pathname, const std::string& openmode)
 }
 
 
-// remove non alphanumeric characters etc..
+// Remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name)
 {
-	//std::string r(name.size(), ' ');
 	std::string r;
 	for(unsigned int i=0; i<name.size(); ++i)
 	{
 		if(::isAlphaNumeric(name[i]) || name[i] == ' ' || name[i] == '_' || name[i] == '.' || name[i] == '(' || name[i] == ')' || name[i] == '-')
 			r.push_back(name[i]);
 		else
-			r += "_" + int32ToString(r[i]); //r[i] = '_' + ;
+			r += "_" + int32ToString(r[i]);
 	}
 
 	return r;
@@ -1282,20 +1269,23 @@ void doUnitTests()
 	try
 	{
 		testAssert(getDirectory("testfiles/teapot.obj") == "testfiles");
-		testAssert(getDirectory("testfiles\\teapot.obj") == "testfiles");
 
 		testAssert(getDirectory("a/b/c") == "a/b");
-		testAssert(getDirectory("a\\b\\c") == "a\\b");
-
-		testAssert(getDirectory("a\\b/c") == "a\\b");
-		testAssert(getDirectory("a/b\\c") == "a/b");
-
+		
 		testAssert(getDirectory("teapot.obj") == "");
 		testAssert(getDirectory("") == "");
 		testAssert(getDirectory("testfiles/") == "testfiles");
-		testAssert(getDirectory("testfiles\\") == "testfiles");
+
 		testAssert(getDirectory("/") == "");
+		
+#if defined(_WIN32)
+		testAssert(getDirectory("testfiles\\teapot.obj") == "testfiles");
+		testAssert(getDirectory("a\\b\\c") == "a\\b");
+		testAssert(getDirectory("a\\b/c") == "a\\b");
+		testAssert(getDirectory("a/b\\c") == "a/b");
+		testAssert(getDirectory("testfiles\\") == "testfiles");
 		testAssert(getDirectory("\\") == "");
+#endif
 	}
 	catch(FileUtilsExcep& e)
 	{
@@ -1307,14 +1297,18 @@ void doUnitTests()
 	try
 	{
 		testAssert(getFilename("testfiles/teapot.obj") == "teapot.obj");
-		testAssert(getFilename("testfiles\\teapot.obj") == "teapot.obj");
-
+		
 		testAssert(getFilename("teapot.obj") == "teapot.obj");
 		testAssert(getFilename("") == "");
 		testAssert(getFilename("testfiles/") == "");
-		testAssert(getFilename("testfiles\\") == "");
+		
 		testAssert(getFilename("/") == "");
+
+#if defined(_WIN32)
+		testAssert(getFilename("testfiles\\teapot.obj") == "teapot.obj");
+		testAssert(getFilename("testfiles\\") == "");
 		testAssert(getFilename("\\") == "");
+#endif
 	}
 	catch(FileUtilsExcep& e)
 	{

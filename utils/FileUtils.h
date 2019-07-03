@@ -1,8 +1,7 @@
 /*=====================================================================
 FileUtils.h
 -----------
-File created by ClassTemplate on Sat Mar 01 18:05:09 2003
-Copyright Glare Technologies Limited 2014 - 
+Copyright Glare Technologies Limited 2019 - 
 =====================================================================*/
 #pragma once
 
@@ -39,12 +38,12 @@ void createDirsForPath(const std::string& path);
 
 void createDirIfDoesNotExist(const std::string& dirname);
 
-
 // Gets the directory of a file from the pathname.
 // If the pathname is just the filename, returns ""
 // Path will *not* have a trailing slash
 const std::string getDirectory(const std::string& pathname);
 
+// Gets the filename of a file from the path.
 const std::string getFilename(const std::string& pathname); // throws FileUtilsExcep
 
 // Returns only the filenames, not the full paths
@@ -107,7 +106,7 @@ void deleteEmptyDirectory(const std::string& path);
 void deleteDirectoryRecursive(const std::string& path);
 void deleteFilesInDir(const std::string& path); // Delete just the files, not directories, in the given dir.
 
-
+// Only implemented on Windows.
 uint64 getFileCreatedTime(const std::string& filename);
 
 // NOTE: this function call is rather vulnerable to handle leaks.  Prefer to use the FileHandle class instead.
