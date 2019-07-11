@@ -755,6 +755,35 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Planef>& section_pl
 }
 
 
+Reference<RayMesh> RayMesh::getCopy() const
+{
+	Reference<RayMesh> new_mesh = new RayMesh(
+		name,
+		enable_shading_normals,
+		max_num_subdivisions,
+		subdivide_pixel_threshold,
+		subdivision_smoothing,
+		subdivide_curvature_threshold,
+		view_dependent_subdivision,
+		displacement_error_threshold
+	);
+
+	new_mesh->vertices = vertices;
+	new_mesh->triangles = triangles;
+	new_mesh->quads = quads;
+	new_mesh->bounding_radius = bounding_radius;
+	new_mesh->num_uv_sets = num_uv_sets;
+	new_mesh->uvs = uvs;
+	new_mesh->mean_curvature = mean_curvature;
+
+	new_mesh->num_smoothings = num_smoothings;
+	new_mesh->planar = planar;
+	new_mesh->planar_normal = planar_normal;
+
+	return new_mesh;
+}
+
+
 static inline const Vec4f triGeometricNormal(const RayMesh::VertexVectorType& verts, unsigned int v0, unsigned int v1, unsigned int v2)
 {
 	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");

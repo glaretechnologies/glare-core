@@ -126,6 +126,7 @@ public:
 	virtual bool isPlanar(Vec4f& normal_out) const = 0; // Does the whole geometry lie on a single plane?
 
 	void incrementObjectUsageCount() { object_usage_count++; }
+	void decrementObjectUsageCount() { object_usage_count--; }
 	unsigned int getObjectUsageCount() const { return object_usage_count; }
 
 	inline bool areSubElementsCurved() const { return sub_elements_curved; } // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?

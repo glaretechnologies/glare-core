@@ -193,6 +193,7 @@ public:
 	//////////////////////////////////////////////////////////
 
 	Reference<RayMesh> getClippedCopy(const std::vector<Planef>& section_planes_os) const;
+	Reference<RayMesh> getCopy() const;
 
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
@@ -258,6 +259,8 @@ public:
 	bool isUsingShadingNormals() const { return enable_shading_normals; }
 
 	unsigned int getMaxNumSubdivisions() const { return max_num_subdivisions; }
+
+	bool viewDependentSubdivision() const { return view_dependent_subdivision; }
 
 	void setVertexShadingNormalsProvided(bool vertex_shading_normals_provided_) { vertex_shading_normals_provided = vertex_shading_normals_provided_; }
 
