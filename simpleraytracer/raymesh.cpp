@@ -70,7 +70,8 @@ RayMesh::RayMesh(const std::string& name_, bool enable_shading_normals_, unsigne
 	subdivide_curvature_threshold(subdivide_curvature_threshold_),
 	subdivision_smoothing(subdivision_smoothing_),
 	view_dependent_subdivision(view_dependent_subdivision_),
-	displacement_error_threshold(displacement_error_threshold_)
+	displacement_error_threshold(displacement_error_threshold_),
+	num_smoothings(2)
 {
 	subdivide_and_displace_done = false;
 	vertex_shading_normals_provided = false;
@@ -564,7 +565,7 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Planef>& section_pl
 		displacement_error_threshold
 	);
 
-	// new_mesh->matname_to_index_map = matname_to_index_map;
+	new_mesh->num_smoothings = num_smoothings;
 
 	// Copy the vertices
 	new_mesh->vertices = vertices;
