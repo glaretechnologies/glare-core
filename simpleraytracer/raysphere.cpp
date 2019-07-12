@@ -18,8 +18,8 @@ Copyright Glare Technologies Limited 2013 -
 
 RaySphere::RaySphere(const Vec4f& centre_, double radius_)
 :	Geometry(
-		true, // sub-elements curved
-		false // is camera
+		GeometryType_RaySphere,
+		true // sub-elements curved
 	),
 	centre(centre_)
 {

@@ -51,7 +51,16 @@ Interface that represents the shape of an object
 class Geometry : public RefCounted, public UVCoordEvaluator
 {
 public:
-	Geometry(bool sub_elements_curved_, bool is_camera_) : object_usage_count(0), sub_elements_curved(sub_elements_curved_), is_camera(is_camera_) {}
+	enum GeometryType
+	{
+		GeometryType_DisplacedQuad,
+		GeometryType_RectangleGeom,
+		GeometryType_Camera,
+		GeometryType_RayMesh,
+		GeometryType_RaySphere
+	};
+
+	Geometry(GeometryType geom_type_, bool sub_elements_curved_) : object_usage_count(0), geom_type(geom_type_), sub_elements_curved(sub_elements_curved_) {}
 	virtual ~Geometry(){}
 
 
@@ -131,15 +140,16 @@ public:
 
 	inline bool areSubElementsCurved() const { return sub_elements_curved; } // For testing for self intersections.  Can a ray launched from a sub-element hit the same sub-element at a decent distance?
 
-	inline bool isCamera() const { return is_camera; }
+	inline GeometryType getType() const { return geom_type; }
+	inline bool isCamera() const { return geom_type == GeometryType_Camera; }
 
 
 	std::vector<bool> mat_group_opaque; // For each material group of the mesh, are all materials from all instances fully opaque (not delta transmission)?
 
 private:
 	unsigned int object_usage_count; // Number of objects that use this geometry.
+	GeometryType geom_type;
 	bool sub_elements_curved;
-	bool is_camera;
 };
 
 
