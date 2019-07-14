@@ -1,7 +1,7 @@
 /*=====================================================================
 HTTPClient.h
 ------------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2019 -
 Generated at 2018-02-01 23:26:27 +1300
 =====================================================================*/
 #pragma once
@@ -16,13 +16,14 @@ Generated at 2018-02-01 23:26:27 +1300
 HTTPClient
 ----------
 Downloads a file with HTTP.
+Can do HTTPS as well.
+Can handle redirects.
 =====================================================================*/
 class HTTPClient
 {
 public:
 	HTTPClient();
 	~HTTPClient();
-
 
 	struct ResponseInfo
 	{
@@ -36,7 +37,11 @@ public:
 	static void test();
 
 private:
-	void handleResponse(size_t request_header_size, std::string& data_out, ResponseInfo& file_info);
+	ResponseInfo doDownloadFile(const std::string& url, int num_redirects_done, std::string& data_out); // Throws Indigo::Exception on failure.
+
+	size_t readUntilCRLF(size_t scan_start_index);
+	size_t readUntilCRLFCRLF(size_t scan_start_index);
+	HTTPClient::ResponseInfo handleResponse(size_t request_header_size, int num_redirects_done, std::string& data_out);
 	std::vector<char> socket_buffer;
 
 	SocketInterfaceRef socket;
