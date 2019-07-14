@@ -40,7 +40,7 @@ const std::string& JSONNode::getStringValue() const
 	if(type == JSONNode::Type_String)
 		return string_v;
 	else
-		throw Indigo::Exception("Expected type String.");
+		throw Indigo::Exception("Expected type String - type was " + typeString(type));
 }
 
 
@@ -59,6 +59,15 @@ double JSONNode::getDoubleValue() const
 		return this->value.double_v;
 	else
 		throw Indigo::Exception("Expected type Number.");
+}
+
+
+bool JSONNode::getBoolValue() const
+{
+	if(type == JSONNode::Type_Boolean)
+		return this->value.bool_v;
+	else
+		throw Indigo::Exception("Expected type Boolean.");
 }
 
 
@@ -114,6 +123,19 @@ double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, con
 }
 
 
+bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view& name, bool default_val) const
+{
+	if(type != JSONNode::Type_Object)
+		throw Indigo::Exception("Expected type object.");
+
+	for(size_t i = 0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name)
+			return parser.nodes[name_val_pairs[i].value_node_index].getBoolValue();
+
+	return default_val;
+}
+
+
 const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
@@ -133,7 +155,7 @@ const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& 
 		throw Indigo::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
+		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
 			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
 
 	return default_val.to_string();
@@ -173,6 +195,26 @@ const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_v
 		}
 
 	throw Indigo::Exception("Failed to find child name/value pair with name " + name + ".");
+}
+
+
+// Parse the values from an array node like [1.0, 2.0, 3.0]
+void JSONNode::parseDoubleArrayValues(const JSONParser& parser, size_t expected_num_elems, double* values_out) const
+{
+	if(type != JSONNode::Type_Array)
+		throw Indigo::Exception("Expected type object.");
+
+	if(child_indices.size() != expected_num_elems)
+		throw Indigo::Exception("Array had wrong size.");
+
+	for(size_t z=0; z<child_indices.size(); ++z)
+	{
+		const JSONNode& child_node = parser.nodes[child_indices[z]];
+		if(child_node.type != JSONNode::Type_Number)
+			throw Indigo::Exception("Expected number.");
+
+		values_out[z] = child_node.value.double_v;
+	}
 }
 
 

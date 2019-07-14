@@ -40,6 +40,7 @@ struct JSONNode
 	
 	size_t getUIntValue() const;
 	double getDoubleValue() const;
+	bool getBoolValue() const;
 
 	// For objects:
 	bool hasChild(const JSONParser& parser, const string_view& name) const;
@@ -49,10 +50,15 @@ struct JSONNode
 
 	double getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view& name, double default_val) const;
 
+	bool getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view& name, bool default_val) const;
+
 	const std::string& getChildStringValue(const JSONParser& parser, const string_view& name) const;
 	const std::string getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view& name, const string_view& default_val) const;
 	const JSONNode& getChildObject(const JSONParser& parser, const string_view& name) const;
 	const JSONNode& getChildArray(const JSONParser& parser, const string_view& name) const;
+
+	// Parse the values from an array node like [1.0, 2.0, 3.0]
+	void parseDoubleArrayValues(const JSONParser& parser, size_t expected_num_elems, double* values_out) const;
 
 	static const std::string typeString(const Type type);
 
