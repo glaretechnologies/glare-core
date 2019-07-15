@@ -32,8 +32,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #if DENOISE_SUPPORT
 #include <OpenImageDenoise/oidn.h>
-#include "../graphics/PNGDecoder.h"
-#include "../graphics/EXRDecoder.h"
+//#include "../graphics/EXRDecoder.h" // Just for debugging
 #endif
 
 /*
