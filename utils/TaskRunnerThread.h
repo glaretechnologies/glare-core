@@ -7,7 +7,7 @@ Generated at 2011-10-05 22:17:09 +0100
 #pragma once
 
 
-#include "MessageableThread.h"
+#include "MyThread.h"
 
 
 namespace Indigo

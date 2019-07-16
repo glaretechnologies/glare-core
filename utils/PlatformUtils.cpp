@@ -8,10 +8,7 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 
 
 #if defined(_WIN32) || defined(_WIN64)
-	// Stop windows.h from defining the min() and max() macros
-	#define NOMINMAX
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
+	#include "IncludeWindows.h"
 	#include <Iphlpapi.h>
 	//#define SECURITY_WIN32 1
 	//#include <Security.h>

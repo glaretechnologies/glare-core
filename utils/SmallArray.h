@@ -63,7 +63,7 @@ private:
 	T* e;
 	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
 	// We can't just use an array of T here as then the T objects will need to be constructed.  Instead we just want space for N T objects.
-	AlignedCharArray<AlignOf<T>::Alignment, sizeof(T) * N> direct;
+	glare::AlignedCharArray<glare::AlignOf<T>::Alignment, sizeof(T) * N> direct;
 };
 
 

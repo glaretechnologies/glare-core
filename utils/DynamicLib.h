@@ -8,10 +8,7 @@ Generated at Thu Jan 26 17:08:23 +0000 2012
 
 #include "Exception.h"
 #if defined(_WIN32)
-// Stop windows.h from defining the min() and max() macros
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "IncludeWindows.h"
 #include <delayimp.h>
 #elif defined(__linux__) || defined(OSX)
 #include <dlfcn.h>

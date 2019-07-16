@@ -8,12 +8,7 @@ File created by ClassTemplate on Wed Jul 24 13:24:30 2002
 
 
 #if defined(_WIN32)
-// Stop windows.h from defining the min() and max() macros
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "IncludeWindows.h"
 #include <process.h>
 #else
 #include <pthread.h>

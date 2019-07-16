@@ -364,7 +364,7 @@ template <class T>
 void CircularBuffer<T>::increaseSize()
 {
 	const size_t new_data_size = myMax<size_t>(4, data_size * 2);
-	T* new_data = (T*)SSE::alignedMalloc(sizeof(T) * new_data_size, AlignOf<T>::Alignment);
+	T* new_data = (T*)SSE::alignedMalloc(sizeof(T) * new_data_size, glare::AlignOf<T>::Alignment);
 
 	// Copy-construct new objects from existing objects:
 	// Copy data[begin] to data[first_segment_end], to new_data[begin] to new_data[first_segment_end]

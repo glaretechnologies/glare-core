@@ -45,6 +45,9 @@ struct TestAligned16
 };
 
 
+using namespace glare;
+
+
 void test()
 {
 	conPrint("SmallArrayTest()");

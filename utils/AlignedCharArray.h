@@ -17,12 +17,16 @@ All of this gumpf is required since MSVC can't handle
 GLARE_ALIGN(GLARE_ALIGNMENT(T)) in template parameters.
 ======================================================================================*/
 
+namespace glare
+{
+
+
 template <typename T>
 struct AlignmentCalcImpl {
-  char x;
-  T t;
+	char x;
+	T t;
 private:
-  AlignmentCalcImpl() {} // Never instantiate.
+	AlignmentCalcImpl() {} // Never instantiate.
 };
 
 /// AlignOf - A templated class that contains an enum value representing
@@ -34,7 +38,7 @@ private:
 ///  compile-time constant (e.g., for template instantiation).
 template <typename T>
 struct AlignOf {
-  enum { Alignment = static_cast<unsigned int>(sizeof(AlignmentCalcImpl<T>) - sizeof(T)) };
+	enum { Alignment = static_cast<unsigned int>(sizeof(AlignmentCalcImpl<T>) - sizeof(T)) };
 };
 
 
@@ -50,3 +54,6 @@ template <size_t Size> struct AlignedCharArray<16,  Size> { GLARE_ALIGN(16)  cha
 template <size_t Size> struct AlignedCharArray<32,  Size> { GLARE_ALIGN(32)  char buf[Size]; };
 template <size_t Size> struct AlignedCharArray<64,  Size> { GLARE_ALIGN(64)  char buf[Size]; };
 template <size_t Size> struct AlignedCharArray<128, Size> { GLARE_ALIGN(128) char buf[Size]; };
+
+
+} // end namespace glare
