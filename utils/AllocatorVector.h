@@ -664,4 +664,4 @@ void AllocatorVector<T, alignment>::free(T* ptr)
 }
 
 
-} //end namespace js
+} // end namespace glare
