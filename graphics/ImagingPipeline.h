@@ -15,8 +15,6 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include <vector>
 
 
-#define DENOISE_SUPPORT 1
-
 
 class PostProDiffraction;
 class Image4f;
