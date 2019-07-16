@@ -842,7 +842,7 @@ const std::string getRelativePath(const std::string& dir_path, const std::string
 	// Get length of prefix for both strings that is the same.
 	const size_t min_len = myMin(dir_path.size(), path_b.size());
 	size_t pre_len = 0;
-	for(; pre_len < min_len && (dir_path[pre_len] == path_b[pre_len]); ++pre_len)
+	for(; pre_len < min_len && ((dir_path[pre_len] == path_b[pre_len]) || (OSTreatsAsDirSeparator(dir_path[pre_len]) && OSTreatsAsDirSeparator(path_b[pre_len]))); ++pre_len)
 	{}
 
 	if(pre_len == 0)
@@ -1176,6 +1176,9 @@ void doUnitTests()
 
 	//========================= Test getRelativePath() =========================
 	{
+		testGetRelativePathWithConvertedSlashes("z:/a/b/c", "z:/d/e/f/g", "../../../d/e/f/g");
+		testGetRelativePathWithConvertedSlashes("z:/a/b", "z:/d/e/f/g", "../../d/e/f/g");
+		testGetRelativePathWithConvertedSlashes("z:/a/b/c/d", "z:/d/e/f/g", "../../../../d/e/f/g");
 		testGetRelativePathWithConvertedSlashes("c:/a/b/c/d", "c:/a/b/e/f/g", "../../e/f/g");
 		testGetRelativePathWithConvertedSlashes("c:/a/b/c", "c:/a/b/e/f/g", "../e/f/g");
 		testGetRelativePathWithConvertedSlashes("c:/a/b", "c:/a/b/e/f/g", "e/f/g");
@@ -1197,6 +1200,9 @@ void doUnitTests()
 		testGetRelativePathWithConvertedSlashes("c:/a/b", "e", "e");
 
 #if defined(_WIN32)
+
+		testGetRelativePath("D:/indigo/trunk/testscenes", "D:\\indigo\\trunk\\testscenes\\ColorChecker_sRGB_from_Ref.jpg", "ColorChecker_sRGB_from_Ref.jpg");
+
 		// Test with a mix of backwards and forward slashes.
 		testGetRelativePath("D:/indigo/trunk/testscenes", "D:/indigo/trunk/testscenes/dof_test_saved_meshes\\mesh_10057096803622018655.igmesh", "dof_test_saved_meshes\\mesh_10057096803622018655.igmesh");
 
