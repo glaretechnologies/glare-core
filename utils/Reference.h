@@ -3,7 +3,9 @@ Reference.h
 -----------
 Copyright Glare Technologies Limited 2019 - 
 =====================================================================*/
-#pragma once
+// Not using pragma once since we copy this file and pragma once is path based
+#ifndef REFERENCE_H
+#define REFERENCE_H
 
 
 #include "RefCounted.h"
@@ -265,3 +267,5 @@ public:
 private:
 	T* ob;
 };
+
+#endif //REFERENCE_H

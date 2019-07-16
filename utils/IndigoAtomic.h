@@ -1,9 +1,11 @@
 /*=====================================================================
-IndigoImageMap.h
-----------------
+IndigoAtomic.h
+--------------
 Copyright Glare Technologies Limited 2019
 =====================================================================*/
-#pragma once
+// Not using pragma once since we copy this file and pragma once is path based
+#ifndef INDIGOATOMIC_H
+#define INDIGOATOMIC_H
 
 
 #include "Platform.h"
@@ -137,3 +139,5 @@ inline glare_atomic_int IndigoAtomic::operator -= (glare_atomic_int x)
 {
 	return atomicAdd(&val, -x);
 }
+
+#endif //INDIGOATOMIC_H
