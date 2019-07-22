@@ -1387,7 +1387,7 @@ void runPipeline(
 				scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RT"); // generic ray tracing filter
 			}
 
-			// Commiting the filter parameters takes quite a while, so avoid if params are still valid.
+			// Committing the filter parameters takes quite a while, so avoid if params are still valid.
 			const bool last_commit_valid =
 				(scratch_state.last_committed_colour_buf == &ldr_buffer_out) &&
 				(scratch_state.last_committed_albedo_im == &scratch_state.albedo_im) &&
@@ -1400,7 +1400,7 @@ void runPipeline(
 				oidnSetSharedFilterImage(scratch_state.filter, "color", &ldr_buffer_out.getPixel(0), OIDN_FORMAT_FLOAT3, ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight(), 0,
 					/*bytePixelStride=*/sizeof(float)*4, 0);
 
-				if(render_channels.albedo.offset >= 0) // If albedo render channel is enabled:
+				if(render_channels.albedo.isEnabled())
 				{
 					// Make scaled copy of albedo buffer
 					scratch_state.albedo_im.resizeNoCopy(ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight());
@@ -1408,8 +1408,6 @@ void runPipeline(
 					closure.channel = &render_channels.albedo;
 					closure.ldr_buffer_out = &scratch_state.albedo_im;
 					task_manager.runTasks(scratch_state.tasks);
-
-					// EXRDecoder::saveImageToEXR(scratch_state.albedo_im, /*save_alpha_channel=*/false, "albedo_im.exr", "main", EXRDecoder::SaveOptions());
 
 					oidnSetSharedFilterImage(scratch_state.filter, "albedo",
 						(void*)(&scratch_state.albedo_im.getPixel(0)),
@@ -1422,7 +1420,7 @@ void runPipeline(
 					);
 				}
 
-				if(render_channels.normals.offset >= 0) // If normals render channel is enabled:
+				if(render_channels.normals.isEnabled())
 				{
 					// Make scaled copy of normals buffer
 					scratch_state.normals_im.resizeNoCopy(ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight());
@@ -1430,8 +1428,6 @@ void runPipeline(
 					closure.channel = &render_channels.normals;
 					closure.ldr_buffer_out = &scratch_state.normals_im;
 					task_manager.runTasks(scratch_state.tasks);
-
-					// EXRDecoder::saveImageToEXR(scratch_state.normals_im, /*save_alpha_channel=*/false, "normals_im.exr", "main", EXRDecoder::SaveOptions());
 
 					oidnSetSharedFilterImage(scratch_state.filter, "normal",
 						(void*)(&scratch_state.normals_im.getPixel(0)),
@@ -1459,7 +1455,33 @@ void runPipeline(
 				scratch_state.last_committed_w = ldr_buffer_out.getWidth();
 				scratch_state.last_committed_h = ldr_buffer_out.getHeight();
 			}
+			else // Else last commit was valid, still need to update our albedo and normals buffer though.
+			{
+				//Timer timer;
+				if(render_channels.albedo.isEnabled())
+				{
+					// Make scaled copy of albedo buffer
+					assert(scratch_state.albedo_im.getWidth() == ldr_buffer_out.getWidth() && scratch_state.albedo_im.getHeight() == ldr_buffer_out.getHeight());
 
+					closure.channel = &render_channels.albedo;
+					closure.ldr_buffer_out = &scratch_state.albedo_im;
+					task_manager.runTasks(scratch_state.tasks);
+				}
+
+				if(render_channels.normals.isEnabled())
+				{
+					// Make scaled copy of normals buffer
+					assert(scratch_state.normals_im.getWidth() == ldr_buffer_out.getWidth() && scratch_state.normals_im.getHeight() == ldr_buffer_out.getHeight());
+
+					closure.channel = &render_channels.normals;
+					closure.ldr_buffer_out = &scratch_state.normals_im;
+					task_manager.runTasks(scratch_state.tasks);
+				}
+				//conPrint("Downsizing/copying albedo and normals channel took " + timer.elapsedString());
+			}
+
+			//EXRDecoder::saveImageToEXR(scratch_state.albedo_im, /*save_alpha_channel=*/false, "albedo_im.exr", "main", EXRDecoder::SaveOptions());
+			//EXRDecoder::saveImageToEXR(scratch_state.normals_im, /*save_alpha_channel=*/false, "normals_im.exr", "main", EXRDecoder::SaveOptions());
 
 			// Filter the image
 			Timer timer;
