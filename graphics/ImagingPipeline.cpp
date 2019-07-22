@@ -12,7 +12,6 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
-#include "../indigo/SingleFreq.h"
 #include "../graphics/ImageFilter.h"
 #include "../graphics/Image4f.h"
 #include "../graphics/bitmap.h"
