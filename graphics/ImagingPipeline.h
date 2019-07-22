@@ -98,7 +98,8 @@ void runPipeline(
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
 	int subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
-	bool do_tonemapping = true // Should we actually tone-map?  Can be set to false for saving untonemapped EXRs.
+	bool do_tonemapping = true, // Should we actually tone-map?  Can be set to false for saving untonemapped EXRs.
+	bool allow_denoising = false // Should we run the denoiser, if appropriate?
 );
 
 

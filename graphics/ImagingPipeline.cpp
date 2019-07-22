@@ -1207,7 +1207,8 @@ void runPipeline(
 	int margin_ssf1,
 	Indigo::TaskManager& task_manager,
 	int subres_factor,
-	bool do_tonemapping
+	bool do_tonemapping,
+	bool allow_denoising
 	)
 {
 	ScopeProfiler _scope("ImagingPipeline::runPipeline", 1);
@@ -1369,7 +1370,7 @@ void runPipeline(
 		
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 
-		const bool do_denoising = closure.renderer_settings->denoise && ((channel == NULL) || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
+		const bool do_denoising = allow_denoising && closure.renderer_settings->denoise && ((channel == NULL) || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
 
 #if DENOISE_SUPPORT
 		if(do_denoising)
