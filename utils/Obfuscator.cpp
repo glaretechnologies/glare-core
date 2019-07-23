@@ -317,6 +317,7 @@ void Obfuscator::addOpenCLKeywords()
 		"meanCurvature_FullHitInfo_",
 		"mod_int__int_",
 		"mod_float__float_",
+		"print_vec2_",
 		"print_vec4_",
 
 		/*
