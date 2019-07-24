@@ -84,7 +84,7 @@ private:
 
 	T* e; // Elements
 	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
-	size_t capacity_; // This is the number of elements we have roon for in e.
+	size_t capacity_; // This is the number of elements we have room for in e.
 	Reference<glare::Allocator> allocator;
 };
 
