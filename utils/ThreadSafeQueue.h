@@ -89,6 +89,7 @@ public:
 	iterator begin() { return queue.beginIt(); }
 	iterator end() { return queue.endIt(); }
 
+	void setAllocator(const Reference<glare::Allocator>& al) { queue.setAllocator(al); }
 private:
 	CircularBuffer<T> queue;
 
