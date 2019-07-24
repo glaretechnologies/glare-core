@@ -24,6 +24,29 @@ struct TestCircBufferStruct : public RefCounted
 };
 
 
+
+class CircBufTestAllocator : public glare::Allocator
+{
+public:
+	virtual void* alloc(size_t size, size_t alignment)
+	{
+		(*i)++;
+		return SSE::alignedMalloc(size, alignment);
+	}
+
+	virtual void free(void* ptr)
+	{
+		if(ptr)
+		{
+			SSE::alignedFree(ptr);
+			(*i)--;
+		}
+	}
+
+	int* i;
+};
+
+
 void circularBufferTest()
 {
 	conPrint("circularBufferTest()");
@@ -456,6 +479,24 @@ void circularBufferTest()
 		}
 
 		conPrint("sum: " + toString(sum));
+	}
+
+
+	//========================= Test with allocator =========================
+	{
+		int i = 0;
+		{
+			CircularBuffer<int> v;
+
+			Reference<CircBufTestAllocator> al = new CircBufTestAllocator();
+			al->i = &i;
+			v.setAllocator(al);
+
+			v.push_back(1);
+			v.push_back(2);
+			v.push_back(3);
+		}
+		testAssert(i == 0);
 	}
 
 	conPrint("circularBufferTest() done.");

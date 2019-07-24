@@ -7,6 +7,8 @@ Generated at 2013-05-16 16:42:23 +0100
 #pragma once
 
 
+#include "GlareAllocator.h"
+#include "Reference.h"
 #include "AlignedCharArray.h"
 #include "../maths/mathstypes.h"
 #include "../maths/SSE.h"
@@ -65,10 +67,15 @@ public:
 	friend void circularBufferTest();
 	friend class CircularBufferIterator<T>;
 
+	void setAllocator(const Reference<glare::Allocator>& al) { allocator = al; }
+	Reference<glare::Allocator>& getAllocator() { return allocator; }
+
 private:
 	INDIGO_DISABLE_COPY(CircularBuffer)
 	inline void increaseSize();
 	inline void invariant();
+	inline T* alloc(size_t size, size_t alignment);
+	inline void free(T* ptr);
 	
 
 	size_t begin; // Index of first item in buffer
@@ -76,6 +83,7 @@ private:
 	size_t num_items; // Number of items in buffer
 	T* data; // Storage
 	size_t data_size; // Size/capacity in number of elements of data.
+	Reference<glare::Allocator> allocator;
 };
 
 
@@ -163,7 +171,7 @@ CircularBuffer<T>::~CircularBuffer()
 		for(size_t i=0; i<end; ++i)
 			data[i].~T();
 
-	SSE::alignedFree(data);
+	free(data);
 }
 
 
@@ -287,7 +295,7 @@ void CircularBuffer<T>::clearAndFreeMem()
 
 	clear();
 
-	SSE::alignedFree(data);
+	free(data);
 	data = 0;
 	data_size = 0;
 
@@ -364,7 +372,7 @@ template <class T>
 void CircularBuffer<T>::increaseSize()
 {
 	const size_t new_data_size = myMax<size_t>(4, data_size * 2);
-	T* new_data = (T*)SSE::alignedMalloc(sizeof(T) * new_data_size, glare::AlignOf<T>::Alignment);
+	T* new_data = alloc(sizeof(T) * new_data_size, glare::AlignOf<T>::Alignment);
 
 	// Copy-construct new objects from existing objects:
 	// Copy data[begin] to data[first_segment_end], to new_data[begin] to new_data[first_segment_end]
@@ -392,7 +400,7 @@ void CircularBuffer<T>::increaseSize()
 			for(size_t i=0; i<end; ++i)
 				data[i].~T();
 
-		SSE::alignedFree(data);
+		free(data);
 	}
 	data = new_data;
 	end = new_end;
@@ -400,4 +408,24 @@ void CircularBuffer<T>::increaseSize()
 
 	assert(end == begin + num_items);
 	assert(end < data_size);
+}
+
+
+template <class T>
+T* CircularBuffer<T>::alloc(size_t size, size_t alignment)
+{
+	if(allocator.nonNull())
+		return (T*)allocator->alloc(size, alignment);
+	else
+		return (T*)SSE::alignedMalloc(size, alignment);
+}
+
+
+template <class T>
+void CircularBuffer<T>::free(T* ptr)
+{
+	if(allocator.nonNull())
+		allocator->free(ptr);
+	else
+		SSE::alignedFree(ptr);
 }
