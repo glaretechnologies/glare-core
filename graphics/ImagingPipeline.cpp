@@ -1498,7 +1498,7 @@ void runPipeline(
 	
 	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
 
-	// TEMP HACK: Chromatic abberation
+	// TEMP HACK: Chromatic aberration
 	/*Image temp;
 	ImageFilter::chromaticAberration(ldr_buffer_out, temp, 0.002f);
 	ldr_buffer_out = temp;
