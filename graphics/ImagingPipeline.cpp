@@ -1169,7 +1169,8 @@ public:
 
 RunPipelineScratchState::RunPipelineScratchState()
 #if DENOISE_SUPPORT
-:	filter(NULL), denoise_device(NULL), last_committed_colour_buf(NULL), last_committed_albedo_im(NULL), last_committed_normals_im(NULL), last_committed_w(0), last_committed_h(0)
+:	filter(NULL), denoise_device(NULL), last_committed_colour_buf(NULL), last_committed_albedo_im(NULL), last_committed_normals_im(NULL), last_committed_w(0), last_committed_h(0),
+	last_committed_albedo_enabled(false), last_committed_normals_enabled(false)
 #endif
 {}
 
@@ -1393,10 +1394,14 @@ void runPipeline(
 				(scratch_state.last_committed_albedo_im == &scratch_state.albedo_im) &&
 				(scratch_state.last_committed_normals_im == &scratch_state.normals_im) &&
 				(scratch_state.last_committed_w == ldr_buffer_out.getWidth()) &&
-				(scratch_state.last_committed_h == ldr_buffer_out.getHeight());
+				(scratch_state.last_committed_h == ldr_buffer_out.getHeight()) &&
+				(scratch_state.last_committed_albedo_enabled == render_channels.albedo.isEnabled()) &&
+				(scratch_state.last_committed_normals_enabled == render_channels.normals.isEnabled());
 
 			if(!last_commit_valid)
 			{
+				conPrint("Last commmit invalid, resetting denoise args.");
+
 				oidnSetSharedFilterImage(scratch_state.filter, "color", &ldr_buffer_out.getPixel(0), OIDN_FORMAT_FLOAT3, ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight(), 0,
 					/*bytePixelStride=*/sizeof(float)*4, 0);
 
@@ -1443,7 +1448,7 @@ void runPipeline(
 				oidnSetSharedFilterImage(scratch_state.filter, "output", &ldr_buffer_out.getPixel(0), OIDN_FORMAT_FLOAT3, ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight(), 0,
 					/*bytePixelStride=*/sizeof(float)*4, 0);
 
-				oidnSetFilter1b(scratch_state.filter, "hdr", true); // image is HDR
+				oidnSetFilter1b(scratch_state.filter, "hdr", false);
 
 				Timer timer;
 				oidnCommitFilter(scratch_state.filter);
@@ -1454,6 +1459,8 @@ void runPipeline(
 				scratch_state.last_committed_normals_im = &scratch_state.normals_im;
 				scratch_state.last_committed_w = ldr_buffer_out.getWidth();
 				scratch_state.last_committed_h = ldr_buffer_out.getHeight();
+				scratch_state.last_committed_albedo_enabled = render_channels.albedo.isEnabled();
+				scratch_state.last_committed_normals_enabled = render_channels.normals.isEnabled();
 			}
 			else // Else last commit was valid, still need to update our albedo and normals buffer though.
 			{

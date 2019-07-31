@@ -50,6 +50,8 @@ struct RunPipelineScratchState
 	Image4f* last_committed_normals_im;
 	size_t last_committed_w;
 	size_t last_committed_h;
+	bool last_committed_albedo_enabled;
+	bool last_committed_normals_enabled;
 
 	Image4f albedo_im;
 	Image4f normals_im;
