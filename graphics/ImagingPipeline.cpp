@@ -31,7 +31,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 
 #if DENOISE_SUPPORT
 #include <OpenImageDenoise/oidn.h>
-//#include "../graphics/EXRDecoder.h" // Just for debugging
+#include "../graphics/EXRDecoder.h"
 #endif
 
 /*
@@ -174,6 +174,12 @@ namespace ImagingPipeline
 const uint32 image_tile_size = 64;
 
 
+inline static Colour4f toColour4f(const Vec3f& v)
+{
+	return Colour4f(v.x, v.y, v.z, 0.f);
+}
+
+
 // Does the pixel at (x, y) lie in one or more of the given render regions?
 inline static bool pixelIsInARegion(ptrdiff_t x, ptrdiff_t y, const SmallArray<Rect2i, 8>& regions)
 {
@@ -197,13 +203,14 @@ Multithreaded using task manager.
 */
 struct SumBuffersTaskClosure
 {
-	SumBuffersTaskClosure(const ArrayRef<Vec3f>& layer_scales_, float image_scale_, float region_image_scale_, const RenderChannels& render_channels_, Image4f& buffer_out_)
-		: layer_scales(layer_scales_), image_scale(image_scale_), region_image_scale(region_image_scale_), render_channels(render_channels_), buffer_out(buffer_out_) {}
+	SumBuffersTaskClosure(const ArrayRef<Vec3f>& layer_scales_, float image_scale_, float region_image_scale_, const RenderChannels& render_channels_, const ChannelInfo* channel_, Image4f& buffer_out_)
+		: layer_scales(layer_scales_), image_scale(image_scale_), region_image_scale(region_image_scale_), render_channels(render_channels_), channel(channel_), buffer_out(buffer_out_) {}
 
 	const ArrayRef<Vec3f>& layer_scales;
 	float image_scale;
 	float region_image_scale;
 	const RenderChannels& render_channels; // Input image data
+	const ChannelInfo* channel; // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	Image4f& buffer_out;
 	int margin_ssf1;
 	int ssf;
@@ -222,16 +229,18 @@ public:
 	virtual void run(size_t thread_index)
 	{
 		// Build layer weights.  Layer weight = light layer value * image_scale.
-		SmallArray<Vec3f, 32> layer_weights       (closure.render_channels.layers.size());
-		SmallArray<Vec3f, 32> region_layer_weights(closure.render_channels.layers.size());
+		const float image_scale        = closure.image_scale;
+		const float region_image_scale = closure.region_image_scale;
+		SmallArray<Colour4f, 32> layer_weights       (closure.render_channels.layers.size());
+		SmallArray<Colour4f, 32> region_layer_weights(closure.render_channels.layers.size());
 		
 		for(size_t i=0; i<closure.render_channels.layers.size(); ++i)
 		{
-			layer_weights[i]        = closure.layer_scales[i] * closure.image_scale;
-			region_layer_weights[i] = closure.layer_scales[i] * closure.region_image_scale;
+			layer_weights[i]        = toColour4f(closure.layer_scales[i]) * closure.image_scale;
+			region_layer_weights[i] = toColour4f(closure.layer_scales[i]) * closure.region_image_scale;
 		}
 
-		const ptrdiff_t rr_margin   = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
+		const ptrdiff_t rr_margin = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
 
 		const ArrayRef<RenderRegion>& render_regions = *closure.render_regions;
 		SmallArray<Rect2i, 8> regions(render_regions.size()); // Render regions bounds in intermediate pixel coords
@@ -245,10 +254,14 @@ public:
 		const int num_layers = (int)closure.render_channels.layers.size();
 		const bool render_region_enabled = closure.render_channels.target_region_layers;
 
+		const bool blend_main_layers = closure.channel == NULL;
+		const int source_render_channel_offset = closure.channel ? closure.channel->offset : 0;
+
 		const glare::AllocatorVector<float, 16>& front_data = closure.render_channels.front_data;
 		const glare::AllocatorVector<float, 16>& region_data = closure.render_channels.region_data;
 		const size_t stride = closure.render_channels.stride;
 		const size_t alpha_offset = (size_t)closure.render_channels.alpha.offset;
+		Colour4f* const dest_buffer = &closure.buffer_out.getPixel(0);
 
 		// Artificially bump up the alpha value a little, so that monte-carlo noise doesn't make a totally opaque object partially transparent.
 		// we will use image_scale for this, as it naturally reduces to near zero as the render converges.
@@ -260,33 +273,56 @@ public:
 
 		for(size_t i = begin; i < end; ++i)
 		{
-			Colour4f sum(0.0f);
-			for(int z = 0; z < num_layers; ++z)
+			const ptrdiff_t src_pixel_offset = i * stride;
+			Colour4f sum;
+			if(blend_main_layers) // blend together main light layers (usual rendering).
 			{
-				const Vec3f& scale = layer_weights[z];
-				sum[0] += front_data[i * stride + z * main_layer_num_components + 0] * scale.x;
-				sum[1] += front_data[i * stride + z * main_layer_num_components + 1] * scale.y;
-				sum[2] += front_data[i * stride + z * main_layer_num_components + 2] * scale.z;
+				sum = Colour4f(0.f);
+				for(int z = 0; z < num_layers; ++z)
+				{
+					float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
+					float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
+					float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
+					sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
+				}
+			}
+			else
+			{
+				// NOTE: Assuming channel is 3-component.
+				float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
+				float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
+				float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
+				sum = Colour4f(r, g, b, 0.f) * image_scale;
 			}
 
 			// Get alpha from alpha channel if it exists
-			sum.x[3] = render_foreground_alpha ? (front_data[i * stride + alpha_offset] * alpha_bias_factor * closure.image_scale) : 1.f;
+			sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 
 			if(render_region_enabled)
 			{
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 				const size_t x = i % closure.render_channels.getWidth();
-				const size_t y = i / closure.render_channels.getWidth();
+				const size_t y = i / closure.render_channels.getWidth(); // NOTE: slow
 
 				if(pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
 				{
-					sum = Colour4f(0.f);
-					for(ptrdiff_t z = 0; z < num_layers; ++z)
+					if(blend_main_layers)
 					{
-						const Vec3f& scale = region_layer_weights[z];
-						sum[0] += region_data[i * stride + z * main_layer_num_components + 0] * scale.x;
-						sum[1] += region_data[i * stride + z * main_layer_num_components + 1] * scale.y;
-						sum[2] += region_data[i * stride + z * main_layer_num_components + 2] * scale.z;
+						sum = Colour4f(0.f);
+						for(ptrdiff_t z = 0; z < num_layers; ++z)
+						{
+							float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
+							float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
+							float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
+							sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
+						}
+					}
+					else
+					{
+						float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
+						float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
+						float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
+						sum = Colour4f(r, g, b, 0.f) * region_image_scale;
 					}
 
 					// Get alpha from (region) alpha channel if it exists
@@ -300,7 +336,7 @@ public:
 				}
 			}
 
-			closure.buffer_out.getPixel(i) = sum;
+			dest_buffer[i] = sum;
 		}
 	}
 
@@ -314,6 +350,7 @@ void sumLightLayers(
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
 	const RenderChannels& render_channels, // Input image data
+	const ChannelInfo* channel, // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	const ArrayRef<RenderRegion>& render_regions,
 	int margin_ssf1,
 	int ssf,
@@ -326,7 +363,7 @@ void sumLightLayers(
 {
 	summed_buffer_out.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
 
-	SumBuffersTaskClosure closure(layer_scales, image_scale, region_image_scale, render_channels, summed_buffer_out);
+	SumBuffersTaskClosure closure(layer_scales, image_scale, region_image_scale, render_channels, channel, summed_buffer_out);
 	closure.render_regions = &render_regions;
 	closure.margin_ssf1 = margin_ssf1;
 	closure.ssf = ssf;
@@ -418,9 +455,80 @@ struct CurveData
 };
 
 
+// Copy image data from a particular 3-component render channel, given by channel_offset, while scaling by image_scale or region_image_scale,
+// to image_out.
+static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const ArrayRef<RenderRegion>& render_regions,
+	int channel_offset, float image_scale, float region_image_scale, int margin_ssf1, int ssf, Image4f& image_out)
+{
+	const size_t W = render_channels.getWidth();
+	const size_t H = render_channels.getHeight();
+	const size_t N = W * H;
+
+	image_out.resizeNoCopy(W, H); // Will do nothing if already correct size.
+
+	const size_t stride = render_channels.stride;
+	const size_t offset = channel_offset;
+	Colour4f* dest_data = &image_out.getPixel(0);
+	const glare::AllocatorVector<float, 16>& front_data  = render_channels.front_data;
+	const glare::AllocatorVector<float, 16>& region_data = render_channels.region_data;
+	const bool render_region_enabled = render_channels.target_region_layers;
+
+	if(render_region_enabled)
+	{
+		const int rr_margin = 1; // Pixels near the edge of the RR may not be fully bright due to splat filter, so we need a margin.
+
+		SmallArray<Rect2i, 8> regions(render_regions.size()); // Render regions bounds in intermediate pixel coords
+		for(size_t i=0; i<render_regions.size(); ++i)
+			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + margin_ssf1) * ssf + rr_margin,
+										(render_regions[i].y1 + margin_ssf1) * ssf + rr_margin),
+								Vec2i(	(render_regions[i].x2 + margin_ssf1) * ssf - rr_margin,
+										(render_regions[i].y2 + margin_ssf1) * ssf - rr_margin));
+
+		// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+		for(size_t y=0; y<W; ++y)
+		for(size_t x=0; x<H; ++x)
+		{
+			const size_t i = y*W + x;
+			Colour4f v;
+			if(pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
+			{
+				v = Colour4f(
+					region_data[stride * i + offset + 0], 
+					region_data[stride * i + offset + 1],
+					region_data[stride * i + offset + 2],
+					0.f);
+			}
+			else
+			{
+				v = Colour4f(
+					front_data[stride * i + offset + 0],
+					front_data[stride * i + offset + 1],
+					front_data[stride * i + offset + 2],
+					0.f);
+			}
+			dest_data[i] = v * region_image_scale;
+		}
+	}
+	else
+	{
+		for(size_t i = 0; i < N; ++i)
+		{
+			const Colour4f v(
+				front_data[stride * i + offset + 0],
+				front_data[stride * i + offset + 1],
+				front_data[stride * i + offset + 2],
+				0.f);
+			dest_data[i] = v * image_scale;
+		}
+	}
+}
+
+
 // Tonemap HDR image to LDR image
 static void runPipelineFullBuffer(
+	RunPipelineScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels,
+	const ChannelInfo* channel, // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	const ArrayRef<RenderRegion>& render_regions,
 	int ssf,
 	const ArrayRef<Vec3f>& layer_weights,
@@ -437,7 +545,8 @@ static void runPipelineFullBuffer(
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
 	const CurveData& curve_data,
-	bool apply_curves)
+	bool apply_curves,
+	bool allow_denoising)
 {
 	//Timer t;
 	//const bool PROFILE = false;
@@ -462,7 +571,7 @@ static void runPipelineFullBuffer(
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
-	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, render_regions, margin_ssf1, ssf, 
+	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, channel, render_regions, margin_ssf1, ssf,
 		renderer_settings.zero_alpha_outside_region, region_alpha_bias, renderer_settings.render_foreground_alpha, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
@@ -626,6 +735,99 @@ static void runPipelineFullBuffer(
 	const size_t final_yres = render_channels.getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
 	ldr_buffer_out.resizeNoCopy(final_xres, final_yres);
 
+	const bool do_denoising = allow_denoising && renderer_settings.denoise && ((channel == NULL) || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
+	if(do_denoising)
+	{
+		if(!scratch_state.denoise_device)
+		{
+			scratch_state.denoise_device = oidnNewDevice(OIDN_DEVICE_TYPE_DEFAULT);
+			oidnCommitDevice(scratch_state.denoise_device);
+		}
+
+		// Create a denoising filter
+		if(!scratch_state.filter)
+			scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RT"); // generic ray tracing filter
+
+		const size_t W = temp_summed_buffer.getWidth();
+		const size_t H = temp_summed_buffer.getHeight();
+
+		// Committing the filter parameters takes quite a while, so avoid if params are still valid.
+		const bool last_commit_valid =
+			(scratch_state.last_committed_colour_buf == &temp_summed_buffer) &&
+			(scratch_state.last_committed_albedo_im == &scratch_state.albedo_im) &&
+			(scratch_state.last_committed_normals_im == &scratch_state.normals_im) &&
+			(scratch_state.last_committed_w == temp_summed_buffer.getWidth()) &&
+			(scratch_state.last_committed_h == temp_summed_buffer.getHeight()) &&
+			(scratch_state.last_committed_albedo_enabled == render_channels.albedo.isEnabled()) &&
+			(scratch_state.last_committed_normals_enabled == render_channels.normals.isEnabled());
+
+		if(!last_commit_valid)
+		{
+			conPrint("Last commmit invalid, resetting denoise args.");
+
+			oidnSetSharedFilterImage(scratch_state.filter, "color", &temp_summed_buffer.getPixel(0), OIDN_FORMAT_FLOAT3,
+				/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
+
+			if(render_channels.albedo.isEnabled())
+			{
+				makeScaledCopyOfBuffer(render_channels, render_regions, render_channels.albedo.offset, image_scale, region_image_scale, margin_ssf1, ssf, scratch_state.albedo_im);
+
+				oidnSetSharedFilterImage(scratch_state.filter, "albedo", (void*)(&scratch_state.albedo_im.getPixel(0)), OIDN_FORMAT_FLOAT3,
+					/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
+			}
+
+			if(render_channels.normals.isEnabled())
+			{
+				makeScaledCopyOfBuffer(render_channels, render_regions, render_channels.normals.offset, image_scale, region_image_scale, margin_ssf1, ssf, scratch_state.normals_im);
+
+				oidnSetSharedFilterImage(scratch_state.filter, "normal", (void*)(&scratch_state.normals_im.getPixel(0)), OIDN_FORMAT_FLOAT3,
+					/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
+			}
+
+			oidnSetSharedFilterImage(scratch_state.filter, "output", &temp_summed_buffer.getPixel(0), OIDN_FORMAT_FLOAT3,
+				/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
+
+			oidnSetFilter1b(scratch_state.filter, "hdr", true);
+
+			Timer timer;
+			oidnCommitFilter(scratch_state.filter);
+			conPrint("oidnCommitFilter took " + timer.elapsedString());
+
+			scratch_state.last_committed_colour_buf = &temp_summed_buffer;
+			scratch_state.last_committed_albedo_im = &scratch_state.albedo_im;
+			scratch_state.last_committed_normals_im = &scratch_state.normals_im;
+			scratch_state.last_committed_w = temp_summed_buffer.getWidth();
+			scratch_state.last_committed_h = temp_summed_buffer.getHeight();
+			scratch_state.last_committed_albedo_enabled = render_channels.albedo.isEnabled();
+			scratch_state.last_committed_normals_enabled = render_channels.normals.isEnabled();
+		}
+		else // Else last commit was valid, still need to update our albedo and normals buffer data though.
+		{
+			// Timer timer;
+			
+			if(render_channels.albedo.isEnabled())
+				makeScaledCopyOfBuffer(render_channels, render_regions, render_channels.albedo.offset, image_scale, region_image_scale, margin_ssf1, ssf, scratch_state.albedo_im);
+
+			if(render_channels.normals.isEnabled())
+				makeScaledCopyOfBuffer(render_channels, render_regions, render_channels.normals.offset, image_scale, region_image_scale, margin_ssf1, ssf, scratch_state.normals_im);
+
+			// conPrint("Copying and scaling albedo and normals channel took " + timer.elapsedString());
+		}
+
+		// EXRDecoder::saveImageToEXR(scratch_state.albedo_im, /*save_alpha_channel=*/false, "albedo_im.exr", "main", EXRDecoder::SaveOptions());
+		// EXRDecoder::saveImageToEXR(scratch_state.normals_im, /*save_alpha_channel=*/false, "normals_im.exr", "main", EXRDecoder::SaveOptions());
+
+		// Filter the image
+		Timer timer;
+		oidnExecuteFilter(scratch_state.filter);
+		conPrint("Filtering took " + timer.elapsedString());
+
+		// Check for errors
+		const char* errorMessage;
+		if (oidnGetDeviceError(scratch_state.denoise_device, &errorMessage) != OIDN_ERROR_NONE)
+			conPrint("OIDN Error: " + std::string(errorMessage));
+	}
+
 	// Collapse super-sampled image down to final image size
 	// NOTE: this trims off the borders
 	if(supersample_factor > 1)
@@ -714,12 +916,6 @@ struct ImagePipelineTaskClosure
 
 	const ChannelInfo* channel; // Channel we want to read from. NULL means blend main layers.
 };
-
-
-inline static Colour4f toColour4f(const Vec3f& v)
-{
-	return Colour4f(v.x, v.y, v.z, 0.f);
-}
 
 
 /*static const Colour3f colourForDensity(float density, float max_density)
@@ -862,10 +1058,11 @@ public:
 				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
 				{
 					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
-					Colour4f sum(0.0f);
+					Colour4f sum;
 
 					if(blend_main_layers) // blend together main light layers (usual rendering).
 					{
+						sum = Colour4f(0.f);
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
 						{
 							float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
@@ -881,12 +1078,12 @@ public:
 							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
 							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
 							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-							sum += Colour4f(r, g, b, 0.f) * image_scale;
+							sum = Colour4f(r, g, b, 0.f) * image_scale;
 						}
 						else // Else if scalar channel:
 						{
 							float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
-							sum += Colour4f(v, v, v, 0.f) * image_scale;
+							sum = Colour4f(v, v, v, 0.f) * image_scale;
 						}
 					}
 
@@ -898,9 +1095,9 @@ public:
 					{
 						if(pixelIsInARegion(x, y, regions))
 						{
-							sum = Colour4f(0.f);
 							if(blend_main_layers)
 							{
+								sum = Colour4f(0.f);
 								for(ptrdiff_t z = 0; z < num_layers; ++z)
 								{
 									float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
@@ -916,12 +1113,12 @@ public:
 									float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
 									float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
 									float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
-									sum += Colour4f(r, g, b, 0.f) * region_image_scale;
+									sum = Colour4f(r, g, b, 0.f) * region_image_scale;
 								}
 								else // Else if scalar channel:
 								{
 									float v = region_data[src_pixel_offset + source_render_channel_offset + 0];
-									sum += Colour4f(v, v, v, 0.f) * region_image_scale;
+									sum = Colour4f(v, v, v, 0.f) * region_image_scale;
 								}
 							}
 
@@ -1263,15 +1460,16 @@ void runPipeline(
 		region_alpha_bias = RendererSettings::getSumNormedRectArea(normed_rrs);
 	}
 
+	const bool do_denoising = (subres_factor == 1) && allow_denoising && renderer_settings.denoise && ((channel == NULL) || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
 
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
 	// Don't do post-pro diffraction when subres_factor is > 1 (e.g. when doing realtime changes), as runPipelineFullBuffer() doesn't handle subres sizes, also not needed.
-	if((channel == NULL) && (subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull())))
+	if(do_denoising || ((channel == NULL) && (subres_factor == 1) && ((margin_ssf1 == 0) || (renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && /*camera*/post_pro_diffraction.nonNull()))))
 	{
-		runPipelineFullBuffer(render_channels, render_regions, ssf, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
+		runPipelineFullBuffer(scratch_state, render_channels, channel, render_regions, ssf, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
-							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves);
+							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves, allow_denoising);
 	}
 	else
 	{
@@ -1369,138 +1567,6 @@ void runPipeline(
 		task_manager.runTasks(scratch_state.tasks);
 		
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
-
-		const bool do_denoising = allow_denoising && closure.renderer_settings->denoise && ((channel == NULL) || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
-
-#if DENOISE_SUPPORT
-		if(do_denoising)
-		{
-			// TEMP NEW:
-			if(!scratch_state.denoise_device)
-			{
-				scratch_state.denoise_device = oidnNewDevice(OIDN_DEVICE_TYPE_DEFAULT);
-				oidnCommitDevice(scratch_state.denoise_device);
-			}
-
-			// Create a denoising filter
-			if(!scratch_state.filter)
-			{
-				scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RT"); // generic ray tracing filter
-			}
-
-			// Committing the filter parameters takes quite a while, so avoid if params are still valid.
-			const bool last_commit_valid =
-				(scratch_state.last_committed_colour_buf == &ldr_buffer_out) &&
-				(scratch_state.last_committed_albedo_im == &scratch_state.albedo_im) &&
-				(scratch_state.last_committed_normals_im == &scratch_state.normals_im) &&
-				(scratch_state.last_committed_w == ldr_buffer_out.getWidth()) &&
-				(scratch_state.last_committed_h == ldr_buffer_out.getHeight()) &&
-				(scratch_state.last_committed_albedo_enabled == render_channels.albedo.isEnabled()) &&
-				(scratch_state.last_committed_normals_enabled == render_channels.normals.isEnabled());
-
-			if(!last_commit_valid)
-			{
-				conPrint("Last commmit invalid, resetting denoise args.");
-
-				oidnSetSharedFilterImage(scratch_state.filter, "color", &ldr_buffer_out.getPixel(0), OIDN_FORMAT_FLOAT3, ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight(), 0,
-					/*bytePixelStride=*/sizeof(float)*4, 0);
-
-				if(render_channels.albedo.isEnabled())
-				{
-					// Make scaled copy of albedo buffer
-					scratch_state.albedo_im.resizeNoCopy(ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight());
-
-					closure.channel = &render_channels.albedo;
-					closure.ldr_buffer_out = &scratch_state.albedo_im;
-					task_manager.runTasks(scratch_state.tasks);
-
-					oidnSetSharedFilterImage(scratch_state.filter, "albedo",
-						(void*)(&scratch_state.albedo_im.getPixel(0)),
-						OIDN_FORMAT_FLOAT3,
-						scratch_state.albedo_im.getWidth(),
-						scratch_state.albedo_im.getHeight(),
-						0, // byte offset
-						4 * sizeof(float), // pixel stride in bytes
-						0 // byte row stride
-					);
-				}
-
-				if(render_channels.normals.isEnabled())
-				{
-					// Make scaled copy of normals buffer
-					scratch_state.normals_im.resizeNoCopy(ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight());
-
-					closure.channel = &render_channels.normals;
-					closure.ldr_buffer_out = &scratch_state.normals_im;
-					task_manager.runTasks(scratch_state.tasks);
-
-					oidnSetSharedFilterImage(scratch_state.filter, "normal",
-						(void*)(&scratch_state.normals_im.getPixel(0)),
-						OIDN_FORMAT_FLOAT3,
-						scratch_state.normals_im.getWidth(),
-						scratch_state.normals_im.getHeight(),
-						0, // byte offset
-						4 * sizeof(float), // pixel stride in bytes
-						0 // byte row stride
-					);
-				}
-
-				oidnSetSharedFilterImage(scratch_state.filter, "output", &ldr_buffer_out.getPixel(0), OIDN_FORMAT_FLOAT3, ldr_buffer_out.getWidth(), ldr_buffer_out.getHeight(), 0,
-					/*bytePixelStride=*/sizeof(float)*4, 0);
-
-				oidnSetFilter1b(scratch_state.filter, "hdr", false);
-
-				Timer timer;
-				oidnCommitFilter(scratch_state.filter);
-				conPrint("oidnCommitFilter took " + timer.elapsedString());
-
-				scratch_state.last_committed_colour_buf = &ldr_buffer_out;
-				scratch_state.last_committed_albedo_im = &scratch_state.albedo_im;
-				scratch_state.last_committed_normals_im = &scratch_state.normals_im;
-				scratch_state.last_committed_w = ldr_buffer_out.getWidth();
-				scratch_state.last_committed_h = ldr_buffer_out.getHeight();
-				scratch_state.last_committed_albedo_enabled = render_channels.albedo.isEnabled();
-				scratch_state.last_committed_normals_enabled = render_channels.normals.isEnabled();
-			}
-			else // Else last commit was valid, still need to update our albedo and normals buffer though.
-			{
-				//Timer timer;
-				if(render_channels.albedo.isEnabled())
-				{
-					// Make scaled copy of albedo buffer
-					assert(scratch_state.albedo_im.getWidth() == ldr_buffer_out.getWidth() && scratch_state.albedo_im.getHeight() == ldr_buffer_out.getHeight());
-
-					closure.channel = &render_channels.albedo;
-					closure.ldr_buffer_out = &scratch_state.albedo_im;
-					task_manager.runTasks(scratch_state.tasks);
-				}
-
-				if(render_channels.normals.isEnabled())
-				{
-					// Make scaled copy of normals buffer
-					assert(scratch_state.normals_im.getWidth() == ldr_buffer_out.getWidth() && scratch_state.normals_im.getHeight() == ldr_buffer_out.getHeight());
-
-					closure.channel = &render_channels.normals;
-					closure.ldr_buffer_out = &scratch_state.normals_im;
-					task_manager.runTasks(scratch_state.tasks);
-				}
-				//conPrint("Downsizing/copying albedo and normals channel took " + timer.elapsedString());
-			}
-
-			//EXRDecoder::saveImageToEXR(scratch_state.albedo_im, /*save_alpha_channel=*/false, "albedo_im.exr", "main", EXRDecoder::SaveOptions());
-			//EXRDecoder::saveImageToEXR(scratch_state.normals_im, /*save_alpha_channel=*/false, "normals_im.exr", "main", EXRDecoder::SaveOptions());
-
-			// Filter the image
-			Timer timer;
-			oidnExecuteFilter(scratch_state.filter);
-			conPrint("Filtering took " + timer.elapsedString());
-
-			// Check for errors
-			const char* errorMessage;
-			if(oidnGetDeviceError(scratch_state.denoise_device, &errorMessage) != OIDN_ERROR_NONE)
-				conPrint("OIDN Error: " + std::string(errorMessage));
-		}
-#endif // DENOISE_SUPPORT
 	}
 	
 	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
