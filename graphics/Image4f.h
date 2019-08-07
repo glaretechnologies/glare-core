@@ -44,6 +44,9 @@ public:
 	inline size_t getWidth()  const { return pixels.getWidth(); }
 	inline size_t numPixels() const { return pixels.getWidth() * pixels.getHeight(); }
 
+	inline const ColourType* getPixelData() const { return pixels.getData(); }
+	inline ColourType* getPixelData() { return pixels.getData(); }
+
 	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t x, size_t y) const;
 	INDIGO_STRONG_INLINE ColourType& getPixel(size_t x, size_t y);
 
@@ -69,12 +72,6 @@ public:
 	void subImage(const Image4f& dest, int destx, int desty);
 	void blendImage(const Image4f& dest, int destx, int desty, const Colour4f& colour);
 	
-	void overwriteImage(const Image& src, int destx, int desty);
-
-	void scale(float factor);
-
-	void normalise();//make the average pixel luminance == 1
-
 	enum DOWNSIZE_FILTER
 	{
 		DOWNSIZE_FILTER_MN_CUBIC,
@@ -90,10 +87,6 @@ public:
 								const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
 								const Image4f& img_in, Image4f& img_out, Indigo::TaskManager& task_manager);
 
-	size_t getByteSize() const;
-
-	float minLuminance() const;
-	float maxLuminance() const;
 	double averageLuminance() const;
 
 	//static void buildRGBFilter(const Image& original_filter, const Vec3d& filter_scales, Image& result_out);

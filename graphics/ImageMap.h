@@ -154,6 +154,7 @@ public:
 
 	inline void copyToImageMapUInt8(ImageMap<uint8, UInt8ComponentValueTraits>& image_out) const;
 
+	// NOTE: not used currently.
 	static void downsampleImage(const size_t ssf, const size_t margin_ssf1,
 		const size_t filter_span, const float * const resize_filter, const float lower_clamping_bound,
 		const ImageMap<V, ComponentValueTraits>& img_in, ImageMap<V, ComponentValueTraits>& img_out, Indigo::TaskManager& task_manager);

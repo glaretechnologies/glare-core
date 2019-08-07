@@ -359,41 +359,6 @@ void Image4f::subImage(const Image4f& img, int destx, int desty)
 }
 
 
-/*
-void Image4f::overwriteImage(const Image4f& img, int destx, int desty)
-{
-	const int h = (int)getHeight();
-	const int w = (int)getWidth();
-
-	for(int y = 0; y < (int)img.getHeight(); ++y)
-	for(int x = 0; x < (int)img.getWidth();  ++x)
-	{
-		const int dx = x + destx;
-		const int dy = y + desty;
-		if(dx >= 0 && dx < w && dy >= 0 && dy < h)
-			setPixel(dx, dy, img.getPixel(x, y));
-	}
-}
-
-
-// Make the average pixel luminance == 1
-void Image4f::normalise()
-{
-	if(getHeight() == 0 || getWidth() == 0)
-		return;
-
-	double av_lum = 0;
-	for(size_t i = 0; i < numPixels(); ++i)
-		av_lum += (double)getPixel(i).luminance();
-	av_lum /= (double)(numPixels());
-
-	const float factor = (float)(1 / av_lum);
-	for(size_t i = 0; i < numPixels(); ++i)
-		getPixel(i) *= factor;
-}*/
-
-
-
 // trims off border before collapsing
 void Image4f::collapseSizeBoxFilter(int factor)
 {
@@ -525,10 +490,10 @@ public:
 		for(int y = begin; y < end; ++y)
 		for(int x = 0; x < out_xres; ++x)
 		{
-			const ptrdiff_t u_min = (x + border_width) * factor + factor / 2 - filter_bound;
-			const ptrdiff_t v_min = (y + border_width) * factor + factor / 2 - filter_bound;
-			const ptrdiff_t u_max = (x + border_width) * factor + factor / 2 + filter_bound;
-			const ptrdiff_t v_max = (y + border_width) * factor + factor / 2 + filter_bound;
+			const ptrdiff_t u_min = (x + border_width) * factor - filter_bound;
+			const ptrdiff_t v_min = (y + border_width) * factor - filter_bound;
+			const ptrdiff_t u_max = (x + border_width) * factor + filter_bound;
+			const ptrdiff_t v_max = (y + border_width) * factor + filter_bound;
 
 			Image4f::ColourType weighted_sum(0);
 			if(u_min >= 0 && v_min >= 0 && u_max < in_xres && v_max < in_yres) // If filter support is completely in bounds:
@@ -588,14 +553,11 @@ void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_wid
 
 	const ptrdiff_t out_xres = (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor, (int)border_width);
 	const ptrdiff_t out_yres = (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor, (int)border_width);
-	img_out.resize((size_t)out_xres, (size_t)out_yres);
-
-	ColourType const * const in_buffer  = &img_in.getPixel(0, 0);
-	ColourType		 * const out_buffer = &img_out.getPixel(0, 0);
+	img_out.resizeNoCopy((size_t)out_xres, (size_t)out_yres);
 
 	DownsampleImageTaskClosure closure;
-	closure.in_buffer = in_buffer;
-	closure.out_buffer = out_buffer;
+	closure.in_buffer = img_in.getPixelData();
+	closure.out_buffer = img_out.getPixelData();
 	closure.resize_filter = resize_filter;
 	closure.factor = factor;
 	closure.border_width = border_width;
@@ -607,12 +569,6 @@ void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_wid
 	closure.pre_clamp = pre_clamp;
 
 	task_manager.runParallelForTasks<DownsampleImageTask, DownsampleImageTaskClosure>(closure, 0, out_yres);
-}
-
-
-size_t Image4f::getByteSize() const
-{
-	return numPixels() * 3 * sizeof(float);
 }
 
 
