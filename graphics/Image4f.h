@@ -1,19 +1,17 @@
 /*=====================================================================
 Image4f.h
 ---------
-Copyright Glare Technologies Limited 2013 - 
+Copyright Glare Technologies Limited 2019 - 
 =====================================================================*/
 #pragma once
 
 
 #include <stddef.h>
-#include "Map2D.h"
 #include "Colour4f.h"
 #include "../utils/Array2D.h"
+#include "../utils/TaskManager.h"
 class Bitmap;
 class FilterFunction;
-//#include "ImageMap.h"
-//typedef ImageMap<float, FloatComponentValueTraits> Image4f;
 
 
 /*=====================================================================
@@ -22,7 +20,7 @@ Image4f
 A floating point quad-component image class.
 Each component is stored as a 32-bit float.
 =====================================================================*/
-class Image4f //  : public Map2D
+class Image4f
 {
 public:
 	Image4f();
@@ -33,7 +31,7 @@ public:
 
 	typedef Colour4f ColourType;
 
-	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw Indigo::Exception if bytespp != 3 or 4
+	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw Indigo::Exception if bytespp != 1, 3 or 4
 
 	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
 
@@ -53,12 +51,7 @@ public:
 	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t i) const;
 	INDIGO_STRONG_INLINE ColourType& getPixel(size_t i);
 
-	inline const ColourType& getPixelTiled(int x, int y) const;
-
 	inline void setPixel(size_t x, size_t y, const ColourType& colour);
-	inline void incrPixel(size_t x, size_t y, const ColourType& colour);
-
-	void loadFromHDR(const std::string& pathname, int width, int height);
 
 	void zero();
 	void set(float s);
@@ -72,14 +65,8 @@ public:
 	void subImage(const Image4f& dest, int destx, int desty);
 	void blendImage(const Image4f& dest, int destx, int desty, const Colour4f& colour);
 	
-	enum DOWNSIZE_FILTER
-	{
-		DOWNSIZE_FILTER_MN_CUBIC,
-		DOWNSIZE_FILTER_BOX
-	};
 
 	void collapseSizeBoxFilter(int factor); // trims off border before collapsing
-	//void collapseImage(int factor, int border_width, DOWNSIZE_FILTER filter_type, double mn_B, double mn_C);
 
 	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image4f& in, Image4f& out);
 
@@ -89,32 +76,8 @@ public:
 
 	double averageLuminance() const;
 
-	//static void buildRGBFilter(const Image& original_filter, const Vec3d& filter_scales, Image& result_out);
-	//void convolve(const Image& filter, Image& result_out) const;
-
 	float minPixelComponent() const;
 	float maxPixelComponent() const;
-
-	////// Map2D interface //////////
-	/*virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
-	virtual unsigned int getMapHeight() const { return (unsigned int)getHeight(); }
-
-	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const { return Colour3<Value>(pixels.elem(x, y).x[0], pixels.elem(x, y).x[1], pixels.elem(x, y).x[2]); }
-
-	virtual const Colour3<Value> vec3SampleTiled(Coord x, Coord y) const;
-
-	virtual Value scalarSampleTiled(Coord x, Coord y) const;
-
-	virtual bool takesOnlyUnitIntervalValues() const { return false; }
-
-	virtual Reference<Image> convertToImage() const;
-
-	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
-
-	virtual Reference<Map2D> resizeToImage(const int width, bool& is_linear) const;
-
-	virtual unsigned int getBytesPerPixel() const;*/
-	/////////////////////////////////
 
 	static void test();
 
@@ -156,10 +119,4 @@ Image4f::ColourType& Image4f::getPixel(size_t x, size_t y)
 void Image4f::setPixel(size_t x, size_t y, const ColourType& colour)
 {
 	pixels.elem(x, y) = colour;
-}
-
-
-void Image4f::incrPixel(size_t x, size_t y, const ColourType& colour)
-{
-	pixels.elem(x, y) += colour;
 }

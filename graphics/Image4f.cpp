@@ -1,18 +1,20 @@
+/*=====================================================================
+Image4f.cpp
+-----------
+Copyright Glare Technologies Limited 2019 -
+=====================================================================*/
 #include "Image4f.h"
 
 
+#include "BoxFilterFunction.h"
+#include "bitmap.h"
 #include "../indigo/RendererSettings.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
-#include "../maths/vec2.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"
-#include "GaussianImageFilter.h"
-#include "BoxFilterFunction.h"
-#include "bitmap.h"
-#include <fstream>
 #include <limits>
 #include <cmath>
 #include <cassert>
@@ -47,9 +49,6 @@ Image4f& Image4f::operator = (const Image4f& other)
 {
 	if(&other == this)
 		return *this;
-
-	if(getWidth() != other.getWidth() || getHeight() != other.getHeight())
-		resize(other.getWidth(), other.getHeight());
 
 	this->pixels = other.pixels;
 
@@ -139,7 +138,7 @@ void Image4f::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2
 	const int out_width = x2 - x1;
 	const int out_height = y2 - y1;
 
-	bmp_out.resize(out_width, out_height, bmp_out.getBytesPP());
+	bmp_out.resizeNoCopy(out_width, out_height, bmp_out.getBytesPP());
 
 	for(int y = y1; y < y2; ++y)
 	for(int x = x1; x < x2; ++x)
@@ -156,7 +155,7 @@ void Image4f::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2
 
 void Image4f::copyToBitmap(Bitmap& bmp_out) const
 {
-	bmp_out.resize(getWidth(), getHeight(), 4);
+	bmp_out.resizeNoCopy(getWidth(), getHeight(), 4);
 
 	for(size_t y = 0; y < getHeight(); ++y)
 	for(size_t x = 0; x < getWidth();  ++x)
@@ -193,7 +192,7 @@ void Image4f::copyToBitmap(Bitmap& bmp_out) const
 
 void Image4f::copyToBitmapSetAlphaTo255(Bitmap& bmp_out) const
 {
-	bmp_out.resize(getWidth(), getHeight(), 4);
+	bmp_out.resizeNoCopy(getWidth(), getHeight(), 4);
 
 	for(size_t y = 0; y < getHeight(); ++y)
 	for(size_t x = 0; x < getWidth();  ++x)
@@ -359,7 +358,7 @@ void Image4f::subImage(const Image4f& img, int destx, int desty)
 }
 
 
-// trims off border before collapsing
+// Trims off border before collapsing
 void Image4f::collapseSizeBoxFilter(int factor)
 {
 	Image4f out;
@@ -588,12 +587,6 @@ float Image4f::minPixelComponent() const
 		v = min(v, getPixel(i).v);
 
 	return myMin(myMin(v.x[0], v.x[1]), myMin(v.x[2], v.x[3]));
-
-
-	/*float x = std::numeric_limits<float>::max();
-	for(size_t i = 0; i < numPixels(); ++i)
-		x = myMin(x, myMin(getPixel(i).r, myMin(getPixel(i).g, getPixel(i).b)));
-	return x;*/
 }
 
 
@@ -604,13 +597,6 @@ float Image4f::maxPixelComponent() const
 		v = max(v, getPixel(i).v);
 
 	return myMax(myMax(v.x[0], v.x[1]), myMax(v.x[2], v.x[3]));
-
-	/*
-	return myMin(myMin(v.x[0], v.x[1]), myMin(v.x[2], v.x[3]));
-	float x = -std::numeric_limits<float>::max();
-	for(size_t i = 0; i < numPixels(); ++i)
-		x = myMax(x, myMax(getPixel(i).r, myMax(getPixel(i).g, getPixel(i).b)));
-	return x;*/
 }
 
 
