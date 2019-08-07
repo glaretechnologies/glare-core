@@ -86,10 +86,10 @@ public:
 		// Note that if we use a higher quality filter like Mitchell Netravali, we can avoid the renormalisation.
 		// But M.N. has a support radius twice as large (2 px), so we'll stick with the fast tent filter.
 
-		const int new_width  = image->getWidth();
-		const int new_height = image->getHeight();
-		const int src_w = src_image->getMapWidth();
-		const int src_h = src_image->getMapHeight();
+		const int new_width  = (int)image->getWidth();
+		const int new_height = (int)image->getHeight();
+		const int src_w = (int)src_image->getMapWidth();
+		const int src_h = (int)src_image->getMapHeight();
 		const float scale_factor_x = (float)src_w / new_width;
 		const float scale_factor_y = (float)src_h / new_height;
 		const float filter_r_x = myMax(1.f, scale_factor_x);
@@ -355,7 +355,7 @@ template <class V, class VTraits>
 void ImageMap<V, VTraits>::blendImage(const ImageMap<V, VTraits>& img, const int destx, const int desty, const Colour4f& colour)
 {
 	assert(N <= 3);
-	const unsigned int use_N = myMin(this->N, img.N);
+	const size_t use_N = myMin(this->N, img.N);
 
 	const int h = (int)getHeight();
 	const int w = (int)getWidth();
@@ -373,7 +373,7 @@ void ImageMap<V, VTraits>::blendImage(const ImageMap<V, VTraits>& img, const int
 				float use_alpha = img.getPixel(x, y)[0] * colour.x[3];
 
 				float* pixel = getPixel(dx, dy);
-				for(unsigned int c=0; c<use_N; ++c)
+				for(size_t c=0; c<use_N; ++c)
 					pixel[c] = colour[c] * use_alpha + pixel[c] * (1 - use_alpha);
 			}
 		}

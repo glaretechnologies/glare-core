@@ -106,16 +106,16 @@ public:
 	Reference<glare::Allocator>& getAllocator() { return pixels.getAllocator(); }
 
 	////// Map2D interface //////////
-	virtual unsigned int getMapWidth() const { return (unsigned int)getWidth(); }
-	virtual unsigned int getMapHeight() const { return (unsigned int)getHeight(); }
-	virtual unsigned int numChannels() const { return 3; }
+	virtual size_t getMapWidth() const { return getWidth(); }
+	virtual size_t getMapHeight() const { return getHeight(); }
+	virtual size_t numChannels() const { return 3; }
 
 	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const { return pixels.elem(x, y); }
 	virtual const Value pixelComponent(size_t x, size_t y, size_t c) const { return pixels.elem(x, y)[c]; }
 
 	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;
 
-	virtual Value sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const;
+	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
@@ -133,7 +133,7 @@ public:
 
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 
-	virtual unsigned int getBytesPerPixel() const;
+	virtual size_t getBytesPerPixel() const;
 
 	virtual float getGamma() const { return 1.0f; }
 	/////////////////////////////////

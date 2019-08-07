@@ -556,13 +556,13 @@ const Colour4f Image::vec3SampleTiled(Coord u, Coord v) const
 	assert(Maths::inHalfClosedInterval<Coord>(u_pixels, 0.0, (Coord)getWidth()));
 	assert(Maths::inHalfClosedInterval<Coord>(v_pixels, 0.0, (Coord)getHeight()));
 
-	const unsigned int ut = (unsigned int)u_pixels;
-	const unsigned int vt = (unsigned int)v_pixels;
+	const size_t ut = (size_t)u_pixels;
+	const size_t vt = (size_t)v_pixels;
 	assert(ut >= 0 && ut < getWidth());
 	assert(vt >= 0 && vt < getHeight());
 
-	const unsigned int ut_1 = (ut + 1) % getWidth();
-	const unsigned int vt_1 = (vt + 1) % getHeight();
+	const size_t ut_1 = (ut + 1) % getWidth();
+	const size_t vt_1 = (vt + 1) % getHeight();
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
@@ -609,7 +609,7 @@ const Colour4f Image::vec3SampleTiled(Coord u, Coord v) const
 }
 
 
-Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const
+Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const
 {
 	const Colour4f col = vec3SampleTiled(x, y);
 	return (col[0] + col[1] + col[2]) * static_cast<Image::Value>(1.0 / 3.0);
@@ -634,20 +634,20 @@ Reference<Image> Image::convertToImage() const
 
 Reference<Map2D> Image::extractChannelZero() const
 {
-	Reference<ImageMapFloat> m = new ImageMapFloat((unsigned int)getWidth(), (unsigned int)getHeight(), 1);
+	Reference<ImageMapFloat> m = new ImageMapFloat(getWidth(), getHeight(), 1);
 	for(size_t y=0; y<getHeight(); ++y)
 	for(size_t x=0; x<getWidth(); ++x)
-		m->getPixel((unsigned int)x, (unsigned int)y)[0] = getPixel(x, y).r;
+		m->getPixel(x, y)[0] = getPixel(x, y).r;
 	return m;
 }
 
 
 Reference<ImageMap<float, FloatComponentValueTraits> > Image::extractChannelZeroLinear() const
 {
-	Reference<ImageMapFloat> m = new ImageMapFloat((unsigned int)getWidth(), (unsigned int)getHeight(), 1);
+	Reference<ImageMapFloat> m = new ImageMapFloat(getWidth(), getHeight(), 1);
 	for(size_t y=0; y<getHeight(); ++y)
 		for(size_t x=0; x<getWidth(); ++x)
-			m->getPixel((unsigned int)x, (unsigned int)y)[0] = getPixel(x, y).r;
+			m->getPixel(x, y)[0] = getPixel(x, y).r;
 	return m;
 }
 
@@ -694,16 +694,16 @@ Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is
 	const float inv_tex_xres = 1.0f / tex_xres;
 	const float inv_tex_yres = 1.0f / tex_yres;
 
-	ImageMapFloat* image = new ImageMapFloat((unsigned int)tex_xres, (unsigned int)tex_yres, 3);
+	ImageMapFloat* image = new ImageMapFloat(tex_xres, tex_yres, 3);
 
 	for(size_t y = 0; y < tex_yres; ++y)
 	for(size_t x = 0; x < tex_xres; ++x)
 	{
 		const Colour4f texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
 
-		image->getPixel((unsigned int)x, (unsigned int)y)[0] = texel[0];
-		image->getPixel((unsigned int)x, (unsigned int)y)[1] = texel[1];
-		image->getPixel((unsigned int)x, (unsigned int)y)[2] = texel[2];
+		image->getPixel(x, y)[0] = texel[0];
+		image->getPixel(x, y)[1] = texel[1];
+		image->getPixel(x, y)[2] = texel[2];
 	}
 
 	return ImageMapFloatRef(image);
@@ -717,7 +717,7 @@ Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_heig
 }
 
 
-unsigned int Image::getBytesPerPixel() const
+size_t Image::getBytesPerPixel() const
 {
 	return sizeof(ColourType);
 }

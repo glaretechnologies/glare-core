@@ -27,5 +27,5 @@ public:
 		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
 
 private:
-	static Reference<ImageMapUInt8> downSampleToNextMipMapLevel(const ImageMapUInt8& prev_mip_level_image, unsigned int level_W, unsigned int level_H);
+	static Reference<ImageMapUInt8> downSampleToNextMipMapLevel(const ImageMapUInt8& prev_mip_level_image, size_t level_W, size_t level_H);
 };

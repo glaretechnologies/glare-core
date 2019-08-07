@@ -37,8 +37,8 @@ public:
 
 	INDIGO_STRONG_INLINE Colour4f& operator = (const Colour4f& a);
 
-	INDIGO_STRONG_INLINE float& operator [] (unsigned int index);
-	INDIGO_STRONG_INLINE const float& operator [] (unsigned int index) const;
+	INDIGO_STRONG_INLINE float& operator [] (size_t index);
+	INDIGO_STRONG_INLINE const float& operator [] (size_t index) const;
 
 	INDIGO_STRONG_INLINE void operator += (const Colour4f& a);
 	INDIGO_STRONG_INLINE void operator *= (const Colour4f& a);
@@ -202,14 +202,14 @@ Colour4f& Colour4f::operator = (const Colour4f& a)
 }
 
 
-float& Colour4f::operator [] (unsigned int index)
+float& Colour4f::operator [] (size_t index)
 {
 	assert(index < 4);
 	return x[index];
 }
 
 
-const float& Colour4f::operator [] (unsigned int index) const
+const float& Colour4f::operator [] (size_t index) const
 {
 	assert(index < 4);
 	return x[index];

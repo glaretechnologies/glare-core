@@ -33,7 +33,7 @@ namespace ImagingPipelineTests
 {
 
 
-static void checkToneMap(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper)
+static void runPipeline(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper)
 {
 	Indigo::TaskManager task_manager(1);
 
@@ -111,7 +111,7 @@ void test()
 		render_channels.layers.back().offset = 0;
 		render_channels.layers.back().num_components = 3;
 
-		render_channels.front_data.resize(full_W * full_W * 3);
+		render_channels.front_data.resize((size_t)full_W * (size_t)full_W * 3);
 		for(size_t i=0; i<render_channels.front_data.size(); ++i)
 			render_channels.front_data[i] = 0.2345435f;
 
@@ -302,13 +302,13 @@ void test()
 		render_channels.layers.back().offset = 0;
 		render_channels.layers.back().num_components = 3;
 
-		render_channels.front_data.resize(full_W * full_W * 3);
+		render_channels.front_data.resize((size_t)full_W * (size_t)full_W * 3);
 		for(size_t i=0; i<render_channels.front_data.size(); ++i)
 			render_channels.front_data[i] = 1.0f;
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
-		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
+		runPipeline(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
@@ -335,7 +335,7 @@ void test()
 		render_channels.layers.back().offset = 0;
 		render_channels.layers.back().num_components = 3;
 
-		render_channels.front_data.resize(full_W * full_W * 3);
+		render_channels.front_data.resize((size_t)full_W * (size_t)full_W * 3);
 		for(size_t i=0; i<render_channels.front_data.size(); ++i)
 			render_channels.front_data[i] = 1.0f;
 
@@ -344,7 +344,7 @@ void test()
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
-		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new FilmicToneMapper(1));
+		runPipeline(W, ssf, render_channels, ldr_buffer, image_scale, new FilmicToneMapper(1));
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 
 		for(int y=0; y<W; ++y)
@@ -370,7 +370,7 @@ void test()
 		render_channels.layers.back().offset = 0;
 		render_channels.layers.back().num_components = 3;
 
-		render_channels.front_data.resize(full_W * full_W * 3);
+		render_channels.front_data.resize((size_t)full_W * (size_t)full_W * 3);
 		for(size_t i=0; i<render_channels.front_data.size(); ++i)
 			render_channels.front_data[i] = 1.0f;
 
@@ -379,7 +379,7 @@ void test()
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
-		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
+		runPipeline(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)
@@ -415,8 +415,8 @@ void test()
 		render_channels.alpha.offset = 3;
 		render_channels.alpha.num_components = 1;
 
-		render_channels.front_data.resize(full_W * full_W * render_channels.stride);
-		for(size_t i=0; i<full_W * full_W; ++i)
+		render_channels.front_data.resize((size_t)full_W * (size_t)full_W * render_channels.stride);
+		for(size_t i=0; i<(size_t)full_W * (size_t)full_W; ++i)
 		{
 			render_channels.front_data[i * render_channels.stride + 0] = 0.2f * value_factor;
 			render_channels.front_data[i * render_channels.stride + 1] = 0.4f * value_factor;
@@ -426,7 +426,7 @@ void test()
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f / value_factor;
-		checkToneMap(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
+		runPipeline(W, ssf, render_channels, ldr_buffer, image_scale, new LinearToneMapper(1));
 		testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
 		
 		for(int y=0; y<W; ++y)

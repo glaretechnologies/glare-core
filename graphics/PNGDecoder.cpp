@@ -284,7 +284,7 @@ void PNGDecoder::write(const Bitmap& bitmap, const std::string& pathname)
 
 void PNGDecoder::write(const ImageMap<uint8, UInt8ComponentValueTraits>& imagemap, const std::string& pathname) // Write with no metadata
 {
-	write(imagemap.getData(), imagemap.getWidth(), imagemap.getHeight(), imagemap.getN(), pathname);
+	write(imagemap.getData(), (unsigned int)imagemap.getWidth(), (unsigned int)imagemap.getHeight(), (unsigned int)imagemap.getN(), pathname);
 }
 
 

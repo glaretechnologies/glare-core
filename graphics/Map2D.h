@@ -47,7 +47,7 @@ public:
 	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const = 0;
 
 	// X and Y are normalised image coordinates.
-	virtual Value sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const = 0;
+	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const = 0;
 
 	// s and t are normalised image coordinates.
 	// Returns texture value (v) at (s, t)
@@ -55,9 +55,9 @@ public:
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const = 0;
 
 
-	virtual unsigned int getMapWidth() const = 0;
-	virtual unsigned int getMapHeight() const = 0;
-	virtual unsigned int numChannels() const = 0;
+	virtual size_t getMapWidth() const = 0;
+	virtual size_t getMapHeight() const = 0;
+	virtual size_t numChannels() const = 0;
 
 	virtual bool takesOnlyUnitIntervalValues() const = 0;
 
@@ -86,7 +86,7 @@ public:
 	// Resizing is medium quality, as it needs to be fast for large images (env maps)
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const = 0;
 
-	virtual unsigned int getBytesPerPixel() const = 0;
+	virtual size_t getBytesPerPixel() const = 0;
 
 	virtual float getGamma() const = 0;
 

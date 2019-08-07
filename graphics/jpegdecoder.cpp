@@ -241,9 +241,9 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 				throw ImFormatExcep("Invalid num components " + toString(cinfo.num_components) + " for non-CMYK colour space");
 
 			// Build array of scanline pointers
-			const unsigned int H = texture->getHeight();
+			const size_t H = texture->getHeight();
 			std::vector<uint8_t*> scanline_ptrs(H);
-			for(unsigned int i=0; i<H; ++i)
+			for(size_t i=0; i<H; ++i)
 				scanline_ptrs[i] = texture->getPixel(0, i);
 
 
@@ -310,7 +310,7 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 		
 		cinfo.image_width = (JDIMENSION)image->getWidth(); // image width and height, in pixels
 		cinfo.image_height = (JDIMENSION)image->getHeight();
-		cinfo.input_components = image->getN();	// # of color components per pixel
+		cinfo.input_components = (int)image->getN();	// # of color components per pixel
 		cinfo.in_color_space = image->getN() >= 3 ? JCS_RGB : JCS_GRAYSCALE; // colorspace of input image
 
 		jpeg_set_defaults(&cinfo); // Set default parameters for compression.

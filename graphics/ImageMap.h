@@ -89,15 +89,15 @@ class ImageMap : public Map2D
 {
 public:
 	inline ImageMap();
-	inline ImageMap(unsigned int width, unsigned int height, unsigned int N); // throws Indigo::Exception
+	inline ImageMap(size_t width, size_t height, size_t N); // throws Indigo::Exception
 	inline virtual ~ImageMap();
 
 	inline ImageMap& operator = (const ImageMap& other);
 
 	inline bool operator == (const ImageMap& other) const;
 
-	void resize(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
-	void resizeNoCopy(unsigned int width_, unsigned int height_, unsigned int N_); // throws Indigo::Exception
+	void resize(size_t width_, size_t height_, size_t N_); // throws Indigo::Exception
+	void resizeNoCopy(size_t width_, size_t height_, size_t N_); // throws Indigo::Exception
 
 	virtual float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
@@ -109,18 +109,18 @@ public:
 	inline virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;
 
 	// X and Y are normalised image coordinates.
-	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, unsigned int channel) const;
+	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 	inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
 
-	inline unsigned int getWidth() const { return width; }
-	inline unsigned int getHeight() const { return height; }
+	inline size_t getWidth() const { return width; }
+	inline size_t getHeight() const { return height; }
 
-	inline virtual unsigned int getMapWidth() const { return width; }
-	inline virtual unsigned int getMapHeight() const { return height; }
-	inline virtual unsigned int numChannels() const { return N; }
+	inline virtual size_t getMapWidth() const { return width; }
+	inline virtual size_t getMapHeight() const { return height; }
+	inline virtual size_t numChannels() const { return N; }
 
 	inline virtual bool takesOnlyUnitIntervalValues() const { return !ComponentValueTraits::isFloatingPoint(); }
 
@@ -140,7 +140,7 @@ public:
 
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 
-	inline virtual unsigned int getBytesPerPixel() const;
+	inline virtual size_t getBytesPerPixel() const;
 
 	inline size_t getByteSize() const;
 
@@ -163,25 +163,25 @@ public:
 	void blendImage(const ImageMap<V, ComponentValueTraits>& img, const int destx, const int desty, const Colour4f& colour);
 
 	// Get num components per pixel.
-	inline unsigned int getN() const { return N; }
+	inline size_t getN() const { return N; }
 
 	V* getData() { return &data[0]; }
 	const V* getData() const { return &data[0]; }
-	inline V* getPixel(unsigned int x, unsigned int y);
-	inline const V* getPixel(unsigned int x, unsigned int y) const;
+	inline V* getPixel(size_t x, size_t y);
+	inline const V* getPixel(size_t x, size_t y) const;
 	inline V* getPixel(size_t i);
 	inline const V* getPixel(size_t i) const;
 	inline size_t getDataSize() const { return data.size(); }
-	inline size_t numPixels() const { return (size_t)width * (size_t)height; }
+	inline size_t numPixels() const { return width * height; }
 
 	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
 	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
 
 private:
 #if IMAGE_MAP_TILED
-	unsigned int w_blocks, h_blocks;
+	size_t w_blocks, h_blocks;
 #endif
-	unsigned int width, height, N;
+	size_t width, height, N;
 	glare::AllocatorVector<V, 16> data;
 	float gamma, ds_over_2, dt_over_2;
 };
@@ -208,7 +208,7 @@ ImageMap<V, VTraits>::ImageMap()
 
 
 template <class V, class VTraits>
-ImageMap<V, VTraits>::ImageMap(unsigned int width_, unsigned int height_, unsigned int N_)
+ImageMap<V, VTraits>::ImageMap(size_t width_, size_t height_, size_t N_)
 :	width(width_), height(height_), N(N_), gamma(2.2f), ds_over_2(0.5f / width_), dt_over_2(0.5f / height_)
 {
 	try
@@ -260,7 +260,7 @@ bool ImageMap<V, VTraits>::operator == (const ImageMap& other) const
 
 
 template <class V, class VTraits>
-void ImageMap<V, VTraits>::resize(unsigned int width_, unsigned int height_, unsigned int N_)
+void ImageMap<V, VTraits>::resize(size_t width_, size_t height_, size_t N_)
 {
 	width = width_;
 	height = height_;
@@ -280,7 +280,7 @@ void ImageMap<V, VTraits>::resize(unsigned int width_, unsigned int height_, uns
 
 
 template <class V, class VTraits>
-void ImageMap<V, VTraits>::resizeNoCopy(unsigned int width_, unsigned int height_, unsigned int N_)
+void ImageMap<V, VTraits>::resizeNoCopy(size_t width_, size_t height_, size_t N_)
 {
 	width = width_;
 	height = height_;
@@ -300,10 +300,8 @@ void ImageMap<V, VTraits>::resizeNoCopy(unsigned int width_, unsigned int height
 
 
 template <class V, class VTraits>
-const Colour3<Map2D::Value> ImageMap<V, VTraits>::pixelColour(size_t x_, size_t y_) const
+const Colour3<Map2D::Value> ImageMap<V, VTraits>::pixelColour(size_t x, size_t y) const
 {
-	unsigned int x = (unsigned int)x_;
-	unsigned int y = (unsigned int)y_;
 	Colour3<Value> colour_out;
 	if(N < 3)
 		colour_out.r = colour_out.g = colour_out.b = VTraits::scaleValue(getPixel(x, y)[0]);
@@ -319,10 +317,8 @@ const Colour3<Map2D::Value> ImageMap<V, VTraits>::pixelColour(size_t x_, size_t 
 
 
 template <class V, class VTraits>
-const Map2D::Value ImageMap<V, VTraits>::pixelComponent(size_t x_, size_t y_, size_t c) const
+const Map2D::Value ImageMap<V, VTraits>::pixelComponent(size_t x, size_t y, size_t c) const
 {
-	unsigned int x = (unsigned int)x_;
-	unsigned int y = (unsigned int)y_;
 	return VTraits::scaleValue(getPixel(x, y)[c]);
 }
 
@@ -341,13 +337,13 @@ const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 	const Coord v_pixels = v_frac_part * (Coord)height;
 
 	// Get pixel indices
-	const unsigned int ut = myMin((unsigned int)u_pixels, width - 1);
-	const unsigned int vt = myMin((unsigned int)v_pixels, height - 1);
+	const size_t ut = myMin((size_t)u_pixels, width - 1);
+	const size_t vt = myMin((size_t)v_pixels, height - 1);
 
 	assert(ut < width && vt < height);
 
-	const unsigned int ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
-	const unsigned int vt_1 = (vt + 1) >= height ? 0 : vt + 1;
+	const size_t ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
+	const size_t vt_1 = (vt + 1) >= height ? 0 : vt + 1;
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
@@ -388,7 +384,7 @@ const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 
 
 template <class V, class VTraits>
-Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, unsigned int channel) const
+Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, size_t channel) const
 {
 	assert(channel < N);
 
@@ -401,13 +397,13 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, un
 	const Coord v_pixels = v_frac_part * (Coord)height;
 
 	// Get pixel indices
-	const unsigned int ut = myMin((unsigned int)u_pixels, width - 1);
-	const unsigned int vt = myMin((unsigned int)v_pixels, height - 1);
+	const size_t ut = myMin((size_t)u_pixels, width - 1);
+	const size_t vt = myMin((size_t)v_pixels, height - 1);
 
 	assert(ut < width && vt < height);
 
-	const unsigned int ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
-	const unsigned int vt_1 = (vt + 1) >= height ? 0 : vt + 1;
+	const size_t ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
+	const size_t vt_1 = (vt + 1) >= height ? 0 : vt + 1;
 
 	const Coord ufrac = u_pixels - (Coord)ut;
 	const Coord vfrac = v_pixels - (Coord)vt;
@@ -445,15 +441,15 @@ Map2D::Value ImageMap<V, VTraits>::getDerivs(Coord s, Coord t, Value& dv_ds_out,
 	const Coord t_pixels = t_frac_part * (Coord)height;
 
 	// Get pixel indices
-	const unsigned int ut = myMin((unsigned int)s_pixels, width - 1);
-	const unsigned int vt = myMin((unsigned int)t_pixels, height - 1);
+	const size_t ut = myMin((size_t)s_pixels, width - 1);
+	const size_t vt = myMin((size_t)t_pixels, height - 1);
 
 	assert(ut < width && vt < height);
 
-	const unsigned int ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
-	const unsigned int vt_1 = (vt + 1) >= height ? 0 : vt + 1;
-	const unsigned int ut_2 = (ut_1 + 1) >= width  ? 0 : ut_1 + 1;
-	const unsigned int vt_2 = (vt_1 + 1) >= height ? 0 : vt_1 + 1;
+	const size_t ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
+	const size_t vt_1 = (vt + 1) >= height ? 0 : vt + 1;
+	const size_t ut_2 = (ut_1 + 1) >= width  ? 0 : ut_1 + 1;
+	const size_t vt_2 = (vt_1 + 1) >= height ? 0 : vt_1 + 1;
 	assert(ut_1 < width && vt_1 < height && ut_2 < width && vt_2 < height);
 
 	const V* const use_data = &data[0];
@@ -534,7 +530,7 @@ Map2D::Value ImageMap<V, VTraits>::getDerivs(Coord s, Coord t, Value& dv_ds_out,
 
 
 template <class V, class VTraits>
-inline V* ImageMap<V, VTraits>::getPixel(unsigned int x, unsigned int y)
+inline V* ImageMap<V, VTraits>::getPixel(size_t x, size_t y)
 {
 	assert(x < width && y < height);
 
@@ -553,7 +549,7 @@ inline V* ImageMap<V, VTraits>::getPixel(unsigned int x, unsigned int y)
 
 
 template <class V, class VTraits>
-inline const V* ImageMap<V, VTraits>::getPixel(unsigned int x, unsigned int y) const
+inline const V* ImageMap<V, VTraits>::getPixel(size_t x, size_t y) const
 {
 	assert(x < width && y < height);
 
@@ -593,8 +589,8 @@ template <class V, class VTraits>
 Reference<Map2D> ImageMap<V, VTraits>::extractAlphaChannel() const
 {
 	ImageMap<V, VTraits>* alpha_map = new ImageMap<V, VTraits>(width, height, 1);
-	for(unsigned int y=0; y<height; ++y)
-		for(unsigned int x=0; x<width; ++x)
+	for(size_t y=0; y<height; ++y)
+		for(size_t x=0; x<width; ++x)
 		{	
 			alpha_map->getPixel(x, y)[0] = this->getPixel(x, y)[N-1];
 		}
@@ -609,8 +605,8 @@ bool ImageMap<V, VTraits>::isAlphaChannelAllWhite() const
 	if(!hasAlphaChannel())
 		return true;
 
-	for(unsigned int y=0; y<height; ++y)
-		for(unsigned int x=0; x<width; ++x)
+	for(size_t y=0; y<height; ++y)
+		for(size_t x=0; x<width; ++x)
 			if(getPixel(x, y)[N-1] != VTraits::maxValue())
 				return false;
 
@@ -622,8 +618,8 @@ template <class V, class VTraits>
 Reference<Map2D> ImageMap<V, VTraits>::extractChannelZero() const
 {
 	ImageMap<V, VTraits>* new_map = new ImageMap<V, VTraits>(width, height, 1);
-	for(unsigned int y=0; y<height; ++y)
-		for(unsigned int x=0; x<width; ++x)
+	for(size_t y=0; y<height; ++y)
+		for(size_t x=0; x<width; ++x)
 		{	
 			new_map->getPixel(x, y)[0] = this->getPixel(x, y)[0];
 		}
@@ -636,8 +632,8 @@ template <class V, class VTraits>
 Reference<ImageMapFloat> ImageMap<V, VTraits>::extractChannelZeroLinear() const
 {
 	ImageMapFloat* new_map = new ImageMap<float, FloatComponentValueTraits>(width, height, 1);
-	for(unsigned int y=0; y<height; ++y)
-		for(unsigned int x=0; x<width; ++x)
+	for(size_t y=0; y<height; ++y)
+		for(size_t x=0; x<width; ++x)
 		{
 			new_map->getPixel(x, y)[0] = VTraits::toLinear(this->getPixel(x, y)[0], this->gamma);
 		}
@@ -650,8 +646,8 @@ template <class V, class VTraits>
 Reference<Image> ImageMap<V, VTraits>::convertToImage() const
 {
 	Image* image = new Image(width, height);
-	for(unsigned int y=0; y<height; ++y)
-		for(unsigned int x=0; x<width; ++x)
+	for(size_t y=0; y<height; ++y)
+		for(size_t x=0; x<width; ++x)
 		{
 			if(N < 3)
 			{
@@ -678,7 +674,7 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 	// Convert this low-bit-depth texture to a 32 bit floating point image.
 
 	// We don't want to include the alpha channel in our blurred greyscale image.
-	unsigned int use_N = 1; // Number of components to average over when computing the greyscale value.
+	size_t use_N = 1; // Number of components to average over when computing the greyscale value.
 	if(N == 1)
 		use_N = 1;
 	else if(N == 2)
@@ -689,11 +685,11 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 	const float N_scale = 1.f / (float)use_N;
 
 	ImageMapFloat img(width, height, 1);
-	for(unsigned int y=0; y<height; ++y)
-		for(unsigned int x=0; x<width; ++x)
+	for(size_t y=0; y<height; ++y)
+		for(size_t x=0; x<width; ++x)
 		{
 			float val = 0;
-			for(unsigned int c=0; c<use_N; ++c)
+			for(size_t c=0; c<use_N; ++c)
 				val += this->getPixel(x, y)[c];
 
 			img.getPixel(x, y)[0] = VTraits::toLinear(val * N_scale, this->gamma);
@@ -745,8 +741,8 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 	const float filter_r_plus_1  = filter_r + 1.f;
 	const float filter_r_minus_1 = filter_r - 1.f;
 
-	const int src_w = this->getMapWidth();
-	const int src_h = this->getMapHeight();
+	const int src_w = (int)this->getMapWidth();
+	const int src_h = (int)this->getMapHeight();
 
 	ImageMapFloat* image;
 
@@ -832,7 +828,7 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 
 
 template <class V, class VTraits>
-unsigned int ImageMap<V, VTraits>::getBytesPerPixel() const
+size_t ImageMap<V, VTraits>::getBytesPerPixel() const
 {
 	return sizeof(V) * N;
 }
@@ -863,7 +859,7 @@ void ImageMap<V, VTraits>::zero()
 template <class V, class VTraits>
 void ImageMap<V, VTraits>::blitToImage(ImageMap<V, VTraits>& dest, int dest_start_x, int dest_start_y) const
 {
-	blitToImage(0, 0, getWidth(), getHeight(), dest, dest_start_x, dest_start_y);
+	blitToImage(0, 0, (int)getWidth(), (int)getHeight(), dest, dest_start_x, dest_start_y);
 }
 
 
@@ -894,7 +890,7 @@ void ImageMap<V, VTraits>::blitToImage(int src_start_x, int src_start_y, int src
 		const int dx = sx + x_offset;
 		const int dy = sy + y_offset;
 
-		for(unsigned int c=0; c<N; ++c)
+		for(size_t c=0; c<N; ++c)
 			dest.getPixel(dx, dy)[c] = getPixel(sx, sy)[c];
 	}
 }

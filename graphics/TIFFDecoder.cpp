@@ -143,8 +143,8 @@ void TIFFDecoder::write(const ImageMap<T, Traits>& bitmap, const std::string& pa
 #endif
     if(tif)
 	{
-		const uint32 w = bitmap.getWidth();
-		const uint32 h = bitmap.getHeight();
+		const uint32 w = (uint32)bitmap.getWidth();
+		const uint32 h = (uint32)bitmap.getHeight();
 		const uint16 bits_per_sample = (uint16)(sizeof(T) * 8);
 		const uint16 samples_per_pixel = (uint16)bitmap.getN();
 		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);

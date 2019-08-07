@@ -3740,8 +3740,8 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 			tex_data[i] = imagemap->getData();
 		}
 
-		unsigned int tex_xres = face_maps[0]->getMapWidth();
-		unsigned int tex_yres = face_maps[0]->getMapHeight();
+		size_t tex_xres = face_maps[0]->getMapWidth();
+		size_t tex_yres = face_maps[0]->getMapHeight();
 		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, this, OpenGLTexture::Format_RGB_Linear_Float,
 			filtering, wrapping
 		);
@@ -3830,8 +3830,8 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
-			unsigned int tex_xres = map2d.getMapWidth();
-			unsigned int tex_yres = map2d.getMapHeight();
+			size_t tex_xres = map2d.getMapWidth();
+			size_t tex_yres = map2d.getMapHeight();
 
 			if(imagemap->getN() == 3)
 			{
@@ -3864,8 +3864,8 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
-			unsigned int tex_xres = map2d.getMapWidth();
-			unsigned int tex_yres = map2d.getMapHeight();
+			size_t tex_xres = map2d.getMapWidth();
+			size_t tex_yres = map2d.getMapHeight();
 
 			if(imagemap->getN() == 3)
 			{

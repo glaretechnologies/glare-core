@@ -73,12 +73,12 @@ void TextureLoadingTests::test()
 		testAssert(dynamic_cast<ImageMapUInt8*>(map.ptr()));
 
 		Reference<const ImageMapUInt8> prev_mip_level_image = map.downcast<const ImageMapUInt8>();
-		const unsigned int W = map->getMapWidth();
-		const unsigned int H = map->getMapHeight();
-		for(int k=1; ; ++k) // For each mipmap level:
+		const size_t W = map->getMapWidth();
+		const size_t H = map->getMapHeight();
+		for(size_t k=1; ; ++k) // For each mipmap level:
 		{
-			const unsigned int level_W = (int)myMax(1u, W / (1 << k));
-			const unsigned int level_H = (int)myMax(1u, H / (1 << k));
+			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
+			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 
 			Reference<const ImageMapUInt8> mip_level_image = TextureLoading::downSampleToNextMipMapLevel(*prev_mip_level_image, level_W, level_H);
 

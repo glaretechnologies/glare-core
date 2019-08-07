@@ -175,7 +175,7 @@ void Bitmap::setFromImageMap(const ImageMap<uint8_t, UInt8ComponentValueTraits>&
 #error 
 #endif
 		
-	const int image_map_size_B = image_map.getMapWidth() * image_map.getMapHeight() * image_map.getBytesPerPixel();
+	const size_t image_map_size_B = image_map.getMapWidth() * image_map.getMapHeight() * image_map.getBytesPerPixel();
 	if(image_map_size_B > 0)
 		std::memcpy(this->getPixelNonConst(0, 0), image_map.getData(), image_map_size_B);
 }
