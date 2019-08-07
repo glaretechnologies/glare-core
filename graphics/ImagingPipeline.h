@@ -36,7 +36,9 @@ struct RunPipelineScratchState
 	RunPipelineScratchState();
 	~RunPipelineScratchState();
 
-	std::vector<Reference<Indigo::Task> > tasks; // These should only actually have type ImagePipelineTask.
+	std::vector<Reference<Indigo::Task> > image_pipeline_tasks; // These should only actually have type ImagePipelineTask.
+	std::vector<Reference<Indigo::Task> > sum_buffer_tasks; // These should only actually have type SumBuffersTask.
+	std::vector<Reference<Indigo::Task> > tonemap_tasks; // These should only actually have type ToneMapTask.
 	std::vector<Image4f> per_thread_tile_buffers;
 	Image4f temp_summed_buffer;
 	Image4f temp_AD_buffer;

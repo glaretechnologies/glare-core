@@ -224,10 +224,17 @@ struct SumBuffersTaskClosure
 class SumBuffersTask : public Indigo::Task
 {
 public:
-	SumBuffersTask(const SumBuffersTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin(begin_), end(end_) {}
+	void set(const SumBuffersTaskClosure* closure, size_t begin_y_, size_t end_y_)
+	{
+		closure_ = closure;
+		begin_y = begin_y_;
+		end_y = end_y_;
+	}
 
 	virtual void run(size_t thread_index)
 	{
+		const SumBuffersTaskClosure& closure = *closure_;
+
 		// Build layer weights.  Layer weight = light layer value * image_scale.
 		const float image_scale        = closure.image_scale;
 		const float region_image_scale = closure.region_image_scale;
@@ -271,9 +278,12 @@ public:
 		const float region_alpha_bias_factor = 1.f + closure.region_alpha_bias;
 		const ptrdiff_t main_layer_num_components = closure.render_channels.layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
 
-		for(size_t i = begin; i < end; ++i)
+		const size_t W = closure.render_channels.getWidth();
+		for(size_t y = begin_y; y < end_y; ++y)
+		for(size_t x = 0; x < W; ++x)
 		{
-			const ptrdiff_t src_pixel_offset = i * stride;
+			const size_t pixel_i = y * W + x;
+			const ptrdiff_t src_pixel_offset = pixel_i * stride;
 			Colour4f sum;
 			if(blend_main_layers) // blend together main light layers (usual rendering).
 			{
@@ -301,9 +311,6 @@ public:
 			if(render_region_enabled)
 			{
 				// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-				const size_t x = i % closure.render_channels.getWidth();
-				const size_t y = i / closure.render_channels.getWidth(); // NOTE: slow
-
 				if(pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
 				{
 					if(blend_main_layers)
@@ -326,7 +333,7 @@ public:
 					}
 
 					// Get alpha from (region) alpha channel if it exists
-					sum.x[3] = render_foreground_alpha ? (region_data[i * stride + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 				}
 				else
 				{
@@ -336,16 +343,17 @@ public:
 				}
 			}
 
-			dest_buffer[i] = sum;
+			dest_buffer[pixel_i] = sum;
 		}
 	}
 
-	const SumBuffersTaskClosure& closure;
-	size_t begin, end;
+	const SumBuffersTaskClosure* closure_;
+	size_t begin_y, end_y;
 };
 
 
 void sumLightLayers(
+	RunPipelineScratchState& scratch_state,
 	const ArrayRef<Vec3f>& layer_scales, // Light layer weights.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
@@ -371,8 +379,7 @@ void sumLightLayers(
 	closure.region_alpha_bias = region_alpha_bias;
 	closure.render_foreground_alpha = render_foreground_alpha;
 	
-	const size_t num_pixels = render_channels.getWidth() * render_channels.getHeight();
-	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(closure, 0, num_pixels);
+	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(&closure, /*begin=*/0, /*end=*/render_channels.getHeight(), scratch_state.sum_buffer_tasks);
 }
 
 
@@ -388,10 +395,17 @@ struct ToneMapTaskClosure
 class ToneMapTask : public Indigo::Task
 {
 public:
-	ToneMapTask(const ToneMapTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
+	void set(const ToneMapTaskClosure* closure, size_t begin_, size_t end_)
+	{
+		closure_ = closure;
+		begin = (int)begin_;
+		end = (int)end_;
+	}
 
 	virtual void run(size_t thread_index)
 	{
+		const ToneMapTaskClosure& closure = *closure_;
+
 		for(int tile = begin; tile < end; ++tile)
 		{
 			// Get the final image tile bounds for the tile index
@@ -404,7 +418,7 @@ public:
 		}
 	}
 
-	const ToneMapTaskClosure& closure;
+	const ToneMapTaskClosure* closure_;
 	int begin, end;
 };
 
@@ -571,7 +585,7 @@ static void runPipelineFullBuffer(
 
 	//if(PROFILE) t.reset();
 	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
-	sumLightLayers(layer_weights, image_scale, region_image_scale, render_channels, channel, render_regions, margin_ssf1, ssf,
+	sumLightLayers(scratch_state, layer_weights, image_scale, region_image_scale, render_channels, channel, render_regions, margin_ssf1, ssf,
 		renderer_settings.zero_alpha_outside_region, region_alpha_bias, renderer_settings.render_foreground_alpha, temp_summed_buffer, task_manager);
 	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
@@ -685,56 +699,7 @@ static void runPipelineFullBuffer(
 		}
 	}
 
-
-	// Either tonemap, or do equivalent operation for non-colour passes.
-	if(renderer_settings.shadow_pass)
-	{
-		for(size_t i = 0; i < temp_summed_buffer.numPixels(); ++i)
-		{
-			float occluded_luminance   = temp_summed_buffer.getPixel(i).x[0];
-			float unoccluded_luminance = temp_summed_buffer.getPixel(i).x[1];
-			float unshadow_frac = myClamp(occluded_luminance / unoccluded_luminance, 0.0f, 1.0f);
-			// Set to a black colour, with alpha value equal to the 'shadow fraction'.
-			temp_summed_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
-		}
-	}
-	else
-	{
-		//if(PROFILE) t.reset();
-
-		const int final_xres = (int)temp_summed_buffer.getWidth();
-		const int final_yres = (int)temp_summed_buffer.getHeight();
-		const int x_tiles = Maths::roundedUpDivide<int>(final_xres, (int)image_tile_size);
-		const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
-		const int num_tiles = x_tiles * y_tiles;
-
-		ToneMapTaskClosure closure;
-		closure.tone_mapper = renderer_settings.tone_mapper.ptr();
-		closure.tonemap_params = &tonemap_params;
-		closure.temp_summed_buffer = &temp_summed_buffer;
-		closure.final_xres = final_xres;
-		closure.final_yres = final_yres;
-		closure.x_tiles = x_tiles;
-
-		task_manager.runParallelForTasks<ToneMapTask, ToneMapTaskClosure>(closure, 0, num_tiles);
-
-		//if(PROFILE) conPrint("\tTone map: " + t.elapsedString());
-	}
-
-	// Components should be in range [0, 1]
-	assert(temp_summed_buffer.minPixelComponent() >= 0.0f);
-	//const float max_c = temp_summed_buffer.maxPixelComponent();
-	assert(temp_summed_buffer.maxPixelComponent() <= 1.0f);
-
-	// Compute final dimensions of LDR image.
-	// This is the size after the margins have been trimmed off, and the image has been downsampled.
-	const size_t supersample_factor = (size_t)ssf;
-	const size_t border_width = (size_t)margin_ssf1;
-
-	const size_t final_xres = render_channels.getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
-	const size_t final_yres = render_channels.getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
-	ldr_buffer_out.resizeNoCopy(final_xres, final_yres);
-
+	// Do denoising if required.
 	const bool do_denoising = allow_denoising && renderer_settings.denoise && ((channel == NULL) || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
 	if(do_denoising)
 	{
@@ -828,6 +793,57 @@ static void runPipelineFullBuffer(
 			conPrint("OIDN Error: " + std::string(errorMessage));
 	}
 
+
+	// Either tonemap, or do equivalent operation for non-colour passes.
+	if(renderer_settings.shadow_pass)
+	{
+		for(size_t i = 0; i < temp_summed_buffer.numPixels(); ++i)
+		{
+			float occluded_luminance   = temp_summed_buffer.getPixel(i).x[0];
+			float unoccluded_luminance = temp_summed_buffer.getPixel(i).x[1];
+			float unshadow_frac = myClamp(occluded_luminance / unoccluded_luminance, 0.0f, 1.0f);
+			// Set to a black colour, with alpha value equal to the 'shadow fraction'.
+			temp_summed_buffer.getPixel(i) = Colour4f(0, 0, 0, 1 - unshadow_frac);
+		}
+	}
+	else
+	{
+		//if(PROFILE) t.reset();
+
+		const int final_xres = (int)temp_summed_buffer.getWidth();
+		const int final_yres = (int)temp_summed_buffer.getHeight();
+		const int x_tiles = Maths::roundedUpDivide<int>(final_xres, (int)image_tile_size);
+		const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
+		const int num_tiles = x_tiles * y_tiles;
+
+		ToneMapTaskClosure closure;
+		closure.tone_mapper = renderer_settings.tone_mapper.ptr();
+		closure.tonemap_params = &tonemap_params;
+		closure.temp_summed_buffer = &temp_summed_buffer;
+		closure.final_xres = final_xres;
+		closure.final_yres = final_yres;
+		closure.x_tiles = x_tiles;
+
+		task_manager.runParallelForTasks<ToneMapTask, ToneMapTaskClosure>(&closure, /*begin=*/0, /*end=*/num_tiles, scratch_state.tonemap_tasks);
+
+		//if(PROFILE) conPrint("\tTone map: " + t.elapsedString());
+	}
+
+	// Components should be in range [0, 1]
+	assert(temp_summed_buffer.minPixelComponent() >= 0.0f);
+	//const float max_c = temp_summed_buffer.maxPixelComponent();
+	assert(temp_summed_buffer.maxPixelComponent() <= 1.0f);
+
+	// Compute final dimensions of LDR image.
+	// This is the size after the margins have been trimmed off, and the image has been downsampled.
+	const size_t supersample_factor = (size_t)ssf;
+	const size_t border_width = (size_t)margin_ssf1;
+
+	const size_t final_xres = render_channels.getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
+	const size_t final_yres = render_channels.getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
+	ldr_buffer_out.resizeNoCopy(final_xres, final_yres);
+
+
 	// Collapse super-sampled image down to final image size
 	// NOTE: this trims off the borders
 	if(supersample_factor > 1)
@@ -847,7 +863,7 @@ static void runPipelineFullBuffer(
 	}
 	else
 	{
-		// Copy to temp_buffer 3, removing border.
+		// Copy to ldr_buffer_out, removing border.
 		const int b = margin_ssf1;
 
 		temp_summed_buffer.blitToImage(b, b, (int)temp_summed_buffer.getWidth() - b, (int)temp_summed_buffer.getHeight() - b, ldr_buffer_out, 0, 0);
@@ -955,7 +971,12 @@ struct ImagePipelineTaskClosure
 class ImagePipelineTask : public Indigo::Task
 {
 public:
-	ImagePipelineTask() : closure_(0) {}
+	void set(const ImagePipelineTaskClosure* closure, size_t begin_, size_t end_)
+	{
+		closure_ = closure;
+		begin = (int)begin_;
+		end = (int)end_;
+	}
 
 	virtual void run(size_t thread_index)
 	{
@@ -1548,23 +1569,7 @@ void runPipeline(
 
 		// Timer timer;
 
-		// Allocate (or check are already allocated) ImagePipelineTasks
-		
-		scratch_state.tasks.resize(num_tasks);
-		for(size_t i=0; i<num_tasks; ++i)
-			if(scratch_state.tasks[i].isNull())
-				scratch_state.tasks[i] = new ImagePipelineTask();
-
-		const size_t num_tiles_per_task = Maths::roundedUpDivide(num_tiles, (ptrdiff_t)num_tasks);
-		for(size_t i=0; i<num_tasks; ++i)
-		{
-			ImagePipelineTask* task = scratch_state.tasks[i].downcastToPtr<ImagePipelineTask>();
-			task->closure_ = &closure;
-			task->begin = myMin<int>((int)(num_tiles_per_task * i      ), (int)num_tiles);
-			task->end   = myMin<int>((int)(num_tiles_per_task * (i + 1)), (int)num_tiles);
-		}
-
-		task_manager.runTasks(scratch_state.tasks);
+		task_manager.runParallelForTasks<ImagePipelineTask, ImagePipelineTaskClosure>(&closure, /*begin=*/0, /*end=*/num_tiles, scratch_state.image_pipeline_tasks);
 		
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 	}

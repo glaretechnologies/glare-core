@@ -64,6 +64,16 @@ public:
 	void runParallelForTasks(const TaskClosure& closure, size_t begin, size_t end);
 
 	/*
+	Creates and runs some tasks in parallel.
+	Stores references to the tasks in the tasks vector, and reuses them if the references are non-null.
+
+	Task type must implement 
+	set(const TaskClosure* closure, size_t begin, size_t end)
+	*/
+	template <class Task, class TaskClosure>
+	void runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks);
+
+	/*
 	In this method, each task has a particular offset and stride, where stride = num tasks.
 	So each task's work indices are interleaved with each other.
 	*/
@@ -98,42 +108,50 @@ void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, 
 	if(begin >= end)
 		return;
 
-	const size_t total = end - begin;
-	const size_t num_tasks = myMax<size_t>(1, myMin(total, getNumThreads()));
-	
-	size_t num_indices_per_task = 0;
-	if(total % num_tasks == 0)
-	{
-		// If num_tasks divides total perfectly
-		num_indices_per_task = total / num_tasks;
-	}
-	else
-	{
-		num_indices_per_task = (total / num_tasks) + 1;
-	}
+	const size_t num_indices = end - begin;
+	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
+	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
 
-	size_t i = begin;
 	for(size_t t=0; t<num_tasks; ++t)
 	{
-		const size_t task_begin = i;
-		const size_t task_end = myMin(i + num_indices_per_task, end);
-
-		assert(task_begin >= begin);
-		assert(task_end <= end);
+		const size_t task_begin = myMin(begin + t       * num_indices_per_task, end);
+		const size_t task_end   = myMin(begin + (t + 1) * num_indices_per_task, end);
+		assert(task_begin >= begin && task_end <= end);
 
 		if(task_begin < task_end)
 		{
 			TaskType* task = new TaskType(closure, task_begin, task_end);
-
 			addTask(task);
 		}
-
-		i += num_indices_per_task;
 	}
-	assert(i >= end);
 
-	// The tasks should be running.  Wait for them to complete.  This blocks.
-	waitForTasksToComplete();
+	waitForTasksToComplete(); // The tasks should be running.  Wait for them to complete.  This blocks.
+}
+
+
+template <class TaskType, class TaskClosure>
+void TaskManager::runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks)
+{
+	if(begin >= end)
+		return;
+
+	const size_t num_indices = end - begin;
+	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
+	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
+
+	tasks.resize(num_tasks);
+
+	for(size_t t=0; t<num_tasks; ++t)
+	{
+		if(tasks[t].isNull())
+			tasks[t] = new TaskType();
+		const size_t task_begin = myMin(begin + t       * num_indices_per_task, end);
+		const size_t task_end   = myMin(begin + (t + 1) * num_indices_per_task, end);
+		assert(task_begin >= begin && task_end <= end);
+		tasks[t].downcastToPtr<TaskType>()->set(closure, task_begin, task_end);
+	}
+
+	runTasks(tasks); // Blocks
 }
 
 
@@ -143,8 +161,8 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 	if(begin >= end)
 		return;
 
-	const size_t total = end - begin;
-	const size_t num_tasks = myMax<size_t>(1, myMin(total, getNumThreads()));
+	const size_t num_indices = end - begin;
+	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
 	
 	for(size_t t=0; t<num_tasks; ++t)
 	{

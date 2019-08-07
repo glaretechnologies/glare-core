@@ -83,6 +83,32 @@ public:
 };
 
 
+// Variant that has set() method.
+class ForLoopTask2 : public Indigo::Task
+{
+public:
+	void set(const ForLoopTaskClosure* closure_, size_t begin_, size_t end_)
+	{
+		closure = closure_;
+		begin = begin_;
+		end = end_;
+	}
+
+	virtual void run(size_t thread_index)
+	{
+		conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end));
+
+		for(size_t i = begin; i < end; ++i)
+		{
+			(*closure->touch_count)[i]++;
+		}
+	}
+
+	const ForLoopTaskClosure* closure;
+	size_t begin, end;
+};
+
+
 class ForLoopTaskInterleaved : public Indigo::Task
 {
 public:
@@ -169,6 +195,31 @@ void testForLoopTaskRun(TaskManager& task_manager, size_t N)
 
 		for(size_t i=N+border; i<N+border*2; ++i)
 			testAssert(touch_count[i] == 0);
+	}
+
+	// Test runParallelForTasks() that takes an array
+	{
+		testAssert(task_manager.areAllTasksComplete());
+
+		std::vector<int> touch_count(N, 0);
+
+		ForLoopTaskClosure closure;
+		closure.touch_count = &touch_count;
+
+		std::vector<Reference<Task> > tasks;
+
+		task_manager.runParallelForTasks<ForLoopTask2, ForLoopTaskClosure>(&closure, 0, (int)N, tasks);
+		testAssert(task_manager.areAllTasksComplete());
+
+		for(size_t i=0; i<N; ++i)
+			testAssert(touch_count[i] == 1);
+
+		// Run again
+		task_manager.runParallelForTasks<ForLoopTask2, ForLoopTaskClosure>(&closure, 0, (int)N, tasks);
+		testAssert(task_manager.areAllTasksComplete());
+
+		for(size_t i=0; i<N; ++i)
+			testAssert(touch_count[i] == 2);
 	}
 }
 
