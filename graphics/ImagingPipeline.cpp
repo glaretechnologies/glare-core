@@ -594,7 +594,7 @@ static void runPipelineFullBuffer(
 	{
 		BufferedPrintOutput bpo;
 		temp_AD_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
-		post_pro_diffraction->applyDiffractionFilterToImage(bpo, temp_summed_buffer, temp_AD_buffer, task_manager);
+		post_pro_diffraction->applyDiffractionFilterToImage(bpo, /*in=*/temp_summed_buffer, /*out=*/temp_AD_buffer, task_manager);
 		
 		// Do 'overbright' pixel spreading.
 		// The idea here is that any really bright pixels can cause artifacts due to aperture diffraction, such as dark rings
@@ -854,19 +854,18 @@ static void runPipelineFullBuffer(
 			border_width,
 			renderer_settings.getDownsizeFilterFunc().getFilterSpan(ssf),
 			resize_filter,
-			1.0f, // max component value
 			temp_summed_buffer, // in
 			ldr_buffer_out, // out
 			task_manager
 		);
-		//if(PROFILE) conPrint("\tcollapseImage: " + t.elapsedString());
+		//if(PROFILE) conPrint("\tdownsampleImage: " + t.elapsedString());
 	}
 	else
 	{
 		// Copy to ldr_buffer_out, removing border.
 		const int b = margin_ssf1;
-
-		temp_summed_buffer.blitToImage(b, b, (int)temp_summed_buffer.getWidth() - b, (int)temp_summed_buffer.getHeight() - b, ldr_buffer_out, 0, 0);
+		temp_summed_buffer.blitToImage(/*src_start_x=*/b, /*src_start_y=*/b, /*src_end_x=*/(int)temp_summed_buffer.getWidth() - b, /*src_end_y=*/(int)temp_summed_buffer.getHeight() - b, 
+			/*dest=*/ldr_buffer_out, /*destx=*/0, /*desty=*/0);
 	}
 
 	if(apply_curves) // Apply colour curves
@@ -890,14 +889,12 @@ static void runPipelineFullBuffer(
 		}
 	}
 
-	//conPrint("ldr_buffer_out.maxPixelComponent(): " + toString(ldr_buffer_out.maxPixelComponent()));
-	
 	assert(ldr_buffer_out.getWidth()  == final_xres); // renderer_settings.getWidth());
 	assert(ldr_buffer_out.getHeight() == final_yres); // renderer_settings.getHeight());
 
 	// Components should be in range [0, 1]
 	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
-	assert(ldr_buffer_out.maxPixelComponent() <= 1.0f);
+	assert(ldr_buffer_out.maxPixelComponent() <= 1.0001f);
 
 	// For receiver/spectral rendering (which has margin 0), force alpha values to 1.
 	// Otherwise pixels on the edge of the image get alpha < 1, which results in scaling when doing the alpha divide below.
@@ -1573,14 +1570,8 @@ void runPipeline(
 		
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 	}
-	
-	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
 
-	// TEMP HACK: Chromatic aberration
-	/*Image temp;
-	ImageFilter::chromaticAberration(ldr_buffer_out, temp, 0.002f);
-	ldr_buffer_out = temp;
-	ldr_buffer_out.clampInPlace(0, 1);*/
+	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
 }
 
 

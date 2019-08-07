@@ -463,7 +463,6 @@ struct DownsampleImageTaskClosure
 	Image4f::ColourType		 * out_buffer;
 	const float * resize_filter;
 	ptrdiff_t factor, border_width, in_xres, in_yres, filter_bound, out_xres, out_yres;
-	float pre_clamp;
 };
 
 
@@ -484,7 +483,6 @@ public:
 		const ptrdiff_t in_yres = closure.in_yres;
 		const ptrdiff_t filter_bound = closure.filter_bound;
 		const ptrdiff_t out_xres = closure.out_xres;
-		const float pre_clamp = closure.pre_clamp;
 
 		for(int y = begin; y < end; ++y)
 		for(int x = 0; x < out_xres; ++x)
@@ -522,7 +520,6 @@ public:
 
 			assert(isFinite(weighted_sum.x[0]) && isFinite(weighted_sum.x[1]) && isFinite(weighted_sum.x[2]));
 
-			weighted_sum.clampInPlace(0.0f, pre_clamp); // Make sure components can't go below zero or above pre_clamp
 			out_buffer[y * out_xres + x] = weighted_sum;
 		}
 	}
@@ -534,7 +531,7 @@ public:
 
 // border width = margin @ ssf1
 void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
-							const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
+							const ptrdiff_t filter_span, const float * const resize_filter,
 							const Image4f& img_in, Image4f& img_out, Indigo::TaskManager& task_manager)
 {
 	assert(border_width >= 0);						// have padding pixels
@@ -565,7 +562,6 @@ void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_wid
 	closure.filter_bound = filter_bound;
 	closure.out_xres = out_xres;
 	closure.out_yres = out_yres;
-	closure.pre_clamp = pre_clamp;
 
 	task_manager.runParallelForTasks<DownsampleImageTask, DownsampleImageTaskClosure>(closure, 0, out_yres);
 }

@@ -71,7 +71,7 @@ public:
 	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image4f& in, Image4f& out);
 
 	static void downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
-								const ptrdiff_t filter_span, const float * const resize_filter, const float pre_clamp,
+								const ptrdiff_t filter_span, const float * const resize_filter,
 								const Image4f& img_in, Image4f& img_out, Indigo::TaskManager& task_manager);
 
 	double averageLuminance() const;
