@@ -165,8 +165,8 @@ public:
 	// Get num components per pixel.
 	inline size_t getN() const { return N; }
 
-	V* getData() { return &data[0]; }
-	const V* getData() const { return &data[0]; }
+	V* getData() { return data.data(); }
+	const V* getData() const { return data.data(); }
 	inline V* getPixel(size_t x, size_t y);
 	inline const V* getPixel(size_t x, size_t y) const;
 	inline V* getPixel(size_t i);
@@ -350,7 +350,7 @@ const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 	const Coord oneufrac = 1 - ufrac;
 	const Coord onevfrac = 1 - vfrac;
 
-	const V* const use_data = &data[0];
+	const V* const use_data = data.data();
 
 	const V* const top_left_pixel  = use_data + (ut   + width * vt  ) * N;
 	const V* const top_right_pixel = use_data + (ut_1 + width * vt  ) * N;
@@ -410,7 +410,7 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, si
 	const Coord oneufrac = 1 - ufrac;
 	const Coord onevfrac = 1 - vfrac;
 
-	const V* const use_data = &data[0];
+	const V* const use_data = data.data();
 
 	const V* const top_left_pixel  = use_data + (ut   + width * vt  ) * N + channel;
 	const V* const top_right_pixel = use_data + (ut_1 + width * vt  ) * N + channel;
@@ -452,7 +452,7 @@ Map2D::Value ImageMap<V, VTraits>::getDerivs(Coord s, Coord t, Value& dv_ds_out,
 	const size_t vt_2 = (vt_1 + 1) >= height ? 0 : vt_1 + 1;
 	assert(ut_1 < width && vt_1 < height && ut_2 < width && vt_2 < height);
 
-	const V* const use_data = &data[0];
+	const V* const use_data = data.data();
 
 	const float f0 = use_data[(ut   + width * vt  ) * N];
 	const float f1 = use_data[(ut_1 + width * vt  ) * N];
