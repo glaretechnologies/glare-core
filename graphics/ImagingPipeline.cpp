@@ -191,6 +191,15 @@ inline static bool pixelIsInARegion(ptrdiff_t x, ptrdiff_t y, const SmallArray<R
 }
 
 
+// Return data from render channels using an unaligned 4-float load.
+// Note that render channel data should use RenderChannelsAllocator in RenderChannels.cpp,
+// which allocates a little extra memory, so that we do 4-vector loads of image buffer data without reading out-of-bounds.
+inline Colour4f readUnalignedColour4f(const float* data)
+{
+	return Colour4f(_mm_loadu_ps(data));
+}
+
+
 /*
 sumLightLayers
 --------------
@@ -284,25 +293,18 @@ public:
 		{
 			const size_t pixel_i = y * W + x;
 			const ptrdiff_t src_pixel_offset = pixel_i * stride;
+			const float* const src_pixel = &front_data[src_pixel_offset];
 			Colour4f sum;
 			if(blend_main_layers) // blend together main light layers (usual rendering).
 			{
 				sum = Colour4f(0.f);
 				for(int z = 0; z < num_layers; ++z)
-				{
-					float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
-					float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
-					float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
-					sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
-				}
+					sum += readUnalignedColour4f(src_pixel + z * main_layer_num_components) * layer_weights[z]; // w component is garbage but will be overwritten below.
 			}
 			else
 			{
 				// NOTE: Assuming channel is 3-component.
-				float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
-				float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
-				float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-				sum = Colour4f(r, g, b, 0.f) * image_scale;
+				sum = readUnalignedColour4f(src_pixel + source_render_channel_offset) * image_scale;
 			}
 
 			// Get alpha from alpha channel if it exists
@@ -317,19 +319,12 @@ public:
 					{
 						sum = Colour4f(0.f);
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
-						{
-							float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
-							float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
-							float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
-							sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
-						}
+							sum += readUnalignedColour4f(&region_data[src_pixel_offset + z * main_layer_num_components]) * region_layer_weights[z];
 					}
 					else
 					{
-						float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
-						float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
-						float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
-						sum = Colour4f(r, g, b, 0.f) * region_image_scale;
+						// NOTE: Assuming channel is 3-component.
+						sum = readUnalignedColour4f(&region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
 					}
 
 					// Get alpha from (region) alpha channel if it exists
@@ -429,25 +424,6 @@ inline static float averageXYZVal(const Colour4f& c)
 }
 
 
-inline static uint32_t pixelHash(uint32_t x)
-{
-	x  = (x ^ 12345391u) * 2654435769u;
-	x ^= (x << 6) ^ (x >> 26);
-	x *= 2654435769u;
-	x += (x << 5) ^ (x >> 12);
-
-	return x;
-}
-
-
-// NOTE: Do we want to dither alpha?
-inline Colour4f ditherPixel(const Colour4f& c, ptrdiff_t pixel_i)
-{
-	const float ur = pixelHash((uint32)pixel_i) * Maths::uInt32ToUnitFloatScale();
-	return c + Colour4f(-0.5f + ur, -0.5f + ur, -0.5f + ur, 0) * (1.0f / 255.0f);
-}
-
-
 struct CurveData
 {
 	const static int table_vals = 64;
@@ -471,6 +447,7 @@ struct CurveData
 
 // Copy image data from a particular 3-component render channel, given by channel_offset, while scaling by image_scale or region_image_scale,
 // to image_out.
+// W component of image_out pixels can be garbage.
 static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const ArrayRef<RenderRegion>& render_regions,
 	int channel_offset, float image_scale, float region_image_scale, int margin_ssf1, int ssf, Image4f& image_out)
 {
@@ -503,23 +480,9 @@ static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const 
 		for(size_t x=0; x<H; ++x)
 		{
 			const size_t i = y*W + x;
-			Colour4f v;
-			if(pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions))
-			{
-				v = Colour4f(
-					region_data[stride * i + offset + 0], 
-					region_data[stride * i + offset + 1],
-					region_data[stride * i + offset + 2],
-					0.f);
-			}
-			else
-			{
-				v = Colour4f(
-					front_data[stride * i + offset + 0],
-					front_data[stride * i + offset + 1],
-					front_data[stride * i + offset + 2],
-					0.f);
-			}
+			const Colour4f v = pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions) ?
+				readUnalignedColour4f(&region_data[stride * i + offset]) :
+				readUnalignedColour4f(&front_data[stride * i + offset]);
 			dest_data[i] = v * region_image_scale;
 		}
 	}
@@ -527,11 +490,7 @@ static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const 
 	{
 		for(size_t i = 0; i < N; ++i)
 		{
-			const Colour4f v(
-				front_data[stride * i + offset + 0],
-				front_data[stride * i + offset + 1],
-				front_data[stride * i + offset + 2],
-				0.f);
+			const Colour4f v = readUnalignedColour4f(&front_data[stride * i + offset]);
 			dest_data[i] = v * image_scale;
 		}
 	}
@@ -1092,37 +1051,24 @@ public:
 				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
 				{
 					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
+					const float* const src_pixel = &front_data[src_pixel_offset];
 					Colour4f sum;
-
 					if(blend_main_layers) // blend together main light layers (usual rendering).
 					{
 						sum = Colour4f(0.f);
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
-						{
-							float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
-							float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
-							float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
-							sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
-						}
+							sum += readUnalignedColour4f(src_pixel + z * main_layer_num_components) * layer_weights[z]; // w component is garbage but will be overwritten below.
 					}
-					else // else just tonemap one layer
+					else // else read from one of the non-main layers.
 					{
 						if(colour3_channel)
-						{
-							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
-							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
-							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-							sum = Colour4f(r, g, b, 0.f) * image_scale;
-						}
+							sum = readUnalignedColour4f(src_pixel + source_render_channel_offset) * image_scale;
 						else // Else if scalar channel:
-						{
-							float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
-							sum = Colour4f(v, v, v, 0.f) * image_scale;
-						}
+							sum = Colour4f(src_pixel[source_render_channel_offset]) * image_scale;
 					}
 
 					// Get alpha from alpha channel if we are doing a foreground-alpha render
-					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
@@ -1133,27 +1079,14 @@ public:
 							{
 								sum = Colour4f(0.f);
 								for(ptrdiff_t z = 0; z < num_layers; ++z)
-								{
-									float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
-									float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
-									float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
-									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
-								}
+									sum += readUnalignedColour4f(&region_data[src_pixel_offset + z * main_layer_num_components]) * region_layer_weights[z];
 							}
 							else
 							{
 								if(colour3_channel)
-								{
-									float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
-									float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
-									float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
-									sum = Colour4f(r, g, b, 0.f) * region_image_scale;
-								}
+									sum = readUnalignedColour4f(&region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
 								else // Else if scalar channel:
-								{
-									float v = region_data[src_pixel_offset + source_render_channel_offset + 0];
-									sum = Colour4f(v, v, v, 0.f) * region_image_scale;
-								}
+									sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
 							}
 
 							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
@@ -1253,67 +1186,42 @@ public:
 				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
 				{
 					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
-					Colour4f sum(0.0f);
-
+					const float* const src_pixel = &front_data[src_pixel_offset];
+					Colour4f sum;
 					if(blend_main_layers) // blend together main light layers (usual rendering).
 					{
+						sum = Colour4f(0.f);
 						for(ptrdiff_t z = 0; z < num_layers; ++z)
-						{
-							float r = front_data[src_pixel_offset + z * main_layer_num_components + 0];
-							float g = front_data[src_pixel_offset + z * main_layer_num_components + 1];
-							float b = front_data[src_pixel_offset + z * main_layer_num_components + 2];
-							sum += Colour4f(r, g, b, 0.f) * layer_weights[z];
-						}
+							sum += readUnalignedColour4f(src_pixel + z * main_layer_num_components) * layer_weights[z]; // w component is garbage but will be overwritten below.
 					}
 					else // else read from one of the non-main layers.
 					{
 						if(colour3_channel)
-						{
-							float r = front_data[src_pixel_offset + source_render_channel_offset + 0];
-							float g = front_data[src_pixel_offset + source_render_channel_offset + 1];
-							float b = front_data[src_pixel_offset + source_render_channel_offset + 2];
-							sum += Colour4f(r, g, b, 0.f) * image_scale;
-						}
+							sum = readUnalignedColour4f(src_pixel + source_render_channel_offset) * image_scale;
 						else
-						{
-							float v = front_data[src_pixel_offset + source_render_channel_offset + 0];
-							sum += Colour4f(v, v, v, 0.f) * image_scale;
-						}
+							sum = Colour4f(src_pixel[source_render_channel_offset]) * image_scale;
 					}
 
 					// Get alpha from alpha channel if it exists
-					sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+					sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 					
 					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 					if(render_region_enabled)
 					{
 						if(pixelIsInARegion(x, y, regions))
 						{
-							sum = Colour4f(0.f);
 							if(blend_main_layers)
 							{
+								sum = Colour4f(0.f);
 								for(ptrdiff_t z = 0; z < num_layers; ++z)
-								{
-									float r = region_data[src_pixel_offset + z * main_layer_num_components + 0];
-									float g = region_data[src_pixel_offset + z * main_layer_num_components + 1];
-									float b = region_data[src_pixel_offset + z * main_layer_num_components + 2];
-									sum += Colour4f(r, g, b, 0.f) * region_layer_weights[z];
-								}
+									sum += readUnalignedColour4f(&region_data[src_pixel_offset + z * main_layer_num_components]) * region_layer_weights[z];
 							}
 							else
 							{
 								if(colour3_channel)
-								{
-									float r = region_data[src_pixel_offset + source_render_channel_offset + 0];
-									float g = region_data[src_pixel_offset + source_render_channel_offset + 1];
-									float b = region_data[src_pixel_offset + source_render_channel_offset + 2];
-									sum += Colour4f(r, g, b, 0.f) * region_image_scale;
-								}
+									sum = readUnalignedColour4f(&region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
 								else // Else if scalar channel:
-								{
-									float v = region_data[src_pixel_offset + source_render_channel_offset + 0];
-									sum += Colour4f(v, v, v, 0.f) * region_image_scale;
-								}
+									sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
 							}
 
 							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
@@ -1583,6 +1491,25 @@ void runPipeline(
 	}
 
 	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
+}
+
+
+inline static uint32_t pixelHash(uint32_t x)
+{
+	x  = (x ^ 12345391u) * 2654435769u;
+	x ^= (x << 6) ^ (x >> 26);
+	x *= 2654435769u;
+	x += (x << 5) ^ (x >> 12);
+
+	return x;
+}
+
+
+// NOTE: Do we want to dither alpha?
+inline Colour4f ditherPixel(const Colour4f& c, ptrdiff_t pixel_i)
+{
+	const float ur = pixelHash((uint32)pixel_i) * Maths::uInt32ToUnitFloatScale();
+	return c + Colour4f(-0.5f + ur, -0.5f + ur, -0.5f + ur, 0) * (1.0f / 255.0f);
 }
 
 
