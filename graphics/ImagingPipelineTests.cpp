@@ -33,7 +33,118 @@ namespace ImagingPipelineTests
 {
 
 
-static void runPipeline(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper)
+// Test running the imaging pipeline with denoising enabled.
+void doTestWithDenoising(bool do_tonemapping, int ssf)
+{
+	Indigo::TaskManager task_manager;
+
+	Reference<PostProDiffraction> post_pro_diffraction(NULL); // Don't test post_pro_diffraction currently
+
+	ImagingPipeline::RunPipelineScratchState tonemap_scratch_state;
+	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
+
+	const int image_final_xres	= 100;
+	const int image_final_yres	= 100;
+	const int image_layers		= 1;
+
+	const int image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, ssf, RendererSettings::defaultMargin());
+	const int image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, ssf, RendererSettings::defaultMargin());
+
+	RendererSettings renderer_settings;
+	renderer_settings.logging = false;
+	renderer_settings.setWidth(image_final_xres);
+	renderer_settings.setHeight(image_final_yres);
+	renderer_settings.super_sample_factor = ssf;
+	renderer_settings.tone_mapper = new LinearToneMapper(1);
+	renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
+	renderer_settings.denoise = true;
+
+	Indigo::Vector<Indigo::String> layer_names(image_layers, "");
+
+	MasterBuffer::MasterBufferExtendedArgs args;
+	args.use_alpha_channel = true;
+
+	MasterBuffer master_buffer(
+		(uint32)image_ss_xres,
+		(uint32)image_ss_yres,
+		(int)image_layers,
+		image_final_xres,
+		image_final_yres,
+		RendererSettings::defaultMargin(), // margin width
+		ssf,
+		layer_names,
+		false, // need back buffer
+		args
+	);
+	master_buffer.setNumSamples(1);
+
+	RenderChannels& channels = master_buffer.getRenderChannels();
+
+	const float layer_normalise = 1.0f / image_layers;
+	std::vector<Vec3f> layer_weights(image_layers, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
+
+	// Fill the layers with a solid circle
+	const int r_max = image_ss_xres / 2;
+	for(int i = 0; i < image_layers; ++i)
+		for(int y = 0; y < image_ss_yres; ++y)
+			for(int x = 0; x < image_ss_xres; ++x)
+			{
+				const int dx = x - r_max, dy = y - r_max;
+
+				const float v = (dx * dx + dy * dy < r_max * r_max) ? 1.0f : 0.0f;
+				channels.front_data[channels.pixelOffset(x, y) + channels.layers[i].offset + 0] = v;
+				channels.front_data[channels.pixelOffset(x, y) + channels.layers[i].offset + 1] = v;
+				channels.front_data[channels.pixelOffset(x, y) + channels.layers[i].offset + 2] = v;
+			}
+
+	// Fill alpha channel to alpha 1
+	for(int y = 0; y < image_ss_yres; ++y)
+		for(int x = 0; x < image_ss_xres; ++x)
+			channels.front_data[channels.pixelOffset(x, y) + channels.alpha.offset] = 1.0f;
+
+	Image4f ldr_buffer(image_final_xres, image_final_yres);
+	bool ldr_buffer_is_nonlinear;
+
+	std::vector<float> filter_data;
+	renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
+
+	ImagingPipeline::runPipeline(
+		tonemap_scratch_state,
+		master_buffer.getRenderChannels(),
+		NULL, // channel - NULL to blend main layers together.
+		image_final_xres,
+		image_final_yres,
+		ssf,
+		std::vector<RenderRegion>(),
+		layer_weights,
+		1.0f, // image scale
+		1.0f, // region image scale
+		renderer_settings,
+		filter_data.data(),
+		post_pro_diffraction,
+		ldr_buffer,
+		ldr_buffer_is_nonlinear, // output_is_nonlinear (out)
+		true, // input in XYZ colourspace
+		RendererSettings::defaultMargin(), // margin at ssf1
+		task_manager,
+		1, // subres_factor
+		do_tonemapping,
+		true // denoising
+	);
+}
+
+
+void testWithDenoising()
+{
+	doTestWithDenoising(/*do_tonemapping=*/false, /*ssf=*/1);
+	doTestWithDenoising(/*do_tonemapping=*/true,  /*ssf=*/1);
+
+	doTestWithDenoising(/*do_tonemapping=*/false, /*ssf=*/2);
+	doTestWithDenoising(/*do_tonemapping=*/true,  /*ssf=*/2);
+}
+
+
+void runPipeline(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper)
 {
 	Indigo::TaskManager task_manager(1);
 
@@ -73,7 +184,7 @@ static void runPipeline(const int W, const int ssf, const RenderChannels& render
 		Reference<PostProDiffraction>(),
 		ldr_image_out,
 		ldr_buffer_is_nonlinear,
-		false, // XYZ_colourspace
+		false, // input_in_XYZ_colourspace
 		RendererSettings::defaultMargin(), // margin at ssf1
 		task_manager
 	);
@@ -87,6 +198,8 @@ static void runPipeline(const int W, const int ssf, const RenderChannels& render
 void test()
 {
 	conPrint("ImagingPipelineTests::test()");
+
+	testWithDenoising();
 
 	//================ Perf test =================
 	if(false)
