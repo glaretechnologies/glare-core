@@ -98,7 +98,7 @@ void runPipeline(
 	const Reference<PostProDiffraction>& post_pro_diffraction, // May be NULL
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
 	bool& output_is_nonlinear, // Is ldr_buffer_out in a non-linear space?
-	bool XYZ_colourspace, // Are the input layers in XYZ colour space?  If so, an XYZ -> sRGB conversion is done.
+	bool input_in_XYZ_colourspace, // Are the input layers in XYZ colour space?  If so, an XYZ -> sRGB conversion is done.
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
 	int subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.

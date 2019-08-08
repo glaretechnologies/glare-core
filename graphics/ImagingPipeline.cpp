@@ -538,6 +538,20 @@ static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const 
 }
 
 
+static Matrix3f getInputToSRGBColourSpaceMatrix(bool input_in_XYZ_colourspace, const Reference<ColourSpaceConverter>& colour_space_converter)
+{
+	if(input_in_XYZ_colourspace)
+	{
+		Matrix3f m;
+		for(int i = 0; i < 9; ++i)
+			m.e[i] = (float)colour_space_converter->getSrcXYZTosRGB().e[i];
+		return m;
+	}
+	else
+		return Matrix3f::identity();
+}
+
+
 // Tonemap HDR image to LDR image
 static void runPipelineFullBuffer(
 	RunPipelineScratchState& scratch_state, // Working/scratch state
@@ -555,23 +569,16 @@ static void runPipelineFullBuffer(
 	Image4f& temp_summed_buffer,
 	Image4f& temp_AD_buffer,
 	Image4f& ldr_buffer_out,
-	bool image_buffer_in_XYZ,
+	bool input_in_XYZ_colourspace,
 	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
 	const CurveData& curve_data,
 	bool apply_curves,
-	bool allow_denoising)
+	bool do_tonemapping,
+	bool allow_denoising
+)
 {
-	//Timer t;
-	//const bool PROFILE = false;
-
-	// Get float XYZ->sRGB matrix
-	Matrix3f XYZ_to_sRGB;
-	if(image_buffer_in_XYZ)
-		for(int i = 0; i < 9; ++i)
-			XYZ_to_sRGB.e[i] = (float)renderer_settings.colour_space_converter->getSrcXYZTosRGB().e[i];
-	else
-		XYZ_to_sRGB = Matrix3f::identity();
+	const Matrix3f input_to_sRGB = getInputToSRGBColourSpaceMatrix(input_in_XYZ_colourspace, renderer_settings.colour_space_converter);
 
 	// Reinhard tonemapping needs a global average and max luminance, not just over each bucket, so we pre-compute this first if necessary.
 	// This is pretty inefficient since we re-compute the summed pixels all over again while going over the tiles...
@@ -580,14 +587,21 @@ static void runPipelineFullBuffer(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(render_channels, layer_weights, image_scale, avg_lumi, max_lumi);
 
-	const ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
+	const ToneMapperParams tonemap_params(input_to_sRGB, avg_lumi, max_lumi);
 
+	const bool blend_main_layers = channel == NULL;
+	const bool tonemap_channel = do_tonemapping && (blend_main_layers || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
+	
+	// We want to allow channels like position to take on negative values.
+	// For other channels, like beauty channels, we want values to be >= 0.
+	// These constants will only be used when we are not tonemapping.
+	const float lower_clamping_bound = channel ? ((channel->type == ChannelInfo::ChannelType_NonBeauty) ? -std::numeric_limits<float>::infinity() : 0.f) : 0.f;
+	const bool convert_from_XYZ_to_sRGB = channel ? (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty) : true;
+	const Matrix4f colour_space_change = convert_from_XYZ_to_sRGB ? Matrix4f(tonemap_params.XYZ_to_sRGB, Vec3f(0.0f)) : Matrix4f::identity(); // Bottom row should be (0,0,0,1) so that alpha value is not changed.
 
-	//if(PROFILE) t.reset();
 	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
 	sumLightLayers(scratch_state, layer_weights, image_scale, region_image_scale, render_channels, channel, render_regions, margin_ssf1, ssf,
 		renderer_settings.zero_alpha_outside_region, region_alpha_bias, renderer_settings.render_foreground_alpha, temp_summed_buffer, task_manager);
-	//if(PROFILE) conPrint("\tsumBuffers: " + t.elapsedString());
 
 	// Apply diffraction filter if applicable
 	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && post_pro_diffraction.nonNull())
@@ -808,31 +822,39 @@ static void runPipelineFullBuffer(
 	}
 	else
 	{
-		//if(PROFILE) t.reset();
+		if(tonemap_channel) // Don't tonemap render passes like depth etc..
+		{
+			const int final_xres = (int)temp_summed_buffer.getWidth();
+			const int final_yres = (int)temp_summed_buffer.getHeight();
+			const int x_tiles = Maths::roundedUpDivide<int>(final_xres, (int)image_tile_size);
+			const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
+			const int num_tiles = x_tiles * y_tiles;
 
-		const int final_xres = (int)temp_summed_buffer.getWidth();
-		const int final_yres = (int)temp_summed_buffer.getHeight();
-		const int x_tiles = Maths::roundedUpDivide<int>(final_xres, (int)image_tile_size);
-		const int y_tiles = Maths::roundedUpDivide<int>(final_yres, (int)image_tile_size);
-		const int num_tiles = x_tiles * y_tiles;
+			ToneMapTaskClosure closure;
+			closure.tone_mapper = renderer_settings.tone_mapper.ptr();
+			closure.tonemap_params = &tonemap_params;
+			closure.temp_summed_buffer = &temp_summed_buffer;
+			closure.final_xres = final_xres;
+			closure.final_yres = final_yres;
+			closure.x_tiles = x_tiles;
 
-		ToneMapTaskClosure closure;
-		closure.tone_mapper = renderer_settings.tone_mapper.ptr();
-		closure.tonemap_params = &tonemap_params;
-		closure.temp_summed_buffer = &temp_summed_buffer;
-		closure.final_xres = final_xres;
-		closure.final_yres = final_yres;
-		closure.x_tiles = x_tiles;
+			task_manager.runParallelForTasks<ToneMapTask, ToneMapTaskClosure>(&closure, /*begin=*/0, /*end=*/num_tiles, scratch_state.tonemap_tasks);
 
-		task_manager.runParallelForTasks<ToneMapTask, ToneMapTaskClosure>(&closure, /*begin=*/0, /*end=*/num_tiles, scratch_state.tonemap_tasks);
-
-		//if(PROFILE) conPrint("\tTone map: " + t.elapsedString());
+			// Components should be in range [0, 1] if tonemapped.
+			assert(temp_summed_buffer.minPixelComponent() >= 0.0f); 
+			assert(temp_summed_buffer.maxPixelComponent() <= 1.0f);
+		}
+		else
+		{
+			const size_t buffer_pixels = temp_summed_buffer.numPixels();
+			for(size_t i = 0; i < buffer_pixels; ++i)
+			{
+				const Colour4f col = temp_summed_buffer.getPixel(i);
+				const Vec4f sRGB = colour_space_change * Vec4f(col.v); // Standard pipeline: transform from XYZ to sRGB
+				temp_summed_buffer.getPixel(i) = max(Colour4f(sRGB.v), Colour4f(lower_clamping_bound)); // Make sure >= lower_clamping_bound
+			}
+		}
 	}
-
-	// Components should be in range [0, 1]
-	assert(temp_summed_buffer.minPixelComponent() >= 0.0f);
-	//const float max_c = temp_summed_buffer.maxPixelComponent();
-	assert(temp_summed_buffer.maxPixelComponent() <= 1.0f);
 
 	// Compute final dimensions of LDR image.
 	// This is the size after the margins have been trimmed off, and the image has been downsampled.
@@ -848,7 +870,6 @@ static void runPipelineFullBuffer(
 	// NOTE: this trims off the borders
 	if(supersample_factor > 1)
 	{
-		//if(PROFILE) t.reset();
 		Image4f::downsampleImage(
 			supersample_factor, // factor
 			border_width,
@@ -858,7 +879,6 @@ static void runPipelineFullBuffer(
 			ldr_buffer_out, // out
 			task_manager
 		);
-		//if(PROFILE) conPrint("\tdownsampleImage: " + t.elapsedString());
 	}
 	else
 	{
@@ -892,13 +912,9 @@ static void runPipelineFullBuffer(
 	assert(ldr_buffer_out.getWidth()  == final_xres); // renderer_settings.getWidth());
 	assert(ldr_buffer_out.getHeight() == final_yres); // renderer_settings.getHeight());
 
-	// Components should be in range [0, 1]
-	assert(ldr_buffer_out.minPixelComponent() >= 0.0f);
-	assert(ldr_buffer_out.maxPixelComponent() <= 1.0001f);
-
 	// For receiver/spectral rendering (which has margin 0), force alpha values to 1.
 	// Otherwise pixels on the edge of the image get alpha < 1, which results in scaling when doing the alpha divide below.
-	if(render_channels.hasSpectral())
+	if(channel && (channel->type == ChannelInfo::ChannelType_Spectral))
 		for(size_t i=0; i<ldr_buffer_out.numPixels(); ++i)
 			ldr_buffer_out.getPixel(i).x[3] = 1; 
 }
@@ -1418,7 +1434,7 @@ void runPipeline(
 	const Reference<PostProDiffraction>& post_pro_diffraction,
 	Image4f& ldr_buffer_out,
 	bool& output_is_nonlinear,
-	bool XYZ_colourspace,
+	bool input_in_XYZ_colourspace,
 	int margin_ssf1,
 	Indigo::TaskManager& task_manager,
 	int subres_factor,
@@ -1487,7 +1503,7 @@ void runPipeline(
 	{
 		runPipelineFullBuffer(scratch_state, render_channels, channel, render_regions, ssf, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
-							ldr_buffer_out, XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves, allow_denoising);
+							ldr_buffer_out, input_in_XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves, do_tonemapping, allow_denoising);
 	}
 	else
 	{
@@ -1520,13 +1536,8 @@ void runPipeline(
 			scratch_state.per_thread_tile_buffers[tile_buffer].zero(); // NEW
 		}
 
-		// Get float XYZ->sRGB matrix
-		Matrix3f XYZ_to_sRGB;
-		if(XYZ_colourspace)
-			for(int i = 0; i < 9; ++i)
-				XYZ_to_sRGB.e[i] = (float)renderer_settings.colour_space_converter->getSrcXYZTosRGB().e[i];
-		else
-			XYZ_to_sRGB = Matrix3f::identity();
+		// Get input to sRGB matrix, e.g. XYZ->sRGB matrix
+		const Matrix3f input_to_sRGB = getInputToSRGBColourSpaceMatrix(input_in_XYZ_colourspace, renderer_settings.colour_space_converter);
 
 		// Reinhard tonemapping needs a global average and max luminance, not just over each bucket, so we pre-compute this first if necessary.
 		// This is pretty inefficient since we re-compute the summed pixels all over again while going over the tiles...
@@ -1535,7 +1546,7 @@ void runPipeline(
 		if(reinhard != NULL)
 			reinhard->computeLumiScales(render_channels, layer_weights, image_scale, avg_lumi, max_lumi);
 
-		ToneMapperParams tonemap_params(XYZ_to_sRGB, avg_lumi, max_lumi);
+		ToneMapperParams tonemap_params(input_to_sRGB, avg_lumi, max_lumi);
 
 		ImagePipelineTaskClosure closure;
 		closure.per_thread_tile_buffers = &scratch_state.per_thread_tile_buffers;
