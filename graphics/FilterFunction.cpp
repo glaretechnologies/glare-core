@@ -19,16 +19,16 @@ FilterFunction::~FilterFunction()
 }
 
 
-int FilterFunction::getFilterSpan(int supersample_factor) const
+int FilterFunction::getFilterSpan(size_t supersample_factor) const
 {
-	return (int)ceil(supportRadius() * 2) * supersample_factor;
+	return (int)ceil(supportRadius() * 2) * (int)supersample_factor;
 }
 
 
-void FilterFunction::getFilterDataVec(int supersample_factor, std::vector<float>& filter_data_out) const
+void FilterFunction::getFilterDataVec(size_t supersample_factor, std::vector<float>& filter_data_out) const
 {
 	const double filter_pixel_span_f = supportRadius() * 2 * supersample_factor;
-	const int filter_pixel_span  = (int)ceil(supportRadius() * 2) * supersample_factor;
+	const int filter_pixel_span  = (int)ceil(supportRadius() * 2) * (int)supersample_factor;
 	const int filter_pixel_bound = filter_pixel_span / 2 - 1;
 
 	filter_data_out.resize((filter_pixel_span - 1) * (filter_pixel_span - 1));

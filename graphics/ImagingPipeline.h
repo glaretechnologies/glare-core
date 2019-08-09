@@ -86,9 +86,9 @@ void runPipeline(
 	RunPipelineScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels, // Input image data
 	const ChannelInfo* channel, // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
-	int final_width,
-	int final_height,
-	int ssf,
+	size_t final_width,
+	size_t final_height,
+	size_t ssf,
 	const ArrayRef<RenderRegion>& render_regions,
 	const ArrayRef<Vec3f>& layer_weights, // Light layer weights - used for weighting main beauty layers when blending them together.
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
@@ -99,9 +99,9 @@ void runPipeline(
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
 	bool& output_is_nonlinear, // Is ldr_buffer_out in a non-linear space?
 	bool input_in_XYZ_colourspace, // Are the input layers in XYZ colour space?  If so, an XYZ -> sRGB conversion is done.
-	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
+	size_t margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
-	int subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
+	size_t subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
 	bool do_tonemapping = true, // Should we actually tone-map?  Can be set to false for saving untonemapped EXRs.
 	bool allow_denoising = false // Should we run the denoiser, if appropriate?
 );

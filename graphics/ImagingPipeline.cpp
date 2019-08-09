@@ -221,8 +221,8 @@ struct SumBuffersTaskClosure
 	const RenderChannels& render_channels; // Input image data
 	const ChannelInfo* channel; // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	Image4f& buffer_out;
-	int margin_ssf1;
-	int ssf;
+	size_t margin_ssf1;
+	size_t ssf;
 	bool zero_alpha_outside_region;
 	const ArrayRef<RenderRegion>* render_regions;
 	float region_alpha_bias;
@@ -261,10 +261,10 @@ public:
 		const ArrayRef<RenderRegion>& render_regions = *closure.render_regions;
 		SmallArray<Rect2i, 8> regions(render_regions.size()); // Render regions bounds in intermediate pixel coords
 		for(size_t i=0; i<render_regions.size(); ++i)
-			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + closure.margin_ssf1) * closure.ssf + rr_margin,
-										(render_regions[i].y1 + closure.margin_ssf1) * closure.ssf + rr_margin),
-								Vec2i(	(render_regions[i].x2 + closure.margin_ssf1) * closure.ssf - rr_margin,
-										(render_regions[i].y2 + closure.margin_ssf1) * closure.ssf - rr_margin));
+			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + (int)closure.margin_ssf1) * (int)closure.ssf + rr_margin,
+										(render_regions[i].y1 + (int)closure.margin_ssf1) * (int)closure.ssf + rr_margin),
+								Vec2i(	(render_regions[i].x2 + (int)closure.margin_ssf1) * (int)closure.ssf - rr_margin,
+										(render_regions[i].y2 + (int)closure.margin_ssf1) * (int)closure.ssf - rr_margin));
 
 		const bool render_foreground_alpha = closure.render_foreground_alpha;
 		const int num_layers = (int)closure.render_channels.layers.size();
@@ -355,8 +355,8 @@ void sumLightLayers(
 	const RenderChannels& render_channels, // Input image data
 	const ChannelInfo* channel, // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	const ArrayRef<RenderRegion>& render_regions,
-	int margin_ssf1,
-	int ssf,
+	size_t margin_ssf1,
+	size_t ssf,
 	bool zero_alpha_outside_region,
 	float region_alpha_bias,
 	bool render_foreground_alpha,
@@ -449,7 +449,7 @@ struct CurveData
 // to image_out.
 // W component of image_out pixels can be garbage.
 static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const ArrayRef<RenderRegion>& render_regions,
-	int channel_offset, float image_scale, float region_image_scale, int margin_ssf1, int ssf, Image4f& image_out)
+	int channel_offset, float image_scale, float region_image_scale, size_t margin_ssf1, size_t ssf, Image4f& image_out)
 {
 	const size_t W = render_channels.getWidth();
 	const size_t H = render_channels.getHeight();
@@ -470,10 +470,10 @@ static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const 
 
 		SmallArray<Rect2i, 8> regions(render_regions.size()); // Render regions bounds in intermediate pixel coords
 		for(size_t i=0; i<render_regions.size(); ++i)
-			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + margin_ssf1) * ssf + rr_margin,
-										(render_regions[i].y1 + margin_ssf1) * ssf + rr_margin),
-								Vec2i(	(render_regions[i].x2 + margin_ssf1) * ssf - rr_margin,
-										(render_regions[i].y2 + margin_ssf1) * ssf - rr_margin));
+			regions[i] = Rect2i(Vec2i(	(render_regions[i].x1 + (int)margin_ssf1) * (int)ssf + rr_margin,
+										(render_regions[i].y1 + (int)margin_ssf1) * (int)ssf + rr_margin),
+								Vec2i(	(render_regions[i].x2 + (int)margin_ssf1) * (int)ssf - rr_margin,
+										(render_regions[i].y2 + (int)margin_ssf1) * (int)ssf - rr_margin));
 
 		// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 		for(size_t y=0; y<W; ++y)
@@ -512,12 +512,12 @@ static Matrix3f getInputToSRGBColourSpaceMatrix(bool input_in_XYZ_colourspace, c
 
 
 // Tonemap HDR image to LDR image
-static void runPipelineFullBuffer(
+void runPipelineFullBuffer(
 	RunPipelineScratchState& scratch_state, // Working/scratch state
 	const RenderChannels& render_channels,
 	const ChannelInfo* channel, // Channel to tone-map.  if channel is NULL, then blend together all the main layers weighted with layer_weights and tone-map the blended sum.
 	const ArrayRef<RenderRegion>& render_regions,
-	int ssf,
+	size_t ssf,
 	const ArrayRef<Vec3f>& layer_weights,
 	float image_scale, // A scale factor based on the number of samples taken and image resolution. (from PathSampler::getScale())
 	float region_image_scale,
@@ -529,7 +529,7 @@ static void runPipelineFullBuffer(
 	Image4f& temp_AD_buffer,
 	Image4f& ldr_buffer_out,
 	bool input_in_XYZ_colourspace,
-	int margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
+	size_t margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
 	Indigo::TaskManager& task_manager,
 	const CurveData& curve_data,
 	bool apply_curves,
@@ -842,7 +842,7 @@ static void runPipelineFullBuffer(
 	else
 	{
 		// Copy to ldr_buffer_out, removing border.
-		const int b = margin_ssf1;
+		const int b = (int)margin_ssf1;
 		temp_summed_buffer.blitToImage(/*src_start_x=*/b, /*src_start_y=*/b, /*src_end_x=*/(int)temp_summed_buffer.getWidth() - b, /*src_end_y=*/(int)temp_summed_buffer.getHeight() - b, 
 			/*dest=*/ldr_buffer_out, /*destx=*/0, /*desty=*/0);
 	}
@@ -893,10 +893,10 @@ struct ImagePipelineTaskClosure
 	ptrdiff_t x_tiles, final_xres, final_yres, filter_size, margin_ssf1;
 	const ArrayRef<RenderRegion>* render_regions;
 	float region_alpha_bias;
-	int subres_factor;
+	size_t subres_factor;
 	bool render_foreground_alpha;
 	bool do_tonemapping;
-	int ssf;
+	size_t ssf;
 
 	bool skip_curves;
 
@@ -1037,7 +1037,7 @@ public:
 			const ptrdiff_t x_min  = tile_x * image_tile_size, x_max = std::min<ptrdiff_t>(closure.final_xres, (tile_x + 1) * image_tile_size); // in final px coords
 			const ptrdiff_t y_min  = tile_y * image_tile_size, y_max = std::min<ptrdiff_t>(closure.final_yres, (tile_y + 1) * image_tile_size); // in final px coords
 
-			if(ss_factor > closure.subres_factor) // Perform downsampling if needed
+			if(ss_factor > (ptrdiff_t)closure.subres_factor) // Perform downsampling if needed
 			{
 				const ptrdiff_t bucket_min_x = (x_min + gutter_pix) * ss_factor - filter_span; assert(bucket_min_x >= 0); // coordinates in source intermediate buffer
 				const ptrdiff_t bucket_min_y = (y_min + gutter_pix) * ss_factor - filter_span; assert(bucket_min_y >= 0); // coordinates in source intermediate buffer
@@ -1330,9 +1330,9 @@ void runPipeline(
 	RunPipelineScratchState& scratch_state,
 	const RenderChannels& render_channels,
 	const ChannelInfo* channel,
-	int final_width,
-	int final_height,
-	int ssf,
+	size_t final_width,
+	size_t final_height,
+	size_t ssf,
 	const ArrayRef<RenderRegion>& render_regions,
 	const ArrayRef<Vec3f>& layer_weights,
 	float image_scale,
@@ -1343,9 +1343,9 @@ void runPipeline(
 	Image4f& ldr_buffer_out,
 	bool& output_is_nonlinear,
 	bool input_in_XYZ_colourspace,
-	int margin_ssf1,
+	size_t margin_ssf1,
 	Indigo::TaskManager& task_manager,
-	int subres_factor,
+	size_t subres_factor,
 	bool do_tonemapping,
 	bool allow_denoising
 	)

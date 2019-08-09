@@ -30,7 +30,7 @@ public:
 	virtual const std::string description() const = 0;
 
 
-	int getFilterSpan(int supersample_factor) const;
+	int getFilterSpan(size_t supersample_factor) const;
 	
-	void getFilterDataVec(int supersample_factor, std::vector<float>& filter_data_out) const;
+	void getFilterDataVec(size_t supersample_factor, std::vector<float>& filter_data_out) const;
 };

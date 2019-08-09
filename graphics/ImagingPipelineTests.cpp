@@ -47,8 +47,8 @@ void doTestWithDenoising(bool do_tonemapping, int ssf)
 	const int image_final_yres	= 100;
 	const int image_layers		= 1;
 
-	const int image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, ssf, RendererSettings::defaultMargin());
-	const int image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, ssf, RendererSettings::defaultMargin());
+	const size_t image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, ssf, RendererSettings::defaultMargin());
+	const size_t image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, ssf, RendererSettings::defaultMargin());
 
 	RendererSettings renderer_settings;
 	renderer_settings.logging = false;
@@ -65,8 +65,8 @@ void doTestWithDenoising(bool do_tonemapping, int ssf)
 	args.use_alpha_channel = true;
 
 	MasterBuffer master_buffer(
-		(uint32)image_ss_xres,
-		(uint32)image_ss_yres,
+		image_ss_xres,
+		image_ss_yres,
 		(int)image_layers,
 		image_final_xres,
 		image_final_yres,
@@ -84,7 +84,7 @@ void doTestWithDenoising(bool do_tonemapping, int ssf)
 	std::vector<Vec3f> layer_weights(image_layers, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
 
 	// Fill the layers with a solid circle
-	const int r_max = image_ss_xres / 2;
+	const int r_max = (int)image_ss_xres / 2;
 	for(int i = 0; i < image_layers; ++i)
 		for(int y = 0; y < image_ss_yres; ++y)
 			for(int x = 0; x < image_ss_xres; ++x)
@@ -206,7 +206,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 1;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+		const size_t full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		// Alpha gets biased up in the imaging pipeline, so use a large multiplier to make the bias effect small.
 		//const float value_factor = 10000.f;
@@ -308,7 +308,7 @@ void test()
 		const int W = 100;
 		const int ssf = 1;
 		const int margin_ssf1 = 4;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf, margin_ssf1);
+		const size_t full_W = RendererSettings::computeFullWidth(W, ssf, margin_ssf1);
 
 		RenderChannels render_channels;
 		render_channels.w = full_W;
@@ -402,7 +402,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 1;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+		const size_t full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 		
 		RenderChannels render_channels;
 		render_channels.w = full_W;
@@ -436,7 +436,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 1;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+		const size_t full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		RenderChannels render_channels;
 		render_channels.w = full_W;
@@ -471,7 +471,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 2;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+		const size_t full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		RenderChannels render_channels;
 		render_channels.w = full_W;
@@ -507,7 +507,7 @@ void test()
 	{
 		const int W = 1000;
 		const int ssf = 1;
-		const int full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+		const size_t full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
 
 		// Alpha gets biased up in the imaging pipeline, so use a large multiplier to make the bias effect small.
 		const float value_factor = 10000.f;
@@ -605,8 +605,8 @@ void test()
 		const int image_ss_factor	= test_ss[ss];
 		const int image_layers		= test_layers[l];
 
-		const int image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, image_ss_factor, RendererSettings::defaultMargin());
-		const int image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, image_ss_factor, RendererSettings::defaultMargin());
+		const size_t image_ss_xres = RendererSettings::computeFullWidth(image_final_xres, image_ss_factor, RendererSettings::defaultMargin());
+		const size_t image_ss_yres = RendererSettings::computeFullHeight(image_final_yres, image_ss_factor, RendererSettings::defaultMargin());
 
 		RendererSettings renderer_settings;
 		renderer_settings.logging = false;
@@ -640,7 +640,7 @@ void test()
 		std::vector<Vec3f> layer_weights(image_layers, Vec3f(layer_normalise, layer_normalise, layer_normalise)); // No gain
 
 		// Fill the layers with a solid circle
-		const int r_max = image_ss_xres / 2;
+		const int r_max = (int)image_ss_xres / 2;
 		for(int i = 0; i < image_layers;  ++i)
 		for(int y = 0; y < image_ss_yres; ++y)
 		for(int x = 0; x < image_ss_xres; ++x)
