@@ -428,7 +428,7 @@ ${pugixmldir}/pugiconfig.hpp
 
 # MESSAGE(${pugixml})
 
-FILE(GLOB giflib "../giflib-5.0.4/lib/*.c" "../giflib-5.0.4/lib/*.cpp" "../giflib-5.0.4/lib/*.h")
+FILE(GLOB giflib "../giflib/lib/*.c" "../giflib/lib/*.cpp" "../giflib/lib/*.h")
 FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
 FILE(GLOB zstandard "../zstd-1.0.0/lib/*.h"  "../zstd-1.0.0/lib/common/*.c" "../zstd-1.0.0/lib/common/*.h"
 "../zstd-1.0.0/lib/compress/*.c" "../zstd-1.0.0/lib/compress/*.h"

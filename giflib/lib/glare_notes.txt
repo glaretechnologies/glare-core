@@ -1,0 +1,11 @@
+
+Giflib is giflib-5.2.1
+See https://sourceforge.net/p/giflib/code/ci/0861b5ccb749af58f26c42d5cfb0c918049bbb81/tree/NEWS
+
+These files were originally .c files.
+I changed the extension to .cpp so they would compile as c++ files.
+This is need on windows as they use 'bool', which is only valid c in c99, which VS doesn't support.
+
+I also had to comment out a few includes of C99 header files.
+See gif_hash.h:
+//#include <unistd.h> // glare new - commented out
