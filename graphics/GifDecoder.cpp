@@ -81,7 +81,8 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 			image_map->getPixel(x, y)[2] = gif_file->SColorMap->Colors[c].Blue;
 		}
 
-		DGifCloseFile(gif_file);
+		error_code = 0;
+		DGifCloseFile(gif_file, &error_code);
 
 		return image_map;
 	}
