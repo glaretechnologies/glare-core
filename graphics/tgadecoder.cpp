@@ -94,7 +94,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 		{
 			// RGB / greyscale
 
-			const size_t imagesize = width * height * bytes_pp;
+			const size_t imagesize = (size_t)width * (size_t)height * (size_t)bytes_pp;
 			if(file.fileSize() < sizeof(TGA_HEADER) + imagesize)
 				throw ImFormatExcep("not enough data supplied");
 		}
@@ -233,7 +233,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 								throw ImFormatExcep("Decoding error");
 
 							// Check we are reading in-bounds
-							if(cur + direct_count * 3 > end)
+							if(cur + (size_t)direct_count * 3 > end)
 								throw ImFormatExcep("Decoding error");
 
 							for(int z=0; z<direct_count; ++z)
@@ -303,7 +303,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 								throw ImFormatExcep("Decoding error");
 
 							// Check we are reading in-bounds
-							if(cur + direct_count * 4 > end)
+							if(cur + (size_t)direct_count * 4 > end)
 								throw ImFormatExcep("Decoding error");
 
 							for(int z=0; z<direct_count; ++z)
