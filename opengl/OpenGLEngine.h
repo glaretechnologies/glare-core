@@ -134,6 +134,15 @@ struct GLObject : public RefCounted
 typedef Reference<GLObject> GLObjectRef;
 
 
+struct GLObjectHash
+{
+	size_t operator() (const GLObjectRef& ob) const
+	{
+		return (size_t)ob.getPointer() >> 3; // Assuming 8-byte aligned, get rid of lower zero bits.
+	}
+};
+
+
 struct OverlayObject : public RefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -145,6 +154,15 @@ struct OverlayObject : public RefCounted
 	OpenGLMaterial material;
 };
 typedef Reference<OverlayObject> OverlayObjectRef;
+
+
+struct OverlayObjectHash
+{
+	size_t operator() (const OverlayObjectRef& ob) const
+	{
+		return (size_t)ob.getPointer() >> 3; // Assuming 8-byte aligned, get rid of lower zero bits.
+	}
+};
 
 
 class OpenGLEngineSettings
@@ -327,9 +345,9 @@ private:
 	Matrix4f world_to_camera_space_matrix;
 	Matrix4f cam_to_world;
 public:
-	std::vector<Reference<GLObject> > objects;
-	std::vector<Reference<GLObject> > transparent_objects;
-	std::vector<Reference<OverlayObject> > overlay_objects; // UI overlays
+	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
+	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
+	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
 private:
 	float max_draw_dist;
 

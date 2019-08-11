@@ -895,8 +895,8 @@ void OpenGLEngine::viewportChanged(int viewport_w_, int viewport_h_)
 
 void OpenGLEngine::unloadAllData()
 {
-	this->objects.resize(0);
-	this->transparent_objects.resize(0);
+	this->objects.clear();
+	this->transparent_objects.clear();
 
 	this->selected_objects.clear();
 
@@ -951,7 +951,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	// Compute world space AABB of object
 	updateObjectTransformData(*object.getPointer());
 	
-	this->objects.push_back(object);
+	this->objects.insert(object);
 
 	// Build the mesh used by the object if it's not built already.
 	//if(mesh_render_data.find(object->mesh) == mesh_render_data.end())
@@ -967,13 +967,13 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	}
 
 	if(have_transparent_mat)
-		transparent_objects.push_back(object);
+		transparent_objects.insert(object);
 }
 
 
 void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 {
-	this->overlay_objects.push_back(object);
+	this->overlay_objects.insert(object);
 	object->material.shader_prog = overlay_prog;
 }
 
@@ -998,22 +998,8 @@ void OpenGLEngine::deselectObject(const Reference<GLObject>& object)
 
 void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
-	// NOTE: linear time
-
-	for(size_t i=0; i<objects.size(); ++i)
-		if(objects[i].getPointer() == object.getPointer())
-		{
-			objects.erase(objects.begin() + i);
-			break;
-		}
-
-	for(size_t i=0; i<transparent_objects.size(); ++i)
-		if(transparent_objects[i].getPointer() == object.getPointer())
-		{
-			transparent_objects.erase(transparent_objects.begin() + i);
-			break;
-		}
-
+	objects.erase(object);
+	transparent_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 }
 
@@ -1056,24 +1042,12 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 
 	if(have_transparent_mat)
 	{
-		// Is this object already in transparent_objects list?
-		bool in_transparent_objects = false;
-		for(size_t i=0; i<transparent_objects.size(); ++i)
-			if(transparent_objects[i].getPointer() == object.getPointer())
-				in_transparent_objects = true;
-
-		if(!in_transparent_objects)
-			transparent_objects.push_back(object);
+		transparent_objects.insert(object);
 	}
 	else
 	{
-		// Remove from transparent material list if it is currently in there.  NOTE: SLOW linear time
-		for(size_t i=0; i<transparent_objects.size(); ++i)
-			if(transparent_objects[i].getPointer() == object.getPointer())
-			{
-				transparent_objects.erase(transparent_objects.begin() + i);
-				break;
-			}
+		// Remove from transparent material list if it is currently in there.
+		transparent_objects.erase(object);
 	}
 }
 
@@ -1436,9 +1410,9 @@ void OpenGLEngine::draw()
 			// Draw non-transparent batches from objects.
 			//uint64 num_drawn = 0;
 			//uint64 num_in_frustum = 0;
-			for(size_t q=0; q<objects.size(); ++q)
+			for(auto it = objects.begin(); it != objects.end(); ++it)
 			{
-				const GLObject* const ob = objects[q].getPointer();
+				const GLObject* const ob = it->getPointer();
 
 				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 				{
@@ -1600,9 +1574,9 @@ void OpenGLEngine::draw()
 					// Draw non-transparent batches from objects.
 					//uint64 num_drawn = 0;
 					//uint64 num_in_frustum = 0;
-					for(size_t q=0; q<objects.size(); ++q)
+					for(auto it = objects.begin(); it != objects.end(); ++it)
 					{
-						const GLObject* const ob = objects[q].getPointer();
+						const GLObject* const ob = it->getPointer();
 
 						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 						{
@@ -1839,9 +1813,9 @@ void OpenGLEngine::draw()
 
 	// Draw non-transparent batches from objects.
 	uint64 num_frustum_culled = 0;
-	for(size_t i=0; i<objects.size(); ++i)
+	for(auto it = objects.begin(); it != objects.end(); ++it)
 	{
-		const GLObject* const ob = objects[i].getPointer();
+		const GLObject* const ob = it->getPointer();
 		if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
@@ -1875,9 +1849,9 @@ void OpenGLEngine::draw()
 		glEnable(GL_POLYGON_OFFSET_LINE);
 		glPolygonOffset(0.f, -1.0f);
 
-		for(size_t i=0; i<objects.size(); ++i)
+		for(auto it = objects.begin(); it != objects.end(); ++it)
 		{
-			const GLObject* const ob = objects[i].getPointer();
+			const GLObject* const ob = it->getPointer();
 			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
@@ -1897,9 +1871,9 @@ void OpenGLEngine::draw()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
 
-	for(size_t i=0; i<transparent_objects.size(); ++i)
+	for(auto it = transparent_objects.begin(); it != transparent_objects.end(); ++it)
 	{
-		const GLObject* const ob = transparent_objects[i].getPointer();
+		const GLObject* const ob = it->getPointer();
 		if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
@@ -1971,9 +1945,9 @@ void OpenGLEngine::draw()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer
 
-		for(size_t i=0; i<overlay_objects.size(); ++i)
+		for(auto it = overlay_objects.begin(); it != overlay_objects.end(); ++it)
 		{
-			const OverlayObject* const ob = overlay_objects[i].getPointer();
+			const OverlayObject* const ob = it->getPointer();
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
