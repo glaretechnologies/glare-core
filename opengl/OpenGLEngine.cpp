@@ -814,12 +814,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Load specular-reflection env tex
 		try
 		{
-			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", processed_envmap_dir + "/specular_refl_sky_no_sun_combined.exr");
+			const std::string path = processed_envmap_dir + "/specular_refl_sky_no_sun_combined.exr";
+			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", path);
 
 			if(!specular_env.isType<ImageMapFloat>())
 				throw Indigo::Exception("specular env map Must be ImageMapFloat");
 
-			this->specular_env_tex = getOrLoadOpenGLTexture(*specular_env, OpenGLTexture::Filtering_Bilinear);
+			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, OpenGLTexture::Filtering_Bilinear);
 		}
 		catch(ImFormatExcep& e)
 		{
@@ -1040,7 +1041,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 			try
 			{
 				Reference<Map2D> map = texture_server->getTexForPath(".", object->materials[i].albedo_tex_path);
-				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(*map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(object->materials[i].albedo_tex_path), *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 			}
 			catch(TextureServerExcep& e)
 			{
@@ -1090,7 +1091,7 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
 			// TEMP HACK: need to set base dir here
 			Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
 			// conPrint("OpenGLEngine::buildMaterial: loading tex '" + opengl_mat.albedo_tex_path + "'...");
-			opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(*map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+			opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 		}
 		catch(TextureServerExcep& e)
 		{
@@ -3740,8 +3741,8 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 			tex_data[i] = imagemap->getData();
 		}
 
-		size_t tex_xres = face_maps[0]->getMapWidth();
-		size_t tex_yres = face_maps[0]->getMapHeight();
+		const size_t tex_xres = face_maps[0]->getMapWidth();
+		const size_t tex_yres = face_maps[0]->getMapHeight();
 		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, this, OpenGLTexture::Format_RGB_Linear_Float,
 			filtering, wrapping
 		);
@@ -3792,17 +3793,14 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 
 
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d,
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d,
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
 		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
 
-		// Compute hash of map
-		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize(), 1);
-
-		//conPrint("key: " + toString(key));
+		//conPrint("key: " + key.path);
 		//conPrint("&map2d: " + toString((uint64)&map2d));
 		auto res = this->opengl_textures.find(key);
 		if(res == this->opengl_textures.end())
@@ -3810,12 +3808,14 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 			// Load texture
 			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadUInt8Map(imagemap, this, filtering, wrapping);
 
+			//conPrint("\tLoaded texture.");
+
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 			return opengl_tex;
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
-			// conPrint("texture already loaded.");
+			// conPrint("\tTexture already loaded.");
 			return res->second;
 		}
 	}
@@ -3823,25 +3823,18 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 	{
 		const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(&map2d);
 
-		// Compute hash of map
-		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize() * sizeof(float), 1);
-
 		auto res = this->opengl_textures.find(key);
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
-			size_t tex_xres = map2d.getMapWidth();
-			size_t tex_yres = map2d.getMapHeight();
-
 			if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Float,
+				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Float,
 					filtering, wrapping
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
 				return opengl_tex;
 			}
 			else
@@ -3857,25 +3850,18 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 	{
 		const ImageMap<half, HalfComponentValueTraits>* imagemap = static_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d);
 
-		// Compute hash of map
-		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize() * sizeof(half), 1);
-
 		auto res = this->opengl_textures.find(key);
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
-			size_t tex_xres = map2d.getMapWidth();
-			size_t tex_yres = map2d.getMapHeight();
-
 			if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(tex_xres, tex_yres, ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Half,
+				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Half,
 					OpenGLTexture::Filtering_Fancy
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
 				return opengl_tex;
 			}
 			else
@@ -3894,21 +3880,9 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const Map2D& map2d
 }
 
 
-void OpenGLEngine::removeOpenGLTexture(const Map2D& map2d)
+void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 {
-	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
-	{
-		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
-
-		// Compute hash of map
-		const uint64 key = XXH64(imagemap->getData(), imagemap->getDataSize(), 1);
-
-		this->opengl_textures.erase(key);
-	}
-	else
-	{
-		assert(0);//TODO
-	}
+	this->opengl_textures.erase(key);
 }
 
 

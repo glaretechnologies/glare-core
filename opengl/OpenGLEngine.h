@@ -102,6 +102,17 @@ public:
 	uint64 userdata;
 };
 
+
+struct OpenGLTextureKey
+{
+	OpenGLTextureKey() {}
+	OpenGLTextureKey(const std::string& path_) : path(path_) {}
+	std::string path;
+
+	bool operator < (const OpenGLTextureKey& other) const { return path < other.path; }
+};
+
+
 #ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
@@ -224,10 +235,10 @@ public:
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
 
-	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const Map2D& map2d,
+	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
-	void removeOpenGLTexture(const Map2D& map2d); // Kind of a temp hack, still needs to hash map to get key, then erases from opengl_textures
+	void removeOpenGLTexture(const OpenGLTextureKey& key); // Erases from opengl_textures.
 
 	float getPixelDepth(int pixel_x, int pixel_y);
 
@@ -391,7 +402,7 @@ private:
 	double draw_time;
 	Timer draw_timer;
 
-	std::map<uint64, Reference<OpenGLTexture> > opengl_textures; // Used for cyberspace
+	std::map<OpenGLTextureKey, Reference<OpenGLTexture> > opengl_textures; // Used for cyberspace
 
 	size_t outline_tex_w, outline_tex_h;
 	Reference<FrameBuffer> outline_solid_fb;

@@ -63,9 +63,9 @@ void loadAndUnloadTexture(OpenGLEngine& engine, int W, int H, int num_comp, int 
 	{
 		Timer timer;
 
-		Reference<OpenGLTexture> opengl_tex = engine.getOrLoadOpenGLTexture(*map/*, OpenGLTexture::Filtering_Nearest*/);
+		Reference<OpenGLTexture> opengl_tex = engine.getOrLoadOpenGLTexture(OpenGLTextureKey("somekey"), *map/*, OpenGLTexture::Filtering_Nearest*/);
 
-		engine.removeOpenGLTexture(*map);
+		engine.removeOpenGLTexture(OpenGLTextureKey("somekey"));
 
 		opengl_tex = NULL; // destroy tex
 
