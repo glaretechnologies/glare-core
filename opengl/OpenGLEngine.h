@@ -54,12 +54,22 @@ public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	js::AABBox aabb_os; // Should go first as is aligned.
+	
+	js::Vector<uint8, 16> vert_data;
 	VBORef vert_vbo;
+
+	js::Vector<uint32, 16> vert_index_buffer;
+	js::Vector<uint16, 16> vert_index_buffer_uint16;
+	js::Vector<uint8, 16> vert_index_buffer_uint8;
 	VBORef vert_indices_buf;
+
 	std::vector<OpenGLBatch> batches;
 	bool has_uvs;
 	bool has_shading_normals;
 	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
+
+	VertexSpec vertex_spec;
+	
 	VAORef vert_vao;
 };
 
@@ -248,6 +258,8 @@ public:
 	// Built OpenGLMeshRenderData from an Indigo::Mesh.
 	// Throws Indigo::Exception on failure
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
+
+	static void loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data);
 
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);

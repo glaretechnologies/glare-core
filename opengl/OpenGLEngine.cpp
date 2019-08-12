@@ -2387,7 +2387,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		if(std::fabs(mesh->uv_pairs[i].x) > max_use_half_range || std::fabs(mesh->uv_pairs[i].y) > max_use_half_range)
 			use_half_uvs = false;
 
-	js::Vector<uint8, 16> vert_data;
+	js::Vector<uint8, 16>& vert_data = opengl_render_data->vert_data;
 #ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
 	const size_t packed_normal_size = sizeof(float)*3;
 #else
@@ -2401,7 +2401,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	size_t next_merged_vert_i = 0;
 	
 
-	js::Vector<uint32, 16> vert_index_buffer;
+	js::Vector<uint32, 16>& vert_index_buffer = opengl_render_data->vert_index_buffer;
 	vert_index_buffer.resizeNoCopy(mesh->triangles.size()*3 + mesh->quads.size()*6); // Quads are rendered as two tris.
 	uint32 vert_index_buffer_i = 0; // Current write index into vert_index_buffer
 
@@ -2632,14 +2632,12 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	assert(vert_index_buffer_i == (uint32)vert_index_buffer.size());
 
-	if(skip_opengl_calls)
-		return opengl_render_data;
-
-	opengl_render_data->vert_vbo = new VBO(&vert_data[0], vert_data.dataSizeBytes());
+	if(!skip_opengl_calls)
+		opengl_render_data->vert_vbo = new VBO(&vert_data[0], vert_data.dataSizeBytes());
 
 	const size_t num_merged_verts = next_merged_vert_i;
 
-	VertexSpec spec;
+	VertexSpec& spec = opengl_render_data->vertex_spec;
 
 	VertexAttrib pos_attrib;
 	pos_attrib.enabled = true;
@@ -2674,7 +2672,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	uv_attrib.offset = (uint32)uv_offset;
 	spec.attributes.push_back(uv_attrib);
 
-	opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
+	if(!skip_opengl_calls)
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
 
 
 	opengl_render_data->has_uvs				= mesh_has_uvs;
@@ -2685,13 +2684,16 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	if(num_merged_verts < 256)
 	{
-		js::Vector<uint8, 16> index_buf; index_buf.resize(vert_index_buffer_size);
+		js::Vector<uint8, 16>& index_buf = opengl_render_data->vert_index_buffer_uint8;
+		index_buf.resize(vert_index_buffer_size);
 		for(size_t i=0; i<vert_index_buffer_size; ++i)
 		{
 			assert(vert_index_buffer[i] < 256);
 			index_buf[i] = (uint8)vert_index_buffer[i];
 		}
-		opengl_render_data->vert_indices_buf = new VBO(&index_buf[0], index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		if(!skip_opengl_calls)
+			opengl_render_data->vert_indices_buf = new VBO(index_buf.data(), index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+
 		opengl_render_data->index_type = GL_UNSIGNED_BYTE;
 		// Go through the batches and adjust the start offset to take into account we're using uint8s.
 		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
@@ -2699,13 +2701,16 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	}
 	else if(num_merged_verts < 65536)
 	{
-		js::Vector<uint16, 16> index_buf; index_buf.resize(vert_index_buffer_size);
+		js::Vector<uint16, 16>& index_buf = opengl_render_data->vert_index_buffer_uint16;
+		index_buf.resize(vert_index_buffer_size);
 		for(size_t i=0; i<vert_index_buffer_size; ++i)
 		{
 			assert(vert_index_buffer[i] < 65536);
 			index_buf[i] = (uint16)vert_index_buffer[i];
 		}
-		opengl_render_data->vert_indices_buf = new VBO(&index_buf[0], index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		if(!skip_opengl_calls)
+			opengl_render_data->vert_indices_buf = new VBO(index_buf.data(), index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+
 		opengl_render_data->index_type = GL_UNSIGNED_SHORT;
 		// Go through the batches and adjust the start offset to take into account we're using uint16s.
 		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
@@ -2713,7 +2718,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	}
 	else
 	{
-		opengl_render_data->vert_indices_buf = new VBO(&vert_index_buffer[0], vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		if(!skip_opengl_calls)
+			opengl_render_data->vert_indices_buf = new VBO(vert_index_buffer.data(), vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
 		opengl_render_data->index_type = GL_UNSIGNED_INT;
 	}
 
@@ -2723,9 +2729,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		const OpenGLBatch& batch = opengl_render_data->batches[i];
 		assert(batch.material_index < mesh->num_materials_referenced);
 		assert(batch.num_indices > 0);
-		assert(batch.prim_start_offset < opengl_render_data->vert_indices_buf->getSize());
+		//assert(batch.prim_start_offset < opengl_render_data->vert_indices_buf->getSize());
 		const uint32 bytes_per_index = opengl_render_data->index_type == GL_UNSIGNED_INT ? 4 : (opengl_render_data->index_type == GL_UNSIGNED_SHORT ? 2 : 1);
-		assert(batch.prim_start_offset + batch.num_indices*bytes_per_index <= opengl_render_data->vert_indices_buf->getSize());
+		//assert(batch.prim_start_offset + batch.num_indices*bytes_per_index <= opengl_render_data->vert_indices_buf->getSize());
 	}
 
 	// Check indices
@@ -2749,9 +2755,48 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		conPrint("buildIndigoMesh took " + timer.elapsedStringNPlaces(4));
 	}
 
+	// If we did the OpenGL calls, then the data has been uploaded to VBOs etc.. so we can free it.
+	if(!skip_opengl_calls)
+	{
+		opengl_render_data->vert_data.clearAndFreeMem();
+		opengl_render_data->vert_index_buffer.clearAndFreeMem();
+		opengl_render_data->vert_index_buffer_uint16.clearAndFreeMem();
+		opengl_render_data->vert_index_buffer_uint8.clearAndFreeMem();
+	}
+
 	opengl_render_data->aabb_os.min_ = Vec4f(mesh_->aabb_os.bound[0].x, mesh_->aabb_os.bound[0].y, mesh_->aabb_os.bound[0].z, 1.f);
 	opengl_render_data->aabb_os.max_ = Vec4f(mesh_->aabb_os.bound[1].x, mesh_->aabb_os.bound[1].y, mesh_->aabb_os.bound[1].z, 1.f);
 	return opengl_render_data;
+}
+
+
+void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
+{
+	data.vert_vbo = new VBO(data.vert_data.data(), data.vert_data.dataSizeBytes());
+
+	data.vert_vao = new VAO(data.vert_vbo, data.vertex_spec);
+
+	if(!data.vert_index_buffer_uint8.empty())
+	{
+		data.vert_indices_buf = new VBO(data.vert_index_buffer_uint8.data(), data.vert_index_buffer_uint8.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		assert(data.index_type == GL_UNSIGNED_BYTE);
+	}
+	else if(!data.vert_index_buffer_uint16.empty())
+	{
+		data.vert_indices_buf = new VBO(data.vert_index_buffer_uint16.data(), data.vert_index_buffer_uint16.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		assert(data.index_type == GL_UNSIGNED_SHORT);
+	}
+	else
+	{
+		data.vert_indices_buf = new VBO(data.vert_index_buffer.data(), data.vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		assert(data.index_type == GL_UNSIGNED_INT);
+	}
+
+	// Now that data has been uploaded, free the buffers.
+	data.vert_data.clearAndFreeMem();
+	data.vert_index_buffer_uint8.clearAndFreeMem();
+	data.vert_index_buffer_uint16.clearAndFreeMem();
+	data.vert_index_buffer.clearAndFreeMem();
 }
 
 
@@ -3780,8 +3825,10 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
+			//Timer timer;
 			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadUInt8Map(imagemap, this, filtering, wrapping);
 
+			//conPrint("TextureLoading::loadUInt8Map took "  + timer.elapsedStringNPlaces(6));
 			//conPrint("\tLoaded texture.");
 
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
