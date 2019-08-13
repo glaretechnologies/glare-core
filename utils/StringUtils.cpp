@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2018 -
 #include "../maths/mathstypes.h"
 #include "../double-conversion/double-conversion.h"
 #include <cmath>
+#include <cstddef>
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits>
