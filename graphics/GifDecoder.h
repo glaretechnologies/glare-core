@@ -1,7 +1,7 @@
 /*=====================================================================
 GifDecoder.h
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2019 -
 Generated at 2013-02-21 14:06:25 +0000
 =====================================================================*/
 #pragma once

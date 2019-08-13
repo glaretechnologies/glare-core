@@ -1,7 +1,7 @@
 /*=====================================================================
 GifDecoder.cpp
 -------------------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2019 -
 Generated at 2013-02-21 14:06:25 +0000
 =====================================================================*/
 #include "GifDecoder.h"
@@ -58,27 +58,45 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 			throw ImFormatExcep("failed to process gif file.");
 
 		// Get image dimensions
-		const int w = gif_file->SWidth;
-		const int h = gif_file->SHeight;
-
-		if(w <= 0 || w > 1000000)
+		if(gif_file->SWidth <= 0 || gif_file->SWidth > 1000000)
 			throw ImFormatExcep("Invalid image width.");
-		if(h <= 0 || h > 1000000)
+		if(gif_file->SHeight <= 0 || gif_file->SHeight > 1000000)
 			throw ImFormatExcep("Invalid image height.");
+		if(gif_file->ImageCount < 1)
+			throw ImFormatExcep("Invalid ImageCount.");
 
+		const size_t w = (size_t)gif_file->SWidth;
+		const size_t h = (size_t)gif_file->SHeight;
 
-		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > image_map = new ImageMap<uint8_t, UInt8ComponentValueTraits>(w, h, 3);
+		Reference<ImageMap<uint8, UInt8ComponentValueTraits> > image_map = new ImageMap<uint8, UInt8ComponentValueTraits>(w, h, 3);
 		image_map->setGamma((float)2.2f);
 
+		// Get the current palette:
+		ColorMapObject* colour_map = NULL;
+		if(gif_file->SColorMap) // Use global colormap, if it exists.
+			colour_map = gif_file->SColorMap;
+		else
+			colour_map = gif_file->SavedImages[0].ImageDesc.ColorMap;
+
+		if(!colour_map)
+			throw ImFormatExcep("Failed to get ColorMapObject (palette).");
+
+		const int BitsPerPixel = colour_map->BitsPerPixel;
+
 		// Decode colours from Palette
-		for(int y=0; y<h; ++y)
-		for(int x=0; x<w; ++x)
+		const SavedImage* const image_0 = &gif_file->SavedImages[0];
+		const GifColorType* const colours = colour_map->Colors;
+		uint8* const dest = image_map->getData();
+		
+		const size_t num_pixels = w * h;
+		for(size_t i=0; i<num_pixels; ++i)
 		{
-			const int i = y*w + x;
-			const uint8 c = gif_file->SavedImages[0].RasterBits[i];
-			image_map->getPixel(x, y)[0] = gif_file->SColorMap->Colors[c].Red;
-			image_map->getPixel(x, y)[1] = gif_file->SColorMap->Colors[c].Green;
-			image_map->getPixel(x, y)[2] = gif_file->SColorMap->Colors[c].Blue;
+			const uint8 c = image_0->RasterBits[i];
+			if(c >= colour_map->ColorCount)
+				throw ImFormatExcep("Colour index out of bounds.");
+			dest[i*3 + 0] = colours[c].Red;
+			dest[i*3 + 1] = colours[c].Green;
+			dest[i*3 + 2] = colours[c].Blue;
 		}
 
 		error_code = 0;
@@ -104,7 +122,15 @@ void GIFDecoder::test()
 {
 	try
 	{
-		Reference<Map2D> im = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/fire.gif");
+		Reference<Map2D> im;
+
+		// This files uses a local palette.
+		im = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif");
+		testAssert(im->getMapWidth() == 620);
+		testAssert(im->getMapHeight() == 409);
+		testAssert(im->getBytesPerPixel() == 3);
+
+		im = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/fire.gif");
 		testAssert(im->getMapWidth() == 30);
 		testAssert(im->getMapHeight() == 60);
 		testAssert(im->getBytesPerPixel() == 3);
@@ -119,6 +145,18 @@ void GIFDecoder::test()
 	}
 
 	// Test that failure to load an image is handled gracefully.
+
+
+	// This file has palette index out of bounds
+	try
+	{
+		GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{
+	}
 
 	// Try with an invalid path
 	try
