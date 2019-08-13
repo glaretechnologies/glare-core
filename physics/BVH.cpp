@@ -742,9 +742,9 @@ stack_pop:
 				right_disjoint = _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
 			}
 
-			int left_geom_index;
+			int left_geom_index = 0;
 			int left_num_geom = 0;
-			int right_geom_index;
+			int right_geom_index = 0;
 			int right_num_geom = 0;
 			if(left_disjoint == 0) // If hit left child:
 			{

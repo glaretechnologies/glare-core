@@ -323,8 +323,8 @@ KDTree::DistType KDTree::traceRay(const Ray& ray, ThreadContext& thread_context,
 				{
 					//TEMP assert(raydist < closest_dist);
 
-					closest_dist = raydist;
-					closest_dist_d = raydist;
+					closest_dist = (float)raydist;
+					closest_dist_d = (float)raydist;
 					hitinfo_out.sub_elem_index = triangle_index;
 					hitinfo_out.sub_elem_coords.set(u, v);
 				}
@@ -498,7 +498,7 @@ void KDTree::getAllHits(const Ray& ray, ThreadContext& thread_context/*, js::Tri
 						hitinfos_out.push_back(DistanceHitInfo(
 							leafgeom[triindex],
 							HitInfo::SubElemCoordsType(u, v),
-							raydist
+							(float)raydist
 						));
 					}
 				}
@@ -782,7 +782,7 @@ KDTree::Real KDTree::traceRayAgainstAllTris(const ::Ray& ray, Real t_max, HitInf
 		{
 			assert(raydist < closest_dist);
 
-			closest_dist = raydist;
+			closest_dist = (float)raydist;
 			hitinfo_out.sub_elem_index = i;
 			hitinfo_out.sub_elem_coords.set(u, v);
 		}
@@ -813,7 +813,7 @@ void KDTree::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hit
 			hitinfos_out.push_back(DistanceHitInfo(
 				i,
 				HitInfo::SubElemCoordsType(u, v),
-				raydist
+				(float)raydist
 				));
 		}
 	}
