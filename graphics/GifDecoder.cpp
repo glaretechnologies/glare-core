@@ -81,8 +81,6 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 		if(!colour_map)
 			throw ImFormatExcep("Failed to get ColorMapObject (palette).");
 
-		const int BitsPerPixel = colour_map->BitsPerPixel;
-
 		// Decode colours from Palette
 		const SavedImage* const image_0 = &gif_file->SavedImages[0];
 		const GifColorType* const colours = colour_map->Colors;
