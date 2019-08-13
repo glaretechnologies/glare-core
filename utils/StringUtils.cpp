@@ -328,16 +328,21 @@ const std::string floatToStringNSigFigs(float f, int num_sig_figs)
 		"Inf", // Infinity symbol
 		"NaN", // NaN symbol
 		'e',
-		-6, // decimal_in_shortest_low
-		21, // decimal_in_shortest_high
-		3, // max_leading_padding_zeroes_in_precision_mode
-		3 // max_trailing_padding_zeroes_in_precision_mode
+		-6, // decimal_in_shortest_low - not used for precision mode
+		21, // decimal_in_shortest_high - not used for precision mode
+		10, // max_leading_padding_zeroes_in_precision_mode - set this high to avoid formatting in exponential mode (e.g. 1.0e-8)
+		10 // max_trailing_padding_zeroes_in_precision_mode - set this high to avoid formatting in exponential mode (e.g. 1.0e8)
 	);
 
-	char buffer[64];
+	// The result will never contain more than kMaxPrecisionDigits (=120) + 7 characters
+	char buffer[128];
 	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
 
-	converter.ToPrecision(f, num_sig_figs, &builder);
+	// Sig figs has to be in this range for ToPrecision() to succeed.
+	const int use_sig_figs = myClamp(num_sig_figs, double_conversion::DoubleToStringConverter::kMinPrecisionDigits, double_conversion::DoubleToStringConverter::kMaxPrecisionDigits);
+
+	const bool res = converter.ToPrecision(f, use_sig_figs, &builder);
+	assertOrDeclareUsed(res);
 
 	return std::string(builder.Finalize());
 }
@@ -356,16 +361,21 @@ const std::string doubleToStringNSigFigs(double f, int num_sig_figs)
 		"Inf", // Infinity symbol
 		"NaN", // NaN symbol
 		'e',
-		-6, // decimal_in_shortest_low
-		21, // decimal_in_shortest_high
-		3, // max_leading_padding_zeroes_in_precision_mode
-		3 // max_trailing_padding_zeroes_in_precision_mode
+		-6, // decimal_in_shortest_low - not used for precision mode
+		21, // decimal_in_shortest_high - not used for precision mode
+		10, // max_leading_padding_zeroes_in_precision_mode - set this high to avoid formatting in exponential mode (e.g. 1.0e-8)
+		10 // max_trailing_padding_zeroes_in_precision_mode - set this high to avoid formatting in exponential mode (e.g. 1.0e8)
 	);
 
+	// The result will never contain more than kMaxPrecisionDigits (=120) + 7 characters
 	char buffer[128];
 	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
 
-	converter.ToPrecision(f, num_sig_figs, &builder);
+	// Sig figs has to be in this range for ToPrecision() to succeed.
+	const int use_sig_figs = myClamp(num_sig_figs, double_conversion::DoubleToStringConverter::kMinPrecisionDigits, double_conversion::DoubleToStringConverter::kMaxPrecisionDigits);
+
+	const bool res = converter.ToPrecision(f, use_sig_figs, &builder);
+	assertOrDeclareUsed(res);
 
 	return std::string(builder.Finalize());
 }
@@ -1547,6 +1557,71 @@ void StringUtils::test()
 			testAssert(x == x2);
 		}
 	}
+
+	//==================================== Test floatToStringNSigFigs ====================================
+	{
+		testStringsEqual(floatToStringNSigFigs(std::numeric_limits<float>::quiet_NaN(), 3), "NaN");
+		testStringsEqual(floatToStringNSigFigs(std::numeric_limits<float>::infinity(), 3), "Inf");
+		testStringsEqual(floatToStringNSigFigs(-std::numeric_limits<float>::infinity(), 3), "-Inf");
+
+		testStringsEqual(floatToStringNSigFigs(1000000.0f, 3), "1000000");
+		testStringsEqual(floatToStringNSigFigs(100000.0f, 3), "100000");
+		testStringsEqual(floatToStringNSigFigs(10000.0f, 3), "10000");
+		testStringsEqual(floatToStringNSigFigs(1000.0f, 3), "1000");
+		testStringsEqual(floatToStringNSigFigs(100.0f, 3), "100");
+		testStringsEqual(floatToStringNSigFigs(10.0f, 3), "10.0");
+		testStringsEqual(floatToStringNSigFigs(1.0f, 3), "1.00");
+		testStringsEqual(floatToStringNSigFigs(0.1f, 3), "0.100");
+		testStringsEqual(floatToStringNSigFigs(0.01f, 3), "0.0100");
+		testStringsEqual(floatToStringNSigFigs(0.001f, 3), "0.00100");
+		testStringsEqual(floatToStringNSigFigs(0.0001f, 3), "0.000100");
+
+		testStringsEqual(floatToStringNSigFigs(10.0f, 5), "10.000");
+		testStringsEqual(floatToStringNSigFigs(1.0f, 5), "1.0000");
+
+		// Very large/small numbers can be formatted in scientific/exponential mode.
+		testStringsEqual(floatToStringNSigFigs(1.0e20f, 3), "1.00e20");
+		testStringsEqual(floatToStringNSigFigs(1.0e-20f, 3), "1.00e-20");
+
+		// Test doesn't fail when num sig figs requested is invalid.
+		testStringsEqual(floatToStringNSigFigs(1.23f, -1), "1"); // Sig figs gets clamped to 1.
+
+		testStringsEqual(floatToStringNSigFigs(1.0f, 140), "1." + std::string(119, '0')); // Sig figs gets clamped to 120.
+		// So result is "1.000000000 ... 000000"  (with 120 - 1 = 119 zeroes)
+	}
+
+	//==================================== Test doubleToStringNSigFigs ====================================
+	{
+		testStringsEqual(doubleToStringNSigFigs(std::numeric_limits<double>::quiet_NaN(), 3), "NaN");
+		testStringsEqual(doubleToStringNSigFigs(std::numeric_limits<double>::infinity(), 3), "Inf");
+		testStringsEqual(doubleToStringNSigFigs(-std::numeric_limits<double>::infinity(), 3), "-Inf");
+
+		testStringsEqual(doubleToStringNSigFigs(1000000.0, 3), "1000000");
+		testStringsEqual(doubleToStringNSigFigs(100000.0, 3), "100000");
+		testStringsEqual(doubleToStringNSigFigs(10000.0, 3), "10000");
+		testStringsEqual(doubleToStringNSigFigs(1000.0, 3), "1000");
+		testStringsEqual(doubleToStringNSigFigs(100.0, 3), "100");
+		testStringsEqual(doubleToStringNSigFigs(10.0, 3), "10.0");
+		testStringsEqual(doubleToStringNSigFigs(1.0, 3), "1.00");
+		testStringsEqual(doubleToStringNSigFigs(0.1, 3), "0.100");
+		testStringsEqual(doubleToStringNSigFigs(0.01, 3), "0.0100");
+		testStringsEqual(doubleToStringNSigFigs(0.001, 3), "0.00100");
+		testStringsEqual(doubleToStringNSigFigs(0.0001, 3), "0.000100");
+
+		testStringsEqual(doubleToStringNSigFigs(10.0, 5), "10.000");
+		testStringsEqual(doubleToStringNSigFigs(1.0, 5), "1.0000");
+
+		// Very large/small numbers can be formatted in scientific/exponential mode.
+		testStringsEqual(doubleToStringNSigFigs(1.0e20, 3), "1.00e20");
+		testStringsEqual(doubleToStringNSigFigs(1.0e-20, 3), "1.00e-20");
+
+		// Test doesn't fail when num sig figs requested is invalid.
+		testStringsEqual(doubleToStringNSigFigs(1.23, -1), "1"); // Sig figs gets clamped to 1.
+
+		testStringsEqual(doubleToStringNSigFigs(1.0, 140), "1." + std::string(119, '0')); // Sig figs gets clamped to 120.
+		// So result is "1.000000000 ... 000000"  (with 120 - 1 = 119 zeroes)
+	}
+
 
 
 	//==================================== Test numDigits() ====================================
