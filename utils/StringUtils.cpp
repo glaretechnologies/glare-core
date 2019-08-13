@@ -632,18 +632,18 @@ const std::string stripHeadWhitespace(const std::string& text)
 			return text.substr(i, text.size() - i); // Non-whitespace starts here
 
 	// If got here, everything was whitespace.
-	return "";
+	return std::string();
 }
 
 
 const std::string stripTailWhitespace(const std::string& text)
 {
-	for(int i=(int)text.size() - 1; i>=0; --i) // Work backwards through characters
+	for(ptrdiff_t i=(ptrdiff_t)text.size() - 1; i>=0; --i) // Work backwards through characters
 		if(!isWhitespace(text[i]))
 			return text.substr(0, i+1); // Non-whitespace ends here.
 
 	// If got here, everything was whitespace.
-	return "";
+	return std::string();
 }
 
 
@@ -771,7 +771,7 @@ const std::string getExtension(const std::string& filename)
 	const std::string::size_type dot_index = filename.find_last_of(".");
 
 	if(dot_index == std::string::npos)
-		return "";
+		return std::string();
 	else
 		return getTailSubString(filename, dot_index + 1);
 }
@@ -864,7 +864,7 @@ const std::string StringUtils::replaceCharacter(const std::string& s, char src, 
 const std::string getTailSubString(const std::string& s, size_t first_char_index)
 {
 	if(first_char_index >= s.size())
-		return "";
+		return std::string();
 
 	return s.substr(first_char_index, s.size() - first_char_index);
 }
@@ -920,16 +920,11 @@ const std::string getPrefixBeforeDelim(const std::string& s, char delim)
 
 const std::string getSuffixAfterDelim(const std::string& s, char delim)
 {
-	for(unsigned int i=0; i<s.size(); ++i)
+	for(size_t i=0; i<s.size(); ++i)
 		if(s[i] == delim)
-		{
-			if(i == s.size() - 1) // If the delimiter is the last character in the string:
-				return "";
-			else
-				return s.substr(i + 1, s.size() - (i + 1));
-		}
+			return s.substr(i + 1, s.size() - (i + 1));
 
-	return "";
+	return std::string();
 }
 
 
@@ -2433,8 +2428,13 @@ void StringUtils::test()
 	testAssert(::isWhitespace('\t'));
 	testAssert(::isWhitespace('	'));
 
+	//======================== intToHexChar() ==========================
 
-
+	testAssert(getTailSubString("abc", 0) == "abc");
+	testAssert(getTailSubString("abc", 1) == "bc");
+	testAssert(getTailSubString("abc", 2) == "c");
+	testAssert(getTailSubString("abc", 3) == "");
+	testAssert(getTailSubString("abc", 4) == "");
 
 /*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");
 
@@ -2472,11 +2472,7 @@ void StringUtils::test()
 
 	}
 
-	assert(getTailSubString("abc", 0) == "abc");
-	assert(getTailSubString("abc", 1) == "bc");
-	assert(getTailSubString("abc", 2) == "c");
-	assert(getTailSubString("abc", 3) == "");
-	assert(getTailSubString("abc", 4) == "");
+	
 
 	const int testint = 42;
 	assert(writeToStringStream(testint) == "42");
