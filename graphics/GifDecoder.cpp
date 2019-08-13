@@ -106,7 +106,9 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 	}
 	catch(ImFormatExcep& e)
 	{
-		close(file_descriptor);
+		// Call DGifCloseFile to clean up any memory allocated by DGifOpenFileHandle and DGifSlurp, and to close the file descriptor.
+		error_code = 0;
+		DGifCloseFile(gif_file, &error_code);
 		throw e;
 	}
 }
