@@ -1,13 +1,12 @@
 /*=====================================================================
 ThreadManager.h
 ---------------
+Copyright Glare Technologies Limited 2019 -
 File created by ClassTemplate on Sat Nov 03 08:25:38 2007
-Code By Nicholas Chapman.
 =====================================================================*/
 #pragma once
 
 
-#include "ThreadSafeQueue.h"
 #include "MessageableThread.h"
 #include "ThreadMessage.h"
 #include <set>
@@ -17,6 +16,8 @@ Code By Nicholas Chapman.
 ThreadManager
 -------------
 Manages one or more MessageableThreads.
+Provides some basic services such as sending all managed threads a message,
+or sending kill messages to the threads and waiting for them to finish.
 =====================================================================*/
 class ThreadManager
 {
@@ -41,7 +42,7 @@ public:
 	void threadFinished(MessageableThread* t);
 
 	// Get number of threads that are being managed.
-	unsigned int getNumThreads();
+	size_t getNumThreads();
 
 	Mutex& getMutex() { return mutex; }
 

@@ -1,16 +1,16 @@
 /*=====================================================================
 ThreadManager.cpp
 -----------------
+Copyright Glare Technologies Limited 2019 -
 File created by ClassTemplate on Sat Nov 03 08:25:38 2007
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "ThreadManager.h"
 
 
 #include "KillThreadMessage.h"
-#include "../utils/PlatformUtils.h"
-#include "../utils/StringUtils.h"
-#include "../utils/ConPrint.h"
+#include "PlatformUtils.h"
+#include "StringUtils.h"
+#include "ConPrint.h"
 
 
 ThreadManager::ThreadManager()
@@ -60,9 +60,10 @@ void ThreadManager::killThreadsNonBlocking()
 	// Send kill messages to all threads
 	Lock lock(mutex);
 
+	Reference<KillThreadMessage> kill_msg = new KillThreadMessage();
 	for(THREAD_SET_TYPE::iterator i=threads.begin(); i!=threads.end(); ++i)
 	{
-		(*i)->getMessageQueue().enqueue(new KillThreadMessage());
+		(*i)->getMessageQueue().enqueue(kill_msg);
 		(*i)->kill();
 	}
 }
@@ -107,11 +108,11 @@ void ThreadManager::addThread(const Reference<MessageableThread>& t)
 }
 
 
-unsigned int ThreadManager::getNumThreads()
+size_t ThreadManager::getNumThreads()
 {
 	Lock lock(mutex);
 
-	return (unsigned int)threads.size();
+	return threads.size();
 }
 
 
