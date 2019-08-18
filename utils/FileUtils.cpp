@@ -1222,7 +1222,7 @@ void doUnitTests()
 			FileUtils::writeEntireFile(PlatformUtils::getTempDirPath() + "/a" + std::string(MAX_PATH, 'a'), "contents");
 			failTest("Excep expected.");
 		}
-		catch(Indigo::Exception& e)
+		catch(FileUtilsExcep& e)
 		{
 			conPrint(e.what());
 		}
