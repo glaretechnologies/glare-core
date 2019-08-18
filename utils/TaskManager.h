@@ -12,6 +12,7 @@ Generated at 2011-10-05 21:56:22 +0100
 #include "Mutex.h"
 #include "Reference.h"
 #include "Condition.h"
+#include "MyThread.h"
 #include "../maths/mathstypes.h"
 #include <vector>
 #include <limits>
@@ -44,14 +45,27 @@ public:
 
 	~TaskManager();
 
+	// Only works on Windows.  Throws MyThreadExcep on failure (including if called on a non-windows system).
+	void setThreadPriorities(MyThread::Priority priority);
+
 	void addTask(const Reference<Task>& t);
 	void addTasks(Reference<Task>* tasks, size_t num_tasks);
 	void runTasks(Reference<Task>* tasks, size_t num_tasks); // Add tasks, then wait for tasks to complete.
-	
-	template <class TaskSubType> 
+
+	template <class TaskSubType>
 	void runTasks(std::vector<TaskSubType>& task_vector); // Add tasks, then wait for tasks to complete.
 
-	bool areAllTasksComplete();
+
+	size_t getNumUnfinishedTasks() const;
+
+	bool areAllTasksComplete() const;
+
+	/*
+	Removes all tasks from the task queue.  Will not remove any tasks that have already been grabbed by a TaskRunnerThread.
+	Warning: be careful with this method, as some code may be waiting with waitForTasksToComplete(), and may expect the removed
+	tasks to have been completed.
+	*/
+	void removeQueuedTasks();
 
 	void waitForTasksToComplete();
 
@@ -91,7 +105,7 @@ private:
 	void init(size_t num_threads);
 
 	Condition num_unfinished_tasks_cond;
-	::Mutex num_unfinished_tasks_mutex;
+	mutable ::Mutex num_unfinished_tasks_mutex;
 	int num_unfinished_tasks;
 	
 	std::string name;

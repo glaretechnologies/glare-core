@@ -60,6 +60,13 @@ TaskManager::~TaskManager()
 }
 
 
+void TaskManager::setThreadPriorities(MyThread::Priority priority)
+{
+	for(size_t i=0; i<threads.size(); ++i)
+		threads[i]->setPriority(priority);
+}
+
+
 void TaskManager::addTask(const Reference<Task>& t)
 {
 	{
@@ -89,10 +96,31 @@ void TaskManager::runTasks(Reference<Task>* new_tasks, size_t num_tasks) // Add 
 }
 
 
-bool TaskManager::areAllTasksComplete()
+size_t TaskManager::getNumUnfinishedTasks() const
+{
+	Lock lock(num_unfinished_tasks_mutex);
+	return num_unfinished_tasks;
+}
+
+
+bool TaskManager::areAllTasksComplete() const
 {
 	Lock lock(num_unfinished_tasks_mutex);
 	return num_unfinished_tasks == 0;
+}
+
+
+void TaskManager::removeQueuedTasks()
+{
+	Lock lock(num_unfinished_tasks_mutex);
+
+	const size_t num_queued_tasks = tasks.size();
+
+	tasks.clear();
+
+	num_unfinished_tasks -= (int)num_queued_tasks;
+
+	assert(num_unfinished_tasks >= 0);
 }
 
 
