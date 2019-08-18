@@ -1212,6 +1212,24 @@ void doUnitTests()
 	}
 
 
+	//========================= Test writeEntireFile ================================
+	{
+		// Test with a path length > MAX_PATH
+#if defined(_WIN32)
+		try
+		{
+			const std::string test = PlatformUtils::getLastErrorString();
+			FileUtils::writeEntireFile(PlatformUtils::getTempDirPath() + "/a" + std::string(MAX_PATH, 'a'), "contents");
+			failTest("Excep expected.");
+		}
+		catch(Indigo::Exception& e)
+		{
+			conPrint(e.what());
+		}
+#endif
+	}
+
+
 	//========================= Test writeEntireFileAtomically() ================================
 
 	// Stress test with multiple threads reading and writing to the same file.
