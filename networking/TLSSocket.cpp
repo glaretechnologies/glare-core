@@ -19,6 +19,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/EventFD.h"
 #include "../utils/ConPrint.h"
 #include "../utils/BitUtils.h"
+#include "../utils/OpenSSL.h"
 #include <vector>
 #include <string.h>
 #include <algorithm>
@@ -72,8 +73,10 @@ TLSConfig::~TLSConfig()
 
 TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, const std::string& servername)
 {
-	init();
-
+	assert(OpenSSL::isInitialised());
+	if(!OpenSSL::isInitialised())
+		throw MySocketExcep("!OpenSSL::isInitialised()"); // This should be initialised or we will get race conditions due to no mutexes being used.
+	
 	plain_socket = plain_socket_;
 
 	tls_context = tls_client();
@@ -98,7 +101,9 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, c
 
 TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
 {
-	init();
+	assert(OpenSSL::isInitialised());
+	if(!OpenSSL::isInitialised())
+		throw MySocketExcep("!OpenSSL::isInitialised()"); // This should be initialised or we will get race conditions due to no mutexes being used.
 
 	plain_socket = plain_socket_;
 
@@ -109,10 +114,6 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
 	//	throw MySocketExcep("tls_handshake failed: " + std::string(tls_error(tls_context)));
 	//conPrint("Server TLS handshake took " + timer.elapsedStringNSigFigs(4));
 }
-
-
-void TLSSocket::init()
-{}
 
 
 TLSSocket::~TLSSocket()

@@ -130,7 +130,6 @@ private:
 	TLSSocket(const TLSSocket& other);
 	TLSSocket& operator = (const TLSSocket& other);
 
-	void init();
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
 
