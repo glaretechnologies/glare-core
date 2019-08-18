@@ -55,6 +55,8 @@ static void doPerfTest(const std::string& indigo_base_dir, const std::string& me
 
 void loadAndUnloadTexture(OpenGLEngine& engine, int W, int H, int num_comp, int num_iters = 1)
 {
+	//BuildUInt8MapTextureDataScratchState state;
+
 	conPrint("OpenGLEngineTests::loadAndUnloadTexture(): " + toString(W) + " x " + toString(H) + ", num_comp: " + toString(num_comp));
 	ImageMapUInt8Ref map = new ImageMapUInt8(W, H, num_comp);
 	map->set(0);
@@ -63,7 +65,7 @@ void loadAndUnloadTexture(OpenGLEngine& engine, int W, int H, int num_comp, int 
 	{
 		Timer timer;
 
-		Reference<OpenGLTexture> opengl_tex = engine.getOrLoadOpenGLTexture(OpenGLTextureKey("somekey"), *map/*, OpenGLTexture::Filtering_Nearest*/);
+		Reference<OpenGLTexture> opengl_tex = engine.getOrLoadOpenGLTexture(OpenGLTextureKey("somekey"), *map/*, OpenGLTexture::Filtering_Nearest*//*, state*/);
 
 		engine.removeOpenGLTexture(OpenGLTextureKey("somekey"));
 

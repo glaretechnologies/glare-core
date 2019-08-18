@@ -48,7 +48,7 @@ public:
 
 
 // OpenGL data for a given mesh.
-class OpenGLMeshRenderData : public RefCounted
+class OpenGLMeshRenderData : public ThreadSafeRefCounted
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -128,7 +128,7 @@ struct OpenGLTextureKey
 #pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
 #endif
 
-struct GLObject : public RefCounted
+struct GLObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -153,7 +153,7 @@ struct GLObjectHash
 };
 
 
-struct OverlayObject : public RefCounted
+struct OverlayObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -205,6 +205,7 @@ public:
 	void addOverlayObject(const Reference<OverlayObject>& object);
 	void removeOverlayObject(const Reference<OverlayObject>& object);
 
+	void textureLoaded(const std::string& path);
 
 	void selectObject(const Reference<GLObject>& object);
 	void deselectObject(const Reference<GLObject>& object);
@@ -265,7 +266,7 @@ public:
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
 
-	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d,
+	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
 	void removeOpenGLTexture(const OpenGLTextureKey& key); // Erases from opengl_textures.
@@ -308,7 +309,7 @@ private:
 
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignShaderProgToMaterial(OpenGLMaterial& material);
-	void buildMaterial(OpenGLMaterial& mat);
+	void buildMaterial(OpenGLMaterial& mat, bool load_textures_immediately);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
@@ -324,6 +325,8 @@ private:
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(); // Make a cylinder from (0,0,0), to (0,0,1) with radius 1;
+
+	Indigo::TaskManager& getTaskManager();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -433,7 +436,9 @@ private:
 	Timer draw_timer;
 
 	std::map<OpenGLTextureKey, Reference<OpenGLTexture> > opengl_textures; // Used for cyberspace
-
+public:
+	Reference<TextureDataManager> texture_data_manager;
+private:
 	size_t outline_tex_w, outline_tex_h;
 	Reference<FrameBuffer> outline_solid_fb;
 	Reference<FrameBuffer> outline_edge_fb;
@@ -452,17 +457,15 @@ private:
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
 
-	std::vector<Reference<Indigo::Task> > compress_tasks;
-
 	float current_time;
-
-	Indigo::TaskManager* task_manager; // Used for texture compression processing.  Could be shared with MainWindow task manager, bit tricky due to inialisation tho.
-	// Lazily constructed.
 
 	TextureServer* texture_server;
 
 	unsigned int target_frame_buffer;
 	bool use_target_frame_buffer;
+
+	mutable Mutex task_manager_mutex;
+	Indigo::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
 public:
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;

@@ -72,6 +72,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	env_ob->materials.resize(1);
 
 	camera_type = CameraType_Perspective;
+
+	texture_data_manager = new TextureDataManager();
 }
 
 
@@ -355,7 +357,7 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 {
 	this->env_ob->materials[0] = env_mat_;
 	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
-	buildMaterial(this->env_ob->materials[0]);
+	buildMaterial(this->env_ob->materials[0], /*load_textures_immediately=*/true);
 }
 
 
@@ -820,7 +822,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			if(!specular_env.isType<ImageMapFloat>())
 				throw Indigo::Exception("specular env map Must be ImageMapFloat");
 
-			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, OpenGLTexture::Filtering_Bilinear);
+			//BuildUInt8MapTextureDataScratchState state;
+			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
 		}
 		catch(ImFormatExcep& e)
 		{
@@ -901,6 +904,9 @@ void OpenGLEngine::unloadAllData()
 	this->selected_objects.clear();
 
 	this->env_ob->materials[0] = OpenGLMaterial();
+
+	opengl_textures.clear();
+	texture_data_manager->clear();
 }
 
 
@@ -961,7 +967,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		buildMaterial(object->materials[i]);
+		buildMaterial(object->materials[i], /*load_textures_immediately=*/false);
 		assignShaderProgToMaterial(object->materials[i]);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
@@ -975,6 +981,49 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 {
 	this->overlay_objects.insert(object);
 	object->material.shader_prog = overlay_prog;
+}
+
+
+void OpenGLEngine::textureLoaded(const std::string& path)
+{
+	assert(texture_server->isTextureLoadedForPath(path));
+	Reference<Map2D> map = texture_server->getTexForPath(".", path);
+
+	Reference<OpenGLTexture> opengl_texture;
+	//BuildUInt8MapTextureDataScratchState state;
+
+	for(auto it = objects.begin(); it != objects.end(); ++it)
+	{
+		GLObject* const object = it->ptr();
+
+		for(size_t i=0; i<object->materials.size(); ++i)
+		{
+			if(object->materials[i].albedo_texture.isNull() && object->materials[i].albedo_tex_path == path)
+			{
+				// conPrint("OpenGLEngine::textureLoaded(): Found object using '" + path + "'.");
+
+#ifndef NDEBUG
+				if(dynamic_cast<const ImageMapUInt8*>(map.ptr()))
+				{
+					const ImageMapUInt8* imagemap_uint8 = map.downcastToPtr<ImageMapUInt8>();
+					assert(this->texture_data_manager->isTextureDataInserted(imagemap_uint8));
+				}
+#endif
+
+				if(opengl_texture.isNull())
+				{
+					// This should hopefully just upload data to OpenGL.
+					opengl_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+					//assert(state.task_manager == NULL);
+				}
+				
+				object->materials[i].albedo_texture = opengl_texture;
+
+				// Texture may have an alpha channel, in which case we want to assign a different shader.
+				assignShaderProgToMaterial(object->materials[i]);
+			}
+		}
+	}
 }
 
 
@@ -1027,7 +1076,9 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 			try
 			{
 				Reference<Map2D> map = texture_server->getTexForPath(".", object->materials[i].albedo_tex_path);
-				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(object->materials[i].albedo_tex_path), *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+
+				//BuildUInt8MapTextureDataScratchState state; // TEMP
+				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(object->materials[i].albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 			}
 			catch(TextureServerExcep& e)
 			{
@@ -1052,7 +1103,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 }
 
 
-void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
+void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool load_textures_immediately)
 {
 	if(opengl_mat.albedo_tex_path.empty())
 	{
@@ -1060,12 +1111,38 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat)
 	}
 	else
 	{
+		//BuildUInt8MapTextureDataScratchState state;
+
 		try
 		{
-			// TEMP HACK: need to set base dir here
-			Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
-			// conPrint("OpenGLEngine::buildMaterial: loading tex '" + opengl_mat.albedo_tex_path + "'...");
-			opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+			if(load_textures_immediately)
+			{
+				// TEMP HACK: need to set base dir here
+				Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
+				// conPrint("OpenGLEngine::buildMaterial: loading tex '" + opengl_mat.albedo_tex_path + "'...");
+				opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+			}
+			else
+			{
+				if(texture_server->isTextureLoadedForPath(opengl_mat.albedo_tex_path))
+				{
+					Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
+
+					if(dynamic_cast<const ImageMapUInt8*>(map.ptr()))
+					{
+						const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(map.ptr());
+
+						if(this->texture_data_manager->isTextureDataInserted(imagemap))
+						{
+							opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+						}
+					}
+					else
+					{
+						opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+					}
+				}
+			}
 		}
 		catch(TextureServerExcep& e)
 		{
@@ -3043,8 +3120,6 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 	ob->ob_to_world_matrix.setColumn(2, Vec4f(0, 0, span[2], 0));
 	ob->ob_to_world_matrix.setColumn(3, min_); // set origin
 
-	if(cube_meshdata.isNull())
-		cube_meshdata = makeCubeMesh();
 	ob->mesh_data = cube_meshdata;
 	ob->materials.resize(1);
 	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
@@ -3812,7 +3887,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 
 
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d,
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
@@ -3824,12 +3899,11 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 		auto res = this->opengl_textures.find(key);
 		if(res == this->opengl_textures.end())
 		{
-			// Load texture
-			//Timer timer;
-			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadUInt8Map(imagemap, this, filtering, wrapping);
+			// Get processed texture data
+			Reference<TextureData> texture_data = this->texture_data_manager->getOrBuildTextureData(imagemap, this/*, state*/);
 
-			//conPrint("TextureLoading::loadUInt8Map took "  + timer.elapsedStringNPlaces(6));
-			//conPrint("\tLoaded texture.");
+			// Load into OpenGL
+			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping);
 
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 			return opengl_tex;
@@ -3945,4 +4019,17 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRendered
 	}
 
 	return map;
+}
+
+
+Indigo::TaskManager& OpenGLEngine::getTaskManager()
+{
+	Lock lock(task_manager_mutex);
+	if(!task_manager)
+	{
+		task_manager = new Indigo::TaskManager();
+		task_manager->setThreadPriorities(MyThread::Priority_Lowest);
+		// conPrint("OpenGLEngine::getTaskManager(): created task manager.");
+	}
+	return *task_manager;
 }

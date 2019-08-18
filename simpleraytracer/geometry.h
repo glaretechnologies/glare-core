@@ -14,6 +14,7 @@ File created by ClassTemplate on Wed Apr 14 21:19:37 2004
 #include "../maths/vec2.h"
 #include "../maths/plane.h"
 #include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"
 #include <vector>
@@ -48,7 +49,7 @@ Geometry
 --------
 Interface that represents the shape of an object
 =====================================================================*/
-class Geometry : public RefCounted, public UVCoordEvaluator
+class Geometry : public ThreadSafeRefCounted, public UVCoordEvaluator
 {
 public:
 	enum GeometryType
