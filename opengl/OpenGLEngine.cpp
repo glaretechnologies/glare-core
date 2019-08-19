@@ -68,7 +68,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	sun_dir = normalise(Vec4f(0.2,0.2,1,0));
 	env_ob = new GLObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
-	env_ob->ob_to_world_inv_tranpose_matrix = Matrix4f::identity();
+	env_ob->ob_to_world_inv_transpose_matrix = Matrix4f::identity();
 	env_ob->materials.resize(1);
 
 	camera_type = CameraType_Perspective;
@@ -349,7 +349,7 @@ void OpenGLEngine::setSunDir(const Vec4f& d)
 void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 {
 	this->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));
-	this->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(this->env_ob->ob_to_world_inv_tranpose_matrix);
+	this->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(this->env_ob->ob_to_world_inv_transpose_matrix);
 }
 
 
@@ -922,9 +922,9 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
-	const bool invertible = to_world.getUpperLeftInverseTranspose(/*result=*/object.ob_to_world_inv_tranpose_matrix); // Compute inverse matrix
+	const bool invertible = to_world.getUpperLeftInverseTranspose(/*result=*/object.ob_to_world_inv_transpose_matrix); // Compute inverse matrix
 	if(!invertible)
-		object.ob_to_world_inv_tranpose_matrix = object.ob_to_world_matrix; // If not invertible, just use to-world matrix.
+		object.ob_to_world_inv_transpose_matrix = object.ob_to_world_matrix; // If not invertible, just use to-world matrix.
 	// Hopefully we won't encounter non-invertible matrices here anyway.
 
 	object.aabb_ws = object.mesh_data->aabb_os.transformedAABBFast(to_world);
@@ -1050,6 +1050,12 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 	objects.erase(object);
 	transparent_objects.erase(object);
 	selected_objects.erase(object.getPointer());
+}
+
+
+bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
+{
+	return objects.find(object) != objects.end();
 }
 
 
@@ -2969,7 +2975,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
 			glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
 			glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
-			glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_tranpose_matrix.e); // inverse transpose model matrix
+			glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
 		}
 
 		

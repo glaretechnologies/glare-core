@@ -133,7 +133,7 @@ struct GLObject : public ThreadSafeRefCounted
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	Matrix4f ob_to_world_matrix;
-	Matrix4f ob_to_world_inv_tranpose_matrix; // inverse tranpose of upper-left part of to-world matrix.
+	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
 
 	js::AABBox aabb_ws;
 
@@ -201,6 +201,7 @@ public:
 
 	void addObject(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
+	bool isObjectAdded(const Reference<GLObject>& object) const;
 
 	void addOverlayObject(const Reference<OverlayObject>& object);
 	void removeOverlayObject(const Reference<OverlayObject>& object);
