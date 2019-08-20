@@ -1052,10 +1052,11 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 
 
 #include "PlatformUtils.h"
+#include "ConPrint.h"
+#include "StringUtils.h"
+#include "MyThread.h"
+#include "HandleWrapper.h"
 #include "../indigo/TestUtils.h"
-#include "../utils/ConPrint.h"
-#include "../utils/StringUtils.h"
-#include "../utils/MyThread.h"
 
 
 namespace FileUtils
@@ -1194,6 +1195,7 @@ void doUnitTests()
 	// Opening (calling CreateFile on) http_response takes quite a long time in some circumstances due to Windows 10's built-in virus scanner.
 	// Windows seems to cache the virus scan result, to some degree.
 	// This behaviour can be replicated by turning off and on 'real-time protection' in 'Virus and threat protection settings' in 'Windows Security' settings, which seems to clear the cache.
+#if defined(_WIN32)
 	for(int i=0; i<4; ++i)
 	{
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/http_response";
@@ -1210,7 +1212,7 @@ void doUnitTests()
 		);
 		conPrint("CreateFile took " + timer.elapsedStringNSigFigs(3) + "(path: " + path + ")");
 	}
-
+#endif
 
 	//========================= Test toPlatformSlashes() =========================
 #if defined(_WIN32)
