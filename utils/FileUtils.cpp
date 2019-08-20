@@ -950,23 +950,35 @@ const std::string getCanonicalPath(const std::string& p)
 #endif
 
 
-/*
-Changes slashes to platform slashes.
-OLD: Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
-Then returns the canonical path name.
-*/
+
+// Changes slashes to platform slashes.
+// Then returns the canonical path name.
 const std::string getActualOSPath(const std::string& path_)
 {
 	const std::string path = toPlatformSlashes(path_);
 
 	return getCanonicalPath(path);
-	
-	/*
-	NOTE: The problem with this code below is that it does a slow directory scan if no such file with the given path is present.
-	Since Windows file system is case insensitive, and the Mac filesystem is case insensitive by default, hopefully this code isn't needed.
+}
 
+
+// Changes slashes to platform slashes.
+// If file not found directly, tries to guess the correct case by scanning the directory and doing case-insensitive matches.
+// Then returns the canonical path name.
+const std::string getActualOSPathWithDirScanning(const std::string& path_)
+{
+	const std::string path = toPlatformSlashes(path_);
+
+#if defined(_WIN32) || defined(OSX) // If we are on a case-insensitive filesystem:
+	return getCanonicalPath(path);
+#else
+	if(FileUtils::fileExists(path))
+		return getCanonicalPath(path);
+	
 	// We don't have an exact match.
-	// Try to guess the correct case by scanning directory and doing case-insensitive matches.
+	// Try to guess the correct case by scanning the directory and doing case-insensitive matches.
+
+	// NOTE: The problem with this code below is that it does a slow directory scan if no such file with the given path is present.
+	// Since Windows file system is case insensitive, and the Mac filesystem is case insensitive by default, this code isn't needed on those platforms.
 
 	const std::string dir = getDirectory(path);
 	const std::vector<std::string> files = getFilesInDir(dir);
@@ -980,7 +992,7 @@ const std::string getActualOSPath(const std::string& path_)
 	}
 
 	throw FileUtilsExcep("Could not find file '" + path_ + "'");
-	*/
+#endif
 }
 
 

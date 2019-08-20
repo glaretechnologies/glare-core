@@ -122,6 +122,11 @@ const std::string getCanonicalPath(const std::string& path);
 // Then returns the canonical path name.
 const std::string getActualOSPath(const std::string& path); // throws FileUtilsExcep
 
+// Changes slashes to platform slashes.
+// If file not found directly, tries to guess the correct case by scanning the directory and doing case-insensitive matches.
+// Then returns the canonical path name.
+const std::string getActualOSPathWithDirScanning(const std::string& path); // throws FileUtilsExcep
+
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 const std::wstring convertUTF8ToFStreamPath(const std::string& p);
