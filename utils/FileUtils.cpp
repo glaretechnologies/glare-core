@@ -26,6 +26,7 @@ Code By Nicholas Chapman.
 #include "PlatformUtils.h"
 #include "HandleWrapper.h"
 #include "Timer.h"
+#include "ConPrint.h"
 #include "../maths/mathstypes.h"
 #include <cstring>
 #include <stdlib.h>
@@ -900,12 +901,12 @@ const std::string makeOSFriendlyFilename(const std::string& name)
 
 #if defined(_WIN32)
 
-static const std::string getCanonicalPath(const std::string& p)
+const std::string getCanonicalPath(const std::string& p)
 {
 	HandleWrapper file = CreateFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(p).c_str(),
-		GENERIC_READ,
-		FILE_SHARE_READ,
+		0, // dwDesiredAccess - We can get away with no read or write access here since we just want to operate on metadata.  This helps with e.g. avoiding virus-scanning slowdowns.  Was GENERIC_READ.
+		FILE_SHARE_READ, // dwShareMode
 		NULL, // lpSecurityAttributes 
 		OPEN_EXISTING, // OPEN_EXISTING = Opens a file or device, only if it exists.
 		FILE_ATTRIBUTE_NORMAL, // dwFlagsAndAttributes
@@ -937,7 +938,7 @@ static const std::string getCanonicalPath(const std::string& p)
 
 #else
 
-static const std::string getCanonicalPath(const std::string& p)
+const std::string getCanonicalPath(const std::string& p)
 {
 	char buf[PATH_MAX];
 	char* result = realpath(p.c_str(), buf);
@@ -950,16 +951,20 @@ static const std::string getCanonicalPath(const std::string& p)
 
 
 /*
-Changes slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
-On Unix (Linux / OS X) will also return the canonical path name.
+Changes slashes to platform slashes.
+OLD: Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+Then returns the canonical path name.
 */
 const std::string getActualOSPath(const std::string& path_)
 {
 	const std::string path = toPlatformSlashes(path_);
 
-	if(fileExists(path))
-		return getCanonicalPath(path);
+	return getCanonicalPath(path);
 	
+	/*
+	NOTE: The problem with this code below is that it does a slow directory scan if no such file with the given path is present.
+	Since Windows file system is case insensitive, and the Mac filesystem is case insensitive by default, hopefully this code isn't needed.
+
 	// We don't have an exact match.
 	// Try to guess the correct case by scanning directory and doing case-insensitive matches.
 
@@ -975,12 +980,7 @@ const std::string getActualOSPath(const std::string& path_)
 	}
 
 	throw FileUtilsExcep("Could not find file '" + path_ + "'");
-}
-
-
-const std::string getPathKey(const std::string& pathname)
-{
-	return FileUtils::getActualOSPath(pathname);
+	*/
 }
 
 
@@ -1054,6 +1054,7 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 #include "PlatformUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
 #include "../utils/MyThread.h"
 
 
@@ -1162,6 +1163,53 @@ static void testGetRelativePathExpectedFailure(const std::string& dir_path, cons
 void doUnitTests()
 {
 	conPrint("FileUtils::doUnitTests()");
+
+	//========================= Test getCanonicalPath() ================================
+	try
+	{
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj";
+		const std::string canonical_path = getCanonicalPath(path);
+		conPrint("canonical_path: '" + canonical_path + "'");
+		testAssert(FileUtils::fileExists(canonical_path));
+
+#if defined(_WIN32) || defined(OSX) // If we are on a case-insensitive filesystem:
+		testAssert(canonical_path == getCanonicalPath(TestUtils::getIndigoTestReposDir() + "/testfiles/Sphere.obj"));
+		testAssert(canonical_path == getCanonicalPath(TestUtils::getIndigoTestReposDir() + "/TESTFILES/Sphere.OBJ"));
+#endif
+		Timer timer;
+		const int N = 10;
+		for(int i=0; i<N; ++i)
+		{
+			const std::string a = getCanonicalPath(path);
+		}
+		conPrint("getCanonicalPath took " + doubleToStringNSigFigs(timer.elapsed() / N, 3));
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+	//========================= Test CreateFile() and virus-scanning slowdowns =========================
+	// Opening (calling CreateFile on) http_response takes quite a long time in some circumstances due to Windows 10's built-in virus scanner.
+	// Windows seems to cache the virus scan result, to some degree.
+	// This behaviour can be replicated by turning off and on 'real-time protection' in 'Virus and threat protection settings' in 'Windows Security' settings, which seems to clear the cache.
+	for(int i=0; i<4; ++i)
+	{
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/http_response";
+
+		Timer timer;
+		HandleWrapper file = CreateFile(
+			StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
+			GENERIC_READ,
+			FILE_SHARE_READ,
+			NULL, // lpSecurityAttributes 
+			OPEN_EXISTING, // OPEN_EXISTING = Opens a file or device, only if it exists.
+			FILE_ATTRIBUTE_NORMAL, // dwFlagsAndAttributes
+			NULL // hTemplateFile
+		);
+		conPrint("CreateFile took " + timer.elapsedStringNSigFigs(3) + "(path: " + path + ")");
+	}
 
 
 	//========================= Test toPlatformSlashes() =========================
@@ -1387,11 +1435,13 @@ void doUnitTests()
 		testAssert(getFilename(canonical_path) == "sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == canonical_path);
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == canonical_path);
-#else
+#elif defined(OSX)
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles\\SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+#else // Else on Linux:
+		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
 #endif
 	}
 	catch(FileUtilsExcep& e)

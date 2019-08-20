@@ -115,14 +115,13 @@ FILE* openFile(const std::string& pathname, const std::string& openmode);
 // Remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name);
 
-// Changes slashes to platform slashes.  Also tries to guess the correct case by scanning directory and doing case-insensitive matches.
+// Returns the canonical path for the given file.  The file must exist, and path must be a valid path for it.
+const std::string getCanonicalPath(const std::string& path);
+
+// Changes slashes to platform slashes.
 // Then returns the canonical path name.
 const std::string getActualOSPath(const std::string& path); // throws FileUtilsExcep
 
-// This is used in TextureServer and ThumbnailCache. We want the key into the textures map to have a 1-1 correspondence with the actual file.
-// This is to avoid multiple copies of the same texture being loaded if the queried pathname differs in just e.g. case.
-// We do this by using the canonical path name.
-const std::string getPathKey(const std::string& pathname); // throws FileUtilsExcep
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 const std::wstring convertUTF8ToFStreamPath(const std::string& p);
