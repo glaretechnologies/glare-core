@@ -476,8 +476,8 @@ static void makeScaledCopyOfBuffer(const RenderChannels& render_channels, const 
 										(render_regions[i].y2 + (int)margin_ssf1) * (int)ssf - rr_margin));
 
 		// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-		for(size_t y=0; y<W; ++y)
-		for(size_t x=0; x<H; ++x)
+		for(size_t y=0; y<H; ++y)
+		for(size_t x=0; x<W; ++x)
 		{
 			const size_t i = y*W + x;
 			const Colour4f v = pixelIsInARegion((ptrdiff_t)x, (ptrdiff_t)y, regions) ?
