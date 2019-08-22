@@ -45,9 +45,11 @@ public:
 	// Thread-safe
 	Reference<TextureData> getOrBuildTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/);
 
-	bool isTextureDataInserted(const ImageMapUInt8* imagemap) const;
+	bool isTextureDataInserted(const ImageMapUInt8* imagemap) const; // Thread-safe
 
 	void insertBuiltTextureData(const ImageMapUInt8* imagemap, Reference<TextureData> data);
+
+	void removeTextureData(const ImageMapUInt8* imagemap);
 
 	void clear();
 //private:

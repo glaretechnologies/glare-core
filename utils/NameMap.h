@@ -38,6 +38,8 @@ public:
 
 	inline ~NameMap();
 
+	void clear();
+
 	void removeAndDeleteAll();
 
 	void insert(const std::string& key, const T& value);
@@ -61,6 +63,7 @@ public:
 
 	inline void erase(iterator& i);
 
+	std::unordered_map<std::string, T>& getMap() { return namemap; }
 private:
 	std::unordered_map<std::string, T> namemap;
 };
@@ -74,6 +77,12 @@ NameMap<T>::NameMap()
 template <class T>
 NameMap<T>::~NameMap()
 {
+}
+
+template <class T>
+void NameMap<T>::clear()
+{
+	namemap.clear();
 }
 
 template <class T>

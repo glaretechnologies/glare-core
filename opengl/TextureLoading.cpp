@@ -56,6 +56,14 @@ void TextureDataManager::insertBuiltTextureData(const ImageMapUInt8* imagemap, R
 }
 
 
+void TextureDataManager::removeTextureData(const ImageMapUInt8* imagemap)
+{
+	Lock lock(mutex);
+
+	loaded_textures.erase(imagemap);
+}
+
+
 void TextureDataManager::clear()
 {
 	Lock lock(mutex);

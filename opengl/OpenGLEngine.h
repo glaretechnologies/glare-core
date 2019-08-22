@@ -272,6 +272,8 @@ public:
 
 	void removeOpenGLTexture(const OpenGLTextureKey& key); // Erases from opengl_textures.
 
+	bool isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) const;
+
 	float getPixelDepth(int pixel_x, int pixel_y);
 
 	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > getRenderedColourBuffer();
@@ -310,7 +312,7 @@ private:
 
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignShaderProgToMaterial(OpenGLMaterial& material);
-	void buildMaterial(OpenGLMaterial& mat, bool load_textures_immediately);
+	void buildMaterial(OpenGLMaterial& mat, bool force_load_textures_immediately);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);

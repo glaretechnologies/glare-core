@@ -357,7 +357,7 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 {
 	this->env_ob->materials[0] = env_mat_;
 	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
-	buildMaterial(this->env_ob->materials[0], /*load_textures_immediately=*/true);
+	buildMaterial(this->env_ob->materials[0], /*force_load_textures_immediately=*/true);
 }
 
 
@@ -954,6 +954,9 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
 
 void OpenGLEngine::addObject(const Reference<GLObject>& object)
 {
+	assert(object->mesh_data.nonNull());
+	assert(object->mesh_data->vert_vao.nonNull());
+
 	// Compute world space AABB of object
 	updateObjectTransformData(*object.getPointer());
 	
@@ -967,7 +970,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		buildMaterial(object->materials[i], /*load_textures_immediately=*/false);
+		buildMaterial(object->materials[i], /*force_load_textures_immediately=*/false);
 		assignShaderProgToMaterial(object->materials[i]);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
@@ -1002,11 +1005,12 @@ void OpenGLEngine::textureLoaded(const std::string& path)
 			{
 				// conPrint("OpenGLEngine::textureLoaded(): Found object using '" + path + "'.");
 
+				// Check that the texture is already loaded into OpenGL, or that the texture data is built and inserted into texture_data_manager.
 #ifndef NDEBUG
 				if(dynamic_cast<const ImageMapUInt8*>(map.ptr()))
 				{
 					const ImageMapUInt8* imagemap_uint8 = map.downcastToPtr<ImageMapUInt8>();
-					assert(this->texture_data_manager->isTextureDataInserted(imagemap_uint8));
+					assert(this->isOpenGLTextureInsertedForKey(OpenGLTextureKey(path)) || this->texture_data_manager->isTextureDataInserted(imagemap_uint8));
 				}
 #endif
 
@@ -1109,7 +1113,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 }
 
 
-void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool load_textures_immediately)
+void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool force_load_textures_immediately)
 {
 	if(opengl_mat.albedo_tex_path.empty())
 	{
@@ -1121,7 +1125,7 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool load_textures_
 
 		try
 		{
-			if(load_textures_immediately)
+			if(force_load_textures_immediately)
 			{
 				// TEMP HACK: need to set base dir here
 				Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
@@ -1130,15 +1134,14 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool load_textures_
 			}
 			else
 			{
-				if(texture_server->isTextureLoadedForPath(opengl_mat.albedo_tex_path))
-				{
-					Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
+				// Load the texture into OpenGL iff the texture is already loaded from disk into TextureServer, and it has been processed if processing is needed (8-bit textures).
 
+				Reference<Map2D> map = texture_server->getTexForPathIfLoaded(opengl_mat.albedo_tex_path);
+				if(map.nonNull())
+				{
 					if(dynamic_cast<const ImageMapUInt8*>(map.ptr()))
 					{
-						const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(map.ptr());
-
-						if(this->texture_data_manager->isTextureDataInserted(imagemap))
+						if(this->texture_data_manager->isTextureDataInserted(map.downcastToPtr<ImageMapUInt8>())) // If this texture has been processed:
 						{
 							opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 						}
@@ -3911,6 +3914,9 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			// Load into OpenGL
 			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping);
 
+			// Now that the data has been loaded into OpenGL, we can erase the texture data.
+			this->texture_data_manager->removeTextureData(imagemap);
+
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 			return opengl_tex;
 		}
@@ -3984,6 +3990,12 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 {
 	this->opengl_textures.erase(key);
+}
+
+
+bool OpenGLEngine::isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) const
+{
+	return this->opengl_textures.count(key) > 0;
 }
 
 
