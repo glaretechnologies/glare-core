@@ -328,7 +328,9 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 
 		if(url_components.scheme == "https")
 		{
-			MySocketRef plain_socket = new MySocket(url_components.host, (url_components.port == -1) ? 443 : url_components.port);
+			MySocketRef plain_socket = new MySocket();
+			this->socket = plain_socket; // Store in this->socket so we can interrupt in kill().
+			plain_socket->connect(url_components.host, (url_components.port == -1) ? 443 : url_components.port);
 
 			TLSConfig client_tls_config;
 
@@ -361,10 +363,49 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 }
 
 
+void HTTPClient::kill()
+{
+	SocketInterfaceRef socket_ = socket;
+	if(socket_.nonNull())
+		socket_->ungracefulShutdown();
+}
+
+
 #if BUILD_TESTS
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/MyThread.h"
+
+
+class HTTPClientTestThread : public MyThread
+{
+public:
+	HTTPClientTestThread(const std::string& path_) : path(path_) {}
+	~HTTPClientTestThread() {}
+
+	virtual void run()
+	{
+		conPrint("HTTPClientTestThread::run()");
+		for(int i=0; i<100; ++i)
+		{
+			try
+			{
+				HTTPClient client;
+				std::string data;
+				client.downloadFile(path, data);
+				//conPrint(data);
+				conPrintStr(".");
+			}
+			catch(Indigo::Exception& e)
+			{
+				failTest(e.what());
+			}
+		}
+	}
+
+	std::string path;
+};
 
 
 void HTTPClient::test()
@@ -395,6 +436,16 @@ void HTTPClient::test()
 	{
 		failTest(e.what());
 	}
+
+	/*std::vector<Reference<HTTPClientTestThread> > threads;
+	for(int i=0; i<30; ++i)
+	{
+		threads.push_back(new HTTPClientTestThread("https://forwardscattering.org/post/3"));
+		threads.back()->launch();
+	}
+
+	for(size_t i=0; i<threads.size(); ++i)
+		threads[i]->join();*/
 }
 
 

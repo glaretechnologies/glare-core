@@ -34,6 +34,8 @@ public:
 
 	ResponseInfo downloadFile(const std::string& url, std::string& data_out); // Throws Indigo::Exception on failure.
 
+	void kill(); // Interrupt download.  Can be called from another thread.
+
 	static void test();
 
 private:
