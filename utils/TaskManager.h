@@ -45,7 +45,7 @@ public:
 
 	~TaskManager();
 
-	// Only works on Windows.  Throws MyThreadExcep on failure (including if called on a non-windows system).
+	// Only works on Windows.  Does nothing if called on a non-windows system.
 	void setThreadPriorities(MyThread::Priority priority);
 
 	void addTask(const Reference<Task>& t);

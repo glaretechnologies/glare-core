@@ -62,8 +62,10 @@ TaskManager::~TaskManager()
 
 void TaskManager::setThreadPriorities(MyThread::Priority priority)
 {
+#if defined(_WIN32)
 	for(size_t i=0; i<threads.size(); ++i)
 		threads[i]->setPriority(priority);
+#endif
 }
 
 
