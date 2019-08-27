@@ -369,6 +369,8 @@ public:
 private:
 	float max_draw_dist;
 
+	std::vector<OverlayObject*> temp_obs;
+
 #if !defined(OSX)
 	GLuint timer_query_id;
 #endif

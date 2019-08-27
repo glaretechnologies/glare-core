@@ -1369,6 +1369,16 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 }
 
 
+// Sorts objects into ascending z order based on object-to-world z translation component.
+struct OverlayObjectZComparator
+{
+	inline bool operator() (OverlayObject* a, OverlayObject* b) const
+	{
+		return a->ob_to_world_matrix.e[14] < b->ob_to_world_matrix.e[14];
+	}
+};
+
+
 void OpenGLEngine::draw()
 {
 	if(!init_succeeded)
@@ -2031,9 +2041,17 @@ void OpenGLEngine::draw()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer
 
+		// Sort overlay objects into ascending z order, then we draw from back to front (ascending z order).
+		temp_obs.resize(overlay_objects.size());
+		size_t q = 0;
 		for(auto it = overlay_objects.begin(); it != overlay_objects.end(); ++it)
+			temp_obs[q++] = it->ptr();
+
+		std::sort(temp_obs.begin(), temp_obs.end(), OverlayObjectZComparator());
+
+		for(size_t i=0; i<temp_obs.size(); ++i)
 		{
-			const OverlayObject* const ob = it->getPointer();
+			const OverlayObject* const ob = temp_obs[i];
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
