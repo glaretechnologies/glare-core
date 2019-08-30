@@ -1,0 +1,13 @@
+IESNA91
+[TEST]     Test unknown
+[MANUFAC]  Glare Technologies Limited
+TILT=NONE
+1 100 1
+6 1
+1
+2
+0 0 0
+1 1 0
+ 0.00 8.86 15.00 20.00 41.71 90.00
+ 0.00
+ 1 1 1 1 1 1
