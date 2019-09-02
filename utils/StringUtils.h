@@ -233,6 +233,7 @@ const std::string replaceCharacter(const std::string& s, char src, char dest);
 
 const std::vector<unsigned char> convertHexToBinary(const std::string& hex);
 const std::string convertByteArrayToHexString(const std::vector<unsigned char>& bytes);
+const std::string convertByteArrayToHexString(const unsigned char* bytes, size_t size);
 
 const std::vector<unsigned char> stringToByteArray(const std::string& s);
 const std::string byteArrayToString(const std::vector<unsigned char>& bytes);

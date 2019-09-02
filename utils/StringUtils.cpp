@@ -1049,9 +1049,15 @@ const std::vector<unsigned char> convertHexToBinary(const std::string& hex)
 
 const std::string convertByteArrayToHexString(const std::vector<unsigned char>& bytes)
 {
+	return convertByteArrayToHexString(bytes.data(), bytes.size());
+}
+
+
+const std::string convertByteArrayToHexString(const unsigned char* bytes, size_t size)
+{
 	std::string res;
-	res.resize(bytes.size() * 2);
-	for(size_t i=0; i<bytes.size(); ++i)
+	res.resize(size * 2);
+	for(size_t i=0; i<size; ++i)
 	{
 		unsigned char b = bytes[i];
 		unsigned char upper_nibble = (b & 0xF0u) >> 4;
