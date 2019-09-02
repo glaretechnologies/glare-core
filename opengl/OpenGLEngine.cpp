@@ -1113,6 +1113,47 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 }
 
 
+// Return an OpenGL texture based on opengl_mat.albedo_tex_path.
+// Will return NULL texture ref if force_load_textures_immediately is false and the texture has not been loaded from disk into the texture server,
+// or it has not been processed.
+// Throws TextureServerExcep, Indigo::Exception
+Reference<OpenGLTexture> OpenGLEngine::geTextureForBuildingMaterial(const std::string& tex_path, bool force_load_textures_immediately)
+{
+	const OpenGLTextureKey texture_key(tex_path);
+
+	// If the OpenGL texture for this path has already been created, return it.
+	auto res = this->opengl_textures.find(texture_key);
+	if(res != this->opengl_textures.end())
+		return res->second;
+
+	if(force_load_textures_immediately)
+	{
+		// TEMP HACK: need to set base dir here
+		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
+		
+		return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+	}
+	else
+	{
+		Reference<Map2D> map = texture_server->getTexForPathIfLoaded(tex_path);
+		if(map.nonNull()) // If the texture has been loaded from disk already:
+		{
+			if(dynamic_cast<const ImageMapUInt8*>(map.ptr())) // If UInt8 map, which needs processing:
+			{
+				if(this->texture_data_manager->isTextureDataInserted(map.downcastToPtr<ImageMapUInt8>())) // If this texture has been processed:
+					return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Load into OpenGL and return it.
+				else
+					return Reference<OpenGLTexture>();
+			}
+			else
+				return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Not an UInt8 map so doesn't nee processing, so load it.
+		}
+		else
+			return Reference<OpenGLTexture>();
+	}
+}
+
+
 void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool force_load_textures_immediately)
 {
 	if(opengl_mat.albedo_tex_path.empty())
@@ -1121,37 +1162,9 @@ void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool force_load_tex
 	}
 	else
 	{
-		//BuildUInt8MapTextureDataScratchState state;
-
 		try
 		{
-			if(force_load_textures_immediately)
-			{
-				// TEMP HACK: need to set base dir here
-				Reference<Map2D> map = texture_server->getTexForPath(".", opengl_mat.albedo_tex_path);
-				// conPrint("OpenGLEngine::buildMaterial: loading tex '" + opengl_mat.albedo_tex_path + "'...");
-				opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
-			}
-			else
-			{
-				// Load the texture into OpenGL iff the texture is already loaded from disk into TextureServer, and it has been processed if processing is needed (8-bit textures).
-
-				Reference<Map2D> map = texture_server->getTexForPathIfLoaded(opengl_mat.albedo_tex_path);
-				if(map.nonNull())
-				{
-					if(dynamic_cast<const ImageMapUInt8*>(map.ptr()))
-					{
-						if(this->texture_data_manager->isTextureDataInserted(map.downcastToPtr<ImageMapUInt8>())) // If this texture has been processed:
-						{
-							opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
-						}
-					}
-					else
-					{
-						opengl_mat.albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(opengl_mat.albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
-					}
-				}
-			}
+			opengl_mat.albedo_texture = geTextureForBuildingMaterial(opengl_mat.albedo_tex_path, force_load_textures_immediately);
 		}
 		catch(TextureServerExcep& e)
 		{

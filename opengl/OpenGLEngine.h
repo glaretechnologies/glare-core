@@ -313,6 +313,7 @@ private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignShaderProgToMaterial(OpenGLMaterial& material);
 	void buildMaterial(OpenGLMaterial& mat, bool force_load_textures_immediately);
+	Reference<OpenGLTexture> geTextureForBuildingMaterial(const std::string& tex_path, bool force_load_textures_immediately);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
