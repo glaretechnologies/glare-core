@@ -136,7 +136,7 @@ public:
 
 	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
-	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const;
+	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const;
 
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 
@@ -711,7 +711,7 @@ Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::Ta
 
 
 template <class V, class VTraits>
-Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::resizeToImageMapFloat(const int target, bool& is_linear_out) const
+Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::resizeToImageMapFloat(const int target_width, bool& is_linear_out) const
 {
 	// For this implementation we will use a tent (bilinear) filter, with normalisation.
 	// Tent filter gives reasonable resulting image quality, is separable (and therefore fast), and has a small support.
@@ -726,17 +726,17 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 
 	if(this->getMapHeight() > this->getMapWidth())
 	{
-		tex_xres = (int)((float)this->getMapWidth() * (float)target / (float)this->getMapHeight());
-		tex_yres = (int)target;
+		tex_xres = (int)((float)this->getMapWidth() * (float)target_width / (float)this->getMapHeight());
+		tex_yres = (int)target_width;
 	}
 	else
 	{
-		tex_xres = (int)target;
-		tex_yres = (int)((float)this->getMapHeight() * (float)target / (float)this->getMapWidth());
+		tex_xres = (int)target_width;
+		tex_yres = (int)((float)this->getMapHeight() * (float)target_width / (float)this->getMapWidth());
 	}
 
 	const float scale_factor = (float)this->getMapWidth() / tex_xres;
-	const float filter_r = scale_factor;
+	const float filter_r = myMax(1.f, scale_factor); // Make sure filter_r is at least 1, or we will end up with gaps when upsizing the image!
 	const float recip_filter_r = 1 / filter_r;
 	const float max_val_scale = 1.f / VTraits::maxValue();
 	const float filter_r_plus_1  = filter_r + 1.f;

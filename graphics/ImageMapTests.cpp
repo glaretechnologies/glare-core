@@ -27,7 +27,7 @@ Generated at 2011-05-22 19:51:52 +0100
 #if 0 // If do perf tests
 
 
-static Colour3f testTexture(int res, double& elapsed_out)
+static void testTexture(int res, double& elapsed_out)
 {
 	const int W = res;
 	const int H = res;
@@ -58,12 +58,12 @@ static Colour3f testTexture(int res, double& elapsed_out)
 	conPrint("xy sum: " + toString(xy_sum));
 	double elapsed = timer.elapsed();
 	double overhead_cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
-	//conPrint("Over head cycles: " + toString(overhead_cycles));
+	conPrint("Over head cycles: " + toString(overhead_cycles));
 
 
 	timer.reset();
 
-	Colour3f sum(0,0,0);
+	Colour4f sum(0);
 	xy_sum = 0;
 	for(int i=0; i<N; ++i)
 	{
@@ -71,21 +71,20 @@ static Colour3f testTexture(int res, double& elapsed_out)
 		float y = (float)(-67878 + ((i * 5354) % 45445)) * 0.007345f;
 
 		//conPrint(toString(x) + " " + toString(y));
-		//Colour3f c = m.vec3SampleTiled(x, y);
-		float dv_ds, dv_dt;
-		Colour3f c(m.getDerivs(x, y, dv_ds, dv_dt));
+		Colour4f c = m.vec3SampleTiled(x, y);
+		//float dv_ds, dv_dt;
+		//Colour3f c(m.getDerivs(x, y, dv_ds, dv_dt));
 		sum += c;
 		xy_sum += x + y;
 	}
 	elapsed = timer.elapsed();
-	conPrint(sum.toVec3().toString());
+	conPrint(sum.toString());
 	conPrint("xy sum: " + toString(xy_sum));
 	//conPrint("Elapsed: " + toString(elapsed) + " s");
 	const double cycles = (elapsed / (double)N) * clock_freq; // s * cycles s^-1
 	//conPrint("cycles: " + toString(cycles));
 
 	elapsed_out = cycles - overhead_cycles;
-	return sum;
 }
 
 
@@ -95,7 +94,7 @@ static void perfTestWithTextureWidth(int width)
 	conPrint("width: " + toString(width));
 
 	double elapsed;
-	Colour3f col = testTexture(width, elapsed);
+	testTexture(width, elapsed);
 	conPrint("elapsed: " + toString(elapsed) + " cycles / sample");
 }
 
@@ -382,8 +381,9 @@ void ImageMapTests::test()
 
 
 	
-
 	//======================================== Test resizeToImageMapFloat() =======================================
+	const bool write_out_result_images = false;
+
 	// Test resizing of a uniform, uint8, 3 component image
 	{
 		ImageMapUInt8 map(100, 100, 3);
@@ -401,9 +401,36 @@ void ImageMapTests::test()
 		for(int c=0; c<3; ++c)
 			testEpsEqual(resized_map->getPixel(x, y)[c], 123.f / 255.f);
 
-		//ImageMapUInt8 bmp;
-		//resized_map->copyToImageMapUInt8(bmp);
-		//PNGDecoder::write(bmp, "scaled_flat_image.png");
+		if(write_out_result_images)
+		{
+			ImageMapUInt8 bmp;
+			resized_map->copyToImageMapUInt8(bmp);
+			PNGDecoder::write(bmp, "scaled_flat_image.png");
+		}
+	}
+
+	// Test resizing of a uniform, uint8, 3 component image to a much larger size.
+	{
+		ImageMapUInt8 map(64, 64, 3);
+		map.set(123);
+
+		bool is_linear;
+		const int new_w = 300;
+		ImageMapFloatRef resized_map = map.resizeToImageMapFloat(new_w, is_linear);
+		testAssert(!is_linear);
+		testAssert(resized_map->getWidth() == new_w && resized_map->getHeight() == new_w && resized_map->getN() == 3);
+
+		for(int x=0; x<new_w; ++x)
+			for(int y=0; y<new_w; ++y)
+				for(int c=0; c<3; ++c)
+					testEpsEqual(resized_map->getPixel(x, y)[c], 123.f / 255.f);
+
+		if(write_out_result_images)
+		{
+			ImageMapUInt8 bmp;
+			resized_map->copyToImageMapUInt8(bmp);
+			PNGDecoder::write(bmp, "upsized_flat_image.png");
+		}
 	}
 
 	// Test resizing of a uniform, uint8, 1 component image
