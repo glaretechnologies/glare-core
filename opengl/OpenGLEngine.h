@@ -199,7 +199,7 @@ public:
 
 	void unloadAllData();
 
-	void addObject(const Reference<GLObject>& object);
+	void addObject(const Reference<GLObject>& object, bool force_load_textures_immediately = false);
 	void removeObject(const Reference<GLObject>& object);
 	bool isObjectAdded(const Reference<GLObject>& object) const;
 

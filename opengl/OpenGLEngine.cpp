@@ -952,7 +952,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
 }
 
 
-void OpenGLEngine::addObject(const Reference<GLObject>& object)
+void OpenGLEngine::addObject(const Reference<GLObject>& object, bool force_load_textures_immediately)
 {
 	assert(object->mesh_data.nonNull());
 	assert(object->mesh_data->vert_vao.nonNull());
@@ -970,7 +970,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		buildMaterial(object->materials[i], /*force_load_textures_immediately=*/false);
+		buildMaterial(object->materials[i], force_load_textures_immediately);
 		assignShaderProgToMaterial(object->materials[i]);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
