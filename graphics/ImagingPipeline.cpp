@@ -673,6 +673,7 @@ void runPipelineFullBuffer(
 	}
 
 	// Do denoising if required.
+#ifdef DENOISE_SUPPORT
 	const bool do_denoising = allow_denoising && renderer_settings.denoise && ((channel == NULL) || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
 	if(do_denoising)
 	{
@@ -765,6 +766,7 @@ void runPipelineFullBuffer(
 		if (oidnGetDeviceError(scratch_state.denoise_device, &errorMessage) != OIDN_ERROR_NONE)
 			conPrint("OIDN Error: " + std::string(errorMessage));
 	}
+#endif
 
 
 	// Either tonemap, or do equivalent operation for non-colour passes.
