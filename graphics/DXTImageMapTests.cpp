@@ -283,7 +283,14 @@ void DXTImageMapTests::test()
 		*/
 		for(int x=0; x<=255*3; ++x)
 		{
-			Vec4i v = _mm_mullo_epi32(Vec4i(x).v, Vec4i(2796203).v) >> 23;
+			Vec4i v = mulLo(Vec4i(x), Vec4i(2796203)) >> 23;
+			if(v[0] != x / 3)
+			{
+				printVar(x);
+				conPrint(v.toString());
+				printVar(v[0]);
+				printVar(x / 3);
+			}
 			testEqual(v[0], x / 3);
 		}
 
@@ -302,7 +309,7 @@ void DXTImageMapTests::test()
 		*/
 		for(int x=0; x<=255*7; ++x)
 		{
-			Vec4i v = _mm_mullo_epi32(Vec4i(x).v, Vec4i(149797).v) >> 20;
+			Vec4i v = mulLo(Vec4i(x), Vec4i(149797)) >> 20;
 			testEqual(v[0], x / 7);
 		}
 
