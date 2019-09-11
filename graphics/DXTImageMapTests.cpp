@@ -284,13 +284,13 @@ void DXTImageMapTests::test()
 		for(int x=0; x<=255*3; ++x)
 		{
 			Vec4i v = mulLo(Vec4i(x), Vec4i(2796203)) >> 23;
-			if(v[0] != x / 3)
-			{
-				printVar(x);
-				conPrint(v.toString());
-				printVar(v[0]);
-				printVar(x / 3);
-			}
+			//if(v[0] != x / 3)
+			//{
+			//	printVar(x);
+			//	conPrint(v.toString());
+			//	printVar(v[0]);
+			//	printVar(x / 3);
+			//}
 			testEqual(v[0], x / 3);
 		}
 
