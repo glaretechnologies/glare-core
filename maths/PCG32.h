@@ -36,6 +36,7 @@
 #include <cmath>
 #include <cassert>
 #include <algorithm>
+#include <cstdint> // GLARE NEW: for uint64_t etc..
 
 /// PCG32 Pseudorandom number generator
 class PCG32 
