@@ -450,7 +450,7 @@ void DXTImageMapTests::test()
 			//Reference<Map2D> map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/dof_test_with_alpha.png");
 			//Reference<Map2D> map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/leaf_with_alpha.png");
 
-			testAssert(dynamic_cast<ImageMapUInt8*>(map.ptr()));
+			testAssert(dynamic_cast<ImageMapUInt8*>(map.ptr()) != NULL);
 			ImageMapUInt8& image_map = *map.downcast<ImageMapUInt8>();
 
 			DXTImageMapRef dxt_image = DXTImageMap::compressImageMap(task_manager, image_map);
