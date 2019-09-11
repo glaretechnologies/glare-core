@@ -392,7 +392,6 @@ void DXTImageMapTests::test()
 		{
 			const int W = 8;
 			const int H = 8;
-			const int N = 4;
 			ImageMapUInt8 image_map(W, H, 4);
 			for(int x=0; x<W; ++x)
 				for(int y=0; y<H; ++y)

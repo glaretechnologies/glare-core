@@ -8,15 +8,10 @@ Copyright Glare Technologies Limited 2019 -
 
 #include "ImageMap.h"
 #include "DXTCompression.h"
-#include "../utils/OutStream.h"
-#include "../utils/InStream.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
-#include "../utils/TaskManager.h"
-#include "../utils/Task.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
-#include "../maths/PCG32.h"
 
 
 DXTImageMap::DXTImageMap()
@@ -164,13 +159,6 @@ INDIGO_STRONG_INLINE static void getBlockColours(uint32 block, uint32* cols_out)
 	Vec4i c3v = mulLo(c0v + (c1v << 1), Vec4i(2796203)) >> 23;
 	_mm_store_si128((__m128i*)(cols_out + 12), c3v.v);
 }
-
-
-static inline uint32 makeRGBA(size_t r, size_t g, size_t b, size_t a) { return (uint32)((r << 24) | (g << 16) | (b << 8) | a); }
-static inline uint32 getR(uint32 col) { return (col >> 24) & 0xFF; }
-static inline uint32 getG(uint32 col) { return (col >> 16) & 0xFF; }
-static inline uint32 getB(uint32 col) { return (col >>  8) & 0xFF; }
-static inline uint32 getA(uint32 col) { return (col >>  0) & 0xFF; }
 
 
 Vec4i DXTImageMap::pixelRGBColourBytes(size_t x, size_t y) const
@@ -655,7 +643,7 @@ DXTImageMapRef DXTImageMap::compressImageMap(Indigo::TaskManager& task_manager, 
 #pragma warning(push)
 #pragma warning(disable:4244) // Disable warning C4244: onversion from 'int' to 'unsigned char', possible loss of data
 #endif
-#include "../libs/stb/stb_dxt.h"
+//#include "../libs/stb/stb_dxt.h"
 #ifdef _WIN32
 #pragma warning(pop)
 #endif
@@ -694,7 +682,7 @@ void DXTImageMap::test()
 {
 	conPrint("DXTImageMap::test()");
 
-	stb__InitDXT();
+	// stb__InitDXT();
 
 	// This is quite slow:
 	// checkBlockDecoding();

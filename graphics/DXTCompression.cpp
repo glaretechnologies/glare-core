@@ -168,8 +168,7 @@ void compress(Indigo::TaskManager& task_manager, TempData& temp_data, const Imag
 	const size_t num_blocks_y = Maths::roundedUpDivide(H, (size_t)4);
 	const size_t num_blocks = num_blocks_x * num_blocks_y;
 
-	const size_t compressed_data_size = (bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16);
-	assert(compressed_data_out_size >= compressed_data_size);
+	assert(compressed_data_out_size >= /*compressed_data_size=*/((bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16)));
 
 	// Timer timer;
 	if(num_blocks < 1024)
