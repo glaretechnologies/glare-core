@@ -89,8 +89,6 @@ public:
 
 	static void collapseImage(int factor, int border_width, const FilterFunction& filter_function, float max_component_value, const Image& in, Image& out);
 
-	size_t getByteSize() const;
-
 	float minLuminance() const;
 	float maxLuminance() const;
 	double averageLuminance() const;
@@ -134,6 +132,8 @@ public:
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 
 	virtual size_t getBytesPerPixel() const;
+
+	virtual size_t getByteSize() const;
 
 	virtual float getGamma() const { return 1.0f; }
 	/////////////////////////////////

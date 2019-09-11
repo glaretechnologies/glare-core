@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2019 -
 
 #include "OpenGLEngine.h"
 #include "../graphics/ImageMap.h"
+#include "../graphics/DXTCompression.h"
 #include "../maths/mathstypes.h"
 #include "../utils/Timer.h"
 #include "../utils/Task.h"
@@ -74,8 +75,7 @@ void TextureDataManager::clear()
 
 void TextureLoading::init()
 {
-	// NOTE: This call has to go in the same translation unit as all stb_compress_dxt_block calls because it's initing static data in a header file.
-	stb__InitDXT();
+	DXTCompression::init();
 }
 
 
@@ -344,95 +344,6 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 }
 
 
-class DXTCompressTask : public Indigo::Task
-{
-public:
-	virtual void run(size_t thread_index)
-	{
-		const size_t W = imagemap->getWidth();
-		const size_t H = imagemap->getHeight();
-		const size_t bytes_pp = imagemap->getBytesPerPixel();
-		const size_t num_blocks_x = Maths::roundedUpDivide(W, (size_t)4);
-		uint8* const compressed_data = compressed;
-		if(bytes_pp == 4)
-		{
-			size_t write_i = num_blocks_x * (begin_y / 4) * 16; // as DXT5 (with alpha) is 16 bytes / block
-
-			// Copy to rgba block
-			uint8 rgba_block[4*4*4];
-
-			for(size_t by=begin_y; by<end_y; by += 4) // by = y coordinate of block
-				for(size_t bx=0; bx<W; bx += 4)
-				{
-					int z = 0;
-					for(size_t y=by; y<by+4; ++y)
-						for(size_t x=bx; x<bx+4; ++x) // For each pixel in block:
-						{
-							if(x < W && y < H)
-							{
-								const uint8* const pixel = imagemap->getPixel(x, y);
-								rgba_block[z + 0] = pixel[0];
-								rgba_block[z + 1] = pixel[1];
-								rgba_block[z + 2] = pixel[2];
-								rgba_block[z + 3] = pixel[3];
-							}
-							else
-							{
-								rgba_block[z + 0] = 0;
-								rgba_block[z + 1] = 0;
-								rgba_block[z + 2] = 0;
-								rgba_block[z + 3] = 0;
-							}
-							z += 4;
-						}
-
-					stb_compress_dxt_block(&(compressed_data[write_i]), rgba_block, /*alpha=*/1, /*mode=*/STB_DXT_HIGHQUAL);
-					write_i += 16;
-				}
-		}
-		else if(bytes_pp == 3)
-		{
-			size_t write_i = num_blocks_x * (begin_y / 4) * 8; // as DXT1 (no alpha) is 8 bytes / block
-
-			// Copy to rgba block
-			uint8 rgba_block[4*4*4];
-
-			for(size_t by=begin_y; by<end_y; by += 4) // by = y coordinate of block
-				for(size_t bx=0; bx<W; bx += 4)
-				{
-					int z = 0;
-					for(size_t y=by; y<by+4; ++y)
-						for(size_t x=bx; x<bx+4; ++x) // For each pixel in block:
-						{
-							if(x < W && y < H)
-							{
-								const uint8* const pixel = imagemap->getPixel(x, y);
-								rgba_block[z + 0] = pixel[0];
-								rgba_block[z + 1] = pixel[1];
-								rgba_block[z + 2] = pixel[2];
-								rgba_block[z + 3] = 0;
-							}
-							else
-							{
-								rgba_block[z + 0] = 0;
-								rgba_block[z + 1] = 0;
-								rgba_block[z + 2] = 0;
-								rgba_block[z + 3] = 0;
-							}
-							z += 4;
-						}
-
-					stb_compress_dxt_block(&(compressed_data[write_i]), rgba_block, /*alpha=*/0, /*mode=*/STB_DXT_HIGHQUAL);
-					write_i += 8;
-				}
-		}
-	}
-	size_t begin_y, end_y;
-	uint8* compressed;
-	const ImageMapUInt8* imagemap;
-};
-
-
 Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*,
 	BuildUInt8MapTextureDataScratchState& state*/)
 {
@@ -489,17 +400,6 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 	texture_data->bytes_pp = bytes_pp;
 	if(opengl_engine->settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
 	{
-		//if(!state.task_manager)
-		//	state.task_manager = new Indigo::TaskManager();
-		Indigo::TaskManager* task_manager = &opengl_engine->getTaskManager();
-
-		std::vector<Reference<Indigo::Task> > compress_tasks;// = state.compress_tasks;
-		compress_tasks.resize(myMax<size_t>(1, task_manager->getNumThreads()));
-
-		for(size_t z=0; z<compress_tasks.size(); ++z)
-			if(compress_tasks[z].isNull())
-				compress_tasks[z] = new DXTCompressTask();
-
 		//opengl_tex->makeGLTexture(/*format=*/(bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8);
 
 		Reference<const ImageMapUInt8> prev_mip_level_image = converted_image;
@@ -515,6 +415,8 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 				break;
 		}
 		texture_data->compressed_data.resize(num_levels);
+
+		DXTCompression::TempData compress_temp_data;
 
 		for(size_t k=0; ; ++k) // For each mipmap level:
 		{
@@ -533,43 +435,12 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 				mip_level_image = downSampleToNextMipMapLevel(*prev_mip_level_image, level_W, level_H);
 			}
 
-			const size_t num_blocks_x = Maths::roundedUpDivide(level_W, (size_t)4);
-			const size_t num_blocks_y = Maths::roundedUpDivide(level_H, (size_t)4);
-			const size_t num_blocks = num_blocks_x * num_blocks_y;
+			const size_t compressed_size = DXTCompression::getCompressedSizeBytes(mip_level_image.ptr());
 
-			//js::Vector<uint8, 16> compressed((bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16)); // DXT1 is 8 bytes per 4x4 block, DXT5 (with alpha) is 16 bytes per block
-			texture_data->compressed_data[k].resizeNoCopy((bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16)); // DXT1 is 8 bytes per 4x4 block, DXT5 (with alpha) is 16 bytes per block
-			Timer timer;
-			if(num_blocks < 1024)
-			{
-				DXTCompressTask task;
-				task.compressed = texture_data->compressed_data[k].data();
-				task.imagemap = mip_level_image.ptr();
-				task.begin_y = 0;
-				task.end_y = level_H;
-				task.run(0);
-			}
-			else
-			{
-				for(size_t z=0; z<compress_tasks.size(); ++z)
-				{
-					const size_t y_blocks_per_task = Maths::roundedUpDivide((size_t)num_blocks_y, compress_tasks.size());
-					assert(y_blocks_per_task * compress_tasks.size() >= num_blocks_y);
-
-					// Set compress_tasks fields
-					assert(dynamic_cast<DXTCompressTask*>(compress_tasks[z].ptr()));
-					DXTCompressTask* task = (DXTCompressTask*)compress_tasks[z].ptr();
-					task->compressed = texture_data->compressed_data[k].data();
-					task->imagemap = mip_level_image.ptr();
-					task->begin_y = (size_t)myMin((size_t)level_H, (z       * y_blocks_per_task) * 4);
-					task->end_y   = (size_t)myMin((size_t)level_H, ((z + 1) * y_blocks_per_task) * 4);
-					assert(task->begin_y >= 0 && task->begin_y <= H && task->end_y >= 0 && task->end_y <= H);
-				}
-				task_manager->addTasks(compress_tasks.data(), compress_tasks.size());
-				task_manager->waitForTasksToComplete();
-			}
-
-			// conPrint("DXT compression took " + timer.elapsedString());
+			texture_data->compressed_data[k].resizeNoCopy(compressed_size);
+			
+			DXTCompression::compress(opengl_engine->getTaskManager(), compress_temp_data, mip_level_image.ptr(),
+				texture_data->compressed_data[k].data(), texture_data->compressed_data[k].size());
 
 			//opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/compressed);
 

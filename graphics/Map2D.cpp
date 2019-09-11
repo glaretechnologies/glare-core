@@ -1,8 +1,7 @@
 /*=====================================================================
 Map2D.cpp
 ---------
-File created by ClassTemplate on Sun May 18 20:59:34 2008
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
 #include "Map2D.h"
 

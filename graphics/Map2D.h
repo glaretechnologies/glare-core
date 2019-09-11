@@ -1,8 +1,7 @@
 /*=====================================================================
 Map2D.h
 -------
-File created by ClassTemplate on Sun May 18 20:59:34 2008
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
 #pragma once
 
@@ -44,6 +43,7 @@ public:
 
 	// X and Y are normalised image coordinates.
 	// (X, Y) = (0, 0) is at the bottom left of the image.
+	// Although this returns an SSE 4-vector, only the first three RGB components will be set.
 	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const = 0;
 
 	// X and Y are normalised image coordinates.
@@ -87,6 +87,8 @@ public:
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const = 0;
 
 	virtual size_t getBytesPerPixel() const = 0;
+
+	virtual size_t getByteSize() const = 0; // Get total size of image in bytes.
 
 	virtual float getGamma() const = 0;
 

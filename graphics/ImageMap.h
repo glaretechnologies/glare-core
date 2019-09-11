@@ -142,7 +142,7 @@ public:
 
 	inline virtual size_t getBytesPerPixel() const;
 
-	inline size_t getByteSize() const;
+	inline virtual size_t getByteSize() const;
 
 	inline void zero(); // Set all pixels to zero.
 	inline void set(V value); // Set all pixel components to value.

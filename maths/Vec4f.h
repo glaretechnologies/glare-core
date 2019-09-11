@@ -417,7 +417,8 @@ INDIGO_STRONG_INLINE float horizontalSum(const Vec4f& a)
 }
 
 
-// If mask element has higher bit set, return a element, else return b element.
+// If mask element has higher bit set, return a element, else return b element, so something like:
+// mask ? a : b
 // Note that _mm_blendv_ps returns its second arg if mask is true, so we'll swap the order of the args.
 #if COMPILE_SSE4_CODE 
 INDIGO_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4f& mask)
