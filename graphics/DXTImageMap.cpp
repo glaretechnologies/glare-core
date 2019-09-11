@@ -232,23 +232,10 @@ uint32 DXTImageMap::pixelAlphaByte(size_t x, size_t y) const
 }
 
 
-const Colour3<Map2D::Value> DXTImageMap::pixelColour(size_t x, size_t y) const
+const Colour4f DXTImageMap::pixelColour(size_t x, size_t y) const
 {
 	const Vec4i col = pixelRGBColourBytes(x, y);
-	const Vec4f c = toVec4f(col) * (1 / (Map2D::Value)255);
-	return Colour3<Map2D::Value>(c[0], c[1], c[2]);
-}
-
-
-const Map2D::Value DXTImageMap::pixelComponent(size_t x, size_t y, size_t c) const
-{
-	// To be removed
-
-	assert(0);
-	return 0;
-	//const uint32 col = pixelRGBColourBytes(x, y);
-	//const uint32 v = (col >> (24 - 8*c)) & 0xFF;
-	//return v * (1 / (Map2D::Value)255);
+	return Colour4f(toVec4f(col).v) * (1 / (Map2D::Value)255);
 }
 
 

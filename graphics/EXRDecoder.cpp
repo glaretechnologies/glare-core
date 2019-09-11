@@ -28,7 +28,6 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include <ImathBox.h>
 #include <IlmThreadPool.h>
 
-
 /*
 
 Some test of various compression methods:
@@ -428,14 +427,14 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->numChannels() == 3);
 			testAssert((int)im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*3 : sizeof(half)*3));
 			for(size_t y=0; y<image.getHeight(); ++y)
-			for(size_t x=0; x<image.getWidth(); ++x)
-			for(int c=0; c<3; ++c)
-			{
-				float a = im->pixelComponent(x, y, c);
-				float b = image.pixelComponent(x, y, c);
-				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
-					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
-			}
+				for(size_t x=0; x<image.getWidth(); ++x)
+				{
+					const Colour4f a = im->pixelColour(x, y);
+					const Colour4f b = image.pixelColour(x, y);
+					for(int c=0; c<3; ++c)
+						if(!(epsEqual(a[c], b[c], allowable_diff) || Maths::approxEq(a[c], b[c], allowable_diff)))
+							failTest("pixel components were different: " + toString(a[c]) + " vs " + toString(b[c]));
+				}
 		}
 
 		//================================= Test with Image4f saving, with save_alpha_channel = true =================================
@@ -455,14 +454,33 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->getMapHeight() == H);
 			testAssert(im->numChannels() == 4);
 			testAssert((int)im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*4 : sizeof(half)*4));
-			for(unsigned int y=0; y<image.getHeight(); ++y)
-			for(unsigned int x=0; x<image.getWidth(); ++x)
-			for(int c=0; c<4; ++c)
+
+			const bool is_half = im.isType<ImageMap<half, HalfComponentValueTraits> >();
+			testAssert(im.isType<ImageMapFloat>() || is_half);
+
+			if(im.isType<ImageMapFloat>())
 			{
-				float a = im->pixelComponent(x, y, c);
-				float b = image.getPixel(x, y)[c];
-				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
-					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
+				for(unsigned int y=0; y<image.getHeight(); ++y)
+					for(unsigned int x=0; x<image.getWidth(); ++x)
+					{
+						const float* a = im.downcastToPtr<ImageMapFloat>()->getPixel(x, y);
+						const Colour4f b = image.getPixel(x, y);
+						for(int c=0; c<4; ++c)
+							if(!(epsEqual(a[c], b[c], allowable_diff) || Maths::approxEq(a[c], b[c], allowable_diff)))
+								failTest("pixel components were different: " + toString(a[c]) + " vs " + toString(b[c]));
+					}
+			}
+			else
+			{
+				for(unsigned int y=0; y<image.getHeight(); ++y)
+					for(unsigned int x=0; x<image.getWidth(); ++x)
+					{
+						const half* a = im.downcastToPtr<ImageMap<half, HalfComponentValueTraits> >()->getPixel(x, y);
+						const Colour4f b = image.getPixel(x, y);
+						for(int c=0; c<4; ++c)
+							if(!(epsEqual((float)a[c], b[c], allowable_diff) || Maths::approxEq((float)a[c], b[c], allowable_diff)))
+								failTest("pixel components were different: " + toString(a[c]) + " vs " + toString(b[c]));
+					}
 			}
 		}
 
@@ -485,12 +503,12 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert((int)im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*3 : sizeof(half)*3));
 			for(unsigned int y=0; y<image.getHeight(); ++y)
 			for(unsigned int x=0; x<image.getWidth(); ++x)
-			for(int c=0; c<3; ++c)
 			{
-				float a = im->pixelComponent(x, y, c);
-				float b = image.getPixel(x, y)[c];
-				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
-					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
+				const Colour4f a = im->pixelColour(x, y);
+				const Colour4f b = image.getPixel(x, y);
+				for(int c=0; c<3; ++c)
+					if(!(epsEqual(a[c], b[c], allowable_diff) || Maths::approxEq(a[c], b[c], allowable_diff)))
+						failTest("pixel components were different: " + toString(a[c]) + " vs " + toString(b[c]));
 			}
 		}
 
@@ -514,12 +532,12 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert((int)im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*1 : sizeof(half)*1));
 			for(unsigned int y=0; y<image.getHeight(); ++y)
 			for(unsigned int x=0; x<image.getWidth(); ++x)
-			for(int c=0; c<1; ++c)
 			{
-				float a = im->pixelComponent(x, y, c);
-				float b = image.getPixel(x, y)[c];
-				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
-					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
+				const Colour4f a = im->pixelColour(x, y);
+				const float* b = image.getPixel(x, y);
+				for(int c=0; c<1; ++c)
+					if(!(epsEqual(a[c], b[c], allowable_diff) || Maths::approxEq(a[c], b[c], allowable_diff)))
+						failTest("pixel components were different: " + toString(a[c]) + " vs " + toString(b[c]));
 			}
 		}
 
@@ -544,12 +562,12 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert((int)im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*N : sizeof(half)*N));
 			for(unsigned int y=0; y<image.getHeight(); ++y)
 			for(unsigned int x=0; x<image.getWidth(); ++x)
-			for(int c=0; c<N; ++c)
 			{
-				float a = im->pixelComponent(x, y, c);
-				float b = image.getPixel(x, y)[c];
-				if(!(epsEqual(a, b, allowable_diff) || Maths::approxEq(a, b, allowable_diff)))
-					failTest("pixel components were different: " + toString(a) + " vs " + toString(b));
+				const Colour4f a = im->pixelColour(x, y);
+				const float* b = image.getPixel(x, y);
+				for(int c=0; c<N; ++c)
+					if(!(epsEqual(a[c], b[c], allowable_diff) || Maths::approxEq(a[c], b[c], allowable_diff)))
+						failTest("pixel components were different: " + toString(a[c]) + " vs " + toString(b[c]));
 			}
 		}
 	}

@@ -102,8 +102,7 @@ public:
 	virtual float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
 
-	inline virtual const Colour3<Value> pixelColour(size_t x, size_t y) const;
-	inline virtual const Value pixelComponent(size_t x, size_t y, size_t c) const;
+	inline virtual const Colour4f pixelColour(size_t x, size_t y) const;
 
 	// X and Y are normalised image coordinates.
 	inline virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;
@@ -301,26 +300,13 @@ void ImageMap<V, VTraits>::resizeNoCopy(size_t width_, size_t height_, size_t N_
 
 
 template <class V, class VTraits>
-const Colour3<Map2D::Value> ImageMap<V, VTraits>::pixelColour(size_t x, size_t y) const
+const Colour4f ImageMap<V, VTraits>::pixelColour(size_t x, size_t y) const
 {
-	Colour3<Value> colour_out;
+	const V* const pixel = getPixel(x, y);
 	if(N < 3)
-		colour_out.r = colour_out.g = colour_out.b = VTraits::scaleValue(getPixel(x, y)[0]);
+		return Colour4f(VTraits::scaleValue(pixel[0]));
 	else
-	{
-		colour_out.r = VTraits::scaleValue(getPixel(x, y)[0]);
-		colour_out.g = VTraits::scaleValue(getPixel(x, y)[1]);
-		colour_out.b = VTraits::scaleValue(getPixel(x, y)[2]);
-	}
-
-	return colour_out;
-}
-
-
-template <class V, class VTraits>
-const Map2D::Value ImageMap<V, VTraits>::pixelComponent(size_t x, size_t y, size_t c) const
-{
-	return VTraits::scaleValue(getPixel(x, y)[c]);
+		return Colour4f(pixel[0], pixel[1], pixel[2], 0.f) * VTraits::scaleValue(1);
 }
 
 

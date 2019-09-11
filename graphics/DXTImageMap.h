@@ -43,8 +43,7 @@ public:
 	Vec4i pixelRGBColourBytes(size_t x, size_t y) const;
 	uint32 pixelAlphaByte(size_t x, size_t y) const;
 
-	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const;
-	virtual const Value pixelComponent(size_t x, size_t y, size_t c) const;
+	virtual const Colour4f pixelColour(size_t x, size_t y) const;
 
 	// X and Y are normalised image coordinates.
 	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;

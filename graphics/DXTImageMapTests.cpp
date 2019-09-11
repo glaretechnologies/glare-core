@@ -66,7 +66,7 @@ static void textureReadingSpeedTestReference(ImageMapUInt8& map)
 	const int N = 1000000;
 	const int trials = 10;
 	double min_elapsed = 1.0e10;
-	Colour3f sum(0);
+	Colour4f sum(0);
 	for(int t=0; t<trials; ++t)
 	{
 		Timer timer;
@@ -80,7 +80,7 @@ static void textureReadingSpeedTestReference(ImageMapUInt8& map)
 		}
 		min_elapsed = myMin(min_elapsed, timer.elapsed());
 	}
-	TestUtils::silentPrint("sum: " + toString(sum.r));
+	TestUtils::silentPrint("sum: " + toString(sum[0]));
 	const double cycles = (min_elapsed / (double)N) * clock_freq; // s * cycles s^-1
 	conPrint("eval pixel ImageMapUInt8 cycles:      " + toString(cycles));
 }

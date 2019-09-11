@@ -181,6 +181,12 @@ void Image::resizeNoCopy(size_t newwidth, size_t newheight)
 }
 
 
+const Colour4f Image::pixelColour(size_t x, size_t y) const
+{
+	const Colour3f c = pixels.elem(x, y);
+	return Colour4f(c.r, c.g, c.b, 0);
+}
+
 void Image::posClamp()
 {
 	const size_t num = numPixels();

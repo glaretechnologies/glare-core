@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2019 -
 #pragma once
 
 
-#include "colour3.h"
 #include "Colour4f.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
@@ -26,20 +25,14 @@ make ThreadSafeRefCounted.
 class Map2D : public ThreadSafeRefCounted
 {
 public:
-	/*=====================================================================
-	Map2d
-	-----
-	
-	=====================================================================*/
 	Map2D();
 	virtual ~Map2D();
-
 
 	typedef float Value;
 	typedef float Coord;
 
-	virtual const Colour3<Value> pixelColour(size_t x, size_t y) const = 0;
-	virtual const Value pixelComponent(size_t x, size_t y, size_t c) const = 0;
+	// Although this returns an SSE 4-vector, only the first three RGB components will be set.
+	virtual const Colour4f pixelColour(size_t x, size_t y) const = 0;
 
 	// X and Y are normalised image coordinates.
 	// (X, Y) = (0, 0) is at the bottom left of the image.
@@ -98,7 +91,3 @@ private:
 
 
 typedef Reference<Map2D> Map2DRef;
-
-
-
-
