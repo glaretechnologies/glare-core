@@ -81,7 +81,9 @@ void Vec4i::test()
 	//======================== Test operator == ==========================
 	{
 		testAssert(Vec4i(1, 2, 3, 4) == Vec4i(1, 2, 3, 4));
+		testAssert(Vec4i(-1, -2, -3, -4) == Vec4i(-1, -2, -3, -4));
 		testAssert(Vec4i(1) == Vec4i(1));
+		testAssert(Vec4i(-1) == Vec4i(-1));
 
 		testAssert(!(Vec4i(1, 2, 3, 4) == Vec4i(100, 2, 3, 4)));
 		testAssert(!(Vec4i(1, 2, 3, 4) == Vec4i(1, 200, 3, 4)));
@@ -92,13 +94,16 @@ void Vec4i::test()
 	//======================== Test operator != ==========================
 	{
 		testAssert(Vec4i(1, 2, 3, 4) != Vec4i(5, 6, 7, 8));
-
+		
 		testAssert(Vec4i(1, 2, 3, 4) != Vec4i(100, 2, 3, 4));
 		testAssert(Vec4i(1, 2, 3, 4) != Vec4i(1, 200, 3, 4));
 		testAssert(Vec4i(1, 2, 3, 4) != Vec4i(1, 2, 300, 4));
 		testAssert(Vec4i(1, 2, 3, 4) != Vec4i(1, 2, 3, 400));
 
 		testAssert(!(Vec4i(1, 2, 3, 4) != Vec4i(1, 2, 3, 4)));
+
+		testAssert(!(Vec4i(-1) != Vec4i(-1)));
+		testAssert(!(Vec4i(-1, -2, -3, -4) != Vec4i(-1, -2, -3, -4)));
 	}
 
 	//======================== Test loadVec4i ==========================

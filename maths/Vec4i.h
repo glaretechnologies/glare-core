@@ -48,13 +48,14 @@ void Vec4i::operator += (const Vec4i& a)
 
 inline bool operator == (const Vec4i& a, const Vec4i& b)
 {
-	return _mm_movemask_ps(_mm_cmpeq_ps(_mm_castsi128_ps(a.v), _mm_castsi128_ps(b.v))) == 0xF;
+	// NOTE: have to use _mm_cmpeq_epi32, not _mm_cmpeq_ps, since _mm_cmpeq_ps gives different results for NaN bit patterns.
+	return _mm_movemask_ps(_mm_castsi128_ps(_mm_cmpeq_epi32(a.v, b.v))) == 0xF;
 }
 
 
 inline bool operator != (const Vec4i& a, const Vec4i& b)
 {
-	return _mm_movemask_ps(_mm_cmpneq_ps(_mm_castsi128_ps(a.v), _mm_castsi128_ps(b.v))) != 0;
+	return _mm_movemask_ps(_mm_castsi128_ps(_mm_cmpeq_epi32(a.v, b.v))) != 0xF;
 }
 
 
