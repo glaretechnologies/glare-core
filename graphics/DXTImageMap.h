@@ -40,8 +40,9 @@ public:
 	void setGamma(float g) { gamma = g; }
 
 	// Just for DXTImageMap:
-	Vec4i pixelRGBColourBytes(size_t x, size_t y) const;
-	uint32 pixelAlphaByte(size_t x, size_t y) const;
+	Vec4i decodePixelRGBColour(size_t x, size_t y) const;
+	uint32 decodePixelRed(size_t x, size_t y) const;
+	uint32 decodePixelAlpha(size_t x, size_t y) const;
 
 	virtual const Colour4f pixelColour(size_t x, size_t y) const;
 
@@ -49,6 +50,7 @@ public:
 	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;
 
 	// X and Y are normalised image coordinates.
+	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 	//inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 

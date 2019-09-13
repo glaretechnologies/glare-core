@@ -40,6 +40,7 @@ public:
 	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const = 0;
 
 	// X and Y are normalised image coordinates.
+	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const = 0;
 
 	// s and t are normalised image coordinates.

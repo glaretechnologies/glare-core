@@ -46,7 +46,7 @@ static void textureReadingSpeedTest(DXTImageMap& map)
 			x = Maths::fract(x + xstep);
 			y = Maths::fract(y + ystep);
 			//conPrint(toString(x) + " " + toString(y));
-			sum += map.pixelRGBColourBytes((size_t)(x * W_f), (size_t)(y * H_f));
+			sum += map.decodePixelRGBColour((size_t)(x * W_f), (size_t)(y * H_f));
 		}
 		min_elapsed = myMin(min_elapsed, timer.elapsed());
 	}
@@ -193,14 +193,18 @@ static void checkCompressionOnImage(Indigo::TaskManager& task_manager, const Ima
 	for(int x=0; x<W; ++x)
 		for(int y=0; y<H; ++y)
 		{
-			const Vec4i rgba = dxt_image->pixelRGBColourBytes(x, y);
+			const Vec4i rgba = dxt_image->decodePixelRGBColour(x, y);
+
+			// Check decodePixelRGBColour result vs decodePixelRed result
+			const uint32 red = dxt_image->decodePixelRed(x, y);
+			testEqual(rgba[0], (int)red);
 
 			checkError((int)image_map.getPixel(x, y)[0], rgba[0], allowed_error);
 			checkError((int)image_map.getPixel(x, y)[1], rgba[1], allowed_error);
 			checkError((int)image_map.getPixel(x, y)[2], rgba[2], allowed_error);
 			if(N == 4)
 			{
-				const uint32 alpha = dxt_image->pixelAlphaByte(x, y);
+				const uint32 alpha = dxt_image->decodePixelAlpha(x, y);
 				checkError((int)image_map.getPixel(x, y)[3], (int)alpha, allowed_error);
 			}
 		}
