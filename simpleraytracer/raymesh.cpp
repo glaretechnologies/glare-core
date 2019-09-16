@@ -1846,7 +1846,7 @@ size_t RayMesh::getTotalMemUsage() const
 	//const size_t vertderiv_mem = vert_derivs.size()*sizeof(VertDerivs);
 	const size_t accel_mem = tritree->getTotalMemUsage();
 
-	conPrint("---- RayMesh " + name + " ----");
+	/*conPrint("---- RayMesh " + name + " ----");
 	const int w = 7;
 	conPrint("verts:          " + rightSpacePad(toString(vertices.size()), w)    + "(" + getNiceByteSize(vert_mem) + ")");
 	conPrint("tri_mem:        " + rightSpacePad(toString(triangles.size()), w)   + "(" + getNiceByteSize(tri_mem) + ")");
@@ -1854,6 +1854,6 @@ size_t RayMesh::getTotalMemUsage() const
 	conPrint("uv_mem:         " + rightSpacePad(toString(uvs.size()), w)         + "(" + getNiceByteSize(uv_mem) + ")");
 	//conPrint("vertderiv_mem:  " + rightSpacePad(toString(vert_derivs.size()), w) + "(" + getNiceByteSize(vertderiv_mem) + ")");
 	conPrint("accel_mem:      " + rightSpacePad(toString(1), w)                  + "(" + getNiceByteSize(accel_mem) + ")");
-
+	*/
 	return vert_mem + tri_mem + quad_mem + uv_mem + /*vertderiv_mem +*/ accel_mem;
 }
