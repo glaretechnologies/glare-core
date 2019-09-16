@@ -147,7 +147,7 @@ void OpenCLBuffer::copyFrom(OpenCLCommandQueueRef& command_queue, const void* co
 
 void OpenCLBuffer::copyFrom(OpenCLCommandQueueRef& command_queue, size_t dest_offset, const void* const src_ptr, size_t size_, bool blocking_write)
 {
-	assert(size_ <= size);
+	assert(dest_offset + size_ <= size);
 	if(size_ > 0)
 	{
 		cl_int result = getGlobalOpenCL()->clEnqueueWriteBuffer(
