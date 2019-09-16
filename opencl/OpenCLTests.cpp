@@ -82,7 +82,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 
 		tex_descriptors[0].xres			= 4;
 		tex_descriptors[0].yres			= 4;
-		tex_descriptors[0].bpp			= 3;
+		tex_descriptors[0].N			= 3;
 		tex_descriptors[0].byte_offset	= 0;
 		tex_descriptors[0].inv_gamma	= 1.f;
 		tex_descriptors[0].quadratic	= 0;
