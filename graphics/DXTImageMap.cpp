@@ -306,8 +306,8 @@ const Colour4f DXTImageMap::vec3SampleTiled(Coord u, Coord v) const
 	int vt = i_pixels[1];
 	int ut_1 = wrapped_i_pixels_1[0];
 	int vt_1 = wrapped_i_pixels_1[1];
-	assert(ut >= 0 && ut < width && vt >= 0 && vt < height);
-	assert(ut_1 >= 0 && ut_1 < width && vt_1 >= 0 && vt_1 < height);
+	assert(ut >= 0 && ut < (int)width && vt >= 0 && vt < (int)height);
+	assert(ut_1 >= 0 && ut_1 < (int)width && vt_1 >= 0 && vt_1 < (int)height);
 
 	const Coord ufrac = frac[0];
 	const Coord vfrac = frac[1];
@@ -318,8 +318,6 @@ const Colour4f DXTImageMap::vec3SampleTiled(Coord u, Coord v) const
 	const Value b = ufrac * onevfrac; // Top right pixel weight
 	const Value c = oneufrac * vfrac; // Bottom left pixel weight
 	const Value d = ufrac * vfrac; // Bottom right pixel weight
-
-	assert(ut < width && vt < height);
 
 	const size_t x = ut;
 	const size_t y = vt;
@@ -487,8 +485,8 @@ Map2D::Value DXTImageMap::sampleSingleChannelTiled(Coord u, Coord v, size_t chan
 	int vt = i_pixels[1];
 	int ut_1 = wrapped_i_pixels_1[0];
 	int vt_1 = wrapped_i_pixels_1[1];
-	assert(ut >= 0 && ut < width && vt >= 0 && vt < height);
-	assert(ut_1 >= 0 && ut_1 < width && vt_1 >= 0 && vt_1 < height);
+	assert(ut >= 0 && ut < (int)width && vt >= 0 && vt < (int)height);
+	assert(ut_1 >= 0 && ut_1 < (int)width && vt_1 >= 0 && vt_1 < (int)height);
 
 	const Coord ufrac = frac[0];
 	const Coord vfrac = frac[1];
@@ -499,8 +497,6 @@ Map2D::Value DXTImageMap::sampleSingleChannelTiled(Coord u, Coord v, size_t chan
 	const Value b = ufrac * onevfrac; // Top right pixel weight
 	const Value c = oneufrac * vfrac; // Bottom left pixel weight
 	const Value d = ufrac * vfrac; // Bottom right pixel weight
-
-	assert(ut < width && vt < height);
 
 	const size_t x = ut;
 	const size_t y = vt;
