@@ -426,6 +426,12 @@ INDIGO_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4f& m
 	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), mask.v)); 
 }
 
+// Same as above but with Vec4i mask.
+INDIGO_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4i& mask)
+{
+	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), _mm_castsi128_ps(mask.v)));
+}
+
 
 // If mask element has higher bit set, return a element, else return b element.
 INDIGO_STRONG_INLINE Vec4f select(const Vec4f& a, const Vec4f& b, const Vec4f& mask)

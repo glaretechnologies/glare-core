@@ -416,14 +416,15 @@ void DXTImageMapTests::test()
 			//const int H = 4096;
 			const int W = 32;
 			const int H = 32;
-			const int N = 3;
-			ImageMapUInt8 image_map(W, H, 3);
+			const int N = 4;
+			ImageMapUInt8 image_map(W, H, N);
 			for(int x=0; x<W; ++x)
 				for(int y=0; y<H; ++y)
 				{
 					image_map.getPixel(x, y)[0] = (uint8)x;
 					image_map.getPixel(x, y)[1] = (uint8)y;
 					image_map.getPixel(x, y)[2] = (uint8)(x+y);
+					image_map.getPixel(x, y)[3] = (uint8)(255);
 				}
 
 			DXTImageMapRef dxt_image = DXTImageMap::compressImageMap(task_manager, image_map);

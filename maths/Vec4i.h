@@ -77,12 +77,16 @@ INDIGO_STRONG_INLINE int elem(const Vec4i& v) { return _mm_extract_epi32(v.v, in
 INDIGO_STRONG_INLINE const Vec4i mulLo(const Vec4i& a, const Vec4i& b) { return _mm_mullo_epi32(a.v, b.v); } // // Returns lower 32 bits of 64-bit product.  SSE 4
 #endif // COMPILE_SSE4_CODE
 INDIGO_STRONG_INLINE const Vec4i operator + (const Vec4i& a, const Vec4i& b) { return _mm_add_epi32(a.v, b.v); } // SSE 2
+INDIGO_STRONG_INLINE const Vec4i operator - (const Vec4i& a, const Vec4i& b) { return _mm_sub_epi32(a.v, b.v); } // SSE 2
 
 INDIGO_STRONG_INLINE const Vec4i operator ^ (const Vec4i& a, const Vec4i& b) { return _mm_xor_si128(a.v, b.v); } // SSE 2
 INDIGO_STRONG_INLINE const Vec4i operator & (const Vec4i& a, const Vec4i& b) { return _mm_and_si128(a.v, b.v); } // SSE 2
 
 INDIGO_STRONG_INLINE const Vec4i operator << (const Vec4i& a, const int32 bits) { return _mm_slli_epi32(a.v, bits); } // SSE 2
 INDIGO_STRONG_INLINE const Vec4i operator >> (const Vec4i& a, const int32 bits) { return _mm_srai_epi32(a.v, bits); } // SSE 2
+
+INDIGO_STRONG_INLINE Vec4i operator < (const Vec4i& a, const Vec4i& b) { return Vec4i(_mm_cmplt_epi32(a.v, b.v)); } // SSE 2
+
 
 
 #if COMPILE_SSE4_CODE

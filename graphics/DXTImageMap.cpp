@@ -274,7 +274,7 @@ uint32 DXTImageMap::decodePixelAlpha(size_t x, size_t y) const
 const Colour4f DXTImageMap::pixelColour(size_t x, size_t y) const
 {
 	const Vec4i col = decodePixelRGBColour(x, y);
-	return Colour4f(toVec4f(col).v) * (1 / (Map2D::Value)255);
+	return toColour4f(col) * (1 / (Map2D::Value)255);
 }
 
 
@@ -286,21 +286,33 @@ const Colour4f DXTImageMap::vec3SampleTiled(Coord u, Coord v) const
 	Colour4f colour_out;
 
 	// Get fractional normalised image coordinates
-	const Coord u_frac_part = Maths::fract(u);
-	const Coord v_frac_part = Maths::fract(-v);
+	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
 
-	// Convert from normalised image coords to pixel coordinates
-	const Coord u_pixels = u_frac_part * (Coord)width;
-	const Coord v_pixels = v_frac_part * (Coord)height;
+	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
+	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
 
-	// Get pixel indices
-	const size_t ut = myMin((size_t)u_pixels, width - 1);
-	const size_t vt = myMin((size_t)v_pixels, height - 1);
+	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
 
-	const Coord ufrac = u_pixels - (Coord)ut;
-	const Coord vfrac = v_pixels - (Coord)vt;
-	const Coord oneufrac = 1 - ufrac;
-	const Coord onevfrac = 1 - vfrac;
+	Vec4i i_pixels = min(toVec4i(f_pixels), dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_1 = toVec4i(f_pixels) + Vec4i(1); // pixels + 1, not wrapped yet.
+	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
+
+	// Fractional coords in the pixel:
+	Vec4f frac = f_pixels - toVec4f(i_pixels);
+	Vec4f one_frac = Vec4f(1.f) - frac;
+
+	int ut = i_pixels[0];
+	int vt = i_pixels[1];
+	int ut_1 = wrapped_i_pixels_1[0];
+	int vt_1 = wrapped_i_pixels_1[1];
+	assert(ut >= 0 && ut < width && vt >= 0 && vt < height);
+	assert(ut_1 >= 0 && ut_1 < width && vt_1 >= 0 && vt_1 < height);
+
+	const Coord ufrac = frac[0];
+	const Coord vfrac = frac[1];
+	const Coord oneufrac = one_frac[0];
+	const Coord onevfrac = one_frac[1];
 
 	const Value a = oneufrac * onevfrac; // Top left pixel weight
 	const Value b = ufrac * onevfrac; // Top right pixel weight
@@ -312,8 +324,8 @@ const Colour4f DXTImageMap::vec3SampleTiled(Coord u, Coord v) const
 	const size_t x = ut;
 	const size_t y = vt;
 
-	const size_t x_1 = (x + 1) >= width  ? 0 : x + 1;
-	const size_t y_1 = (y + 1) >= height ? 0 : y + 1;
+	const size_t x_1 = ut_1;
+	const size_t y_1 = vt_1;
 
 	const size_t in_block_x = x & 0x3; // x mod 4
 	const size_t in_block_y = y & 0x3; // y mod 4
@@ -435,12 +447,12 @@ const Colour4f DXTImageMap::vec3SampleTiled(Coord u, Coord v) const
 		}
 	}
 
-	colour_out = Colour4f(
-		((	toVec4f(col_a)*a +
-			toVec4f(col_b)*b +
-			toVec4f(col_c)*c +
-			toVec4f(col_d)*d)
-			* (1 / (Map2D::Value)255)).v);
+	colour_out = 
+		(	toColour4f(col_a)*a +
+			toColour4f(col_b)*b +
+			toColour4f(col_c)*c +
+			toColour4f(col_d)*d)
+			* (1 / (Map2D::Value)255);
 
 	return colour_out;
 }
@@ -455,21 +467,33 @@ Map2D::Value DXTImageMap::sampleSingleChannelTiled(Coord u, Coord v, size_t chan
 	assert(channel == 0 || channel == N-1);
 
 	// Get fractional normalised image coordinates
-	const Coord u_frac_part = Maths::fract(u);
-	const Coord v_frac_part = Maths::fract(-v);
+	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
 
-	// Convert from normalised image coords to pixel coordinates
-	const Coord u_pixels = u_frac_part * (Coord)width;
-	const Coord v_pixels = v_frac_part * (Coord)height;
+	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
+	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
 
-	// Get pixel indices
-	const size_t ut = myMin((size_t)u_pixels, width - 1);
-	const size_t vt = myMin((size_t)v_pixels, height - 1);
+	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
 
-	const Coord ufrac = u_pixels - (Coord)ut;
-	const Coord vfrac = v_pixels - (Coord)vt;
-	const Coord oneufrac = 1 - ufrac;
-	const Coord onevfrac = 1 - vfrac;
+	Vec4i i_pixels = min(toVec4i(f_pixels), dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_1 = toVec4i(f_pixels) + Vec4i(1); // pixels + 1, not wrapped yet.
+	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
+
+	// Fractional coords in the pixel:
+	Vec4f frac = f_pixels - toVec4f(i_pixels);
+	Vec4f one_frac = Vec4f(1.f) - frac;
+
+	int ut = i_pixels[0];
+	int vt = i_pixels[1];
+	int ut_1 = wrapped_i_pixels_1[0];
+	int vt_1 = wrapped_i_pixels_1[1];
+	assert(ut >= 0 && ut < width && vt >= 0 && vt < height);
+	assert(ut_1 >= 0 && ut_1 < width && vt_1 >= 0 && vt_1 < height);
+
+	const Coord ufrac = frac[0];
+	const Coord vfrac = frac[1];
+	const Coord oneufrac = one_frac[0];
+	const Coord onevfrac = one_frac[1];
 
 	const Value a = oneufrac * onevfrac; // Top left pixel weight
 	const Value b = ufrac * onevfrac; // Top right pixel weight
@@ -481,8 +505,8 @@ Map2D::Value DXTImageMap::sampleSingleChannelTiled(Coord u, Coord v, size_t chan
 	const size_t x = ut;
 	const size_t y = vt;
 
-	const size_t x_1 = (x + 1) >= width  ? 0 : x + 1;
-	const size_t y_1 = (y + 1) >= height ? 0 : y + 1;
+	const size_t x_1 = ut_1;
+	const size_t y_1 = vt_1;
 
 	const size_t in_block_x = x & 0x3; // x mod 4
 	const size_t in_block_y = y & 0x3; // y mod 4
@@ -608,8 +632,9 @@ Map2D::Value DXTImageMap::sampleSingleChannelTiled(Coord u, Coord v, size_t chan
 
 		return scaleValue(a * col_a + b * col_b + c * col_c + d * col_d);
 	}
-	else
+	else // else if !(channel == 0):
 	{
+		assert(channel == N - 1);
 		assert(N == 4); // If we are not evaluating channel 0, we are evaluating the alpha channel, so this texture should have alpha.
 
 		if(in_block_x <= 2 && in_block_y <= 2) // Special case: all 4 pixels for bilinear sample lie in block:
@@ -896,7 +921,7 @@ Reference<ImageMap<float, FloatComponentValueTraits> > DXTImageMap::resizeToImag
 					const float fabs_dy = std::fabs(dy);
 					const float filter_val = myMax(1 - fabs_dx * recip_filter_r, 0.f) * myMax(1 - fabs_dy * recip_filter_r, 0.f);
 					const Vec4i pixel_col = decodePixelRGBColour(sx, sy);
-					Colour4f px_col(toVec4f(pixel_col).v);
+					Colour4f px_col(toColour4f(pixel_col));
 					px_col[3] = 1.f; // Needed for normalisation below.
 					sum += px_col * filter_val;
 				}

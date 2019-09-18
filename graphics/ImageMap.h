@@ -18,9 +18,6 @@ class OutStream;
 class InStream;
 
 
-// #define IMAGE_MAP_TILED 1
-
-
 /*=====================================================================
 ImageMap
 -------------------
@@ -178,9 +175,6 @@ public:
 	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
 
 private:
-#if IMAGE_MAP_TILED
-	size_t w_blocks, h_blocks;
-#endif
 	size_t width, height, N;
 	glare::AllocatorVector<V, 16> data;
 	float gamma, ds_over_2, dt_over_2;
@@ -213,13 +207,7 @@ ImageMap<V, VTraits>::ImageMap(size_t width_, size_t height_, size_t N_)
 {
 	try
 	{
-#if IMAGE_MAP_TILED
-		w_blocks = width / 8 + 1; // TEMP fixme
-		h_blocks = height / 8 + 1;
-		data.resize(w_blocks * h_blocks * 64 * N);
-#else
 		data.resizeNoCopy(width * height * N);
-#endif
 	}
 	catch(std::bad_alloc&)
 	{
@@ -316,26 +304,33 @@ const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 	Colour4f colour_out;
 
 	// Get fractional normalised image coordinates
-	const Coord u_frac_part = Maths::fract(u);
-	const Coord v_frac_part = Maths::fract(-v);
+	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
 
-	// Convert from normalised image coords to pixel coordinates
-	const Coord u_pixels = u_frac_part * (Coord)width;
-	const Coord v_pixels = v_frac_part * (Coord)height;
+	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
+	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
 
-	// Get pixel indices
-	const size_t ut = myMin((size_t)u_pixels, width - 1);
-	const size_t vt = myMin((size_t)v_pixels, height - 1);
+	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
+	
+	Vec4i i_pixels = min(toVec4i(f_pixels), dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_1 = toVec4i(f_pixels) + Vec4i(1); // pixels + 1, not wrapped yet.
+	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
 
-	assert(ut < width && vt < height);
+	// Fractional coords in the pixel:
+	Vec4f frac = f_pixels - toVec4f(i_pixels); 
+	Vec4f one_frac = Vec4f(1.f) - frac;
 
-	const size_t ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
-	const size_t vt_1 = (vt + 1) >= height ? 0 : vt + 1;
+	int ut = i_pixels[0];
+	int vt = i_pixels[1];
+	int ut_1 = wrapped_i_pixels_1[0];
+	int vt_1 = wrapped_i_pixels_1[1];
+	assert(ut >= 0 && ut < width && vt >= 0 && vt < height);
+	assert(ut_1 >= 0 && ut_1 < width && vt_1 >= 0 && vt_1 < height);
 
-	const Coord ufrac = u_pixels - (Coord)ut;
-	const Coord vfrac = v_pixels - (Coord)vt;
-	const Coord oneufrac = 1 - ufrac;
-	const Coord onevfrac = 1 - vfrac;
+	const Coord ufrac = frac[0];
+	const Coord vfrac = frac[1];
+	const Coord oneufrac = one_frac[0];
+	const Coord onevfrac = one_frac[1];
 
 	const V* const use_data = data.data();
 
@@ -353,17 +348,16 @@ const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 	{
 		// This is either grey, alpha or grey with alpha.
 		// Either way just use the zeroth channel.
-		const float val = VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
-		colour_out = Colour4f(val);
+		colour_out = Colour4f(VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]));
 	}
 	else // else if(N >= 3)
 	{
-		// This map is either RGB or RGB with alpha
-		// Ignore alpha and just return the interpolated RGB colour.
-		colour_out[0] = VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
-		colour_out[1] = VTraits::scaleValue(a * top_left_pixel[1] + b * top_right_pixel[1] + c * bot_left_pixel[1] + d * bot_right_pixel[1]);
-		colour_out[2] = VTraits::scaleValue(a * top_left_pixel[2] + b * top_right_pixel[2] + c * bot_left_pixel[2] + d * bot_right_pixel[2]);
-		colour_out[3] = 0.f;
+		colour_out = (
+			Colour4f(top_left_pixel [0], top_left_pixel [1], top_left_pixel [2], 0) * a + 
+			Colour4f(top_right_pixel[0], top_right_pixel[1], top_right_pixel[2], 0) * b +
+			Colour4f(bot_left_pixel [0], bot_left_pixel [1], bot_left_pixel [2], 0) * c +
+			Colour4f(bot_right_pixel[0], bot_right_pixel[1], bot_right_pixel[2], 0) * d
+			) * VTraits::scaleValue(1.f);
 	}
 	
 	return colour_out;
@@ -376,26 +370,33 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, si
 	assert(channel < N);
 
 	// Get fractional normalised image coordinates
-	const Coord u_frac_part = Maths::fract(u);
-	const Coord v_frac_part = Maths::fract(-v);
+	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
 
-	// Convert from normalised image coords to pixel coordinates
-	const Coord u_pixels = u_frac_part * (Coord)width;
-	const Coord v_pixels = v_frac_part * (Coord)height;
+	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
+	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
 
-	// Get pixel indices
-	const size_t ut = myMin((size_t)u_pixels, width - 1);
-	const size_t vt = myMin((size_t)v_pixels, height - 1);
+	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
 
-	assert(ut < width && vt < height);
+	Vec4i i_pixels = min(toVec4i(f_pixels), dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_1 = toVec4i(f_pixels) + Vec4i(1); // pixels + 1, not wrapped yet.
+	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
 
-	const size_t ut_1 = (ut + 1) >= width  ? 0 : ut + 1;
-	const size_t vt_1 = (vt + 1) >= height ? 0 : vt + 1;
+	// Fractional coords in the pixel:
+	Vec4f frac = f_pixels - toVec4f(i_pixels);
+	Vec4f one_frac = Vec4f(1.f) - frac;
 
-	const Coord ufrac = u_pixels - (Coord)ut;
-	const Coord vfrac = v_pixels - (Coord)vt;
-	const Coord oneufrac = 1 - ufrac;
-	const Coord onevfrac = 1 - vfrac;
+	int ut = i_pixels[0];
+	int vt = i_pixels[1];
+	int ut_1 = wrapped_i_pixels_1[0];
+	int vt_1 = wrapped_i_pixels_1[1];
+	assert(ut >= 0 && ut < width && vt >= 0 && vt < height);
+	assert(ut_1 >= 0 && ut_1 < width && vt_1 >= 0 && vt_1 < height);
+
+	const Coord ufrac = frac[0];
+	const Coord vfrac = frac[1];
+	const Coord oneufrac = one_frac[0];
+	const Coord onevfrac = one_frac[1];
 
 	const V* const use_data = data.data();
 
@@ -521,17 +522,7 @@ inline V* ImageMap<V, VTraits>::getPixel(size_t x, size_t y)
 {
 	assert(x < width && y < height);
 
-#if IMAGE_MAP_TILED
-	uint32 block_x = x >> 3;
-	uint32 block_y = y >> 3;
-
-	uint32 inblock_x = x & 7;
-	uint32 inblock_y = y & 7;
-
-	return &data[((block_y * w_blocks + block_x) * 64 + (inblock_y*8) + inblock_x) * N];
-#else
 	return &data[(x + width * y) * N];
-#endif
 }
 
 
@@ -540,17 +531,7 @@ inline const V* ImageMap<V, VTraits>::getPixel(size_t x, size_t y) const
 {
 	assert(x < width && y < height);
 
-#if IMAGE_MAP_TILED
-	uint32 block_x = x >> 3;
-	uint32 block_y = y >> 3;
-
-	uint32 inblock_x = x & 7;
-	uint32 inblock_y = y & 7;
-
-	return &data[((block_y * w_blocks + block_x) * 64 + (inblock_y*8) + inblock_x) * N];
-#else
 	return &data[(x + width * y) * N];
-#endif
 }
 
 
