@@ -1079,16 +1079,11 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 		assignShaderProgToMaterial(object->materials[i]);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 
-		if(object->materials[i].albedo_tex_path.empty())
-			object->materials[i].albedo_texture = NULL; // Delete OpenGL texture
-		else
+		if(!object->materials[i].albedo_tex_path.empty())
 		{
 			try
 			{
-				Reference<Map2D> map = texture_server->getTexForPath(".", object->materials[i].albedo_tex_path);
-
-				//BuildUInt8MapTextureDataScratchState state; // TEMP
-				object->materials[i].albedo_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(object->materials[i].albedo_tex_path), *map, /*state, */OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+				object->materials[i].albedo_texture = geTextureForBuildingMaterial(object->materials[i].albedo_tex_path, /*force_load_textures_immediately=*/true);
 			}
 			catch(TextureServerExcep& e)
 			{
@@ -1156,11 +1151,7 @@ Reference<OpenGLTexture> OpenGLEngine::geTextureForBuildingMaterial(const std::s
 
 void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool force_load_textures_immediately)
 {
-	if(opengl_mat.albedo_tex_path.empty())
-	{
-		//opengl_mat.albedo_texture = NULL; // Delete OpenGL texture
-	}
-	else
+	if(!opengl_mat.albedo_tex_path.empty())
 	{
 		try
 		{
