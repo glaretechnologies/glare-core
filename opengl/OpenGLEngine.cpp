@@ -357,7 +357,6 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 {
 	this->env_ob->materials[0] = env_mat_;
 	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
-	buildMaterial(this->env_ob->materials[0], /*force_load_textures_immediately=*/true);
 }
 
 
@@ -952,7 +951,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
 }
 
 
-void OpenGLEngine::addObject(const Reference<GLObject>& object, bool force_load_textures_immediately)
+void OpenGLEngine::addObject(const Reference<GLObject>& object)
 {
 	assert(object->mesh_data.nonNull());
 	assert(object->mesh_data->vert_vao.nonNull());
@@ -970,7 +969,6 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object, bool force_load_
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		buildMaterial(object->materials[i], force_load_textures_immediately);
 		assignShaderProgToMaterial(object->materials[i]);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
@@ -1001,6 +999,8 @@ void OpenGLEngine::textureLoaded(const std::string& path)
 
 		for(size_t i=0; i<object->materials.size(); ++i)
 		{
+			//assert(0); // TODO: FIXME
+#if 0
 			if(object->materials[i].albedo_texture.isNull() && object->materials[i].albedo_tex_path == path)
 			{
 				// conPrint("OpenGLEngine::textureLoaded(): Found object using '" + path + "'.");
@@ -1026,6 +1026,7 @@ void OpenGLEngine::textureLoaded(const std::string& path)
 				// Texture may have an alpha channel, in which case we want to assign a different shader.
 				assignShaderProgToMaterial(object->materials[i]);
 			}
+#endif
 		}
 	}
 }
@@ -1078,93 +1079,36 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 	{
 		assignShaderProgToMaterial(object->materials[i]);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
-
-		if(!object->materials[i].albedo_tex_path.empty())
-		{
-			try
-			{
-				object->materials[i].albedo_texture = geTextureForBuildingMaterial(object->materials[i].albedo_tex_path, /*force_load_textures_immediately=*/true);
-			}
-			catch(TextureServerExcep& e)
-			{
-				conPrint("Warning: failed to load texture: " + e.what());
-			}
-			catch(Indigo::Exception& e)
-			{
-				conPrint("Warning: failed to load texture: " + e.what());
-			}
-		}
 	}
 
 	if(have_transparent_mat)
-	{
 		transparent_objects.insert(object);
-	}
 	else
-	{
-		// Remove from transparent material list if it is currently in there.
-		transparent_objects.erase(object);
-	}
+		transparent_objects.erase(object); // Remove from transparent material list if it is currently in there.
 }
 
 
-// Return an OpenGL texture based on opengl_mat.albedo_tex_path.
-// Will return NULL texture ref if force_load_textures_immediately is false and the texture has not been loaded from disk into the texture server,
-// or it has not been processed.
-// Throws TextureServerExcep, Indigo::Exception
-Reference<OpenGLTexture> OpenGLEngine::geTextureForBuildingMaterial(const std::string& tex_path, bool force_load_textures_immediately)
+// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
+// Throws Indigo::Exception
+Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 {
-	const OpenGLTextureKey texture_key(tex_path);
-
-	// If the OpenGL texture for this path has already been created, return it.
-	auto res = this->opengl_textures.find(texture_key);
-	if(res != this->opengl_textures.end())
-		return res->second;
-
-	if(force_load_textures_immediately)
+	try
 	{
+		const OpenGLTextureKey texture_key(tex_path);
+
+		// If the OpenGL texture for this path has already been created, return it.
+		auto res = this->opengl_textures.find(texture_key);
+		if(res != this->opengl_textures.end())
+			return res->second;
+
 		// TEMP HACK: need to set base dir here
 		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
-		
+
 		return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 	}
-	else
+	catch(TextureServerExcep& e)
 	{
-		Reference<Map2D> map = texture_server->getTexForPathIfLoaded(tex_path);
-		if(map.nonNull()) // If the texture has been loaded from disk already:
-		{
-			if(dynamic_cast<const ImageMapUInt8*>(map.ptr())) // If UInt8 map, which needs processing:
-			{
-				if(this->texture_data_manager->isTextureDataInserted(map.downcastToPtr<ImageMapUInt8>())) // If this texture has been processed:
-					return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Load into OpenGL and return it.
-				else
-					return Reference<OpenGLTexture>();
-			}
-			else
-				return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Not an UInt8 map so doesn't need processing, so load it.
-		}
-		else
-			return Reference<OpenGLTexture>();
-	}
-}
-
-
-void OpenGLEngine::buildMaterial(OpenGLMaterial& opengl_mat, bool force_load_textures_immediately)
-{
-	if(!opengl_mat.albedo_tex_path.empty())
-	{
-		try
-		{
-			opengl_mat.albedo_texture = geTextureForBuildingMaterial(opengl_mat.albedo_tex_path, force_load_textures_immediately);
-		}
-		catch(TextureServerExcep& e)
-		{
-			conPrint("Warning: failed to load texture: " + e.what());
-		}
-		catch(Indigo::Exception& e)
-		{
-			conPrint("Warning: failed to load texture: " + e.what());
-		}
+		throw Indigo::Exception(e.what());
 	}
 }
 

@@ -91,8 +91,6 @@ public:
 		metallic_frac(0.f)
 	{}
 
-	std::string albedo_tex_path;
-
 	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
 	float alpha; // Used for transparent mats.
 
@@ -199,13 +197,16 @@ public:
 
 	void unloadAllData();
 
-	void addObject(const Reference<GLObject>& object, bool force_load_textures_immediately = false);
+	void addObject(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
 	bool isObjectAdded(const Reference<GLObject>& object) const;
 
 	void addOverlayObject(const Reference<OverlayObject>& object);
 	void removeOverlayObject(const Reference<OverlayObject>& object);
 
+	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
+	// Throws Indigo::Exception
+	Reference<OpenGLTexture> getTexture(const std::string& tex_path);
 	void textureLoaded(const std::string& path);
 
 	void selectObject(const Reference<GLObject>& object);
@@ -312,8 +313,6 @@ private:
 
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignShaderProgToMaterial(OpenGLMaterial& material);
-	void buildMaterial(OpenGLMaterial& mat, bool force_load_textures_immediately);
-	Reference<OpenGLTexture> geTextureForBuildingMaterial(const std::string& tex_path, bool force_load_textures_immediately);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
