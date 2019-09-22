@@ -80,7 +80,7 @@ void TaskManager::addTask(const Reference<Task>& t)
 }
 
 
-void TaskManager::addTasks(Reference<Task>* t, size_t num_tasks)
+void TaskManager::addTasks(const Reference<Task>* t, size_t num_tasks)
 {
 	{
 		Lock lock(num_unfinished_tasks_mutex);
@@ -88,6 +88,12 @@ void TaskManager::addTasks(Reference<Task>* t, size_t num_tasks)
 	}
 
 	tasks.enqueueItems(t, num_tasks);
+}
+
+
+void TaskManager::addTasks(ArrayRef<Reference<Task> > new_tasks)
+{
+	addTasks(new_tasks.data(), new_tasks.size());
 }
 
 

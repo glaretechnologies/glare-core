@@ -1141,7 +1141,7 @@ Reference<OpenGLTexture> OpenGLEngine::geTextureForBuildingMaterial(const std::s
 					return Reference<OpenGLTexture>();
 			}
 			else
-				return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Not an UInt8 map so doesn't nee processing, so load it.
+				return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Not an UInt8 map so doesn't need processing, so load it.
 		}
 		else
 			return Reference<OpenGLTexture>();

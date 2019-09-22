@@ -12,6 +12,7 @@ Generated at 2011-10-05 21:56:22 +0100
 #include "Mutex.h"
 #include "Reference.h"
 #include "Condition.h"
+#include "ArrayRef.h"
 #include "MyThread.h"
 #include "../maths/mathstypes.h"
 #include <vector>
@@ -49,7 +50,9 @@ public:
 	void setThreadPriorities(MyThread::Priority priority);
 
 	void addTask(const Reference<Task>& t);
-	void addTasks(Reference<Task>* tasks, size_t num_tasks);
+	void addTasks(const Reference<Task>* tasks, size_t num_tasks);
+	void addTasks(ArrayRef<Reference<Task> > tasks);
+	
 	void runTasks(Reference<Task>* tasks, size_t num_tasks); // Add tasks, then wait for tasks to complete.
 
 	template <class TaskSubType>
