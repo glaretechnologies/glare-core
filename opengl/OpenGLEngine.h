@@ -108,6 +108,7 @@ public:
 	float metallic_frac;
 	
 	uint64 userdata;
+	std::string tex_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 };
 
 
@@ -207,6 +208,13 @@ public:
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
 	// Throws Indigo::Exception
 	Reference<OpenGLTexture> getTexture(const std::string& tex_path);
+
+	// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
+	// If the texture is not loaded or not processed yet, return a null reference.
+	// Throws Indigo::Exception
+	Reference<OpenGLTexture> getTextureIfLoaded(const std::string& tex_path);
+
+	// Notify the OpenGL engine that a texture has been loaded.
 	void textureLoaded(const std::string& path);
 
 	void selectObject(const Reference<GLObject>& object);

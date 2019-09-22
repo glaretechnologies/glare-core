@@ -999,9 +999,7 @@ void OpenGLEngine::textureLoaded(const std::string& path)
 
 		for(size_t i=0; i<object->materials.size(); ++i)
 		{
-			//assert(0); // TODO: FIXME
-#if 0
-			if(object->materials[i].albedo_texture.isNull() && object->materials[i].albedo_tex_path == path)
+			if(object->materials[i].albedo_texture.isNull() && object->materials[i].tex_path == path)
 			{
 				// conPrint("OpenGLEngine::textureLoaded(): Found object using '" + path + "'.");
 
@@ -1026,7 +1024,6 @@ void OpenGLEngine::textureLoaded(const std::string& path)
 				// Texture may have an alpha channel, in which case we want to assign a different shader.
 				assignShaderProgToMaterial(object->materials[i]);
 			}
-#endif
 		}
 	}
 }
@@ -1105,6 +1102,42 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
 
 		return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+	}
+	catch(TextureServerExcep& e)
+	{
+		throw Indigo::Exception(e.what());
+	}
+}
+
+
+// Return an OpenGL texture based on tex_path.
+// Throws Indigo::Exception
+Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const std::string& tex_path)
+{
+	try
+	{
+		const OpenGLTextureKey texture_key(tex_path);
+
+		// If the OpenGL texture for this path has already been created, return it.
+		auto res = this->opengl_textures.find(texture_key);
+		if(res != this->opengl_textures.end())
+			return res->second;
+
+		Reference<Map2D> map = texture_server->getTexForPathIfLoaded(tex_path);
+		if(map.nonNull()) // If the texture has been loaded from disk already:
+		{
+			if(dynamic_cast<const ImageMapUInt8*>(map.ptr())) // If UInt8 map, which needs processing:
+			{
+				if(this->texture_data_manager->isTextureDataInserted(map.downcastToPtr<ImageMapUInt8>())) // If this texture has been processed:
+					return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Load into OpenGL and return it.
+				else
+					return Reference<OpenGLTexture>();
+			}
+			else
+				return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Not an UInt8 map so doesn't need processing, so load it.
+		}
+		else
+			return Reference<OpenGLTexture>();
 	}
 	catch(TextureServerExcep& e)
 	{
