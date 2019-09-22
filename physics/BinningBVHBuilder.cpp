@@ -596,7 +596,7 @@ static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager
 			task->task_right = myMin(left + (i + 1) * num_per_task, right);
 			assert(task->task_left >= left && task->task_left <= right && task->task_right >= task->task_left && task->task_right <= right);
 		}
-		local_task_manager->runTasks((Reference<Indigo::Task>*)tasks, num_tasks);
+		local_task_manager->runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)tasks, num_tasks));
 
 
 		// Merge bucket AABBs and counts from each task

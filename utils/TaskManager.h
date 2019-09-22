@@ -49,15 +49,10 @@ public:
 	// Only works on Windows.  Does nothing if called on a non-windows system.
 	void setThreadPriorities(MyThread::Priority priority);
 
-	void addTask(const Reference<Task>& t);
-	void addTasks(const Reference<Task>* tasks, size_t num_tasks);
-	void addTasks(ArrayRef<Reference<Task> > tasks);
+	void addTask(const TaskRef& t);
+	void addTasks(ArrayRef<TaskRef> tasks);
 	
-	void runTasks(Reference<Task>* tasks, size_t num_tasks); // Add tasks, then wait for tasks to complete.
-
-	template <class TaskSubType>
-	void runTasks(std::vector<TaskSubType>& task_vector); // Add tasks, then wait for tasks to complete.
-
+	void runTasks(ArrayRef<TaskRef> tasks); // Add tasks, then wait for tasks to complete.
 
 	size_t getNumUnfinishedTasks() const;
 
@@ -98,10 +93,10 @@ public:
 	void runParallelForTasksInterleaved(const TaskClosure& closure, size_t begin, size_t end);
 
 
-	ThreadSafeQueue<Reference<Task> >& getTaskQueue() { return tasks; }
-	const ThreadSafeQueue<Reference<Task> >& getTaskQueue() const { return tasks; }
+	ThreadSafeQueue<TaskRef>& getTaskQueue() { return tasks; }
+	const ThreadSafeQueue<TaskRef>& getTaskQueue() const { return tasks; }
 
-	Reference<Task> dequeueTask(); // called by TestRunnerThread
+	TaskRef dequeueTask(); // called by TestRunnerThread
 	void taskFinished(); // called by TestRunnerThread
 	const std::string& getName(); // called by TestRunnerThread
 private:
@@ -113,7 +108,7 @@ private:
 	
 	std::string name;
 
-	ThreadSafeQueue<Reference<Task> > tasks;
+	ThreadSafeQueue<TaskRef> tasks;
 
 	std::vector<Reference<TaskRunnerThread> > threads;
 };
@@ -196,13 +191,6 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 
 	// The tasks should be running.  Wait for them to complete.  This blocks.
 	waitForTasksToComplete();
-}
-
-
-template <class TaskSubType>
-void TaskManager::runTasks(std::vector<TaskSubType>& task_vector)
-{
-	runTasks(task_vector.data(), task_vector.size());
 }
 
 

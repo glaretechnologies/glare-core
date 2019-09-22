@@ -605,8 +605,7 @@ namespace Sort
 			tasks[i]->in_ = in + begin_i;
 			tasks[i]->num_ = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
 		}
-		task_manager.addTasks((Reference<Indigo::Task>*)tasks, num_tasks);
-		task_manager.waitForTasksToComplete();
+		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)tasks, num_tasks));
 
 		// Compute prefix sum for the tasks.
 		size_t num_left_before[max_num_tasks];
@@ -634,8 +633,7 @@ namespace Sort
 			place_tasks[i]->left_write_i  = num_left_before[i];
 			place_tasks[i]->right_write_i = sum_left_before + num_right_before[i];
 		}
-		task_manager.addTasks((Reference<Indigo::Task>*)place_tasks, num_tasks);
-		task_manager.waitForTasksToComplete();
+		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)place_tasks, num_tasks));
 
 		return sum_left_before;
 	}
@@ -766,8 +764,7 @@ namespace Sort
 			tasks[i]->counts = &counts[i * stride];
 		}
 
-		task_manager.addTasks((Reference<Indigo::Task>*)tasks, num_tasks);
-		task_manager.waitForTasksToComplete();
+		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)tasks, num_tasks));
 
 		//conPrint("count pass: " + timer.elapsedStringNSigFigs(5));
 		//timer.reset();
@@ -810,8 +807,7 @@ namespace Sort
 			place_tasks[i]->num = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
 		}
 
-		task_manager.addTasks((Reference<Indigo::Task>*)place_tasks, num_tasks);
-		task_manager.waitForTasksToComplete();
+		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)place_tasks, num_tasks));
 
 
 		//conPrint("place pass: " + timer.elapsedStringNSigFigs(5));

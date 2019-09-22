@@ -195,7 +195,7 @@ void compress(Indigo::TaskManager& task_manager, TempData& temp_data, const Imag
 			task->end_y   = (size_t)myMin((size_t)H, ((z + 1) * y_blocks_per_task) * 4);
 			assert(task->begin_y >= 0 && task->begin_y <= H && task->end_y >= 0 && task->end_y <= H);
 		}
-		task_manager.runTasks(compress_tasks.data(), compress_tasks.size());
+		task_manager.runTasks(compress_tasks);
 	}
 
 	// conPrint("DXT compression took " + timer.elapsedString());

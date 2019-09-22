@@ -69,7 +69,7 @@ void TaskManager::setThreadPriorities(MyThread::Priority priority)
 }
 
 
-void TaskManager::addTask(const Reference<Task>& t)
+void TaskManager::addTask(const TaskRef& t)
 {
 	{
 		Lock lock(num_unfinished_tasks_mutex);
@@ -80,26 +80,20 @@ void TaskManager::addTask(const Reference<Task>& t)
 }
 
 
-void TaskManager::addTasks(const Reference<Task>* t, size_t num_tasks)
+void TaskManager::addTasks(ArrayRef<TaskRef> new_tasks)
 {
 	{
 		Lock lock(num_unfinished_tasks_mutex);
-		num_unfinished_tasks += (int)num_tasks;
+		num_unfinished_tasks += (int)new_tasks.size();
 	}
 
-	tasks.enqueueItems(t, num_tasks);
+	tasks.enqueueItems(new_tasks.data(), new_tasks.size());
 }
 
 
-void TaskManager::addTasks(ArrayRef<Reference<Task> > new_tasks)
+void TaskManager::runTasks(ArrayRef<TaskRef> new_tasks) // Add tasks, then wait for tasks to complete.
 {
-	addTasks(new_tasks.data(), new_tasks.size());
-}
-
-
-void TaskManager::runTasks(Reference<Task>* new_tasks, size_t num_tasks) // Add tasks, then wait for tasks to complete.
-{
-	addTasks(new_tasks, num_tasks);
+	addTasks(new_tasks);
 	waitForTasksToComplete();
 }
 
@@ -141,7 +135,7 @@ void TaskManager::waitForTasksToComplete()
 		// Do the work in this thread!
 		while(!tasks.empty())
 		{
-			Reference<Task> task;
+			TaskRef task;
 			tasks.dequeue(task);
 			task->run(0);
 			num_unfinished_tasks--;
@@ -172,9 +166,9 @@ bool TaskManager::areAllThreadsBusy()
 }
 
 
-Reference<Task> TaskManager::dequeueTask() // called by Tasks
+TaskRef TaskManager::dequeueTask() // called by Tasks
 {
-	Reference<Task> task;
+	TaskRef task;
 	tasks.dequeue(task);
 	return task;
 }
