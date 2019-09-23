@@ -418,7 +418,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 				cur_temp_tex_buf_offset += level_tex_size;
 
 			const size_t level_comp_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
-			cur_offset = Maths::roundUpToMultipleOfPowerOf2(cur_offset + level_comp_size, 8ull);
+			cur_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(cur_offset + level_comp_size, 8);
 			if(level_W == 1 && level_H == 1)
 				break;
 		}
