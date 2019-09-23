@@ -279,6 +279,8 @@ public:
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
+	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex);
+
 	void removeOpenGLTexture(const OpenGLTextureKey& key); // Erases from opengl_textures.
 
 	bool isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) const;
@@ -448,7 +450,7 @@ private:
 	double draw_time;
 	Timer draw_timer;
 
-	std::map<OpenGLTextureKey, Reference<OpenGLTexture> > opengl_textures; // Used for cyberspace
+	std::map<OpenGLTextureKey, Reference<OpenGLTexture> > opengl_textures;
 public:
 	Reference<TextureDataManager> texture_data_manager;
 private:

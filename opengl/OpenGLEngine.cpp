@@ -3986,6 +3986,12 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 }
 
 
+void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex)
+{
+	this->opengl_textures[key] = tex;
+}
+
+
 void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 {
 	this->opengl_textures.erase(key);
