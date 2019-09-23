@@ -148,12 +148,11 @@ size_t getCompressedSizeBytes(size_t W, size_t H, size_t bytes_pp)
 
 
 // Multi-thread if task_manager is non-null
-void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src_W, size_t src_H, size_t src_bytes_pp, const uint8* src_image_data/*const ImageMapUInt8* src_image*/, uint8* compressed_data_out, size_t compressed_data_out_size)
+void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src_W, size_t src_H, size_t src_bytes_pp, const uint8* src_image_data, uint8* compressed_data_out, size_t compressed_data_out_size)
 {
 	// Try and load as a DXT texture compression
-	const size_t W = src_W;// src_image->getWidth();
-	const size_t H = src_H;// src_image->getHeight();
-
+	const size_t W = src_W;
+	const size_t H = src_H;
 	assert(src_bytes_pp == 3 || src_bytes_pp == 4);
 
 	const size_t num_blocks_x = Maths::roundedUpDivide(W, (size_t)4);
@@ -161,13 +160,6 @@ void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src
 	const size_t num_blocks = num_blocks_x * num_blocks_y;
 
 	assert(compressed_data_out_size >= /*compressed_data_size=*/((src_bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16)));
-
-	/*
-	size_t src_W;
-	size_t src_H;
-	size_t src_bytes_pp;
-	const uint8* src_image_data;
-	*/
 
 	// Timer timer;
 	if(!task_manager || (num_blocks < 1024))
@@ -210,7 +202,6 @@ void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src
 		}
 		task_manager->runTasks(compress_tasks);
 	}
-
 	// conPrint("DXT compression took " + timer.elapsedString());
 }
 
