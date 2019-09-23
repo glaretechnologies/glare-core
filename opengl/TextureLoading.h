@@ -23,6 +23,8 @@ class OpenGLEngine;
 class TextureData : public ThreadSafeRefCounted
 {
 public:
+	size_t compressedSizeBytes() const;
+
 	size_t W, H, bytes_pp;
 	std::vector<js::Vector<uint8, 16> > compressed_data; // Compressed data at each mip-map level.
 	Reference<const ImageMapUInt8> converted_image;
@@ -69,7 +71,8 @@ public:
 
 	// Builds compressed, mip-map level data.
 	// Uses opengl_engine->getTaskManager() for multi-threading.
-	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& state*/);
+	// May return a reference to imagemap in the returned TextureData.
+	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, bool multithread);
 
 	// Load the built texture data into OpenGL.
 	static Reference<OpenGLTexture> loadTextureIntoOpenGL(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,

@@ -20,6 +20,15 @@ Copyright Glare Technologies Limited 2019 -
 #include <vector>
 
 
+size_t TextureData::compressedSizeBytes() const
+{
+	size_t s = 0;
+	for(size_t i=0; i<compressed_data.size(); ++i)
+		s += compressed_data[i].dataSizeBytes();
+	return s;
+}
+
+
 // Thread-safe
 Reference<TextureData> TextureDataManager::getOrBuildTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/)
 {
@@ -30,7 +39,7 @@ Reference<TextureData> TextureDataManager::getOrBuildTextureData(const ImageMapU
 		return res->second;
 	else
 	{
-		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine/*, scratch_state*/);
+		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, /*multithread=*/true);
 		loaded_textures[imagemap] = data;
 		return data;
 	}
@@ -340,8 +349,7 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 }
 
 
-Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*,
-	BuildUInt8MapTextureDataScratchState& state*/)
+Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, bool multithread)
 {
 	// conPrint("Creating new OpenGL texture.");
 	Reference<TextureData> texture_data = new TextureData();
@@ -435,7 +443,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 
 			texture_data->compressed_data[k].resizeNoCopy(compressed_size);
 			
-			DXTCompression::compress(opengl_engine->getTaskManager(), compress_temp_data, mip_level_image.ptr(),
+			DXTCompression::compress(multithread ? &opengl_engine->getTaskManager() : NULL, compress_temp_data, mip_level_image.ptr(),
 				texture_data->compressed_data[k].data(), texture_data->compressed_data[k].size());
 
 			//opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/compressed);

@@ -23,7 +23,8 @@ namespace DXTCompression
 		std::vector<Reference<Indigo::Task> > compress_tasks;
 	};
 
-	void compress(Indigo::TaskManager& task_manager, TempData& temp_data, const ImageMapUInt8* src_imagemap, uint8* compressed_data_out, size_t compressed_data_out_size);
+	// Multi-thread if task_manager is non-null
+	void compress(Indigo::TaskManager* task_manager, TempData& temp_data, const ImageMapUInt8* src_imagemap, uint8* compressed_data_out, size_t compressed_data_out_size);
 
 
 	void test();
