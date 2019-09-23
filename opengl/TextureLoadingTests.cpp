@@ -35,7 +35,9 @@ void TextureLoadingTests::testDownSamplingGreyTexture(unsigned int W, unsigned i
 		const unsigned int level_W = (int)myMax(1u, W / (1 << k));
 		const unsigned int level_H = (int)myMax(1u, H / (1 << k));
 
-		Reference<const ImageMapUInt8> mip_level_image = TextureLoading::downSampleToNextMipMapLevel(*prev_mip_level_image, level_W, level_H);
+		Reference<ImageMapUInt8> mip_level_image = new ImageMapUInt8(level_W, level_H, N);
+		TextureLoading::downSampleToNextMipMapLevel(prev_mip_level_image->getWidth(), prev_mip_level_image->getHeight(), prev_mip_level_image->getN(), prev_mip_level_image->getData(),
+			level_W, level_H, mip_level_image->getData());
 
 		for(size_t i=0; i<mip_level_image->numPixels(); ++i)
 			for(unsigned int c=0; c<N; ++c)
@@ -80,7 +82,10 @@ void TextureLoadingTests::test()
 			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 
-			Reference<const ImageMapUInt8> mip_level_image = TextureLoading::downSampleToNextMipMapLevel(*prev_mip_level_image, level_W, level_H);
+			Reference<ImageMapUInt8> mip_level_image = new ImageMapUInt8(level_W, level_H, prev_mip_level_image->getN());
+			TextureLoading::downSampleToNextMipMapLevel(prev_mip_level_image->getWidth(), prev_mip_level_image->getHeight(), prev_mip_level_image->getN(), prev_mip_level_image->getData(),
+				level_W, level_H, mip_level_image->getData());
+
 
 			PNGDecoder::write(*mip_level_image, "mipmap_level_" + toString(k) + ".png");
 

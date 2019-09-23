@@ -949,7 +949,7 @@ DXTImageMapRef DXTImageMap::compressImageMap(Indigo::TaskManager& task_manager, 
 	DXTImageMapRef dxt_image = new DXTImageMap(map.getWidth(), map.getHeight(), map.getN());
 
 	DXTCompression::TempData temp_data;
-	DXTCompression::compress(&task_manager, temp_data, &map, (uint8*)dxt_image->data.data(), dxt_image->data.dataSizeBytes());
+	DXTCompression::compress(&task_manager, temp_data, map.getWidth(), map.getHeight(), map.getN(), map.getData(), (uint8*)dxt_image->data.data(), dxt_image->data.dataSizeBytes());
 
 	return dxt_image;
 }

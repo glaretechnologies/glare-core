@@ -26,7 +26,9 @@ public:
 	size_t compressedSizeBytes() const;
 
 	size_t W, H, bytes_pp;
-	std::vector<js::Vector<uint8, 16> > compressed_data; // Compressed data at each mip-map level.
+	js::Vector<uint8, 16> compressed_data; // Compressed data for all mip-map levels.
+	std::vector<size_t> level_offsets;
+
 	Reference<const ImageMapUInt8> converted_image;
 };
 
@@ -60,7 +62,12 @@ public:
 };
 
 
-
+/*=====================================================================
+TextureLoading
+--------------
+Code for building compressed, mip-map level texture data, and for loading it into OpenGL.
+Tests are in TextureLoadingTests.cpp
+=====================================================================*/
 class TextureLoading
 {
 public:
@@ -78,5 +85,5 @@ public:
 	static Reference<OpenGLTexture> loadTextureIntoOpenGL(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
 		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
 private:
-	static Reference<ImageMapUInt8> downSampleToNextMipMapLevel(const ImageMapUInt8& prev_mip_level_image, size_t level_W, size_t level_H);
+	static void downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, size_t N, const uint8* prev_level_image_data, size_t level_W, size_t level_H, uint8* data_out);
 };

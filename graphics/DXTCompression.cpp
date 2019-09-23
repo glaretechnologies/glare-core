@@ -43,12 +43,11 @@ class DXTCompressTask : public Indigo::Task
 public:
 	virtual void run(size_t thread_index)
 	{
-		const size_t W = imagemap->getWidth();
-		const size_t H = imagemap->getHeight();
-		const size_t bytes_pp = imagemap->getBytesPerPixel();
+		const size_t W = src_W;
+		const size_t H = src_H;
+		const size_t bytes_pp = src_bytes_pp;
 		const size_t num_blocks_x = Maths::roundedUpDivide(W, (size_t)4);
-		const uint8* const src_data = imagemap->getData();
-		const size_t width = imagemap->getWidth();
+		const uint8* const src_data = src_image_data;
 		uint8* const compressed_data = compressed;
 		if(bytes_pp == 4)
 		{
@@ -67,7 +66,7 @@ public:
 							const size_t use_x = myMin(x, W-1); // Clamp to image width/height in order to pad edges with edge pixel data.
 							const size_t use_y = myMin(y, H-1);
 							assert(use_x < W && use_y < H);
-							const uint8* const pixel = src_data + (use_x + width * use_y) * 4;
+							const uint8* const pixel = src_data + (use_x + W * use_y) * 4;
 
 							// Use 32 bit reads/writes here.
 							assert((uint64)pixel % 4 == 0); // Check 4-byte aligned
@@ -102,7 +101,7 @@ public:
 							const size_t use_x = myMin(x, W-1); // Clamp to image width/height in order to pad edges with edge pixel data.
 							const size_t use_y = myMin(y, H-1);
 							assert(use_x < W && use_y < H);
-							const uint8* const pixel = src_data + (use_x + width * use_y) * 3;
+							const uint8* const pixel = src_data + (use_x + W * use_y) * 3;
 							rgba_block[z + 0] = pixel[0];
 							rgba_block[z + 1] = pixel[1];
 							rgba_block[z + 2] = pixel[2];
@@ -129,15 +128,15 @@ public:
 	}
 	size_t begin_y, end_y;
 	uint8* compressed;
-	const ImageMapUInt8* imagemap;
+	size_t src_W;
+	size_t src_H;
+	size_t src_bytes_pp;
+	const uint8* src_image_data;
 };
 
 
-size_t getCompressedSizeBytes(const ImageMapUInt8* src_image)
+size_t getCompressedSizeBytes(size_t W, size_t H, size_t bytes_pp)
 {
-	const size_t W = src_image->getWidth();
-	const size_t H = src_image->getHeight();
-	const size_t bytes_pp = src_image->getBytesPerPixel();
 	assert(bytes_pp == 3 || bytes_pp == 4);
 
 	const size_t num_blocks_x = Maths::roundedUpDivide(W, (size_t)4);
@@ -149,26 +148,36 @@ size_t getCompressedSizeBytes(const ImageMapUInt8* src_image)
 
 
 // Multi-thread if task_manager is non-null
-void compress(Indigo::TaskManager* task_manager, TempData& temp_data, const ImageMapUInt8* src_image, uint8* compressed_data_out, size_t compressed_data_out_size)
+void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src_W, size_t src_H, size_t src_bytes_pp, const uint8* src_image_data/*const ImageMapUInt8* src_image*/, uint8* compressed_data_out, size_t compressed_data_out_size)
 {
 	// Try and load as a DXT texture compression
-	const size_t W = src_image->getWidth();
-	const size_t H = src_image->getHeight();
+	const size_t W = src_W;// src_image->getWidth();
+	const size_t H = src_H;// src_image->getHeight();
 
-	assert(src_image->getBytesPerPixel() == 3 || src_image->getBytesPerPixel() == 4);
+	assert(src_bytes_pp == 3 || src_bytes_pp == 4);
 
 	const size_t num_blocks_x = Maths::roundedUpDivide(W, (size_t)4);
 	const size_t num_blocks_y = Maths::roundedUpDivide(H, (size_t)4);
 	const size_t num_blocks = num_blocks_x * num_blocks_y;
 
-	assert(compressed_data_out_size >= /*compressed_data_size=*/((src_image->getBytesPerPixel() == 3) ? (num_blocks * 8) : (num_blocks * 16)));
+	assert(compressed_data_out_size >= /*compressed_data_size=*/((src_bytes_pp == 3) ? (num_blocks * 8) : (num_blocks * 16)));
+
+	/*
+	size_t src_W;
+	size_t src_H;
+	size_t src_bytes_pp;
+	const uint8* src_image_data;
+	*/
 
 	// Timer timer;
 	if(!task_manager || (num_blocks < 1024))
 	{
 		DXTCompressTask task;
 		task.compressed = compressed_data_out;
-		task.imagemap = src_image;
+		task.src_W = src_W;
+		task.src_H = src_H;
+		task.src_bytes_pp = src_bytes_pp;
+		task.src_image_data = src_image_data;
 		task.begin_y = 0;
 		task.end_y = H;
 		task.run(0);
@@ -191,7 +200,10 @@ void compress(Indigo::TaskManager* task_manager, TempData& temp_data, const Imag
 			assert(dynamic_cast<DXTCompressTask*>(compress_tasks[z].ptr()));
 			DXTCompressTask* task = (DXTCompressTask*)compress_tasks[z].ptr();
 			task->compressed = compressed_data_out;
-			task->imagemap = src_image;
+			task->src_W = src_W;
+			task->src_H = src_H;
+			task->src_bytes_pp = src_bytes_pp;
+			task->src_image_data = src_image_data;
 			task->begin_y = (size_t)myMin((size_t)H, (z       * y_blocks_per_task) * 4);
 			task->end_y   = (size_t)myMin((size_t)H, ((z + 1) * y_blocks_per_task) * 4);
 			assert(task->begin_y >= 0 && task->begin_y <= H && task->end_y >= 0 && task->end_y <= H);

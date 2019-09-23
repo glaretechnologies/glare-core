@@ -22,10 +22,7 @@ Copyright Glare Technologies Limited 2019 -
 
 size_t TextureData::compressedSizeBytes() const
 {
-	size_t s = 0;
-	for(size_t i=0; i<compressed_data.size(); ++i)
-		s += compressed_data[i].dataSizeBytes();
-	return s;
+	return compressed_data.dataSizeBytes();
 }
 
 
@@ -86,37 +83,33 @@ void TextureLoading::init()
 
 // Downsize previous mip level image to current mip level.
 // Just uses kinda crappy 2x2 pixel box filter.
-Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const ImageMapUInt8& prev_mip_level_image, size_t level_W, size_t level_H)
+void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, size_t N, const uint8* prev_level_image_data, size_t level_W, size_t level_H,
+	uint8* data_out)
 {
 	Timer timer;
-	const size_t old_W = prev_mip_level_image.getWidth();
-	const size_t old_H = prev_mip_level_image.getHeight();
-
-	Reference<ImageMapUInt8> new_image = new ImageMapUInt8(level_W, level_H, prev_mip_level_image.getN());
-
-	uint8* const dst_data = new_image->getData();
-	const uint8* const src_data = prev_mip_level_image.getData();
-	const size_t src_W = prev_mip_level_image.getWidth();
-	const size_t N = prev_mip_level_image.getN();
+	uint8* const dst_data = data_out;
+	const uint8* const src_data = prev_level_image_data;
+	const size_t src_W = prev_W;
+	const size_t src_H = prev_H;
 
 	// Because the new width is max(1, floor(old_width/2)), we have old_width >= new_width*2 in all cases apart from when old_width = 1.
 	// If old_width >= new_width*2, then 
 	// old_width >= (new_width-1)*2 + 2
 	// old_width > (new_width-1)*2 + 1
 	// (new_width-1)*2 + 1 < old_width
-	// in other words the support pixels of the box filter are guarenteed to be in range (< old_width)
+	// in other words the support pixels of the box filter are guaranteed to be in range (< old_width)
 	// Likewise for old height etc..
-	assert((old_W == 1) || ((level_W - 1) * 2 + 1 < old_W));
-	assert((old_H == 1) || ((level_H - 1) * 2 + 1 < old_H));
+	assert((src_W == 1) || ((level_W - 1) * 2 + 1 < src_W));
+	assert((src_H == 1) || ((level_H - 1) * 2 + 1 < src_H));
 
 	assert(N == 3 || N == 4);
 	if(N == 3)
 	{
-		if(old_W == 1)
+		if(src_W == 1)
 		{
 			// This is 1xN texture being downsized to 1xfloor(N/2)
-			assert(level_W == 1 && old_H > 1);
-			assert((level_H - 1) * 2 + 1 < old_H);
+			assert(level_W == 1 && src_H > 1);
+			assert((level_H - 1) * 2 + 1 < src_H);
 
 			for(int y=0; y<(int)level_H; ++y)
 			{
@@ -142,11 +135,11 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 				dest_pixel[2] = val[2] / 2;
 			}
 		}
-		else if(old_H == 1)
+		else if(src_H == 1)
 		{
 			// This is Nx1 texture being downsized to floor(N/2)x1
-			assert(level_H == 1 && old_W > 1);
-			assert((level_W - 1) * 2 + 1 < old_W);
+			assert(level_H == 1 && src_W > 1);
+			assert((level_W - 1) * 2 + 1 < src_W);
 
 			for(int x=0; x<(int)level_W; ++x)
 			{
@@ -174,9 +167,9 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 		}
 		else
 		{
-			assert(old_W >= 2 && old_H >= 2);
-			assert((level_W - 1) * 2 + 1 < old_W);
-			assert((level_H - 1) * 2 + 1 < old_H);
+			assert(src_W >= 2 && src_H >= 2);
+			assert((level_W - 1) * 2 + 1 < src_W);
+			assert((level_H - 1) * 2 + 1 < src_H);
 
 			// In this case all reads should be in-bounds
 			for(int y=0; y<(int)level_H; ++y)
@@ -223,11 +216,11 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 	}
 	else
 	{
-		if(old_W == 1)
+		if(src_W == 1)
 		{
 			// This is 1xN texture being downsized to 1xfloor(N/2)
-			assert(level_W == 1 && old_H > 1);
-			assert((level_H - 1) * 2 + 1 < old_H);
+			assert(level_W == 1 && src_H > 1);
+			assert((level_H - 1) * 2 + 1 < src_H);
 
 			for(int y=0; y<(int)level_H; ++y)
 			{
@@ -256,11 +249,11 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 				dest_pixel[3] = val[3] / 2;
 			}
 		}
-		else if(old_H == 1)
+		else if(src_H == 1)
 		{
 			// This is Nx1 texture being downsized to floor(N/2)x1
-			assert(level_H == 1 && old_W > 1);
-			assert((level_W - 1) * 2 + 1 < old_W);
+			assert(level_H == 1 && src_W > 1);
+			assert((level_W - 1) * 2 + 1 < src_W);
 
 			for(int x=0; x<(int)level_W; ++x)
 			{
@@ -291,9 +284,9 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 		}
 		else
 		{
-			assert(old_W >= 2 && old_H >= 2);
-			assert((level_W - 1) * 2 + 1 < old_W);
-			assert((level_H - 1) * 2 + 1 < old_H);
+			assert(src_W >= 2 && src_H >= 2);
+			assert((level_W - 1) * 2 + 1 < src_W);
+			assert((level_H - 1) * 2 + 1 < src_H);
 
 			// In this case all reads should be in-bounds
 			for(int y=0; y<(int)level_H; ++y)
@@ -345,7 +338,6 @@ Reference<ImageMapUInt8> TextureLoading::downSampleToNextMipMapLevel(const Image
 	}
 
 	//conPrint("downSampleToNextMipMapLevel took " + timer.elapsedString());
-	return new_image;
 }
 
 
@@ -404,21 +396,34 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 	texture_data->bytes_pp = bytes_pp;
 	if(opengl_engine->settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
 	{
-		//opengl_tex->makeGLTexture(/*format=*/(bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8);
+		// We will store the resized, uncompressed texture data, for all levels, in temp_tex_buf.
+		// We will store the offset to the data for each layer in this vector:
+		SmallVector<size_t, 20> temp_tex_buf_offsets;
 
-		Reference<const ImageMapUInt8> prev_mip_level_image = converted_image;
-
-		// Work out number of levels we need
-		int num_levels = 0;
+		// Work out number of levels we need, also work out byte offsets for the compressed data for each level.
+		texture_data->level_offsets.reserve(16);
+		size_t cur_offset = 0;
+		size_t cur_temp_tex_buf_offset = 0;
 		for(size_t k=0; ; ++k)
 		{
+			temp_tex_buf_offsets.push_back(cur_temp_tex_buf_offset);
+			texture_data->level_offsets.push_back(cur_offset);
+
 			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-			num_levels++;
+
+			const size_t level_tex_size = level_W * level_H * bytes_pp;
+
+			if(k > 0) // Don't store level 0 texture data in the temp tex buffer.
+				cur_temp_tex_buf_offset += level_tex_size;
+
+			const size_t level_comp_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
+			cur_offset = Maths::roundUpToMultipleOfPowerOf2(cur_offset + level_comp_size, 8ull);
 			if(level_W == 1 && level_H == 1)
 				break;
 		}
-		texture_data->compressed_data.resize(num_levels);
+		texture_data->compressed_data.resize(cur_offset);
+		js::Vector<uint8, 16> temp_tex_buf(cur_temp_tex_buf_offset);
 
 		DXTCompression::TempData compress_temp_data;
 
@@ -430,32 +435,30 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 
 			// conPrint("Building mipmap level " + toString(k) + " data, dims: " + toString(level_W) + " x " + toString(level_H));
 
-			Reference<const ImageMapUInt8> mip_level_image;
+			uint8* level_uncompressed_data;
 			if(k == 0)
-				mip_level_image = converted_image;
+				level_uncompressed_data = (uint8*)converted_image->getData(); // Read directly from converted_image.
 			else
 			{
 				// Downsize previous mip level image to current mip level
-				mip_level_image = downSampleToNextMipMapLevel(*prev_mip_level_image, level_W, level_H);
+				const size_t prev_level_W = myMax((size_t)1, W / ((size_t)1 << (k-1)));
+				const size_t prev_level_H = myMax((size_t)1, H / ((size_t)1 << (k-1)));
+				const uint8* prev_level_uncompressed_data = (k == 1) ? converted_image->getData() : &temp_tex_buf[temp_tex_buf_offsets[k-1]];
+				level_uncompressed_data = &temp_tex_buf[temp_tex_buf_offsets[k]];
+				downSampleToNextMipMapLevel(prev_level_W, prev_level_H, bytes_pp, prev_level_uncompressed_data, level_W, level_H, level_uncompressed_data);
 			}
 
-			const size_t compressed_size = DXTCompression::getCompressedSizeBytes(mip_level_image.ptr());
-
-			texture_data->compressed_data[k].resizeNoCopy(compressed_size);
+			const size_t level_compressed_offset = texture_data->level_offsets[k];
+			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
+			assert(level_compressed_offset + level_compressed_size <= texture_data->compressed_data.size());
 			
-			DXTCompression::compress(multithread ? &opengl_engine->getTaskManager() : NULL, compress_temp_data, mip_level_image.ptr(),
-				texture_data->compressed_data[k].data(), texture_data->compressed_data[k].size());
-
-			//opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/compressed);
+			DXTCompression::compress(multithread ? &opengl_engine->getTaskManager() : NULL, compress_temp_data, level_W, level_H, bytes_pp, /*src data=*/level_uncompressed_data,
+				/*dst data=*/&texture_data->compressed_data[level_compressed_offset], level_compressed_size);
 
 			// If we have just finished computing the last mipmap level, we are done.
 			if(level_W == 1 && level_H == 1)
 				break;
-
-			prev_mip_level_image = mip_level_image;
 		}
-
-		//opengl_tex->setTexParams(opengl_engine, filtering, wrapping);
 	}
 	else // Else if not using a compressed texture format:
 	{
@@ -467,7 +470,6 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 
 	return texture_data;
 }
-
 
 
 Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
@@ -485,12 +487,13 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	{
 		opengl_tex->makeGLTexture(/*format=*/(bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8);
 
-		for(size_t k=0; k<texture_data.compressed_data.size(); ++k)
+		for(size_t k=0; k<texture_data.level_offsets.size(); ++k) // For each mipmap level:
 		{
 			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
 
-			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/texture_data.compressed_data[k]);
+			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.compressed_data[texture_data.level_offsets[k]], level_compressed_size));
 		}
 
 		opengl_tex->setTexParams(opengl_engine, filtering, wrapping);
