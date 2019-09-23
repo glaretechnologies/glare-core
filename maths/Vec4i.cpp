@@ -147,7 +147,7 @@ void Vec4i::test()
 
 	//======================== operator < ==========================
 	{
-		testAssert(Vec4i(1, 2, 3, 4) < Vec4i(5, -6, 7, -8) == Vec4i(0xFFFFFFFF, 0, 0xFFFFFFFF, 0));
+		testAssert((Vec4i(1, 2, 3, 4) < Vec4i(5, -6, 7, -8)) == Vec4i(0xFFFFFFFF, 0, 0xFFFFFFFF, 0));
 	}
 
 }
