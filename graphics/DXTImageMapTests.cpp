@@ -409,6 +409,29 @@ void DXTImageMapTests::test()
 			checkCompressionOnImage(task_manager, image_map, /*allowed_error=*/5);
 		}
 
+		//=================== Test isAlphaChannelAllWhite ===================
+		{
+			const int W = 8;
+			const int H = 8;
+			ImageMapUInt8 image_map(W, H, 4);
+			for(int x=0; x<W; ++x)
+				for(int y=0; y<H; ++y)
+				{
+					image_map.getPixel(x, y)[0] = 100;
+					image_map.getPixel(x, y)[1] = 100;
+					image_map.getPixel(x, y)[2] = 100;
+					image_map.getPixel(x, y)[3] = 255;
+				}
+
+			testAssert(image_map.isAlphaChannelAllWhite());
+			DXTImageMapRef dxt_image = DXTImageMap::compressImageMap(task_manager, image_map);
+			testAssert(dxt_image->isAlphaChannelAllWhite());
+
+			image_map.getPixel(0, 0)[3] = 254;
+			dxt_image = DXTImageMap::compressImageMap(task_manager, image_map);
+			testAssert(!dxt_image->isAlphaChannelAllWhite());
+		}
+
 		//=================== Do performance tests ===================
 		if(true)
 		{
