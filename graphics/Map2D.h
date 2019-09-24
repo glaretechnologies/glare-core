@@ -80,9 +80,9 @@ public:
 	// Resizing is medium quality, as it needs to be fast for large images (env maps)
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const = 0;
 
-	virtual size_t getBytesPerPixel() const = 0;
+	virtual size_t getBytesPerPixel() const = 0; // Get the uncompressed number of bytes per pixel.
 
-	virtual size_t getByteSize() const = 0; // Get total size of image in bytes.
+	virtual size_t getByteSize() const = 0; // Get total size of image in bytes.  Returns the compressed size if the image is compressed.
 
 	virtual float getGamma() const = 0;
 
