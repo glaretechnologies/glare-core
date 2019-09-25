@@ -1,28 +1,14 @@
 /*=====================================================================
-aabbox.cpp
-----------
+jscol_aabbox.cpp
+----------------
+Copyright Glare Technologies Limited 2019 -
 File created by ClassTemplate on Thu Nov 18 03:48:29 2004
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "jscol_aabbox.h"
 
 
-#include "../maths/mathstypes.h"
-#include "../indigo/TestUtils.h"
-#include <limits>
-
-
 namespace js
 {
-
-
-AABBox AABBox::emptyAABBox()
-{
-	return AABBox(
-		Vec4f( std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(), 1.0f),
-		Vec4f(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f)
-	);
-}
 
 
 bool AABBox::invariant() const

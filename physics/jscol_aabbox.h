@@ -1,14 +1,13 @@
 /*=====================================================================
-aabbox.h
---------
+jscol_aabbox.h
+--------------
+Copyright Glare Technologies Limited 2019 -
 File created by ClassTemplate on Thu Nov 18 03:48:29 2004
-Code By Nicholas Chapman.
 =====================================================================*/
 #pragma once
 
 
 #include "../maths/Vec4f.h"
-#include "../maths/SSE.h"
 #include "../maths/Matrix4f.h"
 #include "../maths/mathstypes.h"
 #include "../utils/Platform.h"
@@ -54,7 +53,7 @@ public:
 
 	INDIGO_STRONG_INLINE void rayAABBTrace(const __m128 pos, const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const;
 
-	static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
+	inline static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
 
 	inline float volume() const;
 	inline float getSurfaceArea() const;
@@ -95,15 +94,15 @@ AABBox::AABBox(const Vec4f& _min, const Vec4f& _max)
 
 void AABBox::enlargeToHoldPoint(const Vec4f& p)
 {
-	min_.v = _mm_min_ps(min_.v, p.v);
-	max_.v = _mm_max_ps(max_.v, p.v);
+	min_ = min(min_, p);
+	max_ = max(max_, p);
 }
 
 
 void AABBox::enlargeToHoldAABBox(const AABBox& aabb)
 {
-	min_.v = _mm_min_ps(min_.v, aabb.min_.v);
-	max_.v = _mm_max_ps(max_.v, aabb.max_.v);
+	min_ = min(min_, aabb.min_);
+	max_ = max(max_, aabb.max_);
 }
 
 
@@ -254,18 +253,27 @@ void AABBox::rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_
 }
 
 
+AABBox AABBox::emptyAABBox()
+{
+	return AABBox(
+		Vec4f( std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(), 1.0f),
+		Vec4f(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), 1.0f)
+	);
+}
+
+
 unsigned int AABBox::longestAxis() const
 {
 	if(axisLength(0) > axisLength(1))
 		return axisLength(0) > axisLength(2) ? 0 : 2;
-	else //else 1 >= 0
+	else // else 1 >= 0
 		return axisLength(1) > axisLength(2) ? 1 : 2;
 }
 
 
 inline const Vec4f AABBox::centroid() const
 {
-	return Vec4f(min_ + max_) * 0.5f;
+	return (min_ + max_) * 0.5f;
 }
 
 
@@ -295,15 +303,14 @@ INDIGO_STRONG_INLINE js::AABBox AABBUnion(const js::AABBox& a, const js::AABBox&
 
 float AABBox::volume() const
 {
-	const Vec4f diff(max_ - min_);
-
+	const Vec4f diff = max_ - min_;
 	return diff[0] * diff[1] * diff[2];
 }
 
 
 float AABBox::getSurfaceArea() const
 {
-	const Vec4f diff(max_ - min_);
+	const Vec4f diff = max_ - min_;
 	const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = (diff.x[0]*diff.x[2], diff.x[1]*diff.x[0], diff.x[2]*diff.x[1], diff.x[3]*diff.x[3])
 	return 2 * (res[0] + res[1] + res[2]);
 }
@@ -311,7 +318,7 @@ float AABBox::getSurfaceArea() const
 
 float AABBox::getHalfSurfaceArea() const
 {
-	const Vec4f diff(max_ - min_);
+	const Vec4f diff = max_ - min_;
 	const Vec4f res = mul(diff, swizzle<2, 0, 1, 3>(diff)); // = (diff.x[0]*diff.x[2], diff.x[1]*diff.x[0], diff.x[2]*diff.x[1], diff.x[3]*diff.x[3])
 	return res[0] + res[1] + res[2];
 }
