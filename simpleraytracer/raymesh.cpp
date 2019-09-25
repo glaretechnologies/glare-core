@@ -18,7 +18,6 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../raytracing/hitinfo.h"
 #include "../physics/BVH.h"
 #include "../physics/SmallBVH.h"
-#include "../physics/jscol_ObjectTreePerThreadData.h"
 #include "../indigo/DisplacementUtils.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"

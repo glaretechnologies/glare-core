@@ -8,10 +8,10 @@ Code By Nicholas Chapman.
 
 
 #include "KDTree.h"
-#include "jscol_ObjectTree.h"
+//#include "jscol_ObjectTree.h"
 #include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"
-#include "jscol_ObjectTreePerThreadData.h"
+//#include "jscol_ObjectTreePerThreadData.h"
 #include "../indigo/Vec3MatParameter.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../maths/PCG32.h"
@@ -32,6 +32,13 @@ Code By Nicholas Chapman.
 #include "../graphics/Map2D.h"
 #include "../utils/StandardPrintOutput.h"
 
+
+// Disabled due to removal of ObjectTree.  TODO: port tests over to test BVHObjectTree?
+
+void js::ObjectTreeTest::doTests()
+{}
+
+#if 0
 
 
 namespace js
@@ -689,3 +696,6 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 
 
 } //end namespace js
+
+
+#endif
