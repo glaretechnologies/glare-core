@@ -1,14 +1,13 @@
 /*=====================================================================
 TriTreePerThreadData.h
 ----------------------
-File created by ClassTemplate on Sun Jul 02 00:23:46 2006
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
-#ifndef __TRITREEPERTHREADDATA_H_666_
-#define __TRITREEPERTHREADDATA_H_666_
+#pragma once
 
 
-#include "KDTree.h"
+#include "jscol_Tree.h"
+#include "../utils/Platform.h"
 
 
 namespace js
@@ -18,7 +17,7 @@ namespace js
 /*=====================================================================
 TriTreePerThreadData
 --------------------
-Per-thread data structures needed for traversing KD-tree or BVH.
+Per-thread data structures needed for traversing BVH.
 =====================================================================*/
 class TriTreePerThreadData
 {
@@ -26,16 +25,8 @@ public:
 	TriTreePerThreadData();
 	~TriTreePerThreadData();
 
-	StackFrame* nodestack;
-	int nodestack_size;
-
-	std::vector<uint32> bvh_stack;
-
-	js::TriHash* tri_hash;
+	uint32 bvh_stack[js::Tree::MAX_TREE_DEPTH + 1];
 };
 
 
 } //end namespace js
-
-
-#endif //__TRITREEPERTHREADDATA_H_666_

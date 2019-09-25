@@ -10,7 +10,6 @@ Code By Nicholas Chapman.
 #ifndef NO_EMBREE
 #include "../indigo/EmbreeAccel.h"
 #endif
-#include "KDTree.h"
 #include "BVH.h"
 #include "MollerTrumboreTri.h"
 #include "jscol_TriTreePerThreadData.h"
@@ -405,9 +404,6 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 	//------------------------------------------------------------------------
 	std::vector<Tree*> trees;
 
-	trees.push_back(new KDTree(&raymesh));
-	trees.back()->build(print_output, true, task_manager);
-
 	trees.push_back(new BVH(&raymesh));
 	trees.back()->build(print_output, true, task_manager);
 #ifndef NO_EMBREE
@@ -442,7 +438,8 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 
 		// Trace against all tris individually
 		HitInfo all_tris_hitinfo;
-		const Tree::Real alltrisdist = dynamic_cast<KDTree*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
+		testAssert(dynamic_cast<BVH*>(trees[0]) != NULL);
+		const Tree::Real alltrisdist = dynamic_cast<BVH*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
 
 		// Trace through the trees
 		for(size_t t = 0; t < trees.size(); ++t)
@@ -483,7 +480,8 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 
 		// Do a check against all tris
 		std::vector<DistanceHitInfo> hitinfos_d;
-		dynamic_cast<KDTree*>(trees[0])->getAllHitsAllTris(ray, hitinfos_d);
+		testAssert(dynamic_cast<BVH*>(trees[0]) != NULL);
+		dynamic_cast<BVH*>(trees[0])->getAllHitsAllTris(ray, hitinfos_d);
 		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceHitInfoComparisonPred); // Sort hits
 
 		// Compare results

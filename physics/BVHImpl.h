@@ -170,7 +170,7 @@ public:
 							if(bvh.nodes[current].isLeftLeaf() == 0) { // If left child exists
 								// Traverse to closest child, push furthest child onto stack.
 								stacktop++;
-								assert(stacktop < (int)context.bvh_stack.size());
+								assert(stacktop < js::Tree::MAX_TREE_DEPTH + 1);
 
 								float near_tmin;
 								float near_tmax;

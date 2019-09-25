@@ -50,6 +50,10 @@ public:
 
 	//virtual const Vec3f triGeometricNormal(unsigned int tri_index) const;
 
+	// For Debugging:
+	Real traceRayAgainstAllTris(const Ray& ray, Real max_t, HitInfo& hitinfo_out) const;
+	void getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
+
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}
 	virtual size_t getTotalMemUsage() const;

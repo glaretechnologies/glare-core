@@ -7,11 +7,8 @@ Code By Nicholas Chapman.
 #include "ObjectTreeTest.h"
 
 
-#include "KDTree.h"
-//#include "jscol_ObjectTree.h"
 #include "../raytracing/hitinfo.h"
 #include "jscol_TriTreePerThreadData.h"
-//#include "jscol_ObjectTreePerThreadData.h"
 #include "../indigo/Vec3MatParameter.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../maths/PCG32.h"

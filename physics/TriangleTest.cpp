@@ -7,7 +7,6 @@ Code By Nicholas Chapman.
 #include "TriangleTest.h"
 
 
-#include "KDTree.h"
 #include "BVH.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../maths/PCG32.h"
