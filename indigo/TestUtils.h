@@ -134,8 +134,9 @@ void doTestApproxEqWithEps(const T& a, const T& b, float eps, const char* a_str,
 {
 	if(!Maths::approxEq(a, b, eps))
 	{
+		const float relative_error = (float)fabs((a - b) / a);
 		printMessageAndFail("Test approxEqual failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + 
-			a_str + "=" + toString(a) + " was not equal to " + b_str + "=" + toString(b) + " with eps=" + toString(eps));
+			a_str + "=" + toString(a) + " was not equal to " + b_str + "=" + toString(b) + " with eps=" + toString(eps) + " (relative error was " + toString(relative_error) + ")");
 	}
 }
 
