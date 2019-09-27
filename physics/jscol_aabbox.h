@@ -22,7 +22,6 @@ AABBox
 ------
 Axis-aligned bounding box.
 Single-precision floating point.
-Must be 16-byte aligned.
 =====================================================================*/
 class AABBox
 {
@@ -53,8 +52,6 @@ public:
 	inline float volume() const;
 	inline float getSurfaceArea() const;
 	inline float getHalfSurfaceArea() const;
-	bool invariant() const;
-	static void test();
 
 	inline float axisLength(unsigned int axis) const { return max_.x[axis] - min_.x[axis]; }
 	inline unsigned int longestAxis() const;
@@ -65,9 +62,11 @@ public:
 	inline AABBox transformedAABB(const Matrix4f& M) const;
 	inline AABBox transformedAABBFast(const Matrix4f& M) const; // Faster, but with possible precision issues.
 
-
 	const std::string toString() const;
 	const std::string toStringNSigFigs(int n) const;
+
+	bool invariant() const;
+	static void test();
 
 	Vec4f min_;
 	Vec4f max_;
