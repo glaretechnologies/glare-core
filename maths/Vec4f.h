@@ -55,6 +55,8 @@ public:
 
 	inline bool isUnitLength() const;
 
+	inline bool isFinite() const;
+
 	const std::string toString() const;
 	const std::string toStringNSigFigs(int n) const;
 
@@ -470,6 +472,17 @@ INDIGO_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
 {
 	// w component of result = a.w*b.w - a.w*b.w = 0
 	return mul(swizzle<1, 2, 0, 3>(a), swizzle<2, 0, 1, 3>(b)) - mul(swizzle<2, 0, 1, 3>(a), swizzle<1, 2, 0, 3>(b));
+}
+
+
+// This is bascically the vectorised form of isFinite() from mathstypes.h
+bool Vec4f::isFinite() const
+{
+	Vec4f anded = _mm_and_ps(v, bitcastToVec4f(Vec4i(0x7f800000)).v); // c & 0x7f800000
+
+	Vec4i res = _mm_cmplt_epi32(bitcastToVec4i(anded).v, Vec4i(0x7f800000).v); // (c & 0x7f800000) < 0x7f800000
+
+	return _mm_movemask_ps(bitcastToVec4f(res).v) == 0xF; // Return true if the less-than is true for all components.
 }
 
 

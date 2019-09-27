@@ -346,8 +346,25 @@ void Vec4f::test()
 		testAssert(abs(Vec4f(std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity())) == Vec4f(std::numeric_limits<float>::infinity()));
 	}
 
+	// Test isFinite
+	testAssert(Vec4f(1.23f).isFinite());
+	testAssert(Vec4f(0.f).isFinite());
+	testAssert(Vec4f(0.f, 1.f, 2.f, 3.f).isFinite());
+	testAssert(Vec4f(-0.f, -1.f, -2.f, -3.f).isFinite());
 
+	testAssert(!Vec4f(0.f, 1.f, 2.f, -std::numeric_limits<float>::infinity()).isFinite());
+	testAssert(!Vec4f(0.f, 1.f, 2.f, std::numeric_limits<float>::infinity()).isFinite());
+	testAssert(!Vec4f(0.f, 1.f, std::numeric_limits<float>::infinity(), 3.f).isFinite());
+	testAssert(!Vec4f(0.f, std::numeric_limits<float>::infinity(), 2.f, 3.f).isFinite());
+	testAssert(!Vec4f(std::numeric_limits<float>::infinity(), 1.f, 2.f, 3.f).isFinite());
+	testAssert(!Vec4f(std::numeric_limits<float>::infinity()).isFinite());
 
+	testAssert(!Vec4f(0.f, 1.f, 2.f, -std::numeric_limits<float>::quiet_NaN()).isFinite());
+	testAssert(!Vec4f(0.f, 1.f, 2.f, std::numeric_limits<float>::quiet_NaN()).isFinite());
+	testAssert(!Vec4f(0.f, 1.f, std::numeric_limits<float>::quiet_NaN(), 3.f).isFinite());
+	testAssert(!Vec4f(0.f, std::numeric_limits<float>::quiet_NaN(), 2.f, 3.f).isFinite());
+	testAssert(!Vec4f(std::numeric_limits<float>::quiet_NaN(), 1.f, 2.f, 3.f).isFinite());
+	testAssert(!Vec4f(std::numeric_limits<float>::quiet_NaN()).isFinite());
 
 
 	conPrint("================ Perf test dot() ================");

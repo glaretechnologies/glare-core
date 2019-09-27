@@ -142,7 +142,7 @@ bool AABBox::intersectsAABB(const AABBox& other) const
 int AABBox::rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir, 
 						  float& near_hitd_out, float& far_hitd_out) const
 {
-	assert(::isFinite(recip_unitraydir));
+	assert(recip_unitraydir.isFinite());
 
 	// Get ray t values to lower and upper AABB bounds.
 	const Vec4f lower_t = mul(min_ - raystartpos, recip_unitraydir);
