@@ -1302,7 +1302,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
-	PCG32 rng(1);
+	PCG32 rng(2);
 
 	///////////////////////////////////////
 	/*
