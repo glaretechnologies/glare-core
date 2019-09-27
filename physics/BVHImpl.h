@@ -24,6 +24,13 @@ namespace js
 {
 
 
+#define rotatelps(ps)		_mm_shuffle_ps((ps),(ps), 0x39)	// a,b,c,d -> b,c,d,a
+#define muxhps(low,high)	_mm_movehl_ps((low),(high))	// low{a,b,c,d}|high{e,f,g,h} = {c,d,g,h}
+
+#define minss			_mm_min_ss
+#define maxss			_mm_max_ss
+
+
 class BVHImpl
 {
 public:

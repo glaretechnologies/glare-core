@@ -60,7 +60,7 @@ inline static js::AABBox refTransformedAABB(const js::AABBox& aabb, const Matrix
 
 void js::AABBox::test()
 {
-	// Test intersectsAABB
+	//------------------- Test intersectsAABB -------------------
 	{
 		//AABBox box1(Vec4f(1,2,3,1.0f), Vec4f(4,5,6,1.0f));
 		AABBox box1(Vec4f(0.01f,0.01f,0.01f,1), Vec4f(0.99f,0.99f,0.99f,1));
@@ -99,14 +99,14 @@ void js::AABBox::test()
 		box.enlargeToHoldPoint(Vec4f(-10, -20, 0, 1.0f));
 		testAssert(box == AABBox(Vec4f(-10,-20,0, 1.0f), Vec4f(10,20,3, 1.0f)));
 
-		// Test getSurfaceArea()
+		//------------------- Test getSurfaceArea() -------------------
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 10, 1)).getSurfaceArea(), 200.f));
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 10, 20, 1)).getSurfaceArea(), 200.f));
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(10, 20, 20, 1)).getSurfaceArea(), 200.f));
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(10, 10, 10, 1)).getSurfaceArea(), 0.f));
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 20, 1)).getSurfaceArea(), 600.f));
 
-		// Test getHalfSurfaceArea()
+		//------------------- Test getHalfSurfaceArea() -------------------
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 10, 1)).getHalfSurfaceArea(), 100.f));
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 10, 20, 1)).getHalfSurfaceArea(), 100.f));
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(10, 20, 20, 1)).getHalfSurfaceArea(), 100.f));
@@ -114,9 +114,11 @@ void js::AABBox::test()
 		testAssert(::epsEqual(AABBox(Vec4f(10, 10, 10, 1), Vec4f(20, 20, 20, 1)).getHalfSurfaceArea(), 300.f));
 	}
 
+	//------------------- Test rayAABBTrace -------------------
+	const float nearly_zero = 1.0e-30f;
 	{
 		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
-		const Vec4f dir = normalise(Vec4f(0.0f, 0.0f, 1.0f, 0.f));
+		const Vec4f dir = normalise(Vec4f(nearly_zero, nearly_zero, 1.0f, 0.f));
 		const Vec4f recip_dir(1 / dir[0], 1 / dir[1], 1 / dir[2], 0);
 		const Vec4f raystart(0, 0, -1.0f, 1);
 		float near, far;
@@ -127,7 +129,7 @@ void js::AABBox::test()
 	}
 	{
 		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
-		const Vec4f dir = normalise(Vec4f(0.0f, 0.0f, 1.0f, 0.f));
+		const Vec4f dir = normalise(Vec4f(nearly_zero, nearly_zero, 1.0f, 0.f));
 		const Vec4f recip_dir(1 / dir[0], 1 / dir[1], 1 / dir[2], 0);
 		const Vec4f raystart(2.0f, 0,-1.0f, 1.f);
 		float near, far;
@@ -137,7 +139,7 @@ void js::AABBox::test()
 
 	{
 		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
-		const Vec4f dir = normalise(Vec4f(0.0f, 0.0f, 1.0f, 0.f));
+		const Vec4f dir = Vec4f(-nearly_zero, nearly_zero, 1.0f, 0.f); // +z dir
 		const Vec4f recip_dir(1 / dir[0], 1 / dir[1], 1 / dir[2], 0);
 		const Vec4f raystart(1.0f, 0, -1.0f, 1.f);
 		float near, far;

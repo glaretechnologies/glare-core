@@ -9,8 +9,6 @@ File created by ClassTemplate on Thu Nov 18 03:48:29 2004
 
 #include "../maths/Vec4f.h"
 #include "../maths/Matrix4f.h"
-#include "../maths/mathstypes.h"
-#include "../utils/Platform.h"
 #include <limits>
 #include <string>
 
@@ -22,7 +20,7 @@ namespace js
 /*=====================================================================
 AABBox
 ------
-Axis aligned bounding box.
+Axis-aligned bounding box.
 Single-precision floating point.
 Must be 16-byte aligned.
 =====================================================================*/
@@ -48,10 +46,7 @@ public:
 
 	INDIGO_STRONG_INLINE int isEmpty() const; // Returns non-zero if this AABB is empty (e.g. if it has an upper bound < lower bound)
 
-
 	INDIGO_STRONG_INLINE int rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
-
-	INDIGO_STRONG_INLINE void rayAABBTrace(const __m128 pos, const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const;
 
 	inline static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
 
@@ -141,115 +136,40 @@ bool AABBox::intersectsAABB(const AABBox& other) const
 }
 
 
-// From http://www.flipcode.com/archives/SSE_RayBox_Intersection_Test.shtml
-
-const float SSE_ALIGN
-	ps_cst_plus_inf[4]	= {  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity() },
-	ps_cst_minus_inf[4]	= { -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity() };
-
-#define rotatelps(ps)		_mm_shuffle_ps((ps),(ps), 0x39)	// a,b,c,d -> b,c,d,a
-#define muxhps(low,high)	_mm_movehl_ps((low),(high))	// low{a,b,c,d}|high{e,f,g,h} = {c,d,g,h}
-#define minss			_mm_min_ss
-#define maxss			_mm_max_ss
-
-
+// Returns a non-zero value if ray intersects the AABB.  Near and far hit distances are stored in near_hitd_out and far_hitd_out.
+// This code doesn't handle +-Inf components in recip_unitraydir.  These should be filtered out beforehand in Ray::Ray().
+// If we need to handle Infs we can use the NaN filtering technique here: http://www.flipcode.com/archives/SSE_RayBox_Intersection_Test.shtml
+// NOTE: Most recent code below is not thoroughly tested, as is used only in DisplacedQuad and MultiLevelGrid.
 int AABBox::rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir, 
 						  float& near_hitd_out, float& far_hitd_out) const
 {
-	assertSSEAligned(&raystartpos);
-	assertSSEAligned(&recip_unitraydir);
-	assertSSEAligned(&min_);
-	assertSSEAligned(&max_);
+	assert(::isFinite(recip_unitraydir));
 
-	// you may already have those values hanging around somewhere
-	const SSE4Vec
-		plus_inf	= load4Vec(ps_cst_plus_inf),
-		minus_inf	= load4Vec(ps_cst_minus_inf);
-	
-	// Load using _mm_set1_ps, to avoid having ps_cst_plus_inf memory in every translaton unit that includes jscol_aabbox.h
-	//const SSE4Vec plus_inf = _mm_set1_ps(std::numeric_limits<float>::infinity());
-	//const SSE4Vec minus_inf = _mm_set1_ps(-std::numeric_limits<float>::infinity());
+	// Get ray t values to lower and upper AABB bounds.
+	const Vec4f lower_t = mul(min_ - raystartpos, recip_unitraydir);
+	const Vec4f upper_t = mul(max_ - raystartpos, recip_unitraydir);
 
-	// use whatever's apropriate to load.
-	const SSE4Vec
-		box_min	= min_.v, // load4Vec(&min_.x),
-		box_max	= max_.v, // load4Vec(&max_.x),
-		pos	= raystartpos.v, // load4Vec(&raystartpos.x),
-		inv_dir	= recip_unitraydir.v; // load4Vec(&recip_unitraydir.x);
+	// Get min and max t values for each axis.
+	const Vec4f maxt = max(lower_t, upper_t);
+	const Vec4f mint = min(lower_t, upper_t);
 
-	// use a div if inverted directions aren't available
-	const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, pos), inv_dir);
-	const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, pos), inv_dir);
+	// Get min of maxt values over all axes, likewise get max of mint values over all axes.
+	// TODO: interleave calculations below like TBB code? (or will compiler do it?)
+	const Vec4f maxt_1 = shuffle<1, 2, 2, 2>(maxt, maxt);     // (maxt_1, maxt_2, maxt_2, maxt_2)
+	const Vec4f maxt_2 = min(maxt, maxt_1);                   // (min(maxt_0, maxt_1), min(maxt_1, maxt_2), min(maxt_2, maxt_2), min(maxt_3, maxt_2))
+	const Vec4f maxt_3 = shuffle<1, 1, 1, 1>(maxt_2, maxt_2); // (min(maxt_1, maxt_2), min(maxt_1, maxt_2), min(maxt_1, maxt_2), min(maxt_1, maxt_2))
+	const Vec4f maxt_4 = min(maxt_2, maxt_3);                 // (min(maxt_0, maxt_1, maxt_2), ...)
 
-	// the order we use for those min/max is vital to filter out
-	// NaNs that happens when an inv_dir is +/- inf and
-	// (box_min - pos) is 0. inf * 0 = NaN
+	const Vec4f mint_1 = shuffle<1, 2, 2, 2>(mint, mint);     // (mint_1, mint_0, mint_3, mint_2)
+	const Vec4f mint_2 = max(mint, mint_1);                   // (max(mint_0, mint_1), max(mint_1, mint_2), max(mint_2, mint_2), max(mint_3, mint_2))
+	const Vec4f mint_3 = shuffle<1, 1, 1, 1>(mint_2, mint_2); // (max(mint_1, mint_2), max(mint_1, mint_2), max(mint_1, mint_2), max(mint_1, mint_2))
+	const Vec4f mint_4 = max(mint_2, mint_3);                 // (max(mint_0, mint_1, mint_2), ...)
 
-	// Nick's notes:
-	// "Note that if only one value is a NaN for this instruction, the source operand (second operand) value 
-	// (either NaN or valid floating-point value) is written to the result."
-	// So if l1 is a NaN, then filtered_l1a := +Inf
-	const SSE4Vec filtered_l1a = min4Vec(l1, plus_inf);
-	const SSE4Vec filtered_l2a = min4Vec(l2, plus_inf);
+	near_hitd_out = elem<0>(mint_4); // near hit dist is max of min hit distances on all axes
+	far_hitd_out  = elem<0>(maxt_4); // far hit dist is min of max hit distances on all axes.
 
-	const SSE4Vec filtered_l1b = max4Vec(l1, minus_inf);
-	const SSE4Vec filtered_l2b = max4Vec(l2, minus_inf);
-
-	// now that we're back on our feet, test those slabs.
-	SSE4Vec lmax = max4Vec(filtered_l1a, filtered_l2a);
-	SSE4Vec lmin = min4Vec(filtered_l1b, filtered_l2b);
-
-	// unfold back. try to hide the latency of the shufps & co.
-	const SSE4Vec lmax0 = rotatelps(lmax);
-	const SSE4Vec lmin0 = rotatelps(lmin);
-	lmax = minss(lmax, lmax0);
-	lmin = maxss(lmin, lmin0);
-
-	const SSE4Vec lmax1 = muxhps(lmax,lmax);
-	const SSE4Vec lmin1 = muxhps(lmin,lmin);
-	lmax = minss(lmax, lmax1);
-	lmin = maxss(lmin, lmin1);
-
-	const int ret = _mm_comige_ss(lmax, _mm_setzero_ps()) & _mm_comige_ss(lmax,lmin);
-
-	storeLowWord(lmin, &near_hitd_out);
-	storeLowWord(lmax, &far_hitd_out);
-
-	return ret;
-}
-
-
-void AABBox::rayAABBTrace(const __m128 pos , const __m128 inv_dir, __m128& near_t_out, __m128& far_t_out) const
-{
-	assertSSEAligned(&min_);
-	assertSSEAligned(&max_);
-
-	// use whatever's apropriate to load.
-	const SSE4Vec
-		box_min	= min_.v, // load4Vec(&min_.x),
-		box_max	= max_.v; // load4Vec(&max_.x);
-
-	// use a div if inverted directions aren't available
-	const SSE4Vec l1 = mult4Vec(sub4Vec(box_min, pos), inv_dir); // l1.x = (box_min.x - pos.x) / dir.x [distances along ray to slab minimums]
-	const SSE4Vec l2 = mult4Vec(sub4Vec(box_max, pos), inv_dir); // l1.x = (box_max.x - pos.x) / dir.x [distances along ray to slab maximums]
-
-	// now that we're back on our feet, test those slabs.
-	SSE4Vec lmax = max4Vec(l1, l2); //max4Vec(filtered_l1a, filtered_l2a);
-	SSE4Vec lmin = min4Vec(l1, l2); //min4Vec(filtered_l1b, filtered_l2b);
-
-	// unfold back. try to hide the latency of the shufps & co.
-	const SSE4Vec lmax0 = rotatelps(lmax);
-	const SSE4Vec lmin0 = rotatelps(lmin);
-	lmax = minss(lmax, lmax0);
-	lmin = maxss(lmin, lmin0);
-
-	const SSE4Vec lmax1 = muxhps(lmax,lmax);
-	const SSE4Vec lmin1 = muxhps(lmin,lmin);
-	lmax = minss(lmax, lmax1);
-	lmin = maxss(lmin, lmin1);
-
-	near_t_out = lmin;
-	far_t_out = lmax;
+	// If far hit dist is >= 0 and far hit dist is >= near hit dist, then the ray intersected the AABB.
+	return _mm_comige_ss(maxt_4.v, _mm_setzero_ps()) & _mm_comige_ss(maxt_4.v, mint_4.v);
 }
 
 
