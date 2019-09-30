@@ -7,7 +7,6 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "OpenCL.h"
-#include "OpenCLProgramCache.h"
 #include "ConPrint.h"
 
 
@@ -22,7 +21,6 @@ OpenCLContext::OpenCLContext(cl_platform_id platform_id)
 	};
 
 	cl_int error_code;
-
 	this->context = ::getGlobalOpenCL()->clCreateContextFromType(
 		cps, // properties
 		CL_DEVICE_TYPE_ALL, // device type
@@ -32,15 +30,11 @@ OpenCLContext::OpenCLContext(cl_platform_id platform_id)
 	);
 	if(this->context == 0)
 		throw Indigo::Exception("clCreateContextFromType failed: " + OpenCL::errorString(error_code));
-
-	program_cache = new OpenCLProgramCache();
 }
 
 
 OpenCLContext::~OpenCLContext()
 {
-	program_cache = NULL; // Destroy program cache
-
 	if(::getGlobalOpenCL()->clReleaseContext(context) != CL_SUCCESS)
 	{
 		assert(0);

@@ -21,8 +21,10 @@ OpenCLProgramCache
 ------------------
 Caches OpenCL program binaries on disk, and in memory.
 Especially useful for AMD drivers which don't seem to do caching themselves.
+
+Built programs are OpenCL context-specific.
 =====================================================================*/
-class OpenCLProgramCache : public RefCounted
+class OpenCLProgramCache : public ThreadSafeRefCounted
 {
 public:
 	// Caches based on a key made from program_source and compile_options.
@@ -43,7 +45,7 @@ public:
 	Results getOrBuildProgram(
 		const std::string cachedir_path,
 		const std::string& program_source,
-		OpenCLContextRef opencl_context,
+		OpenCLContextRef& opencl_context,
 		const std::vector<OpenCLDeviceRef>& devices, // all devices must share the same platform
 		const std::string& compile_options,
 		std::string& build_log_out
@@ -52,3 +54,16 @@ public:
 	Mutex mem_cache_mutex;
 	std::map<uint64, OpenCLProgramRef> mem_cache;
 };
+
+
+typedef Reference<OpenCLProgramCache> OpenCLProgramCacheRef;
+
+
+struct OpenCLProgramCacheAndContext : ThreadSafeRefCounted
+{
+	OpenCLProgramCacheRef program_cache;
+	OpenCLContextRef context;
+};
+
+
+typedef Reference<OpenCLProgramCacheAndContext> OpenCLProgramCacheAndContextRef;

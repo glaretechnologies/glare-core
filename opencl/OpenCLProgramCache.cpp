@@ -95,7 +95,7 @@ bool OpenCLProgramCache::isProgramInCache(
 OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 		const std::string cachedir_path,
 		const std::string& program_source,
-		OpenCLContextRef opencl_context,
+		OpenCLContextRef& opencl_context,
 		const std::vector<OpenCLDeviceRef>& selected_devices_on_plat, // all devices must share the same platform
 		const std::string& compile_options,
 		std::string& build_log_out

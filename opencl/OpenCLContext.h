@@ -9,7 +9,6 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 
-
 #ifdef OSX
 #include <OpenCL/cl.h>
 #include <OpenCL/cl_platform.h>
@@ -17,9 +16,6 @@ Copyright Glare Technologies Limited 2016 -
 #include <CL/cl.h>
 #include <CL/cl_platform.h>
 #endif
-
-
-class OpenCLProgramCache;
 
 
 /*=====================================================================
@@ -35,8 +31,6 @@ public:
 
 	cl_context getContext() { return context; }
 
-	Reference<OpenCLProgramCache> program_cache; // Built programs are OpenCL context-specific.  So the context will own the program cache, so that
-	// the lifetime of programs in the in-memory cache is <= the lifetime of the context.
 private:
 	cl_context context;
 };
