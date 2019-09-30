@@ -282,7 +282,7 @@ void js::AABBox::test()
 		
 		
 		const AABBox box(Vec4f(0.2f,0.2f,0.2f,1), Vec4f(1,1,1,1));
-		const Vec4f dir = normalise(Vec4f(0.0f, 0.0f, 1.0f, 0.f));
+		const Vec4f dir = normalise(Vec4f(0.1f, 0.1f, 1.0f, 0.f));
 		const Vec4f recip_dir(1 / dir[0], 1 / dir[1], 1 / dir[2], 0);
 
 		const int trials = 5;
