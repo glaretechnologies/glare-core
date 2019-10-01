@@ -727,6 +727,8 @@ void runPipelineFullBuffer(
 				/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
 
 			oidnSetFilter1b(scratch_state.filter, "hdr", true);
+			conPrint("Setting maxMemoryMB to " + toString(myMax(100, renderer_settings.denoising_max_memory_mb)));
+			oidnSetFilter1i(scratch_state.filter, "maxMemoryMB", myMax(100, renderer_settings.denoising_max_memory_mb));
 
 			Timer timer;
 			oidnCommitFilter(scratch_state.filter);
