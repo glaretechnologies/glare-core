@@ -35,6 +35,9 @@ private:
 };
 
 
+Vec4f closestPointOnTri(const Vec4f& p, const Vec4f& v0, const Vec4f& v1, const Vec4f& v2); // Point may be off triangle plane.
+
+
 Triangle::Triangle(const Vec4f& v0_, const Vec4f& e1_, const Vec4f& e2_, const Vec4f& normal_)
 {
 	assert(v0_[3] == 1.f);

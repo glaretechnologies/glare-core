@@ -83,6 +83,56 @@ bool js::Triangle::pointInTri(const Vec4f& point) const
 }
 
 
+// Point may be off triangle plane.
+Vec4f js::closestPointOnTri(const Vec4f& p, const Vec4f& v0, const Vec4f& v1, const Vec4f& v2)
+{
+	assert(p [3] == 1.f);
+	assert(v0[3] == 1.f);
+	assert(v1[3] == 1.f);
+	assert(v2[3] == 1.f);
+
+	const Vec4f v0v1 = v1 - v0;
+	const Vec4f v1v2 = v2 - v1;
+	const Vec4f v2v0 = v0 - v2;
+
+	const Vec4f n = crossProduct(v0v1, v1v2); // unnormalised normal.
+
+	// Test point against edge normals, if point is outside any edge plane it is outside the triangle prism.
+	if(	(dot(crossProduct(v0v1, n), p - v0) > 0) ||
+		(dot(crossProduct(v1v2, n), p - v1) > 0) ||
+		(dot(crossProduct(v2v0, n), p - v2) > 0))
+	{
+		// Outside triangle prism, so closest point on triangle lies on one of the three edge lines.
+		const Vec4f c0 = closestPointOnLine(v0, v0v1, p);
+		const Vec4f c1 = closestPointOnLine(v1, v1v2, p);
+		const Vec4f c2 = closestPointOnLine(v2, v2v0, p);
+
+		const float d0 = c0.getDist2(p);
+		const float d1 = c1.getDist2(p);
+		const float d2 = c2.getDist2(p);
+
+		if(d0 < d1)
+		{
+			if(d0 < d2)
+				return c0;
+			else // else d2 <= d0
+				return c2;
+		}
+		else // else d1 <= d0
+		{
+			if(d1 < d2)
+				return c1;
+			else // else d2 <= d1
+				return c2;
+		}
+	}
+	else // Else inside tri prism, just project point onto triangle plane.
+	{
+		return p - n * (dot(p - v0, n) / n.length2());
+	}
+}
+
+
 #if BUILD_TESTS
 
 
@@ -109,7 +159,34 @@ void js::Triangle::test()
 	testAssert(epsEqual(closestPointOnLine(Vec4f(2, 2, 0, 1), Vec4f(5, 0, 0, 0), Vec4f(7, 10, 0, 1)), Vec4f(7, 2, 0, 1)));
 
 
-	//----------------------- Test closestPointOnTriangle() --------------------------------
+	//----------------------- Test closestPointOnTri() (static func that handles points off plane) -----------------------
+	{
+		Vec4f v0(1, 1, 0, 1);
+		Vec4f v1(5, 1, 0, 1);
+		Vec4f v2(5, 5, 0, 1);
+
+		// Test various points outside the triangle prism
+
+		testAssert(epsEqual(closestPointOnTri(Vec4f(0.5, 0.5, 3.f, 1), v0, v1, v2), v0));
+		testAssert(epsEqual(closestPointOnTri(Vec4f(0.5, 1.2, -3.f, 1), v0, v1, v2), v0));
+
+		testAssert(epsEqual(closestPointOnTri(Vec4f(3.4354f, 0.5, 3.f, 1), v0, v1, v2), Vec4f(3.4354f, 1.f, 0, 1)));
+
+		testAssert(epsEqual(closestPointOnTri(Vec4f(5.2, 0.5, -3.f, 1), v0, v1, v2), v1));
+
+		testAssert(epsEqual(closestPointOnTri(Vec4f(5.2f, 4.45463f, -3.f, 1), v0, v1, v2), Vec4f(5, 4.45463f, 0, 1)));
+
+		testAssert(epsEqual(closestPointOnTri(Vec4f(5.2f, 5.2f, -3.f, 1), v0, v1, v2), v2));
+
+		testAssert(epsEqual(closestPointOnTri(Vec4f(2, 4, -3.f, 1), v0, v1, v2), Vec4f(3, 3, 0, 1)));
+
+		// Test some points inside the triangle prism
+		testAssert(epsEqual(closestPointOnTri(Vec4f(2.4545f, 1.2543564f, 3.f, 1), v0, v1, v2), Vec4f(2.4545f, 1.2543564f, 0, 1)));
+		testAssert(epsEqual(closestPointOnTri(Vec4f(4.4545f, 3.2543564f, -3.f, 1), v0, v1, v2), Vec4f(4.4545f, 3.2543564f, 0, 1)));
+	}
+
+
+	//----------------------- Test closestPointOnTriangle() -----------------------
 	{
 		Vec4f v0(3, 2, 0, 1);
 		Vec4f v1(13, 4, 0, 1);
