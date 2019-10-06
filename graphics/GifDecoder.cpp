@@ -57,20 +57,6 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 		if(res != GIF_OK)
 			throw ImFormatExcep("failed to process gif file.");
 
-		// Get image dimensions
-		if(gif_file->SWidth <= 0 || gif_file->SWidth > 1000000)
-			throw ImFormatExcep("Invalid image width.");
-		if(gif_file->SHeight <= 0 || gif_file->SHeight > 1000000)
-			throw ImFormatExcep("Invalid image height.");
-		if(gif_file->ImageCount < 1)
-			throw ImFormatExcep("Invalid ImageCount.");
-
-		const size_t w = (size_t)gif_file->SWidth;
-		const size_t h = (size_t)gif_file->SHeight;
-
-		Reference<ImageMap<uint8, UInt8ComponentValueTraits> > image_map = new ImageMap<uint8, UInt8ComponentValueTraits>(w, h, 3);
-		image_map->setGamma((float)2.2f);
-
 		// Get the current palette:
 		ColorMapObject* colour_map = NULL;
 		if(gif_file->SColorMap) // Use global colormap, if it exists.
@@ -83,6 +69,21 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 
 		// Decode colours from Palette
 		const SavedImage* const image_0 = &gif_file->SavedImages[0];
+
+		// Get image dimensions
+		if(image_0->ImageDesc.Width <= 0 || image_0->ImageDesc.Width > 1000000)
+			throw ImFormatExcep("Invalid image width.");
+		if(image_0->ImageDesc.Height <= 0 || image_0->ImageDesc.Height > 1000000)
+			throw ImFormatExcep("Invalid image height.");
+		if(gif_file->ImageCount < 1)
+			throw ImFormatExcep("Invalid ImageCount.");
+
+		const size_t w = (size_t)image_0->ImageDesc.Width;
+		const size_t h = (size_t)image_0->ImageDesc.Height;
+
+		Reference<ImageMap<uint8, UInt8ComponentValueTraits> > image_map = new ImageMap<uint8, UInt8ComponentValueTraits>(w, h, 3);
+		image_map->setGamma((float)2.2f);
+
 		const GifColorType* const colours = colour_map->Colors;
 		uint8* const dest = image_map->getData();
 		
@@ -90,8 +91,9 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 		for(size_t i=0; i<num_pixels; ++i)
 		{
 			const uint8 c = image_0->RasterBits[i];
-			if(c >= colour_map->ColorCount)
-				throw ImFormatExcep("Colour index out of bounds.");
+			// Is this colour index guaranteed to be in-bounds for giflib?
+			//if(c >= colour_map->ColorCount)
+			//	throw ImFormatExcep("Colour index out of bounds.");
 			dest[i*3 + 0] = colours[c].Red;
 			dest[i*3 + 1] = colours[c].Green;
 			dest[i*3 + 2] = colours[c].Blue;
@@ -116,10 +118,13 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 
 
 #include "../indigo/TestUtils.h"
+#include "../utils/ConPrint.h"
 
 
 void GIFDecoder::test()
 {
+	conPrint("GIFDecoder::test()");
+
 	try
 	{
 		Reference<Map2D> im;
@@ -144,19 +149,19 @@ void GIFDecoder::test()
 		failTest(e.what());
 	}
 
-	// Test that failure to load an image is handled gracefully.
-
-
-	// This file has palette index out of bounds
+	// This file has a 'virtual canvas' size of 480x480, but the actual image (image 0 at least) is 479x479.
 	try
 	{
-		GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif");
-
-		failTest("Shouldn't get here.");
+		Reference<Map2D> im = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif");
+		testAssert(im->getMapWidth() == 479);
+		testAssert(im->getMapHeight() == 479);
 	}
-	catch(ImFormatExcep&)
+	catch(ImFormatExcep& e)
 	{
+		failTest(e.what());
 	}
+
+	// Test that failure to load an image is handled gracefully.
 
 	// Try with an invalid path
 	try
@@ -177,6 +182,8 @@ void GIFDecoder::test()
 	}
 	catch(ImFormatExcep&)
 	{}
+
+	conPrint("GIFDecoder::test() done.");
 }
 
 
