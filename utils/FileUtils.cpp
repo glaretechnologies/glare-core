@@ -21,6 +21,7 @@ Code By Nicholas Chapman.
 #endif
 
 #include "StringUtils.h"
+#include "ContainerUtils.h"
 #include "MemMappedFile.h"
 #include "Exception.h"
 #include "PlatformUtils.h"
@@ -821,6 +822,60 @@ bool isPathAbsolute(const std::string& p)
 }
 
 
+// Split path into components.
+static void splitPath(const std::string& pathname_, std::vector<std::string>& comps_out)
+{
+	std::string pathname = pathname_;
+#if defined(_WIN32)
+	replaceChar(pathname, '\\', '/'); // Change \ to / so we can just search for /.
+#endif
+
+	std::string::size_type start = 0;
+	while(1)
+	{
+		const std::string::size_type delimpos = pathname.find_first_of('/', start);
+		if(delimpos == std::string::npos)
+		{
+			if(pathname.size() > start) // Don't push zero-length components.  This prevents e.g "/" being split into two components.
+				comps_out.push_back(pathname.substr(start, pathname.size() - start));
+			return;
+		}
+		else if(delimpos > start) // Don't push zero-length components.  This prevents e.g "/" being split into two components.
+		{
+			comps_out.push_back(pathname.substr(start, delimpos - start));
+		}
+		start = delimpos + 1;
+	}
+}
+
+
+// 'Normalise' paths by getting rid of ".." and "." dirs.  Returns components of the normalised path.
+static void getNormalisedSplitPath(const std::string& unnormalised_dir_path, std::vector<std::string>& result_path_comps_out)
+{
+	std::vector<std::string> path_comps;
+	splitPath(unnormalised_dir_path, path_comps);
+
+	result_path_comps_out.reserve(path_comps.size());
+
+	for(int z=0; z<path_comps.size(); ++z)
+	{
+		if(path_comps[z] == ".")
+		{
+			// Has no effective change to dir
+		}
+		else if(path_comps[z] == "..")
+		{
+			// Remove last dir (go up one dir)
+			if(result_path_comps_out.empty())
+				throw FileUtilsExcep("Invalid path to dir: '" + unnormalised_dir_path + "'");
+			result_path_comps_out.pop_back();
+		}
+		else
+			result_path_comps_out.push_back(path_comps[z]);
+	}
+}
+
+
 /*
 Returns a path to path_b that is relative to dir_path.
 If path_b is already relative, it just returns path_b.
@@ -835,39 +890,42 @@ c:/a/b/e/f/g
 
 Note: Could also implement this with platform APIs like PathRelativePathTo.
 */
-const std::string getRelativePath(const std::string& dir_path, const std::string& path_b)
+const std::string getRelativePath(const std::string& unnormalised_dir_path, const std::string& unnormalised_path_b)
 {
-	if(!isPathAbsolute(path_b)) // If path_b is already relative, just return path_b.
-		return path_b;
+	if(unnormalised_dir_path.empty())
+		throw FileUtilsExcep("Invalid dir path: is empty.");
 
-	// Get length of prefix for both strings that is the same.
-	const size_t min_len = myMin(dir_path.size(), path_b.size());
-	size_t pre_len = 0;
-	for(; pre_len < min_len && ((dir_path[pre_len] == path_b[pre_len]) || (OSTreatsAsDirSeparator(dir_path[pre_len]) && OSTreatsAsDirSeparator(path_b[pre_len]))); ++pre_len)
-	{}
+	if(!isPathAbsolute(unnormalised_path_b)) // If path_b is already relative, just return path_b.
+		return unnormalised_path_b;
 
-	if(pre_len == 0)
+	// 'Normalise' paths by getting rid of ".." and "." dirs.  This will allows us to compare the path prefixes.
+	std::vector<std::string> dir_path_comps, path_b_comps;
+	getNormalisedSplitPath(unnormalised_dir_path, dir_path_comps);
+	getNormalisedSplitPath(unnormalised_path_b,   path_b_comps);
+	
+	// Get length of prefix (in number of components) for both strings that is the same.
+	const size_t pre_len = ContainerUtils::longestCommonPrefixLength(dir_path_comps, path_b_comps);
+
+	// Not sharing a common prefix is acceptable with a Unix path, since both paths have the same root.
+	// For a Windows path, it implies a different drive, which means we can't get a relative path.
+	if(pre_len == 0 && unnormalised_dir_path[0] != '\\') 
 		throw FileUtilsExcep("paths do not share a common prefix.");
 
-	// Work out number of directories we need to walk up out of dir_path
-	std::string rel_path;
-	if(pre_len < dir_path.size())
-		rel_path += std::string("..") + PLATFORM_DIR_SEPARATOR;
-
-	for(size_t i=pre_len; i<dir_path.size(); ++i)
-		if(dir_path[i] == PLATFORM_DIR_SEPARATOR_CHAR && (i + 1 != dir_path.size())) // If this is a slash char and not a trailing slash:
-			rel_path += std::string("..") + PLATFORM_DIR_SEPARATOR;
-
-	// Work out starting position in path_b to use.  Skip leading slash.
-	size_t path_b_start = pre_len;
-	if(path_b_start < path_b.size() && OSTreatsAsDirSeparator(path_b[path_b_start]))
-		path_b_start++;
-
-	if(path_b_start >= path_b.size())
+	if(pre_len == dir_path_comps.size() && (dir_path_comps.size() == path_b_comps.size())) // If the length of the common prefix was equal to dir_path_comps, and that was equal in length to path_b_comps, then they are the same.
+	{
+		assert(dir_path_comps == path_b_comps);
 		throw FileUtilsExcep("path_b was the same as dir_path.");
+	}
+
+	// Work out number of directories we need to walk up out of dir_path.  We need to walk up out of each directory that is not shared (e.g. past the common prefix).
+	const size_t num_ups = dir_path_comps.size() - pre_len;
+
+	std::vector<std::string> rel_path_comps(num_ups, ".."); // Make a path that starts with going up num_ups times.
 
 	// Now append the rest of path_b:
-	return rel_path + path_b.substr(path_b_start);
+	rel_path_comps.insert(/*where=*/rel_path_comps.end(), /*first=*/path_b_comps.begin() + pre_len, /*last=*/path_b_comps.end());
+
+	return StringUtils::join(rel_path_comps, std::string(PLATFORM_DIR_SEPARATOR));
 }
 
 
@@ -1273,7 +1331,7 @@ void doUnitTests()
 		testGetRelativePathWithConvertedSlashes("/", "/a", "a");
 		testGetRelativePathWithConvertedSlashes("/a", "/b", "../b");
 
-		testGetRelativePathExpectedFailure("/a/b/c", "/a/b/c");
+		testGetRelativePathExpectedFailure("/a/b/c", "/a/b/c"); // Should fail because c can't be both a dir and file.
 
 		testGetRelativePathExpectedFailure("", "/a/b/c"); // first arg can't be empty.
 		//testGetRelativePathWithConvertedSlashes("/a/b/c", "", "");
@@ -1284,6 +1342,45 @@ void doUnitTests()
 		// When the second arg is already a relative path, it should just be returned directly.
 		testGetRelativePathWithConvertedSlashes("c:/a/b", "e/f/g", "e/f/g");
 		testGetRelativePathWithConvertedSlashes("c:/a/b", "e", "e");
+
+
+		//---------------- Test with the special dirs '.' and '..' in the input paths. ---------------------
+		// Test '.' not in shared prefix.
+		testGetRelativePathWithConvertedSlashes("z:/a/b/q",   "z:/c/d", "../../../c/d");
+		testGetRelativePathWithConvertedSlashes("z:/a/b/./q", "z:/c/d", "../../../c/d"); // equivalent to test above.
+
+		// Test '..' not in shared prefix.
+		testGetRelativePathWithConvertedSlashes("z:/a/q",      "z:/c/d", "../../c/d");
+		testGetRelativePathWithConvertedSlashes("z:/a/b/../q", "z:/c/d", "../../c/d"); // equivalent to test above.
+
+		// Test '.' in shared path prefix.
+		testGetRelativePathWithConvertedSlashes("z:/a/b",   "z:/a/b/c", "c");
+		testGetRelativePathWithConvertedSlashes("z:/a/./b", "z:/a/b/c", "c");// equivalent to test above.
+
+		// Test '..' in shared path prefix.
+		testGetRelativePathWithConvertedSlashes("z:/b",      "z:/b/c", "c");
+		testGetRelativePathWithConvertedSlashes("z:/a/../b", "z:/b/c", "c");// equivalent to test above.
+
+
+		// Test '.' not in shared prefix.
+		testGetRelativePathWithConvertedSlashes("z:/a/b/q", "z:/c/d",   "../../../c/d");
+		testGetRelativePathWithConvertedSlashes("z:/a/b/q", "z:/c/./d", "../../../c/d"); // equivalent to test above.
+
+		// Test '..' not in shared prefix.
+		testGetRelativePathWithConvertedSlashes("z:/a/q", "z:/c/d",      "../../c/d");
+		testGetRelativePathWithConvertedSlashes("z:/a/q", "z:/c/q/../d", "../../c/d"); // equivalent to test above.
+
+		// Test '.' in shared path prefix.
+		testGetRelativePathWithConvertedSlashes("z:/a/b", "z:/a/b/c",   "c");
+		testGetRelativePathWithConvertedSlashes("z:/a/b", "z:/a/./b/c", "c");// equivalent to test above.
+
+		// Test '..' in shared path prefix.
+		testGetRelativePathWithConvertedSlashes("z:/a/b", "z:/a/b/c",           "c");
+		testGetRelativePathWithConvertedSlashes("z:/a/b", "z:/a/q/../b/c",      "c");// equivalent to test above.
+		testGetRelativePathWithConvertedSlashes("z:/a/b", "z:/a/q/z/../../b/c", "c");// equivalent to test above.
+
+		// Test invalid paths due to going 'up' too far.
+		testGetRelativePathExpectedFailure("/a/../../", "/a/b/c");
 
 #if defined(_WIN32)
 

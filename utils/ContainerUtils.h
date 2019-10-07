@@ -8,6 +8,7 @@ Contains some convenience methods for working with std::vectors, std::sets etc..
 #pragma once
 
 
+#include "../maths/mathstypes.h"
 #include <vector>
 #include <set>
 
@@ -34,6 +35,18 @@ bool contains(const std::vector<T>& v, T target)
 		if(v[i] == target)
 			return true;
 	return false;
+}
+
+
+// Get the length of the longest common prefix of the two vectors.
+template <typename T>
+size_t longestCommonPrefixLength(const std::vector<T>& a, const std::vector<T>& b)
+{
+	const size_t min_len = myMin(a.size(), b.size());
+	size_t pre_len = 0;
+	for(; pre_len < min_len && (a[pre_len] == b[pre_len]); ++pre_len)
+	{}
+	return pre_len;
 }
 
 
