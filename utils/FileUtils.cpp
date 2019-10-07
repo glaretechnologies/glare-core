@@ -857,7 +857,7 @@ static void getNormalisedSplitPath(const std::string& unnormalised_dir_path, std
 
 	result_path_comps_out.reserve(path_comps.size());
 
-	for(int z=0; z<path_comps.size(); ++z)
+	for(size_t z=0; z<path_comps.size(); ++z)
 	{
 		if(path_comps[z] == ".")
 		{
