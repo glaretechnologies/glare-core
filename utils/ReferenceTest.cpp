@@ -300,7 +300,16 @@ void run()
 		{
 			Reference<TestClass> t(new TestClass(&i));
 		
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wself-assign-overloaded"
+#endif
+		
 			t = t;
+			
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
 		}
 		testAssert(i == 0);
 

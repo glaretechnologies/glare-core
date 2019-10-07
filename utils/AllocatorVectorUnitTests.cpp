@@ -254,8 +254,17 @@ void AllocatorVectorUnitTests::test()
 			10, // count
 			123 // val
 		);
+		
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wself-assign-overloaded"
+#endif
 
 		v = v;
+		
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
 
 		testAssert(v.size() == 10);
 		for(size_t i=0; i<v.size(); ++i)
