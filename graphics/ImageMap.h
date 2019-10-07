@@ -129,13 +129,13 @@ public:
 	inline virtual Reference<Map2D> extractChannelZero() const;
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
-
+#if MAP2D_FILTERING_SUPPORT
 	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
 	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const;
 
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
-
+#endif
 	inline virtual size_t getBytesPerPixel() const;
 
 	inline virtual size_t getByteSize() const;
@@ -636,6 +636,9 @@ Reference<Image> ImageMap<V, VTraits>::convertToImage() const
 }
 
 
+#if MAP2D_FILTERING_SUPPORT
+
+
 template <class V, class VTraits>
 Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
 {
@@ -793,6 +796,9 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 
 	return Reference<ImageMapFloat>(image);
 }
+
+
+#endif // MAP2D_FILTERING_SUPPORT
 
 
 template <class V, class VTraits>

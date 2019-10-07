@@ -380,6 +380,9 @@ void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
 }*/
 
 
+#if MAP2D_FILTERING_SUPPORT
+
+
 // trims off border before collapsing
 void Image::collapseSizeBoxFilter(int factor/*, int border_width*/)
 {
@@ -477,6 +480,9 @@ void Image::collapseImage(int factor, int border_width, const FilterFunction& fi
 		}
 	}
 }
+
+
+#endif 
 
 
 size_t Image::getByteSize() const
@@ -658,6 +664,9 @@ Reference<ImageMap<float, FloatComponentValueTraits> > Image::extractChannelZero
 }
 
 
+#if MAP2D_FILTERING_SUPPORT
+
+
 Reference<Map2D> Image::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
 {
 	// Blur the image
@@ -721,6 +730,9 @@ Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_heig
 	assert(0);
 	return NULL;
 }
+
+
+#endif
 
 
 size_t Image::getBytesPerPixel() const

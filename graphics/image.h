@@ -124,11 +124,13 @@ public:
 
 	virtual Reference<Image> convertToImage() const;
 
+#if MAP2D_FILTERING_SUPPORT
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const;
 
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
+#endif
 
 	virtual size_t getBytesPerPixel() const;
 

@@ -65,8 +65,10 @@ public:
 
 	virtual Reference<Image> convertToImage() const = 0;
 
+	// Put various Map2D functions behind the MAP2D_FILTERING_SUPPORT flag.  
+	// This is so programs can use Map2D, ImageMap etc..without having to compile in TaskManager support, GaussianImageFilter support etc..
+#if MAP2D_FILTERING_SUPPORT
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const = 0;
-
 
 	// Return a new, resized version of this image.
 	// Should have maximum dimensions of 'width', while maintaining aspect ratio.
@@ -79,6 +81,7 @@ public:
 	// Scaling is assumed to be mostly the same in each dimension.
 	// Resizing is medium quality, as it needs to be fast for large images (env maps)
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const = 0;
+#endif
 
 	virtual size_t getBytesPerPixel() const = 0; // Get the uncompressed number of bytes per pixel.
 

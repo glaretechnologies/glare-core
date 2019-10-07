@@ -22,6 +22,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 template void writeToStream(const ImageMap<float, FloatComponentValueTraits>& im, OutStream& stream);
 template void readFromStream(InStream& stream, ImageMap<float, FloatComponentValueTraits>& image);
 
+#if MAP2D_FILTERING_SUPPORT
 #if OPENEXR_SUPPORT
 template Reference<Map2D> ImageMap<half,   HalfComponentValueTraits>  ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
 #endif
@@ -32,6 +33,8 @@ template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMi
 template void ImageMap<float, FloatComponentValueTraits>::downsampleImage(const size_t factor, const size_t border_width, const size_t filter_span,
 	const float * const resize_filter, const float pre_clamp, const ImageMap<float, FloatComponentValueTraits>& img_in, 
 	ImageMap<float, FloatComponentValueTraits>& img_out, Indigo::TaskManager& task_manager);
+
+#endif // MAP2D_FILTERING_SUPPORT
 
 template double ImageMap<float, FloatComponentValueTraits>::averageLuminance() const;
 
@@ -70,6 +73,8 @@ void readFromStream(InStream& stream, ImageMap<V, VTraits>& image)
 	stream.readData((void*)image.getData(), (size_t)w * (size_t)h * (size_t)N * sizeof(V));
 }
 
+
+#if MAP2D_FILTERING_SUPPORT
 
 template <class V, class VTraits>
 class ResizeMidQualityTask : public Indigo::Task
@@ -338,6 +343,9 @@ void ImageMap<V, VTraits>::downsampleImage(const size_t ssf, const size_t margin
 
 	task_manager.runParallelForTasks<DownsampleImageMapTask<V>, DownsampleImageMapTaskClosure<V> >(closure, 0, out_yres);
 }
+
+
+#endif // MAP2D_FILTERING_SUPPORT
 
 
 template <class V, class VTraits>
