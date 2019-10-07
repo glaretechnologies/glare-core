@@ -110,7 +110,14 @@ bool operator < (const Name &x, const Name &y);
 inline Name &
 Name::operator = (const char text[])
 {
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4996) // GLARE NEWCODE: disable: 'strncpy': This function or variable may be unsafe. Consider using strncpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. (compiling source file O:\indigo\trunk\dll\ImageSaverDLLAPI.cpp)
+#endif
     strncpy (_text, text, MAX_LENGTH);
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
     return *this;
 }
 

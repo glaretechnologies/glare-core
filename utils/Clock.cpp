@@ -160,12 +160,17 @@ const std::string humanReadableDuration(int seconds)
 */
 void getCurrentDay(int& day, int& month, int& year)
 {
-	time_t t = time(NULL);
-	const tm* thetime = localtime(&t);
+	const time_t t = time(NULL);
+	struct tm local_time;
+#ifdef _WIN32
+	localtime_s(&local_time, &t);
+#else
+	localtime_r(&t, &local_time);
+#endif
 
-	day = thetime->tm_mday; // Day of month (1 – 31).
-	month = thetime->tm_mon; // Month (0 – 11; January = 0).
-	year = thetime->tm_year + 1900; // tm_year = Year (current year minus 1900).
+	day = local_time.tm_mday; // Day of month (1 – 31).
+	month = local_time.tm_mon; // Month (0 – 11; January = 0).
+	year = local_time.tm_year + 1900; // tm_year = Year (current year minus 1900).
 }
 
 

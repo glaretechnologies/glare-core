@@ -110,7 +110,11 @@ void deleteFilesInDir(const std::string& path); // Delete just the files, not di
 uint64 getFileCreatedTime(const std::string& filename);
 
 // NOTE: this function call is rather vulnerable to handle leaks.  Prefer to use the FileHandle class instead.
+// Returns NULL pointer on failure.
 FILE* openFile(const std::string& pathname, const std::string& openmode);
+
+// Returns -1 on failure.
+int openFileDescriptor(const std::string& pathname, int open_flags);
 
 // Remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name);

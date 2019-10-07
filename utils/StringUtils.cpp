@@ -281,7 +281,11 @@ const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places)
 
 	char buffer[128];
 
+#ifdef _WIN32
+	sprintf_s(buffer, sizeof(buffer), std::string("%1." + toString(num_decimal_places) + "f").c_str(), d);
+#else
 	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "f").c_str(), d);
+#endif
 
 	return std::string(buffer);
 }
@@ -292,8 +296,11 @@ const std::string doubleToStringScientific(double d, int num_decimal_places)
 	assert(num_decimal_places >= 0 && num_decimal_places <= 100);
 	
 	char buffer[512];
-	
+#ifdef _WIN32
+	sprintf_s(buffer, sizeof(buffer), std::string("%1." + toString(num_decimal_places) + "E").c_str(), d);
+#else
 	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "E").c_str(), d);
+#endif
 	
 	return std::string(buffer);
 }
@@ -303,14 +310,18 @@ const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
 {
 	assert(num_decimal_places >= 0);
 
-	char buffer[100];
+	char buffer[128];
 
 	if(num_decimal_places >= 10)
 		num_decimal_places = 9;
 
 	const std::string format_string = "%1." + ::toString(num_decimal_places) + "f";
 
+#ifdef _WIN32
+	sprintf_s(buffer, sizeof(buffer), format_string.c_str(), f);
+#else
 	sprintf(buffer, format_string.c_str(), f);
+#endif
 
 	return std::string(buffer);
 }
@@ -533,7 +544,11 @@ const std::string referenceInt32ToString(int32 i)
 {
 	char buffer[16];
 
+#ifdef _WIN32
+	sprintf_s(buffer, sizeof(buffer), "%i", i);
+#else
 	sprintf(buffer, "%i", i);
+#endif
 
 	return std::string(buffer);
 }

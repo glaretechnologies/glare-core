@@ -875,10 +875,28 @@ FILE* openFile(const std::string& pathname, const std::string& openmode)
 {
 #if defined(_WIN32)
 	// If we are on Windows, then, in order to use Unicode filenames, we will convert from UTF-8 to wstring and use _wfopen()
-	return _wfopen(StringUtils::UTF8ToWString(pathname).c_str(), StringUtils::UTF8ToWString(openmode).c_str());
+	FILE* f;
+	const errno_t res = _wfopen_s(&f, StringUtils::UTF8ToWString(pathname).c_str(), StringUtils::UTF8ToWString(openmode).c_str());
+	if(res != 0)
+		return NULL;
+	return f;
 #else
 	// On Linux (and on OS X?), fopen accepts UTF-8 encoded Unicode filenames natively.
 	return fopen(pathname.c_str(), openmode.c_str());
+#endif
+}
+
+
+int openFileDescriptor(const std::string& pathname, int open_flags)
+{
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4996) // Disable warning: '_wopen': This function or variable may be unsafe. Consider using _wsopen_s instead.
+	// _wsopen_s is very complicated :)
+	return _wopen(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), open_flags);
+#pragma warning(pop)
+#else
+	return open(pathname.c_str(), open_flags);
 #endif
 }
 
@@ -1069,6 +1087,12 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 #include "MyThread.h"
 #include "HandleWrapper.h"
 #include "../indigo/TestUtils.h"
+#include <fcntl.h>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 
 namespace FileUtils
@@ -1485,10 +1509,52 @@ void doUnitTests()
 		testAssert(0);
 	}
 
+
+	//============================ Test openFile() ============================
 	// Test openFile() with a Unicode pathname
-	FILE* infile = FileUtils::openFile(euro_txt_pathname, "rb");
-	testAssert(infile != NULL);
-	if(infile) fclose(infile);
+	{
+		FILE* infile = FileUtils::openFile(euro_txt_pathname, "rb");
+		testAssert(infile != NULL);
+		if(infile) fclose(infile);
+	}
+
+	// Test openFile() failure
+	try
+	{
+		FILE* f = FileUtils::openFile(TestUtils::getIndigoTestReposDir() + "/sdgfdsgdfgdfg", "rb");
+		testAssert(f == NULL);
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+	//============================ Test openFileDescriptor() ============================
+	// Test openFileDescriptor() with a Unicode pathname
+	{
+		const int f = FileUtils::openFileDescriptor(euro_txt_pathname, O_RDONLY);
+		testAssert(f != -1);
+		if(f != -1)
+		{
+#ifdef _WIN32
+			_close(f);
+#else
+			close(f);
+#endif
+		}
+	}
+
+	// Test openFileDescriptor() failure
+	try
+	{
+		const int f = FileUtils::openFileDescriptor(TestUtils::getIndigoTestReposDir() + "/sdgfdsgdfgdfg", O_RDONLY);
+		testAssert(f == -1);
+	}
+	catch(FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
 
 
 	// Test std::ifstream with a Unicode pathname

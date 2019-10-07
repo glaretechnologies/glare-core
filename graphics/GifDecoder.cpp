@@ -36,11 +36,7 @@ GIFDecoder::~GIFDecoder()
 Reference<Map2D> GIFDecoder::decode(const std::string& path)
 {
 	// Do this file descriptor malarkey so that we can handle Unicode paths.
-#ifdef _WIN32
-	const int file_descriptor = _wopen(StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(), O_RDONLY);
-#else
-	const int file_descriptor = open(path.c_str(), O_RDONLY);
-#endif
+	const int file_descriptor = FileUtils::openFileDescriptor(path, O_RDONLY);
 	if(file_descriptor == -1)
 		throw ImFormatExcep("failed to open gif file '" + path + "'");
 
