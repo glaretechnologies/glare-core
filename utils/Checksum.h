@@ -23,7 +23,7 @@ class Checksum
 public:
 
 	// Checksum a single buffer.
-	static uint32 checksum(void* data, size_t datalen);
+	static uint32 checksum(const void* data, size_t datalen);
 
 	// Initialise a checksum value.
 	static uint32 initChecksum();

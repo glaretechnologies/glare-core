@@ -12,7 +12,7 @@ Generated at 2011-10-16 17:30:01 +0100
 #include <limits>
 
 
-uint32 Checksum::checksum(void* data, size_t datalen)
+uint32 Checksum::checksum(const void* data, size_t datalen)
 {
 	uint32 c = initChecksum();
 	return updateChecksum(c, data, datalen);

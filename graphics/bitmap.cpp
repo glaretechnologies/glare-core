@@ -8,7 +8,6 @@ Code By Nicholas Chapman.
 
 
 #include "../maths/mathstypes.h"
-#include "../utils/Checksum.h"
 #include "../utils/Exception.h"
 #include <cstring> // For std::memcpy
 
@@ -87,12 +86,6 @@ void Bitmap::resizeNoCopy(size_t newwidth, size_t newheight, size_t new_bytes_pp
 			throw Indigo::Exception("Failed to create bitmap (memory allocation failure)");
 		}
 	}
-}
-
-
-unsigned int Bitmap::checksum() const
-{
-	return Checksum::checksum((void*)&data[0], width * height * bytespp);
 }
 
 

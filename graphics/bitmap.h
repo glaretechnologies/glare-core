@@ -49,8 +49,6 @@ public:
 	inline unsigned char getPixelComp(size_t x, size_t y, uint32 c) const;
 	inline void setPixelComp(size_t x, size_t y, uint32 c, uint8 newval);
 
-	uint32 checksum() const;
-
 	// Blend the current bitmap with white, based on the zeroth channel of img.  Used by Watermarker.
 	// TODO: Remove this and use proper alpha compositing.
 	void blendImageWithWhite(const Bitmap& img, int destx, int desty, float alpha = 1);
