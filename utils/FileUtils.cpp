@@ -879,6 +879,7 @@ static void getNormalisedSplitPath(const std::string& unnormalised_dir_path, std
 /*
 Returns a path to path_b that is relative to dir_path.
 If path_b is already relative, it just returns path_b.
+dir_path is treated as a path to a directory, and path_b as a path to a file.
 
 c:/a/b/c/d
 c:/a/b/e/f/g
@@ -908,7 +909,7 @@ const std::string getRelativePath(const std::string& unnormalised_dir_path, cons
 
 	// Not sharing a common prefix is acceptable with a Unix path, since both paths have the same root.
 	// For a Windows path, it implies a different drive, which means we can't get a relative path.
-	if(pre_len == 0 && unnormalised_dir_path[0] != '\\') 
+	if(pre_len == 0 && unnormalised_dir_path[0] != '/') 
 		throw FileUtilsExcep("paths do not share a common prefix.");
 
 	if(pre_len == dir_path_comps.size() && (dir_path_comps.size() == path_b_comps.size())) // If the length of the common prefix was equal to dir_path_comps, and that was equal in length to path_b_comps, then they are the same.
@@ -1228,12 +1229,13 @@ static void testGetRelativePath(const std::string& dir_path, const std::string& 
 #endif
 
 
-// Converts slashes to platform slashes then tests.
+// Tests getRelativePath result coverted to platform slashes, with expected_res converted to platform slashes.
+// We convert slashes so we can just write expected_res with forwards slashes.
 static void testGetRelativePathWithConvertedSlashes(const std::string& dir_path, const std::string& path_b, const std::string& expected_res)
 {
 	try
 	{
-		testStringsEqual(getRelativePath(toPlatformSlashes(dir_path), toPlatformSlashes(path_b)), toPlatformSlashes(expected_res));
+		testStringsEqual(toPlatformSlashes(getRelativePath(dir_path, path_b)), toPlatformSlashes(expected_res));
 	}
 	catch(FileUtilsExcep& e)
 	{
