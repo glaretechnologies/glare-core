@@ -221,14 +221,14 @@ void test()
 			123 // val
 		);
 		
-#ifdef __clang__
+#if defined(__clang__) && (__clang_major__ >= 9)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wself-assign-overloaded"
 #endif
 
 		v = v;
 		
-#ifdef __clang__
+#if defined(__clang__) && (__clang_major__ >= 9)
 #pragma GCC diagnostic pop
 #endif
 
