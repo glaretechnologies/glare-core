@@ -152,23 +152,26 @@ void OpenCLKernel::setNextKernelArgFloat(cl_float val)
 }
 
 
-double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size)
+// Returns execution time in seconds if profiling was enabled, or 0 otherwise.
+double OpenCLKernel::doLaunchKernel(cl_command_queue opencl_command_queue, int dim, const size_t* global_work_size)
 {
-	// Make sure the work group size we use is <= the global work size.
-	const size_t use_work_group_size = myMin(work_group_size, global_work_size);
+	// conPrint("launching kernel " + kernel_name);
 
-	//conPrint("launching kernel " + kernel_name);
+	// Make sure the work group size we use is <= the global work size.
+	size_t use_local_work_size[3];
+	for(int i=0; i<dim; ++i)
+		use_local_work_size[i] = myMin(work_group_size, global_work_size[i]);
 
 	cl_event profile_event;
 	cl_int result = getGlobalOpenCL()->clEnqueueNDRangeKernel(
 		opencl_command_queue,
 		this->kernel,
-		1,					// dimension
-		NULL,				// global_work_offset
-		&global_work_size,	// global_work_size
-		&use_work_group_size,	// local_work_size (work-group size),
-		0,					// num_events_in_wait_list
-		NULL,				// event_wait_list
+		dim,					// dimension
+		NULL,					// global_work_offset
+		global_work_size,		// global_work_size
+		use_local_work_size,	// local_work_size (work-group size),
+		0,						// num_events_in_wait_list
+		NULL,					// event_wait_list
 		profile ? &profile_event : NULL		// event
 	);
 	if(result != CL_SUCCESS)
@@ -202,4 +205,17 @@ double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t 
 	}
 	else
 		return 0;
+}
+
+
+double OpenCLKernel::launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size)
+{
+	return doLaunchKernel(opencl_command_queue, /*dim=*/1, &global_work_size);
+}
+
+
+double OpenCLKernel::launchKernel2D(cl_command_queue opencl_command_queue, size_t global_work_size_w, size_t global_work_size_h)
+{
+	const size_t dims[2] = { global_work_size_w , global_work_size_h };
+	return doLaunchKernel(opencl_command_queue, /*dim=*/2, dims);
 }

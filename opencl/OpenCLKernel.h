@@ -53,11 +53,14 @@ public:
 	// Returns execution time in seconds if profiling was enabled, or 0 otherwise.
 	double launchKernel(cl_command_queue opencl_command_queue, size_t global_work_size);
 
+	double launchKernel2D(cl_command_queue opencl_command_queue, size_t global_work_size_w, size_t global_work_size_h);
+
 
 	cl_kernel getKernel() { return kernel; }
 
 	double getTotalExecTimeS() const { return total_exec_time_s; }
 private:
+	double doLaunchKernel(cl_command_queue opencl_command_queue, int dim, const size_t* global_work_size);
 	INDIGO_DISABLE_COPY(OpenCLKernel)
 
 	std::string kernel_name;
