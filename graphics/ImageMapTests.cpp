@@ -102,6 +102,9 @@ static void perfTestWithTextureWidth(int width)
 #endif // End if do perf tests
 
 
+#if MAP2D_FILTERING_SUPPORT
+
+
 static void testResizeMidQuality(int new_w, int new_h)
 {
 	ImageMapFloat map(100, 100, 3);
@@ -122,6 +125,9 @@ static void testResizeMidQuality(int new_w, int new_h)
 			for(int c=0; c<3; ++c)
 				testEpsEqual(resized_map_f->getPixel(x, y)[c], 0.12345f);
 }
+
+
+#endif // MAP2D_FILTERING_SUPPORT
 
 
 void ImageMapTests::test()
@@ -382,6 +388,7 @@ void ImageMapTests::test()
 
 	
 	//======================================== Test resizeToImageMapFloat() =======================================
+#if MAP2D_FILTERING_SUPPORT
 	const bool write_out_result_images = false;
 
 	// Test resizing of a uniform, uint8, 3 component image
@@ -584,7 +591,7 @@ void ImageMapTests::test()
 			failTest(e.what());
 		}
 	}
-
+#endif // MAP2D_FILTERING_SUPPORT
 	
 	// Do perf tests
 	/*perfTestWithTextureWidth(10);
