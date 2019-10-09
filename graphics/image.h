@@ -52,8 +52,6 @@ public:
 	inline void setPixel(size_t x, size_t y, const ColourType& colour);
 	inline void incrPixel(size_t x, size_t y, const ColourType& colour);
 
-	void loadFromHDR(const std::string& pathname, int width, int height);
-
 	void zero();
 	void set(const ColourType& c);
 

@@ -62,7 +62,7 @@ public:
 
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x; }
 
-	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return x; }
+	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value /*gamma*/) { return x; }
 
 	static inline uint32 maxValue() { return 1; } // NOTE: not really correct, shouldn't be used tho.
 };
@@ -75,7 +75,7 @@ public:
 
 	static inline Map2D::Value scaleValue(Map2D::Value x) { return x; }
 
-	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value gamma) { return x; }
+	static inline Map2D::Value toLinear(Map2D::Value x, Map2D::Value /*gamma*/) { return x; }
 
 	static inline uint32 maxValue() { return 1; } // NOTE: not really correct, shouldn't be used tho.
 };

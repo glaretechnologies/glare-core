@@ -57,7 +57,7 @@ public:
 #if ENABLE_PROFILING
 	static void recordProfileEvent(const char* scope_name_, int thread_index_ = 0); // thread-safe
 #else
-	static inline void recordProfileEvent(const char* scope_name_, int thread_index_ = 0) {}
+	static inline void recordProfileEvent(const char* /*scope_name_*/, int /*thread_index_*/ = 0) {}
 #endif
 
 
@@ -93,7 +93,7 @@ private:
 
 struct ScopeProfiler
 {
-	ScopeProfiler(const char* scope_name_, int thread_index_ = 0) {}
+	ScopeProfiler(const char* /*scope_name_*/, int /*thread_index_*/ = 0) {}
 };
 
 #endif

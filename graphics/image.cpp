@@ -368,11 +368,6 @@ void Image::normalise()
 }
 
 
-void Image::loadFromHDR(const std::string& pathname, int width_, int height_)
-{
-}
-
-
 /*void Image::collapseSizeBoxFilter(int factor, int border_width)
 {
 	BoxFilterFunction box_filter_func;
@@ -621,14 +616,14 @@ const Colour4f Image::vec3SampleTiled(Coord u, Coord v) const
 }
 
 
-Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const
+Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, size_t /*channel*/) const
 {
 	const Colour4f col = vec3SampleTiled(x, y);
 	return (col[0] + col[1] + col[2]) * static_cast<Image::Value>(1.0 / 3.0);
 }
 
 
-Image::Value Image::getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const
+Image::Value Image::getDerivs(Coord /*s*/, Coord /*t*/, Value& dv_ds_out, Value& dv_dt_out) const
 {
 	// Since most image format decoding functions return ImageMap<>s now, this shouldn't be called.
 	assert(0);
