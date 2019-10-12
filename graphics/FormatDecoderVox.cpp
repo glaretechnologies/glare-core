@@ -182,9 +182,16 @@ static void skipPastChunk(size_t datalen, size_t chunk_end, size_t& cur_i)
 void FormatDecoderVox::loadModel(const std::string& filename, VoxFileContents& contents_out) // Throws Indigo::Exception on failure.
 {
 	MemMappedFile file(filename);
-	
+
 	const uint8* data = (const uint8*)file.fileData();
 	const size_t datalen = file.fileSize();
+
+	loadModelFromData(data, datalen, contents_out);
+}
+
+
+void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out) // Throws Indigo::Exception on failure.
+{
 	size_t cur_i = 0;
 
 	const std::string vox_string = parseChunkID(data, datalen, cur_i);
@@ -334,6 +341,14 @@ void FormatDecoderVox::loadModel(const std::string& filename, VoxFileContents& c
 
 #if BUILD_TESTS
 
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	VoxFileContents contents;
+	FormatDecoderVox::loadModelFromData(data, size, contents);
+
+	return 0;  // Non-zero return values are reserved for future use.
+}
 
 #include "../indigo/TestUtils.h"
 #include "../utils/FileUtils.h"

@@ -90,5 +90,7 @@ class FormatDecoderVox
 public:
 	static void loadModel(const std::string& filename, VoxFileContents& contents_out); // Throws Indigo::Exception on failure.
 
+	static void loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out); // Throws Indigo::Exception on failure.
+
 	static void test();
 };
