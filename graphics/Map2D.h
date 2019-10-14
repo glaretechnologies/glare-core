@@ -89,6 +89,8 @@ public:
 
 	virtual float getGamma() const = 0;
 
+	virtual bool isDXTImageMap() const { return false; }
+
 private:
 	INDIGO_DISABLE_COPY(Map2D)
 };

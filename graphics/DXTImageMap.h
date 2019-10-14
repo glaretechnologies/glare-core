@@ -86,6 +86,8 @@ public:
 
 	virtual size_t getByteSize() const;
 
+	virtual bool isDXTImageMap() const { return true; }
+
 	// Get num components per pixel.
 	inline size_t getN() const { return N; }
 
