@@ -166,6 +166,7 @@ public:
 	//------------------------------------------------------------------
 
 	SOCKETHANDLE_TYPE getSocketHandle() { return sockethandle; }
+	bool socketHandleValid() const { return isSockHandleValid(sockethandle); }
 
 	void shutdown();
 
@@ -176,8 +177,8 @@ private:
 
 	void init();
 	void createClientSideSocket();
-	SOCKETHANDLE_TYPE nullSocketHandle() const;
-	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
+	static SOCKETHANDLE_TYPE nullSocketHandle();
+	static bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 	static void initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle);
 
 

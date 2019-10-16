@@ -118,10 +118,16 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
 
 TLSSocket::~TLSSocket()
 {
-	plain_socket->shutdown();
+	// If the socket has been closed in a ungracefulShutdown() call, tls_close hits an assert, so avoid that.
+	if(plain_socket->socketHandleValid())
+	{
+		plain_socket->shutdown();
 
-	tls_close(tls_context);
-	tls_free(tls_context);
+		// "tls_close() closes a connection after use. Only the TLS layer will be shut down and the caller is responsible for closing the file descriptors" (https://sortix.org/man/man3/tls_close.3.html)
+		tls_close(tls_context);
+	}
+
+	tls_free(tls_context); // Free TLS context.
 }
 
 

@@ -812,7 +812,7 @@ void MySocket::writeData(const void* data, size_t num_bytes)
 }
 
 
-MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle() const
+MySocket::SOCKETHANDLE_TYPE MySocket::nullSocketHandle()
 {
 #if defined(_WIN32)
 	return INVALID_SOCKET;
