@@ -73,7 +73,9 @@ void doTestWithDenoising(bool do_tonemapping, int ssf)
 		RendererSettings::defaultMargin(), // margin width
 		ssf,
 		layer_names,
+		false, // GPU
 		false, // need back buffer
+		false, // bucket rendering
 		args
 	);
 	master_buffer.setNumSamples(1);
@@ -629,7 +631,9 @@ void test()
 			RendererSettings::defaultMargin(), // margin width
 			image_ss_factor,
 			layer_names,
+			false, // GPU
 			false, // need back buffer
+			false, // bucket rendering
 			args
 		);
 		master_buffer.setNumSamples(1);
