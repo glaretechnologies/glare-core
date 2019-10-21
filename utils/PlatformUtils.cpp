@@ -955,8 +955,10 @@ typedef struct tagTHREADNAME_INFO
 #endif
 
 
+#if defined(_WIN32)
 // The SetThreadDescription API was introduced in version 1607 of Windows 10.
 typedef HRESULT(WINAPI* SetThreadDescriptionFuncType)(HANDLE hThread, PCWSTR lpThreadDescription);
+#endif
 
 
 void PlatformUtils::setCurrentThreadName(const std::string& name)
