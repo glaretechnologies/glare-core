@@ -954,23 +954,20 @@ typedef struct tagTHREADNAME_INFO
 #pragma pack(pop)
 #endif
 
+
+// The SetThreadDescription API was introduced in version 1607 of Windows 10.
+typedef HRESULT(WINAPI* SetThreadDescriptionFuncType)(HANDLE hThread, PCWSTR lpThreadDescription);
+
+
 void PlatformUtils::setCurrentThreadName(const std::string& name)
 {
 #if defined(_WIN32)
-
-	THREADNAME_INFO info;
-    info.dwType = 0x1000;
-	info.szName = name.c_str();
-    info.dwThreadID = GetCurrentThreadId();
-    info.dwFlags = 0;
-#pragma warning(push)
-#pragma warning(disable: 6320 6322)
-    __try{
-        RaiseException(MS_VC_EXCEPTION, 0, sizeof(info) / sizeof(ULONG_PTR), (ULONG_PTR*)&info);
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER){
-    }
-#pragma warning(pop)
+	// Adapted from https://chromium.googlesource.com/chromium/src/+/f6988f8ff1fb0a3d8e5f0f9cc798f7f971a1baaa/base/threading/platform_thread_win.cc:
+	SetThreadDescriptionFuncType set_thread_description_func = (SetThreadDescriptionFuncType)(::GetProcAddress(
+		::GetModuleHandle(L"Kernel32.dll"), "SetThreadDescription"
+	));
+	if(set_thread_description_func)
+		set_thread_description_func(::GetCurrentThread(), StringUtils::UTF8ToWString(name).c_str());
 
 #elif defined(OSX)
 	pthread_setname_np(name.c_str());
