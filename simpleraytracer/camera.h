@@ -83,6 +83,9 @@ public:
 		double lens_shift_up_distance,
 		double lens_shift_right_distance) = 0;
 
+	// See PathTracingUtils::computeUseSensorWidthAndHeightFactor()
+	// This method will change the camera sensor size.
+	virtual void setSensorDimFactor(const Vec2f& sensor_dim_factor) = 0;
 
 	struct SampleLensResults
 	{
