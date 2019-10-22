@@ -965,11 +965,13 @@ void PlatformUtils::setCurrentThreadName(const std::string& name)
 {
 #if defined(_WIN32)
 	// Adapted from https://chromium.googlesource.com/chromium/src/+/f6988f8ff1fb0a3d8e5f0f9cc798f7f971a1baaa/base/threading/platform_thread_win.cc:
-	SetThreadDescriptionFuncType set_thread_description_func = (SetThreadDescriptionFuncType)(::GetProcAddress(
-		::GetModuleHandle(L"Kernel32.dll"), "SetThreadDescription"
-	));
-	if(set_thread_description_func)
-		set_thread_description_func(::GetCurrentThread(), StringUtils::UTF8ToWString(name).c_str());
+	HMODULE handle = ::GetModuleHandle(L"Kernel32.dll");
+	if(handle)
+	{
+		SetThreadDescriptionFuncType set_thread_description_func = (SetThreadDescriptionFuncType)(::GetProcAddress(handle, "SetThreadDescription"));
+		if(set_thread_description_func)
+			set_thread_description_func(::GetCurrentThread(), StringUtils::UTF8ToWString(name).c_str());
+	}
 
 #elif defined(OSX)
 	pthread_setname_np(name.c_str());
