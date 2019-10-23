@@ -72,6 +72,8 @@ void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward
 
 	if(!allow_pitching)
 		rotation.y = Maths::pi_2<double>();
+
+	initial_rotation = rotation;
 }
 
 
@@ -220,6 +222,12 @@ void CameraController::getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_
 Vec3d CameraController::getAngles() const
 {
 	return rotation;
+}
+
+
+void CameraController::resetRotation()
+{
+	rotation = initial_rotation;
 }
 
 

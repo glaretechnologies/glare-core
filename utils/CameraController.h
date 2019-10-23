@@ -38,6 +38,7 @@ public:
 
 	void getBasis(Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out) const;
 	Vec3d getAngles() const; // Specified as (heading, pitch, roll).
+	void resetRotation();
 
 	Vec3d getForwardsVec() const;
 	Vec3d getRightVec() const;
@@ -66,6 +67,8 @@ private:
 	Vec3d initialised_up;
 
 	Vec3d target_pos; // Target point for trackball-style navigation
+
+	Vec3d initial_rotation;
 
 	double base_move_speed, base_rotate_speed;
 	double move_speed_scale, mouse_sensitivity_scale;
