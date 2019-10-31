@@ -533,6 +533,7 @@ INDIGO_STRONG_INLINE T roundedUpDivide(T x, T N)
 }
 
 
+// Check that an integer is a power of two.
 // from http://en.wikipedia.org/wiki/Power_of_two#Fast_algorithm_to_check_if_a_number_is_a_power_of_two
 template <class T>
 INDIGO_STRONG_INLINE bool isPowerOfTwo(T x)
