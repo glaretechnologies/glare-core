@@ -342,7 +342,15 @@ inline const std::string toString(const Vec4f& v) { return v.toString(); }
 
 INDIGO_STRONG_INLINE const Vec4f loadVec4f(const float* const data)
 {
+	assert(((uint64)data % 16) == 0); // Must be 16-byte aligned.
 	return Vec4f(_mm_load_ps(data));
+}
+
+
+INDIGO_STRONG_INLINE void storeVec4f(const Vec4f& v, float* const mem)
+{
+	assert(((uint64)mem % 16) == 0); // Must be 16-byte aligned.
+	_mm_store_ps(mem, v.v);
 }
 
 
