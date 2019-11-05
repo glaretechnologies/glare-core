@@ -339,6 +339,14 @@ void Vec4f::test()
 		testAssert(truncateToVec4i(Vec4f(-0.1f, -0.9f, -1.1f, -1.9f)) == Vec4i(0, 0, -1, -1));
 	}
 
+	// Test UIntToVec4f
+	{
+		SSE_ALIGN uint32 data[4] = { 1, 2000000000u, 3000000000u, 4000000000u };
+		Vec4i v = loadVec4i(data);
+		Vec4f res = UIntToVec4f(v);
+		testAssert(epsEqual(res, Vec4f(1.f, 2000000000.f, 3000000000.f, 4000000000.f)));
+	}
+
 	// Test abs
 	{
 		testAssert(abs(Vec4f(1.0f, -2.0f, 3.0f, -4.0)) == Vec4f(1.0f, 2.0f, 3.0f, 4.0f));

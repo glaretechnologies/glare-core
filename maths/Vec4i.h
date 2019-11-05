@@ -65,6 +65,14 @@ INDIGO_STRONG_INLINE const Vec4i loadVec4i(const void* const data) // SSE 2
 	return Vec4i(_mm_load_si128((__m128i const*)data));
 }
 
+
+INDIGO_STRONG_INLINE void storeVec4i(const Vec4i& v, void* const mem)
+{
+	assert(((uint64)mem % 16) == 0); // Must be 16-byte aligned.
+	_mm_store_si128((__m128i*)mem, v.v);
+}
+
+
 template <int index>
 INDIGO_STRONG_INLINE const Vec4i copyToAll(const Vec4i& a) { return _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(a.v), _mm_castsi128_ps(a.v), _MM_SHUFFLE(index, index, index, index))); } // SSE 1
 
@@ -83,7 +91,8 @@ INDIGO_STRONG_INLINE const Vec4i operator ^ (const Vec4i& a, const Vec4i& b) { r
 INDIGO_STRONG_INLINE const Vec4i operator & (const Vec4i& a, const Vec4i& b) { return _mm_and_si128(a.v, b.v); } // SSE 2
 
 INDIGO_STRONG_INLINE const Vec4i operator << (const Vec4i& a, const int32 bits) { return _mm_slli_epi32(a.v, bits); } // SSE 2
-INDIGO_STRONG_INLINE const Vec4i operator >> (const Vec4i& a, const int32 bits) { return _mm_srai_epi32(a.v, bits); } // SSE 2
+//INDIGO_STRONG_INLINE const Vec4i operator >> (const Vec4i& a, const int32 bits) { return _mm_srai_epi32(a.v, bits); } // SSE 2 // Shift right while shifting in sign bits
+INDIGO_STRONG_INLINE const Vec4i operator >> (const Vec4i& a, const int32 bits) { return _mm_srli_epi32(a.v, bits); } // SSE 2 // Shift right while shifting in zeros
 
 INDIGO_STRONG_INLINE Vec4i operator < (const Vec4i& a, const Vec4i& b) { return Vec4i(_mm_cmplt_epi32(a.v, b.v)); } // SSE 2
 

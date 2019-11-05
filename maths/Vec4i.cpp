@@ -138,6 +138,17 @@ void Vec4i::test()
 	//======================== operator + ==========================
 	{
 		testAssert(Vec4i(1, 2, 3, 4) + Vec4i(5, 6, 7, 8) == Vec4i(6, 8,10, 12));
+
+		// Test that addition can be used on unsigned integers to give wraparound behaviour.
+		SSE_ALIGN uint32 data[4] = { 1, 2000000000u, 3000000000u, 4 };
+		Vec4i v = loadVec4i(data);
+		Vec4i res = v + v;
+
+		// (2000000000 + 2000000000) % 2^32 = 4000000000
+		// 4000000000 - 2^31 = 1852516352
+		// -2**31 + 1852516352 = 1852516352
+		// (3000000000 + 3000000000) % 2^32 = 1705032704
+		testAssert(res == Vec4i(2, -294967296, 1705032704, 8));
 	}
 
 	//======================== operator - ==========================

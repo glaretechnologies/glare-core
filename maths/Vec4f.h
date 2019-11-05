@@ -443,13 +443,6 @@ INDIGO_STRONG_INLINE Vec4f select(const Vec4f& a, const Vec4f& b, const Vec4f& m
 #endif
 
 
-// Cast each element to float
-INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
-{
-	return Vec4f(_mm_cvtepi32_ps(v.v));
-}
-
-
 INDIGO_STRONG_INLINE Vec4f bitcastToVec4f(const Vec4i& v)
 {
 	return Vec4f(_mm_castsi128_ps(v.v));
@@ -459,6 +452,30 @@ INDIGO_STRONG_INLINE Vec4f bitcastToVec4f(const Vec4i& v)
 INDIGO_STRONG_INLINE Vec4i bitcastToVec4i(const Vec4f& v)
 {
 	return Vec4i(_mm_castps_si128(v.v));
+}
+
+
+// Cast each element to float
+INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
+{
+	return Vec4f(_mm_cvtepi32_ps(v.v));
+}
+
+
+// Treat each element as an uint32, and cast each element to float.
+INDIGO_STRONG_INLINE Vec4f UIntToVec4f(const Vec4i& v)
+{
+	// If sign bit is set, convert to float, then add 2^32.
+	// this brings -2^31 to 2^31, and -1 to 2^32 - 1.
+	// otherwise just use converted to float value directly.
+	const Vec4f fv = toVec4f(v);
+	const Vec4f offset_fv = fv + Vec4f(4294967296.f);
+
+	return select(
+		offset_fv, // a
+		fv, // b
+		bitcastToVec4f(v) // mask (uses high bit, which is sign bit)
+	);
 }
 
 
