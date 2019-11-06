@@ -115,7 +115,7 @@ public:
 struct OpenGLTextureKey
 {
 	OpenGLTextureKey() {}
-	OpenGLTextureKey(const std::string& path_) : path(path_) {}
+	explicit OpenGLTextureKey(const std::string& path_) : path(path_) {}
 	std::string path;
 
 	bool operator < (const OpenGLTextureKey& other) const { return path < other.path; }
@@ -212,10 +212,10 @@ public:
 	// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
 	// If the texture is not loaded or not processed yet, return a null reference.
 	// Throws Indigo::Exception
-	Reference<OpenGLTexture> getTextureIfLoaded(const std::string& tex_path);
+	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key);
 
 	// Notify the OpenGL engine that a texture has been loaded.
-	void textureLoaded(const std::string& path, const std::string& key);
+	void textureLoaded(const std::string& path, const OpenGLTextureKey& key);
 
 	void selectObject(const Reference<GLObject>& object);
 	void deselectObject(const Reference<GLObject>& object);

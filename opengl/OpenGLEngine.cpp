@@ -985,7 +985,7 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 }
 
 
-void OpenGLEngine::textureLoaded(const std::string& path, const std::string& key)
+void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key)
 {
 	// conPrint("textureLoaded(): path: " + path);
 
@@ -1003,19 +1003,19 @@ void OpenGLEngine::textureLoaded(const std::string& path, const std::string& key
 	else
 	{
 		// See if we have 8-bit texture data loaded for this texture
-		Reference<TextureData> tex_data = this->texture_data_manager->getTextureData(key); // returns null ref if not present.
+		Reference<TextureData> tex_data = this->texture_data_manager->getTextureData(key.path); // returns null ref if not present.
 		if(tex_data.nonNull())
 		{
-			opengl_texture = this->loadOpenGLTextureFromTexData(OpenGLTextureKey(path), tex_data, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+			opengl_texture = this->loadOpenGLTextureFromTexData(key, tex_data, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 			assert(opengl_texture.nonNull());
 			// conPrint("\tLoaded from tex data.");
 		}
 		else
 		{
-			Reference<Map2D> map = texture_server->getTexForRawNameIfLoaded(key);
+			Reference<Map2D> map = texture_server->getTexForRawNameIfLoaded(key.path);
 			if(map.nonNull())
 			{
-				opengl_texture = this->getOrLoadOpenGLTexture(OpenGLTextureKey(path), *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+				opengl_texture = this->getOrLoadOpenGLTexture(key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
 				assert(opengl_texture.nonNull());
 				// conPrint("\tLoaded from map.");
 			}
@@ -1106,7 +1106,9 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 {
 	try
 	{
-		const OpenGLTextureKey texture_key(tex_path);
+		const std::string tex_key = this->texture_server->keyForPath(tex_path);
+
+		const OpenGLTextureKey texture_key(tex_key);
 
 		// If the OpenGL texture for this path has already been created, return it.
 		auto res = this->opengl_textures.find(texture_key);
@@ -1127,13 +1129,11 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 
 // Return an OpenGL texture based on tex_path.
 // Throws Indigo::Exception
-Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const std::string& tex_path)
+Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key)
 {
 	// conPrint("getTextureIfLoaded(), tex_path: " + tex_path);
 	try
 	{
-		const OpenGLTextureKey texture_key(tex_path);
-
 		// If the OpenGL texture for this path has already been created, return it.
 		auto res = this->opengl_textures.find(texture_key);
 		if(res != this->opengl_textures.end())
@@ -1143,7 +1143,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const std::string& tex
 		}
 
 		// If we have processed texture data for this texture, load it
-		Reference<TextureData> tex_data = this->texture_data_manager->getTextureData(tex_path);
+		Reference<TextureData> tex_data = this->texture_data_manager->getTextureData(texture_key.path);
 		if(tex_data.nonNull())
 		{
 			// conPrint("\tFound in tex_data.");
@@ -1152,7 +1152,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const std::string& tex
 			return gl_tex;
 		}
 
-		Reference<Map2D> map = texture_server->getTexForPathIfLoaded(tex_path);
+		Reference<Map2D> map = texture_server->getTexForRawNameIfLoaded(texture_key.path);
 		if(map.nonNull()) // If the texture has been loaded from disk already:
 		{
 			if(dynamic_cast<const ImageMapUInt8*>(map.ptr())) // If UInt8 map, which needs processing:

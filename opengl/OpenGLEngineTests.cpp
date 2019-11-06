@@ -78,8 +78,10 @@ void loadAndUnloadTexture(OpenGLEngine& engine, int W, int H, int num_comp, int 
 }
 
 
-void doTextureLoadingTests(OpenGLEngine& engine)
+static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_canonical_paths)
 {
+	engine.getTextureServer()->setUseCanonicalPathKeys(use_canonical_paths);
+
 	{
 		//----------------- Load and insert texture into OpenGL Engine.-----------------
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg";
@@ -97,11 +99,11 @@ void doTextureLoadingTests(OpenGLEngine& engine)
 		engine.texture_data_manager->insertBuiltTextureData(key, texture_data);
 
 		//----------------- Now query engine for texture and make sure we get a texture back .-----------------
-		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(path);
+		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
 		testAssert(opengl_tex.nonNull());
 
 		// Query again
-		opengl_tex = engine.getTextureIfLoaded(path);
+		opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
 		testAssert(opengl_tex.nonNull());
 	}
 
@@ -129,22 +131,30 @@ void doTextureLoadingTests(OpenGLEngine& engine)
 		engine.texture_data_manager->insertBuiltTextureData(key, texture_data); // Give data to OpenGL engine
 
 		//----------------- query engine for texture and make sure we get a texture back .-----------------
-		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(path);
+		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
 		testAssert(opengl_tex.nonNull());
 
 
 		//----------------- Notify the opengl engine that the texture was loaded, and check the object has had the texture assigned. -----------------
-		engine.textureLoaded(path, key);
+		engine.textureLoaded(path, OpenGLTextureKey(key));
 
 		testAssert(ob->materials[0].albedo_texture.nonNull());
 
 		//----------------- Now query engine for texture and make sure we get a texture back .-----------------
-		opengl_tex = engine.getTextureIfLoaded(path);
+		opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
 		testAssert(opengl_tex.nonNull());
 	}
+}
 
 
+void doTextureLoadingTests(OpenGLEngine& engine)
+{
+	const bool original_use_canonical_paths = engine.getTextureServer()->useCanonicalPaths();
 
+	doTextureLoadingAndInsertionTests(engine, /*use_canonical_paths=*/false);
+	doTextureLoadingAndInsertionTests(engine, /*use_canonical_paths=*/true);
+
+	engine.getTextureServer()->setUseCanonicalPathKeys(original_use_canonical_paths);
 
 
 	loadAndUnloadTexture(engine, 256, 8, 3);
