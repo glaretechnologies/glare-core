@@ -9,7 +9,9 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "OpenGLEngine.h"
 #include "../graphics/ImageMap.h"
+#include "../graphics/imformatdecoder.h"
 #include "../indigo/TestUtils.h"
+#include "../indigo/TextureServer.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../utils/ConPrint.h"
@@ -78,6 +80,73 @@ void loadAndUnloadTexture(OpenGLEngine& engine, int W, int H, int num_comp, int 
 
 void doTextureLoadingTests(OpenGLEngine& engine)
 {
+	{
+		//----------------- Load and insert texture into OpenGL Engine.-----------------
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg";
+
+		const std::string key = engine.getTextureServer()->keyForPath(path); // Get canonical path.  May throw TextureServerExcep
+
+		Reference<Map2D> map = ImFormatDecoder::decodeImage(".", key); // Load texture from disk and decode it.
+
+		testAssert(dynamic_cast<const ImageMapUInt8*>(map.ptr()));
+		const ImageMapUInt8* imagemap = map.downcastToPtr<ImageMapUInt8>();
+
+		Reference<TextureData> texture_data = TextureLoading::buildUInt8MapTextureData(imagemap, &engine, /*multithread=*/true);
+
+		// Give data to OpenGL engine
+		engine.texture_data_manager->insertBuiltTextureData(key, texture_data);
+
+		//----------------- Now query engine for texture and make sure we get a texture back .-----------------
+		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(path);
+		testAssert(opengl_tex.nonNull());
+
+		// Query again
+		opengl_tex = engine.getTextureIfLoaded(path);
+		testAssert(opengl_tex.nonNull());
+	}
+
+
+	{
+		//----------------- Make an object using a texture, insert into engine -----------------
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg";
+
+		GLObjectRef ob = new GLObject();
+		ob->materials.resize(1);
+		ob->materials[0].tex_path = path;
+		ob->ob_to_world_matrix = Matrix4f::identity();
+		ob->mesh_data = engine.getCubeMeshData();
+
+		engine.addObject(ob);
+		testAssert(ob->materials[0].albedo_texture.isNull()); // Texture shouldn't have been loaded yet.
+
+		//----------------- Load and insert texture into OpenGL Engine.-----------------
+		const std::string key = engine.getTextureServer()->keyForPath(path); // Get canonical path.  May throw TextureServerExcep
+		Reference<Map2D> map = ImFormatDecoder::decodeImage(".", key); // Load texture from disk and decode it.
+		testAssert(dynamic_cast<const ImageMapUInt8*>(map.ptr()));
+		const ImageMapUInt8* imagemap = map.downcastToPtr<ImageMapUInt8>();
+		Reference<TextureData> texture_data = TextureLoading::buildUInt8MapTextureData(imagemap, &engine, /*multithread=*/true);
+
+		engine.texture_data_manager->insertBuiltTextureData(key, texture_data); // Give data to OpenGL engine
+
+		//----------------- query engine for texture and make sure we get a texture back .-----------------
+		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(path);
+		testAssert(opengl_tex.nonNull());
+
+
+		//----------------- Notify the opengl engine that the texture was loaded, and check the object has had the texture assigned. -----------------
+		engine.textureLoaded(path, key);
+
+		testAssert(ob->materials[0].albedo_texture.nonNull());
+
+		//----------------- Now query engine for texture and make sure we get a texture back .-----------------
+		opengl_tex = engine.getTextureIfLoaded(path);
+		testAssert(opengl_tex.nonNull());
+	}
+
+
+
+
+
 	loadAndUnloadTexture(engine, 256, 8, 3);
 	loadAndUnloadTexture(engine, 8, 256, 3);
 	loadAndUnloadTexture(engine, 1, 1, 3);

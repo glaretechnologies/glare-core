@@ -215,7 +215,7 @@ public:
 	Reference<OpenGLTexture> getTextureIfLoaded(const std::string& tex_path);
 
 	// Notify the OpenGL engine that a texture has been loaded.
-	void textureLoaded(const std::string& path);
+	void textureLoaded(const std::string& path, const std::string& key);
 
 	void selectObject(const Reference<GLObject>& object);
 	void deselectObject(const Reference<GLObject>& object);
@@ -275,6 +275,8 @@ public:
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
+	Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGLTextureKey& key, Reference<TextureData> texture_data,
+		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
 
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
@@ -300,6 +302,8 @@ public:
 	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 
 	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
+
+	TextureServer* getTextureServer() { return texture_server; }
 private:
 	struct PhongUniformLocations
 	{

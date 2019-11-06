@@ -47,17 +47,19 @@ class TextureDataManager : public ThreadSafeRefCounted
 {
 public:
 	// Thread-safe
-	Reference<TextureData> getOrBuildTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/);
+	Reference<TextureData> getOrBuildTextureData(const std::string& key, const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/);
 
-	bool isTextureDataInserted(const ImageMapUInt8* imagemap) const; // Thread-safe
+	Reference<TextureData> getTextureData(const std::string& key); // returns null ref if not present.
 
-	void insertBuiltTextureData(const ImageMapUInt8* imagemap, Reference<TextureData> data);
+	bool isTextureDataInserted(const std::string& key) const; // Thread-safe
 
-	void removeTextureData(const ImageMapUInt8* imagemap);
+	void insertBuiltTextureData(const std::string& key, Reference<TextureData> data);
+
+	void removeTextureData(const std::string& key);
 
 	void clear();
-//private:
-	std::map<const ImageMapUInt8*, Reference<TextureData> > loaded_textures;
+private:
+	std::map<std::string, Reference<TextureData> > loaded_textures;
 	mutable Mutex mutex;
 };
 

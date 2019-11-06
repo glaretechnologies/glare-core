@@ -27,43 +27,55 @@ size_t TextureData::compressedSizeBytes() const
 
 
 // Thread-safe
-Reference<TextureData> TextureDataManager::getOrBuildTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/)
+Reference<TextureData> TextureDataManager::getOrBuildTextureData(const std::string& key, const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/)
 {
 	Lock lock(mutex);
 
-	auto res = loaded_textures.find(imagemap);
+	auto res = loaded_textures.find(key);
 	if(res != loaded_textures.end())
 		return res->second;
 	else
 	{
 		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, /*multithread=*/true);
-		loaded_textures[imagemap] = data;
+		loaded_textures[key] = data;
 		return data;
 	}
 }
 
 
-bool TextureDataManager::isTextureDataInserted(const ImageMapUInt8* imagemap) const
+Reference<TextureData> TextureDataManager::getTextureData(const std::string& key) // returns null ref if not present.
 {
 	Lock lock(mutex);
 
-	return loaded_textures.count(imagemap) > 0;
+	auto res = loaded_textures.find(key);
+	if(res != loaded_textures.end())
+		return res->second;
+	else
+		return Reference<TextureData>();
 }
 
 
-void TextureDataManager::insertBuiltTextureData(const ImageMapUInt8* imagemap, Reference<TextureData> data)
+bool TextureDataManager::isTextureDataInserted(const std::string& key) const
 {
 	Lock lock(mutex);
 
-	loaded_textures[imagemap] = data;
+	return loaded_textures.count(key) > 0;
 }
 
 
-void TextureDataManager::removeTextureData(const ImageMapUInt8* imagemap)
+void TextureDataManager::insertBuiltTextureData(const std::string& key, Reference<TextureData> data)
 {
 	Lock lock(mutex);
 
-	loaded_textures.erase(imagemap);
+	loaded_textures[key] = data;
+}
+
+
+void TextureDataManager::removeTextureData(const std::string& key)
+{
+	Lock lock(mutex);
+
+	loaded_textures.erase(key);
 }
 
 
