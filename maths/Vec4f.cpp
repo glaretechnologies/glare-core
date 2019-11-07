@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../utils/StringUtils.h"
+#include "../utils/ConPrint.h"
 
 
 const std::string Vec4f::toString() const
@@ -26,7 +27,6 @@ const std::string Vec4f::toStringNSigFigs(int n) const
 #if BUILD_TESTS
 
 
-#include "../indigo/globals.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/CycleTimer.h"
 
@@ -474,6 +474,9 @@ void Vec4f::test()
 }
 
 
+#endif // BUILD_TESTS
+
+
 void doAssertIsUnitLength(const Vec4f& v)
 {
 	if(!v.isUnitLength())
@@ -482,6 +485,3 @@ void doAssertIsUnitLength(const Vec4f& v)
 		assert(!"Assert failure: vector was not unit length");
 	}
 }
-
-
-#endif // BUILD_TESTS
