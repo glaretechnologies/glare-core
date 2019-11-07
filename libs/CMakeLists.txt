@@ -113,7 +113,7 @@ if(WIN32)
 endif()
 
 SET(openexr
-${openexrdir}/IlmImf/b44ExpLogTable.cpp
+#${openexrdir}/IlmImf/b44ExpLogTable.cpp # Has a main function to spit out table.
 ${openexrdir}/IlmImf/b44ExpLogTable.h
 ${openexrdir}/IlmImf/ImfAcesFile.cpp
 ${openexrdir}/IlmImf/ImfAcesFile.h
