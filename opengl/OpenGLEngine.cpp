@@ -3,7 +3,6 @@ OpenGLEngine.cpp
 ----------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
 
 
@@ -43,6 +42,10 @@ Copyright Glare Technologies Limited 2016 -
 
 static const bool PROFILE = false;
 static const bool MEM_PROFILE = false;
+
+
+// https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_filter_anisotropic.txt
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
 
 
 OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)

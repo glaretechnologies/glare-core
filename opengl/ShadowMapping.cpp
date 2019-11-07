@@ -3,7 +3,6 @@ ShadowMapping.cpp
 ---------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include "IncludeOpenGL.h"
 #include "ShadowMapping.h"
 
 

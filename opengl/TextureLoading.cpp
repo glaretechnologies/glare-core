@@ -3,7 +3,6 @@ TextureLoading.cpp
 ------------------
 Copyright Glare Technologies Limited 2019 -
 =====================================================================*/
-#include "IncludeOpenGL.h"
 #include "TextureLoading.h"
 
 

@@ -7,5 +7,8 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 #else
+
+#undef GL_VERSION_1_1 // This seems to be needed to get the compile to work for some reason.
+
 #include <GL/gl3w.h>
 #endif

@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
-#include <QtOpenGL/QGLWidget>
+#include "IncludeOpenGL.h"
 #include "FrameBuffer.h"
 #include "OpenGLTexture.h"
 #include "../utils/RefCounted.h"

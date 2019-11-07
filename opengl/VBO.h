@@ -7,7 +7,7 @@ Generated at 2014-02-13 22:44:00 +0000
 #pragma once
 
 
-#include <QtOpenGL/QGLWidget>
+#include "IncludeOpenGL.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"

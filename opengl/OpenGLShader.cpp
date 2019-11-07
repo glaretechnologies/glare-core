@@ -3,7 +3,6 @@ OpenGLShader.cpp
 ----------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include "IncludeOpenGL.h"
 #include "OpenGLShader.h"
 
 

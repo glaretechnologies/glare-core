@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
+#include "IncludeOpenGL.h"
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
 #include "TextureLoading.h"
 #include "../graphics/colour3.h"

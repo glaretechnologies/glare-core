@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2019 -
 #include "../utils/Mutex.h"
 #include "../utils/TaskManager.h"
 #include <unordered_set>
+#include <map>
 
 
 class OpenGLEngine;

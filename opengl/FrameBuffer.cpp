@@ -3,7 +3,6 @@ FrameBuffer.cpp
 ---------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include "IncludeOpenGL.h"
 #include "FrameBuffer.h"
 
 

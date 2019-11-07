@@ -3,7 +3,6 @@ VAO.cpp
 -------------------
 Copyright Glare Technologies Limited 2016 -
 =====================================================================*/
-#include "IncludeOpenGL.h"
 #include "VAO.h"
 
 

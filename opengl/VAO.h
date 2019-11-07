@@ -6,10 +6,11 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
-#include <QtOpenGL/QGLWidget>
+#include "IncludeOpenGL.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"
+#include <vector>
 class VBO;
 
 

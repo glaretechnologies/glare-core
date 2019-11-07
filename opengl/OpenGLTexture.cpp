@@ -1,4 +1,3 @@
-#include "IncludeOpenGL.h"
 #include "OpenGLTexture.h"
 
 
@@ -8,11 +7,14 @@
 
 
 // See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt
-//#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT                   0x83F0
-#define GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT                  0x8C4C
-#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT            0x8C4D
-#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT            0x8C4E
-#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT            0x8C4F
+//#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT					0x83F0
+#define GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT					0x8C4C
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT				0x8C4D
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT				0x8C4E
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT				0x8C4F
+
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT							0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
 
 
 OpenGLTexture::OpenGLTexture()
