@@ -312,8 +312,10 @@ const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 
 	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
 	
-	Vec4i i_pixels = min(toVec4i(f_pixels), dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
-	Vec4i i_pixels_1 = toVec4i(f_pixels) + Vec4i(1); // pixels + 1, not wrapped yet.
+	// We max with 0 here because otherwise Inf or NaN texture coordinates can result in out of bounds reads.
+	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels));
+	Vec4i i_pixels   = min(i_pixels_clamped, dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_1 = i_pixels_clamped + Vec4i(1); // pixels + 1, not wrapped yet.
 	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
 
 	// Fractional coords in the pixel:
@@ -377,9 +379,11 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, si
 	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
 
 	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
-
-	Vec4i i_pixels = min(toVec4i(f_pixels), dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
-	Vec4i i_pixels_1 = toVec4i(f_pixels) + Vec4i(1); // pixels + 1, not wrapped yet.
+	
+	// We max with 0 here because otherwise Inf or NaN texture coordinates can result in out of bounds reads.
+	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels));
+	Vec4i i_pixels = min(i_pixels_clamped, dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_1 = i_pixels_clamped + Vec4i(1); // pixels + 1, not wrapped yet.
 	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
 
 	// Fractional coords in the pixel:

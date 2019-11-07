@@ -26,6 +26,7 @@ Generated at 2011-05-22 19:51:52 +0100
 
 #if 0 // If do perf tests
 
+// See also DXTImageMapTests which has some more up-to-date code.
 
 static void testTexture(int res, double& elapsed_out)
 {
@@ -38,7 +39,7 @@ static void testTexture(int res, double& elapsed_out)
 			for(int c=0; c<channels; ++c)
 				m.getPixel(x, y)[c] = (unsigned char)(x + y + c);
 
-	double clock_freq = 2.798e9;
+	double clock_freq = 3.7e9;
 
 	//conPrint("\n\n");
 
@@ -158,6 +159,18 @@ void ImageMapTests::test()
 		testAssert(map.getDerivs(0.5f, 0.5f, dv_ds, dv_dt) == 1.0f);
 		testAssert(dv_ds == 0);
 		testAssert(dv_dt == 0);
+
+		// Test reads with non-finite texture coordinates.  Make sure we don't crash  scalarSampleTiled will probably return a NaN value.
+		testAssert(isNAN(map.scalarSampleTiled(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity())));
+		testAssert(isNAN(map.scalarSampleTiled(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity())));
+		testAssert(isNAN(map.scalarSampleTiled( std::numeric_limits<float>::quiet_NaN(),  std::numeric_limits<float>::quiet_NaN())));
+		testAssert(isNAN(map.scalarSampleTiled(-std::numeric_limits<float>::quiet_NaN(), -std::numeric_limits<float>::quiet_NaN())));
+
+		// Test reads with non-finite texture coordinates.  Make sure we don't crash.  vec3SampleTiled will probably return a NaN colour.
+		testAssert(map.vec3SampleTiled( std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity()) != Colour4f(1, 2, 3, 4));
+		testAssert(map.vec3SampleTiled(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity()) != Colour4f(1, 2, 3, 4));
+		testAssert(map.vec3SampleTiled( std::numeric_limits<float>::quiet_NaN(),  std::numeric_limits<float>::quiet_NaN()) != Colour4f(1, 2, 3, 4));
+		testAssert(map.vec3SampleTiled(-std::numeric_limits<float>::quiet_NaN(), -std::numeric_limits<float>::quiet_NaN()) != Colour4f(1, 2, 3, 4));
 	}
 		
 	// Test UInt8 map with 3 channels

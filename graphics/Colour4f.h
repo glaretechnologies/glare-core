@@ -47,6 +47,7 @@ public:
 	INDIGO_STRONG_INLINE void operator *= (float f);
 
 	inline bool operator == (const Colour4f& a) const;
+	inline bool operator != (const Colour4f& a) const;
 
 	INDIGO_STRONG_INLINE void addMult(const Colour4f& a, float x);
 	INDIGO_STRONG_INLINE void clampInPlace(float lowerbound, float upperbound);
@@ -243,6 +244,12 @@ void Colour4f::operator *= (float f)
 bool Colour4f::operator == (const Colour4f& a) const
 {
 	return _mm_movemask_ps(_mm_cmpeq_ps(v, a.v)) == 0xF;
+}
+
+
+bool Colour4f::operator != (const Colour4f& a) const
+{
+	return _mm_movemask_ps(_mm_cmpneq_ps(v, a.v)) != 0;
 }
 
 
