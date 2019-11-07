@@ -141,9 +141,9 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 					val[2] += src[2];
 				}
 				uint8* const dest_pixel = dst_data + (0 + level_W * y) * N;
-				dest_pixel[0] = val[0] / 2;
-				dest_pixel[1] = val[1] / 2;
-				dest_pixel[2] = val[2] / 2;
+				dest_pixel[0] = (uint8)(val[0] / 2);
+				dest_pixel[1] = (uint8)(val[1] / 2);
+				dest_pixel[2] = (uint8)(val[2] / 2);
 			}
 		}
 		else if(src_H == 1)
@@ -171,9 +171,9 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 					val[2] += src[2];
 				}
 				uint8* const dest_pixel = dst_data + (x + level_W * 0) * N;
-				dest_pixel[0] = val[0] / 2;
-				dest_pixel[1] = val[1] / 2;
-				dest_pixel[2] = val[2] / 2;
+				dest_pixel[0] = (uint8)(val[0] / 2);
+				dest_pixel[1] = (uint8)(val[1] / 2);
+				dest_pixel[2] = (uint8)(val[2] / 2);
 			}
 		}
 		else
@@ -219,9 +219,9 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 					}
 
 					uint8* const dest_pixel = dst_data + (x + level_W * y) * N;
-					dest_pixel[0] = val[0] / 4;
-					dest_pixel[1] = val[1] / 4;
-					dest_pixel[2] = val[2] / 4;
+					dest_pixel[0] = (uint8)(val[0] / 4);
+					dest_pixel[1] = (uint8)(val[1] / 4);
+					dest_pixel[2] = (uint8)(val[2] / 4);
 				}
 		}
 	}
@@ -254,10 +254,10 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 					val[3] += src[3];
 				}
 				uint8* const dest_pixel = dst_data + (0 + level_W * y) * N;
-				dest_pixel[0] = val[0] / 2;
-				dest_pixel[1] = val[1] / 2;
-				dest_pixel[2] = val[2] / 2;
-				dest_pixel[3] = val[3] / 2;
+				dest_pixel[0] = (uint8)(val[0] / 2);
+				dest_pixel[1] = (uint8)(val[1] / 2);
+				dest_pixel[2] = (uint8)(val[2] / 2);
+				dest_pixel[3] = (uint8)(val[3] / 2);
 			}
 		}
 		else if(src_H == 1)
@@ -287,10 +287,10 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 					val[3] += src[3];
 				}
 				uint8* const dest_pixel = dst_data + (x + level_W * 0) * N;
-				dest_pixel[0] = val[0] / 2;
-				dest_pixel[1] = val[1] / 2;
-				dest_pixel[2] = val[2] / 2;
-				dest_pixel[3] = val[3] / 2;
+				dest_pixel[0] = (uint8)(val[0] / 2);
+				dest_pixel[1] = (uint8)(val[1] / 2);
+				dest_pixel[2] = (uint8)(val[2] / 2);
+				dest_pixel[3] = (uint8)(val[3] / 2);
 			}
 		}
 		else
@@ -340,10 +340,10 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 					}
 
 					uint8* const dest_pixel = dst_data + (x + level_W * y) * N;
-					dest_pixel[0] = val[0] / 4;
-					dest_pixel[1] = val[1] / 4;
-					dest_pixel[2] = val[2] / 4;
-					dest_pixel[3] = val[3] / 4;
+					dest_pixel[0] = (uint8)(val[0] / 4);
+					dest_pixel[1] = (uint8)(val[1] / 4);
+					dest_pixel[2] = (uint8)(val[2] / 4);
+					dest_pixel[3] = (uint8)(val[3] / 4);
 				}
 		}
 	}

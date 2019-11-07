@@ -892,7 +892,7 @@ void OpenGLEngine::viewportChanged(int viewport_w_, int viewport_h_)
 {
 	viewport_w = viewport_w_;
 	viewport_h = viewport_h_;
-	viewport_aspect_ratio = (double)viewport_w_ / (double)viewport_h_;
+	viewport_aspect_ratio = (float)viewport_w_ / (float)viewport_h_;
 
 	buildOutlineTexturesForViewport();
 }
@@ -1264,15 +1264,15 @@ static const Matrix4f frustumMatrix(GLdouble left,
                        GLdouble zNear,
                        GLdouble zFar)
 {
-	float A = (right + left) / (right - left);
-	float B = (top + bottom) / (top - bottom);
-	float C = - (zFar + zNear) / (zFar - zNear);
-	float D = - (2 * zFar * zNear) / (zFar - zNear);
+	double A = (right + left) / (right - left);
+	double B = (top + bottom) / (top - bottom);
+	double C = - (zFar + zNear) / (zFar - zNear);
+	double D = - (2 * zFar * zNear) / (zFar - zNear);
 
 	float e[16] = {
-		(float)(2*zNear / (right - left)), 0, A, 0,
-		0, (float)(2*zNear / (top - bottom)), B, 0,
-		0, 0, C, D,
+		(float)(2*zNear / (right - left)), 0, (float)A, 0,
+		0, (float)(2*zNear / (top - bottom)), (float)B, 0,
+		0, 0, (float)C, (float)D,
 		0, 0, -1.f, 0 };
 	Matrix4f t;
 	Matrix4f(e).getTranspose(t);
@@ -4075,8 +4075,8 @@ float OpenGLEngine::getPixelDepth(int pixel_x, int pixel_y)
 	const double z_near = max_draw_dist * 2e-5;
 
 	// From http://learnopengl.com/#!Advanced-OpenGL/Depth-testing
-	float z = depth * 2.0 - 1.0; 
-	float linear_depth = (2.0 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near));	
+	float z = depth * 2.0f - 1.0f; 
+	float linear_depth = (float)((2.0 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near)));
 	return linear_depth;
 }
 
