@@ -7,18 +7,10 @@ Generated at Fri Nov 26 14:59:10 +1300 2010
 #include "Hilbert.h"
 
 
-#include <vector>
 #include "../maths/Matrix2.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"
-
-
-Hilbert::Hilbert()
-{}
-
-
-Hilbert::~Hilbert()
-{}
+#include <vector>
 
 
 // Mirror along x=y

@@ -24,9 +24,6 @@ and will generate roundUpToPowerOf2(max(w,h))^2 indices.
 class Hilbert
 {
 public:
-	Hilbert();
-	~Hilbert();
-
 	// will generate 4^depth indices, on a square grid with sides of length 2^depth.
 	static void generate(int depth, std::vector<Vec2i>& indices_out);
 
