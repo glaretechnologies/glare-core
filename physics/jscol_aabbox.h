@@ -202,7 +202,7 @@ bool AABBox::operator == (const AABBox& rhs) const
 }
 
 
-inline bool epsEqual(const AABBox& a, const AABBox& b, float eps = (float)NICKMATHS_EPSILON)
+inline bool epsEqual(const AABBox& a, const AABBox& b, float /*eps*/ = (float)NICKMATHS_EPSILON)
 {
 	return epsEqual(a.min_, b.min_) && epsEqual(a.max_, b.max_);
 }
