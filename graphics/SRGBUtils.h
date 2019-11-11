@@ -46,8 +46,8 @@ This is faster than any function using pow.  pow4f (fast approx pow) from SSE.h 
 inline Colour4f fastApproxLinearSRGBToNonLinearSRGB(const Colour4f& c)
 {
 	const Colour4f sqrt_c = sqrt(c);
-	const Colour4f nonlinear = c*(c*0.0404024488 + Colour4f(-0.19754737849999998)) + 
-		sqrt_c*1.0486722787999998 + sqrt(sqrt_c)*0.1634726509 - Colour4f(0.055);
+	const Colour4f nonlinear = c*(c*0.0404024488f + Colour4f(-0.19754737849999998f)) + 
+		sqrt_c*1.0486722787999998f + sqrt(sqrt_c)*0.1634726509f - Colour4f(0.055f);
 
 	const Colour4f linear = c * 12.92f;
 

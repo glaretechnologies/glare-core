@@ -141,11 +141,7 @@ static void setPixelStoreAlignment(size_t tex_xres, GLenum gl_format, GLenum typ
 }
 
 
-void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, const Reference<OpenGLEngine>& opengl_engine,
-	Format format_,
-	Filtering filtering,
-	Wrapping wrapping
-)
+void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format_)
 {
 	assert(tex_data.size() == 6);
 

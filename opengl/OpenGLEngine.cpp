@@ -3154,24 +3154,6 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 }
 
 
-// glEnableClientState(GL_VERTEX_ARRAY); should be called before this function is called.
-void OpenGLEngine::drawBatchWireframe(const OpenGLBatch& batch, int num_verts_per_primitive)
-{
-	//assert(glIsEnabled(GL_VERTEX_ARRAY));
-
-	//// Bind vertices
-	//pass_data.vertices_vbo->bind();
-	//glVertexPointer(3, GL_FLOAT, 0, NULL);
-	//pass_data.vertices_vbo->unbind();
-
-	//// Draw the triangles or quads
-	//if(num_verts_per_primitive == 3)
-	//	glDrawArrays(GL_TRIANGLES, 0, (GLsizei)pass_data.num_prims * 3);
-	//else
-	//	glDrawArrays(GL_QUADS, 0, (GLsizei)pass_data.num_prims * 4);
-}
-
-
 GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale)
 {
 	GLObjectRef ob = new GLObject();
@@ -3421,7 +3403,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::make3DArrowMesh()
 
 
 // Base will be at origin, tip will lie at (1, 0, 0)
-Reference<OpenGLMeshRenderData> OpenGLEngine::makeCapsuleMesh(const Vec3f& bottom_spans, const Vec3f& top_spans)
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCapsuleMesh(const Vec3f& /*bottom_spans*/, const Vec3f& /*top_spans*/)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 	
@@ -3906,7 +3888,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeQuadMesh(const Vec4f& i, const
 
 
 Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
+	OpenGLTexture::Filtering /*filtering*/, OpenGLTexture::Wrapping /*wrapping*/)
 {
 	Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
 
@@ -3925,9 +3907,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 		const size_t tex_xres = face_maps[0]->getMapWidth();
 		const size_t tex_yres = face_maps[0]->getMapHeight();
-		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, this, OpenGLTexture::Format_RGB_Linear_Float,
-			filtering, wrapping
-		);
+		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, OpenGLTexture::Format_RGB_Linear_Float);
 
 		//this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 

@@ -52,11 +52,7 @@ public:
 		Format_Compressed_SRGBA_Uint8
 	};
 
-	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, const Reference<OpenGLEngine>& opengl_engine,
-		Format format,
-		Filtering filtering,
-		Wrapping wrapping = Wrapping_Repeat
-	);
+	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format);
 
 
 	void makeGLTexture(Format format);

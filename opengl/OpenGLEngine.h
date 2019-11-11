@@ -227,11 +227,11 @@ private:
 
 	Matrix4f world_to_camera_space_matrix;
 	Matrix4f cam_to_world;
-	
+public:
 	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
 	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
 	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
-
+private:
 	float max_draw_dist;
 
 	Planef frustum_clip_planes[6];
@@ -407,7 +407,6 @@ private:
 	void assignShaderProgToMaterial(OpenGLMaterial& material);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
-	void drawBatchWireframe(const OpenGLBatch& pass_data, int num_verts_per_primitive);
 	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();

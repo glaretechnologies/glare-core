@@ -41,7 +41,7 @@ void init()
 class DXTCompressTask : public Indigo::Task
 {
 public:
-	virtual void run(size_t thread_index)
+	virtual void run(size_t /*thread_index*/)
 	{
 		const size_t W = src_W;
 		const size_t H = src_H;
