@@ -932,6 +932,13 @@ Reference<ImageMap<float, FloatComponentValueTraits> > DXTImageMap::resizeToImag
 }
 
 
+Reference<Map2D> DXTImageMap::resizeMidQuality(const int /*new_width*/, const int /*new_height*/, Indigo::TaskManager& /*task_manager*/) const
+{ 
+	assert(0); 
+	return Reference<Map2D>();
+}
+
+
 size_t DXTImageMap::getBytesPerPixel() const
 {
 	return N; // NOTE: this gives the uncompressed size.
