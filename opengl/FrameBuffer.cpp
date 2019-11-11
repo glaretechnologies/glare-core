@@ -32,3 +32,15 @@ void FrameBuffer::unbind()
 	// Unbind buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
+
+void FrameBuffer::bindTextureAsTarget(OpenGLTexture& tex, GLenum attachment_point)
+{
+	bind(); // Bind this frame buffer
+
+	// Bind the texture
+	glFramebufferTexture(GL_FRAMEBUFFER, // target
+		attachment_point,
+		tex.texture_handle, // texture
+		0); // mipmap level
+}

@@ -157,6 +157,8 @@ struct OverlayObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
+	OverlayObject();
+
 	Matrix4f ob_to_world_matrix;
 
 	Reference<OpenGLMeshRenderData> mesh_data;
@@ -182,6 +184,72 @@ public:
 
 	bool shadow_mapping;
 	bool compress_textures;
+};
+
+
+// The OpenGLEngine contains one or more OpenGLScene.
+// An OpenGLScene is a set of objects, plus a camera transform, and associated information.
+// The current scene being rendered by the OpenGLEngine can be set with OpenGLEngine::setCurrentScene().
+class OpenGLScene : public ThreadSafeRefCounted
+{
+public:
+	GLARE_ALIGNED_16_NEW_DELETE
+
+	OpenGLScene();
+
+	friend class OpenGLEngine;
+
+	void setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_, float lens_shift_up_distance_,
+		float lens_shift_right_distance_, float viewport_aspect_ratio);
+	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float lens_shift_up_distance_,
+		float lens_shift_right_distance_, float viewport_aspect_ratio);
+	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
+
+	void unloadAllData();
+
+private:
+	float use_sensor_width;
+	float use_sensor_height;
+	float sensor_width;
+	
+	float lens_sensor_dist;
+	float render_aspect_ratio;
+	float lens_shift_up_distance;
+	float lens_shift_right_distance;
+
+	enum CameraType
+	{
+		CameraType_Perspective,
+		CameraType_Orthographic
+	};
+
+	CameraType camera_type;
+
+	Matrix4f world_to_camera_space_matrix;
+	Matrix4f cam_to_world;
+	
+	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
+	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
+	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
+
+	float max_draw_dist;
+
+	Planef frustum_clip_planes[6];
+	int num_frustum_clip_planes;
+	Vec4f frustum_verts[8];
+	js::AABBox frustum_aabb;
+};
+
+
+typedef Reference<OpenGLScene> OpenGLSceneRef;
+
+
+struct OpenGLSceneHash
+{
+	size_t operator() (const OpenGLSceneRef& scene) const
+	{
+		return (size_t)scene.getPointer() >> 3; // Assuming 8-byte aligned, get rid of lower zero bits.
+	}
 };
 
 
@@ -255,8 +323,11 @@ public:
 
 	void viewportChanged(int viewport_w_, int viewport_h_);
 	void setViewportAspectRatio(float r, int viewport_w_, int viewport_h_) { viewport_aspect_ratio = r; viewport_w = viewport_w_; viewport_h = viewport_h_; }
+	int getViewPortWidth()  const { return viewport_w; }
+	int getViewPortHeight() const { return viewport_h; }
+	float getViewPortAspectRatio() const { return viewport_aspect_ratio; }
 
-	void setMaxDrawDistance(float d) { max_draw_dist = d; }
+	void setMaxDrawDistance(float d) { current_scene->max_draw_dist = d; }
 
 	bool initSucceeded() const { return init_succeeded; }
 	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
@@ -305,6 +376,12 @@ public:
 	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 
 	TextureServer* getTextureServer() { return texture_server; }
+
+	void addScene(const Reference<OpenGLScene>& scene);
+	void removeScene(const Reference<OpenGLScene>& scene);
+	void setCurrentScene(const Reference<OpenGLScene>& scene);
+	OpenGLScene* getCurrentScene() { return current_scene.ptr(); }
+
 private:
 	struct PhongUniformLocations
 	{
@@ -359,48 +436,19 @@ private:
 	Reference<OpenGLMeshRenderData> cylinder_meshdata;
 	GLObjectRef env_ob;
 
-	float use_sensor_width;
-	float use_sensor_height;
-	float sensor_width;
-	float viewport_aspect_ratio;
-	float lens_sensor_dist;
-	float render_aspect_ratio;
-	float lens_shift_up_distance;
-	float lens_shift_right_distance;
 	int viewport_w, viewport_h;
-	enum CameraType
-	{
-		CameraType_Perspective,
-		CameraType_Orthographic
-	};
-	CameraType camera_type;
-
-	Matrix4f world_to_camera_space_matrix;
-	Matrix4f cam_to_world;
-public:
-	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
-	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
-	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
-private:
-	float max_draw_dist;
-
+	float viewport_aspect_ratio;
+	
+	Planef shadow_clip_planes[6];
 	std::vector<OverlayObject*> temp_obs;
 
 #if !defined(OSX)
 	GLuint timer_query_id;
 #endif
 
-
 	uint64 num_face_groups_submitted;
 	uint64 num_indices_submitted;
 	uint64 num_aabbs_submitted;
-
-	Planef frustum_clip_planes[6];
-	int num_frustum_clip_planes;
-	Vec4f frustum_verts[8];
-	js::AABBox frustum_aabb;
-
-	Planef shadow_clip_planes[6];
 
 	Reference<OpenGLProgram> phong_prog;
 	Reference<OpenGLProgram> phong_with_alpha_test_prog;
@@ -495,6 +543,10 @@ public:
 	OpenGLEngineSettings settings;
 
 	uint64 frame_num;
+
+private:
+	std::unordered_set<Reference<OpenGLScene>, OpenGLSceneHash> scenes;
+	Reference<OpenGLScene> current_scene;
 };
 
 #ifdef _WIN32

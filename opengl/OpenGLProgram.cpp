@@ -96,9 +96,20 @@ void OpenGLProgram::useNoPrograms()
 int OpenGLProgram::getUniformLocation(const std::string& name)
 {
 	const int res = glGetUniformLocation(program, name.c_str());
-#if BUILD_TESTS
+#ifndef NDEBUG
 	if(res < 0)
 		conPrint("Warning: for program '" + prog_name + "': failed to get uniform '" + name + "'.");
+#endif
+	return res;
+}
+
+
+int OpenGLProgram::getAttributeLocation(const std::string& name)
+{
+	const int res = glGetAttribLocation(program, name.c_str());
+#ifndef NDEBUG
+	if(res < 0)
+		conPrint("Warning: for program '" + prog_name + "': failed to get attribute '" + name + "'.");
 #endif
 	return res;
 }

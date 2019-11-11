@@ -80,3 +80,6 @@ private:
 
 	Format format;
 };
+
+
+typedef Reference<OpenGLTexture> OpenGLTextureRef;

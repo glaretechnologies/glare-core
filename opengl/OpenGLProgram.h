@@ -29,6 +29,8 @@ public:
 
 	int getUniformLocation(const std::string& name);
 
+	int getAttributeLocation(const std::string& name);
+
 	GLuint program;
 private:
 	INDIGO_DISABLE_COPY(OpenGLProgram);
