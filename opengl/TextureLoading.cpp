@@ -513,9 +513,9 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	{
 		OpenGLTexture::Format format;
 		if(texture_data.bytes_pp == 3)
-			format = OpenGLTexture::Format_SRGB_Uint8;
+			format = opengl_engine->are_8bit_textures_sRGB ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_RGB_Linear_Uint8;
 		else if(texture_data.bytes_pp == 4)
-			format = OpenGLTexture::Format_SRGBA_Uint8;
+			format = opengl_engine->are_8bit_textures_sRGB ? OpenGLTexture::Format_SRGBA_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
 		else
 			throw Indigo::Exception("Texture has unhandled number of components: " + toString(texture_data.bytes_pp));
 

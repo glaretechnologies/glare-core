@@ -365,6 +365,7 @@ public:
 
 	// Set the primary render target frame buffer.
 	void setTargetFrameBuffer(unsigned int target_frame_buffer_) { target_frame_buffer = target_frame_buffer_; use_target_frame_buffer = true; }
+	void setTargetFrameBufferRes(int w, int h) { target_frame_buffer_w = w; target_frame_buffer_h = h; }
 	void dontUseTargetFrameBuffer() { use_target_frame_buffer = false; }
 
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
@@ -530,6 +531,8 @@ private:
 
 	unsigned int target_frame_buffer;
 	bool use_target_frame_buffer;
+	int target_frame_buffer_w;
+	int target_frame_buffer_h;
 
 	mutable Mutex task_manager_mutex;
 	Indigo::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
@@ -542,6 +545,9 @@ public:
 	OpenGLEngineSettings settings;
 
 	uint64 frame_num;
+
+	bool are_8bit_textures_sRGB; // If true, load textures as sRGB, otherwise treat them as in an 8-bit colour space.  Defaults to true.
+	// Currently compressed textures are always treated as sRGB.
 
 private:
 	std::unordered_set<Reference<OpenGLScene>, OpenGLSceneHash> scenes;

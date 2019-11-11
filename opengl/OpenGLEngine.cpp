@@ -75,13 +75,15 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	target_frame_buffer(0),
 	use_target_frame_buffer(false),
 	texture_server(NULL),
-	outline_colour(0.43f, 0.72f, 0.95f, 1.0)
+	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
+	are_8bit_textures_sRGB(true)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
 
 	viewport_w = viewport_h = 100;
 	viewport_aspect_ratio = 1;
+	target_frame_buffer_w = target_frame_buffer_h = 100;
 
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
 	env_ob = new GLObject();
@@ -1772,9 +1774,6 @@ void OpenGLEngine::draw()
 		if(this->use_target_frame_buffer)
 			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer);
 
-		// Restore viewport
-		glViewport(0, 0, viewport_w, viewport_h);
-
 		glDisable(GL_CULL_FACE);
 
 #if !defined(OSX)
@@ -1791,9 +1790,15 @@ void OpenGLEngine::draw()
 #endif
 
 	if(this->use_target_frame_buffer)
+	{
 		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer);
+		glViewport(0, 0, target_frame_buffer_w, target_frame_buffer_h);
+	}
 	else
+	{
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); // Unbind any frame buffer
+		glViewport(0, 0, viewport_w, viewport_h);
+	}
 	
 	// NOTE: We want to clear here first, even if the scene node is null.
 	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
