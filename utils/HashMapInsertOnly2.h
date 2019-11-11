@@ -12,6 +12,12 @@ Copyright Glare Technologies Limited 2017 -
 #include <type_traits>
 
 
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4127) // Disable 'conditional expression is constant' warnings in the if(sizeof(x) == ) etc.. code below.
+#endif
+
+
 // Implemented using FNV-1a hash.
 // See https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 // FNV is a good hash function for smaller key lengths.
@@ -334,3 +340,8 @@ private:
 
 
 void testHashMapInsertOnly2();
+
+
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
