@@ -319,18 +319,7 @@ void Obfuscator::addOpenCLKeywords()
 		"mod_float__float_",
 		"print_vec2_",
 		"print_vec4_",
-
-		/*
-		"sampleTexDummy_int__vec2__FullHitInfo_",
-		"sampleTexScalarDummy_int__vec2__FullHitInfo_",
-		"evalTexDerivsForST_int__vec2__FullHitInfo_",
-		"getTexCoords_int__FullHitInfo_",
-		"getWorldToObMatrix_FullHitInfo_",
-		"getObToWorldMatrixRows_FullHitInfo_",
-		"getSample_int__int__int____global_array_float__28__",
-		//"getSamplePair_int__int__int____global_array_float__28__",
-		"evalTexDerivsForST_int__vec2__FullHitInfo_",*/
-NULL
+		NULL
 	};
 
 	for(int i=0; keywords_[i]; i++)
@@ -397,16 +386,6 @@ void Obfuscator::addWinterKeywords()
 		"elem",
 
 		"v",
-
-
-		/*"sampleTexDummy",
-		"sampleTexScalarDummy",
-		"evalTexDerivsForST",
-		"getTexCoords",
-		"getWorldToObMatrix",
-		"getObToWorldMatrixRows",
-		"getSample",
-		//"getSamplePair",*/
 
 		"sample2DTextureVec3",
 		"noise",
@@ -1121,10 +1100,7 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 	std::string code = support_opencl_code;
 
 	const char* replacements[] = {
-		"sampleTexDummy_int__vec2__FullHitInfo_",
-		"sampleTexRaw_int__vec2__FullHitInfo_",
-		"sampleTexDummyForUV_int__vec2__FullHitInfo_",
-		"sampleTexScalarDummy_int__vec2__int__FullHitInfo_",
+		"sampleTexForUV_int__vec2__FullHitInfo_",
 		"evalTexDerivsForST_int__vec2__FullHitInfo_",
 		"getTexCoords_int__FullHitInfo_",
 		"getWorldToObMatrix_FullHitInfo_",
