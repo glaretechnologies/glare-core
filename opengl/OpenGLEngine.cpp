@@ -670,6 +670,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	}
 
 	this->cube_meshdata = makeCubeMesh();
+	this->unit_quad_meshdata = makeUnitQuadMesh();
 
 	this->env_ob->mesh_data = sphere_meshdata;
 
@@ -792,7 +793,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				clear_buf_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, -0.9999f);
 				clear_buf_overlay_ob->material.albedo_rgb = Colour3f(1.f, 0.5f, 0.2f);
 				clear_buf_overlay_ob->material.shader_prog = this->overlay_prog;
-				clear_buf_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+				clear_buf_overlay_ob->mesh_data = this->unit_quad_meshdata;
 			}
 
 			if(false)
@@ -808,7 +809,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 				tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex;
 
-				tex_preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+				tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 
 				addOverlayObject(tex_preview_overlay_ob);
 			}
@@ -824,7 +825,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			outline_edge_mat.albedo_rgb = Colour3f(0.2f, 0.2f, 0.2f);
 			outline_edge_mat.shader_prog = this->overlay_prog;
 
-			outline_quad_meshdata = OpenGLEngine::makeOverlayQuadMesh();
+			outline_quad_meshdata = this->unit_quad_meshdata;
 		}
 
 
@@ -907,14 +908,14 @@ void OpenGLEngine::buildOutlineTexturesForViewport()
 		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0,0,0);
 		preview_overlay_ob->material.shader_prog = this->overlay_prog;
 		preview_overlay_ob->material.albedo_texture = outline_solid_tex;
-		preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+		preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 		addOverlayObject(preview_overlay_ob);
 
 		preview_overlay_ob = new OverlayObject();
 		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,0);
 		preview_overlay_ob->material.shader_prog = this->overlay_prog;
 		preview_overlay_ob->material.albedo_texture = outline_edge_tex;
-		preview_overlay_ob->mesh_data = OpenGLEngine::makeOverlayQuadMesh();
+		preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 		addOverlayObject(preview_overlay_ob);
 	}
 

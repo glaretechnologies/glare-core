@@ -263,17 +263,48 @@ public:
 
 	friend class TextureLoading;
 
+	//---------------------------- Initialisation/deinitialisation --------------------------
 	void initialise(const std::string& data_dir, TextureServer* texture_server); // data_dir should have 'shaders' and 'gl_data' in it.
+	bool initSucceeded() const { return init_succeeded; }
+	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
 
 	void unloadAllData();
+	//----------------------------------------------------------------------------------------
 
+
+	//---------------------------- Adding and removing objects -------------------------------
 	void addObject(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
 	bool isObjectAdded(const Reference<GLObject>& object) const;
 
+	// Overlay objects are considered to be in OpenGL clip-space coordinates.
+	// The x axis is to the right, y up, and negative z away from the camera into the scene.
+	// x=-1 is the left edge of the viewport, x=+1 is the right edge.
+	// y=-1 is the bottom edge of the viewport, y=+1 is the top edge.
+	//
+	// Overlay objects are drawn back-to-front, without z-testing, using the overlay shaders.
 	void addOverlayObject(const Reference<OverlayObject>& object);
 	void removeOverlayObject(const Reference<OverlayObject>& object);
+	//----------------------------------------------------------------------------------------
 
+
+	//---------------------------- Updating objects ------------------------------------------
+	void updateObjectTransformData(GLObject& object);
+	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
+
+	void newMaterialUsed(OpenGLMaterial& mat);
+	void objectMaterialsUpdated(const Reference<GLObject>& object);
+	//----------------------------------------------------------------------------------------
+
+
+	//---------------------------- Object selection ------------------------------------------
+	void selectObject(const Reference<GLObject>& object);
+	void deselectObject(const Reference<GLObject>& object);
+	void setSelectionOutlineColour(const Colour4f& col);
+	//----------------------------------------------------------------------------------------
+
+
+	//---------------------------- Texture loading -------------------------------------------
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
 	// Throws Indigo::Exception
 	Reference<OpenGLTexture> getTexture(const std::string& tex_path);
@@ -285,64 +316,6 @@ public:
 
 	// Notify the OpenGL engine that a texture has been loaded.
 	void textureLoaded(const std::string& path, const OpenGLTextureKey& key);
-
-	void selectObject(const Reference<GLObject>& object);
-	void deselectObject(const Reference<GLObject>& object);
-	void setSelectionOutlineColour(const Colour4f& col);
-
-
-	void newMaterialUsed(OpenGLMaterial& mat);
-
-	void objectMaterialsUpdated(const Reference<GLObject>& object);
-
-	void draw();
-
-	void setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float lens_sensor_dist, float render_aspect_ratio, float lens_shift_up_distance,
-		float lens_shift_right_distance);
-
-	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
-		float lens_shift_right_distance);
-
-	void setCurrentTime(float time);
-
-	void setSunDir(const Vec4f& d);
-
-	void setEnvMapTransform(const Matrix3f& transform);
-
-	void setEnvMat(const OpenGLMaterial& env_mat);
-	const OpenGLMaterial& getEnvMat() const { return env_ob->materials[0]; }
-
-	void setDrawWireFrames(bool draw_wireframes_) { draw_wireframes = draw_wireframes_; }
-
-
-	Reference<OpenGLMeshRenderData> getSphereMeshData() { return sphere_meshdata; }
-	Reference<OpenGLMeshRenderData> getCubeMeshData() { return cube_meshdata; }
-
-	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
-	void updateObjectTransformData(GLObject& object);
-
-	void viewportChanged(int viewport_w_, int viewport_h_);
-	void setViewportAspectRatio(float r, int viewport_w_, int viewport_h_) { viewport_aspect_ratio = r; viewport_w = viewport_w_; viewport_h = viewport_h_; }
-	int getViewPortWidth()  const { return viewport_w; }
-	int getViewPortHeight() const { return viewport_h; }
-	float getViewPortAspectRatio() const { return viewport_aspect_ratio; }
-
-	void setMaxDrawDistance(float d) { current_scene->max_draw_dist = d; }
-
-	bool initSucceeded() const { return init_succeeded; }
-	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
-
-
-	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
-	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
-
-	static Reference<OpenGLMeshRenderData> makeCapsuleMesh(const Vec3f& bottom_spans, const Vec3f& top_spans);
-
-	// Built OpenGLMeshRenderData from an Indigo::Mesh.
-	// Throws Indigo::Exception on failure
-	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
-
-	static void loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data);
 
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
@@ -359,29 +332,89 @@ public:
 
 	bool isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) const;
 
+	TextureServer* getTextureServer() { return texture_server; }
+	//------------------------------- End texture loading ------------------------------------
+
+
+	//------------------------------- Camera management --------------------------------------
+	void setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float lens_sensor_dist, float render_aspect_ratio, float lens_shift_up_distance,
+		float lens_shift_right_distance);
+
+	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
+		float lens_shift_right_distance);
+	//----------------------------------------------------------------------------------------
+
+
+	//------------------------------- Environment material/map management --------------------
+	void setSunDir(const Vec4f& d);
+
+	void setEnvMapTransform(const Matrix3f& transform);
+
+	void setEnvMat(const OpenGLMaterial& env_mat);
+	const OpenGLMaterial& getEnvMat() const { return env_ob->materials[0]; }
+	//----------------------------------------------------------------------------------------
+
+
+	//--------------------------------------- Drawing ----------------------------------------
+	void setDrawWireFrames(bool draw_wireframes_) { draw_wireframes = draw_wireframes_; }
+	void setMaxDrawDistance(float d) { current_scene->max_draw_dist = d; }
+	void setCurrentTime(float time);
+
+	void draw();
+	//----------------------------------------------------------------------------------------
+
+
+	//--------------------------------------- Viewport ----------------------------------------
+	void viewportChanged(int viewport_w_, int viewport_h_);
+	void setViewportAspectRatio(float r, int viewport_w_, int viewport_h_) { viewport_aspect_ratio = r; viewport_w = viewport_w_; viewport_h = viewport_h_; }
+	int getViewPortWidth()  const { return viewport_w; }
+	int getViewPortHeight() const { return viewport_h; }
+	float getViewPortAspectRatio() const { return viewport_aspect_ratio; }
+	//----------------------------------------------------------------------------------------
+
+
+	//----------------------------------- Mesh functions -------------------------------------
+	Reference<OpenGLMeshRenderData> getSphereMeshData() { return sphere_meshdata; }
+	Reference<OpenGLMeshRenderData> getCubeMeshData() { return cube_meshdata; }
+	Reference<OpenGLMeshRenderData> getUnitQuadMeshData() { return unit_quad_meshdata; } // A quad from (0, 0, 0) to (1, 1, 0)
+	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
+
+	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
+	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
+	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
+	static Reference<OpenGLMeshRenderData> makeCapsuleMesh(const Vec3f& bottom_spans, const Vec3f& top_spans);
+
+	// Build OpenGLMeshRenderData from an Indigo::Mesh.
+	// Throws Indigo::Exception on failure.
+	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
+
+	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
+
+	static void loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data);
+	//---------------------------- End mesh functions ----------------------------------------
+
+
+	//----------------------------------- Readback -------------------------------------------
 	float getPixelDepth(int pixel_x, int pixel_y);
 
 	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > getRenderedColourBuffer();
+	//----------------------------------------------------------------------------------------
 
+
+	//----------------------------------- Target framebuffer ---------------------------------
 	// Set the primary render target frame buffer.
 	void setTargetFrameBuffer(unsigned int target_frame_buffer_) { target_frame_buffer = target_frame_buffer_; use_target_frame_buffer = true; }
 	void setTargetFrameBufferRes(int w, int h) { target_frame_buffer_w = w; target_frame_buffer_h = h; }
 	void dontUseTargetFrameBuffer() { use_target_frame_buffer = false; }
-
-	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
-	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
-	static Reference<OpenGLMeshRenderData> makeOverlayQuadMesh() { return makeUnitQuadMesh(); }
+	//----------------------------------------------------------------------------------------
 	
-	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 
-	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
-
-	TextureServer* getTextureServer() { return texture_server; }
-
+	//----------------------------------- Scene management -----------------------------------
 	void addScene(const Reference<OpenGLScene>& scene);
 	void removeScene(const Reference<OpenGLScene>& scene);
 	void setCurrentScene(const Reference<OpenGLScene>& scene);
 	OpenGLScene* getCurrentScene() { return current_scene.ptr(); }
+	//----------------------------------------------------------------------------------------
 
 private:
 	struct PhongUniformLocations
@@ -411,6 +444,7 @@ private:
 	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
+	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
 		float plane_draw_half_width);
 	static void getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, PhongUniformLocations& phong_locations_out);
@@ -429,11 +463,12 @@ private:
 	Vec4f sun_dir; // Dir to sun.
 	Vec4f sun_dir_cam_space;
 
-	//OpenGLMeshRenderData aabb_meshdata;
 	Reference<OpenGLMeshRenderData> sphere_meshdata;
 	Reference<OpenGLMeshRenderData> arrow_meshdata;
 	Reference<OpenGLMeshRenderData> cube_meshdata;
+	Reference<OpenGLMeshRenderData> unit_quad_meshdata;
 	Reference<OpenGLMeshRenderData> cylinder_meshdata;
+
 	GLObjectRef env_ob;
 
 	int viewport_w, viewport_h;
