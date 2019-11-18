@@ -981,7 +981,11 @@ void PlatformUtils::setCurrentThreadName(const std::string& name)
 }
 
 
-void PlatformUtils::setCurrentThreadNameIfTestsEnabled(const std::string& name)
+void PlatformUtils::setCurrentThreadNameIfTestsEnabled(const std::string& 
+#if BUILD_TESTS
+	name
+#endif
+)
 {
 #if BUILD_TESTS
 	setCurrentThreadName(name);
