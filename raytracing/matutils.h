@@ -13,7 +13,6 @@ Code By Nicholas Chapman.
 #include "../indigo/SampleTypes.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
-#include "../maths/basis.h"
 class MTwister;
 class SpectralVector;
 class ThreadContext;

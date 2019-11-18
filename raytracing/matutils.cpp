@@ -11,7 +11,6 @@ Code By Nicholas Chapman.
 #include "../indigo/globals.h"
 #include "../indigo/SpectralVector.h"
 #include "../graphics/colour3.h"
-#include "../maths/basis.h"
 #include "../maths/vec2.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/Timer.h"
