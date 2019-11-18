@@ -27,6 +27,9 @@ public:
 	INDIGO_STRONG_INLINE T& e(unsigned int x, unsigned int y, unsigned int z);
 	INDIGO_STRONG_INLINE const T& e(unsigned int x, unsigned int y, unsigned int z) const;
 
+	INDIGO_STRONG_INLINE T& elem(unsigned int x, unsigned int y, unsigned int z) { return e(x, y, z); }
+	INDIGO_STRONG_INLINE const T& elem(unsigned int x, unsigned int y, unsigned int z) const { return e(x, y, z); }
+
 	INDIGO_STRONG_INLINE const unsigned int dX() const { return dx; }
 	INDIGO_STRONG_INLINE const unsigned int dY() const { return dy; }
 	INDIGO_STRONG_INLINE const unsigned int dZ() const { return dz; }
