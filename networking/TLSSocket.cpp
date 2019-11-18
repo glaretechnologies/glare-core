@@ -146,25 +146,25 @@ void TLSSocket::write(const void* data, size_t datalen)
 
 void TLSSocket::write(const void* data, size_t datalen, FractionListener* frac)
 {
-	const size_t totalnumbytestowrite = datalen;
+	const size_t total_num_bytes_to_write = datalen;
 
-	while(datalen > 0) // while still bytes to write
+	while(datalen > 0) // while still bytes to write:
 	{
-		const int numbytestowrite = (int)std::min(MAX_READ_OR_WRITE_SIZE, datalen);
-		assert(numbytestowrite > 0);
+		const size_t num_bytes_to_write = std::min(MAX_READ_OR_WRITE_SIZE, datalen);
+		assert(num_bytes_to_write > 0);
 
-		const int numbyteswritten = (int)tls_write(tls_context, (const void*)data, numbytestowrite);
-		if(numbyteswritten == TLS_WANT_POLLIN || numbyteswritten == TLS_WANT_POLLOUT)
+		const ssize_t num_bytes_written = tls_write(tls_context, data, num_bytes_to_write);
+		if(num_bytes_written == TLS_WANT_POLLIN || num_bytes_written == TLS_WANT_POLLOUT)
 			continue;
 
-		if(numbyteswritten == SOCKET_ERROR)
+		if(num_bytes_written == SOCKET_ERROR)
 			throw MySocketExcep("write failed: " + std::string(tls_error(tls_context)));
 
-		datalen -= numbyteswritten;
-		data = (void*)((char*)data + numbyteswritten); // Advance data pointer
+		datalen -= num_bytes_written;
+		data = (void*)((uint8*)data + num_bytes_written); // Advance data pointer
 
 		if(frac)
-			frac->setFraction((float)(totalnumbytestowrite - datalen) / (float)totalnumbytestowrite);
+			frac->setFraction((float)(total_num_bytes_to_write - datalen) / (float)total_num_bytes_to_write);
 	}
 }
 
@@ -173,14 +173,14 @@ size_t TLSSocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 {
 	while(1)
 	{
-		const ssize_t numbytesread = tls_read(tls_context, buffer, max_num_bytes);
-		if(numbytesread == TLS_WANT_POLLIN || numbytesread == TLS_WANT_POLLOUT)
+		const ssize_t num_bytes_read = tls_read(tls_context, buffer, max_num_bytes);
+		if(num_bytes_read == TLS_WANT_POLLIN || num_bytes_read == TLS_WANT_POLLOUT)
 			continue;
 
-		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
+		if(num_bytes_read == SOCKET_ERROR) // Connection was reset/broken
 			throw MySocketExcep("Read failed, error: " + std::string(tls_error(tls_context)));
 
-		return (size_t)numbytesread;
+		return (size_t)num_bytes_read;
 	}
 }
 
@@ -211,30 +211,29 @@ void TLSSocket::readTo(void* buffer, size_t readlen)
 
 void TLSSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 {
-	const size_t totalnumbytestoread = readlen;
+	const size_t total_num_bytes_to_read = readlen;
 
 	while(readlen > 0) // While still bytes to read
 	{
-		const int numbytestoread = (int)std::min(MAX_READ_OR_WRITE_SIZE, readlen);
-		assert(numbytestoread > 0);
+		const size_t num_bytes_to_read = std::min(MAX_READ_OR_WRITE_SIZE, readlen);
+		assert(num_bytes_to_read > 0);
 
 		//------------------------------------------------------------------------
 		//do the read
 		//------------------------------------------------------------------------
-		const int numbytesread = (int)tls_read(tls_context, buffer, numbytestoread);
-		if(numbytesread == TLS_WANT_POLLIN || numbytesread == TLS_WANT_POLLOUT)
+		const ssize_t num_bytes_read = tls_read(tls_context, buffer, num_bytes_to_read);
+		if(num_bytes_read == TLS_WANT_POLLIN || num_bytes_read == TLS_WANT_POLLOUT)
 			continue;
-
-		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
+		else if(num_bytes_read == SOCKET_ERROR) // Connection was reset/broken
 			throw MySocketExcep("Read failed, error: " + std::string(tls_error(tls_context)));
-		else if(numbytesread == 0) // Connection was closed gracefully
+		else if(num_bytes_read == 0) // Connection was closed gracefully
 			throw MySocketExcep("Connection Closed.");
 
-		readlen -= numbytesread;
-		buffer = (void*)((char*)buffer + numbytesread);
+		readlen -= num_bytes_read;
+		buffer = (void*)((uint8*)buffer + num_bytes_read);
 
 		if(frac)
-			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
+			frac->setFraction((float)(total_num_bytes_to_read - readlen) / (float)total_num_bytes_to_read);
 	}
 }
 
@@ -251,13 +250,12 @@ void TLSSocket::waitForGracefulDisconnect()
 	while(1)
 	{
 		char buf[1024];
-		const int numbytesread = (int)tls_read(tls_context, buf, sizeof(buf));
-		if(numbytesread == TLS_WANT_POLLIN || numbytesread == TLS_WANT_POLLOUT)
+		const ssize_t num_bytes_read = tls_read(tls_context, buf, sizeof(buf));
+		if(num_bytes_read == TLS_WANT_POLLIN || num_bytes_read == TLS_WANT_POLLOUT)
 			continue;
-
-		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
+		else if(num_bytes_read == SOCKET_ERROR) // Connection was reset/broken
 			throw MySocketExcep("Read failed, error: " + std::string(tls_error(tls_context)));
-		else if(numbytesread == 0) // Connection was closed gracefully
+		else if(num_bytes_read == 0) // Connection was closed gracefully
 		{
 			// conPrint("\tConnection was closed gracefully.");
 			return;
