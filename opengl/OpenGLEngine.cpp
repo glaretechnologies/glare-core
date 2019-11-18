@@ -3148,6 +3148,12 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glUniform1f(shader_prog->time_loc, this->current_time);
 			if(shader_prog->colour_loc >= 0)
 				glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_rgb.r);
+
+			if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+			}
 		}
 		
 		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);

@@ -34,7 +34,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	prog_name(prog_name_),
 	campos_ws_loc(-1),
 	time_loc(-1),
-	colour_loc(-1)
+	colour_loc(-1),
+	albedo_texture_loc(-1)
 {
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
@@ -64,14 +65,15 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	if(!program_ok)
 		throw Indigo::Exception("Failed to link shader program '" + prog_name + "': " + log);
 
-	model_matrix_loc  = glGetUniformLocation(program, "model_matrix");
-	view_matrix_loc   = glGetUniformLocation(program, "view_matrix");
-	proj_matrix_loc   = glGetUniformLocation(program, "proj_matrix");
-	normal_matrix_loc = glGetUniformLocation(program, "normal_matrix");
-
-	campos_ws_loc     = glGetUniformLocation(program, "campos_ws");
-	time_loc          = glGetUniformLocation(program, "time");
-	colour_loc        = glGetUniformLocation(program, "colour");
+	model_matrix_loc   = glGetUniformLocation(program, "model_matrix");
+	view_matrix_loc    = glGetUniformLocation(program, "view_matrix");
+	proj_matrix_loc    = glGetUniformLocation(program, "proj_matrix");
+	normal_matrix_loc  = glGetUniformLocation(program, "normal_matrix");
+					   
+	campos_ws_loc      = glGetUniformLocation(program, "campos_ws");
+	time_loc           = glGetUniformLocation(program, "time");
+	colour_loc         = glGetUniformLocation(program, "colour");
+	albedo_texture_loc = glGetUniformLocation(program, "albedo_texture");
 }
 
 

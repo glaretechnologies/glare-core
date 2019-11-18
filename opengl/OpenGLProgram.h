@@ -43,6 +43,7 @@ public:
 	int campos_ws_loc;
 	int time_loc;
 	int colour_loc;
+	int albedo_texture_loc;
 
 	Reference<OpenGLShader> vert_shader;
 	Reference<OpenGLShader> frag_shader;
