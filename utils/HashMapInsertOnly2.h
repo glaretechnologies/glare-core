@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2017 -
 
 #ifdef _WIN32
 #pragma warning(push)
-#pragma warning(disable:4127) // Disable 'conditional expression is constant' warnings in the if(sizeof(x) == ) etc.. code below.
+#pragma warning(disable:4127) // Disable 'conditional expression is constant' warnings in the if(std::is_pod<Key>::value ...) code below.
 #endif
 
 
@@ -26,20 +26,11 @@ Copyright Glare Technologies Limited 2017 -
 //
 static inline size_t hashBytes(const uint8* data, size_t len)
 {
-	if(sizeof(size_t) == 8)
-	{
-		uint64 hash = 14695981039346656037ULL;
-		for(size_t i=0; i<len; ++i)
-			hash = (hash ^ data[i]) * 1099511628211ULL;
-		return hash;
-	}
-	else
-	{
-		uint32 hash = 2166136261U;
-		for(size_t i=0; i<len; ++i)
-			hash = (hash ^ data[i]) * 16777619U;
-		return hash;
-	}
+	static_assert(sizeof(size_t) == 8, "sizeof(size_t) == 8");
+	uint64 hash = 14695981039346656037ULL;
+	for(size_t i=0; i<len; ++i)
+		hash = (hash ^ data[i]) * 1099511628211ULL;
+	return hash;
 }
 
 

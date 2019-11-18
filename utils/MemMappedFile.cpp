@@ -55,12 +55,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	if(!res)
 		throw Indigo::Exception("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
 
-	// If we are compiling in 32-bit mode, and the file is more than 2^32 bytes long, then fail.
-	// NOTE: boolean expression broken into 2 if statements to silence VS static analysis.
-	if(sizeof(size_t) == 4)
-		if(file_size_li.HighPart != 0)
-			throw Indigo::Exception("File is too large.");
-
+	static_assert(sizeof(size_t) == 8, "sizeof(size_t) == 8");
 	this->file_size = (size_t)file_size_li.QuadPart;
 
 	// CreateFileMapping fails if the file size == 0.

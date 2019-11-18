@@ -627,10 +627,7 @@ const std::string int64ToString(int64 i)
 #ifdef OSX
 const std::string toString(size_t x)
 {
-	if(sizeof(size_t) == 4)
-		return toString((uint32)x);
-	else
-		return toString((uint64)x);
+	return toString((uint64)x);
 }
 #endif
 
