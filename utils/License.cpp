@@ -135,7 +135,7 @@ const std::string License::decodeBase64(const std::string& data_)
 
 
 // throws Indigo::Exception on failure
-static INDIGO_STRONG_INLINE const std::string unTransmungifyPublicKey()
+static inline const std::string unTransmungifyPublicKey()
 {
 	std::string s;
 	Transmungify::decrypt(
@@ -148,7 +148,7 @@ static INDIGO_STRONG_INLINE const std::string unTransmungifyPublicKey()
 
 
 // throws Indigo::Exception on failure
-static INDIGO_STRONG_INLINE const std::string unTransmungifyOnlinePublicKey()
+static inline const std::string unTransmungifyOnlinePublicKey()
 {
 	std::string s;
 	Transmungify::decrypt(
