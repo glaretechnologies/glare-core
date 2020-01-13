@@ -7,18 +7,28 @@ Generated at 2020-01-12 14:58:43 +1300
 #pragma once
 
 
+#include "../utils/RefCounted.h"
+
+
+struct FrameInfo
+{
+	double frame_time;
+};
+
 
 /*=====================================================================
 VideoReader
 -----------
 
 =====================================================================*/
-class VideoReader
+class VideoReader : public RefCounted
 {
 public:
 	VideoReader();
-	~VideoReader();
+	virtual ~VideoReader();
 
-	virtual void getAndLockNextFrame(unsigned char*& frame_buffer_out) = 0; // frame_buffer_out will be set to NULL if we have reached EOF
+	virtual FrameInfo getAndLockNextFrame(unsigned char*& frame_buffer_out, size_t& stride_B_out) = 0; // frame_buffer_out will be set to NULL if we have reached EOF
 	virtual void unlockFrame() = 0;
+
+	virtual void seek(double time) = 0;
 };

@@ -36,7 +36,7 @@ Generated at 2020-01-12 14:59:19 +1300
 // For example, a 720 x 486 rect with a PAR of 9:10, when converted to 1x1 PAR,  
 // is stretched to 720 x 540. 
 //-----------------------------------------------------------------------------
-RECT CorrectAspectRatio(const RECT& src, const MFRatio& srcPAR)
+static RECT CorrectAspectRatio(const RECT& src, const MFRatio& srcPAR)
 {
 	// Start with a rectangle the same size as src, but offset to the origin (0,0).
 	RECT rc ={ 0, 0, src.right - src.left, src.bottom - src.top };
@@ -71,7 +71,7 @@ RECT CorrectAspectRatio(const RECT& src, const MFRatio& srcPAR)
 
 // NOTE: From https://github.com/microsoft/Windows-classic-samples/blob/master/Samples/Win7Samples/multimedia/mediafoundation/VideoThumbnail/Thumbnail.cpp
 //-------------------------------------------------------------------
-FormatInfo GetVideoFormat(IMFSourceReader* pReader)
+static FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 {
 	FormatInfo format;
 
@@ -112,7 +112,7 @@ FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 	hr = MFGetAttributeRatio(pType.ptr, MF_MT_PIXEL_ASPECT_RATIO, (UINT32*)&par.Numerator, (UINT32*)&par.Denominator);
 	if(SUCCEEDED(hr) && (par.Denominator != par.Numerator))
 	{
-		RECT rcSrc ={ 0, 0, (LONG)width, (LONG)height };
+		RECT rcSrc = { 0, 0, (LONG)width, (LONG)height };
 		format.rcPicture = CorrectAspectRatio(rcSrc, par);
 	}
 	else
@@ -123,12 +123,13 @@ FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 
 	format.im_width = width;
 	format.im_height = height;
+	format.internal_width = width;
 
 	return format;
 }
 
 
-void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo& format_out)
+static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo& format_out)
 {
 	// Find the native format of the stream.
 	ComObHandle<IMFMediaType> pNativeType;
@@ -163,10 +164,6 @@ void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo&
 	{
 		subtype = MFVideoFormat_RGB32;
 	}
-	/*else if(majorType == MFMediaType_Audio)
-	{
-		subtype = MFAudioFormat_PCM;
-	}*/
 	else
 	{
 		throw Indigo::Exception("Unrecognized type");
@@ -191,11 +188,22 @@ void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo&
 
 
 WMFVideoReader::WMFVideoReader(const std::string& URL)
+:	com_inited(false)
 {
 	// Initialize the COM runtime.
 	HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
-	if(!SUCCEEDED(hr))
-		throw Indigo::Exception("com init failure.");
+	if(hr == RPC_E_CHANGED_MODE)
+	{ 
+		// COM has already been initialised in some other mode.
+		// This is alright, but we don't want to call CoUninitialize in this case.
+	}
+	else
+	{
+		if(!SUCCEEDED(hr))
+			throw Indigo::Exception("com init failure.");
+
+		com_inited = true;
+	}
 
 	// Initialize the Media Foundation platform.
 	hr = MFStartup(MF_VERSION);
@@ -233,13 +241,18 @@ WMFVideoReader::~WMFVideoReader()
 	// Shut down Media Foundation.
 	MFShutdown();
 
-	CoUninitialize();
+	if(com_inited)
+		CoUninitialize();
 }
 
 
-void WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out)
+FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& stride_B_out)
 {
+	FrameInfo frame_info;
+	frame_info.frame_time = 0;
+
 	frame_buffer_out = NULL;
+	stride_B_out = (size_t)format.internal_width * 4;
 
 	DWORD streamIndex, flags;
 	LONGLONG llTimeStamp;
@@ -257,12 +270,39 @@ void WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out)
 	if(FAILED(hr))
 		throw Indigo::Exception("ReadSample failed.");
 
+	if(flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+	{
+		// The current media has type changed for one or more streams.
+		// This seems to happen when the video widths and heights are e.g. padded to a multiple of 16 for h264.
+
+		// Get the media type from the stream.
+		ComObHandle<IMFMediaType> media_type;
+		hr = reader->GetCurrentMediaType(
+			(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+			&media_type.ptr
+		);
+		if(FAILED(hr))
+			throw Indigo::Exception("GetCurrentMediaType failed.");
+
+		// Get the width and height
+		UINT32 width = 0, height = 0;
+		hr = MFGetAttributeSize(media_type.ptr, MF_MT_FRAME_SIZE, &width, &height);
+		if(FAILED(hr))
+			throw Indigo::Exception("MFGetAttributeSize failed.");
+
+		format.internal_width = width;
+		stride_B_out = (size_t)format.internal_width * 4; // NOTE: should use result of MF_MT_DEFAULT_STRIDE instead? 
+
+		// Get the stride to find out if the bitmap is top-down or bottom-up.
+		// LONG lStride = 0;
+		// lStride = (LONG)MFGetAttributeUINT32(media_type.ptr, MF_MT_DEFAULT_STRIDE, 1);
+	}
+
 	if(pSample.ptr) // May be NULL at end of stream.
 	{
-		DWORD total_len;
-		if(pSample->GetTotalLength(&total_len) != S_OK)
-			throw Indigo::Exception("GetTotalLength failed.");
-
+		//DWORD total_len;
+		//if(pSample->GetTotalLength(&total_len) != S_OK)
+		//	throw Indigo::Exception("GetTotalLength failed.");
 		// printVar((uint64)total_len);
 
 		//IMFMediaBuffer* pBuffer;
@@ -276,6 +316,10 @@ void WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out)
 		if(pSample->ConvertToContiguousBuffer(&this->buffer_ob.ptr) != S_OK)
 			throw Indigo::Exception("CopyToBuffer failed.");
 
+		//IMF2DBuffer* buffer2d;
+		//if(this->buffer_ob->QueryInterface<IMF2DBuffer>(&buffer2d) == S_OK)
+		//{}
+
 		BYTE* buffer;
 		DWORD cur_len;
 		if(this->buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len) != S_OK)
@@ -286,6 +330,7 @@ void WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out)
 
 	//const double stream_time = llTimeStamp * 1.0e-7;
 	//conPrint("Read sample from stream " + toString((uint64)streamIndex) + " with timestamp " + toString(stream_time) + " s");
+	frame_info.frame_time = llTimeStamp * 1.0e-7;
 
 	/*if(flags & MF_SOURCE_READERF_ENDOFSTREAM)
 	{
@@ -313,11 +358,12 @@ void WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out)
 		// The format changed. Reconfigure the decoder.
 		ConfigureDecoder(this->reader.ptr, streamIndex, format);
 	}
+
+	return frame_info;
 }
 
 void WMFVideoReader::unlockFrame()
 {
-	assert(this->buffer_ob.ptr);
 	if(this->buffer_ob.ptr)
 		this->buffer_ob.ptr->Unlock();
 
@@ -325,7 +371,21 @@ void WMFVideoReader::unlockFrame()
 }
 
 
-#if 1 // BUILD_TESTS
+void WMFVideoReader::seek(double time)
+{
+	PROPVARIANT var;
+	PropVariantInit(&var);
+
+	var.vt = VT_I8;
+	var.hVal.QuadPart = (LONGLONG)(time * 1.0e7); // 100-nanosecond units.
+
+	HRESULT hr = this->reader->SetCurrentPosition(GUID_NULL, var);
+	if(FAILED(hr))
+		throw Indigo::Exception("GetCurrentMediaType failed.");
+}
+
+
+#if BUILD_TESTS
 
 
 #include "../indigo/TestUtils.h"
@@ -343,16 +403,17 @@ void WMFVideoReader::test()
 		while(1)
 		{
 			BYTE* frame_buffer;
-			reader.getAndLockNextFrame(frame_buffer);
+			size_t stride_B;
+			reader.getAndLockNextFrame(frame_buffer, stride_B);
 
 			if(frame_buffer)
 			{
 				const FormatInfo& format = reader.getCurrentFormat();
 
-				ImageMapUInt8 map(format.im_width, format.im_height, 3);
+				/*ImageMapUInt8 map(format.im_width, format.im_height, 3);
 				for(uint32 y=0; y<format.im_height; ++y)
 				{
-					BYTE* scanline = frame_buffer + (size_t)y*(size_t)format.im_width*4;
+					BYTE* scanline = frame_buffer + (size_t)y * stride_B;
 				
 					for(uint32 x=0; x<format.im_width; ++x)
 					{
@@ -362,7 +423,7 @@ void WMFVideoReader::test()
 					}
 				}
 				PNGDecoder::write(map, "D:\\indigo_temp\\movie_output\\frame_" + toString(frame_index) + ".png");
-				conPrint("Saved frame " + toString(frame_index));
+				conPrint("Saved frame " + toString(frame_index));*/
 			}
 			else
 			{

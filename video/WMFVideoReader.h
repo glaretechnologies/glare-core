@@ -26,8 +26,9 @@ struct FormatInfo
 	uint32			im_height;
 	bool			top_down;
 	RECT			rcPicture;    // Corrected for pixel aspect ratio
+	uint32			internal_width; // in pixels
 
-	FormatInfo() : im_width(0), im_height(0), top_down(0)
+	FormatInfo() : im_width(0), im_height(0), internal_width(0), top_down(0)
 	{
 		SetRectEmpty(&rcPicture);
 	}
@@ -37,7 +38,10 @@ struct FormatInfo
 /*=====================================================================
 WMFVideoReader
 --------------
-Windows Media Foundation video reader
+Windows Media Foundation video reader.
+
+The following libs are needed for this code:
+mfplat.lib mfreadwrite.lib mfuuid.lib
 =====================================================================*/
 class WMFVideoReader : public VideoReader
 {
@@ -45,8 +49,10 @@ public:
 	WMFVideoReader(const std::string& URL); // Throws Indigo::Exception
 	~WMFVideoReader();
 
-	virtual void getAndLockNextFrame(BYTE*& frame_buffer_out); // frame_buffer_out will be set to NULL if we have reached EOF
+	virtual FrameInfo getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& stride_B_out); // frame_buffer_out will be set to NULL if we have reached EOF
 	virtual void unlockFrame();
+
+	virtual void seek(double time);
 
 	static void test();
 
@@ -56,6 +62,7 @@ private:
 	ComObHandle<IMFMediaBuffer> buffer_ob;
 
 	FormatInfo format;
+	bool com_inited;
 };
 
 
