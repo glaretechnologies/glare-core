@@ -87,7 +87,7 @@ static FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 		&pType.ptr
 	);
 	if(FAILED(hr))
-		throw Indigo::Exception("GetCurrentMediaType failed.");
+		throw Indigo::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Make sure it is a video format.
 	/*hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
@@ -101,7 +101,7 @@ static FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 	UINT32 width = 0, height = 0;
 	hr = MFGetAttributeSize(pType.ptr, MF_MT_FRAME_SIZE, &width, &height);
 	if(FAILED(hr))
-		throw Indigo::Exception("MFGetAttributeSize failed.");
+		throw Indigo::Exception("MFGetAttributeSize failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Get the stride to find out if the bitmap is top-down or bottom-up.
 	LONG lStride = 0;
@@ -136,29 +136,29 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 	ComObHandle<IMFMediaType> pNativeType;
 	HRESULT hr = pReader->GetNativeMediaType(dwStreamIndex, 0, &pNativeType.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("GetNativeMediaType failed");
+		throw Indigo::Exception("GetNativeMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
 	GUID majorType, subtype;
 
 	// Find the major type.
 	hr = pNativeType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
 	if(FAILED(hr))
-		throw Indigo::Exception("GetGUID failed");
+		throw Indigo::Exception("GetGUID failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Find the sub type.
 	hr = pNativeType->GetGUID(MF_MT_SUBTYPE, &subtype);
 	if(FAILED(hr))
-		throw Indigo::Exception("GetGUID failed");
+		throw Indigo::Exception("GetGUID failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Define the output type.
 	ComObHandle<IMFMediaType> pType;
 	hr = MFCreateMediaType(&pType.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("MFCreateMediaType failed");
+		throw Indigo::Exception("MFCreateMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
 	hr = pType->SetGUID(MF_MT_MAJOR_TYPE, majorType);
 	if(FAILED(hr))
-		throw Indigo::Exception("SetGUID failed");
+		throw Indigo::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Select a subtype.
 	if(majorType == MFMediaType_Video)
@@ -177,12 +177,12 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 
 	hr = pType->SetGUID(MF_MT_SUBTYPE, subtype);
 	if(FAILED(hr))
-		throw Indigo::Exception("SetGUID failed");
+		throw Indigo::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Set the uncompressed format.
 	hr = pReader->SetCurrentMediaType(dwStreamIndex, NULL, pType.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("SetCurrentMediaType failed");
+		throw Indigo::Exception("SetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
 	format_out = GetVideoFormat(pReader);
 }
@@ -201,7 +201,7 @@ WMFVideoReader::WMFVideoReader(const std::string& URL)
 	else
 	{
 		if(!SUCCEEDED(hr))
-			throw Indigo::Exception("com init failure.");
+			throw Indigo::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
 
 		com_inited = true;
 	}
@@ -209,7 +209,7 @@ WMFVideoReader::WMFVideoReader(const std::string& URL)
 	// Initialize the Media Foundation platform.
 	hr = MFStartup(MF_VERSION);
 	if(!SUCCEEDED(hr))
-		throw Indigo::Exception("MFStartup failed.");
+		throw Indigo::Exception("MFStartup failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Configure the source reader to perform video processing.
 	//
@@ -220,11 +220,11 @@ WMFVideoReader::WMFVideoReader(const std::string& URL)
 	ComObHandle<IMFAttributes> pAttributes;
 	hr = MFCreateAttributes(&pAttributes.ptr, 1);
 	if(!SUCCEEDED(hr))
-		throw Indigo::Exception("com init failure.");
+		throw Indigo::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
 
 	hr = pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE);
 	if(!SUCCEEDED(hr))
-		throw Indigo::Exception("com init failure.");
+		throw Indigo::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
 
 	// Create the source reader.
 	hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
@@ -269,7 +269,7 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 		&pSample.ptr                    // Receives the sample or NULL.
 	);
 	if(FAILED(hr))
-		throw Indigo::Exception("ReadSample failed.");
+		throw Indigo::Exception("ReadSample failed: " + PlatformUtils::COMErrorString(hr));
 
 	if(flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
 	{
@@ -283,13 +283,13 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 			&media_type.ptr
 		);
 		if(FAILED(hr))
-			throw Indigo::Exception("GetCurrentMediaType failed.");
+			throw Indigo::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
 		// Get the width and height
 		UINT32 width = 0, height = 0;
 		hr = MFGetAttributeSize(media_type.ptr, MF_MT_FRAME_SIZE, &width, &height);
 		if(FAILED(hr))
-			throw Indigo::Exception("MFGetAttributeSize failed.");
+			throw Indigo::Exception("MFGetAttributeSize failed: " + PlatformUtils::COMErrorString(hr));
 
 		format.internal_width = width;
 		stride_B_out = (size_t)format.internal_width * 4; // NOTE: should use result of MF_MT_DEFAULT_STRIDE instead? 
@@ -315,7 +315,7 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 
 		assert(this->buffer_ob.ptr == NULL);
 		if(pSample->ConvertToContiguousBuffer(&this->buffer_ob.ptr) != S_OK)
-			throw Indigo::Exception("CopyToBuffer failed.");
+			throw Indigo::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
 
 		//IMF2DBuffer* buffer2d;
 		//if(this->buffer_ob->QueryInterface<IMF2DBuffer>(&buffer2d) == S_OK)
@@ -324,7 +324,7 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 		BYTE* buffer;
 		DWORD cur_len;
 		if(this->buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len) != S_OK)
-			throw Indigo::Exception("Lock failed.");
+			throw Indigo::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
 
 		frame_buffer_out = buffer;
 	}
@@ -382,7 +382,7 @@ void WMFVideoReader::seek(double time)
 
 	HRESULT hr = this->reader->SetCurrentPosition(GUID_NULL, var);
 	if(FAILED(hr))
-		throw Indigo::Exception("GetCurrentMediaType failed.");
+		throw Indigo::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
 }
 
 
