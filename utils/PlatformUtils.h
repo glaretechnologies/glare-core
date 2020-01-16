@@ -107,6 +107,8 @@ void openFileBrowserWindowAtLocation(const std::string& select_path);
 
 #if defined(_WIN32)
 const std::string getErrorStringForCode(unsigned long error_code);
+
+const std::string COMErrorString(/*HRESULT=*/long hresult);
 #else
 const std::string getErrorStringForCode(int error_code);
 #endif

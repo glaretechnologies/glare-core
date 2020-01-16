@@ -20,11 +20,12 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 	#include <shlobj.h>
 	#include <tlhelp32.h>
 	#include <Psapi.h>
+	#include <comdef.h> // For _com_error
 #else
 	#include <errno.h>
 	#include <time.h>
 	#include <unistd.h>
-	#include <string.h> /* for strncpy */
+	#include <string.h> // for strncpy
 
 	#ifndef OSX
 		#include <sys/sysinfo.h>
@@ -647,6 +648,13 @@ const std::string PlatformUtils::getErrorStringForCode(unsigned long error_code)
 	else
 		// The formatted message contains a trailing newline (\r\n) for some stupid reason, remove it.
 		return ::stripTailWhitespace(StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(&buf[0]))) + " (code " + toString((int)error_code) + ")";
+}
+
+
+const std::string PlatformUtils::COMErrorString(/*HRESULT=*/long hresult)
+{
+	_com_error err(hresult);
+	return StringUtils::PlatformToUTF8UnicodeEncoding(err.ErrorMessage());
 }
 
 #else

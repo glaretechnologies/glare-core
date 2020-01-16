@@ -17,6 +17,7 @@ Generated at 2020-01-12 14:59:19 +1300
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/IncludeWindows.h"
+#include "../utils/PlatformUtils.h"
 #include <mfidl.h>
 #include <mfapi.h>
 #include <mferror.h>
@@ -228,7 +229,7 @@ WMFVideoReader::WMFVideoReader(const std::string& URL)
 	// Create the source reader.
 	hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
 	if(!SUCCEEDED(hr))
-		throw Indigo::Exception("MFCreateSourceReaderFromURL failed.");
+		throw Indigo::Exception("MFCreateSourceReaderFromURL failed for URL '" + URL + "': " + PlatformUtils::COMErrorString(hr));
 
 	ConfigureDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->format);
 }
