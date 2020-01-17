@@ -392,7 +392,8 @@ void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 {
 	this->env_ob->materials[0] = env_mat_;
-	this->env_ob->materials[0].shader_prog = env_prog;//TEMP
+	if(this->env_ob->materials[0].shader_prog.isNull())
+		this->env_ob->materials[0].shader_prog = env_prog;
 }
 
 
@@ -667,6 +668,40 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		sphere_meshdata = new OpenGLMeshRenderData();
 		buildMeshRenderData(*sphere_meshdata, verts, normals, uvs, indices);
+	}
+
+	// Make line_meshdata
+	{
+		line_meshdata = new OpenGLMeshRenderData();
+
+		js::Vector<Vec3f, 16> verts;
+		verts.resize(2);
+		js::Vector<Vec3f, 16> normals;
+		normals.resize(2);
+		js::Vector<Vec2f, 16> uvs;
+		uvs.resize(2);
+		js::Vector<uint32, 16> indices;
+		indices.resize(2); // two tris per face
+
+		indices[0] = 0;
+		indices[1] = 1;
+
+		Vec3f v0(0, 0, 0); // bottom left
+		Vec3f v1(1, 0, 0); // bottom right
+
+		verts[0] = v0;
+		verts[1] = v1;
+
+		Vec2f uv0(0, 0);
+		Vec2f uv1(1, 0);
+
+		uvs[0] = uv0;
+		uvs[1] = uv1;
+
+		for(int i=0; i<2; ++i)
+			normals[i] = Vec3f(0, 0, 1);
+
+		buildMeshRenderData(*line_meshdata, verts, normals, uvs, indices);
 	}
 
 	this->cube_meshdata = makeCubeMesh();
@@ -1946,8 +1981,8 @@ void OpenGLEngine::draw()
 	}
 
 
-	// Draw background env map if there is one.
-	if(this->env_ob->materials[0].albedo_texture.nonNull())
+	// Draw background env map if there is one. (or if we are using a non-standard env shader)
+	if((this->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr()) || this->env_ob->materials[0].albedo_texture.nonNull())
 	{
 		Matrix4f world_to_camera_space_no_translation = view_matrix;
 		world_to_camera_space_no_translation.e[12] = 0;
@@ -1973,8 +2008,7 @@ void OpenGLEngine::draw()
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
 	
-
-	// Draw non-transparent batches from objects.
+	//================= Draw non-transparent batches from objects =================
 	uint64 num_frustum_culled = 0;
 	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
 	{
@@ -3156,7 +3190,16 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			}
 		}
 		
-		glDrawElements(GL_TRIANGLES, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);
+		GLenum draw_mode;
+		if(ob.object_type == 0)
+			draw_mode = GL_TRIANGLES;
+		else
+		{
+			draw_mode = GL_LINES;
+			glLineWidth(ob.line_width);
+		}
+
+		glDrawElements(draw_mode, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);
 
 		shader_prog->useNoPrograms();
 	}

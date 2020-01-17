@@ -132,6 +132,8 @@ struct GLObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
+	GLObject() : object_type(0), line_width(1.f) {}
+
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
 
@@ -140,6 +142,9 @@ struct GLObject : public ThreadSafeRefCounted
 	Reference<OpenGLMeshRenderData> mesh_data;
 	
 	std::vector<OpenGLMaterial> materials;
+
+	int object_type; // 0 = tri mesh
+	float line_width;
 };
 typedef Reference<GLObject> GLObjectRef;
 
@@ -374,6 +379,7 @@ public:
 
 
 	//----------------------------------- Mesh functions -------------------------------------
+	Reference<OpenGLMeshRenderData> getLineMeshData() { return line_meshdata; } // A line from (0, 0, 0) to (1, 0, 0)
 	Reference<OpenGLMeshRenderData> getSphereMeshData() { return sphere_meshdata; }
 	Reference<OpenGLMeshRenderData> getCubeMeshData() { return cube_meshdata; }
 	Reference<OpenGLMeshRenderData> getUnitQuadMeshData() { return unit_quad_meshdata; } // A quad from (0, 0, 0) to (1, 1, 0)
@@ -463,6 +469,7 @@ private:
 	Vec4f sun_dir; // Dir to sun.
 	Vec4f sun_dir_cam_space;
 
+	Reference<OpenGLMeshRenderData> line_meshdata;
 	Reference<OpenGLMeshRenderData> sphere_meshdata;
 	Reference<OpenGLMeshRenderData> arrow_meshdata;
 	Reference<OpenGLMeshRenderData> cube_meshdata;
