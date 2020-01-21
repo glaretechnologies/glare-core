@@ -74,6 +74,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	time_loc           = glGetUniformLocation(program, "time");
 	colour_loc         = glGetUniformLocation(program, "colour");
 	albedo_texture_loc = glGetUniformLocation(program, "albedo_texture");
+	texture_2_loc      = glGetUniformLocation(program, "texture_2");
 }
 
 

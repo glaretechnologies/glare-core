@@ -61,6 +61,11 @@ OpenGLScene::OpenGLScene()
 	lens_shift_up_distance = 0;
 	lens_shift_right_distance = 0;
 	camera_type = OpenGLScene::CameraType_Perspective;
+
+	env_ob = new GLObject();
+	env_ob->ob_to_world_matrix = Matrix4f::identity();
+	env_ob->ob_to_world_inv_transpose_matrix = Matrix4f::identity();
+	env_ob->materials.resize(1);
 }
 
 
@@ -86,10 +91,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	target_frame_buffer_w = target_frame_buffer_h = 100;
 
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
-	env_ob = new GLObject();
-	env_ob->ob_to_world_matrix = Matrix4f::identity();
-	env_ob->ob_to_world_inv_transpose_matrix = Matrix4f::identity();
-	env_ob->materials.resize(1);
 
 	texture_data_manager = new TextureDataManager();
 }
@@ -384,16 +385,16 @@ void OpenGLEngine::setSunDir(const Vec4f& d)
 
 void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 {
-	this->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));
-	this->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(this->env_ob->ob_to_world_inv_transpose_matrix);
+	this->current_scene->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));
+	this->current_scene->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(this->current_scene->env_ob->ob_to_world_inv_transpose_matrix);
 }
 
 
 void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 {
-	this->env_ob->materials[0] = env_mat_;
-	if(this->env_ob->materials[0].shader_prog.isNull())
-		this->env_ob->materials[0].shader_prog = env_prog;
+	this->current_scene->env_ob->materials[0] = env_mat_;
+	if(this->current_scene->env_ob->materials[0].shader_prog.isNull())
+		this->current_scene->env_ob->materials[0].shader_prog = env_prog;
 }
 
 
@@ -707,7 +708,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	this->cube_meshdata = makeCubeMesh();
 	this->unit_quad_meshdata = makeUnitQuadMesh();
 
-	this->env_ob->mesh_data = sphere_meshdata;
+	//this->current_scene->env_ob->mesh_data = sphere_meshdata;
 
 
 	try
@@ -971,6 +972,8 @@ void OpenGLScene::unloadAllData()
 {
 	this->objects.clear();
 	this->transparent_objects.clear();
+
+	this->env_ob->materials[0] = OpenGLMaterial();
 }
 
 
@@ -980,8 +983,6 @@ void OpenGLEngine::unloadAllData()
 		(*i)->unloadAllData();
 
 	this->selected_objects.clear();
-
-	this->env_ob->materials[0] = OpenGLMaterial();
 
 	opengl_textures.clear();
 	texture_data_manager->clear();
@@ -1982,7 +1983,7 @@ void OpenGLEngine::draw()
 
 
 	// Draw background env map if there is one. (or if we are using a non-standard env shader)
-	if((this->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr()) || this->env_ob->materials[0].albedo_texture.nonNull())
+	if((this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr()) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
 	{
 		Matrix4f world_to_camera_space_no_translation = view_matrix;
 		world_to_camera_space_no_translation.e[12] = 0;
@@ -2001,9 +2002,9 @@ void OpenGLEngine::draw()
 		else
 			use_proj_mat = proj_matrix;
 
-		bindMeshData(*env_ob->mesh_data);
-		drawBatch(*env_ob, world_to_camera_space_no_translation, use_proj_mat, env_ob->materials[0], env_ob->materials[0].shader_prog, *env_ob->mesh_data, env_ob->mesh_data->batches[0]);
-		unbindMeshData(*env_ob->mesh_data);
+		bindMeshData(*current_scene->env_ob->mesh_data);
+		drawBatch(*current_scene->env_ob, world_to_camera_space_no_translation, use_proj_mat, current_scene->env_ob->materials[0], current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
+		unbindMeshData(*current_scene->env_ob->mesh_data);
 			
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
@@ -3187,6 +3188,14 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			{
 				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+				glUniform1i(shader_prog->albedo_texture_loc, 0);
+			}
+
+			if(shader_prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
+			{
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, opengl_mat.texture_2->texture_handle);
+				glUniform1i(shader_prog->texture_2_loc, 1);
 			}
 		}
 		
@@ -4200,6 +4209,8 @@ Indigo::TaskManager& OpenGLEngine::getTaskManager()
 void OpenGLEngine::addScene(const Reference<OpenGLScene>& scene)
 {
 	scenes.insert(scene);
+
+	scene->env_ob->mesh_data = sphere_meshdata;
 }
 
 

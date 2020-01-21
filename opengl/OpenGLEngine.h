@@ -98,6 +98,7 @@ public:
 	bool transparent;
 
 	Reference<OpenGLTexture> albedo_texture;
+	Reference<OpenGLTexture> texture_2;
 
 	Reference<OpenGLProgram> shader_prog;
 
@@ -236,6 +237,8 @@ public:
 	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
 	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
 	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
+
+	GLObjectRef env_ob;
 private:
 	float max_draw_dist;
 
@@ -356,7 +359,7 @@ public:
 	void setEnvMapTransform(const Matrix3f& transform);
 
 	void setEnvMat(const OpenGLMaterial& env_mat);
-	const OpenGLMaterial& getEnvMat() const { return env_ob->materials[0]; }
+	const OpenGLMaterial& getEnvMat() const { return current_scene->env_ob->materials[0]; }
 	//----------------------------------------------------------------------------------------
 
 
@@ -475,8 +478,6 @@ private:
 	Reference<OpenGLMeshRenderData> cube_meshdata;
 	Reference<OpenGLMeshRenderData> unit_quad_meshdata;
 	Reference<OpenGLMeshRenderData> cylinder_meshdata;
-
-	GLObjectRef env_ob;
 
 	int viewport_w, viewport_h;
 	float viewport_aspect_ratio;

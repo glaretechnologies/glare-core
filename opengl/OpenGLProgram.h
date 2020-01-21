@@ -44,9 +44,13 @@ public:
 	int time_loc;
 	int colour_loc;
 	int albedo_texture_loc;
+	int texture_2_loc;
 
 	Reference<OpenGLShader> vert_shader;
 	Reference<OpenGLShader> frag_shader;
 
 	std::string prog_name;
 };
+
+
+typedef Reference<OpenGLProgram> OpenGLProgramRef;
