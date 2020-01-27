@@ -167,13 +167,14 @@ void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_stride)
 		throw Indigo::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Copy and switch byte order to what WMF expects.
-	for(uint32 y=0; y<vid_params.height; ++y)
+	for(uint32 sy=0; sy<vid_params.height; ++sy)
 	{
+		uint32 y = vid_params.height - 1 - sy;
 		for(uint32 x=0; x<vid_params.width; ++x)
 		{
-			buffer_data[vid_params.width * y * 3 + x * 3 + 0] = source_data[source_stride * y + (size_t)x * 3 + 2];
-			buffer_data[vid_params.width * y * 3 + x * 3 + 1] = source_data[source_stride * y + (size_t)x * 3 + 1];
-			buffer_data[vid_params.width * y * 3 + x * 3 + 2] = source_data[source_stride * y + (size_t)x * 3 + 0];
+			buffer_data[vid_params.width * y * 3 + x * 3 + 0] = source_data[source_stride * sy + (size_t)x * 3 + 2];
+			buffer_data[vid_params.width * y * 3 + x * 3 + 1] = source_data[source_stride * sy + (size_t)x * 3 + 1];
+			buffer_data[vid_params.width * y * 3 + x * 3 + 2] = source_data[source_stride * sy + (size_t)x * 3 + 0];
 		}
 	}
 
@@ -225,7 +226,7 @@ void WMFVideoWriter::finalise()
 }
 
 
-#if 1 // BUILD_TESTS
+#if BUILD_TESTS
 
 
 #include "../indigo/TestUtils.h"

@@ -52,6 +52,7 @@ public:
 
 	virtual void finalise();
 
+	const VidParams& getVidParams() const { return vid_params; }
 private:
 	ComObHandle<IMFSinkWriter> writer;
 
