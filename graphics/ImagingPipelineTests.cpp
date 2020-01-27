@@ -125,6 +125,7 @@ void doTestWithDenoising(bool do_tonemapping, int ssf)
 		filter_data.data(),
 		post_pro_diffraction,
 		ldr_buffer,
+		NULL, // spectral_buffer_out
 		ldr_buffer_is_nonlinear, // output_is_nonlinear (out)
 		true, // input in XYZ colourspace
 		RendererSettings::defaultMargin(), // margin at ssf1
@@ -146,7 +147,8 @@ void testWithDenoising()
 }
 
 
-void runPipeline(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper)
+static void runPipeline(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper,
+	Reference<ImageMapFloat> spectral_image_out = NULL)
 {
 	Indigo::TaskManager task_manager(1);
 
@@ -185,6 +187,7 @@ void runPipeline(const int W, const int ssf, const RenderChannels& render_channe
 		filter_data.data(),
 		Reference<PostProDiffraction>(),
 		ldr_image_out,
+		spectral_image_out, // spectral_buffer_out
 		ldr_buffer_is_nonlinear,
 		false, // input_in_XYZ_colourspace
 		RendererSettings::defaultMargin(), // margin at ssf1
@@ -197,11 +200,119 @@ void runPipeline(const int W, const int ssf, const RenderChannels& render_channe
 }
 
 
+/*
+Test running the imaging pipeline on the spectral render channel.
+*/
+static void doSpectralChannelTest(int ssf)
+{
+	const int W = 1000;
+	const size_t full_W = RendererSettings::computeFullWidth(W, ssf, RendererSettings::defaultMargin());
+
+	const int N = 12; // num spectral components.
+
+	RenderChannels render_channels;
+	render_channels.start_wavelength = 400;
+	render_channels.wavelength_bucket_width = 300.f / N;
+	render_channels.w = full_W;
+	render_channels.h = full_W;
+	render_channels.stride = N;
+
+	render_channels.spectral.type = ChannelInfo::ChannelType_Spectral;
+	render_channels.spectral.offset = 0;
+	render_channels.spectral.num_components = N;
+
+	const float value_factor = 23423.f;
+
+	render_channels.front_data.resize((size_t)full_W * (size_t)full_W * render_channels.stride);
+	for(size_t i=0; i<(size_t)full_W * (size_t)full_W; ++i)
+	{
+		for(int c=0; c<N; ++c)
+			render_channels.front_data[i * render_channels.stride + c] = c * 100.f * value_factor;
+	}
+
+	Image4f ldr_buffer(W, W);
+	Reference<ImageMapFloat> spectral_image = new ImageMapFloat(W, W, N);
+	const float image_scale = 1.f / value_factor;
+	
+	//---------------------------
+	Indigo::TaskManager task_manager;
+
+	std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
+
+	RendererSettings renderer_settings;
+	renderer_settings.logging = false;
+	renderer_settings.setWidth(W);
+	renderer_settings.setHeight(W);
+	renderer_settings.super_sample_factor = ssf;
+	renderer_settings.tone_mapper = new LinearToneMapper(1);
+	renderer_settings.colour_space_converter = new ColourSpaceConverter(1.0/3.0, 1.0/3.0);
+	renderer_settings.dithering = false; // Turn dithering off, otherwise will mess up tests
+	renderer_settings.render_foreground_alpha = render_channels.hasAlpha();
+
+	std::vector<float> filter_data;
+	renderer_settings.getDownsizeFilterFunc().getFilterDataVec(renderer_settings.super_sample_factor, filter_data);
+
+	std::vector<RenderRegion> render_regions;
+
+	ImagingPipeline::RunPipelineScratchState tonemap_scratch_state;
+	bool ldr_buffer_is_nonlinear;
+	ImagingPipeline::runPipeline(
+		tonemap_scratch_state,
+		render_channels,
+		&render_channels.spectral, // channel
+		W,
+		W,
+		ssf,
+		render_regions,
+		layer_weights,
+		image_scale, // image scale
+		image_scale, // region image scale
+		renderer_settings,
+		filter_data.data(),
+		Reference<PostProDiffraction>(),
+		ldr_buffer,
+		spectral_image, // spectral_buffer_out
+		ldr_buffer_is_nonlinear,
+		false, // input_in_XYZ_colourspace
+		RendererSettings::defaultMargin(), // margin at ssf1
+		task_manager
+	);
+
+	ImagingPipeline::ToNonLinearSpaceScratchState scratch_state;
+	Bitmap bitmap;
+	ImagingPipeline::toNonLinearSpace(task_manager, scratch_state, renderer_settings.shadow_pass, renderer_settings.dithering, ldr_buffer, ldr_buffer_is_nonlinear, &bitmap);
+	//---------------------------
+	
+	
+	testAssert(ldr_buffer.getWidth() == W && ldr_buffer.getHeight() == W);
+	testAssert(spectral_image->getWidth() == W && spectral_image->getHeight() == W);
+
+	for(int y=0; y<W; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			for(int c=0; c<N; ++c)
+			{
+				const float expected_val = c * 100.f;
+				const float actual_val = spectral_image->getPixel(x, y)[c];
+				//testAssert(epsEqual(actual_val, expected_val)); // , /*epsilon=*/2.0e-3f
+				//testApproxEqWithEps(expected_val, actual_val, /*eps=*/1.0e-4f);
+				testApproxEqWithEps(expected_val, actual_val, /*eps=*/1.0e-5f);
+			}
+		}
+}
+
+
 void test()
 {
 	conPrint("ImagingPipelineTests::test()");
 
 	testWithDenoising();
+
+	//================ Test spectral image data =================
+	{
+		doSpectralChannelTest(/*ssf=*/1);
+		doSpectralChannelTest(/*ssf=*/2);
+	}
 
 	//================ Perf test =================
 	if(false)
@@ -278,6 +389,7 @@ void test()
 				filter_data.data(),
 				Reference<PostProDiffraction>(),
 				ldr_buffer,
+				NULL, // spectral_buffer_out
 				ldr_buffer_is_nonlinear,
 				false, // XYZ_colourspace
 				RendererSettings::defaultMargin(), // margin at ssf1
@@ -388,6 +500,7 @@ void test()
 			filter_data.data(),
 			post_pro_diffraction,
 			ldr_image,
+			NULL, // spectral_buffer_out
 			ldr_buffer_is_nonlinear,
 			false, // XYZ_colourspace
 			RendererSettings::defaultMargin(), // margin at ssf1
@@ -686,6 +799,7 @@ void test()
 			filter_data.data(),
 			post_pro_diffraction,
 			ldr_buffer,
+			NULL, // spectral_buffer_out
 			ldr_buffer_is_nonlinear,
 			false,
 			RendererSettings::defaultMargin(), // margin at ssf1

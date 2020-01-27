@@ -115,39 +115,77 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 			}
 			else
 			{
-				// Just use the first channel (in alphabetic order)
-				channels_to_load_names.push_back(channels.begin().name());
+				/*
+				Try and load a multi-wavelength EXR, should have channel names like
+				wavelength430_5
+				wavelength460_25
+				wavelength490_75
+				etc..
+				*/
+				if(::hasPrefix(channels.begin().name(), "wavelength"))
+				{
+					for(auto it = channels.begin(); it != channels.end(); ++it)
+					{
+						const std::string channel_name = it.name();
+						if(!::hasPrefix(channel_name, "wavelength"))
+							throw Indigo::Exception("Found a channel name that did not start with 'wavelength' while loading a spectral EXR.");
+
+						channels_to_load_names.push_back(channel_name);
+					}
+				}
+				else
+				{
+					// Just use the first channel (in alphabetic order)
+					channels_to_load_names.push_back(channels.begin().name());
+				}
 			}
 		}
-		else
+		else // Else we have one or more layers:
 		{
-			// We have one or more layers.
-			// Just load channels from the first (using alphabetic order) layer.
-			const std::string layer = *layer_names.begin();
-
-			// Look for channels called R, G, B, or R, G, B, A, and if found, load them in RGBA order.
-			if(channels.findChannel(layer + ".R"))
+			for(auto z = layer_names.begin(); z != layer_names.end(); ++z)
 			{
-				channels_to_load_names.push_back(layer + ".R");
+				const std::string layer = *z;
+				if(layer == "spectral")
+				{
+					Imf::ChannelList::ConstIterator begin, end;
+					channels.channelsInLayer(layer, begin, end);
 
-				if(channels.findChannel(layer + ".G"))
-					channels_to_load_names.push_back(layer + ".G");
+					for(auto it = begin; it != end; ++it)
+					{
+						const std::string channel_name = it.name();
+						if(!::hasPrefix(channel_name, "spectral.wavelength"))
+							throw Indigo::Exception("Found a channel name that did not start with 'wavelength' while loading a spectral EXR.");
 
-				if(channels.findChannel(layer + ".B"))
-					channels_to_load_names.push_back(layer + ".B");
+						channels_to_load_names.push_back(channel_name);
+					}
+				}
+				else
+				{
+					// Look for channels called R, G, B, or R, G, B, A, and if found, load them in RGBA order.
+					if(channels.findChannel(layer + ".R"))
+					{
+						channels_to_load_names.push_back(layer + ".R");
 
-				if(channels.findChannel(layer + ".A"))
-					channels_to_load_names.push_back(layer + ".A");
-			}
-			else
-			{
-				// Just use the first channel in this layer (in alphabetic order)
-				Imf::ChannelList::ConstIterator begin, end;
-				channels.channelsInLayer(layer, begin, end);
-				if(begin == end)
-					throw ImFormatExcep("layer had no channels."); // Shouldn't get here.
+						if(channels.findChannel(layer + ".G"))
+							channels_to_load_names.push_back(layer + ".G");
 
-				channels_to_load_names.push_back(begin.name());
+						if(channels.findChannel(layer + ".B"))
+							channels_to_load_names.push_back(layer + ".B");
+
+						if(channels.findChannel(layer + ".A"))
+							channels_to_load_names.push_back(layer + ".A");
+					}
+					else
+					{
+						// Just use the first channel in this layer (in alphabetic order)
+						Imf::ChannelList::ConstIterator begin, end;
+						channels.channelsInLayer(layer, begin, end);
+						if(begin == end)
+							throw ImFormatExcep("layer had no channels."); // Shouldn't get here.
+
+						channels_to_load_names.push_back(begin.name());
+					}
+				}
 			}
 		}
 
@@ -167,6 +205,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 		{
 			Reference<ImageMap<float, FloatComponentValueTraits> > new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, result_num_channels);
 			new_image->setGamma(1); // HDR images should have gamma 1.
+			new_image->channel_names = channels_to_load_names;
 
 			const size_t x_stride = sizeof(float) * result_num_channels;
 			const size_t y_stride = sizeof(float) * result_num_channels * width;
@@ -252,8 +291,8 @@ Imf::Compression EXRDecoder::EXRCompressionMethod(EXRDecoder::CompressionMethod 
 void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t height, size_t num_channels, bool save_alpha_channel, const std::string& pathname, 
 	const std::string& layer_name, const SaveOptions& options)
 {
-	if(!(num_channels == 1 || num_channels == 3 || num_channels == 4))
-		throw Indigo::Exception("EXR saving requires 1, 3 or 4 components.");
+	if(num_channels == 0)
+		throw Indigo::Exception("Invalid num channels for EXR saving.");
 
 	setEXRThreadPoolSize();
 
@@ -276,27 +315,40 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 
 		int num_channels_to_save; // May be < num_channels, which is related to the stride in the source data.
 		std::vector<std::string> channel_names(num_channels); // Channel names to use in the EXR file.
-		if(num_channels == 1)
+
+		if(!options.channel_names.empty())
 		{
-			num_channels_to_save = 1;
-			channel_names[0] = "Y"; // layer_name; // Just use the layer name directly without any channel sub-name.
-			// There is some indication 'Y' is the standard name for greyscale channels in EXRs, see http://www.openexr.com/documentation/ReadingAndWritingImageFiles.pdf, 
-			// 'Luminance/Chroma and Gray-Scale Images'.
+			if(options.channel_names.size() != num_channels)
+				throw Indigo::Exception("options.channel_names had wrong size.");
+			channel_names = options.channel_names;
+			num_channels_to_save = (int)num_channels;
 		}
 		else
 		{
-			assert(num_channels >= 3);
-			num_channels_to_save = save_alpha_channel ? 4 : 3;
-			/*channel_names[0] = layer_name + ".R";
-			channel_names[1] = layer_name + ".G";
-			channel_names[2] = layer_name + ".B";
-			if(save_alpha_channel)
-				channel_names[3] = layer_name + ".A";*/
-			channel_names[0] = "R";
-			channel_names[1] = "G";
-			channel_names[2] = "B";
-			if(save_alpha_channel)
-				channel_names[3] = "A";
+			if(num_channels == 1)
+			{
+				num_channels_to_save = 1;
+				channel_names[0] = "Y"; // layer_name; // Just use the layer name directly without any channel sub-name.
+				// There is some indication 'Y' is the standard name for greyscale channels in EXRs, see http://www.openexr.com/documentation/ReadingAndWritingImageFiles.pdf, 
+				// 'Luminance/Chroma and Gray-Scale Images'.
+			}
+			else
+			{
+				if(!(num_channels == 3 || num_channels == 4))
+					throw Indigo::Exception("Invalid num channels for EXR saving.");
+
+				num_channels_to_save = save_alpha_channel ? 4 : 3;
+				/*channel_names[0] = layer_name + ".R";
+				channel_names[1] = layer_name + ".G";
+				channel_names[2] = layer_name + ".B";
+				if(save_alpha_channel)
+					channel_names[3] = layer_name + ".A";*/
+				channel_names[0] = "R";
+				channel_names[1] = "G";
+				channel_names[2] = "B";
+				if(save_alpha_channel)
+					channel_names[3] = "A";
+			}
 		}
 
 		for(int c=0; c<num_channels_to_save; ++c)
@@ -585,6 +637,31 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 void EXRDecoder::test()
 {
 	conPrint("EXRDecoder::test()");
+
+	// Write spectral EXR
+	if(false)
+	{
+		const int W = 128;
+		const int H = 128;
+		const int N = 8;
+		ImageMapFloat image(W, H, N);
+		for(unsigned int y=0; y<image.getHeight(); ++y)
+			for(unsigned int x=0; x<image.getWidth(); ++x)
+				for(int c=0; c<N; ++c)
+					image.getPixel(x, y)[c] = 100.0f;
+
+		SaveOptions options;
+		for(int c=0; c<N; ++c)
+		{
+			std::string initial_name = "wavelength" + toString(400.0 + 37.5/2 + c * 37.5);
+			std::string name = StringUtils::replaceCharacter(initial_name, '.', '_');
+			options.channel_names.push_back(name);
+		}
+
+		const std::string path = "spectral_8_channels_128x128_val_100.exr";
+
+		EXRDecoder::saveImageToEXR(image, path, "main layer", options);
+	}
 
 	try
 	{

@@ -10,6 +10,7 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include "ImageMap.h"
 #include "../utils/Reference.h"
 #include <string>
+#include <vector>
 #include <ImfCompression.h>
 class Map2D;
 class Image;
@@ -60,6 +61,8 @@ public:
 
 		CompressionMethod compression_method;
 		BitDepth bit_depth;
+
+		std::vector<std::string> channel_names; // Can leave empty, used if non-empty.
 	};
 
 

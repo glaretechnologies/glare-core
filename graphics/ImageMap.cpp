@@ -95,6 +95,7 @@ public:
 		const int new_height = (int)image->getHeight();
 		const int src_w = (int)src_image->getMapWidth();
 		const int src_h = (int)src_image->getMapHeight();
+		const int src_N = (int)src_image->getN();
 		const float scale_factor_x = (float)src_w / new_width;
 		const float scale_factor_y = (float)src_h / new_height;
 		const float filter_r_x = myMax(1.f, scale_factor_x);
@@ -106,7 +107,47 @@ public:
 		const float filter_r_minus_1_x = filter_r_x - 1.f;
 		const float filter_r_minus_1_y = filter_r_y - 1.f;
 
-		if(src_image->getN() >= 3)
+		if(!src_image->channel_names.empty() && ::hasPrefix(src_image->channel_names[0], "wavelength")) // If this is a spectral image map, we want to resample all channels, not just the first 3.
+		{
+			std::vector<float> sum(src_N);
+
+			for(int y = begin_y; y < end_y; ++y)
+				for(int x = 0; x < new_width; ++x)
+				{
+					const float src_x = x * scale_factor_x;
+					const float src_y = y * scale_factor_y;
+
+					const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1_x));
+					const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1_x));
+					const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1_y));
+					const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1_y));
+
+					for(int c=0; c<src_N; ++c)
+						sum[c] = 0.f;
+					float filter_sum = 0.f;
+
+					for(int sy = src_begin_y; sy < src_end_y; ++sy)
+						for(int sx = src_begin_x; sx < src_end_x; ++sx)
+						{
+							const float dx = (float)sx - src_x;
+							const float dy = (float)sy - src_y;
+							const float fabs_dx = std::fabs(dx);
+							const float fabs_dy = std::fabs(dy);
+							const float filter_val = myMax(1 - fabs_dx * recip_filter_r_x, 0.f) * myMax(1 - fabs_dy * recip_filter_r_y, 0.f);
+							
+							for(int c=0; c<src_N; ++c)
+								sum[c] += (float)src_image->getPixel(sx, sy)[c] * filter_val;
+
+							filter_sum += filter_val;
+						}
+
+					const float scale = 1.f / filter_sum;
+
+					for(int c=0; c<src_N; ++c)
+						image->getPixel(x, y)[c] = (V)(sum[c] * scale); // Normalise
+				}
+		}
+		else if(src_image->getN() >= 3)
 		{
 			for(int y = begin_y; y < end_y; ++y)
 				for(int x = 0; x < new_width; ++x)
@@ -192,14 +233,18 @@ template <class V, class VTraits>
 Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const
 {
 	ImageMap<V, VTraits>* new_image;
-	if(this->getN() <= 2)
+	if(!this->channel_names.empty() && ::hasPrefix(this->channel_names[0], "wavelength")) // If this is a spectral image:
+		new_image = new ImageMap<V, VTraits>(new_width, new_height, this->getN());
+	else if(this->getN() <= 2)
 		new_image = new ImageMap<V, VTraits>(new_width, new_height, 1);
 	else
 		new_image = new ImageMap<V, VTraits>(new_width, new_height, 3);
 
+	new_image->channel_names = this->channel_names;
+
 	const int num_tasks = myClamp<int>((int)task_manager.getNumThreads(), 1, new_height); // We want at least one task, but no more than the number of rows in the new image.
 	const int y_step = Maths::roundedUpDivide(new_height, num_tasks);
-	for(int z=0, begin_y=0; z<task_manager.getNumThreads(); ++z, begin_y += y_step)
+	for(int z=0, begin_y=0; z<(int)task_manager.getNumThreads(); ++z, begin_y += y_step)
 	{
 		Reference<ResizeMidQualityTask<V, VTraits> > task = new ResizeMidQualityTask<V, VTraits>();
 		task->begin_y = myMin(begin_y,          new_height);

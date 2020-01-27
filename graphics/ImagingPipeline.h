@@ -40,6 +40,7 @@ struct RunPipelineScratchState
 	std::vector<Reference<Indigo::Task> > sum_buffer_tasks; // These should only actually have type SumBuffersTask.
 	std::vector<Reference<Indigo::Task> > tonemap_tasks; // These should only actually have type ToneMapTask.
 	std::vector<Image4f> per_thread_tile_buffers;
+	std::vector<ImageMapFloatRef> per_thread_spectral_tile_buffers;
 	Image4f temp_summed_buffer;
 	Image4f temp_AD_buffer;
 
@@ -97,6 +98,7 @@ void runPipeline(
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction, // May be NULL
 	Image4f& ldr_buffer_out, // Output image, has alpha channel.
+	const Reference<ImageMapFloat>& spectral_buffer_out, // May be NULL
 	bool& output_is_nonlinear, // Is ldr_buffer_out in a non-linear space?
 	bool input_in_XYZ_colourspace, // Are the input layers in XYZ colour space?  If so, an XYZ -> sRGB conversion is done.
 	size_t margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)

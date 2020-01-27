@@ -12,6 +12,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/ReinhardToneMapper.h"
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
+#include "../indigo/XYZCurves.h"
 #include "../graphics/ImageFilter.h"
 #include "../graphics/Image4f.h"
 #include "../graphics/bitmap.h"
@@ -285,7 +286,7 @@ public:
 		// (we will use alpha_bias = normed_image_rect_area)
 		const float alpha_bias_factor        = 1.f + closure.image_scale;
 		const float region_alpha_bias_factor = 1.f + closure.region_alpha_bias;
-		const ptrdiff_t main_layer_num_components = closure.render_channels.layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
+		const ptrdiff_t main_layer_num_components = closure.render_channels.layers.empty() ? 0 : closure.render_channels.layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
 
 		const size_t W = closure.render_channels.getWidth();
 		for(size_t y = begin_y; y < end_y; ++y)
@@ -886,11 +887,13 @@ void runPipelineFullBuffer(
 struct ImagePipelineTaskClosure
 {
 	std::vector<Image4f>* per_thread_tile_buffers;
+	std::vector<ImageMapFloatRef>* per_thread_spectral_tile_buffers;
 	const RenderChannels* render_channels;
 	const ArrayRef<Vec3f>* layer_weights;
 	float image_scale;
 	float region_image_scale;
 	Image4f* ldr_buffer_out; // Buffer to write to.
+	ImageMapFloat* spectral_buffer_out; // Buffer to write to when processing a spectral channel.
 	const RendererSettings* renderer_settings;
 	const float* resize_filter;
 	const ToneMapperParams* tonemap_params;
@@ -979,7 +982,8 @@ public:
 		const bool blend_main_layers = closure.channel == NULL;
 		const int source_render_channel_offset = closure.channel ? closure.channel->offset : 0;
 		const bool colour3_channel = closure.channel ? (closure.channel->num_components >= 3) : false;
-		const bool tonemap_channel = closure.do_tonemapping && (blend_main_layers || (closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
+		const bool spectral_channel = closure.channel ? (closure.channel->type == ChannelInfo::ChannelType_Spectral) : false;
+		const bool tonemap_channel = closure.do_tonemapping && (blend_main_layers || (spectral_channel || closure.channel->type == ChannelInfo::ChannelType_MainLayers || closure.channel->type == ChannelInfo::ChannelType_Beauty));
 
 		// We want to allow channels like position to take on negative values.
 		// For other channels, like beauty channels, we want values to be >= 0.
@@ -1002,7 +1006,7 @@ public:
 		const glare::AllocatorVector<float, 16>& region_data = closure.render_channels->region_data;
 		const ptrdiff_t stride = closure.render_channels->stride;
 		const ptrdiff_t alpha_offset = (size_t)closure.render_channels->alpha.offset;
-		const ptrdiff_t main_layer_num_components = closure.render_channels->layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
+		const ptrdiff_t main_layer_num_components = closure.render_channels->layers.empty() ? 0 : closure.render_channels->layers[0].num_components; // This will be 4 for GPU rendering as alpha is interleaved.
 
 
 		const ptrdiff_t xres		= (ptrdiff_t)closure.render_channels->getWidth(); // in intermediate pixels
@@ -1029,11 +1033,21 @@ public:
 		const float alpha_bias_factor        = 1.f + image_scale;
 		const float region_alpha_bias_factor = 1.f + region_alpha_bias;
 
+		int spectral_channel_N = 0; // spectral channel num components
+		SmallArray<float, 32> spectral_sum; // A temp buffer
+		if(spectral_channel)
+		{
+			spectral_channel_N = closure.channel->num_components;
+			spectral_sum.resize(closure.channel->num_components);
+		}
+
 		Image4f* const ldr_buffer_out = closure.ldr_buffer_out;
+		ImageMapFloat* const spectral_buffer_out = closure.spectral_buffer_out;
 
 		for(int tile = begin; tile < end; ++tile)
 		{
 			Image4f& tile_buffer = (*closure.per_thread_tile_buffers)[thread_index];
+			ImageMapFloatRef& tile_spectral_buffer = (*closure.per_thread_spectral_tile_buffers)[thread_index];
 
 			// Get the final image tile bounds for the tile index
 			const ptrdiff_t tile_x = (ptrdiff_t)tile % closure.x_tiles;
@@ -1049,61 +1063,119 @@ public:
 				const ptrdiff_t bucket_max_y = ((y_max - 1) + gutter_pix) * ss_factor + filter_span + 1; assert(bucket_max_y <= yres);
 				const ptrdiff_t bucket_span  = bucket_max_x - bucket_min_x;
 
-				// First we get the weighted sum of all pixels in the layers
-				size_t dst_addr = 0;
-				for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
-				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
+				if(spectral_channel)
 				{
-					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
-					const float* const src_pixel = &front_data[src_pixel_offset];
-					Colour4f sum;
-					if(blend_main_layers) // blend together main light layers (usual rendering).
+					size_t dst_addr = 0;
+					for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
+					for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
 					{
-						sum = Colour4f(0.f);
-						for(ptrdiff_t z = 0; z < num_layers; ++z)
-							sum += readUnalignedColour4f(src_pixel + z * main_layer_num_components) * layer_weights[z]; // w component is garbage but will be overwritten below.
-					}
-					else // else read from one of the non-main layers.
-					{
-						if(colour3_channel)
-							sum = readUnalignedColour4f(src_pixel + source_render_channel_offset) * image_scale;
-						else // Else if scalar channel:
-							sum = Colour4f(src_pixel[source_render_channel_offset]) * image_scale;
-					}
+						const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
+						const float* const src_pixel = &front_data[src_pixel_offset];
 
-					// Get alpha from alpha channel if we are doing a foreground-alpha render
-					sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+						for(int c=0; c<spectral_channel_N; ++c)
+							spectral_sum[c] = src_pixel[source_render_channel_offset + c] * image_scale;
 
-					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-					if(render_region_enabled)
-					{
-						if(pixelIsInARegion(x, y, regions))
+						// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+						if(render_region_enabled)
 						{
-							if(blend_main_layers)
+							if(pixelIsInARegion(x, y, regions))
 							{
-								sum = Colour4f(0.f);
-								for(ptrdiff_t z = 0; z < num_layers; ++z)
-									sum += readUnalignedColour4f(&region_data[src_pixel_offset + z * main_layer_num_components]) * region_layer_weights[z];
+								for(int c=0; c<spectral_channel_N; ++c)
+									spectral_sum[c] = region_data[src_pixel_offset + source_render_channel_offset + c] * region_image_scale;
 							}
 							else
 							{
-								if(colour3_channel)
-									sum = readUnalignedColour4f(&region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
-								else // Else if scalar channel:
-									sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
+								// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+								if(zero_alpha_outside_region || (image_scale == 0.0))
+									for(int c=0; c<spectral_channel_N; ++c)
+										spectral_sum[c] = 0;
 							}
+						}
 
-							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
-						}
-						else
-						{
-							// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
-							if(zero_alpha_outside_region || (image_scale == 0.0))
-								sum = Colour4f(0.f);
-						}
+						for(int c=0; c<spectral_channel_N; ++c)
+							tile_spectral_buffer->getPixel(dst_addr)[c] = spectral_sum[c];
+						dst_addr++;
 					}
 
-					tile_buffer.getPixel(dst_addr++) = sum;
+					// If we have spectral data in tile_spectral_buffer, convert it to XYZ data in tile_buffer.
+					// This is so we have a RGB preview to show to the user in the UI.
+					if(spectral_channel)
+					{
+						for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+						{
+							const float* src = tile_spectral_buffer->getPixel(i);
+							Colour4f& dest = tile_buffer.getPixel(i);
+
+							Colour4f sum(0.f);
+							for(int c=0; c<spectral_channel_N; ++c)
+							{
+								const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
+								const Vec3f XYZ = XYZCurves::getXYZ_CIE_2DegForWavelen(wavelength);
+								sum += Colour4f(XYZ.x, XYZ.y, XYZ.z, 0) * src[c];
+							}
+							sum[3] = 1;
+							dest = sum;
+						}
+					}
+				}
+				else
+				{
+					// First we get the weighted sum of all pixels in the layers
+					size_t dst_addr = 0;
+					for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
+					for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
+					{
+						const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
+						const float* const src_pixel = &front_data[src_pixel_offset];
+						Colour4f sum;
+						if(blend_main_layers) // blend together main light layers (usual rendering).
+						{
+							sum = Colour4f(0.f);
+							for(ptrdiff_t z = 0; z < num_layers; ++z)
+								sum += readUnalignedColour4f(src_pixel + z * main_layer_num_components) * layer_weights[z]; // w component is garbage but will be overwritten below.
+						}
+						else // else read from one of the non-main layers.
+						{
+							if(colour3_channel)
+								sum = readUnalignedColour4f(src_pixel + source_render_channel_offset) * image_scale;
+							else // Else if scalar channel:
+								sum = Colour4f(src_pixel[source_render_channel_offset]) * image_scale;
+						}
+
+						// Get alpha from alpha channel if we are doing a foreground-alpha render
+						sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+
+						// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+						if(render_region_enabled)
+						{
+							if(pixelIsInARegion(x, y, regions))
+							{
+								if(blend_main_layers)
+								{
+									sum = Colour4f(0.f);
+									for(ptrdiff_t z = 0; z < num_layers; ++z)
+										sum += readUnalignedColour4f(&region_data[src_pixel_offset + z * main_layer_num_components]) * region_layer_weights[z];
+								}
+								else
+								{
+									if(colour3_channel)
+										sum = readUnalignedColour4f(&region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
+									else // Else if scalar channel:
+										sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
+								}
+
+								sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
+							}
+							else
+							{
+								// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+								if(zero_alpha_outside_region || (image_scale == 0.0))
+									sum = Colour4f(0.f);
+							}
+						}
+
+						tile_buffer.getPixel(dst_addr++) = sum;
+					}
 				}
 
 				// Either tonemap, or do equivalent operation for non-colour passes.
@@ -1175,6 +1247,34 @@ public:
 
 					ldr_buffer_out->getPixel(y * final_xres + x) = weighted_sum;
 				}
+
+				if(spectral_channel)
+				{
+					// Filter spectral pixel data into the final image
+					for(ptrdiff_t y = y_min; y < y_max; ++y) // y is in final px coords
+					for(ptrdiff_t x = x_min; x < x_max; ++x) // x is in final px coords
+					{
+						const ptrdiff_t pixel_min_x = (x + gutter_pix) * ss_factor - filter_span - bucket_min_x; // Coordinates in bucket pixels
+						const ptrdiff_t pixel_min_y = (y + gutter_pix) * ss_factor - filter_span - bucket_min_y; // Coordinates in bucket pixels
+						const ptrdiff_t pixel_max_x = (x + gutter_pix) * ss_factor + filter_span - bucket_min_x + 1;
+						const ptrdiff_t pixel_max_y = (y + gutter_pix) * ss_factor + filter_span - bucket_min_y + 1;
+
+						uint32 filter_addr = 0;
+						for(int c=0; c<spectral_channel_N; ++c)
+							spectral_sum[c] = 0; // We will store the weighted sum in spectral_sum.
+
+						for(ptrdiff_t v = pixel_min_y; v < pixel_max_y; ++v)
+						for(ptrdiff_t u = pixel_min_x; u < pixel_max_x; ++u)
+						{
+							const float filter_val = closure.resize_filter[filter_addr++];
+							for(int c=0; c<spectral_channel_N; ++c)
+								spectral_sum[c] += tile_spectral_buffer->getPixel(v * bucket_span + u)[c] * filter_val;
+						}
+
+						for(int c=0; c<spectral_channel_N; ++c)
+							spectral_buffer_out->getPixel(y * final_xres + x)[c] = spectral_sum[c];
+					}
+				}
 			}
 			else // No downsampling needed
 			{
@@ -1184,61 +1284,119 @@ public:
 				const ptrdiff_t bucket_max_x = myMin(x_max + gutter_pix, xres); assert(bucket_max_x <= xres);
 				const ptrdiff_t bucket_max_y = myMin(y_max + gutter_pix, yres); assert(bucket_max_y <= yres);
 
-				// First we get the weighted sum of all pixels in the layers
-				size_t addr = 0;
-				for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
-				for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
+				if(spectral_channel)
 				{
-					const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
-					const float* const src_pixel = &front_data[src_pixel_offset];
-					Colour4f sum;
-					if(blend_main_layers) // blend together main light layers (usual rendering).
+					size_t addr = 0; // tile buffer pixel index.
+					for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
+					for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
 					{
-						sum = Colour4f(0.f);
-						for(ptrdiff_t z = 0; z < num_layers; ++z)
-							sum += readUnalignedColour4f(src_pixel + z * main_layer_num_components) * layer_weights[z]; // w component is garbage but will be overwritten below.
-					}
-					else // else read from one of the non-main layers.
-					{
-						if(colour3_channel)
-							sum = readUnalignedColour4f(src_pixel + source_render_channel_offset) * image_scale;
-						else
-							sum = Colour4f(src_pixel[source_render_channel_offset]) * image_scale;
-					}
+						const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
+						const float* const src_pixel = &front_data[src_pixel_offset];
 
-					// Get alpha from alpha channel if it exists
-					sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
-					
-					// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
-					if(render_region_enabled)
-					{
-						if(pixelIsInARegion(x, y, regions))
+						for(int c=0; c<spectral_channel_N; ++c)
+							spectral_sum[c] = src_pixel[source_render_channel_offset + c] * image_scale;
+
+						// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+						if(render_region_enabled)
 						{
-							if(blend_main_layers)
+							if(pixelIsInARegion(x, y, regions))
 							{
-								sum = Colour4f(0.f);
-								for(ptrdiff_t z = 0; z < num_layers; ++z)
-									sum += readUnalignedColour4f(&region_data[src_pixel_offset + z * main_layer_num_components]) * region_layer_weights[z];
+								for(int c=0; c<spectral_channel_N; ++c)
+									spectral_sum[c] = region_data[src_pixel_offset + source_render_channel_offset + c] * region_image_scale;
 							}
 							else
 							{
-								if(colour3_channel)
-									sum = readUnalignedColour4f(&region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
-								else // Else if scalar channel:
-									sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
+								// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+								if(zero_alpha_outside_region || (image_scale == 0.0))
+									for(int c=0; c<spectral_channel_N; ++c)
+										spectral_sum[c] = 0;
 							}
+						}
 
-							sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
-						}
-						else
-						{
-							// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
-							if(zero_alpha_outside_region || (image_scale == 0.0))
-								sum = Colour4f(0.f);
-						}
+						for(int c=0; c<spectral_channel_N; ++c)
+							tile_spectral_buffer->getPixel(addr)[c] = spectral_sum[c];
+						addr++;
 					}
 
-					tile_buffer.getPixel(addr++) = sum;
+					// If we have spectral data in tile_spectral_buffer, convert it to XYZ data in tile_buffer.
+					// This is so we have a RGB preview to show to the user in the UI.
+					if(spectral_channel)
+					{
+						for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
+						{
+							const float* src = tile_spectral_buffer->getPixel(i);
+							Colour4f& dest = tile_buffer.getPixel(i);
+
+							Colour4f sum(0.f);
+							for(int c=0; c<spectral_channel_N; ++c)
+							{
+								const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
+								const Vec3f XYZ = XYZCurves::getXYZ_CIE_2DegForWavelen(wavelength);
+								sum += Colour4f(XYZ.x, XYZ.y, XYZ.z, 0) * src[c];
+							}
+							sum[3] = 1;
+							dest = sum;
+						}
+					}
+				}
+				else
+				{
+					// First we get the weighted sum of all pixels in the layers
+					size_t addr = 0; // tile buffer pixel index.
+					for(ptrdiff_t y = bucket_min_y; y < bucket_max_y; ++y)
+					for(ptrdiff_t x = bucket_min_x; x < bucket_max_x; ++x)
+					{
+						const ptrdiff_t src_pixel_offset = (y * xres + x) * stride;
+						const float* const src_pixel = &front_data[src_pixel_offset];
+						Colour4f sum;
+						if(blend_main_layers) // blend together main light layers (usual rendering).
+						{
+							sum = Colour4f(0.f);
+							for(ptrdiff_t z = 0; z < num_layers; ++z)
+								sum += readUnalignedColour4f(src_pixel + z * main_layer_num_components) * layer_weights[z]; // w component is garbage but will be overwritten below.
+						}
+						else // else read from one of the non-main layers.
+						{
+							if(colour3_channel)
+								sum = readUnalignedColour4f(src_pixel + source_render_channel_offset) * image_scale;
+							else
+								sum = Colour4f(src_pixel[source_render_channel_offset]) * image_scale;
+						}
+
+						// Get alpha from alpha channel if it exists
+						sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+					
+						// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
+						if(render_region_enabled)
+						{
+							if(pixelIsInARegion(x, y, regions))
+							{
+								if(blend_main_layers)
+								{
+									sum = Colour4f(0.f);
+									for(ptrdiff_t z = 0; z < num_layers; ++z)
+										sum += readUnalignedColour4f(&region_data[src_pixel_offset + z * main_layer_num_components]) * region_layer_weights[z];
+								}
+								else
+								{
+									if(colour3_channel)
+										sum = readUnalignedColour4f(&region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
+									else // Else if scalar channel:
+										sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
+								}
+
+								sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
+							}
+							else
+							{
+								// Zero out pixels not in the render region, if zero_alpha_outside_region is enabled, or if there are no samples on the main layers.
+								if(zero_alpha_outside_region || (image_scale == 0.0))
+									sum = Colour4f(0.f);
+							}
+						}
+
+						tile_buffer.getPixel(addr++) = sum;
+					}
 				}
 
 				// Either tonemap, or do equivalent operation for non-colour passes.
@@ -1271,6 +1429,19 @@ public:
 							// const Colour3f mapped_col = colourForDensity(v, /*max-val=*/0.6f);
 							// tile_buffer.getPixel(i) = Colour4f(mapped_col.r, mapped_col.g, mapped_col.b, 1.f);
 						}
+					}
+				}
+
+				// Copy processed spectral pixels into the final image.
+				size_t addr = 0; // tile buffer pixel index.
+				if(spectral_channel)
+				{
+					for(ptrdiff_t y = y_min; y < y_max; ++y)
+					for(ptrdiff_t x = x_min; x < x_max; ++x)
+					{
+						for(int c=0; c<spectral_channel_N; ++c)
+							spectral_buffer_out->getPixel(y * final_xres + x)[c] = tile_spectral_buffer->getPixel(addr)[c];
+						addr++;
 					}
 				}
 
@@ -1345,6 +1516,7 @@ void runPipeline(
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
 	Image4f& ldr_buffer_out,
+	const Reference<ImageMapFloat>& spectral_buffer_out, // May be NULL
 	bool& output_is_nonlinear,
 	bool input_in_XYZ_colourspace,
 	size_t margin_ssf1,
@@ -1441,11 +1613,21 @@ void runPipeline(
 		const size_t num_tasks = myMax<size_t>(1, task_manager.getNumThreads()); // Task manager may have zero threads, in which case use one task.
 
 		// Ensure that we have sufficiently many buffers of sufficient size for as many threads as the task manager uses.
-		scratch_state.per_thread_tile_buffers.resize(num_tasks);
+		scratch_state.per_thread_tile_buffers			.resize(num_tasks);
+		scratch_state.per_thread_spectral_tile_buffers	.resize(num_tasks);
 		for(size_t tile_buffer = 0; tile_buffer < scratch_state.per_thread_tile_buffers.size(); ++tile_buffer)
 		{
 			scratch_state.per_thread_tile_buffers[tile_buffer].resizeNoCopy(tile_buffer_size, tile_buffer_size);
 			scratch_state.per_thread_tile_buffers[tile_buffer].zero(); // NEW
+			
+			if(channel && (channel->type == ChannelInfo::ChannelType_Spectral))
+			{
+				if(scratch_state.per_thread_spectral_tile_buffers[tile_buffer].isNull())
+					scratch_state.per_thread_spectral_tile_buffers[tile_buffer] = new ImageMapFloat(tile_buffer_size, tile_buffer_size, channel->num_components);
+				else
+					scratch_state.per_thread_spectral_tile_buffers[tile_buffer]->resizeNoCopy(tile_buffer_size, tile_buffer_size, channel->num_components);
+				scratch_state.per_thread_spectral_tile_buffers[tile_buffer]->zero();
+			}
 		}
 
 		// Get input to sRGB matrix, e.g. XYZ->sRGB matrix
@@ -1462,11 +1644,13 @@ void runPipeline(
 
 		ImagePipelineTaskClosure closure;
 		closure.per_thread_tile_buffers = &scratch_state.per_thread_tile_buffers;
+		closure.per_thread_spectral_tile_buffers = &scratch_state.per_thread_spectral_tile_buffers;
 		closure.render_channels = &render_channels;
 		closure.layer_weights = &layer_weights;
 		closure.image_scale = image_scale;
 		closure.region_image_scale = region_image_scale;
 		closure.ldr_buffer_out = &ldr_buffer_out;
+		closure.spectral_buffer_out = spectral_buffer_out.ptr();
 		closure.renderer_settings = &renderer_settings;
 		closure.resize_filter = resize_filter;
 		closure.render_regions = &render_regions;

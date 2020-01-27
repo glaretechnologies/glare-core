@@ -13,6 +13,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "GaussianImageFilter.h"
 #include "../utils/AllocatorVector.h"
 #include "../utils/Exception.h"
+#include <vector>
 namespace Indigo { class TaskManager; }
 class OutStream;
 class InStream;
@@ -108,6 +109,8 @@ public:
 	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 	inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
+	inline void sampleAllChannels(Coord x, Coord y, Value* res_out) const;
+
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
 
@@ -174,6 +177,7 @@ public:
 	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
 	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
 
+	std::vector<std::string> channel_names; // Will be set for some EXR images.  For spectral EXR images, channels will have names like "wavelength415_0".
 private:
 	size_t width, height, N;
 	glare::AllocatorVector<V, 16> data;
@@ -415,6 +419,57 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, si
 	const Value d = ufrac * vfrac; // Bottom right pixel weight
 
 	return VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
+}
+
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::sampleAllChannels(Coord u, Coord v, Value* res_out) const
+{
+	// Get fractional normalised image coordinates
+	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
+
+	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
+	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
+
+	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
+
+	// We max with 0 here because otherwise Inf or NaN texture coordinates can result in out of bounds reads.
+	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels));
+	Vec4i i_pixels = min(i_pixels_clamped, dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_1 = i_pixels_clamped + Vec4i(1); // pixels + 1, not wrapped yet.
+	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
+
+	// Fractional coords in the pixel:
+	Vec4f frac = f_pixels - toVec4f(i_pixels);
+	Vec4f one_frac = Vec4f(1.f) - frac;
+
+	int ut = i_pixels[0];
+	int vt = i_pixels[1];
+	int ut_1 = wrapped_i_pixels_1[0];
+	int vt_1 = wrapped_i_pixels_1[1];
+	assert(ut >= 0 && ut < (int)width && vt >= 0 && vt < (int)height);
+	assert(ut_1 >= 0 && ut_1 < (int)width && vt_1 >= 0 && vt_1 < (int)height);
+
+	const Coord ufrac = frac[0];
+	const Coord vfrac = frac[1];
+	const Coord oneufrac = one_frac[0];
+	const Coord onevfrac = one_frac[1];
+
+	const V* const use_data = data.data();
+
+	const V* const top_left_pixel  = use_data + (ut   + width * vt) * N;
+	const V* const top_right_pixel = use_data + (ut_1 + width * vt) * N;
+	const V* const bot_left_pixel  = use_data + (ut   + width * vt_1) * N;
+	const V* const bot_right_pixel = use_data + (ut_1 + width * vt_1) * N;
+
+	const Value a = oneufrac * onevfrac; // Top left pixel weight
+	const Value b = ufrac * onevfrac; // Top right pixel weight
+	const Value c = oneufrac * vfrac; // Bottom left pixel weight
+	const Value d = ufrac * vfrac; // Bottom right pixel weight
+
+	for(int i=0; i<N; ++i)
+		res_out[i] = VTraits::scaleValue(a * top_left_pixel[i] + b * top_right_pixel[i] + c * bot_left_pixel[i] + d * bot_right_pixel[i]);
 }
 
 
