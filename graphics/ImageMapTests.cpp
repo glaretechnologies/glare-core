@@ -106,7 +106,7 @@ static void perfTestWithTextureWidth(int width)
 #if MAP2D_FILTERING_SUPPORT
 
 
-static void testResizeMidQuality(int new_w, int new_h)
+static void testResizeMidQualityNonSpectral(int new_w, int new_h)
 {
 	ImageMapFloat map(100, 100, 3);
 	map.set(0.12345f);
@@ -125,6 +125,45 @@ static void testResizeMidQuality(int new_w, int new_h)
 		for(int y=0; y<new_h; ++y)
 			for(int c=0; c<3; ++c)
 				testEpsEqual(resized_map_f->getPixel(x, y)[c], 0.12345f);
+}
+
+
+static void testResizeMidQualitySpectral(int new_w, int new_h)
+{
+	const int N = 12;
+	ImageMapFloat map(100, 100, N);
+
+	// Set channel names so the resizing knows this is a spectral map.
+	map.channel_names.resize(N);
+	for(size_t i=0; i<map.channel_names.size(); ++i)
+		map.channel_names[i] = "wavelength500_0";
+
+	for(int x=0; x<100; ++x)
+		for(int y=0; y<100; ++y)
+			for(int c=0; c<N; ++c)
+				map.getPixel(x, y)[c] = 0.12345f * c;
+
+	Indigo::TaskManager task_manager;
+
+	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, task_manager);
+
+	testAssert(resized_map->getMapWidth() == (unsigned int)new_w && resized_map->getMapHeight() == (unsigned int)new_h);
+	testAssert(resized_map.isType<ImageMapFloat>());
+
+	const ImageMapFloatRef resized_map_f = resized_map.downcast<ImageMapFloat>();
+	testAssert(resized_map_f->getN() == N);
+
+	for(int x=0; x<new_w; ++x)
+		for(int y=0; y<new_h; ++y)
+			for(int c=0; c<N; ++c)
+				testEpsEqual(resized_map_f->getPixel(x, y)[c], 0.12345f * c);
+}
+
+
+static void testResizeMidQuality(int new_w, int new_h)
+{
+	testResizeMidQualityNonSpectral(new_w, new_h);
+	testResizeMidQualitySpectral(new_w, new_h);
 }
 
 
@@ -508,9 +547,6 @@ void ImageMapTests::test()
 	//======================================== Test resizeMidQuality() =======================================
 	// Test resizing of a uniform, float32, 3 component image
 	{
-		ImageMapFloat map(100, 100, 3);
-		map.set(0.12345f);
-
 		// Test downsize in 2 dims
 		testResizeMidQuality(90, 90);
 
