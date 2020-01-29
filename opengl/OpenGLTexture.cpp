@@ -195,13 +195,9 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 {
 	this->format = format_;
 
-	if(texture_handle)
-	{
-		glDeleteTextures(1, &texture_handle);
-		texture_handle = 0;
-	}
+	if(texture_handle == 0)
+		glGenTextures(1, &texture_handle);
 
-	glGenTextures(1, &texture_handle);
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
 	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
