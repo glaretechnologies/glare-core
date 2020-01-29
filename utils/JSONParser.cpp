@@ -190,7 +190,7 @@ const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_v
 		{
 			const JSONNode& child = parser.nodes[name_val_pairs[i].value_node_index];
 			if(child.type != JSONNode::Type_Array)
-				throw Indigo::Exception("Expected child to have type Array.");
+				throw Indigo::Exception("JSONNode::getChildArray(): Expected child to have type Array, actual type was " + typeString(child.type));
 			return child;
 		}
 
@@ -211,7 +211,7 @@ void JSONNode::parseDoubleArrayValues(const JSONParser& parser, size_t expected_
 	{
 		const JSONNode& child_node = parser.nodes[child_indices[z]];
 		if(child_node.type != JSONNode::Type_Number)
-			throw Indigo::Exception("Expected number.");
+			throw Indigo::Exception("JSONNode::parseDoubleArrayValues(): Expected child to have type Number, actual type was " + typeString(child_node.type));
 
 		values_out[z] = child_node.value.double_v;
 	}
