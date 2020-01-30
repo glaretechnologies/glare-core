@@ -1110,8 +1110,8 @@ public:
 							for(int c=0; c<spectral_channel_N; ++c)
 							{
 								const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
-								const Vec3f XYZ = XYZCurves::getXYZ_CIE_2DegForWavelen(wavelength);
-								sum += Colour4f(XYZ.x, XYZ.y, XYZ.z, 0) * src[c];
+								const Vec4f XYZ = XYZCurves::getXYZ_CIE_2DegForWavelenVec4f(wavelength); // TODO: pull out of loop
+								sum += Colour4f(XYZ.v) * src[c];
 							}
 							sum[3] = 1;
 							dest = sum;
@@ -1331,8 +1331,8 @@ public:
 							for(int c=0; c<spectral_channel_N; ++c)
 							{
 								const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
-								const Vec3f XYZ = XYZCurves::getXYZ_CIE_2DegForWavelen(wavelength);
-								sum += Colour4f(XYZ.x, XYZ.y, XYZ.z, 0) * src[c];
+								const Vec4f XYZ = XYZCurves::getXYZ_CIE_2DegForWavelenVec4f(wavelength); // TODO: pull out of loop
+								sum += Colour4f(XYZ.v) * src[c];
 							}
 							sum[3] = 1;
 							dest = sum;
