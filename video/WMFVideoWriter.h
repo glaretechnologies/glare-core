@@ -48,7 +48,7 @@ public:
 	static void test();
 
 	// RGB data
-	virtual void writeFrame(const uint8* data, size_t stride);
+	virtual void writeFrame(const uint8* data, size_t source_row_stride_B);
 
 	virtual void finalise();
 

@@ -149,7 +149,7 @@ WMFVideoWriter::~WMFVideoWriter()
 }
 
 
-void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_stride)
+void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stride_B)
 {
 	const LONG width_B = 3 * vid_params.width;
 	const DWORD buffer_size_B = width_B * vid_params.height;
@@ -172,9 +172,9 @@ void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_stride)
 		uint32 y = vid_params.height - 1 - sy;
 		for(uint32 x=0; x<vid_params.width; ++x)
 		{
-			buffer_data[vid_params.width * y * 3 + x * 3 + 0] = source_data[source_stride * sy + (size_t)x * 3 + 2];
-			buffer_data[vid_params.width * y * 3 + x * 3 + 1] = source_data[source_stride * sy + (size_t)x * 3 + 1];
-			buffer_data[vid_params.width * y * 3 + x * 3 + 2] = source_data[source_stride * sy + (size_t)x * 3 + 0];
+			buffer_data[vid_params.width * y * 3 + x * 3 + 0] = source_data[source_row_stride_B * sy + (size_t)x * 3 + 2];
+			buffer_data[vid_params.width * y * 3 + x * 3 + 1] = source_data[source_row_stride_B * sy + (size_t)x * 3 + 1];
+			buffer_data[vid_params.width * y * 3 + x * 3 + 2] = source_data[source_row_stride_B * sy + (size_t)x * 3 + 0];
 		}
 	}
 
