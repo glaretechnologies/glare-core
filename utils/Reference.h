@@ -126,6 +126,11 @@ public:
 		return ob == other.ob;
 	}
 
+	bool operator != (const Reference& other) const
+	{
+		return ob != other.ob;
+	}
+
 
 	inline T& operator * ()
 	{
