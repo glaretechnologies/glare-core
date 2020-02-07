@@ -226,7 +226,8 @@ void WMFVideoWriter::finalise()
 }
 
 
-#if BUILD_TESTS
+//#if BUILD_TESTS
+#if 0 // NOTE: Test disabled for now because it uses PNGDecoder, which some projects might not want to use.
 
 
 #include "../indigo/TestUtils.h"
