@@ -708,7 +708,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	this->cube_meshdata = makeCubeMesh();
 	this->unit_quad_meshdata = makeUnitQuadMesh();
 
-	//this->current_scene->env_ob->mesh_data = sphere_meshdata;
+	this->current_scene->env_ob->mesh_data = sphere_meshdata;
 
 
 	try
