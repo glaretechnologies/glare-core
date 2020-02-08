@@ -66,7 +66,7 @@ WMFVideoWriter::WMFVideoWriter(const std::string& URL, const VidParams& vid_para
 	if(FAILED(hr))
 		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
-	hr = media_type_out->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
+	hr = media_type_out->SetGUID(MF_MT_SUBTYPE, (vid_params.standard == VidParams::CompressionStandard_H264) ? MFVideoFormat_H264 : MFVideoFormat_HEVC);
 	if(FAILED(hr))
 		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	

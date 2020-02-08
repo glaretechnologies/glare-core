@@ -22,10 +22,20 @@ struct IMFMediaBuffer;
 
 struct VidParams
 {
+	enum CompressionStandard
+	{
+		CompressionStandard_H264,
+		CompressionStandard_HEVC // a.k.a. H.265
+	};
+
+	VidParams() : standard(CompressionStandard_H264) {}
+
 	uint32 bitrate; // Approximate data rate of the video stream, in bits per second.
 	uint32 width;
 	uint32 height;
 	double fps;
+
+	CompressionStandard standard;
 };
 
 
