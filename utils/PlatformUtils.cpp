@@ -550,16 +550,16 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 {
 #if defined(_WIN32) || defined(_WIN64)
 
-	//execute("Explorer.exe /select," + select_path + "");
-
 	STARTUPINFO startupInfo;
 	ZeroMemory(&startupInfo, sizeof(startupInfo));
-    startupInfo.cb = sizeof(startupInfo);
+	startupInfo.cb = sizeof(startupInfo);
 	PROCESS_INFORMATION procInfo;
 
+	std::wstring command_line = StringUtils::UTF8ToPlatformUnicodeEncoding("explorer /select," + FileUtils::toPlatformSlashes(select_path));
+
 	if(CreateProcess(
-		NULL, // L"explorer", // app name
-		const_cast<wchar_t*>(StringUtils::UTF8ToPlatformUnicodeEncoding("explorer /select," + FileUtils::toPlatformSlashes(select_path)).c_str()), // command line
+		NULL, // app name
+		&command_line[0], // command line
 		NULL,
 		NULL,
 		0,
@@ -576,42 +576,7 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 
 	// "Handles in PROCESS_INFORMATION must be closed with CloseHandle when they are no longer needed." - MSDN 'CreateProcess function'.
 	CloseHandle(procInfo.hProcess);
-
-	/*const HINSTANCE res = ShellExecute(
-		NULL,
-		L"explore", // operation
-		StringUtils::UTF8ToPlatformUnicodeEncoding(select_path).c_str(), // file
-		NULL, // parameters
-		NULL, // directory
-		SW_SHOWNORMAL // cmd
-	);
-
-	// "If the function succeeds, it returns a value greater than 32." - http://msdn.microsoft.com/en-us/library/bb762153%28VS.85%29.aspx
-	if((int)res <= 32)
-	{
-		const int r = (int)res;
-		if(r == ERROR_FILE_NOT_FOUND)
-			throw PlatformUtilsExcep("ERROR_FILE_NOT_FOUND");
-		else if(r == ERROR_PATH_NOT_FOUND)
-			throw PlatformUtilsExcep("ERROR_PATH_NOT_FOUND");
-		else if(r == ERROR_BAD_FORMAT)
-			throw PlatformUtilsExcep("ERROR_BAD_FORMAT");
-		else if(r == SE_ERR_ACCESSDENIED)
-			throw PlatformUtilsExcep("SE_ERR_ACCESSDENIED");
-		else if(r == SE_ERR_ASSOCINCOMPLETE)
-			throw PlatformUtilsExcep("SE_ERR_ASSOCINCOMPLETE");
-		else if(r == SE_ERR_FNF)
-			throw PlatformUtilsExcep("SE_ERR_FNF");
-		else if(r == SE_ERR_NOASSOC)
-			throw PlatformUtilsExcep("SE_ERR_NOASSOC");
-		else if(r == SE_ERR_PNF)
-			throw PlatformUtilsExcep("SE_ERR_PNF");
-		else if(r == SE_ERR_SHARE)
-			throw PlatformUtilsExcep("SE_ERR_SHARE");
-		else
-			throw PlatformUtilsExcep("openFileBrowserWindowAtLocation: Unknown error");
-	}*/
-
+	CloseHandle(procInfo.hThread);
 
 #elif defined(OSX)
 
