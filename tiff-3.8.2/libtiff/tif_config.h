@@ -15,7 +15,7 @@
 #define HAVE_SYS_TYPES_H 1
 
 /* Define to 1 if you have the <io.h> header file. */
-#define HAVE_IO_H 1
+//#define HAVE_IO_H 1
 
 /* Define to 1 if you have the <search.h> header file. */
 #define HAVE_SEARCH_H 1
