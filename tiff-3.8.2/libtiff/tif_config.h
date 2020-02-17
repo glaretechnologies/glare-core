@@ -41,4 +41,6 @@
 # endif
 #endif
 
+#if defined(_WIN32) // GLARE NEWCODE
 #define lfind _lfind
+#endif // GLARE NEWCODE
