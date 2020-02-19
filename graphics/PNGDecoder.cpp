@@ -858,6 +858,24 @@ void PNGDecoder::test()
 	{}
 
 
+	// Performance test
+	if(false)
+	{
+		const int num_iters = 10;
+		double min_time = 1.0e10;
+		for(int z=0; z<num_iters; ++z)
+		{
+			Timer timer;
+			const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/zomb_dark_sphere_bug_scene/PACKED_0_PACKED_0_leather_white3.png";
+			Reference<Map2D> im = decode(path);
+			testAssert(im->getMapWidth() == 2189);
+			min_time = myMin(min_time, timer.elapsed());
+		}
+		
+		conPrint("Time to load PACKED_0_PACKED_0_leather_white3.png: " + doubleToStringNSigFigs(min_time, 4) + " s.");
+	}
+
+
 	conPrint("PNGDecoder::test() done.");
 }
 

@@ -1,0 +1,3 @@
+This is just the libpng 1.6.37 distribution, downloaded from https://github.com/glennrp/libpng/releases, with some unneeded files deleted.
+scripts/pnglibconf.h.prebuilt was copied to pnglibconf.h.
+--nick
