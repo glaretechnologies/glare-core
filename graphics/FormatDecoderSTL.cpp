@@ -114,7 +114,8 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 		if(file.fileSize() < HEADER_SIZE + sizeof(uint32))
 			throw Indigo::Exception("Invalid file.  (file size too small)");
 
-		const uint32 num_faces = *(uint32*)(data + HEADER_SIZE);
+		uint32 num_faces;
+		std::memcpy(&num_faces, data + HEADER_SIZE, sizeof(uint32));
 
 		const size_t expected_min_file_size = HEADER_SIZE + sizeof(uint32) + num_faces * (sizeof(float)*12 + 2);
 		if(file.fileSize() < expected_min_file_size)
@@ -124,11 +125,14 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 		mesh.vert_positions.resize(num_faces * 3);
 		mesh.triangles.resize(num_faces);
 
-		
+		float cur_data[12];
 		for(uint32 i=0; i<num_faces; ++i)
 		{
-			const float* const cur_data = (float*)(data + HEADER_SIZE + sizeof(uint32) + i * (sizeof(float)*12 + 2));
-
+			// Note that cur_data_uint8 may not be a multiple of 4, so can't just cast to float* and read directly.  memcpy instead.
+			const uint8* const cur_data_uint8 = data + HEADER_SIZE + sizeof(uint32) + i * (sizeof(float)*12 + 2);
+			
+			std::memcpy(cur_data, cur_data_uint8, sizeof(float) * 12);
+			
 			//const Indigo::Vec3f normal(cur_data[0], cur_data[1], cur_data[2]);
 			const Indigo::Vec3f v1(cur_data[3], cur_data[4], cur_data[5]);
 			const Indigo::Vec3f v2(cur_data[6], cur_data[7], cur_data[8]);
