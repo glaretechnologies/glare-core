@@ -430,9 +430,11 @@ ${pugixmldir}/pugiconfig.hpp
 
 FILE(GLOB giflib "../giflib/lib/*.c" "../giflib/lib/*.cpp" "../giflib/lib/*.h")
 FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
-FILE(GLOB zstandard "../zstd-1.0.0/lib/*.h"  "../zstd-1.0.0/lib/common/*.c" "../zstd-1.0.0/lib/common/*.h"
-"../zstd-1.0.0/lib/compress/*.c" "../zstd-1.0.0/lib/compress/*.h"
-"../zstd-1.0.0/lib/decompress/*.c" "../zstd-1.0.0/lib/decompress/*.h"
+FILE(GLOB zstandard 
+"${zstddir}/lib/*.h"
+"${zstddir}/lib/common/*.c"     "${zstddir}/lib/common/*.h"
+"${zstddir}/lib/compress/*.c"   "${zstddir}/lib/compress/*.h"
+"${zstddir}/lib/decompress/*.c" "${zstddir}/lib/decompress/*.h"
 )
 
 
