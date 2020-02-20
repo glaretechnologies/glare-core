@@ -17,6 +17,10 @@
 /* Define to 1 if you have the <io.h> header file. */
 //#define HAVE_IO_H 1
 
+#ifndef _WIN32 // GLARE NEWCODE
+#define HAVE_UNISTD_H 1 // GLARE NEWCODE
+#endif // GLARE NEWCODE
+
 /* Define to 1 if you have the <search.h> header file. */
 #define HAVE_SEARCH_H 1
 
