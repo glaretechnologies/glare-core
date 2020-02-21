@@ -15,25 +15,6 @@ Copyright Glare Technologies Limited 2020 -
 #ifdef OSX
 
 
-struct VidParams
-{
-	enum CompressionStandard
-	{
-		CompressionStandard_H264,
-		CompressionStandard_HEVC // a.k.a. H.265
-	};
-
-	VidParams() : standard(CompressionStandard_H264) {}
-
-	uint32 bitrate; // Approximate data rate of the video stream, in bits per second.
-	uint32 width;
-	uint32 height;
-	double fps;
-
-	CompressionStandard standard;
-};
-
-
 /*=====================================================================
 AVFVideoWriter
 --------------
@@ -56,6 +37,10 @@ public:
 private:
 	uint64 frame_index;
 	VidParams vid_params;
+	
+	void* m_video_writer;
+	void* m_writer_input;
+	void* m_adaptor;
 };
 
 
