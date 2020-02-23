@@ -9,17 +9,25 @@ Copyright Glare Technologies Limited 2020 -
 #ifdef OSX
 
 
-#include "../graphics/ImageMap.h"
-#include "../graphics/PNGDecoder.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/PlatformUtils.h"
+#include "../utils/ConPrint.h"
 
-#include <AVFoundation/AVFoundation.h>
+#import <AVFoundation/AVFoundation.h>
 #import <Foundation/NSURL.h>
+
+
+static const std::string errorDesc(NSError* err)
+{
+	if(!err)
+		return "";
+	NSString* desc = [err localizedDescription];
+	return desc ? std::string([desc UTF8String]) : "";
+}
 
 
 AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_params_)
@@ -40,11 +48,10 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 	NSString* s = [NSString stringWithUTF8String:URL.c_str()];
 	NSURL* url = [[NSURL alloc] initFileURLWithPath: s];
 	
-	NSError* the_error = nil;
-	AVAssetWriter* video_writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeMPEG4 error:&the_error];
-	
+	NSError* err = nil;
+	AVAssetWriter* video_writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeMPEG4 error:&err];
 	if(video_writer == nil)
-		throw Indigo::Exception("Failed to create video writer.");
+		throw Indigo::Exception("Failed to create video writer: " + errorDesc(err));
 	
 	NSDictionary* video_settings = [NSDictionary dictionaryWithObjectsAndKeys:
 									AVVideoCodecTypeH264, AVVideoCodecKey,
@@ -53,41 +60,51 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 									nil];
 	
 	AVAssetWriterInput* writer_input = [[AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
-																	  outputSettings:video_settings] retain];
-	
+																		   outputSettings:video_settings] retain];
 	if(writer_input == nil)
-		throw Indigo::Exception("Failed to create video writer.");
+		throw Indigo::Exception("Failed to create asset writer input.");
 	
-	AVAssetWriterInputPixelBufferAdaptor* adaptor = [AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writer_input sourcePixelBufferAttributes:nil];
+	AVAssetWriterInputPixelBufferAdaptor* adaptor = [[AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writer_input sourcePixelBufferAttributes:nil] retain];
+	
+	if(adaptor == nil)
+		throw Indigo::Exception("Failed to create input pixel buffer adaptor.");
 	
 	m_video_writer = video_writer;
 	m_writer_input = writer_input;
 	m_adaptor = adaptor;
 	
 	[video_writer addInput:writer_input];
-	
 	[video_writer startWriting];
 	[video_writer startSessionAtSourceTime:kCMTimeZero];
+	
+	[url release];
 }
 
 
 AVFVideoWriter::~AVFVideoWriter()
 {
+	AVAssetWriterInputPixelBufferAdaptor* adaptor = (AVAssetWriterInputPixelBufferAdaptor*)m_adaptor;
+	AVAssetWriter* video_writer = (AVAssetWriter*)m_video_writer;
+	AVAssetWriterInput* writer_input = (AVAssetWriterInput*)m_writer_input;
+	
+	[adaptor release]; // We manually retained in the constructor.
+	[writer_input release]; // We manually retained in the constructor.
+	[video_writer release];
 }
 
-void releaseCallback(void* release_ref_con, const void* base_address)
+
+static void releaseCallback(void* release_ref_con, const void* base_address)
 {
 	free((void*)base_address);
 }
 
+
 void AVFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stride_B)
 {
-	//AVAssetWriter* video_writer = (AVAssetWriter*)m_video_writer;
-	//AVAssetWriterInput* writer_input = (AVAssetWriterInput*)m_writer_input;
 	AVAssetWriterInputPixelBufferAdaptor* adaptor = (AVAssetWriterInputPixelBufferAdaptor*)m_adaptor;
 	
-	double frame_time = 1.0 / vid_params.fps;
-	CMTime cur_time = CMTimeMake(frame_index*frame_time*1000, 1000);
+	const double frame_time = 1.0 / vid_params.fps;
+	CMTime cur_time = CMTimeMake(frame_index * frame_time * 1000, 1000);
 	
 	CVPixelBufferRef pixel_buffer = nil;
 	CVPixelBufferCreateWithBytes(nil, // Default allocator
@@ -95,11 +112,13 @@ void AVFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 	
 	if(pixel_buffer)
 	{
-		//[writer_input appendSampleBuffer:pixel_buffer];
 		[adaptor appendPixelBuffer:pixel_buffer withPresentationTime:cur_time];
 	}
 	else
+	{
+		
 		throw Indigo::Exception("Failed to write frame.");
+	}
 	
 	frame_index++;
 }
@@ -111,7 +130,6 @@ void AVFVideoWriter::finalise()
 	AVAssetWriterInput* writer_input = (AVAssetWriterInput*)m_writer_input;
 	
 	[writer_input markAsFinished];
-	//[video_writer finishWriting];
 	
 	[video_writer finishWritingWithCompletionHandler:^{
 	}]; // end videoWriter finishWriting Block
@@ -122,7 +140,7 @@ void AVFVideoWriter::finalise()
 		if(video_writer.status == AVAssetWriterStatusCompleted)
 			break;
 		else if(video_writer.status == AVAssetWriterStatusFailed)
-			throw Indigo::Exception("Error while finishing writing video.");
+			throw Indigo::Exception("Error while finishing writing video: " + errorDesc([video_writer error]));
 		
 		// else writing still in progress presumably, keep waiting..
 		PlatformUtils::Sleep(1);
@@ -135,6 +153,7 @@ void AVFVideoWriter::finalise()
 
 #include "../indigo/TestUtils.h"
 #include "../utils/FileUtils.h"
+#include "../graphics/ImageMap.h"
 
 
 void AVFVideoWriter::test()
@@ -143,7 +162,6 @@ void AVFVideoWriter::test()
 	try
 	{
 		{
-			//WMFVideoReader reader("D:\\video\\test5.avi");
 			VidParams params;
 			params.bitrate = 100000000;
 			params.fps = 60;
@@ -152,8 +170,8 @@ void AVFVideoWriter::test()
 			AVFVideoWriter writer("test.mpg", params);
 
 			Timer timer;
-			size_t frame_index = 0;
-			for(int i=0; i<180; ++i)
+			const int NUM_FRAMES = 40;
+			for(int i=0; i<NUM_FRAMES; ++i)
 			{
 				ImageMapUInt8 map(params.width, params.height, 3);
 				for(uint32 y=0; y<params.height; ++y)
@@ -166,7 +184,7 @@ void AVFVideoWriter::test()
 					}
 				}
 
-				const int ob_x = (int)(((float)i / 180) * params.width);
+				const int ob_x = (int)(((float)i / NUM_FRAMES) * params.width);
 				for(uint32 y=100; y<110; ++y)
 					for(int x=ob_x; x<ob_x + 10; ++x)
 					{
@@ -175,43 +193,11 @@ void AVFVideoWriter::test()
 					}
 
 				writer.writeFrame(map.getData(), map.getWidth() * 3);
-
-				//BYTE* frame_buffer;
-				//size_t stride_B;
-				//reader.getAndLockNextFrame(frame_buffer, stride_B);
-
-				//if(frame_buffer)
-				//{
-				//	const FormatInfo& format = reader.getCurrentFormat();
-
-				//	/*ImageMapUInt8 map(format.im_width, format.im_height, 3);
-				//	for(uint32 y=0; y<format.im_height; ++y)
-				//	{
-				//		BYTE* scanline = frame_buffer + (size_t)y * stride_B;
-				//
-				//		for(uint32 x=0; x<format.im_width; ++x)
-				//		{
-				//			map.getPixel(x, y)[0] = scanline[x*4 + 2];
-				//			map.getPixel(x, y)[1] = scanline[x*4 + 1];
-				//			map.getPixel(x, y)[2] = scanline[x*4 + 0];
-				//		}
-				//	}
-				//	PNGDecoder::write(map, "D:\\indigo_temp\\movie_output\\frame_" + toString(frame_index) + ".png");
-				//	conPrint("Saved frame " + toString(frame_index));*/
-				//}
-				//else
-				//{
-				//	conPrint("Reached EOF.");
-				//	break;
-				//}
-
-				//reader.unlockFrame();
-				frame_index++;
 			}
 
 			writer.finalise();
 
-			const double fps = frame_index / timer.elapsed();
+			const double fps = NUM_FRAMES / timer.elapsed();
 			conPrint("FPS processed: " + toString(fps));
 		}
 	}
