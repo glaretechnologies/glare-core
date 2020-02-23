@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
+#include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/PlatformUtils.h"
 
@@ -25,6 +26,17 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 :	frame_index(0),
 	vid_params(vid_params_)
 {
+	// AVAssetWriter fails if the target file already exists, so remove it first if present.
+	try
+	{
+		if(FileUtils::fileExists(URL))
+			FileUtils::deleteFile(URL);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw Indigo::Exception(e.what());
+	}
+	
 	NSString* s = [NSString stringWithUTF8String:URL.c_str()];
 	NSURL* url = [[NSURL alloc] initFileURLWithPath: s];
 	
