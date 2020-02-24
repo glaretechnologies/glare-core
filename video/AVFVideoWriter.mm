@@ -57,10 +57,15 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 		
 		const AVVideoCodecType codec = (vid_params.standard == VidParams::CompressionStandard_HEVC) ? AVVideoCodecTypeHEVC : AVVideoCodecTypeH264;
 		
+		NSDictionary* compression_props = [NSDictionary dictionaryWithObjectsAndKeys:
+										   [NSNumber numberWithInt:vid_params.bitrate], AVVideoAverageBitRateKey,
+										   nil];
+		
 		NSDictionary* video_settings = [NSDictionary dictionaryWithObjectsAndKeys:
 										codec, AVVideoCodecKey,
 										[NSNumber numberWithInt:vid_params.width], AVVideoWidthKey,
 										[NSNumber numberWithInt:vid_params.height], AVVideoHeightKey,
+										compression_props, AVVideoCompressionPropertiesKey,
 										nil];
 		
 		AVAssetWriterInput* writer_input = [[AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
@@ -195,18 +200,18 @@ void AVFVideoWriter::finalise()
 #include "../graphics/ImageMap.h"
 
 
-static void testWithStandard(VidParams::CompressionStandard standard)
+static void testWithStandard(VidParams::CompressionStandard standard, uint32 bitrate)
 {
-	conPrint("Writing video with " + std::string((standard == VidParams::CompressionStandard_H264) ? "H.264" : "HEVC") + " codec.");
+	conPrint("Writing video with " + std::string((standard == VidParams::CompressionStandard_H264) ? "H.264" : "HEVC") + " codec, bit rate: " + toString(bitrate) + " bits/s");
 	try
 	{
 		VidParams params;
-		params.bitrate = 100000000;
+		params.bitrate = bitrate;
 		params.fps = 60;
 		params.width = 800;
 		params.height = 600;
 		params.standard = standard;
-		AVFVideoWriter writer(standard == VidParams::CompressionStandard_H264 ? "test_h264.mpg" : "test_hevc.mpg", params);
+		AVFVideoWriter writer("test_" + std::string((standard == VidParams::CompressionStandard_H264) ? "H.264" : "HEVC") + "_" + toString(bitrate) + ".mpg", params);
 
 		Timer timer;
 		const int NUM_FRAMES = 400;
@@ -248,8 +253,10 @@ static void testWithStandard(VidParams::CompressionStandard standard)
 
 void AVFVideoWriter::test()
 {
-	testWithStandard(VidParams::CompressionStandard_H264);
-	testWithStandard(VidParams::CompressionStandard_HEVC);
+	testWithStandard(VidParams::CompressionStandard_H264, /*bitrate=*/10000);
+	testWithStandard(VidParams::CompressionStandard_HEVC, /*bitrate=*/10000);
+	testWithStandard(VidParams::CompressionStandard_H264, /*bitrate=*/100000000);
+	testWithStandard(VidParams::CompressionStandard_HEVC, /*bitrate=*/100000000);
 }
 
 
