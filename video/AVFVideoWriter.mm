@@ -45,39 +45,49 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 		throw Indigo::Exception(e.what());
 	}
 	
-	NSString* s = [NSString stringWithUTF8String:URL.c_str()];
-	NSURL* url = [[NSURL alloc] initFileURLWithPath: s];
-	
-	NSError* err = nil;
-	AVAssetWriter* video_writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeMPEG4 error:&err];
-	if(video_writer == nil)
-		throw Indigo::Exception("Failed to create video writer: " + errorDesc(err));
-	
-	NSDictionary* video_settings = [NSDictionary dictionaryWithObjectsAndKeys:
-									AVVideoCodecTypeH264, AVVideoCodecKey,
-									[NSNumber numberWithInt:vid_params.width], AVVideoWidthKey,
-									[NSNumber numberWithInt:vid_params.height], AVVideoHeightKey,
-									nil];
-	
-	AVAssetWriterInput* writer_input = [[AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
-																		   outputSettings:video_settings] retain];
-	if(writer_input == nil)
-		throw Indigo::Exception("Failed to create asset writer input.");
-	
-	AVAssetWriterInputPixelBufferAdaptor* adaptor = [[AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writer_input sourcePixelBufferAttributes:nil] retain];
-	
-	if(adaptor == nil)
-		throw Indigo::Exception("Failed to create input pixel buffer adaptor.");
-	
-	m_video_writer = video_writer;
-	m_writer_input = writer_input;
-	m_adaptor = adaptor;
-	
-	[video_writer addInput:writer_input];
-	[video_writer startWriting];
-	[video_writer startSessionAtSourceTime:kCMTimeZero];
-	
-	[url release];
+	@try
+	{
+		NSString* s = [NSString stringWithUTF8String:URL.c_str()];
+		NSURL* url = [[NSURL alloc] initFileURLWithPath: s];
+		
+		NSError* err = nil;
+		AVAssetWriter* video_writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeMPEG4 error:&err];
+		if(video_writer == nil)
+			throw Indigo::Exception("Failed to create video writer: " + errorDesc(err));
+		
+		const AVVideoCodecType codec = (vid_params.standard == VidParams::CompressionStandard_HEVC) ? AVVideoCodecTypeHEVC : AVVideoCodecTypeH264;
+		
+		NSDictionary* video_settings = [NSDictionary dictionaryWithObjectsAndKeys:
+										codec, AVVideoCodecKey,
+										[NSNumber numberWithInt:vid_params.width], AVVideoWidthKey,
+										[NSNumber numberWithInt:vid_params.height], AVVideoHeightKey,
+										nil];
+		
+		AVAssetWriterInput* writer_input = [[AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
+																			   outputSettings:video_settings] retain];
+		if(writer_input == nil)
+			throw Indigo::Exception("Failed to create asset writer input.");
+		
+		AVAssetWriterInputPixelBufferAdaptor* adaptor = [[AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writer_input sourcePixelBufferAttributes:nil] retain];
+		
+		if(adaptor == nil)
+			throw Indigo::Exception("Failed to create input pixel buffer adaptor.");
+		
+		m_video_writer = video_writer;
+		m_writer_input = writer_input;
+		m_adaptor = adaptor;
+		
+		[video_writer addInput:writer_input];
+		[video_writer startWriting];
+		[video_writer startSessionAtSourceTime:kCMTimeZero];
+		
+		[url release];
+	}
+	@catch(NSException* exception)
+	{
+		NSString* desc = [exception description];
+		throw Indigo::Exception("Error while creating video writer: " + (desc ? std::string([desc UTF8String]) : ""));
+	}
 }
 
 
@@ -167,10 +177,11 @@ void AVFVideoWriter::test()
 			params.fps = 60;
 			params.width = 800;
 			params.height = 600;
+			params.standard = VidParams::CompressionStandard_HEVC;
 			AVFVideoWriter writer("test.mpg", params);
 
 			Timer timer;
-			const int NUM_FRAMES = 40;
+			const int NUM_FRAMES = 400;
 			for(int i=0; i<NUM_FRAMES; ++i)
 			{
 				ImageMapUInt8 map(params.width, params.height, 3);
