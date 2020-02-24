@@ -105,7 +105,8 @@ AVFVideoWriter::~AVFVideoWriter()
 
 static void releaseCallback(void* release_ref_con, const void* base_address)
 {
-	free((void*)base_address);
+	// conPrint("freeing " + toString((uint64)base_address));
+	delete[] (uint8*)base_address;
 }
 
 
@@ -113,21 +114,41 @@ void AVFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 {
 	AVAssetWriterInputPixelBufferAdaptor* adaptor = (AVAssetWriterInputPixelBufferAdaptor*)m_adaptor;
 	
-	const double frame_time = 1.0 / vid_params.fps;
-	CMTime cur_time = CMTimeMake(frame_index * frame_time * 1000, 1000);
-	
-	CVPixelBufferRef pixel_buffer = nil;
-	CVPixelBufferCreateWithBytes(nil, // Default allocator
-								 vid_params.width, vid_params.height, kCVPixelFormatType_24RGB, (void*)source_data, source_row_stride_B, releaseCallback, nil, nil, &pixel_buffer);
-	
-	if(pixel_buffer)
+	// Copy source_data to data_copy.  We do this because the asset writer seems to hang on to the data pointer and use it later.
+	// If we don't copy the data we end up with corrupted frames.
+	// Note that there is probably a better way to do this that avoids the allocation and copies, using the buffer pool.
+	uint8* data_copy;
+	try
 	{
-		[adaptor appendPixelBuffer:pixel_buffer withPresentationTime:cur_time];
+		data_copy = new uint8[vid_params.height * source_row_stride_B];
+		// conPrint("Alloced " + toString((uint64)data_copy));
 	}
-	else
+	catch(std::bad_alloc&)
 	{
+		throw Indigo::Exception("Failed to alloc temp buffer for video frame writing.");
+	}
+	std::memcpy(data_copy, source_data, vid_params.height * source_row_stride_B);
+	
+	@try
+	{
+		const double frame_time = 1.0 / vid_params.fps;
+		CMTime cur_time = CMTimeMake(frame_index * frame_time * 1000, 1000);
 		
-		throw Indigo::Exception("Failed to write frame.");
+		CVPixelBufferRef pixel_buffer = nil;
+		CVPixelBufferCreateWithBytes(nil, // Default allocator
+									 vid_params.width, vid_params.height, kCVPixelFormatType_24RGB, (void*)data_copy, source_row_stride_B, releaseCallback, nil, nil, &pixel_buffer);
+		
+		if(pixel_buffer)
+			[adaptor appendPixelBuffer:pixel_buffer withPresentationTime:cur_time];
+		else
+			throw Indigo::Exception("Failed to write frame.");
+		
+		if(pixel_buffer) CFRelease(pixel_buffer); // Required as CVPixelBufferCreateWithBytes gave us ownership.
+	}
+	@catch(NSException* exception)
+	{
+		NSString* desc = [exception description];
+		throw Indigo::Exception("Error while writing video frame: " + (desc ? std::string([desc UTF8String]) : ""));
 	}
 	
 	frame_index++;
@@ -139,21 +160,29 @@ void AVFVideoWriter::finalise()
 	AVAssetWriter* video_writer = (AVAssetWriter*)m_video_writer;
 	AVAssetWriterInput* writer_input = (AVAssetWriterInput*)m_writer_input;
 	
-	[writer_input markAsFinished];
-	
-	[video_writer finishWritingWithCompletionHandler:^{
-	}]; // end videoWriter finishWriting Block
-	
-	// Block until video writing is done.
-	while(1)
+	@try
 	{
-		if(video_writer.status == AVAssetWriterStatusCompleted)
-			break;
-		else if(video_writer.status == AVAssetWriterStatusFailed)
-			throw Indigo::Exception("Error while finishing writing video: " + errorDesc([video_writer error]));
+		[writer_input markAsFinished];
 		
-		// else writing still in progress presumably, keep waiting..
-		PlatformUtils::Sleep(1);
+		[video_writer finishWritingWithCompletionHandler:^{
+		}]; // end videoWriter finishWriting Block
+		
+		// Block until video writing is done.
+		while(1)
+		{
+			if(video_writer.status == AVAssetWriterStatusCompleted)
+				break;
+			else if(video_writer.status == AVAssetWriterStatusFailed)
+				throw Indigo::Exception("Error while finishing writing video: " + errorDesc([video_writer error]));
+			
+			// else writing still in progress presumably, keep waiting..
+			PlatformUtils::Sleep(1);
+		}
+	}
+	@catch(NSException* exception)
+	{
+		NSString* desc = [exception description];
+		throw Indigo::Exception("Error while finalising video: " + (desc ? std::string([desc UTF8String]) : ""));
 	}
 }
 
@@ -166,56 +195,61 @@ void AVFVideoWriter::finalise()
 #include "../graphics/ImageMap.h"
 
 
-void AVFVideoWriter::test()
+static void testWithStandard(VidParams::CompressionStandard standard)
 {
-	
+	conPrint("Writing video with " + std::string((standard == VidParams::CompressionStandard_H264) ? "H.264" : "HEVC") + " codec.");
 	try
 	{
+		VidParams params;
+		params.bitrate = 100000000;
+		params.fps = 60;
+		params.width = 800;
+		params.height = 600;
+		params.standard = standard;
+		AVFVideoWriter writer(standard == VidParams::CompressionStandard_H264 ? "test_h264.mpg" : "test_hevc.mpg", params);
+
+		Timer timer;
+		const int NUM_FRAMES = 400;
+		for(int i=0; i<NUM_FRAMES; ++i)
 		{
-			VidParams params;
-			params.bitrate = 100000000;
-			params.fps = 60;
-			params.width = 800;
-			params.height = 600;
-			params.standard = VidParams::CompressionStandard_HEVC;
-			AVFVideoWriter writer("test.mpg", params);
-
-			Timer timer;
-			const int NUM_FRAMES = 400;
-			for(int i=0; i<NUM_FRAMES; ++i)
+			ImageMapUInt8 map(params.width, params.height, 3);
+			for(uint32 y=0; y<params.height; ++y)
 			{
-				ImageMapUInt8 map(params.width, params.height, 3);
-				for(uint32 y=0; y<params.height; ++y)
+				for(uint32 x=0; x<params.width; ++x)
 				{
-					for(uint32 x=0; x<params.width; ++x)
-					{
-						map.getPixel(x, y)[0] = (uint8)((float)x * 255.0f / params.width);
-						map.getPixel(x, y)[1] = (uint8)0;
-						map.getPixel(x, y)[2] = (uint8)0;
-					}
+					map.getPixel(x, y)[0] = (uint8)((float)x * 255.0f / params.width);
+					map.getPixel(x, y)[1] = (uint8)0;
+					map.getPixel(x, y)[2] = (uint8)0;
 				}
-
-				const int ob_x = (int)(((float)i / NUM_FRAMES) * params.width);
-				for(uint32 y=100; y<110; ++y)
-					for(int x=ob_x; x<ob_x + 10; ++x)
-					{
-						if(x < (int)params.width)
-							map.getPixel(x, y)[1] = 255;
-					}
-
-				writer.writeFrame(map.getData(), map.getWidth() * 3);
 			}
 
-			writer.finalise();
+			const int ob_x = (int)(((float)i / NUM_FRAMES) * params.width);
+			for(uint32 y=100; y<110; ++y)
+				for(int x=ob_x; x<ob_x + 10; ++x)
+				{
+					if(x < (int)params.width)
+						map.getPixel(x, y)[1] = 255;
+				}
 
-			const double fps = NUM_FRAMES / timer.elapsed();
-			conPrint("FPS processed: " + toString(fps));
+			writer.writeFrame(map.getData(), map.getWidth() * 3);
 		}
+
+		writer.finalise();
+
+		const double fps = NUM_FRAMES / timer.elapsed();
+		conPrint("FPS processed: " + toString(fps));
 	}
 	catch(Indigo::Exception& e)
 	{
 		failTest(e.what());
 	}
+}
+
+
+void AVFVideoWriter::test()
+{
+	testWithStandard(VidParams::CompressionStandard_H264);
+	testWithStandard(VidParams::CompressionStandard_HEVC);
 }
 
 
