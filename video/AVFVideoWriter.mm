@@ -211,7 +211,7 @@ static void testWithStandard(VidParams::CompressionStandard standard, uint32 bit
 		params.width = 800;
 		params.height = 600;
 		params.standard = standard;
-		AVFVideoWriter writer("test_" + std::string((standard == VidParams::CompressionStandard_H264) ? "H.264" : "HEVC") + "_" + toString(bitrate) + ".mpg", params);
+		AVFVideoWriter writer("test_" + std::string((standard == VidParams::CompressionStandard_H264) ? "H.264" : "HEVC") + "_" + toString(bitrate) + ".mp4", params);
 
 		Timer timer;
 		const int NUM_FRAMES = 400;
