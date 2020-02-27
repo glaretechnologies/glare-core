@@ -369,6 +369,25 @@ void Maths::test()
 	testAssert(intMod(5, 4)  == 1);
 	testAssert(intMod(6, 4)  == 2);
 
+	// Test with a non-power-of-two divisor
+	testAssert(intMod(-8, 7)  == 6); // c mod is -1, add 7 gives 6
+	testAssert(intMod(-7, 7)  == 0); // c mod is 0
+	testAssert(intMod(-6, 7)  == 1); // c mod is -6, add 7 gives 4
+	testAssert(intMod(-5, 7)  == 2); // c mod is -5, add 7 gives 4
+	testAssert(intMod(-4, 7)  == 3); // c mod is -4, add 7 gives 4
+	testAssert(intMod(-3, 7)  == 4); // c mod is -3, add 7 gives 4
+	testAssert(intMod(-2, 7)  == 5); // c mod is -2, add 7 gives 5
+	testAssert(intMod(-1, 7)  == 6); // c mod is -1, add 7 gives 6
+	testAssert(intMod(0, 7)  == 0);
+	testAssert(intMod(1, 7)  == 1);
+	testAssert(intMod(2, 7)  == 2);
+	testAssert(intMod(3, 7)  == 3);
+	testAssert(intMod(4, 7)  == 4);
+	testAssert(intMod(5, 7)  == 5);
+	testAssert(intMod(6, 7)  == 6);
+	testAssert(intMod(7, 7)  == 0);
+	testAssert(intMod(8, 7)  == 1);
+
 	// Test some edge cases
 	testAssert(intMod(std::numeric_limits<int>::min() + 0, 4) == 0);
 	testAssert(intMod(std::numeric_limits<int>::min() + 1, 4) == 1);

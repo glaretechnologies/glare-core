@@ -716,7 +716,8 @@ inline double doubleMod(double x, double y)
 // ...
 inline int intMod(int x, int y)
 {
-	return (unsigned int)x % y;
+	const int z = x % y;
+	return (z < 0) ? z + y : z;
 }
 
 
