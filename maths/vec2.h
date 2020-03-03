@@ -294,6 +294,35 @@ inline const Vec2<Real> normalise(const Vec2<Real>& v)
 	return v / v.length();
 }
 
+
+// Unary -
+template <class Real> 
+inline const Vec2<Real> operator - (const Vec2<Real>& v)
+{
+	return Vec2<Real>(-v.x, -v.y);
+}
+
+
+template <class T>
+inline const Vec2<T> min(const Vec2<T>& a, const Vec2<T>& b)
+{
+	return Vec2<T>(
+		myMin(a.x, b.x),
+		myMin(a.y, b.y)
+		);
+}
+
+
+template <class T>
+inline const Vec2<T> max(const Vec2<T>& a, const Vec2<T>& b)
+{
+	return Vec2<T>(
+		myMax(a.x, b.x),
+		myMax(a.y, b.y)
+	);
+}
+
+
 template <class Real>
 inline bool epsEqual(const Vec2<Real>& a, const Vec2<Real>& b)
 {
@@ -338,6 +367,7 @@ inline const Vec2<double> toVec2d(const Vec2<float>& v)
 {
 	return Vec2<double>((double)v.x, (double)v.y);
 }
+
 
 typedef Vec2<float> Vec2f;
 typedef Vec2<double> Vec2d;

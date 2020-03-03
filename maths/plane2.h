@@ -96,7 +96,7 @@ Plane2<Real>::Plane2(const Vec2<Real>& origin, const Vec2<Real>& normal_)
 {
 	normal = normal_;
 
-	assert( epsEqual(normal.length(), 1) );
+	assert( epsEqual(normal.length(), 1.f) );
 
 	d = dot(origin, normal);
 }
@@ -106,7 +106,7 @@ Plane2<Real>::Plane2(const Vec2<Real>& normal_, Real dist_from_origin)
 {
 	normal = normal_;
 
-	assert( epsEqual(normal.length(), 1) );
+	assert( epsEqual(normal.length(), 1.f) );
 
 	d = dist_from_origin;
 }
