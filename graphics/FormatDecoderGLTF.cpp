@@ -19,6 +19,7 @@ Copyright Glare Technologies Limited 2018 -
 #include <assert.h>
 #include <vector>
 #include <map>
+#include <fstream>
 
 
 static void checkNodeType(const JSONNode& node, JSONNode::Type type)
@@ -307,7 +308,7 @@ Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, const JSONN
 
 GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const JSONNode& node, const std::string& name)
 {
-	if(node.hasChild(parser, name))
+	if(node.hasChild(name))
 	{
 		const JSONNode& tex_node = node.getChildObject(parser, name);
 
@@ -323,8 +324,12 @@ GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const JSONNode
 }
 
 
-static const int GLTF_COMPONENT_TYPE_UNSIGNED_INT = 5125;
-static const int GLTF_COMPONENT_TYPE_FLOAT = 5126;
+static const int GLTF_COMPONENT_TYPE_BYTE			= 5120;
+static const int GLTF_COMPONENT_TYPE_UNSIGNED_BYTE	= 5121;
+static const int GLTF_COMPONENT_TYPE_SHORT			= 5122;
+static const int GLTF_COMPONENT_TYPE_UNSIGNED_SHORT = 5123;
+static const int GLTF_COMPONENT_TYPE_UNSIGNED_INT	= 5125;
+static const int GLTF_COMPONENT_TYPE_FLOAT			= 5126;
 
 
 //static const int GLTF_MODE_POINTS			= 0;
@@ -336,7 +341,7 @@ static const int GLTF_MODE_TRIANGLES		= 4;
 //static const int GLTF_MODE_TRIANGLE_FAN		= 6;
 
 
-void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
+static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 {
 	// Process mesh
 	if(node.mesh != std::numeric_limits<size_t>::max())
@@ -389,7 +394,29 @@ void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 
 				const uint32 vert_i_offset = (uint32)mesh_out.vert_positions.size();
 				
-				if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_INT)
+				if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+				{
+#if USE_INDIGO_MESH_INDICES
+					for(size_t z=0; z<index_accessor.count; ++z)
+						mesh_out.indices[indices_write_i + z] = vert_i_offset + ((const uint16*)offset_base)[z];
+#else
+					for(size_t z=0; z<index_accessor.count / 3; ++z)
+					{
+						mesh_out.triangles[tri_write_i + z].vertex_indices[0]	= vert_i_offset + ((const uint16*)offset_base)[z*3 + 0];
+						mesh_out.triangles[tri_write_i + z].vertex_indices[1]	= vert_i_offset + ((const uint16*)offset_base)[z*3 + 1];
+						mesh_out.triangles[tri_write_i + z].vertex_indices[2]	= vert_i_offset + ((const uint16*)offset_base)[z*3 + 2];
+						mesh_out.triangles[tri_write_i + z].uv_indices[0]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 0];
+						mesh_out.triangles[tri_write_i + z].uv_indices[1]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 1];
+						mesh_out.triangles[tri_write_i + z].uv_indices[2]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 2];
+						mesh_out.triangles[tri_write_i + z].tri_mat_index = (uint32)primitive.material;
+
+						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[0]));
+						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[1]));
+						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[2]));
+					}
+#endif
+				}
+				else if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_INT)
 				{
 #if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
@@ -412,14 +439,13 @@ void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 #endif
 				}
 				else
-					throw Indigo::Exception("unhandled component type.");
+					throw Indigo::Exception("Unhandled index accessor component type.");
 			}
 
 			// Process vertex positions
 			GLTFAccessor& vert_pos_accessor = getAccessorForAttribute(data, primitive, "POSITION");
 			size_t pos_write_i;
 			{
-				
 				GLTFBufferView& buf_view = getBufferView(data, vert_pos_accessor.buffer_view);
 				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
 
@@ -433,6 +459,9 @@ void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 				{
 					for(size_t z=0; z<vert_pos_accessor.count; ++z)
 					{
+						if((size_t)(offset_base - buffer.binary_data) + byte_stride * z + 3 * sizeof(float) > buffer.file->fileSize())
+							throw Indigo::Exception("Out of bounds read while trying to read vertex position.");
+
 						mesh_out.vert_positions[pos_write_i + z].x = ((const float*)(offset_base + byte_stride * z))[0];
 						mesh_out.vert_positions[pos_write_i + z].y = ((const float*)(offset_base + byte_stride * z))[1];
 						mesh_out.vert_positions[pos_write_i + z].z = ((const float*)(offset_base + byte_stride * z))[2];
@@ -514,6 +543,35 @@ void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 				}
 			}
 
+			// Process vertex colours
+			if(primitive.attributes.count("COLOR_0"))
+			{
+				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "COLOR_0");
+				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+				const uint8* offset_base = buffer.binary_data + accessor.byte_offset + buf_view.byte_offset;
+				const size_t byte_stride = buf_view.byte_stride;
+
+				const size_t col_write_i = mesh_out.vert_colours.size();
+				mesh_out.vert_colours.resize(col_write_i + accessor.count);
+
+				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				{
+					for(size_t z=0; z<accessor.count; ++z)
+					{
+						if((size_t)(offset_base - buffer.binary_data) + byte_stride * z + 3 * sizeof(float) > buffer.file->fileSize())
+							throw Indigo::Exception("Out of bounds read while trying to read vertex colour.");
+
+						mesh_out.vert_colours[col_write_i + z].x = ((const float*)(offset_base + byte_stride * z))[0];
+						mesh_out.vert_colours[col_write_i + z].y = ((const float*)(offset_base + byte_stride * z))[1];
+						mesh_out.vert_colours[col_write_i + z].z = ((const float*)(offset_base + byte_stride * z))[2];
+					}
+				}
+				else
+					throw Indigo::Exception("unhandled component type.");
+			}
+
 			// Process uvs
 			if(primitive.attributes.count("TEXCOORD_0"))
 			{
@@ -570,7 +628,7 @@ void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 }
 
 
-void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string& gltf_folder, GLTFResultMaterial& mat_out)
+static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string& gltf_folder, GLTFResultMaterial& mat_out)
 {
 	if(mat.pbrMetallicRoughness_present)
 	{
@@ -634,7 +692,7 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 				const JSONNode& buffer_node = parser.nodes[buffers_node_array.child_indices[z]];
 
 				GLTFBufferRef buffer = new GLTFBuffer();
-				if(buffer_node.hasChild(parser, "uri")) buffer->uri = buffer_node.getChildStringValue(parser, "uri");
+				if(buffer_node.hasChild("uri")) buffer->uri = buffer_node.getChildStringValue(parser, "uri");
 				data.buffers.push_back(buffer);
 			}
 		}
@@ -768,11 +826,11 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 			{
 				const JSONNode& node_node = parser.nodes[node_array.child_indices[z]];
 				GLTFNodeRef node = new GLTFNode();
-				if(node_node.hasChild(parser, "name")) node->name = node_node.getChildStringValue(parser, "name");
-				if(node_node.hasChild(parser, "mesh")) node->mesh = node_node.getChildUIntValue(parser, "mesh");
+				if(node_node.hasChild("name")) node->name = node_node.getChildStringValue(parser, "name");
+				if(node_node.hasChild("mesh")) node->mesh = node_node.getChildUIntValue(parser, "mesh");
 
 				// parse children array
-				if(node_node.hasChild(parser, "children"))
+				if(node_node.hasChild("children"))
 				{
 					const JSONNode& children_array_node = node_node.getChildArray(parser, "children");
 					for(size_t q=0; q<children_array_node.child_indices.size(); ++q)
@@ -781,7 +839,7 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 					}
 				}
 
-				if(node_node.hasChild(parser, "rotation"))
+				if(node_node.hasChild("rotation"))
 				{
 					const JSONNode& rotation_node = node_node.getChildArray(parser, "rotation");
 					if(rotation_node.child_indices.size() != 4)
@@ -794,7 +852,7 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 				else
 					node->rotation = Quatf::identity();
 
-				if(node_node.hasChild(parser, "scale"))
+				if(node_node.hasChild( "scale"))
 				{
 					const JSONNode& scale_node = node_node.getChildArray(parser, "scale");
 					if(scale_node.child_indices.size() != 4)
@@ -807,7 +865,7 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 				else
 					node->scale = Vec3f(1.f);
 
-				if(node_node.hasChild(parser, "translation"))
+				if(node_node.hasChild("translation"))
 				{
 					const JSONNode& translation_node = node_node.getChildArray(parser, "translation");
 					if(translation_node.child_indices.size() != 4)
@@ -838,13 +896,13 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 
 				GLTFMaterialRef mat = new GLTFMaterial();
 
-				if(mat_node.hasChild(parser, "name")) mat->name = mat_node.getChildStringValue(parser, "name");
+				if(mat_node.hasChild("name")) mat->name = mat_node.getChildStringValue(parser, "name");
 
-				if(mat_node.hasChild(parser, "extensions"))
+				if(mat_node.hasChild("extensions"))
 				{
 					const JSONNode& extensions_node = mat_node.getChildObject(parser, "extensions");
 					
-					if(extensions_node.hasChild(parser, "KHR_materials_pbrSpecularGlossiness"))
+					if(extensions_node.hasChild("KHR_materials_pbrSpecularGlossiness"))
 					{
 						mat->KHR_materials_pbrSpecularGlossiness_present = true;
 
@@ -859,7 +917,7 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 				}
 
 				// pbrMetallicRoughness
-				if(mat_node.hasChild(parser, "pbrMetallicRoughness"))
+				if(mat_node.hasChild("pbrMetallicRoughness"))
 				{
 					const JSONNode& pbr_node = mat_node.getChildObject(parser, "pbrMetallicRoughness");
 
@@ -893,10 +951,10 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 
 				GLTFSceneRef scene = new GLTFScene();
 
-				if(scene_node.hasChild(parser, "name")) scene->name = scene_node.getChildStringValue(parser, "name");
+				if(scene_node.hasChild("name")) scene->name = scene_node.getChildStringValue(parser, "name");
 
 				// parse nodes array
-				if(scene_node.hasChild(parser, "nodes"))
+				if(scene_node.hasChild("nodes"))
 				{
 					const JSONNode& nodes_array_node = scene_node.getChildArray(parser, "nodes");
 					for(size_t q=0; q<nodes_array_node.child_indices.size(); ++q)
@@ -969,12 +1027,428 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 }
 
 
+struct ChunkInfo
+{
+	ChunkInfo(){}
+
+	uint32 indices_start;
+	size_t num_indices;
+	uint32 mat_index;
+};
+
+
+static const std::string formatDouble(double x)
+{
+	std::string s = doubleLiteralString(x);
+	if(hasLastChar(s, '.'))
+		s += "0";
+	return s;
+}
+
+
+/*
+NOTE: copied from Escaping.cpp in website_core repo.
+
+JSON RFC:
+http://tools.ietf.org/html/rfc7159
+
+"All Unicode characters may be placed within the
+quotation marks, except for the characters that must be escaped:
+quotation mark, reverse solidus, and the control characters (U+0000
+through U+001F)."
+*/
+static const std::string JSONEscape(const std::string& s)
+{
+	std::string result;
+	result.reserve(s.size());
+
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		if(s[i] == '"')
+			result += "\\\"";
+		else if(s[i] == '\\') // a single backslash needs to be escaped as two backslashes.
+			result += "\\\\";
+		else if(s[i] >= 0 && s[i] <= 0x1F) // control characters (U+0000 through U+001F).
+			result += "\\u" + leftPad(toString(s[i]), '0', 4);
+		else
+			result.push_back(s[i]);
+	}
+	return result;
+}
+
+
+void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFMaterials& mats)
+{
+	std::ofstream file(path);
+
+	file <<
+		"{\n"
+		"\"asset\": {\n"
+		"	\"generator\": \"Indigo Renderer\",\n"
+		"	\"version\": \"2.0\"\n"
+		"},\n"
+		"\"nodes\": [\n"
+		"	{\n"
+		"		\"mesh\": 0\n"
+		"	}\n"
+		"],\n"
+		"\"scenes\": [\n"
+		"	{\n"
+		"		\"name\": \"singleScene\",\n"
+		"			\"nodes\": [\n"
+		"				0\n"
+		"			]\n"
+		"	}\n"
+		"],\n"
+		"\"scene\": 0,\n";
+
+	
+
+	const size_t tri_index_data_size = mesh.triangles.size() * 3 * sizeof(uint32);
+
+	const bool write_normals = !mesh.vert_normals.empty() && options.write_vert_normals;
+
+	const size_t vert_stride =
+		                              sizeof(Indigo::Vec3f) + // vert positions
+		(write_normals              ? sizeof(Indigo::Vec3f) : 0) +
+		(!mesh.vert_colours.empty() ? sizeof(Indigo::Vec3f) : 0) +
+		(!mesh.uv_pairs.empty()     ? sizeof(Indigo::Vec2f) : 0);
+
+	const size_t total_vert_data_size = mesh.vert_positions.size() * vert_stride;
+
+
+	// Build and then write data binary (.bin) file.
+	std::vector<unsigned char> data;
+	data.resize(tri_index_data_size + total_vert_data_size);
+
+	for(size_t i=0; i<mesh.triangles.size(); ++i)
+		std::memcpy(data.data() + sizeof(uint32) * 3 * i, mesh.triangles[i].vertex_indices, sizeof(uint32) * 3); // Copy vert indices for tri.
+
+	for(size_t i=0; i<mesh.vert_positions.size(); ++i)
+	{
+		float* write_pos = (float*)(data.data() + tri_index_data_size + vert_stride * i);
+		std::memcpy(write_pos, &mesh.vert_positions[i], sizeof(Indigo::Vec3f)); // Copy vert position
+		write_pos += 3;
+
+		if(write_normals)
+		{
+			std::memcpy(write_pos, &mesh.vert_normals[i], sizeof(Indigo::Vec3f)); // Copy vert normal
+			write_pos += 3;
+		}
+
+		if(!mesh.vert_colours.empty())
+		{
+			std::memcpy(write_pos, &mesh.vert_colours[i], sizeof(Indigo::Vec3f)); // Copy vert colour
+			write_pos += 3;
+		}
+
+		if(!mesh.uv_pairs.empty())
+		{
+			std::memcpy(write_pos, &mesh.uv_pairs[i], sizeof(Indigo::Vec2f)); // Copy vert UV
+			write_pos += 2;
+		}
+	}
+
+	const std::string bin_filename = ::eatExtension(FileUtils::getFilename(path)) + "bin";
+	const std::string bin_path = ::eatExtension(path) + "bin";
+	try
+	{
+		FileUtils::writeEntireFile(bin_path, data);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw Indigo::Exception(e.what());
+	}
+
+	// Write buffer element
+	// See https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#binary-data-storage
+	file << 
+	"\"buffers\": [\n"
+	"	{\n"
+	"		\"byteLength\": " + toString(data.size()) + ",\n"
+	"		\"uri\": \"" + bin_filename + "\"\n"
+	"	}\n"
+	"],\n";
+
+	
+	// Assume all triangles are sorted by material index currently.
+	// Build a temp PrimitiveChunk array
+	std::vector<ChunkInfo> chunks;
+	uint32 last_mat_index = std::numeric_limits<uint32>::max();
+	size_t last_chunk_start = 0; // index into triangles
+	for(size_t i=0; i<mesh.triangles.size(); ++i)
+	{
+		if(mesh.triangles[i].tri_mat_index != last_mat_index)
+		{
+			if(i > last_chunk_start)
+			{
+				chunks.push_back(ChunkInfo());
+				chunks.back().indices_start = (int)last_chunk_start * 3;
+				chunks.back().num_indices = (i - last_chunk_start) * 3;
+				chunks.back().mat_index = mesh.triangles[last_chunk_start].tri_mat_index;
+			}
+			last_chunk_start = i;
+			last_mat_index = mesh.triangles[i].tri_mat_index;
+		}
+	}
+	if(last_chunk_start < mesh.triangles.size())
+	{
+		chunks.push_back(ChunkInfo());
+		chunks.back().indices_start = (int)last_chunk_start * 3;
+		chunks.back().num_indices = (mesh.triangles.size() - last_chunk_start) * 3;
+		chunks.back().mat_index = mesh.triangles[last_chunk_start].tri_mat_index;
+	}
+
+	// Write bufferViews
+	file << "\"bufferViews\": [\n";
+
+	file << 
+	"	{\n" // Buffer view for triangle vert indices (for all chunks)
+	"		\"buffer\": 0,\n"
+	"		\"byteLength\": " + toString(tri_index_data_size) + ",\n"
+	"		\"byteOffset\": 0,\n"
+	"		\"target\": 34963\n"
+	"	},\n";
+	
+
+	file << 
+	"	{\n" // Buffer view for vertex data
+	"		\"buffer\": 0,\n"
+	"		\"byteLength\": " + toString(total_vert_data_size) + ",\n"
+	"		\"byteOffset\": " + toString(tri_index_data_size) + ",\n"
+	"		\"byteStride\": " + toString(vert_stride) + ",\n"
+	"		\"target\": 34962\n"
+	"	}\n"
+	"],\n";
+
+	// Write accessors
+	file << "\"accessors\": [\n";
+
+	for(size_t i=0; i<chunks.size(); ++i)
+	{
+		// Make accessors for chunk indices
+		file << 
+		"	" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
+		"		\"bufferView\": 0,\n" // buffer view 0 is the index buffer view
+		"		\"byteOffset\": " + toString(chunks[i].indices_start * sizeof(uint32)) + ",\n"
+		"		\"componentType\": 5125,\n" // 5125 = UNSIGNED_INT
+		"		\"count\": " + toString(chunks[i].num_indices) + ",\n"
+		"		\"type\": \"SCALAR\"\n"
+		"	}\n";
+	}
+
+	int next_accessor = (int)chunks.size();
+
+	// Write accessor for vertex position
+	const int position_accessor = next_accessor++;
+	file << 
+	"	,{\n"
+	"		\"bufferView\": 1,\n"
+	"		\"byteOffset\": 0,\n"
+	"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
+	"		\"count\": " + toString(mesh.vert_positions.size()) + ",\n"
+	"		\"max\": [\n"
+	"			" + formatDouble(mesh.aabb_os.bound[1].x) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.bound[1].y) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.bound[1].z) + "\n"
+	"		],\n"
+	"		\"min\": [\n"
+	"			" + formatDouble(mesh.aabb_os.bound[0].x) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.bound[0].y) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.bound[0].z) + "\n"
+	"		],\n"
+	"		\"type\": \"VEC3\"\n"
+	"	}\n";
+
+		
+	size_t byte_offset = sizeof(Indigo::Vec3f);
+	int vert_normal_accessor = -1;
+	if(write_normals)
+	{
+		//  Write accessor for vertex normals
+		file << 
+		"	,{\n"
+		"		\"bufferView\": 1,\n"
+		"		\"byteOffset\": " + toString(byte_offset) + ",\n"
+		"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
+		"		\"count\": " + toString(mesh.vert_normals.size()) + ",\n"
+		"		\"type\": \"VEC3\"\n"
+		"	}\n";
+
+		vert_normal_accessor = next_accessor++;
+		byte_offset += sizeof(Indigo::Vec3f);
+	}
+
+	int vert_colour_accessor = -1;
+	if(!mesh.vert_colours.empty())
+	{
+		//  Write accessor for vertex colours
+		file <<
+		"	,{\n"
+		"		\"bufferView\": 1,\n"
+		"		\"byteOffset\": " + toString(byte_offset) + ",\n"
+		"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
+		"		\"count\": " + toString(mesh.vert_colours.size()) + ",\n"
+		"		\"type\": \"VEC3\"\n"
+		"	}\n";
+		vert_colour_accessor = next_accessor++;
+		byte_offset += sizeof(Indigo::Vec3f);
+	}
+
+	int uv_accessor = -1;
+	if(!mesh.uv_pairs.empty())
+	{
+		//  Write accessor for vertex UVs
+		file << 
+		"	,{\n"
+		"		\"bufferView\": 1,\n"
+		"		\"byteOffset\": " + toString(byte_offset) + ",\n"
+		"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
+		"		\"count\": " + toString(mesh.uv_pairs.size()) + ",\n"
+		"		\"type\": \"VEC2\"\n"
+		"	}\n";
+		uv_accessor = next_accessor++;
+		byte_offset += sizeof(Indigo::Vec2f);
+	}
+
+	// Finish accessors array
+	file << "],\n";
+
+	// Write meshes element.
+	file << "\"meshes\": [\n"
+	"	{\n"
+	"		\"primitives\": [\n";
+
+	for(size_t i=0; i<chunks.size(); ++i)
+	{
+		file << "			" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
+			"				\"attributes\": {\n"
+			"					\"POSITION\": " + toString(position_accessor);
+
+		if(vert_normal_accessor >= 0)
+			file << ",\n					\"NORMAL\": " + toString(vert_normal_accessor);
+
+		if(vert_colour_accessor >= 0)
+			file << ",\n					\"COLOR_0\": " + toString(vert_colour_accessor);
+
+		if(uv_accessor >= 0)
+			file << ",\n					\"TEXCOORD_0\": " + toString(uv_accessor);
+
+		file << "\n";
+
+		file <<
+		"				},\n"
+		"				\"indices\": " + toString(i) + ",\n" // First accessors are the index accessors
+		"				\"material\": " + toString(chunks[i].mat_index) + ",\n"
+		"				\"mode\": 4\n" // 4 = GLTF_MODE_TRIANGLES
+		"			}\n";
+	}
+
+	// End primitives and meshes array
+	file << 
+	"		]\n" // End primitives array
+	"	}\n" // End mesh hash
+	"],\n"; // End meshes array
+
+
+	// Write materials
+	file << "\"materials\": [\n";
+
+	std::vector<GLTFResultMap> textures;
+
+	for(size_t i=0; i<mats.materials.size(); ++i)
+	{
+		file <<
+			"	" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
+			"		\"pbrMetallicRoughness\": {\n";
+
+		if(!mats.materials[i].diffuse_map.path.empty())
+		{
+			file <<
+				"			\"baseColorTexture\": {\n"
+				"				\"index\": " + toString(textures.size()) + "\n"
+				"			},\n";
+
+			textures.push_back(mats.materials[i].diffuse_map);
+		}
+
+		file <<
+			"			\"metallicFactor\": 0.0\n"
+			"		},\n" //  end of pbrMetallicRoughness hash
+			"		\"emissiveFactor\": [\n"
+			"			0.0,\n"
+			"			0.0,\n"
+			"			0.0\n"
+			"		]\n"
+			"	}\n"; // end of material hash
+	}
+
+	file << "],\n"; // end materials array
+
+	// Write textures
+	if(!textures.empty())
+	{
+		file << "\"textures\": [\n";
+
+		for(size_t i=0; i<textures.size(); ++i)
+		{
+			file <<  
+				"	" + ((i > 0) ? std::string(",") : std::string("")) + "{\n"
+				"		\"sampler\": 0,\n"
+				"		\"source\": " + toString(i) + "\n"
+				"	}\n";
+		}
+		file << "],\n"; // end textures array
+
+		// Write images
+		file << "\"images\": [\n";
+
+		std::string current_dir = FileUtils::getDirectory(path);
+		if(current_dir.empty())
+			current_dir = ".";
+
+		try
+		{
+			for(size_t i=0; i<textures.size(); ++i)
+			{
+				//const std::string relative_path = FileUtils::getRelativePath(current_dir, textures[i].path);
+				const std::string use_path = textures[i].path;// FileUtils::getFilename(textures[i].path);
+
+				file << 
+					"	" + ((i > 0) ? std::string(",") : std::string("")) + "{\n"
+					"		\"uri\": \"" + JSONEscape(use_path) + "\"\n"
+					"	}\n";
+			}
+			file << "],\n"; // end images array
+		}
+		catch(FileUtils::FileUtilsExcep &e)
+		{
+			throw Indigo::Exception(e.what());
+		}
+	}
+
+	// Write samplers
+	file <<
+		"\"samplers\": [\n"
+		"	{\n"
+		"		\"magFilter\": 9729,\n" // TODO: work out best values for these
+		"		\"minFilter\": 9986,\n"
+		"		\"wrapS\": 10497,\n"
+		"		\"wrapT\": 10497\n"
+		"	}\n"
+		"]\n";
+
+	file << "}\n";
+}
+
+
 #if BUILD_TESTS
 
 
 #include "../indigo/TestUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/PlatformUtils.h"
 
 
 void FormatDecoderGLTF::test()
@@ -983,16 +1457,33 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
-		const std::string path = "C:\\Users\\nick\\Downloads\\skull_downloadable\\scene.gltf";
+		// Read a GLTF file from disk
+		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/duck/Duck.gltf";
 		Indigo::Mesh mesh;
 		GLTFMaterials mats;
 		streamModel(path, mesh, 1.0, mats);
+
+
+		// Write it back to disk
+		GLTFWriteOptions options;
+		options.write_vert_normals = false;
+		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, mats);
+
+		options.write_vert_normals = true;
+		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, mats);
+
+
+		// Load again
+		Indigo::Mesh mesh2;
+		GLTFMaterials mats2;
+		streamModel(path, mesh2, 1.0, mats2);
 	}
 	catch(Indigo::Exception& e)
 	{
 		failTest(e.what());
 	}
 
+	conPrint("FormatDecoderGLTF::test() done.");
 }
 
 

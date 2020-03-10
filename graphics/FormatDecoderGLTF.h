@@ -40,6 +40,14 @@ struct GLTFMaterials
 };
 
 
+struct GLTFWriteOptions
+{
+	GLTFWriteOptions() : write_vert_normals(true) {}
+
+	bool write_vert_normals; // Write vertex normals, if present in mesh.
+};
+
+
 /*=====================================================================
 FormatDecoderGLTF
 -----------------
@@ -50,6 +58,8 @@ class FormatDecoderGLTF
 public:
 	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale,
 		GLTFMaterials& mats_out); // throws Indigo::Exception on failure
+
+	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFMaterials& mats); // throws Indigo::Exception on failure
 
 	static void test();
 };
