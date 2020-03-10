@@ -1,11 +1,11 @@
 /*===================================================================
-Copyright Glare Technologies Limited 2012 -
+Copyright Glare Technologies Limited 2020 -
 ====================================================================*/
 #pragma once
 
 
 #include "Platform.h"
-#include "../utils/Vector.h"
+#include "Vector.h"
 #include <cassert>
 
 
@@ -18,31 +18,30 @@ template <class T>
 class Array3D
 {
 public:
-	Array3D() {}
-	Array3D(unsigned int d0, unsigned int d1, unsigned int d2) : dx(d0), dy(d1), dz(d2), data(d0 * d1 * d2) {}
+	Array3D() : dx(0), dy(0), dz(0) {}
+	Array3D(size_t d0, size_t d1, size_t d2) : dx(d0), dy(d1), dz(d2), data(d0 * d1 * d2) {}
 
-	~Array3D() {}
+	inline void resizeNoCopy(uint32 d0, uint32 d1, uint32 d2) { dx = d0; dy = d1; dz = d2; data.resizeNoCopy(d0 * d1 * d2); }
 
+	INDIGO_STRONG_INLINE       T& e(size_t x, size_t y, size_t z);
+	INDIGO_STRONG_INLINE const T& e(size_t x, size_t y, size_t z) const;
 
-	INDIGO_STRONG_INLINE T& e(unsigned int x, unsigned int y, unsigned int z);
-	INDIGO_STRONG_INLINE const T& e(unsigned int x, unsigned int y, unsigned int z) const;
+	INDIGO_STRONG_INLINE       T& elem(size_t x, size_t y, size_t z)       { return e(x, y, z); }
+	INDIGO_STRONG_INLINE const T& elem(size_t x, size_t y, size_t z) const { return e(x, y, z); }
 
-	INDIGO_STRONG_INLINE T& elem(unsigned int x, unsigned int y, unsigned int z) { return e(x, y, z); }
-	INDIGO_STRONG_INLINE const T& elem(unsigned int x, unsigned int y, unsigned int z) const { return e(x, y, z); }
-
-	INDIGO_STRONG_INLINE const unsigned int dX() const { return dx; }
-	INDIGO_STRONG_INLINE const unsigned int dY() const { return dy; }
-	INDIGO_STRONG_INLINE const unsigned int dZ() const { return dz; }
+	INDIGO_STRONG_INLINE const size_t dX() const { return dx; }
+	INDIGO_STRONG_INLINE const size_t dY() const { return dy; }
+	INDIGO_STRONG_INLINE const size_t dZ() const { return dz; }
 
 	js::Vector<T, 16>& getData() { return data; }
 	const js::Vector<T, 16>& getData() const { return data; }
 private:
 	js::Vector<T, 16> data;
-	unsigned int dx, dy, dz;
+	size_t dx, dy, dz;
 };
 
 
-template <class T> T& Array3D<T>::e(unsigned int x, unsigned int y, unsigned int z)
+template <class T> T& Array3D<T>::e(size_t x, size_t y, size_t z)
 {
 	assert(x < dx);
 	assert(y < dy);
@@ -51,7 +50,7 @@ template <class T> T& Array3D<T>::e(unsigned int x, unsigned int y, unsigned int
 }
 
 
-template <class T> const T& Array3D<T>::e(unsigned int x, unsigned int y, unsigned int z) const
+template <class T> const T& Array3D<T>::e(size_t x, size_t y, size_t z) const
 {
 	assert(x < dx);
 	assert(y < dy);
