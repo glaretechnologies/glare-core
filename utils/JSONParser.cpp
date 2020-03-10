@@ -71,7 +71,7 @@ bool JSONNode::getBoolValue() const
 }
 
 
-bool JSONNode::hasChild(const JSONParser& parser, const string_view& name) const
+bool JSONNode::hasChild(const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -176,7 +176,7 @@ const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_
 			return child;
 		}
 
-	throw Indigo::Exception("Failed to find child name/value pair with name " + name + ".");
+	throw Indigo::Exception("Failed to find child name/value pair with name '" + name + "'.");
 }
 
 
@@ -194,7 +194,7 @@ const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_v
 			return child;
 		}
 
-	throw Indigo::Exception("Failed to find child name/value pair with name " + name + ".");
+	throw Indigo::Exception("Failed to find child name/value pair with name '" + name + "'.");
 }
 
 
