@@ -31,14 +31,14 @@ public:
 	virtual void* alloc(size_t size, size_t alignment)
 	{
 		(*i)++;
-		return SSE::alignedMalloc(size, alignment);
+		return MemAlloc::alignedMalloc(size, alignment);
 	}
 
 	virtual void free(void* ptr)
 	{
 		if(ptr)
 		{
-			SSE::alignedFree(ptr);
+			MemAlloc::alignedFree(ptr);
 			(*i)--;
 		}
 	}

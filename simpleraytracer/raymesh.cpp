@@ -42,12 +42,12 @@ class PaddingAllocator : public glare::Allocator
 {
 	virtual void* alloc(size_t size, size_t alignment)
 	{
-		return SSE::alignedMalloc(size + 16, alignment);
+		return MemAlloc::alignedMalloc(size + 16, alignment);
 	}
 
 	virtual void free(void* ptr)
 	{
-		SSE::alignedFree(ptr);
+		MemAlloc::alignedFree(ptr);
 	}
 };
 

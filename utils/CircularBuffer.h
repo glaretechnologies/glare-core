@@ -10,8 +10,8 @@ Generated at 2013-05-16 16:42:23 +0100
 #include "GlareAllocator.h"
 #include "Reference.h"
 #include "AlignedCharArray.h"
+#include "MemAlloc.h"
 #include "../maths/mathstypes.h"
-#include "../maths/SSE.h"
 #include <assert.h>
 #include <stddef.h>
 #include <memory>
@@ -417,7 +417,7 @@ T* CircularBuffer<T>::alloc(size_t size, size_t alignment)
 	if(allocator.nonNull())
 		return (T*)allocator->alloc(size, alignment);
 	else
-		return (T*)SSE::alignedMalloc(size, alignment);
+		return (T*)MemAlloc::alignedMalloc(size, alignment);
 }
 
 
@@ -427,5 +427,5 @@ void CircularBuffer<T>::free(T* ptr)
 	if(allocator.nonNull())
 		allocator->free(ptr);
 	else
-		SSE::alignedFree(ptr);
+		MemAlloc::alignedFree(ptr);
 }

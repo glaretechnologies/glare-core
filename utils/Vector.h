@@ -7,7 +7,7 @@ File created by ClassTemplate on Sat Sep 02 19:47:39 2006
 #pragma once
 
 
-#include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
 #include <memory>
@@ -116,7 +116,7 @@ Vector<T, alignment>::Vector(size_t count)
 	if(count > 0)
 	{
 		// Allocate new memory
-		e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * count, alignment));
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * count, alignment));
 
 		// Initialise elements
 		// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
@@ -141,7 +141,7 @@ Vector<T, alignment>::Vector(size_t count, const T& val)
 	if(count > 0)
 	{
 		// Allocate new memory
-		e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * count, alignment));
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * count, alignment));
 		
 		// Initialise elements as a copy of val.
 		for(T* elem=e; elem<e + count; ++elem)
@@ -158,7 +158,7 @@ Vector<T, alignment>::Vector(const T* begin_, const T* end_) // Range constructo
 :	size_(end_ - begin_), capacity_(end_ - begin_)
 {
 	// Allocate new memory
-	e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * size_, alignment));
+	e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * size_, alignment));
 
 	// Copy-construct new objects from existing objects in [begin_, end_)
 	std::uninitialized_copy(begin_, end_, /*dest=*/e);
@@ -169,7 +169,7 @@ template <class T, size_t alignment>
 Vector<T, alignment>::Vector(const Vector<T, alignment>& other)
 {
 	// Allocate new memory
-	e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * other.size_, alignment));
+	e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * other.size_, alignment));
 
 	// Copy-construct new objects from existing objects in 'other'.
 	std::uninitialized_copy(other.e, other.e + other.size_, 
@@ -191,7 +191,7 @@ Vector<T, alignment>::~Vector()
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
 
-	SSE::alignedFree(e);
+	MemAlloc::alignedFree(e);
 }
 
 
@@ -228,10 +228,10 @@ Vector<T, alignment>& Vector<T, alignment>::operator=(const Vector& other)
 			e[i].~T();
 
 		// Free existing mem
-		SSE::alignedFree(e);
+		MemAlloc::alignedFree(e);
 
 		// Allocate new memory
-		e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * other.size_, alignment));
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * other.size_, alignment));
 
 		// Copy elements over from other
 		if(e)
@@ -263,7 +263,7 @@ void Vector<T, alignment>::reserve(size_t n)
 		#endif
 		
 		// Allocate new memory
-		T* new_e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * n, alignment));
+		T* new_e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * n, alignment));
 
 		// Copy-construct new objects from existing objects.
 		// e[0] to e[size_-1] will now be proper initialised objects.
@@ -279,7 +279,7 @@ void Vector<T, alignment>::reserve(size_t n)
 			for(size_t i=0; i<size_; ++i)
 				e[i].~T();
 
-			SSE::alignedFree(e); // Free old buffer.
+			MemAlloc::alignedFree(e); // Free old buffer.
 		}
 		e = new_e;
 		capacity_ = n;
@@ -301,7 +301,7 @@ void Vector<T, alignment>::reserveNoCopy(size_t n)
 		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
 #endif
 		// Allocate new memory
-		T* new_e = static_cast<T*>(SSE::alignedMalloc(sizeof(T) * n, alignment));
+		T* new_e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * n, alignment));
 		
 		// Since we are not copying existing elements to new_e, just leave them uninitialised.
 
@@ -312,7 +312,7 @@ void Vector<T, alignment>::reserveNoCopy(size_t n)
 		for(size_t i=0; i<size_; ++i)
 			e[i].~T();
 
-		SSE::alignedFree(e); // Free old buffer.
+		MemAlloc::alignedFree(e); // Free old buffer.
 
 		e = new_e;
 		capacity_ = n;
@@ -456,7 +456,7 @@ void Vector<T, alignment>::clearAndFreeMem() // Set size to zero, but also frees
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
 
-	SSE::alignedFree(e); // Free old buffer.
+	MemAlloc::alignedFree(e); // Free old buffer.
 	e = NULL;
 	size_ = 0;
 	capacity_ = 0;

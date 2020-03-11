@@ -61,6 +61,30 @@ Copyright Glare Technologies Limited 2019 -
 #endif
 
 
+#ifdef COMPILER_MSVC
+#define SSE_CLASS_ALIGN _MM_ALIGN16 class
+#define SSE_ALIGN _MM_ALIGN16
+#else
+#define SSE_CLASS_ALIGN class __attribute__ ((aligned (16)))
+#define SSE_ALIGN __attribute__ ((aligned (16)))
+#endif
+
+#ifdef COMPILER_MSVC
+#define AVX_CLASS_ALIGN _CRT_ALIGN(32) class
+#define AVX_ALIGN _CRT_ALIGN(32)
+#else
+#define AVX_CLASS_ALIGN class __attribute__ ((aligned (32)))
+#define AVX_ALIGN __attribute__ ((aligned (32)))
+#endif
+
+
+#ifdef COMPILER_MSVC
+#define GLARE_ALIGN(x) _CRT_ALIGN(x)
+#else
+#define GLARE_ALIGN(x) __attribute__ ((aligned (x)))
+#endif
+
+
 #include <stdint.h>
 
 typedef uint8_t uint8;

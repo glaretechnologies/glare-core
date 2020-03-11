@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2018 -
 
 #include "GlareAllocator.h"
 #include "Reference.h"
-#include "../maths/SSE.h"
+#include "MemAlloc.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
 #include <memory>
@@ -650,7 +650,7 @@ T* AllocatorVector<T, alignment>::alloc(size_t size)
 	if(allocator.nonNull())
 		return (T*)allocator->alloc(size, alignment);
 	else
-		return (T*)SSE::alignedMalloc(size, alignment);
+		return (T*)MemAlloc::alignedMalloc(size, alignment);
 }
 
 
@@ -660,7 +660,7 @@ void AllocatorVector<T, alignment>::free(T* ptr)
 	if(allocator.nonNull())
 		allocator->free(ptr);
 	else
-		SSE::alignedFree(ptr);
+		MemAlloc::alignedFree(ptr);
 }
 
 

@@ -1,6 +1,6 @@
 /*=====================================================================
 SmallVector.h
--------------------
+-------------
 Copyright Glare Technologies Limited 2016 -
 Generated at 2013-03-07 14:27:12 +0000
 =====================================================================*/
@@ -8,7 +8,7 @@ Generated at 2013-03-07 14:27:12 +0000
 
 
 #include "AlignedCharArray.h"
-#include "../maths/SSE.h"
+#include "MemAlloc.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
 #include <memory>
@@ -92,7 +92,7 @@ SmallVector<T, N>::SmallVector(size_t count, const T& val)
 	}
 	else
 	{
-		e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * count)); // Allocate new memory on heap
+		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * count)); // Allocate new memory on heap
 		capacity_ = count;
 	}
 	std::uninitialized_fill(e, e + count, val); // Construct elems
@@ -109,7 +109,7 @@ SmallVector<T, N>::SmallVector(const SmallVector<T, N>& other)
 	}
 	else
 	{
-		e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * other.size_)); // Allocate new memory on heap
+		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * other.size_)); // Allocate new memory on heap
 		capacity_ = other.size_;
 	}
 
@@ -126,7 +126,7 @@ SmallVector<T, N>::~SmallVector()
 		e[i].~T();
 
 	if(storingOnHeap())
-		SSE::alignedFree(e);
+		MemAlloc::alignedFree(e);
 }
 
 
@@ -153,10 +153,10 @@ SmallVector<T, N>& SmallVector<T, N>::operator=(const SmallVector& other)
 		assert(other.size_ > N); // other.size must be > N, otherwise we would have had capacity for it (as capacity is always >= N).
 
 		if(storingOnHeap())
-			SSE::alignedFree(e); // Free existing mem
+			MemAlloc::alignedFree(e); // Free existing mem
 
 		// Allocate new memory
-		e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * other.size_));
+		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * other.size_));
 
 		// Copy elements over from other
 		std::uninitialized_copy(other.e, other.e + other.size_, e);
@@ -175,7 +175,7 @@ void SmallVector<T, N>::reserve(size_t n)
 	if(n > capacity_) // If need to expand capacity
 	{
 		// Allocate new memory
-		T* new_e = static_cast<T*>(SSE::alignedSSEMalloc(sizeof(T) * n));
+		T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * n));
 
 		// Copy-construct new objects from existing objects.
 		// e[0] to e[size_-1] will now be proper initialised objects.
@@ -186,7 +186,7 @@ void SmallVector<T, N>::reserve(size_t n)
 			e[i].~T();
 
 		if(storingOnHeap())
-			SSE::alignedFree(e); // Free old buffer.
+			MemAlloc::alignedFree(e); // Free old buffer.
 
 		e = new_e;
 		capacity_ = n;

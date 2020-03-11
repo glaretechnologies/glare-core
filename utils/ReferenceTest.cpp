@@ -19,6 +19,7 @@ Code By Nicholas Chapman.
 #include "ConPrint.h"
 #include "Timer.h"
 #include "StringUtils.h"
+#include "MemAlloc.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/SSE.h"
 #include <vector>

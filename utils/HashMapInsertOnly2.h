@@ -53,7 +53,7 @@ public:
 
 
 	HashMapInsertOnly2(Key empty_key_)
-	:	buckets((std::pair<Key, Value>*)SSE::alignedMalloc(sizeof(std::pair<Key, Value>) * 32, 64)), buckets_size(32), num_items(0), hash_mask(31), empty_key(empty_key_)
+	:	buckets((std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * 32, 64)), buckets_size(32), num_items(0), hash_mask(31), empty_key(empty_key_)
 	{
 		// Initialise elements
 		std::pair<Key, Value> empty_key_val(empty_key, Value());
@@ -67,7 +67,7 @@ public:
 	{
 		buckets_size = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
 		
-		buckets = (std::pair<Key, Value>*)SSE::alignedMalloc(sizeof(std::pair<Key, Value>) * buckets_size, 64);
+		buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * buckets_size, 64);
 
 		// Initialise elements
 		if(std::is_pod<Key>::value && std::is_pod<Value>::value)
@@ -92,7 +92,7 @@ public:
 		for(size_t i=0; i<buckets_size; ++i)
 			(buckets + i)->~KeyValuePair();
 
-		SSE::alignedFree(buckets);
+		MemAlloc::alignedFree(buckets);
 	}
 
 
@@ -269,7 +269,7 @@ private:
 
 		// Allocate new buckets
 		this->buckets_size = old_buckets_size * 2;
-		this->buckets = (std::pair<Key, Value>*)SSE::alignedMalloc(sizeof(std::pair<Key, Value>) * this->buckets_size, 64);
+		this->buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * this->buckets_size, 64);
 		
 		// Initialise elements
 		if(std::is_pod<Key>::value && std::is_pod<Value>::value)
@@ -316,7 +316,7 @@ private:
 		// Destroy old bucket data
 		for(size_t i=0; i<old_buckets_size; ++i)
 			(old_buckets + i)->~KeyValuePair();
-		SSE::alignedFree((std::pair<Key, Value>*)old_buckets);
+		MemAlloc::alignedFree((std::pair<Key, Value>*)old_buckets);
 	}
 				
 public:

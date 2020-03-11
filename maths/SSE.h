@@ -28,33 +28,6 @@ File created by ClassTemplate on Sat Jun 25 08:01:25 2005
 #endif
 
 
-typedef __m128 SSE4Vec; // A vector of 4 single precision floats.  16 byte aligned by default.
-
-
-#ifdef COMPILER_MSVC
-#define SSE_CLASS_ALIGN _MM_ALIGN16 class
-#define SSE_ALIGN _MM_ALIGN16
-#else
-#define SSE_CLASS_ALIGN class __attribute__ ((aligned (16)))
-#define SSE_ALIGN __attribute__ ((aligned (16)))
-#endif
-
-#ifdef COMPILER_MSVC
-#define AVX_CLASS_ALIGN _CRT_ALIGN(32) class
-#define AVX_ALIGN _CRT_ALIGN(32)
-#else
-#define AVX_CLASS_ALIGN class __attribute__ ((aligned (32)))
-#define AVX_ALIGN __attribute__ ((aligned (32)))
-#endif
-
-
-#ifdef COMPILER_MSVC
-#define GLARE_ALIGN(x) _CRT_ALIGN(x)
-#else
-#define GLARE_ALIGN(x) __attribute__ ((aligned (x)))
-#endif
-
-
 namespace SSE
 {
 	template <class T>
@@ -68,73 +41,10 @@ namespace SSE
 	{
 		return isAlignedTo(ptr, 16);
 	}
+}
 
 
-	void* alignedMalloc(size_t size, size_t alignment); // throws bad_alloc on allocation failure.
-	void alignedFree(void* mem);
-
-
-	inline void* alignedSSEMalloc(size_t size)
-	{
-		return alignedMalloc(size, 16);
-	}
-
-	template <class T>
-	inline void alignedSSEFree(T* t)
-	{
-		alignedFree((void*)t);
-	}
-
-	template <class T>
-	inline void alignedSSEArrayMalloc(size_t numelems, T*& t_out)
-	{
-		const size_t memsize = sizeof(T) * numelems;
-		t_out = static_cast<T*>(alignedSSEMalloc(memsize));
-	}
-
-	template <class T>
-	inline void alignedArrayMalloc(size_t numelems, size_t alignment, T*& t_out)
-	{
-		const size_t memsize = sizeof(T) * numelems;
-		t_out = static_cast<T*>(alignedMalloc(memsize, alignment));
-	}
-
-	template <class T>
-	inline void alignedSSEArrayFree(T* t)
-	{
-		alignedSSEFree(t);
-	}
-
-	template <class T>
-	inline void alignedArrayFree(T* t)
-	{
-		alignedFree(t);
-	}
-};
-
-
-#define GLARE_ALIGNED_16_NEW_DELETE \
-	void* operator new  (size_t size) { return SSE::alignedMalloc(size, 16); } \
-	void* operator new[](size_t size) { return SSE::alignedMalloc(size, 16); } \
-	void operator delete  (void* ptr) { SSE::alignedFree(ptr); } \
-	void operator delete[](void* ptr) { SSE::alignedFree(ptr); }
-
-#define GLARE_ALIGNED_32_NEW_DELETE \
-	void* operator new  (size_t size) { return SSE::alignedMalloc(size, 32); } \
-	void* operator new[](size_t size) { return SSE::alignedMalloc(size, 32); } \
-	void operator delete  (void* ptr) { SSE::alignedFree(ptr); } \
-	void operator delete[](void* ptr) { SSE::alignedFree(ptr); }
-
-
-// GLARE_ALIGNMENT - get alignment of type
-#ifdef _MSC_VER
-// alignof doesn't work in VS2012, so we have to use __alignof.
-#define GLARE_ALIGNMENT __alignof
-#else
-#define GLARE_ALIGNMENT alignof
-#endif
-
-#define assertSSEAligned(p) (assert(SSE::isSSEAligned((p))))
+typedef __m128 SSE4Vec; // A vector of 4 single precision floats.  16 byte aligned by default.
 
 
 const SSE_ALIGN float one_4vec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -212,8 +122,8 @@ inline SSE4Vec oneVec()
 
 inline void reciprocalSSE(const float* vec_in, float* reciprocal_out)
 {
-	assertSSEAligned(vec_in);
-	assertSSEAligned(reciprocal_out);
+	//assertSSEAligned(vec_in);
+	//assertSSEAligned(reciprocal_out);
 
 	_mm_store_ps(
 		reciprocal_out,
@@ -227,9 +137,9 @@ inline void reciprocalSSE(const float* vec_in, float* reciprocal_out)
 
 inline void addScaledVec4SSE(const float* a, const float* b, float scale, float* vec_out)
 {
-	assertSSEAligned(a);
-	assertSSEAligned(b);
-	assertSSEAligned(vec_out);
+	//assertSSEAligned(a);
+	//assertSSEAligned(b);
+	//assertSSEAligned(vec_out);
 
 	_mm_store_ps(
 		vec_out,
