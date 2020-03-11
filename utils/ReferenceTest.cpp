@@ -21,7 +21,7 @@ Code By Nicholas Chapman.
 #include "StringUtils.h"
 #include "MemAlloc.h"
 #include "../indigo/TestUtils.h"
-#include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include <vector>
 
 
@@ -289,7 +289,7 @@ void run()
 				Reference<AlignedTestClass> ref(new AlignedTestClass(&i));
 
 				// Check the object is aligned.
-				testAssert(SSE::isAlignedTo(ref.getPointer(), 16));
+				testAssert(MemAlloc::isAlignedTo(ref.getPointer(), 16));
 
 				refs.push_back(ref);
 			}

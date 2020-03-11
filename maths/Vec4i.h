@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2019 -
 
 
 #include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include <string>
 
 
@@ -18,6 +19,8 @@ SSE 4-vector of 32 bit signed integers.
 class Vec4i
 {
 public:
+	GLARE_ALIGNED_16_NEW_DELETE
+
 	INDIGO_STRONG_INLINE Vec4i() {}
 	INDIGO_STRONG_INLINE explicit Vec4i(int32 x_, int32 y_, int32 z_, int32 w_) : v(_mm_set_epi32(w_, z_, y_, x_)) {}
 	INDIGO_STRONG_INLINE Vec4i(__m128i v_) : v(v_) {}

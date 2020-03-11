@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2018 -
 #include "jscol_Tree.h"
 #include "jscol_aabbox.h"
 #include "../maths/vec3.h"
-#include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include "../utils/Vector.h"
 
 

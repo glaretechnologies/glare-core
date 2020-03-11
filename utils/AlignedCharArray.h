@@ -6,7 +6,8 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
-#include "../maths/SSE.h"
+#include "Platform.h"
+#include <stddef.h> // For size_t
 
 
 /*======================================================================================

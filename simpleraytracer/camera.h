@@ -12,10 +12,10 @@ Code By Nicholas Chapman.
 #include "../indigo/Spectral.h"
 #include "../indigo/SampleTypes.h"
 #include "../indigo/TransformPath.h"
-#include "../maths/SSE.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../physics/jscol_aabbox.h"
+#include "../utils/MemAlloc.h"
 #include "../utils/Reference.h"
 #include <vector>
 #include <string>

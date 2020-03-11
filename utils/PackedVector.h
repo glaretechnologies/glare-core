@@ -7,8 +7,8 @@ Copyright Glare Technologies Limited 2014 -
 
 
 #include <Vector.h>
-#include "../maths/SSE.h"
 #include "../maths/mathstypes.h"
+#include "../utils/MemAlloc.h"
 #include <assert.h>
 #include <memory>
 #include <new>

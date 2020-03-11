@@ -28,7 +28,7 @@ Code By Nicholas Chapman.
 #include "../utils/Exception.h"
 #include "../utils/PlatformUtils.h"
 #include "../indigo/ThreadContext.h"
-#include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/TaskManager.h"

@@ -10,7 +10,7 @@ Generated at Tue Sep 07 16:03:27 +1200 2010
 #include "../utils/Vector.h"
 #include "../utils/SmallVector.h"
 #include "../maths/Vec4f.h"
-#include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include "jscol_aabbox.h"
 #include <vector>
 

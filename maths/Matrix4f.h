@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2018 -
 
 
 #include "Vec4f.h"
-#include "SSE.h"
+#include "../utils/MemAlloc.h"
 #include <string>
 // Template forwards declarations
 template <class Real> class Matrix3;

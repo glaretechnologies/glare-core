@@ -22,7 +22,7 @@ Code By Nicholas Chapman.
 #include "../indigo/TestUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../indigo/ThreadContext.h"
-#include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include "MollerTrumboreTri.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"

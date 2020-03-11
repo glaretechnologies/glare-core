@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2013 -
 #pragma once
 
 
-#include "../maths/SSE.h"
 #include "../maths/Vec4i.h"
 #include "../maths/Vec4f.h"
 #include "../maths/mathstypes.h"

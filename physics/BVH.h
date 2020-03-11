@@ -11,7 +11,7 @@ File created by ClassTemplate on Sun Oct 26 17:19:14 2008
 #include "jscol_Tree.h"
 #include "MollerTrumboreTri.h"
 #include "../maths/vec3.h"
-#include "../maths/SSE.h"
+#include "../utils/MemAlloc.h"
 #include "../utils/Vector.h"
 
 
