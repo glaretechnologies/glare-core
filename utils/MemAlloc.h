@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "Platform.h"
+#include <stddef.h> // For size_t
 
 
 namespace MemAlloc
