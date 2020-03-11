@@ -324,9 +324,9 @@ GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const JSONNode
 }
 
 
-static const int GLTF_COMPONENT_TYPE_BYTE			= 5120;
-static const int GLTF_COMPONENT_TYPE_UNSIGNED_BYTE	= 5121;
-static const int GLTF_COMPONENT_TYPE_SHORT			= 5122;
+//static const int GLTF_COMPONENT_TYPE_BYTE			= 5120;
+//static const int GLTF_COMPONENT_TYPE_UNSIGNED_BYTE	= 5121;
+//static const int GLTF_COMPONENT_TYPE_SHORT			= 5122;
 static const int GLTF_COMPONENT_TYPE_UNSIGNED_SHORT = 5123;
 static const int GLTF_COMPONENT_TYPE_UNSIGNED_INT	= 5125;
 static const int GLTF_COMPONENT_TYPE_FLOAT			= 5126;
