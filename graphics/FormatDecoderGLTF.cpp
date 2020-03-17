@@ -1680,7 +1680,7 @@ void FormatDecoderGLTF::test()
 		{
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/box.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/Box.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
