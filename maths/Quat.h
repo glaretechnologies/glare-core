@@ -58,6 +58,7 @@ public:
 
 	inline const Quat conjugate() const;
 
+	inline Matrix4f toMatrix() const; // Assumes norm() = 1
 	inline void toMatrix(Matrix4f& mat_out) const; // Assumes norm() = 1
 
 	static inline Quat fromMatrix(const Matrix4f& mat);
@@ -242,6 +243,14 @@ template <class Real> const Quat<Real> Quat<Real>::conjugate() const
 	// Flip sign bits for v.
 	const Vec4f mask = bitcastToVec4f(Vec4i(0x80000000, 0x80000000, 0x80000000, 0x0));
 	return Quat(_mm_xor_ps(v.v, mask.v));
+}
+
+
+template <class Real> Matrix4f Quat<Real>::toMatrix() const
+{
+	Matrix4f res;
+	toMatrix(res);
+	return res;
 }
 
 

@@ -14,6 +14,9 @@ Copyright Glare Technologies Limited 2018 -
 #include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/FileUtils.h"
+#include "../utils/PlatformUtils.h"
+#include "../utils/IncludeXXHash.h"
 #include "../maths/Quat.h"
 #include "../graphics/Colour4f.h"
 #include <assert.h>
@@ -22,20 +25,14 @@ Copyright Glare Technologies Limited 2018 -
 #include <fstream>
 
 
-static void checkNodeType(const JSONNode& node, JSONNode::Type type)
-{
-	if(node.type != type)
-		throw Indigo::Exception("Expected type " + JSONNode::typeString(type) + ", got type " + JSONNode::typeString(node.type) + ".");
-}
-
-
 struct GLTFBuffer : public RefCounted
 {
-	GLTFBuffer() : file(NULL) {}
+	GLTFBuffer() : file(NULL), binary_data(NULL) {}
 	~GLTFBuffer() { delete file; }
 	
 	MemMappedFile* file;
 	const uint8* binary_data;
+	size_t data_size;
 	std::string uri;
 };
 typedef Reference<GLTFBuffer> GLTFBufferRef;
@@ -57,6 +54,8 @@ typedef Reference<GLTFBufferView> GLTFBufferViewRef;
 struct GLTFImage : public RefCounted
 {
 	std::string uri;
+	size_t buffer_view;
+	std::string mime_type;
 };
 typedef Reference<GLTFImage> GLTFImageRef;
 
@@ -99,9 +98,6 @@ struct GLTFAccessor : public RefCounted
 typedef Reference<GLTFAccessor> GLTFAccessorRef;
 
 
-
-
-
 struct GLTFNode : public RefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -110,6 +106,8 @@ struct GLTFNode : public RefCounted
 
 	std::vector<size_t> children;
 	std::string name;
+	
+	Matrix4f matrix;
 	Quatf rotation;
 	size_t mesh;
 	Vec3f scale;
@@ -126,13 +124,6 @@ struct GLTFScene : public RefCounted
 typedef Reference<GLTFScene> GLTFSceneRef;
 
 
-// This is the following JSON object:
-/*
-{
-	"index": 0,
-	"texCoord": 0
-}
-*/
 struct GLTFTextureObject
 {
 	GLTFTextureObject() : index(std::numeric_limits<size_t>::max()) {}
@@ -168,8 +159,6 @@ struct GLTFMaterial : public RefCounted
 	float metallicFactor;
 	float roughnessFactor;
 	//----------- End from pbrMetallicRoughness:------------
-
-	
 };
 typedef Reference<GLTFMaterial> GLTFMaterialRef;
 
@@ -177,9 +166,10 @@ typedef Reference<GLTFMaterial> GLTFMaterialRef;
 // Attributes present on any of the meshes.
 struct AttributesPresent
 {
-	AttributesPresent() : normal_present(false), texcoord_0_present(false) {}
+	AttributesPresent() : normal_present(false), vert_col_present(false), texcoord_0_present(false) {}
 
 	bool normal_present;
+	bool vert_col_present;
 	bool texcoord_0_present;
 };
 
@@ -203,7 +193,14 @@ struct GLTFData
 };
 
 
-GLTFAccessor& getAccessor(GLTFData& data, size_t accessor_index)
+static void checkNodeType(const JSONNode& node, JSONNode::Type type)
+{
+	if(node.type != type)
+		throw Indigo::Exception("Expected type " + JSONNode::typeString(type) + ", got type " + JSONNode::typeString(node.type) + ".");
+}
+
+
+static GLTFAccessor& getAccessor(GLTFData& data, size_t accessor_index)
 {
 	if(accessor_index >= data.accessors.size())
 		throw Indigo::Exception("accessor_index out of bounds.");
@@ -211,7 +208,7 @@ GLTFAccessor& getAccessor(GLTFData& data, size_t accessor_index)
 }
 
 
-GLTFAccessor& getAccessorForAttribute(GLTFData& data, GLTPrimitive& primitive, const std::string& attr_name)
+static GLTFAccessor& getAccessorForAttribute(GLTFData& data, GLTPrimitive& primitive, const std::string& attr_name)
 {
 	if(primitive.attributes.count(attr_name) == 0)
 		throw Indigo::Exception("Expected " + attr_name + " attribute.");
@@ -224,7 +221,7 @@ GLTFAccessor& getAccessorForAttribute(GLTFData& data, GLTPrimitive& primitive, c
 }
 
 
-GLTFBufferView& getBufferView(GLTFData& data, size_t buffer_view_index)
+static GLTFBufferView& getBufferView(GLTFData& data, size_t buffer_view_index)
 {
 	if(buffer_view_index >= data.buffer_views.size())
 		throw Indigo::Exception("buffer_view_index out of bounds.");
@@ -232,7 +229,7 @@ GLTFBufferView& getBufferView(GLTFData& data, size_t buffer_view_index)
 }
 
 
-GLTFBuffer& getBuffer(GLTFData& data, size_t buffer_index)
+static GLTFBuffer& getBuffer(GLTFData& data, size_t buffer_index)
 {
 	if(buffer_index >= data.buffers.size())
 		throw Indigo::Exception("buffer_index out of bounds.");
@@ -240,7 +237,7 @@ GLTFBuffer& getBuffer(GLTFData& data, size_t buffer_index)
 }
 
 
-GLTFTexture& getTexture(GLTFData& data, size_t texture_index)
+static GLTFTexture& getTexture(GLTFData& data, size_t texture_index)
 {
 	if(texture_index >= data.textures.size())
 		throw Indigo::Exception("texture_index out of bounds.");
@@ -248,7 +245,7 @@ GLTFTexture& getTexture(GLTFData& data, size_t texture_index)
 }
 
 
-GLTFImage& getImage(GLTFData& data, size_t image_index)
+static GLTFImage& getImage(GLTFData& data, size_t image_index)
 {
 	if(image_index >= data.textures.size())
 		throw Indigo::Exception("image_index out of bounds.");
@@ -256,7 +253,15 @@ GLTFImage& getImage(GLTFData& data, size_t image_index)
 }
 
 
-Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour3f& default_val)
+static GLTFMesh& getMesh(GLTFData& data, size_t mesh_index)
+{
+	if(mesh_index >= data.meshes.size())
+		throw Indigo::Exception("mesh_index out of bounds.");
+	return *data.meshes[mesh_index];
+}
+
+
+static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour3f& default_val)
 {
 	if(node.type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -281,7 +286,7 @@ Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, const JSONN
 }
 
 
-Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour4f& default_val)
+static Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour4f& default_val)
 {
 	if(node.type != JSONNode::Type_Object)
 		throw Indigo::Exception("Expected type object.");
@@ -306,7 +311,7 @@ Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, const JSONN
 }
 
 
-GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const JSONNode& node, const std::string& name)
+static GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const JSONNode& node, const std::string& name)
 {
 	if(node.hasChild(name))
 	{
@@ -325,8 +330,8 @@ GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const JSONNode
 
 
 //static const int GLTF_COMPONENT_TYPE_BYTE			= 5120;
-//static const int GLTF_COMPONENT_TYPE_UNSIGNED_BYTE	= 5121;
-//static const int GLTF_COMPONENT_TYPE_SHORT			= 5122;
+//static const int GLTF_COMPONENT_TYPE_UNSIGNED_BYTE= 5121;
+//static const int GLTF_COMPONENT_TYPE_SHORT		= 5122;
 static const int GLTF_COMPONENT_TYPE_UNSIGNED_SHORT = 5123;
 static const int GLTF_COMPONENT_TYPE_UNSIGNED_INT	= 5125;
 static const int GLTF_COMPONENT_TYPE_FLOAT			= 5126;
@@ -338,19 +343,58 @@ static const int GLTF_COMPONENT_TYPE_FLOAT			= 5126;
 //static const int GLTF_MODE_LINE_STRIP		= 3;
 static const int GLTF_MODE_TRIANGLES		= 4;
 //static const int GLTF_MODE_TRIANGLE_STRIP	= 5;
-//static const int GLTF_MODE_TRIANGLE_FAN		= 6;
+//static const int GLTF_MODE_TRIANGLE_FAN	= 6;
 
 
-static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
+
+static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, const std::string& attr_name, const Matrix4f& transform, Indigo::Vector<Indigo::Vec3f>& data_out)
+{
+	GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, attr_name);
+	GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+	GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+	const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+	const uint8* offset_base = buffer.binary_data + offset_B;
+	const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec3f);
+
+	const size_t write_i = data_out.size();
+	data_out.resize(write_i + accessor.count);
+
+	if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+	{
+		if(byte_stride < sizeof(float)*3)
+			throw Indigo::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
+		if(offset_B + byte_stride * accessor.count > buffer.data_size)
+			throw Indigo::Exception("Out of bounds while trying to read '" + attr_name + "'");
+
+		for(size_t z=0; z<accessor.count; ++z)
+		{
+			const Vec4f v(
+				((const float*)(offset_base + byte_stride * z))[0],
+				((const float*)(offset_base + byte_stride * z))[1],
+				((const float*)(offset_base + byte_stride * z))[2],
+				1);
+
+			const Vec4f v_primed = transform * v;
+
+			data_out[write_i + z].x = v_primed[0];
+			data_out[write_i + z].y = v_primed[1];
+			data_out[write_i + z].z = v_primed[2];
+		}
+	}
+	else
+		throw Indigo::Exception("unhandled component type.");
+}
+
+
+static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t& total_num_tris, size_t& total_num_verts)
 {
 	// Process mesh
 	if(node.mesh != std::numeric_limits<size_t>::max())
 	{
-		if(node.mesh >= data.meshes.size())
-			throw Indigo::Exception("node mesh index out of bounds");
+		GLTFMesh& mesh = getMesh(data, node.mesh);
 
-		GLTFMesh& mesh = *data.meshes[node.mesh];
-
+		// Loop over primitive batches and get number of triangles and verts, add to total_num_tris and total_num_verts
 		for(size_t i=0; i<mesh.primitives.size(); ++i)
 		{
 			GLTPrimitive& primitive = *mesh.primitives[i];
@@ -360,6 +404,40 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 
 			if(primitive.indices == std::numeric_limits<size_t>::max())
 				throw Indigo::Exception("Primitve did not have indices..");
+
+			total_num_tris  += getAccessor(data, primitive.indices).count / 3;
+			total_num_verts += getAccessorForAttribute(data, primitive, "POSITION").count;
+		}
+	}
+
+	// Process children
+	for(size_t i=0; i<node.children.size(); ++i)
+	{
+		if(node.children[i] >= data.nodes.size())
+			throw Indigo::Exception("node child index out of bounds");
+
+		GLTFNode& child = *data.nodes[node.children[i]];
+
+		processNodeToGetMeshCapacity(data, child, total_num_tris, total_num_verts);
+	}
+}
+
+
+static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_transform, Indigo::Mesh& mesh_out)
+{
+	const Matrix4f trans = Matrix4f::translationMatrix(node.translation.x, node.translation.y, node.translation.z);
+	const Matrix4f rot = node.rotation.toMatrix();
+	const Matrix4f scale = Matrix4f::scaleMatrix(node.scale.x, node.scale.y, node.scale.z);
+	const Matrix4f node_transform = parent_transform * node.matrix * trans * rot * scale; // Matrix and T,R,S transforms should be mutually exclusive in GLTF files.  Just multiply them together however.
+
+	// Process mesh
+	if(node.mesh != std::numeric_limits<size_t>::max())
+	{
+		GLTFMesh& mesh = getMesh(data, node.mesh);
+
+		for(size_t i=0; i<mesh.primitives.size(); ++i)
+		{
+			GLTPrimitive& primitive = *mesh.primitives[i];
 
 #if USE_INDIGO_MESH_INDICES
 			size_t indices_write_i;
@@ -409,10 +487,6 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 						mesh_out.triangles[tri_write_i + z].uv_indices[1]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 1];
 						mesh_out.triangles[tri_write_i + z].uv_indices[2]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 2];
 						mesh_out.triangles[tri_write_i + z].tri_mat_index = (uint32)primitive.material;
-
-						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[0]));
-						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[1]));
-						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[2]));
 					}
 #endif
 				}
@@ -431,10 +505,6 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 						mesh_out.triangles[tri_write_i + z].uv_indices[1]		= vert_i_offset + ((const uint32*)offset_base)[z*3 + 1];
 						mesh_out.triangles[tri_write_i + z].uv_indices[2]		= vert_i_offset + ((const uint32*)offset_base)[z*3 + 2];
 						mesh_out.triangles[tri_write_i + z].tri_mat_index = (uint32)primitive.material;
-
-						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[0]));
-						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[1]));
-						//conPrint(toString(mesh_out.triangles[tri_write_i + z].vertex_indices[2]));
 					}
 #endif
 				}
@@ -443,66 +513,21 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 			}
 
 			// Process vertex positions
-			GLTFAccessor& vert_pos_accessor = getAccessorForAttribute(data, primitive, "POSITION");
-			size_t pos_write_i;
+			size_t vert_pos_count;
 			{
-				GLTFBufferView& buf_view = getBufferView(data, vert_pos_accessor.buffer_view);
-				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+				const size_t initial_vert_pos_size = mesh_out.vert_positions.size();
 
-				const uint8* offset_base = buffer.binary_data + vert_pos_accessor.byte_offset + buf_view.byte_offset;
-				const size_t byte_stride = buf_view.byte_stride;
+				appendDataToMeshVector(data, primitive, "POSITION", node_transform, mesh_out.vert_positions);
 
-				pos_write_i = mesh_out.vert_positions.size();
-				mesh_out.vert_positions.resize(pos_write_i + vert_pos_accessor.count);
-
-				if(vert_pos_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
-				{
-					for(size_t z=0; z<vert_pos_accessor.count; ++z)
-					{
-						if((size_t)(offset_base - buffer.binary_data) + byte_stride * z + 3 * sizeof(float) > buffer.file->fileSize())
-							throw Indigo::Exception("Out of bounds read while trying to read vertex position.");
-
-						mesh_out.vert_positions[pos_write_i + z].x = ((const float*)(offset_base + byte_stride * z))[0];
-						mesh_out.vert_positions[pos_write_i + z].y = ((const float*)(offset_base + byte_stride * z))[1];
-						mesh_out.vert_positions[pos_write_i + z].z = ((const float*)(offset_base + byte_stride * z))[2];
-
-						//conPrint(toString(mesh_out.vert_positions[pos_write_i + z].x));
-						//conPrint(toString(mesh_out.vert_positions[pos_write_i + z].y));
-						//conPrint(toString(mesh_out.vert_positions[pos_write_i + z].z));
-					}
-				}
-				else
-					throw Indigo::Exception("unhandled component type.");
+				vert_pos_count = mesh_out.vert_positions.size() - initial_vert_pos_size;
 			}
 
 			// Process vertex normals
 			if(primitive.attributes.count("NORMAL"))
 			{
-				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "NORMAL");
-				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
-				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
-
-				const uint8* offset_base = buffer.binary_data + accessor.byte_offset + buf_view.byte_offset;
-				const size_t byte_stride = buf_view.byte_stride;
-
-				const size_t normals_write_i = mesh_out.vert_normals.size();
-				mesh_out.vert_normals.resize(normals_write_i + accessor.count);
-
-				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
-				{
-					for(size_t z=0; z<accessor.count; ++z)
-					{
-						mesh_out.vert_normals[normals_write_i + z].x = ((const float*)(offset_base + byte_stride * z))[0];
-						mesh_out.vert_normals[normals_write_i + z].y = ((const float*)(offset_base + byte_stride * z))[1];
-						mesh_out.vert_normals[normals_write_i + z].z = ((const float*)(offset_base + byte_stride * z))[2];
-
-						//conPrint(toString(mesh_out.vert_normals[normals_write_i + z].x));
-						//conPrint(toString(mesh_out.vert_normals[normals_write_i + z].y));
-						//conPrint(toString(mesh_out.vert_normals[normals_write_i + z].z));
-					}
-				}
-				else
-					throw Indigo::Exception("unhandled component type.");
+				Matrix4f normal_transform;
+				node_transform.getUpperLeftInverseTranspose(normal_transform);
+				appendDataToMeshVector(data, primitive, "NORMAL", normal_transform, mesh_out.vert_normals);
 			}
 			else
 			{
@@ -513,8 +538,8 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 					// NOTE: Should use geometric normals here
 
 					const size_t normals_write_i = mesh_out.vert_normals.size();
-					mesh_out.vert_normals.resize(normals_write_i + vert_pos_accessor.count);
-					for(size_t z=0; z<vert_pos_accessor.count; ++z)
+					mesh_out.vert_normals.resize(normals_write_i + vert_pos_count);
+					for(size_t z=0; z<vert_pos_count; ++z)
 						mesh_out.vert_normals[normals_write_i + z].set(0, 0, 1);
 
 #if USE_INDIGO_MESH_INDICES
@@ -546,30 +571,18 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 			// Process vertex colours
 			if(primitive.attributes.count("COLOR_0"))
 			{
-				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "COLOR_0");
-				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
-				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
-
-				const uint8* offset_base = buffer.binary_data + accessor.byte_offset + buf_view.byte_offset;
-				const size_t byte_stride = buf_view.byte_stride;
-
-				const size_t col_write_i = mesh_out.vert_colours.size();
-				mesh_out.vert_colours.resize(col_write_i + accessor.count);
-
-				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				appendDataToMeshVector(data, primitive, "COLOR_0", Matrix4f::identity(), mesh_out.vert_colours);
+			}
+			else
+			{
+				if(data.attr_present.vert_col_present)
 				{
-					for(size_t z=0; z<accessor.count; ++z)
-					{
-						if((size_t)(offset_base - buffer.binary_data) + byte_stride * z + 3 * sizeof(float) > buffer.file->fileSize())
-							throw Indigo::Exception("Out of bounds read while trying to read vertex colour.");
-
-						mesh_out.vert_colours[col_write_i + z].x = ((const float*)(offset_base + byte_stride * z))[0];
-						mesh_out.vert_colours[col_write_i + z].y = ((const float*)(offset_base + byte_stride * z))[1];
-						mesh_out.vert_colours[col_write_i + z].z = ((const float*)(offset_base + byte_stride * z))[2];
-					}
+					// Pad with colours.  This is a hack, needed because we only have one vertex layout per mesh.
+					const size_t colours_write_i = mesh_out.vert_colours.size();
+					mesh_out.vert_colours.resize(colours_write_i + vert_pos_count);
+					for(size_t z=0; z<vert_pos_count; ++z)
+						mesh_out.vert_colours[colours_write_i + z].set(1, 1, 1);
 				}
-				else
-					throw Indigo::Exception("unhandled component type.");
 			}
 
 			// Process uvs
@@ -579,8 +592,9 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
 				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
 
-				const uint8* offset_base = buffer.binary_data + accessor.byte_offset + buf_view.byte_offset;
-				const size_t byte_stride = buf_view.byte_stride;
+				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec2f);
 
 				const size_t uvs_write_i = mesh_out.uv_pairs.size();
 				mesh_out.uv_pairs.resize(uvs_write_i + accessor.count);
@@ -588,13 +602,15 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 				{
+					if(byte_stride < sizeof(float)*2)
+						throw Indigo::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
+					if(offset_B + byte_stride * accessor.count > buffer.data_size)
+						throw Indigo::Exception("Out of bounds while trying to read 'TEXCOORD_0'");
+
 					for(size_t z=0; z<accessor.count; ++z)
 					{
 						mesh_out.uv_pairs[uvs_write_i + z].x = ((const float*)(offset_base + byte_stride * z))[0];
 						mesh_out.uv_pairs[uvs_write_i + z].y = ((const float*)(offset_base + byte_stride * z))[1];
-
-						//conPrint(toString(mesh_out.uv_pairs[uvs_write_i + z].x));
-						//conPrint(toString(mesh_out.uv_pairs[uvs_write_i + z].y));
 					}
 				}
 				else
@@ -606,16 +622,16 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 				{
 					// Pad with UVs.  This is a bit of a hack, needed because we only have one vertex layout per mesh.
 					const size_t uvs_write_i = mesh_out.uv_pairs.size();
-					mesh_out.uv_pairs.resize(uvs_write_i + vert_pos_accessor.count);
-					for(size_t z=0; z<vert_pos_accessor.count; ++z)
+					mesh_out.uv_pairs.resize(uvs_write_i + vert_pos_count);
+					for(size_t z=0; z<vert_pos_count; ++z)
 						mesh_out.uv_pairs[uvs_write_i + z].set(0, 0);
 				}
 			}
-		}
-	}
+		} // End for each primitive batch
+	} // End if(node.mesh != std::numeric_limits<size_t>::max())
 
 
-	// Process children
+	// Process child nodes
 	for(size_t i=0; i<node.children.size(); ++i)
 	{
 		if(node.children[i] >= data.nodes.size())
@@ -623,7 +639,61 @@ static void processNode(GLTFData& data, GLTFNode& node, Indigo::Mesh& mesh_out)
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
-		processNode(data, child, mesh_out);
+		processNode(data, child, node_transform, mesh_out);
+	}
+}
+
+
+static void processImage(GLTFData& data, GLTFImage& image, const std::string& gltf_folder)
+{
+	if(image.uri.empty())
+	{
+		// If the Image URI is empty, this image refers to the data in a GLB file.  Save it to disk separately so our image loaders can load it.
+		
+		GLTFBufferView& buffer_view = getBufferView(data, image.buffer_view);
+		GLTFBuffer& buffer = getBuffer(data, buffer_view.buffer);
+
+		// Work out extension to use - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+		std::string extension;
+		if(image.mime_type == "image/bmp")
+			extension = "bmp";
+		else if(image.mime_type == "image/gif")
+			extension = "gif";
+		else if(image.mime_type == "image/jpeg")
+			extension = "jpg";
+		else if(image.mime_type == "image/png")
+			extension = "png";
+		else if(image.mime_type == "image/svg+xml")
+			extension = "svg";
+		else if(image.mime_type == "image/tiff")
+			extension = "tif";
+		else if(image.mime_type == "image/webp")
+			extension = "webp";
+		else
+			throw Indigo::Exception("Unknown MIME type for image.");
+
+		// Check length
+		if(buffer_view.byte_length == 0)
+			throw Indigo::Exception("Image buffer view too small.");
+		if(buffer_view.byte_offset + buffer_view.byte_length > buffer.data_size)
+			throw Indigo::Exception("Image buffer view too large.");
+
+		// Compute a hash over the data to get a semi-unique filename.
+		const uint64 hash = XXH64((const char*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length, /*seed=*/1);
+
+		const std::string path = PlatformUtils::getTempDirPath() + "/GLB_image_" + toString(hash) + "." + extension;
+
+		try
+		{
+			FileUtils::writeEntireFile(path, (const char*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length);
+		}
+		catch(FileUtils::FileUtilsExcep& e)
+		{
+			throw Indigo::Exception("Error while writing temp image file: " + e.what());
+		}
+
+		// Update GLTF image to use URI on disk
+		image.uri = path;
 	}
 }
 
@@ -637,7 +707,7 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 		{
 			GLTFTexture& texture = getTexture(data, mat.baseColorTexture.index);
 			GLTFImage& image = getImage(data, texture.source);
-			const std::string path = gltf_folder + "/" + image.uri;
+			const std::string path = FileUtils::join(gltf_folder, image.uri);
 			mat_out.diffuse_map.path = path;
 		}
 		mat_out.roughness = mat.roughnessFactor;
@@ -652,7 +722,7 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 		{
 			GLTFTexture& texture = getTexture(data, mat.diffuseTexture.index);
 			GLTFImage& image = getImage(data, texture.source);
-			const std::string path = gltf_folder + "/" + image.uri;
+			const std::string path = FileUtils::join(gltf_folder, image.uri);
 			mat_out.diffuse_map.path = path;
 		}
 
@@ -669,14 +739,97 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 }
 
 
+struct GLBHeader
+{
+	uint32 magic;
+	uint32 version;
+	uint32 length;
+};
+
+
+struct GLBChunkHeader
+{
+	uint32 chunk_length;
+	uint32 chunk_type;
+};
+
+
+static const uint32 CHUNK_TYPE_JSON = 0x4E4F534A;
+static const uint32 CHUNK_TYPE_BIN  = 0x004E4942;
+
+
+void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& mesh, float scale,
+	GLTFMaterials& mats_out) // throws Indigo::Exception on failure
+{
+	MemMappedFile file(pathname);
+
+	if(file.fileSize() < sizeof(GLBHeader) + sizeof(GLBChunkHeader))
+		throw Indigo::Exception("File too small.");
+
+	// Read header
+	GLBHeader header;
+	std::memcpy(&header, file.fileData(), sizeof(GLBHeader));
+
+	// Read JSON chunk header
+	GLBChunkHeader json_header;
+	std::memcpy(&json_header, (const uint8*)file.fileData() + 12, sizeof(GLBChunkHeader));
+	if(json_header.chunk_type != CHUNK_TYPE_JSON)
+		throw Indigo::Exception("Expected JSON chunk type");
+
+	// Check json_header length
+	if(12 + sizeof(GLBChunkHeader) + json_header.chunk_length > file.fileSize())
+		throw Indigo::Exception("JSON Chunk too large.");
+
+	// Read binary buffer chunk header
+	const size_t bin_buf_chunk_header_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(20 + (size_t)json_header.chunk_length, 4);
+	GLBChunkHeader bin_buf_header;
+	std::memcpy(&bin_buf_header, (const uint8*)file.fileData() + bin_buf_chunk_header_offset, sizeof(GLBChunkHeader));
+	if(bin_buf_header.chunk_type != CHUNK_TYPE_BIN)
+		throw Indigo::Exception("Expected BIN chunk type");
+
+	// Check bin_buf_header length
+	if(bin_buf_chunk_header_offset + sizeof(GLBChunkHeader) + bin_buf_header.chunk_length > file.fileSize())
+		throw Indigo::Exception("Bin buf Chunk too large.");
+
+	// Make a buffer object for it
+	GLTFBufferRef buffer = new GLTFBuffer();
+	buffer->binary_data = (const uint8*)file.fileData() + bin_buf_chunk_header_offset + 8;
+	buffer->data_size = bin_buf_header.chunk_length;
+
+	if(false)
+	{
+		// Save JSON to disk for debugging
+		const std::string json((const char*)file.fileData() + 20, json_header.chunk_length);
+		conPrint(PlatformUtils::getCurrentWorkingDirPath());
+		FileUtils::writeEntireFileTextMode("glb.json", json);
+	}
+
+	// Parse JSON chunk
+	JSONParser parser;
+	parser.parseBuffer((const char*)file.fileData() + 20, json_header.chunk_length);
+
+	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
+
+	loadGivenJSON(parser, gltf_base_dir, buffer, mesh, scale, mats_out);
+}
+
+
 void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& mesh, float scale, GLTFMaterials& mats_out)
 {
 	JSONParser parser;
 	parser.parseFile(pathname);
 
+	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
+
+	loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, mesh, scale, mats_out);
+}
+
+
+void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, Indigo::Mesh& mesh, float scale,
+	GLTFMaterials& mats_out) // throws Indigo::Exception on failure
+{
 	const JSONNode& root = parser.nodes[0];
 	checkNodeType(root, JSONNode::Type_Object);
-
 
 	GLTFData data;
 
@@ -692,7 +845,14 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 				const JSONNode& buffer_node = parser.nodes[buffers_node_array.child_indices[z]];
 
 				GLTFBufferRef buffer = new GLTFBuffer();
-				if(buffer_node.hasChild("uri")) buffer->uri = buffer_node.getChildStringValue(parser, "uri");
+				if(buffer_node.hasChild("uri"))
+					buffer->uri = buffer_node.getChildStringValue(parser, "uri");
+				else
+				{
+					if(glb_bin_buffer.isNull())
+						throw Indigo::Exception("buffer with undefined uri, not in a GLB file.");
+					buffer = glb_bin_buffer;
+				}
 				data.buffers.push_back(buffer);
 			}
 		}
@@ -753,7 +913,15 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 			{
 				const JSONNode& image_node = parser.nodes[image_node_array.child_indices[z]];
 				GLTFImageRef image = new GLTFImage();
-				image->uri = image_node.getChildStringValueWithDefaultVal(parser, "uri", "");
+				if(image_node.hasChild("uri"))
+				{
+					image->uri = image_node.getChildStringValue(parser, "uri");
+				}
+				else // Else image is embedded in GLB file:
+				{
+					image->buffer_view = image_node.getChildUIntValue(parser, "bufferView");
+					image->mime_type   = image_node.getChildStringValue(parser, "mimeType");
+				}
 				data.images.push_back(image);
 			}
 		}
@@ -847,7 +1015,7 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 					float v[4];
 					for(size_t q=0; q<4; ++q)
 						v[q] = (float)parser.nodes[rotation_node.child_indices[q]].getDoubleValue();
-					node->rotation = Quatf(Vec4f(v[0], v[1], v[2], v[3]));
+					node->rotation = Quatf(v[0], v[1], v[2], v[3]);
 				}
 				else
 					node->rotation = Quatf::identity();
@@ -855,12 +1023,10 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 				if(node_node.hasChild( "scale"))
 				{
 					const JSONNode& scale_node = node_node.getChildArray(parser, "scale");
-					if(scale_node.child_indices.size() != 4)
-						throw Indigo::Exception("Expected 4 elements in scale array.");
-					float v[3];
-					for(size_t q=0; q<3; ++q)
-						v[q] = (float)parser.nodes[scale_node.child_indices[q]].getDoubleValue();
-					node->scale = Vec3f(v[0], v[1], v[2]);
+					if(scale_node.child_indices.size() != 3)
+						throw Indigo::Exception("Expected 3 elements in scale array.");
+					for(uint32 q=0; q<3; ++q)
+						node->scale[q] = (float)parser.nodes[scale_node.child_indices[q]].getDoubleValue();
 				}
 				else
 					node->scale = Vec3f(1.f);
@@ -868,16 +1034,26 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 				if(node_node.hasChild("translation"))
 				{
 					const JSONNode& translation_node = node_node.getChildArray(parser, "translation");
-					if(translation_node.child_indices.size() != 4)
-						throw Indigo::Exception("Expected 4 elements in translation array.");
-					float v[3];
-					for(size_t q=0; q<3; ++q)
-						v[q] = (float)parser.nodes[translation_node.child_indices[q]].getDoubleValue();
-					node->translation = Vec3f(v[0], v[1], v[2]);
+					if(translation_node.child_indices.size() != 3)
+						throw Indigo::Exception("Expected 3 elements in translation array.");
+					for(uint32 q=0; q<3; ++q)
+						node->translation[q] = (float)parser.nodes[translation_node.child_indices[q]].getDoubleValue();
 				}
 				else
 					node->translation = Vec3f(0.f);
 
+				if(node_node.hasChild("matrix"))
+				{
+					const JSONNode& matrix_node = node_node.getChildArray(parser, "matrix");
+					if(matrix_node.child_indices.size() != 16)
+						throw Indigo::Exception("Expected 16 elements in matrix array.");
+
+					// GLTF stores matrices in column-major order, like Matrix4f.
+					for(size_t q=0; q<16; ++q)
+						node->matrix.e[q] = (float)parser.nodes[matrix_node.child_indices[q]].getDoubleValue();
+				}
+				else
+					node->matrix = Matrix4f::identity();
 
 				data.nodes.push_back(node);
 			}
@@ -976,14 +1152,16 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 
 	//======================== Process GLTF data ================================
 
-	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
-
-	// Load all buffers
+	// Load all unloaded buffers
 	for(size_t i=0; i<data.buffers.size(); ++i)
 	{
-		const std::string path = gltf_base_dir + "/" + data.buffers[i]->uri;
-		data.buffers[i]->file = new MemMappedFile(path);
-		data.buffers[i]->binary_data = (const uint8*)data.buffers[i]->file->fileData();
+		if(data.buffers[i]->binary_data == NULL)
+		{
+			const std::string path = gltf_base_dir + "/" + data.buffers[i]->uri;
+			data.buffers[i]->file = new MemMappedFile(path);
+			data.buffers[i]->binary_data = (const uint8*)data.buffers[i]->file->fileData();
+			data.buffers[i]->data_size = data.buffers[i]->file->fileSize();
+		}
 	}
 
 
@@ -994,6 +1172,8 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 		{
 			if(data.meshes[i]->primitives[z]->attributes.count("NORMAL"))
 				data.attr_present.normal_present = true;
+			if(data.meshes[i]->primitives[z]->attributes.count("COLOR_0"))
+				data.attr_present.vert_col_present = true;
 			if(data.meshes[i]->primitives[z]->attributes.count("TEXCOORD_0"))
 				data.attr_present.texcoord_0_present = true;
 		}
@@ -1008,12 +1188,52 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 		throw Indigo::Exception("scene index out of bounds.");
 	GLTFScene& scene_node = *data.scenes[data.scene];
 
+	// Process meshes referenced by nodes to get the total number of vertices and triangles, so we can reserve space for them.
+	size_t total_num_tris = 0;
+	size_t total_num_verts = 0;
 	for(size_t i=0; i<scene_node.nodes.size(); ++i)
 	{
 		if(scene_node.nodes[i] >= data.nodes.size())
 			throw Indigo::Exception("scene root node index out of bounds.");
 		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
-		processNode(data, root_node, mesh);
+
+		processNodeToGetMeshCapacity(data, root_node, total_num_tris, total_num_verts);
+	}
+
+	// Reserve the space in the Indigo Mesh
+	mesh.triangles.reserve(total_num_tris);
+	mesh.vert_positions.reserve(total_num_verts);
+	if(data.attr_present.normal_present)     mesh.vert_normals.reserve(total_num_verts);
+	if(data.attr_present.vert_col_present)   mesh.vert_colours.reserve(total_num_verts);
+	if(data.attr_present.texcoord_0_present) mesh.uv_pairs.reserve(total_num_verts);
+
+
+	for(size_t i=0; i<scene_node.nodes.size(); ++i)
+	{
+		if(scene_node.nodes[i] >= data.nodes.size())
+			throw Indigo::Exception("scene root node index out of bounds.");
+		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
+
+		Matrix4f current_transform = Matrix4f::identity();
+
+		processNode(data, root_node, current_transform, mesh);
+	}
+
+	// Check we reserved the right amount of space.
+	assert(mesh.vert_positions.size()     == total_num_verts);
+	assert(mesh.vert_positions.capacity() == total_num_verts);
+	assert(mesh.vert_normals.size()       == mesh.vert_normals.capacity());
+	assert(mesh.vert_colours.size()       == mesh.vert_colours.capacity());
+	assert(mesh.uv_pairs.size()           == mesh.uv_pairs.capacity());
+
+	assert(mesh.triangles.size()          == total_num_tris);
+	assert(mesh.triangles.capacity()      == total_num_tris);
+
+
+	// Process images - for any image embedded in the GLB file data, save onto disk in a temp location
+	for(size_t i=0; i<data.images.size(); ++i)
+	{
+		processImage(data, *data.images[i], gltf_base_dir);
 	}
 
 	// Process materials
@@ -1027,9 +1247,9 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 }
 
 
-struct ChunkInfo
+struct GLTFChunkInfo
 {
-	ChunkInfo(){}
+	GLTFChunkInfo(){}
 
 	uint32 indices_start;
 	size_t num_indices;
@@ -1173,7 +1393,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 	
 	// Assume all triangles are sorted by material index currently.
 	// Build a temp PrimitiveChunk array
-	std::vector<ChunkInfo> chunks;
+	std::vector<GLTFChunkInfo> chunks;
 	uint32 last_mat_index = std::numeric_limits<uint32>::max();
 	size_t last_chunk_start = 0; // index into triangles
 	for(size_t i=0; i<mesh.triangles.size(); ++i)
@@ -1182,7 +1402,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 		{
 			if(i > last_chunk_start)
 			{
-				chunks.push_back(ChunkInfo());
+				chunks.push_back(GLTFChunkInfo());
 				chunks.back().indices_start = (int)last_chunk_start * 3;
 				chunks.back().num_indices = (i - last_chunk_start) * 3;
 				chunks.back().mat_index = mesh.triangles[last_chunk_start].tri_mat_index;
@@ -1193,7 +1413,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 	}
 	if(last_chunk_start < mesh.triangles.size())
 	{
-		chunks.push_back(ChunkInfo());
+		chunks.push_back(GLTFChunkInfo());
 		chunks.back().indices_start = (int)last_chunk_start * 3;
 		chunks.back().num_indices = (mesh.triangles.size() - last_chunk_start) * 3;
 		chunks.back().mat_index = mesh.triangles[last_chunk_start].tri_mat_index;
@@ -1457,11 +1677,150 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/box.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 1);
+			testAssert(mesh.vert_positions.size() == 24);
+			testAssert(mesh.vert_normals.size() == 24);
+			testAssert(mesh.vert_colours.size() == 0);
+			testAssert(mesh.uv_pairs.size() == 0);
+			testAssert(mesh.triangles.size() == 12);
+		}
+	
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 1);
+			testAssert(mesh.vert_positions.size() == 24);
+			testAssert(mesh.vert_normals.size() == 24);
+			testAssert(mesh.vert_colours.size() == 0);
+			testAssert(mesh.uv_pairs.size() == 0);
+			testAssert(mesh.triangles.size() == 12);
+		}
+
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxTextured.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 1);
+			testAssert(mesh.vert_positions.size() == 24);
+			testAssert(mesh.vert_normals.size() == 24);
+			testAssert(mesh.vert_colours.size() == 0);
+			testAssert(mesh.uv_pairs.size() == 24);
+			testAssert(mesh.triangles.size() == 12);
+		}
+	
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 1);
+			testAssert(mesh.vert_positions.size() == 24);
+			testAssert(mesh.vert_normals.size() == 24);
+			testAssert(mesh.vert_colours.size() == 24);
+			testAssert(mesh.uv_pairs.size() == 24);
+			testAssert(mesh.triangles.size() == 12);
+		}
+	
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 34);
+			testAssert(mesh.vert_positions.size() == 84657);
+			testAssert(mesh.vert_normals.size() == 84657);
+			testAssert(mesh.vert_colours.size() == 0);
+			testAssert(mesh.uv_pairs.size() == 0);
+			testAssert(mesh.triangles.size() == 121496);
+		}
+
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 1);
+			testAssert(mesh.vert_positions.size() == 370);
+			testAssert(mesh.vert_normals.size() == 370);
+			testAssert(mesh.vert_colours.size() == 0);
+			testAssert(mesh.uv_pairs.size() == 0);
+			testAssert(mesh.triangles.size() == 256);
+		}
+	
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/CesiumMan.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 1);
+			testAssert(mesh.vert_positions.size() == 3273);
+			testAssert(mesh.vert_normals.size() == 3273);
+			testAssert(mesh.vert_colours.size() == 0);
+			testAssert(mesh.uv_pairs.size() == 3273);
+			testAssert(mesh.triangles.size() == 4672);
+		}
+	
+		{
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 98);
+			testAssert(mesh.vert_positions.size() == 528291);
+			testAssert(mesh.vert_normals.size() == 528291);
+			testAssert(mesh.vert_colours.size() == 0);
+			testAssert(mesh.uv_pairs.size() == 0);
+			testAssert(mesh.triangles.size() == 1040409);
+		}
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+
+	/*try
+	{
+		// Read a GLTF file from disk
+		const std::string path = "D:\\downloads\\Avocado.glb";
+		Indigo::Mesh mesh;
+		GLTFMaterials mats;
+		loadGLBFile(path, mesh, 1.0, mats);
+
+		testAssert(mesh.num_materials_referenced == 1);
+		testAssert(mesh.vert_positions.size() == 406);
+		testAssert(mesh.vert_normals.size() == 406);
+		testAssert(mesh.vert_colours.size() == 0);
+		testAssert(mesh.uv_pairs.size() == 406);
+		testAssert(mesh.triangles.size() == 682);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}*/
+
+	try
+	{
 		// Read a GLTF file from disk
 		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/duck/Duck.gltf";
 		Indigo::Mesh mesh;
 		GLTFMaterials mats;
 		streamModel(path, mesh, 1.0, mats);
+
+		testAssert(mesh.num_materials_referenced == 1);
+		testAssert(mesh.vert_positions.size() == 2399);
+		testAssert(mesh.vert_normals.size() == 2399);
+		testAssert(mesh.vert_colours.size() == 0);
+		testAssert(mesh.uv_pairs.size() == 2399);
+		testAssert(mesh.triangles.size() == 4212);
 
 
 		// Write it back to disk
@@ -1477,13 +1836,33 @@ void FormatDecoderGLTF::test()
 		Indigo::Mesh mesh2;
 		GLTFMaterials mats2;
 		streamModel(path, mesh2, 1.0, mats2);
+
+		testAssert(mesh2.num_materials_referenced == 1);
+		testAssert(mesh2.vert_positions.size() == 2399);
+		testAssert(mesh2.vert_normals.size() == 2399);
+		testAssert(mesh2.vert_colours.size() == 0);
+		testAssert(mesh2.uv_pairs.size() == 2399);
+		testAssert(mesh2.triangles.size() == 4212);
 	}
 	catch(Indigo::Exception& e)
 	{
 		failTest(e.what());
 	}
 
-	conPrint("FormatDecoderGLTF::test() done.");
+
+	/*try
+	{
+		// Read a GLTF file from disk
+		const std::string path = "C:\\programming\\indigo\\output\\vs2019\\indigo_x64\\RelWithDebInfo\\baked_indirect_only.gltf";
+		Indigo::Mesh mesh;
+		GLTFMaterials mats;
+		streamModel(path, mesh, 1.0, mats);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+	conPrint("FormatDecoderGLTF::test() done.");*/
 }
 
 

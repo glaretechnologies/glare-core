@@ -6,10 +6,13 @@ Copyright Glare Technologies Limited 2018 -
 #pragma once
 
 
+#include "../utils/Reference.h"
 #include "../graphics/colour3.h"
 #include <string>
 #include <vector>
 namespace Indigo { class Mesh; }
+class JSONParser;
+struct GLTFBuffer;
 
 
 struct GLTFResultMap
@@ -56,10 +59,19 @@ See https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md
 class FormatDecoderGLTF
 {
 public:
+
+	static void loadGLBFile(const std::string& filename, Indigo::Mesh& handler, float scale,
+		GLTFMaterials& mats_out); // throws Indigo::Exception on failure
+
 	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale,
 		GLTFMaterials& mats_out); // throws Indigo::Exception on failure
 
 	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFMaterials& mats); // throws Indigo::Exception on failure
 
 	static void test();
+
+private:
+	static void loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, Indigo::Mesh& handler, float scale,
+		GLTFMaterials& mats_out); // throws Indigo::Exception on failure
+
 };
