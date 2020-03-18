@@ -6,8 +6,8 @@ Copyright Glare Technologies Limited 2015 -
 #include "Parser.h"
 
 
-#include "../utils/StringUtils.h"
-#include "../utils/Timer.h"
+#include "StringUtils.h"
+#include "Timer.h"
 #include "../maths/mathstypes.h"
 #include "../double-conversion/double-conversion.h"
 #include <limits>

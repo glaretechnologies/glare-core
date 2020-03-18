@@ -1,8 +1,7 @@
 /*=====================================================================
 BitUtils.cpp
--------------------
-Copyright Glare Technologies Limited 2016 -
-Generated at 2013-05-27 18:54:17 +0100
+------------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "BitUtils.h"
 

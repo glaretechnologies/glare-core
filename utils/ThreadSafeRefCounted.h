@@ -1,13 +1,13 @@
 /*=====================================================================
 ThreadSafeRefCounted.h
 ----------------------
-Copyright Glare Technologies Limited 2018 - 
+Copyright Glare Technologies Limited 2020 - 
 =====================================================================*/
 #pragma once
 
 
-#include <cassert>
 #include "IndigoAtomic.h"
+#include <cassert>
 
 
 /*=====================================================================

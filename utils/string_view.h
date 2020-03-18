@@ -1,7 +1,7 @@
 /*=====================================================================
 string_view.h
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 

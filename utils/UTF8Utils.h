@@ -1,8 +1,7 @@
 /*=====================================================================
 UTF8Utils.h
 -----------
-Copyright Glare Technologies Limited 2015 -
-Generated at 2015-07-01 22:26:50 +0100
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 

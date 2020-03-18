@@ -1,7 +1,7 @@
 /*=====================================================================
 RefCounted.h
 ------------
-Copyright Glare Technologies Limited 2019 - 
+Copyright Glare Technologies Limited 2020 - 
 =====================================================================*/
 // Not using pragma once since we copy this file and pragma once is path based
 #ifndef REFCOUNTED_H
@@ -57,4 +57,4 @@ private:
 	mutable int64 refcount;
 };
 
-#endif //REFCOUNTED_H
+#endif // REFCOUNTED_H

@@ -1,13 +1,12 @@
 /*=====================================================================
 Vector.h
 --------
-Copyright Glare Technologies Limited 2013 -
-File created by ClassTemplate on Sat Sep 02 19:47:39 2006
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
 
-#include "../utils/MemAlloc.h"
+#include "MemAlloc.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
 #include <memory>
@@ -19,7 +18,7 @@ File created by ClassTemplate on Sat Sep 02 19:47:39 2006
 
 
 #if JS_VECTOR_VERBOSE
-#include "../indigo/globals.h"
+#include "ConPrint.h"
 #include "StringUtils.h"
 #include <typeinfo.h>
 #endif

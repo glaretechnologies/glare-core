@@ -1,8 +1,7 @@
 /*=====================================================================
 PlatformUtils.h
 ---------------
-Copyright Glare Technologies Limited 2014 -
-File created by ClassTemplate on Mon Jun 06 00:24:52 2005
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -15,7 +14,7 @@ File created by ClassTemplate on Mon Jun 06 00:24:52 2005
 /*=====================================================================
 PlatformUtils
 -------------
-
+Some functions with OS-dependent implementations.
 =====================================================================*/
 namespace PlatformUtils
 {

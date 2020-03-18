@@ -10,9 +10,14 @@ Copyright Glare Technologies Limited 2020 -
 #include <stddef.h> // For size_t
 
 
+/*=====================================================================
+MemAlloc
+----------
+Functions for aligned memory allocation and freeing.
+=====================================================================*/
 namespace MemAlloc
 {
-	
+
 
 template <class T>
 inline bool isAlignedTo(T* ptr, uintptr_t alignment)

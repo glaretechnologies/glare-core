@@ -6,9 +6,9 @@ Copyright Glare Technologies Limited
 #pragma once
 
 
-#include "../utils/StringUtils.h"
-#include "../utils/Platform.h"
-#include "../utils/string_view.h"
+#include "StringUtils.h"
+#include "Platform.h"
+#include "string_view.h"
 #include <string>
 #include <assert.h>
 
@@ -16,7 +16,7 @@ Copyright Glare Technologies Limited
 /*=====================================================================
 Parser
 ------
-
+For parsing text.
 =====================================================================*/
 class Parser
 {
@@ -87,7 +87,6 @@ private:
 	const char* text;
 	size_t currentpos;
 	size_t textsize;
-	//char decimal_separator;
 };
 
 

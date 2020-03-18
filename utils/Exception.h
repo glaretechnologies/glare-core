@@ -1,11 +1,11 @@
 /*=====================================================================
 Exception.h
 -----------
-File created by ClassTemplate on Wed Apr 01 11:06:48 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
-#ifndef __EXCEPTION_H_666_
-#define __EXCEPTION_H_666_
+// Not using pragma once since we copy this file and pragma once is path based
+#ifndef GLARE_EXCEPTION_H
+#define GLARE_EXCEPTION_H
 
 
 #include <string>
@@ -31,4 +31,4 @@ private:
 }
 
 
-#endif //__EXCEPTION_H_666_
+#endif // GLARE_EXCEPTION_H

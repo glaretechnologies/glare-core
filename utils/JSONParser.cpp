@@ -1,8 +1,7 @@
 /*=====================================================================
 JSONParser.cpp
--------------------
-Copyright Glare Technologies Limited 2018 -
-Generated at 2018-03-05 01:34:58 +1300
+--------------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "JSONParser.h"
 

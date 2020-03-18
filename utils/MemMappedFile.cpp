@@ -1,8 +1,7 @@
 /*=====================================================================
 MemMappedFile.cpp
--------------------
-Copyright Glare Technologies Limited 2010 -
-Generated at 2011-09-05 15:48:02 +0100
+-----------------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "MemMappedFile.h"
 

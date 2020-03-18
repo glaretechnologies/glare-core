@@ -1,29 +1,9 @@
-/*===================================================================
-
-
-  digital liberation front 2001
-
-  _______    ______      _______
- /______/\  |______|    /\______\
-|       \ \ |      |   / /       |
-|        \| |      |  |/         |
-|_____    \ |      |_ /    ______|
- ____|    | |      |_||    |_____
-     |____| |________||____|
-
-
-
-
-Code by Nicholas Chapman
-nickamy@paradise.net.nz
-
-You may use this code for any non-commercial project,
-as long as you do not remove this description.
-
-You may not use this code for any commercial project.
-====================================================================*/
-#ifndef __MATHSTYPES_H__
-#define __MATHSTYPES_H__
+/*=====================================================================
+mathstypes.h
+------------
+Copyright Glare Technologies Limited 2020 -
+=====================================================================*/
+#pragma once
 
 
 #include "../utils/Platform.h"
@@ -39,6 +19,11 @@ You may not use this code for any commercial project.
 const double NICKMATHS_EPSILON = 0.00001;
 
 
+/*=====================================================================
+Maths
+-----
+Miscellaneous maths functions
+=====================================================================*/
 namespace Maths
 {
 
@@ -47,7 +32,6 @@ namespace Maths
 // It makes faster code to use the correct template specialisation, instead of always using e.g. the double precision value and casting to single precision.
 // Using a const double initialiser like 'const double NICKMATHS_RECIP_PI = 1.0 / NICKMATHS_PI;' also does the divide in *each* translation unit at program 
 // initialisation time.
-
 
 template <class T> INDIGO_STRONG_INLINE T pi();		// Pi
 template <class T> INDIGO_STRONG_INLINE T get2Pi();	// 2 * Pi
@@ -771,6 +755,3 @@ void test();
 
 
 } // end namespace Maths
-
-
-#endif //__MATHSTYPES_H__
