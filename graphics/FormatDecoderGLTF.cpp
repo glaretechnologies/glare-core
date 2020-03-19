@@ -364,7 +364,7 @@ static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, cons
 	{
 		if(byte_stride < sizeof(float)*3)
 			throw Indigo::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
-		if(offset_B + byte_stride * accessor.count > buffer.data_size)
+		if(offset_B + byte_stride * (accessor.count - 1) + sizeof(float)*3 > buffer.data_size)
 			throw Indigo::Exception("Out of bounds while trying to read '" + attr_name + "'");
 
 		for(size_t z=0; z<accessor.count; ++z)
@@ -419,6 +419,111 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 		GLTFNode& child = *data.nodes[node.children[i]];
 
 		processNodeToGetMeshCapacity(data, child, total_num_tris, total_num_verts);
+	}
+}
+
+
+struct BufferViewInfo
+{
+	BufferViewInfo() : pos_offset(-1), normal_offset(-1), colour_offset(-1), uv0_offset(-1), count(0) {}
+	int pos_offset;
+	int normal_offset;
+	int colour_offset;
+	int uv0_offset;
+
+	int count;
+};
+
+
+static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::vector<BufferViewInfo>& buffer_view_info)
+{
+	// Process mesh
+	if(node.mesh != std::numeric_limits<size_t>::max())
+	{
+		GLTFMesh& mesh = getMesh(data, node.mesh);
+
+		// Loop over primitive batches and get number of triangles and verts, add to total_num_tris and total_num_verts
+		for(size_t i=0; i<mesh.primitives.size(); ++i)
+		{
+			GLTPrimitive& primitive = *mesh.primitives[i];
+
+			if(primitive.mode != GLTF_MODE_TRIANGLES)
+				throw Indigo::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
+
+			if(primitive.indices == std::numeric_limits<size_t>::max())
+				throw Indigo::Exception("Primitve did not have indices..");
+
+
+			{
+				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "POSITION");
+				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+
+				const size_t offset = accessor.byte_offset; // Offset relative to start of buffer view
+				const size_t stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec3f);
+				const size_t offset_mod_stride = offset % stride;
+				conPrint("POSITION offset: " + toString(offset_mod_stride));
+
+				if((buffer_view_info[accessor.buffer_view].pos_offset != -1) &&
+					(buffer_view_info[accessor.buffer_view].pos_offset != (int)offset_mod_stride))
+					throw Indigo::Exception("Inconsistent buffer view position offset");
+
+				buffer_view_info[accessor.buffer_view].pos_offset = (int)offset_mod_stride;
+				buffer_view_info[accessor.buffer_view].count = (int)accessor.count;
+			}
+
+			if(primitive.attributes.count("NORMAL"))
+			{
+				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "NORMAL");
+				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+
+				const size_t offset = accessor.byte_offset; // Offset relative to start of buffer view
+				const size_t stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec3f);
+				const size_t offset_mod_stride = offset % stride;
+				conPrint("NORMAL offset: " + toString(offset_mod_stride));
+				if((buffer_view_info[accessor.buffer_view].normal_offset != -1) &&
+					(buffer_view_info[accessor.buffer_view].normal_offset != (int)offset_mod_stride))
+					throw Indigo::Exception("Inconsistent buffer view normal offset");
+			}
+
+			if(primitive.attributes.count("COLOR_0"))
+			{
+				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "COLOR_0");
+				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+
+				const size_t offset = accessor.byte_offset; // Offset relative to start of buffer view
+				const size_t stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec3f);
+				const size_t offset_mod_stride = offset % stride;
+				conPrint("COLOR_0 offset: " + toString(offset_mod_stride));
+				if((buffer_view_info[accessor.buffer_view].colour_offset != -1) &&
+					(buffer_view_info[accessor.buffer_view].colour_offset != (int)offset_mod_stride))
+					throw Indigo::Exception("Inconsistent buffer view COLOR_0 offset");
+			}
+
+			if(primitive.attributes.count("TEXCOORD_0"))
+			{
+				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "TEXCOORD_0");
+				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+
+				const size_t offset = accessor.byte_offset; // Offset relative to start of buffer view
+				const size_t stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec2f);
+				const size_t offset_mod_stride = offset % stride;
+				conPrint("TEXCOORD_0 offset: " + toString(offset_mod_stride));
+				if((buffer_view_info[accessor.buffer_view].uv0_offset != -1) &&
+					(buffer_view_info[accessor.buffer_view].uv0_offset != (int)offset_mod_stride))
+					throw Indigo::Exception("Inconsistent buffer view TEXCOORD_0 offset");
+			}
+		}
+	}
+
+	// Process children
+	for(size_t i=0; i<node.children.size(); ++i)
+	{
+		if(node.children[i] >= data.nodes.size())
+			throw Indigo::Exception("node child index out of bounds");
+
+		GLTFNode& child = *data.nodes[node.children[i]];
+
+		processNodeToGetBufferViewInfo(data, child, buffer_view_info);
 	}
 }
 
@@ -604,7 +709,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				{
 					if(byte_stride < sizeof(float)*2)
 						throw Indigo::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
-					if(offset_B + byte_stride * accessor.count > buffer.data_size)
+					if(offset_B + byte_stride * (accessor.count - 1) + sizeof(float)*2 > buffer.data_size)
 						throw Indigo::Exception("Out of bounds while trying to read 'TEXCOORD_0'");
 
 					for(size_t z=0; z<accessor.count; ++z)
@@ -801,7 +906,7 @@ void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& m
 		// Save JSON to disk for debugging
 		const std::string json((const char*)file.fileData() + 20, json_header.chunk_length);
 		conPrint(PlatformUtils::getCurrentWorkingDirPath());
-		FileUtils::writeEntireFileTextMode("glb.json", json);
+		FileUtils::writeEntireFileTextMode(pathname + ".json", json);
 	}
 
 	// Parse JSON chunk
@@ -1152,6 +1257,26 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 
 	//======================== Process GLTF data ================================
 
+	// Print out buffer views
+	/*for(size_t i=0; i<data.buffer_views.size(); ++i)
+	{
+		conPrint("Buffer view " + toString(i));
+		printVar(data.buffer_views[i]->buffer);
+		printVar(data.buffer_views[i]->byte_offset);
+		printVar(data.buffer_views[i]->byte_length);
+		printVar(data.buffer_views[i]->byte_stride);
+	}
+
+	// Print out accessors
+	for(size_t i=0; i<data.accessors.size(); ++i)
+	{
+		conPrint("Accessor " + toString(i));
+		printVar(data.accessors[i]->buffer_view);
+		printVar(data.accessors[i]->byte_offset);
+		printVar(data.accessors[i]->count);
+	}*/
+
+
 	// Load all unloaded buffers
 	for(size_t i=0; i<data.buffers.size(); ++i)
 	{
@@ -1187,6 +1312,19 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 	if(data.scene >= data.scenes.size())
 		throw Indigo::Exception("scene index out of bounds.");
 	GLTFScene& scene_node = *data.scenes[data.scene];
+
+
+	/*std::vector<BufferViewInfo> buffer_view_info(data.buffer_views.size());
+
+	for(size_t i=0; i<scene_node.nodes.size(); ++i)
+	{
+		if(scene_node.nodes[i] >= data.nodes.size())
+			throw Indigo::Exception("scene root node index out of bounds.");
+		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
+
+		processNodeToGetBufferViewInfo(data, root_node, buffer_view_info);
+	}*/
+
 
 	// Process meshes referenced by nodes to get the total number of vertices and triangles, so we can reserve space for them.
 	size_t total_num_tris = 0;
@@ -1431,6 +1569,21 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 	"	},\n";
 	
 
+	// Write buffer views - 1 for each chunk.  Not stricly neccessary buy needed for how the loader works currently, to avoid duplicated verts.
+	//for(size_t i=0; i<chunks.size(); ++i)
+	//{
+	//	file <<
+	//		"	{\n" // Buffer view for vertex data
+	//		"		\"buffer\": 0,\n"
+	//		"		\"byteLength\": " + toString(total_vert_data_size) + ",\n"
+	//		"		\"byteOffset\": " + toString(tri_index_data_size) + ",\n"
+	//		"		\"byteStride\": " + toString(vert_stride) + ",\n"
+	//		"		\"target\": 34962\n"
+	//		"	}\n"
+	//		"],\n";
+	//}
+
+
 	file << 
 	"	{\n" // Buffer view for vertex data
 	"		\"buffer\": 0,\n"
@@ -1440,7 +1593,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 	"		\"target\": 34962\n"
 	"	}\n"
 	"],\n";
-
+	
 	// Write accessors
 	file << "\"accessors\": [\n";
 
@@ -1671,6 +1824,40 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 #include "../utils/PlatformUtils.h"
 
 
+static void testWriting(const Indigo::Mesh& mesh, const GLTFMaterials& mats)
+{
+/*	try
+	{
+		const std::string path = PlatformUtils::getTempDirPath() + "/mesh_" + toString(mesh.checksum()) + ".gltf";
+
+		// Write it back to disk
+		GLTFWriteOptions options;
+		//options.write_vert_normals = false;
+		//FormatDecoderGLTF::writeToDisk(mesh, path, options, mats);
+
+		options.write_vert_normals = true;
+		FormatDecoderGLTF::writeToDisk(mesh, path, options, mats);
+
+		// Load again
+		Indigo::Mesh mesh2;
+		GLTFMaterials mats2;
+		FormatDecoderGLTF::streamModel(path, mesh2, 1.0, mats2);
+
+		// Check num vertices etc.. is the same
+		testAssert(mesh2.num_materials_referenced	== mesh.num_materials_referenced);
+		testAssert(mesh2.vert_positions.size()		== mesh.vert_positions.size());
+		testAssert(mesh2.vert_normals.size()		== mesh.vert_normals.size());
+		testAssert(mesh2.vert_colours.size()		== mesh.vert_colours.size());
+		testAssert(mesh2.uv_pairs.size()			== mesh.uv_pairs.size());
+		testAssert(mesh2.triangles.size()			== mesh.triangles.size());
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}*/
+}
+
+
 void FormatDecoderGLTF::test()
 {
 	conPrint("FormatDecoderGLTF::test()");
@@ -1678,6 +1865,7 @@ void FormatDecoderGLTF::test()
 	try
 	{
 		{
+			conPrint("---------------------------------Box.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
 			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/Box.glb", mesh, 1.0, mats);
@@ -1688,9 +1876,12 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 0);
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 12);
+
+			testWriting(mesh, mats);
 		}
 	
 		{
+			conPrint("---------------------------------BoxInterleaved.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
 			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", mesh, 1.0, mats);
@@ -1701,9 +1892,12 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 0);
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 12);
+
+			testWriting(mesh, mats);
 		}
 
 		{
+			conPrint("---------------------------------BoxTextured.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
 			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxTextured.glb", mesh, 1.0, mats);
@@ -1714,9 +1908,12 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 0);
 			testAssert(mesh.uv_pairs.size() == 24);
 			testAssert(mesh.triangles.size() == 12);
+
+			testWriting(mesh, mats);
 		}
 	
 		{
+			conPrint("---------------------------------BoxVertexColors.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
 			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", mesh, 1.0, mats);
@@ -1727,9 +1924,12 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 24);
 			testAssert(mesh.uv_pairs.size() == 24);
 			testAssert(mesh.triangles.size() == 12);
+
+			testWriting(mesh, mats);
 		}
 	
 		{
+			conPrint("---------------------------------2CylinderEngine.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
 			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", mesh, 1.0, mats);
@@ -1740,6 +1940,8 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 0);
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 121496);
+
+			testWriting(mesh, mats);
 		}
 
 		{
@@ -1753,6 +1955,8 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 0);
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 256);
+
+			testWriting(mesh, mats);
 		}
 	
 		{
@@ -1766,6 +1970,8 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 0);
 			testAssert(mesh.uv_pairs.size() == 3273);
 			testAssert(mesh.triangles.size() == 4672);
+
+			testWriting(mesh, mats);
 		}
 	
 		{
@@ -1779,6 +1985,8 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.vert_colours.size() == 0);
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 1040409);
+
+			testWriting(mesh, mats);
 		}
 	}
 	catch(Indigo::Exception& e)
