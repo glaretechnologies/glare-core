@@ -8,8 +8,6 @@ Generated at Sat May 15 15:39:54 +1200 2010
 
 
 #include "Platform.h"
-#include <assert.h>
-#include <algorithm>
 #include "Timer.h"
 #include "Task.h"
 #include "TaskManager.h"
@@ -17,6 +15,8 @@ Generated at Sat May 15 15:39:54 +1200 2010
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include "Vector.h"
+#include <assert.h>
+#include <algorithm>
 
 
 /*=====================================================================
@@ -37,8 +37,19 @@ namespace Sort
 	template <class T, class Key>
 	inline void radixSort16(T* data, uint32 num_elements, Key key);
 
+
+	/*
+	Counting sorts.  Efficient for when the total number of different buckets/keys is relatively small.
+	*/
 	template <class T, class BucketChooser>
-	inline void parallelStableNWayPartition(Indigo::TaskManager& task_manager, T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_choose);
+	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_choose);
+
+	template <class T, class BucketChooser>
+	inline void parallelCountingSort(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_choose);
+
+
+	template <class T, class BucketChooser>
+	inline void parallelStableNWayPartition(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_choose);
 
 
 	void test();
@@ -641,9 +652,9 @@ namespace Sort
 
 	//==========================================================================
 
-	// serial
+	// Serial
 	template <class T, class BucketChooser>
-	void stableNWayPartition(T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
+	void stableNWayPartition(const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
 	{
 		// Count num items in each bucket
 		std::vector<size_t> counts(num_buckets, 0);
@@ -706,7 +717,7 @@ namespace Sort
 				counts_[bucket_chooser(in_[i])]++;*/
 		}
 
-		T* in;
+		const T* in;
 		BucketChooser bucket_chooser;
 		size_t num;
 		size_t* counts;
@@ -731,7 +742,7 @@ namespace Sort
 			}
 		}
 
-		T* in;
+		const T* in;
 		T* out;
 		BucketChooser bucket_chooser;
 		size_t num;
@@ -740,7 +751,35 @@ namespace Sort
 
 
 	template <class T, class BucketChooser>
-	void parallelStableNWayPartition(Indigo::TaskManager& task_manager, T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
+	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_chooser)
+	{
+		// Do a pass to get number of buckets first.
+		size_t max_bucket = 0;
+		for(size_t i=0; i<num; ++i)
+			max_bucket = myMax<size_t>(max_bucket, bucket_chooser(in[i]));
+
+		const size_t num_buckets = max_bucket + 1;
+		stableNWayPartition(in, out, num, num_buckets, bucket_chooser);
+	}
+
+
+	template <class T, class BucketChooser>
+	void parallelCountingSort(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_chooser)
+	{
+		// Do a pass to get number of buckets first.
+		// TODO: do in parallel
+		size_t max_bucket = 0;
+		for(size_t i=0; i<num; ++i)
+			max_bucket = myMax(max_bucket, bucket_chooser(in[i]));
+
+		// Now sort the data
+		const size_t num_buckets = max_bucket + 1;
+		parallelStableNWayPartition(task_manager, in, out, num, num_buckets, bucket_chooser);
+	}
+
+
+	template <class T, class BucketChooser>
+	void parallelStableNWayPartition(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
 	{
 		const size_t max_num_tasks = 32;
 		const size_t num_tasks = 32;//myMin(max_num_tasks, task_manager.getNumThreads());

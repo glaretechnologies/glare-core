@@ -37,6 +37,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/HashMapInsertOnly2.h"
 #include "../utils/IncludeHalf.h"
 #include "../utils/TaskManager.h"
+#include "../utils/Sort.h"
 #include <algorithm>
 
 
@@ -217,6 +218,7 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 		frustum_aabb.enlargeToHoldPoint(frustum_vert_ws);
 	}
 }
+
 
 void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_, float lens_shift_up_distance_,
 	float lens_shift_right_distance_)
@@ -730,26 +732,51 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		{
-			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n";
+			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n" + "#define VERT_COLOURS 0\n";
 
-			phong_prog = new OpenGLProgram(
+			phong_prog_no_vert_colours = new OpenGLProgram(
 				"phong",
 				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
 				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 			);
 		}
-		getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_locations);
+		getPhongUniformLocations(phong_prog_no_vert_colours, settings.shadow_mapping, phong_locations);
 
 		{
-			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n";
+			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n" + "#define VERT_COLOURS 0\n";
 
-			phong_with_alpha_test_prog = new OpenGLProgram(
+			phong_with_alpha_test_no_vert_colours_prog = new OpenGLProgram(
 				"phong",
 				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
 				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 			);
 		}
-		getPhongUniformLocations(phong_with_alpha_test_prog, settings.shadow_mapping, phong_with_alpha_test_locations);
+		getPhongUniformLocations(phong_with_alpha_test_no_vert_colours_prog, settings.shadow_mapping, phong_with_alpha_test_locations);
+
+		{
+			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n" + "#define VERT_COLOURS 1\n";
+
+			phong_prog_with_vert_colours = new OpenGLProgram(
+				"phong",
+				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			);
+		}
+		getPhongUniformLocations(phong_prog_with_vert_colours, settings.shadow_mapping, phong_locations);
+
+		{
+			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n" + "#define VERT_COLOURS 1\n";
+
+			phong_with_alpha_test_with_vert_colours_prog = new OpenGLProgram(
+				"phong",
+				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			);
+		}
+		getPhongUniformLocations(phong_with_alpha_test_with_vert_colours_prog, settings.shadow_mapping, phong_with_alpha_test_locations);
+
+
+
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
@@ -858,7 +885,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	
 			outline_solid_mat.shader_prog = outline_prog;
 
-			outline_edge_mat.albedo_rgb = Colour3f(0.2f, 0.2f, 0.2f);
+			outline_edge_mat.albedo_rgb = Colour3f(0.2f, 0.2f, 0.9f);
 			outline_edge_mat.shader_prog = this->overlay_prog;
 
 			outline_quad_meshdata = this->unit_quad_meshdata;
@@ -1010,11 +1037,16 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 }
 
 
-void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
+void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours)
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
 	if(material.shader_prog.nonNull() && 
-		!(material.shader_prog == transparent_prog  || material.shader_prog == phong_with_alpha_test_prog || material.shader_prog == phong_prog))
+		!(material.shader_prog == transparent_prog  || 
+			material.shader_prog == phong_with_alpha_test_no_vert_colours_prog || 
+			material.shader_prog == phong_prog_no_vert_colours ||
+			material.shader_prog == phong_with_alpha_test_with_vert_colours_prog ||
+			material.shader_prog == phong_prog_with_vert_colours
+			))
 		return;
 
 	if(material.transparent)
@@ -1024,9 +1056,9 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material)
 	else
 	{
 		if(material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha())
-			material.shader_prog = phong_with_alpha_test_prog;
+			material.shader_prog = use_vert_colours ? phong_with_alpha_test_with_vert_colours_prog : phong_with_alpha_test_no_vert_colours_prog;
 		else
-			material.shader_prog = phong_prog;
+			material.shader_prog = use_vert_colours ? phong_prog_with_vert_colours : phong_prog_no_vert_colours;
 	}
 }
 
@@ -1049,7 +1081,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i]);
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1121,7 +1153,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					object->materials[i].albedo_texture = opengl_texture;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
-					assignShaderProgToMaterial(object->materials[i]);
+					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours);
 				}
 			}
 		}
@@ -1161,9 +1193,11 @@ bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 }
 
 
-void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat)
+void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours)
 {
-	assignShaderProgToMaterial(mat);
+	assignShaderProgToMaterial(mat,
+		use_vert_colours // false // use_vert_colours - TEMP HACK
+	);
 }
 
 
@@ -1174,7 +1208,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i]);
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours);
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1424,7 +1458,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = phong_prog;
+		debug_arrow_ob->materials[0].shader_prog = phong_prog_no_vert_colours;
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -2214,50 +2248,10 @@ void OpenGLEngine::draw()
 }
 
 
-// KVP == (key, value) pair
-struct uint32KVP
+struct TakeFirstElement
 {
-	inline bool operator() (const std::pair<uint32, uint32>& lhs, const std::pair<uint32, uint32>& rhs) const { return lhs.first < rhs.first; }
+	inline uint32 operator() (const std::pair<uint32, uint32>& pair) const { return pair.first; }
 };
-
-
-
-//struct UniqueVert
-//{
-//	Vec3f p;
-//	Vec3f n;
-//	Vec2f uv;
-//
-//	inline bool operator < (const UniqueVert& b) const
-//	{
-//		if(p < b.p)
-//			return true;
-//		else if(b.p < p)
-//			return false;
-//		else
-//		{
-//			if(n < b.n)
-//				return true;
-//			else if(b.n < n)
-//				return false;
-//			else
-//				return uv < b.uv;
-//		}
-//	}
-//
-//	inline bool operator == (const UniqueVert& b) const
-//	{
-//		return p == b.p && n == b.n && uv == b.uv;
-//	}
-//};
-//
-//
-//class UniqueVertHash
-//{
-//public:
-//	// hash _Keyval to size_t value by pseudorandomizing transform.
-//	inline size_t operator()(const UniqueVert& v) const { return bitCast<uint32>(v.p.x); }
-//};
 
 
 // This is used to combine vertices with the same position, normal, and uv.
@@ -2265,98 +2259,77 @@ struct uint32KVP
 // Or we could compare with the existing indices.  This will combine vertices effectively only if there are merged (not duplicated) in the Indigo mesh.
 // In practice positions are usually combined (subdiv relies on it etc..), but UVs often aren't.  So we will use the index for positions, and the actual UV (0) value
 // for the UVs.
-/*struct UniqueVertKey
-{
-	Vec3f p;
-	Vec3f n;
-	Vec2f uv;
 
-	inline bool operator < (const UniqueVertKey& other) const
+
+//#define USE_INDIGO_MESH_INDICES 1
+
+
+/*
+When the triangle and quad vertex_indices and uv_indices are the same,
+and the triangles and quads are (mostly) sorted by material, we can 
+more-or-less directly load the mesh data into OpenGL, instead of building unique (pos, normal, uv0) vertices and sorting
+indices by material.
+*/
+static bool canLoadMeshDirectly(const Indigo::Mesh* const mesh)
+{
+	const bool mesh_has_uvs = mesh->num_uv_mappings > 0;
+
+	uint32 last_mat_index = std::numeric_limits<uint32>::max();
+	uint32 num_changes = 0; // Number of changes of the current material
+
+	const Indigo::Triangle* tris = mesh->triangles.data();
+	const size_t num_tris = mesh->triangles.size();
+	for(size_t t=0; t<num_tris; ++t)
 	{
-		if(p < other.p)
-			return true;
-		if(other.p < p)
+		const Indigo::Triangle& tri = tris[t];
+		const uint32 mat_index = tri.tri_mat_index;
+		if(mat_index != last_mat_index)
+			num_changes++;
+		last_mat_index = mat_index;
+
+		if(mesh_has_uvs &&
+			(tri.vertex_indices[0] != tri.uv_indices[0] ||
+			tri.vertex_indices[1] != tri.uv_indices[1] ||
+			tri.vertex_indices[2] != tri.uv_indices[2]))
 			return false;
-		if(n < other.n)
-			return true;
-		if(other.n < n)
+	}
+
+	const Indigo::Quad* quads = mesh->quads.data();
+	const size_t num_quads = mesh->quads.size();
+	for(size_t q=0; q<num_quads; ++q)
+	{
+		const Indigo::Quad& quad = quads[q];
+		const uint32 mat_index = quad.mat_index;
+		if(mat_index != last_mat_index)
+			num_changes++;
+		last_mat_index = mat_index;
+
+		if(mesh_has_uvs &&
+			(quad.vertex_indices[0] != quad.uv_indices[0] ||
+			quad.vertex_indices[1] != quad.uv_indices[1] ||
+			quad.vertex_indices[2] != quad.uv_indices[2] ||
+			quad.vertex_indices[3] != quad.uv_indices[3]))
 			return false;
-		return uv < other.uv;
 	}
-	inline bool operator == (const UniqueVertKey& b) const
-	{
-		return p == b.p && n == b.n && uv == b.uv;
-	}
-};
 
-
-// Hash function for UniqueVert
-struct UniqueVertKeyHash
-{
-	inline size_t operator()(const UniqueVertKey& v) const { return (uint64)bitCast<uint32>(v.p.x); }
-};*/
-
-
-struct UniqueVertKey
-{
-	unsigned int pos_i; // Index for position and normal for vert
-	//unsigned int uv_i;
-	Vec2f uv;
-
-	inline bool operator < (const UniqueVertKey& b) const
-	{
-		if(pos_i == b.pos_i)
-			return uv < b.uv; //uv_i < b.uv_i;
-		else
-			return pos_i < b.pos_i;
-	}
-	inline bool operator == (const UniqueVertKey& b) const
-	{
-		return pos_i == b.pos_i && uv == b.uv; // uv_i == b.uv_i;
-	}
-	inline bool operator != (const UniqueVertKey& b) const
-	{
-		return pos_i != b.pos_i || uv != b.uv;
-	}
-};
-
-
-// From http://burtleburtle.net/bob/hash/integer.html
-static inline uint32_t uint32Hash(uint32_t a)
-{
-	a = (a ^ 61) ^ (a >> 16);
-	a = a + (a << 3);
-	a = a ^ (a >> 4);
-	a = a * 0x27d4eb2d;
-	a = a ^ (a >> 15);
-	return a;
+	return num_changes <= mesh->num_materials_referenced * 2;
 }
 
-// Hash function for UniqueVert
-struct UniqueVertKeyHash
+
+struct UVsAtVert
 {
-	inline size_t operator()(const UniqueVertKey& v) const
-	{
-		return uint32Hash(v.pos_i);
-	}
+	UVsAtVert() : merged_v_index(-1) {}
+
+	Vec2f uv;
+	int merged_v_index;
 };
-
-
-//struct UniqueVert
-//{
-//	Vec3f p;
-//	Vec3f n;
-//	Vec2f uv;
-//	uint32 mat_index;
-//};
-
 
 
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
 {
 	//-------------------------------------------------------------------------------------------------------
 #if USE_INDIGO_MESH_INDICES
-	if(!mesh_->indices.empty())
+	if(!mesh_->indices.empty()) // If this mesh uses batches of primitives already that already share materials:
 	{
 		Timer timer;
 		const Indigo::Mesh* const mesh = mesh_.getPointer();
@@ -2390,13 +2363,13 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		const size_t vert_positions_size = mesh->vert_positions.size();
 		const size_t uvs_size = mesh->uv_pairs.size();
 
+		// Copy vertex positions, normals and UVs to OpenGL mesh data.
 		for(size_t i=0; i<vert_positions_size; ++i)
 		{
 			const size_t offset = num_bytes_per_vert * i;
 
 			std::memcpy(&vert_data[offset], &mesh->vert_positions[i].x, sizeof(Indigo::Vec3f));
 
-			// Copy vertex data
 			if(mesh_has_shading_normals)
 			{
 #ifdef OSX
@@ -2436,7 +2409,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			batch.prim_start_offset = mesh->chunks[i].indices_start * sizeof(uint32);
 			batch.num_indices = mesh->chunks[i].num_indices;
 			
-
 			// If subsequent batches use the same material, combine them
 			for(size_t z=i + 1; z<mesh->chunks.size(); ++z)
 			{
@@ -2494,12 +2466,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
 
-
 		opengl_render_data->has_uvs				= mesh_has_uvs;
 		opengl_render_data->has_shading_normals = mesh_has_shading_normals;
 
-		//assert(!vert_index_buffer.empty());
-		//const size_t vert_index_buffer_size = vert_index_buffer.size();
 		const size_t vert_index_buffer_size = mesh->indices.size();
 
 		if(mesh->vert_positions.size() < 256)
@@ -2573,275 +2542,443 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	Timer timer;
 
-	const Indigo::Mesh* const mesh = mesh_.getPointer();
-	const bool mesh_has_shading_normals = !mesh->vert_normals.empty();
-	const bool mesh_has_uvs = mesh->num_uv_mappings > 0;
-	const uint32 num_uv_sets = mesh->num_uv_mappings;
+	const Indigo::Mesh* const mesh				= mesh_.getPointer();
+	const Indigo::Triangle* const tris			= mesh->triangles.data();
+	const size_t num_tris						= mesh->triangles.size();
+	const Indigo::Quad* const quads				= mesh->quads.data();
+	const size_t num_quads						= mesh->quads.size();
+	const Indigo::Vec3f* const vert_positions	= mesh->vert_positions.data();
+	const size_t vert_positions_size			= mesh->vert_positions.size();
+	const Indigo::Vec3f* const vert_normals		= mesh->vert_normals.data();
+	const Indigo::Vec3f* const vert_colours		= mesh->vert_colours.data();
+	const Indigo::Vec2f* const uv_pairs			= mesh->uv_pairs.data();
+	const size_t uvs_size						= mesh->uv_pairs.size();
+
+	const bool mesh_has_shading_normals			= !mesh->vert_normals.empty();
+	const bool mesh_has_uvs						= mesh->num_uv_mappings > 0;
+	const uint32 num_uv_sets					= mesh->num_uv_mappings;
+	const bool mesh_has_vert_cols				= !mesh->vert_colours.empty();
 
 	Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
-
-	UniqueVertKey empty_key;
-	empty_key.pos_i = std::numeric_limits<unsigned int>::max();
-	empty_key.uv = Vec2f(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity());
-	HashMapInsertOnly2<UniqueVertKey, uint32, UniqueVertKeyHash> index_for_vert(empty_key, mesh->vert_normals.size());
 
 	// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
 	// If the magnitude is too high we can get articacts if we just use half precision.
 	const float max_use_half_range = 10.f;
 	bool use_half_uvs = true;
-	for(size_t i=0; i<mesh->uv_pairs.size(); ++i)
-		if(std::fabs(mesh->uv_pairs[i].x) > max_use_half_range || std::fabs(mesh->uv_pairs[i].y) > max_use_half_range)
+	for(size_t i=0; i<uvs_size; ++i)
+		if(std::fabs(uv_pairs[i].x) > max_use_half_range || std::fabs(uv_pairs[i].y) > max_use_half_range)
 			use_half_uvs = false;
 
-	js::Vector<uint8, 16>& vert_data = opengl_render_data->vert_data;
+	const size_t pos_size = sizeof(float)*3;
 #ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
 	const size_t packed_normal_size = sizeof(float)*3;
 #else
 	const size_t packed_normal_size = 4; // 4 bytes since we are using GL_INT_2_10_10_10_REV format.
 #endif
 	const size_t packed_uv_size = use_half_uvs ? sizeof(half)*2 : sizeof(float)*2;
-	const size_t num_bytes_per_vert = sizeof(float)*3 + (mesh_has_shading_normals ? packed_normal_size : 0) + (mesh_has_uvs ? packed_uv_size : 0);
-	const size_t normal_offset      = sizeof(float)*3;
-	const size_t uv_offset          = sizeof(float)*3 + (mesh_has_shading_normals ? packed_normal_size : 0);
+
+	/*
+	Vertex data layout is
+	position [always present]
+	normal   [optional]
+	uv_0     [optional]
+	colour   [optional]
+	*/
+	const size_t normal_offset      = pos_size;
+	const size_t uv_offset          = normal_offset   + (mesh_has_shading_normals ? packed_normal_size : 0);
+	const size_t vert_col_offset    = uv_offset       + (mesh_has_uvs ? packed_uv_size : 0);
+	const size_t num_bytes_per_vert = vert_col_offset + (mesh_has_vert_cols ? sizeof(float)*3 : 0);
+	js::Vector<uint8, 16>& vert_data = opengl_render_data->vert_data;
 	vert_data.reserve(mesh->vert_positions.size() * num_bytes_per_vert);
-	size_t next_merged_vert_i = 0;
 	
 
 	js::Vector<uint32, 16>& vert_index_buffer = opengl_render_data->vert_index_buffer;
 	vert_index_buffer.resizeNoCopy(mesh->triangles.size()*3 + mesh->quads.size()*6); // Quads are rendered as two tris.
-	uint32 vert_index_buffer_i = 0; // Current write index into vert_index_buffer
+	
 
+	const bool can_load_mesh_directly = canLoadMeshDirectly(mesh);
 
-	const size_t vert_positions_size = mesh->vert_positions.size();
-	const size_t uvs_size = mesh->uv_pairs.size();
+	size_t num_merged_verts;
 
-	// Create per-material OpenGL triangle indices
-	if(mesh->triangles.size() > 0)
+	if(can_load_mesh_directly)
 	{
-		// Create list of triangle references sorted by material index
-		std::vector<std::pair<uint32, uint32> > tri_indices(mesh->triangles.size());
-				
-		assert(mesh->num_materials_referenced > 0);
-				
-		for(uint32 t = 0; t < mesh->triangles.size(); ++t)
-			tri_indices[t] = std::make_pair(mesh->triangles[t].tri_mat_index, t);
+		// Don't need to create unique vertices and sort by material.
 
-		std::sort(tri_indices.begin(), tri_indices.end(), uint32KVP());
-
-		uint32 current_mat_index = std::numeric_limits<uint32>::max();
-		uint32 last_pass_start_tri_i = 0;
-		for(uint32 t = 0; t < tri_indices.size(); ++t)
+		// Make vertex index buffer from triangles, also build batch info.
+		size_t write_i = 0; // Current write index into vert_index_buffer
+		uint32 last_mat_index = std::numeric_limits<uint32>::max();
+		size_t last_pass_start_index = 0;
+		for(size_t t=0; t<num_tris; ++t)
 		{
-			// If we've switched to a new material then start a new triangle range
-			if(tri_indices[t].first != current_mat_index)
+			const Indigo::Triangle& tri = tris[t];
+			vert_index_buffer[write_i + 0] = tri.vertex_indices[0];
+			vert_index_buffer[write_i + 1] = tri.vertex_indices[1];
+			vert_index_buffer[write_i + 2] = tri.vertex_indices[2];
+			
+			if(tri.tri_mat_index != last_mat_index)
 			{
-				// Add last pass data
-				if(t > last_pass_start_tri_i) // Don't add zero-length passes.
+				if(t > 0) // Don't add zero-length passes.
 				{
 					OpenGLBatch batch;
-					batch.material_index = current_mat_index;
-					batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
-					batch.num_indices = (t - last_pass_start_tri_i)*3;
+					batch.material_index = last_mat_index;
+					batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+					batch.num_indices = (uint32)(write_i - last_pass_start_index);
 					opengl_render_data->batches.push_back(batch);
 				}
-
-				last_pass_start_tri_i = t;
-				current_mat_index = tri_indices[t].first;
+				last_mat_index = tri.tri_mat_index;
+				last_pass_start_index = write_i;
 			}
-			
-			const Indigo::Triangle& tri = mesh->triangles[tri_indices[t].second];
-			for(uint32 i = 0; i < 3; ++i) // For each vert in tri:
-			{
-				const uint32 pos_i		= tri.vertex_indices[i];
-				const uint32 base_uv_i	= tri.uv_indices[i];
-				const uint32 uv_i = base_uv_i * num_uv_sets; // Index of UV for UV set 0.
-				if(pos_i >= vert_positions_size)
-					throw Indigo::Exception("vert index out of bounds");
-				if(mesh_has_uvs && uv_i >= uvs_size)
-					throw Indigo::Exception("UV index out of bounds");
 
-				// Look up merged vertex
-				UniqueVertKey key; key.pos_i = pos_i; key.uv = mesh_has_uvs ? Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y) : Vec2f(0.f); // key.uv_i = uv_i;
-				//UniqueVertKey key; 
-				//key.p = Vec3f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z); 
-				//key.n = mesh_has_shading_normals ? Vec3f(mesh->vert_normals[pos_i].x, mesh->vert_normals[pos_i].y, mesh->vert_normals[pos_i].z) : Vec3f(0.f);
-				//key.uv = mesh_has_uvs ? Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y) : Vec2f(0.f);
-
-				auto res = index_for_vert.find(key); // Have we created this unique vert yet?
-				uint32 merged_v_index;
-				if(res == index_for_vert.end()) // Not created yet:
-				{
-					merged_v_index = (uint32)next_merged_vert_i++;
-					index_for_vert.insert(std::make_pair(key, merged_v_index));
-
-					const size_t cur_size = vert_data.size();
-					vert_data.resize(cur_size + num_bytes_per_vert);
-					std::memcpy(&vert_data[cur_size], &mesh->vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
-					if(mesh_has_shading_normals)
-					{
-#ifdef OSX
-						std::memcpy(&vert_data[cur_size + normal_offset], &mesh->vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
-#else
-						// Pack normal into GL_INT_2_10_10_10_REV format.
-						int x = (int)((mesh->vert_normals[pos_i].x) * 511.f);
-						int y = (int)((mesh->vert_normals[pos_i].y) * 511.f);
-						int z = (int)((mesh->vert_normals[pos_i].z) * 511.f);
-						// ANDing with 1023 isolates the bottom 10 bits.
-						uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
-						std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
-#endif
-					}
-
-					if(mesh_has_uvs)
-					{
-						if(use_half_uvs)
-						{
-							half uv[2];
-							uv[0] = half(mesh->uv_pairs[uv_i].x);
-							uv[1] = half(mesh->uv_pairs[uv_i].y);
-							std::memcpy(&vert_data[cur_size + uv_offset], uv, 4);
-						}
-						else
-							std::memcpy(&vert_data[cur_size + uv_offset], &mesh->uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
-					}
-				}
-				else
-					merged_v_index = res->second;
-
-				vert_index_buffer[vert_index_buffer_i++] = merged_v_index;
-			}
+			write_i += 3;
 		}
+		for(size_t q=0; q<num_quads; ++q)
+		{
+			const Indigo::Quad& quad = quads[q];
+			vert_index_buffer[write_i + 0] = quad.vertex_indices[0];
+			vert_index_buffer[write_i + 1] = quad.vertex_indices[1];
+			vert_index_buffer[write_i + 2] = quad.vertex_indices[2];
+			vert_index_buffer[write_i + 3] = quad.vertex_indices[0];
+			vert_index_buffer[write_i + 4] = quad.vertex_indices[2];
+			vert_index_buffer[write_i + 5] = quad.vertex_indices[3];
 
+			if(quad.mat_index != last_mat_index)
+			{
+				if(write_i > last_pass_start_index) // Don't add zero-length passes.
+				{
+					OpenGLBatch batch;
+					batch.material_index = last_mat_index;
+					batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+					batch.num_indices = (uint32)(write_i - last_pass_start_index);
+					opengl_render_data->batches.push_back(batch);
+				}
+				last_mat_index = quad.mat_index;
+				last_pass_start_index = write_i;
+			}
+
+			write_i += 6;
+		}
 		// Build last pass data that won't have been built yet.
 		{
 			OpenGLBatch batch;
-			batch.material_index = current_mat_index;
-			batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
-			batch.num_indices = ((uint32)tri_indices.size() - last_pass_start_tri_i)*3;
+			batch.material_index = last_mat_index;
+			batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32)); // Offset in bytes
+			batch.num_indices = (uint32)(write_i - last_pass_start_index);
 			opengl_render_data->batches.push_back(batch);
 		}
-	}
 
-	if(mesh->quads.size() > 0)
-	{
-		// Create list of quad references sorted by material index
-		std::vector<std::pair<uint32, uint32> > quad_indices(mesh->quads.size());
-				
-		assert(mesh->num_materials_referenced > 0);
-				
-		for(uint32 q = 0; q < mesh->quads.size(); ++q)
-			quad_indices[q] = std::make_pair(mesh->quads[q].mat_index, q);
-		
-		std::sort(quad_indices.begin(), quad_indices.end(), uint32KVP());
-
-		uint32 current_mat_index = std::numeric_limits<uint32>::max();
-		uint32 last_pass_start_quad_i = 0;
-		for(uint32 q = 0; q < quad_indices.size(); ++q)
+		// Build vertex data
+		vert_data.resize(mesh->vert_positions.size() * num_bytes_per_vert);
+		write_i = 0;
+		for(size_t v=0; v<vert_positions_size; ++v)
 		{
-			// If we've switched to a new material then start a new quad range
-			if(quad_indices[q].first != current_mat_index)
+			// Copy vert position
+			std::memcpy(&vert_data[write_i], &vert_positions[v].x, sizeof(Indigo::Vec3f));
+
+			// Copy vertex normal
+			if(mesh_has_shading_normals)
 			{
-				// Add last pass data
-				if(q > last_pass_start_quad_i) // Don't add zero-length passes.
-				{
-					OpenGLBatch batch;
-					batch.material_index = current_mat_index;
-					batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
-					batch.num_indices = (q - last_pass_start_quad_i)*6;
-					opengl_render_data->batches.push_back(batch);
-				}
-
-				last_pass_start_quad_i = q;
-				current_mat_index = quad_indices[q].first;
-			}
-			
-			const Indigo::Quad& quad = mesh->quads[quad_indices[q].second];
-			uint32 vert_merged_index[4];
-			for(uint32 i = 0; i < 4; ++i) // For each vert in quad:
-			{
-				const uint32 pos_i  = quad.vertex_indices[i];
-				const uint32 uv_i   = quad.uv_indices[i];
-				if(pos_i >= vert_positions_size)
-					throw Indigo::Exception("vert index out of bounds");
-				if(mesh_has_uvs && uv_i >= uvs_size)
-					throw Indigo::Exception("UV index out of bounds");
-
-				// Look up merged vertex
-				UniqueVertKey key; key.pos_i = pos_i; key.uv = mesh_has_uvs ? Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y) : Vec2f(0.f); // key.uv_i = uv_i;
-				//UniqueVertKey key; 
-				//key.p = Vec3f(mesh->vert_positions[pos_i].x, mesh->vert_positions[pos_i].y, mesh->vert_positions[pos_i].z); 
-				//key.n = mesh_has_shading_normals ? Vec3f(mesh->vert_normals[pos_i].x, mesh->vert_normals[pos_i].y, mesh->vert_normals[pos_i].z) : Vec3f(0.f);
-				//key.uv = mesh_has_uvs ? Vec2f(mesh->uv_pairs[uv_i].x, mesh->uv_pairs[uv_i].y) : Vec2f(0.f);
-
-				auto res = index_for_vert.find(key); // Have we created this unique vert yet?
-				uint32 merged_v_index;
-				if(res == index_for_vert.end()) // Not created yet:
-				{
-					merged_v_index = (uint32)next_merged_vert_i++;
-					index_for_vert.insert(std::make_pair(key, merged_v_index));
-
-					const size_t cur_size = vert_data.size();
-					vert_data.resize(cur_size + num_bytes_per_vert);
-					std::memcpy(&vert_data[cur_size], &mesh->vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
-					if(mesh_has_shading_normals)
-					{
 #ifdef OSX
-						std::memcpy(&vert_data[cur_size + normal_offset], &mesh->vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
+				std::memcpy(&vert_data[write_i + normal_offset], &vert_normals[v].x, sizeof(Indigo::Vec3f));
 #else
-						// Pack normal into GL_INT_2_10_10_10_REV format.
-						int x = (int)((mesh->vert_normals[pos_i].x) * 511.f);
-						int y = (int)((mesh->vert_normals[pos_i].y) * 511.f);
-						int z = (int)((mesh->vert_normals[pos_i].z) * 511.f);
-						// ANDing with 1023 isolates the bottom 10 bits.
-						uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
-						std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
+				// Pack normal into GL_INT_2_10_10_10_REV format.
+				int x = (int)((vert_normals[v].x) * 511.f);
+				int y = (int)((vert_normals[v].y) * 511.f);
+				int z = (int)((vert_normals[v].z) * 511.f);
+				// ANDing with 1023 isolates the bottom 10 bits.
+				uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+				std::memcpy(&vert_data[write_i + normal_offset], &n, 4);
 #endif
-					}
-					if(mesh_has_uvs)
-					{
-						if(use_half_uvs)
-						{
-							half uv[2];
-							uv[0] = half(mesh->uv_pairs[uv_i].x);
-							uv[1] = half(mesh->uv_pairs[uv_i].y);
-							std::memcpy(&vert_data[cur_size + uv_offset], uv, 4);
-						}
-						else
-							std::memcpy(&vert_data[cur_size + uv_offset], &mesh->uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
-					}
+			}
+
+			// Copy UVs
+			if(mesh_has_uvs)
+			{
+				const uint32 uv_i = (uint32)v * num_uv_sets; // Index of UV for UV set 0.
+				if(use_half_uvs)
+				{
+					half uv[2];
+					uv[0] = half(uv_pairs[uv_i].x);
+					uv[1] = half(uv_pairs[uv_i].y);
+					std::memcpy(&vert_data[write_i + uv_offset], uv, 4);
 				}
 				else
-					merged_v_index = res->second;
+					std::memcpy(&vert_data[write_i + uv_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+			}
 
-				vert_merged_index[i] = merged_v_index;
-			} // End for each vert in quad:
+			// Copy vert colour
+			if(mesh_has_vert_cols)
+				std::memcpy(&vert_data[write_i + vert_col_offset], &vert_colours[v].x, sizeof(Indigo::Vec3f));
 
-			// Tri 1 of quad
-			vert_index_buffer[vert_index_buffer_i + 0] = vert_merged_index[0];
-			vert_index_buffer[vert_index_buffer_i + 1] = vert_merged_index[1];
-			vert_index_buffer[vert_index_buffer_i + 2] = vert_merged_index[2];
-			// Tri 2 of quad
-			vert_index_buffer[vert_index_buffer_i + 3] = vert_merged_index[0];
-			vert_index_buffer[vert_index_buffer_i + 4] = vert_merged_index[2];
-			vert_index_buffer[vert_index_buffer_i + 5] = vert_merged_index[3];
-
-			vert_index_buffer_i += 6;
+			write_i += num_bytes_per_vert;
 		}
 
-		// Build last pass data that won't have been built yet.
-		OpenGLBatch batch;
-		batch.material_index = current_mat_index;
-		batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
-		batch.num_indices = ((uint32)quad_indices.size() - last_pass_start_quad_i)*6;
-		opengl_render_data->batches.push_back(batch);
+		num_merged_verts = mesh->vert_positions.size();
+	}
+	else // ----------------- else if can't load mesh directly: ------------------------
+	{
+		uint32 vert_index_buffer_i = 0; // Current write index into vert_index_buffer
+		size_t next_merged_vert_i = 0;
+
+		std::vector<UVsAtVert> uvs_at_vert(mesh->vert_positions.size());
+
+		// Create per-material OpenGL triangle indices
+		if(mesh->triangles.size() > 0)
+		{
+			// Create list of triangle references sorted by material index
+			js::Vector<std::pair<uint32, uint32>, 16> unsorted_tri_indices(mesh->triangles.size());
+			js::Vector<std::pair<uint32, uint32>, 16> tri_indices         (mesh->triangles.size()); // Sorted by material
+
+			assert(mesh->num_materials_referenced > 0);
+				
+			for(uint32 t = 0; t < num_tris; ++t)
+				unsorted_tri_indices[t] = std::make_pair(tris[t].tri_mat_index, t);
+
+			Sort::serialCountingSort(/*in=*/unsorted_tri_indices.data(), /*out=*/tri_indices.data(), num_tris, TakeFirstElement());
+
+			uint32 current_mat_index = std::numeric_limits<uint32>::max();
+			uint32 last_pass_start_tri_i = 0;
+			for(uint32 t = 0; t < tri_indices.size(); ++t)
+			{
+				// If we've switched to a new material then start a new triangle range
+				if(tri_indices[t].first != current_mat_index)
+				{
+					// Add last pass data
+					if(t > last_pass_start_tri_i) // Don't add zero-length passes.
+					{
+						OpenGLBatch batch;
+						batch.material_index = current_mat_index;
+						batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
+						batch.num_indices = (t - last_pass_start_tri_i)*3;
+						opengl_render_data->batches.push_back(batch);
+					}
+
+					last_pass_start_tri_i = t;
+					current_mat_index = tri_indices[t].first;
+				}
+			
+				const Indigo::Triangle& tri = tris[tri_indices[t].second];
+				for(uint32 i = 0; i < 3; ++i) // For each vert in tri:
+				{
+					const uint32 pos_i		= tri.vertex_indices[i];
+					const uint32 base_uv_i	= tri.uv_indices[i];
+					const uint32 uv_i = base_uv_i * num_uv_sets; // Index of UV for UV set 0.
+					if(pos_i >= vert_positions_size)
+						throw Indigo::Exception("vert index out of bounds");
+					if(mesh_has_uvs && uv_i >= uvs_size)
+						throw Indigo::Exception("UV index out of bounds");
+
+					// Look up merged vertex
+					const Vec2f uv = mesh_has_uvs ? Vec2f(uv_pairs[uv_i].x, uv_pairs[uv_i].y) : Vec2f(0.f);
+
+					UVsAtVert& at_vert = uvs_at_vert[pos_i];
+					const bool found = at_vert.merged_v_index != -1 && at_vert.uv == uv;
+
+					uint32 merged_v_index;
+					if(!found) // Not created yet:
+					{
+						merged_v_index = (uint32)next_merged_vert_i++;
+
+						if(at_vert.merged_v_index == -1) // If there is no UV inserted yet for this vertex position:
+						{
+							at_vert.uv = uv; // Insert it
+							at_vert.merged_v_index = merged_v_index;
+						}
+
+						const size_t cur_size = vert_data.size();
+						vert_data.resize(cur_size + num_bytes_per_vert);
+						std::memcpy(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f)); // Copy vert position
+
+						if(mesh_has_shading_normals)
+						{
+	#ifdef OSX
+							std::memcpy(&vert_data[cur_size + normal_offset], &vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
+	#else
+							// Pack normal into GL_INT_2_10_10_10_REV format.
+							int x = (int)((vert_normals[pos_i].x) * 511.f);
+							int y = (int)((vert_normals[pos_i].y) * 511.f);
+							int z = (int)((vert_normals[pos_i].z) * 511.f);
+							// ANDing with 1023 isolates the bottom 10 bits.
+							uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
+							std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
+	#endif
+						}
+
+						if(mesh_has_uvs)
+						{
+							if(use_half_uvs)
+							{
+								half half_uv[2];
+								half_uv[0] = half(uv.x);
+								half_uv[1] = half(uv.y);
+								std::memcpy(&vert_data[cur_size + uv_offset], half_uv, 4);
+							}
+							else
+								std::memcpy(&vert_data[cur_size + uv_offset], &uv.x, sizeof(Indigo::Vec2f));
+						}
+
+						if(mesh_has_vert_cols)
+							std::memcpy(&vert_data[cur_size + vert_col_offset], &vert_colours[pos_i].x, sizeof(Indigo::Vec3f));
+					}
+					else
+					{
+						merged_v_index = at_vert.merged_v_index; // Else a vertex with this position index and UV has already been created, use it
+					}
+
+					vert_index_buffer[vert_index_buffer_i++] = merged_v_index;
+				}
+			}
+
+			// Build last pass data that won't have been built yet.
+			{
+				OpenGLBatch batch;
+				batch.material_index = current_mat_index;
+				batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
+				batch.num_indices = ((uint32)tri_indices.size() - last_pass_start_tri_i)*3;
+				opengl_render_data->batches.push_back(batch);
+			}
+		}
+
+		if(mesh->quads.size() > 0)
+		{
+			// Create list of quad references sorted by material index
+			js::Vector<std::pair<uint32, uint32>, 16> unsorted_quad_indices(mesh->quads.size());
+			js::Vector<std::pair<uint32, uint32>, 16> quad_indices         (mesh->quads.size()); // Sorted by material
+				
+			assert(mesh->num_materials_referenced > 0);
+				
+			for(uint32 q = 0; q < num_quads; ++q)
+				unsorted_quad_indices[q] = std::make_pair(quads[q].mat_index, q);
+		
+			Sort::serialCountingSort(/*in=*/unsorted_quad_indices.data(), /*out=*/quad_indices.data(), num_quads, TakeFirstElement());
+
+			uint32 current_mat_index = std::numeric_limits<uint32>::max();
+			uint32 last_pass_start_quad_i = 0;
+			for(uint32 q = 0; q < quad_indices.size(); ++q)
+			{
+				// If we've switched to a new material then start a new quad range
+				if(quad_indices[q].first != current_mat_index)
+				{
+					// Add last pass data
+					if(q > last_pass_start_quad_i) // Don't add zero-length passes.
+					{
+						OpenGLBatch batch;
+						batch.material_index = current_mat_index;
+						batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
+						batch.num_indices = (q - last_pass_start_quad_i)*6;
+						opengl_render_data->batches.push_back(batch);
+					}
+
+					last_pass_start_quad_i = q;
+					current_mat_index = quad_indices[q].first;
+				}
+			
+				const Indigo::Quad& quad = quads[quad_indices[q].second];
+				uint32 vert_merged_index[4];
+				for(uint32 i = 0; i < 4; ++i) // For each vert in quad:
+				{
+					const uint32 pos_i  = quad.vertex_indices[i];
+					const uint32 uv_i   = quad.uv_indices[i];
+					if(pos_i >= vert_positions_size)
+						throw Indigo::Exception("vert index out of bounds");
+					if(mesh_has_uvs && uv_i >= uvs_size)
+						throw Indigo::Exception("UV index out of bounds");
+
+					// Look up merged vertex
+					const Vec2f uv = mesh_has_uvs ? Vec2f(uv_pairs[uv_i].x, uv_pairs[uv_i].y) : Vec2f(0.f);
+
+					UVsAtVert& at_vert = uvs_at_vert[pos_i];
+					const bool found = at_vert.merged_v_index != -1 && at_vert.uv == uv;
+
+					uint32 merged_v_index;
+					if(!found)
+					{
+						merged_v_index = (uint32)next_merged_vert_i++;
+
+						if(at_vert.merged_v_index == -1) // If there is no UV inserted yet for this vertex position:
+						{
+							at_vert.uv = uv; // Insert it
+							at_vert.merged_v_index = merged_v_index;
+						}
+
+						const size_t cur_size = vert_data.size();
+						vert_data.resize(cur_size + num_bytes_per_vert);
+						std::memcpy(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
+						if(mesh_has_shading_normals)
+						{
+	#ifdef OSX
+							std::memcpy(&vert_data[cur_size + normal_offset], &vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
+	#else
+							// Pack normal into GL_INT_2_10_10_10_REV format.
+							int x = (int)((vert_normals[pos_i].x) * 511.f);
+							int y = (int)((vert_normals[pos_i].y) * 511.f);
+							int z = (int)((vert_normals[pos_i].z) * 511.f);
+							// ANDing with 1023 isolates the bottom 10 bits.
+							uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
+							std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
+	#endif
+						}
+
+						if(mesh_has_uvs)
+						{
+							if(use_half_uvs)
+							{
+								half half_uv[2];
+								half_uv[0] = half(uv.x);
+								half_uv[1] = half(uv.y);
+								std::memcpy(&vert_data[cur_size + uv_offset], half_uv, 4);
+							}
+							else
+								std::memcpy(&vert_data[cur_size + uv_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+						}
+
+						if(mesh_has_vert_cols)
+							std::memcpy(&vert_data[cur_size + vert_col_offset], &vert_colours[pos_i].x, sizeof(Indigo::Vec3f));
+					}
+					else
+					{
+						merged_v_index = at_vert.merged_v_index; // Else a vertex with this position index and UV has already been created, use it.
+					}
+
+					vert_merged_index[i] = merged_v_index;
+				} // End for each vert in quad:
+
+				// Tri 1 of quad
+				vert_index_buffer[vert_index_buffer_i + 0] = vert_merged_index[0];
+				vert_index_buffer[vert_index_buffer_i + 1] = vert_merged_index[1];
+				vert_index_buffer[vert_index_buffer_i + 2] = vert_merged_index[2];
+				// Tri 2 of quad
+				vert_index_buffer[vert_index_buffer_i + 3] = vert_merged_index[0];
+				vert_index_buffer[vert_index_buffer_i + 4] = vert_merged_index[2];
+				vert_index_buffer[vert_index_buffer_i + 5] = vert_merged_index[3];
+
+				vert_index_buffer_i += 6;
+			}
+
+			// Build last pass data that won't have been built yet.
+			OpenGLBatch batch;
+			batch.material_index = current_mat_index;
+			batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
+			batch.num_indices = ((uint32)quad_indices.size() - last_pass_start_quad_i)*6;
+			opengl_render_data->batches.push_back(batch);
+		}
+
+		assert(vert_index_buffer_i == (uint32)vert_index_buffer.size());
+		num_merged_verts = next_merged_vert_i;
 	}
 
-	assert(vert_index_buffer_i == (uint32)vert_index_buffer.size());
+	/*conPrint("--------------\n"
+		"tris: " + toString(mesh->triangles.size()) + "\n" +
+		"quads: " + toString(mesh->quads.size()) + "\n" +
+		//"num_changes: " + toString(num_changes) + "\n" +
+		"num materials: " + toString(mesh->num_materials_referenced) + "\n" +
+		"num vert positions: " + toString(mesh->vert_positions.size()) + "\n" +
+		"num UVs:            " + toString(mesh->uv_pairs.size()) + "\n" +
+		"mesh_has_uvs: " + boolToString(mesh_has_uvs) + "\n" +
+		"can_load_mesh_directly: " + boolToString(can_load_mesh_directly) + "\n" +
+		"num_merged_verts: " + toString(num_merged_verts));*/
 
 	if(!skip_opengl_calls)
 		opengl_render_data->vert_vbo = new VBO(&vert_data[0], vert_data.dataSizeBytes());
-
-	const size_t num_merged_verts = next_merged_vert_i;
 
 	VertexSpec& spec = opengl_render_data->vertex_spec;
 
@@ -2878,13 +3015,22 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	uv_attrib.offset = (uint32)uv_offset;
 	spec.attributes.push_back(uv_attrib);
 
+	VertexAttrib colour_attrib;
+	colour_attrib.enabled = mesh_has_vert_cols;
+	colour_attrib.num_comps = 3;
+	colour_attrib.type = GL_FLOAT;
+	colour_attrib.normalised = false;
+	colour_attrib.stride = (uint32)num_bytes_per_vert;
+	colour_attrib.offset = (uint32)vert_col_offset;
+	spec.attributes.push_back(colour_attrib);
+
 	if(!skip_opengl_calls)
 		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
 
-
 	opengl_render_data->has_uvs				= mesh_has_uvs;
 	opengl_render_data->has_shading_normals = mesh_has_shading_normals;
-	
+	opengl_render_data->has_vert_colours	= mesh_has_vert_cols;
+
 	assert(!vert_index_buffer.empty());
 	const size_t vert_index_buffer_size = vert_index_buffer.size();
 
@@ -3102,11 +3248,19 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		}
 
 		
-		if(shader_prog.getPointer() == this->phong_prog.getPointer())
+		if(shader_prog.getPointer() == this->phong_prog_no_vert_colours.getPointer())
 		{
 			setUniformsForPhongProg(opengl_mat, mesh_data, phong_locations);
 		}
-		else if(shader_prog.getPointer() == this->phong_with_alpha_test_prog.getPointer())
+		else if(shader_prog.getPointer() == this->phong_with_alpha_test_no_vert_colours_prog.getPointer())
+		{
+			setUniformsForPhongProg(opengl_mat, mesh_data, phong_with_alpha_test_locations);
+		}
+		else if(shader_prog.getPointer() == this->phong_prog_with_vert_colours.getPointer())
+		{
+			setUniformsForPhongProg(opengl_mat, mesh_data, phong_locations);
+		}
+		else if(shader_prog.getPointer() == this->phong_with_alpha_test_with_vert_colours_prog.getPointer())
 		{
 			setUniformsForPhongProg(opengl_mat, mesh_data, phong_with_alpha_test_locations);
 		}

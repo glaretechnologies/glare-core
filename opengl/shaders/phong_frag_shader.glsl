@@ -3,11 +3,15 @@
 in vec3 normal_cs;
 in vec3 normal_ws;
 in vec3 pos_cs;
+in vec3 pos_ws;
 in vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
 in vec3 cam_to_pos_ws;
+#if VERT_COLOURS
+in vec3 vert_colour;
+#endif
 
 uniform vec4 sundir_cs;
 uniform vec4 diffuse_colour;
@@ -108,16 +112,25 @@ vec3 toNonLinear(vec3 x)
 void main()
 {
 	vec3 use_normal_cs;
+	vec3 use_normal_ws;
 	if(have_shading_normals != 0)
 	{
 		use_normal_cs = normal_cs;
+		use_normal_ws = normal_ws;
 	}
 	else
 	{
-		vec3 dp_dx = dFdx(pos_cs);    
-		vec3 dp_dy = dFdy(pos_cs);  
-		vec3 N_g = normalize(cross(dp_dx, dp_dy)); 
+		// Compute camera-space geometric normal.
+		vec3 dp_dx = dFdx(pos_cs);
+		vec3 dp_dy = dFdy(pos_cs);
+		vec3 N_g = cross(dp_dx, dp_dy);
 		use_normal_cs = N_g;
+
+		// Compute world-space geometric normal.
+		dp_dx = dFdx(pos_ws);
+		dp_dy = dFdy(pos_ws);
+		N_g = cross(dp_dx, dp_dy);
+		use_normal_ws = N_g;
 	}
 	vec3 unit_normal_cs = normalize(use_normal_cs);
 
@@ -132,6 +145,10 @@ void main()
 		diffuse_col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy) * diffuse_colour;
 	else
 		diffuse_col = diffuse_colour;
+
+#if VERT_COLOURS
+	diffuse_col.xyz *= vert_colour;
+#endif
 
 #if ALPHA_TEST
 	if(diffuse_col.a < 0.5f)
@@ -235,7 +252,7 @@ void main()
 	sun_vis_factor = 1.0;
 #endif
 
-	vec3 unit_normal_ws = normalize(normal_ws);
+	vec3 unit_normal_ws = normalize(use_normal_ws);
 	if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
 		unit_normal_ws = -unit_normal_ws;
 
@@ -278,6 +295,7 @@ void main()
 		refl_fresnel * spec_refl_light + // Specular reflection of sky
 		sun_light * (1.0 - refl_fresnel) * (1.0 - metallic_frac) * diffuse_col * (1.0 / 3.141592653589793) * light_cos_theta + //  Diffuse substrate part of BRDF * sun light
 		sun_light * specular; // sun light * specular microfacet terms
+	//vec4 col = (sun_light + 3000000000.0)  * diffuse_col;
 		
 	col *= 0.0000000004; // tone-map
 	

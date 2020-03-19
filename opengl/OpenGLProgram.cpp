@@ -52,6 +52,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glBindAttribLocation(program, 0, "position_in");
 	glBindAttribLocation(program, 1, "normal_in");
 	glBindAttribLocation(program, 2, "texture_coords_0_in");
+	glBindAttribLocation(program, 3, "vert_colours_in");
 
 	glLinkProgram(program);
 
@@ -93,6 +94,12 @@ void OpenGLProgram::useProgram() const
 void OpenGLProgram::useNoPrograms()
 {
 	glUseProgram(0);
+}
+
+
+void OpenGLProgram::bindAttributeLocation(int index, const std::string& name)
+{
+	glBindAttribLocation(program, index, name.c_str());
 }
 
 

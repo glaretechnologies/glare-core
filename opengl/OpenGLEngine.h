@@ -52,6 +52,8 @@ public:
 class OpenGLMeshRenderData : public ThreadSafeRefCounted
 {
 public:
+	OpenGLMeshRenderData() : has_vert_colours(false) {}
+
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	js::AABBox aabb_os; // Should go first as is aligned.
@@ -67,6 +69,7 @@ public:
 	std::vector<OpenGLBatch> batches;
 	bool has_uvs;
 	bool has_shading_normals;
+	bool has_vert_colours;
 	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
 
 	VertexSpec vertex_spec;
@@ -300,7 +303,7 @@ public:
 	void updateObjectTransformData(GLObject& object);
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
-	void newMaterialUsed(OpenGLMaterial& mat);
+	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours);
 	void objectMaterialsUpdated(const Reference<GLObject>& object);
 	//----------------------------------------------------------------------------------------
 
@@ -447,7 +450,7 @@ private:
 	};
 
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
-	void assignShaderProgToMaterial(OpenGLMaterial& material);
+	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void buildOutlineTexturesForViewport();
@@ -493,8 +496,12 @@ private:
 	uint64 num_indices_submitted;
 	uint64 num_aabbs_submitted;
 
-	Reference<OpenGLProgram> phong_prog;
-	Reference<OpenGLProgram> phong_with_alpha_test_prog;
+	Reference<OpenGLProgram> phong_prog_no_vert_colours;
+	Reference<OpenGLProgram> phong_with_alpha_test_no_vert_colours_prog;
+
+	Reference<OpenGLProgram> phong_prog_with_vert_colours;
+	Reference<OpenGLProgram> phong_with_alpha_test_with_vert_colours_prog;
+
 
 	PhongUniformLocations phong_locations;
 	PhongUniformLocations phong_with_alpha_test_locations;

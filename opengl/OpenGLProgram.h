@@ -31,6 +31,8 @@ public:
 
 	int getAttributeLocation(const std::string& name);
 
+	void bindAttributeLocation(int index, const std::string& name);
+
 	GLuint program;
 private:
 	INDIGO_DISABLE_COPY(OpenGLProgram);
