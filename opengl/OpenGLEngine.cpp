@@ -2316,6 +2316,21 @@ static bool canLoadMeshDirectly(const Indigo::Mesh* const mesh)
 }
 
 
+static bool canUseHalfUVs(const Indigo::Mesh* const mesh)
+{
+	const Indigo::Vec2f* const uv_pairs			= mesh->uv_pairs.data();
+	const size_t uvs_size						= mesh->uv_pairs.size();
+
+	// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
+	// If the magnitude is too high we can get articacts if we just use half precision.
+	const float max_use_half_range = 10.f;
+	for(size_t i=0; i<uvs_size; ++i)
+		if(std::fabs(uv_pairs[i].x) > max_use_half_range || std::fabs(uv_pairs[i].y) > max_use_half_range)
+			return false;
+	return true;
+}
+
+
 struct UVsAtVert
 {
 	UVsAtVert() : merged_v_index(-1) {}
@@ -2325,8 +2340,21 @@ struct UVsAtVert
 };
 
 
+// Pack normal into GL_INT_2_10_10_10_REV format.
+inline static uint32 packNormal(const Indigo::Vec3f& normal)
+{
+	int x = (int)(normal.x * 511.f);
+	int y = (int)(normal.y * 511.f);
+	int z = (int)(normal.z * 511.f);
+	// ANDing with 1023 isolates the bottom 10 bits.
+	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+}
+
+
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
 {
+	if(mesh_->triangles.empty() && mesh_->quads.empty())
+		throw Indigo::Exception("Mesh empty.");
 	//-------------------------------------------------------------------------------------------------------
 #if USE_INDIGO_MESH_INDICES
 	if(!mesh_->indices.empty()) // If this mesh uses batches of primitives already that already share materials:
@@ -2559,15 +2587,13 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	const uint32 num_uv_sets					= mesh->num_uv_mappings;
 	const bool mesh_has_vert_cols				= !mesh->vert_colours.empty();
 
+	assert(mesh->num_materials_referenced > 0);
+
 	Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
 
 	// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
 	// If the magnitude is too high we can get articacts if we just use half precision.
-	const float max_use_half_range = 10.f;
-	bool use_half_uvs = true;
-	for(size_t i=0; i<uvs_size; ++i)
-		if(std::fabs(uv_pairs[i].x) > max_use_half_range || std::fabs(uv_pairs[i].y) > max_use_half_range)
-			use_half_uvs = false;
+	const bool use_half_uvs = canUseHalfUVs(mesh);
 
 	const size_t pos_size = sizeof(float)*3;
 #ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
@@ -2680,12 +2706,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 #ifdef OSX
 				std::memcpy(&vert_data[write_i + normal_offset], &vert_normals[v].x, sizeof(Indigo::Vec3f));
 #else
-				// Pack normal into GL_INT_2_10_10_10_REV format.
-				int x = (int)((vert_normals[v].x) * 511.f);
-				int y = (int)((vert_normals[v].y) * 511.f);
-				int z = (int)((vert_normals[v].z) * 511.f);
-				// ANDing with 1023 isolates the bottom 10 bits.
-				uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+				const uint32 n = packNormal(vert_normals[v]); // Pack normal into GL_INT_2_10_10_10_REV format.
 				std::memcpy(&vert_data[write_i + normal_offset], &n, 4);
 #endif
 			}
@@ -2716,8 +2737,10 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	}
 	else // ----------------- else if can't load mesh directly: ------------------------
 	{
-		uint32 vert_index_buffer_i = 0; // Current write index into vert_index_buffer
+		size_t vert_index_buffer_i = 0; // Current write index into vert_index_buffer
 		size_t next_merged_vert_i = 0;
+		size_t last_pass_start_index = 0;
+		uint32 current_mat_index = std::numeric_limits<uint32>::max();
 
 		std::vector<UVsAtVert> uvs_at_vert(mesh->vert_positions.size());
 
@@ -2728,31 +2751,25 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			js::Vector<std::pair<uint32, uint32>, 16> unsorted_tri_indices(mesh->triangles.size());
 			js::Vector<std::pair<uint32, uint32>, 16> tri_indices         (mesh->triangles.size()); // Sorted by material
 
-			assert(mesh->num_materials_referenced > 0);
-				
 			for(uint32 t = 0; t < num_tris; ++t)
 				unsorted_tri_indices[t] = std::make_pair(tris[t].tri_mat_index, t);
 
 			Sort::serialCountingSort(/*in=*/unsorted_tri_indices.data(), /*out=*/tri_indices.data(), num_tris, TakeFirstElement());
 
-			uint32 current_mat_index = std::numeric_limits<uint32>::max();
-			uint32 last_pass_start_tri_i = 0;
 			for(uint32 t = 0; t < tri_indices.size(); ++t)
 			{
 				// If we've switched to a new material then start a new triangle range
 				if(tri_indices[t].first != current_mat_index)
 				{
-					// Add last pass data
-					if(t > last_pass_start_tri_i) // Don't add zero-length passes.
+					if(t > 0) // Don't add zero-length passes.
 					{
 						OpenGLBatch batch;
 						batch.material_index = current_mat_index;
-						batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
-						batch.num_indices = (t - last_pass_start_tri_i)*3;
+						batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+						batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
 						opengl_render_data->batches.push_back(batch);
 					}
-
-					last_pass_start_tri_i = t;
+					last_pass_start_index = vert_index_buffer_i;
 					current_mat_index = tri_indices[t].first;
 				}
 			
@@ -2790,17 +2807,12 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 						if(mesh_has_shading_normals)
 						{
-	#ifdef OSX
+#ifdef OSX
 							std::memcpy(&vert_data[cur_size + normal_offset], &vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
-	#else
-							// Pack normal into GL_INT_2_10_10_10_REV format.
-							int x = (int)((vert_normals[pos_i].x) * 511.f);
-							int y = (int)((vert_normals[pos_i].y) * 511.f);
-							int z = (int)((vert_normals[pos_i].z) * 511.f);
-							// ANDing with 1023 isolates the bottom 10 bits.
-							uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
+#else
+							const uint32 n = packNormal(vert_normals[pos_i]); // Pack normal into GL_INT_2_10_10_10_REV format.
 							std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
-	#endif
+#endif
 						}
 
 						if(mesh_has_uvs)
@@ -2827,15 +2839,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 					vert_index_buffer[vert_index_buffer_i++] = merged_v_index;
 				}
 			}
-
-			// Build last pass data that won't have been built yet.
-			{
-				OpenGLBatch batch;
-				batch.material_index = current_mat_index;
-				batch.prim_start_offset = last_pass_start_tri_i * sizeof(uint32) * 3;
-				batch.num_indices = ((uint32)tri_indices.size() - last_pass_start_tri_i)*3;
-				opengl_render_data->batches.push_back(batch);
-			}
 		}
 
 		if(mesh->quads.size() > 0)
@@ -2844,31 +2847,25 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			js::Vector<std::pair<uint32, uint32>, 16> unsorted_quad_indices(mesh->quads.size());
 			js::Vector<std::pair<uint32, uint32>, 16> quad_indices         (mesh->quads.size()); // Sorted by material
 				
-			assert(mesh->num_materials_referenced > 0);
-				
 			for(uint32 q = 0; q < num_quads; ++q)
 				unsorted_quad_indices[q] = std::make_pair(quads[q].mat_index, q);
 		
 			Sort::serialCountingSort(/*in=*/unsorted_quad_indices.data(), /*out=*/quad_indices.data(), num_quads, TakeFirstElement());
 
-			uint32 current_mat_index = std::numeric_limits<uint32>::max();
-			uint32 last_pass_start_quad_i = 0;
 			for(uint32 q = 0; q < quad_indices.size(); ++q)
 			{
 				// If we've switched to a new material then start a new quad range
 				if(quad_indices[q].first != current_mat_index)
 				{
-					// Add last pass data
-					if(q > last_pass_start_quad_i) // Don't add zero-length passes.
+					if(vert_index_buffer_i > last_pass_start_index) // Don't add zero-length passes.
 					{
 						OpenGLBatch batch;
 						batch.material_index = current_mat_index;
-						batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
-						batch.num_indices = (q - last_pass_start_quad_i)*6;
+						batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+						batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
 						opengl_render_data->batches.push_back(batch);
 					}
-
-					last_pass_start_quad_i = q;
+					last_pass_start_index = vert_index_buffer_i;
 					current_mat_index = quad_indices[q].first;
 				}
 			
@@ -2905,17 +2902,12 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 						std::memcpy(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
 						if(mesh_has_shading_normals)
 						{
-	#ifdef OSX
+#ifdef OSX
 							std::memcpy(&vert_data[cur_size + normal_offset], &vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
-	#else
-							// Pack normal into GL_INT_2_10_10_10_REV format.
-							int x = (int)((vert_normals[pos_i].x) * 511.f);
-							int y = (int)((vert_normals[pos_i].y) * 511.f);
-							int z = (int)((vert_normals[pos_i].z) * 511.f);
-							// ANDing with 1023 isolates the bottom 10 bits.
-							uint32 n = (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20); 
+#else
+							const uint32 n = packNormal(vert_normals[pos_i]); // Pack normal into GL_INT_2_10_10_10_REV format.
 							std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
-	#endif
+#endif
 						}
 
 						if(mesh_has_uvs)
@@ -2953,14 +2945,14 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 				vert_index_buffer_i += 6;
 			}
-
-			// Build last pass data that won't have been built yet.
-			OpenGLBatch batch;
-			batch.material_index = current_mat_index;
-			batch.prim_start_offset = (uint32)mesh->triangles.size()*sizeof(uint32)*3 + last_pass_start_quad_i*sizeof(uint32)*6;
-			batch.num_indices = ((uint32)quad_indices.size() - last_pass_start_quad_i)*6;
-			opengl_render_data->batches.push_back(batch);
 		}
+
+		// Build last pass data that won't have been built yet.
+		OpenGLBatch batch;
+		batch.material_index = current_mat_index;
+		batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+		batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
+		opengl_render_data->batches.push_back(batch);
 
 		assert(vert_index_buffer_i == (uint32)vert_index_buffer.size());
 		num_merged_verts = next_merged_vert_i;

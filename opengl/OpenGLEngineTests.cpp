@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../dll/IndigoStringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Exception.h"
+#include "../utils/FileUtils.h"
 
 
 namespace OpenGLEngineTests
@@ -31,18 +32,47 @@ static void doPerfTest(const std::string& indigo_base_dir, const std::string& me
 	{
 		Indigo::MeshRef mesh = new Indigo::Mesh();
 		Indigo::Mesh::readFromFile(toIndigoString(mesh_path), *mesh);
+
 		conPrint(mesh_path + ": " + toString(mesh->triangles.size()) + " tris, " + toString(mesh->quads.size()) + " quads, " + toString(mesh->vert_positions.size()) + " verts");
-	
+
+		if(mesh->triangles.empty() && mesh->quads.empty())
+		{
+			conPrint("mesh is empty.");
+			return;
+		}
+
 		const int NUM_TRIALS = 1;
-		for(int i=0; i<NUM_TRIALS; ++i)
+		for(int t=0; t<NUM_TRIALS; ++t)
 		{
 			Timer timer;
 			Reference<OpenGLMeshRenderData> mesh_renderdata = OpenGLEngine::buildIndigoMesh(mesh,
 				true // skip opengl calls
 			);
 			conPrint("Build time for '" + mesh_path + "': " + timer.elapsedStringNSigFigs(5));
+			
+
+			// Check resulting batches
+			{
+				const size_t expected_num_indices = mesh->triangles.size() * 3 + mesh->quads.size() * 6;
+
+				const size_t index_type_size = (mesh_renderdata->index_type == GL_UNSIGNED_BYTE) ? 1 : ((mesh_renderdata->index_type == GL_UNSIGNED_SHORT) ? 2 : 4);
+
+				size_t num_indices = 0;
+				size_t expected_cur_offset = 0;
+				for(size_t i=0; i<mesh_renderdata->batches.size(); ++i)
+				{
+					testAssert(expected_cur_offset == mesh_renderdata->batches[i].prim_start_offset);
+
+					if(i > 0)
+						testAssert(mesh_renderdata->batches[i].material_index != mesh_renderdata->batches[i - 1].material_index);
+
+					num_indices += mesh_renderdata->batches[i].num_indices;
+					expected_cur_offset += mesh_renderdata->batches[i].num_indices * index_type_size;
+				}
+
+				testAssert(num_indices == expected_num_indices);
+			}
 		}
-		conPrint("");
 	}
 	catch(Indigo::IndigoException& e)
 	{
@@ -179,11 +209,24 @@ void test(const std::string& indigo_base_dir)
 	conPrint("OpenGLEngineTests::test()");
 
 	//--------------------- Do perf tests ----------------------------
+	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/arrow.igmesh"); // Has both tris and quads
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/poolparty_reduced/mesh_18276362613739127974.igmesh"); // ~100 KB mesh
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Supercar_Benchmark_Optimised/mesh_3732024865775885879.igmesh");
 	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
+
+
+	// Run on all IGMESH files in testscenes.
+	{
+		const std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir() + "/testscenes", "igmesh");
+
+		for(size_t i=0; i<paths.size(); ++i)
+		{
+			conPrint(paths[i]);
+			doPerfTest(indigo_base_dir, paths[i]);
+		}
+	}
 
 	conPrint("OpenGLEngineTests::test() done.");
 }
