@@ -2346,7 +2346,14 @@ struct UVsAtVert
 };
 
 
+#ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
+#define NO_PACKED_NORMALS 0 // TEMP
+#else
+#define NO_PACKED_NORMALS 0
+#endif
+
 // Pack normal into GL_INT_2_10_10_10_REV format.
+#if !NO_PACKED_NORMALS
 inline static uint32 packNormal(const Indigo::Vec3f& normal)
 {
 	int x = (int)(normal.x * 511.f);
@@ -2355,6 +2362,7 @@ inline static uint32 packNormal(const Indigo::Vec3f& normal)
 	// ANDing with 1023 isolates the bottom 10 bits.
 	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
 }
+#endif
 
 
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
@@ -2382,7 +2390,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 				use_half_uvs = false;
 
 		js::Vector<uint8, 16> vert_data;
-#ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
+#if NO_PACKED_NORMALS // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
 		const size_t packed_normal_size = sizeof(float)*3;
 #else
 		const size_t packed_normal_size = 4; // 4 bytes since we are using GL_INT_2_10_10_10_REV format.
@@ -2406,7 +2414,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 			if(mesh_has_shading_normals)
 			{
-#ifdef OSX
+#if NO_PACKED_NORMALS
 				std::memcpy(&vert_data[offset + normal_offset], &mesh->vert_normals[i].x, sizeof(Indigo::Vec3f));
 #else
 				// Pack normal into GL_INT_2_10_10_10_REV format.
@@ -2476,7 +2484,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 		VertexAttrib normal_attrib;
 		normal_attrib.enabled = mesh_has_shading_normals;
-#ifdef OSX
+#if NO_PACKED_NORMALS
 		normal_attrib.num_comps = 3;
 		normal_attrib.type = GL_FLOAT;
 		normal_attrib.normalised = false;
@@ -2610,7 +2618,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	const bool use_half_uvs = canUseHalfUVs(mesh);
 
 	const size_t pos_size = sizeof(float)*3;
-#ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
+#if NO_PACKED_NORMALS // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
 	const size_t packed_normal_size = sizeof(float)*3;
 #else
 	const size_t packed_normal_size = 4; // 4 bytes since we are using GL_INT_2_10_10_10_REV format.
@@ -2717,7 +2725,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			// Copy vertex normal
 			if(mesh_has_shading_normals)
 			{
-#ifdef OSX
+#if NO_PACKED_NORMALS
 				std::memcpy(&vert_data[write_i + normal_offset], &vert_normals[v].x, sizeof(Indigo::Vec3f));
 #else
 				const uint32 n = packNormal(vert_normals[v]); // Pack normal into GL_INT_2_10_10_10_REV format.
@@ -2821,7 +2829,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 						if(mesh_has_shading_normals)
 						{
-#ifdef OSX
+#if NO_PACKED_NORMALS
 							std::memcpy(&vert_data[cur_size + normal_offset], &vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
 #else
 							const uint32 n = packNormal(vert_normals[pos_i]); // Pack normal into GL_INT_2_10_10_10_REV format.
@@ -2916,7 +2924,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 						std::memcpy(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
 						if(mesh_has_shading_normals)
 						{
-#ifdef OSX
+#if NO_PACKED_NORMALS
 							std::memcpy(&vert_data[cur_size + normal_offset], &vert_normals[pos_i].x, sizeof(Indigo::Vec3f));
 #else
 							const uint32 n = packNormal(vert_normals[pos_i]); // Pack normal into GL_INT_2_10_10_10_REV format.
@@ -2999,7 +3007,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 
 	VertexAttrib normal_attrib;
 	normal_attrib.enabled = mesh_has_shading_normals;
-#ifdef OSX
+#if NO_PACKED_NORMALS
 	normal_attrib.num_comps = 3;
 	normal_attrib.type = GL_FLOAT;
 	normal_attrib.normalised = false;
