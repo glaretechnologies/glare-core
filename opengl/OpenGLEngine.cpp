@@ -2272,7 +2272,13 @@ indices by material.
 */
 static bool canLoadMeshDirectly(const Indigo::Mesh* const mesh)
 {
-	const bool mesh_has_uvs = mesh->num_uv_mappings > 0;
+	// Some meshes just have a single UV of value (0,0).  We can treat this as just not having UVs.
+	const bool use_mesh_uvs = (mesh->num_uv_mappings > 0) && !(mesh->uv_pairs.size() == 1 && mesh->uv_pairs[0] == Indigo::Vec2f(0, 0));
+
+	// If we just have a single UV coord then we can handle this with a special case, and we don't require vert and uv indices to match.
+	const bool single_uv = mesh->uv_pairs.size() == 1;
+
+	bool need_uv_match = use_mesh_uvs && !single_uv;
 
 	uint32 last_mat_index = std::numeric_limits<uint32>::max();
 	uint32 num_changes = 0; // Number of changes of the current material
@@ -2287,7 +2293,7 @@ static bool canLoadMeshDirectly(const Indigo::Mesh* const mesh)
 			num_changes++;
 		last_mat_index = mat_index;
 
-		if(mesh_has_uvs &&
+		if(need_uv_match &&
 			(tri.vertex_indices[0] != tri.uv_indices[0] ||
 			tri.vertex_indices[1] != tri.uv_indices[1] ||
 			tri.vertex_indices[2] != tri.uv_indices[2]))
@@ -2304,7 +2310,7 @@ static bool canLoadMeshDirectly(const Indigo::Mesh* const mesh)
 			num_changes++;
 		last_mat_index = mat_index;
 
-		if(mesh_has_uvs &&
+		if(need_uv_match &&
 			(quad.vertex_indices[0] != quad.uv_indices[0] ||
 			quad.vertex_indices[1] != quad.uv_indices[1] ||
 			quad.vertex_indices[2] != quad.uv_indices[2] ||
@@ -2316,13 +2322,13 @@ static bool canLoadMeshDirectly(const Indigo::Mesh* const mesh)
 }
 
 
+// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
+// If the magnitude is too high we can get articacts if we just use half precision.
 static bool canUseHalfUVs(const Indigo::Mesh* const mesh)
 {
-	const Indigo::Vec2f* const uv_pairs			= mesh->uv_pairs.data();
-	const size_t uvs_size						= mesh->uv_pairs.size();
-
-	// If UVs are somewhat small in magnitude, use GL_HALF_FLOAT instead of GL_FLOAT.
-	// If the magnitude is too high we can get articacts if we just use half precision.
+	const Indigo::Vec2f* const uv_pairs	= mesh->uv_pairs.data();
+	const size_t uvs_size				= mesh->uv_pairs.size();
+	
 	const float max_use_half_range = 10.f;
 	for(size_t i=0; i<uvs_size; ++i)
 		if(std::fabs(uv_pairs[i].x) > max_use_half_range || std::fabs(uv_pairs[i].y) > max_use_half_range)
@@ -2583,9 +2589,17 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	const size_t uvs_size						= mesh->uv_pairs.size();
 
 	const bool mesh_has_shading_normals			= !mesh->vert_normals.empty();
-	const bool mesh_has_uvs						= mesh->num_uv_mappings > 0;
+	      bool mesh_has_uvs						= mesh->num_uv_mappings > 0;
 	const uint32 num_uv_sets					= mesh->num_uv_mappings;
 	const bool mesh_has_vert_cols				= !mesh->vert_colours.empty();
+
+
+	// Some meshes just have a single UV of value (0,0).  We can treat this as just not having UVs.
+	if(uvs_size == 1 && uv_pairs[0] == Indigo::Vec2f(0, 0))
+		mesh_has_uvs = false;
+
+	// If we just have a single UV coord then we can handle this with a special case, and we don't require vert and uv indices to match.
+	const bool single_uv = uvs_size == 1;
 
 	assert(mesh->num_materials_referenced > 0);
 
@@ -2714,16 +2728,16 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			// Copy UVs
 			if(mesh_has_uvs)
 			{
-				const uint32 uv_i = (uint32)v * num_uv_sets; // Index of UV for UV set 0.
+				const Indigo::Vec2f uv = single_uv ? uv_pairs[0] : uv_pairs[v * num_uv_sets]; // v * num_uv_sets = Index of UV for UV set 0.
 				if(use_half_uvs)
 				{
-					half uv[2];
-					uv[0] = half(uv_pairs[uv_i].x);
-					uv[1] = half(uv_pairs[uv_i].y);
-					std::memcpy(&vert_data[write_i + uv_offset], uv, 4);
+					half half_uv[2];
+					half_uv[0] = half(uv.x);
+					half_uv[1] = half(uv.y);
+					std::memcpy(&vert_data[write_i + uv_offset], half_uv, 4);
 				}
 				else
-					std::memcpy(&vert_data[write_i + uv_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+					std::memcpy(&vert_data[write_i + uv_offset], &uv.x, sizeof(Indigo::Vec2f));
 			}
 
 			// Copy vert colour
@@ -3089,9 +3103,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		conPrint("Src num verts:     " + toString(mesh->vert_positions.size()) + ", num tris: " + toString(mesh->triangles.size()) + ", num quads: " + toString(mesh->quads.size()));
 		if(use_half_uvs) conPrint("Using half UVs.");
 		conPrint("verts:             " + rightPad(toString(num_merged_verts),         ' ', pad_w) + "(" + getNiceByteSize(vert_data.dataSizeBytes()) + ")");
-		//conPrint("merged_positions:  " + rightPad(toString(num_merged_verts),         ' ', pad_w) + "(" + getNiceByteSize(merged_positions.dataSizeBytes()) + ")");
-		//conPrint("merged_normals:    " + rightPad(toString(merged_normals.size()),    ' ', pad_w) + "(" + getNiceByteSize(merged_normals.dataSizeBytes()) + ")");
-		//conPrint("merged_uvs:        " + rightPad(toString(merged_uvs.size()),        ' ', pad_w) + "(" + getNiceByteSize(merged_uvs.dataSizeBytes()) + ")");
 		conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
 	}
 	if(PROFILE)

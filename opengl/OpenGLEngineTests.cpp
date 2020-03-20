@@ -25,9 +25,9 @@ namespace OpenGLEngineTests
 #if BUILD_TESTS
 
 
-static void doPerfTest(const std::string& indigo_base_dir, const std::string& mesh_path)
+static void doTest(const std::string& indigo_base_dir, const std::string& mesh_path)
 {
-	//--------------------- Do perf tests ----------------------------
+	//--------------------- Do perf and functionality tests ----------------------------
 	try
 	{
 		Indigo::MeshRef mesh = new Indigo::Mesh();
@@ -208,13 +208,12 @@ void test(const std::string& indigo_base_dir)
 {
 	conPrint("OpenGLEngineTests::test()");
 
-	//--------------------- Do perf tests ----------------------------
-	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/arrow.igmesh"); // Has both tris and quads
-	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
-	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/poolparty_reduced/mesh_18276362613739127974.igmesh"); // ~100 KB mesh
-	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
-	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Supercar_Benchmark_Optimised/mesh_3732024865775885879.igmesh");
-	doPerfTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
+	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/arrow.igmesh"); // Has both tris and quads
+	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
+	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/poolparty_reduced/mesh_18276362613739127974.igmesh"); // ~100 KB mesh
+	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
+	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Supercar_Benchmark_Optimised/mesh_3732024865775885879.igmesh");
+	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
 
 
 	// Run on all IGMESH files in testscenes.
@@ -224,7 +223,7 @@ void test(const std::string& indigo_base_dir)
 		for(size_t i=0; i<paths.size(); ++i)
 		{
 			conPrint(paths[i]);
-			doPerfTest(indigo_base_dir, paths[i]);
+			doTest(indigo_base_dir, paths[i]);
 		}
 	}
 
