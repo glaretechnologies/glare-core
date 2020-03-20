@@ -2346,11 +2346,9 @@ struct UVsAtVert
 };
 
 
-#ifdef OSX // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
-#define NO_PACKED_NORMALS 0 // TEMP
-#else
+// There were some problems with GL_INT_2_10_10_10_REV not being present in OS X header files before.
 #define NO_PACKED_NORMALS 0
-#endif
+
 
 // Pack normal into GL_INT_2_10_10_10_REV format.
 #if !NO_PACKED_NORMALS
