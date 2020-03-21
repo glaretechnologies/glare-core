@@ -45,6 +45,13 @@ namespace Sort
 	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_choose);
 
 	template <class T, class BucketChooser>
+	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_choose);
+
+	// For when num buckets is already known.
+	template <class T, class BucketChooser>
+	inline void serialCountingSortWithNumBuckets(const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_choose);
+
+	template <class T, class BucketChooser>
 	inline void parallelCountingSort(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_choose);
 
 
@@ -759,6 +766,20 @@ namespace Sort
 			max_bucket = myMax<size_t>(max_bucket, bucket_chooser(in[i]));
 
 		const size_t num_buckets = max_bucket + 1;
+		stableNWayPartition(in, out, num, num_buckets, bucket_chooser);
+	}
+
+
+	template <class T, class BucketChooser>
+	inline void serialCountingSortWithNumBuckets(const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
+	{
+#ifndef NDEBUG
+		// Check passed in num_buckets is large enough
+		size_t max_bucket = 0;
+		for(size_t i=0; i<num; ++i)
+			max_bucket = myMax<size_t>(max_bucket, bucket_chooser(in[i]));
+		assert(max_bucket + 1 <= num_buckets);
+#endif
 		stableNWayPartition(in, out, num, num_buckets, bucket_chooser);
 	}
 
