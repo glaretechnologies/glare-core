@@ -344,9 +344,10 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 			this->socket = new MySocket(url_components.host, (url_components.port == -1) ? 80 : url_components.port);;
 		}
 		
+		const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
 
 		// Send request
-		const std::string request = "GET " + url_components.path + " HTTP/1.1\r\n"
+		const std::string request = "GET " + path_and_query + " HTTP/1.1\r\n"
 			"Host: " + url_components.host + "\r\n"
 			"Connection: close\r\n"
 			"\r\n";
