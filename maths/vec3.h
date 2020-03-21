@@ -646,13 +646,13 @@ VEC3_INLINE bool operator < (const Vec3<Real>& a, const Vec3<Real>& b)
 		return true;
 	else if(a.x > b.x)
 		return false;
-	else	//else x == rhs.x
+	else // else a.x == b.x:
 	{
 		if(a.y < b.y)
 			return true;
 		else if(a.y > b.y)
 			return false;
-		else
+		else // else a.y == b.y:
 		{
 			return a.z < b.z;
 		}
