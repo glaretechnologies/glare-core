@@ -15,6 +15,16 @@ Copyright Glare Technologies Limited 2019 -
 #include <unordered_map>
 
 
+static const std::string currentChunkID(const uint8* data, size_t datalen, size_t cur_i)
+{
+	if(cur_i + 4 > datalen)
+		throw Indigo::Exception("EOF while parsing chunk ID.");
+	std::string res(4, '\0');
+	std::memcpy(&res[0], &data[cur_i], 4);
+	return res;
+}
+
+
 static const std::string parseChunkID(const uint8* data, size_t datalen, size_t& cur_i)
 {
 	if(cur_i + 4 > datalen)
@@ -211,11 +221,14 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 		int numModels = 1;
 		bool parsed_RGBA_chunk = false;
 
-		std::string chunk_id = parseChunkID(data, datalen, cur_i);
+		std::string chunk_id;
 
 		// Handle optional PACK chunk (if it is absent, only one model in the file)
-		if(chunk_id == "PACK")
+		if(currentChunkID(data, datalen, cur_i) == "PACK")
 		{
+			chunk_id = parseChunkID(data, datalen, cur_i);
+			assert(chunk_id == "PACK");
+
 			const size_t chunk_size = parseRestOfChunkHeader(data, datalen, cur_i);
 			const size_t chunk_end = cur_i + chunk_size;
 			
@@ -225,8 +238,6 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 			
 			skipPastChunk(datalen, chunk_end, cur_i); // Skip rest of chunk (if any unparsed)
 		}
-
-		cur_i -= 4; // Unparse chunk id so it will be re-parsed in loop below.
 
 		// Parse next chunks
 		while(cur_i < main_chunk_end)
@@ -339,6 +350,14 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 }
 
 
+bool FormatDecoderVox::isValidVoxFile(const std::string& filename)
+{
+	MemMappedFile file(filename);
+
+	return currentChunkID((const uint8*)file.fileData(), file.fileSize(), 0) == "VOX ";
+}
+
+
 #if BUILD_TESTS
 
 
@@ -360,6 +379,18 @@ void FormatDecoderVox::test()
 
 	try
 	{
+		{
+			const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/vox/2-2-0.vox"; // Has a PACK chunk
+
+			VoxFileContents contents;
+
+			loadModel(path, contents);
+
+			testAssert(contents.version == 150);
+			testAssert(contents.palette.size() == 256);
+			testAssert(contents.models.size() == 1);
+			testAssert(contents.models[0].voxels.size() == 1885);
+		}
 		{
 			const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/vox/teapot.vox";
 

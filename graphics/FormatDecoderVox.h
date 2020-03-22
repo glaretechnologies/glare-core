@@ -92,5 +92,7 @@ public:
 
 	static void loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out); // Throws Indigo::Exception on failure.
 
+	static bool isValidVoxFile(const std::string& filename);
+
 	static void test();
 };
