@@ -453,6 +453,8 @@ private:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
+	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
+		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
 	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();

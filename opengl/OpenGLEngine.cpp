@@ -1511,6 +1511,18 @@ struct OverlayObjectZComparator
 };
 
 
+static bool areAllBatchesFullyOpaque(const std::vector<OpenGLBatch>& batches, const std::vector<OpenGLMaterial>& materials)
+{
+	for(size_t i=0; i<batches.size(); ++i)
+	{
+		const OpenGLMaterial& mat = materials[batches[i].material_index];
+		if(mat.transparent || (mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha()))
+			return false;
+	}
+	return true;
+}
+
+
 void OpenGLEngine::draw()
 {
 	if(!init_succeeded)
@@ -1651,18 +1663,33 @@ void OpenGLEngine::draw()
 
 					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 					bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-					for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					{
-						const uint32 mat_index = mesh_data.batches[z].material_index;
-						// Draw primitives for the given material
-						if(!ob->materials[mat_index].transparent)
-						{
-							const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-							OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
 
-							drawBatch(*ob, view_matrix, proj_matrix,
-								ob->materials[mat_index], // Use tex matrix etc.. from original material
-								use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+					// See if all the batches are fully opaque. If so, can draw all the primitives with one draw call.
+					if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
+					{
+						size_t total_num_indices = 0;
+						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+							total_num_indices += mesh_data.batches[z].num_indices;
+
+						drawBatch(*ob, view_matrix, proj_matrix,
+							ob->materials[0], // tex matrix shouldn't matter for depth_draw_mat
+							depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices); // Draw object with depth_draw_mat.
+					}
+					else
+					{
+						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+						{
+							const uint32 mat_index = mesh_data.batches[z].material_index;
+							// Draw primitives for the given material
+							if(!ob->materials[mat_index].transparent)
+							{
+								const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
+								OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
+
+								drawBatch(*ob, view_matrix, proj_matrix,
+									ob->materials[mat_index], // Use tex matrix etc.. from original material
+									use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+							}
 						}
 					}
 					unbindMeshData(mesh_data);
@@ -1670,7 +1697,7 @@ void OpenGLEngine::draw()
 					//num_drawn++;
 				}
 			}
-			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(num_in_frustum) + " drawn.");
+			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
 		}
 
 		shadow_mapping->unbindDepthTex();
@@ -1815,8 +1842,21 @@ void OpenGLEngine::draw()
 
 							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 							bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-							for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+							// See if all the batches are fully opaque. If so, can draw all the primitives with one draw call.
+							if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
 							{
+								size_t total_num_indices = 0;
+								for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+									total_num_indices += mesh_data.batches[z].num_indices;
+
+								drawBatch(*ob, view_matrix, proj_matrix,
+									ob->materials[0], // tex matrix shouldn't matter for depth_draw_mat
+									depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices); // Draw object with depth_draw_mat.
+							}
+							else
+							{
+								for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+								{
 									const uint32 mat_index = mesh_data.batches[z].material_index;
 									// Draw primitives for the given material
 									if(!ob->materials[mat_index].transparent)
@@ -1829,12 +1869,13 @@ void OpenGLEngine::draw()
 											use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
 									}
 								}
+							}
 							unbindMeshData(mesh_data);
 
 							//num_drawn++;
 						}
 					}
-					//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(num_in_frustum) + " drawn.");
+					//conPrint("Static shadow map Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
 				}
 			}
 
@@ -3230,7 +3271,14 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, 
 	const OpenGLMaterial& opengl_mat, const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
-	if(batch.num_indices == 0)
+	drawBatch(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices);
+}
+
+
+void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat,
+		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices)
+{
+	if(num_indices == 0)
 		return;
 
 	if(shader_prog.nonNull())
@@ -3371,12 +3419,12 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			glLineWidth(ob.line_width);
 		}
 
-		glDrawElements(draw_mode, (GLsizei)batch.num_indices, mesh_data.index_type, (void*)(uint64)batch.prim_start_offset);
+		glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
 
 		shader_prog->useNoPrograms();
 	}
 
-	this->num_indices_submitted += batch.num_indices;
+	this->num_indices_submitted += num_indices;
 	this->num_face_groups_submitted++;
 }
 
