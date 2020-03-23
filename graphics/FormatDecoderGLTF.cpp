@@ -557,7 +557,8 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				GLTFBufferView& index_buf_view = getBufferView(data, index_accessor.buffer_view);
 				GLTFBuffer& buffer = getBuffer(data, index_buf_view.buffer);
 
-				const uint8* offset_base = buffer.binary_data + index_accessor.byte_offset + index_buf_view.byte_offset;
+				const size_t offset_B = index_accessor.byte_offset + index_buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
 
 #if USE_INDIGO_MESH_INDICES
 				mesh_out.chunks.push_back(Indigo::PrimitiveChunk());
@@ -579,6 +580,9 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				
 				if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 				{
+					if(offset_B + index_accessor.count * sizeof(uint16) > buffer.data_size)
+						throw Indigo::Exception("Out of bounds while trying to read indices");
+
 #if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
 						mesh_out.indices[indices_write_i + z] = vert_i_offset + ((const uint16*)offset_base)[z];
@@ -597,6 +601,9 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				}
 				else if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_INT)
 				{
+					if(offset_B + index_accessor.count * sizeof(uint32) > buffer.data_size)
+						throw Indigo::Exception("Out of bounds while trying to read indices");
+
 #if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
 						mesh_out.indices[indices_write_i + z] = vert_i_offset + ((const uint32*)offset_base)[z];
