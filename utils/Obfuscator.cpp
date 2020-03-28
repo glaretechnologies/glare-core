@@ -1017,7 +1017,7 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 	}
 	catch(Winter::BaseException& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw Indigo::Exception(e.messageWithPosition());
 	}
 }
 
