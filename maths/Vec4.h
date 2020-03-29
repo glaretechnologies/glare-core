@@ -236,8 +236,10 @@ INDIGO_STRONG_INLINE const Vec4<T> crossProduct(const Vec4<T>& v1, const Vec4<T>
 }
 
 
-template <class T>
+// NOTE: we'll just define this in the relevant .cpp files like vec4.cpp, so it can go after epsEqual defined for Complex args.
+/*template <class T>
 INDIGO_STRONG_INLINE bool epsEqual(const Vec4<T>& a, const Vec4<T>& b, float eps = NICKMATHS_EPSILON)
 {
 	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps) && ::epsEqual(a.w, b.w, eps);
 }
+*/

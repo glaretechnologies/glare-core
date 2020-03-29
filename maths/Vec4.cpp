@@ -28,6 +28,13 @@ static inline bool epsEqual(Complex a, Complex b, double epsilon = NICKMATHS_EPS
 }
 
 
+template <class T>
+inline static bool epsEqual(const Vec4<T>& a, const Vec4<T>& b, float eps = NICKMATHS_EPSILON)
+{
+	return ::epsEqual(a.x, b.x, eps) && ::epsEqual(a.y, b.y, eps) && ::epsEqual(a.z, b.z, eps) && ::epsEqual(a.w, b.w, eps);
+}
+
+
 void doVec4Tests()
 {
 	conPrint("doVec4Tests()");
