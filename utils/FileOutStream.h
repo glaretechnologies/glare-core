@@ -25,6 +25,7 @@ public:
 
 	virtual void writeInt32(int32 x);
 	virtual void writeUInt32(uint32 x);
+	void writeUInt64(uint64 x);
 	virtual void writeData(const void* data, size_t num_bytes);
 
 private:

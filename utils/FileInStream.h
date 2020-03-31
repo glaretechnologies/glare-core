@@ -28,6 +28,11 @@ public:
 	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 
+	const void* fileData() const { return file.fileData(); } // Returns pointer to file data.  NOTE: This pointer will be the null pointer if the file size is zero.
+	size_t fileSize() const { return file.fileSize(); }
+	
+	void setReadIndex(size_t i);
+	size_t getReadIndex() const { return read_index; }
 private:
 	MemMappedFile file;
 	size_t read_index;

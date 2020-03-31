@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "TextureLoading.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
+#include "../graphics/BatchedMesh.h"
 #include "../physics/jscol_aabbox.h"
 #include "../opengl/OpenGLTexture.h"
 #include "../opengl/OpenGLProgram.h"
@@ -75,6 +76,10 @@ public:
 	VertexSpec vertex_spec;
 	
 	VAORef vert_vao;
+
+	// If this is non-null, load vertex and index data from batched_mesh instead of from vert_data and vert_index_buffer etc..
+	// We take this approach to avoid copying the data.
+	Reference<BatchedMesh> batched_mesh;
 };
 
 
@@ -399,6 +404,9 @@ public:
 	// Build OpenGLMeshRenderData from an Indigo::Mesh.
 	// Throws Indigo::Exception on failure.
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
+
+	// May keep a reference to the mesh in the newly created OpenGLMeshRenderData.
+	static Reference<OpenGLMeshRenderData> buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls);
 
 	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 

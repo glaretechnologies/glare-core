@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/SRGBUtils.h"
+#include "../graphics/BatchedMesh.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../indigo/TestUtils.h"
@@ -2809,15 +2810,15 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		if(mesh->triangles.size() > 0)
 		{
 			// Create list of triangle references sorted by material index
-			js::Vector<std::pair<uint32, uint32>, 16> unsorted_tri_indices(mesh->triangles.size());
-			js::Vector<std::pair<uint32, uint32>, 16> tri_indices         (mesh->triangles.size()); // Sorted by material
+			js::Vector<std::pair<uint32, uint32>, 16> unsorted_tri_indices(num_tris);
+			js::Vector<std::pair<uint32, uint32>, 16> tri_indices         (num_tris); // Sorted by material
 
 			for(uint32 t = 0; t < num_tris; ++t)
 				unsorted_tri_indices[t] = std::make_pair(tris[t].tri_mat_index, t);
 
 			Sort::serialCountingSort(/*in=*/unsorted_tri_indices.data(), /*out=*/tri_indices.data(), num_tris, TakeFirstElement());
 
-			for(uint32 t = 0; t < tri_indices.size(); ++t)
+			for(uint32 t = 0; t < num_tris; ++t)
 			{
 				// If we've switched to a new material then start a new triangle range
 				if(tri_indices[t].first != current_mat_index)
@@ -2905,15 +2906,15 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		if(mesh->quads.size() > 0)
 		{
 			// Create list of quad references sorted by material index
-			js::Vector<std::pair<uint32, uint32>, 16> unsorted_quad_indices(mesh->quads.size());
-			js::Vector<std::pair<uint32, uint32>, 16> quad_indices         (mesh->quads.size()); // Sorted by material
+			js::Vector<std::pair<uint32, uint32>, 16> unsorted_quad_indices(num_quads);
+			js::Vector<std::pair<uint32, uint32>, 16> quad_indices         (num_quads); // Sorted by material
 				
 			for(uint32 q = 0; q < num_quads; ++q)
 				unsorted_quad_indices[q] = std::make_pair(quads[q].mat_index, q);
 		
 			Sort::serialCountingSort(/*in=*/unsorted_quad_indices.data(), /*out=*/quad_indices.data(), num_quads, TakeFirstElement());
 
-			for(uint32 q = 0; q < quad_indices.size(); ++q)
+			for(uint32 q = 0; q < num_quads; ++q)
 			{
 				// If we've switched to a new material then start a new quad range
 				if(quad_indices[q].first != current_mat_index)
@@ -3172,27 +3173,167 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 }
 
 
-void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
+Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls)
 {
-	data.vert_vbo = new VBO(data.vert_data.data(), data.vert_data.dataSizeBytes());
+	if(mesh_->index_data.empty())
+		throw Indigo::Exception("Mesh empty.");
 
-	data.vert_vao = new VAO(data.vert_vbo, data.vertex_spec);
+	Timer timer;
 
-	if(!data.vert_index_buffer_uint8.empty())
+	const BatchedMesh* const mesh				= mesh_.getPointer();
+
+	Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
+
+	switch(mesh->index_type)
 	{
-		data.vert_indices_buf = new VBO(data.vert_index_buffer_uint8.data(), data.vert_index_buffer_uint8.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
-		assert(data.index_type == GL_UNSIGNED_BYTE);
+	case BatchedMesh::ComponentType_UInt8:
+		opengl_render_data->index_type = GL_UNSIGNED_BYTE;
+		break;
+	case BatchedMesh::ComponentType_UInt16:
+		opengl_render_data->index_type = GL_UNSIGNED_SHORT;
+		break;
+	case BatchedMesh::ComponentType_UInt32:
+		opengl_render_data->index_type = GL_UNSIGNED_INT;
+		break;
+	default:
+		throw Indigo::Exception("OpenGLEngine::buildBatchedMesh(): Invalid index type.");
 	}
-	else if(!data.vert_index_buffer_uint16.empty())
+
+
+	// Make OpenGL batches
+	opengl_render_data->batches.resize(mesh->batches.size());
+	for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
 	{
-		data.vert_indices_buf = new VBO(data.vert_index_buffer_uint16.data(), data.vert_index_buffer_uint16.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
-		assert(data.index_type == GL_UNSIGNED_SHORT);
+		opengl_render_data->batches[i].material_index    = mesh->batches[i].material_index;
+		opengl_render_data->batches[i].prim_start_offset = (uint32)(mesh->batches[i].indices_start * BatchedMesh::componentTypeSize(mesh->index_type));
+		opengl_render_data->batches[i].num_indices       = mesh->batches[i].num_indices;
+	}
+
+
+	// Make OpenGL vertex attributes.
+	// NOTE: we need to make the opengl attributes in this particular order, with all present.
+
+	const uint32 num_bytes_per_vert = (uint32)mesh->vertexSize();
+
+	size_t pos_offset;
+	const BatchedMesh::VertAttribute* pos_attr = mesh->findAttribute(BatchedMesh::VertAttribute_Position, pos_offset);
+	if(!pos_attr)
+		throw Indigo::Exception("Pos attribute not present.");
+
+	size_t normal_offset;
+	const BatchedMesh::VertAttribute* normal_attr = mesh->findAttribute(BatchedMesh::VertAttribute_Normal, normal_offset);
+
+	size_t uv0_offset;
+	const BatchedMesh::VertAttribute* uv0_attr = mesh->findAttribute(BatchedMesh::VertAttribute_UV_0, uv0_offset);
+
+	size_t colour_offset;
+	const BatchedMesh::VertAttribute* colour_attr = mesh->findAttribute(BatchedMesh::VertAttribute_Colour, colour_offset);
+
+	VertexAttrib pos_attrib;
+	pos_attrib.enabled = true;
+	pos_attrib.num_comps = 3;
+	pos_attrib.type = GL_FLOAT;
+	pos_attrib.normalised = false;
+	pos_attrib.stride = num_bytes_per_vert;
+	pos_attrib.offset = (uint32)pos_offset;
+	opengl_render_data->vertex_spec.attributes.push_back(pos_attrib);
+
+	VertexAttrib normal_attrib;
+	normal_attrib.enabled = normal_attr != NULL;
+#if NO_PACKED_NORMALS
+	normal_attrib.num_comps = 3;
+	normal_attrib.type = GL_FLOAT;
+	normal_attrib.normalised = false;
+#else
+	normal_attrib.num_comps = 4;
+	normal_attrib.type = GL_INT_2_10_10_10_REV;
+	normal_attrib.normalised = true;
+#endif
+	normal_attrib.stride = num_bytes_per_vert;
+	normal_attrib.offset = (uint32)normal_offset;
+	opengl_render_data->vertex_spec.attributes.push_back(normal_attrib);
+
+	VertexAttrib uv_attrib;
+	uv_attrib.enabled = uv0_attr != NULL;
+	uv_attrib.num_comps = 2;
+	uv_attrib.type = uv0_attr ? ((uv0_attr->component_type == BatchedMesh::ComponentType_Half) ? GL_HALF_FLOAT : GL_FLOAT) : GL_FLOAT;
+	uv_attrib.normalised = false;
+	uv_attrib.stride = num_bytes_per_vert;
+	uv_attrib.offset = (uint32)uv0_offset;
+	opengl_render_data->vertex_spec.attributes.push_back(uv_attrib);
+
+	VertexAttrib colour_attrib;
+	colour_attrib.enabled = colour_attr != NULL;
+	colour_attrib.num_comps = 3;
+	colour_attrib.type = GL_FLOAT;
+	colour_attrib.normalised = false;
+	colour_attrib.stride = num_bytes_per_vert;
+	colour_attrib.offset = (uint32)colour_offset;
+	opengl_render_data->vertex_spec.attributes.push_back(colour_attrib);
+
+
+	if(skip_opengl_calls)
+	{
+		// Copy data to opengl_render_data so it can be loaded later
+		//opengl_render_data->vert_data = mesh->vertex_data;
+		//opengl_render_data->vert_index_buffer_uint8 = mesh->index_data;
+
+		opengl_render_data->batched_mesh = mesh_; // Hang onto a reference to the mesh, we will upload directly from it later.
 	}
 	else
 	{
-		data.vert_indices_buf = new VBO(data.vert_index_buffer.data(), data.vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
-		assert(data.index_type == GL_UNSIGNED_INT);
+		opengl_render_data->vert_indices_buf = new VBO(mesh->index_data.data(), mesh->index_data.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		opengl_render_data->vert_vbo = new VBO(mesh->vertex_data.data(), mesh->vertex_data.dataSizeBytes());
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vertex_spec);
 	}
+
+
+	opengl_render_data->has_uvs				= uv0_attr != NULL;
+	opengl_render_data->has_shading_normals = normal_attr != NULL;
+	opengl_render_data->has_vert_colours	= colour_attr != NULL;
+
+	opengl_render_data->aabb_os = mesh->aabb_os;
+
+	if(PROFILE)
+		conPrint("buildIndigoMesh took " + timer.elapsedStringNPlaces(4));
+
+	return opengl_render_data;
+}
+
+
+void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
+{
+	// If we have a ref to a BatchedMesh, upload directly from it:
+	if(data.batched_mesh.nonNull())
+	{
+		data.vert_vbo = new VBO(data.batched_mesh->vertex_data.data(), data.batched_mesh->vertex_data.dataSizeBytes());
+
+		data.vert_indices_buf = new VBO(data.batched_mesh->index_data.data(), data.batched_mesh->index_data.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+	}
+	else
+	{
+		data.vert_vbo = new VBO(data.vert_data.data(), data.vert_data.dataSizeBytes());
+
+		if(!data.vert_index_buffer_uint8.empty())
+		{
+			data.vert_indices_buf = new VBO(data.vert_index_buffer_uint8.data(), data.vert_index_buffer_uint8.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			assert(data.index_type == GL_UNSIGNED_BYTE);
+		}
+		else if(!data.vert_index_buffer_uint16.empty())
+		{
+			data.vert_indices_buf = new VBO(data.vert_index_buffer_uint16.data(), data.vert_index_buffer_uint16.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			assert(data.index_type == GL_UNSIGNED_SHORT);
+		}
+		else
+		{
+			data.vert_indices_buf = new VBO(data.vert_index_buffer.data(), data.vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			assert(data.index_type == GL_UNSIGNED_INT);
+		}
+	}
+
+	
+	data.vert_vao = new VAO(data.vert_vbo, data.vertex_spec);
+
 
 	// Now that data has been uploaded, free the buffers.
 	data.vert_data.clearAndFreeMem();

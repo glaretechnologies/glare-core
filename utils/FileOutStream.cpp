@@ -43,6 +43,15 @@ void FileOutStream::writeUInt32(uint32 x)
 }
 
 
+void FileOutStream::writeUInt64(uint64 x)
+{
+	file.write((const char*)&x, sizeof(uint64));
+
+	if(file.fail())
+		throw Indigo::Exception("Write to file failed.");
+}
+
+
 void FileOutStream::writeData(const void* data, size_t num_bytes)
 {
 	file.write((const char*)data, num_bytes);

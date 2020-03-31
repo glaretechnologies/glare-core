@@ -24,6 +24,7 @@ class Material;
 class PrintOutput;
 class ShouldCancelCallback;
 namespace Indigo{ class Mesh; }
+class BatchedMesh;
 
 
 enum RayMesh_ShadingNormals
@@ -197,6 +198,7 @@ public:
 
 	
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
+	void fromBatchedMesh(const BatchedMesh& mesh);
 
 	const Reference<Indigo::Mesh> toIndigoMesh() const;
 

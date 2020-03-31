@@ -15,6 +15,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../indigo/TestUtils.h"
 #include "../indigo/material.h"
 #include "../indigo/RendererSettings.h"
+#include "../graphics/BatchedMesh.h"
 #include "../raytracing/hitinfo.h"
 #include "../physics/BVH.h"
 #include "../physics/SmallBVH.h"
@@ -1223,6 +1224,116 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		this->quads[i].uv_indices[3] = mesh.quads[i].uv_indices[3];
 
 		this->quads[i].setMatIndexAndUseShadingNormals(mesh.quads[i].mat_index, use_shading_normals_enum);
+	}
+}
+
+
+// For now, don't bother copying normals, uvs.  Just copy vert positions and make triangles.
+void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
+{
+	this->setMaxNumTexcoordSets(0);
+
+	const size_t vert_size = mesh.vertexSize();
+	const size_t num_verts = mesh.numVerts();
+
+	size_t pos_offset;
+	const BatchedMesh::VertAttribute* pos_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Position, pos_offset);
+	if(!pos_attr)
+		throw Indigo::Exception("Pos attribute not present.");
+
+	// Copy Vertices
+	this->vertices.resize(num_verts);
+
+	const uint8* src_vertex_data = mesh.vertex_data.data();
+	for(size_t i = 0; i < num_verts; ++i)
+	{
+		std::memcpy(&this->vertices[i].pos, src_vertex_data + pos_offset + i * vert_size, sizeof(::Vec3f));
+
+		this->vertices[i].normal.set(0.f, 0.f, 0.f);
+	}
+
+	this->vertex_shading_normals_provided = false;
+	
+	this->uvs.resize(0);
+
+	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
+
+	// Copy Triangles
+
+	const BatchedMesh::ComponentType index_type = mesh.index_type;
+	const size_t num_indices = mesh.numIndices();
+	const size_t num_tris = num_indices / 3;
+
+	const uint8*  const index_data_uint8  = (const uint8* )mesh.index_data.data();
+	const uint16* const index_data_uint16 = (const uint16*)mesh.index_data.data();
+	const uint32* const index_data_uint32 = (const uint32*)mesh.index_data.data();
+
+	this->triangles.reserve(num_tris);
+	unsigned int dest_i = 0;
+	for(size_t b = 0; b < mesh.batches.size(); ++b)
+	{
+		const size_t tri_begin = mesh.batches[b].indices_start / 3;
+		const size_t tri_end   = tri_begin + mesh.batches[b].num_indices / 3;
+		const uint32 mat_index = mesh.batches[b].material_index;
+
+		for(size_t t = tri_begin; t < tri_end; ++t)
+		{
+			uint32 vertex_indices[3];
+			if(index_type == BatchedMesh::ComponentType_UInt8)
+			{
+				vertex_indices[0] = index_data_uint8[t*3 + 0];
+				vertex_indices[1] = index_data_uint8[t*3 + 1];
+				vertex_indices[2] = index_data_uint8[t*3 + 2];
+			}
+			else if(index_type == BatchedMesh::ComponentType_UInt16)
+			{
+				vertex_indices[0] = index_data_uint16[t*3 + 0];
+				vertex_indices[1] = index_data_uint16[t*3 + 1];
+				vertex_indices[2] = index_data_uint16[t*3 + 2];
+			}
+			else if(index_type == BatchedMesh::ComponentType_UInt32)
+			{
+				vertex_indices[0] = index_data_uint32[t*3 + 0];
+				vertex_indices[1] = index_data_uint32[t*3 + 1];
+				vertex_indices[2] = index_data_uint32[t*3 + 2];
+			}
+			else
+			{
+				assert(0);
+			}
+
+			// Check the area of the triangle.
+			// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
+			const Vec4f v0pos = _mm_loadu_ps(&vertices[vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+			const Vec4f v1pos = _mm_loadu_ps(&vertices[vertex_indices[1]].pos.x);
+			const Vec4f v2pos = _mm_loadu_ps(&vertices[vertex_indices[2]].pos.x);
+			const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
+
+			if(cross_prod_len < MIN_TRIANGLE_AREA_TIMES_TWO)
+			{
+				// conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
+			}
+			else
+			{
+				// Add a triangle
+				this->triangles.resize(this->triangles.size() + 1);
+
+				RayMeshTriangle& dest_tri = this->triangles[dest_i];
+
+				dest_tri.vertex_indices[0] = vertex_indices[0];
+				dest_tri.vertex_indices[1] = vertex_indices[1];
+				dest_tri.vertex_indices[2] = vertex_indices[2];
+
+				dest_tri.uv_indices[0] = 0;
+				dest_tri.uv_indices[1] = 0;
+				dest_tri.uv_indices[2] = 0;
+
+				dest_tri.inv_cross_magnitude = 1.f / cross_prod_len;
+				dest_tri.setMatIndexAndUseShadingNormals(mat_index, use_shading_normals_enum);
+
+				dest_i++;
+			}
+		}
 	}
 }
 

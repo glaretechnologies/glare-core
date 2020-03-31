@@ -64,3 +64,11 @@ bool FileInStream::endOfStream()
 {
 	return read_index >= file.fileSize();
 }
+
+
+void FileInStream::setReadIndex(size_t i)
+{
+	if(i > file.fileSize())
+		throw Indigo::Exception("Invalid read index for setReadIndex().");
+	read_index = i;
+}
