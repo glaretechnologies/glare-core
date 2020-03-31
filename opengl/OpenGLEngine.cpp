@@ -3136,7 +3136,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		assert(batch.material_index < mesh->num_materials_referenced);
 		assert(batch.num_indices > 0);
 		//assert(batch.prim_start_offset < opengl_render_data->vert_indices_buf->getSize());
-		const uint32 bytes_per_index = opengl_render_data->index_type == GL_UNSIGNED_INT ? 4 : (opengl_render_data->index_type == GL_UNSIGNED_SHORT ? 2 : 1);
+		//const uint32 bytes_per_index = opengl_render_data->index_type == GL_UNSIGNED_INT ? 4 : (opengl_render_data->index_type == GL_UNSIGNED_SHORT ? 2 : 1);
 		//assert(batch.prim_start_offset + batch.num_indices*bytes_per_index <= opengl_render_data->vert_indices_buf->getSize());
 	}
 
