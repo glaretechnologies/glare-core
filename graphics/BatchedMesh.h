@@ -37,7 +37,13 @@ public:
 	/// @param dest_path		Path on disk.
 	/// @param use_compression	True if compression should be used.
 	/// @throws Indigo::Exception on failure.
-	void writeToFile(const std::string& dest_path, bool use_compression) const;
+	struct WriteOptions
+	{
+		WriteOptions() : use_compression(true), compression_level(3) {}
+		bool use_compression;
+		int compression_level; // Zstandard compression level.  Zstandard defualt compression level is 3.
+	};
+	void writeToFile(const std::string& dest_path, const WriteOptions& write_options = WriteOptions()) const;
 
 	/// Read a BatchedMesh object from disk.
 	/// @param src_path			Path on disk to read from.

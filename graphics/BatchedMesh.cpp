@@ -430,7 +430,7 @@ struct BatchedMeshHeader
 static_assert(sizeof(BatchedMeshHeader) == sizeof(uint32) * 15, "sizeof(BatchedMeshHeader) == sizeof(uint32) * 15");
 
 
-void BatchedMesh::writeToFile(const std::string& dest_path, bool use_compression) const // throws Indigo::Exception on failure
+void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws Indigo::Exception on failure
 {
 	FileOutStream file(dest_path);
 
@@ -440,7 +440,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, bool use_compression
 	header.magic_number = MAGIC_NUMBER;
 	header.format_version = FORMAT_VERSION;
 	header.header_size = sizeof(BatchedMeshHeader);
-	header.flags = use_compression ? FLAG_USE_COMPRESSION : 0;
+	header.flags = write_options.use_compression ? FLAG_USE_COMPRESSION : 0;
 
 	header.num_vert_attributes = (uint32)vert_attributes.size();
 	header.num_batches = (uint32)batches.size();
@@ -466,7 +466,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, bool use_compression
 
 	
 	// Write the rest of the data compressed
-	if(use_compression)
+	if(write_options.use_compression)
 	{
 		// Copy/format the mesh data into a single buffer
 
@@ -548,7 +548,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, bool use_compression
 		js::Vector<uint8, 16> compressed_data(compressed_bound);
 		Timer timer;
 		const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data.data(), filtered_data.size(),
-			1 // compression level
+			write_options.compression_level // compression level
 		);
 
 		const double compression_speed = filtered_data.size() / timer.elapsed();
@@ -645,7 +645,8 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			js::Vector<uint8, 16> plaintext(decompressed_size);
 			//Timer timer;
 			ZSTD_decompress(plaintext.begin(), decompressed_size, (const uint8*)file.fileData() + file.getReadIndex(), compressed_size);
-
+			//const double elapsed = timer.elapsed();
+			//conPrint("Decompression took " + doubleToStringNSigFigs(elapsed, 4) + " (" + doubleToStringNSigFigs(((double)decompressed_size / (1024*1024)) / elapsed, 4) + "MB/s)");
 
 			const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
 			if(header.index_type == ComponentType_UInt8)
@@ -762,6 +763,7 @@ size_t BatchedMesh::numMaterialsReferenced() const
 #if BUILD_TESTS
 
 
+#include "FormatDecoderGLTF.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/FileUtils.h"
@@ -777,7 +779,9 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 
 		// Write without compressionm, read back from disk, and check unchanged in round trip.
 		{
-			batched_mesh.writeToFile(temp_path, /*use_compression=*/false);
+			BatchedMesh::WriteOptions write_options;
+			write_options.use_compression = false;
+			batched_mesh.writeToFile(temp_path, write_options);
 
 			BatchedMesh batched_mesh2;
 			BatchedMesh::readFromFile(temp_path, batched_mesh2);
@@ -787,7 +791,9 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 
 		// Write with compressionm, read back from disk, and check unchanged in round trip.
 		{
-			batched_mesh.writeToFile(temp_path, /*use_compression=*/true);
+			BatchedMesh::WriteOptions write_options;
+			write_options.use_compression = true;
+			batched_mesh.writeToFile(temp_path, write_options);
 
 			BatchedMesh batched_mesh2;
 			BatchedMesh::readFromFile(temp_path, batched_mesh2);
@@ -811,6 +817,56 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 	catch(Indigo::Exception& e)
 	{
 		failTest(e.what());
+	}
+}
+
+
+static void perfTestWithMesh(const std::string& path)
+{
+	conPrint("");
+	conPrint("===================================================");
+	conPrint("Perf test with " + path);
+	conPrint("===================================================");
+	Indigo::Mesh indigo_mesh;
+	if(hasExtension(path, "glb"))
+	{
+		GLTFMaterials mats;
+		FormatDecoderGLTF::loadGLBFile(path, indigo_mesh, 1.f, mats);
+	}
+	else if(hasExtension(path, "gltf"))
+	{
+		GLTFMaterials mats;
+		FormatDecoderGLTF::streamModel(path, indigo_mesh, 1.f, mats);
+	}
+	else if(hasExtension(path, "igmesh"))
+	{
+		Indigo::Mesh::readFromFile(toIndigoString(path), indigo_mesh);
+	}
+		
+
+	BatchedMesh batched_mesh;
+	batched_mesh.buildFromIndigoMesh(indigo_mesh);
+
+	const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp6789.bmesh";
+
+	BatchedMesh::WriteOptions write_options;
+	write_options.use_compression = true;
+
+	const int compression_levels[] = { 1, 3, 6, 9, 20 };
+
+	for(int i=0; i<staticArrayNumElems(compression_levels); ++i)
+	{
+		write_options.compression_level = compression_levels[i];
+
+		conPrint("\nWriting with compression level " + toString(write_options.compression_level));
+		conPrint("----------------------------------------------");
+		batched_mesh.writeToFile(temp_path, write_options);
+
+		// Load from disk to get decompression speed.
+		{
+			BatchedMesh batched_mesh2;
+			BatchedMesh::readFromFile(temp_path, batched_mesh2);
+		}
 	}
 }
 
@@ -879,6 +935,17 @@ void BatchedMesh::test()
 			batched_mesh.buildFromIndigoMesh(indigo_mesh);
 
 			testWritingAndReadingMesh(batched_mesh);
+		}
+		
+		
+		// Perf test - test compression and decompression speed at varying compression levels
+		if(false)
+		{
+			perfTestWithMesh(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb");
+
+			perfTestWithMesh(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/duck/Duck.gltf");
+
+			perfTestWithMesh(TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
 		}
 	}
 	catch(Indigo::Exception& e)
