@@ -30,6 +30,8 @@ public:
 
 	const void* fileData() const { return file.fileData(); } // Returns pointer to file data.  NOTE: This pointer will be the null pointer if the file size is zero.
 	size_t fileSize() const { return file.fileSize(); }
+
+	const void* currentReadPtr() const { return (const uint8*)file.fileData() + read_index; }
 	
 	void setReadIndex(size_t i);
 	size_t getReadIndex() const { return read_index; }

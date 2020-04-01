@@ -99,8 +99,8 @@ public:
 
 	inline static size_t componentTypeSize(ComponentType t);
 	inline static size_t vertAttributeTypeNumComponents(VertAttributeType t);
-	inline static size_t vertAttributeSize(const VertAttribute& attr);
-	inline size_t vertexSize() const; // in bytes
+	inline static size_t vertAttributeSize(const VertAttribute& attr); // In bytes.  Guaranteed to be a multiple of 4.
+	inline size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t numVerts() const;
 	inline size_t numIndices() const;
 
@@ -167,6 +167,7 @@ size_t BatchedMesh::vertAttributeSize(const VertAttribute& attr)
 	else
 		return vertAttributeTypeNumComponents(attr.type) * componentTypeSize(attr.component_type);
 }
+
 
 size_t BatchedMesh::vertexSize() const // in bytes
 {

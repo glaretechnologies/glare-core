@@ -37,6 +37,7 @@ struct BMeshTakeFirstElement
 	inline uint32 operator() (const std::pair<uint32, uint32>& pair) const { return pair.first; }
 };
 
+
 struct BMeshUVsAtVert
 {
 	BMeshUVsAtVert() : merged_v_index(-1) {}
@@ -45,6 +46,7 @@ struct BMeshUVsAtVert
 	int merged_v_index;
 };
 
+
 inline static uint32 BMeshPackNormal(const Indigo::Vec3f& normal)
 {
 	int x = (int)(normal.x * 511.f);
@@ -52,6 +54,22 @@ inline static uint32 BMeshPackNormal(const Indigo::Vec3f& normal)
 	int z = (int)(normal.z * 511.f);
 	// ANDing with 1023 isolates the bottom 10 bits.
 	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+}
+
+
+// Requires dest and src to be 4-byte aligned.
+// size is in bytes.
+inline static void copyUInt32s(void* const dest, const void* const src, size_t size_B)
+{
+	assert(((uint64)dest % 4 == 0) && ((uint64)src % 4 == 0));
+
+	//for(size_t z=0; z<size_B; z += sizeof(uint32))
+	//	*((uint32*)(dest + z)) = *((const uint32*)(src + z));
+
+	const size_t num_uints = size_B / 4;
+
+	for(size_t z=0; z<num_uints; ++z)
+		*((uint32*)dest + z) = *((const uint32*)src + z);
 }
 
 
@@ -169,12 +187,12 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 					const size_t cur_size = vert_data.size();
 					vert_data.resize(cur_size + num_bytes_per_vert);
-					std::memcpy(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f)); // Copy vert position
+					copyUInt32s(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f)); // Copy vert position
 
 					if(mesh_has_shading_normals)
 					{
 						const uint32 n = BMeshPackNormal(vert_normals[pos_i]); // Pack normal into GL_INT_2_10_10_10_REV format.
-						std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
+						copyUInt32s(&vert_data[cur_size + normal_offset], &n, 4);
 					}
 
 					if(mesh_has_uvs)
@@ -184,14 +202,14 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 							half half_uv[2];
 							half_uv[0] = half(uv.x);
 							half_uv[1] = half(uv.y);
-							std::memcpy(&vert_data[cur_size + uv_offset], half_uv, 4);
+							copyUInt32s(&vert_data[cur_size + uv_offset], half_uv, 4);
 						}
 						else
-							std::memcpy(&vert_data[cur_size + uv_offset], &uv.x, sizeof(Indigo::Vec2f));
+							copyUInt32s(&vert_data[cur_size + uv_offset], &uv.x, sizeof(Indigo::Vec2f));
 					}
 
 					if(mesh_has_vert_cols)
-						std::memcpy(&vert_data[cur_size + vert_col_offset], &vert_colours[pos_i].x, sizeof(Indigo::Vec3f));
+						copyUInt32s(&vert_data[cur_size + vert_col_offset], &vert_colours[pos_i].x, sizeof(Indigo::Vec3f));
 				}
 				else
 				{
@@ -261,11 +279,11 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 					const size_t cur_size = vert_data.size();
 					vert_data.resize(cur_size + num_bytes_per_vert);
-					std::memcpy(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
+					copyUInt32s(&vert_data[cur_size], &vert_positions[pos_i].x, sizeof(Indigo::Vec3f));
 					if(mesh_has_shading_normals)
 					{
 						const uint32 n = BMeshPackNormal(vert_normals[pos_i]); // Pack normal into GL_INT_2_10_10_10_REV format.
-						std::memcpy(&vert_data[cur_size + normal_offset], &n, 4);
+						copyUInt32s(&vert_data[cur_size + normal_offset], &n, 4);
 					}
 
 					if(mesh_has_uvs)
@@ -275,14 +293,14 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 							half half_uv[2];
 							half_uv[0] = half(uv.x);
 							half_uv[1] = half(uv.y);
-							std::memcpy(&vert_data[cur_size + uv_offset], half_uv, 4);
+							copyUInt32s(&vert_data[cur_size + uv_offset], half_uv, 4);
 						}
 						else
-							std::memcpy(&vert_data[cur_size + uv_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+							copyUInt32s(&vert_data[cur_size + uv_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
 					}
 
 					if(mesh_has_vert_cols)
-						std::memcpy(&vert_data[cur_size + vert_col_offset], &vert_colours[pos_i].x, sizeof(Indigo::Vec3f));
+						copyUInt32s(&vert_data[cur_size + vert_col_offset], &vert_colours[pos_i].x, sizeof(Indigo::Vec3f));
 				}
 				else
 				{
@@ -403,7 +421,6 @@ bool BatchedMesh::operator == (const BatchedMesh& other) const
 }
 
 
-//static const uint32 MAX_VECTOR_LENGTH = std::numeric_limits<uint32>::max() / 2;
 static const uint32 MAGIC_NUMBER = 12456751;
 static const uint32 FORMAT_VERSION = 1;
 
@@ -432,16 +449,15 @@ static_assert(sizeof(BatchedMeshHeader) == sizeof(uint32) * 15, "sizeof(BatchedM
 
 void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws Indigo::Exception on failure
 {
-	FileOutStream file(dest_path);
-
 	//Timer write_timer;
+
+	FileOutStream file(dest_path);
 
 	BatchedMeshHeader header;
 	header.magic_number = MAGIC_NUMBER;
 	header.format_version = FORMAT_VERSION;
 	header.header_size = sizeof(BatchedMeshHeader);
 	header.flags = write_options.use_compression ? FLAG_USE_COMPRESSION : 0;
-
 	header.num_vert_attributes = (uint32)vert_attributes.size();
 	header.num_batches = (uint32)batches.size();
 	header.index_type = (uint32)index_type;
@@ -449,7 +465,6 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 	header.vertex_data_size_B = (uint32)vertex_data.size();
 	header.aabb_min = Vec3f(aabb_os.min_);
 	header.aabb_max = Vec3f(aabb_os.max_);
-
 
 	file.writeData(&header, sizeof(BatchedMeshHeader));
 
@@ -468,102 +483,153 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 	// Write the rest of the data compressed
 	if(write_options.use_compression)
 	{
-		// Copy/format the mesh data into a single buffer
+		// We will write the index data and vertex data into separate compressed buffers, for a few reasons:
+		// * Since we're processing in two parts, can reuse smaller buffers.
+		// * Buffers for each part can be 4-byte aligned, without using padding
+		// * Resulting compressed size is smaller (as measured with perf tests)
 
-		js::Vector<uint8, 16> filtered_data(index_data.size() + vertex_data.size());
+		js::Vector<uint8, 16> filtered_data_vec;
+		filtered_data_vec.reserve(myMax(index_data.size(), vertex_data.size()));
 
-		// Build filtered index data.
-		uint32 last_index = 0;
-		const size_t num_indices = index_data.size() / componentTypeSize(index_type);
-		if(index_type == ComponentType_UInt8)
-		{
-			const uint8* const index_data_uint8    = (const uint8*)index_data.data();
-			      uint8* const filtered_index_data = (uint8*)filtered_data.data();
-			for(size_t i=0; i<num_indices; ++i)
-			{
-				const uint8 index = index_data_uint8[i];
-				assert(index <= (uint8)std::numeric_limits<int8>::max());
-				const int8 rel_index = (int8)((int32)index - (int32)last_index);
-				filtered_index_data[i] = rel_index;
-				last_index = index;
-			}
-		}
-		else if(index_type == ComponentType_UInt16)
-		{
-			const uint16* const index_data_uint16   = (const uint16*)index_data.data();
-			      uint16* const filtered_index_data = (uint16*)filtered_data.data();
-			for(size_t i=0; i<num_indices; ++i)
-			{
-				const uint16 index = index_data_uint16[i];
-				assert(index <= (uint16)std::numeric_limits<int16>::max());
-				const int16 rel_index = (int16)((int32)index - (int32)last_index);
-				filtered_index_data[i] = rel_index;
-				last_index = index;
-			}
-		}
-		else if(index_type == ComponentType_UInt32)
-		{
-			const uint32* const index_data_uint32   = (const uint32*)index_data.data();
-			      uint32* const filtered_index_data = (uint32*)filtered_data.data();
-			for(size_t i=0; i<num_indices; ++i)
-			{
-				const uint32 index = index_data_uint32[i];
-				assert(index <= (uint32)std::numeric_limits<int32>::max());
-				const int32 rel_index = (int32)((int32)index - (int32)last_index);
-				filtered_index_data[i] = rel_index;
-				last_index = index;
-			}
-		}
-		else
-		{
-			assert(0);
-		}
-
-		// Separate vertex data into separate arrays
-		size_t write_i = index_data.size();
-		const size_t vert_size = vertexSize(); // in bytes
-		const size_t num_verts = vertex_data.size() / vert_size;
-
-		size_t attr_offset = 0;
-		for(size_t b=0; b<vert_attributes.size(); ++b)
-		{
-			const VertAttribute& attr = vert_attributes[b];
-
-			const size_t attr_size = vertAttributeSize(attr);
-
-			for(size_t i=0; i<num_verts; ++i) // For each vertex
-			{
-				// Copy data for this attribute, for this vertex, to filtered_data
-				assert(write_i + attr_size <= filtered_data.size());
-				std::memcpy(filtered_data.data() + write_i, vertex_data.data() + i * vert_size + attr_offset, attr_size);
-
-				write_i += attr_size;
-			}
-
-			attr_offset += attr_size;
-		}
-
-		// Compress the buffer with zstandard
-		const size_t compressed_bound = ZSTD_compressBound(filtered_data.size());
+		const size_t compressed_bound = myMax(ZSTD_compressBound(index_data.size()), ZSTD_compressBound(vertex_data.size())); // Make the buffer large enough that we don't need to resize it later.
 		js::Vector<uint8, 16> compressed_data(compressed_bound);
+
+		size_t total_compressed_size = 0;
 		Timer timer;
-		const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data.data(), filtered_data.size(),
-			write_options.compression_level // compression level
-		);
+		timer.pause();
 
-		const double compression_speed = filtered_data.size() / timer.elapsed();
+		{
+			// Build filtered index data.
+			filtered_data_vec.resizeNoCopy(index_data.size());
+			
+			uint32 last_index = 0;
+			const size_t num_indices = index_data.size() / componentTypeSize(index_type);
+			if(index_type == ComponentType_UInt8)
+			{
+				const uint8* const index_data_uint8    = (const uint8*)index_data.data();
+					  uint8* const filtered_index_data = (uint8*)filtered_data_vec.data();
+				for(size_t i=0; i<num_indices; ++i)
+				{
+					const uint8 index = index_data_uint8[i];
+					assert(index <= (uint8)std::numeric_limits<int8>::max());
+					const int8 rel_index = (int8)((int32)index - (int32)last_index);
+					filtered_index_data[i] = rel_index;
+					last_index = index;
+				}
+			}
+			else if(index_type == ComponentType_UInt16)
+			{
+				const uint16* const index_data_uint16   = (const uint16*)index_data.data();
+					  uint16* const filtered_index_data = (uint16*)filtered_data_vec.data();
+				for(size_t i=0; i<num_indices; ++i)
+				{
+					const uint16 index = index_data_uint16[i];
+					assert(index <= (uint16)std::numeric_limits<int16>::max());
+					const int16 rel_index = (int16)((int32)index - (int32)last_index);
+					filtered_index_data[i] = rel_index;
+					last_index = index;
+				}
+			}
+			else if(index_type == ComponentType_UInt32)
+			{
+				const uint32* const index_data_uint32   = (const uint32*)index_data.data();
+					  uint32* const filtered_index_data = (uint32*)filtered_data_vec.data();
+				for(size_t i=0; i<num_indices; ++i)
+				{
+					const uint32 index = index_data_uint32[i];
+					assert(index <= (uint32)std::numeric_limits<int32>::max());
+					const int32 rel_index = (int32)((int32)index - (int32)last_index);
+					filtered_index_data[i] = rel_index;
+					last_index = index;
+				}
+			}
+			else
+			{
+				assert(0);
+			}
+
+			// Compress the index buffer with zstandard
+			timer.unpause();
+			const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data_vec.data(), filtered_data_vec.size(),
+				write_options.compression_level // compression level
+			);
+			if(ZSTD_isError(compressed_size))
+				throw Indigo::Exception("Compression failed: " + toString(compressed_size));
+			timer.pause();
+
+			// Write compressed size as uint64
+			file.writeUInt64(compressed_size);
+
+			// Now write compressed data to disk
+			file.writeData(compressed_data.data(), compressed_size);
+		
+			total_compressed_size += compressed_size;
+		}
+
+		// Build de-interleaved vertex data, compress it and then write it to disk.
+		{
+			filtered_data_vec.resizeNoCopy(vertex_data.size());
+
+			/*
+			Separate interleaved vertex data into separate arrays
+
+			p0 n0 c0 p1 n1 c1 p2 n2 c2 p3 n3 c3 ... pN nN cN
+			=>
+			p0 p1 p2 p3 ... pN n0 n1 n2 n3 ... nN c0 c1 c2 c3 ... cN
+			*/
+			const size_t vert_size = vertexSize(); // in bytes
+			assert(vert_size % 4 == 0);
+			const size_t num_verts = vertex_data.size() / vert_size;
+
+			size_t attr_offset = 0;
+			uint8* dst_ptr = filtered_data_vec.data();
+			for(size_t b=0; b<vert_attributes.size(); ++b)
+			{
+				const size_t attr_size = vertAttributeSize(vert_attributes[b]);
+				assert(attr_size % 4 == 0);
+				const uint8* src_ptr = vertex_data.data() + attr_offset;
+
+				for(size_t i=0; i<num_verts; ++i) // For each vertex
+				{
+					// Copy data for this attribute, for this vertex, to filtered_data
+					assert(src_ptr + attr_size <= vertex_data.data() + vertex_data.size());
+					assert(dst_ptr + attr_size <= filtered_data_vec.data() + filtered_data_vec.size());
+
+					copyUInt32s(dst_ptr, src_ptr, attr_size);
+
+					src_ptr += vert_size;
+					dst_ptr += attr_size;
+				}
+
+				attr_offset += attr_size;
+			}
+
+			// Compress the vertex data with zstandard
+			timer.unpause();
+			const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data_vec.data(), filtered_data_vec.size(),
+				write_options.compression_level // compression level
+			);
+			if(ZSTD_isError(compressed_size))
+				throw Indigo::Exception("Compression failed: " + toString(compressed_size));
+			timer.pause();
+
+			// Write compressed size as uint64
+			file.writeUInt64(compressed_size);
+
+			// Now write compressed data to disk
+			file.writeData(compressed_data.data(), compressed_size);
+
+			total_compressed_size += compressed_size;
+		}
+
+		
+		const size_t uncompressed_size = index_data.size() + vertex_data.size();
+		const double compression_speed = uncompressed_size / timer.elapsed();
 		conPrint("");
-		conPrint("Uncompressed size:   " + toString(filtered_data.size()) + " B");
-		conPrint("Compressed size:     " + toString(compressed_size) + " B");
-		conPrint("Compression ratio:   " + toString((double)filtered_data.size() / compressed_size));
-		conPrint("Compression took     " + timer.elapsedString() + " (" + toString(compression_speed / (1024*1024)) + " MB/s)");
-
-		// Write compressed size as uint64
-		const uint64 compressed_size_64 = compressed_size;
-		file.writeUInt64(compressed_size_64);
-
-		// Now write compressed data to disk
-		file.writeData(compressed_data.data(), compressed_size);
+		conPrint("Uncompressed size:   " + toString(uncompressed_size) + " B");
+		conPrint("Compressed size:     " + toString(total_compressed_size) + " B");
+		conPrint("Compression ratio:   " + doubleToStringNSigFigs((double)uncompressed_size / total_compressed_size, 4));
+		conPrint("Compression took     " + timer.elapsedStringNSigFigs(4) + " (" + doubleToStringNSigFigs(compression_speed / (1024ull*1024ull), 4) + " MB/s)");
 	}
 	else
 	{
@@ -573,6 +639,10 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 
 	//conPrint("Total time to write to disk: " + write_timer.elapsedString());
 }
+
+
+static const uint32 MAX_NUM_VERT_ATTRIBUTES = 100;
+static const uint32 MAX_NUM_BATCHES = 1000000;
 
 
 void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_out) // throws IndigoException on failure
@@ -591,16 +661,19 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 		if(header.format_version < FORMAT_VERSION)
 			throw Indigo::Exception("Unsupported format version " + toString(header.format_version) + ".");
 
-		const bool compression = (header.flags & FLAG_USE_COMPRESSION) != 0;
-
+		
 		// Skip past rest of header
 		if(header.header_size > 10000 || header.header_size > file.fileSize())
 			throw Indigo::Exception("Header size too large.");
 		file.setReadIndex(header.header_size);
 
 
-
 		// Read vert attributes
+		if(header.num_vert_attributes == 0)
+			throw Indigo::Exception("Zero vert attributes.");
+		if(header.num_vert_attributes > MAX_NUM_VERT_ATTRIBUTES)
+			throw Indigo::Exception("Too many vert attributes.");
+		
 		mesh_out.vert_attributes.resize(header.num_vert_attributes);
 		for(size_t i=0; i<mesh_out.vert_attributes.size(); ++i)
 		{
@@ -616,6 +689,9 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 		}
 
 		// Read batches
+		if(header.num_batches > MAX_NUM_BATCHES)
+			throw Indigo::Exception("Too many batches.");
+
 		mesh_out.batches.resize(header.num_batches);
 		file.readData(mesh_out.batches.data(), mesh_out.batches.size() * sizeof(IndicesBatch));
 
@@ -625,111 +701,150 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			throw Indigo::Exception("Invalid index type value.");
 
 		mesh_out.index_type = (ComponentType)header.index_type;
-		mesh_out.index_data.resize(header.index_data_size_B); // TODO: sanity check
-		mesh_out.vertex_data.resize(header.vertex_data_size_B); // TODO: sanity check
+
+		// Check total index data size is a multiple of each index size.
+		if(header.index_data_size_B % componentTypeSize(mesh_out.index_type) != 0)
+			throw Indigo::Exception("Invalid index_data_size_B.");
+
+		mesh_out.index_data.resize(header.index_data_size_B); // TODO: size check? 32-bit limit of index_data_size_B may be enough.
+
+		// Check total vert data size is a multiple of each vertex size.  Note that vertexSize() should be > 0 since we have set mesh_out.vert_attributes and checked there is at least one attribute.
+		if(header.vertex_data_size_B % mesh_out.vertexSize() != 0)
+			throw Indigo::Exception("Invalid vertex_data_size_B.");
+
+		mesh_out.vertex_data.resize(header.vertex_data_size_B); // TODO: size check? 32-bit limit of vertex_data_size_B may be enough.
 
 		mesh_out.aabb_os.min_ = Vec4f(header.aabb_min.x, header.aabb_min.y, header.aabb_min.z, 1.f);
 		mesh_out.aabb_os.max_ = Vec4f(header.aabb_max.x, header.aabb_max.y, header.aabb_max.z, 1.f);
+		// TODO: require AABB values finite?
 
+		const bool compression = (header.flags & FLAG_USE_COMPRESSION) != 0;
 		if(compression)
 		{
-			// Read compressed size
-			const uint64 compressed_size = file.readUInt64();
+			js::Vector<uint8, 16> plaintext(myMax(header.index_data_size_B, header.vertex_data_size_B)); // Make sure large enough so we don't need to resize later.
 
-			const uint64 decompressed_size = ZSTD_getDecompressedSize((const uint8*)file.fileData() + file.getReadIndex(), compressed_size);
-
-			if(decompressed_size != (uint64)header.index_data_size_B + (uint64)header.vertex_data_size_B)
-				throw Indigo::Exception("decompressed size was invalid.");
-
-			// Decompress data into buffer.
-			js::Vector<uint8, 16> plaintext(decompressed_size);
-			//Timer timer;
-			ZSTD_decompress(plaintext.begin(), decompressed_size, (const uint8*)file.fileData() + file.getReadIndex(), compressed_size);
-			//const double elapsed = timer.elapsed();
-			//conPrint("Decompression took " + doubleToStringNSigFigs(elapsed, 4) + " (" + doubleToStringNSigFigs(((double)decompressed_size / (1024*1024)) / elapsed, 4) + "MB/s)");
-
-			const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
-			if(header.index_type == ComponentType_UInt8)
+			Timer timer;
+			timer.pause();
 			{
-				int32 last_index = 0;
-				const int8* filtered_index_data_int8 = (const int8*)plaintext.data();
-				uint8* index_data = (uint8*)mesh_out.index_data.data();
-				for(size_t i=0; i<num_indices; ++i)
+				const uint64 index_data_compressed_size = file.readUInt64();
+				if((index_data_compressed_size >= file.fileSize()) || (file.getReadIndex() + index_data_compressed_size > file.fileSize())) // Check index_data_compressed_size is valid, while taking care with wraparound
+					throw Indigo::Exception("index_data_compressed_size was invalid.");
+
+				// Decompress index data into plaintext buffer.
+				timer.unpause();
+				const size_t res = ZSTD_decompress(plaintext.begin(), header.index_data_size_B, file.currentReadPtr(), index_data_compressed_size);
+				if(ZSTD_isError(res))
+					throw Indigo::Exception("Decompression of index buffer failed: " + toString(res));
+				if(res < (size_t)header.index_data_size_B)
+					throw Indigo::Exception("Decompression of index buffer failed: not enough bytes in result");
+				timer.pause();
+
+				// Unfilter indices, place in mesh_out.index_data.
+				const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
+				if(header.index_type == ComponentType_UInt8)
 				{
-					int8 index = (int8)last_index + filtered_index_data_int8[i];
-					index_data[i] = index;
-					last_index = index;
+					int32 last_index = 0;
+					const int8* filtered_index_data_int8 = (const int8*)plaintext.data();
+					uint8* index_data = (uint8*)mesh_out.index_data.data();
+					for(size_t i=0; i<num_indices; ++i)
+					{
+						int8 index = (int8)last_index + filtered_index_data_int8[i];
+						index_data[i] = index;
+						last_index = index;
+					}
 				}
+				else if(header.index_type == ComponentType_UInt16)
+				{
+					int32 last_index = 0;
+					const int16* filtered_index_data_int16 = (const int16*)plaintext.data(); // Note that we know plaintext.data() is 16-byte aligned.
+					uint16* index_data = (uint16*)mesh_out.index_data.data();
+					for(size_t i=0; i<num_indices; ++i)
+					{
+						int16 index = (int16)last_index + filtered_index_data_int16[i];
+						index_data[i] = index;
+						last_index = index;
+					}
+				}
+				else if(header.index_type == ComponentType_UInt32)
+				{
+					int32 last_index = 0;
+					const int32* filtered_index_data_int32 = (const int32*)plaintext.data(); // Note that we know plaintext.data() is 16-byte aligned.
+					uint32* index_data = (uint32*)mesh_out.index_data.data();
+					for(size_t i=0; i<num_indices; ++i)
+					{
+						int32 index = (int32)last_index + filtered_index_data_int32[i];
+						index_data[i] = index;
+						last_index = index;
+					}
+				}
+				else
+					throw Indigo::Exception("Invalid index component type " + toString((int)header.index_type));
+
+				file.setReadIndex(file.getReadIndex() + index_data_compressed_size);
 			}
-			else if(header.index_type == ComponentType_UInt16)
+
+		
+			// Decompress and de-filter vertex data.
 			{
-				int32 last_index = 0;
-				const int16* filtered_index_data_int16 = (const int16*)plaintext.data();
-				uint16* index_data = (uint16*)mesh_out.index_data.data();
-				for(size_t i=0; i<num_indices; ++i)
+				const uint64 vertex_data_compressed_size = file.readUInt64();
+				if((vertex_data_compressed_size >= file.fileSize()) || (file.getReadIndex() + vertex_data_compressed_size > file.fileSize())) // Check vertex_data_compressed_size is valid, while taking care with wraparound
+					throw Indigo::Exception("vertex_data_compressed_size was invalid.");
+
+				// Decompress data into plaintext buffer.
+				timer.unpause();
+				const size_t res = ZSTD_decompress(plaintext.begin(), header.vertex_data_size_B, file.currentReadPtr(), vertex_data_compressed_size);
+				if(ZSTD_isError(res))
+					throw Indigo::Exception("Decompression of index buffer failed: " + toString(res));
+				if(res < (size_t)header.vertex_data_size_B)
+					throw Indigo::Exception("Decompression of index buffer failed: not enough bytes in result");
+				timer.pause();
+				const double elapsed = timer.elapsed();
+				// conPrint("Decompression took   " + doubleToStringNSigFigs(elapsed, 4) + " (" + doubleToStringNSigFigs(((double)((size_t)header.index_data_size_B + header.vertex_data_size_B) / (1024ull*1024ull)) / elapsed, 4) + "MB/s)");
+
+				/*
+				Read de-interleaved vertex data, and interleave it.
+			
+				p0 p1 p2 p3 ... pN n0 n1 n2 n3 ... nN c0 c1 c2 c3 ... cN
+				=>
+				p0 n0 c0 p1 n1 c1 p2 n2 c2 p3 n3 c3 ... pN nN cN
+				*/
+				const size_t vert_size = mesh_out.vertexSize(); // in bytes
+				assert(vert_size % 4 == 0);
+				const size_t num_verts = mesh_out.vertex_data.size() / vert_size;
+
+				const uint8* src_ptr = plaintext.data();
+				size_t attr_offset = 0;
+				for(size_t b=0; b<mesh_out.vert_attributes.size(); ++b)
 				{
-					int16 index = (int16)last_index + filtered_index_data_int16[i];
-					index_data[i] = index;
-					last_index = index;
-				}
-			}
-			else if(header.index_type == ComponentType_UInt32)
-			{
-				int32 last_index = 0;
-				const int32* filtered_index_data_int32 = (const int32*)plaintext.data();
-				uint32* index_data = (uint32*)mesh_out.index_data.data();
-				for(size_t i=0; i<num_indices; ++i)
-				{
-					int32 index = (int32)last_index + filtered_index_data_int32[i];
-					index_data[i] = index;
-					last_index = index;
-				}
-			}
-			else
-				throw Indigo::Exception("Invalid index component type " + toString((int)header.index_type));
+					const size_t attr_size = vertAttributeSize(mesh_out.vert_attributes[b]);
+					assert(attr_size % 4 == 0);
+					uint8* dst_ptr = mesh_out.vertex_data.data() + attr_offset;
 
-			
-			/*
-			Read de-interleaved vertex data, and interleave it.
-			Separate vertex data into separate arrays:
-			
-			p0 p1 p2 p3 ... pN n0 n1 n2 n3 ... nN c0 c1 c2 c3 ... cN
-			
-			=>
+					for(size_t i=0; i<num_verts; ++i) // For each vertex
+					{
+						// Copy data for this attribute, for this vertex, to filtered_data
+						assert(src_ptr + attr_size <= plaintext.data() + plaintext.size());
+						assert(dst_ptr + attr_size <= mesh_out.vertex_data.data() + mesh_out.vertex_data.size());
 
-			p0 n0 c0 p1 n1 c1 p2 n2 c2 p3 n3 c3 ... pN nN cN
+						copyUInt32s(dst_ptr, src_ptr, attr_size);
 
-			*/
-			
-			const size_t vert_size = mesh_out.vertexSize(); // in bytes
-			const size_t num_verts = mesh_out.vertex_data.size() / vert_size;
+						src_ptr += attr_size;
+						dst_ptr += vert_size;
+					}
 
-			size_t read_i = mesh_out.index_data.size(); // vert data comes after index data in plaintext buffer.
-			size_t attr_offset = 0;
-			for(size_t b=0; b<mesh_out.vert_attributes.size(); ++b)
-			{
-				const VertAttribute& attr = mesh_out.vert_attributes[b];
-				const size_t attr_size = vertAttributeSize(attr);
-				size_t write_i = attr_offset;
-
-				for(size_t i=0; i<num_verts; ++i) // For each vertex
-				{
-					// Copy data for this attribute, for this vertex, to filtered_data
-					assert(write_i + attr_size <= mesh_out.vertex_data.size());
-					std::memcpy(mesh_out.vertex_data.data() + write_i, plaintext.data() + read_i, attr_size);
-
-					read_i += attr_size;
-					write_i += vert_size;
+					attr_offset += attr_size;
 				}
 
-				attr_offset += attr_size;
+				file.setReadIndex(file.getReadIndex() + vertex_data_compressed_size);
 			}
 		}
 		else // else if !compression:
 		{
-			file.readData(mesh_out.index_data.data(), mesh_out.index_data.dataSizeBytes());
+			file.readData(mesh_out.index_data.data(),  mesh_out.index_data.dataSizeBytes());
 			file.readData(mesh_out.vertex_data.data(), mesh_out.vertex_data.dataSizeBytes());
 		}
+
+		assert(file.getReadIndex() == file.fileSize());
 	}
 	catch(std::bad_alloc&)
 	{
@@ -759,6 +874,7 @@ size_t BatchedMesh::numMaterialsReferenced() const
 		max_i = myMax(max_i, (size_t)batches[b].material_index);
 	return max_i + 1;
 }
+
 
 #if BUILD_TESTS
 
@@ -852,7 +968,7 @@ static void perfTestWithMesh(const std::string& path)
 	BatchedMesh::WriteOptions write_options;
 	write_options.use_compression = true;
 
-	const int compression_levels[] = { 1, 3, 6, 9, 20 };
+	const int compression_levels[] ={ 1, 3, 6 };// , 9, 20};
 
 	for(int i=0; i<staticArrayNumElems(compression_levels); ++i)
 	{
@@ -864,8 +980,10 @@ static void perfTestWithMesh(const std::string& path)
 
 		// Load from disk to get decompression speed.
 		{
+			Timer timer;
 			BatchedMesh batched_mesh2;
 			BatchedMesh::readFromFile(temp_path, batched_mesh2);
+			conPrint("readFromFile() time: " + timer.elapsedStringNSigFigs(4));
 		}
 	}
 }
@@ -947,6 +1065,300 @@ void BatchedMesh::test()
 
 			perfTestWithMesh(TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
 		}
+
+		/*
+		Some results, CPU = Intel(R) Core(TM) i7-8700K CPU:
+
+		===================================================
+		Perf test with O:\indigo\trunk/testfiles/gltf/2CylinderEngine.glb
+		===================================================
+
+		Writing with compression level 1
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     830798 B
+		Compression ratio:   3.3852561031682793
+		Compression took     0.007963000040035695 s (420.87852534918136 MB/s)
+
+		Writing with compression level 3
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     748540 B
+		Compression ratio:   3.757266144761803
+		Compression took     0.01277719996869564 s (226.54076412086405 MB/s)
+
+		Writing with compression level 6
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     721103 B
+		Compression ratio:   3.9002250718690674
+		Compression took     0.030561399995349348 s (91.6447029163987 MB/s)
+
+		Writing with compression level 9
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     710084 B
+		Compression ratio:   3.9607483058342394
+		Compression took     0.04172229999676347 s (66.01593639085978 MB/s)
+
+		Writing with compression level 20
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     620024 B
+		Compression ratio:   4.536056668774112
+		Compression took     0.4796337999869138 s (5.6213213240073445 MB/s)
+
+		===================================================
+		Perf test with O:\indigo\trunk/testfiles/gltf/duck/Duck.gltf
+		===================================================
+
+		Writing with compression level 1
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     64346 B
+		Compression ratio:   1.2875392409784603
+		Compression took     0.001195400021970272 s (248.85044571488913 MB/s)
+
+		Writing with compression level 3
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     63666 B
+		Compression ratio:   1.3012911129959477
+		Compression took     0.0013697000104002655 s (122.42022596370255 MB/s)
+
+		Writing with compression level 6
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     61667 B
+		Compression ratio:   1.3434738190604376
+		Compression took     0.0025105999666266143 s (44.31296226204313 MB/s)
+
+		Writing with compression level 9
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     61568 B
+		Compression ratio:   1.3456340956340955
+		Compression took     0.0031196000054478645 s (41.82415407470109 MB/s)
+
+		Writing with compression level 20
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     60575 B
+		Compression ratio:   1.3676929426330995
+		Compression took     0.012172200018540025 s (7.119429927248082 MB/s)
+
+		===================================================
+		Perf test with O:\indigo\trunk/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh
+		===================================================
+
+		Writing with compression level 1
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     47793085 B
+		Compression ratio:   2.8499493598289374
+		Compression took     0.21159790002275258 s (618.2025166677035 MB/s)
+
+		Writing with compression level 3
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     46020837 B
+		Compression ratio:   2.9597000158862823
+		Compression took     0.4927970999851823 s (264.5570254046427 MB/s)
+
+		Writing with compression level 6
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     45541753 B
+		Compression ratio:   2.9908350695240036
+		Compression took     2.107264499994926 s (61.670013889674586 MB/s)
+
+		Writing with compression level 9
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     45542444 B
+		Compression ratio:   2.9907896906015847
+		Compression took     2.1111218000296503 s (61.59432004020065 MB/s)
+
+		Writing with compression level 20
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     40178301 B
+		Compression ratio:   3.390085409534863
+		Compression took     12.154803499986883 s (10.687562677819832 MB/s)
+		BatchedMesh::test() done.
+
+
+
+
+
+		With separate compression of the index and vertex data:
+
+
+
+
+		===================================================
+		Perf test with O:\indigo\trunk/testfiles/gltf/2CylinderEngine.glb
+		===================================================
+
+		Writing with compression level 1
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     829078 B
+		Compression ratio:   3.3922791341707295
+		Compression took     0.006650500057730824 s (403.3042116132777 MB/s)
+		Decompression took 0.003736 (718.0MB/s)
+
+		Writing with compression level 3
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     748083 B
+		Compression ratio:   3.7595614390381815
+		Compression took     0.011418199981562793 s (234.90345999791134 MB/s)
+		Decompression took 0.003739 (717.3MB/s)
+
+		Writing with compression level 6
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     720478 B
+		Compression ratio:   3.903608437731617
+		Compression took     0.028009999950882047 s (95.75775392076446 MB/s)
+		Decompression took 0.003587 (747.9MB/s)
+
+		Writing with compression level 9
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     709443 B
+		Compression ratio:   3.964326943813668
+		Compression took     0.038837999978568405 s (69.06057686022106 MB/s)
+		Decompression took 0.003411 (786.3MB/s)
+
+		Writing with compression level 20
+		----------------------------------------------
+
+		Uncompressed size:   2812464 B
+		Compressed size:     620023 B
+		Compression ratio:   4.536063984723147
+		Compression took     0.4449350000359118 s (6.028239366201136 MB/s)
+		Decompression took 0.004185 (640.9MB/s)
+
+		===================================================
+		Perf test with O:\indigo\trunk/testfiles/gltf/duck/Duck.gltf
+		===================================================
+
+		Writing with compression level 1
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     61888 B
+		Compression ratio:   1.3386763185108583
+		Compression took     0.0003358999965712428 s (235.21884659759843 MB/s)
+		Decompression took 0.0001917 (412.2MB/s)
+
+		Writing with compression level 3
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     61590 B
+		Compression ratio:   1.3451534339990259
+		Compression took     0.0005754000158049166 s (137.31318664477152 MB/s)
+		Decompression took 0.0001941 (407.1MB/s)
+
+		Writing with compression level 6
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     59877 B
+		Compression ratio:   1.383636454732201
+		Compression took     0.0016341999871656299 s (48.347821800354204 MB/s)
+		Decompression took 0.0001986 (397.8MB/s)
+
+		Writing with compression level 9
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     59744 B
+		Compression ratio:   1.3867166577396894
+		Compression took     0.0016995000187307596 s (46.490149393838884 MB/s)
+		Decompression took 0.0002542 (310.8MB/s)
+
+		Writing with compression level 20
+		----------------------------------------------
+
+		Uncompressed size:   82848 B
+		Compressed size:     59582 B
+		Compression ratio:   1.3904870598502903
+		Compression took     0.010535200068261474 s (7.499621198808736 MB/s)
+		Decompression took 0.0002182 (362.1MB/s)
+
+		===================================================
+		Perf test with O:\indigo\trunk/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh
+		===================================================
+
+		Writing with compression level 1
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     47807468 B
+		Compression ratio:   2.8490919452165926
+		Compression took     0.20913650002330542 s (621.1156311991194 MB/s)
+		Decompression took 0.1487 (873.5MB/s)
+
+		Writing with compression level 3
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     45860861 B
+		Compression ratio:   2.9700243089635845
+		Compression took     0.48414219997357577 s (268.3053640559318 MB/s)
+		Decompression took 0.1516 (856.8MB/s)
+
+		Writing with compression level 6
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     45540911 B
+		Compression ratio:   2.9908903666859015
+		Compression took     1.7893327999627218 s (72.59574586765315 MB/s)
+		Decompression took 0.1620 (801.8MB/s)
+
+		Writing with compression level 9
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     45541879 B
+		Compression ratio:   2.9908267948276794
+		Compression took     2.1417220999719575 s (60.65116908512585 MB/s)
+		Decompression took 0.1543 (841.7MB/s)
+
+		Writing with compression level 20
+		----------------------------------------------
+
+		Uncompressed size:   136207872 B
+		Compressed size:     40175387 B
+		Compression ratio:   3.3903312991110703
+		Compression took     12.293474600010086 s (10.566414577262268 MB/s)
+		Decompression took 0.1857 (699.5MB/s)
+
+		*/
 	}
 	catch(Indigo::Exception& e)
 	{
