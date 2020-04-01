@@ -63,9 +63,6 @@ inline static void copyUInt32s(void* const dest, const void* const src, size_t s
 {
 	assert(((uint64)dest % 4 == 0) && ((uint64)src % 4 == 0));
 
-	//for(size_t z=0; z<size_B; z += sizeof(uint32))
-	//	*((uint32*)(dest + z)) = *((const uint32*)(src + z));
-
 	const size_t num_uints = size_B / 4;
 
 	for(size_t z=0; z<num_uints; ++z)
