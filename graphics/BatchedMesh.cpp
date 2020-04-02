@@ -42,7 +42,8 @@ struct BMeshUVsAtVert
 {
 	BMeshUVsAtVert() : merged_v_index(-1) {}
 
-	Vec2f uv;
+	Vec2f uv0;
+	Vec2f uv1;
 	int merged_v_index;
 };
 
@@ -87,6 +88,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 	const bool mesh_has_shading_normals			= !mesh->vert_normals.empty();
 	bool mesh_has_uvs							= mesh->num_uv_mappings > 0;
+	bool mesh_has_uv1							= mesh->num_uv_mappings > 1;
 	const uint32 num_uv_sets					= mesh->num_uv_mappings;
 	const bool mesh_has_vert_cols				= !mesh->vert_colours.empty();
 
@@ -111,8 +113,9 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 	colour   [optional]
 	*/
 	const size_t normal_offset      = pos_size;
-	const size_t uv_offset          = normal_offset   + (mesh_has_shading_normals ? packed_normal_size : 0);
-	const size_t vert_col_offset    = uv_offset       + (mesh_has_uvs ? packed_uv_size : 0);
+	const size_t uv0_offset         = normal_offset   + (mesh_has_shading_normals ? packed_normal_size : 0);
+	const size_t uv1_offset         = uv0_offset      + (mesh_has_uvs ? packed_uv_size : 0);
+	const size_t vert_col_offset    = uv1_offset      + (mesh_has_uv1 ? packed_uv_size : 0);
 	const size_t num_bytes_per_vert = vert_col_offset + (mesh_has_vert_cols ? sizeof(float)*3 : 0);
 	js::Vector<uint8, 16>& vert_data = this->vertex_data;
 	vert_data.reserve(mesh->vert_positions.size() * num_bytes_per_vert);
@@ -166,10 +169,11 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 					throw Indigo::Exception("UV index out of bounds");
 
 				// Look up merged vertex
-				const Vec2f uv = mesh_has_uvs ? Vec2f(uv_pairs[uv_i].x, uv_pairs[uv_i].y) : Vec2f(0.f);
+				const Vec2f uv0 = mesh_has_uvs ? Vec2f(uv_pairs[uv_i    ].x, uv_pairs[uv_i    ].y) : Vec2f(0.f);
+				const Vec2f uv1 = mesh_has_uv1 ? Vec2f(uv_pairs[uv_i + 1].x, uv_pairs[uv_i + 1].y) : Vec2f(0.f);
 
 				BMeshUVsAtVert& at_vert = uvs_at_vert[pos_i];
-				const bool found = at_vert.merged_v_index != -1 && at_vert.uv == uv;
+				const bool found = at_vert.merged_v_index != -1 && at_vert.uv0 == uv0 && at_vert.uv1 == uv1;
 
 				uint32 merged_v_index;
 				if(!found) // Not created yet:
@@ -178,7 +182,8 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 					if(at_vert.merged_v_index == -1) // If there is no UV inserted yet for this vertex position:
 					{
-						at_vert.uv = uv; // Insert it
+						at_vert.uv0 = uv0; // Insert it
+						at_vert.uv1 = uv1;
 						at_vert.merged_v_index = merged_v_index;
 					}
 
@@ -194,15 +199,30 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 					if(mesh_has_uvs)
 					{
+						// Copy uv_0
 						if(use_half_uvs)
 						{
 							half half_uv[2];
-							half_uv[0] = half(uv.x);
-							half_uv[1] = half(uv.y);
-							copyUInt32s(&vert_data[cur_size + uv_offset], half_uv, 4);
+							half_uv[0] = half(uv0.x);
+							half_uv[1] = half(uv0.y);
+							copyUInt32s(&vert_data[cur_size + uv0_offset], half_uv, 4);
 						}
 						else
-							copyUInt32s(&vert_data[cur_size + uv_offset], &uv.x, sizeof(Indigo::Vec2f));
+							copyUInt32s(&vert_data[cur_size + uv0_offset], &uv0.x, sizeof(Indigo::Vec2f));
+
+						// Copy uv_1
+						if(mesh_has_uv1)
+						{
+							if(use_half_uvs)
+							{
+								half half_uv[2];
+								half_uv[0] = half(uv1.x);
+								half_uv[1] = half(uv1.y);
+								copyUInt32s(&vert_data[cur_size + uv1_offset], half_uv, 4);
+							}
+							else
+								copyUInt32s(&vert_data[cur_size + uv1_offset], &uv1.x, sizeof(Indigo::Vec2f));
+						}
 					}
 
 					if(mesh_has_vert_cols)
@@ -258,10 +278,11 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 					throw Indigo::Exception("UV index out of bounds");
 
 				// Look up merged vertex
-				const Vec2f uv = mesh_has_uvs ? Vec2f(uv_pairs[uv_i].x, uv_pairs[uv_i].y) : Vec2f(0.f);
+				const Vec2f uv0 = mesh_has_uvs ? Vec2f(uv_pairs[uv_i    ].x, uv_pairs[uv_i    ].y) : Vec2f(0.f);
+				const Vec2f uv1 = mesh_has_uv1 ? Vec2f(uv_pairs[uv_i + 1].x, uv_pairs[uv_i + 1].y) : Vec2f(0.f);
 
 				BMeshUVsAtVert& at_vert = uvs_at_vert[pos_i];
-				const bool found = at_vert.merged_v_index != -1 && at_vert.uv == uv;
+				const bool found = at_vert.merged_v_index != -1 && at_vert.uv0 == uv0 && at_vert.uv1 == uv1;
 
 				uint32 merged_v_index;
 				if(!found)
@@ -270,7 +291,8 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 					if(at_vert.merged_v_index == -1) // If there is no UV inserted yet for this vertex position:
 					{
-						at_vert.uv = uv; // Insert it
+						at_vert.uv0 = uv0; // Insert it
+						at_vert.uv1 = uv1;
 						at_vert.merged_v_index = merged_v_index;
 					}
 
@@ -288,12 +310,26 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 						if(use_half_uvs)
 						{
 							half half_uv[2];
-							half_uv[0] = half(uv.x);
-							half_uv[1] = half(uv.y);
-							copyUInt32s(&vert_data[cur_size + uv_offset], half_uv, 4);
+							half_uv[0] = half(uv0.x);
+							half_uv[1] = half(uv0.y);
+							copyUInt32s(&vert_data[cur_size + uv0_offset], half_uv, 4);
 						}
 						else
-							copyUInt32s(&vert_data[cur_size + uv_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+							copyUInt32s(&vert_data[cur_size + uv0_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+
+						// Copy uv_1
+						if(mesh_has_uv1)
+						{
+							if(use_half_uvs)
+							{
+								half half_uv[2];
+								half_uv[0] = half(uv1.x);
+								half_uv[1] = half(uv1.y);
+								copyUInt32s(&vert_data[cur_size + uv1_offset], half_uv, 4);
+							}
+							else
+								copyUInt32s(&vert_data[cur_size + uv1_offset], &uv1.x, sizeof(Indigo::Vec2f));
+						}
 					}
 
 					if(mesh_has_vert_cols)
@@ -1029,6 +1065,38 @@ void BatchedMesh::test()
 			testWritingAndReadingMesh(batched_mesh);
 		}
 
+		// Check that vertex merging gets done properly in buildFromIndigoMesh().
+		// Make an Indigo mesh with two triangles that use the same vertex indices, and the same UVs at each vertex.
+		// Make sure only 3 vertices are created for the BatchedMesh.
+		{
+			Indigo::Mesh m;
+			m.num_uv_mappings = 1;
+			m.used_materials = Indigo::Vector<Indigo::String>(1, Indigo::String("mat1"));
+
+			m.vert_positions = Indigo::Vector<Indigo::Vec3f>(6, Indigo::Vec3f(1.f, 2.f, 3.f));
+			m.vert_normals = Indigo::Vector<Indigo::Vec3f>(3, Indigo::Vec3f(0.f, 1.f, 0.f));
+
+			m.uv_pairs = Indigo::Vector<Indigo::Vec2f>(6, Indigo::Vec2f(5.f, 1.f));
+
+			m.triangles.push_back(Indigo::Triangle());
+			m.triangles.back().vertex_indices[0] = 0; m.triangles.back().vertex_indices[1] = 1; m.triangles.back().vertex_indices[2] = 2;
+			m.triangles.back().uv_indices[0]     = 0; m.triangles.back().uv_indices[1]     = 1; m.triangles.back().uv_indices[2]     = 2;
+			m.triangles.back().tri_mat_index = 0;
+
+			m.triangles.push_back(Indigo::Triangle());
+			m.triangles.back().vertex_indices[0] = 0; m.triangles.back().vertex_indices[1] = 1; m.triangles.back().vertex_indices[2] = 2;
+			m.triangles.back().uv_indices[0]     = 3; m.triangles.back().uv_indices[1]     = 4; m.triangles.back().uv_indices[2]     = 5;
+			m.triangles.back().tri_mat_index = 0;
+
+
+			BatchedMesh batched_mesh;
+			batched_mesh.buildFromIndigoMesh(m);
+
+			testAssert(batched_mesh.numVerts() == 3);
+
+			testWritingAndReadingMesh(batched_mesh);
+		}
+
 
 		{
 			Indigo::Mesh indigo_mesh;
@@ -1050,6 +1118,39 @@ void BatchedMesh::test()
 			batched_mesh.buildFromIndigoMesh(indigo_mesh);
 
 			testWritingAndReadingMesh(batched_mesh);
+		}
+		
+		// This mesh as 2 uvs sets.
+		{
+			Indigo::Mesh indigo_mesh;
+			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/bump_ridge_test_saved_meshes/mesh_16314352959183639561.igmesh", indigo_mesh);
+			testAssert(indigo_mesh.num_uv_mappings == 2);
+
+			BatchedMesh batched_mesh;
+			batched_mesh.buildFromIndigoMesh(indigo_mesh);
+			size_t uv1_offset;
+			testAssert(batched_mesh.findAttribute(BatchedMesh::VertAttribute_UV_1, uv1_offset) != NULL);
+
+			testWritingAndReadingMesh(batched_mesh);
+		}
+
+
+		// For all IGMESH files in testscenes, convert to BatchedMesh then test saving and loading.
+		{
+			const std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir() + "/testscenes", "igmesh");
+
+			for(size_t i=0; i<paths.size(); ++i)
+			{
+				const std::string path = paths[i];
+				conPrint(path);
+				Indigo::Mesh indigo_mesh;
+				Indigo::Mesh::readFromFile(toIndigoString(path), indigo_mesh);
+
+				BatchedMesh batched_mesh;
+				batched_mesh.buildFromIndigoMesh(indigo_mesh);
+
+				testWritingAndReadingMesh(batched_mesh);
+			}
 		}
 		
 		
