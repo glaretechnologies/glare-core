@@ -795,7 +795,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 				if(res < (size_t)header.vertex_data_size_B)
 					throw Indigo::Exception("Decompression of index buffer failed: not enough bytes in result");
 				timer.pause();
-				const double elapsed = timer.elapsed();
+				// const double elapsed = timer.elapsed();
 				// conPrint("Decompression took   " + doubleToStringNSigFigs(elapsed, 4) + " (" + doubleToStringNSigFigs(((double)((size_t)header.index_data_size_B + header.vertex_data_size_B) / (1024ull*1024ull)) / elapsed, 4) + "MB/s)");
 
 				/*

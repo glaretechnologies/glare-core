@@ -435,6 +435,7 @@ struct BufferViewInfo
 };
 
 
+#if 0
 static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::vector<BufferViewInfo>& buffer_view_info)
 {
 	// Process mesh
@@ -526,6 +527,7 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 		processNodeToGetBufferViewInfo(data, child, buffer_view_info);
 	}
 }
+#endif
 
 
 static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_transform, Indigo::Mesh& mesh_out)
