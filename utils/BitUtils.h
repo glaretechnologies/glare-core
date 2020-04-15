@@ -43,9 +43,12 @@ namespace BitUtils
 
 	inline uint32 highestSetBitIndex(uint64 x);
 
+
+	template <class T> 
+	inline bool isBitSet(const T x, const T bitflag);
+	
+
 	void test();
-
-
 
 
 	//==================================== Implementation ====================================
@@ -101,6 +104,13 @@ namespace BitUtils
 #else
 		return 63 - __builtin_clzl(x); // Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
 #endif
+	}
+
+
+	template <class T>
+	bool isBitSet(const T x, const T bitflag)
+	{
+		return (x & bitflag) != 0;
 	}
 
 
