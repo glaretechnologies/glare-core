@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenCLKernel.cpp
 ----------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "OpenCLKernel.h"
 
@@ -18,7 +18,7 @@ OpenCLKernel::OpenCLKernel(OpenCLProgramRef program, const std::string& kernel_n
 {
 	kernel = 0;
 	kernel_arg_index = 0;
-	work_group_size = 1;
+	work_group_size[0] = work_group_size[1] = work_group_size[2] = 1;
 	work_group_size_multiple = 1;
 	total_exec_time_s = 0;
 	profile = profile_;
@@ -46,20 +46,25 @@ void OpenCLKernel::createKernel(OpenCLProgramRef program, const std::string& ker
 	if(!this->kernel)
 		throw Indigo::Exception("Failed to created kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
-	// Query work-group size multiple.
-	size_t worksize[3];
+	// Query work-group size multiple.  This is the "preferred multiple of workgroup size for launch", a performance hint.
+	size_t size_multiple;
 	result = getGlobalOpenCL()->clGetKernelWorkGroupInfo(
 		this->kernel,
 		opencl_device_id,
 		CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, // param_name
-		3 * sizeof(size_t), // param_value_size
-		&worksize[0], // param_value
+		sizeof(size_t), // param_value_size
+		&size_multiple, // param_value
 		NULL // param_value_size_ret. Can be null.
 	);
 	
-	this->work_group_size_multiple = (result != CL_SUCCESS) ? 64 : worksize[0];
+	this->work_group_size_multiple = (result != CL_SUCCESS) ? 64 : size_multiple;
 
-	this->work_group_size = this->work_group_size_multiple;
+	// Guess a good defualt work group size.  
+	// NOTE: this could be improved for dimensions > 1, where we want the product of work group sizes for each dimension to be a multiple of work_group_size_multiple,
+	// And maybe want a non-flat work group size.
+	this->work_group_size[0] = this->work_group_size_multiple;
+	this->work_group_size[1] = 1;
+	this->work_group_size[2] = 1;
 
 	// conPrint("work group size multiple for kernel '" + kernel_name + "' = " + toString(this->work_group_size_multiple));
 }
@@ -68,7 +73,30 @@ void OpenCLKernel::createKernel(OpenCLProgramRef program, const std::string& ker
 void OpenCLKernel::setWorkGroupSize(size_t work_group_size_)
 { 
 	assert(work_group_size_ >= 1);
-	work_group_size = work_group_size_;
+	work_group_size[0] = work_group_size_;
+	work_group_size[1] = 1;
+	work_group_size[2] = 1;
+}
+
+
+void OpenCLKernel::setWorkGroupSize2D(size_t work_group_size_x, size_t work_group_size_y)
+{ 
+	assert(work_group_size_x >= 1);
+	assert(work_group_size_y >= 1);
+	work_group_size[0] = work_group_size_x;
+	work_group_size[1] = work_group_size_y;
+	work_group_size[2] = 1;
+}
+
+
+void OpenCLKernel::setWorkGroupSize3D(size_t work_group_size_x, size_t work_group_size_y, size_t work_group_size_z)
+{
+	assert(work_group_size_x >= 1);
+	assert(work_group_size_y >= 1);
+	assert(work_group_size_z >= 1);
+	work_group_size[0] = work_group_size_x;
+	work_group_size[1] = work_group_size_y;
+	work_group_size[2] = work_group_size_z;
 }
 
 
@@ -160,7 +188,7 @@ double OpenCLKernel::doLaunchKernel(cl_command_queue opencl_command_queue, int d
 	// Make sure the work group size we use is <= the global work size.
 	size_t use_local_work_size[3];
 	for(int i=0; i<dim; ++i)
-		use_local_work_size[i] = myMin(work_group_size, global_work_size[i]);
+		use_local_work_size[i] = myMin(work_group_size[i], global_work_size[i]);
 
 	cl_event profile_event;
 	cl_int result = getGlobalOpenCL()->clEnqueueNDRangeKernel(
@@ -218,4 +246,11 @@ double OpenCLKernel::launchKernel2D(cl_command_queue opencl_command_queue, size_
 {
 	const size_t dims[2] = { global_work_size_w , global_work_size_h };
 	return doLaunchKernel(opencl_command_queue, /*dim=*/2, dims);
+}
+
+
+double OpenCLKernel::launchKernel3D(cl_command_queue opencl_command_queue, size_t global_work_size_w, size_t global_work_size_h, size_t global_work_size_d)
+{
+	const size_t dims[3] = { global_work_size_w , global_work_size_h, global_work_size_d };
+	return doLaunchKernel(opencl_command_queue, /*dim=*/3, dims);
 }

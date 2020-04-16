@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenCLKernel.h
 --------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -30,9 +30,11 @@ public:
 	//NOTE: opencl_device_id is just used for querying work group size.
 	void createKernel(OpenCLProgramRef program, const std::string& kernel_name, cl_device_id opencl_device_id);
 
-	size_t getWorkGroupSizeMulitple() const { return work_group_size; }
-	size_t getWorkGroupSize() const { return work_group_size; }
+	size_t getWorkGroupSizeMulitple() const { return work_group_size_multiple; }
+	size_t getWorkGroupSize() const { return work_group_size[0]; }
 	void setWorkGroupSize(size_t work_group_size_);
+	void setWorkGroupSize2D(size_t work_group_size_x, size_t work_group_size_y);
+	void setWorkGroupSize3D(size_t work_group_size_x, size_t work_group_size_y, size_t work_group_size_z);
 
 	void setKernelArgInt(size_t index, cl_int val);
 	void setKernelArgUInt(size_t index, cl_uint val);
@@ -55,6 +57,8 @@ public:
 
 	double launchKernel2D(cl_command_queue opencl_command_queue, size_t global_work_size_w, size_t global_work_size_h);
 
+	double launchKernel3D(cl_command_queue opencl_command_queue, size_t global_work_size_w, size_t global_work_size_h, size_t global_work_size_d);
+
 
 	cl_kernel getKernel() { return kernel; }
 
@@ -66,7 +70,7 @@ private:
 	std::string kernel_name;
 	cl_kernel kernel;
 	size_t work_group_size_multiple;
-	size_t work_group_size;
+	size_t work_group_size[3];
 
 	size_t kernel_arg_index;
 
