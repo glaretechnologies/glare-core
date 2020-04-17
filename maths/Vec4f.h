@@ -471,6 +471,7 @@ INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
 
 
 // Treat each element as an uint32, and cast each element to float.
+#if COMPILE_SSE4_CODE 
 INDIGO_STRONG_INLINE Vec4f UIntToVec4f(const Vec4i& v)
 {
 	// If sign bit is set, convert to float, then add 2^32.
@@ -485,6 +486,7 @@ INDIGO_STRONG_INLINE Vec4f UIntToVec4f(const Vec4i& v)
 		bitcastToVec4f(v) // mask (uses high bit, which is sign bit)
 	);
 }
+#endif
 
 
 INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
