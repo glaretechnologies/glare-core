@@ -154,6 +154,7 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 	}
 
 	glGenTextures(1, &texture_handle);
+	assert(texture_handle != 0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, texture_handle);
 
 
@@ -196,7 +197,10 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	this->format = format_;
 
 	if(texture_handle == 0)
+	{
 		glGenTextures(1, &texture_handle);
+		assert(texture_handle != 0);
+	}
 
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
@@ -279,6 +283,16 @@ void OpenGLTexture::makeGLTexture(Format format_)
 	}
 
 	glGenTextures(1, &texture_handle);
+	/*if(texture_handle == 0)
+	{
+		GLenum err = glGetError();
+		if(err == GL_INVALID_VALUE)
+			conPrint("GL_INVALID_VALUE");
+		if(err == GL_INVALID_OPERATION)
+			conPrint("GL_INVALID_OPERATION");
+		printVar(err);
+	}*/
+	assert(texture_handle != 0);
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 }
 
