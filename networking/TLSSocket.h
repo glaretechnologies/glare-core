@@ -1,7 +1,7 @@
 /*=====================================================================
 TLSSocket.h
 -----------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -50,6 +50,7 @@ private:
 };
 
 
+// tls_error() can return NULL so use this wrapper function which handles the NULL return instead.
 std::string getTLSErrorString(struct tls* tls_context);
 
 
@@ -58,6 +59,8 @@ TLSSocket
 ---------
 Socket with TLS.
 Kind of a wrapper around LibTLS: http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man3/tls_accept_fds.3?query=tls_init&sec=3
+
+Tests in TLSSocketTests.
 =====================================================================*/
 class TLSSocket : public SocketInterface
 {
