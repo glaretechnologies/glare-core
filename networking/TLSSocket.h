@@ -27,6 +27,7 @@ Copyright Glare Technologies Limited 2016 -
 #include <string>
 class FractionListener;
 class EventFD;
+struct tls;
 struct tls_config;
 
 
