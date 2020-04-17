@@ -78,6 +78,13 @@ std::string getTLSErrorString(struct tls* tls_context)
 }
 
 
+std::string getTLSConfigErrorString(struct tls_config* tls_config_)
+{
+	const char* err = tls_config_error(tls_config_);
+	return err ? std::string(err) : std::string("[No error reported from TLS lib]");
+}
+
+
 TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, const std::string& servername)
 {
 	assert(OpenSSL::isInitialised());
@@ -97,7 +104,8 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, c
 		throw MySocketExcep("tls_connect_socket failed: " + getTLSErrorString(tls_context));
 
 	//Timer timer;
-	if(tls_handshake(tls_context) != 0) //TEMP NEW
+	// Calling tls_handshake explicitly is optional, but it's nice to get any handshake error messages now, instead of in a later read or write call.
+	if(tls_handshake(tls_context) != 0)
 		throw MySocketExcep("tls_handshake failed: " + getTLSErrorString(tls_context));
 	//conPrint("Client TLS handshake took " + timer.elapsedStringNSigFigs(4));
 

@@ -70,7 +70,9 @@ public:
 
 				TLSConfig client_tls_config;
 
-				tls_config_insecure_noverifycert(client_tls_config.config); // TEMP: try and work out how to remove this call.
+				// Need this otherwise LibreSSL complains about self-signed certs, and that localhost isn't on cert.
+				tls_config_insecure_noverifycert(client_tls_config.config);
+				tls_config_insecure_noverifyname(client_tls_config.config);
 
 				TLSSocketRef tls_socket = new TLSSocket(plain_socket, client_tls_config.config, server_hostname);
 
@@ -84,9 +86,9 @@ public:
 				succeeded = true;
 				break;
 			}
-			catch(MySocketExcep& )
+			catch(MySocketExcep& e)
 			{
-				conPrint("Exception occurred.. waiting");
+				conPrint("TLSTestClientThread: Exception occurred: " + e.what());
 				// Server socket may not be accepting connections yet, so wait a while
 				PlatformUtils::Sleep(100);
 			}
@@ -112,16 +114,14 @@ public:
 		conPrint("TestListenerThread::run() (port: " + toString(port) + ")");
 		try
 		{
-			TLSSocket::initTLS();
-
-			// Create TLS configuration
+			// Create server TLS configuration
 			TLSConfig server_tls_config;
 
-			//if(tls_config_set_cert_file(tls_configuration, "somepath") != 0)
-			//	throw MySocketExcep("tls_config_set_cert_file failed.");
+			if(tls_config_set_cert_file(server_tls_config.config, (TestUtils::getIndigoTestReposDir() + "/testfiles/tls/cert.pem").c_str()) != 0)
+				throw MySocketExcep("tls_config_set_cert_file failed: " + getTLSConfigErrorString(server_tls_config.config));
 
-			//if(tls_config_set_key_file(tls_configuration, "somepath") != 0)
-			//	throw MySocketExcep("tls_config_set_key_file failed.");
+			if(tls_config_set_key_file(server_tls_config.config, (TestUtils::getIndigoTestReposDir() + "/testfiles/tls/key.pem").c_str()) != 0)
+				throw MySocketExcep("tls_config_set_key_file failed: " + getTLSConfigErrorString(server_tls_config.config));
 
 			struct tls* tls_context = tls_server();
 			if(!tls_context)
@@ -147,11 +147,9 @@ public:
 
 			Reference<TestServerTLSSocketThread> server_thread = new TestServerTLSSocketThread(worker_tls_socket);
 			server_thread->launch();
+			server_thread->join(); // Wait for server thread
 
-			// Wait for server thread
-			server_thread->join();
-
-			// Terminate thread.
+			tls_free(tls_context);
 		}
 		catch(MySocketExcep& e)
 		{
@@ -176,28 +174,18 @@ static void doTestWithHostname(const std::string& hostname, int port)
 }
 
 
-
 //==============================================================================================================
 
 
 void TLSSocketTests::test()
 {
-	// NOTE: disabled for now, until can work out how to make an adequate key for the server.  
-	// Using no key as per the code currently gives: 
-	// TestListenerThread excep: tls_configure failed: private/public key mismatch
+	conPrint("TLSSocketTests::test()");
 
-	if(false)
-	{
-		conPrint("TLSSocketTests::test()");
+	testAssert(Networking::isNonNull());
 
-		testAssert(Networking::isNonNull());
+	doTestWithHostname("localhost", /*port=*/5000);
 
-		const int port = 5000;
-
-		doTestWithHostname("localhost", port);
-
-		conPrint("TLSSocketTests::test(): done.");
-	}
+	conPrint("TLSSocketTests::test(): done.");
 }
 
 

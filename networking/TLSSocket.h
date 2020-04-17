@@ -53,6 +53,9 @@ private:
 // tls_error() can return NULL so use this wrapper function which handles the NULL return instead.
 std::string getTLSErrorString(struct tls* tls_context);
 
+// Wrapper around tls_config_error()
+std::string getTLSConfigErrorString(struct tls_config* tls_config_);
+
 
 /*=====================================================================
 TLSSocket
