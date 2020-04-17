@@ -71,7 +71,7 @@ TLSConfig::~TLSConfig()
 }
 
 
-static std::string getTLSErrorString(struct tls* tls_context)
+std::string getTLSErrorString(struct tls* tls_context)
 {
 	const char* err = tls_error(tls_context); // tls_error can return NULL
 	return err ? std::string(err) : std::string("[No error reported from TLS lib]");

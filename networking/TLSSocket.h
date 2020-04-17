@@ -49,6 +49,9 @@ private:
 };
 
 
+std::string getTLSErrorString(struct tls* tls_context);
+
+
 /*=====================================================================
 TLSSocket
 ---------
