@@ -643,22 +643,23 @@ void EXRDecoder::test()
 	{
 		const int W = 128;
 		const int H = 128;
-		const int N = 8;
+		const int N = 12;
 		ImageMapFloat image(W, H, N);
 		for(unsigned int y=0; y<image.getHeight(); ++y)
 			for(unsigned int x=0; x<image.getWidth(); ++x)
 				for(int c=0; c<N; ++c)
-					image.getPixel(x, y)[c] = 100.0f;
+					image.getPixel(x, y)[c] = (c == 2) ? 100.0f : 0.f;
 
 		SaveOptions options;
 		for(int c=0; c<N; ++c)
 		{
-			std::string initial_name = "wavelength" + toString(400.0 + 37.5/2 + c * 37.5);
+			const float bucket_w = 300.f / N;
+			std::string initial_name = "wavelength" + toString(400.0 + c * bucket_w);
 			std::string name = StringUtils::replaceCharacter(initial_name, '.', '_');
 			options.channel_names.push_back(name);
 		}
 
-		const std::string path = "spectral_8_channels_128x128_val_100.exr";
+		const std::string path = "spectral_12_channels_128x128_val_100_bucket_2.exr";
 
 		EXRDecoder::saveImageToEXR(image, path, "main layer", options);
 	}
