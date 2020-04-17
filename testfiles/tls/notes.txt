@@ -1,0 +1,5 @@
+These files (cert.pem and key.pem) are just for testing in TLSSocketTests.cpp and shouldn't be used for anything else.
+
+They were generated using the following command (from https://stackoverflow.com/questions/10175812/how-to-create-a-self-signed-certificate-with-openssl):
+
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 10000 -nodes
