@@ -303,6 +303,14 @@ inline const Vec2<Real> operator - (const Vec2<Real>& v)
 }
 
 
+template <class Real>
+inline Vec2<Real> operator * (Real a, const Vec2<Real>& v)
+{
+	return Vec2<Real>(a * v.x, a * v.y);
+}
+
+
+
 template <class T>
 inline const Vec2<T> min(const Vec2<T>& a, const Vec2<T>& b)
 {

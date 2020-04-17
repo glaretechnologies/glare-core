@@ -19,9 +19,8 @@ template <class Real>
 class Complex
 {
 public:
-
 	inline Complex(){}
-	inline Complex(Real a_, Real b_);
+	inline Complex(Real a_, Real b_ = 0);
 
 	inline static const Complex fromModulusAndArg(Real modulus, Real arg);
 
@@ -30,15 +29,23 @@ public:
 	inline const Complex operator * (const Complex& other) const;
 	inline const Complex operator / (const Complex& other) const;
 	inline const Complex operator + (const Complex& other) const;
+	inline const Complex operator - (const Complex& other) const;
 	inline void operator += (const Complex& other);
 
-	inline Real re() const { return a; }
-	inline Real im() const { return b; }
+	inline bool operator == (const Complex& other) const;
+	inline bool operator != (const Complex& other) const;
+	
+	inline const Complex operator - () const; // Unary -
+
+	inline Real re()   const { return a; }
+	inline Real real() const { return a; }
+	inline Real im()   const { return b; }
+	inline Real imag() const { return b; }
 
 	inline Real norm() const { return std::sqrt(a*a + b*b); }
 	inline Real norm2() const { return a*a + b*b; }
 
-	//value = a + b*i
+	// value = a + b*i
 	Real a, b;
 };
 
@@ -84,10 +91,39 @@ const Complex<Real> Complex<Real>::operator + (const Complex<Real>& other) const
 
 
 template <class Real>
+const Complex<Real> Complex<Real>::operator - (const Complex<Real>& other) const
+{
+	return Complex<Real>(a - other.a, b - other.b);
+}
+
+
+template <class Real>
 void Complex<Real>::operator += (const Complex<Real>& other)
 {
 	a += other.a;
 	b += other.b;
+}
+
+
+// Unary -
+template <class Real>
+const Complex<Real> Complex<Real>::operator - () const
+{
+	return Complex<Real>(-a, -b);
+}
+
+
+template <class Real>
+bool Complex<Real>::operator == (const Complex<Real>& other) const
+{
+	return a == other.a && b == other.b;
+}
+
+
+template <class Real>
+bool Complex<Real>::operator != (const Complex<Real>& other) const
+{
+	return a != other.a || b != other.b;
 }
 
 

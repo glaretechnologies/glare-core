@@ -1,8 +1,7 @@
 /*=====================================================================
 Matrix2.h
 ---------
-File created by ClassTemplate on Sun Mar 05 17:55:13 2006
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -15,9 +14,9 @@ Code By Nicholas Chapman.
 /*=====================================================================
 Matrix2
 -------
-
+2x2 matrix class.
 =====================================================================*/
-template <class Real>
+template <class T>
 class Matrix2
 {
 public:
@@ -27,13 +26,13 @@ public:
 	
 	=====================================================================*/
 	inline Matrix2();
-	inline Matrix2(Real a, Real b, Real c, Real d);
+	inline Matrix2(T a, T b, T c, T d);
 
 	inline static const Matrix2 identity();
 
 	inline bool operator == (const Matrix2& rhs) const;
 
-	inline Vec2<Real> operator * (const Vec2<Real>& rhs) const;
+	inline Vec2<T> operator * (const Vec2<T>& rhs) const;
 
 	inline const Matrix2 operator * (const Matrix2& rhs) const;
 
@@ -42,19 +41,20 @@ public:
 
 	inline const Matrix2 transpose() const;
 
-	inline Real determinant() const;
+	inline T determinant() const;
 
 
 	//A matrix which will rotate a vector counterclockwise
-	inline static const Matrix2 rotationMatrix(Real angle_rad);
+	inline static const Matrix2 rotationMatrix(T angle_rad);
 
 	const std::string toString() const;
+	const std::string toStringNSigFigs(int n) const;
 
-	inline Real& elem(unsigned int i, unsigned int j);
-	inline Real elem(unsigned int i, unsigned int j) const;
+	inline T& elem(unsigned int i, unsigned int j);
+	inline T elem(unsigned int i, unsigned int j) const;
 
 
-	Real e[4];//entries in row-major order
+	T e[4];//entries in row-major order
 	/*
 	0 1
 
@@ -63,12 +63,12 @@ public:
 
 };
 
-template <class Real>
-Matrix2<Real>::Matrix2()
+template <class T>
+Matrix2<T>::Matrix2()
 {}
 
-template <class Real>
-Matrix2<Real>::Matrix2(Real a, Real b, Real c, Real d)
+template <class T>
+Matrix2<T>::Matrix2(T a, T b, T c, T d)
 {
 	e[0] = a;
 	e[1] = b;
@@ -77,14 +77,14 @@ Matrix2<Real>::Matrix2(Real a, Real b, Real c, Real d)
 }
 
 
-template <class Real>
-const Matrix2<Real> Matrix2<Real>::identity()
+template <class T>
+const Matrix2<T> Matrix2<T>::identity()
 {
-	return Matrix2<Real>(1, 0, 0, 1);
+	return Matrix2<T>(1, 0, 0, 1);
 }
 
-template <class Real>
-bool Matrix2<Real>::operator == (const Matrix2<Real>& rhs) const
+template <class T>
+bool Matrix2<T>::operator == (const Matrix2<T>& rhs) const
 {
 	return e[0] == rhs.e[0] &&
 			e[1] == rhs.e[1] &&
@@ -92,15 +92,15 @@ bool Matrix2<Real>::operator == (const Matrix2<Real>& rhs) const
 			e[3] == rhs.e[3];
 }
 
-template <class Real>
-Real& Matrix2<Real>::elem(unsigned int i, unsigned int j)
+template <class T>
+T& Matrix2<T>::elem(unsigned int i, unsigned int j)
 {
 	assert(i < 2);
 	assert(j < 2);
 	return e[i*2 + j];
 }
-template <class Real>
-Real Matrix2<Real>::elem(unsigned int i, unsigned int j) const
+template <class T>
+T Matrix2<T>::elem(unsigned int i, unsigned int j) const
 {
 	assert(i < 2);
 	assert(j < 2);
@@ -108,61 +108,61 @@ Real Matrix2<Real>::elem(unsigned int i, unsigned int j) const
 }
 
 
-template <class Real>
-inline Vec2<Real> Matrix2<Real>::operator * (const Vec2<Real>& rhs) const
+template <class T>
+inline Vec2<T> Matrix2<T>::operator * (const Vec2<T>& rhs) const
 {
-	return Vec2<Real>(e[0]*rhs.x + e[1]*rhs.y, e[2]*rhs.x + e[3]*rhs.y);
+	return Vec2<T>(e[0]*rhs.x + e[1]*rhs.y, e[2]*rhs.x + e[3]*rhs.y);
 }
 
-template <class Real>
-inline const Matrix2<Real> Matrix2<Real>::inverse() const
+template <class T>
+inline const Matrix2<T> Matrix2<T>::inverse() const
 {
-	const Real recip_det = (Real)1.0 / determinant();
+	const T recip_det = (T)1.0 / determinant();
 
 	return Matrix2(e[3]*recip_det, -e[1]*recip_det, -e[2]*recip_det, e[0]*recip_det);
 }
 
-template <class Real>
-inline void Matrix2<Real>::invert()
+template <class T>
+inline void Matrix2<T>::invert()
 {
 	*this = inverse();
 }
 
 
-template <class Real>
-inline const Matrix2<Real> Matrix2<Real>::transpose() const
+template <class T>
+inline const Matrix2<T> Matrix2<T>::transpose() const
 {
 	return Matrix2(e[0], e[2], e[1], e[3]);
 }
 
 
-template <class Real>
-inline Real Matrix2<Real>::determinant() const
+template <class T>
+inline T Matrix2<T>::determinant() const
 {
 	return e[0]*e[3] - e[1]*e[2];
 }
 
 
 	//A matrix which will rotate a vector counterclockwise
-template <class Real>
-inline const Matrix2<Real> Matrix2<Real>::rotationMatrix(Real theta_rad)
+template <class T>
+inline const Matrix2<T> Matrix2<T>::rotationMatrix(T theta_rad)
 {
-	const Real cos_theta = cos(theta_rad);
-	const Real sin_theta = sin(theta_rad);
+	const T cos_theta = cos(theta_rad);
+	const T sin_theta = sin(theta_rad);
 
 	return Matrix2(cos_theta, -sin_theta, sin_theta, cos_theta);
 }
 
 
-template <class Real>
-const Matrix2<Real> Matrix2<Real>::operator * (const Matrix2& rhs) const
+template <class T>
+const Matrix2<T> Matrix2<T>::operator * (const Matrix2& rhs) const
 {
 	//NOTE: checkme
 
-	/*const Real r0 = dotProduct(getRow0(), rhs.getColumn0());
-	const Real r1 = dotProduct(getRow0(), rhs.getColumn1());
-	const Real r2 = dotProduct(getRow1(), rhs.getColumn0());
-	const Real r3 = dotProduct(getRow1(), rhs.getColumn1());*/
+	/*const T r0 = dotProduct(getRow0(), rhs.getColumn0());
+	const T r1 = dotProduct(getRow0(), rhs.getColumn1());
+	const T r2 = dotProduct(getRow1(), rhs.getColumn0());
+	const T r3 = dotProduct(getRow1(), rhs.getColumn1());*/
 
 	return Matrix2(
 		e[0]*rhs.e[0] + e[1]*rhs.e[2], 
@@ -173,8 +173,22 @@ const Matrix2<Real> Matrix2<Real>::operator * (const Matrix2& rhs) const
 }
 
 
-template <class Real>
-inline bool epsMatrixEqual(const Matrix2<Real>& a, const Matrix2<Real>& b, Real eps = NICKMATHS_EPSILON)
+template <class T>
+inline Matrix2<T> operator * (const Matrix2<T>& m, T factor)
+{
+	return Matrix2<T>(m.e[0]*factor, m.e[1]*factor, m.e[2]*factor, m.e[3]*factor);
+}
+
+
+template <class T>
+inline Matrix2<T> operator + (const Matrix2<T>& a, const Matrix2<T>& b)
+{
+	return Matrix2<T>(a.e[0] + b.e[0], a.e[1] + b.e[1], a.e[2] + b.e[2], a.e[3] + b.e[3]);
+}
+
+
+template <class T>
+inline bool epsMatrixEqual(const Matrix2<T>& a, const Matrix2<T>& b, T eps = NICKMATHS_EPSILON)
 {
 	for(unsigned int i=0; i<4; ++i)
 		if(!epsEqual(a.e[i], b.e[i], eps))
@@ -183,54 +197,28 @@ inline bool epsMatrixEqual(const Matrix2<Real>& a, const Matrix2<Real>& b, Real 
 }
 
 
-template <class Real>
-inline const std::string toString(const Matrix2<Real>& x)
+template <class T>
+inline const std::string toString(const Matrix2<T>& x)
 {
 	return x.toString();
 }
 
 
-template <class Real>
-inline void writeToStream(const Matrix2<Real>& m, OutStream& stream)
+template <class T>
+inline void writeToStream(const Matrix2<T>& m, OutStream& stream)
 {
-	stream.writeData(m.e, sizeof(Real) * 4);
+	stream.writeData(m.e, sizeof(T) * 4);
 }
 
 
-template <class Real>
-inline Matrix2<Real> readMatrix2FromStream(InStream& stream)
+template <class T>
+inline Matrix2<T> readMatrix2FromStream(InStream& stream)
 {
-	Matrix2<Real> m;
-	stream.readData(m.e, sizeof(Real) * 4);
+	Matrix2<T> m;
+	stream.readData(m.e, sizeof(T) * 4);
 	return m;
 }
 
 
 typedef Matrix2<float> Matrix2f;
 typedef Matrix2<double> Matrix2d;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
