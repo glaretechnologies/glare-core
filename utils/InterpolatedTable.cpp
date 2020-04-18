@@ -137,7 +137,7 @@ const Vec2f InterpolatedTable::getValues(const Vec2f& x_vals, Real y_) const
 }
 
 
-void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, PolarisationVec& values_out) const
+void InterpolatedTable::getValues(const SpectralVector& x_values, Real y, PolarisationVec& values_out) const
 {
 	const int y_index = myClamp((int)((y - start_y) * recip_y_step), 0, (int)data.getHeight() - 1);
 	const int y_index_1 = myMin(y_index + 1, (int)data.getHeight() - 1);
@@ -147,9 +147,9 @@ void InterpolatedTable::getValues(const SpectralVector& wavelengths, Real y, Pol
 
 	assert(t_y >= -0.01f && t_y <= 1.01f);
 
-	for(unsigned int i=0; i<wavelengths.size(); ++i)
+	for(unsigned int i=0; i<x_values.size(); ++i)
 	{
-		const Real w = wavelengths[i];
+		const Real w = x_values[i];
 		const int x_index = myClamp((int)((w - start_x) * recip_x_step), 0, (int)data.getWidth() - 1);
 		const int x_index_1 = myMin(x_index + 1, (int)data.getWidth() - 1);
 
