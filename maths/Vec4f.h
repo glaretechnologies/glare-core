@@ -347,6 +347,12 @@ INDIGO_STRONG_INLINE const Vec4f loadVec4f(const float* const data)
 }
 
 
+INDIGO_STRONG_INLINE const Vec4f loadUnalignedVec4f(const float* const data)
+{
+	return Vec4f(_mm_loadu_ps(data));
+}
+
+
 INDIGO_STRONG_INLINE void storeVec4f(const Vec4f& v, float* const mem)
 {
 	assert(((uint64)mem % 16) == 0); // Must be 16-byte aligned.
