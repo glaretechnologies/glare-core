@@ -38,7 +38,7 @@ public:
 
 	Real getValue(Real wavelength, Real y) const;
 	const Vec2f getValues(const Vec2f& x_vals, Real y) const;
-	void getValues(const SpectralVector& wavelengths, Real y, PolarisationVec& values_out) const;
+	void getValues(const SpectralVector& x_values, Real y, PolarisationVec& values_out) const;
 
 
 	const Array2D<Real>& getData() const { return data; }
