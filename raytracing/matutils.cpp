@@ -26,6 +26,7 @@ Code By Nicholas Chapman.
 #include "../utils/StandardPrintOutput.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/SobolSequence.h"
+#include "../indigo/WavelengthSamples.h"
 #include <fstream>
 
 
@@ -369,7 +370,7 @@ void dielectricAmplitudeReflectionAndTransmissionCoefficients(Real n1, Real n2, 
 #if BUILD_TESTS
 
 
-void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, bool adjoint, Material::Real target_pd)
+void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const WavelengthSamples& wavelengths, bool adjoint, Material::Real target_pd)
 {
 	//Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
 	//	false, // sampled delta
@@ -397,7 +398,7 @@ void checkPDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referenc
 }
 
 
-void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, Material::Real target_BSDF)
+void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const WavelengthSamples& wavelengths, Material::Real target_BSDF)
 {
 	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
@@ -417,7 +418,7 @@ void checkBSDF(ThreadContext& context, const FullHitInfo& hitinfo, const Referen
 }
 
 
-void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, bool adjoint)
+void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const WavelengthSamples& wavelengths, bool adjoint)
 {
 	//Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
 	//	false, // sampled delta
@@ -439,7 +440,7 @@ void checkPDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Re
 }
 
 
-void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths, bool adjoint)
+void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const WavelengthSamples& wavelengths, bool adjoint)
 {
 	//Material::Real pd = mat->scatterPDF(context, hitinfo, a, b, wavelen, 
 	//	false, // sampled delta
@@ -461,7 +462,7 @@ void checkPDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinf
 }
 
 
-void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
+void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const WavelengthSamples& wavelengths)
 {
 	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
@@ -473,7 +474,7 @@ void checkBSDFIsZero(ThreadContext& context, const FullHitInfo& hitinfo, const R
 }
 
 
-void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const SpectralVector& wavelengths)
+void checkBSDFIsGreaterThanZero(ThreadContext& context, const FullHitInfo& hitinfo, const Reference<Material>& mat, const Vec4f& a, const Vec4f& b, const WavelengthSamples& wavelengths)
 {
 	Material::EvaluateBSDFArgs args(0.0);
 	Material::EvaluateBSDFResults res;
@@ -729,7 +730,7 @@ static void doTestScatters(const Reference<Material>& material_, float epsilon, 
 	World world;
 	const double time = 0.0;
 	const float wavelen = 600.0f;
-	const SpectralVector wavelengths(wavelen);
+	const WavelengthSamples wavelengths(wavelen);
 
 	Object ob(
 		new RaySphere(Vec4f(0,0,0,1), 1.0),
@@ -856,7 +857,7 @@ void testScatters(const Reference<Material>& material_, float epsilon)
 		VoidMedium void_medium;
 		World world;
 		const float wavelen = 600.0f;
-		const SpectralVector wavelengths(wavelen);
+		const WavelengthSamples wavelengths(wavelen);
 
 		const Material& material = *material_;
 		const Vec4f N_s(0,0,1,0);

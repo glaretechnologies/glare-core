@@ -121,6 +121,7 @@ void Obfuscator::addOpenCLKeywords()
 "while",
 
 "convert_int4",
+"vload3",
 "vload4",
 
 // CUDA and OpenCL keywords
@@ -1107,7 +1108,7 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"getObToWorldMatrixRows_FullHitInfo_",
 		"getSample_int__int__int____global_array_uint__28__",
 		"getSamplePair_int__int__int____global_array_uint__28__",
-		"spectralReflectanceForWinter_Colour3__SpectralVector_",
+		"spectralReflectanceForWinter_Colour3__float_",
 
 		"evalG_float__float_",
 		"evalAvSpecAlbedo_float__float_",
@@ -1116,12 +1117,12 @@ const std::string Obfuscator::renameOpenCLSupportFunctions(const std::string& su
 		"evalFabricSpecularAlbedo_float__float_",
 
 		"sampleVisMicrofacetNormal_float__vec4__vec4__vec2__float_",
-		"conductorFresnelReflectance_BasicMaterialData__int__SpectralVector__float_",
+		"conductorFresnelReflectance_BasicMaterialData__int__float__float_",
 
 		"evalBasicScalarMatParameter_FullHitInfo__BasicMaterialData__int_",
 		"evalBasicScalarMatParameterConstOnly_FullHitInfo__BasicMaterialData__int_",
-		"evalBasicSpectrumMatParameter_FullHitInfo__vec4__vec4__SpectralVector__BasicMaterialData__int_",
-		"evalBasicSpectrumMatParameterConstOnly_FullHitInfo__vec4__vec4__SpectralVector__BasicMaterialData__int_",
+		"evalBasicSpectrumMatParameter_FullHitInfo__vec4__vec4__float__BasicMaterialData__int_",
+		"evalBasicSpectrumMatParameterConstOnly_FullHitInfo__vec4__vec4__float__BasicMaterialData__int_",
 		"evalRGBBasicSpectrumMatParameter_FullHitInfo__vec4__vec4__BasicMaterialData__int_",
 		"evalRGBBasicSpectrumMatParameterConstOnly_FullHitInfo__vec4__vec4__BasicMaterialData__int_",
 		"evalBasicDisplaceMatParameter_FullHitInfo__BasicMaterialData__int_",

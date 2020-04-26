@@ -36,13 +36,15 @@ public:
 
 	struct DataSet
 	{
+		DataSet() {}
+		DataSet(const std::string& key_) : key(key_) {}
 		std::string key;
 		std::vector<Vec2f> points;
 	};
 
 	struct PlotOptions
 	{
-		PlotOptions() : w(1000), h(800), x_axis_log(false), y_axis_log(false), r_log(false), polar(false), z_rot(30), explicit_x_range(false), explicit_y_range(false), explicit_z_range(false) {}
+		PlotOptions() : w(1800), h(1200), x_axis_log(false), y_axis_log(false), r_log(false), polar(false), z_rot(30), explicit_x_range(false), explicit_y_range(false), explicit_z_range(false) {}
 		int w, h;
 		bool x_axis_log;
 		bool y_axis_log;

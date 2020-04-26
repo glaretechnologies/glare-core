@@ -59,7 +59,7 @@ void OpenCLKernel::createKernel(OpenCLProgramRef program, const std::string& ker
 	
 	this->work_group_size_multiple = (result != CL_SUCCESS) ? 64 : size_multiple;
 
-	// Guess a good defualt work group size.  
+	// Guess a good default work group size.  
 	// NOTE: this could be improved for dimensions > 1, where we want the product of work group sizes for each dimension to be a multiple of work_group_size_multiple,
 	// And maybe want a non-flat work group size.
 	this->work_group_size[0] = this->work_group_size_multiple;

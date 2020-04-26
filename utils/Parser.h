@@ -47,7 +47,7 @@ public:
 	inline bool parseToChar(char target, string_view& result_out);
 	inline bool parseToOneOfChars(char target_a, char target_b, string_view& result_out);
 	inline void parseToCharOrEOF(char target_a, string_view& result_out);
-	inline void parseLine();
+	inline void parseLine(string_view& line_out);
 	
 	bool parseAlphaToken(string_view& token_out); // Parse alphabetic token
 	bool parseIdentifier(string_view& token_out);
@@ -191,12 +191,11 @@ void Parser::parseToCharOrEOF(char target, string_view& result_out)
 }
 
 
-void Parser::parseLine()
+void Parser::parseLine(string_view& line_out)
 {
-	for( ; notEOF() && current() != '\n' && current() != '\r'; ++currentpos)
-	{
-		currentpos++;
-	}
+	const size_t initial_pos = currentpos;
+	advancePastLine();
+	line_out = string_view(text + initial_pos, currentpos - initial_pos);
 }
 
 

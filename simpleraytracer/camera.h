@@ -9,7 +9,6 @@ Code By Nicholas Chapman.
 
 #include "ray.h"
 #include "geometry.h"
-#include "../indigo/Spectral.h"
 #include "../indigo/SampleTypes.h"
 #include "../indigo/TransformPath.h"
 #include "../maths/vec2.h"
@@ -29,7 +28,9 @@ class Distribution2;
 class Aperture;
 class MTwister;
 class FFTPlan;
+class WavelengthSamples;
 struct EmitWinterCodeArgs;
+class SpectralVector;
 
 
 class CameraExcep
@@ -137,7 +138,7 @@ public:
 	virtual Real getExposureDuration() const = 0;
 
 
-	virtual const Vec3Type diffractRay(const SamplePair& samples, const Vec3Type& dir, const SpectralVector& wavelengths, float direction_sign, double time, SpectralVector& weights_out) const = 0;
+	virtual const Vec3Type diffractRay(const SamplePair& samples, const Vec3Type& dir, const WavelengthSamples& wavelengths, float direction_sign, double time, SpectralVector& weights_out) const = 0;
 
 
 	virtual void prepareForDiffractionFilter(int main_buffer_width, int main_buffer_height, int ssf_) = 0;
