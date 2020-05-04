@@ -159,7 +159,7 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 
 				// This is a workaround for hrd files that have the exposure in the header but it's 0.
 				// Since we don't ignore the exposure, it can't be 0.
-				if(epsEqual<float>(0.0f, header_data.exposure, 0.00000001))
+				if(epsEqual<float>(0.0f, header_data.exposure, 0.00000001f))
 					header_data.exposure = 1.0f;
 			}
 			else
