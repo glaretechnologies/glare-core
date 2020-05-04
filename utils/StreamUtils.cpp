@@ -53,4 +53,18 @@ void writeFloat(std::ostream& stream, float x)
 }
 
 
+double readDouble(std::istream& stream)
+{
+	double x;
+	stream.read((char*)&x, sizeof(double));
+	return x;
+}
+
+
+void writeDouble(std::ostream& stream, double x)
+{
+	stream.write((const char*)&x, sizeof(double));
+}
+
+
 }

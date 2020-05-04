@@ -141,6 +141,9 @@ namespace StreamUtils
 	float readFloat(std::istream& stream);
 	void writeFloat(std::ostream& stream, float x);
 
+	double readDouble(std::istream& stream);
+	void writeDouble(std::ostream& stream, double x);
+
 }
 
 
