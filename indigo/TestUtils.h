@@ -113,7 +113,7 @@ void doTestMathsApproxEq(const T& a, const T& b, const char* a_str, const char* 
 	if(!Maths::approxEq(a, b))
 	{
 		printMessageAndFail("Test approxEqual failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + 
-			a_str + "=" + toString(a) + " was not equal to " + b_str + "=" + toString(b));
+			a_str + "=" + toString(a) + " was not approximately equal to " + b_str + "=" + toString(b));
 	}
 }
 
@@ -136,7 +136,7 @@ void doTestApproxEqWithEps(const T& a, const T& b, float eps, const char* a_str,
 	{
 		const float relative_error = (float)fabs((a - b) / a);
 		printMessageAndFail("Test approxEqual failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + 
-			a_str + "=" + toString(a) + " was not equal to " + b_str + "=" + toString(b) + " with eps=" + toString(eps) + " (relative error was " + toString(relative_error) + ")");
+			a_str + "=" + toString(a) + " was not approximately equal to " + b_str + "=" + toString(b) + " with eps=" + toString(eps) + " (relative error was " + toString(relative_error) + ")");
 	}
 }
 
