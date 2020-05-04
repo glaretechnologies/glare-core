@@ -35,7 +35,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	campos_ws_loc(-1),
 	time_loc(-1),
 	colour_loc(-1),
-	albedo_texture_loc(-1)
+	albedo_texture_loc(-1),
+	is_phong(false)
 {
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
@@ -45,7 +46,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 		throw Indigo::Exception("Failed to create OpenGL program '" + prog_name + "'.");
 
 	glAttachShader(program, vert_shader->shader);
-	glAttachShader(program, frag_shader->shader);
+	if(frag_shader.nonNull()) glAttachShader(program, frag_shader->shader);
 
 	// Bind shader input variables.
 	// This corresponds to the order we supply vertex attributes in our mesh VAOs.
@@ -53,6 +54,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glBindAttribLocation(program, 1, "normal_in");
 	glBindAttribLocation(program, 2, "texture_coords_0_in");
 	glBindAttribLocation(program, 3, "vert_colours_in");
+	glBindAttribLocation(program, 4, "instance_matrix_in");
 
 	glLinkProgram(program);
 

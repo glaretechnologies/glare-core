@@ -80,6 +80,8 @@ public:
 	// If this is non-null, load vertex and index data from batched_mesh instead of from vert_data and vert_index_buffer etc..
 	// We take this approach to avoid copying the data.
 	Reference<BatchedMesh> batched_mesh;
+
+	VBORef instance_matrix_vbo;
 };
 
 
@@ -308,7 +310,7 @@ public:
 	void updateObjectTransformData(GLObject& object);
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
-	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours);
+	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing);
 	void objectMaterialsUpdated(const Reference<GLObject>& object);
 	//----------------------------------------------------------------------------------------
 
@@ -437,45 +439,42 @@ public:
 	//----------------------------------------------------------------------------------------
 
 private:
-	struct PhongUniformLocations
-	{
-		int diffuse_colour_location;
-		int have_shading_normals_location;
-		int have_texture_location;
-		int diffuse_tex_location;
-		int cosine_env_tex_location;
-		int specular_env_tex_location;
-		int texture_matrix_location;
-		int sundir_cs_location;
-		int roughness_location;
-		int fresnel_scale_location;
-		int metallic_frac_location;
-		int campos_ws_location;
-
-		int dynamic_depth_tex_location;
-		int static_depth_tex_location;
-		int shadow_texture_matrix_location;
-	};
-
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
-	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours);
+	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
 	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
-	static Reference<OpenGLMeshRenderData> makeCubeMesh();
+public:
+	static Reference<OpenGLMeshRenderData> makeCubeMesh(const VBORef& instancing_data);
+private:
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
 		float plane_draw_half_width);
-	static void getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, PhongUniformLocations& phong_locations_out);
-	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data,
-		const PhongUniformLocations& phong_locations);
+	static void getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
+	void setUniformsForProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(); // Make a cylinder from (0,0,0), to (0,0,1) with radius 1;
+
+	struct PhongKey
+	{
+		PhongKey() {}
+		PhongKey(bool alpha_test_, bool vert_colours_, bool instance_matrices_) : alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_) {}
+		bool alpha_test, vert_colours, instance_matrices;
+
+		inline bool operator < (const OpenGLEngine::PhongKey& b) const
+		{
+			const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0);
+			const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0);
+			return val < bval;
+		}
+	};
+
+	OpenGLProgramRef getPhongProgram(const PhongKey& key);
 
 	Indigo::TaskManager& getTaskManager();
 
@@ -506,15 +505,8 @@ private:
 	uint64 num_indices_submitted;
 	uint64 num_aabbs_submitted;
 
-	Reference<OpenGLProgram> phong_prog_no_vert_colours;
-	Reference<OpenGLProgram> phong_with_alpha_test_no_vert_colours_prog;
-
-	Reference<OpenGLProgram> phong_prog_with_vert_colours;
-	Reference<OpenGLProgram> phong_with_alpha_test_with_vert_colours_prog;
-
-
-	PhongUniformLocations phong_locations;
-	PhongUniformLocations phong_with_alpha_test_locations;
+	// Map from preprocessor defs to phong program.
+	std::map<PhongKey, OpenGLProgramRef> phong_progs;
 
 	Reference<OpenGLProgram> transparent_prog;
 	int transparent_colour_location;
@@ -613,6 +605,7 @@ private:
 	std::unordered_set<Reference<OpenGLScene>, OpenGLSceneHash> scenes;
 	Reference<OpenGLScene> current_scene;
 };
+
 
 #ifdef _WIN32
 #pragma warning(pop)

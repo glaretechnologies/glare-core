@@ -3,10 +3,13 @@
 in vec3 position_in;
 in vec3 normal_in;
 in vec2 texture_coords_0_in;
-
 #if VERT_COLOURS
 in vec3 vert_colours_in;
 #endif
+#if INSTANCE_MATRICES
+in mat4 instance_matrix_in;
+#endif
+
 
 out vec3 normal_cs; // cam (view) space
 out vec3 normal_ws; // world space
@@ -34,6 +37,16 @@ uniform vec3 campos_ws;
 
 void main()
 {
+#if INSTANCE_MATRICES
+	gl_Position = proj_matrix * (view_matrix * (instance_matrix_in * model_matrix * vec4(position_in, 1.0)));
+
+	pos_ws = (instance_matrix_in * model_matrix  * vec4(position_in, 1.0)).xyz;
+	cam_to_pos_ws = pos_ws - campos_ws;
+	pos_cs = (view_matrix * (instance_matrix_in * model_matrix  * vec4(position_in, 1.0))).xyz;
+
+	normal_ws = (instance_matrix_in * normal_matrix * vec4(normal_in, 0.0)).xyz;
+	normal_cs = (view_matrix * (instance_matrix_in * normal_matrix * vec4(normal_in, 0.0))).xyz;
+#else
 	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
 
 	pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
@@ -42,6 +55,7 @@ void main()
 
 	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
 	normal_cs = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
+#endif
 
 	texture_coords = texture_coords_0_in;
 

@@ -13,6 +13,27 @@ Copyright Glare Technologies Limited 2016 -
 class OpenGLShader;
 
 
+struct UniformLocations
+{
+	int diffuse_colour_location;
+	int have_shading_normals_location;
+	int have_texture_location;
+	int diffuse_tex_location;
+	int cosine_env_tex_location;
+	int specular_env_tex_location;
+	int texture_matrix_location;
+	int sundir_cs_location;
+	int roughness_location;
+	int fresnel_scale_location;
+	int metallic_frac_location;
+	int campos_ws_location;
+
+	int dynamic_depth_tex_location;
+	int static_depth_tex_location;
+	int shadow_texture_matrix_location;
+};
+
+
 /*=====================================================================
 OpenGLProgram
 -------------
@@ -52,6 +73,11 @@ public:
 	Reference<OpenGLShader> frag_shader;
 
 	std::string prog_name;
+
+	bool is_phong; // bit of a hack
+
+
+	UniformLocations uniform_locations;
 };
 
 

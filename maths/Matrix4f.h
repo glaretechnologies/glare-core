@@ -1,7 +1,7 @@
 /*=====================================================================
 Matrix4f.h
 ----------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -44,12 +44,12 @@ public:
 	static const Matrix4f rotationAroundYAxis(float angle);
 	static const Matrix4f rotationAroundZAxis(float angle);
 
-	void applyUniformScale(float scale); // right multiply the matrix by a uniform scale matrix.
-	void setToUniformScaleMatrix(float scale); // Make the upper-left 3x3 matrix a uniform scaling matrix.
-	static const Matrix4f uniformScaleMatrix(float scale);
+	inline void applyUniformScale(float scale); // right multiply the matrix by a uniform scale matrix.
+	inline void setToUniformScaleMatrix(float scale); // Make the upper-left 3x3 matrix a uniform scaling matrix.
+	inline static const Matrix4f uniformScaleMatrix(float scale);
 
-	void setToScaleMatrix(float xscale, float yscale, float zscale);
-	static const Matrix4f scaleMatrix(float xscale, float yscale, float zscale);
+	inline void setToScaleMatrix(float xscale, float yscale, float zscale);
+	inline static const Matrix4f scaleMatrix(float xscale, float yscale, float zscale);
 	
 	
 
@@ -69,7 +69,7 @@ public:
 	inline bool operator == (const Matrix4f& a) const;
 
 	inline const Matrix4f operator + (const Matrix4f& rhs) const;
-	const Matrix4f operator * (const Matrix4f& rhs) const;
+	inline const Matrix4f operator * (const Matrix4f& rhs) const;
 
 
 	inline float elem(unsigned int row_index, unsigned int column_index) const { assert(row_index < 4 && column_index < 4); return e[row_index + column_index * 4]; }
@@ -96,15 +96,15 @@ public:
 	inline float upperLeftDeterminant() const;
 
 	// Returns *this * translation_matrix
-	inline void rightMultiplyAffine3WithTranslationMatrix(const Vec4f& translation_vec, Matrix4f& result_out) const;
+	inline void rightMultiplyWithTranslationMatrix(const Vec4f& translation_vec, Matrix4f& result_out) const;
 
 	// Assumes only the top-left 3x3 matrix is non-zero, apart from the bottom-right elem (which equals 1)
 	bool polarDecomposition(Matrix4f& rot_out, Matrix4f& rest_out) const;
 
 	Matrix3<float> getUpperLeftMatrix() const; // Returns the upper-left 3x3 matrix in a Matrix3<float> object, which is row-major.
 
-	void setToIdentity();
-	static const Matrix4f identity();
+	inline void setToIdentity();
+	inline static const Matrix4f identity();
 
 	const std::string rowString(int row_index) const;
 	const std::string toString() const;
@@ -122,6 +122,15 @@ public:
 	*/
 	float e[16];
 };
+
+
+// Function declarations for standalone functions.
+INDIGO_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v);
+inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON);
+inline bool approxEq(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON);
+inline void mul(const Matrix4f& b, const Matrix4f& c, Matrix4f& result_out);
+inline Matrix4f rightTranslate(const Matrix4f& mat, const Vec4f& translation_vec);
+inline Matrix4f leftTranslateAffine3(const Vec4f& translation_vec, const Matrix4f& mat);
 
 
 Matrix4f::Matrix4f(const float* data)
@@ -148,6 +157,34 @@ Matrix4f::Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, cons
 	_mm_store_ps(e + 4,  col1.v);
 	_mm_store_ps(e + 8,  col2.v);
 	_mm_store_ps(e + 12, col3.v);
+}
+
+
+const Matrix4f Matrix4f::identity()
+{
+	const float data[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+	return Matrix4f(data);
+}
+
+
+void Matrix4f::setToIdentity()
+{
+	e[0] = 1.f;
+	e[1] = 0.f;
+	e[2] = 0.f;
+	e[3] = 0.f;
+	e[4] = 0.f;
+	e[5] = 1.f;
+	e[6] = 0.f;
+	e[7] = 0.f;
+	e[8] = 0.f;
+	e[9] = 0.f;
+	e[10] = 1.f;
+	e[11] = 0.f;
+	e[12] = 0.f;
+	e[13] = 0.f;
+	e[14] = 0.f;
+	e[15] = 1.f;
 }
 
 
@@ -278,9 +315,6 @@ const Matrix4f Matrix4f::operator + (const Matrix4f& other) const
 	res.setColumn(3, getColumn(3) + other.getColumn(3));
 	return res;
 }
-
-
-void mul(const Matrix4f& a, const Matrix4f& b, Matrix4f& result_out);
 
 
 INDIGO_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v)
@@ -513,7 +547,7 @@ void Matrix4f::setRow(unsigned int row_index, const Vec4f& v)
 }
 
 
-inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON)
+inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps/* = NICKMATHS_EPSILON*/)
 {
 	for(unsigned int i=0; i<16; ++i)
 		if(!epsEqual(a.e[i], b.e[i], eps))
@@ -522,12 +556,147 @@ inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS
 }
 
 
-inline bool approxEq(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON)
+inline bool approxEq(const Matrix4f& a, const Matrix4f& b, float eps/* = NICKMATHS_EPSILON*/)
 {
 	for(unsigned int i=0; i<16; ++i)
 		if(!Maths::approxEq(a.e[i], b.e[i], eps))
 			return false;
 	return true;
+}
+
+
+void Matrix4f::applyUniformScale(float scale)
+{
+	const Vec4f scalev(scale);
+
+	_mm_store_ps(e + 0, mul(Vec4f(_mm_load_ps(e + 0)), scalev).v);
+	_mm_store_ps(e + 4, mul(Vec4f(_mm_load_ps(e + 4)), scalev).v);
+	_mm_store_ps(e + 8, mul(Vec4f(_mm_load_ps(e + 8)), scalev).v);
+	// Last column is not scaled.
+}
+
+
+void Matrix4f::setToUniformScaleMatrix(float scale)
+{
+	e[0] = scale;
+	e[1] = 0;
+	e[2] = 0;
+	e[3] = 0;
+	e[4] = 0;
+	e[5] = scale;
+	e[6] = 0;
+	e[7] = 0;
+	e[8] = 0;
+	e[9] = 0;
+	e[10] = scale;
+	e[11] = 0;
+	e[12] = 0;
+	e[13] = 0;
+	e[14] = 0;
+	e[15] = 1;
+}
+
+
+const Matrix4f Matrix4f::uniformScaleMatrix(float scale)
+{
+	Matrix4f m;
+	m.setToUniformScaleMatrix(scale);
+	return m;
+}
+
+
+void Matrix4f::setToScaleMatrix(float xscale, float yscale, float zscale)
+{
+	e[0] = xscale;
+	e[1] = 0;
+	e[2] = 0;
+	e[3] = 0;
+	e[4] = 0;
+	e[5] = yscale;
+	e[6] = 0;
+	e[7] = 0;
+	e[8] = 0;
+	e[9] = 0;
+	e[10] = zscale;
+	e[11] = 0;
+	e[12] = 0;
+	e[13] = 0;
+	e[14] = 0;
+	e[15] = 1;
+}
+
+
+const Matrix4f Matrix4f::scaleMatrix(float x, float y, float z)
+{
+	Matrix4f m;
+	m.setToScaleMatrix(x, y, z);
+	return m;
+}
+
+
+
+// See also https://gist.github.com/rygorous/4172889
+inline void mul(const Matrix4f& b, const Matrix4f& c, Matrix4f& result_out)
+{
+	/*
+	a_11 = b_11*c_11 + b_12*c_21 + b_13*c_32 + b_14*c_41
+	a_21 = b_21*c_11 + b_22*c_21 + b_23*c_32 + b_24*c_41
+	a_31 = b_31*c_11 + b_32*c_21 + b_33*c_32 + b_34*c_41
+	a_41 = b_41*c_11 + b_42*c_21 + b_43*c_32 + b_44*c_41
+
+	so
+	a_col_1 = b_col_1*c_11 + b_col_2*c_21 + b_col_3*c_31 + b_col_4*c_41
+	etc..
+	*/
+
+	const Vec4f bcol0 = Vec4f(_mm_load_ps(b.e + 0));
+	const Vec4f bcol1 = Vec4f(_mm_load_ps(b.e + 4));
+	const Vec4f bcol2 = Vec4f(_mm_load_ps(b.e + 8));
+	const Vec4f bcol3 = Vec4f(_mm_load_ps(b.e + 12));
+
+	const Vec4f ccol0 = Vec4f(_mm_load_ps(c.e + 0));
+	const Vec4f ccol1 = Vec4f(_mm_load_ps(c.e + 4));
+	const Vec4f ccol2 = Vec4f(_mm_load_ps(c.e + 8));
+	const Vec4f ccol3 = Vec4f(_mm_load_ps(c.e + 12));
+
+	const Vec4f a_col0 = mul(bcol0, Vec4f(indigoCopyToAll(ccol0.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol0.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol0.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol0.v, 3)));
+	const Vec4f a_col1 = mul(bcol0, Vec4f(indigoCopyToAll(ccol1.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol1.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol1.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol1.v, 3)));
+	const Vec4f a_col2 = mul(bcol0, Vec4f(indigoCopyToAll(ccol2.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol2.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol2.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol2.v, 3)));
+	const Vec4f a_col3 = mul(bcol0, Vec4f(indigoCopyToAll(ccol3.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol3.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol3.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol3.v, 3)));
+
+	_mm_store_ps(result_out.e + 0, a_col0.v);
+	_mm_store_ps(result_out.e + 4, a_col1.v);
+	_mm_store_ps(result_out.e + 8, a_col2.v);
+	_mm_store_ps(result_out.e + 12, a_col3.v);
+}
+
+
+// See comments in mul() above.
+const Matrix4f Matrix4f::operator * (const Matrix4f& c) const
+{
+	Matrix4f res;
+
+	// b = this matrix.  Result = a.
+	const Vec4f bcol0 = Vec4f(_mm_load_ps(e + 0));
+	const Vec4f bcol1 = Vec4f(_mm_load_ps(e + 4));
+	const Vec4f bcol2 = Vec4f(_mm_load_ps(e + 8));
+	const Vec4f bcol3 = Vec4f(_mm_load_ps(e + 12));
+
+	const Vec4f ccol0 = Vec4f(_mm_load_ps(c.e + 0));
+	const Vec4f ccol1 = Vec4f(_mm_load_ps(c.e + 4));
+	const Vec4f ccol2 = Vec4f(_mm_load_ps(c.e + 8));
+	const Vec4f ccol3 = Vec4f(_mm_load_ps(c.e + 12));
+
+	const Vec4f a_col0 = mul(bcol0, Vec4f(indigoCopyToAll(ccol0.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol0.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol0.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol0.v, 3)));
+	const Vec4f a_col1 = mul(bcol0, Vec4f(indigoCopyToAll(ccol1.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol1.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol1.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol1.v, 3)));
+	const Vec4f a_col2 = mul(bcol0, Vec4f(indigoCopyToAll(ccol2.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol2.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol2.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol2.v, 3)));
+	const Vec4f a_col3 = mul(bcol0, Vec4f(indigoCopyToAll(ccol3.v, 0))) + mul(bcol1, Vec4f(indigoCopyToAll(ccol3.v, 1)))  + mul(bcol2, Vec4f(indigoCopyToAll(ccol3.v, 2))) + mul(bcol3, Vec4f(indigoCopyToAll(ccol3.v, 3)));
+
+	_mm_store_ps(res.e + 0, a_col0.v);
+	_mm_store_ps(res.e + 4, a_col1.v);
+	_mm_store_ps(res.e + 8, a_col2.v);
+	_mm_store_ps(res.e + 12, a_col3.v);
+	return res;
 }
 
 
@@ -562,14 +731,15 @@ float Matrix4f::upperLeftDeterminant() const
 }
 
 
-void Matrix4f::rightMultiplyAffine3WithTranslationMatrix(const Vec4f& translation_vec, Matrix4f& result_out) const
+void Matrix4f::rightMultiplyWithTranslationMatrix(const Vec4f& translation_vec, Matrix4f& result_out) const
 {
-	assert(getRow(3) == Vec4f(0,0,0,1));
 	/*
 	(m_11   m_12   m_13   m_14)  (1  0  0  t_x) = (m_11   m_12   m_13   m_11.t_x + m_12.t_y + m_13.t_z + m_14)
 	(m_21   m_22   m_23   m_24)  (0  1  0  t_y)   (m_21   m_22   m_23   m_21.t_x + m_22.t_y + m_23.t_z + m_24)
 	(m_31   m_32   m_33   m_34)  (0  0  1  t_z)   (m_31   m_32   m_33   m_31.t_x + m_32.t_y + m_33.t_z + m_34)
-	(0      0      0      1   )  (0  0  0    1)   (0      0      0                                          1)
+	(m_41   m_42   m_43   m_44)  (0  0  0    1)   (m_41   m_42   m_43   m_41.t_x + m_42.t_y + m_43.t_z + m_44)
+
+	See code_documentation/Matrix4f proofs.wxmx also.
 	*/
 	const Vec4f c0 = getColumn(0);
 	const Vec4f c1 = getColumn(1);
@@ -583,5 +753,54 @@ void Matrix4f::rightMultiplyAffine3WithTranslationMatrix(const Vec4f& translatio
 		 mul(c1, copyToAll<1>(translation_vec))) + 
 		(mul(c2, copyToAll<2>(translation_vec)) + 
 		 c3)
+	);
+}
+
+
+// Equivalent to mat * Matrix4f::translationMatrix(translation_vec)
+inline Matrix4f rightTranslate(const Matrix4f& mat, const Vec4f& translation_vec)
+{
+	assert(translation_vec[3] == 0.f);
+
+	/*
+	(m_11   m_12   m_13   m_14)  (1  0  0  t_x) = (m_11   m_12   m_13   m_11.t_x + m_12.t_y + m_13.t_z + m_14)
+	(m_21   m_22   m_23   m_24)  (0  1  0  t_y)   (m_21   m_22   m_23   m_21.t_x + m_22.t_y + m_23.t_z + m_24)
+	(m_31   m_32   m_33   m_34)  (0  0  1  t_z)   (m_31   m_32   m_33   m_31.t_x + m_32.t_y + m_33.t_z + m_34)
+	(m_41   m_42   m_43   m_44)  (0  0  0    1)   (m_41   m_42   m_43   m_41.t_x + m_42.t_y + m_43.t_z + m_44)
+	*/
+	const Vec4f c0 = mat.getColumn(0);
+	const Vec4f c1 = mat.getColumn(1);
+	const Vec4f c2 = mat.getColumn(2);
+	const Vec4f c3 = mat.getColumn(3);
+
+	return Matrix4f(
+		c0,
+		c1,
+		c2,
+		(mul(c0, copyToAll<0>(translation_vec)) +
+		 mul(c1, copyToAll<1>(translation_vec))) +
+		(mul(c2, copyToAll<2>(translation_vec)) +
+		 c3)
+	);
+}
+
+
+// Equivalent to Matrix4f::translationMatrix(translation_vec) * mat, assuming mat has bottom row (0,0,0,1).
+inline Matrix4f leftTranslateAffine3(const Vec4f& translation_vec, const Matrix4f& mat)
+{
+	assert(translation_vec[3] == 0.f);
+	assert(mat.getRow(3) == Vec4f(0, 0, 0, 1));
+
+	/*
+	(1  0  0  t_x)  (m_11   m_12   m_13   m_14)  = (m_11   m_12   m_13   t_x + m_14)
+	(0  1  0  t_y)  (m_21   m_22   m_23   m_24)    (m_21   m_22   m_23   t_y + m_24)
+	(0  0  1  t_z)  (m_31   m_32   m_33   m_34)    (m_31   m_32   m_33   t_z + m_34)
+	(0  0  0    1)  (   0      0      0      1)    (   0      0      0            1)
+	*/
+	return Matrix4f(
+		mat.getColumn(0),
+		mat.getColumn(1),
+		mat.getColumn(2),
+		mat.getColumn(3) + translation_vec
 	);
 }

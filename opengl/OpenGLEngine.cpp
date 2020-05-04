@@ -401,7 +401,7 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 }
 
 
-#if !defined(OSX)
+#if (BUILD_TESTS || !defined(NDEBUG)) && !defined(OSX)
 static void 
 #ifdef _WIN32
 	// NOTE: not sure what this should be on non-windows platforms.  APIENTRY does not seem to be defined with GCC on Linux 64.
@@ -510,11 +510,36 @@ void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js:
 	uv_attrib.offset = (uint32)(sizeof(float) * 3 + sizeof(float) * 3); // after position and possibly normal.
 	spec.attributes.push_back(uv_attrib);
 
-	meshdata.vert_vao = new VAO(meshdata.vert_vbo, spec);
+	VertexAttrib colour_attrib;
+	colour_attrib.enabled = false;
+	colour_attrib.num_comps = 3;
+	colour_attrib.type = GL_FLOAT;
+	colour_attrib.normalised = false;
+	colour_attrib.stride = (uint32)vert_stride;
+	colour_attrib.offset = (uint32)0;
+	spec.attributes.push_back(colour_attrib);
+
+
+	// Add instancing matrix vert attributes, one for each vec4f comprising matrices
+	if(meshdata.instance_matrix_vbo.nonNull())
+		for(int i=0; i<4; ++i)
+		{
+			VertexAttrib vec4_attrib;
+			vec4_attrib.enabled = true;
+			vec4_attrib.num_comps = 4;
+			vec4_attrib.type = GL_FLOAT;
+			vec4_attrib.normalised = false;
+			vec4_attrib.stride = 16 * sizeof(float);
+			vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
+			vec4_attrib.instancing = true;
+			spec.attributes.push_back(vec4_attrib);
+		}
+
+	meshdata.vert_vao = new VAO(meshdata.vert_vbo, meshdata.instance_matrix_vbo, spec);
 }
 
 
-void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, PhongUniformLocations& phong_locations_out)
+void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out)
 {
 	phong_locations_out.diffuse_colour_location				= phong_prog->getUniformLocation("diffuse_colour");
 	phong_locations_out.have_shading_normals_location		= phong_prog->getUniformLocation("have_shading_normals");
@@ -708,7 +733,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		buildMeshRenderData(*line_meshdata, verts, normals, uvs, indices);
 	}
 
-	this->cube_meshdata = makeCubeMesh();
+	this->cube_meshdata = makeCubeMesh(/*instancing data=*/NULL);
 	this->unit_quad_meshdata = makeUnitQuadMesh();
 
 	this->current_scene->env_ob->mesh_data = sphere_meshdata;
@@ -732,52 +757,27 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
+		for(int alpha_test=0; alpha_test <= 1; ++alpha_test)
+		for(int vert_colours=0; vert_colours <= 1; ++vert_colours)
+		for(int instance_matrices=0; instance_matrices <= 1; ++instance_matrices)
 		{
-			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n" + "#define VERT_COLOURS 0\n";
+			const std::string use_defs = preprocessor_defines + 
+				"#define ALPHA_TEST " + toString(alpha_test) + "\n" + 
+				"#define VERT_COLOURS " + toString(vert_colours) + "\n" +
+				"#define INSTANCE_MATRICES " + toString(instance_matrices) + "\n";
 
-			phong_prog_no_vert_colours = new OpenGLProgram(
+			OpenGLProgramRef phong_prog = new OpenGLProgram(
 				"phong",
 				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
 				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 			);
+			phong_prog->is_phong = true;
+
+			const PhongKey key((bool)alpha_test, (bool)vert_colours, (bool)instance_matrices);
+			phong_progs[key] = phong_prog;
+
+			getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
 		}
-		getPhongUniformLocations(phong_prog_no_vert_colours, settings.shadow_mapping, phong_locations);
-
-		{
-			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n" + "#define VERT_COLOURS 0\n";
-
-			phong_with_alpha_test_no_vert_colours_prog = new OpenGLProgram(
-				"phong",
-				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
-			);
-		}
-		getPhongUniformLocations(phong_with_alpha_test_no_vert_colours_prog, settings.shadow_mapping, phong_with_alpha_test_locations);
-
-		{
-			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n" + "#define VERT_COLOURS 1\n";
-
-			phong_prog_with_vert_colours = new OpenGLProgram(
-				"phong",
-				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
-			);
-		}
-		getPhongUniformLocations(phong_prog_with_vert_colours, settings.shadow_mapping, phong_locations);
-
-		{
-			const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n" + "#define VERT_COLOURS 1\n";
-
-			phong_with_alpha_test_with_vert_colours_prog = new OpenGLProgram(
-				"phong",
-				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
-			);
-		}
-		getPhongUniformLocations(phong_with_alpha_test_with_vert_colours_prog, settings.shadow_mapping, phong_with_alpha_test_locations);
-
-
-
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
@@ -942,6 +942,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 }
 
 
+OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key)
+{
+	return phong_progs[key];
+}
+
+
 // We want the outline textures to have the same resolution as the viewport.
 void OpenGLEngine::buildOutlineTexturesForViewport()
 {
@@ -1038,16 +1044,12 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 }
 
 
-void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours)
+void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing)
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
 	if(material.shader_prog.nonNull() && 
-		!(material.shader_prog == transparent_prog  || 
-			material.shader_prog == phong_with_alpha_test_no_vert_colours_prog || 
-			material.shader_prog == phong_prog_no_vert_colours ||
-			material.shader_prog == phong_with_alpha_test_with_vert_colours_prog ||
-			material.shader_prog == phong_prog_with_vert_colours
-			))
+		!(material.shader_prog == transparent_prog  || material.shader_prog->is_phong)
+		)
 		return;
 
 	if(material.transparent)
@@ -1056,10 +1058,8 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	}
 	else
 	{
-		if(material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha())
-			material.shader_prog = use_vert_colours ? phong_with_alpha_test_with_vert_colours_prog : phong_with_alpha_test_no_vert_colours_prog;
-		else
-			material.shader_prog = use_vert_colours ? phong_prog_with_vert_colours : phong_prog_no_vert_colours;
+		const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
+		material.shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing));
 	}
 }
 
@@ -1082,7 +1082,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours);
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1154,7 +1154,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					object->materials[i].albedo_texture = opengl_texture;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
-					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours);
+					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
 				}
 			}
 		}
@@ -1194,10 +1194,11 @@ bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 }
 
 
-void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours)
+void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing)
 {
 	assignShaderProgToMaterial(mat,
-		use_vert_colours // false // use_vert_colours - TEMP HACK
+		use_vert_colours, // false // use_vert_colours - TEMP HACK
+		uses_instancing
 	);
 }
 
@@ -1209,7 +1210,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours);
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1459,7 +1460,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = phong_prog_no_vert_colours;
+		debug_arrow_ob->materials[0].shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false)); //phong_prog_no_vert_colours;
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -3079,7 +3080,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	spec.attributes.push_back(colour_attrib);
 
 	if(!skip_opengl_calls)
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, /*instance data=*/NULL, spec);
 
 	opengl_render_data->has_uvs				= mesh_has_uvs;
 	opengl_render_data->has_shading_normals = mesh_has_shading_normals;
@@ -3284,7 +3285,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	{
 		opengl_render_data->vert_indices_buf = new VBO(mesh->index_data.data(), mesh->index_data.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
 		opengl_render_data->vert_vbo = new VBO(mesh->vertex_data.data(), mesh->vertex_data.dataSizeBytes());
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vertex_spec);
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, /*instance data=*/NULL, opengl_render_data->vertex_spec);
 	}
 
 
@@ -3332,7 +3333,7 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 	}
 
 	
-	data.vert_vao = new VAO(data.vert_vbo, data.vertex_spec);
+	data.vert_vao = new VAO(data.vert_vbo, /*instance data=*/NULL, data.vertex_spec);
 
 
 	// Now that data has been uploaded, free the buffers.
@@ -3343,32 +3344,31 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 }
 
 
-void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, 
-	const PhongUniformLocations& use_phong_locations)
+void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
 
-	glUniform4fv(use_phong_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-	glUniform4f(use_phong_locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], 1.f);
-	glUniform1i(use_phong_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-	glUniform1i(use_phong_locations.have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
-	glUniform1f(use_phong_locations.roughness_location, opengl_mat.roughness);
-	glUniform1f(use_phong_locations.fresnel_scale_location, opengl_mat.fresnel_scale);
-	glUniform1f(use_phong_locations.metallic_frac_location, opengl_mat.metallic_frac);
+	if(locations.sundir_cs_location >= 0)            glUniform4fv(locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
+	if(locations.diffuse_colour_location >= 0)       glUniform4f(locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], 1.f);
+	if(locations.have_shading_normals_location >= 0) glUniform1i(locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
+	if(locations.have_texture_location >= 0)         glUniform1i(locations.have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+	if(locations.roughness_location >= 0)            glUniform1f(locations.roughness_location, opengl_mat.roughness);
+	if(locations.fresnel_scale_location >= 0)        glUniform1f(locations.fresnel_scale_location, opengl_mat.fresnel_scale);
+	if(locations.metallic_frac_location >= 0)        glUniform1f(locations.metallic_frac_location, opengl_mat.metallic_frac);
 
 	if(this->cosine_env_tex.nonNull())
 	{
 		glActiveTexture(GL_TEXTURE0 + 3);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, this->cosine_env_tex->texture_handle);
-		glUniform1i(use_phong_locations.cosine_env_tex_location, 3);
+		glUniform1i(locations.cosine_env_tex_location, 3);
 	}
 			
 	if(this->specular_env_tex.nonNull())
 	{
 		glActiveTexture(GL_TEXTURE0 + 4);
 		glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-		glUniform1i(use_phong_locations.specular_env_tex_location, 4);
+		glUniform1i(locations.specular_env_tex_location, 4);
 	}
 
 	if(opengl_mat.albedo_texture.nonNull())
@@ -3381,8 +3381,8 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
 			opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 		};
-		glUniformMatrix3fv(use_phong_locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-		glUniform1i(use_phong_locations.diffuse_tex_location, 0);
+		glUniformMatrix3fv(locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+		glUniform1i(locations.diffuse_tex_location, 0);
 	}
 
 	// Set shadow mapping uniforms
@@ -3391,21 +3391,21 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glActiveTexture(GL_TEXTURE0 + 1);
 
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
-		glUniform1i(use_phong_locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
+		glUniform1i(locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
 
 		glActiveTexture(GL_TEXTURE0 + 2);
 
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex->texture_handle);
-		glUniform1i(use_phong_locations.static_depth_tex_location, 2);
+		glUniform1i(locations.static_depth_tex_location, 2);
 
 
-		glUniformMatrix4fv(use_phong_locations.shadow_texture_matrix_location, 
+		glUniformMatrix4fv(locations.shadow_texture_matrix_location,
 			/*count=*/shadow_mapping->numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures(), 
 			/*transpose=*/false, shadow_mapping->shadow_tex_matrix[0].e);
 	}
 
 	const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-	glUniform3fv(use_phong_locations.campos_ws_location, 1, campos_ws.x);
+	if(locations.campos_ws_location >= 0) glUniform3fv(locations.campos_ws_location, 1, campos_ws.x);
 }
 
 
@@ -3446,21 +3446,9 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		}
 
 		
-		if(shader_prog.getPointer() == this->phong_prog_no_vert_colours.getPointer())
+		if(shader_prog->is_phong)
 		{
-			setUniformsForPhongProg(opengl_mat, mesh_data, phong_locations);
-		}
-		else if(shader_prog.getPointer() == this->phong_with_alpha_test_no_vert_colours_prog.getPointer())
-		{
-			setUniformsForPhongProg(opengl_mat, mesh_data, phong_with_alpha_test_locations);
-		}
-		else if(shader_prog.getPointer() == this->phong_prog_with_vert_colours.getPointer())
-		{
-			setUniformsForPhongProg(opengl_mat, mesh_data, phong_locations);
-		}
-		else if(shader_prog.getPointer() == this->phong_with_alpha_test_with_vert_colours_prog.getPointer())
-		{
-			setUniformsForPhongProg(opengl_mat, mesh_data, phong_with_alpha_test_locations);
+			setUniformsForProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
 		}
 		else if(shader_prog.getPointer() == this->transparent_prog.getPointer())
 		{
@@ -3560,7 +3548,13 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 			glLineWidth(ob.line_width);
 		}
 
-		glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
+		if(mesh_data.instance_matrix_vbo.nonNull())
+		{
+			const size_t num_instances = mesh_data.instance_matrix_vbo->getSize() / sizeof(Matrix4f);
+			glDrawElementsInstanced(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset, (uint32)num_instances);
+		}
+		else
+			glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
 
 		shader_prog->useNoPrograms();
 	}
@@ -3944,10 +3938,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCapsuleMesh(const Vec3f& /*bot
 
 
 // Make a cube mesh.  Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
-Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh(const VBORef& instancing_data)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-	
+	mesh_data->instance_matrix_vbo = instancing_data;
+
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(24); // 6 faces * 4 verts/face
 	js::Vector<Vec3f, 16> normals;

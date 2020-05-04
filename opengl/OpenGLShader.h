@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "IncludeOpenGL.h"
 #include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
 #include <string>
 
 
@@ -26,3 +27,6 @@ public:
 private:
 	INDIGO_DISABLE_COPY(OpenGLShader);
 };
+
+
+typedef Reference<OpenGLShader> OpenGLShaderRef;

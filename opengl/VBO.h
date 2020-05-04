@@ -30,6 +30,7 @@ public:
 	void bind();
 	void unbind();
 
+	const GLuint bufferName() const { return buffer_name; }
 	const size_t getSize() const{ return size; }
 private:
 	INDIGO_DISABLE_COPY(VBO)
