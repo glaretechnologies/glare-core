@@ -999,7 +999,7 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 				{
 					if(node.downcastToPtr<Winter::FunctionDefinition>()->body.nonNull()) // If not a built-in function:
 					{
-						std::string s = buffer_root->top_level_defs[i]->sourceString();
+						std::string s = buffer_root->top_level_defs[i]->sourceString(/*depth=*/0);
 						output += s;
 						output += "\n\n";
 					}
@@ -1007,7 +1007,7 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 				}
 			default:
 				{
-					std::string s = buffer_root->top_level_defs[i]->sourceString();
+					std::string s = buffer_root->top_level_defs[i]->sourceString(/*depth=*/0);
 					output += s;
 					output += "\n\n";
 					break;
