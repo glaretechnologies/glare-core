@@ -82,6 +82,7 @@ public:
 	Reference<BatchedMesh> batched_mesh;
 
 	VBORef instance_matrix_vbo;
+	VBORef instance_colour_vbo;
 };
 
 
@@ -448,12 +449,14 @@ private:
 	void buildOutlineTexturesForViewport();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 public:
-	static Reference<OpenGLMeshRenderData> makeCubeMesh(const VBORef& instancing_data);
+	static Reference<OpenGLMeshRenderData> makeCubeMesh(const VBORef& instancing_matrix_data, const VBORef& instancing_colour_data);
 private:
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
 		float plane_draw_half_width);
+public:
 	static void getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
+private:
 	void setUniformsForProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 

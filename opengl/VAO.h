@@ -24,6 +24,8 @@ struct VertexAttrib
 	uint32 stride;
 	uint32 offset;
 	bool instancing;
+
+	Reference<VBO> vbo;
 };
 
 
@@ -41,7 +43,7 @@ Vertex array object
 class VAO : public RefCounted
 {
 public:
-	VAO(const Reference<VBO>& vertex_data, const Reference<VBO>& instance_data, const VertexSpec& vertex_spec);
+	VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec);
 	~VAO();
 
 	void bind();

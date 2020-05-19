@@ -532,10 +532,29 @@ void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js:
 			vec4_attrib.stride = 16 * sizeof(float);
 			vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
 			vec4_attrib.instancing = true;
+
+			vec4_attrib.vbo = meshdata.instance_matrix_vbo;
+
 			spec.attributes.push_back(vec4_attrib);
 		}
 
-	meshdata.vert_vao = new VAO(meshdata.vert_vbo, meshdata.instance_matrix_vbo, spec);
+	if(meshdata.instance_colour_vbo.nonNull())
+	{
+		VertexAttrib vec4_attrib;
+		vec4_attrib.enabled = true;
+		vec4_attrib.num_comps = 4;
+		vec4_attrib.type = GL_FLOAT;
+		vec4_attrib.normalised = false;
+		vec4_attrib.stride = 4 * sizeof(float);
+		vec4_attrib.offset = 0;
+		vec4_attrib.instancing = true;
+
+		vec4_attrib.vbo = meshdata.instance_colour_vbo;
+
+		spec.attributes.push_back(vec4_attrib);
+	}
+
+	meshdata.vert_vao = new VAO(meshdata.vert_vbo, spec);
 }
 
 
@@ -733,7 +752,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		buildMeshRenderData(*line_meshdata, verts, normals, uvs, indices);
 	}
 
-	this->cube_meshdata = makeCubeMesh(/*instancing data=*/NULL);
+	this->cube_meshdata = makeCubeMesh(/*instancing matrix data=*/NULL, /*instancing colour data=*/NULL);
 	this->unit_quad_meshdata = makeUnitQuadMesh();
 
 	this->current_scene->env_ob->mesh_data = sphere_meshdata;
@@ -772,8 +791,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 			);
 			phong_prog->is_phong = true;
+			phong_prog->uses_phong_uniforms = true;
 
-			const PhongKey key((bool)alpha_test, (bool)vert_colours, (bool)instance_matrices);
+			const PhongKey key(alpha_test != 0, vert_colours != 0, instance_matrices != 0);
 			phong_progs[key] = phong_prog;
 
 			getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
@@ -3080,7 +3100,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 	spec.attributes.push_back(colour_attrib);
 
 	if(!skip_opengl_calls)
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, /*instance data=*/NULL, spec);
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
 
 	opengl_render_data->has_uvs				= mesh_has_uvs;
 	opengl_render_data->has_shading_normals = mesh_has_shading_normals;
@@ -3285,7 +3305,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	{
 		opengl_render_data->vert_indices_buf = new VBO(mesh->index_data.data(), mesh->index_data.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
 		opengl_render_data->vert_vbo = new VBO(mesh->vertex_data.data(), mesh->vertex_data.dataSizeBytes());
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, /*instance data=*/NULL, opengl_render_data->vertex_spec);
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vertex_spec);
 	}
 
 
@@ -3333,7 +3353,7 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 	}
 
 	
-	data.vert_vao = new VAO(data.vert_vbo, /*instance data=*/NULL, data.vertex_spec);
+	data.vert_vao = new VAO(data.vert_vbo, data.vertex_spec);
 
 
 	// Now that data has been uploaded, free the buffers.
@@ -3446,7 +3466,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		}
 
 		
-		if(shader_prog->is_phong)
+		if(shader_prog->uses_phong_uniforms)
 		{
 			setUniformsForProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
 		}
@@ -3938,10 +3958,11 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCapsuleMesh(const Vec3f& /*bot
 
 
 // Make a cube mesh.  Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
-Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh(const VBORef& instancing_data)
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh(const VBORef& instancing_matrix_data, const VBORef& instancing_colour_data)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-	mesh_data->instance_matrix_vbo = instancing_data;
+	mesh_data->instance_matrix_vbo = instancing_matrix_data;
+	mesh_data->instance_colour_vbo = instancing_colour_data;
 
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(24); // 6 faces * 4 verts/face

@@ -75,6 +75,7 @@ public:
 	std::string prog_name;
 
 	bool is_phong; // bit of a hack
+	bool uses_phong_uniforms; // bit of a hack
 
 
 	UniformLocations uniform_locations;

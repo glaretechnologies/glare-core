@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "VBO.h"
 
 
-VAO::VAO(const Reference<VBO>& vertex_data, const Reference<VBO>& instance_data, const VertexSpec& vertex_spec)
+VAO::VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec)
 :	handle(0)
 {
 	// Create new VAO
@@ -24,14 +24,15 @@ VAO::VAO(const Reference<VBO>& vertex_data, const Reference<VBO>& instance_data,
 	// Unbind buffer
 	//glBindBuffer(buffer_type, 0);
 
-	vertex_data->bind();
+	vertex_data->bind(); // Use vertex_data by default.
 	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
 	{
-		if(vertex_spec.attributes[i].instancing)
+		if(vertex_spec.attributes[i].vbo.nonNull()) // If this attribute uses its own vertex buffer, bind it
 		{
 			vertex_data->unbind();
-			instance_data->bind();
+			vertex_spec.attributes[i].vbo->bind();
 		}
+
 		glVertexAttribPointer(
 			(uint32)i, // index
 			vertex_spec.attributes[i].num_comps, // size - "Specifies the number of components per generic vertex attribute"
@@ -47,9 +48,11 @@ VAO::VAO(const Reference<VBO>& vertex_data, const Reference<VBO>& instance_data,
 			glDisableVertexAttribArray((uint32)i);
 
 		if(vertex_spec.attributes[i].instancing)
-		{
 			glVertexAttribDivisor((GLuint)i, 1);
-			instance_data->unbind();
+
+		if(vertex_spec.attributes[i].vbo.nonNull())
+		{
+			vertex_spec.attributes[i].vbo->unbind();
 			vertex_data->bind();
 		}
 	}
