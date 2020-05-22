@@ -242,8 +242,30 @@ public:
 		return Vec3<Real>(r, g, b);
 	}
 
+	const std::string toString() const;
+
 	Real r,g,b;
 };
 
 typedef Colour3<float> Colour3f;
 typedef Colour3<double> Colour3d;
+
+
+// For sorting Colour3's
+template <class Real>
+inline bool operator < (const Colour3<Real>& a, const Colour3<Real>& b)
+{
+	if(a.r < b.r)
+		return true;
+	else if(a.r > b.r)
+		return false;
+	else // else a.r == b.r:
+	{
+		if(a.b < b.b)
+			return true;
+		else if(a.b > b.b)
+			return false;
+		else // else a.b == b.b:
+			return a.g < b.g;
+	}
+}

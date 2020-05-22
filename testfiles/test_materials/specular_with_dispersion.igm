@@ -5,7 +5,7 @@
 		<precedence>2</precedence>
 		<basic>
 			<ior>1.5</ior>
-			<cauchy_b_coeff>0</cauchy_b_coeff>
+			<cauchy_b_coeff>0.002</cauchy_b_coeff>
 			<absorption_coefficient_spectrum>
 				<rgb>
 					<rgb>
