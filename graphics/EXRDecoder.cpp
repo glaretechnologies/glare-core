@@ -745,7 +745,7 @@ void EXRDecoder::test()
 	}*/
 
 	// Destroy OpenEXR worker threads to avoid memory leaks.
-	IlmThread::ThreadPool::globalThreadPool().setNumThreads(0);
+	//IlmThread::ThreadPool::globalThreadPool().setNumThreads(0);
 
 	conPrint("EXRDecoder::test() done");
 }
