@@ -40,7 +40,7 @@ public:
 	Version getVersion() const { return version; }
 
 	// Fill out a sockets API address structure.  Takes a port argument for the structure as well.
-	void fillOutSockAddr(sockaddr& sock_addr, int port) const;
+	void fillOutSockAddr(sockaddr_storage& sock_addr, int port) const;
 
 	// Fill out a sockets API address structure.  Takes a port argument for the structure as well.
 	void fillOutIPV6SockAddr(sockaddr_storage& sock_addr, int port) const;

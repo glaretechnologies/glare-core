@@ -45,25 +45,21 @@ IPAddress::IPAddress(const sockaddr& sock_addr)
 }
 
 
-void IPAddress::fillOutSockAddr(sockaddr& sock_addr, int port) const
+void IPAddress::fillOutSockAddr(sockaddr_storage& sock_addr, int port) const
 {
-	memset(&sock_addr, 0, sizeof(sockaddr)); // Clear struct.
+	memset(&sock_addr, 0, sizeof(sockaddr_storage)); // Clear struct.
 
 	if(getVersion() == IPAddress::Version_4)
 	{
-		sock_addr.sa_family = AF_INET;
-
-		sockaddr_in *ipv4_address = (sockaddr_in*)&sock_addr;
-		
+		sockaddr_in* ipv4_address = (sockaddr_in*)&sock_addr;
+		ipv4_address->sin_family = AF_INET;
 		ipv4_address->sin_port = htons((unsigned short)port);
 		std::memcpy(&ipv4_address->sin_addr, this->address, 4);
 	}
 	else
 	{
-		sock_addr.sa_family = AF_INET6;
-
 		sockaddr_in6 *ipv6_address = (sockaddr_in6*)&sock_addr;
-
+		ipv6_address->sin6_family = AF_INET6;
 		ipv6_address->sin6_port = htons((unsigned short)port);
 		std::memcpy(&ipv6_address->sin6_addr, this->address, 16);
 	}
