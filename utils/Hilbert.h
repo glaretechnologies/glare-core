@@ -25,7 +25,10 @@ class Hilbert
 {
 public:
 	// will generate 4^depth indices, on a square grid with sides of length 2^depth.
-	static void generate(int depth, std::vector<Vec2i>& indices_out);
+	static size_t getNumIndicesForDepth(int depth) { return (size_t)1 << (2*(size_t)depth); }
+
+	// indices_out must have size == getNumIndicesForDepth(depth)
+	static void generate(int depth, Vec2i* indices_out);
 
 	static void test();
 };

@@ -28,7 +28,7 @@ static const Matrix2<int> negMirror(const Matrix2<int>& m)
 }
 
 
-static int run(int depth, int maxdepth, Matrix2<int> m, int x, int y, int index, std::vector<Vec2i>& indices_out)
+static int run(int depth, int maxdepth, Matrix2<int> m, int x, int y, int index, Vec2i* indices_out)
 {
 	const int step = 1 << (maxdepth - depth);
 
@@ -56,16 +56,15 @@ static int run(int depth, int maxdepth, Matrix2<int> m, int x, int y, int index,
 }
 
 
-void Hilbert::generate(int maxdepth, std::vector<Vec2i>& indices_out)
+void Hilbert::generate(int maxdepth, Vec2i* indices_out)
 {
 	if(maxdepth == 0)
 	{
-		indices_out = std::vector<Vec2i>(1, Vec2i(0, 0));
+		indices_out[0] = Vec2i(0, 0);
 		return;
 	}
 
 	// 4^maxdepth = (2^2)^maxdepth = 2^(2*maxdepth)
-	indices_out.resize((size_t)1 << (2*(size_t)maxdepth));
 
 	run(
 		1, // depth
@@ -129,7 +128,8 @@ void Hilbert::test()
 	for(int max_depth=0; max_depth<8; ++max_depth)
 	{
 		std::vector<Vec2i> indices;
-		generate(max_depth, indices);
+		indices.resize(getNumIndicesForDepth(max_depth));
+		generate(max_depth, indices.data());
 
 		testAssert(indices.size() == fourToN(max_depth));
 
