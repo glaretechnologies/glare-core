@@ -224,6 +224,8 @@ public:
 
 	void unloadAllData();
 
+	Colour3f background_colour;
+
 private:
 	float use_sensor_width;
 	float use_sensor_height;

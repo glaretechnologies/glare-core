@@ -63,6 +63,7 @@ OpenGLScene::OpenGLScene()
 	lens_shift_up_distance = 0;
 	lens_shift_right_distance = 0;
 	camera_type = OpenGLScene::CameraType_Perspective;
+	background_colour = Colour3f(0.1f);
 
 	env_ob = new GLObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
@@ -649,7 +650,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 
 	// Set up the rendering context, define display lists etc.:
-	glClearColor(32.f / 255.f, 32.f / 255.f, 32.f / 255.f, 1.f);
+	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
 
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
 	glDisable(GL_CULL_FACE);	// Disable backface culling
