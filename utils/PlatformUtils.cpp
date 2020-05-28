@@ -447,7 +447,8 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 	try
 	{
 		if(!FileUtils::fileExists(appdatapath))
-			FileUtils::createDirsForPath(appdatapath);
+			// Note: append a path spearator to let createDirsForPath know it's a path to a directory.
+			FileUtils::createDirsForPath(appdatapath + FileUtils::getPlafromPathSeparator());
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{

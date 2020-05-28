@@ -131,6 +131,9 @@ const std::string getActualOSPath(const std::string& path); // throws FileUtilsE
 // Then returns the canonical path name.
 const std::string getActualOSPathWithDirScanning(const std::string& path); // throws FileUtilsExcep
 
+// Returns the platform path separator.
+const std::string getPlafromPathSeparator();
+
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 const std::wstring convertUTF8ToFStreamPath(const std::string& p);

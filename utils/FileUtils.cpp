@@ -1134,6 +1134,12 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 #endif
 
 
+const std::string getPlafromPathSeparator()
+{
+	return std::string(PLATFORM_DIR_SEPARATOR);
+}
+
+
 } // End namespace FileUtils
 
 
