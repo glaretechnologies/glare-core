@@ -251,7 +251,7 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	info_out.model = (CPUInfo[0] >> 4) & 0xF;
 	info_out.family = (CPUInfo[0] >> 8) & 0xF;
 
-	// See https://en.wikipedia.org/wiki/CPUID, also Intel 64 and IA-32 Architectures Software Developer’s Manual, Volume 2A, "INPUT EAX = 01H: Returns Model, Family, Stepping Information"
+	// See https://en.wikipedia.org/wiki/CPUID, also Intel 64 and IA-32 Architectures Software Developerï¿½s Manual, Volume 2A, "INPUT EAX = 01H: Returns Model, Family, Stepping Information"
 	if(info_out.family == 6 || info_out.family == 15)
 	{
 		if(info_out.family == 15)
@@ -295,7 +295,7 @@ std::string GetPathFromCFURLRef(CFURLRef urlRef)
 }
 #endif
 
-const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExcep
+const std::string PlatformUtils::getUserAppDataDirPath() // throws PlatformUtilsExcep
 {
 #if defined(_WIN32) || defined(_WIN64)
 	TCHAR path[MAX_PATH];
@@ -340,7 +340,7 @@ const std::string PlatformUtils::getAPPDataDirPath() // throws PlatformUtilsExce
 	return filepath;
 # pragma clang diagnostic pop
 #else
-	throw PlatformUtilsExcep("getAPPDataDirPath() is only valid on Windows and OSX.");
+	throw PlatformUtilsExcep("getUserAppDataDirPath() is only valid on Windows and OSX.");
 #endif
 }
 
@@ -419,43 +419,41 @@ const std::string PlatformUtils::getCurrentWorkingDirPath() // throws PlatformUt
 }
 
 
-const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_name)
+const std::string PlatformUtils::getAppDataDirectory(const std::string& app_name)
 {
 #if defined(_WIN32) || defined(_WIN64) || defined(OSX)
 	// e.g. C:\Users\Nicholas Chapman\AppData\Roaming
-	const std::string appdatapath_base = PlatformUtils::getAPPDataDirPath();
+	const std::string appdatapath_base = PlatformUtils::getUserAppDataDirPath();
 
 	// e.g. C:\Users\Nicholas Chapman\AppData\Roaming\Indigo Renderer
 	const std::string appdatapath = FileUtils::join(appdatapath_base, app_name);
 
-	// Create the dir if it doesn't exist
-	try
-	{
-		if(!FileUtils::fileExists(appdatapath))
-			FileUtils::createDir(appdatapath);
-	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		throw PlatformUtilsExcep(e.what());
-	}
 	return appdatapath;
 #else // Else on Linux:
 	const std::string home_dir = getEnvironmentVariable("HOME");
 	const std::string company_dir = home_dir + "/.glare_technologies";
 	const std::string appdatapath = company_dir + "/" + app_name;
 
+	return appdatapath;
+#endif
+}
+
+
+const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& app_name)
+{
+	const std::string appdatapath = getAppDataDirectory(app_name);
+
 	// Create the dir if it doesn't exist
 	try
 	{
-		FileUtils::createDirIfDoesNotExist(company_dir);
-		FileUtils::createDirIfDoesNotExist(appdatapath);
+		if(!FileUtils::fileExists(appdatapath))
+			FileUtils::createDirsForPath(appdatapath);
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
 		throw PlatformUtilsExcep(e.what());
 	}
 	return appdatapath;
-#endif
 }
 
 
@@ -714,7 +712,18 @@ void PlatformUtils::ignoreUnixSignals()
 	 
 #else
 	// Ignore sigpipe in unix.
-	signal(SIGPIPE, SIG_IGN);
+	//signal(SIGPIPE, SIG_IGN);
+
+	/*struct sigaction act;
+	memset (&act, 0, sizeof(act));
+    act.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &act, NULL);*/
+
+	sigset_t sigset, oldset;
+	sigemptyset(&sigset);
+	sigemptyset(&oldset);
+	sigaddset(&sigset, SIGPIPE);
+	sigprocmask(SIG_BLOCK, &sigset,&oldset);
 
 	//sigset_t sigset;
 	//sigemptyset(&sigset);

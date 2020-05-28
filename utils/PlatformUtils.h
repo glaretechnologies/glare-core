@@ -63,7 +63,7 @@ This is something like "C:\Documents and Settings\username\Application Data" on 
 On Mac, returns the user's Application Support path.
 This function is not implemented for Linux.
 */
-const std::string getAPPDataDirPath(); // throws PlatformUtilsExcep
+const std::string getUserAppDataDirPath(); // throws PlatformUtilsExcep
 
 
 // Only works on Windows, returns CSIDL_COMMON_DOCUMENTS, e.g. 'C:\Users\Public\Documents'.
@@ -84,6 +84,8 @@ $HOME/.glare_technologies/app_name
 
 The directories are created if they do not yet exist.
 */
+const std::string getAppDataDirectory(const std::string& app_name); // throws PlatformUtilsExcep
+
 const std::string getOrCreateAppDataDirectory(const std::string& app_name); // throws PlatformUtilsExcep.
 
 const std::string getOrCreateAppDataDirectoryWithDummyFallback(const std::string& app_name); // Doesn't throw.
