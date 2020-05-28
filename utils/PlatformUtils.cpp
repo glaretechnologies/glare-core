@@ -712,18 +712,7 @@ void PlatformUtils::ignoreUnixSignals()
 	 
 #else
 	// Ignore sigpipe in unix.
-	//signal(SIGPIPE, SIG_IGN);
-
-	/*struct sigaction act;
-	memset (&act, 0, sizeof(act));
-    act.sa_handler = SIG_IGN;
-    sigaction(SIGPIPE, &act, NULL);*/
-
-	sigset_t sigset, oldset;
-	sigemptyset(&sigset);
-	sigemptyset(&oldset);
-	sigaddset(&sigset, SIGPIPE);
-	sigprocmask(SIG_BLOCK, &sigset,&oldset);
+	signal(SIGPIPE, SIG_IGN);
 
 	//sigset_t sigset;
 	//sigemptyset(&sigset);
