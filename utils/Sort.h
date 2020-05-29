@@ -42,21 +42,21 @@ namespace Sort
 	Counting sorts.  Efficient for when the total number of different buckets/keys is relatively small.
 	*/
 	template <class T, class BucketChooser>
-	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_choose);
+	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_chooser);
 
 	template <class T, class BucketChooser>
-	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_choose);
+	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_chooser);
 
 	// For when num buckets is already known.
 	template <class T, class BucketChooser>
-	inline void serialCountingSortWithNumBuckets(const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_choose);
+	inline void serialCountingSortWithNumBuckets(const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser);
 
 	template <class T, class BucketChooser>
-	inline void parallelCountingSort(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_choose);
+	inline void parallelCountingSort(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_chooser);
 
 
 	template <class T, class BucketChooser>
-	inline void parallelStableNWayPartition(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_choose);
+	inline void parallelStableNWayPartition(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser);
 
 
 	void test();
