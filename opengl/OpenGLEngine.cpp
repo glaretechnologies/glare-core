@@ -3593,8 +3593,9 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 	// We want to map the point (0,0,0) to startpos.
 
 	const Vec4f dir = endpos - startpos;
-	const Vec4f col1 = normalise(std::fabs(dir[2]) > 0.5f ? crossProduct(dir, Vec4f(1,0,0,0)) : crossProduct(dir, Vec4f(0,0,1,0))) * radius_scale;
+	const Vec4f col1 = normalise(std::fabs(normalise(dir)[2]) > 0.5f ? crossProduct(dir, Vec4f(1,0,0,0)) : crossProduct(dir, Vec4f(0,0,1,0))) * radius_scale;
 	const Vec4f col2 = normalise(crossProduct(dir, col1)) * radius_scale;
+
 	//ob->ob_to_world_matrix = Matrix4f::identity();
 	ob->ob_to_world_matrix.setColumn(0, dir);
 	ob->ob_to_world_matrix.setColumn(1, col1);
