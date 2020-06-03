@@ -36,8 +36,85 @@ OpenCLTests::~OpenCLTests()
 }
 
 
+static void determineMaxMemAllocSize(const OpenCLDeviceRef& opencl_device)
+{
+	std::string build_log;
+	try
+	{
+		OpenCL* opencl = getGlobalOpenCL();
+		testAssert(opencl != NULL);
+
+		// Initialise OpenCL context and command queue for this device
+		OpenCLContextRef context = new OpenCLContext(opencl_device->opencl_platform_id);
+		OpenCLCommandQueueRef command_queue = new OpenCLCommandQueue(context, opencl_device->opencl_device_id, /*enable profiling=*/false);
+
+		// Read test kernel from disk
+		const std::string contents = FileUtils::readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/test_programs/mem_alloc_test.cl");
+
+		// Compile and build program.
+		const std::vector<OpenCLDeviceRef> devices(1, opencl_device);
+		OpenCLProgramRef program = opencl->buildProgram(
+			contents,
+			context,
+			devices,
+			"", // options
+			build_log
+		);
+
+		conPrint("Program built.");
+		conPrint("Build log:\n" + opencl->getBuildLog(program->getProgram(), opencl_device->opencl_device_id));
+
+		OpenCLKernelRef testKernel = new OpenCLKernel(program, "testKernel", opencl_device->opencl_device_id, /*profile=*/false);
+
+
+		for(size_t size_MB=6770; size_MB<10000; size_MB += 10)
+		{
+			const size_t alloc_size = size_MB * 1024 * 1024;
+			conPrint("Attempting allocation of " + toString(size_MB) + " MB (" + toString(alloc_size) + " B)");
+			
+			js::Vector<uint8, 16> data(alloc_size);
+			std::memset(data.data(), 0, alloc_size);
+
+			OpenCLBuffer cl_data;
+			cl_data.allocFrom(context, data, CL_MEM_READ_ONLY);
+
+			OpenCLBuffer cl_result_buffer(context, sizeof(int32), CL_MEM_READ_WRITE);
+
+			testKernel->setKernelArgBuffer(0, cl_data);
+			testKernel->setKernelArgULong(1, alloc_size);
+			testKernel->setKernelArgBuffer(2, cl_result_buffer);
+
+			testKernel->launchKernel(command_queue->getCommandQueue(), /*global work size=*/1);
+
+			std::vector<uint32> result_buf(1);
+			cl_result_buffer.readTo(command_queue, result_buf.data(), sizeof(uint32), /*blocking=*/true);
+
+			testEqual(result_buf[0], 0u);
+		}
+	}
+	catch(Indigo::Exception& e)
+	{
+		conPrint(e.what());
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+static void memAllocationTests(const OpenCLDeviceRef& opencl_device)
+{
+	conPrint("memAllocationTests(), device: " + opencl_device->description());
+
+	determineMaxMemAllocSize(opencl_device);
+}
+
+
 void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 {
+	memAllocationTests(opencl_device);
+
 	conPrint("\nOpenCLTests::runTestsOnDevice(), device: " + opencl_device->description());
 
 	std::string build_log;
