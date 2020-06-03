@@ -17,6 +17,7 @@ Generated at 2016-10-14 15:08:16 +0100
 #include "../utils/Mutex.h"
 
 
+static const bool DO_CACHING = true; // Can disable caching for debugging with this.
 static const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
 static const bool VERBOSE = false;
 
@@ -107,6 +108,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 	const uint64 hashcode = computeProgramHashCode(program_source, compile_options, platform->version);
 
 	// Check in-memory cache to see we have this program in mem:
+	if(DO_CACHING)
 	{
 		Lock lock(mem_cache_mutex);
 		auto it = mem_cache.find(hashcode);
@@ -149,94 +151,95 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 	for(size_t i=0; i<devices.size(); ++i)
 		device_ids[i] = devices[i]->opencl_device_id;
 
-	
 	OpenCL* open_cl = ::getGlobalOpenCL();
 
-	try
+	if(DO_CACHING)
 	{
-		std::vector<std::vector<uint8> > binaries;
-		binaries.resize(devices.size());
-
-		// Load binaries from disk
-		for(size_t i=0; i<devices.size(); ++i)
+		try
 		{
-			const OpenCLDevice& device = *devices[i];
-			const std::string device_string_id = device.vendor_name + "_" + device.device_name;
-			const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
-			const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
-			const std::string dir = ::toHexString(dir_bits);
-			const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
+			std::vector<std::vector<uint8> > binaries;
+			binaries.resize(devices.size());
 
-			// If the binary is not present in the cache, don't throw an exception then print a warning message.
-			if(!FileUtils::fileExists(cachefile_path))
+			// Load binaries from disk
+			for(size_t i=0; i<devices.size(); ++i)
 			{
-				if(VERBOSE) conPrint("Cache miss: " + cachefile_path + " was not in disk cache.");
-				goto build_program;
+				const OpenCLDevice& device = *devices[i];
+				const std::string device_string_id = device.vendor_name + "_" + device.device_name;
+				const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
+				const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
+				const std::string dir = ::toHexString(dir_bits);
+				const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
+
+				// If the binary is not present in the cache, don't throw an exception then print a warning message.
+				if(!FileUtils::fileExists(cachefile_path))
+				{
+					if(VERBOSE) conPrint("Cache miss: " + cachefile_path + " was not in disk cache.");
+					goto build_program;
+				}
+
+				// try and load it
+				MemMappedFile file(cachefile_path);
+				if(file.fileSize() == 0)
+					throw Indigo::Exception("cached binary had size 0.");
+
+				if(VERBOSE) conPrint("Cache hit for device: " + cachefile_path + " was in disk cache.");
+
+				binaries[i].resize(file.fileSize());
+				std::memcpy(binaries[i].data(), file.fileData(), file.fileSize());
 			}
 
-			// try and load it
-			MemMappedFile file(cachefile_path);
-			if(file.fileSize() == 0)
-				throw Indigo::Exception("cached binary had size 0.");
+			if(VERBOSE) conPrint("Cache hit for all devices!");
 
-			if(VERBOSE) conPrint("Cache hit for device: " + cachefile_path + " was in disk cache.");
+			std::vector<size_t> binary_lengths(binaries.size());
+			std::vector<const unsigned char*> binary_pointers(binaries.size());
+			for(size_t i=0; i<binary_pointers.size(); ++i)
+			{
+				binary_lengths[i] = binaries[i].size();
+				binary_pointers[i] = (const unsigned char*)binaries[i].data();
+			}
 
-			binaries[i].resize(file.fileSize());
-			std::memcpy(binaries[i].data(), file.fileData(), file.fileSize());
-		}
+			cl_int result = CL_SUCCESS;
+			OpenCLProgramRef program = new OpenCLProgram(open_cl->clCreateProgramWithBinary(
+					opencl_context->getContext(),
+					(cl_uint)device_ids.size(), // num devices
+					device_ids.data(), // device list
+					binary_lengths.data(), // lengths
+					binary_pointers.data(), // binaries
+					NULL, // binary status - Individual statuses for each binary.  We won't use this.
+					&result
+				),
+				opencl_context
+			);
+			if(result != CL_SUCCESS)
+				throw Indigo::Exception("clCreateProgramWithSource failed: " + OpenCL::errorString(result));
 
-		if(VERBOSE) conPrint("Cache hit for all devices!");
-
-		std::vector<size_t> binary_lengths(binaries.size());
-		std::vector<const unsigned char*> binary_pointers(binaries.size());
-		for(size_t i=0; i<binary_pointers.size(); ++i)
-		{
-			binary_lengths[i] = binaries[i].size();
-			binary_pointers[i] = (const unsigned char*)binaries[i].data();
-		}
-
-		cl_int result = CL_SUCCESS;
-		OpenCLProgramRef program = new OpenCLProgram(open_cl->clCreateProgramWithBinary(
-				opencl_context->getContext(),
+			Timer timer;
+			result = open_cl->clBuildProgram(
+				program->getProgram(),
 				(cl_uint)device_ids.size(), // num devices
-				device_ids.data(), // device list
-				binary_lengths.data(), // lengths
-				binary_pointers.data(), // binaries
-				NULL, // binary status - Individual statuses for each binary.  We won't use this.
-				&result
-			),
-			opencl_context
-		);
-		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clCreateProgramWithSource failed: " + OpenCL::errorString(result));
+				device_ids.data(), // device ids
+				compile_options.c_str(), // options
+				NULL, // pfn_notify
+				NULL // user data
+			);
+			if(VERBOSE) conPrint("clBuildProgram took " + timer.elapsedStringNSigFigs(4));
 
-		Timer timer;
-		result = open_cl->clBuildProgram(
-			program->getProgram(),
-			(cl_uint)device_ids.size(), // num devices
-			device_ids.data(), // device ids
-			compile_options.c_str(), // options
-			NULL, // pfn_notify
-			NULL // user data
-		);
-		if(VERBOSE) conPrint("clBuildProgram took " + timer.elapsedStringNSigFigs(4));
+			if(result != CL_SUCCESS)
+				throw Indigo::Exception("clBuildProgram failed: " + OpenCL::errorString(result));
 
-		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clBuildProgram failed: " + OpenCL::errorString(result));
+			// Add to mem-cache
+			Lock lock(mem_cache_mutex);
+			mem_cache[hashcode] = program;
 
-		// Add to mem-cache
-		Lock lock(mem_cache_mutex);
-		mem_cache[hashcode] = program;
-
-		// Program was successfully loaded and built from cache, so return it
-		return OpenCLProgramCache::Results(program, /*cache_hit=*/true);
+			// Program was successfully loaded and built from cache, so return it
+			return OpenCLProgramCache::Results(program, /*cache_hit=*/true);
+		}
+		catch(Indigo::Exception& e)
+		{
+			// Cache failed.
+			conPrint("Warning: failed building OpenCL program from cache: " + e.what());
+		}
 	}
-	catch(Indigo::Exception& e)
-	{
-		// Cache failed.
-		conPrint("Warning: failed building OpenCL program from cache: " + e.what());
-	}
-
 
 build_program:
 	// Program binary was not in cache, or building program from binaries failed.  So (re)build program.
