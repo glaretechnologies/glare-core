@@ -124,24 +124,9 @@ public:
 	virtual bool shouldCancel() { return true; }
 };
 
-static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<SBVHTri, 16>& tris)
+
+static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objects, const js::Vector<SBVHTri, 16>& tris, std::vector<BVHBuilderRef>& builders)
 {
-	const int num_objects = (int)tris.size();
-
-	js::Vector<js::AABBox, 16> aabbs(tris.size());
-	for(size_t z=0; z<tris.size(); ++z)
-	{
-		aabbs[z] = js::AABBox::emptyAABBox();
-		aabbs[z].enlargeToHoldPoint(tris[z].v[0]);
-		aabbs[z].enlargeToHoldPoint(tris[z].v[1]);
-		aabbs[z].enlargeToHoldPoint(tris[z].v[2]);
-	}
-
-	StandardPrintOutput print_output;
-	DummyShouldCancelCallback should_cancel_callback;
-
-	std::vector<BVHBuilderRef> builders;
-
 	const int max_num_objects_per_leaf = 16;
 
 	{
@@ -177,35 +162,60 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 		builder->new_task_num_ob_threshold = 32;
 		builders.push_back(builder);
 	}
+}
 
+static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<SBVHTri, 16>& tris)
+{
+	const int num_objects = (int)tris.size();
 
-	for(size_t i=0; i<builders.size(); ++i)
+	js::Vector<js::AABBox, 16> aabbs(tris.size());
+	for(size_t z=0; z<tris.size(); ++z)
 	{
-		js::Vector<ResultNode, 64> result_nodes;
-		builders[i]->build(task_manager,
-			should_cancel_callback,
-			print_output,
-			false, // verbose
-			result_nodes
-		);
-
-		const bool duplicate_prims_allowed = builders[i].isType<SBVHBuilder>();
-		testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs, duplicate_prims_allowed);
+		aabbs[z] = js::AABBox::emptyAABBox();
+		aabbs[z].enlargeToHoldPoint(tris[z].v[0]);
+		aabbs[z].enlargeToHoldPoint(tris[z].v[1]);
+		aabbs[z].enlargeToHoldPoint(tris[z].v[2]);
 	}
 
+	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
+
+	{
+		std::vector<BVHBuilderRef> builders;
+		buildBuilders(aabbs, num_objects, tris, builders);
+
+		for(size_t i=0; i<builders.size(); ++i)
+		{
+			js::Vector<ResultNode, 64> result_nodes;
+			builders[i]->build(task_manager,
+				should_cancel_callback,
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+
+			const bool duplicate_prims_allowed = builders[i].isType<SBVHBuilder>();
+			testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs, duplicate_prims_allowed);
+		}
+	}
 
 	// Test cancelling
-	TestShouldCancelCallback test_should_cancel_callback;
-
-	for(size_t i=0; i<builders.size(); ++i)
 	{
-		js::Vector<ResultNode, 64> result_nodes;
-		builders[i]->build(task_manager,
-			test_should_cancel_callback,
-			print_output,
-			false, // verbose
-			result_nodes
-		);
+		std::vector<BVHBuilderRef> builders;
+		buildBuilders(aabbs, num_objects, tris, builders);
+
+		TestShouldCancelCallback test_should_cancel_callback;
+
+		for(size_t i=0; i<builders.size(); ++i)
+		{
+			js::Vector<ResultNode, 64> result_nodes;
+			builders[i]->build(task_manager,
+				test_should_cancel_callback,
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+		}
 	}
 }
 
