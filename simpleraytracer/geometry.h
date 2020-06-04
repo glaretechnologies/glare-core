@@ -117,7 +117,7 @@ public:
 		BuildOptions() : build_small_bvh(false) {}
 		bool build_small_bvh;
 	};
-	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
+	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 

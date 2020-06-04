@@ -341,6 +341,8 @@ void SBVHBuilder::build(
 
 	task_manager->waitForTasksToComplete();
 
+	if(should_cancel_callback->shouldCancel()) return;
+
 
 	/*conPrint("initial_result_buf_reserve_cap: " + toString(initial_result_buf_reserve_cap));
 	for(int i=0; i<(int)per_thread_temp_info.size(); ++i)

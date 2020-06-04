@@ -150,6 +150,8 @@ private:
 	float intersection_cost; // Relative to BVH node traversal cost.
 
 	js::Vector<uint32, 16> result_indices;
+
+	ShouldCancelCallback* should_cancel_callback;
 public:
 	int new_task_num_ob_threshold;
 

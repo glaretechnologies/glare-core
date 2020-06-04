@@ -239,7 +239,7 @@ bool RaySphere::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCo
 }
 
 
-void RaySphere::build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {}
+void RaySphere::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {}
 
 
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }

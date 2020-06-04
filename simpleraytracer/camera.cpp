@@ -80,4 +80,4 @@ bool Camera::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadConte
 }
 
 
-void Camera::build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {}
+void Camera::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {}

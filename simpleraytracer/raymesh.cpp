@@ -801,7 +801,7 @@ bool RayMesh::isPlanar(Vec4f& normal_out) const
 }
 
 
-void RayMesh::build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
+void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
 {
 	Timer timer;
 
@@ -885,7 +885,7 @@ void RayMesh::build(const BuildOptions& options, PrintOutput& print_output, bool
 	else
 	{
 #ifndef NO_EMBREE
-		if(triangles.size() < (1 << 26))
+		if(triangles.size() < (1 << 26)) // 1 << 26 = 67108864 tris
 		{
 			tritree = new EmbreeAccel(this, embree_spatial);
 		}
@@ -912,7 +912,6 @@ void RayMesh::build(const BuildOptions& options, PrintOutput& print_output, bool
 	try
 	{
 		//Timer timer;
-		DummyShouldCancelCallback should_cancel_callback; // TEMP
 		tritree->build(print_output, should_cancel_callback, verbose, task_manager);
 		//conPrint("tritree->build: " + timer.elapsedString());
 	}

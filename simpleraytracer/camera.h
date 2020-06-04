@@ -184,7 +184,7 @@ public:
 		ShouldCancelCallback* should_cancel_callback
 		);
 
-	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
+	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
 
 	virtual unsigned int getNumUVCoordSets() const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;

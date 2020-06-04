@@ -50,6 +50,7 @@ See 'physics\experiments\BinningBVHBuilder with parallel partition.cpp' for the 
 
 #include "jscol_aabbox.h"
 #include <algorithm>
+#include "../indigo/ShouldCancelCallback.h"
 #include "../utils/Exception.h"
 #include "../utils/Sort.h"
 #include "../utils/ConPrint.h"
@@ -70,7 +71,8 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
 	intersection_cost(intersection_cost_),
 	m_num_objects(num_objects_),
-	local_task_manager(NULL)
+	local_task_manager(NULL),
+	should_cancel_callback(NULL)
 {
 	assert(intersection_cost > 0.f);
 
@@ -197,7 +199,7 @@ BinningResultChunk* BinningBVHBuilder::allocNewResultChunk()
 // top-level build method
 void BinningBVHBuilder::build(
 		   Indigo::TaskManager& task_manager_,
-		   ShouldCancelCallback& should_cancel_callback,
+		   ShouldCancelCallback& should_cancel_callback_,
 		   PrintOutput& print_output, 
 		   bool verbose, 
 		   js::Vector<ResultNode, 64>& result_nodes_out
@@ -211,6 +213,7 @@ void BinningBVHBuilder::build(
 	partition_time = 0;
 
 	this->task_manager = &task_manager_;
+	this->should_cancel_callback = &should_cancel_callback_;
 	const int num_objects = this->m_num_objects;
 
 	if(num_objects <= 0)
@@ -247,6 +250,7 @@ void BinningBVHBuilder::build(
 
 	task_manager->waitForTasksToComplete();
 
+	if(should_cancel_callback->shouldCancel()) return;
 
 	// Now we need to combine all the result chunks into a single array.
 
@@ -784,6 +788,16 @@ void BinningBVHBuilder::doBuild(
 			)
 {
 	const int MAX_DEPTH = 60;
+
+	if(depth <= 5)
+	{
+		// conPrint("BinningBVHBuilder(): Checking for cancel at depth " + toString(depth));
+		if(should_cancel_callback->shouldCancel())
+		{
+			// conPrint("BinningBVHBuilder(): Cancelling!");
+			return;
+		}
+	}
 
 	assert(node_index < BinningResultChunk::MAX_RESULT_CHUNK_SIZE);
 

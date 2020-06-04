@@ -96,8 +96,10 @@ void TreeTest::testBuildCorrect()
 
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	raymesh.build(
 		options,
+		should_cancel_callback,
 		print_output,
 		true,
 		task_manager
@@ -171,9 +173,11 @@ void TreeTest::testBuildCorrect()
 	}
 
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Geometry::BuildOptions options;
 	raymesh.build(
 		options,
+		should_cancel_callback,
 		print_output,
 		true,
 		task_manager
@@ -248,9 +252,11 @@ void TreeTest::testBuildCorrect()
 	}
 
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Geometry::BuildOptions options;
 	raymesh.build(
 		options,
+		should_cancel_callback,
 		print_output,
 		true,
 		task_manager
@@ -705,10 +711,12 @@ void TreeTest::doVaryingNumtrisBuildTests()
 
 		Timer timer;
 		StandardPrintOutput print_output;
+		DummyShouldCancelCallback should_cancel_callback;
 		Geometry::BuildOptions options;
 
 		raymesh.build(
 			options,
+			should_cancel_callback,
 			print_output,
 			false, // verbose
 			task_manager
@@ -744,6 +752,7 @@ void TreeTest::doSpeedTest(int treetype)
 	}
 
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 
 
@@ -753,6 +762,7 @@ void TreeTest::doSpeedTest(int treetype)
 	
 	raymesh.build(
 		options,
+		should_cancel_callback,
 		print_output,
 		true,
 		task_manager
@@ -883,8 +893,10 @@ void TreeTest::buildSpeedTest()
 	Timer timer;
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	raymesh.build(
 		options,
+		should_cancel_callback,
 		print_output,
 		true,
 		task_manager
@@ -1102,6 +1114,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 {
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 	
 
@@ -1115,7 +1128,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 		const unsigned int uv_indices[] = { 0, 0, 0 };
 		raymesh.addTriangle(vertex_indices, uv_indices, 0);
 
-		raymesh.build(options, print_output, false, task_manager);
+		raymesh.build(options, should_cancel_callback, print_output, false, task_manager);
 
 		testSphereTracingOnMesh(raymesh);
 	}
@@ -1142,7 +1155,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(options, print_output, false, task_manager);
+		raymesh.build(options, should_cancel_callback, print_output, false, task_manager);
 
 		testSphereTracingOnMesh(raymesh);
 	}
@@ -1257,6 +1270,7 @@ void TreeTest::doAppendCollPointsTests(const std::string& appdata_path)
 {
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 	PCG32 rng(1);
 
@@ -1280,7 +1294,7 @@ void TreeTest::doAppendCollPointsTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(options, print_output, false, task_manager);
+		raymesh.build(options, should_cancel_callback, print_output, false, task_manager);
 
 		testAppendCollPoints(raymesh);
 	}
@@ -1305,6 +1319,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 	PCG32 rng(2);
 
@@ -1341,7 +1356,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 			Indigo::Mesh::readFromFile(toIndigoString(MODEL_PATH), indigoMesh);
 			raymesh.fromIndigoMesh(indigoMesh);
 
-			raymesh.build(options, print_output, false, task_manager);
+			raymesh.build(options, should_cancel_callback, print_output, false, task_manager);
 		}
 		catch(Indigo::Exception&)
 		{
@@ -1379,7 +1394,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(options, print_output, false, task_manager);
+		raymesh.build(options, should_cancel_callback, print_output, false, task_manager);
 
 		testTree(rng, raymesh);
 	}
@@ -1417,7 +1432,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 			raymesh.addTriangle(vertex_indices, uv_indices, 0);
 		}
 
-		raymesh.build(options, print_output, false, task_manager);
+		raymesh.build(options, should_cancel_callback, print_output, false, task_manager);
 
 		testTree(rng, raymesh);
 	}
