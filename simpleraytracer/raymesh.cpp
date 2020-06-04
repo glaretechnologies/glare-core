@@ -325,7 +325,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		// Throw exception if we are supposed to do a view-dependent subdivision
 		//if(subdivide_pixel_threshold > 0.0)
 		if(view_dependent_subdivision && max_num_subdivisions > 0)
-			throw GeometryExcep("Tried to do a view-dependent subdivision on instanced mesh '" + this->getName() + "'.");
+			throw Indigo::Exception("Tried to do a view-dependent subdivision on instanced mesh '" + this->getName() + "'.");
 
 		// else not an error, but we don't need to subdivide again.
 	}
@@ -341,63 +341,56 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCont
 		{
 			if(verbose) print_output.print("Subdividing and displacing mesh '" + this->getName() + "', (max num subdivisions = " + toString(max_num_subdivisions) + ") ...");
 
-			try
+			DUOptions options;
+			options.object_to_camera = object_to_camera;
+			options.view_dependent_subdivision = view_dependent_subdivision;
+			options.pixel_height_at_dist_one = pixel_height_at_dist_one;
+			options.subdivide_pixel_threshold = subdivide_pixel_threshold;
+			options.subdivide_curvature_threshold = subdivide_curvature_threshold;
+			options.displacement_error_threshold = displacement_error_threshold;
+			options.max_num_subdivisions = max_num_subdivisions;
+			options.num_smoothings = num_smoothings;
+			options.camera_clip_planes_os = camera_clip_planes_os;
+			options.subdivision_smoothing = subdivision_smoothing;
+
+			const bool subdivided = DisplacementUtils::subdivideAndDisplace(
+				this->getName(),
+				task_manager,
+				print_output,
+				context,
+				materials,
+				triangles, // triangles_in_out
+				quads,
+				vertices, // vertices_in_out
+				uvs, // uvs_in_out
+				mean_curvature, // mean curvature out
+				this->num_uv_sets,
+				options,
+				this->enable_shading_normals,
+				should_cancel_callback
+			);
+
+			if(subdivided)
 			{
-				DUOptions options;
-				options.object_to_camera = object_to_camera;
-				options.view_dependent_subdivision = view_dependent_subdivision;
-				options.pixel_height_at_dist_one = pixel_height_at_dist_one;
-				options.subdivide_pixel_threshold = subdivide_pixel_threshold;
-				options.subdivide_curvature_threshold = subdivide_curvature_threshold;
-				options.displacement_error_threshold = displacement_error_threshold;
-				options.max_num_subdivisions = max_num_subdivisions;
-				options.num_smoothings = num_smoothings;
-				options.camera_clip_planes_os = camera_clip_planes_os;
-				options.subdivision_smoothing = subdivision_smoothing;
+				// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
+				this->quads.clearAndFreeMem();
 
-				const bool subdivided = DisplacementUtils::subdivideAndDisplace(
-					this->getName(),
-					task_manager,
-					print_output,
-					context,
-					materials,
-					triangles, // triangles_in_out
-					quads,
-					vertices, // vertices_in_out
-					uvs, // uvs_in_out
-					mean_curvature, // mean curvature out
-					this->num_uv_sets,
-					options,
-					this->enable_shading_normals,
-					should_cancel_callback
-				);
+				assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
 
-				if(subdivided)
-				{
-					// All quads have been converted to tris by subdivideAndDisplace(), so we can clear the quads.
-					this->quads.clearAndFreeMem();
-
-					assert(num_uv_sets == 0 || ((uvs.size() % num_uv_sets) == 0));
-
-					// Check data
+				// Check data
 #ifndef NDEBUG
-					for(unsigned int i = 0; i < triangles.size(); ++i)
-						for(unsigned int c = 0; c < 3; ++c)
+				for(unsigned int i = 0; i < triangles.size(); ++i)
+					for(unsigned int c = 0; c < 3; ++c)
+					{
+						assert(triangles[i].vertex_indices[c] < vertices.size());
+						if(this->num_uv_sets > 0)
 						{
-							assert(triangles[i].vertex_indices[c] < vertices.size());
-							if(this->num_uv_sets > 0)
-							{
-								assert(triangles[i].uv_indices[c] < uvs.size());
-							}
+							assert(triangles[i].uv_indices[c] < uvs.size());
 						}
+					}
 #endif	
-				}
-				if(verbose) print_output.print("\tDone.");	
 			}
-			catch(Indigo::Exception& e)
-			{
-				throw GeometryExcep(e.what());
-			}
+			if(verbose) print_output.print("\tDone.");	
 		}
 		else // else if max_num_subdivisions = 0
 		{
@@ -813,7 +806,7 @@ void RayMesh::build(const BuildOptions& options, PrintOutput& print_output, bool
 	Timer timer;
 
 	if(triangles.size() == 0)
-		throw GeometryExcep("No triangles in mesh.");
+		throw Indigo::Exception("No triangles in mesh.");
 
 	if(tritree != NULL)
 		return; // build() has already been called.
@@ -925,11 +918,11 @@ void RayMesh::build(const BuildOptions& options, PrintOutput& print_output, bool
 	}
 	catch(Indigo::Exception& e)
 	{
-		throw GeometryExcep("Exception while building mesh '" + name + "': " + e.what());
+		throw Indigo::Exception("Exception while building mesh '" + name + "': " + e.what());
 	}
 	catch(std::bad_alloc&)
 	{
-		throw GeometryExcep("Memory allocation failure while building mesh '" + name + "'.");
+		throw Indigo::Exception("Memory allocation failure while building mesh '" + name + "'.");
 	}
 
 	if(verbose) print_output.print("Done Building Mesh. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");

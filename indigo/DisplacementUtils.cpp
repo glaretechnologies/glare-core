@@ -959,7 +959,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 		// The most recently updated information is now in current_polygons, current_verts_and_uvs
 
 		if(should_cancel_callback && should_cancel_callback->shouldCancel())
-			throw Indigo::Exception("Cancelled");
+			throw Indigo::CancelledException();
 
 		if(!any_subdiv_done)
 		{

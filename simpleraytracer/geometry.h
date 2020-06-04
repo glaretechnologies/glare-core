@@ -32,18 +32,6 @@ class ShouldCancelCallback;
 namespace Indigo { class TaskManager; }
 
 
-class GeometryExcep
-{
-public:
-	GeometryExcep(const std::string& text_) : text(text_) {}
-	~GeometryExcep(){}
-
-	const std::string& what() const { return text; }
-private:
-	std::string text;
-};
-
-
 /*=====================================================================
 Geometry
 --------
@@ -122,14 +110,14 @@ public:
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback
-		) = 0; // throws GeometryExcep
+		) = 0; // throws Indigo::Exception
 
 	struct BuildOptions
 	{
 		BuildOptions() : build_small_bvh(false) {}
 		bool build_small_bvh;
 	};
-	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws GeometryExcep
+	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 

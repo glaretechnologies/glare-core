@@ -58,7 +58,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, ThreadContext& thread_con
 	const Real sqrt_discriminant = std::sqrt(discriminant);
 
 	//const Real use_min_t = rayMinT(radius);
-	const Real use_min_t = this->radius * std::numeric_limits<float>::epsilon() * 50; //ray.minT(); // rayMinT(radius);
+	const Real use_min_t = myMax(ray.minT(), this->radius * std::numeric_limits<float>::epsilon() * 50); //ray.minT(); // rayMinT(radius);
 
 	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
 	if(t_0 >= use_min_t && t_0 <= ray.maxT())
@@ -239,7 +239,7 @@ bool RaySphere::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadCo
 }
 
 
-void RaySphere::build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {} // throws GeometryExcep
+void RaySphere::build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {}
 
 
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }

@@ -172,7 +172,7 @@ public:
 	// All quads will be converted to triangles.
 	// Sets verts_in_out.pos, .normal and .H.
 	// Returns true if subdivision could be done, returns false if the mesh was invalid and subdivision could not be done.
-	// Throws Indigo::Exception if cancelled.
+	// Throws Indigo::CancelledException if cancelled.
 	static bool subdivideAndDisplace(
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,

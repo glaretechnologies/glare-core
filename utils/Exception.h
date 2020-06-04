@@ -11,11 +11,11 @@ Copyright Glare Technologies Limited 2020 -
 #include <string>
 
 
-// Base exception class
 namespace Indigo
 {
 
 
+// Base exception class
 class Exception
 {
 public:
@@ -25,6 +25,15 @@ public:
 	const std::string& what() const { return s; }
 private:
 	std::string s;
+};
+
+
+// An exception that is thrown when an operation is cancelled, e.g. when ShouldCancelCallback::shouldCancel() returns true.
+// This is split out into another class so exception-handling code can handle cancelling differently from other exceptions.
+class CancelledException : public Exception
+{
+public:
+	CancelledException();
 };
 
 

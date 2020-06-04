@@ -182,9 +182,9 @@ public:
 	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback
-		); // throws GeometryExcep
+		);
 
-	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager); // throws GeometryExcep
+	virtual void build(const BuildOptions& options, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
 
 	virtual unsigned int getNumUVCoordSets() const;
 	virtual unsigned int getMaterialIndexForTri(unsigned int tri_index) const;
