@@ -19,7 +19,7 @@ namespace Indigo
 /*=====================================================================
 Task
 -------------------
-
+Tests in TaskTests.
 =====================================================================*/
 class Task : public ::ThreadSafeRefCounted
 {
@@ -28,6 +28,8 @@ public:
 	virtual ~Task();
 
 	virtual void run(size_t thread_index) = 0;
+
+	virtual void cancelTask() {} 
 private:
 
 };

@@ -205,6 +205,7 @@ stack_pop:
 			if(dist >= 0)
 			{
 				assert(dist <= ray.maxT());
+				assert(dist >= ray.minT());
 				ray.setMaxT(dist);
 				hitob_out = ob;
 				hitinfo_out = ob_hit_info;
@@ -227,7 +228,7 @@ stack_pop:
 }
 
 
-void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose)
+void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose)
 {
 	// conPrint("BVHObjectTree::build");
 	Timer timer;
@@ -249,6 +250,7 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, PrintOutput& print_
 	js::Vector<ResultNode, 64> result_nodes;
 	builder->build(
 		task_manager,
+		should_cancel_callback,
 		print_output,
 		verbose,
 		result_nodes

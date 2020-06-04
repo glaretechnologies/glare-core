@@ -197,6 +197,7 @@ BinningResultChunk* BinningBVHBuilder::allocNewResultChunk()
 // top-level build method
 void BinningBVHBuilder::build(
 		   Indigo::TaskManager& task_manager_,
+		   ShouldCancelCallback& should_cancel_callback,
 		   PrintOutput& print_output, 
 		   bool verbose, 
 		   js::Vector<ResultNode, 64>& result_nodes_out

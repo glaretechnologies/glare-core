@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskRunnerThread.cpp
--------------------
-Copyright Glare Technologies Limited 2015 -
+--------------------
+Copyright Glare Technologies Limited 2020 -
 Generated at 2011-10-05 22:17:09 +0100
 =====================================================================*/
 #include "TaskRunnerThread.h"
@@ -63,8 +63,9 @@ void TaskRunnerThread::run()
 	while(1)
 	{
 		Reference<Task> task = manager->dequeueTask();
+		this->current_task = task;
 		if(task.isNull())
-			break;
+			break; // All tasks are finished, terminate thread by returning from run().
 
 #if TASK_STATS
 		task_times->push_back(TaskTimes());
@@ -76,14 +77,20 @@ void TaskRunnerThread::run()
 
 		TASK_STATS_DO(task_times->back().finish_time = Clock::getCurTimeRealSec());
 
+		this->current_task = NULL;
+
 		// Inform the task manager that we have executed the task.
 		manager->taskFinished();
 	}
+}
 
-	//manager->threadDead();
+
+void TaskRunnerThread::cancelTasks()
+{
+	Reference<Task> cur_task = this->current_task;
+	if(cur_task.nonNull())
+		cur_task->cancelTask();
 }
 
 
 } // end namespace Indigo 
-
-

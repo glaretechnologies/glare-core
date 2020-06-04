@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskTests.cpp
--------------------
-Copyright Glare Technologies Limited 2011 -
+-------------
+Copyright Glare Technologies Limited 2020 -
 Generated at 2011-10-05 22:32:02 +0100
 =====================================================================*/
 #include "TaskTests.h"
@@ -27,30 +27,60 @@ namespace Indigo
 class TestTask : public Task
 {
 public:
-	TestTask(int x_) : x(x_) {}
+	TestTask(IndigoAtomic& x_) : x(x_) {}
 
 	virtual void run(size_t thread_index)
 	{
 		//std::cout << "x: " << x << std::endl;
 		// conPrint("executing task x in thread: " + toString(thread_index));
+		x++;
 	}
 
-	int x;
+	IndigoAtomic& x;
 };
 
 
 class LongRunningTestTask : public Task
 {
 public:
-	LongRunningTestTask(int x_) : x(x_) {}
+	LongRunningTestTask(IndigoAtomic& x_) : x(x_) {}
 
 	virtual void run(size_t thread_index)
 	{
-		//std::cout << "x: " << x << std::endl;
 		PlatformUtils::Sleep(50);
+		x++;
 	}
 
-	int x;
+	IndigoAtomic& x;
+};
+
+
+class CancellableTestTask : public Task
+{
+public:
+	CancellableTestTask(IndigoAtomic& x_) : x(x_) {}
+
+	static int numSubTasks() { return 10; }
+
+	virtual void run(size_t thread_index)
+	{
+		for(int i=0; i<numSubTasks(); ++i)
+		{
+			PlatformUtils::Sleep(1);
+			if(should_cancel != 0)
+				return;
+			x++;
+		}
+	}
+
+	virtual void cancelTask()
+	{
+		should_cancel = 1;
+	}
+
+	IndigoAtomic& x;
+
+	IndigoAtomic should_cancel;
 };
 
 
@@ -252,64 +282,79 @@ void TaskTests::test()
 
 	{
 		TaskManager m;
-		m.addTask(new TestTask(0));
+		IndigoAtomic exec_counter = 0;
+		m.addTask(new TestTask(exec_counter));
 		m.waitForTasksToComplete();
+		testAssert(exec_counter == 1);
 	}
 
 	// Run a quick task, but wait a bit.  This should catch any problems with the thread finishing early.
 	{
 		TaskManager m;
-		m.addTask(new TestTask(0));
+		IndigoAtomic exec_counter = 0;
+		m.addTask(new TestTask(exec_counter));
 
 		PlatformUtils::Sleep(50);
 
 		m.waitForTasksToComplete();
+		testAssert(exec_counter == 1);
 	}
 
 	// Run a Long task, but wait quickly.  This should catch any problems with the thread finishing late.
 	{
 		TaskManager m;
-		m.addTask(new LongRunningTestTask(0));
+		IndigoAtomic exec_counter = 0;
+		m.addTask(new LongRunningTestTask(exec_counter));
 
 		m.waitForTasksToComplete();
+		testAssert(exec_counter == 1);
+	}
+
+	// Test with multiple tasks
+	{
+		TaskManager m;
+		IndigoAtomic exec_counter = 0;
+
+		for(int i=0; i<1000; ++i)
+			m.addTask(new TestTask(exec_counter));
+
+		m.waitForTasksToComplete();
+		testAssert(exec_counter == 1000);
 	}
 
 	{
 		TaskManager m;
+		IndigoAtomic exec_counter = 0;
 
 		for(int i=0; i<1000; ++i)
-			m.addTask(new TestTask(i));
+			m.addTask(new TestTask(exec_counter));
 
 		m.waitForTasksToComplete();
+		testAssert(exec_counter == 1000);
+
+		for(int i=0; i<1000; ++i)
+			m.addTask(new TestTask(exec_counter));
+
+		m.waitForTasksToComplete();
+		testAssert(exec_counter == 2000);
 	}
 
-	{
-		TaskManager m;
-
-		for(int i=0; i<1000; ++i)
-			m.addTask(new TestTask(i));
-
-		m.waitForTasksToComplete();
-
-		for(int i=0; i<1000; ++i)
-			m.addTask(new TestTask(i));
-
-		m.waitForTasksToComplete();
-	}
-
-	// Test with zero worker threads
+	// Test with zero worker threads (tasks should be executed in this thread)
 	{
 		TaskManager m(0);
+		IndigoAtomic exec_counter = 0;
 
 		for(int i=0; i<1000; ++i)
-			m.addTask(new TestTask(i));
+			m.addTask(new TestTask(exec_counter));
 
 		m.waitForTasksToComplete();
+		testAssert(exec_counter == 1000);
 
 		for(int i=0; i<1000; ++i)
-			m.addTask(new TestTask(i));
+			m.addTask(new TestTask(exec_counter));
 
 		m.waitForTasksToComplete();
+		testAssert(exec_counter == 2000);
 	}
 
 	// Test mem allocator
@@ -373,16 +418,75 @@ void TaskTests::test()
 	// Test runTasks()
 	{
 		TaskManager m; // auto-pick num threads
-
-		// Sleep(1000);
+		IndigoAtomic exec_counter = 0;
 
 		std::vector<Reference<Indigo::Task> > tasks;
 		for(int i=0; i<10; ++i)
-			tasks.push_back(new TestTask(i));
+			tasks.push_back(new TestTask(exec_counter));
 
 		m.runTasks(tasks);
+		testAssert(exec_counter == 10);
+	}
+	
+	// Test addTasks()
+	{
+		TaskManager m; // auto-pick num threads
+		IndigoAtomic exec_counter = 0;
+
+		std::vector<Reference<Indigo::Task> > tasks;
+		for(int i=0; i<10; ++i)
+			tasks.push_back(new TestTask(exec_counter));
+
+		m.addTasks(tasks);
+		m.waitForTasksToComplete();
+		testAssert(exec_counter == 10);
 	}
 
+	//-------------------- Test cancelAndWaitForTasksToComplete -----------------------------
+
+	// Test with no enqueued tasks
+	{
+		TaskManager m; // auto-pick num threads
+		m.cancelAndWaitForTasksToComplete();
+	}
+
+	// Test with a task that can't be interrupted.
+	{
+		TaskManager m; // auto-pick num threads
+		IndigoAtomic exec_counter = 0;
+		m.addTask(new LongRunningTestTask(exec_counter));
+		PlatformUtils::Sleep(10);
+		m.cancelAndWaitForTasksToComplete();
+		testAssert(exec_counter == 0 || exec_counter == 1);
+	}
+
+	// Execute a single task, which does 1ms 'subtasks', then intterupt after 5ms.  We expected to see ~5 subtasks completed.
+	{
+		TaskManager m; // auto-pick num threads
+		IndigoAtomic sub_exec_counter = 0;
+
+		m.addTask(new CancellableTestTask(sub_exec_counter));
+
+		PlatformUtils::Sleep(10);
+		m.cancelAndWaitForTasksToComplete();
+		conPrint("Cancelling task test: num completed sub-tasks: " + toString(sub_exec_counter) + " / " + toString(CancellableTestTask::numSubTasks()));
+		testAssert(sub_exec_counter >= 0 && sub_exec_counter <= CancellableTestTask::numSubTasks());
+	}
+
+	// Try with lots of tasks
+	{
+		TaskManager m; // auto-pick num threads
+		IndigoAtomic sub_exec_counter = 0;
+
+		const int NUM_TASKS = 10000;
+		for(int i=0; i<NUM_TASKS; ++i)
+			m.addTask(new CancellableTestTask(sub_exec_counter));
+
+		PlatformUtils::Sleep(10);
+		m.cancelAndWaitForTasksToComplete();
+		conPrint("Cancelling task test: num completed sub-tasks: " + toString(sub_exec_counter) + " / " + toString(NUM_TASKS));
+		testAssert(sub_exec_counter >= 0 && sub_exec_counter <= (int64)NUM_TASKS * CancellableTestTask::numSubTasks());
+	}
 
 
 
@@ -427,5 +531,4 @@ void TaskTests::test()
 } // end namespace Indigo 
 
 
-#endif
-
+#endif // BUILD_TESTS

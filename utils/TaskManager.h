@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskManager.h
--------------------
-Copyright Glare Technologies Limited 2016 -
+-------------
+Copyright Glare Technologies Limited 2020 -
 Generated at 2011-10-05 21:56:22 +0100
 =====================================================================*/
 #pragma once
@@ -29,18 +29,14 @@ class TaskRunnerThread;
 
 /*=====================================================================
 TaskManager
--------------------
+-----------
+Manages and runs Tasks on multiple threads.
 
+Tests in TaskTests.
 =====================================================================*/
 class TaskManager
 {
 public:
-	/*enum
-	{
-		NumThreadsChoice_Auto,
-		NumThreadsChoice_Explicit
-	} NumThreadsChoice;*/
-
 	TaskManager(size_t num_threads = std::numeric_limits<size_t>::max());
 	TaskManager(const std::string& name, size_t num_threads = std::numeric_limits<size_t>::max()); // Name is used to name TaskRunnerThreads in the debugger.
 
@@ -49,10 +45,14 @@ public:
 	// Only works on Windows.  Does nothing if called on a non-windows system.
 	void setThreadPriorities(MyThread::Priority priority);
 
+	// Add, and start executing a single task.
 	void addTask(const TaskRef& t);
+
+	// Add, and start executing multiple tasks.
 	void addTasks(ArrayRef<TaskRef> tasks);
 	
-	void runTasks(ArrayRef<TaskRef> tasks); // Add tasks, then wait for tasks to complete.
+	// Add tasks, then wait for tasks to complete.
+	void runTasks(ArrayRef<TaskRef> tasks);
 
 	size_t getNumUnfinishedTasks() const;
 
@@ -65,7 +65,11 @@ public:
 	*/
 	void removeQueuedTasks();
 
+	// Blocks until all tasks have finished being executed.
 	void waitForTasksToComplete();
+
+	// Removes queued tasks, calls cancelTask() on all tasks being currently executed in TaskRunnerThreads, then blocks until all tasks have completed.
+	void cancelAndWaitForTasksToComplete();
 
 	size_t getNumThreads() const { return threads.size(); }
 
@@ -96,9 +100,9 @@ public:
 	ThreadSafeQueue<TaskRef>& getTaskQueue() { return tasks; }
 	const ThreadSafeQueue<TaskRef>& getTaskQueue() const { return tasks; }
 
-	TaskRef dequeueTask(); // called by TestRunnerThread
-	void taskFinished(); // called by TestRunnerThread
-	const std::string& getName(); // called by TestRunnerThread
+	TaskRef dequeueTask(); // called by TaskRunnerThread
+	void taskFinished(); // called by TaskRunnerThread
+	const std::string& getName(); // called by TaskRunnerThread
 private:
 	void init(size_t num_threads);
 

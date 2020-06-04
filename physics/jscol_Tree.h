@@ -13,6 +13,7 @@ class HitInfo;
 class DistanceHitInfo;
 class ThreadContext;
 class PrintOutput;
+class ShouldCancelCallback;
 class Ray;
 class Vec4f;
 class Matrix4f;
@@ -40,7 +41,7 @@ public:
 
 	static const unsigned int MAX_TREE_DEPTH = 63;
 
-	virtual void build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
+	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
 

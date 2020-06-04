@@ -14,6 +14,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/material.h"
+#include "../indigo/ShouldCancelCallback.h"
 #include "../indigo/RendererSettings.h"
 #include "../graphics/BatchedMesh.h"
 #include "../raytracing/hitinfo.h"
@@ -918,7 +919,8 @@ void RayMesh::build(const BuildOptions& options, PrintOutput& print_output, bool
 	try
 	{
 		//Timer timer;
-		tritree->build(print_output, verbose, task_manager);
+		DummyShouldCancelCallback should_cancel_callback; // TEMP
+		tritree->build(print_output, should_cancel_callback, verbose, task_manager);
 		//conPrint("tritree->build: " + timer.elapsedString());
 	}
 	catch(Indigo::Exception& e)

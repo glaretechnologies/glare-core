@@ -14,6 +14,7 @@ Generated at 2012-11-10 19:47:31 +0000
 namespace Indigo { class TaskManager; }
 class Object;
 class PrintOutput;
+class ShouldCancelCallback;
 class ThreadContext;
 class HitInfo;
 class Ray;
@@ -53,7 +54,7 @@ public:
 	Real traceRay(const Ray& ray, ThreadContext& thread_context, double time,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
-	void build(Indigo::TaskManager& task_manager, PrintOutput& print_output, bool verbose);
+	void build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose);
 
 //private:
 	int32 root_node_index;

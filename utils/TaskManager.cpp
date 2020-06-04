@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskManager.cpp
--------------------
-Copyright Glare Technologies Limited 2016 -
+---------------
+Copyright Glare Technologies Limited 2020 -
 Generated at 2011-10-05 21:56:22 +0100
 =====================================================================*/
 #include "TaskManager.h"
@@ -126,6 +126,17 @@ void TaskManager::removeQueuedTasks()
 }
 
 
+void TaskManager::cancelAndWaitForTasksToComplete()
+{
+	removeQueuedTasks();
+
+	for(size_t i=0; i<threads.size(); ++i)
+		threads[i]->cancelTasks();
+
+	waitForTasksToComplete();
+}
+
+
 void TaskManager::waitForTasksToComplete()
 {
 	Lock lock(num_unfinished_tasks_mutex);
@@ -166,7 +177,7 @@ bool TaskManager::areAllThreadsBusy()
 }
 
 
-TaskRef TaskManager::dequeueTask() // called by Tasks
+TaskRef TaskManager::dequeueTask() // called by TaskRunnerThread
 {
 	TaskRef task;
 	tasks.dequeue(task);
@@ -174,7 +185,7 @@ TaskRef TaskManager::dequeueTask() // called by Tasks
 }
 
 
-void TaskManager::taskFinished() // called by Tasks
+void TaskManager::taskFinished() // called by TaskRunnerThread
 {
 	//conPrint("taskFinished()");
 	//conPrint("num_unfinished_tasks: " + toString(num_unfinished_tasks));
@@ -191,7 +202,7 @@ void TaskManager::taskFinished() // called by Tasks
 }
 
 
-const std::string& TaskManager::getName() // called by TestRunnerThread
+const std::string& TaskManager::getName() // called by TaskRunnerThread
 {
 	return name;
 }

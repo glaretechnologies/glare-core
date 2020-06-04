@@ -11,6 +11,7 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "BinningBVHBuilder.h"
 #include "SBVHBuilder.h"
 #include "jscol_aabbox.h"
+#include "../indigo/ShouldCancelCallback.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/StandardPrintOutput.h"
@@ -117,6 +118,12 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 }
 
 
+class TestShouldCancelCallback : public ShouldCancelCallback
+{
+public:
+	virtual bool shouldCancel() { return true; }
+};
+
 static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<SBVHTri, 16>& tris)
 {
 	const int num_objects = (int)tris.size();
@@ -131,6 +138,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 	}
 
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 
 	std::vector<BVHBuilderRef> builders;
 
@@ -175,6 +183,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 	{
 		js::Vector<ResultNode, 64> result_nodes;
 		builders[i]->build(task_manager,
+			should_cancel_callback,
 			print_output,
 			false, // verbose
 			result_nodes
@@ -182,6 +191,21 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 
 		const bool duplicate_prims_allowed = builders[i].isType<SBVHBuilder>();
 		testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs, duplicate_prims_allowed);
+	}
+
+
+	// Test cancelling
+	TestShouldCancelCallback test_should_cancel_callback;
+
+	for(size_t i=0; i<builders.size(); ++i)
+	{
+		js::Vector<ResultNode, 64> result_nodes;
+		builders[i]->build(task_manager,
+			test_should_cancel_callback,
+			print_output,
+			false, // verbose
+			result_nodes
+		);
 	}
 }
 
@@ -246,6 +270,7 @@ void test()
 	PCG32 rng(1);
 	Indigo::TaskManager task_manager;
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 
 	
 	/*{
@@ -740,6 +765,7 @@ void test()
 			);
 			js::Vector<ResultNode, 64> result_nodes;
 			builder.build(task_manager,
+				should_cancel_callback,
 				print_output,
 				false, // verbose
 				result_nodes
@@ -939,6 +965,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 
 			js::Vector<ResultNode, 64> result_nodes;
 			builder.build(task_manager,
+				should_cancel_callback,
 				print_output,
 				false, // verbose
 				result_nodes
@@ -990,6 +1017,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 				builder->axis_parallel_num_ob_threshold = axis_parallel_num_ob_threshold;
 				js::Vector<ResultNode, 64> result_nodes;
 				builder->build(task_manager,
+					should_cancel_callback,
 					print_output,
 					false, // verbose
 					result_nodes

@@ -36,7 +36,7 @@ SmallBVH::~SmallBVH()
 }
 
 
-void SmallBVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
+void SmallBVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager)
 {
 	if(verbose) print_output.print("\tSmallBVH::build()");
 	// Timer timer;
@@ -68,6 +68,7 @@ void SmallBVH::build(PrintOutput& print_output, bool verbose, Indigo::TaskManage
 	js::Vector<ResultNode, 64> result_nodes;
 	builder->build(
 		task_manager,
+		should_cancel_callback,
 		print_output,
 		verbose,
 		result_nodes

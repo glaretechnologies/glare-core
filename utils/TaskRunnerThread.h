@@ -1,7 +1,7 @@
 /*=====================================================================
 TaskRunnerThread.h
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2020 -
 Generated at 2011-10-05 22:17:09 +0100
 =====================================================================*/
 #pragma once
@@ -15,7 +15,7 @@ namespace Indigo
 
 
 class TaskManager;
-
+class Task;
 
 struct TaskTimes
 {
@@ -36,11 +36,17 @@ public:
 	virtual ~TaskRunnerThread();
 
 	virtual void run();
+
+	// Cancel the task the thread is currently executing, if any.
+	virtual void cancelTasks();
+
 private:
 	TaskManager* manager;
 	size_t thread_index;
 
 	// std::vector<TaskTimes>* task_times;
+
+	Reference<Task> current_task;
 };
 
 

@@ -111,6 +111,7 @@ public:
 
 	void build(
 		Indigo::TaskManager& task_manager,
+		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output, 
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out

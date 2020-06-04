@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2017 -
 
 
 #include "jscol_aabbox.h"
+#include "../indigo/ShouldCancelCallback.h"
 #include "../graphics/bitmap.h"
 #include "../graphics/Drawing.h"
 #include "../graphics/PNGDecoder.h"
@@ -111,7 +112,8 @@ SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per
 )
 :	leaf_num_object_threshold(leaf_num_object_threshold_),
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
-	intersection_cost(intersection_cost_)
+	intersection_cost(intersection_cost_),
+	should_cancel_callback(NULL)
 {
 	assert(intersection_cost > 0.f);
 
@@ -236,6 +238,7 @@ SBVHLeafResultChunk* SBVHBuilder::allocNewLeafResultChunk()
 // Top-level build method
 void SBVHBuilder::build(
 		Indigo::TaskManager& task_manager_,
+		ShouldCancelCallback& should_cancel_callback_,
 		PrintOutput& print_output, 
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -252,6 +255,7 @@ void SBVHBuilder::build(
 	partition_time = 0;
 
 	this->task_manager = &task_manager_;
+	this->should_cancel_callback = &should_cancel_callback_;
 	const int num_objects = m_num_objects;
 
 #if ALLOW_DEBUG_DRAWING
@@ -306,6 +310,8 @@ void SBVHBuilder::build(
 		root_aabb.enlargeToHoldAABBox(tri_aabb);
 		root_centroid_aabb.enlargeToHoldPoint(tri_aabb.centroid());
 	}
+
+	if(should_cancel_callback->shouldCancel()) return;
 
 	this->recip_root_node_aabb_area = 1 / root_aabb.getSurfaceArea();
 	
@@ -1357,6 +1363,17 @@ void SBVHBuilder::doBuild(
 			)
 {
 	const int num_objects = (int)obs.size();
+
+	
+	if(depth <= 5)
+	{
+		// conPrint("Checking for cancel at depth " + toString(depth));
+		if(should_cancel_callback->shouldCancel())
+		{
+			// conPrint("Cancelling!");
+			return;
+		}
+	}
 
 	SBVHLeafResultChunk* leaf_result_chunk = thread_temp_info.leaf_result_chunk;
 

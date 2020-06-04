@@ -230,6 +230,7 @@ struct ResultChunkPred
 // top-level build method
 void NonBinningBVHBuilder::build(
 		   Indigo::TaskManager& task_manager_,
+		   ShouldCancelCallback& should_cancel_callback,
 		   //const js::AABBox* aabbs_,
 		  // const int num_objects,
 		   PrintOutput& print_output, 

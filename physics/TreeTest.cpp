@@ -20,6 +20,7 @@ Code By Nicholas Chapman.
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"
+#include "../indigo/ShouldCancelCallback.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
@@ -397,6 +398,7 @@ static void testSelfIntersectionAvoidance()
 static void testTree(PCG32& rng, RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 
 	//------------------------------------------------------------------------
@@ -405,10 +407,10 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 	std::vector<Tree*> trees;
 
 	trees.push_back(new BVH(&raymesh));
-	trees.back()->build(print_output, true, task_manager);
+	trees.back()->build(print_output, should_cancel_callback, true, task_manager);
 #ifndef NO_EMBREE
 	trees.push_back(new EmbreeAccel(&raymesh, true));
-	trees.back()->build(print_output, true, task_manager);
+	trees.back()->build(print_output, should_cancel_callback, true, task_manager);
 #endif
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBoxWS();
@@ -923,12 +925,13 @@ static inline float traceRayAgainstSphere(const Vec4f& ray_origin, const Vec4f& 
 static void testSphereTracingOnMesh(RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 	PCG32 rng(1);
 	ThreadContext thread_context;
 
 	BVH bvh(&raymesh);
-	bvh.build(print_output, /*verbose=*/true, task_manager);
+	bvh.build(print_output, should_cancel_callback, /*verbose=*/true, task_manager);
 
 	const Matrix4f to_world = Matrix4f::identity();
 	const Matrix4f to_object = Matrix4f::identity();
@@ -1173,12 +1176,13 @@ struct Vec4fLessThan
 static void testAppendCollPoints(RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 	PCG32 rng(1);
 	ThreadContext thread_context;
 
 	BVH bvh(&raymesh);
-	bvh.build(print_output, /*verbose=*/true, task_manager);
+	bvh.build(print_output, should_cancel_callback, /*verbose=*/true, task_manager);
 
 	std::vector<Vec4f> points_ws;
 	std::vector<Vec4f> ref_points_ws;

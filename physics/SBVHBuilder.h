@@ -129,6 +129,7 @@ public:
 
 	virtual void build(
 		Indigo::TaskManager& task_manager,
+		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output, 
 		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -186,6 +187,8 @@ private:
 	float recip_root_node_aabb_area;
 
 	js::Vector<uint32, 16> result_indices;
+
+	ShouldCancelCallback* should_cancel_callback;
 public:
 	int axis_parallel_num_ob_threshold;
 	int new_task_num_ob_threshold;

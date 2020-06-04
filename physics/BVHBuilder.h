@@ -16,6 +16,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 namespace js { class AABBox; }
 namespace Indigo { class TaskManager; }
 class PrintOutput;
+class ShouldCancelCallback;
 
 
 struct ResultNode
@@ -49,6 +50,7 @@ public:
 
 	virtual void build(
 		Indigo::TaskManager& task_manager,
+		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output,
 		bool verbose,
 		js::Vector<ResultNode, 64>& result_nodes_out
