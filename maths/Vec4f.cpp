@@ -1,8 +1,8 @@
 /*=====================================================================
 Vec4f.cpp
 ---------
+Copyright Glare Technologies Limited 2020 - 
 File created by ClassTemplate on Thu Mar 26 15:28:20 2009
-Code By Nicholas Chapman.
 =====================================================================*/
 #include "Vec4f.h"
 
@@ -353,6 +353,22 @@ void Vec4f::test()
 		testAssert(abs(Vec4f(0,0,0,0)) == Vec4f(0,0,0,0));
 		testAssert(abs(Vec4f(std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity())) == Vec4f(std::numeric_limits<float>::infinity()));
 	}
+
+	// Test min
+	{
+		testAssert(min(Vec4f(1.0f, 2.0f, 3.0f, 4.0f), Vec4f(1.0f, 10.0f, 2.5f, 8.0f)) == Vec4f(1.0f, 2.0f, 2.5f, 4.0f));
+	}
+
+	// Test max
+	{
+		testAssert(max(Vec4f(1.0f, 2.0f, 3.0f, 4.0f), Vec4f(1.0f, 10.0f, 3.0f, 8.0f)) == Vec4f(1.0f, 10.0f, 3.0f, 8.0f));
+	}
+
+	// Test clamp
+	{
+		testAssert(clamp(Vec4f(-100.f, 100.f, 100.f, 5.5f), Vec4f(1.0f, 2.0f, 3.0f, 4.0f), Vec4f(2.0f, 10.0f, 6.0f, 8.0f)) == Vec4f(1.0f, 10.0f, 6.0f, 5.5f));
+	}
+
 
 	// Test isFinite
 	testAssert(Vec4f(1.23f).isFinite());

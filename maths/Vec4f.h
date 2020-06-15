@@ -1,7 +1,7 @@
 /*=====================================================================
 Vec4.h
 ------
-Copyright Glare Technologies Limited 2012 - 
+Copyright Glare Technologies Limited 2020 - 
 File created by ClassTemplate on Thu Mar 26 15:28:20 2009
 =====================================================================*/
 #pragma once
@@ -88,6 +88,12 @@ INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& a, const Vec4f& b)
 INDIGO_STRONG_INLINE const Vec4f operator * (const Vec4f& a, float f)
 {
 	return _mm_mul_ps(a.v, _mm_set1_ps(f));
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f operator * (const Vec4f& a, const Vec4f& b)
+{
+	return _mm_mul_ps(a.v, b.v);
 }
 
 
@@ -259,6 +265,12 @@ INDIGO_STRONG_INLINE const Vec4f min(const Vec4f& a, const Vec4f& b)
 INDIGO_STRONG_INLINE const Vec4f max(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_max_ps(a.v, b.v);
+}
+
+
+INDIGO_STRONG_INLINE const Vec4f clamp(const Vec4f& v, const Vec4f& lowerbound, const Vec4f& upperbound)
+{
+	return max(min(v, upperbound), lowerbound);
 }
 
 

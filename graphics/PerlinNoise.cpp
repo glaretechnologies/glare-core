@@ -172,12 +172,6 @@ inline static Real fade(Real t)
 }
 
 
-static inline Vec4f operator * (const Vec4f& a, const Vec4f& b)
-{
-	return _mm_mul_ps(a.v, b.v);
-}
-
-
 inline const Vec4f fade(const Vec4f& t) 
 { 
 	return t * t * t * (t * (t * Vec4f(6) - Vec4f(15)) + Vec4f(10)); 
