@@ -17,6 +17,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/Lock.h"
 #include "../utils/Timer.h"
 #include "../utils/ProfilerStore.h"
+#include "../indigo/ShouldCancelCallback.h"
 
 
 // For some reason, using incorrect SAH (not tight bounds on each child, but just using splitting plane to compute bounds) results in better trees.
@@ -190,20 +191,25 @@ public:
 		builder.per_thread_temp_info[thread_index].result_buf.push_back_uninitialised();
 		builder.per_thread_temp_info[thread_index].result_buf[root_node_index].right_child_chunk_index = -666;
 
-		builder.doBuild(
-			builder.per_thread_temp_info[thread_index],
-			node_aabb, 
-			root_node_index, // node index
-			begin, end, depth, sort_key,
-			cur_objects,
-			other_objects,
-			*result_chunk
-		);
+		try
+		{
+			builder.doBuild(
+				builder.per_thread_temp_info[thread_index],
+				node_aabb, 
+				root_node_index, // node index
+				begin, end, depth, sort_key,
+				cur_objects,
+				other_objects,
+				*result_chunk
+			);
 
-		result_chunk->thread_index = (int)thread_index;
-		result_chunk->offset = root_node_index;
-		result_chunk->size = (int)builder.per_thread_temp_info[thread_index].result_buf.size() - root_node_index;
-		result_chunk->sort_key = this->sort_key;
+			result_chunk->thread_index = (int)thread_index;
+			result_chunk->offset = root_node_index;
+			result_chunk->size = (int)builder.per_thread_temp_info[thread_index].result_buf.size() - root_node_index;
+			result_chunk->sort_key = this->sort_key;
+		}
+		catch(Indigo::CancelledException&)
+		{}
 	}
 
 	NonBinningBVHBuilder& builder;
@@ -230,7 +236,7 @@ struct ResultChunkPred
 // top-level build method
 void NonBinningBVHBuilder::build(
 		   Indigo::TaskManager& task_manager_,
-		   ShouldCancelCallback& should_cancel_callback,
+		   ShouldCancelCallback& should_cancel_callback_,
 		   //const js::AABBox* aabbs_,
 		  // const int num_objects,
 		   PrintOutput& print_output, 
@@ -240,6 +246,23 @@ void NonBinningBVHBuilder::build(
 {
 	Timer build_timer;
 	ScopeProfiler _scope("NonBinningBVHBuilder::build");
+
+	//------------ Reset builder state --------------
+	for(int i=0; i<3; ++i)
+	{
+		objects_a[i].clear();
+		objects_b[i].clear();
+	}
+	result_nodes_out.clear();
+	per_thread_temp_info.clear();
+	per_axis_thread_temp_info.clear();
+	split_left_half_area.clear();
+	next_result_chunk = 0;
+	result_chunks.clear();
+	stats = NonBinningBVHBuildStats();
+	result_indices.clear();
+	//------------ End reset builder state --------------
+
 	
 	{
 	ScopeProfiler _scope2("initial init");
@@ -249,6 +272,7 @@ void NonBinningBVHBuilder::build(
 	partition_time = 0;
 
 	this->task_manager = &task_manager_;
+	this->should_cancel_callback = &should_cancel_callback_;
 	//this->aabbs = aabbs_;
 
 	// Create a new task manager for the BestSplitSearchTask tasks, if needed.
@@ -281,6 +305,9 @@ void NonBinningBVHBuilder::build(
 	root_aabb = aabbs[0];
 	for(size_t i = 0; i < num_objects; ++i)
 		root_aabb.enlargeToHoldAABBox(aabbs[i]);
+
+	if(should_cancel_callback->shouldCancel())
+		throw Indigo::CancelledException();
 
 	// Alloc space for objects for each axis
 	//timer.reset();
@@ -319,11 +346,17 @@ void NonBinningBVHBuilder::build(
 			//conPrint("sort: " + timer2.elapsedString());
 		}
 
+		if(should_cancel_callback->shouldCancel())
+			throw Indigo::CancelledException();
+
 		for(int axis=0; axis<3; ++axis)
 			task_manager->addTask(new ConstructAxisObjectsTask(*this, num_objects, axis, &all_axis_centres[axis]));
 		task_manager->waitForTasksToComplete();
 	}
 	//conPrint("SortAxisTasks : " + timer.elapsedString());
+
+	if(should_cancel_callback->shouldCancel())
+		throw Indigo::CancelledException();
 
 	// Check we sorted objects along each axis properly:
 #ifndef NDEBUG
@@ -396,6 +429,9 @@ void NonBinningBVHBuilder::build(
 	task_manager->addTask(task);
 
 	task_manager->waitForTasksToComplete();
+
+	if(should_cancel_callback->shouldCancel())
+		throw Indigo::CancelledException();
 
 
 	/*conPrint("initial_result_buf_reserve_cap: " + toString(initial_result_buf_reserve_cap));
@@ -471,6 +507,9 @@ void NonBinningBVHBuilder::build(
 			write_index++;
 		}
 	}
+
+	if(should_cancel_callback->shouldCancel())
+		throw Indigo::CancelledException();
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
@@ -848,6 +887,13 @@ void NonBinningBVHBuilder::doBuild(
 	const int MAX_DEPTH = 60;
 
 	assert(aabb.min_[3] == 1.f && aabb.max_[3] == 1.f);
+
+	if(depth <= 5)
+	{
+		// conPrint("Checking for cancel at depth " + toString(depth));
+		if(should_cancel_callback->shouldCancel())
+			throw Indigo::CancelledException();
+	}
 
 	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;
 

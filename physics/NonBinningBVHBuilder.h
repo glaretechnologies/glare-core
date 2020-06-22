@@ -185,6 +185,7 @@ private:
 	Indigo::TaskManager* local_task_manager;
 
 	js::Vector<uint32, 16> result_indices;
+	ShouldCancelCallback* should_cancel_callback;
 public:
 	int axis_parallel_num_ob_threshold;
 	int new_task_num_ob_threshold;

@@ -190,15 +190,20 @@ public:
 
 		result_chunk->size = 1;
 
-		builder.doBuild(
-			builder.per_thread_temp_info[thread_index],
-			node_aabb,
-			centroid_aabb,
-			0, // node index
-			objects,
-			depth, 
-			result_chunk
-		);
+		try
+		{
+			builder.doBuild(
+				builder.per_thread_temp_info[thread_index],
+				node_aabb,
+				centroid_aabb,
+				0, // node index
+				objects,
+				depth, 
+				result_chunk
+			);
+		}
+		catch(Indigo::CancelledException&)
+		{}
 	}
 
 	SBVHBuilder& builder;
@@ -246,6 +251,17 @@ void SBVHBuilder::build(
 {
 	Timer build_timer;
 	ScopeProfiler _scope("BVHBuilder::build");
+
+	//------------ Reset builder state --------------
+	per_thread_temp_info.clear();
+	result_chunks.clear();
+	leaf_result_chunks.clear();
+	result_chunks.clear();
+	stats = SBVHBuildStats();
+	result_nodes_out.clear();
+	//------------ End reset builder state --------------
+
+
 	js::AABBox root_centroid_aabb;
 	{
 	ScopeProfiler _scope2("initial init");
@@ -311,7 +327,8 @@ void SBVHBuilder::build(
 		root_centroid_aabb.enlargeToHoldPoint(tri_aabb.centroid());
 	}
 
-	if(should_cancel_callback->shouldCancel()) return;
+	if(should_cancel_callback->shouldCancel())
+		throw Indigo::CancelledException();
 
 	this->recip_root_node_aabb_area = 1 / root_aabb.getSurfaceArea();
 	
@@ -341,7 +358,8 @@ void SBVHBuilder::build(
 
 	task_manager->waitForTasksToComplete();
 
-	if(should_cancel_callback->shouldCancel()) return;
+	if(should_cancel_callback->shouldCancel())
+		throw Indigo::CancelledException();
 
 
 	/*conPrint("initial_result_buf_reserve_cap: " + toString(initial_result_buf_reserve_cap));
@@ -1373,7 +1391,7 @@ void SBVHBuilder::doBuild(
 		if(should_cancel_callback->shouldCancel())
 		{
 			// conPrint("Cancelling!");
-			return;
+			throw Indigo::CancelledException();
 		}
 	}
 

@@ -162,14 +162,19 @@ public:
 		if(parent_node_index != -1)
 			parent_chunk->nodes[parent_node_index].right = (int)(node_index + builder.per_thread_temp_info[thread_index].result_chunk->chunk_offset);
 
-		builder.doBuild(
-			builder.per_thread_temp_info[thread_index],
-			node_aabb,
-			centroid_aabb,
-			node_index,
-			begin, end, depth,
-			builder.per_thread_temp_info[thread_index].result_chunk
-		);
+		try
+		{
+			builder.doBuild(
+				builder.per_thread_temp_info[thread_index],
+				node_aabb,
+				centroid_aabb,
+				node_index,
+				begin, end, depth,
+				builder.per_thread_temp_info[thread_index].result_chunk
+			);
+		}
+		catch(Indigo::CancelledException&)
+		{}
 	}
 
 	
@@ -196,7 +201,8 @@ BinningResultChunk* BinningBVHBuilder::allocNewResultChunk()
 }
 
 
-// top-level build method
+// Top-level build method
+// Throws Indigo::CancelledException if cancelled.
 void BinningBVHBuilder::build(
 		   Indigo::TaskManager& task_manager_,
 		   ShouldCancelCallback& should_cancel_callback_,
@@ -207,6 +213,14 @@ void BinningBVHBuilder::build(
 {
 	Timer build_timer;
 	ScopeProfiler _scope("BVHBuilder::build");
+
+	result_nodes_out.clear();
+	//------------ Reset builder state --------------
+	// Not clearing objects and result_indices as are alloced in constructor
+	per_thread_temp_info.clear();
+	result_chunks.clear();
+	stats = BinningBVHBuildStats();
+	//------------ End reset builder state --------------
 	
 	//Timer timer;
 	split_search_time = 0;
@@ -250,7 +264,8 @@ void BinningBVHBuilder::build(
 
 	task_manager->waitForTasksToComplete();
 
-	if(should_cancel_callback->shouldCancel()) return;
+	if(should_cancel_callback->shouldCancel()) 
+		throw Indigo::CancelledException();
 
 	// Now we need to combine all the result chunks into a single array.
 
@@ -795,7 +810,7 @@ void BinningBVHBuilder::doBuild(
 		if(should_cancel_callback->shouldCancel())
 		{
 			// conPrint("BinningBVHBuilder(): Cancelling!");
-			return;
+			throw Indigo::CancelledException();
 		}
 	}
 

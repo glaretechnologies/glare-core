@@ -9,7 +9,6 @@ File created by ClassTemplate on Sun Oct 26 17:19:14 2008
 
 #include "BVHImpl.h"
 #include "BinningBVHBuilder.h"
-#include "NonBinningBVHBuilder.h"
 #include "SBVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/ThreadContext.h"
@@ -38,6 +37,7 @@ BVH::~BVH()
 }
 
 
+// Throws Indigo::CancelledException if cancelled.
 void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager)
 {
 	if(verbose) print_output.print("\tBVH::build()");

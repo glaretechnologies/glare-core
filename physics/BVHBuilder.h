@@ -48,6 +48,7 @@ class BVHBuilder : public RefCounted
 public:
 	virtual ~BVHBuilder();
 
+	// Throws Indigo::CancelledException if cancelled.
 	virtual void build(
 		Indigo::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,

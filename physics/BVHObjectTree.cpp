@@ -228,6 +228,7 @@ stack_pop:
 }
 
 
+// Throws Indigo::CancelledException if cancelled.
 void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose)
 {
 	// conPrint("BVHObjectTree::build");

@@ -38,6 +38,7 @@ public:
 	BVH(const RayMesh* const raymesh);
 	virtual ~BVH();
 
+	// Throws Indigo::CancelledException if cancelled.
 	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager); // throws Indigo::Exception
 
 

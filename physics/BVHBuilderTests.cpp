@@ -22,6 +22,8 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "../utils/Timer.h"
 #include "../utils/Plotter.h"
 #include "../utils/FileUtils.h"
+#include "../utils/Exception.h"
+#include "../utils/PlatformUtils.h"
 #include "../utils/IncludeXXHash.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
@@ -121,7 +123,26 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 class TestShouldCancelCallback : public ShouldCancelCallback
 {
 public:
-	virtual bool shouldCancel() { return true; }
+	virtual bool shouldCancel() { return should_cancel != 0; }
+
+	IndigoAtomic should_cancel;
+};
+
+
+class CancelAfterNSecondsTask : public Indigo::Task
+{
+public:
+	CancelAfterNSecondsTask(double wait_time_, TestShouldCancelCallback* callback_) : wait_time(wait_time_), callback(callback_) {}
+
+	virtual void run(size_t thread_index)
+	{
+		PlatformUtils::Sleep((int)(wait_time * 1000.0));
+
+		callback->should_cancel = 1;
+	}
+
+	double wait_time; // in seconds
+	TestShouldCancelCallback* callback;
 };
 
 
@@ -164,6 +185,7 @@ static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objec
 	}
 }
 
+
 static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<SBVHTri, 16>& tris)
 {
 	const int num_objects = (int)tris.size();
@@ -178,7 +200,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 	}
 
 	StandardPrintOutput print_output;
-	DummyShouldCancelCallback should_cancel_callback;
+	DummyShouldCancelCallback dummy_should_cancel_callback;
 
 	{
 		std::vector<BVHBuilderRef> builders;
@@ -188,7 +210,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 		{
 			js::Vector<ResultNode, 64> result_nodes;
 			builders[i]->build(task_manager,
-				should_cancel_callback,
+				dummy_should_cancel_callback,
 				print_output,
 				false, // verbose
 				result_nodes
@@ -199,22 +221,61 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 		}
 	}
 
+	PCG32 rng(1);
+
 	// Test cancelling
 	{
 		std::vector<BVHBuilderRef> builders;
 		buildBuilders(aabbs, num_objects, tris, builders);
-
-		TestShouldCancelCallback test_should_cancel_callback;
+		
 
 		for(size_t i=0; i<builders.size(); ++i)
 		{
-			js::Vector<ResultNode, 64> result_nodes;
-			builders[i]->build(task_manager,
-				test_should_cancel_callback,
-				print_output,
-				false, // verbose
-				result_nodes
-			);
+			// Run once to measure expected time
+			double first_run_time;
+			{
+				Timer timer;
+				js::Vector<ResultNode, 64> result_nodes;
+				builders[i]->build(task_manager,
+					dummy_should_cancel_callback,
+					print_output,
+					false, // verbose
+					result_nodes
+				);
+				first_run_time = timer.elapsed();
+			}
+
+			conPrint("First build took " + doubleToStringNSigFigs(first_run_time, 3) + " s");
+
+			const int NUM_TESTS = 3;
+			for(int z=0; z<NUM_TESTS; ++z)
+			{
+				TestShouldCancelCallback test_should_cancel_callback;
+				Indigo::TaskManager temp_task_manager(1);
+				temp_task_manager.addTask(new CancelAfterNSecondsTask(first_run_time * (-0.1 + rng.unitRandom() * 1.2), &test_should_cancel_callback));
+				Timer timer;
+				try
+				{
+					js::Vector<ResultNode, 64> result_nodes;
+					builders[i]->build(task_manager,
+						test_should_cancel_callback,
+						print_output,
+						false, // verbose
+						result_nodes
+					);
+
+					conPrint("Build was not interrupted.");
+				}
+				catch(Indigo::CancelledException& )
+				{
+					// Expected
+					conPrint("Successfully interrupted build after " + timer.elapsedStringNSigFigs(3));
+				}
+				catch(...)
+				{
+					failTest("Caught exception");
+				}
+			}
 		}
 	}
 }

@@ -99,6 +99,7 @@ public:
 
 	inline void setObjectAABB(size_t ob_i, const js::AABBox& aabb); // ob_i should be < num_objects constructor arg.
 
+	// Throws Indigo::CancelledException if cancelled.
 	virtual void build(
 		Indigo::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,
