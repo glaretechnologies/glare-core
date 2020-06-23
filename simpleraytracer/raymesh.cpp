@@ -915,7 +915,7 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 		tritree->build(print_output, should_cancel_callback, verbose, task_manager);
 		//conPrint("tritree->build: " + timer.elapsedString());
 	}
-	catch(Indigo::CancelledException& e)
+	catch(Indigo::CancelledException&)
 	{
 		throw Indigo::CancelledException();
 	}
