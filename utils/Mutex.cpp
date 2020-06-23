@@ -46,6 +46,15 @@ void Mutex::acquire()
 #endif
 }
 
+bool Mutex::tryAcquire()
+{
+#if defined(_WIN32)
+	return TryEnterCriticalSection(&mutex);
+#else
+	return pthread_mutex_trylock(&mutex) == 0;
+#endif
+}
+
 void Mutex::release()
 {	
 #if defined(_WIN32)

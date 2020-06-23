@@ -30,6 +30,8 @@ public:
 	void acquire();
 	void release();
 
+	bool tryAcquire();
+
 //private:
 #if defined(_WIN32)
 	CRITICAL_SECTION mutex;
