@@ -30,6 +30,9 @@ public:
 	void acquire();
 	void release();
 
+	// Non-blocking.
+	// returns true if the mutex was successfully acquired.
+	// returns false when the mutex has already been acquired by a different thread.
 	bool tryAcquire();
 
 //private:
