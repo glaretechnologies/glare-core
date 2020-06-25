@@ -50,7 +50,6 @@ See 'physics\experiments\BinningBVHBuilder with parallel partition.cpp' for the 
 
 #include "jscol_aabbox.h"
 #include <algorithm>
-#include "../indigo/ShouldCancelCallback.h"
 #include "../utils/Exception.h"
 #include "../utils/Sort.h"
 #include "../utils/ConPrint.h"
@@ -59,6 +58,7 @@ See 'physics\experiments\BinningBVHBuilder with parallel partition.cpp' for the 
 #include "../utils/Lock.h"
 #include "../utils/Timer.h"
 #include "../utils/ProfilerStore.h"
+#include "../utils/ShouldCancelCallback.h"
 
 
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();

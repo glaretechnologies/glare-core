@@ -7,10 +7,10 @@ Copyright Glare Technologies Limited 2017 -
 
 
 #include "jscol_aabbox.h"
-#include "../indigo/ShouldCancelCallback.h"
 #include "../graphics/bitmap.h"
 #include "../graphics/Drawing.h"
 #include "../graphics/PNGDecoder.h"
+#include "../utils/ShouldCancelCallback.h"
 #include "../utils/Exception.h"
 #include "../utils/Sort.h"
 #include "../utils/ConPrint.h"

@@ -18,7 +18,7 @@ Generated at 2017-05-09 18:51:12 +0100
 #include "../indigo/ConstantSpectrumMatParameter.h"
 #include "../indigo/Vec3MatParameter.h"
 #include "../indigo/UniformSpectrum.h"
-#include "../indigo/ShouldCancelCallback.h"
+#include "../utils/ShouldCancelCallback.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/TaskManager.h"

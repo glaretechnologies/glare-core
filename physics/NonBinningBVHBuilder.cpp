@@ -17,7 +17,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/Lock.h"
 #include "../utils/Timer.h"
 #include "../utils/ProfilerStore.h"
-#include "../indigo/ShouldCancelCallback.h"
+#include "../utils/ShouldCancelCallback.h"
 
 
 // For some reason, using incorrect SAH (not tight bounds on each child, but just using splitting plane to compute bounds) results in better trees.
