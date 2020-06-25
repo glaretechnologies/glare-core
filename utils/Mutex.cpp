@@ -46,6 +46,7 @@ void Mutex::acquire()
 #endif
 }
 
+
 bool Mutex::tryAcquire()
 {
 #if defined(_WIN32)
@@ -54,6 +55,7 @@ bool Mutex::tryAcquire()
 	return pthread_mutex_trylock(&mutex) == 0;
 #endif
 }
+
 
 void Mutex::release()
 {	
