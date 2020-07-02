@@ -3,35 +3,22 @@
 	<material>
 		<name>phong a</name>
 		<diffuse_transmitter>
-			<texture>
-				<path>C:/programming/indigosvn/trunk/testfiles/test_materials/blackrose_pattern.jpg</path>
-				<a>0</a>
-				<b>3.243</b>
-				<c>0.123</c>
-				<uv_set>default</uv_set>
-				<exponent>2.2</exponent>
-				<tex_coord_generation>
-					<uv>
-					</uv>
-				</tex_coord_generation>
-			</texture>
 			<albedo>
 				<constant>
 					<rgb>
-						<rgb>
-							0.3086 0.6836 0.4141
-						</rgb>
+						<rgb>0.3086 0.6836 0.4141</rgb>
 						<gamma>2.2</gamma>
 					</rgb>
 				</constant>
 			</albedo>
 			<bump>
 				<texture>
-					<texture_index>0</texture_index>
+					<path>O:\indigo\trunk\testfiles\test_materials\blackrose_pattern.jpg</path>
+					<b>0.00054</b>
+					<c>0.123</c>
+					<exponent>2.2</exponent>
 				</texture>
 			</bump>
-			<layer>0</layer>
 		</diffuse_transmitter>
 	</material>
-
 </scenedata>

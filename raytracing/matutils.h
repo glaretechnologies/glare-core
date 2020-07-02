@@ -11,6 +11,7 @@ Code By Nicholas Chapman.
 #include "../indigo/material.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/SampleTypes.h"
+#include "../indigo/object.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 class MTwister;
@@ -245,6 +246,44 @@ template <class Real> Real trowbridgeReitzPDF(Real cos_theta, Real alpha2)
 template <class Real> Real trowbridgeReitzD(Real cos_theta, Real alpha2)
 {
 	return alpha2 / (Maths::pi<Real>() * Maths::square(Maths::square(cos_theta) * (alpha2 - 1) + 1));
+}
+
+
+// Recompute shading normal if this is a substrate. (for example the substrate of a coating material or a double-sided thin material)
+// The returned shading normal will be flipped into the hemisphere raydir came from.
+inline static Vec4f getNsForScatter(ThreadContext& thread_context, const Material* mat, const Material::ScatterArgs& scatter_args, const FullHitInfo& hitinfo, const Vec4f& ray_dir)
+{
+	return (scatter_args.is_substrate && mat->hasBumpOrNormalMapping()) ?
+		hitinfo.hitObject()->getShadingNormalForFullHit(thread_context, *mat, hitinfo, scatter_args.time, ray_dir) :
+		hitinfo.shading_normal;
+}
+
+
+// Recompute shading normal if this is a substrate. (for example the substrate of a coating material)
+inline static void getShadingNormalsInEvalBSDF(ThreadContext& thread_context, const Material* mat, Material::EvaluateBSDFArgs& eval_args, const FullHitInfo& hitinfo, float a_dot_orig_Ng, const Vec4f& b, Vec4f& N_s_out, Vec4f& pre_bump_N_s_out)
+{
+	if(eval_args.is_substrate && mat->hasBumpOrNormalMapping())
+	{
+		const Vec4f unflipped_N_s = hitinfo.hitObject()->getShadingNormalForFullHit(thread_context, *mat, hitinfo, eval_args.time, /*ray dir=*/-b);
+
+		// Flip pre-bump N_s and N_s into same hemisphere as ray dir
+		pre_bump_N_s_out = (dot(hitinfo.pre_bump_shading_normal, hitinfo.geometric_normal) * a_dot_orig_Ng > 0) ? hitinfo.pre_bump_shading_normal : -hitinfo.pre_bump_shading_normal;
+		N_s_out          = (dot(unflipped_N_s,                   hitinfo.geometric_normal) * a_dot_orig_Ng > 0) ? unflipped_N_s : -unflipped_N_s;
+	}
+	else
+	{
+		// Get shading normals.  They should be in the same geometric hemisphere as a and b.
+		if(dot(hitinfo.shading_normal, hitinfo.geometric_normal) * a_dot_orig_Ng > 0)
+		{
+			N_s_out = hitinfo.shading_normal;
+			pre_bump_N_s_out = hitinfo.pre_bump_shading_normal;
+		}
+		else
+		{
+			N_s_out = -hitinfo.shading_normal;
+			pre_bump_N_s_out = -hitinfo.pre_bump_shading_normal;
+		}
+	}
 }
 
 
