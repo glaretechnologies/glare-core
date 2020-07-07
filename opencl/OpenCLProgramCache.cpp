@@ -57,7 +57,7 @@ bool OpenCLProgramCache::isProgramInCache(
 
 	// If we're on macOS, we need to build the program for all devices, otherwise clGetProgramInfo will crash.
 #ifdef OSX
-	devices = platform->devices;
+	devices = platform->platform_devices;
 #else
 	devices = selected_devices_on_plat;
 #endif
@@ -142,7 +142,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 
 	// If we're on macOS, we need to build the program for all devices, otherwise clGetProgramInfo will crash.
 #ifdef OSX
-	devices = platform->devices;
+	devices = platform->platform_devices;
 #else
 	devices = selected_devices_on_plat;
 #endif
