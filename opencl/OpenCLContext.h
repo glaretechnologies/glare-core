@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
+#include "OpenCLDevice.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 
@@ -27,6 +28,7 @@ class OpenCLContext : public ThreadSafeRefCounted
 {
 public:
 	OpenCLContext(cl_platform_id platform_id);
+	OpenCLContext(OpenCLDeviceRef& opencl_device);
 	~OpenCLContext();
 
 	cl_context getContext() { return context; }

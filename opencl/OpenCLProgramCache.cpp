@@ -18,7 +18,7 @@ Generated at 2016-10-14 15:08:16 +0100
 
 
 static const bool DO_CACHING = true; // Can disable caching for debugging with this.
-static const int CACHE_EPOCH = 3; // This can be incremented to effectively invalidate the cache, since keys will change.
+static const int CACHE_EPOCH = 4; // This can be incremented to effectively invalidate the cache, since keys will change.
 static const bool VERBOSE = false;
 
 
@@ -253,51 +253,54 @@ build_program:
 
 
 	// Get the program binaries and write them to cache
-	try
+	if(DO_CACHING)
 	{
-		// Get binaries for program.  Note that the associated devices can differ in order from the device list we supplied when building the program!
-		std::vector<OpenCLProgram::Binary> binaries;
-		program->getProgramBinaries(binaries);
-
-		// Save binaries to disk
-		for(size_t i=0; i<binaries.size(); ++i)
+		try
 		{
-			if(binaries[i].data.size() > 0) // If a binary is available for the device:
+			// Get binaries for program.  Note that the associated devices can differ in order from the device list we supplied when building the program!
+			std::vector<OpenCLProgram::Binary> binaries;
+			program->getProgramBinaries(binaries);
+
+			// Save binaries to disk
+			for(size_t i=0; i<binaries.size(); ++i)
 			{
-				// Find the device in our device list that this corresponds to
-				size_t device_index = std::numeric_limits<size_t>::max();
-				for(size_t z=0; z<devices.size(); ++z)
-					if(devices[z]->opencl_device_id == binaries[i].device_id)
-						device_index = z;
+				if(binaries[i].data.size() > 0) // If a binary is available for the device:
+				{
+					// Find the device in our device list that this corresponds to
+					size_t device_index = std::numeric_limits<size_t>::max();
+					for(size_t z=0; z<devices.size(); ++z)
+						if(devices[z]->opencl_device_id == binaries[i].device_id)
+							device_index = z;
 
-				if(device_index == std::numeric_limits<size_t>::max())
-					throw Indigo::Exception("Failed to find device.");
+					if(device_index == std::numeric_limits<size_t>::max())
+						throw Indigo::Exception("Failed to find device.");
 
-				const OpenCLDevice& device = *devices[device_index];
-				const std::string device_string_id = device.vendor_name + "_" + device.device_name;
-				const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
-				const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
-				const std::string dir = ::toHexString(dir_bits);
-				const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
+					const OpenCLDevice& device = *devices[device_index];
+					const std::string device_string_id = device.vendor_name + "_" + device.device_name;
+					const uint64 device_key = XXH64(device_string_id.data(), device_string_id.size(), 1);
+					const uint64 dir_bits = hashcode >> 58; // 6 bits for the dirs => 64 subdirs in program_cache.
+					const std::string dir = ::toHexString(dir_bits);
+					const std::string cachefile_path = cachedir_path + "/program_cache/" + dir + "/" + toHexString(hashcode) + "_" + toHexString(device_key);
 
-				FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache");
-				FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache/" + dir);
-				FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data.data(), binaries[i].data.size());
+					FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache");
+					FileUtils::createDirIfDoesNotExist(cachedir_path + "/program_cache/" + dir);
+					FileUtils::writeEntireFileAtomically(cachefile_path, (const char*)binaries[i].data.data(), binaries[i].data.size());
+				}
 			}
 		}
-	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
-	}
-	catch(Indigo::Exception& e)
-	{
-		conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
-	}
+		catch(FileUtils::FileUtilsExcep& e)
+		{
+			conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
+		}
+		catch(Indigo::Exception& e)
+		{
+			conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
+		}
 
-	// Add to mem-cache
-	Lock lock(mem_cache_mutex);
-	mem_cache[hashcode] = program;
+		// Add to mem-cache
+		Lock lock(mem_cache_mutex);
+		mem_cache[hashcode] = program;
+	}
 
 	return OpenCLProgramCache::Results(program, /*cache_hit=*/false);
 

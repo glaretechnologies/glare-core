@@ -33,6 +33,30 @@ OpenCLContext::OpenCLContext(cl_platform_id platform_id)
 }
 
 
+OpenCLContext::OpenCLContext(OpenCLDeviceRef& opencl_device)
+{
+	// Create context
+	cl_context_properties cps[3] =
+	{
+		CL_CONTEXT_PLATFORM,
+		(cl_context_properties)opencl_device->opencl_platform_id,
+		0
+	};
+
+	cl_int error_code;
+	this->context = ::getGlobalOpenCL()->clCreateContext(
+		cps, // properties
+		1, // num devices
+		&opencl_device->opencl_device_id, // devices
+		NULL, // pfn notify
+		NULL, // user data
+		&error_code
+	);
+	if(this->context == 0)
+		throw Indigo::Exception("clCreateContext failed: " + OpenCL::errorString(error_code));
+}
+
+
 OpenCLContext::~OpenCLContext()
 {
 	if(::getGlobalOpenCL()->clReleaseContext(context) != CL_SUCCESS)

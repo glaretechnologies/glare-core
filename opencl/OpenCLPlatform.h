@@ -28,7 +28,7 @@ public:
 
 	std::string name;
 	std::string version;
-	std::vector<OpenCLDeviceRef> devices;
+	std::vector<OpenCLDeviceRef> platform_devices;
 private:
 	cl_platform_id platform_id;
 };

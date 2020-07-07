@@ -83,6 +83,7 @@ void OpenCL::libraryInit()
 			clGetPlatformInfo = opencl_lib.getFuncPointer<clGetPlatformInfo_TYPE>("clGetPlatformInfo");
 			clGetDeviceIDs = opencl_lib.getFuncPointer<clGetDeviceIDs_TYPE>("clGetDeviceIDs");
 			clGetDeviceInfo = opencl_lib.getFuncPointer<clGetDeviceInfo_TYPE>("clGetDeviceInfo");
+			clCreateContext = opencl_lib.getFuncPointer<clCreateContext_TYPE>("clCreateContext");
 			clCreateContextFromType = opencl_lib.getFuncPointer<clCreateContextFromType_TYPE>("clCreateContextFromType");
 			clReleaseContext = opencl_lib.getFuncPointer<clReleaseContext_TYPE>("clReleaseContext");
 			clCreateCommandQueue = opencl_lib.getFuncPointer<clCreateCommandQueue_TYPE>("clCreateCommandQueue");
@@ -451,7 +452,7 @@ void OpenCL::queryDevices()
 
 				opencl_device->platform = platforms.back().getPointer();
 
-				platforms.back()->devices.push_back(opencl_device);
+				platforms.back()->platform_devices.push_back(opencl_device);
 				devices.push_back(opencl_device);
 			}
 
