@@ -272,34 +272,24 @@ struct QuadInfo
 
 
 // Build the data structures we will use to do the subdivision.
-void DisplacementUtils::init(const std::string& mesh_name,
+void DisplacementUtils::initAndBuildAdjacencyInfo(const std::string& mesh_name,
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
-	ThreadContext& context,
-	const ArrayRef<Reference<Material> >& materials,
-	RayMesh::TriangleVectorType& triangles_in_out, 
+	const RayMesh::TriangleVectorType& triangles_in, 
 	const RayMesh::QuadVectorType& quads_in,
-	RayMesh::VertexVectorType& vertices_in_out,
-	std::vector<Vec2f>& uvs_in_out,
+	const RayMesh::VertexVectorType& vertices_in,
+	const std::vector<Vec2f>& uvs_in,
 	unsigned int num_uv_sets,
-	const DUOptions& options,
-	bool use_shading_normals,
-	Polygons& temp_polygons_1,
-	Polygons& temp_polygons_2,
-	VertsAndUVs& temp_verts_uvs_1,
-	VertsAndUVs& temp_verts_uvs_2
+	Polygons& temp_polygons_out,
+	VertsAndUVs& temp_verts_uvs_out
 	)
 {
 	DISPLACEMENT_CREATE_TIMER(timer);
 
-	const RayMesh::TriangleVectorType& triangles_in = triangles_in_out;
-	const RayMesh::VertexVectorType& vertices_in = vertices_in_out;
-	const std::vector<Vec2f>& uvs_in = uvs_in_out;
-
 	// Copying incoming data to temp_polygons_1, temp_verts_uvs_1.
-	js::Vector<DUQuad, 64>& temp_quads = temp_polygons_1.quads;
-	js::Vector<DUVertex, 16>& temp_verts = temp_verts_uvs_1.verts;
-	js::Vector<Vec2f, 16>& temp_uvs = temp_verts_uvs_1.uvs;
+	js::Vector<DUQuad, 64>& temp_quads = temp_polygons_out.quads;
+	js::Vector<DUVertex, 16>& temp_verts = temp_verts_uvs_out.verts;
+	js::Vector<Vec2f, 16>& temp_uvs = temp_verts_uvs_out.uvs;
 
 	const float UV_DIST2_THRESHOLD = 0.001f * 0.001f;
 
@@ -728,7 +718,7 @@ done:
 		}
 	}
 
-	// Create vertices for each input quad.  Each vertex should have a unique (position, uv).
+	// Create vertices for each input quad.  Each vertex should have a unique (position, uv, shading normal).
 	for(size_t q = 0; q < quads_in_size; ++q)
 	{
 		const RayMeshQuad& quad_in = quads_in[q];
@@ -869,8 +859,8 @@ bool DisplacementUtils::subdivideAndDisplace(
 	VertsAndUVs temp_verts_uvs_2;
 	
 
-	init(mesh_name, task_manager, print_output, context, materials, triangles_in_out, quads_in, vertices_in_out, uvs_in_out, num_uv_sets, options, use_shading_normals, 
-		temp_polygons_1, temp_polygons_2, temp_verts_uvs_1, temp_verts_uvs_2);
+	initAndBuildAdjacencyInfo(mesh_name, task_manager, print_output, triangles_in_out, quads_in, vertices_in_out, uvs_in_out, num_uv_sets,
+		temp_polygons_1, temp_verts_uvs_1);
 	
 
 	if(DRAW_SUBDIVISION_STEPS) draw(temp_polygons_1, temp_verts_uvs_1, num_uv_sets, "initial_mesh.png");

@@ -72,6 +72,7 @@ public:
 
 
 	// Returns 0 if not, non-zero if there is a UV edge discontinuity.
+	// NOTE: also records normal discontinuities.
 	inline uint32 isUVEdgeDiscontinuity(int edge) const { return bitfield.getBitMasked(edge); }
 	inline uint32 getUVEdgeDiscontinuity(int edge) const { return bitfield.getBit(edge); }
 
@@ -207,24 +208,19 @@ public:
 	
 
 private:
-	static void init(
+	static void initAndBuildAdjacencyInfo(
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
-		ThreadContext& context,
-		const ArrayRef<Reference<Material> >& materials,
-		RayMesh::TriangleVectorType& triangles_in_out, 
+		const RayMesh::TriangleVectorType& triangles_in, 
 		const RayMesh::QuadVectorType& quads_in,
-		RayMesh::VertexVectorType& vertices_in_out,
-		std::vector<Vec2f>& uvs_in_out,
+		const RayMesh::VertexVectorType& vertices_in,
+		const std::vector<Vec2f>& uvs_in,
 		unsigned int num_uv_sets,
-		const DUOptions& options,
-		bool use_shading_normals,
-		Polygons& temp_polygons_1,
-		Polygons& temp_polygons_2,
-		VertsAndUVs& temp_verts_uvs_1,
-		VertsAndUVs& temp_verts_uvs_2
+		Polygons& temp_polygons_out,
+		VertsAndUVs& temp_verts_uvs_out
 	);
+
 
 	static void displace(
 		Indigo::TaskManager& task_manager,
@@ -237,6 +233,7 @@ private:
 		bool compute_H,
 		DUVertexVector& verts_out
 	);
+
 
 	static void linearSubdivision(
 		Indigo::TaskManager& task_manager,
