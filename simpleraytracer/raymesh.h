@@ -286,12 +286,12 @@ private:
 	QuadVectorType quads;
 
 	float bounding_radius; // Computed in build()
-	
+public:	
 	unsigned int num_uv_sets;
 	std::vector<Vec2f> uvs;
 
 	FloatVectorType mean_curvature; // One float per vertex.  Split from other vertex data as it's used less often.
-public:
+
 	/*struct VertDerivs
 	{
 		VertDerivs() {}
