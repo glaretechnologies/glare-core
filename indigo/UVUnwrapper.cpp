@@ -272,24 +272,13 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 	RayMesh* mesh, PrintOutput& print_output)
 {
 	// Built topology info (adjacency etc..)
-	/*Polygons polygons;
-	VertsAndUVs verts_and_uvs;
-
-	DisplacementUtils::initAndBuildAdjacencyInfo(mesh->getName(),
-		task_manager,
-		print_output,
-		mesh->getTriangles(),
-		mesh->getQuads(),
-		mesh->getVertices(),
-		mesh->getUVs(),
-		mesh->getNumUVCoordSets(),
-		polygons,
-		verts_and_uvs
-	);*/
+	// DisplacementUtils::initAndBuildAdjacencyInfo isn't quite the right fit for this, since it fails to handle
+	// more than 2 polygons adjacent to an edge, which we want to handle (think adjacent voxels)
 
 	const RayMeshVertex*   const verts_in = mesh->getVertices().data();
 	const RayMeshTriangle* const tris_in  = mesh->getTriangles().data();
 	const RayMeshQuad*     const quads_in = mesh->getQuads().data();
+	const Vec2f*           const uvs_in   = mesh->getUVs().data();
 	const size_t triangles_in_size = mesh->getTriangles().size();
 	const size_t quads_in_size     = mesh->getQuads().size();
 
@@ -681,7 +670,7 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 				{
 					// Copy old UVs (if any)
 					for(size_t s=0; s<old_num_sets; ++s)
-						new_uvs[poly_i * 4 + v].set_uvs[s] = mesh->uvs[mesh->getTriangles()[tri_index].uv_indices[v]];
+						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[tris_in[tri_index].uv_indices[v]];
 
 					// We will assign the new UV at the same index as old UV(s), if there were existing UVs
 					//uint32 uv_i;
@@ -710,7 +699,7 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 				{
 					// Copy old UVs (if any)
 					for(size_t s=0; s<old_num_sets; ++s)
-						new_uvs[poly_i * 4 + v].set_uvs[s] = mesh->uvs[mesh->getQuads()[quad_index].uv_indices[v]];
+						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[quads_in[quad_index].uv_indices[v]];
 
 					// Get old UV index.  We will assign the new UV at the same index, if there were existing UVs
 					/*const uint32 old_uv_i = mesh->getQuads()[quad_index].uv_indices[v];
@@ -967,11 +956,9 @@ void UVUnwrapper::test()
 	}
 
 
+	// testUnwrappingWithMesh("C:\\programming\\cv_lightmapper\\cv_baking_meshes\\mesh_5876229332140735852.igmesh"); // CV Parcel #1 (z-up)
+
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/quad_and_two_tris.igmesh"); // Cornell box
-
-	testUnwrappingWithMesh("C:\\programming\\cv_lightmapper\\cv_baking_meshes\\mesh_5876229332140735852.igmesh"); // CV Parcel #1 (z-up)
-
-	
 
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_15695509023332119054.igmesh"); // Cornell box
 
@@ -981,9 +968,10 @@ void UVUnwrapper::test()
 
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_2070916308_812.igmesh"); // A tilted prism
 
-	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/cv_baking_meshes/mesh_11825449379137060526.igmesh"); // CV parcel #1
+	// testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/cv_baking_meshes/mesh_11825449379137060526.igmesh"); // CV parcel #1
 		
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/cube_subdivision_test/mesh_2667395502_1108.igmesh"); // A cuboid
+
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_4047492550_812.igmesh"); // A tall cuboid
 	
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_12875754190445396881.igmesh"); // A single quad
