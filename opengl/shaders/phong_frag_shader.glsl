@@ -12,6 +12,9 @@ in vec3 cam_to_pos_ws;
 #if VERT_COLOURS
 in vec3 vert_colour;
 #endif
+#if LIGHTMAPPING
+in vec2 lightmap_coords;
+#endif
 
 uniform vec4 sundir_cs;
 uniform vec4 diffuse_colour;
@@ -22,6 +25,9 @@ uniform sampler2D dynamic_depth_tex;
 uniform sampler2D static_depth_tex;
 uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
+#if LIGHTMAPPING
+uniform sampler2D lightmap_tex;
+#endif
 uniform mat3 texture_matrix;
 uniform float roughness;
 uniform float fresnel_scale;
@@ -256,7 +262,12 @@ void main()
 	if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
 		unit_normal_ws = -unit_normal_ws;
 
-	vec4 cosine_sky_light = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky.
+	vec4 sky_irradiance;
+#if LIGHTMAPPING
+	sky_irradiance = texture(lightmap_tex, lightmap_coords ) * 3.141592653589793;
+#else
+	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky.
+#endif
 
 
 	vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
@@ -291,7 +302,7 @@ void main()
 	vec4 sun_light = vec4(9124154304.569067, 8038831044.193394, 7154376815.37873, 1) * sun_vis_factor;
 
 	vec4 col =
-		cosine_sky_light * (1.0 / 3.141592653589793) * diffuse_col * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
+		sky_irradiance * (1.0 / 3.141592653589793) * diffuse_col * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
 		refl_fresnel * spec_refl_light + // Specular reflection of sky
 		sun_light * (1.0 - refl_fresnel) * (1.0 - metallic_frac) * diffuse_col * (1.0 / 3.141592653589793) * light_cos_theta + //  Diffuse substrate part of BRDF * sun light
 		sun_light * specular; // sun light * specular microfacet terms

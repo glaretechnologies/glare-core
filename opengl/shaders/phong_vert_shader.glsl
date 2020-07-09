@@ -9,7 +9,9 @@ in vec3 vert_colours_in;
 #if INSTANCE_MATRICES
 in mat4 instance_matrix_in;
 #endif
-
+#if LIGHTMAPPING
+in vec2 lightmap_coords_in;
+#endif
 
 out vec3 normal_cs; // cam (view) space
 out vec3 normal_ws; // world space
@@ -23,6 +25,10 @@ out vec3 cam_to_pos_ws;
 
 #if VERT_COLOURS
 out vec3 vert_colour;
+#endif
+
+#if LIGHTMAPPING
+out vec2 lightmap_coords;
 #endif
 
 uniform mat4 proj_matrix;
@@ -66,5 +72,9 @@ void main()
 #if NUM_DEPTH_TEXTURES > 0
 	for(int i=0; i<NUM_DEPTH_TEXTURES; ++i)
 		shadow_tex_coords[i] = (shadow_texture_matrix[i] * (model_matrix  * vec4(position_in, 1.0))).xyz;
+#endif
+
+#if LIGHTMAPPING
+	lightmap_coords = lightmap_coords_in;
 #endif
 }

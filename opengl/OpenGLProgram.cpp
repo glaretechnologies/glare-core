@@ -36,6 +36,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	time_loc(-1),
 	colour_loc(-1),
 	albedo_texture_loc(-1),
+	lightmap_tex_loc(-1),
 	is_phong(false),
 	uses_phong_uniforms(false)
 {
@@ -55,8 +56,9 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glBindAttribLocation(program, 1, "normal_in");
 	glBindAttribLocation(program, 2, "texture_coords_0_in");
 	glBindAttribLocation(program, 3, "vert_colours_in");
-	glBindAttribLocation(program, 4, "instance_matrix_in"); // 4, 5, 6, 7
-	glBindAttribLocation(program, 8, "instance_colour_in");
+	//glBindAttribLocation(program, 4, "instance_matrix_in"); // 4, 5, 6, 7   // TEMP HACK COMMENTED OUT
+	//glBindAttribLocation(program, 8, "instance_colour_in");
+	glBindAttribLocation(program, 4, "lightmap_coords_in");
 
 	glLinkProgram(program);
 
@@ -79,6 +81,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	time_loc           = glGetUniformLocation(program, "time");
 	colour_loc         = glGetUniformLocation(program, "colour");
 	albedo_texture_loc = glGetUniformLocation(program, "albedo_texture");
+	lightmap_tex_loc   = glGetUniformLocation(program, "lightmap_tex");
 	texture_2_loc      = glGetUniformLocation(program, "texture_2");
 }
 

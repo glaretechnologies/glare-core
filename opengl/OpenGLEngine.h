@@ -109,6 +109,7 @@ public:
 	bool transparent;
 
 	Reference<OpenGLTexture> albedo_texture;
+	Reference<OpenGLTexture> lightmap_texture;
 	Reference<OpenGLTexture> texture_2;
 
 	Reference<OpenGLProgram> shader_prog;
@@ -468,13 +469,13 @@ private:
 	struct PhongKey
 	{
 		PhongKey() {}
-		PhongKey(bool alpha_test_, bool vert_colours_, bool instance_matrices_) : alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_) {}
-		bool alpha_test, vert_colours, instance_matrices;
+		PhongKey(bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_) : alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_) {}
+		bool alpha_test, vert_colours, instance_matrices, lightmapping;
 
 		inline bool operator < (const OpenGLEngine::PhongKey& b) const
 		{
-			const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0);
-			const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0);
+			const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0);
+			const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0);
 			return val < bval;
 		}
 	};

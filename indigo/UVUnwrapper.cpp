@@ -128,15 +128,13 @@ static void shelfPack(std::vector<BinRect>& rects)
 			// Try in initial orientation
 			if(shelves[s].right_x + rect.w <= max_x)
 			{
-				float leftover_height = shelves[s].height - rect.h; 
-				if(leftover_height >= 0) // If fits in height in this orientation
+				const float leftover_height = shelves[s].height - rect.h; 
+				if(leftover_height >= 0 &&  // If fits in height in this orientation
+					leftover_height < min_leftover_height) // And this is the smallest leftover height so far:
 				{
-					if(leftover_height < min_leftover_height)
-					{
-						min_leftover_height = leftover_height;
-						best_shelf = s;
-						best_rotated = false;
-					}
+					min_leftover_height = leftover_height;
+					best_shelf = s;
+					best_rotated = false;
 				}
 			}
 
@@ -144,14 +142,12 @@ static void shelfPack(std::vector<BinRect>& rects)
 			if(shelves[s].right_x + rect.h <= max_x)
 			{
 				const float leftover_height = shelves[s].height - rect.w; 
-				if(leftover_height >= 0) // If fits in height in this orientation
+				if(leftover_height >= 0 && // If fits in height in this orientation
+					leftover_height < min_leftover_height) // And this is the smallest leftover height so far:
 				{
-					if(leftover_height < min_leftover_height)
-					{
-						min_leftover_height = leftover_height;
-						best_shelf = s;
-						best_rotated = true;
-					}
+					min_leftover_height = leftover_height;
+					best_shelf = s;
+					best_rotated = true;
 				}
 			}
 		}
@@ -564,9 +560,34 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 		rects[i].index = (int)i;
 	}
 
+
+	// Get sum area of rectangles
+	float sum_A = 0;
+	for(size_t i=0; i<rects.size(); ++i)
+		sum_A += rects[i].area();
+
+	// Choose a maximum width (x value) based on the sum of rectangle areas.
+	const float max_x = std::sqrt(sum_A) * 1.2f;
+
+	const float normed_margins = 2.f / 1000;
+	const float use_margin = normed_margins * max_x;
+
+	// Make rects slightly larger so they have margins
+	for(size_t i=0; i<rects.size(); ++i)
+	{
+		rects[i].w += 2 * use_margin;
+		rects[i].h += 2 * use_margin;
+	}
+
 	// Do bin packing
 	shelfPack(rects);
 
+	// Shrink rectangles to remove margins
+	for(size_t i=0; i<rects.size(); ++i)
+	{
+		rects[i].w -= 2 * use_margin;
+		rects[i].h -= 2 * use_margin;
+	}
 
 	//TEMP
 	// Draw results
@@ -973,11 +994,11 @@ void UVUnwrapper::test()
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/cube_subdivision_test/mesh_2667395502_1108.igmesh"); // A cuboid
 
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_4047492550_812.igmesh"); // A tall cuboid
-	
+
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_12875754190445396881.igmesh"); // A single quad
 
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_10343428050135156342.igmesh"); // Tesselated quad (400 quads)
-	
+
 	conPrint("UVUnwrapper::test() done.");
 }
 

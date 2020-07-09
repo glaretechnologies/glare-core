@@ -567,6 +567,7 @@ void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog
 	phong_locations_out.diffuse_tex_location				= phong_prog->getUniformLocation("diffuse_tex");
 	phong_locations_out.cosine_env_tex_location				= phong_prog->getUniformLocation("cosine_env_tex");
 	phong_locations_out.specular_env_tex_location			= phong_prog->getUniformLocation("specular_env_tex");
+	phong_locations_out.lightmap_tex_location				= phong_prog->getUniformLocation("lightmap_tex");
 	phong_locations_out.texture_matrix_location				= phong_prog->getUniformLocation("texture_matrix");
 	phong_locations_out.sundir_cs_location					= phong_prog->getUniformLocation("sundir_cs");
 	phong_locations_out.roughness_location					= phong_prog->getUniformLocation("roughness");
@@ -780,11 +781,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		for(int alpha_test=0; alpha_test <= 1; ++alpha_test)
 		for(int vert_colours=0; vert_colours <= 1; ++vert_colours)
 		for(int instance_matrices=0; instance_matrices <= 1; ++instance_matrices)
+		for(int lightmapping=0; lightmapping <= 1; ++lightmapping)
 		{
 			const std::string use_defs = preprocessor_defines + 
 				"#define ALPHA_TEST " + toString(alpha_test) + "\n" + 
 				"#define VERT_COLOURS " + toString(vert_colours) + "\n" +
-				"#define INSTANCE_MATRICES " + toString(instance_matrices) + "\n";
+				"#define INSTANCE_MATRICES " + toString(instance_matrices) + "\n" +
+				"#define LIGHTMAPPING " + toString(lightmapping) + "\n";
 
 			OpenGLProgramRef phong_prog = new OpenGLProgram(
 				"phong",
@@ -794,7 +797,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			phong_prog->is_phong = true;
 			phong_prog->uses_phong_uniforms = true;
 
-			const PhongKey key(alpha_test != 0, vert_colours != 0, instance_matrices != 0);
+			const PhongKey key(alpha_test != 0, vert_colours != 0, instance_matrices != 0, lightmapping != 0);
 			phong_progs[key] = phong_prog;
 
 			getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
@@ -1080,7 +1083,8 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	else
 	{
 		const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
-		material.shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing));
+		const bool uses_lightmapping = material.lightmap_texture.nonNull();
+		material.shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping));
 	}
 }
 
@@ -1218,7 +1222,7 @@ bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing)
 {
 	assignShaderProgToMaterial(mat,
-		use_vert_colours, // false // use_vert_colours - TEMP HACK
+		use_vert_colours,
 		uses_instancing
 	);
 }
@@ -1481,7 +1485,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false)); //phong_prog_no_vert_colours;
+		debug_arrow_ob->materials[0].shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false));
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -3249,6 +3253,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	size_t uv0_offset;
 	const BatchedMesh::VertAttribute* uv0_attr = mesh->findAttribute(BatchedMesh::VertAttribute_UV_0, uv0_offset);
 
+	size_t uv1_offset;
+	const BatchedMesh::VertAttribute* uv1_attr = mesh->findAttribute(BatchedMesh::VertAttribute_UV_1, uv1_offset);
+
 	size_t colour_offset;
 	const BatchedMesh::VertAttribute* colour_attr = mesh->findAttribute(BatchedMesh::VertAttribute_Colour, colour_offset);
 
@@ -3293,6 +3300,16 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	colour_attrib.stride = num_bytes_per_vert;
 	colour_attrib.offset = (uint32)colour_offset;
 	opengl_render_data->vertex_spec.attributes.push_back(colour_attrib);
+
+	VertexAttrib lightmap_uv_attrib;
+	lightmap_uv_attrib.enabled = uv1_attr != NULL;
+	lightmap_uv_attrib.num_comps = 2;
+	lightmap_uv_attrib.type = uv1_attr ? ((uv1_attr->component_type == BatchedMesh::ComponentType_Half) ? GL_HALF_FLOAT : GL_FLOAT) : GL_FLOAT;
+	lightmap_uv_attrib.normalised = false;
+	lightmap_uv_attrib.stride = num_bytes_per_vert;
+	lightmap_uv_attrib.offset = (uint32)uv1_offset;
+	opengl_render_data->vertex_spec.attributes.push_back(lightmap_uv_attrib);
+	
 
 
 	if(skip_opengl_calls)
@@ -3405,6 +3422,13 @@ void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const Op
 		};
 		glUniformMatrix3fv(locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 		glUniform1i(locations.diffuse_tex_location, 0);
+	}
+
+	if(opengl_mat.lightmap_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 4);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
+		glUniform1i(locations.lightmap_tex_location, 4);
 	}
 
 	// Set shadow mapping uniforms

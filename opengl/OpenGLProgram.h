@@ -21,6 +21,7 @@ struct UniformLocations
 	int diffuse_tex_location;
 	int cosine_env_tex_location;
 	int specular_env_tex_location;
+	int lightmap_tex_location;
 	int texture_matrix_location;
 	int sundir_cs_location;
 	int roughness_location;
@@ -67,6 +68,7 @@ public:
 	int time_loc;
 	int colour_loc;
 	int albedo_texture_loc;
+	int lightmap_tex_loc;
 	int texture_2_loc;
 
 	Reference<OpenGLShader> vert_shader;
