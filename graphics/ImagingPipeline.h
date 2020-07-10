@@ -59,6 +59,8 @@ struct RunPipelineScratchState
 	Image4f albedo_im;
 	Image4f normals_im;
 #endif
+
+	Image4f pre_filled_lightmap;
 };
 
 

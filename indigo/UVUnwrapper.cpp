@@ -582,11 +582,15 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 	// Do bin packing
 	shelfPack(rects);
 
-	// Shrink rectangles to remove margins
+	// Shrink rectangles to remove margins,
+	// and adjust position so margins are on all sides.
 	for(size_t i=0; i<rects.size(); ++i)
 	{
 		rects[i].w -= 2 * use_margin;
 		rects[i].h -= 2 * use_margin;
+
+		rects[i].pos.x += normed_margins;
+		rects[i].pos.y += normed_margins;
 	}
 
 	//TEMP
@@ -892,7 +896,7 @@ void UVUnwrapper::test()
 	conPrint("UVUnwrapper::test()");
 
 	//========================== Test bin packing =====================================
-	if(false)
+	if(true)
 	{
 		PCG32 rng(1);
 

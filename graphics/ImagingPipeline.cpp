@@ -227,7 +227,7 @@ struct SumBuffersTaskClosure
 	bool zero_alpha_outside_region;
 	const ArrayRef<RenderRegion>* render_regions;
 	float region_alpha_bias;
-	bool render_foreground_alpha;
+	bool use_alpha_channel;
 };
 
 
@@ -267,7 +267,7 @@ public:
 								Vec2i(	(render_regions[i].x2 + (int)closure.margin_ssf1) * (int)closure.ssf - rr_margin,
 										(render_regions[i].y2 + (int)closure.margin_ssf1) * (int)closure.ssf - rr_margin));
 
-		const bool render_foreground_alpha = closure.render_foreground_alpha;
+		const bool use_alpha_channel = closure.use_alpha_channel;
 		const int num_layers = (int)closure.render_channels.layers.size();
 		const bool render_region_enabled = closure.render_channels.target_region_layers;
 
@@ -309,7 +309,7 @@ public:
 			}
 
 			// Get alpha from alpha channel if it exists
-			sum.x[3] = render_foreground_alpha ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+			sum.x[3] = use_alpha_channel ? (front_data[src_pixel_offset + alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 
 			if(render_region_enabled)
 			{
@@ -329,7 +329,7 @@ public:
 					}
 
 					// Get alpha from (region) alpha channel if it exists
-					sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
+					sum.x[3] = use_alpha_channel ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * closure.region_image_scale) : 1.f;
 				}
 				else
 				{
@@ -360,7 +360,7 @@ void sumLightLayers(
 	size_t ssf,
 	bool zero_alpha_outside_region,
 	float region_alpha_bias,
-	bool render_foreground_alpha,
+	bool use_alpha_channel,
 	Image4f& summed_buffer_out, 
 	Indigo::TaskManager& task_manager
 ) 
@@ -373,7 +373,7 @@ void sumLightLayers(
 	closure.ssf = ssf;
 	closure.zero_alpha_outside_region = zero_alpha_outside_region;
 	closure.region_alpha_bias = region_alpha_bias;
-	closure.render_foreground_alpha = render_foreground_alpha;
+	closure.use_alpha_channel = use_alpha_channel;
 	
 	task_manager.runParallelForTasks<SumBuffersTask, SumBuffersTaskClosure>(&closure, /*begin=*/0, /*end=*/render_channels.getHeight(), scratch_state.sum_buffer_tasks);
 }
@@ -551,7 +551,8 @@ void runPipelineFullBuffer(
 
 	const bool blend_main_layers = channel == NULL;
 	const bool tonemap_channel = do_tonemapping && (blend_main_layers || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
-	
+	const bool use_alpha_channel = renderer_settings.render_foreground_alpha || (renderer_settings.light_map_baking_ob_uid >= 0);
+
 	// We want to allow channels like position to take on negative values.
 	// For other channels, like beauty channels, we want values to be >= 0.
 	// These constants will only be used when we are not tonemapping.
@@ -561,7 +562,7 @@ void runPipelineFullBuffer(
 
 	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
 	sumLightLayers(scratch_state, layer_weights, image_scale, region_image_scale, render_channels, channel, render_regions, margin_ssf1, ssf,
-		renderer_settings.zero_alpha_outside_region, region_alpha_bias, renderer_settings.render_foreground_alpha, temp_summed_buffer, task_manager);
+		renderer_settings.zero_alpha_outside_region, region_alpha_bias, use_alpha_channel, temp_summed_buffer, task_manager);
 
 	// Apply diffraction filter if applicable
 	if(renderer_settings.aperture_diffraction && renderer_settings.post_process_diffraction && post_pro_diffraction.nonNull())
@@ -901,7 +902,7 @@ struct ImagePipelineTaskClosure
 	const ArrayRef<RenderRegion>* render_regions;
 	float region_alpha_bias;
 	size_t subres_factor;
-	bool render_foreground_alpha;
+	bool use_alpha_channel;
 	bool do_tonemapping;
 	size_t ssf;
 
@@ -974,7 +975,7 @@ public:
 			region_layer_weights[i] = toColour4f((*closure.layer_weights)[i]) * closure.region_image_scale;
 		}
 
-		const bool render_foreground_alpha = closure.render_foreground_alpha;
+		const bool use_alpha_channel = closure.use_alpha_channel;
 		const bool apply_curves = !closure.skip_curves;
 		const bool render_region_enabled = closure.render_channels->target_region_layers;//  closure.renderer_settings->render_region_enabled;
 		const bool zero_alpha_outside_region = closure.renderer_settings->zero_alpha_outside_region;
@@ -1143,7 +1144,7 @@ public:
 						}
 
 						// Get alpha from alpha channel if we are doing a foreground-alpha render
-						sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+						sum.x[3] = use_alpha_channel ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 
 						// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 						if(render_region_enabled)
@@ -1164,7 +1165,7 @@ public:
 										sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
 								}
 
-								sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
+								sum.x[3] = use_alpha_channel ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
 							}
 							else
 							{
@@ -1364,7 +1365,7 @@ public:
 						}
 
 						// Get alpha from alpha channel if it exists
-						sum.x[3] = render_foreground_alpha ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
+						sum.x[3] = use_alpha_channel ? (src_pixel[alpha_offset] * alpha_bias_factor * image_scale) : 1.f;
 					
 						// If this pixel lies in a render region, set the pixel value to the value in the render region layer.
 						if(render_region_enabled)
@@ -1385,7 +1386,7 @@ public:
 										sum = Colour4f(region_data[src_pixel_offset + source_render_channel_offset]) * region_image_scale;
 								}
 
-								sum.x[3] = render_foreground_alpha ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
+								sum.x[3] = use_alpha_channel ? (region_data[src_pixel_offset + alpha_offset] * region_alpha_bias_factor * region_image_scale) : 1.f;
 							}
 							else
 							{
@@ -1579,6 +1580,7 @@ void runPipeline(
 	}
 
 	const bool do_denoising = (subres_factor == 1) && allow_denoising && renderer_settings.denoise && ((channel == NULL) || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
+	const bool use_alpha_channel = renderer_settings.render_foreground_alpha || (renderer_settings.light_map_baking_ob_uid >= 0);
 
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
@@ -1655,7 +1657,7 @@ void runPipeline(
 		closure.resize_filter = resize_filter;
 		closure.render_regions = &render_regions;
 		closure.tonemap_params = &tonemap_params;
-		closure.render_foreground_alpha = renderer_settings.render_foreground_alpha;
+		closure.use_alpha_channel = use_alpha_channel;
 		closure.channel = channel;
 		closure.do_tonemapping = do_tonemapping;
 
@@ -1677,6 +1679,65 @@ void runPipeline(
 		
 		// conPrint("Image pipeline parallel loop took " + timer.elapsedString());
 	}
+
+	// If we are rendering a lightmap, then we want to 'fill-in' empty pixels adjacent to computed pixels.  This is to avoid texture reads blending in black texels around the edges of triangles.
+	if(renderer_settings.generate_lightmap_uvs)
+	{
+		//conPrint("Flood filling lightmap...");
+		//Timer timer;
+
+		scratch_state.pre_filled_lightmap = ldr_buffer_out; // Copy the buffer, we don't want to read from it while we are filling in pixels.
+
+		const int xres = (int)ldr_buffer_out.getWidth();
+		const int yres = (int)ldr_buffer_out.getHeight();
+
+		for(int y=0; y<yres; ++y)
+			for(int x=0; x<xres; ++x)
+			{
+				const float alpha_threshold = 0.1; // Pixels with alpha values >= this threshold will have their colour values used.
+				// Pixels with an alpha value < this threshold will have their colour values set to the nearest pixel (in the search area) with alpha over this threshold.
+				const float alpha = ldr_buffer_out.getPixel(x, y).x[3];
+				if(alpha > alpha_threshold && alpha < 1.0)
+				{
+					ldr_buffer_out.getPixel(x, y) *= (1 / alpha); // Adjust for partial coverage
+				}
+				else if(alpha < alpha_threshold)
+				{
+					// Find a nearby pixel that has some colour values in it (alpha > alpha_threshold).
+					const int r = 2; // search radius in pixels.
+					float closest_d2 = std::numeric_limits<float>::max();
+					Colour4f closest_src_col;
+					for(int sy=myMax(0, y - r); sy<myMin<int>(yres, y + r + 1); ++sy)
+					for(int sx=myMax(0, x - r); sx<myMin<int>(xres, x + r + 1); ++sx) // For example when r=2, we want to read from: x-2, x-1, x, x+1, x+2
+					{
+						const Colour4f src_col = scratch_state.pre_filled_lightmap.getPixel(sx, sy);
+						if(src_col.x[3] > alpha_threshold)
+						{
+							const float d2 = (float)(Maths::square(x - sx) + Maths::square(y - sy));
+							if(d2 < closest_d2)
+							{
+								closest_d2 = d2;
+								closest_src_col = src_col;
+							}
+						}
+					}
+					if(closest_d2 < std::numeric_limits<float>::max()) // If found a source pixel to copy colour from:
+					{
+						closest_src_col *= (1 / closest_src_col.x[3]); // Adjust for partial coverage
+						ldr_buffer_out.getPixel(x, y) = closest_src_col;
+					}
+					else
+					{
+						// ldr_buffer_out.getPixel(x, y).x[1] = 1.f; // Make green for testing (e.g. testing we aren't doing lightmap reads from the unrendered regions.)
+					}
+				}
+
+				ldr_buffer_out.getPixel(x, y).x[3] = 1.f; // Make all pixels have alpha=1.
+			}
+
+		//conPrint("Flood filling lightmap done, elapsed: " + timer.elapsedString());
+	}
+
 
 	output_is_nonlinear = renderer_settings.tone_mapper.nonNull() ? renderer_settings.tone_mapper->outputIsNonLinear() : false;
 }
