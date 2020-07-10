@@ -429,6 +429,7 @@ public:
 
 	//----------------------------------- Target framebuffer ---------------------------------
 	// Set the primary render target frame buffer.
+	unsigned int getTargetFrameBuffer() const { return target_frame_buffer; }
 	void setTargetFrameBuffer(unsigned int target_frame_buffer_) { target_frame_buffer = target_frame_buffer_; use_target_frame_buffer = true; }
 	void setTargetFrameBufferRes(int w, int h) { target_frame_buffer_w = w; target_frame_buffer_h = h; }
 	void dontUseTargetFrameBuffer() { use_target_frame_buffer = false; }
