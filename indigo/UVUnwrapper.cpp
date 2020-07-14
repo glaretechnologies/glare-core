@@ -537,19 +537,19 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 				max_bound = max(max_bound, poly.vert_uvs[v]);
 			}
 		}
-		conPrint("patch " + toString(i) + " has " + toString(patches[i].poly_indices.size()) + " polys");
-		printVar(min_bound);
-		printVar(max_bound);
+		// conPrint("patch " + toString(i) + " has " + toString(patches[i].poly_indices.size()) + " polys");
+		// printVar(min_bound);
+		// printVar(max_bound);
 
 		patches[i].min_bound = min_bound;
 		patches[i].max_bound = max_bound;
 	}
 
-	printVar(patches.size());
+	/*printVar(patches.size());
 	for(size_t i=0; i<patches.size(); ++i)
 	{
 		conPrint("patch " + toString(i) + " has " + toString(patches[i].poly_indices.size()) + " polys");
-	}
+	}*/
 
 	// Create BinRects, one for each patch
 	std::vector<BinRect> rects(patches.size());
