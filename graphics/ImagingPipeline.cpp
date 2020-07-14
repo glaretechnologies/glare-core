@@ -687,7 +687,12 @@ void runPipelineFullBuffer(
 
 		// Create a denoising filter
 		if(!scratch_state.filter)
-			scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RT"); // generic ray tracing filter
+		{
+			if(renderer_settings.light_map_baking_ob_uid >= 0) // If we are doing lightmapping:
+				scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RTLightmap"); // Filter for lightmaps
+			else
+				scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RT"); // generic ray tracing filter
+		}
 
 		const size_t W = temp_summed_buffer.getWidth();
 		const size_t H = temp_summed_buffer.getHeight();
