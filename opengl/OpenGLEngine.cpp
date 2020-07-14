@@ -387,6 +387,12 @@ void OpenGLEngine::setSunDir(const Vec4f& d)
 }
 
 
+const Vec4f OpenGLEngine::getSunDir() const
+{
+	return this->sun_dir;
+}
+
+
 void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 {
 	this->current_scene->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));

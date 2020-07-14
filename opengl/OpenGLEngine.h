@@ -369,6 +369,7 @@ public:
 
 	//------------------------------- Environment material/map management --------------------
 	void setSunDir(const Vec4f& d);
+	const Vec4f getSunDir() const;
 
 	void setEnvMapTransform(const Matrix3f& transform);
 
