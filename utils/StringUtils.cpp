@@ -988,7 +988,7 @@ namespace StringUtils
 {
 
 
-void getPosition(const std::string& str, size_t charindex, size_t& line_num_out, size_t& column_out)
+void getPosition(const string_view& str, size_t charindex, size_t& line_num_out, size_t& column_out)
 {
 //	assert(charindex < str.size());
 	if(charindex >= str.size())

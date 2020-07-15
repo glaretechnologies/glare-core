@@ -210,7 +210,7 @@ const std::string join(const T& iterable, const std::string& joinstring)
 }
 
 // Returns 0-based index of line and column of character indexed by charindex
-void getPosition(const std::string& str, size_t charindex, size_t& line_num_out, size_t& column_out);
+void getPosition(const string_view& str, size_t charindex, size_t& line_num_out, size_t& column_out);
 const std::string getLineFromBuffer(const std::string& str, size_t charindex);
 
 
