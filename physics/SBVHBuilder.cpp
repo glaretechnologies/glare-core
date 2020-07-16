@@ -130,6 +130,12 @@ SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per
 
 SBVHBuilder::~SBVHBuilder()
 {
+	// These might have non-zero size if the build was cancelled.
+	for(size_t i=0; i<result_chunks.size(); ++i)
+		delete result_chunks[i];
+	
+	for(size_t i=0; i<leaf_result_chunks.size(); ++i)
+		delete leaf_result_chunks[i];
 }
 
 
@@ -254,7 +260,11 @@ void SBVHBuilder::build(
 
 	//------------ Reset builder state --------------
 	per_thread_temp_info.clear();
+	for(size_t i=0; i<result_chunks.size(); ++i)
+		delete result_chunks[i];
 	result_chunks.clear();
+	for(size_t i=0; i<leaf_result_chunks.size(); ++i)
+		delete leaf_result_chunks[i];
 	leaf_result_chunks.clear();
 	result_chunks.clear();
 	stats = SBVHBuildStats();
@@ -402,6 +412,7 @@ void SBVHBuilder::build(
 
 		delete leaf_result_chunks[c];
 	}
+	leaf_result_chunks.clear();
 
 
 
@@ -458,6 +469,7 @@ void SBVHBuilder::build(
 
 		delete result_chunks[c];
 	}
+	result_chunks.clear();
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
 	// Combine stats from each thread

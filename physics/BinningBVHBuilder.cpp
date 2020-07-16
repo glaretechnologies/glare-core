@@ -91,6 +91,10 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 BinningBVHBuilder::~BinningBVHBuilder()
 {
 	delete local_task_manager;
+
+	// This might have non-zero size if the build was cancelled.
+	for(size_t i=0; i<result_chunks.size(); ++i)
+		delete result_chunks[i];
 }
 
 
@@ -218,6 +222,8 @@ void BinningBVHBuilder::build(
 	//------------ Reset builder state --------------
 	// Not clearing objects and result_indices as are alloced in constructor
 	per_thread_temp_info.clear();
+	for(size_t i=0; i<result_chunks.size(); ++i)
+		delete result_chunks[i];
 	result_chunks.clear();
 	stats = BinningBVHBuildStats();
 	//------------ End reset builder state --------------
@@ -313,6 +319,7 @@ void BinningBVHBuilder::build(
 
 		delete result_chunks[c];
 	}
+	result_chunks.clear();
 
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());

@@ -42,6 +42,8 @@ struct SBVHBuildStats
 
 struct SBVHOb
 {
+	GLARE_ALIGNED_16_NEW_DELETE
+
 	// Index of the source object/aabb is stored in aabb.min_[3].
 	js::AABBox aabb;
 
