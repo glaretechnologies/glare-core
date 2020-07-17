@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scenedata>
+	<material>
+		<name>Cu</name>
+		<phong>
+			<exponent>
+				<constant>
+					5000
+				</constant>
+			</exponent>
+			<layer>0</layer>
+			<fresnel_scale>1</fresnel_scale>
+			<ior>1.4</ior>
+			<nk_data>nkdata/Cu.nk</nk_data>
+		</phong>
+	</material>
+
+	<material>
+		<name>Au</name>
+		<phong>
+			<exponent>
+				<constant>
+					5000
+				</constant>
+			</exponent>
+			<layer>0</layer>
+			<fresnel_scale>1</fresnel_scale>
+			<ior>1.4</ior>
+			<nk_data>nkdata/Au.nk</nk_data>
+		</phong>
+	</material>
+
+	<material>
+		<name>585 Red Gold</name>
+		<blend>
+			<a_name>Cu</a_name>
+			<b_name>Au</b_name>
+			<blend>
+				<constant>
+					0.585
+				</constant>
+			</blend>
+			<step_blend>false</step_blend>
+		</blend>
+	</material>
+
+</scenedata>
