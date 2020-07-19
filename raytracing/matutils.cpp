@@ -796,7 +796,7 @@ static void doTestScatters(const Reference<Material>& material_, float epsilon, 
 			SpectralVector C;
 			mul(bsdf_res.bsdfs, ::absDot(scatter_res.dir, N_g) / bsdf_res.p_a_given_b, C);
 
-			testAssert(epsEqual(C, scatter_res.C, epsilon));
+			testEpsEqualWithEps(C, scatter_res.C, epsilon);
 
 			// Check probabilities are the same for scatter_res and bsdf_res
 			testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_a_given_b, epsilon));
@@ -836,7 +836,7 @@ static void doTestScatters(const Reference<Material>& material_, float epsilon, 
 			SpectralVector C_adjoint;
 			mul(bsdf_res.bsdfs, ::absDot(scatter_res.dir, N_g) / bsdf_res.p_b_given_a, C_adjoint); // Since we want to get the (adjoint) contribution factor, use p(b|a)
 
-			testAssert(epsEqual(C_adjoint, scatter_res.C, epsilon));
+			testEpsEqualWithEps(C_adjoint, scatter_res.C, epsilon);
 
 			// Check probabilities are the same for scatter_res and bsdf_res
 			testAssert(Maths::approxEq(scatter_res.p_out_given_in, bsdf_res.p_b_given_a, epsilon));
