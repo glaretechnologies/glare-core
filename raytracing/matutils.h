@@ -260,7 +260,7 @@ inline static Vec4f getNsForScatter(ThreadContext& thread_context, const Materia
 
 
 // Recompute shading normal if this is a substrate. (for example the substrate of a coating material)
-inline static void getShadingNormalsInEvalBSDF(ThreadContext& thread_context, const Material* mat, Material::EvaluateBSDFArgs& eval_args, const FullHitInfo& hitinfo, float a_dot_orig_Ng, const Vec4f& b, Vec4f& N_s_out, Vec4f& pre_bump_N_s_out)
+inline static void getShadingNormalsInEvalBSDF(ThreadContext& thread_context, const Material* mat, const Material::EvaluateBSDFArgs& eval_args, const FullHitInfo& hitinfo, float a_dot_orig_Ng, const Vec4f& b, Vec4f& N_s_out, Vec4f& pre_bump_N_s_out)
 {
 	if(eval_args.is_substrate && mat->hasBumpOrNormalMapping())
 	{
