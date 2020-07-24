@@ -53,6 +53,7 @@ public:
 
 	
 	void buildFromIndigoMesh(const Indigo::Mesh& mesh);
+	void buildIndigoMesh(Indigo::Mesh& mesh_out) const;
 
 	bool operator == (const BatchedMesh& other) const;
 	
@@ -102,9 +103,10 @@ public:
 	inline static size_t vertAttributeSize(const VertAttribute& attr); // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t numVerts() const;
-	inline size_t numIndices() const;
+	inline size_t numIndices() const; // Equal to num triangles * 3.
 
 	// Find the attribute identified by 'type'.  Returns NULL if not present.
+	// offset_out is set to offset of attribute in vertex data, in bytes.
 	const VertAttribute* findAttribute(VertAttributeType type, size_t& offset_out) const;
 
 	size_t numMaterialsReferenced() const;

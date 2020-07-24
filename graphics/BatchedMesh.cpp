@@ -50,11 +50,21 @@ struct BMeshUVsAtVert
 
 inline static uint32 BMeshPackNormal(const Indigo::Vec3f& normal)
 {
-	int x = (int)(normal.x * 511.f);
+	int x = (int)(normal.x * 511.f); // Map from [-1, 1] to [-511, 511]
 	int y = (int)(normal.y * 511.f);
 	int z = (int)(normal.z * 511.f);
 	// ANDing with 1023 isolates the bottom 10 bits.
 	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+}
+
+
+inline static const Indigo::Vec3f BMeshUnpackNormal(const uint32 packed_normal)
+{
+	const uint32 x_bits = (packed_normal >> 0 ) & 1023;
+	const uint32 y_bits = (packed_normal >> 10) & 1023;
+	const uint32 z_bits = (packed_normal >> 20) & 1023;
+
+	return Indigo::Vec3f(x_bits * (1.f / 511.f), y_bits * (1.f / 511.f), z_bits * (1.f / 511.f));
 }
 
 
@@ -98,11 +108,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 	const bool use_half_uvs = false; // TEMP canUseHalfUVs(mesh);
 
 	const size_t pos_size = sizeof(float)*3;
-#if NO_PACKED_NORMALS // GL_INT_2_10_10_10_REV is not present in our OS X header files currently.
-	const size_t packed_normal_size = sizeof(float)*3;
-#else
 	const size_t packed_normal_size = 4; // 4 bytes since we are using GL_INT_2_10_10_10_REV format.
-#endif
 	const size_t packed_uv_size = use_half_uvs ? sizeof(half)*2 : sizeof(float)*2;
 
 	/*
@@ -110,6 +116,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 	position [always present]
 	normal   [optional]
 	uv_0     [optional]
+	uv_1     [optional]
 	colour   [optional]
 	*/
 	const size_t normal_offset      = pos_size;
@@ -439,6 +446,185 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 	aabb_os.min_ = Vec4f(mesh->aabb_os.bound[0].x, mesh->aabb_os.bound[0].y, mesh->aabb_os.bound[0].z, 1.f);
 	aabb_os.max_ = Vec4f(mesh->aabb_os.bound[1].x, mesh->aabb_os.bound[1].y, mesh->aabb_os.bound[1].z, 1.f);
+}
+
+
+void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
+{
+	const size_t num_verts = numVerts();
+	const size_t vert_size_B = vertexSize();
+
+	mesh_out.vert_positions.resize(numVerts());
+
+	size_t pos_offset_B;
+	const VertAttribute* pos_attr = this->findAttribute(VertAttribute_Position, pos_offset_B);
+	if(!pos_attr)
+		throw Indigo::Exception("Pos attr missing");
+
+	size_t normal_offset_B;
+	const VertAttribute* normal_attr = this->findAttribute(VertAttribute_Normal, normal_offset_B);
+	if(normal_attr)
+		mesh_out.vert_normals.resize(numVerts());
+	else
+		mesh_out.vert_normals.resize(0);
+
+	// Copy vert positions
+	{
+		assert(pos_attr->component_type == ComponentType_Float);
+		const float* const vertex_data_float = (const float*)vertex_data.data();
+
+		for(size_t v=0; v<num_verts; ++v)
+		{
+			mesh_out.vert_positions[v].x = vertex_data_float[v * vert_size_B/4 + pos_offset_B/4 + 0];
+			mesh_out.vert_positions[v].y = vertex_data_float[v * vert_size_B/4 + pos_offset_B/4 + 1];
+			mesh_out.vert_positions[v].z = vertex_data_float[v * vert_size_B/4 + pos_offset_B/4 + 2];
+		}
+	}
+
+	// Copy vert normals
+	if(normal_attr)
+	{
+		if(normal_attr->component_type == ComponentType_Float)
+		{
+			const float* const vertex_data_float = (const float*)vertex_data.data();
+			for(size_t v=0; v<num_verts; ++v)
+			{
+				mesh_out.vert_normals[v].x = vertex_data_float[v * vert_size_B/4 + normal_offset_B/4 + 0];
+				mesh_out.vert_normals[v].y = vertex_data_float[v * vert_size_B/4 + normal_offset_B/4 + 1];
+				mesh_out.vert_normals[v].z = vertex_data_float[v * vert_size_B/4 + normal_offset_B/4 + 2];
+			}
+		}
+		else if(normal_attr->component_type == ComponentType_PackedNormal)
+		{
+			const uint32* const vertex_data_uint32 = (const uint32*)vertex_data.data();
+			for(size_t v=0; v<num_verts; ++v)
+			{
+				mesh_out.vert_normals[v] = BMeshUnpackNormal(vertex_data_uint32[v * vert_size_B/4 + normal_offset_B/4]);
+			}
+		}
+		else
+		{
+			assert(0);
+		}
+	}
+
+	size_t uv0_offset_B;
+	const VertAttribute* uv0_attr = this->findAttribute(VertAttribute_UV_0, uv0_offset_B);
+	size_t uv1_offset_B;
+	const VertAttribute* uv1_attr = this->findAttribute(VertAttribute_UV_1, uv1_offset_B);
+
+	size_t num_uv_sets = 0;
+	if(uv0_attr)
+		num_uv_sets++;
+	if(uv0_attr && uv1_attr)
+		num_uv_sets++;
+
+	mesh_out.num_uv_mappings = (uint32)num_uv_sets;
+	mesh_out.uv_pairs.resize(num_uv_sets * num_verts);
+
+	// Copy UV 0
+	if(uv0_attr)
+	{
+		if(uv0_attr->component_type == ComponentType_Float)
+		{
+			const float* const vertex_data_float = (const float*)vertex_data.data();
+			for(size_t v=0; v<num_verts; ++v)
+			{
+				mesh_out.uv_pairs[v * num_uv_sets + 0].x = vertex_data_float[v * vert_size_B/4 + uv0_offset_B/4 + 0];
+				mesh_out.uv_pairs[v * num_uv_sets + 0].y = vertex_data_float[v * vert_size_B/4 + uv0_offset_B/4 + 1];
+			}
+		}
+		else if(uv0_attr->component_type == ComponentType_Half)
+		{
+			const half* const vertex_data_half = (const half*)vertex_data.data();
+			for(size_t v=0; v<num_verts; ++v)
+			{
+				mesh_out.uv_pairs[v * num_uv_sets + 0].x = vertex_data_half[v * vert_size_B/2 + uv0_offset_B/2 + 0];
+				mesh_out.uv_pairs[v * num_uv_sets + 0].y = vertex_data_half[v * vert_size_B/2 + uv0_offset_B/2 + 1];
+			}
+		}
+		else
+		{
+			assert(0);
+		}
+	}
+
+	// Copy UV 1
+	if(uv0_attr && uv1_attr)
+	{
+		if(uv1_attr->component_type == ComponentType_Float)
+		{
+			const float* const vertex_data_float = (const float*)vertex_data.data();
+			for(size_t v=0; v<num_verts; ++v)
+			{
+				mesh_out.uv_pairs[v * num_uv_sets + 1].x = vertex_data_float[v * vert_size_B/4 + uv1_offset_B/4 + 0];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].y = vertex_data_float[v * vert_size_B/4 + uv1_offset_B/4 + 1];
+			}
+		}
+		else if(uv1_attr->component_type == ComponentType_Half)
+		{
+			const half* const vertex_data_half = (const half*)vertex_data.data();
+			for(size_t v=0; v<num_verts; ++v)
+			{
+				mesh_out.uv_pairs[v * num_uv_sets + 1].x = vertex_data_half[v * vert_size_B/2 + uv0_offset_B/2 + 0];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].y = vertex_data_half[v * vert_size_B/2 + uv0_offset_B/2 + 1];
+			}
+		}
+		else
+		{
+			assert(0);
+		}
+	}
+
+	// Copy triangle data
+	mesh_out.triangles.resize(numIndices() / 3);
+	for(size_t b=0; b<batches.size(); ++b)
+	{
+		const IndicesBatch& batch = batches[b];
+
+		for(size_t tri_i=batch.indices_start / 3; tri_i != ((size_t)batch.indices_start + (size_t)batch.num_indices) / 3; ++tri_i)
+		{
+			const size_t i = tri_i * 3;
+			if(index_type == ComponentType_UInt8)
+			{
+				const uint8* const index_data_uint8    = (const uint8*)index_data.data();
+
+				for(size_t c=0; c<3; ++c)
+				{
+					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint8[i + c];
+					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint8[i + c];
+				}
+			}
+			else if(index_type == ComponentType_UInt16)
+			{
+				const uint16* const index_data_uint16   = (const uint16*)index_data.data();
+
+				for(size_t c=0; c<3; ++c)
+				{
+					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint16[i + c];
+					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint16[i + c];
+				}
+			}
+			else if(index_type == ComponentType_UInt32)
+			{
+				const uint32* const index_data_uint32   = (const uint32*)index_data.data();
+
+				for(size_t c=0; c<3; ++c)
+				{
+					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint32[i + c];
+					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint32[i + c];
+				}
+			}
+			else
+			{
+				assert(0);
+			}
+
+			mesh_out.triangles[tri_i].tri_mat_index = batch.material_index;
+		}
+	}
+
+	mesh_out.endOfModel();
 }
 
 
@@ -970,6 +1156,65 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 }
 
 
+static void testIndigoMeshConversion(const BatchedMesh& batched_mesh)
+{
+	try
+	{
+		// Test conversion to Indigo mesh
+		Indigo::Mesh indigo_mesh;
+		batched_mesh.buildIndigoMesh(indigo_mesh);
+
+		testAssert(indigo_mesh.vert_positions.size() == batched_mesh.numVerts());
+		testAssert(indigo_mesh.vert_normals.size() == 0 || batched_mesh.numVerts());
+		testAssert(indigo_mesh.triangles.size() == batched_mesh.numIndices() / 3);
+
+		// Convert Indigo mesh back to batched mesh
+		BatchedMesh batched_mesh2;
+		batched_mesh2.buildFromIndigoMesh(indigo_mesh);
+
+		testAssert(batched_mesh2.vertexSize() == batched_mesh.vertexSize());
+		testAssert(batched_mesh2.numVerts() == batched_mesh.numVerts());
+		testAssert(batched_mesh2.numIndices() == batched_mesh.numIndices());
+
+		/*
+		vert_attributes == other.vert_attributes &&
+		batches == other.batches &&
+		index_type == other.index_type &&
+		index_data == other.index_data &&
+		vertex_data == other.vertex_data &&
+		aabb_os == other.aabb_os;
+		*/
+		//if(!(batched_mesh == batched_mesh2))
+		//{
+		//	//conPrint("differing");
+		//
+		//	if(batched_mesh.vert_attributes != batched_mesh2.vert_attributes)
+		//		failTest("vert_attributes differ");
+		//
+		//	if(batched_mesh.batches != batched_mesh2.batches)
+		//		failTest("batches differ");
+		//
+		//	if(batched_mesh.index_type != batched_mesh2.index_type)
+		//		failTest("index_type differs");
+		//
+		//	if(batched_mesh.index_data != batched_mesh2.index_data)
+		//		failTest("index_data differs");
+		//
+		//	//if(batched_mesh.vertex_data != batched_mesh2.vertex_data)
+		//	//	failTest("vertex_data differs");
+		//
+		//	if(!(batched_mesh.aabb_os == batched_mesh2.aabb_os))
+		//		failTest("aabb_os differs");
+		//}
+//		testAssert(batched_mesh == batched_mesh2);
+	}
+	catch(Indigo::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
 static void perfTestWithMesh(const std::string& path)
 {
 	conPrint("");
@@ -1058,11 +1303,24 @@ void BatchedMesh::test()
 			m.quads.back().uv_indices[0] = 0; m.quads.back().uv_indices[1] = 0; m.quads.back().uv_indices[2] = 0, m.quads.back().uv_indices[3] = 0;
 			m.quads.back().mat_index = 3;
 
+			m.endOfModel();
+
 
 			BatchedMesh batched_mesh;
 			batched_mesh.buildFromIndigoMesh(m);
 
 			testWritingAndReadingMesh(batched_mesh);
+
+			// Test conversion back to Indigo mesh
+			Indigo::Mesh indigo_mesh2;
+			batched_mesh.buildIndigoMesh(indigo_mesh2);
+			testAssert(indigo_mesh2.vert_positions == m.vert_positions);
+			testAssert(indigo_mesh2.vert_normals == m.vert_normals);
+			testAssert(indigo_mesh2.uv_pairs.size() == 8); // Will get expanded to one per vert.
+			testAssert(indigo_mesh2.triangles.size() == 6); // Quads will get converted to tris.
+			testAssert(indigo_mesh2.triangles[0].vertex_indices[0] == 0 && indigo_mesh2.triangles[0].vertex_indices[1] == 1 && indigo_mesh2.triangles[0].vertex_indices[2] == 2);
+
+			testIndigoMeshConversion(batched_mesh);
 		}
 
 		// Check that vertex merging gets done properly in buildFromIndigoMesh().
@@ -1074,7 +1332,7 @@ void BatchedMesh::test()
 			m.used_materials = Indigo::Vector<Indigo::String>(1, Indigo::String("mat1"));
 
 			m.vert_positions = Indigo::Vector<Indigo::Vec3f>(6, Indigo::Vec3f(1.f, 2.f, 3.f));
-			m.vert_normals = Indigo::Vector<Indigo::Vec3f>(3, Indigo::Vec3f(0.f, 1.f, 0.f));
+			m.vert_normals = Indigo::Vector<Indigo::Vec3f>(6, Indigo::Vec3f(0.f, 1.f, 0.f));
 
 			m.uv_pairs = Indigo::Vector<Indigo::Vec2f>(6, Indigo::Vec2f(5.f, 1.f));
 
@@ -1088,6 +1346,8 @@ void BatchedMesh::test()
 			m.triangles.back().uv_indices[0]     = 3; m.triangles.back().uv_indices[1]     = 4; m.triangles.back().uv_indices[2]     = 5;
 			m.triangles.back().tri_mat_index = 0;
 
+			m.endOfModel();
+
 
 			BatchedMesh batched_mesh;
 			batched_mesh.buildFromIndigoMesh(m);
@@ -1095,6 +1355,7 @@ void BatchedMesh::test()
 			testAssert(batched_mesh.numVerts() == 3);
 
 			testWritingAndReadingMesh(batched_mesh);
+			testIndigoMeshConversion(batched_mesh);
 		}
 
 
@@ -1107,6 +1368,7 @@ void BatchedMesh::test()
 			batched_mesh.buildFromIndigoMesh(indigo_mesh);
 
 			testWritingAndReadingMesh(batched_mesh);
+			testIndigoMeshConversion(batched_mesh);
 		}
 
 		{
@@ -1118,6 +1380,7 @@ void BatchedMesh::test()
 			batched_mesh.buildFromIndigoMesh(indigo_mesh);
 
 			testWritingAndReadingMesh(batched_mesh);
+			testIndigoMeshConversion(batched_mesh);
 		}
 		
 		// This mesh as 2 uvs sets.
@@ -1132,6 +1395,7 @@ void BatchedMesh::test()
 			testAssert(batched_mesh.findAttribute(BatchedMesh::VertAttribute_UV_1, uv1_offset) != NULL);
 
 			testWritingAndReadingMesh(batched_mesh);
+			testIndigoMeshConversion(batched_mesh);
 		}
 
 
@@ -1150,6 +1414,7 @@ void BatchedMesh::test()
 				batched_mesh.buildFromIndigoMesh(indigo_mesh);
 
 				testWritingAndReadingMesh(batched_mesh);
+				testIndigoMeshConversion(batched_mesh);
 			}
 		}
 		
