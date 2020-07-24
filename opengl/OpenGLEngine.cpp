@@ -1187,6 +1187,16 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
 					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
 				}
+
+				if(object->materials[i].lightmap_texture.isNull() && object->materials[i].lightmap_path == path)
+				{
+					// conPrint("\tOpenGLEngine::textureLoaded(): Found object using '" + path + "'.");
+
+					object->materials[i].lightmap_texture = opengl_texture;
+
+					// Now that we have a lightmap, assign a different shader.
+					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
+				}
 			}
 		}
 	}
@@ -3248,22 +3258,13 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 
 	const uint32 num_bytes_per_vert = (uint32)mesh->vertexSize();
 
-	size_t pos_offset;
-	const BatchedMesh::VertAttribute* pos_attr = mesh->findAttribute(BatchedMesh::VertAttribute_Position, pos_offset);
+	const BatchedMesh::VertAttribute* pos_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Position);
+	const BatchedMesh::VertAttribute* normal_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Normal);
+	const BatchedMesh::VertAttribute* uv0_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_0);
+	const BatchedMesh::VertAttribute* uv1_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_1);
+	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour);
 	if(!pos_attr)
 		throw Indigo::Exception("Pos attribute not present.");
-
-	size_t normal_offset;
-	const BatchedMesh::VertAttribute* normal_attr = mesh->findAttribute(BatchedMesh::VertAttribute_Normal, normal_offset);
-
-	size_t uv0_offset;
-	const BatchedMesh::VertAttribute* uv0_attr = mesh->findAttribute(BatchedMesh::VertAttribute_UV_0, uv0_offset);
-
-	size_t uv1_offset;
-	const BatchedMesh::VertAttribute* uv1_attr = mesh->findAttribute(BatchedMesh::VertAttribute_UV_1, uv1_offset);
-
-	size_t colour_offset;
-	const BatchedMesh::VertAttribute* colour_attr = mesh->findAttribute(BatchedMesh::VertAttribute_Colour, colour_offset);
 
 	VertexAttrib pos_attrib;
 	pos_attrib.enabled = true;
@@ -3271,7 +3272,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	pos_attrib.type = GL_FLOAT;
 	pos_attrib.normalised = false;
 	pos_attrib.stride = num_bytes_per_vert;
-	pos_attrib.offset = (uint32)pos_offset;
+	pos_attrib.offset = (uint32)pos_attr->offset_B;
 	opengl_render_data->vertex_spec.attributes.push_back(pos_attrib);
 
 	VertexAttrib normal_attrib;
@@ -3286,7 +3287,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	normal_attrib.normalised = true;
 #endif
 	normal_attrib.stride = num_bytes_per_vert;
-	normal_attrib.offset = (uint32)normal_offset;
+	normal_attrib.offset = (uint32)(normal_attr ? normal_attr->offset_B : 0);
 	opengl_render_data->vertex_spec.attributes.push_back(normal_attrib);
 
 	VertexAttrib uv_attrib;
@@ -3295,7 +3296,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	uv_attrib.type = uv0_attr ? ((uv0_attr->component_type == BatchedMesh::ComponentType_Half) ? GL_HALF_FLOAT : GL_FLOAT) : GL_FLOAT;
 	uv_attrib.normalised = false;
 	uv_attrib.stride = num_bytes_per_vert;
-	uv_attrib.offset = (uint32)uv0_offset;
+	uv_attrib.offset = (uint32)(uv0_attr ? uv0_attr->offset_B : 0);
 	opengl_render_data->vertex_spec.attributes.push_back(uv_attrib);
 
 	VertexAttrib colour_attrib;
@@ -3304,7 +3305,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	colour_attrib.type = GL_FLOAT;
 	colour_attrib.normalised = false;
 	colour_attrib.stride = num_bytes_per_vert;
-	colour_attrib.offset = (uint32)colour_offset;
+	colour_attrib.offset = (uint32)(colour_attr ? colour_attr->offset_B : 0);
 	opengl_render_data->vertex_spec.attributes.push_back(colour_attrib);
 
 	VertexAttrib lightmap_uv_attrib;
@@ -3313,7 +3314,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	lightmap_uv_attrib.type = uv1_attr ? ((uv1_attr->component_type == BatchedMesh::ComponentType_Half) ? GL_HALF_FLOAT : GL_FLOAT) : GL_FLOAT;
 	lightmap_uv_attrib.normalised = false;
 	lightmap_uv_attrib.stride = num_bytes_per_vert;
-	lightmap_uv_attrib.offset = (uint32)uv1_offset;
+	lightmap_uv_attrib.offset = (uint32)(uv1_attr ? uv1_attr->offset_B : 0);
 	opengl_render_data->vertex_spec.attributes.push_back(lightmap_uv_attrib);
 	
 

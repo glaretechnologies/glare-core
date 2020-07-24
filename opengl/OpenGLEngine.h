@@ -122,7 +122,8 @@ public:
 	float metallic_frac;
 	
 	uint64 userdata;
-	std::string tex_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
+	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
+	std::string lightmap_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 };
 
 

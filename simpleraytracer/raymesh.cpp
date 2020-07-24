@@ -1234,10 +1234,10 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 	const size_t vert_size = mesh.vertexSize();
 	const size_t num_verts = mesh.numVerts();
 
-	size_t pos_offset;
-	const BatchedMesh::VertAttribute* pos_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Position, pos_offset);
+	const BatchedMesh::VertAttribute* pos_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Position);
 	if(!pos_attr)
 		throw Indigo::Exception("Pos attribute not present.");
+	const size_t pos_offset = pos_attr->offset_B;
 
 	// Copy Vertices
 	this->vertices.resize(num_verts);

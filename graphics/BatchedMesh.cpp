@@ -406,18 +406,22 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 			dest_indices[i] = uint32_indices[i];
 	}
 
-
+	size_t cur_offset_B = 0;
 	VertAttribute pos_attrib;
 	pos_attrib.type = VertAttribute_Position;
 	pos_attrib.component_type = ComponentType_Float;
+	pos_attrib.offset_B = cur_offset_B;
 	vert_attributes.push_back(pos_attrib);
+	cur_offset_B += vertAttributeSize(pos_attrib);
 
 	if(mesh_has_shading_normals)
 	{
 		VertAttribute normal_attrib;
 		normal_attrib.type = VertAttribute_Normal;
 		normal_attrib.component_type = ComponentType_PackedNormal;
+		normal_attrib.offset_B = cur_offset_B;
 		vert_attributes.push_back(normal_attrib);
+		cur_offset_B += vertAttributeSize(normal_attrib);
 	}
 
 	if(num_uv_sets >= 1)
@@ -425,14 +429,18 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 		VertAttribute uv_attrib;
 		uv_attrib.type = VertAttribute_UV_0;
 		uv_attrib.component_type = ComponentType_Float;
+		uv_attrib.offset_B = cur_offset_B;
 		vert_attributes.push_back(uv_attrib);
+		cur_offset_B += vertAttributeSize(uv_attrib);
 	}
 	if(num_uv_sets >= 2)
 	{
 		VertAttribute uv_attrib;
 		uv_attrib.type = VertAttribute_UV_1;
 		uv_attrib.component_type = ComponentType_Float;
+		uv_attrib.offset_B = cur_offset_B;
 		vert_attributes.push_back(uv_attrib);
+		cur_offset_B += vertAttributeSize(uv_attrib);
 	}
 
 	if(mesh_has_vert_cols)
@@ -440,8 +448,11 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 		VertAttribute colour_attrib;
 		colour_attrib.type = VertAttribute_Colour;
 		colour_attrib.component_type = ComponentType_Float;
+		colour_attrib.offset_B = cur_offset_B;
 		vert_attributes.push_back(colour_attrib);
+		cur_offset_B += vertAttributeSize(colour_attrib);
 	}
+	assert(cur_offset_B == vertexSize());
 
 
 	aabb_os.min_ = Vec4f(mesh->aabb_os.bound[0].x, mesh->aabb_os.bound[0].y, mesh->aabb_os.bound[0].z, 1.f);
@@ -456,18 +467,17 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 
 	mesh_out.vert_positions.resize(numVerts());
 
-	size_t pos_offset_B;
-	const VertAttribute* pos_attr = this->findAttribute(VertAttribute_Position, pos_offset_B);
+	const VertAttribute* pos_attr = this->findAttribute(VertAttribute_Position);
 	if(!pos_attr)
 		throw Indigo::Exception("Pos attr missing");
+	const size_t pos_offset_B = pos_attr->offset_B;
 
-	size_t normal_offset_B;
-	const VertAttribute* normal_attr = this->findAttribute(VertAttribute_Normal, normal_offset_B);
+	const VertAttribute* normal_attr = this->findAttribute(VertAttribute_Normal);
 	if(normal_attr)
 		mesh_out.vert_normals.resize(numVerts());
 	else
 		mesh_out.vert_normals.resize(0);
-
+	
 	// Copy vert positions
 	{
 		assert(pos_attr->component_type == ComponentType_Float);
@@ -484,6 +494,8 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 	// Copy vert normals
 	if(normal_attr)
 	{
+		const size_t normal_offset_B = normal_attr->offset_B;
+
 		if(normal_attr->component_type == ComponentType_Float)
 		{
 			const float* const vertex_data_float = (const float*)vertex_data.data();
@@ -508,11 +520,10 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 		}
 	}
 
-	size_t uv0_offset_B;
-	const VertAttribute* uv0_attr = this->findAttribute(VertAttribute_UV_0, uv0_offset_B);
-	size_t uv1_offset_B;
-	const VertAttribute* uv1_attr = this->findAttribute(VertAttribute_UV_1, uv1_offset_B);
-
+	
+	const VertAttribute* uv0_attr = this->findAttribute(VertAttribute_UV_0);
+	const VertAttribute* uv1_attr = this->findAttribute(VertAttribute_UV_1);
+	
 	size_t num_uv_sets = 0;
 	if(uv0_attr)
 		num_uv_sets++;
@@ -525,6 +536,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 	// Copy UV 0
 	if(uv0_attr)
 	{
+		const size_t uv0_offset_B = uv0_attr->offset_B;
 		if(uv0_attr->component_type == ComponentType_Float)
 		{
 			const float* const vertex_data_float = (const float*)vertex_data.data();
@@ -552,6 +564,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 	// Copy UV 1
 	if(uv0_attr && uv1_attr)
 	{
+		const size_t uv1_offset_B = uv1_attr->offset_B;
 		if(uv1_attr->component_type == ComponentType_Float)
 		{
 			const float* const vertex_data_float = (const float*)vertex_data.data();
@@ -566,8 +579,8 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 			const half* const vertex_data_half = (const half*)vertex_data.data();
 			for(size_t v=0; v<num_verts; ++v)
 			{
-				mesh_out.uv_pairs[v * num_uv_sets + 1].x = vertex_data_half[v * vert_size_B/2 + uv0_offset_B/2 + 0];
-				mesh_out.uv_pairs[v * num_uv_sets + 1].y = vertex_data_half[v * vert_size_B/2 + uv0_offset_B/2 + 1];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].x = vertex_data_half[v * vert_size_B/2 + uv1_offset_B/2 + 0];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].y = vertex_data_half[v * vert_size_B/2 + uv1_offset_B/2 + 1];
 			}
 		}
 		else
@@ -894,6 +907,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			throw Indigo::Exception("Too many vert attributes.");
 		
 		mesh_out.vert_attributes.resize(header.num_vert_attributes);
+		size_t cur_offset = 0;
 		for(size_t i=0; i<mesh_out.vert_attributes.size(); ++i)
 		{
 			const uint32 type = file.readUInt32();
@@ -905,6 +919,9 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			if(type > MAX_COMPONENT_TYPE_VALUE)
 				throw Indigo::Exception("Invalid vert attribute component type value.");
 			mesh_out.vert_attributes[i].component_type = (ComponentType)component_type;
+
+			mesh_out.vert_attributes[i].offset_B = cur_offset;
+			cur_offset += vertAttributeSize(mesh_out.vert_attributes[i]);
 		}
 
 		// Read batches
@@ -1072,16 +1089,11 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 }
 
 
-const BatchedMesh::VertAttribute* BatchedMesh::findAttribute(VertAttributeType type, size_t& offset_out) const // returns NULL if not present.
+const BatchedMesh::VertAttribute* BatchedMesh::findAttribute(VertAttributeType type) const // returns NULL if not present.
 {
-	offset_out = 0;
 	for(size_t b=0; b<vert_attributes.size(); ++b)
-	{
 		if(vert_attributes[b].type == type)
 			return &vert_attributes[b];
-
-		offset_out += vertAttributeSize(vert_attributes[b]);
-	}
 	return NULL;
 }
 
@@ -1175,38 +1187,6 @@ static void testIndigoMeshConversion(const BatchedMesh& batched_mesh)
 		testAssert(batched_mesh2.vertexSize() == batched_mesh.vertexSize());
 		testAssert(batched_mesh2.numVerts() == batched_mesh.numVerts());
 		testAssert(batched_mesh2.numIndices() == batched_mesh.numIndices());
-
-		/*
-		vert_attributes == other.vert_attributes &&
-		batches == other.batches &&
-		index_type == other.index_type &&
-		index_data == other.index_data &&
-		vertex_data == other.vertex_data &&
-		aabb_os == other.aabb_os;
-		*/
-		//if(!(batched_mesh == batched_mesh2))
-		//{
-		//	//conPrint("differing");
-		//
-		//	if(batched_mesh.vert_attributes != batched_mesh2.vert_attributes)
-		//		failTest("vert_attributes differ");
-		//
-		//	if(batched_mesh.batches != batched_mesh2.batches)
-		//		failTest("batches differ");
-		//
-		//	if(batched_mesh.index_type != batched_mesh2.index_type)
-		//		failTest("index_type differs");
-		//
-		//	if(batched_mesh.index_data != batched_mesh2.index_data)
-		//		failTest("index_data differs");
-		//
-		//	//if(batched_mesh.vertex_data != batched_mesh2.vertex_data)
-		//	//	failTest("vertex_data differs");
-		//
-		//	if(!(batched_mesh.aabb_os == batched_mesh2.aabb_os))
-		//		failTest("aabb_os differs");
-		//}
-//		testAssert(batched_mesh == batched_mesh2);
 	}
 	catch(Indigo::Exception& e)
 	{
@@ -1391,8 +1371,7 @@ void BatchedMesh::test()
 
 			BatchedMesh batched_mesh;
 			batched_mesh.buildFromIndigoMesh(indigo_mesh);
-			size_t uv1_offset;
-			testAssert(batched_mesh.findAttribute(BatchedMesh::VertAttribute_UV_1, uv1_offset) != NULL);
+			testAssert(batched_mesh.findAttribute(BatchedMesh::VertAttribute_UV_1) != NULL);
 
 			testWritingAndReadingMesh(batched_mesh);
 			testIndigoMeshConversion(batched_mesh);

@@ -85,8 +85,9 @@ public:
 	{
 		VertAttributeType type;
 		ComponentType component_type;
+		size_t offset_B; // Offset of attribute in vertex data, in bytes.
 
-		bool operator == (const VertAttribute& other) const { return type == other.type && component_type == other.component_type; }
+		bool operator == (const VertAttribute& other) const { return type == other.type && component_type == other.component_type && offset_B == other.offset_B; }
 	};
 
 	struct IndicesBatch
@@ -106,8 +107,7 @@ public:
 	inline size_t numIndices() const; // Equal to num triangles * 3.
 
 	// Find the attribute identified by 'type'.  Returns NULL if not present.
-	// offset_out is set to offset of attribute in vertex data, in bytes.
-	const VertAttribute* findAttribute(VertAttributeType type, size_t& offset_out) const;
+	const VertAttribute* findAttribute(VertAttributeType type) const;
 
 	size_t numMaterialsReferenced() const;
 
