@@ -1195,10 +1195,20 @@ static void testIndigoMeshConversion(const BatchedMesh& batched_mesh)
 		// Convert Indigo mesh back to batched mesh
 		BatchedMesh batched_mesh2;
 		batched_mesh2.buildFromIndigoMesh(indigo_mesh);
+		
+		bool has_NaN = false;
+		for(size_t i=0; i<indigo_mesh.uv_pairs.size(); ++i)
+			if(isNAN(indigo_mesh.uv_pairs[i].x) || isNAN(indigo_mesh.uv_pairs[i].y))
+				has_NaN = true;
 
-		testAssert(batched_mesh2.vertexSize() == batched_mesh.vertexSize());
-		testAssert(batched_mesh2.numVerts() == batched_mesh.numVerts());
-		testAssert(batched_mesh2.numIndices() == batched_mesh.numIndices());
+		if(!has_NaN)
+		{
+			testAssert(batched_mesh2.vertexSize() == batched_mesh.vertexSize());
+			testAssert(batched_mesh2.numVerts() == batched_mesh.numVerts());
+			testAssert(batched_mesh2.numIndices() == batched_mesh.numIndices());
+		}
+		else
+			conPrint("Mesh has NaN UVs!");
 	}
 	catch(Indigo::Exception& e)
 	{
