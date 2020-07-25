@@ -114,8 +114,8 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 	const size_t uvs_size						= mesh->uv_pairs.size();
 
 	const bool mesh_has_shading_normals			= !mesh->vert_normals.empty();
-	bool mesh_has_uvs							= mesh->num_uv_mappings > 0;
-	bool mesh_has_uv1							= mesh->num_uv_mappings > 1;
+	const bool mesh_has_uvs						= mesh->num_uv_mappings > 0;
+	const bool mesh_has_uv1						= mesh->num_uv_mappings > 1;
 	const uint32 num_uv_sets					= mesh->num_uv_mappings;
 	const bool mesh_has_vert_cols				= !mesh->vert_colours.empty();
 
@@ -1399,7 +1399,8 @@ void BatchedMesh::test()
 
 		// For all IGMESH files in testscenes, convert to BatchedMesh then test saving and loading.
 		{
-			const std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir() + "/testscenes", "igmesh");
+			std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir() + "/testscenes", "igmesh");
+			std::sort(paths.begin(), paths.end());
 
 			for(size_t i=0; i<paths.size(); ++i)
 			{
