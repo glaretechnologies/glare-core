@@ -24,6 +24,8 @@ BatchedMesh
 Triangle mesh optimised for OpenGL rendering.
 Triangle vertex indices are sorted by material index, and has infomation 
 about the batches of indices corresponding to triangles sharing a common material index.
+
+Tests are in BatchedMeshTests.
 =====================================================================*/
 class BatchedMesh : public ThreadSafeRefCounted
 {
@@ -57,8 +59,6 @@ public:
 
 	bool operator == (const BatchedMesh& other) const;
 	
-	static void test();
-
 
 	enum ComponentType
 	{
