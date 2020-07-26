@@ -258,7 +258,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 				}
 				else
 				{
-					merged_v_index = res->second;// Else a vertex with this position and UVs has already been created, use it.
+					merged_v_index = res->second; // Else a vertex with this position and UVs has already been created, use it.
 				}
 
 				uint32_indices[vert_index_buffer_i++] = (uint32)merged_v_index;
@@ -492,7 +492,8 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 	
 	// Copy vert positions
 	{
-		assert(pos_attr->component_type == ComponentType_Float);
+		if(pos_attr->component_type != ComponentType_Float)
+			throw Indigo::Exception("Expected pos attr to have float component type.");
 		const float* const pos_vertex_data_float = (const float*)(vertex_data.data() + pos_offset_B);
 
 		for(size_t v=0; v<num_verts; ++v)
@@ -527,9 +528,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 			}
 		}
 		else
-		{
-			assert(0);
-		}
+			throw Indigo::Exception("Unhandled component type for normals: " + toString(normal_attr->component_type));
 	}
 
 	
@@ -568,9 +567,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 			}
 		}
 		else
-		{
-			assert(0);
-		}
+			throw Indigo::Exception("Unhandled component type for uv0: " + toString(uv0_attr->component_type));
 	}
 
 	// Copy UV 1
@@ -579,26 +576,24 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 		const size_t uv1_offset_B = uv1_attr->offset_B;
 		if(uv1_attr->component_type == ComponentType_Float)
 		{
-			const float* const vertex_data_float = (const float*)vertex_data.data();
+			const float* const uv1_vertex_data_float = (const float*)(vertex_data.data() + uv1_offset_B);
 			for(size_t v=0; v<num_verts; ++v)
 			{
-				mesh_out.uv_pairs[v * num_uv_sets + 1].x = vertex_data_float[v * vert_size_B/4 + uv1_offset_B/4 + 0];
-				mesh_out.uv_pairs[v * num_uv_sets + 1].y = vertex_data_float[v * vert_size_B/4 + uv1_offset_B/4 + 1];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].x = uv1_vertex_data_float[v * (vert_size_B/4) + 0];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].y = uv1_vertex_data_float[v * (vert_size_B/4) + 1];
 			}
 		}
 		else if(uv1_attr->component_type == ComponentType_Half)
 		{
-			const half* const vertex_data_half = (const half*)vertex_data.data();
+			const half* const uv1_vertex_data_half = (const half*)(vertex_data.data() + uv1_offset_B);
 			for(size_t v=0; v<num_verts; ++v)
 			{
-				mesh_out.uv_pairs[v * num_uv_sets + 1].x = vertex_data_half[v * vert_size_B/2 + uv1_offset_B/2 + 0];
-				mesh_out.uv_pairs[v * num_uv_sets + 1].y = vertex_data_half[v * vert_size_B/2 + uv1_offset_B/2 + 1];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].x = uv1_vertex_data_half[v * (vert_size_B/2) + 0];
+				mesh_out.uv_pairs[v * num_uv_sets + 1].y = uv1_vertex_data_half[v * (vert_size_B/2) + 1];
 			}
 		}
 		else
-		{
-			assert(0);
-		}
+			throw Indigo::Exception("Unhandled component type for uv1: " + toString(uv1_attr->component_type));
 	}
 
 	// Copy triangle data
@@ -641,9 +636,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 				}
 			}
 			else
-			{
-				assert(0);
-			}
+				throw Indigo::Exception("Unhandled index type: " + toString(index_type));
 
 			mesh_out.triangles[tri_i].tri_mat_index = batch.material_index;
 		}
