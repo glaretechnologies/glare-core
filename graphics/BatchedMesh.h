@@ -53,8 +53,12 @@ public:
 	/// @throws Indigo::Exception on failure.
 	static void readFromFile(const std::string& src_path, BatchedMesh& mesh_out);
 
-	
+	// Builds a BatchedMesh from an Indigo::Mesh.
+	// Any quads are converted to triangles.
+	// Merges any vertices with the same position and UVs.
 	void buildFromIndigoMesh(const Indigo::Mesh& mesh);
+
+	// Build an Indigo::Mesh from this BatchedMesh.
 	void buildIndigoMesh(Indigo::Mesh& mesh_out) const;
 
 	bool operator == (const BatchedMesh& other) const;

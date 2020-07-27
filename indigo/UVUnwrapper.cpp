@@ -78,7 +78,13 @@ struct Shelf
 
 struct VertUVs
 {
-	Vec2f set_uvs[4];
+	VertUVs()
+	{
+		for(int i=0; i<4; ++i)
+			set_uvs[i] = Indigo::Vec2f(0.f);
+	}
+
+	Indigo::Vec2f set_uvs[4];
 };
 
 struct VertUVsLessThan
@@ -215,13 +221,13 @@ static void shelfPack(std::vector<BinRect>& rects)
 struct UnwrapperEdgeKey
 {
 	UnwrapperEdgeKey(){}
-	UnwrapperEdgeKey(const Vec3f& a, const Vec3f& b) : start(a), end(b), start_normal(Vec3f(0.f)), end_normal(Vec3f(0.f)) {}
+	UnwrapperEdgeKey(const Indigo::Vec3f& a, const Indigo::Vec3f& b) : start(a), end(b), start_normal(Indigo::Vec3f(0.f)), end_normal(Indigo::Vec3f(0.f)) {}
 
-	Vec3f start;
-	Vec3f end;
+	Indigo::Vec3f start;
+	Indigo::Vec3f end;
 
-	Vec3f start_normal;
-	Vec3f end_normal;
+	Indigo::Vec3f start_normal;
+	Indigo::Vec3f end_normal;
 
 	inline bool operator == (const UnwrapperEdgeKey& other) const { return start == other.start && end == other.end && start_normal == other.start_normal && end_normal == other.end_normal; }
 	inline bool operator != (const UnwrapperEdgeKey& other) const { return start != other.start || end != other.end || start_normal != other.start_normal || end_normal != other.end_normal; }
@@ -264,19 +270,26 @@ struct UnwrapperPoly
 };
 
 
-void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& task_manager,
-	RayMesh* mesh, PrintOutput& print_output)
+
+static Vec4f toVec4fVector(const Indigo::Vec3f& v)
+{
+	return Vec4f(v.x, v.y, v.z, 0.f);
+}
+
+
+void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output)
 {
 	// Built topology info (adjacency etc..)
 	// DisplacementUtils::initAndBuildAdjacencyInfo isn't quite the right fit for this, since it fails to handle
 	// more than 2 polygons adjacent to an edge, which we want to handle (think adjacent voxels)
 
-	const RayMeshVertex*   const verts_in = mesh->getVertices().data();
-	const RayMeshTriangle* const tris_in  = mesh->getTriangles().data();
-	const RayMeshQuad*     const quads_in = mesh->getQuads().data();
-	const Vec2f*           const uvs_in   = mesh->getUVs().data();
-	const size_t triangles_in_size = mesh->getTriangles().size();
-	const size_t quads_in_size     = mesh->getQuads().size();
+	const Indigo::Vec3f*    const vert_pos_in = mesh.vert_positions.data();
+	const Indigo::Vec3f*    const vert_normal_in = mesh.vert_normals.data();
+	const Indigo::Triangle* const tris_in  = mesh.triangles.data();
+	const Indigo::Quad*     const quads_in = mesh.quads.data();
+	const Indigo::Vec2f*    const uvs_in   = mesh.uv_pairs.data();
+	const size_t triangles_in_size = mesh.triangles.size();
+	const size_t quads_in_size     = mesh.quads.size();
 
 	std::vector<UnwrapperPoly> polys(triangles_in_size + quads_in_size);
 
@@ -285,14 +298,14 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 	// Build adjacency info, build polys vector.
 	{
-		const Vec3f infv(std::numeric_limits<float>::infinity());
+		const Indigo::Vec3f infv(std::numeric_limits<float>::infinity());
 		HashMapInsertOnly2<UnwrapperEdgeKey, int, UnwrapperEdgeKeyHash> edge_indices_map(UnwrapperEdgeKey(infv, infv),
 			(triangles_in_size + quads_in_size) * 2
 		);
 
 		for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
 		{
-			const RayMeshTriangle& tri_in = tris_in[t];
+			const Indigo::Triangle& tri_in = tris_in[t];
 
 			for(unsigned int i = 0; i < 3; ++i) // For each edge
 			{
@@ -301,10 +314,10 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 				const uint32 vi1 = tri_in.vertex_indices[i1];
 
 				UnwrapperEdgeKey edge_key;
-				const Vec3f vi_pos    = verts_in[vi ].pos;
-				const Vec3f vi1_pos   = verts_in[vi1].pos;
-				const Vec3f normal_i  = verts_in[vi ].normal;
-				const Vec3f normal_i1 = verts_in[vi1].normal;
+				const Indigo::Vec3f vi_pos    = vert_pos_in[vi ];
+				const Indigo::Vec3f vi1_pos   = vert_pos_in[vi1];
+				const Indigo::Vec3f normal_i  = vert_normal_in ? vert_normal_in[vi ] : Indigo::Vec3f(0.f);
+				const Indigo::Vec3f normal_i1 = vert_normal_in ? vert_normal_in[vi1] : Indigo::Vec3f(0.f);
 				if(vi_pos < vi1_pos)
 				{
 					edge_key.start = vi_pos;
@@ -344,7 +357,7 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 		for(size_t q = 0; q < quads_in_size; ++q) // For each quad
 		{
-			const RayMeshQuad& quad_in = quads_in[q];
+			const Indigo::Quad& quad_in = quads_in[q];
 			
 			const size_t poly_i = triangles_in_size + q;
 
@@ -355,10 +368,10 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 				const uint32 vi1 = quad_in.vertex_indices[i1];
 
 				UnwrapperEdgeKey edge_key;
-				const Vec3f vi_pos    = verts_in[vi ].pos;
-				const Vec3f vi1_pos   = verts_in[vi1].pos;
-				const Vec3f normal_i  = verts_in[vi ].normal;
-				const Vec3f normal_i1 = verts_in[vi1].normal;
+				const Indigo::Vec3f vi_pos    = vert_pos_in[vi ];
+				const Indigo::Vec3f vi1_pos   = vert_pos_in[vi1];
+				const Indigo::Vec3f normal_i  = vert_normal_in ? vert_normal_in[vi ] : Indigo::Vec3f(0.f);
+				const Indigo::Vec3f normal_i1 = vert_normal_in ? vert_normal_in[vi1] : Indigo::Vec3f(0.f);
 				if(vi_pos < vi1_pos)
 				{
 					edge_key.start = vi_pos;
@@ -421,18 +434,18 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 			Vec4f patch_normal;
 			if(initial_i < triangles_in_size)
 			{
-				const RayMeshTriangle& tri = tris_in[initial_i];
+				const Indigo::Triangle& tri = tris_in[initial_i];
 
-				            edge_0_1 = verts_in[tri.vertex_indices[1]].pos.toVec4fVector() - verts_in[tri.vertex_indices[0]].pos.toVec4fVector();
-				const Vec4f edge_0_2 = verts_in[tri.vertex_indices[2]].pos.toVec4fVector() - verts_in[tri.vertex_indices[0]].pos.toVec4fVector();
+				            edge_0_1 = toVec4fVector(vert_pos_in[tri.vertex_indices[1]]) - toVec4fVector(vert_pos_in[tri.vertex_indices[0]]);
+				const Vec4f edge_0_2 = toVec4fVector(vert_pos_in[tri.vertex_indices[2]]) - toVec4fVector(vert_pos_in[tri.vertex_indices[0]]);
 				patch_normal = normalise(crossProduct(edge_0_1, edge_0_2));
 			}
 			else
 			{
-				const RayMeshQuad& quad = quads_in[initial_i - triangles_in_size];
+				const Indigo::Quad& quad = quads_in[initial_i - triangles_in_size];
 
-				            edge_0_1 = verts_in[quad.vertex_indices[1]].pos.toVec4fVector() - verts_in[quad.vertex_indices[0]].pos.toVec4fVector();
-				const Vec4f edge_0_2 = verts_in[quad.vertex_indices[2]].pos.toVec4fVector() - verts_in[quad.vertex_indices[0]].pos.toVec4fVector();
+				            edge_0_1 = toVec4fVector(vert_pos_in[quad.vertex_indices[1]]) - toVec4fVector(vert_pos_in[quad.vertex_indices[0]]);
+				const Vec4f edge_0_2 = toVec4fVector(vert_pos_in[quad.vertex_indices[2]]) - toVec4fVector(vert_pos_in[quad.vertex_indices[0]]);
 				patch_normal = normalise(crossProduct(edge_0_1, edge_0_2));
 			}
 			
@@ -448,12 +461,12 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 				if(poly_i < triangles_in_size)
 				{
-					const RayMeshTriangle& tri = tris_in[poly_i];
+					const Indigo::Triangle& tri = tris_in[poly_i];
 					
 					// Compute patch UV coords for poly_i
 					for(int z=0; z<3; ++z)
 					{
-						const Vec4f v_pos = verts_in[tri.vertex_indices[z]].pos.toVec4fVector();
+						const Vec4f v_pos = toVec4fVector(vert_pos_in[tri.vertex_indices[z]]);
 						const float u = dot(v_pos, basis_i);
 						const float v = dot(v_pos, basis_j);
 
@@ -463,12 +476,12 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 				}
 				else
 				{
-					const RayMeshQuad& quad = quads_in[poly_i - triangles_in_size];
+					const Indigo::Quad& quad = quads_in[poly_i - triangles_in_size];
 
 					// Compute patch UV coords for poly_i
 					for(int z=0; z<4; ++z)
 					{
-						const Vec4f v_pos = verts_in[quad.vertex_indices[z]].pos.toVec4fVector();
+						const Vec4f v_pos = toVec4fVector(vert_pos_in[quad.vertex_indices[z]]);
 						const float u = dot(v_pos, basis_i);
 						const float v = dot(v_pos, basis_j);
 
@@ -496,18 +509,18 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 						Vec4f adj_normal;
 						if(adj_poly_i < triangles_in_size)
 						{
-							const RayMeshTriangle& adj_tri = tris_in[adj_poly_i];
+							const Indigo::Triangle& adj_tri = tris_in[adj_poly_i];
 							adj_normal = normalise(crossProduct(
-								verts_in[adj_tri.vertex_indices[1]].pos.toVec4fVector() - verts_in[adj_tri.vertex_indices[0]].pos.toVec4fVector(),
-								verts_in[adj_tri.vertex_indices[2]].pos.toVec4fVector() - verts_in[adj_tri.vertex_indices[0]].pos.toVec4fVector()
+								toVec4fVector(vert_pos_in[adj_tri.vertex_indices[1]]) - toVec4fVector(vert_pos_in[adj_tri.vertex_indices[0]]),
+								toVec4fVector(vert_pos_in[adj_tri.vertex_indices[2]]) - toVec4fVector(vert_pos_in[adj_tri.vertex_indices[0]])
 							));
 						}
 						else
 						{
-							const RayMeshQuad& adj_quad = quads_in[adj_poly_i - triangles_in_size];
+							const Indigo::Quad& adj_quad = quads_in[adj_poly_i - triangles_in_size];
 							adj_normal = normalise(crossProduct(
-								verts_in[adj_quad.vertex_indices[1]].pos.toVec4fVector() - verts_in[adj_quad.vertex_indices[0]].pos.toVec4fVector(),
-								verts_in[adj_quad.vertex_indices[2]].pos.toVec4fVector() - verts_in[adj_quad.vertex_indices[0]].pos.toVec4fVector()
+								toVec4fVector(vert_pos_in[adj_quad.vertex_indices[1]]) - toVec4fVector(vert_pos_in[adj_quad.vertex_indices[0]]),
+								toVec4fVector(vert_pos_in[adj_quad.vertex_indices[2]]) - toVec4fVector(vert_pos_in[adj_quad.vertex_indices[0]])
 							));
 						}
 
@@ -627,11 +640,10 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 
 	// Make a new UV set for the RayMesh.
-	const size_t old_num_sets = mesh->getNumUVCoordSets();
-	const size_t new_num_sets = mesh->getNumUVCoordSets() + 1;
+	const size_t old_num_sets = mesh.num_uv_mappings;
+	const size_t new_num_sets = mesh.num_uv_mappings + 1;
 	const size_t new_set_index = old_num_sets;
-	const size_t num_uvs = mesh->getNumUVsPerSet();
-	mesh->num_uv_sets = (unsigned int)new_num_sets;
+	mesh.num_uv_mappings = (unsigned int)new_num_sets;
 
 	//const std::vector<Vec2f> old_uvs = mesh->uvs;
 
@@ -641,7 +653,7 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 	// Create space for the new vertex UVs, one VertUVs per poly-vertex.
 
-	std::vector<VertUVs> new_uvs(mesh->getTriangles().size() * 4 + mesh->getQuads().size() * 4);
+	std::vector<VertUVs> new_uvs(mesh.triangles.size() * 4 + mesh.quads.size() * 4);
 
 	
 	// Copy over old UVs
@@ -666,7 +678,7 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 
 	// Work out UV coords for triangles
-	//uint32 uv_write_i = 0;
+	// uint32 uv_write_i = 0;
 	for(size_t i=0; i<rects.size(); ++i)
 	{
 		const BinRect& rect = rects[i];
@@ -713,12 +725,12 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 					//mesh->uvs[uv_i*new_num_sets + new_set_index] = vert_uv;
 
-					new_uvs[poly_i * 4 + v].set_uvs[new_set_index] = vert_uv;
+					new_uvs[poly_i * 4 + v].set_uvs[new_set_index] = Indigo::Vec2f(vert_uv.x, vert_uv.y);
 				}
 			}
 			else // else poly is a quad:
 			{
-				const size_t quad_index = poly_i - mesh->getNumTris();
+				const size_t quad_index = poly_i - mesh.triangles.size();
 
 				for(int v=0; v<4; ++v) // For each vert
 				{
@@ -744,7 +756,7 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 					const Vec2f vert_uv = patch_to_uv_matrix * vert_uv_patch + patch_to_uv_offset;
 
 					//mesh->uvs[uv_i*new_num_sets + new_set_index] = vert_uv;
-					new_uvs[poly_i * 4 + v].set_uvs[new_set_index] = vert_uv;
+					new_uvs[poly_i * 4 + v].set_uvs[new_set_index] = Indigo::Vec2f(vert_uv.x, vert_uv.y);
 				}
 			}
 		}
@@ -757,10 +769,10 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 
 
 	// TEMP: just copy new UVs
-	mesh->uvs.resize(new_uvs.size() * new_num_sets);
+	mesh.uv_pairs.resize(new_uvs.size() * new_num_sets);
 	for(size_t poly_i=0; poly_i<new_uvs.size(); ++poly_i)
 		for(size_t s=0; s<new_num_sets; ++s)
-			mesh->uvs[poly_i*new_num_sets + s] = new_uvs[poly_i].set_uvs[s];
+			mesh.uv_pairs[poly_i*new_num_sets + s] = new_uvs[poly_i].set_uvs[s];
 
 	// Update triangle/quad uv indices
 	for(size_t poly_i=0; poly_i<polys.size(); ++poly_i)
@@ -770,18 +782,16 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 		{
 			const size_t tri_index = poly_i;
 			for(int v=0; v<3; ++v) // For each vert
-				mesh->getTriangles()[tri_index].uv_indices[v] = (uint32)(poly_i * 4 + v);
+				mesh.triangles[tri_index].uv_indices[v] = (uint32)(poly_i * 4 + v);
 		}
 		else
 		{
-			const size_t quad_index = poly_i - mesh->getNumTris();
+			const size_t quad_index = poly_i - mesh.triangles.size();
 			for(int v=0; v<4; ++v) // For each vert
-				mesh->getQuads()[quad_index].uv_indices[v] = (uint32)(poly_i * 4 + v);
+				mesh.quads[quad_index].uv_indices[v] = (uint32)(poly_i * 4 + v);
 		}
 	}
 }
-
-
 
 
 #if BUILD_TESTS
@@ -800,75 +810,62 @@ void UVUnwrapper::build(const RendererSettings& settings, Indigo::TaskManager& t
 #include "../maths/PCG32.h"
 
 
+static inline ::Vec2f toVec2f(const Indigo::Vec2f& v)
+{
+	return Vec2f(v.x, v.y);
+}
+
+
 static void testUnwrappingWithMesh(Indigo::MeshRef mesh)
 {
 	try
 	{
-		
-
-		Reference<RayMesh> raymesh = new RayMesh(
-			"mesh",
-			false, // mesh_node->normal_smoothing,
-			0, // mesh_node->max_num_subdivisions,
-			0, // mesh_node->subdivide_pixel_threshold,
-			false, // mesh_node->subdivision_smoothing,
-			0, // mesh_node->subdivide_curvature_threshold,
-			false, // mesh_node->view_dependent_subdivision,
-			0 // mesh_node->displacement_error_threshold
-		);
-		raymesh->num_smoothings = 0;
-
-		// Convert the Indigo::Mesh to the core mesh(RayMesh)
-		raymesh->fromIndigoMesh(*mesh);
-
-		RendererSettings settings;
-		Indigo::TaskManager task_manager;
 		StandardPrintOutput print_output;
 
-
-		UVUnwrapper::build(settings, task_manager, raymesh.ptr(), print_output);
-
+		conPrint("Initial num UV vec2s: " + toString(mesh->uv_pairs.size()));
+		UVUnwrapper::build(*mesh, print_output);
+		conPrint("Unwrapped num UV vec2s: " + toString(mesh->uv_pairs.size()));
 
 		// Draw triangles on UV map
 		{
 			PCG32 rng(1);
-			const uint32 uv_set_index = raymesh->getNumUVCoordSets() - 1;
+			const uint32 uv_set_index = mesh->num_uv_mappings - 1;
 			// Draw results
 			const int W = 1000;
 			Bitmap bitmap(W, W, 3, NULL);
 			bitmap.zero();
-			for(size_t i=0; i<raymesh->getTriangles().size(); ++i)
+			for(size_t i=0; i<mesh->triangles.size(); ++i)
 			{
-				const int uv_i_0 = raymesh->getTriangles()[i].uv_indices[0];
-				const int uv_i_1 = raymesh->getTriangles()[i].uv_indices[1];
-				const int uv_i_2 = raymesh->getTriangles()[i].uv_indices[2];
-				const Vec2f uv0 = raymesh->getUVs()[uv_i_0 * raymesh->getNumUVCoordSets() + uv_set_index] * W;
-				const Vec2f uv1 = raymesh->getUVs()[uv_i_1 * raymesh->getNumUVCoordSets() + uv_set_index] * W;
-				const Vec2f uv2 = raymesh->getUVs()[uv_i_2 * raymesh->getNumUVCoordSets() + uv_set_index] * W;
+				const int uv_i_0 = mesh->triangles[i].uv_indices[0];
+				const int uv_i_1 = mesh->triangles[i].uv_indices[1];
+				const int uv_i_2 = mesh->triangles[i].uv_indices[2];
+				const Indigo::Vec2f uv0 = mesh->uv_pairs[uv_i_0 * mesh->num_uv_mappings + uv_set_index] * W;
+				const Indigo::Vec2f uv1 = mesh->uv_pairs[uv_i_1 * mesh->num_uv_mappings + uv_set_index] * W;
+				const Indigo::Vec2f uv2 = mesh->uv_pairs[uv_i_2 * mesh->num_uv_mappings + uv_set_index] * W;
 
 				const Colour3f col(rng.unitRandom(), rng.unitRandom(), 0.5f + 0.5f*rng.unitRandom());
 
-				Drawing::drawLine(bitmap, col, uv0, uv1);
-				Drawing::drawLine(bitmap, col, uv1, uv2);
-				Drawing::drawLine(bitmap, col, uv2, uv0);
+				Drawing::drawLine(bitmap, col, toVec2f(uv0), toVec2f(uv1));
+				Drawing::drawLine(bitmap, col, toVec2f(uv1), toVec2f(uv2));
+				Drawing::drawLine(bitmap, col, toVec2f(uv2), toVec2f(uv0));
 			}
-			for(size_t i=0; i<raymesh->getQuads().size(); ++i)
+			for(size_t i=0; i<mesh->quads.size(); ++i)
 			{
-				const int uv_i_0 = raymesh->getQuads()[i].uv_indices[0];
-				const int uv_i_1 = raymesh->getQuads()[i].uv_indices[1];
-				const int uv_i_2 = raymesh->getQuads()[i].uv_indices[2];
-				const int uv_i_3 = raymesh->getQuads()[i].uv_indices[3];
-				const Vec2f uv0 = raymesh->getUVs()[uv_i_0 * raymesh->getNumUVCoordSets() + uv_set_index] * W;
-				const Vec2f uv1 = raymesh->getUVs()[uv_i_1 * raymesh->getNumUVCoordSets() + uv_set_index] * W;
-				const Vec2f uv2 = raymesh->getUVs()[uv_i_2 * raymesh->getNumUVCoordSets() + uv_set_index] * W;
-				const Vec2f uv3 = raymesh->getUVs()[uv_i_3 * raymesh->getNumUVCoordSets() + uv_set_index] * W;
+				const int uv_i_0 = mesh->quads[i].uv_indices[0];
+				const int uv_i_1 = mesh->quads[i].uv_indices[1];
+				const int uv_i_2 = mesh->quads[i].uv_indices[2];
+				const int uv_i_3 = mesh->quads[i].uv_indices[3];
+				const Indigo::Vec2f uv0 =  mesh->uv_pairs[uv_i_0 * mesh->num_uv_mappings + uv_set_index] * W;
+				const Indigo::Vec2f uv1 =  mesh->uv_pairs[uv_i_1 * mesh->num_uv_mappings + uv_set_index] * W;
+				const Indigo::Vec2f uv2 =  mesh->uv_pairs[uv_i_2 * mesh->num_uv_mappings + uv_set_index] * W;
+				const Indigo::Vec2f uv3 =  mesh->uv_pairs[uv_i_3 * mesh->num_uv_mappings + uv_set_index] * W;
 
 				const Colour3f col(rng.unitRandom(), rng.unitRandom(), 0.5f + 0.5f*rng.unitRandom());
 
-				Drawing::drawLine(bitmap, col, uv0, uv1);
-				Drawing::drawLine(bitmap, col, uv1, uv2);
-				Drawing::drawLine(bitmap, col, uv2, uv3);
-				Drawing::drawLine(bitmap, col, uv3, uv0);
+				Drawing::drawLine(bitmap, col, toVec2f(uv0), toVec2f(uv1));
+				Drawing::drawLine(bitmap, col, toVec2f(uv1), toVec2f(uv2));
+				Drawing::drawLine(bitmap, col, toVec2f(uv2), toVec2f(uv3));
+				Drawing::drawLine(bitmap, col, toVec2f(uv3), toVec2f(uv0));
 			}
 
 			PNGDecoder::write(bitmap, "uvmapping.png");
@@ -983,7 +980,7 @@ void UVUnwrapper::test()
 
 	// testUnwrappingWithMesh("C:\\programming\\cv_lightmapper\\cv_baking_meshes\\mesh_5876229332140735852.igmesh"); // CV Parcel #1 (z-up)
 
-	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/quad_and_two_tris.igmesh"); // Cornell box
+	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/quad_and_two_tris.igmesh");
 
 	testUnwrappingWithMesh(TestUtils::getIndigoTestReposDir() + "/testscenes/mesh_15695509023332119054.igmesh"); // Cornell box
 

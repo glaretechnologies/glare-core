@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "object.h"
-#include "../simpleraytracer/raymesh.h"
+#include "../dll/include/IndigoMesh.h"
 #include "SampleTypes.h"
 #include "../graphics/ImageMap.h"
 #include "../maths/vec2.h"
@@ -29,8 +29,7 @@ public:
 	UVUnwrapper();
 	~UVUnwrapper();
 
-	static void build(const RendererSettings& settings, Indigo::TaskManager& task_manager,
-		RayMesh* mesh, PrintOutput& print_output);
+	static void build(Indigo::Mesh& mesh, PrintOutput& print_output);
 
 	static void test();
 };

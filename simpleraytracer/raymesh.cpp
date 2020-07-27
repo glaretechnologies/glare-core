@@ -1137,6 +1137,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 	const RayMesh_ShadingNormals use_shading_normals_enum = this->enable_shading_normals ? RayMesh_UseShadingNormals : RayMesh_NoShadingNormals;
 
 	// Copy Triangles
+	this->triangles.resize(0);
 	this->triangles.reserve(mesh.triangles.size());
 	unsigned int dest_i = 0;
 	for(size_t i = 0; i < mesh.triangles.size(); ++i)
