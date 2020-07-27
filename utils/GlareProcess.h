@@ -36,6 +36,8 @@ public:
 	Process(const std::string& program_path, const std::vector<std::string>& command_line_args);
 	~Process();
 
+	bool isStdOutReadable();
+
 	// Returns empty string if no more output (process is dead)
 	const std::string readStdOut();
 	
@@ -43,6 +45,8 @@ public:
 	const std::string readStdErr();
 
 	void writeToProcessStdIn(const ArrayRef<unsigned char>& data);
+
+	bool isProcessAlive(); // Has process not been terminated yet?
 
 	int getExitCode(); // Throws exception if process not terminated.
 

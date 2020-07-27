@@ -148,6 +148,21 @@ Process::~Process()
 }
 
 
+bool Process::isStdOutReadable()
+{
+#if defined(_WIN32)
+	DWORD bytes_avail;
+	const BOOL success = PeekNamedPipe(child_stdout_read_handle.handle, /*buf=*/NULL, 0, /*bytes_read=*/NULL, &bytes_avail, /*bytes_left_this_msg=*/NULL);
+	if(success)
+		return bytes_avail > 0;
+	else
+		return false; // In the case where the process has been terminated, don't throw an exception, just return false.
+#else
+	throw Indigo::Exception("Not implemented.");
+#endif
+}
+
+
 const std::string Process::readStdOut()
 {
 #if defined(_WIN32)
@@ -210,6 +225,19 @@ void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
 				throw Indigo::Exception("WriteFile failed: " + PlatformUtils::getLastErrorString());
 		}
 	}
+#else
+	throw Indigo::Exception("Not implemented.");
+#endif
+}
+
+
+bool Process::isProcessAlive()
+{
+#if defined(_WIN32)
+	DWORD exit_code;
+	if(!GetExitCodeProcess(this->process_handle.handle, &exit_code))
+		throw Indigo::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
+	return exit_code == STILL_ACTIVE;
 #else
 	throw Indigo::Exception("Not implemented.");
 #endif
