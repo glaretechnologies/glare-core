@@ -41,17 +41,18 @@ struct BMeshTakeFirstElement
 
 struct BMeshVertKey
 {
-	Indigo::Vec3f pos; // normal is indexed by the same index as position, so doesn't need to be in the vert key.
+	Indigo::Vec3f pos;
+	Indigo::Vec3f normal;
 	Indigo::Vec2f uv0;
 	Indigo::Vec2f uv1;
 
 	inline bool operator == (const BMeshVertKey& b) const
 	{
-		return pos == b.pos && uv0 == b.uv0 && uv1 == b.uv1;
+		return pos == b.pos && normal == b.normal && uv0 == b.uv0 && uv1 == b.uv1;
 	}
 	inline bool operator != (const BMeshVertKey& b) const
 	{
-		return pos != b.pos || uv0 != b.uv0 || uv1 != b.uv1;
+		return pos != b.pos || normal != b.normal || uv0 != b.uv0 || uv1 != b.uv1;
 	}
 };
 
@@ -152,7 +153,8 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 	uint32 current_mat_index = std::numeric_limits<uint32>::max();
 
 	BMeshVertKey empty_key;
-	empty_key.pos = Indigo::Vec3f(std::numeric_limits<float>::infinity());
+	empty_key.pos =    Indigo::Vec3f(std::numeric_limits<float>::infinity());
+	empty_key.normal = Indigo::Vec3f(std::numeric_limits<float>::infinity());
 	empty_key.uv0 = Indigo::Vec2f(0.f);
 	empty_key.uv1 = Indigo::Vec2f(0.f);
 	HashMapInsertOnly2<BMeshVertKey, uint32, BMeshVertKeyHash> vert_map(empty_key, // Map from vert data to merged index
@@ -204,6 +206,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];
+				key.normal = vert_normals[pos_i];
 				key.uv0 = uv0;
 				key.uv1 = uv1;
 
@@ -311,6 +314,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];
+				key.normal = vert_normals[pos_i];
 				key.uv0 = uv0;
 				key.uv1 = uv1;
 

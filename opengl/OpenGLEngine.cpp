@@ -3433,9 +3433,9 @@ void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const Op
 
 	if(opengl_mat.lightmap_texture.nonNull())
 	{
-		glActiveTexture(GL_TEXTURE0 + 4);
+		glActiveTexture(GL_TEXTURE0 + 5);
 		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
-		glUniform1i(locations.lightmap_tex_location, 4);
+		glUniform1i(locations.lightmap_tex_location, 5);
 	}
 
 	// Set shadow mapping uniforms

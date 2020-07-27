@@ -259,6 +259,18 @@ void BatchedMeshTests::test()
 		}
 
 
+
+		{
+			Indigo::Mesh indigo_mesh;
+			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/cornellbox_jotero2_meshes/mesh_447604471_4256.igmesh", indigo_mesh);
+
+			BatchedMesh batched_mesh;
+			batched_mesh.buildFromIndigoMesh(indigo_mesh);
+
+			testWritingAndReadingMesh(batched_mesh);
+			testIndigoMeshConversion(batched_mesh);
+		}
+
 		{
 			Indigo::Mesh indigo_mesh;
 			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/mesh_2107654449_802486.igmesh", indigo_mesh);

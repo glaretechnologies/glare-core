@@ -1686,7 +1686,7 @@ void runPipeline(
 	}
 
 	// If we are rendering a lightmap, then we want to 'fill-in' empty pixels adjacent to computed pixels.  This is to avoid texture reads blending in black texels around the edges of triangles.
-	if(renderer_settings.generate_lightmap_uvs)
+	if(renderer_settings.light_map_baking_ob_uid >= 0)
 	{
 		//conPrint("Flood filling lightmap...");
 		//Timer timer;
