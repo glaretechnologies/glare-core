@@ -206,7 +206,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];
-				key.normal = vert_normals[pos_i];
+				key.normal = mesh_has_shading_normals ? vert_normals[pos_i] : Indigo::Vec3f(0);
 				key.uv0 = uv0;
 				key.uv1 = uv1;
 
@@ -314,7 +314,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];
-				key.normal = vert_normals[pos_i];
+				key.normal = mesh_has_shading_normals ? vert_normals[pos_i] : Indigo::Vec3f(0);
 				key.uv0 = uv0;
 				key.uv1 = uv1;
 
