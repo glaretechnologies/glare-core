@@ -381,7 +381,7 @@ public:
 
 	//--------------------------------------- Drawing ----------------------------------------
 	void setDrawWireFrames(bool draw_wireframes_) { draw_wireframes = draw_wireframes_; }
-	void setMaxDrawDistance(float d) { current_scene->max_draw_dist = d; }
+	void setMaxDrawDistance(float d) { current_scene->max_draw_dist = d; } // Set far draw distance
 	void setCurrentTime(float time);
 
 	void draw();
