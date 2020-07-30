@@ -22,7 +22,8 @@ namespace glare
 /*=====================================================================
 AllocatorVector
 ---------------
-Similar to js::Vector, but stores a reference to an allocator object.
+Similar to js::Vector, but stores a reference to an allocator object,
+which if the reference is non-null, does all allocation and deallocation for the vector.
 =====================================================================*/
 template <class T, size_t alignment>
 class AllocatorVector
