@@ -543,6 +543,18 @@ void Maths::test()
 	testAssert(roundedUpDivide(1, 2) == 1);
 	testAssert(roundedUpDivide(2, 2) == 1);
 	testAssert(roundedUpDivide(3, 2) == 2);
+	testAssert(roundedUpDivide(13, 5) == 3);
+	testAssert(roundedUpDivide(14, 5) == 3);
+	testAssert(roundedUpDivide(15, 5) == 3);
+	testAssert(roundedUpDivide(16, 5) == 4);
+
+	testAssert(roundUpToMultiple(0, 1) == 0);
+	testAssert(roundUpToMultiple(1, 1) == 1);
+	testAssert(roundUpToMultiple(2, 1) == 2);
+	testAssert(roundUpToMultiple(13, 5) == 15);
+	testAssert(roundUpToMultiple(14, 5) == 15);
+	testAssert(roundUpToMultiple(15, 5) == 15);
+	testAssert(roundUpToMultiple(16, 5) == 20);
 
 	testAssert(!isPowerOfTwo((int)-4));
 	testAssert(!isPowerOfTwo((int)-3));

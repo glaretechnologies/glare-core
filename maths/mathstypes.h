@@ -507,6 +507,7 @@ INDIGO_STRONG_INLINE T tanForCos(T cos_theta)
 }
 
 
+// Returns ceil(x / N), for signed or unsigned integers x and N.
 // Note: this can overflow, and only works for x >= 0
 template <class T>
 INDIGO_STRONG_INLINE T roundedUpDivide(T x, T N)
@@ -514,6 +515,19 @@ INDIGO_STRONG_INLINE T roundedUpDivide(T x, T N)
 	assert(x >= 0);
 	assert(N >  0);
 	return (x + N - 1) / N;
+}
+
+
+// Returns the smallest multiple of N that is >= x.
+// Which is equal to ceil(x / N) * N.
+// Note: this can overflow, and only works for x >= 0.
+// Requires N > 0.
+template <class T>
+INDIGO_STRONG_INLINE T roundUpToMultiple(T x, T N)
+{
+	assert(x >= 0);
+	assert(N >  0);
+	return ((x + N - 1) / N) * N;
 }
 
 
