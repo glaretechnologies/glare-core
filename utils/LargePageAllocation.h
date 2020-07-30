@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "Platform.h"
+#include <cstring> // for size_t
 
 
 /*=====================================================================

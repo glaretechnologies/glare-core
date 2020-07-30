@@ -69,8 +69,12 @@ void* LargePageAllocation::allocateLargePageMem(size_t size)
 
 void LargePageAllocation::freeLargePageMem(void* mem)
 {
+#if defined(_WIN32)
 	if(mem)
 		VirtualFree(mem, 0, MEM_RELEASE);
+#else
+	throw Indigo::Exception("freeLargePageMem not implemented.");
+#endif
 }
 
 
