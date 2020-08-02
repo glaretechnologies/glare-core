@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenGLEngine.h
 --------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -222,12 +222,18 @@ public:
 		float lens_shift_right_distance_, float viewport_aspect_ratio);
 	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float lens_shift_up_distance_,
 		float lens_shift_right_distance_, float viewport_aspect_ratio);
+	void setIdentityCameraTransform();
+
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 
 	void unloadAllData();
 
 	Colour3f background_colour;
 
+	bool use_z_up; // Should the +z axis be up (for cameras, sun lighting etc..).  True by default.  If false, y is up.
+	// NOTE: Use only with CameraType_Identity currently, clip planes won't be computed properly otherwise.
+
+	GLenum dest_blending_factor; // Defaults to GL_ONE_MINUS_SRC_ALPHA
 private:
 	float use_sensor_width;
 	float use_sensor_height;
@@ -240,6 +246,7 @@ private:
 
 	enum CameraType
 	{
+		CameraType_Identity, // Identity camera transform.
 		CameraType_Perspective,
 		CameraType_Orthographic
 	};
@@ -360,11 +367,16 @@ public:
 
 
 	//------------------------------- Camera management --------------------------------------
-	void setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float lens_sensor_dist, float render_aspect_ratio, float lens_shift_up_distance,
+	void setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix, float sensor_width, float lens_sensor_dist, float render_aspect_ratio, float lens_shift_up_distance,
 		float lens_shift_right_distance);
 
-	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
+	// If world_to_camera_space_matrix is the identity, results in a camera, with forwards = +y, right = +x, up = +z. 
+	// Left clip plane will be at camera position x - sensor_width/2, right clip plane at camera position x + sensor_width/2
+	// Cam space width = sensor_width.
+	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
 		float lens_shift_right_distance);
+
+	void setIdentityCameraTransform();
 	//----------------------------------------------------------------------------------------
 
 
@@ -389,11 +401,10 @@ public:
 
 
 	//--------------------------------------- Viewport ----------------------------------------
-	void viewportChanged(int viewport_w_, int viewport_h_);
-	void setViewportAspectRatio(float r, int viewport_w_, int viewport_h_) { viewport_aspect_ratio = r; viewport_w = viewport_w_; viewport_h = viewport_h_; }
+	void setViewport(int viewport_w_, int viewport_h_);
 	int getViewPortWidth()  const { return viewport_w; }
 	int getViewPortHeight() const { return viewport_h; }
-	float getViewPortAspectRatio() const { return viewport_aspect_ratio; }
+	float getViewPortAspectRatio() const { return (float)getViewPortWidth() / (float)(getViewPortHeight()); } // Viewport width / viewport height.
 	//----------------------------------------------------------------------------------------
 
 
@@ -431,10 +442,10 @@ public:
 
 	//----------------------------------- Target framebuffer ---------------------------------
 	// Set the primary render target frame buffer.
-	unsigned int getTargetFrameBuffer() const { return target_frame_buffer; }
-	void setTargetFrameBuffer(unsigned int target_frame_buffer_) { target_frame_buffer = target_frame_buffer_; use_target_frame_buffer = true; }
-	void setTargetFrameBufferRes(int w, int h) { target_frame_buffer_w = w; target_frame_buffer_h = h; }
-	void dontUseTargetFrameBuffer() { use_target_frame_buffer = false; }
+	void setTargetFrameBuffer(const Reference<FrameBuffer> frame_buffer) { target_frame_buffer = frame_buffer; }
+	void setTargetFrameBufferAndViewport(const Reference<FrameBuffer> frame_buffer); // Set target framebuffer, also set viewport to the whole framebuffer.
+
+	Reference<FrameBuffer> getTargetFrameBuffer() const { return target_frame_buffer; }
 	//----------------------------------------------------------------------------------------
 	
 
@@ -452,7 +463,7 @@ private:
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
-	void buildOutlineTexturesForViewport();
+	void buildOutlineTextures();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 public:
 	static Reference<OpenGLMeshRenderData> makeCubeMesh(const VBORef& instancing_matrix_data, const VBORef& instancing_colour_data);
@@ -501,7 +512,6 @@ private:
 	Reference<OpenGLMeshRenderData> cylinder_meshdata;
 
 	int viewport_w, viewport_h;
-	float viewport_aspect_ratio;
 	
 	Planef shadow_clip_planes[6];
 	std::vector<OverlayObject*> temp_obs;
@@ -590,8 +600,7 @@ private:
 
 	TextureServer* texture_server;
 
-	unsigned int target_frame_buffer;
-	bool use_target_frame_buffer;
+	Reference<FrameBuffer> target_frame_buffer;
 	int target_frame_buffer_w;
 	int target_frame_buffer_h;
 

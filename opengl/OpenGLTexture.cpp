@@ -18,7 +18,9 @@
 
 
 OpenGLTexture::OpenGLTexture()
-:	texture_handle(0)
+:	texture_handle(0),
+	xres(0),
+	yres(0)
 {
 }
 
@@ -146,6 +148,8 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 	assert(tex_data.size() == 6);
 
 	this->format = format_;
+	this->xres = tex_xres;
+	this->yres = tex_yres;
 
 	if(texture_handle)
 	{
@@ -195,6 +199,8 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	)
 {
 	this->format = format_;
+	this->xres = tex_xres;
+	this->yres = tex_yres;
 
 	if(texture_handle == 0)
 	{
@@ -299,6 +305,12 @@ void OpenGLTexture::makeGLTexture(Format format_)
 
 void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data)
 {
+	if(mipmap_level == 0)
+	{
+		xres = tex_xres;
+		yres = tex_yres;
+	}
+
 	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
 	{
 		glCompressedTexImage2D(

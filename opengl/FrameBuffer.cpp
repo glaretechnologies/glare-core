@@ -7,7 +7,9 @@ Copyright Glare Technologies Limited 2016 -
 
 
 FrameBuffer::FrameBuffer()
-:	buffer_name(0)
+:	buffer_name(0),
+	xres(0),
+	yres(0)
 {
 	// Create new frame buffer
 	glGenFramebuffers(1, &buffer_name);
@@ -36,6 +38,9 @@ void FrameBuffer::unbind()
 
 void FrameBuffer::bindTextureAsTarget(OpenGLTexture& tex, GLenum attachment_point)
 {
+	xres = tex.xRes();
+	yres = tex.yRes();
+
 	bind(); // Bind this frame buffer
 
 	// Bind the texture

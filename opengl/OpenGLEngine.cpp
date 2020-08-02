@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenGLEngine.cpp
 ----------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "OpenGLEngine.h"
 
@@ -64,6 +64,8 @@ OpenGLScene::OpenGLScene()
 	lens_shift_right_distance = 0;
 	camera_type = OpenGLScene::CameraType_Perspective;
 	background_colour = Colour3f(0.1f);
+	use_z_up = true;
+	dest_blending_factor = GL_ONE_MINUS_SRC_ALPHA;
 
 	env_ob = new GLObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
@@ -80,17 +82,16 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	frame_num(0),
 	current_time(0.f),
 	task_manager(NULL),
-	target_frame_buffer(0),
-	use_target_frame_buffer(false),
 	texture_server(NULL),
 	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
-	are_8bit_textures_sRGB(true)
+	are_8bit_textures_sRGB(true),
+	outline_tex_w(0),
+	outline_tex_h(0)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
 
 	viewport_w = viewport_h = 100;
-	viewport_aspect_ratio = 1;
 	target_frame_buffer_w = target_frame_buffer_h = 100;
 
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
@@ -225,7 +226,7 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_, float lens_shift_up_distance_,
 	float lens_shift_right_distance_)
 {
-	current_scene->setPerspectiveCameraTransform(world_to_camera_space_matrix_, sensor_width_, lens_sensor_dist_, render_aspect_ratio_, lens_shift_up_distance_, lens_shift_right_distance_, this->viewport_aspect_ratio);
+	current_scene->setPerspectiveCameraTransform(world_to_camera_space_matrix_, sensor_width_, lens_sensor_dist_, render_aspect_ratio_, lens_shift_up_distance_, lens_shift_right_distance_, this->getViewPortAspectRatio());
 }
 
 
@@ -368,10 +369,28 @@ void OpenGLScene::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_
 	}
 }
 
+
+void OpenGLScene::setIdentityCameraTransform()
+{
+	camera_type = CameraType_Identity;
+	this->world_to_camera_space_matrix = Matrix4f::identity();
+	this->cam_to_world = Matrix4f::identity();
+
+	this->num_frustum_clip_planes = 0;
+	this->frustum_aabb = js::AABBox(Vec4f(-1, -1, -1, 1), Vec4f(1, 1, 1, 1));
+}
+
+
 void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float lens_shift_up_distance_,
 	float lens_shift_right_distance_)
 {
-	current_scene->setOrthoCameraTransform(world_to_camera_space_matrix_, sensor_width_, render_aspect_ratio_, lens_shift_up_distance_, lens_shift_right_distance_, this->viewport_aspect_ratio);
+	current_scene->setOrthoCameraTransform(world_to_camera_space_matrix_, sensor_width_, render_aspect_ratio_, lens_shift_up_distance_, lens_shift_right_distance_, this->getViewPortAspectRatio());
+}
+
+
+void OpenGLEngine::setIdentityCameraTransform()
+{
+	current_scene->setIdentityCameraTransform();
 }
 
 
@@ -979,10 +998,12 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key)
 
 
 // We want the outline textures to have the same resolution as the viewport.
-void OpenGLEngine::buildOutlineTexturesForViewport()
+void OpenGLEngine::buildOutlineTextures()
 {
 	outline_tex_w = myMax(16, viewport_w);
 	outline_tex_h = myMax(16, viewport_h);
+
+	// conPrint("buildOutlineTextures(), size: " + toString(outline_tex_w) + " x " + toString(outline_tex_h));
 
 	outline_solid_tex = new OpenGLTexture();
 	outline_solid_tex->load(outline_tex_w, outline_tex_h, ArrayRef<uint8>(NULL, 0), NULL, 
@@ -1018,17 +1039,15 @@ void OpenGLEngine::buildOutlineTexturesForViewport()
 		preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 		addOverlayObject(preview_overlay_ob);
 	}
-
 }
 
 
-void OpenGLEngine::viewportChanged(int viewport_w_, int viewport_h_)
+void OpenGLEngine::setViewport(int viewport_w_, int viewport_h_)
 {
 	viewport_w = viewport_w_;
 	viewport_h = viewport_h_;
-	viewport_aspect_ratio = (float)viewport_w_ / (float)viewport_h_;
 
-	buildOutlineTexturesForViewport();
+	glViewport(0, 0, viewport_w, viewport_h);
 }
 
 
@@ -1926,8 +1945,8 @@ void OpenGLEngine::draw()
 		}
 		//-------------------- End draw static depth textures ----------------
 
-		if(this->use_target_frame_buffer)
-			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer);
+		if(this->target_frame_buffer.nonNull())
+			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer->buffer_name);
 
 		glDisable(GL_CULL_FACE);
 
@@ -1944,16 +1963,15 @@ void OpenGLEngine::draw()
 	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
 #endif
 
-	if(this->use_target_frame_buffer)
+	if(this->target_frame_buffer.nonNull())
 	{
-		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer);
-		glViewport(0, 0, target_frame_buffer_w, target_frame_buffer_h);
+		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer->buffer_name);
 	}
 	else
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); // Unbind any frame buffer
-		glViewport(0, 0, viewport_w, viewport_h);
 	}
+	glViewport(0, 0, viewport_w, viewport_h); // Viewport may have been changed by shadow mapping.
 	
 	// NOTE: We want to clear here first, even if the scene node is null.
 	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
@@ -1970,6 +1988,8 @@ void OpenGLEngine::draw()
 	// Initialise projection matrix from Indigo camera settings
 	const double z_far  = current_scene->max_draw_dist;
 	const double z_near = current_scene->max_draw_dist * 2e-5;
+
+	const float viewport_aspect_ratio = this->getViewPortAspectRatio();
 
 	if(current_scene->camera_type == OpenGLScene::CameraType_Perspective)
 	{
@@ -2000,9 +2020,9 @@ void OpenGLEngine::draw()
 			// Match on the vertical clip planes.
 			proj_matrix = orthoMatrix(
 				-sensor_height * 0.5 * viewport_aspect_ratio, // left
-				sensor_height * 0.5 * viewport_aspect_ratio, // right
+				 sensor_height * 0.5 * viewport_aspect_ratio, // right
 				-sensor_height * 0.5, // bottom
-				sensor_height * 0.5, // top
+				 sensor_height * 0.5, // top
 				z_near,
 				z_far
 			);
@@ -2012,20 +2032,23 @@ void OpenGLEngine::draw()
 			// Match on the horizontal clip planes.
 			proj_matrix = orthoMatrix(
 				-current_scene->sensor_width * 0.5, // left
-				current_scene->sensor_width * 0.5, // right
+				 current_scene->sensor_width * 0.5, // right
 				-current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // bottom
-				current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // top
+				 current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // top
 				z_near,
 				z_far
 			);
 		}
 	}
+	else if(current_scene->camera_type == OpenGLScene::CameraType_Identity)
+	{
+		proj_matrix = Matrix4f::identity();
+	}
 
 	const float e[16] = { 1, 0, 0, 0,	0, 0, -1, 0,	0, 1, 0, 0,		0, 0, 0, 1 };
-	const Matrix4f indigo_to_opengl_cam_matrix(e);
+	const Matrix4f indigo_to_opengl_cam_matrix = current_scene->use_z_up ? Matrix4f(e) : Matrix4f::identity();
 
-	Matrix4f view_matrix;
-	mul(indigo_to_opengl_cam_matrix, current_scene->world_to_camera_space_matrix, view_matrix);
+	const Matrix4f view_matrix = indigo_to_opengl_cam_matrix * current_scene->world_to_camera_space_matrix;
 
 	this->sun_dir_cam_space = indigo_to_opengl_cam_matrix * (current_scene->world_to_camera_space_matrix * sun_dir);
 
@@ -2043,6 +2066,12 @@ void OpenGLEngine::draw()
 	//================= Generate outline texture =================
 	if(!selected_objects.empty())
 	{
+		// Make outline textures if they have not been created, or are the wrong size.
+		if(outline_tex_w != myMax(16, viewport_w) || outline_tex_h != myMax(16, viewport_h))
+		{
+			buildOutlineTextures();
+		}
+
 		// -------------------------- Stage 1: draw flat selected objects. --------------------
 		outline_solid_fb->bind();
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outline_solid_tex->texture_handle, 0);
@@ -2185,7 +2214,7 @@ void OpenGLEngine::draw()
 
 	// Draw transparent batches
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunc(GL_SRC_ALPHA, current_scene->dest_blending_factor);
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
 
 	for(auto it = current_scene->transparent_objects.begin(); it != current_scene->transparent_objects.end(); ++it)
@@ -4592,6 +4621,13 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRendered
 	}
 
 	return map;
+}
+
+
+void OpenGLEngine::setTargetFrameBufferAndViewport(const Reference<FrameBuffer> frame_buffer)
+{ 
+	target_frame_buffer = frame_buffer;
+	setViewport((int)frame_buffer->xRes(), (int)frame_buffer->yRes());
 }
 
 

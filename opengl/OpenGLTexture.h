@@ -68,6 +68,10 @@ public:
 		Wrapping wrapping = Wrapping_Repeat
 	);
 
+	// Will return 0 if texture has not been loaded yet.
+	size_t xRes() const { return xres; }
+	size_t yRes() const { return yres; }
+
 	GLuint texture_handle;
 
 private:
@@ -75,6 +79,8 @@ private:
 	void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 
 	Format format;
+
+	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
 };
 
 
