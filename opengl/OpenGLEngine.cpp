@@ -376,7 +376,7 @@ void OpenGLScene::setIdentityCameraTransform()
 	this->world_to_camera_space_matrix = Matrix4f::identity();
 	this->cam_to_world = Matrix4f::identity();
 
-	this->num_frustum_clip_planes = 0;
+	this->num_frustum_clip_planes = 0; // TEMP: just don't do clipping currently.
 	this->frustum_aabb = js::AABBox(Vec4f(-1, -1, -1, 1), Vec4f(1, 1, 1, 1));
 }
 
