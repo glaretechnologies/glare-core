@@ -43,6 +43,9 @@ bool OpenCLProgramCache::isProgramInCache(
 		const std::string& compile_options
 )
 {
+	if(!DO_CACHING)
+		return false;
+
 	const OpenCLPlatform* platform = selected_devices_on_plat[0]->platform;
 
 	const uint64 hashcode = computeProgramHashCode(program_source, compile_options, platform->version);
