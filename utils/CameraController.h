@@ -7,6 +7,7 @@ Generated at Thu Dec 09 17:24:15 +1300 2010
 #pragma once
 
 
+#include "../dll/include/SceneNodeCamera.h"
 #include "../maths/vec3.h"
 #include "../maths/vec2.h"
 #include "../maths/matrix3.h"
@@ -24,7 +25,7 @@ public:
 	CameraController();
 	~CameraController();
 
-	void initialise(const Vec3d& cam_pos, const Vec3d& cam_forwards, const Vec3d& cam_up, double lens_sensor_dist, double lens_shift_up, double lens_shift_right);
+	void initialise(const Indigo::SceneNodeCameraRef& cam_node);
 
 	void update(const Vec3d& pos_delta, const Vec2d& rot_delta);
 	
@@ -43,8 +44,6 @@ public:
 	Vec3d getForwardsVec() const;
 	Vec3d getRightVec() const;
 	Vec3d getUpVec() const;
-
-	void setAllowPitching(bool allow_pitching);
 
 	static Vec3d getUpForForwards(const Vec3d& forwards, const Vec3d& singular_up);
 	static void getBasisForAngles(const Vec3d& angles_in, const Vec3d& singular_up, Vec3d& right_out, Vec3d& up_out, Vec3d& forward_out);

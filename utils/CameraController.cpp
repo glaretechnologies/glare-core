@@ -33,7 +33,8 @@ CameraController::CameraController()
 	allow_pitching = true;
 
 	// NOTE: Call initialise after the member variables above have been initialised.
-	initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1), 0.03, 0, 0);
+	// TODO: was this ever needed?
+	//initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1), 0.03, 0, 0);
 }
 
 
@@ -43,15 +44,22 @@ CameraController::~CameraController()
 }
 
 
-void CameraController::initialise(const Vec3d& cam_pos, const Vec3d& cam_forward, const Vec3d& cam_up, double lens_sensor_dist_, double lens_shift_up_, double lens_shift_right_)
+void CameraController::initialise(const Indigo::SceneNodeCameraRef& cam_node)
+//const Vec3d& cam_pos, const Vec3d& cam_forward, const Vec3d& cam_up, double lens_sensor_dist_, double lens_shift_up_, double lens_shift_right_)
 {
-	// Copy camera position and provided camera up vector
-	position = cam_pos;
-	initialised_up = cam_up;
+	assert(cam_node.nonNull());
+	if(cam_node.isNull()) return;
 
-	lens_sensor_dist = lens_sensor_dist_;
-	lens_shift_up = lens_shift_up_;
-	lens_shift_right = lens_shift_right_;
+	allow_pitching = (cam_node->camera_type != Indigo::SceneNodeCamera::CameraType_Spherical);
+
+	// Copy camera position and provided camera up vector
+	position = Vec3d(cam_node->getPos().x, cam_node->getPos().y, cam_node->getPos().z);
+	initialised_up = Vec3d(cam_node->up.x, cam_node->up.y, cam_node->up.z);
+	const Vec3d cam_forward = Vec3d(cam_node->forwards.x, cam_node->forwards.y, cam_node->forwards.z);
+
+	lens_sensor_dist = cam_node->lens_sensor_dist;
+	lens_shift_up = cam_node->lens_shift_up_distance;
+	lens_shift_right = cam_node->lens_shift_right_distance;
 
 	// Construct basis
 	Vec3d camera_up, camera_forward, camera_right;
@@ -253,12 +261,6 @@ Vec3d CameraController::getUpVec() const
 }
 
 
-void CameraController::setAllowPitching(bool allow_pitching_)
-{
-	allow_pitching = allow_pitching_;
-}
-
-
 Vec3d CameraController::getUpForForwards(const Vec3d& forwards, const Vec3d& singular_up)
 {
 	Vec3d up_out;
@@ -343,9 +345,13 @@ void CameraController::test()
 	CameraController cc;
 	Vec3d r, f, u, angles;
 
+	Indigo::SceneNodeCameraRef camera = new Indigo::SceneNodeCamera();
+	camera->camera_type = Indigo::SceneNodeCamera::CameraType_ThinLensPerspective;
+	camera->setPosAndForwards(Indigo::Vec3d(0.0), Indigo::Vec3d(0, 1, 0));
+	camera->lens_sensor_dist = 0.03;
 
 	// Initialise canonical viewing system - camera at origin, looking along y+ with z+ up
-	cc.initialise(Vec3d(0.0), Vec3d(0, 1, 0), Vec3d(0, 0, 1), 0.03, 0, 0);
+	cc.initialise(camera);
 	cc.getBasis(r, u, f);
 	testAssert(::epsEqual(r.x, 1.0)); testAssert(::epsEqual(r.y, 0.0)); testAssert(::epsEqual(r.z, 0.0));
 	testAssert(::epsEqual(f.x, 0.0)); testAssert(::epsEqual(f.y, 1.0)); testAssert(::epsEqual(f.z, 0.0));
@@ -353,7 +359,8 @@ void CameraController::test()
 
 
 	// Initialise camera to look down along z-, with y+ up
-	cc.initialise(Vec3d(0.0), Vec3d(0, 0, -1), Vec3d(0, 1, 0), 0.03, 0, 0);
+	camera->setPosAndForwards(Indigo::Vec3d(0.0), Indigo::Vec3d(0, 0, -1));
+	cc.initialise(camera);
 	cc.getBasis(r, u, f);
 	testAssert(::epsEqual(r.x, 1.0)); testAssert(::epsEqual(r.y, 0.0)); testAssert(::epsEqual(r.z,  0.0));
 	testAssert(::epsEqual(f.x, 0.0)); testAssert(::epsEqual(f.y, 0.0)); testAssert(::epsEqual(f.z, -1.0));
@@ -361,7 +368,7 @@ void CameraController::test()
 
 
 	// Initialise canonical viewing system and test that the viewing angles are correct
-	cc.initialise(Vec3d(0.0), Vec3d(0, 0, -1), Vec3d(0, 1, 0), 0.03, 0, 0);
+	cc.initialise(camera);
 	angles = cc.getAngles();
 	testAssert(::epsEqual(angles.x, 0.0)); testAssert(::epsEqual(angles.y, NICKMATHS_PI)); testAssert(::epsEqual(angles.z,  0.0));
 
