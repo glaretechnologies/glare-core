@@ -477,17 +477,8 @@ const std::string PlatformUtils::getResourceDirectoryPath() // throws PlatformUt
 #if defined(_WIN32) || defined(_WIN64)
 	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
 #elif defined(OSX)
-	//std::vector<std::string> components;
-	
-	//FileUtils::getDirectoriesFromPath(FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable()), components);
-
-	//components.push_back("..");
-	
-	//components.push_back("Resources");
-	
-	//return StringUtils::join(components,"/");
 	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable()) + "/../Resources";
-#else // Linux.
+#else // else on Linux:
 	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
 #endif
 }
