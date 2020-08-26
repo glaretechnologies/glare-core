@@ -36,6 +36,10 @@ public:
 	void setWorkGroupSize2D(size_t work_group_size_x, size_t work_group_size_y);
 	void setWorkGroupSize3D(size_t work_group_size_x, size_t work_group_size_y, size_t work_group_size_z);
 
+	// If set to false, the driver is free to pick a work group size.
+	// use_explicit_work_group_size is true by default.
+	void setUseExplicitWorkGroupSize(bool use_explicit) { use_explicit_work_group_size = use_explicit; } 
+
 	void setKernelArgInt(size_t index, cl_int val);
 	void setKernelArgUInt(size_t index, cl_uint val);
 	void setKernelArgULong(size_t index, cl_ulong val);
@@ -72,6 +76,7 @@ private:
 	cl_kernel kernel;
 	size_t work_group_size_multiple;
 	size_t work_group_size[3];
+	bool use_explicit_work_group_size;
 
 	size_t kernel_arg_index;
 

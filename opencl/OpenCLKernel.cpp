@@ -19,6 +19,7 @@ OpenCLKernel::OpenCLKernel(OpenCLProgramRef program, const std::string& kernel_n
 	kernel = 0;
 	kernel_arg_index = 0;
 	work_group_size[0] = work_group_size[1] = work_group_size[2] = 1;
+	use_explicit_work_group_size = true;
 	work_group_size_multiple = 1;
 	total_exec_time_s = 0;
 	profile = profile_;
@@ -205,7 +206,7 @@ double OpenCLKernel::doLaunchKernel(cl_command_queue opencl_command_queue, int d
 		dim,					// dimension
 		NULL,					// global_work_offset
 		global_work_size,		// global_work_size
-		use_local_work_size,	// local_work_size (work-group size),
+		use_explicit_work_group_size ? use_local_work_size : NULL,	// local_work_size (work-group size),
 		0,						// num_events_in_wait_list
 		NULL,					// event_wait_list
 		profile ? &profile_event : NULL		// event
