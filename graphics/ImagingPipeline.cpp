@@ -551,7 +551,7 @@ void runPipelineFullBuffer(
 
 	const bool blend_main_layers = channel == NULL;
 	const bool tonemap_channel = do_tonemapping && (blend_main_layers || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
-	const bool use_alpha_channel = renderer_settings.render_foreground_alpha || (renderer_settings.light_map_baking_ob_uid >= 0);
+	const bool use_alpha_channel = renderer_settings.render_foreground_alpha || renderer_settings.lightMapBakingEnabled();
 
 	// We want to allow channels like position to take on negative values.
 	// For other channels, like beauty channels, we want values to be >= 0.
@@ -688,7 +688,7 @@ void runPipelineFullBuffer(
 		// Create a denoising filter
 		if(!scratch_state.filter)
 		{
-			if(renderer_settings.light_map_baking_ob_uid >= 0) // If we are doing lightmapping:
+			if(renderer_settings.lightMapBakingEnabled()) // If we are doing lightmapping:
 				scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RTLightmap"); // Filter for lightmaps
 			else
 				scratch_state.filter = oidnNewFilter(scratch_state.denoise_device, "RT"); // generic ray tracing filter
@@ -714,7 +714,8 @@ void runPipelineFullBuffer(
 			oidnSetSharedFilterImage(scratch_state.filter, "color", &temp_summed_buffer.getPixel(0), OIDN_FORMAT_FLOAT3,
 				/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
 
-			if(render_channels.albedo.isEnabled())
+			// RTLightmap filter complains when an albedo map is provided.
+			if(render_channels.albedo.isEnabled() && !renderer_settings.lightMapBakingEnabled())
 			{
 				makeScaledCopyOfBuffer(render_channels, render_regions, render_channels.albedo.offset, image_scale, region_image_scale, margin_ssf1, ssf, scratch_state.albedo_im);
 
@@ -722,7 +723,7 @@ void runPipelineFullBuffer(
 					/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
 			}
 
-			if(render_channels.normals.isEnabled())
+			if(render_channels.normals.isEnabled() && !renderer_settings.lightMapBakingEnabled())
 			{
 				makeScaledCopyOfBuffer(render_channels, render_regions, render_channels.normals.offset, image_scale, region_image_scale, margin_ssf1, ssf, scratch_state.normals_im);
 
@@ -1585,7 +1586,7 @@ void runPipeline(
 	}
 
 	const bool do_denoising = (subres_factor == 1) && allow_denoising && renderer_settings.denoise && ((channel == NULL) || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
-	const bool use_alpha_channel = renderer_settings.render_foreground_alpha || (renderer_settings.light_map_baking_ob_uid >= 0);
+	const bool use_alpha_channel = renderer_settings.render_foreground_alpha || renderer_settings.lightMapBakingEnabled();
 
 	// If diffraction filter needs to be appled, or the margin is zero (which is the case for numerical receiver mode), do non-bucketed tone mapping.
 	// We do this for margin = 0 because the bucketed filtering code is not valid when margin = 0.
@@ -1686,7 +1687,7 @@ void runPipeline(
 	}
 
 	// If we are rendering a lightmap, then we want to 'fill-in' empty pixels adjacent to computed pixels.  This is to avoid texture reads blending in black texels around the edges of triangles.
-	if(renderer_settings.light_map_baking_ob_uid >= 0)
+	if(renderer_settings.lightMapBakingEnabled())
 	{
 		//conPrint("Flood filling lightmap...");
 		//Timer timer;
