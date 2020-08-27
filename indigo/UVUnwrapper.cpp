@@ -839,9 +839,9 @@ static void testUnwrappingWithMesh(Indigo::MeshRef mesh)
 				const int uv_i_0 = mesh->triangles[i].uv_indices[0];
 				const int uv_i_1 = mesh->triangles[i].uv_indices[1];
 				const int uv_i_2 = mesh->triangles[i].uv_indices[2];
-				const Indigo::Vec2f uv0 = mesh->uv_pairs[uv_i_0 * mesh->num_uv_mappings + uv_set_index] * W;
-				const Indigo::Vec2f uv1 = mesh->uv_pairs[uv_i_1 * mesh->num_uv_mappings + uv_set_index] * W;
-				const Indigo::Vec2f uv2 = mesh->uv_pairs[uv_i_2 * mesh->num_uv_mappings + uv_set_index] * W;
+				const Indigo::Vec2f uv0 = mesh->uv_pairs[uv_i_0 * mesh->num_uv_mappings + uv_set_index] * (float)W;
+				const Indigo::Vec2f uv1 = mesh->uv_pairs[uv_i_1 * mesh->num_uv_mappings + uv_set_index] * (float)W;
+				const Indigo::Vec2f uv2 = mesh->uv_pairs[uv_i_2 * mesh->num_uv_mappings + uv_set_index] * (float)W;
 
 				const Colour3f col(rng.unitRandom(), rng.unitRandom(), 0.5f + 0.5f*rng.unitRandom());
 
@@ -855,10 +855,10 @@ static void testUnwrappingWithMesh(Indigo::MeshRef mesh)
 				const int uv_i_1 = mesh->quads[i].uv_indices[1];
 				const int uv_i_2 = mesh->quads[i].uv_indices[2];
 				const int uv_i_3 = mesh->quads[i].uv_indices[3];
-				const Indigo::Vec2f uv0 =  mesh->uv_pairs[uv_i_0 * mesh->num_uv_mappings + uv_set_index] * W;
-				const Indigo::Vec2f uv1 =  mesh->uv_pairs[uv_i_1 * mesh->num_uv_mappings + uv_set_index] * W;
-				const Indigo::Vec2f uv2 =  mesh->uv_pairs[uv_i_2 * mesh->num_uv_mappings + uv_set_index] * W;
-				const Indigo::Vec2f uv3 =  mesh->uv_pairs[uv_i_3 * mesh->num_uv_mappings + uv_set_index] * W;
+				const Indigo::Vec2f uv0 =  mesh->uv_pairs[uv_i_0 * mesh->num_uv_mappings + uv_set_index] * (float)W;
+				const Indigo::Vec2f uv1 =  mesh->uv_pairs[uv_i_1 * mesh->num_uv_mappings + uv_set_index] * (float)W;
+				const Indigo::Vec2f uv2 =  mesh->uv_pairs[uv_i_2 * mesh->num_uv_mappings + uv_set_index] * (float)W;
+				const Indigo::Vec2f uv3 =  mesh->uv_pairs[uv_i_3 * mesh->num_uv_mappings + uv_set_index] * (float)W;
 
 				const Colour3f col(rng.unitRandom(), rng.unitRandom(), 0.5f + 0.5f*rng.unitRandom());
 
