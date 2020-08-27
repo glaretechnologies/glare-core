@@ -1734,7 +1734,9 @@ void runPipeline(
 					}
 					else
 					{
-						// ldr_buffer_out.getPixel(x, y).x[1] = 1.f; // Make green for testing (e.g. testing we aren't doing lightmap reads from the unrendered regions.)
+						ldr_buffer_out.getPixel(x, y).x[0] = 0.0f;
+						ldr_buffer_out.getPixel(x, y).x[1] = 0.5f; // Make green for testing (e.g. testing we aren't doing lightmap reads from the unrendered regions.)
+						ldr_buffer_out.getPixel(x, y).x[2] = 0.0f;
 					}
 				}
 
