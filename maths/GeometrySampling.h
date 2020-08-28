@@ -269,14 +269,13 @@ const Vec4f sampleSolidAngleCone(const SamplePair& samples, const Matrix4f& basi
 	const float phi = samples.x * NICKMATHS_2PIf;
 	const float r_2_A = samples.y * one_minus_cos_theta_max; // Let r_2 = samples.y, and A = 1 - cos(theta_max)
 	const float cos_theta = 1 - r_2_A;
-
 	const float sin_theta = std::sqrt(r_2_A*(2 - r_2_A)); // std::sqrt(-2*r_2_one_minus_cos_theta_max + r_2_one_minus_cos_theta_max*r_2_one_minus_cos_theta_max);
 
 	assert(epsEqual(cos_theta*cos_theta + sin_theta*sin_theta, 1.f));
 
 	const Vec4f dir(std::cos(phi) * sin_theta, std::sin(phi) * sin_theta, cos_theta, 0);
 
-	return Vec4f(basis * dir);
+	return basis * dir;
 }
 
 
