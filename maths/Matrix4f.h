@@ -718,7 +718,7 @@ float Matrix4f::upperLeftDeterminant() const
 	c1' = (m_22, m_12, m_32, 0)
 	c2' = (m_33, m_23, m_13, 0)
 
-	Then if do component-wise multiplication between of c0', c1', c2' we get
+	Then if we do component-wise multiplication between c0', c1', and c2', we get
 
 	(m_11.m_22.m_33, m_31.m_12.m_23, m_21.m_32.m_13, 0)
 
