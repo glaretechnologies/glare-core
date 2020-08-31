@@ -1106,23 +1106,21 @@ public:
 
 					// If we have spectral data in tile_spectral_buffer, convert it to XYZ data in tile_buffer.
 					// This is so we have a RGB preview to show to the user in the UI.
-					if(spectral_channel)
+					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
 					{
-						for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
-						{
-							const float* src = tile_spectral_buffer->getPixel(i);
-							Colour4f& dest = tile_buffer.getPixel(i);
+						const float* src = tile_spectral_buffer->getPixel(i);
+						Colour4f& dest = tile_buffer.getPixel(i);
 
-							Colour4f sum(0.f);
-							for(int c=0; c<spectral_channel_N; ++c)
-							{
-								const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
-								const Vec4f XYZ = XYZCurves::getXYZ_CIE_ForWavelen(wavelength); // TODO: pull out of loop
-								sum += Colour4f(XYZ.v) * src[c];
-							}
-							sum[3] = 1;
-							dest = sum;
+						Colour4f sum(0.f);
+						for(int c=0; c<spectral_channel_N; ++c)
+						{
+							const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
+							const Vec4f XYZ = XYZCurves::getXYZ_CIE_ForWavelen(wavelength); // TODO: pull out of loop
+							sum += Colour4f(XYZ.v) * src[c];
 						}
+						sum *= (1.f / spectral_channel_N);
+						sum[3] = 1;
+						dest = sum;
 					}
 				}
 				else
@@ -1327,23 +1325,21 @@ public:
 
 					// If we have spectral data in tile_spectral_buffer, convert it to XYZ data in tile_buffer.
 					// This is so we have a RGB preview to show to the user in the UI.
-					if(spectral_channel)
+					for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
 					{
-						for(size_t i = 0; i < tile_buffer.numPixels(); ++i)
-						{
-							const float* src = tile_spectral_buffer->getPixel(i);
-							Colour4f& dest = tile_buffer.getPixel(i);
+						const float* src = tile_spectral_buffer->getPixel(i);
+						Colour4f& dest = tile_buffer.getPixel(i);
 
-							Colour4f sum(0.f);
-							for(int c=0; c<spectral_channel_N; ++c)
-							{
-								const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
-								const Vec4f XYZ = XYZCurves::getXYZ_CIE_ForWavelen(wavelength); // TODO: pull out of loop
-								sum += Colour4f(XYZ.v) * src[c];
-							}
-							sum[3] = 1;
-							dest = sum;
+						Colour4f sum(0.f);
+						for(int c=0; c<spectral_channel_N; ++c)
+						{
+							const float wavelength = closure.render_channels->start_wavelength + ((float)c + 0.5f) * closure.render_channels->wavelength_bucket_width; // Wavelength at centre of bucket.
+							const Vec4f XYZ = XYZCurves::getXYZ_CIE_ForWavelen(wavelength); // TODO: pull out of loop
+							sum += Colour4f(XYZ.v) * src[c];
 						}
+						sum *= (1.f / spectral_channel_N);
+						sum[3] = 1;
+						dest = sum;
 					}
 				}
 				else
