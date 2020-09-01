@@ -4,6 +4,8 @@
 // Including gl3w.h results in compile errors due to redefined symbols (or something) on OS X. 
 // However on OS X the OpenGL headers are up-to-date for OpenGL 3 core profile, so we can just use them.
 #if defined(OSX)
+// QtGui/qopengl.h also defines this before including gl3.h and gl3ext.h.
+#define GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
 #include <OpenGL/gl3.h>
 #include <OpenGL/gl3ext.h>
 #else
