@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include <string>
+#include <vector>
 class OpenGLShader;
 
 
@@ -32,6 +33,25 @@ struct UniformLocations
 	int dynamic_depth_tex_location;
 	int static_depth_tex_location;
 	int shadow_texture_matrix_location;
+};
+
+
+struct UserUniformInfo
+{
+	enum UniformType
+	{
+		UniformType_Vec2,
+		UniformType_Vec3,
+		UniformType_Int,
+		UniformType_Float
+	};
+
+	UserUniformInfo() {}
+	UserUniformInfo(int loc_, int index_, UniformType uniform_type_) : loc(loc_), index(index_), uniform_type(uniform_type_) {}
+
+	int loc; // Location in shader as retrieved from glGetUniformLocation()
+	int index; // Index into material.user_uniform_vals
+	UniformType uniform_type;
 };
 
 
@@ -81,6 +101,8 @@ public:
 
 
 	UniformLocations uniform_locations;
+
+	std::vector<UserUniformInfo> user_uniform_info;
 };
 
 

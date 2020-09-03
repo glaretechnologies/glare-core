@@ -86,6 +86,19 @@ public:
 };
 
 
+struct OpenGLUniformVal // variant class
+{
+	OpenGLUniformVal() {}
+	union
+	{
+		Vec3f vec3;
+		Vec2f vec2;
+		int intval;
+		float floatval;
+	};
+};
+
+
 class OpenGLMaterial
 {
 public:
@@ -124,6 +137,8 @@ public:
 	uint64 userdata;
 	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	std::string lightmap_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
+
+	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 };
 
 

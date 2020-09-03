@@ -3619,6 +3619,26 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 				glBindTexture(GL_TEXTURE_2D, opengl_mat.texture_2->texture_handle);
 				glUniform1i(shader_prog->texture_2_loc, 1);
 			}
+
+			// Set user uniforms
+			for(size_t i=0; i<shader_prog->user_uniform_info.size(); ++i)
+			{
+				switch(shader_prog->user_uniform_info[i].uniform_type)
+				{
+				case UserUniformInfo::UniformType_Vec2:
+					glUniform2fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec2);
+					break;
+				case UserUniformInfo::UniformType_Vec3:
+					glUniform3fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec3);
+					break;
+				case UserUniformInfo::UniformType_Int:
+					glUniform1i(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].intval);
+					break;
+				case UserUniformInfo::UniformType_Float:
+					glUniform1f(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].floatval);
+					break;
+				}
+			}
 		}
 		
 		GLenum draw_mode;
