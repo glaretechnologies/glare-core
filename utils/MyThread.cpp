@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2014 -
 
 
 #include "StringUtils.h"
+#include "PlatformUtils.h"
 #include <cassert>
 #if defined(_WIN32)
 #include <process.h>
@@ -141,7 +142,7 @@ void MyThread::setPriority(Priority p)
 	}
 	const BOOL res = ::SetThreadPriority(thread_handle, pri);
 	if(res == 0)
-		throw MyThreadExcep("SetThreadPriority failed: " + toString((unsigned int)GetLastError()));
+		throw MyThreadExcep("SetThreadPriority failed: " + PlatformUtils::getLastErrorString());
 #else
 	throw MyThreadExcep("Can't change thread priority after creation on Linux or OS X");
 	/*// Get current priority
@@ -173,7 +174,7 @@ void MyThread::setAffinity(int32 group, uint64 proc_affinity_mask)
 	affinity.Group = (WORD)group;
 	affinity.Mask = proc_affinity_mask;
 
-	if (SetThreadGroupAffinity(thread_handle, &affinity, NULL) == 0)
-		throw MyThreadExcep("SetThreadGroupAffinity failed: error code: " + toString((unsigned int)GetLastError()));
+	if(SetThreadGroupAffinity(thread_handle, &affinity, NULL) == 0)
+		throw MyThreadExcep("SetThreadGroupAffinity failed: " + PlatformUtils::getLastErrorString());
 }
 #endif
