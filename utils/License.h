@@ -93,11 +93,22 @@ public:
 	static const std::string licenseTypeToString(LicenceType t);
 	static const std::string licenseTypeToCodeString(LicenceType t);
 
-	static void verifyLicense(const std::string& appdata_path,
-		LicenceType& licence_type_out, std::string& user_id_out,
-		LicenceErrorCode& local_err_code_out,
-		LicenceErrorCode& network_lic_err_code_out,
-		bool& is_online_license_out); // throws LicenseExcep
+	struct VerifyLicenceResults
+	{
+		LicenceType licence_type;
+		std::string user_id;
+		bool is_online_license;
+		LicenceErrorCode local_err_code;
+		LicenceErrorCode network_lic_err_code;
+	};
+
+	// Verify the licence located on disk at appdata_path/licence.sig against the current machine's hardware ID.
+	// Checks the public signature of the licence key hash.
+	// Also checks for online and network floating licence licence keys cached on disk.
+	// 
+	// On failure, sets licence_type in the returned VerifyLicenceResults to UNLICENSED.
+	// Does not throw an exception.
+	static VerifyLicenceResults verifyLicense(const std::string& appdata_path);
 
 	// A combination of the CPU type and MAC address
 	static const std::string getPrimaryHardwareIdentifier(); // throws LicenseExcep

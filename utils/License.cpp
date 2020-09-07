@@ -232,58 +232,72 @@ Verify the licence located on disk at appdata_path/licence.sig against the curre
 Checks the public signature of the licence key hash.
 Sets licence_type_out and user_id_out based on the results of the verification.
 
-Also checks for the presence of the Green Button certificate, as well as a network floating licence licence key cached on disk.
+Also checks for online and network floating licence licence keys cached on disk.
 */
-void License::verifyLicense(const std::string& appdata_path,
-	LicenceType& licence_type_out, std::string& user_id_out,
-	LicenceErrorCode& local_err_code_out,
-	LicenceErrorCode& network_lic_err_code_out,
-	bool& is_online_license_out)
+License::VerifyLicenceResults License::verifyLicense(const std::string& appdata_path)
 {
 	assert(OpenSSL::isInitialised());
 
-	licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
-	user_id_out = "";
-	local_err_code_out = LicenceErrorCode_NoError;
-	network_lic_err_code_out = LicenceErrorCode_NoError;
-	is_online_license_out = false;
-
-	// Try and verifiy network licence first.
-	const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);
-	const bool have_online_licence = tryVerifyOnlineLicence(appdata_path, licence_type_out, user_id_out, network_lic_err_code_out);
-	is_online_license_out = have_online_licence;
-	if(have_net_floating_licence || have_online_licence)
-		return;
-	else
-	{
-		licence_type_out = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
-		user_id_out = "";
-	}
-
-	// Get the hardware IDs for the current machine.
-	const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
-
 	try
 	{
+		VerifyLicenceResults results;
+		results.licence_type = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
+		results.is_online_license = false;
+		results.local_err_code = LicenceErrorCode_NoError;
+		results.network_lic_err_code = LicenceErrorCode_NoError;
+
+		// Try and verify network licence first.
+		const bool have_net_floating_licence = tryVerifyNetworkLicence(appdata_path, results.licence_type, results.user_id, results.network_lic_err_code);
+		if(have_net_floating_licence)
+			return results;
+
+		const bool have_online_licence = tryVerifyOnlineLicence(appdata_path, results.licence_type, results.user_id, results.network_lic_err_code);
+		if(have_online_licence)
+		{
+			results.is_online_license = true;
+			return results;
+		}
+
+		results.licence_type = UNLICENSED; // License type out is unlicensed, unless proven otherwise.
+		results.user_id = "";
+
+		// Get the hardware IDs for the current machine.
+		const std::vector<std::string> hardware_ids = getHardwareIdentifiers();
+
 		// Load the signature from disk and decode from base64
 		const std::string licence_sig_path = "licence.sig";
 
 		const std::string licence_sig_full_path = FileUtils::join(appdata_path, licence_sig_path);
 		if(!FileUtils::fileExists(licence_sig_full_path))
 		{
-			local_err_code_out = LicenceErrorCode_LicenceSigFileNotFound;
-			return;
+			results.local_err_code = LicenceErrorCode_LicenceSigFileNotFound;
+			return results;
 		}
 
 		std::string sigfile_contents;
 		FileUtils::readEntireFile(licence_sig_full_path, sigfile_contents);
 
-		verifyLicenceString(sigfile_contents, hardware_ids, licence_type_out, user_id_out, local_err_code_out);
+		verifyLicenceString(sigfile_contents, hardware_ids, results.licence_type, results.user_id, results.local_err_code);
+
+		return results;
 	}
-	catch(FileUtils::FileUtilsExcep& e)
+	catch(LicenseExcep&)
 	{
-		local_err_code_out = LicenceErrorCode_MiscFileExcep;
-		throw LicenseExcep(e.what());
+		VerifyLicenceResults results;
+		results.licence_type = UNLICENSED;
+		results.is_online_license = false;
+		results.local_err_code = LicenceErrorCode_NoError;
+		results.network_lic_err_code = LicenceErrorCode_NoError;
+		return results;
+	}
+	catch(FileUtils::FileUtilsExcep&)
+	{
+		VerifyLicenceResults results;
+		results.licence_type = UNLICENSED;
+		results.is_online_license = false;
+		results.local_err_code = LicenceErrorCode_MiscFileExcep;
+		results.network_lic_err_code = LicenceErrorCode_NoError;
+		return results;
 	}
 }
 
@@ -776,23 +790,13 @@ bool License::dimensionsExceedLicenceDimensions(LicenceType t, int width, int he
 
 const std::string License::currentLicenseSummaryString(const std::string& appdata_path)
 {
-	LicenceType licence_type = License::UNLICENSED;
-	std::string licence_user_id;
-	License::LicenceErrorCode local_error_code, network_error_code;
-	bool is_online_license;
-	try
-	{
-		License::verifyLicense(appdata_path, licence_type, licence_user_id,
-			local_error_code, network_error_code, is_online_license);
-	}
-	catch(License::LicenseExcep&)
-	{}
+	const License::VerifyLicenceResults results = License::verifyLicense(appdata_path);
 
-	if(licence_type != License::UNLICENSED)
+	if(results.licence_type != License::UNLICENSED)
 		return "Licence verified.  \nLicence type: " +
-			License::licenseTypeToString(licence_type) +
-			(is_online_license ? " (online)" : "") +
-			".  \nLicensed to '" + licence_user_id + "'";
+			License::licenseTypeToString(results.licence_type) +
+			(results.is_online_license ? " (online)" : "") +
+			".  \nLicensed to '" + results.user_id + "'";
 	else
 		return "Licence not verified, running in free mode.";
 }
