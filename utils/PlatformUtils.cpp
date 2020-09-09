@@ -458,20 +458,6 @@ const std::string PlatformUtils::getOrCreateAppDataDirectory(const std::string& 
 }
 
 
-const std::string PlatformUtils::getOrCreateAppDataDirectoryWithDummyFallback(const std::string& app_name) // Doesn't throw.
-{
-	try
-	{
-		return PlatformUtils::getOrCreateAppDataDirectory(app_name);
-	}
-	catch(PlatformUtils::PlatformUtilsExcep&)
-	{
-		//conPrint("WARNING: Failed to determine APPDATA dir, using 'dummy_appdata'.");
-		return "dummy_appdata";
-	}
-}
-
-
 const std::string PlatformUtils::getResourceDirectoryPath() // throws PlatformUtilsExcep.
 {
 #if defined(_WIN32) || defined(_WIN64)

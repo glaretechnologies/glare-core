@@ -88,8 +88,6 @@ const std::string getAppDataDirectory(const std::string& app_name); // throws Pl
 
 const std::string getOrCreateAppDataDirectory(const std::string& app_name); // throws PlatformUtilsExcep.
 
-const std::string getOrCreateAppDataDirectoryWithDummyFallback(const std::string& app_name); // Doesn't throw.  TODO: remove.
-
 const std::string getResourceDirectoryPath(); // throws PlatformUtilsExcep
 	
 const std::string getFullPathToCurrentExecutable(); // throws PlatformUtilsExcep.
