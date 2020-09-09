@@ -517,6 +517,8 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac)
 }
 
 
+// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
+// Returns zero if connection was closed gracefully
 size_t MySocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 {
 	const int numbytesread = recv(sockethandle, (char*)buffer, (int)max_num_bytes, 0);
@@ -551,7 +553,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
 			throw makeExceptionFromLastErrorCode("Read failed");
 		else if(numbytesread == 0) // Connection was closed gracefully
-			throw MySocketExcep("Connection Closed.");
+			throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 
 		readlen -= numbytesread;
 		buffer = (void*)((char*)buffer + numbytesread);

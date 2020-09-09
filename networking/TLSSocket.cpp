@@ -242,7 +242,7 @@ void TLSSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		else if(num_bytes_read == SOCKET_ERROR) // Connection was reset/broken
 			throw MySocketExcep("Read failed, error: " + getTLSErrorString(tls_context));
 		else if(num_bytes_read == 0) // Connection was closed gracefully
-			throw MySocketExcep("Connection Closed.");
+			throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 
 		readlen -= num_bytes_read;
 		buffer = (void*)((uint8*)buffer + num_bytes_read);

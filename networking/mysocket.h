@@ -38,6 +38,7 @@ public:
 		ExcepType_ConnectionFailed, // Failed to connect to a host.
 		ExcepType_BlockingCallCancelled,
 		ExcepType_NotASocket,
+		ExcepType_ConnectionClosedGracefully,
 		ExcepType_Other
 	};
 
