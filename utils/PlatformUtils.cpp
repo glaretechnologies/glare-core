@@ -818,16 +818,6 @@ std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &regke
 #endif
 
 
-bool PlatformUtils::isWindows()
-{
-#ifdef _WIN32
-	return true;
-#else
-	return false;
-#endif
-}
-
-
 const std::string PlatformUtils::getOSVersionString()
 {
 #if defined(_WIN32)

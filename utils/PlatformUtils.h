@@ -43,8 +43,6 @@ const std::string getLoggedInUserName();
 unsigned int getNumThreadsInCurrentProcess(); // throws PlatformUtilsExcep
 
 
-
-
 class CPUInfo
 {
 public:
@@ -92,14 +90,16 @@ const std::string getResourceDirectoryPath(); // throws PlatformUtilsExcep
 	
 const std::string getFullPathToCurrentExecutable(); // throws PlatformUtilsExcep.
 
+
 int execute(const std::string& command);
+
 
 /*
 On Windows, open Windows Explorer and select the given file or folder.
 On Mac, open Finder.
-On Linux.. erm.. do something good.
+Not implemented on Linux (throws an exception).
 
-NOTE: be vary careful to only path in valid paths here, or there will be massive security vunerabilities.
+NOTE: be very careful to only pass in valid paths here, or there will be massive security vunerabilities.
 */
 void openFileBrowserWindowAtLocation(const std::string& select_path);
 
@@ -137,9 +137,9 @@ std::vector<int> getProcessorGroups();
 void ignoreUnixSignals();
 
 
-const std::string getEnvironmentVariable(const std::string& varname);
-bool isEnvironmentVariableDefined(const std::string& varname);
-void setEnvironmentVariable(const std::string& varname, const std::string& new_value);
+const std::string getEnvironmentVariable(const std::string& varname); // Throws PlatformUtilsExcep on failure.
+bool isEnvironmentVariableDefined(const std::string& varname); // Throws PlatformUtilsExcep on failure.
+void setEnvironmentVariable(const std::string& varname, const std::string& new_value); // Throws PlatformUtilsExcep on failure.
 
 
 #if defined(_WIN32)
@@ -153,20 +153,20 @@ std::string getStringRegKey(RegHKey key, const std::string &regkey_, const std::
 #endif
 
 
-bool isWindows();
-
-
 const std::string getOSVersionString();
 	
 
 void setCurrentThreadName(const std::string& name); // Sets the thread name as seen in the debugger
 void setCurrentThreadNameIfTestsEnabled(const std::string& name); // Sets the thread name as seen in the debugger, if BUILD_TESTS is enabled.
 
+
 // Disabled for now, since it requires linking to Psapi.lib, which is tricky to do with CMake and the SDK Lib.
 //size_t getMemoryUsage();
 
+
 void beginKeepSystemAwake(); // Stop the system from going to sleep.
 void endKeepSystemAwake(); // Allow the system to go to sleep.
+
 
 void testPlatformUtils();
 
