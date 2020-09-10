@@ -382,6 +382,24 @@ bool isPathSafe(const std::string& pathname)
 }
 
 
+std::string readEntireFile(const std::string& pathname) // Returns file contents directly.  Throws FileUtilsExcep
+{
+	try
+	{
+		MemMappedFile file(pathname);
+		std::string filecontents;
+		filecontents.resize(file.fileSize());
+		if(file.fileSize() > 0)
+			std::memcpy(&filecontents[0], file.fileData(), file.fileSize());
+		return filecontents;
+	}
+	catch(Indigo::Exception& e)
+	{
+		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
+	}
+}
+
+
 void readEntireFile(const std::string& pathname,
 					std::string& filecontents_out)
 {

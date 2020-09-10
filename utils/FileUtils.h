@@ -76,6 +76,7 @@ const std::string getRelativePath(const std::string& dir_path, const std::string
 // Returns true if pathname is relative, and does not contain any '..' dirs.
 bool isPathSafe(const std::string& pathname);
 
+std::string readEntireFile(const std::string& pathname); // Returns file contents directly.  Throws FileUtilsExcep
 void readEntireFile(const std::string& pathname, std::string& filecontents_out); // throws FileUtilsExcep
 void readEntireFile(const std::string& pathname, std::vector<unsigned char>& filecontents_out); // throws FileUtilsExcep
 
