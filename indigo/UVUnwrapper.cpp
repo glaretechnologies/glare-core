@@ -16,9 +16,8 @@ Copyright Glare Technologies Limited 2020 -
 #include <unordered_set>
 
 //TEMP:
-#include "TestUtils.h"
-#include "MeshLoader.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/IndigoStringUtils.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/TaskManager.h"
 #include "../graphics/ImageMap.h"
@@ -882,7 +881,16 @@ static void testUnwrappingWithMesh(const std::string& path)
 {
 	// Load mesh
 	Indigo::MeshRef mesh = new Indigo::Mesh();
-	MeshLoader::loadMesh(path, *mesh, 1.f);
+	//MeshLoader::loadMesh(path, *mesh, 1.f);
+
+	try
+	{
+		Indigo::Mesh::readFromFile(toIndigoString(path), *mesh);
+	}
+	catch(Indigo::IndigoException& e)
+	{
+		throw Indigo::Exception("Error while reading mesh '" + path + ": " + toStdString(e.what()));
+	}
 
 	testUnwrappingWithMesh(mesh);
 }
