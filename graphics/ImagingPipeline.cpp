@@ -13,6 +13,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../indigo/LinearToneMapper.h"
 #include "../indigo/PostProDiffraction.h"
 #include "../indigo/XYZCurves.h"
+#include "../indigo/MasterBuffer.h"
 #include "../graphics/ImageFilter.h"
 #include "../graphics/Image4f.h"
 #include "../graphics/bitmap.h"
@@ -535,7 +536,8 @@ void runPipelineFullBuffer(
 	const CurveData& curve_data,
 	bool apply_curves,
 	bool do_tonemapping,
-	bool allow_denoising
+	bool allow_denoising,
+	MasterBufferCompleteLock* master_buffer_lock // Protects render_channels.  Passed in so we can manually release it before starting denoising.
 )
 {
 	const Matrix3f input_to_sRGB = getInputToSRGBColourSpaceMatrix(input_in_XYZ_colourspace, renderer_settings.colour_space_converter);
@@ -560,7 +562,9 @@ void runPipelineFullBuffer(
 	const bool convert_from_XYZ_to_sRGB = channel ? (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty) : true;
 	const Matrix4f colour_space_change = convert_from_XYZ_to_sRGB ? Matrix4f(tonemap_params.XYZ_to_sRGB, Vec3f(0.0f)) : Matrix4f::identity(); // Bottom row should be (0,0,0,1) so that alpha value is not changed.
 
-	temp_summed_buffer.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
+	const size_t render_channels_width  = render_channels.getWidth();
+	const size_t render_channels_height = render_channels.getHeight();
+	temp_summed_buffer.resizeNoCopy(render_channels_width, render_channels_height);
 	sumLightLayers(scratch_state, layer_weights, image_scale, region_image_scale, render_channels, channel, render_regions, margin_ssf1, ssf,
 		renderer_settings.zero_alpha_outside_region, region_alpha_bias, use_alpha_channel, temp_summed_buffer, task_manager);
 
@@ -766,6 +770,10 @@ void runPipelineFullBuffer(
 		// EXRDecoder::saveImageToEXR(scratch_state.albedo_im, /*save_alpha_channel=*/false, "albedo_im.exr", "main", EXRDecoder::SaveOptions());
 		// EXRDecoder::saveImageToEXR(scratch_state.normals_im, /*save_alpha_channel=*/false, "normals_im.exr", "main", EXRDecoder::SaveOptions());
 
+		// Release the master buffer lock before we start denoising, since it can take quite a while.
+		if(master_buffer_lock)
+			master_buffer_lock->manuallyRelease();
+
 		// Filter the image
 		Timer timer;
 		oidnExecuteFilter(scratch_state.filter);
@@ -832,8 +840,8 @@ void runPipelineFullBuffer(
 	const size_t supersample_factor = (size_t)ssf;
 	const size_t border_width = (size_t)margin_ssf1;
 
-	const size_t final_xres = render_channels.getWidth()  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
-	const size_t final_yres = render_channels.getHeight() / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
+	const size_t final_xres = render_channels_width  / supersample_factor - border_width * 2; // assert(final_xres == renderer_settings.getWidth());
+	const size_t final_yres = render_channels_height / supersample_factor - border_width * 2; // assert(final_yres == renderer_settings.getWidth());
 	ldr_buffer_out.resizeNoCopy(final_xres, final_yres);
 
 
@@ -1526,7 +1534,8 @@ void runPipeline(
 	Indigo::TaskManager& task_manager,
 	size_t subres_factor,
 	bool do_tonemapping,
-	bool allow_denoising
+	bool allow_denoising,
+	MasterBufferCompleteLock* master_buffer_lock
 	)
 {
 	ScopeProfiler _scope("ImagingPipeline::runPipeline", 1);
@@ -1591,7 +1600,7 @@ void runPipeline(
 	{
 		runPipelineFullBuffer(scratch_state, render_channels, channel, render_regions, ssf, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
-							ldr_buffer_out, input_in_XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves, do_tonemapping, allow_denoising);
+							ldr_buffer_out, input_in_XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves, do_tonemapping, allow_denoising, master_buffer_lock);
 	}
 	else
 	{

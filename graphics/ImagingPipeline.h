@@ -24,6 +24,7 @@ struct OIDNDeviceImpl;
 typedef struct OIDNDeviceImpl* OIDNDevice;
 namespace Indigo { class TaskManager; }
 namespace Indigo { class Task; }
+class MasterBufferCompleteLock;
 
 
 namespace ImagingPipeline
@@ -107,7 +108,8 @@ void runPipeline(
 	Indigo::TaskManager& task_manager,
 	size_t subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
 	bool do_tonemapping = true, // Should we actually tone-map?  Can be set to false for saving untonemapped EXRs.
-	bool allow_denoising = false // Should we run the denoiser, if appropriate?
+	bool allow_denoising = false, // Should we run the denoiser, if appropriate?
+	MasterBufferCompleteLock* master_buffer_lock = NULL // Protects render_channels.  Passed in so we can manually release it before starting denoising.
 );
 
 
