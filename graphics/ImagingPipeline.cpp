@@ -29,6 +29,7 @@ Generated at Wed Jul 13 13:44:31 +0100 2011
 #include "../utils/SmallArray.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include "../utils/ShouldCancelCallback.h"
 #include <algorithm>
 
 #if DENOISE_SUPPORT
@@ -513,6 +514,19 @@ static Matrix3f getInputToSRGBColourSpaceMatrix(bool input_in_XYZ_colourspace, c
 }
 
 
+// Returns if should continue normally
+static bool glareOIDNProgressMonitorFunction(void* userPtr, double n)
+{
+	// conPrint("glareOIDNProgressMonitorFunction: " + toString(n));
+
+	ShouldCancelCallback* should_cancel_callback = static_cast<ShouldCancelCallback*>(userPtr);
+	if(should_cancel_callback)
+		return !should_cancel_callback->shouldCancel();
+	else
+		return true;
+}
+
+
 // Tonemap HDR image to LDR image
 void runPipelineFullBuffer(
 	RunPipelineScratchState& scratch_state, // Working/scratch state
@@ -537,7 +551,8 @@ void runPipelineFullBuffer(
 	bool apply_curves,
 	bool do_tonemapping,
 	bool allow_denoising,
-	MasterBufferCompleteLock* master_buffer_lock // Protects render_channels.  Passed in so we can manually release it before starting denoising.
+	MasterBufferCompleteLock* master_buffer_lock, // Protects render_channels.  Passed in so we can manually release it before starting denoising.
+	ShouldCancelCallback* should_cancel_callback
 )
 {
 	const Matrix3f input_to_sRGB = getInputToSRGBColourSpaceMatrix(input_in_XYZ_colourspace, renderer_settings.colour_space_converter);
@@ -767,6 +782,8 @@ void runPipelineFullBuffer(
 			// conPrint("Copying and scaling albedo and normals channel took " + timer.elapsedString());
 		}
 
+		oidnSetFilterProgressMonitorFunction(scratch_state.filter, glareOIDNProgressMonitorFunction, (void*)(should_cancel_callback));
+
 		// EXRDecoder::saveImageToEXR(scratch_state.albedo_im, /*save_alpha_channel=*/false, "albedo_im.exr", "main", EXRDecoder::SaveOptions());
 		// EXRDecoder::saveImageToEXR(scratch_state.normals_im, /*save_alpha_channel=*/false, "normals_im.exr", "main", EXRDecoder::SaveOptions());
 
@@ -781,8 +798,16 @@ void runPipelineFullBuffer(
 
 		// Check for errors
 		const char* errorMessage;
-		if (oidnGetDeviceError(scratch_state.denoise_device, &errorMessage) != OIDN_ERROR_NONE)
-			conPrint("OIDN Error: " + std::string(errorMessage));
+		const OIDNError error_code = oidnGetDeviceError(scratch_state.denoise_device, &errorMessage);
+		if(error_code != OIDN_ERROR_NONE)
+		{
+			if(error_code == OIDN_ERROR_CANCELLED)
+			{
+				// conPrint("OIDN denoising was cancelled.");
+			}
+			else
+				conPrint("OIDN Error: " + std::string(errorMessage));
+		}
 	}
 #endif
 
@@ -1535,7 +1560,8 @@ void runPipeline(
 	size_t subres_factor,
 	bool do_tonemapping,
 	bool allow_denoising,
-	MasterBufferCompleteLock* master_buffer_lock
+	MasterBufferCompleteLock* master_buffer_lock,
+	ShouldCancelCallback* should_cancel_callback
 	)
 {
 	ScopeProfiler _scope("ImagingPipeline::runPipeline", 1);
@@ -1600,7 +1626,7 @@ void runPipeline(
 	{
 		runPipelineFullBuffer(scratch_state, render_channels, channel, render_regions, ssf, layer_weights, image_scale, region_image_scale, region_alpha_bias, renderer_settings, resize_filter, post_pro_diffraction, // camera,
 							scratch_state.temp_summed_buffer, scratch_state.temp_AD_buffer,
-							ldr_buffer_out, input_in_XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves, do_tonemapping, allow_denoising, master_buffer_lock);
+							ldr_buffer_out, input_in_XYZ_colourspace, margin_ssf1, task_manager, curve_data, !skip_curves, do_tonemapping, allow_denoising, master_buffer_lock, should_cancel_callback);
 	}
 	else
 	{
