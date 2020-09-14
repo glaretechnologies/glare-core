@@ -72,7 +72,9 @@ RayMesh::RayMesh(const std::string& name_, bool enable_shading_normals_, unsigne
 	subdivision_smoothing(subdivision_smoothing_),
 	view_dependent_subdivision(view_dependent_subdivision_),
 	displacement_error_threshold(displacement_error_threshold_),
-	num_smoothings(2)
+	num_smoothings(2),
+	planar(false),
+	planar_normal(Vec4f(666.f))
 {
 	subdivide_and_displace_done = false;
 	vertex_shading_normals_provided = false;
