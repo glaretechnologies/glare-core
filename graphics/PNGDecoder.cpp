@@ -51,13 +51,13 @@ static const uint8 sRGB_profile_data[] = { 0, 0, 2, 80, 108, 99, 109, 115, 4, 48
 // png_set_keep_unknown_chunks(png_ptr, 1, NULL, 0);
 
 
-static void pngdecoder_error_func(png_structp png, const char* msg)
+static void pngdecoder_error_func(png_structp /*png*/, const char* msg)
 {
 	throw ImFormatExcep("LibPNG error: " + std::string(msg));
 }
 
 
-static void pngdecoder_warning_func(png_structp png, const char* msg)
+static void pngdecoder_warning_func(png_structp /*png*/, const char* /*msg*/)
 {
 	//const std::string* path = (const std::string*)png->error_ptr;
 	//conPrint("PNG Warning while loading file '" + *path + "': " + std::string(msg));
