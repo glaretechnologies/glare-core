@@ -372,6 +372,12 @@ INDIGO_STRONG_INLINE void storeVec4f(const Vec4f& v, float* const mem)
 }
 
 
+INDIGO_STRONG_INLINE void storeVec4fUnaligned(const Vec4f& v, float* const mem)
+{
+	_mm_storeu_ps(mem, v.v);
+}
+
+
 INDIGO_STRONG_INLINE const Vec4f mul(const Vec4f& a, const Vec4f& b)
 {
 	return Vec4f(_mm_mul_ps(a.v, b.v));

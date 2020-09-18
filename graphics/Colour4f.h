@@ -350,3 +350,29 @@ INDIGO_STRONG_INLINE const Colour4f abs(const Colour4f& a)
 	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff));
 	return Colour4f(_mm_and_ps(a.v, mask));
 }
+
+
+INDIGO_STRONG_INLINE Colour4f loadColour4f(const float* const data)
+{
+	assert(((uint64)data % 16) == 0); // Must be 16-byte aligned.
+	return Colour4f(_mm_load_ps(data));
+}
+
+
+INDIGO_STRONG_INLINE Colour4f loadUnalignedColour4f(const float* const data)
+{
+	return Colour4f(_mm_loadu_ps(data));
+}
+
+
+INDIGO_STRONG_INLINE void storeColour4f(const Colour4f& v, float* const mem)
+{
+	assert(((uint64)mem % 16) == 0); // Must be 16-byte aligned.
+	_mm_store_ps(mem, v.v);
+}
+
+
+INDIGO_STRONG_INLINE void storeColour4fUnaligned(const Colour4f& v, float* const mem)
+{
+	_mm_storeu_ps(mem, v.v);
+}
