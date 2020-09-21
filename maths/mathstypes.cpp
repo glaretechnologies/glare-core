@@ -499,16 +499,6 @@ void Maths::test()
 	testAssert(approxEq(1.0e15, 0.9999999e15));
 
 
-	testAssert(roundToInt(0.0) == 0);
-	testAssert(roundToInt(0.1) == 0);
-	testAssert(roundToInt(0.5) == 0 || roundToInt(0.5) == 1);
-	testAssert(roundToInt(0.51) == 1);
-	testAssert(roundToInt(0.9) == 1);
-	testAssert(roundToInt(1.0) == 1);
-	testAssert(roundToInt(1.1) == 1);
-	testAssert(roundToInt(1.9) == 2);
-
-
 	double one = 1.0;
 	//double zero = 0.0;
 	//testAssert(posOverflowed(one / zero));

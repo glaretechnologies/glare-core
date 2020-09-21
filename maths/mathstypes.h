@@ -280,33 +280,6 @@ inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
 }
 
 
-//see http://mega-nerd.com/FPcast/
-template <class Real>
-INDIGO_STRONG_INLINE int roundToInt(Real x)
-{
-	assert(x >= (Real)0.0);
-#if defined(_WIN32) && !defined(_WIN64)
-	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
-	/*int i;
-	_asm
-	{
-		fld x		; Push x onto FP stack
-		fistp i;	; convert to integer and store in i.
-	}
-	return i;*/
-#elif defined(_WIN64)
-	return int(x + Real(0.5)); //NOTE: this is probably incorrect for negative numbers.
-#else
-	//int i;
-	//NOTE: testme
-	//__asm__ __volatile__ ("fistpl %0" : "=m" (i) : "t" (x) : "st") ;
-	//return i;
-
-	return lrint(x);
-#endif
-}
-
-
 template <class VecType>
 INDIGO_STRONG_INLINE typename VecType::RealType absDot(const VecType& v1, const VecType& v2)
 {
