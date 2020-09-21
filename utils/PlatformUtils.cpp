@@ -97,7 +97,11 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 	GetSystemInfo(&system_info);
 	return system_info.dwNumberOfProcessors;*/
 #else
-	return sysconf(_SC_NPROCESSORS_CONF);
+	const long res = sysconf(_SC_NPROCESSORS_CONF);
+	if(res == -1)
+		return 1; // Error case
+	else
+		return (unsigned int)res;
 #endif
 }
 
