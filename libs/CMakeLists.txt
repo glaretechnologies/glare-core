@@ -1,5 +1,8 @@
 # indigo libs
 
+SET(LIB_ONLY_INCLUDE 1)
+include(../indigo_console/jpegturbo.cmake)
+
 set (fftsssrcdir "${fftssdir}/libfftss")
 
 set(fftss 
