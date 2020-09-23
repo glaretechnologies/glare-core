@@ -482,6 +482,8 @@ SOURCE_GROUP(embree\\rtcore\\bvh2 FILES ${embreertcorebvh2})
 SOURCE_GROUP(embree\\rtcore\\bvh4 FILES ${embreertcorebvh4})
 SOURCE_GROUP(embree\\rtcore\\common FILES ${embreertcorecommon})
 
+
+set(IGNORE_ALL_WARNINGS 1)
 include(../indigo_console/shared_cxx_settings.cmake)
 
 
