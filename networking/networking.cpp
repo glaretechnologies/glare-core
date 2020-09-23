@@ -167,7 +167,7 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 
 const std::string Networking::getHostName()
 {
-	char buf[2048];
+	char buf[256];
 	const int result = ::gethostname(buf, sizeof(buf));
 	if(result != 0)
 		throw NetworkingExcep("gethostname failed: " + getError());
