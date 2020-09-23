@@ -641,7 +641,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	//if(GLEW_ARB_debug_output)
 	{
 		// Enable error message handling,.
-		// See "Porting Source to Linux: Valve’s Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
+		// See "Porting Source to Linux: Valveï¿½s Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
 		glDebugMessageCallback(myMessageCallback, NULL); 
 		glEnable(GL_DEBUG_OUTPUT);
 	}
@@ -1773,7 +1773,7 @@ void OpenGLEngine::draw()
 
 			for(int ti=0; ti<shadow_mapping->numStaticDepthTextures(); ++ti)
 			{
-				const int frame_offset = ti * 4;
+				const uint64 frame_offset = ti * 4;
 				if(frame_num % 16 == frame_offset)
 				{
 					//conPrint("At frame " + toString(frame_num) + ", drawing static cascade " + toString(ti));
@@ -2067,7 +2067,7 @@ void OpenGLEngine::draw()
 	if(!selected_objects.empty())
 	{
 		// Make outline textures if they have not been created, or are the wrong size.
-		if(outline_tex_w != myMax(16, viewport_w) || outline_tex_h != myMax(16, viewport_h))
+		if(outline_tex_w != myMax<size_t>(16, viewport_w) || outline_tex_h != myMax<size_t>(16, viewport_h))
 		{
 			buildOutlineTextures();
 		}
