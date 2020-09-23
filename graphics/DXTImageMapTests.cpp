@@ -190,8 +190,8 @@ static void checkCompressionOnImage(Indigo::TaskManager& task_manager, const Ima
 	testAssert(dxt_image->getHeight() == H);
 	testAssert(dxt_image->getN() == N);
 
-	for(int x=0; x<W; ++x)
-		for(int y=0; y<H; ++y)
+	for(size_t x=0; x<W; ++x)
+		for(size_t y=0; y<H; ++y)
 		{
 			const Vec4i rgba = dxt_image->decodePixelRGBColour(x, y);
 

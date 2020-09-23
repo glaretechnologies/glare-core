@@ -141,7 +141,7 @@ static void perfTestWithMesh(const std::string& path)
 
 	const int compression_levels[] ={ 1, 3, 6 };// , 9, 20};
 
-	for(int i=0; i<staticArrayNumElems(compression_levels); ++i)
+	for(size_t i=0; i<staticArrayNumElems(compression_levels); ++i)
 	{
 		write_options.compression_level = compression_levels[i];
 

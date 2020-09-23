@@ -943,13 +943,13 @@ void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int
 		out.getPixel(z).x[3] = in.getPixel(z).x[3];
 
 
-		if(debug_output)
-		{
-			//writeImage(out, "out.exr");
-			//printImageStats(out, "out");
-		}
+	if(debug_output)
+	{
+		//writeImage(out, "out.exr");
+		//printImageStats(out, "out");
+	}
 
-		if(verbose) conPrint("\tlowResConvolve done.  elapsed: " + t.elapsedStringNPlaces(4));
+	if(verbose) conPrint("\tlowResConvolve done.  elapsed: " + t.elapsedStringNPlaces(4));
 
 }
 
@@ -1005,8 +1005,8 @@ void ImageFilter::convolveImageSpatial(const Image& in, const Image& filter, Ima
 	const int rpos_x = (int)filter.getWidth()  - rneg_x;
 	const int rpos_y = (int)filter.getHeight() - rneg_y;
 
-	assert(rneg_x + rpos_x == filter.getWidth());
-	assert(rneg_y + rpos_y == filter.getHeight());
+	assert(size_t(rneg_x + rpos_x) == filter.getWidth());
+	assert(size_t(rneg_y + rpos_y) == filter.getHeight());
 
 	const int W = (int)result_out.getWidth();
 	const int H = (int)result_out.getHeight();

@@ -66,7 +66,7 @@ void drawLine(Bitmap& bitmap, const Colour3f& colour, const Vec2f& start_, const
 				const float f_d = mn.eval(d);
 
 				// Update pixel
-				for(int z=0; z<bitmap.getBytesPP(); ++z)
+				for(size_t z=0; z<bitmap.getBytesPP(); ++z)
 				{
 					const uint8 val_i = bitmap.getPixel(xi, yi)[z];
 					const float val = (float)val_i;
@@ -115,7 +115,7 @@ void drawLine(Bitmap& bitmap, const Colour3f& colour, const Vec2f& start_, const
 				const float f_d = mn.eval(d);
 
 				// Update pixel
-				for(int z=0; z<bitmap.getBytesPP(); ++z)
+				for(size_t z=0; z<bitmap.getBytesPP(); ++z)
 				{
 					const uint8 val_i = bitmap.getPixel(xi, yi)[z];
 					const float val = (float)val_i;
