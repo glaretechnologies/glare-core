@@ -17,7 +17,6 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include "../utils/PlatformUtils.h"
 #include "../utils/Vector.h"
 #include "../utils/IncludeHalf.h"
-#include <ImfRgbaFile.h>
 #include <ImathBox.h>
 #include <fstream>
 #include <ImfStdIO.h>
@@ -25,7 +24,6 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include <ImfOutputFile.h>
 #include <ImfChannelList.h>
 #include <ImfRgbaFile.h>
-#include <ImathBox.h>
 #include <IlmThreadPool.h>
 
 /*

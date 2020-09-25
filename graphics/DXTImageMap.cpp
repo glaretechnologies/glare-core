@@ -6,12 +6,10 @@ Copyright Glare Technologies Limited 2019 -
 #include "DXTImageMap.h"
 
 
-#include "ImageMap.h"
 #include "DXTCompression.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
-#include "../utils/StringUtils.h"
 
 
 DXTImageMap::DXTImageMap()

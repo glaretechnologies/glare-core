@@ -8,11 +8,10 @@ Copyright Glare Technologies Limited 2019 -
 
 #include "Map2D.h"
 #include "Colour4f.h"
-#include "image.h"
 #include "ImageMap.h"
 #include "../utils/AllocatorVector.h"
-#include "../utils/Exception.h"
 namespace Indigo { class TaskManager; }
+class Image;
 
 
 /*=====================================================================

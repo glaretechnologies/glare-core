@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2020 -
 
 #include "RendererSettings.h"
 #include "DisplacementUtils.h"
+#include "../dll/include/IndigoException.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"

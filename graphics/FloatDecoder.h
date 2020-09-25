@@ -8,12 +8,9 @@ Code By Nicholas Chapman.
 #define __FLOATDECODER_H_666_
 
 
-#include <vector>
-#include <map>
 #include <string>
-#include "../utils/Reference.h"
 class Map2D;
-class Bitmap;
+template <class T> class Reference;
 
 
 /*=====================================================================

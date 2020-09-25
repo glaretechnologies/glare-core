@@ -6,9 +6,9 @@ Copyright Glare Technologies Limited 2019 -
 #pragma once
 
 
-#include "ImageMap.h"
-#include "../utils/TaskManager.h"
+#include "../utils/Task.h"
 #include <vector>
+namespace Indigo { class TaskManager; }
 
 
 namespace DXTCompression

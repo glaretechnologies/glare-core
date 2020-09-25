@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2020
 #include "BatchedMesh.h"
 #include "FormatDecoderGLTF.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/FileUtils.h"

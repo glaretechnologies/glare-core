@@ -34,6 +34,7 @@ Code By Nicholas Chapman.
 #include "../utils/StringUtils.h"
 #include "../utils/TaskManager.h"
 #include "../utils/StandardPrintOutput.h"
+#include "../dll/include/IndigoException.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
 #include <algorithm>

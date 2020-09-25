@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../indigo/TestUtils.h"
 #include "../indigo/TextureServer.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Exception.h"
