@@ -103,7 +103,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 			//}
 
 			// Read mipPadding
-			file.setReadIndex(Maths::roundUpToMultipleOfPowerOf2(file.getReadIndex(), 4ull));
+			file.setReadIndex(Maths::roundUpToMultipleOfPowerOf2(file.getReadIndex(), (size_t)4));
 		}
 
 		return image;
