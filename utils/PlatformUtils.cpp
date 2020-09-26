@@ -572,6 +572,26 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 }
 
 
+// Looks for a program given by program_filename in one of the directories listed in the PATH environment variable.
+// Returns the full path to the program if found, or throws PlatformUtilsExcep if not found.
+std::string PlatformUtils::findProgramOnPath(const std::string& program_filename)
+{
+	const std::string env_path = PlatformUtils::getEnvironmentVariable("PATH");
+#ifdef _WIN32
+	const std::vector<std::string> dirs = ::split(env_path, ';');
+#else
+	const std::vector<std::string> dirs = ::split(env_path, ':');
+#endif
+	for(size_t i=0; i<dirs.size(); ++i)
+	{
+		const std::string full_path = FileUtils::join(dirs[i], program_filename);
+		if(FileUtils::fileExists(full_path))
+			return full_path;
+	}
+	throw PlatformUtils::PlatformUtilsExcep("Couldn't find program '" + program_filename + "' on PATH.");
+}
+
+
 #if defined(_WIN32)
 
 // Windows implementation of getErrorStringForCode()

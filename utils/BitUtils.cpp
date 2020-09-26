@@ -77,6 +77,41 @@ void test()
 	for(uint32 z=0; z<63; ++z)
 		testAssert(highestSetBitIndex((uint64)1 << (uint64)z) == z);
 
+	//===================================== isBitSet =====================================
+	{
+		testAssert(!isBitSet(2, 1 << 0));
+		testAssert( isBitSet(2, 1 << 1));
+		testAssert(!isBitSet(2, 1 << 2));
+		testAssert(!isBitSet(2, 1 << 3));
+	}
+
+	//===================================== setBit =====================================
+	{
+		uint32 x = 0;
+		setBit(x, 1u << 7);
+
+		testAssert(x == 1u << 7);
+
+		setBit(x, 1u << 3);
+
+		testAssert(x == ((1u << 7) | (1u << 3)));
+
+		setBit(x, 1u << 31);
+
+		testAssert(x == ((1u << 7) | (1u << 3) | (1u << 31)));
+	}
+
+	//===================================== zeroBit =====================================
+	{
+		uint32 x = 1u << 7;
+		zeroBit(x, 1u << 7);
+		testAssert(x == 0);
+
+		x = (1u << 7) | (1u << 3);
+		zeroBit(x, 1u << 3);
+		testAssert(x == 1u << 7);
+	}
+
 	// Do a performance test of lowestSetBitIndex():
 	// On Nick's Ivy Bridge i7:
 	// sum: 9999985

@@ -46,6 +46,14 @@ namespace BitUtils
 
 	template <class T> 
 	inline bool isBitSet(const T x, const T bitflag);
+
+	// Sets the bit to 1, in place.
+	template <class T> 
+	inline void setBit(T& x, const T bitflag);
+
+	// Sets the bit to 0, in place.
+	template <class T> 
+	inline void zeroBit(T& x, const T bitflag);
 	
 
 	void test();
@@ -111,6 +119,20 @@ namespace BitUtils
 	bool isBitSet(const T x, const T bitflag)
 	{
 		return (x & bitflag) != 0;
+	}
+
+
+	template <class T> 
+	void setBit(T& x, const T bitflag)
+	{
+		x = x | bitflag;
+	}
+
+
+	template <class T> 
+	void zeroBit(T& x, const T bitflag)
+	{
+		x = x & ~bitflag; // AND with the bitwise negation of the bitflag.
 	}
 
 

@@ -104,6 +104,11 @@ NOTE: be very careful to only pass in valid paths here, or there will be massive
 void openFileBrowserWindowAtLocation(const std::string& select_path);
 
 
+// Looks for a program given by program_filename in one of the directories listed in the PATH environment variable.
+// Returns the full path to the program if found, or throws PlatformUtilsExcep if not found.
+std::string findProgramOnPath(const std::string& program_filename);
+
+
 #if defined(_WIN32)
 const std::string getErrorStringForCode(unsigned long error_code);
 
