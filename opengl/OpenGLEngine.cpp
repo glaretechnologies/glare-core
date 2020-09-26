@@ -49,6 +49,7 @@ static const bool MEM_PROFILE = false;
 
 // https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_filter_anisotropic.txt
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
+#define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
 
 
 OverlayObject::OverlayObject()
@@ -4604,8 +4605,8 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				const size_t level_h = myMax((size_t)1, compressed_image->getMapHeight() >> i);
 
 				// Check mipmap_level_data is the correct size for this mipmap level.
-				const size_t num_xblocks = Maths::roundedUpDivide(level_w, 4ull);
-				const size_t num_yblocks = Maths::roundedUpDivide(level_h, 4ull);
+				const size_t num_xblocks = Maths::roundedUpDivide(level_w, (size_t)4);
+				const size_t num_yblocks = Maths::roundedUpDivide(level_h, (size_t)4);
 				const size_t expected_size_B = num_xblocks * num_yblocks * 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
 				if(expected_size_B != compressed_image->mipmap_level_data[i].size())
 					throw Indigo::Exception("Compressed image data was wrong size.");
