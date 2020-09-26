@@ -21,6 +21,7 @@ Code By Nicholas Chapman.
 #include "FloatDecoder.h"
 #include "GifDecoder.h"
 #include "RGBEDecoder.h"
+#include "KTXDecoder.h"
 #include "../graphics/Map2D.h"
 
 
@@ -73,6 +74,10 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 	else if(hasExtension(path, "hdr"))
 	{
 		return RGBEDecoder::decode(path);
+	}
+	else if(hasExtension(path, "ktx"))
+	{
+		return KTXDecoder::decode(path);
 	}
 	else
 	{

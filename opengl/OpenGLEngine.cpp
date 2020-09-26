@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/BatchedMesh.h"
+#include "../graphics/CompressedImage.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../indigo/TestUtils.h"
@@ -668,6 +669,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
 		if(stringEqual(ext, "GL_EXT_texture_sRGB")) this->GL_EXT_texture_sRGB_support = true;
 		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->GL_EXT_texture_compression_s3tc_support = true;
+		// if(stringEqual(ext, "GL_ARB_texture_compression_bptc")) conPrint("GL_ARB_texture_compression_bptc supported");
 	}
 	
 
@@ -1207,7 +1209,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
 				}
 
-				if(object->materials[i].lightmap_texture.isNull() && object->materials[i].lightmap_path == path)
+				if(/*object->materials[i].lightmap_texture.isNull() && */object->materials[i].lightmap_path == path)
 				{
 					// conPrint("\tOpenGLEngine::textureLoaded(): Found object using '" + path + "'.");
 
@@ -4572,6 +4574,47 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			else
 				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
+		}
+		else // Else if this map has already been loaded into an OpenGL Texture:
+		{
+			return res->second;
+		}
+	}
+	else if(dynamic_cast<const CompressedImage*>(&map2d))
+	{
+		const CompressedImage* compressed_image = static_cast<const CompressedImage*>(&map2d);
+
+		auto res = this->opengl_textures.find(key);
+		if(res == this->opengl_textures.end())
+		{
+			// Load texture
+			//printVar(compressed_image->gl_internal_format);
+			//printVar(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT);
+
+			if(compressed_image->gl_internal_format != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
+				throw Indigo::Exception("Unhandled internal format for compressed image.");
+
+			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+			opengl_tex->makeGLTexture(OpenGLTexture::Format_Compressed_BC6);
+			opengl_tex->setTexParams(this, filtering);
+
+			for(size_t i=0; i<compressed_image->mipmap_level_data.size(); ++i)
+			{
+				const size_t level_w = myMax((size_t)1, compressed_image->getMapWidth()  >> i);
+				const size_t level_h = myMax((size_t)1, compressed_image->getMapHeight() >> i);
+
+				// Check mipmap_level_data is the correct size for this mipmap level.
+				const size_t num_xblocks = Maths::roundedUpDivide(level_w, 4ull);
+				const size_t num_yblocks = Maths::roundedUpDivide(level_h, 4ull);
+				const size_t expected_size_B = num_xblocks * num_yblocks * 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
+				if(expected_size_B != compressed_image->mipmap_level_data[i].size())
+					throw Indigo::Exception("Compressed image data was wrong size.");
+
+				opengl_tex->setMipMapLevelData((int)i, level_w, level_h, ArrayRef<uint8>(compressed_image->mipmap_level_data[i].data(), compressed_image->mipmap_level_data[i].size()));
+			}
+
+			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+			return opengl_tex;
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{

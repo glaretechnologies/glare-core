@@ -49,7 +49,8 @@ public:
 		Format_RGB_Linear_Half,
 		Format_Depth_Float,
 		Format_Compressed_SRGB_Uint8,
-		Format_Compressed_SRGBA_Uint8
+		Format_Compressed_SRGBA_Uint8,
+		Format_Compressed_BC6 // BC6 half-float unsigned format: e.g. GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
 	};
 
 	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format);

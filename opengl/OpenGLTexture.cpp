@@ -95,6 +95,12 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
+	case Format_Compressed_BC6:
+		assert(0); // getGLFormat() shouldn't be called for compressed formats
+		internal_format = GL_SRGB8;
+		gl_format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
+		break;
 	}
 }
 
@@ -307,16 +313,28 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 {
 	if(mipmap_level == 0)
 	{
-		xres = tex_xres;
-		yres = tex_yres;
+		this->xres = tex_xres;
+		this->yres = tex_yres;
 	}
 
-	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_BC6)
 	{
+		GLint internal_format = 0;
+		if(format == Format_Compressed_SRGB_Uint8)
+			internal_format = GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT;
+		else if(format == Format_Compressed_SRGBA_Uint8)
+			internal_format = GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT;
+		else if(format == Format_Compressed_BC6)
+			internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+		else
+		{
+			assert(0);
+		}
+
 		glCompressedTexImage2D(
 			GL_TEXTURE_2D,
 			mipmap_level, // LOD level
-			(format == Format_Compressed_SRGB_Uint8) ? GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, // internal format
+			internal_format,
 			(GLsizei)tex_xres, (GLsizei)tex_yres,
 			0, // border
 			(GLsizei)tex_data.size(),
