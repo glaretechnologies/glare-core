@@ -13,14 +13,13 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/StringUtils.h"
 
 
-CompressedImage::CompressedImage()
-:	width(0), height(0), N(0), gamma(2.2f)
-{
-}
-
-
 CompressedImage::CompressedImage(size_t width_, size_t height_, size_t N_)
-:	width(width_), height(height_), N(N_), gamma(2.2f), ds_over_2(0.5f / width_), dt_over_2(0.5f / height_)
+:	width(width_), height(height_), N(N_), gamma(2.2f), ds_over_2(0.5f / width_), dt_over_2(0.5f / height_),
+	gl_type(0),
+	gl_type_size(0),
+	gl_internal_format(0),
+	gl_format(0),
+	gl_base_internal_format(0)
 {
 	assert(N == 3 || N == 4);
 }
@@ -44,9 +43,6 @@ const Colour4f CompressedImage::vec3SampleTiled(Coord u, Coord v) const
 	assert(0);
 	return Colour4f(0.f);
 }
-
-
-static inline float scaleValue(float x) { return x * (1 / (Map2D::Value)255); } // Similar to UInt8ComponentValueTraits::scaleValue in ImageMap.h
 
 
 // Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)

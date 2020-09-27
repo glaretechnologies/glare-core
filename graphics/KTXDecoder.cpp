@@ -56,7 +56,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 		else
 			throw Indigo::Exception("invalid endianness value.");
 
-		const uint32 gl_type = readUInt32(file, swap_endianness);
+		const uint32 glType = readUInt32(file, swap_endianness);
 		const uint32 glTypeSize = readUInt32(file, swap_endianness);
 		const uint32 glFormat = readUInt32(file, swap_endianness);
 		const uint32 glInternalFormat = readUInt32(file, swap_endianness);
@@ -75,13 +75,20 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 		if(pixelDepth > 1)
 			throw Indigo::Exception("pixelDepth > 1 not supported.");
 
+		if(numberOfFaces != 1)
+			throw Indigo::Exception("numberOfFaces != 1 not supported.");
+
 		// Skip key-value data
 		file.setReadIndex(file.getReadIndex() + bytesOfKeyValueData);
 
 		const size_t N = 3;
 		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, N);
 
+		image->gl_type = glType;
+		image->gl_type_size = glTypeSize;
 		image->gl_internal_format = glInternalFormat;
+		image->gl_format = glFormat;
+		image->gl_base_internal_format = glBaseInternalFormat;
 
 		const uint32 use_num_mipmap_levels = myMax(1u, numberOfMipmapLevels);
 		image->mipmap_level_data.resize(use_num_mipmap_levels);

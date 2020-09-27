@@ -25,8 +25,7 @@ This class pretty much just holds compressed data, for uploading to OpenGL.
 class CompressedImage : public Map2D
 {
 public:
-	CompressedImage();
-	CompressedImage(size_t width, size_t height, size_t N); // throws Indigo::Exception
+	CompressedImage(size_t width, size_t height, size_t N);
 	virtual ~CompressedImage();
 
 	
@@ -86,7 +85,11 @@ public:
 	glare::AllocatorVector<glare::AllocatorVector<uint8, 16>, 16> mipmap_level_data;
 	float gamma, ds_over_2, dt_over_2;
 
+	uint32 gl_type;
+	uint32 gl_type_size;
 	uint32 gl_internal_format;
+	uint32 gl_format;
+	uint32 gl_base_internal_format;
 };
 
 
