@@ -130,10 +130,6 @@ void KTXDecoder::test()
 	{
 		Reference<Map2D> im;
 
-
-		im = KTXDecoder::decode("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\lightmap.ktx");
-
-		
 		im = KTXDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/ktx/lightmap_BC6H_no_mipmap.KTX");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
