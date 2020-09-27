@@ -344,6 +344,9 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 	}
 	else
 	{
+		// NOTE: currently we don't hit this code path, because we only explictly set mipmap level data for compressed images.
+		assert(0);
+
 		GLint internal_format;
 		GLenum gl_format, gl_type;
 		getGLFormat(format, internal_format, gl_format, gl_type);
@@ -361,8 +364,6 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 			gl_type, // type
 			tex_data.data()
 		);
-
-		glGenerateMipmap(GL_TEXTURE_2D);//TEMP
 	}
 }
 
