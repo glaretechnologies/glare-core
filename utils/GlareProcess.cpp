@@ -1,8 +1,7 @@
 /*=====================================================================
 Process.cpp
--------------------
-Copyright Glare Technologies Limited 2016 -
-Generated at 2016-05-08 19:24:12 +0100
+-----------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "GlareProcess.h"
 
@@ -144,6 +143,18 @@ Process::~Process()
 #if !defined(_WIN32)
 	if(fp)
 		pclose(fp);
+#endif
+}
+
+
+void Process::terminateProcess()
+{
+#if defined(_WIN32)
+	const BOOL res = TerminateProcess(this->process_handle.handle, /*exit-code=*/1);
+	if(!res)
+		throw Indigo::Exception("TerminateProcess Failed: " + PlatformUtils::getLastErrorString());
+#else
+	throw Indigo::Exception("Not implemented.");
 #endif
 }
 

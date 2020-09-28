@@ -1,18 +1,17 @@
 /*=====================================================================
 Process.h
--------------------
-Copyright Glare Technologies Limited 2016 -
-Generated at 2016-05-08 19:24:12 +0100
+---------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
 
-#include <string>
-#include <vector>
-#include <stdio.h>
 #include "IncludeWindows.h"
 #include "HandleWrapper.h"
 #include "ArrayRef.h"
+#include <string>
+#include <vector>
+#include <stdio.h>
 
 
 /*=====================================================================
@@ -21,6 +20,11 @@ Process
 Creates a process.  The standard output and standard error streams of the 
 process can then be read from, and the standard input stream of the process
 can be written to.
+
+Does not currently terminate the process in the Process destructor -
+so you may get 'zombie'/orphaned processes.
+
+Not fully implemented on Mac and Linux.
 =====================================================================*/
 class Process
 {
@@ -34,7 +38,11 @@ public:
 	Throws Indigo::Exception on failure.
 	*/
 	Process(const std::string& program_path, const std::vector<std::string>& command_line_args);
+
+	// Does not currently terminate the process in the destructor.
 	~Process();
+
+	void terminateProcess();
 
 	bool isStdOutReadable();
 
