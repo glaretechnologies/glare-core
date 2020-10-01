@@ -608,7 +608,7 @@ void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output)
 
 	//TEMP
 	// Draw results
-	{
+	/*{
 		PCG32 rng(1);
 		const int W = 1000;
 		Bitmap bitmap(W, W, 3, NULL);
@@ -636,7 +636,7 @@ void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output)
 		}
 
 		PNGDecoder::write(bitmap, "binpacking.png");
-	}
+	}*/
 
 
 	// Make a new UV set for the RayMesh.
