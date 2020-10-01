@@ -87,6 +87,9 @@ public:
 
 	struct VertAttribute
 	{
+		VertAttribute() {}
+		VertAttribute(VertAttributeType type_, ComponentType component_type_, size_t offset_B_) : type(type_), component_type(component_type_), offset_B(offset_B_) {}
+
 		VertAttributeType type;
 		ComponentType component_type;
 		size_t offset_B; // Offset of attribute in vertex data, in bytes.
