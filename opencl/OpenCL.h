@@ -209,6 +209,8 @@ private:
 };
 
 
+// If we failed to create the OpenCL object (for example if no OpenCL driver found)
+// returns NULL, and sets an error message that can be retrieved with getGlobalOpenCLLastErrorMsg().
 OpenCL* getGlobalOpenCL();
 void destroyGlobalOpenCL();
 std::string getGlobalOpenCLLastErrorMsg();
