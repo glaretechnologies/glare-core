@@ -1,8 +1,7 @@
 /*=====================================================================
 MiniDump.cpp
--------------------
-Copyright Glare Technologies Limited 2010 -
-Generated at 2011-07-08 17:47:01 +0100
+------------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "MiniDump.h"
 
@@ -29,20 +28,17 @@ MiniDump::MiniDumpResult MiniDump::checkForNewMiniDumps(const std::string& appda
 	{
 		const std::string minidump_dir = FileUtils::join(appdata_dir, "crash dumps");
 
-		const std::vector<std::string> filenames = FileUtils::getFilesInDir(minidump_dir);
-		for(size_t i=0; i<filenames.size(); ++i)
+		const std::vector<std::string> dmp_paths = FileUtils::getFilesInDirWithExtensionFullPaths(minidump_dir, "dmp");
+		for(size_t i=0; i<dmp_paths.size(); ++i)
 		{
-			if(::hasExtension(filenames[i], "dmp"))
-			{
-				const uint64 minidump_t = FileUtils::getFileCreatedTime(FileUtils::join(minidump_dir, filenames[i]));
+			const uint64 minidump_t = FileUtils::getFileCreatedTime(dmp_paths[i]);
 
-				if(minidump_t > most_recent_dump_creation_time) // If minidump is more recent than 'most_recent_dump_creation_time', return it
-				{
-					MiniDumpResult res;
-					res.path = FileUtils::join(minidump_dir, filenames[i]);
-					res.created_time = minidump_t;
-					return res;
-				}
+			if(minidump_t > most_recent_dump_creation_time) // If minidump is more recent than 'most_recent_dump_creation_time', return it
+			{
+				MiniDumpResult res;
+				res.path = dmp_paths[i];
+				res.created_time = minidump_t;
+				return res;
 			}
 		}
 
