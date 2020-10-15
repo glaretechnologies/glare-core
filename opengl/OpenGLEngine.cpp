@@ -605,7 +605,7 @@ void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog
 	if(shadow_mapping_enabled)
 	{
 		phong_locations_out.dynamic_depth_tex_location		= phong_prog->getUniformLocation("dynamic_depth_tex");
-		phong_locations_out.static_depth_tex_location			= phong_prog->getUniformLocation("static_depth_tex");
+		phong_locations_out.static_depth_tex_location		= phong_prog->getUniformLocation("static_depth_tex");
 		phong_locations_out.shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
 	}
 }
