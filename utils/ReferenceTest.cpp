@@ -385,8 +385,8 @@ void run()
 
 		const Reference<BaseClass> ref(new DerivedClass());
 
-		int x = ref.downcast<DerivedClass>()->derived_x;
-		printVar(x);
+		ref.downcast<DerivedClass>()->derived_x = 1;
+		printVar(ref.downcast<DerivedClass>()->derived_x);
 	}
 
 	{
@@ -398,6 +398,27 @@ void run()
 
 		// This gives a compile error, as it should:
 		//ref.downcast<DerivedClass>()->derived_x++;
+	}
+
+
+	///////////// Test downcastToPtr from a const Reference //////////////////////////////
+	{
+
+		const Reference<BaseClass> ref(new DerivedClass());
+
+		DerivedClass* derived_ptr = ref.downcastToPtr<DerivedClass>();
+		derived_ptr->derived_x = 1;
+	}
+
+	{
+
+		const Reference<const BaseClass> ref(new DerivedClass());
+
+		const DerivedClass* derived_ptr = ref.downcastToPtr<const DerivedClass>();
+		printVar(derived_ptr->derived_x);
+
+		// This gives a compile error, as it should:
+		//ref.downcastToPtr<DerivedClass>()->derived_x++;
 	}
 
 
