@@ -186,18 +186,18 @@ public:
 
 
 	template <class T2>
-	inline const T2* downcastToPtr() const
+	inline T2* downcastToPtr() const
 	{
 #ifdef _WIN32
 #ifdef _CPPRTTI 
-		assert(dynamic_cast<const T2*>(ob));
+		assert(dynamic_cast<T2*>(ob));
 #endif
 #else
 #ifdef __GXX_RTTI
-		assert(dynamic_cast<const T2*>(ob));
+		assert(dynamic_cast<T2*>(ob));
 #endif
 #endif
-		return static_cast<const T2*>(ob);
+		return static_cast<T2*>(ob);
 	}
 
 	template <class T2>
