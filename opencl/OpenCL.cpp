@@ -146,6 +146,7 @@ void OpenCL::libraryInit()
 	this->clGetPlatformInfo = ::clGetPlatformInfo;
 	this->clGetDeviceIDs = ::clGetDeviceIDs;
 	this->clGetDeviceInfo = ::clGetDeviceInfo;
+	this->clCreateContext = ::clCreateContext;
 	this->clCreateContextFromType = ::clCreateContextFromType;
 	this->clReleaseContext = ::clReleaseContext;
 	this->clCreateCommandQueue = ::clCreateCommandQueue;
