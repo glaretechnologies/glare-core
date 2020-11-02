@@ -56,7 +56,9 @@ public:
 
 	bool isProcessAlive(); // Has process not been terminated yet?
 
-	int getExitCode(); // Throws exception if process not terminated.
+	// Get the exit/return code from a terminated process.
+	// May throw an exception if the process has not terminated.  Note: this is not required to block until the process has terminated, only use when you know the process has terminated.
+	int getExitCode();
 
 	void readAllRemainingStdOutAndStdErr(std::string& stdout_out, std::string& stderr_out);
 

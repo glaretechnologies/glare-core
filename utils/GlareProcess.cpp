@@ -255,7 +255,7 @@ bool Process::isProcessAlive()
 }
 
 
-int Process::getExitCode() // Throws exception if process not terminated.
+int Process::getExitCode()
 {
 #if defined(_WIN32)
 	DWORD exit_code;
