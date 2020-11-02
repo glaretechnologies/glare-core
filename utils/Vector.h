@@ -85,7 +85,7 @@ public:
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 
-	void erase(size_t index);
+	inline void erase(iterator index);
 
 private:
 	T* e; // Elements
@@ -645,8 +645,9 @@ typename Vector<T, alignment>::const_iterator Vector<T, alignment>::end() const
 
 
 template <class T, size_t alignment>
-void Vector<T, alignment>::erase(size_t index)
+void Vector<T, alignment>::erase(iterator position)
 {
+	const size_t index = position - begin();
 	const size_t curr_size = size();
 	if(curr_size == 0)
 		return;
