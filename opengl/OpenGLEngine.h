@@ -89,6 +89,7 @@ public:
 struct OpenGLUniformVal // variant class
 {
 	OpenGLUniformVal() {}
+	OpenGLUniformVal(int i) : intval(i) {}
 	union
 	{
 		Vec3f vec3;
@@ -391,7 +392,7 @@ public:
 	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
 		float lens_shift_right_distance);
 
-	void setIdentityCameraTransform();
+	void setIdentityCameraTransform(); // See also use_z_up to use z-up like opengl.
 	//----------------------------------------------------------------------------------------
 
 
