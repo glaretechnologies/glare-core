@@ -1062,7 +1062,7 @@ const js::AABBox& BVH::getAABBoxWS() const
 
 size_t BVH::getTotalMemUsage() const
 {
-	return leafgeom.dataSizeBytes() + intersect_tris.size()*sizeof(INTERSECT_TRI_TYPE);
+	return sizeof(root_aabb) + nodes.capacitySizeBytes() + leafgeom.capacitySizeBytes() + intersect_tris.capacity()*sizeof(INTERSECT_TRI_TYPE);
 }
 
 
