@@ -29,7 +29,10 @@ class PrintOutput;
 class Matrix4f;
 class Material;
 class ShouldCancelCallback;
+class TransformPath;
 namespace Indigo { class TaskManager; }
+struct RTCSceneTy;
+struct RTCDeviceTy;
 
 
 /*=====================================================================
@@ -63,6 +66,8 @@ public:
 	virtual const std::string getName() const = 0;
 
 	virtual const js::AABBox getAABBox() const = 0;
+
+	virtual const js::AABBox getTightAABBoxWS(const TransformPath& transform_path) const { return getAABBox(); }
 
 	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
 	
@@ -114,10 +119,14 @@ public:
 
 	struct BuildOptions
 	{
-		BuildOptions() : build_small_bvh(false) {}
+		BuildOptions() : build_small_bvh(false), embree_device(NULL) {}
 		bool build_small_bvh;
+		struct RTCDeviceTy* embree_device; // Used in EmbreeAccel::build()
 	};
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
+
+	// Gets the built embree scene
+	virtual struct RTCSceneTy* getEmbreeScene() { return NULL; }
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 

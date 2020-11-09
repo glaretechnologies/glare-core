@@ -164,6 +164,7 @@ public:
 	void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const;
 	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const js::AABBox getAABBox() const;
+	virtual const js::AABBox getTightAABBoxWS(const TransformPath& transform_path) const;
 	
 	virtual const Vec3Type getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const;
 	virtual void getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_out, Vec3RealType& pos_os_abs_error_out, Vec3Type& N_g_out) const;
@@ -188,6 +189,7 @@ public:
 		ShouldCancelCallback* should_cancel_callback);
 
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
+	virtual struct RTCSceneTy* getEmbreeScene();
 	virtual const std::string getName() const;
 	virtual float meanCurvature(const HitInfo& hitinfo) const;
 	virtual bool isPlanar(Vec4f& normal_out) const;

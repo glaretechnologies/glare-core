@@ -4,10 +4,6 @@ raymesh.cpp
 Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 =====================================================================*/
-#ifndef NO_EMBREE
-#include "../indigo/EmbreeAccel.h"
-#endif
-
 #include "raymesh.h"
 
 
@@ -15,6 +11,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../indigo/TestUtils.h"
 #include "../indigo/material.h"
 #include "../indigo/RendererSettings.h"
+#include "../indigo/TransformPath.h"
 #include "../graphics/BatchedMesh.h"
 #include "../raytracing/hitinfo.h"
 #include "../physics/BVH.h"
@@ -36,6 +33,9 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "../utils/Timer.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
+#ifndef NO_EMBREE
+#include "../indigo/EmbreeAccel.h"
+#endif
 #include <fstream>
 #include <algorithm>
 
@@ -141,6 +141,31 @@ const js::AABBox RayMesh::getAABBox() const
 		for(size_t v=0; v<vertices.size(); ++v)
 			box.enlargeToHoldPoint(vertices[v].pos.toVec4fPoint());
 		return box;
+	}
+}
+
+
+const js::AABBox RayMesh::getTightAABBoxWS(const TransformPath& transform_path) const
+{
+	if(transform_path.isDynamicPath())
+		return transform_path.worldSpaceAABB(this->getAABBox());
+	else
+	{
+		return transform_path.worldSpaceAABB(this->getAABBox());//TEMP
+		
+		/*const Matrix4f to_world = transform_path.getStaticToWorldMatrix();
+
+		js::AABBox box_ws = js::AABBox::emptyAABBox();
+		const size_t vertices_size = vertices.size();
+		for(size_t v=0; v<vertices_size; ++v)
+		{
+			const Vec4f vpos = loadUnalignedVec4f(&vertices[v].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+			box_ws.enlargeToHoldPoint(to_world.mul3Point(vpos));
+
+			//box_ws.enlargeToHoldPoint(to_world.mul3Point(vertices[v].pos.toVec4fPoint()));
+		}
+
+		return box_ws;*/
 	}
 }
 
@@ -838,65 +863,18 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 	}
 	// conPrint("RayMesh::build, name=" + name + ", planar: " + boolToString(planar));
 
-	
-#ifndef NO_EMBREE
-	//bool try_spatial = false;
-	bool embree_spatial = false;
-
-	/*if(try_spatial)
-	{
-		// Estimate memory usage for the embree accelerator and try to allocate it
-		size_t embree_spatial_mem = EmbreeAccel::estimateSpatialBuildMemoryUsage(triangles.size());
-		//std::cout << "Estimated embree spatial build memory usage: " << (embree_spatial_mem / 1024) << " kb" << std::endl;
-		try
-		{
-			char *big_mem = new char[embree_spatial_mem];
-			if(big_mem != NULL)
-			{
-				delete [] big_mem;
-				embree_mem_ok = true; // Flag that we can allocate enough memory,
-				embree_spatial = true; //  for the spatial BVH builder
-			}
-		}
-		catch(std::bad_alloc&)
-		{
-		}
-	}
-
-	if(!embree_spatial) // If we failed to allocate enough memory for the spatial BVH, try non-spatial
-	{
-		size_t embree_mem = EmbreeAccel::estimateBuildMemoryUsage(triangles.size());
-		//std::cout << "Estimated embree non-spatial build memory usage: " << (embree_mem / 1024) << " kb" << std::endl;
-		try
-		{
-			char* big_mem = new char[embree_mem];
-			delete[] big_mem;
-			embree_mem_ok = true; // Flag that we can allocate enough memory,
-			embree_spatial = false; // but not for the spatial BVH builder
-		}
-		catch(std::bad_alloc&)
-		{
-			print_output.print("Warning: insufficient memory for fast BVH");
-		}
-	}*/
-#endif
-
 	if(options.build_small_bvh)
 	{
 		tritree = new js::SmallBVH(this);
 	}
 	else
 	{
-#ifndef NO_EMBREE
-		if(triangles.size() < (1 << 26)) // 1 << 26 = 67108864 tris
-		{
-			tritree = new EmbreeAccel(this, embree_spatial);
-		}
-		else
+#ifdef NO_EMBREE
+#error NO_EMBREE not supported right now
+#else
+		assert(options.embree_device);
+		tritree = new EmbreeAccel(options.embree_device, this);
 #endif
-		{
-			tritree = new js::BVH(this);
-		}
 	}
 
 
@@ -932,6 +910,15 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 	}
 
 	if(verbose) print_output.print("Done Building Mesh. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
+}
+
+
+struct RTCSceneTy* RayMesh::getEmbreeScene()
+{
+	if(dynamic_cast<EmbreeAccel*>(this->tritree))
+		return static_cast<EmbreeAccel*>(this->tritree)->embree_scene;
+	else
+		return NULL;
 }
 
 

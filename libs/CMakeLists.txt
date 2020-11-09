@@ -441,18 +441,6 @@ FILE(GLOB zstandard
 )
 
 
-FILE(GLOB embreecommonsys "../embree/common/sys/*.cpp")# "common/sys/*.h")
-FILE(GLOB embreecommonsysstl "../embree/common/sys/stl/*.cpp")# "common/sys/stl/*.h")
-FILE(GLOB embreecommonsyssync "../embree/common/sys/sync/*.cpp")# "common/sys/sync/*.h")
-FILE(GLOB embreecommonmath "../embree/common/math/*.h")
-FILE(GLOB embreecommonsimd "../embree/common/simd/*.h")
-
-FILE(GLOB embreertcore "../embree/rtcore/*.cpp")# "rtcore/*.h")
-FILE(GLOB embreertcorebvh2 "../embree/rtcore/bvh2/*.cpp")# "rtcore/bvh2/*.h")
-FILE(GLOB embreertcorebvh4 "../embree/rtcore/bvh4/*.cpp")# "rtcore/bvh4/*.h")
-FILE(GLOB embreertcorecommon "../embree/rtcore/common/*.cpp")# "rtcore/common/*.h")
-
-
 #SOURCE_GROUP(fftss FILES ${fftss})
 SOURCE_GROUP(ilmbase FILES ${ilmbase})
 SOURCE_GROUP(ilmthread FILES ${ilmthread})
@@ -467,20 +455,6 @@ SOURCE_GROUP(pugixml FILES ${pugixml})
 SOURCE_GROUP(giflib FILES ${giflib})
 SOURCE_GROUP(little_cms FILES ${little_cms})
 SOURCE_GROUP(zstandard FILES ${zstandard})
-
-#Embree:
-SOURCE_GROUP(embree\\common)
-SOURCE_GROUP(embree\\common\\image FILES ${embreecommonimage})
-SOURCE_GROUP(embree\\common\\sys FILES ${embreecommonsys})
-SOURCE_GROUP(embree\\common\\sys\\stl FILES ${embreecommonsysstl})
-SOURCE_GROUP(embree\\common\\sys\\sync FILES ${embreecommonsyssync})
-SOURCE_GROUP(embree\\common\\math FILES ${embreecommonmath})
-SOURCE_GROUP(embree\\common\\simd FILES ${embreecommonsimd})
-
-SOURCE_GROUP(embree\\rtcore FILES ${embreertcore})
-SOURCE_GROUP(embree\\rtcore\\bvh2 FILES ${embreertcorebvh2})
-SOURCE_GROUP(embree\\rtcore\\bvh4 FILES ${embreertcorebvh4})
-SOURCE_GROUP(embree\\rtcore\\common FILES ${embreertcorecommon})
 
 
 set(IGNORE_ALL_WARNINGS 1)
@@ -517,16 +491,6 @@ ${pugixml}
 ${giflib}
 ${little_cms}
 ${zstandard}
-${embreecommonimage}
-${embreecommonsys}
-${embreecommonsysstl}
-${embreecommonsyssync}
-${embreecommonmath}
-${embreecommonsimd}
-${embreertcore}
-${embreertcorebvh2}
-${embreertcorebvh4}
-${embreertcorecommon}
 )
 
 

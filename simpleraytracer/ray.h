@@ -70,7 +70,7 @@ public:
 
 	static void test();
 
-private:
+//private:
 	Vec4f startpos_f;
 	Vec4f unitdir_f;
 	Vec4f recip_unitdir_f;
