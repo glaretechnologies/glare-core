@@ -57,9 +57,19 @@ public:
 	// Throws Indigo::CancelledException if cancelled.
 	void build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose);
 
+	void printStats();
+
 //private:
 	int32 root_node_index;
 	js::Vector<const Object*, 16> objects;
 	js::Vector<BVHObjectTreeNode, 64> nodes;
 	js::Vector<const Object*, 16> leaf_objects;
+
+
+	// stats
+	mutable uint64 num_traceray_calls;
+	mutable uint64 num_interior_nodes_traversed;
+	mutable uint64 num_leaf_nodes_traversed;
+	mutable uint64 num_object_traceray_calls;
+	mutable uint64 num_hit_opaque_ob_early_outs;
 };

@@ -18,11 +18,24 @@ Generated at 2012-11-10 19:47:32 +0000
 #include <limits>
 
 
+//#define COLLECT_STATS 1
+#if COLLECT_STATS
+#define DO_COLLECT(x) do { x } while(0);
+#else
+#define DO_COLLECT(x)
+#endif
+
 
 BVHObjectTree::BVHObjectTree()
 :	root_node_index(0)
 {
 	static_assert(sizeof(BVHObjectTreeNode) == 64, "sizeof(BVHObjectTreeNode) == 64");
+
+	num_traceray_calls = 0;
+	num_interior_nodes_traversed = 0;
+	num_leaf_nodes_traversed = 0;
+	num_object_traceray_calls = 0;
+	num_hit_opaque_ob_early_outs = 0;
 }
 
 
@@ -40,6 +53,8 @@ static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b )
 BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray_, ThreadContext& thread_context, double time, 
 		const Object*& hitob_out, HitInfo& hitinfo_out) const
 {
+	DO_COLLECT(num_traceray_calls++;)
+
 	Ray ray = ray_;
 	hitob_out = NULL;
 	HitInfo ob_hit_info;
@@ -61,7 +76,8 @@ BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray_, ThreadContext& thre
 
 	// Near_far will store current ray segment as (near, near, -far, -far)
 	Vec4f near_far(ray.minT(), ray.minT(), -ray.maxT(), -ray.maxT());
-
+	
+	// Basically if the ray dir x is negative, to get the (near, far) distances to a child AABB, we want to swap the child min and max coords
 	const Vec4i identity(	_mm_set_epi8(15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1, 0));
 	const Vec4i swap(		_mm_set_epi8( 7,  6,  5,  4,  3,  2,  1,  0, 15, 14, 13, 12, 11, 10,  9, 8));
 
@@ -84,6 +100,8 @@ stack_pop:
 		
 		while(cur >= 0) // While this is a proper interior node:
 		{
+			DO_COLLECT(num_interior_nodes_traversed++;)
+
 			const BVHObjectTreeNode& node = nodes[cur];
 			
 			// Intersect with the node bounding boxes
@@ -188,6 +206,7 @@ stack_pop:
 		}
 
 		// current node is a leaf.  Intersect objects.
+		DO_COLLECT(num_leaf_nodes_traversed++;)
 		cur ^= 0x80000000; // Zero sign bit
         const size_t ofs = size_t(cur) >> 5;
         const size_t num = size_t(cur) & 0x1F;
@@ -202,6 +221,8 @@ stack_pop:
 				ob_hit_info
 			);
 
+			DO_COLLECT(num_object_traceray_calls++;)
+
 			if(dist >= 0)
 			{
 				assert(dist <= ray.maxT());
@@ -214,6 +235,7 @@ stack_pop:
 				if(shadow_trace && ob_hit_info.hit_opaque_ob)
 				{
 					assert(hitinfo_out.hit_opaque_ob);
+					DO_COLLECT(num_hit_opaque_ob_early_outs++;)
 					return dist;
 				}
 
@@ -351,4 +373,18 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallbac
 		print_output.print("\tNum objects: " + toString(objects_size));
 		
 	print_output.print("Object tree build done. (Time Taken: " + timer.elapsedStringNPlaces(3) + ")");
+}
+
+
+void BVHObjectTree::printStats()
+{
+	conPrint("num_traceray_calls:           " + toString(num_traceray_calls));
+	const double av_num_interior_nodes_traversed = num_interior_nodes_traversed / (double)num_traceray_calls;
+	const double av_num_leaf_nodes_traversed     = num_leaf_nodes_traversed     / (double)num_traceray_calls;
+	const double av_num_object_traceray_calls    = num_object_traceray_calls    / (double)num_traceray_calls;
+	const double av_num_hit_opaque_ob_early_outs = num_hit_opaque_ob_early_outs / (double)num_traceray_calls;
+	conPrint("av_num_interior_nodes_traversed: " + toString(av_num_interior_nodes_traversed));
+	conPrint("av_num_leaf_nodes_traversed:     " + toString(av_num_leaf_nodes_traversed));
+	conPrint("av_num_object_traceray_calls:    " + toString(av_num_object_traceray_calls));
+	conPrint("av_num_hit_opaque_ob_early_outs: " + toString(av_num_hit_opaque_ob_early_outs));
 }
