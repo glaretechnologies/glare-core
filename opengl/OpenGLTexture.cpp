@@ -21,7 +21,8 @@
 OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
 	xres(0),
-	yres(0)
+	yres(0),
+	loaded_size(0)
 {
 }
 
@@ -208,6 +209,7 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	this->format = format_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
+	this->loaded_size = tex_data.size(); // NOTE: wrong for empty tex_data case (e.g. for shadow mapping textures)
 
 	if(texture_handle == 0)
 	{
@@ -317,6 +319,7 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 		this->xres = tex_xres;
 		this->yres = tex_yres;
 	}
+	this->loaded_size += tex_data.size();
 
 	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_BC6)
 	{
@@ -405,4 +408,10 @@ void OpenGLTexture::setTexParams(const Reference<OpenGLEngine>& opengl_engine,
 	{
 		assert(0);
 	}
+}
+
+
+size_t OpenGLTexture::getByteSize() const
+{
+	return this->loaded_size;
 }

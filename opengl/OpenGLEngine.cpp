@@ -52,6 +52,47 @@ static const bool MEM_PROFILE = false;
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
 
 
+
+size_t GLMemUsage::totalCPUUsage() const
+{
+	return texture_cpu_usage + geom_cpu_usage;
+}
+
+
+size_t GLMemUsage::totalGPUUsage() const
+{
+	return texture_gpu_usage + geom_gpu_usage;
+}
+
+
+void GLMemUsage::operator += (const GLMemUsage& other)
+{
+	texture_cpu_usage += other.texture_cpu_usage;
+	texture_gpu_usage += other.texture_gpu_usage;
+	geom_cpu_usage += other.geom_cpu_usage;
+	geom_gpu_usage += other.geom_gpu_usage;
+}
+
+
+GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
+{
+	GLMemUsage usage;
+	usage.geom_cpu_usage =
+		vert_data.capacitySizeBytes() +
+		vert_index_buffer.capacitySizeBytes() +
+		vert_index_buffer_uint16.capacitySizeBytes() +
+		vert_index_buffer_uint8.capacitySizeBytes() +
+		vert_index_buffer_uint8.capacitySizeBytes() +
+		(batched_mesh.nonNull() ? batched_mesh->getTotalMemUsage() : 0);
+
+	usage.geom_gpu_usage = 
+		(vert_vbo.nonNull() ? vert_vbo->getSize() : 0) +
+		(vert_indices_buf.nonNull() ? vert_indices_buf->getSize() : 0);
+
+	return usage;
+}
+
+
 OverlayObject::OverlayObject()
 {
 	material.albedo_rgb = Colour3f(1.f);
@@ -1063,6 +1104,17 @@ void OpenGLScene::unloadAllData()
 }
 
 
+GLMemUsage OpenGLScene::getTotalMemUsage() const
+{
+	GLMemUsage sum;
+	for(auto i = objects.begin(); i != objects.end(); ++i)
+	{
+		sum += (*i)->mesh_data->getTotalMemUsage();
+	}
+	return sum;
+}
+
+
 void OpenGLEngine::unloadAllData()
 {
 	for(auto i = scenes.begin(); i != scenes.end(); ++i)
@@ -1151,6 +1203,7 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 }
 
 
+// Notify the OpenGL engine that a texture has been loaded.
 void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key)
 {
 	// conPrint("textureLoaded(): path: " + path);
@@ -3248,6 +3301,23 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 }
 
 
+inline static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
+{
+	switch(t)
+	{
+	case BatchedMesh::ComponentType_Float:			return GL_FLOAT;
+	case BatchedMesh::ComponentType_Half:			return GL_HALF_FLOAT;
+	case BatchedMesh::ComponentType_UInt8:			return GL_UNSIGNED_BYTE;
+	case BatchedMesh::ComponentType_UInt16:			return GL_UNSIGNED_SHORT;
+	case BatchedMesh::ComponentType_UInt32:			return GL_UNSIGNED_INT;
+	case BatchedMesh::ComponentType_PackedNormal:	return GL_INT_2_10_10_10_REV;
+	};
+	assert(0);
+	return 1;
+}
+
+
+
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls)
 {
 	if(mesh_->index_data.empty())
@@ -3259,20 +3329,14 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 
 	Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
 
-	switch(mesh->index_type)
+	if(	mesh->index_type == BatchedMesh::ComponentType_UInt8 || 
+		mesh->index_type == BatchedMesh::ComponentType_UInt16 ||
+		mesh->index_type == BatchedMesh::ComponentType_UInt32)
 	{
-	case BatchedMesh::ComponentType_UInt8:
-		opengl_render_data->index_type = GL_UNSIGNED_BYTE;
-		break;
-	case BatchedMesh::ComponentType_UInt16:
-		opengl_render_data->index_type = GL_UNSIGNED_SHORT;
-		break;
-	case BatchedMesh::ComponentType_UInt32:
-		opengl_render_data->index_type = GL_UNSIGNED_INT;
-		break;
-	default:
-		throw Indigo::Exception("OpenGLEngine::buildBatchedMesh(): Invalid index type.");
+		opengl_render_data->index_type = componentTypeGLEnum(mesh->index_type);
 	}
+	else
+		throw Indigo::Exception("OpenGLEngine::buildBatchedMesh(): Invalid index type.");
 
 
 	// Make OpenGL batches
@@ -3301,7 +3365,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	VertexAttrib pos_attrib;
 	pos_attrib.enabled = true;
 	pos_attrib.num_comps = 3;
-	pos_attrib.type = GL_FLOAT;
+	pos_attrib.type = componentTypeGLEnum(pos_attr->component_type);
 	pos_attrib.normalised = false;
 	pos_attrib.stride = num_bytes_per_vert;
 	pos_attrib.offset = (uint32)pos_attr->offset_B;
@@ -3325,7 +3389,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	VertexAttrib uv_attrib;
 	uv_attrib.enabled = uv0_attr != NULL;
 	uv_attrib.num_comps = 2;
-	uv_attrib.type = uv0_attr ? ((uv0_attr->component_type == BatchedMesh::ComponentType_Half) ? GL_HALF_FLOAT : GL_FLOAT) : GL_FLOAT;
+	uv_attrib.type = uv0_attr ? componentTypeGLEnum(uv0_attr->component_type) : GL_FLOAT;
 	uv_attrib.normalised = false;
 	uv_attrib.stride = num_bytes_per_vert;
 	uv_attrib.offset = (uint32)(uv0_attr ? uv0_attr->offset_B : 0);
@@ -3334,7 +3398,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	VertexAttrib colour_attrib;
 	colour_attrib.enabled = colour_attr != NULL;
 	colour_attrib.num_comps = 3;
-	colour_attrib.type = GL_FLOAT;
+	colour_attrib.type = colour_attr ? componentTypeGLEnum(colour_attr->component_type) : GL_FLOAT;
 	colour_attrib.normalised = false;
 	colour_attrib.stride = num_bytes_per_vert;
 	colour_attrib.offset = (uint32)(colour_attr ? colour_attr->offset_B : 0);
@@ -3343,7 +3407,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	VertexAttrib lightmap_uv_attrib;
 	lightmap_uv_attrib.enabled = uv1_attr != NULL;
 	lightmap_uv_attrib.num_comps = 2;
-	lightmap_uv_attrib.type = uv1_attr ? ((uv1_attr->component_type == BatchedMesh::ComponentType_Half) ? GL_HALF_FLOAT : GL_FLOAT) : GL_FLOAT;
+	lightmap_uv_attrib.type = uv1_attr ? componentTypeGLEnum(uv1_attr->component_type) : GL_FLOAT;
 	lightmap_uv_attrib.normalised = false;
 	lightmap_uv_attrib.stride = num_bytes_per_vert;
 	lightmap_uv_attrib.offset = (uint32)(uv1_attr ? uv1_attr->offset_B : 0);
@@ -3419,6 +3483,8 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 	data.vert_index_buffer_uint8.clearAndFreeMem();
 	data.vert_index_buffer_uint16.clearAndFreeMem();
 	data.vert_index_buffer.clearAndFreeMem();
+
+	data.batched_mesh = NULL;
 }
 
 
@@ -4725,4 +4791,29 @@ void OpenGLEngine::removeScene(const Reference<OpenGLScene>& scene)
 void OpenGLEngine::setCurrentScene(const Reference<OpenGLScene>& scene)
 {
 	current_scene = scene;
+}
+
+
+GLMemUsage OpenGLEngine::getTotalMemUsage() const
+{
+	GLMemUsage sum;
+
+	for(auto it=scenes.begin(); it != scenes.end(); ++it)
+	{
+		Reference<OpenGLScene> scene = *it;
+		sum += scene->getTotalMemUsage();
+	}
+
+	//----------- texture_data_manager  ----------
+	const size_t tex_cpu_usage = texture_data_manager->getTotalMemUsage();
+	sum.texture_cpu_usage += tex_cpu_usage;
+
+	//----------- opengl_textures  ----------
+	for(auto i = opengl_textures.begin(); i != opengl_textures.end(); ++i)
+	{
+		const size_t tex_gpu_usage = i->second->getByteSize();
+		sum.texture_gpu_usage += tex_gpu_usage;
+	}
+
+	return sum;
 }

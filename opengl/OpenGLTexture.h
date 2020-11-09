@@ -73,6 +73,8 @@ public:
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }
 
+	size_t getByteSize() const;
+
 	GLuint texture_handle;
 
 private:
@@ -82,6 +84,8 @@ private:
 	Format format;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
+
+	size_t loaded_size;
 };
 
 

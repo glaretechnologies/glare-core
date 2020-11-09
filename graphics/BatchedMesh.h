@@ -118,6 +118,8 @@ public:
 
 	size_t numMaterialsReferenced() const;
 
+	size_t getTotalMemUsage() const;
+
 
 
 	std::vector<VertAttribute> vert_attributes;

@@ -59,6 +59,8 @@ public:
 	void removeTextureData(const std::string& key);
 
 	void clear();
+
+	size_t getTotalMemUsage() const;
 private:
 	std::map<std::string, Reference<TextureData> > loaded_textures;
 	mutable Mutex mutex;

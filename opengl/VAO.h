@@ -25,7 +25,7 @@ struct VertexAttrib
 	uint32 offset;
 	bool instancing;
 
-	Reference<VBO> vbo;
+	Reference<VBO> vbo; // VBO to be bound for this attribute.  Can be left to NULL in which case the usual mesh data vert_vbo will be used.
 };
 
 

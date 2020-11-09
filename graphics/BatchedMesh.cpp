@@ -606,44 +606,58 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 	{
 		const IndicesBatch& batch = batches[b];
 
-		for(size_t tri_i=batch.indices_start / 3; tri_i != ((size_t)batch.indices_start + (size_t)batch.num_indices) / 3; ++tri_i)
+		if(index_type == ComponentType_UInt8)
 		{
-			const size_t i = tri_i * 3;
-			if(index_type == ComponentType_UInt8)
-			{
-				const uint8* const index_data_uint8    = (const uint8*)index_data.data();
+			const uint8* const index_data_uint8 = (const uint8*)index_data.data();
 
+			const size_t begin_tri_i = batch.indices_start / 3;
+			const size_t end_tri_i   = ((size_t)batch.indices_start + (size_t)batch.num_indices) / 3;
+			for(size_t tri_i=begin_tri_i; tri_i < end_tri_i; ++tri_i)
+			{
 				for(size_t c=0; c<3; ++c)
 				{
-					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint8[i + c];
-					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint8[i + c];
+					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint8[tri_i * 3 + c];
+					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint8[tri_i * 3 + c];
 				}
+				mesh_out.triangles[tri_i].tri_mat_index = batch.material_index;
 			}
-			else if(index_type == ComponentType_UInt16)
-			{
-				const uint16* const index_data_uint16   = (const uint16*)index_data.data();
-
-				for(size_t c=0; c<3; ++c)
-				{
-					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint16[i + c];
-					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint16[i + c];
-				}
-			}
-			else if(index_type == ComponentType_UInt32)
-			{
-				const uint32* const index_data_uint32   = (const uint32*)index_data.data();
-
-				for(size_t c=0; c<3; ++c)
-				{
-					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint32[i + c];
-					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint32[i + c];
-				}
-			}
-			else
-				throw Indigo::Exception("Unhandled index type: " + toString(index_type));
-
-			mesh_out.triangles[tri_i].tri_mat_index = batch.material_index;
 		}
+		else if(index_type == ComponentType_UInt16)
+		{
+			const uint16* const index_data_uint16   = (const uint16*)index_data.data();
+
+			const size_t begin_tri_i = batch.indices_start / 3;
+			const size_t end_tri_i   = ((size_t)batch.indices_start + (size_t)batch.num_indices) / 3;
+
+			for(size_t tri_i=begin_tri_i; tri_i < end_tri_i; ++tri_i)
+			{
+				for(size_t c=0; c<3; ++c)
+				{
+					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint16[tri_i * 3 + c];
+					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint16[tri_i * 3 + c];
+				}
+				mesh_out.triangles[tri_i].tri_mat_index = batch.material_index;
+			}
+		}
+		else if(index_type == ComponentType_UInt32)
+		{
+			const uint32* const index_data_uint32   = (const uint32*)index_data.data();
+
+			const size_t begin_tri_i = batch.indices_start / 3;
+			const size_t end_tri_i   = ((size_t)batch.indices_start + (size_t)batch.num_indices) / 3;
+
+			for(size_t tri_i=begin_tri_i; tri_i < end_tri_i; ++tri_i)
+			{
+				for(size_t c=0; c<3; ++c)
+				{
+					mesh_out.triangles[tri_i].vertex_indices[c] = index_data_uint32[tri_i * 3 + c];
+					mesh_out.triangles[tri_i].uv_indices[c]     = index_data_uint32[tri_i * 3 + c];
+				}
+				mesh_out.triangles[tri_i].tri_mat_index = batch.material_index;
+			}
+		}
+		else
+			throw Indigo::Exception("Unhandled index type: " + toString(index_type));
 	}
 
 	mesh_out.endOfModel();
@@ -1113,6 +1127,13 @@ size_t BatchedMesh::numMaterialsReferenced() const
 	for(size_t b=0; b<batches.size(); ++b)
 		max_i = myMax(max_i, (size_t)batches[b].material_index);
 	return max_i + 1;
+}
+
+
+size_t BatchedMesh::getTotalMemUsage() const
+{
+	return index_data.capacitySizeBytes() +
+		vertex_data.capacitySizeBytes();
 }
 
 

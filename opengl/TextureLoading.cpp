@@ -86,6 +86,19 @@ void TextureDataManager::clear()
 }
 
 
+size_t TextureDataManager::getTotalMemUsage() const
+{
+	size_t sum = 0;
+	for(auto it = loaded_textures.begin(); it != loaded_textures.end(); ++it)
+	{
+		sum += it->second->compressed_data.capacitySizeBytes();
+		if(it->second->converted_image.nonNull())
+			sum += it->second->converted_image->getByteSize();
+	}
+	return sum;
+}
+
+
 void TextureLoading::init()
 {
 	DXTCompression::init();

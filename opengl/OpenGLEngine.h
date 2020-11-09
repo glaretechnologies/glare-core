@@ -49,6 +49,23 @@ public:
 };
 
 
+struct GLMemUsage
+{
+	GLMemUsage() : geom_cpu_usage(0), geom_gpu_usage(0), texture_cpu_usage(0), texture_gpu_usage(0) {}
+
+	size_t geom_cpu_usage;
+	size_t geom_gpu_usage;
+
+	size_t texture_cpu_usage;
+	size_t texture_gpu_usage;
+
+	size_t totalCPUUsage() const;
+	size_t totalGPUUsage() const;
+
+	void operator += (const GLMemUsage& other);
+};
+
+
 // OpenGL data for a given mesh.
 class OpenGLMeshRenderData : public ThreadSafeRefCounted
 {
@@ -56,6 +73,8 @@ public:
 	OpenGLMeshRenderData() : has_vert_colours(false) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
+
+	GLMemUsage getTotalMemUsage() const;
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 	
@@ -77,8 +96,8 @@ public:
 	
 	VAORef vert_vao;
 
-	// If this is non-null, load vertex and index data from batched_mesh instead of from vert_data and vert_index_buffer etc..
-	// We take this approach to avoid copying the data.
+	// If this is non-null, load vertex and index data directly from batched_mesh instead of from vert_data and vert_index_buffer etc..
+	// We take this approach to avoid copying the data from batched_mesh to vert_data etc..
 	Reference<BatchedMesh> batched_mesh;
 
 	VBORef instance_matrix_vbo;
@@ -243,6 +262,8 @@ public:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 
 	void unloadAllData();
+
+	GLMemUsage getTotalMemUsage() const;
 
 	Colour3f background_colour;
 
@@ -470,6 +491,11 @@ public:
 	void removeScene(const Reference<OpenGLScene>& scene);
 	void setCurrentScene(const Reference<OpenGLScene>& scene);
 	OpenGLScene* getCurrentScene() { return current_scene.ptr(); }
+	//----------------------------------------------------------------------------------------
+
+
+	//----------------------------------- Diagnostics ----------------------------------------
+	GLMemUsage getTotalMemUsage() const;
 	//----------------------------------------------------------------------------------------
 
 private:

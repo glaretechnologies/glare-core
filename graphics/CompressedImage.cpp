@@ -127,8 +127,10 @@ size_t CompressedImage::getBytesPerPixel() const
 
 size_t CompressedImage::getByteSize() const
 {
-	assert(0);
-	return 1; // TEMP  data.dataSizeBytes();
+	size_t sum = 0;
+	for(size_t i=0; i<mipmap_level_data.size(); ++i)
+		sum += mipmap_level_data[i].dataSizeBytes();
+	return sum;
 }
 
 
