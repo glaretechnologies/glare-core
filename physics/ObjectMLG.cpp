@@ -29,7 +29,7 @@ void ObjectMLG::insertObject(const Object* object)
 }
 
 
-ObjectMLG::Real ObjectMLG::traceRay(const Ray& ray, ThreadContext& thread_context, double time, 
+ObjectMLG::Real ObjectMLG::traceRay(const Ray& ray, double time, 
 		const Object* last_object_hit,
 		unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const
@@ -37,7 +37,7 @@ ObjectMLG::Real ObjectMLG::traceRay(const Ray& ray, ThreadContext& thread_contex
 	ObjectMLGResult results;
 	results.hit_object = NULL;
 	results.time = time;
-	results.thread_context = &thread_context;
+	//results.thread_context = &thread_context;
 
 	grid->trace(ray, std::numeric_limits<float>::max(), results);
 
@@ -51,12 +51,12 @@ ObjectMLG::Real ObjectMLG::traceRay(const Ray& ray, ThreadContext& thread_contex
 }
 
 
-bool ObjectMLG::doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context, double time, const Object* ignore_object, unsigned int ignore_tri) const
+bool ObjectMLG::doesFiniteRayHit(const Ray& ray, Real length, double time, const Object* ignore_object, unsigned int ignore_tri) const
 {
 	ObjectMLGResult results;
 	results.hit_object = NULL;
 	results.time = time;
-	results.thread_context = &thread_context;
+	//results.thread_context = &thread_context;
 
 	grid->trace(ray, length, results);
 
@@ -122,7 +122,7 @@ void ObjectMLGCellTest::visitLeafCell(const Ray& ray, uint32 node_index, const V
 	for(size_t i=offset; i<offset + num; ++i)
 	{
 		HitInfo hitinfo;
-		float d = 0.0; // TEMP object_mlg->leaf_objects[i]->traceRay(ray, max_t_in_out, result_out.time, *result_out.thread_context, std::numeric_limits<unsigned int>::max(), hitinfo);
+		float d = 0.0; // TEMP object_mlg->leaf_objects[i]->traceRay(ray, max_t_in_out, result_out.time, *result_out.std::numeric_limits<unsigned int>::max(), hitinfo);
 		if(d >= 0 && d < max_t_in_out)
 		{
 			max_t_in_out = d;

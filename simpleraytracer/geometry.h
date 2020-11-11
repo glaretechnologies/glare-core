@@ -24,7 +24,6 @@ class HitInfo;
 class FullHitInfo;
 class DistanceHitInfo;
 class Object;
-class ThreadContext;
 class PrintOutput;
 class Matrix4f;
 class Material;
@@ -69,9 +68,9 @@ public:
 
 	virtual const js::AABBox getTightAABBoxWS(const TransformPath& transform_path) const { return getAABBox(); }
 
-	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
+	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const = 0;
 	
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
 	// Returns a vector orthogonal to the surface, with length equal to one over the probability density of sampling the given point on the sub-element.
 	// This is equal to the area in object space of the surface sub-element for uniformly sampled sub-elements (e.g. triangles).
@@ -112,7 +111,7 @@ public:
 	virtual void sampleSurface(const SamplePair& samples, SampleResults& results_out) const { assert(0); }
 
 	// Returns true if possibly clipped by section planes, false otherwise.
-	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
+	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback
 		) = 0; // throws Indigo::Exception

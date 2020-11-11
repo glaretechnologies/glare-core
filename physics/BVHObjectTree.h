@@ -15,7 +15,6 @@ namespace Indigo { class TaskManager; }
 class Object;
 class PrintOutput;
 class ShouldCancelCallback;
-class ThreadContext;
 class HitInfo;
 class Ray;
 
@@ -51,7 +50,7 @@ public:
 	//void insertObject(const Object* object);
 	
 	// hitob_out will be set to a non-null value if the ray hit somethig in the interval, and null otherwise.
-	Real traceRay(const Ray& ray, ThreadContext& thread_context, double time,
+	Real traceRay(const Ray& ray, double time,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
 	// Throws Indigo::CancelledException if cancelled.

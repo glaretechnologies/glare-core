@@ -25,14 +25,14 @@ Tree::~Tree()
 }
 
 
-Tree::DistType Tree::traceSphere(const Ray& ray_dir_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, ThreadContext& thread_context, Vec4f& hit_normal_ws_out) const
+Tree::DistType Tree::traceSphere(const Ray& ray_dir_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const
 {
 	assert(0);
 	return -1.f;
 }
 
 
-void Tree::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_in_out) const
+void Tree::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_in_out) const
 {
 	assert(0);
 }

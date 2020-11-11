@@ -28,7 +28,6 @@ Code By Nicholas Chapman.
 #include "../indigo/MeshLoader.h"
 #include "../utils/Exception.h"
 #include "../utils/PlatformUtils.h"
-#include "../indigo/ThreadContext.h"
 #include "../utils/MemAlloc.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
@@ -51,7 +50,6 @@ void TreeTest::testBuildCorrect()
 {
 	conPrint("TreeTest::testBuildCorrect()");
 
-	ThreadContext thread_context;
 	Indigo::TaskManager task_manager;
 
 	{
@@ -113,7 +111,7 @@ void TreeTest::testBuildCorrect()
 		false // shadow ray
 	);
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, thread_context, hitinfo);
+	const double dist = raymesh.traceRay(ray, hitinfo);
 	testAssert(::epsEqual(dist, 2.0));
 	testAssert(hitinfo.sub_elem_index == 0);
 	}
@@ -125,7 +123,7 @@ void TreeTest::testBuildCorrect()
 		false // shadow ray
 	);
 	HitInfo hitinfo;
-	const double dist = raymesh.traceRay(ray, thread_context, hitinfo);
+	const double dist = raymesh.traceRay(ray, hitinfo);
 	testAssert(::epsEqual(dist, 14.0));
 	testAssert(hitinfo.sub_elem_index == 3);
 	}
@@ -347,7 +345,6 @@ static void testSelfIntersectionAvoidance()
 	for(size_t i = 0; i < trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
-	ThreadContext thread_context;
 
 	// Start a ray on one quad, trace to the other quad.
 	{
@@ -361,7 +358,7 @@ static void testSelfIntersectionAvoidance()
 		for(size_t i = 0; i < trees.size(); ++i)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray, 500.0f, thread_context, hitinfo);
+			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray, 500.0f, hitinfo);
 
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitinfo.sub_elem_index == 2);
@@ -376,7 +373,7 @@ static void testSelfIntersectionAvoidance()
 			HitInfo hitinfo;
 			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray,
 				1.0f - nudge, // max_t
-				thread_context, hitinfo);
+				hitinfo);
 
 			testAssert(dist < 0.0f);
 		}
@@ -388,7 +385,7 @@ static void testSelfIntersectionAvoidance()
 			HitInfo hitinfo;
 			const Tree::Real dist = (Tree::Real)trees[i]->traceRay(ray,
 				1.0f + nudge, // max_t
-				thread_context, hitinfo);
+				hitinfo);
 
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitinfo.sub_elem_index == 2);
@@ -424,7 +421,6 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 	for(size_t i = 0; i < trees.size(); ++i)
 		testAssert(trees[i]->getAABBoxWS() == box);
 
-	ThreadContext thread_context;
 
 	//------------------------------------------------------------------------
 	//compare tests against all tris with tests against the trees
@@ -454,7 +450,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 		for(size_t t = 0; t < trees.size(); ++t)
 		{
 			HitInfo hitinfo;
-			const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, thread_context, hitinfo);
+			const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, hitinfo);
 
 			if(dist >= 0.0 || alltrisdist >= 0.0) // If either ray hit
 			{
@@ -475,7 +471,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		std::vector<DistanceHitInfo> hitinfos;
 
-		trees[0]->getAllHits(ray, thread_context, hitinfos);
+		trees[0]->getAllHits(ray, hitinfos);
 		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
 
 		if(alltrisdist > 0.0)
@@ -508,7 +504,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 		for(size_t t = 0; t < trees.size(); ++t)
 		{
 			std::vector<DistanceHitInfo> hitinfos_other;
-			trees[t]->getAllHits(ray, thread_context/*, tree_context*/, hitinfos_other);
+			trees[t]->getAllHits(ray, hitinfos_other);
 			std::sort(hitinfos_other.begin(), hitinfos_other.end(), distanceHitInfoComparisonPred); // Sort hits
 
 			// Compare results
@@ -543,7 +539,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 			1.0e-05f // t_min
 		);
 		HitInfo hitinfo;
-		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 		}
 		// Try with NaNs in the position vector
 		{
@@ -553,7 +549,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 			1.0e-05f // t_min
 		);
 		HitInfo hitinfo;
-		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 		}
 
 		
@@ -566,7 +562,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 			1.0e-05f // t_min
 		);
 		HitInfo hitinfo;
-		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 		}
 		// Try with Infs in the position vector
 		{
@@ -576,7 +572,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 			1.0e-05f // t_min
 		);
 		HitInfo hitinfo;
-		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, thread_context, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
+		const Tree::Real dist = (Tree::Real)trees[t]->traceRay(ray, max_t, NULL, std::numeric_limits<unsigned int>::max(), hitinfo);
 		}
 	}
 
@@ -593,7 +589,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 			1.0e-05f // t_min
 		);
 		std::vector<DistanceHitInfo> hitinfos;
-		trees[t]->getAllHits(ray, thread_context, NULL, hitinfos);
+		trees[t]->getAllHits(ray, NULL, hitinfos);
 		}
 		// Try with NaNs in the position vector
 		{
@@ -603,7 +599,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 			1.0e-05f // t_min
 		);
 		std::vector<DistanceHitInfo> hitinfos;
-		trees[t]->getAllHits(ray, thread_context, NULL, hitinfos);
+		trees[t]->getAllHits(ray, NULL, hitinfos);
 		}
 	}*/
 
@@ -778,7 +774,6 @@ void TreeTest::doSpeedTest(int treetype)
 	SphereUnitVecPool vecpool;//create pool of random points
 
 	HitInfo hitinfo;
-	ThreadContext thread_context;
 
 	conPrint("Running test...");
 
@@ -824,7 +819,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 		//do the trace
 		//ray.buildRecipRayDir();
-		const double dist = raymesh.traceRay(ray, thread_context, hitinfo);
+		const double dist = raymesh.traceRay(ray, hitinfo);
 
 		if(dist >= 0.0)//if hit the model
 			num_hits++;//count the hit.
@@ -941,7 +936,6 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 	PCG32 rng(1);
-	ThreadContext thread_context;
 
 	BVH bvh(&raymesh);
 	bvh.build(print_output, should_cancel_callback, /*verbose=*/true, task_manager);
@@ -969,7 +963,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 		const float radius = rng.unitRandom() * 0.2f;
 		
 		Vec4f hit_normal;
-		const double d = bvh.traceSphere(ray, to_object, to_world, radius, thread_context, hit_normal);
+		const double d = bvh.traceSphere(ray, to_object, to_world, radius, hit_normal);
 
 		// Do reference trace against all triangles
 		const Vec4f sourcePoint(ray.startPos());
@@ -1193,7 +1187,6 @@ static void testAppendCollPoints(RayMesh& raymesh)
 	DummyShouldCancelCallback should_cancel_callback;
 	Indigo::TaskManager task_manager;
 	PCG32 rng(1);
-	ThreadContext thread_context;
 
 	BVH bvh(&raymesh);
 	bvh.build(print_output, should_cancel_callback, /*verbose=*/true, task_manager);
@@ -1218,7 +1211,7 @@ static void testAppendCollPoints(RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		const Vec4f sphere_pos = Vec4f(0, 0, 0, 1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f;
 		const float radius = rng.unitRandom() * 0.6f;
-		bvh.appendCollPoints(sphere_pos, radius, to_object, to_world, thread_context, points_ws);
+		bvh.appendCollPoints(sphere_pos, radius, to_object, to_world, points_ws);
 
 		// Do reference test against all triangles
 		const float radius2 = radius*radius;

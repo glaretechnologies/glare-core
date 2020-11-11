@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2018 -
 
 #include "BinningBVHBuilder.h"
 #include "MollerTrumboreTri.h"
-#include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../physics/jscol_boundingsphere.h"
@@ -166,7 +165,7 @@ static INDIGO_STRONG_INLINE const Vec4f shuffle8(const Vec4f& a, const Vec4i& sh
 static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b) { return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(a.v), b.v)); }
 
 
-SmallBVH::DistType SmallBVH::traceRay(const Ray& ray_, ThreadContext& thread_context, HitInfo& hitinfo_out) const
+SmallBVH::DistType SmallBVH::traceRay(const Ray& ray_, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.hit_opaque_ob = false; // Just consider the hit as non-opaque.  This is the conservative option.
 
@@ -306,7 +305,7 @@ stack_pop:
 }
 
 
-void SmallBVH::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const
+void SmallBVH::getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 	assert(0);

@@ -159,10 +159,10 @@ public:
 	virtual ~RayMesh();
 
 	////////////////////// Geometry interface ///////////////////
-	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
-	DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, ThreadContext& thread_context, Vec4f& hit_normal_ws_out) const;
-	void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const;
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
+	DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const;
+	void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const;
+	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const js::AABBox getAABBox() const;
 	virtual const js::AABBox getTightAABBoxWS(const TransformPath& transform_path) const;
 	
@@ -183,7 +183,7 @@ public:
 
 	virtual void sampleSurface(const SamplePair& samples, SampleResults& results_out) const;
 
-	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, 
+	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, 
 		const ArrayRef<Reference<Material> >& materials, const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
 		const std::vector<Planef>& camera_clip_planes, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback);

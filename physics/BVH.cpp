@@ -11,7 +11,7 @@ File created by ClassTemplate on Sun Oct 26 17:19:14 2008
 #include "BinningBVHBuilder.h"
 #include "SBVHBuilder.h"
 #include "jscol_aabbox.h"
-#include "../indigo/ThreadContext.h"
+//#include "../indigo/ThreadContext.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../physics/jscol_boundingsphere.h"
@@ -296,8 +296,8 @@ public:
 		//float use_min_t,
 		float epsilon,
 		HitInfo& hitinfo_out,
-		float& best_t,
-		ThreadContext& thread_context
+		float& best_t
+		//ThreadContext& thread_context
 		)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
@@ -345,20 +345,24 @@ public:
 };
 
 
-BVH::DistType BVH::traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const
+BVH::DistType BVH::traceRay(const Ray& ray, HitInfo& hitinfo_out) const
 {
 	hitinfo_out.hit_opaque_ob = false; // Just consider the hit as non-opaque.  This is the conservative option.
 
+	//ThreadContext& thread_context = *ThreadContext::getThreadLocalContext();
+
 	return BVHImpl::traceRay<TraceRayFunctions>(*this, ray,
-		thread_context, 
-		thread_context.getTreeContext(),
+		//thread_context,
+		//thread_context.getTreeContext(),
 		hitinfo_out
 	);
 }
 
 
-BVH::DistType BVH::traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, ThreadContext& thread_context, Vec4f& hit_normal_ws_out) const
+BVH::DistType BVH::traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const
 {
+	//ThreadContext& thread_context = *ThreadContext::getThreadLocalContext();
+
 	const Vec4f start_ws = ray_ws.startPos();
 	const Vec4f end_ws   = ray_ws.pointf(ray_ws.maxT());
 
@@ -377,7 +381,8 @@ BVH::DistType BVH::traceSphere(const Ray& ray_ws, const Matrix4f& to_object, con
 
 	float closest_dist_ws = ray_ws.maxT(); // This is the distance along the ray to the minimum of the closest hit so far and the maximum length of the ray
 
-	uint32* const bvh_stack = thread_context.getTreeContext().bvh_stack;
+	//uint32* const bvh_stack = thread_context.getTreeContext().bvh_stack;
+	uint32 bvh_stack[js::Tree::MAX_TREE_DEPTH + 1];
 	bvh_stack[0] = 0;
 	int stacktop = 0; // Index of node on top of stack
 stack_pop:
@@ -674,8 +679,10 @@ void BVH::intersectSphereAgainstLeafTris(const Ray& ray_ws, const Matrix4f& to_w
 }
 
 
-void BVH::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const
+void BVH::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const
 {
+	//ThreadContext& thread_context = *ThreadContext::getThreadLocalContext();
+
 	// The BVH traversal will be done in object space, using the object-space bounds of the sphere.  Intersection with the triangles in the BVH leaves will be done in world space.
 
 	const float radius_ws2 = radius_ws*radius_ws;
@@ -685,7 +692,8 @@ void BVH::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Ma
 	const SSE_ALIGN unsigned int mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
 	const __m128 maskWToZero = _mm_load_ps((const float*)mask);
 
-	uint32* const bvh_stack = thread_context.getTreeContext().bvh_stack;
+	//uint32* const bvh_stack = thread_context.getTreeContext().bvh_stack;
+	uint32 bvh_stack[js::Tree::MAX_TREE_DEPTH + 1];
 
 	bvh_stack[0] = 0;
 	int stacktop = 0; // Index of node on top of stack
@@ -926,8 +934,8 @@ public:
 		const Ray& ray,
 		float use_min_t,
 		std::vector<DistanceHitInfo>& hitinfos_out,
-		float& best_t,
-		ThreadContext& thread_context
+		float& best_t
+		//ThreadContext& thread_context
 		)
 	{
 		for(unsigned int i=0; i<num_leaf_tris; ++i)
@@ -962,12 +970,15 @@ public:
 };
 
 
-void BVH::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const
+void BVH::getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
+	//ThreadContext& thread_context = *ThreadContext::getThreadLocalContext();
+
 	hitinfos_out.resize(0);
 
-	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, thread_context, 
-		thread_context.getTreeContext(), // context, 
+	BVHImpl::traceRay<GetAllHitsFunctions>(*this, ray, 
+		//thread_context,
+		//thread_context.getTreeContext(),
 		hitinfos_out
 	);
 }

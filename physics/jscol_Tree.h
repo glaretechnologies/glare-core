@@ -11,7 +11,6 @@ Copyright Glare Technologies Limited 2013 -
 #include <cstddef> // For size_t
 class HitInfo;
 class DistanceHitInfo;
-class ThreadContext;
 class PrintOutput;
 class ShouldCancelCallback;
 class Ray;
@@ -43,13 +42,13 @@ public:
 
 	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
-	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const = 0;
+	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const = 0;
 
-	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws,/* DistType max_t_ws, */ThreadContext& thread_context, Vec4f& hit_normal_ws_out) const;
+	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws,/* DistType max_t_ws, */Vec4f& hit_normal_ws_out) const;
 
-	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, ThreadContext& thread_context, std::vector<Vec4f>& points_ws_in_out) const;
+	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const;
 	
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
+	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
 
 	virtual const js::AABBox& getAABBoxWS() const = 0;
 

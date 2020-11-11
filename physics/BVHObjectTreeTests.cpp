@@ -16,7 +16,6 @@ Copyright Glare Technologies Limited 2020 -
 #include "../indigo/object.h"
 #include "../utils/TaskManager.h"
 #include "../utils/ShouldCancelCallback.h"
-#include "../indigo/ThreadContext.h"
 #include "../indigo/Diffuse.h"
 #include "../indigo/DisplaceMatParameter.h"
 #include "../indigo/SpectrumMatParameter.h"
@@ -29,7 +28,6 @@ void BVHObjectTreeTests::test()
 	// Disabled while we are doing Embree object tree tracing, since we don't have tracing for individual obs enabled currently.
 #if 0
 	{
-		ThreadContext thread_context;
 		StandardPrintOutput print_output;
 		Indigo::TaskManager task_manager;
 		DummyShouldCancelCallback should_cancel_callback;
@@ -131,7 +129,7 @@ void BVHObjectTreeTests::test()
 				std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 			
-			ob1->buildGeometry(thread_context, NULL, settings, should_cancel_callback, print_output, /*verbose=*/true, task_manager);
+			ob1->buildGeometry(NULL, settings, should_cancel_callback, print_output, /*verbose=*/true, task_manager);
 
 			bvh_ob_tree.objects.push_back(ob1.ptr());
 		}
@@ -146,7 +144,7 @@ void BVHObjectTreeTests::test()
 				std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 
-			ob2->buildGeometry(thread_context, NULL, settings, should_cancel_callback, print_output, /*verbose=*/true, task_manager);
+			ob2->buildGeometry(NULL, settings, should_cancel_callback, print_output, /*verbose=*/true, task_manager);
 
 			bvh_ob_tree.objects.push_back(ob2.ptr());
 		}
@@ -165,7 +163,7 @@ void BVHObjectTreeTests::test()
 
 			const Object* hitob;
 			HitInfo hitinfo;
-			const float hitdist = bvh_ob_tree.traceRay(ray, thread_context, 0.0, hitob, hitinfo);
+			const float hitdist = bvh_ob_tree.traceRay(ray, 0.0, hitob, hitinfo);
 			testAssert(hitob == ob1.ptr());
 			testEpsEqual(hitdist, 0.522015333f);
 		}
@@ -183,7 +181,7 @@ void BVHObjectTreeTests::test()
 
 			const Object* hitob;
 			HitInfo hitinfo;
-			const float hitdist = bvh_ob_tree.traceRay(ray, thread_context, 0.0, hitob, hitinfo);
+			const float hitdist = bvh_ob_tree.traceRay(ray, 0.0, hitob, hitinfo);
 			testAssert(hitob == ob1.ptr());
 			testEpsEqual(hitdist, 0.522015333f);
 		}
@@ -200,7 +198,7 @@ void BVHObjectTreeTests::test()
 
 			const Object* hitob;
 			HitInfo hitinfo;
-			const float hitdist = bvh_ob_tree.traceRay(ray, thread_context, 0.0, hitob, hitinfo);
+			const float hitdist = bvh_ob_tree.traceRay(ray, 0.0, hitob, hitinfo);
 			testAssert(hitob == ob2.ptr());
 			testEpsEqual(hitdist, 0.522015333f);
 		}
@@ -217,7 +215,7 @@ void BVHObjectTreeTests::test()
 
 			const Object* hitob;
 			HitInfo hitinfo;
-			const float hitdist = bvh_ob_tree.traceRay(ray, thread_context, 0.0, hitob, hitinfo);
+			const float hitdist = bvh_ob_tree.traceRay(ray, 0.0, hitob, hitinfo);
 			testAssert(hitob == ob2.ptr());
 			testEpsEqual(hitdist, 0.522015333f);
 		}

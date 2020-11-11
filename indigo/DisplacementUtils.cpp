@@ -19,7 +19,6 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 
 
 #include "PrintOutput.h"
-#include "ThreadContext.h"
 #include "DisplaceMatParameter.h"
 #include "material.h"
 #include "ShouldCancelCallback.h"
@@ -832,7 +831,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 	const std::string& mesh_name,
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
-	ThreadContext& context,
 	const ArrayRef<Reference<Material> >& materials,
 	RayMesh::TriangleVectorType& triangles_in_out, 
 	const RayMesh::QuadVectorType& quads_in,
@@ -891,7 +889,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 		splineSubdiv(
 			task_manager,
 			print_output,
-			context,
 			*current_polygons,
 			*current_verts_and_uvs,
 			num_uv_sets,
@@ -917,7 +914,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 		linearSubdivision(
 			task_manager,
 			print_output,
-			context,
 			materials,
 			*current_polygons, // polygons_in
 			*current_verts_and_uvs, // verts_and_uvs_in
@@ -965,7 +961,6 @@ bool DisplacementUtils::subdivideAndDisplace(
 	DISPLACEMENT_RESET_TIMER(timer);
 	displace(
 		task_manager,
-		context,
 		materials,
 		current_polygons->quads, // quads in
 		current_verts_and_uvs->verts, // verts in
@@ -1096,7 +1091,6 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		ThreadContext context;
 		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const RayMesh::TriangleVectorType& tris = *closure.tris_in;
@@ -1142,7 +1136,6 @@ public:
 				du_texcoord_evaluator.pos_os = verts[v_i].pos.toVec4fPoint();
 
 				EvalDisplaceArgs args(
-					context,
 					hitinfo,
 					du_texcoord_evaluator,
 					Vec4f(0), // dp_dalpha  TEMP HACK
@@ -1183,7 +1176,6 @@ void DisplacementUtils::doDisplacementOnly(
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
-		ThreadContext& context,
 		const ArrayRef<Reference<Material> >& materials,
 		const RayMesh::TriangleVectorType& tris_in,
 		const RayMesh::QuadVectorType& quads_in,
@@ -1373,7 +1365,6 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		ThreadContext context;
 		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const DUQuadVector& quads = *closure.quads;
@@ -1402,7 +1393,6 @@ public:
 						du_texcoord_evaluator.pos_os = verts_in[v_i].pos.toVec4fPoint();
 
 						EvalDisplaceArgs args(
-							context,
 							hitinfo,
 							du_texcoord_evaluator,
 							Vec4f(0), // dp_dalpha  TEMP HACK
@@ -1622,7 +1612,6 @@ public:
 //
 // See for example subdivision_with_smoothing_cube_gap_test_constant_displacement.igs, subdivision_cube_gap_spike_displacement_test.igs
 void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
-								 ThreadContext& context,
 								 const ArrayRef<Reference<Material> >& materials,
 								 const DUQuadVector& quads,
 								 const DUVertexVector& verts_in,
@@ -1896,8 +1885,6 @@ public:
 		DUUVCoordEvaluator temp_du_texcoord_evaluator;
 		temp_du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 
-		ThreadContext context;
-
 		std::vector<Vec2f> temp_uv_buffer;
 		temp_uv_buffer.resize(closure.num_uv_sets * 4);
 
@@ -2010,7 +1997,6 @@ done_quad_unclipped_check:
 								EvalDispBoundsInfo eval_info;
 								for(int i=0; i<4; ++i)
 									eval_info.vert_pos_os[i] = displaced_in_verts[quad.vertex_indices[i]].pos.toVec4fPoint();
-								eval_info.context = &context;
 								eval_info.temp_uv_coord_evaluator = &temp_du_texcoord_evaluator;
 								eval_info.uvs = &temp_uv_buffer[0];
 								eval_info.num_verts = 4;
@@ -2426,7 +2412,6 @@ public:
 void DisplacementUtils::linearSubdivision(
 	Indigo::TaskManager& task_manager,
 	PrintOutput& print_output,
-	ThreadContext& context,
 	const ArrayRef<Reference<Material> >& materials,
 	Polygons& polygons_in,
 	const VertsAndUVs& verts_and_uvs_in,
@@ -2456,7 +2441,6 @@ void DisplacementUtils::linearSubdivision(
 
 		displace(
 			task_manager,
-			context,
 			materials,
 			quads_in,
 			verts_in,
@@ -3137,7 +3121,6 @@ static const Vec3f curve(const Vec3f& k1, const Vec3f& k2, const Vec3f& d1, cons
 void DisplacementUtils::splineSubdiv(
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
-		ThreadContext& context,
 		Polygons& polygons_in,
 		const VertsAndUVs& verts_and_uvs_in,
 		unsigned int num_uv_sets,

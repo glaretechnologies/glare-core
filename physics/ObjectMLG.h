@@ -12,7 +12,6 @@ Generated at 2012-11-12 23:08:01 +0000
 #include "../raytracing/hitinfo.h"
 class Object;
 class PrintOutput;
-class ThreadContext;
 class HitInfo;
 class Ray;
 
@@ -31,7 +30,6 @@ struct ObjectMLGResult
 	HitInfo hitinfo;
 	float dist;
 	double time;
-	ThreadContext* thread_context;
 };
 
 class ObjectMLG;
@@ -60,12 +58,12 @@ public:
 
 	void insertObject(const Object* object);
 
-	Real traceRay(const Ray& ray, ThreadContext& thread_context, double time, 
+	Real traceRay(const Ray& ray, double time, 
 		const Object* last_object_hit,
 		unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
-	bool doesFiniteRayHit(const Ray& ray, Real length, ThreadContext& thread_context, double time, const Object* ignore_object, unsigned int ignore_tri) const;
+	bool doesFiniteRayHit(const Ray& ray, Real length, double time, const Object* ignore_object, unsigned int ignore_tri) const;
 
 	void build(PrintOutput& print_output, bool verbose);
 

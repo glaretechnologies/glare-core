@@ -20,8 +20,8 @@ public:
 	virtual ~RaySphere();
 
 	////////////////////// Geometry interface ///////////////////
-	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
+	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const js::AABBox getAABBox() const;
 	
 	virtual const Vec3Type getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const;
@@ -38,7 +38,7 @@ public:
 	virtual void sampleSubElement(unsigned int sub_elem_index, const SamplePair& samples, Pos3Type& pos_out, Vec3Type& normal_out, HitInfo& hitinfo_out, 
 		unsigned int& mat_index_out, Vec2f& uv0_out) const;
 
-	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const ArrayRef<Reference<Material> >& materials,/*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
+	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, const ArrayRef<Reference<Material> >& materials,/*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
 		const std::vector<Planef>& camera_clip_planes, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose, ShouldCancelCallback* should_cancel_callback);
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
 	virtual const std::string getName() const;

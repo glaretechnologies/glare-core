@@ -12,7 +12,6 @@ File created by ClassTemplate on Thu May 15 20:31:26 2008
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../utils/BitField.h"
-class ThreadContext;
 class PrintOutput;
 struct DUScratchInfo;
 namespace Indigo { class TaskManager; }
@@ -178,7 +177,6 @@ public:
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
-		ThreadContext& context,
 		const ArrayRef<Reference<Material> >& materials,
 		RayMesh::TriangleVectorType& tris_in_out,
 		const RayMesh::QuadVectorType& quads_in,
@@ -197,7 +195,6 @@ public:
 		const std::string& mesh_name,
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
-		ThreadContext& context,
 		const ArrayRef<Reference<Material> >& materials,
 		const RayMesh::TriangleVectorType& tris_in,
 		const RayMesh::QuadVectorType& quads_in,
@@ -224,7 +221,6 @@ private:
 
 	static void displace(
 		Indigo::TaskManager& task_manager,
-		ThreadContext& context,
 		const ArrayRef<Reference<Material> >& materials,
 		const DUQuadVector& quads,
 		const DUVertexVector& verts_in,
@@ -238,7 +234,6 @@ private:
 	static void linearSubdivision(
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
-		ThreadContext& context,
 		const ArrayRef<Reference<Material> >& materials,
 		Polygons& polygons_in,
 		const VertsAndUVs& verts_and_uvs_in,
@@ -254,7 +249,6 @@ private:
 	static void splineSubdiv(
 		Indigo::TaskManager& task_manager,
 		PrintOutput& print_output,
-		ThreadContext& context,
 		Polygons& polygons_in,
 		const VertsAndUVs& verts_and_uvs_in,
 		unsigned int num_uv_sets,

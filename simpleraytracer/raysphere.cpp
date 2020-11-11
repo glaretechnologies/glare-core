@@ -10,7 +10,6 @@ Copyright Glare Technologies Limited 2013 -
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../raytracing/hitinfo.h"
-#include "../indigo/ThreadContext.h"
 #include "../maths/GeometrySampling.h"
 #include "../indigo/object.h"
 #include "../utils/Numeric.h"
@@ -42,7 +41,7 @@ RaySphere::~RaySphere()
 }
 
 
-Geometry::DistType RaySphere::traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const
+Geometry::DistType RaySphere::traceRay(const Ray& ray, HitInfo& hitinfo_out) const
 {
 	// We are using a numerically robust ray-sphere intersection algorithm as described here: http://www.cg.tuwien.ac.at/courses/CG1/textblaetter/englisch/10%20Ray%20Tracing%20(engl).pdf
 
@@ -110,7 +109,7 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 }
 
 
-void RaySphere::getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const
+void RaySphere::getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
 {
 	hitinfos_out.resize(0);
 
@@ -231,7 +230,7 @@ void RaySphere::sampleSubElement(unsigned int sub_elem_index, const SamplePair& 
 const std::string RaySphere::getName() const { return "RaySphere"; }
 
 
-bool RaySphere::subdivideAndDisplace(Indigo::TaskManager& task_manager, ThreadContext& context, const ArrayRef<Reference<Material> >& materials,/*const Object& object, */const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
+bool RaySphere::subdivideAndDisplace(Indigo::TaskManager& task_manager, const ArrayRef<Reference<Material> >& materials,/*const Object& object, */const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
 	const std::vector<Planef>& camera_clip_planes, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
 	ShouldCancelCallback* should_cancel_callback)
 {
@@ -265,7 +264,6 @@ void RaySphere::test()
 {
 	conPrint("RaySphere::test()");
 
-	ThreadContext thread_context;
 
 	// Test getGeometricNormalAndMatIndex()
 	{
@@ -342,8 +340,7 @@ void RaySphere::test()
 		);
 		
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray, thread_context, 
-			hitinfo);
+		double d = sphere.traceRay(ray, hitinfo);
 
 		testAssert(::epsEqual(d, 0.5));
 		testAssert(hitinfo.sub_elem_index == 0);
@@ -361,13 +358,13 @@ void RaySphere::test()
 		);
 
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray2, thread_context, hitinfo);
+		double d = sphere.traceRay(ray2, hitinfo);
 		testAssert(::epsEqual(d, 0.5));
 		testAssert(hitinfo.sub_elem_index == 0);
 
 		// Test with max dist = 0.1
 		ray2.setMaxT(0.1);
-		d = sphere.traceRay(ray2, thread_context, hitinfo);
+		d = sphere.traceRay(ray2, hitinfo);
 		testAssert(d < 0.0);
 	}
 
@@ -383,7 +380,7 @@ void RaySphere::test()
 			std::numeric_limits<float>::infinity() // max_t
 		);
 		std::vector<DistanceHitInfo> hitinfos;
-		sphere.getAllHits(ray, thread_context, hitinfos);
+		sphere.getAllHits(ray, hitinfos);
 
 		testAssert(hitinfos.size() == 2);
 
@@ -417,11 +414,11 @@ void RaySphere::test()
 		);
 
 		HitInfo hitinfo;
-		double d = sphere.traceRay(ray3, thread_context, hitinfo);
+		double d = sphere.traceRay(ray3, hitinfo);
 		testAssert(::epsEqual(d, 0.25));
 
 		ray3.setMaxT(0.24f);
-		d = sphere.traceRay(ray3, thread_context, hitinfo);
+		d = sphere.traceRay(ray3, hitinfo);
 		testAssert(d < 0.0);
 	}
 
@@ -436,7 +433,7 @@ void RaySphere::test()
 			std::numeric_limits<float>::infinity() // max_t
 		);
 		std::vector<DistanceHitInfo> hitinfos;
-		sphere.getAllHits(ray3, thread_context, hitinfos);
+		sphere.getAllHits(ray3, hitinfos);
 
 		testAssert(hitinfos.size() == 1);
 		testAssert(epsEqual(hitinfos[0].dist, 0.25f));

@@ -55,10 +55,10 @@ public:
 
 	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager); // throws Indigo::Exception
 
-	virtual DistType traceRay(const Ray& ray, ThreadContext& thread_context, HitInfo& hitinfo_out) const;
+	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBoxWS() const;
 
-	virtual void getAllHits(const Ray& ray, ThreadContext& thread_context, std::vector<DistanceHitInfo>& hitinfos_out) const;
+	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}

@@ -17,7 +17,6 @@ Code By Nicholas Chapman.
 #include "../utils/Timer.h"
 #include "../utils/TaskManager.h"
 #include "../simpleraytracer/raymesh.h"
-#include "../indigo/ThreadContext.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
@@ -51,7 +50,6 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 
 	ObjectTree ob_tree;
 
-	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
 
@@ -104,7 +102,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			);
 
 		
-		ob1->buildGeometry(thread_context, settings, print_output, true, task_manager);
+		ob1->buildGeometry(settings, print_output, true, task_manager);
 		ob1->setObjectIndex(0);
 		ob_tree.insertObject(ob1);
 	}
@@ -119,7 +117,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 
-		ob2->buildGeometry(thread_context, settings, print_output, true, task_manager);
+		ob2->buildGeometry(settings, print_output, true, task_manager);
 		ob2->setObjectIndex(1);
 		ob_tree.insertObject(ob2);
 	}
@@ -146,7 +144,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 			const Object* hitob;
 			const ObjectTree::Real dist = ob_tree.traceRay(ray, 
 				std::numeric_limits<float>::infinity(), // ray length
-				thread_context, 0.0, hitob, hitinfo);
+				0.0, hitob, hitinfo);
 
 			testAssert(::epsEqual(dist, 1.0f));
 			testAssert(hitob == ob2);
@@ -161,7 +159,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		//	HitInfo hitinfo;
 		//	const bool hit = ob_tree.doesFiniteRayHit(ray, 
 		//		1.0f - nudge, // max_t
-		//		thread_context, 
+		//		
 		//		0.0, // time
 		//		NULL,
 		//		std::numeric_limits<unsigned int>::max() // ignore tri
@@ -176,7 +174,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 		//	HitInfo hitinfo;
 		//	const bool hit = ob_tree.doesFiniteRayHit(ray, 
 		//		1.0f + nudge, // max_t
-		//		thread_context, 
+		//		
 		//		0.0, // ignore object
 		//		NULL,
 		//		std::numeric_limits<unsigned int>::max() // ignore tri
@@ -206,7 +204,6 @@ void ObjectTreeTest::doTests()
 
 	ObjectTree ob_tree;
 
-	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
 
@@ -242,7 +239,7 @@ void ObjectTreeTest::doTests()
 			std::vector<const IESDatum*>(1, (const IESDatum*)NULL)
 			);
 		RendererSettings settings;
-		ob->buildGeometry(thread_context, settings, print_output, true, task_manager);
+		ob->buildGeometry(settings, print_output, true, task_manager);
 		ob->setObjectIndex(i);
 		ob_tree.insertObject(ob);
 
@@ -285,8 +282,8 @@ void ObjectTreeTest::doTests()
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob = (js::ObjectTree::INTERSECTABLE_TYPE*)0xF;
 		const double t = ob_tree.traceRay(ray, 
 			std::numeric_limits<float>::infinity(), // ray length
-			thread_context, time, hitob, hitinfo);
-		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, thread_context, time, hitob, hitinfo2);
+			time, hitob, hitinfo);
+		const double t2 = ob_tree.traceRayAgainstAllObjects(ray, time, hitob, hitinfo2);
 		testAssert(hitob != (js::ObjectTree::INTERSECTABLE_TYPE*)0xF);
 
 		testAssert((t > 0.0) == (t2 > 0.0));
@@ -305,8 +302,8 @@ void ObjectTreeTest::doTests()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		//const ObjectTree::Real len = rng.unitRandom() * 1.5f;
-		//const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, time, NULL, std::numeric_limits<unsigned int>::max());
-		//const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, thread_context, time);
+		//const bool a = ob_tree.doesFiniteRayHit(ray, len, time, NULL, std::numeric_limits<unsigned int>::max());
+		//const bool b = ob_tree.allObjectsDoesFiniteRayHitAnything(ray, len, time);
 		//testAssert(a == b);
 
 		//if(t >= 0.0)//if the trace hit something after distance t
@@ -472,7 +469,6 @@ void ObjectTreeTest::doSpeedTest()
 
 	ObjectTree ob_tree;
 
-	ThreadContext thread_context;
 	StandardPrintOutput print_output;
 	Indigo::TaskManager task_manager;
 
@@ -495,7 +491,7 @@ void ObjectTreeTest::doSpeedTest()
 			std::vector<const IESDatum*>()
 			);
 		RendererSettings settings;
-		ob->buildGeometry(thread_context, settings, print_output, true, task_manager);
+		ob->buildGeometry(settings, print_output, true, task_manager);
 		ob_tree.insertObject(ob);
 	}
 	ob_tree.build(task_manager, print_output,
@@ -534,7 +530,7 @@ void ObjectTreeTest::doSpeedTest()
 		HitInfo hitinfo;
 		const js::ObjectTree::INTERSECTABLE_TYPE* hitob;
 		/*const double t = */ob_tree.traceRay(ray, std::numeric_limits<float>::infinity(), // ray length
-			thread_context, /*time=*/0.0, hitob, hitinfo);
+			/*time=*/0.0, hitob, hitinfo);
 	}
 
 	const double traces_per_sec = (double)NUM_ITERS / testtimer.getSecondsElapsed();
@@ -603,7 +599,6 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		);
 
 	ObjectTree ob_tree;
-	ThreadContext thread_context;
 
 	for(int i=0; i<200; ++i)
 	{
@@ -626,7 +621,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 			std::vector<const IESDatum*>()
 			);
 		
-		object->buildGeometry(thread_context, settings, print_output, true, task_manager);
+		object->buildGeometry(settings, print_output, true, task_manager);
 
 		ob_tree.insertObject(object);
 	}
@@ -675,7 +670,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		//Do a doesFiniteRayHitAnything() test
 		//------------------------------------------------------------------------
 		//const ObjectTree::Real len = Vec4f(end - start).length();//rng.unitRandom() * 1.5;
-		//const bool a = ob_tree.doesFiniteRayHit(ray, len, thread_context, start_time, NULL, std::numeric_limits<unsigned int>::max());
+		//const bool a = ob_tree.doesFiniteRayHit(ray, len, start_time, NULL, std::numeric_limits<unsigned int>::max());
 		//if(a)
 		//	num_hits++;
 	}

@@ -50,7 +50,7 @@ static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b )
 
 
 // Uses some code and ideas from embree\rtcore\bvh2\bvh2_traverser.cpp
-BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray_, ThreadContext& thread_context, double time, 
+BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray_, double time, 
 		const Object*& hitob_out, HitInfo& hitinfo_out) const
 {
 	DO_COLLECT(num_traceray_calls++;)
@@ -217,7 +217,6 @@ stack_pop:
 			const Real dist = ob->traceRay(
 				ray,
 				time,
-				thread_context,
 				ob_hit_info
 			);
 
