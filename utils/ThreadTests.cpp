@@ -177,23 +177,44 @@ public:
 };
 
 
+struct ThreadLocalTestStruct
+{
+	int i;
+};
+
+static GLARE_THREAD_LOCAL ThreadLocalTestStruct* test_struct;
+
+
+// Forced no-inline so it does TLS lookup every time.
+static GLARE_NO_INLINE void doTestStructIncrement()
+{
+	test_struct->i++;
+}
+
+
 class ThreadLocalPerfTestThread : public MyThread
 {
 public:
 	virtual void run()
 	{
-		testAssert(test_thread_local_int == 0);
+		test_struct = new ThreadLocalTestStruct();
+		test_struct->i = 0;
 
 		Timer timer;
 
-		const int N = 10000;
+		const int N = 1000000;
 		for(int z=0; z<N; ++z)
-			test_thread_local_int++;
+			doTestStructIncrement();
 
-		conPrint("ThreadLocalPerfTestThread elapsed per op: " + doubleToStringNSigFigs(1.0e9 * timer.elapsed() / N, 5) + " ns");
+		testAssert(test_struct->i == N);
+		this->elapsed_per_op = timer.elapsed() / N;
 
-		testAssert(test_thread_local_int == N);
+		PlatformUtils::Sleep(1);
+
+		delete test_struct;
 	}
+
+	double elapsed_per_op;
 };
 
 
@@ -217,16 +238,36 @@ void ThreadTests::test()
 	}
 
 	// Do thread-local storage performance test.
-	// NOTE: What's a good way of doing a meaningful performance test of thread local storage?
 	{
 		testAssert(test_thread_local_int == 0);
 
 		Reference<ThreadLocalPerfTestThread> t1 = new ThreadLocalPerfTestThread(); 
-		Reference<ThreadLocalPerfTestThread> t2 = new ThreadLocalPerfTestThread(); 
+		Reference<ThreadLocalPerfTestThread> t2 = new ThreadLocalPerfTestThread();
 		t1->launch();
 		t2->launch();
 		t1->join();
 		t2->join();
+
+		testAssert(test_thread_local_int == 0);
+	}
+
+	// Do another thread-local storage performance test.
+	{
+		testAssert(test_thread_local_int == 0);
+
+		std::vector<Reference<ThreadLocalPerfTestThread> > threads;
+		for(size_t i=0; i<4; ++i)
+		{
+			Reference<ThreadLocalPerfTestThread> t1 = new ThreadLocalPerfTestThread(); 
+			threads.push_back(t1);
+			t1->launch();
+		}
+
+		for(size_t i=0; i<threads.size(); ++i)
+			threads[i]->join();
+
+		for(size_t i=0; i<threads.size(); ++i)
+			conPrint("ThreadLocalPerfTestThread test struct deref elapsed per op: " + doubleToStringNSigFigs(1.0e9 * threads[i]->elapsed_per_op, 5) + " ns");
 
 		testAssert(test_thread_local_int == 0);
 	}
