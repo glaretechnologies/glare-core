@@ -271,7 +271,7 @@ void ObjectTreeTest::doTests()
 			false // shadow ray
 		);
 
-		double time = 0.0;
+		float time = 0.0;
 
 		//ray.buildRecipRayDir();
 

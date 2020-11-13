@@ -50,7 +50,7 @@ public:
 	//void insertObject(const Object* object);
 	
 	// hitob_out will be set to a non-null value if the ray hit somethig in the interval, and null otherwise.
-	Real traceRay(const Ray& ray, double time,
+	Real traceRay(const Ray& ray, float time,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
 	// Throws Indigo::CancelledException if cancelled.

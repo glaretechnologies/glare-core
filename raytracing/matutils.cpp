@@ -726,7 +726,7 @@ static void doTestScatters(const Reference<Material>& material_, float epsilon, 
 
 	VoidMedium void_medium;
 	World world;
-	const double time = 0.0;
+	const float time = 0;
 	const float wavelen = 600.0f;
 	const WavelengthSamples wavelengths(wavelen);
 

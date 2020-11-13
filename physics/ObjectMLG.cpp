@@ -29,7 +29,7 @@ void ObjectMLG::insertObject(const Object* object)
 }
 
 
-ObjectMLG::Real ObjectMLG::traceRay(const Ray& ray, double time, 
+ObjectMLG::Real ObjectMLG::traceRay(const Ray& ray, float time, 
 		const Object* last_object_hit,
 		unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const
@@ -51,7 +51,7 @@ ObjectMLG::Real ObjectMLG::traceRay(const Ray& ray, double time,
 }
 
 
-bool ObjectMLG::doesFiniteRayHit(const Ray& ray, Real length, double time, const Object* ignore_object, unsigned int ignore_tri) const
+bool ObjectMLG::doesFiniteRayHit(const Ray& ray, Real length, float time, const Object* ignore_object, unsigned int ignore_tri) const
 {
 	ObjectMLGResult results;
 	results.hit_object = NULL;

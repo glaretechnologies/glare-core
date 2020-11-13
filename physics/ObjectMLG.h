@@ -29,7 +29,7 @@ struct ObjectMLGResult
 	const Object* hit_object;
 	HitInfo hitinfo;
 	float dist;
-	double time;
+	float time;
 };
 
 class ObjectMLG;
@@ -58,12 +58,12 @@ public:
 
 	void insertObject(const Object* object);
 
-	Real traceRay(const Ray& ray, double time, 
+	Real traceRay(const Ray& ray, float time, 
 		const Object* last_object_hit,
 		unsigned int last_triangle_hit,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
-	bool doesFiniteRayHit(const Ray& ray, Real length, double time, const Object* ignore_object, unsigned int ignore_tri) const;
+	bool doesFiniteRayHit(const Ray& ray, Real length, float time, const Object* ignore_object, unsigned int ignore_tri) const;
 
 	void build(PrintOutput& print_output, bool verbose);
 
