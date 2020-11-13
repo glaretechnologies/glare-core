@@ -197,12 +197,7 @@ unsigned int PlatformUtils::getNumThreadsInCurrentProcess()
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
-	int CPUInfo[4];
-	__cpuid(
-		CPUInfo,
-		infotype // infotype
-		);
-	memcpy(out, CPUInfo, 16);
+	__cpuid((int*)out, infotype);
 #else
 	__get_cpuid(infotype, out, out + 1, out + 2, out + 3);
 	
@@ -231,60 +226,54 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	const int SSE_4_2_FLAG = 1 << 20; // SSE4.2 Extensions
 
 
-	unsigned int CPUInfo[4];
-	doCPUID(0, CPUInfo);
+	unsigned int cpu_info[4];
+	doCPUID(/*infotype=*/0, cpu_info);
 
-	const int highest_param = CPUInfo[0];
+	const int highest_param = cpu_info[0];
 	if(highest_param < 1)
 		throw PlatformUtilsExcep("CPUID highest_param error.");
 
-	memcpy(info_out.vendor, &CPUInfo[1], 4);
-	memcpy(info_out.vendor + 4, &CPUInfo[3], 4);
-	memcpy(info_out.vendor + 8, &CPUInfo[2], 4);
-	info_out.vendor[12] = 0;
+	memcpy(info_out.vendor + 0, &cpu_info[1], 4);
+	memcpy(info_out.vendor + 4, &cpu_info[3], 4);
+	memcpy(info_out.vendor + 8, &cpu_info[2], 4);
+	info_out.vendor[12] = 0; // Force string null termination.
 
-	doCPUID(1, CPUInfo);
+	doCPUID(/*infotype=*/1, cpu_info);
 
-	info_out.mmx = (CPUInfo[3] & MMX_FLAG ) != 0;
-	info_out.sse1 = (CPUInfo[3] & SSE_FLAG ) != 0;
-	info_out.sse2 = (CPUInfo[3] & SSE2_FLAG ) != 0;
-	info_out.sse3 = (CPUInfo[2] & SSE3_FLAG ) != 0;
-	info_out.sse4_1 = (CPUInfo[2] & SSE_4_1_FLAG ) != 0;
-	info_out.sse4_2 = (CPUInfo[2] & SSE_4_2_FLAG ) != 0;
-	info_out.stepping = CPUInfo[0] & 0xF;
-	info_out.model = (CPUInfo[0] >> 4) & 0xF;
-	info_out.family = (CPUInfo[0] >> 8) & 0xF;
+	info_out.mmx      = (cpu_info[3] & MMX_FLAG ) != 0;
+	info_out.sse1     = (cpu_info[3] & SSE_FLAG ) != 0;
+	info_out.sse2     = (cpu_info[3] & SSE2_FLAG ) != 0;
+	info_out.sse3     = (cpu_info[2] & SSE3_FLAG ) != 0;
+	info_out.sse4_1   = (cpu_info[2] & SSE_4_1_FLAG ) != 0;
+	info_out.sse4_2   = (cpu_info[2] & SSE_4_2_FLAG ) != 0;
+	info_out.stepping = (cpu_info[0] & 0xF);
+	info_out.model    = (cpu_info[0] >> 4) & 0xF;
+	info_out.family   = (cpu_info[0] >> 8) & 0xF;
 
 	// See https://en.wikipedia.org/wiki/CPUID, also Intel 64 and IA-32 Architectures Software Developer�s Manual, Volume 2A, "INPUT EAX = 01H: Returns Model, Family, Stepping Information"
 	if(info_out.family == 6 || info_out.family == 15)
 	{
 		if(info_out.family == 15)
-			info_out.family += (CPUInfo[0] >> 20) & 0xFF;
+			info_out.family += (cpu_info[0] >> 20) & 0xFF;
 
-		info_out.model += ((CPUInfo[0] >> 16) & 0xF) << 4;
+		info_out.model += ((cpu_info[0] >> 16) & 0xF) << 4;
 	}
 
-	doCPUID(0x80000000, CPUInfo);
+	doCPUID(/*infotype=*/0x80000000, cpu_info);
 
-	const unsigned int highest_extended_param = CPUInfo[0];
+	const unsigned int highest_extended_param = cpu_info[0];
 	if(highest_extended_param < 0x80000004)
 		throw PlatformUtilsExcep("CPUID highest_extended_param error.");
 
-	doCPUID(0x80000002, CPUInfo);
-	memcpy(info_out.proc_brand + 0, CPUInfo + 0, 4);
-	memcpy(info_out.proc_brand + 4, CPUInfo + 1, 4);
-	memcpy(info_out.proc_brand + 8, CPUInfo + 2, 4);
-	memcpy(info_out.proc_brand + 12, CPUInfo + 3, 4);
-	doCPUID(0x80000003, CPUInfo);
-	memcpy(info_out.proc_brand + 16, CPUInfo + 0, 4);
-	memcpy(info_out.proc_brand + 20, CPUInfo + 1, 4);
-	memcpy(info_out.proc_brand + 24, CPUInfo + 2, 4);
-	memcpy(info_out.proc_brand + 28, CPUInfo + 3, 4);
-	doCPUID(0x80000004, CPUInfo);
-	memcpy(info_out.proc_brand + 32, CPUInfo + 0, 4);
-	memcpy(info_out.proc_brand + 36, CPUInfo + 1, 4);
-	memcpy(info_out.proc_brand + 40, CPUInfo + 2, 4);
-	memcpy(info_out.proc_brand + 44, CPUInfo + 3, 4);
+	// Note that info_out.proc_brand may not be 4-byte aligned, so don't place into there directly.
+	doCPUID(/*infotype=*/0x80000002, cpu_info);
+	memcpy(info_out.proc_brand + 0, cpu_info, 16);
+	doCPUID(/*infotype=*/0x80000003, cpu_info);
+	memcpy(info_out.proc_brand + 16, cpu_info, 16);
+	doCPUID(/*infotype=*/0x80000004, cpu_info);
+	memcpy(info_out.proc_brand + 32, cpu_info, 16);
+
+	info_out.proc_brand[48] = 0; // Force string null termination.
 }
 
 
@@ -1004,6 +993,28 @@ void PlatformUtils::testPlatformUtils()
 
 	try
 	{
+		//----------------------- Test getCPUInfo ------------------------------
+		{
+			conPrint("Testing CPUID:");
+			CPUInfo info;
+			getCPUInfo(info);
+			conPrint("vendor:     " + std::string(info.vendor));
+			conPrint("proc_brand: " + std::string(info.proc_brand));
+			conPrint("stepping:   " + toString(info.stepping));
+			conPrint("model:      " + toString(info.model));
+			conPrint("family:     " + toString(info.family));
+			conPrint("mmx:        " + boolToString(info.mmx));
+			conPrint("sse1:       " + boolToString(info.sse1));
+			conPrint("sse2:       " + boolToString(info.sse2));
+			conPrint("sse3:       " + boolToString(info.sse3));
+			conPrint("sse4_1:     " + boolToString(info.sse4_1));
+			conPrint("sse4_2:     " + boolToString(info.sse4_2));
+		}
+
+
+
+
+
 		conPrint("PlatformUtils::getOSVersionString(): " + PlatformUtils::getOSVersionString());
 		conPrint("PlatformUtils::getFullPathToCurrentExecutable(): " + PlatformUtils::getFullPathToCurrentExecutable());
 		conPrint("PlatformUtils::getCurrentWorkingDirPath(): " + PlatformUtils::getCurrentWorkingDirPath());

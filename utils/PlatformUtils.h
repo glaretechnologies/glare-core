@@ -46,12 +46,12 @@ unsigned int getNumThreadsInCurrentProcess(); // throws PlatformUtilsExcep
 class CPUInfo
 {
 public:
-	char vendor[13];
+	char vendor[13]; // Includes an extra char to force null termination.
 	bool mmx, sse1, sse2, sse3, sse4_1, sse4_2;
 	unsigned int stepping;
 	unsigned int model;
 	unsigned int family;
-	char proc_brand[48];
+	char proc_brand[49]; // Includes an extra char to force null termination.
 };
 
 void getCPUInfo(CPUInfo& info_out); // throws PlatformUtilsExcep
