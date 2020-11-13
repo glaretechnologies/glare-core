@@ -45,7 +45,7 @@ public:
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
 	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const;
 	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const;
-	virtual const js::AABBox& getAABBoxWS() const;
+	virtual const js::AABBox& getAABBox() const;
 
 	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 

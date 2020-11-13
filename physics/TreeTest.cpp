@@ -417,9 +417,9 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 	trees.back()->build(print_output, should_cancel_callback, true, task_manager);
 #endif
 	// Check AABBox
-	const AABBox box = trees[0]->getAABBoxWS();
+	const AABBox box = trees[0]->getAABBox();
 	for(size_t i = 0; i < trees.size(); ++i)
-		testAssert(trees[i]->getAABBoxWS() == box);
+		testAssert(trees[i]->getAABBox() == box);
 
 
 	//------------------------------------------------------------------------

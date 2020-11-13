@@ -129,7 +129,7 @@ void RayMesh::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, cons
 const js::AABBox RayMesh::getAABBox() const
 {
 	if(tritree)
-		return tritree->getAABBoxWS();
+		return tritree->getAABBox();
 	else
 	{
 		if(vertices.empty())

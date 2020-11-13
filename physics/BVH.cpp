@@ -1065,7 +1065,7 @@ void BVH::getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinf
 }
 
 
-const js::AABBox& BVH::getAABBoxWS() const
+const js::AABBox& BVH::getAABBox() const
 {
 	return root_aabb;
 }

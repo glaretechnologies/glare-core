@@ -1,7 +1,7 @@
 /*=====================================================================
 SmallBVH.h
 ----------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -44,6 +44,11 @@ We still need CPU mesh tracing (currently) for a few things -
 * World::getContainingMedia() for emitter (16 probe paths per light object)
 * World::getContainingMedia() for camera (32 probe paths)
 Solution: Use some kind of low-memory acceleration structure for this purpose.
+
+The way we use a small amount of memory is to have a lot of triangles indices (up to 63) in each leaf.
+This will reduce the total number of tree nodes.
+
+We also use a binning builder for fast builds.
 =====================================================================*/
 class SmallBVH : public Tree
 {
@@ -56,7 +61,7 @@ public:
 	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager); // throws Indigo::Exception
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
-	virtual const js::AABBox& getAABBoxWS() const;
+	virtual const js::AABBox& getAABBox() const;
 
 	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 

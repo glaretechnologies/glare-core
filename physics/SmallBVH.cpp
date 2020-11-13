@@ -1,7 +1,7 @@
 /*=====================================================================
 SmallBVH.cpp
 ------------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "SmallBVH.h"
 
@@ -312,7 +312,7 @@ void SmallBVH::getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos
 }
 
 
-const js::AABBox& SmallBVH::getAABBoxWS() const
+const js::AABBox& SmallBVH::getAABBox() const
 {
 	return root_aabb;
 }
