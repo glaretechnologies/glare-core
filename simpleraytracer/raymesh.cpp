@@ -909,7 +909,7 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 }
 
 
-struct RTCSceneTy* RayMesh::getEmbreeScene()
+RTCSceneTy* RayMesh::getEmbreeScene()
 {
 	if(dynamic_cast<EmbreeAccel*>(this->tritree))
 		return static_cast<EmbreeAccel*>(this->tritree)->embree_scene;

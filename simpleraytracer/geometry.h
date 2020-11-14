@@ -30,8 +30,13 @@ class Material;
 class ShouldCancelCallback;
 class TransformPath;
 namespace Indigo { class TaskManager; }
-struct RTCSceneTy;
-struct RTCDeviceTy;
+
+namespace EmbreeGlare {
+	struct RTCSceneTy;
+	struct RTCDeviceTy;
+}
+
+using namespace EmbreeGlare;
 
 
 /*=====================================================================
@@ -120,12 +125,12 @@ public:
 	{
 		BuildOptions() : build_small_bvh(false), embree_device(NULL) {}
 		bool build_small_bvh;
-		struct RTCDeviceTy* embree_device; // Used in EmbreeAccel::build()
+		RTCDeviceTy* embree_device; // Used in EmbreeAccel::build()
 	};
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
 	// Gets the built embree scene
-	virtual struct RTCSceneTy* getEmbreeScene() { return NULL; }
+	virtual RTCSceneTy* getEmbreeScene() { return NULL; }
 
 	virtual Real meanCurvature(const HitInfo& hitinfo) const = 0;
 

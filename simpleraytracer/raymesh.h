@@ -189,7 +189,7 @@ public:
 		ShouldCancelCallback* should_cancel_callback);
 
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
-	virtual struct RTCSceneTy* getEmbreeScene();
+	virtual RTCSceneTy* getEmbreeScene();
 	virtual const std::string getName() const;
 	virtual float meanCurvature(const HitInfo& hitinfo) const;
 	virtual bool isPlanar(Vec4f& normal_out) const;

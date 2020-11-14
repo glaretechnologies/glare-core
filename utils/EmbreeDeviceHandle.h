@@ -24,23 +24,25 @@ We'll do this in this separate file for prettiness.
 #endif
 
 
+using namespace EmbreeGlare;
+
 
 class EmbreeDeviceHandle
 {
 public:
 	EmbreeDeviceHandle() : embree_device(NULL) {}
-	EmbreeDeviceHandle(struct RTCDeviceTy* embree_device_) : embree_device(embree_device_) {}
+	EmbreeDeviceHandle(RTCDeviceTy* embree_device_) : embree_device(embree_device_) {}
 	~EmbreeDeviceHandle()
 	{
 		if(embree_device)
 			rtcReleaseDevice(embree_device);
 	}
 
-	struct RTCDeviceTy* ptr() { return embree_device; }
+	RTCDeviceTy* ptr() { return embree_device; }
 
 private:
 	EmbreeDeviceHandle(const EmbreeDeviceHandle& );
 	EmbreeDeviceHandle& operator = (const EmbreeDeviceHandle& );
 	
-	struct RTCDeviceTy* embree_device;
+	RTCDeviceTy* embree_device;
 };
