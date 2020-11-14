@@ -240,12 +240,12 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 
 	doCPUID(/*infotype=*/1, cpu_info);
 
-	info_out.mmx      = (cpu_info[3] & MMX_FLAG ) != 0;
-	info_out.sse1     = (cpu_info[3] & SSE_FLAG ) != 0;
-	info_out.sse2     = (cpu_info[3] & SSE2_FLAG ) != 0;
-	info_out.sse3     = (cpu_info[2] & SSE3_FLAG ) != 0;
-	info_out.sse4_1   = (cpu_info[2] & SSE_4_1_FLAG ) != 0;
-	info_out.sse4_2   = (cpu_info[2] & SSE_4_2_FLAG ) != 0;
+	info_out.mmx      = (cpu_info[3] & MMX_FLAG    ) != 0;
+	info_out.sse1     = (cpu_info[3] & SSE_FLAG    ) != 0;
+	info_out.sse2     = (cpu_info[3] & SSE2_FLAG   ) != 0;
+	info_out.sse3     = (cpu_info[2] & SSE3_FLAG   ) != 0;
+	info_out.sse4_1   = (cpu_info[2] & SSE_4_1_FLAG) != 0;
+	info_out.sse4_2   = (cpu_info[2] & SSE_4_2_FLAG) != 0;
 	info_out.stepping = (cpu_info[0] & 0xF);
 	info_out.model    = (cpu_info[0] >> 4) & 0xF;
 	info_out.family   = (cpu_info[0] >> 8) & 0xF;
