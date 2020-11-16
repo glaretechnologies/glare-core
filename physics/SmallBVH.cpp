@@ -167,7 +167,7 @@ static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b) 
 
 SmallBVH::DistType SmallBVH::traceRay(const Ray& ray_, HitInfo& hitinfo_out) const
 {
-	hitinfo_out.hit_opaque_ob = false; // Just consider the hit as non-opaque.  This is the conservative option.
+	//hitinfo_out.hit_opaque_ob = false; // Just consider the hit as non-opaque.  This is the conservative option.
 
 	Ray ray = ray_;
 	HitInfo ob_hit_info;

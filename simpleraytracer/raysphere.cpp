@@ -65,7 +65,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, HitInfo& hitinfo_out) con
 		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
 		hitinfo_out.sub_elem_coords = uvs;
-		hitinfo_out.hit_opaque_ob = mat_group_opaque[0];
+		//hitinfo_out.hit_opaque_ob = mat_group_opaque[0];
 		return t_0;
 	}
 
@@ -75,7 +75,7 @@ Geometry::DistType RaySphere::traceRay(const Ray& ray, HitInfo& hitinfo_out) con
 		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
 		hitinfo_out.sub_elem_index = 0;
 		hitinfo_out.sub_elem_coords = uvs;
-		hitinfo_out.hit_opaque_ob = mat_group_opaque[0];
+		//hitinfo_out.hit_opaque_ob = mat_group_opaque[0];
 		return t_1;
 	}
 

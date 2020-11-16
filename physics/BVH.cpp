@@ -347,7 +347,7 @@ public:
 
 BVH::DistType BVH::traceRay(const Ray& ray, HitInfo& hitinfo_out) const
 {
-	hitinfo_out.hit_opaque_ob = false; // Just consider the hit as non-opaque.  This is the conservative option.
+	//hitinfo_out.hit_opaque_ob = false; // Just consider the hit as non-opaque.  This is the conservative option.
 
 	//ThreadContext& thread_context = *ThreadContext::getThreadLocalContext();
 

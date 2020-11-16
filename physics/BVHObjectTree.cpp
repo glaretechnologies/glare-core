@@ -231,12 +231,12 @@ stack_pop:
 				hitinfo_out = ob_hit_info;
 
 				// If we are doing a shadow trace, and hit an opaque object, then we can early out as we know there is zero transmittance along this edge.
-				if(shadow_trace && ob_hit_info.hit_opaque_ob)
+				/*if(shadow_trace && ob_hit_info.hit_opaque_ob)
 				{
 					assert(hitinfo_out.hit_opaque_ob);
 					DO_COLLECT(num_hit_opaque_ob_early_outs++;)
 					return dist;
-				}
+				}*/
 
 				// Update far to min(dist, far)
 				const Vec4f new_neg_far = Vec4f(_mm_max_ps(Vec4f(-dist).v, near_far.v)); // (., ., -min(far, dist), -min(far, dist))
