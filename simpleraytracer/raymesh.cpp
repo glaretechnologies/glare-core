@@ -189,9 +189,9 @@ const RayMesh::Vec3Type RayMesh::getGeometricNormalAndMatIndex(const HitInfo& hi
 	const RayMeshVertex& v2 = vertices[tri.vertex_indices[2]];
 
 	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
-	const Vec4f v0pos = _mm_loadu_ps(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-	const Vec4f v1pos = _mm_loadu_ps(&v1.pos.x);
-	const Vec4f v2pos = _mm_loadu_ps(&v2.pos.x);
+	const Vec4f v0pos = loadUnalignedVec4f(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = loadUnalignedVec4f(&v1.pos.x);
+	const Vec4f v2pos = loadUnalignedVec4f(&v2.pos.x);
 
 	// Compute N_g_os_out
 	const Vec4f e0 = maskWToZero(v1pos - v0pos);
@@ -220,9 +220,9 @@ void RayMesh::getPosAndGeomNormal(const HitInfo& hitinfo, Vec3Type& pos_os_out, 
 	const RayMeshVertex& v2 = vertices[tri.vertex_indices[2]];
 
 	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
-	const Vec4f v0pos = _mm_loadu_ps(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-	const Vec4f v1pos = _mm_loadu_ps(&v1.pos.x);
-	const Vec4f v2pos = _mm_loadu_ps(&v2.pos.x);
+	const Vec4f v0pos = loadUnalignedVec4f(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = loadUnalignedVec4f(&v1.pos.x);
+	const Vec4f v2pos = loadUnalignedVec4f(&v2.pos.x);
 
 	// Compute N_g_os_out
 	const Vec4f e0 = maskWToZero(v1pos - v0pos);
@@ -263,9 +263,9 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 	const RayMeshVertex& v2 = vertices[tri.vertex_indices[2]];
 
 	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
-	const Vec4f v0pos = _mm_loadu_ps(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-	const Vec4f v1pos = _mm_loadu_ps(&v1.pos.x);
-	const Vec4f v2pos = _mm_loadu_ps(&v2.pos.x);
+	const Vec4f v0pos = loadUnalignedVec4f(&v0.pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = loadUnalignedVec4f(&v1.pos.x);
+	const Vec4f v2pos = loadUnalignedVec4f(&v2.pos.x);
 
 	// Compute N_g_os_out
 	const Vec4f e0 = maskWToZero(v1pos - v0pos);
@@ -301,9 +301,9 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 		N_s_os_out = N_g_os_out;
 	else
 	{
-		const Vec4f v0norm = _mm_loadu_ps(&v0.normal.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-		const Vec4f v1norm = _mm_loadu_ps(&v1.normal.x);
-		const Vec4f v2norm = _mm_loadu_ps(&v2.normal.x);
+		const Vec4f v0norm = loadUnalignedVec4f(&v0.normal.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+		const Vec4f v1norm = loadUnalignedVec4f(&v1.normal.x);
+		const Vec4f v2norm = loadUnalignedVec4f(&v2.normal.x);
 
 		N_s_os_out = maskWToZero(v0norm * w + v1norm * u + v2norm * v);
 	}
@@ -455,9 +455,9 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager,
 			for(size_t i=0; i<num_tris; ++i)
 			{
 				const RayMeshTriangle& tri = this->triangles[i];
-				const Vec4f v0pos = _mm_loadu_ps(&vertices[tri.vertex_indices[0]].pos.x);
-				const Vec4f v1pos = _mm_loadu_ps(&vertices[tri.vertex_indices[1]].pos.x);
-				const Vec4f v2pos = _mm_loadu_ps(&vertices[tri.vertex_indices[2]].pos.x);
+				const Vec4f v0pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[0]].pos.x);
+				const Vec4f v1pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[1]].pos.x);
+				const Vec4f v2pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[2]].pos.x);
 				triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 			}
 		}
@@ -472,10 +472,10 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager,
 			for(size_t i=0; i<num_quads; ++i)
 			{
 				const RayMeshQuad& q = this->quads[i];
-				const Vec4f v0pos = _mm_loadu_ps(&vertices[q.vertex_indices[0]].pos.x);
-				const Vec4f v1pos = _mm_loadu_ps(&vertices[q.vertex_indices[1]].pos.x);
-				const Vec4f v2pos = _mm_loadu_ps(&vertices[q.vertex_indices[2]].pos.x);
-				const Vec4f v3pos = _mm_loadu_ps(&vertices[q.vertex_indices[3]].pos.x);
+				const Vec4f v0pos = loadUnalignedVec4f(&vertices[q.vertex_indices[0]].pos.x);
+				const Vec4f v1pos = loadUnalignedVec4f(&vertices[q.vertex_indices[1]].pos.x);
+				const Vec4f v2pos = loadUnalignedVec4f(&vertices[q.vertex_indices[2]].pos.x);
+				const Vec4f v3pos = loadUnalignedVec4f(&vertices[q.vertex_indices[3]].pos.x);
 
 				RayMeshTriangle& tri_1 = this->triangles[initial_num_tris + i*2 + 0];
 				RayMeshTriangle& tri_2 = this->triangles[initial_num_tris + i*2 + 1];
@@ -538,10 +538,10 @@ void RayMesh::buildTrisFromQuads()
 		for(size_t i=0; i<num_quads; ++i)
 		{
 			const RayMeshQuad& q = this->quads[i];
-			const Vec4f v0pos = _mm_loadu_ps(&vertices[q.vertex_indices[0]].pos.x);
-			const Vec4f v1pos = _mm_loadu_ps(&vertices[q.vertex_indices[1]].pos.x);
-			const Vec4f v2pos = _mm_loadu_ps(&vertices[q.vertex_indices[2]].pos.x);
-			const Vec4f v3pos = _mm_loadu_ps(&vertices[q.vertex_indices[3]].pos.x);
+			const Vec4f v0pos = loadUnalignedVec4f(&vertices[q.vertex_indices[0]].pos.x);
+			const Vec4f v1pos = loadUnalignedVec4f(&vertices[q.vertex_indices[1]].pos.x);
+			const Vec4f v2pos = loadUnalignedVec4f(&vertices[q.vertex_indices[2]].pos.x);
+			const Vec4f v3pos = loadUnalignedVec4f(&vertices[q.vertex_indices[3]].pos.x);
 
 			RayMeshTriangle& tri_1 = this->triangles[initial_num_tris + i*2 + 0];
 			RayMeshTriangle& tri_2 = this->triangles[initial_num_tris + i*2 + 1];
@@ -763,9 +763,9 @@ Reference<RayMesh> RayMesh::getClippedCopy(const std::vector<Planef>& section_pl
 		for(size_t i=0; i<num_tris; ++i)
 		{
 			const RayMeshTriangle& tri = new_mesh->triangles[i];
-			const Vec4f v0pos = _mm_loadu_ps(&new_mesh->vertices[tri.vertex_indices[0]].pos.x);
-			const Vec4f v1pos = _mm_loadu_ps(&new_mesh->vertices[tri.vertex_indices[1]].pos.x);
-			const Vec4f v2pos = _mm_loadu_ps(&new_mesh->vertices[tri.vertex_indices[2]].pos.x);
+			const Vec4f v0pos = loadUnalignedVec4f(&new_mesh->vertices[tri.vertex_indices[0]].pos.x);
+			const Vec4f v1pos = loadUnalignedVec4f(&new_mesh->vertices[tri.vertex_indices[1]].pos.x);
+			const Vec4f v2pos = loadUnalignedVec4f(&new_mesh->vertices[tri.vertex_indices[2]].pos.x);
 			new_mesh->triangles[i].inv_cross_magnitude = 1.f / ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 		}
 	}
@@ -807,9 +807,9 @@ static inline const Vec4f triGeometricNormal(const RayMesh::VertexVectorType& ve
 {
 	static_assert(offsetof(RayMeshVertex, pos) + sizeof(Vec4f) <= sizeof(RayMeshVertex), "in range");
 
-	const Vec4f v0pos = _mm_loadu_ps(&verts[v0].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-	const Vec4f v1pos = _mm_loadu_ps(&verts[v1].pos.x);
-	const Vec4f v2pos = _mm_loadu_ps(&verts[v2].pos.x);
+	const Vec4f v0pos = loadUnalignedVec4f(&verts[v0].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = loadUnalignedVec4f(&verts[v1].pos.x);
+	const Vec4f v2pos = loadUnalignedVec4f(&verts[v2].pos.x);
 
 	const Vec4f e0 = maskWToZero(v1pos - v0pos); // Mask off garbage
 	const Vec4f e1 = maskWToZero(v2pos - v0pos);
@@ -1018,9 +1018,9 @@ void RayMesh::getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3
 void RayMesh::getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_dalpha_out, Vec3Type& dp_dbeta_out) const
 {
 	const RayMeshTriangle& tri = triangles[hitinfo.sub_elem_index];
-	const Vec4f v0pos = _mm_loadu_ps(&vertices[tri.vertex_indices[0]].pos.x);
-	const Vec4f v1pos = _mm_loadu_ps(&vertices[tri.vertex_indices[1]].pos.x);
-	const Vec4f v2pos = _mm_loadu_ps(&vertices[tri.vertex_indices[2]].pos.x);
+	const Vec4f v0pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[0]].pos.x);
+	const Vec4f v1pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[1]].pos.x);
+	const Vec4f v2pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[2]].pos.x);
 	dp_dalpha_out = maskWToZero(v1pos - v0pos); // Mask off garbage W values.
 	dp_dbeta_out  = maskWToZero(v2pos - v0pos);
 }
@@ -1030,9 +1030,9 @@ void RayMesh::getIntrinsicCoordsPartialDerivs(const HitInfo& hitinfo, Vec3Type& 
 inline static float getTriArea(const RayMesh& mesh, unsigned int tri_index, const Matrix4f& to_parent)
 {
 	const RayMeshTriangle& tri = mesh.getTriangles()[tri_index];
-	const Vec4f v0 = _mm_loadu_ps(&mesh.getVertices()[tri.vertex_indices[0]].pos.x);
-	const Vec4f v1 = _mm_loadu_ps(&mesh.getVertices()[tri.vertex_indices[1]].pos.x);
-	const Vec4f v2 = _mm_loadu_ps(&mesh.getVertices()[tri.vertex_indices[2]].pos.x);
+	const Vec4f v0 = loadUnalignedVec4f(&mesh.getVertices()[tri.vertex_indices[0]].pos.x);
+	const Vec4f v1 = loadUnalignedVec4f(&mesh.getVertices()[tri.vertex_indices[1]].pos.x);
+	const Vec4f v2 = loadUnalignedVec4f(&mesh.getVertices()[tri.vertex_indices[2]].pos.x);
 
 	const Vec4f e0(to_parent * maskWToZero(v1 - v0)); // Mask off garbage W values.
 	const Vec4f e1(to_parent * maskWToZero(v2 - v0));
@@ -1147,9 +1147,9 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 		// Check the area of the triangle.
 		// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
-		const Vec4f v0pos = _mm_loadu_ps(&vertices[src_tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-		const Vec4f v1pos = _mm_loadu_ps(&vertices[src_tri.vertex_indices[1]].pos.x);
-		const Vec4f v2pos = _mm_loadu_ps(&vertices[src_tri.vertex_indices[2]].pos.x);
+		const Vec4f v0pos = loadUnalignedVec4f(&vertices[src_tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+		const Vec4f v1pos = loadUnalignedVec4f(&vertices[src_tri.vertex_indices[1]].pos.x);
+		const Vec4f v2pos = loadUnalignedVec4f(&vertices[src_tri.vertex_indices[2]].pos.x);
 		const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
 		if(cross_prod_len < MIN_TRIANGLE_AREA_TIMES_TWO)
@@ -1289,9 +1289,9 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 
 			// Check the area of the triangle.
 			// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
-			const Vec4f v0pos = _mm_loadu_ps(&vertices[vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-			const Vec4f v1pos = _mm_loadu_ps(&vertices[vertex_indices[1]].pos.x);
-			const Vec4f v2pos = _mm_loadu_ps(&vertices[vertex_indices[2]].pos.x);
+			const Vec4f v0pos = loadUnalignedVec4f(&vertices[vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+			const Vec4f v1pos = loadUnalignedVec4f(&vertices[vertex_indices[1]].pos.x);
+			const Vec4f v2pos = loadUnalignedVec4f(&vertices[vertex_indices[2]].pos.x);
 			const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
 			if(cross_prod_len < MIN_TRIANGLE_AREA_TIMES_TWO)
@@ -1427,9 +1427,9 @@ void RayMesh::addUVs(const std::vector<Vec2f>& new_uvs)
 void RayMesh::addTriangle(const unsigned int* vertex_indices, const unsigned int* uv_indices, unsigned int material_index)
 {
 	// Check the area of the triangle
-	const Vec4f v0pos = _mm_loadu_ps(&vertices[vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-	const Vec4f v1pos = _mm_loadu_ps(&vertices[vertex_indices[1]].pos.x);
-	const Vec4f v2pos = _mm_loadu_ps(&vertices[vertex_indices[2]].pos.x);
+	const Vec4f v0pos = loadUnalignedVec4f(&vertices[vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = loadUnalignedVec4f(&vertices[vertex_indices[1]].pos.x);
+	const Vec4f v2pos = loadUnalignedVec4f(&vertices[vertex_indices[2]].pos.x);
 	const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
 	if(cross_prod_len < MIN_TRIANGLE_AREA_TIMES_TWO)
@@ -1500,9 +1500,9 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	hitinfo_out.sub_elem_coords.set(u, v);
 
 	const RayMeshTriangle& tri(this->triangles[sub_elem_index]);
-	const Vec4f v0pos = _mm_loadu_ps(&vertices[tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
-	const Vec4f v1pos = _mm_loadu_ps(&vertices[tri.vertex_indices[1]].pos.x);
-	const Vec4f v2pos = _mm_loadu_ps(&vertices[tri.vertex_indices[2]].pos.x);
+	const Vec4f v0pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+	const Vec4f v1pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[1]].pos.x);
+	const Vec4f v2pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[2]].pos.x);
 	const Vec4f normal = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos));
 	assert(normal[3] == 0 && epsEqual(std::fabs(tri.inv_cross_magnitude), 1.f / normal.length()));
 
