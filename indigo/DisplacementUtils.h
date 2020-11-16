@@ -181,7 +181,7 @@ public:
 		RayMesh::TriangleVectorType& tris_in_out,
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
-		std::vector<Vec2f>& uvs_in_out,
+		RayMesh::UVVectorType& uvs_in_out,
 		js::Vector<float, 16>& mean_curvature_out,
 		unsigned int num_uv_sets,
 		const DUOptions& options,
@@ -199,7 +199,7 @@ public:
 		const RayMesh::TriangleVectorType& tris_in,
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
-		const std::vector<Vec2f>& uvs_in,
+		const RayMesh::UVVectorType& uvs_in,
 		unsigned int num_uv_sets
 	);
 	
@@ -212,7 +212,7 @@ private:
 		const RayMesh::TriangleVectorType& triangles_in, 
 		const RayMesh::QuadVectorType& quads_in,
 		const RayMesh::VertexVectorType& vertices_in,
-		const std::vector<Vec2f>& uvs_in,
+		const RayMesh::UVVectorType& uvs_in,
 		unsigned int num_uv_sets,
 		Polygons& temp_polygons_out,
 		VertsAndUVs& temp_verts_uvs_out

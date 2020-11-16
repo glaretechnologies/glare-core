@@ -12,6 +12,7 @@ Generated at 2017-05-09 18:51:12 +0100
 
 #include "raymesh.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/IndigoStringUtils.h"
 #include "../indigo/TestUtils.h"
 #include "../indigo/Diffuse.h"
 #include "../indigo/ConstantSpectrumMatParameter.h"
@@ -68,7 +69,7 @@ void RayMeshTests::test()
 
 	Geometry::BuildOptions build_options;
 
-	EmbreeDeviceHandle embree_device(rtcNewDevice("verbose=3,frequency_level=simd128"));
+	EmbreeDeviceHandle embree_device(rtcNewDevice("frequency_level=simd128"));
 	build_options.embree_device = embree_device.ptr();
 
 	Indigo::TaskManager task_manager;
@@ -338,6 +339,41 @@ void RayMeshTests::test()
 		double scalarsum = sum.x[0] + sum.x[1] + sum.x[2] + sum.x[3];
 
 		conPrint("getInfoForHit() time: " + ::toString(1.0e9 * elapsed / N) + " ns");
+		TestUtils::silentPrint(::toString(scalarsum));
+	}
+
+	//==================== Perf test RayMesh::getUVCoords() ========================
+	if(false)
+	{
+		Indigo::Mesh indigo_mesh;
+		Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/quad_mesh_500x500_verts.igmesh", indigo_mesh);
+
+		RayMesh mesh("mesh", /*use shading normals=*/true);
+		mesh.fromIndigoMesh(indigo_mesh);
+		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
+			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
+
+		HitInfo hitinfo;
+		hitinfo.sub_elem_index = 0;
+		hitinfo.sub_elem_coords.set(0.3f, 0.6f);
+
+		Timer timer;
+		int N = 1000000;
+		Vec2f sum(0.0f);
+		for(int i=0; i<N; ++i)
+		{
+			const Vec2f uv0 = mesh.getUVCoords(hitinfo,
+				0 // texcoord set
+			);
+
+			sum += uv0;
+		}
+
+		const double elapsed = timer.elapsed();
+		const double scalarsum = sum.x + sum.y;
+
+		conPrint("getUVCoords() time: " + ::toString(1.0e9 * elapsed / N) + " ns");
 		TestUtils::silentPrint(::toString(scalarsum));
 	}
 

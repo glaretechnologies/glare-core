@@ -174,7 +174,7 @@ public:
 };
 
 
-static inline const Vec2f& getUVs(const std::vector<Vec2f>& uvs, uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
+static inline const Vec2f& getUVs(const RayMesh::UVVectorType& uvs, uint32_t num_uv_sets, uint32_t uv_index, uint32_t set_index)
 {
 	assert(num_uv_sets > 0);
 	assert(set_index < num_uv_sets);
@@ -277,7 +277,7 @@ void DisplacementUtils::initAndBuildAdjacencyInfo(const std::string& mesh_name,
 	const RayMesh::TriangleVectorType& triangles_in, 
 	const RayMesh::QuadVectorType& quads_in,
 	const RayMesh::VertexVectorType& vertices_in,
-	const std::vector<Vec2f>& uvs_in,
+	const RayMesh::UVVectorType& uvs_in,
 	unsigned int num_uv_sets,
 	Polygons& temp_polygons_out,
 	VertsAndUVs& temp_verts_uvs_out
@@ -835,7 +835,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 	RayMesh::TriangleVectorType& triangles_in_out, 
 	const RayMesh::QuadVectorType& quads_in,
 	RayMesh::VertexVectorType& vertices_in_out,
-	std::vector<Vec2f>& uvs_in_out,
+	RayMesh::UVVectorType& uvs_in_out,
 	js::Vector<float, 16>& mean_curvature_out,
 	unsigned int num_uv_sets,
 	const DUOptions& options,
@@ -1077,7 +1077,7 @@ struct RayMeshDisplaceTaskClosure
 	const RayMesh::TriangleVectorType* tris_in;
 	const RayMesh::QuadVectorType* quads_in;
 	unsigned int num_uv_sets;
-	const std::vector<Vec2f>* uvs_in;
+	const RayMesh::UVVectorType* uvs_in;
 	RayMesh::VertexVectorType* verts;
 	const ArrayRef<Reference<Material> >* materials;
 };
@@ -1096,7 +1096,7 @@ public:
 		const RayMesh::TriangleVectorType& tris = *closure.tris_in;
 		const RayMesh::QuadVectorType& quads = *closure.quads_in;
 		const int num_uv_sets = closure.num_uv_sets;
-		const std::vector<Vec2f>& uvs = *closure.uvs_in;
+		const RayMesh::UVVectorType& uvs = *closure.uvs_in;
 		RayMesh::VertexVectorType& verts = *closure.verts;
 		HashMapInsertOnly2<VertDisplacementTaskKey, VertDisplacementTaskValue, VertDisplacementTaskKeyHash>* displacement_tasks = closure.displacement_tasks;
 		HashMapInsertOnly2<VertDisplacementTaskKey, VertDisplacementTaskValue, VertDisplacementTaskKeyHash>::KeyValuePair* buckets = closure.displacement_tasks->buckets;
@@ -1180,7 +1180,7 @@ void DisplacementUtils::doDisplacementOnly(
 		const RayMesh::TriangleVectorType& tris_in,
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
-		const std::vector<Vec2f>& uvs_in,
+		const RayMesh::UVVectorType& uvs_in,
 		unsigned int num_uv_sets
 	)
 {

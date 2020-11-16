@@ -238,6 +238,7 @@ public:
 
 	typedef glare::AllocatorVector<RayMeshVertex, 32> VertexVectorType; // We'll use a custom allocator to allocate a little extra memory, 
 	// so that we can do 4-vector loads of vertex data without reading out-of-bounds.
+	typedef glare::AllocatorVector<Vec2f, 32> UVVectorType;
 	typedef js::Vector<RayMeshTriangle, 32> TriangleVectorType;
 	typedef js::Vector<RayMeshQuad, 16> QuadVectorType;
 	typedef js::Vector<float, 16> FloatVectorType;
@@ -255,8 +256,8 @@ public:
 	QuadVectorType& getQuads() { return quads; }
 	const QuadVectorType& getQuads() const { return quads; }
 
-	std::vector<Vec2f>& getUVs() { return uvs; }
-	const std::vector<Vec2f>& getUVs() const { return uvs; }
+	UVVectorType& getUVs() { return uvs; }
+	const UVVectorType& getUVs() const { return uvs; }
 	
 	const unsigned int numUVSets() const { return num_uv_sets; }
 
@@ -290,7 +291,7 @@ private:
 	float bounding_radius; // Computed in build()
 public:	
 	unsigned int num_uv_sets;
-	std::vector<Vec2f> uvs;
+	UVVectorType uvs;
 
 	FloatVectorType mean_curvature; // One float per vertex.  Split from other vertex data as it's used less often.
 

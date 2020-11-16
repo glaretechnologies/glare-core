@@ -45,7 +45,11 @@ class PaddingAllocator : public glare::Allocator
 {
 	virtual void* alloc(size_t size, size_t alignment)
 	{
-		return MemAlloc::alignedMalloc(size + 16, alignment);
+		void* data = MemAlloc::alignedMalloc(size + 16, alignment);
+
+		std::memset((uint8*)data + size, 0, /*size=*/16); // Zero out padding
+
+		return data;
 	}
 
 	virtual void free(void* ptr)
@@ -313,18 +317,13 @@ void RayMesh::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Ty
 		uv0_out.set(0, 0);
 	else
 	{
-		unsigned int v0idx = tri.uv_indices[0] * num_uv_sets;
-		unsigned int v1idx = tri.uv_indices[1] * num_uv_sets;
-		unsigned int v2idx = tri.uv_indices[2] * num_uv_sets;
+		const Vec4f uv0 = loadUnalignedVec4f(&uvs[tri.uv_indices[0] * num_uv_sets].x);
+		const Vec4f uv1 = loadUnalignedVec4f(&uvs[tri.uv_indices[1] * num_uv_sets].x);
+		const Vec4f uv2 = loadUnalignedVec4f(&uvs[tri.uv_indices[2] * num_uv_sets].x);
 
-		const Vec2f& v0tex = this->uvs[v0idx];
-		const Vec2f& v1tex = this->uvs[v1idx];
-		const Vec2f& v2tex = this->uvs[v2idx];
+		const Vec4f uv = uv0 * w + uv1 * u + uv2 * v;
 
-		uv0_out = RayMesh::UVCoordsType(
-			v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
-			v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
-		);
+		uv0_out = RayMesh::UVCoordsType(uv[0], uv[1]);
 	}
 }
 
@@ -931,26 +930,18 @@ const RayMesh::UVCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigne
 
 	assert(uv_set_index < num_uv_sets);
 	assert(hitinfo.sub_elem_index < triangles.size());
-	const int uv0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + uv_set_index;
-	const int uv1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + uv_set_index;
-	const int uv2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + uv_set_index;
-	const Vec2f& v0tex = uvs[uv0idx];
-	const Vec2f& v1tex = uvs[uv1idx];
-	const Vec2f& v2tex = uvs[uv2idx];
+	const unsigned int uv0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + uv_set_index;
+	const unsigned int uv1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + uv_set_index;
+	const unsigned int uv2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + uv_set_index;
 
-	//const Vec2f& v0tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[0], texcoords_set);
-	//const Vec2f& v1tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[1], texcoords_set);
-	//const Vec2f& v2tex = this->vertTexCoord(triangles[hitinfo.hittri_index].vertex_indices[2], texcoords_set);
+	// Use SSE 4-vectors.  Seems to be a bit faster than scalar code (~3ns instead of ~3.7 for getUVCoords perf test)
+	const Vec4f uv0 = loadUnalignedVec4f(&uvs[uv0idx].x);
+	const Vec4f uv1 = loadUnalignedVec4f(&uvs[uv1idx].x);
+	const Vec4f uv2 = loadUnalignedVec4f(&uvs[uv2idx].x);
 
-	//return toVec2d(
-	//	v0tex*(1.0f - (float)hitinfo.tri_coords.x - (float)hitinfo.tri_coords.y) + v1tex*(float)hitinfo.tri_coords.x + v2tex*(float)hitinfo.tri_coords.y);
+	const Vec4f uv = uv0 * (1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y) + uv1 * hitinfo.sub_elem_coords.x + uv2 * hitinfo.sub_elem_coords.y;
 
-	// Gratuitous removal of function calls
-	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return RayMesh::UVCoordsType(
-		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
-		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
-		);
+	return RayMesh::UVCoordsType(uv[0], uv[1]);
 }
 
 
@@ -963,24 +954,22 @@ const RayMesh::UVCoordsType RayMesh::getUVCoordsAndPartialDerivs(const HitInfo& 
 	}
 	assert(texcoords_set < num_uv_sets);
 
-	unsigned int v0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
-	unsigned int v1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set;
-	unsigned int v2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set;
+	const unsigned int uv0idx = triangles[hitinfo.sub_elem_index].uv_indices[0] * num_uv_sets + texcoords_set;
+	const unsigned int uv1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + texcoords_set;
+	const unsigned int uv2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + texcoords_set;
 
-	const Vec2f& v0tex = this->uvs[v0idx];
-	const Vec2f& v1tex = this->uvs[v1idx];
-	const Vec2f& v2tex = this->uvs[v2idx];
+	const Vec4f uv0 = loadUnalignedVec4f(&uvs[uv0idx].x);
+	const Vec4f uv1 = loadUnalignedVec4f(&uvs[uv1idx].x);
+	const Vec4f uv2 = loadUnalignedVec4f(&uvs[uv2idx].x);
 
-	duv_dalphabeta_out.e[0] = v1tex.x - v0tex.x; // du/dalpha
-	duv_dalphabeta_out.e[1] = v2tex.x - v0tex.x; // du/dbeta
-	duv_dalphabeta_out.e[2] = v1tex.y - v0tex.y; // dv/dalpha
-	duv_dalphabeta_out.e[3] = v2tex.y - v0tex.y; // dv/dbeta
+	duv_dalphabeta_out.e[0] = uv1[0] - uv0[0]; // du/dalpha  // TODO: vectorise
+	duv_dalphabeta_out.e[1] = uv2[0] - uv0[0]; // du/dbeta
+	duv_dalphabeta_out.e[2] = uv1[1] - uv0[1]; // dv/dalpha
+	duv_dalphabeta_out.e[3] = uv2[1] - uv0[1]; // dv/dbeta
 
-	const float w = 1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y;
-	return RayMesh::UVCoordsType(
-		v0tex.x * w + v1tex.x * hitinfo.sub_elem_coords.x + v2tex.x * hitinfo.sub_elem_coords.y,
-		v0tex.y * w + v1tex.y * hitinfo.sub_elem_coords.x + v2tex.y * hitinfo.sub_elem_coords.y
-	);
+	const Vec4f uv = uv0 * (1 - hitinfo.sub_elem_coords.x - hitinfo.sub_elem_coords.y) + uv1 * hitinfo.sub_elem_coords.x + uv2 * hitinfo.sub_elem_coords.y;
+
+	return RayMesh::UVCoordsType(uv[0], uv[1]);
 }
 
 
@@ -1492,9 +1481,10 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	const Vec3RealType s = std::sqrt(samples.x);
 	const Vec3RealType t = samples.y;
 
-	// Compute barycentric coords
+	// Compute barycentric coords.  Note that u + v = s(1-t) + st = s(1 - t + t) = s
 	const Vec3RealType u = s * (1.0f - t);
 	const Vec3RealType v = s * t;
+	const Vec3RealType w = 1 - s; // 1 - u - v
 
 	hitinfo_out.sub_elem_index = sub_elem_index;
 	hitinfo_out.sub_elem_coords.set(u, v);
@@ -1509,7 +1499,8 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	// length of returned normal vector should be equal to area of triangle.
 	normal_out = normal * 0.5f;
 
-	pos_out = v0pos * (1 - s) + v1pos * u + v2pos * v;
+	
+	pos_out = v0pos * w + v1pos * u + v2pos * v;
 	pos_out[3] = 1; // W coord will be garbage, so set it.
 
 	mat_index_out = tri.getTriMatIndex();
@@ -1520,20 +1511,13 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	}
 	else
 	{
-		unsigned int v0idx = tri.uv_indices[0] * num_uv_sets;
-		unsigned int v1idx = tri.uv_indices[1] * num_uv_sets;
-		unsigned int v2idx = tri.uv_indices[2] * num_uv_sets;
+		const Vec4f uv0 = loadUnalignedVec4f(&uvs[tri.uv_indices[0] * num_uv_sets].x);
+		const Vec4f uv1 = loadUnalignedVec4f(&uvs[tri.uv_indices[1] * num_uv_sets].x);
+		const Vec4f uv2 = loadUnalignedVec4f(&uvs[tri.uv_indices[2] * num_uv_sets].x);
 
-		const Vec2f& v0tex = this->uvs[v0idx];
-		const Vec2f& v1tex = this->uvs[v1idx];
-		const Vec2f& v2tex = this->uvs[v2idx];
+		const Vec4f uv = uv0 * w + uv1 * u + uv2 * v;
 
-		const float w = 1 - u - v;
-
-		uv0_out = RayMesh::UVCoordsType(
-			v0tex.x * w + v1tex.x * u + v2tex.x * v,
-			v0tex.y * w + v1tex.y * u + v2tex.y * v
-		);
+		uv0_out = RayMesh::UVCoordsType(uv[0], uv[1]);
 	}
 }
 
@@ -1596,7 +1580,7 @@ struct ComputePolyInfoTaskClosure
 	RayMesh::VertexVectorType* vertices;
 	RayMesh::TriangleVectorType* triangles;
 	RayMesh::QuadVectorType* quads;
-	std::vector<Vec2f>* uvs;
+	RayMesh::UVVectorType* uvs;
 	int num_uv_sets;
 	RayMesh::FloatVectorType* mean_curvature;
 	//std::vector<RayMesh::VertDerivs>* vert_derivs;
