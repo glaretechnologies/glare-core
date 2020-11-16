@@ -1,15 +1,12 @@
 /*=====================================================================
 hitinfo.h
 ---------
-File created by ClassTemplate on Mon May 30 19:24:40 2005
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
-#ifndef __HITINFO_H_666_
-#define __HITINFO_H_666_
+#pragma once
 
 
 #include "../maths/vec2.h"
-#include <limits>
 
 
 /*=====================================================================
@@ -20,33 +17,17 @@ HitInfo
 class HitInfo
 {
 public:
-	/*=====================================================================
-	HitInfo
-	-------
-	
-	=====================================================================*/
-	inline HitInfo()
-	{
-#ifdef DEBUG
-		sub_elem_index = std::numeric_limits<unsigned int>::max();
-		sub_elem_coords.set(-666.0f, -666.0f);
-#endif
-	}
-
 	typedef float SubElemCoordsRealType;
 	typedef Vec2<SubElemCoordsRealType> SubElemCoordsType;
 
+	inline HitInfo() {}
 	inline HitInfo(unsigned int sub_elem_index, const SubElemCoordsType& sub_elem_coords);
 
 	inline bool operator == (const HitInfo& rhs) const;
 
 
-	//unsigned int hittriindex;
-	//Vec2d hittricoords; // Hit position in triangle barycentric coordinates. 
-
 	SubElemCoordsType sub_elem_coords;
-	unsigned int sub_elem_index;
-	//unsigned int padding; // To make this 16B, so it matches what LLVM does.
+	unsigned int sub_elem_index; // For example, index of a triangle in a RayMesh.
 	//bool hit_opaque_ob;
 };
 
@@ -61,6 +42,3 @@ bool HitInfo::operator == (const HitInfo& rhs) const
 {
 	return sub_elem_index == rhs.sub_elem_index && sub_elem_coords == rhs.sub_elem_coords;
 }
-
-
-#endif //__HITINFO_H_666_
