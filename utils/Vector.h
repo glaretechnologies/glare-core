@@ -59,6 +59,7 @@ public:
 	inline size_t dataSizeBytes() const; // Return the number of bytes needed to hold size elements, e.g. sizeof(T) * size().  Ignores excess capacity and Vector member overhead.
 	inline size_t capacitySizeBytes() const; // Return the number of bytes needed to hold capacity elements, e.g. sizeof(T) * capacity().  Ignores Vector member overhead.
 	inline bool empty() const;
+	inline bool nonEmpty() const;
 	inline void clear(); // Resize to size zero, does not free mem.
 	inline void clearAndFreeMem(); // Set size to zero, but also frees actual array memory.
 
@@ -434,6 +435,13 @@ template <class T, size_t alignment>
 bool Vector<T, alignment>::empty() const
 {
 	return size_ == 0;
+}
+
+
+template <class T, size_t alignment>
+bool Vector<T, alignment>::nonEmpty() const
+{
+	return size_ != 0;
 }
 
 
