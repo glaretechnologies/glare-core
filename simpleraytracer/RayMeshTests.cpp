@@ -22,6 +22,7 @@ Generated at 2017-05-09 18:51:12 +0100
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Timer.h"
+#include "../utils/EmbreeDeviceHandle.h"
 
 
 void RayMeshTests::test()
@@ -66,6 +67,9 @@ void RayMeshTests::test()
 
 
 	Geometry::BuildOptions build_options;
+
+	EmbreeDeviceHandle embree_device(rtcNewDevice("verbose=3,frequency_level=simd128"));
+	build_options.embree_device = embree_device.ptr();
 
 	Indigo::TaskManager task_manager;
 	StandardPrintOutput print_output;
