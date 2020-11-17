@@ -85,7 +85,7 @@ BVHObjectTree::Real BVHObjectTree::traceRay(const Ray& ray_, float time,
 	const Vec4i y_shuffle = ray.getRecipRayDirF().x[1] > 0 ? identity : swap;
 	const Vec4i z_shuffle = ray.getRecipRayDirF().x[2] > 0 ? identity : swap;
 
-	const bool shadow_trace = ray.shadow_trace;
+	//const bool shadow_trace = ray.shadow_trace;
 
 stack_pop:
 	while(stack_top >= 0) // While still one or more nodes on the stack:

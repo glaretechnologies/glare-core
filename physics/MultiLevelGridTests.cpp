@@ -166,8 +166,7 @@ void test()
 			Vec4f(0, 1.f/8.f, 1.f/8.f, 1),
 			Vec4f(1, 0, 0, 0),
 			0, // min_t
-			std::numeric_limits<float>::max(),
-			false // shadow ray
+			std::numeric_limits<float>::max()
 		);
 		float max_t = 1;
 
@@ -193,8 +192,7 @@ void test()
 			Vec4f(0, 0, 1.f/8.f, 1),
 			normalise(Vec4f(1, 3.f/8.f, 0, 0)),
 			0, // min_t
-			std::numeric_limits<float>::max(),
-			false // shadow ray
+			std::numeric_limits<float>::max()
 		);
 		float max_t = 1;
 
@@ -221,8 +219,7 @@ void test()
 			Vec4f(11.f/8.f, 11.f/8.f, 9.f/8.f, 1),
 			Vec4f(1, 0, 0, 0),
 			0, // min_t
-			std::numeric_limits<float>::max(),
-			false // shadow ray
+			std::numeric_limits<float>::max()
 		);
 		float max_t = 1;
 
@@ -254,8 +251,7 @@ void test()
 			Vec4f(1, 1 + 0.15625f, 1 + 0.0001f, 1),
 			Vec4f(1, 0, 0, 0),
 			0, // min_t
-			std::numeric_limits<float>::max(),
-			false // shadow ray
+			std::numeric_limits<float>::max()
 		);
 		float max_t = 1;
 
@@ -296,8 +292,7 @@ void test()
 			Vec4f(0, 9.5f / 64, 0.0001f, 1),
 			Vec4f(1, 0, 0, 0),
 			0, // min_t
-			std::numeric_limits<float>::max(),
-			false // shadow ray
+			std::numeric_limits<float>::max()
 		);
 		float max_t = 1;
 
@@ -347,8 +342,7 @@ void test()
 			Vec4f(0, 0.0001f, 0.0001f, 1),
 			Vec4f(1, 0, 0, 0),
 			0, // min_t
-			std::numeric_limits<float>::max(),
-			false // shadow ray
+			std::numeric_limits<float>::max()
 		);
 		float max_t = 1;
 
@@ -385,8 +379,7 @@ void test()
 				Vec4f(0.59099758f, 0.49468884f, 0.76081836f, 1),
 				Vec4f(-0.46163452f, -0.44623438f, 0.76666057f, 0),
 				0,
-				std::numeric_limits<float>::max(),
-				false // shadow ray
+				std::numeric_limits<float>::max()
 			);
 
 			float max_t = 1;
@@ -414,8 +407,7 @@ void test()
 				orig,
 				dir,
 				0, // min_t
-				std::numeric_limits<float>::max(),
-				false // shadow ray
+				std::numeric_limits<float>::max()
 			);
 			float max_t = rng.unitRandom() * 2;
 

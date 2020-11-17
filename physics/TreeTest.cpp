@@ -107,8 +107,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const Ray ray(Vec4f(0,-2,0,1), Vec4f(0,1,0,0),
 		1.0e-5f, // min_t
-		std::numeric_limits<float>::max(), // max_t
-		false // shadow ray
+		std::numeric_limits<float>::max() // max_t
 	);
 	HitInfo hitinfo;
 	const double dist = raymesh.traceRay(ray, hitinfo);
@@ -119,8 +118,7 @@ void TreeTest::testBuildCorrect()
 	{
 	const Ray ray(Vec4f(9,0,0,1), Vec4f(0,1,0,0),
 		1.0e-5f, // min_t
-		std::numeric_limits<float>::max(), // max_t
-		false // shadow ray
+		std::numeric_limits<float>::max() // max_t
 	);
 	HitInfo hitinfo;
 	const double dist = raymesh.traceRay(ray, hitinfo);
@@ -437,8 +435,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f,0)),
 			1.0e-5f, // min_t
-			std::numeric_limits<float>::max(), // max_t
-			false // shadow ray
+			std::numeric_limits<float>::max() // max_t
 		);
 
 		// Trace against all tris individually
@@ -813,8 +810,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 		const Ray ray(rayorigin_f, dir_f,
 			1.0e-5f, // min_t
-			std::numeric_limits<float>::max(), // max_t
-			false // shadow ray
+			std::numeric_limits<float>::max() // max_t
 		);
 
 		//do the trace
@@ -957,8 +953,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 			Vec4f(0, 0, 0, 1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
 			normalise(Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0)),
 			1.0e-5f, // min_t
-			(float)max_t, // max_t
-			false // shadow ray
+			(float)max_t // max_t
 		);
 		const float radius = rng.unitRandom() * 0.2f;
 		

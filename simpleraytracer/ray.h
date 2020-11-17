@@ -21,12 +21,11 @@ public:
 
 	INDIGO_STRONG_INLINE Ray() {}
 
-	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_, float max_t_, bool shadow_trace_ = true)
+	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_, float max_t_)
 	:	startpos_f(startpos_),
 		unitdir_f(unitdir_),
 		min_t(min_t_),
-		max_t(max_t_),
-		shadow_trace(shadow_trace_)
+		max_t(max_t_)
 	{
 		assert(epsEqual(startpos_.x[3], 1.0f));
 		assert(epsEqual(unitdir_.x[3], 0.0f));
@@ -76,6 +75,4 @@ public:
 	Vec4f recip_unitdir_f;
 	float min_t;
 	float max_t;
-public:
-	bool shadow_trace;
 };
