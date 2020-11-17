@@ -18,6 +18,7 @@ Generated at 2017-05-09 18:51:12 +0100
 #include "../indigo/ConstantSpectrumMatParameter.h"
 #include "../indigo/Vec3MatParameter.h"
 #include "../indigo/UniformSpectrum.h"
+#include "../lang/WinterEnv.h"
 #include "../utils/ShouldCancelCallback.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StandardPrintOutput.h"
@@ -105,7 +106,7 @@ void RayMeshTests::test()
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+			WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 			
 		// Test vertex shading normals
@@ -140,7 +141,7 @@ void RayMeshTests::test()
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+			WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 
 		// Test vertex shading normals - the should be the same as the supplied shading_normal.
@@ -163,7 +164,7 @@ void RayMeshTests::test()
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+			WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 
 		testAssert(mesh.getNumQuads() == 0); // Should have been converted to tris.
@@ -199,7 +200,7 @@ void RayMeshTests::test()
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+			WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 
 		testAssert(mesh.getNumQuads() == 0); // Should have been converted to tris.
@@ -228,7 +229,7 @@ void RayMeshTests::test()
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+			WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 
 		testAssert(mesh.getNumQuads() == 0); // Should have been converted to tris.
@@ -278,7 +279,7 @@ void RayMeshTests::test()
 			RayMesh mesh("mesh", /*use shading normals=*/true);
 			mesh.fromIndigoMesh(m);
 			mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-				print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+				WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 			//mesh.build(build_options, print_output, /*verbose=*/false, task_manager);
 
 			min_time = myMin(min_time, timer.elapsed());
@@ -305,7 +306,7 @@ void RayMeshTests::test()
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+			WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 
 		HitInfo hitinfo;
@@ -351,7 +352,7 @@ void RayMeshTests::test()
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);
 		mesh.subdivideAndDisplace(task_manager, ArrayRef<MaterialRef>(&diffuse_mat, 1), Matrix4f::identity(), 0.01f, std::vector<Planef>(), std::vector<Planef>(),
-			print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
+			WorldParams(), print_output, /*verbose=*/false, /*should_cancel_callback=*/NULL);
 		mesh.build(build_options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 
 		HitInfo hitinfo;

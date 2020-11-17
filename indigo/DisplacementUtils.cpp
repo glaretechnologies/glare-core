@@ -37,6 +37,7 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include "../graphics/imformatdecoder.h"
 #include "../utils/HashMapInsertOnly2.h"
 #include "../utils/BitUtils.h"
+#include "../lang/WinterEnv.h"
 
 
 static const bool PROFILE = false;
@@ -840,6 +841,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 	unsigned int num_uv_sets,
 	const DUOptions& options,
 	bool use_shading_normals,
+	const WorldParams& world_params,
 	ShouldCancelCallback* should_cancel_callback
 	)
 {
@@ -921,6 +923,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 			i, // num subdivs done
 			options.subdivision_smoothing && (i < options.num_smoothings), // do subdivision smoothing
 			options,
+			world_params,
 			*next_polygons, // polygons_out
 			*next_verts_and_uvs // verts_and_uvs_out
 		);
@@ -967,6 +970,7 @@ bool DisplacementUtils::subdivideAndDisplace(
 		current_verts_and_uvs->uvs, // uvs in
 		num_uv_sets,
 		true, // compute H (mean curvature)
+		world_params,
 		next_verts_and_uvs->verts // verts out
 	);
 	DISPLACEMENT_PRINT_RESULTS(conPrint("final displace took               " + timer.elapsedStringNPlaces(5)));
@@ -1080,6 +1084,7 @@ struct RayMeshDisplaceTaskClosure
 	const RayMesh::UVVectorType* uvs_in;
 	RayMesh::VertexVectorType* verts;
 	const ArrayRef<Reference<Material> >* materials;
+	WorldParams world_params;
 };
 
 
@@ -1091,6 +1096,9 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
+		// Thread local world must either be null or a valid world.
+		WinterEnv::setThreadLocalWorld(nullptr);
+
 		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const RayMesh::TriangleVectorType& tris = *closure.tris_in;
@@ -1140,7 +1148,8 @@ public:
 					du_texcoord_evaluator,
 					Vec4f(0), // dp_dalpha  TEMP HACK
 					Vec4f(0), // dp_dbeta  TEMP HACK
-					Vec4f(0, 0, 1, 0) // pre-bump N_s_ws TEMP HACK
+					Vec4f(0, 0, 1, 0), // pre-bump N_s_ws TEMP HACK
+					closure.world_params
 				);
 
 				const float displacement = material->evaluateDisplacement(args);
@@ -1181,7 +1190,8 @@ void DisplacementUtils::doDisplacementOnly(
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
 		const RayMesh::UVVectorType& uvs_in,
-		unsigned int num_uv_sets
+		unsigned int num_uv_sets,
+		const WorldParams& world_params
 	)
 {
 	if(PROFILE) conPrint("\n-----------doDisplacementOnly-----------");
@@ -1249,6 +1259,7 @@ void DisplacementUtils::doDisplacementOnly(
 	closure.verts = &verts_in_out;
 	closure.materials = &materials;
 	closure.displacement_tasks = &displacement_tasks;
+	closure.world_params = world_params;
 	task_manager.runParallelForTasks<ComputeDisplaceTask, RayMeshDisplaceTaskClosure>(closure, 0, displacement_tasks.buckets_size);
 	
 
@@ -1353,6 +1364,7 @@ struct EvalVertDisplaceMentTaskClosure
 	DUVertexVector* verts_out;
 	const ArrayRef<Reference<Material> >* materials;
 	std::vector<IndigoAtomic>* verts_processed;
+	WorldParams world_params;
 };
 
 
@@ -1365,6 +1377,9 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
+		// Thread local world must either be null or a valid world.
+		WinterEnv::setThreadLocalWorld(nullptr);
+
 		DUUVCoordEvaluator du_texcoord_evaluator;
 		du_texcoord_evaluator.num_uvs = closure.num_uv_sets;
 		const DUQuadVector& quads = *closure.quads;
@@ -1397,7 +1412,8 @@ public:
 							du_texcoord_evaluator,
 							Vec4f(0), // dp_dalpha  TEMP HACK
 							Vec4f(0), // dp_dbeta  TEMP HACK
-							Vec4f(0,0,1,0) // pre-bump N_s_ws TEMP HACK
+							Vec4f(0,0,1,0), // pre-bump N_s_ws TEMP HACK
+							closure.world_params
 						);
 
 						const float displacement = material->evaluateDisplacement(args);
@@ -1618,6 +1634,7 @@ void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 								 const UVVector& uvs,
 								 unsigned int num_uv_sets,
 								 bool compute_H,
+								 const WorldParams& world_params,
 								 DUVertexVector& verts_out
 								 )
 {
@@ -1645,6 +1662,7 @@ void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
 	closure.num_uv_sets = num_uv_sets;
 	closure.verts_in = &verts_in;
 	closure.verts_out = &verts_out;
+	closure.world_params = world_params;
 	task_manager.runParallelForTasks<EvalVertDisplaceMentTask, EvalVertDisplaceMentTaskClosure>(closure, 0, quads.size());
 
 	DISPLACEMENT_PRINT_RESULTS(conPrint("Running EvalVertDisplaceMentTask:            " + timer.elapsedStringNPlaces(5)));
@@ -2419,6 +2437,7 @@ void DisplacementUtils::linearSubdivision(
 	unsigned int num_subdivs_done,
 	bool subdivision_smoothing,
 	const DUOptions& options,
+	const WorldParams& world_params,
 	Polygons& polygons_out,
 	VertsAndUVs& verts_and_uvs_out
 	)
@@ -2447,6 +2466,7 @@ void DisplacementUtils::linearSubdivision(
 			uvs_in,
 			num_uv_sets,
 			false, // don't compute H (mean curvature), not needed for linear subdiv.
+			world_params,
 			displaced_in_verts // verts out
 		);
 

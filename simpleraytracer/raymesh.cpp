@@ -341,8 +341,8 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, 
 	const ArrayRef<Reference<Material> >& materials,
 	const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
-	const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, PrintOutput& print_output, bool verbose,
-	ShouldCancelCallback* should_cancel_callback
+	const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, const WorldParams& world_params,
+	PrintOutput& print_output, bool verbose, ShouldCancelCallback* should_cancel_callback
 	)
 {
 	if(subdivide_and_displace_done)
@@ -391,6 +391,7 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager,
 				this->num_uv_sets,
 				options,
 				this->enable_shading_normals,
+				world_params,
 				should_cancel_callback
 			);
 
@@ -436,7 +437,8 @@ bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager,
 					quads,
 					vertices,
 					uvs,
-					this->num_uv_sets
+					this->num_uv_sets,
+					world_params
 				);
 
 				// Since we have done displacement, shading normals need to be recomputed.

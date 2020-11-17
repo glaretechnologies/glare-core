@@ -186,6 +186,7 @@ public:
 		unsigned int num_uv_sets,
 		const DUOptions& options,
 		bool use_shading_normals,
+		const WorldParams& world_params,
 		ShouldCancelCallback* should_cancel_callback
 	);
 
@@ -200,7 +201,8 @@ public:
 		const RayMesh::QuadVectorType& quads_in,
 		RayMesh::VertexVectorType& verts_in_out,
 		const RayMesh::UVVectorType& uvs_in,
-		unsigned int num_uv_sets
+		unsigned int num_uv_sets,
+		const WorldParams& world_params
 	);
 	
 
@@ -227,6 +229,7 @@ private:
 		const UVVector& uvs,
 		unsigned int num_uv_sets,
 		bool compute_H,
+		const WorldParams& world_params,
 		DUVertexVector& verts_out
 	);
 
@@ -241,6 +244,7 @@ private:
 		unsigned int num_subdivs_done,
 		bool do_subdivision_smoothing,
 		const DUOptions& options,
+		const WorldParams& world_params,
 		Polygons& polygons_out,
 		VertsAndUVs& verts_and_uvs_out
 	);
