@@ -409,7 +409,7 @@ void Obfuscator::addWinterKeywords()
 		"print",
 		"isFinite",
 		"worldTime",
-		"sunDir,"
+		"sunDir",
 		"camPos",
 		"camForwardsDir",
 		"camRightDir",
