@@ -316,6 +316,12 @@ void Obfuscator::addOpenCLKeywords()
 		"posOS_FullHitInfo_",
 		"normalOS_FullHitInfo_",
 		"meanCurvature_FullHitInfo_",
+		"worldTime_FullHitInfo_",
+		"sunDir_FullHitInfo_",
+		"camPos_FullHitInfo_",
+		"camForwardsDir_FullHitInfo_",
+		"camRightDir_FullHitInfo_",
+		"camUpDir_FullHitInfo_",
 		"mod_int__int_",
 		"mod_float__float_",
 		"print_vec2_",
@@ -402,6 +408,12 @@ void Obfuscator::addWinterKeywords()
 		"mod",
 		"print",
 		"isFinite",
+		"worldTime",
+		"sunDir,"
+		"camPos",
+		"camForwardsDir",
+		"camRightDir",
+		"camUpDir",
 
 		// Don't obfuscate these types.  Otherwise we have to obfuscate the signatures of all the external functions (noise() etc..).  Which could be done but is a hassle.
 		"vec2",
