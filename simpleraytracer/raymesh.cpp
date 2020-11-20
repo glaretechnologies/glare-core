@@ -860,17 +860,21 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 	}
 	// conPrint("RayMesh::build, name=" + name + ", planar: " + boolToString(planar));
 
-	if(options.build_small_bvh)
-	{
-		tritree = new js::SmallBVH(this);
-	}
-	else
+	// Don't use SmallBVH for now, because that would require us using BVHObjectTree.
+	// Instead just use low quality embree build option, which takes a similar amount of time to build,
+	// and lets us use the embree scene tracing.
+	//if(options.build_small_bvh)
+	//{
+	//	conPrint("Using SmallBVH");
+	//	tritree = new js::SmallBVH(this);
+	//}
+	//else
 	{
 #ifdef NO_EMBREE
 #error NO_EMBREE not supported right now
 #else
 		assert(options.embree_device);
-		tritree = new EmbreeAccel(options.embree_device, this);
+		tritree = new EmbreeAccel(options.embree_device, this, /*do_fast_low_quality_build=*/options.build_small_bvh);
 #endif
 	}
 

@@ -411,7 +411,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 	trees.push_back(new BVH(&raymesh));
 	trees.back()->build(print_output, should_cancel_callback, true, task_manager);
 #ifndef NO_EMBREE
-	trees.push_back(new EmbreeAccel(NULL, &raymesh));
+	trees.push_back(new EmbreeAccel(NULL, &raymesh, /*do_fast_low_quality_build=*/false));
 	trees.back()->build(print_output, should_cancel_callback, true, task_manager);
 #endif
 	// Check AABBox
