@@ -78,7 +78,7 @@ void RayMeshTests::test()
 	DummyShouldCancelCallback should_cancel_callback;
 
 	Reference<Material> diffuse_mat = new Diffuse(
-		new ConstantSpectrumMatParameter(new UniformSpectrum(0.6f)), // albedo
+		new ConstantSpectrumMatParameter<UniformSpectrum>(new UniformSpectrum(0.6f)), // albedo
 		NULL, // bump_param
 		NULL, // displacement_param
 		NULL, // base_emission_param

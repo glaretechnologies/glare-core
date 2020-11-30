@@ -65,6 +65,8 @@ public:
 
 	INDIGO_STRONG_INLINE bool isFinite() const;
 
+	INDIGO_STRONG_INLINE bool isZero() const;
+
 
 	static void test();
 
@@ -311,6 +313,15 @@ bool Colour4f::isFinite() const
 }
 
 
+bool Colour4f::isZero() const
+{
+	__m128 zero = _mm_setzero_ps(); // Latency 1
+	__m128 mask = _mm_cmpneq_ps(zero, v); // latency 3
+	int res = _mm_movemask_ps(mask);
+	return res == 0;
+}
+
+
 // If mask element has higher bit set, return a element, else return b element.
 INDIGO_STRONG_INLINE Colour4f select(const Colour4f& a, const Colour4f& b, const Colour4f& mask)
 {
@@ -376,3 +387,17 @@ INDIGO_STRONG_INLINE void storeColour4fUnaligned(const Colour4f& v, float* const
 {
 	_mm_storeu_ps(mem, v.v);
 }
+
+
+// Copy the elements of a vector to other elements.
+// For example, to reverse the elements: v = swizzle<3, 2, 1, 0>(v);
+// Note that the _MM_SHUFFLE macro takes indices in reverse order than usual.
+template <int index0, int index1, int index2, int index3>
+INDIGO_STRONG_INLINE const Colour4f swizzle(const Colour4f& a) { return Colour4f(_mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index3, index2, index1, index0))); } // SSE 1
+
+
+template<int index>
+INDIGO_STRONG_INLINE float elem(const Colour4f& v) { return _mm_cvtss_f32(swizzle<index, index, index, index>(v).v); } // SSE 1
+
+template<>
+INDIGO_STRONG_INLINE float elem<0>(const Colour4f& v) { return _mm_cvtss_f32(v.v); } // Specialise for getting the zeroth element.
