@@ -38,6 +38,14 @@ struct ResultNode
 };
 
 
+struct BVHBuilderTri
+{
+	GLARE_ALIGNED_16_NEW_DELETE
+
+	Vec4f v[3];
+};
+
+
 /*=====================================================================
 BVHBuilder
 ----------

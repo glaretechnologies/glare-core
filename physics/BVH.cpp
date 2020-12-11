@@ -52,13 +52,13 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 	const bool USE_SBVH = false;
 	if(USE_SBVH)
 	{
-		js::Vector<SBVHTri, 64> sbvh_tris(raymesh_tris_size);
+		js::Vector<BVHBuilderTri, 64> sbvh_tris(raymesh_tris_size);
 
 		for(size_t i=0; i<raymesh_tris_size; ++i)
 		{
 			const RayMeshTriangle& tri = raymesh_tris[i];
 
-			SBVHTri t;
+			BVHBuilderTri t;
 			t.v[0] = raymesh_verts[tri.vertex_indices[0]].pos.toVec4fPoint();
 			t.v[1] = raymesh_verts[tri.vertex_indices[1]].pos.toVec4fPoint();
 			t.v[2] = raymesh_verts[tri.vertex_indices[2]].pos.toVec4fPoint();

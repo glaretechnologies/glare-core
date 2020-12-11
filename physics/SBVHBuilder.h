@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2017 -
 #include "../utils/Vector.h"
 #include "../utils/Mutex.h"
 #include "../utils/IndigoAtomic.h"
+#include "../utils/BitVector.h"
 #include <vector>
 namespace js { class AABBox; }
 namespace Indigo { class TaskManager; }
@@ -56,6 +57,16 @@ struct SBVHOb
 	{
 		std::memcpy(&aabb.min_.x[3], &index, 4);
 	}
+
+	uint32 getUnsplit() const
+	{
+		return elem<3>(bitcastToVec4i(aabb.max_));
+	}
+
+	void setUnsplit(uint32 val)
+	{
+		std::memcpy(&aabb.max_.x[3], &val, 4);
+	}
 };
 
 
@@ -91,19 +102,8 @@ struct SBVHPerThreadTempInfo
 
 	size_t dataSizeBytes() const;
 
-	std::vector<std::vector<SBVHOb> > left_obs;
-	std::vector<std::vector<SBVHOb> > right_obs;
-
-	js::Vector<int, 16> unsplit;
-
 	SBVHResultChunk* result_chunk;
 	SBVHLeafResultChunk* leaf_result_chunk;
-};
-
-
-struct SBVHTri
-{
-	Vec4f v[3];
 };
 
 
@@ -119,6 +119,8 @@ class SBVHBuilder : public BVHBuilder
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
+
+	typedef BVHBuilderTri SBVHTri;
 
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
@@ -143,11 +145,7 @@ public:
 
 	int getMaxLeafDepth() const { return stats.max_leaf_depth; } // Root node is considered to have depth 0.
 
-	static void printResultNode(const ResultNode& result_node);
-	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
-
 	friend class SBVHBuildSubtreeTask;
-
 
 	static void test();
 
@@ -162,18 +160,20 @@ private:
 		const js::AABBox& aabb,
 		const js::AABBox& centroid_aabb,
 		uint32 node_index,
-		const ObjectVecType& obs,
+		int begin,
+		int end,
+		int capacity,
 		int depth,
 		SBVHResultChunk* result_chunk
 	);
 
-	inline void markNodeAsLeaf(SBVHPerThreadTempInfo& thread_temp_info, const js::AABBox& aabb, uint32 node_index, const std::vector<SBVHOb>& obs, int depth, SBVHResultChunk* node_result_chunk);
-
+	inline void markNodeAsLeaf(SBVHPerThreadTempInfo& thread_temp_info, const js::AABBox& aabb, uint32 node_index, /*const std::vector<SBVHOb>& obs, */int begin, int end, int depth, SBVHResultChunk* node_result_chunk);
 
 	js::AABBox root_aabb;
-	const SBVHTri* triangles;
+	const BVHBuilderTri* triangles;
 	int m_num_objects;
 	ObjectVecType top_level_objects;
+	ObjectVecType temp_obs;
 	std::vector<SBVHPerThreadTempInfo> per_thread_temp_info;
 
 	js::Vector<SBVHResultChunk*, 16> result_chunks;
@@ -199,4 +199,7 @@ public:
 
 	double split_search_time;
 	double partition_time;
+
+	mutable IndigoAtomic current_mem_usage;
+	mutable IndigoAtomic max_mem_usage;
 };

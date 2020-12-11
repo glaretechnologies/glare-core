@@ -10,6 +10,7 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "NonBinningBVHBuilder.h"
 #include "BinningBVHBuilder.h"
 #include "SBVHBuilder.h"
+#include "EmbreeBVHBuilder.h"
 #include "jscol_aabbox.h"
 #include "../indigo/TestUtils.h"
 #include "../maths/PCG32.h"
@@ -71,22 +72,22 @@ static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int 
 #endif
 
 
-static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
+void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, size_t num_obs/*const js::Vector<js::AABBox, 16>& aabbs*/, bool duplicate_prims_allowed)
 {
 	//checkNode(result_nodes, /*node_index=*/0, result_ob_indices, aabbs);
 
 	// Test that the resulting object indices are a permutation of the original indices.
-	std::vector<bool> seen(aabbs.size(), false);
+	std::vector<bool> seen(num_obs, false);
 	for(int z=0; z<(int)result_ob_indices.size(); ++z)
 	{
 		const uint32 ob_i = result_ob_indices[z];
-		testAssert(ob_i < (uint32)aabbs.size());
+		testAssert(ob_i < (uint32)num_obs);
 		if(!duplicate_prims_allowed)
 			testAssert(!seen[ob_i]);
 		seen[ob_i] = true;
 	}
 
-	for(int z=0; z<(int)aabbs.size(); ++z)
+	for(int z=0; z<(int)num_obs; ++z)
 		testAssert(seen[z]);
 	
 	// Test that the result nodes object ranges cover all leaf objects, e.g. test that each object is in a leaf node.
@@ -107,6 +108,69 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 			testAssert(node.right <= (int)result_ob_indices.size());
 
 			for(int z = node.left; z < node.right; ++z)
+			{
+				if(!duplicate_prims_allowed)
+					testAssert(!ob_in_leaf[z]);
+				ob_in_leaf[z] = true;
+			}
+		}
+	}
+
+	for(int z=0; z<(int)result_ob_indices.size(); ++z)
+		testAssert(ob_in_leaf[z]);
+}
+
+
+static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultInteriorNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
+{
+	// Test that the resulting object indices are a permutation of the original indices.
+	std::vector<bool> seen(aabbs.size(), false);
+	for(int z=0; z<(int)result_ob_indices.size(); ++z)
+	{
+		const uint32 ob_i = result_ob_indices[z];
+		testAssert(ob_i < (uint32)aabbs.size());
+		if(!duplicate_prims_allowed)
+			testAssert(!seen[ob_i]);
+		seen[ob_i] = true;
+	}
+
+	for(int z=0; z<(int)aabbs.size(); ++z)
+		testAssert(seen[z]);
+
+	// Test that the result nodes object ranges cover all leaf objects, e.g. test that each object is in a leaf node.
+	std::vector<bool> ob_in_leaf(result_ob_indices.size(), false);
+	for(int n=0; n<(int)result_nodes.size(); ++n)
+	{
+		const ResultInteriorNode& node = result_nodes[n];
+		if(node.leftChildIsInterior())
+		{
+			// TODO: check AABB
+			testAssert(node.left >= 0  && node.left  < (int)result_nodes.size());
+		}
+		else
+		{
+			testAssert(node.left >= 0);
+			testAssert(node.left_num_prims > 0);
+			
+			for(int z = node.left; z < node.left + node.left_num_prims; ++z)
+			{
+				if(!duplicate_prims_allowed)
+					testAssert(!ob_in_leaf[z]);
+				ob_in_leaf[z] = true;
+			}
+		}
+
+		if(node.rightChildIsInterior())
+		{
+			// TODO: check AABB
+			testAssert(node.right >= 0  && node.right  < (int)result_nodes.size());
+		}
+		else
+		{
+			testAssert(node.right >= 0);
+			testAssert(node.right_num_prims > 0);
+
+			for(int z = node.right; z < node.right + node.right_num_prims; ++z)
 			{
 				if(!duplicate_prims_allowed)
 					testAssert(!ob_in_leaf[z]);
@@ -146,7 +210,7 @@ public:
 };
 
 
-static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objects, const js::Vector<SBVHTri, 16>& tris, std::vector<BVHBuilderRef>& builders)
+static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objects, const js::Vector<BVHBuilderTri, 16>& tris, std::vector<BVHBuilderRef>& builders)
 {
 	const int max_num_objects_per_leaf = 16;
 
@@ -186,7 +250,7 @@ static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objec
 }
 
 
-static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<SBVHTri, 16>& tris)
+static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<BVHBuilderTri, 16>& tris)
 {
 	const int num_objects = (int)tris.size();
 
@@ -217,7 +281,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 			);
 
 			const bool duplicate_prims_allowed = builders[i].isType<SBVHBuilder>();
-			testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs, duplicate_prims_allowed);
+			testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs.size(), duplicate_prims_allowed);
 		}
 	}
 
@@ -284,7 +348,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 static void testBVHBuildersWithNRandomObjects(Indigo::TaskManager& task_manager, int num_objects)
 {
 	PCG32 rng(1);
-	js::Vector<SBVHTri, 16> tris(num_objects);
+	js::Vector<BVHBuilderTri, 16> tris(num_objects);
 	for(int z=0; z<num_objects; ++z)
 	{
 		const Vec4f v0(rng.unitRandom() * 0.8f, rng.unitRandom() * 0.8f, rng.unitRandom() * 0.8f, 1);
@@ -781,7 +845,7 @@ void test()
 		for(size_t i=0; i<test_sizes.size(); ++i)
 		{
 			const int num_objects = test_sizes[i];
-			js::Vector<SBVHTri, 16> tris(num_objects);
+			js::Vector<BVHBuilderTri, 16> tris(num_objects);
 			for(int z=0; z<num_objects; ++z)
 			{
 				// Use the same tri / AABB for each object.
@@ -847,7 +911,7 @@ void test()
 
 	{
 		PCG32 rng_(1);
-		js::Vector<SBVHTri, 16> tris(3);
+		js::Vector<BVHBuilderTri, 16> tris(3);
 
 		// Tris in rect like in paper
 		{
@@ -1001,7 +1065,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 
 		PCG32 rng_(1);
 		js::Vector<js::AABBox, 16> aabbs(num_objects);
-		js::Vector<SBVHTri, 16> tris(num_objects);
+		js::Vector<BVHBuilderTri, 16> tris(num_objects);
 		for(int z=0; z<num_objects; ++z)
 		{
 			const Vec4f v0(rng_.unitRandom() * 0.8f, rng_.unitRandom() * 0.8f, 0/*rng_.unitRandom()*/ * 0.8f, 1);
@@ -1026,11 +1090,36 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 
 			const int max_num_objects_per_leaf = 16;
 			const float intersection_cost = 1.f;
-			BinningBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost,
-				//tris.data(),
+
+			//------------- Embree -----------------
+#if 1
+			const bool DO_SBVH_BUILD = true;
+			EmbreeBVHBuilder builder(DO_SBVH_BUILD, /*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, intersection_cost,
+				tris.data(),
 				num_objects
 			);
+			js::Vector<ResultInteriorNode, 64> result_interior_nodes;
+			builder.doBuild(task_manager,
+				should_cancel_callback,
+				print_output,
+				false, // verbose
+				result_interior_nodes
+			);
 
+			const double elapsed = timer.elapsed();
+			sum_time += elapsed;
+			min_time = myMin(min_time, elapsed);
+			conPrint("Embree: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
+
+			testResultsValid(builder.getResultObjectIndices(), result_interior_nodes, aabbs, /*duplicate_prims_allowed=*/DO_SBVH_BUILD);
+#endif
+			//--------------------------------------
+
+			//------------- BinningBVHBuilder -----------------
+#if 0
+			BinningBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost,
+				num_objects
+			);
 			for(int z=0; z<num_objects; ++z)
 				builder.setObjectAABB(z, aabbs[z]);
 
@@ -1048,6 +1137,34 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			conPrint("BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
 			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/false);
+#endif
+			//--------------------------------------
+
+			//------------- SBVHBuilder -----------------
+#if 0
+			SBVHBuilder builder(1, max_num_objects_per_leaf, intersection_cost,
+				tris.data(),
+				num_objects
+			);
+			//for(int z=0; z<num_objects; ++z)
+			//	builder.setObjectAABB(z, aabbs[z]);
+
+			js::Vector<ResultNode, 64> result_nodes;
+			builder.build(task_manager,
+				should_cancel_callback,
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+
+			const double elapsed = timer.elapsed();
+			sum_time += elapsed;
+			min_time = myMin(min_time, elapsed);
+			conPrint("SBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
+
+			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/true);
+#endif
+			//--------------------------------------
 		}
 
 		const double av_time = sum_time / NUM_ITERS;
