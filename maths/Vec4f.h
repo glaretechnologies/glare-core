@@ -519,6 +519,16 @@ INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
 }
 
 
+INDIGO_STRONG_INLINE Vec4f setWToOne(const Vec4f& a)
+{
+	const Vec4f one = _mm_set_ss(1.f); // [1, 0, 0, 0]
+	const Vec4f v1 = shuffle<2, 2, 0, 0>(a, one); // [z, z, 1, 1]
+	return shuffle<0, 1, 0, 2>(a, v1); // [x, y, z, 1]
+
+	//return select(a, Vec4f(1.f), bitcastToVec4f(Vec4i(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0)).v); // // If mask element has higher bit set, return a element, else return b element.
+}
+
+
 INDIGO_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
 {
 	// w component of result = a.w*b.w - a.w*b.w = 0

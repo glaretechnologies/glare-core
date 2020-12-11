@@ -226,6 +226,24 @@ void Vec4f::test()
 		testAssert(epsEqual(Vec4f(a * 2.0f), Vec4f(20, 40, 60, 80)));
 	}
 
+	// Test maskWToZero
+	{
+		testAssert(maskWToZero(Vec4f(1, 2, 3, 4)) == Vec4f(1, 2, 3, 0));
+		testAssert(maskWToZero(Vec4f(1, 2, 3, 0)) == Vec4f(1, 2, 3, 0));
+		testAssert(maskWToZero(Vec4f(1, 2, 3, -4)) == Vec4f(1, 2, 3, 0));
+		testAssert(maskWToZero(Vec4f(1, 2, 3, std::numeric_limits<float>::quiet_NaN())) == Vec4f(1, 2, 3, 0));
+		testAssert(maskWToZero(Vec4f(1, 2, 3, std::numeric_limits<float>::infinity())) == Vec4f(1, 2, 3, 0));
+	}
+
+	// Test setWToOne
+	{
+		testAssert(setWToOne(Vec4f(1, 2, 3, 4)) == Vec4f(1, 2, 3, 1));
+		testAssert(setWToOne(Vec4f(1, 2, 3, 0)) == Vec4f(1, 2, 3, 1));
+		testAssert(setWToOne(Vec4f(1, 2, 3, -4)) == Vec4f(1, 2, 3, 1));
+		testAssert(setWToOne(Vec4f(1, 2, 3, std::numeric_limits<float>::quiet_NaN())) == Vec4f(1, 2, 3, 1));
+		testAssert(setWToOne(Vec4f(1, 2, 3, std::numeric_limits<float>::infinity())) == Vec4f(1, 2, 3, 1));
+	}
+
 	// Test dot()
 	{
 		const Vec4f a(1, 2, 3, 4);
@@ -391,7 +409,25 @@ void Vec4f::test()
 	testAssert(!Vec4f(std::numeric_limits<float>::quiet_NaN()).isFinite());
 
 
-	conPrint("================ Perf test dot() ================");
+	conPrint("================ Perf test ================");
+	{
+		CycleTimer cycle_timer;
+
+		const float N = 1000000;
+		Vec4f sum(0.f);
+
+		float f;
+		for( f=0; f<N; f += 1.f)
+		{
+			const Vec4f a(f);
+
+			sum += setWToOne(a);
+		}
+
+		const uint64 cycles = cycle_timer.elapsed();
+		conPrint("setWToOne(): " + ::toString((float)cycles / N) + " cycles");
+		TestUtils::silentPrint(::toString(sum));
+	}
 
 	{
 		CycleTimer cycle_timer;
