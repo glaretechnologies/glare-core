@@ -44,13 +44,13 @@ void bitVectorTests()
 	}
 
 	// Start with one-d bitfield, zero a single bit, check
-	for(uint32 i=0; i<32; ++i)
+	for(uint32 i=0; i<100; ++i)
 	{
-		BitVector bf(32);
+		BitVector bf(100);
 		bf.setAllBits(1);
 
 		bf.setBit(i, 0);
-		for(uint32 z=0; z<32; ++z)
+		for(uint32 z=0; z<100; ++z)
 			testAssert(bf.getBit(z) == (z == i ? 0 : 1u));
 	}
 
@@ -58,20 +58,20 @@ void bitVectorTests()
 	//=================== Test setBitPair(), getBitPair() ===================
 
 	{
-		BitVector bf(32);
-		for(int i=0; i<31; ++i)
+		BitVector bf(100);
+		for(int i=0; i<100; i += 2)
 			testAssert(bf.getBitPair(i) == 0u);
 	}
 
 	{
-		BitVector bf(32);
+		BitVector bf(100);
 		bf.setAllBits(1);
-		for(int i=0; i<31; ++i)
+		for(int i=0; i<100; i += 2)
 			testAssert(bf.getBitPair(i) == 3u);
 	}
 
 	{
-		BitVector bf(32);
+		BitVector bf(100);
 		bf.setBitPair(2, 3);
 		testAssert(bf.getBit(0) == 0);
 		testAssert(bf.getBit(1) == 0);
@@ -84,26 +84,26 @@ void bitVectorTests()
 
 
 	// Start with zeroed bitfield, set a bit pair, check
-	for(int i=0; i<32; i += 2)
+	for(int i=0; i<100; i += 2)
 	{
 		for(uint32 bitpairval = 0; bitpairval < 4; ++bitpairval)
 		{
-			BitVector bf(32);
+			BitVector bf(100);
 			bf.setBitPair(i, bitpairval);
-			for(int z=0; z<32; z += 2)
+			for(int z=0; z<100; z += 2)
 				testAssert(bf.getBitPair(z) == (z == i ? bitpairval : 0));
 		}
 	}
 
 	// Start with one-d bitfield, set a bit pair, check
-	for(int i=0; i<32; i += 2)
+	for(int i=0; i<100; i += 2)
 	{
 		for(uint32 bitpairval = 0; bitpairval < 4; ++bitpairval)
 		{
-			BitVector bf(32);
+			BitVector bf(100);
 			bf.setAllBits(1);
 			bf.setBitPair(i, bitpairval);
-			for(int z=0; z<32; z += 2)
+			for(int z=0; z<100; z += 2)
 				testAssert(bf.getBitPair(z) == (z == i ? bitpairval : 3u));
 		}
 	}

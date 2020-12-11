@@ -7,8 +7,8 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "Platform.h"
+#include "Vector.h"
 #include "../maths/mathstypes.h"
-#include <vector>
 #include <cassert>
 
 
@@ -24,12 +24,14 @@ public:
 	inline BitVector() : num_bits(0) {}
 
 	// Bits are intialised to zero.
-	inline explicit BitVector(size_t num_bits_) : v(Maths::roundedUpDivide<size_t>(num_bits_, 32), 0), num_bits(num_bits_) {}
+	inline explicit BitVector(size_t num_bits_) : v(/*count=*/Maths::roundedUpDivide<size_t>(num_bits_, 32), /*val=*/0), num_bits(num_bits_) {}
 
 	inline void setAllBits(uint32 newval);
 
 	inline void resize(size_t new_num_bits);
+	inline void resizeNoCopy(size_t new_num_bits);
 	inline size_t size() const { return num_bits; }
+	inline size_t byteSize() const { return v.size() * sizeof(uint32); }
 	
 	// Return the value of the bit at the given index.  Returns 0 or 1.
 	inline uint32 getBit(size_t index) const;
@@ -41,14 +43,15 @@ public:
 
 	// Return the value of the bit pair at bits (index + 1, index).
 	// Returns a value in [0, 4).
+	// The bit pair must be 2-bit aligned, e.g. we require index is even.
 	inline uint32 getBitPair(size_t index) const;
 
 	inline void setBitToZero(size_t index);
 	inline void setBitToOne(size_t index);
 	inline void setBit(size_t index, uint32 newval); // newval should be 0 or 1.
-	inline void setBitPair(size_t index, uint32 newval); // newval should be in [0, 4)
+	inline void setBitPair(size_t index, uint32 newval); // newval should be in [0, 4).  The bit pair must be 2-bit aligned, e.g. we require index is even.
 
-	std::vector<uint32> v;
+	js::Vector<uint32, 16> v;
 	size_t num_bits;
 };
 
@@ -78,6 +81,13 @@ void BitVector::resize(size_t new_num_bits)
 }
 
 
+void BitVector::resizeNoCopy(size_t new_num_bits)
+{
+	num_bits = new_num_bits;
+	v.resizeNoCopy(Maths::roundedUpDivide<size_t>(new_num_bits, 32));
+}
+
+
 inline uint32 BitVector::getBit(size_t index) const
 {
 	assert(index >= 0 && index < num_bits);
@@ -102,7 +112,7 @@ inline uint32 BitVector::getBitMasked(size_t index) const
 
 inline uint32 BitVector::getBitPair(size_t index) const
 {
-	assert(index >= 0 && index < num_bits);
+	assert(index >= 0 && index + 1 < num_bits && ((index % 2) == 0));
 
 	size_t e = index >> 5;
 	size_t i = index & 0x1F;
@@ -150,7 +160,7 @@ inline void BitVector::setBit(size_t index, uint32 newval)
 // Set bit at index and index + 1.
 inline void BitVector::setBitPair(size_t index, uint32 newval)
 {
-	assert(index >= 0 && index + 1 < num_bits);
+	assert(index >= 0 && index + 1 < num_bits && ((index % 2) == 0));
 	assert(newval >= 0 && newval < 4);
 
 	size_t e = index >> 5;
