@@ -211,6 +211,7 @@ public:
 	///// These functions are used by various tests which construct RayMeshes directly. //////
 	// None of these functions check the validity of the data being passed in.
 	// This means that all indices should be valid, and normals should be unit length.
+	// These are all slow as well, use only for testing!
 	void setMaxNumTexcoordSets(unsigned int max_num_texcoord_sets);
 	void addVertex(const Vec3f& pos);
 	void addVertex(const Vec3f& pos, const Vec3f& normal);
