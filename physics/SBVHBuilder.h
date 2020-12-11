@@ -199,7 +199,4 @@ public:
 
 	double split_search_time;
 	double partition_time;
-
-	mutable IndigoAtomic current_mem_usage;
-	mutable IndigoAtomic max_mem_usage;
 };

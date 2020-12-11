@@ -21,6 +21,25 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/ProfilerStore.h"
 #include <algorithm>
 
+/*
+
+Partitioning
+------------
+We partition in-place, splitting spare capacity left and right.
+
+-------------------------------------------------------------------------
+|                                  |                                    |
+begin                              end                                  capacity
+
+partitioned:
+
+-------------------------------------------------------------------------
+|                   |                 |              |                  |
+left begin    left end   left capacity, right begin  right end       right capacity
+
+
+*/
+
 
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 
