@@ -871,7 +871,7 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 	//else
 	{
 #ifdef NO_EMBREE
-#error NO_EMBREE not supported right now
+		tritree = new js::BVH(this);
 #else
 		assert(options.embree_device);
 		tritree = new EmbreeAccel(options.embree_device, this, /*do_fast_low_quality_build=*/options.build_small_bvh);
@@ -916,10 +916,14 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 
 RTCSceneTy* RayMesh::getEmbreeScene()
 {
+#ifdef NO_EMBREE
+	return NULL;
+#else
 	if(dynamic_cast<EmbreeAccel*>(this->tritree))
 		return static_cast<EmbreeAccel*>(this->tritree)->embree_scene;
 	else
 		return NULL;
+#endif
 }
 
 

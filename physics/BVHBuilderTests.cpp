@@ -121,6 +121,7 @@ void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, c
 }
 
 
+#ifndef NO_EMBREE
 static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultInteriorNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
 {
 	// Test that the resulting object indices are a permutation of the original indices.
@@ -182,6 +183,7 @@ static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_ind
 	for(int z=0; z<(int)result_ob_indices.size(); ++z)
 		testAssert(ob_in_leaf[z]);
 }
+#endif // #ifndef NO_EMBREE
 
 
 class TestShouldCancelCallback : public ShouldCancelCallback
@@ -1092,6 +1094,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			const float intersection_cost = 1.f;
 
 			//------------- Embree -----------------
+#ifndef NO_EMBREE
 #if 1
 			const bool DO_SBVH_BUILD = true;
 			EmbreeBVHBuilder builder(DO_SBVH_BUILD, /*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, intersection_cost,
@@ -1112,6 +1115,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			conPrint("Embree: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
 			testResultsValid(builder.getResultObjectIndices(), result_interior_nodes, aabbs, /*duplicate_prims_allowed=*/DO_SBVH_BUILD);
+#endif
 #endif
 			//--------------------------------------
 
