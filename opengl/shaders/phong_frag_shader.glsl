@@ -3,6 +3,9 @@
 in vec3 normal_cs;
 in vec3 normal_ws;
 in vec3 pos_cs;
+#if GENERATE_PLANAR_UVS
+in vec3 pos_os;
+#endif
 in vec3 pos_ws;
 in vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
@@ -119,6 +122,7 @@ void main()
 {
 	vec3 use_normal_cs;
 	vec3 use_normal_ws;
+	vec2 use_texture_coords = texture_coords;
 	if(have_shading_normals != 0)
 	{
 		use_normal_cs = normal_cs;
@@ -131,6 +135,35 @@ void main()
 		vec3 dp_dy = dFdy(pos_cs);
 		vec3 N_g = cross(dp_dx, dp_dy);
 		use_normal_cs = N_g;
+
+#if GENERATE_PLANAR_UVS
+		// For voxels: Compute texture coords based on object-space geometric normal.
+		dp_dx = dFdx(pos_os);
+		dp_dy = dFdy(pos_os);
+		vec3 N_g_os = cross(dp_dx, dp_dy);
+
+		if(abs(N_g_os.x) > abs(N_g_os.y) && abs(N_g_os.x) > abs(N_g_os.z))
+		{
+			use_texture_coords.x = pos_os.y;
+			use_texture_coords.y = pos_os.z;
+			if(N_g_os.x < 0)
+				use_texture_coords.x = -use_texture_coords.x;
+		}
+		else if(abs(N_g_os.y) > abs(N_g_os.x) && abs(N_g_os.y) > abs(N_g_os.z))
+		{
+			use_texture_coords.x = pos_os.x;
+			use_texture_coords.y = pos_os.z;
+			if(N_g_os.y > 0)
+				use_texture_coords.x = -use_texture_coords.x;
+		}
+		else
+		{
+			use_texture_coords.x = pos_os.x;
+			use_texture_coords.y = pos_os.y;
+			if(N_g_os.z < 0)
+				use_texture_coords.x = -use_texture_coords.x;
+		}
+#endif
 
 		// Compute world-space geometric normal.
 		dp_dx = dFdx(pos_ws);
@@ -148,7 +181,7 @@ void main()
 
 	vec4 diffuse_col;
 	if(have_texture != 0)
-		diffuse_col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy) * diffuse_colour;
+		diffuse_col = texture(diffuse_tex, (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy) * diffuse_colour;
 	else
 		diffuse_col = diffuse_colour;
 
@@ -264,7 +297,9 @@ void main()
 
 	vec4 sky_irradiance;
 #if LIGHTMAPPING
-	sky_irradiance = texture(lightmap_tex, lightmap_coords ) * 3.141592653589793;
+	// NOTE: this 3.141592653589793 shouldn't be needed.
+	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
+	sky_irradiance = texture(lightmap_tex, vec2(lightmap_coords.x, -lightmap_coords.y)) * 1.0e9f * 3.141592653589793; // 1.0e10; 
 #else
 	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky.
 #endif

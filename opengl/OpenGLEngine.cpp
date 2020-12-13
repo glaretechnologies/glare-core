@@ -93,6 +93,26 @@ GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
 }
 
 
+size_t OpenGLMeshRenderData::getNumVerts() const
+{
+	if(!vertex_spec.attributes.empty() && (vertex_spec.attributes[0].stride > 0))
+		return vert_data.size() / vertex_spec.attributes[0].stride;
+	else
+		return 0;
+}
+
+
+size_t OpenGLMeshRenderData::getNumTris() const
+{
+	if(!vert_index_buffer.empty())
+		return vert_index_buffer.size() / 3;
+	else if(!vert_index_buffer_uint16.empty())
+		return vert_index_buffer_uint16.size() / 3;
+	else
+		return vert_index_buffer_uint8.size() / 3;
+}
+
+
 OverlayObject::OverlayObject()
 {
 	material.albedo_rgb = Colour3f(1.f);
@@ -831,7 +851,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 	try
 	{
-		std::string preprocessor_defines;
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
 		preprocessor_defines += "#define NUM_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
@@ -847,30 +866,38 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
-		for(int alpha_test=0; alpha_test <= 1; ++alpha_test)
-		for(int vert_colours=0; vert_colours <= 1; ++vert_colours)
-		for(int instance_matrices=0; instance_matrices <= 1; ++instance_matrices)
-		for(int lightmapping=0; lightmapping <= 1; ++lightmapping)
+		// Eager creation of phong programs:
+		if(false)
 		{
-			const std::string use_defs = preprocessor_defines + 
-				"#define ALPHA_TEST " + toString(alpha_test) + "\n" + 
-				"#define VERT_COLOURS " + toString(vert_colours) + "\n" +
-				"#define INSTANCE_MATRICES " + toString(instance_matrices) + "\n" +
-				"#define LIGHTMAPPING " + toString(lightmapping) + "\n";
+			for(int alpha_test=0; alpha_test <= 1; ++alpha_test)
+			for(int vert_colours=0; vert_colours <= 1; ++vert_colours)
+			for(int instance_matrices=0; instance_matrices <= 1; ++instance_matrices)
+			for(int lightmapping=0; lightmapping <= 1; ++lightmapping)
+			for(int gen_planar_uvs=0; gen_planar_uvs <= 1; ++gen_planar_uvs)
+			{
+				const std::string use_defs = preprocessor_defines + 
+					"#define ALPHA_TEST " + toString(alpha_test) + "\n" + 
+					"#define VERT_COLOURS " + toString(vert_colours) + "\n" +
+					"#define INSTANCE_MATRICES " + toString(instance_matrices) + "\n" +
+					"#define LIGHTMAPPING " + toString(lightmapping) + "\n" + 
+					"#define GENERATE_PLANAR_UVS " + toString(gen_planar_uvs) + "\n";
 
-			OpenGLProgramRef phong_prog = new OpenGLProgram(
-				"phong",
-				new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
-			);
-			phong_prog->is_phong = true;
-			phong_prog->uses_phong_uniforms = true;
+				OpenGLProgramRef phong_prog = new OpenGLProgram(
+					"phong",
+					new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+					new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+				);
+				phong_prog->is_phong = true;
+				phong_prog->uses_phong_uniforms = true;
 
-			const PhongKey key(alpha_test != 0, vert_colours != 0, instance_matrices != 0, lightmapping != 0);
-			phong_progs[key] = phong_prog;
+				const PhongKey key(alpha_test != 0, vert_colours != 0, instance_matrices != 0, lightmapping != 0, gen_planar_uvs != 0);
+				phong_progs[key] = phong_prog;
 
-			getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
+				getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
+			}
 		}
+
+		fallback_phong_prog = getPhongProgram(PhongKey(false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
@@ -1035,9 +1062,51 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 }
 
 
-OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key)
+OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws Indigo::Exception on shader compilation failure.
 {
+	if(phong_progs[key] == NULL)
+	{
+		//Timer timer;
+
+		const std::string use_shader_dir = data_dir + "/shaders";
+
+		const std::string use_defs = preprocessor_defines + 
+			"#define ALPHA_TEST " + toString(key.alpha_test) + "\n" + 
+			"#define VERT_COLOURS " + toString(key.vert_colours) + "\n" +
+			"#define INSTANCE_MATRICES " + toString(key.instance_matrices) + "\n" +
+			"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" + 
+			"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n";
+
+		OpenGLProgramRef phong_prog = new OpenGLProgram(
+			"phong",
+			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+		);
+		phong_prog->is_phong = true;
+		phong_prog->uses_phong_uniforms = true;
+
+		phong_progs[key] = phong_prog;
+
+		getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
+
+		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+	}
+
 	return phong_progs[key];
+}
+
+
+OpenGLProgramRef OpenGLEngine::getPhongProgramWithFallbackOnError(const PhongKey& key) // On shader compilation failure, just returns a default phong program.
+{
+	try
+	{
+		return getPhongProgram(key);
+	}
+	catch(Indigo::Exception& e)
+	{
+		conPrint("ERROR: " + e.what());
+		return this->fallback_phong_prog;
+	}
 }
 
 
@@ -1164,7 +1233,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	{
 		const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
 		const bool uses_lightmapping = material.lightmap_texture.nonNull();
-		material.shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping));
+		material.shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping, material.gen_planar_uvs));
 	}
 }
 
@@ -1576,7 +1645,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = getPhongProgram(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false));
+		debug_arrow_ob->materials[0].shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false, /*gen_planar_uvs=*/false));
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *

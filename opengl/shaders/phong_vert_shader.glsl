@@ -1,6 +1,6 @@
 #version 150
 
-in vec3 position_in;
+in vec3 position_in; // object-space position
 in vec3 normal_in;
 in vec2 texture_coords_0_in;
 #if VERT_COLOURS
@@ -16,6 +16,9 @@ in vec2 lightmap_coords_in;
 out vec3 normal_cs; // cam (view) space
 out vec3 normal_ws; // world space
 out vec3 pos_cs;
+#if GENERATE_PLANAR_UVS
+out vec3 pos_os;
+#endif
 out vec3 pos_ws; // Pass along so we can use with dFdx to compute use_normal_ws.
 out vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
@@ -54,6 +57,10 @@ void main()
 	normal_cs = (view_matrix * (instance_matrix_in * normal_matrix * vec4(normal_in, 0.0))).xyz;
 #else
 	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
+
+#if GENERATE_PLANAR_UVS
+	pos_os = position_in;
+#endif
 
 	pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
 	cam_to_pos_ws = pos_ws - campos_ws;

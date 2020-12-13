@@ -30,6 +30,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/RefCounted.h"
 #include "../utils/Task.h"
 #include "../utils/ThreadSafeRefCounted.h"
+#include "../utils/StringUtils.h"
 #include <unordered_set>
 namespace Indigo { class Mesh; }
 namespace Indigo { class TaskManager; }
@@ -75,6 +76,8 @@ public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	GLMemUsage getTotalMemUsage() const;
+	size_t getNumVerts() const; // Just for testing/debugging.  Only valid before data is uploaded and host buffers are cleared.
+	size_t getNumTris() const; // Just for testing/debugging.  Only valid before data is uploaded and host buffers are cleared.
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 	
@@ -133,13 +136,15 @@ public:
 		tex_translation(0,0),
 		userdata(0),
 		fresnel_scale(0.5f),
-		metallic_frac(0.f)
+		metallic_frac(0.f),
+		gen_planar_uvs(false)
 	{}
 
 	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
 	float alpha; // Used for transparent mats.
 
 	bool transparent;
+	bool gen_planar_uvs;
 
 	Reference<OpenGLTexture> albedo_texture;
 	Reference<OpenGLTexture> lightmap_texture;
@@ -525,18 +530,25 @@ private:
 	struct PhongKey
 	{
 		PhongKey() {}
-		PhongKey(bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_) : alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_) {}
-		bool alpha_test, vert_colours, instance_matrices, lightmapping;
+		PhongKey(bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_, bool gen_planar_uvs_) : 
+			alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_), gen_planar_uvs(gen_planar_uvs_) {}
+
+		const std::string description() const { return "alpha_test: " + toString(alpha_test) + ", vert_colours: " + toString(vert_colours) + ", instance_matrices: " + toString(instance_matrices) + ", lightmapping: " + toString(lightmapping) + 
+			", gen_planar_uvs: " + toString(gen_planar_uvs); }
+
+		bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs;
 
 		inline bool operator < (const OpenGLEngine::PhongKey& b) const
 		{
-			const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0);
-			const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0);
+			const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0);
+			const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0) | (b.gen_planar_uvs ? 16 : 0);
 			return val < bval;
 		}
 	};
 
-	OpenGLProgramRef getPhongProgram(const PhongKey& key);
+	OpenGLProgramRef getPhongProgram(const PhongKey& key); // Throws Indigo::Exception on shader compilation failure.
+	
+	OpenGLProgramRef getPhongProgramWithFallbackOnError(const PhongKey& key); // On shader compilation failure, just returns a default phong program.
 
 	Indigo::TaskManager& getTaskManager();
 
@@ -566,8 +578,11 @@ private:
 	uint64 num_indices_submitted;
 	uint64 num_aabbs_submitted;
 
+	std::string preprocessor_defines;
+
 	// Map from preprocessor defs to phong program.
 	std::map<PhongKey, OpenGLProgramRef> phong_progs;
+	OpenGLProgramRef fallback_phong_prog;
 
 	Reference<OpenGLProgram> transparent_prog;
 	int transparent_colour_location;
