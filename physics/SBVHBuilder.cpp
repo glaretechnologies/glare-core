@@ -1967,7 +1967,7 @@ void SBVHBuilder::test()
 				conPrint("Skipping mesh failed to read (" + files[i] + "): " + toStdString(e.what()));
 			}
 		}
-		conPrint("Finised building all meshes.  Elapsed: " + timer.elapsedStringNSigFigs(3));
+		conPrint("Finished building all meshes.  Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
 
 	//==================== Perf test ====================
