@@ -565,6 +565,48 @@ struct PartitionRes
 };
 
 
+// Partition half the list left and half right.
+static void arbitraryPartition(const std::vector<SBVHOb>& objects_, int begin, int end, int capacity, PartitionRes& res_out)
+{
+	assert(end - begin >= 2);
+	const SBVHOb* const objects = objects_.data();
+
+	js::AABBox left_aabb = empty_aabb;
+	js::AABBox left_centroid_aabb = empty_aabb;
+	js::AABBox right_aabb = empty_aabb;
+	js::AABBox right_centroid_aabb = empty_aabb;
+
+	const int half_num = (end - begin)/2;
+	const int split_i = begin + half_num;
+
+	// Compute AABBs
+	for(int i=begin; i<split_i; ++i)
+	{
+		const js::AABBox aabb = objects[i].aabb;
+		const Vec4f centroid = aabb.centroid();
+		left_aabb.enlargeToHoldAABBox(aabb);
+		left_centroid_aabb.enlargeToHoldPoint(centroid);
+	}
+
+	for(int i=split_i; i<end; ++i)
+	{
+		const js::AABBox aabb = objects[i].aabb;
+		const Vec4f centroid = aabb.centroid();
+		right_aabb.enlargeToHoldAABBox(aabb);
+		right_centroid_aabb.enlargeToHoldPoint(centroid);
+	}
+
+	res_out.left_aabb = left_aabb;
+	res_out.left_centroid_aabb = left_centroid_aabb;
+	res_out.right_aabb = right_aabb;
+	res_out.right_centroid_aabb = right_centroid_aabb;
+
+	res_out.num_left = half_num;
+	res_out.num_right = (end - begin) - half_num;
+	res_out.left_capacity = half_num;
+}
+
+
 static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_obs, int begin, int end, int capacity, const BVHBuilderTri* triangles, const js::AABBox& parent_aabb, 
 	const js::AABBox& centroid_aabb,
 	float best_div_val, int best_axis, bool best_split_was_spatial, /*int best_bucket,*/
@@ -623,6 +665,14 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 	assert(num_left + num_right <= capacity);
 	//-----------------------------------------------------------------
 
+	// Test for the case where due to numerical innacuracy, the partition would result in more tris than we have room for.
+	// This *may* happen when spatial-splitting, although I haven't managed to replicate during testing without hacking the code up.
+	// Nevertheless we will handle it to prevent possible crashes due to buffer overruns etc.
+	if(num_left + num_right > capacity)
+	{
+		arbitraryPartition(objects_, begin, end, capacity, res_out);
+		return;
+	}
 
 	// Split the capacity proportially to num_left and num_right
 	const int max_left_capacity = capacity - num_right;
@@ -809,48 +859,6 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 	res_out.left_centroid_aabb = left_centroid_aabb;
 	res_out.right_aabb = right_aabb;
 	res_out.right_centroid_aabb = right_centroid_aabb;
-}
-
-
-// Partition half the list left and half right.
-static void arbitraryPartition(const std::vector<SBVHOb>& objects_, int begin, int end, int capacity, PartitionRes& res_out)
-{
-	assert(end - begin >= 2);
-	const SBVHOb* const objects = objects_.data();
-
-	js::AABBox left_aabb = empty_aabb;
-	js::AABBox left_centroid_aabb = empty_aabb;
-	js::AABBox right_aabb = empty_aabb;
-	js::AABBox right_centroid_aabb = empty_aabb;
-
-	const int half_num = (end - begin)/2;
-	const int split_i = begin + half_num;
-
-	// Compute AABBs
-	for(int i=begin; i<split_i; ++i)
-	{
-		const js::AABBox aabb = objects[i].aabb;
-		const Vec4f centroid = aabb.centroid();
-		left_aabb.enlargeToHoldAABBox(aabb);
-		left_centroid_aabb.enlargeToHoldPoint(centroid);
-	}
-
-	for(int i=split_i; i<end; ++i)
-	{
-		const js::AABBox aabb = objects[i].aabb;
-		const Vec4f centroid = aabb.centroid();
-		right_aabb.enlargeToHoldAABBox(aabb);
-		right_centroid_aabb.enlargeToHoldPoint(centroid);
-	}
-
-	res_out.left_aabb = left_aabb;
-	res_out.left_centroid_aabb = left_centroid_aabb;
-	res_out.right_aabb = right_aabb;
-	res_out.right_centroid_aabb = right_centroid_aabb;
-
-	res_out.num_left = half_num;
-	res_out.num_right = (end - begin) - half_num;
-	res_out.left_capacity = half_num;
 }
 
 
