@@ -38,6 +38,7 @@ struct SBVHBuildStats
 	int num_arbitrary_split_leaves;
 	int num_object_splits;
 	int num_spatial_splits;
+	int num_hit_capacity_splits;
 };
 
 
