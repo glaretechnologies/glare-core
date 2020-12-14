@@ -62,6 +62,13 @@ inline bool operator != (const Vec4i& a, const Vec4i& b)
 }
 
 
+// Loads x into elem 0 of a Vec4i, and zeroes the other elements.
+INDIGO_STRONG_INLINE Vec4i loadIntToLowElem(int32 x)
+{
+	return _mm_cvtsi32_si128(x);
+}
+
+
 INDIGO_STRONG_INLINE const Vec4i loadVec4i(const void* const data) // SSE 2
 {
 	assert(((uint64)data % 16) == 0); // Must be 16-byte aligned.

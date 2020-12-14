@@ -50,7 +50,8 @@ struct SBVHOb
 
 	int getIndex() const
 	{
-		return bitcastToVec4i(aabb.min_)[3];
+		return bitcastToVec4i(aabb.min_)[3]; // This form seems slightly faster.
+		//return elem<3>(bitcastToVec4i(aabb.min_));
 	}
 
 	void setIndex(int index)
@@ -60,7 +61,8 @@ struct SBVHOb
 
 	uint32 getUnsplit() const
 	{
-		return elem<3>(bitcastToVec4i(aabb.max_));
+		return bitcastToVec4i(aabb.max_)[3];
+		//return elem<3>(bitcastToVec4i(aabb.max_));
 	}
 
 	void setUnsplit(uint32 val)

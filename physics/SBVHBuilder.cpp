@@ -21,6 +21,16 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/ProfilerStore.h"
 #include <algorithm>
 
+
+/*
+TODO
+----
+* Do actual in-place partitioning without the extra temp_obs array.
+
+
+*/
+
+
 /*
 
 Partitioning
@@ -47,8 +57,8 @@ static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 // Since we store the object index in the AABB.min_.w, we want to restore this value to 1 before we return it to the client code.
 static inline void setAABBWToOneInPlace(js::AABBox& aabb)
 {
-	aabb.min_ = select(Vec4f(1.f), aabb.min_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
-	aabb.max_ = select(Vec4f(1.f), aabb.max_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
+	aabb.min_ = setWToOne(aabb.min_);
+	aabb.max_ = setWToOne(aabb.max_);
 }
 
 
@@ -265,6 +275,14 @@ SBVHLeafResultChunk* SBVHBuilder::allocNewLeafResultChunk()
 }
 
 
+INDIGO_STRONG_INLINE Vec4f setW(const Vec4f& a, int new_w_val_i)
+{
+	const Vec4f new_w = bitcastToVec4f(loadIntToLowElem(new_w_val_i)); // [new_w, 0, 0, 0]
+	const Vec4f v1 = shuffle<2, 2, 0, 0>(a, new_w); // [z, z, new_w, new_w]
+	return shuffle<0, 1, 0, 2>(a, v1); // [x, y, z, new_w]
+}
+
+
 // Top-level build method
 void SBVHBuilder::build(
 		Indigo::TaskManager& task_manager_,
@@ -357,8 +375,9 @@ void SBVHBuilder::build(
 		tri_aabb.enlargeToHoldPoint(tri.v[1]);
 		tri_aabb.enlargeToHoldPoint(tri.v[2]);
 
-		top_level_objects[i].aabb = tri_aabb;
-		top_level_objects[i].setIndex((int)i);
+		top_level_objects[i].aabb.min_ = setW(tri_aabb.min_, (int)i); // Store ob index in min_.w
+		top_level_objects[i].aabb.max_ = tri_aabb.max_;
+		assert(top_level_objects[i].getIndex() == i);
 
 		root_aabb.enlargeToHoldAABBox(tri_aabb);
 		root_centroid_aabb.enlargeToHoldPoint(tri_aabb.centroid());
@@ -609,7 +628,7 @@ static void arbitraryPartition(const std::vector<SBVHOb>& objects_, int begin, i
 
 static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_obs, int begin, int end, int capacity, const BVHBuilderTri* triangles, const js::AABBox& parent_aabb, 
 	const js::AABBox& centroid_aabb,
-	float best_div_val, int best_axis, bool best_split_was_spatial, /*int best_bucket,*/
+	float best_div_val, int best_axis, bool best_split_was_spatial, //int best_bucket,
 	//int num_left_, int num_right_, int left_capacity_, 
 	PartitionRes& res_out
 	)
@@ -652,6 +671,24 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 	}
 	else // Else if best split was just an object split:
 	{
+#if 0
+		// Code to do the partition exactly how the search was done:
+		const int max_B = 32;
+		const int num_buckets = myMin(max_B, (int)(4 + 0.05f * (end - begin))); // buckets per axis
+		const Vec4f scale = div(Vec4f((float)num_buckets), (centroid_aabb.max_ - centroid_aabb.min_));
+
+		for(int cur = begin; cur < end; ++cur)
+		{
+			const js::AABBox aabb = objects[cur].aabb;
+			const Vec4f centroid = aabb.centroid();
+
+			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+			if(bucket_i[best_axis] <= best_bucket) // If object should go on left side:
+				num_left++;
+			else // else if cur object should go on right side:
+				num_right++;
+		}
+#else
 		for(int cur = begin; cur < end; ++cur)
 		{
 			const Vec4f centroid = objects[cur].aabb.centroid();
@@ -661,6 +698,7 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 			else // else if cur object should go on right side:
 				num_right++;
 		}
+#endif
 	}
 	assert(num_left + num_right <= capacity);
 	//-----------------------------------------------------------------
@@ -750,13 +788,15 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 					assert(tri_right_aabb.min_[best_axis] >= best_div_val - 1.0e-5f);
 
 					SBVHOb left_ob;
-					left_ob.aabb = tri_left_aabb;
-					left_ob.setIndex(ob_i);
+					left_ob.aabb.min_ = setW(tri_left_aabb.min_, ob_i); // Store ob index in min_.w
+					left_ob.aabb.max_ = tri_left_aabb.max_;
+					assert(left_ob.getIndex() == ob_i);
 					temp_obs[left_write++] = left_ob;
 
 					SBVHOb right_ob;
-					right_ob.aabb = tri_right_aabb;
-					right_ob.setIndex(ob_i);
+					right_ob.aabb.min_ = setW(tri_right_aabb.min_, ob_i); // Store ob index in min_.w
+					right_ob.aabb.max_ = tri_right_aabb.max_;
+					assert(right_ob.getIndex() == ob_i);
 					temp_obs[right_write++] = right_ob;
 
 					left_centroid_aabb .enlargeToHoldPoint(tri_left_aabb.centroid()); // Get centroid of the part of the triangle clipped to left child volume, add to left centroid aabb.
@@ -1090,7 +1130,8 @@ static INDIGO_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const BVHBui
 static void search(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, std::vector<SBVHOb>& objects_, const BVHBuilderTri* triangles, int begin, int end, int capacity, float recip_root_node_aabb_area, 
 	int& best_axis_out, float& best_div_val_out,
 	float& smallest_split_cost_factor_out, bool& best_split_is_spatial_out
-	//int& best_num_left_out, int& best_num_right_out, int& best_bucket_out
+	//int& best_num_left_out, int& best_num_right_out, 
+	//int& best_bucket_out
 	)
 {
 	const js::AABBox& centroid_aabb = centroid_aabb_;
@@ -1594,12 +1635,14 @@ void SBVHBuilder::doBuild(
 	int best_axis;// = -1;
 	float best_div_val;// = 0;
 	bool best_split_was_spatial;
-	//int best_num_left, best_num_right, best_bucket;
+	//int best_num_left, best_num_right
+	//int best_bucket;
 
 	//conPrint("Looking for best split...");
 	//Timer timer;
 	search(aabb, centroid_aabb, this->top_level_objects, triangles, begin, end, capacity, recip_root_node_aabb_area, best_axis, best_div_val, smallest_split_cost_factor, best_split_was_spatial
-		//best_num_left, best_num_right, best_bucket
+		//best_num_left, best_num_right, 
+		//, best_bucket
 	);
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();
@@ -1607,6 +1650,13 @@ void SBVHBuilder::doBuild(
 	PartitionRes res;
 	if(best_axis == -1) // This can happen when all object centres coordinates along the axis are the same.
 	{
+		// Form a leaf when allowed, since arbitrary partitioning will just add extra traversal steps, all obs will still have to be intersected against.
+		if(num_objects <= max_num_objects_per_leaf)
+		{
+			markNodeAsLeaf(thread_temp_info, aabb, node_index, begin, end, depth, node_result_chunk);
+			return;
+		}
+		
 		arbitraryPartition(this->top_level_objects, begin, end, capacity, res);
 	}
 	else
@@ -1659,7 +1709,7 @@ void SBVHBuilder::doBuild(
 	// NOTE: why are we doing this here?
 	if(res.num_left == 0 || res.num_right == 0)
 	{
-		// conPrint("num_left_tris or num_right_tris == 0");
+		// conPrint("num_left_tris or num_right_tris == 0.  depth: " + toString(depth) + ", best_split_was_spatial: " + boolToString(best_split_was_spatial));
 		// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
 		arbitraryPartition(this->top_level_objects, begin, end, capacity, res);
 	}
