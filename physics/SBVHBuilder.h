@@ -82,8 +82,8 @@ struct SBVHResultChunk
 
 	ResultNode nodes[MAX_RESULT_CHUNK_SIZE];
 
-	size_t size;
-	size_t chunk_offset;
+	size_t size; // Number of valid elements in 'nodes'.
+	size_t chunk_offset; // Global offset of nodes[0] amongst all result chunks.
 };
 
 
@@ -95,8 +95,8 @@ struct SBVHLeafResultChunk
 
 	int leaf_obs[MAX_RESULT_CHUNK_SIZE];
 
-	size_t size;
-	size_t chunk_offset;
+	size_t size; // Number of valid elements in 'nodes'.
+	size_t chunk_offset;// Global offset of leaf_obs[0] amongst all leaf result chunks.
 };
 
 

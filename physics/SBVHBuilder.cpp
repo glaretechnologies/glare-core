@@ -1680,7 +1680,7 @@ void SBVHBuilder::doBuild(
 	setAABBWToOneInPlace(res.right_centroid_aabb);
 
 	assert(aabb.containsAABBox(res.left_aabb));
-//	assert(res.left_aabb.containsAABBox(res.left_centroid_aabb)); // failing due to precision issues?
+	//assert(res.left_aabb.containsAABBox(res.left_centroid_aabb)); // failing due to precision issues?
 	//assert(centroid_aabb.containsAABBox(res.left_centroid_aabb));
 	assert(aabb.containsAABBox(res.right_aabb));
 	//assert(res.right_aabb.containsAABBox(res.right_centroid_aabb)); // failing due to precision issues?
@@ -1734,8 +1734,19 @@ void SBVHBuilder::doBuild(
 		right_child_chunk = allocNewResultChunk(); // This child subtree will be built in a new task, so probably in a different thread.  So use a new chunk for it.
 		right_child_leaf_chunk = allocNewLeafResultChunk();
 		right_child = 0; // Root node of new task subtree chunk.
-	}
 
+		// Build right subtree in a new task
+		Reference<SBVHBuildSubtreeTask> subtree_task = new SBVHBuildSubtreeTask(*this);
+		subtree_task->result_chunk = right_child_chunk;
+		subtree_task->leaf_result_chunk = right_child_leaf_chunk;
+		subtree_task->node_aabb = res.right_aabb;
+		subtree_task->centroid_aabb = res.right_centroid_aabb;
+		subtree_task->depth = depth + 1;
+		subtree_task->begin = right_begin;
+		subtree_task->end = right_begin + num_right;
+		subtree_task->capacity = right_capacity;
+		task_manager->addTask(subtree_task); // Launch the task
+	}
 
 	// Mark this node as an interior node.
 	node_result_chunk->nodes[node_index].interior = true;
@@ -1760,21 +1771,7 @@ void SBVHBuilder::doBuild(
 		left_child_chunk
 	);
 
-	if(do_right_child_in_new_task)
-	{
-		// Put this subtree into a task
-		Reference<SBVHBuildSubtreeTask> subtree_task = new SBVHBuildSubtreeTask(*this);
-		subtree_task->result_chunk = right_child_chunk;
-		subtree_task->leaf_result_chunk = right_child_leaf_chunk;
-		subtree_task->node_aabb = res.right_aabb;
-		subtree_task->centroid_aabb = res.right_centroid_aabb;
-		subtree_task->depth = depth + 1;
-		subtree_task->begin = right_begin;
-		subtree_task->end = right_begin + num_right;
-		subtree_task->capacity = right_capacity;
-		task_manager->addTask(subtree_task);
-	}
-	else
+	if(!do_right_child_in_new_task) // If we haven't launched a task to build the right subtree already:
 	{
 		// Build right child
 		doBuild(
@@ -1843,8 +1840,8 @@ void SBVHBuilder::test()
 			Indigo::Mesh mesh;
 			try
 			{
-				//if(i < 882)
-				//	continue;
+				if(i < 1364)
+					continue;
 				Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
 				js::Vector<BVHBuilderTri, 16> tris(mesh.triangles.size() + mesh.quads.size() * 2);
 
