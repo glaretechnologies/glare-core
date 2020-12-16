@@ -30,6 +30,7 @@ struct SBVHBuildStats
 	int num_under_thresh_leaves;
 	int num_cheaper_nosplit_leaves;
 	int num_could_not_split_leaves;
+	int num_tris_in_leaves;
 	int num_leaves;
 	int max_num_tris_per_leaf;
 	int leaf_depth_sum;

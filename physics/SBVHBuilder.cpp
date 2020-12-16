@@ -27,6 +27,8 @@ TODO
 ----
 * Do actual in-place partitioning without the extra temp_obs array.
 
+* Of if still using temp_obs: ping-pong between buffers instead of copying back.
+
 * Try precomputing reciprocal tri edge vectors - should make clipping faster. 
 */
 
@@ -169,6 +171,7 @@ SBVHBuildStats::SBVHBuildStats()
 	num_cheaper_nosplit_leaves = 0;
 	num_could_not_split_leaves = 0;
 	num_leaves = 0;
+	num_tris_in_leaves = 0;
 	max_num_tris_per_leaf = 0;
 	leaf_depth_sum = 0;
 	max_leaf_depth = 0;
@@ -187,6 +190,7 @@ void SBVHBuildStats::accumStats(const SBVHBuildStats& other)
 	num_cheaper_nosplit_leaves		+= other.num_cheaper_nosplit_leaves;
 	num_could_not_split_leaves		+= other.num_could_not_split_leaves;
 	num_leaves						+= other.num_leaves;
+	num_tris_in_leaves				+= other.num_tris_in_leaves;
 	max_num_tris_per_leaf			= myMax(max_num_tris_per_leaf, other.max_num_tris_per_leaf);
 	leaf_depth_sum					+= other.leaf_depth_sum;
 	max_leaf_depth					= myMax(max_leaf_depth, other.max_leaf_depth);
@@ -367,7 +371,7 @@ void SBVHBuilder::build(
 
 	// Allocate and build top_level_objects
 	/*
-	The larger the capacity factor here, the higher quality the build, but the more mem used.
+	The larger the capacity factor here, the higher quality the build, but the more mem used, and the slower building is.
 	bedroom with num_objects * 2:
 	num hit capacity splits     58764
 	Build took 1.7616 s
@@ -569,7 +573,7 @@ void SBVHBuilder::build(
 		conPrint("num cheaper nosplit leaves: " + toString(stats.num_cheaper_nosplit_leaves));
 		conPrint("num could not split leaves: " + toString(stats.num_could_not_split_leaves));
 		conPrint("num arbitrary split leaves: " + toString(stats.num_arbitrary_split_leaves));
-		conPrint("av num tris per leaf:       " + toString((float)m_num_objects / stats.num_leaves));
+		conPrint("av num tris per leaf:       " + toString((float)stats.num_tris_in_leaves / stats.num_leaves));
 		conPrint("max num tris per leaf:      " + toString(stats.max_num_tris_per_leaf));
 		conPrint("av leaf depth:              " + toString((float)stats.leaf_depth_sum / stats.num_leaves));
 		conPrint("max leaf depth:             " + toString(stats.max_leaf_depth));
@@ -592,12 +596,14 @@ void SBVHBuilder::build(
 // Places the paritioned objects in left_obs_out and right_obs_out.
 struct PartitionRes
 {
+	// AABB and AABB of centroids of objects being partitioned left and right.
+	// We use the centroid AABB when searching for object partitioning splits.
 	js::AABBox left_aabb, left_centroid_aabb;
 	js::AABBox right_aabb, right_centroid_aabb;
 
-	int num_left;
-	int num_right;
-	int left_capacity;
+	int num_left; // num partitioned left
+	int num_right; // num partitioned right
+	int left_capacity; // capacity assigned left.
 };
 
 
@@ -646,73 +652,14 @@ static void arbitraryPartition(const std::vector<SBVHOb>& objects_, int begin, i
 static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_obs, int begin, int end, int capacity, const BVHBuilderTri* triangles, const js::AABBox& parent_aabb, 
 	const js::AABBox& centroid_aabb,
 	float best_div_val, int best_axis, bool best_split_was_spatial, int best_bucket,
-	int best_num_left_, int best_num_right_, 
+	int best_num_left, int best_num_right, 
 	PartitionRes& res_out
 	)
 {
-	//----------------- Do a pass to get the actual num going left and right ------------------------
-	// Note that this needs to use exactly equivalent left/right testing as the code below that actually copies objects left/right.
-	int num_left = 0;
-	int num_right = 0;
 	SBVHOb* const objects = objects_.data();
 
-	if(best_split_was_spatial)
-	{
-		for(int cur = begin; cur < end; ++cur)
-		{
-			const int ob_i = objects[cur].getIndex();
-			const js::AABBox aabb = objects[cur].aabb;
-			//assert(parent_aabb.containsAABBox(setWCoordsToOne(aabb)));
-			if(aabb.min_[best_axis] < best_div_val && aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
-			{
-				const uint32 unsplit_tri = objects[cur].getUnsplit();
-				if(unsplit_tri == 1)
-					num_left++;
-				else if(unsplit_tri == 2)
-					num_right++;
-				else
-				{
-					num_left++;
-					num_right++;
-				}
-			}
-			else // Else if triangle does not straddle clip plane:  then triangle bounds are completely in left or right side. Send triangle left or right based on triangle centroid.
-			{
-				const Vec4f centroid = aabb.centroid();
-				if(centroid[best_axis] <= best_div_val) // If object should go on Left side:
-					num_left++;
-				else // else if cur object should go on Right side:
-					num_right++;
-			}
-		}
-	}
-	else // Else if best split was just an object split:
-	{
-		// We will partition the same way the search was done, so can use the search values.
-		num_left = best_num_left_;
-		num_right = best_num_right_;
-
-//		for(int cur = begin; cur < end; ++cur)
-//		{
-//			const Vec4f centroid = objects[cur].aabb.centroid();
-//
-//			if(centroid[best_axis] <= best_div_val) // If object should go on left side:
-//				num_left++;
-//			else // else if cur object should go on right side:
-//				num_right++;
-//		}
-	}
-	assert(num_left + num_right <= capacity);
-	//-----------------------------------------------------------------
-
-	// Test for the case where due to numerical innacuracy, the partition would result in more tris than we have room for.
-	// This *may* happen when spatial-splitting, although I haven't managed to replicate during testing without hacking the code up.
-	// Nevertheless we will handle it to prevent possible crashes due to buffer overruns etc.
-	if(num_left + num_right > capacity)
-	{
-		arbitraryPartition(objects_, begin, end, capacity, res_out);
-		return;
-	}
+	const int num_left  = best_num_left;
+	const int num_right = best_num_right;
 
 	// Split the capacity proportially to num_left and num_right
 	const int max_left_capacity = capacity - num_right;
@@ -720,14 +667,9 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 	const int right_begin = begin + left_capacity;
 	const int right_capacity = capacity - left_capacity;
 
-
 	int left_write = begin;
 	const int right_write_begin = begin + left_capacity;
 	int right_write = right_write_begin;
-
-	res_out.num_left = num_left;
-	res_out.num_right = num_right;
-	res_out.left_capacity = left_capacity;
 
 	js::AABBox left_aabb = empty_aabb;
 	js::AABBox left_centroid_aabb = empty_aabb;
@@ -736,13 +678,19 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 
 	if(best_split_was_spatial)
 	{
+		const int num_spatial_buckets = 16;
+		const Vec4f spatial_scale = div(Vec4f((float)num_spatial_buckets), (parent_aabb.max_ - parent_aabb.min_));
+
 		for(int cur = begin; cur < end; ++cur)
 		{
 			const int ob_i = objects[cur].getIndex();
 			const BVHBuilderTri& tri = triangles[ob_i];
 			const js::AABBox aabb = objects[cur].aabb;
 			assert(parent_aabb.containsAABBox(setWCoordsToOne(aabb)));
-			if(aabb.min_[best_axis] < best_div_val && aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
+			const Vec4i entry_bucket_i = clamp(truncateToVec4i((aabb.min_ - parent_aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
+			const Vec4i exit_bucket_i  = clamp(truncateToVec4i((aabb.max_ - parent_aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
+
+			if(entry_bucket_i[best_axis] <= best_bucket && exit_bucket_i[best_axis] > best_bucket) // If triangle straddles split plane:
 			{
 				const uint32 unsplit_tri = objects[cur].getUnsplit();
 				if(unsplit_tri == 1)
@@ -811,7 +759,7 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 			else // Else if triangle does not straddle clip plane:  then triangle bounds are completely in left or right side. Send triangle left or right based on triangle centroid.
 			{
 				const Vec4f centroid = aabb.centroid();
-				if(centroid[best_axis] <= best_div_val) // If object should go on Left side:
+				if(exit_bucket_i[best_axis] <= best_bucket) // If object should go on Left side:
 				{
 					temp_obs[left_write++] = objects[cur];
 					left_aabb.enlargeToHoldAABBox(aabb);
@@ -828,7 +776,6 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 	}
 	else // Else if best split was just an object split:
 	{
-#if 1
 		// Code to do the partition exactly how the search was done:
 		const int max_B = 32;
 		const int num_buckets = myMin(max_B, (int)(4 + 0.05f * (end - begin))); // buckets per axis
@@ -839,7 +786,7 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 			const js::AABBox aabb = objects[cur].aabb;
 			const Vec4f centroid = aabb.centroid();
 
-			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+			const Vec4i bucket_i = clamp(truncateToVec4i((centroid - centroid_aabb.min_) * scale), Vec4i(0), Vec4i(num_buckets-1));
 			if(bucket_i[best_axis] <= best_bucket) // If object should go on left side:
 			{
 				left_aabb.enlargeToHoldAABBox(aabb);
@@ -859,36 +806,10 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 				temp_obs[right_write++] = objects[cur];
 			}
 		}
-#else
-		for(int cur = begin; cur < end; ++cur)
-		{
-			const js::AABBox aabb = objects[cur].aabb;
-			const Vec4f centroid = aabb.centroid();
-
-			if(centroid[best_axis] <= best_div_val) // If object should go on left side:
-			{
-				left_aabb.enlargeToHoldAABBox(aabb);
-				left_centroid_aabb.enlargeToHoldPoint(centroid);
-
-				assert(left_write < begin + num_left);
-				assert(left_write < right_write_begin);
-				temp_obs[left_write++] = objects[cur];
-			}
-			else // else if cur object should go on right side:
-			{
-				right_aabb.enlargeToHoldAABBox(aabb);
-				right_centroid_aabb.enlargeToHoldPoint(centroid);
-
-				assert(right_write < right_write_begin + num_right);
-				assert(right_write < begin + capacity);
-				temp_obs[right_write++] = objects[cur];
-			}
-		}
-#endif
 	}
 
-	assert(left_write - begin == num_left); // Check the number of objects we partitioned left was equal to the num left computed by the search.
-	assert(right_write - right_write_begin == num_right); // Check the number of objects we partitioned left was equal to the num left computed by the search.
+	assert(left_write - begin              == num_left ); // Check the number of objects we partitioned left was equal to the num left computed by the search.
+	assert(right_write - right_write_begin == num_right); // Check the number of objects we partitioned right was equal to the num left computed by the search.
 
 	// Copy from temp_obs back to obs
 	for(int i = begin; i != left_write; ++i)
@@ -901,18 +822,25 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 	res_out.left_centroid_aabb = left_centroid_aabb;
 	res_out.right_aabb = right_aabb;
 	res_out.right_centroid_aabb = right_centroid_aabb;
+	res_out.num_left = num_left;
+	res_out.num_right = num_right;
+	res_out.left_capacity = left_capacity;
 }
 
 
+// Compute AABBs of objects partitioned left and right, and the number partioned left and right, for a spatial split with unsplitting, without doing any actual partitioning.
 static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const BVHBuilderTri* triangles, const js::AABBox& parent_aabb, int begin, int end, 
-	float best_div_val, int best_axis, 
-	PartitionRes& res_out, int& num_left_out, int& num_right_out)
+	float best_div_val, int best_axis, int best_bucket,
+	PartitionRes& res_out)
 {
-	num_left_out = num_right_out = 0;
-
 	const SBVHOb* const objects = objects_.data();
 
-	js::AABBox left_aabb = empty_aabb;
+	const int num_spatial_buckets = 16;
+	const Vec4f spatial_scale = div(Vec4f((float)num_spatial_buckets), (parent_aabb.max_ - parent_aabb.min_));
+
+	int num_left  = 0;
+	int num_right = 0;
+	js::AABBox left_aabb  = empty_aabb;
 	js::AABBox right_aabb = empty_aabb;
 
 	for(int cur = begin; cur < end; ++cur)
@@ -921,18 +849,22 @@ static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const
 		const BVHBuilderTri& tri = triangles[ob_i];
 		const js::AABBox aabb = objects[cur].aabb;
 		assert(parent_aabb.containsAABBox(setWCoordsToOne(aabb)));
-		if(aabb.min_[best_axis] < best_div_val && aabb.max_[best_axis] > best_div_val) // If triangle straddles split plane:
+
+		const Vec4i entry_bucket_i = clamp(truncateToVec4i((aabb.min_ - parent_aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
+		const Vec4i exit_bucket_i  = clamp(truncateToVec4i((aabb.max_ - parent_aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
+
+		if(entry_bucket_i[best_axis] <= best_bucket && exit_bucket_i[best_axis] > best_bucket) // If triangle straddles split plane:
 		{
 			const uint32 unsplit_tri = objects[cur].getUnsplit();
 			if(unsplit_tri == 1)
 			{
 				left_aabb.enlargeToHoldAABBox(aabb);
-				num_left_out++;
+				num_left++;
 			}
 			else if(unsplit_tri == 2)
 			{
 				right_aabb.enlargeToHoldAABBox(aabb);
-				num_right_out++;
+				num_right++;
 			}
 			else
 			{
@@ -969,28 +901,29 @@ static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const
 				left_aabb.enlargeToHoldAABBox(tri_left_aabb);
 				right_aabb.enlargeToHoldAABBox(tri_right_aabb);
 
-				num_left_out++;
-				num_right_out++;
+				num_left++;
+				num_right++;
 			}
 		}
 		else // Else if triangle does not straddle clip plane:  then triangle bounds are completely in left or right side. Send triangle left or right based on triangle centroid.
 		{
-			const Vec4f centroid = aabb.centroid();
-			if(centroid[best_axis] <= best_div_val) // If object should go on Left side:
+			if(exit_bucket_i[best_axis] <= best_bucket) // If object should go on Left side:
 			{
 				left_aabb.enlargeToHoldAABBox(aabb);
-				num_left_out++;
+				num_left++;
 			}
 			else // else if cur object should go on Right side:
 			{
 				right_aabb.enlargeToHoldAABBox(aabb);
-				num_right_out++;
+				num_right++;
 			}
 		}
 	}
 
 	res_out.left_aabb  = left_aabb;
 	res_out.right_aabb = right_aabb;
+	res_out.num_left  = num_left;
+	res_out.num_right = num_right;
 }
 
 
@@ -1129,7 +1062,7 @@ static INDIGO_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const BVHBui
 }
 
 
-static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, std::vector<SBVHOb>& objects_, const BVHBuilderTri* triangles, SBVHBuildStats& stats, int begin, int end, int capacity, float recip_root_node_aabb_area, 
+static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroid_aabb_, std::vector<SBVHOb>& objects_, const BVHBuilderTri* triangles, SBVHBuildStats& stats, int begin, int end, int capacity, float recip_root_node_aabb_area,
 	int& best_axis_out, float& best_div_val_out,
 	float& smallest_split_cost_factor_out, bool& best_split_is_spatial_out,
 	int& best_num_left_out, int& best_num_right_out, 
@@ -1171,7 +1104,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 		const js::AABBox ob_aabb = objects[i].aabb;
 		const Vec4f centroid = ob_aabb.centroid();
 		assert(centroid_aabb.contains(setWToOne(centroid)));
-		const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+		const Vec4i bucket_i = clamp(truncateToVec4i((centroid - centroid_aabb.min_) * scale), Vec4i(0), Vec4i(num_buckets-1));
 
 		assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
 		assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
@@ -1236,11 +1169,11 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 
 		assert(aabb.containsAABBox(setWCoordsToOne(left_aabb[0])));
 
-		float A0 = left_aabb[0].getHalfSurfaceArea();
-		float A1 = left_aabb[1].getHalfSurfaceArea();
-		float A2 = left_aabb[2].getHalfSurfaceArea();
+		const float A0 = left_aabb[0].getHalfSurfaceArea();
+		const float A1 = left_aabb[1].getHalfSurfaceArea();
+		const float A2 = left_aabb[2].getHalfSurfaceArea();
 
-		const Vec4f cost = mul(toVec4f(count), Vec4f(A0, A1, A2, A2)) + mul(toVec4f(right_prefix_counts[b]), right_area[b]); // Compute SAH cost factor
+		const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_prefix_counts[b]) * right_area[b]; // Compute SAH cost factor
 
 		if(smallest_split_cost_factor > elem<0>(cost))
 		{
@@ -1325,6 +1258,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 	int spatial_best_axis = -1;
 	float spatial_best_div_val = -666;
 	float spatial_smallest_split_cost_factor = std::numeric_limits<float>::infinity();
+	int spatial_best_bucket = -1;
 
 	js::AABBox best_spatial_left_aabb;
 	js::AABBox best_spatial_right_aabb;
@@ -1336,7 +1270,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 
 	const float lambda_over_sa_root_bound = lambda * recip_root_node_aabb_area;
 	const float alpha = 1.0e-5f;
-	if(lambda_over_sa_root_bound > alpha)
+	if(lambda_over_sa_root_bound > alpha) // If should do search for a spatial split:
 	{
 		const int num_spatial_buckets = 16;
 		assert(num_spatial_buckets <= max_B);
@@ -1367,8 +1301,8 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 			if(i + PREFETCH_DIST < end)
 				_mm_prefetch((const char*)(triangles + (objects[i + PREFETCH_DIST].getIndex())), _MM_HINT_T0);
 
-			const Vec4i entry_bucket_i = clamp(truncateToVec4i(mul((ob_aabb.min_ - aabb.min_), spatial_scale)), Vec4i(0), Vec4i(num_spatial_buckets-1));
-			const Vec4i exit_bucket_i  = clamp(truncateToVec4i(mul((ob_aabb.max_ - aabb.min_), spatial_scale)), Vec4i(0), Vec4i(num_spatial_buckets-1));
+			const Vec4i entry_bucket_i = clamp(truncateToVec4i((ob_aabb.min_ - aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
+			const Vec4i exit_bucket_i  = clamp(truncateToVec4i((ob_aabb.max_ - aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
 
 			assert(entry_bucket_i[0] >= 0 && entry_bucket_i[0] < num_spatial_buckets);
 			assert(entry_bucket_i[1] >= 0 && entry_bucket_i[1] < num_spatial_buckets);
@@ -1457,13 +1391,14 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 			float A1 = left_aabb[1].getHalfSurfaceArea();
 			float A2 = left_aabb[2].getHalfSurfaceArea();
 
-			const Vec4f cost = mul(toVec4f(count), Vec4f(A0, A1, A2, A2)) + mul(toVec4f(right_prefix_counts[b]), right_area[b]); // Compute SAH cost factor
+			const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_prefix_counts[b]) * right_area[b]; // Compute SAH cost factor
 
 			if(aabb_span[0] > 0 && spatial_smallest_split_cost_factor > elem<0>(cost))
 			{
 				spatial_smallest_split_cost_factor = elem<0>(cost);
 				spatial_best_axis = 0;
 				spatial_best_div_val = aabb.min_[0] + spatial_axis_len_over_num_buckets[0] * (b + 1);
+				spatial_best_bucket = b;
 				best_spatial_left_aabb = left_aabb[0];
 				best_spatial_right_aabb = right_aabbs[b + num_spatial_buckets*0];
 				best_spatial_left_num = count[0];
@@ -1475,6 +1410,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 				spatial_smallest_split_cost_factor = elem<1>(cost);
 				spatial_best_axis = 1;
 				spatial_best_div_val = aabb.min_[1] + spatial_axis_len_over_num_buckets[1] * (b + 1);
+				spatial_best_bucket = b;
 				best_spatial_left_aabb = left_aabb[1];
 				best_spatial_right_aabb = right_aabbs[b + num_spatial_buckets*1];
 				best_spatial_left_num = count[1];
@@ -1486,85 +1422,98 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 				spatial_smallest_split_cost_factor = elem<2>(cost);
 				spatial_best_axis = 2;
 				spatial_best_div_val = aabb.min_[2] + spatial_axis_len_over_num_buckets[2] * (b + 1);
+				spatial_best_bucket = b;
 				best_spatial_left_aabb = left_aabb[2];
 				best_spatial_right_aabb = right_aabbs[b + num_spatial_buckets*2];
 				best_spatial_left_num = count[2];
 				best_spatial_right_num = right_prefix_counts[b][2];
 			}
 		}
-	}
-
-	if(spatial_smallest_split_cost_factor < smallest_split_cost_factor && (best_spatial_left_num + best_spatial_right_num <= capacity))
-	{
-		smallest_split_cost_factor = spatial_smallest_split_cost_factor;
-		best_axis = spatial_best_axis;
-		best_div_val = spatial_best_div_val;
-		best_split_is_spatial = true;
-		best_num_left = best_spatial_left_num;
-		best_num_right = best_spatial_right_num;
-	}
-
-	// Do reference unsplitting at the best spatial split found.
-	// See 'Spatial Splits in Bounding Volume Hierarchies' (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.550.6560&rep=rep1&type=pdf) section 4.4, 'Reference Unsplitting'.
-	// The starting point is the best spatial split.
-	// Note that we want to try this unsplitting even if the spatial split was not better than the object partitioning split, because the unsplit might be.
-	if(spatial_smallest_split_cost_factor < std::numeric_limits<float>::infinity()) // If we had a successful spatial split:
-	{
-		const float left_half_area  = best_spatial_left_aabb .getHalfSurfaceArea();
-		const float right_half_area = best_spatial_right_aabb.getHalfSurfaceArea();
-		const float C_split = spatial_smallest_split_cost_factor;
-		const float left_reduced_cost  = left_half_area  * (best_spatial_left_num  - 1);
-		const float right_reduced_cost = right_half_area * (best_spatial_right_num - 1);
-		bool unsplit_a_tri = false;
-		for(int i=begin; i<end; ++i)
+	
+		if(spatial_smallest_split_cost_factor < smallest_split_cost_factor && (best_spatial_left_num + best_spatial_right_num <= capacity))
 		{
-			const js::AABBox ob_aabb = objects[i].aabb;
-			assert(aabb.containsAABBox(setWCoordsToOne(ob_aabb)));
-
-			uint32 unsplit = 0;
-			if(ob_aabb.min_[spatial_best_axis] < spatial_best_div_val && ob_aabb.max_[spatial_best_axis] > spatial_best_div_val) // If triangle straddles split plane:
-			{
-				// Compute C_1: the cost when putting object i entirely in the left child, and C_2: the cost when putting object i entirely in the right child.
-				const js::AABBox expanded_left_aabb  = AABBUnion(best_spatial_left_aabb, ob_aabb);
-				const js::AABBox expanded_right_aabb = AABBUnion(best_spatial_right_aabb, ob_aabb);
-				const float C_1 = expanded_left_aabb.getHalfSurfaceArea() * best_spatial_left_num + right_reduced_cost;
-				const float C_2 = left_reduced_cost + expanded_right_aabb.getHalfSurfaceArea() * best_spatial_right_num;
-
-				if(C_1 < C_split && C_1 <= C_2) // Only place this tri in the left child:
-					unsplit = 1;
-				else if(C_2 < C_split && C_2 < C_1) // Else if only place this tri in the right child:
-					unsplit = 2;
-				unsplit_a_tri = true;
-			}
-
-			objects[i].setUnsplit(unsplit);
+			smallest_split_cost_factor = spatial_smallest_split_cost_factor;
+			best_axis = spatial_best_axis;
+			best_div_val = spatial_best_div_val;
+			best_bucket = spatial_best_bucket;
+			best_split_is_spatial = true;
+			best_num_left = best_spatial_left_num;
+			best_num_right = best_spatial_right_num;
 		}
 
-		// Do another pass to get the final cost given our unsplitting decisions.  This is not a conservative estimate of the cost, but an accurate calculation of the 
-		// cost, that may be smaller than the conservative unsplit cost.  We want to do this pass because, even though we know the cost will be <= spatial_smallest_split_cost_factor,
-		// We don't know if it will be smaller than the best object-partitioning cost (which may be smaller than spatial_smallest_split_cost_factor).
-		if(unsplit_a_tri) // Cost will only have changed if we actually unsplit something.
+		// Do reference unsplitting at the best spatial split found.
+		// See 'Spatial Splits in Bounding Volume Hierarchies' (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.550.6560&rep=rep1&type=pdf) section 4.4, 'Reference Unsplitting'.
+		// The starting point is the best spatial split.
+		// Note that we want to try this unsplitting even if the spatial split was not better than the object partitioning split, because the unsplit might be.
+		if(spatial_smallest_split_cost_factor < std::numeric_limits<float>::infinity()) // If we had a successful spatial split:
 		{
-			int num_left, num_right;
-			PartitionRes res;
-			tentativeSpatialPartition(objects_, triangles, aabb, begin, end, spatial_best_div_val, spatial_best_axis, res, num_left, num_right);
-			if(num_left > 0 && num_right > 0) // If valid partition: (might end up with everything left or right due to numerical innaccuracy)
+			const float left_half_area  = best_spatial_left_aabb .getHalfSurfaceArea();
+			const float right_half_area = best_spatial_right_aabb.getHalfSurfaceArea();
+			const float C_split = spatial_smallest_split_cost_factor;
+			const float left_reduced_cost  = left_half_area  * (best_spatial_left_num  - 1);
+			const float right_reduced_cost = right_half_area * (best_spatial_right_num - 1);
+			bool unsplit_a_tri = false; // Did we unsplit 1 or more triangles?
+			for(int i=begin; i<end; ++i)
 			{
-				const float unsplit_cost = res.left_aabb.getHalfSurfaceArea() * num_left + res.right_aabb.getHalfSurfaceArea() * num_right;
-				assert(isFinite(unsplit_cost));
+				const js::AABBox ob_aabb = objects[i].aabb;
+				assert(aabb.containsAABBox(setWCoordsToOne(ob_aabb)));
 
-				if(unsplit_cost < smallest_split_cost_factor && (num_left + num_right <= capacity))
+				const Vec4i entry_bucket_i = clamp(truncateToVec4i((ob_aabb.min_ - aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
+				const Vec4i exit_bucket_i  = clamp(truncateToVec4i((ob_aabb.max_ - aabb.min_) * spatial_scale), Vec4i(0), Vec4i(num_spatial_buckets-1));
+
+				uint32 unsplit = 0;
+
+				if(entry_bucket_i[spatial_best_axis] <= spatial_best_bucket && exit_bucket_i[spatial_best_axis] > spatial_best_bucket) // If triangle straddles split plane:
 				{
-					smallest_split_cost_factor = unsplit_cost;
-					best_axis = spatial_best_axis;
-					best_div_val = spatial_best_div_val;
-					best_split_is_spatial = true;
-					best_num_left = num_left;
-					best_num_right = num_right;
+					// Compute C_1: the cost when putting object i entirely in the left child, and C_2: the cost when putting object i entirely in the right child.
+					// These are conservative costs, e.g. >= the true cost (because we don't shrink the AABB of the side the object was removed from)
+					const js::AABBox expanded_left_aabb  = AABBUnion(best_spatial_left_aabb, ob_aabb);
+					const js::AABBox expanded_right_aabb = AABBUnion(best_spatial_right_aabb, ob_aabb);
+					const float expanded_left_SA = expanded_left_aabb.getHalfSurfaceArea();
+					const float C_1 = expanded_left_aabb.getHalfSurfaceArea() * best_spatial_left_num + right_reduced_cost;
+					const float C_2 = left_reduced_cost + expanded_right_aabb.getHalfSurfaceArea() * best_spatial_right_num;
+
+					if(C_1 < C_split && C_1 <= C_2) // Only place this tri in the left child:
+						unsplit = 1;
+					else if(C_2 < C_split && C_2 < C_1) // Else if only place this tri in the right child:
+						unsplit = 2;
+					unsplit_a_tri = true;
+				}
+
+				objects[i].setUnsplit(unsplit);
+			}
+
+			// Do another pass to get the final cost given our unsplitting decisions.  This is not a conservative estimate of the cost, but an accurate calculation of the 
+			// cost, that may be smaller than the conservative unsplit cost.  We want to do this pass because, even though we know the cost will be <= spatial_smallest_split_cost_factor,
+			// We don't know if it will be smaller than the best object-partitioning cost (which may be smaller than spatial_smallest_split_cost_factor).
+			if(unsplit_a_tri) // Cost will only have changed if we actually unsplit something.
+			{
+				PartitionRes res;
+				tentativeSpatialPartition(objects_, triangles, aabb, begin, end, spatial_best_div_val, spatial_best_axis, spatial_best_bucket, res);
+
+				if(res.num_left > 0 && res.num_right > 0) // If valid partition: (might end up with everything left or right due to numerical innaccuracy)
+				{
+					const float left_SA  = res.left_aabb.getHalfSurfaceArea();
+					const float right_SA = res.right_aabb.getHalfSurfaceArea();
+					const float unsplit_cost = res.left_aabb.getHalfSurfaceArea() * res.num_left + res.right_aabb.getHalfSurfaceArea() * res.num_right;
+
+					// The unsplit cost is usually, not not allways smaller than spatial_smallest_split_cost_factor.
+					assert(isFinite(unsplit_cost));
+
+					if(unsplit_cost < smallest_split_cost_factor && (res.num_left + res.num_right <= capacity))
+					{
+						smallest_split_cost_factor = unsplit_cost;
+						best_axis = spatial_best_axis;
+						best_div_val = spatial_best_div_val;
+						best_bucket = spatial_best_bucket;
+						best_split_is_spatial = true;
+						best_num_left  = res.num_left;
+						best_num_right = res.num_right;
+					}
 				}
 			}
 		}
-	}
+	} // End if should do search for spatial split.
 
 	} // end if(capacity > end - begin)
 	//========================================================================================================
@@ -1615,6 +1564,7 @@ void SBVHBuilder::markNodeAsLeaf(SBVHPerThreadTempInfo& thread_temp_info, const 
 		thread_temp_info.stats.num_under_thresh_leaves++;
 	thread_temp_info.stats.leaf_depth_sum += depth;
 	thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
+	thread_temp_info.stats.num_tris_in_leaves += num_objects;
 	thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, num_objects);
 	thread_temp_info.stats.num_leaves++;
 }
@@ -1690,15 +1640,16 @@ void SBVHBuilder::doBuild(
 	}
 	else
 	{
-		//assert(best_num_left >= 0 && best_num_right >= 0 && (best_num_left + best_num_right >= end - begin)); // best_num_left + best_num_right may be >= num objects due to splitting
-
 		if(best_split_was_spatial)
 			thread_temp_info.stats.num_spatial_splits++;
 		else
 			thread_temp_info.stats.num_object_splits++;
 
-		// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
-		const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
+		// C_split = P_L N_L C_i + P_R N_R C_i + C_t
+		//         = A_L/A N_L C_i + A_R/A N_R C_i + C_t
+		//         = C_i (A_L N_L + A_R N_R) / A + C_t
+		//         = C_i (A_L/2 N_L + A_R/2 N_R) / (A/2) + C_t
+		const float smallest_split_cost = intersection_cost * smallest_split_cost_factor / aabb.getHalfSurfaceArea() + traversal_cost;
 
 		// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
 		if((smallest_split_cost >= non_split_cost) && (num_objects <= max_num_objects_per_leaf))
@@ -1735,23 +1686,6 @@ void SBVHBuilder::doBuild(
 	//assert(res.right_aabb.containsAABBox(res.right_centroid_aabb)); // failing due to precision issues?
 	//assert(centroid_aabb.containsAABBox(res.right_centroid_aabb));
 
-	// This may happen due to numerical inaccuracy with spatial splits, where the search finds a good split with > 0 objects left and > 0 objects right,
-	// but then the actual partition puts all objects left or right.
-	if(res.num_left == 0 || res.num_right == 0)
-	{
-		assert(best_split_was_spatial); // This shouldn't happen with object-partitioning splits, since we partition exactly the same as we search.
-		//conPrint("num_left_tris or num_right_tris == 0.  depth: " + toString(depth) + ", num obs: " + toString(num_objects) + ", best_split_was_spatial: " + boolToString(best_split_was_spatial));
-
-		// Form a leaf when allowed, since arbitrary partitioning will just add extra traversal steps, all obs will still have to be intersected against.
-		if(num_objects <= max_num_objects_per_leaf)
-		{
-			markNodeAsLeaf(thread_temp_info, aabb, node_index, begin, end, depth, node_result_chunk);
-			return;
-		}
-		// Split objects arbitrarily until the number in each leaf is <= max_num_objects_per_leaf.
-		arbitraryPartition(this->top_level_objects, begin, end, capacity, res);
-	}
-
 	const int num_left  = res.num_left;
 	const int num_right = res.num_right;
 	const int left_capacity = res.left_capacity;
@@ -1772,8 +1706,6 @@ void SBVHBuilder::doBuild(
 		assert(setWCoordsToOne(left_centroid_aabb) == setWCoordsToOne(res.left_centroid_aabb));
 	}
 #endif
-
-
 
 	// Allocate left child node from the thread's current result chunk
 	if(thread_temp_info.result_chunk->size >= SBVHResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
@@ -2025,6 +1957,9 @@ void SBVHBuilder::test()
 			conPrint("SBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
 			BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/true);
+
+			//const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
+			//conPrint("SAH_cost: " + toString(SAH_cost));
 			//--------------------------------------
 		}
 
