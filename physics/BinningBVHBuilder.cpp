@@ -542,7 +542,7 @@ public:
 			const js::AABBox ob_aabb = objects[i].aabb;
 			const Vec4f centroid = ob_aabb.centroid();
 			assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
-			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+			const Vec4i bucket_i = clamp(truncateToVec4i((centroid - centroid_aabb.min_) * scale), Vec4i(0), Vec4i(num_buckets-1));
 
 			assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
 			assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
@@ -654,7 +654,7 @@ static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager
 			const js::AABBox ob_aabb = objects[i].aabb;
 			const Vec4f centroid = ob_aabb.centroid();
 			assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
-			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+			const Vec4i bucket_i = clamp(truncateToVec4i((centroid - centroid_aabb.min_) * scale), Vec4i(0), Vec4i(num_buckets-1));
 
 			assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
 			assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
@@ -692,7 +692,7 @@ static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager
 			const js::AABBox ob_aabb = objects[i].aabb;
 			const Vec4f centroid = ob_aabb.centroid();
 			assert(centroid_aabb.contains(Vec4f(centroid[0], centroid[1], centroid[2], 1.f)));
-			const Vec4i bucket_i = clamp(truncateToVec4i(mul((centroid - centroid_aabb.min_), scale)), Vec4i(0), Vec4i(num_buckets-1));
+			const Vec4i bucket_i = clamp(truncateToVec4i((centroid - centroid_aabb.min_) * scale), Vec4i(0), Vec4i(num_buckets-1));
 
 			assert(bucket_i[0] >= 0 && bucket_i[0] < num_buckets);
 			assert(bucket_i[1] >= 0 && bucket_i[1] < num_buckets);
@@ -758,7 +758,7 @@ static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager
 		float A1 = left_aabb[1].getHalfSurfaceArea();
 		float A2 = left_aabb[2].getHalfSurfaceArea();
 
-		const Vec4f cost = mul(toVec4f(count), Vec4f(A0, A1, A2, A2)) + mul(toVec4f(right_prefix_counts[b]), right_area[b]); // Compute SAH cost factor
+		const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_prefix_counts[b]) * right_area[b]; // Compute SAH cost factor
 
 		if(smallest_split_cost_factor > elem<0>(cost))
 		{
@@ -872,8 +872,11 @@ void BinningBVHBuilder::doBuild(
 	}
 	else
 	{
-		// NOTE: the factor of 2 compensates for the surface area vars being half the areas.
-		const float smallest_split_cost = 2 * intersection_cost * smallest_split_cost_factor / aabb.getSurfaceArea() + traversal_cost; // Eqn 1.
+		// C_split = P_L N_L C_i + P_R N_R C_i + C_t
+		//         = A_L/A N_L C_i + A_R/A N_R C_i + C_t
+		//         = C_i (A_L N_L + A_R N_R) / A + C_t
+		//         = C_i (A_L/2 N_L + A_R/2 N_R) / (A/2) + C_t
+		const float smallest_split_cost = intersection_cost * smallest_split_cost_factor / aabb.getHalfSurfaceArea() + traversal_cost;
 
 		// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
 		if((smallest_split_cost >= non_split_cost) && ((right - left) <= max_num_objects_per_leaf))
@@ -979,19 +982,7 @@ void BinningBVHBuilder::doBuild(
 
 	thread_temp_info.stats.num_interior_nodes++;
 
-	// Build left child
-	doBuild(
-		thread_temp_info,
-		res.left_aabb, // aabb
-		res.left_centroid_aabb,
-		(int)left_child, // node index
-		left, // left
-		split_i, // right
-		depth + 1, // depth
-		left_child_chunk
-	);
-
-	if(do_right_child_in_new_task)
+	if(do_right_child_in_new_task) // NOTE: make sure to do this after we create the current node, as the curernt node right index will be fixed up by this task.
 	{
 		// Put this subtree into a task
 		Reference<BinningBuildSubtreeTask> subtree_task = new BinningBuildSubtreeTask(*this);
@@ -1005,7 +996,20 @@ void BinningBVHBuilder::doBuild(
 
 		task_manager->addTask(subtree_task);
 	}
-	else
+
+	// Build left child
+	doBuild(
+		thread_temp_info,
+		res.left_aabb, // aabb
+		res.left_centroid_aabb,
+		(int)left_child, // node index
+		left, // left
+		split_i, // right
+		depth + 1, // depth
+		left_child_chunk
+	);
+
+	if(!do_right_child_in_new_task)
 	{
 		// Build right child
 		doBuild(
@@ -1052,3 +1056,180 @@ void BinningBVHBuilder::printResultNodes(const js::Vector<ResultNode, 64>& resul
 		printResultNode(result_nodes[i]);
 	}
 }
+
+
+#if BUILD_TESTS
+
+
+#include "BVHBuilderTests.h"
+#include "../dll/include/IndigoMesh.h"
+#include "../dll/include/IndigoException.h"
+#include "../dll/IndigoStringUtils.h"
+#include "../indigo/TestUtils.h"
+#include "../utils/StandardPrintOutput.h"
+#include "../utils/StringUtils.h"
+#include "../utils/ConPrint.h"
+#include "../utils/Vector.h"
+#include "../maths/PCG32.h"
+#include "../utils/TaskManager.h"
+#include "../utils/Timer.h"
+#include "../utils/Plotter.h"
+#include "../utils/FileUtils.h"
+
+
+void BinningBVHBuilder::test()
+{
+	conPrint("BinningBVHBuilder::test()");
+
+	PCG32 rng(1);
+	Indigo::TaskManager task_manager;// (1);
+	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
+
+	//==================== Test building on every igmesh we can find ====================
+	if(false)
+	{
+		Timer timer;
+		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+		std::sort(files.begin(), files.end());
+		for(size_t i=0; i<files.size(); ++i)
+		{
+
+			Indigo::Mesh mesh;
+			try
+			{
+				//if(i < 1364)
+				//	continue;
+				Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
+				js::Vector<BVHBuilderTri, 16> tris(mesh.triangles.size() + mesh.quads.size() * 2);
+
+				if(tris.size() > 500000)
+				{
+					conPrint("Skipping mesh with " + toString(tris.size()) + " tris.");
+					continue;
+				}
+
+				for(size_t t=0; t<mesh.triangles.size(); ++t)
+				{
+					tris[t].v[0] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].z, 1.);
+					tris[t].v[1] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].z, 1.);
+					tris[t].v[2] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].z, 1.);
+				}
+				for(size_t q=0; q<mesh.quads.size(); ++q)
+				{
+					Vec4f v0(mesh.vert_positions[mesh.quads[q].vertex_indices[0]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].z, 1.);
+					Vec4f v1(mesh.vert_positions[mesh.quads[q].vertex_indices[1]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].z, 1.);
+					Vec4f v2(mesh.vert_positions[mesh.quads[q].vertex_indices[2]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].z, 1.);
+					Vec4f v3(mesh.vert_positions[mesh.quads[q].vertex_indices[3]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].z, 1.);
+
+					tris[mesh.triangles.size() + q * 2 + 0].v[0] = v0;
+					tris[mesh.triangles.size() + q * 2 + 0].v[1] = v1;
+					tris[mesh.triangles.size() + q * 2 + 0].v[2] = v2;
+
+					tris[mesh.triangles.size() + q * 2 + 1].v[0] = v0;
+					tris[mesh.triangles.size() + q * 2 + 1].v[1] = v2;
+					tris[mesh.triangles.size() + q * 2 + 1].v[2] = v3;
+				}
+
+				conPrint(toString(i) + "/" + toString(files.size()) + ": Building '" + files[i] + "'... (tris: " + toString(tris.size()) + ")");
+
+				const int max_num_objects_per_leaf = 31;
+				const float intersection_cost = 1.f;
+				BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, intersection_cost, 
+					(int)tris.size()
+				);
+
+				for(size_t z=0; z<tris.size(); ++z)
+				{
+					js::AABBox aabb = js::AABBox::emptyAABBox();
+					aabb.enlargeToHoldPoint(tris[z].v[0]);
+					aabb.enlargeToHoldPoint(tris[z].v[0]);
+					aabb.enlargeToHoldPoint(tris[z].v[0]);
+					builder.setObjectAABB(z, aabb);
+				}
+
+				js::Vector<ResultNode, 64> result_nodes;
+				builder.build(task_manager,
+					should_cancel_callback,
+					print_output,
+					false, // verbose
+					result_nodes
+				);
+
+				BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, tris.size(), /*duplicate_prims_allowed=*/true);
+			}
+			catch(Indigo::IndigoException& e)
+			{
+				// Error reading mesh file (maybe invalid)
+				conPrint("Skipping mesh failed to read (" + files[i] + "): " + toStdString(e.what()));
+			}
+		}
+		conPrint("Finished building all meshes.  Elapsed: " + timer.elapsedStringNSigFigs(3));
+	}
+
+	//==================== Perf test ====================
+	const bool DO_PERF_TESTS = false;
+	if(DO_PERF_TESTS)
+	{
+		const int num_objects = 100000;
+
+		PCG32 rng_(1);
+		js::Vector<js::AABBox, 16> aabbs(num_objects);
+		for(int z=0; z<num_objects; ++z)
+		{
+			const Vec4f v0(rng_.unitRandom() * 0.8f, rng_.unitRandom() * 0.8f, 0/*rng_.unitRandom()*/ * 0.8f, 1);
+			const Vec4f v1 = v0 + Vec4f(rng_.unitRandom(), rng_.unitRandom(), /*rng_.unitRandom()*/0, 0) * 0.02f;
+			const Vec4f v2 = v0 + Vec4f(rng_.unitRandom(), rng_.unitRandom(), /*rng_.unitRandom()*/0, 0) * 0.02f;
+			aabbs[z] = js::AABBox::emptyAABBox();
+			aabbs[z].enlargeToHoldPoint(v0);
+			aabbs[z].enlargeToHoldPoint(v1);
+			aabbs[z].enlargeToHoldPoint(v2);
+		}
+
+		double sum_time = 0;
+		double min_time = 1.0e100;
+		const int NUM_ITERS = 100;
+		for(int q=0; q<NUM_ITERS; ++q)
+		{
+			Timer timer;
+
+			const int max_num_objects_per_leaf = 16;
+			const float intersection_cost = 1.f;
+
+			BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, intersection_cost,
+				num_objects
+			);
+
+			for(int z=0; z<num_objects; ++z)
+				builder.setObjectAABB(z, aabbs[z]);
+
+			js::Vector<ResultNode, 64> result_nodes;
+			builder.build(task_manager,
+				should_cancel_callback,
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+
+			const double elapsed = timer.elapsed();
+			sum_time += elapsed;
+			min_time = myMin(min_time, elapsed);
+			conPrint("BinningBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
+
+			BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
+
+			const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
+			conPrint("SAH_cost: " + toString(SAH_cost));
+			//--------------------------------------
+		}
+
+		const double av_time = sum_time / NUM_ITERS;
+		conPrint("av_time:  " + toString(av_time) + " s");
+		conPrint("min_time: " + toString(min_time) + " s");
+	}
+
+	conPrint("BinningBVHBuilder::test() done");
+}
+
+
+#endif // BUILD_TESTS

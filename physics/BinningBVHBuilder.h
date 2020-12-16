@@ -117,6 +117,8 @@ public:
 	static void printResultNode(const ResultNode& result_node);
 	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
 
+	static void test();
+
 	friend class BinningBuildSubtreeTask;
 
 private:

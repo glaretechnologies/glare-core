@@ -29,7 +29,6 @@ struct ResultNode
 	bool interior;
 	uint8 depth;
 
-
 	inline void operator = (const ResultNode& other)
 	{
 		aabb = other.aabb;
@@ -72,6 +71,8 @@ public:
 	virtual int getMaxLeafDepth() const = 0; // Root node is considered to have depth 0.
 
 	virtual const js::AABBox getRootAABB() const = 0; // root AABB will have been computed after build() has been called. 
+
+	static float getSAHCost(const js::Vector<ResultNode, 64>& nodes, float intersection_cost);
 };
 
 
