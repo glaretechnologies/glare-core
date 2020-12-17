@@ -909,14 +909,7 @@ void BinningBVHBuilder::doBuild(
 	assert(res.right_aabb.containsAABBox(res.right_centroid_aabb));
 	assert(centroid_aabb.containsAABBox(res.right_centroid_aabb));
 
-	int num_left_tris = res.split_i - left;
-
-	if(num_left_tris == 0 || num_left_tris == right - left)
-	{
-		arbitraryPartition(objects, left, right, res);
-		num_left_tris = res.split_i - left;
-	}
-
+	const int num_left_tris = res.split_i - left;
 	const int split_i = res.split_i;
 	const int num_right_tris = right - split_i;
 
