@@ -1,7 +1,7 @@
 /*=====================================================================
 BinningBVHBuilder.cpp
 -------------------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2020 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
 #include "BinningBVHBuilder.h"
@@ -248,7 +248,6 @@ void BinningBVHBuilder::build(
 
 
 		stats.num_under_thresh_leaves = 1;
-		//leaf_depth_sum += 0;
 		stats.max_leaf_depth = 0;
 		stats.num_leaves = 1;
 		return;
@@ -367,6 +366,14 @@ void BinningBVHBuilder::build(
 }
 
 
+static const int max_B = 32;
+
+static inline int numBucketsForNumObs(int num_obs)
+{
+	return myMin(max_B, (int)(4 + 0.05f * num_obs));
+}
+
+
 /*
 
 1 5 8 4 3 9 7 6 2
@@ -402,7 +409,8 @@ c               o
 
 */
 
-// Parition objects in cur_objects for the given axis, based on best_div_val of best_axis.
+
+// Partition objects in cur_objects for the given axis, based on best_div_val of best_axis.
 // Places the paritioned objects in other_objects.
 struct PartitionRes
 {
@@ -411,7 +419,7 @@ struct PartitionRes
 	int split_i; // Index of first object that was partitioned to the right.
 };
 
-static void partition(js::Vector<BinningOb, 64>& objects_, int left, int right, float best_div_val, int best_axis, PartitionRes& res_out)
+static void partition(js::Vector<BinningOb, 64>& objects_, const js::AABBox& centroid_aabb, int begin, int end, /*float best_div_val, */int best_axis, int best_bucket, PartitionRes& res_out)
 {
 	BinningOb* const objects = objects_.data();
 
@@ -419,14 +427,17 @@ static void partition(js::Vector<BinningOb, 64>& objects_, int left, int right, 
 	js::AABBox left_centroid_aabb = empty_aabb;
 	js::AABBox right_aabb = empty_aabb;
 	js::AABBox right_centroid_aabb = empty_aabb;
-	int cur = left;
-	int other = right - 1;
+	int cur = begin;
+	int other = end - 1;
 
 	/*for(int i=0; i<8; ++i)
 	{
 		_mm_prefetch((const char*)(objects + left  + i), _MM_HINT_T0);
 		_mm_prefetch((const char*)(objects + right - i), _MM_HINT_T0);
 	}*/
+
+	const int num_buckets = numBucketsForNumObs(end - begin); // buckets per axis
+	const Vec4f scale = div(Vec4f((float)num_buckets), (centroid_aabb.max_ - centroid_aabb.min_));
 
 	while(cur <= other)
 	{
@@ -435,7 +446,10 @@ static void partition(js::Vector<BinningOb, 64>& objects_, int left, int right, 
 
 		const js::AABBox aabb = objects[cur].aabb;
 		const Vec4f centroid = aabb.centroid();
-		if(centroid[best_axis] <= best_div_val) // If object should go on Left side:
+
+		//const Vec4i bucket_i = clamp(truncateToVec4i((centroid - centroid_aabb.min_) * scale), Vec4i(0), Vec4i(num_buckets-1));
+		const Vec4i bucket_i = truncateToVec4i((centroid - centroid_aabb.min_) * scale); // Clamping shouldn't be needed here
+		if(bucket_i[best_axis] <= best_bucket)
 		{
 			left_aabb.enlargeToHoldAABBox(aabb);
 			left_centroid_aabb.enlargeToHoldPoint(centroid);
@@ -497,19 +511,10 @@ static void arbitraryPartition(js::Vector<BinningOb, 64>& objects_, int left, in
 
 
 // Since we store the object index in the AABB.min_.w, we want to restore this value to 1 before we return it to the client code.
-static inline void setAABBWToOne(js::AABBox& aabb)
+static inline void setAABBWToOneInPlace(js::AABBox& aabb)
 {
-	aabb.min_ = select(Vec4f(1.f), aabb.min_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
-	aabb.max_ = select(Vec4f(1.f), aabb.max_, bitcastToVec4f(Vec4i(0, 0, 0, 0xFFFFFFFF)));
-}
-
-
-static const int max_B = 32;
-
-
-static inline int numBucketsForNumObs(int num_obs)
-{
-	return myMin(max_B, (int)(4 + 0.05f * num_obs));
+	aabb.min_ = setWToOne(aabb.min_);
+	aabb.max_ = setWToOne(aabb.max_);
 }
 
 
@@ -572,20 +577,19 @@ public:
 	const js::Vector<BinningOb, 64>* objects_;
 	int left, right, task_left, task_right;
 
-	char padding[64];
+	char padding[64]; // to avoid false sharing
 };
 
 
-
-static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& objects_, int left, int right, int& best_axis_out, float& best_div_val_out, float& smallest_split_cost_factor_out)
+static void searchForBestSplit(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& objects_, int left, int right,
+	int& best_axis_out, float& smallest_split_cost_factor_out, int& best_bucket_out)
 {
-	const js::AABBox& centroid_aabb = centroid_aabb_;
+	const js::AABBox centroid_aabb = centroid_aabb_;
 	BinningOb* const objects = objects_.data();
 
 	float smallest_split_cost_factor = std::numeric_limits<float>::infinity(); // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
-	//int best_N_L = -1;
 	int best_axis = -1;
-	float best_div_val = 0;
+	int best_bucket = -1;
 
 	const int num_buckets = numBucketsForNumObs(right - left); // buckets per axis
 	js::AABBox bucket_aabbs[max_B * 3];
@@ -763,34 +767,28 @@ static void search(Indigo::TaskManager*& local_task_manager, Indigo::TaskManager
 		if(smallest_split_cost_factor > elem<0>(cost))
 		{
 			smallest_split_cost_factor = elem<0>(cost);
-			//best_N_L = count[0];
 			best_axis = 0;
-			best_div_val = centroid_aabb.min_[0] + axis_len_over_num_buckets[0] * (b + 1); // centroid_aabb.axisLength(0) * (b + 1) / num_buckets;
-			//best_left_aabb = left_aabb[0];
+			best_bucket = b;
 		}
 
 		if(smallest_split_cost_factor > elem<1>(cost))
 		{
 			smallest_split_cost_factor = elem<1>(cost);
-			//best_N_L = count[1];
 			best_axis = 1;
-			best_div_val = centroid_aabb.min_[1] + axis_len_over_num_buckets[1] * (b + 1); //  + centroid_aabb.axisLength(1) * (b + 1) / num_buckets;
-			//best_left_aabb = left_aabb[1];
+			best_bucket = b;
 		}
 
 		if(smallest_split_cost_factor > elem<2>(cost))
 		{
 			smallest_split_cost_factor = elem<2>(cost);
-			//best_N_L = count[2];
 			best_axis = 2;
-			best_div_val = centroid_aabb.min_[2] + axis_len_over_num_buckets[2] * (b + 1); //  + centroid_aabb.axisLength(2) * (b + 1) / num_buckets;
-			//best_left_aabb = left_aabb[2];
+			best_bucket = b;
 		}
 	}
 
 	best_axis_out = best_axis;
-	best_div_val_out = best_div_val;
 	smallest_split_cost_factor_out = smallest_split_cost_factor;
+	best_bucket_out = best_bucket;
 }
 
 
@@ -851,17 +849,14 @@ void BinningBVHBuilder::doBuild(
 
 	const float traversal_cost = 1.0f;
 	const float non_split_cost = (right - left) * intersection_cost; // Eqn 2.
-	float smallest_split_cost_factor;// = std::numeric_limits<float>::infinity(); // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
-//	int best_N_L = -1;
-	int best_axis;// = -1;
-	float best_div_val;// = 0;
-	//js::AABBox best_left_aabb;
+	
+	float smallest_split_cost_factor; // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
+	int best_axis;
+	int best_bucket;
 
 	//conPrint("Looking for best split...");
 	//Timer timer;
-
-	search(local_task_manager, *task_manager, centroid_aabb, objects, left, right, best_axis, best_div_val, smallest_split_cost_factor);
-	
+	searchForBestSplit(local_task_manager, *task_manager, centroid_aabb, objects, left, right, best_axis, smallest_split_cost_factor, best_bucket);
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();
 
@@ -899,23 +894,13 @@ void BinningBVHBuilder::doBuild(
 			return;
 		}
 
-		partition(objects, left, right, best_div_val, best_axis, res);
-
-		// Check partitioning
-#ifndef NDEBUG
-		const int num_left_tris = res.split_i - left;
-		for(int i=left; i<left + num_left_tris; ++i)
-			assert(objects[i].aabb.centroid()[best_axis] <= best_div_val);
-
-		for(int i=left + num_left_tris; i<right; ++i)
-			assert(objects[i].aabb.centroid()[best_axis] > best_div_val);
-#endif
+		partition(objects, centroid_aabb, left, right, best_axis, best_bucket, res);
 	}
 
-	setAABBWToOne(res.left_aabb);
-	setAABBWToOne(res.left_centroid_aabb);
-	setAABBWToOne(res.right_aabb);
-	setAABBWToOne(res.right_centroid_aabb);
+	setAABBWToOneInPlace(res.left_aabb);
+	setAABBWToOneInPlace(res.left_centroid_aabb);
+	setAABBWToOneInPlace(res.right_aabb);
+	setAABBWToOneInPlace(res.right_centroid_aabb);
 
 	assert(aabb.containsAABBox(res.left_aabb));
 	assert(res.left_aabb.containsAABBox(res.left_centroid_aabb));
@@ -934,9 +919,6 @@ void BinningBVHBuilder::doBuild(
 
 	const int split_i = res.split_i;
 	const int num_right_tris = right - split_i;
-
-	//timer.reset();
-	//partition_time += timer.elapsed();
 
 
 	// Allocate left child from the thread's current result chunk
@@ -972,7 +954,6 @@ void BinningBVHBuilder::doBuild(
 	}
 
 	// Mark this node as an interior node.
-	//setAABBWToOne(best_right_aabb);
 	node_result_chunk->nodes[node_index].interior = true;
 	node_result_chunk->nodes[node_index].aabb = aabb;
 	node_result_chunk->nodes[node_index].left  = (int)(left_child  + left_child_chunk->chunk_offset);
@@ -982,7 +963,7 @@ void BinningBVHBuilder::doBuild(
 
 	thread_temp_info.stats.num_interior_nodes++;
 
-	if(do_right_child_in_new_task) // NOTE: make sure to do this after we create the current node, as the curernt node right index will be fixed up by this task.
+	if(do_right_child_in_new_task) // NOTE: make sure to do this after we create the current node, as the current node right index will be fixed up by this task.
 	{
 		// Put this subtree into a task
 		Reference<BinningBuildSubtreeTask> subtree_task = new BinningBuildSubtreeTask(*this);
@@ -1009,7 +990,7 @@ void BinningBVHBuilder::doBuild(
 		left_child_chunk
 	);
 
-	if(!do_right_child_in_new_task)
+	if(!do_right_child_in_new_task) // If we haven't launched a task to build the right subtree already:
 	{
 		// Build right child
 		doBuild(
@@ -1073,7 +1054,6 @@ void BinningBVHBuilder::printResultNodes(const js::Vector<ResultNode, 64>& resul
 #include "../maths/PCG32.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Timer.h"
-#include "../utils/Plotter.h"
 #include "../utils/FileUtils.h"
 
 
@@ -1098,7 +1078,7 @@ void BinningBVHBuilder::test()
 			Indigo::Mesh mesh;
 			try
 			{
-				//if(i < 1364)
+				//if(i < 1169)
 				//	continue;
 				Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
 				js::Vector<BVHBuilderTri, 16> tris(mesh.triangles.size() + mesh.quads.size() * 2);
