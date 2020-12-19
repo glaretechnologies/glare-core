@@ -130,8 +130,8 @@ private:
 		const js::AABBox& aabb,
 		const js::AABBox& centroid_aabb,
 		uint32 node_index,
-		int left,
-		int right,
+		int begin,
+		int end,
 		int depth,
 		BinningResultChunk* result_chunk
 	);
@@ -146,7 +146,6 @@ private:
 	std::vector<BinningResultChunk*> result_chunks;
 	Mutex result_chunks_mutex;
 
-	Indigo::TaskManager* local_task_manager;
 	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;

@@ -154,17 +154,8 @@ void TaskManager::waitForTasksToComplete()
 	}
 	else
 	{
-		while(1)
-		{
-			if(num_unfinished_tasks == 0)
-				return;
-		
-			num_unfinished_tasks_cond.wait(
-				num_unfinished_tasks_mutex, 
-				true, // infinite wait time
-				0 // wait time (s) (not used)
-			);
-		}
+		while(num_unfinished_tasks != 0)
+			num_unfinished_tasks_cond.wait(num_unfinished_tasks_mutex);
 	}
 }
 

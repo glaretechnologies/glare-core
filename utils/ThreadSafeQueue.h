@@ -256,10 +256,7 @@ void ThreadSafeQueue<T>::dequeue(T& t_out)
 		else // Else if queue is currently empty...
 		{		
 			// Suspend until queue is non-empty.
-			nonempty.wait(
-				mutex, 
-				true, // infinite wait time
-				0.0);
+			nonempty.wait(mutex);
 
 			if(queue.empty()) // If some sneaky other thread was woken up as well and snaffled the item...
 				continue; // Try again
@@ -287,11 +284,10 @@ bool ThreadSafeQueue<T>::dequeueWithTimeout(double wait_time_seconds, T& t_out)
 		else // Else if queue is currently empty...
 		{
 			// Suspend thread until there is something in the queue
-			const bool condition_signalled = nonempty.wait(
+			const bool condition_signalled = nonempty.waitWithTimeout(
 				mutex,
-				false, // infinite wait time
 				wait_time_seconds
-				);
+			);
 
 			if(condition_signalled)
 			{

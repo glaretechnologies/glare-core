@@ -1087,7 +1087,8 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 	// Objects are not clipped to the splitting plane, but instead the left or right AABBs are extended to enclose the objects.
 
 	const int max_B = 32;
-	const int num_buckets = myMin(max_B, (int)(4 + 0.05f * (end - begin))); // buckets per axis
+	const int N = end - begin;
+	const int num_buckets = myMin(max_B, (int)(4 + 0.05f * N)); // buckets per axis
 	js::AABBox bucket_aabbs[max_B * 3]; // For each axis, holds AABBs of tris whose centroids fall in the bucket.
 	Vec4i counts[max_B];
 	for(int i=0; i<num_buckets; ++i)
@@ -1126,22 +1127,17 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 		(counts[b_z])[2]++;
 	}
 
-	// Sweep right to left computing exclusive prefix surface areas and counts
-	Vec4i right_prefix_counts[max_B];
+	// Sweep right to left computing exclusive prefix surface areas
 	Vec4f right_area[max_B];
-	Vec4i count(0);
 	js::AABBox right_aabb[3]; // For each axis, AABBs of all objects whose centroids fall in buckets [b, num_buckets-1]
 	for(int i=0; i<3; ++i)
 		right_aabb[i] = empty_aabb;
 
 	for(int b=num_buckets-1; b>=0; --b)
 	{
-		right_prefix_counts[b] = count;
-		count = count + counts[b];
-
-		float A0 = right_aabb[0].getHalfSurfaceArea();
-		float A1 = right_aabb[1].getHalfSurfaceArea();
-		float A2 = right_aabb[2].getHalfSurfaceArea();
+		const float A0 = right_aabb[0].getHalfSurfaceArea();
+		const float A1 = right_aabb[1].getHalfSurfaceArea();
+		const float A2 = right_aabb[2].getHalfSurfaceArea();
 		right_area[b] = Vec4f(A0, A1, A2, A2);
 
 		right_aabb[0].enlargeToHoldAABBox(bucket_aabbs[b]);
@@ -1152,7 +1148,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 	}
 
 	// Sweep left to right, computing inclusive left prefix surface area and counts, and computing overall cost factor
-	count = Vec4i(0);
+	Vec4i count(0);
 	js::AABBox left_aabb[3]; // For each axis, AABBs of all objects whose centroids fall in buckets [0, b]
 	for(int i=0; i<3; ++i)
 		left_aabb[i] = empty_aabb;
@@ -1173,7 +1169,8 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 		const float A1 = left_aabb[1].getHalfSurfaceArea();
 		const float A2 = left_aabb[2].getHalfSurfaceArea();
 
-		const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_prefix_counts[b]) * right_area[b]; // Compute SAH cost factor
+		const Vec4i right_count = Vec4i(N) - Vec4i(count);
+		const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_count) * right_area[b]; // Compute SAH cost factor
 
 		if(smallest_split_cost_factor > elem<0>(cost))
 		{
@@ -1181,7 +1178,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 			best_axis = 0;
 			best_div_val = centroid_aabb.min_[0] + axis_len_over_num_buckets[0] * (b + 1);
 			best_num_left  = elem<0>(count);
-			best_num_right = elem<0>(right_prefix_counts[b]);
+			best_num_right = elem<0>(right_count);
 			best_bucket = b;
 		}
 
@@ -1191,7 +1188,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 			best_axis = 1;
 			best_div_val = centroid_aabb.min_[1] + axis_len_over_num_buckets[1] * (b + 1);
 			best_num_left  = elem<1>(count);
-			best_num_right = elem<1>(right_prefix_counts[b]);
+			best_num_right = elem<1>(right_count);
 			best_bucket = b;
 		}
 
@@ -1201,7 +1198,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 			best_axis = 2;
 			best_div_val = centroid_aabb.min_[2] + axis_len_over_num_buckets[2] * (b + 1);
 			best_num_left  = elem<2>(count);
-			best_num_right = elem<2>(right_prefix_counts[b]);
+			best_num_right = elem<2>(right_count);
 			best_bucket = b;
 		}
 	}
@@ -1345,6 +1342,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 
 		// Sweep right to left, computing exclusive prefix surface areas and counts
 		// right_area[b] = sum_{i=(b+1)}^{num_spatial_buckets} bucket_aabb[b].getHalfSurfaceArea()
+		Vec4i right_prefix_counts[max_B];
 		count = Vec4i(0);
 		for(int i=0; i<3; ++i)
 			right_aabb[i] = empty_aabb;
@@ -1840,8 +1838,8 @@ void SBVHBuilder::test()
 			Indigo::Mesh mesh;
 			try
 			{
-				if(i < 1364)
-					continue;
+				//if(i < 1364)
+				//	continue;
 				Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
 				js::Vector<BVHBuilderTri, 16> tris(mesh.triangles.size() + mesh.quads.size() * 2);
 
@@ -1955,8 +1953,8 @@ void SBVHBuilder::test()
 
 			BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/true);
 
-			//const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
-			//conPrint("SAH_cost: " + toString(SAH_cost));
+			const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
+			conPrint("SAH_cost: " + toString(SAH_cost));
 			//--------------------------------------
 		}
 
@@ -2154,4 +2152,4 @@ void SBVHBuilder::test()
 }
 
 
-#endif
+#endif // BUILD_TESTS
