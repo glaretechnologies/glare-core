@@ -16,13 +16,14 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 BVHBuilder::~BVHBuilder()
 {}
 
-static int numLeavesInSubTree(const js::Vector<ResultNode, 64>& nodes, const ResultNode& node)
+
+/*static int numLeavesInSubTree(const js::Vector<ResultNode, 64>& nodes, const ResultNode& node)
 {
 	if(node.interior)
 		return numLeavesInSubTree(nodes, nodes[node.left]) + numLeavesInSubTree(nodes, nodes[node.right]);
 	else
 		return node.right - node.left;
-}
+}*/
 
 
 struct SAHStats
