@@ -363,9 +363,15 @@ bool FormatDecoderVox::isValidVoxFile(const std::string& filename)
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-	VoxFileContents contents;
-	FormatDecoderVox::loadModelFromData(data, size, contents);
-
+	try
+	{
+		VoxFileContents contents;
+		FormatDecoderVox::loadModelFromData(data, size, contents);
+	}
+	catch(Indigo::Exception&)
+	{
+	}
+	
 	return 0;  // Non-zero return values are reserved for future use.
 }
 
