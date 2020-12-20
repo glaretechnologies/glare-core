@@ -118,7 +118,7 @@ void Condition::notify()
 #if defined(_WIN32)
 	WakeConditionVariable(&condition);
 #else
-	pthread_cond_broadcast(&condition); // Needed otherwise taskmanager doesn't close. TODO: work out why.
+	pthread_cond_signal(&condition);
 #endif
 }
 
