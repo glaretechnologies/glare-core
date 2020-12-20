@@ -664,8 +664,6 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 	// Split the capacity proportially to num_left and num_right
 	const int max_left_capacity = capacity - num_right;
 	const int left_capacity = myClamp((int)(0.5f + capacity * (float)num_left / (num_left + num_right)), num_left, max_left_capacity); // Add 0.5 to round-to-nearest int
-	const int right_begin = begin + left_capacity;
-	const int right_capacity = capacity - left_capacity;
 
 	int left_write = begin;
 	const int right_write_begin = begin + left_capacity;
@@ -1467,7 +1465,6 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 					// These are conservative costs, e.g. >= the true cost (because we don't shrink the AABB of the side the object was removed from)
 					const js::AABBox expanded_left_aabb  = AABBUnion(best_spatial_left_aabb, ob_aabb);
 					const js::AABBox expanded_right_aabb = AABBUnion(best_spatial_right_aabb, ob_aabb);
-					const float expanded_left_SA = expanded_left_aabb.getHalfSurfaceArea();
 					const float C_1 = expanded_left_aabb.getHalfSurfaceArea() * best_spatial_left_num + right_reduced_cost;
 					const float C_2 = left_reduced_cost + expanded_right_aabb.getHalfSurfaceArea() * best_spatial_right_num;
 
@@ -1491,8 +1488,6 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 
 				if(res.num_left > 0 && res.num_right > 0) // If valid partition: (might end up with everything left or right due to numerical innaccuracy)
 				{
-					const float left_SA  = res.left_aabb.getHalfSurfaceArea();
-					const float right_SA = res.right_aabb.getHalfSurfaceArea();
 					const float unsplit_cost = res.left_aabb.getHalfSurfaceArea() * res.num_left + res.right_aabb.getHalfSurfaceArea() * res.num_right;
 
 					// The unsplit cost is usually, not not allways smaller than spatial_smallest_split_cost_factor.

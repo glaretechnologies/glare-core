@@ -87,7 +87,6 @@ private:
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
 	float intersection_cost; // Relative to BVH node traversal cost.
-	float recip_root_node_aabb_area;
 
 	js::Vector<uint32, 16> result_indices;
 

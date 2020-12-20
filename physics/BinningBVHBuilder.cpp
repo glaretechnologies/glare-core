@@ -769,8 +769,6 @@ static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABB
 	for(int i=0; i<3; ++i)
 		left_aabb[i] = empty_aabb;
 
-	const Vec4f axis_len_over_num_buckets = div(centroid_aabb.max_ - centroid_aabb.min_, Vec4f((float)num_buckets));
-
 	for(int b=0; b<num_buckets-1; ++b)
 	{
 		count = count + counts[b];
