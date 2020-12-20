@@ -1,6 +1,6 @@
 /*=====================================================================
 BinningBVHBuilder.cpp
--------------------
+---------------------
 Copyright Glare Technologies Limited 2020 -
 Generated at Tue Apr 27 15:25:47 +1200 2010
 =====================================================================*/
@@ -1072,7 +1072,7 @@ void BinningBVHBuilder::printResultNodes(const js::Vector<ResultNode, 64>& resul
 #include "../utils/FileUtils.h"
 
 
-void BinningBVHBuilder::test()
+void BinningBVHBuilder::test(bool comprehensive_tests)
 {
 	conPrint("BinningBVHBuilder::test()");
 
@@ -1082,7 +1082,7 @@ void BinningBVHBuilder::test()
 	DummyShouldCancelCallback should_cancel_callback;
 
 	//==================== Test building on every igmesh we can find ====================
-	if(false)
+	if(comprehensive_tests)
 	{
 		Timer timer;
 		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
