@@ -38,12 +38,11 @@ static bool embreeMemoryMonitorFunction(void* user_ptr, ssize_t bytes, bool post
 }
 
 
-EmbreeBVHBuilder::EmbreeBVHBuilder(bool do_high_quality_build_, int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_,
+EmbreeBVHBuilder::EmbreeBVHBuilder(bool do_high_quality_build_, int max_num_objects_per_leaf_, float intersection_cost_,
 	const BVHBuilderTri* triangles_,
 	const int num_objects_
 )
 :	do_high_quality_build(do_high_quality_build_),
-	leaf_num_object_threshold(leaf_num_object_threshold_),
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
 	intersection_cost(intersection_cost_),
 	should_cancel_callback(NULL)

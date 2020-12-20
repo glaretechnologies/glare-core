@@ -1097,7 +1097,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 #ifndef NO_EMBREE
 #if 1
 			const bool DO_SBVH_BUILD = true;
-			EmbreeBVHBuilder builder(DO_SBVH_BUILD, /*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, intersection_cost,
+			EmbreeBVHBuilder builder(DO_SBVH_BUILD, max_num_objects_per_leaf, intersection_cost,
 				tris.data(),
 				num_objects
 			);

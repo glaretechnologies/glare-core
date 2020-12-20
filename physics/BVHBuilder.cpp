@@ -62,6 +62,7 @@ static float doGetSAHCost(const js::Vector<ResultNode, 64>& nodes, float interse
 		const float right_prob = nodes[node.right].aabb.getSurfaceArea() / node.aabb.getSurfaceArea();
 		const float actual_cost = traversal_cost + left_prob * doGetSAHCost(nodes, intersection_cost, nodes[node.left], depth + 1, stats) + right_prob * doGetSAHCost(nodes, intersection_cost, nodes[node.right], depth + 1, stats);
 
+#if 0
 		// Get estimated cost, as it would be during construction
 		const int num_left  = numLeavesInSubTree(nodes, nodes[node.left]);
 		const int num_right = numLeavesInSubTree(nodes, nodes[node.right]);
@@ -104,6 +105,7 @@ static float doGetSAHCost(const js::Vector<ResultNode, 64>& nodes, float interse
 			}
 			stats.data.push_back(Vec2f(actual_cost, better_est_cost));*/
 		}
+#endif
 		return actual_cost;
 	}
 	else
