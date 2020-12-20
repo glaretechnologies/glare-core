@@ -38,7 +38,7 @@ struct SAHStats
 };
 
 
-static float expectedNumNodesTraversedForNumObs(int obs)
+/*static float expectedNumNodesTraversedForNumObs(int obs)
 {
 	const float av_num_obs_per_leaf = 2.5096484422267937;
 	const float nodes = (float)obs  / av_num_obs_per_leaf; // Expected num nodes in subtree
@@ -49,7 +49,8 @@ static float expectedNumNodesTraversedForNumObs(int obs)
 
 	const float av_P_A_plus_B = 1.26778367717;
 	return expected_depth + pow(av_P_A_plus_B, expected_depth);
-}
+}*/
+
 
 static float doGetSAHCost(const js::Vector<ResultNode, 64>& nodes, float intersection_cost, const ResultNode& node, int depth, SAHStats& stats)
 {
