@@ -302,8 +302,7 @@ void SBVHBuilder::build(
 	ScopeProfiler _scope("BVHBuilder::build");
 
 	// Flush denormals to zero.  This is important otherwise w values storing low integer values get interpreted as denormals, which drastically reduces performance.
-	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	SetFlushDenormsMode flusher;
 
 
 	//------------ Reset builder state --------------

@@ -221,8 +221,7 @@ void BinningBVHBuilder::build(
 	ScopeProfiler _scope("BVHBuilder::build");
 
 	// Flush denormals to zero.  This is important otherwise w values storing low integer values get interpreted as denormals, which drastically reduces performance.
-	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	SetFlushDenormsMode flusher;
 
 	result_nodes_out.clear();
 	//------------ Reset builder state --------------
@@ -1082,19 +1081,20 @@ void BinningBVHBuilder::test(bool comprehensive_tests)
 	DummyShouldCancelCallback should_cancel_callback;
 
 	//==================== Test building on every igmesh we can find ====================
-	if(comprehensive_tests)
 	{
 		Timer timer;
 		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
 		std::sort(files.begin(), files.end());
-		for(size_t i=0; i<files.size(); ++i)
-		{
 
+		const size_t num_to_test = comprehensive_tests ? files.size() : 100;
+		for(size_t i=0; i<num_to_test; ++i)
+		{
 			Indigo::Mesh mesh;
 			try
 			{
 				//if(i < 1169)
 				//	continue;
+
 				Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
 				js::Vector<BVHBuilderTri, 16> tris(mesh.triangles.size() + mesh.quads.size() * 2);
 

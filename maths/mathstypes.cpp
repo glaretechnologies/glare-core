@@ -504,7 +504,7 @@ void Maths::test()
 	//testAssert(posOverflowed(one / zero));
 	testAssert(!posOverflowed(one / 0.000000001));
 
-	testAssert(posUnderflowed(1.0e-320));
+	testAssert(posUnderflowed(1.0e-320)); // NOTE: this test will fail if we are flushing denorms to zero.
 	testAssert(!posUnderflowed(1.0e-300));
 	testAssert(!posUnderflowed(1.0));
 	testAssert(!posUnderflowed(0.0));

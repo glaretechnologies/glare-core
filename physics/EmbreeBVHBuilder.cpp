@@ -149,7 +149,7 @@ static void splitPrimitiveFunction(
 	assert(primitive->geomID == 0);
 
 	EmbreeBVHBuilder* builder = (EmbreeBVHBuilder*)userPtr;
-	assert(primitive->primID < builder->m_num_objects);
+	assert((int)primitive->primID < builder->m_num_objects);
 	const BVHBuilderTri& tri = builder->triangles[primitive->primID];
 
 	const Vec4f prim_min = loadVec4f(&primitive->lower_x);
