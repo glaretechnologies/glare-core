@@ -3,18 +3,17 @@ ThreadSafeQueue.cpp
 -------------------
 Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
-#pragma once
-
-
 #include "ThreadSafeQueue.h"
+
+
+#if BUILD_TESTS
+
+
 #include "MyThread.h"
 #include "ConPrint.h"
 #include "PlatformUtils.h"
 #include "Timer.h"
 #include "../indigo/TestUtils.h"
-
-
-#if BUILD_TESTS
 
 
 static const int TERMINATING_INTEGER = -1;
