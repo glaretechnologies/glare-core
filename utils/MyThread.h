@@ -1,7 +1,7 @@
 /*=====================================================================
 MyThread.h
--------------------
-Copyright Glare Technologies Limited 2014 -
+----------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -61,8 +61,6 @@ public:
 
 	void setAffinity(int32 group, uint64 proc_affinity_mask); // throws MyThreadExcep
 #endif
-
-	// bool autoDelete() const { return autodelete; }
 
 private:
 #if defined(_WIN32)

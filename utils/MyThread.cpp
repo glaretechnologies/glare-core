@@ -1,7 +1,7 @@
 /*=====================================================================
 MyThread.cpp
 ------------
-Copyright Glare Technologies Limited 2014 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "MyThread.h"
 
@@ -38,7 +38,6 @@ MyThread::~MyThread()
 	// See: http://www.kernel.org/doc/man-pages/online/pages/man3/pthread_detach.3.html
 	if(!joined)
 	{
-		
 		const int result = pthread_detach(thread_handle);
 		assertOrDeclareUsed(result == 0);
 	}
@@ -49,13 +48,11 @@ MyThread::~MyThread()
 #if defined(_WIN32)
 	static unsigned int __stdcall
 #else
-	void*
+	static void*
 #endif
 threadFunction(void* the_thread_)
 {
 	MyThread* the_thread = static_cast<MyThread*>(the_thread_);
-
-	assert(the_thread != NULL);
 
 	the_thread->run();
 
@@ -96,7 +93,7 @@ void MyThread::launch()
 		NULL, // attr
 		threadFunction, // start routine
 		this // arg
-		);
+	);
 	if(result != 0)
 	{
 		if(result == EAGAIN)

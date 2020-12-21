@@ -1,7 +1,7 @@
 /*=====================================================================
 Condition.h
 -----------
-Copyright Glare Technologies Limited 2019 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 

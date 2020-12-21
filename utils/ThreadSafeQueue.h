@@ -1,8 +1,7 @@
 /*=====================================================================
 ThreadSafeQueue.h
 -----------------
-File created by ClassTemplate on Fri Sep 19 01:55:10 2003
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -11,14 +10,13 @@ Code By Nicholas Chapman.
 #include "Lock.h"
 #include "Condition.h"
 #include "CircularBuffer.h"
-//#include <vector>
-#include <cassert>
 
 
 /*=====================================================================
 ThreadSafeQueue
 ---------------
-
+Test are in doThreadSafeQueueTests() in ThreadSafeQueue.cpp, 
+and also in ThreadTests.cpp.
 =====================================================================*/
 template <class T>
 class ThreadSafeQueue
@@ -28,13 +26,8 @@ public:
 
 	inline ~ThreadSafeQueue();
 
-	/*=====================================================================
-	enqueue
-	-------
-	adds an item to the back of the queue
-
-	Locks the queue.
-	=====================================================================*/
+	// Adds an item to the back of the queue
+	// Locks the queue mutex (threadsafe)
 	inline void enqueue(const T& t);
 
 	inline void enqueueItems(const T* items, size_t num_items);
@@ -42,39 +35,18 @@ public:
 	inline Mutex& getMutex();
 
 
-	//returns true if object removed from queue.
-	//NOTE: MUST have aquired lock on mutex b4 using this function
-	//inline bool pollDequeueUnlocked(T& t_out);
-
-	/*=====================================================================
-	pollDequeueLocked
-	-----------------
-	Tries to remove an object from the front of the queue.
-	If the queue is non empty, then it sets t_out to the item removed
-	from the queue and returns true.  Otherwise returns false.
-
-	This version locks the queue.
-	=====================================================================*/
-	//inline bool pollDequeueLocked(T& t_out);
-
-	//don't call unless queue is locked.
+	// Don't call unless queue is locked.
 	inline void unlockedDequeue(T& t_out);
 
-	//inline void unlockedEnqueue(const T& t);
-
-	// Suspends thread until queue is non-empty
+	// Blocks - suspends calling thread until queue is non-empty.
 	void dequeue(T& t_out);
 
-	/*
-	Suspends thread until queue is non-empty, or wait_time_seconds has elapsed.
-	Returns true if object dequeued, false if timeout occured.
-	*/
+	
+	// Suspends calling thread until queue is non-empty, or wait_time_seconds has elapsed.
+	// Returns true if object dequeued, false if timeout occured.
 	bool dequeueWithTimeout(double wait_time_seconds, T& t_out);
 
-	// Threadsafe, appends all elements in queue to vec_out.
-	//void dequeueAppendToVector(std::vector<T>& vec_out);
-
-	//threadsafe
+	// Thread-safe:
 	inline bool empty() const;
 	inline size_t size() const;
 	inline void clear();
@@ -82,14 +54,13 @@ public:
 
 	inline bool unlockedEmpty() const;
 
-	//const std::list<T>& getQueueDebug() const { return queue; }
-
 	typedef typename CircularBuffer<T>::iterator iterator;
-	// Not threadsafe, caller needs to have the mutex first.
+	// Not thread-safe, caller needs to have the mutex first.
 	iterator begin() { return queue.beginIt(); }
 	iterator end() { return queue.endIt(); }
 
 	void setAllocator(const Reference<glare::Allocator>& al) { queue.setAllocator(al); }
+	
 private:
 	CircularBuffer<T> queue;
 
@@ -97,6 +68,9 @@ private:
 
 	Condition nonempty;
 };
+
+
+void doThreadSafeQueueTests();
 
 
 template <class T>
@@ -111,37 +85,36 @@ ThreadSafeQueue<T>::~ThreadSafeQueue()
 }
 
 
+/*
+The other way of implementing this is to check if the queue was empty, and then notify all suspended threads in that case, or don't notify any if it wasn't empty.
+That approach is more than 2x as slow however, probably due to unnecessary wakeups of so many threads.
+*/
 template <class T>
 void ThreadSafeQueue<T>::enqueue(const T& t)
 {	
-	Lock lock(mutex); // Lock the queue
+	{
+		Lock lock(mutex); // Lock the queue
 
-	queue.push_back(t); // Add item to queue
-
-	nonempty.notify(); // Notify suspended threads that there is an item in the queue.
+		queue.push_back(t); // Add item to queue
+	}
+	
+	// According to MS "It is usually better to release the lock before waking other threads to reduce the number of context switches." (https://docs.microsoft.com/en-us/windows/win32/sync/condition-variables)
+	nonempty.notify(); // Notify one or more suspended threads that there is an item in the queue.
 }
 
 
 template <class T>
 void ThreadSafeQueue<T>::enqueueItems(const T* items, size_t num_items)
 {
-	Lock lock(mutex); // Lock the queue
+	{
+		Lock lock(mutex); // Lock the queue
 
-	for(size_t i=0; i<num_items; ++i)
-		queue.push_back(items[i]); // Add item to queue
+		for(size_t i=0; i<num_items; ++i)
+			queue.push_back(items[i]); // Add item to queue
+	}
 
-	nonempty.notifyAll(); // Notify suspended threads that there are items in the queue.
+	nonempty.notifyAll(); // Notify all suspended threads that there are items in the queue.  NOTE: the use of notifyAll here is potentially slow if the number of threads is >> num_items.
 }
-
-
-/*template <class T>
-void ThreadSafeQueue<T>::unlockedEnqueue(const T& t)
-{
-	queue.push_back(t); // Add item to queue
-
-	if(queue.size() == 1) // If the queue was empty
-		nonempty.notify(); // Notify suspended threads that there is an item in the queue.
-}*/
 
 
 template <class T>
@@ -151,47 +124,9 @@ Mutex& ThreadSafeQueue<T>::getMutex()
 }
 
 
-//returns true if object removed from queue.
-/*template <class T>
-bool ThreadSafeQueue<T>::pollDequeueUnlocked(T& t_out)
-{
-	//Lock lock(mutex);
-	
-	if(queue.empty())
-		return false;
-
-	t_out = queue.front();
-	queue.pop_front();
-	return true;
-}*/
-
-
-//returns true if object removed from queue.
-/*template <class T>
-bool ThreadSafeQueue<T>::pollDequeueLocked(T& t_out)
-{
-	Lock lock(mutex);
-	
-	if(queue.empty())
-		return false;
-
-	t_out = queue.front();
-	queue.pop_front();
-	return true;
-}*/
-
-
 template <class T>
 void ThreadSafeQueue<T>::unlockedDequeue(T& t_out)
 {
-	if(queue.empty())
-	{
-		// Uhoh, tried to dequeue when the queue was empty...
-		// t_out will be undefined.
-		assert(0);
-		return;
-	}
-
 	t_out = queue.front();
 	queue.pop_front();
 }
@@ -243,79 +178,28 @@ void ThreadSafeQueue<T>::clearAndFreeMem()
 template <class T>
 void ThreadSafeQueue<T>::dequeue(T& t_out)
 {
-	while(1)
-	{
-		Lock lock(mutex); // Lock queue
+	Lock lock(mutex); // Lock queue
 
-		if(!queue.empty())
-		{
-			// No need to wait for condition, just return the value now
-			unlockedDequeue(t_out);
-			return;
-		}
-		else // Else if queue is currently empty...
-		{		
-			// Suspend until queue is non-empty.
-			nonempty.wait(mutex);
+	while(queue.empty())
+		nonempty.wait(mutex); // Suspend until queue is non-empty, or we get a spurious wake up.
 
-			if(queue.empty()) // If some sneaky other thread was woken up as well and snaffled the item...
-				continue; // Try again
-
-			unlockedDequeue(t_out);
-			return;
-		}
-	}
+	unlockedDequeue(t_out);
 }
 
 
 template <class T>
 bool ThreadSafeQueue<T>::dequeueWithTimeout(double wait_time_seconds, T& t_out)
 {
-	while(1)
-	{
-		Lock lock(mutex); // Lock queue
-
-		if(!queue.empty())
-		{
-			// No need to wait for condition, just return the value now
-			unlockedDequeue(t_out);
-			return true;
-		}
-		else // Else if queue is currently empty...
-		{
-			// Suspend thread until there is something in the queue
-			const bool condition_signalled = nonempty.waitWithTimeout(
-				mutex,
-				wait_time_seconds
-			);
-
-			if(condition_signalled)
-			{
-				if(queue.empty()) // If empty
-					continue; // Try again
-
-				unlockedDequeue(t_out);
-				return true;
-			}
-			else // Else wait timed out.
-			{
-				return false;
-			}
-		}
-	}
-}
-
-
-/*template <class T>
-void ThreadSafeQueue<T>::dequeueAppendToVector(std::vector<T>& vec_out)
-{
 	Lock lock(mutex); // Lock queue
 
-	while(!queue.empty())
+	while(queue.empty())
 	{
-		vec_out.push_back(queue.front());
-		queue.pop_front();
+		const bool condition_signalled = nonempty.waitWithTimeout(mutex, wait_time_seconds);
+		if(!condition_signalled) // Wait timed out, or there was a spurious wake up.  TODO: wait again if this was a spurious wake up?
+			return false;
 	}
 
-	nonempty.resetToFalse();
-}*/
+	assert(!queue.empty()); // We have exited from while(queue.empty()) loop, and we still hold the mutex, so queue should be non-empty.
+	unlockedDequeue(t_out);
+	return true;
+}

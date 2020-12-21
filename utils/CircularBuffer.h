@@ -124,14 +124,12 @@ public:
 
 	T& operator * ()
 	{
-        return buffer->data[i];
-    }
+		return buffer->data[i];
+	}
 	const T& operator * () const
 	{
-        return buffer->data[i];
-    }
-
-
+		return buffer->data[i];
+	}
 
 	T* operator -> ()
 	{
@@ -367,7 +365,7 @@ void CircularBuffer<T>::invariant()
 }
 
 
-// Resize buffer.  Need to make it least twice as bug so that we can copy all the wrapped elements directly.
+// Resize buffer.  Need to make it least twice as big so that we can copy all the wrapped elements directly.
 template <class T>
 void CircularBuffer<T>::increaseSize()
 {

@@ -1,7 +1,7 @@
 /*=====================================================================
 Condition.cpp
 -------------
-Copyright Glare Technologies Limited 2019 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "Condition.h"
 
@@ -37,7 +37,7 @@ Condition::~Condition()
 }
 
 
-///Calling thread is suspended until condition is met.
+// Returns true if condition was signalled, or false if a timeout occurred.
 bool Condition::waitWithTimeout(Mutex& mutex, double wait_time_seconds)
 {
 #if defined(_WIN32)
@@ -46,14 +46,8 @@ bool Condition::waitWithTimeout(Mutex& mutex, double wait_time_seconds)
 		return true;
 	else
 	{
-		const DWORD last_error = GetLastError();
-		if(last_error == ERROR_TIMEOUT)
-			return false;
-		else
-		{
-			assert(0);
-			return false;
-		}
+		assert(GetLastError() == ERROR_TIMEOUT);
+		return false;
 	}
 #else
 	// This automatically release the associated mutex in pthreads.
@@ -84,7 +78,7 @@ bool Condition::waitWithTimeout(Mutex& mutex, double wait_time_seconds)
 		return false;
 	else
 	{
-		// WTF?
+		// Some unexpected error occurred.
 		assert(0);
 		return false;
 	}
