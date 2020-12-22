@@ -104,6 +104,7 @@ const float NICKMATHS_RECIP_2PIf = 0.15915494309189533576888376337251f;
 template <class Real>
 INDIGO_STRONG_INLINE Real radToDegree(Real rad)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	return rad * (180 * Maths::recipPi<Real>());
 }
 
@@ -111,6 +112,7 @@ INDIGO_STRONG_INLINE Real radToDegree(Real rad)
 template <class Real>
 INDIGO_STRONG_INLINE Real degreeToRad(Real degree)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	return degree * (Maths::pi<Real>() * (Real)0.00555555555555555555555555555556);
 }
 
@@ -177,6 +179,7 @@ void mySwap(T& x, T& y)
 template <class Real>
 INDIGO_STRONG_INLINE Real logBase2(Real x)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer"); // Bad things happen if Real is an integer - 1.44.. gets cast to 1.
 	return log(x) * (Real)1.4426950408889634073599246810019;
 	// 1.4426950408889634073599246810019 = 1 / ln(2)
 }
@@ -271,6 +274,8 @@ INDIGO_STRONG_INLINE bool isInf(double x)
 template <class Real>
 inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
+
 	// With fast-math (/fp:fast) enabled, comparisons are not checked for NAN compares (the 'unordered predicate').
 	// So we need to do this explicitly ourselves.
 	const Real fabs_diff = fabs(a - b);
@@ -307,6 +312,8 @@ inline float uInt32ToUnitFloatScale() { return 2.3283063E-10f; }
 template <class Real>
 inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
+
 	if(a == 0.0 && b == 0.0)
 		return true;
 	return fabs((a - b) / a) <= eps;
@@ -316,6 +323,7 @@ inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
 template <class Real>
 INDIGO_STRONG_INLINE bool posUnderflowed(Real x)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	assert(x >= 0.0);
 
 	// min returns the minimum normalised value for double.
@@ -326,6 +334,7 @@ INDIGO_STRONG_INLINE bool posUnderflowed(Real x)
 template <class Real>
 INDIGO_STRONG_INLINE bool posOverflowed(Real x)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	assert(x >= 0.0);
 
 	return x > std::numeric_limits<Real>::max();
@@ -363,6 +372,7 @@ INDIGO_STRONG_INLINE int floorToInt(double x)
 template <class Real>
 INDIGO_STRONG_INLINE Real fract(Real x)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	return x - std::floor(x);
 }
 
@@ -402,6 +412,7 @@ inline double inverse1DGaussian(double G, double standard_dev)
 template <class Real>
 inline Real eval2DGaussian(Real dist2, Real standard_dev)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	const Real recip_standard_dev_2 = 1 / (standard_dev*standard_dev);
 
 	return Maths::recip2Pi<Real>() * recip_standard_dev_2 * std::exp((Real)-0.5 * dist2 * recip_standard_dev_2); 
@@ -472,6 +483,7 @@ INDIGO_STRONG_INLINE T pow8(T x)
 template <class T>
 INDIGO_STRONG_INLINE T tanForCos(T cos_theta)
 {
+	static_assert(!std::numeric_limits<T>::is_integer, "Template param can't be an integer");
 	assert(cos_theta >= (T)-1.0 && cos_theta <= (T)1.0);
 
 	// sin(theta)^2 + cos(theta)^2 + 1
@@ -509,6 +521,7 @@ INDIGO_STRONG_INLINE T roundUpToMultiple(T x, T N)
 template <class T>
 INDIGO_STRONG_INLINE bool isPowerOfTwo(T x)
 {
+	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
 	return (x > 0) && ((x & (x - 1)) == 0);
 }
 
@@ -517,6 +530,7 @@ INDIGO_STRONG_INLINE bool isPowerOfTwo(T x)
 template <class T>
 INDIGO_STRONG_INLINE T roundUpToMultipleOfPowerOf2(T x, T N)
 {
+	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
 	assert(x >= 0);
 	assert(N > 0 && isPowerOfTwo(N));
 	return (x + N - 1) & ~(N - 1);
@@ -541,6 +555,7 @@ inline uint64 roundToNextHighestPowerOf2(uint64 v)
 template <class T, class Real>
 INDIGO_STRONG_INLINE const T lerp(const T& a, const T& b, Real t)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	assert(Maths::inRange(t, (Real)0.0, (Real)1.0));
 	return a * (1 - t) + b * t;
 }
@@ -564,6 +579,8 @@ INDIGO_STRONG_INLINE const T uncheckedLerp(const T& a, const T& b, double t)
 template <class T>
 inline T smoothStep(T a, T b, T x)
 {
+	static_assert(!std::numeric_limits<T>::is_integer, "Template param can't be an integer");
+
 	// Scale, and clamp x to 0..1 range
 	x = myClamp<T>((x - a)/(b - a), 0, 1);
 
@@ -638,6 +655,7 @@ so
 template <class Real>
 inline Real oneMinusCosX(Real x)
 {
+	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	assert(x >= 0);
 
 	if(x < (Real)0.3)
