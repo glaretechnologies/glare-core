@@ -151,12 +151,13 @@ public:
 
 	friend class SBVHBuildSubtreeTask;
 
-	static void test();
+	static void test(bool comprehensive_tests);
 
 	typedef std::vector<SBVHOb> ObjectVecType;
 private:
 	SBVHResultChunk* allocNewResultChunk();
 	SBVHLeafResultChunk* allocNewLeafResultChunk();
+	inline uint32 allocNode(SBVHPerThreadTempInfo& thread_temp_info);
 
 	// Assumptions: root node for subtree is already created and is at node_index
 	void doBuild(

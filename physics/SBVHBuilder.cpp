@@ -202,6 +202,18 @@ void SBVHBuildStats::accumStats(const SBVHBuildStats& other)
 }
 
 
+// Returns node index in thread_temp_info.result_chunk
+// May update thread_temp_info.result_chunk to point to a new chunk (if we ran out of space in the last chunk)
+uint32 SBVHBuilder::allocNode(SBVHPerThreadTempInfo& thread_temp_info)
+{
+	if(thread_temp_info.result_chunk->size >= SBVHResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
+		thread_temp_info.result_chunk = allocNewResultChunk();
+
+	const size_t index = thread_temp_info.result_chunk->size++;
+	return (uint32)index;
+}
+
+
 /*
 Builds a subtree with the objects[begin] ... objects[end-1]
 Writes its results to the per-thread buffer 'per_thread_temp_info[thread_index].result_buf', and describes the result in result_chunk,
@@ -1699,11 +1711,7 @@ void SBVHBuilder::doBuild(
 	}
 #endif
 
-	// Allocate left child node from the thread's current result chunk
-	if(thread_temp_info.result_chunk->size >= SBVHResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
-		thread_temp_info.result_chunk = allocNewResultChunk();
-	
-	const size_t left_child = thread_temp_info.result_chunk->size++;
+	const uint32 left_child = allocNode(thread_temp_info); // Allocate left child node from the thread's current result chunk
 	SBVHResultChunk* left_child_chunk = thread_temp_info.result_chunk;
 
 	const bool do_right_child_in_new_task = (num_left >= new_task_num_ob_threshold) && (num_right >= new_task_num_ob_threshold);
@@ -1714,10 +1722,7 @@ void SBVHBuilder::doBuild(
 	uint32 right_child;
 	if(!do_right_child_in_new_task)
 	{
-		if(thread_temp_info.result_chunk->size >= SBVHResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
-			thread_temp_info.result_chunk = allocNewResultChunk();
-
-		right_child = (uint32)(thread_temp_info.result_chunk->size++);
+		right_child = allocNode(thread_temp_info);
 		right_child_chunk = thread_temp_info.result_chunk;
 		right_child_leaf_chunk = leaf_result_chunk;
 	}
@@ -1755,7 +1760,7 @@ void SBVHBuilder::doBuild(
 		thread_temp_info,
 		res.left_aabb, // aabb
 		res.left_centroid_aabb,
-		(uint32)left_child, // node index
+		left_child, // node index
 		begin, // begin
 		begin + num_left, // end
 		left_capacity, // capacity
@@ -1809,7 +1814,7 @@ static void rotateVerts(BVHBuilderTri& tri)
 }
 
 
-void SBVHBuilder::test()
+void SBVHBuilder::test(bool comprehensive_tests)
 {
 	conPrint("SBVHBuilder::test()");
 
@@ -1821,14 +1826,15 @@ void SBVHBuilder::test()
 
 
 	//==================== Test building on every igmesh we can find ====================
-	if(false)
+	if(true)
 	{
 		Timer timer;
 		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
 		std::sort(files.begin(), files.end());
-		for(size_t i=0; i<files.size(); ++i)
+
+		const size_t num_to_test = comprehensive_tests ? files.size() : 40;
+		for(size_t i=0; i<num_to_test; ++i)
 		{
-			
 			Indigo::Mesh mesh;
 			try
 			{
