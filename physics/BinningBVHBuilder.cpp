@@ -65,11 +65,12 @@ See 'physics\experiments\BinningBVHBuilder with parallel partition.cpp' for the 
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 
 
-BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, float intersection_cost_,
+BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per_leaf_, int max_depth_, float intersection_cost_,
 	const int num_objects_
 )
 :	leaf_num_object_threshold(leaf_num_object_threshold_),
 	max_num_objects_per_leaf(max_num_objects_per_leaf_),
+	max_depth(max_depth_),
 	intersection_cost(intersection_cost_),
 	m_num_objects(num_objects_),
 	should_cancel_callback(NULL)
@@ -126,6 +127,18 @@ void BinningBVHBuildStats::accumStats(const BinningBVHBuildStats& other)
 }
 
 
+// Returns node index in thread_temp_info.result_chunk
+// May update thread_temp_info.result_chunk to point to a new chunk (if we ran out of space in the last chunk)
+uint32 BinningBVHBuilder::allocNode(BinningPerThreadTempInfo& thread_temp_info)
+{
+	if(thread_temp_info.result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
+		thread_temp_info.result_chunk = allocNewResultChunk();
+
+	const size_t index = thread_temp_info.result_chunk->size++;
+	return (uint32)index;
+}
+
+
 /*
 Builds a subtree with the objects[begin] ... objects[end-1]
 Writes its results to the per-thread buffer 'per_thread_temp_info[thread_index].result_buf', and describes the result in result_chunk,
@@ -148,21 +161,11 @@ public:
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-		// Alloc space for node in already existing chunk, or allocate a new chunk if needed.
-		int node_index;
+		// Allocate a new chunk if needed.
 		if(builder.per_thread_temp_info[thread_index].result_chunk == NULL)
-		{
 			builder.per_thread_temp_info[thread_index].result_chunk = builder.allocNewResultChunk();
-			builder.per_thread_temp_info[thread_index].result_chunk->size = 1;
-			node_index = 0;
-		}
-		else
-		{
-			if(builder.per_thread_temp_info[thread_index].result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
-				builder.per_thread_temp_info[thread_index].result_chunk = builder.allocNewResultChunk();
 
-			node_index = (int)(builder.per_thread_temp_info[thread_index].result_chunk->size++);
-		}
+		const uint32 node_index = builder.allocNode(builder.per_thread_temp_info[thread_index]);
 
 		// Fix up reference from parent node to this node.
 		if(parent_node_index != -1)
@@ -257,11 +260,30 @@ void BinningBVHBuilder::build(
 		stats.num_leaves = 1;
 		return;
 	}
+
+	// Build max_obs_at_depth
+	{
+		max_obs_at_depth.resize(max_depth + 1);
+		uint64 m = max_num_objects_per_leaf;
+		for(int d=max_depth; d>=0; --d)
+		{
+			max_obs_at_depth[d] = m;
+			if(m <= std::numeric_limits<uint64>::max() / 2) // Avoid overflow
+				m *= 2;
+		}
+
+		//for(int d=0; d<max_obs_at_depth.size(); ++d)
+		//	conPrint("Max obs at depth " + toString(d) + ": " + toString(max_obs_at_depth[d]));
+	}
+
+
 	
 	per_thread_temp_info.resize(task_manager->getNumThreads());
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
+	{
 		per_thread_temp_info[i].result_chunk = NULL;
-
+		per_thread_temp_info[i].build_failed = false;
+	}
 
 	Reference<BinningBuildSubtreeTask> task = new BinningBuildSubtreeTask(*this);
 	task->begin = 0;
@@ -276,6 +298,11 @@ void BinningBVHBuilder::build(
 
 	if(should_cancel_callback->shouldCancel()) 
 		throw Indigo::CancelledException();
+
+	// See if the build failed:
+	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
+		if(per_thread_temp_info[i].build_failed)
+			throw Indigo::Exception("Build failed.");
 
 	// Now we need to combine all the result chunks into a single array.
 
@@ -333,7 +360,7 @@ void BinningBVHBuilder::build(
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
 		this->stats.accumStats(per_thread_temp_info[i].stats);
 
-	// Dump some mem usage stats
+	// Dump some stats
 	if(false)
 	{
 		const double build_time = build_timer.elapsed();
@@ -480,9 +507,9 @@ static void partition(js::Vector<BinningOb, 64>& objects_, const js::AABBox& cen
 
 
 // Partition half the list left and half right.
-static void arbitraryPartition(js::Vector<BinningOb, 64>& objects_, int begin, int end, PartitionRes& res_out)
+static void arbitraryPartition(const js::Vector<BinningOb, 64>& objects_, int begin, int end, PartitionRes& res_out)
 {
-	BinningOb* const objects = objects_.data();
+	const BinningOb* const objects = objects_.data();
 
 	js::AABBox left_aabb = empty_aabb;
 	js::AABBox left_centroid_aabb = empty_aabb;
@@ -598,11 +625,11 @@ public:
 };
 
 
-static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, js::Vector<BinningOb, 64>& objects_, int begin, int end,
+static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, const std::vector<uint64>& max_obs_at_depth, int depth, js::Vector<BinningOb, 64>& objects_, int begin, int end,
 	int& best_axis_out, float& smallest_split_cost_factor_out, int& best_bucket_out)
 {
 	const js::AABBox centroid_aabb = centroid_aabb_;
-	BinningOb* const objects = objects_.data();
+	const BinningOb* const objects = objects_.data();
 
 	float smallest_split_cost_factor = std::numeric_limits<float>::infinity(); // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
 	int best_axis = -1;
@@ -744,67 +771,102 @@ static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABB
 		}
 	}
 
-	// Sweep right to left computing exclusive prefix surface areas
-	Vec4f right_area[max_B];
-	js::AABBox right_aabb[3];
-	for(int i=0; i<3; ++i)
-		right_aabb[i] = empty_aabb;
-
-	for(int b=num_buckets-1; b>=0; --b)
+	const uint64 max_num_obs_at_depth = max_obs_at_depth[depth];
+	if((uint64)N * 2 >= max_num_obs_at_depth) // If we are getting close to the max number of objects allowed at this depth:
 	{
-		const float A0 = right_aabb[0].getHalfSurfaceArea(); // AABB w coord will be garbage due to index being stored, but getHalfSurfaceArea() ignores w coord.
-		const float A1 = right_aabb[1].getHalfSurfaceArea();
-		const float A2 = right_aabb[2].getHalfSurfaceArea();
-		right_area[b] = Vec4f(A0, A1, A2, A2);
+		// Choose bucket so it splits objects as evenly as possible in terms of numbers, left and right
+		int max_min_count = -1;
+		Vec4i left_count(0);
+		for(int b=0; b<num_buckets-1; ++b)
+		{
+			left_count = left_count + counts[b];
+			const Vec4i right_count = Vec4i(N) - Vec4i(left_count);
+			const Vec4i min_counts = min(left_count, right_count);
+			if(min_counts[0] > max_min_count)
+			{
+				max_min_count = min_counts[0];
+				best_bucket = b;
+				best_axis = 0;
+			}
+			if(min_counts[1] > max_min_count)
+			{
+				max_min_count = min_counts[1];
+				best_bucket = b;
+				best_axis = 1;
+			}
+			if(min_counts[2] > max_min_count)
+			{
+				max_min_count = min_counts[2];
+				best_bucket = b;
+				best_axis = 2;
+			}
+		}
 
-		right_aabb[0].enlargeToHoldAABBox(bucket_aabbs[b]);
-		right_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
-		right_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
+		smallest_split_cost_factor = 0; // What should this be set to? Set to zero for now to avoid creating leaves instead
 	}
-
-	// Sweep left to right, computing inclusive left prefix surface area and counts, and computing overall cost factor
-	Vec4i count(0);
-	js::AABBox left_aabb[3];
-	for(int i=0; i<3; ++i)
-		left_aabb[i] = empty_aabb;
-
-	for(int b=0; b<num_buckets-1; ++b)
+	else
 	{
-		count = count + counts[b];
+		// Sweep right to left computing exclusive prefix surface areas
+		Vec4f right_area[max_B];
+		js::AABBox right_aabb[3];
+		for(int i=0; i<3; ++i)
+			right_aabb[i] = empty_aabb;
 
-		left_aabb[0].enlargeToHoldAABBox(bucket_aabbs[b]);
-		left_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
-		left_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
-
-		const float A0 = left_aabb[0].getHalfSurfaceArea();
-		const float A1 = left_aabb[1].getHalfSurfaceArea();
-		const float A2 = left_aabb[2].getHalfSurfaceArea();
-
-		const Vec4i right_count = Vec4i(N) - Vec4i(count);
-		const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_count) * right_area[b]; // Compute SAH cost factor
-
-		if(smallest_split_cost_factor > elem<0>(cost))
+		for(int b=num_buckets-1; b>=0; --b)
 		{
-			smallest_split_cost_factor = elem<0>(cost);
-			best_axis = 0;
-			best_bucket = b;
+			const float A0 = right_aabb[0].getHalfSurfaceArea(); // AABB w coord will be garbage due to index being stored, but getHalfSurfaceArea() ignores w coord.
+			const float A1 = right_aabb[1].getHalfSurfaceArea();
+			const float A2 = right_aabb[2].getHalfSurfaceArea();
+			right_area[b] = Vec4f(A0, A1, A2, A2);
+
+			right_aabb[0].enlargeToHoldAABBox(bucket_aabbs[b]);
+			right_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
+			right_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
 		}
 
-		if(smallest_split_cost_factor > elem<1>(cost))
-		{
-			smallest_split_cost_factor = elem<1>(cost);
-			best_axis = 1;
-			best_bucket = b;
-		}
+		// Sweep left to right, computing inclusive left prefix surface area and counts, and computing overall cost factor
+		Vec4i count(0);
+		js::AABBox left_aabb[3];
+		for(int i=0; i<3; ++i)
+			left_aabb[i] = empty_aabb;
 
-		if(smallest_split_cost_factor > elem<2>(cost))
+		for(int b=0; b<num_buckets-1; ++b)
 		{
-			smallest_split_cost_factor = elem<2>(cost);
-			best_axis = 2;
-			best_bucket = b;
+			count = count + counts[b];
+
+			left_aabb[0].enlargeToHoldAABBox(bucket_aabbs[b]);
+			left_aabb[1].enlargeToHoldAABBox(bucket_aabbs[b +   max_B]);
+			left_aabb[2].enlargeToHoldAABBox(bucket_aabbs[b + 2*max_B]);
+
+			const float A0 = left_aabb[0].getHalfSurfaceArea();
+			const float A1 = left_aabb[1].getHalfSurfaceArea();
+			const float A2 = left_aabb[2].getHalfSurfaceArea();
+
+			const Vec4i right_count = Vec4i(N) - Vec4i(count);
+			const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_count) * right_area[b]; // Compute SAH cost factor
+
+			if(smallest_split_cost_factor > elem<0>(cost))
+			{
+				smallest_split_cost_factor = elem<0>(cost);
+				best_axis = 0;
+				best_bucket = b;
+			}
+
+			if(smallest_split_cost_factor > elem<1>(cost))
+			{
+				smallest_split_cost_factor = elem<1>(cost);
+				best_axis = 1;
+				best_bucket = b;
+			}
+
+			if(smallest_split_cost_factor > elem<2>(cost))
+			{
+				smallest_split_cost_factor = elem<2>(cost);
+				best_axis = 2;
+				best_bucket = b;
+			}
 		}
 	}
-
 	//conPrint("search result for begin: " + toString(begin) + ", end: " + toString(end) + ", Best bucket: " + toString(best_bucket) + " / " + toString(num_buckets) + ", best axis: " + toString(best_axis));
 
 	best_axis_out = best_axis;
@@ -828,8 +890,6 @@ void BinningBVHBuilder::doBuild(
 			BinningResultChunk* node_result_chunk
 			)
 {
-	const int MAX_DEPTH = 60;
-
 	if(depth <= 5)
 	{
 		// conPrint("BinningBVHBuilder(): Checking for cancel at depth " + toString(depth));
@@ -842,9 +902,16 @@ void BinningBVHBuilder::doBuild(
 
 	assert(node_index < BinningResultChunk::MAX_RESULT_CHUNK_SIZE);
 
-	if(end - begin <= leaf_num_object_threshold || depth >= MAX_DEPTH)
+	const int N = end - begin;
+	if(N <= leaf_num_object_threshold || depth >= max_depth)
 	{
-		assert(end - begin <= max_num_objects_per_leaf);
+		if(N > max_num_objects_per_leaf)
+		{
+			// We hit max depth but there are too many objects for a leaf.  So the build has failed.
+			thread_temp_info.build_failed = true;
+			return;
+		}
+
 
 		// Make this a leaf node
 		node_result_chunk->nodes[node_index].interior = false;
@@ -857,19 +924,19 @@ void BinningBVHBuilder::doBuild(
 			result_indices[i] = objects[i].getIndex();
 
 		// Update build stats
-		if(depth >= MAX_DEPTH)
+		if(depth >= max_depth)
 			thread_temp_info.stats.num_maxdepth_leaves++;
 		else
 			thread_temp_info.stats.num_under_thresh_leaves++;
 		thread_temp_info.stats.leaf_depth_sum += depth;
 		thread_temp_info.stats.max_leaf_depth = myMax(thread_temp_info.stats.max_leaf_depth, depth);
-		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, end - begin);
+		thread_temp_info.stats.max_num_tris_per_leaf = myMax(thread_temp_info.stats.max_num_tris_per_leaf, N);
 		thread_temp_info.stats.num_leaves++;
 		return;
 	}
 
 	const float traversal_cost = 1.0f;
-	const float non_split_cost = (end - begin) * intersection_cost; // Eqn 2.
+	const float non_split_cost = N * intersection_cost; // Eqn 2.
 	
 	float smallest_split_cost_factor; // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
 	int best_axis;
@@ -877,7 +944,7 @@ void BinningBVHBuilder::doBuild(
 
 	//conPrint("Looking for best split...");
 	//Timer timer;
-	searchForBestSplit(*task_manager, centroid_aabb, objects, begin, end, best_axis, smallest_split_cost_factor, best_bucket);
+	searchForBestSplit(*task_manager, centroid_aabb, max_obs_at_depth, depth, objects, begin, end, best_axis, smallest_split_cost_factor, best_bucket);
 	//conPrint("Looking for best split done.  elapsed: " + timer.elapsedString());
 	//split_search_time += timer.elapsed();
 
@@ -895,7 +962,7 @@ void BinningBVHBuilder::doBuild(
 		const float smallest_split_cost = intersection_cost * smallest_split_cost_factor / aabb.getHalfSurfaceArea() + traversal_cost;
 
 		// If it is not advantageous to split, and the number of objects is <= the max num per leaf, then form a leaf:
-		if((smallest_split_cost >= non_split_cost) && ((end - begin) <= max_num_objects_per_leaf))
+		if((smallest_split_cost >= non_split_cost) && (N <= max_num_objects_per_leaf))
 		{
 			node_result_chunk->nodes[node_index].interior = false;
 			node_result_chunk->nodes[node_index].aabb = aabb;
@@ -918,6 +985,19 @@ void BinningBVHBuilder::doBuild(
 		partition(objects, centroid_aabb, begin, end, best_axis, best_bucket, res);
 	}
 
+	int num_left_tris = res.split_i - begin;
+	int num_right_tris = end - res.split_i;
+
+	const uint64 max_num_obs_at_depth_plus_1 = max_obs_at_depth[myMin((int)max_obs_at_depth.size() - 1, depth + 1)];
+	if((uint64)num_left_tris > max_num_obs_at_depth_plus_1 || (uint64)num_right_tris > max_num_obs_at_depth_plus_1) // If we have exceeded the max number of objects allowed at a given depth:
+	{
+		// Re-partition, splitting as evenly as possible in terms of numbers left and right.
+		arbitraryPartition(objects, begin, end, res);
+
+		num_left_tris = res.split_i - begin;
+		num_right_tris = end - res.split_i;
+	}
+
 	setAABBWToOneInPlace(res.left_aabb);
 	setAABBWToOneInPlace(res.left_centroid_aabb);
 	setAABBWToOneInPlace(res.right_aabb);
@@ -930,18 +1010,10 @@ void BinningBVHBuilder::doBuild(
 	assert(res.right_aabb.containsAABBox(res.right_centroid_aabb));
 	assert(centroid_aabb.containsAABBox(res.right_centroid_aabb));
 
-	const int num_left_tris = res.split_i - begin;
-	const int split_i = res.split_i;
-	const int num_right_tris = end - split_i;
-
 
 	// Allocate left child from the thread's current result chunk
-	if(thread_temp_info.result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
-		thread_temp_info.result_chunk = allocNewResultChunk();
-
-	const size_t left_child = thread_temp_info.result_chunk->size++;
-	BinningResultChunk* left_child_chunk = thread_temp_info.result_chunk;
-
+	const uint32 left_child = allocNode(thread_temp_info);
+	BinningResultChunk* left_child_chunk = thread_temp_info.result_chunk; // Record result_chunk used for left child now, as thread_temp_info.result_chunk may change below.
 
 	const bool do_right_child_in_new_task = (num_left_tris >= new_task_num_ob_threshold) && (num_right_tris >= new_task_num_ob_threshold);// && !task_manager->areAllThreadsBusy();
 
@@ -955,10 +1027,7 @@ void BinningBVHBuilder::doBuild(
 	uint32 right_child;
 	if(!do_right_child_in_new_task)
 	{
-		if(thread_temp_info.result_chunk->size >= BinningResultChunk::MAX_RESULT_CHUNK_SIZE) // If the current chunk is full:
-			thread_temp_info.result_chunk = allocNewResultChunk();
-
-		right_child = (uint32)(thread_temp_info.result_chunk->size++);
+		right_child = allocNode(thread_temp_info);
 		right_child_chunk = thread_temp_info.result_chunk;
 	}
 	else
@@ -972,7 +1041,7 @@ void BinningBVHBuilder::doBuild(
 	node_result_chunk->nodes[node_index].aabb = aabb;
 	node_result_chunk->nodes[node_index].left  = (int)(left_child  + left_child_chunk->chunk_offset);
 	node_result_chunk->nodes[node_index].right = do_right_child_in_new_task ? -1 : (int)(right_child + right_child_chunk->chunk_offset); // will be fixed-up later
-	node_result_chunk->nodes[node_index].right_child_chunk_index = -1;
+	node_result_chunk->nodes[node_index].right_child_chunk_index = -1; // not used
 	node_result_chunk->nodes[node_index].depth = (uint8)depth;
 
 	thread_temp_info.stats.num_interior_nodes++;
@@ -984,7 +1053,7 @@ void BinningBVHBuilder::doBuild(
 		subtree_task->node_aabb = res.right_aabb;
 		subtree_task->centroid_aabb = res.right_centroid_aabb;
 		subtree_task->depth = depth + 1;
-		subtree_task->begin = split_i;
+		subtree_task->begin = res.split_i;
 		subtree_task->end = end;
 		subtree_task->parent_node_index = (int)(node_index);
 		subtree_task->parent_chunk = node_result_chunk;
@@ -997,9 +1066,9 @@ void BinningBVHBuilder::doBuild(
 		thread_temp_info,
 		res.left_aabb, // aabb
 		res.left_centroid_aabb,
-		(int)left_child, // node index
+		left_child, // node index
 		begin, // begin
-		split_i, // end
+		res.split_i, // end
 		depth + 1, // depth
 		left_child_chunk
 	);
@@ -1012,7 +1081,7 @@ void BinningBVHBuilder::doBuild(
 			res.right_aabb, // aabb
 			res.right_centroid_aabb,
 			right_child, // node index
-			split_i, // begin
+			res.split_i, // begin
 			end, // end
 			depth + 1, // depth
 			right_child_chunk
@@ -1071,6 +1140,153 @@ void BinningBVHBuilder::printResultNodes(const js::Vector<ResultNode, 64>& resul
 #include "../utils/FileUtils.h"
 
 
+static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_failure)
+{
+	PCG32 rng(1);
+	Indigo::TaskManager task_manager;// (1);
+	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
+
+	Timer timer;
+	std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+	std::sort(files.begin(), files.end());
+
+	const size_t num_to_test = comprehensive_tests ? files.size() : 100;
+	for(size_t i=0; i<num_to_test; ++i)
+	{
+		Indigo::Mesh mesh;
+		try
+		{
+			//if(i < 1169)
+			//	continue;
+
+			Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
+			js::Vector<BVHBuilderTri, 16> tris(mesh.triangles.size() + mesh.quads.size() * 2);
+
+			if(tris.size() > 500000)
+			{
+				conPrint("Skipping mesh with " + toString(tris.size()) + " tris.");
+				continue;
+			}
+
+			for(size_t t=0; t<mesh.triangles.size(); ++t)
+			{
+				tris[t].v[0] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].z, 1.);
+				tris[t].v[1] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].z, 1.);
+				tris[t].v[2] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].z, 1.);
+			}
+			for(size_t q=0; q<mesh.quads.size(); ++q)
+			{
+				Vec4f v0(mesh.vert_positions[mesh.quads[q].vertex_indices[0]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].z, 1.);
+				Vec4f v1(mesh.vert_positions[mesh.quads[q].vertex_indices[1]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].z, 1.);
+				Vec4f v2(mesh.vert_positions[mesh.quads[q].vertex_indices[2]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].z, 1.);
+				Vec4f v3(mesh.vert_positions[mesh.quads[q].vertex_indices[3]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].z, 1.);
+
+				tris[mesh.triangles.size() + q * 2 + 0].v[0] = v0;
+				tris[mesh.triangles.size() + q * 2 + 0].v[1] = v1;
+				tris[mesh.triangles.size() + q * 2 + 0].v[2] = v2;
+
+				tris[mesh.triangles.size() + q * 2 + 1].v[0] = v0;
+				tris[mesh.triangles.size() + q * 2 + 1].v[1] = v2;
+				tris[mesh.triangles.size() + q * 2 + 1].v[2] = v3;
+			}
+
+			conPrint(toString(i) + "/" + toString(files.size()) + ": Building '" + files[i] + "'... (tris: " + toString(tris.size()) + ")");
+
+			const int max_num_objects_per_leaf = 31;
+			const float intersection_cost = 1.f;
+			const int max_depth = test_near_build_failure ? ((int)logBase2<double>((double)tris.size() / max_num_objects_per_leaf) + 2) : 60;
+			BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, max_depth, intersection_cost, 
+				(int)tris.size()
+			);
+
+			for(size_t z=0; z<tris.size(); ++z)
+			{
+				js::AABBox aabb = js::AABBox::emptyAABBox();
+				aabb.enlargeToHoldPoint(tris[z].v[0]);
+				aabb.enlargeToHoldPoint(tris[z].v[1]);
+				aabb.enlargeToHoldPoint(tris[z].v[2]);
+				builder.setObjectAABB(z, aabb);
+			}
+
+			js::Vector<ResultNode, 64> result_nodes;
+			builder.build(task_manager,
+				should_cancel_callback,
+				print_output,
+				false, // verbose
+				result_nodes
+			);
+
+			BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, tris.size(), /*duplicate_prims_allowed=*/true);
+		}
+		catch(Indigo::IndigoException& e)
+		{
+			// Error reading mesh file (maybe invalid)
+			conPrint("Skipping mesh failed to read (" + files[i] + "): " + toStdString(e.what()));
+		}
+	}
+	conPrint("Finished building all meshes.  Elapsed: " + timer.elapsedStringNSigFigs(3));
+}
+
+
+static void testWithNumObsAndMaxDepth(int num_objects, int max_depth, int max_num_objects_per_leaf, bool failure_expected)
+{
+	Indigo::TaskManager task_manager;
+	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
+
+	PCG32 rng_(1);
+	js::Vector<js::AABBox, 16> aabbs(num_objects);
+	for(int z=0; z<num_objects; ++z)
+	{
+		const Vec4f v0(rng_.unitRandom() * 0.8f, rng_.unitRandom() * 0.8f, rng_.unitRandom() * 0.8f, 1);
+		const Vec4f v1 = v0 + Vec4f(rng_.unitRandom(), rng_.unitRandom(), rng_.unitRandom(), 0) * 0.02f;
+		const Vec4f v2 = v0 + Vec4f(rng_.unitRandom(), rng_.unitRandom(), rng_.unitRandom(), 0) * 0.02f;
+		aabbs[z] = js::AABBox::emptyAABBox();
+		aabbs[z].enlargeToHoldPoint(v0);
+		aabbs[z].enlargeToHoldPoint(v1);
+		aabbs[z].enlargeToHoldPoint(v2);
+	}
+
+	try
+	{
+		Timer timer;
+
+		const float intersection_cost = 1.f;
+		BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, max_depth, intersection_cost,
+			num_objects
+		);
+
+		for(int z=0; z<num_objects; ++z)
+			builder.setObjectAABB(z, aabbs[z]);
+
+		js::Vector<ResultNode, 64> result_nodes;
+		builder.build(task_manager,
+			should_cancel_callback,
+			print_output,
+			false, // verbose
+			result_nodes
+		);
+
+		if(failure_expected)
+			failTest("Expected failure.");
+
+		const double elapsed = timer.elapsed();
+		conPrint("BinningBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
+
+		BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
+
+		const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
+		conPrint("SAH_cost: " + toString(SAH_cost));
+	}
+	catch(Indigo::Exception& e)
+	{
+		if(!failure_expected)
+			failTest(e.what());
+	}
+}
+
+
 void BinningBVHBuilder::test(bool comprehensive_tests)
 {
 	conPrint("BinningBVHBuilder::test()");
@@ -1081,92 +1297,32 @@ void BinningBVHBuilder::test(bool comprehensive_tests)
 	DummyShouldCancelCallback should_cancel_callback;
 
 	//==================== Test building on every igmesh we can find ====================
-	{
-		Timer timer;
-		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
-		std::sort(files.begin(), files.end());
+	testOnAllIGMeshes(comprehensive_tests, /*test_build_failure_recovery=*/false);
+	testOnAllIGMeshes(comprehensive_tests, /*test_build_failure_recovery=*/true);
 
-		const size_t num_to_test = comprehensive_tests ? files.size() : 100;
-		for(size_t i=0; i<num_to_test; ++i)
-		{
-			Indigo::Mesh mesh;
-			try
-			{
-				//if(i < 1169)
-				//	continue;
+	//==================== Test Builds very close to max depth and num obs constraints ====================
+	conPrint("Testing near build failure...");
+	testWithNumObsAndMaxDepth(/*num obs=*/1, /*max depth=*/0, /*max_num_objects_per_leaf=*/1, /*failure_expected=*/false);
+	testWithNumObsAndMaxDepth(/*num obs=*/2, /*max depth=*/1, /*max_num_objects_per_leaf=*/1, /*failure_expected=*/false);
+	testWithNumObsAndMaxDepth(/*num obs=*/4, /*max depth=*/2, /*max_num_objects_per_leaf=*/1, /*failure_expected=*/false);
+	testWithNumObsAndMaxDepth(/*num obs=*/8, /*max depth=*/3, /*max_num_objects_per_leaf=*/1, /*failure_expected=*/false);
+	testWithNumObsAndMaxDepth(/*num obs=*/24, /*max depth=*/3, /*max_num_objects_per_leaf=*/3, /*failure_expected=*/false);
 
-				Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
-				js::Vector<BVHBuilderTri, 16> tris(mesh.triangles.size() + mesh.quads.size() * 2);
+	testWithNumObsAndMaxDepth(/*num obs=*/48, /*max depth=*/4, /*max_num_objects_per_leaf=*/3, /*failure_expected=*/false);
+	testWithNumObsAndMaxDepth(/*num obs=*/47, /*max depth=*/4, /*max_num_objects_per_leaf=*/3, /*failure_expected=*/false);
+	testWithNumObsAndMaxDepth(/*num obs=*/20, /*max depth=*/4, /*max_num_objects_per_leaf=*/3, /*failure_expected=*/false);
 
-				if(tris.size() > 500000)
-				{
-					conPrint("Skipping mesh with " + toString(tris.size()) + " tris.");
-					continue;
-				}
-
-				for(size_t t=0; t<mesh.triangles.size(); ++t)
-				{
-					tris[t].v[0] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[0]].z, 1.);
-					tris[t].v[1] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[1]].z, 1.);
-					tris[t].v[2] = Vec4f(mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].x, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].y, mesh.vert_positions[mesh.triangles[t].vertex_indices[2]].z, 1.);
-				}
-				for(size_t q=0; q<mesh.quads.size(); ++q)
-				{
-					Vec4f v0(mesh.vert_positions[mesh.quads[q].vertex_indices[0]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[0]].z, 1.);
-					Vec4f v1(mesh.vert_positions[mesh.quads[q].vertex_indices[1]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[1]].z, 1.);
-					Vec4f v2(mesh.vert_positions[mesh.quads[q].vertex_indices[2]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[2]].z, 1.);
-					Vec4f v3(mesh.vert_positions[mesh.quads[q].vertex_indices[3]].x, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].y, mesh.vert_positions[mesh.quads[q].vertex_indices[3]].z, 1.);
-
-					tris[mesh.triangles.size() + q * 2 + 0].v[0] = v0;
-					tris[mesh.triangles.size() + q * 2 + 0].v[1] = v1;
-					tris[mesh.triangles.size() + q * 2 + 0].v[2] = v2;
-
-					tris[mesh.triangles.size() + q * 2 + 1].v[0] = v0;
-					tris[mesh.triangles.size() + q * 2 + 1].v[1] = v2;
-					tris[mesh.triangles.size() + q * 2 + 1].v[2] = v3;
-				}
-
-				conPrint(toString(i) + "/" + toString(files.size()) + ": Building '" + files[i] + "'... (tris: " + toString(tris.size()) + ")");
-
-				const int max_num_objects_per_leaf = 31;
-				const float intersection_cost = 1.f;
-				BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, intersection_cost, 
-					(int)tris.size()
-				);
-
-				for(size_t z=0; z<tris.size(); ++z)
-				{
-					js::AABBox aabb = js::AABBox::emptyAABBox();
-					aabb.enlargeToHoldPoint(tris[z].v[0]);
-					aabb.enlargeToHoldPoint(tris[z].v[1]);
-					aabb.enlargeToHoldPoint(tris[z].v[2]);
-					builder.setObjectAABB(z, aabb);
-				}
-
-				js::Vector<ResultNode, 64> result_nodes;
-				builder.build(task_manager,
-					should_cancel_callback,
-					print_output,
-					false, // verbose
-					result_nodes
-				);
-
-				BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, tris.size(), /*duplicate_prims_allowed=*/true);
-			}
-			catch(Indigo::IndigoException& e)
-			{
-				// Error reading mesh file (maybe invalid)
-				conPrint("Skipping mesh failed to read (" + files[i] + "): " + toStdString(e.what()));
-			}
-		}
-		conPrint("Finished building all meshes.  Elapsed: " + timer.elapsedStringNSigFigs(3));
-	}
+	conPrint("Testing expected build failures...");
+	testWithNumObsAndMaxDepth(/*num obs=*/9,    /*max depth=*/3,  /*max_num_objects_per_leaf=*/1, /*failure_expected=*/true);
+	testWithNumObsAndMaxDepth(/*num obs=*/1025, /*max depth=*/10, /*max_num_objects_per_leaf=*/1, /*failure_expected=*/true);
 
 	//==================== Perf test ====================
 	const bool DO_PERF_TESTS = false;
 	if(DO_PERF_TESTS)
 	{
-		const int num_objects = 100000;
+		conPrint("Doing perf test...");
+
+		const int num_objects = 1000000;
 
 		PCG32 rng_(1);
 		js::Vector<js::AABBox, 16> aabbs(num_objects);
@@ -1183,7 +1339,7 @@ void BinningBVHBuilder::test(bool comprehensive_tests)
 
 		double sum_time = 0;
 		double min_time = 1.0e100;
-		const int NUM_ITERS = 100;
+		const int NUM_ITERS = 10;
 		for(int q=0; q<NUM_ITERS; ++q)
 		{
 			Timer timer;
@@ -1191,7 +1347,7 @@ void BinningBVHBuilder::test(bool comprehensive_tests)
 			const int max_num_objects_per_leaf = 16;
 			const float intersection_cost = 1.f;
 
-			BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, intersection_cost,
+			BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, /*max_depth=*/60, intersection_cost,
 				num_objects
 			);
 

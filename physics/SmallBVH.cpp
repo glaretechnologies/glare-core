@@ -47,6 +47,7 @@ void SmallBVH::build(PrintOutput& print_output, ShouldCancelCallback& should_can
 	Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(
 		63, // leaf_num_object_threshold. As soon as we get down to this number of tris, make a leaf.
 		63, // max_num_objects_per_leaf (2^6 - 1)
+		60, // max_depth
 		1.f, // intersection_cost
 		(int)raymesh_tris_size
 	);

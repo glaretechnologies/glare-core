@@ -31,7 +31,7 @@ struct BinningBVHBuildStats
 	int num_could_not_split_leaves;
 	int num_leaves;
 	int max_num_tris_per_leaf;
-	int leaf_depth_sum;
+	int64 leaf_depth_sum;
 	int max_leaf_depth;
 	int num_interior_nodes;
 	int num_arbitrary_split_leaves;
@@ -76,6 +76,8 @@ struct BinningPerThreadTempInfo
 	BinningBVHBuildStats stats;
 
 	BinningResultChunk* result_chunk;
+
+	bool build_failed;
 };
 
 
@@ -92,7 +94,7 @@ public:
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
 	// intersection_cost - cost of ray-object intersection for SAH computation.  Relative to traversal cost which is assumed to be 1.
-	BinningBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost,
+	BinningBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, int max_depth, float intersection_cost,
 		const int num_objects
 	);
 	~BinningBVHBuilder();
@@ -122,6 +124,7 @@ public:
 	friend class BinningBuildSubtreeTask;
 
 private:
+	inline uint32 allocNode(BinningPerThreadTempInfo& thread_temp_info);
 	BinningResultChunk* allocNewResultChunk();
 
 	// Assumptions: root node for subtree is already created and is at node_index
@@ -149,8 +152,11 @@ private:
 	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
+	int max_depth;
 	float intersection_cost; // Relative to BVH node traversal cost.
 
+	std::vector<uint64> max_obs_at_depth;
+	
 	js::Vector<uint32, 16> result_indices;
 
 	ShouldCancelCallback* should_cancel_callback;

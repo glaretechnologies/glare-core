@@ -229,7 +229,7 @@ static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objec
 	}
 
 	{
-		Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
+		Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(1, max_num_objects_per_leaf, /*max_depth=*/60, 4.0f,
 			num_objects // num objects
 		);
 

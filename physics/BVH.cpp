@@ -79,6 +79,7 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 		Reference<BinningBVHBuilder> binning_builder = new BinningBVHBuilder(
 			4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
 			BVHNode::maxNumGeom(), // max_num_objects_per_leaf
+			60, // max_depth
 			4.f, // intersection_cost
 			(int)raymesh_tris_size
 		);
