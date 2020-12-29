@@ -68,6 +68,7 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 		builder = new SBVHBuilder(
 			4, // leaf_num_object_threshold.  Since we are intersecting against 4 tris at once, as soon as we get down to 4 tris, make a leaf.
 			BVHNode::maxNumGeom(), // max_num_objects_per_leaf
+			60, // max depth
 			1.f, // intersection_cost
 			sbvh_tris.data(),
 			(int)raymesh_tris_size

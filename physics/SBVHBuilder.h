@@ -108,6 +108,8 @@ struct SBVHPerThreadTempInfo
 
 	SBVHResultChunk* result_chunk;
 	SBVHLeafResultChunk* leaf_result_chunk;
+
+	bool build_failed;
 };
 
 
@@ -129,7 +131,7 @@ public:
 	// leaf_num_object_threshold - if there are <= leaf_num_object_threshold objects assigned to a subtree, a leaf will be made out of them.  Should be >= 1.
 	// max_num_objects_per_leaf - maximum num objects per leaf node.  Should be >= leaf_num_object_threshold.
 	// intersection_cost - cost of ray-object intersection for SAH computation.  Relative to traversal cost which is assumed to be 1.
-	SBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, float intersection_cost, 
+	SBVHBuilder(int leaf_num_object_threshold, int max_num_objects_per_leaf, int max_depth, float intersection_cost, 
 		const SBVHTri* triangles,
 		const int num_objects
 	);
@@ -190,8 +192,11 @@ private:
 	Indigo::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
+	int max_depth;
 	float intersection_cost; // Relative to BVH node traversal cost.
 	float recip_root_node_aabb_area;
+
+	std::vector<uint64> max_obs_at_depth;
 
 	js::Vector<uint32, 16> result_indices;
 

@@ -241,7 +241,7 @@ static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objec
 	}
 
 	{
-		Reference<SBVHBuilder> builder = new SBVHBuilder(1, max_num_objects_per_leaf, 4.0f,
+		Reference<SBVHBuilder> builder = new SBVHBuilder(1, max_num_objects_per_leaf, /*max_depth=*/60, 4.0f,
 			tris.data(),
 			num_objects // num objects
 		);
