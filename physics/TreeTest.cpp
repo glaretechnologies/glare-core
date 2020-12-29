@@ -440,7 +440,8 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 		// Trace against all tris individually
 		HitInfo all_tris_hitinfo;
 		testAssert(dynamic_cast<BVH*>(trees[0]) != NULL);
-		const Tree::Real alltrisdist = dynamic_cast<BVH*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
+		const Tree::Real alltrisdist = 100;// dynamic_cast<BVH*>(trees[0])->traceRayAgainstAllTris(ray, max_t, all_tris_hitinfo);
+		failTest("TEMP"); // TODO: implement traceRayAgainstAllTris in this .cpp file.
 
 		// Trace through the trees
 		for(size_t t = 0; t < trees.size(); ++t)

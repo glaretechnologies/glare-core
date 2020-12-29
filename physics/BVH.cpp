@@ -675,54 +675,6 @@ stack_pop:
 }
 
 
-BVH::Real BVH::traceRayAgainstAllTris(const Ray& ray, Real max_t, HitInfo& hitinfo_out) const
-{
-	return -1.f;
-	/*float best_t = 1.0e30f;
-	assert((leafgeom.size() % 4) == 0);
-	for(size_t z=0; z<leafgeom.size(); z += 4)
-	{
-		const size_t leaf_geom_index = z;
-		const float* const t0 = intersect_tris[leafgeom[leaf_geom_index + 0]].data;
-		const float* const t1 = intersect_tris[leafgeom[leaf_geom_index + 1]].data;
-		const float* const t2 = intersect_tris[leafgeom[leaf_geom_index + 2]].data;
-		const float* const t3 = intersect_tris[leafgeom[leaf_geom_index + 3]].data;
-
-		UnionVec4 u, v, t, hit;
-		MollerTrumboreTri::intersectTris(&ray, ray.minT(), t0, t1, t2, t3, 
-			&u, &v, &t, &hit
-			);
-
-		if((hit.i[0] != 0) && t.f[0] < best_t)
-		{
-			best_t = t.f[0];
-			hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index + 0];
-			hitinfo_out.sub_elem_coords.set(u.f[0], v.f[0]);
-		}
-		if((hit.i[1] != 0) && t.f[1] < best_t)
-		{
-			best_t = t.f[1];
-			hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index + 1];
-			hitinfo_out.sub_elem_coords.set(u.f[1], v.f[1]);
-		}
-		if((hit.i[2] != 0) && t.f[2] < best_t)
-		{
-			best_t = t.f[2];
-			hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index + 2];
-			hitinfo_out.sub_elem_coords.set(u.f[2], v.f[2]);
-		}
-		if((hit.i[3] != 0) && t.f[3] < best_t)
-		{
-			best_t = t.f[3];
-			hitinfo_out.sub_elem_index = leafgeom[leaf_geom_index + 3];
-			hitinfo_out.sub_elem_coords.set(u.f[3], v.f[3]);
-		}
-	}*/
-
-	//return (best_t < 1.0e30f) ? best_t : -1.f;
-}
-
-
 const js::AABBox& BVH::getAABBox() const
 {
 	return root_aabb;

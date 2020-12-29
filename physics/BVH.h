@@ -52,14 +52,10 @@ public:
 	// Throws Indigo::CancelledException if cancelled.
 	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager); // throws Indigo::Exception
 
-
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
 	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const;
 	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const;
 	virtual const js::AABBox& getAABBox() const;
-
-	// For Debugging:
-	Real traceRayAgainstAllTris(const Ray& ray, Real max_t, HitInfo& hitinfo_out) const;
 
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}
@@ -70,7 +66,7 @@ public:
 
 	typedef uint32 TRI_INDEX;
 private:
-	inline void BVH::intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws,
+	inline void intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws,
 		uint32 tri_index, Vec4f& hit_normal_ws_out) const;
 
 	typedef js::Vector<BVHNode, 64> NODE_VECTOR_TYPE;

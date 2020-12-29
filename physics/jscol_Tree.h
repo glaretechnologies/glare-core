@@ -1,7 +1,7 @@
 /*=====================================================================
 Tree.h
 ------
-Copyright Glare Technologies Limited 2013 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -37,8 +37,6 @@ public:
 
 	typedef float Real;
 	typedef double DistType;
-
-	static const unsigned int MAX_TREE_DEPTH = 63;
 
 	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
