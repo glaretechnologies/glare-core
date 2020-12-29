@@ -307,7 +307,6 @@ void SBVHBuilder::build(
 		Indigo::TaskManager& task_manager_,
 		ShouldCancelCallback& should_cancel_callback_,
 		PrintOutput& print_output, 
-		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
 	)
 {
@@ -1951,7 +1950,6 @@ static void testSBVHWithNumObsAndMaxDepth(int num_objects, int max_depth, int ma
 		builder.build(task_manager,
 			should_cancel_callback,
 			print_output,
-			false, // verbose
 			result_nodes
 		);
 
@@ -2058,7 +2056,6 @@ void SBVHBuilder::test(bool comprehensive_tests)
 				builder.build(task_manager,
 					should_cancel_callback,
 					print_output,
-					false, // verbose
 					result_nodes
 				);
 
@@ -2117,7 +2114,6 @@ void SBVHBuilder::test(bool comprehensive_tests)
 			builder.build(task_manager,
 				should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_nodes
 			);
 

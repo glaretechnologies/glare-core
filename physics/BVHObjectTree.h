@@ -54,7 +54,7 @@ public:
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
 	// Throws Indigo::CancelledException if cancelled.
-	void build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose);
+	void build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output);
 
 	void printStats();
 

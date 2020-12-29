@@ -34,9 +34,8 @@ SmallBVH::~SmallBVH()
 }
 
 
-void SmallBVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager)
+void SmallBVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, Indigo::TaskManager& task_manager)
 {
-	if(verbose) print_output.print("\tSmallBVH::build()");
 	// Timer timer;
 
 	const RayMesh::TriangleVectorType& raymesh_tris = raymesh->getTriangles();
@@ -69,7 +68,6 @@ void SmallBVH::build(PrintOutput& print_output, ShouldCancelCallback& should_can
 		task_manager,
 		should_cancel_callback,
 		print_output,
-		verbose,
 		result_nodes
 	);
 	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder->getResultObjectIndices();
@@ -318,3 +316,70 @@ size_t SmallBVH::getTotalMemUsage() const
 
 
 } //end namespace js
+
+
+#if BUILD_TESTS
+
+
+#include "../dll/include/IndigoMesh.h"
+#include "../dll/include/IndigoException.h"
+#include "../dll/IndigoStringUtils.h"
+#include "../indigo/TestUtils.h"
+#include "../utils/StandardPrintOutput.h"
+#include "../utils/StringUtils.h"
+#include "../utils/ConPrint.h"
+#include "../utils/Vector.h"
+#include "../utils/TaskManager.h"
+#include "../utils/Timer.h"
+#include "../utils/FileUtils.h"
+#include "../utils/ShouldCancelCallback.h"
+
+
+static void testOnAllIGMeshes(bool comprehensive_tests)
+{
+	Indigo::TaskManager task_manager;
+	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
+
+	Timer timer;
+	std::vector<std::string> files = FileUtils::getSortedFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+
+	const size_t num_to_test = comprehensive_tests ? files.size() : 100;
+	for(size_t i=0; i<num_to_test; ++i)
+	{
+		Indigo::Mesh indigo_mesh;
+		try
+		{
+			Indigo::Mesh::readFromFile(toIndigoString(files[i]), indigo_mesh);
+
+			conPrint(toString(i) + "/" + toString(files.size()) + ": Building '" + files[i] + "'... (tris: " + toString(indigo_mesh.triangles.size()) + ", quads: " + toString(indigo_mesh.quads.size()) + ")");
+
+			RayMesh raymesh("raymesh", /*enable_shading_normals=*/false);
+			raymesh.fromIndigoMesh(indigo_mesh);
+
+			js::SmallBVH smallbvh(&raymesh);
+
+			smallbvh.build(print_output, should_cancel_callback, task_manager);
+		}
+		catch(Indigo::IndigoException& e)
+		{
+			// Error reading mesh file (maybe invalid)
+			conPrint("Skipping mesh failed to read (" + files[i] + "): " + toStdString(e.what()));
+		}
+	}
+	conPrint("Finished building all meshes.  Elapsed: " + timer.elapsedStringNSigFigs(3));
+}
+
+
+void js::SmallBVH::test(bool comprehensive_tests)
+{
+	conPrint("js::SmallBVH::test()");
+
+	testOnAllIGMeshes(comprehensive_tests);
+
+	conPrint("js::SmallBVH::test() done.");
+}
+
+
+#endif // BUILD_TESTS
+

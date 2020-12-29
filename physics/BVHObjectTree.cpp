@@ -250,7 +250,7 @@ stack_pop:
 
 
 // Throws Indigo::CancelledException if cancelled.
-void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose)
+void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output)
 {
 	// conPrint("BVHObjectTree::build");
 	Timer timer;
@@ -274,7 +274,6 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallbac
 		task_manager,
 		should_cancel_callback,
 		print_output,
-		verbose,
 		result_nodes
 	);
 	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder->getResultObjectIndices();
@@ -368,8 +367,7 @@ void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallbac
 	objects.clearAndFreeMem();
 
 	//conPrint("BVHObjectTree::build done  (Elapsed: " + timer.elapsedStringNPlaces(4) + ")");
-	if(verbose)
-		print_output.print("\tNum objects: " + toString(objects_size));
+	//print_output.print("\tNum objects: " + toString(objects_size));
 		
 	print_output.print("Object tree build done. (Time Taken: " + timer.elapsedStringNPlaces(3) + ")");
 }

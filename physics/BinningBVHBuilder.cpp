@@ -216,7 +216,6 @@ void BinningBVHBuilder::build(
 		Indigo::TaskManager& task_manager_,
 		ShouldCancelCallback& should_cancel_callback_,
 		PrintOutput& print_output, 
-		bool verbose, 
 		js::Vector<ResultNode, 64>& result_nodes_out
 		)
 {
@@ -625,6 +624,16 @@ public:
 };
 
 
+// inline static float costEstimate(/*float intersection_cost, */int num_obs) // Without surface area / P_A
+// {
+// 	const float intersection_cost = 1.f;
+// 	const float av_P_A_plus_B = 1.45f; // 1.26778367717;
+// 	const float av_num_obs_per_leaf = 2.5096484422267937f;
+// 	const float better_est_cost = pow(av_P_A_plus_B, logBase2<float>((float)num_obs)) * (/*traversal cost*/1.f + intersection_cost * av_num_obs_per_leaf);
+// 	return better_est_cost;
+// }
+
+
 static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, const std::vector<uint64>& max_obs_at_depth, int depth, js::Vector<BinningOb, 64>& objects_, int begin, int end,
 	int& best_axis_out, float& smallest_split_cost_factor_out, int& best_bucket_out)
 {
@@ -845,6 +854,28 @@ static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABB
 			const Vec4i right_count = Vec4i(N) - Vec4i(count);
 			const Vec4f cost = toVec4f(count) * Vec4f(A0, A1, A2, A2) + toVec4f(right_count) * right_area[b]; // Compute SAH cost factor
 
+			/*if(depth < 0)
+			{
+				Vec4f left_cost = Vec4f(A0, A1, A2, A2) * Vec4f(
+					costEstimate(count[0]),
+					costEstimate(count[1]),
+					costEstimate(count[2]),
+					0
+				);
+
+				Vec4f right_cost = right_area[b] * Vec4f(
+					costEstimate(right_count[0]),
+					costEstimate(right_count[1]),
+					costEstimate(right_count[2]),
+					0
+				);
+
+				cost = left_cost + right_cost; // Compute SAH cost factor
+			}*/
+
+			//if(depth < 2)
+			//	conPrint("bucket: " + toString(b) + ", cost: " + cost.toString());
+
 			if(smallest_split_cost_factor > elem<0>(cost))
 			{
 				smallest_split_cost_factor = elem<0>(cost);
@@ -867,7 +898,8 @@ static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABB
 			}
 		}
 	}
-	//conPrint("search result for begin: " + toString(begin) + ", end: " + toString(end) + ", Best bucket: " + toString(best_bucket) + " / " + toString(num_buckets) + ", best axis: " + toString(best_axis));
+	//if(depth < 2)
+	//	conPrint("search result for begin: " + toString(begin) + ", end: " + toString(end) + ", cost: " + toString(smallest_split_cost_factor) + ", Best bucket: " + toString(best_bucket) + " / " + toString(num_buckets) + ", best axis: " + toString(best_axis));
 
 	best_axis_out = best_axis;
 	smallest_split_cost_factor_out = smallest_split_cost_factor;
@@ -1213,7 +1245,6 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 			builder.build(task_manager,
 				should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_nodes
 			);
 
@@ -1264,7 +1295,6 @@ static void testWithNumObsAndMaxDepth(int num_objects, int max_depth, int max_nu
 		builder.build(task_manager,
 			should_cancel_callback,
 			print_output,
-			false, // verbose
 			result_nodes
 		);
 
@@ -1358,7 +1388,6 @@ void BinningBVHBuilder::test(bool comprehensive_tests)
 			builder.build(task_manager,
 				should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_nodes
 			);
 

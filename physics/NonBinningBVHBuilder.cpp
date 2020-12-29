@@ -240,7 +240,6 @@ void NonBinningBVHBuilder::build(
 		   //const js::AABBox* aabbs_,
 		  // const int num_objects,
 		   PrintOutput& print_output, 
-		   bool verbose, 
 		   js::Vector<ResultNode, 64>& result_nodes_out
 		   )
 {

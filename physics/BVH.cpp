@@ -28,14 +28,12 @@ BVH::BVH(const RayMesh* const raymesh_)
 
 
 BVH::~BVH()
-{
-}
+{}
 
 
 // Throws Indigo::CancelledException if cancelled.
-void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager)
+void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, Indigo::TaskManager& task_manager)
 {
-	if(verbose) print_output.print("\tBVH::build()");
 	Timer timer;
 
 	const RayMesh::TriangleVectorType& raymesh_tris = raymesh->getTriangles();
@@ -44,7 +42,7 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 
 	Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(
 		1, // leaf_num_object_threshold.
-		31, // BVHNode::maxNumGeom(), // max_num_objects_per_leaf
+		31, // max_num_objects_per_leaf
 		60, // max_depth
 		1.f, // intersection_cost
 		(int)raymesh_tris_size
@@ -68,7 +66,6 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 		task_manager,
 		should_cancel_callback,
 		print_output,
-		verbose,
 		result_nodes
 	);
 	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder->getResultObjectIndices();
@@ -442,8 +439,7 @@ static inline float traceRayAgainstSphere(const Vec4f& ray_origin, const Vec4f& 
 }
 
 
-void BVH::intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws, 
-	uint32 tri_index, /*float& closest_dist_ws, */Vec4f& hit_normal_ws_out) const
+void BVH::intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws, TRI_INDEX tri_index, Vec4f& hit_normal_ws_out) const
 {
 	const Vec4f sourcePoint3_ws(ray_ws.startPos());
 	const Vec4f unitdir3_ws(ray_ws.unitDir());
@@ -683,8 +679,8 @@ const js::AABBox& BVH::getAABBox() const
 
 size_t BVH::getTotalMemUsage() const
 {
-	return sizeof(root_aabb) + nodes.capacitySizeBytes() + leaf_tri_indices.capacitySizeBytes()/* + intersect_tris.capacity()*sizeof(INTERSECT_TRI_TYPE)*/;
+	return sizeof(root_aabb) + nodes.capacitySizeBytes() + leaf_tri_indices.capacitySizeBytes();
 }
 
 
-} //end namespace js
+} // end namespace js

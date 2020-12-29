@@ -210,7 +210,6 @@ void EmbreeBVHBuilder::doBuild(
 		Indigo::TaskManager& task_manager_,
 		ShouldCancelCallback& should_cancel_callback_,
 		PrintOutput& print_output, 
-		bool verbose, 
 		js::Vector<ResultInteriorNode, 64>& result_nodes_out
 	)
 {

@@ -50,7 +50,7 @@ public:
 	virtual ~BVH();
 
 	// Throws Indigo::CancelledException if cancelled.
-	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, bool verbose, Indigo::TaskManager& task_manager); // throws Indigo::Exception
+	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, Indigo::TaskManager& task_manager); // throws Indigo::Exception
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
 	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const;
@@ -61,13 +61,10 @@ public:
 	virtual void printTraceStats() const {}
 	virtual size_t getTotalMemUsage() const;
 
-	friend class BVHImpl;
-	friend class TraceRayFunctions;
-
 	typedef uint32 TRI_INDEX;
 private:
 	inline void intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws,
-		uint32 tri_index, Vec4f& hit_normal_ws_out) const;
+		TRI_INDEX tri_index, Vec4f& hit_normal_ws_out) const;
 
 	typedef js::Vector<BVHNode, 64> NODE_VECTOR_TYPE;
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
@@ -75,8 +72,8 @@ private:
 	AABBox root_aabb; // AABB of whole thing
 	NODE_VECTOR_TYPE nodes; // Nodes of the tree.
 	js::Vector<TRI_INDEX, 64> leaf_tri_indices; // Indices into the intersect_tris array.
-	int32 root_node_index;
 	const RayMesh* const raymesh;
+	int32 root_node_index;
 };
 
 

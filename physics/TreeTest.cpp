@@ -408,10 +408,10 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 	std::vector<Tree*> trees;
 
 	trees.push_back(new BVH(&raymesh));
-	trees.back()->build(print_output, should_cancel_callback, true, task_manager);
+	trees.back()->build(print_output, should_cancel_callback, task_manager);
 #ifndef NO_EMBREE
 	trees.push_back(new EmbreeAccel(NULL, &raymesh, /*do_fast_low_quality_build=*/false));
-	trees.back()->build(print_output, should_cancel_callback, true, task_manager);
+	trees.back()->build(print_output, should_cancel_callback, task_manager);
 #endif
 	// Check AABBox
 	const AABBox box = trees[0]->getAABBox();
@@ -877,7 +877,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 	PCG32 rng(1);
 
 	BVH bvh(&raymesh);
-	bvh.build(print_output, should_cancel_callback, /*verbose=*/true, task_manager);
+	bvh.build(print_output, should_cancel_callback, task_manager);
 
 	const Matrix4f to_world = Matrix4f::identity();
 	const Matrix4f to_object = Matrix4f::identity();
@@ -1127,7 +1127,7 @@ static void testAppendCollPoints(RayMesh& raymesh)
 	PCG32 rng(1);
 
 	BVH bvh(&raymesh);
-	bvh.build(print_output, should_cancel_callback, /*verbose=*/true, task_manager);
+	bvh.build(print_output, should_cancel_callback, task_manager);
 
 	std::vector<Vec4f> points_ws;
 	std::vector<Vec4f> ref_points_ws;

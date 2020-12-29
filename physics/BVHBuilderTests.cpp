@@ -278,7 +278,6 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 			builders[i]->build(task_manager,
 				dummy_should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_nodes
 			);
 
@@ -305,7 +304,6 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 				builders[i]->build(task_manager,
 					dummy_should_cancel_callback,
 					print_output,
-					false, // verbose
 					result_nodes
 				);
 				first_run_time = timer.elapsed();
@@ -326,7 +324,6 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 					builders[i]->build(task_manager,
 						test_should_cancel_callback,
 						print_output,
-						false, // verbose
 						result_nodes
 					);
 
@@ -391,7 +388,6 @@ static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task
 	//js::Vector<ResultNode, 64> result_nodes;
 	builder->build(task_manager,
 		print_output,
-		false, // verbose
 		result_nodes_out
 	);
 
@@ -425,7 +421,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			callback,
 			result_nodes
 		);
@@ -460,7 +455,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -489,7 +483,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -517,7 +510,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -546,7 +538,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -580,7 +571,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -613,7 +603,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -648,7 +637,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -682,7 +670,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -720,7 +707,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -780,7 +766,6 @@ void test()
 			aabbs.data(), // aabbs
 			num_objects, // num objects
 			print_output, 
-			false, // verbose
 			result_nodes
 		);
 
@@ -904,7 +889,6 @@ void test()
 			builder.build(task_manager,
 				should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_nodes
 			);
 		}
@@ -1105,7 +1089,6 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			builder.doBuild(task_manager,
 				should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_interior_nodes
 			);
 
@@ -1131,7 +1114,6 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			builder.build(task_manager,
 				should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_nodes
 			);
 
@@ -1157,7 +1139,6 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			builder.build(task_manager,
 				should_cancel_callback,
 				print_output,
-				false, // verbose
 				result_nodes
 			);
 
@@ -1211,7 +1192,6 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 				builder->build(task_manager,
 					should_cancel_callback,
 					print_output,
-					false, // verbose
 					result_nodes
 				);
 
