@@ -21,7 +21,6 @@ public:
 
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
-	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 	virtual const js::AABBox getAABBox() const;
 	
 	virtual const Vec3Type getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const;

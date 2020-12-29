@@ -47,6 +47,7 @@ Solution: Use some kind of low-memory acceleration structure for this purpose.
 
 The way we use a small amount of memory is to have a lot of triangles indices (up to 63) in each leaf.
 This will reduce the total number of tree nodes.
+In addition we don't store triangles explictly, but access triangle data via the raymesh pointer when doing ray/tri intersection.
 
 We also use a binning builder for fast builds.
 =====================================================================*/
@@ -62,8 +63,6 @@ public:
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBox() const;
-
-	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}

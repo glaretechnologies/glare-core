@@ -76,8 +76,6 @@ public:
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const = 0;
 	
-	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const = 0;
-
 	// Returns a vector orthogonal to the surface, with length equal to one over the probability density of sampling the given point on the sub-element.
 	// This is equal to the area in object space of the surface sub-element for uniformly sampled sub-elements (e.g. triangles).
 	virtual const Vec3Type getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const = 0;

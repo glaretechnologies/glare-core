@@ -172,16 +172,6 @@ const js::AABBox RayMesh::getTightAABBoxWS(const TransformPath& transform_path) 
 }
 
 
-void RayMesh::getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
-{
-	tritree->getAllHits(
-		ray, // ray 
-		
-		hitinfos_out
-		);
-}
-
-
 // Length of returned normal vector should be set to the area of triangle.
 const RayMesh::Vec3Type RayMesh::getGeometricNormalAndMatIndex(const HitInfo& hitinfo, unsigned int& mat_index_out) const
 {
@@ -871,6 +861,7 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 	//else
 	{
 #ifdef NO_EMBREE
+		// NO_EMBREE is used in substrata
 		tritree = new js::BVH(this);
 #else
 		assert(options.embree_device);

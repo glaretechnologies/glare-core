@@ -109,49 +109,6 @@ void RaySphere::getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3
 }
 
 
-void RaySphere::getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
-{
-	hitinfos_out.resize(0);
-
-	const Vec4f raystart_to_centre = centre - ray.startPos();
-
-	const Real u_dot_del_p = dot(raystart_to_centre, ray.unitDir());
-
-	const Real discriminant = radius_squared - raystart_to_centre.getDist2(ray.unitDir() * u_dot_del_p);
-
-	if(discriminant < 0)
-		return; // No intersection.
-
-	const Real sqrt_discriminant = std::sqrt(discriminant);
-
-	const Real use_min_t = rayMinT(radius);
-
-	const Real t_0 = u_dot_del_p - sqrt_discriminant; // t_0 is the smaller of the two solutions.
-	if(t_0 >= use_min_t)
-	{
-		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_0) - centre, recip_radius);
-
-		hitinfos_out.push_back(DistanceHitInfo(
-			0, // sub elem index
-			uvs,
-			t_0 // dist
-		));
-	}
-
-	const Real t_1 = u_dot_del_p + sqrt_discriminant;
-	if(t_1 >= use_min_t)
-	{
-		const UVCoordsType uvs = GeometrySampling::sphericalCoordsForDir(ray.pointf(t_1) - centre, recip_radius);
-		
-		hitinfos_out.push_back(DistanceHitInfo(
-			0, // sub elem index
-			uvs,
-			t_1 // dist
-		));
-	}
-}
-
-
 const RaySphere::UVCoordsType RaySphere::getUVCoords(const HitInfo& hitinfo, unsigned int texcoords_set) const
 {
 	return hitinfo.sub_elem_coords;
@@ -368,40 +325,6 @@ void RaySphere::test()
 		testAssert(d < 0.0);
 	}
 
-
-	// Test getAllHits()
-	{
-		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
-
-		const Ray ray(
-			Vec4f(-1,0,0,1),
-			Vec4f(1,0,0,0),
-			1.0e-5f, // min_t
-			std::numeric_limits<float>::infinity() // max_t
-		);
-		std::vector<DistanceHitInfo> hitinfos;
-		sphere.getAllHits(ray, hitinfos);
-
-		testAssert(hitinfos.size() == 2);
-
-		testAssert(epsEqual(hitinfos[0].dist, 0.5f));
-		testAssert(epsEqual(hitinfos[1].dist, 1.5f));
-
-		//testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[0]), Vec3Type(-1,0,0,0)));
-		//testAssert(epsEqual(sphere.getGeometricNormal(hitinfos[1]), Vec3Type(1,0,0,0)));
-
-		Vec3Type pos, N_g;
-		Vec3RealType pos_error;
-		sphere.getPosAndGeomNormal(hitinfos[0], pos, pos_error, N_g);
-
-		testAssert(epsEqual(N_g, Vec3Type(-1,0,0,0)));
-
-		sphere.getPosAndGeomNormal(hitinfos[1], pos, pos_error, N_g);
-
-		//testAssert(epsEqual(N_g, Vec3Type(1,0,0,0)));
-	}
-
-
 	// Try tracing from inside sphere
 	{
 		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
@@ -420,23 +343,6 @@ void RaySphere::test()
 		ray3.setMaxT(0.24f);
 		d = sphere.traceRay(ray3, hitinfo);
 		testAssert(d < 0.0);
-	}
-
-	// Try getAllHits() from inside sphere
-	{
-		RaySphere sphere(Vec4f(0,0,0,1), 0.5);
-
-		const Ray ray3(
-			Vec4f(0.25f,0,0,1),
-			Vec4f(1,0,0,0),
-			1.0e-5f, // min_t
-			std::numeric_limits<float>::infinity() // max_t
-		);
-		std::vector<DistanceHitInfo> hitinfos;
-		sphere.getAllHits(ray3, hitinfos);
-
-		testAssert(hitinfos.size() == 1);
-		testAssert(epsEqual(hitinfos[0].dist, 0.25f));
 	}
 }
 

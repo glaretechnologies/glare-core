@@ -1,14 +1,13 @@
 /*=====================================================================
 BVH.h
 -----
-Copyright Glare Technologies Limited 2015 -
-File created by ClassTemplate on Sun Oct 26 17:19:14 2008
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
 
-#include "BVHNode.h"
 #include "jscol_Tree.h"
+#include "jscol_aabbox.h"
 #include "MollerTrumboreTri.h"
 #include "../maths/vec3.h"
 #include "../utils/MemAlloc.h"
@@ -23,6 +22,18 @@ namespace js
 
 
 class BoundingSphere;
+
+
+class BVHNode
+{
+public:
+	Vec4f x; // (left_min_x, right_min_x, left_max_x, right_max_x)
+	Vec4f y; // (left_min_y, right_min_y, left_max_y, right_max_y)
+	Vec4f z; // (left_min_z, right_min_z, left_max_z, right_max_z)
+
+	int32 child[2];
+	int32 padding[2]; // Pad to 64 bytes.
+};
 
 
 /*=====================================================================
@@ -47,13 +58,8 @@ public:
 	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const;
 	virtual const js::AABBox& getAABBox() const;
 
-	virtual void getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
-
-	//virtual const Vec3f triGeometricNormal(unsigned int tri_index) const;
-
 	// For Debugging:
 	Real traceRayAgainstAllTris(const Ray& ray, Real max_t, HitInfo& hitinfo_out) const;
-	void getAllHitsAllTris(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const;
 
 	virtual void printStats() const {}
 	virtual void printTraceStats() const {}
@@ -61,21 +67,19 @@ public:
 
 	friend class BVHImpl;
 	friend class TraceRayFunctions;
-	friend class GetAllHitsFunctions;
 
 	typedef uint32 TRI_INDEX;
 private:
-	inline void intersectSphereAgainstLeafTris(const Ray& ray_dir_ws, const Matrix4f& to_world, float radius_ws,
-		int num_geom, int geom_index, float& closest_dist, Vec4f& hit_normal_ws_out) const;
+	inline void BVH::intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws,
+		uint32 tri_index, Vec4f& hit_normal_ws_out) const;
 
 	typedef js::Vector<BVHNode, 64> NODE_VECTOR_TYPE;
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;
 
 	AABBox root_aabb; // AABB of whole thing
 	NODE_VECTOR_TYPE nodes; // Nodes of the tree.
-	js::Vector<TRI_INDEX, 64> leafgeom; // Indices into the intersect_tris array.
-	std::vector<INTERSECT_TRI_TYPE> intersect_tris;
-	
+	js::Vector<TRI_INDEX, 64> leaf_tri_indices; // Indices into the intersect_tris array.
+	int32 root_node_index;
 	const RayMesh* const raymesh;
 };
 

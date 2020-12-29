@@ -460,61 +460,6 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 				testAssert(::epsEqual(hitinfo.sub_elem_coords.y, all_tris_hitinfo.sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.0001));
 			}
 		}
-
-
-
-		//------------------------------------------------------------------------
-		//test getAllHits()
-		//------------------------------------------------------------------------
-		std::vector<DistanceHitInfo> hitinfos;
-
-		trees[0]->getAllHits(ray, hitinfos);
-		std::sort(hitinfos.begin(), hitinfos.end(), distanceHitInfoComparisonPred);
-
-		if(alltrisdist > 0.0)
-		{
-			//if ray hit anything before
-			testAssert(hitinfos.size() >= 1);
-			testAssert(::epsEqual(hitinfos[0].dist, alltrisdist));
-			testAssert(hitinfos[0].sub_elem_index == all_tris_hitinfo.sub_elem_index);
-			testAssert(epsEqual(hitinfos[0].sub_elem_coords, all_tris_hitinfo.sub_elem_coords));
-		}
-
-		// Do a check against all tris
-		std::vector<DistanceHitInfo> hitinfos_d;
-		testAssert(dynamic_cast<BVH*>(trees[0]) != NULL);
-		dynamic_cast<BVH*>(trees[0])->getAllHitsAllTris(ray, hitinfos_d);
-		std::sort(hitinfos_d.begin(), hitinfos_d.end(), distanceHitInfoComparisonPred); // Sort hits
-
-		// Compare results
-		testAssert(hitinfos.size() == hitinfos_d.size());
-		for(size_t z = 0; z < hitinfos.size(); ++z)
-		{
-			testAssert(::epsEqual(hitinfos[z].dist, hitinfos_d[z].dist));
-			testAssert(hitinfos[z].sub_elem_index == hitinfos_d[z].sub_elem_index);
-			testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_d[z].sub_elem_coords));
-		}
-
-		//------------------------------------------------------------------------
-		//Test getAllHits() on other trees
-		//------------------------------------------------------------------------
-		for(size_t t = 0; t < trees.size(); ++t)
-		{
-			std::vector<DistanceHitInfo> hitinfos_other;
-			trees[t]->getAllHits(ray, hitinfos_other);
-			std::sort(hitinfos_other.begin(), hitinfos_other.end(), distanceHitInfoComparisonPred); // Sort hits
-
-			// Compare results
-			testAssert(hitinfos.size() == hitinfos_other.size());
-			for(size_t z = 0; z < hitinfos.size(); ++z)
-			{
-				testAssert(::epsEqual(hitinfos[z].dist, hitinfos_other[z].dist, 0.0001f));
-				testAssert(hitinfos[z].sub_elem_index == hitinfos_other[z].sub_elem_index);
-				//testAssert(::epsEqual(hitinfos[z].sub_elem_coords, hitinfos_other[z].sub_elem_coords));
-				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.x, hitinfos_other[z].sub_elem_coords.x, (HitInfo::SubElemCoordsRealType)0.001));
-				testAssert(::epsEqual(hitinfos[z].sub_elem_coords.y, hitinfos_other[z].sub_elem_coords.y, (HitInfo::SubElemCoordsRealType)0.001));
-			}
-		}
 	} // End for each ray
 
 	//------------------------------------------------------------------------

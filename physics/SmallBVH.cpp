@@ -10,7 +10,6 @@ Copyright Glare Technologies Limited 2020 -
 #include "MollerTrumboreTri.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/raymesh.h"
-#include "../physics/jscol_boundingsphere.h"
 #include "../utils/PrintOutput.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
@@ -303,13 +302,6 @@ stack_pop:
 	}
 
 	return (ray.maxT() < ray_.maxT()) ? ray.maxT() : -1.f;
-}
-
-
-void SmallBVH::getAllHits(const Ray& ray, std::vector<DistanceHitInfo>& hitinfos_out) const
-{
-	hitinfos_out.resize(0);
-	assert(0);
 }
 
 
