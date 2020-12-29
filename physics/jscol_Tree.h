@@ -54,7 +54,6 @@ public:
 	virtual void printTraceStats() const = 0;
 		
 	virtual size_t getTotalMemUsage() const = 0;
-
 };
 
 

@@ -11,7 +11,6 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raymesh.h"
 #include "../maths/PCG32.h"
 #include "../raytracing/hitinfo.h"
-#include "jscol_TriTreePerThreadData.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"

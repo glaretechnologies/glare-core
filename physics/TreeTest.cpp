@@ -12,7 +12,6 @@ Code By Nicholas Chapman.
 #endif
 #include "BVH.h"
 #include "MollerTrumboreTri.h"
-#include "jscol_TriTreePerThreadData.h"
 #include "jscol_boundingsphere.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../maths/PCG32.h"
@@ -608,8 +607,6 @@ static void doEdgeCaseTests()
 	testAssert(kdtree->getNodesDebug()[0].getPosChildIndex() == 2);
 	testAssert(kdtree->getNodesDebug()[0].getSplittingAxis() == 0);
 	testAssert(kdtree->getNodesDebug()[0].data2.dividing_val == 1.0f);*/
-
-	js::TriTreePerThreadData tree_context;
 
 	const SSE_ALIGN Ray ray(Vec3d(1,0,-1), Vec3d(0,0,1));
 	HitInfo hitinfo;

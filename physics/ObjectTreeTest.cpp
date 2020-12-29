@@ -8,7 +8,6 @@ Code By Nicholas Chapman.
 
 
 #include "../raytracing/hitinfo.h"
-#include "jscol_TriTreePerThreadData.h"
 #include "../indigo/Vec3MatParameter.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../maths/PCG32.h"
@@ -253,7 +252,6 @@ void ObjectTreeTest::doTests()
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
 
-	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context;//(true);
 
@@ -502,7 +500,6 @@ void ObjectTreeTest::doSpeedTest()
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
 
-	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	//ObjectTreePerThreadData obtree_context;//(true);
 
@@ -636,7 +633,6 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 	ObjectTreeStats stats;
 	ob_tree.getTreeStats(stats);
 
-	//TriTreePerThreadData tritree_context;
 	//ObjectTreePerThreadData* obtree_context = ob_tree.allocContext();
 	ObjectTreePerThreadData obtree_context;//(true);
 
