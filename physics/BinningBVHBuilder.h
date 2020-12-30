@@ -52,6 +52,12 @@ struct BinningOb
 	{
 		std::memcpy(&aabb.min_.x[3], &index, 4);
 	}
+
+	void set(const js::AABBox& new_aabb, int index)
+	{
+		aabb.min_ = setW(new_aabb.min_, index);
+		aabb.max_ = new_aabb.max_;
+	}
 };
 
 
@@ -99,7 +105,7 @@ public:
 	);
 	~BinningBVHBuilder();
 
-	inline void setObjectAABB(size_t ob_i, const js::AABBox& aabb); // ob_i should be < num_objects constructor arg.
+	inline void setObjectAABB(int ob_i, const js::AABBox& aabb); // ob_i should be < num_objects constructor arg.
 
 	// Throws Indigo::CancelledException if cancelled.
 	virtual void build(
@@ -114,9 +120,6 @@ public:
 	const BVHBuilder::ResultObIndicesVec& getResultObjectIndices() const { return result_indices; }
 
 	int getMaxLeafDepth() const { return stats.max_leaf_depth; } // Root node is considered to have depth 0.
-
-	static void printResultNode(const ResultNode& result_node);
-	static void printResultNodes(const js::Vector<ResultNode, 64>& result_nodes);
 
 	static void test(bool comprehensive_tests);
 
@@ -169,11 +172,10 @@ public:
 };
 
 
-void BinningBVHBuilder::setObjectAABB(size_t ob_i, const js::AABBox& aabb)
+void BinningBVHBuilder::setObjectAABB(int ob_i, const js::AABBox& aabb)
 {
 	root_aabb.enlargeToHoldAABBox(aabb);
 	root_centroid_aabb.enlargeToHoldPoint(aabb.centroid());
 
-	objects[ob_i].aabb = aabb;
-	objects[ob_i].setIndex((int)ob_i);
+	objects[ob_i].set(aabb, ob_i);
 }

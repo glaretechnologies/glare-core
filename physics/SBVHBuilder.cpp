@@ -294,14 +294,6 @@ SBVHLeafResultChunk* SBVHBuilder::allocNewLeafResultChunk()
 }
 
 
-INDIGO_STRONG_INLINE Vec4f setW(const Vec4f& a, int new_w_val_i)
-{
-	const Vec4f new_w = bitcastToVec4f(loadIntToLowElem(new_w_val_i)); // [new_w, 0, 0, 0]
-	const Vec4f v1 = shuffle<2, 2, 0, 0>(a, new_w); // [z, z, new_w, new_w]
-	return shuffle<0, 1, 0, 2>(a, v1); // [x, y, z, new_w]
-}
-
-
 // Top-level build method
 void SBVHBuilder::build(
 		Indigo::TaskManager& task_manager_,

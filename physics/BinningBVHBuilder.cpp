@@ -944,7 +944,6 @@ void BinningBVHBuilder::doBuild(
 			return;
 		}
 
-
 		// Make this a leaf node
 		node_result_chunk->nodes[node_index].interior = false;
 		node_result_chunk->nodes[node_index].aabb = aabb;
@@ -966,9 +965,6 @@ void BinningBVHBuilder::doBuild(
 		thread_temp_info.stats.num_leaves++;
 		return;
 	}
-
-	const float traversal_cost = 1.0f;
-	const float non_split_cost = N * intersection_cost; // Eqn 2.
 	
 	float smallest_split_cost_factor; // Smallest (N_L * half_left_surface_area + N_R * half_right_surface_area) found.
 	int best_axis;
@@ -987,6 +983,9 @@ void BinningBVHBuilder::doBuild(
 	}
 	else
 	{
+		const float traversal_cost = 1.0f;
+		const float non_split_cost = N * intersection_cost;
+
 		// C_split = P_L N_L C_i + P_R N_R C_i + C_t
 		//         = A_L/A N_L C_i + A_R/A N_R C_i + C_t
 		//         = C_i (A_L N_L + A_R N_R) / A + C_t
@@ -1122,38 +1121,6 @@ void BinningBVHBuilder::doBuild(
 }
 
 
-void BinningBVHBuilder::printResultNode(const ResultNode& result_node)
-{
-	if(result_node.interior)
-		conPrint(" Interior");
-	else
-		conPrint(" Leaf");
-
-	conPrint("	AABB:  " + result_node.aabb.toStringNSigFigs(4));
-	if(result_node.interior)
-	{
-		conPrint("	left_child_index:  " + toString(result_node.left));
-		conPrint("	right_child_index: " + toString(result_node.right));
-		conPrint("	right_child_chunk_index: " + toString(result_node.right_child_chunk_index));
-	}
-	else
-	{
-		conPrint("	objects_begin: " + toString(result_node.left));
-		conPrint("	objects_end:   " + toString(result_node.right));
-	}
-}
-
-
-void BinningBVHBuilder::printResultNodes(const js::Vector<ResultNode, 64>& result_nodes)
-{
-	for(size_t i=0; i<result_nodes.size(); ++i)
-	{
-		conPrintStr("node " + toString(i) + ": ");
-		printResultNode(result_nodes[i]);
-	}
-}
-
-
 #if BUILD_TESTS
 
 
@@ -1238,7 +1205,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 				aabb.enlargeToHoldPoint(tris[z].v[0]);
 				aabb.enlargeToHoldPoint(tris[z].v[1]);
 				aabb.enlargeToHoldPoint(tris[z].v[2]);
-				builder.setObjectAABB(z, aabb);
+				builder.setObjectAABB((int)z, aabb);
 			}
 
 			js::Vector<ResultNode, 64> result_nodes;

@@ -86,7 +86,7 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 	{
 		this->root_node_index = 0;
 
-		// Convert result_nodes to BVHObjectTreeNodes.
+		// Convert result_nodes to BVHNodes.
 		// Indices will change, since we will not explicitly store leaf nodes in the BVH object tree.  Rather leaf geometry references are put into the child references of the node above.
 		const size_t result_nodes_size = result_nodes.size();
 		js::Vector<int, 16> new_node_indices(result_nodes_size); // For each old node, store the new index.
