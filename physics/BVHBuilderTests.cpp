@@ -234,7 +234,7 @@ static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objec
 		);
 
 		for(size_t z=0; z<tris.size(); ++z)
-			builder->setObjectAABB(z, aabbs[z]);
+			builder->setObjectAABB((int)z, aabbs[z]);
 
 		builder->new_task_num_ob_threshold = 32;
 		builders.push_back(builder);
