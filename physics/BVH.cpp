@@ -37,18 +37,18 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 	Timer timer;
 
 	const RayMesh::TriangleVectorType& raymesh_tris = raymesh->getTriangles();
-	const size_t raymesh_tris_size = raymesh_tris.size();
+	const int raymesh_tris_size = (int)raymesh_tris.size();
 	const RayMesh::VertexVectorType& raymesh_verts = raymesh->getVertices();
 
 	Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(
 		1, // leaf_num_object_threshold.
-		31, // max_num_objects_per_leaf
+		63, // max_num_objects_per_leaf
 		60, // max_depth
 		1.f, // intersection_cost
-		(int)raymesh_tris_size
+		raymesh_tris_size
 	);
 
-	for(size_t i=0; i<raymesh_tris_size; ++i)
+	for(int i=0; i<raymesh_tris_size; ++i)
 	{
 		const RayMeshTriangle& tri = raymesh_tris[i];
 		const Vec4f v0 = raymesh_verts[tri.vertex_indices[0]].pos.toVec4fPoint();
@@ -109,9 +109,24 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 				const ResultNode& result_left_child  = result_nodes[result_node.left];
 				const ResultNode& result_right_child = result_nodes[result_node.right];
 
-				node.x = Vec4f(result_left_child.aabb.min_.x[0], result_right_child.aabb.min_.x[0], result_left_child.aabb.max_.x[0], result_right_child.aabb.max_.x[0]);
-				node.y = Vec4f(result_left_child.aabb.min_.x[1], result_right_child.aabb.min_.x[1], result_left_child.aabb.max_.x[1], result_right_child.aabb.max_.x[1]);
-				node.z = Vec4f(result_left_child.aabb.min_.x[2], result_right_child.aabb.min_.x[2], result_left_child.aabb.max_.x[2], result_right_child.aabb.max_.x[2]);
+				Vec4f mins = shuffle<0, 1, 0, 1>(result_left_child.aabb.min_, result_right_child.aabb.min_); // (left_min_x, left_min_y, right_min_x, right_min_y)
+				Vec4f maxs = shuffle<0, 1, 0, 1>(result_left_child.aabb.max_, result_right_child.aabb.max_); // (left_max_x, left_max_y, right_max_x, right_max_y)
+
+				node.x = shuffle<0, 2, 0, 2>(mins, maxs); // (left_min_x, right_min_x, left_max_x, right_max_x)
+				node.y = shuffle<1, 3, 1, 3>(mins, maxs); // (left_min_y, right_min_y, left_max_y, right_max_y)
+
+				mins = shuffle<2, 2, 2, 2>(result_left_child.aabb.min_, result_right_child.aabb.min_); // (left_min_z, left_min_z, right_min_z, right_min_z)
+				maxs = shuffle<2, 2, 2, 2>(result_left_child.aabb.max_, result_right_child.aabb.max_); // (left_max_z, left_max_z, right_max_z, right_max_z)
+
+				node.z = shuffle<0, 2, 0, 2>(mins, maxs); // (left_min_z, right_min_z, left_max_z, right_max_z)
+
+				assert(node.x[0] == result_left_child.aabb.min_[0] && node.x[1] == result_right_child.aabb.min_[0] && node.x[2] == result_left_child.aabb.max_[0] && node.x[3] == result_right_child.aabb.max_[0]);
+				assert(node.y[0] == result_left_child.aabb.min_[1] && node.y[1] == result_right_child.aabb.min_[1] && node.y[2] == result_left_child.aabb.max_[1] && node.y[3] == result_right_child.aabb.max_[1]);
+				assert(node.z[0] == result_left_child.aabb.min_[2] && node.z[1] == result_right_child.aabb.min_[2] && node.z[2] == result_left_child.aabb.max_[2] && node.z[3] == result_right_child.aabb.max_[2]);
+
+				//node.x = Vec4f(result_left_child.aabb.min_.x[0], result_right_child.aabb.min_.x[0], result_left_child.aabb.max_.x[0], result_right_child.aabb.max_.x[0]);
+				//node.y = Vec4f(result_left_child.aabb.min_.x[1], result_right_child.aabb.min_.x[1], result_left_child.aabb.max_.x[1], result_right_child.aabb.max_.x[1]);
+				//node.z = Vec4f(result_left_child.aabb.min_.x[2], result_right_child.aabb.min_.x[2], result_left_child.aabb.max_.x[2], result_right_child.aabb.max_.x[2]);
 
 				// Set node.child[0] and node.child[1]
 				if(result_left_child.interior)
@@ -684,3 +699,112 @@ size_t BVH::getTotalMemUsage() const
 
 
 } // end namespace js
+
+
+#if BUILD_TESTS
+
+
+#include "../dll/include/IndigoMesh.h"
+#include "../dll/include/IndigoException.h"
+#include "../dll/IndigoStringUtils.h"
+#include "../indigo/TestUtils.h"
+#include "../utils/StandardPrintOutput.h"
+#include "../utils/StringUtils.h"
+#include "../utils/ConPrint.h"
+#include "../utils/TaskManager.h"
+#include "../utils/Timer.h"
+#include "../utils/FileUtils.h"
+#include "../utils/ShouldCancelCallback.h"
+
+
+static void testOnAllIGMeshes(bool comprehensive_tests)
+{
+	Indigo::TaskManager task_manager;
+	StandardPrintOutput print_output;
+	DummyShouldCancelCallback should_cancel_callback;
+
+	Timer timer;
+	std::vector<std::string> files = FileUtils::getSortedFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+
+	const size_t num_to_test = comprehensive_tests ? files.size() : 100;
+	for(size_t i=0; i<num_to_test; ++i)
+	{
+		try
+		{
+			Indigo::Mesh indigo_mesh;
+			Indigo::Mesh::readFromFile(toIndigoString(files[i]), indigo_mesh);
+
+			conPrint(toString(i) + "/" + toString(files.size()) + ": Building '" + files[i] + "'... (tris: " + toString(indigo_mesh.triangles.size()) + ", quads: " + toString(indigo_mesh.quads.size()) + ")");
+
+			RayMesh raymesh("raymesh", /*enable_shading_normals=*/false);
+			raymesh.fromIndigoMesh(indigo_mesh);
+			raymesh.buildTrisFromQuads();
+
+			js::BVH bvh(&raymesh);
+			bvh.build(print_output, should_cancel_callback, task_manager);
+		}
+		catch(Indigo::IndigoException& e)
+		{
+			conPrint("Skipping mesh failed to read (" + files[i] + "): " + toStdString(e.what())); // Error reading mesh file (maybe invalid)
+		}
+	}
+	conPrint("Finished building all meshes.  Elapsed: " + timer.elapsedStringNSigFigs(3));
+}
+
+
+void js::BVH::test(bool comprehensive_tests)
+{
+	conPrint("js::BVH::test()");
+
+	testOnAllIGMeshes(comprehensive_tests);
+
+	if(false) // Perf test
+	{
+		Indigo::TaskManager task_manager;
+		StandardPrintOutput print_output;
+		DummyShouldCancelCallback should_cancel_callback;
+
+		Indigo::Mesh indigo_mesh;
+		try
+		{
+			const std::string path = TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh";
+			Indigo::Mesh::readFromFile(toIndigoString(path), indigo_mesh);
+
+			conPrint("Building '" + path + "'... (tris: " + toString(indigo_mesh.triangles.size()) + ", quads: " + toString(indigo_mesh.quads.size()) + ")");
+
+			RayMesh raymesh("raymesh", /*enable_shading_normals=*/false);
+			raymesh.fromIndigoMesh(indigo_mesh);
+			raymesh.buildTrisFromQuads();
+			testAssert(raymesh.getNumTris() == 3202576);
+
+			double sum_time = 0;
+			double min_time = 1.0e100;
+			const int trials = 10;
+			for(int i=0; i<trials; ++i)
+			{
+				Timer timer;
+
+				js::BVH bvh(&raymesh);
+				bvh.build(print_output, should_cancel_callback, task_manager);
+
+				const double elapsed = timer.elapsed();
+				sum_time += elapsed;
+				min_time = myMin(min_time, elapsed);
+			}
+
+			const double av_time = sum_time / trials;
+			conPrint("av_time:  " + toString(av_time) + " s");
+			conPrint("min_time: " + toString(min_time) + " s");
+		}
+		catch(Indigo::IndigoException& e)
+		{
+			failTest(toStdString(e.what()));
+		}
+
+	}
+
+	conPrint("js::BVH::test() done.");
+}
+
+
+#endif // BUILD_TESTS

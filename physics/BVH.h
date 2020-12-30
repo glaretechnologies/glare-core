@@ -61,6 +61,8 @@ public:
 	virtual void printTraceStats() const {}
 	virtual size_t getTotalMemUsage() const;
 
+	static void test(bool comprehensive_tests);
+
 	typedef uint32 TRI_INDEX;
 private:
 	inline void intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws,
