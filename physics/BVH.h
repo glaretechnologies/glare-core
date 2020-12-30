@@ -31,7 +31,7 @@ public:
 	Vec4f y; // (left_min_y, right_min_y, left_max_y, right_max_y)
 	Vec4f z; // (left_min_z, right_min_z, left_max_z, right_max_z)
 
-	int32 child[2];
+	int32 child[2]; // bit 31 (sign bit): leaf node.  If interior node, bits 0...30 are child node index.  If leaf node, bits 5...31 are leaf geom start (26 bits), bits 0...4 (5 bits) are num leaf geom.
 	int32 padding[2]; // Pad to 64 bytes.
 };
 

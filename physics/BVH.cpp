@@ -42,7 +42,7 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 
 	Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(
 		1, // leaf_num_object_threshold.
-		63, // max_num_objects_per_leaf
+		31, // max_num_objects_per_leaf
 		60, // max_depth
 		1.f, // intersection_cost
 		raymesh_tris_size
@@ -78,8 +78,8 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 		// Special case where the root node is a leaf.  
 		const int num = result_nodes[0].right - result_nodes[0].left;
 		const int offset = result_nodes[0].left;
-		assert(num < 64);
-		int c = 0x80000000 | num | (offset << 6);
+		assert(num < 32);
+		int c = 0x80000000 | num | (offset << 5);
 		this->root_node_index = c;
 	}
 	else
@@ -139,8 +139,8 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 					// Number of objects is in lower 6 bits.  Set sign bit to 1.
 					const int num = result_left_child.right - result_left_child.left;
 					const int offset = result_left_child.left;
-					assert(num < 64);
-					int c = 0x80000000 | num | (offset << 6);
+					assert(num < 32);
+					int c = 0x80000000 | num | (offset << 5);
 					node.child[0] = c;
 				}
 
@@ -154,8 +154,8 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 					// Number of objects is in lower 6 bits.  Set sign bit to 1.
 					const int num = result_right_child.right - result_right_child.left;
 					const int offset = result_right_child.left;
-					assert(num < 64);
-					int c = 0x80000000 | num | (offset << 6);
+					assert(num < 32);
+					int c = 0x80000000 | num | (offset << 5);
 					node.child[1] = c;
 				}
 			}
@@ -300,8 +300,8 @@ stack_pop:
 
 		// current node is a leaf.  Intersect objects.
 		cur ^= 0x80000000; // Zero sign bit
-		const size_t ofs = size_t(cur) >> 6;
-		const size_t num = size_t(cur) & 0x3F;
+		const size_t ofs = size_t(cur) >> 5;
+		const size_t num = size_t(cur) & 0x1F;
 		for(size_t i=ofs; i<ofs+num; i++)
 		{
 			const uint32 tri_index = leaf_tri_indices[i];
@@ -414,8 +414,8 @@ stack_pop:
 
 		// current node is a leaf.  Intersect objects.
 		cur ^= 0x80000000; // Zero sign bit
-		const size_t ofs = size_t(cur) >> 6;
-		const size_t num = size_t(cur) & 0x3F;
+		const size_t ofs = size_t(cur) >> 5;
+		const size_t num = size_t(cur) & 0x1F;
 		for(size_t i=ofs; i<ofs+num; i++)
 		{
 			const uint32 tri_index = leaf_tri_indices[i];
@@ -645,8 +645,8 @@ stack_pop:
 
 		// current node is a leaf.  Intersect objects.
 		cur ^= 0x80000000; // Zero sign bit
-		const size_t ofs = size_t(cur) >> 6;
-		const size_t num = size_t(cur) & 0x3F;
+		const size_t ofs = size_t(cur) >> 5;
+		const size_t num = size_t(cur) & 0x1F;
 		for(size_t i=ofs; i<ofs+num; i++)
 		{
 			const uint32 tri_index = leaf_tri_indices[i];
