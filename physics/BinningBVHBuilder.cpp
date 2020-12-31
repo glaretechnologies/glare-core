@@ -77,7 +77,7 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 {
 	assert(intersection_cost > 0.f);
 
-	// See /wiki/index.php?title=BVH_Building for results on varying these settings.
+	// See /wiki/index.php?title=BVH_Building, in particular wiki/index.php?title=Task_size_experiments for results on varying these settings.
 	new_task_num_ob_threshold = 1 << 9;
 
 	static_assert(sizeof(ResultNode) == 48, "sizeof(ResultNode) == 48");

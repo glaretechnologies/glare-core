@@ -25,11 +25,20 @@ Copyright Glare Technologies Limited 2020 -
 /*
 TODO
 ----
-* Do actual in-place partitioning without the extra temp_obs array.
+* Do actual in-place partitioning without the extra temp_obs array. (partition in-place then move)
 
 * Of if still using temp_obs: ping-pong between buffers instead of copying back.
 
-* Try precomputing reciprocal tri edge vectors - should make clipping faster. 
+* Try precomputing reciprocal tri edge vectors - should make clipping faster.  (see edge recip distances precomputed.patch)
+
+* Do binning in tasks in SBVHBuilder as well as in BinningBVHBuilder? (doesn't seem to measurably speed up)
+
+* Can definitely get better builds lowering alpha. (threshold for spatial splits search)
+
+* prefetch tri in partition as well as search? (doesn't seem to measurably speed up)
+
+* const int num_spatial_buckets = 16;:   tweak this?
+
 */
 
 
@@ -146,8 +155,7 @@ SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per
 	triangles = triangles_;
 	m_num_objects = num_objects_;
 
-	// See /wiki/index.php?title=BVH_Building for results on varying these settings.
-	axis_parallel_num_ob_threshold = 1 << 20;
+	// See /wiki/index.php?title=BVH_Building for results on varying this settings.
 	new_task_num_ob_threshold = 1 << 9;
 
 	static_assert(sizeof(ResultNode) == 48, "sizeof(ResultNode) == 48");
@@ -863,7 +871,7 @@ static void partition(std::vector<SBVHOb>& objects_, std::vector<SBVHOb>& temp_o
 
 
 // Compute AABBs of objects partitioned left and right, and the number partioned left and right, for a spatial split with unsplitting, without doing any actual partitioning.
-static void tentativeSpatialPartition(const std::vector<SBVHOb>& objects_, const BVHBuilderTri* triangles, const js::AABBox& parent_aabb, int begin, int end, 
+static void spatialPartitionResultWithUnsplitting(const std::vector<SBVHOb>& objects_, const BVHBuilderTri* triangles, const js::AABBox& parent_aabb, int begin, int end, 
 	float best_div_val, int best_axis, int best_bucket,
 	PartitionRes& res_out)
 {
@@ -1578,7 +1586,7 @@ static void searchForBestSplit(const js::AABBox& aabb, const js::AABBox& centroi
 			if(unsplit_a_tri) // Cost will only have changed if we actually unsplit something.
 			{
 				PartitionRes res;
-				tentativeSpatialPartition(objects_, triangles, aabb, begin, end, spatial_best_div_val, spatial_best_axis, spatial_best_bucket, res);
+				spatialPartitionResultWithUnsplitting(objects_, triangles, aabb, begin, end, spatial_best_div_val, spatial_best_axis, spatial_best_bucket, res);
 
 				if(res.num_left > 0 && res.num_right > 0) // If valid partition: (might end up with everything left or right due to numerical innaccuracy)
 				{

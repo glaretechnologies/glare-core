@@ -12,6 +12,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/PrintOutput.h"
 #include "../utils/Timer.h"
+#include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
 
 
 namespace js
@@ -43,7 +45,7 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 	Reference<BinningBVHBuilder> builder = new BinningBVHBuilder(
 		1, // leaf_num_object_threshold.
 		31, // max_num_objects_per_leaf
-		60, // max_depth
+		64, // max_depth
 		1.f, // intersection_cost
 		raymesh_tris_size
 	);
@@ -69,7 +71,6 @@ void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_c
 		result_nodes
 	);
 	const BVHBuilder::ResultObIndicesVec& result_ob_indices = builder->getResultObjectIndices();
-
 
 	root_aabb = builder->getRootAABB();
 
@@ -267,8 +268,8 @@ stack_pop:
 					if(new_near_far.x[0] < new_near_far.x[1]) // If left child is closer
 					{
 						// Push right child onto stack
-						assert(stack_top < 64);
 						stack_top++;
+						assert(stack_top < 64);
 						stack[stack_top] = node.child[1];
 						dist_stack[stack_top] = new_near_far.x[1]; // push near_right
 
@@ -278,6 +279,7 @@ stack_pop:
 					{
 						// Push left child onto stack
 						stack_top++;
+						assert(stack_top < 64);
 						stack[stack_top] = node.child[0];
 						dist_stack[stack_top] = new_near_far.x[0]; // push near_left
 
@@ -307,10 +309,10 @@ stack_pop:
 			const uint32 tri_index = leaf_tri_indices[i];
 
 			MollerTrumboreTri tri;
-			tri.set(raymesh->triVertPos(tri_index, 0), raymesh->triVertPos(tri_index, 1), raymesh->triVertPos(tri_index, 2));
+			tri.set(raymesh->triVertPos(tri_index, 0), raymesh->triVertPos(tri_index, 1), raymesh->triVertPos(tri_index, 2)); // TODO: use unaligned loads here for speed etc..
 
 			Real dist;
-			if(tri.referenceIntersect(ray, &ob_hit_info.sub_elem_coords.x, &ob_hit_info.sub_elem_coords.y, &dist))
+			if(tri.referenceIntersect(ray, &ob_hit_info.sub_elem_coords.x, &ob_hit_info.sub_elem_coords.y, &dist)) // TODO: use a fast intersect method (SSE)
 			{
 				if(dist >= ray.minT() && dist < ray.maxT())
 				{
@@ -708,6 +710,7 @@ size_t BVH::getTotalMemUsage() const
 #include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../indigo/TestUtils.h"
+#include "../maths/PCG32.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
@@ -715,6 +718,39 @@ size_t BVH::getTotalMemUsage() const
 #include "../utils/Timer.h"
 #include "../utils/FileUtils.h"
 #include "../utils/ShouldCancelCallback.h"
+
+
+// Test tracing some rays through the BVH
+static void testTracingRays(js::BVH& bvh, const RayMesh& raymesh)
+{
+	const int N = 10000;
+	PCG32 rng(1);
+	int num_hit = 0;
+	Timer timer;
+	for(int z=0; z<N; ++z)
+	{
+		Ray ray(
+			Vec4f(
+				bvh.getAABBox().min_[0] + (-0.5f + rng.unitRandom() * 2.f) * (bvh.getAABBox().max_[0] - bvh.getAABBox().min_[0]),
+				bvh.getAABBox().min_[1] + (-0.5f + rng.unitRandom() * 2.f) * (bvh.getAABBox().max_[1] - bvh.getAABBox().min_[1]),
+				bvh.getAABBox().min_[2] + (-0.5f + rng.unitRandom() * 2.f) * (bvh.getAABBox().max_[2] - bvh.getAABBox().min_[2]),
+				1.f
+			),
+			normalise(Vec4f(-1.f + rng.unitRandom()*2, -1.f + rng.unitRandom()*2, -1.f + rng.unitRandom()*2, 0)),
+			0.f, // min_t
+			1.0e20f // max_t
+		);
+
+		HitInfo hitinfo;
+		const auto dist = bvh.traceRay(ray, hitinfo);
+		if(dist >= 0)
+		{
+			testAssert(hitinfo.sub_elem_index < raymesh.getNumTris());
+			num_hit++;
+		}
+	}
+	conPrint("Frac rays hit: " + toString((double)num_hit / N) + ", tracing speed: " + doubleToStringNSigFigs(N / timer.elapsed(), 4) + " rays/s");
+}
 
 
 static void testOnAllIGMeshes(bool comprehensive_tests)
@@ -742,6 +778,8 @@ static void testOnAllIGMeshes(bool comprehensive_tests)
 
 			js::BVH bvh(&raymesh);
 			bvh.build(print_output, should_cancel_callback, task_manager);
+		
+			testTracingRays(bvh, raymesh);
 		}
 		catch(Indigo::IndigoException& e)
 		{
@@ -790,6 +828,9 @@ void js::BVH::test(bool comprehensive_tests)
 				const double elapsed = timer.elapsed();
 				sum_time += elapsed;
 				min_time = myMin(min_time, elapsed);
+
+
+				testTracingRays(bvh, raymesh);
 			}
 
 			const double av_time = sum_time / trials;

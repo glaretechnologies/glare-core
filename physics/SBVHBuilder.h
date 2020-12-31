@@ -201,7 +201,6 @@ private:
 
 	ShouldCancelCallback* should_cancel_callback;
 public:
-	int axis_parallel_num_ob_threshold;
 	int new_task_num_ob_threshold;
 
 	SBVHBuildStats stats;
