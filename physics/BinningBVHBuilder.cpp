@@ -75,6 +75,7 @@ BinningBVHBuilder::BinningBVHBuilder(int leaf_num_object_threshold_, int max_num
 	m_num_objects(num_objects_),
 	should_cancel_callback(NULL)
 {
+	assert(max_depth >= 0);
 	assert(intersection_cost > 0.f);
 
 	// See /wiki/index.php?title=BVH_Building, in particular wiki/index.php?title=Task_size_experiments for results on varying these settings.
@@ -1156,7 +1157,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 		Indigo::Mesh mesh;
 		try
 		{
-			//if(i < 1169)
+			//if(i < 188)
 			//	continue;
 
 			Indigo::Mesh::readFromFile(toIndigoString(files[i]), mesh);
@@ -1194,7 +1195,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 
 			const int max_num_objects_per_leaf = 31;
 			const float intersection_cost = 1.f;
-			const int max_depth = test_near_build_failure ? ((int)logBase2<double>((double)tris.size() / max_num_objects_per_leaf) + 2) : 60;
+			const int max_depth = test_near_build_failure ? myMax(0, ((int)logBase2<double>((double)tris.size() / max_num_objects_per_leaf) + 2)) : 60;
 			BinningBVHBuilder builder(/*leaf_num_object_threshold=*/1, max_num_objects_per_leaf, max_depth, intersection_cost, 
 				(int)tris.size()
 			);
