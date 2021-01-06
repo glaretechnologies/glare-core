@@ -75,7 +75,7 @@ public:
 		const std::string& y_label,
 		const std::vector<DataSet>& data,
 		PlotOptions options = PlotOptions()
-		);
+	);
 
 	// throws Indigo::Exception on failure.
 	static void plot3D(
@@ -86,7 +86,16 @@ public:
 		const std::string& key,
 		const Array2D<Vec3f>& data,
 		PlotOptions options = PlotOptions()
-		);
+	);
+
+	static void scatterPlot(
+		const std::string& path,
+		const std::string& title,
+		const std::string& x_label,
+		const std::string& y_label,
+		const std::vector<DataSet>& data,
+		PlotOptions options = PlotOptions()
+	);
 
 };
 
