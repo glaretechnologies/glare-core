@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2018 -
 
 
 #include "Clock.h"
+#include "ConPrint.h"
 #include <assert.h>
 #include <string>
 
@@ -86,3 +87,18 @@ void Timer::unpause()
 		last_time_started = Clock::getCurTimeRealSec();
 	}
 }
+
+
+// A little utility class for printing out a message when a timer goes out of scope.
+class ScopeTimer
+{
+public:
+	ScopeTimer(const char* name_) : name(name_) {}
+	~ScopeTimer()
+	{
+		conPrint(std::string(name) + " took " + timer.elapsedStringNSigFigs(4));
+	}
+
+	Timer timer;
+	const char* name;
+};
