@@ -150,6 +150,7 @@ SBVHBuilder::SBVHBuilder(int leaf_num_object_threshold_, int max_num_objects_per
 	intersection_cost(intersection_cost_),
 	should_cancel_callback(NULL)
 {
+	assert(max_depth >= 0);
 	assert(intersection_cost > 0.f);
 
 	triangles = triangles_;
@@ -300,6 +301,14 @@ SBVHLeafResultChunk* SBVHBuilder::allocNewLeafResultChunk()
 	leaf_result_chunks.push_back(chunk);
 	return chunk;
 }
+
+
+struct SBVHStackEntry
+{
+	uint32 node_index;
+	int parent_node_index; // -1 if no parent.
+	bool is_left;
+};
 
 
 // Top-level build method
@@ -511,62 +520,103 @@ void SBVHBuilder::build(
 	leaf_result_chunks.clear();
 
 
-
-	// Build map from index in result_chunks data to final node index.
-	js::Vector<uint32, 16> final_node_indices(result_chunks.size() * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE);
-	write_i = 0;
+	// Count number of result nodes
+	size_t num_nodes = 0;
 	for(size_t c=0; c<result_chunks.size(); ++c)
+		num_nodes += result_chunks[c]->size;
+	
+	// Convert nodes in our SBVHResultChunks into a nice linear array of nodes, in either a depth-first or breadth-first traversal order.
+	result_nodes_out.resizeNoCopy(num_nodes);
+
+	CircularBuffer<SBVHStackEntry> stack; // Stack of references to interior nodes to process.
+
+	// Push root node onto stack
 	{
-		for(size_t i=0; i<result_chunks[c]->size; ++i)
-		{
-			final_node_indices[c * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE + i] = write_i++;
-		}
+		SBVHStackEntry entry;
+		entry.node_index = 0;
+		entry.parent_node_index = -1; // TODO: could just decide on breadth first ordering, then don't need to do patch-ups.
+		stack.push_back(entry);
 	}
 
-#ifndef NDEBUG
-	const int total_num_nodes = write_i;
-#endif
-	result_nodes_out.resizeNoCopy(write_i);
-
-	for(size_t c=0; c<result_chunks.size(); ++c)
+	int res_node_index = 0;
+	while(!stack.empty())
 	{
-		const SBVHResultChunk& chunk = *result_chunks[c];
-		size_t src_node_i = c * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE;
+		/*
+		Breadth-first traversal seems to be slightly faster:
+		 
+		// Popping off front of queue - this gives a breadth-first traversal
+		14.747
+		14.711
+		14.716
+		14.683
+		14.690
 
-		for(size_t i=0; i<chunk.size; ++i)
+		// Popping off back of stack - this gives a depth-first traversal
+		14.658
+		14.652
+		*/
+
+		// Popping off back of stack - this gives a depth-first traversal
+		//const SBVHStackEntry entry = stack.back();
+		//stack.pop_back();
+
+		// Popping off front of queue - this gives a breadth-first traversal
+		const SBVHStackEntry entry = stack.front();
+		stack.pop_front();
+
+		const uint32 chunk_index = entry.node_index / SBVHResultChunk::MAX_RESULT_CHUNK_SIZE;
+		const SBVHResultChunk& chunk = *result_chunks[chunk_index];
+		const ResultNode* src_node = &chunk.nodes[entry.node_index - chunk_index * SBVHResultChunk::MAX_RESULT_CHUNK_SIZE];
+		
+		const int dst_node_index = res_node_index++;
+
+		// Fix up index in parent node to this node.
+		if(entry.parent_node_index >= 0)
 		{
-			ResultNode chunk_node = chunk.nodes[i];
-
-			// If this is an interior node, we need to fix up some links.
-			if(chunk_node.interior)
-			{
-				chunk_node.left  = final_node_indices[chunk_node.left];
-				chunk_node.right = final_node_indices[chunk_node.right];
-
-				assert(chunk_node.left  >= 0 && chunk_node.left  < total_num_nodes);
-				assert(chunk_node.right >= 0 && chunk_node.right < total_num_nodes);
-			}
+			if(entry.is_left)
+				result_nodes_out[entry.parent_node_index].left = dst_node_index;
 			else
-			{
-				const int old_left = chunk_node.left;
-				const int old_right = chunk_node.right;
-
-				chunk_node.left  = final_leaf_geom_indices[chunk_node.left];
-				chunk_node.right = chunk_node.left + (old_right - old_left); // new prim end = new prim start + (old prim end - old prim start)
-
-				assert(chunk_node.left  >= 0 && chunk_node.left  < total_num_leaf_geom);
-				assert(chunk_node.right >= 0 && chunk_node.right <= total_num_leaf_geom);
-			}
-
-			const uint32 final_pos = final_node_indices[src_node_i];
-			result_nodes_out[final_pos] = chunk_node; // Copy node to final array
-			src_node_i++;
+				result_nodes_out[entry.parent_node_index].right = dst_node_index;
 		}
 
-		delete result_chunks[c];
+		if(src_node->interior)
+		{
+			// Push left
+			{
+				SBVHStackEntry new_entry;
+				new_entry.is_left = true;
+				new_entry.node_index = src_node->left;
+				new_entry.parent_node_index = dst_node_index;
+				stack.push_back(new_entry);
+			}
+
+			// Push right
+			{
+				SBVHStackEntry new_entry;
+				new_entry.is_left = false;
+				new_entry.node_index = src_node->right;
+				new_entry.parent_node_index = dst_node_index;
+				stack.push_back(new_entry);
+			}
+		}
+		else
+		{
+			// This is a leaf node
+			const int new_left = final_leaf_geom_indices[src_node->left];
+			result_nodes_out[dst_node_index].left = new_left;
+			result_nodes_out[dst_node_index].right = new_left + (src_node->right - src_node->left); // new prim end = new prim start + (old prim end - old prim start)
+		}
+
+		result_nodes_out[dst_node_index].aabb = src_node->aabb;
+		result_nodes_out[dst_node_index].interior = src_node->interior;
 	}
+
+	assert(res_node_index == result_nodes_out.size());
+
+	for(size_t c=0; c<result_chunks.size(); ++c)
+		delete result_chunks[c];
 	result_chunks.clear();
-	//conPrint("Final merge elapsed: " + timer.elapsedString());
+
 
 	// Combine stats from each thread
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
