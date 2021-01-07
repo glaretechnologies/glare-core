@@ -1,8 +1,7 @@
 /*=====================================================================
 NetworkingTests.cpp
 -------------------
-Copyright Glare Technologies Limited 2010 -
-Generated at Fri Oct 22 13:53:30 +1300 2010
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "NetworkingTests.h"
 

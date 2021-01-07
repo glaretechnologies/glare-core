@@ -1,8 +1,7 @@
 /*=====================================================================
 Networking.cpp
 --------------
-Copyright Glare Technologies Limited 2013 -
-File created by ClassTemplate on Thu Apr 18 15:19:22 2002
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "Networking.h"
 

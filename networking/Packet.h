@@ -1,15 +1,13 @@
 /*=====================================================================
 Packet.h
 --------
-File created by ClassTemplate on Sun Apr 14 10:14:17 2002
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
-#ifndef __PACKET_H_666_
-#define __PACKET_H_666_
+#pragma once
 
 
-#include <vector>
 #include "../utils/Platform.h"
+#include <vector>
 #include <cstring> // for size_t
 
 
@@ -76,11 +74,4 @@ private:
 
 	//char* data;
 };
-
-
-
-#endif //__PACKET_H_666_
-
-
-
 

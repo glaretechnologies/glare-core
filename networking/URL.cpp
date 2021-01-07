@@ -1,7 +1,7 @@
 /*=====================================================================
 URL.cpp
 -------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "URL.h"
 

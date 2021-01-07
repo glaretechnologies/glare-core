@@ -1,8 +1,7 @@
 /*=====================================================================
 SMTPClient.h
 ------------
-Copyright Glare Technologies Limited 2018 -
-Generated at 2018-02-01 23:26:27 +1300
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 

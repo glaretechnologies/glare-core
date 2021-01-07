@@ -1,8 +1,7 @@
 /*=====================================================================
 IPAddress.cpp
 -------------
-Copyright Glare Technologies Limited 2018 -
-File created by ClassTemplate on Mon Mar 04 05:05:01 2002
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "IPAddress.h"
 

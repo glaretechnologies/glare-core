@@ -1,8 +1,7 @@
 /*=====================================================================
 Port.cpp
 --------
-File created by ClassTemplate on Mon Jul 07 18:58:34 2003
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "Port.h"
 

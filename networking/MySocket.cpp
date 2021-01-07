@@ -1,8 +1,7 @@
 /*=====================================================================
 MySocket.cpp
 ------------
-Copyright Glare Technologies Limited 2018 -
-File created by ClassTemplate on Wed Apr 17 14:43:14 2002
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "MySocket.h"
 

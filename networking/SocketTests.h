@@ -1,8 +1,7 @@
 /*=====================================================================
 SocketTests.h
--------------------
-Copyright Glare Technologies Limited 2013 -
-Generated at 2013-01-30 13:47:58 +0000
+-------------
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -16,8 +15,6 @@ SocketTests
 class SocketTests
 {
 public:
-	
-
 	static void test();
 };
 

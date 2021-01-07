@@ -1,8 +1,7 @@
 /*=====================================================================
 Packet.cpp
 ----------
-File created by ClassTemplate on Sun Apr 14 10:14:17 2002
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "Packet.h"
 
