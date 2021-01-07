@@ -12,9 +12,13 @@ Copyright Glare Technologies Limited 2020 -
 #include "Platform.h"
 
 
-// This class is designed for when we have a single thread that wants to wait for other threads to do exactly N items of work.
-// The waiting thread creates the count condition, specifying N, then the worker threads call increment().
-// The waiting thread will block (be suspended) in the wait() call, then be notified and wake up when all the N items of work are done.
+/*=====================================================================
+CountCondition
+--------------
+This class is designed for when we have a single thread that wants to wait for other threads to do exactly N items of work.
+The waiting thread creates the count condition, specifying N, then the worker threads call increment().
+The waiting thread will block (be suspended) in the wait() call, then be notified and wake up when all the N items of work are done.
+=====================================================================*/
 class CountCondition
 {
 public:
