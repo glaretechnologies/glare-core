@@ -10,8 +10,8 @@ Generated at 2018-02-01 23:26:27 +1300
 #if USING_LIBRESSL
 
 
-#include "mysocket.h"
-#include "url.h"
+#include "MySocket.h"
+#include "URL.h"
 #include "TLSSocket.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Parser.h"

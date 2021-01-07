@@ -1,15 +1,15 @@
 /*=====================================================================
-packet.cpp
+Packet.cpp
 ----------
 File created by ClassTemplate on Sun Apr 14 10:14:17 2002
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "packet.h"
+#include "Packet.h"
 
 
 #include "assert.h"
 #include "../utils/StringUtils.h"
-#include "networking.h"
+#include "Networking.h"
 #include <cstring>
 
 

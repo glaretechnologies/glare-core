@@ -1,5 +1,5 @@
 /*=====================================================================
-packet.h
+Packet.h
 --------
 File created by ClassTemplate on Sun Apr 14 10:14:17 2002
 Code By Nicholas Chapman.

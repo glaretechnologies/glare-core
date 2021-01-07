@@ -17,8 +17,8 @@ Copyright Glare Technologies Limited 2020 -
 #include <sys/select.h>
 #endif
 
-#include "ipaddress.h"
-#include "mysocket.h"
+#include "IPAddress.h"
+#include "MySocket.h"
 #include "../utils/Platform.h"
 #include "../utils/InStream.h"
 #include "../utils/OutStream.h"

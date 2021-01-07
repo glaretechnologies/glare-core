@@ -1,13 +1,13 @@
 /*=====================================================================
-ipaddress.cpp
+IPAddress.cpp
 -------------
 Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Mon Mar 04 05:05:01 2002
 =====================================================================*/
-#include "ipaddress.h"
+#include "IPAddress.h"
 
 
-#include "networking.h"
+#include "Networking.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Parser.h"
 #include "../utils/PlatformUtils.h"

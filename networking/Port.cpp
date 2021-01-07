@@ -1,10 +1,10 @@
 /*=====================================================================
-port.cpp
+Port.cpp
 --------
 File created by ClassTemplate on Mon Jul 07 18:58:34 2003
 Code By Nicholas Chapman.
 =====================================================================*/
-#include "port.h"
+#include "Port.h"
 
 
 #include "../utils/StringUtils.h"

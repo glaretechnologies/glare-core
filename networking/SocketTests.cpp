@@ -7,9 +7,9 @@ Generated at 2013-01-30 13:47:58 +0000
 #include "SocketTests.h"
 
 
-#include "mysocket.h"
+#include "MySocket.h"
 #include "MyThread.h"
-#include "networking.h"
+#include "Networking.h"
 #include "../indigo/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"

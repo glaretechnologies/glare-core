@@ -7,8 +7,8 @@ Generated at Fri Oct 22 13:53:30 +1300 2010
 #include "NetworkingTests.h"
 
 
-#include "mysocket.h"
-#include "networking.h"
+#include "MySocket.h"
+#include "Networking.h"
 
 
 NetworkingTests::NetworkingTests()

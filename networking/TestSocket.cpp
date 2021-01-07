@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../maths/mathstypes.h"
 #include "../utils/BitUtils.h"
 #include "../utils/Exception.h"
-#include "mysocket.h"
+#include "MySocket.h"
 #if !defined(_WIN32)
 #include <netinet/in.h>
 #endif

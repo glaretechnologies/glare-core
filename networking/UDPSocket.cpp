@@ -1,14 +1,14 @@
 /*=====================================================================
-udpsocket.cpp
+UDPSocket.cpp
 -------------
 Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
-#include "udpsocket.h"
+#include "UDPSocket.h"
 
 
-#include "networking.h"
-#include "ipaddress.h"
-#include "packet.h"
+#include "Networking.h"
+#include "IPAddress.h"
+#include "Packet.h"
 #include <assert.h>
 #include "../utils/Lock.h"
 #include "../utils/StringUtils.h"

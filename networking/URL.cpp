@@ -1,9 +1,9 @@
 /*=====================================================================
-url.cpp
+URL.cpp
 -------
 Copyright Glare Technologies Limited 2018 -
 =====================================================================*/
-#include "url.h"
+#include "URL.h"
 
 
 #include "../utils/StringUtils.h"

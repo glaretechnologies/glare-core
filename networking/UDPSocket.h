@@ -1,5 +1,5 @@
 /*=====================================================================
-udpsocket.h
+UDPSocket.h
 -----------
 Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
@@ -13,7 +13,7 @@ Copyright Glare Technologies Limited 2020 -
 #include <winsock2.h>
 #endif
 
-#include "port.h"
+#include "Port.h"
 #include "../utils/Mutex.h"
 #include <string>
 class IPAddress;

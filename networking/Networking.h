@@ -1,5 +1,5 @@
 /*=====================================================================
-networking.h
+Networking.h
 ------------
 Copyright Glare Technologies Limited 2013 -
 File created by ClassTemplate on Thu Apr 18 15:19:22 2002
@@ -7,7 +7,7 @@ File created by ClassTemplate on Thu Apr 18 15:19:22 2002
 #pragma once
 
 
-#include "ipaddress.h"
+#include "IPAddress.h"
 #include "../utils/Singleton.h"
 #include <vector>
 #include <string>

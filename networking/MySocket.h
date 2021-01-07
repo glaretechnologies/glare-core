@@ -1,5 +1,5 @@
 /*=====================================================================
-mysocket.h
+MySocket.h
 ----------
 Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
@@ -18,7 +18,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 #include <sys/select.h>
 #endif
 
-#include "ipaddress.h"
+#include "IPAddress.h"
 #include "SocketInterface.h"
 #include "../utils/Platform.h"
 #include "../utils/InStream.h"

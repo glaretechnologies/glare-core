@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2020 -
 #if USING_LIBRESSL
 
 
-#include "networking.h"
+#include "Networking.h"
 #include "FractionListener.h"
 #include "../maths/mathstypes.h"
 #include "../utils/StringUtils.h"

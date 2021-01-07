@@ -1,13 +1,13 @@
 /*=====================================================================
-mysocket.cpp
+MySocket.cpp
 ------------
 Copyright Glare Technologies Limited 2018 -
 File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 =====================================================================*/
-#include "mysocket.h"
+#include "MySocket.h"
 
 
-#include "networking.h"
+#include "Networking.h"
 #include "FractionListener.h"
 #include "../maths/mathstypes.h"
 #include "../utils/StringUtils.h"
