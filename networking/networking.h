@@ -33,11 +33,6 @@ This class is in charge of starting up the winsock stuff and closing it down.
 class Networking : public Singleton<Networking>
 {
 public:
-	/*=====================================================================
-	Networking
-	----------
-	
-	=====================================================================*/
 	Networking(); // throws NetworkingExcep
 
 	~Networking();
