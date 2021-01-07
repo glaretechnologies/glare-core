@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "networking.h"
-#include "fractionlistener.h"
+#include "FractionListener.h"
 #include "../maths/mathstypes.h"
 #include "../utils/StringUtils.h"
 #include "../utils/MyThread.h"

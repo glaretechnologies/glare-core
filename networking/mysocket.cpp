@@ -8,7 +8,7 @@ File created by ClassTemplate on Wed Apr 17 14:43:14 2002
 
 
 #include "networking.h"
-#include "fractionlistener.h"
+#include "FractionListener.h"
 #include "../maths/mathstypes.h"
 #include "../utils/StringUtils.h"
 #include "../utils/MyThread.h"
