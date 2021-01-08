@@ -1,8 +1,7 @@
 /*=====================================================================
 MessageableThread.h
 -------------------
-File created by ClassTemplate on Sat Nov 03 09:15:49 2007
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #pragma once
 
@@ -32,7 +31,7 @@ public:
 	virtual void kill() {}
 
 	// Called by ThreadManager.
-	void set(ThreadManager* thread_manager);
+	void setThreadManager(ThreadManager* thread_manager);
 
 	ThreadSafeQueue<Reference<ThreadMessage> >& getMessageQueue() { return mesthread_message_queue; }
 protected:

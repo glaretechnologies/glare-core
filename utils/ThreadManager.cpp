@@ -84,8 +84,8 @@ void ThreadManager::addThread(const Reference<MessageableThread>& t)
 {
 	Lock lock(mutex);
 
-	// Set the point back to this.
-	t->set(this);
+	// Set the pointer back to this.
+	t->setThreadManager(this);
 
 	// Add to set of threads.
 	threads.insert(t);

@@ -36,10 +36,12 @@ public:
 
 
 	// Don't call unless queue is locked.
-	inline void unlockedDequeue(T& t_out);
+	inline void unlockedDequeue(T& t_out); // Returns item via argument.
+	inline T unlockedDequeue(); // Returns item directly.
 
 	// Blocks - suspends calling thread until queue is non-empty.
-	void dequeue(T& t_out);
+	void dequeue(T& t_out); // Returns item via argument.
+	T dequeue(); // Returns item directly.
 
 	
 	// Suspends calling thread until queue is non-empty, or wait_time_seconds has elapsed.
@@ -53,6 +55,7 @@ public:
 	inline void clearAndFreeMem();
 
 	inline bool unlockedEmpty() const;
+	inline bool unlockedNonEmpty() const;
 
 	typedef typename CircularBuffer<T>::iterator iterator;
 	// Not thread-safe, caller needs to have the mutex first.
@@ -133,6 +136,15 @@ void ThreadSafeQueue<T>::unlockedDequeue(T& t_out)
 
 
 template <class T>
+inline T ThreadSafeQueue<T>::unlockedDequeue()
+{
+	T t = queue.front();
+	queue.pop_front();
+	return t;
+}
+
+
+template <class T>
 bool ThreadSafeQueue<T>::empty() const
 {
 	Lock lock(mutex);
@@ -154,6 +166,13 @@ template <class T>
 bool ThreadSafeQueue<T>::unlockedEmpty() const
 {
 	return queue.empty();
+}
+
+
+template <class T>
+bool ThreadSafeQueue<T>::unlockedNonEmpty() const
+{
+	return !queue.empty();
 }
 
 
@@ -184,6 +203,18 @@ void ThreadSafeQueue<T>::dequeue(T& t_out)
 		nonempty.wait(mutex); // Suspend until queue is non-empty, or we get a spurious wake up.
 
 	unlockedDequeue(t_out);
+}
+
+
+template <class T>
+T ThreadSafeQueue<T>::dequeue()
+{
+	Lock lock(mutex); // Lock queue
+
+	while(queue.empty())
+		nonempty.wait(mutex); // Suspend until queue is non-empty, or we get a spurious wake up.
+
+	return unlockedDequeue();
 }
 
 

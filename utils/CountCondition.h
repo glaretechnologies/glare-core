@@ -53,6 +53,18 @@ public:
 		assert(count >= 0);
 	}
 
+	void resetCount()
+	{
+		Lock lock(mutex);
+		count = 0;
+	}
+
+	bool isDone()
+	{
+		Lock lock(mutex);
+		return count == N;
+	}
+
 	Mutex mutex;
 	Condition done_condition;
 	int64 count;

@@ -1,15 +1,14 @@
 /*=====================================================================
 MessageableThread.cpp
 ---------------------
-File created by ClassTemplate on Sat Nov 03 09:15:49 2007
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2020 -
 =====================================================================*/
 #include "MessageableThread.h"
 
 
 #include "ThreadManager.h"
-#include "../utils/KillThreadMessage.h"
-#include "../utils/Timer.h"
+#include "KillThreadMessage.h"
+#include "Timer.h"
 #include "../maths/mathstypes.h"
 
 
@@ -24,7 +23,7 @@ MessageableThread::~MessageableThread()
 }
 
 
-void MessageableThread::set(ThreadManager* thread_manager)
+void MessageableThread::setThreadManager(ThreadManager* thread_manager)
 {
 	assert(!mesthread_thread_manager);
 	assert(thread_manager);
@@ -35,7 +34,6 @@ void MessageableThread::set(ThreadManager* thread_manager)
 void MessageableThread::run()
 {
 	this->doRun();
-	assert(mesthread_thread_manager);
 	if(mesthread_thread_manager)
 		mesthread_thread_manager->threadFinished(this);
 }
@@ -62,7 +60,7 @@ void MessageableThread::waitForPeriod(double wait_period, bool& keep_running_in_
 		const bool got_message = getMessageQueue().dequeueWithTimeout(
 			wait_time,
 			message
-			);
+		);
 		if(got_message)
 		{
 			if(dynamic_cast<KillThreadMessage*>(message.getPointer()))
