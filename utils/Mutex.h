@@ -43,5 +43,5 @@ public:
 
 private:
 	// Mutex is non-copyable, as copying the CRITICAL_SECTION structure causes crashes.
-	INDIGO_DISABLE_COPY(Mutex);
+	GLARE_DISABLE_COPY(Mutex);
 };

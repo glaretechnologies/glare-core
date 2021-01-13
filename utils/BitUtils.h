@@ -17,7 +17,7 @@ Copyright Glare Technologies Limited 2020 -
 // See http://www.forwardscattering.org/post/27
 // NOTE: put in some more suitable header file?
 template <class Dest, class Src> 
-INDIGO_STRONG_INLINE Dest bitCast(const Src& x)
+GLARE_STRONG_INLINE Dest bitCast(const Src& x)
 {
 	static_assert(sizeof(Src) == sizeof(Dest), "sizeof(Src) == sizeof(Dest)");
 	Dest d;

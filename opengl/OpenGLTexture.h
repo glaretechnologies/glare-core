@@ -78,7 +78,7 @@ public:
 	GLuint texture_handle;
 
 private:
-	INDIGO_DISABLE_COPY(OpenGLTexture);
+	GLARE_DISABLE_COPY(OpenGLTexture);
 	void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 
 	Format format;

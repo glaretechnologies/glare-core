@@ -1019,7 +1019,7 @@ static void spatialPartitionResultWithUnsplitting(const std::vector<SBVHOb>& obj
 }
 
 
-static INDIGO_STRONG_INLINE void addIntersectedEdgeVert(const Vec4f& v_a, const Vec4f& v_b, const float d_a, const float d_b, float split_coord, js::AABBox& left_aabb, js::AABBox& right_aabb)
+static GLARE_STRONG_INLINE void addIntersectedEdgeVert(const Vec4f& v_a, const Vec4f& v_b, const float d_a, const float d_b, float split_coord, js::AABBox& left_aabb, js::AABBox& right_aabb)
 {
 	const float t = (split_coord - d_a) / (d_b - d_a); // Solve for fraction along edge of position on split plane.
 	const Vec4f p = v_a * (1 - t) + v_b * t;
@@ -1028,7 +1028,7 @@ static INDIGO_STRONG_INLINE void addIntersectedEdgeVert(const Vec4f& v_a, const 
 }
 
 
-static INDIGO_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const BVHBuilderTri& tri, int axis, float split_coord, js::AABBox& left_clipped_aabb_out, js::AABBox& right_clipped_aabb_out)
+static GLARE_STRONG_INLINE void clipTri(const js::AABBox& ob_aabb, const BVHBuilderTri& tri, int axis, float split_coord, js::AABBox& left_clipped_aabb_out, js::AABBox& right_clipped_aabb_out)
 {
 	js::AABBox left_aabb  = empty_aabb;
 	js::AABBox right_aabb = empty_aabb;

@@ -71,7 +71,7 @@ public:
 	Reference<glare::Allocator>& getAllocator() { return allocator; }
 
 private:
-	INDIGO_DISABLE_COPY(CircularBuffer)
+	GLARE_DISABLE_COPY(CircularBuffer)
 	inline void increaseSize();
 	inline void invariant();
 	inline T* alloc(size_t size, size_t alignment);

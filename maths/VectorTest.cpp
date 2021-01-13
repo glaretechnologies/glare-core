@@ -90,13 +90,13 @@ VectorTest::~VectorTest()
 //}
 
 
-INDIGO_STRONG_INLINE const Vec4f testMulLoad(const Vec4f& a, float f)
+GLARE_STRONG_INLINE const Vec4f testMulLoad(const Vec4f& a, float f)
 {
 	return _mm_mul_ps(a.v, _mm_load_ps1(&f));
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f testMulSet(const Vec4f& a, float f)
+GLARE_STRONG_INLINE const Vec4f testMulSet(const Vec4f& a, float f)
 {
 	return _mm_mul_ps(a.v, _mm_set1_ps(f));
 }

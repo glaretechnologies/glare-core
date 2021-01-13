@@ -54,7 +54,7 @@ const std::string Vec3<Real>::toStringFullPrecision() const
 
 
 //__declspec(nothrow)
-static INDIGO_STRONG_INLINE Vec3f vmul(const Vec3f& a, float f)
+static GLARE_STRONG_INLINE Vec3f vmul(const Vec3f& a, float f)
 {
 	//return Vec3f(a.x * f, a.y * f, a.z * f);
 	Vec3f res;

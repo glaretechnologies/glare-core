@@ -128,7 +128,7 @@ msb                       lsb
 */
 
 
-INDIGO_STRONG_INLINE static void getBlockColours(uint32 block, uint32* cols_out)
+GLARE_STRONG_INLINE static void getBlockColours(uint32 block, uint32* cols_out)
 {
 	uint32 t0 = block & 0xF800;
 	uint32 c0 = (t0 >> 8) | (t0 >> (8 + 5));  // shift 16 - 8 bits to right, isolate 5 bits
@@ -160,7 +160,7 @@ INDIGO_STRONG_INLINE static void getBlockColours(uint32 block, uint32* cols_out)
 
 
 // Decode just the red values
-INDIGO_STRONG_INLINE static void getBlockReds(uint32 block, uint32* reds_out)
+GLARE_STRONG_INLINE static void getBlockReds(uint32 block, uint32* reds_out)
 {
 	uint32 t0 = block & 0xF800;
 	uint32 c0 = (t0 >> 8) | (t0 >> (8 + 5));  // shift 16 - 8 bits to right, isolate 5 bits

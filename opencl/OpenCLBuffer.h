@@ -78,7 +78,7 @@ public:
 	cl_uint getRefCount();
 
 private:
-	INDIGO_DISABLE_COPY(OpenCLBuffer)
+	GLARE_DISABLE_COPY(OpenCLBuffer)
 
 	size_t size;
 

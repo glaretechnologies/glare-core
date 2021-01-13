@@ -43,19 +43,19 @@ public:
 
 	typedef int64_t CYCLETIME_TYPE;
 
-	INDIGO_STRONG_INLINE void reset();
+	GLARE_STRONG_INLINE void reset();
 
-	INDIGO_STRONG_INLINE CYCLETIME_TYPE elapsed() const;
-	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCyclesElapsed() const;
+	GLARE_STRONG_INLINE CYCLETIME_TYPE elapsed() const;
+	GLARE_STRONG_INLINE CYCLETIME_TYPE getCyclesElapsed() const;
 // Adjusted for execution time of CPUID.
 	// NOTE: may be negative or 0.
 
-	INDIGO_STRONG_INLINE CYCLETIME_TYPE getRawCyclesElapsed() const;
+	GLARE_STRONG_INLINE CYCLETIME_TYPE getRawCyclesElapsed() const;
 	//double getSecondsElapsed() const;
 
-	INDIGO_STRONG_INLINE CYCLETIME_TYPE getRDTSCTime() const { return rdtsc_time; }
+	GLARE_STRONG_INLINE CYCLETIME_TYPE getRDTSCTime() const { return rdtsc_time; }
 private:
-	INDIGO_STRONG_INLINE CYCLETIME_TYPE getCounter() const;
+	GLARE_STRONG_INLINE CYCLETIME_TYPE getCounter() const;
 
 	CYCLETIME_TYPE start_time;
 	CYCLETIME_TYPE rdtsc_time;

@@ -77,7 +77,7 @@ public:
 
 	GLuint program;
 private:
-	INDIGO_DISABLE_COPY(OpenGLProgram);
+	GLARE_DISABLE_COPY(OpenGLProgram);
 public:
 	int model_matrix_loc;
 	int view_matrix_loc;

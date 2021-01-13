@@ -32,7 +32,7 @@ public:
 
 	static void test();
 private:
-	INDIGO_DISABLE_COPY(AESEncryption);
+	GLARE_DISABLE_COPY(AESEncryption);
 
 	// struct evp_cipher_ctx_st = EVP_CIPHER_CTX
 	struct evp_cipher_ctx_st *encrypt_context;

@@ -33,47 +33,47 @@ namespace Maths
 // Using a const double initialiser like 'const double NICKMATHS_RECIP_PI = 1.0 / NICKMATHS_PI;' also does the divide in *each* translation unit at program 
 // initialisation time.
 
-template <class T> INDIGO_STRONG_INLINE T pi();		// Pi
-template <class T> INDIGO_STRONG_INLINE T get2Pi();	// 2 * Pi
-template <class T> INDIGO_STRONG_INLINE T get4Pi();	// 4 * Pi
+template <class T> GLARE_STRONG_INLINE T pi();		// Pi
+template <class T> GLARE_STRONG_INLINE T get2Pi();	// 2 * Pi
+template <class T> GLARE_STRONG_INLINE T get4Pi();	// 4 * Pi
 
-template <class T> INDIGO_STRONG_INLINE T pi_2();		// Pi / 2
-template <class T> INDIGO_STRONG_INLINE T pi_4();		// Pi / 4
+template <class T> GLARE_STRONG_INLINE T pi_2();		// Pi / 2
+template <class T> GLARE_STRONG_INLINE T pi_4();		// Pi / 4
 
-template <class T> INDIGO_STRONG_INLINE T recipPi();	// 1 / Pi
-template <class T> INDIGO_STRONG_INLINE T recipPiSqd();	// 1 / Pi^2
-template <class T> INDIGO_STRONG_INLINE T recip2Pi(); // 1 / 2Pi
-template <class T> INDIGO_STRONG_INLINE T recip4Pi();	// 1 / 4Pi
-
-
-template <> INDIGO_STRONG_INLINE float  pi<float>()  { return 3.1415926535897932384626433832795f; };
-template <> INDIGO_STRONG_INLINE double pi<double>() { return 3.1415926535897932384626433832795; };
-
-template <> INDIGO_STRONG_INLINE float  get2Pi<float>()  { return 6.283185307179586476925286766559f; };
-template <> INDIGO_STRONG_INLINE double get2Pi<double>() { return 6.283185307179586476925286766559; };
-
-template <> INDIGO_STRONG_INLINE float  get4Pi<float>()  { return 12.566370614359172953850573533118f; };
-template <> INDIGO_STRONG_INLINE double get4Pi<double>() { return 12.566370614359172953850573533118; };
+template <class T> GLARE_STRONG_INLINE T recipPi();	// 1 / Pi
+template <class T> GLARE_STRONG_INLINE T recipPiSqd();	// 1 / Pi^2
+template <class T> GLARE_STRONG_INLINE T recip2Pi(); // 1 / 2Pi
+template <class T> GLARE_STRONG_INLINE T recip4Pi();	// 1 / 4Pi
 
 
-template <> INDIGO_STRONG_INLINE float  pi_2<float>()  { return 1.5707963267948966192313216916398f; };
-template <> INDIGO_STRONG_INLINE double pi_2<double>() { return 1.5707963267948966192313216916398; };
+template <> GLARE_STRONG_INLINE float  pi<float>()  { return 3.1415926535897932384626433832795f; };
+template <> GLARE_STRONG_INLINE double pi<double>() { return 3.1415926535897932384626433832795; };
 
-template <> INDIGO_STRONG_INLINE float  pi_4<float>()  { return 0.78539816339744830961566084581988f; };
-template <> INDIGO_STRONG_INLINE double pi_4<double>() { return 0.78539816339744830961566084581988; };
+template <> GLARE_STRONG_INLINE float  get2Pi<float>()  { return 6.283185307179586476925286766559f; };
+template <> GLARE_STRONG_INLINE double get2Pi<double>() { return 6.283185307179586476925286766559; };
+
+template <> GLARE_STRONG_INLINE float  get4Pi<float>()  { return 12.566370614359172953850573533118f; };
+template <> GLARE_STRONG_INLINE double get4Pi<double>() { return 12.566370614359172953850573533118; };
 
 
-template <> INDIGO_STRONG_INLINE float  recipPi<float>()  { return 0.31830988618379067153776752674503f; };
-template <> INDIGO_STRONG_INLINE double recipPi<double>() { return 0.31830988618379067153776752674503; };
+template <> GLARE_STRONG_INLINE float  pi_2<float>()  { return 1.5707963267948966192313216916398f; };
+template <> GLARE_STRONG_INLINE double pi_2<double>() { return 1.5707963267948966192313216916398; };
 
-template <> INDIGO_STRONG_INLINE float  recipPiSqd<float>()  { return 0.10132118364233777144387946320973f; };
-template <> INDIGO_STRONG_INLINE double recipPiSqd<double>() { return 0.10132118364233777144387946320973; };
+template <> GLARE_STRONG_INLINE float  pi_4<float>()  { return 0.78539816339744830961566084581988f; };
+template <> GLARE_STRONG_INLINE double pi_4<double>() { return 0.78539816339744830961566084581988; };
 
-template <> INDIGO_STRONG_INLINE float  recip2Pi<float>()  { return 0.15915494309189533576888376337251f; };
-template <> INDIGO_STRONG_INLINE double recip2Pi<double>() { return 0.15915494309189533576888376337251; };
 
-template <> INDIGO_STRONG_INLINE float  recip4Pi<float>()  { return 0.07957747154594766788444188168626f; };
-template <> INDIGO_STRONG_INLINE double recip4Pi<double>() { return 0.07957747154594766788444188168626; };
+template <> GLARE_STRONG_INLINE float  recipPi<float>()  { return 0.31830988618379067153776752674503f; };
+template <> GLARE_STRONG_INLINE double recipPi<double>() { return 0.31830988618379067153776752674503; };
+
+template <> GLARE_STRONG_INLINE float  recipPiSqd<float>()  { return 0.10132118364233777144387946320973f; };
+template <> GLARE_STRONG_INLINE double recipPiSqd<double>() { return 0.10132118364233777144387946320973; };
+
+template <> GLARE_STRONG_INLINE float  recip2Pi<float>()  { return 0.15915494309189533576888376337251f; };
+template <> GLARE_STRONG_INLINE double recip2Pi<double>() { return 0.15915494309189533576888376337251; };
+
+template <> GLARE_STRONG_INLINE float  recip4Pi<float>()  { return 0.07957747154594766788444188168626f; };
+template <> GLARE_STRONG_INLINE double recip4Pi<double>() { return 0.07957747154594766788444188168626; };
 
 
 } // end namespace Maths
@@ -102,7 +102,7 @@ const float NICKMATHS_RECIP_2PIf = 0.15915494309189533576888376337251f;
 
 
 template <class Real>
-INDIGO_STRONG_INLINE Real radToDegree(Real rad)
+GLARE_STRONG_INLINE Real radToDegree(Real rad)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	return rad * (180 * Maths::recipPi<Real>());
@@ -110,7 +110,7 @@ INDIGO_STRONG_INLINE Real radToDegree(Real rad)
 
 
 template <class Real>
-INDIGO_STRONG_INLINE Real degreeToRad(Real degree)
+GLARE_STRONG_INLINE Real degreeToRad(Real degree)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	return degree * (Maths::pi<Real>() * (Real)0.00555555555555555555555555555556);
@@ -118,7 +118,7 @@ INDIGO_STRONG_INLINE Real degreeToRad(Real degree)
 
 
 template <class T>
-INDIGO_STRONG_INLINE T myClamp(T x, T lowerbound, T upperbound)
+GLARE_STRONG_INLINE T myClamp(T x, T lowerbound, T upperbound)
 {
 	assert(lowerbound <= upperbound);
 
@@ -126,7 +126,7 @@ INDIGO_STRONG_INLINE T myClamp(T x, T lowerbound, T upperbound)
 }
 
 
-INDIGO_STRONG_INLINE float absClamp(float x, float upperbound)
+GLARE_STRONG_INLINE float absClamp(float x, float upperbound)
 {
 	if(fabs(x) <= upperbound)
 		return x;
@@ -136,14 +136,14 @@ INDIGO_STRONG_INLINE float absClamp(float x, float upperbound)
 
 
 template <class T>
-INDIGO_STRONG_INLINE const T myMin(const T x, const T y)
+GLARE_STRONG_INLINE const T myMin(const T x, const T y)
 {
 	return x <= y ? x : y;
 }
 
 
 template <class T>
-INDIGO_STRONG_INLINE const T myMin(const T x, const T y, const T z)
+GLARE_STRONG_INLINE const T myMin(const T x, const T y, const T z)
 {
 	return myMin(x, myMin(y, z));
 }
@@ -153,7 +153,7 @@ INDIGO_STRONG_INLINE const T myMin(const T x, const T y, const T z)
 
 
 template <class T>
-INDIGO_STRONG_INLINE const T myMax(const T x, const T y)
+GLARE_STRONG_INLINE const T myMax(const T x, const T y)
 {
 	// static_assert(std::is_pod<T>::value, "std::is_pod<T>::value");
 	return x >= y ? x : y;
@@ -161,7 +161,7 @@ INDIGO_STRONG_INLINE const T myMax(const T x, const T y)
 
 
 template <class T>
-INDIGO_STRONG_INLINE const T myMax(const T x, const T y, const T z)
+GLARE_STRONG_INLINE const T myMax(const T x, const T y, const T z)
 {
 	return myMax(x, myMax(y, z));
 }
@@ -177,7 +177,7 @@ void mySwap(T& x, T& y)
 
 
 template <class Real>
-INDIGO_STRONG_INLINE Real logBase2(Real x)
+GLARE_STRONG_INLINE Real logBase2(Real x)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer"); // Bad things happen if Real is an integer - 1.44.. gets cast to 1.
 	return log(x) * (Real)1.4426950408889634073599246810019;
@@ -186,14 +186,14 @@ INDIGO_STRONG_INLINE Real logBase2(Real x)
 
 
 // Undefined if x == 0
-INDIGO_STRONG_INLINE uint32 intLogBase2(uint64 x)
+GLARE_STRONG_INLINE uint32 intLogBase2(uint64 x)
 {
 	assert(x != 0);
 	return BitUtils::highestSetBitIndex(x);
 }
 
 
-INDIGO_STRONG_INLINE bool isNAN(float x)
+GLARE_STRONG_INLINE bool isNAN(float x)
 {
 	// _mm_cmpord_ss will set elem 0 to 0 if x is NaN, and 0xFFFFFFFF otherwise.
 	__m128 vx = _mm_set_ss(x);
@@ -201,7 +201,7 @@ INDIGO_STRONG_INLINE bool isNAN(float x)
 }
 
 
-INDIGO_STRONG_INLINE bool isNAN(double x)
+GLARE_STRONG_INLINE bool isNAN(double x)
 {
 	// _mm_cmpord_sd will set elem 0 to 0 if x is NaN, and 0xFFFFFFFFFFFFFFFF otherwise.
 	__m128d vx = _mm_set_sd(x);
@@ -209,7 +209,7 @@ INDIGO_STRONG_INLINE bool isNAN(double x)
 }
 
 
-INDIGO_STRONG_INLINE bool isFinite(float x)
+GLARE_STRONG_INLINE bool isFinite(float x)
 {
 	// If a floating point number is a NaN or INF, then all the exponent bits are 1.
 	// So extract the exponent bits, and if they are less than the value which has 1 in all exponent bits (0x7f800000), then
@@ -240,7 +240,7 @@ INDIGO_STRONG_INLINE bool isFinite(float x)
 }
 
 
-INDIGO_STRONG_INLINE bool isFinite(double x)
+GLARE_STRONG_INLINE bool isFinite(double x)
 {
 #if defined(_WIN32)
 	return _finite(x) != 0;
@@ -250,13 +250,13 @@ INDIGO_STRONG_INLINE bool isFinite(double x)
 }
 
 
-INDIGO_STRONG_INLINE bool isInf(float x)
+GLARE_STRONG_INLINE bool isInf(float x)
 {
 	return !isFinite(x) && !isNAN(x);
 }
 
 
-INDIGO_STRONG_INLINE bool isInf(double x)
+GLARE_STRONG_INLINE bool isInf(double x)
 {
 	return !isFinite(x) && !isNAN(x);
 }
@@ -286,7 +286,7 @@ inline bool epsEqual(Real a, Real b, Real epsilon = NICKMATHS_EPSILON)
 
 
 template <class VecType>
-INDIGO_STRONG_INLINE typename VecType::RealType absDot(const VecType& v1, const VecType& v2)
+GLARE_STRONG_INLINE typename VecType::RealType absDot(const VecType& v1, const VecType& v2)
 {
 	return std::fabs(dot(v1, v2));
 }
@@ -321,7 +321,7 @@ inline bool approxEq(Real a, Real b, Real eps = (Real)NICKMATHS_EPSILON)
 
 
 template <class Real>
-INDIGO_STRONG_INLINE bool posUnderflowed(Real x)
+GLARE_STRONG_INLINE bool posUnderflowed(Real x)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	assert(x >= 0.0);
@@ -332,7 +332,7 @@ INDIGO_STRONG_INLINE bool posUnderflowed(Real x)
 
 
 template <class Real>
-INDIGO_STRONG_INLINE bool posOverflowed(Real x)
+GLARE_STRONG_INLINE bool posOverflowed(Real x)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	assert(x >= 0.0);
@@ -342,14 +342,14 @@ INDIGO_STRONG_INLINE bool posOverflowed(Real x)
 
 
 // These are only correct for positive reals
-INDIGO_STRONG_INLINE int posFloorToInt(float x)
+GLARE_STRONG_INLINE int posFloorToInt(float x)
 {
 	assert(x >= 0.0f);
 	return (int)x;
 }
 
 
-INDIGO_STRONG_INLINE int posFloorToInt(double x)
+GLARE_STRONG_INLINE int posFloorToInt(double x)
 {
 	assert(x >= 0.0);
 	return (int)x;
@@ -357,33 +357,33 @@ INDIGO_STRONG_INLINE int posFloorToInt(double x)
 
 
 // NOTE: this may fail due to some floating point numbers not being expressible in ints
-INDIGO_STRONG_INLINE int floorToInt(float x)
+GLARE_STRONG_INLINE int floorToInt(float x)
 {
 	return (int)floor(x);
 }
 
 
-INDIGO_STRONG_INLINE int floorToInt(double x)
+GLARE_STRONG_INLINE int floorToInt(double x)
 {
 	return (int)floor(x);
 }
 
 
 template <class Real>
-INDIGO_STRONG_INLINE Real fract(Real x)
+GLARE_STRONG_INLINE Real fract(Real x)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	return x - std::floor(x);
 }
 
 
-template <class T> INDIGO_STRONG_INLINE T sqrt2Pi();	// sqrt(2 Pi)
-template <> INDIGO_STRONG_INLINE float  sqrt2Pi<float>()  { return 2.506628274631000502415765284811f; };
-template <> INDIGO_STRONG_INLINE double sqrt2Pi<double>() { return 2.506628274631000502415765284811; };
+template <class T> GLARE_STRONG_INLINE T sqrt2Pi();	// sqrt(2 Pi)
+template <> GLARE_STRONG_INLINE float  sqrt2Pi<float>()  { return 2.506628274631000502415765284811f; };
+template <> GLARE_STRONG_INLINE double sqrt2Pi<double>() { return 2.506628274631000502415765284811; };
 
-template <class T> INDIGO_STRONG_INLINE T recipSqrt2Pi();	// 1 / sqrt(2 Pi)
-template <> INDIGO_STRONG_INLINE float  recipSqrt2Pi<float>()  { return 0.39894228040143267793994605993438f; };
-template <> INDIGO_STRONG_INLINE double recipSqrt2Pi<double>() { return 0.39894228040143267793994605993438; };
+template <class T> GLARE_STRONG_INLINE T recipSqrt2Pi();	// 1 / sqrt(2 Pi)
+template <> GLARE_STRONG_INLINE float  recipSqrt2Pi<float>()  { return 0.39894228040143267793994605993438f; };
+template <> GLARE_STRONG_INLINE double recipSqrt2Pi<double>() { return 0.39894228040143267793994605993438; };
 
 
 inline double eval1DGaussian(double x, double mean, double standard_dev)
@@ -421,42 +421,42 @@ inline Real eval2DGaussian(Real dist2, Real standard_dev)
 
 // Inclusive
 template <class T>
-INDIGO_STRONG_INLINE bool inRange(T x, T min, T max)
+GLARE_STRONG_INLINE bool inRange(T x, T min, T max)
 {
 	return x >= min && x <= max;
 }
 
 
 template <class T>
-INDIGO_STRONG_INLINE bool inUnitInterval(T x)
+GLARE_STRONG_INLINE bool inUnitInterval(T x)
 {
 	return x >= (T)0.0 && x <= (T)1.0;
 }
 
 
 template <class T>
-INDIGO_STRONG_INLINE bool inHalfClosedInterval(T x, T min, T max)
+GLARE_STRONG_INLINE bool inHalfClosedInterval(T x, T min, T max)
 {
 	return x >= min && x < max;
 }
 
 
 template <class T>
-INDIGO_STRONG_INLINE T square(T x)
+GLARE_STRONG_INLINE T square(T x)
 {
 	return x * x;
 }
 
 
 template <class T>
-INDIGO_STRONG_INLINE T pow3(T x)
+GLARE_STRONG_INLINE T pow3(T x)
 {
 	return x * x * x;
 }
 
 
 template <class T>
-INDIGO_STRONG_INLINE T pow4(T x)
+GLARE_STRONG_INLINE T pow4(T x)
 {
 	const T x2 = x*x;
 	return x2 * x2;
@@ -464,7 +464,7 @@ INDIGO_STRONG_INLINE T pow4(T x)
 
 
 template <class T>
-INDIGO_STRONG_INLINE T pow6(T x)
+GLARE_STRONG_INLINE T pow6(T x)
 {
 	const T x2 = x*x;
 	return x2 * x2 * x2;
@@ -472,7 +472,7 @@ INDIGO_STRONG_INLINE T pow6(T x)
 
 
 template <class T>
-INDIGO_STRONG_INLINE T pow8(T x)
+GLARE_STRONG_INLINE T pow8(T x)
 {
 	const T x2 = x*x;
 	const T x4 = x2*x2;
@@ -481,7 +481,7 @@ INDIGO_STRONG_INLINE T pow8(T x)
 
 
 template <class T>
-INDIGO_STRONG_INLINE T tanForCos(T cos_theta)
+GLARE_STRONG_INLINE T tanForCos(T cos_theta)
 {
 	static_assert(!std::numeric_limits<T>::is_integer, "Template param can't be an integer");
 	assert(cos_theta >= (T)-1.0 && cos_theta <= (T)1.0);
@@ -495,7 +495,7 @@ INDIGO_STRONG_INLINE T tanForCos(T cos_theta)
 // Returns ceil(x / N), for signed or unsigned integers x and N.
 // Note: this can overflow, and only works for x >= 0
 template <class T>
-INDIGO_STRONG_INLINE T roundedUpDivide(T x, T N)
+GLARE_STRONG_INLINE T roundedUpDivide(T x, T N)
 {
 	assert(x >= 0);
 	assert(N >  0);
@@ -508,7 +508,7 @@ INDIGO_STRONG_INLINE T roundedUpDivide(T x, T N)
 // Note: this can overflow, and only works for x >= 0.
 // Requires N > 0.
 template <class T>
-INDIGO_STRONG_INLINE T roundUpToMultiple(T x, T N)
+GLARE_STRONG_INLINE T roundUpToMultiple(T x, T N)
 {
 	assert(x >= 0);
 	assert(N >  0);
@@ -519,7 +519,7 @@ INDIGO_STRONG_INLINE T roundUpToMultiple(T x, T N)
 // Check that an integer is a power of two.
 // from http://en.wikipedia.org/wiki/Power_of_two#Fast_algorithm_to_check_if_a_number_is_a_power_of_two
 template <class T>
-INDIGO_STRONG_INLINE bool isPowerOfTwo(T x)
+GLARE_STRONG_INLINE bool isPowerOfTwo(T x)
 {
 	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
 	return (x > 0) && ((x & (x - 1)) == 0);
@@ -528,7 +528,7 @@ INDIGO_STRONG_INLINE bool isPowerOfTwo(T x)
 
 // See https://fgiesen.wordpress.com/2016/10/26/rounding-up-to-the-nearest-int-k-mod-n/
 template <class T>
-INDIGO_STRONG_INLINE T roundUpToMultipleOfPowerOf2(T x, T N)
+GLARE_STRONG_INLINE T roundUpToMultipleOfPowerOf2(T x, T N)
 {
 	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
 	assert(x >= 0);
@@ -553,7 +553,7 @@ inline uint64 roundToNextHighestPowerOf2(uint64 v)
 
 
 template <class T, class Real>
-INDIGO_STRONG_INLINE const T lerp(const T& a, const T& b, Real t)
+GLARE_STRONG_INLINE const T lerp(const T& a, const T& b, Real t)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
 	assert(Maths::inRange(t, (Real)0.0, (Real)1.0));
@@ -562,14 +562,14 @@ INDIGO_STRONG_INLINE const T lerp(const T& a, const T& b, Real t)
 
 
 template <class T>
-INDIGO_STRONG_INLINE const T uncheckedLerp(const T& a, const T& b, float t)
+GLARE_STRONG_INLINE const T uncheckedLerp(const T& a, const T& b, float t)
 {
 	return a * (1 - t) + b * t;
 }
 
 
 template <class T>
-INDIGO_STRONG_INLINE const T uncheckedLerp(const T& a, const T& b, double t)
+GLARE_STRONG_INLINE const T uncheckedLerp(const T& a, const T& b, double t)
 {
 	return a * (1 - t) + b * t;
 }

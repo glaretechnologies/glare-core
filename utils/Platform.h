@@ -7,9 +7,9 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #if defined(_WIN32) && !defined(__MINGW32__)
-#define INDIGO_STRONG_INLINE __forceinline
+#define GLARE_STRONG_INLINE __forceinline
 #else
-#define INDIGO_STRONG_INLINE inline
+#define GLARE_STRONG_INLINE inline
 #endif
 
 
@@ -21,7 +21,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 // To disallow copy-construction and assignment operators, put this in the private part of a class:
-#define INDIGO_DISABLE_COPY(TypeName) \
+#define GLARE_DISABLE_COPY(TypeName) \
 	TypeName(const TypeName &); \
 	TypeName &operator=(const TypeName &);
 

@@ -70,7 +70,7 @@ public:
 	double getTotalExecTimeS() const { return total_exec_time_s; }
 private:
 	double doLaunchKernel(cl_command_queue opencl_command_queue, int dim, const size_t* global_work_size);
-	INDIGO_DISABLE_COPY(OpenCLKernel)
+	GLARE_DISABLE_COPY(OpenCLKernel)
 
 	std::string kernel_name;
 	cl_kernel kernel;

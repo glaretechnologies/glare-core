@@ -35,7 +35,7 @@ public:
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }
 private:
-	INDIGO_DISABLE_COPY(FrameBuffer);
+	GLARE_DISABLE_COPY(FrameBuffer);
 public:
 	
 	GLuint buffer_name;

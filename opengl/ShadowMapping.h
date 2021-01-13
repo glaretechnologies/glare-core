@@ -47,7 +47,7 @@ public:
 	void unbindDepthTex();
 
 private:
-	INDIGO_DISABLE_COPY(ShadowMapping);
+	GLARE_DISABLE_COPY(ShadowMapping);
 public:
 	Matrix4f shadow_tex_matrix[8];
 	

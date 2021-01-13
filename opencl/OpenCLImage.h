@@ -32,7 +32,7 @@ public:
 	cl_mem getOpenCLImage();
 
 private:
-	INDIGO_DISABLE_COPY(OpenCLImage)
+	GLARE_DISABLE_COPY(OpenCLImage)
 
 	cl_mem opencl_image;
 };

@@ -86,7 +86,7 @@ namespace Sort
 	//  if it's 1 (negative float), it flips all bits
 	//  if it's 0 (positive float), it flips the sign only
 	// ================================================================================================
-	INDIGO_STRONG_INLINE uint32 FloatFlip(uint32 f)
+	GLARE_STRONG_INLINE uint32 FloatFlip(uint32 f)
 	{
 		uint32 mask = -int32(f >> 31) | 0x80000000;
 		return f ^ mask;
@@ -102,7 +102,7 @@ namespace Sort
 	#define _16_1(x)	(x >> 16)
 
 
-	INDIGO_STRONG_INLINE uint32 flippedKey(float x)
+	GLARE_STRONG_INLINE uint32 flippedKey(float x)
 	{
 		return FloatFlip(bitCast<uint32>(x));
 	}

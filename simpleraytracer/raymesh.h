@@ -221,10 +221,10 @@ public:
 
 
 	////////////////////// Stuff used by the kdtree/BIH ///////////////////////
-	INDIGO_STRONG_INLINE const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
-	INDIGO_STRONG_INLINE const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
-	INDIGO_STRONG_INLINE const unsigned int getNumQuads() const { return (unsigned int)quads.size(); }
-	INDIGO_STRONG_INLINE const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
+	GLARE_STRONG_INLINE const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
+	GLARE_STRONG_INLINE const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
+	GLARE_STRONG_INLINE const unsigned int getNumQuads() const { return (unsigned int)quads.size(); }
+	GLARE_STRONG_INLINE const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
 	////////////////////////////////////////////////////////////////////////////
 
 	// This is the number of UV pairs per uv set (layer).

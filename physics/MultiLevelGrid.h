@@ -83,13 +83,13 @@ MultiLevelGrid<CellTest, Result, NodeData>::~MultiLevelGrid()
  /*! workaround for compiler bug in VS2008 */
 #if defined(_MSC_VER) && (_MSC_VER < 1600)
 // mask[i] ? a : b
-INDIGO_STRONG_INLINE const ssei select( const sseb& mask, const ssei& a, const ssei& b )
+GLARE_STRONG_INLINE const ssei select( const sseb& mask, const ssei& a, const ssei& b )
 { 
 	return _mm_castps_si128(_mm_or_ps(_mm_and_ps(mask, _mm_castsi128_ps(a)), _mm_andnot_ps(mask, _mm_castsi128_ps(b)))); 
 }
 #else
 // mask[i] ? a : b
-INDIGO_STRONG_INLINE const Vec4i select( const __m128& mask, const Vec4i& a, const Vec4i& b )
+GLARE_STRONG_INLINE const Vec4i select( const __m128& mask, const Vec4i& a, const Vec4i& b )
 { 
 	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), mask)); 
 }

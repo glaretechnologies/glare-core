@@ -32,7 +32,7 @@ const std::string Vec4f::toStringNSigFigs(int n) const
 
 
 
-static INDIGO_STRONG_INLINE float dot3Vec(const Vec4f& a, const Vec4f& b)
+static GLARE_STRONG_INLINE float dot3Vec(const Vec4f& a, const Vec4f& b)
 {
 	Vec4f res;
 	res.v = _mm_dp_ps(a.v, b.v, 0x71);
@@ -40,7 +40,7 @@ static INDIGO_STRONG_INLINE float dot3Vec(const Vec4f& a, const Vec4f& b)
 }
 
 
-static INDIGO_STRONG_INLINE float scalarDotProduct(const Vec4f& a, const Vec4f& b)
+static GLARE_STRONG_INLINE float scalarDotProduct(const Vec4f& a, const Vec4f& b)
 {
 	return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3];
 }

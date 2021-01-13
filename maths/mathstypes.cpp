@@ -62,7 +62,7 @@ inline static float modfFract(float x)
 }
 
 
-static INDIGO_STRONG_INLINE float sqrtSSE(float x)
+static GLARE_STRONG_INLINE float sqrtSSE(float x)
 {
 	return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(x)));
 }

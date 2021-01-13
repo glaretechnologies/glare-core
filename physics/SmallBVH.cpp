@@ -174,8 +174,8 @@ void SmallBVH::build(PrintOutput& print_output, ShouldCancelCallback& should_can
 
 
 // NOTE: Uses SEE3 instruction _mm_shuffle_epi8.
-static INDIGO_STRONG_INLINE const Vec4f shuffle8(const Vec4f& a, const Vec4i& shuf) { return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castps_si128(a.v), shuf.v)); }
-static INDIGO_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b) { return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(a.v), b.v)); }
+static GLARE_STRONG_INLINE const Vec4f shuffle8(const Vec4f& a, const Vec4i& shuf) { return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castps_si128(a.v), shuf.v)); }
+static GLARE_STRONG_INLINE const Vec4f vec4XOR(const Vec4f& a, const Vec4i& b) { return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(a.v), b.v)); }
 
 
 SmallBVH::DistType SmallBVH::traceRay(const Ray& ray_, HitInfo& hitinfo_out) const

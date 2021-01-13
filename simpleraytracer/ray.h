@@ -19,9 +19,9 @@ class Ray
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	INDIGO_STRONG_INLINE Ray() {}
+	GLARE_STRONG_INLINE Ray() {}
 
-	INDIGO_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_, float max_t_)
+	GLARE_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_, float max_t_)
 	:	startpos_f(startpos_),
 		unitdir_f(unitdir_),
 		min_t(min_t_),
@@ -44,28 +44,28 @@ public:
 		);
 	}
 
-	INDIGO_STRONG_INLINE const Vec4f& startPos() const { return startpos_f; }
-	INDIGO_STRONG_INLINE const Vec4f& unitDir() const { return unitdir_f; }
+	GLARE_STRONG_INLINE const Vec4f& startPos() const { return startpos_f; }
+	GLARE_STRONG_INLINE const Vec4f& unitDir() const { return unitdir_f; }
 
-	INDIGO_STRONG_INLINE const Vec4f& startPosF() const { return startpos_f; }
-	INDIGO_STRONG_INLINE const Vec4f& unitDirF() const { return unitdir_f; }
+	GLARE_STRONG_INLINE const Vec4f& startPosF() const { return startpos_f; }
+	GLARE_STRONG_INLINE const Vec4f& unitDirF() const { return unitdir_f; }
 
-	INDIGO_STRONG_INLINE const Vec4f& getRecipRayDirF() const { return recip_unitdir_f; }
+	GLARE_STRONG_INLINE const Vec4f& getRecipRayDirF() const { return recip_unitdir_f; }
 
-	INDIGO_STRONG_INLINE const Vec4f pointf(const float t) const { return startpos_f + (unitdir_f * t); }
+	GLARE_STRONG_INLINE const Vec4f pointf(const float t) const { return startpos_f + (unitdir_f * t); }
 
-	INDIGO_STRONG_INLINE static float computeMinT(float origin_error, float cos_theta)
+	GLARE_STRONG_INLINE static float computeMinT(float origin_error, float cos_theta)
 	{
 		return 4 * origin_error * myMin(20.0f, 1 / cos_theta);
 	}
 
-	INDIGO_STRONG_INLINE float minT() const { return min_t; }
-	INDIGO_STRONG_INLINE float maxT() const { return max_t; }
+	GLARE_STRONG_INLINE float minT() const { return min_t; }
+	GLARE_STRONG_INLINE float maxT() const { return max_t; }
 
 
-	INDIGO_STRONG_INLINE void setStartPos(const Vec4f& s) { startpos_f = s; }
-	INDIGO_STRONG_INLINE void setMinT(float min_t_) { min_t = min_t_; }
-	INDIGO_STRONG_INLINE void setMaxT(float max_t_) { max_t = max_t_; }
+	GLARE_STRONG_INLINE void setStartPos(const Vec4f& s) { startpos_f = s; }
+	GLARE_STRONG_INLINE void setMinT(float min_t_) { min_t = min_t_; }
+	GLARE_STRONG_INLINE void setMaxT(float max_t_) { max_t = max_t_; }
 
 	static void test();
 

@@ -28,24 +28,24 @@ class AABBox
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	INDIGO_STRONG_INLINE AABBox();
-	INDIGO_STRONG_INLINE AABBox(const Vec4f& _min, const Vec4f& _max);
+	GLARE_STRONG_INLINE AABBox();
+	GLARE_STRONG_INLINE AABBox(const Vec4f& _min, const Vec4f& _max);
 
-	INDIGO_STRONG_INLINE AABBox& operator = (const AABBox& rhs) { min_ = rhs.min_; max_ = rhs.max_; return *this; }
+	GLARE_STRONG_INLINE AABBox& operator = (const AABBox& rhs) { min_ = rhs.min_; max_ = rhs.max_; return *this; }
 	inline bool operator == (const AABBox& rhs) const;
 
 	inline bool contains(const Vec4f& p) const;
 
-	INDIGO_STRONG_INLINE void enlargeToHoldPoint(const Vec4f& p);
-	INDIGO_STRONG_INLINE void enlargeToHoldAABBox(const AABBox& aabb);
+	GLARE_STRONG_INLINE void enlargeToHoldPoint(const Vec4f& p);
+	GLARE_STRONG_INLINE void enlargeToHoldAABBox(const AABBox& aabb);
 	inline bool containsAABBox(const AABBox& aabb) const;
 
 	inline int disjoint(const AABBox& other) const; // Returns a non-zero value if AABBs are disjoint.
 	inline bool intersectsAABB(const AABBox& other) const;
 
-	INDIGO_STRONG_INLINE int isEmpty() const; // Returns non-zero if this AABB is empty (e.g. if it has an upper bound < lower bound)
+	GLARE_STRONG_INLINE int isEmpty() const; // Returns non-zero if this AABB is empty (e.g. if it has an upper bound < lower bound)
 
-	INDIGO_STRONG_INLINE int rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
+	GLARE_STRONG_INLINE int rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
 
 	inline static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
 
@@ -56,7 +56,7 @@ public:
 	inline float axisLength(unsigned int axis) const { return max_.x[axis] - min_.x[axis]; }
 	inline unsigned int longestAxis() const;
 
-	INDIGO_STRONG_INLINE const Vec4f centroid() const;
+	GLARE_STRONG_INLINE const Vec4f centroid() const;
 
 	// Get the AABB which encloses the AABB corners transformed by the matrix M.
 	inline AABBox transformedAABB(const Matrix4f& M) const;
@@ -208,13 +208,13 @@ inline bool epsEqual(const AABBox& a, const AABBox& b, float /*eps*/ = (float)NI
 }
 
 
-INDIGO_STRONG_INLINE js::AABBox intersection(const js::AABBox& a, const js::AABBox& b)
+GLARE_STRONG_INLINE js::AABBox intersection(const js::AABBox& a, const js::AABBox& b)
 {
 	return js::AABBox(max(a.min_, b.min_), min(a.max_, b.max_));
 }
 
 
-INDIGO_STRONG_INLINE js::AABBox AABBUnion(const js::AABBox& a, const js::AABBox& b)
+GLARE_STRONG_INLINE js::AABBox AABBUnion(const js::AABBox& a, const js::AABBox& b)
 {
 	return js::AABBox(min(a.min_, b.min_), max(a.max_, b.max_));
 }

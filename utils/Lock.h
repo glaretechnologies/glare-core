@@ -26,7 +26,7 @@ public:
 	const Mutex& getMutex() const { return mutex; }
 
 private:
-	INDIGO_DISABLE_COPY(Lock);
+	GLARE_DISABLE_COPY(Lock);
 
 	Mutex& mutex;
 };

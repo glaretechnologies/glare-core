@@ -33,7 +33,7 @@ public:
 	const GLuint bufferName() const { return buffer_name; }
 	const size_t getSize() const{ return size; }
 private:
-	INDIGO_DISABLE_COPY(VBO)
+	GLARE_DISABLE_COPY(VBO)
 
 	GLuint buffer_name;
 	GLenum buffer_type;

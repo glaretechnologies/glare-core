@@ -34,7 +34,7 @@ public:
 	const Mutex& getMutex() const { return mutex; }
 
 private:
-	INDIGO_DISABLE_COPY(TryLock);
+	GLARE_DISABLE_COPY(TryLock);
 
 	Mutex& mutex;
 	bool acquired;

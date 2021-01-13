@@ -28,30 +28,30 @@ public:
 	typedef float RealType;
 
 
-	INDIGO_STRONG_INLINE Vec4f() {}
-	INDIGO_STRONG_INLINE explicit Vec4f(float x_, float y_, float z_, float w_) : v(_mm_set_ps(w_, z_, y_, x_)) {}
-	INDIGO_STRONG_INLINE Vec4f(__m128 v_) : v(v_) {}
-	INDIGO_STRONG_INLINE explicit Vec4f(float f) : v(_mm_set1_ps(f)) {}
+	GLARE_STRONG_INLINE Vec4f() {}
+	GLARE_STRONG_INLINE explicit Vec4f(float x_, float y_, float z_, float w_) : v(_mm_set_ps(w_, z_, y_, x_)) {}
+	GLARE_STRONG_INLINE Vec4f(__m128 v_) : v(v_) {}
+	GLARE_STRONG_INLINE explicit Vec4f(float f) : v(_mm_set1_ps(f)) {}
 
-	INDIGO_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { v = _mm_set_ps(w_, z_, y_, x_); }
+	GLARE_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { v = _mm_set_ps(w_, z_, y_, x_); }
 
-	INDIGO_STRONG_INLINE Vec4f& operator = (const Vec4f& a);
+	GLARE_STRONG_INLINE Vec4f& operator = (const Vec4f& a);
 
-	INDIGO_STRONG_INLINE float& operator [] (unsigned int index);
-	INDIGO_STRONG_INLINE const float& operator [] (unsigned int index) const;
+	GLARE_STRONG_INLINE float& operator [] (unsigned int index);
+	GLARE_STRONG_INLINE const float& operator [] (unsigned int index) const;
 
-	INDIGO_STRONG_INLINE void operator += (const Vec4f& a);
-	INDIGO_STRONG_INLINE void operator -= (const Vec4f& a);
+	GLARE_STRONG_INLINE void operator += (const Vec4f& a);
+	GLARE_STRONG_INLINE void operator -= (const Vec4f& a);
 
-	INDIGO_STRONG_INLINE void operator *= (float f);
+	GLARE_STRONG_INLINE void operator *= (float f);
 
 	inline bool operator == (const Vec4f& a) const;
 	inline bool operator != (const Vec4f& a) const;
 	
-	INDIGO_STRONG_INLINE float length() const;
-	INDIGO_STRONG_INLINE float length2() const;
-	INDIGO_STRONG_INLINE float getDist(const Vec4f& a) const;
-	INDIGO_STRONG_INLINE float getDist2(const Vec4f& a) const;
+	GLARE_STRONG_INLINE float length() const;
+	GLARE_STRONG_INLINE float length2() const;
+	GLARE_STRONG_INLINE float getDist(const Vec4f& a) const;
+	GLARE_STRONG_INLINE float getDist2(const Vec4f& a) const;
 
 	inline bool isUnitLength() const;
 
@@ -73,37 +73,37 @@ public:
 // Some stand-alone functions that operate on Vec4fs
 
 
-INDIGO_STRONG_INLINE const Vec4f operator + (const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f operator + (const Vec4f& a, const Vec4f& b)
 {
 	return _mm_add_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f operator - (const Vec4f& a, const Vec4f& b)
 {
 	return _mm_sub_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f operator * (const Vec4f& a, float f)
+GLARE_STRONG_INLINE const Vec4f operator * (const Vec4f& a, float f)
 {
 	return _mm_mul_ps(a.v, _mm_set1_ps(f));
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f operator * (const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f operator * (const Vec4f& a, const Vec4f& b)
 {
 	return _mm_mul_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f operator / (const Vec4f& a, float f)
+GLARE_STRONG_INLINE const Vec4f operator / (const Vec4f& a, float f)
 {
 	return _mm_div_ps(a.v, _mm_set1_ps(f));
 }
 
 
-INDIGO_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE float dot(const Vec4f& a, const Vec4f& b)
 {
 #if COMPILE_SSE4_CODE
 	return _mm_cvtss_f32(_mm_dp_ps(a.v, b.v, 255));
@@ -136,13 +136,13 @@ inline bool approxEq(const Vec4f& a, const Vec4f& b, float eps = NICKMATHS_EPSIL
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a)
+GLARE_STRONG_INLINE const Vec4f normalise(const Vec4f& a)
 {
 	return a / a.length();
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a, float& length_out)
+GLARE_STRONG_INLINE const Vec4f normalise(const Vec4f& a, float& length_out)
 {
 	length_out = a.length();
 
@@ -150,7 +150,7 @@ INDIGO_STRONG_INLINE const Vec4f normalise(const Vec4f& a, float& length_out)
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f& unit_dir)
+GLARE_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f& unit_dir)
 {
 	assert(unit_dir.isUnitLength());
 	return v - unit_dir * dot(v, unit_dir);
@@ -158,7 +158,7 @@ INDIGO_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4
 
 
 // Unary -
-INDIGO_STRONG_INLINE const Vec4f operator - (const Vec4f& v)
+GLARE_STRONG_INLINE const Vec4f operator - (const Vec4f& v)
 {
 	// Flip sign bits
 	const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
@@ -256,63 +256,63 @@ bool Vec4f::isUnitLength() const
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f min(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f min(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_min_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f max(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f max(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_max_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f clamp(const Vec4f& v, const Vec4f& lowerbound, const Vec4f& upperbound)
+GLARE_STRONG_INLINE const Vec4f clamp(const Vec4f& v, const Vec4f& lowerbound, const Vec4f& upperbound)
 {
 	return max(min(v, upperbound), lowerbound);
 }
 
 
 #if COMPILE_SSE4_CODE
-INDIGO_STRONG_INLINE const Vec4f floor(const Vec4f& v)
+GLARE_STRONG_INLINE const Vec4f floor(const Vec4f& v)
 {
 	return Vec4f(_mm_floor_ps(v.v)); // NOTE: _mm_floor_ps (roundps) is SSE4
 }
 #endif
 
 
-INDIGO_STRONG_INLINE const Vec4i toVec4i(const Vec4f& v)
+GLARE_STRONG_INLINE const Vec4i toVec4i(const Vec4f& v)
 {
 	return Vec4i(_mm_cvttps_epi32(v.v)); // _mm_cvttps_epi32 (CVTTPS2DQ) is SSE 2
 }
 
 
 template <int index>
-INDIGO_STRONG_INLINE const Vec4f copyToAll(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index, index, index, index)); } // SSE 1
+GLARE_STRONG_INLINE const Vec4f copyToAll(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index, index, index, index)); } // SSE 1
 
 
 // Copy the elements of a vector to other elements.
 // For example, to reverse the elements: v = swizzle<3, 2, 1, 0>(v);
 // Note that the _MM_SHUFFLE macro takes indices in reverse order than usual.
 template <int index0, int index1, int index2, int index3>
-INDIGO_STRONG_INLINE const Vec4f swizzle(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index3, index2, index1, index0)); } // SSE 1
+GLARE_STRONG_INLINE const Vec4f swizzle(const Vec4f& a) { return _mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(index3, index2, index1, index0)); } // SSE 1
 
 template <int index0, int index1, int index2, int index3>
-INDIGO_STRONG_INLINE const Vec4f shuffle(const Vec4f& a, const Vec4f& b) { return _mm_shuffle_ps(a.v, b.v, _MM_SHUFFLE(index3, index2, index1, index0)); } // SSE 1
+GLARE_STRONG_INLINE const Vec4f shuffle(const Vec4f& a, const Vec4f& b) { return _mm_shuffle_ps(a.v, b.v, _MM_SHUFFLE(index3, index2, index1, index0)); } // SSE 1
 
 template<int index>
-INDIGO_STRONG_INLINE float elem(const Vec4f& v) { return _mm_cvtss_f32(swizzle<index, index, index, index>(v).v); } // SSE 1
+GLARE_STRONG_INLINE float elem(const Vec4f& v) { return _mm_cvtss_f32(swizzle<index, index, index, index>(v).v); } // SSE 1
 
 template<>
-INDIGO_STRONG_INLINE float elem<0>(const Vec4f& v) { return _mm_cvtss_f32(v.v); } // Specialise for getting the zeroth element.
+GLARE_STRONG_INLINE float elem<0>(const Vec4f& v) { return _mm_cvtss_f32(v.v); } // Specialise for getting the zeroth element.
 
 
 // From Embree
-INDIGO_STRONG_INLINE Vec4f unpacklo( const Vec4f& a, const Vec4f& b ) { return _mm_unpacklo_ps(a.v, b.v); } // SSE 1
-INDIGO_STRONG_INLINE Vec4f unpackhi( const Vec4f& a, const Vec4f& b ) { return _mm_unpackhi_ps(a.v, b.v); } // SSE 1
+GLARE_STRONG_INLINE Vec4f unpacklo( const Vec4f& a, const Vec4f& b ) { return _mm_unpacklo_ps(a.v, b.v); } // SSE 1
+GLARE_STRONG_INLINE Vec4f unpackhi( const Vec4f& a, const Vec4f& b ) { return _mm_unpackhi_ps(a.v, b.v); } // SSE 1
 
-INDIGO_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4f& r2, const Vec4f& r3, Vec4f& c0, Vec4f& c1, Vec4f& c2, Vec4f& c3)
+GLARE_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4f& r2, const Vec4f& r3, Vec4f& c0, Vec4f& c1, Vec4f& c2, Vec4f& c3)
 {
 	Vec4f l02 = unpacklo(r0,r2); // (r0x, r2x, r0y, r2y)
 	Vec4f h02 = unpackhi(r0,r2); // (r0z, r2z, r0w, r2w)
@@ -326,7 +326,7 @@ INDIGO_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4
 
 
 #if COMPILE_SSE4_CODE
-INDIGO_STRONG_INLINE Vec4i floorToVec4i(const Vec4f& v) 
+GLARE_STRONG_INLINE Vec4i floorToVec4i(const Vec4f& v) 
 {
 	//NOTE: round_ps is SSE4: http://msdn.microsoft.com/en-us/library/bb514047(v=vs.90).aspx
 	return Vec4i(_mm_cvtps_epi32(_mm_round_ps(v.v, _MM_FROUND_FLOOR)));
@@ -334,13 +334,13 @@ INDIGO_STRONG_INLINE Vec4i floorToVec4i(const Vec4f& v)
 #endif
 
 
-INDIGO_STRONG_INLINE Vec4i truncateToVec4i(const Vec4f& v)
+GLARE_STRONG_INLINE Vec4i truncateToVec4i(const Vec4f& v)
 {
 	return Vec4i(_mm_cvttps_epi32(v.v));
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f abs(const Vec4f& a)
+GLARE_STRONG_INLINE const Vec4f abs(const Vec4f& a)
 {
 	// Zero the sign bits.
 	// _mm_castsi128_ps, _mm_set1_epi32 are SSE2.
@@ -352,87 +352,87 @@ INDIGO_STRONG_INLINE const Vec4f abs(const Vec4f& a)
 inline const std::string toString(const Vec4f& v) { return v.toString(); }
 
 
-INDIGO_STRONG_INLINE const Vec4f loadVec4f(const float* const data)
+GLARE_STRONG_INLINE const Vec4f loadVec4f(const float* const data)
 {
 	assert(((uint64)data % 16) == 0); // Must be 16-byte aligned.
 	return Vec4f(_mm_load_ps(data));
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f loadUnalignedVec4f(const float* const data)
+GLARE_STRONG_INLINE const Vec4f loadUnalignedVec4f(const float* const data)
 {
 	return Vec4f(_mm_loadu_ps(data));
 }
 
 
-INDIGO_STRONG_INLINE void storeVec4f(const Vec4f& v, float* const mem)
+GLARE_STRONG_INLINE void storeVec4f(const Vec4f& v, float* const mem)
 {
 	assert(((uint64)mem % 16) == 0); // Must be 16-byte aligned.
 	_mm_store_ps(mem, v.v);
 }
 
 
-INDIGO_STRONG_INLINE void storeVec4fUnaligned(const Vec4f& v, float* const mem)
+GLARE_STRONG_INLINE void storeVec4fUnaligned(const Vec4f& v, float* const mem)
 {
 	_mm_storeu_ps(mem, v.v);
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f mul(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f mul(const Vec4f& a, const Vec4f& b)
 {
 	return Vec4f(_mm_mul_ps(a.v, b.v));
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f div(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f div(const Vec4f& a, const Vec4f& b)
 {
 	return Vec4f(_mm_div_ps(a.v, b.v));
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f sqrt(const Vec4f& a)
+GLARE_STRONG_INLINE const Vec4f sqrt(const Vec4f& a)
 {
 	return Vec4f(_mm_sqrt_ps(a.v));
 }
 
 
-INDIGO_STRONG_INLINE Vec4f parallelEq(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE Vec4f parallelEq(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_cmpeq_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE Vec4f parallelOr(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE Vec4f parallelOr(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_or_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE Vec4f parallelAnd(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE Vec4f parallelAnd(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_and_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE Vec4f parallelLessEqual(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE Vec4f parallelLessEqual(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_cmple_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE Vec4f parallelGreaterEqual(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE Vec4f parallelGreaterEqual(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_cmpge_ps(a.v, b.v);
 }
 
 
-INDIGO_STRONG_INLINE bool allTrue(const Vec4f& vec)
+GLARE_STRONG_INLINE bool allTrue(const Vec4f& vec)
 {
 	return _mm_movemask_ps(vec.v) == 0xF; // All elements are true (e.g. 0xFFFFFFFF) iff the four lower bits of the result mask are set.
 }
 
 
-INDIGO_STRONG_INLINE float horizontalSum(const Vec4f& a)
+GLARE_STRONG_INLINE float horizontalSum(const Vec4f& a)
 {
 	// suppose a = (a3, a2, a1, a0)
 	// 
@@ -455,40 +455,40 @@ INDIGO_STRONG_INLINE float horizontalSum(const Vec4f& a)
 // mask ? a : b
 // Note that _mm_blendv_ps returns its second arg if mask is true, so we'll swap the order of the args.
 #if COMPILE_SSE4_CODE 
-INDIGO_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4f& mask)
+GLARE_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4f& mask)
 {
 	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), mask.v)); 
 }
 
 // Same as above but with Vec4i mask.
-INDIGO_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4i& mask)
+GLARE_STRONG_INLINE Vec4i select(const Vec4i& a, const Vec4i& b, const Vec4i& mask)
 {
 	return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(b.v), _mm_castsi128_ps(a.v), _mm_castsi128_ps(mask.v)));
 }
 
 
 // If mask element has higher bit set, return a element, else return b element.
-INDIGO_STRONG_INLINE Vec4f select(const Vec4f& a, const Vec4f& b, const Vec4f& mask)
+GLARE_STRONG_INLINE Vec4f select(const Vec4f& a, const Vec4f& b, const Vec4f& mask)
 {
 	return Vec4f(_mm_blendv_ps(b.v, a.v, mask.v));
 }
 #endif
 
 
-INDIGO_STRONG_INLINE Vec4f bitcastToVec4f(const Vec4i& v)
+GLARE_STRONG_INLINE Vec4f bitcastToVec4f(const Vec4i& v)
 {
 	return Vec4f(_mm_castsi128_ps(v.v));
 }
 
 
-INDIGO_STRONG_INLINE Vec4i bitcastToVec4i(const Vec4f& v)
+GLARE_STRONG_INLINE Vec4i bitcastToVec4i(const Vec4f& v)
 {
 	return Vec4i(_mm_castps_si128(v.v));
 }
 
 
 // Cast each element to float
-INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
+GLARE_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
 {
 	return Vec4f(_mm_cvtepi32_ps(v.v));
 }
@@ -496,7 +496,7 @@ INDIGO_STRONG_INLINE Vec4f toVec4f(const Vec4i& v)
 
 // Treat each element as an uint32, and cast each element to float.
 #if COMPILE_SSE4_CODE 
-INDIGO_STRONG_INLINE Vec4f UIntToVec4f(const Vec4i& v)
+GLARE_STRONG_INLINE Vec4f UIntToVec4f(const Vec4i& v)
 {
 	// If sign bit is set, convert to float, then add 2^32.
 	// this brings -2^31 to 2^31, and -1 to 2^32 - 1.
@@ -513,13 +513,13 @@ INDIGO_STRONG_INLINE Vec4f UIntToVec4f(const Vec4i& v)
 #endif
 
 
-INDIGO_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
+GLARE_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
 {
 	return _mm_and_ps(a.v, bitcastToVec4f(Vec4i(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0)).v);
 }
 
 
-INDIGO_STRONG_INLINE Vec4f setWToOne(const Vec4f& a)
+GLARE_STRONG_INLINE Vec4f setWToOne(const Vec4f& a)
 {
 	const Vec4f one = _mm_set_ss(1.f); // [1, 0, 0, 0]
 	const Vec4f v1 = shuffle<2, 2, 0, 0>(a, one); // [z, z, 1, 1]
@@ -529,7 +529,7 @@ INDIGO_STRONG_INLINE Vec4f setWToOne(const Vec4f& a)
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
+GLARE_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
 {
 	// w component of result = a.w*b.w - a.w*b.w = 0
 	return mul(swizzle<1, 2, 0, 3>(a), swizzle<2, 0, 1, 3>(b)) - mul(swizzle<2, 0, 1, 3>(a), swizzle<1, 2, 0, 3>(b));

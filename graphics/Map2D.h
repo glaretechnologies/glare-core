@@ -92,7 +92,7 @@ public:
 	virtual bool isDXTImageMap() const { return false; }
 
 private:
-	INDIGO_DISABLE_COPY(Map2D)
+	GLARE_DISABLE_COPY(Map2D)
 };
 
 

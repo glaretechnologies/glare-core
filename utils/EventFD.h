@@ -28,5 +28,5 @@ public:
 
 	int efd;
 private:
-	INDIGO_DISABLE_COPY(EventFD);
+	GLARE_DISABLE_COPY(EventFD);
 };

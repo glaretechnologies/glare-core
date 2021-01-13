@@ -25,15 +25,15 @@ public:
 
 	inline void resizeNoCopy(uint32 d0, uint32 d1, uint32 d2) { dx = d0; dy = d1; dz = d2; data.resizeNoCopy(d0 * d1 * d2); }
 
-	INDIGO_STRONG_INLINE       T& e(size_t x, size_t y, size_t z);
-	INDIGO_STRONG_INLINE const T& e(size_t x, size_t y, size_t z) const;
+	GLARE_STRONG_INLINE       T& e(size_t x, size_t y, size_t z);
+	GLARE_STRONG_INLINE const T& e(size_t x, size_t y, size_t z) const;
 
-	INDIGO_STRONG_INLINE       T& elem(size_t x, size_t y, size_t z)       { return e(x, y, z); }
-	INDIGO_STRONG_INLINE const T& elem(size_t x, size_t y, size_t z) const { return e(x, y, z); }
+	GLARE_STRONG_INLINE       T& elem(size_t x, size_t y, size_t z)       { return e(x, y, z); }
+	GLARE_STRONG_INLINE const T& elem(size_t x, size_t y, size_t z) const { return e(x, y, z); }
 
-	INDIGO_STRONG_INLINE const size_t dX() const { return dx; }
-	INDIGO_STRONG_INLINE const size_t dY() const { return dy; }
-	INDIGO_STRONG_INLINE const size_t dZ() const { return dz; }
+	GLARE_STRONG_INLINE const size_t dX() const { return dx; }
+	GLARE_STRONG_INLINE const size_t dY() const { return dy; }
+	GLARE_STRONG_INLINE const size_t dZ() const { return dz; }
 
 	js::Vector<T, 16>& getData() { return data; }
 	const js::Vector<T, 16>& getData() const { return data; }

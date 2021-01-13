@@ -31,8 +31,8 @@ public:
 
 
 	// require x >= 0
-	INDIGO_STRONG_INLINE Real eval(Real x) const;
-	INDIGO_STRONG_INLINE Real evalXSmallerEqual2(Real x) const;
+	GLARE_STRONG_INLINE Real eval(Real x) const;
+	GLARE_STRONG_INLINE Real evalXSmallerEqual2(Real x) const;
 
 	inline Real getB() const { return B; }
 	inline Real getC() const { return C; }

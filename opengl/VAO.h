@@ -50,7 +50,7 @@ public:
 	void unbind();
 
 private:
-	INDIGO_DISABLE_COPY(VAO)
+	GLARE_DISABLE_COPY(VAO)
 
 	GLuint handle;
 

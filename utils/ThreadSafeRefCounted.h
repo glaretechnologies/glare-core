@@ -44,7 +44,7 @@ public:
 	}
 	
 private:
-	INDIGO_DISABLE_COPY(ThreadSafeRefCounted)
+	GLARE_DISABLE_COPY(ThreadSafeRefCounted)
 
 	mutable IndigoAtomic refcount;
 };

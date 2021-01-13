@@ -125,7 +125,7 @@ public:
 
 
 // Function declarations for standalone functions.
-INDIGO_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v);
+GLARE_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v);
 inline bool epsEqual(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON);
 inline bool approxEq(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS_EPSILON);
 inline void mul(const Matrix4f& b, const Matrix4f& c, Matrix4f& result_out);
@@ -317,7 +317,7 @@ const Matrix4f Matrix4f::operator + (const Matrix4f& other) const
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v)
+GLARE_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v)
 {
 	assert(SSE::isSSEAligned(&m));
 	assert(SSE::isSSEAligned(&v));
@@ -354,7 +354,7 @@ INDIGO_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v)
 }
 
 
-INDIGO_STRONG_INLINE const Vec4f Matrix4f::mul3Vector(const Vec4f& v) const
+GLARE_STRONG_INLINE const Vec4f Matrix4f::mul3Vector(const Vec4f& v) const
 {
 	const __m128 vx = indigoCopyToAll(v.v, 0);
 	const __m128 vy = indigoCopyToAll(v.v, 1);
@@ -382,7 +382,7 @@ INDIGO_STRONG_INLINE const Vec4f Matrix4f::mul3Vector(const Vec4f& v) const
 
 
 // Treats v.w as 1
-INDIGO_STRONG_INLINE const Vec4f Matrix4f::mul3Point(const Vec4f& v) const
+GLARE_STRONG_INLINE const Vec4f Matrix4f::mul3Point(const Vec4f& v) const
 {
 	const __m128 vx = indigoCopyToAll(v.v, 0);
 	const __m128 vy = indigoCopyToAll(v.v, 1);

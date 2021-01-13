@@ -26,7 +26,7 @@ public:
 
 	GLuint shader;
 private:
-	INDIGO_DISABLE_COPY(OpenGLShader);
+	GLARE_DISABLE_COPY(OpenGLShader);
 };
 
 

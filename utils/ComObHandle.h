@@ -34,7 +34,7 @@ public:
 
 	T* ptr;
 private:
-	INDIGO_DISABLE_COPY(ComObHandle);
+	GLARE_DISABLE_COPY(ComObHandle);
 };
 #endif
 

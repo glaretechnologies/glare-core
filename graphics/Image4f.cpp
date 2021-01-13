@@ -120,7 +120,7 @@ We want a value of 0.99999 or so to map to 255.
 Otherwise we will get, for example, noise in the alpha channel.
 So we want to multiply by a value > 255.
 */
-static INDIGO_STRONG_INLINE uint8_t floatToUInt8(float x)
+static GLARE_STRONG_INLINE uint8_t floatToUInt8(float x)
 {
 	return (uint8_t)(x * 255.9f);
 }

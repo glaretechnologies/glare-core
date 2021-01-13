@@ -45,11 +45,11 @@ public:
 	inline const ColourType* getPixelData() const { return pixels.getData(); }
 	inline ColourType* getPixelData() { return pixels.getData(); }
 
-	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t x, size_t y) const;
-	INDIGO_STRONG_INLINE ColourType& getPixel(size_t x, size_t y);
+	GLARE_STRONG_INLINE const ColourType& getPixel(size_t x, size_t y) const;
+	GLARE_STRONG_INLINE ColourType& getPixel(size_t x, size_t y);
 
-	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t i) const;
-	INDIGO_STRONG_INLINE ColourType& getPixel(size_t i);
+	GLARE_STRONG_INLINE const ColourType& getPixel(size_t i) const;
+	GLARE_STRONG_INLINE ColourType& getPixel(size_t i);
 
 	inline void setPixel(size_t x, size_t y, const ColourType& colour);
 

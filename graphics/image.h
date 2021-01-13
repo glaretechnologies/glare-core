@@ -41,11 +41,11 @@ public:
 	inline size_t getWidth()  const { return pixels.getWidth(); }
 	inline size_t numPixels() const { return pixels.getWidth() * pixels.getHeight(); }
 
-	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t x, size_t y) const;
-	INDIGO_STRONG_INLINE ColourType& getPixel(size_t x, size_t y);
+	GLARE_STRONG_INLINE const ColourType& getPixel(size_t x, size_t y) const;
+	GLARE_STRONG_INLINE ColourType& getPixel(size_t x, size_t y);
 
-	INDIGO_STRONG_INLINE const ColourType& getPixel(size_t i) const;
-	INDIGO_STRONG_INLINE ColourType& getPixel(size_t i);
+	GLARE_STRONG_INLINE const ColourType& getPixel(size_t i) const;
+	GLARE_STRONG_INLINE ColourType& getPixel(size_t i);
 
 	inline const ColourType& getPixelTiled(int x, int y) const;
 

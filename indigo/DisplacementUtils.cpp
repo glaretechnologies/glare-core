@@ -3118,7 +3118,7 @@ void DisplacementUtils::linearSubdivision(
 //===================================================== Spline subdiv =================================================================
 
 
-INDIGO_STRONG_INLINE const Vec3f removeComponentInDir(const Vec3f& v, const Vec3f& dir)
+GLARE_STRONG_INLINE const Vec3f removeComponentInDir(const Vec3f& v, const Vec3f& dir)
 {
 	return v - dir * dot(v, dir);
 }

@@ -52,7 +52,7 @@ public:
 private:
 	// Classes inheriting from RefCounted shouldn't rely on the default copy constructor or assigment operator, 
 	// as these may cause memory leaks when refcount is copied directly.
-	INDIGO_DISABLE_COPY(RefCounted)
+	GLARE_DISABLE_COPY(RefCounted)
 
 	mutable int64 refcount;
 };

@@ -51,7 +51,7 @@ public:
 	static void test();
 
 private:
-	//INDIGO_DISABLE_COPY(IndigoAtomic);
+	//GLARE_DISABLE_COPY(IndigoAtomic);
 
 	// The volatile keyword here is required, otherwise, for example, Visual C++ will hoist the load out of a while loop.
 	volatile glare_atomic_int val;
@@ -81,14 +81,14 @@ inline glare_atomic_int IndigoAtomic::operator-- (int)
 
 #if defined(__x86_64__) || defined(__ia64__) || defined(_M_X64) // If 64-bit:
 
-INDIGO_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, const glare_atomic_int delta)
+GLARE_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, const glare_atomic_int delta)
 {
 	return _InterlockedExchangeAdd64(val, delta);
 }
 
 #else // Else 32 bit build:
 
-INDIGO_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, const glare_atomic_int delta)
+GLARE_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, const glare_atomic_int delta)
 {
 	return _InterlockedExchangeAdd((volatile long*)val, delta);
 }
@@ -99,14 +99,14 @@ INDIGO_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, 
 
 #if defined(__x86_64__) || defined(__ia64__) || defined(_M_X64) // If 64-bit:
 
-INDIGO_STRONG_INLINE int64 atomicAdd(int64 volatile* value, int64 input)
+GLARE_STRONG_INLINE int64 atomicAdd(int64 volatile* value, int64 input)
 {
 	return __sync_fetch_and_add(value, input);
 }
 
 #else // Else 32 bit build:
 
-INDIGO_STRONG_INLINE int32 atomicAdd(int32 volatile* value, int32 input)
+GLARE_STRONG_INLINE int32 atomicAdd(int32 volatile* value, int32 input)
 {  
 	return __sync_fetch_and_add(value, input);
 }

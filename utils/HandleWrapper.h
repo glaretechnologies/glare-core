@@ -27,6 +27,6 @@ public:
 
 private:
 	// Temporary copies will call CloseHandle() which we don't want.
-	INDIGO_DISABLE_COPY(HandleWrapper);
+	GLARE_DISABLE_COPY(HandleWrapper);
 };
 #endif

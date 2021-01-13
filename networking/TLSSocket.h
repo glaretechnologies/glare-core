@@ -46,7 +46,7 @@ public:
 
 	tls_config* config;
 private:
-	INDIGO_DISABLE_COPY(TLSConfig);
+	GLARE_DISABLE_COPY(TLSConfig);
 };
 
 

@@ -15,7 +15,7 @@ Copyright Glare Technologies Limited 2018 -
 #include <string>
 
 
-#define VEC3_INLINE INDIGO_STRONG_INLINE
+#define VEC3_INLINE GLARE_STRONG_INLINE
 
 
 template <class Real>
