@@ -674,7 +674,7 @@ void TreeTest::doVaryingNumtrisBuildTests()
 #if IS_INDIGO
 void TreeTest::doSpeedTest(int treetype)
 {
-	const std::string BUNNY_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bun_zipper.ply";
+	const std::string BUNNY_PATH = TestUtils::getTestReposDir() + "/testfiles/bun_zipper.ply";
 
 	RayMesh raymesh("bunny", false);
 	Indigo::Mesh indigoMesh;
@@ -1279,7 +1279,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 	///////////////////////////////////////
 	{
 		// Load tricky mesh from disk
-		const std::string MODEL_PATH = TestUtils::getIndigoTestReposDir() + "/testfiles/bug-2.igmesh";
+		const std::string MODEL_PATH = TestUtils::getTestReposDir() + "/testfiles/bug-2.igmesh";
 		RayMesh raymesh("tricky", false);
 		Indigo::Mesh indigoMesh;
 		try

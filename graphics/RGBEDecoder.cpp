@@ -261,14 +261,14 @@ void RGBEDecoder::test()
 {
 	try
 	{
-		Reference<Map2D> im = RGBEDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/hdrs/brickweave.hdr");
+		Reference<Map2D> im = RGBEDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/hdrs/brickweave.hdr");
 		testAssert(im->getMapWidth() == 256);
 		testAssert(im->getMapHeight() == 256);
 		testAssert(im->getBytesPerPixel() == sizeof(float) * 3);
 
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";
-		Reference<Map2D> im2 = RGBEDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/hdrs/" + euro + ".hdr");
+		Reference<Map2D> im2 = RGBEDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/hdrs/" + euro + ".hdr");
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -280,7 +280,7 @@ void RGBEDecoder::test()
 	// Try with an invalid path
 	try
 	{
-		RGBEDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/hdrs/NO_SUCH_FILE.gif");
+		RGBEDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/hdrs/NO_SUCH_FILE.gif");
 
 		failTest("Shouldn't get here.");
 	}
@@ -290,7 +290,7 @@ void RGBEDecoder::test()
 	// Try with a JPG file
 	try
 	{
-		RGBEDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+		RGBEDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/checker.jpg");
 
 		failTest("Shouldn't get here.");
 	}
@@ -300,7 +300,7 @@ void RGBEDecoder::test()
 	// Try invalid .hdr file missing FORMAT
 	try
 	{
-		RGBEDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/hdrs/invalid_format.hdr");
+		RGBEDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/hdrs/invalid_format.hdr");
 
 		failTest("Shouldn't get here.");
 	}
@@ -310,7 +310,7 @@ void RGBEDecoder::test()
 	// Try invalid .hdr file missing resolution
 	try
 	{
-		RGBEDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/hdrs/invalid_res.hdr");
+		RGBEDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/hdrs/invalid_res.hdr");
 
 		failTest("Shouldn't get here.");
 	}

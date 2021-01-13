@@ -571,9 +571,9 @@ void ImageMapTests::test()
 	{
 		try
 		{
-			//Map2DRef map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
-			Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testfiles/antialias_test3.png");
-			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testscenes/pentagonal_aperture.png");
+			//Map2DRef map = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+			Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getTestReposDir() + "/testfiles/antialias_test3.png");
+			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getTestReposDir() + "/testscenes/pentagonal_aperture.png");
 
 			testAssert(map.isType<ImageMapUInt8>());
 			ImageMapUInt8Ref map_uint8 = map.downcast<ImageMapUInt8>();
@@ -609,9 +609,9 @@ void ImageMapTests::test()
 	{
 		try
 		{
-			Map2DRef map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
-			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testfiles/antialias_test3.png");
-			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getIndigoTestReposDir() + "/testscenes/pentagonal_aperture.png");
+			Map2DRef map = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getTestReposDir() + "/testfiles/antialias_test3.png");
+			//Map2DRef map = ImFormatDecoder::decodeImage(".", TestUtils::getTestReposDir() + "/testscenes/pentagonal_aperture.png");
 
 			testAssert(map.isType<ImageMapUInt8>());
 			ImageMapUInt8Ref map_uint8 = map.downcast<ImageMapUInt8>();

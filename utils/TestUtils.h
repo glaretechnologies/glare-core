@@ -58,9 +58,7 @@ void doFailTest(const std::string& msg, long line, const char* file);
 void printMessageAndFail(const std::string& msg);
 
 
-// Reads from environment variable INDIGO_TEST_REPOS_DIR, which should be set to something like 'C:\programming\indigo\trunk'
-// Prints error message and exits on failure.
-const std::string getIndigoTestReposDir();
+const std::string getTestReposDir();
 
 // Doesn't really print the message, but the compiler can't tell that, So the compiler won't optimise the call away.  
 // This can be used to make sure a loop isn't optimised away in a benchmark.

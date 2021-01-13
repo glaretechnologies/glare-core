@@ -1148,7 +1148,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 	DummyShouldCancelCallback should_cancel_callback;
 
 	Timer timer;
-	std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+	std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir(), "igmesh");
 	std::sort(files.begin(), files.end());
 
 	const size_t num_to_test = comprehensive_tests ? files.size() : 100;

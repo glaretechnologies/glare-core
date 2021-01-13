@@ -2053,7 +2053,7 @@ void SBVHBuilder::test(bool comprehensive_tests)
 	if(true)
 	{
 		Timer timer;
-		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir(), "igmesh");
 		std::sort(files.begin(), files.end());
 
 		const size_t num_to_test = comprehensive_tests ? files.size() : 40;

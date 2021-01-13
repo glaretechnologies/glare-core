@@ -324,7 +324,7 @@ void IndigoXMLDoc::test()
 	//============ Perf test ============
 	{
 		{
-			const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/instancing_test4.igs";
+			const std::string path = TestUtils::getTestReposDir() + "/testscenes/instancing_test4.igs";
 			const size_t filesize = FileUtils::getFileSize(path);
 
 			const int NUM_ITERS = 1;
@@ -385,7 +385,7 @@ void IndigoXMLDoc::test()
 	{
 		for(int i=0; i<1; ++i)
 		{
-			IndigoXMLDoc doc(TestUtils::getIndigoTestReposDir() + "/testscenes/airy_disc_test.igs");
+			IndigoXMLDoc doc(TestUtils::getTestReposDir() + "/testscenes/airy_disc_test.igs");
 		}
 	}
 	catch(IndigoXMLDocExcep& )

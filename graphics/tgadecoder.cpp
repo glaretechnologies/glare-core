@@ -392,7 +392,7 @@ void TGADecoder::test()
 	// Try loading a TGA with an alpha channel
 	try
 	{
-		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A.tga");
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A.tga");
 		testAssert(im->getMapWidth() == 128);
 		testAssert(im->getMapHeight() == 256);
 		testAssert(im->getBytesPerPixel() == 4);
@@ -405,7 +405,7 @@ void TGADecoder::test()
 	// Try a file with alpha but no RLE.
 	try
 	{
-		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A_no_RLE.tga");
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A_no_RLE.tga");
 		testAssert(im->getMapWidth() == 128);
 		testAssert(im->getMapHeight() == 256);
 		testAssert(im->getBytesPerPixel() == 4);
@@ -419,7 +419,7 @@ void TGADecoder::test()
 	// Try loading a RGB TGA without RLE
 	try
 	{
-		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.tga");
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->getBytesPerPixel() == 3);
@@ -432,7 +432,7 @@ void TGADecoder::test()
 	// Try loading a greyscale TGA without RLE
 	try
 	{
-		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.tga");
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->getBytesPerPixel() == 1);
@@ -445,7 +445,7 @@ void TGADecoder::test()
 	// Try loading a RGB TGA with RLE
 	try
 	{
-		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_with_RLE.tga");
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_with_RLE.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->getBytesPerPixel() == 3);
@@ -458,7 +458,7 @@ void TGADecoder::test()
 	// Try loading a greyscale TGA with RLE
 	try
 	{
-		Reference<Map2D> im = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale_with_RLE.tga");
+		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale_with_RLE.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->getBytesPerPixel() == 1);
@@ -473,7 +473,7 @@ void TGADecoder::test()
 	{
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";
-		Reference<Map2D> im2 = TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/" + euro + ".tga");
+		Reference<Map2D> im2 = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/" + euro + ".tga");
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -485,7 +485,7 @@ void TGADecoder::test()
 	// Try with an invalid path
 	try
 	{
-		TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/hdrs/NO_SUCH_FILE.gif");
+		TGADecoder::decode(TestUtils::getTestReposDir() + "/testfiles/hdrs/NO_SUCH_FILE.gif");
 
 		failTest("Shouldn't get here.");
 	}
@@ -495,7 +495,7 @@ void TGADecoder::test()
 	// Try with a JPG file
 	try
 	{
-		TGADecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+		TGADecoder::decode(TestUtils::getTestReposDir() + "/testfiles/checker.jpg");
 
 		failTest("Shouldn't get here.");
 	}

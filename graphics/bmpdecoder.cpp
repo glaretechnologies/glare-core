@@ -197,7 +197,7 @@ void BMPDecoder::test()
 	// Load a RGB BMP
 	try
 	{
-		Reference<Map2D> im = BMPDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.bmp");
+		Reference<Map2D> im = BMPDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.bmp");
 		
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
@@ -211,7 +211,7 @@ void BMPDecoder::test()
 	// Load a greyscale BMP
 	try
 	{
-		Reference<Map2D> im = BMPDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
+		Reference<Map2D> im = BMPDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
 
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
@@ -225,7 +225,7 @@ void BMPDecoder::test()
 	// Test top-to-bottom BMP
 	try
 	{
-		Reference<Map2D> im = BMPDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/BMPs/top_to_bottom.BMP");
+		Reference<Map2D> im = BMPDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/BMPs/top_to_bottom.BMP");
 		testAssert(im->getMapWidth() == 372);
 		testAssert(im->getMapHeight() == 379);
 		testAssert(im->getBytesPerPixel() == 3);
@@ -241,7 +241,7 @@ void BMPDecoder::test()
 	{
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";
-		Reference<Map2D> im2 = BMPDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/" + euro + ".bmp");
+		Reference<Map2D> im2 = BMPDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/" + euro + ".bmp");
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -253,7 +253,7 @@ void BMPDecoder::test()
 	// Try with an invalid path
 	try
 	{
-		BMPDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/BMPs/NO_SUCH_FILE.bmp");
+		BMPDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/BMPs/NO_SUCH_FILE.bmp");
 
 		failTest("Shouldn't get here.");
 	}
@@ -264,7 +264,7 @@ void BMPDecoder::test()
 	// Try with a JPG file
 	try
 	{
-		BMPDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+		BMPDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/checker.jpg");
 
 		failTest("Shouldn't get here.");
 	}

@@ -126,19 +126,19 @@ void GIFDecoder::test()
 		Reference<Map2D> im;
 
 		// This files uses a local palette.
-		im = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif");
+		im = GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif");
 		testAssert(im->getMapWidth() == 620);
 		testAssert(im->getMapHeight() == 409);
 		testAssert(im->getBytesPerPixel() == 3);
 
-		im = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/fire.gif");
+		im = GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/gifs/fire.gif");
 		testAssert(im->getMapWidth() == 30);
 		testAssert(im->getMapHeight() == 60);
 		testAssert(im->getBytesPerPixel() == 3);
 
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";
-		Reference<Map2D> im2 = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/" + euro + ".gif");
+		Reference<Map2D> im2 = GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/gifs/" + euro + ".gif");
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -148,7 +148,7 @@ void GIFDecoder::test()
 	// This file has a 'virtual canvas' size of 480x480, but the actual image (image 0 at least) is 479x479.
 	try
 	{
-		Reference<Map2D> im = GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif");
+		Reference<Map2D> im = GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif");
 		testAssert(im->getMapWidth() == 479);
 		testAssert(im->getMapHeight() == 479);
 	}
@@ -162,7 +162,7 @@ void GIFDecoder::test()
 	// Try with an invalid path
 	try
 	{
-		GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/gifs/NO_SUCH_FILE.gif");
+		GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/gifs/NO_SUCH_FILE.gif");
 
 		failTest("Shouldn't get here.");
 	}
@@ -172,7 +172,7 @@ void GIFDecoder::test()
 	// Try with a JPG file
 	try
 	{
-		GIFDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+		GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/checker.jpg");
 
 		failTest("Shouldn't get here.");
 	}

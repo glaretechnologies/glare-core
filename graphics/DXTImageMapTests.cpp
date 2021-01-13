@@ -467,9 +467,9 @@ void DXTImageMapTests::test()
 		//=================== Load an image off disk and compress it. ===================
 		if(false)
 		{
-			Reference<Map2D> map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
-			//Reference<Map2D> map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/dof_test_with_alpha.png");
-			//Reference<Map2D> map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/leaf_with_alpha.png");
+			Reference<Map2D> map = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+			//Reference<Map2D> map = PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/pngs/dof_test_with_alpha.png");
+			//Reference<Map2D> map = PNGDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/leaf_with_alpha.png");
 
 			testAssert(dynamic_cast<ImageMapUInt8*>(map.ptr()) != NULL);
 			ImageMapUInt8& image_map = *map.downcast<ImageMapUInt8>();
@@ -481,7 +481,7 @@ void DXTImageMapTests::test()
 
 			// Test with alpha channel
 			/*{
-				Reference<Map2D> map_with_alpha = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/leaf_with_alpha.png");
+				Reference<Map2D> map_with_alpha = PNGDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/leaf_with_alpha.png");
 				testAssert(dynamic_cast<ImageMapUInt8*>(map_with_alpha.ptr()));
 				ImageMapUInt8& image_map_with_alpha = *map_with_alpha.downcast<ImageMapUInt8>();
 

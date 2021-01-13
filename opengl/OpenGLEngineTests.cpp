@@ -115,7 +115,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 
 	{
 		//----------------- Load and insert texture into OpenGL Engine.-----------------
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg";
 
 		const std::string key = engine.getTextureServer()->keyForPath(path); // Get canonical path.  May throw TextureServerExcep
 
@@ -141,7 +141,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 
 	{
 		//----------------- Make an object using a texture, insert into engine -----------------
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/checker.jpg";
 
 		GLObjectRef ob = new GLObject();
 		ob->materials.resize(1);
@@ -209,17 +209,17 @@ void test(const std::string& indigo_base_dir)
 {
 	conPrint("OpenGLEngineTests::test()");
 
-	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/arrow.igmesh"); // Has both tris and quads
-	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
-	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/poolparty_reduced/mesh_18276362613739127974.igmesh"); // ~100 KB mesh
-	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
-	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Supercar_Benchmark_Optimised/mesh_3732024865775885879.igmesh");
-	doTest(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
+	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/arrow.igmesh"); // Has both tris and quads
+	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
+	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/poolparty_reduced/mesh_18276362613739127974.igmesh"); // ~100 KB mesh
+	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
+	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/dist/benchmark_scenes/Supercar_Benchmark_Optimised/mesh_3732024865775885879.igmesh");
+	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
 
 
 	// Run on all IGMESH files in testscenes.
 	{
-		const std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir() + "/testscenes", "igmesh");
+		const std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testscenes", "igmesh");
 
 		for(size_t i=0; i<paths.size(); ++i)
 		{

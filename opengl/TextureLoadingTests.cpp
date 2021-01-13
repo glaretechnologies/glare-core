@@ -71,7 +71,7 @@ void TextureLoadingTests::test()
 
 	if(false)
 	{
-		Map2DRef map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+		Map2DRef map = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
 		testAssert(dynamic_cast<ImageMapUInt8*>(map.ptr()));
 
 		Reference<const ImageMapUInt8> prev_mip_level_image = map.downcast<const ImageMapUInt8>();

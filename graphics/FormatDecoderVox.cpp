@@ -386,7 +386,7 @@ void FormatDecoderVox::test()
 	try
 	{
 		{
-			const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/vox/2-2-0.vox"; // Has a PACK chunk
+			const std::string path = TestUtils::getTestReposDir() + "/testfiles/vox/2-2-0.vox"; // Has a PACK chunk
 
 			VoxFileContents contents;
 
@@ -398,7 +398,7 @@ void FormatDecoderVox::test()
 			testAssert(contents.models[0].voxels.size() == 1885);
 		}
 		{
-			const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/vox/teapot.vox";
+			const std::string path = TestUtils::getTestReposDir() + "/testfiles/vox/teapot.vox";
 
 			VoxFileContents contents;
 
@@ -410,7 +410,7 @@ void FormatDecoderVox::test()
 			testAssert(contents.models[0].voxels.size() == 28411);
 		}
 		{
-			const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/vox/vox_with_metal_mat.vox";
+			const std::string path = TestUtils::getTestReposDir() + "/testfiles/vox/vox_with_metal_mat.vox";
 
 			VoxFileContents contents;
 

@@ -1092,7 +1092,7 @@ const std::string Obfuscator::readFileFromDisk(const std::string& indigo_base_di
 		else
 		{
 			// Assume that all plain-text files we are trying to read are in INDIGO_TRUNK/lang if not specified otherwise
-			const std::string full_path = FileUtils::join(TestUtils::getIndigoTestReposDir() + "/lang", plain_text_path);
+			const std::string full_path = FileUtils::join(TestUtils::getTestReposDir() + "/lang", plain_text_path);
 
 			return FileUtils::readEntireFileTextMode(full_path);
 		}

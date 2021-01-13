@@ -172,7 +172,7 @@ void ArrayLiteralUtils::test()
 	try
 	{
 		CSVData data;
-		loadCSVFile(TestUtils::getIndigoTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", data);
+		loadCSVFile(TestUtils::getTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", data);
 		testAssert(data.data.getWidth() == 3 && data.data.getHeight() == 441);
 
 		testAssert(data.data.elem(0, 0) == 0.00295242);
@@ -184,7 +184,7 @@ void ArrayLiteralUtils::test()
 		testAssert(data.data.elem(2, 440) == 0);
 
 
-		//convertCSVToArrayLiteral(TestUtils::getIndigoTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", "d:/files/test.cpp",
+		//convertCSVToArrayLiteral(TestUtils::getTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", "d:/files/test.cpp",
 		//	"static const float test_array", "// The test array\n// Comment line two");
 	}
 	catch(glare::Exception& e)

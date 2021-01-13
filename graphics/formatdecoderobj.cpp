@@ -560,7 +560,7 @@ void FormatDecoderObj::test()
 
 		//	const int N = 100;
 
-		//	const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/infinite_head/Infinite-Level_02.OBJ";
+		//	const std::string path = TestUtils::getTestReposDir() + "/testscenes/infinite_head/Infinite-Level_02.OBJ";
 
 		//	Timer timer;
 		//	for(int i=0; i<N; ++i)
@@ -577,7 +577,7 @@ void FormatDecoderObj::test()
 
 			const int N = 100;
 
-			const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/elephant.obj";
+			const std::string path = TestUtils::getTestReposDir() + "/testscenes/elephant.obj";
 
 			Timer timer;
 			for(int i=0; i<N; ++i)
@@ -594,7 +594,7 @@ void FormatDecoderObj::test()
 
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/a_test_mesh.obj";
 		Indigo::Mesh mesh;
 		MLTLibMaterials mats;
 		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
@@ -615,11 +615,11 @@ void FormatDecoderObj::test()
 	try
 	{
 		MLTLibMaterials mats;
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/sphere.obj";
 		Indigo::Mesh sphere_mesh_ref;
 		streamModel(path, sphere_mesh_ref, 1.0, /*parse mtllib=*/false, mats);
 
-		const std::string path2 = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere_with_backslashes.obj";
+		const std::string path2 = TestUtils::getTestReposDir() + "/testfiles/sphere_with_backslashes.obj";
 		Indigo::Mesh sphere_mesh_2;
 		streamModel(path2, sphere_mesh_2, 1.0, /*parse mtllib=*/false, mats);
 
@@ -632,7 +632,7 @@ void FormatDecoderObj::test()
 
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/teapot.obj";
 		Indigo::Mesh mesh;
 		MLTLibMaterials mats;
 		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
@@ -646,7 +646,7 @@ void FormatDecoderObj::test()
 	try
 	{
 		MLTLibMaterials mats;
-		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/eames_elephant.mtl", mats);
+		parseMTLLib(TestUtils::getTestReposDir() + "/testfiles/obj/eames_elephant.mtl", mats);
 		
 		testAssert(mats.materials.size() == 2);
 
@@ -672,7 +672,7 @@ void FormatDecoderObj::test()
 	try
 	{
 		MLTLibMaterials mats;
-		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/elephant.mtl", mats);
+		parseMTLLib(TestUtils::getTestReposDir() + "/testfiles/obj/elephant.mtl", mats);
 		
 		testAssert(mats.materials.size() == 4);
 
@@ -702,7 +702,7 @@ void FormatDecoderObj::test()
 	try
 	{
 		MLTLibMaterials mats;
-		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/EU22y.mtl", mats);
+		parseMTLLib(TestUtils::getTestReposDir() + "/testfiles/obj/EU22y.mtl", mats);
 		
 		testAssert(mats.materials.size() == 3);
 		testAssert(mats.materials[0].name == "Bark");
@@ -717,7 +717,7 @@ void FormatDecoderObj::test()
 	try
 	{
 		MLTLibMaterials mats;
-		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/Infinite-Level_02.mtl", mats);
+		parseMTLLib(TestUtils::getTestReposDir() + "/testfiles/obj/Infinite-Level_02.mtl", mats);
 		
 		testAssert(mats.materials.size() == 1);
 		testAssert(mats.materials[0].name == "defaultMat");
@@ -731,7 +731,7 @@ void FormatDecoderObj::test()
 	try
 	{
 		MLTLibMaterials mats;
-		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/NOT_A_FILE", mats);
+		parseMTLLib(TestUtils::getTestReposDir() + "/testfiles/obj/NOT_A_FILE", mats);
 		failTest("Shouldn't get here.");
 	}
 	catch(glare::Exception&)
@@ -742,7 +742,7 @@ void FormatDecoderObj::test()
 	try
 	{
 		MLTLibMaterials mats;
-		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", mats);
+		parseMTLLib(TestUtils::getTestReposDir() + "/testfiles/empty_file", mats);
 		testAssert(mats.materials.size() == 0);
 	}
 	catch(glare::Exception& e)

@@ -1296,14 +1296,14 @@ void doUnitTests()
 	//========================= Test getCanonicalPath() ================================
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/sphere.obj";
 		const std::string canonical_path = getCanonicalPath(path);
 		conPrint("canonical_path: '" + canonical_path + "'");
 		testAssert(FileUtils::fileExists(canonical_path));
 
 #if defined(_WIN32) || defined(OSX) // If we are on a case-insensitive filesystem:
-		testAssert(canonical_path == getCanonicalPath(TestUtils::getIndigoTestReposDir() + "/testfiles/Sphere.obj"));
-		testAssert(canonical_path == getCanonicalPath(TestUtils::getIndigoTestReposDir() + "/TESTFILES/Sphere.OBJ"));
+		testAssert(canonical_path == getCanonicalPath(TestUtils::getTestReposDir() + "/testfiles/Sphere.obj"));
+		testAssert(canonical_path == getCanonicalPath(TestUtils::getTestReposDir() + "/TESTFILES/Sphere.OBJ"));
 #endif
 		Timer timer;
 		const int N = 10;
@@ -1326,7 +1326,7 @@ void doUnitTests()
 #if defined(_WIN32)
 	for(int i=0; i<4; ++i)
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/http_response";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/http_response";
 
 		Timer timer;
 		HandleWrapper file = CreateFile(
@@ -1560,13 +1560,13 @@ void doUnitTests()
 	//========================= Test fileExists() ================================
 	try
 	{
-		testAssert(fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj"));
-		testAssert(!fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot_DOES_NOT_EXIST.obj"));
+		testAssert(fileExists(TestUtils::getTestReposDir() + "/testfiles/teapot.obj"));
+		testAssert(!fileExists(TestUtils::getTestReposDir() + "/testfiles/teapot_DOES_NOT_EXIST.obj"));
 
 		// fileExists should return true for directories as well.
-		testAssert(fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles"));
-		testAssert(fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles/"));
-		testAssert(!fileExists(TestUtils::getIndigoTestReposDir() + "/testfiles_DOES_NOT_EXIST"));
+		testAssert(fileExists(TestUtils::getTestReposDir() + "/testfiles"));
+		testAssert(fileExists(TestUtils::getTestReposDir() + "/testfiles/"));
+		testAssert(!fileExists(TestUtils::getTestReposDir() + "/testfiles_DOES_NOT_EXIST"));
 	}
 	catch(FileUtilsExcep& e)
 	{
@@ -1578,12 +1578,12 @@ void doUnitTests()
 	try
 	{
 		// Should return false for files that exist and that do not exist
-		testAssert(!isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot.obj"));
-		testAssert(!isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles/teapot_DOES_NOT_EXIST.obj"));
+		testAssert(!isDirectory(TestUtils::getTestReposDir() + "/testfiles/teapot.obj"));
+		testAssert(!isDirectory(TestUtils::getTestReposDir() + "/testfiles/teapot_DOES_NOT_EXIST.obj"));
 
-		testAssert(isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles"));
-		testAssert(isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles/"));
-		testAssert(!isDirectory(TestUtils::getIndigoTestReposDir() + "/testfiles_DOES_NOT_EXIST"));
+		testAssert(isDirectory(TestUtils::getTestReposDir() + "/testfiles"));
+		testAssert(isDirectory(TestUtils::getTestReposDir() + "/testfiles/"));
+		testAssert(!isDirectory(TestUtils::getTestReposDir() + "/testfiles_DOES_NOT_EXIST"));
 	}
 	catch(FileUtilsExcep& e)
 	{
@@ -1594,23 +1594,23 @@ void doUnitTests()
 	//========================= Test getActualOSPath() ================================
 	try
 	{
-		//const std::vector<std::string> files = getFilesInDir(TestUtils::getIndigoTestReposDir() + "/testfiles");
+		//const std::vector<std::string> files = getFilesInDir(TestUtils::getTestReposDir() + "/testfiles");
 		//for(size_t i=0; i<files.size(); ++i)
 		///	conPrint("file: " + files[i]);
 
 #if defined(_WIN32)
-		const std::string canonical_path = getCanonicalPath(TestUtils::getIndigoTestReposDir() + "\\testfiles\\sphere.obj");
+		const std::string canonical_path = getCanonicalPath(TestUtils::getTestReposDir() + "\\testfiles\\sphere.obj");
 		conPrint("canonical_path: '" + canonical_path + "'");
 		testAssert(getFilename(canonical_path) == "sphere.obj");
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == canonical_path);
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == canonical_path);
+		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/sphere.obj") == canonical_path);
+		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/SpHerE.ObJ") == canonical_path);
 #elif defined(OSX)
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles\\SpHerE.ObJ") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles\\SpHerE.ObJ") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");
 #else // Else on Linux:
-		testAssert(getActualOSPath(TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj");
+		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");
 #endif
 	}
 	catch(FileUtilsExcep& e)
@@ -1621,7 +1621,7 @@ void doUnitTests()
 
 	//========================= Test handling of Unicode pathnames ============================
 	
-	const std::string euro_txt_pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/\xE2\x82\xAC.txt";
+	const std::string euro_txt_pathname = TestUtils::getTestReposDir() + "/testfiles/\xE2\x82\xAC.txt";
 
 	try
 	{
@@ -1652,7 +1652,7 @@ void doUnitTests()
 	// Test openFile() failure
 	try
 	{
-		FILE* f = FileUtils::openFile(TestUtils::getIndigoTestReposDir() + "/sdgfdsgdfgdfg", "rb");
+		FILE* f = FileUtils::openFile(TestUtils::getTestReposDir() + "/sdgfdsgdfgdfg", "rb");
 		testAssert(f == NULL);
 	}
 	catch(FileUtilsExcep& e)
@@ -1679,7 +1679,7 @@ void doUnitTests()
 	// Test openFileDescriptor() failure
 	try
 	{
-		const int f = FileUtils::openFileDescriptor(TestUtils::getIndigoTestReposDir() + "/sdgfdsgdfgdfg", O_RDONLY);
+		const int f = FileUtils::openFileDescriptor(TestUtils::getTestReposDir() + "/sdgfdsgdfgdfg", O_RDONLY);
 		testAssert(f == -1);
 	}
 	catch(FileUtilsExcep& e)
@@ -1697,7 +1697,7 @@ void doUnitTests()
 
 	// Test std::ifstream without a Unicode pathname
 	{
-	std::ifstream file(FileUtils::convertUTF8ToFStreamPath(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
+	std::ifstream file(FileUtils::convertUTF8ToFStreamPath(TestUtils::getTestReposDir() + "/testfiles/a_test_mesh.obj").c_str(), std::ios_base::in | std::ios_base::binary);
 
 	testAssert(file.is_open());
 	}
@@ -1706,7 +1706,7 @@ void doUnitTests()
 	//============================ Test getFileSize() ============================
 	try
 	{
-		testAssert(getFileSize(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj") == 231);
+		testAssert(getFileSize(TestUtils::getTestReposDir() + "/testfiles/a_test_mesh.obj") == 231);
 	}
 	catch(FileUtilsExcep& e)
 	{
@@ -1715,7 +1715,7 @@ void doUnitTests()
 
 	try
 	{
-		getFileSize(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh_that_doesnt_exist.obj");
+		getFileSize(TestUtils::getTestReposDir() + "/testfiles/a_test_mesh_that_doesnt_exist.obj");
 
 		failTest("No exception thrown by getFileSize() for nonexistent file.");
 	}
@@ -1856,25 +1856,25 @@ void doUnitTests()
 
 		//============ Test getFileCreatedTime() ====================
 #if defined(_WIN32)
-		testAssert(getFileCreatedTime(TestUtils::getIndigoTestReposDir() + "/testfiles/a_test_mesh.obj") > 0);
+		testAssert(getFileCreatedTime(TestUtils::getTestReposDir() + "/testfiles/a_test_mesh.obj") > 0);
 #endif
 
 		//============ Test readEntireFile() ====================
 		{
 			// CRLF should not be converted to LF (as this is a binary read)
 			std::string s;
-			readEntireFile(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_windows_line_endings.txt", s);
+			readEntireFile(TestUtils::getTestReposDir() + "/testfiles/textfile_windows_line_endings.txt", s);
 			testAssert(s == "a\r\nb");
 		}
 		{
 			std::string s;
-			readEntireFile(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_unix_line_endings.txt", s);
+			readEntireFile(TestUtils::getTestReposDir() + "/testfiles/textfile_unix_line_endings.txt", s);
 			testAssert(s == "a\nb");
 		}
 		{
 			// Test with empty file
 			std::string s;
-			readEntireFile(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", s);
+			readEntireFile(TestUtils::getTestReposDir() + "/testfiles/empty_file", s);
 			testAssert(s == "");
 		}
 
@@ -1882,34 +1882,34 @@ void doUnitTests()
 		{
 			// CRLF should not be converted to LF (as this is a binary read)
 			std::vector<unsigned char> s;
-			readEntireFileWithRetries(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_windows_line_endings.txt", /*max retry period=*/1.0, s);
+			readEntireFileWithRetries(TestUtils::getTestReposDir() + "/testfiles/textfile_windows_line_endings.txt", /*max retry period=*/1.0, s);
 			testAssert(std::string((const char*)&*s.begin(), (const char*)&*s.begin() + s.size()) == "a\r\nb");
 		}
 		{
 			std::vector<unsigned char> s;
-			readEntireFileWithRetries(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_unix_line_endings.txt", /*max retry period=*/1.0, s);
+			readEntireFileWithRetries(TestUtils::getTestReposDir() + "/testfiles/textfile_unix_line_endings.txt", /*max retry period=*/1.0, s);
 			testAssert(std::string((const char*)&*s.begin(), (const char*)&*s.begin() + s.size()) == "a\nb");
 		}
 		{
 			// Test with empty file
 			std::vector<unsigned char> s;
-			readEntireFileWithRetries(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", /*max retry period=*/1.0, s);
+			readEntireFileWithRetries(TestUtils::getTestReposDir() + "/testfiles/empty_file", /*max retry period=*/1.0, s);
 			testAssert(s.empty());
 		}
 
 		//============ Test readEntireFileTextMode() ====================
 		{
 			// CRLF should be converted to LF
-			const std::string s = readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_windows_line_endings.txt");
+			const std::string s = readEntireFileTextMode(TestUtils::getTestReposDir() + "/testfiles/textfile_windows_line_endings.txt");
 			testAssert(s == "a\nb");
 		}
 		{
-			const std::string s = readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/testfiles/textfile_unix_line_endings.txt");
+			const std::string s = readEntireFileTextMode(TestUtils::getTestReposDir() + "/testfiles/textfile_unix_line_endings.txt");
 			testAssert(s == "a\nb");
 		}
 		{
 			// Test with empty file
-			const std::string s = readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file");
+			const std::string s = readEntireFileTextMode(TestUtils::getTestReposDir() + "/testfiles/empty_file");
 			testAssert(s == "");
 		}
 	}

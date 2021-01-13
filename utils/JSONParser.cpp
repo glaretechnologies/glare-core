@@ -568,7 +568,7 @@ void JSONParser::test()
 	try
 	{
 		JSONParser p;
-		p.parseFile(TestUtils::getIndigoTestReposDir() + "/testfiles/json/example.json");
+		p.parseFile(TestUtils::getTestReposDir() + "/testfiles/json/example.json");
 
 		JSONNode root_ob = p.nodes[0];
 		testAssert(root_ob.type == JSONNode::Type_Object);

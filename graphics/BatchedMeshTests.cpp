@@ -263,7 +263,7 @@ void BatchedMeshTests::test()
 
 		{
 			Indigo::Mesh indigo_mesh;
-			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/cornellbox_jotero2_meshes/mesh_447604471_4256.igmesh", indigo_mesh);
+			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir()) + "/testscenes/cornellbox_jotero2_meshes/mesh_447604471_4256.igmesh", indigo_mesh);
 
 			BatchedMesh batched_mesh;
 			batched_mesh.buildFromIndigoMesh(indigo_mesh);
@@ -274,7 +274,7 @@ void BatchedMeshTests::test()
 
 		{
 			Indigo::Mesh indigo_mesh;
-			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/mesh_2107654449_802486.igmesh", indigo_mesh);
+			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir()) + "/testscenes/mesh_2107654449_802486.igmesh", indigo_mesh);
 			testAssert(indigo_mesh.triangles.size() == 7656);
 
 			BatchedMesh batched_mesh;
@@ -286,7 +286,7 @@ void BatchedMeshTests::test()
 
 		{
 			Indigo::Mesh indigo_mesh;
-			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/quad_mesh_500x500_verts.igmesh", indigo_mesh);
+			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir()) + "/testscenes/quad_mesh_500x500_verts.igmesh", indigo_mesh);
 			testAssert(indigo_mesh.quads.size() == 249001);
 
 			BatchedMesh batched_mesh;
@@ -299,7 +299,7 @@ void BatchedMeshTests::test()
 		// This mesh as 2 uvs sets.
 		{
 			Indigo::Mesh indigo_mesh;
-			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/bump_ridge_test_saved_meshes/mesh_16314352959183639561.igmesh", indigo_mesh);
+			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir()) + "/testscenes/bump_ridge_test_saved_meshes/mesh_16314352959183639561.igmesh", indigo_mesh);
 			testAssert(indigo_mesh.num_uv_mappings == 2);
 
 			BatchedMesh batched_mesh;
@@ -313,7 +313,7 @@ void BatchedMeshTests::test()
 
 		// For all IGMESH files in testscenes, convert to BatchedMesh then test saving and loading.
 		{
-			std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir() + "/testscenes", "igmesh");
+			std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testscenes", "igmesh");
 			std::sort(paths.begin(), paths.end());
 
 			for(size_t i=0; i<paths.size(); ++i)
@@ -335,11 +335,11 @@ void BatchedMeshTests::test()
 		// Perf test - test compression and decompression speed at varying compression levels
 		if(false)
 		{
-			perfTestWithMesh(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb");
+			perfTestWithMesh(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb");
 
-			perfTestWithMesh(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/duck/Duck.gltf");
+			perfTestWithMesh(TestUtils::getTestReposDir() + "/testfiles/gltf/duck/Duck.gltf");
 
-			perfTestWithMesh(TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
+			perfTestWithMesh(TestUtils::getTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh");
 		}
 
 		/*

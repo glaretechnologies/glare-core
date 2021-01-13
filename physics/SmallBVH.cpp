@@ -357,7 +357,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests)
 	DummyShouldCancelCallback should_cancel_callback;
 
 	Timer timer;
-	std::vector<std::string> files = FileUtils::getSortedFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+	std::vector<std::string> files = FileUtils::getSortedFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir(), "igmesh");
 
 	const size_t num_to_test = comprehensive_tests ? files.size() : 100;
 	for(size_t i=0; i<num_to_test; ++i)
@@ -402,7 +402,7 @@ void js::SmallBVH::test(bool comprehensive_tests)
 		Indigo::Mesh indigo_mesh;
 		try
 		{
-			const std::string path = TestUtils::getIndigoTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh";
+			const std::string path = TestUtils::getTestReposDir() + "/dist/benchmark_scenes/Arthur Liebnau - bedroom-benchmark-2016/mesh_4191131180918266302.igmesh";
 			Indigo::Mesh::readFromFile(toIndigoString(path), indigo_mesh);
 
 			conPrint("Building '" + path + "'... (tris: " + toString(indigo_mesh.triangles.size()) + ", quads: " + toString(indigo_mesh.quads.size()) + ")");

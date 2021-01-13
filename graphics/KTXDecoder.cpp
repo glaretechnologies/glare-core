@@ -137,13 +137,13 @@ void KTXDecoder::test()
 	{
 		Reference<Map2D> im;
 
-		im = KTXDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/ktx/lightmap_BC6H_no_mipmap.KTX");
+		im = KTXDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_no_mipmap.KTX");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
 		testAssert(im.downcastToPtr<CompressedImage>()->mipmap_level_data.size() == 1); // no mipmaps.
 
-		im = KTXDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX");
+		im = KTXDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());

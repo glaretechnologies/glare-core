@@ -31,7 +31,7 @@ void writeArrayLiteral(const std::vector<float>& data, size_t num_elems_per_line
 
 /*
 For example: 
-convertCSVToArrayLiteral(TestUtils::getIndigoTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", "d:/files/test.cpp",
+convertCSVToArrayLiteral(TestUtils::getTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", "d:/files/test.cpp",
 			"static const float test_array", "// The test array\n// Comment line two");
 */
 void convertCSVToArrayLiteral(const std::string& CSV_path, const std::string& dest_literal_file, const std::string& array_literal_name_and_dec, const std::string& array_literal_comment);

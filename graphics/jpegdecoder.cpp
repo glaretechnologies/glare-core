@@ -418,19 +418,19 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		{
 			{
 				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/world.200401.3x5400x2700.jpg");
+				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/world.200401.3x5400x2700.jpg");
 				testAssert(im->getMapWidth() == 5400 && im->getMapHeight() == 2700);
 				conPrint("Elapsed time for 'world.200401.3x5400x2700.jpg': " + timer.elapsedStringNSigFigs(5));
 			}
 			{
 				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/brickwork_normal-map.jpg");
+				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/brickwork_normal-map.jpg");
 				testAssert(im->getMapWidth() == 512 && im->getMapHeight() == 512);
 				conPrint("Elapsed time for 'brickwork_normal-map.jpg':   " + timer.elapsedStringNSigFigs(5));
 			}
 			{
 				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/preview_squaretile.jpg");
+				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/preview_squaretile.jpg");
 				testAssert(im->getMapWidth() == 400 && im->getMapHeight() == 400);
 				conPrint("Elapsed time for 'preview_squaretile.jpg':     " + timer.elapsedStringNSigFigs(5));
 			}
@@ -450,7 +450,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 1");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
 			testAssert(im->getMapWidth() == 1080);
 			testAssert(im->getMapHeight() == 768);
 			testAssert(im->getBytesPerPixel() == 3);
@@ -476,7 +476,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 2");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_CMYK.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_CMYK.jpg");
 			testAssert(im->getMapWidth() == 1080);
 			testAssert(im->getMapHeight() == 768);
 			testAssert(im->getBytesPerPixel() == 3);
@@ -500,7 +500,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 3");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.jpg");
 			testAssert(im->getMapWidth() == 1080);
 			testAssert(im->getMapHeight() == 768);
 			testAssert(im->getBytesPerPixel() == 1);
@@ -524,7 +524,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 4");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
 			failTest("Shouldn't get here.");
 		}
 		catch(ImFormatExcep&)
@@ -534,7 +534,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 5");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testscenes/not a file.bmp");
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/not a file.bmp");
 			failTest("Shouldn't get here.");
 		}
 		catch(ImFormatExcep&)

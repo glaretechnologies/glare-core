@@ -117,10 +117,10 @@ public:
 			// Create server TLS configuration
 			TLSConfig server_tls_config;
 
-			if(tls_config_set_cert_file(server_tls_config.config, (TestUtils::getIndigoTestReposDir() + "/testfiles/tls/cert.pem").c_str()) != 0)
+			if(tls_config_set_cert_file(server_tls_config.config, (TestUtils::getTestReposDir() + "/testfiles/tls/cert.pem").c_str()) != 0)
 				throw MySocketExcep("tls_config_set_cert_file failed: " + getTLSConfigErrorString(server_tls_config.config));
 
-			if(tls_config_set_key_file(server_tls_config.config, (TestUtils::getIndigoTestReposDir() + "/testfiles/tls/key.pem").c_str()) != 0)
+			if(tls_config_set_key_file(server_tls_config.config, (TestUtils::getTestReposDir() + "/testfiles/tls/key.pem").c_str()) != 0)
 				throw MySocketExcep("tls_config_set_key_file failed: " + getTLSConfigErrorString(server_tls_config.config));
 
 			struct tls* tls_context = tls_server();

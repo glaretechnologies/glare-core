@@ -49,7 +49,7 @@ static void determineMaxMemAllocSize(const OpenCLDeviceRef& opencl_device)
 		OpenCLCommandQueueRef command_queue = new OpenCLCommandQueue(context, opencl_device->opencl_device_id, /*enable profiling=*/false);
 
 		// Read test kernel from disk
-		const std::string contents = FileUtils::readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/test_programs/mem_alloc_test.cl");
+		const std::string contents = FileUtils::readEntireFileTextMode(TestUtils::getTestReposDir() + "/opencl/test_programs/mem_alloc_test.cl");
 
 		// Compile and build program.
 		const std::vector<OpenCLDeviceRef> devices(1, opencl_device);
@@ -129,12 +129,12 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 
 
 		// Read test kernel from disk
-		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/test_programs/OpenCLPathTracingTestKernel.cl";
+		const std::string kernel_path = TestUtils::getTestReposDir() + "/opencl/test_programs/OpenCLPathTracingTestKernel.cl";
 		std::string contents = FileUtils::readEntireFileTextMode(kernel_path);
 
 		std::string options =	std::string(" -cl-fast-relaxed-math") +
 								std::string(" -cl-mad-enable") + 
-								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";
+								std::string(" -I \"") + TestUtils::getTestReposDir() + "/opencl/\"";
 
 		// Compile and build program.
 		std::vector<OpenCLDeviceRef> devices(1, opencl_device);		
@@ -261,9 +261,9 @@ static void miscompilationTest()
 			Obfuscator::Lang_OpenCL
 		);
 
-		const std::string obf_src = opencl_ob.obfuscateOpenCLC(FileUtils::readEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1.cl"));
+		const std::string obf_src = opencl_ob.obfuscateOpenCLC(FileUtils::readEntireFileTextMode(TestUtils::getTestReposDir() + "/opencl/miscompilation_test1.cl"));
 
-		FileUtils::writeEntireFileTextMode(TestUtils::getIndigoTestReposDir() + "/opencl/miscompilation_test1_obfuscated.cl", obf_src);
+		FileUtils::writeEntireFileTextMode(TestUtils::getTestReposDir() + "/opencl/miscompilation_test1_obfuscated.cl", obf_src);
 	}
 
 
@@ -283,13 +283,13 @@ static void miscompilationTest()
 
 
 		// Read test kernel from disk
-		const std::string kernel_path = TestUtils::getIndigoTestReposDir() + "/opencl/test_programs/miscompilation_test1_obfuscated.cl";
+		const std::string kernel_path = TestUtils::getTestReposDir() + "/opencl/test_programs/miscompilation_test1_obfuscated.cl";
 		const std::string contents = FileUtils::readEntireFileTextMode(kernel_path);
 
 		std::string options = "";//"-cl-opt-disable";
 		/*std::string options =	std::string(" -cl-fast-relaxed-math") +
 								std::string(" -cl-mad-enable") + 
-								std::string(" -I \"") + TestUtils::getIndigoTestReposDir() + "/opencl/\"";*/
+								std::string(" -I \"") + TestUtils::getTestReposDir() + "/opencl/\"";*/
 
 		// Compile and build program.
 		std::string build_log;

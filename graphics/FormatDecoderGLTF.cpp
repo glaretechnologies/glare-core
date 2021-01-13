@@ -1877,7 +1877,7 @@ void FormatDecoderGLTF::test()
 			conPrint("---------------------------------Box.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/Box.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Box.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -1893,7 +1893,7 @@ void FormatDecoderGLTF::test()
 			conPrint("---------------------------------BoxInterleaved.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -1909,7 +1909,7 @@ void FormatDecoderGLTF::test()
 			conPrint("---------------------------------BoxTextured.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxTextured.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxTextured.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -1925,7 +1925,7 @@ void FormatDecoderGLTF::test()
 			conPrint("---------------------------------BoxVertexColors.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -1941,7 +1941,7 @@ void FormatDecoderGLTF::test()
 			conPrint("---------------------------------2CylinderEngine.glb-----------------------------------");
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 34);
 			testAssert(mesh.vert_positions.size() == 84657);
@@ -1956,7 +1956,7 @@ void FormatDecoderGLTF::test()
 		{
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 370);
@@ -1971,7 +1971,7 @@ void FormatDecoderGLTF::test()
 		{
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/CesiumMan.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/CesiumMan.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 3273);
@@ -1986,7 +1986,7 @@ void FormatDecoderGLTF::test()
 		{
 			Indigo::Mesh mesh;
 			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", mesh, 1.0, mats);
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", mesh, 1.0, mats);
 
 			testAssert(mesh.num_materials_referenced == 98);
 			testAssert(mesh.vert_positions.size() == 528291);
@@ -2027,7 +2027,7 @@ void FormatDecoderGLTF::test()
 	try
 	{
 		// Read a GLTF file from disk
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/gltf/duck/Duck.gltf";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/gltf/duck/Duck.gltf";
 		Indigo::Mesh mesh;
 		GLTFMaterials mats;
 		streamModel(path, mesh, 1.0, mats);

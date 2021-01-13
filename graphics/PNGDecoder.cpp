@@ -557,7 +557,7 @@ void PNGDecoder::test()
 	}
 
 	/*{
-		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
+		Map2DRef map = PNGDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
 
 		Bitmap bitmap;
 		bitmap.setFromImageMap(*map.downcast<ImageMapUInt8>());
@@ -568,10 +568,10 @@ void PNGDecoder::test()
 
 	try
 	{
-		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/basn0g08_badcrc.png");
+		PNGDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/basn0g08_badcrc.png");
 
-		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/pino.png");
-		PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/Fencing_Iron.png");
+		PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/pngs/pino.png");
+		PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/pngs/Fencing_Iron.png");
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -582,7 +582,7 @@ void PNGDecoder::test()
 	// Test PNG files in PngSuite-2013jan13 (From http://www.schaik.com/pngsuite/)
 	try
 	{
-		const std::string png_suite_dir = TestUtils::getIndigoTestReposDir() + "/testfiles/pngs/PngSuite-2013jan13";
+		const std::string png_suite_dir = TestUtils::getTestReposDir() + "/testfiles/pngs/PngSuite-2013jan13";
 		const std::vector<std::string> files = FileUtils::getFilesInDir(png_suite_dir);
 
 		for(size_t i=0; i<files.size(); ++i)
@@ -769,7 +769,7 @@ void PNGDecoder::test()
 	// Try with an invalid path
 	try
 	{
-		decode(TestUtils::getIndigoTestReposDir() + "/testfiles/NO_SUCH_FILE.png");
+		decode(TestUtils::getTestReposDir() + "/testfiles/NO_SUCH_FILE.png");
 
 		failTest("Shouldn't get here.");
 	}
@@ -779,7 +779,7 @@ void PNGDecoder::test()
 	// Try with a JPG file
 	try
 	{
-		decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+		decode(TestUtils::getTestReposDir() + "/testfiles/checker.jpg");
 
 		failTest("Shouldn't get here.");
 	}
@@ -866,7 +866,7 @@ void PNGDecoder::test()
 		for(int z=0; z<num_iters; ++z)
 		{
 			Timer timer;
-			const std::string path = TestUtils::getIndigoTestReposDir() + "/testscenes/zomb_dark_sphere_bug_scene/PACKED_0_PACKED_0_leather_white3.png";
+			const std::string path = TestUtils::getTestReposDir() + "/testscenes/zomb_dark_sphere_bug_scene/PACKED_0_PACKED_0_leather_white3.png";
 			Reference<Map2D> im = decode(path);
 			testAssert(im->getMapWidth() == 2189);
 			min_time = myMin(min_time, timer.elapsed());

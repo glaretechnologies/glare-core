@@ -176,7 +176,7 @@ void MemMappedFile::test()
 {
 	// Mem-map a file of size zero
 	{
-		const std::string pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file";
+		const std::string pathname = TestUtils::getTestReposDir() + "/testfiles/empty_file";
 
 		try
 		{
@@ -192,7 +192,7 @@ void MemMappedFile::test()
 	}
 
 	{
-		const std::string pathname = TestUtils::getIndigoTestReposDir() + "/testfiles/bun_zipper.ply";
+		const std::string pathname = TestUtils::getTestReposDir() + "/testfiles/bun_zipper.ply";
 
 		try
 		{

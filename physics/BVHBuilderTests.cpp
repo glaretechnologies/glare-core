@@ -849,7 +849,7 @@ void test()
 	//==================== Test building on every igmesh we can find ====================
 	if(false)
 	{
-		const std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getIndigoTestReposDir(), "igmesh");
+		const std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir(), "igmesh");
 		for(size_t i=0; i<files.size(); ++i)
 		{
 			conPrint("Building '" + files[i] + "'...");

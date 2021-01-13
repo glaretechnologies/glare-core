@@ -171,7 +171,7 @@ void FormatDecoderSTL::test()
 
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/stl/cube.stl";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/stl/cube.stl";
 		Indigo::Mesh mesh;
 		streamModel(path, mesh, 1.0);
 
@@ -189,7 +189,7 @@ void FormatDecoderSTL::test()
 
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/stl/cube_binary.stl";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/stl/cube_binary.stl";
 		Indigo::Mesh mesh;
 		streamModel(path, mesh, 1.0);
 
@@ -207,7 +207,7 @@ void FormatDecoderSTL::test()
 
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/stl/block100.stl";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/stl/block100.stl";
 		Indigo::Mesh mesh;
 		streamModel(path, mesh, 1.0);
 
@@ -225,7 +225,7 @@ void FormatDecoderSTL::test()
 
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/stl/humanoid_tri.stl";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/stl/humanoid_tri.stl";
 		Indigo::Mesh mesh;
 		streamModel(path, mesh, 1.0);
 
@@ -244,7 +244,7 @@ void FormatDecoderSTL::test()
 	// Test handling of invalid files
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/empty_file";
 		Indigo::Mesh mesh;
 		streamModel(path, mesh, 1.0);
 		failTest("Should have failed to read file.");
@@ -254,7 +254,7 @@ void FormatDecoderSTL::test()
 
 	try
 	{
-		const std::string path = TestUtils::getIndigoTestReposDir() + "/testfiles/sphere.obj";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/sphere.obj";
 		Indigo::Mesh mesh;
 		streamModel(path, mesh, 1.0);
 		failTest("Should have failed to read file.");

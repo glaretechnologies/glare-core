@@ -347,7 +347,7 @@ void RayMeshTests::test()
 	if(false)
 	{
 		Indigo::Mesh indigo_mesh;
-		Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getIndigoTestReposDir()) + "/testscenes/quad_mesh_500x500_verts.igmesh", indigo_mesh);
+		Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir()) + "/testscenes/quad_mesh_500x500_verts.igmesh", indigo_mesh);
 
 		RayMesh mesh("mesh", /*use shading normals=*/true);
 		mesh.fromIndigoMesh(indigo_mesh);

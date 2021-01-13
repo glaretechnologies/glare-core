@@ -664,7 +664,7 @@ void EXRDecoder::test()
 
 	try
 	{
-		Reference<Map2D> im = EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/uffizi-large.exr");
+		Reference<Map2D> im = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/uffizi-large.exr");
 		testAssert(im->getMapWidth() == 2400);
 		testAssert(im->getMapHeight() == 1200);
 		testAssert(im->getBytesPerPixel() == 2 * 3); // Half precision * 3 components
@@ -672,7 +672,7 @@ void EXRDecoder::test()
 
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";
-		Reference<Map2D> im2 = EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/" + euro + ".exr");
+		Reference<Map2D> im2 = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/" + euro + ".exr");
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -684,7 +684,7 @@ void EXRDecoder::test()
 	// Try with an invalid path
 	try
 	{
-		EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/NO_SUCH_FILE.exr");
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/NO_SUCH_FILE.exr");
 
 		failTest("Shouldn't get here.");
 	}
@@ -694,7 +694,7 @@ void EXRDecoder::test()
 	// Try with a JPG file
 	try
 	{
-		EXRDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/checker.jpg");
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/checker.jpg");
 
 		failTest("Shouldn't get here.");
 	}

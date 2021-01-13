@@ -524,7 +524,7 @@ void GaussianImageFilter::test()
 	/*try
 	{
 		// Load JPEG, convert to Image
-		Map2DRef map = JPEGDecoder::decode(".", TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+		Map2DRef map = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
 		//Reference<Image> im = map->convertToImage();
 
 		// Gaussian blur it

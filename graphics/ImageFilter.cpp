@@ -2410,7 +2410,7 @@ static void testResizeImage(const std::string& indigo_base_dir)
 	}
 
 	{
-		Map2DRef map = JPEGDecoder::decode(indigo_base_dir, TestUtils::getIndigoTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+		Map2DRef map = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
 		Reference<Image> im = map->convertToImage();
 
 		const std::string name = "Italy";
@@ -2424,7 +2424,7 @@ static void testResizeImage(const std::string& indigo_base_dir)
 	}
 
 	/*{
-		Map2DRef map = JPEGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testfiles/ny.jpg");
+		Map2DRef map = JPEGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/ny.jpg");
 		Reference<Image> im = map->convertToImage();
 
 		const std::string name = "NY";
@@ -2438,7 +2438,7 @@ static void testResizeImage(const std::string& indigo_base_dir)
 	}*/
 
 	{
-		Map2DRef map = PNGDecoder::decode(TestUtils::getIndigoTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
+		Map2DRef map = PNGDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.png");
 		Reference<Image> im = map->convertToImage();
 
 		// Make black image with white dot in center
