@@ -7,7 +7,6 @@ Code By Nicholas Chapman.
 #include "OpenCL.h"
 
 
-#include "../dll/IndigoStringUtils.h"
 #include "../maths/mathstypes.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/PlatformUtils.h"

@@ -17,13 +17,6 @@ Code By Nicholas Chapman.
 #include <vector>
 
 
-//#if defined(_WIN32)
-//#define NOMINMAX
-//#define WIN32_LEAN_AND_MEAN
-//#include <Windows.h>
-//#endif
-
-
 #define OPENCL_OPENGL_INTEROP 0
 
 
