@@ -378,12 +378,12 @@ public:
 
 	//---------------------------- Texture loading -------------------------------------------
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
-	// Throws Indigo::Exception
+	// Throws glare::Exception
 	Reference<OpenGLTexture> getTexture(const std::string& tex_path);
 
 	// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
 	// If the texture is not loaded or not processed yet, return a null reference.
-	// Throws Indigo::Exception
+	// Throws glare::Exception
 	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key);
 
 	// Notify the OpenGL engine that a texture has been loaded.
@@ -463,7 +463,7 @@ public:
 	static Reference<OpenGLMeshRenderData> makeCapsuleMesh(const Vec3f& bottom_spans, const Vec3f& top_spans);
 
 	// Build OpenGLMeshRenderData from an Indigo::Mesh.
-	// Throws Indigo::Exception on failure.
+	// Throws glare::Exception on failure.
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
 
 	// May keep a reference to the mesh in the newly created OpenGLMeshRenderData.
@@ -546,7 +546,7 @@ private:
 		}
 	};
 
-	OpenGLProgramRef getPhongProgram(const PhongKey& key); // Throws Indigo::Exception on shader compilation failure.
+	OpenGLProgramRef getPhongProgram(const PhongKey& key); // Throws glare::Exception on shader compilation failure.
 	
 	OpenGLProgramRef getPhongProgramWithFallbackOnError(const PhongKey& key); // On shader compilation failure, just returns a default phong program.
 

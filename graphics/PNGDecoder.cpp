@@ -188,7 +188,7 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 		throw e;
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		// Free any allocated libPNG structures.
 		if(png_ptr && info_ptr)
@@ -262,7 +262,7 @@ const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::stri
 
 		return metadata;
 	}
-	catch(Indigo::Exception& )
+	catch(glare::Exception& )
 	{
 		throw ImFormatExcep("Failed to open file '" + image_path + "' for reading.");
 	}
@@ -441,7 +441,7 @@ void PNGDecoder::write(const uint8* data, unsigned int W, unsigned int H, unsign
 			png_destroy_write_struct(&png, &info);
 		throw e;
 	}
-	catch(Indigo::Exception& )
+	catch(glare::Exception& )
 	{
 		if(png && info)
 			png_destroy_write_struct(&png, &info);

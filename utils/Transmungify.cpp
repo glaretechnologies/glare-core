@@ -93,7 +93,7 @@ void Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, st
 	const uint32 string_len = (src_dwords[src_dwords_count - 1] - magic1) ^ magic0;
 
 	if(string_len > src_dwords_count * 4)
-		throw Indigo::Exception("String decode error");
+		throw glare::Exception("String decode error");
 
 	dst_string.resize(string_len + 3);
 	for(uint32 i = 0; i < (string_len + 3) / 4; ++i)

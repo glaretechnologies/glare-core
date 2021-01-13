@@ -55,8 +55,8 @@ public:
 	static void lowResConvolve(const Image4f& in, const Image& filter_low, int ssf, Image4f& out, glare::TaskManager& task_manager);
 
 	// Chooses convolution technique depending on filter size etc..
-	static void convolveImage(const Image& in, const Image& filter, Image& out, FFTPlan& plan); // throws Indigo::Exception on out of mem.
-	static void convolveImage(const Image4f& in, const Image& filter, Image4f& out, FFTPlan& plan); // throws Indigo::Exception on out of mem.
+	static void convolveImage(const Image& in, const Image& filter, Image& out, FFTPlan& plan); // throws glare::Exception on out of mem.
+	static void convolveImage(const Image4f& in, const Image& filter, Image4f& out, FFTPlan& plan); // throws glare::Exception on out of mem.
 	static void convolveImageSpatial(const Image& in, const Image& filter, Image& out);
 	static void convolveImageFFTBySections(const Image& in, const Image& filter, Image& out);
 	static void convolveImageFFT(const Image& in, const Image& filter, Image& out);
@@ -70,7 +70,7 @@ public:
 
 	static void realFFT(const Array2D<double>& data, Array2D<Complexd>& out);
 
-	static void FFTSS_realFFT(const Array2D<double>& data, Array2D<Complexd>& out); // throws Indigo::Exception on out of mem.
+	static void FFTSS_realFFT(const Array2D<double>& data, Array2D<Complexd>& out); // throws glare::Exception on out of mem.
 
 	static Reference<Image> convertDebevecMappingToLatLong(const Reference<Image>& in);
 

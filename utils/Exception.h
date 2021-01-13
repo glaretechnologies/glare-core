@@ -1,9 +1,9 @@
 /*=====================================================================
 Exception.h
 -----------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-// Not using pragma once since we copy this file and pragma once is path based
+// Not using pragma-once since we copy this file and pragma-once is path based
 #ifndef GLARE_EXCEPTION_H
 #define GLARE_EXCEPTION_H
 
@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2020 -
 #include <string>
 
 
-namespace Indigo
+namespace glare
 {
 
 

@@ -52,7 +52,7 @@ void OpenCLImage::alloc(cl_context context, const cl_image_format* image_format,
 		&result
 	);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clCreateImage failed: " + OpenCL::errorString(result));
+		throw glare::Exception("clCreateImage failed: " + OpenCL::errorString(result));
 }
 
 
@@ -63,7 +63,7 @@ void OpenCLImage::free()
 
 	cl_int result = getGlobalOpenCL()->clReleaseMemObject(opencl_image);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clReleaseMemObject failed: " + OpenCL::errorString(result));
+		throw glare::Exception("clReleaseMemObject failed: " + OpenCL::errorString(result));
 
 	// Re-init to initial / null state
 	opencl_image = NULL;

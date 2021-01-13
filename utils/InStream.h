@@ -15,7 +15,7 @@ Generated at 2013-01-27 17:47:46 +0000
 InStream
 -------------------
 Input stream - a binary stream that can be read from.
-All methods return Indigo::Exception on failure.
+All methods return glare::Exception on failure.
 =====================================================================*/
 class InStream
 {

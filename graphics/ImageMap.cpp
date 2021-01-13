@@ -61,7 +61,7 @@ void readFromStream(InStream& stream, ImageMap<V, VTraits>& image)
 {
 	const uint32 v = stream.readUInt32();
 	if(v != IMAGEMAP_SERIALISATION_VERSION)
-		throw Indigo::Exception("Unknown version " + toString(v) + ", expected " + toString(IMAGEMAP_SERIALISATION_VERSION) + ".");
+		throw glare::Exception("Unknown version " + toString(v) + ", expected " + toString(IMAGEMAP_SERIALISATION_VERSION) + ".");
 
 	const uint32 w = stream.readUInt32();
 	const uint32 h = stream.readUInt32();

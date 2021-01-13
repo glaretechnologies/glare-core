@@ -21,10 +21,10 @@ class FileHandle
 {
 public:
 	FileHandle();
-	FileHandle(const std::string& pathname, const std::string& openmode); // throws Indigo::Exception
+	FileHandle(const std::string& pathname, const std::string& openmode); // throws glare::Exception
 	~FileHandle();
 
-	void open(const std::string& pathname, const std::string& openmode); // throws Indigo::Exception
+	void open(const std::string& pathname, const std::string& openmode); // throws glare::Exception
 
 	FILE* getFile() { return f; }
 

@@ -683,7 +683,7 @@ void TreeTest::doSpeedTest(int treetype)
 		MeshLoader::loadMesh(BUNNY_PATH, indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 		testAssert(false);
 	}
@@ -820,7 +820,7 @@ void TreeTest::buildSpeedTest()
 		MeshLoader::loadMesh("c:\\programming\\models\\ply\\happy_recon\\happy_vrip_res3.ply", indigoMesh, 1.0);
 		raymesh.fromIndigoMesh(indigoMesh);
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 		testAssert(false);
 	}
@@ -1290,7 +1290,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 
 			raymesh.build(options, should_cancel_callback, print_output, false, task_manager);
 		}
-		catch(Indigo::Exception&)
+		catch(glare::Exception&)
 		{
 			testAssert(false);
 		}

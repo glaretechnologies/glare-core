@@ -20,7 +20,7 @@ class ImageDiff
 {
 public:
 
-	// Throws Indigo::Exception
+	// Throws glare::Exception
 	static void writeImageDiffOfPNGs(const std::string& indigo_base_dir_path, 
 		const std::string& image_a_path, const std::string& image_b_path, const std::string& output_png_path, float diff_scale);
 

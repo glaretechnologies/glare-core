@@ -33,7 +33,7 @@ See https://docs.microsoft.com/en-us/windows/win32/medfound/tutorial--using-the-
 class WMFVideoWriter : public VideoWriter
 {
 public:
-	WMFVideoWriter(const std::string& URL, const VidParams& vid_params); // Throws Indigo::Exception
+	WMFVideoWriter(const std::string& URL, const VidParams& vid_params); // Throws glare::Exception
 	~WMFVideoWriter();
 
 	static void test();

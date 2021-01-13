@@ -18,7 +18,7 @@ A print output that writes to a file.
 class FilePrintOutput : public PrintOutput
 {
 public:
-	FilePrintOutput(const std::string& path); // Throws Indigo::Exception
+	FilePrintOutput(const std::string& path); // Throws glare::Exception
 	~FilePrintOutput();
 
 	virtual void print(const std::string& s);

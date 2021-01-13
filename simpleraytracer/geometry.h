@@ -118,7 +118,7 @@ public:
 	virtual bool subdivideAndDisplace(glare::TaskManager& task_manager, const ArrayRef<Reference<Material> >& materials, /*const Object& object, */const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 		const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, const WorldParams& world_params, PrintOutput& print_output, bool verbose,
 		ShouldCancelCallback* should_cancel_callback
-		) = 0; // throws Indigo::Exception
+		) = 0; // throws glare::Exception
 
 	struct BuildOptions
 	{
@@ -126,7 +126,7 @@ public:
 		bool build_small_bvh;
 		RTCDeviceTy* embree_device; // Used in EmbreeAccel::build()
 	};
-	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager) = 0; // throws Indigo::Exception
+	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager) = 0; // throws glare::Exception
 
 	// Gets the built embree scene
 	virtual RTCSceneTy* getEmbreeScene() { return NULL; }

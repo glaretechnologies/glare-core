@@ -76,7 +76,7 @@ class BVHBuilder : public RefCounted
 public:
 	virtual ~BVHBuilder();
 
-	// Throws Indigo::CancelledException if cancelled.
+	// Throws glare::CancelledException if cancelled.
 	virtual void build(
 		glare::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,

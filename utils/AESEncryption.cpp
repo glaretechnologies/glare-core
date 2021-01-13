@@ -19,7 +19,7 @@ AESEncryption::AESEncryption(const std::string& key_data, const std::string& sal
 	decrypt_context(NULL)
 {
 	if(salt.size() < 8)
-		throw Indigo::Exception("Invalid salt size");
+		throw glare::Exception("Invalid salt size");
 
 	encrypt_context = new EVP_CIPHER_CTX;
 	decrypt_context = new EVP_CIPHER_CTX;
@@ -36,15 +36,15 @@ AESEncryption::AESEncryption(const std::string& key_data, const std::string& sal
 		EVP_CIPHER_CTX_cleanup(decrypt_context);
 		delete encrypt_context; encrypt_context = NULL;
 		delete decrypt_context; decrypt_context = NULL;
-		throw Indigo::Exception("Invalid key size");
+		throw glare::Exception("Invalid key size");
 	}
 
 	EVP_CIPHER_CTX_init(encrypt_context); // void return
 	//if(!EVP_EncryptInit_ex(encrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
-	//	throw Indigo::Exception("EVP_EncryptInit_ex failed.");
+	//	throw glare::Exception("EVP_EncryptInit_ex failed.");
 	EVP_CIPHER_CTX_init(decrypt_context); // void return
 	//if(!EVP_DecryptInit_ex(decrypt_context, EVP_aes_256_cbc(), NULL, key, iv))
-	//	throw Indigo::Exception("EVP_DecryptInit_ex failed.");
+	//	throw glare::Exception("EVP_DecryptInit_ex failed.");
 }
 
 
@@ -61,7 +61,7 @@ AESEncryption::~AESEncryption()
 std::vector<unsigned char> AESEncryption::encrypt(const ArrayRef<unsigned char>& plaintext)
 {
 	if(plaintext.empty())
-		throw Indigo::Exception("plaintext cannot be empty.");
+		throw glare::Exception("plaintext cannot be empty.");
 
 	// Max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes
 	int ciphertext_len = (int)plaintext.size() + AES_BLOCK_SIZE;
@@ -69,16 +69,16 @@ std::vector<unsigned char> AESEncryption::encrypt(const ArrayRef<unsigned char>&
 	std::vector<unsigned char> ciphertext(ciphertext_len);
 
 	if(!EVP_EncryptInit_ex(encrypt_context, EVP_aes_256_cbc(), NULL, key, iv)) // Needed to reset state for CBC mode
-		throw Indigo::Exception("EVP_EncryptInit_ex failed.");
+		throw glare::Exception("EVP_EncryptInit_ex failed.");
 
 	// Update ciphertext, ciphertext_len is filled with the length of ciphertext generated,
 	if(!EVP_EncryptUpdate(encrypt_context, &ciphertext[0], &ciphertext_len, &plaintext[0], (int)plaintext.size()))
-		throw Indigo::Exception("EVP_EncryptUpdate failed.");
+		throw glare::Exception("EVP_EncryptUpdate failed.");
 
 	// Update ciphertext with the final remaining bytes
 	int final_len = 0;
 	if(!EVP_EncryptFinal_ex(encrypt_context, &ciphertext[0] + ciphertext_len, &final_len))
-		throw Indigo::Exception("EVP_EncryptFinal_ex failed.");
+		throw glare::Exception("EVP_EncryptFinal_ex failed.");
 
 	int len = ciphertext_len + final_len;
 	assert(len <= (int)ciphertext.size());
@@ -91,21 +91,21 @@ std::vector<unsigned char> AESEncryption::encrypt(const ArrayRef<unsigned char>&
 std::vector<unsigned char> AESEncryption::decrypt(const ArrayRef<unsigned char>& ciphertext)
 {
 	if(ciphertext.empty())
-		throw Indigo::Exception("ciphertext cannot be empty.");
+		throw glare::Exception("ciphertext cannot be empty.");
 
 	int plaintext_len = (int)ciphertext.size() + AES_BLOCK_SIZE;
 	std::vector<unsigned char> plaintext(plaintext_len);
 
 	if(!EVP_DecryptInit_ex(decrypt_context, EVP_aes_256_cbc(), NULL, key, iv)) // Needed to reset state for CBC mode
-		throw Indigo::Exception("EVP_DecryptInit_ex failed.");
+		throw glare::Exception("EVP_DecryptInit_ex failed.");
 
 	if(!EVP_DecryptUpdate(decrypt_context, &plaintext[0], &plaintext_len, &ciphertext[0], (int)ciphertext.size()))
-		throw Indigo::Exception("EVP_DecryptUpdate failed.");
+		throw glare::Exception("EVP_DecryptUpdate failed.");
 
 	int final_len = 0;
 	
 	if(!EVP_DecryptFinal_ex(decrypt_context, &plaintext[0] + plaintext_len, &final_len))
-		throw Indigo::Exception("EVP_DecryptFinal_ex failed.");
+		throw glare::Exception("EVP_DecryptFinal_ex failed.");
 
 	int len = plaintext_len + final_len;
 	assert(len <= (int)plaintext.size());

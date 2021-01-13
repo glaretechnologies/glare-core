@@ -18,7 +18,7 @@ void LargePageAllocation::enableLockMemoryPrivilege()
 #if defined(_WIN32)
 	HANDLE token;
 	if(!::OpenProcessToken(::GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token))
-		throw Indigo::Exception("OpenProcessToken failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("OpenProcessToken failed: " + PlatformUtils::getLastErrorString());
 
 	TOKEN_PRIVILEGES tp;
 	if (::LookupPrivilegeValue(NULL, // lpSystemName - use NULL to specify local system
@@ -31,13 +31,13 @@ void LargePageAllocation::enableLockMemoryPrivilege()
 		if(::AdjustTokenPrivileges(token, /*DisableAllPrivileges=*/FALSE, /*NewState=*/&tp, /*prev state buf len=*/0, /*PreviousState=*/NULL, /*ReturnLength=*/NULL))
 		{
 			if(GetLastError() != ERROR_SUCCESS)
-				throw Indigo::Exception("AdjustTokenPrivileges failed to set all privileges: " + PlatformUtils::getLastErrorString());
+				throw glare::Exception("AdjustTokenPrivileges failed to set all privileges: " + PlatformUtils::getLastErrorString());
 		}
 		else
-			throw Indigo::Exception("AdjustTokenPrivileges failed: " + PlatformUtils::getLastErrorString());
+			throw glare::Exception("AdjustTokenPrivileges failed: " + PlatformUtils::getLastErrorString());
 	}
 	else
-		throw Indigo::Exception("LookupPrivilegeValue failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("LookupPrivilegeValue failed: " + PlatformUtils::getLastErrorString());
 
 
 	::CloseHandle(token);
@@ -59,10 +59,10 @@ void* LargePageAllocation::allocateLargePageMem(size_t size)
 		PAGE_READWRITE								//_In_      DWORD flProtect
 	);
 	if(!mem)
-		throw Indigo::Exception("Allocation of large page mem of size " + toString(use_alloc_size) + " B failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("Allocation of large page mem of size " + toString(use_alloc_size) + " B failed: " + PlatformUtils::getLastErrorString());
 	return mem;
 #else
-	throw Indigo::Exception("allocateLargePageMem not implemented.");
+	throw glare::Exception("allocateLargePageMem not implemented.");
 #endif
 }
 
@@ -73,7 +73,7 @@ void LargePageAllocation::freeLargePageMem(void* mem)
 	if(mem)
 		VirtualFree(mem, 0, MEM_RELEASE);
 #else
-	throw Indigo::Exception("freeLargePageMem not implemented.");
+	throw glare::Exception("freeLargePageMem not implemented.");
 #endif
 }
 
@@ -102,7 +102,7 @@ void LargePageAllocation::test()
 			freeLargePageMem(mem);
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		// Large page allocation may fail, seemingly due to memory fragmentation, which we can't control, so don't fail the test in that case.
 		conPrint("Large page test failed: " + e.what());

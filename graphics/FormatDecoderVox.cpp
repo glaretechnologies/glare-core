@@ -18,7 +18,7 @@ Copyright Glare Technologies Limited 2019 -
 static const std::string currentChunkID(const uint8* data, size_t datalen, size_t cur_i)
 {
 	if(cur_i + 4 > datalen)
-		throw Indigo::Exception("EOF while parsing chunk ID.");
+		throw glare::Exception("EOF while parsing chunk ID.");
 	std::string res(4, '\0');
 	std::memcpy(&res[0], &data[cur_i], 4);
 	return res;
@@ -28,7 +28,7 @@ static const std::string currentChunkID(const uint8* data, size_t datalen, size_
 static const std::string parseChunkID(const uint8* data, size_t datalen, size_t& cur_i)
 {
 	if(cur_i + 4 > datalen)
-		throw Indigo::Exception("EOF while parsing chunk ID.");
+		throw glare::Exception("EOF while parsing chunk ID.");
 	std::string res(4, '\0');
 	std::memcpy(&res[0], &data[cur_i], 4);
 	cur_i += 4;
@@ -39,7 +39,7 @@ static const std::string parseChunkID(const uint8* data, size_t datalen, size_t&
 static int32 parseInt32(const uint8* data, size_t datalen, size_t& cur_i)
 {
 	if(cur_i + 4 > datalen)
-		throw Indigo::Exception("EOF while parsing int.");
+		throw glare::Exception("EOF while parsing int.");
 	int32 res;
 	std::memcpy(&res, &data[cur_i], 4);
 	cur_i += 4;
@@ -50,7 +50,7 @@ static int32 parseInt32(const uint8* data, size_t datalen, size_t& cur_i)
 /*static float parseFloat(const uint8* data, size_t datalen, size_t& cur_i)
 {
 	if(cur_i + 4 > datalen)
-		throw Indigo::Exception("EOF while parsing float.");
+		throw glare::Exception("EOF while parsing float.");
 	float res;
 	std::memcpy(&res, &data[cur_i], 4);
 	cur_i += 4;
@@ -70,11 +70,11 @@ static void parseXYZIChunk(const uint8* data, size_t datalen, size_t& cur_i, Vox
 {
 	const int32 num_voxels = parseInt32(data, datalen, cur_i);
 	if(num_voxels <= 0)
-		throw Indigo::Exception("Invalid num voxels (" + toString(num_voxels) + ").");
+		throw glare::Exception("Invalid num voxels (" + toString(num_voxels) + ").");
 	
 	// Parse 4 * N bytes, 4 for each voxel.  Check we have enough file left.
 	if(cur_i + 4 * (size_t)num_voxels > datalen)
-		throw Indigo::Exception("EOF while parsing XYZI chunk.");
+		throw glare::Exception("EOF while parsing XYZI chunk.");
 
 	model.voxels.resize(num_voxels);
 
@@ -98,7 +98,7 @@ static void parseRGBAChunk(const uint8* data, size_t datalen, size_t& cur_i, Vox
 
 	// Parse 4 * 256 bytes.  Check we have enough file left.
 	if(cur_i + 4 * 256 > datalen)
-		throw Indigo::Exception("EOF while parsing RGBA chunk.");
+		throw glare::Exception("EOF while parsing RGBA chunk.");
 
 	// Palette indices are offset by 1 in vox format for some reason.
 	size_t byte_i = cur_i;
@@ -122,7 +122,7 @@ static void parseRGBAChunk(const uint8* data, size_t datalen, size_t& cur_i, Vox
 // 	material.id = parseInt32(data, datalen, cur_i); // TODO: do something with this id
 // 	const int32 type = parseInt32(data, datalen, cur_i);
 // 	if(type < 0 || type >= 4)
-// 		throw Indigo::Exception("Unhandled material type " + toString(type) + ".");
+// 		throw glare::Exception("Unhandled material type " + toString(type) + ".");
 // 	material.type = (VoxMaterial::Type)type;
 // 	material.weight = parseFloat(data, datalen, cur_i);
 // 
@@ -172,7 +172,7 @@ static size_t parseRestOfChunkHeader(const uint8* data, size_t datalen, size_t& 
 	const int chunk_content_B   = parseInt32(data, datalen, cur_i);
 	const int children_chunks_B = parseInt32(data, datalen, cur_i);
 	if(chunk_content_B < 0 || children_chunks_B < 0)
-		throw Indigo::Exception("Invalid chunk header, size(s) were < 0.");
+		throw glare::Exception("Invalid chunk header, size(s) were < 0.");
 
 	return (size_t)chunk_content_B + (size_t)children_chunks_B;
 }
@@ -182,14 +182,14 @@ static size_t parseRestOfChunkHeader(const uint8* data, size_t datalen, size_t& 
 static void skipPastChunk(size_t datalen, size_t chunk_end, size_t& cur_i)
 {
 	if(cur_i > chunk_end)
-		throw Indigo::Exception("Parsed past end of chunk as reported in chunk header.");
+		throw glare::Exception("Parsed past end of chunk as reported in chunk header.");
 	cur_i = chunk_end;
 	if(cur_i > datalen)
-		throw Indigo::Exception("Reported end of chunk was past end of file.");
+		throw glare::Exception("Reported end of chunk was past end of file.");
 }
 
 
-void FormatDecoderVox::loadModel(const std::string& filename, VoxFileContents& contents_out) // Throws Indigo::Exception on failure.
+void FormatDecoderVox::loadModel(const std::string& filename, VoxFileContents& contents_out) // Throws glare::Exception on failure.
 {
 	MemMappedFile file(filename);
 
@@ -200,13 +200,13 @@ void FormatDecoderVox::loadModel(const std::string& filename, VoxFileContents& c
 }
 
 
-void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out) // Throws Indigo::Exception on failure.
+void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out) // Throws glare::Exception on failure.
 {
 	size_t cur_i = 0;
 
 	const std::string vox_string = parseChunkID(data, datalen, cur_i);
 	if(vox_string != "VOX ")
-		throw Indigo::Exception("Header was != \"VOX \".");
+		throw glare::Exception("Header was != \"VOX \".");
 
 	contents_out.version = parseInt32(data, datalen, cur_i);
 
@@ -234,7 +234,7 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 			
 			numModels = parseInt32(data, datalen, cur_i);
 			if(numModels < 1)
-				throw Indigo::Exception("numModels was < 1.");
+				throw glare::Exception("numModels was < 1.");
 			
 			skipPastChunk(datalen, chunk_end, cur_i); // Skip rest of chunk (if any unparsed)
 		}
@@ -254,7 +254,7 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 			else if(chunk_id == "XYZI")
 			{
 				if(contents_out.models.empty())
-					throw Indigo::Exception("XYZI chunk before any SIZE chunk.");
+					throw glare::Exception("XYZI chunk before any SIZE chunk.");
 
 				parseXYZIChunk(data, datalen, cur_i, contents_out.models.back());
 			}
@@ -289,7 +289,7 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 		}
 	}
 	else
-		throw Indigo::Exception("Expected 'MAIN' chunk.");
+		throw glare::Exception("Expected 'MAIN' chunk.");
 
 	// Work out which materials are used:
 	std::vector<bool> mat_used(256, false);
@@ -368,7 +368,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 		VoxFileContents contents;
 		FormatDecoderVox::loadModelFromData(data, size, contents);
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 	}
 	
@@ -421,7 +421,7 @@ void FormatDecoderVox::test()
 			testAssert(contents.models.size() == 1);
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

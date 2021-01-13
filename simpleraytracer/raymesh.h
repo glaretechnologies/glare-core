@@ -203,7 +203,7 @@ public:
 
 	const Reference<Indigo::Mesh> toIndigoMesh() const;
 
-	void saveToIndigoMeshOnDisk(const std::string& path, bool use_compression) const; // Throws Indigo::Exception
+	void saveToIndigoMeshOnDisk(const std::string& path, bool use_compression) const; // Throws glare::Exception
 
 	void buildTrisFromQuads(); // Used in cyberspace code
 

@@ -26,8 +26,8 @@ public:
 	static void encrypt(const std::string& src_string, std::vector<uint32>& dst_dwords);
 	static void encrypt(const char* src_string, uint32 src_string_size, std::vector<uint32>& dst_dwords);
 
-	static void decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string);  // throws Indigo::Exception
-	static void decrypt(const uint32* src_dwords, uint32 src_dwords_count, std::string& dst_string);  // throws Indigo::Exception
+	static void decrypt(const std::vector<uint32>& src_dwords, std::string& dst_string);  // throws glare::Exception
+	static void decrypt(const uint32* src_dwords, uint32 src_dwords_count, std::string& dst_string);  // throws glare::Exception
 
 	static void test();
 

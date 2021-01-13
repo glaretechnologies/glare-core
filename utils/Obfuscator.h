@@ -49,7 +49,7 @@ public:
 	static const std::string readAndDecryptFile(const std::string& path);
 
 	// Read a source file from disk.  If obfuscation & encryption is enabled, will decrypt the file contents. 
-	// Throws Indigo::Exception on failure.
+	// Throws glare::Exception on failure.
 	static const std::string readFileFromDisk(const std::string& indigo_base_dir, const std::string& plain_text_path);
 
 	// Change their obfuscated names so that they will be the same as the obfuscated names generated from winter code.

@@ -17,7 +17,7 @@ Parsed URL, broken into the components.
 class URL
 {
 public:
-	static URL parseURL(const std::string& url); // Parse a URL string.  Throws Indigo::Exception on failure.
+	static URL parseURL(const std::string& url); // Parse a URL string.  Throws glare::Exception on failure.
 
 	static void test();
 

@@ -329,7 +329,7 @@ static void testBVHBuildersWithTriangles(glare::TaskManager& task_manager, const
 
 					conPrint("Build was not interrupted.");
 				}
-				catch(Indigo::CancelledException& )
+				catch(glare::CancelledException& )
 				{
 					// Expected
 					conPrint("Successfully interrupted build after " + timer.elapsedStringNSigFigs(3));

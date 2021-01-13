@@ -87,15 +87,15 @@ class ImageMap : public Map2D
 {
 public:
 	inline ImageMap();
-	inline ImageMap(size_t width, size_t height, size_t N); // throws Indigo::Exception
+	inline ImageMap(size_t width, size_t height, size_t N); // throws glare::Exception
 	inline virtual ~ImageMap();
 
 	inline ImageMap& operator = (const ImageMap& other);
 
 	inline bool operator == (const ImageMap& other) const;
 
-	void resize(size_t width_, size_t height_, size_t N_); // throws Indigo::Exception
-	void resizeNoCopy(size_t width_, size_t height_, size_t N_); // throws Indigo::Exception
+	void resize(size_t width_, size_t height_, size_t N_); // throws glare::Exception
+	void resizeNoCopy(size_t width_, size_t height_, size_t N_); // throws glare::Exception
 
 	virtual float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }
@@ -215,7 +215,7 @@ ImageMap<V, VTraits>::ImageMap(size_t width_, size_t height_, size_t N_)
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+		throw glare::Exception("Failed to create image (memory allocation failure)");
 	}
 }
 
@@ -266,7 +266,7 @@ void ImageMap<V, VTraits>::resize(size_t width_, size_t height_, size_t N_)
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+		throw glare::Exception("Failed to create image (memory allocation failure)");
 	}
 }
 
@@ -286,7 +286,7 @@ void ImageMap<V, VTraits>::resizeNoCopy(size_t width_, size_t height_, size_t N_
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+		throw glare::Exception("Failed to create image (memory allocation failure)");
 	}
 }
 

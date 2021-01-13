@@ -70,7 +70,7 @@ void TestSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		while(1)
 		{
 			if(buffers.empty())
-				throw Indigo::Exception("Connection Closed.");
+				throw glare::Exception("Connection Closed.");
 
 			if(read_i == buffers.front().size())
 			{
@@ -177,7 +177,7 @@ void TestSocket::test()
 		testAssert(buf[2] == 13);
 		testAssert(test_socket.readSomeBytes(buf.data(), 1024) == 0); // Should read 0 bytes (EOF)
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -211,7 +211,7 @@ void TestSocket::test()
 		test_socket.readData(buf.data(), 1); // read last byte
 		testAssert(buf[0] == 13);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

@@ -159,7 +159,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			const bool r3 = parser.parseFloat(pos.z);
 
 			if(!r1 || !r2 || !r3)
-				throw Indigo::Exception("Parse error while reading position on line " + toString(linenum));
+				throw glare::Exception("Parse error while reading position on line " + toString(linenum));
 
 			pos *= scale;
 			
@@ -174,7 +174,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			const bool r2 = parser.parseFloat(texcoord.y);
 
 			if(!r1 || !r2)
-				throw Indigo::Exception("Parse error while reading tex coord on line " + toString(linenum));
+				throw glare::Exception("Parse error while reading tex coord on line " + toString(linenum));
 
 
 			// Assume one texcoord per vertex.
@@ -200,7 +200,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			const bool r3 = parser.parseFloat(normal.z);
 
 			if(!r1 || !r2 || !r3)
-				throw Indigo::Exception("Parse error while reading normal on line " + toString(linenum));
+				throw glare::Exception("Parse error while reading normal on line " + toString(linenum));
 
 			vert_normals.push_back(normal);
 		}
@@ -232,7 +232,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 					else if(vert_index > 0)
 						zero_based_vert_index = vert_index - 1; // Convert to 0-based index
 					else
-						throw Indigo::Exception("Position index invalid. (index '" + toString(vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
+						throw glare::Exception("Position index invalid. (index '" + toString(vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 					// Try and read vertex texcoord index
 					if(parser.parseChar('/'))
@@ -245,7 +245,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 							else if(uv_index > 0)
 								face_uv_indices[i] = uv_index - 1; // Convert to 0-based index
 							else
-								throw Indigo::Exception("Invalid tex coord index. (index '" + toString(uv_index) + "' out of bounds, on line " + toString(linenum) + ")");
+								throw glare::Exception("Invalid tex coord index. (index '" + toString(uv_index) + "' out of bounds, on line " + toString(linenum) + ")");
 						}
 
 						// Try and read vertex normal index
@@ -253,31 +253,31 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 						{
 							int normal_index;
 							if(!parser.parseInt(normal_index))
-								throw Indigo::Exception("syntax error: no integer following '/' (line " + toString(linenum) + ")");
+								throw glare::Exception("syntax error: no integer following '/' (line " + toString(linenum) + ")");
 
 							if(normal_index < 0)
 								zero_based_normal_index = (unsigned int)vert_normals.size() + normal_index;
 							else if(normal_index > 0)
 								zero_based_normal_index = normal_index - 1; // Convert to 0-based index
 							else
-								throw Indigo::Exception("Invalid normal index. (index '" + toString(normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
+								throw glare::Exception("Invalid normal index. (index '" + toString(normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 						
 							read_normal_index = true;
 						}
 					}
 				}
 				else 
-					throw Indigo::Exception("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
+					throw glare::Exception("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
 
 				// Add the vertex to the mesh, if it hasn't been added already.
 
 				if(zero_based_vert_index >= (int)vert_positions.size())
-					throw Indigo::Exception("Position index invalid. (index '" + toString(zero_based_vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
+					throw glare::Exception("Position index invalid. (index '" + toString(zero_based_vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 				if(read_normal_index)
 				{
 					if(zero_based_normal_index >= (int)vert_normals.size())
-						throw Indigo::Exception("Normal index invalid. (index '" + toString(zero_based_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
+						throw glare::Exception("Normal index invalid. (index '" + toString(zero_based_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 
 					/*Vert v;
 					v.vert_i = zero_based_vert_index;
@@ -337,7 +337,7 @@ void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& ha
 			//	conPrint("Warning, maximum number of verts per face reached or exceeded.");
 
 			if(numfaceverts < 3)
-				throw Indigo::Exception("Invalid number of vertices in face: " + toString(numfaceverts) + " (line " + toString(linenum) + ")");
+				throw glare::Exception("Invalid number of vertices in face: " + toString(numfaceverts) + " (line " + toString(linenum) + ")");
 
 			//------------------------------------------------------------------------
 			//Check current material index
@@ -420,13 +420,13 @@ static Colour3f parseCol3(Parser& parser, int& linenum)
 	Colour3f col;
 	skipWhitespace(parser);
 	if(!parser.parseFloat(col.r))
-		throw Indigo::Exception("Parse error while reading colour on line " + toString(linenum));
+		throw glare::Exception("Parse error while reading colour on line " + toString(linenum));
 	skipWhitespace(parser);
 	if(!parser.parseFloat(col.g))
-		throw Indigo::Exception("Parse error while reading colouur on line " + toString(linenum));
+		throw glare::Exception("Parse error while reading colouur on line " + toString(linenum));
 	skipWhitespace(parser);
 	if(!parser.parseFloat(col.b))
-		throw Indigo::Exception("Parse error while reading colour on line " + toString(linenum));
+		throw glare::Exception("Parse error while reading colour on line " + toString(linenum));
 	return col;
 }
 
@@ -471,55 +471,55 @@ void FormatDecoderObj::parseMTLLib(const std::string& filename, MLTLibMaterials&
 			else if(token == "Kd")
 			{
 				if(mtllib_mats_out.materials.empty())
-					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
 
 				mtllib_mats_out.materials.back().Kd = parseCol3(parser, linenum);
 			}
 			else if(token == "Ks")
 			{
 				if(mtllib_mats_out.materials.empty())
-					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
 
 				mtllib_mats_out.materials.back().Ks = parseCol3(parser, linenum);
 			}
 			else if(token == "Tf")
 			{
 				if(mtllib_mats_out.materials.empty())
-					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
 
 				mtllib_mats_out.materials.back().Tf = parseCol3(parser, linenum);
 			}
 			else if(token == "Ns")
 			{
 				if(mtllib_mats_out.materials.empty())
-					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
 
 				skipWhitespace(parser);
 				if(!parser.parseFloat(mtllib_mats_out.materials.back().Ns_exponent))
-					throw Indigo::Exception("Parse error while reading Ns on line " + toString(linenum));
+					throw glare::Exception("Parse error while reading Ns on line " + toString(linenum));
 			}
 			else if(token == "Ni")
 			{
 				if(mtllib_mats_out.materials.empty())
-					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
 
 				skipWhitespace(parser);
 				if(!parser.parseFloat(mtllib_mats_out.materials.back().Ni_ior))
-					throw Indigo::Exception("Parse error while reading Ni on line " + toString(linenum));
+					throw glare::Exception("Parse error while reading Ni on line " + toString(linenum));
 			}
 			else if(token == "d")
 			{
 				if(mtllib_mats_out.materials.empty())
-					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
 
 				skipWhitespace(parser);
 				if(!parser.parseFloat(mtllib_mats_out.materials.back().d_opacity))
-					throw Indigo::Exception("Parse error while reading d on line " + toString(linenum));
+					throw glare::Exception("Parse error while reading d on line " + toString(linenum));
 			}
 			else if(token == "map_Kd")
 			{
 				if(mtllib_mats_out.materials.empty())
-					throw Indigo::Exception("No material specified yet. (line " + toString(linenum) + ")");
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
 
 				skipWhitespace(parser);
 
@@ -606,7 +606,7 @@ void FormatDecoderObj::test()
 		testAssert(mesh.triangles.size() == 0);
 		testAssert(mesh.quads.size() == 2);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -625,7 +625,7 @@ void FormatDecoderObj::test()
 
 		testAssert(sphere_mesh_ref.checksum() == sphere_mesh_2.checksum());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -637,7 +637,7 @@ void FormatDecoderObj::test()
 		MLTLibMaterials mats;
 		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -664,7 +664,7 @@ void FormatDecoderObj::test()
 		testAssert(mats.materials[1].d_opacity == 1.f);
 		testAssert(mats.materials[1].Ni_ior == 1.5f);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -694,7 +694,7 @@ void FormatDecoderObj::test()
 		testAssert(mats.materials[1].d_opacity == 1.f);
 		testAssert(mats.materials[1].map_Kd.path == "maps\\EleTusk.jpg");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -709,7 +709,7 @@ void FormatDecoderObj::test()
 		testAssert(mats.materials[1].name == "Branch");
 		testAssert(mats.materials[2].name == "Needle");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -722,7 +722,7 @@ void FormatDecoderObj::test()
 		testAssert(mats.materials.size() == 1);
 		testAssert(mats.materials[0].name == "defaultMat");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -734,7 +734,7 @@ void FormatDecoderObj::test()
 		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/obj/NOT_A_FILE", mats);
 		failTest("Shouldn't get here.");
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 	}
 
@@ -745,7 +745,7 @@ void FormatDecoderObj::test()
 		parseMTLLib(TestUtils::getIndigoTestReposDir() + "/testfiles/empty_file", mats);
 		testAssert(mats.materials.size() == 0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

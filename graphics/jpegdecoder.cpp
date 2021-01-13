@@ -265,7 +265,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 
 		return texture;
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw ImFormatExcep(e.what());
 	}
@@ -393,7 +393,7 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 
 		jpeg_finish_compress(&cinfo);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw ImFormatExcep(e.what());
 	}

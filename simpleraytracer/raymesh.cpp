@@ -340,7 +340,7 @@ bool RayMesh::subdivideAndDisplace(glare::TaskManager& task_manager,
 		// Throw exception if we are supposed to do a view-dependent subdivision
 		//if(subdivide_pixel_threshold > 0.0)
 		if(view_dependent_subdivision && max_num_subdivisions > 0)
-			throw Indigo::Exception("Tried to do a view-dependent subdivision on instanced mesh '" + this->getName() + "'.");
+			throw glare::Exception("Tried to do a view-dependent subdivision on instanced mesh '" + this->getName() + "'.");
 
 		// else not an error, but we don't need to subdivide again.
 	}
@@ -821,7 +821,7 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 	Timer timer;
 
 	if(triangles.size() == 0)
-		throw Indigo::Exception("No triangles in mesh.");
+		throw glare::Exception("No triangles in mesh.");
 
 	if(tritree != NULL)
 		return; // build() has already been called.
@@ -888,17 +888,17 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 		tritree->build(print_output, should_cancel_callback, task_manager);
 		//conPrint("tritree->build: " + timer.elapsedString());
 	}
-	catch(Indigo::CancelledException&)
+	catch(glare::CancelledException&)
 	{
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
-		throw Indigo::Exception("Exception while building mesh '" + name + "': " + e.what());
+		throw glare::Exception("Exception while building mesh '" + name + "': " + e.what());
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Memory allocation failure while building mesh '" + name + "'.");
+		throw glare::Exception("Memory allocation failure while building mesh '" + name + "'.");
 	}
 
 	if(verbose) print_output.print("Done Building Mesh. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
@@ -1037,7 +1037,7 @@ static const float MIN_TRIANGLE_AREA_TIMES_TWO = 2.0e-20f;
 void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 {
 	if(mesh.num_uv_mappings > MAX_NUM_UV_SETS)
-		throw Indigo::Exception("Too many UV sets: " + toString(mesh.num_uv_mappings) + ", max is " + toString(MAX_NUM_UV_SETS));
+		throw glare::Exception("Too many UV sets: " + toString(mesh.num_uv_mappings) + ", max is " + toString(MAX_NUM_UV_SETS));
 	this->setMaxNumTexcoordSets(mesh.num_uv_mappings);
 
 	// Copy Vertices
@@ -1127,13 +1127,13 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 3; ++v)
 			if(src_tri.vertex_indices[v] >= getNumVerts())
-				throw Indigo::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ", num verts: " + toString(getNumVerts()) + ")");
+				throw glare::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(mesh.triangles[i].vertex_indices[v]) + ", num verts: " + toString(getNumVerts()) + ")");
 
 		// Check uv indices are in bounds
 		if(num_uv_sets > 0)
 			for(unsigned int v = 0; v < 3; ++v)
 				if(src_tri.uv_indices[v] >= num_uv_groups)
-					throw Indigo::Exception("Triangle uv index is out of bounds.  (uv index=" + toString(mesh.triangles[i].uv_indices[v]) + ")");
+					throw glare::Exception("Triangle uv index is out of bounds.  (uv index=" + toString(mesh.triangles[i].uv_indices[v]) + ")");
 
 		// Check the area of the triangle.
 		// If the area is zero, then the geometric normal will be undefined, and it will lead to NaN shading normals.
@@ -1179,13 +1179,13 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 		// Check vertex indices are in bounds
 		for(unsigned int v = 0; v < 4; ++v)
 			if(mesh.quads[i].vertex_indices[v] >= getNumVerts())
-				throw Indigo::Exception("Quad vertex index is out of bounds.  (vertex index=" + toString(mesh.quads[i].vertex_indices[v]) + ")");
+				throw glare::Exception("Quad vertex index is out of bounds.  (vertex index=" + toString(mesh.quads[i].vertex_indices[v]) + ")");
 
 		// Check uv indices are in bounds
 		if(num_uv_sets > 0)
 			for(unsigned int v = 0; v < 4; ++v)
 				if(mesh.quads[i].uv_indices[v] >= num_uv_groups)
-					throw Indigo::Exception("Quad uv index is out of bounds.  (uv index=" + toString(mesh.quads[i].uv_indices[v]) + ")");
+					throw glare::Exception("Quad uv index is out of bounds.  (uv index=" + toString(mesh.quads[i].uv_indices[v]) + ")");
 
 
 		this->quads[i].vertex_indices[0] = mesh.quads[i].vertex_indices[0];
@@ -1213,7 +1213,7 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 
 	const BatchedMesh::VertAttribute* pos_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Position);
 	if(!pos_attr)
-		throw Indigo::Exception("Pos attribute not present.");
+		throw glare::Exception("Pos attribute not present.");
 	const size_t pos_offset = pos_attr->offset_B;
 
 	// Copy Vertices
@@ -1373,7 +1373,7 @@ void RayMesh::saveToIndigoMeshOnDisk(const std::string& path, bool use_compressi
 	}
 	catch(Indigo::IndigoException& e)
 	{
-		throw Indigo::Exception(toStdString(e.what()));
+		throw glare::Exception(toStdString(e.what()));
 	}
 }
 

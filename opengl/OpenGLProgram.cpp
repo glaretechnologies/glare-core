@@ -45,7 +45,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 
 	program = glCreateProgram();
 	if(program == 0)
-		throw Indigo::Exception("Failed to create OpenGL program '" + prog_name + "'.");
+		throw glare::Exception("Failed to create OpenGL program '" + prog_name + "'.");
 
 	glAttachShader(program, vert_shader->shader);
 	if(frag_shader.nonNull()) glAttachShader(program, frag_shader->shader);
@@ -70,7 +70,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	GLint program_ok;
 	glGetProgramiv(program, GL_LINK_STATUS, &program_ok);
 	if(!program_ok)
-		throw Indigo::Exception("Failed to link shader program '" + prog_name + "': " + log);
+		throw glare::Exception("Failed to link shader program '" + prog_name + "': " + log);
 
 	model_matrix_loc   = glGetUniformLocation(program, "model_matrix");
 	view_matrix_loc    = glGetUniformLocation(program, "view_matrix");

@@ -208,7 +208,7 @@ public:
 			result_chunk->size = (int)builder.per_thread_temp_info[thread_index].result_buf.size() - root_node_index;
 			result_chunk->sort_key = this->sort_key;
 		}
-		catch(Indigo::CancelledException&)
+		catch(glare::CancelledException&)
 		{}
 	}
 
@@ -306,7 +306,7 @@ void NonBinningBVHBuilder::build(
 		root_aabb.enlargeToHoldAABBox(aabbs[i]);
 
 	if(should_cancel_callback->shouldCancel())
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 
 	// Alloc space for objects for each axis
 	//timer.reset();
@@ -346,7 +346,7 @@ void NonBinningBVHBuilder::build(
 		}
 
 		if(should_cancel_callback->shouldCancel())
-			throw Indigo::CancelledException();
+			throw glare::CancelledException();
 
 		for(int axis=0; axis<3; ++axis)
 			task_manager->addTask(new ConstructAxisObjectsTask(*this, num_objects, axis, &all_axis_centres[axis]));
@@ -355,7 +355,7 @@ void NonBinningBVHBuilder::build(
 	//conPrint("SortAxisTasks : " + timer.elapsedString());
 
 	if(should_cancel_callback->shouldCancel())
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 
 	// Check we sorted objects along each axis properly:
 #ifndef NDEBUG
@@ -430,7 +430,7 @@ void NonBinningBVHBuilder::build(
 	task_manager->waitForTasksToComplete();
 
 	if(should_cancel_callback->shouldCancel())
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 
 
 	/*conPrint("initial_result_buf_reserve_cap: " + toString(initial_result_buf_reserve_cap));
@@ -508,7 +508,7 @@ void NonBinningBVHBuilder::build(
 	}
 
 	if(should_cancel_callback->shouldCancel())
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 
 	//conPrint("Final merge elapsed: " + timer.elapsedString());
 
@@ -891,7 +891,7 @@ void NonBinningBVHBuilder::doBuild(
 	{
 		// conPrint("Checking for cancel at depth " + toString(depth));
 		if(should_cancel_callback->shouldCancel())
-			throw Indigo::CancelledException();
+			throw glare::CancelledException();
 	}
 
 	js::Vector<ResultNode, 64>& chunk_nodes = thread_temp_info.result_buf;

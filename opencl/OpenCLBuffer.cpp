@@ -60,7 +60,7 @@ void OpenCLBuffer::alloc(OpenCLContextRef& context, size_t size_, cl_mem_flags f
 			&result
 			);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
+			throw glare::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
 	}
 
 	size = size_;
@@ -97,7 +97,7 @@ void OpenCLBuffer::free()
 
 	cl_int result = getGlobalOpenCL()->clReleaseMemObject(opencl_mem);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clReleaseMemObject failed: " + OpenCL::errorString(result));
+		throw glare::Exception("clReleaseMemObject failed: " + OpenCL::errorString(result));
 
 #ifdef OPENCL_MEM_LOG
 	OpenCL_global_alloc -= size;
@@ -126,7 +126,7 @@ void OpenCLBuffer::allocFrom(OpenCLContextRef& context, const void* const src_pt
 			&result
 			);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
+			throw glare::Exception("clCreateBuffer failed: " + OpenCL::errorString(result));
 	}
 
 	size = size_;
@@ -162,7 +162,7 @@ void OpenCLBuffer::copyFrom(OpenCLCommandQueueRef& command_queue, size_t dest_of
 			NULL // event
 		);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clEnqueueWriteBuffer failed: " + OpenCL::errorString(result));
+			throw glare::Exception("clEnqueueWriteBuffer failed: " + OpenCL::errorString(result));
 	}
 }
 
@@ -183,7 +183,7 @@ void OpenCLBuffer::readTo(OpenCLCommandQueueRef& command_queue, void* const dest
 		NULL // event
 	);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
+		throw glare::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
 }
 
 
@@ -197,6 +197,6 @@ cl_uint OpenCLBuffer::getRefCount()
 		NULL
 	);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clGetMemObjectInfo failed: " + OpenCL::errorString(result));
+		throw glare::Exception("clGetMemObjectInfo failed: " + OpenCL::errorString(result));
 	return count;
 }

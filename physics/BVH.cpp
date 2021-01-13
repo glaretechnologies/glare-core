@@ -33,7 +33,7 @@ BVH::~BVH()
 {}
 
 
-// Throws Indigo::CancelledException if cancelled.
+// Throws glare::CancelledException if cancelled.
 void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, glare::TaskManager& task_manager)
 {
 	Timer timer;

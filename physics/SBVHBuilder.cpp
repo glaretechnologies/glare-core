@@ -265,7 +265,7 @@ public:
 				result_chunk
 			);
 		}
-		catch(Indigo::CancelledException&)
+		catch(glare::CancelledException&)
 		{}
 	}
 
@@ -439,7 +439,7 @@ void SBVHBuilder::build(
 	}
 
 	if(should_cancel_callback->shouldCancel())
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 
 	this->recip_root_node_aabb_area = 1 / root_aabb.getSurfaceArea();
 	
@@ -469,12 +469,12 @@ void SBVHBuilder::build(
 	task_manager->waitForTasksToComplete();
 
 	if(should_cancel_callback->shouldCancel())
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 
 	// See if the build failed:
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
 		if(per_thread_temp_info[i].build_failed)
-			throw Indigo::Exception("Build failed.");
+			throw glare::Exception("Build failed.");
 
 
 	/*conPrint("initial_result_buf_reserve_cap: " + toString(initial_result_buf_reserve_cap));
@@ -1739,7 +1739,7 @@ void SBVHBuilder::doBuild(
 		if(should_cancel_callback->shouldCancel())
 		{
 			// conPrint("Cancelling!");
-			throw Indigo::CancelledException();
+			throw glare::CancelledException();
 		}
 	}
 
@@ -2014,7 +2014,7 @@ static void testSBVHWithNumObsAndMaxDepth(int num_objects, int max_depth, int ma
 		const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
 		conPrint("SAH_cost: " + toString(SAH_cost));
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		if(!failure_expected)
 			failTest(e.what());

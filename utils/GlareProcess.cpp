@@ -21,14 +21,14 @@ Copyright Glare Technologies Limited 2020 -
 static void createPipe(SECURITY_ATTRIBUTES* sa, HandleWrapper& read_handle_out, HandleWrapper& write_handle_out)
 {
 	if(!CreatePipe(&read_handle_out.handle, &write_handle_out.handle, sa, 0))
-		throw Indigo::Exception("CreatePipe failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("CreatePipe failed: " + PlatformUtils::getLastErrorString());
 }
 
 
 static void setNoInherit(HandleWrapper& handle)
 {
 	if(!SetHandleInformation(handle.handle, HANDLE_FLAG_INHERIT, 0))
-		throw Indigo::Exception("SetHandleInformation failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("SetHandleInformation failed: " + PlatformUtils::getLastErrorString());
 }
 #endif
 
@@ -121,7 +121,7 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 		) == 0)
 	{
 		// Failure
-		throw Indigo::Exception("CreateProcess Failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("CreateProcess Failed: " + PlatformUtils::getLastErrorString());
 	}
 
 	// "Handles in PROCESS_INFORMATION must be closed with CloseHandle when they are no longer needed." - https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-createprocessa
@@ -133,7 +133,7 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 	
 	this->fp = popen((program_path + " " + combined_args_string).c_str(), "r");
 	if(fp == NULL)
-		throw Indigo::Exception("popen failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("popen failed: " + PlatformUtils::getLastErrorString());
 #endif
 }
 
@@ -152,9 +152,9 @@ void Process::terminateProcess()
 #if defined(_WIN32)
 	const BOOL res = TerminateProcess(this->process_handle.handle, /*exit-code=*/1);
 	if(!res)
-		throw Indigo::Exception("TerminateProcess Failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("TerminateProcess Failed: " + PlatformUtils::getLastErrorString());
 #else
-	throw Indigo::Exception("Not implemented.");
+	throw glare::Exception("Not implemented.");
 #endif
 }
 
@@ -169,7 +169,7 @@ bool Process::isStdOutReadable()
 	else
 		return false; // In the case where the process has been terminated, don't throw an exception, just return false.
 #else
-	throw Indigo::Exception("Not implemented.");
+	throw glare::Exception("Not implemented.");
 #endif
 }
 
@@ -233,11 +233,11 @@ void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
 			{
 			}
 			else
-				throw Indigo::Exception("WriteFile failed: " + PlatformUtils::getLastErrorString());
+				throw glare::Exception("WriteFile failed: " + PlatformUtils::getLastErrorString());
 		}
 	}
 #else
-	throw Indigo::Exception("Not implemented.");
+	throw glare::Exception("Not implemented.");
 #endif
 }
 
@@ -247,10 +247,10 @@ bool Process::isProcessAlive()
 #if defined(_WIN32)
 	DWORD exit_code;
 	if(!GetExitCodeProcess(this->process_handle.handle, &exit_code))
-		throw Indigo::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
 	return exit_code == STILL_ACTIVE;
 #else
-	throw Indigo::Exception("Not implemented.");
+	throw glare::Exception("Not implemented.");
 #endif
 }
 
@@ -260,14 +260,14 @@ int Process::getExitCode()
 #if defined(_WIN32)
 	DWORD exit_code;
 	if(!GetExitCodeProcess(this->process_handle.handle, &exit_code))
-		throw Indigo::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
 	return exit_code;
 #else
 	if(fp)
 	{
 		const int status = pclose(fp);
 		if(status == -1)
-			throw Indigo::Exception("pclose failed: " + PlatformUtils::getLastErrorString());
+			throw glare::Exception("pclose failed: " + PlatformUtils::getLastErrorString());
 		this->exit_code = status; // NOTE: this is the exit value of the command interpreter, not our actual process.
 		fp = NULL;
 	}
@@ -335,7 +335,7 @@ void Process::test()
 		testAssert(p.getExitCode() == 0);
 		//conPrint("Exit code: " + toString(p.getExitCode()));
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -353,7 +353,7 @@ void Process::test()
 
 		failTest("Expected to throw exception before here.");
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 	}
 #else
@@ -372,7 +372,7 @@ void Process::test()
 		conPrint("Exit code: " + toString(p.getExitCode()));
 		testAssert(p.getExitCode() == 0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -395,7 +395,7 @@ void Process::test()
 
 		//PlatformUtils::Sleep(5000);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}*/

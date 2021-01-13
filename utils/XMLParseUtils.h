@@ -15,13 +15,13 @@ XMLParseUtils
 -------------
 Utility functions for parsing stuff from a PugiXML object.
 
-All functions throw Indigo::Exception on failure.
+All functions throw glare::Exception on failure.
 
 Adapted from indigo\trunk\dll\include\IndigoSceneParseUtils.h
 
 TODO: Make IndigoSceneParseUtils use these functions.
 The main problem with that is that IndigoSceneParseUtils currently throws SceneParseUtilsExcep,
-and catching Indigo::Exception and rethrowing SceneParseUtilsExcep might be a bit slow.
+and catching glare::Exception and rethrowing SceneParseUtilsExcep might be a bit slow.
 =====================================================================*/
 namespace XMLParseUtils
 {
@@ -43,7 +43,7 @@ namespace XMLParseUtils
 	bool parseBool(pugi::xml_node elem, const char* elemname);
 	bool parseBoolWithDefault(pugi::xml_node elem, const char* elemname, bool default_val);
 
-	pugi::xml_node getChildElement(pugi::xml_node elem, const char* name); // Throws Indigo::Exception if not found.
+	pugi::xml_node getChildElement(pugi::xml_node elem, const char* name); // Throws glare::Exception if not found.
 
 	const char* getElementText(pugi::xml_node elem);
 

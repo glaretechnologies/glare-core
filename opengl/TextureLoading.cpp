@@ -487,7 +487,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 	else // Else if not using a compressed texture format:
 	{
 		if(converted_image->getN() != 3 && converted_image->getN() != 4)
-			throw Indigo::Exception("Texture has unhandled number of components: " + toString(converted_image->getN()));
+			throw glare::Exception("Texture has unhandled number of components: " + toString(converted_image->getN()));
 
 		texture_data->converted_image = converted_image;
 	}
@@ -530,7 +530,7 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 		else if(texture_data.bytes_pp == 4)
 			format = opengl_engine->are_8bit_textures_sRGB ? OpenGLTexture::Format_SRGBA_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
 		else
-			throw Indigo::Exception("Texture has unhandled number of components: " + toString(texture_data.bytes_pp));
+			throw glare::Exception("Texture has unhandled number of components: " + toString(texture_data.bytes_pp));
 
 		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.converted_image->getData(), texture_data.converted_image->getDataSize()), opengl_engine,
 			format, filtering, wrapping

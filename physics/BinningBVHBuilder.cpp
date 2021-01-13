@@ -183,7 +183,7 @@ public:
 				builder.per_thread_temp_info[thread_index].result_chunk
 			);
 		}
-		catch(Indigo::CancelledException&)
+		catch(glare::CancelledException&)
 		{}
 	}
 
@@ -212,7 +212,7 @@ BinningResultChunk* BinningBVHBuilder::allocNewResultChunk()
 
 
 // Top-level build method
-// Throws Indigo::CancelledException if cancelled.
+// Throws glare::CancelledException if cancelled.
 void BinningBVHBuilder::build(
 		glare::TaskManager& task_manager_,
 		ShouldCancelCallback& should_cancel_callback_,
@@ -297,12 +297,12 @@ void BinningBVHBuilder::build(
 	task_manager->waitForTasksToComplete();
 
 	if(should_cancel_callback->shouldCancel()) 
-		throw Indigo::CancelledException();
+		throw glare::CancelledException();
 
 	// See if the build failed:
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
 		if(per_thread_temp_info[i].build_failed)
-			throw Indigo::Exception("Build failed.");
+			throw glare::Exception("Build failed.");
 
 	// Now we need to combine all the result chunks into a single array.
 
@@ -929,7 +929,7 @@ void BinningBVHBuilder::doBuild(
 		if(should_cancel_callback->shouldCancel())
 		{
 			// conPrint("BinningBVHBuilder(): Cancelling!");
-			throw Indigo::CancelledException();
+			throw glare::CancelledException();
 		}
 	}
 
@@ -1277,7 +1277,7 @@ static void testWithNumObsAndMaxDepth(int num_objects, int max_depth, int max_nu
 		const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
 		conPrint("SAH_cost: " + toString(SAH_cost));
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		if(!failure_expected)
 			failTest(e.what());

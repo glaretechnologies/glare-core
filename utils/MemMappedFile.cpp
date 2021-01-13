@@ -43,7 +43,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	);
 
 	if(file_handle == INVALID_HANDLE_VALUE)
-		throw Indigo::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
 
 	// Get size of file
 	LARGE_INTEGER file_size_li;
@@ -52,7 +52,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		&file_size_li
 	);
 	if(!res)
-		throw Indigo::Exception("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("GetFileSizeEx failed: " + PlatformUtils::getLastErrorString());
 
 	static_assert(sizeof(size_t) == 8, "sizeof(size_t) == 8");
 	this->file_size = (size_t)file_size_li.QuadPart;
@@ -77,7 +77,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 
 			res = CloseHandle(this->file_handle);
 			assertOrDeclareUsed(res);
-			throw Indigo::Exception("CreateFileMapping failed: " + error_string);
+			throw glare::Exception("CreateFileMapping failed: " + error_string);
 		}
 
 		this->file_data = MapViewOfFile(
@@ -89,7 +89,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		);
 
 		if(file_data == NULL)
-			throw Indigo::Exception("MapViewOfFile failed: " + PlatformUtils::getLastErrorString());
+			throw glare::Exception("MapViewOfFile failed: " + PlatformUtils::getLastErrorString());
 	}
 }
 
@@ -127,12 +127,12 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		O_RDONLY);
 
 	if(this->linux_file_handle <= 0)
-		throw Indigo::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
 
 	// Get file size.
 	struct stat file_stats;
 	if(fstat(this->linux_file_handle, &file_stats) == -1)
-		throw Indigo::Exception("fstat failed for file with path '" + path + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("fstat failed for file with path '" + path + "': " + PlatformUtils::getLastErrorString());
 	this->file_size = file_stats.st_size;
 
 	// Don't try and map the file if it has size zero, since it will fail.
@@ -142,7 +142,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		if(this->file_data == MAP_FAILED)
 		{
 			// TODO: Close file handle.
-			throw Indigo::Exception("File mmap failed for path '" + path + "': " + PlatformUtils::getLastErrorString());
+			throw glare::Exception("File mmap failed for path '" + path + "': " + PlatformUtils::getLastErrorString());
 		}
 	}
 }
@@ -185,7 +185,7 @@ void MemMappedFile::test()
 			testAssert(file.fileSize() == 0);
 			testAssert(file.fileData() == NULL);
 		}
-		catch(Indigo::Exception& e)
+		catch(glare::Exception& e)
 		{
 			failTest(e.what());
 		}
@@ -208,7 +208,7 @@ void MemMappedFile::test()
 			}
 
 		}
-		catch(Indigo::Exception& e)
+		catch(glare::Exception& e)
 		{
 			failTest(e.what());
 		}
@@ -220,7 +220,7 @@ void MemMappedFile::test()
 
 			MemMappedFile file2(pathname);
 		}
-		catch(Indigo::Exception& e)
+		catch(glare::Exception& e)
 		{
 			failTest(e.what());
 		}

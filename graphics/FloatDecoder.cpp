@@ -47,7 +47,7 @@ Reference<Map2D> FloatDecoder::decode(const std::string& pathname)
 
 		return image;
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw ImFormatExcep("Error reading .float file: " + std::string(e.what()));
 	}

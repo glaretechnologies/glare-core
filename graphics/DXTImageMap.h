@@ -25,15 +25,15 @@ class DXTImageMap : public Map2D
 {
 public:
 	DXTImageMap();
-	DXTImageMap(size_t width, size_t height, size_t N); // throws Indigo::Exception
+	DXTImageMap(size_t width, size_t height, size_t N); // throws glare::Exception
 	virtual ~DXTImageMap();
 
 	DXTImageMap& operator = (const DXTImageMap& other);
 
 	bool operator == (const DXTImageMap& other) const;
 
-	void resize(size_t width_, size_t height_, size_t N_); // throws Indigo::Exception
-	void resizeNoCopy(size_t width_, size_t height_, size_t N_); // throws Indigo::Exception
+	void resize(size_t width_, size_t height_, size_t N_); // throws glare::Exception
+	void resizeNoCopy(size_t width_, size_t height_, size_t N_); // throws glare::Exception
 
 	virtual float getGamma() const { return gamma; }
 	void setGamma(float g) { gamma = g; }

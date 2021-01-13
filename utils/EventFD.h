@@ -18,7 +18,7 @@ See http://man7.org/linux/man-pages/man2/eventfd.2.html
 class EventFD
 {
 public:
-	EventFD(); // Throws Indigo::Exception on failure.
+	EventFD(); // Throws glare::Exception on failure.
 	~EventFD();
 
 

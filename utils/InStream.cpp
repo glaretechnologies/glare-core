@@ -41,7 +41,7 @@ const std::string InStream::readStringLengthFirst(size_t max_string_length)
 	// Read string byte size
 	const uint32 size = readUInt32();
 	if((size_t)size > max_string_length)
-		throw Indigo::Exception("String length too long (length=" + toString(size) + ")");
+		throw glare::Exception("String length too long (length=" + toString(size) + ")");
 
 	std::string s(size, '\0'); // Use fill constructor
 

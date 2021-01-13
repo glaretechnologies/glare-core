@@ -19,7 +19,7 @@ namespace Base64
 {
 	void encode(const void* data, size_t datalen, std::string& res_out);
 
-	// Throws Indigo::Exception on failure.
+	// Throws glare::Exception on failure.
 	void decode(const std::string& s, std::vector<unsigned char>& data_out);
 
 	void test();

@@ -45,7 +45,7 @@ void OpenCLKernel::createKernel(OpenCLProgramRef program, const std::string& ker
 	cl_int result;
 	this->kernel = getGlobalOpenCL()->clCreateKernel(program->getProgram(), kernel_name.c_str(), &result);
 	if(!this->kernel)
-		throw Indigo::Exception("Failed to created kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+		throw glare::Exception("Failed to created kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
 	// Query work-group size multiple.  This is the "preferred multiple of workgroup size for launch", a performance hint.
 	size_t size_multiple;
@@ -105,7 +105,7 @@ void OpenCLKernel::setKernelArgInt(size_t index, cl_int val)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_int), &val);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+		throw glare::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
 }
 
 
@@ -113,7 +113,7 @@ void OpenCLKernel::setKernelArgUInt(size_t index, cl_uint val)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_uint), &val);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+		throw glare::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
 }
 
 
@@ -121,7 +121,7 @@ void OpenCLKernel::setKernelArgULong(size_t index, cl_ulong val)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_ulong), &val);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+		throw glare::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
 }
 
 
@@ -129,7 +129,7 @@ void OpenCLKernel::setKernelArgFloat(size_t index, cl_float val)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_float), &val);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+		throw glare::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
 }
 
 
@@ -137,7 +137,7 @@ void OpenCLKernel::setKernelArgDouble(size_t index, cl_double val)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_double), &val);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+		throw glare::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
 }
 
 
@@ -151,7 +151,7 @@ void OpenCLKernel::setKernelArgBuffer(size_t index, cl_mem buffer)
 {
 	cl_int result = getGlobalOpenCL()->clSetKernelArg(this->kernel, (cl_uint)index, sizeof(cl_mem), &buffer);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
+		throw glare::Exception("Failed to set kernel arg for kernel '" + kernel_name + "', index " + toString(index) + ": " + OpenCL::errorString(result));
 }
 
 
@@ -212,26 +212,26 @@ double OpenCLKernel::doLaunchKernel(cl_command_queue opencl_command_queue, int d
 		profile ? &profile_event : NULL		// event
 	);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clEnqueueNDRangeKernel failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+		throw glare::Exception("clEnqueueNDRangeKernel failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
 	if(profile)
 	{
 		result = getGlobalOpenCL()->clWaitForEvents(1, &profile_event);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clWaitForEvents failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+			throw glare::Exception("clWaitForEvents failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
 		cl_ulong time_start, time_end;
 		result = getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clGetEventProfilingInfo failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+			throw glare::Exception("clGetEventProfilingInfo failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
 		result = getGlobalOpenCL()->clGetEventProfilingInfo(profile_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clGetEventProfilingInfo failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+			throw glare::Exception("clGetEventProfilingInfo failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
 		result = getGlobalOpenCL()->clReleaseEvent(profile_event);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clReleaseEvent failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
+			throw glare::Exception("clReleaseEvent failed for kernel '" + kernel_name + "': " + OpenCL::errorString(result));
 
 		const double elapsed_ns = (double)time_end - (double)time_start;
 		const double elapsed_s = elapsed_ns * 1.0e-9;

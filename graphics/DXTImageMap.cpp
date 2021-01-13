@@ -33,7 +33,7 @@ DXTImageMap::DXTImageMap(size_t width_, size_t height_, size_t N_)
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+		throw glare::Exception("Failed to create image (memory allocation failure)");
 	}
 }
 
@@ -86,7 +86,7 @@ void DXTImageMap::resize(size_t width_, size_t height_, size_t N_)
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+		throw glare::Exception("Failed to create image (memory allocation failure)");
 	}
 }
 
@@ -108,7 +108,7 @@ void DXTImageMap::resizeNoCopy(size_t width_, size_t height_, size_t N_)
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to create image (memory allocation failure)");
+		throw glare::Exception("Failed to create image (memory allocation failure)");
 	}
 }
 

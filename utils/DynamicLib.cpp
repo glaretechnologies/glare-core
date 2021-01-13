@@ -45,12 +45,12 @@ void DynamicLib::open(const std::string& lib_path)
 	lib_handle = ::LoadLibrary(path.c_str());
 	if(!lib_handle)
 	{
-		throw Indigo::Exception("Failed to open dynamic library '" + lib_path + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("Failed to open dynamic library '" + lib_path + "': " + PlatformUtils::getLastErrorString());
 	}
 #else
 	lib_handle = dlopen(lib_path.c_str(), RTLD_LAZY);
 	if(!lib_handle)
-		throw Indigo::Exception("Failed to open dynamic library '" + lib_path + "'");
+		throw glare::Exception("Failed to open dynamic library '" + lib_path + "'");
 #endif
 }
 
@@ -61,7 +61,7 @@ void DynamicLib::close()
 	if(lib_handle != NULL)
 	{
 		if(!::FreeLibrary(lib_handle))
-			throw Indigo::Exception("FreeLibrary failed");
+			throw glare::Exception("FreeLibrary failed");
 
 		lib_handle = NULL;
 	}
@@ -69,7 +69,7 @@ void DynamicLib::close()
 	if(lib_handle != NULL)
 	{
 		if(dlclose(lib_handle) != 0)
-			throw Indigo::Exception("FreeLibrary failed");
+			throw glare::Exception("FreeLibrary failed");
 
 		lib_handle = NULL;
 	}
@@ -88,11 +88,11 @@ const std::string DynamicLib::getFullPathToLib() const
 	);
 
 	if(result == 0)
-		throw Indigo::Exception("GetModuleFileName failed.");
+		throw glare::Exception("GetModuleFileName failed.");
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(buf);
 #else
-	throw Indigo::Exception("getFullPathToLib not implemented on this platform.");
+	throw glare::Exception("getFullPathToLib not implemented on this platform.");
 #endif
 }
 
@@ -121,7 +121,7 @@ void DynamicLib::test()
 		// Make sure it worked
 		assertOrDeclareUsed(create_thread_func != NULL);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint("DynamicLib exception: " + e.what());
 	}
@@ -134,7 +134,7 @@ void DynamicLib::test()
 		// Make sure it worked
 		testAssert((*cos_func)(0.0) == 1.0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint("DynamicLib exception: " + e.what());
 	}

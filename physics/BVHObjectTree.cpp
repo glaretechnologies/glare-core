@@ -249,7 +249,7 @@ stack_pop:
 }
 
 
-// Throws Indigo::CancelledException if cancelled.
+// Throws glare::CancelledException if cancelled.
 void BVHObjectTree::build(glare::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output)
 {
 	// conPrint("BVHObjectTree::build");

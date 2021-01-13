@@ -37,7 +37,7 @@ public:
 		std::string contents; // email contents
 	};
 
-	static void sendEmail(const SendEmailArgs& args); // Throws Indigo::Exception on failure.
+	static void sendEmail(const SendEmailArgs& args); // Throws glare::Exception on failure.
 
 	static void test();
 };

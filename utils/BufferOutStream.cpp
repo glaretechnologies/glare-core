@@ -31,7 +31,7 @@ void BufferOutStream::writeInt32(int32 x)
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Memory alloc failure while writing to buffer.");
+		throw glare::Exception("Memory alloc failure while writing to buffer.");
 	}
 }
 
@@ -46,7 +46,7 @@ void BufferOutStream::writeUInt32(uint32 x)
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Memory alloc failure while writing to buffer.");
+		throw glare::Exception("Memory alloc failure while writing to buffer.");
 	}
 }
 
@@ -63,7 +63,7 @@ void BufferOutStream::writeData(const void* data, size_t num_bytes)
 		}
 		catch(std::bad_alloc&)
 		{
-			throw Indigo::Exception("Memory alloc failure while writing to buffer.");
+			throw glare::Exception("Memory alloc failure while writing to buffer.");
 		}
 	}
 }

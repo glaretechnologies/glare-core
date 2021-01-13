@@ -22,7 +22,7 @@ public:
 	SHA256();
 	~SHA256();
 
-	// Throws Indigo::Exception on failure
+	// Throws glare::Exception on failure
 	inline static void hash(
 		const std::vector<unsigned char>& message_text,
 		std::vector<unsigned char>& digest_out
@@ -34,7 +34,7 @@ public:
 			hash(&(*message_text.begin()), &(*message_text.begin()) + message_text.size(), digest_out);
 	}
 
-	// Throws Indigo::Exception on failure
+	// Throws glare::Exception on failure
 	inline static void hash(
 		const std::string& message_text,
 		std::vector<unsigned char>& digest_out
@@ -46,7 +46,7 @@ public:
 			hash((const unsigned char*)&(*message_text.begin()), (const unsigned char*)&(*message_text.begin()) + message_text.size(), digest_out);
 	}
 
-	// Throws Indigo::Exception on failure
+	// Throws glare::Exception on failure
 	static void hash(
 		const unsigned char* message_text_begin,
 		const unsigned char* message_text_end,
@@ -54,7 +54,7 @@ public:
 	);
 
 
-	// Throws Indigo::Exception on failure
+	// Throws glare::Exception on failure
 	static void SHA1Hash(
 		const unsigned char* message_text_begin,
 		const unsigned char* message_text_end,

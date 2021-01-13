@@ -81,12 +81,12 @@ void MiniDump::checkEnableMiniDumps()
 
 		// "If the function succeeds, it returns a value greater than 32."
 		if((int)result <= 32)
-			throw Indigo::Exception("ShellExecute failed: " + toString((int)result));
+			throw glare::Exception("ShellExecute failed: " + toString((int)result));
 
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{}
 }
 

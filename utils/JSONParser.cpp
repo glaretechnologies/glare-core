@@ -39,7 +39,7 @@ const std::string& JSONNode::getStringValue() const
 	if(type == JSONNode::Type_String)
 		return string_v;
 	else
-		throw Indigo::Exception("Expected type String - type was " + typeString(type));
+		throw glare::Exception("Expected type String - type was " + typeString(type));
 }
 
 
@@ -48,7 +48,7 @@ size_t JSONNode::getUIntValue() const
 	if(type == JSONNode::Type_Number)
 		return (size_t)this->value.double_v;
 	else
-		throw Indigo::Exception("Expected type Number.");
+		throw glare::Exception("Expected type Number.");
 }
 
 
@@ -57,7 +57,7 @@ double JSONNode::getDoubleValue() const
 	if(type == JSONNode::Type_Number)
 		return this->value.double_v;
 	else
-		throw Indigo::Exception("Expected type Number.");
+		throw glare::Exception("Expected type Number.");
 }
 
 
@@ -66,14 +66,14 @@ bool JSONNode::getBoolValue() const
 	if(type == JSONNode::Type_Boolean)
 		return this->value.bool_v;
 	else
-		throw Indigo::Exception("Expected type Boolean.");
+		throw glare::Exception("Expected type Boolean.");
 }
 
 
 bool JSONNode::hasChild(const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
@@ -86,20 +86,20 @@ bool JSONNode::hasChild(const string_view& name) const
 size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index].getUIntValue();
 
-	throw Indigo::Exception("Failed to find child name/value pair with name " + name + ".");
+	throw glare::Exception("Failed to find child name/value pair with name " + name + ".");
 }
 
 
 size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, size_t default_val) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
@@ -112,7 +112,7 @@ size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const
 double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view& name, double default_val) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
@@ -125,7 +125,7 @@ double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, con
 bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view& name, bool default_val) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i = 0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
@@ -138,20 +138,20 @@ bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const s
 const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
 
-	throw Indigo::Exception("Failed to find child name/value pair with name " + name + ".");
+	throw glare::Exception("Failed to find child name/value pair with name " + name + ".");
 }
 
 
 const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view& name, const string_view& default_val) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
@@ -164,36 +164,36 @@ const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& 
 const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
 		{
 			const JSONNode& child = parser.nodes[name_val_pairs[i].value_node_index];
 			if(child.type != JSONNode::Type_Object)
-				throw Indigo::Exception("Expected child to have type object.");
+				throw glare::Exception("Expected child to have type object.");
 			return child;
 		}
 
-	throw Indigo::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
 }
 
 
 const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
 		{
 			const JSONNode& child = parser.nodes[name_val_pairs[i].value_node_index];
 			if(child.type != JSONNode::Type_Array)
-				throw Indigo::Exception("JSONNode::getChildArray(): Expected child to have type Array, actual type was " + typeString(child.type));
+				throw glare::Exception("JSONNode::getChildArray(): Expected child to have type Array, actual type was " + typeString(child.type));
 			return child;
 		}
 
-	throw Indigo::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
 }
 
 
@@ -201,16 +201,16 @@ const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_v
 void JSONNode::parseDoubleArrayValues(const JSONParser& parser, size_t expected_num_elems, double* values_out) const
 {
 	if(type != JSONNode::Type_Array)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	if(child_indices.size() != expected_num_elems)
-		throw Indigo::Exception("Array had wrong size.");
+		throw glare::Exception("Array had wrong size.");
 
 	for(size_t z=0; z<child_indices.size(); ++z)
 	{
 		const JSONNode& child_node = parser.nodes[child_indices[z]];
 		if(child_node.type != JSONNode::Type_Number)
-			throw Indigo::Exception("JSONNode::parseDoubleArrayValues(): Expected child to have type Number, actual type was " + typeString(child_node.type));
+			throw glare::Exception("JSONNode::parseDoubleArrayValues(): Expected child to have type Number, actual type was " + typeString(child_node.type));
 
 		values_out[z] = child_node.value.double_v;
 	}
@@ -231,7 +231,7 @@ std::string JSONParser::parseString(Parser& p)
 
 	// Parse opening "
 	if(!p.parseChar('"'))
-		throw Indigo::Exception("Expected \"" + errorContext(p));
+		throw glare::Exception("Expected \"" + errorContext(p));
 	
 	while(p.notEOF() && p.current() != '"')
 	{
@@ -239,7 +239,7 @@ std::string JSONParser::parseString(Parser& p)
 		{
 			p.consume('\\');
 			if(p.eof())
-				throw Indigo::Exception("EOF in escape sequence." + errorContext(p));
+				throw glare::Exception("EOF in escape sequence." + errorContext(p));
 			switch(p.current())
 			{
 			case '"':
@@ -278,7 +278,7 @@ std::string JSONParser::parseString(Parser& p)
 			{
 				p.consume('u');
 				if(p.currentPos() + 4 > p.getTextSize())
-					throw Indigo::Exception("EOF while parsing unicode code point.." + errorContext(p));
+					throw glare::Exception("EOF while parsing unicode code point.." + errorContext(p));
 
 				// Parse 4-hex-digit unicode code point
 				uint32 code_point = 0;
@@ -292,7 +292,7 @@ std::string JSONParser::parseString(Parser& p)
 					}
 					catch(StringUtilsExcep& e)
 					{
-						throw Indigo::Exception("Error while parsing unicode code point: " + e.what() + errorContext(p));
+						throw glare::Exception("Error while parsing unicode code point: " + e.what() + errorContext(p));
 					}
 					p.advance();
 					bit_offset -= 4;
@@ -302,7 +302,7 @@ std::string JSONParser::parseString(Parser& p)
 				break;
 			}
 			default:
-				throw Indigo::Exception("Invalid escape sequence." + errorContext(p));
+				throw glare::Exception("Invalid escape sequence." + errorContext(p));
 			}
 		}
 		else
@@ -314,7 +314,7 @@ std::string JSONParser::parseString(Parser& p)
 
 	// Parse closing "
 	if(!p.parseChar('"'))
-		throw Indigo::Exception("Expected \"" + errorContext(p));
+		throw glare::Exception("Expected \"" + errorContext(p));
 
 	return s;
 }
@@ -342,7 +342,7 @@ uint32 JSONParser::parseNode(Parser& parser)
 		if(::isNumeric(parser.current()))
 			return parseNumber(parser);
 		else
-			throw Indigo::Exception("Unexpected character '" + std::string(1, parser.current()) + "'" + errorContext(parser));
+			throw glare::Exception("Unexpected character '" + std::string(1, parser.current()) + "'" + errorContext(parser));
 	}
 }
 
@@ -360,7 +360,7 @@ uint32 JSONParser::parseStringNode(Parser& p)
 uint32 JSONParser::parseTrue(Parser& p)
 {
 	if(!p.parseCString("true"))
-		throw Indigo::Exception("Expected 'true'" + errorContext(p));
+		throw glare::Exception("Expected 'true'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
 	nodes.push_back(JSONNode());
@@ -373,7 +373,7 @@ uint32 JSONParser::parseTrue(Parser& p)
 uint32 JSONParser::parseFalse(Parser& p)
 {
 	if(!p.parseCString("false"))
-		throw Indigo::Exception("Expected 'false'" + errorContext(p));
+		throw glare::Exception("Expected 'false'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
 	nodes.push_back(JSONNode());
@@ -386,7 +386,7 @@ uint32 JSONParser::parseFalse(Parser& p)
 uint32 JSONParser::parseNull(Parser& p)
 {
 	if(!p.parseCString("null"))
-		throw Indigo::Exception("Expected 'null'" + errorContext(p));
+		throw glare::Exception("Expected 'null'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
 	nodes.push_back(JSONNode());
@@ -402,7 +402,7 @@ uint32 JSONParser::parseNumber(Parser& p)
 	nodes[node_index].type = JSONNode::Type_Number;
 
 	if(!p.parseDouble(nodes[node_index].value.double_v))
-		throw Indigo::Exception("Failed parsing number." + errorContext(p));
+		throw glare::Exception("Failed parsing number." + errorContext(p));
 	
 	return node_index;
 }
@@ -435,7 +435,7 @@ uint32 JSONParser::parseArray(Parser& p)
 	}
 
 	if(!p.parseChar(']'))
-		throw Indigo::Exception("Expected ]" + errorContext(p));
+		throw glare::Exception("Expected ]" + errorContext(p));
 
 	return node_index;
 }
@@ -458,7 +458,7 @@ uint32 JSONParser::parseObject(Parser& p)
 
 		p.parseWhiteSpace();
 		if(!p.parseChar(':'))
-			throw Indigo::Exception("Expected :" + errorContext(p));
+			throw glare::Exception("Expected :" + errorContext(p));
 		p.parseWhiteSpace();
 
 		const uint32 child_index = parseNode(p);
@@ -475,7 +475,7 @@ uint32 JSONParser::parseObject(Parser& p)
 	}
 
 	if(!p.parseChar('}'))
-		throw Indigo::Exception("Expected }" + errorContext(p));
+		throw glare::Exception("Expected }" + errorContext(p));
 
 	return node_index;
 }
@@ -539,7 +539,7 @@ static void testStringEscapeSequence(const std::string& encoded_string, const st
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_String);
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].string_v == target_decoding);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -555,7 +555,7 @@ static void testInvalidStringEscapeSequence(const std::string& encoded_string)
 		p.parseBuffer(s.data(), s.size());
 		failTest("Expected exception to be thrown.");
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 	}
 }
@@ -595,7 +595,7 @@ void JSONParser::test()
 		testAssert(root_ob.name_val_pairs[7].name == "spouse");
 		testAssert(p.nodes[root_ob.name_val_pairs[7].value_node_index].type == JSONNode::Type_Null);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -616,7 +616,7 @@ void JSONParser::test()
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_Array);
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].child_indices.size() == 0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -636,7 +636,7 @@ void JSONParser::test()
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_Object);
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].name_val_pairs.empty());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -656,7 +656,7 @@ void JSONParser::test()
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_String);
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].string_v == "");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -700,7 +700,7 @@ void JSONParser::test()
 		testAssert(p.nodes[array_node.child_indices[6]].value.double_v == 15.4e-5);
 
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

@@ -38,7 +38,7 @@ public:
 	/// Write a BatchedMesh object to disk.
 	/// @param dest_path		Path on disk.
 	/// @param use_compression	True if compression should be used.
-	/// @throws Indigo::Exception on failure.
+	/// @throws glare::Exception on failure.
 	struct WriteOptions
 	{
 		WriteOptions() : use_compression(true), compression_level(3) {}
@@ -50,7 +50,7 @@ public:
 	/// Read a BatchedMesh object from disk.
 	/// @param src_path			Path on disk to read from.
 	/// @param mesh_out			Mesh object to read to.
-	/// @throws Indigo::Exception on failure.
+	/// @throws glare::Exception on failure.
 	static void readFromFile(const std::string& src_path, BatchedMesh& mesh_out);
 
 	// Builds a BatchedMesh from an Indigo::Mesh.

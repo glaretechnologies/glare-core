@@ -119,7 +119,7 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 {
 	const size_t input_length = s.size();
 	if(input_length % 4 != 0)
-		throw Indigo::Exception("Invalid length");
+		throw glare::Exception("Invalid length");
 	if(input_length == 0)
 	{
 		data_out.resize(0);
@@ -149,7 +149,7 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 
 		// If any of the sextets are equal to 64, we have an invalid char.  Test this by checking if the relevant bit (6) is set.
 		if((sextet_a | sextet_b | sextet_c | sextet_d) & 0x40)
-			throw Indigo::Exception("Invalid character");
+			throw glare::Exception("Invalid character");
 
 		// Combine them together into a 24 bit value
 		uint32 triple = (sextet_a << 3 * 6) | (sextet_b << 2 * 6) | (sextet_c << 1 * 6) | (sextet_d << 0 * 6);
@@ -172,7 +172,7 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 		uint32 sextet_d = s[i + 3] == '=' ? 0 : base64_decoding_table[input[i + 3]];
 
 		if((sextet_a | sextet_b | sextet_c | sextet_d) & 0x40)
-			throw Indigo::Exception("Invalid character");
+			throw glare::Exception("Invalid character");
 
 		uint32 triple = (sextet_a << 3 * 6) | (sextet_b << 2 * 6) | (sextet_c << 1 * 6) | (sextet_d << 0 * 6);
 
@@ -257,7 +257,7 @@ static void testDecodingFailure(const std::string& encoded)
 
 		failTest("Expected exception to be thrown.");
 	}
-	catch(Indigo::Exception& )
+	catch(glare::Exception& )
 	{
 	}
 }
@@ -541,7 +541,7 @@ void test()
 			{
 				decode(encoded, decoded);
 			}
-			catch(Indigo::Exception&)
+			catch(glare::Exception&)
 			{}
 			sum += decoded.size();
 		}

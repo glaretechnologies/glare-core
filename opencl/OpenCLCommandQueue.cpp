@@ -22,7 +22,7 @@ OpenCLCommandQueue::OpenCLCommandQueue(OpenCLContextRef& context_, cl_device_id 
 		&error_code);
 
 	if(command_queue == 0)
-		throw Indigo::Exception("clCreateCommandQueue failed: " + OpenCL::errorString(error_code));
+		throw glare::Exception("clCreateCommandQueue failed: " + OpenCL::errorString(error_code));
 }
 
 

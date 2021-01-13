@@ -130,11 +130,11 @@ void UtilTests::test()
 			
 			failTest("Should have thrown an exception.");
 		}
-		catch(Indigo::Exception& )
+		catch(glare::Exception& )
 		{
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

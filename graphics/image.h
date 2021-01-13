@@ -24,16 +24,16 @@ class Image : public Map2D
 public:
 	Image();
 	Image(const Image& other);
-	Image(size_t width, size_t height); // throws Indigo::Exception
+	Image(size_t width, size_t height); // throws glare::Exception
 	virtual ~Image();
 
 	Image& operator = (const Image& other);
 
 	typedef Colour3f ColourType;
 
-	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw Indigo::Exception if bytespp != 3
+	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw glare::Exception if bytespp != 3
 
-	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw Indigo::Exception if bytespp != 3 && bytespp != 4
+	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw glare::Exception if bytespp != 3 && bytespp != 4
 
 	void copyToBitmap(Bitmap& bmp_out) const;
 

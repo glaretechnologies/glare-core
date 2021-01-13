@@ -79,7 +79,7 @@ static void doTest(const std::string& indigo_base_dir, const std::string& mesh_p
 	{
 		failTest(toStdString(e.what()));
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

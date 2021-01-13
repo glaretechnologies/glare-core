@@ -601,7 +601,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 			{
 				p.advancePastLine();
 				if(p.eof())
-					throw Indigo::Exception("End of file while looking for //END_INCLUDES");
+					throw glare::Exception("End of file while looking for //END_INCLUDES");
 				if(p.parseString("//END_INCLUDES"))
 				{
 					p.advancePastLine();
@@ -802,7 +802,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 
 				// Fail, might need to try 64bit integer
 				if(!valid_uint_parse)
-					throw Indigo::Exception("Int parse failed at start of '" + s.substr(p.currentPos(), 10) + "'");
+					throw glare::Exception("Int parse failed at start of '" + s.substr(p.currentPos(), 10) + "'");
 			}
 
 			res += s.substr(last_currentpos, p.currentPos() - last_currentpos);
@@ -840,7 +840,7 @@ const std::string Obfuscator::obfuscateOpenCLC(const std::string& s) const
 
 		//if(!processed)
 		//{
-			throw Indigo::Exception("Unhandled character at start of '" + s.substr(p.currentPos(), 10) + "'");
+			throw glare::Exception("Unhandled character at start of '" + s.substr(p.currentPos(), 10) + "'");
 		//}
 	}
 
@@ -1030,7 +1030,7 @@ const std::string Obfuscator::obfuscateWinterSource(const std::string& src)
 	}
 	catch(Winter::BaseException& e)
 	{
-		throw Indigo::Exception(e.messageWithPosition());
+		throw glare::Exception(e.messageWithPosition());
 	}
 }
 
@@ -1054,7 +1054,7 @@ const std::string Obfuscator::readAndDecryptFile(const std::string& path)
 		if(using_encryption)
 		{
 			if(cyphertext.size() % 4 != 0)
-				throw Indigo::Exception("invalid file length for file '" + path + "'");
+				throw glare::Exception("invalid file length for file '" + path + "'");
 
 			std::string plaintext;
 			Transmungify::decrypt((const uint32*)cyphertext.data(), (uint32)cyphertext.size() / 4, plaintext);
@@ -1065,7 +1065,7 @@ const std::string Obfuscator::readAndDecryptFile(const std::string& path)
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -1099,7 +1099,7 @@ const std::string Obfuscator::readFileFromDisk(const std::string& indigo_base_di
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -1278,7 +1278,7 @@ void Obfuscator::test()
 		}
 
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest("Error: " + e.what());
 	}
@@ -1315,7 +1315,7 @@ void Obfuscator::test()
 			testAssert(lines[4] == "#endif");
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest("Error: " + e.what());
 	}

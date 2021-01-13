@@ -65,7 +65,7 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 			testAssert(batched_mesh == batched_mesh2);
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -102,7 +102,7 @@ static void testIndigoMeshConversion(const BatchedMesh& batched_mesh)
 		else
 			conPrint("Mesh has NaN UVs!");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -636,7 +636,7 @@ void BatchedMeshTests::test()
 
 		*/
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

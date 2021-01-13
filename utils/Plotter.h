@@ -77,7 +77,7 @@ public:
 		PlotOptions options = PlotOptions()
 	);
 
-	// throws Indigo::Exception on failure.
+	// throws glare::Exception on failure.
 	static void plot3D(
 		const std::string& path,
 		const std::string& title,

@@ -49,8 +49,8 @@ public:
 	BVH(const RayMesh* const raymesh);
 	virtual ~BVH();
 
-	// Throws Indigo::CancelledException if cancelled.
-	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, glare::TaskManager& task_manager); // throws Indigo::Exception
+	// Throws glare::CancelledException if cancelled.
+	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, glare::TaskManager& task_manager); // throws glare::Exception
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
 	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const;

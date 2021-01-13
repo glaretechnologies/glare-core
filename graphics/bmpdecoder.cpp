@@ -176,7 +176,7 @@ Reference<Map2D> BMPDecoder::decode(const std::string& path)
 
 		return texture;
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw ImFormatExcep(e.what());
 	}

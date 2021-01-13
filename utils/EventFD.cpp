@@ -28,7 +28,7 @@ EventFD::EventFD()
 	);
 	if(efd == -1) // "On error, -1 is returned and errno is set to indicate the error."
 	{
-		throw Indigo::Exception("eventfd() failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("eventfd() failed: " + PlatformUtils::getLastErrorString());
 	}
 #endif
 }

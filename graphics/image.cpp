@@ -43,7 +43,7 @@ Image::Image(size_t width, size_t height)
 	catch(std::bad_alloc& )
 	{
 		const size_t alloc_size = width * height * sizeof(ColourType);
-		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+		throw glare::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
 	}
 }
 
@@ -67,7 +67,7 @@ Image& Image::operator = (const Image& other)
 void Image::setFromBitmap(const Bitmap& bmp, float image_gamma)
 {
 	if(bmp.getBytesPP() != 1 && bmp.getBytesPP() != 3)
-		throw Indigo::Exception("Image bytes per pixel must be 1 or 3.");
+		throw glare::Exception("Image bytes per pixel must be 1 or 3.");
 
 	resize(bmp.getWidth(), bmp.getHeight());
 
@@ -106,10 +106,10 @@ void Image::setFromBitmap(const Bitmap& bmp, float image_gamma)
 void Image::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const
 {
 	if(bmp_out.getBytesPP() != 3 && bmp_out.getBytesPP() != 4)
-		throw Indigo::Exception("BytesPP != 3");
+		throw glare::Exception("BytesPP != 3");
 
 	if(x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > (int)getWidth() || y2 > (int)getHeight())
-		throw Indigo::Exception("Region coordinates are invalid");
+		throw glare::Exception("Region coordinates are invalid");
 
 	const int out_width = x2 - x1;
 	const int out_height = y2 - y1;
@@ -176,7 +176,7 @@ void Image::resizeNoCopy(size_t newwidth, size_t newheight)
 	catch(std::bad_alloc& )
 	{
 		const size_t alloc_size = newwidth * newheight * sizeof(ColourType);
-		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+		throw glare::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
 	}
 }
 
@@ -290,7 +290,7 @@ void Image::addImage(const Image& img, const int destx, const int desty, const f
 void Image::addImage(const Image& other)
 {
 	if(other.getWidth() != getWidth() || other.getHeight() != getHeight())
-		throw Indigo::Exception("Dimensions not the same");
+		throw glare::Exception("Dimensions not the same");
 
 	const float* const src = &other.getPixel(0).r;
 	      float* const dst = &getPixel(0).r;
@@ -752,7 +752,7 @@ void readFromStream(InStream& stream, Image& image)
 {
 	const uint32 v = stream.readUInt32();
 	if(v != IMAGE_SERIALISATION_VERSION)
-		throw Indigo::Exception("Unknown version " + toString(v) + ", expected " + toString(IMAGE_SERIALISATION_VERSION) + ".");
+		throw glare::Exception("Unknown version " + toString(v) + ", expected " + toString(IMAGE_SERIALISATION_VERSION) + ".");
 
 	const size_t w = stream.readUInt32();
 	const size_t h = stream.readUInt32();
@@ -807,7 +807,7 @@ void Image::test()
 
 		testAssert(in_stream.endOfStream());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

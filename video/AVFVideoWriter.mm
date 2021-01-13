@@ -42,7 +42,7 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 	
 	@try
@@ -53,7 +53,7 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 		NSError* err = nil;
 		AVAssetWriter* video_writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeMPEG4 error:&err];
 		if(video_writer == nil)
-			throw Indigo::Exception("Failed to create video writer: " + errorDesc(err));
+			throw glare::Exception("Failed to create video writer: " + errorDesc(err));
 		
 		const AVVideoCodecType codec = (vid_params.standard == VidParams::CompressionStandard_HEVC) ? AVVideoCodecTypeHEVC : AVVideoCodecTypeH264;
 		
@@ -71,12 +71,12 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 		AVAssetWriterInput* writer_input = [[AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
 																			   outputSettings:video_settings] retain];
 		if(writer_input == nil)
-			throw Indigo::Exception("Failed to create asset writer input.");
+			throw glare::Exception("Failed to create asset writer input.");
 		
 		AVAssetWriterInputPixelBufferAdaptor* adaptor = [[AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writer_input sourcePixelBufferAttributes:nil] retain];
 		
 		if(adaptor == nil)
-			throw Indigo::Exception("Failed to create input pixel buffer adaptor.");
+			throw glare::Exception("Failed to create input pixel buffer adaptor.");
 		
 		m_video_writer = video_writer;
 		m_writer_input = writer_input;
@@ -91,7 +91,7 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 	@catch(NSException* exception)
 	{
 		NSString* desc = [exception description];
-		throw Indigo::Exception("Error while creating video writer: " + (desc ? std::string([desc UTF8String]) : ""));
+		throw glare::Exception("Error while creating video writer: " + (desc ? std::string([desc UTF8String]) : ""));
 	}
 }
 
@@ -130,7 +130,7 @@ void AVFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to alloc temp buffer for video frame writing.");
+		throw glare::Exception("Failed to alloc temp buffer for video frame writing.");
 	}
 	std::memcpy(data_copy, source_data, vid_params.height * source_row_stride_B);
 	
@@ -146,14 +146,14 @@ void AVFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 		if(pixel_buffer)
 			[adaptor appendPixelBuffer:pixel_buffer withPresentationTime:cur_time];
 		else
-			throw Indigo::Exception("Failed to write frame.");
+			throw glare::Exception("Failed to write frame.");
 		
 		if(pixel_buffer) CFRelease(pixel_buffer); // Required as CVPixelBufferCreateWithBytes gave us ownership.
 	}
 	@catch(NSException* exception)
 	{
 		NSString* desc = [exception description];
-		throw Indigo::Exception("Error while writing video frame: " + (desc ? std::string([desc UTF8String]) : ""));
+		throw glare::Exception("Error while writing video frame: " + (desc ? std::string([desc UTF8String]) : ""));
 	}
 	
 	frame_index++;
@@ -178,7 +178,7 @@ void AVFVideoWriter::finalise()
 			if(video_writer.status == AVAssetWriterStatusCompleted)
 				break;
 			else if(video_writer.status == AVAssetWriterStatusFailed)
-				throw Indigo::Exception("Error while finishing writing video: " + errorDesc([video_writer error]));
+				throw glare::Exception("Error while finishing writing video: " + errorDesc([video_writer error]));
 			
 			// else writing still in progress presumably, keep waiting..
 			PlatformUtils::Sleep(1);
@@ -187,7 +187,7 @@ void AVFVideoWriter::finalise()
 	@catch(NSException* exception)
 	{
 		NSString* desc = [exception description];
-		throw Indigo::Exception("Error while finalising video: " + (desc ? std::string([desc UTF8String]) : ""));
+		throw glare::Exception("Error while finalising video: " + (desc ? std::string([desc UTF8String]) : ""));
 	}
 }
 
@@ -244,7 +244,7 @@ static void testWithStandard(VidParams::CompressionStandard standard, uint32 bit
 		const double fps = NUM_FRAMES / timer.elapsed();
 		conPrint("FPS processed: " + toString(fps));
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

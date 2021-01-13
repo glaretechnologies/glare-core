@@ -126,7 +126,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 					{
 						const std::string channel_name = it.name();
 						if(!::hasPrefix(channel_name, "wavelength"))
-							throw Indigo::Exception("Found a channel name that did not start with 'wavelength' while loading a spectral EXR.");
+							throw glare::Exception("Found a channel name that did not start with 'wavelength' while loading a spectral EXR.");
 
 						channels_to_load_names.push_back(channel_name);
 					}
@@ -152,7 +152,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 					{
 						const std::string channel_name = it.name();
 						if(!::hasPrefix(channel_name, "spectral.wavelength"))
-							throw Indigo::Exception("Found a channel name that did not start with 'wavelength' while loading a spectral EXR.");
+							throw glare::Exception("Found a channel name that did not start with 'wavelength' while loading a spectral EXR.");
 
 						channels_to_load_names.push_back(channel_name);
 					}
@@ -281,7 +281,7 @@ Imf::Compression EXRDecoder::EXRCompressionMethod(EXRDecoder::CompressionMethod 
 	};
 
 	assert(0);
-	throw Indigo::Exception("invalid compression method");
+	throw glare::Exception("invalid compression method");
 }
 
 
@@ -290,7 +290,7 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 	const std::string& layer_name, const SaveOptions& options)
 {
 	if(num_channels == 0)
-		throw Indigo::Exception("Invalid num channels for EXR saving.");
+		throw glare::Exception("Invalid num channels for EXR saving.");
 
 	setEXRThreadPoolSize();
 
@@ -317,7 +317,7 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 		if(!options.channel_names.empty())
 		{
 			if(options.channel_names.size() != num_channels)
-				throw Indigo::Exception("options.channel_names had wrong size.");
+				throw glare::Exception("options.channel_names had wrong size.");
 			channel_names = options.channel_names;
 			num_channels_to_save = (int)num_channels;
 		}
@@ -333,7 +333,7 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 			else
 			{
 				if(!(num_channels == 3 || num_channels == 4))
-					throw Indigo::Exception("Invalid num channels for EXR saving.");
+					throw glare::Exception("Invalid num channels for EXR saving.");
 
 				num_channels_to_save = save_alpha_channel ? 4 : 3;
 				/*channel_names[0] = layer_name + ".R";
@@ -400,7 +400,7 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 	}
 	catch(const std::exception& e)
 	{
-		throw Indigo::Exception("Error writing EXR file: " + std::string(e.what()));
+		throw glare::Exception("Error writing EXR file: " + std::string(e.what()));
 	}
 }
 
@@ -621,7 +621,7 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			}
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

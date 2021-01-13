@@ -202,7 +202,7 @@ Reference<Map2D> RGBEDecoder::decode(const std::string& path)
 	{
 		rgbe_file.open(path, "rb");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw ImFormatExcep("failed to open hdr file: " + e.what());
 	}

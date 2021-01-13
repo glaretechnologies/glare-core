@@ -33,7 +33,7 @@ FileHandle::~FileHandle()
 }
 
 
-void FileHandle::open(const std::string& pathname, const std::string& openmode) // throws Indigo::Exception
+void FileHandle::open(const std::string& pathname, const std::string& openmode) // throws glare::Exception
 {
 	assert(!f);
 
@@ -41,12 +41,12 @@ void FileHandle::open(const std::string& pathname, const std::string& openmode) 
 	// If we are on Windows, then, in order to use Unicode filenames, we will convert from UTF-8 to wstring and use _wfopen()
 	const errno_t res = _wfopen_s(&f, StringUtils::UTF8ToWString(pathname).c_str(), StringUtils::UTF8ToWString(openmode).c_str());
 	if(res != 0)
-		throw Indigo::Exception("Failed to open file '" + pathname + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("Failed to open file '" + pathname + "': " + PlatformUtils::getLastErrorString());
 #else
 	// On Linux (and on OS X?), fopen accepts UTF-8 encoded Unicode filenames natively.
 	f = fopen(pathname.c_str(), openmode.c_str());
 #endif
 
 	if(!f)
-		throw Indigo::Exception("Failed to open file '" + pathname + "'.");
+		throw glare::Exception("Failed to open file '" + pathname + "'.");
 }

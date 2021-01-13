@@ -65,7 +65,7 @@ IndigoXMLDoc::IndigoXMLDoc(const std::string& path_)
 			throw IndigoXMLDocExcep("Failed to open XML doc from path '" + path + "': " + result.description() + ": " + line_desc);
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw IndigoXMLDocExcep(e.what());
 	}
@@ -131,7 +131,7 @@ void IndigoXMLDoc::saveDoc(const std::string& savepath)
 		if(!file.good())
 			throw IndigoXMLDocExcep("Failed to save XML document to '" + savepath + "'");
 	}
-	catch(Indigo::Exception& )
+	catch(glare::Exception& )
 	{
 		throw IndigoXMLDocExcep("Failed to open file '" + savepath + "' for writing.");
 	}

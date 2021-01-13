@@ -92,7 +92,7 @@ static void determineMaxMemAllocSize(const OpenCLDeviceRef& opencl_device)
 			testEqual(result_buf[0], 0u);
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}
@@ -225,7 +225,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 				NULL // event
 				);
 			if(result != CL_SUCCESS)
-				throw Indigo::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
+				throw glare::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
 
 			if(test_result != 0)
 			{
@@ -236,7 +236,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 			conPrint("Kernel profiled exec time: " + doubleToStringNDecimalPlaces(exec_time_s, 8) + " s, timer elapsed: " + doubleToStringNDecimalPlaces(timer_elapsed_s, 8) + " s");
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what() + " build_log: " + build_log);
 	}
@@ -346,7 +346,7 @@ static void miscompilationTest()
 			NULL // event
 		);
 		if(result != CL_SUCCESS)
-			throw Indigo::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
+			throw glare::Exception("clEnqueueReadBuffer failed: " + OpenCL::errorString(result));
 
 		Vec4f res(output[0], output[1], output[2], output[3]);
 		conPrint("Res: " + res.toString());
@@ -359,7 +359,7 @@ static void miscompilationTest()
 		// Free the context and command queue for this device.
 		//opencl->deviceFree(context, command_queue);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -394,7 +394,7 @@ void OpenCLTests::test()
 			}
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

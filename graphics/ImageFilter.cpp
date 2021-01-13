@@ -643,7 +643,7 @@ static int smallestPowerOf2GE(int x)
 
 		PNGDecoder::write(ldr_image, path);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}
@@ -982,7 +982,7 @@ void ImageFilter::convolveImage(const Image& in, const Image& filter, Image& out
 }
 
 
-void ImageFilter::convolveImage(const Image4f& in, const Image& filter, Image4f& out, FFTPlan& plan) // throws Indigo::Exception on out of mem.
+void ImageFilter::convolveImage(const Image4f& in, const Image& filter, Image4f& out, FFTPlan& plan) // throws glare::Exception on out of mem.
 {
 	convolveImageFFT(in, filter, out);
 
@@ -1773,7 +1773,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		if(!plan.buffer_a)
 		{
 			plan.failed_to_allocate_buffers = true;
-			throw Indigo::Exception("Failed to allocate buffer.");
+			throw glare::Exception("Failed to allocate buffer.");
 		}
 	}
 	if(!plan.buffer_b)
@@ -1782,7 +1782,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		if(!plan.buffer_b)
 		{
 			plan.failed_to_allocate_buffers = true;
-			throw Indigo::Exception("Failed to allocate buffer.");
+			throw glare::Exception("Failed to allocate buffer.");
 		}
 	}
 	if(!plan.product)
@@ -1791,7 +1791,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 		if(!plan.product)
 		{
 			plan.failed_to_allocate_buffers = true;
-			throw Indigo::Exception("Failed to allocate buffer.");
+			throw glare::Exception("Failed to allocate buffer.");
 		}
 	}
 
@@ -1806,7 +1806,7 @@ void ImageFilter::convolveImageFFTSS(const Image& in, const Image& filter, Image
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to allocate buffer.");
+		throw glare::Exception("Failed to allocate buffer.");
 	}
 
 	if(!plan.in_plan)
@@ -1991,11 +1991,11 @@ void ImageFilter::FFTSS_realFFT(const Array2D<double>& data, Array2D<Complexd>& 
 
 	double* in = (double*)fftss_malloc((long)(py * data.getHeight() * sizeof(double) * 2));
 	if(!in)
-		throw Indigo::Exception("Failed to allocate buffer.");
+		throw glare::Exception("Failed to allocate buffer.");
 
 	double* outbuf = (double*)fftss_malloc((long)(py * data.getHeight() * sizeof(double) * 2));
 	if(!outbuf)
-		throw Indigo::Exception("Failed to allocate buffer.");
+		throw glare::Exception("Failed to allocate buffer.");
 
 	for(int i=0; i<py * (int)data.getHeight() * 2; ++i)
 		in[i] = 0.0;

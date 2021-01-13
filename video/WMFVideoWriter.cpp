@@ -41,7 +41,7 @@ WMFVideoWriter::WMFVideoWriter(const std::string& URL, const VidParams& vid_para
 	else
 	{
 		if(!SUCCEEDED(hr))
-			throw Indigo::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
+			throw glare::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
 
 		com_inited = true;
 	}
@@ -49,91 +49,91 @@ WMFVideoWriter::WMFVideoWriter(const std::string& URL, const VidParams& vid_para
 	// Initialize the Media Foundation platform.
 	hr = MFStartup(MF_VERSION);
 	if(!SUCCEEDED(hr))
-		throw Indigo::Exception("MFStartup failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("MFStartup failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Create the writer.
 	hr = MFCreateSinkWriterFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), NULL, NULL, &this->writer.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("MFCreateSinkWriterFromURL failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("MFCreateSinkWriterFromURL failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Set the output media type.
 	ComObHandle<IMFMediaType> media_type_out;
 	hr = MFCreateMediaType(&media_type_out.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("MFCreateMediaType failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("MFCreateMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
 	hr = media_type_out->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = media_type_out->SetGUID(MF_MT_SUBTYPE, (vid_params.standard == VidParams::CompressionStandard_H264) ? MFVideoFormat_H264 : MFVideoFormat_HEVC);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = media_type_out->SetUINT32(MF_MT_AVG_BITRATE, vid_params.bitrate); // Approximate data rate of the video stream, in bits per second.
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = media_type_out->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = MFSetAttributeSize(media_type_out.ptr, MF_MT_FRAME_SIZE, vid_params.width, vid_params.height);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = MFSetAttributeRatio(media_type_out.ptr, MF_MT_FRAME_RATE, (uint32)(vid_params.fps * 1000000), 1000000);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = MFSetAttributeRatio(media_type_out.ptr, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = this->writer->AddStream(media_type_out.ptr, &this->stream_index);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting output media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting output media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 
 	// Set the input media type.
 	ComObHandle<IMFMediaType> media_type_in;
 	hr = MFCreateMediaType(&media_type_in.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = media_type_in->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = media_type_in->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB24);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 
 	hr = media_type_in->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = MFSetAttributeSize(media_type_in.ptr, MF_MT_FRAME_SIZE, vid_params.width, vid_params.height);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = MFSetAttributeRatio(media_type_in.ptr, MF_MT_FRAME_RATE, (uint32)(vid_params.fps * 1000000), 1000000);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = MFSetAttributeRatio(media_type_in.ptr, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = this->writer->SetInputMediaType(stream_index, media_type_in.ptr, NULL);
 	if(FAILED(hr))
-		throw Indigo::Exception("Setting input media type failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Setting input media type failed: " + PlatformUtils::COMErrorString(hr));
 	
 	
 	// Tell the sink writer to start accepting data.
 	hr = this->writer->BeginWriting();
 	if(FAILED(hr))
-		throw Indigo::Exception("BeginWriting failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("BeginWriting failed: " + PlatformUtils::COMErrorString(hr));
 }
 
 
@@ -158,13 +158,13 @@ void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 	ComObHandle<IMFMediaBuffer> buffer;
 	HRESULT hr = MFCreateMemoryBuffer(buffer_size_B, &buffer.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("MFCreateMemoryBuffer failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("MFCreateMemoryBuffer failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Lock the buffer and copy the video frame to the buffer.
 	BYTE* buffer_data = NULL;
 	hr = buffer->Lock(&buffer_data, NULL, NULL);
 	if(FAILED(hr))
-		throw Indigo::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Copy and switch byte order to what WMF expects.
 	for(uint32 sy=0; sy<vid_params.height; ++sy)
@@ -184,35 +184,35 @@ void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 	// Set the data length of the buffer.
 	hr = buffer->SetCurrentLength(buffer_size_B);
 	if(FAILED(hr))
-		throw Indigo::Exception("SetCurrentLength failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("SetCurrentLength failed: " + PlatformUtils::COMErrorString(hr));
 
 	// Create a media sample and add the buffer to the sample.
 	ComObHandle<IMFSample> sample;
 	hr = MFCreateSample(&sample.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("MFCreateSample failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("MFCreateSample failed: " + PlatformUtils::COMErrorString(hr));
 	
 	hr = sample->AddBuffer(buffer.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("AddBuffer failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("AddBuffer failed: " + PlatformUtils::COMErrorString(hr));
 	
 
 	// Set the time stamp and the duration.
 	const UINT64 timestamp = (UINT64)(1.0e7 * frame_index / vid_params.fps);
 	hr = sample->SetSampleTime(timestamp);
 	if(FAILED(hr))
-		throw Indigo::Exception("SetSampleTime failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("SetSampleTime failed: " + PlatformUtils::COMErrorString(hr));
 	
 	const UINT64 video_frame_duration = (UINT64)(1.0e7 / vid_params.fps);
 	hr = sample->SetSampleDuration(video_frame_duration);
 	if(FAILED(hr))
-		throw Indigo::Exception("SetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("SetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
 	
 
 	// Send the sample to the Sink Writer.
 	hr = this->writer->WriteSample(this->stream_index, sample.ptr);
 	if(FAILED(hr))
-		throw Indigo::Exception("WriteSample failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("WriteSample failed: " + PlatformUtils::COMErrorString(hr));
 
 	frame_index++;
 }
@@ -222,7 +222,7 @@ void WMFVideoWriter::finalise()
 {
 	HRESULT hr = this->writer->Finalize();
 	if(FAILED(hr))
-		throw Indigo::Exception("Finalize failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("Finalize failed: " + PlatformUtils::COMErrorString(hr));
 }
 
 
@@ -274,7 +274,7 @@ void WMFVideoWriter::test()
 		const double fps = files.size() / timer.elapsed();
 		conPrint("FPS processed: " + toString(fps));
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -356,7 +356,7 @@ void WMFVideoWriter::test()
 			conPrint("FPS processed: " + toString(fps));
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

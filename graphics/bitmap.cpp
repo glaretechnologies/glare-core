@@ -39,7 +39,7 @@ Bitmap::Bitmap(size_t width_, size_t height_, size_t bytespp_, const uint8* srcd
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Failed to create bitmap (memory allocation failure)");
+		throw glare::Exception("Failed to create bitmap (memory allocation failure)");
 	}
 }
 
@@ -63,7 +63,7 @@ void Bitmap::resize(size_t newwidth, size_t newheight, size_t new_bytes_pp)
 		}
 		catch(std::bad_alloc&)
 		{
-			throw Indigo::Exception("Failed to create bitmap (memory allocation failure)");
+			throw glare::Exception("Failed to create bitmap (memory allocation failure)");
 		}
 	}
 }
@@ -83,7 +83,7 @@ void Bitmap::resizeNoCopy(size_t newwidth, size_t newheight, size_t new_bytes_pp
 		}
 		catch(std::bad_alloc&)
 		{
-			throw Indigo::Exception("Failed to create bitmap (memory allocation failure)");
+			throw glare::Exception("Failed to create bitmap (memory allocation failure)");
 		}
 	}
 }

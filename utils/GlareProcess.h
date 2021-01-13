@@ -35,7 +35,7 @@ public:
 	
 	Process p("D:\\indigo_installs\\Indigo x64 3.8.33\\indigo_console.exe", "\"D:\\indigo_installs\\Indigo x64 3.8.33\\indigo_console.exe\" -v");
 
-	Throws Indigo::Exception on failure.
+	Throws glare::Exception on failure.
 	*/
 	Process(const std::string& program_path, const std::vector<std::string>& command_line_args);
 

@@ -43,19 +43,19 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 
 	//------------- Parse HTTP version ---------------
 	if(!parser.parseString("HTTP/"))
-		throw Indigo::Exception("Failed to parse HTTP version");
+		throw glare::Exception("Failed to parse HTTP version");
 
 	uint32 major_version;
 	if(!parser.parseUnsignedInt(major_version))
-		throw Indigo::Exception("Failed to parse HTTP major version");
+		throw glare::Exception("Failed to parse HTTP major version");
 
 	// Parse '.'
 	if(!parser.parseChar('.'))
-		throw Indigo::Exception("Parser error");
+		throw glare::Exception("Parser error");
 
 	uint32 minor_version;
 	if(!parser.parseUnsignedInt(minor_version))
-		throw Indigo::Exception("Failed to parse HTTP minor version");
+		throw glare::Exception("Failed to parse HTTP minor version");
 
 	// Parse space(s)
 	while(parser.currentIsChar(' '))
@@ -64,16 +64,16 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 	//-------------- Parse reponse code --------------
 	int code;
 	if(!parser.parseInt(code))
-		throw Indigo::Exception("Failed to parse response code");
+		throw glare::Exception("Failed to parse response code");
 
 	//-------------- Parse response message --------------
 	string_view response_msg;
 	if(!parser.parseToChar('\r', response_msg))
-		throw Indigo::Exception("Failed to parse response message");
+		throw glare::Exception("Failed to parse response message");
 
 	parser.advance(); // Advance past \r
 	if(!parser.parseChar('\n')) // Advance past \n
-		throw Indigo::Exception("Parse error");
+		throw glare::Exception("Parse error");
 
 
 	// Print out response:
@@ -93,14 +93,14 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 	while(1)
 	{
 		if(parser.eof())
-			throw Indigo::Exception("Parser error while parsing header fields");
+			throw glare::Exception("Parser error while parsing header fields");
 		if(parser.current() == '\r')
 			break;
 
 		// Parse header field name
 		string_view field_name;
 		if(!parser.parseToChar(':', field_name))
-			throw Indigo::Exception("Parser error while parsing header fields");
+			throw glare::Exception("Parser error while parsing header fields");
 		parser.advance(); // Advance past ':'
 
 		// If there is a space, consume it
@@ -110,11 +110,11 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		// Parse the field value
 		string_view field_value;
 		if(!parser.parseToChar('\r', field_value))
-			throw Indigo::Exception("Parser error while parsing header fields");
+			throw glare::Exception("Parser error while parsing header fields");
 
 		parser.advance(); // Advance past \r
 		if(!parser.parseChar('\n')) // Advance past \n
-			throw Indigo::Exception("Parse error");
+			throw glare::Exception("Parse error");
 
 		// conPrint(field_name + ": " + field_value);
 
@@ -127,7 +127,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 			}
 			catch(StringUtilsExcep& e)
 			{
-				throw Indigo::Exception("Failed to parse content length: " + e.what());
+				throw glare::Exception("Failed to parse content length: " + e.what());
 			}
 		}
 		else if(field_name == "Content-Type")
@@ -147,12 +147,12 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 
 	parser.advance(); // Advance past \r
 	if(!parser.parseChar('\n')) // Advance past \n
-		throw Indigo::Exception("Parse error");
+		throw glare::Exception("Parse error");
 
 	if(code == 301 || code == 302)
 	{
 		if(location.empty())
-			throw Indigo::Exception("Redirect location was empty");
+			throw glare::Exception("Redirect location was empty");
 
 		// conPrint("Redirecting to '" + location + "'...");
 		return doDownloadFile(location.to_string(), num_redirects_done + 1, data_out);
@@ -201,7 +201,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				}
 				catch(StringUtilsExcep& e)
 				{
-					throw Indigo::Exception(e.what());
+					throw glare::Exception(e.what());
 				}
 
 				// Download chunk (and CRLF after it) and copy chunk to data_out
@@ -280,7 +280,7 @@ size_t HTTPClient::readUntilCRLF(size_t scan_start_index)
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
 		const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size); // Read up to 'read_chunk_size' bytes.
 		if(num_bytes_read == 0) // if connection was closed gracefully:
-			throw Indigo::Exception("Failed to find a CRLF before socket was closed."); // Connection was closed before we got to a CRLF.
+			throw glare::Exception("Failed to find a CRLF before socket was closed."); // Connection was closed before we got to a CRLF.
 		socket_buffer.resize(old_socket_buffer_size + num_bytes_read); // Trim the buffer down so it only extends to what we actually read.
 	}
 }
@@ -303,7 +303,7 @@ size_t HTTPClient::readUntilCRLFCRLF(size_t scan_start_index)
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
 		const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size); // Read up to 'read_chunk_size' bytes.
 		if(num_bytes_read == 0) // if connection was closed gracefully:
-			throw Indigo::Exception("Failed to find a CRLF before socket was closed."); // Connection was closed before we got to a CRLF.
+			throw glare::Exception("Failed to find a CRLF before socket was closed."); // Connection was closed before we got to a CRLF.
 		socket_buffer.resize(old_socket_buffer_size + num_bytes_read); // Trim the buffer down so it only extends to what we actually read.
 	}
 }
@@ -319,7 +319,7 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 {
 	socket_buffer.clear();
 	if(num_redirects_done >= 10)
-		throw Indigo::Exception("too many redirects.");
+		throw glare::Exception("too many redirects.");
 
 	try
 	{
@@ -358,7 +358,7 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 	}
 	catch(MySocketExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -397,7 +397,7 @@ public:
 				//conPrint(data);
 				conPrintStr(".");
 			}
-			catch(Indigo::Exception& e)
+			catch(glare::Exception& e)
 			{
 				failTest(e.what());
 			}
@@ -432,7 +432,7 @@ void HTTPClient::test()
 			conPrint(data);
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

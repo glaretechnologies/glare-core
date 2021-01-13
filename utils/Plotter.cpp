@@ -115,7 +115,7 @@ void Plotter::plot(
 			f << "\n";
 
 			if(f.bad())
-				throw Indigo::Exception("Write to '" + temp_path + "' failed.");
+				throw glare::Exception("Write to '" + temp_path + "' failed.");
 		}
 
 		// Execute Gnuplot
@@ -125,11 +125,11 @@ void Plotter::plot(
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -203,7 +203,7 @@ void Plotter::plot3D(
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -303,7 +303,7 @@ void Plotter::scatterPlot(
 			f << "\n";
 
 			if(f.bad())
-				throw Indigo::Exception("Write to '" + temp_path + "' failed.");
+				throw glare::Exception("Write to '" + temp_path + "' failed.");
 		}
 
 		// Execute Gnuplot
@@ -313,10 +313,10 @@ void Plotter::scatterPlot(
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }

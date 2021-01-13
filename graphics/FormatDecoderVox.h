@@ -88,9 +88,9 @@ TODO: do something with material.id.
 class FormatDecoderVox
 {
 public:
-	static void loadModel(const std::string& filename, VoxFileContents& contents_out); // Throws Indigo::Exception on failure.
+	static void loadModel(const std::string& filename, VoxFileContents& contents_out); // Throws glare::Exception on failure.
 
-	static void loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out); // Throws Indigo::Exception on failure.
+	static void loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out); // Throws glare::Exception on failure.
 
 	static bool isValidVoxFile(const std::string& filename);
 

@@ -196,9 +196,9 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 				const uint32 base_uv_i	= tri.uv_indices[i];
 				const uint32 uv_i = base_uv_i * num_uv_sets; // Index of UV for UV set 0.
 				if(pos_i >= vert_positions_size)
-					throw Indigo::Exception("vert index out of bounds");
+					throw glare::Exception("vert index out of bounds");
 				if(mesh_has_uvs && uv_i >= uvs_size)
-					throw Indigo::Exception("UV index out of bounds");
+					throw glare::Exception("UV index out of bounds");
 
 				// Look up merged vertex
 				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i    ] : Indigo::Vec2f(0.f);
@@ -304,9 +304,9 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 				const uint32 pos_i  = quad.vertex_indices[i];
 				const uint32 uv_i   = quad.uv_indices[i];
 				if(pos_i >= vert_positions_size)
-					throw Indigo::Exception("vert index out of bounds");
+					throw glare::Exception("vert index out of bounds");
 				if(mesh_has_uvs && uv_i >= uvs_size)
-					throw Indigo::Exception("UV index out of bounds");
+					throw glare::Exception("UV index out of bounds");
 
 				// Look up merged vertex
 				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i    ] : Indigo::Vec2f(0.f);
@@ -485,7 +485,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 
 	const VertAttribute* pos_attr = this->findAttribute(VertAttribute_Position);
 	if(!pos_attr)
-		throw Indigo::Exception("Pos attr missing");
+		throw glare::Exception("Pos attr missing");
 	const size_t pos_offset_B = pos_attr->offset_B;
 
 	const VertAttribute* normal_attr = this->findAttribute(VertAttribute_Normal);
@@ -497,7 +497,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 	// Copy vert positions
 	{
 		if(pos_attr->component_type != ComponentType_Float)
-			throw Indigo::Exception("Expected pos attr to have float component type.");
+			throw glare::Exception("Expected pos attr to have float component type.");
 		const float* const pos_vertex_data_float = (const float*)(vertex_data.data() + pos_offset_B);
 
 		for(size_t v=0; v<num_verts; ++v)
@@ -532,7 +532,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 			}
 		}
 		else
-			throw Indigo::Exception("Unhandled component type for normals: " + toString(normal_attr->component_type));
+			throw glare::Exception("Unhandled component type for normals: " + toString(normal_attr->component_type));
 	}
 
 	
@@ -571,7 +571,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 			}
 		}
 		else
-			throw Indigo::Exception("Unhandled component type for uv0: " + toString(uv0_attr->component_type));
+			throw glare::Exception("Unhandled component type for uv0: " + toString(uv0_attr->component_type));
 	}
 
 	// Copy UV 1
@@ -597,7 +597,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 			}
 		}
 		else
-			throw Indigo::Exception("Unhandled component type for uv1: " + toString(uv1_attr->component_type));
+			throw glare::Exception("Unhandled component type for uv1: " + toString(uv1_attr->component_type));
 	}
 
 	// Copy triangle data
@@ -657,7 +657,7 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 			}
 		}
 		else
-			throw Indigo::Exception("Unhandled index type: " + toString(index_type));
+			throw glare::Exception("Unhandled index type: " + toString(index_type));
 	}
 
 	mesh_out.endOfModel();
@@ -702,7 +702,7 @@ struct BatchedMeshHeader
 static_assert(sizeof(BatchedMeshHeader) == sizeof(uint32) * 15, "sizeof(BatchedMeshHeader) == sizeof(uint32) * 15");
 
 
-void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws Indigo::Exception on failure
+void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws glare::Exception on failure
 {
 	//Timer write_timer;
 
@@ -809,7 +809,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				write_options.compression_level // compression level
 			);
 			if(ZSTD_isError(compressed_size))
-				throw Indigo::Exception("Compression failed: " + toString(compressed_size));
+				throw glare::Exception("Compression failed: " + toString(compressed_size));
 			timer.pause();
 
 			// Write compressed size as uint64
@@ -865,7 +865,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				write_options.compression_level // compression level
 			);
 			if(ZSTD_isError(compressed_size))
-				throw Indigo::Exception("Compression failed: " + toString(compressed_size));
+				throw glare::Exception("Compression failed: " + toString(compressed_size));
 			timer.pause();
 
 			// Write compressed size as uint64
@@ -911,23 +911,23 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 		file.readData(&header, sizeof(header));
 
 		if(header.magic_number != MAGIC_NUMBER)
-			throw Indigo::Exception("Invalid magic number.");
+			throw glare::Exception("Invalid magic number.");
 
 		if(header.format_version < FORMAT_VERSION)
-			throw Indigo::Exception("Unsupported format version " + toString(header.format_version) + ".");
+			throw glare::Exception("Unsupported format version " + toString(header.format_version) + ".");
 
 		
 		// Skip past rest of header
 		if(header.header_size > 10000 || header.header_size > file.fileSize())
-			throw Indigo::Exception("Header size too large.");
+			throw glare::Exception("Header size too large.");
 		file.setReadIndex(header.header_size);
 
 
 		// Read vert attributes
 		if(header.num_vert_attributes == 0)
-			throw Indigo::Exception("Zero vert attributes.");
+			throw glare::Exception("Zero vert attributes.");
 		if(header.num_vert_attributes > MAX_NUM_VERT_ATTRIBUTES)
-			throw Indigo::Exception("Too many vert attributes.");
+			throw glare::Exception("Too many vert attributes.");
 		
 		mesh_out.vert_attributes.resize(header.num_vert_attributes);
 		size_t cur_offset = 0;
@@ -935,12 +935,12 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 		{
 			const uint32 type = file.readUInt32();
 			if(type > MAX_VERT_ATTRIBUTE_TYPE_VALUE)
-				throw Indigo::Exception("Invalid vert attribute type value.");
+				throw glare::Exception("Invalid vert attribute type value.");
 			mesh_out.vert_attributes[i].type = (VertAttributeType)type;
 
 			const uint32 component_type = file.readUInt32();
 			if(type > MAX_COMPONENT_TYPE_VALUE)
-				throw Indigo::Exception("Invalid vert attribute component type value.");
+				throw glare::Exception("Invalid vert attribute component type value.");
 			mesh_out.vert_attributes[i].component_type = (ComponentType)component_type;
 
 			mesh_out.vert_attributes[i].offset_B = cur_offset;
@@ -949,7 +949,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 
 		// Read batches
 		if(header.num_batches > MAX_NUM_BATCHES)
-			throw Indigo::Exception("Too many batches.");
+			throw glare::Exception("Too many batches.");
 
 		mesh_out.batches.resize(header.num_batches);
 		file.readData(mesh_out.batches.data(), mesh_out.batches.size() * sizeof(IndicesBatch));
@@ -957,19 +957,19 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 
 		// Check header index type
 		if(header.index_type > MAX_COMPONENT_TYPE_VALUE)
-			throw Indigo::Exception("Invalid index type value.");
+			throw glare::Exception("Invalid index type value.");
 
 		mesh_out.index_type = (ComponentType)header.index_type;
 
 		// Check total index data size is a multiple of each index size.
 		if(header.index_data_size_B % componentTypeSize(mesh_out.index_type) != 0)
-			throw Indigo::Exception("Invalid index_data_size_B.");
+			throw glare::Exception("Invalid index_data_size_B.");
 
 		mesh_out.index_data.resize(header.index_data_size_B); // TODO: size check? 32-bit limit of index_data_size_B may be enough.
 
 		// Check total vert data size is a multiple of each vertex size.  Note that vertexSize() should be > 0 since we have set mesh_out.vert_attributes and checked there is at least one attribute.
 		if(header.vertex_data_size_B % mesh_out.vertexSize() != 0)
-			throw Indigo::Exception("Invalid vertex_data_size_B.");
+			throw glare::Exception("Invalid vertex_data_size_B.");
 
 		mesh_out.vertex_data.resize(header.vertex_data_size_B); // TODO: size check? 32-bit limit of vertex_data_size_B may be enough.
 
@@ -987,15 +987,15 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			{
 				const uint64 index_data_compressed_size = file.readUInt64();
 				if((index_data_compressed_size >= file.fileSize()) || (file.getReadIndex() + index_data_compressed_size > file.fileSize())) // Check index_data_compressed_size is valid, while taking care with wraparound
-					throw Indigo::Exception("index_data_compressed_size was invalid.");
+					throw glare::Exception("index_data_compressed_size was invalid.");
 
 				// Decompress index data into plaintext buffer.
 				timer.unpause();
 				const size_t res = ZSTD_decompress(plaintext.begin(), header.index_data_size_B, file.currentReadPtr(), index_data_compressed_size);
 				if(ZSTD_isError(res))
-					throw Indigo::Exception("Decompression of index buffer failed: " + toString(res));
+					throw glare::Exception("Decompression of index buffer failed: " + toString(res));
 				if(res < (size_t)header.index_data_size_B)
-					throw Indigo::Exception("Decompression of index buffer failed: not enough bytes in result");
+					throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
 				timer.pause();
 
 				// Unfilter indices, place in mesh_out.index_data.
@@ -1037,7 +1037,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 					}
 				}
 				else
-					throw Indigo::Exception("Invalid index component type " + toString((int)header.index_type));
+					throw glare::Exception("Invalid index component type " + toString((int)header.index_type));
 
 				file.setReadIndex(file.getReadIndex() + index_data_compressed_size);
 			}
@@ -1047,15 +1047,15 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			{
 				const uint64 vertex_data_compressed_size = file.readUInt64();
 				if((vertex_data_compressed_size >= file.fileSize()) || (file.getReadIndex() + vertex_data_compressed_size > file.fileSize())) // Check vertex_data_compressed_size is valid, while taking care with wraparound
-					throw Indigo::Exception("vertex_data_compressed_size was invalid.");
+					throw glare::Exception("vertex_data_compressed_size was invalid.");
 
 				// Decompress data into plaintext buffer.
 				timer.unpause();
 				const size_t res = ZSTD_decompress(plaintext.begin(), header.vertex_data_size_B, file.currentReadPtr(), vertex_data_compressed_size);
 				if(ZSTD_isError(res))
-					throw Indigo::Exception("Decompression of index buffer failed: " + toString(res));
+					throw glare::Exception("Decompression of index buffer failed: " + toString(res));
 				if(res < (size_t)header.vertex_data_size_B)
-					throw Indigo::Exception("Decompression of index buffer failed: not enough bytes in result");
+					throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
 				timer.pause();
 				// const double elapsed = timer.elapsed();
 				// conPrint("Decompression took   " + doubleToStringNSigFigs(elapsed, 4) + " (" + doubleToStringNSigFigs(((double)((size_t)header.index_data_size_B + header.vertex_data_size_B) / (1024ull*1024ull)) / elapsed, 4) + "MB/s)");
@@ -1107,7 +1107,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 	}
 	catch(std::bad_alloc&)
 	{
-		throw Indigo::Exception("Bad allocation while reading from file.");
+		throw glare::Exception("Bad allocation while reading from file.");
 	}
 }
 

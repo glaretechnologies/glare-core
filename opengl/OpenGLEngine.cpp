@@ -1023,14 +1023,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				face_maps[i] = ImFormatDecoder::decodeImage(".", processed_envmap_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
 
 				if(!face_maps[i].isType<ImageMapFloat>())
-					throw Indigo::Exception("cosine env map Must be ImageMapFloat");
+					throw glare::Exception("cosine env map Must be ImageMapFloat");
 			}
 
 			this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
 		}
 		catch(ImFormatExcep& e)
 		{
-			throw Indigo::Exception(e.what());
+			throw glare::Exception(e.what());
 		}
 
 		// Load specular-reflection env tex
@@ -1040,20 +1040,20 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", path);
 
 			if(!specular_env.isType<ImageMapFloat>())
-				throw Indigo::Exception("specular env map Must be ImageMapFloat");
+				throw glare::Exception("specular env map Must be ImageMapFloat");
 
 			//BuildUInt8MapTextureDataScratchState state;
 			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
 		}
 		catch(ImFormatExcep& e)
 		{
-			throw Indigo::Exception(e.what());
+			throw glare::Exception(e.what());
 		}
 
 
 		init_succeeded = true;
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 		this->initialisation_error_msg = e.what();
@@ -1062,7 +1062,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 }
 
 
-OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws Indigo::Exception on shader compilation failure.
+OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(phong_progs[key] == NULL)
 	{
@@ -1102,7 +1102,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgramWithFallbackOnError(const PhongKey
 	{
 		return getPhongProgram(key);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint("ERROR: " + e.what());
 		return this->fallback_phong_prog;
@@ -1407,7 +1407,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 
 
 // Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
-// Throws Indigo::Exception
+// Throws glare::Exception
 Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 {
 	try
@@ -1428,13 +1428,13 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 	}
 	catch(TextureServerExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
 
 // Return an OpenGL texture based on tex_path.
-// Throws Indigo::Exception
+// Throws glare::Exception
 Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key)
 {
 	// conPrint("getTextureIfLoaded(), tex_path: " + tex_path);
@@ -1479,7 +1479,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey
 	}
 	catch(TextureServerExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -2605,7 +2605,7 @@ inline static uint32 packNormal(const Indigo::Vec3f& normal)
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
 {
 	if(mesh_->triangles.empty() && mesh_->quads.empty())
-		throw Indigo::Exception("Mesh empty.");
+		throw glare::Exception("Mesh empty.");
 	//-------------------------------------------------------------------------------------------------------
 #if USE_INDIGO_MESH_INDICES
 	if(!mesh_->indices.empty()) // If this mesh uses batches of primitives already that already share materials:
@@ -3039,9 +3039,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 					const uint32 base_uv_i	= tri.uv_indices[i];
 					const uint32 uv_i = base_uv_i * num_uv_sets; // Index of UV for UV set 0.
 					if(pos_i >= vert_positions_size)
-						throw Indigo::Exception("vert index out of bounds");
+						throw glare::Exception("vert index out of bounds");
 					if(mesh_has_uvs && uv_i >= uvs_size)
-						throw Indigo::Exception("UV index out of bounds");
+						throw glare::Exception("UV index out of bounds");
 
 					// Look up merged vertex
 					const Vec2f uv = mesh_has_uvs ? Vec2f(uv_pairs[uv_i].x, uv_pairs[uv_i].y) : Vec2f(0.f);
@@ -3135,9 +3135,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 					const uint32 pos_i  = quad.vertex_indices[i];
 					const uint32 uv_i   = quad.uv_indices[i];
 					if(pos_i >= vert_positions_size)
-						throw Indigo::Exception("vert index out of bounds");
+						throw glare::Exception("vert index out of bounds");
 					if(mesh_has_uvs && uv_i >= uvs_size)
-						throw Indigo::Exception("UV index out of bounds");
+						throw glare::Exception("UV index out of bounds");
 
 					// Look up merged vertex
 					const Vec2f uv = mesh_has_uvs ? Vec2f(uv_pairs[uv_i].x, uv_pairs[uv_i].y) : Vec2f(0.f);
@@ -3390,7 +3390,7 @@ inline static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls)
 {
 	if(mesh_->index_data.empty())
-		throw Indigo::Exception("Mesh empty.");
+		throw glare::Exception("Mesh empty.");
 
 	Timer timer;
 
@@ -3405,7 +3405,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 		opengl_render_data->index_type = componentTypeGLEnum(mesh->index_type);
 	}
 	else
-		throw Indigo::Exception("OpenGLEngine::buildBatchedMesh(): Invalid index type.");
+		throw glare::Exception("OpenGLEngine::buildBatchedMesh(): Invalid index type.");
 
 
 	// Make OpenGL batches
@@ -3429,7 +3429,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	const BatchedMesh::VertAttribute* uv1_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_1);
 	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour);
 	if(!pos_attr)
-		throw Indigo::Exception("Pos attribute not present.");
+		throw glare::Exception("Pos attribute not present.");
 
 	VertexAttrib pos_attrib;
 	pos_attrib.enabled = true;
@@ -4553,7 +4553,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 			const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(face_maps[i].getPointer());
 
 			if(imagemap->getN() != 3)
-				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
 			tex_data[i] = imagemap->getData();
 		}
@@ -4592,7 +4592,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 				return opengl_tex;
 			}
 			else
-				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
@@ -4602,7 +4602,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 	}*/
 	else
 	{
-		throw Indigo::Exception("Unhandled texture type.");
+		throw glare::Exception("Unhandled texture type.");
 	}
 }
 
@@ -4681,7 +4681,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				return opengl_tex;
 			}
 			else
-				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
@@ -4708,7 +4708,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				return opengl_tex;
 			}
 			else
-				throw Indigo::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
@@ -4728,7 +4728,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			//printVar(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT);
 
 			if(compressed_image->gl_internal_format != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
-				throw Indigo::Exception("Unhandled internal format for compressed image.");
+				throw glare::Exception("Unhandled internal format for compressed image.");
 
 			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
 			opengl_tex->makeGLTexture(OpenGLTexture::Format_Compressed_BC6);
@@ -4744,7 +4744,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				const size_t num_yblocks = Maths::roundedUpDivide(level_h, (size_t)4);
 				const size_t expected_size_B = num_xblocks * num_yblocks * 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
 				if(expected_size_B != compressed_image->mipmap_level_data[i].size())
-					throw Indigo::Exception("Compressed image data was wrong size.");
+					throw glare::Exception("Compressed image data was wrong size.");
 
 				opengl_tex->setMipMapLevelData((int)i, level_w, level_h, ArrayRef<uint8>(compressed_image->mipmap_level_data[i].data(), compressed_image->mipmap_level_data[i].size()));
 			}
@@ -4759,7 +4759,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 	}
 	else
 	{
-		throw Indigo::Exception("Unhandled texture type.");
+		throw glare::Exception("Unhandled texture type.");
 	}
 }
 

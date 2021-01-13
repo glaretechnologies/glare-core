@@ -25,7 +25,7 @@ static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
 static void embreeErrorCallback(void* userPtr, enum RTCError code, const char* str)
 {
 	conPrint("EMBREE ERROR: " + std::string(str));
-	throw Indigo::Exception("EMBREE ERROR: " + std::string(str));
+	throw glare::Exception("EMBREE ERROR: " + std::string(str));
 }
 
 

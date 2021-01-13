@@ -19,5 +19,5 @@ FormatDecoderPLY
 class FormatDecoderPLY
 {
 public:
-	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // Throws Indigo::Exception on failure.
+	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // Throws glare::Exception on failure.
 };

@@ -24,14 +24,14 @@ class Image4f
 {
 public:
 	Image4f();
-	Image4f(size_t width, size_t height); // throws Indigo::Exception
+	Image4f(size_t width, size_t height); // throws glare::Exception
 	~Image4f();
 
 	Image4f& operator = (const Image4f& other);
 
 	typedef Colour4f ColourType;
 
-	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw Indigo::Exception if bytespp != 1, 3 or 4
+	void setFromBitmap(const Bitmap& bmp, float image_gamma); // will throw glare::Exception if bytespp != 1, 3 or 4
 
 	void copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const; // will throw ImageExcep if bytespp != 3 && bytespp != 4
 
@@ -56,7 +56,7 @@ public:
 	void zero();
 	void set(float s);
 
-	void resize(size_t newwidth, size_t newheight); // throws Indigo::Exception
+	void resize(size_t newwidth, size_t newheight); // throws glare::Exception
 	void resizeNoCopy(size_t newwidth, size_t newheight); // Resize without copying existing data.
 
 	void blitToImage(Image4f& dest, int destx, int desty) const;

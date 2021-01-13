@@ -401,7 +401,7 @@ std::string readEntireFile(const std::string& pathname) // Returns file contents
 			std::memcpy(&filecontents[0], file.fileData(), file.fileSize());
 		return filecontents;
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
 	}
@@ -418,7 +418,7 @@ void readEntireFile(const std::string& pathname,
 		if(file.fileSize() > 0)
 			std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
 	}
@@ -435,7 +435,7 @@ void readEntireFile(const std::string& pathname,
 		if(file.fileSize() > 0)
 			std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
 	}
@@ -460,7 +460,7 @@ void readEntireFileWithRetries(const std::string& pathname,
 				std::memcpy(&filecontents_out[0], file.fileData(), file.fileSize());
 			return;
 		}
-		catch(Indigo::Exception& e)
+		catch(glare::Exception& e)
 		{
 			last_excep_msg = e.what();
 			PlatformUtils::Sleep(50); // Sleep briefly then try again.
@@ -711,7 +711,7 @@ std::string readEntireFileTextMode(const std::string& pathname) // throws FileUt
 		return data;
 #endif*/
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw FileUtilsExcep("Could not open '" + pathname + "' for reading: " + e.what());
 	}
@@ -1212,7 +1212,7 @@ public:
 			}
 			catch(FileUtils::FileUtilsExcep&)
 			{}
-			catch(Indigo::Exception&)
+			catch(glare::Exception&)
 			{}
 		}
 		conPrint("FileUtilsTestThread done.");
@@ -1238,7 +1238,7 @@ public:
 				for(size_t i=1; i<file.fileSize(); ++i)
 					testAssert(((const char*)file.fileData())[i] == ((const char*)file.fileData())[0]);
 			}
-			catch(Indigo::Exception&)
+			catch(glare::Exception&)
 			{}
 		}
 		conPrint("FileUtilsReadTestThread done.");

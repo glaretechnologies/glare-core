@@ -84,12 +84,12 @@ bool OpenCLProgramCache::isProgramInCache(
 			// try and load it
 			MemMappedFile file(cachefile_path);
 			if(file.fileSize() == 0)
-				throw Indigo::Exception("cached binary had size 0.");
+				throw glare::Exception("cached binary had size 0.");
 		}
 
 		return true;
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 		return false;
 	}
@@ -183,7 +183,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 				// try and load it
 				MemMappedFile file(cachefile_path);
 				if(file.fileSize() == 0)
-					throw Indigo::Exception("cached binary had size 0.");
+					throw glare::Exception("cached binary had size 0.");
 
 				if(VERBOSE) conPrint("Cache hit for device: " + cachefile_path + " was in disk cache.");
 
@@ -214,7 +214,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 				opencl_context
 			);
 			if(result != CL_SUCCESS)
-				throw Indigo::Exception("clCreateProgramWithSource failed: " + OpenCL::errorString(result));
+				throw glare::Exception("clCreateProgramWithSource failed: " + OpenCL::errorString(result));
 
 			Timer timer;
 			result = open_cl->clBuildProgram(
@@ -228,7 +228,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 			if(VERBOSE) conPrint("clBuildProgram took " + timer.elapsedStringNSigFigs(4));
 
 			if(result != CL_SUCCESS)
-				throw Indigo::Exception("clBuildProgram failed: " + OpenCL::errorString(result));
+				throw glare::Exception("clBuildProgram failed: " + OpenCL::errorString(result));
 
 			// Add to mem-cache
 			Lock lock(mem_cache_mutex);
@@ -237,7 +237,7 @@ OpenCLProgramCache::Results OpenCLProgramCache::getOrBuildProgram(
 			// Program was successfully loaded and built from cache, so return it
 			return OpenCLProgramCache::Results(program, /*cache_hit=*/true);
 		}
-		catch(Indigo::Exception& e)
+		catch(glare::Exception& e)
 		{
 			// Cache failed.
 			conPrint("Warning: failed building OpenCL program from cache: " + e.what());
@@ -276,7 +276,7 @@ build_program:
 							device_index = z;
 
 					if(device_index == std::numeric_limits<size_t>::max())
-						throw Indigo::Exception("Failed to find device.");
+						throw glare::Exception("Failed to find device.");
 
 					const OpenCLDevice& device = *devices[device_index];
 					const std::string device_string_id = device.vendor_name + "_" + device.device_name;
@@ -295,7 +295,7 @@ build_program:
 		{
 			conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
 		}
-		catch(Indigo::Exception& e)
+		catch(glare::Exception& e)
 		{
 			conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
 		}

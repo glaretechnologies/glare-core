@@ -172,7 +172,7 @@ public:
 	// All quads will be converted to triangles.
 	// Sets verts_in_out.pos, .normal and .H.
 	// Returns true if subdivision could be done, returns false if the mesh was invalid and subdivision could not be done.
-	// Throws Indigo::CancelledException if cancelled.
+	// Throws glare::CancelledException if cancelled.
 	static bool subdivideAndDisplace(
 		const std::string& mesh_name,
 		glare::TaskManager& task_manager,

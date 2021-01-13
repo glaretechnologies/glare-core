@@ -871,7 +871,7 @@ static void testUnwrappingWithMesh(Indigo::MeshRef mesh)
 			PNGDecoder::write(bitmap, "uvmapping.png");
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -890,7 +890,7 @@ static void testUnwrappingWithMesh(const std::string& path)
 	}
 	catch(Indigo::IndigoException& e)
 	{
-		throw Indigo::Exception("Error while reading mesh '" + path + ": " + toStdString(e.what()));
+		throw glare::Exception("Error while reading mesh '" + path + ": " + toStdString(e.what()));
 	}
 
 	testUnwrappingWithMesh(mesh);

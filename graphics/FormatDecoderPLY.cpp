@@ -109,10 +109,10 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& ha
 	p_ply ply = ply_open(pathname.c_str(), NULL, 0, NULL);
 
     if(!ply) 
-		throw Indigo::Exception("could not open file '" + pathname + "' for reading.");
+		throw glare::Exception("could not open file '" + pathname + "' for reading.");
     
 	if(!ply_read_header(ply))
-		throw Indigo::Exception("could not read header.");
+		throw glare::Exception("could not read header.");
 		
     //const long nvertices =
 	ply_set_read_cb(ply, "vertex", "x", vertex_callback, &handler, 0);
@@ -128,7 +128,7 @@ void FormatDecoderPLY::streamModel(const std::string& pathname, Indigo::Mesh& ha
 	//mesh_out.tris.resize(ntriangles);
 	
     if(!ply_read(ply)) 
-		throw Indigo::Exception("read of body failed.");
+		throw glare::Exception("read of body failed.");
 
     ply_close(ply);
 

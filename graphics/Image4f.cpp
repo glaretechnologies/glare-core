@@ -36,7 +36,7 @@ Image4f::Image4f(size_t width, size_t height)
 	catch(std::bad_alloc& )
 	{
 		const size_t alloc_size = width * height * sizeof(ColourType);
-		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+		throw glare::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
 	}
 }
 
@@ -59,7 +59,7 @@ Image4f& Image4f::operator = (const Image4f& other)
 void Image4f::setFromBitmap(const Bitmap& bmp, float image_gamma)
 {
 	if(bmp.getBytesPP() != 1 && bmp.getBytesPP() != 3 && bmp.getBytesPP() != 4)
-		throw Indigo::Exception("Image bytes per pixel must be 1, 3, or 4.");
+		throw glare::Exception("Image bytes per pixel must be 1, 3, or 4.");
 
 
 	resize(bmp.getWidth(), bmp.getHeight());
@@ -130,10 +130,10 @@ static GLARE_STRONG_INLINE uint8_t floatToUInt8(float x)
 void Image4f::copyRegionToBitmap(Bitmap& bmp_out, int x1, int y1, int x2, int y2) const
 {
 	if(bmp_out.getBytesPP() != 3 && bmp_out.getBytesPP() != 4)
-		throw Indigo::Exception("BytesPP != 3 or 4");
+		throw glare::Exception("BytesPP != 3 or 4");
 
 	if(x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > (int)getWidth() || y2 > (int)getHeight())
-		throw Indigo::Exception("Region coordinates are invalid");
+		throw glare::Exception("Region coordinates are invalid");
 
 	const int out_width = x2 - x1;
 	const int out_height = y2 - y1;
@@ -236,7 +236,7 @@ void Image4f::resize(size_t newwidth, size_t newheight)
 	catch(std::bad_alloc& )
 	{
 		const size_t alloc_size = newwidth * newheight * sizeof(ColourType);
-		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+		throw glare::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
 	}
 }
 
@@ -253,7 +253,7 @@ void Image4f::resizeNoCopy(size_t newwidth, size_t newheight) // Resize without 
 	catch(std::bad_alloc&)
 	{
 		const size_t alloc_size = newwidth * newheight * sizeof(ColourType);
-		throw Indigo::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
+		throw glare::Exception("Failed to create image (memory allocation failure of " + ::getNiceByteSize(alloc_size) + ")");
 	}
 }
 

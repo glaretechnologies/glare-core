@@ -23,14 +23,14 @@ int32 XMLParseUtils::parseIntDirectly(pugi::xml_node elem)
 	// Parse the number
 	int32 value = 0;
 	if(!parser.parseInt(value))
-		throw Indigo::Exception("Failed to parse integer from '" + std::string(child_text) + "'." + elemContext(elem));
+		throw glare::Exception("Failed to parse integer from '" + std::string(child_text) + "'." + elemContext(elem));
 
 	// Parse any trailing whitespace
 	parser.parseWhiteSpace();
 
 	// We should be at the end of the string now
 	if(parser.notEOF())
-		throw Indigo::Exception("Parse error while parsing integer from '" + std::string(child_text) + "'." + elemContext(elem));
+		throw glare::Exception("Parse error while parsing integer from '" + std::string(child_text) + "'." + elemContext(elem));
 
 	return value;
 }
@@ -40,7 +40,7 @@ int32 XMLParseUtils::parseInt(pugi::xml_node elem, const char* elemname)
 {
 	pugi::xml_node childnode = elem.child(elemname);
 	if(!childnode)
-		throw Indigo::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
+		throw glare::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
 
 	return parseIntDirectly(childnode);
 }
@@ -60,7 +60,7 @@ uint32 XMLParseUtils::parseUInt(pugi::xml_node elem, const char* elemname)
 {
 	pugi::xml_node childnode = elem.child(elemname);
 	if(!childnode)
-		throw Indigo::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
+		throw glare::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
 
 	const char* const child_text = childnode.child_value();
 
@@ -72,14 +72,14 @@ uint32 XMLParseUtils::parseUInt(pugi::xml_node elem, const char* elemname)
 	// Parse the number
 	uint32 value = 0;
 	if(!parser.parseUnsignedInt(value))
-		throw Indigo::Exception("Failed to parse unsigned integer from '" + std::string(child_text) + "'." + elemContext(childnode));
+		throw glare::Exception("Failed to parse unsigned integer from '" + std::string(child_text) + "'." + elemContext(childnode));
 
 	// Parse any trailing whitespace
 	parser.parseWhiteSpace();
 
 	// We should be at the end of the string now
 	if(parser.notEOF())
-		throw Indigo::Exception("Parse error while parsing unsigned integer from '" + std::string(child_text) + "'." + elemContext(childnode));
+		throw glare::Exception("Parse error while parsing unsigned integer from '" + std::string(child_text) + "'." + elemContext(childnode));
 
 	return value;
 }
@@ -95,14 +95,14 @@ uint32 XMLParseUtils::parseUInt(const char* text)
 	// Parse the number
 	unsigned int value = 0;
 	if(!parser.parseUnsignedInt(value))
-		throw Indigo::Exception("Failed to parse unsigned integer from '" + std::string(text) + "'.");
+		throw glare::Exception("Failed to parse unsigned integer from '" + std::string(text) + "'.");
 
 	// Parse any trailing whitespace
 	parser.parseWhiteSpace();
 
 	// We should be at the end of the string now
 	if(parser.notEOF())
-		throw Indigo::Exception("Parse error while parsing unsigned integer from '" + std::string(text) + "'.");
+		throw glare::Exception("Parse error while parsing unsigned integer from '" + std::string(text) + "'.");
 
 	return value;
 }
@@ -113,7 +113,7 @@ const std::string XMLParseUtils::parseString(pugi::xml_node parent_elem, const c
 	pugi::xml_node childnode = parent_elem.child(child_elem_name);
 
 	if(!childnode)
-		throw Indigo::Exception(std::string("could not find element '") + child_elem_name + "'." + elemContext(parent_elem));
+		throw glare::Exception(std::string("could not find element '") + child_elem_name + "'." + elemContext(parent_elem));
 
 	return childnode.child_value();
 }
@@ -141,14 +141,14 @@ double XMLParseUtils::parseDoubleDirectly(pugi::xml_node elem)
 	// Parse the number
 	double value = 0.0;
 	if(!parser.parseDouble(value))
-		throw Indigo::Exception("Failed to parse double from '" + std::string(child_text) + "'." + elemContext(elem));
+		throw glare::Exception("Failed to parse double from '" + std::string(child_text) + "'." + elemContext(elem));
 
 	// Parse any trailing whitespace
 	parser.parseWhiteSpace();
 
 	// We should be at the end of the string now
 	if(parser.notEOF())
-		throw Indigo::Exception("Parse error while parsing double from '" + std::string(child_text) + "'." + elemContext(elem));
+		throw glare::Exception("Parse error while parsing double from '" + std::string(child_text) + "'." + elemContext(elem));
 
 	return value;
 }
@@ -158,7 +158,7 @@ double XMLParseUtils::parseDouble(pugi::xml_node elem, const char* elemname)
 {
 	pugi::xml_node childnode = elem.child(elemname);
 	if(!childnode)
-		throw Indigo::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
+		throw glare::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
 
 	return parseDoubleDirectly(childnode);
 }
@@ -186,14 +186,14 @@ bool XMLParseUtils::parseBoolDirectly(pugi::xml_node elem)
 	else if(parser.parseCString("false"))
 		res = false;
 	else
-		throw Indigo::Exception("Invalid boolean value (Should be 'true' or 'false')." + elemContext(elem));
+		throw glare::Exception("Invalid boolean value (Should be 'true' or 'false')." + elemContext(elem));
 
 	// Parse any trailing whitespace
 	parser.parseWhiteSpace();
 
 	// We should be at the end of the string now
 	if(parser.notEOF())
-		throw Indigo::Exception("Parse error while parsing boolean value from '" + std::string(child_text) + "'." + elemContext(elem));
+		throw glare::Exception("Parse error while parsing boolean value from '" + std::string(child_text) + "'." + elemContext(elem));
 
 	return res;
 }
@@ -203,7 +203,7 @@ bool XMLParseUtils::parseBool(pugi::xml_node elem, const char* elemname)
 {
 	pugi::xml_node childnode = elem.child(elemname);
 	if(!childnode)
-		throw Indigo::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
+		throw glare::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
 
 	return parseBoolDirectly(childnode);
 }
@@ -223,7 +223,7 @@ pugi::xml_node XMLParseUtils::getChildElement(pugi::xml_node elem, const char* n
 {
 	pugi::xml_node e = elem.child(name);
 	if(!e)
-		throw Indigo::Exception(std::string("Failed to find expected element '") + name + "'." + elemContext(elem));
+		throw glare::Exception(std::string("Failed to find expected element '") + name + "'." + elemContext(elem));
 	return e;
 }
 
@@ -297,7 +297,7 @@ void XMLParseUtils::test()
 
 		failTest("");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}
@@ -327,7 +327,7 @@ void XMLParseUtils::test()
 	{
 		failTest(e.what());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -362,7 +362,7 @@ void XMLParseUtils::test()
 	{
 		failTest(e.what());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -378,7 +378,7 @@ void XMLParseUtils::test()
 
 		failTest("Exception expected");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}
@@ -402,7 +402,7 @@ void XMLParseUtils::test()
 	{
 		failTest(e.what());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -423,7 +423,7 @@ void XMLParseUtils::test()
 	{
 		failTest(e.what());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -438,7 +438,7 @@ void XMLParseUtils::test()
 
 		failTest("Exception expected");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}
@@ -467,7 +467,7 @@ void XMLParseUtils::test()
 	{
 		failTest(e.what());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -482,7 +482,7 @@ void XMLParseUtils::test()
 
 		failTest("Exception expected");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}
@@ -513,7 +513,7 @@ void XMLParseUtils::test()
 	{
 		failTest(e.what());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -528,7 +528,7 @@ void XMLParseUtils::test()
 
 		failTest("Exception expected");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}
@@ -560,7 +560,7 @@ void XMLParseUtils::test()
 	{
 		failTest(e.what());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -573,7 +573,7 @@ void XMLParseUtils::test()
 		parseBool(doc.getRootElement(), "a");
 		failTest("Exception expected");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		conPrint(e.what());
 	}

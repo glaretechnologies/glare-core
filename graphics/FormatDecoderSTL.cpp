@@ -21,7 +21,7 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 
 	// Try and determine if this is a ASCII or binary STL file.  If it starts with the string 'solid', treat as ASCII.
 	if(file.fileSize() < 5)
-		throw Indigo::Exception("Invalid file.  (file size too small)");
+		throw glare::Exception("Invalid file.  (file size too small)");
 	if(data[0] == 's' && data[1] == 'o' && data[2] == 'l' && data[3] == 'i' && data[4] == 'd')
 	{
 		// Treat as an ASCII file.
@@ -29,19 +29,19 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 		Parser parser((const char*)data, (uint32)file.fileSize());
 
 		if(!parser.parseCString("solid"))
-			throw Indigo::Exception("Invalid file, expected 'solid'");
+			throw glare::Exception("Invalid file, expected 'solid'");
 		parser.advancePastLine();
 		parser.parseSpacesAndTabs();
 
 		string_view token;
 		if(!parser.parseAlphaToken(token))
-			throw Indigo::Exception("Invalid file, expected 'facet' or 'endsolid'");
+			throw glare::Exception("Invalid file, expected 'facet' or 'endsolid'");
 
 		while(token == "facet")
 		{
 			parser.parseSpacesAndTabs();
 			if(!parser.parseCString("normal"))
-				throw Indigo::Exception("Invalid file, expected 'normal'");
+				throw glare::Exception("Invalid file, expected 'normal'");
 			parser.parseSpacesAndTabs();
 
 			// Parse normal
@@ -55,10 +55,10 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 			parser.parseWhiteSpace();
 			
 			if(!parser.parseCString("outer"))
-				throw Indigo::Exception("Invalid file, expected 'outer'");
+				throw glare::Exception("Invalid file, expected 'outer'");
 			parser.parseSpacesAndTabs();
 			if(!parser.parseCString("loop"))
-				throw Indigo::Exception("Invalid file, expected 'loop'");
+				throw glare::Exception("Invalid file, expected 'loop'");
 			parser.parseWhiteSpace();
 			
 			// Add triangle
@@ -74,7 +74,7 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 			for(int v=0; v<3; ++v)
 			{
 				if(!parser.parseCString("vertex"))
-					throw Indigo::Exception("Invalid file, expected 'vertex'");
+					throw glare::Exception("Invalid file, expected 'vertex'");
 
 				parser.parseSpacesAndTabs();
 
@@ -93,17 +93,17 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 			}
 
 			if(!parser.parseCString("endloop"))
-				throw Indigo::Exception("Invalid file, expected 'endloop'");
+				throw glare::Exception("Invalid file, expected 'endloop'");
 			parser.parseWhiteSpace();
 			if(!parser.parseCString("endfacet"))
-				throw Indigo::Exception("Invalid file, expected 'endfacet'");
+				throw glare::Exception("Invalid file, expected 'endfacet'");
 			parser.parseWhiteSpace();
 
 			parser.parseAlphaToken(token); // Parse next token, should be either 'facet' or 'endsolid'.
 		}
 
 		if(token != "endsolid")
-			throw Indigo::Exception("Invalid file, expected 'endsolid'");
+			throw glare::Exception("Invalid file, expected 'endsolid'");
 	}
 	else
 	{
@@ -112,14 +112,14 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 		const size_t HEADER_SIZE = 80;
 
 		if(file.fileSize() < HEADER_SIZE + sizeof(uint32))
-			throw Indigo::Exception("Invalid file.  (file size too small)");
+			throw glare::Exception("Invalid file.  (file size too small)");
 
 		uint32 num_faces;
 		std::memcpy(&num_faces, data + HEADER_SIZE, sizeof(uint32));
 
 		const size_t expected_min_file_size = HEADER_SIZE + sizeof(uint32) + num_faces * (sizeof(float)*12 + 2);
 		if(file.fileSize() < expected_min_file_size)
-			throw Indigo::Exception("Invalid file.  (file size too small)");
+			throw glare::Exception("Invalid file.  (file size too small)");
 
 		//mesh.vert_normals.resize(num_faces * 3);
 		mesh.vert_positions.resize(num_faces * 3);
@@ -182,7 +182,7 @@ void FormatDecoderSTL::test()
 		testAssert(mesh.triangles.size() == 12);
 		testAssert(mesh.quads.size() == 0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -200,7 +200,7 @@ void FormatDecoderSTL::test()
 		testAssert(mesh.triangles.size() == 12);
 		testAssert(mesh.quads.size() == 0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -218,7 +218,7 @@ void FormatDecoderSTL::test()
 		testAssert(mesh.triangles.size() == 12);
 		testAssert(mesh.quads.size() == 0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -236,7 +236,7 @@ void FormatDecoderSTL::test()
 		testAssert(mesh.triangles.size() == 192);
 		testAssert(mesh.quads.size() == 0);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -249,7 +249,7 @@ void FormatDecoderSTL::test()
 		streamModel(path, mesh, 1.0);
 		failTest("Should have failed to read file.");
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{}
 
 	try
@@ -259,7 +259,7 @@ void FormatDecoderSTL::test()
 		streamModel(path, mesh, 1.0);
 		failTest("Should have failed to read file.");
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{}
 }
 

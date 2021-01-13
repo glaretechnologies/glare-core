@@ -34,7 +34,7 @@ struct JSONNode
 	};
 	Type type;
 
-	// Returns ref to string_v if this node has type Type_String, throws Indigo::Exception otherwise.
+	// Returns ref to string_v if this node has type Type_String, throws glare::Exception otherwise.
 	const std::string& getStringValue() const;
 	
 	size_t getUIntValue() const;

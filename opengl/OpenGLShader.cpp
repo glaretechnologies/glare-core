@@ -33,7 +33,7 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& preproces
 {
 	shader = glCreateShader(shader_type);
 	if(shader == 0)
-		throw Indigo::Exception("Failed to create OpenGL shader.");
+		throw glare::Exception("Failed to create OpenGL shader.");
 
 	try
 	{
@@ -43,7 +43,7 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& preproces
 
 		const size_t first_newline_index = shader_src.find('\n');
 		if(first_newline_index == std::string::npos)
-			throw Indigo::Exception("Shader source must have at least one newline.");
+			throw glare::Exception("Shader source must have at least one newline.");
 
 		const std::string first_line = shader_src.substr(0, first_newline_index + 1); // First line including newline char
 
@@ -81,11 +81,11 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& preproces
 		GLint shader_ok;
 		glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
 		if(!shader_ok)
-			throw Indigo::Exception("Failed to compile shader " + FileUtils::getFilename(path) + ": " + log);
+			throw glare::Exception("Failed to compile shader " + FileUtils::getFilename(path) + ": " + log);
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 

@@ -53,24 +53,24 @@ void loadCSVFile(const std::string& CSV_path, CSVData& data_out)
 	while(!parser.eof())
 	{
 		if(row >= num_rows)
-			throw Indigo::Exception("Failed to find expected number of rows.");
+			throw glare::Exception("Failed to find expected number of rows.");
 
 		for(int c=0; c<num_cols; ++c)
 		{
 			if(!parser.parseDouble(data_out.data.elem(c, row)))
-				throw Indigo::Exception("Parse of number failed.");
+				throw glare::Exception("Parse of number failed.");
 
 			if(c + 1 < num_cols)
 			{
 				if(!parser.parseChar(','))
-					throw Indigo::Exception("Parse of ',' failed.");
+					throw glare::Exception("Parse of ',' failed.");
 			}
 		}
 		parser.advancePastLine();
 		row++;
 	}
 	if(row != num_rows)
-		throw Indigo::Exception("Failed to find expected number of rows.");
+		throw glare::Exception("Failed to find expected number of rows.");
 }
 
 
@@ -106,7 +106,7 @@ void writeArrayLiteral(const Array2D<double>& data, const std::string& dest_lite
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -144,7 +144,7 @@ void writeArrayLiteral(const std::vector<float>& data, size_t num_elems_per_line
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 
@@ -187,7 +187,7 @@ void ArrayLiteralUtils::test()
 		//convertCSVToArrayLiteral(TestUtils::getIndigoTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", "d:/files/test.cpp",
 		//	"static const float test_array", "// The test array\n// Comment line two");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

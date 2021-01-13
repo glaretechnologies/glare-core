@@ -196,14 +196,14 @@ struct GLTFData
 static void checkNodeType(const JSONNode& node, JSONNode::Type type)
 {
 	if(node.type != type)
-		throw Indigo::Exception("Expected type " + JSONNode::typeString(type) + ", got type " + JSONNode::typeString(node.type) + ".");
+		throw glare::Exception("Expected type " + JSONNode::typeString(type) + ", got type " + JSONNode::typeString(node.type) + ".");
 }
 
 
 static GLTFAccessor& getAccessor(GLTFData& data, size_t accessor_index)
 {
 	if(accessor_index >= data.accessors.size())
-		throw Indigo::Exception("accessor_index out of bounds.");
+		throw glare::Exception("accessor_index out of bounds.");
 	return *data.accessors[accessor_index];
 }
 
@@ -211,11 +211,11 @@ static GLTFAccessor& getAccessor(GLTFData& data, size_t accessor_index)
 static GLTFAccessor& getAccessorForAttribute(GLTFData& data, GLTPrimitive& primitive, const std::string& attr_name)
 {
 	if(primitive.attributes.count(attr_name) == 0)
-		throw Indigo::Exception("Expected " + attr_name + " attribute.");
+		throw glare::Exception("Expected " + attr_name + " attribute.");
 
 	const size_t attribute_val = primitive.attributes[attr_name];
 	if(attribute_val >= data.accessors.size())
-		throw Indigo::Exception("attribute " + attr_name + " out of bounds.");
+		throw glare::Exception("attribute " + attr_name + " out of bounds.");
 
 	return *data.accessors[attribute_val];
 }
@@ -224,7 +224,7 @@ static GLTFAccessor& getAccessorForAttribute(GLTFData& data, GLTPrimitive& primi
 static GLTFBufferView& getBufferView(GLTFData& data, size_t buffer_view_index)
 {
 	if(buffer_view_index >= data.buffer_views.size())
-		throw Indigo::Exception("buffer_view_index out of bounds.");
+		throw glare::Exception("buffer_view_index out of bounds.");
 	return *data.buffer_views[buffer_view_index];
 }
 
@@ -232,7 +232,7 @@ static GLTFBufferView& getBufferView(GLTFData& data, size_t buffer_view_index)
 static GLTFBuffer& getBuffer(GLTFData& data, size_t buffer_index)
 {
 	if(buffer_index >= data.buffers.size())
-		throw Indigo::Exception("buffer_index out of bounds.");
+		throw glare::Exception("buffer_index out of bounds.");
 	return *data.buffers[buffer_index];
 }
 
@@ -240,7 +240,7 @@ static GLTFBuffer& getBuffer(GLTFData& data, size_t buffer_index)
 static GLTFTexture& getTexture(GLTFData& data, size_t texture_index)
 {
 	if(texture_index >= data.textures.size())
-		throw Indigo::Exception("texture_index out of bounds.");
+		throw glare::Exception("texture_index out of bounds.");
 	return *data.textures[texture_index];
 }
 
@@ -248,7 +248,7 @@ static GLTFTexture& getTexture(GLTFData& data, size_t texture_index)
 static GLTFImage& getImage(GLTFData& data, size_t image_index)
 {
 	if(image_index >= data.textures.size())
-		throw Indigo::Exception("image_index out of bounds.");
+		throw glare::Exception("image_index out of bounds.");
 	return *data.images[image_index];
 }
 
@@ -256,7 +256,7 @@ static GLTFImage& getImage(GLTFData& data, size_t image_index)
 static GLTFMesh& getMesh(GLTFData& data, size_t mesh_index)
 {
 	if(mesh_index >= data.meshes.size())
-		throw Indigo::Exception("mesh_index out of bounds.");
+		throw glare::Exception("mesh_index out of bounds.");
 	return *data.meshes[mesh_index];
 }
 
@@ -264,7 +264,7 @@ static GLTFMesh& getMesh(GLTFData& data, size_t mesh_index)
 static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour3f& default_val)
 {
 	if(node.type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<node.name_val_pairs.size(); ++i)
 		if(node.name_val_pairs[i].name == name)
@@ -273,7 +273,7 @@ static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, cons
 			checkNodeType(array_node, JSONNode::Type_Array);
 
 			if(array_node.child_indices.size() != 3)
-				throw Indigo::Exception("Expected 3 elements in array.");
+				throw glare::Exception("Expected 3 elements in array.");
 
 			float v[3];
 			for(size_t q=0; q<3; ++q)
@@ -289,7 +289,7 @@ static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, cons
 static Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour4f& default_val)
 {
 	if(node.type != JSONNode::Type_Object)
-		throw Indigo::Exception("Expected type object.");
+		throw glare::Exception("Expected type object.");
 
 	for(size_t i=0; i<node.name_val_pairs.size(); ++i)
 		if(node.name_val_pairs[i].name == name)
@@ -298,7 +298,7 @@ static Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, cons
 			checkNodeType(array_node, JSONNode::Type_Array);
 
 			if(array_node.child_indices.size() != 4)
-				throw Indigo::Exception("Expected 4 elements in array.");
+				throw glare::Exception("Expected 4 elements in array.");
 			
 			float v[4];
 			for(size_t q=0; q<4; ++q)
@@ -363,9 +363,9 @@ static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, cons
 	if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 	{
 		if(byte_stride < sizeof(float)*3)
-			throw Indigo::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
+			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
 		if(offset_B + byte_stride * (accessor.count - 1) + sizeof(float)*3 > buffer.data_size)
-			throw Indigo::Exception("Out of bounds while trying to read '" + attr_name + "'");
+			throw glare::Exception("Out of bounds while trying to read '" + attr_name + "'");
 
 		for(size_t z=0; z<accessor.count; ++z)
 		{
@@ -383,7 +383,7 @@ static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, cons
 		}
 	}
 	else
-		throw Indigo::Exception("unhandled component type.");
+		throw glare::Exception("unhandled component type.");
 }
 
 
@@ -400,10 +400,10 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 			GLTPrimitive& primitive = *mesh.primitives[i];
 
 			if(primitive.mode != GLTF_MODE_TRIANGLES)
-				throw Indigo::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
+				throw glare::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
 
 			if(primitive.indices == std::numeric_limits<size_t>::max())
-				throw Indigo::Exception("Primitve did not have indices..");
+				throw glare::Exception("Primitve did not have indices..");
 
 			total_num_tris  += getAccessor(data, primitive.indices).count / 3;
 			total_num_verts += getAccessorForAttribute(data, primitive, "POSITION").count;
@@ -414,7 +414,7 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 	for(size_t i=0; i<node.children.size(); ++i)
 	{
 		if(node.children[i] >= data.nodes.size())
-			throw Indigo::Exception("node child index out of bounds");
+			throw glare::Exception("node child index out of bounds");
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
@@ -449,10 +449,10 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 			GLTPrimitive& primitive = *mesh.primitives[i];
 
 			if(primitive.mode != GLTF_MODE_TRIANGLES)
-				throw Indigo::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
+				throw glare::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
 
 			if(primitive.indices == std::numeric_limits<size_t>::max())
-				throw Indigo::Exception("Primitve did not have indices..");
+				throw glare::Exception("Primitve did not have indices..");
 
 
 			{
@@ -466,7 +466,7 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 
 				if((buffer_view_info[accessor.buffer_view].pos_offset != -1) &&
 					(buffer_view_info[accessor.buffer_view].pos_offset != (int)offset_mod_stride))
-					throw Indigo::Exception("Inconsistent buffer view position offset");
+					throw glare::Exception("Inconsistent buffer view position offset");
 
 				buffer_view_info[accessor.buffer_view].pos_offset = (int)offset_mod_stride;
 				buffer_view_info[accessor.buffer_view].count = (int)accessor.count;
@@ -483,7 +483,7 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 				conPrint("NORMAL offset: " + toString(offset_mod_stride));
 				if((buffer_view_info[accessor.buffer_view].normal_offset != -1) &&
 					(buffer_view_info[accessor.buffer_view].normal_offset != (int)offset_mod_stride))
-					throw Indigo::Exception("Inconsistent buffer view normal offset");
+					throw glare::Exception("Inconsistent buffer view normal offset");
 			}
 
 			if(primitive.attributes.count("COLOR_0"))
@@ -497,7 +497,7 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 				conPrint("COLOR_0 offset: " + toString(offset_mod_stride));
 				if((buffer_view_info[accessor.buffer_view].colour_offset != -1) &&
 					(buffer_view_info[accessor.buffer_view].colour_offset != (int)offset_mod_stride))
-					throw Indigo::Exception("Inconsistent buffer view COLOR_0 offset");
+					throw glare::Exception("Inconsistent buffer view COLOR_0 offset");
 			}
 
 			if(primitive.attributes.count("TEXCOORD_0"))
@@ -511,7 +511,7 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 				conPrint("TEXCOORD_0 offset: " + toString(offset_mod_stride));
 				if((buffer_view_info[accessor.buffer_view].uv0_offset != -1) &&
 					(buffer_view_info[accessor.buffer_view].uv0_offset != (int)offset_mod_stride))
-					throw Indigo::Exception("Inconsistent buffer view TEXCOORD_0 offset");
+					throw glare::Exception("Inconsistent buffer view TEXCOORD_0 offset");
 			}
 		}
 	}
@@ -520,7 +520,7 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 	for(size_t i=0; i<node.children.size(); ++i)
 	{
 		if(node.children[i] >= data.nodes.size())
-			throw Indigo::Exception("node child index out of bounds");
+			throw glare::Exception("node child index out of bounds");
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
@@ -583,7 +583,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 				{
 					if(offset_B + index_accessor.count * sizeof(uint16) > buffer.data_size)
-						throw Indigo::Exception("Out of bounds while trying to read indices");
+						throw glare::Exception("Out of bounds while trying to read indices");
 
 #if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
@@ -604,7 +604,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				else if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_INT)
 				{
 					if(offset_B + index_accessor.count * sizeof(uint32) > buffer.data_size)
-						throw Indigo::Exception("Out of bounds while trying to read indices");
+						throw glare::Exception("Out of bounds while trying to read indices");
 
 #if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
@@ -623,7 +623,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 #endif
 				}
 				else
-					throw Indigo::Exception("Unhandled index accessor component type.");
+					throw glare::Exception("Unhandled index accessor component type.");
 			}
 
 			// Process vertex positions
@@ -717,9 +717,9 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 				{
 					if(byte_stride < sizeof(float)*2)
-						throw Indigo::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
+						throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
 					if(offset_B + byte_stride * (accessor.count - 1) + sizeof(float)*2 > buffer.data_size)
-						throw Indigo::Exception("Out of bounds while trying to read 'TEXCOORD_0'");
+						throw glare::Exception("Out of bounds while trying to read 'TEXCOORD_0'");
 
 					for(size_t z=0; z<accessor.count; ++z)
 					{
@@ -728,7 +728,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					}
 				}
 				else
-					throw Indigo::Exception("unhandled component type.");
+					throw glare::Exception("unhandled component type.");
 			}
 			else
 			{
@@ -749,7 +749,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 	for(size_t i=0; i<node.children.size(); ++i)
 	{
 		if(node.children[i] >= data.nodes.size())
-			throw Indigo::Exception("node child index out of bounds");
+			throw glare::Exception("node child index out of bounds");
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
@@ -784,13 +784,13 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		else if(image.mime_type == "image/webp")
 			extension = "webp";
 		else
-			throw Indigo::Exception("Unknown MIME type for image.");
+			throw glare::Exception("Unknown MIME type for image.");
 
 		// Check length
 		if(buffer_view.byte_length == 0)
-			throw Indigo::Exception("Image buffer view too small.");
+			throw glare::Exception("Image buffer view too small.");
 		if(buffer_view.byte_offset + buffer_view.byte_length > buffer.data_size)
-			throw Indigo::Exception("Image buffer view too large.");
+			throw glare::Exception("Image buffer view too large.");
 
 		// Compute a hash over the data to get a semi-unique filename.
 		const uint64 hash = XXH64((const char*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length, /*seed=*/1);
@@ -803,7 +803,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		}
 		catch(FileUtils::FileUtilsExcep& e)
 		{
-			throw Indigo::Exception("Error while writing temp image file: " + e.what());
+			throw glare::Exception("Error while writing temp image file: " + e.what());
 		}
 
 		// Update GLTF image to use URI on disk
@@ -873,12 +873,12 @@ static const uint32 CHUNK_TYPE_BIN  = 0x004E4942;
 
 
 void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& mesh, float scale,
-	GLTFMaterials& mats_out) // throws Indigo::Exception on failure
+	GLTFMaterials& mats_out) // throws glare::Exception on failure
 {
 	MemMappedFile file(pathname);
 
 	if(file.fileSize() < sizeof(GLBHeader) + sizeof(GLBChunkHeader))
-		throw Indigo::Exception("File too small.");
+		throw glare::Exception("File too small.");
 
 	// Read header
 	GLBHeader header;
@@ -888,22 +888,22 @@ void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& m
 	GLBChunkHeader json_header;
 	std::memcpy(&json_header, (const uint8*)file.fileData() + 12, sizeof(GLBChunkHeader));
 	if(json_header.chunk_type != CHUNK_TYPE_JSON)
-		throw Indigo::Exception("Expected JSON chunk type");
+		throw glare::Exception("Expected JSON chunk type");
 
 	// Check json_header length
 	if(12 + sizeof(GLBChunkHeader) + json_header.chunk_length > file.fileSize())
-		throw Indigo::Exception("JSON Chunk too large.");
+		throw glare::Exception("JSON Chunk too large.");
 
 	// Read binary buffer chunk header
 	const size_t bin_buf_chunk_header_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(20 + (size_t)json_header.chunk_length, 4);
 	GLBChunkHeader bin_buf_header;
 	std::memcpy(&bin_buf_header, (const uint8*)file.fileData() + bin_buf_chunk_header_offset, sizeof(GLBChunkHeader));
 	if(bin_buf_header.chunk_type != CHUNK_TYPE_BIN)
-		throw Indigo::Exception("Expected BIN chunk type");
+		throw glare::Exception("Expected BIN chunk type");
 
 	// Check bin_buf_header length
 	if(bin_buf_chunk_header_offset + sizeof(GLBChunkHeader) + bin_buf_header.chunk_length > file.fileSize())
-		throw Indigo::Exception("Bin buf Chunk too large.");
+		throw glare::Exception("Bin buf Chunk too large.");
 
 	// Make a buffer object for it
 	GLTFBufferRef buffer = new GLTFBuffer();
@@ -940,7 +940,7 @@ void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& m
 
 
 void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, Indigo::Mesh& mesh, float scale,
-	GLTFMaterials& mats_out) // throws Indigo::Exception on failure
+	GLTFMaterials& mats_out) // throws glare::Exception on failure
 {
 	const JSONNode& root = parser.nodes[0];
 	checkNodeType(root, JSONNode::Type_Object);
@@ -964,7 +964,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				else
 				{
 					if(glb_bin_buffer.isNull())
-						throw Indigo::Exception("buffer with undefined uri, not in a GLB file.");
+						throw glare::Exception("buffer with undefined uri, not in a GLB file.");
 					buffer = glb_bin_buffer;
 				}
 				data.buffers.push_back(buffer);
@@ -1125,7 +1125,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				{
 					const JSONNode& rotation_node = node_node.getChildArray(parser, "rotation");
 					if(rotation_node.child_indices.size() != 4)
-						throw Indigo::Exception("Expected 4 elements in rotation array.");
+						throw glare::Exception("Expected 4 elements in rotation array.");
 					float v[4];
 					for(size_t q=0; q<4; ++q)
 						v[q] = (float)parser.nodes[rotation_node.child_indices[q]].getDoubleValue();
@@ -1138,7 +1138,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				{
 					const JSONNode& scale_node = node_node.getChildArray(parser, "scale");
 					if(scale_node.child_indices.size() != 3)
-						throw Indigo::Exception("Expected 3 elements in scale array.");
+						throw glare::Exception("Expected 3 elements in scale array.");
 					for(uint32 q=0; q<3; ++q)
 						node->scale[q] = (float)parser.nodes[scale_node.child_indices[q]].getDoubleValue();
 				}
@@ -1149,7 +1149,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				{
 					const JSONNode& translation_node = node_node.getChildArray(parser, "translation");
 					if(translation_node.child_indices.size() != 3)
-						throw Indigo::Exception("Expected 3 elements in translation array.");
+						throw glare::Exception("Expected 3 elements in translation array.");
 					for(uint32 q=0; q<3; ++q)
 						node->translation[q] = (float)parser.nodes[translation_node.child_indices[q]].getDoubleValue();
 				}
@@ -1160,7 +1160,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				{
 					const JSONNode& matrix_node = node_node.getChildArray(parser, "matrix");
 					if(matrix_node.child_indices.size() != 16)
-						throw Indigo::Exception("Expected 16 elements in matrix array.");
+						throw glare::Exception("Expected 16 elements in matrix array.");
 
 					// GLTF stores matrices in column-major order, like Matrix4f.
 					for(size_t q=0; q<16; ++q)
@@ -1319,7 +1319,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 
 	// Get the scene to use
 	if(data.scene >= data.scenes.size())
-		throw Indigo::Exception("scene index out of bounds.");
+		throw glare::Exception("scene index out of bounds.");
 	GLTFScene& scene_node = *data.scenes[data.scene];
 
 
@@ -1328,7 +1328,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 	for(size_t i=0; i<scene_node.nodes.size(); ++i)
 	{
 		if(scene_node.nodes[i] >= data.nodes.size())
-			throw Indigo::Exception("scene root node index out of bounds.");
+			throw glare::Exception("scene root node index out of bounds.");
 		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
 
 		processNodeToGetBufferViewInfo(data, root_node, buffer_view_info);
@@ -1341,7 +1341,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 	for(size_t i=0; i<scene_node.nodes.size(); ++i)
 	{
 		if(scene_node.nodes[i] >= data.nodes.size())
-			throw Indigo::Exception("scene root node index out of bounds.");
+			throw glare::Exception("scene root node index out of bounds.");
 		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
 
 		processNodeToGetMeshCapacity(data, root_node, total_num_tris, total_num_verts);
@@ -1358,7 +1358,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 	for(size_t i=0; i<scene_node.nodes.size(); ++i)
 	{
 		if(scene_node.nodes[i] >= data.nodes.size())
-			throw Indigo::Exception("scene root node index out of bounds.");
+			throw glare::Exception("scene root node index out of bounds.");
 		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
 
 		Matrix4f current_transform = Matrix4f::identity();
@@ -1524,7 +1524,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 
 	// Write buffer element
@@ -1805,7 +1805,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 		}
 		catch(FileUtils::FileUtilsExcep &e)
 		{
-			throw Indigo::Exception(e.what());
+			throw glare::Exception(e.what());
 		}
 	}
 
@@ -1860,7 +1860,7 @@ static void testWriting(const Indigo::Mesh& mesh, const GLTFMaterials& mats)
 		testAssert(mesh2.uv_pairs.size()			== mesh.uv_pairs.size());
 		testAssert(mesh2.triangles.size()			== mesh.triangles.size());
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}*/
@@ -1998,7 +1998,7 @@ void FormatDecoderGLTF::test()
 			testWriting(mesh, mats);
 		}
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -2019,7 +2019,7 @@ void FormatDecoderGLTF::test()
 		testAssert(mesh.uv_pairs.size() == 406);
 		testAssert(mesh.triangles.size() == 682);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}*/
@@ -2061,7 +2061,7 @@ void FormatDecoderGLTF::test()
 		testAssert(mesh2.uv_pairs.size() == 2399);
 		testAssert(mesh2.triangles.size() == 4212);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
@@ -2075,7 +2075,7 @@ void FormatDecoderGLTF::test()
 		GLTFMaterials mats;
 		streamModel(path, mesh, 1.0, mats);
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

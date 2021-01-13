@@ -163,12 +163,12 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 			PlatformUtils::Sleep(50);
 
 			if(num_calls_done >= MAX_NUM_CALLS)
-				throw Indigo::Exception("GetAdaptersInfo Failed (after " + toString(num_calls_done) + " attempts): " + PlatformUtils::getErrorStringForCode(dwStatus));
+				throw glare::Exception("GetAdaptersInfo Failed (after " + toString(num_calls_done) + " attempts): " + PlatformUtils::getErrorStringForCode(dwStatus));
 		}
 		else
 		{
 			// Some other error occurred.
-			throw Indigo::Exception("GetAdaptersInfo Failed: " + PlatformUtils::getErrorStringForCode(dwStatus));
+			throw glare::Exception("GetAdaptersInfo Failed: " + PlatformUtils::getErrorStringForCode(dwStatus));
 		}
 	}
 
@@ -212,24 +212,24 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 	mib[3] = AF_LINK;
 	mib[4] = NET_RT_IFLIST;
 	if ((mib[5] = if_nametoindex("en1")) == 0 && (mib[5] = if_nametoindex("en0")) == 0) {
-		throw Indigo::Exception("if_nametoindex error");
+		throw glare::Exception("if_nametoindex error");
 	}
 
 	// Get buffer length needed
 	size_t len;
 	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0) {
-		throw Indigo::Exception("sysctl 1 error");
+		throw glare::Exception("sysctl 1 error");
 	}
 
 	// Allocate buffer
 	char* buf;
 	if ((buf = (char *)malloc(len)) == NULL) {
-		throw Indigo::Exception("malloc error");
+		throw glare::Exception("malloc error");
 	}
 
 	// Get information (will be placed into buf)
 	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
-		throw Indigo::Exception("sysctl 2 error");
+		throw glare::Exception("sysctl 2 error");
 	}
 
 	struct if_msghdr* ifm = (struct if_msghdr*)buf;
@@ -252,7 +252,7 @@ void SystemInfo::getMACAddresses(std::vector<std::string>& addresses_out)
 	addresses_out.resize(1);
 	unsigned char addr[6];
 	if(mac_addr_sys(addr) != 0)
-		throw Indigo::Exception("mac_addr_sys failed.");
+		throw glare::Exception("mac_addr_sys failed.");
 
 	for(unsigned i=0; i<6; ++i)
 	{
@@ -288,7 +288,7 @@ void SystemInfo::test()
 		// double per_call_time = timer.elapsed() / N;
 		// conPrint("per_call_time: " + toString(per_call_time) + " s");
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

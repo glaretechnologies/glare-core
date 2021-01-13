@@ -13,7 +13,7 @@ FilePrintOutput::FilePrintOutput(const std::string& path)
 {
 	file.open(path);
 	if(!file)
-		throw Indigo::Exception("Failed to open file '" + path + "' for writing.");
+		throw glare::Exception("Failed to open file '" + path + "' for writing.");
 }
 
 

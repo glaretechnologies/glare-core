@@ -19,7 +19,7 @@ Generated at 2014-04-30 12:12:50 +0100
 #include "../utils/StringUtils.h"
 
 
-// Throws Indigo::Exception
+// Throws glare::Exception
 void ImageDiff::writeImageDiffOfPNGs(const std::string& indigo_base_dir_path, const std::string& image_a_path, const std::string& image_b_path, const std::string& output_png_path, float diff_scale)
 {
 	try
@@ -29,15 +29,15 @@ void ImageDiff::writeImageDiffOfPNGs(const std::string& indigo_base_dir_path, co
 
 		//NOTE: assuming loading 8-bit PNGs here.
 		if(!dynamic_cast<ImageMap<uint8_t, UInt8ComponentValueTraits>* >(a.getPointer()))
-			throw Indigo::Exception("image a was not 8-bit.");
+			throw glare::Exception("image a was not 8-bit.");
 		if(!dynamic_cast<ImageMap<uint8_t, UInt8ComponentValueTraits>* >(b.getPointer()))
-			throw Indigo::Exception("image b was not 8-bit.");
+			throw glare::Exception("image b was not 8-bit.");
 
 		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > a_bitmap = a.downcast<ImageMap<uint8_t, UInt8ComponentValueTraits> >();
 		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > b_bitmap = b.downcast<ImageMap<uint8_t, UInt8ComponentValueTraits> >();
 
 		if((a_bitmap->getWidth() != b_bitmap->getWidth()) || (a_bitmap->getHeight() != b_bitmap->getHeight()) || (a_bitmap->getN() != b_bitmap->getN()))
-			throw Indigo::Exception("Image dimensions or num components don't match.");
+			throw glare::Exception("Image dimensions or num components don't match.");
 
 		Bitmap diff_image(a_bitmap->getWidth(), a_bitmap->getHeight(), a_bitmap->getN(), NULL);
 
@@ -99,11 +99,11 @@ void ImageDiff::writeImageDiffOfPNGs(const std::string& indigo_base_dir_path, co
 	}
 	catch(ImFormatExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 	catch(TextDrawerExcep& e)
 	{
-		throw Indigo::Exception(e.what());
+		throw glare::Exception(e.what());
 	}
 }
 

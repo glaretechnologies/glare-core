@@ -15,7 +15,7 @@ Generated at 2013-01-27 17:37:13 +0000
 OutStream
 -------------------
 Output stream - a binary stream that can be written to.
-All methods return Indigo::Exception on failure.
+All methods return glare::Exception on failure.
 =====================================================================*/
 class OutStream
 {

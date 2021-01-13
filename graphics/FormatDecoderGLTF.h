@@ -61,17 +61,17 @@ class FormatDecoderGLTF
 public:
 
 	static void loadGLBFile(const std::string& filename, Indigo::Mesh& handler, float scale,
-		GLTFMaterials& mats_out); // throws Indigo::Exception on failure
+		GLTFMaterials& mats_out); // throws glare::Exception on failure
 
 	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale,
-		GLTFMaterials& mats_out); // throws Indigo::Exception on failure
+		GLTFMaterials& mats_out); // throws glare::Exception on failure
 
-	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFMaterials& mats); // throws Indigo::Exception on failure
+	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFMaterials& mats); // throws glare::Exception on failure
 
 	static void test();
 
 private:
 	static void loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, Indigo::Mesh& handler, float scale,
-		GLTFMaterials& mats_out); // throws Indigo::Exception on failure
+		GLTFMaterials& mats_out); // throws glare::Exception on failure
 
 };

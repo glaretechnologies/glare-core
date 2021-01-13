@@ -29,7 +29,7 @@ OpenCLContext::OpenCLContext(cl_platform_id platform_id)
 		&error_code
 	);
 	if(this->context == 0)
-		throw Indigo::Exception("clCreateContextFromType failed: " + OpenCL::errorString(error_code));
+		throw glare::Exception("clCreateContextFromType failed: " + OpenCL::errorString(error_code));
 }
 
 
@@ -53,7 +53,7 @@ OpenCLContext::OpenCLContext(OpenCLDeviceRef& opencl_device)
 		&error_code
 	);
 	if(this->context == 0)
-		throw Indigo::Exception("clCreateContext failed: " + OpenCL::errorString(error_code));
+		throw glare::Exception("clCreateContext failed: " + OpenCL::errorString(error_code));
 }
 
 

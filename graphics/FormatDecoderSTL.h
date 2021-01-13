@@ -20,7 +20,7 @@ http://www.fabbers.com/tech/STL_Format
 class FormatDecoderSTL
 {
 public:
-	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // throws Indigo::Exception on failure
+	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // throws glare::Exception on failure
 
 	static void test();
 };

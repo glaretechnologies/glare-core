@@ -55,7 +55,7 @@ FormatDecoderObj
 class FormatDecoderObj
 {
 public:
-	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out); // Throws Indigo::Exception on failure.
+	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out); // Throws glare::Exception on failure.
 
 	static void parseMTLLib(const std::string& filename, MLTLibMaterials& mtllib_mats_out);
 

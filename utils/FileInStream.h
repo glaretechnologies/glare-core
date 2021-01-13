@@ -20,7 +20,7 @@ FileInStream
 class FileInStream : public InStream
 {
 public:
-	FileInStream(const std::string& path); // Throws Indigo::Exception on failure.
+	FileInStream(const std::string& path); // Throws glare::Exception on failure.
 	~FileInStream();
 
 	virtual int32 readInt32();

@@ -98,7 +98,7 @@ uint32 codePointForUTF8Char(uint32 utf8_char)
 uint32 codePointForUTF8CharString(const std::string& s)
 {
 	if(s.empty())
-		throw Indigo::Exception("Invalid Unicode character");
+		throw glare::Exception("Invalid Unicode character");
 	const uint8* const data = (const uint8*)s.c_str();
 
 	if(data[0] <= 0x7F) // (data[0] & 0x80) == 0) // If left bit of byte 0 is 0:
@@ -109,7 +109,7 @@ uint32 codePointForUTF8CharString(const std::string& s)
 	else if(data[0] < 0xE0) // (data[0] & 0xE0) == 0xC0) // If left 3 bits of byte 0 are 110:
 	{
 		if(s.size() < 2)
-			throw Indigo::Exception("Invalid Unicode character");
+			throw glare::Exception("Invalid Unicode character");
 
 		//return	((data[0] & 0x1F) << 6) |  // right five bits of byte 0
 		//		((data[1] & 0x3F)); // right 6 bits of byte 1
@@ -118,7 +118,7 @@ uint32 codePointForUTF8CharString(const std::string& s)
 	else if(data[0] < 0xF0) // (data[0] & 0xF0) == 0xE0) // If left 4 bits of byte 0 are 1110:
 	{
 		if(s.size() < 3)
-			throw Indigo::Exception("Invalid Unicode character");
+			throw glare::Exception("Invalid Unicode character");
 
 		//return	((data[0] & 0x0F) << 12) |  // right four bits of byte 0
 		//		((data[1] & 0x3F) << 6) | // right 6 bits of byte 1
@@ -129,7 +129,7 @@ uint32 codePointForUTF8CharString(const std::string& s)
 	{
 		assert((data[0] & 0xF8) == 0xF0); // left 5 bits of byte 0 should be 11110.
 		if(s.size() < 4)
-			throw Indigo::Exception("Invalid Unicode character");
+			throw glare::Exception("Invalid Unicode character");
 		
 		//return	((data[0] & 0x07) << 18) |  // right 3 bits of byte 0
 		//		((data[1] & 0x3F) << 12) | // right 6 bits of byte 1
@@ -193,32 +193,32 @@ const std::string charString(uint32 utf8_char)
 
 
 // Returns the byte index of the given character
-// Throws an Indigo::Exception if char_index is out of bounds.
+// Throws an glare::Exception if char_index is out of bounds.
 size_t byteIndex(const uint8* data, size_t num_bytes, size_t char_index)
 {
 	size_t byte_i = 0;
 	for(size_t i=0; i<char_index; ++i)
 	{
 		if(byte_i >= num_bytes)
-			throw Indigo::Exception("out of bounds");
+			throw glare::Exception("out of bounds");
 		const size_t bytes_for_char = numBytesForChar(data[byte_i]);
 		byte_i += bytes_for_char;
 	}
 	if(byte_i >= num_bytes)
-		throw Indigo::Exception("out of bounds");
+		throw glare::Exception("out of bounds");
 	return byte_i;
 }
 
 
 // Returns the character, still in UTF-8 encoding, in a uint32.
-// Throws an Indigo::Exception if char_index is out of bounds.
+// Throws an glare::Exception if char_index is out of bounds.
 uint32 charAt(const uint8* data, size_t num_bytes, size_t char_index)
 {
 	size_t byte_i = byteIndex(data, num_bytes, char_index);
 
 	const size_t bytes_for_char = numBytesForChar(data[byte_i]);
 	if(byte_i + bytes_for_char > num_bytes)
-		throw Indigo::Exception("out of bounds");
+		throw glare::Exception("out of bounds");
 
 	// Copy character bytes to uint32 to return
 	uint32 res = 0;
@@ -250,7 +250,7 @@ void testByteIndexThrowsExcep(const uint8* data, size_t num_bytes, size_t char_i
 		byteIndex(data, num_bytes, char_index);
 		failTest("Expected excep.");
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{}
 }
 
@@ -262,7 +262,7 @@ void testCharAtThrowsExcep(const uint8* data, size_t num_bytes, size_t char_inde
 		charAt(data, num_bytes, char_index);
 		failTest("Expected excep.");
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{}
 }
 

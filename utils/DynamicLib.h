@@ -28,10 +28,10 @@ class DynamicLib
 {
 public:
 	DynamicLib();
-	DynamicLib(const std::string& lib_path); // throws Indigo::Exception on failure
+	DynamicLib(const std::string& lib_path); // throws glare::Exception on failure
 	~DynamicLib();
 
-	void open(const std::string& lib_path); // throws Indigo::Exception on failure
+	void open(const std::string& lib_path); // throws glare::Exception on failure
 	void close();
 
 	const std::string getFullPathToLib() const;
@@ -42,7 +42,7 @@ public:
 	FuncPointerType tryGetFuncPointer(const std::string& name)
 	{
 		if(!lib_handle)
-			throw Indigo::Exception("No library open.");
+			throw glare::Exception("No library open.");
 
 #ifdef _WIN32
 		return (FuncPointerType)::GetProcAddress(lib_handle, name.c_str());
@@ -52,13 +52,13 @@ public:
 	}
 
 
-	// Try and get the function pointer from the lib, throw Indigo::Exception on failure.
+	// Try and get the function pointer from the lib, throw glare::Exception on failure.
 	template <class FuncPointerType>
 	FuncPointerType getFuncPointer(const std::string& name)
 	{
 		FuncPointerType f = tryGetFuncPointer<FuncPointerType>(name);
 		if(!f)
-			throw Indigo::Exception("Failed to get pointer to function '" + name + "'");
+			throw glare::Exception("Failed to get pointer to function '" + name + "'");
 		return f;
 	}
 

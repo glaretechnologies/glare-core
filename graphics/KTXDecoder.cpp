@@ -45,7 +45,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 		uint8 identifier[12];
 		file.readData(identifier, 12);
 		if(memcmp(identifier, ktx_file_id, 12) != 0)
-			throw Indigo::Exception("Invalid file id");
+			throw glare::Exception("Invalid file id");
 
 		const uint32 endianness = file.readUInt32();
 		bool swap_endianness;
@@ -54,7 +54,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 		else if(endianness == 0x01020304u)
 			swap_endianness = true;
 		else
-			throw Indigo::Exception("invalid endianness value.");
+			throw glare::Exception("invalid endianness value.");
 
 		const uint32 glType = readUInt32(file, swap_endianness);
 		const uint32 glTypeSize = readUInt32(file, swap_endianness);
@@ -70,13 +70,13 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 		const uint32 bytesOfKeyValueData = readUInt32(file, swap_endianness);
 
 		if(numberOfArrayElements > 0)
-			throw Indigo::Exception("numberOfArrayElements > 0 not supported.");
+			throw glare::Exception("numberOfArrayElements > 0 not supported.");
 
 		if(pixelDepth > 1)
-			throw Indigo::Exception("pixelDepth > 1 not supported.");
+			throw glare::Exception("pixelDepth > 1 not supported.");
 
 		if(numberOfFaces != 1)
-			throw Indigo::Exception("numberOfFaces != 1 not supported.");
+			throw glare::Exception("numberOfFaces != 1 not supported.");
 
 		// Skip key-value data
 		file.setReadIndex(file.getReadIndex() + bytesOfKeyValueData);
@@ -115,7 +115,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 
 		return image;
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		throw ImFormatExcep(e.what());
 	}

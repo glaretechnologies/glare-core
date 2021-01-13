@@ -53,7 +53,7 @@ public:
 	Real traceRay(const Ray& ray, float time,
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
-	// Throws Indigo::CancelledException if cancelled.
+	// Throws glare::CancelledException if cancelled.
 	void build(glare::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output);
 
 	void printStats();

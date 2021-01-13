@@ -26,7 +26,7 @@ FileInStream::~FileInStream()
 int32 FileInStream::readInt32()
 {
 	if(read_index + sizeof(int32) > file.fileSize())
-		throw Indigo::Exception("Read past end of file.");
+		throw glare::Exception("Read past end of file.");
 
 	int32 x;
 	std::memcpy(&x, (const uint8*)file.fileData() + read_index, sizeof(x));
@@ -38,7 +38,7 @@ int32 FileInStream::readInt32()
 uint32 FileInStream::readUInt32()
 {
 	if(read_index + sizeof(uint32) > file.fileSize())
-		throw Indigo::Exception("Read past end of file.");
+		throw glare::Exception("Read past end of file.");
 
 	uint32 x;
 	std::memcpy(&x, (const uint8*)file.fileData() + read_index, sizeof(x));
@@ -52,7 +52,7 @@ void FileInStream::readData(void* buf, size_t num_bytes)
 	if(num_bytes > 0)
 	{
 		if(read_index + num_bytes > file.fileSize())
-			throw Indigo::Exception("Read past end of file.");
+			throw glare::Exception("Read past end of file.");
 
 		std::memcpy(buf, (const uint8*)file.fileData() + read_index, num_bytes);
 		read_index += num_bytes;
@@ -69,6 +69,6 @@ bool FileInStream::endOfStream()
 void FileInStream::setReadIndex(size_t i)
 {
 	if(i > file.fileSize())
-		throw Indigo::Exception("Invalid read index for setReadIndex().");
+		throw glare::Exception("Invalid read index for setReadIndex().");
 	read_index = i;
 }

@@ -107,7 +107,7 @@ public:
 
 	inline void setObjectAABB(int ob_i, const js::AABBox& aabb); // ob_i should be < num_objects constructor arg.
 
-	// Throws Indigo::CancelledException if cancelled.
+	// Throws glare::CancelledException if cancelled.
 	virtual void build(
 		glare::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,

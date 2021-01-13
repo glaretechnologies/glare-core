@@ -209,7 +209,7 @@ void StaticSobol::test(const std::string& indigo_base_dir_path)
 		// TODO test block eval
 
 	}
-	catch(Indigo::Exception& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

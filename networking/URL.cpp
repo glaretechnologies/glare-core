@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Exception.h"
 
 
-URL URL::parseURL(const std::string& url) // throws Indigo::Exception
+URL URL::parseURL(const std::string& url) // throws glare::Exception
 {
 	URL result;
 	result.port = -1;
@@ -40,7 +40,7 @@ URL URL::parseURL(const std::string& url) // throws Indigo::Exception
 	{
 		parser.consume(':');
 		if(!parser.parseInt(result.port))
-			throw Indigo::Exception("Failed to parse port.");
+			throw glare::Exception("Failed to parse port.");
 	}
 
 	//---------------- Parse path ----------------

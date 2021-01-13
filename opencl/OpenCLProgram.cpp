@@ -41,7 +41,7 @@ void OpenCLProgram::getProgramInfo(cl_program_info param_name, size_t param_valu
 		NULL // param_value_size_ret
 	);
 	if(result != CL_SUCCESS)
-		throw Indigo::Exception("clGetProgramInfo failed: " + OpenCL::errorString(result));
+		throw glare::Exception("clGetProgramInfo failed: " + OpenCL::errorString(result));
 }
 
 

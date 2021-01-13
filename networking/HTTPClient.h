@@ -31,14 +31,14 @@ public:
 		std::string mime_type;
 	};
 
-	ResponseInfo downloadFile(const std::string& url, std::string& data_out); // Throws Indigo::Exception on failure.
+	ResponseInfo downloadFile(const std::string& url, std::string& data_out); // Throws glare::Exception on failure.
 
 	void kill(); // Interrupt download.  Can be called from another thread.
 
 	static void test();
 
 private:
-	ResponseInfo doDownloadFile(const std::string& url, int num_redirects_done, std::string& data_out); // Throws Indigo::Exception on failure.
+	ResponseInfo doDownloadFile(const std::string& url, int num_redirects_done, std::string& data_out); // Throws glare::Exception on failure.
 
 	size_t readUntilCRLF(size_t scan_start_index);
 	size_t readUntilCRLFCRLF(size_t scan_start_index);

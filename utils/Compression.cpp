@@ -56,7 +56,7 @@ void Compression::compress(const char* data, size_t size, std::vector<char>& dat
 	);
 
 	if(result != Z_OK)
-		throw Indigo::Exception("Compression failed.");
+		throw glare::Exception("Compression failed.");
 
 	data_out.resize(dest_len + 4);
 
@@ -72,7 +72,7 @@ void Compression::compress(const char* data, size_t size, std::vector<char>& dat
 	stream.opaque = Z_NULL;
 	int ret = deflateInit(&stream, Z_DEFAULT_COMPRESSION);
 	if(ret != Z_OK)
-		throw Indigo::Exception("Compression failed.");
+		throw glare::Exception("Compression failed.");
 
 	stream.next_in = (Bytef*)data;
 	stream.avail_in = size;
@@ -84,7 +84,7 @@ void Compression::compress(const char* data, size_t size, std::vector<char>& dat
 
 	int result = deflate(&stream, Z_FINISH);
 	if(result != Z_STREAM_END)
-		throw Indigo::Exception("Compression failed.");
+		throw glare::Exception("Compression failed.");
 	*/
 
 /*
@@ -142,7 +142,7 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 	uLong decompressed_size = (uLong)decompressedSize(data, size);
 
 	if(decompressed_size != data_out_size)
-		throw Indigo::Exception("Decompression failed: decompressed_size != data_out_size");
+		throw glare::Exception("Decompression failed: decompressed_size != data_out_size");
 
 	int result = ::uncompress(
 		(Bytef*)data_out, // dest
@@ -152,7 +152,7 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 	);
 
 	if(result != Z_OK)
-		throw Indigo::Exception("Decompression failed.");
+		throw glare::Exception("Decompression failed.");
 
 	/*z_stream stream;
 
@@ -167,7 +167,7 @@ void Compression::decompress(const char* data, size_t size, char* data_out, size
 
 	int ret = deflateInit(&stream, Z_DEFAULT_COMPRESSION);
 	if(ret != Z_OK)
-		throw Indigo::Exception("Compression failed.");
+		throw glare::Exception("Compression failed.");
 
 
 	inflateEnd(&stream);*/

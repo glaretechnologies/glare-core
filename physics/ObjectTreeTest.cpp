@@ -576,7 +576,7 @@ void ObjectTreeTest::instancedMeshSpeedTest()
 		MeshLoader::loadMesh("D:\\programming\\models\\bunny\\reconstruction\\bun_zipper.ply", indigoMesh, 1.0);
 		raymesh->fromIndigoMesh(indigoMesh);
 	}
-	catch(Indigo::Exception&)
+	catch(glare::Exception&)
 	{
 		testAssert(false);
 	}
