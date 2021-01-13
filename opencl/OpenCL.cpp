@@ -484,31 +484,6 @@ void OpenCL::queryDevices()
 }
 
 
-std::vector< ::OpenCLDeviceRef> OpenCL::getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices)
-{
-	std::vector< ::OpenCLDeviceRef> core_selected_devices;
-
-	// For every selected device i.
-	for(size_t i = 0; i < selected_devices.size(); ++i)
-	{
-		// Find the matching device j and add its index to the list of indices.
-		for(size_t j = 0; j < devices.size(); ++j)
-		{
-			// Is it the device we are looking for? I.e. name, vendor and id match.
-			if(toStdString(selected_devices[i].device_name) == devices[j]->device_name
-				&& toStdString(selected_devices[i].vendor_name) == devices[j]->vendor_name
-				&& selected_devices[i].id == devices[j]->id)
-			{
-				core_selected_devices.push_back(devices[j]);
-				break;
-			}
-		}
-	}
-
-	return core_selected_devices;
-}
-
-
 // From http://stackoverflow.com/a/24336429
 const std::string OpenCL::errorString(cl_int result)
 {

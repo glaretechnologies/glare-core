@@ -8,7 +8,7 @@ Generated at Tue May 15 13:27:16 +0100 2012
 
 
 #include "OpenCL.h"
-#include "../indigo/globals.h"
+#include "../utils/ConPrint.h"
 #include "../utils/Platform.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"

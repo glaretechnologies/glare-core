@@ -10,7 +10,6 @@ Code By Nicholas Chapman.
 #include "OpenCLProgram.h"
 #include "OpenCLContext.h"
 #include "OpenCLPlatform.h"
-#include "../dll/include/OpenCLDevice.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/Platform.h"
 #include "../utils/DynamicLib.h"
@@ -142,8 +141,6 @@ public:
 	const std::string getBuildLog(cl_program program, cl_device_id device);
 
 	void dumpProgramBinaryToDisk(cl_program program);
-
-	std::vector< ::OpenCLDeviceRef > getSelectedDevices(const std::vector<Indigo::OpenCLDevice>& selected_devices);
 
 
 	clGetPlatformIDs_TYPE clGetPlatformIDs;
