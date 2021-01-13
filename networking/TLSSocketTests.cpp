@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "TLSSocket.h"
 #include "MyThread.h"
 #include "Networking.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"

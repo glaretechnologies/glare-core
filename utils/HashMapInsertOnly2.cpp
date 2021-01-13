@@ -17,7 +17,7 @@ Generated at Mon Oct 18 13:13:09 +1300 2010
 #include "RefCounted.h"
 #include "Reference.h"
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "Timer.h"
 #include "StringUtils.h"
 #include "Plotter.h"

@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2015 -
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
 

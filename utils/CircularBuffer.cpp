@@ -10,7 +10,7 @@ Generated at 2013-05-16 16:42:23 +0100
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"

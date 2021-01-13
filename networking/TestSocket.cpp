@@ -146,7 +146,7 @@ void TestSocket::writeData(const void* data, size_t num_bytes)
 
 
 #include "../utils/ConPrint.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void TestSocket::test()

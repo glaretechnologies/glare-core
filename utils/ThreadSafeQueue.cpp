@@ -13,7 +13,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "ConPrint.h"
 #include "PlatformUtils.h"
 #include "Timer.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 static const int TERMINATING_INTEGER = -1;

@@ -10,7 +10,7 @@ Generated at Mon Oct 18 13:13:09 +1300 2010
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../maths/PCG32.h"
 #include "../utils/Timer.h"

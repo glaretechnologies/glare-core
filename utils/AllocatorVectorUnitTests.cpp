@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2018 -
 #include "AllocatorVector.h"
 #include "StringUtils.h"
 #include "Timer.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include <vector>
 #include <assert.h>

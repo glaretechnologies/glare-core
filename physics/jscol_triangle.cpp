@@ -137,7 +137,7 @@ Vec4f js::closestPointOnTri(const Vec4f& p, const Vec4f& v0, const Vec4f& v1, co
 
 
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void js::Triangle::test()

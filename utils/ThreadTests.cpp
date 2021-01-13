@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"

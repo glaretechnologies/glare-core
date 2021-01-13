@@ -9,8 +9,8 @@ Generated at Tue May 25 18:32:39 +1200 2010
 
 #include "Parser.h"
 #include "Transmungify.h"
-#include "../indigo/TestUtils.h"
-#include "../indigo/globals.h"
+#include "../utils/TestUtils.h"
+#include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/FileUtils.h"

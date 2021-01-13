@@ -168,7 +168,7 @@ const Vec2f UnitInterpolatedTable::getValues(const Vec2f& x_vals, Real y_) const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/CycleTimer.h"
 #include "../utils/ConPrint.h"
 

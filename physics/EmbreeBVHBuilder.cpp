@@ -370,7 +370,7 @@ void EmbreeBVHBuilder::doBuild(
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"

@@ -403,7 +403,7 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/PlatformUtils.h"
 
 

@@ -119,7 +119,7 @@ void Transmungify::decrypt(const uint32* src_dwords, uint32 src_dwords_count, st
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include <stdlib.h>
 
 

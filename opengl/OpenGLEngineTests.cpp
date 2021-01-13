@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "OpenGLEngine.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/TextureServer.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/include/IndigoException.h"

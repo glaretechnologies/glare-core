@@ -983,8 +983,8 @@ void PlatformUtils::endKeepSystemAwake()
 #if BUILD_TESTS
 
 
-#include "../utils/ConPrint.h"
-#include "../indigo/TestUtils.h"
+#include "ConPrint.h"
+#include "TestUtils.h"
 
 
 void PlatformUtils::testPlatformUtils()

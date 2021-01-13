@@ -1333,9 +1333,9 @@ const std::vector<std::string> splitIntoLines(const std::string& s)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
-#include "../utils/Timer.h"
-#include "../utils/ConPrint.h"
+#include "TestUtils.h"
+#include "Timer.h"
+#include "ConPrint.h"
 
 
 void StringUtils::test()

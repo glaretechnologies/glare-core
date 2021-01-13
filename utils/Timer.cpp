@@ -30,9 +30,9 @@ const std::string Timer::elapsedStringNSigFigs(int n) const // Print with n deci
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
-#include "../utils/ConPrint.h"
-#include "../utils/PlatformUtils.h"
+#include "TestUtils.h"
+#include "ConPrint.h"
+#include "PlatformUtils.h"
 
 
 void Timer::test()

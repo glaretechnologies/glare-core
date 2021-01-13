@@ -19,7 +19,7 @@ Copyright Glare Technologies Limited 2019 -
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/TaskManager.h"
 
 

@@ -7,7 +7,7 @@ Generated at 2012-08-18 21:52:11 +0100
 #include "PointMLG.h"
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include <set>

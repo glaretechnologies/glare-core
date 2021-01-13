@@ -18,7 +18,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../graphics/CompressedImage.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/vec3.h"
 #include "../maths/GeometrySampling.h"
 #include "../maths/matrix3.h"

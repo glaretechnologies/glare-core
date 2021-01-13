@@ -74,7 +74,7 @@ void alignedFree(void* addr)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "TestUtils.h"
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include "Timer.h"

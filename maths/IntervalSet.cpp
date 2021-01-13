@@ -4,7 +4,7 @@
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/globals.h"

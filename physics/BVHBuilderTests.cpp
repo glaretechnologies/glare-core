@@ -12,7 +12,7 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "SBVHBuilder.h"
 #include "EmbreeBVHBuilder.h"
 #include "jscol_aabbox.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/ShouldCancelCallback.h"
 #include "../utils/StandardPrintOutput.h"

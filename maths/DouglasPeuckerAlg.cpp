@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "DouglasPeuckerAlg.h"
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 DouglasPeuckerAlg::DouglasPeuckerAlg()

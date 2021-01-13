@@ -5,7 +5,7 @@
 
 
 #include "MultiLevelGrid.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../maths/GeometrySampling.h"
 

@@ -120,7 +120,7 @@ std::vector<unsigned char> AESEncryption::decrypt(const ArrayRef<unsigned char>&
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../maths/mathstypes.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 
 

@@ -137,7 +137,7 @@ void drawLine(Bitmap& bitmap, const Colour3f& colour, const Vec2f& start_, const
 
 #include "PNGDecoder.h"
 #include "imformatdecoder.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void Drawing::test()

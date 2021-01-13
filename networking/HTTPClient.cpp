@@ -374,7 +374,7 @@ void HTTPClient::kill()
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/MyThread.h"
 
 

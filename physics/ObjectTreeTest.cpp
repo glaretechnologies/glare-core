@@ -11,7 +11,7 @@ Code By Nicholas Chapman.
 #include "../indigo/Vec3MatParameter.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../maths/PCG32.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../utils/Timer.h"
 #include "../utils/TaskManager.h"

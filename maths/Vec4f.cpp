@@ -27,7 +27,7 @@ const std::string Vec4f::toStringNSigFigs(int n) const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/CycleTimer.h"
 
 

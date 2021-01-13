@@ -82,7 +82,7 @@ URL URL::parseURL(const std::string& url) // throws Indigo::Exception
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void URL::test()

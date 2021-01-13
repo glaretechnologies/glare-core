@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2019 -
 #include "../maths/mathstypes.h"
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/jpegdecoder.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/Task.h"
 #include "../utils/TaskManager.h"

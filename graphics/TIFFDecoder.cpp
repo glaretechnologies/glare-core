@@ -208,7 +208,7 @@ bool TIFFDecoder::isTiffCompressed(const std::string& path)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/ConPrint.h"
 

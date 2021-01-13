@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "Matrix2.h"
 #include "matrix3.h"
 #include "Quat.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"

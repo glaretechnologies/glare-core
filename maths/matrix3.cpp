@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2018 -
 #include "matrix3.h"
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/StringUtils.h"
 
 

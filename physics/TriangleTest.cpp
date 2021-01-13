@@ -18,7 +18,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/MemAlloc.h"
 #include "MollerTrumboreTri.h"

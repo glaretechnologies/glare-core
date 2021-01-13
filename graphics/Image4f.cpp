@@ -599,7 +599,7 @@ float Image4f::maxPixelComponent() const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../graphics/MitchellNetravaliFilterFunction.h"
 

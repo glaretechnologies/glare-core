@@ -23,7 +23,7 @@ Code By Nicholas Chapman.
 #include "../utils/ShouldCancelCallback.h"
 #include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/MeshLoader.h"
 #include "../utils/Exception.h"
 #include "../utils/PlatformUtils.h"

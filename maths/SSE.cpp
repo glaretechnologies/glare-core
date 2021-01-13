@@ -22,7 +22,7 @@ File created by ClassTemplate on Sat Jun 25 08:01:25 2005
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"

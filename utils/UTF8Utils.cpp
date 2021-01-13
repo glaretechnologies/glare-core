@@ -234,9 +234,9 @@ uint32 charAt(const uint8* data, size_t num_bytes, size_t char_index)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
-#include "../utils/Timer.h"
-#include "../utils/ConPrint.h"
+#include "TestUtils.h"
+#include "Timer.h"
+#include "ConPrint.h"
 
 
 namespace UTF8Utils

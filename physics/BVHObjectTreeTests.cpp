@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2020 -
 
 #include "BVHObjectTree.h"
 #include "../simpleraytracer/ray.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/RendererSettings.h"
 #include "../indigo/object.h"
 #include "../utils/TaskManager.h"

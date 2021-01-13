@@ -168,8 +168,8 @@ MemMappedFile::~MemMappedFile()
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
-#include "../utils/ConPrint.h"
+#include "TestUtils.h"
+#include "ConPrint.h"
 
 
 void MemMappedFile::test()

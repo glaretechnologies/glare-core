@@ -213,7 +213,7 @@ RaySphere::Real RaySphere::meanCurvature(const HitInfo& hitinfo) const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 
 

@@ -27,7 +27,7 @@ const std::string Quat<double>::toString() const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"

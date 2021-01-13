@@ -767,7 +767,7 @@ void readFromStream(InStream& stream, Image& image)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
 #include "../utils/Timer.h"

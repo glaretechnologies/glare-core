@@ -190,7 +190,7 @@ const Vec2f InterpolatedTable3D::getValues(const Vec2f& x_vals, Real y_, Real z_
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/CycleTimer.h"
 
 

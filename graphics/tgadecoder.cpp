@@ -384,7 +384,7 @@ Reference<Map2D> TGADecoder::decode(const std::string& path)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void TGADecoder::test()

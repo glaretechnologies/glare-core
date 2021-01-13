@@ -10,8 +10,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "PlatformUtils.h"
 #include <assert.h>
 #if BUILD_TESTS
-#include "../indigo/TestUtils.h"
-#include "../utils/ConPrint.h"
+#include "TestUtils.h"
+#include "ConPrint.h"
 #endif
 
 

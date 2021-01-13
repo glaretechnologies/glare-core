@@ -35,7 +35,7 @@ Colour4f Colour4f::fromHTMLHexString(const std::string& s)
 
 
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../maths/Vec4f.h"
 

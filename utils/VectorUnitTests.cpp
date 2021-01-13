@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "Vector.h"
 #include "StringUtils.h"
 #include "Timer.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include <vector>
 #include <assert.h>

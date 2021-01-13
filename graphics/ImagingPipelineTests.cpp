@@ -19,7 +19,7 @@ Generated at 2016-03-30 21:17:33 +0200
 #include "../graphics/bitmap.h"
 #include "../graphics/SRGBUtils.h"
 #include "../indigo/ColourSpaceConverter.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/MasterBuffer.h"
 #include "../indigo/CameraToneMapper.h"
 #include "../indigo/LinearToneMapper.h"

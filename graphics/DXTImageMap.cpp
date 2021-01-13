@@ -966,7 +966,7 @@ DXTImageMapRef DXTImageMap::compressImageMap(Indigo::TaskManager& task_manager, 
 
 
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #define STB_DXT_STATIC 1
 #define STB_DXT_IMPLEMENTATION 1
 #ifdef _WIN32

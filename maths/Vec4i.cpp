@@ -18,7 +18,7 @@ const std::string Vec4i::toString() const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 
 

@@ -183,7 +183,7 @@ void InterpolatedTable::getValues(const SpectralVector& x_values, Real y, Polari
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/CycleTimer.h"
 
 

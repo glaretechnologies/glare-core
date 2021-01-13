@@ -164,7 +164,7 @@ void convertCSVToArrayLiteral(const std::string& CSV_path, const std::string& de
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void ArrayLiteralUtils::test()

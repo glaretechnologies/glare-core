@@ -1,17 +1,16 @@
 /*=====================================================================
 TestUtils.cpp
 -------------
-File created by ClassTemplate on Wed Jul 18 14:25:06 2007
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "TestUtils.h"
 
 
 #include "../maths/mathstypes.h"
-#include "../utils/StringUtils.h"
-#include "../utils/PlatformUtils.h"
-#include "../utils/prebuild_repos_info.h"
-#include "../utils/ConPrint.h"
+#include "StringUtils.h"
+#include "PlatformUtils.h"
+#include "prebuild_repos_info.h"
+#include "ConPrint.h"
 #include <stdlib.h>
 #include <assert.h>
 

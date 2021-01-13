@@ -709,7 +709,7 @@ size_t BVH::getTotalMemUsage() const
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/StringUtils.h"

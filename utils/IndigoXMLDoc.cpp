@@ -9,7 +9,7 @@ Code By Nicholas Chapman.
 
 #include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"
 #include "../maths/mathstypes.h"

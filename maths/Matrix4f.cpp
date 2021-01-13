@@ -463,7 +463,7 @@ Matrix3<float> Matrix4f::getUpperLeftMatrix() const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"

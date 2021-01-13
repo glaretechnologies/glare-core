@@ -173,7 +173,7 @@ inline uint32 StaticSobol::evalSampleRefRandomised(const uint64 sample_num, cons
 
 #include "StringUtils.h"
 #include "../indigo/SobolSequence.h" // For testing against reference Sobol implementation
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void StaticSobol::test(const std::string& indigo_base_dir_path)

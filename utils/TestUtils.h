@@ -1,15 +1,14 @@
 /*=====================================================================
 TestUtils.h
 -----------
-File created by ClassTemplate on Wed Jul 18 14:25:06 2007
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
 
 #include "../maths/mathstypes.h"
 //#include "../maths/vec3.h"
-#include "../utils/StringUtils.h"
+#include "StringUtils.h"
 #include <string>
 
 // Wrap test assert functions in macros, so we can print out a nice error messsage with the variable names and line number.

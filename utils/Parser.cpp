@@ -566,8 +566,8 @@ bool Parser::parseCString(const char* const s)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
-#include "../utils/ConPrint.h"
+#include "TestUtils.h"
+#include "ConPrint.h"
 #include "../double-conversion/double-conversion.h"
 
 

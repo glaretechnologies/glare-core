@@ -453,7 +453,7 @@ void PNGDecoder::write(const uint8* data, unsigned int W, unsigned int H, unsign
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "bitmap.h"

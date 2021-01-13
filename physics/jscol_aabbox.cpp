@@ -35,7 +35,7 @@ const std::string AABBox::toStringNSigFigs(int n) const
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"

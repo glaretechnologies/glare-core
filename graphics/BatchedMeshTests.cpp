@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2020
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/PlatformUtils.h"

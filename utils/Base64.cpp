@@ -189,7 +189,7 @@ void decode(const std::string& s, std::vector<unsigned char>& data_out)
 } // End namespace Base64
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"

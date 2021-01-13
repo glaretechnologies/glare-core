@@ -274,7 +274,7 @@ const std::string IPAddress::appendPortToAddrOrHostname(const std::string& s, in
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 static void testMalformedIPAddress(const std::string& s)

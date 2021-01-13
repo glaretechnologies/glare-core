@@ -24,7 +24,7 @@ Code By Nicholas Chapman.
 #include "../maths/Matrix2.h"
 #include "../maths/mathstypes.h"
 #include "../maths/PCG32.h" // just for testing
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Task.h"

@@ -212,7 +212,7 @@ void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 namespace DXTCompression

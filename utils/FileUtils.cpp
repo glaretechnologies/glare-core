@@ -1177,7 +1177,7 @@ const std::string getPlafromPathSeparator()
 #include "StringUtils.h"
 #include "MyThread.h"
 #include "HandleWrapper.h"
-#include "../indigo/TestUtils.h"
+#include "TestUtils.h"
 #include <fcntl.h>
 #ifdef _WIN32
 #include <io.h>

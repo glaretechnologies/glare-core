@@ -276,7 +276,7 @@ const std::string XMLParseUtils::elemContext(pugi::xml_node elem)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "IndigoXMLDoc.h"
 #include "Timer.h"
 #include "ConPrint.h"

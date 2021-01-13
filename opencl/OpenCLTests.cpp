@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "OpenCLKernel.h"
 #include "OpenCLBuffer.h"
 #include "OpenCLPathTracingKernel.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../opencl/OpenCLContext.h"
 #include "../opencl/OpenCLCommandQueue.h"
 #include "../opencl/OpenCLProgram.h"

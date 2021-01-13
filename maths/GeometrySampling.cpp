@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2017 -
 
 #include "Matrix4f.h"
 #include "../maths/PCG32.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"

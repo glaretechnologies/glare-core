@@ -444,7 +444,7 @@ void EXRDecoder::saveImageToEXR(const ImageMapFloat& image, const std::string& p
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
 

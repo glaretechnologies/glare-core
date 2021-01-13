@@ -12,7 +12,7 @@ Code By Nicholas Chapman.
 #include "../indigo/SpectralVector.h"
 #include "../graphics/colour3.h"
 #include "../maths/vec2.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../indigo/VoidMedium.h"
@@ -23,7 +23,7 @@ Code By Nicholas Chapman.
 #include "../simpleraytracer/raysphere.h"
 #include "../utils/TaskManager.h"
 #include "../utils/StandardPrintOutput.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/SobolSequence.h"
 #include "../indigo/WavelengthSamples.h"
 #include <fstream>

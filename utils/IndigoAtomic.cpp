@@ -10,7 +10,7 @@ Generated at Wed Nov 17 12:56:10 +1300 2010
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Task.h"

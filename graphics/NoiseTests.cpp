@@ -12,7 +12,7 @@ Generated at 2013-06-27 10:45:37 +0100
 
 #include "PerlinNoise.h"
 #include "GridNoise.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
 #include "../utils/Timer.h"

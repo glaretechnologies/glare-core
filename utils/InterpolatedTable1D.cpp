@@ -11,7 +11,7 @@ Generated at Thu Oct 07 22:28:38 +1300 2010
 
 
 #include "../maths/PCG32.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 

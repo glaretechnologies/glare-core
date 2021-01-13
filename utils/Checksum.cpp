@@ -42,7 +42,7 @@ uint32 Checksum::updateChecksum(uint32 running_checksum, const void* data, size_
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void Checksum::test()

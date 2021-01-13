@@ -19,8 +19,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "Timer.h"
 #include "StringUtils.h"
 #include "MemAlloc.h"
-#include "../indigo/TestUtils.h"
-#include "../utils/MemAlloc.h"
+#include "TestUtils.h"
 #include <vector>
 
 

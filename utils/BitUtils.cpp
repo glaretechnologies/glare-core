@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2020 -
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/ConPrint.h"
 #include "../utils/CycleTimer.h"

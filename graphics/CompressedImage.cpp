@@ -138,7 +138,7 @@ size_t CompressedImage::getByteSize() const
 
 
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void CompressedImage::test()

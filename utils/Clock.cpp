@@ -276,7 +276,7 @@ const std::string RFC822FormatedString(time_t t) // http://www.faqs.org/rfcs/rfc
 
 
 #include "ConPrint.h"
-#include "../indigo/TestUtils.h"
+#include "TestUtils.h"
 
 
 void Clock::test()

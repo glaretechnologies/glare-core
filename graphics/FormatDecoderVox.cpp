@@ -375,7 +375,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	return 0;  // Non-zero return values are reserved for future use.
 }
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
 
 

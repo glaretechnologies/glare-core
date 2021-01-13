@@ -306,7 +306,7 @@ void Process::readAllRemainingStdOutAndStdErr(std::string& stdout_out, std::stri
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"

@@ -254,7 +254,7 @@ Reference<Map2D> RGBEDecoder::decode(const std::string& path)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void RGBEDecoder::test()

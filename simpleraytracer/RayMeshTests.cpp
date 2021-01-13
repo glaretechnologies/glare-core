@@ -13,7 +13,7 @@ Generated at 2017-05-09 18:51:12 +0100
 #include "raymesh.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/Diffuse.h"
 #include "../indigo/ConstantSpectrumMatParameter.h"
 #include "../indigo/Vec3MatParameter.h"

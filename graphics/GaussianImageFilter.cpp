@@ -514,7 +514,7 @@ void GaussianImageFilter::gaussianFilter(const ImageMapFloat& in, ImageMapFloat&
 #include "bitmap.h"
 #include "imformatdecoder.h"
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 

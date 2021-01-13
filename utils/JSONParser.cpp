@@ -519,7 +519,7 @@ std::string JSONParser::errorContext(Parser& p)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "Timer.h"
 
 

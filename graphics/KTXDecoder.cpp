@@ -125,7 +125,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 
 

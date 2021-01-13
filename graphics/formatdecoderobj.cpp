@@ -542,7 +542,7 @@ void FormatDecoderObj::parseMTLLib(const std::string& filename, MLTLibMaterials&
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
 
 

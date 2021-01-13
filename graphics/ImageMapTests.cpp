@@ -19,7 +19,7 @@ Generated at 2011-05-22 19:51:52 +0100
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../indigo/globals.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/Plotter.h"
 #include "../utils/TaskManager.h"
 

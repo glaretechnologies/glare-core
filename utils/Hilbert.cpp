@@ -81,7 +81,7 @@ void Hilbert::generate(int maxdepth, Vec2i* indices_out)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/bitmap.h"
 

@@ -16,7 +16,7 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 #include "../utils/ConPrint.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../maths/vec3.h"
 
 

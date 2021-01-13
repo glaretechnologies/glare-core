@@ -160,7 +160,7 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
 
