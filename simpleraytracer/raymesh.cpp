@@ -8,7 +8,7 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 
 
 #include "../indigo/FullHitInfo.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../indigo/material.h"
 #include "../indigo/RendererSettings.h"
 #include "../indigo/TransformPath.h"
@@ -1483,14 +1483,14 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	const Vec3RealType t = samples.y;
 
 	// Compute barycentric coords.  Note that u + v = s(1-t) + st = s(1 - t + t) = s
-	const Vec3RealType u = s * (1.0f - t);
+	const Vec3RealType u = s * (1 - t);
 	const Vec3RealType v = s * t;
 	const Vec3RealType w = 1 - s; // 1 - u - v
 
 	hitinfo_out.sub_elem_index = sub_elem_index;
 	hitinfo_out.sub_elem_coords.set(u, v);
 
-	const RayMeshTriangle& tri(this->triangles[sub_elem_index]);
+	const RayMeshTriangle& tri = this->triangles[sub_elem_index];
 	const Vec4f v0pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
 	const Vec4f v1pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[1]].pos.x);
 	const Vec4f v2pos = loadUnalignedVec4f(&vertices[tri.vertex_indices[2]].pos.x);
@@ -1500,9 +1500,7 @@ void RayMesh::sampleSubElement(unsigned int sub_elem_index, const SamplePair& sa
 	// length of returned normal vector should be equal to area of triangle.
 	normal_out = normal * 0.5f;
 
-	
-	pos_out = v0pos * w + v1pos * u + v2pos * v;
-	pos_out[3] = 1; // W coord will be garbage, so set it.
+	pos_out = setWToOne(v0pos * w + v1pos * u + v2pos * v); // W coord will be garbage, so set it.
 
 	mat_index_out = tri.getTriMatIndex();
 
