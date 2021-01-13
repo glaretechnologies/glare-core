@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2019 -
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include <complex>
