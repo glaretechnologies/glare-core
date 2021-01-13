@@ -15,7 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 #endif
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -145,4 +145,4 @@ void DynamicLib::test()
 #endif
 
 
-} // end namespace Indigo 
+} // end namespace glare 

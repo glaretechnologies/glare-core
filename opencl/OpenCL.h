@@ -197,7 +197,7 @@ private:
 	void libraryInit();
 
 #if defined(_WIN32) || defined(__linux__)
-	Indigo::DynamicLib opencl_lib;
+	glare::DynamicLib opencl_lib;
 #endif
 
 	bool initialised;

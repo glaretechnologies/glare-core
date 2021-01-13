@@ -15,7 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 #endif
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -78,4 +78,4 @@ private:
 };
 
 
-} // end namespace Indigo 
+} // end namespace glare 
