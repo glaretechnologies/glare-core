@@ -195,7 +195,7 @@ void AVFVideoWriter::finalise()
 #if 1 // BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
 #include "../graphics/ImageMap.h"
 
