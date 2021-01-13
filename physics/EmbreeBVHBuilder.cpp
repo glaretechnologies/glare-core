@@ -207,7 +207,7 @@ struct StackEntry
 
 // Top-level build method
 void EmbreeBVHBuilder::doBuild(
-		Indigo::TaskManager& task_manager_,
+		glare::TaskManager& task_manager_,
 		ShouldCancelCallback& should_cancel_callback_,
 		PrintOutput& print_output, 
 		js::Vector<ResultInteriorNode, 64>& result_nodes_out

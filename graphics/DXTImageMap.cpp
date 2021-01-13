@@ -856,7 +856,7 @@ Reference<Image> DXTImageMap::convertToImage() const
 }
 
 
-Reference<Map2D> DXTImageMap::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
+Reference<Map2D> DXTImageMap::getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const
 {
 	assert(0);
 	return Reference<Map2D>();
@@ -930,7 +930,7 @@ Reference<ImageMap<float, FloatComponentValueTraits> > DXTImageMap::resizeToImag
 }
 
 
-Reference<Map2D> DXTImageMap::resizeMidQuality(const int /*new_width*/, const int /*new_height*/, Indigo::TaskManager& /*task_manager*/) const
+Reference<Map2D> DXTImageMap::resizeMidQuality(const int /*new_width*/, const int /*new_height*/, glare::TaskManager& /*task_manager*/) const
 { 
 	assert(0); 
 	return Reference<Map2D>();
@@ -949,7 +949,7 @@ size_t DXTImageMap::getByteSize() const
 }
 
 
-DXTImageMapRef DXTImageMap::compressImageMap(Indigo::TaskManager& task_manager, const ImageMapUInt8& map)
+DXTImageMapRef DXTImageMap::compressImageMap(glare::TaskManager& task_manager, const ImageMapUInt8& map)
 {
 	DXTImageMapRef dxt_image = new DXTImageMap(map.getWidth(), map.getHeight(), map.getN());
 

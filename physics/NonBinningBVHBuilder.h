@@ -15,7 +15,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/IndigoAtomic.h"
 #include <vector>
 namespace js { class AABBox; }
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class PrintOutput;
 
 
@@ -110,7 +110,7 @@ public:
 	~NonBinningBVHBuilder();
 
 	void build(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -176,12 +176,12 @@ private:
 	IndigoAtomic next_result_chunk; // Index of next free result chunk
 	js::Vector<ResultChunk, 16> result_chunks;
 
-	Indigo::TaskManager* task_manager;
+	glare::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
 	float intersection_cost; // Relative to BVH node traversal cost.
 
-	Indigo::TaskManager* local_task_manager;
+	glare::TaskManager* local_task_manager;
 
 	js::Vector<uint32, 16> result_indices;
 	ShouldCancelCallback* should_cancel_callback;

@@ -17,7 +17,7 @@ class Ray;
 class Vec4f;
 class Matrix4f;
 namespace js { class AABBox; };
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 
 
 namespace js
@@ -38,7 +38,7 @@ public:
 	typedef float Real;
 	typedef double DistType;
 
-	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, Indigo::TaskManager& task_manager) = 0; // throws Indigo::Exception
+	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, glare::TaskManager& task_manager) = 0; // throws Indigo::Exception
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const = 0;
 

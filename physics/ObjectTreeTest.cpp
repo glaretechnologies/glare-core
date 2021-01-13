@@ -50,7 +50,7 @@ void ObjectTreeTest::doSelfIntersectionAvoidanceTest()
 	ObjectTree ob_tree;
 
 	StandardPrintOutput print_output;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 
 	// Create basic material
@@ -204,7 +204,7 @@ void ObjectTreeTest::doTests()
 	ObjectTree ob_tree;
 
 	StandardPrintOutput print_output;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	// Create basic material
 	Reference<Material> mat(new Diffuse(
@@ -468,7 +468,7 @@ void ObjectTreeTest::doSpeedTest()
 	ObjectTree ob_tree;
 
 	StandardPrintOutput print_output;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	/// Add some random spheres ////
 	const int N = 1000;
@@ -562,7 +562,7 @@ void ObjectTreeTest::doSpeedTest()
 void ObjectTreeTest::instancedMeshSpeedTest()
 {
 	conPrint("ObjectTreeTest::instancedMeshSpeedTest()");
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	PCG32 rng(1);
 

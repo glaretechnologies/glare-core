@@ -328,7 +328,7 @@ static bool isDisplacingMaterial(const std::vector<Reference<Material> >& materi
 }*/
 
 
-bool RayMesh::subdivideAndDisplace(Indigo::TaskManager& task_manager, 
+bool RayMesh::subdivideAndDisplace(glare::TaskManager& task_manager, 
 	const ArrayRef<Reference<Material> >& materials,
 	const Matrix4f& object_to_camera, double pixel_height_at_dist_one, 
 	const std::vector<Planef>& camera_clip_planes_os, const std::vector<Planef>& section_planes_os, const WorldParams& world_params,
@@ -816,7 +816,7 @@ bool RayMesh::isPlanar(Vec4f& normal_out) const
 }
 
 
-void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager)
+void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager)
 {
 	Timer timer;
 
@@ -1592,7 +1592,7 @@ struct ComputePolyInfoTaskClosure
 
 
 // Computes normal for quads, and normal, dp_du, and dp_dv for triangles.  Stores in closure.poly_info.
-class ComputePolyInfoTask : public Indigo::Task
+class ComputePolyInfoTask : public glare::Task
 {
 public:
 	ComputePolyInfoTask(const ComputePolyInfoTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -1690,7 +1690,7 @@ public:
 
 
 // Computes shading normal (if update_shading_normals is true), and dp_du, dp_dv and mean curvature (H) for vertices.
-class ComputeVertInfoTask : public Indigo::Task
+class ComputeVertInfoTask : public glare::Task
 {
 public:
 	ComputeVertInfoTask(const ComputePolyInfoTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -1811,7 +1811,7 @@ public:
 // Computes mesh mean curvature.
 // Computes dp/du and dp/dv. (used for bump mapping).
 // NOTE: If we can work out when bump mapping and mean curvature is needed for each mesh, we can maybe skip calling this method altogether in some cases.
-void RayMesh::computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose)
+void RayMesh::computeShadingNormalsAndMeanCurvature(glare::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose)
 {
 	if(verbose) print_output.print("Computing shading normals for mesh '" + this->getName() + "'.");
 	Timer timer;

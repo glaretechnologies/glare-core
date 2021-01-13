@@ -14,7 +14,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "../utils/AllocatorVector.h"
 #include "../utils/Exception.h"
 #include <vector>
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class OutStream;
 class InStream;
 
@@ -133,11 +133,11 @@ public:
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
 #if MAP2D_FILTERING_SUPPORT
-	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
+	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const;
 
 	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const;
 
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
 #endif
 	inline virtual size_t getBytesPerPixel() const;
 
@@ -156,7 +156,7 @@ public:
 	// NOTE: not used currently.
 	static void downsampleImage(const size_t ssf, const size_t margin_ssf1,
 		const size_t filter_span, const float * const resize_filter, const float lower_clamping_bound,
-		const ImageMap<V, ComponentValueTraits>& img_in, ImageMap<V, ComponentValueTraits>& img_out, Indigo::TaskManager& task_manager);
+		const ImageMap<V, ComponentValueTraits>& img_in, ImageMap<V, ComponentValueTraits>& img_out, glare::TaskManager& task_manager);
 
 	double averageLuminance() const;
 
@@ -699,7 +699,7 @@ Reference<Image> ImageMap<V, VTraits>::convertToImage() const
 
 
 template <class V, class VTraits>
-Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
+Reference<Map2D> ImageMap<V, VTraits>::getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const
 {
 	// Convert this low-bit-depth texture to a 32 bit floating point image.
 

@@ -11,7 +11,7 @@ Generated at 2012-11-10 19:47:31 +0000
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include <vector>
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class Object;
 class PrintOutput;
 class ShouldCancelCallback;
@@ -54,7 +54,7 @@ public:
 		const Object*& hitob_out, HitInfo& hitinfo_out) const;
 
 	// Throws Indigo::CancelledException if cancelled.
-	void build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output);
+	void build(glare::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output);
 
 	void printStats();
 

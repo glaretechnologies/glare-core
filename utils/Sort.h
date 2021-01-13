@@ -52,11 +52,11 @@ namespace Sort
 	inline void serialCountingSortWithNumBuckets(const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser);
 
 	template <class T, class BucketChooser>
-	inline void parallelCountingSort(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_chooser);
+	inline void parallelCountingSort(glare::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_chooser);
 
 
 	template <class T, class BucketChooser>
-	inline void parallelStableNWayPartition(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser);
+	inline void parallelStableNWayPartition(glare::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser);
 
 
 	void test();
@@ -234,7 +234,7 @@ namespace Sort
 	// Parallel radix sort
 	// ================================================================================================
 	template <class T, class Key>
-	void radixSortWithParallelPartition(Indigo::TaskManager& task_manager, T* in, uint32 elements, Key key, T* working_space, bool put_result_in_working_space)
+	void radixSortWithParallelPartition(glare::TaskManager& task_manager, T* in, uint32 elements, Key key, T* working_space, bool put_result_in_working_space)
 	{
 		T* sorted;
 		if(working_space)
@@ -404,7 +404,7 @@ namespace Sort
 
 
 	template <class T, class LessThanPredicate, class Key>
-	class SortBucketTask : public Indigo::Task
+	class SortBucketTask : public glare::Task
 	{
 	public:
 		SortBucketTask(uint32* b0_, T* a_, T* b_, LessThanPredicate pred_, Key key_) : b0(b0_), a(a_), b(b_), pred(pred_), key(key_) {}
@@ -448,7 +448,7 @@ namespace Sort
 
 
 	template <class T, class LessThanPredicate, class Key>
-	void bucketSort(Indigo::TaskManager& task_manager, T* in, T* working_space, uint32 elements, LessThanPredicate pred, Key key) 
+	void bucketSort(glare::TaskManager& task_manager, T* in, T* working_space, uint32 elements, LessThanPredicate pred, Key key) 
 	{
 		// bucket histograms on the stack:
 		const uint32 kHist = 2048;
@@ -551,7 +551,7 @@ namespace Sort
 
 
 	template <class T, class Pred>
-	class PartitionCountTask : public Indigo::Task
+	class PartitionCountTask : public glare::Task
 	{
 	public:
 		virtual void run(size_t thread_index)
@@ -575,7 +575,7 @@ namespace Sort
 	};
 
 	template <class T, class Pred>
-	class PartitionPlaceTask : public Indigo::Task
+	class PartitionPlaceTask : public glare::Task
 	{
 	public:
 		virtual void run(size_t thread_index)
@@ -607,7 +607,7 @@ namespace Sort
 	// Parallel stable (binary) partition
 	// Returns num items put to left of parition.
 	template <class T, class Pred>
-	size_t parallelStablePartition(Indigo::TaskManager& task_manager, T* in, T* out, size_t num, Pred pred)
+	size_t parallelStablePartition(glare::TaskManager& task_manager, T* in, T* out, size_t num, Pred pred)
 	{
 		const size_t max_num_tasks = 32;
 		const size_t num_tasks = 32;//myMin(max_num_tasks, task_manager.getNumThreads());
@@ -623,7 +623,7 @@ namespace Sort
 			tasks[i]->in_ = in + begin_i;
 			tasks[i]->num_ = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
 		}
-		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)tasks, num_tasks));
+		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)tasks, num_tasks));
 
 		// Compute prefix sum for the tasks.
 		size_t num_left_before[max_num_tasks];
@@ -651,7 +651,7 @@ namespace Sort
 			place_tasks[i]->left_write_i  = num_left_before[i];
 			place_tasks[i]->right_write_i = sum_left_before + num_right_before[i];
 		}
-		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)place_tasks, num_tasks));
+		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)place_tasks, num_tasks));
 
 		return sum_left_before;
 	}
@@ -687,7 +687,7 @@ namespace Sort
 
 
 	template <class T, class BucketChooser>
-	class NWayPartitionCountTask : public Indigo::Task
+	class NWayPartitionCountTask : public glare::Task
 	{
 	public:
 		virtual void run(size_t thread_index)
@@ -731,7 +731,7 @@ namespace Sort
 	};
 
 	template <class T, class BucketChooser>
-	class NWayPartitionPlaceTask : public Indigo::Task
+	class NWayPartitionPlaceTask : public glare::Task
 	{
 	public:
 		virtual void run(size_t thread_index)
@@ -785,7 +785,7 @@ namespace Sort
 
 
 	template <class T, class BucketChooser>
-	void parallelCountingSort(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_chooser)
+	void parallelCountingSort(glare::TaskManager& task_manager, const T* in, T* out, size_t num, BucketChooser bucket_chooser)
 	{
 		// Do a pass to get number of buckets first.
 		// TODO: do in parallel
@@ -800,7 +800,7 @@ namespace Sort
 
 
 	template <class T, class BucketChooser>
-	void parallelStableNWayPartition(Indigo::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
+	void parallelStableNWayPartition(glare::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
 	{
 		const size_t max_num_tasks = 32;
 		const size_t num_tasks = 32;//myMin(max_num_tasks, task_manager.getNumThreads());
@@ -824,7 +824,7 @@ namespace Sort
 			tasks[i]->counts = &counts[i * stride];
 		}
 
-		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)tasks, num_tasks));
+		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)tasks, num_tasks));
 
 		//conPrint("count pass: " + timer.elapsedStringNSigFigs(5));
 		//timer.reset();
@@ -867,7 +867,7 @@ namespace Sort
 			place_tasks[i]->num = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
 		}
 
-		task_manager.runTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)place_tasks, num_tasks));
+		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)place_tasks, num_tasks));
 
 
 		//conPrint("place pass: " + timer.elapsedStringNSigFigs(5));

@@ -147,7 +147,7 @@ which is added to the global result_chunks list.
 
 May spawn new BuildSubtreeTasks.
 */
-class BinningBuildSubtreeTask : public Indigo::Task
+class BinningBuildSubtreeTask : public glare::Task
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -214,7 +214,7 @@ BinningResultChunk* BinningBVHBuilder::allocNewResultChunk()
 // Top-level build method
 // Throws Indigo::CancelledException if cancelled.
 void BinningBVHBuilder::build(
-		Indigo::TaskManager& task_manager_,
+		glare::TaskManager& task_manager_,
 		ShouldCancelCallback& should_cancel_callback_,
 		PrintOutput& print_output, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -550,7 +550,7 @@ static inline void setAABBWToOneInPlace(js::AABBox& aabb)
 }
 
 
-class BinTask : public Indigo::Task
+class BinTask : public glare::Task
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -635,7 +635,7 @@ public:
 // }
 
 
-static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABBox& centroid_aabb_, const std::vector<uint64>& max_obs_at_depth, int depth, js::Vector<BinningOb, 64>& objects_, int begin, int end,
+static void searchForBestSplit(glare::TaskManager& task_manager, const js::AABBox& centroid_aabb_, const std::vector<uint64>& max_obs_at_depth, int depth, js::Vector<BinningOb, 64>& objects_, int begin, int end,
 	int& best_axis_out, float& smallest_split_cost_factor_out, int& best_bucket_out)
 {
 	const js::AABBox centroid_aabb = centroid_aabb_;
@@ -682,7 +682,7 @@ static void searchForBestSplit(Indigo::TaskManager& task_manager, const js::AABB
 
 			assert(task->task_begin >= begin && task->task_begin <= end && task->task_end >= task->task_begin && task->task_end <= end);
 		}
-		task_manager.addTasks(ArrayRef<Indigo::TaskRef>((Reference<Indigo::Task>*)tasks, num_tasks));
+		task_manager.addTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)tasks, num_tasks));
 		
 		// Try and execute the tasks in this thread, so that we know we will make progress on these tasks.
 		for(int i=0; i<num_tasks; ++i)
@@ -1143,7 +1143,7 @@ void BinningBVHBuilder::doBuild(
 static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_failure)
 {
 	PCG32 rng(1);
-	Indigo::TaskManager task_manager;// (1);
+	glare::TaskManager task_manager;// (1);
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 
@@ -1230,7 +1230,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 
 static void testWithNumObsAndMaxDepth(int num_objects, int max_depth, int max_num_objects_per_leaf, bool failure_expected)
 {
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 
@@ -1290,7 +1290,7 @@ void BinningBVHBuilder::test(bool comprehensive_tests)
 	conPrint("BinningBVHBuilder::test()");
 
 	PCG32 rng(1);
-	Indigo::TaskManager task_manager;// (1);
+	glare::TaskManager task_manager;// (1);
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 

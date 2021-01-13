@@ -72,7 +72,7 @@ unsigned int Camera::getNumUVCoordSets() const { return 0; }
 unsigned int Camera::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
 
 
-bool Camera::subdivideAndDisplace(Indigo::TaskManager& task_manager, const ArrayRef<Reference<Material> >& materials, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
+bool Camera::subdivideAndDisplace(glare::TaskManager& task_manager, const ArrayRef<Reference<Material> >& materials, const Matrix4f& object_to_camera, /*const CoordFramed& camera_coordframe_os, */ double pixel_height_at_dist_one,
 		const std::vector<Planef>& camera_clip_planes, const std::vector<Planef>& section_planes_os, const WorldParams& world_params,
 		PrintOutput& print_output, bool verbose, ShouldCancelCallback* should_cancel_callback)
 {
@@ -80,4 +80,4 @@ bool Camera::subdivideAndDisplace(Indigo::TaskManager& task_manager, const Array
 }
 
 
-void Camera::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager) {}
+void Camera::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager) {}

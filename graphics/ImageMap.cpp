@@ -24,15 +24,15 @@ template void readFromStream(InStream& stream, ImageMap<float, FloatComponentVal
 
 #if MAP2D_FILTERING_SUPPORT
 #if OPENEXR_SUPPORT
-template Reference<Map2D> ImageMap<half,   HalfComponentValueTraits>  ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
+template Reference<Map2D> ImageMap<half,   HalfComponentValueTraits>  ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
 #endif
-template Reference<Map2D> ImageMap<float,  FloatComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
-template Reference<Map2D> ImageMap<uint8,  UInt8ComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
-template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
+template Reference<Map2D> ImageMap<float,  FloatComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
+template Reference<Map2D> ImageMap<uint8,  UInt8ComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
+template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
 
 template void ImageMap<float, FloatComponentValueTraits>::downsampleImage(const size_t factor, const size_t border_width, const size_t filter_span,
 	const float * const resize_filter, const float pre_clamp, const ImageMap<float, FloatComponentValueTraits>& img_in, 
-	ImageMap<float, FloatComponentValueTraits>& img_out, Indigo::TaskManager& task_manager);
+	ImageMap<float, FloatComponentValueTraits>& img_out, glare::TaskManager& task_manager);
 
 #endif // MAP2D_FILTERING_SUPPORT
 
@@ -77,7 +77,7 @@ void readFromStream(InStream& stream, ImageMap<V, VTraits>& image)
 #if MAP2D_FILTERING_SUPPORT
 
 template <class V, class VTraits>
-class ResizeMidQualityTask : public Indigo::Task
+class ResizeMidQualityTask : public glare::Task
 {
 public:
 	virtual void run(size_t thread_index)
@@ -230,7 +230,7 @@ public:
 
 
 template <class V, class VTraits>
-Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const
+Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const
 {
 	ImageMap<V, VTraits>* new_image;
 	if(!this->channel_names.empty() && ::hasPrefix(this->channel_names[0], "wavelength")) // If this is a spectral image:
@@ -275,7 +275,7 @@ struct DownsampleImageMapTaskClosure
 
 
 template <class V>
-class DownsampleImageMapTask : public Indigo::Task
+class DownsampleImageMapTask : public glare::Task
 {
 public:
 	DownsampleImageMapTask(const DownsampleImageMapTaskClosure<V>& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -351,7 +351,7 @@ public:
 template <class V, class VTraits>
 void ImageMap<V, VTraits>::downsampleImage(const size_t ssf, const size_t margin_ssf1, const size_t filter_span,
 	const float * const resize_filter, const float lower_clamping_bound,
-	const ImageMap<V, VTraits>& img_in, ImageMap<V, VTraits>& img_out, Indigo::TaskManager& task_manager)
+	const ImageMap<V, VTraits>& img_in, ImageMap<V, VTraits>& img_out, glare::TaskManager& task_manager)
 {
 	assert(margin_ssf1 >= 0);							// have padding pixels
 	assert((int)img_in.getWidth()  > margin_ssf1 * 2);	// have at least one interior pixel in x

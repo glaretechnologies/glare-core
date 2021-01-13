@@ -189,7 +189,7 @@ public:
 
 static void testStablePartition(size_t N, size_t num_threads)
 {
-	Indigo::TaskManager task_manager(num_threads);
+	glare::TaskManager task_manager(num_threads);
 	
 	// Make some random data
 	std::vector<int> data(N);
@@ -241,7 +241,7 @@ static void testStablePartition(size_t N, size_t num_threads)
 
 static void stablePartitionPerftest(size_t N, size_t num_threads)
 {
-	Indigo::TaskManager task_manager(num_threads);
+	glare::TaskManager task_manager(num_threads);
 	
 	// Make some random data
 	std::vector<int> data(N);
@@ -309,7 +309,7 @@ public:
 
 static void testStableNWayPartition(size_t N, size_t num_threads)
 {
-	Indigo::TaskManager task_manager(num_threads);
+	glare::TaskManager task_manager(num_threads);
 	
 	// Make some random data
 	std::vector<int> data(N);
@@ -350,7 +350,7 @@ static void testStableNWayPartition(size_t N, size_t num_threads)
 
 static double stableNWayPartitionPerfTest(size_t N, size_t num_threads)
 {
-	Indigo::TaskManager task_manager(num_threads);
+	glare::TaskManager task_manager(num_threads);
 	
 	// Make some random data
 	std::vector<int> data(N);
@@ -405,7 +405,7 @@ static double stableNWayPartitionPerfTest(size_t N, size_t num_threads)
 void test()
 {
 	PCG32 rng(1);
-	Indigo::TaskManager task_manager(8);
+	glare::TaskManager task_manager(8);
 	Timer timer;
 	
 	

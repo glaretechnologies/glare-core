@@ -195,7 +195,7 @@ public:
 };
 
 
-class CancelAfterNSecondsTask : public Indigo::Task
+class CancelAfterNSecondsTask : public glare::Task
 {
 public:
 	CancelAfterNSecondsTask(double wait_time_, TestShouldCancelCallback* callback_) : wait_time(wait_time_), callback(callback_) {}
@@ -252,7 +252,7 @@ static void buildBuilders(const js::Vector<js::AABBox, 16>& aabbs, int num_objec
 }
 
 
-static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, const js::Vector<BVHBuilderTri, 16>& tris)
+static void testBVHBuildersWithTriangles(glare::TaskManager& task_manager, const js::Vector<BVHBuilderTri, 16>& tris)
 {
 	const int num_objects = (int)tris.size();
 
@@ -315,7 +315,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 			for(int z=0; z<NUM_TESTS; ++z)
 			{
 				TestShouldCancelCallback test_should_cancel_callback;
-				Indigo::TaskManager temp_task_manager(1);
+				glare::TaskManager temp_task_manager(1);
 				temp_task_manager.addTask(new CancelAfterNSecondsTask(first_run_time * (-0.1 + rng.unitRandom() * 1.2), &test_should_cancel_callback));
 				Timer timer;
 				try
@@ -344,7 +344,7 @@ static void testBVHBuildersWithTriangles(Indigo::TaskManager& task_manager, cons
 }
 
 
-static void testBVHBuildersWithNRandomObjects(Indigo::TaskManager& task_manager, int num_objects)
+static void testBVHBuildersWithNRandomObjects(glare::TaskManager& task_manager, int num_objects)
 {
 	PCG32 rng(1);
 	js::Vector<BVHBuilderTri, 16> tris(num_objects);
@@ -363,7 +363,7 @@ static void testBVHBuildersWithNRandomObjects(Indigo::TaskManager& task_manager,
 
 
 #if 0
-static void testBVHBuilderWithNRandomObjectsGetResults(Indigo::TaskManager& task_manager, int num_objects, js::Vector<ResultNode, 64>& result_nodes_out)
+static void testBVHBuilderWithNRandomObjectsGetResults(glare::TaskManager& task_manager, int num_objects, js::Vector<ResultNode, 64>& result_nodes_out)
 {
 	PCG32 rng(1);
 	StandardPrintOutput print_output;
@@ -401,7 +401,7 @@ void test()
 	conPrint("BVHBuilderTests::test()");
 
 	PCG32 rng(1);
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 

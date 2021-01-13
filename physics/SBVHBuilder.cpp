@@ -231,7 +231,7 @@ which is added to the global result_chunks list.
 
 May spawn new BuildSubtreeTasks.
 */
-class SBVHBuildSubtreeTask : public Indigo::Task
+class SBVHBuildSubtreeTask : public glare::Task
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -313,7 +313,7 @@ struct SBVHStackEntry
 
 // Top-level build method
 void SBVHBuilder::build(
-		Indigo::TaskManager& task_manager_,
+		glare::TaskManager& task_manager_,
 		ShouldCancelCallback& should_cancel_callback_,
 		PrintOutput& print_output, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -1965,7 +1965,7 @@ static void rotateVerts(BVHBuilderTri& tri)
 
 static void testSBVHWithNumObsAndMaxDepth(int num_objects, int max_depth, int max_num_objects_per_leaf, bool failure_expected)
 {
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 
@@ -2027,7 +2027,7 @@ void SBVHBuilder::test(bool comprehensive_tests)
 	conPrint("SBVHBuilder::test()");
 
 	PCG32 rng(1);
-	Indigo::TaskManager task_manager;// (1);
+	glare::TaskManager task_manager;// (1);
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 

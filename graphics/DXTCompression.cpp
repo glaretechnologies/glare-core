@@ -38,7 +38,7 @@ void init()
 }
 
 
-class DXTCompressTask : public Indigo::Task
+class DXTCompressTask : public glare::Task
 {
 public:
 	virtual void run(size_t /*thread_index*/)
@@ -148,7 +148,7 @@ size_t getCompressedSizeBytes(size_t W, size_t H, size_t bytes_pp)
 
 
 // Multi-thread if task_manager is non-null
-void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src_W, size_t src_H, size_t src_bytes_pp, const uint8* src_image_data, uint8* compressed_data_out, size_t compressed_data_out_size)
+void compress(glare::TaskManager* task_manager, TempData& temp_data, size_t src_W, size_t src_H, size_t src_bytes_pp, const uint8* src_image_data, uint8* compressed_data_out, size_t compressed_data_out_size)
 {
 	// Try and load as a DXT texture compression
 	const size_t W = src_W;
@@ -176,7 +176,7 @@ void compress(Indigo::TaskManager* task_manager, TempData& temp_data, size_t src
 	}
 	else
 	{
-		std::vector<Reference<Indigo::Task> >& compress_tasks = temp_data.compress_tasks;
+		std::vector<Reference<glare::Task> >& compress_tasks = temp_data.compress_tasks;
 		compress_tasks.resize(myMax<size_t>(1, task_manager->getNumThreads()));
 
 		for(size_t z=0; z<compress_tasks.size(); ++z)

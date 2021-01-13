@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "MyThread.h"
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -49,4 +49,4 @@ private:
 };
 
 
-} // end namespace Indigo 
+} // end namespace glare 

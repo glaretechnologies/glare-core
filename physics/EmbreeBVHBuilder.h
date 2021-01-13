@@ -15,7 +15,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/IndigoAtomic.h"
 #include <vector>
 namespace js { class AABBox; }
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class PrintOutput;
 class RayMeshTriangle;
 namespace EmbreeGlare {
@@ -60,7 +60,7 @@ public:
 	~EmbreeBVHBuilder();
 
 	void doBuild(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output,
 		js::Vector<ResultInteriorNode, 64>& result_nodes_out

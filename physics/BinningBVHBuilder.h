@@ -16,7 +16,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/IndigoAtomic.h"
 #include <vector>
 namespace js { class AABBox; }
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class PrintOutput;
 
 
@@ -109,7 +109,7 @@ public:
 
 	// Throws Indigo::CancelledException if cancelled.
 	virtual void build(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -151,7 +151,7 @@ private:
 	std::vector<BinningResultChunk*> result_chunks;
 	Mutex result_chunks_mutex;
 
-	Indigo::TaskManager* task_manager;
+	glare::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
 	int max_depth;

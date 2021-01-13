@@ -29,7 +29,7 @@ void BVHObjectTreeTests::test()
 #if 0
 	{
 		StandardPrintOutput print_output;
-		Indigo::TaskManager task_manager;
+		glare::TaskManager task_manager;
 		DummyShouldCancelCallback should_cancel_callback;
 
 		Reference<Material> mat = PathTracerTests::createSimpleDiffuseMatWithAlbedo(0.6f);

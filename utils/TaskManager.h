@@ -19,7 +19,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <string>
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -197,4 +197,4 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 }
 
 
-} // end namespace Indigo 
+} // end namespace glare 

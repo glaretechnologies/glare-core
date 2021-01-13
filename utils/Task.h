@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <stdlib.h>
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -37,6 +37,4 @@ private:
 typedef Reference<Task> TaskRef;
 
 
-} // end namespace Indigo 
-
-
+} // end namespace glare 

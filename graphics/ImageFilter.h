@@ -17,7 +17,7 @@ Code By Nicholas Chapman.
 class Image;
 class Image4f;
 class FFTPlan;
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 
 
 /*=====================================================================
@@ -38,21 +38,21 @@ public:
 	~ImageFilter();
 
 
-	static void resizeImage(const Image& in, Image& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager);
-	static void resizeImage(const Image4f& in, Image4f& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager);
+	static void resizeImage(const Image& in, Image& out, float pixel_enlargement_factor, float mn_b, float mn_c, glare::TaskManager& task_manager);
+	static void resizeImage(const Image4f& in, Image4f& out, float pixel_enlargement_factor, float mn_b, float mn_c, glare::TaskManager& task_manager);
 
 	// in and out must have the same number of components (N) and we require N >= 1 and N <= 4
-	static void resizeImage(const ImageMapFloat& in, ImageMapFloat& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager);
+	static void resizeImage(const ImageMapFloat& in, ImageMapFloat& out, float pixel_enlargement_factor, float mn_b, float mn_c, glare::TaskManager& task_manager);
 
 	//adds the image in, convolved by a Chiu filter, to out.
 	//static void chiuFilter(const Image& in, Image& out, float standard_deviation, bool include_center);
 
-	static void chromaticAberration(const Image& in, Image& out, float amount, Indigo::TaskManager& task_manager);
+	static void chromaticAberration(const Image& in, Image& out, float amount, glare::TaskManager& task_manager);
 
 	//static void glareFilter(const Image& in, Image& out, int num_blades, float standard_deviation);
 
-	static void lowResConvolve(const Image& in, const Image& filter_low, int ssf, Image& out, Indigo::TaskManager& task_manager);
-	static void lowResConvolve(const Image4f& in, const Image& filter_low, int ssf, Image4f& out, Indigo::TaskManager& task_manager);
+	static void lowResConvolve(const Image& in, const Image& filter_low, int ssf, Image& out, glare::TaskManager& task_manager);
+	static void lowResConvolve(const Image4f& in, const Image& filter_low, int ssf, Image4f& out, glare::TaskManager& task_manager);
 
 	// Chooses convolution technique depending on filter size etc..
 	static void convolveImage(const Image& in, const Image& filter, Image& out, FFTPlan& plan); // throws Indigo::Exception on out of mem.

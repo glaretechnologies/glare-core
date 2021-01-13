@@ -135,7 +135,7 @@ public:
 
 
 // Construct builder.objects[axis], along the given axis
-class ConstructAxisObjectsTask : public Indigo::Task
+class ConstructAxisObjectsTask : public glare::Task
 {
 public:
 	ConstructAxisObjectsTask(NonBinningBVHBuilder& builder_, int num_objects_, int axis_, js::Vector<CenterItem, 16>* axis_centres_) : builder(builder_), num_objects(num_objects_), axis(axis_), axis_centres(axis_centres_) {}
@@ -175,7 +175,7 @@ which is added to the global result_chunks list.
 
 May spawn new BuildSubtreeTasks.
 */
-class BuildSubtreeTask : public Indigo::Task
+class BuildSubtreeTask : public glare::Task
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -235,7 +235,7 @@ struct ResultChunkPred
 
 // top-level build method
 void NonBinningBVHBuilder::build(
-		   Indigo::TaskManager& task_manager_,
+		   glare::TaskManager& task_manager_,
 		   ShouldCancelCallback& should_cancel_callback_,
 		   //const js::AABBox* aabbs_,
 		  // const int num_objects,
@@ -278,7 +278,7 @@ void NonBinningBVHBuilder::build(
 	if(num_objects >= axis_parallel_num_ob_threshold)
 	{
 		delete local_task_manager;
-		local_task_manager = new Indigo::TaskManager("NonBinningBVHBuilder local task manager", 3);
+		local_task_manager = new glare::TaskManager("NonBinningBVHBuilder local task manager", 3);
 	}
 
 
@@ -741,7 +741,7 @@ static void searchAxisForBestSplit(const js::AABBox& aabb, const js::Vector<Ob, 
 
 
 // Search along a given axis for the best split location, according to the SAH.
-class BestSplitSearchTask : public Indigo::Task
+class BestSplitSearchTask : public glare::Task
 {
 public:
 	BestSplitSearchTask(NonBinningBVHBuilder& builder_) : builder(builder_) {}
@@ -818,7 +818,7 @@ static inline void partitionAxes(const js::Vector<Ob, 64>* cur_objects, js::Vect
 
 // Partition the object list for the given axis ('axis').
 // This needs to be a stable partition. (preserve ordering)
-class PartitionTask : public Indigo::Task
+class PartitionTask : public glare::Task
 {
 public:
 	PartitionTask(NonBinningBVHBuilder& builder_) : builder(builder_) {}

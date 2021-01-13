@@ -22,7 +22,7 @@ struct OIDNFilterImpl;
 typedef struct OIDNFilterImpl* OIDNFilter;
 struct OIDNDeviceImpl;
 typedef struct OIDNDeviceImpl* OIDNDevice;
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 namespace Indigo { class Task; }
 class MasterBufferCompleteLock;
 class ShouldCancelCallback;
@@ -38,9 +38,9 @@ struct RunPipelineScratchState
 	RunPipelineScratchState();
 	~RunPipelineScratchState();
 
-	std::vector<Reference<Indigo::Task> > image_pipeline_tasks; // These should only actually have type ImagePipelineTask.
-	std::vector<Reference<Indigo::Task> > sum_buffer_tasks; // These should only actually have type SumBuffersTask.
-	std::vector<Reference<Indigo::Task> > tonemap_tasks; // These should only actually have type ToneMapTask.
+	std::vector<Reference<glare::Task> > image_pipeline_tasks; // These should only actually have type ImagePipelineTask.
+	std::vector<Reference<glare::Task> > sum_buffer_tasks; // These should only actually have type SumBuffersTask.
+	std::vector<Reference<glare::Task> > tonemap_tasks; // These should only actually have type ToneMapTask.
 	std::vector<Image4f> per_thread_tile_buffers;
 	std::vector<ImageMapFloatRef> per_thread_spectral_tile_buffers;
 	Image4f temp_summed_buffer;
@@ -106,7 +106,7 @@ void runPipeline(
 	bool& output_is_nonlinear, // Is ldr_buffer_out in a non-linear space?
 	bool input_in_XYZ_colourspace, // Are the input layers in XYZ colour space?  If so, an XYZ -> sRGB conversion is done.
 	size_t margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	size_t subres_factor = 1, // Number of times smaller resolution we will do the realtime rendering at.
 	bool do_tonemapping = true, // Should we actually tone-map?  Can be set to false for saving untonemapped EXRs.
 	bool allow_denoising = false, // Should we run the denoiser, if appropriate?
@@ -120,7 +120,7 @@ struct ToNonLinearSpaceScratchState
 {
 	ToNonLinearSpaceScratchState();
 	~ToNonLinearSpaceScratchState();
-	std::vector<Reference<Indigo::Task> > tasks; // These should only actually have type ToNonLinearSpaceTask.
+	std::vector<Reference<glare::Task> > tasks; // These should only actually have type ToNonLinearSpaceTask.
 };
 
 
@@ -136,7 +136,7 @@ A lock on uint8_buffer_out is expected to be held by the calling thread if uint8
 uint8_buffer_out will be resized to the same size as ldr_buffer_in_out.
 */
 void toNonLinearSpace(
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	ToNonLinearSpaceScratchState& scratch_state,
 	bool shadow_pass,
 	bool dithering,

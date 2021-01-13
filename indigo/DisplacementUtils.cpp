@@ -273,7 +273,7 @@ struct QuadInfo
 
 // Build the data structures we will use to do the subdivision.
 void DisplacementUtils::initAndBuildAdjacencyInfo(const std::string& mesh_name,
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	PrintOutput& print_output,
 	const RayMesh::TriangleVectorType& triangles_in, 
 	const RayMesh::QuadVectorType& quads_in,
@@ -830,7 +830,7 @@ done:
 
 bool DisplacementUtils::subdivideAndDisplace(
 	const std::string& mesh_name,
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	PrintOutput& print_output,
 	const ArrayRef<Reference<Material> >& materials,
 	RayMesh::TriangleVectorType& triangles_in_out, 
@@ -1089,7 +1089,7 @@ struct RayMeshDisplaceTaskClosure
 
 
 // Compute displacement for each vertex.  Writes displacement values to closure.displacements_out
-class ComputeDisplaceTask : public Indigo::Task
+class ComputeDisplaceTask : public glare::Task
 {
 public:
 	ComputeDisplaceTask(const RayMeshDisplaceTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -1183,7 +1183,7 @@ struct VertDisplacement
 // Displace all vertices - updates verts_in_out.pos
 void DisplacementUtils::doDisplacementOnly(
 		const std::string& mesh_name,
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		PrintOutput& print_output,
 		const ArrayRef<Reference<Material> >& materials,
 		const RayMesh::TriangleVectorType& tris_in,
@@ -1370,7 +1370,7 @@ struct EvalVertDisplaceMentTaskClosure
 
 // Evaluate the displacement at each vertex.
 // Sets verts_out.displacement.
-class EvalVertDisplaceMentTask : public Indigo::Task
+class EvalVertDisplaceMentTask : public glare::Task
 {
 public:
 	EvalVertDisplaceMentTask(const EvalVertDisplaceMentTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -1441,7 +1441,7 @@ struct EvalQuadNormalsTaskClosure
 };
 
 
-class EvalQuadNormalsTask : public Indigo::Task
+class EvalQuadNormalsTask : public glare::Task
 {
 public:
 	EvalQuadNormalsTask(const EvalQuadNormalsTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -1500,7 +1500,7 @@ struct EvalTopologicalVertNormalsAndDisplacementTaskClosure
 
 
 // Updates verts_out.normal, verts_out.H (if closure.compute_H is true), closure.result_vert_displacements.
-class EvalTopologicalVertNormalsAndDisplacementTask : public Indigo::Task
+class EvalTopologicalVertNormalsAndDisplacementTask : public glare::Task
 {
 public:
 	EvalTopologicalVertNormalsAndDisplacementTask(const EvalTopologicalVertNormalsAndDisplacementTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -1627,7 +1627,7 @@ public:
 // The displacement vector magnitude we will take as the minimum of all displacement magnitudes of vertices at that position.
 //
 // See for example subdivision_with_smoothing_cube_gap_test_constant_displacement.igs, subdivision_cube_gap_spike_displacement_test.igs
-void DisplacementUtils::displace(Indigo::TaskManager& task_manager,
+void DisplacementUtils::displace(glare::TaskManager& task_manager,
 								 const ArrayRef<Reference<Material> >& materials,
 								 const DUQuadVector& quads,
 								 const DUVertexVector& verts_in,
@@ -1870,7 +1870,7 @@ struct BuildSubdividingPrimitiveTaskClosure
 				(curvature >= curvature_threshold OR 
 				displacement_error >= displacement_error_threshold)
 */
-class BuildSubdividingQuadTask : public Indigo::Task
+class BuildSubdividingQuadTask : public glare::Task
 {
 public:
 	BuildSubdividingQuadTask(const BuildSubdividingPrimitiveTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -2064,7 +2064,7 @@ struct ProcessQuadsTaskClosure
 
 // Do processing for quads and vertices that can be done in parallel, after the subdivision has been done.
 // * Set updated vertex positions and UVs
-class ProcessQuadsTask : public Indigo::Task
+class ProcessQuadsTask : public glare::Task
 {
 public:
 	ProcessQuadsTask(const ProcessQuadsTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -2428,7 +2428,7 @@ public:
 
 
 void DisplacementUtils::linearSubdivision(
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	PrintOutput& print_output,
 	const ArrayRef<Reference<Material> >& materials,
 	Polygons& polygons_in,
@@ -3139,7 +3139,7 @@ static const Vec3f curve(const Vec3f& k1, const Vec3f& k2, const Vec3f& d1, cons
 
 
 void DisplacementUtils::splineSubdiv(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		PrintOutput& print_output,
 		Polygons& polygons_in,
 		const VertsAndUVs& verts_and_uvs_in,

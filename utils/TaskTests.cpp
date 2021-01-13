@@ -20,7 +20,7 @@ Generated at 2011-10-05 22:32:02 +0100
 #include "../utils/Timer.h"
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -93,7 +93,7 @@ public:
 };
 
 
-class ForLoopTask : public Indigo::Task
+class ForLoopTask : public glare::Task
 {
 public:
 	ForLoopTask(const ForLoopTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin(begin_), end(end_) {}
@@ -114,7 +114,7 @@ public:
 
 
 // Variant that has set() method.
-class ForLoopTask2 : public Indigo::Task
+class ForLoopTask2 : public glare::Task
 {
 public:
 	void set(const ForLoopTaskClosure* closure_, size_t begin_, size_t end_)
@@ -139,7 +139,7 @@ public:
 };
 
 
-class ForLoopTaskInterleaved : public Indigo::Task
+class ForLoopTaskInterleaved : public glare::Task
 {
 public:
 	ForLoopTaskInterleaved(const ForLoopTaskClosure& closure_, size_t begin_, size_t end_, size_t stride_) : closure(closure_), begin(begin_), end(end_), stride(stride_) {}
@@ -420,7 +420,7 @@ void TaskTests::test()
 		TaskManager m; // auto-pick num threads
 		IndigoAtomic exec_counter = 0;
 
-		std::vector<Reference<Indigo::Task> > tasks;
+		std::vector<Reference<glare::Task> > tasks;
 		for(int i=0; i<10; ++i)
 			tasks.push_back(new TestTask(exec_counter));
 
@@ -433,7 +433,7 @@ void TaskTests::test()
 		TaskManager m; // auto-pick num threads
 		IndigoAtomic exec_counter = 0;
 
-		std::vector<Reference<Indigo::Task> > tasks;
+		std::vector<Reference<glare::Task> > tasks;
 		for(int i=0; i<10; ++i)
 			tasks.push_back(new TestTask(exec_counter));
 
@@ -528,7 +528,7 @@ void TaskTests::test()
 }
 
 
-} // end namespace Indigo 
+} // end namespace glare 
 
 
 #endif // BUILD_TESTS

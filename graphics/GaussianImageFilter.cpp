@@ -26,7 +26,7 @@ struct GaussianImageFilterTaskClosure
 };
 
 
-class XBlurTask : public Indigo::Task
+class XBlurTask : public glare::Task
 {
 public:
 	XBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -68,7 +68,7 @@ public:
 };
 
 
-class YBlurTask : public Indigo::Task
+class YBlurTask : public glare::Task
 {
 public:
 	YBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -111,7 +111,7 @@ public:
 };
 
 
-void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float standard_deviation, Indigo::TaskManager& task_manager)
+void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float standard_deviation, glare::TaskManager& task_manager)
 {
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
 
@@ -189,7 +189,7 @@ struct GaussianImageFilterTaskClosure
 };
 
 
-class XBlurTask : public Indigo::Task
+class XBlurTask : public glare::Task
 {
 public:
 	XBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -231,7 +231,7 @@ public:
 };
 
 
-class YBlurTask : public Indigo::Task
+class YBlurTask : public glare::Task
 {
 public:
 	YBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -274,7 +274,7 @@ public:
 };
 
 
-void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float standard_deviation, Indigo::TaskManager& task_manager)
+void GaussianImageFilter::gaussianFilter(const Image& in, Image& out, float standard_deviation, glare::TaskManager& task_manager)
 {
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
 
@@ -355,7 +355,7 @@ struct GaussianImageFilterTaskClosure
 };
 
 
-class XBlurTask : public Indigo::Task
+class XBlurTask : public glare::Task
 {
 public:
 	XBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -397,7 +397,7 @@ public:
 };
 
 
-class YBlurTask : public Indigo::Task
+class YBlurTask : public glare::Task
 {
 public:
 	YBlurTask(const GaussianImageFilterTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -440,7 +440,7 @@ public:
 };
 
 
-void GaussianImageFilter::gaussianFilter(const ImageMapFloat& in, ImageMapFloat& out, float standard_deviation, Indigo::TaskManager& task_manager)
+void GaussianImageFilter::gaussianFilter(const ImageMapFloat& in, ImageMapFloat& out, float standard_deviation, glare::TaskManager& task_manager)
 {
 	assert(in.getN() == 1 && out.getN() == 1);
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
@@ -528,7 +528,7 @@ void GaussianImageFilter::test()
 		//Reference<Image> im = map->convertToImage();
 
 		// Gaussian blur it
-		Indigo::TaskManager task_manager;
+		glare::TaskManager task_manager;
 
 		Timer timer;
 

@@ -59,7 +59,7 @@ public:
 	SmallBVH(const RayMesh* const raymesh);
 	virtual ~SmallBVH();
 
-	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, Indigo::TaskManager& task_manager); // throws Indigo::Exception
+	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, glare::TaskManager& task_manager); // throws Indigo::Exception
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
 	virtual const js::AABBox& getAABBox() const;

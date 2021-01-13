@@ -73,7 +73,7 @@ void RayMeshTests::test()
 	EmbreeDeviceHandle embree_device(rtcNewDevice("frequency_level=simd128"));
 	build_options.embree_device = embree_device.ptr();
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 

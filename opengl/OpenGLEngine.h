@@ -33,7 +33,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/StringUtils.h"
 #include <unordered_set>
 namespace Indigo { class Mesh; }
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class Map2D;
 class TextureServer;
 class UInt8ComponentValueTraits;
@@ -550,7 +550,7 @@ private:
 	
 	OpenGLProgramRef getPhongProgramWithFallbackOnError(const PhongKey& key); // On shader compilation failure, just returns a default phong program.
 
-	Indigo::TaskManager& getTaskManager();
+	glare::TaskManager& getTaskManager();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -662,7 +662,7 @@ private:
 	int target_frame_buffer_h;
 
 	mutable Mutex task_manager_mutex;
-	Indigo::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
+	glare::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
 public:
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;

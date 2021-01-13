@@ -177,7 +177,7 @@ Takes an ImageMapUInt8, converts it to a compressed DXTImageMap.
 Then iterates over and decodes the pixels in the DXTImageMap and checks the decoded values are within the error tolerance
 from the original map.
 */
-static void checkCompressionOnImage(Indigo::TaskManager& task_manager, const ImageMapUInt8& image_map, int allowed_error)
+static void checkCompressionOnImage(glare::TaskManager& task_manager, const ImageMapUInt8& image_map, int allowed_error)
 {
 	const size_t W = image_map.getWidth();
 	const size_t H = image_map.getHeight();
@@ -238,7 +238,7 @@ static void checkCompressionOnImage(Indigo::TaskManager& task_manager, const Ima
 }
 
 
-static void doCheckCompressionWithConstantColour(Indigo::TaskManager& task_manager, const Vec4i& rgba, int W, int H, int N, int allowed_error)
+static void doCheckCompressionWithConstantColour(glare::TaskManager& task_manager, const Vec4i& rgba, int W, int H, int N, int allowed_error)
 {
 	ImageMapUInt8 image_map(W, H, N);
 	for(int x=0; x<W; ++x)
@@ -257,7 +257,7 @@ static void doCheckCompressionWithConstantColour(Indigo::TaskManager& task_manag
 }
 
 
-static void checkCompressionWithConstantColour(Indigo::TaskManager& task_manager, const Vec4i& rgba, int W, int H, int allowed_error)
+static void checkCompressionWithConstantColour(glare::TaskManager& task_manager, const Vec4i& rgba, int W, int H, int allowed_error)
 {
 	doCheckCompressionWithConstantColour(task_manager, rgba, W, H, /*N=*/3, allowed_error);
 	doCheckCompressionWithConstantColour(task_manager, rgba, W, H, /*N=*/4, allowed_error);
@@ -268,7 +268,7 @@ void DXTImageMapTests::test()
 {
 	conPrint("DXTImageMapTests::test()");
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	try
 	{

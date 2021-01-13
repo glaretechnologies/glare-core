@@ -34,7 +34,7 @@ BVH::~BVH()
 
 
 // Throws Indigo::CancelledException if cancelled.
-void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, Indigo::TaskManager& task_manager)
+void BVH::build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, glare::TaskManager& task_manager)
 {
 	Timer timer;
 
@@ -755,7 +755,7 @@ static void testTracingRays(js::BVH& bvh, const RayMesh& raymesh)
 
 static void testOnAllIGMeshes(bool comprehensive_tests)
 {
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
 
@@ -798,7 +798,7 @@ void js::BVH::test(bool comprehensive_tests)
 
 	if(false) // Perf test
 	{
-		Indigo::TaskManager task_manager;
+		glare::TaskManager task_manager;
 		StandardPrintOutput print_output;
 		DummyShouldCancelCallback should_cancel_callback;
 

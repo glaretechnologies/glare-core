@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2019 -
 #include "Colour4f.h"
 #include "ImageMap.h"
 #include "../utils/AllocatorVector.h"
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class Image;
 
 
@@ -75,11 +75,11 @@ public:
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
 
-	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const;
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const;
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const;
 
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
 
 	virtual size_t getBytesPerPixel() const;
 
@@ -92,7 +92,7 @@ public:
 
 	inline size_t numBlocksX() const { return num_blocks_x; }
 	
-	static Reference<DXTImageMap> compressImageMap(Indigo::TaskManager& task_manager, const ImageMapUInt8& map);
+	static Reference<DXTImageMap> compressImageMap(glare::TaskManager& task_manager, const ImageMapUInt8& map);
 
 	const uint64* getData() const { return data.data(); }
 

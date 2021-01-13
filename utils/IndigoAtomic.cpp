@@ -17,7 +17,7 @@ Generated at Wed Nov 17 12:56:10 +1300 2010
 #include "../utils/TaskManager.h"
 
 
-class IncrementTask : public Indigo::Task
+class IncrementTask : public glare::Task
 {
 public:
 	IncrementTask(IndigoAtomic* atomic_i_) : atomic_i(atomic_i_) {}
@@ -114,7 +114,7 @@ void IndigoAtomic::test()
 	// Test concurrent incrementing by multiple threads.
 	{
 		IndigoAtomic atomic_i;
-		Indigo::TaskManager m;
+		glare::TaskManager m;
 		for(int i=0; i<8; ++i)
 			m.addTask(new IncrementTask(&atomic_i));
 		m.waitForTasksToComplete();

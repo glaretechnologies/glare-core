@@ -111,7 +111,7 @@ static void testResizeMidQualityNonSpectral(int new_w, int new_h)
 	ImageMapFloat map(100, 100, 3);
 	map.set(0.12345f);
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, task_manager);
 
@@ -143,7 +143,7 @@ static void testResizeMidQualitySpectral(int new_w, int new_h)
 			for(int c=0; c<N; ++c)
 				map.getPixel(x, y)[c] = 0.12345f * c;
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, task_manager);
 

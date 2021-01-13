@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "Task.h"
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -22,6 +22,6 @@ Task::~Task()
 }
 
 
-} // end namespace Indigo 
+} // end namespace glare 
 
 

@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "ConPrint.h"
 
 
-namespace Indigo
+namespace glare
 {
 
 
@@ -198,4 +198,4 @@ const std::string& TaskManager::getName() // called by TaskRunnerThread
 }
 
 
-} // end namespace Indigo 
+} // end namespace glare 

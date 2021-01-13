@@ -49,7 +49,7 @@ void TreeTest::testBuildCorrect()
 {
 	conPrint("TreeTest::testBuildCorrect()");
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	{
 	RayMesh raymesh("raymesh", false);
@@ -290,7 +290,7 @@ static void testSelfIntersectionAvoidance()
 	// We will construct a scene with two quads coplanar to the y-z plane, one at x=0, and the other at x=1.
 
 	StandardPrintOutput print_output;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	RayMesh raymesh("testmesh", false);
 	const unsigned int uv_indices[] = {0, 0, 0};
@@ -400,7 +400,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	//------------------------------------------------------------------------
 	//Init KD-tree, BVH and Embree accel
@@ -623,7 +623,7 @@ static void doEdgeCaseTests()
 void TreeTest::doVaryingNumtrisBuildTests()
 {
 	PCG32 rng(1);
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	unsigned int num_tris = 1;
 	for(unsigned int i=0; i<21; ++i)
@@ -690,7 +690,7 @@ void TreeTest::doSpeedTest(int treetype)
 
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 
 	Timer buildtimer;
@@ -810,7 +810,7 @@ void TreeTest::buildSpeedTest()
 {
 	conPrint("TreeTest::buildSpeedTest()");
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 
 	RayMesh raymesh("raymesh", false);
@@ -873,7 +873,7 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	PCG32 rng(1);
 
 	BVH bvh(&raymesh);
@@ -1048,7 +1048,7 @@ void TreeTest::doSphereTracingTests(const std::string& appdata_path)
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	
 
 	{
@@ -1123,7 +1123,7 @@ static void testAppendCollPoints(RayMesh& raymesh)
 {
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	PCG32 rng(1);
 
 	BVH bvh(&raymesh);
@@ -1203,7 +1203,7 @@ void TreeTest::doAppendCollPointsTests(const std::string& appdata_path)
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	PCG32 rng(1);
 
 	//------------------------------------------------------------------------
@@ -1252,7 +1252,7 @@ void TreeTest::doTests(const std::string& appdata_path)
 	Geometry::BuildOptions options;
 	StandardPrintOutput print_output;
 	DummyShouldCancelCallback should_cancel_callback;
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	PCG32 rng(2);
 
 	///////////////////////////////////////

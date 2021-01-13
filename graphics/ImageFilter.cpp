@@ -67,7 +67,7 @@ struct ResizeImageTaskClosure
 
 
 template <class ImageType>
-class ResizeImageTask : public Indigo::Task
+class ResizeImageTask : public glare::Task
 {
 public:
 	ResizeImageTask(const ResizeImageTaskClosure<ImageType>& closure_, size_t begin_, size_t end_, size_t stride_) : closure(closure_), begin((int)begin_), end((int)end_), stride((int)stride_) {}
@@ -169,7 +169,7 @@ public:
 
 
 template <class ImageType>
-static inline void doResizeImage(const ImageType& in, ImageType& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+static inline void doResizeImage(const ImageType& in, ImageType& out, float pixel_enlargement_factor, float mn_b, float mn_c, glare::TaskManager& task_manager)
 {
 	assert(mn_b >= 0 && mn_b <= 1);
 	assert(mn_c >= 0 && mn_c <= 1);
@@ -324,13 +324,13 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 ///==================================================================================================================
 
 
-void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+void ImageFilter::resizeImage(const Image& in, Image& out, float pixel_enlargement_factor, float mn_b, float mn_c, glare::TaskManager& task_manager)
 {
 	doResizeImage<Image>(in, out, pixel_enlargement_factor, mn_b, mn_c, task_manager);
 }
 
 
-void ImageFilter::resizeImage(const Image4f& in, Image4f& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+void ImageFilter::resizeImage(const Image4f& in, Image4f& out, float pixel_enlargement_factor, float mn_b, float mn_c, glare::TaskManager& task_manager)
 {
 	doResizeImage<Image4f>(in, out, pixel_enlargement_factor, mn_b, mn_c, task_manager);
 }
@@ -352,7 +352,7 @@ struct ResizeImageMapFloatTaskClosure
 
 
 template <int N>
-class ResizeImageMapFloatTask : public Indigo::Task
+class ResizeImageMapFloatTask : public glare::Task
 {
 public:
 	ResizeImageMapFloatTask(const ResizeImageMapFloatTaskClosure& closure_, size_t begin_, size_t end_, size_t stride_) : closure(closure_), begin((int)begin_), end((int)end_), stride((int)stride_) {}
@@ -444,7 +444,7 @@ public:
 };
 
 
-void ImageFilter::resizeImage(const ImageMapFloat& in, ImageMapFloat& out, float pixel_enlargement_factor, float mn_b, float mn_c, Indigo::TaskManager& task_manager)
+void ImageFilter::resizeImage(const ImageMapFloat& in, ImageMapFloat& out, float pixel_enlargement_factor, float mn_b, float mn_c, glare::TaskManager& task_manager)
 {
 	assert(mn_b >= 0 && mn_b <= 1);
 	assert(mn_c >= 0 && mn_c <= 1);
@@ -594,7 +594,7 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 ///==================================================================================================================
 
 
-void ImageFilter::chromaticAberration(const Image& in, Image& out, float amount, Indigo::TaskManager& task_manager)
+void ImageFilter::chromaticAberration(const Image& in, Image& out, float amount, glare::TaskManager& task_manager)
 {
 	assert(in.getHeight() == out.getHeight() && in.getWidth() == out.getWidth());
 
@@ -720,7 +720,7 @@ static void printImageStats(const Image& image, const std::string& name)
 #endif
 
 
-void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int ssf, Image4f& out, Indigo::TaskManager& task_manager)
+void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int ssf, Image4f& out, glare::TaskManager& task_manager)
 {
 		const bool debug_output = false;
 		const bool verbose = false;
@@ -790,7 +790,7 @@ void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int
 
 
 		//NEW: blur diff_low
-		/*Indigo::TaskManager task_manager;
+		/*glare::TaskManager task_manager;
 		Image blurred_diff_low(diff_low.getWidth(), diff_low.getHeight());
 		GaussianImageFilter::gaussianFilter(diff_low, blurred_diff_low, 
 			6.0f, // std dev
@@ -827,7 +827,7 @@ void ImageFilter::lowResConvolve(const Image4f& in, const Image& filter_low, int
 		writeImage(pos_diff, "pos_diff.exr");*/
 
 	// TEMP: Blur diff
-	/*Indigo::TaskManager task_manager;
+	/*glare::TaskManager task_manager;
 	Image blurred_diff(diff.getWidth(), diff.getHeight());
 	GaussianImageFilter::gaussianFilter(
 		pos_diff, 
@@ -2323,7 +2323,7 @@ static void performanceTestFT(int in_w, int in_h)
 }
 
 
-static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargement_factor, const std::string& name, Indigo::TaskManager& task_manager)
+static void testResizeImageWithScale(Reference<Image> im, float pixel_enlargement_factor, const std::string& name, glare::TaskManager& task_manager)
 {
 	printVar(pixel_enlargement_factor);
 
@@ -2366,7 +2366,7 @@ static void testResizeImage(const std::string& indigo_base_dir)
 	try
 	{
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	// Test resizing image with white dot in center
 	{
@@ -2512,7 +2512,7 @@ static void testLowResConvolve()
 
 	Image out;
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	ImageFilter::lowResConvolve(*in, *filter, 
 		1, // ssf
@@ -2579,7 +2579,7 @@ void ImageFilter::test()
 
 		Image resized(im.getWidth() * 2, im.getWidth() * 2);
 
-		Indigo::TaskManager task_manager;
+		glare::TaskManager task_manager;
 		ImageFilter::resizeImage(im, resized, 2.f,
 			0.6f, // mn b
 			0.2f, // mn c
@@ -2626,7 +2626,7 @@ void ImageFilter::test()
 	const std::string name = "colourchecker";
 	const float scale = 482.f / im->getWidth();
 
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 	testResizeImageWithScale(im, scale, name, task_manager);
 
 	exit(0);*/

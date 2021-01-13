@@ -250,7 +250,7 @@ stack_pop:
 
 
 // Throws Indigo::CancelledException if cancelled.
-void BVHObjectTree::build(Indigo::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output)
+void BVHObjectTree::build(glare::TaskManager& task_manager, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output)
 {
 	// conPrint("BVHObjectTree::build");
 	Timer timer;

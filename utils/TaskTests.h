@@ -7,7 +7,7 @@ Generated at 2011-10-05 22:32:02 +0100
 #pragma once
 
 
-namespace Indigo
+namespace glare
 {
 
 

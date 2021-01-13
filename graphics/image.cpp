@@ -662,7 +662,7 @@ Reference<ImageMap<float, FloatComponentValueTraits> > Image::extractChannelZero
 #if MAP2D_FILTERING_SUPPORT
 
 
-Reference<Map2D> Image::getBlurredLinearGreyScaleImage(Indigo::TaskManager& task_manager) const
+Reference<Map2D> Image::getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const
 {
 	// Blur the image
 
@@ -720,7 +720,7 @@ Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is
 }
 
 
-Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_height, Indigo::TaskManager& task_manager) const
+Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const
 {
 	assert(0);
 	return NULL;

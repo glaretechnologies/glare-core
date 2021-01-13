@@ -233,7 +233,7 @@ struct SumBuffersTaskClosure
 };
 
 
-class SumBuffersTask : public Indigo::Task
+class SumBuffersTask : public glare::Task
 {
 public:
 	void set(const SumBuffersTaskClosure* closure, size_t begin_y_, size_t end_y_)
@@ -364,7 +364,7 @@ void sumLightLayers(
 	float region_alpha_bias,
 	bool use_alpha_channel,
 	Image4f& summed_buffer_out, 
-	Indigo::TaskManager& task_manager
+	glare::TaskManager& task_manager
 ) 
 {
 	summed_buffer_out.resizeNoCopy(render_channels.getWidth(), render_channels.getHeight());
@@ -390,7 +390,7 @@ struct ToneMapTaskClosure
 };
 
 
-class ToneMapTask : public Indigo::Task
+class ToneMapTask : public glare::Task
 {
 public:
 	void set(const ToneMapTaskClosure* closure, size_t begin_, size_t end_)
@@ -546,7 +546,7 @@ void runPipelineFullBuffer(
 	Image4f& ldr_buffer_out,
 	bool input_in_XYZ_colourspace,
 	size_t margin_ssf1, // Margin width (for just one side), in pixels, at ssf 1.  This may be zero for loaded LDR images. (PNGs etc..)
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	const CurveData& curve_data,
 	bool apply_curves,
 	bool do_tonemapping,
@@ -987,7 +987,7 @@ struct ImagePipelineTaskClosure
 
 
 // Tonemap and downsizes (if downsizing is needed) a single image tile.
-class ImagePipelineTask : public Indigo::Task
+class ImagePipelineTask : public glare::Task
 {
 public:
 	void set(const ImagePipelineTaskClosure* closure, size_t begin_, size_t end_)
@@ -1556,7 +1556,7 @@ void runPipeline(
 	bool& output_is_nonlinear,
 	bool input_in_XYZ_colourspace,
 	size_t margin_ssf1,
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	size_t subres_factor,
 	bool do_tonemapping,
 	bool allow_denoising,
@@ -1836,7 +1836,7 @@ Input colour space is linear sRGB.
 Output colour space is non-linear sRGB with the supplied gamma.
 We also assume the output values are not premultiplied alpha.
 */
-class ToNonLinearSpaceTask : public Indigo::Task
+class ToNonLinearSpaceTask : public glare::Task
 {
 public:
 	virtual void run(size_t thread_index)
@@ -1904,7 +1904,7 @@ public:
 
 
 void toNonLinearSpace(
-	Indigo::TaskManager& task_manager,
+	glare::TaskManager& task_manager,
 	ToNonLinearSpaceScratchState& scratch_state,
 	bool shadow_pass,
 	bool dithering,

@@ -14,7 +14,7 @@ File created by ClassTemplate on Thu May 15 20:31:26 2008
 #include "../utils/BitField.h"
 class PrintOutput;
 struct DUScratchInfo;
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 
 
 class DUVertex
@@ -175,7 +175,7 @@ public:
 	// Throws Indigo::CancelledException if cancelled.
 	static bool subdivideAndDisplace(
 		const std::string& mesh_name,
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		PrintOutput& print_output,
 		const ArrayRef<Reference<Material> >& materials,
 		RayMesh::TriangleVectorType& tris_in_out,
@@ -194,7 +194,7 @@ public:
 	// Displace all vertices - updates verts_in_out.pos
 	static void doDisplacementOnly(
 		const std::string& mesh_name,
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		PrintOutput& print_output,
 		const ArrayRef<Reference<Material> >& materials,
 		const RayMesh::TriangleVectorType& tris_in,
@@ -209,7 +209,7 @@ public:
 private:
 	static void initAndBuildAdjacencyInfo(
 		const std::string& mesh_name,
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		PrintOutput& print_output,
 		const RayMesh::TriangleVectorType& triangles_in, 
 		const RayMesh::QuadVectorType& quads_in,
@@ -222,7 +222,7 @@ private:
 
 
 	static void displace(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		const ArrayRef<Reference<Material> >& materials,
 		const DUQuadVector& quads,
 		const DUVertexVector& verts_in,
@@ -235,7 +235,7 @@ private:
 
 
 	static void linearSubdivision(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		PrintOutput& print_output,
 		const ArrayRef<Reference<Material> >& materials,
 		Polygons& polygons_in,
@@ -251,7 +251,7 @@ private:
 
 
 	static void splineSubdiv(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		PrintOutput& print_output,
 		Polygons& polygons_in,
 		const VertsAndUVs& verts_and_uvs_in,

@@ -16,7 +16,7 @@ Copyright Glare Technologies Limited 2017 -
 #include "../utils/BitVector.h"
 #include <vector>
 namespace js { class AABBox; }
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class PrintOutput;
 class RayMeshTriangle;
 
@@ -138,7 +138,7 @@ public:
 	~SBVHBuilder();
 
 	virtual void build(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output, 
 		js::Vector<ResultNode, 64>& result_nodes_out
@@ -188,7 +188,7 @@ private:
 	js::Vector<SBVHLeafResultChunk*, 16> leaf_result_chunks;
 	Mutex leaf_result_chunks_mutex;
 
-	Indigo::TaskManager* task_manager;
+	glare::TaskManager* task_manager;
 	int leaf_num_object_threshold; 
 	int max_num_objects_per_leaf;
 	int max_depth;

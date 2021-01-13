@@ -466,7 +466,7 @@ struct DownsampleImageTaskClosure
 };
 
 
-class DownsampleImageTask : public Indigo::Task
+class DownsampleImageTask : public glare::Task
 {
 public:
 	DownsampleImageTask(const DownsampleImageTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
@@ -532,7 +532,7 @@ public:
 // border width = margin @ ssf1
 void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
 							const ptrdiff_t filter_span, const float * const resize_filter,
-							const Image4f& img_in, Image4f& img_out, Indigo::TaskManager& task_manager)
+							const Image4f& img_in, Image4f& img_out, glare::TaskManager& task_manager)
 {
 	assert(border_width >= 0);						// have padding pixels
 	assert((int)img_in.getWidth()  > border_width * 2);	// have at least one interior pixel in x

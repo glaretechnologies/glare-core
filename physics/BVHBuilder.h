@@ -14,7 +14,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 namespace js { class AABBox; }
-namespace Indigo { class TaskManager; }
+namespace glare { class TaskManager; }
 class PrintOutput;
 class ShouldCancelCallback;
 
@@ -78,7 +78,7 @@ public:
 
 	// Throws Indigo::CancelledException if cancelled.
 	virtual void build(
-		Indigo::TaskManager& task_manager,
+		glare::TaskManager& task_manager,
 		ShouldCancelCallback& should_cancel_callback,
 		PrintOutput& print_output,
 		js::Vector<ResultNode, 64>& result_nodes_out

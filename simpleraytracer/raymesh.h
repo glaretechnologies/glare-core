@@ -182,12 +182,12 @@ public:
 
 	virtual void sampleSurface(const SamplePair& samples, SampleResults& results_out) const;
 
-	virtual bool subdivideAndDisplace(Indigo::TaskManager& task_manager, 
+	virtual bool subdivideAndDisplace(glare::TaskManager& task_manager, 
 		const ArrayRef<Reference<Material> >& materials, const Matrix4f& object_to_camera, double pixel_height_at_dist_one,
 		const std::vector<Planef>& camera_clip_planes, const std::vector<Planef>& section_planes_os, const WorldParams& world_params,
 		PrintOutput& print_output, bool verbose, ShouldCancelCallback* should_cancel_callback);
 
-	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, Indigo::TaskManager& task_manager);
+	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager);
 	virtual RTCSceneTy* getEmbreeScene();
 	virtual const std::string getName() const;
 	virtual float meanCurvature(const HitInfo& hitinfo) const;
@@ -272,7 +272,7 @@ public:
 	size_t getTotalMemUsage() const;
 
 private:
-	void computeShadingNormalsAndMeanCurvature(Indigo::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose);
+	void computeShadingNormalsAndMeanCurvature(glare::TaskManager& task_manager, bool update_shading_normals, PrintOutput& print_output, bool verbose);
 	bool built() const { return tritree != NULL; }
 
 	inline const Vec3f& vertNormal(unsigned int vertindex) const;

@@ -36,7 +36,7 @@ namespace ImagingPipelineTests
 // Test running the imaging pipeline with denoising enabled.
 void doTestWithDenoising(bool do_tonemapping, int ssf)
 {
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	Reference<PostProDiffraction> post_pro_diffraction(NULL); // Don't test post_pro_diffraction currently
 
@@ -150,7 +150,7 @@ void testWithDenoising()
 static void runPipeline(const int W, const int ssf, const RenderChannels& render_channels, Image4f& ldr_image_out, float image_scale, Reference<ToneMapper> tone_mapper,
 	Reference<ImageMapFloat> spectral_image_out = NULL)
 {
-	Indigo::TaskManager task_manager(1);
+	glare::TaskManager task_manager(1);
 
 	const float layer_normalise = image_scale;
 	std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
@@ -235,7 +235,7 @@ static void doSpectralChannelTest(int ssf)
 	const float image_scale = 1.f / value_factor;
 	
 	//---------------------------
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
 
@@ -343,7 +343,7 @@ void test()
 
 		//const int W = 1000;
 		//const int ssf = 1;
-		Indigo::TaskManager task_manager;
+		glare::TaskManager task_manager;
 
 		const float layer_normalise = 0.1f;
 		std::vector<Vec3f> layer_weights(1, Vec3f(1.f)); // No gain	
@@ -437,7 +437,7 @@ void test()
 
 		Image4f ldr_buffer(W, W);
 		const float image_scale = 1.f;
-		Indigo::TaskManager task_manager(1);
+		glare::TaskManager task_manager(1);
 		StandardPrintOutput print_output;
 
 		const float layer_normalise = image_scale;
@@ -677,7 +677,7 @@ void test()
 
 
 	{
-	Indigo::TaskManager task_manager;
+	glare::TaskManager task_manager;
 
 	const int test_res_num = 6;
 	const int test_res[test_res_num] = { 1, 3, 5, 7, 11, 128 };

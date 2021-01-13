@@ -39,8 +39,8 @@ public:
 //	BuildUInt8MapTextureDataScratchState() : task_manager(NULL) {}
 //	~BuildUInt8MapTextureDataScratchState() { delete task_manager; }
 //
-//	//std::vector<Reference<Indigo::Task> > compress_tasks;
-//	Indigo::TaskManager* task_manager;
+//	//std::vector<Reference<glare::Task> > compress_tasks;
+//	glare::TaskManager* task_manager;
 //};
 
 
