@@ -1,8 +1,7 @@
 /*=====================================================================
 TaskManager.cpp
 ---------------
-Copyright Glare Technologies Limited 2020 -
-Generated at 2011-10-05 21:56:22 +0100
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "TaskManager.h"
 

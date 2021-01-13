@@ -1,8 +1,7 @@
 /*=====================================================================
 TaskRunnerThread.cpp
 --------------------
-Copyright Glare Technologies Limited 2020 -
-Generated at 2011-10-05 22:17:09 +0100
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "TaskRunnerThread.h"
 

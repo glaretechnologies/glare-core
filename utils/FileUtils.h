@@ -1,7 +1,7 @@
 /*=====================================================================
 FileUtils.h
 -----------
-Copyright Glare Technologies Limited 2019 - 
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -147,4 +147,4 @@ const std::string convertUTF8ToFStreamPath(const std::string& p);
 void doUnitTests();
 
 
-} //end namespace FileUtils
+} // end namespace FileUtils

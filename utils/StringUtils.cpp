@@ -1,7 +1,7 @@
 /*=====================================================================
 StringUtils.cpp
--------------------
-Copyright Glare Technologies Limited 2018 -
+---------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "StringUtils.h"
 

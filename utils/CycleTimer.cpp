@@ -1,8 +1,7 @@
 /*=====================================================================
 CycleTimer.cpp
 --------------
-File created by ClassTemplate on Mon Jul 18 03:30:45 2005
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "CycleTimer.h"
 

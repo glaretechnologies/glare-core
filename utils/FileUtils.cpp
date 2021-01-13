@@ -1,8 +1,7 @@
 /*=====================================================================
 FileUtils.cpp
 -------------
-File created by ClassTemplate on Sat Mar 01 18:05:09 2003
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "FileUtils.h"
 

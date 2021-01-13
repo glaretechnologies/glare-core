@@ -1,8 +1,7 @@
 /*=====================================================================
 DynamicLib.cpp
 --------------
-Copyright Glare Technologies Limited 2011 -
-Generated at Thu Jan 26 17:08:23 +0000 2012
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "DynamicLib.h"
 

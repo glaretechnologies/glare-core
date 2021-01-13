@@ -1,8 +1,7 @@
 /*=====================================================================
 PlatformUtils.cpp
 -----------------
-Copyright Glare Technologies Limited 2014 -
-File created by ClassTemplate on Mon Jun 06 00:24:52 2005
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "PlatformUtils.h"
 

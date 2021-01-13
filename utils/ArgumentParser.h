@@ -1,8 +1,7 @@
 /*=====================================================================
 ArgumentParser.h
 ----------------
-Copyright Glare Technologies Limited
-File created by ClassTemplate on Sat Nov 03 18:21:05 2007
+Copyright Glare Technologies Limited 2021 - 
 =====================================================================*/
 #pragma once
 

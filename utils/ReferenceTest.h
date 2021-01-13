@@ -1,8 +1,7 @@
 /*=====================================================================
-referencetest.h
+ReferenceTest.h
 ---------------
-File created by ClassTemplate on Tue Aug 28 18:25:25 2007
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

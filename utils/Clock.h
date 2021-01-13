@@ -1,7 +1,7 @@
 /*=====================================================================
 Clock.h
 -------
-Copyright Glare Technologies Limited 2019 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

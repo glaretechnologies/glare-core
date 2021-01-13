@@ -1,7 +1,7 @@
 /*=====================================================================
 Parser.h
 --------
-Copyright Glare Technologies Limited
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

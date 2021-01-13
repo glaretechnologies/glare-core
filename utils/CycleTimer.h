@@ -1,11 +1,9 @@
 /*=====================================================================
 CycleTimer.h
 ------------
-File created by ClassTemplate on Mon Jul 18 03:30:45 2005
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-#ifndef __CYCLETIMER_H_666_
-#define __CYCLETIMER_H_666_
+#pragma once
 
 
 #include "Platform.h"
@@ -114,6 +112,3 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 
 #endif
 }
-
-
-#endif //__CYCLETIMER_H_666_
