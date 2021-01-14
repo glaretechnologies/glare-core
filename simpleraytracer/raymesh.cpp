@@ -1274,7 +1274,7 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 			}
 			else
 			{
-				assert(0);
+				throw glare::Exception("Invalid index type.");
 			}
 
 			// Check the area of the triangle.
