@@ -6,9 +6,9 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
+#include "OpenCLContext.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
-#include "OpenCLContext.h"
 #include <vector>
 
 

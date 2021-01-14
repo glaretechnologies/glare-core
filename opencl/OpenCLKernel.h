@@ -6,12 +6,12 @@ Copyright Glare Technologies Limited 2020 -
 #pragma once
 
 
+#include "OpenCL.h"
+#include "OpenCLProgram.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
-#include "OpenCL.h"
-#include "OpenCLProgram.h"
 class OpenCLBuffer;
 
 

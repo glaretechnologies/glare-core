@@ -7,11 +7,11 @@ Generated at Tue May 15 13:27:16 +0100 2012
 #pragma once
 
 
-#include "../utils/Platform.h"
-#include "../utils/Vector.h"
 #include "OpenCL.h"
 #include "OpenCLContext.h"
 #include "OpenCLCommandQueue.h"
+#include "../utils/Platform.h"
+#include "../utils/Vector.h"
 
 
 /*=====================================================================
