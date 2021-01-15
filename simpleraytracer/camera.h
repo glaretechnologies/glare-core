@@ -26,7 +26,6 @@ class Medium;
 class DiffractionFilter;
 class Distribution2;
 class Aperture;
-class MTwister;
 class FFTPlan;
 class WavelengthSamples;
 struct EmitWinterCodeArgs;

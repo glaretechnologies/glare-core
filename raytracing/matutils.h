@@ -14,7 +14,6 @@ Code By Nicholas Chapman.
 #include "../indigo/object.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
-class MTwister;
 class SpectralVector;
 
 
