@@ -24,7 +24,7 @@ Generated at 2017-05-09 18:51:12 +0100
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Timer.h"
-#include "../utils/EmbreeDeviceHandle.h"
+#include "../physics/EmbreeDeviceHandle.h"
 
 
 void RayMeshTests::test()

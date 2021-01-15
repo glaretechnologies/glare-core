@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "jscol_aabbox.h"
+#include "EmbreeDeviceHandle.h"
 #include "../utils/ShouldCancelCallback.h"
 #include "../utils/Exception.h"
 #include "../utils/Sort.h"
@@ -16,7 +17,6 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Lock.h"
 #include "../utils/Timer.h"
 #include "../utils/ProfilerStore.h"
-#include "../utils/EmbreeDeviceHandle.h"
 
 
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();
