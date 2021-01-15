@@ -19,12 +19,6 @@ Copyright Glare Technologies Limited 2021 -
 
 float stringToFloat(const std::string& s) // throws StringUtilsExcep
 {
-	/*char* end_ptr = NULL;
-	const float ret = (float)strtod(s.c_str(), &end_ptr);
-	if(end_ptr == s.c_str())
-		throw StringUtilsExcep("Failed to convert '" + s + "' to a float.");
-	return ret;*/
-
 	double_conversion::StringToDoubleConverter s2d_converter(
 		double_conversion::StringToDoubleConverter::NO_FLAGS,
 		std::numeric_limits<float>::quiet_NaN(), // empty string value
@@ -43,12 +37,6 @@ float stringToFloat(const std::string& s) // throws StringUtilsExcep
 
 double stringToDouble(const std::string& s) // throws StringUtilsExcep
 {
-	/*char* end_ptr = NULL;
-	const double ret = strtod(s.c_str(), &end_ptr);
-	if(end_ptr == s.c_str())
-		throw StringUtilsExcep("Failed to convert '" + s + "' to a double.");
-	return ret;*/
-
 	double_conversion::StringToDoubleConverter s2d_converter(
 		double_conversion::StringToDoubleConverter::NO_FLAGS,
 		std::numeric_limits<double>::quiet_NaN(), // empty string value
@@ -82,8 +70,6 @@ uint64 stringToUInt64(const std::string& s) // throws StringUtilsExcep
 	uint64 x = 0;
 	uint64 valmul = 1;
 	bool valmul_has_overflowed = false;
-
-	//const uint64 max_uint64 = std::numeric_limits<uint64>::max(); //18446744073709551615LL
 
 	for(int i=(int)s.size() - 1; i >= 0; --i)
 	{

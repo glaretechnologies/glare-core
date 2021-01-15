@@ -1,8 +1,7 @@
 /*=====================================================================
 PrintOutput.h
 -------------
-File created by ClassTemplate on Tue Feb 10 11:32:16 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

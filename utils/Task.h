@@ -18,7 +18,7 @@ namespace glare
 /*=====================================================================
 Task
 ----
-Tests in TaskTests.
+Tests are in TaskTests.
 =====================================================================*/
 class Task : public ::ThreadSafeRefCounted
 {

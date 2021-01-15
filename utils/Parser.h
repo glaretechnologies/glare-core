@@ -24,8 +24,6 @@ public:
 	Parser();
 	Parser(const char* text, size_t textsize);
 
-	~Parser();
-
 	void reset(const char* text, size_t textsize);
 
 	// Returns if character was found.

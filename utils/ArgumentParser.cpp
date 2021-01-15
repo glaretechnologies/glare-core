@@ -6,13 +6,12 @@ Copyright Glare Technologies Limited 2021 -
 #include "ArgumentParser.h"
 
 
-#include "../utils/StringUtils.h"
+#include "StringUtils.h"
 #include <assert.h>
 
 
 ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax_)
-:	//args(args_),
-	syntax(syntax_)
+:	syntax(syntax_)
 {
 	// Parse
 	bool parsed_free_arg = false;
@@ -71,10 +70,12 @@ ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::
 }
 
 
+ArgumentParser::ArgumentParser()
+{}
+
+
 ArgumentParser::~ArgumentParser()
-{
-	
-}
+{}
 
 
 const std::vector<std::string> ArgumentParser::getArgs() const
@@ -94,22 +95,6 @@ const std::vector<std::string> ArgumentParser::getArgs() const
 }
 
 
-/*const std::vector<std::string> ArgumentParser::getArgsWithoutUnnamedAndZerothArg() const
-{
-	std::vector<std::string> res;
-
-	for(std::map<std::string, std::vector<ParsedArg> >::const_iterator i = parsed_args.begin(); i != parsed_args.end(); ++i)
-	{
-		res.push_back((*i).first);
-		for(unsigned int z=0; z<(*i).second.size(); ++z)
-		{
-			res.push_back((*i).second[z].toString());
-		}
-	}
-	return res;
-}*/
-
-
 const std::string ArgumentParser::getArgStringValue(const std::string& name, unsigned int value_index) const
 {
 	if(!isArgPresent(name))
@@ -125,7 +110,8 @@ const std::string ArgumentParser::getArgStringValue(const std::string& name, uns
 
 	return values[value_index].string_val;
 }
-	
+
+
 int ArgumentParser::getArgIntValue(const std::string& name, unsigned int value_index) const
 {
 	if(!isArgPresent(name))
@@ -141,7 +127,8 @@ int ArgumentParser::getArgIntValue(const std::string& name, unsigned int value_i
 
 	return values[value_index].int_val;
 }
-	
+
+
 double ArgumentParser::getArgDoubleValue(const std::string& name, unsigned int value_index) const
 {
 	if(!isArgPresent(name))
@@ -158,11 +145,6 @@ double ArgumentParser::getArgDoubleValue(const std::string& name, unsigned int v
 	return values[value_index].double_val;
 }
 
-
-/*const std::string ArgumentParser::getOriginalArgsAsString() const
-{
-	return StringUtils::join(getOriginalArgs(), " ");
-}*/
 
 const std::string ArgumentParser::getArgsAsString() const
 {
@@ -217,4 +199,3 @@ const std::string ArgumentParser::ParsedArg::toString() const
 		return "ERROR";
 	};
 }
-

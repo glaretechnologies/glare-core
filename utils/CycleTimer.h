@@ -32,14 +32,7 @@ http://www.math.uwaterloo.ca/~jamuir/rdtscpm1.pdf
 class CycleTimer
 {
 public:
-	/*=====================================================================
-	CycleTimer
-	----------
-	
-	=====================================================================*/
 	CycleTimer();
-
-	~CycleTimer();
 
 	typedef int64_t CYCLETIME_TYPE;
 

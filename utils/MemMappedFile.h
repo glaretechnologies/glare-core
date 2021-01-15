@@ -13,8 +13,6 @@ Copyright Glare Technologies Limited 2021 -
 MemMappedFile
 -------------
 Provides read-only access to a file through memory mapping.
-
-See http://cvs.gna.org/cvsweb/radius/src/sys_map.cc?rev=1.2;content-type=text%2Fplain;cvsroot=radius for some MMap code.
 =====================================================================*/
 class MemMappedFile
 {
@@ -37,4 +35,3 @@ private:
 	void* file_data;
 	size_t file_size;
 };
-

@@ -108,9 +108,6 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 {
 #if defined(_WIN32) || defined(_WIN64)
-#if defined(__MINGW32__)
-	return 0; // TEMP HACK
-#else
 	MEMORYSTATUSEX mem_state;
 	mem_state.dwLength = sizeof(mem_state);
 
@@ -118,10 +115,7 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	GlobalMemoryStatusEx(&mem_state);
 	
 	return mem_state.ullTotalPhys;
-#endif
-#else
-
-#ifdef OSX
+#elif defined(OSX)
 	int mib[2];
 	uint64_t memsize;
 	size_t len;
@@ -132,15 +126,13 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	sysctl(mib, 2, &memsize, &len, NULL, 0);
 
 	return memsize;
-#else
+#else // Linux:
 	struct sysinfo info;
 
 	if(sysinfo(&info) != 0)
 		throw PlatformUtilsExcep("sysinfo failed.");
 
 	return info.totalram;
-#endif
-
 #endif
 }
 
@@ -160,16 +152,16 @@ unsigned int PlatformUtils::getNumThreadsInCurrentProcess()
 #if defined(_WIN32)
 	// See http://msdn.microsoft.com/en-us/library/ms686701(v=VS.85).aspx
 
-    const DWORD process_id = GetCurrentProcessId();
+	const DWORD process_id = GetCurrentProcessId();
 
-    const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
 	if(snapshot == INVALID_HANDLE_VALUE)
 		throw PlatformUtilsExcep("CreateToolhelp32Snapshot failed.");
 
-    THREADENTRY32 entry;
-    entry.dwSize = sizeof(THREADENTRY32);
+	THREADENTRY32 entry;
+	entry.dwSize = sizeof(THREADENTRY32);
 
-    BOOL result = Thread32First(snapshot, &entry);
+	BOOL result = Thread32First(snapshot, &entry);
 	if(!result)
 	{
 		CloseHandle(snapshot);
@@ -184,8 +176,8 @@ unsigned int PlatformUtils::getNumThreadsInCurrentProcess()
 		result = Thread32Next(snapshot, &entry);
 	}
 
-    CloseHandle(snapshot);
-    
+	CloseHandle(snapshot);
+
 	return thread_count;
 #else
 	throw PlatformUtilsExcep("getNumThreadsInCurrentProcess not implemented.");
@@ -195,22 +187,10 @@ unsigned int PlatformUtils::getNumThreadsInCurrentProcess()
 
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
-#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
+#if defined(_WIN32)
 	__cpuid((int*)out, infotype);
 #else
 	__get_cpuid(infotype, out, out + 1, out + 2, out + 3);
-	
-	// ebx saving is necessary for PIC
-	/*__asm__ volatile(
-			"mov %%ebx, %%esi\n\t"
-			"cpuid\n\t"
-			"xchg %%ebx, %%esi"
-            : "=a" (out[0]),
-			"=S" (out[1]),
-            "=c" (out[2]),
-            "=d" (out[3])
-            : "0" (infotype)
-     );*/
 #endif
 }
 
@@ -286,6 +266,7 @@ std::string GetPathFromCFURLRef(CFURLRef urlRef)
 	return path;
 }
 #endif
+
 
 const std::string PlatformUtils::getUserAppDataDirPath() // throws PlatformUtilsExcep
 {

@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
-#if defined(_WIN32) && !defined(__MINGW32__)
+#if defined(_WIN32)
 #define GLARE_STRONG_INLINE __forceinline
 #else
 #define GLARE_STRONG_INLINE inline

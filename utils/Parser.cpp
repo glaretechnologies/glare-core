@@ -15,39 +15,16 @@ Copyright Glare Technologies Limited 2021 -
 
 Parser::Parser(const char* text_, size_t textsize_)
 :	text(text_),
+	currentpos(0),
 	textsize(textsize_)
-{
-	currentpos = 0;
-
-	// Get the current decimal point character from the locale info, may be '.' or ','
-	/*struct lconv* lc = std::localeconv();
-
-	if(std::strlen(lc->decimal_point) >= 1)
-		this->decimal_separator = lc->decimal_point[0];
-	else*/
-	//	this->decimal_separator = '.';
-}
+{}
 
 
 Parser::Parser()
-{
-	this->text = NULL;
-	this->textsize = 0;
-	this->currentpos = 0;
-
-	// Get the current decimal point character from the locale info, may be '.' or ','
-	/*struct lconv* lc = std::localeconv();
-
-	if(std::strlen(lc->decimal_point) >= 1)
-		this->decimal_separator = lc->decimal_point[0];
-	else*/
-	//	this->decimal_separator = '.';
-}
-
-
-Parser::~Parser()
-{
-}
+:	text(NULL),
+	currentpos(0),
+	textsize(0)
+{}
 
 
 void Parser::reset(const char* text_, size_t textsize_)

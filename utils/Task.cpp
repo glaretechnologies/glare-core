@@ -11,17 +11,11 @@ namespace glare
 
 
 Task::Task()
-{
-
-}
+{}
 
 
 Task::~Task()
-{
-
-}
+{}
 
 
 } // end namespace glare 
-
-

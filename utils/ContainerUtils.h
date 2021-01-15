@@ -1,7 +1,7 @@
 /*=====================================================================
 ContainerUtils.h
 ----------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2021 -
 
 Contains some convenience methods for working with std::vectors, std::sets etc..
 =====================================================================*/

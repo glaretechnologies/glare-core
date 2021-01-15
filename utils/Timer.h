@@ -15,7 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 class Timer
 {
 public:
-	inline Timer();
+	inline Timer(); // Timer is started upon construction.
 
 	inline void setSecondsElapsed(double elapsed_seconds) { time_so_far = elapsed_seconds; }
 	inline double getSecondsElapsed() const;

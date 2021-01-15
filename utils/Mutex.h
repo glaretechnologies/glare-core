@@ -18,7 +18,7 @@ Copyright Glare Technologies Limited 2021 -
 /*=====================================================================
 Mutex
 -----
-
+You should generally use Lock to lock mutexes.
 =====================================================================*/
 class Mutex
 {

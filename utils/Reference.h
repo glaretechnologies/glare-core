@@ -1,7 +1,7 @@
 /*=====================================================================
 Reference.h
 -----------
-Copyright Glare Technologies Limited 2020 - 
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 // Not using pragma once since we copy this file and pragma once is path based
 #ifndef REFERENCE_H

@@ -33,12 +33,6 @@ CycleTimer::CycleTimer()
 }
 
 
-CycleTimer::~CycleTimer()
-{
-	
-}
-
-
 /*
 void CycleTimer::test()
 {

@@ -17,9 +17,9 @@ Copyright Glare Technologies Limited 2021 -
 
 
 MyThread::MyThread()
+:	thread_handle(0),
+	joined(false)
 {
-	thread_handle = 0;
-	joined = false;
 }
 
 
