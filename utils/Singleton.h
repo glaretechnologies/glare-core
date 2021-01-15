@@ -1,14 +1,13 @@
 /*=====================================================================
 Singleton.h
 -----------
-File created by ClassTemplate on Mon Jun 03 15:02:43 2002
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
 
 #include <assert.h>
-#include <stdlib.h>//NULL seems to want this
+#include <stdlib.h> // For NULL
 
 
 /*=====================================================================
@@ -18,21 +17,11 @@ Mixin based Singleton.
 The template parameter should be set to the deriving class.
 Do not use with program startup time objects.  (as instance may not have been set 
 to null yet)
-
-last changed 23 Jun 2004.
-
-Send bugs/comments to nickamy@paradise.net.nz
-http://homepages.paradise.net.nz/nickamy/
 =====================================================================*/
 template <class T>
 class Singleton
 {
 public:
-	/*=====================================================================
-	Singleton
-	---------
-	
-	=====================================================================*/
 	Singleton(){}
 
 	virtual ~Singleton(){}
