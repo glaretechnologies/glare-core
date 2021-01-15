@@ -21,7 +21,6 @@ Code By Nicholas Chapman.
 #include "../indigo/RendererSettings.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/ShouldCancelCallback.h"
-#include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
 #include "../utils/TestUtils.h"
 #include "../indigo/MeshLoader.h"
@@ -671,7 +670,7 @@ void TreeTest::doVaryingNumtrisBuildTests()
 
 
 // Aka. the 'Bunnybench' :)
-#if IS_INDIGO
+#if 0
 void TreeTest::doSpeedTest(int treetype)
 {
 	const std::string BUNNY_PATH = TestUtils::getTestReposDir() + "/testfiles/bun_zipper.ply";
@@ -802,10 +801,10 @@ void TreeTest::doSpeedTest(int treetype)
 	}
 	*/
 }
-#endif // IS_INDIGO
+#endif
 
 
-#if IS_INDIGO
+#if 0
 void TreeTest::buildSpeedTest()
 {
 	conPrint("TreeTest::buildSpeedTest()");

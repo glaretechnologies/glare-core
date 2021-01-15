@@ -16,7 +16,6 @@ Code By Nicholas Chapman.
 #include "../indigo/RendererSettings.h"
 #include <algorithm>
 #include "../simpleraytracer/raymesh.h"
-#include "../utils/SphereUnitVecPool.h"
 #include "../utils/Timer.h"
 #include "../utils/TestUtils.h"
 #include "../utils/PlatformUtils.h"

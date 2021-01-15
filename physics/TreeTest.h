@@ -23,9 +23,9 @@ class TreeTest
 {
 public:
 	static void doTests(const std::string& appdata_path);
-	static void doSpeedTest(int treetype);
+	//static void doSpeedTest(int treetype);
 	static void doVaryingNumtrisBuildTests();
-	static void buildSpeedTest();
+	//static void buildSpeedTest();
 	static void testBuildCorrect();
 	static void doRayTests();
 	static void doSphereTracingTests(const std::string& appdata_path);
