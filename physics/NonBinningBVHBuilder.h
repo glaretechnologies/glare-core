@@ -12,7 +12,7 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../utils/Mutex.h"
-#include "../utils/IndigoAtomic.h"
+#include "../utils/AtomicInt.h"
 #include <vector>
 namespace js { class AABBox; }
 namespace glare { class TaskManager; }
@@ -173,7 +173,7 @@ private:
 
 	js::Vector<float, 16> split_left_half_area;
 
-	IndigoAtomic next_result_chunk; // Index of next free result chunk
+	glare::AtomicInt next_result_chunk; // Index of next free result chunk
 	js::Vector<ResultChunk, 16> result_chunks;
 
 	glare::TaskManager* task_manager;

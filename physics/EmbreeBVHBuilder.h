@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../utils/Mutex.h"
-#include "../utils/IndigoAtomic.h"
+#include "../utils/AtomicInt.h"
 #include <vector>
 namespace js { class AABBox; }
 namespace glare { class TaskManager; }
@@ -91,6 +91,6 @@ private:
 
 	RTCDeviceTy* embree_device;
 public:
-	IndigoAtomic embree_mem_usage;
-	IndigoAtomic embree_max_mem_usage;
+	glare::AtomicInt embree_mem_usage;
+	glare::AtomicInt embree_max_mem_usage;
 };

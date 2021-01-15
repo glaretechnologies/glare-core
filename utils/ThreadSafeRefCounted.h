@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2020 -
 #pragma once
 
 
-#include "IndigoAtomic.h"
+#include "AtomicInt.h"
 #include <cassert>
 
 
@@ -28,7 +28,7 @@ public:
 	}
 
 	// Returns previous reference count
-	inline glare_atomic_int decRefCount() const
+	inline glare::atomic_int decRefCount() const
 	{ 
 		return refcount.decrement();
 	}
@@ -38,7 +38,7 @@ public:
 		refcount.increment();
 	}
 
-	inline glare_atomic_int getRefCount() const 
+	inline glare::atomic_int getRefCount() const 
 	{
 		return refcount;
 	}
@@ -46,5 +46,5 @@ public:
 private:
 	GLARE_DISABLE_COPY(ThreadSafeRefCounted)
 
-	mutable IndigoAtomic refcount;
+	mutable glare::AtomicInt refcount;
 };

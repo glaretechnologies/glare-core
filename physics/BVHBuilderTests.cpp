@@ -191,7 +191,7 @@ class TestShouldCancelCallback : public ShouldCancelCallback
 public:
 	virtual bool shouldCancel() { return should_cancel != 0; }
 
-	IndigoAtomic should_cancel;
+	glare::AtomicInt should_cancel;
 };
 
 

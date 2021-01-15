@@ -1,10 +1,9 @@
 /*=====================================================================
-IndigoAtomic.cpp
-----------------
-Copyright Glare Technologies Limited 2014 -
-Generated at Wed Nov 17 12:56:10 +1300 2010
+AtomicInt.cpp
+-------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-#include "IndigoAtomic.h"
+#include "AtomicInt.h"
 
 
 #if BUILD_TESTS
@@ -20,7 +19,7 @@ Generated at Wed Nov 17 12:56:10 +1300 2010
 class IncrementTask : public glare::Task
 {
 public:
-	IncrementTask(IndigoAtomic* atomic_i_) : atomic_i(atomic_i_) {}
+	IncrementTask(glare::AtomicInt* atomic_i_) : atomic_i(atomic_i_) {}
 
 	void run(size_t thread_index)
 	{
@@ -29,34 +28,34 @@ public:
 			atomic_i->increment();
 	}
 
-	IndigoAtomic* atomic_i;
+	glare::AtomicInt* atomic_i;
 };
 
 
-void IndigoAtomic::test()
+void glare::AtomicInt::test()
 {
 	// Test default constructor
 	{
-		IndigoAtomic i;
+		AtomicInt i;
 		testAssert(i == 0);
 	}
 
 	// Test constructor
 	{
-		IndigoAtomic i = 3;
+		AtomicInt i = 3;
 		testAssert(i == 3);
 	}
 
 	// Test operator = 
 	{
-		IndigoAtomic i = 3;
+		AtomicInt i = 3;
 		i = 4;
 		testAssert(i == 4);
 	}
 
 	// Test operator++
 	{
-		IndigoAtomic i = 3;
+		AtomicInt i = 3;
 		i++;
 		testAssert(i == 4);
 		testAssert(i++ == 4);
@@ -65,7 +64,7 @@ void IndigoAtomic::test()
 
 	// Test operator--
 	{
-		IndigoAtomic i = 3;
+		AtomicInt i = 3;
 		i--;
 		testAssert(i == 2);
 		testAssert(i-- == 2);
@@ -75,7 +74,7 @@ void IndigoAtomic::test()
 
 	// Test operator+=
 	{
-		IndigoAtomic i = 3;
+		AtomicInt i = 3;
 		i += 10;
 		testAssert(i == 13);
 		i += 20;
@@ -85,7 +84,7 @@ void IndigoAtomic::test()
 
 	// Test operator-=
 	{
-		IndigoAtomic i = 30;
+		AtomicInt i = 30;
 		i -= 10;
 		testAssert(i == 20);
 		i -= 40;
@@ -95,7 +94,7 @@ void IndigoAtomic::test()
 
 	// Test increment()
 	{
-		IndigoAtomic i = 3;
+		AtomicInt i = 3;
 		i.increment();
 		testAssert(i == 4);
 		testAssert(i.increment() == 4);
@@ -104,7 +103,7 @@ void IndigoAtomic::test()
 
 	// Test decrement()
 	{
-		IndigoAtomic i = 3;
+		AtomicInt i = 3;
 		i.decrement();
 		testAssert(i == 2);
 		testAssert(i.decrement() == 2);
@@ -113,7 +112,7 @@ void IndigoAtomic::test()
 
 	// Test concurrent incrementing by multiple threads.
 	{
-		IndigoAtomic atomic_i;
+		AtomicInt atomic_i;
 		glare::TaskManager m;
 		for(int i=0; i<8; ++i)
 			m.addTask(new IncrementTask(&atomic_i));

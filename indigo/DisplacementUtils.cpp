@@ -30,7 +30,7 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include "../utils/Task.h"
 #include "../utils/ConPrint.h"
 #include "../utils/TaskManager.h"
-#include "../utils/IndigoAtomic.h"
+#include "../utils/AtomicInt.h"
 #include "../graphics/Drawing.h"
 #include "../graphics/TextDrawer.h"
 #include "../graphics/PNGDecoder.h"
@@ -1363,7 +1363,7 @@ struct EvalVertDisplaceMentTaskClosure
 	const DUVertexVector* verts_in;
 	DUVertexVector* verts_out;
 	const ArrayRef<Reference<Material> >* materials;
-	std::vector<IndigoAtomic>* verts_processed;
+	std::vector<glare::AtomicInt>* verts_processed;
 	WorldParams world_params;
 };
 
@@ -1387,7 +1387,7 @@ public:
 		const UVVector& uvs = *closure.uvs;
 		const DUVertexVector& verts_in = *closure.verts_in;
 		DUVertexVector& verts_out = *closure.verts_out;
-		std::vector<IndigoAtomic>& verts_processed = *closure.verts_processed;
+		std::vector<glare::AtomicInt>& verts_processed = *closure.verts_processed;
 
 		for(int q_i = begin; q_i < end; ++q_i)
 		{
@@ -1494,7 +1494,7 @@ struct EvalTopologicalVertNormalsAndDisplacementTaskClosure
 	DUVertexVector* verts_out;
 	js::Vector<Vec3f, 16>* quad_normals;
 	std::vector<float>* result_vert_displacements;
-	std::vector<IndigoAtomic>* verts_processed;
+	std::vector<glare::AtomicInt>* verts_processed;
 	bool compute_H;
 };
 
@@ -1512,7 +1512,7 @@ public:
 		DUVertexVector& verts_out = *closure.verts_out;
 		js::Vector<Vec3f, 16>& quad_normals = *closure.quad_normals;
 		std::vector<float>& result_vert_displacements = *closure.result_vert_displacements;
-		std::vector<IndigoAtomic>& verts_processed = *closure.verts_processed;
+		std::vector<glare::AtomicInt>& verts_processed = *closure.verts_processed;
 		const bool compute_H = closure.compute_H;
 
 		for(int q = begin; q < end; ++q)
@@ -1649,7 +1649,7 @@ void DisplacementUtils::displace(glare::TaskManager& task_manager,
 		if(materials[i]->displacing())
 			has_displacing_mat = true;
 
-	std::vector<IndigoAtomic> verts_processed(verts_out.size());
+	std::vector<glare::AtomicInt> verts_processed(verts_out.size());
 
 	//================================================================
 	// Evaluate the displacement at each vertex based on the material displacement parameter.  Sets verts_out.displacement.
@@ -2056,7 +2056,7 @@ struct ProcessQuadsTaskClosure
 	const DUQuadVector* quads_in;
 	DUQuadVector* quads_out;
 
-	std::vector<IndigoAtomic>* verts_processed; // Which vertices from verts_out have been processed.
+	std::vector<glare::AtomicInt>* verts_processed; // Which vertices from verts_out have been processed.
 
 	std::vector<int>* existing_vert_new_index; // For each vert in verts_in, the index of the corresponding vertex in verts_out.
 };
@@ -2077,7 +2077,7 @@ public:
 		const UVVector& uvs_in = *closure.uvs_in;
 		UVVector& uvs_out = *closure.uvs_out;
 		const DUQuadVector& quads_in = *closure.quads_in;
-		std::vector<IndigoAtomic>& verts_processed = *closure.verts_processed;
+		std::vector<glare::AtomicInt>& verts_processed = *closure.verts_processed;
 		const std::vector<int>& existing_vert_new_index = *closure.existing_vert_new_index;
 		const int num_uv_sets = closure.num_uv_sets;
 		const bool no_averaging = !closure.averaging;
@@ -2800,7 +2800,7 @@ void DisplacementUtils::linearSubdivision(
 	DISPLACEMENT_RESET_TIMER(timer);
 
 
-	std::vector<IndigoAtomic> verts_processed(verts_out.size());
+	std::vector<glare::AtomicInt> verts_processed(verts_out.size());
 
 	//================================ Run ProcessQuads tasks =================================
 	ProcessQuadsTaskClosure process_quad_task_closure;

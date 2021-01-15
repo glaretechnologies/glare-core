@@ -618,7 +618,7 @@ public:
 	const js::Vector<BinningOb, 64>* objects_;
 	int begin, end, task_begin, task_end;
 
-	IndigoAtomic started;
+	glare::AtomicInt started;
 	CountCondition* num_done_condition;
 
 	char padding[64]; // to avoid false sharing

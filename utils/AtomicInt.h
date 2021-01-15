@@ -1,11 +1,11 @@
 /*=====================================================================
-IndigoAtomic.h
---------------
-Copyright Glare Technologies Limited 2020
+AtomicInt.h
+-----------
+Copyright Glare Technologies Limited 2021
 =====================================================================*/
 // Not using pragma once since we copy this file and pragma once is path based
-#ifndef INDIGOATOMIC_H
-#define INDIGOATOMIC_H
+#ifndef GLARE_ATOMIC_INT_H
+#define GLARE_ATOMIC_INT_H
 
 
 #include "Platform.h"
@@ -15,38 +15,42 @@ Copyright Glare Technologies Limited 2020
 #endif
 
 
+namespace glare
+{
+
+
 #if defined(__x86_64__) || defined(__ia64__) || defined(_M_X64) // If 64-bit:
-typedef int64 glare_atomic_int;
+typedef int64 atomic_int;
 #else
-typedef int32 glare_atomic_int;
+typedef int32 atomic_int;
 #endif
 
 
 ///
 /// Atomic integer.
 ///
-class IndigoAtomic
+class AtomicInt
 {
 public:
-	inline IndigoAtomic(glare_atomic_int val_ = 0) : val(val_) { /*assert(((uint64)this % 8) == 0);*/ }
-	inline ~IndigoAtomic() {}
+	inline AtomicInt(atomic_int val_ = 0) : val(val_) { /*assert(((uint64)this % 8) == 0);*/ }
+	inline ~AtomicInt() {}
 
 
-	inline operator glare_atomic_int() const { return val; }
+	inline operator atomic_int() const { return val; }
 
-	inline void operator = (glare_atomic_int val_);
+	inline void operator = (atomic_int val_);
 
-	inline glare_atomic_int operator++ (int); // postfix ++ operator
-	inline glare_atomic_int operator-- (int); // postfix -- operator
+	inline atomic_int operator++ (int); // postfix ++ operator
+	inline atomic_int operator-- (int); // postfix -- operator
 
-	inline glare_atomic_int operator += (glare_atomic_int x);
-	inline glare_atomic_int operator -= (glare_atomic_int x);
+	inline atomic_int operator += (atomic_int x);
+	inline atomic_int operator -= (atomic_int x);
 
 	/// Returns the old value. (value before increment)
-	inline glare_atomic_int increment();
+	inline atomic_int increment();
 
 	/// Returns the old value. (value before decrement)
-	inline glare_atomic_int decrement();
+	inline atomic_int decrement();
 
 	static void test();
 
@@ -54,23 +58,23 @@ private:
 	//GLARE_DISABLE_COPY(IndigoAtomic);
 
 	// The volatile keyword here is required, otherwise, for example, Visual C++ will hoist the load out of a while loop.
-	volatile glare_atomic_int val;
+	volatile atomic_int val;
 };
 
 
-inline void IndigoAtomic::operator = (glare_atomic_int val_)
+inline void AtomicInt::operator = (atomic_int val_)
 {
 	val = val_;
 }
 
 
-inline glare_atomic_int IndigoAtomic::operator++ (int)
+inline atomic_int AtomicInt::operator++ (int)
 {
 	return increment();
 }
 
 
-inline glare_atomic_int IndigoAtomic::operator-- (int)
+inline atomic_int AtomicInt::operator-- (int)
 {
 	return decrement();
 }
@@ -81,14 +85,14 @@ inline glare_atomic_int IndigoAtomic::operator-- (int)
 
 #if defined(__x86_64__) || defined(__ia64__) || defined(_M_X64) // If 64-bit:
 
-GLARE_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, const glare_atomic_int delta)
+GLARE_STRONG_INLINE atomic_int atomicAdd(volatile atomic_int* val, const atomic_int delta)
 {
 	return _InterlockedExchangeAdd64(val, delta);
 }
 
 #else // Else 32 bit build:
 
-GLARE_STRONG_INLINE glare_atomic_int atomicAdd(volatile glare_atomic_int* val, const glare_atomic_int delta)
+GLARE_STRONG_INLINE glare_atomic_int atomicAdd(volatile atomic_int* val, const atomic_int delta)
 {
 	return _InterlockedExchangeAdd((volatile long*)val, delta);
 }
@@ -117,27 +121,31 @@ GLARE_STRONG_INLINE int32 atomicAdd(int32 volatile* value, int32 input)
 //----------------- End Define an atomicAdd function ---------------
 
 
-inline glare_atomic_int IndigoAtomic::increment()
+inline atomic_int AtomicInt::increment()
 {
 	return atomicAdd(&val, 1);
 }
 
 
-inline glare_atomic_int IndigoAtomic::decrement()
+inline atomic_int AtomicInt::decrement()
 {
 	return atomicAdd(&val, -1);
 }
 
 
-inline glare_atomic_int IndigoAtomic::operator += (glare_atomic_int x)
+inline atomic_int AtomicInt::operator += (atomic_int x)
 {
 	return atomicAdd(&val, x);
 }
 
 
-inline glare_atomic_int IndigoAtomic::operator -= (glare_atomic_int x)
+inline atomic_int AtomicInt::operator -= (atomic_int x)
 {
 	return atomicAdd(&val, -x);
 }
 
-#endif //INDIGOATOMIC_H
+
+} // end namespace glare
+
+
+#endif // GLARE_ATOMIC_INT_H

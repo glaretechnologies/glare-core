@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2017 -
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include "../utils/Mutex.h"
-#include "../utils/IndigoAtomic.h"
+#include "../utils/AtomicInt.h"
 #include "../utils/BitVector.h"
 #include <vector>
 namespace js { class AABBox; }
