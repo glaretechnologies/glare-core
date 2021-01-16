@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2021 -
 
 /*=====================================================================
 HashMapInsertOnly
--------------------
+-----------------
 A map class using a hash table.
 Only insertion and lookup is supported, not removal of individual elements.
 
