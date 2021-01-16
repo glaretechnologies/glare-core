@@ -1,7 +1,7 @@
 /*===================================================================
 OpenSSL
 -------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2021 -
 ====================================================================*/
 #pragma once
 

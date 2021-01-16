@@ -1,8 +1,7 @@
 /*=====================================================================
 OutStream.h
--------------------
-Copyright Glare Technologies Limited 2013 -
-Generated at 2013-01-27 17:37:13 +0000
+-----------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

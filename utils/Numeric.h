@@ -1,8 +1,7 @@
 /*=====================================================================
 Numeric.h
--------------------
-Copyright Glare Technologies Limited 2011 -
-Generated at 2012-03-27 17:29:07 +0100
+---------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -18,8 +17,6 @@ Some utility methods for numerical analysis.
 =====================================================================*/
 namespace Numeric
 {
-
-
 	template <class R> inline R L1Norm(const Vec3<R>& v);
 	inline float L1Norm(const Vec4f& v);
 

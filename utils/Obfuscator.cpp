@@ -1,20 +1,19 @@
 /*=====================================================================
 Obfuscator.cpp
--------------------
-Copyright Glare Technologies Limited 2010 -
-Generated at Tue May 25 18:32:39 +1200 2010
+--------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "Obfuscator.h"
 
 
 #include "Parser.h"
 #include "Transmungify.h"
-#include "../utils/TestUtils.h"
-#include "../utils/ConPrint.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Exception.h"
-#include "../utils/FileUtils.h"
-#include "../utils/IncludeXXHash.h"
+#include "TestUtils.h"
+#include "ConPrint.h"
+#include "StringUtils.h"
+#include "Exception.h"
+#include "FileUtils.h"
+#include "IncludeXXHash.h"
 #include <wnt_LangParser.h>
 #include <wnt_Lexer.h>
 #include <wnt_Variable.h>

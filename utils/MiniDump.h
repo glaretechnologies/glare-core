@@ -1,7 +1,7 @@
 /*=====================================================================
 MiniDump.h
 ----------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

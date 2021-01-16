@@ -10,14 +10,14 @@ Code By Nicholas Chapman.
 #if BUILD_TESTS
 
 
-#include "../utils/TestUtils.h"
-#include "../indigo/globals.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Timer.h"
+#include "TestUtils.h"
+#include "ConPrint.h"
+#include "StringUtils.h"
+#include "Timer.h"
 #include "ThreadManager.h"
 #include "ThreadSafeQueue.h"
 #include "MyThread.h"
-#include "ParallelFor.h"
+#include "PlatformUtils.h"
 #include <cmath>
 
 
@@ -126,25 +126,6 @@ public:
 private:
 	int* i;
 };
-
-
-/*class OpenMPUsingThread : public MyThread
-{
-public:
-	virtual void run()
-	{
-		result = 0;
-		int N = 1000;
-
-		#pragma omp parallel for
-		for(int i=0; i<N; ++i)
-			result += pow(1.00001, (double)i);
-
-		conPrint("Result: " + toString(result));
-	}
-
-	double result;
-};*/
 
 
 struct TestComputation
@@ -272,19 +253,6 @@ void ThreadTests::test()
 		testAssert(test_thread_local_int == 0);
 	}
 
-	// Test OpenMP from another thread:
-	/*{
-		for(int i=0; i<100; ++i)
-		{
-			OpenMPUsingThread* t = new OpenMPUsingThread();
-			t->launch(false);
-			t->join();
-			delete t;
-
-			Sleep(1000);
-		}
-	}*/
-
 	// Create and run race test threads.  This is just for testing thread sanitizer.
 	/*{
 		int i = 0;
@@ -311,88 +279,6 @@ void ThreadTests::test()
 		Reference<SimpleThread> t = new SimpleThread();
 		t->launch(/*true*/);
 	}
-
-
-	// Test parallel For
-	for(int z=0; z<1; ++z)
-	{
-		const int N = 1000000;
-		std::vector<double> v(N, 1.0f);
-
-		//////////// Do pass to warm up caches //////////////
-		for(int i=0; i<N; ++i)
-			v[i] = (1.0 / std::pow(2.0, (double)i));
-
-		// Compute sum
-		double dummy = 0;
-		for(int i=0; i<N; ++i)
-			dummy += v[i];
-
-
-		Timer timer;
-
-		////////////// Try OpenMP ////////////////////////
-		timer.reset();
-
-		//#ifndef INDIGO_NO_OPENMP
-		//#pragma omp parallel for
-		//#endif
-		for(int i=0; i<N; ++i)
-			v[i] = (1.0 / std::pow(2.0, (double)i));
-
-		const double openmp_elapsed = timer.elapsed();
-
-		// Compute sum
-		double sum_3 = 0;
-		for(int i=0; i<N; ++i)
-			sum_3 += v[i];
-
-
-		//////////// Run ParallelFor ////////////////////
-		
-
-		timer.reset();
-		TestComputation t(v);
-		ParallelFor::exec<TestComputation>(t, 0, N);
-
-		const double parallel_for_elapsed = timer.elapsed();
-
-		// Compute sum
-		double sum_1 = 0;
-		for(int i=0; i<N; ++i)
-			sum_1 += v[i];
-
-
-		/////////// Try single threaded performance /////////////
-		timer.reset();
-
-		for(int i=0; i<N; ++i)
-			v[i] = (1.0 / std::pow(2.0, (double)i));
-
-		const double singlethread_elapased = timer.elapsed();
-
-		// Compute sum
-		double sum_2 = 0;
-		for(int i=0; i<N; ++i)
-			sum_2 += v[i];
-
-		testAssert(sum_1 == sum_2);
-		testAssert(sum_1 == sum_3);
-
-		conPrint("sum_1: " + toString(sum_1));
-		conPrint("parallel_for_elapsed: " + toString(parallel_for_elapsed));
-		conPrint("singlethread_elapased: " + toString(singlethread_elapased));
-		conPrint("openmp_elapsed: " + toString(openmp_elapsed));
-	}
-	
-	//exit(0);//TEMP
-
-
-
-
-
-
-
 
 	{
 		Reference<TestReaderThread> reader;

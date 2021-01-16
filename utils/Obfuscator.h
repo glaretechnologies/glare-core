@@ -1,8 +1,7 @@
 /*=====================================================================
 Obfuscator.h
 ------------
-Copyright Glare Technologies Limited 2019 -
-Generated at Tue May 25 18:32:39 +1200 2010
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

@@ -3,8 +3,7 @@ IndigoXMLDoc.h
 --------------
 Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-#ifndef __INDIGOXMLDOC_H_666_
-#define __INDIGOXMLDOC_H_666_
+#pragma once
 
 
 #include "FileHandle.h"
@@ -52,6 +51,3 @@ private:
 	pugi::xml_document doc;
 	std::string path;
 };
-
-
-#endif //__INDIGOXMLDOC_H_666_
