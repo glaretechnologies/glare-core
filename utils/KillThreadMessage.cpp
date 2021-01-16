@@ -1,27 +1,14 @@
 /*=====================================================================
 KillThreadMessage.cpp
 ---------------------
-File created by ClassTemplate on Sat Nov 03 08:34:44 2007
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "KillThreadMessage.h"
 
 
-
-
 KillThreadMessage::KillThreadMessage()
-{
-	
-}
+{}
 
 
 KillThreadMessage::~KillThreadMessage()
-{
-	
-}
-
-
-
-
-
-
+{}

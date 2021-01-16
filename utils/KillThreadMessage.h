@@ -1,11 +1,9 @@
 /*=====================================================================
 KillThreadMessage.h
 -------------------
-File created by ClassTemplate on Sat Nov 03 08:34:44 2007
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-#ifndef __KILLTHREADMESSAGE_H_666_
-#define __KILLTHREADMESSAGE_H_666_
+#pragma once
 
 
 #include "ThreadMessage.h"
@@ -20,17 +18,9 @@ ASAP.
 class KillThreadMessage : public ThreadMessage
 {
 public:
-	/*=====================================================================
-	KillThreadMessage
-	-----------------
-	
-	=====================================================================*/
 	KillThreadMessage();
 
-	virtual ~KillThreadMessage();
+	~KillThreadMessage();
 
 	virtual const std::string debugName() const { return "KillThreadMessage"; }
 };
-
-
-#endif //__KILLTHREADMESSAGE_H_666_
