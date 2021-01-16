@@ -1,8 +1,7 @@
 /*=====================================================================
 HashMapInsertOnly.cpp
 ---------------------
-Copyright Glare Technologies Limited 2010 -
-Generated at Mon Oct 18 13:13:09 +1300 2010
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "HashMapInsertOnly.h"
 

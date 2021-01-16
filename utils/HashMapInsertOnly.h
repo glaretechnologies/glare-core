@@ -1,7 +1,7 @@
 /*=====================================================================
 HashMapInsertOnly.h
 -------------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -17,6 +17,8 @@ HashMapInsertOnly
 -------------------
 A map class using a hash table.
 Only insertion and lookup is supported, not removal of individual elements.
+
+Note: HashMapInsertOnly2 is better, use that.
 =====================================================================*/
 template <typename Key, typename Value, typename HashFunc = std::hash<Key>>
 class HashMapInsertOnly

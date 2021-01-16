@@ -1,7 +1,7 @@
 /*=====================================================================
 HashMapInsertOnly2Iterator.h
 ----------------------------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

@@ -1,8 +1,7 @@
 /*=====================================================================
 IndigoXMLDoc.cpp
 ----------------
-File created by ClassTemplate on Tue Jun 30 18:16:15 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "IndigoXMLDoc.h"
 

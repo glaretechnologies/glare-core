@@ -1,7 +1,7 @@
 /*=====================================================================
 IncludeHalf.h
 -------------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

@@ -1,8 +1,7 @@
 /*=====================================================================
 Hilbert.cpp
 -----------
-Copyright Glare Technologies Limited 2019 -
-Generated at Fri Nov 26 14:59:10 +1300 2010
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "Hilbert.h"
 

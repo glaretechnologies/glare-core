@@ -1,7 +1,7 @@
 /*=====================================================================
 BitField.cpp
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "BitField.h"
 

@@ -1,7 +1,7 @@
 /*=====================================================================
 BitField.h
 -------------------
-Copyright Glare Technologies Limited 2015 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

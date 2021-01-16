@@ -1,8 +1,7 @@
 /*=====================================================================
 ImmutableVector.h
 -------------------
-Copyright Glare Technologies Limited 2014 -
-Generated at 2014-03-29 12:47:28 +0000
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 

@@ -1,8 +1,7 @@
 /*=====================================================================
 InStream.cpp
--------------------
-Copyright Glare Technologies Limited 2012 -
-Generated at 2013-01-27 17:47:46 +0000
+------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "InStream.h"
 

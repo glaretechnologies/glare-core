@@ -1,8 +1,7 @@
 /*=====================================================================
 BufferOutStream.h
--------------------
-Copyright Glare Technologies Limited 2013 -
-Generated at 2013-01-27 17:56:55 +0000
+------------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -13,8 +12,8 @@ Generated at 2013-01-27 17:56:55 +0000
 
 /*=====================================================================
 BufferOutStream
--------------------
-
+---------------
+Output stream that writes to a buffer.
 =====================================================================*/
 class BufferOutStream : public OutStream
 {

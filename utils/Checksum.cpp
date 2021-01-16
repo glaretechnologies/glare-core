@@ -1,8 +1,7 @@
 /*=====================================================================
 Checksum.cpp
--------------------
-Copyright Glare Technologies Limited 2011 -
-Generated at 2011-10-16 17:30:01 +0100
+------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "Checksum.h"
 
@@ -80,4 +79,4 @@ void Checksum::test()
 }
 
 
-#endif
+#endif // BUILD_TESTS

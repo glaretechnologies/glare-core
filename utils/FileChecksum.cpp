@@ -1,8 +1,7 @@
 /*=====================================================================
 FileChecksum.cpp
--------------------
-Copyright Glare Technologies Limited 2015 -
-Generated at Tue Mar 02 14:36:09 +1300 2010
+----------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "FileChecksum.h"
 

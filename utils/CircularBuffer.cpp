@@ -1,8 +1,7 @@
 /*=====================================================================
 CircularBuffer.cpp
--------------------
-Copyright Glare Technologies Limited 2017 -
-Generated at 2013-05-16 16:42:23 +0100
+------------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "CircularBuffer.h"
 

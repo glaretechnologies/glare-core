@@ -1,8 +1,7 @@
 /*=====================================================================
 EventFD.cpp
--------------------
-Copyright Glare Technologies Limited 2014 -
-Generated at 2014-10-03 22:57:41 +0100
+-----------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "EventFD.h"
 

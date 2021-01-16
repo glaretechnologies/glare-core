@@ -1,8 +1,7 @@
 /*=====================================================================
 CircularBuffer.h
--------------------
-Copyright Glare Technologies Limited 2017 -
-Generated at 2013-05-16 16:42:23 +0100
+----------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -19,7 +18,7 @@ Generated at 2013-05-16 16:42:23 +0100
 
 /*=====================================================================
 CircularBuffer
--------------------
+--------------
 A dynamically growable circular buffer.
 The interface should be similar to std::list
 =====================================================================*/

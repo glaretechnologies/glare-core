@@ -1,8 +1,7 @@
 /*=====================================================================
 BufferInStream.h
 -------------------
-Copyright Glare Technologies Limited 2013 -
-Generated at 2013-01-27 17:57:00 +0000
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -14,8 +13,8 @@ Generated at 2013-01-27 17:57:00 +0000
 
 /*=====================================================================
 BufferInStream
--------------------
-
+--------------
+Input stream that reads from a buffer
 =====================================================================*/
 class BufferInStream : public InStream
 {

@@ -1,7 +1,7 @@
 /*=====================================================================
-Process.cpp
------------
-Copyright Glare Technologies Limited 2020 -
+GlareProcess.cpp
+----------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "GlareProcess.h"
 

@@ -1,8 +1,7 @@
 /*=====================================================================
 FileHandle.h
 -------------------
-Copyright Glare Technologies Limited 2010 -
-Generated at 2010-10-26 22:57:11 +1300
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -33,4 +32,3 @@ private:
 	FileHandle& operator = (const FileHandle& );
 	FILE* f;
 };
-

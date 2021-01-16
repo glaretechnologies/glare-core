@@ -1,22 +1,21 @@
 /*=====================================================================
 Checksum.h
--------------------
-Copyright Glare Technologies Limited 2011 -
-Generated at 2011-10-16 17:30:01 +0100
+----------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
 
 #include "Platform.h"
-
-
 #include <stdlib.h>
 
 
 /*=====================================================================
 Checksum
 -------------------
-
+Does CRC32 bit checksums.
+Old and slow, do not use for new code!
+Use xxhash instead.
 =====================================================================*/
 class Checksum
 {
@@ -37,11 +36,5 @@ public:
 		return updateChecksum(running_checksum, &t, sizeof(T));
 	}
 
-
 	static void test();
-private:
-
 };
-
-
-

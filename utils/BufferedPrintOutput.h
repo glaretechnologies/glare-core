@@ -1,8 +1,7 @@
 /*=====================================================================
 BufferedPrintOutput.h
--------------------
-Copyright Glare Technologies Limited 2010 -
-Generated at 2011-10-04 17:21:01 +0100
+---------------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -14,7 +13,7 @@ Generated at 2011-10-04 17:21:01 +0100
 /*=====================================================================
 BufferedPrintOutput
 -------------------
-
+Implements PrintOutput interface, just saves messages to a buffer.
 =====================================================================*/
 class BufferedPrintOutput : public PrintOutput
 {
@@ -36,6 +35,3 @@ public:
 private:
 	std::vector<std::string> msgs;
 };
-
-
-

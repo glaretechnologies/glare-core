@@ -1,7 +1,7 @@
 /*=====================================================================
 FilePrintOutput.cpp
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "FilePrintOutput.h"
 

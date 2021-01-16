@@ -22,7 +22,8 @@ namespace glare
 /*=====================================================================
 DynamicLib
 ----------
-
+Loads a dynamic code library (e.g a .dll or .so file).
+Function pointers can then be queried.
 =====================================================================*/
 class DynamicLib
 {

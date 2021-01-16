@@ -1,7 +1,7 @@
 /*=====================================================================
 FilePrintOutput.h
 -------------------
-Copyright Glare Technologies Limited 2010 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2010 -
 
 /*=====================================================================
 FilePrintOutput
--------------------
+---------------
 A print output that writes to a file.
 =====================================================================*/
 class FilePrintOutput : public PrintOutput
