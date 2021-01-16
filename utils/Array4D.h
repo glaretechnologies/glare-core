@@ -1,11 +1,9 @@
 /*=====================================================================
 Array4D.h
 ---------
-File created by ClassTemplate on Fri May 22 15:53:01 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-#ifndef __ARRAY4D_H_666_
-#define __ARRAY4D_H_666_
+#pragma once
 
 
 #include "Platform.h"
@@ -62,6 +60,3 @@ template <class T> const T& Array4D<T>::e(unsigned int x, unsigned int y, unsign
 	assert(w < dw);
 	return data[x * dy * dz * dw + y * dz * dw + z * dw + w];
 }
-
-
-#endif //__ARRAY4D_H_666_
