@@ -1,7 +1,10 @@
 /*=====================================================================
-Process.h
----------
-Copyright Glare Technologies Limited 2020 -
+GlareProcess.h
+--------------
+Copyright Glare Technologies Limited 2021 -
+
+This header is called GlareProcess instead of Process otherwise
+#include <process.h> to get the Windows header doesn't work.
 =====================================================================*/
 #pragma once
 
@@ -12,6 +15,10 @@ Copyright Glare Technologies Limited 2020 -
 #include <string>
 #include <vector>
 #include <stdio.h>
+
+
+namespace glare
+{
 
 
 /*=====================================================================
@@ -73,3 +80,6 @@ private:
 	int exit_code;
 #endif
 };
+
+
+} // end namespace glare

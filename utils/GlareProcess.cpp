@@ -17,6 +17,10 @@ Copyright Glare Technologies Limited 2020 -
 #endif
 
 
+namespace glare
+{
+
+
 #if defined(_WIN32)
 static void createPipe(SECURITY_ATTRIBUTES* sa, HandleWrapper& read_handle_out, HandleWrapper& write_handle_out)
 {
@@ -303,6 +307,9 @@ void Process::readAllRemainingStdOutAndStdErr(std::string& stdout_out, std::stri
 }
 
 
+} // end namespace glare
+
+
 #if BUILD_TESTS
 
 
@@ -312,7 +319,7 @@ void Process::readAllRemainingStdOutAndStdErr(std::string& stdout_out, std::stri
 #include "../utils/PlatformUtils.h"
 
 
-void Process::test()
+void glare::Process::test()
 {
 	conPrint("Process::test()");
 #if defined(_WIN32)
@@ -403,4 +410,4 @@ void Process::test()
 }
 
 
-#endif
+#endif // BUILD_TESTS
