@@ -1,11 +1,9 @@
 /*=====================================================================
 Plotter.h
 ---------
-File created by ClassTemplate on Tue Jun 02 12:43:55 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-#ifndef __PLOTTER_H_666_
-#define __PLOTTER_H_666_
+#pragma once
 
 
 #include <string>
@@ -24,16 +22,6 @@ pgnuplot has to be on your path for this to work.
 class Plotter
 {
 public:
-	/*=====================================================================
-	Plotter
-	-------
-
-	=====================================================================*/
-	Plotter();
-
-	~Plotter();
-
-
 	struct DataSet
 	{
 		DataSet() {}
@@ -98,11 +86,3 @@ public:
 	);
 
 };
-
-
-
-#endif //__PLOTTER_H_666_
-
-
-
-

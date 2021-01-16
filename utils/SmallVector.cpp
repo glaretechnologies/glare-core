@@ -1,8 +1,7 @@
 /*=====================================================================
 SmallSmallVector.cpp
--------------------
-Copyright Glare Technologies Limited 2016 -
-Generated at 2013-03-07 14:27:12 +0000
+--------------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "SmallVector.h"
 

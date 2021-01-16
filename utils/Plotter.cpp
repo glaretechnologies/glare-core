@@ -1,30 +1,17 @@
 /*=====================================================================
 Plotter.cpp
 -----------
-File created by ClassTemplate on Tue Jun 02 12:43:55 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "Plotter.h"
 
 
-#include <fstream>
 #include "PlatformUtils.h"
-#include "../indigo/globals.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Exception.h"
-#include "../utils/FileUtils.h"
-
-
-Plotter::Plotter()
-{
-
-}
-
-
-Plotter::~Plotter()
-{
-
-}
+#include "ConPrint.h"
+#include "StringUtils.h"
+#include "Exception.h"
+#include "FileUtils.h"
+#include <fstream>
 
 
 void Plotter::plot(
@@ -34,7 +21,7 @@ void Plotter::plot(
 		const std::string& y_label,
 		const std::vector<DataSet>& data,
 		PlotOptions options
-		)
+	)
 {
 	try
 	{
@@ -142,7 +129,7 @@ void Plotter::plot3D(
 		const std::string& key,
 		const Array2D<Vec3f>& data,
 		PlotOptions options
-		)
+	)
 {
 
 	try
@@ -215,7 +202,7 @@ void Plotter::scatterPlot(
 	const std::string& y_label,
 	const std::vector<DataSet>& data,
 	PlotOptions options
-)
+	)
 {
 	try
 	{

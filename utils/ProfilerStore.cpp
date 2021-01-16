@@ -1,8 +1,7 @@
 /*=====================================================================
 ProfilerStore.cpp
 -------------------
-Copyright Glare Technologies Limited 2016 -
-Generated at 2016-11-01 23:24:09 +0000
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "ProfilerStore.h"
 

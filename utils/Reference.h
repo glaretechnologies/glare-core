@@ -4,8 +4,8 @@ Reference.h
 Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 // Not using pragma once since we copy this file and pragma once is path based
-#ifndef REFERENCE_H
-#define REFERENCE_H
+#ifndef GLARE_REFERENCE_H
+#define GLARE_REFERENCE_H
 
 
 #include "RefCounted.h"
@@ -273,4 +273,4 @@ private:
 	T* ob;
 };
 
-#endif // REFERENCE_H
+#endif // GLARE_REFERENCE_H
