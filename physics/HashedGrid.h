@@ -1,8 +1,7 @@
 /*=====================================================================
 HashedGrid.h
--------------------
-Copyright Glare Technologies Limited 2014 -
-Generated at Tue Sep 07 16:03:27 +1200 2010
+------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -10,7 +9,6 @@ Generated at Tue Sep 07 16:03:27 +1200 2010
 #include "../utils/Vector.h"
 #include "../utils/SmallVector.h"
 #include "../maths/Vec4f.h"
-#include "../utils/MemAlloc.h"
 #include "jscol_aabbox.h"
 #include <vector>
 
@@ -28,23 +26,27 @@ public:
 
 /*=====================================================================
 HashedGrid
--------------------
+----------
+TODO: Try using open addressing (don't use a vector in buckets, spill into adjacent buckets)
 
+Tests in HashedGridTests
 =====================================================================*/
 template<typename T>
 class HashedGrid
 {
 public:
 	HashedGrid(	const js::AABBox& aabb,
-				float cell_w_, int num_buckets_)
+				float cell_w_, int expected_num_items)
 	:	grid_aabb(aabb),
 		cell_w(cell_w_),
-		recip_cell_w(1 / cell_w_),
-		num_buckets((unsigned int)num_buckets_)
+		recip_cell_w(1 / cell_w_)
 	{
-		assert(num_buckets_ > 0);
+		assert(expected_num_items > 0);
 
-		buckets.resize(num_buckets_);
+		const unsigned int num_buckets = myMax<unsigned int>(8, (unsigned int)Maths::roundToNextHighestPowerOf2((unsigned int)expected_num_items/* * 2*/));
+		buckets.resize(num_buckets);
+
+		hash_mask = num_buckets - 1;
 	}
 
 
@@ -66,23 +68,13 @@ public:
 
 	inline Vec4i getGridMinBound(const Vec4f& p) const
 	{
-		return Vec4i(
-			(int)((p[0] - grid_aabb.min_.x[0]) * recip_cell_w),
-			(int)((p[1] - grid_aabb.min_.x[1]) * recip_cell_w),
-			(int)((p[2] - grid_aabb.min_.x[2]) * recip_cell_w),
-			0
-		);
+		return truncateToVec4i((p - grid_aabb.min_) * recip_cell_w);
 	}
 
 
 	inline Vec4i getGridMaxBound(const Vec4f& p) const
 	{
-		return Vec4i(
-			(int)((p[0] - grid_aabb.min_.x[0]) * recip_cell_w),
-			(int)((p[1] - grid_aabb.min_.x[1]) * recip_cell_w),
-			(int)((p[2] - grid_aabb.min_.x[2]) * recip_cell_w),
-			0
-		);
+		return truncateToVec4i((p - grid_aabb.min_) * recip_cell_w);
 	}
 
 
@@ -93,40 +85,45 @@ public:
 	}
 
 
+	inline const HashBucket<T>& getBucketForIndices(const Vec4i& p) const
+	{
+		return buckets[computeHash(p)];
+	}
+
 	inline const HashBucket<T>& getBucketForIndices(const int x, const int y, const int z) const
 	{
 		return buckets[computeHash(x, y, z)];
 	}
 
-private:
-
 	inline unsigned int getBucketIndexForPoint(const Vec4f& p) const
 	{
-		const int x = (int)((p.x[0] - grid_aabb.min_.x[0]) * recip_cell_w);
-		const int y = (int)((p.x[1] - grid_aabb.min_.x[1]) * recip_cell_w);
-		const int z = (int)((p.x[2] - grid_aabb.min_.x[2]) * recip_cell_w);
+		const Vec4i p_i = truncateToVec4i((p - grid_aabb.min_) * recip_cell_w);
 
-		return computeHash(x, y, z);
+		return computeHash(p_i);
 	}
 
 
-	inline unsigned int computeHash(const int x, const int y, const int z) const
+	inline unsigned int computeHash(const Vec4i& p_i) const
 	{
-		// Convert to unsigned ints so we can have well-defined overflow.
-		unsigned int ux;
-		unsigned int uy;
-		unsigned int uz;
-		std::memcpy(&ux, &x, sizeof(int));
-		std::memcpy(&uy, &y, sizeof(int));
-		std::memcpy(&uz, &z, sizeof(int));
+		// NOTE: technically possible undefined behaviour here (signed overflow)
 
-		return ((ux * 73856093) ^ (uy * 19349663) ^ (uz * 83492791)) % num_buckets;
+		//unsigned int u[4];
+		//storeVec4i(p_i, u);
+
+		return ((p_i[0] * 73856093) ^ (p_i[1] * 19349663) ^ (p_i[2] * 83492791)) & hash_mask;
+	}
+
+	inline unsigned int computeHash(int x, int y, int z) const
+	{
+		// NOTE: technically possible undefined behaviour here (signed overflow)
+
+		return ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & hash_mask;
 	}
 
 
 	const js::AABBox grid_aabb;
-	unsigned int num_buckets;
 	float recip_cell_w;
 	float cell_w;
 	std::vector<HashBucket<T> > buckets;
+	size_t hash_mask; // hash_mask = buckets_size - 1;
 };

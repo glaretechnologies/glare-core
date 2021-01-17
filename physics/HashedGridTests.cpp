@@ -7,7 +7,7 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 #include "HashedGridTests.h"
 
 
-#if (BUILD_TESTS)
+#if BUILD_TESTS
 
 
 #include "HashedGrid.h"
@@ -20,32 +20,16 @@ Generated at Thu Sep 09 12:53:49 +1200 2010
 #include "../maths/vec3.h"
 
 
-HashedGridTests::HashedGridTests()
-{
-
-}
-
-
-HashedGridTests::~HashedGridTests()
-{
-
-}
-
-
 static void perfTests()
 {
 	const int num_points = 1000000;
 
 	float grid_w = 400;
 	js::AABBox aabb(Vec4f(0,0,0,1), Vec4f(grid_w,grid_w,grid_w,1));
-	HashedGrid<Vec3f> grid(aabb, 1.0f, num_points * 2);
-
-	
+	HashedGrid<Vec3f> grid(aabb, 1.0f, num_points);
 
 	PCG32 rng(1);
-
 	
-
 	conPrint("num buckets: " + toString(grid.getNumBuckets()));
 	conPrint("num points:  " + toString(num_points));
 
@@ -66,7 +50,8 @@ static void perfTests()
 	{
 		// Do a lookup for the query box around some random points
 		Vec3f p = Vec3f(rng.unitRandom(), rng.unitRandom(), rng.unitRandom()) * grid_w;
-		js::AABBox query_box(p.toVec4fPoint() - Vec4f(1,1,1,0), p.toVec4fPoint() + Vec4f(1,1,1,0));
+		const float query_w = 0.5f;
+		js::AABBox query_box(p.toVec4fPoint() - Vec4f(query_w,query_w,query_w,0), p.toVec4fPoint() + Vec4f(query_w,query_w,query_w,0));
 
 		const Vec4i begin = grid.getGridMinBound(query_box.min_);
 		const Vec4i end   = grid.getGridMaxBound(query_box.max_);
@@ -87,9 +72,6 @@ static void perfTests()
 
 	conPrint("Lookups took " + timer.elapsedString());
 	printVar(count);
-
-
-
 }
 
 
@@ -243,4 +225,4 @@ void HashedGridTests::test()
 }
 
 
-#endif
+#endif // BUILD_TESTS
