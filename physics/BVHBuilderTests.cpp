@@ -1160,7 +1160,6 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 	//==================== Test varying a build parameter and plotting the resulting speeds ====================
 	if(false)
 	{
-		Plotter plotter;
 		Plotter::DataSet dataset;
 
 		const int num_objects = 100000;
