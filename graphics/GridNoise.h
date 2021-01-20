@@ -85,10 +85,17 @@ float GridNoise::eval(float xf, float yf, float zf, float wf)
 	int z = (int)floor(zf);
 	int w = (int)floor(wf);
 
+	assert((x & 0xFF) >= 0 && (x & 0xFF) < 256);
+	assert((y & 0xFF) >= 0 && (y & 0xFF) < 256);
+	assert((z & 0xFF) >= 0 && (z & 0xFF) < 256);
+	assert((w & 0xFF) >= 0 && (w & 0xFF) < 256);
+
 	const int hash_x  = p_x[x & 0xFF];
 	const int hash_y  = p_y[y & 0xFF];
 	const int hash_z  = p_z[z & 0xFF];
 	const int hash_w  = p_w[w & 0xFF];
+
+	assert((hash_x ^ hash_y ^ hash_z ^ hash_w) >= 0 && (hash_x ^ hash_y ^ hash_z ^ hash_w) < 256);
 
 	return data[hash_x ^ hash_y ^ hash_z ^ hash_w];
 }

@@ -87,6 +87,7 @@ RayMesh::RayMesh(const std::string& name_, bool enable_shading_normals_, unsigne
 	num_uv_sets = 0;
 
 	this->vertices.setAllocator(new PaddingAllocator());
+	this->uvs     .setAllocator(new PaddingAllocator());
 }
 
 
@@ -935,6 +936,9 @@ const RayMesh::UVCoordsType RayMesh::getUVCoords(const HitInfo& hitinfo, unsigne
 	const unsigned int uv1idx = triangles[hitinfo.sub_elem_index].uv_indices[1] * num_uv_sets + uv_set_index;
 	const unsigned int uv2idx = triangles[hitinfo.sub_elem_index].uv_indices[2] * num_uv_sets + uv_set_index;
 
+	assert(uv0idx < uvs.size());
+	assert(uv1idx < uvs.size());
+	assert(uv2idx < uvs.size());
 	// Use SSE 4-vectors.  Seems to be a bit faster than scalar code (~3ns instead of ~3.7 for getUVCoords perf test)
 	const Vec4f uv0 = loadUnalignedVec4f(&uvs[uv0idx].x);
 	const Vec4f uv1 = loadUnalignedVec4f(&uvs[uv1idx].x);
