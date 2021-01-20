@@ -1744,7 +1744,7 @@ void OpenGLEngine::draw()
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
 
 			// Compute the 8 points making up this slice of the view frustum
-			float near_dist = std::pow<float>(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), (float)ti);
+			float near_dist = (float)std::pow<double>(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), ti);
 			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
 			if(ti == 0)
 				near_dist = 0.01f;
