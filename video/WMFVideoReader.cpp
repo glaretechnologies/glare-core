@@ -188,8 +188,9 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 }
 
 
-WMFVideoReader::WMFVideoReader(const std::string& URL)
-:	com_inited(false)
+WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& URL)
+:	com_inited(false),
+	read_from_video_device(read_from_video_device_)
 {
 	// Initialize the COM runtime.
 	HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
@@ -226,11 +227,48 @@ WMFVideoReader::WMFVideoReader(const std::string& URL)
 	if(!SUCCEEDED(hr))
 		throw Indigo::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
 
-	// Create the source reader.
-	hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
-	if(!SUCCEEDED(hr))
-		throw Indigo::Exception("MFCreateSourceReaderFromURL failed for URL '" + URL + "': " + PlatformUtils::COMErrorString(hr));
+	if(read_from_video_device)
+	{
+		// Source type: video capture devices
+		hr = pAttributes->SetGUID(
+			MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, 
+			MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
+		);
+		if(!SUCCEEDED(hr))
+			throw Indigo::Exception("failure: " + PlatformUtils::COMErrorString(hr));
 
+		// Enumerate devices.
+		UINT32 count;
+		IMFActivate **ppDevices = NULL;
+		hr = MFEnumDeviceSources(pAttributes.ptr, &ppDevices, &count);
+		if(!SUCCEEDED(hr))
+			throw Indigo::Exception("failure: " + PlatformUtils::COMErrorString(hr));
+
+		if(count == 0)
+			throw Indigo::Exception("No vid devices");
+
+		// Create the media source object.
+		IMFMediaSource* media_source = NULL;
+		hr = ppDevices[0]->ActivateObject(IID_PPV_ARGS(&media_source));
+		if(!SUCCEEDED(hr))
+			throw Indigo::Exception("failure: " + PlatformUtils::COMErrorString(hr));
+
+		hr = MFCreateSourceReaderFromMediaSource(
+			media_source,
+			pAttributes.ptr,
+			&this->reader.ptr);
+
+		if(!SUCCEEDED(hr))
+			throw Indigo::Exception("MFCreateSourceReaderFromMediaSource failed: " + PlatformUtils::COMErrorString(hr));
+	}
+	else
+	{
+		// Create the source reader.
+		hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
+		if(!SUCCEEDED(hr))
+			throw Indigo::Exception("MFCreateSourceReaderFromURL failed for URL '" + URL + "': " + PlatformUtils::COMErrorString(hr));
+	}
+	
 	ConfigureDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->format);
 }
 
@@ -374,6 +412,9 @@ void WMFVideoReader::unlockFrame()
 
 void WMFVideoReader::seek(double time)
 {
+	if(read_from_video_device)
+		return; // Can't seek reading from a webcam etc.
+
 	PROPVARIANT var;
 	PropVariantInit(&var);
 

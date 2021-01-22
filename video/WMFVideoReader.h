@@ -46,7 +46,7 @@ mfplat.lib mfreadwrite.lib mfuuid.lib
 class WMFVideoReader : public VideoReader
 {
 public:
-	WMFVideoReader(const std::string& URL); // Throws Indigo::Exception
+	WMFVideoReader(bool read_from_video_device, const std::string& URL); // Throws Indigo::Exception
 	~WMFVideoReader();
 
 	virtual FrameInfo getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& stride_B_out); // frame_buffer_out will be set to NULL if we have reached EOF
@@ -63,6 +63,7 @@ private:
 
 	FormatInfo format;
 	bool com_inited;
+	bool read_from_video_device;
 };
 
 
