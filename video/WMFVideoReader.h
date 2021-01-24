@@ -57,6 +57,8 @@ public:
 	static void test();
 
 	const FormatInfo& getCurrentFormat() { return format; }
+
+	bool isReadingFromVidDevice() const { return read_from_video_device; }
 private:
 	ComObHandle<IMFSourceReader> reader;
 	ComObHandle<IMFMediaBuffer> buffer_ob;
