@@ -276,6 +276,8 @@ public:
 	// NOTE: Use only with CameraType_Identity currently, clip planes won't be computed properly otherwise.
 
 	GLenum dest_blending_factor; // Defaults to GL_ONE_MINUS_SRC_ALPHA
+
+	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
 private:
 	float use_sensor_width;
 	float use_sensor_height;
@@ -322,6 +324,13 @@ struct OpenGLSceneHash
 	{
 		return (size_t)scene.getPointer() >> 3; // Assuming 8-byte aligned, get rid of lower zero bits.
 	}
+};
+
+
+struct FrameBufTextures
+{
+	Reference<OpenGLTexture> colour_texture;
+	Reference<OpenGLTexture> depth_texture;
 };
 
 
@@ -443,6 +452,10 @@ public:
 
 
 	//--------------------------------------- Viewport ----------------------------------------
+	// This will be the resolution at which the main render framebuffer is allocated, for which res bloom textures are allocated etc..
+	void setMainViewport(int main_viewport_w_, int main_viewport_h_);
+
+
 	void setViewport(int viewport_w_, int viewport_h_);
 	int getViewPortWidth()  const { return viewport_w; }
 	int getViewPortHeight() const { return viewport_h; }
@@ -565,6 +578,9 @@ private:
 	Reference<OpenGLMeshRenderData> unit_quad_meshdata;
 	Reference<OpenGLMeshRenderData> cylinder_meshdata;
 
+
+	int main_viewport_w, main_viewport_h;
+
 	int viewport_w, viewport_h;
 	
 	Planef shadow_clip_planes[6];
@@ -611,6 +627,11 @@ private:
 	int edge_extract_col_location;
 	Colour4f outline_colour;
 
+	Reference<OpenGLProgram> downsize_prog;
+	Reference<OpenGLProgram> gaussian_blur_prog;
+
+	Reference<OpenGLProgram> final_imaging_prog; // Adds bloom, tonemaps
+
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
 
@@ -636,13 +657,27 @@ public:
 	Reference<TextureDataManager> texture_data_manager;
 private:
 	size_t outline_tex_w, outline_tex_h;
-	Reference<FrameBuffer> outline_solid_fb;
-	Reference<FrameBuffer> outline_edge_fb;
+	Reference<FrameBuffer> outline_solid_framebuffer;
+	Reference<FrameBuffer> outline_edge_framebuffer;
 	Reference<OpenGLTexture> outline_solid_tex;
 	Reference<OpenGLTexture> outline_edge_tex;
 	OpenGLMaterial outline_solid_mat; // Material for drawing selected objects with a flat, unshaded colour.
 	Reference<OpenGLMeshRenderData> outline_quad_meshdata;
 	OpenGLMaterial outline_edge_mat; // Material for drawing the actual edge overlay.
+
+	std::vector<Reference<FrameBuffer> > downsize_framebuffers;
+	std::vector<Reference<OpenGLTexture> > downsize_target_textures;
+
+	std::vector<Reference<FrameBuffer> > blur_framebuffers_x; // Blurred in x direction
+	std::vector<Reference<OpenGLTexture> > blur_target_textures_x;
+
+	std::vector<Reference<FrameBuffer> > blur_framebuffers; // Blurred in both directions:
+	std::vector<Reference<OpenGLTexture> > blur_target_textures;
+
+	Reference<FrameBuffer> main_render_framebuffer;
+	//Reference<OpenGLTexture> main_render_texture;
+	//Reference<OpenGLTexture> main_depth_texture;
+	std::map<Vec2i, FrameBufTextures> main_render_textures; // Map from (viewport w, viewport_h) to framebuffer textures of that size.
 
 	std::unordered_set<GLObject*> selected_objects;
 
@@ -658,8 +693,6 @@ private:
 	TextureServer* texture_server;
 
 	Reference<FrameBuffer> target_frame_buffer;
-	int target_frame_buffer_w;
-	int target_frame_buffer_h;
 
 	mutable Mutex task_manager_mutex;
 	glare::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.

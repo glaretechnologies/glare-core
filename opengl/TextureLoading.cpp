@@ -532,7 +532,7 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 		else
 			throw glare::Exception("Texture has unhandled number of components: " + toString(texture_data.bytes_pp));
 
-		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.converted_image->getData(), texture_data.converted_image->getDataSize()), opengl_engine,
+		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.converted_image->getData(), texture_data.converted_image->getDataSize()), opengl_engine.ptr(),
 			format, filtering, wrapping
 		);
 	}

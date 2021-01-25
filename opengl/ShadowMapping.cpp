@@ -42,14 +42,12 @@ void ShadowMapping::init()
 	//	true // nearest filtering
 	//);
 
-	depth_tex = new OpenGLTexture();
-	depth_tex->load(dynamic_w, dynamic_h, ArrayRef<uint8>(NULL, 0), NULL,
+	depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, NULL,
 		OpenGLTexture::Format_Depth_Float,
 		OpenGLTexture::Filtering_Nearest // nearest filtering
 	);
 
-	static_depth_tex = new OpenGLTexture();
-	static_depth_tex->load(static_w, static_h, ArrayRef<uint8>(NULL, 0), NULL,
+	static_depth_tex = new OpenGLTexture(static_w, static_h, NULL,
 		OpenGLTexture::Format_Depth_Float,
 		OpenGLTexture::Filtering_Nearest // nearest filtering
 	);

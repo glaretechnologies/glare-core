@@ -130,3 +130,15 @@ int OpenGLProgram::getAttributeLocation(const std::string& name)
 #endif
 	return res;
 }
+
+
+void OpenGLProgram::appendUserUniformInfo(UserUniformInfo::UniformType uniform_type, const std::string& name)
+{
+	const int index = (int)user_uniform_info.size();
+	
+	user_uniform_info.push_back(UserUniformInfo(
+		getUniformLocation(name), // location
+		index, // index in user_uniform_info
+		uniform_type
+	));
+}

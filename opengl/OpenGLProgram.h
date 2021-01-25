@@ -43,7 +43,8 @@ struct UserUniformInfo
 		UniformType_Vec2,
 		UniformType_Vec3,
 		UniformType_Int,
-		UniformType_Float
+		UniformType_Float,
+		UniformType_Sampler2D
 	};
 
 	UserUniformInfo() {}
@@ -74,6 +75,8 @@ public:
 	int getAttributeLocation(const std::string& name);
 
 	void bindAttributeLocation(int index, const std::string& name);
+
+	void appendUserUniformInfo(UserUniformInfo::UniformType uniform_type, const std::string& name);
 
 	GLuint program;
 private:

@@ -27,6 +27,20 @@ OpenGLTexture::OpenGLTexture()
 }
 
 
+// Allocate uninitialised texture
+OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+	Format format_,
+	Filtering filtering_,
+	Wrapping wrapping_)
+:	texture_handle(0),
+	xres(0),
+	yres(0),
+	loaded_size(0)
+{
+	load(tex_xres, tex_yres, ArrayRef<uint8>(NULL, 0), opengl_engine, format_, filtering_, wrapping_);
+}
+
+
 OpenGLTexture::~OpenGLTexture()
 {
 	glDeleteTextures(1, &texture_handle);
@@ -200,7 +214,7 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 }
 
 
-void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, const Reference<OpenGLEngine>& opengl_engine,
+void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, const OpenGLEngine* opengl_engine,
 	Format format_,
 	Filtering filtering,
 	Wrapping wrapping
@@ -272,7 +286,7 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	else if(filtering == Filtering_Fancy)
 	{
 		// Enable anisotropic texture filtering if supported.
-		if(opengl_engine.nonNull() && opengl_engine->anisotropic_filtering_supported)
+		if(opengl_engine && opengl_engine->anisotropic_filtering_supported)
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
 
 		glGenerateMipmap(GL_TEXTURE_2D);

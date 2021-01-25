@@ -20,11 +20,6 @@ class OpenGLEngine;
 class OpenGLTexture : public RefCounted
 {
 public:
-	OpenGLTexture();
-	~OpenGLTexture();
-
-	bool hasAlpha() const;
-
 	enum Filtering
 	{
 		Filtering_Nearest,
@@ -53,6 +48,20 @@ public:
 		Format_Compressed_BC6 // BC6 half-float unsigned format: e.g. GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
 	};
 
+	OpenGLTexture();
+
+	// Allocate uninitialised texture
+	OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+		Format format,
+		Filtering filtering,
+		Wrapping wrapping = Wrapping_Repeat);
+
+	~OpenGLTexture();
+
+	bool hasAlpha() const;
+
+	
+
 	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format);
 
 
@@ -63,7 +72,8 @@ public:
 		Wrapping wrapping = Wrapping_Repeat
 	);
 
-	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, const Reference<OpenGLEngine>& opengl_engine,
+	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
+		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 		Format format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat
