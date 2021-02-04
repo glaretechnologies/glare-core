@@ -47,46 +47,57 @@ AVFVideoWriter::AVFVideoWriter(const std::string& URL, const VidParams& vid_para
 	
 	@try
 	{
-		NSString* s = [NSString stringWithUTF8String:URL.c_str()];
-		NSURL* url = [[NSURL alloc] initFileURLWithPath: s];
+		// Use an @available check to avoid the following warnings:
+		// warning: 'AVVideoCodecTypeHEVC' is only available on macOS 10.13 or newer [-Wunguarded-availability-new]
+		// note: enclose 'AVVideoCodecTypeHEVC' in an @available check to silence this warning
+		// etc..
+		if(@available(macOS 10.13, *))
+		{
+			NSString* s = [NSString stringWithUTF8String:URL.c_str()];
+			NSURL* url = [[NSURL alloc] initFileURLWithPath: s];
 		
-		NSError* err = nil;
-		AVAssetWriter* video_writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeMPEG4 error:&err];
-		if(video_writer == nil)
-			throw glare::Exception("Failed to create video writer: " + errorDesc(err));
+			NSError* err = nil;
+			AVAssetWriter* video_writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeMPEG4 error:&err];
+			if(video_writer == nil)
+				throw glare::Exception("Failed to create video writer: " + errorDesc(err));
+
+			const AVVideoCodecType codec = (vid_params.standard == VidParams::CompressionStandard_HEVC) ? AVVideoCodecTypeHEVC : AVVideoCodecTypeH264;
 		
-		const AVVideoCodecType codec = (vid_params.standard == VidParams::CompressionStandard_HEVC) ? AVVideoCodecTypeHEVC : AVVideoCodecTypeH264;
+			NSDictionary* compression_props = [NSDictionary dictionaryWithObjectsAndKeys:
+											   [NSNumber numberWithInt:vid_params.bitrate], AVVideoAverageBitRateKey,
+											   nil];
 		
-		NSDictionary* compression_props = [NSDictionary dictionaryWithObjectsAndKeys:
-										   [NSNumber numberWithInt:vid_params.bitrate], AVVideoAverageBitRateKey,
-										   nil];
+			NSDictionary* video_settings = [NSDictionary dictionaryWithObjectsAndKeys:
+											codec, AVVideoCodecKey,
+											[NSNumber numberWithInt:vid_params.width], AVVideoWidthKey,
+											[NSNumber numberWithInt:vid_params.height], AVVideoHeightKey,
+											compression_props, AVVideoCompressionPropertiesKey,
+											nil];
 		
-		NSDictionary* video_settings = [NSDictionary dictionaryWithObjectsAndKeys:
-										codec, AVVideoCodecKey,
-										[NSNumber numberWithInt:vid_params.width], AVVideoWidthKey,
-										[NSNumber numberWithInt:vid_params.height], AVVideoHeightKey,
-										compression_props, AVVideoCompressionPropertiesKey,
-										nil];
+			AVAssetWriterInput* writer_input = [[AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
+																				   outputSettings:video_settings] retain];
+			if(writer_input == nil)
+				throw glare::Exception("Failed to create asset writer input.");
 		
-		AVAssetWriterInput* writer_input = [[AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
-																			   outputSettings:video_settings] retain];
-		if(writer_input == nil)
-			throw glare::Exception("Failed to create asset writer input.");
+			AVAssetWriterInputPixelBufferAdaptor* adaptor = [[AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writer_input sourcePixelBufferAttributes:nil] retain];
 		
-		AVAssetWriterInputPixelBufferAdaptor* adaptor = [[AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writer_input sourcePixelBufferAttributes:nil] retain];
+			if(adaptor == nil)
+				throw glare::Exception("Failed to create input pixel buffer adaptor.");
 		
-		if(adaptor == nil)
-			throw glare::Exception("Failed to create input pixel buffer adaptor.");
+			m_video_writer = video_writer;
+			m_writer_input = writer_input;
+			m_adaptor = adaptor;
 		
-		m_video_writer = video_writer;
-		m_writer_input = writer_input;
-		m_adaptor = adaptor;
+			[video_writer addInput:writer_input];
+			[video_writer startWriting];
+			[video_writer startSessionAtSourceTime:kCMTimeZero];
 		
-		[video_writer addInput:writer_input];
-		[video_writer startWriting];
-		[video_writer startSessionAtSourceTime:kCMTimeZero];
-		
-		[url release];
+			[url release];
+		}
+		else
+		{
+			throw glare::Exception("Video writing is not supported before macOS 10.13.");
+		}
 	}
 	@catch(NSException* exception)
 	{
