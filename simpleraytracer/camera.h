@@ -81,7 +81,11 @@ public:
 		double exposure_duration,
 		Reference<Aperture>& aperture,
 		double lens_shift_up_distance,
-		double lens_shift_right_distance) = 0;
+		double lens_shift_right_distance,
+		bool omnidirectional_stereo,
+		Real IPD,
+		bool left_eye
+	) = 0;
 
 	// See PathTracingUtils::computeUseSensorWidthAndHeightFactor()
 	// This method will change the camera sensor size.
