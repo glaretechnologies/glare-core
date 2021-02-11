@@ -953,33 +953,34 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
 		edge_extract_col_location		= edge_extract_prog->getUniformLocation("col");
 
-
-		downsize_prog = new OpenGLProgram(
-			"downsize",
-			new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
-		);
-
-		gaussian_blur_prog = new OpenGLProgram(
-			"gaussian_blur",
-			new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
-		);
-		gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
-		
-
-		final_imaging_prog = new OpenGLProgram(
-			"final_imaging",
-			new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
-		);
-		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
-		assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
-
-		for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+		if(settings.use_final_image_buffer)
 		{
-			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "blur_tex_" + toString(i));
-			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i);
+			downsize_prog = new OpenGLProgram(
+				"downsize",
+				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			);
+
+			gaussian_blur_prog = new OpenGLProgram(
+				"gaussian_blur",
+				new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			);
+			gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
+		
+			final_imaging_prog = new OpenGLProgram(
+				"final_imaging",
+				new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			);
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
+			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
+
+			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+			{
+				final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "blur_tex_" + toString(i));
+				assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i);
+			}
 		}
 
 		if(settings.shadow_mapping)
@@ -2129,12 +2130,12 @@ void OpenGLEngine::draw()
 #endif
 
 	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
-
-	if(main_render_framebuffer.isNull())
-		main_render_framebuffer = new FrameBuffer();
-
 	FrameBufTextures current_framebuf_textures;
+	if(settings.use_final_image_buffer)
 	{
+		if(main_render_framebuffer.isNull())
+			main_render_framebuffer = new FrameBuffer();
+
 		// Allocate a framebuffer for this viewport width and height
 		// We support multiple framebuffer sizes so viewport can be changed at runtime without constant reallocation.
 		// TODO: improve: use max of all sizes seen maybe?  then need to adjust read UVs
@@ -2171,6 +2172,11 @@ void OpenGLEngine::draw()
 		main_render_framebuffer->bindTextureAsTarget(*current_framebuf_textures.colour_texture, GL_COLOR_ATTACHMENT0);
 		main_render_framebuffer->bindTextureAsTarget(*current_framebuf_textures.depth_texture,  GL_DEPTH_ATTACHMENT);
 		main_render_framebuffer->bind();
+	}
+	else
+	{
+		// Bind requested target frame buffer as output buffer
+		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 	}
 
 	glViewport(0, 0, viewport_w, viewport_h); // Viewport may have been changed by shadow mapping.
@@ -2328,7 +2334,10 @@ void OpenGLEngine::draw()
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 		outline_edge_framebuffer->unbind();
 
-		main_render_framebuffer->bind(); // Restore main render framebuffer binding.
+		if(settings.use_final_image_buffer)
+			main_render_framebuffer->bind(); // Restore main render framebuffer binding.
+		else
+			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 
 		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
 	}
@@ -2386,7 +2395,7 @@ void OpenGLEngine::draw()
 			num_frustum_culled++;
 	}
 
-	// Draw wireframes if required.
+	//================= Draw wireframes if required =================
 	if(draw_wireframes)
 	{
 		// Use outline shaders for now as they just generate white fragments, which is what we want.
@@ -2416,7 +2425,7 @@ void OpenGLEngine::draw()
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 
-	// Draw transparent batches
+	//================= Draw transparent batches =================
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, current_scene->dest_blending_factor);
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
@@ -2545,187 +2554,187 @@ void OpenGLEngine::draw()
 		glDisable(GL_BLEND);
 	}
 
-
-	// We have rendered to main_render_framebuffer / main_render_texture / main_depth_texture.
-
-	//================================= Do post processes: bloom effect =================================
-
-	// Generate downsized image
-	/*
-	This is the computation graph for computing downsized and blurred buffers:
-
-	---------------> full buffer -------------> downsize_framebuffers[0] ------------> blur_framebuffers_x[0] -----------> blur_framebuffers[0]
-	 render scene                 downsize            |                     blur x                              blur y       
-	                                                  |
-	                                                  |------------------> low res buffer 1 -----------> blur_framebuffers_x[1] ------------>  blur_framebuffers[1]
-	                                                       downsize               |             blur x                             blur y
-	                                                                              |
-	                                                                              ------------------> low res buffer 2
-	                                                                                  downsize              |
-	
-	All blurred low res buffers are then read from and added to the resulting buffer.
-	*/
-
-	if(downsize_target_textures.empty() ||
-		(downsize_framebuffers[0]->xRes() != (main_viewport_w/2) || downsize_framebuffers[0]->yRes() != (main_viewport_h/2))
-		)
+	if(settings.use_final_image_buffer)
 	{
-		conPrint("(Re)Allocing downsize_framebuffers etc..");
+		// We have rendered to main_render_framebuffer / main_render_texture / main_depth_texture.
 
-		// Use main viewport w + h for this.  This is because we don't want to keep reallocating these textures for random setViewport calls.
-		assert(main_viewport_w > 0);
-		int w = main_viewport_w;
-		int h = main_viewport_h;
+		//================================= Do post processes: bloom effect =================================
 
-		downsize_target_textures.resize(NUM_BLUR_DOWNSIZES);
-		downsize_framebuffers   .resize(NUM_BLUR_DOWNSIZES);
-		blur_target_textures_x  .resize(NUM_BLUR_DOWNSIZES);
-		blur_framebuffers_x     .resize(NUM_BLUR_DOWNSIZES);
-		blur_target_textures    .resize(NUM_BLUR_DOWNSIZES);
-		blur_framebuffers       .resize(NUM_BLUR_DOWNSIZES);
+		// Generate downsized image
+		/*
+		This is the computation graph for computing downsized and blurred buffers:
 
-		for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
-		{
-			w /= 2;
-			h /= 2;
-
-			// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
-			downsize_target_textures[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
-			downsize_framebuffers[i] = new FrameBuffer();
-			downsize_framebuffers[i]->bindTextureAsTarget(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
-
-			blur_target_textures_x[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
-			blur_framebuffers_x[i] = new FrameBuffer();
-			blur_framebuffers_x[i]->bindTextureAsTarget(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
-
-			blur_target_textures[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
-			blur_framebuffers[i] = new FrameBuffer();
-			blur_framebuffers[i]->bindTextureAsTarget(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
-		}
-	}
-
-	//------------------- Do postprocess bloom ---------------------
-	
-	// // Code to Compute gaussian blur weights
-	// float sum = 0;
-	// for(int x=-2; x<=2; ++x)
-	// 	sum += Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-	   
-	// for(int x=-2; x<=2; ++x)
-	// {
-	// 	const float weight = Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-	// 	const float normed_weight = weight / sum;
-	// 	conPrintStr(" " + toString(normed_weight));
-	// }
-
-	if(current_scene->bloom_strength > 0)
-	{
-		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
-		glDisable(GL_DEPTH_TEST); // Don't depth test
-
-		bindMeshData(*unit_quad_meshdata);
-		assert(unit_quad_meshdata->batches.size() == 1);
-
-		for(int i=0; i<(int)downsize_target_textures.size(); ++i)
-		{
-			//-------------------------------- Execute downsize shader --------------------------------
-			// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
-
-			OpenGLTextureRef src_texture = (i == 0) ? current_framebuf_textures.colour_texture : downsize_target_textures[i - 1];
-
-			downsize_framebuffers[i]->bind(); // Target downsize_framebuffers[i]
+		---------------> full buffer -------------> downsize_framebuffers[0] ------------> blur_framebuffers_x[0] -----------> blur_framebuffers[0]
+		 render scene                 downsize            |                     blur x                              blur y       
+		                                                  |
+		                                                  |------------------> low res buffer 1 -----------> blur_framebuffers_x[1] ------------>  blur_framebuffers[1]
+		                                                       downsize               |             blur x                             blur y
+		                                                                              |
+		                                                                              ------------------> low res buffer 2
+		                                                                                  downsize              |
 		
-			glViewport(0, 0, (int)downsize_framebuffers[i]->xRes(), (int)downsize_framebuffers[i]->yRes()); // Set viewport to target texture size
-
-			downsize_prog->useProgram();
-
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, src_texture->texture_handle);  // Set source texture
-			glUniform1i(downsize_prog->albedo_texture_loc, 0);
-
-			glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
-
-
-			//-------------------------------- Execute blur shader in x direction --------------------------------
-			// Reads from downsize_target_textures[i], writes to blur_framebuffers_x[i]/blur_target_textures_x[i].
-
-			blur_framebuffers_x[i]->bind(); // Target blur_framebuffers_x[i]
-
-			gaussian_blur_prog->useProgram();
-
-			glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/1); // Set blur_x = 1
-
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, downsize_target_textures[i]->texture_handle); // Set source texture
-			glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
-
-			glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
-
-
-			//-------------------------------- Execute blur shader in y direction --------------------------------
-			// Reads from blur_target_textures_x[i], writes to blur_framebuffers[i]/blur_target_textures[i].
-
-			blur_framebuffers[i]->bind(); // Target blur_framebuffers[i]
-
-			glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/0); // Set blur_x = 0
-
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, blur_target_textures_x[i]->texture_handle); // Set source texture
-			glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
-
-			glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
-		}
-
-		OpenGLProgram::useNoPrograms();
-
-		unbindMeshData(*unit_quad_meshdata);
-
-		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
-		glEnable(GL_DEPTH_TEST);
-	
-		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
-	}
-
-
-	// Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer
-
-	// Bind requested target frame buffer as output buffer
-	glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-
-	{
-		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
-		glDisable(GL_DEPTH_TEST); // Don't depth test
-
-		final_imaging_prog->useProgram();
-
-		bindMeshData(*unit_quad_meshdata);
-		assert(unit_quad_meshdata->batches.size() == 1);
-
-		glActiveTexture(GL_TEXTURE0 + 0);
-		glBindTexture(GL_TEXTURE_2D, current_framebuf_textures.colour_texture->texture_handle);
-		glUniform1i(final_imaging_prog->albedo_texture_loc, 0);
-
-		glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
-
-		// Bind downsize_target_textures
-		if(current_scene->bloom_strength > 0)
+		All blurred low res buffers are then read from and added to the resulting buffer.
+		*/
+		if(downsize_target_textures.empty() ||
+			(downsize_framebuffers[0]->xRes() != (main_viewport_w/2) || downsize_framebuffers[0]->yRes() != (main_viewport_h/2))
+			)
 		{
+			conPrint("(Re)Allocing downsize_framebuffers etc..");
+
+			// Use main viewport w + h for this.  This is because we don't want to keep reallocating these textures for random setViewport calls.
+			assert(main_viewport_w > 0);
+			int w = main_viewport_w;
+			int h = main_viewport_h;
+
+			downsize_target_textures.resize(NUM_BLUR_DOWNSIZES);
+			downsize_framebuffers   .resize(NUM_BLUR_DOWNSIZES);
+			blur_target_textures_x  .resize(NUM_BLUR_DOWNSIZES);
+			blur_framebuffers_x     .resize(NUM_BLUR_DOWNSIZES);
+			blur_target_textures    .resize(NUM_BLUR_DOWNSIZES);
+			blur_framebuffers       .resize(NUM_BLUR_DOWNSIZES);
+
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 			{
-				glActiveTexture(GL_TEXTURE0 + 1 + i); // Bind after current_framebuf_textures above
-				glBindTexture(GL_TEXTURE_2D, blur_target_textures[i]->texture_handle);
-				glUniform1i(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc, /*val=*/1 + i);
+				w /= 2;
+				h /= 2;
+
+				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				downsize_target_textures[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				downsize_framebuffers[i] = new FrameBuffer();
+				downsize_framebuffers[i]->bindTextureAsTarget(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
+
+				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_framebuffers_x[i] = new FrameBuffer();
+				blur_framebuffers_x[i]->bindTextureAsTarget(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
+
+				blur_target_textures[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_framebuffers[i] = new FrameBuffer();
+				blur_framebuffers[i]->bindTextureAsTarget(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
 			}
 		}
 
-		glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
-		unbindMeshData(*unit_quad_meshdata);
+		//------------------- Do postprocess bloom ---------------------
+	
+		// // Code to Compute gaussian blur weights:
+		// float sum = 0;
+		// for(int x=-2; x<=2; ++x)
+		// 	sum += Maths::eval1DGaussian(x, /*standard dev=*/1.0);
+	   
+		// for(int x=-2; x<=2; ++x)
+		// {
+		// 	const float weight = Maths::eval1DGaussian(x, /*standard dev=*/1.0);
+		// 	const float normed_weight = weight / sum;
+		// 	conPrintStr(" " + toString(normed_weight));
+		// }
 
-		OpenGLProgram::useNoPrograms();
+		if(current_scene->bloom_strength > 0)
+		{
+			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+			glDisable(GL_DEPTH_TEST); // Don't depth test
 
-		glEnable(GL_DEPTH_TEST);
-		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
-	}
+			bindMeshData(*unit_quad_meshdata);
+			assert(unit_quad_meshdata->batches.size() == 1);
+
+			for(int i=0; i<(int)downsize_target_textures.size(); ++i)
+			{
+				//-------------------------------- Execute downsize shader --------------------------------
+				// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
+
+				OpenGLTextureRef src_texture = (i == 0) ? current_framebuf_textures.colour_texture : downsize_target_textures[i - 1];
+
+				downsize_framebuffers[i]->bind(); // Target downsize_framebuffers[i]
+		
+				glViewport(0, 0, (int)downsize_framebuffers[i]->xRes(), (int)downsize_framebuffers[i]->yRes()); // Set viewport to target texture size
+
+				downsize_prog->useProgram();
+
+				glActiveTexture(GL_TEXTURE0 + 0);
+				glBindTexture(GL_TEXTURE_2D, src_texture->texture_handle);  // Set source texture
+				glUniform1i(downsize_prog->albedo_texture_loc, 0);
+
+				glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+
+
+				//-------------------------------- Execute blur shader in x direction --------------------------------
+				// Reads from downsize_target_textures[i], writes to blur_framebuffers_x[i]/blur_target_textures_x[i].
+
+				blur_framebuffers_x[i]->bind(); // Target blur_framebuffers_x[i]
+
+				gaussian_blur_prog->useProgram();
+
+				glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/1); // Set blur_x = 1
+
+				glActiveTexture(GL_TEXTURE0 + 0);
+				glBindTexture(GL_TEXTURE_2D, downsize_target_textures[i]->texture_handle); // Set source texture
+				glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
+
+				glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+
+
+				//-------------------------------- Execute blur shader in y direction --------------------------------
+				// Reads from blur_target_textures_x[i], writes to blur_framebuffers[i]/blur_target_textures[i].
+
+				blur_framebuffers[i]->bind(); // Target blur_framebuffers[i]
+
+				glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/0); // Set blur_x = 0
+
+				glActiveTexture(GL_TEXTURE0 + 0);
+				glBindTexture(GL_TEXTURE_2D, blur_target_textures_x[i]->texture_handle); // Set source texture
+				glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
+
+				glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+			}
+
+			OpenGLProgram::useNoPrograms();
+
+			unbindMeshData(*unit_quad_meshdata);
+
+			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+			glEnable(GL_DEPTH_TEST);
+	
+			glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
+		}
+
+		// Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer
+
+		// Bind requested target frame buffer as output buffer
+		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+
+		{
+			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+			glDisable(GL_DEPTH_TEST); // Don't depth test
+
+			final_imaging_prog->useProgram();
+
+			bindMeshData(*unit_quad_meshdata);
+			assert(unit_quad_meshdata->batches.size() == 1);
+
+			glActiveTexture(GL_TEXTURE0 + 0);
+			glBindTexture(GL_TEXTURE_2D, current_framebuf_textures.colour_texture->texture_handle);
+			glUniform1i(final_imaging_prog->albedo_texture_loc, 0);
+
+			glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
+
+			// Bind downsize_target_textures
+			if(current_scene->bloom_strength > 0)
+			{
+				for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+				{
+					glActiveTexture(GL_TEXTURE0 + 1 + i); // Bind after current_framebuf_textures above
+					glBindTexture(GL_TEXTURE_2D, blur_target_textures[i]->texture_handle);
+					glUniform1i(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc, /*val=*/1 + i);
+				}
+			}
+
+			glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+			unbindMeshData(*unit_quad_meshdata);
+
+			OpenGLProgram::useNoPrograms();
+
+			glEnable(GL_DEPTH_TEST);
+			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+		}
+	} // End if(settings.use_final_image_buffer)
 	
 
 	if(PROFILE)

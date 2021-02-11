@@ -239,10 +239,11 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : shadow_mapping(false), compress_textures(false) {}
+	OpenGLEngineSettings() : shadow_mapping(false), compress_textures(false), use_final_image_buffer(false) {}
 
 	bool shadow_mapping;
 	bool compress_textures;
+	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 };
 
 
