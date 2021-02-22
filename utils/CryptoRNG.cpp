@@ -21,7 +21,7 @@ namespace CryptoRNG
 
 
 // Fill buffer with random bytes
-void CryptoRNG::getRandomBytes(uint8* buf, size_t buflen)
+void getRandomBytes(uint8* buf, size_t buflen)
 {
 	if(buflen == 0)
 		return;
