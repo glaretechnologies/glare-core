@@ -30,7 +30,7 @@ HTTPClient::~HTTPClient()
 
 // Handle the HTTP response.
 // The response header is in [socket_buffer[request_start_index], socket_buffer[request_start_index + response_header_size])
-HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, int num_redirects_done, std::string& data_out)
+HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, RequestType request_type, int num_redirects_done, std::string& data_out)
 {
 	// conPrint(std::string(&socket_buffer[request_start_index], &socket_buffer[request_start_index] + request_header_size));
 
@@ -154,8 +154,13 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		if(location.empty())
 			throw glare::Exception("Redirect location was empty");
 
-		// conPrint("Redirecting to '" + location + "'...");
-		return doDownloadFile(location.to_string(), num_redirects_done + 1, data_out);
+		if(request_type == RequestType_Get)
+		{
+			// conPrint("Redirecting to '" + location + "'...");
+			return doDownloadFile(location.to_string(), /*request_type, */num_redirects_done + 1, data_out);
+		}
+		else
+			throw glare::Exception("Redirect received for POST request, not supported currently.");
 	}
 
 	if(have_content_length) // If the server sent a valid content-length:
@@ -309,6 +314,57 @@ size_t HTTPClient::readUntilCRLFCRLF(size_t scan_start_index)
 }
 
 
+HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out) // Throws glare::Exception on failure.
+{
+	socket_buffer.clear();
+	
+	try
+	{
+		const URL url_components = URL::parseURL(url);
+
+		if(url_components.scheme == "https")
+		{
+			MySocketRef plain_socket = new MySocket();
+			this->socket = plain_socket; // Store in this->socket so we can interrupt in kill().
+			plain_socket->connect(url_components.host, (url_components.port == -1) ? 443 : url_components.port);
+
+			TLSConfig client_tls_config;
+
+			tls_config_insecure_noverifycert(client_tls_config.config); // TEMP: try and work out how to remove this call.
+
+			this->socket = new TLSSocket(plain_socket, client_tls_config.config, url_components.host);
+		}
+		else
+		{
+			// Assume http (non-TLS)
+			this->socket = new MySocket(url_components.host, (url_components.port == -1) ? 80 : url_components.port);;
+		}
+
+		const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
+
+		// Send request
+		const std::string request = "POST " + path_and_query + " HTTP/1.1\r\n"
+			"Host: " + url_components.host + "\r\n"
+			"Content-Type: " + content_type + "\r\n"
+			"Content-Length: " + toString(post_content.size()) + "\r\n" +
+			((!user_agent.empty()) ? (std::string("User-Agent: ") + user_agent + "\r\n") : std::string("")) + // Write user_agent header if set.
+			"Connection: close\r\n"
+			"\r\n" + 
+			post_content;
+
+		this->socket->writeData(request.data(), request.size());
+
+		const size_t CRLFCRLF_end_i = readUntilCRLFCRLF(/*scan_start_index=*/0);
+
+		return handleResponse(CRLFCRLF_end_i, RequestType_Post, /*num_redirects_done=*/0, data_out);
+	}
+	catch(MySocketExcep& e)
+	{
+		throw glare::Exception(e.what());
+	}
+}
+
+
 HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::string& data_out)
 {
 	return doDownloadFile(url, /*num_redirects_done=*/0, data_out);
@@ -354,7 +410,7 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 
 		const size_t CRLFCRLF_end_i = readUntilCRLFCRLF(/*scan_start_index=*/0);
 
-		return handleResponse(CRLFCRLF_end_i, num_redirects_done, data_out);
+		return handleResponse(CRLFCRLF_end_i, RequestType_Get, num_redirects_done, data_out);
 	}
 	catch(MySocketExcep& e)
 	{
