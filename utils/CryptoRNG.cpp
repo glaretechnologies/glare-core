@@ -11,7 +11,9 @@ Copyright Glare Technologies Limited 2021 -
 #ifdef _WIN32
 #include <IncludeWindows.h>
 #include <wincrypt.h>
-#else
+#elif defined(OSX)
+#include <Security/Security.h>
+#else // Linux:
 #include <sys/random.h>
 #endif
 
