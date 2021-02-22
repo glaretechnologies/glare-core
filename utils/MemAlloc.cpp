@@ -68,7 +68,7 @@ void alignedFree(void* addr)
 }
 
 
-} // end namespace SSE
+} // end namespace MemAlloc
 
 
 #if BUILD_TESTS
