@@ -52,6 +52,7 @@ void getRandomBytes(uint8* buf, size_t buflen)
 
 #elif defined(OSX)
 
+	// See https://stackoverflow.com/a/32770362
 	const int res = SecRandomCopyBytes(kSecRandomDefault, buflen, buf);
 	if(res != 0)
 		throw glare::Exception("SecRandomCopyBytes failed: " + PlatformUtils::getLastErrorString()); 
