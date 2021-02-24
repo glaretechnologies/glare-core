@@ -1518,14 +1518,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 
 	const std::string bin_filename = ::eatExtension(FileUtils::getFilename(path)) + "bin";
 	const std::string bin_path = ::eatExtension(path) + "bin";
-	try
-	{
-		FileUtils::writeEntireFile(bin_path, data);
-	}
-	catch(FileUtils::FileUtilsExcep& e)
-	{
-		throw glare::Exception(e.what());
-	}
+	FileUtils::writeEntireFile(bin_path, data);
 
 	// Write buffer element
 	// See https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#binary-data-storage
@@ -1789,24 +1782,17 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 		if(current_dir.empty())
 			current_dir = ".";
 
-		try
+		for(size_t i=0; i<textures.size(); ++i)
 		{
-			for(size_t i=0; i<textures.size(); ++i)
-			{
-				//const std::string relative_path = FileUtils::getRelativePath(current_dir, textures[i].path);
-				const std::string use_path = textures[i].path;// FileUtils::getFilename(textures[i].path);
+			//const std::string relative_path = FileUtils::getRelativePath(current_dir, textures[i].path);
+			const std::string use_path = textures[i].path;// FileUtils::getFilename(textures[i].path);
 
-				file << 
-					"	" + ((i > 0) ? std::string(",") : std::string("")) + "{\n"
-					"		\"uri\": \"" + JSONEscape(use_path) + "\"\n"
-					"	}\n";
-			}
-			file << "],\n"; // end images array
+			file << 
+				"	" + ((i > 0) ? std::string(",") : std::string("")) + "{\n"
+				"		\"uri\": \"" + JSONEscape(use_path) + "\"\n"
+				"	}\n";
 		}
-		catch(FileUtils::FileUtilsExcep &e)
-		{
-			throw glare::Exception(e.what());
-		}
+		file << "],\n"; // end images array
 	}
 
 	// Write samplers

@@ -92,13 +92,13 @@ static void determineMaxMemAllocSize(const OpenCLDeviceRef& opencl_device)
 			testEqual(result_buf[0], 0u);
 		}
 	}
-	catch(glare::Exception& e)
-	{
-		conPrint(e.what());
-	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
 		failTest(e.what());
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint(e.what());
 	}
 }
 
@@ -236,13 +236,13 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 			conPrint("Kernel profiled exec time: " + doubleToStringNDecimalPlaces(exec_time_s, 8) + " s, timer elapsed: " + doubleToStringNDecimalPlaces(timer_elapsed_s, 8) + " s");
 		}
 	}
-	catch(glare::Exception& e)
-	{
-		failTest(e.what() + " build_log: " + build_log);
-	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
 		failTest(e.what());
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what() + " build_log: " + build_log);
 	}
 }
 
@@ -360,10 +360,6 @@ static void miscompilationTest()
 		//opencl->deviceFree(context, command_queue);
 	}
 	catch(glare::Exception& e)
-	{
-		failTest(e.what());
-	}
-	catch(FileUtils::FileUtilsExcep& e)
 	{
 		failTest(e.what());
 	}

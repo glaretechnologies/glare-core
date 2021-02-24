@@ -7,21 +7,18 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
+#include "Exception.h"
 #include "string_view.h"
 #include <string>
 #include <vector>
 #include <string.h> // for strcmp()
 
 
-class StringUtilsExcep
+class StringUtilsExcep : public glare::Exception
 {
 public:
-	StringUtilsExcep(const std::string& s_) : s(s_) {}
+	StringUtilsExcep(const std::string& msg) : glare::Exception(msg) {}
 	~StringUtilsExcep(){}
-
-	const std::string& what() const { return s; }
-private:
-	std::string s;
 };
 
 

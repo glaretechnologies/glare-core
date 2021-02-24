@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
+#include "Exception.h"
 #include <string>
 #include <vector>
 
@@ -15,15 +16,11 @@ namespace FileUtils
 {
 
 
-class FileUtilsExcep
+class FileUtilsExcep : public glare::Exception
 {
 public:
-	FileUtilsExcep(const std::string& s_) : s(s_) {}
+	FileUtilsExcep(const std::string& msg) : glare::Exception(msg) {}
 	~FileUtilsExcep(){}
-
-	const std::string& what() const { return s; }
-private:
-	std::string s;
 };
 
 

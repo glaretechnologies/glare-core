@@ -291,10 +291,6 @@ build_program:
 				}
 			}
 		}
-		catch(FileUtils::FileUtilsExcep& e)
-		{
-			conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());
-		}
 		catch(glare::Exception& e)
 		{
 			conPrint("Warning: failed saving OpenCL binaries to cache: " + e.what());

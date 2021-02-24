@@ -6,9 +6,10 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
+#include "Platform.h"
+#include "Exception.h"
 #include <vector>
 #include <string>
-#include "Platform.h"
 
 
 /*=====================================================================
@@ -20,13 +21,10 @@ namespace PlatformUtils
 {
 
 
-class PlatformUtilsExcep
+class PlatformUtilsExcep : public glare::Exception
 {
 public:
-	PlatformUtilsExcep(const std::string& s_) : s(s_) {}
-	const std::string& what() const { return s; }
-private:
-	std::string s;
+	PlatformUtilsExcep(const std::string& msg) : glare::Exception(msg) {}
 };
 
 
