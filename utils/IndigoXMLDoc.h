@@ -7,18 +7,16 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "FileHandle.h"
+#include "Exception.h"
 #include <pugixml.hpp>
 #include <string>
 
 
-class IndigoXMLDocExcep
+class IndigoXMLDocExcep : public glare::Exception
 {
 public:
-	IndigoXMLDocExcep(const std::string& s_) : s(s_) {}
+	IndigoXMLDocExcep(const std::string& s_) : glare::Exception(s_) {}
 	~IndigoXMLDocExcep(){}
-	const std::string& what() const { return s; }
-private:
-	std::string s;
 };
 
 

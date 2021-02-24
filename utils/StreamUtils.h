@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 #define __STREAMUTILS_H_666_
 
 
+#include "Exception.h"
 #include <istream>
 #include <ostream>
 #include <vector>
@@ -22,14 +23,10 @@ StreamUtils
 =====================================================================*/
 namespace StreamUtils
 {
-	class StreamUtilsExcep
+	class StreamUtilsExcep : public glare::Exception
 	{
 	public:
-		StreamUtilsExcep(const std::string& s_) : s(s_) {}
-		~StreamUtilsExcep(){}
-		const std::string& what() const { return s; }
-	private:
-		std::string s;
+		StreamUtilsExcep(const std::string& s_) : glare::Exception(s_) {}
 	};
 
 

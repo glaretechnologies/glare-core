@@ -6,20 +6,16 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
+#include "Exception.h"
 #include <vector>
 #include <string>
 #include <map>
 
 
-class ArgumentParserExcep
+class ArgumentParserExcep : public glare::Exception
 {
 public:
-	ArgumentParserExcep(const std::string& s_) : s(s_) {}
-	~ArgumentParserExcep(){}
-
-	const std::string& what() const { return s; }
-private:
-	std::string s;
+	ArgumentParserExcep(const std::string& s_) : glare::Exception(s_) {}
 };
 
 

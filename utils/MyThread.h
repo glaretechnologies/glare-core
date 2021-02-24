@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "ThreadSafeRefCounted.h"
 #include "Reference.h"
+#include "Exception.h"
 #include "IncludeWindows.h"
 #if !defined(_WIN32)
 #include <pthread.h>
@@ -15,13 +16,10 @@ Copyright Glare Technologies Limited 2021 -
 #include <string>
 
 
-class MyThreadExcep
+class MyThreadExcep : public glare::Exception
 {
 public:
-	MyThreadExcep(const std::string& text_) : text(text_) {}
-	const std::string& what() const { return text; }
-private:
-	std::string text;
+	MyThreadExcep(const std::string& text_) : glare::Exception(text_) {}
 };
 
 

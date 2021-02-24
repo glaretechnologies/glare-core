@@ -7,18 +7,16 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "IPAddress.h"
+#include "../utils/Exception.h"
 #include "../utils/Singleton.h"
 #include <vector>
 #include <string>
 
 
-class NetworkingExcep
+class NetworkingExcep : public glare::Exception
 {
 public:
-	NetworkingExcep(const std::string& message_) : message(message_) {}
-	const std::string& what() const { return message; }
-private:
-	std::string message;
+	NetworkingExcep(const std::string& message_) : glare::Exception(message_) {}
 };
 
 

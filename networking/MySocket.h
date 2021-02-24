@@ -24,12 +24,13 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/OutStream.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/Exception.h"
 #include <string>
 class FractionListener;
 class EventFD;
 
 
-class MySocketExcep
+class MySocketExcep : public glare::Exception
 {
 public:
 	enum ExcepType
@@ -41,12 +42,10 @@ public:
 		ExcepType_Other
 	};
 
-	MySocketExcep(const std::string& message_, ExcepType excep_type_ = ExcepType_Other) : message(message_), excep_type(excep_type_) {}
+	MySocketExcep(const std::string& message_, ExcepType excep_type_ = ExcepType_Other) : glare::Exception(message_), excep_type(excep_type_) {}
 
-	const std::string& what() const { return message; }
 	ExcepType excepType() const { return excep_type; }
 private:
-	std::string message;
 	ExcepType excep_type;
 };
 

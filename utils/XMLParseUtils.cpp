@@ -323,10 +323,6 @@ void XMLParseUtils::test()
 			testAssert(parseIntDirectly(a_node) == -10);
 		}
 	}
-	catch(IndigoXMLDocExcep& e)
-	{
-		failTest(e.what());
-	}
 	catch(glare::Exception& e)
 	{
 		failTest(e.what());
@@ -357,10 +353,6 @@ void XMLParseUtils::test()
 			testAssert(parseInt(root, "c") == -3456436);
 			testAssert(parseInt(root, "d") == 0);
 		}
-	}
-	catch(IndigoXMLDocExcep& e)
-	{
-		failTest(e.what());
 	}
 	catch(glare::Exception& e)
 	{
@@ -398,10 +390,6 @@ void XMLParseUtils::test()
 			testAssert(parseIntWithDefault(root, "b", 10) == 10);
 		}
 	}
-	catch(IndigoXMLDocExcep& e)
-	{
-		failTest(e.what());
-	}
 	catch(glare::Exception& e)
 	{
 		failTest(e.what());
@@ -418,10 +406,6 @@ void XMLParseUtils::test()
 
 			testAssert(parseUInt(root, "a") == 123);
 		}
-	}
-	catch(IndigoXMLDocExcep& e)
-	{
-		failTest(e.what());
 	}
 	catch(glare::Exception& e)
 	{
@@ -462,10 +446,6 @@ void XMLParseUtils::test()
 			std::string astr = parseString(doc.getRootElement(), "a");
 			testAssert(astr == "  hello  ");
 		}
-	}
-	catch(IndigoXMLDocExcep& e)
-	{
-		failTest(e.what());
 	}
 	catch(glare::Exception& e)
 	{
@@ -509,10 +489,6 @@ void XMLParseUtils::test()
 			testAssert(parseDouble(root, "a") == 0);
 		}
 	}
-	catch(IndigoXMLDocExcep& e)
-	{
-		failTest(e.what());
-	}
 	catch(glare::Exception& e)
 	{
 		failTest(e.what());
@@ -555,10 +531,6 @@ void XMLParseUtils::test()
 			IndigoXMLDoc doc(s.c_str(), s.size());
 			testAssert(parseBool(doc.getRootElement(), "a") == false);
 		}
-	}
-	catch(IndigoXMLDocExcep& e)
-	{
-		failTest(e.what());
 	}
 	catch(glare::Exception& e)
 	{

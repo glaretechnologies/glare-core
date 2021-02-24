@@ -7,21 +7,16 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
+#include "Exception.h"
 #include <unordered_map>
 #include <string>
 
 
-class NameMapExcep
+class NameMapExcep : public glare::Exception
 {
 public:
-	NameMapExcep(const std::string& s_) : s(s_) {}
-	~NameMapExcep(){}
-
-	const std::string& what() const { return s; }
-private:
-	std::string s;
+	NameMapExcep(const std::string& s_) : glare::Exception(s_) {}
 };
-
 
 
 /*=====================================================================
