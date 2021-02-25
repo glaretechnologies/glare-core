@@ -28,6 +28,12 @@ void OutStream::writeStringLengthFirst(const std::string& s)
 }
 
 
+void OutStream::writeUInt64(uint64 x)
+{
+	writeData(&x, sizeof(x));
+}
+
+
 void OutStream::writeFloat(float x)
 {
 	writeData(&x, sizeof(x));
