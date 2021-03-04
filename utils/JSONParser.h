@@ -43,10 +43,12 @@ struct JSONNode
 
 	// For objects:
 	bool hasChild(const string_view& name) const;
+	const JSONNode& getChildNode(const JSONParser& parser, const string_view& name) const;
 
 	size_t getChildUIntValue(const JSONParser& parser, const string_view& name) const;
 	size_t getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, size_t default_val) const;
 
+	double getChildDoubleValue(const JSONParser& parser, const string_view& name) const;
 	double getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view& name, double default_val) const;
 
 	bool getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view& name, bool default_val) const;

@@ -36,10 +36,12 @@ public:
 
 	void init();
 
-	int numDynamicDepthTextures() { return 2; }
+	static const int NUM_DYNAMIC_DEPTH_TEXTURES = 2;
+	static int numDynamicDepthTextures() { return NUM_DYNAMIC_DEPTH_TEXTURES; }
 	float getDynamicDepthTextureScaleMultiplier() { return 6.0; }
 
-	int numStaticDepthTextures() { return 3; }
+	static const int NUM_STATIC_DEPTH_TEXTURES = 3;
+	static int numStaticDepthTextures() { return NUM_STATIC_DEPTH_TEXTURES; }
 	float getStaticDepthTextureScaleMultiplier() { return 6.0; }
 
 	void bindDepthTexAsTarget();

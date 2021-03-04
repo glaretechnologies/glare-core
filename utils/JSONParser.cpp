@@ -83,6 +83,19 @@ bool JSONNode::hasChild(const string_view& name) const
 }
 
 
+const JSONNode& JSONNode::getChildNode(const JSONParser& parser, const string_view& name) const
+{
+	if(type != JSONNode::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(size_t i=0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name)
+			return parser.nodes[name_val_pairs[i].value_node_index];
+
+	throw glare::Exception("Failed to find child name/value pair with name " + name + ".");
+}
+
+
 size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view& name) const
 {
 	if(type != JSONNode::Type_Object)
@@ -106,6 +119,19 @@ size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const
 			return parser.nodes[name_val_pairs[i].value_node_index].getUIntValue();
 
 	return default_val;
+}
+
+
+double JSONNode::getChildDoubleValue(const JSONParser& parser, const string_view& name) const
+{
+	if(type != JSONNode::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(size_t i=0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name)
+			return parser.nodes[name_val_pairs[i].value_node_index].getDoubleValue();
+
+	throw glare::Exception("Failed to find child node with name " + name + ".");
 }
 
 
@@ -171,7 +197,7 @@ const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_
 		{
 			const JSONNode& child = parser.nodes[name_val_pairs[i].value_node_index];
 			if(child.type != JSONNode::Type_Object)
-				throw glare::Exception("Expected child to have type object.");
+				throw glare::Exception("Expected child with name '" + name + "' to have type object, had type " + typeString(child.type));
 			return child;
 		}
 
