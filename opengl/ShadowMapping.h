@@ -20,6 +20,9 @@ class OpenGLShader;
 FrameBuffer
 ---------
 See http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-16-shadow-mapping/
+
+For 'static' shadow maps (wider view, updated less often), objects are randomly divided into 4 sets, with each set being draw onto the depth map on different frames.
+There are two copies of the static shadow map depth map - one is rendered with while the other is being drawn to, then they are swapped every N frames.
 =====================================================================*/
 #ifdef _WIN32
 #pragma warning(push)
@@ -51,15 +54,20 @@ public:
 private:
 	GLARE_DISABLE_COPY(ShadowMapping);
 public:
-	Matrix4f shadow_tex_matrix[8];
+	// Shadow texture matrices to be set as uniforms in shaders
+	Matrix4f dynamic_tex_matrix[NUM_DYNAMIC_DEPTH_TEXTURES];
+	Matrix4f static_tex_matrix[NUM_STATIC_DEPTH_TEXTURES * 2];
 	
 	int dynamic_w, dynamic_h;
 	int static_w, static_h;
 	Reference<FrameBuffer> frame_buffer;
 	Reference<OpenGLTexture> depth_tex;
 	
-	Reference<FrameBuffer> static_frame_buffer;
-	Reference<OpenGLTexture> static_depth_tex;
+	int cur_static_depth_tex; // 0 or 1
+	Reference<FrameBuffer> static_frame_buffer[2];
+	Reference<OpenGLTexture> static_depth_tex[2];
+
+	Vec4f vol_centres[NUM_STATIC_DEPTH_TEXTURES * 2];
 
 	//Reference<OpenGLTexture> col_tex;
 

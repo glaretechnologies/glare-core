@@ -73,6 +73,9 @@ public:
 };
 
 
+inline void getAABBCornerVerts(const js::AABBox& aabb, Vec4f* verts_out);
+
+
 AABBox::AABBox()
 {
 	static_assert(sizeof(AABBox) == 32, "sizeof(AABBox) == 32");
@@ -296,6 +299,21 @@ AABBox AABBox::transformedAABBFast(const Matrix4f& M) const
 	M_bbox.enlargeToHoldPoint(M_min + M_e0 + M_e1       );
 	M_bbox.enlargeToHoldPoint(M_min + M_e0 + M_e1 + M_e2);
 	return M_bbox;
+}
+
+
+void getAABBCornerVerts(const js::AABBox& aabb, Vec4f* verts_out)
+{
+	const Vec4f lo = unpacklo(aabb.min_, aabb.max_); // (min[0], max[0], min[1], max[1])
+
+	verts_out[0] = aabb.min_;                                 // (min[0], min[1], min[2], 1)
+	verts_out[1] = shuffle<1, 2, 2, 3>(lo,        aabb.min_); // (max[0], min[1], min[2], 1)
+	verts_out[2] = shuffle<0, 3, 2, 3>(lo,        aabb.min_); // (min[0], max[1], min[2], 1)
+	verts_out[3] = shuffle<0, 1, 2, 3>(aabb.max_, aabb.min_); // (max[0], max[1], min[2], 1)
+	verts_out[4] = shuffle<0, 1, 2, 3>(aabb.min_, aabb.max_); // (min[0], min[1], max[2], 1)
+	verts_out[5] = shuffle<1, 2, 2, 3>(lo,        aabb.max_); // (max[0], min[1], max[2], 1)
+	verts_out[6] = shuffle<0, 3, 2, 3>(lo,        aabb.max_); // (min[0], max[1], max[2], 1)
+	verts_out[7] = aabb.max_;                                 // (max[0], max[1], max[2], 1)
 }
 
 

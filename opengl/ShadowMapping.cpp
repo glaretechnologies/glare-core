@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 ShadowMapping::ShadowMapping()
+:	cur_static_depth_tex(0)
 {
 }
 
@@ -29,7 +30,8 @@ void ShadowMapping::init()
 
 	// Create frame buffer
 	frame_buffer = new FrameBuffer();
-	static_frame_buffer = new FrameBuffer();
+	for(int i=0; i<2; ++i)
+		static_frame_buffer[i] = new FrameBuffer();
 
 	//blur_fb = new FrameBuffer();
 	
@@ -47,10 +49,13 @@ void ShadowMapping::init()
 		OpenGLTexture::Filtering_Nearest // nearest filtering
 	);
 
-	static_depth_tex = new OpenGLTexture(static_w, static_h, NULL,
-		OpenGLTexture::Format_Depth_Float,
-		OpenGLTexture::Filtering_Nearest // nearest filtering
-	);
+	cur_static_depth_tex = 0;
+
+	for(int i=0; i<2; ++i)
+		static_depth_tex[i] = new OpenGLTexture(static_w, static_h, NULL,
+			OpenGLTexture::Format_Depth_Float,
+			OpenGLTexture::Filtering_Nearest // nearest filtering
+		);
 
 	//col_tex = new OpenGLTexture();
 	//col_tex->load(w, h, NULL, NULL, 
@@ -75,9 +80,9 @@ void ShadowMapping::bindDepthTexAsTarget()
 
 void ShadowMapping::bindStaticDepthTexAsTarget()
 {
-	static_frame_buffer->bind();
+	static_frame_buffer[cur_static_depth_tex]->bind();
 
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, static_depth_tex->texture_handle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, static_depth_tex[cur_static_depth_tex]->texture_handle, 0);
 
 	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
 }

@@ -1021,18 +1021,34 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			{
 				// Add overlay quad to preview depth map
 
-				tex_preview_overlay_ob =  new OverlayObject();
+				{
+					OverlayObjectRef tex_preview_overlay_ob =  new OverlayObject();
 
-				tex_preview_overlay_ob->ob_to_world_matrix.setToUniformScaleMatrix(0.95f);
+					tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::uniformScaleMatrix(0.95f) * Matrix4f::translationMatrix(-1, 0, 0);
 
-				tex_preview_overlay_ob->material.albedo_rgb = Colour3f(0.2f, 0.2f, 0.2f);
-				tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+					tex_preview_overlay_ob->material.albedo_rgb = Colour3f(1.f);
+					tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
 
-				tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex;
+					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->static_depth_tex[0];
 
-				tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+					tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 
-				addOverlayObject(tex_preview_overlay_ob);
+					addOverlayObject(tex_preview_overlay_ob);
+				}
+				{
+					OverlayObjectRef tex_preview_overlay_ob =  new OverlayObject();
+
+					tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::uniformScaleMatrix(0.95f) * Matrix4f::translationMatrix(0, 0, 0);
+
+					tex_preview_overlay_ob->material.albedo_rgb = Colour3f(1.f);
+					tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+
+					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->static_depth_tex[1];
+
+					tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+
+					addOverlayObject(tex_preview_overlay_ob);
+				}
 			}
 		}
 
@@ -1288,6 +1304,8 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	updateObjectTransformData(*object.getPointer());
 	
 	current_scene->objects.insert(object);
+
+	object->random_num = rng.nextUInt();
 
 	// Build the mesh used by the object if it's not built already.
 	//if(mesh_render_data.find(object->mesh) == mesh_render_data.end())
@@ -1784,7 +1802,7 @@ void OpenGLEngine::draw()
 		{
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
 
-			// Compute the 8 points making up this slice of the view frustum
+			// Compute the 8 points making up the corner vertices of this slice of the view frustum
 			float near_dist = (float)std::pow<double>(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), ti);
 			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
 			if(ti == 0)
@@ -1793,6 +1811,7 @@ void OpenGLEngine::draw()
 			Vec4f frustum_verts_ws[8];
 			calcCamFrustumVerts(near_dist, far_dist, frustum_verts_ws);
 
+			// Get a basis for our distance map, where k is the direction to the sun.
 			const Vec4f up(0, 0, 1, 0);
 			const Vec4f k = sun_dir;
 			const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
@@ -1800,7 +1819,7 @@ void OpenGLEngine::draw()
 
 			assert(k.isUnitLength());
 
-			// Get bounds along i, j, k vectors
+			// Get bounds of the view frustum slice along i, j, k vectors
 			float min_i = std::numeric_limits<float>::max();
 			float min_j = std::numeric_limits<float>::max();
 			float min_k = std::numeric_limits<float>::max();
@@ -1810,9 +1829,10 @@ void OpenGLEngine::draw()
 			
 			for(int z=0; z<8; ++z)
 			{
-				float dot_i = dot(i, maskWToZero(frustum_verts_ws[z]));
-				float dot_j = dot(j, maskWToZero(frustum_verts_ws[z]));
-				float dot_k = dot(k, maskWToZero(frustum_verts_ws[z]));
+				assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
+				const float dot_i = dot(i, frustum_verts_ws[z]);
+				const float dot_j = dot(j, frustum_verts_ws[z]);
+				const float dot_k = dot(k, frustum_verts_ws[z]);
 				min_i = myMin(min_i, dot_i);
 				min_j = myMin(min_j, dot_j);
 				min_k = myMin(min_k, dot_k);
@@ -1821,12 +1841,13 @@ void OpenGLEngine::draw()
 				max_k = myMax(max_k, dot_k);
 			}
 
+			// We want objects some distance outside of the view frustum to be able to cast shadows as well
 			const float max_shadowing_dist = 300.0f;
 
-			float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist);
+			const float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist); // extend k bound to encompass max_shadowing_dist from min_k.
 
-			float near_signed_dist = -use_max_k;
-			float far_signed_dist = -min_k;
+			const float near_signed_dist = -use_max_k; // k is towards sun so negate
+			const float far_signed_dist = -min_k;
 
 			Matrix4f proj_matrix = orthoMatrix(
 				min_i, max_i, // left, right
@@ -1873,11 +1894,14 @@ void OpenGLEngine::draw()
 				Vec4f(0.5f, 0.5f, 0.5f, 1) // col 3
 			);
 			// Save shadow_tex_matrix that the shaders like phong will use.
-			shadow_mapping->shadow_tex_matrix[ti] = texcoord_bias * proj_matrix * view_matrix;
+			shadow_mapping->dynamic_tex_matrix[ti] = texcoord_bias * proj_matrix * view_matrix;
 
-			// Draw non-transparent batches from objects.
+			// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
 			//uint64 num_drawn = 0;
 			//uint64 num_in_frustum = 0;
+
+			depth_draw_mat.shader_prog->useProgram(); // Bind shader just once for all objects
+
 			for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
 			{
 				const GLObject* const ob = it->getPointer();
@@ -1892,36 +1916,90 @@ void OpenGLEngine::draw()
 					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 					bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 
-					// See if all the batches are fully opaque. If so, can draw all the primitives with one draw call.
+					// See if all the batches are fully opaque. If so, can draw all the primitives from the batches with one draw call.
 					if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
 					{
 						size_t total_num_indices = 0;
 						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 							total_num_indices += mesh_data.batches[z].num_indices;
 
-						drawBatch(*ob, view_matrix, proj_matrix,
+						drawPrimitives(*ob, view_matrix, proj_matrix,
 							ob->materials[0], // tex matrix shouldn't matter for depth_draw_mat
-							depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices); // Draw object with depth_draw_mat.
+							depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
 					}
 					else
 					{
-						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+						for(size_t z = 0; z < mesh_data.batches.size(); ++z)
 						{
-							const uint32 mat_index = mesh_data.batches[z].material_index;
+							const OpenGLBatch& batch = mesh_data.batches[z];
+							const uint32 mat_index = batch.material_index;
+
 							// Draw primitives for the given material
 							if(!ob->materials[mat_index].transparent)
 							{
 								const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-								OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
-
-								drawBatch(*ob, view_matrix, proj_matrix,
-									ob->materials[mat_index], // Use tex matrix etc.. from original material
-									use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
+								if(!use_alpha_test)
+								{
+									drawPrimitives(*ob, view_matrix, proj_matrix,
+										ob->materials[mat_index], // Use tex matrix etc.. from original material
+										depth_draw_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
+								}
 							}
 						}
 					}
 					unbindMeshData(mesh_data);
 
+					//num_drawn++;
+				}
+			}
+
+			// Now draw batches that need to use depth_draw_with_alpha_test shader
+
+			depth_draw_with_alpha_test_mat.shader_prog->useProgram(); // Bind shader just once for all objects
+
+			for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+			{
+				const GLObject* const ob = it->getPointer();
+
+				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
+				{
+					//num_in_frustum++;
+
+					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
+						continue;
+
+					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+
+					// Work out if we need to draw 1 or more batches from this object
+					bool need_draw = false;
+					for(size_t b=0; b<mesh_data.batches.size(); ++b)
+					{
+						const OpenGLMaterial& mat = ob->materials[mesh_data.batches[b].material_index];
+						if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
+						{
+							need_draw = true;
+							break;
+						}
+					}
+
+					if(need_draw)
+					{
+						bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+						{
+							const OpenGLBatch& batch = mesh_data.batches[z];
+							const OpenGLMaterial& mat = ob->materials[batch.material_index];
+
+							// Draw primitives for the given material
+							if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
+							{
+								drawPrimitives(*ob, view_matrix, proj_matrix,
+									mat, // Use tex matrix etc.. from original material
+									depth_draw_with_alpha_test_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
+							}
+						}
+						unbindMeshData(mesh_data);
+					}
 					//num_drawn++;
 				}
 			}
@@ -1932,135 +2010,185 @@ void OpenGLEngine::draw()
 		//-------------------- End draw dynamic depth textures ----------------
 
 		//-------------------- Draw static depth textures ----------------
-		// We will update the different static cascades only every N frames, and in a staggered fashion.
-		if(frame_num % 4 == 0)
+		
+		/*
+		We will update the different static cascades only every N frames, and in a staggered fashion.
+
+		target depth tex 0:
+		buffer clear
+		draw ob set 0
+		draw ob set 1
+		draw ob set 2
+		draw ob set 3
+		depth tex 1:
+		ob set 0
+		ob set 1
+		ob set 2
+		ob set 3
+		depth tex 2:
+		ob set 0
+		ob set 1
+		ob set 2
+		ob set 3
+		depth tex 0:
+		ob set 0 etc..
+		*/
 		{
-			shadow_mapping->bindStaticDepthTexAsTarget();
+			// Bind the non-current ('other') static depth map.  We will render to that.
+			const int other_index = (shadow_mapping->cur_static_depth_tex + 1) % 2;
 
-			for(int ti=0; ti<shadow_mapping->numStaticDepthTextures(); ++ti)
+			shadow_mapping->static_frame_buffer[other_index]->bind();
+			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, shadow_mapping->static_depth_tex[other_index]->texture_handle, 0);
+			glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+
+			const uint32 ti = (frame_num % 12) / 4; // Texture index, in [0, numStaticDepthTextures)
+			const uint32 ob_set = frame_num % 4;    // Object set, in [0, 4)
+
 			{
-				const uint64 frame_offset = ti * 4;
-				if(frame_num % 16 == frame_offset)
+				//conPrint("At frame " + toString(frame_num) + ", drawing static cascade " + toString(ti));
+
+				const int static_per_map_h = shadow_mapping->static_h / shadow_mapping->numStaticDepthTextures();
+				glViewport(/*x=*/0, /*y=*/ti*static_per_map_h, /*width=*/shadow_mapping->static_w, /*height=*/static_per_map_h);
+
+				if(ob_set == 0)
 				{
-					//conPrint("At frame " + toString(frame_num) + ", drawing static cascade " + toString(ti));
-
-					const int static_per_map_h = shadow_mapping->static_h / shadow_mapping->numStaticDepthTextures();
-					glViewport(0, ti*static_per_map_h, shadow_mapping->static_w, static_per_map_h);
-
 					glDisable(GL_CULL_FACE);
 					partiallyClearBuffer(Vec2f(0, 0), Vec2f(1, 1));
 					glEnable(GL_CULL_FACE);
+				}
 
-					float w;
-					if(ti == 0)
-						w = 64;
-					else if(ti == 1)
-						w = 256;
-					else
-						w = 1024;
+				// Half-width in x and y directions in metres of static depth texture at this cascade level.
+				float w;
+				if(ti == 0)
+					w = 64;
+				else if(ti == 1)
+					w = 256;
+				else
+					w = 1024;
 
-					const float h = 256;
+				const float h = 256; // Half-height (in z direction)
 
-					// Get a bounding AABB centered on camera
-					Vec4f campos_ws = current_scene->cam_to_world * Vec4f(0, 0, 0, 1);
-					Vec4f frustum_verts_ws[8];
-					frustum_verts_ws[0] = campos_ws + Vec4f(-w, -w, -h, 0);
-					frustum_verts_ws[1] = campos_ws + Vec4f( w, -w, -h, 0);
-					frustum_verts_ws[2] = campos_ws + Vec4f(-w,  w, -h, 0);
-					frustum_verts_ws[3] = campos_ws + Vec4f( w,  w, -h, 0);
-					frustum_verts_ws[4] = campos_ws + Vec4f(-w, -w,  h, 0);
-					frustum_verts_ws[5] = campos_ws + Vec4f( w, -w,  h, 0);
-					frustum_verts_ws[6] = campos_ws + Vec4f(-w,  w,  h, 0);
-					frustum_verts_ws[7] = campos_ws + Vec4f( w,  w,  h, 0);
+				// Get a bounding AABB centered on camera.
+				// Quantise camera coords to avoid shimmering artifacts when moving camera.
+				const Vec4f campos_ws = current_scene->cam_to_world * Vec4f(0, 0, 0, 1);
+				const float quant_w = 10;
+				const Vec4f cur_vol_centre(
+					floor(campos_ws[0] / quant_w) * quant_w, 
+					floor(campos_ws[1] / quant_w) * quant_w, 
+					floor(campos_ws[2] / quant_w) * quant_w, 1.f);
 
-					const Vec4f up(0, 0, 1, 0);
-					const Vec4f k = sun_dir;
-					const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
-					const Vec4f j = crossProduct(k, i); // up
-
-					assert(k.isUnitLength());
-
-					// Get bounds along i, j, k vectors
-					float min_i = std::numeric_limits<float>::max();
-					float min_j = std::numeric_limits<float>::max();
-					float min_k = std::numeric_limits<float>::max();
-					float max_i = -std::numeric_limits<float>::max();
-					float max_j = -std::numeric_limits<float>::max();
-					float max_k = -std::numeric_limits<float>::max();
-
-					for(int z=0; z<8; ++z)
-					{
-						float dot_i = dot(i, maskWToZero(frustum_verts_ws[z]));
-						float dot_j = dot(j, maskWToZero(frustum_verts_ws[z]));
-						float dot_k = dot(k, maskWToZero(frustum_verts_ws[z]));
-						min_i = myMin(min_i, dot_i);
-						min_j = myMin(min_j, dot_j);
-						min_k = myMin(min_k, dot_k);
-						max_i = myMax(max_i, dot_i);
-						max_j = myMax(max_j, dot_j);
-						max_k = myMax(max_k, dot_k);
-					}
-
-					const float max_shadowing_dist = 300.0f;
-
-					float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist);
-
-					float near_signed_dist = -use_max_k;
-					float far_signed_dist = -min_k;
-
-					Matrix4f proj_matrix = orthoMatrix(
-						min_i, max_i, // left, right
-						min_j, max_j, // bottom, top
-						near_signed_dist, far_signed_dist // near, far
-					);
+				// Record the volume centre, make sure we use the same one when rendering other objects
+				Vec4f vol_centre;
+				if(ob_set == 0)
+				{
+					vol_centre = cur_vol_centre;
+					shadow_mapping->vol_centres[other_index * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + ti] = cur_vol_centre;
+				}
+				else
+					vol_centre = shadow_mapping->vol_centres[other_index * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + ti]; // Use saved volume centre
 
 
-					// TEMP: compute verts of shadow volume
-					Vec4f shadow_vol_verts[8];
-					shadow_vol_verts[0] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*use_max_k;
-					shadow_vol_verts[1] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*use_max_k;
-					shadow_vol_verts[2] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*use_max_k;
-					shadow_vol_verts[3] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*use_max_k;
-					shadow_vol_verts[4] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*min_k;
-					shadow_vol_verts[5] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*min_k;
-					shadow_vol_verts[6] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*min_k;
-					shadow_vol_verts[7] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*min_k;
+				Vec4f frustum_verts_ws[8];
+				js::getAABBCornerVerts(js::AABBox(
+					vol_centre - Vec4f(w, w, h, 0),
+					vol_centre + Vec4f(w, w, h, 0)
+				), frustum_verts_ws);
 
-					Matrix4f view_matrix;
-					view_matrix.setRow(0, i);
-					view_matrix.setRow(1, j);
-					view_matrix.setRow(2, k);
-					view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
+				const Vec4f up(0, 0, 1, 0);
+				const Vec4f k = sun_dir;
+				const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
+				const Vec4f j = crossProduct(k, i); // up
 
-					// Compute clipping planes for shadow mapping
-					shadow_clip_planes[0] = Planef( i, max_i);
-					shadow_clip_planes[1] = Planef(-i, -min_i);
-					shadow_clip_planes[2] = Planef( j, max_j);
-					shadow_clip_planes[3] = Planef(-j, -min_j);
-					shadow_clip_planes[4] = Planef( k, use_max_k);
-					shadow_clip_planes[5] = Planef(-k, -min_k);
+				assert(k.isUnitLength());
 
-					js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
-					for(int z=0; z<8; ++z)
-						shadow_vol_aabb.enlargeToHoldPoint(shadow_vol_verts[z]);
+				// Get bounds along i, j, k vectors
+				float min_i = std::numeric_limits<float>::max();
+				float min_j = std::numeric_limits<float>::max();
+				float min_k = std::numeric_limits<float>::max();
+				float max_i = -std::numeric_limits<float>::max();
+				float max_j = -std::numeric_limits<float>::max();
+				float max_k = -std::numeric_limits<float>::max();
 
-					// We need to a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
-					const Matrix4f texcoord_bias(
-						Vec4f(0.5f, 0, 0, 0), // col 0
-						Vec4f(0, 0.5f, 0, 0), // col 1
-						Vec4f(0, 0, 0.5f, 0), // col 2
-						Vec4f(0.5f, 0.5f, 0.5f, 1) // col 3
-					);
-					// Save shadow_tex_matrix that the shaders like phong will use.
-					shadow_mapping->shadow_tex_matrix[shadow_mapping->numDynamicDepthTextures() + ti] = texcoord_bias * proj_matrix * view_matrix;
+				for(int z=0; z<8; ++z)
+				{
+					assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
+					const float dot_i = dot(i, frustum_verts_ws[z]);
+					const float dot_j = dot(j, frustum_verts_ws[z]);
+					const float dot_k = dot(k, frustum_verts_ws[z]);
+					min_i = myMin(min_i, dot_i);
+					min_j = myMin(min_j, dot_j);
+					min_k = myMin(min_k, dot_k);
+					max_i = myMax(max_i, dot_i);
+					max_j = myMax(max_j, dot_j);
+					max_k = myMax(max_k, dot_k);
+				}
 
-					// Draw non-transparent batches from objects.
-					//uint64 num_drawn = 0;
-					//uint64 num_in_frustum = 0;
-					for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
-					{
-						const GLObject* const ob = it->getPointer();
+				const float max_shadowing_dist = 300.0f;
 
+				float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist);
+
+				const float near_signed_dist = -use_max_k;
+				const float far_signed_dist = -min_k;
+
+				const Matrix4f proj_matrix = orthoMatrix(
+					min_i, max_i, // left, right
+					min_j, max_j, // bottom, top
+					near_signed_dist, far_signed_dist // near, far
+				);
+
+
+				// TEMP: compute verts of shadow volume
+				Vec4f shadow_vol_verts[8];
+				shadow_vol_verts[0] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*use_max_k;
+				shadow_vol_verts[1] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*use_max_k;
+				shadow_vol_verts[2] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*use_max_k;
+				shadow_vol_verts[3] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*use_max_k;
+				shadow_vol_verts[4] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*min_k;
+				shadow_vol_verts[5] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*min_k;
+				shadow_vol_verts[6] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*min_k;
+				shadow_vol_verts[7] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*min_k;
+
+				Matrix4f view_matrix;
+				view_matrix.setRow(0, i);
+				view_matrix.setRow(1, j);
+				view_matrix.setRow(2, k);
+				view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
+
+				// Compute clipping planes for shadow mapping
+				shadow_clip_planes[0] = Planef( i, max_i);
+				shadow_clip_planes[1] = Planef(-i, -min_i);
+				shadow_clip_planes[2] = Planef( j, max_j);
+				shadow_clip_planes[3] = Planef(-j, -min_j);
+				shadow_clip_planes[4] = Planef( k, use_max_k);
+				shadow_clip_planes[5] = Planef(-k, -min_k);
+
+				js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
+				for(int z=0; z<8; ++z)
+					shadow_vol_aabb.enlargeToHoldPoint(shadow_vol_verts[z]);
+
+				// We need to a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
+				const Matrix4f texcoord_bias(
+					Vec4f(0.5f, 0, 0, 0), // col 0
+					Vec4f(0, 0.5f, 0, 0), // col 1
+					Vec4f(0, 0, 0.5f, 0), // col 2
+					Vec4f(0.5f, 0.5f, 0.5f, 1) // col 3
+				);
+				// Save shadow_tex_matrix that the shaders like phong will use.
+				if(ob_set == 0)
+					shadow_mapping->static_tex_matrix[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti] = texcoord_bias * proj_matrix * view_matrix;
+
+				// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
+				Timer timer3;
+				uint64 num_drawn = 0;
+				//uint64 num_in_frustum = 0;
+
+				depth_draw_mat.shader_prog->useProgram(); // Bind shader just once for all objects
+
+				for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+				{
+					const GLObject* const ob = it->getPointer();
+
+					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
 						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 						{
 							//num_in_frustum++;
@@ -2069,45 +2197,122 @@ void OpenGLEngine::draw()
 								continue;
 
 							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-							bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-							// See if all the batches are fully opaque. If so, can draw all the primitives with one draw call.
-							if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
-							{
-								size_t total_num_indices = 0;
-								for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-									total_num_indices += mesh_data.batches[z].num_indices;
 
-								drawBatch(*ob, view_matrix, proj_matrix,
-									ob->materials[0], // tex matrix shouldn't matter for depth_draw_mat
-									depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices); // Draw object with depth_draw_mat.
-							}
-							else
+							// Work out if we need to draw 1 or more batches from this object
+							bool need_draw = false;
+							for(size_t b=0; b<mesh_data.batches.size(); ++b)
 							{
-								for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+								const OpenGLMaterial& mat = ob->materials[mesh_data.batches[b].material_index];
+								const bool use_alpha_test = mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha();
+								if(!mat.transparent && !use_alpha_test)
 								{
-									const uint32 mat_index = mesh_data.batches[z].material_index;
-									// Draw primitives for the given material
-									if(!ob->materials[mat_index].transparent)
-									{
-										const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-										OpenGLMaterial& use_mat = use_alpha_test ? depth_draw_with_alpha_test_mat : depth_draw_mat;
-
-										drawBatch(*ob, view_matrix, proj_matrix,
-											ob->materials[mat_index], // Use tex matrix etc.. from original material
-											use_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with depth_draw_mat.
-									}
+									need_draw = true;
+									break;
 								}
 							}
-							unbindMeshData(mesh_data);
 
-							//num_drawn++;
+							if(need_draw)
+							{
+								bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+
+								// See if all the batches are fully opaque. If so, can draw all the primitives with one draw call.
+								if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
+								{
+									size_t total_num_indices = 0;
+									for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+										total_num_indices += mesh_data.batches[z].num_indices;
+
+									drawPrimitives(*ob, view_matrix, proj_matrix,
+										ob->materials[0], // tex matrix shouldn't matter for depth_draw_mat
+										depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
+								}
+								else
+								{
+									for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+									{
+										const OpenGLBatch& batch = mesh_data.batches[z];
+										const uint32 mat_index = batch.material_index;
+
+										// Draw primitives for the given material
+										if(!ob->materials[mat_index].transparent)
+										{
+											const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
+											if(!use_alpha_test)
+											{
+												drawPrimitives(*ob, view_matrix, proj_matrix,
+													ob->materials[mat_index], // Use tex matrix etc.. from original material
+													depth_draw_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
+											}
+										}
+									}
+								}
+								unbindMeshData(mesh_data);
+
+								num_drawn++;
+							}
 						}
-					}
-					//conPrint("Static shadow map Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
 				}
+
+				//OpenGLProgram::useNoPrograms(); // unbind
+
+				// Now draw batches that need to use depth_draw_with_alpha_test shader
+
+				depth_draw_with_alpha_test_mat.shader_prog->useProgram(); // Bind shader just once for all objects
+
+				for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+				{
+					const GLObject* const ob = it->getPointer();
+
+					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
+						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
+						{
+							//num_in_frustum++;
+
+							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
+								continue;
+
+							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+
+							// Work out if we need to draw 1 or more batches from this object
+							bool need_draw = false;
+							for(size_t b=0; b<mesh_data.batches.size(); ++b)
+							{
+								const OpenGLMaterial& mat = ob->materials[mesh_data.batches[b].material_index];
+								if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
+								{
+									need_draw = true;
+									break;
+								}
+							}
+
+							if(need_draw)
+							{
+								bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+								for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+								{
+									const OpenGLBatch& batch = mesh_data.batches[z];
+									const OpenGLMaterial& mat = ob->materials[batch.material_index];
+									
+									// Draw primitives for the given material
+									if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
+									{
+										drawPrimitives(*ob, view_matrix, proj_matrix,
+											mat, // Use tex matrix etc.. from original material
+											depth_draw_with_alpha_test_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
+									}
+								}
+								unbindMeshData(mesh_data);
+								num_drawn++;
+							}
+						}
+				}
+				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
 			}
 
 			shadow_mapping->unbindDepthTex();
+
+			if(frame_num % 12 == 11) // If we just finished drawing to our 'other' depth map, swap cur and other
+				shadow_mapping->cur_static_depth_tex = (shadow_mapping->cur_static_depth_tex + 1) % 2; // Swap cur and other
 		}
 		//-------------------- End draw static depth textures ----------------
 
@@ -3885,13 +4090,22 @@ void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const Op
 
 		glActiveTexture(GL_TEXTURE0 + 2);
 
-		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex->texture_handle);
+		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
 		glUniform1i(locations.static_depth_tex_location, 2);
 
+		Matrix4f tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
+
+		// The first matrices in our packed array are the dynamic tex matrices
+		for(int i=0; i<ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
+			tex_matrices[i] = shadow_mapping->dynamic_tex_matrix[i];
+
+		// Following those are the static tex matrices.  Use cur_static_depth_tex to select the current (complete) depth tex.
+		for(int i=0; i<ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+			tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + i] = shadow_mapping->static_tex_matrix[shadow_mapping->cur_static_depth_tex * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + i];
 
 		glUniformMatrix4fv(locations.shadow_texture_matrix_location,
 			/*count=*/shadow_mapping->numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures(), 
-			/*transpose=*/false, shadow_mapping->shadow_tex_matrix[0].e);
+			/*transpose=*/false, tex_matrices[0].e);
 	}
 
 	const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
@@ -3902,19 +4116,20 @@ void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const Op
 void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, 
 	const OpenGLMaterial& opengl_mat, const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
-	drawBatch(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices);
+	drawPrimitives(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bool bind_program=*/true);
 }
 
 
-void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat,
-		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices)
+void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat,
+		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool bind_program)
 {
 	if(num_indices == 0)
 		return;
 
 	if(shader_prog.nonNull())
 	{
-		shader_prog->useProgram();
+		if(bind_program)
+			shader_prog->useProgram();
 
 		// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
 		if(shader_prog.getPointer() == this->depth_draw_mat.shader_prog.getPointer())
@@ -4069,7 +4284,8 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const
 		else
 			glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
 
-		shader_prog->useNoPrograms();
+		if(bind_program)
+			shader_prog->useNoPrograms();
 	}
 
 	this->num_indices_submitted += num_indices;

@@ -211,6 +211,23 @@ void js::AABBox::test()
 		}
 	}
 
+	//----------------- Test getAABBCornerVerts -------------------
+	{
+		const js::AABBox aabb(Vec4f(10, 11, 12, 1), Vec4f(20, 21, 22, 1));
+
+		Vec4f v[8];
+		getAABBCornerVerts(aabb, v);
+		testAssert(v[0] == Vec4f(10, 11, 12, 1));
+		testAssert(v[1] == Vec4f(20, 11, 12, 1));
+		testAssert(v[2] == Vec4f(10, 21, 12, 1));
+		testAssert(v[3] == Vec4f(20, 21, 12, 1));
+		testAssert(v[4] == Vec4f(10, 11, 22, 1));
+		testAssert(v[5] == Vec4f(20, 11, 22, 1));
+		testAssert(v[6] == Vec4f(10, 21, 22, 1));
+		testAssert(v[7] == Vec4f(20, 21, 22, 1));
+	}
+
+
 	// perf-test transformedAABB() and transformedAABBFast()
 	{
 		PCG32 rng(1);

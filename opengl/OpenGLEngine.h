@@ -24,6 +24,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../maths/matrix3.h"
 #include "../maths/plane.h"
 #include "../maths/Matrix4f.h"
+#include "../maths/PCG32.h"
 #include "../utils/Timer.h"
 #include "../utils/Vector.h"
 #include "../utils/Reference.h"
@@ -186,7 +187,7 @@ struct GLObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLObject() : object_type(0), line_width(1.f) {}
+	GLObject() : object_type(0), line_width(1.f), random_num(0) {}
 
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
@@ -199,6 +200,7 @@ struct GLObject : public ThreadSafeRefCounted
 
 	int object_type; // 0 = tri mesh
 	float line_width;
+	uint32 random_num;
 };
 typedef Reference<GLObject> GLObjectRef;
 
@@ -522,8 +524,8 @@ private:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
-	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
-		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
+	void drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
+		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool bind_program);
 	void buildOutlineTextures();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 public:
@@ -646,8 +648,6 @@ private:
 	int depth_proj_view_model_matrix_location;
 	int depth_with_alpha_proj_view_model_matrix_location;
 
-	OverlayObjectRef tex_preview_overlay_ob;
-
 	OverlayObjectRef clear_buf_overlay_ob;
 
 	double draw_time;
@@ -713,6 +713,8 @@ public:
 private:
 	std::unordered_set<Reference<OpenGLScene>, OpenGLSceneHash> scenes;
 	Reference<OpenGLScene> current_scene;
+
+	PCG32 rng;
 };
 
 
