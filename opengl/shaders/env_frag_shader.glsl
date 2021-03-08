@@ -41,6 +41,6 @@ void main()
 	col = mix(col, lower_hemis_col, lower_hemis_factor);
 #endif
 
-	col *= 0.0000000004;
+	col *= 0.0000000005;
 	colour_out = vec4(toNonLinear(col.xyz), 1);
 }
