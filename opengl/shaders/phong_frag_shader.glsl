@@ -342,6 +342,14 @@ void main()
 		sun_light * (1.0 - refl_fresnel) * (1.0 - metallic_frac) * diffuse_col * (1.0 / 3.141592653589793) * light_cos_theta + //  Diffuse substrate part of BRDF * sun light
 		sun_light * specular; // sun light * specular microfacet terms
 	//vec4 col = (sun_light + 3000000000.0)  * diffuse_col;
+
+#if DEPTH_FOG
+	// Blend with background/fog colour
+	float dist_ = -pos_cs.z;
+	float fog_factor = 1.0f - exp(dist_ * -0.00015);
+	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 2.0e8; // Bluish grey
+	col = mix(col, sky_col, fog_factor);
+#endif
 		
 	col *= 0.0000000004; // tone-map
 	

@@ -32,6 +32,15 @@ void main()
 	float d = dot(sundir_cs.xyz, normalize(pos_cs));
 	col = mix(col, suncol, smoothstep(0.9999, 0.9999892083461507, d));
 
+#if DEPTH_FOG
+	// Blend lower hemisphere into a colour that matches fogged ground quad in Substrata
+	// Chosen by hand to match the fogged phong colour at ~2km (edge of ground quad)
+	vec4 lower_hemis_col = vec4(pow(6.5, 2.2), pow(6.8, 2.2), pow(7.3, 2.2), 1.0) * 1.6e7;
+
+	float lower_hemis_factor = smoothstep(1.52, 1.6, texture_coords.y);
+	col = mix(col, lower_hemis_col, lower_hemis_factor);
+#endif
+
 	col *= 0.0000000004;
 	colour_out = vec4(toNonLinear(col.xyz), 1);
 }

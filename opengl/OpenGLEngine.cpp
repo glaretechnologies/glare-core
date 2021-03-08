@@ -872,6 +872,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define DEPTH_TEXTURE_SCALE_MULT " + (settings.shadow_mapping ? toString(shadow_mapping->getDynamicDepthTextureScaleMultiplier()) : std::string("1.0")) + "\n";
 
+		preprocessor_defines += "#define DEPTH_FOG " + (settings.depth_fog ? std::string("1") : std::string("0")) + "\n";
+
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		// Eager creation of phong programs:
