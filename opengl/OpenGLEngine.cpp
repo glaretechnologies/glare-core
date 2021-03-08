@@ -140,7 +140,6 @@ OpenGLScene::OpenGLScene()
 
 OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 :	init_succeeded(false),
-	anisotropic_filtering_supported(false),
 	settings(settings_),
 	draw_wireframes(false),
 	frame_num(0),
@@ -723,8 +722,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	// Check if anisotropic texture filtering is available, and get max anisotropy if so.  
 	// See 'Texture Mapping in OpenGL: Beyond the Basics' - http://www.informit.com/articles/article.aspx?p=770639&seqNum=2
 	//if(GLEW_EXT_texture_filter_anisotropic)
+	// According to https://paroj.github.io/gltut/Texturing/Tut15%20Anisotropy.html#d5e11942, while anisotropic filtering is not technically part of core OpenGL (is still an extension)
+	// It's always supported in practice.
 	{
-		anisotropic_filtering_supported = true;
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_anisotropy);
 	}
 

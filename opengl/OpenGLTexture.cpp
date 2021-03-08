@@ -285,9 +285,8 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	}
 	else if(filtering == Filtering_Fancy)
 	{
-		// Enable anisotropic texture filtering if supported.
-		if(opengl_engine && opengl_engine->anisotropic_filtering_supported)
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
+		// Enable anisotropic texture filtering
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
 
 		glGenerateMipmap(GL_TEXTURE_2D);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -410,8 +409,7 @@ void OpenGLTexture::setTexParams(const Reference<OpenGLEngine>& opengl_engine,
 	else if(filtering == Filtering_Fancy)
 	{
 		// Enable anisotropic texture filtering if supported.
-		if(opengl_engine.nonNull() && opengl_engine->anisotropic_filtering_supported)
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
 
 		//glGenerateMipmap(GL_TEXTURE_2D);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);

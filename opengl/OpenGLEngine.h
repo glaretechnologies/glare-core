@@ -700,7 +700,6 @@ private:
 public:
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;
-	bool anisotropic_filtering_supported;
 	float max_anisotropy;
 
 	OpenGLEngineSettings settings;
