@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2020 -
 #pragma once
 
 
+#include "IPAddress.h"
 #include "../utils/InStream.h"
 #include "../utils/OutStream.h"
 #include "../utils/ThreadSafeRefCounted.h"
@@ -49,6 +50,9 @@ public:
 	virtual bool readable(double timeout_s) = 0;
 	virtual bool readable(EventFD& event_fd) = 0; // Block until either the socket is readable or the event_fd is signalled (becomes readable).
 	// Returns true if the socket was readable, false if the event_fd was signalled.
+
+	virtual IPAddress getOtherEndIPAddress() const = 0;
+	virtual int getOtherEndPort() const = 0;
 };
 
 

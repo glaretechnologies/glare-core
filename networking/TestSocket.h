@@ -36,6 +36,9 @@ public:
 	virtual void enableTCPKeepAlive(float period) {}
 	virtual void setAddressReuseEnabled(bool enabled) {}
 
+	virtual IPAddress getOtherEndIPAddress() const{ return IPAddress(); }
+	virtual int getOtherEndPort() const { return 0; }
+
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
 	//void enableTCPKeepAlive(float period);
 

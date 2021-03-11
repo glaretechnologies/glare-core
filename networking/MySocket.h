@@ -103,8 +103,8 @@ public:
 	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
 	virtual void waitForGracefulDisconnect();
 
-	const IPAddress& getOtherEndIPAddress() const{ return otherend_ipaddr; }
-	int getOtherEndPort() const { return otherend_port; }
+	virtual IPAddress getOtherEndIPAddress() const { return otherend_ipaddr; }
+	virtual int getOtherEndPort() const { return otherend_port; }
 
 
 	//void writeInt32(int32 x);
@@ -149,6 +149,7 @@ public:
 	// Determines if bytes are reordered into network byte order in readInt32(), writeInt32() etc..
 	// Network byte order is enabled by default.
 	void setUseNetworkByteOrder(bool use_network_byte_order_) { use_network_byte_order = use_network_byte_order_; }
+	bool getUseNetworkByteOrder() const { return use_network_byte_order; }
 
 
 	//------------------------ InStream ---------------------------------

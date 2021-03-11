@@ -281,24 +281,31 @@ void TLSSocket::waitForGracefulDisconnect()
 
 void TLSSocket::writeInt32(int32 x)
 {
-	const uint32 i = htonl(bitCast<uint32>(x));
-	write(&i, sizeof(uint32));
+	if(plain_socket->getUseNetworkByteOrder())
+		x = bitCast<int32>(htonl(bitCast<uint32>(x)));
+
+	write(&x, sizeof(int32));
 }
 
 
 void TLSSocket::writeUInt32(uint32 x)
 {
-	const uint32 i = htonl(x); // Convert to network byte ordering.
-	write(&i, sizeof(uint32));
+	if(plain_socket->getUseNetworkByteOrder())
+		x = htonl(x); // Convert to network byte ordering.
+
+	write(&x, sizeof(uint32));
 }
 
 
 int TLSSocket::readInt32()
 {
-	uint32 i;
-	readTo(&i, sizeof(uint32));
-	i = ntohl(i);
-	return bitCast<int32>(i);
+	int32 i;
+	readTo(&i, sizeof(int32));
+
+	if(plain_socket->getUseNetworkByteOrder())
+		i = bitCast<int32>(ntohl(bitCast<uint32>(i)));
+
+	return i;
 }
 
 
@@ -306,7 +313,11 @@ uint32 TLSSocket::readUInt32()
 {
 	uint32 x;
 	readTo(&x, sizeof(uint32));
-	return ntohl(x);
+
+	if(plain_socket->getUseNetworkByteOrder())
+		x = ntohl(x);
+
+	return x;
 }
 
 

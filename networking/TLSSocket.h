@@ -75,7 +75,7 @@ public:
 #endif
 
 	TLSSocket(MySocketRef plain_socket, tls_config* client_tls_config, const std::string& servername); // Create client TLS socket
-	TLSSocket(MySocketRef plain_socket, struct tls* tls_context); // Create server TLS socket
+	TLSSocket(MySocketRef plain_socket, struct tls* tls_context); // Create server TLS socket.  Takes ownership of tls_context (frees in destructor).
 
 	~TLSSocket();
 
@@ -110,6 +110,10 @@ public:
 	virtual void enableTCPKeepAlive(float period);
 
 	virtual void setAddressReuseEnabled(bool enabled);
+
+	virtual IPAddress getOtherEndIPAddress() const { return plain_socket->getOtherEndIPAddress(); }
+	virtual int getOtherEndPort() const { return plain_socket->getOtherEndPort(); }
+
 
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
