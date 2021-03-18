@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "OpenCLKernel.h"
 #include "OpenCLBuffer.h"
 #include "OpenCLPathTracingKernel.h"
-#include "../utils/TestUtils.h"
+#include "../indigo/Obfuscator.h"
 #include "../opencl/OpenCLContext.h"
 #include "../opencl/OpenCLCommandQueue.h"
 #include "../opencl/OpenCLProgram.h"
@@ -20,7 +20,7 @@ Copyright Glare Technologies Limited 2015 -
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/PlatformUtils.h"
-#include "../utils/Obfuscator.h"
+#include "../utils/TestUtils.h"
 
 
 #if BUILD_TESTS
