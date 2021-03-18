@@ -56,6 +56,8 @@ public:
 	inline iterator end();
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
+
+	inline void erase(iterator position);
 	
 private:
 	inline bool storingOnHeap() const { return capacity_ > N; }
@@ -336,4 +338,21 @@ template <class T, int N>
 typename SmallVector<T, N>::const_iterator SmallVector<T, N>::end() const
 {
 	return e + size_;
+}
+
+
+template <class T, int N>
+void SmallVector<T, N>::erase(iterator position)
+{
+	const size_t index = position - begin();
+	const size_t curr_size = size();
+	if(curr_size == 0)
+		return;
+	assert(index < curr_size);
+
+	// Copy all elements one index down after the deletion index.
+	for(size_t i = index + 1; i < curr_size; ++i)
+		e[i - 1] = e[i];
+
+	resize(curr_size - 1);
 }
