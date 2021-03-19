@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2015 -
 
 #include "OpenCLKernel.h"
 #include "OpenCLBuffer.h"
-#include "OpenCLPathTracingKernel.h"
+//#include "OpenCLPathTracingKernel.h"
 #include "../indigo/Obfuscator.h"
 #include "../opencl/OpenCLContext.h"
 #include "../opencl/OpenCLCommandQueue.h"
@@ -155,6 +155,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 
 
 		//============== Test-specific buffers ====================
+#if 0
 		js::Vector<OCLPTTexDescriptor, 64> tex_descriptors(1);
 
 		tex_descriptors[0].xres			= 4;
@@ -190,7 +191,7 @@ void OpenCLTests::runTestsOnDevice(const OpenCLDeviceRef& opencl_device)
 
 		OpenCLBuffer cl_texture_data;
 		cl_texture_data.allocFrom(context, texture_data, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
-
+#endif
 		//============== End test-specific buffers ====================
 
 
