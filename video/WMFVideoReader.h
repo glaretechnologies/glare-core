@@ -18,6 +18,8 @@ Generated at 2020-01-12 14:59:19 +1300
 
 struct IMFSourceReader;
 struct IMFMediaBuffer;
+struct ID3D11Device;
+struct IMFDXGIDeviceManager;
 
 
 struct FormatInfo
@@ -62,6 +64,8 @@ public:
 private:
 	ComObHandle<IMFSourceReader> reader;
 	ComObHandle<IMFMediaBuffer> buffer_ob;
+	ComObHandle<ID3D11Device> d3d_device;
+	ComObHandle<IMFDXGIDeviceManager> dev_manager;
 
 	FormatInfo format;
 	bool com_inited;

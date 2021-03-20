@@ -1,4 +1,5 @@
 /*=====================================================================
+/*=====================================================================
 WMFVideoReader.cpp
 -------------------
 Copyright Glare Technologies Limited 2020 -
@@ -10,6 +11,10 @@ Generated at 2020-01-12 14:59:19 +1300
 #ifdef _WIN32
 
 
+// TODO: probably want to avoid ConvertToContiguousBuffer
+// Maybe use CopyToBuffer instead? https://docs.microsoft.com/en-us/windows/win32/api/mfobjects/nf-mfobjects-imfsample-copytobuffer
+
+
 #include "../graphics/ImageMap.h"
 #include "../graphics/PNGDecoder.h"
 #include "../utils/Exception.h"
@@ -18,14 +23,21 @@ Generated at 2020-01-12 14:59:19 +1300
 #include "../utils/ConPrint.h"
 #include "../utils/IncludeWindows.h"
 #include "../utils/PlatformUtils.h"
+#include "../utils/ComObHandle.h"
 #include <mfidl.h>
 #include <mfapi.h>
 #include <mferror.h>
 #include <mfreadwrite.h>
+#include <d3d11.h>
+#include <d3d11_4.h>
 
+
+static const bool GPU_DECODE = true;
 
 
 // Some code adapted from https://docs.microsoft.com/en-us/windows/win32/medfound/processing-media-data-with-the-source-reader
+// also
+// https://stackoverflow.com/questions/40913196/how-to-properly-use-a-hardware-accelerated-media-foundation-source-reader-to-dec
 
 
 //-----------------------------------------------------------------------------
@@ -130,6 +142,13 @@ static FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 }
 
 
+static inline void throwOnError(HRESULT hres)
+{
+	if(FAILED(hres))
+		throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hres));
+}
+
+
 static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo& format_out)
 {
 	// Find the native format of the stream.
@@ -171,7 +190,8 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 	}
 
 	//pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB8);
-	pType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE); // Specifies whether each sample is independent. Set to TRUE for uncompressed formats.
+	//handle_result(pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32));
+//	handle_result(pType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE)); // Specifies whether each sample is independent. Set to TRUE for uncompressed formats.
 	//pType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	//pType->SetUINT32(MF_MT_FRAME_SIZE, 1920 * 1080 * 3);
 
@@ -212,6 +232,27 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 	if(!SUCCEEDED(hr))
 		throw glare::Exception("MFStartup failed: " + PlatformUtils::COMErrorString(hr));
 
+	if(GPU_DECODE)
+	{
+		D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
+
+		hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, /*D3D11_CREATE_DEVICE_SINGLETHREADED |*/ D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
+			levels, ARRAYSIZE(levels), D3D11_SDK_VERSION, &d3d_device.ptr, nullptr, nullptr);
+		if (!SUCCEEDED(hr))
+			throw glare::Exception("D3D11CreateDevice failed: " + PlatformUtils::COMErrorString(hr));
+
+		// Get ready for multi-threaded operation
+		ComObHandle<ID3D11Multithread> multithreaded_device;
+		if(!d3d_device.queryInterface(multithreaded_device))
+			throw glare::Exception("failed to get ID3D11Multithread interace.");
+	
+		multithreaded_device->SetMultithreadProtected(TRUE);
+
+		UINT token;
+		throwOnError(MFCreateDXGIDeviceManager(&token, &dev_manager.ptr));
+		throwOnError(dev_manager->ResetDevice(d3d_device.ptr, token));
+	}
+
 	// Configure the source reader to perform video processing.
 	//
 	// This includes:
@@ -223,9 +264,16 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 	if(!SUCCEEDED(hr))
 		throw glare::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
 
-	hr = pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE);
-	if(!SUCCEEDED(hr))
-		throw glare::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
+	if(GPU_DECODE)
+	{
+		throwOnError(pAttributes.ptr->SetUnknown(MF_SOURCE_READER_D3D_MANAGER, dev_manager.ptr));
+		throwOnError(pAttributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE));
+		throwOnError(pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, TRUE));
+	}
+	else
+	{
+		throwOnError(pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE));
+	}
 
 	if(read_from_video_device)
 	{
@@ -430,15 +478,21 @@ void WMFVideoReader::seek(double time)
 #if BUILD_TESTS
 
 
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 
 
 void WMFVideoReader::test()
 {
 	try
 	{
-		//WMFVideoReader reader("D:\\video\\test5.avi");
-		WMFVideoReader reader("D:\\downloads\\y2mate.com - ghost_in_the_shell_1995_official_trailer_hd_p2MEaROKjaE_360p.mp4");
+		//const std::string path = "E:\\video\\gopro\\GP010415.MP4";
+		//const std::string path = "E:\\video\\Tokyo night drive 4K 2016.mp4";
+		//const std::string path = "E:\\video\\highway_timelapse_jim_lamaison.mp4";
+		const std::string path = "D:\\art\\chaotica\\anim_test2\\anim_HEVC.mp4";
+	
+		WMFVideoReader reader(/*read_from_video_device*/false, path);
+
+		conPrint("Reading vid '" + path + "'...");
 
 		Timer timer;
 		size_t frame_index = 0;
@@ -450,7 +504,7 @@ void WMFVideoReader::test()
 
 			if(frame_buffer)
 			{
-				const FormatInfo& format = reader.getCurrentFormat();
+				//const FormatInfo& format = reader.getCurrentFormat();
 
 				/*ImageMapUInt8 map(format.im_width, format.im_height, 3);
 				for(uint32 y=0; y<format.im_height; ++y)
@@ -466,6 +520,12 @@ void WMFVideoReader::test()
 				}
 				PNGDecoder::write(map, "D:\\indigo_temp\\movie_output\\frame_" + toString(frame_index) + ".png");
 				conPrint("Saved frame " + toString(frame_index));*/
+
+				if(frame_index % 100 == 0)
+				{
+					const double fps = frame_index / timer.elapsed();
+					conPrint("FPS: " + toString(fps));
+				}
 			}
 			else
 			{
@@ -487,7 +547,7 @@ void WMFVideoReader::test()
 }
 
 
-#endif
+#endif // BUILD_TESTS
 
 
 #endif // _WIN32
