@@ -23,6 +23,18 @@ public:
 	ComObHandle(T* handle_) : ptr(ptr_) {}
 	~ComObHandle() { if(ptr) ptr->Release(); }
 
+	template <class SubClassT>
+	inline bool queryInterface(ComObHandle<SubClassT>& result)
+	{
+		if(ptr->QueryInterface<SubClassT>(&result.ptr) == /*S_OK=*/0)
+			return true;
+		else
+		{
+			result.ptr = NULL;
+			return false;
+		}
+	}
+
 	inline void release()
 	{
 		if(ptr) 
