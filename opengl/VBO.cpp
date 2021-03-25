@@ -12,7 +12,7 @@ VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage)
 	buffer_type(buffer_type_),
 	size(size_)
 {
-	assert(buffer_type == GL_ARRAY_BUFFER || buffer_type == GL_ELEMENT_ARRAY_BUFFER);// || buffer_type == GL_SHADER_STORAGE_BUFFER);
+	assert(buffer_type == GL_ARRAY_BUFFER || buffer_type == GL_ELEMENT_ARRAY_BUFFER || buffer_type == GL_SHADER_STORAGE_BUFFER);
 	assert(usage == GL_STATIC_DRAW || usage == GL_STREAM_DRAW);
 
 	// Create new VBO

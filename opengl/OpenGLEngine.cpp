@@ -610,6 +610,15 @@ void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js:
 	colour_attrib.offset = (uint32)0;
 	spec.attributes.push_back(colour_attrib);
 
+	VertexAttrib lightmap_uv_attrib;
+	lightmap_uv_attrib.enabled = false;
+	lightmap_uv_attrib.num_comps = 2;
+	lightmap_uv_attrib.type = /*uv1_attr ? componentTypeGLEnum(uv1_attr->component_type) :*/ GL_FLOAT;
+	lightmap_uv_attrib.normalised = false;
+	lightmap_uv_attrib.stride = vert_stride;// num_bytes_per_vert;
+	lightmap_uv_attrib.offset = 0; // TEMP (uint32)(uv1_attr ? uv1_attr->offset_B : 0);
+	spec.attributes.push_back(lightmap_uv_attrib);
+
 
 	// Add instancing matrix vert attributes, one for each vec4f comprising matrices
 	if(meshdata.instance_matrix_vbo.nonNull())
