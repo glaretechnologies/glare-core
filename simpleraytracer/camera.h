@@ -129,8 +129,6 @@ public:
 
 	virtual void sampleLensPos(const SamplePair& samples, float time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const = 0; // used
 
-	virtual const Vec3Type lensExitDir(const Vec3Type& sensorpos_os, const Vec3Type& lenspos_os, float time) const = 0; // only used in old code.
-
 	virtual const Vec2f imCoordsForSensorPos(const Vec3Type& sensorpos_os, float time) const = 0;
 	virtual void sensorPosForImCoords(const Vec2f& imcoords, Vec3Type& pos_os_out) const = 0;
 
