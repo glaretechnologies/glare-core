@@ -84,7 +84,9 @@ public:
 		double lens_shift_right_distance,
 		bool omnidirectional_stereo,
 		Real IPD,
-		bool left_eye
+		bool left_eye,
+		bool top_merge,
+		bool bottom_merge
 	) = 0;
 
 	// See PathTracingUtils::computeUseSensorWidthAndHeightFactor()
