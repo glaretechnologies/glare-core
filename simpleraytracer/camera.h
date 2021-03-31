@@ -124,34 +124,28 @@ public:
 
 	virtual PDType sensitivityScale() const = 0;
 
-
 	virtual PDType sensorPDF() const = 0; // used
 
 	virtual void sampleLensPos(const SamplePair& samples, float time, Vec3Type& pos_os_out, Vec3Type& pos_ws_out) const = 0; // used
 
 	virtual const Vec2f imCoordsForSensorPos(const Vec3Type& sensorpos_os, float time) const = 0;
-	virtual void sensorPosForImCoords(const Vec2f& imcoords, Vec3Type& pos_os_out) const = 0;
-
 
 	virtual const Vec4f getForwardsDirF(float time) const = 0;
 
 	virtual const Vec4f getPosWS(float time) const = 0;
 	
-
 	virtual Real getExposureDuration() const = 0;
-
 
 	virtual const Vec3Type diffractRay(const SamplePair& samples, const Vec3Type& dir, const WavelengthSamples& wavelengths, float direction_sign, float time, SpectralVector& weights_out) const = 0;
 
-
 	virtual void prepareForDiffractionFilter(int main_buffer_width, int main_buffer_height, int ssf_) = 0;
-	virtual void buildDiffractionFilter() = 0;
 
+	virtual void buildDiffractionFilter() = 0;
 
 	virtual const std::vector<Planef>& getViewVolumeClippingPlanesCameraSpace() const = 0;
 
-	
 	virtual bool isAutoFocus() const = 0;
+
 	virtual void setFocusDistance(double fd) = 0; // NOTE: non-const
 
 	virtual double imageHeightAtDistanceOne() const = 0;
@@ -160,13 +154,11 @@ public:
 	virtual void getRayForImagePos(const Vec2f& image_coordinates, float time, Vec4f& pos_ws_out, Vec4f& dir_ws_out) const = 0;
 
 
+	/////////////// Geometry interface //////////////
 	virtual Real meanCurvature(const HitInfo& hitinfo) const { return 0; }
 
 	virtual const std::string emitWinterCode(EmitWinterCodeArgs& args) const { assert(0); return ""; }
 
-
-
-	/////////////// Geometry interface //////////////
 	virtual void getInfoForHit(const HitInfo& hitinfo, Vec3Type& N_g_os_out, Vec3Type& N_s_os_out, unsigned int& mat_index_out, Vec3Type& pos_os_out, Real& pos_os_abs_error_out, Vec2f& uv0_out) const;
 
 	virtual void getPartialDerivs(const HitInfo& hitinfo, Vec3Type& dp_du_out, Vec3Type& dp_dv_out) const;

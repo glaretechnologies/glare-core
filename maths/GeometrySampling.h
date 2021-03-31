@@ -68,6 +68,7 @@ namespace GeometrySampling
 	template <class Real> inline const Vec2<Real> sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length);
 	inline const Vec2f sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length);
 	inline void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& theta_out, float& phi_out);
+	inline void sphericalCoordsForUnitDir(const Vec4f& dir, float& theta_out, float& phi_out);
 	template <class Real> inline void sphericalCoordsForDir(const Vec3<Real>& dir, Real recip_dir_length, Real& theta_out, Real& phi_out);
 	inline const Vec2f sphericalCoordsForDir(const Vec4f& unit_dir);
 
@@ -127,7 +128,7 @@ inline const Vec4f dirForSphericalCoords(float phi, float theta)
 		std::sin(phi) * sin_theta,
 		cos_theta,
 		0.0f
-		);
+	);
 }
 
 
@@ -214,6 +215,14 @@ void sphericalCoordsForDir(const Vec4f& dir, float recip_dir_length, float& thet
 	//NOTE: the clamp is in there to avoid the spitting out of a NaN
 	phi_out = std::atan2(dir.x[1], dir.x[0]);
 	theta_out = std::acos(myClamp(dir.x[2] * recip_dir_length, -1.0f, 1.0f));
+}
+
+
+void sphericalCoordsForUnitDir(const Vec4f& dir, float& theta_out, float& phi_out)
+{
+	//NOTE: the clamp is in there to avoid the spitting out of a NaN
+	phi_out = std::atan2(dir[1], dir[0]);
+	theta_out = std::acos(myClamp(dir[2], -1.0f, 1.0f));
 }
 
 
