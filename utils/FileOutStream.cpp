@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 FileOutStream::FileOutStream(const std::string& path)
+:	write_i(0)
 {
 	file.open(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ios::binary);
 
@@ -30,6 +31,8 @@ void FileOutStream::writeInt32(int32 x)
 
 	if(file.fail())
 		throw glare::Exception("Write to file failed.");
+
+	write_i += sizeof(int32);
 }
 
 
@@ -39,6 +42,8 @@ void FileOutStream::writeUInt32(uint32 x)
 
 	if(file.fail())
 		throw glare::Exception("Write to file failed.");
+
+	write_i += sizeof(uint32);
 }
 
 
@@ -48,6 +53,8 @@ void FileOutStream::writeUInt64(uint64 x)
 
 	if(file.fail())
 		throw glare::Exception("Write to file failed.");
+
+	write_i += sizeof(uint64);
 }
 
 
@@ -57,4 +64,6 @@ void FileOutStream::writeData(const void* data, size_t num_bytes)
 
 	if(file.fail())
 		throw glare::Exception("Write to file failed.");
+
+	write_i += num_bytes;
 }

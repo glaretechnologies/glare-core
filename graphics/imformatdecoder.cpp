@@ -79,6 +79,10 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 	{
 		return KTXDecoder::decode(path);
 	}
+	else if(hasExtension(path, "ktx2"))
+	{
+		return KTXDecoder::decodeKTX2(path);
+	}
 	else
 	{
 		throw ImFormatExcep("Unhandled image format ('" + getExtension(path) + "')");

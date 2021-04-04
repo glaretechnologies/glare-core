@@ -27,6 +27,8 @@ public:
 	void writeUInt64(uint64 x);
 	virtual void writeData(const void* data, size_t num_bytes);
 
+	size_t getWriteIndex() const { return write_i; } // std::ofstream.tellp() is non-const, so maintain the write index ourselves.
 private:
 	std::ofstream file;
+	size_t write_i; 
 };
