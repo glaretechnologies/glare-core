@@ -277,7 +277,7 @@ static Vec4f toVec4fVector(const Indigo::Vec3f& v)
 }
 
 
-void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output)
+void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output, float normed_margin)
 {
 	// Built topology info (adjacency etc..)
 	// DisplacementUtils::initAndBuildAdjacencyInfo isn't quite the right fit for this, since it fails to handle
@@ -582,7 +582,7 @@ void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output)
 	// Choose a maximum width (x value) based on the sum of rectangle areas.
 	const float max_x = std::sqrt(sum_A) * 1.2f;
 
-	const float normed_margins = 2.f / 1000;
+	const float normed_margins = normed_margin; // 2.f / 1000;
 	const float use_margin = normed_margins * max_x;
 
 	// Make rects slightly larger so they have margins
@@ -823,7 +823,8 @@ static void testUnwrappingWithMesh(Indigo::MeshRef mesh)
 		StandardPrintOutput print_output;
 
 		conPrint("Initial num UV vec2s: " + toString(mesh->uv_pairs.size()));
-		UVUnwrapper::build(*mesh, print_output);
+		const float normed_margin = 2.f / 1024;
+		UVUnwrapper::build(*mesh, print_output, normed_margin);
 		conPrint("Unwrapped num UV vec2s: " + toString(mesh->uv_pairs.size()));
 
 		// Draw triangles on UV map
