@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2020 -
 
 #include "imformatdecoder.h"
 #include "CompressedImage.h"
-#include "VkFormat.h"
+#include "VKFormat.h"
 #include "IncludeOpenGL.h"
 #include "../utils/FileInStream.h"
 #include "../utils/FileOutStream.h"
