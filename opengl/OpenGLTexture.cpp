@@ -300,6 +300,95 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 }
 
 
+void OpenGLTexture::loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
+	const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
+	Format format_,
+	GLint gl_internal_format,
+	GLenum gl_format,
+	Filtering filtering,
+	Wrapping wrapping
+)
+{
+	this->format = format_;
+	this->xres = tex_xres;
+	this->yres = tex_yres;
+	this->loaded_size = tex_data.size(); // NOTE: wrong for empty tex_data case (e.g. for shadow mapping textures)
+
+	if(texture_handle == 0)
+	{
+		glGenTextures(1, &texture_handle);
+		assert(texture_handle != 0);
+	}
+
+	glBindTexture(GL_TEXTURE_2D, texture_handle);
+
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	{
+		glCompressedTexImage2D(
+			GL_TEXTURE_2D,
+			0, // LOD level
+			gl_internal_format, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			(GLsizei)tex_data.size(),
+			tex_data.data()
+		);
+	}
+	else
+	{
+		GLint dummy_internal_format;
+		GLenum dummy_gl_format, gl_type;
+		getGLFormat(format_, dummy_internal_format, dummy_gl_format, gl_type);
+
+		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
+		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
+
+		glTexImage2D(
+			GL_TEXTURE_2D,
+			0, // LOD level
+			gl_internal_format, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			gl_format, // format
+			gl_type, // type
+			tex_data.data()
+		);
+	}
+
+	if(wrapping == Wrapping_Clamp)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+
+
+	if(filtering == Filtering_Nearest)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+	else if(filtering == Filtering_Bilinear)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	else if(filtering == Filtering_Fancy)
+	{
+		// Enable anisotropic texture filtering
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
+
+		glGenerateMipmap(GL_TEXTURE_2D);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	else
+	{
+		assert(0);
+	}
+}
+
+
 void OpenGLTexture::makeGLTexture(Format format_)
 {
 	this->format = format_;

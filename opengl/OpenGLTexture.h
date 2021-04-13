@@ -79,6 +79,15 @@ public:
 		Wrapping wrapping = Wrapping_Repeat
 	);
 
+	void loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
+		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
+		Format format,
+		GLint gl_internal_format,
+		GLenum gl_format,
+		Filtering filtering,
+		Wrapping wrapping
+	);
+
 	// Will return 0 if texture has not been loaded yet.
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }
