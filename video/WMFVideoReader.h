@@ -1,8 +1,7 @@
 /*=====================================================================
 WMFVideoReader.h
 ----------------
-Copyright Glare Technologies Limited 2020 -
-Generated at 2020-01-12 14:59:19 +1300
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -20,6 +19,8 @@ struct IMFSourceReader;
 struct IMFMediaBuffer;
 struct ID3D11Device;
 struct IMFDXGIDeviceManager;
+struct IMF2DBuffer;
+struct IMFSample;
 
 
 struct FormatInfo
@@ -66,6 +67,8 @@ private:
 	ComObHandle<IMFMediaBuffer> buffer_ob;
 	ComObHandle<ID3D11Device> d3d_device;
 	ComObHandle<IMFDXGIDeviceManager> dev_manager;
+	ComObHandle<IMF2DBuffer> cur_buffer2d;
+	ComObHandle<IMFSample> cur_sample;
 
 	FormatInfo format;
 	bool com_inited;

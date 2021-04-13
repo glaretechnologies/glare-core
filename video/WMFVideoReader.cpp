@@ -1,18 +1,12 @@
 /*=====================================================================
-/*=====================================================================
 WMFVideoReader.cpp
 -------------------
-Copyright Glare Technologies Limited 2020 -
-Generated at 2020-01-12 14:59:19 +1300
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "WMFVideoReader.h"
 
 
 #ifdef _WIN32
-
-
-// TODO: probably want to avoid ConvertToContiguousBuffer
-// Maybe use CopyToBuffer instead? https://docs.microsoft.com/en-us/windows/win32/api/mfobjects/nf-mfobjects-imfsample-copytobuffer
 
 
 #include "../graphics/ImageMap.h"
@@ -182,7 +176,7 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 	// Select a subtype.
 	if(majorType == MFMediaType_Video)
 	{
-		subtype = MFVideoFormat_RGB32;
+		subtype = MFVideoFormat_RGB32; // MFVideoFormat_RGB24 doesn't seem to work.
 	}
 	else
 	{
@@ -343,8 +337,7 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 
 	DWORD streamIndex, flags;
 	LONGLONG llTimeStamp;
-	ComObHandle<IMFSample> pSample;
-	HRESULT hr = S_OK;
+	HRESULT hr;
 
 	hr = reader->ReadSample(
 		(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,    // Stream index.
@@ -352,7 +345,7 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 		&streamIndex,                   // Receives the actual stream index. 
 		&flags,                         // Receives status flags.
 		&llTimeStamp,                   // Receives the time stamp. ( in 100-nanosecond units.)
-		&pSample.ptr                    // Receives the sample or NULL.
+		&cur_sample.ptr                 // Receives the sample or NULL.
 	);
 	if(FAILED(hr))
 		throw glare::Exception("ReadSample failed: " + PlatformUtils::COMErrorString(hr));
@@ -385,34 +378,36 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 		// lStride = (LONG)MFGetAttributeUINT32(media_type.ptr, MF_MT_DEFAULT_STRIDE, 1);
 	}
 
-	if(pSample.ptr) // May be NULL at end of stream.
+	if(cur_sample.ptr) // May be NULL at end of stream.
 	{
-		//DWORD total_len;
-		//if(pSample->GetTotalLength(&total_len) != S_OK)
-		//	throw glare::Exception("GetTotalLength failed.");
-		// printVar((uint64)total_len);
-
-		//IMFMediaBuffer* pBuffer;
-		//if(MFCreateMemoryBuffer(total_len, &pBuffer) != S_OK)
-		//	throw glare::Exception("MFCreateMemoryBuffer failed.");
-		//
-		//if(pSample->CopyToBuffer(pBuffer) != S_OK)
-		//	throw glare::Exception("CopyToBuffer failed.");
-
 		assert(this->buffer_ob.ptr == NULL);
-		if(pSample->ConvertToContiguousBuffer(&this->buffer_ob.ptr) != S_OK)
+		if(cur_sample->ConvertToContiguousBuffer(&this->buffer_ob.ptr) != S_OK) // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
 			throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
 
-		//IMF2DBuffer* buffer2d;
-		//if(this->buffer_ob->QueryInterface<IMF2DBuffer>(&buffer2d) == S_OK)
-		//{}
+		if(true) // If use IMF2DBuffer interface:
+		{
+			if(!buffer_ob.queryInterface(cur_buffer2d))
+				throw glare::Exception("failed to get IMF2DBuffer interface");
 
-		BYTE* buffer;
-		DWORD cur_len;
-		if(this->buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len) != S_OK)
-			throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+			BYTE* scanline0;
+			LONG pitch;
+			hr = cur_buffer2d->Lock2D(&scanline0, &pitch);
+			if(FAILED(hr))
+				throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
 
-		frame_buffer_out = buffer;
+			frame_buffer_out = scanline0;
+			stride_B_out = pitch;
+		}
+		else
+		{
+			BYTE* buffer;
+			DWORD cur_len;
+			hr = this->buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len);
+			if(FAILED(hr))
+				throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+
+			frame_buffer_out = buffer;
+		}
 	}
 
 	//const double stream_time = llTimeStamp * 1.0e-7;
@@ -451,10 +446,25 @@ FrameInfo WMFVideoReader::getAndLockNextFrame(BYTE*& frame_buffer_out, size_t& s
 
 void WMFVideoReader::unlockFrame()
 {
-	if(this->buffer_ob.ptr)
-		this->buffer_ob.ptr->Unlock();
+	if(cur_sample.ptr)
+		cur_sample.release();
 
-	this->buffer_ob.release();
+	if(true) // If use IMF2DBuffer interface:
+	{
+		if(this->cur_buffer2d.ptr)
+			throwOnError(cur_buffer2d->Unlock2D());
+
+		this->cur_buffer2d.release();
+
+		this->buffer_ob.release();
+	}
+	else
+	{
+		if(this->buffer_ob.ptr)
+			this->buffer_ob.ptr->Unlock();
+
+		this->buffer_ob.release();
+	}
 }
 
 
@@ -488,8 +498,12 @@ void WMFVideoReader::test()
 		//const std::string path = "E:\\video\\gopro\\GP010415.MP4";
 		//const std::string path = "E:\\video\\Tokyo night drive 4K 2016.mp4";
 		//const std::string path = "E:\\video\\highway_timelapse_jim_lamaison.mp4";
-		const std::string path = "D:\\art\\chaotica\\anim_test2\\anim_HEVC.mp4";
-	
+		//const std::string path = "D:\\art\\chaotica\\anim_test2\\anim_HEVC.mp4";
+		//const std::string path = "E:\\video\\vj\\anim.mp4";
+		//const std::string path = "http://video.chaoticafractals.com/videos/tatasz_skulkey_starshine.mp4";
+		//const std::string path = "E:\\video\\tatasz_skulkey_starshine.mp4";
+		const std::string path = "E:\\video\\Koyaanisqatsi.1982.1080p.BRrip.x264.AAC.MVGroup.org.mp4";
+
 		WMFVideoReader reader(/*read_from_video_device*/false, path);
 
 		conPrint("Reading vid '" + path + "'...");
@@ -530,7 +544,8 @@ void WMFVideoReader::test()
 			else
 			{
 				conPrint("Reached EOF.");
-				break;
+				reader.seek(0.0);
+				//break;
 			}
 
 			reader.unlockFrame();
