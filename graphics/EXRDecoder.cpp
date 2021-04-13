@@ -625,10 +625,6 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 	{
 		failTest(e.what());
 	}
-	catch(ImFormatExcep& e)
-	{
-		failTest(e.what());
-	}
 }
 
 

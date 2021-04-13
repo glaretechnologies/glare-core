@@ -1,8 +1,7 @@
 /*=====================================================================
 imformatdecoder.cpp
 -------------------
-File created by ClassTemplate on Sat Apr 27 16:12:02 2002
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "imformatdecoder.h"
 
@@ -23,18 +22,6 @@ Code By Nicholas Chapman.
 #include "RGBEDecoder.h"
 #include "KTXDecoder.h"
 #include "../graphics/Map2D.h"
-
-
-ImFormatDecoder::ImFormatDecoder()
-{
-	
-}
-
-
-ImFormatDecoder::~ImFormatDecoder()
-{
-	
-}
 
 
 Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir, const std::string& path) // throws ImFormatExcep on failure
