@@ -37,9 +37,20 @@ public:
 
 	inline void release()
 	{
-		if(ptr) 
+		if(ptr)
 			ptr->Release();
 		ptr = NULL;
+	}
+
+	inline unsigned int getRefCount()
+	{
+		if(ptr)
+		{
+			ptr->AddRef();
+			return ptr->Release(); // returns new ref count
+		}
+		else
+			return 0;
 	}
 
 	inline T* operator -> () const { return ptr; }
