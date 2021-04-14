@@ -287,8 +287,6 @@ private:
 	VertexVectorType vertices;
 	TriangleVectorType triangles;
 	QuadVectorType quads;
-
-	float bounding_radius; // Computed in build()
 public:	
 	unsigned int num_uv_sets;
 	UVVectorType uvs;

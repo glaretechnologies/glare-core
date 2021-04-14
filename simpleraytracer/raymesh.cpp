@@ -782,7 +782,6 @@ Reference<RayMesh> RayMesh::getCopy() const
 	new_mesh->vertices = vertices;
 	new_mesh->triangles = triangles;
 	new_mesh->quads = quads;
-	new_mesh->bounding_radius = bounding_radius;
 	new_mesh->num_uv_sets = num_uv_sets;
 	new_mesh->uvs = uvs;
 	new_mesh->mean_curvature = mean_curvature;
@@ -830,13 +829,8 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 	//NOTE: disabled due to questionable speed-up offered.
 	//mergeUVs(print_output, verbose);
 
-	float max_r2 = 0;
-	for(size_t i = 0; i < this->vertices.size(); ++i)
-		max_r2 = myMax(max_r2, this->vertices[i].pos.length2());
-	bounding_radius = std::sqrt(max_r2);
-
-
 	// Compute if this geometry is planar
+	// TODO: this could be optimised, we don't need to compute the full normalised normal, and even if we did, we could use the precomputed inv normal len.
 	this->planar = true;
 	const Vec4f normal_0 = triGeometricNormal(vertices, triangles[0].vertex_indices[0], triangles[0].vertex_indices[1], triangles[0].vertex_indices[2]);
 	this->planar_normal = normal_0;
