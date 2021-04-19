@@ -340,12 +340,17 @@ HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std:
 
 	const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
 
+	std::string additional_header_lines;
+	for(size_t i=0; i<additional_headers.size(); ++i)
+		additional_header_lines += additional_headers[i] + "\r\n";
+
 	// Send request
 	const std::string request = "POST " + path_and_query + " HTTP/1.1\r\n"
 		"Host: " + url_components.host + "\r\n"
 		"Content-Type: " + content_type + "\r\n"
 		"Content-Length: " + toString(post_content.size()) + "\r\n" +
 		((!user_agent.empty()) ? (std::string("User-Agent: ") + user_agent + "\r\n") : std::string("")) + // Write user_agent header if set.
+		additional_header_lines +
 		"Connection: close\r\n"
 		"\r\n" + 
 		post_content;

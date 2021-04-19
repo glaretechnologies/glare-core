@@ -39,6 +39,8 @@ public:
 
 	std::string user_agent;
 
+	std::vector<std::string> additional_headers; // Such as "X-CC-Api-Key: YOUR_API_KEY".  Don't include CRLF in the header.
+
 	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out); // Throws glare::Exception on failure.
 
 	ResponseInfo downloadFile(const std::string& url, std::string& data_out); // Throws glare::Exception on failure.
