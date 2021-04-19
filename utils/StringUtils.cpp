@@ -2453,6 +2453,22 @@ void StringUtils::test()
 	testAssert(getTailSubString("abc", 3) == "");
 	testAssert(getTailSubString("abc", 4) == "");
 
+	//======================== equalCaseInsensitive() ==========================
+	testAssert(equalCaseInsensitive("", ""));
+	testAssert(equalCaseInsensitive("a", "a"));
+	testAssert(equalCaseInsensitive("A", "a"));
+	testAssert(!equalCaseInsensitive("b", "a"));
+	testAssert(!equalCaseInsensitive("B", "a"));
+	testAssert(equalCaseInsensitive("AbCd", "abcd"));
+	testAssert(equalCaseInsensitive(" ", " "));
+	testAssert(equalCaseInsensitive("!", "!"));
+
+	testAssert(!equalCaseInsensitive("a", ""));
+	testAssert(!equalCaseInsensitive("ab", ""));
+	testAssert(!equalCaseInsensitive("ab", "a"));
+	testAssert(!equalCaseInsensitive("ab", "abc"));
+	
+
 /*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");
 
 	testAssert(StringUtils::convertHexToBinary("02") == "\x02");

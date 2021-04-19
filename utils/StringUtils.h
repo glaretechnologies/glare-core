@@ -250,6 +250,20 @@ const std::string removeNonPrintableChars(const std::string& s);
 
 const std::vector<std::string> splitIntoLines(const std::string& s);
 
+inline bool equalCaseInsensitive(string_view a, const char* b_lowercase)
+{
+	for(size_t i=0; i<a.size(); ++i)
+	{
+		if(b_lowercase[i] == 0) // If we reached the null terminator in b_lowercase:
+			return false;
+		if(::toLowerCase(a[i]) != b_lowercase[i])
+			return false;
+	}
+	if(b_lowercase[a.size()] != 0) // If b is not the same length as a:
+		return false;
+	return true;
+}
+
 void test();
 
 
