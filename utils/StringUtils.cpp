@@ -71,6 +71,8 @@ uint64 stringToUInt64(const std::string& s) // throws StringUtilsExcep
 	uint64 valmul = 1;
 	bool valmul_has_overflowed = false;
 
+	if(s.empty())
+		throw StringUtilsExcep("Failed to convert empty string to an uint64."); 
 	for(int i=(int)s.size() - 1; i >= 0; --i)
 	{
 		if(s[i] >= '0' && s[i] <= '9')
@@ -1922,6 +1924,16 @@ void StringUtils::test()
 	testAssert(stringToUInt64("10000") == 10000);
 	testAssert(stringToUInt64("1234567") == 1234567);
 	testAssert(stringToUInt64("18446744073709551615") == 18446744073709551615ULL); // max representable uint64
+
+	try
+	{
+		stringToUInt64("");
+		testAssert(!"Shouldn't get here.");
+	}
+	catch(StringUtilsExcep& e)
+	{
+		const std::string s = e.what();
+	}
 
 	try
 	{

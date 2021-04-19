@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "Exception.h"
 #include <openssl/sha.h>
+#include <openssl/hmac.h>
 #include <assert.h>
 
 
@@ -62,6 +63,21 @@ void SHA256::SHA1Hash(
 
 	if(SHA1_Final(&digest_out[0], &context) == 0)
 		throw glare::Exception("Hash finalise failed");
+}
+
+
+void SHA256::SHA256HMAC(
+	const ArrayRef<unsigned char>& key,
+	const ArrayRef<unsigned char>& message,
+	std::vector<unsigned char>& digest_out
+)
+{
+	digest_out.resize(EVP_MAX_MD_SIZE);
+	unsigned int result_len = 0;
+	unsigned char* result = HMAC(EVP_sha256(), key.data(), (int)key.size(), message.data(), (int)message.size(), digest_out.data(), &result_len);
+	if(result == NULL)
+		throw glare::Exception("HMAC failed.");
+	digest_out.resize(result_len);
 }
 
 
@@ -165,6 +181,18 @@ void SHA256::test()
 		SHA1Hash(message.data(), message.data() + message.size(), digest);
 
 		const std::string target_hex = "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"; // From https://en.wikipedia.org/wiki/SHA-1
+		const std::vector<unsigned char> target = hexToByteArray(target_hex);
+		testAssert(digest == target);
+	}
+
+	//==================================== Test SHA256HMAC =======================================
+	{
+		const std::vector<unsigned char> key = stringToByteArray("key");
+		const std::vector<unsigned char> message = stringToByteArray("The quick brown fox jumps over the lazy dog");
+		std::vector<unsigned char> digest;
+		SHA256HMAC(key, message, digest);
+
+		const std::string target_hex = "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8"; // From https://en.wikipedia.org/wiki/HMAC
 		const std::vector<unsigned char> target = hexToByteArray(target_hex);
 		testAssert(digest == target);
 	}

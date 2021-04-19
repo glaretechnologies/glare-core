@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
+#include "ArrayRef.h"
 #include <vector>
 #include <string>
 
@@ -57,6 +58,13 @@ public:
 	static void SHA1Hash(
 		const unsigned char* message_text_begin,
 		const unsigned char* message_text_end,
+		std::vector<unsigned char>& digest_out
+	);
+
+
+	static void SHA256HMAC(
+		const ArrayRef<unsigned char>& key,
+		const ArrayRef<unsigned char>& message,
 		std::vector<unsigned char>& digest_out
 	);
 
