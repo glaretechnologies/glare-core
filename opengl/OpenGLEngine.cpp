@@ -1023,7 +1023,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			{
 				clear_buf_overlay_ob =  new OverlayObject();
 				clear_buf_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, -0.9999f);
-				clear_buf_overlay_ob->material.albedo_rgb = Colour3f(1.f, 0.5f, 0.2f);
+				clear_buf_overlay_ob->material.albedo_rgb = Colour3f(1.f, 0.2f, 0.2f);
 				clear_buf_overlay_ob->material.shader_prog = this->overlay_prog;
 				clear_buf_overlay_ob->mesh_data = this->unit_quad_meshdata;
 			}
@@ -1070,7 +1070,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	
 			outline_solid_mat.shader_prog = outline_prog;
 
-			outline_edge_mat.albedo_rgb = Colour3f(0.2f, 0.2f, 0.9f);
+			outline_edge_mat.albedo_rgb = Colour3f(0.9f, 0.2f, 0.2f);
 			outline_edge_mat.shader_prog = this->overlay_prog;
 
 			outline_quad_meshdata = this->unit_quad_meshdata;
@@ -2693,7 +2693,7 @@ void OpenGLEngine::draw()
 
 			opengl_mat.shader_prog->useProgram();
 
-			glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
+			glUniform4f(overlay_diffuse_colour_location, 1, 1, 1, 1);
 			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
 			glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 
