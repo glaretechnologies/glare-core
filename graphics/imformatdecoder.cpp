@@ -75,3 +75,20 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 		throw ImFormatExcep("Unhandled image format ('" + getExtension(path) + "')");
 	}
 }
+
+
+bool ImFormatDecoder::hasImageExtension(const std::string& path)
+{
+	return
+		hasExtension(path, "jpg") || hasExtension(path, "jpeg") ||
+		hasExtension(path, "tga") ||
+		hasExtension(path, "bmp") ||
+		hasExtension(path, "png") ||
+		hasExtension(path, "tif") || hasExtension(path, "tiff") ||
+		hasExtension(path, "exr") ||
+		hasExtension(path, "float") ||
+		hasExtension(path, "gif") ||
+		hasExtension(path, "hdr") ||
+		hasExtension(path, "ktx") || 
+		hasExtension(path, "ktx2");
+}

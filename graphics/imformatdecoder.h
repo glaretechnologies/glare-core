@@ -34,6 +34,8 @@ public:
 
 	static Reference<Map2D> decodeImage(const std::string& indigo_base_dir, const std::string& path);
 
+	static bool hasImageExtension(const std::string& path);
+
 private:
 	ImFormatDecoder();
 };
