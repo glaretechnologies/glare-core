@@ -297,9 +297,8 @@ void main()
 
 	vec4 sky_irradiance;
 #if LIGHTMAPPING
-	// NOTE: this 3.141592653589793 shouldn't be needed.
 	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
-	sky_irradiance = texture(lightmap_tex, vec2(lightmap_coords.x, -lightmap_coords.y)) * 1.0e9f * 3.141592653589793; // 1.0e10; 
+	sky_irradiance = texture(lightmap_tex, vec2(lightmap_coords.x, -lightmap_coords.y)) * 1.0e9f;
 #else
 	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky.
 #endif
@@ -337,7 +336,7 @@ void main()
 	vec4 sun_light = vec4(9124154304.569067, 8038831044.193394, 7154376815.37873, 1) * sun_vis_factor;
 
 	vec4 col =
-		sky_irradiance * (1.0 / 3.141592653589793) * diffuse_col * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
+		sky_irradiance * diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
 		refl_fresnel * spec_refl_light + // Specular reflection of sky
 		sun_light * (1.0 - refl_fresnel) * (1.0 - metallic_frac) * diffuse_col * (1.0 / 3.141592653589793) * light_cos_theta + //  Diffuse substrate part of BRDF * sun light
 		sun_light * specular; // sun light * specular microfacet terms
