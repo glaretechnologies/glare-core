@@ -10,10 +10,12 @@ Copyright Glare Technologies Limited 2019 -
 
 
 #include "TextureLoading.h"
+#include "OpenGLEngine.h"
 #include "../graphics/ImageMap.h"
 #include "../maths/mathstypes.h"
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/jpegdecoder.h"
+#include "../graphics/GifDecoder.h"
 #include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/Task.h"
@@ -50,6 +52,40 @@ void TextureLoadingTests::testDownSamplingGreyTexture(unsigned int W, unsigned i
 	}
 }
 
+static void testLoadingAnimatedFile(const std::string& path, glare::TaskManager& task_manager)
+{
+	try
+	{
+		Reference<Map2D> mip_level_image = GIFDecoder::decodeImageSequence(path);
+
+		testAssert(mip_level_image.isType<ImageMapSequenceUInt8>());
+
+		const ImageMapSequenceUInt8* seq = mip_level_image.downcastToPtr<ImageMapSequenceUInt8>();
+
+		testAssert(seq->images.size() > 1);
+		//for(size_t i=0; i<seq->images.size(); ++i)
+		//{
+		//	testAssert(seq->images[i]->getMapWidth() == 30);
+		//	testAssert(seq->images[i]->getMapHeight() == 60);
+		//	testAssert(seq->images[i]->getBytesPerPixel() == 3);
+		//}
+
+		Reference<TextureData> texdata = TextureLoading::buildUInt8MapSequenceTextureData(seq, /*opengl engine=*/NULL, &task_manager);
+
+		testAssert(texdata->W == seq->images[0]->getMapWidth());
+		testAssert(texdata->H == seq->images[0]->getMapHeight());
+
+		testAssert(texdata->frames.size() == seq->images.size());
+		for(size_t i=0; i<texdata->frames.size(); ++i)
+		{
+			testAssert(texdata->frames[i].compressed_data.size() > 0);
+		}
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
 
 void TextureLoadingTests::test()
 {
@@ -68,6 +104,14 @@ void TextureLoadingTests::test()
 	testDownSamplingGreyTexture(250, 7, 3);
 	testDownSamplingGreyTexture(7, 250, 4);
 	testDownSamplingGreyTexture(2, 2, 4);
+
+	glare::TaskManager task_manager;
+
+	// Test loading animated gifs
+	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/fire.gif", task_manager);
+	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif", task_manager);
+	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif", task_manager);
+
 
 	if(false)
 	{

@@ -22,7 +22,8 @@ OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
 	xres(0),
 	yres(0),
-	loaded_size(0)
+	loaded_size(0),
+	format(Format_SRGB_Uint8)
 {
 }
 
@@ -50,7 +51,7 @@ OpenGLTexture::~OpenGLTexture()
 
 bool OpenGLTexture::hasAlpha() const
 {
-	assert(texture_handle != 0);
+	//assert(texture_handle != 0);
 	return format == Format_SRGBA_Uint8 || format == Format_RGBA_Linear_Uint8 || format == Format_Compressed_SRGBA_Uint8;
 }
 
@@ -214,13 +215,57 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 }
 
 
+void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data)
+{
+	glBindTexture(GL_TEXTURE_2D, texture_handle);
+
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	{
+		glCompressedTexImage2D(
+			GL_TEXTURE_2D,
+			0, // LOD level
+			(format == Format_Compressed_SRGB_Uint8) ? GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			(GLsizei)tex_data.size(),
+			tex_data.data()
+		);
+	}
+	else
+	{
+		GLint internal_format;
+		GLenum gl_format, gl_type;
+		getGLFormat(format, internal_format, gl_format, gl_type);
+
+		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
+		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
+
+		glTexImage2D(
+			GL_TEXTURE_2D,
+			0, // LOD level
+			internal_format, // internal format
+			(GLsizei)tex_xres, (GLsizei)tex_yres,
+			0, // border
+			gl_format, // format
+			gl_type, // type
+			tex_data.data()
+		);
+	}
+
+	// Gen mipmaps if needed
+	if(filtering == Filtering_Fancy)
+		glGenerateMipmap(GL_TEXTURE_2D);
+}
+
+
 void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, const OpenGLEngine* opengl_engine,
 	Format format_,
-	Filtering filtering,
+	Filtering filtering_,
 	Wrapping wrapping
 	)
 {
 	this->format = format_;
+	this->filtering = filtering_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
 	this->loaded_size = tex_data.size(); // NOTE: wrong for empty tex_data case (e.g. for shadow mapping textures)
@@ -305,11 +350,12 @@ void OpenGLTexture::loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<u
 	Format format_,
 	GLint gl_internal_format,
 	GLenum gl_format,
-	Filtering filtering,
+	Filtering filtering_,
 	Wrapping wrapping
 )
 {
 	this->format = format_;
+	this->filtering = filtering_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
 	this->loaded_size = tex_data.size(); // NOTE: wrong for empty tex_data case (e.g. for shadow mapping textures)
@@ -386,6 +432,19 @@ void OpenGLTexture::loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<u
 	{
 		assert(0);
 	}
+}
+
+
+void OpenGLTexture::bind()
+{
+	assert(texture_handle != 0);
+	glBindTexture(GL_TEXTURE_2D, texture_handle);
+}
+
+
+void OpenGLTexture::unbind()
+{
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 
@@ -474,10 +533,12 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 
 
 void OpenGLTexture::setTexParams(const Reference<OpenGLEngine>& opengl_engine,
-	Filtering filtering,
+	Filtering filtering_,
 	Wrapping wrapping
 )
 {
+	this->filtering = filtering_;
+
 	if(wrapping == Wrapping_Clamp)
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

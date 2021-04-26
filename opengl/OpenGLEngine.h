@@ -566,9 +566,9 @@ private:
 	OpenGLProgramRef getPhongProgram(const PhongKey& key); // Throws glare::Exception on shader compilation failure.
 	
 	OpenGLProgramRef getPhongProgramWithFallbackOnError(const PhongKey& key); // On shader compilation failure, just returns a default phong program.
-
+public:
 	glare::TaskManager& getTaskManager();
-
+private:
 	bool init_succeeded;
 	std::string initialisation_error_msg;
 	

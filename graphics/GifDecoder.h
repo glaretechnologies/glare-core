@@ -1,14 +1,15 @@
 /*=====================================================================
 GifDecoder.h
--------------------
-Copyright Glare Technologies Limited 2019 -
-Generated at 2013-02-21 14:06:25 +0000
+------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
 
-#include <string>
 #include "../utils/Reference.h"
+#include "../utils/ThreadSafeRefCounted.h"
+#include <string>
+#include <vector>
 class Map2D;
 
 
@@ -20,15 +21,12 @@ GIFDecoder
 class GIFDecoder
 {
 public:
-	GIFDecoder();
-	~GIFDecoder();
-
-
 	// throws ImFormatExcep on failure
 	static Reference<Map2D> decode(const std::string& path);
+
+	static Reference<Map2D> decodeImageSequence(const std::string& path);
 
 	static void test();
 private:
 
 };
-

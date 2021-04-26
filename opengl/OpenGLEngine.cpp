@@ -1364,7 +1364,13 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 		Reference<TextureData> tex_data = this->texture_data_manager->getTextureData(key.path); // returns null ref if not present.
 		if(tex_data.nonNull())
 		{
-			opengl_texture = this->loadOpenGLTextureFromTexData(key, tex_data, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+			// Avoid using trilinear filtering with animated textures, if we haven't computed the mipmap levels ourselves (while doing compression).
+			// Otherwise the opengl driver will have to repeatedly generate mipmaps as the texture is updated to the current frame.
+			const bool animated = tex_data->frames.size() > 1;
+			const bool compressed = !tex_data->frames[0].compressed_data.empty();
+			const OpenGLTexture::Filtering filtering = (animated && !compressed) ? OpenGLTexture::Filtering_Bilinear : OpenGLTexture::Filtering_Fancy;
+
+			opengl_texture = this->loadOpenGLTextureFromTexData(key, tex_data, filtering, OpenGLTexture::Wrapping_Repeat);
 			assert(opengl_texture.nonNull());
 			// conPrint("\tLoaded from tex data.");
 		}
@@ -5120,8 +5126,9 @@ Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGL
 
 		this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 
-		// Now that the data has been loaded into OpenGL, we can erase the texture data.
-		this->texture_data_manager->removeTextureData(key.path);
+		// Now that the data has been loaded into OpenGL, we can erase the texture data.  Don't remove data with more than 1 frame, as we will need it for animated textures.
+		if(texture_data->frames.size() == 1)
+			this->texture_data_manager->removeTextureData(key.path);
 
 		return opengl_tex;
 	}

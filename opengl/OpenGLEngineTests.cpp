@@ -124,7 +124,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 		testAssert(dynamic_cast<const ImageMapUInt8*>(map.ptr()));
 		const ImageMapUInt8* imagemap = map.downcastToPtr<ImageMapUInt8>();
 
-		Reference<TextureData> texture_data = TextureLoading::buildUInt8MapTextureData(imagemap, &engine, /*multithread=*/true);
+		Reference<TextureData> texture_data = TextureLoading::buildUInt8MapTextureData(imagemap, &engine, &engine.getTaskManager());
 
 		// Give data to OpenGL engine
 		engine.texture_data_manager->insertBuiltTextureData(key, texture_data);
@@ -157,7 +157,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 		Reference<Map2D> map = ImFormatDecoder::decodeImage(".", key); // Load texture from disk and decode it.
 		testAssert(dynamic_cast<const ImageMapUInt8*>(map.ptr()));
 		const ImageMapUInt8* imagemap = map.downcastToPtr<ImageMapUInt8>();
-		Reference<TextureData> texture_data = TextureLoading::buildUInt8MapTextureData(imagemap, &engine, /*multithread=*/true);
+		Reference<TextureData> texture_data = TextureLoading::buildUInt8MapTextureData(imagemap, &engine, &engine.getTaskManager());
 
 		engine.texture_data_manager->insertBuiltTextureData(key, texture_data); // Give data to OpenGL engine
 

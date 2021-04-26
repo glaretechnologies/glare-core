@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2019 -
 
 #include "OpenGLTexture.h"
 #include "../graphics/ImageMap.h"
+#include "../graphics/ImageMapSequence.h"
 #include "../utils/RefCounted.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
@@ -18,7 +19,15 @@ Copyright Glare Technologies Limited 2019 -
 
 
 class OpenGLEngine;
+namespace DXTCompression { struct TempData; }
 
+
+class TextureFrameData
+{
+public:
+	js::Vector<uint8, 16> compressed_data; // Compressed data for all mip-map levels.
+	Reference<const ImageMapUInt8> converted_image;
+};
 
 // Result of texture loading
 class TextureData : public ThreadSafeRefCounted
@@ -27,10 +36,13 @@ public:
 	size_t compressedSizeBytes() const;
 
 	size_t W, H, bytes_pp;
-	js::Vector<uint8, 16> compressed_data; // Compressed data for all mip-map levels.
+	
 	std::vector<size_t> level_offsets;
 
-	Reference<const ImageMapUInt8> converted_image;
+	std::vector<TextureFrameData> frames; // will have 1 element for non-animated images, more than 1 for animated gifs etc..
+
+	std::vector<double> frame_durations; // For gifs basically
+	std::vector<double> frame_start_times;
 };
 
 
@@ -82,13 +94,24 @@ public:
 	static void init();
 
 	// Builds compressed, mip-map level data.
-	// Uses opengl_engine->getTaskManager() for multi-threading.
+	// Uses task_manager for multi-threading if non-null.
 	// May return a reference to imagemap in the returned TextureData.
-	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, bool multithread);
+	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager);
+
+	// Builds compressed, mip-map level data for a sequence of images (e.g. animated gif)
+	static Reference<TextureData> buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager);
 
 	// Load the built texture data into OpenGL.
 	static Reference<OpenGLTexture> loadTextureIntoOpenGL(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
 		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
+
+	// Load the texture data for frame_i into an existing OpenGL texture
+	static void loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i, const Reference<OpenGLEngine>& opengl_engine);
+
 private:
 	static void downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, size_t N, const uint8* prev_level_image_data, size_t level_W, size_t level_H, uint8* data_out);
+
+	// Uses task_manager for multi-threading if non-null.
+	static void compressImageFrame(size_t total_compressed_size, js::Vector<uint8, 16>& temp_tex_buf, const SmallVector<size_t, 20>& temp_tex_buf_offsets, 
+		DXTCompression::TempData& compress_temp_data, TextureData* texture_data, size_t cur_frame_i, const ImageMapUInt8* source_image, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager);
 };

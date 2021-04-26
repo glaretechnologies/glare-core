@@ -61,6 +61,8 @@ public:
 	bool hasAlpha() const;
 
 	
+	void bind();
+	void unbind();
 
 	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format);
 
@@ -71,6 +73,9 @@ public:
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat
 	);
+
+	// Load into a texture that has already had its format, filtering and wrapping modes set.
+	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data);
 
 	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
@@ -101,6 +106,7 @@ private:
 	void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 
 	Format format;
+	Filtering filtering;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
 

@@ -21,7 +21,10 @@ Copyright Glare Technologies Limited 2019 -
 
 size_t TextureData::compressedSizeBytes() const
 {
-	return compressed_data.dataSizeBytes();
+	size_t sum = 0;
+	for(size_t i=0; i<frames.size(); ++i)
+		sum += frames[i].compressed_data.dataSizeBytes();
+	return sum;
 }
 
 
@@ -35,7 +38,7 @@ Reference<TextureData> TextureDataManager::getOrBuildTextureData(const std::stri
 		return res->second;
 	else
 	{
-		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, /*multithread=*/true);
+		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, opengl_engine.nonNull() ? &opengl_engine->getTaskManager() : NULL);
 		loaded_textures[key] = data;
 		return data;
 	}
@@ -91,9 +94,13 @@ size_t TextureDataManager::getTotalMemUsage() const
 	size_t sum = 0;
 	for(auto it = loaded_textures.begin(); it != loaded_textures.end(); ++it)
 	{
-		sum += it->second->compressed_data.capacitySizeBytes();
-		if(it->second->converted_image.nonNull())
-			sum += it->second->converted_image->getByteSize();
+		sum += it->second->compressedSizeBytes();
+
+		for(size_t z=0; z<it->second->frames.size(); ++z)
+		{
+			if(it->second->frames[z].converted_image.nonNull())
+				sum += it->second->frames[z].converted_image->getByteSize();
+		}
 	}
 	return sum;
 }
@@ -365,10 +372,94 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 }
 
 
-Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, bool multithread)
+// Work out number of MIP levels we need, also work out byte offsets for the compressed data for each level.
+// temp_tex_buf_offsets is the offset for each texture level in our temp uncompressed buffer.
+static void computeMipLevelOffsets(TextureData* texture_data, SmallVector<size_t, 20>& temp_tex_buf_offsets_out, size_t& total_compressed_size_out, size_t& temp_tex_buf_size_out)
+{
+	temp_tex_buf_offsets_out.resize(0);
+
+	const size_t W			= texture_data->W;
+	const size_t H			= texture_data->H;
+	const size_t bytes_pp	= texture_data->bytes_pp;
+	
+	texture_data->level_offsets.reserve(16); // byte offset for each mipmap level
+	size_t cur_offset = 0;
+	size_t cur_temp_tex_buf_offset = 0;
+	for(size_t k=0; ; ++k)
+	{
+		temp_tex_buf_offsets_out.push_back(cur_temp_tex_buf_offset);
+		texture_data->level_offsets.push_back(cur_offset);
+
+		const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
+		const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+
+		const size_t level_tex_size = level_W * level_H * bytes_pp;
+
+		if(k > 0) // Don't store level 0 texture data in the temp tex buffer.
+			cur_temp_tex_buf_offset += level_tex_size;
+
+		const size_t level_comp_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
+		cur_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(cur_offset + level_comp_size, 8);
+		if(level_W == 1 && level_H == 1)
+			break;
+	}
+
+	total_compressed_size_out = cur_offset;
+	temp_tex_buf_size_out = cur_temp_tex_buf_offset;
+}
+
+
+void TextureLoading::compressImageFrame(size_t total_compressed_size, js::Vector<uint8, 16>& temp_tex_buf, const SmallVector<size_t, 20>& temp_tex_buf_offsets, 
+	DXTCompression::TempData& compress_temp_data, TextureData* texture_data, size_t cur_frame_i, const ImageMapUInt8* source_image, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager)
+{
+	const size_t W			= texture_data->W;
+	const size_t H			= texture_data->H;
+	const size_t bytes_pp	= texture_data->bytes_pp;
+
+	TextureFrameData& frame_data = texture_data->frames[cur_frame_i];
+
+	frame_data.compressed_data.resize(total_compressed_size);
+
+	for(size_t k=0; ; ++k) // For each mipmap level:
+	{
+		// See https://www.khronos.org/opengl/wiki/Texture#Mipmap_completeness
+		const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
+		const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+
+		// conPrint("Building mipmap level " + toString(k) + " data, dims: " + toString(level_W) + " x " + toString(level_H));
+
+		uint8* level_uncompressed_data;
+		if(k == 0)
+			level_uncompressed_data = (uint8*)source_image->getData(); // Read directly from source_image.
+		else
+		{
+			// Downsize previous mip level image to current mip level
+			const size_t prev_level_W = myMax((size_t)1, W / ((size_t)1 << (k-1)));
+			const size_t prev_level_H = myMax((size_t)1, H / ((size_t)1 << (k-1)));
+			const uint8* prev_level_uncompressed_data = (k == 1) ? source_image->getData() : &temp_tex_buf[temp_tex_buf_offsets[k-1]];
+			level_uncompressed_data = &temp_tex_buf[temp_tex_buf_offsets[k]];
+			downSampleToNextMipMapLevel(prev_level_W, prev_level_H, bytes_pp, prev_level_uncompressed_data, level_W, level_H, level_uncompressed_data);
+		}
+
+		const size_t level_compressed_offset = texture_data->level_offsets[k];
+		const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
+		assert(level_compressed_offset + level_compressed_size <= frame_data.compressed_data.size());
+			
+		DXTCompression::compress(task_manager, compress_temp_data, level_W, level_H, bytes_pp, /*src data=*/level_uncompressed_data,
+			/*dst data=*/&frame_data.compressed_data[level_compressed_offset], level_compressed_size);
+
+		// If we have just finished computing the last mipmap level, we are done.
+		if(level_W == 1 && level_H == 1)
+			break;
+	}
+}
+
+
+Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager)
 {
 	// conPrint("Creating new OpenGL texture.");
 	Reference<TextureData> texture_data = new TextureData();
+	texture_data->frames.resize(1);
 
 	// If we have a 1 or 2 bytes per pixel texture, convert to 3 or 4.
 	// Handling such textures without converting them here would have to be done in the shaders, which we don't do currently.
@@ -421,76 +512,75 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 	if(opengl_engine->settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
 	{
 		// We will store the resized, uncompressed texture data, for all levels, in temp_tex_buf.
-		// We will store the offset to the data for each layer in this vector:
-		SmallVector<size_t, 20> temp_tex_buf_offsets;
+		// We will store the offset to the data for each layer in temp_tex_buf_offsets.
 
-		// Work out number of levels we need, also work out byte offsets for the compressed data for each level.
-		texture_data->level_offsets.reserve(16);
-		size_t cur_offset = 0;
-		size_t cur_temp_tex_buf_offset = 0;
-		for(size_t k=0; ; ++k)
-		{
-			temp_tex_buf_offsets.push_back(cur_temp_tex_buf_offset);
-			texture_data->level_offsets.push_back(cur_offset);
+		SmallVector<size_t, 20> temp_tex_buf_offsets; 
+		size_t total_compressed_size, temp_tex_buf_size;
+		computeMipLevelOffsets(texture_data.ptr(), temp_tex_buf_offsets, total_compressed_size, temp_tex_buf_size);
 
-			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
-			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-
-			const size_t level_tex_size = level_W * level_H * bytes_pp;
-
-			if(k > 0) // Don't store level 0 texture data in the temp tex buffer.
-				cur_temp_tex_buf_offset += level_tex_size;
-
-			const size_t level_comp_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
-			cur_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(cur_offset + level_comp_size, 8);
-			if(level_W == 1 && level_H == 1)
-				break;
-		}
-		texture_data->compressed_data.resize(cur_offset);
-		js::Vector<uint8, 16> temp_tex_buf(cur_temp_tex_buf_offset);
-
+		js::Vector<uint8, 16> temp_tex_buf(temp_tex_buf_size);
 		DXTCompression::TempData compress_temp_data;
 
-		for(size_t k=0; ; ++k) // For each mipmap level:
-		{
-			// See https://www.khronos.org/opengl/wiki/Texture#Mipmap_completeness
-			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
-			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-
-			// conPrint("Building mipmap level " + toString(k) + " data, dims: " + toString(level_W) + " x " + toString(level_H));
-
-			uint8* level_uncompressed_data;
-			if(k == 0)
-				level_uncompressed_data = (uint8*)converted_image->getData(); // Read directly from converted_image.
-			else
-			{
-				// Downsize previous mip level image to current mip level
-				const size_t prev_level_W = myMax((size_t)1, W / ((size_t)1 << (k-1)));
-				const size_t prev_level_H = myMax((size_t)1, H / ((size_t)1 << (k-1)));
-				const uint8* prev_level_uncompressed_data = (k == 1) ? converted_image->getData() : &temp_tex_buf[temp_tex_buf_offsets[k-1]];
-				level_uncompressed_data = &temp_tex_buf[temp_tex_buf_offsets[k]];
-				downSampleToNextMipMapLevel(prev_level_W, prev_level_H, bytes_pp, prev_level_uncompressed_data, level_W, level_H, level_uncompressed_data);
-			}
-
-			const size_t level_compressed_offset = texture_data->level_offsets[k];
-			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
-			assert(level_compressed_offset + level_compressed_size <= texture_data->compressed_data.size());
-			
-			DXTCompression::compress(multithread ? &opengl_engine->getTaskManager() : NULL, compress_temp_data, level_W, level_H, bytes_pp, /*src data=*/level_uncompressed_data,
-				/*dst data=*/&texture_data->compressed_data[level_compressed_offset], level_compressed_size);
-
-			// If we have just finished computing the last mipmap level, we are done.
-			if(level_W == 1 && level_H == 1)
-				break;
-		}
+		compressImageFrame(total_compressed_size, temp_tex_buf, temp_tex_buf_offsets, compress_temp_data, texture_data.ptr(), /*cur frame i=*/0, /*source image=*/converted_image.ptr(), opengl_engine, task_manager);
 	}
 	else // Else if not using a compressed texture format:
 	{
 		if(converted_image->getN() != 3 && converted_image->getN() != 4)
 			throw glare::Exception("Texture has unhandled number of components: " + toString(converted_image->getN()));
 
-		texture_data->converted_image = converted_image;
+		texture_data->frames[0].converted_image = converted_image;
 	}
+
+	return texture_data;
+}
+
+
+Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* seq, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager)
+{
+	if(seq->images.empty())
+		throw glare::Exception("empty image sequence");
+
+	Reference<TextureData> texture_data = new TextureData();
+	texture_data->frames.resize(seq->images.size());
+
+	const ImageMapUInt8* imagemap_0 = seq->images[0].ptr();
+
+	// Try and load as a DXT texture compression
+	const bool compressed_sRGB_support = opengl_engine.isNull() || (opengl_engine->GL_EXT_texture_sRGB_support && opengl_engine->GL_EXT_texture_compression_s3tc_support);
+	const bool compress_textures_enabled = opengl_engine.isNull() || opengl_engine->settings.compress_textures;
+	const size_t W = imagemap_0->getWidth();
+	const size_t H = imagemap_0->getHeight();
+	const size_t bytes_pp = imagemap_0->getBytesPerPixel();
+	texture_data->W = W;
+	texture_data->H = H;
+	texture_data->bytes_pp = bytes_pp;
+
+	SmallVector<size_t, 20> temp_tex_buf_offsets;
+	size_t total_compressed_size, temp_tex_buf_size;
+	computeMipLevelOffsets(texture_data.ptr(), temp_tex_buf_offsets, total_compressed_size, temp_tex_buf_size);
+
+	js::Vector<uint8, 16> temp_tex_buf(temp_tex_buf_size);
+	DXTCompression::TempData compress_temp_data;
+
+	for(size_t frame_i = 0; frame_i != texture_data->frames.size(); ++frame_i)
+	{
+		const ImageMapUInt8* imagemap = seq->images[frame_i].ptr();
+
+		if(compress_textures_enabled && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
+		{
+			compressImageFrame(total_compressed_size, temp_tex_buf, temp_tex_buf_offsets, compress_temp_data, texture_data.ptr(), /*cur frame i=*/frame_i, /*source image=*/imagemap, opengl_engine, task_manager);
+		}
+		else // Else if not using a compressed texture format:
+		{
+			if(imagemap->getN() != 3 && imagemap->getN() != 4)
+				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
+
+			texture_data->frames[frame_i].converted_image = seq->images[frame_i];
+		}
+	}
+
+	texture_data->frame_durations   = seq->frame_durations;
+	texture_data->frame_start_times = seq->frame_start_times;
 
 	return texture_data;
 }
@@ -501,6 +591,8 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 {
 	// conPrint("Creating new OpenGL texture.");
 	Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+
+	const int frame_i = 0;
 
 	// Try and load as a DXT texture compression
 	const bool compressed_sRGB_support = opengl_engine->GL_EXT_texture_sRGB_support && opengl_engine->GL_EXT_texture_compression_s3tc_support;
@@ -517,7 +609,7 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
 
-			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.compressed_data[texture_data.level_offsets[k]], level_compressed_size));
+			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].compressed_data[texture_data.level_offsets[k]], level_compressed_size));
 		}
 
 		opengl_tex->setTexParams(opengl_engine, filtering, wrapping);
@@ -532,10 +624,40 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 		else
 			throw glare::Exception("Texture has unhandled number of components: " + toString(texture_data.bytes_pp));
 
-		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.converted_image->getData(), texture_data.converted_image->getDataSize()), opengl_engine.ptr(),
+		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()), opengl_engine.ptr(),
 			format, filtering, wrapping
 		);
 	}
 
 	return opengl_tex;
+}
+
+
+// Load into an existing texture
+void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i, const Reference<OpenGLEngine>& opengl_engine)
+{
+	// Try and load as a DXT texture compression
+	const bool compressed_sRGB_support = opengl_engine->GL_EXT_texture_sRGB_support && opengl_engine->GL_EXT_texture_compression_s3tc_support;
+	const size_t W = texture_data.W;
+	const size_t H = texture_data.H;
+	const size_t bytes_pp = texture_data.bytes_pp;
+	if(opengl_engine->settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
+	{
+		opengl_tex->bind();
+
+		for(size_t k=0; k<texture_data.level_offsets.size(); ++k) // For each mipmap level:
+		{
+			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
+			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
+
+			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].compressed_data[texture_data.level_offsets[k]], level_compressed_size));
+		}
+
+		opengl_tex->unbind();
+	}
+	else // Else if not using a compressed texture format:
+	{
+		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()));
+	}
 }
