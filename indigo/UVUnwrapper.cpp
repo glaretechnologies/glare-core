@@ -7,7 +7,6 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "RendererSettings.h"
-#include "DisplacementUtils.h"
 #include "../dll/include/IndigoException.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
@@ -707,7 +706,7 @@ void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output, float nor
 				{
 					// Copy old UVs (if any)
 					for(size_t s=0; s<old_num_sets; ++s)
-						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[tris_in[tri_index].uv_indices[v]];
+						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[tris_in[tri_index].uv_indices[v] * old_num_sets + s];
 
 					// We will assign the new UV at the same index as old UV(s), if there were existing UVs
 					//uint32 uv_i;
@@ -736,7 +735,7 @@ void UVUnwrapper::build(Indigo::Mesh& mesh, PrintOutput& print_output, float nor
 				{
 					// Copy old UVs (if any)
 					for(size_t s=0; s<old_num_sets; ++s)
-						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[quads_in[quad_index].uv_indices[v]];
+						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[quads_in[quad_index].uv_indices[v] * old_num_sets + s];
 
 					// Get old UV index.  We will assign the new UV at the same index, if there were existing UVs
 					/*const uint32 old_uv_i = mesh->getQuads()[quad_index].uv_indices[v];

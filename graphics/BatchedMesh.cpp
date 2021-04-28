@@ -224,8 +224,8 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 					throw glare::Exception("UV index out of bounds");
 
 				// Look up merged vertex
-				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i    ] : Indigo::Vec2f(0.f);
-				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i + 1] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i*num_uv_sets    ] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i*num_uv_sets + 1] : Indigo::Vec2f(0.f);
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];
@@ -332,8 +332,8 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 					throw glare::Exception("UV index out of bounds");
 
 				// Look up merged vertex
-				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i    ] : Indigo::Vec2f(0.f);
-				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i + 1] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i*num_uv_sets    ] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i*num_uv_sets + 1] : Indigo::Vec2f(0.f);
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];
@@ -369,7 +369,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 							copyUInt32s(&vert_data[cur_size + uv0_offset], half_uv, 4);
 						}
 						else
-							copyUInt32s(&vert_data[cur_size + uv0_offset], &uv_pairs[uv_i].x, sizeof(Indigo::Vec2f));
+							copyUInt32s(&vert_data[cur_size + uv0_offset], &uv0.x, sizeof(Indigo::Vec2f));
 
 						// Copy uv_1
 						if(mesh_has_uv1)
