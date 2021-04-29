@@ -1,8 +1,7 @@
 /*=====================================================================
 VideoReader.cpp
 ---------------
-Copyright Glare Technologies Limited 2020 -
-Generated at 2020-01-12 14:58:43 +1300
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "VideoReader.h"
 
@@ -18,6 +17,3 @@ VideoReader::~VideoReader()
 {
 
 }
-
-
-

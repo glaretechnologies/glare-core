@@ -56,6 +56,14 @@ public:
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat);
 
+	// Allocate uninitialised texture, specify exact GL formats
+	OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+		Format format,
+		GLint gl_internal_format,
+		GLenum gl_format,
+		Filtering filtering,
+		Wrapping wrapping = Wrapping_Repeat);
+
 	~OpenGLTexture();
 
 	bool hasAlpha() const;
@@ -68,8 +76,8 @@ public:
 
 
 	void makeGLTexture(Format format);
-	void setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data);
-	void setTexParams(const Reference<OpenGLEngine>& opengl_engine,
+	void setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data); // Texture should be bound beforehand
+	void setTexParams(const Reference<OpenGLEngine>& opengl_engine, // Texture should be bound beforehand
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat
 	);
@@ -84,6 +92,8 @@ public:
 		Wrapping wrapping = Wrapping_Repeat
 	);
 
+	// Allocate GL texture if not already done so, set texture parameters (filtering etc..),
+	// Load data into GL if data is non-null
 	void loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 		Format format,
@@ -103,9 +113,13 @@ public:
 
 private:
 	GLARE_DISABLE_COPY(OpenGLTexture);
-	void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
+	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 
 	Format format;
+	GLint gl_internal_format; // GL internal format (num channels)
+	GLenum gl_format; // GL format (order of RGBA channels etc..)
+	GLenum gl_type; // Type of pixel channel (GL_UNSIGNED_BYTE, GL_HALF_FLOAT etc..)
+
 	Filtering filtering;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.

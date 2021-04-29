@@ -42,6 +42,21 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngin
 }
 
 
+OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+	Format format_,
+	GLint gl_internal_format_,
+	GLenum gl_format_,
+	Filtering filtering_,
+	Wrapping wrapping_)
+:	texture_handle(0),
+	xres(0),
+	yres(0),
+	loaded_size(0)
+{
+	loadWithFormats(tex_xres, tex_yres, ArrayRef<uint8>(NULL, 0), opengl_engine, format_, gl_internal_format_, gl_format_, filtering_, wrapping_);
+}
+
+
 OpenGLTexture::~OpenGLTexture()
 {
 	glDeleteTextures(1, &texture_handle);
@@ -101,19 +116,19 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		type = GL_FLOAT;
 		break;
 	case Format_Compressed_SRGB_Uint8:
-		assert(0); // getGLFormat() shouldn't be called for compressed formats
+		//assert(0); // getGLFormat() shouldn't be called for compressed formats
 		internal_format = GL_SRGB8;
 		gl_format = GL_RGB;
 		type = GL_UNSIGNED_BYTE;
 		break;
 	case Format_Compressed_SRGBA_Uint8:
-		assert(0); // getGLFormat() shouldn't be called for compressed formats
+		//assert(0); // getGLFormat() shouldn't be called for compressed formats
 		internal_format = GL_SRGB8;
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
 	case Format_Compressed_BC6:
-		assert(0); // getGLFormat() shouldn't be called for compressed formats
+		//assert(0); // getGLFormat() shouldn't be called for compressed formats
 		internal_format = GL_SRGB8;
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
@@ -122,6 +137,9 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 }
 
 
+// See https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glPixelStorei.xml
+// We are assuming that our texture data is tightly packed, with no padding at the end of rows.
+// Therefore the row alignment may be 8, 4, 2 or even 1 byte.  We need to tell OpenGL this.
 static void setPixelStoreAlignment(size_t tex_xres, GLenum gl_format, GLenum type)
 {
 	size_t component_size = 1;
@@ -143,26 +161,34 @@ static void setPixelStoreAlignment(size_t tex_xres, GLenum gl_format, GLenum typ
 		num_components = 3;
 	else if(gl_format == GL_RGBA)
 		num_components = 4;
+	else if(gl_format == GL_BGRA)
+		num_components = 4;
 	else
 	{
 		assert(0);
 	}
 
 	const size_t row_stride = component_size * num_components * tex_xres; // in bytes
-	if(row_stride % 4 != 0)
+	GLint alignment;
+	if(row_stride % 8 == 0)
 	{
-		if(row_stride % 2 == 0)
-		{
-			//conPrint("Setting GL_UNPACK_ALIGNMENT to 2.");
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 2); // Tell OpenGL that our rows are 2-byte aligned.
-		}
-		else
-		{
-			//conPrint("Setting GL_UNPACK_ALIGNMENT to 1.");
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // Tell OpenGL that our rows are 1-byte aligned.
-		}
+		alignment = 8;
 	}
-	// else if 4-byte aligned, leave at the default 4-byte alignment.
+	else if(row_stride % 4 == 0)
+	{
+		alignment = 4;
+	}
+	else if(row_stride % 2 == 0)
+	{
+		alignment = 2;
+	}
+	else
+	{
+		alignment = 1;
+	}
+
+	//conPrint("Setting GL_UNPACK_ALIGNMENT to " + toString(alignment));
+	glPixelStorei(GL_UNPACK_ALIGNMENT, alignment); // Tell OpenGL that our rows are n-byte aligned.
 }
 
 
@@ -185,9 +211,7 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 	glBindTexture(GL_TEXTURE_CUBE_MAP, texture_handle);
 
 
-	GLint internal_format;
-	GLenum gl_format, gl_type;
-	getGLFormat(format_, internal_format, gl_format, gl_type);
+	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
 
 	setPixelStoreAlignment(tex_xres, gl_format, gl_type);
 	
@@ -197,7 +221,7 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 		glTexImage2D(
 			GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, // target
 			0, // LOD level
-			internal_format, // internal format
+			gl_internal_format, // internal format
 			(GLsizei)tex_xres, (GLsizei)tex_yres,
 			0, // border
 			gl_format, // format
@@ -233,17 +257,13 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	}
 	else
 	{
-		GLint internal_format;
-		GLenum gl_format, gl_type;
-		getGLFormat(format, internal_format, gl_format, gl_type);
-
 		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
 		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
 
 		glTexImage2D(
 			GL_TEXTURE_2D,
 			0, // LOD level
-			internal_format, // internal format
+			gl_internal_format, // internal format
 			(GLsizei)tex_xres, (GLsizei)tex_yres,
 			0, // border
 			gl_format, // format
@@ -270,6 +290,9 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	this->yres = tex_yres;
 	this->loaded_size = tex_data.size(); // NOTE: wrong for empty tex_data case (e.g. for shadow mapping textures)
 
+	// Work out gl_internal_format etc..
+	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
+
 	if(texture_handle == 0)
 	{
 		glGenTextures(1, &texture_handle);
@@ -292,17 +315,13 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	}
 	else
 	{
-		GLint internal_format;
-		GLenum gl_format, gl_type;
-		getGLFormat(format_, internal_format, gl_format, gl_type);
-
 		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
 		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
 
 		glTexImage2D(
 			GL_TEXTURE_2D,
 			0, // LOD level
-			internal_format, // internal format
+			gl_internal_format, // internal format
 			(GLsizei)tex_xres, (GLsizei)tex_yres,
 			0, // border
 			gl_format, // format
@@ -348,17 +367,26 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 void OpenGLTexture::loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
 	const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 	Format format_,
-	GLint gl_internal_format,
-	GLenum gl_format,
+	GLint gl_internal_format_,
+	GLenum gl_format_,
 	Filtering filtering_,
 	Wrapping wrapping
 )
 {
 	this->format = format_;
+	this->gl_internal_format = gl_internal_format_;
+	this->gl_format = gl_format_;
 	this->filtering = filtering_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
 	this->loaded_size = tex_data.size(); // NOTE: wrong for empty tex_data case (e.g. for shadow mapping textures)
+
+
+	// Work out gl_type
+	GLint dummy_gl_internal_format;
+	GLenum dummy_gl_format, new_gl_type;
+	getGLFormat(format, dummy_gl_internal_format, dummy_gl_format, new_gl_type);
+	this->gl_type = new_gl_type;
 
 	if(texture_handle == 0)
 	{
@@ -382,10 +410,6 @@ void OpenGLTexture::loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<u
 	}
 	else
 	{
-		GLint dummy_internal_format;
-		GLenum dummy_gl_format, gl_type;
-		getGLFormat(format_, dummy_internal_format, dummy_gl_format, gl_type);
-
 		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
 		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
 

@@ -2,7 +2,6 @@
 GifDecoder.cpp
 --------------
 Copyright Glare Technologies Limited 2021 -
-Generated at 2013-02-21 14:06:25 +0000
 =====================================================================*/
 #include "GifDecoder.h"
 
@@ -12,7 +11,6 @@ Generated at 2013-02-21 14:06:25 +0000
 #include "ImageMapSequence.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
-#include "../indigo/globals.h"
 #include <stdio.h>
 #include <fcntl.h>
 #ifdef _WIN32
@@ -41,7 +39,6 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 	if(file_descriptor == -1)
 		throw ImFormatExcep("failed to open gif file '" + path + "'");
 
-
 	// NOTE: if DGifOpenFileHandle fails to open the gif file, it closes the handle itself.
 	int error_code = 0;
 	GifFileType* gif_file = DGifOpenFileHandle(file_descriptor, &error_code);
@@ -63,9 +60,6 @@ Reference<Map2D> GIFDecoder::decode(const std::string& path)
 		ColorMapObject* colour_map = image_0->ImageDesc.ColorMap ? image_0->ImageDesc.ColorMap : gif_file->SColorMap; // Use local colormap, if it exists.
 		if(!colour_map)
 			throw ImFormatExcep("Failed to get ColorMapObject (palette).");
-
-		// Decode colours from Palette
-		
 
 		// Get image dimensions
 		if(image_0->ImageDesc.Width <= 0 || image_0->ImageDesc.Width > 1000000)
@@ -115,7 +109,6 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 	const int file_descriptor = FileUtils::openFileDescriptor(path, O_RDONLY);
 	if(file_descriptor == -1)
 		throw ImFormatExcep("failed to open gif file '" + path + "'");
-
 
 	// NOTE: if DGifOpenFileHandle fails to open the gif file, it closes the handle itself.
 	int error_code = 0;
@@ -188,30 +181,35 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 
 			if(im_i == 0)
 			{
-				//image_map_0 = image_map;
+				// Initialise image 0 as blue.
 				for(int q=0; q<im_0_w * im_0_h; ++q)
 				{
-					image_map->getPixel(q)[0] = 0;
-					image_map->getPixel(q)[1] = 0;
-					image_map->getPixel(q)[2] = 255;
+					uint8* const p = image_map->getPixel(q);
+					p[0] = 0;
+					p[1] = 0;
+					p[2] = 255;
 				}
 			}
 			else
 			{
+				// Decide how to 'dispose' of the last frame.
 				if(last_disposal_mode == DISPOSAL_UNSPECIFIED)
-					std::memcpy(image_map->getData(), sequence->images[im_i - 1]->getData(), im_0_w * im_0_h * 3); // Do this by copying last image to this image
+					std::memcpy(image_map->getData(), sequence->images[im_i - 1]->getData(), im_0_w * im_0_h * 3); // Unspecified seems to want the last image as well.
 				else if(last_disposal_mode == DISPOSE_DO_NOT) // Leave last image in place
 					std::memcpy(image_map->getData(), sequence->images[im_i - 1]->getData(), im_0_w * im_0_h * 3); // Do this by copying last image to this image
-				else if(last_disposal_mode == DISPOSE_BACKGROUND) // Set area too background color
+				else if(last_disposal_mode == DISPOSE_BACKGROUND) // Set area to background color
 				{
+					// This seems to be how gif files encode transparency.
+					// For now just render as green.  TODO: handle this properly (Return a RGBA format etc..)
 					for(int q=0; q<im_0_w * im_0_h; ++q)
 					{
-						image_map->getPixel(q)[0] = 0;
-						image_map->getPixel(q)[1] = 255;
-						image_map->getPixel(q)[2] = 0;
+						uint8* const p = image_map->getPixel(q);
+						p[0] = 0;
+						p[1] = 255;
+						p[2] = 0;
 					}
 				}
-				else if(last_disposal_mode == DISPOSE_PREVIOUS) // /* Restore to previous content
+				else if(last_disposal_mode == DISPOSE_PREVIOUS) // Restore to previous content
 				{
 					// not supported, just copy image 0 for now.
 					std::memcpy(image_map->getData(), sequence->images[0]->getData(), im_0_w * im_0_h * 3);

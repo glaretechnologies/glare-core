@@ -5239,7 +5239,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				throw glare::Exception("Unhandled internal format for compressed image.");
 
 			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-			opengl_tex->makeGLTexture(OpenGLTexture::Format_Compressed_BC6);
+			opengl_tex->makeGLTexture(OpenGLTexture::Format_Compressed_BC6); // Binds texture
 			opengl_tex->setTexParams(this, filtering);
 
 			for(size_t i=0; i<compressed_image->mipmap_level_data.size(); ++i)

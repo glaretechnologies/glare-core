@@ -767,6 +767,28 @@ bool hasExtension(const std::string& file, const std::string& extension)
 }
 
 
+bool hasExtensionStringView(const string_view file, const string_view extension)
+{
+	const size_t file_len = file.length();
+	const size_t ext_len = extension.length();
+	if(file_len < ext_len + 1)
+		return false;
+
+	/*
+	t         e           s           t       .     j       p       g
+	                                         l-4    l-3    l-2     l-1
+	*/
+	if(file[file_len - ext_len - 1] != '.')
+		return false;
+
+	const size_t start_i = file_len - ext_len;
+	for(size_t i=start_i; i<file_len; ++i)
+		if(toLowerCase(file[i]) != toLowerCase(extension[i - start_i]))
+			return false;
+	return true;
+}
+
+
 const std::string getExtension(const std::string& filename)
 {
 	const std::string::size_type dot_index = filename.find_last_of(".");
@@ -2467,6 +2489,28 @@ void StringUtils::test()
 	testAssert(!equalCaseInsensitive("ab", ""));
 	testAssert(!equalCaseInsensitive("ab", "a"));
 	testAssert(!equalCaseInsensitive("ab", "abc"));
+
+
+	//========================== hasExtensionStringView ==========================
+	testAssert(hasExtensionStringView("test.jpg", "jpg"));
+	testAssert(hasExtensionStringView("test.JPG", "jpg"));
+	testAssert(hasExtensionStringView("test.jpg", "JPG"));
+	testAssert(hasExtensionStringView("test.JPG", "JPG"));
+
+	testAssert(!hasExtensionStringView("test.JPG", "JPGX"));
+	testAssert(!hasExtensionStringView("test.JPG", "JP"));
+	testAssert(!hasExtensionStringView("test.JPG", "J"));
+	testAssert(!hasExtensionStringView("test.JPG", ""));
+
+	testAssert(hasExtensionStringView(".jpg", "jpg"));
+	testAssert(!hasExtensionStringView("jpg", "jpg"));
+	testAssert(!hasExtensionStringView("jp", "jpg"));
+	testAssert(!hasExtensionStringView("j", "jpg"));
+	testAssert(!hasExtensionStringView("", "jpg"));
+	testAssert(!hasExtensionStringView("", "jp"));
+	testAssert(!hasExtensionStringView("", "j"));
+	testAssert(!hasExtensionStringView("", ""));
+	
 	
 
 /*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");
