@@ -398,8 +398,13 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 	const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
 
 	// Send request
+	std::string additional_header_lines;
+	for(size_t i=0; i<additional_headers.size(); ++i)
+		additional_header_lines += additional_headers[i] + "\r\n";
+
 	const std::string request = "GET " + path_and_query + " HTTP/1.1\r\n"
-		"Host: " + url_components.host + "\r\n"
+		"Host: " + url_components.host + "\r\n" +
+		additional_header_lines +
 		"Connection: close\r\n"
 		"\r\n";
 	this->socket->writeData(request.data(), request.size());
