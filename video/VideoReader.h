@@ -19,9 +19,9 @@ struct FrameInfo
 	
 	double frame_time;
 	uint8* frame_buffer;
-	size_t width;
-	size_t height;
-	size_t stride_B; // >= 0
+	uint64 width;
+	uint64 height;
+	uint64 stride_B; // >= 0
 	bool top_down;
 
 	void* media_buffer;
