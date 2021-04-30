@@ -83,7 +83,7 @@ public:
 	);
 
 	// Load into a texture that has already had its format, filtering and wrapping modes set.
-	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data);
+	void load(size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data);
 
 	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.

@@ -658,6 +658,8 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 	}
 	else // Else if not using a compressed texture format:
 	{
-		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()));
+		opengl_tex->load(W, H, 
+			W * texture_data.frames[frame_i].converted_image->getBytesPerPixel(), // row stride (B)
+			ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()));
 	}
 }

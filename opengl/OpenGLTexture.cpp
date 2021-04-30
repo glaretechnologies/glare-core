@@ -137,6 +137,68 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 }
 
 
+static size_t getPixelSizeB(GLenum gl_format, GLenum type)
+{
+	size_t component_size = 1;
+	if(type == GL_UNSIGNED_BYTE)
+		component_size = 1;
+	else if(type == GL_HALF_FLOAT)
+		component_size = 2;
+	else if(type == GL_FLOAT)
+		component_size = 4;
+	else
+	{
+		assert(0);
+	}
+
+	size_t num_components = 1;
+	if(gl_format == GL_RED || gl_format == GL_DEPTH_COMPONENT)
+		num_components = 1;
+	else if(gl_format == GL_RGB)
+		num_components = 3;
+	else if(gl_format == GL_RGBA)
+		num_components = 4;
+	else if(gl_format == GL_BGRA)
+		num_components = 4;
+	else
+	{
+		assert(0);
+	}
+
+	return component_size * num_components;
+}
+
+
+// See https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glPixelStorei.xml
+// We are assuming that our texture data is tightly packed, with no padding at the end of rows.
+// Therefore the row alignment may be 8, 4, 2 or even 1 byte.  We need to tell OpenGL this.
+static void setPixelStoreAlignment(const uint8* data, size_t row_stride_B)
+{
+	assert((uint64)data % 4 == 0); // Assume the texture data is at least 4-byte aligned.
+
+	GLint alignment;
+	if(((uint64)data % 8 == 0) && (row_stride_B % 8 == 0))
+	{
+		alignment = 8;
+	}
+	else if(row_stride_B % 4 == 0)
+	{
+		alignment = 4;
+	}
+	else if(row_stride_B % 2 == 0)
+	{
+		alignment = 2;
+	}
+	else
+	{
+		alignment = 1;
+	}
+
+	//conPrint("Setting GL_UNPACK_ALIGNMENT to " + toString(alignment));
+	glPixelStorei(GL_UNPACK_ALIGNMENT, alignment); // Tell OpenGL that our rows are n-byte aligned.
+}
+
+
 // See https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glPixelStorei.xml
 // We are assuming that our texture data is tightly packed, with no padding at the end of rows.
 // Therefore the row alignment may be 8, 4, 2 or even 1 byte.  We need to tell OpenGL this.
@@ -239,7 +301,7 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 }
 
 
-void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data)
+void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data)
 {
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
@@ -257,8 +319,13 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 	}
 	else
 	{
-		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
-		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
+		const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
+
+		// Set row stride if needed (not tightly packed)
+		if(row_stride_B != tex_xres * pixel_size_B) // If not tightly packed:
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
+
+		setPixelStoreAlignment(tex_data.data(), row_stride_B);
 
 		glTexImage2D(
 			GL_TEXTURE_2D,
@@ -270,6 +337,9 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 			gl_type, // type
 			tex_data.data()
 		);
+
+		if(row_stride_B != tex_xres * pixel_size_B)
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
 	}
 
 	// Gen mipmaps if needed
@@ -535,23 +605,23 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 		// NOTE: currently we don't hit this code path, because we only explictly set mipmap level data for compressed images.
 		assert(0);
 
-		GLint internal_format;
-		GLenum gl_format, gl_type;
-		getGLFormat(format, internal_format, gl_format, gl_type);
+		//GLint internal_format;
+		//GLenum gl_format, gl_type;
+		//getGLFormat(format, internal_format, gl_format, gl_type);
+		//
+		//assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
+		//setPixelStoreAlignment(tex_xres, gl_format, gl_type);
 
-		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
-		setPixelStoreAlignment(tex_xres, gl_format, gl_type);
-
-		glTexImage2D(
-			GL_TEXTURE_2D,
-			mipmap_level, // LOD level
-			internal_format, // internal format
-			(GLsizei)tex_xres, (GLsizei)tex_yres,
-			0, // border
-			gl_format, // format
-			gl_type, // type
-			tex_data.data()
-		);
+		//glTexImage2D(
+		//	GL_TEXTURE_2D,
+		//	mipmap_level, // LOD level
+		//	internal_format, // internal format
+		//	(GLsizei)tex_xres, (GLsizei)tex_yres,
+		//	0, // border
+		//	gl_format, // format
+		//	gl_type, // type
+		//	tex_data.data()
+		//);
 	}
 }
 
