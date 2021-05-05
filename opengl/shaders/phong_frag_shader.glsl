@@ -185,6 +185,14 @@ void main()
 	else
 		diffuse_col = diffuse_colour;
 
+#if CONVERT_ALBEDO_FROM_SRGB
+	// Unfortunately needed for GPU-decoded video frame textures, which are non-linear sRGB but not marked as sRGB.
+	// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
+	vec4 c = diffuse_col;
+	vec4 c2 = c * c;
+	diffuse_col = c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
+#endif
+
 #if VERT_COLOURS
 	diffuse_col.xyz *= vert_colour;
 #endif

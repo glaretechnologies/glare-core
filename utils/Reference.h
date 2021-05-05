@@ -13,6 +13,15 @@ Copyright Glare Technologies Limited 2021 -
 #include <cassert>
 
 
+// References destroy objects via this function.  By default it just deletes the object, but this function can be specialised
+// for specific classes to e.g. free to a memory pool.
+template <class T>
+inline void destroyAndFreeOb(T* ob)
+{
+	delete ob;
+}
+
+
 ///
 /// Handle to a reference-counted object.
 /// Referenced object will be automatically deleted when no refs to it remain.
@@ -59,7 +68,7 @@ public:
 		{
 			const int64 prev_ref_count = ob->decRefCount();
 			if(prev_ref_count == 1)
-				delete ob;
+				destroyAndFreeOb(ob);
 		}
 	}
 
@@ -78,7 +87,7 @@ public:
 		{
 			const int64 prev_ref_count = old_ob->decRefCount();
 			if(prev_ref_count == 1)
-				delete old_ob;
+				destroyAndFreeOb(old_ob);
 		}
 
 		return *this;
@@ -106,7 +115,7 @@ public:
 		{
 			const int64 prev_ref_count = old_ob->decRefCount();
 			if(prev_ref_count == 1)
-				delete old_ob;
+				destroyAndFreeOb(old_ob);
 		}
 
 		return *this;

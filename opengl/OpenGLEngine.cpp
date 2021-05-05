@@ -886,7 +886,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		// Eager creation of phong programs:
-		if(false)
+		/*if(false)
 		{
 			for(int alpha_test=0; alpha_test <= 1; ++alpha_test)
 			for(int vert_colours=0; vert_colours <= 1; ++vert_colours)
@@ -914,9 +914,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 				getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
 			}
-		}
+		}*/
 
-		fallback_phong_prog = getPhongProgram(PhongKey(false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_phong_prog = getPhongProgram(PhongKey(false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
@@ -1138,7 +1138,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws gl
 			"#define VERT_COLOURS " + toString(key.vert_colours) + "\n" +
 			"#define INSTANCE_MATRICES " + toString(key.instance_matrices) + "\n" +
 			"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" + 
-			"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n";
+			"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
+			"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n";
 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
 			"phong",
@@ -1301,7 +1302,8 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	{
 		const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
 		const bool uses_lightmapping = material.lightmap_texture.nonNull();
-		material.shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping, material.gen_planar_uvs));
+		material.shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping, material.gen_planar_uvs,
+			material.convert_albedo_from_srgb));
 	}
 }
 
@@ -1722,7 +1724,8 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false, /*gen_planar_uvs=*/false));
+		debug_arrow_ob->materials[0].shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false, /*gen_planar_uvs=*/false, 
+			/*convert_albedo_from_srgb=*/false));
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *

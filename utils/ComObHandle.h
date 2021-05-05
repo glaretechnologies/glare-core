@@ -20,8 +20,35 @@ class ComObHandle
 {
 public:
 	ComObHandle() : ptr(0) {}
-	ComObHandle(T* handle_) : ptr(ptr_) {}
+	ComObHandle(T* ptr_) : ptr(ptr_)
+	{
+		if(ptr)
+			ptr->AddRef();
+	}
+
+	ComObHandle(const ComObHandle<T>& other)
+	{
+		ptr = other.ptr;
+		if(ptr)
+			ptr->AddRef();
+	}
+
 	~ComObHandle() { if(ptr) ptr->Release(); }
+
+	void operator = (const ComObHandle& other)
+	{
+		T* old_ptr = ptr;
+
+		ptr = other.ptr;
+		// NOTE: if a reference is getting assigned to itself, old_ob == ob.  So make sure we increment before we decrement, to avoid deletion.
+		if(ptr)
+			ptr->AddRef();
+
+		// Decrement reference count for the object that this reference used to refer to.
+		if(old_ptr)
+			ptr->Release();
+	}
+
 
 	template <class SubClassT>
 	inline bool queryInterface(ComObHandle<SubClassT>& result)
@@ -56,8 +83,6 @@ public:
 	inline T* operator -> () const { return ptr; }
 
 	T* ptr;
-private:
-	GLARE_DISABLE_COPY(ComObHandle);
 };
 #endif
 

@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "WMFVideoReaderCallback.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/PNGDecoder.h"
+#include "../direct3d/Direct3DUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
@@ -24,6 +25,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <mfapi.h>
 #include <mferror.h>
 #include <mfreadwrite.h>
+#include <mfidl.h>
 #include <d3d11.h>
 #include <d3d11_4.h>
 
@@ -74,6 +76,18 @@ void WMFVideoReader::initialiseWMF()
 void WMFVideoReader::shutdownWMF()
 {
 	MFShutdown();
+}
+
+
+WMFFrameInfo::WMFFrameInfo() : FrameInfo() {}
+WMFFrameInfo::~WMFFrameInfo()
+{
+	if(buffer2d.ptr)
+	{
+		HRESULT hres = buffer2d->Unlock2D(); // NOTE: am assuming we were using IMF2DBuffer interface.
+		if(FAILED(hres))
+			conPrint("Warning: buffer2d->Unlock2D() failed: " + PlatformUtils::COMErrorString(hres));
+	}
 }
 
 
@@ -236,7 +250,7 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 	hr = pType->SetGUID(MF_MT_SUBTYPE, subtype);
 	if(FAILED(hr))
 		throw glare::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
-
+	
 	// Set the uncompressed format.
 	hr = pReader->SetCurrentMediaType(dwStreamIndex, NULL, pType.ptr);
 	if(FAILED(hr))
@@ -246,48 +260,16 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 }
 
 
-WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& URL, VideoReaderCallback* reader_callback_)
+WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& URL, VideoReaderCallback* reader_callback_, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
 :	read_from_video_device(read_from_video_device_),
 	reader_callback(reader_callback_),
-	com_reader_callback(NULL)
+	com_reader_callback(NULL),
+	decode_to_d3d_tex(decode_to_d3d_tex_),
+	frame_info_allocator(new glare::PoolAllocator<WMFFrameInfo>(/*alignment=*/16))
 {
 	HRESULT hr;
 
-	if(GPU_DECODE)
-	{
-		// Create a GPU device.  Needed to get hardware accelerated decoding.
-
-		const D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
-
-		hr = D3D11CreateDevice(
-			nullptr, // pAdapter - use the default adaptor
-			D3D_DRIVER_TYPE_HARDWARE, // DriverType
-			nullptr, // Software
-			/*D3D11_CREATE_DEVICE_SINGLETHREADED |*/ D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
-			levels, ARRAYSIZE(levels), D3D11_SDK_VERSION, &d3d_device.ptr, 
-			nullptr, // pFeatureLevel
-			nullptr // ppImmediateContext
-		);
-		if(!SUCCEEDED(hr))
-			throw glare::Exception("D3D11CreateDevice failed: " + PlatformUtils::COMErrorString(hr));
-
-		// Get ready for multi-threaded operation
-		ComObHandle<ID3D11Multithread> multithreaded_device;
-		if(!d3d_device.queryInterface(multithreaded_device))
-			throw glare::Exception("failed to get ID3D11Multithread interace.");
-	
-		multithreaded_device->SetMultithreadProtected(TRUE);
-
-		UINT reset_token;
-		throwOnError(MFCreateDXGIDeviceManager(&reset_token, &dev_manager.ptr));
-		throwOnError(dev_manager->ResetDevice(d3d_device.ptr, reset_token));
-	}
-
-	// Configure the source reader to perform video processing.
-	//
-	// This includes:
-	//   - YUV to RGB-32
-	//   - Software deinterlace
+	//Timer timer;
 
 	ComObHandle<IMFAttributes> pAttributes;
 	hr = MFCreateAttributes(&pAttributes.ptr, 1);
@@ -296,7 +278,7 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 
 	if(GPU_DECODE)
 	{
-		throwOnError(pAttributes.ptr->SetUnknown(MF_SOURCE_READER_D3D_MANAGER, dev_manager.ptr));
+		throwOnError(pAttributes.ptr->SetUnknown(MF_SOURCE_READER_D3D_MANAGER, dx_device_manager));
 		throwOnError(pAttributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE));
 		throwOnError(pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, TRUE));
 	}
@@ -352,19 +334,65 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 	else
 	{
 		// Create the source reader.
+		//Timer timer2;
 		hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
 		if(!SUCCEEDED(hr))
 			throw glare::Exception("MFCreateSourceReaderFromURL failed for URL '" + URL + "': " + PlatformUtils::COMErrorString(hr));
+		//conPrint("MFCreateSourceReaderFromURL took " + timer2.elapsedString());
 	}
-	
+
 	ConfigureDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->current_format);
+
+
+
+	//NOTE: this code seems to have no effect
+	// https://github.com/sipsorcery/mediafoundationsamples/blob/master/MFVideoEVR/MFVideoEVR.cpp
+#if 0
+	ComObHandle<IMFMediaType> media_type;
+	hr = reader->GetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, &media_type.ptr);
+	throwOnError(hr);
+
+	//ComObHandle<IMFDXGIDeviceManager> device_manger;
+	// https://docs.microsoft.com/en-us/windows/win32/api/mfidl/nn-mfidl-imfvideosampleallocatorex
+	//TEMP NEW:
+	ComObHandle<IMFVideoSampleAllocatorEx> sample_allocator;
+	hr = MFCreateVideoSampleAllocatorEx(IID_IMFVideoSampleAllocatorEx, (void**)&sample_allocator.ptr);
+	throwOnError(hr);
+	hr = sample_allocator->SetDirectXManager(dev_manager.ptr);
+	throwOnError(hr);
+
+	{
+		ComObHandle<IMFAttributes> attributes;
+		MFCreateAttributes(&attributes.ptr, 1);
+		throwOnError(hr);
+		hr = attributes->SetUINT32(MF_SA_D3D11_USAGE, D3D11_USAGE_DEFAULT); // NOTE: this right? (https://docs.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_usage)
+		throwOnError(hr);
+		hr = attributes->SetUINT32(MF_SA_D3D11_BINDFLAGS, 0/*D3D11_BIND_DECODER*/); // NOTE: this right? (https://docs.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_bind_flag)
+		throwOnError(hr);
+
+		hr = sample_allocator->InitializeSampleAllocatorEx(
+			2, // cInitialSamples
+			2, // cMaximumSamples
+			attributes.ptr,
+			media_type.ptr
+		);
+		throwOnError(hr);
+
+		//ComObHandle<IMFSample> video_sample;
+		hr = sample_allocator->AllocateSample(&d3d_sample.ptr);
+		throwOnError(hr);
+	}
+#endif
+	
+
+	//conPrint("Rest of init took " + timer.elapsedString());
 }
 
 
 WMFVideoReader::~WMFVideoReader()
 {
-	//conPrint("WMFVideoReader::~WMFVideoReader");
-	Timer timer;
+	//Timer timer;
+
 	// Flush all remaining sample reads in progress.  "The Flush method discards all queued samples and cancels all pending sample requests." - 
 	// https://docs.microsoft.com/en-us/windows/win32/api/mfreadwrite/nf-mfreadwrite-imfsourcereader-flush
 	reader->Flush((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM);
@@ -382,6 +410,9 @@ WMFVideoReader::~WMFVideoReader()
 	}
 
 	reader.release();
+
+	for(auto it : texture_copies)
+		it.second->Release();
 
 	//conPrint("Shutting down WMFVideoReader took " + timer.elapsedString());
 }
@@ -406,7 +437,7 @@ void WMFVideoReader::startReadingNextFrame()
 }
 
 
-FrameInfo WMFVideoReader::getAndLockNextFrame()
+Reference<FrameInfo> WMFVideoReader::getAndLockNextFrame()
 {
 	ComObHandle<IMFSample> cur_sample;
 
@@ -463,55 +494,63 @@ FrameInfo WMFVideoReader::getAndLockNextFrame()
 
 	//conPrint("Read sample from stream " + toString((uint64)streamIndex) + " with timestamp " + toString(frame_info.frame_time) + " s");
 
-	FrameInfo frame_info;
-	frame_info.frame_time = llTimeStamp * 1.0e-7; // Timestamp is in 100 ns units, convert to s.
-	frame_info.width  = current_format.im_width;
-	frame_info.height = current_format.im_height;
-	frame_info.top_down = current_format.top_down;
-
 	if(cur_sample.ptr) // May be NULL at end of stream.
 	{
-		//IMFMediaBuffer* buffer_ob = NULL;
-		ComObHandle<IMFMediaBuffer> buffer_ob;
-		ComObHandle<IMF2DBuffer> buffer2d;
+		Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
+		frame_info->frame_time = llTimeStamp * 1.0e-7; // Timestamp is in 100 ns units, convert to s.
+		frame_info->width  = current_format.im_width;
+		frame_info->height = current_format.im_height;
+		frame_info->top_down = current_format.top_down;
 
-		//assert(this->buffer_ob.ptr == NULL);
+		ComObHandle<IMFMediaBuffer> buffer_ob;
 		hr = cur_sample->ConvertToContiguousBuffer(&buffer_ob.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
 		if(hr != S_OK) 
 			throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
 
-		if(true) // If use IMF2DBuffer interface:
+		if(decode_to_d3d_tex)
 		{
-			if(!buffer_ob.queryInterface(buffer2d))
-				throw glare::Exception("failed to get IMF2DBuffer interface");
-
-			BYTE* scanline0;
-			LONG pitch;
-			hr = buffer2d->Lock2D(&scanline0, &pitch);
-			if(FAILED(hr))
-				throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
-
-			frame_info.frame_buffer = scanline0;
-			frame_info.top_down = pitch > 0;
-			frame_info.stride_B = abs(pitch);
-			frame_info.media_buffer = (void*)buffer_ob.ptr;
-			frame_info.buffer2d = (void*)buffer2d.ptr;
-
-			// Add some more ref counts to represent the reference in frame_info
-			buffer_ob->AddRef();
-			buffer2d->AddRef();
+			ComObHandle<IMFDXGIBuffer> dx_buffer;
+			if(!buffer_ob.queryInterface<IMFDXGIBuffer>(dx_buffer))
+				throw glare::Exception("Failed to get IMFDXGIBuffer");
+		
+			hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&frame_info->d3d_tex.ptr)); // Receives a pointer to the interface. The caller must release the interface.
+			throwOnError(hr);
 		}
 		else
 		{
-			BYTE* buffer;
-			DWORD cur_len;
-			hr = buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len);
-			if(FAILED(hr))
-				throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
-
-			frame_info.frame_buffer = buffer;
-			frame_info.stride_B = current_format.stride_B;
+			if(true) // If use IMF2DBuffer interface:
+			{
+				if(!buffer_ob.queryInterface(frame_info->buffer2d))
+					throw glare::Exception("failed to get IMF2DBuffer interface");
+			
+				BYTE* scanline0;
+				LONG pitch;
+				hr = frame_info->buffer2d->Lock2D(&scanline0, &pitch);
+				if(FAILED(hr))
+					throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
+			
+				frame_info->frame_buffer = scanline0;
+				frame_info->top_down = pitch > 0;
+				frame_info->stride_B = abs(pitch);
+				//frame_info->media_buffer = (void*)buffer_ob.ptr;
+			}
+			else
+			{
+				BYTE* buffer;
+				DWORD cur_len;
+				hr = buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len);
+				if(FAILED(hr))
+					throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+			
+				frame_info->frame_buffer = buffer;
+				frame_info->stride_B = current_format.stride_B;
+			}
 		}
+		return frame_info;
+	}
+	else
+	{
+		return NULL;
 	}
 
 	/*if(flags & MF_SOURCE_READERF_ENDOFSTREAM)
@@ -534,27 +573,6 @@ FrameInfo WMFVideoReader::getAndLockNextFrame()
 	{
 		wprintf(L"\tStream tick\n");
 	}*/
-
-	return frame_info;
-}
-
-
-void WMFVideoReader::unlockAndReleaseFrame(const FrameInfo& frameinfo)
-{
-	IMFMediaBuffer* media_buffer = (IMFMediaBuffer*)frameinfo.media_buffer;
-	IMF2DBuffer* buffer2d = (IMF2DBuffer*)frameinfo.buffer2d;
-
-	// NOTE: am assuming we were using IMF2DBuffer interface.
-
-	if(buffer2d)
-	{
-		throwOnError(buffer2d->Unlock2D());
-
-		buffer2d->Release();
-	}
-
-	if(media_buffer)
-		media_buffer->Release();
 }
 
 
@@ -608,53 +626,109 @@ void WMFVideoReader::OnReadSample(
 		}
 
 		ComObHandle<IMFMediaBuffer> media_buffer;
-		ComObHandle<IMF2DBuffer> buffer2d;
-
+		
 		if(pSample) // May be NULL at end of stream.
 		{
 			hr = pSample->ConvertToContiguousBuffer(&media_buffer.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
 			if(hr != S_OK) 
 				throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
 
-			FrameInfo frame_info;
-			frame_info.frame_time = llTimestamp * 1.0e-7;
-			frame_info.width  = current_format.im_width;
-			frame_info.height = current_format.im_height;
-			frame_info.top_down = current_format.top_down;
+			Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
+			frame_info->frame_time = llTimestamp * 1.0e-7;
+			frame_info->width  = current_format.im_width;
+			frame_info->height = current_format.im_height;
+			frame_info->top_down = current_format.top_down;
 
-			if(true) // If use IMF2DBuffer interface:
+			if(decode_to_d3d_tex)
 			{
-				if(!media_buffer.queryInterface(buffer2d))
-					throw glare::Exception("failed to get IMF2DBuffer interface");
+				ComObHandle<IMFDXGIBuffer> dx_buffer;
+				if(!media_buffer.queryInterface<IMFDXGIBuffer>(dx_buffer))
+					throw glare::Exception("Failed to get IMFDXGIBuffer");
 
-				BYTE* scanline0;
-				LONG pitch;
-				hr = buffer2d->Lock2D(&scanline0, &pitch);
-				if(FAILED(hr))
-					throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
+				ComObHandle<ID3D11Texture2D> d3d_tex;
+				hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&d3d_tex.ptr));
+				throwOnError(hr);
 
-				frame_info.frame_buffer = scanline0;
-				frame_info.top_down = pitch > 0;
-				frame_info.stride_B = abs(pitch);
+				// Direct3DUtils::saveTextureToBmp(std::string("frame " + toString(frame++) + ".bmp").c_str(), d3d_tex.ptr);
+
+				//=======================================
+				// Copy the tex.  This seems to be needed for the OpenGL texture sharing to pick up the texture change.
+				// Hopefully can work out some better way of doing this.
+				
+				ComObHandle<ID3D11Device> d3d_device;
+				d3d_tex->GetDevice(&d3d_device.ptr);
+
+				ComObHandle<ID3D11DeviceContext> d3d_context;
+				d3d_device->GetImmediateContext(&d3d_context.ptr);
+
+				if(texture_copies.count(d3d_tex.ptr) == 0)
+				{
+					conPrint("Creating cloned texture");
+					D3D11_TEXTURE2D_DESC desc;
+					d3d_tex->GetDesc(&desc);
+
+					D3D11_TEXTURE2D_DESC desc2;
+					desc2.Width = desc.Width;
+					desc2.Height = desc.Height;
+					desc2.MipLevels = desc.MipLevels;
+					desc2.ArraySize = desc.ArraySize;
+					desc2.Format = desc.Format;
+					desc2.SampleDesc = desc.SampleDesc;
+					desc2.Usage = D3D11_USAGE_DEFAULT;
+					desc2.BindFlags = 0;
+					desc2.CPUAccessFlags = 0;
+					desc2.MiscFlags = 0;
+
+					ComObHandle<ID3D11Texture2D> stagingTexture;
+					hr = d3d_device->CreateTexture2D(&desc2, nullptr, &stagingTexture.ptr);
+					if(FAILED(hr))
+						throw glare::Exception("Failed to create texture copy");
+
+					stagingTexture->AddRef();
+					texture_copies[d3d_tex.ptr] = stagingTexture.ptr;
+				}
+
+				ID3D11Texture2D* use_tex = texture_copies[d3d_tex.ptr];	
+
+				d3d_context->CopyResource(use_tex, d3d_tex.ptr); // Copy the texture
+
+				frame_info->d3d_tex = use_tex;
+				//frame_info.media_buffer = (void*)media_buffer.ptr;
 			}
-			else
+			else // else if !decode_to_d3d_tex:
 			{
-				BYTE* buffer;
-				DWORD cur_len;
-				hr = media_buffer->Lock(&buffer, /*max-len=*/NULL, &cur_len);
-				if(FAILED(hr))
-					throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
-
-				frame_info.frame_buffer = buffer;
-				frame_info.stride_B = current_format.stride_B;
+				if(true) // If use IMF2DBuffer interface:
+				{
+					ComObHandle<IMF2DBuffer> buffer2d;
+					if(!media_buffer.queryInterface(buffer2d))
+						throw glare::Exception("failed to get IMF2DBuffer interface");
+			
+					BYTE* scanline0;
+					LONG pitch;
+					hr = buffer2d->Lock2D(&scanline0, &pitch);
+					if(FAILED(hr))
+						throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
+			
+					frame_info->frame_buffer = scanline0;
+					frame_info->top_down = pitch > 0;
+					frame_info->stride_B = abs(pitch);
+					frame_info->media_buffer = media_buffer;
+					frame_info->buffer2d = buffer2d;
+				}
+				else
+				{
+					BYTE* buffer;
+					DWORD cur_len;
+					hr = media_buffer->Lock(&buffer, /*max-len=*/NULL, &cur_len);
+					if(FAILED(hr))
+						throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+			
+					frame_info->frame_buffer = buffer;
+					frame_info->stride_B = current_format.stride_B;
+					frame_info->media_buffer = media_buffer;
+				}
 			}
 
-			// Add some more ref counts to represent the reference in frame_info
-			media_buffer->AddRef();
-			buffer2d->AddRef();
-
-			frame_info.media_buffer = (void*)media_buffer.ptr;
-			frame_info.buffer2d = (void*)buffer2d.ptr;
 			this->reader_callback->frameDecoded(this, frame_info);
 		}
 	
@@ -688,6 +762,16 @@ void WMFVideoReader::seek(double time)
 }
 
 
+WMFFrameInfo* WMFVideoReader::allocWMFFrameInfo()
+{
+	// Allocate from pool allocator
+	void* mem = frame_info_allocator->alloc(sizeof(WMFFrameInfo), 16);
+	WMFFrameInfo* frame = ::new (mem) WMFFrameInfo();
+	frame->allocator = frame_info_allocator;
+	return frame;
+}
+
+
 #if BUILD_TESTS
 
 
@@ -701,17 +785,17 @@ void WMFVideoReader::seek(double time)
 class TestWMFVideoReaderCallback : public VideoReaderCallback
 {
 public:
-	virtual void frameDecoded(VideoReader* vid_reader, const FrameInfo& frameinfo)
+	virtual void frameDecoded(VideoReader* vid_reader, const Reference<FrameInfo>& frameinfo)
 	{
 		frame_queue->enqueue(frameinfo);
 	}
 
 	virtual void endOfStream(VideoReader* vid_reader)
 	{
-		frame_queue->enqueue(FrameInfo());
+		frame_queue->enqueue(NULL);
 	}
 
-	ThreadSafeQueue<FrameInfo>* frame_queue;
+	ThreadSafeQueue<Reference<FrameInfo>>* frame_queue;
 };
 
 
@@ -731,9 +815,9 @@ void WMFVideoReader::test()
 		//const std::string URL = "https://fnd.fleek.co/fnd-prod/QmYKYb5ASLqPeVGoRBL8pLHq9y8oRCZZFTgdVo4ckvQy5D/nft.mp4"; // pitch is != width*4
 		//const std::string URL = "http://video.chaoticafractals.com/videos/lindelokse_tatasz_dewberries.mp4";
 		//const std::string URL = "https://fnd.fleek.co/fnd-prod/QmZD6JqWswoDRjpbFmVXkQ8jDbFd6rEuit3wboFD4z8XEe/nft.mp4"; // 17 s
-		const std::string URL = "E:\\video\\busted.mp4"; // 17 s
+		const std::string URL = "E:\\video\\busted.mp4"; // 9 s
 
-		ThreadSafeQueue<FrameInfo> frame_queue;
+		ThreadSafeQueue<Reference<FrameInfo>> frame_queue;
 		TestWMFVideoReaderCallback callback;
 
 		const bool TEST_ASYNC_CALLBACK = false;
@@ -743,7 +827,13 @@ void WMFVideoReader::test()
 
 		Timer timer;
 
-		WMFVideoReader reader(/*read_from_video_device*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL);
+
+		//// Create a GPU device.  Needed to get hardware accelerated decoding.
+		ComObHandle<ID3D11Device> d3d_device;
+		ComObHandle<IMFDXGIDeviceManager> device_manager;
+		Direct3DUtils::createGPUDeviceAndMFDeviceManager(d3d_device, device_manager);
+
+		WMFVideoReader reader(/*read_from_video_device*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/false);
 
 		conPrint("Reader construction took " + timer.elapsedString());
 		
@@ -752,12 +842,12 @@ void WMFVideoReader::test()
 		size_t frame_index = 0;
 		double last_frame_time = 0;
 		Timer play_timer;
+		int num_seeks_to_start = 0;
 
 		if(TEST_ASYNC_CALLBACK) // If test async callback API:
 		{
 			for(int i=0; i<5; ++i)
 				reader.startReadingNextFrame();
-
 			
 			while(1)
 			{
@@ -766,7 +856,7 @@ void WMFVideoReader::test()
 					PlatformUtils::Sleep(1);
 
 				// Check if there is a new frame to consume
-				FrameInfo front_frame;
+				Reference<FrameInfo> front_frame;
 				size_t queue_size;
 				bool got_item = false;
 				{
@@ -780,14 +870,13 @@ void WMFVideoReader::test()
 				}
 				if(got_item)
 				{
-					if(front_frame.frame_buffer)
+					if(front_frame.nonNull())
 					{
 						frame_index++;
-						last_frame_time = front_frame.frame_time;
-						conPrint("Processing frame, time " + toString(front_frame.frame_time) + ", queue_size: " + toString(queue_size));
+						last_frame_time = front_frame->frame_time;
+						conPrint("Processing frame, time " + toString(front_frame->frame_time) + ", queue_size: " + toString(queue_size));
 						// Simulate taking a long time with the frame:
 						//PlatformUtils::Sleep(1000);
-						reader.unlockAndReleaseFrame(front_frame);
 
 						reader.startReadingNextFrame();
 					}
@@ -802,12 +891,16 @@ void WMFVideoReader::test()
 							conPrint("FPS processed: " + toString(fps));
 							reader.seek(0.0);
 						
+							num_seeks_to_start++;
 							frame_index = 0;
 							last_frame_time = 0.0;
 							play_timer.reset();
 
 							for(int i=0; i<5; ++i)
 								reader.startReadingNextFrame();
+
+							if(num_seeks_to_start == 2)
+								break;
 						}
 					}
 				}
@@ -817,9 +910,9 @@ void WMFVideoReader::test()
 		{
 			while(1)
 			{
-				FrameInfo frame_info = reader.getAndLockNextFrame();
+				Reference<FrameInfo> frame_info = reader.getAndLockNextFrame();
 
-				if(frame_info.frame_buffer)
+				if(frame_info.nonNull())
 				{
 					//const FormatInfo& format = reader.getCurrentFormat();
 
@@ -848,16 +941,23 @@ void WMFVideoReader::test()
 				{
 					conPrint("Reached EOF.");
 					reader.seek(0.0);
-					//break;
+					num_seeks_to_start++;
+					if(num_seeks_to_start == 1)
+						break;
 				}
 
-				reader.unlockAndReleaseFrame(frame_info);
 				frame_index++;
+
+				//if(frame_index == 10)
+				//	break;//TEMP
 			}
 		}
 
 		const double fps = frame_index / timer.elapsed();
 		conPrint("FPS processed: " + toString(fps));
+
+		printVar(reader.frame_info_allocator->numAllocatedObs());
+		testAssert(reader.frame_info_allocator->numAllocatedBlocks() == 1);
 	}
 	catch(glare::Exception& e)
 	{

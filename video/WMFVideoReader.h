@@ -11,10 +11,12 @@ Copyright Glare Technologies Limited 2021 -
 #include "IncludeWindows.h" // NOTE: Just for RECT, remove?
 #include "../utils/Mutex.h"
 #include "../utils/ThreadSafeQueue.h"
+#include "../utils/PoolAllocator.h"
 #include <mfidl.h>
 #include <mfapi.h>
 #include <mfreadwrite.h>
 #include <string>
+#include <map>
 
 
 class WMFVideoReaderCallback;
@@ -30,7 +32,7 @@ struct IMFDXGIDeviceManager;
 struct IMF2DBuffer;
 struct IMFSample;
 struct IMFMediaEvent;
-
+struct ID3D11Texture2D;
 
 
 struct FormatInfo
@@ -47,6 +49,35 @@ struct FormatInfo
 		SetRectEmpty(&rcPicture);
 	}
 };
+
+
+class WMFFrameInfo : public FrameInfo
+{
+public:
+	WMFFrameInfo();
+	~WMFFrameInfo();
+
+	ComObHandle<IMFMediaBuffer> media_buffer;
+	ComObHandle<IMF2DBuffer> buffer2d;
+	ComObHandle<ID3D11Texture2D> d3d_tex;
+};
+
+
+// Template specialisation of destroyAndFreeOb for WMFFrameInfo.
+template <>
+inline void destroyAndFreeOb<WMFFrameInfo>(WMFFrameInfo* ob)
+{
+	Reference<glare::Allocator> allocator = ob->allocator;
+
+	// Destroy object
+	ob->~WMFFrameInfo();
+
+	// Free object mem
+	if(allocator.nonNull())
+		ob->allocator->free(ob);
+	else
+		delete ob;
+}
 
 
 /*=====================================================================
@@ -66,14 +97,12 @@ public:
 	static void shutdownWMF();
 
 	// COM and WMF should be initialised before a WMFVideoReader is constructed.
-	WMFVideoReader(bool read_from_video_device, const std::string& URL, VideoReaderCallback* reader_callback); // Throws Indigo::Exception
+	WMFVideoReader(bool read_from_video_device, const std::string& URL, VideoReaderCallback* reader_callback, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
 	~WMFVideoReader();
 
 	virtual void startReadingNextFrame();
 
-	virtual FrameInfo getAndLockNextFrame(); // FrameInfo.frame_buffer will be set to NULL if we have reached EOF
-
-	virtual void unlockAndReleaseFrame(const FrameInfo& frameinfo);
+	virtual Reference<FrameInfo> getAndLockNextFrame(); // FrameInfo.frame_buffer will be set to NULL if we have reached EOF
 
 	virtual void seek(double time);
 
@@ -94,18 +123,23 @@ public:
 	);
 
 private:
+	WMFFrameInfo* allocWMFFrameInfo();
+
 	ComObHandle<IMFSourceReader> reader;
-	ComObHandle<ID3D11Device> d3d_device;
-	ComObHandle<IMFDXGIDeviceManager> dev_manager;
 
 	FormatInfo current_format;
 	bool read_from_video_device;
+	bool decode_to_d3d_tex;
 
 	VideoReaderCallback* reader_callback;
 
 	WMFVideoReaderCallback* com_reader_callback;
 
 	ThreadSafeQueue<int> from_com_reader_callback_queue; // For messages from com_reader_callback
+
+	std::map<ID3D11Texture2D*, ID3D11Texture2D*> texture_copies;
+
+	Reference<glare::PoolAllocator<WMFFrameInfo>> frame_info_allocator;
 };
 
 
