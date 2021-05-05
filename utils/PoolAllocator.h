@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "BitField.h"
 #include "Mutex.h"
 #include "Lock.h"
+#include "../maths/mathstypes.h"
 #include <stddef.h> // For size_t
 #include <vector>
 
