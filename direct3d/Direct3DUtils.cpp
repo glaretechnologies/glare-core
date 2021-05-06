@@ -23,17 +23,17 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #ifdef _WIN32
+
+
 static inline void throwOnError(HRESULT hres)
 {
 	if(FAILED(hres))
 		throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hres));
 }
-#endif
 
 
 void Direct3DUtils::createGPUDeviceAndMFDeviceManager(ComObHandle<ID3D11Device>& d3d_device_out, ComObHandle<IMFDXGIDeviceManager>& device_manager_out)
 {
-#ifdef _WIN32
 	const D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
 
 #ifndef NDEBUG // If in debug config:
@@ -65,7 +65,6 @@ void Direct3DUtils::createGPUDeviceAndMFDeviceManager(ComObHandle<ID3D11Device>&
 	UINT reset_token;
 	throwOnError(MFCreateDXGIDeviceManager(&reset_token, &device_manager_out.ptr));
 	throwOnError(device_manager_out->ResetDevice(d3d_device_out.ptr, reset_token));
-#endif
 }
 
 
@@ -241,3 +240,6 @@ void Direct3DUtils::saveTextureToBmp(const std::string& filename, ID3D11Texture2
 
 	d3dContext->Unmap(mappedTexture.ptr, 0);
 }
+
+
+#endif // #ifdef _WIN32

@@ -663,7 +663,7 @@ void WMFVideoReader::OnReadSample(
 
 				if(texture_copies.count(d3d_tex.ptr) == 0)
 				{
-					conPrint("Creating cloned texture");
+					// conPrint("Creating copy of texture " + toHexString((uint64)d3d_tex.ptr) + "...");
 					D3D11_TEXTURE2D_DESC desc;
 					d3d_tex->GetDesc(&desc);
 
@@ -679,13 +679,15 @@ void WMFVideoReader::OnReadSample(
 					desc2.CPUAccessFlags = 0;
 					desc2.MiscFlags = 0;
 
-					ComObHandle<ID3D11Texture2D> stagingTexture;
-					hr = d3d_device->CreateTexture2D(&desc2, nullptr, &stagingTexture.ptr);
+					ComObHandle<ID3D11Texture2D> texture_copy;
+					hr = d3d_device->CreateTexture2D(&desc2, nullptr, &texture_copy.ptr);
 					if(FAILED(hr))
 						throw glare::Exception("Failed to create texture copy");
 
-					stagingTexture->AddRef();
-					texture_copies[d3d_tex.ptr] = stagingTexture.ptr;
+					// conPrint("Texture copy: " + toHexString((uint64)texture_copy.ptr) + "...");
+
+					texture_copy->AddRef();
+					texture_copies[d3d_tex.ptr] = texture_copy.ptr;
 				}
 
 				ID3D11Texture2D* use_tex = texture_copies[d3d_tex.ptr];	
