@@ -17,10 +17,11 @@ Copyright Glare Technologies Limited 2021 -
 #include <mfreadwrite.h>
 #include <string>
 #include <map>
+#include <set>
 
 
 class WMFVideoReaderCallback;
-
+class WMFVideoReader;
 
 #ifdef _WIN32
 
@@ -48,6 +49,21 @@ struct FormatInfo
 	{
 		SetRectEmpty(&rcPicture);
 	}
+
+	// Audio:
+	uint32			num_channels;
+	uint32			sample_rate_hz;
+	uint32			bits_per_sample;
+};
+
+
+class TexturePool : public ThreadSafeRefCounted
+{
+public:
+	Mutex mutex;
+	// We'll just store raw pointers.  objects should be AddRef'd before breing added to the pool, and Released afterwards.
+	std::set<ID3D11Texture2D*> used_textures; // Textures currently used by a sample
+	std::vector<ID3D11Texture2D*> free_textures; // Textures that were used by a sample, but have been freed.
 };
 
 
@@ -60,6 +76,10 @@ public:
 	ComObHandle<IMFMediaBuffer> media_buffer;
 	ComObHandle<IMF2DBuffer> buffer2d;
 	ComObHandle<ID3D11Texture2D> d3d_tex;
+
+	bool media_buffer_locked;
+
+	Reference<TexturePool> texture_pool;
 };
 
 
@@ -100,7 +120,7 @@ public:
 	WMFVideoReader(bool read_from_video_device, const std::string& URL, VideoReaderCallback* reader_callback, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
 	~WMFVideoReader();
 
-	virtual void startReadingNextFrame();
+	virtual void startReadingNextSample() override;
 
 	virtual Reference<FrameInfo> getAndLockNextFrame(); // FrameInfo.frame_buffer will be set to NULL if we have reached EOF
 
@@ -131,15 +151,20 @@ private:
 	bool read_from_video_device;
 	bool decode_to_d3d_tex;
 
+	bool stream_is_video[10];
+
 	VideoReaderCallback* reader_callback;
 
 	WMFVideoReaderCallback* com_reader_callback;
 
 	ThreadSafeQueue<int> from_com_reader_callback_queue; // For messages from com_reader_callback
 
-	std::map<ID3D11Texture2D*, ID3D11Texture2D*> texture_copies;
+public:
+	Reference<TexturePool> texture_pool;
 
 	Reference<glare::PoolAllocator<WMFFrameInfo>> frame_info_allocator;
+
+	glare::AtomicInt num_pending_reads;
 };
 
 

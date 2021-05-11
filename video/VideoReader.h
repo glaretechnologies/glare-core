@@ -19,15 +19,23 @@ class VideoReader;
 class FrameInfo : public ThreadSafeRefCounted
 {
 public:
-	FrameInfo() : frame_buffer(0), width(0), height(0), stride_B(0), top_down(true) {}
+	FrameInfo() : frame_buffer(0), width(0), height(0), stride_B(0), top_down(true), buffer_len_B(0), is_audio(false) {}
 	virtual ~FrameInfo() {}
 
-	double frame_time;
+	double frame_time; // presentation time
+	double frame_duration;
 	uint8* frame_buffer;
 	uint64 width;
 	uint64 height;
 	uint64 stride_B; // >= 0
 	bool top_down;
+
+	bool is_audio;
+	// Audio:
+	uint32 num_channels;
+	uint32 sample_rate_hz;
+	uint64 buffer_len_B;
+	uint32 bits_per_sample;
 
 	Reference<glare::Allocator> allocator;
 };
@@ -73,7 +81,7 @@ public:
 	VideoReader();
 	virtual ~VideoReader();
 
-	virtual void startReadingNextFrame() = 0;
+	virtual void startReadingNextSample() = 0;
 
 	virtual Reference<FrameInfo> getAndLockNextFrame() = 0; // FrameInfo.frame_buffer will be set to NULL if we have reached EOF.
 

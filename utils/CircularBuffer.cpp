@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/ConPrint.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include <numeric>
 
 
 struct TestCircBufferStruct : public RefCounted
@@ -49,6 +50,61 @@ public:
 void circularBufferTest()
 {
 	conPrint("circularBufferTest()");
+
+	//======================== Test pushBackNItems ========================
+	{
+		CircularBuffer<int> buf;
+		
+		const int items[] = { 0, 1, 2, 3 };
+		buf.pushBackNItems(items, 4);
+		
+		testAssert(buf.size() == 4);
+		for(int i=0; i<4; ++i)
+			testAssert(buf[i] == i);
+
+		buf.pushBackNItems(items, 4);
+
+		testAssert(buf.size() == 8);
+		for(int i=0; i<4; ++i)
+			testAssert(buf[i] == i);
+		for(int i=0; i<4; ++i)
+			testAssert(buf[4 + i] == i);
+	}
+
+	//======================== Test popFrontNItems ========================
+	{
+		CircularBuffer<int> buf;
+
+		const int items[] = { 0, 1, 2, 3 };
+		buf.pushBackNItems(items, 4);
+
+		int popped_items[4];
+		buf.popFrontNItems(popped_items, 4);
+
+		for(int i=0; i<4; ++i)
+			testAssert(items[i] == popped_items[i]);
+
+		testAssert(buf.size() == 0);
+	}
+
+	{
+		CircularBuffer<int> buf;
+
+		const int N = 10000;
+		std::vector<int> items(N);
+		std::iota(items.begin(), items.end(), 0);
+		buf.pushBackNItems(items.data(), N);
+
+		for(int z=0; z<N/10; ++z)
+		{
+			int popped_items[10];
+			buf.popFrontNItems(popped_items, 10);
+			for(int i=0; i<10; ++i)
+				testEqual(popped_items[i], z*10 + i);
+		}
+
+		testAssert(buf.size() == 0);
+	}
 
 	//======================== Test construction and destruction ========================
 	{

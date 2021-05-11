@@ -79,7 +79,7 @@ void WMFVideoReader::shutdownWMF()
 }
 
 
-WMFFrameInfo::WMFFrameInfo() : FrameInfo() {}
+WMFFrameInfo::WMFFrameInfo() : FrameInfo(), media_buffer_locked(false) {}
 WMFFrameInfo::~WMFFrameInfo()
 {
 	if(buffer2d.ptr)
@@ -87,6 +87,25 @@ WMFFrameInfo::~WMFFrameInfo()
 		HRESULT hres = buffer2d->Unlock2D(); // NOTE: am assuming we were using IMF2DBuffer interface.
 		if(FAILED(hres))
 			conPrint("Warning: buffer2d->Unlock2D() failed: " + PlatformUtils::COMErrorString(hres));
+	}
+
+	if(media_buffer_locked)
+	{
+		HRESULT hres = media_buffer->Unlock();
+		if(FAILED(hres))
+			conPrint("Warning: media_buffer->Unlock() failed: " + PlatformUtils::COMErrorString(hres));
+	}
+
+	assert(texture_pool.nonNull());
+	if(texture_pool.nonNull())
+	{
+		if(d3d_tex.ptr)
+		{
+			// Remove from used textures, add to free textures
+			Lock lock(texture_pool->mutex);
+			texture_pool->used_textures.erase(d3d_tex.ptr);
+			texture_pool->free_textures.push_back(d3d_tex.ptr);
+		}
 	}
 }
 
@@ -201,7 +220,7 @@ static inline void throwOnError(HRESULT hres)
 }
 
 
-static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo& format_out)
+static void configureVideoDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo& format_out)
 {
 	// Find the native format of the stream.
 	ComObHandle<IMFMediaType> pNativeType;
@@ -257,6 +276,76 @@ static void ConfigureDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, Form
 		throw glare::Exception("SetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
 	format_out = GetVideoFormat(pReader);
+}
+
+
+// Adapted from https://github.com/microsoft/Windows-classic-samples/blob/master/Samples/Win7Samples/multimedia/mediafoundation/AudioClip/main.cpp
+static void configureAudioStream(IMFSourceReader *pReader, DWORD dwStreamIndex, FormatInfo& format_out)
+{
+	// Create a partial media type that specifies uncompressed PCM audio.
+	ComObHandle<IMFMediaType> partial_type;
+	HRESULT hr = MFCreateMediaType(&partial_type.ptr);
+	if(FAILED(hr))
+		throw glare::Exception("MFCreateMediaType failed: " + PlatformUtils::COMErrorString(hr));
+
+	hr = partial_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+	if(FAILED(hr))
+		throw glare::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
+
+	hr = partial_type->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
+	if(FAILED(hr))
+		throw glare::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
+
+	// Set this type on the source reader. The source reader will
+	// load the necessary decoder.
+	hr = pReader->SetCurrentMediaType(dwStreamIndex, /*reserved=*/NULL, partial_type.ptr);
+	if(FAILED(hr))
+		throw glare::Exception("SetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
+	
+
+	// Get the complete uncompressed format.
+	ComObHandle<IMFMediaType> uncompressed_audio_type;
+	hr = pReader->GetCurrentMediaType(dwStreamIndex, &uncompressed_audio_type.ptr);
+	if(FAILED(hr))
+		throw glare::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
+
+	hr = uncompressed_audio_type->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &format_out.num_channels);
+	throwOnError(hr);
+	hr = uncompressed_audio_type->GetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, &format_out.bits_per_sample);
+	throwOnError(hr);
+	hr = uncompressed_audio_type->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &format_out.sample_rate_hz);
+	throwOnError(hr);
+
+	// Ensure the stream is selected.
+	hr = pReader->SetStreamSelection(dwStreamIndex, TRUE);
+	if(FAILED(hr))
+		throw glare::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
+}
+
+
+static bool isStreamVideo(ComObHandle<IMFSourceReader>& reader, DWORD stream_index)
+{
+	ComObHandle<IMFMediaType> media_type;
+	HRESULT hr = reader->GetCurrentMediaType(/*stream index=*/stream_index, &media_type.ptr);
+	if(FAILED(hr))
+	{
+		return true; // This might not be a valid stream. Just return true.
+	}
+	else
+	{
+		// Get the major type.
+		GUID major_type;
+		hr = media_type->GetGUID(MF_MT_MAJOR_TYPE, &major_type);
+		if(FAILED(hr))
+			throw glare::Exception("GetGUID failed: " + PlatformUtils::COMErrorString(hr));
+
+		if(major_type == MFMediaType_Audio)
+			return false;
+		else if(major_type == MFMediaType_Video)
+			return true;
+		else
+			throw glare::Exception("Unknown majorType");
+	}
 }
 
 
@@ -341,8 +430,13 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 		//conPrint("MFCreateSourceReaderFromURL took " + timer2.elapsedString());
 	}
 
-	ConfigureDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->current_format);
+	configureVideoDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->current_format);
 
+	configureAudioStream(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, this->current_format);
+
+	// Work out what streams we have on various indices
+	for(int i=0; i<10; ++i) // Bit of a hack going to 10.  TODO: work out how to get how many streams there are.
+		stream_is_video[i] = isStreamVideo(this->reader, i);
 
 
 	//NOTE: this code seems to have no effect
@@ -384,6 +478,7 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 	}
 #endif
 	
+	texture_pool = new TexturePool();
 
 	//conPrint("Rest of init took " + timer.elapsedString());
 }
@@ -395,7 +490,7 @@ WMFVideoReader::~WMFVideoReader()
 
 	// Flush all remaining sample reads in progress.  "The Flush method discards all queued samples and cancels all pending sample requests." - 
 	// https://docs.microsoft.com/en-us/windows/win32/api/mfreadwrite/nf-mfreadwrite-imfsourcereader-flush
-	reader->Flush((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM);
+	reader->Flush((DWORD)MF_SOURCE_READER_ALL_STREAMS);
 	if(com_reader_callback)
 	{
 		//conPrint("Waiting for flush");
@@ -411,20 +506,25 @@ WMFVideoReader::~WMFVideoReader()
 
 	reader.release();
 
-	for(auto it : texture_copies)
-		it.second->Release();
+	// Release textures in texture pool
+	for(auto it : texture_pool->used_textures)
+		it->Release();
+	for(auto it : texture_pool->free_textures)
+		it->Release();
 
 	//conPrint("Shutting down WMFVideoReader took " + timer.elapsedString());
 }
 
 
-void WMFVideoReader::startReadingNextFrame()
+void WMFVideoReader::startReadingNextSample()
 {
 	if(reader.ptr)
 	{
+		num_pending_reads++;
+
 		// We are using asyncrhonous mode, so set all out parameters to NULL: https://docs.microsoft.com/en-us/windows/win32/api/mfreadwrite/nf-mfreadwrite-imfsourcereader-readsample
 		HRESULT hr = reader->ReadSample(
-			(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, // dwStreamIndex
+			(DWORD)MF_SOURCE_READER_ANY_STREAM, // "Get the next available sample, regardless of which stream."
 			0,    // dwControlFlags
 			NULL, // pdwActualStreamIndex
 			NULL, // pdwStreamFlags
@@ -489,15 +589,21 @@ Reference<FrameInfo> WMFVideoReader::getAndLockNextFrame()
 	if(flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED) // "The native format has changed for one or more streams. The native format is the format delivered by the media source before any decoders are inserted."
 	{
 		// The format changed. Reconfigure the decoder.
-		ConfigureDecoder(this->reader.ptr, streamIndex, current_format);
+		configureVideoDecoder(this->reader.ptr, streamIndex, current_format);
 	}
 
 	//conPrint("Read sample from stream " + toString((uint64)streamIndex) + " with timestamp " + toString(frame_info.frame_time) + " s");
 
 	if(cur_sample.ptr) // May be NULL at end of stream.
 	{
+		LONGLONG sample_duration; // Duration of the sample, in 100-nanosecond units.
+		hr = cur_sample->GetSampleDuration(&sample_duration);
+		if(FAILED(hr))
+			throw glare::Exception("GetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
+
 		Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
 		frame_info->frame_time = llTimeStamp * 1.0e-7; // Timestamp is in 100 ns units, convert to s.
+		frame_info->frame_duration = sample_duration * 1.0e-7;
 		frame_info->width  = current_format.im_width;
 		frame_info->height = current_format.im_height;
 		frame_info->top_down = current_format.top_down;
@@ -586,154 +692,246 @@ void WMFVideoReader::OnReadSample(
 {
 	if(SUCCEEDED(hrStatus))
 	{
-		HRESULT hr;
+		num_pending_reads--;
 
-		if(dwStreamFlags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+		if(dwStreamIndex >= 10)
 		{
-			// The current media has type changed for one or more streams.
-			// This seems to happen when the video widths and heights are e.g. padded to a multiple of 16 for h264.
+			conPrint("Error, got dwStreamIndex >= 10");
+			return;
+		}
+		const bool is_vid = stream_is_video[dwStreamIndex];
+		if(is_vid)
+		{
+			//conPrint("got video sample");
 
-			// Get the media type from the stream.
-			ComObHandle<IMFMediaType> media_type;
-			hr = reader->GetCurrentMediaType(
-				(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
-				&media_type.ptr
-			);
-			if(FAILED(hr))
-				throw glare::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
+			HRESULT hr;
 
-			// Get the width and height
-			UINT32 width = 0, height = 0;
-			hr = MFGetAttributeSize(media_type.ptr, MF_MT_FRAME_SIZE, &width, &height);
-			if(FAILED(hr))
-				throw glare::Exception("MFGetAttributeSize failed: " + PlatformUtils::COMErrorString(hr));
+			if(dwStreamFlags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+			{
+				// The current media has type changed for one or more streams.
+				// This seems to happen when the video widths and heights are e.g. padded to a multiple of 16 for h264.
 
-			current_format.im_width = width;
-			//stride_B = (size_t)current_format.im_width * 4; // NOTE: should use result of MF_MT_DEFAULT_STRIDE instead? 
+				// Get the media type from the stream.
+				ComObHandle<IMFMediaType> media_type;
+				hr = reader->GetCurrentMediaType(
+					(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+					&media_type.ptr
+				);
+				if(FAILED(hr))
+					throw glare::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
-			// Get the stride to find out if the bitmap is top-down or bottom-up.
-			LONG lStride = 0;
-			lStride = (LONG)MFGetAttributeUINT32(media_type.ptr, MF_MT_DEFAULT_STRIDE, 1);
+				// Get the width and height
+				UINT32 width = 0, height = 0;
+				hr = MFGetAttributeSize(media_type.ptr, MF_MT_FRAME_SIZE, &width, &height);
+				if(FAILED(hr))
+					throw glare::Exception("MFGetAttributeSize failed: " + PlatformUtils::COMErrorString(hr));
+
+				current_format.im_width = width;
+				//stride_B = (size_t)current_format.im_width * 4; // NOTE: should use result of MF_MT_DEFAULT_STRIDE instead? 
+
+				// Get the stride to find out if the bitmap is top-down or bottom-up.
+				LONG lStride = 0;
+				lStride = (LONG)MFGetAttributeUINT32(media_type.ptr, MF_MT_DEFAULT_STRIDE, 1);
 			
-			current_format.top_down = lStride > 0;
-			current_format.stride_B = abs(lStride);
-		}
+				current_format.top_down = lStride > 0;
+				current_format.stride_B = abs(lStride);
+			}
 
-		if(dwStreamFlags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
-		{
-			// The format changed. Reconfigure the decoder.
-			ConfigureDecoder(this->reader.ptr, dwStreamIndex, current_format);
-		}
+			if(dwStreamFlags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+			{
+				// The format changed. Reconfigure the decoder.
+				configureVideoDecoder(this->reader.ptr, dwStreamIndex, current_format);
+			}
 
-		ComObHandle<IMFMediaBuffer> media_buffer;
+			ComObHandle<IMFMediaBuffer> media_buffer;
 		
-		if(pSample) // May be NULL at end of stream.
-		{
-			hr = pSample->ConvertToContiguousBuffer(&media_buffer.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
-			if(hr != S_OK) 
-				throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
-
-			Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
-			frame_info->frame_time = llTimestamp * 1.0e-7;
-			frame_info->width  = current_format.im_width;
-			frame_info->height = current_format.im_height;
-			frame_info->top_down = current_format.top_down;
-
-			if(decode_to_d3d_tex)
+			if(pSample) // May be NULL at end of stream.
 			{
-				ComObHandle<IMFDXGIBuffer> dx_buffer;
-				if(!media_buffer.queryInterface<IMFDXGIBuffer>(dx_buffer))
-					throw glare::Exception("Failed to get IMFDXGIBuffer");
+				LONGLONG sample_time; // Presentation time of the sample, in 100-nanosecond units.
+				hr = pSample->GetSampleTime(&sample_time);
+				if(FAILED(hr))
+					throw glare::Exception("GetSampleTime failed: " + PlatformUtils::COMErrorString(hr));
 
-				ComObHandle<ID3D11Texture2D> d3d_tex;
-				hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&d3d_tex.ptr));
-				throwOnError(hr);
+				LONGLONG sample_duration; // Duration of the sample, in 100-nanosecond units.
+				hr = pSample->GetSampleDuration(&sample_duration);
+				if(FAILED(hr))
+					throw glare::Exception("GetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
 
-				// Direct3DUtils::saveTextureToBmp(std::string("frame " + toString(frame++) + ".bmp").c_str(), d3d_tex.ptr);
+				hr = pSample->ConvertToContiguousBuffer(&media_buffer.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
+				if(hr != S_OK) 
+					throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
 
-				//=======================================
-				// Copy the tex.  This seems to be needed for the OpenGL texture sharing to pick up the texture change.
-				// Hopefully can work out some better way of doing this.
+				Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
+				frame_info->frame_time = sample_time * 1.0e-7;
+				frame_info->frame_duration = sample_duration * 1.0e-7;
+				frame_info->width  = current_format.im_width;
+				frame_info->height = current_format.im_height;
+				frame_info->top_down = current_format.top_down;
+
+				if(decode_to_d3d_tex)
+				{
+					ComObHandle<IMFDXGIBuffer> dx_buffer;
+					if(!media_buffer.queryInterface<IMFDXGIBuffer>(dx_buffer))
+						throw glare::Exception("Failed to get IMFDXGIBuffer");
+
+					ComObHandle<ID3D11Texture2D> d3d_tex;
+					hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&d3d_tex.ptr));
+					throwOnError(hr);
+
+					// Direct3DUtils::saveTextureToBmp(std::string("frame " + toString(frame++) + ".bmp").c_str(), d3d_tex.ptr);
+
+					//=======================================
+					// Copy the tex.  This seems to be needed for the OpenGL texture sharing to pick up the texture change.
+					// Hopefully can work out some better way of doing this.
+#if 1
+					ComObHandle<ID3D11Device> d3d_device;
+					d3d_tex->GetDevice(&d3d_device.ptr);
+
+					ComObHandle<ID3D11DeviceContext> d3d_context;
+					d3d_device->GetImmediateContext(&d3d_context.ptr);
+
+					ComObHandle<ID3D11Texture2D> use_tex;
+					{ // Scope for texture_pool mutex lock
+						Lock mutex(texture_pool->mutex);
+						if(texture_pool->free_textures.empty()) // If there are no free textures:
+						{
+							// Allocate a texture, add to used_textures.
+						
+							// conPrint("Allocating new D3D texture. (used_textures: " + toString(texture_pool->used_textures.size()) + ")");
+
+							// conPrint("Creating copy of texture " + toHexString((uint64)d3d_tex.ptr) + "...");
+							D3D11_TEXTURE2D_DESC desc;
+							d3d_tex->GetDesc(&desc);
+
+							D3D11_TEXTURE2D_DESC desc2;
+							desc2.Width = desc.Width;
+							desc2.Height = desc.Height;
+							desc2.MipLevels = desc.MipLevels;
+							desc2.ArraySize = desc.ArraySize;
+							desc2.Format = desc.Format;
+							desc2.SampleDesc = desc.SampleDesc;
+							desc2.Usage = D3D11_USAGE_DEFAULT;
+							desc2.BindFlags = 0;
+							desc2.CPUAccessFlags = 0;
+							desc2.MiscFlags = 0;
+
+							ComObHandle<ID3D11Texture2D> texture_copy;
+							hr = d3d_device->CreateTexture2D(&desc2, nullptr, &texture_copy.ptr);
+							if(FAILED(hr))
+								throw glare::Exception("Failed to create texture copy");
+
+							// conPrint("Texture copy: " + toHexString((uint64)texture_copy.ptr) + "...");
+
+							texture_copy->AddRef();
+							texture_pool->used_textures.insert(texture_copy.ptr);
+
+							use_tex = texture_copy;
+						}
+						else // Else there is a free texture, use it:
+						{
+							ID3D11Texture2D* tex = texture_pool->free_textures.back();
+							texture_pool->free_textures.pop_back();
+							use_tex = tex;
+						}
+					} // End texture pool mutex scope.
+
+					d3d_context->CopyResource(use_tex.ptr, d3d_tex.ptr); // Copy the texture
 				
-				ComObHandle<ID3D11Device> d3d_device;
-				d3d_tex->GetDevice(&d3d_device.ptr);
-
-				ComObHandle<ID3D11DeviceContext> d3d_context;
-				d3d_device->GetImmediateContext(&d3d_context.ptr);
-
-				if(texture_copies.count(d3d_tex.ptr) == 0)
+					frame_info->d3d_tex = use_tex;
+#else	
+					frame_info->d3d_tex = d3d_tex;
+#endif
+					
+					//frame_info.media_buffer = (void*)media_buffer.ptr;
+				}
+				else // else if !decode_to_d3d_tex:
 				{
-					// conPrint("Creating copy of texture " + toHexString((uint64)d3d_tex.ptr) + "...");
-					D3D11_TEXTURE2D_DESC desc;
-					d3d_tex->GetDesc(&desc);
-
-					D3D11_TEXTURE2D_DESC desc2;
-					desc2.Width = desc.Width;
-					desc2.Height = desc.Height;
-					desc2.MipLevels = desc.MipLevels;
-					desc2.ArraySize = desc.ArraySize;
-					desc2.Format = desc.Format;
-					desc2.SampleDesc = desc.SampleDesc;
-					desc2.Usage = D3D11_USAGE_DEFAULT;
-					desc2.BindFlags = 0;
-					desc2.CPUAccessFlags = 0;
-					desc2.MiscFlags = 0;
-
-					ComObHandle<ID3D11Texture2D> texture_copy;
-					hr = d3d_device->CreateTexture2D(&desc2, nullptr, &texture_copy.ptr);
-					if(FAILED(hr))
-						throw glare::Exception("Failed to create texture copy");
-
-					// conPrint("Texture copy: " + toHexString((uint64)texture_copy.ptr) + "...");
-
-					texture_copy->AddRef();
-					texture_copies[d3d_tex.ptr] = texture_copy.ptr;
+					if(true) // If use IMF2DBuffer interface:
+					{
+						ComObHandle<IMF2DBuffer> buffer2d;
+						if(!media_buffer.queryInterface(buffer2d))
+							throw glare::Exception("failed to get IMF2DBuffer interface");
+			
+						BYTE* scanline0;
+						LONG pitch;
+						hr = buffer2d->Lock2D(&scanline0, &pitch);
+						if(FAILED(hr))
+							throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
+			
+						frame_info->frame_buffer = scanline0;
+						frame_info->top_down = pitch > 0;
+						frame_info->stride_B = abs(pitch);
+						frame_info->media_buffer = media_buffer;
+						frame_info->buffer2d = buffer2d;
+					}
+					else
+					{
+						BYTE* buffer;
+						DWORD cur_len;
+						hr = media_buffer->Lock(&buffer, /*max-len=*/NULL, &cur_len);
+						if(FAILED(hr))
+							throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+			
+						frame_info->frame_buffer = buffer;
+						frame_info->stride_B = current_format.stride_B;
+						frame_info->media_buffer = media_buffer;
+					}
 				}
 
-				ID3D11Texture2D* use_tex = texture_copies[d3d_tex.ptr];	
-
-				d3d_context->CopyResource(use_tex, d3d_tex.ptr); // Copy the texture
-
-				frame_info->d3d_tex = use_tex;
-				//frame_info.media_buffer = (void*)media_buffer.ptr;
+				this->reader_callback->frameDecoded(this, frame_info);
 			}
-			else // else if !decode_to_d3d_tex:
-			{
-				if(true) // If use IMF2DBuffer interface:
-				{
-					ComObHandle<IMF2DBuffer> buffer2d;
-					if(!media_buffer.queryInterface(buffer2d))
-						throw glare::Exception("failed to get IMF2DBuffer interface");
-			
-					BYTE* scanline0;
-					LONG pitch;
-					hr = buffer2d->Lock2D(&scanline0, &pitch);
-					if(FAILED(hr))
-						throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
-			
-					frame_info->frame_buffer = scanline0;
-					frame_info->top_down = pitch > 0;
-					frame_info->stride_B = abs(pitch);
-					frame_info->media_buffer = media_buffer;
-					frame_info->buffer2d = buffer2d;
-				}
-				else
-				{
-					BYTE* buffer;
-					DWORD cur_len;
-					hr = media_buffer->Lock(&buffer, /*max-len=*/NULL, &cur_len);
-					if(FAILED(hr))
-						throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
-			
-					frame_info->frame_buffer = buffer;
-					frame_info->stride_B = current_format.stride_B;
-					frame_info->media_buffer = media_buffer;
-				}
-			}
-
-			this->reader_callback->frameDecoded(this, frame_info);
 		}
-	
+		else //================================================================================
+		{
+			//conPrint("got audio sample");
+		
+			if(dwStreamFlags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+			{
+				// The format changed. Reconfigure the decoder.
+				configureAudioStream(this->reader.ptr, dwStreamIndex, current_format);
+			}
+
+			ComObHandle<IMFMediaBuffer> media_buffer;
+
+			if(pSample) // May be NULL at end of stream.
+			{
+				LONGLONG sample_time; // Presentation time of the sample, in 100-nanosecond units.
+				HRESULT hr = pSample->GetSampleTime(&sample_time);
+				if(FAILED(hr))
+					throw glare::Exception("GetSampleTime failed: " + PlatformUtils::COMErrorString(hr));
+
+				LONGLONG sample_duration; // Duration of the sample, in 100-nanosecond units.
+				hr = pSample->GetSampleDuration(&sample_duration);
+				if(FAILED(hr))
+					throw glare::Exception("GetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
+
+				hr = pSample->ConvertToContiguousBuffer(&media_buffer.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
+				if(hr != S_OK) 
+					throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
+
+				// Lock buffer
+				BYTE* buffer;
+				DWORD cur_len; // Receives the length of the valid data in the buffer, in bytes
+				hr = media_buffer->Lock(&buffer, /*max-len=*/NULL, &cur_len);
+				if(FAILED(hr))
+					throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+
+				Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
+				frame_info->is_audio = true;
+				frame_info->num_channels    = current_format.num_channels;
+				frame_info->sample_rate_hz  = current_format.sample_rate_hz;
+				frame_info->bits_per_sample = current_format.bits_per_sample;
+				frame_info->frame_time     = sample_time * 1.0e-7;
+				frame_info->frame_duration = sample_duration * 1.0e-7;
+				frame_info->frame_buffer = buffer;
+				frame_info->buffer_len_B = cur_len;
+				frame_info->media_buffer_locked = true;
+				frame_info->media_buffer = media_buffer;
+
+				this->reader_callback->frameDecoded(this, frame_info);
+			}
+		}
+
 		if(dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
 		{
 			this->reader_callback->endOfStream(this);
@@ -770,6 +968,7 @@ WMFFrameInfo* WMFVideoReader::allocWMFFrameInfo()
 	void* mem = frame_info_allocator->alloc(sizeof(WMFFrameInfo), 16);
 	WMFFrameInfo* frame = ::new (mem) WMFFrameInfo();
 	frame->allocator = frame_info_allocator;
+	frame->texture_pool = this->texture_pool;
 	return frame;
 }
 
@@ -817,12 +1016,13 @@ void WMFVideoReader::test()
 		//const std::string URL = "https://fnd.fleek.co/fnd-prod/QmYKYb5ASLqPeVGoRBL8pLHq9y8oRCZZFTgdVo4ckvQy5D/nft.mp4"; // pitch is != width*4
 		//const std::string URL = "http://video.chaoticafractals.com/videos/lindelokse_tatasz_dewberries.mp4";
 		//const std::string URL = "https://fnd.fleek.co/fnd-prod/QmZD6JqWswoDRjpbFmVXkQ8jDbFd6rEuit3wboFD4z8XEe/nft.mp4"; // 17 s
-		const std::string URL = "E:\\video\\busted.mp4"; // 9 s
+		//const std::string URL = "E:\\video\\busted.mp4"; // 9 s
+		const std::string URL = "E:\\video\\aura_amethyst.mp4"; // has sound
 
 		ThreadSafeQueue<Reference<FrameInfo>> frame_queue;
 		TestWMFVideoReaderCallback callback;
 
-		const bool TEST_ASYNC_CALLBACK = false;
+		const bool TEST_ASYNC_CALLBACK = true;
 		callback.frame_queue = &frame_queue;
 
 		conPrint("Reading vid '" + URL + "'...");
@@ -835,13 +1035,14 @@ void WMFVideoReader::test()
 		ComObHandle<IMFDXGIDeviceManager> device_manager;
 		Direct3DUtils::createGPUDeviceAndMFDeviceManager(d3d_device, device_manager);
 
-		WMFVideoReader reader(/*read_from_video_device*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/false);
+		WMFVideoReader reader(/*read_from_video_device*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/true);
 
 		conPrint("Reader construction took " + timer.elapsedString());
 		
 
-		
+		size_t audio_sample_index = 0;
 		size_t frame_index = 0;
+		size_t vid_frame_index = 0;
 		double last_frame_time = 0;
 		Timer play_timer;
 		int num_seeks_to_start = 0;
@@ -849,8 +1050,8 @@ void WMFVideoReader::test()
 		if(TEST_ASYNC_CALLBACK) // If test async callback API:
 		{
 			for(int i=0; i<5; ++i)
-				reader.startReadingNextFrame();
-			
+				reader.startReadingNextSample();
+
 			while(1)
 			{
 				// Wait until the play time is past the last frame time
@@ -874,19 +1075,47 @@ void WMFVideoReader::test()
 				{
 					if(front_frame.nonNull())
 					{
+						if(front_frame->is_audio)
+						{
+							//conPrint("got audio frame, buffer size: " + toString(front_frame->buffer_len_B) + " B");
+
+							const uint32 bytes_per_sample = front_frame->bits_per_sample / 8;
+							const uint64 num_samples = front_frame->buffer_len_B / bytes_per_sample / front_frame->num_channels;
+							printVar(num_samples);
+							audio_sample_index += num_samples;
+
+							//double audio_time = audio_sample_index / 44100.0;
+
+							//conPrint("Processing audio frame, frame time " + toString(front_frame->frame_time) + ", queue_size: " + toString(queue_size) + ", audio_time: " + toString(audio_time));
+						}
+						else
+						{
+							//conPrint("got video frame");
+
+							conPrint("Processing video frame, frame time " + toString(front_frame->frame_time) + ", queue_size: " + toString(queue_size));
+
+							WMFFrameInfo* wmf_frame = front_frame.downcastToPtr<WMFFrameInfo>();
+							Direct3DUtils::saveTextureToBmp("frames/test_frame_" + toString(vid_frame_index) + ".bmp", wmf_frame->d3d_tex.ptr);
+
+							vid_frame_index++;
+						}
+
 						frame_index++;
 						last_frame_time = front_frame->frame_time;
-						conPrint("Processing frame, time " + toString(front_frame->frame_time) + ", queue_size: " + toString(queue_size));
+
+						
+
+						
 						// Simulate taking a long time with the frame:
 						//PlatformUtils::Sleep(1000);
 
-						reader.startReadingNextFrame();
+						reader.startReadingNextSample();
 					}
 					else
 					{
-						//conPrint("Received EOS frame");
+						conPrint("Received EOS frame");
 
-						if(last_frame_time != 0)
+						/*if(frame_index != 0)//last_frame_time != 0)
 						{
 							conPrint("seeking to beginning...");
 							const double fps = frame_index / play_timer.elapsed();
@@ -903,7 +1132,7 @@ void WMFVideoReader::test()
 
 							if(num_seeks_to_start == 2)
 								break;
-						}
+						}*/
 					}
 				}
 			}

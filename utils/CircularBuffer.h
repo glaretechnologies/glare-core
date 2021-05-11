@@ -48,6 +48,8 @@ public:
 
 	inline T& back();
 
+	inline T& operator [] (const size_t offset); // Returns a reference to the item at the given offset from the front (*beginIt()).
+
 	inline void clear();
 	inline void clearAndFreeMem();
 	
@@ -55,6 +57,9 @@ public:
 
 	inline bool empty() const { return num_items == 0; }
 
+	inline void popFrontNItems(T* dest, size_t N); // N must be <= size()
+
+	inline void pushBackNItems(const T* src, size_t N);
 
 	typedef CircularBufferIterator<T> iterator;
 
@@ -71,14 +76,14 @@ public:
 
 private:
 	GLARE_DISABLE_COPY(CircularBuffer)
-	inline void increaseSize();
+	inline void increaseSize(size_t requested_new_data_size);
 	inline void invariant();
 	inline T* alloc(size_t size, size_t alignment);
 	inline void free(T* ptr);
 	
 
-	size_t begin; // Index of first item in buffer
-	size_t end; // Index one past last item in buffer.
+	size_t begin; // Index of first item in buffer.  Wrapped to zero when it reaches num_items.
+	size_t end; // Index one past last item in buffer.  Wrapped to zero when it reaches num_items.
 	size_t num_items; // Number of items in buffer
 	T* data; // Storage
 	size_t data_size; // Size/capacity in number of elements of data.
@@ -179,7 +184,7 @@ void CircularBuffer<T>::push_back(const T& t)
 
 	// If there is no free space
 	if(num_items == data_size)
-		increaseSize();
+		increaseSize(data_size * 2);
 
 	// Construct data[end] from t
 	::new ((data + end)) T(t);
@@ -202,7 +207,7 @@ void CircularBuffer<T>::push_front(const T& t)
 
 	// If there is no free space
 	if(num_items == data_size)
-		increaseSize();
+		increaseSize(data_size * 2);
 
 	// Decrement and wrap begin
 	if(begin == 0)
@@ -324,6 +329,16 @@ T& CircularBuffer<T>::back()
 
 
 template <class T>
+T& CircularBuffer<T>::operator [] (const size_t offset)
+{
+	size_t i = begin + offset;
+	if(i >= num_items)
+		i -= num_items;
+	return data[i];
+}
+
+
+template <class T>
 size_t CircularBuffer<T>::size() const { return num_items; }
 
 
@@ -339,8 +354,8 @@ void CircularBuffer<T>::invariant()
 	}
 	else
 	{
-		assert(begin < data_size);
-		assert(end < data_size);
+		assert(begin < data_size); // begin should never be == data_size, it should wrap to 0.
+		assert(end   < data_size); // end should never be == data_size, it should wrap to 0.
 		assert(data);
 	}
 
@@ -366,9 +381,9 @@ void CircularBuffer<T>::invariant()
 
 // Resize buffer.  Need to make it least twice as big so that we can copy all the wrapped elements directly.
 template <class T>
-void CircularBuffer<T>::increaseSize()
+void CircularBuffer<T>::increaseSize(size_t requested_new_data_size)
 {
-	const size_t new_data_size = myMax<size_t>(4, data_size * 2);
+	const size_t new_data_size = myMax<size_t>(4, requested_new_data_size/*data_size * 2*/);
 	T* new_data = alloc(sizeof(T) * new_data_size, glare::AlignOf<T>::Alignment);
 
 	// Copy-construct new objects from existing objects:
@@ -404,7 +419,7 @@ void CircularBuffer<T>::increaseSize()
 	data_size = new_data_size;
 
 	assert(end == begin + num_items);
-	assert(end < data_size);
+	assert(end <= data_size);
 }
 
 
@@ -425,4 +440,75 @@ void CircularBuffer<T>::free(T* ptr)
 		allocator->free(ptr);
 	else
 		MemAlloc::alignedFree(ptr);
+}
+
+
+template <class T>
+void CircularBuffer<T>::popFrontNItems(T* dest, size_t N) // N must be <= size()
+{
+	assert(N <= size());
+	const size_t first_range_size = myMin(N, data_size - begin);
+	for(size_t i=0; i<first_range_size; ++i)
+	{
+		dest[i] = data[begin + i];
+		data[begin + i].~T(); // Destroy object
+	}
+
+	size_t new_begin = begin + first_range_size;
+
+	if(N > data_size - begin) // If part of the data wraps around:
+	{
+		const size_t second_range_size = N - (data_size - begin);
+		for(size_t i=0; i<second_range_size; ++i)
+		{
+			dest[first_range_size + i] = data[i];
+			data[i].~T(); // Destroy object
+		}
+
+		new_begin = second_range_size;
+	}
+
+	begin = new_begin;
+	if(begin == data_size)
+		begin = 0; // Wrap begin if needed.
+	num_items -= N;
+
+	invariant();
+}
+
+
+
+template <class T>
+void CircularBuffer<T>::pushBackNItems(const T* src, size_t N)
+{
+	if(num_items + N > data_size)
+		increaseSize(myMax(num_items + N, data_size * 2));
+
+	const size_t end_capacity = data_size - end;
+	const size_t first_range_size = myMin(N, end_capacity);
+	for(size_t i=0; i<first_range_size; ++i)
+	{
+		data[end + i] = src[i];
+	}
+
+	size_t new_end = end + first_range_size;
+
+	if(N > end_capacity) // If part of the data wraps around:
+	{
+		const size_t second_range_size = N - end_capacity;
+		for(size_t i=0; i<second_range_size; ++i)
+		{
+			data[i] = src[first_range_size + i];
+		}
+
+		new_end = second_range_size;
+	}
+
+	end = new_end;
+	if(end == data_size)
+		end = 0; // Wrap end if needed.
+
+	num_items += N;
+
+	invariant();
 }
