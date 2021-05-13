@@ -12,9 +12,11 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Mutex.h"
 #include "../utils/ThreadSafeQueue.h"
 #include "../utils/PoolAllocator.h"
+#ifdef _WIN32
 #include <mfidl.h>
 #include <mfapi.h>
 #include <mfreadwrite.h>
+#endif
 #include <string>
 #include <map>
 #include <set>

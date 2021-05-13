@@ -8,7 +8,9 @@ Copyright Glare Technologies Limited 2020 -
 
 #if defined(_WIN32)
 // Stop windows.h from defining the min() and max() macros
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #endif
