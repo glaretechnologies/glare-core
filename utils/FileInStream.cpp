@@ -46,6 +46,18 @@ uint32 FileInStream::readUInt32()
 }
 
 
+uint16 FileInStream::readUInt16()
+{
+	if(read_index + sizeof(uint16) > file.fileSize())
+		throw glare::Exception("Read past end of file.");
+
+	uint16 x;
+	std::memcpy(&x, (const uint8*)file.fileData() + read_index, sizeof(x));
+	read_index += sizeof(x);
+	return x;
+}
+
+
 void FileInStream::readData(void* buf, size_t num_bytes)
 {
 	if(num_bytes > 0)

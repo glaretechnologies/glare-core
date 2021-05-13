@@ -57,6 +57,8 @@ public:
 
 	inline bool empty() const { return num_items == 0; }
 
+	inline bool nonEmpty() const { return num_items != 0; }
+
 	inline void popFrontNItems(T* dest, size_t N); // N must be <= size()
 
 	inline void pushBackNItems(const T* src, size_t N);

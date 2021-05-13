@@ -27,6 +27,8 @@ public:
 	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 
+	uint16 readUInt16();
+
 	const void* fileData() const { return file.fileData(); } // Returns pointer to file data.  NOTE: This pointer will be the null pointer if the file size is zero.
 	size_t fileSize() const { return file.fileSize(); }
 
