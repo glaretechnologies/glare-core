@@ -79,8 +79,8 @@ void WMFVideoReader::shutdownWMF()
 }
 
 
-WMFFrameInfo::WMFFrameInfo() : FrameInfo(), media_buffer_locked(false) {}
-WMFFrameInfo::~WMFFrameInfo()
+WMFSampleInfo::WMFSampleInfo() : SampleInfo(), media_buffer_locked(false) {}
+WMFSampleInfo::~WMFSampleInfo()
 {
 	if(buffer2d.ptr)
 	{
@@ -354,7 +354,7 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 	reader_callback(reader_callback_),
 	com_reader_callback(NULL),
 	decode_to_d3d_tex(decode_to_d3d_tex_),
-	frame_info_allocator(new glare::PoolAllocator<WMFFrameInfo>(/*alignment=*/16))
+	frame_info_allocator(new glare::PoolAllocator<WMFSampleInfo>(/*alignment=*/16))
 {
 	HRESULT hr;
 
@@ -537,7 +537,8 @@ void WMFVideoReader::startReadingNextSample()
 }
 
 
-Reference<FrameInfo> WMFVideoReader::getAndLockNextFrame()
+// TODO: read audio as well.
+Reference<SampleInfo> WMFVideoReader::getAndLockNextSample(bool just_get_vid_sample)
 {
 	ComObHandle<IMFSample> cur_sample;
 
@@ -601,7 +602,7 @@ Reference<FrameInfo> WMFVideoReader::getAndLockNextFrame()
 		if(FAILED(hr))
 			throw glare::Exception("GetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
 
-		Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
+		Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
 		frame_info->frame_time = llTimeStamp * 1.0e-7; // Timestamp is in 100 ns units, convert to s.
 		frame_info->frame_duration = sample_duration * 1.0e-7;
 		frame_info->width  = current_format.im_width;
@@ -761,7 +762,7 @@ void WMFVideoReader::OnReadSample(
 				if(hr != S_OK) 
 					throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
 
-				Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
+				Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
 				frame_info->frame_time = sample_time * 1.0e-7;
 				frame_info->frame_duration = sample_duration * 1.0e-7;
 				frame_info->width  = current_format.im_width;
@@ -916,7 +917,7 @@ void WMFVideoReader::OnReadSample(
 				if(FAILED(hr))
 					throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
 
-				Reference<WMFFrameInfo> frame_info = allocWMFFrameInfo();
+				Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
 				frame_info->is_audio = true;
 				frame_info->num_channels    = current_format.num_channels;
 				frame_info->sample_rate_hz  = current_format.sample_rate_hz;
@@ -962,11 +963,11 @@ void WMFVideoReader::seek(double time)
 }
 
 
-WMFFrameInfo* WMFVideoReader::allocWMFFrameInfo()
+WMFSampleInfo* WMFVideoReader::allocWMFSampleInfo()
 {
 	// Allocate from pool allocator
-	void* mem = frame_info_allocator->alloc(sizeof(WMFFrameInfo), 16);
-	WMFFrameInfo* frame = ::new (mem) WMFFrameInfo();
+	void* mem = frame_info_allocator->alloc(sizeof(WMFSampleInfo), 16);
+	WMFSampleInfo* frame = ::new (mem) WMFSampleInfo();
 	frame->allocator = frame_info_allocator;
 	frame->texture_pool = this->texture_pool;
 	return frame;
@@ -986,7 +987,7 @@ WMFFrameInfo* WMFVideoReader::allocWMFFrameInfo()
 class TestWMFVideoReaderCallback : public VideoReaderCallback
 {
 public:
-	virtual void frameDecoded(VideoReader* vid_reader, const Reference<FrameInfo>& frameinfo)
+	virtual void frameDecoded(VideoReader* vid_reader, const Reference<SampleInfo>& frameinfo)
 	{
 		frame_queue->enqueue(frameinfo);
 	}
@@ -996,7 +997,7 @@ public:
 		frame_queue->enqueue(NULL);
 	}
 
-	ThreadSafeQueue<Reference<FrameInfo>>* frame_queue;
+	ThreadSafeQueue<Reference<SampleInfo>>* frame_queue;
 };
 
 
@@ -1019,7 +1020,7 @@ void WMFVideoReader::test()
 		//const std::string URL = "E:\\video\\busted.mp4"; // 9 s
 		const std::string URL = "E:\\video\\aura_amethyst.mp4"; // has sound
 
-		ThreadSafeQueue<Reference<FrameInfo>> frame_queue;
+		ThreadSafeQueue<Reference<SampleInfo>> frame_queue;
 		TestWMFVideoReaderCallback callback;
 
 		const bool TEST_ASYNC_CALLBACK = true;
@@ -1059,7 +1060,7 @@ void WMFVideoReader::test()
 					PlatformUtils::Sleep(1);
 
 				// Check if there is a new frame to consume
-				Reference<FrameInfo> front_frame;
+				Reference<SampleInfo> front_frame;
 				size_t queue_size;
 				bool got_item = false;
 				{
@@ -1094,7 +1095,7 @@ void WMFVideoReader::test()
 
 							conPrint("Processing video frame, frame time " + toString(front_frame->frame_time) + ", queue_size: " + toString(queue_size));
 
-							WMFFrameInfo* wmf_frame = front_frame.downcastToPtr<WMFFrameInfo>();
+							WMFSampleInfo* wmf_frame = front_frame.downcastToPtr<WMFSampleInfo>();
 							Direct3DUtils::saveTextureToBmp("frames/test_frame_" + toString(vid_frame_index) + ".bmp", wmf_frame->d3d_tex.ptr);
 
 							vid_frame_index++;
@@ -1141,7 +1142,7 @@ void WMFVideoReader::test()
 		{
 			while(1)
 			{
-				Reference<FrameInfo> frame_info = reader.getAndLockNextFrame();
+				Reference<SampleInfo> frame_info = reader.getAndLockNextSample(/*just_get_vid_sample=*/false);
 
 				if(frame_info.nonNull())
 				{

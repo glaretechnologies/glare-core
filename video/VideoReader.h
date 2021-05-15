@@ -16,11 +16,11 @@ Copyright Glare Technologies Limited 2021 -
 class VideoReader;
 
 
-class FrameInfo : public ThreadSafeRefCounted
+class SampleInfo : public ThreadSafeRefCounted
 {
 public:
-	FrameInfo() : frame_buffer(0), width(0), height(0), stride_B(0), top_down(true), buffer_len_B(0), is_audio(false) {}
-	virtual ~FrameInfo() {}
+	SampleInfo() : frame_buffer(0), width(0), height(0), stride_B(0), top_down(true), buffer_len_B(0), is_audio(false) {}
+	virtual ~SampleInfo() {}
 
 	double frame_time; // presentation time
 	double frame_duration;
@@ -40,17 +40,17 @@ public:
 	Reference<glare::Allocator> allocator;
 };
 
-typedef Reference<FrameInfo> FrameInfoRef;
+typedef Reference<SampleInfo> SampleInfoRef;
 
 
 // Template specialisation of destroyAndFreeOb for FrameInfo.
 template <>
-inline void destroyAndFreeOb<FrameInfo>(FrameInfo* ob)
+inline void destroyAndFreeOb<SampleInfo>(SampleInfo* ob)
 {
 	Reference<glare::Allocator> allocator = ob->allocator;
 
 	// Destroy object
-	ob->~FrameInfo();
+	ob->~SampleInfo();
 
 	// Free object mem
 	if(allocator.nonNull())
@@ -64,7 +64,7 @@ class VideoReaderCallback
 {
 public:
 	// NOTE: These methods may be called from another thread!
-	virtual void frameDecoded(VideoReader* vid_reader, const Reference<FrameInfo>& frameinfo) = 0;
+	virtual void frameDecoded(VideoReader* vid_reader, const Reference<SampleInfo>& frameinfo) = 0;
 
 	virtual void endOfStream(VideoReader* vid_reader) {}
 };
@@ -83,7 +83,7 @@ public:
 
 	virtual void startReadingNextSample() = 0;
 
-	virtual Reference<FrameInfo> getAndLockNextFrame() = 0; // FrameInfo.frame_buffer will be set to NULL if we have reached EOF.
+	virtual Reference<SampleInfo> getAndLockNextSample(bool just_get_vid_sample) = 0; // SampleInfo.frame_buffer will be set to NULL if we have reached EOF.
 
 	virtual void seek(double time) = 0;
 };

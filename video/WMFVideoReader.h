@@ -69,11 +69,11 @@ public:
 };
 
 
-class WMFFrameInfo : public FrameInfo
+class WMFSampleInfo : public SampleInfo
 {
 public:
-	WMFFrameInfo();
-	~WMFFrameInfo();
+	WMFSampleInfo();
+	~WMFSampleInfo();
 
 	ComObHandle<IMFMediaBuffer> media_buffer;
 	ComObHandle<IMF2DBuffer> buffer2d;
@@ -87,12 +87,12 @@ public:
 
 // Template specialisation of destroyAndFreeOb for WMFFrameInfo.
 template <>
-inline void destroyAndFreeOb<WMFFrameInfo>(WMFFrameInfo* ob)
+inline void destroyAndFreeOb<WMFSampleInfo>(WMFSampleInfo* ob)
 {
 	Reference<glare::Allocator> allocator = ob->allocator;
 
 	// Destroy object
-	ob->~WMFFrameInfo();
+	ob->~WMFSampleInfo();
 
 	// Free object mem
 	if(allocator.nonNull())
@@ -124,9 +124,9 @@ public:
 
 	virtual void startReadingNextSample() override;
 
-	virtual Reference<FrameInfo> getAndLockNextFrame(); // FrameInfo.frame_buffer will be set to NULL if we have reached EOF
+	virtual Reference<SampleInfo> getAndLockNextSample(bool just_get_vid_sample) override; // FrameInfo.frame_buffer will be set to NULL if we have reached EOF
 
-	virtual void seek(double time);
+	virtual void seek(double time) override;
 
 	static void test();
 
@@ -145,7 +145,7 @@ public:
 	);
 
 private:
-	WMFFrameInfo* allocWMFFrameInfo();
+	WMFSampleInfo* allocWMFSampleInfo();
 
 	ComObHandle<IMFSourceReader> reader;
 
@@ -164,7 +164,7 @@ private:
 public:
 	Reference<TexturePool> texture_pool;
 
-	Reference<glare::PoolAllocator<WMFFrameInfo>> frame_info_allocator;
+	Reference<glare::PoolAllocator<WMFSampleInfo>> frame_info_allocator;
 
 	glare::AtomicInt num_pending_reads;
 };
