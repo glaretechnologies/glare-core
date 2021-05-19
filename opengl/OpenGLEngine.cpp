@@ -916,7 +916,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			}
 		}*/
 
-		fallback_phong_prog = getPhongProgram(PhongKey(false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_phong_prog = getPhongProgram(PhongKey(false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
 		transparent_prog = new OpenGLProgram(
 			"transparent",
@@ -1139,6 +1139,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws gl
 			"#define INSTANCE_MATRICES " + toString(key.instance_matrices) + "\n" +
 			"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" + 
 			"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
+			"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
 			"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n";
 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
@@ -1302,8 +1303,8 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	{
 		const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
 		const bool uses_lightmapping = material.lightmap_texture.nonNull();
-		material.shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping, material.gen_planar_uvs,
-			material.convert_albedo_from_srgb));
+		material.shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping, 
+			material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb));
 	}
 }
 
@@ -1724,8 +1725,8 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false, /*gen_planar_uvs=*/false, 
-			/*convert_albedo_from_srgb=*/false));
+		debug_arrow_ob->materials[0].shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false, 
+			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false));
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *

@@ -202,6 +202,13 @@ void main()
 		discard;
 #endif
 
+#if DRAW_PLANAR_UV_GRID
+	const float border_w = 0.01;
+	if(	fract(use_texture_coords.x) < border_w || fract(use_texture_coords.x) >= (1 - border_w) ||
+		fract(use_texture_coords.y) < border_w || fract(use_texture_coords.y) >= (1 - border_w))
+		diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
+#endif
+
 	//------------- Compute specular microfacet terms --------------
 	//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
 	float h_cos_theta = abs(dot(h, unit_normal_cs));
