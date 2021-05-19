@@ -62,6 +62,10 @@ public:
 	inline AABBox transformedAABB(const Matrix4f& M) const;
 	inline AABBox transformedAABBFast(const Matrix4f& M) const; // Faster, but with possible precision issues.
 
+	inline Vec4f getClosestPointInAABB(const Vec4f& p) const;
+
+	inline float distanceToPoint(const Vec4f& p) const; // Get distance from p to closest point in AABB to p
+
 	const std::string toString() const;
 	const std::string toStringNSigFigs(int n) const;
 
@@ -314,6 +318,18 @@ void getAABBCornerVerts(const js::AABBox& aabb, Vec4f* verts_out)
 	verts_out[5] = shuffle<1, 2, 2, 3>(lo,        aabb.max_); // (max[0], min[1], max[2], 1)
 	verts_out[6] = shuffle<0, 3, 2, 3>(lo,        aabb.max_); // (min[0], max[1], max[2], 1)
 	verts_out[7] = aabb.max_;                                 // (max[0], max[1], max[2], 1)
+}
+
+
+Vec4f AABBox::getClosestPointInAABB(const Vec4f& p) const
+{
+	return max(min_, min(p, max_));
+}
+
+
+float AABBox::distanceToPoint(const Vec4f& p) const // Get distance from p to closest point in AABB to p
+{
+	return p.getDist(getClosestPointInAABB(p));
 }
 
 
