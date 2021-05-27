@@ -11,8 +11,14 @@ Copyright Glare Technologies Limited 2018 -
 
 
 // Do explicit template instantiation
-template void Matrix3<float>::rotationMatrixToAxisAngle(Vec3<float>& unit_axis_out, float& angle_out) const;
+template void Matrix3<float >::rotationMatrixToAxisAngle(Vec3<float>& unit_axis_out, float& angle_out) const;
 template void Matrix3<double>::rotationMatrixToAxisAngle(Vec3<double>& unit_axis_out, double& angle_out) const;
+
+template Vec3<float > Matrix3<float >::getAngles() const;
+template Vec3<double> Matrix3<double>::getAngles() const;
+
+template Matrix3<float > Matrix3<float >::fromAngles(const Vec3<float >& angles);
+template Matrix3<double> Matrix3<double>::fromAngles(const Vec3<double>& angles);
 
 
 template <>
@@ -117,6 +123,76 @@ void Matrix3<Real>::rotationMatrixToAxisAngle(Vec3<Real>& unit_axis_out, Real& a
 }
 
 
+// Angles = (a, b, c)
+// Where the transformation is
+// rot(vec3(0,0,1), a, rot(vec3(0,1,0), b, rot(vec3(1,0,0), c, v)))
+//
+// Where rot(axis, angle, v) is a rotation of the vector v around the axis by angle.
+
+template <class Real>
+Vec3<Real> Matrix3<Real>::getAngles() const // Get Euler angles.  Assumes this is a rotation matrix.
+{
+	const Vec3<Real> x_primed = getColumn0();
+	const Vec3<Real> y_primed = getColumn1();
+
+	if(fabs(x_primed.y) < (Real)1.0e-7 && fabs(x_primed.x) < (Real)1.0e-7)
+	{
+		// x-axis x and y components are both (almost) zero.  Therefore x-axis is oriented along the parent z-axis or -z axis.
+		// In this case both the final rotation rot(vec3(0,0,1), a, v)  and the initial rotation rot(vec3(1,0,0), c, v)
+		// result in a rotation around vec3(0,0,1).
+		// Just use y' to determine the rotation and assign it to a, and let c = 0.
+		// y' will lie in x-y plane.  y' pointing along parent y axis should be 0 rotation, so subtract pi/2.
+
+		const Real z_angle = std::atan2(y_primed.y, y_primed.x) - Maths::pi_2<Real>();
+
+		if(x_primed.z > 0) // x axis is pointing along +z:
+		{
+			return Vec3<Real>(z_angle, -Maths::pi_2<Real>(), 0);
+		}
+		else // else x axis is pointing along -z:
+		{
+			return Vec3<Real>(z_angle, Maths::pi_2<Real>(), 0);
+		}
+	} 
+	else
+	{
+		const Real z_angle = std::atan2(x_primed.y, x_primed.x); // Get rotation angle around the z axis
+
+		// Undo z rotation - get inverse z rotation matrix, e.g. the function rot(vec3(0,0,1), -a, v)
+		const Matrix3<Real> inv_z_rot = Matrix3<Real>::rotationAroundZAxis(-z_angle);
+
+		const Vec3<Real> x_primed_2 = inv_z_rot * x_primed; // x axis without z rotation, e.g.
+		// rot(vec3(0,0,1), -a, rot(vec3(0,0,1), a, rot(vec3(0, 1, 0), b, rot(vec3(1,0,0), c, vec3(1,0,0))))
+		// = rot(vec3(0, 1, 0), b, rot(vec3(1,0,0), c, vec3(1,0,0)))
+		// It should lie in the x-z plane.
+		assert(::epsEqual<Real>(x_primed_2.y, 0));
+
+		// y angle is now given by rotation in x-z plane
+		const Real y_angle = -std::atan2(x_primed_2.z, x_primed_2.x); // Rot around y axis
+
+		const Matrix3<Real> inv_y_rot = Matrix3<Real>::rotationAroundYAxis(-y_angle);
+
+		const Vec3<Real> y_primed_2 = inv_y_rot * (inv_z_rot * y_primed); // y axis with z rotation and y rotation, e.g.
+		//   rot(vec3(0,1,0), -b, rot(vec3(0,0,1), -a, rot(vec3(0,0,1), a, rot(vec3(0,1,0), b, rot(vec3(1,0,0), c, vec3(0,1,0)))))
+		// = rot(vec3(1,0,0), c, vec3(0,1,0))
+		// It should lie in the y-z plane
+		assert(::epsEqual<Real>(y_primed_2.x, 0));
+
+		// x angle is now given by rotation angle in y-z plane.
+		const Real x_angle = std::atan2(y_primed_2.z, y_primed_2.y); // Rot around x axis
+	
+		return Vec3<Real>(z_angle, y_angle, x_angle);
+	}
+}
+
+
+template <class Real>
+Matrix3<Real> Matrix3<Real>::fromAngles(const Vec3<Real>& angles) // Construct rotation matrix from Euler angles.
+{
+	return Matrix3<Real>::rotationAroundZAxis(angles.x) * Matrix3<Real>::rotationAroundYAxis(angles.y) * Matrix3<Real>::rotationAroundXAxis(angles.z);
+}
+
+
 #if BUILD_TESTS
 
 
@@ -146,6 +222,62 @@ void Matrix3<float>::test()
 	invertible = identity().inverse(identity_inverse);
 	testAssert(invertible);
 	testAssert(epsMatrixEqual(identity(), identity_inverse, (float)NICKMATHS_EPSILON));
+
+
+	// Test rotationAroundXAxis
+	{
+		for(float theta = -10.0f; theta < 10.0f; theta += 0.1f)
+			testAssert(epsMatrixEqual(Matrix3f::rotationAroundXAxis(theta), Matrix3f::rotationMatrix(Vec3f(1, 0, 0), theta)));
+	}
+	// Test rotationAroundYAxis
+	{
+		for(float theta = -10.0f; theta < 10.0f; theta += 0.1f)
+			testAssert(epsMatrixEqual(Matrix3f::rotationAroundYAxis(theta), Matrix3f::rotationMatrix(Vec3f(0, 1, 0), theta)));
+	}
+	// Test rotationAroundZAxis
+	{
+		for(float theta = -10.0f; theta < 10.0f; theta += 0.1f)
+			testAssert(epsMatrixEqual(Matrix3f::rotationAroundZAxis(theta), Matrix3f::rotationMatrix(Vec3f(0, 0, 1), theta)));
+	}
+
+	//=================== getAngles and fromAngles ======================
+	{
+		testEpsEqual(Matrix3f::identity().getAngles(), Vec3f(0, 0, 0));
+
+		testEpsEqual(Matrix3f::rotationAroundZAxis(1.0).getAngles(), Vec3f(1, 0, 0)); // a = rot around z axis (yaw)
+
+		testEpsEqual(Matrix3f::rotationAroundYAxis(1.0).getAngles(), Vec3f(0, 1, 0)); // b = rot around y axis (pitch)
+
+		testEpsEqual(Matrix3f::rotationAroundXAxis(1.0).getAngles(), Vec3f(0, 0, 1)); // c = rot around x axis (roll)
+
+		// Test pitching angle of pi/2 and -pi/2
+		testEpsEqual(Matrix3f::rotationAroundYAxis(Maths::pi_2<float>()).getAngles(), Vec3f(0, Maths::pi_2<float>(), 0)); // b = rot around y axis
+		testEpsEqual(Matrix3f::rotationAroundYAxis(-Maths::pi_2<float>()).getAngles(), Vec3f(0, -Maths::pi_2<float>(), 0)); // b = rot around y axis
+
+		// TODO: test these more.
+
+		// Test with some random rotations
+		{
+			PCG32 rng(1);
+
+			for(int i=0; i<1000; ++i)
+			{
+				// Generate a random rot matrix.
+				const Vec3f axis = normalise(Vec3f(-1 + 2 * rng.unitRandom(), -1 + 2 * rng.unitRandom(), -1 + 2 * rng.unitRandom()));
+				const float angle = rng.unitRandom() * Maths::get2Pi<float>();
+				const Matrix3f rot_matrix = Matrix3f::rotationMatrix(axis, angle);
+
+				// Get angles from matrix
+				const Vec3f angles = rot_matrix.getAngles();
+
+				// Convert angles back to a rotation matrix
+				const Matrix3f m2 = Matrix3f::fromAngles(angles);
+
+				// Check round trip results in the same matrix.
+				testAssert(epsMatrixEqual(rot_matrix, m2));
+			}
+		}
+	}
 
 
 	//=================== rotationMatrixToAxisAngle() ======================

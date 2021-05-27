@@ -50,7 +50,20 @@ public:
 	inline Vec3<Real> transposeMult(const Vec3<Real>& rhs) const;
 
 
-	static const Matrix3 rotationMatrix(const Vec3<Real>& unit_axis, Real angle);
+	inline static const Matrix3 rotationMatrix(const Vec3<Real>& unit_axis, Real angle);
+
+	inline static const Matrix3 rotationAroundXAxis(Real angle);
+	inline static const Matrix3 rotationAroundYAxis(Real angle);
+	inline static const Matrix3 rotationAroundZAxis(Real angle);
+
+	// Angles = (a, b, c)
+	// Where the transformation is
+	// rot(vec3(0,0,1), a, rot(vec3(0,1,0), b, rot(vec3(1,0,0), c, v)))
+	//
+	// Where rot(axis, angle, v) is a rotation of the vector v around the axis by angle.
+	Vec3<Real> getAngles() const; // Get Euler angles.  Assumes this is a rotation matrix.
+
+	static Matrix3 fromAngles(const Vec3<Real>& angles); // Construct rotation matrix from Euler angles.
 
 
 	inline const Matrix3 getTranspose() const;
@@ -597,7 +610,65 @@ const Matrix3<Real> Matrix3<Real>::rotationMatrix(const Vec3<Real>& unit_axis, R
 		Vec3<Real>(a*a*one_minus_cost + cost, a*b*one_minus_cost + csint, a*c*one_minus_cost - bsint), // column 0
 		Vec3<Real>(a*b*one_minus_cost - csint, b*b*one_minus_cost + cost, b*c*one_minus_cost + asint), // column 1
 		Vec3<Real>(a*c*one_minus_cost + bsint, b*c*one_minus_cost - asint, c*c*one_minus_cost + cost) // column 2
-		);
+	);
+}
+
+
+// See https://en.wikipedia.org/wiki/Rotation_matrix, 'Basic rotations'.
+template <class Real>
+const Matrix3<Real> Matrix3<Real>::rotationAroundXAxis(Real angle)
+{
+	const Real cos_theta = std::cos(angle);
+	const Real sin_theta = std::sin(angle);
+	Matrix3<Real> m;
+	m.e[0] = 1;
+	m.e[1] = 0;
+	m.e[2] = 0;
+	m.e[3] = 0;
+	m.e[4] = cos_theta;
+	m.e[5] = -sin_theta;
+	m.e[6] = 0;
+	m.e[7] = sin_theta;
+	m.e[8] = cos_theta;
+	return m;
+}
+
+
+template <class Real>
+const Matrix3<Real> Matrix3<Real>::rotationAroundYAxis(Real angle)
+{
+	const Real cos_theta = std::cos(angle);
+	const Real sin_theta = std::sin(angle);
+	Matrix3<Real> m;
+	m.e[0] = cos_theta;
+	m.e[1] = 0;
+	m.e[2] = sin_theta;
+	m.e[3] = 0;
+	m.e[4] = 1;
+	m.e[5] = 0;
+	m.e[6] = -sin_theta;
+	m.e[7] = 0;
+	m.e[8] = cos_theta;
+	return m;
+}
+
+
+template <class Real>
+const Matrix3<Real> Matrix3<Real>::rotationAroundZAxis(Real angle)
+{
+	const Real cos_theta = std::cos(angle);
+	const Real sin_theta = std::sin(angle);
+	Matrix3<Real> m;
+	m.e[0] = cos_theta;
+	m.e[1] = -sin_theta;
+	m.e[2] = 0;
+	m.e[3] = sin_theta;
+	m.e[4] = cos_theta;
+	m.e[5] = 0;
+	m.e[6] = 0;
+	m.e[7] = 0;
+	m.e[8] = 1;
+	return m;
 }
 
 
