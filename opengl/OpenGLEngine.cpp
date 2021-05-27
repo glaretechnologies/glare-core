@@ -149,7 +149,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
 	are_8bit_textures_sRGB(true),
 	outline_tex_w(0),
-	outline_tex_h(0)
+	outline_tex_h(0),
+	last_num_obs_in_frustum(0)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -2620,6 +2621,8 @@ void OpenGLEngine::draw()
 		}
 		else
 			num_frustum_culled++;
+
+		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
 
 	//================= Draw wireframes if required =================
@@ -5397,4 +5400,23 @@ GLMemUsage OpenGLEngine::getTotalMemUsage() const
 	}
 
 	return sum;
+}
+
+
+std::string OpenGLEngine::getDiagnostics() const
+{
+	std::string s;
+	s += "Objects: " + toString(current_scene->objects.size()) + "\n";
+	s += "Transparent objects: " + toString(current_scene->transparent_objects.size()) + "\n";
+
+	s += "Num obs in view frustum: " + toString(last_num_obs_in_frustum) + "\n";
+
+	const GLMemUsage mem_usage = this->getTotalMemUsage();
+	s += "geometry CPU mem usage: " + getNiceByteSize(mem_usage.geom_cpu_usage) + "\n";
+	s += "geometry GPU mem usage: " + getNiceByteSize(mem_usage.geom_gpu_usage) + "\n";
+	s += "texture CPU mem usage: " + getNiceByteSize(mem_usage.texture_cpu_usage) + "\n";
+	s += "texture GPU mem usage: " + getNiceByteSize(mem_usage.texture_gpu_usage) + "\n";
+	s += "num textures: " + toString(opengl_textures.size()) + "\n";
+
+	return s;
 }

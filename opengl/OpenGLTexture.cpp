@@ -573,6 +573,7 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 	{
 		this->xres = tex_xres;
 		this->yres = tex_yres;
+		this->loaded_size = 0; // Assume level 0 is loaded first.
 	}
 	this->loaded_size += tex_data.size();
 

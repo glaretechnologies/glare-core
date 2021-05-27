@@ -522,6 +522,8 @@ public:
 
 	//----------------------------------- Diagnostics ----------------------------------------
 	GLMemUsage getTotalMemUsage() const;
+
+	std::string getDiagnostics() const;
 	//----------------------------------------------------------------------------------------
 
 private:
@@ -721,6 +723,8 @@ private:
 	Reference<OpenGLScene> current_scene;
 
 	PCG32 rng;
+
+	uint64 last_num_obs_in_frustum;
 };
 
 
