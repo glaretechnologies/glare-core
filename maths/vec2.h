@@ -377,6 +377,24 @@ inline const Vec2<double> toVec2d(const Vec2<float>& v)
 }
 
 
+template <class Real>
+inline Vec2<Real> closestPointOnLineSegment(const Vec2<Real>& p, const Vec2<Real>& p_a, const Vec2<Real>& p_b)
+{
+	const Vec2<Real> v = p_b - p_a;
+	Real t = dot(p - p_a, v) / v.length2();
+	t = myClamp<Real>(t, 0, 1);
+	return p_a + v * t;
+}
+
+
+template <class Real>
+inline Real pointLineSegmentDist(const Vec2<Real>& p, const Vec2<Real>& a, const Vec2<Real>& b)
+{
+	const Vec2<Real> p_closest = closestPointOnLineSegment(p, a, b);
+	return (p - p_closest).length();
+}
+
+
 typedef Vec2<float> Vec2f;
 typedef Vec2<double> Vec2d;
 typedef Vec2<int> Vec2i;

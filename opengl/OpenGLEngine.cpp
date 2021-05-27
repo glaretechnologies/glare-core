@@ -4318,10 +4318,8 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 }
 
 
-GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale)
+Matrix4f OpenGLEngine::arrowObjectTransform(const Vec4f& startpos, const Vec4f& endpos, float radius_scale)
 {
-	GLObjectRef ob = new GLObject();
-
 	// We want to map the vector (1,0,0) to endpos-startpos.
 	// We want to map the point (0,0,0) to startpos.
 
@@ -4329,11 +4327,20 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 	const Vec4f col1 = normalise(std::fabs(normalise(dir)[2]) > 0.5f ? crossProduct(dir, Vec4f(1,0,0,0)) : crossProduct(dir, Vec4f(0,0,1,0))) * radius_scale;
 	const Vec4f col2 = normalise(crossProduct(dir, col1)) * radius_scale;
 
-	//ob->ob_to_world_matrix = Matrix4f::identity();
-	ob->ob_to_world_matrix.setColumn(0, dir);
-	ob->ob_to_world_matrix.setColumn(1, col1);
-	ob->ob_to_world_matrix.setColumn(2, col2);
-	ob->ob_to_world_matrix.setColumn(3, startpos);
+	Matrix4f m;
+	m.setColumn(0, dir);
+	m.setColumn(1, col1);
+	m.setColumn(2, col2);
+	m.setColumn(3, startpos);
+	return m;
+}
+
+
+GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale)
+{
+	GLObjectRef ob = new GLObject();
+
+	ob->ob_to_world_matrix = arrowObjectTransform(startpos, endpos, radius_scale);
 
 	if(arrow_meshdata.isNull())
 		arrow_meshdata = make3DArrowMesh();
