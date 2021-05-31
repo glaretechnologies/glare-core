@@ -378,6 +378,15 @@ inline const Vec2<double> toVec2d(const Vec2<float>& v)
 
 
 template <class Real>
+inline Vec2<Real> closestPointOnLine(const Vec2<Real>& p, const Vec2<Real>& p_a, const Vec2<Real>& p_b)
+{
+	const Vec2<Real> v = p_b - p_a;
+	Real t = dot(p - p_a, v) / v.length2();
+	return p_a + v * t;
+}
+
+
+template <class Real>
 inline Vec2<Real> closestPointOnLineSegment(const Vec2<Real>& p, const Vec2<Real>& p_a, const Vec2<Real>& p_b)
 {
 	const Vec2<Real> v = p_b - p_a;
