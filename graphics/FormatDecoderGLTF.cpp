@@ -44,7 +44,7 @@ struct GLTFBufferView : public RefCounted
 	size_t buffer;
 	size_t byte_length;
 	size_t byte_offset;
-	size_t byte_stride;
+	size_t byte_stride; // The stride, in bytes, between vertex attributes. When this is not defined, data is tightly packed.
 	std::string name;
 	size_t target;
 };
@@ -329,12 +329,12 @@ static GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const J
 }
 
 
-//static const int GLTF_COMPONENT_TYPE_BYTE			= 5120;
-//static const int GLTF_COMPONENT_TYPE_UNSIGNED_BYTE= 5121;
-//static const int GLTF_COMPONENT_TYPE_SHORT		= 5122;
-static const int GLTF_COMPONENT_TYPE_UNSIGNED_SHORT = 5123;
-static const int GLTF_COMPONENT_TYPE_UNSIGNED_INT	= 5125;
-static const int GLTF_COMPONENT_TYPE_FLOAT			= 5126;
+static const size_t GLTF_COMPONENT_TYPE_BYTE			= 5120;
+static const size_t GLTF_COMPONENT_TYPE_UNSIGNED_BYTE	= 5121;
+static const size_t GLTF_COMPONENT_TYPE_SHORT			= 5122;
+static const size_t GLTF_COMPONENT_TYPE_UNSIGNED_SHORT	= 5123;
+static const size_t GLTF_COMPONENT_TYPE_UNSIGNED_INT	= 5125;
+static const size_t GLTF_COMPONENT_TYPE_FLOAT			= 5126;
 
 
 //static const int GLTF_MODE_POINTS			= 0;
@@ -346,7 +346,58 @@ static const int GLTF_MODE_TRIANGLES		= 4;
 //static const int GLTF_MODE_TRIANGLE_FAN	= 6;
 
 
+static std::string componentTypeString(size_t t)
+{
+	switch(t)
+	{
+		case GLTF_COMPONENT_TYPE_BYTE:			return "BYTE";
+		case GLTF_COMPONENT_TYPE_UNSIGNED_BYTE:	return "UNSIGNED_BYTE";
+		case GLTF_COMPONENT_TYPE_SHORT:			return "SHORT";
+		case GLTF_COMPONENT_TYPE_UNSIGNED_SHORT:return "UNSIGNED_SHORT";
+		case GLTF_COMPONENT_TYPE_UNSIGNED_INT:	return "UNSIGNED_INT";
+		case GLTF_COMPONENT_TYPE_FLOAT:			return "FLOAT";
+		default: return "Unknown";
+	};
+}
 
+
+static size_t componentTypeByteSize(size_t t)
+{
+	switch(t)
+	{
+	case GLTF_COMPONENT_TYPE_BYTE:			return 1;
+	case GLTF_COMPONENT_TYPE_UNSIGNED_BYTE:	return 1;
+	case GLTF_COMPONENT_TYPE_SHORT:			return 2;
+	case GLTF_COMPONENT_TYPE_UNSIGNED_SHORT:return 2;
+	case GLTF_COMPONENT_TYPE_UNSIGNED_INT:	return 4;
+	case GLTF_COMPONENT_TYPE_FLOAT:			return 4;
+	default: return 1;
+	};
+}
+
+
+static size_t typeNumComponents(const std::string& type)
+{
+	if(::stringEqual(type.c_str(), "SCALAR"))
+		return 1;
+	if(::stringEqual(type.c_str(), "VEC2"))
+		return 2;
+	if(::stringEqual(type.c_str(), "VEC3"))
+		return 3;
+	if(::stringEqual(type.c_str(), "VEC4"))
+		return 4;
+	if(::stringEqual(type.c_str(), "MAT2"))
+		return 4;
+	if(::stringEqual(type.c_str(), "MAT3"))
+		return 9;
+	if(::stringEqual(type.c_str(), "MAT4"))
+		return 16;
+
+	throw glare::Exception("Unknown type '" + type + "'");
+}
+
+
+// Only handles reading from vector attributes with at least 3 components, always writes/converts to 3-component vectors.
 static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, const std::string& attr_name, const Matrix4f& transform, Indigo::Vector<Indigo::Vec3f>& data_out)
 {
 	GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, attr_name);
@@ -355,12 +406,34 @@ static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, cons
 
 	const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
 	const uint8* offset_base = buffer.binary_data + offset_B;
-	const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec3f);
+	const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : (componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type));
 
 	const size_t write_i = data_out.size();
 	data_out.resize(write_i + accessor.count);
 
-	if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+	if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+	{
+		if(byte_stride < sizeof(uint8)*3)
+			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
+		if(offset_B + byte_stride * (accessor.count - 1) + sizeof(uint8)*3 > buffer.data_size)
+			throw glare::Exception("Out of bounds while trying to read '" + attr_name + "'");
+
+		for(size_t z=0; z<accessor.count; ++z)
+		{
+			const Vec4f v(
+				((const uint8*)(offset_base + byte_stride * z))[0],
+				((const uint8*)(offset_base + byte_stride * z))[1],
+				((const uint8*)(offset_base + byte_stride * z))[2],
+				1);
+
+			const Vec4f v_primed = transform * v;
+
+			data_out[write_i + z].x = v_primed[0] * (1 / 255.f);
+			data_out[write_i + z].y = v_primed[1] * (1 / 255.f);
+			data_out[write_i + z].z = v_primed[2] * (1 / 255.f);
+		}
+	}
+	else if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 	{
 		if(byte_stride < sizeof(float)*3)
 			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
@@ -383,7 +456,7 @@ static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, cons
 		}
 	}
 	else
-		throw glare::Exception("unhandled component type.");
+		throw glare::Exception("unhandled component type for attribute " + attr_name + ": " + componentTypeString(accessor.component_type));
 }
 
 
@@ -403,7 +476,7 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 				throw glare::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
 
 			if(primitive.indices == std::numeric_limits<size_t>::max())
-				throw glare::Exception("Primitve did not have indices..");
+				throw glare::Exception("Primitve did not have indices.");
 
 			total_num_tris  += getAccessor(data, primitive.indices).count / 3;
 			total_num_verts += getAccessorForAttribute(data, primitive, "POSITION").count;
@@ -580,7 +653,28 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 
 				const uint32 vert_i_offset = (uint32)mesh_out.vert_positions.size();
 				
-				if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+				if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+				{
+					if(offset_B + index_accessor.count * sizeof(uint8) > buffer.data_size)
+						throw glare::Exception("Out of bounds while trying to read indices");
+
+#if USE_INDIGO_MESH_INDICES
+					for(size_t z=0; z<index_accessor.count; ++z)
+						mesh_out.indices[indices_write_i + z] = vert_i_offset + ((const uint8*)offset_base)[z];
+#else
+					for(size_t z=0; z<index_accessor.count / 3; ++z)
+					{
+						mesh_out.triangles[tri_write_i + z].vertex_indices[0]	= vert_i_offset + ((const uint8*)offset_base)[z*3 + 0];
+						mesh_out.triangles[tri_write_i + z].vertex_indices[1]	= vert_i_offset + ((const uint8*)offset_base)[z*3 + 1];
+						mesh_out.triangles[tri_write_i + z].vertex_indices[2]	= vert_i_offset + ((const uint8*)offset_base)[z*3 + 2];
+						mesh_out.triangles[tri_write_i + z].uv_indices[0]		= vert_i_offset + ((const uint8*)offset_base)[z*3 + 0];
+						mesh_out.triangles[tri_write_i + z].uv_indices[1]		= vert_i_offset + ((const uint8*)offset_base)[z*3 + 1];
+						mesh_out.triangles[tri_write_i + z].uv_indices[2]		= vert_i_offset + ((const uint8*)offset_base)[z*3 + 2];
+						mesh_out.triangles[tri_write_i + z].tri_mat_index = (uint32)primitive.material;
+					}
+#endif
+				}
+				else if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 				{
 					if(offset_B + index_accessor.count * sizeof(uint16) > buffer.data_size)
 						throw glare::Exception("Out of bounds while trying to read indices");
@@ -623,7 +717,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 #endif
 				}
 				else
-					throw glare::Exception("Unhandled index accessor component type.");
+					throw glare::Exception("Unhandled index accessor component type: " + componentTypeString(index_accessor.component_type));
 			}
 
 			// Process vertex positions
@@ -691,7 +785,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 			{
 				if(data.attr_present.vert_col_present)
 				{
-					// Pad with colours.  This is a hack, needed because we only have one vertex layout per mesh.
+					// Pad with colours zeroes.  This is a hack, needed because we only have one vertex layout per mesh.
 					const size_t colours_write_i = mesh_out.vert_colours.size();
 					mesh_out.vert_colours.resize(colours_write_i + vert_pos_count);
 					for(size_t z=0; z<vert_pos_count; ++z)
@@ -708,7 +802,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 
 				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
 				const uint8* offset_base = buffer.binary_data + offset_B;
-				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : sizeof(Indigo::Vec2f);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : (componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type));
 
 				const size_t uvs_write_i = mesh_out.uv_pairs.size();
 				mesh_out.uv_pairs.resize(uvs_write_i + accessor.count);
@@ -728,13 +822,13 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					}
 				}
 				else
-					throw glare::Exception("unhandled component type.");
+					throw glare::Exception("unhandled component type for TEXCOORD_0: " + componentTypeString(accessor.component_type));
 			}
 			else
 			{
 				if(data.attr_present.texcoord_0_present)
 				{
-					// Pad with UVs.  This is a bit of a hack, needed because we only have one vertex layout per mesh.
+					// Pad with UV zeroes.  This is a bit of a hack, needed because we only have one vertex layout per mesh.
 					const size_t uvs_write_i = mesh_out.uv_pairs.size();
 					mesh_out.uv_pairs.resize(uvs_write_i + vert_pos_count);
 					for(size_t z=0; z<vert_pos_count; ++z)
@@ -1859,6 +1953,23 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
+		{
+			// Has vertex colours, also uses unsigned bytes for indices.
+			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/VertexColorTest.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 2);
+			testAssert(mesh.vert_positions.size() == 72);
+			testAssert(mesh.vert_normals.size() == 72);
+			testAssert(mesh.vert_colours.size() == 72);
+			testAssert(mesh.uv_pairs.size() == 72);
+			testAssert(mesh.triangles.size() == 36);
+
+			testWriting(mesh, mats);
+		}
+
 		{
 			conPrint("---------------------------------Box.glb-----------------------------------");
 			Indigo::Mesh mesh;
