@@ -637,6 +637,25 @@ inline bool approxEq(const Vec3<Real>& a, const Vec3<Real>& b, Real eps = NICKMA
 	return Maths::approxEq(a.x, b.x, eps) && Maths::approxEq(a.y, b.y, eps) && Maths::approxEq(a.z, b.z, eps);
 }
 
+template <class Real>
+inline Vec3<Real> min(const Vec3<Real>& a, const Vec3<Real>& b)
+{
+	return Vec3<Real>(
+		myMin(a.x, b.x),
+		myMin(a.y, b.y),
+		myMin(a.z, b.z)
+	);
+}
+
+template <class Real>
+inline Vec3<Real> max(const Vec3<Real>& a, const Vec3<Real>& b)
+{
+	return Vec3<Real>(
+		myMax(a.x, b.x),
+		myMax(a.y, b.y),
+		myMax(a.z, b.z)
+	);
+}
 
 //for sorting Vec3's
 template <class Real>
