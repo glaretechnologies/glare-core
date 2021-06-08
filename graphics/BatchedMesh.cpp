@@ -224,8 +224,8 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 					throw glare::Exception("UV index out of bounds");
 
 				// Look up merged vertex
-				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i*num_uv_sets    ] : Indigo::Vec2f(0.f);
-				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i*num_uv_sets + 1] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i    ] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i + 1] : Indigo::Vec2f(0.f);
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];
@@ -325,15 +325,16 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 			for(uint32 i = 0; i < 4; ++i) // For each vert in quad:
 			{
 				const uint32 pos_i  = quad.vertex_indices[i];
-				const uint32 uv_i   = quad.uv_indices[i];
+				const uint32 base_uv_i = quad.uv_indices[i];
+				const uint32 uv_i = base_uv_i * num_uv_sets; // Index of UV for UV set 0.
 				if(pos_i >= vert_positions_size)
 					throw glare::Exception("vert index out of bounds");
 				if(mesh_has_uvs && uv_i >= uvs_size)
 					throw glare::Exception("UV index out of bounds");
 
 				// Look up merged vertex
-				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i*num_uv_sets    ] : Indigo::Vec2f(0.f);
-				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i*num_uv_sets + 1] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv0 = mesh_has_uvs ? uv_pairs[uv_i    ] : Indigo::Vec2f(0.f);
+				const Indigo::Vec2f uv1 = mesh_has_uv1 ? uv_pairs[uv_i + 1] : Indigo::Vec2f(0.f);
 
 				BMeshVertKey key;
 				key.pos = vert_positions[pos_i];

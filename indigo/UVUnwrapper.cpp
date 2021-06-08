@@ -307,7 +307,7 @@ inline static uint32 mod4(uint32 x)
 
 struct UnwrapperPoly
 {
-	Vec2f vert_uvs[4];
+	Vec2f vert_uvs[4]; // Lightmap UVs for the vertex, in patch space.
 	int edge_i[4];
 	int aligned_edge_i[4];
 	int num_edges;
@@ -924,7 +924,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 
 
-	// Create space for the new vertex UVs, one VertUVs per poly-vertex.
+	// Create space for the new vertex UVs, one VertUV object per polygon-vertex.
 
 	std::vector<VertUVs> new_uvs(mesh.triangles.size() * 4 + mesh.quads.size() * 4);
 
@@ -978,7 +978,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 				for(int v=0; v<3; ++v) // For each vert
 				{
-					// Copy old UVs (if any)
+					// Copy any existing non-lightmap UVS to new_uvs.
 					for(size_t s=0; s<old_num_sets; ++s)
 						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[tris_in[tri_index].uv_indices[v] * old_num_sets + s];
 
@@ -1007,7 +1007,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 				for(int v=0; v<4; ++v) // For each vert
 				{
-					// Copy old UVs (if any)
+					// Copy any existing non-lightmap UVS to new_uvs.
 					for(size_t s=0; s<old_num_sets; ++s)
 						new_uvs[poly_i * 4 + v].set_uvs[s] = uvs_in[quads_in[quad_index].uv_indices[v] * old_num_sets + s];
 
@@ -1043,9 +1043,9 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 	// TEMP: just copy new UVs
 	mesh.uv_pairs.resize(new_uvs.size() * new_num_sets);
-	for(size_t poly_i=0; poly_i<new_uvs.size(); ++poly_i)
+	for(size_t v_i=0; v_i<new_uvs.size(); ++v_i)
 		for(size_t s=0; s<new_num_sets; ++s)
-			mesh.uv_pairs[poly_i*new_num_sets + s] = new_uvs[poly_i].set_uvs[s];
+			mesh.uv_pairs[v_i*new_num_sets + s] = new_uvs[v_i].set_uvs[s];
 
 	// Update triangle/quad uv indices
 	for(size_t poly_i=0; poly_i<polys.size(); ++poly_i)
@@ -1159,6 +1159,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/bitmap.h"
 #include "../graphics/Drawing.h"
+#include "../graphics/BatchedMesh.h"
 #include "../maths/PCG32.h"
 
 
@@ -1172,6 +1173,8 @@ static UVUnwrapper::Results testUnwrappingWithMesh(Indigo::MeshRef mesh, const M
 		const float normed_margin = 2.f / 1024;
 		UVUnwrapper::Results results = UVUnwrapper::build(*mesh, ob_to_world, print_output, normed_margin);
 		conPrint("Unwrapped num UV vec2s: " + toString(mesh->uv_pairs.size()));
+
+		// mesh->writeToFile("unwrapped_mesh.igmesh", *mesh, true);
 
 		// Draw triangles on UV map
 		{
@@ -1231,19 +1234,38 @@ static UVUnwrapper::Results testUnwrappingWithMesh(Indigo::MeshRef mesh, const M
 static UVUnwrapper::Results testUnwrappingWithMesh(const std::string& path)
 {
 	// Load mesh
-	Indigo::MeshRef mesh = new Indigo::Mesh();
+	Indigo::MeshRef indigo_mesh = new Indigo::Mesh();
 	//MeshLoader::loadMesh(path, *mesh, 1.f);
 
 	try
 	{
-		Indigo::Mesh::readFromFile(toIndigoString(path), *mesh);
+		if(hasExtension(path, "igmesh"))
+		{
+			try
+			{
+				Indigo::Mesh::readFromFile(toIndigoString(path), *indigo_mesh);
+			}
+			catch(Indigo::IndigoException& e)
+			{
+				throw glare::Exception(toStdString(e.what()));
+			}
+		}
+		else if(hasExtension(path, "bmesh"))
+		{
+			BatchedMeshRef batched_mesh = new BatchedMesh();
+			BatchedMesh::readFromFile(path, *batched_mesh);
+
+			batched_mesh->buildIndigoMesh(*indigo_mesh);
+		}
+		else
+			throw glare::Exception("unhandled model format: " + path);
 	}
 	catch(Indigo::IndigoException& e)
 	{
 		throw glare::Exception("Error while reading mesh '" + path + ": " + toStdString(e.what()));
 	}
 
-	return testUnwrappingWithMesh(mesh, Matrix4f::identity());
+	return testUnwrappingWithMesh(indigo_mesh, Matrix4f::identity());
 }
 
 
@@ -1297,7 +1319,7 @@ void UVUnwrapper::test()
 	}
 
 	// Test a single quad, with no existing UVs
-	 {
+	{
 		Indigo::MeshRef mesh = new Indigo::Mesh();
 
 		mesh->addVertex(Indigo::Vec3f(0, 0, 0));
@@ -1576,9 +1598,10 @@ void UVUnwrapper::test()
 		testAssert(results.num_patches == 2);
 	}
 
-
 	// testUnwrappingWithMesh("C:\\programming\\cv_lightmapper\\cv_baking_meshes\\mesh_5876229332140735852.igmesh"); // CV Parcel #1 (z-up)
 
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/bmesh/Cube_obj_11907297875084081315.bmesh");
+	
 	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/quad_and_two_tris.igmesh");
 
 	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_15695509023332119054.igmesh"); // Cornell box

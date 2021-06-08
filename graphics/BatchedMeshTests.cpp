@@ -210,6 +210,21 @@ void BatchedMeshTests::test()
 
 	try
 	{
+		// Test a mesh with 2 UV sets (from lightmap unwrapping)
+		{
+			Indigo::Mesh indigo_mesh;
+			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir() + "/testfiles/igmesh/unwrapped_mesh.igmesh"), indigo_mesh);
+
+			BatchedMesh batched_mesh;
+			batched_mesh.buildFromIndigoMesh(indigo_mesh);
+
+			testAssert(batched_mesh.numVerts() == 4 * 6); // Check that vertices are merged for faces.
+			testAssert(batched_mesh.numIndices() == 6 * 6);
+
+			//testWritingAndReadingMesh(batched_mesh);
+			//testIndigoMeshConversion(batched_mesh);
+		}
+
 		{
 			const uint32 packed = BMeshPackNormal(Indigo::Vec3f(-1.f, 0.f, 1.f));
 
