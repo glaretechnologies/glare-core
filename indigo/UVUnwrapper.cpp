@@ -278,11 +278,18 @@ struct UnwrapperEdgeInfo
 };
 
 
+// Used in UnwrapperAlignedEdgeInfo:
+struct AdjacentPolyRef
+{
+	uint32 poly_index; // Index of the adjacent polygon
+	uint32 edge_index; // Index of the edge lying on the line, in the adjacent polygon.
+};
+
 struct UnwrapperAlignedEdgeInfo
 {
-	SmallVector<uint32, 2> axis_adjacent_polys; // Possible aligned along an axis-aligned line.
-	Indigo::Vec3f start;
-	int axis;
+	SmallVector<AdjacentPolyRef, 2> axis_adjacent_polys; // Polygons with edges aligned along an axis-aligned line.
+	Indigo::Vec3f start; // Point on axis-aligned line where it intersects the plane formed by the other two axes
+	int axis; // axis this line is aligned with.
 };
 
 static const uint32_t mod3_table[] = { 0, 1, 2, 0, 1, 2 };
@@ -318,6 +325,16 @@ static inline ::Vec2f toVec2f(const Indigo::Vec2f& v)
 {
 	return Vec2f(v.x, v.y);
 }
+
+
+#ifndef NDEBUG
+static Indigo::Vec3f zeroComponent(const Indigo::Vec3f& v, int i)
+{
+	Indigo::Vec3f res = v;
+	res[i] = 0.f;
+	return res;
+}
+#endif
 
 
 UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_to_world, PrintOutput& print_output, float normed_margin)
@@ -426,13 +443,17 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 					const AxisAlignedEdgeKey aligned_edge_key(start, axis);
 
+					AdjacentPolyRef ref;
+					ref.poly_index = (uint32)t;
+					ref.edge_index = i;
+
 					auto edge_res = axis_aligned_edges_map.find(aligned_edge_key);
 					if(edge_res == axis_aligned_edges_map.end()) // If aligned edge not added yet:
 					{
 						const size_t edge_i = aligned_edges.size();
 						aligned_edges.resize(edge_i + 1);
 
-						aligned_edges[edge_i].axis_adjacent_polys.push_back((uint32)t); // Add the current tri to the list of adjacent polygons.
+						aligned_edges[edge_i].axis_adjacent_polys.push_back(ref); // Add the current tri to the list of adjacent polygons.
 						aligned_edges[edge_i].start = start;
 						aligned_edges[edge_i].axis = axis;
 
@@ -442,7 +463,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 					}
 					else
 					{
-						aligned_edges[edge_res->second].axis_adjacent_polys.push_back((uint32)t);
+						aligned_edges[edge_res->second].axis_adjacent_polys.push_back(ref);
 
 						polys[t].aligned_edge_i[i] = (int)edge_res->second;
 					}
@@ -525,13 +546,17 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 					const AxisAlignedEdgeKey aligned_edge_key(start, axis);
 
+					AdjacentPolyRef ref;
+					ref.poly_index = (uint32)poly_i;
+					ref.edge_index = i;
+
 					auto edge_res = axis_aligned_edges_map.find(aligned_edge_key);
 					if(edge_res == axis_aligned_edges_map.end()) // If aligned edge not added yet:
 					{
 						const size_t edge_i = aligned_edges.size();
 						aligned_edges.resize(edge_i + 1);
 
-						aligned_edges[edge_i].axis_adjacent_polys.push_back((uint32)poly_i);
+						aligned_edges[edge_i].axis_adjacent_polys.push_back(ref);
 						aligned_edges[edge_i].start = start;
 						aligned_edges[edge_i].axis = axis;
 
@@ -541,7 +566,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 					}
 					else
 					{
-						aligned_edges[edge_res->second].axis_adjacent_polys.push_back((uint32)poly_i);
+						aligned_edges[edge_res->second].axis_adjacent_polys.push_back(ref);
 
 						polys[poly_i].aligned_edge_i[i] = (int)edge_res->second;
 					}
@@ -647,6 +672,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 				for(int e=0; e<polys[poly_i].num_edges; ++e)
 				{
 					// Check for adjacent polygons where the other polygon shares the edge with this polygon.
+					bool found_adjacent_poly = false;
 					{
 						const int edge_i = poly.edge_i[e];
 						const UnwrapperEdgeInfo& edge = edges[edge_i];
@@ -681,111 +707,92 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 								patch_polys_to_process.push_back(adj_poly_i); // Add the adjacent poly to set of polys to add to patch.
 
 								poly_processed[adj_poly_i] = true;
+								found_adjacent_poly = true;
 							}
 						}
 					}
 
-					// Check for adjacent polygons where the other polygon shares part of an aligned edge with this polygon.
-					const int aligned_edge_i = poly.aligned_edge_i[e];
-					if(aligned_edge_i >= 0) // If this edge has an adjacent axis-aligned edge:
+					if(!found_adjacent_poly)
 					{
-						const unsigned int e1 = (poly.num_edges == 4) ? mod4(e + 1) : mod3(e + 1); // Next vert
-						const Indigo::Vec3f ve_pos  = poly_vertpos[e];
-						const Indigo::Vec3f ve1_pos = poly_vertpos[e1];
-
-						const UnwrapperAlignedEdgeInfo& edge = aligned_edges[aligned_edge_i];
-						const float edge_interval_a = myMin(ve_pos[edge.axis], ve1_pos[edge.axis]);
-						const float edge_interval_b = myMax(ve_pos[edge.axis], ve1_pos[edge.axis]);
-
-						// Iterate over polygons adjacent to this axis-aligned line
-						for(size_t q = 0; q < edge.axis_adjacent_polys.size(); ++q)
+						// Check for adjacent polygons where the other polygon shares part of an aligned edge with this polygon.
+						const int aligned_edge_i = poly.aligned_edge_i[e];
+						if(aligned_edge_i >= 0) // If this edge has an adjacent axis-aligned edge:
 						{
-							const size_t adj_poly_i = edge.axis_adjacent_polys[q];
-							if((adj_poly_i == poly_i) || poly_processed[adj_poly_i])
-								continue;
+							const unsigned int e1 = (poly.num_edges == 4) ? mod4(e + 1) : mod3(e + 1); // Next vert
+							const Indigo::Vec3f ve_pos  = poly_vertpos[e];
+							const Indigo::Vec3f ve1_pos = poly_vertpos[e1];
 
-							// See if normal of adjacent polygon is sufficiently similar
-							Vec4f adj_normal;
-							if(adj_poly_i < triangles_in_size) // if the adjacent poly is a triangle:
+							const UnwrapperAlignedEdgeInfo& edge = aligned_edges[aligned_edge_i];
+							const float edge_interval_a = myMin(ve_pos[edge.axis], ve1_pos[edge.axis]);
+							const float edge_interval_b = myMax(ve_pos[edge.axis], ve1_pos[edge.axis]);
+
+							// Iterate over polygons adjacent to this axis-aligned line
+							for(size_t q = 0; q < edge.axis_adjacent_polys.size(); ++q)
 							{
-								const Indigo::Triangle& adj_tri = tris_in[adj_poly_i];
-								adj_normal = normalise(crossProduct(
-									ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_tri.vertex_indices[1]]) - toVec4fVector(vert_pos_in[adj_tri.vertex_indices[0]])),
-									ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_tri.vertex_indices[2]]) - toVec4fVector(vert_pos_in[adj_tri.vertex_indices[0]]))
-								));
+								const size_t adj_poly_i      = edge.axis_adjacent_polys[q].poly_index;
+								const uint32 adj_poly_edge_i = edge.axis_adjacent_polys[q].edge_index;
+								if((adj_poly_i == poly_i) || poly_processed[adj_poly_i])
+									continue;
 
-								if(dot(patch_normal_ws, adj_normal) > 0.9f)
+								// See if normal of adjacent polygon is sufficiently similar
+								Vec4f adj_normal;
+								if(adj_poly_i < triangles_in_size) // if the adjacent poly is a triangle:
 								{
-									// Find the edge in adj_tri that lies on the axis_aligned line
-									for(int z = 0; z < 3; ++z)
+									const Indigo::Triangle& adj_tri = tris_in[adj_poly_i];
+									adj_normal = normalise(crossProduct(
+										ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_tri.vertex_indices[1]]) - toVec4fVector(vert_pos_in[adj_tri.vertex_indices[0]])),
+										ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_tri.vertex_indices[2]]) - toVec4fVector(vert_pos_in[adj_tri.vertex_indices[0]]))
+									));
+
+									if(dot(patch_normal_ws, adj_normal) > 0.9f)
 									{
+										const unsigned int z = adj_poly_edge_i;
 										const unsigned int z1 = mod3(z + 1); // Next vert
 										const Indigo::Vec3f vz_pos  = vert_pos_in[adj_tri.vertex_indices[z]];
 										const Indigo::Vec3f vz1_pos = vert_pos_in[adj_tri.vertex_indices[z1]];
-										const Indigo::Vec3f edge_vec = vz1_pos - vz_pos;
 
-										// If this edge only has non-zero coordinates along edge.axis, then it is parallel with edge.axis.
-										Indigo::Vec3f edge_vec_zeroed = edge_vec;
-										edge_vec_zeroed[edge.axis] = 0;
-										if(edge_vec_zeroed == Indigo::Vec3f(0.f)) // If parallel with edge axis:
+										assert(zeroComponent(vz1_pos - vz_pos, edge.axis) == Indigo::Vec3f(0.f)); // Adj tri edge should point along axis.
+										assert(zeroComponent(vz_pos, edge.axis) == edge.start); // Adj tri edge should lie on edge line.
+
+										const float interval_a = myMin(vz_pos[edge.axis], vz1_pos[edge.axis]);
+										const float interval_b = myMax(vz_pos[edge.axis], vz1_pos[edge.axis]);
+
+										// See if the intervals overlap at all
+										if(interval_a < edge_interval_b && interval_b > edge_interval_a) // if(!(interval_a >= edge_interval_b || interval_b <= edge_interval_a))
 										{
-											Indigo::Vec3f start = vz_pos; // Get edge line projected onto plane formed by other axes.
-											start[edge.axis] = 0;
-											if(start == edge.start) // If the lines are the same:
-											{
-												const float interval_a = myMin(vz_pos[edge.axis], vz1_pos[edge.axis]);
-												const float interval_b = myMax(vz_pos[edge.axis], vz1_pos[edge.axis]);
-
-												// See if the intervals overlap at all
-												if(interval_a < edge_interval_b && interval_b > edge_interval_a) // if(!(interval_a >= edge_interval_b || interval_b <= edge_interval_a))
-												{
-													// Edges overlap along line.
-													patch_polys_to_process.push_back(adj_poly_i); // Add the adjacent poly to set of polys to add to patch.
-													poly_processed[adj_poly_i] = true;
-												}
-											}
+											// Edges overlap along line.
+											patch_polys_to_process.push_back(adj_poly_i); // Add the adjacent poly to set of polys to add to patch.
+											poly_processed[adj_poly_i] = true;
 										}
 									}
 								}
-							}
-							else // else the adjacent poly is a quad:
-							{
-								const Indigo::Quad& adj_quad = quads_in[adj_poly_i - triangles_in_size];
-								adj_normal = normalise(crossProduct(
-									ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_quad.vertex_indices[1]]) - toVec4fVector(vert_pos_in[adj_quad.vertex_indices[0]])),
-									ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_quad.vertex_indices[2]]) - toVec4fVector(vert_pos_in[adj_quad.vertex_indices[0]]))
-								));
-
-								if(dot(patch_normal_ws, adj_normal) > 0.9f)
+								else // else the adjacent poly is a quad:
 								{
-									// Find the edge in adj_quad that lies on the axis_aligned line
-									for(int z=0; z<4; ++z)
+									const Indigo::Quad& adj_quad = quads_in[adj_poly_i - triangles_in_size];
+									adj_normal = normalise(crossProduct(
+										ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_quad.vertex_indices[1]]) - toVec4fVector(vert_pos_in[adj_quad.vertex_indices[0]])),
+										ob_to_world.mul3Vector(toVec4fVector(vert_pos_in[adj_quad.vertex_indices[2]]) - toVec4fVector(vert_pos_in[adj_quad.vertex_indices[0]]))
+									));
+
+									if(dot(patch_normal_ws, adj_normal) > 0.9f)
 									{
+										const unsigned int z = adj_poly_edge_i;
 										const unsigned int z1 = mod4(z + 1); // Next vert
 										const Indigo::Vec3f vz_pos  = vert_pos_in[adj_quad.vertex_indices[z]];
 										const Indigo::Vec3f vz1_pos = vert_pos_in[adj_quad.vertex_indices[z1]];
-										const Indigo::Vec3f edge_vec = vz1_pos - vz_pos;
+
+										assert(zeroComponent(vz1_pos - vz_pos, edge.axis) == Indigo::Vec3f(0.f)); // Adj tri edge should point along axis.
+										assert(zeroComponent(vz_pos, edge.axis) == edge.start); // Adj tri edge should lie on edge line.
 										
-										Indigo::Vec3f edge_vec_zeroed = edge_vec;
-										edge_vec_zeroed[edge.axis] = 0;
-										if(edge_vec_zeroed == Indigo::Vec3f(0.f)) // If this edge only has non-zero coordinates along edge.axis:
+										const float interval_a = myMin(vz_pos[edge.axis], vz1_pos[edge.axis]);
+										const float interval_b = myMax(vz_pos[edge.axis], vz1_pos[edge.axis]);
+
+										// See if the intervals overlap at all
+										if(interval_a < edge_interval_b && interval_b > edge_interval_a) // if(!(interval_a >= edge_interval_b || interval_b <= edge_interval_a))
 										{
-											Indigo::Vec3f start = vz_pos;
-											start[edge.axis] = 0;
-
-											const float interval_a = myMin(vz_pos[edge.axis], vz1_pos[edge.axis]);
-											const float interval_b = myMax(vz_pos[edge.axis], vz1_pos[edge.axis]);
-
-											if(start == edge.start)
-											{
-												// See if the intervals overlap at all
-												if(interval_a < edge_interval_b && interval_b > edge_interval_a) // if(!(interval_a >= edge_interval_b || interval_b <= edge_interval_a))
-												{
-													// Edges overlap along line.
-													patch_polys_to_process.push_back(adj_poly_i); // Add the adjacent poly to set of polys to add to patch.
-													poly_processed[adj_poly_i] = true;
-												}
-											}
+											// Edges overlap along line.
+											patch_polys_to_process.push_back(adj_poly_i); // Add the adjacent poly to set of polys to add to patch.
+											poly_processed[adj_poly_i] = true;
 										}
 									}
 								}
@@ -1245,9 +1252,8 @@ void UVUnwrapper::test()
 	conPrint("UVUnwrapper::test()");
 
 	//========================== Test bin packing =====================================
-	if(true)
+	if(false)
 	{
-		
 		PCG32 rng(1);
 
 		std::vector<BinRect> rects(100);
@@ -1328,6 +1334,7 @@ void UVUnwrapper::test()
 		testUnwrappingWithMesh(mesh, Matrix4f::identity());
 	}
 
+
 	// Test adjacent quads
 	{
 		Indigo::MeshRef mesh = new Indigo::Mesh();
@@ -1397,6 +1404,49 @@ void UVUnwrapper::test()
 	}
 
 	/*
+	Test adjacent quads where only part of one edge is shared (along y-axis)
+
+	y
+	^
+	|  ___________
+	|  |         |
+	|  |         |
+	|  |         |
+	|__|_________|__
+	|               |
+	|               |
+	|               |
+	|_______________|     ----> x
+	*/
+	{
+		Indigo::MeshRef mesh = new Indigo::Mesh();
+
+		{
+			mesh->addVertex(Indigo::Vec3f(0, 0, 0));
+			mesh->addVertex(Indigo::Vec3f(1, 0, 0));
+			mesh->addVertex(Indigo::Vec3f(1, 1, 0));
+			mesh->addVertex(Indigo::Vec3f(0, 1, 0));
+
+			const uint32 vertex_indices[4] = { 0, 1, 2, 3 };
+			const uint32 uv_indices[4] = { 0, 0, 0, 0 };
+			mesh->addQuad(vertex_indices, uv_indices, /*mat index=*/0);
+		}
+		{
+			mesh->addVertex(Indigo::Vec3f(0.25, 1, 0));
+			mesh->addVertex(Indigo::Vec3f(0.75, 1, 0));
+			mesh->addVertex(Indigo::Vec3f(0.75, 2, 0));
+			mesh->addVertex(Indigo::Vec3f(0.25, 2, 0));
+
+			const uint32 vertex_indices[4] = { 4, 5, 6, 7 };
+			const uint32 uv_indices[4] = { 0, 0, 0, 0 };
+			mesh->addQuad(vertex_indices, uv_indices, /*mat index=*/0);
+		}
+		mesh->endOfModel();
+		UVUnwrapper::Results results = testUnwrappingWithMesh(mesh, Matrix4f::identity());
+		testAssert(results.num_patches == 1);
+	}
+
+	/*
 	Test adjacent quads where only part of one edge is shared
 
 	y
@@ -1427,6 +1477,55 @@ void UVUnwrapper::test()
 			mesh->addVertex(Indigo::Vec3f(1, 1.25, 0));
 
 			const uint32 vertex_indices[4] = { 4, 5, 6, 7 };
+			const uint32 uv_indices[4] = { 0, 0, 0, 0 };
+			mesh->addQuad(vertex_indices, uv_indices, /*mat index=*/0);
+		}
+		mesh->endOfModel();
+		UVUnwrapper::Results results = testUnwrappingWithMesh(mesh, Matrix4f::identity());
+		testAssert(results.num_patches == 1);
+	}
+
+	/*
+	Test multiple adjacent quads where only part of one edge is shared
+
+	y
+	^               ________________
+	|_______________|      q1       |
+	|               |_______________|
+	|     q0        |_______________
+	|               |      q2       |
+	|_______________|_______________|         ----> x
+	*/
+	{
+		Indigo::MeshRef mesh = new Indigo::Mesh();
+
+		{
+			mesh->addVertex(Indigo::Vec3f(0, 0, 0));
+			mesh->addVertex(Indigo::Vec3f(1, 0, 0));
+			mesh->addVertex(Indigo::Vec3f(1, 1, 0));
+			mesh->addVertex(Indigo::Vec3f(0, 1, 0));
+
+			const uint32 vertex_indices[4] = { 0, 1, 2, 3 };
+			const uint32 uv_indices[4] = { 0, 0, 0, 0 };
+			mesh->addQuad(vertex_indices, uv_indices, /*mat index=*/0);
+		}
+		{
+			mesh->addVertex(Indigo::Vec3f(1, 0.75, 0));
+			mesh->addVertex(Indigo::Vec3f(2, 0.75, 0));
+			mesh->addVertex(Indigo::Vec3f(2, 1.25, 0));
+			mesh->addVertex(Indigo::Vec3f(1, 1.25, 0));
+
+			const uint32 vertex_indices[4] = { 4, 5, 6, 7 };
+			const uint32 uv_indices[4] = { 0, 0, 0, 0 };
+			mesh->addQuad(vertex_indices, uv_indices, /*mat index=*/0);
+		}
+		{
+			mesh->addVertex(Indigo::Vec3f(1, 0.0, 0));
+			mesh->addVertex(Indigo::Vec3f(2, 0.0, 0));
+			mesh->addVertex(Indigo::Vec3f(2, 0.5, 0));
+			mesh->addVertex(Indigo::Vec3f(1, 0.5, 0));
+
+			const uint32 vertex_indices[4] = { 8, 9, 10, 11 };
 			const uint32 uv_indices[4] = { 0, 0, 0, 0 };
 			mesh->addQuad(vertex_indices, uv_indices, /*mat index=*/0);
 		}
