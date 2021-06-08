@@ -29,8 +29,14 @@ public:
 	UVUnwrapper();
 	~UVUnwrapper();
 
+	struct Results
+	{
+		size_t num_patches;
+
+	};
+
 	// A margin of 2 pixels on a 1024 pixel wide image would have normed_margin = 2 / 1024
-	static void build(Indigo::Mesh& mesh, PrintOutput& print_output, float normed_margin);
+	static Results build(Indigo::Mesh& mesh, const Matrix4f& ob_to_world, PrintOutput& print_output, float normed_margin);
 
 	static void test();
 };

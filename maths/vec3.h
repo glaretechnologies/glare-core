@@ -506,6 +506,12 @@ public:
 	}
 
 
+	VEC3_INLINE bool isFinite() const
+	{
+		return ::isFinite(x) && ::isFinite(y) && ::isFinite(z);
+	}
+
+
 	VEC3_INLINE void vectorToVec4f(Vec4f& v) const
 	{
 		v.set((float)x, (float)y, (float)z, 0.0f);
