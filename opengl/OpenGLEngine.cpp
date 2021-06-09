@@ -5424,6 +5424,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "texture CPU mem usage: " + getNiceByteSize(mem_usage.texture_cpu_usage) + "\n";
 	s += "texture GPU mem usage: " + getNiceByteSize(mem_usage.texture_gpu_usage) + "\n";
 	s += "num textures: " + toString(opengl_textures.size()) + "\n";
+	s += "DXT support: " + boolToString(GL_EXT_texture_compression_s3tc_support);
 
 	return s;
 }
