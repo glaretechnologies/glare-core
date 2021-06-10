@@ -1,4 +1,6 @@
-#version 150
+#version 330 core
+
+//#version 150
 
 in vec3 normal_cs;
 in vec3 normal_ws;
@@ -19,10 +21,9 @@ in vec3 vert_colour;
 in vec2 lightmap_coords;
 #endif
 
-uniform vec4 sundir_cs;
-uniform vec4 diffuse_colour;
-uniform int have_shading_normals;
-uniform int have_texture;
+
+//uniform vec4 sundir_cs;
+
 uniform sampler2D diffuse_tex;
 uniform sampler2D dynamic_depth_tex;
 uniform sampler2D static_depth_tex;
@@ -31,10 +32,23 @@ uniform sampler2D specular_env_tex;
 #if LIGHTMAPPING
 uniform sampler2D lightmap_tex;
 #endif
-uniform mat3 texture_matrix;
-uniform float roughness;
-uniform float fresnel_scale;
-uniform float metallic_frac;
+
+
+layout (std140) uniform PhongUniforms
+{
+	//							// base alignment 	// aligned offset   // size
+	vec4 sundir_cs;				// 16				// 0
+	vec4 diffuse_colour;		// 16				// 0				//  16
+	mat3 texture_matrix;		// 16				// 16				//  48
+	int have_shading_normals;	// 4				// 64				// 4
+	int have_texture;			// 4				// 68				// 4
+	float roughness;			// 4				// 72				// 4
+	float fresnel_scale;		// 4				// 76 				// 4
+	float metallic_frac;		// 4				// 80				// 4
+	// total:										// 84				
+};
+
+
 
 out vec4 colour_out;
 

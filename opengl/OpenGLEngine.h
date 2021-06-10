@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../opengl/ShadowMapping.h"
 #include "../opengl/VBO.h"
 #include "../opengl/VAO.h"
+#include "../opengl/UniformBufOb.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
@@ -342,6 +343,42 @@ struct FrameBufTextures
 };
 
 
+struct BatchDrawInfo
+{
+	const GLObject* ob;
+	const OpenGLBatch* batch;
+	const OpenGLMaterial* mat;
+	const OpenGLProgram* prog;
+	uint32 flags; // 1 = use shading normals
+
+	bool operator < (const BatchDrawInfo& other) const
+	{
+		if(prog < other.prog)
+			return true;
+		else if(prog > other.prog)
+			return false;
+		else
+			return ob->mesh_data.ptr() < other.ob->mesh_data.ptr();
+	}
+};
+
+
+// Matches that defined in phong_frag_shader.glsl.
+struct PhongUniforms
+{
+	//							// base alignment 	// aligned offset   // size
+	Vec4f sundir_cs;
+	Colour4f diffuse_colour;	// 16				// 0				//  16
+	float texture_matrix[12];	// 16				// 16				//  48
+	int have_shading_normals;	// 4				// 64				// 4
+	int have_texture;			// 4				// 68				// 4
+	float roughness;			// 4				// 72				// 4
+	float fresnel_scale;		// 4				// 76 				// 4
+	float metallic_frac;		// 4				// 80				// 4
+	// total:										// 84				
+};
+
+
 class OpenGLEngine : public ThreadSafeRefCounted
 {
 public:
@@ -531,9 +568,9 @@ private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
-		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
+		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
-		const Reference<OpenGLProgram>& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool bind_program);
+		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool bind_program);
 	void buildOutlineTextures();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 public:
@@ -708,6 +745,7 @@ private:
 	mutable Mutex task_manager_mutex;
 	glare::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
 public:
+	std::string opengl_version;
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;
 	float max_anisotropy;
@@ -726,6 +764,15 @@ private:
 	PCG32 rng;
 
 	uint64 last_num_obs_in_frustum;
+
+	Reference<const OpenGLProgram> current_bound_prog;
+
+	std::vector<BatchDrawInfo> batch_draw_info;
+	uint32 num_prog_changes;
+	uint32 last_num_prog_changes;
+
+
+	UniformBufObRef phong_uniform_buf_ob;
 };
 
 

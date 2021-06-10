@@ -34,14 +34,14 @@ out vec3 vert_colour;
 out vec2 lightmap_coords;
 #endif
 
-uniform mat4 proj_matrix;
-uniform mat4 model_matrix;
-uniform mat4 view_matrix;
-uniform mat4 normal_matrix;
+uniform mat4 proj_matrix; // same for all objects
+uniform mat4 model_matrix; // per-object
+uniform mat4 view_matrix; // same for all objects
+uniform mat4 normal_matrix; // per-object
 #if NUM_DEPTH_TEXTURES > 0
-uniform mat4 shadow_texture_matrix[NUM_DEPTH_TEXTURES];
+uniform mat4 shadow_texture_matrix[NUM_DEPTH_TEXTURES]; // same for all objects
 #endif
-uniform vec3 campos_ws;
+uniform vec3 campos_ws; // same for all objects
 
 
 void main()
