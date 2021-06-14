@@ -191,6 +191,8 @@ struct GLObject : public ThreadSafeRefCounted
 
 	GLObject() : object_type(0), line_width(1.f), random_num(0) {}
 
+	void enableInstancing(const VBORef new_instance_matrix_vbo); // Enables instancing attributes, and builds vert_vao.
+
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
 

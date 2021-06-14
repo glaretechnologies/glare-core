@@ -53,6 +53,27 @@ static const bool MEM_PROFILE = false;
 
 
 
+void GLObject::enableInstancing(const VBORef new_instance_matrix_vbo)
+{
+	instance_matrix_vbo = new_instance_matrix_vbo;
+
+	// Make sure instance matrix attributes use the instance_matrix_vbo.
+
+	VertexSpec vertex_spec = mesh_data->vertex_spec;
+
+	for(size_t i = 5; i < myMin<size_t>(9, vertex_spec.attributes.size()); ++i) // For each instance matrix attribute:
+	{
+		if(vertex_spec.attributes[i].instancing)
+		{
+			vertex_spec.attributes[i].vbo = new_instance_matrix_vbo;
+			vertex_spec.attributes[i].enabled = true;
+		}
+	}
+
+	this->vert_vao = new VAO(mesh_data->vert_vbo, vertex_spec);
+}
+
+
 size_t GLMemUsage::totalCPUUsage() const
 {
 	return texture_cpu_usage + geom_cpu_usage;
