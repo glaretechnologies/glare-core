@@ -209,9 +209,19 @@ void main()
 #endif
 
 #if DRAW_PLANAR_UV_GRID
-	const float border_w = 0.01;
-	if(	fract(use_texture_coords.x) < border_w || fract(use_texture_coords.x) >= (1 - border_w) ||
-		fract(use_texture_coords.y) < border_w || fract(use_texture_coords.y) >= (1 - border_w))
+	float du_dx = abs(dFdx(use_texture_coords.x));
+	float du_dy = abs(dFdy(use_texture_coords.x));
+	
+	float dv_dx = abs(dFdx(use_texture_coords.y));
+	float dv_dy = abs(dFdy(use_texture_coords.y));
+	
+	float a = max(du_dx, du_dy);
+	float b = max(dv_dx, dv_dy);
+
+	float border_w_u = max(0.01f, a * 0.5f);
+	float border_w_v = max(0.01f, b * 0.5f);
+	if(	fract(use_texture_coords.x) < border_w_u || fract(use_texture_coords.x) >= (1 - border_w_u) ||
+		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1 - border_w_v))
 		diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
 #endif
 
