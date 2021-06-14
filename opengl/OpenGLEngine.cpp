@@ -575,6 +575,7 @@ void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js:
 	VertexSpec spec;
 	const uint32 vert_stride = (uint32)(sizeof(float) * 3 + (sizeof(float) * 3) + (sizeof(float) * 2)); // also vertex size.
 	
+	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
 	VertexAttrib pos_attrib;
 	pos_attrib.enabled = true;
 	pos_attrib.num_comps = 3;
@@ -622,35 +623,29 @@ void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js:
 
 
 	// Add instancing matrix vert attributes, one for each vec4f comprising matrices
-	if(meshdata.instance_matrix_vbo.nonNull())
-		for(int i=0; i<4; ++i)
-		{
-			VertexAttrib vec4_attrib;
-			vec4_attrib.enabled = true;
-			vec4_attrib.num_comps = 4;
-			vec4_attrib.type = GL_FLOAT;
-			vec4_attrib.normalised = false;
-			vec4_attrib.stride = 16 * sizeof(float);
-			vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
-			vec4_attrib.instancing = true;
-
-			vec4_attrib.vbo = meshdata.instance_matrix_vbo;
-
-			spec.attributes.push_back(vec4_attrib);
-		}
-
-	if(meshdata.instance_colour_vbo.nonNull())
+	for(int i=0; i<4; ++i)
 	{
 		VertexAttrib vec4_attrib;
-		vec4_attrib.enabled = true;
+		vec4_attrib.enabled = false;
+		vec4_attrib.num_comps = 4;
+		vec4_attrib.type = GL_FLOAT;
+		vec4_attrib.normalised = false;
+		vec4_attrib.stride = 16 * sizeof(float);
+		vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
+		vec4_attrib.instancing = true;
+
+		spec.attributes.push_back(vec4_attrib);
+	}
+
+	{
+		VertexAttrib vec4_attrib;
+		vec4_attrib.enabled = false;
 		vec4_attrib.num_comps = 4;
 		vec4_attrib.type = GL_FLOAT;
 		vec4_attrib.normalised = false;
 		vec4_attrib.stride = 4 * sizeof(float);
 		vec4_attrib.offset = 0;
 		vec4_attrib.instancing = true;
-
-		vec4_attrib.vbo = meshdata.instance_colour_vbo;
 
 		spec.attributes.push_back(vec4_attrib);
 	}
@@ -861,7 +856,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		buildMeshRenderData(*line_meshdata, verts, normals, uvs, indices);
 	}
 
-	this->cube_meshdata = makeCubeMesh(/*instancing matrix data=*/NULL, /*instancing colour data=*/NULL);
+	this->cube_meshdata = makeCubeMesh();
 	this->unit_quad_meshdata = makeUnitQuadMesh();
 
 	this->current_scene->env_ob->mesh_data = sphere_meshdata;
@@ -919,6 +914,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		phong_uniform_buf_ob = new UniformBufOb();
 		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms));
+
+		phong_shared_vert_uniform_buf_ob = new UniformBufOb();
+		phong_shared_vert_uniform_buf_ob->allocate(sizeof(SharedVertUniforms));
+
+		phong_per_object_vert_uniform_buf_ob = new UniformBufOb();
+		phong_per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
 
 		fallback_phong_prog = getPhongProgram(PhongKey(false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
@@ -1162,8 +1163,16 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws gl
 
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PhongUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_uniforms_index, /*binding point=*/0);
-
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/0, this->phong_uniform_buf_ob->handle);
+
+		unsigned int phong_shared_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "SharedVertUniforms");
+		glUniformBlockBinding(phong_prog->program, phong_shared_vert_uniforms_index, /*binding point=*/1);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->phong_shared_vert_uniform_buf_ob->handle);
+
+		unsigned int phong_per_object_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PerObjectVertUniforms");
+		glUniformBlockBinding(phong_prog->program, phong_per_object_vert_uniforms_index, /*binding point=*/2);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->phong_per_object_vert_uniform_buf_ob->handle);
+		
 
 		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
@@ -1283,6 +1292,7 @@ const js::AABBox OpenGLEngine::getAABBWSForObjectWithTransform(GLObject& object,
 }
 
 
+// Updates object ob_to_world_inv_transpose_matrix and aabb_ws.
 void OpenGLEngine::updateObjectTransformData(GLObject& object)
 {
 	assert(::isFinite(object.ob_to_world_matrix.e[0]));
@@ -1340,7 +1350,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1420,7 +1430,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					mat.albedo_texture = opengl_texture;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
 				}
 
 				if(/*mat.lightmap_texture.isNull() && */object->materials[i].lightmap_path == path)
@@ -1430,7 +1440,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					mat.lightmap_texture = opengl_texture;
 
 					// Now that we have a lightmap, assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
 				}
 			}
 		}
@@ -1486,7 +1496,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses intancing=*/object->mesh_data->instance_matrix_vbo.nonNull());
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1650,6 +1660,24 @@ static void unbindMeshData(const OpenGLMeshRenderData& mesh_data)
 }
 
 
+static void bindMeshData(const GLObject& ob)
+{
+	if(ob.vert_vao.nonNull())
+		ob.vert_vao->bind();
+	else
+		ob.mesh_data->vert_vao->bind();
+	ob.mesh_data->vert_indices_buf->bind();
+}
+
+
+static void unbindMeshData(const GLObject& ob)
+{
+	ob.mesh_data->vert_indices_buf->unbind();
+	VAO::unbind();
+}
+
+
+
 // http://www.manpagez.com/man/3/glFrustum/
 static const Matrix4f frustumMatrix(GLdouble left,
                        GLdouble right,
@@ -1744,9 +1772,9 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		Matrix4f::scaleMatrix(2, 2, 2) * Matrix4f::rotationMatrix(Vec4f(0,1,0,0), -Maths::pi_2<float>()); // rot x axis to z axis
 	
 	debug_arrow_ob->ob_to_world_matrix = arrow_to_world;
-	bindMeshData(*debug_arrow_ob->mesh_data); // Bind the mesh data, which is the same for all batches.
+	bindMeshData(*debug_arrow_ob); // Bind the mesh data, which is the same for all batches.
 	drawBatch(*debug_arrow_ob, view_matrix, proj_matrix, debug_arrow_ob->materials[0], *debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
-	unbindMeshData(*debug_arrow_ob->mesh_data);
+	unbindMeshData(*debug_arrow_ob);
 }
 
 
@@ -1947,7 +1975,7 @@ void OpenGLEngine::draw()
 						continue;
 
 					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-					bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+					bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 
 					// See if all the batches are fully opaque. If so, can draw all the primitives from the batches with one draw call.
 					if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
@@ -1980,7 +2008,7 @@ void OpenGLEngine::draw()
 							}
 						}
 					}
-					unbindMeshData(mesh_data);
+					unbindMeshData(*ob);
 
 					//num_drawn++;
 				}
@@ -2017,7 +2045,7 @@ void OpenGLEngine::draw()
 
 					if(need_draw)
 					{
-						bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+						bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 						{
 							const OpenGLBatch& batch = mesh_data.batches[z];
@@ -2031,7 +2059,7 @@ void OpenGLEngine::draw()
 									*depth_draw_with_alpha_test_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
 							}
 						}
-						unbindMeshData(mesh_data);
+						unbindMeshData(*ob);
 					}
 					//num_drawn++;
 				}
@@ -2246,7 +2274,7 @@ void OpenGLEngine::draw()
 
 							if(need_draw)
 							{
-								bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+								bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 
 								// See if all the batches are fully opaque. If so, can draw all the primitives with one draw call.
 								if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
@@ -2279,7 +2307,7 @@ void OpenGLEngine::draw()
 										}
 									}
 								}
-								unbindMeshData(mesh_data);
+								unbindMeshData(*ob);
 
 								num_drawn++;
 							}
@@ -2320,7 +2348,7 @@ void OpenGLEngine::draw()
 
 							if(need_draw)
 							{
-								bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+								bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 								for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 								{
 									const OpenGLBatch& batch = mesh_data.batches[z];
@@ -2334,7 +2362,7 @@ void OpenGLEngine::draw()
 											*depth_draw_with_alpha_test_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
 									}
 								}
-								unbindMeshData(mesh_data);
+								unbindMeshData(*ob);
 								num_drawn++;
 							}
 						}
@@ -2531,10 +2559,10 @@ void OpenGLEngine::draw()
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 					drawBatch(*ob, view_matrix, proj_matrix, outline_solid_mat, *outline_solid_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
-				unbindMeshData(mesh_data);
+				unbindMeshData(*ob);
 			}
 		}
 
@@ -2601,14 +2629,41 @@ void OpenGLEngine::draw()
 		else
 			use_proj_mat = proj_matrix;
 
-		bindMeshData(*current_scene->env_ob->mesh_data);
+		bindMeshData(*current_scene->env_ob);
 		drawBatch(*current_scene->env_ob, world_to_camera_space_no_translation, use_proj_mat, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
-		unbindMeshData(*current_scene->env_ob->mesh_data);
+		unbindMeshData(*current_scene->env_ob);
 			
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
 	
 	//================= Draw non-transparent batches from objects =================
+
+	// Update shared phong uniforms
+	{
+		SharedVertUniforms uniforms;
+		uniforms.proj_matrix = proj_matrix;
+		uniforms.view_matrix = view_matrix;
+
+		Matrix4f tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
+
+		// The first matrices in our packed array are the dynamic tex matrices
+		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
+			tex_matrices[i] = shadow_mapping->dynamic_tex_matrix[i];
+
+		// Following those are the static tex matrices.  Use cur_static_depth_tex to select the current (complete) depth tex.
+		for(int i = 0; i < ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+			tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + i] = shadow_mapping->static_tex_matrix[shadow_mapping->cur_static_depth_tex * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + i];
+
+		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+			uniforms.shadow_texture_matrix[i] = tex_matrices[i];
+
+		uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
+
+		this->phong_shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
+	}
+
+	this->current_bound_prog = NULL;
+
 #if 1
 	batch_draw_info.reserve(current_scene->objects.size());
 	batch_draw_info.resize(0);
@@ -2654,11 +2709,11 @@ void OpenGLEngine::draw()
 	{
 		const BatchDrawInfo& info = batch_draw_info[i];
 		
-		if(last_mesh_data != info.ob->mesh_data.ptr())
-		{
-			bindMeshData(*info.ob->mesh_data); // Bind the mesh data, which is the same for all batches.
-			last_mesh_data = info.ob->mesh_data.ptr();
-		}
+		//if(last_mesh_data != info.ob->mesh_data.ptr()) // NOTE: need ot handle instancing on off here. should check ob is the same as well.  or vert_vao is the same
+		//{
+			bindMeshData(*info.ob); // Bind the mesh data, which is the same for all batches.
+		//	last_mesh_data = info.ob->mesh_data.ptr();
+		//}
 
 		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
 	}
@@ -2674,7 +2729,7 @@ void OpenGLEngine::draw()
 		if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+			bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
 				const uint32 mat_index = mesh_data.batches[z].material_index;
@@ -2685,7 +2740,7 @@ void OpenGLEngine::draw()
 						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]);
 				}
 			}
-			unbindMeshData(mesh_data);
+			unbindMeshData(*ob);
 		}
 		else
 			num_frustum_culled++;
@@ -2694,6 +2749,8 @@ void OpenGLEngine::draw()
 	}
 	last_num_prog_changes = num_prog_changes;
 #endif
+
+	this->current_bound_prog = NULL;
 
 	//================= Draw wireframes if required =================
 	if(draw_wireframes)
@@ -2714,10 +2771,10 @@ void OpenGLEngine::draw()
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-				bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 					drawBatch(*ob, view_matrix, proj_matrix, wire_mat, *wire_mat.shader_prog, mesh_data, mesh_data.batches[z]);
-				unbindMeshData(mesh_data);
+				unbindMeshData(*ob);
 			}
 		}
 
@@ -2736,7 +2793,7 @@ void OpenGLEngine::draw()
 		if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+			bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
 				const uint32 mat_index = mesh_data.batches[z].material_index;
@@ -2747,7 +2804,7 @@ void OpenGLEngine::draw()
 						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]);
 				}
 			}
-			unbindMeshData(mesh_data);
+			unbindMeshData(*ob);
 		}
 	}
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -3957,7 +4014,7 @@ inline static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 
 
 
-Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls)
+Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const VBORef& instancing_matrix_data/*bool instancing*/)
 {
 	if(mesh_->index_data.empty())
 		throw glare::Exception("Mesh empty.");
@@ -4000,6 +4057,8 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour);
 	if(!pos_attr)
 		throw glare::Exception("Pos attribute not present.");
+
+	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
 
 	VertexAttrib pos_attrib;
 	pos_attrib.enabled = true;
@@ -4051,6 +4110,25 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	lightmap_uv_attrib.stride = num_bytes_per_vert;
 	lightmap_uv_attrib.offset = (uint32)(uv1_attr ? uv1_attr->offset_B : 0);
 	opengl_render_data->vertex_spec.attributes.push_back(lightmap_uv_attrib);
+
+
+	// Add instancing matrix vert attributes, one for each vec4f comprising matrices
+	for(int i = 0; i < 4; ++i)
+	{
+		VertexAttrib vec4_attrib;
+		vec4_attrib.enabled = instancing_matrix_data.nonNull();
+		vec4_attrib.num_comps = 4;
+		vec4_attrib.type = GL_FLOAT;
+		vec4_attrib.normalised = false;
+		vec4_attrib.stride = 16 * sizeof(float); // This stride and offset is in the instancing_matrix_data VBO.
+		vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
+		vec4_attrib.instancing = true;
+
+		vec4_attrib.vbo = instancing_matrix_data;
+
+		opengl_render_data->vertex_spec.attributes.push_back(vec4_attrib);
+	}
+
 	
 
 
@@ -4153,7 +4231,6 @@ void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const Op
 	uniforms.fresnel_scale = opengl_mat.fresnel_scale;
 	uniforms.metallic_frac = opengl_mat.metallic_frac;
 
-	this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 
 
 	//if(locations.sundir_cs_location >= 0)            glUniform4fv(locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
@@ -4211,24 +4288,9 @@ void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const Op
 
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
 		glUniform1i(locations.static_depth_tex_location, 2);
-
-		Matrix4f tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
-
-		// The first matrices in our packed array are the dynamic tex matrices
-		for(int i=0; i<ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
-			tex_matrices[i] = shadow_mapping->dynamic_tex_matrix[i];
-
-		// Following those are the static tex matrices.  Use cur_static_depth_tex to select the current (complete) depth tex.
-		for(int i=0; i<ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
-			tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + i] = shadow_mapping->static_tex_matrix[shadow_mapping->cur_static_depth_tex * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + i];
-
-		glUniformMatrix4fv(locations.shadow_texture_matrix_location,
-			/*count=*/shadow_mapping->numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures(), 
-			/*transpose=*/false, tex_matrices[0].e);
 	}
 
-	const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-	if(locations.campos_ws_location >= 0) glUniform3fv(locations.campos_ws_location, 1, campos_ws.x);
+	this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 }
 
 
@@ -4274,15 +4336,27 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		}
 		else
 		{
-			glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-			glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
-			glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
-			glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+			if(!shader_prog->uses_phong_uniforms) // Doing this with uniform blocks for phong
+			{
+				glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
+				glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
+				glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
+				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+			}
 		}
 
 		
 		if(shader_prog->uses_phong_uniforms)
 		{
+			// Set per-object vert uniforms
+			{
+				PerObjectVertUniforms uniforms;
+				uniforms.model_matrix  = ob.ob_to_world_matrix;
+				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
+				
+				this->phong_per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
+			}
+
 			setUniformsForProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
 		}
 		else if(shader_prog == this->transparent_prog.getPointer())
@@ -4406,9 +4480,9 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 			glLineWidth(ob.line_width);
 		}
 
-		if(mesh_data.instance_matrix_vbo.nonNull())
+		if(ob.instance_matrix_vbo.nonNull())
 		{
-			const size_t num_instances = mesh_data.instance_matrix_vbo->getSize() / sizeof(Matrix4f);
+			const size_t num_instances = ob.instance_matrix_vbo->getSize() / sizeof(Matrix4f);
 			glDrawElementsInstanced(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset, (uint32)num_instances);
 		}
 		else
@@ -4805,11 +4879,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::makeCapsuleMesh(const Vec3f& /*bot
 
 
 // Make a cube mesh.  Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
-Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh(const VBORef& instancing_matrix_data, const VBORef& instancing_colour_data)
+Reference<OpenGLMeshRenderData> OpenGLEngine::makeCubeMesh()
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-	mesh_data->instance_matrix_vbo = instancing_matrix_data;
-	mesh_data->instance_colour_vbo = instancing_colour_data;
 
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(24); // 6 faces * 4 verts/face

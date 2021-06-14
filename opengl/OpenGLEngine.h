@@ -104,9 +104,6 @@ public:
 	// If this is non-null, load vertex and index data directly from batched_mesh instead of from vert_data and vert_index_buffer etc..
 	// We take this approach to avoid copying the data from batched_mesh to vert_data etc..
 	Reference<BatchedMesh> batched_mesh;
-
-	VBORef instance_matrix_vbo;
-	VBORef instance_colour_vbo;
 };
 
 
@@ -200,6 +197,11 @@ struct GLObject : public ThreadSafeRefCounted
 	js::AABBox aabb_ws;
 
 	Reference<OpenGLMeshRenderData> mesh_data;
+
+	VAORef vert_vao; // Overrides mesh_data->vert_vao if non-null.  Having a vert_vao here allows us to enable instancing, by binding to the instance_matrix_vbo etc..
+
+	VBORef instance_matrix_vbo;
+	VBORef instance_colour_vbo;
 	
 	std::vector<OpenGLMaterial> materials;
 
@@ -366,16 +368,32 @@ struct BatchDrawInfo
 // Matches that defined in phong_frag_shader.glsl.
 struct PhongUniforms
 {
-	//							// base alignment 	// aligned offset   // size
 	Vec4f sundir_cs;
-	Colour4f diffuse_colour;	// 16				// 0				//  16
-	float texture_matrix[12];	// 16				// 16				//  48
-	int have_shading_normals;	// 4				// 64				// 4
-	int have_texture;			// 4				// 68				// 4
-	float roughness;			// 4				// 72				// 4
-	float fresnel_scale;		// 4				// 76 				// 4
-	float metallic_frac;		// 4				// 80				// 4
-	// total:										// 84				
+	Colour4f diffuse_colour;
+	float texture_matrix[12];
+	int have_shading_normals;
+	int have_texture;
+	float roughness;
+	float fresnel_scale;
+	float metallic_frac;
+};
+
+
+struct SharedVertUniforms
+{
+	Matrix4f proj_matrix; // same for all objects
+	Matrix4f view_matrix; // same for all objects
+	//#if NUM_DEPTH_TEXTURES > 0
+	Matrix4f shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES]; // same for all objects
+	//#endif
+	Vec4f campos_ws; // same for all objects
+};
+
+
+struct PerObjectVertUniforms
+{
+	Matrix4f model_matrix; // per-object
+	Matrix4f normal_matrix; // per-object
 };
 
 
@@ -526,7 +544,7 @@ public:
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
 
 	// May keep a reference to the mesh in the newly created OpenGLMeshRenderData.
-	static Reference<OpenGLMeshRenderData> buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls);
+	static Reference<OpenGLMeshRenderData> buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const VBORef& instancing_matrix_data);
 
 	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 
@@ -574,7 +592,7 @@ private:
 	void buildOutlineTextures();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 public:
-	static Reference<OpenGLMeshRenderData> makeCubeMesh(const VBORef& instancing_matrix_data, const VBORef& instancing_colour_data);
+	static Reference<OpenGLMeshRenderData> makeCubeMesh();
 private:
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
@@ -773,6 +791,8 @@ private:
 
 
 	UniformBufObRef phong_uniform_buf_ob;
+	UniformBufObRef phong_shared_vert_uniform_buf_ob;
+	UniformBufObRef phong_per_object_vert_uniform_buf_ob;
 };
 
 

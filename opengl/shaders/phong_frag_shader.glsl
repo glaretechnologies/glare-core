@@ -1,7 +1,5 @@
 #version 330 core
 
-//#version 150
-
 in vec3 normal_cs;
 in vec3 normal_ws;
 in vec3 pos_cs;
@@ -22,8 +20,6 @@ in vec2 lightmap_coords;
 #endif
 
 
-//uniform vec4 sundir_cs;
-
 uniform sampler2D diffuse_tex;
 uniform sampler2D dynamic_depth_tex;
 uniform sampler2D static_depth_tex;
@@ -33,21 +29,17 @@ uniform sampler2D specular_env_tex;
 uniform sampler2D lightmap_tex;
 #endif
 
-
 layout (std140) uniform PhongUniforms
 {
-	//							// base alignment 	// aligned offset   // size
-	vec4 sundir_cs;				// 16				// 0
-	vec4 diffuse_colour;		// 16				// 0				//  16
-	mat3 texture_matrix;		// 16				// 16				//  48
-	int have_shading_normals;	// 4				// 64				// 4
-	int have_texture;			// 4				// 68				// 4
-	float roughness;			// 4				// 72				// 4
-	float fresnel_scale;		// 4				// 76 				// 4
-	float metallic_frac;		// 4				// 80				// 4
-	// total:										// 84				
+	vec4 sundir_cs;
+	vec4 diffuse_colour;
+	mat3 texture_matrix;
+	int have_shading_normals;
+	int have_texture;
+	float roughness;
+	float fresnel_scale;
+	float metallic_frac;
 };
-
 
 
 out vec4 colour_out;
