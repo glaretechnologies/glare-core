@@ -2122,7 +2122,7 @@ void FormatDecoderGLTF::test()
 			GLTFMaterials mats;
 			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", mesh, 1.0, mats);
 
-			testAssert(mesh.num_materials_referenced == 98);
+			testAssert(mesh.num_materials_referenced == 98 + 1); // Seems to use a default material
 			testAssert(mesh.vert_positions.size() == 528291);
 			testAssert(mesh.vert_normals.size() == 528291);
 			testAssert(mesh.vert_colours.size() == 0);
