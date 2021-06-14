@@ -256,47 +256,100 @@ void Matrix4f::setToRotationMatrix(const Vec4f& unit_axis, float angle)
 {
 	assert(unit_axis.isUnitLength());
 
-	//-----------------------------------------------------------------
-	//build the rotation matrix
-	//see http://mathworld.wolfram.com/RodriguesRotationFormula.html
-	//-----------------------------------------------------------------
+	const float cost = std::cos(angle);
+	const float sint = std::sin(angle);
+
+	Vec4f costv = Vec4f(cost);
+	Vec4f sintv = Vec4f(sint);
+
+	const Vec4f one_minus_cost_axis = unit_axis * (1 - cost);
+
+	Vec4f abc_sint = unit_axis * sintv; // [asint, bsint, csint, 0]
+	Vec4f neg_abc_sint = -abc_sint;     // [-asint, -bsint, -csint, 0]
+
+	Vec4f cost_csint = unpackhi(costv, abc_sint); // [cost, csint, cost, 0]
+
+	Vec4f csint_cost = unpackhi(neg_abc_sint, costv); // [-csint, cost, 0, cost]
+
+	Vec4f asint_bsint = unpacklo(abc_sint, neg_abc_sint); // [asint, -asint, bsint, -bsint]
+
+	Vec4f col0 = copyToAll<0>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 1, 3>(cost_csint, neg_abc_sint); // ... + [cost, csint, -bsint, 0]
+	Vec4f col1 = copyToAll<1>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 0, 3>(csint_cost, abc_sint);     // ... + [-csint, cost, asint, 0]
+	Vec4f col2 = copyToAll<2>(unit_axis) * one_minus_cost_axis + shuffle<2, 1, 0, 3>(asint_bsint, cost_csint);  // ... + [bsint, -asint, cost, 0]
+
+#ifndef NDEBUG
+	const float one_minus_cost = 1 - cost;
 	const float a = unit_axis[0];
 	const float b = unit_axis[1];
 	const float c = unit_axis[2];
+	assert(epsEqual(col0[0], a * a * one_minus_cost + cost));
+	assert(epsEqual(col0[1], a * b * one_minus_cost + c * sint));
+	assert(epsEqual(col0[2], a * c * one_minus_cost - b * sint));
+	assert(col0[3] == 0);
+
+	assert(epsEqual(col1[0], a * b * one_minus_cost - c * sint));
+	assert(epsEqual(col1[1], b * b * one_minus_cost + cost));
+	assert(epsEqual(col1[2], b * c * one_minus_cost + a * sint));
+	assert(col1[3] == 0);
+
+	assert(epsEqual(col2[0], a * c * one_minus_cost + b * sint));
+	assert(epsEqual(col2[1], b * c * one_minus_cost - a * sint));
+	assert(epsEqual(col2[2], c * c * one_minus_cost + cost));
+	assert(col2[3] == 0);
+#endif
+
+	*this = Matrix4f(col0, col1, col2, Vec4f(0, 0, 0, 1));
+}
+
+
+// See http://mathworld.wolfram.com/RodriguesRotationFormula.html
+const Matrix4f Matrix4f::rotationMatrix(const Vec4f& unit_axis, float angle)
+{
+	assert(unit_axis.isUnitLength());
 
 	const float cost = std::cos(angle);
 	const float sint = std::sin(angle);
 
-	const float asint = a*sint;
-	const float bsint = b*sint;
-	const float csint = c*sint;
+	Vec4f costv = Vec4f(cost);
+	Vec4f sintv = Vec4f(sint);
 
+	const Vec4f one_minus_cost_axis = unit_axis * (1 - cost);
+
+	Vec4f abc_sint = unit_axis * sintv; // [asint, bsint, csint, 0]
+	Vec4f neg_abc_sint = -abc_sint;     // [-asint, -bsint, -csint, 0]
+
+	Vec4f cost_csint = unpackhi(costv, abc_sint); // [cost, csint, cost, 0]
+
+	Vec4f csint_cost = unpackhi(neg_abc_sint, costv); // [-csint, cost, 0, cost]
+
+	Vec4f asint_bsint = unpacklo(abc_sint, neg_abc_sint); // [asint, -asint, bsint, -bsint]
+
+	Vec4f col0 = copyToAll<0>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 1, 3>(cost_csint, neg_abc_sint); // ... + [cost, csint, -bsint, 0]
+	Vec4f col1 = copyToAll<1>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 0, 3>(csint_cost, abc_sint);     // ... + [-csint, cost, asint, 0]
+	Vec4f col2 = copyToAll<2>(unit_axis) * one_minus_cost_axis + shuffle<2, 1, 0, 3>(asint_bsint, cost_csint);  // ... + [bsint, -asint, cost, 0]
+
+#ifndef NDEBUG
 	const float one_minus_cost = 1 - cost;
+	const float a = unit_axis[0];
+	const float b = unit_axis[1];
+	const float c = unit_axis[2];
+	assert(epsEqual(col0[0], a * a * one_minus_cost +  cost));
+	assert(epsEqual(col0[1], a * b * one_minus_cost + c*sint));
+	assert(epsEqual(col0[2], a * c * one_minus_cost - b*sint));
+	assert(col0[3] == 0);
 
-	e[ 0] = a*a*one_minus_cost + cost;
-	e[ 1] = a*b*one_minus_cost + csint;
-	e[ 2] = a*c*one_minus_cost - bsint;
-	e[ 3] = 0;
-	e[ 4] = a*b*one_minus_cost - csint;
-	e[ 5] = b*b*one_minus_cost + cost;
-	e[ 6] = b*c*one_minus_cost + asint;
-	e[ 7] = 0;
-	e[ 8] = a*c*one_minus_cost + bsint;
-	e[ 9] = b*c*one_minus_cost - asint;
-	e[10] = c*c*one_minus_cost + cost;
-	e[11] = 0;
-	e[12] = 0;
-	e[13] = 0;
-	e[14] = 0;
-	e[15] = 1;
-}
+	assert(epsEqual(col1[0], a * b * one_minus_cost - c*sint));
+	assert(epsEqual(col1[1], b * b * one_minus_cost + cost));
+	assert(epsEqual(col1[2], b * c * one_minus_cost + a*sint));
+	assert(col1[3] == 0);
 
-
-const Matrix4f Matrix4f::rotationMatrix(const Vec4f& unit_axis, float angle)
-{
-	Matrix4f m;
-	m.setToRotationMatrix(unit_axis, angle);
-	return m;
+	assert(epsEqual(col2[0], a * c * one_minus_cost + b*sint));
+	assert(epsEqual(col2[1], b * c * one_minus_cost - a*sint));
+	assert(epsEqual(col2[2], c * c * one_minus_cost + cost));
+	assert(col2[3] == 0);
+#endif
+	
+	return Matrix4f(col0, col1, col2, Vec4f(0, 0, 0, 1));
 }
 
 
@@ -660,7 +713,7 @@ void Matrix4f::test()
 	//	testAssert(isInverse(m, inv));
 	//}
 
-	// Test setToRotationMatrix
+	//---------------------------- Test setToRotationMatrix -----------------------------------------
 	{
 		Matrix4f m;
 		m.setToRotationMatrix(normalise(Vec4f(0,0,1,0)), Maths::pi_2<float>());
@@ -1123,6 +1176,27 @@ void Matrix4f::test()
 	//=================================== Perf tests =====================================
 	if(false)
 	{
+		// Test speed of rotationMatrix()
+		{
+			Timer timer;
+
+			const float e[16] = { 1, 0, 0.5f, 0, 0, 1.3f, 0, 0, 0.2f, 0, 1, 0, 12, 13, 14, 1 };
+			const Matrix4f m(e);
+
+			int N = 1000000;
+			Vec4f sum(0.f);
+			for(int i = 0; i < N; ++i)
+			{
+				Vec4f v(1.f, i * (1.f / N), 0, 0);
+				Matrix4f res = rotationMatrix(normalise(v), i * (1.f / N));
+				sum += res * v;
+			}
+			double elapsed = timer.elapsed();
+
+			conPrint("rotationMatrix() time:    " + ::toString(1.0e9 * elapsed / N) + " ns");
+			TestUtils::silentPrint(::toString(sum));
+		}
+
 		// Test speed of getInverseForAffine3Matrix()
 		{
 			Timer timer;
@@ -1247,7 +1321,7 @@ void Matrix4f::test()
 			Vec4f sum(0.0f);
 			for(int i=0; i<N; ++i)
 			{
-				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				const Vec4f v = normalise(Vec4f((float)i, (float)i + 2, (float)i + 3, 0));
 
 				Matrix4f m;
 				m.constructFromVector(v);
@@ -1269,7 +1343,7 @@ void Matrix4f::test()
 			Vec4f sum(0.0f);
 			for(int i=0; i<N; ++i)
 			{
-				const Vec4f v((float)i, (float)i + 2, (float)i + 3, (float)i + 4);
+				const Vec4f v = normalise(Vec4f((float)i, (float)i + 2, (float)i + 3, 0));
 
 				const Vec4f res = Matrix4f::constructFromVectorAndMul(v, Vec4f(1,0,0,0));
 				sum += res;

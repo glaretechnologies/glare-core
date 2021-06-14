@@ -309,8 +309,11 @@ GLARE_STRONG_INLINE float elem<0>(const Vec4f& v) { return _mm_cvtss_f32(v.v); }
 
 
 // From Embree
-GLARE_STRONG_INLINE Vec4f unpacklo( const Vec4f& a, const Vec4f& b ) { return _mm_unpacklo_ps(a.v, b.v); } // SSE 1
-GLARE_STRONG_INLINE Vec4f unpackhi( const Vec4f& a, const Vec4f& b ) { return _mm_unpackhi_ps(a.v, b.v); } // SSE 1
+// Returns [a0, b0, a1, b1]
+GLARE_STRONG_INLINE Vec4f unpacklo(const Vec4f& a, const Vec4f& b) { return _mm_unpacklo_ps(a.v, b.v); } // SSE 1
+
+// Returns [a2, b2, a3, b3]
+GLARE_STRONG_INLINE Vec4f unpackhi(const Vec4f& a, const Vec4f& b) { return _mm_unpackhi_ps(a.v, b.v); } // SSE 1
 
 GLARE_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4f& r2, const Vec4f& r3, Vec4f& c0, Vec4f& c1, Vec4f& c2, Vec4f& c3)
 {
