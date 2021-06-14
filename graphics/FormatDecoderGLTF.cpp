@@ -68,19 +68,19 @@ struct GLTFTexture : public RefCounted
 typedef Reference<GLTFTexture> GLTFTextureRef;
 
 
-struct GLTPrimitive : public RefCounted
+struct GLTFPrimitive : public RefCounted
 {
 	std::map<std::string, size_t> attributes;
 	size_t indices;
 	size_t material;
 	size_t mode;
 };
-typedef Reference<GLTPrimitive> GLTPrimitiveRef;
+typedef Reference<GLTFPrimitive> GLTFPrimitiveRef;
 
 
 struct GLTFMesh: public RefCounted
 {
-	std::vector<GLTPrimitiveRef> primitives;
+	std::vector<GLTFPrimitiveRef> primitives;
 };
 typedef Reference<GLTFMesh> GLTFMeshRef;
 
@@ -208,12 +208,13 @@ static GLTFAccessor& getAccessor(GLTFData& data, size_t accessor_index)
 }
 
 
-static GLTFAccessor& getAccessorForAttribute(GLTFData& data, GLTPrimitive& primitive, const std::string& attr_name)
+static GLTFAccessor& getAccessorForAttribute(GLTFData& data, const GLTFPrimitive& primitive, const std::string& attr_name)
 {
-	if(primitive.attributes.count(attr_name) == 0)
+	auto res = primitive.attributes.find(attr_name);
+	if(res == primitive.attributes.end())
 		throw glare::Exception("Expected " + attr_name + " attribute.");
 
-	const size_t attribute_val = primitive.attributes[attr_name];
+	const size_t attribute_val = res->second;
 	if(attribute_val >= data.accessors.size())
 		throw glare::Exception("attribute " + attr_name + " out of bounds.");
 
@@ -398,7 +399,7 @@ static size_t typeNumComponents(const std::string& type)
 
 
 // Only handles reading from vector attributes with at least 3 components, always writes/converts to 3-component vectors.
-static void appendDataToMeshVector(GLTFData& data, GLTPrimitive& primitive, const std::string& attr_name, const Matrix4f& transform, Indigo::Vector<Indigo::Vec3f>& data_out)
+static void appendDataToMeshVector(GLTFData& data, GLTFPrimitive& primitive, const std::string& attr_name, const Matrix4f& transform, Indigo::Vector<Indigo::Vec3f>& data_out)
 {
 	GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, attr_name);
 	GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
@@ -470,7 +471,7 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 		// Loop over primitive batches and get number of triangles and verts, add to total_num_tris and total_num_verts
 		for(size_t i=0; i<mesh.primitives.size(); ++i)
 		{
-			GLTPrimitive& primitive = *mesh.primitives[i];
+			GLTFPrimitive& primitive = *mesh.primitives[i];
 
 			if(primitive.mode != GLTF_MODE_TRIANGLES)
 				throw glare::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
@@ -617,7 +618,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 
 		for(size_t i=0; i<mesh.primitives.size(); ++i)
 		{
-			GLTPrimitive& primitive = *mesh.primitives[i];
+			GLTFPrimitive& primitive = *mesh.primitives[i];
 
 #if USE_INDIGO_MESH_INDICES
 			size_t indices_write_i;
@@ -1004,7 +1005,7 @@ void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& m
 	buffer->binary_data = (const uint8*)file.fileData() + bin_buf_chunk_header_offset + 8;
 	buffer->data_size = bin_buf_header.chunk_length;
 
-	if(false)
+	if(true)
 	{
 		// Save JSON to disk for debugging
 		const std::string json((const char*)file.fileData() + 20, json_header.chunk_length);
@@ -1152,8 +1153,64 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 			}
 		}
 
+	// Load materials
+	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
+		if(root.name_val_pairs[i].name == "materials")
+		{
+			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
+			checkNodeType(node_array, JSONNode::Type_Array);
+
+			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			{
+				const JSONNode& mat_node = parser.nodes[node_array.child_indices[z]];
+
+				GLTFMaterialRef mat = new GLTFMaterial();
+
+				if(mat_node.hasChild("name")) mat->name = mat_node.getChildStringValue(parser, "name");
+
+				if(mat_node.hasChild("extensions"))
+				{
+					const JSONNode& extensions_node = mat_node.getChildObject(parser, "extensions");
+					
+					if(extensions_node.hasChild("KHR_materials_pbrSpecularGlossiness"))
+					{
+						mat->KHR_materials_pbrSpecularGlossiness_present = true;
+
+						const JSONNode& pbr_node = extensions_node.getChildObject(parser, "KHR_materials_pbrSpecularGlossiness");
+
+						mat->diffuseFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "diffuseFactor", Colour4f(1, 1, 1, 1));
+						mat->diffuseTexture = parseTextureIfPresent(parser, pbr_node, "diffuseTexture");
+						mat->specularFactor = parseColour3ChildArrayWithDefault(parser, pbr_node, "specularFactor", Colour3f(1, 1, 1));
+						mat->glossinessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "glossinessFactor", 1.0);
+						mat->specularGlossinessTexture = parseTextureIfPresent(parser, pbr_node, "specularGlossinessTexture");
+					}
+				}
+
+				// pbrMetallicRoughness
+				if(mat_node.hasChild("pbrMetallicRoughness"))
+				{
+					const JSONNode& pbr_node = mat_node.getChildObject(parser, "pbrMetallicRoughness");
+
+					mat->pbrMetallicRoughness_present = true;
+					mat->baseColorTexture = parseTextureIfPresent(parser, pbr_node, "baseColorTexture");
+					mat->baseColorFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "baseColorFactor", Colour4f(1, 1, 1, 1));
+					mat->roughnessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "roughnessFactor", 1.0);
+					mat->metallicFactor		= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "metallicFactor", 1.0);
+				}
+				else
+				{
+					mat->pbrMetallicRoughness_present = false;
+					mat->roughnessFactor = 0.5;
+					mat->metallicFactor = 0.0;
+				}
+
+				data.materials.push_back(mat);
+			}
+		}
+
 
 	// Load meshes	
+	bool default_mat_used = false;
 	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
 		if(root.name_val_pairs[i].name == "meshes")
 		{
@@ -1172,7 +1229,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				{
 					const JSONNode& primitive_node = parser.nodes[primitives_node_array.child_indices[q]];
 
-					GLTPrimitiveRef primitive = new GLTPrimitive();
+					GLTFPrimitiveRef primitive = new GLTFPrimitive();
 
 					const JSONNode& attributes_ob = primitive_node.getChildObject(parser, "attributes");
 					for(size_t t=0; t<attributes_ob.name_val_pairs.size(); ++t)
@@ -1180,8 +1237,11 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 							parser.nodes[attributes_ob.name_val_pairs[t].value_node_index].getUIntValue();
 
 					primitive->indices	= primitive_node.getChildUIntValueWithDefaultVal(parser, "indices", 0);
-					primitive->material = primitive_node.getChildUIntValueWithDefaultVal(parser, "material", 0);
+					primitive->material = primitive_node.getChildUIntValueWithDefaultVal(parser, "material", data.materials.size()); // Default mat index is index of default material.
 					primitive->mode		= primitive_node.getChildUIntValueWithDefaultVal(parser, "mode", 4);
+
+					// See if this primitive uses the default material
+					default_mat_used = default_mat_used || (primitive->material == data.materials.size());
 
 					gltf_mesh->primitives.push_back(primitive);
 				}
@@ -1189,6 +1249,20 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				data.meshes.push_back(gltf_mesh);
 			}
 		}
+
+	// Append default material if needed
+	if(default_mat_used)
+	{
+		GLTFMaterialRef mat = new GLTFMaterial();
+		mat->name = "default";
+		mat->KHR_materials_pbrSpecularGlossiness_present = false;
+		mat->pbrMetallicRoughness_present = true;
+		mat->baseColorFactor = Colour4f(0.5f, 0.5f, 0.5f, 1);
+		mat->metallicFactor = 0.0; 
+		mat->roughnessFactor = 0.5;
+
+		data.materials.push_back(mat);
+	}
 
 
 	// Load nodes	
@@ -1267,60 +1341,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 			}
 		}
 
-	// Load materials
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "materials")
-		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
-
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
-			{
-				const JSONNode& mat_node = parser.nodes[node_array.child_indices[z]];
-
-				GLTFMaterialRef mat = new GLTFMaterial();
-
-				if(mat_node.hasChild("name")) mat->name = mat_node.getChildStringValue(parser, "name");
-
-				if(mat_node.hasChild("extensions"))
-				{
-					const JSONNode& extensions_node = mat_node.getChildObject(parser, "extensions");
-					
-					if(extensions_node.hasChild("KHR_materials_pbrSpecularGlossiness"))
-					{
-						mat->KHR_materials_pbrSpecularGlossiness_present = true;
-
-						const JSONNode& pbr_node = extensions_node.getChildObject(parser, "KHR_materials_pbrSpecularGlossiness");
-
-						mat->diffuseFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "diffuseFactor", Colour4f(1, 1, 1, 1));
-						mat->diffuseTexture = parseTextureIfPresent(parser, pbr_node, "diffuseTexture");
-						mat->specularFactor = parseColour3ChildArrayWithDefault(parser, pbr_node, "specularFactor", Colour3f(1, 1, 1));
-						mat->glossinessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "glossinessFactor", 1.0);
-						mat->specularGlossinessTexture = parseTextureIfPresent(parser, pbr_node, "specularGlossinessTexture");
-					}
-				}
-
-				// pbrMetallicRoughness
-				if(mat_node.hasChild("pbrMetallicRoughness"))
-				{
-					const JSONNode& pbr_node = mat_node.getChildObject(parser, "pbrMetallicRoughness");
-
-					mat->pbrMetallicRoughness_present = true;
-					mat->baseColorTexture = parseTextureIfPresent(parser, pbr_node, "baseColorTexture");
-					mat->baseColorFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "baseColorFactor", Colour4f(1, 1, 1, 1));
-					mat->roughnessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "roughnessFactor", 1.0);
-					mat->metallicFactor		= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "metallicFactor", 1.0);
-				}
-				else
-				{
-					mat->pbrMetallicRoughness_present = false;
-					mat->roughnessFactor = 0.5;
-					mat->metallicFactor = 0.0;
-				}
-
-				data.materials.push_back(mat);
-			}
-		}
+	
 
 	// Load scenes
 	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
@@ -1953,6 +1974,22 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
+		/*{
+			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			loadGLBFile("C:\\Users\\nick\\Downloads\\Galery_01x.glb", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 2);
+			testAssert(mesh.vert_positions.size() == 72);
+			testAssert(mesh.vert_normals.size() == 72);
+			testAssert(mesh.vert_colours.size() == 72);
+			testAssert(mesh.uv_pairs.size() == 72);
+			testAssert(mesh.triangles.size() == 36);
+
+			testWriting(mesh, mats);
+		}*/
+
 		{
 			// Has vertex colours, also uses unsigned bytes for indices.
 			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
