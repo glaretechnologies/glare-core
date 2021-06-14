@@ -47,7 +47,7 @@ public:
 	~VAO();
 
 	void bind();
-	void unbind();
+	static void unbind();
 
 private:
 	GLARE_DISABLE_COPY(VAO)
