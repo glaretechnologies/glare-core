@@ -125,7 +125,7 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 		) == 0)
 	{
 		// Failure
-		throw glare::Exception("CreateProcess Failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("CreateProcess Failed for program '" + program_path + "': " + PlatformUtils::getLastErrorString());
 	}
 
 	// "Handles in PROCESS_INFORMATION must be closed with CloseHandle when they are no longer needed." - https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-createprocessa
