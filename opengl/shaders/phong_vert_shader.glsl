@@ -67,7 +67,13 @@ void main()
 
 	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
 	normal_cs = (view_matrix * (instance_matrix_in * vec4(normal_in, 0.0))).xyz;
-#else
+
+#if NUM_DEPTH_TEXTURES > 0
+	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
+		shadow_tex_coords[i] = (shadow_texture_matrix[i] * (instance_matrix_in * vec4(position_in, 1.0))).xyz;
+#endif
+
+#else // else if !INSTANCE_MATRICES:
 	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
 
 #if GENERATE_PLANAR_UVS
@@ -80,17 +86,18 @@ void main()
 
 	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
 	normal_cs = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
+
+#if NUM_DEPTH_TEXTURES > 0
+	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
+		shadow_tex_coords[i] = (shadow_texture_matrix[i] * (model_matrix * vec4(position_in, 1.0))).xyz;
 #endif
+
+#endif // end if !INSTANCE_MATRICES
 
 	texture_coords = texture_coords_0_in;
 
 #if VERT_COLOURS
 	vert_colour = vert_colours_in;
-#endif
-
-#if NUM_DEPTH_TEXTURES > 0
-	for(int i=0; i<NUM_DEPTH_TEXTURES; ++i)
-		shadow_tex_coords[i] = (shadow_texture_matrix[i] * (model_matrix  * vec4(position_in, 1.0))).xyz;
 #endif
 
 #if LIGHTMAPPING

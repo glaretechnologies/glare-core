@@ -3,10 +3,13 @@
 in vec3 normal_cs;
 in vec3 normal_ws;
 in vec3 pos_cs;
+#if GENERATE_PLANAR_UVS
+in vec3 pos_os;
+#endif
 in vec3 cam_to_pos_ws;
 
 uniform vec4 sundir_cs;
-uniform vec4 colour;
+uniform vec4 diffuse_colour;
 uniform int have_shading_normals;
 uniform sampler2D specular_env_tex;
 
@@ -45,6 +48,7 @@ vec3 toNonLinear(vec3 x)
 void main()
 {
 	vec3 use_normal_cs;
+	vec2 use_texture_coords = vec2(0, 0);
 	if(have_shading_normals != 0)
 	{
 		use_normal_cs = normal_cs;
@@ -55,10 +59,40 @@ void main()
 		vec3 dp_dy = dFdy(pos_cs);  
 		vec3 N_g = normalize(cross(dp_dx, dp_dy)); 
 		use_normal_cs = N_g;
+
+#if GENERATE_PLANAR_UVS
+		// For voxels: Compute texture coords based on object-space geometric normal.
+		dp_dx = dFdx(pos_os);
+		dp_dy = dFdy(pos_os);
+		vec3 N_g_os = cross(dp_dx, dp_dy);
+
+		if(abs(N_g_os.x) > abs(N_g_os.y) && abs(N_g_os.x) > abs(N_g_os.z))
+		{
+			use_texture_coords.x = pos_os.y;
+			use_texture_coords.y = pos_os.z;
+			if(N_g_os.x < 0)
+				use_texture_coords.x = -use_texture_coords.x;
+		}
+		else if(abs(N_g_os.y) > abs(N_g_os.x) && abs(N_g_os.y) > abs(N_g_os.z))
+		{
+			use_texture_coords.x = pos_os.x;
+			use_texture_coords.y = pos_os.z;
+			if(N_g_os.y > 0)
+				use_texture_coords.x = -use_texture_coords.x;
+		}
+		else
+		{
+			use_texture_coords.x = pos_os.x;
+			use_texture_coords.y = pos_os.y;
+			if(N_g_os.z < 0)
+				use_texture_coords.x = -use_texture_coords.x;
+		}
+#endif
 	}
 	vec3 unit_normal_cs = normalize(use_normal_cs);
 
 	vec3 frag_to_cam = normalize(-pos_cs);
+
 
 	const float ior = 2.5f;
 
@@ -91,7 +125,7 @@ void main()
 	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8)));
 	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
 
-	vec4 transmission_col = colour;
+	vec4 transmission_col = diffuse_colour;
 
 	float spec_refl_cos_theta = abs(dot(frag_to_cam, unit_normal_cs));
 	float spec_refl_fresnel = fresnellApprox(spec_refl_cos_theta, ior);
@@ -105,4 +139,22 @@ void main()
 
 	col *= 0.0000000005; // tone-map
 	colour_out = vec4(toNonLinear(col.xyz), alpha);
+
+
+#if DRAW_PLANAR_UV_GRID
+	float du_dx = abs(dFdx(use_texture_coords.x));
+	float du_dy = abs(dFdy(use_texture_coords.x));
+
+	float dv_dx = abs(dFdx(use_texture_coords.y));
+	float dv_dy = abs(dFdy(use_texture_coords.y));
+
+	float a = max(du_dx, du_dy);
+	float b = max(dv_dx, dv_dy);
+
+	float border_w_u = max(0.01f, a * 0.5f);
+	float border_w_v = max(0.01f, b * 0.5f);
+	if(fract(use_texture_coords.x) < border_w_u || fract(use_texture_coords.x) >= (1 - border_w_u) ||
+		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1 - border_w_v))
+		colour_out = vec4(0.2f, 0.8f, 0.54f, 1.f);
+#endif
 }

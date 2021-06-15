@@ -590,7 +590,7 @@ private:
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
-		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool bind_program);
+		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
 	void buildOutlineTextures();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
 public:
@@ -602,36 +602,17 @@ private:
 public:
 	static void getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
-	void setUniformsForProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
+	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(); // Make a cylinder from (0,0,0), to (0,0,1) with radius 1;
 
-	struct PhongKey
-	{
-		PhongKey() {}
-		PhongKey(bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_, bool gen_planar_uvs_, bool draw_planar_uv_grid_, bool convert_albedo_from_srgb_) : 
-			alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_), gen_planar_uvs(gen_planar_uvs_), draw_planar_uv_grid(draw_planar_uv_grid_), convert_albedo_from_srgb(convert_albedo_from_srgb_) {}
+	OpenGLProgramRef getProgramWithFallbackOnError(const ProgramKey& key);
 
-		const std::string description() const { return "alpha_test: " + toString(alpha_test) + ", vert_colours: " + toString(vert_colours) + ", instance_matrices: " + toString(instance_matrices) + 
-			", lightmapping: " + toString(lightmapping) + ", gen_planar_uvs: " + toString(gen_planar_uvs) + ", draw_planar_uv_grid_: " + toString(draw_planar_uv_grid) + 
-			", convert_albedo_from_srgb: " + toString(convert_albedo_from_srgb); }
-
-		bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb;
-		// convert_albedo_from_srgb is unfortunately needed for GPU-decoded video frame textures, which are sRGB but not marked as sRGB.
-
-		inline bool operator < (const OpenGLEngine::PhongKey& b) const
-		{
-			const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0);
-			const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0) | (b.gen_planar_uvs ? 16 : 0) | (b.draw_planar_uv_grid ? 32 : 0) | (b.convert_albedo_from_srgb ? 64 : 0);
-			return val < bval;
-		}
-	};
-
-	OpenGLProgramRef getPhongProgram(const PhongKey& key); // Throws glare::Exception on shader compilation failure.
-	
-	OpenGLProgramRef getPhongProgramWithFallbackOnError(const PhongKey& key); // On shader compilation failure, just returns a default phong program.
+	OpenGLProgramRef getPhongProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	OpenGLProgramRef getTransparentProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 public:
 	glare::TaskManager& getTaskManager();
 private:
@@ -667,15 +648,9 @@ private:
 	std::string preprocessor_defines;
 
 	// Map from preprocessor defs to phong program.
-	std::map<PhongKey, OpenGLProgramRef> phong_progs;
+	std::map<ProgramKey, OpenGLProgramRef> progs;
 	OpenGLProgramRef fallback_phong_prog;
-
-	Reference<OpenGLProgram> transparent_prog;
-	int transparent_colour_location;
-	int transparent_have_shading_normals_location;
-	int transparent_sundir_cs_location;
-	int transparent_specular_env_tex_location;
-	int transparent_campos_ws_location;
+	OpenGLProgramRef fallback_transparent_prog;
 
 	Reference<OpenGLProgram> env_prog;
 	int env_diffuse_colour_location;
@@ -708,12 +683,10 @@ private:
 	std::string data_dir;
 
 	Reference<ShadowMapping> shadow_mapping;
-	OpenGLMaterial depth_draw_mat;
-	OpenGLMaterial depth_draw_with_alpha_test_mat;
-	int depth_diffuse_tex_location;
-	int depth_texture_matrix_location;
-	int depth_proj_view_model_matrix_location;
-	int depth_with_alpha_proj_view_model_matrix_location;
+	Reference<OpenGLProgram> depth_draw_prog;
+	Reference<OpenGLProgram> depth_draw_alpha_prog;
+	Reference<OpenGLProgram> depth_draw_instancing_prog;
+	Reference<OpenGLProgram> depth_draw_alpha_instancing_prog;
 
 	OverlayObjectRef clear_buf_overlay_ob;
 
@@ -787,14 +760,14 @@ private:
 
 	Reference<const OpenGLProgram> current_bound_prog;
 
-	std::vector<BatchDrawInfo> batch_draw_info;
+	js::Vector<BatchDrawInfo, 16> batch_draw_info;
 	uint32 num_prog_changes;
 	uint32 last_num_prog_changes;
 
 
 	UniformBufObRef phong_uniform_buf_ob;
-	UniformBufObRef phong_shared_vert_uniform_buf_ob;
-	UniformBufObRef phong_per_object_vert_uniform_buf_ob;
+	UniformBufObRef shared_vert_uniform_buf_ob;
+	UniformBufObRef per_object_vert_uniform_buf_ob;
 };
 
 

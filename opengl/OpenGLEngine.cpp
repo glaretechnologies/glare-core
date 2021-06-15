@@ -550,7 +550,7 @@ myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity
 	default: severitystr = "Unknown"; break;
 	}
 
-	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION) // Don't print out notifications by default.
+	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION && !StringUtils::containsString(message, "recompiled")) // Don't print out notifications by default.
 	{
 		conPrint("==============================================================");
 		conPrint("OpenGL msg, severity: " + severitystr + ", type: " + typestr + ":");
@@ -675,28 +675,27 @@ void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js:
 }
 
 
-void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out)
+void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& prog, bool shadow_mapping_enabled, UniformLocations& locations_out)
 {
-	phong_locations_out.diffuse_colour_location				= phong_prog->getUniformLocation("diffuse_colour");
-	phong_locations_out.have_shading_normals_location		= phong_prog->getUniformLocation("have_shading_normals");
-	phong_locations_out.have_texture_location				= phong_prog->getUniformLocation("have_texture");
-	phong_locations_out.diffuse_tex_location				= phong_prog->getUniformLocation("diffuse_tex");
-	phong_locations_out.cosine_env_tex_location				= phong_prog->getUniformLocation("cosine_env_tex");
-	phong_locations_out.specular_env_tex_location			= phong_prog->getUniformLocation("specular_env_tex");
-	phong_locations_out.lightmap_tex_location				= phong_prog->getUniformLocation("lightmap_tex");
-	phong_locations_out.texture_matrix_location				= phong_prog->getUniformLocation("texture_matrix");
-	phong_locations_out.sundir_cs_location					= phong_prog->getUniformLocation("sundir_cs");
-	phong_locations_out.roughness_location					= phong_prog->getUniformLocation("roughness");
-	phong_locations_out.fresnel_scale_location				= phong_prog->getUniformLocation("fresnel_scale");
-	phong_locations_out.campos_ws_location					= phong_prog->getUniformLocation("campos_ws");
-	phong_locations_out.metallic_frac_location				= phong_prog->getUniformLocation("metallic_frac");
+	locations_out.diffuse_colour_location			= prog->getUniformLocation("diffuse_colour");
+	locations_out.have_shading_normals_location		= prog->getUniformLocation("have_shading_normals");
+	locations_out.have_texture_location				= prog->getUniformLocation("have_texture");
+	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
+	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
+	locations_out.specular_env_tex_location			= prog->getUniformLocation("specular_env_tex");
+	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
+	locations_out.texture_matrix_location			= prog->getUniformLocation("texture_matrix");
+	locations_out.sundir_cs_location				= prog->getUniformLocation("sundir_cs");
+	locations_out.campos_ws_location				= prog->getUniformLocation("campos_ws");
 	
 	if(shadow_mapping_enabled)
 	{
-		phong_locations_out.dynamic_depth_tex_location		= phong_prog->getUniformLocation("dynamic_depth_tex");
-		phong_locations_out.static_depth_tex_location		= phong_prog->getUniformLocation("static_depth_tex");
-		phong_locations_out.shadow_texture_matrix_location	= phong_prog->getUniformLocation("shadow_texture_matrix");
+		locations_out.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
+		locations_out.static_depth_tex_location			= prog->getUniformLocation("static_depth_tex");
+		locations_out.shadow_texture_matrix_location	= prog->getUniformLocation("shadow_texture_matrix");
 	}
+
+	locations_out.proj_view_model_matrix_location	= prog->getUniformLocation("proj_view_model_matrix");
 }
 
 
@@ -737,9 +736,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	//if(GLEW_ARB_debug_output)
 	{
 		// Enable error message handling,.
-		// See "Porting Source to Linux: Valve�s Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
+		// See "Porting Source to Linux: Valve's Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
 		glDebugMessageCallback(myMessageCallback, NULL); 
 		glEnable(GL_DEBUG_OUTPUT);
+		// glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // When this is enabled the offending gl call will be on the call stack when the message callback is called.
 	}
 	//else
 	//	conPrint("GLEW_ARB_debug_output OpenGL extension not available.");
@@ -936,26 +936,15 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		phong_uniform_buf_ob = new UniformBufOb();
 		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms));
 
-		phong_shared_vert_uniform_buf_ob = new UniformBufOb();
-		phong_shared_vert_uniform_buf_ob->allocate(sizeof(SharedVertUniforms));
+		shared_vert_uniform_buf_ob = new UniformBufOb();
+		shared_vert_uniform_buf_ob->allocate(sizeof(SharedVertUniforms));
 
-		phong_per_object_vert_uniform_buf_ob = new UniformBufOb();
-		phong_per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
+		per_object_vert_uniform_buf_ob = new UniformBufOb();
+		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
 
-		fallback_phong_prog = getPhongProgram(PhongKey(false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
-		
-
-		transparent_prog = new OpenGLProgram(
-			"transparent",
-			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
-		);
-		transparent_colour_location					= transparent_prog->getUniformLocation("colour");
-		transparent_have_shading_normals_location	= transparent_prog->getUniformLocation("have_shading_normals");
-		transparent_sundir_cs_location				= transparent_prog->getUniformLocation("sundir_cs");
-		transparent_specular_env_tex_location		= transparent_prog->getUniformLocation("specular_env_tex");
-		transparent_campos_ws_location				= transparent_prog->getUniformLocation("campos_ws");
 
 		env_prog = new OpenGLProgram(
 			"env",
@@ -1024,26 +1013,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		if(settings.shadow_mapping)
 		{
-			{
-				const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 0\n";
-				depth_draw_mat.shader_prog = new OpenGLProgram(
-					"depth",
-					new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-					new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
-				);
-				this->depth_proj_view_model_matrix_location = depth_draw_mat.shader_prog->getUniformLocation("proj_view_model_matrix");
-			}
-			{
-				const std::string use_defs = preprocessor_defines + "#define ALPHA_TEST 1\n";
-				depth_draw_with_alpha_test_mat.shader_prog = new OpenGLProgram(
-					"depth with alpha test",
-					new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-					new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
-				);
-				depth_diffuse_tex_location		= depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("diffuse_tex");
-				depth_texture_matrix_location	= depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("texture_matrix");
-				this->depth_with_alpha_proj_view_model_matrix_location = depth_draw_with_alpha_test_mat.shader_prog->getUniformLocation("proj_view_model_matrix");
-			}
+			depth_draw_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false));
+			depth_draw_alpha_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false));
+			depth_draw_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false));
+			depth_draw_alpha_instancing_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false));
 
 			shadow_mapping = new ShadowMapping();
 			shadow_mapping->init();
@@ -1153,22 +1126,27 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 }
 
 
-OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws glare::Exception on shader compilation failure.
+static std::string preprocessorDefsForKey(const ProgramKey& key)
 {
-	if(phong_progs[key] == NULL)
+	return 
+		"#define ALPHA_TEST " + toString(key.alpha_test) + "\n" +
+		"#define VERT_COLOURS " + toString(key.vert_colours) + "\n" +
+		"#define INSTANCE_MATRICES " + toString(key.instance_matrices) + "\n" +
+		"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" +
+		"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
+		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
+		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n";
+}
+
+
+OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
+{
+	if(progs[key] == NULL)
 	{
 		//Timer timer;
 
+		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
 		const std::string use_shader_dir = data_dir + "/shaders";
-
-		const std::string use_defs = preprocessor_defines + 
-			"#define ALPHA_TEST " + toString(key.alpha_test) + "\n" + 
-			"#define VERT_COLOURS " + toString(key.vert_colours) + "\n" +
-			"#define INSTANCE_MATRICES " + toString(key.instance_matrices) + "\n" +
-			"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" + 
-			"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
-			"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
-			"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n";
 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
 			"phong",
@@ -1176,9 +1154,9 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws gl
 			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 		);
 		phong_prog->is_phong = true;
-		phong_prog->uses_phong_uniforms = true;
+		phong_prog->uses_vert_uniform_buf_obs = true;
 
-		phong_progs[key] = phong_prog;
+		progs[key] = phong_prog;
 
 		getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
 
@@ -1188,25 +1166,109 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const PhongKey& key) // Throws gl
 
 		unsigned int phong_shared_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "SharedVertUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_shared_vert_uniforms_index, /*binding point=*/1);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->phong_shared_vert_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
 
 		unsigned int phong_per_object_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PerObjectVertUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_per_object_vert_uniforms_index, /*binding point=*/2);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->phong_per_object_vert_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
 		
 
 		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
 
-	return phong_progs[key];
+	return progs[key];
 }
 
 
-OpenGLProgramRef OpenGLEngine::getPhongProgramWithFallbackOnError(const PhongKey& key) // On shader compilation failure, just returns a default phong program.
+OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
+{
+	if(progs[key] == NULL)
+	{
+		Timer timer;
+
+		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_shader_dir = data_dir + "/shaders";
+
+		OpenGLProgramRef prog = new OpenGLProgram(
+			"transparent",
+			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+		);
+		prog->is_transparent = true;
+		prog->uses_vert_uniform_buf_obs = true;
+
+		progs[key] = prog;
+
+		getPhongUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+
+		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
+		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+
+		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
+		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
+
+
+		conPrint("Built transparent program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+	}
+
+	return progs[key];
+}
+
+
+OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
+{
+	if(progs[key] == NULL)
+	{
+		Timer timer;
+
+		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_shader_dir = data_dir + "/shaders";
+
+		OpenGLProgramRef prog = new OpenGLProgram(
+			"depth",
+			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+		);
+		prog->key = key;
+		prog->is_depth_draw = true;
+
+		progs[key] = prog;
+
+		getPhongUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+
+		if(key.instance_matrices) // SharedVertUniforms are only used in depth_vert_shader.glsl when INSTANCE_MATRICES is defined.
+		{
+			unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
+			assert(shared_vert_uniforms_index != GL_INVALID_INDEX);
+			
+			glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
+			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+
+			prog->uses_vert_uniform_buf_obs = true;
+		}
+
+		conPrint("Built depth draw program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+	}
+
+	return progs[key];
+}
+
+
+OpenGLProgramRef OpenGLEngine::getProgramWithFallbackOnError(const ProgramKey& key) // On shader compilation failure, just returns a default phong program.
 {
 	try
 	{
-		return getPhongProgram(key);
+		if(key.program_name == "phong")
+			return getPhongProgram(key);
+		else if(key.program_name == "transparent")
+			return getTransparentProgram(key);
+		else
+		{
+			assert(0);
+			throw glare::Exception("Invalid program name '" + key.program_name + ".");
+		}
 	}
 	catch(glare::Exception& e)
 	{
@@ -1333,21 +1395,17 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
 	if(material.shader_prog.nonNull() && 
-		!(material.shader_prog == transparent_prog  || material.shader_prog->is_phong)
+		!(material.shader_prog->is_transparent || material.shader_prog->is_phong)
 		)
 		return;
 
-	if(material.transparent)
-	{
-		material.shader_prog = transparent_prog;
-	}
-	else
-	{
-		const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
-		const bool uses_lightmapping = material.lightmap_texture.nonNull();
-		material.shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping, 
-			material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb));
-	}
+	const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
+	const bool uses_lightmapping = material.lightmap_texture.nonNull();
+
+	const ProgramKey key(material.transparent ? "transparent" : "phong", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
+		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb);
+
+	material.shader_prog = getProgramWithFallbackOnError(key);
 }
 
 
@@ -1760,7 +1818,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 	{
 		outline_edge_mat.albedo_rgb = Colour3f(0.8f, 0.2f, 0.2f);
 		outline_edge_mat.alpha = 0.5f;
-		outline_edge_mat.shader_prog = this->transparent_prog;
+		outline_edge_mat.shader_prog = this->fallback_transparent_prog;
 
 		Matrix4f quad_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
 			Matrix4f::uniformScaleMatrix(2*plane_draw_half_width) * Matrix4f::translationMatrix(Vec4f(-0.5f, -0.5f, 0.f, 1.f));
@@ -1785,7 +1843,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = getPhongProgramWithFallbackOnError(PhongKey(/*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false, 
+		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
 			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false));
 	}
 
@@ -1837,18 +1895,6 @@ struct OverlayObjectZComparator
 		return a->ob_to_world_matrix.e[14] < b->ob_to_world_matrix.e[14];
 	}
 };
-
-
-static bool areAllBatchesFullyOpaque(const std::vector<OpenGLBatch>& batches, const std::vector<OpenGLMaterial>& materials)
-{
-	for(size_t i=0; i<batches.size(); ++i)
-	{
-		const OpenGLMaterial& mat = materials[batches[i].material_index];
-		if(mat.transparent || (mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha()))
-			return false;
-	}
-	return true;
-}
 
 
 void OpenGLEngine::draw()
@@ -1978,113 +2024,74 @@ void OpenGLEngine::draw()
 			// Save shadow_tex_matrix that the shaders like phong will use.
 			shadow_mapping->dynamic_tex_matrix[ti] = texcoord_bias * proj_matrix * view_matrix;
 
+
+			// Update shared uniforms
+			{
+				SharedVertUniforms uniforms;
+				std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
+				uniforms.proj_matrix = proj_matrix;
+				uniforms.view_matrix = view_matrix;
+				this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
+			}
+
+
 			// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
 			//uint64 num_drawn = 0;
 			//uint64 num_in_frustum = 0;
 
-			depth_draw_mat.shader_prog->useProgram(); // Bind shader just once for all objects
+			batch_draw_info.reserve(current_scene->objects.size());
+			batch_draw_info.resize(0);
 
+			uint64 num_frustum_culled = 0;
 			for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
 			{
 				const GLObject* const ob = it->getPointer();
-
 				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 				{
-					//num_in_frustum++;
-
 					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
 						continue;
 
 					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-					bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-
-					// See if all the batches are fully opaque. If so, can draw all the primitives from the batches with one draw call.
-					if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
+					for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 					{
-						size_t total_num_indices = 0;
-						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-							total_num_indices += mesh_data.batches[z].num_indices;
-
-						drawPrimitives(*ob, view_matrix, proj_matrix,
-							ob->materials[0], // tex matrix shouldn't matter for depth_draw_mat
-							*depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
-					}
-					else
-					{
-						for(size_t z = 0; z < mesh_data.batches.size(); ++z)
+						const uint32 mat_index = mesh_data.batches[z].material_index;
+						if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
 						{
-							const OpenGLBatch& batch = mesh_data.batches[z];
-							const uint32 mat_index = batch.material_index;
-
-							// Draw primitives for the given material
-							if(!ob->materials[mat_index].transparent)
+							if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
 							{
 								const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-								if(!use_alpha_test)
-								{
-									drawPrimitives(*ob, view_matrix, proj_matrix,
-										ob->materials[mat_index], // Use tex matrix etc.. from original material
-										*depth_draw_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
-								}
+								const bool use_instancing = ob->instance_matrix_vbo.nonNull();
+
+								BatchDrawInfo info;
+								info.ob = ob;
+								info.batch = &mesh_data.batches[z];
+								info.mat = &ob->materials[mat_index];
+								info.prog = use_instancing ? (use_alpha_test ? depth_draw_alpha_instancing_prog.ptr() : depth_draw_instancing_prog.ptr()) : (use_alpha_test ? depth_draw_alpha_prog.ptr() : depth_draw_prog.ptr());
+								batch_draw_info.push_back(info);
 							}
 						}
 					}
-					unbindMeshData(*ob);
-
-					//num_drawn++;
 				}
+				else
+					num_frustum_culled++;
 			}
 
-			// Now draw batches that need to use depth_draw_with_alpha_test shader
+			// Sort by shader program
+			std::sort(batch_draw_info.begin(), batch_draw_info.end());
 
-			depth_draw_with_alpha_test_mat.shader_prog->useProgram(); // Bind shader just once for all objects
-
-			for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+			// Draw sorted batches
+			num_prog_changes = 0;
+			//const OpenGLMeshRenderData* last_mesh_data = NULL;
+			for(size_t z = 0; z < batch_draw_info.size(); ++z)
 			{
-				const GLObject* const ob = it->getPointer();
-
-				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
-				{
-					//num_in_frustum++;
-
-					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
-						continue;
-
-					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-
-					// Work out if we need to draw 1 or more batches from this object
-					bool need_draw = false;
-					for(size_t b=0; b<mesh_data.batches.size(); ++b)
-					{
-						const OpenGLMaterial& mat = ob->materials[mesh_data.batches[b].material_index];
-						if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
-						{
-							need_draw = true;
-							break;
-						}
-					}
-
-					if(need_draw)
-					{
-						bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-						for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-						{
-							const OpenGLBatch& batch = mesh_data.batches[z];
-							const OpenGLMaterial& mat = ob->materials[batch.material_index];
-
-							// Draw primitives for the given material
-							if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
-							{
-								drawPrimitives(*ob, view_matrix, proj_matrix,
-									mat, // Use tex matrix etc.. from original material
-									*depth_draw_with_alpha_test_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
-							}
-						}
-						unbindMeshData(*ob);
-					}
-					//num_drawn++;
-				}
+				const BatchDrawInfo& info = batch_draw_info[z];
+				bindMeshData(*info.ob);
+				drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
 			}
+			//if(last_mesh_data) unbindMeshData(*last_mesh_data);
+			OpenGLProgram::useNoPrograms();
+			current_bound_prog = NULL;
+
 			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
 		}
 
@@ -2261,133 +2268,74 @@ void OpenGLEngine::draw()
 
 				// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
 				Timer timer3;
-				uint64 num_drawn = 0;
+				//uint64 num_drawn = 0;
 				//uint64 num_in_frustum = 0;
 
-				depth_draw_mat.shader_prog->useProgram(); // Bind shader just once for all objects
+				// Update shared uniforms
+				{
+					SharedVertUniforms uniforms;
+					std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
+					uniforms.proj_matrix = proj_matrix;
+					uniforms.view_matrix = view_matrix;
+					this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
+				}
 
+
+				batch_draw_info.reserve(current_scene->objects.size());
+				batch_draw_info.resize(0);
+
+				uint64 num_frustum_culled = 0;
 				for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
 				{
 					const GLObject* const ob = it->getPointer();
-
 					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
 						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 						{
-							//num_in_frustum++;
-
 							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
 								continue;
 
 							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-
-							// Work out if we need to draw 1 or more batches from this object
-							bool need_draw = false;
-							for(size_t b=0; b<mesh_data.batches.size(); ++b)
+							for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 							{
-								const OpenGLMaterial& mat = ob->materials[mesh_data.batches[b].material_index];
-								const bool use_alpha_test = mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha();
-								if(!mat.transparent && !use_alpha_test)
+								const uint32 mat_index = mesh_data.batches[z].material_index;
+								if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
 								{
-									need_draw = true;
-									break;
-								}
-							}
-
-							if(need_draw)
-							{
-								bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-
-								// See if all the batches are fully opaque. If so, can draw all the primitives with one draw call.
-								if(areAllBatchesFullyOpaque(mesh_data.batches, ob->materials)) // NOTE: could precompute this
-								{
-									size_t total_num_indices = 0;
-									for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-										total_num_indices += mesh_data.batches[z].num_indices;
-
-									drawPrimitives(*ob, view_matrix, proj_matrix,
-										ob->materials[0], // tex matrix shouldn't matter for depth_draw_mat
-										*depth_draw_mat.shader_prog, mesh_data, /*prim_start_offset=*/0, (uint32)total_num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
-								}
-								else
-								{
-									for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+									if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
 									{
-										const OpenGLBatch& batch = mesh_data.batches[z];
-										const uint32 mat_index = batch.material_index;
+										const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
+										const bool use_instancing = ob->instance_matrix_vbo.nonNull();
 
-										// Draw primitives for the given material
-										if(!ob->materials[mat_index].transparent)
-										{
-											const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-											if(!use_alpha_test)
-											{
-												drawPrimitives(*ob, view_matrix, proj_matrix,
-													ob->materials[mat_index], // Use tex matrix etc.. from original material
-													*depth_draw_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
-											}
-										}
+										BatchDrawInfo info;
+										info.ob = ob;
+										info.batch = &mesh_data.batches[z];
+										info.mat = &ob->materials[mat_index];
+										info.prog = use_instancing ? (use_alpha_test ? depth_draw_alpha_instancing_prog.ptr() : depth_draw_instancing_prog.ptr()) : (use_alpha_test ? depth_draw_alpha_prog.ptr() : depth_draw_prog.ptr());
+										batch_draw_info.push_back(info);
 									}
 								}
-								unbindMeshData(*ob);
-
-								num_drawn++;
 							}
 						}
+						else
+							num_frustum_culled++;
 				}
 
-				//OpenGLProgram::useNoPrograms(); // unbind
+				// Sort by shader program
+				std::sort(batch_draw_info.begin(), batch_draw_info.end());
 
-				// Now draw batches that need to use depth_draw_with_alpha_test shader
-
-				depth_draw_with_alpha_test_mat.shader_prog->useProgram(); // Bind shader just once for all objects
-
-				for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+				// Draw sorted batches
+				num_prog_changes = 0;
+				//const OpenGLMeshRenderData* last_mesh_data = NULL;
+				for(size_t z = 0; z < batch_draw_info.size(); ++z)
 				{
-					const GLObject* const ob = it->getPointer();
-
-					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
-						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
-						{
-							//num_in_frustum++;
-
-							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
-								continue;
-
-							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-
-							// Work out if we need to draw 1 or more batches from this object
-							bool need_draw = false;
-							for(size_t b=0; b<mesh_data.batches.size(); ++b)
-							{
-								const OpenGLMaterial& mat = ob->materials[mesh_data.batches[b].material_index];
-								if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
-								{
-									need_draw = true;
-									break;
-								}
-							}
-
-							if(need_draw)
-							{
-								bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-								for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-								{
-									const OpenGLBatch& batch = mesh_data.batches[z];
-									const OpenGLMaterial& mat = ob->materials[batch.material_index];
-									
-									// Draw primitives for the given material
-									if(!mat.transparent && mat.albedo_texture.nonNull() && mat.albedo_texture->hasAlpha())
-									{
-										drawPrimitives(*ob, view_matrix, proj_matrix,
-											mat, // Use tex matrix etc.. from original material
-											*depth_draw_with_alpha_test_mat.shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bind-program=*/false); // Draw object with depth_draw_mat.
-									}
-								}
-								unbindMeshData(*ob);
-								num_drawn++;
-							}
-						}
+					const BatchDrawInfo& info = batch_draw_info[z];
+					bindMeshData(*info.ob);
+					drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
+					//unbindMeshData(*info.ob); // TEMP
 				}
+				//if(last_mesh_data) unbindMeshData(*last_mesh_data);
+				OpenGLProgram::useNoPrograms();
+				this->current_bound_prog = NULL;
+
 				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
 			}
 
@@ -2680,10 +2628,8 @@ void OpenGLEngine::draw()
 
 		uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
 
-		this->phong_shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
+		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 	}
-
-	this->current_bound_prog = NULL;
 
 #if 1
 	batch_draw_info.reserve(current_scene->objects.size());
@@ -2725,7 +2671,7 @@ void OpenGLEngine::draw()
 
 	// Draw sorted batches
 	num_prog_changes = 0;
-	const OpenGLMeshRenderData* last_mesh_data = NULL;
+	//const OpenGLMeshRenderData* last_mesh_data = NULL;
 	for(size_t i=0; i<batch_draw_info.size(); ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info[i];
@@ -2738,7 +2684,7 @@ void OpenGLEngine::draw()
 
 		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
 	}
-	if(last_mesh_data) unbindMeshData(*last_mesh_data);
+	//if(last_mesh_data) unbindMeshData(*last_mesh_data);
 	//OpenGLProgram::useNoPrograms(); // NOTE: seems slightly faster without this
 	last_num_prog_changes = num_prog_changes;
 #else
@@ -2771,6 +2717,7 @@ void OpenGLEngine::draw()
 	last_num_prog_changes = num_prog_changes;
 #endif
 
+	OpenGLProgram::useNoPrograms();
 	this->current_bound_prog = NULL;
 
 	//================= Draw wireframes if required =================
@@ -4226,7 +4173,7 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 }
 
 
-void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
+void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
@@ -4318,91 +4265,96 @@ void OpenGLEngine::setUniformsForProg(const OpenGLMaterial& opengl_mat, const Op
 void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, 
 	const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
-	drawPrimitives(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, /*bool bind_program=*/true);
+	drawPrimitives(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices);
 }
 
 
 void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat,
-		const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool bind_program)
+		const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices)
 {
 	if(num_indices == 0)
 		return;
 
 	const OpenGLProgram* shader_prog = &shader_prog_;
 
-	//if(shader_prog.nonNull())
+	if(shader_prog != current_bound_prog.ptr())
 	{
-		if(bind_program)
-		{
-			if(shader_prog != current_bound_prog.ptr())
-			{
-				current_bound_prog = shader_prog;
-				shader_prog->useProgram();
-				num_prog_changes++;
-			}
-			//shader_prog->useProgram();
-			//num_prog_changes++;
-		}
+		current_bound_prog = shader_prog;
+		shader_prog->useProgram();
+		num_prog_changes++;
+	}
+	//shader_prog->useProgram();
+	//num_prog_changes++;
 
-		// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
-		if(shader_prog == this->depth_draw_mat.shader_prog.getPointer())
-		{
-			const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
-			glUniformMatrix4fv(this->depth_proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
-		}
-		else if(shader_prog == this->depth_draw_with_alpha_test_mat.shader_prog.getPointer())
-		{
-			const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
-			glUniformMatrix4fv(this->depth_with_alpha_proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
-		}
-		else
-		{
-			if(!shader_prog->uses_phong_uniforms) // Doing this with uniform blocks for phong
-			{
-				glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-				glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
-				glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
-				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
-			}
-		}
+	// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
 
-		
-		if(shader_prog->uses_phong_uniforms)
-		{
-			// Set per-object vert uniforms
-			{
-				PerObjectVertUniforms uniforms;
-				uniforms.model_matrix  = ob.ob_to_world_matrix;
-				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
-				
-				this->phong_per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
-			}
+	// Set per-object vert uniforms
+	if(shader_prog->uses_vert_uniform_buf_obs)
+	{
+		PerObjectVertUniforms uniforms;
+		uniforms.model_matrix = ob.ob_to_world_matrix;
+		uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
 
-			setUniformsForProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
-		}
-		else if(shader_prog == this->transparent_prog.getPointer())
-		{
-			const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-			const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
+		this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
+	}
+	else
+	{
+		glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
+		glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
+		glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
+		glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+	}
 
-			glUniform4fv(this->transparent_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-			glUniform4f(this->transparent_colour_location, col_linear[0], col_linear[1], col_linear[2], opengl_mat.alpha);
-			glUniform1i(this->transparent_have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-			if(this->specular_env_tex.nonNull())
-			{
-				glActiveTexture(GL_TEXTURE0 + 4);
-				glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-				glUniform1i(transparent_specular_env_tex_location, 4);
-			}
-			const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-			glUniform3fv(this->transparent_campos_ws_location, 1, campos_ws.x);
-		}
-		else if(shader_prog == this->env_prog.getPointer())
+
+	if(shader_prog->is_phong)
+	{
+		setUniformsForPhongProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
+	}
+	else if(shader_prog->is_transparent)
+	{
+		const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+		const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
+
+		glUniform4fv(shader_prog->uniform_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
+		glUniform4f(shader_prog->uniform_locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], opengl_mat.alpha);
+		glUniform1i(shader_prog->uniform_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
+		if(this->specular_env_tex.nonNull())
 		{
-			glUniform4fv(this->env_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-			glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-			glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
-			
+			glActiveTexture(GL_TEXTURE0 + 4);
+			glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
+			glUniform1i(shader_prog->uniform_locations.specular_env_tex_location, 4);
+		}
+		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
+		glUniform3fv(shader_prog->uniform_locations.campos_ws_location, 1, campos_ws.x);
+	}
+	else if(shader_prog == this->env_prog.getPointer())
+	{
+		glUniform4fv(this->env_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
+		glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+		glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+
+		if(opengl_mat.albedo_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 0);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+
+			const GLfloat tex_elems[9] = {
+				opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+				opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+				opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
+			};
+			glUniformMatrix3fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+			glUniform1i(this->env_diffuse_tex_location, 0);
+		}
+	}
+	else if(shader_prog->is_depth_draw)
+	{
+		const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
+		glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
+
+		if(shader_prog->key.alpha_test)
+		{
+			assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
 			if(opengl_mat.albedo_texture.nonNull())
 			{
 				glActiveTexture(GL_TEXTURE0 + 0);
@@ -4413,105 +4365,81 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
 					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 				};
-				glUniformMatrix3fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-				glUniform1i(this->env_diffuse_tex_location, 0);
+				glUniformMatrix3fv(shader_prog->uniform_locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+				glUniform1i(shader_prog->uniform_locations.diffuse_tex_location, 0);
 			}
 		}
-		else if(shader_prog == this->depth_draw_mat.shader_prog.getPointer())
-		{
-
-		}
-		else if(shader_prog == this->depth_draw_with_alpha_test_mat.shader_prog.getPointer())
-		{
-			assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
-			if(opengl_mat.albedo_texture.nonNull())
-			{
-				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
-				const GLfloat tex_elems[9] ={
-					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
-					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
-					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
-				};
-				glUniformMatrix3fv(this->depth_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-				glUniform1i(this->depth_diffuse_tex_location, 0);
-			}
-		}
-		else if(shader_prog == this->outline_prog.getPointer())
-		{
-
-		}
-		else // Else shader created by user code:
-		{
-			if(shader_prog->campos_ws_loc >= 0)
-			{
-				const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-				glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
-			}
-			if(shader_prog->time_loc >= 0)
-				glUniform1f(shader_prog->time_loc, this->current_time);
-			if(shader_prog->colour_loc >= 0)
-				glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_rgb.r);
-
-			if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
-			{
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-				glUniform1i(shader_prog->albedo_texture_loc, 0);
-			}
-
-			if(shader_prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
-			{
-				glActiveTexture(GL_TEXTURE1);
-				glBindTexture(GL_TEXTURE_2D, opengl_mat.texture_2->texture_handle);
-				glUniform1i(shader_prog->texture_2_loc, 1);
-			}
-
-			// Set user uniforms
-			for(size_t i=0; i<shader_prog->user_uniform_info.size(); ++i)
-			{
-				switch(shader_prog->user_uniform_info[i].uniform_type)
-				{
-				case UserUniformInfo::UniformType_Vec2:
-					glUniform2fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec2);
-					break;
-				case UserUniformInfo::UniformType_Vec3:
-					glUniform3fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec3);
-					break;
-				case UserUniformInfo::UniformType_Int:
-					glUniform1i(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].intval);
-					break;
-				case UserUniformInfo::UniformType_Float:
-					glUniform1f(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].floatval);
-					break;
-				case UserUniformInfo::UniformType_Sampler2D:
-					assert(0); // TODO
-					break;
-				}
-			}
-		}
-		
-		GLenum draw_mode;
-		if(ob.object_type == 0)
-			draw_mode = GL_TRIANGLES;
-		else
-		{
-			draw_mode = GL_LINES;
-			glLineWidth(ob.line_width);
-		}
-
-		if(ob.instance_matrix_vbo.nonNull())
-		{
-			const size_t num_instances = ob.instance_matrix_vbo->getSize() / sizeof(Matrix4f);
-			glDrawElementsInstanced(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset, (uint32)num_instances);
-		}
-		else
-			glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
-
-		//if(bind_program)
-		//	shader_prog->useNoPrograms();
 	}
+	else if(shader_prog == this->outline_prog.getPointer())
+	{
+
+	}
+	else // Else shader created by user code:
+	{
+		if(shader_prog->campos_ws_loc >= 0)
+		{
+			const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
+			glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
+		}
+		if(shader_prog->time_loc >= 0)
+			glUniform1f(shader_prog->time_loc, this->current_time);
+		if(shader_prog->colour_loc >= 0)
+			glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_rgb.r);
+
+		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+			glUniform1i(shader_prog->albedo_texture_loc, 0);
+		}
+
+		if(shader_prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.texture_2->texture_handle);
+			glUniform1i(shader_prog->texture_2_loc, 1);
+		}
+
+		// Set user uniforms
+		for(size_t i=0; i<shader_prog->user_uniform_info.size(); ++i)
+		{
+			switch(shader_prog->user_uniform_info[i].uniform_type)
+			{
+			case UserUniformInfo::UniformType_Vec2:
+				glUniform2fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec2);
+				break;
+			case UserUniformInfo::UniformType_Vec3:
+				glUniform3fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec3);
+				break;
+			case UserUniformInfo::UniformType_Int:
+				glUniform1i(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].intval);
+				break;
+			case UserUniformInfo::UniformType_Float:
+				glUniform1f(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].floatval);
+				break;
+			case UserUniformInfo::UniformType_Sampler2D:
+				assert(0); // TODO
+				break;
+			}
+		}
+	}
+		
+	GLenum draw_mode;
+	if(ob.object_type == 0)
+		draw_mode = GL_TRIANGLES;
+	else
+	{
+		draw_mode = GL_LINES;
+		glLineWidth(ob.line_width);
+	}
+
+	if(ob.instance_matrix_vbo.nonNull())
+	{
+		const size_t num_instances = ob.instance_matrix_vbo->getSize() / sizeof(Matrix4f);
+		glDrawElementsInstanced(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset, (uint32)num_instances);
+	}
+	else
+		glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
 
 	this->num_indices_submitted += num_indices;
 	this->num_face_groups_submitted++;

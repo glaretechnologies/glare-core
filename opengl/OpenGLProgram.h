@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "IncludeOpenGL.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/StringUtils.h"
 #include <string>
 #include <vector>
 class OpenGLShader;
@@ -25,14 +26,13 @@ struct UniformLocations
 	int lightmap_tex_location;
 	int texture_matrix_location;
 	int sundir_cs_location;
-	int roughness_location;
-	int fresnel_scale_location;
-	int metallic_frac_location;
 	int campos_ws_location;
 
 	int dynamic_depth_tex_location;
 	int static_depth_tex_location;
 	int shadow_texture_matrix_location;
+
+	int proj_view_model_matrix_location;
 };
 
 
@@ -53,6 +53,34 @@ struct UserUniformInfo
 	int loc; // Location in shader as retrieved from glGetUniformLocation()
 	int index; // Index into material.user_uniform_vals
 	UniformType uniform_type;
+};
+
+
+
+struct ProgramKey
+{
+	ProgramKey() {}
+	ProgramKey(const std::string& program_name_, bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_, bool gen_planar_uvs_, bool draw_planar_uv_grid_, bool convert_albedo_from_srgb_) :
+		program_name(program_name_), alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_), gen_planar_uvs(gen_planar_uvs_), draw_planar_uv_grid(draw_planar_uv_grid_), convert_albedo_from_srgb(convert_albedo_from_srgb_) {}
+
+	const std::string description() const { return "alpha_test: " + toString(alpha_test) + ", vert_colours: " + toString(vert_colours) + ", instance_matrices: " + toString(instance_matrices) + 
+		", lightmapping: " + toString(lightmapping) + ", gen_planar_uvs: " + toString(gen_planar_uvs) + ", draw_planar_uv_grid_: " + toString(draw_planar_uv_grid) + 
+		", convert_albedo_from_srgb: " + toString(convert_albedo_from_srgb); }
+
+	std::string program_name;
+	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb;
+	// convert_albedo_from_srgb is unfortunately needed for GPU-decoded video frame textures, which are sRGB but not marked as sRGB.
+
+	inline bool operator < (const ProgramKey& b) const
+	{
+		if(program_name < b.program_name)
+			return true;
+		else if(program_name > b.program_name)
+			return false;
+		const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0);
+		const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0) | (b.gen_planar_uvs ? 16 : 0) | (b.draw_planar_uv_grid ? 32 : 0) | (b.convert_albedo_from_srgb ? 64 : 0);
+		return val < bval;
+	}
 };
 
 
@@ -100,12 +128,16 @@ public:
 	std::string prog_name;
 
 	bool is_phong; // bit of a hack
-	bool uses_phong_uniforms; // bit of a hack
+	bool is_transparent; // bit of a hack
+	bool is_depth_draw;
+	bool uses_vert_uniform_buf_obs;
 
 
 	UniformLocations uniform_locations;
 
 	std::vector<UserUniformInfo> user_uniform_info;
+
+	ProgramKey key;
 };
 
 
