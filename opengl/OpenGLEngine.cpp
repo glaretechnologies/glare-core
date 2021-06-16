@@ -1041,7 +1041,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 					tex_preview_overlay_ob->material.albedo_rgb = Colour3f(1.f);
 					tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
 
-					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->static_depth_tex[0];
+					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex; // static_depth_tex[0];
 
 					tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 
@@ -1935,6 +1935,8 @@ void OpenGLEngine::draw()
 			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
 			if(ti == 0)
 				near_dist = 0.01f;
+			else
+				near_dist = near_dist * 0.8f; // Corresponds to edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT; in phong_frag_shader.glsl.
 
 			Vec4f frustum_verts_ws[8];
 			calcCamFrustumVerts(near_dist, far_dist, frustum_verts_ws);
@@ -2021,8 +2023,17 @@ void OpenGLEngine::draw()
 				Vec4f(0, 0, 0.5f, 0), // col 2
 				Vec4f(0.5f, 0.5f, 0.5f, 1) // col 3
 			);
+
+			const float y_scale  =       1.f / shadow_mapping->numDynamicDepthTextures();
+			const float y_offset = (float)ti / shadow_mapping->numDynamicDepthTextures();
+			const Matrix4f cascade_selection_matrix(
+				Vec4f(1, 0, 0, 0), // col 0
+				Vec4f(0, y_scale, 0, 0), // col 1
+				Vec4f(0, 0, 1, 0), // col 2
+				Vec4f(0, y_offset, 0, 1) // col 3
+			);
 			// Save shadow_tex_matrix that the shaders like phong will use.
-			shadow_mapping->dynamic_tex_matrix[ti] = texcoord_bias * proj_matrix * view_matrix;
+			shadow_mapping->dynamic_tex_matrix[ti] = cascade_selection_matrix * texcoord_bias * proj_matrix * view_matrix;
 
 
 			// Update shared uniforms
@@ -2262,9 +2273,19 @@ void OpenGLEngine::draw()
 					Vec4f(0, 0, 0.5f, 0), // col 2
 					Vec4f(0.5f, 0.5f, 0.5f, 1) // col 3
 				);
+
+				const float y_scale =        1.f / shadow_mapping->numStaticDepthTextures();
+				const float y_offset = (float)ti / shadow_mapping->numStaticDepthTextures();
+				const Matrix4f cascade_selection_matrix(
+					Vec4f(1, 0, 0, 0), // col 0
+					Vec4f(0, y_scale, 0, 0), // col 1
+					Vec4f(0, 0, 1, 0), // col 2
+					Vec4f(0, y_offset, 0, 1) // col 3
+				);
+
 				// Save shadow_tex_matrix that the shaders like phong will use.
 				if(ob_set == 0)
-					shadow_mapping->static_tex_matrix[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti] = texcoord_bias * proj_matrix * view_matrix;
+					shadow_mapping->static_tex_matrix[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti] = cascade_selection_matrix * texcoord_bias * proj_matrix * view_matrix;
 
 				// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
 				Timer timer3;

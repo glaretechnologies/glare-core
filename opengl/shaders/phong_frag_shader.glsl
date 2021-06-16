@@ -87,22 +87,22 @@ float metallicFresnelApprox(float cos_theta, float r_0)
 
 
 vec2 samples[16] = vec2[](
-	vec2(327, 128),
-	vec2(789, 168),
-	vec2(507, 219),
-	vec2(200, 439),
-	vec2(409, 392),
-	vec2(599, 401),
-	vec2(490, 470),
-	vec2(387, 574),
-	vec2(546, 535),
-	vec2(686, 530),
-	vec2(814, 545),
-	vec2(496, 648),
-	vec2(42, 724),
-	vec2(383, 802),
-	vec2(599, 716),
-	vec2(865, 367)
+	vec2(-0.00033789, -0.00072656),
+	vec2(0.00056445, -0.00064844),
+	vec2(0.000013672, -0.00054883),
+	vec2(-0.00058594, -0.00011914),
+	vec2(-0.00017773, -0.00021094),
+	vec2(0.00019336, -0.00019336),
+	vec2(-0.000019531, -0.000058594),
+	vec2(-0.00022070, 0.00014453),
+	vec2(0.000089844, 0.000068359),
+	vec2(0.00036328, 0.000058594),
+	vec2(0.00061328, 0.000087891),
+	vec2(-0.0000078125, 0.00028906),
+	vec2(-0.00089453, 0.00043750),
+	vec2(-0.00022852, 0.00058984),
+	vec2(0.00019336, 0.00042188),
+	vec2(0.00071289, -0.00025977)
 );
 
 
@@ -246,7 +246,9 @@ void main()
 	// Shadow mapping
 	float sun_vis_factor;
 #if SHADOW_MAPPING
-	
+
+//#define VISUALISE_CASCADES 1
+
 	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
 	float pattern_theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
 	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
@@ -256,30 +258,83 @@ void main()
 	float dist = -pos_cs.z;
 	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
 	{
-		// Select correct depth map
-		int dynamic_depth_tex_index;
-		if(dist < DEPTH_TEXTURE_SCALE_MULT)
-			dynamic_depth_tex_index = 0;
-		else
-			dynamic_depth_tex_index = 1;
-
-		vec3 shadow_cds = shadow_tex_coords[dynamic_depth_tex_index];
-		vec2 depth_texcoords = shadow_cds.xy;
-
-		float actual_depth = min(shadow_cds.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
-
-		// Compute coords in cascaded map
-		depth_texcoords.y = (float(dynamic_depth_tex_index) + depth_texcoords.y) * (1.0 / float(NUM_DYNAMIC_DEPTH_TEXTURES));
-
-		for(int i=0; i<16; ++i)
+		if(dist < DEPTH_TEXTURE_SCALE_MULT) // if dynamic_depth_tex_index == 0:
 		{
-			vec2 st = depth_texcoords + R * ((samples[i] * 0.001) - vec2(0.5, 0.5)) * (4.0 / 2048.0);
-			float light_depth = texture(dynamic_depth_tex, st).x;
+			vec3 shadow_cds_0 = shadow_tex_coords[0];
+			float actual_depth_0 = min(shadow_cds_0.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
 
-			sun_vis_factor += (light_depth > actual_depth) ? (1.0 / 16.0) : 0.0;
+			float tex_0_vis = 0;
+			for(int i = 0; i < 16; ++i)
+			{
+				vec2 st = shadow_cds_0.xy + R * samples[i];
+				float light_depth = texture(dynamic_depth_tex, st).x;
+				tex_0_vis += (light_depth > actual_depth_0) ? (1.0f / 16) : 0.0;
+			}
+
+			float edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT;
+			if(dist > edge_dist)
+			{
+				int next_tex_index = 1;
+				vec3 shadow_cds_1 = shadow_tex_coords[next_tex_index];
+				float actual_depth_1 = min(shadow_cds_1.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
+
+				float tex_1_vis = 0;
+				for(int i = 0; i < 16; ++i)
+				{
+					vec2 st = shadow_cds_1.xy + R * samples[i];
+					float light_depth = texture(dynamic_depth_tex, st).x;
+					tex_1_vis += (light_depth > actual_depth_1) ? (1.0f / 16) : 0.0;
+				}
+
+				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT, dist);
+				sun_vis_factor = mix(tex_0_vis, tex_1_vis, blend_factor);
+			}
+			else
+				sun_vis_factor = tex_0_vis;
+
+#if VISUALISE_CASCADES
+			diffuse_col.yz *= 0.5f;
+#endif
 		}
+		else
+		{
+			int dynamic_depth_tex_index = 1;
+			vec3 shadow_cds = shadow_tex_coords[dynamic_depth_tex_index];
+			float actual_depth = min(shadow_cds.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
 
-		//col.r = float(dynamic_depth_tex_index) / NUM_DYNAMIC_DEPTH_TEXTURES; // TEMP: visualise depth texture used.
+			for(int i = 0; i < 16; ++i)
+			{
+				vec2 st = shadow_cds.xy + R * samples[i];
+				float light_depth = texture(dynamic_depth_tex, st).x;
+				sun_vis_factor += (light_depth > actual_depth) ? (1.0f / 16) : 0.0;
+			}
+
+			float edge_dist = 0.6f * (DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT);
+
+			// Blending with static shadow map 0
+			if(dist > edge_dist)
+			{
+				vec3 static_shadow_cds = shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
+
+				float bias = 0.0005;// / abs(light_cos_theta);
+				float static_actual_depth = min(static_shadow_cds.z, 0.999f) - bias; // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
+
+				float static_sun_vis_factor = 0;
+				for(int i = 0; i < 16; ++i)
+				{
+					vec2 st = static_shadow_cds.xy + R * samples[i];
+					float light_depth = texture(static_depth_tex, st).x;
+					static_sun_vis_factor += (light_depth > static_actual_depth) ? (1.0 / 16.0) : 0.0;
+				}
+
+				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
+				sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
+			}
+
+#if VISUALISE_CASCADES
+			diffuse_col.yz *= 0.75f;
+#endif
+		}
 	}
 	else
 	{
@@ -288,31 +343,64 @@ void main()
 		if(l1dist < 1024)
 		{
 			int static_depth_tex_index;
+			float cascade_end_dist;
 			if(l1dist < 64)
+			{
 				static_depth_tex_index = 0;
+				cascade_end_dist = 64;
+			}
 			else if(l1dist < 256)
+			{
 				static_depth_tex_index = 1;
+				cascade_end_dist = 256;
+			}
 			else
+			{
 				static_depth_tex_index = 2;
-
-			//col.g = float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES; // TEMP: visualise depth texture used.
+				cascade_end_dist = 1024;
+			}
 
 			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
-			vec2 depth_texcoords = shadow_cds.xy;
 
 			float bias = 0.0005;// / abs(light_cos_theta);
 			float actual_depth = min(shadow_cds.z, 0.999f) - bias; // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
 
-			// Compute coords in cascaded map
-			depth_texcoords.y = (float(static_depth_tex_index) + depth_texcoords.y) * (1.0 / float(NUM_STATIC_DEPTH_TEXTURES));
-
 			for(int i=0; i<16; ++i)
 			{
-				vec2 st = depth_texcoords + R * ((samples[i] * 0.001) - vec2(0.5, 0.5)) * (4.0 / 2048.0);
+				vec2 st = shadow_cds.xy + R * samples[i];
 				float light_depth = texture(static_depth_tex, st).x;
-
-				sun_vis_factor += (light_depth > actual_depth) ? (1.0 / 16.0) : 0.0;
+				sun_vis_factor += (light_depth > actual_depth) ? (1.0f / 16) : 0.0;
 			}
+
+			if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
+			{
+				float edge_dist = 0.7f * cascade_end_dist;
+
+				// Blending with static shadow map static_depth_tex_index + 1
+				if(l1dist > edge_dist)
+				{
+					int next_tex_index = static_depth_tex_index + 1;
+					vec3 next_shadow_cds = shadow_tex_coords[next_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
+
+					float bias = 0.0005;// / abs(light_cos_theta);
+					float next_actual_depth = min(next_shadow_cds.z, 0.999f) - bias; // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
+
+					float next_sun_vis_factor = 0;
+					for(int i = 0; i < 16; ++i)
+					{
+						vec2 st = next_shadow_cds.xy + R * samples[i];
+						float light_depth = texture(static_depth_tex, st).x;
+						next_sun_vis_factor += (light_depth > next_actual_depth) ? (1.0f / 16) : 0.0;
+					}
+
+					float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
+					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
+				}
+			}
+
+#if VISUALISE_CASCADES
+			diffuse_col.xz *= float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES;
+#endif
 		}
 		else
 			sun_vis_factor = 1.0;

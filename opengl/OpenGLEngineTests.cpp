@@ -10,6 +10,8 @@ Copyright Glare Technologies Limited 2016 -
 #include "OpenGLEngine.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
+#include "../graphics/bitmap.h"
+#include "../graphics/PNGDecoder.h"
 #include "../utils/TestUtils.h"
 #include "../indigo/TextureServer.h"
 #include "../dll/include/IndigoMesh.h"
@@ -229,6 +231,76 @@ void test(const std::string& indigo_base_dir)
 	}
 
 	conPrint("OpenGLEngineTests::test() done.");
+}
+
+
+
+
+void buildData()
+{
+	try
+	{
+		Vec2f samples[] = {
+			Vec2f(327, 128),
+			Vec2f(789, 168),
+			Vec2f(507, 219),
+			Vec2f(200, 439),
+			Vec2f(409, 392),
+			Vec2f(599, 401),
+			Vec2f(490, 470),
+			Vec2f(387, 574),
+			Vec2f(546, 535),
+			Vec2f(686, 530),
+			Vec2f(814, 545),
+			Vec2f(496, 648),
+			Vec2f(42, 724),
+			Vec2f(383, 802),
+			Vec2f(599, 716),
+			Vec2f(865, 367)
+		};
+
+		const int W = 500;
+		Bitmap bitmap(W, W, 3, NULL);
+		bitmap.zero();
+
+		Array2D<float> density(W, W);
+		density.setAllElems(0.f);
+
+		for(int y = 0; y < W; ++y)
+		for(int x = 0; x < W; ++x)
+		for(int i = 0; i < 16; ++i)
+		{
+			Vec2f p((float)x / W, (float)y / W);
+			const Vec2f sample(samples[i].x * 0.001f, samples[i].y * 0.001f);
+
+			const float d2 = p.getDist(sample);
+			const float v = exp(-4 * d2);
+
+			density.elem(x, y) += v * 0.1;
+
+		}
+
+		for(int y = 0; y < W; ++y)
+		for(int x = 0; x < W; ++x)
+		{
+			const float v = density.elem(x, y);
+			bitmap.getPixelNonConst(x, y)[0] = v * 255;
+			bitmap.getPixelNonConst(x, y)[1] = v * 255;
+			bitmap.getPixelNonConst(x, y)[2] = v * 255;
+		}
+
+		PNGDecoder::write(bitmap, "samples.png"); 
+
+		for(int i = 0; i < 16; ++i)
+		{
+			Vec2f sample = ((samples[i] * 0.001) - Vec2f(0.5, 0.5)) * (4.0 / 2048.0);
+			conPrint("vec2(" + floatToStringNSigFigs(sample.x, 5) + ", " + floatToStringNSigFigs(sample.y, 5) + "),");
+		}
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
 }
 
 

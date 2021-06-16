@@ -17,4 +17,6 @@ namespace OpenGLEngineTests
 	void test(const std::string& indigo_base_dir);
 
 	void doTextureLoadingTests(OpenGLEngine& engine);
+
+	void buildData();
 }
