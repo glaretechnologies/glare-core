@@ -249,7 +249,10 @@ const std::string RFC822FormatedString() // http://www.faqs.org/rfcs/rfc822.html
 	return RFC822FormatedString(time(NULL));
 }
 
-const std::string RFC822FormatedString(time_t t) // http://www.faqs.org/rfcs/rfc822.html
+
+// Return a string like "Thu 15 Apr 2025 14:39:19 GMT"
+// See http://www.faqs.org/rfcs/rfc822.html, section 5: DATE AND TIME SPECIFICATION
+const std::string RFC822FormatedString(time_t t)
 {
 	tm thetime;
 	// Get calender time in UTC.  Use threadsafe versions of gmtime.
