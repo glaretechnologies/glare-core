@@ -143,6 +143,7 @@ OverlayObject::OverlayObject()
 OpenGLScene::OpenGLScene()
 {
 	max_draw_dist = 1000;
+	near_draw_dist = 0.22f;
 	render_aspect_ratio = 1;
 	lens_shift_up_distance = 0;
 	lens_shift_right_distance = 0;
@@ -2435,6 +2436,7 @@ void OpenGLEngine::draw()
 		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 	}
 
+
 	glViewport(0, 0, viewport_w, viewport_h); // Viewport may have been changed by shadow mapping.
 	
 	// NOTE: We want to clear here first, even if the scene node is null.
@@ -2451,7 +2453,7 @@ void OpenGLEngine::draw()
 	
 	// Initialise projection matrix from Indigo camera settings
 	const double z_far  = current_scene->max_draw_dist;
-	const double z_near = current_scene->max_draw_dist * 2e-5;
+	const double z_near = current_scene->near_draw_dist;
 
 	const float viewport_aspect_ratio = this->getViewPortAspectRatio();
 

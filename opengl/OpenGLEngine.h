@@ -320,6 +320,7 @@ public:
 	GLObjectRef env_ob;
 private:
 	float max_draw_dist;
+	float near_draw_dist;
 
 	Planef frustum_clip_planes[6];
 	int num_frustum_clip_planes;
@@ -510,6 +511,7 @@ public:
 	//--------------------------------------- Drawing ----------------------------------------
 	void setDrawWireFrames(bool draw_wireframes_) { draw_wireframes = draw_wireframes_; }
 	void setMaxDrawDistance(float d) { current_scene->max_draw_dist = d; } // Set far draw distance
+	void setNearDrawDistance(float d) { current_scene->near_draw_dist = d; } // Set near draw distance
 	void setCurrentTime(float time);
 
 	void draw();
