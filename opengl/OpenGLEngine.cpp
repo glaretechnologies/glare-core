@@ -1401,7 +1401,14 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 		return;
 
 	const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
+
+	// Lightmapping doesn't work properly on Mac currently, because lightmaps use the BC6H format, which isn't supported on mac.
+	// This results in lightmaps rendering black, so it's better to just not use lightmaps for now.
+#ifdef OSX
+	const bool uses_lightmapping = false;
+#else
 	const bool uses_lightmapping = material.lightmap_texture.nonNull();
+#endif
 
 	const ProgramKey key(material.transparent ? "transparent" : "phong", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
 		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb);
@@ -5574,7 +5581,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "texture CPU mem usage: " + getNiceByteSize(mem_usage.texture_cpu_usage) + "\n";
 	s += "texture GPU mem usage: " + getNiceByteSize(mem_usage.texture_gpu_usage) + "\n";
 	s += "num textures: " + toString(opengl_textures.size()) + "\n";
-	s += "OpenGL Version: " + opengl_version + " (DXT support: " + boolToString(GL_EXT_texture_compression_s3tc_support) + ")";
+	s += "OpenGL Version: " + opengl_version;
 
 	return s;
 }
