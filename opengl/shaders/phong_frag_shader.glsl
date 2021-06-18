@@ -247,7 +247,7 @@ void main()
 	float sun_vis_factor;
 #if SHADOW_MAPPING
 
-//#define VISUALISE_CASCADES 1
+#define VISUALISE_CASCADES 0
 
 	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
 	float pattern_theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
