@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "Platform.h"
 #include "Exception.h"
 #include <assert.h>
+#include <cstring> // For memcpy()
 
 
 // Modified from https://github.com/firefly/wallet/blob/master/source/libs/ethers/src/keccak256.c
