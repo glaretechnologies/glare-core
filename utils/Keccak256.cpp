@@ -279,6 +279,22 @@ void hash(const std::string& input_str, uint8* digest_out)
 }
 
 
+std::vector<uint8> hash(const std::vector<uint8>& input)
+{
+	SHA3_CTX ctx;
+	keccak_init(&ctx);
+
+	if(input.size() >= 65536)
+		throw glare::Exception("input too long");
+
+	keccak_update(&ctx, input.data(), (uint16)input.size());
+
+	std::vector<uint8> digest(32);
+	keccak_final(&ctx, &digest[0]);
+	return digest;
+}
+
+
 } // end namespace Keccak256
 
 

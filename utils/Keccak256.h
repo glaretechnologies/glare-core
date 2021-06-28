@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "Platform.h"
 #include <string>
+#include <vector>
 
 
 /*=====================================================================
@@ -21,6 +22,8 @@ namespace Keccak256
 	// NOTE: require input_str.size() < 65536 currently.
 	// Throws glare::Exception if that is not the case.
 	void hash(const std::string& input_str, uint8* digest_out);
+
+	std::vector<uint8> hash(const std::vector<uint8>& input);
 
 	void test();
 };
