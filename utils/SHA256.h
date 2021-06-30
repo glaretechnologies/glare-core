@@ -46,6 +46,17 @@ public:
 			hash((const unsigned char*)&(*message_text.begin()), (const unsigned char*)&(*message_text.begin()) + message_text.size(), digest_out);
 	}
 
+	// Return vector
+	inline static std::vector<unsigned char> hash(const std::string& message_text)
+	{
+		std::vector<unsigned char> digest;
+		if(message_text.empty())
+			hash(0, 0, digest);
+		else
+			hash((const unsigned char*)&(*message_text.begin()), (const unsigned char*)&(*message_text.begin()) + message_text.size(), digest);
+		return digest;
+	}
+
 	// Throws glare::Exception on failure
 	static void hash(
 		const unsigned char* message_text_begin,

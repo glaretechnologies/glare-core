@@ -127,6 +127,8 @@ void SHA256::test()
 		const std::string target_hex = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 		const std::vector<unsigned char> target = hexToByteArray(target_hex);
 		testAssert(digest == target);
+
+		testAssert(hash("") == target);
 	}
 
 	// Test "The quick brown fox jumps over the lazy dog"
