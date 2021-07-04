@@ -560,7 +560,7 @@ myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity
 		OpenGLEngine* engine = (OpenGLEngine*)userParam;
 		const size_t MAX_NUM_MSGS = 1000;
 		if(engine->opengl_msgs.size() < MAX_NUM_MSGS)
-			engine->opengl_msgs.push_back("severity: " + severitystr + ", type: " + typestr + ":" + message);
+			engine->opengl_msgs.push_back("severity: " + severitystr + ", type: " + typestr + ", message: " + message);
 	}
 }
 
