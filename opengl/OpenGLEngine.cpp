@@ -761,11 +761,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 	if(settings.enable_debug_output)
 	{
+#if !defined(OSX) // Apple doesn't seem to support glDebugMessageCallback: (https://stackoverflow.com/questions/24836127/gldebugmessagecallback-on-osx-xcode-5)
 		// Enable error message handling,.
 		// See "Porting Source to Linux: Valve's Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
 		glDebugMessageCallback(myMessageCallback, this); 
 		glEnable(GL_DEBUG_OUTPUT);
 		// glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // When this is enabled the offending gl call will be on the call stack when the message callback is called.
+#endif
 	}
 
 	// Check if anisotropic texture filtering is available, and get max anisotropy if so.  
