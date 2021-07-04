@@ -515,51 +515,54 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 }
 
 
-#if (BUILD_TESTS || !defined(NDEBUG)) && !defined(OSX)
 static void 
 #ifdef _WIN32
 	// NOTE: not sure what this should be on non-windows platforms.  APIENTRY does not seem to be defined with GCC on Linux 64.
 	APIENTRY 
 #endif
-myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/) 
+myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* userParam) 
 {
-	// See https://www.opengl.org/sdk/docs/man/html/glDebugMessageControl.xhtml
-
-	std::string typestr;
-	switch(type)
-	{
-	case GL_DEBUG_TYPE_ERROR: typestr = "Error"; break;
-	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "Deprecated Behaviour"; break;
-	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "Undefined Behaviour"; break;
-	case GL_DEBUG_TYPE_PORTABILITY: typestr = "Portability"; break;
-	case GL_DEBUG_TYPE_PERFORMANCE: typestr = "Performance"; break;
-	case GL_DEBUG_TYPE_MARKER: typestr = "Marker"; break;
-	case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "Push group"; break;
-	case GL_DEBUG_TYPE_POP_GROUP: typestr = "Pop group"; break;
-	case GL_DEBUG_TYPE_OTHER: typestr = "Other"; break;
-	default: typestr = "Unknown"; break;
-	}
-
-	std::string severitystr;
-	switch(severity)
-	{
-	case GL_DEBUG_SEVERITY_LOW: severitystr = "low"; break;
-	case GL_DEBUG_SEVERITY_MEDIUM: severitystr = "medium"; break;
-	case GL_DEBUG_SEVERITY_HIGH : severitystr = "high"; break;
-	case GL_DEBUG_SEVERITY_NOTIFICATION : severitystr = "notification"; break;
-	case GL_DONT_CARE: severitystr = "Don't care"; break;
-	default: severitystr = "Unknown"; break;
-	}
-
 	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION && !StringUtils::containsString(message, "recompiled")) // Don't print out notifications by default.
 	{
+		// See https://www.opengl.org/sdk/docs/man/html/glDebugMessageControl.xhtml
+
+		std::string typestr;
+		switch(type)
+		{
+		case GL_DEBUG_TYPE_ERROR: typestr = "Error"; break;
+		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "Deprecated Behaviour"; break;
+		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "Undefined Behaviour"; break;
+		case GL_DEBUG_TYPE_PORTABILITY: typestr = "Portability"; break;
+		case GL_DEBUG_TYPE_PERFORMANCE: typestr = "Performance"; break;
+		case GL_DEBUG_TYPE_MARKER: typestr = "Marker"; break;
+		case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "Push group"; break;
+		case GL_DEBUG_TYPE_POP_GROUP: typestr = "Pop group"; break;
+		case GL_DEBUG_TYPE_OTHER: typestr = "Other"; break;
+		default: typestr = "Unknown"; break;
+		}
+
+		std::string severitystr;
+		switch(severity)
+		{
+		case GL_DEBUG_SEVERITY_LOW: severitystr = "low"; break;
+		case GL_DEBUG_SEVERITY_MEDIUM: severitystr = "medium"; break;
+		case GL_DEBUG_SEVERITY_HIGH : severitystr = "high"; break;
+		case GL_DEBUG_SEVERITY_NOTIFICATION : severitystr = "notification"; break;
+		case GL_DONT_CARE: severitystr = "Don't care"; break;
+		default: severitystr = "Unknown"; break;
+		}
+
 		conPrint("==============================================================");
 		conPrint("OpenGL msg, severity: " + severitystr + ", type: " + typestr + ":");
 		conPrint(std::string(message));
 		conPrint("==============================================================");
+
+		OpenGLEngine* engine = (OpenGLEngine*)userParam;
+		const size_t MAX_NUM_MSGS = 1000;
+		if(engine->opengl_msgs.size() < MAX_NUM_MSGS)
+			engine->opengl_msgs.push_back("severity: " + severitystr + ", type: " + typestr + ":" + message);
 	}
 }
-#endif
 
 
 void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
@@ -733,18 +736,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	}
 #endif
 
-#if (BUILD_TESTS || !defined(NDEBUG)) && !defined(OSX)
-	//if(GLEW_ARB_debug_output)
+	if(settings.enable_debug_output)
 	{
 		// Enable error message handling,.
 		// See "Porting Source to Linux: Valve's Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
-		glDebugMessageCallback(myMessageCallback, NULL); 
+		glDebugMessageCallback(myMessageCallback, this); 
 		glEnable(GL_DEBUG_OUTPUT);
 		// glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // When this is enabled the offending gl call will be on the call stack when the message callback is called.
 	}
-	//else
-	//	conPrint("GLEW_ARB_debug_output OpenGL extension not available.");
-#endif
 
 	// Check if anisotropic texture filtering is available, and get max anisotropy if so.  
 	// See 'Texture Mapping in OpenGL: Beyond the Basics' - http://www.informit.com/articles/article.aspx?p=770639&seqNum=2
@@ -2318,6 +2317,7 @@ void OpenGLEngine::draw()
 				{
 					const GLObject* const ob = it->getPointer();
 					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
+					{
 						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 						{
 							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
@@ -2346,6 +2346,7 @@ void OpenGLEngine::draw()
 						}
 						else
 							num_frustum_culled++;
+					}
 				}
 
 				// Sort by shader program

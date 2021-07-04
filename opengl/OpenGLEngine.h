@@ -250,8 +250,9 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false) {}
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false) {}
 
+	bool enable_debug_output;
 	bool shadow_mapping;
 	bool compress_textures;
 	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
@@ -770,6 +771,9 @@ private:
 	UniformBufObRef phong_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;
 	UniformBufObRef per_object_vert_uniform_buf_ob;
+
+public:
+	std::vector<std::string> opengl_msgs; // error and warning messages from myMessageCallback
 };
 
 
