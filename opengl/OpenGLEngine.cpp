@@ -746,7 +746,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	}
 #endif
 
-	this->opengl_version = std::string((const char*)glGetString(GL_VERSION));
+	this->opengl_vendor		= std::string((const char*)glGetString(GL_VENDOR));
+	this->opengl_renderer	= std::string((const char*)glGetString(GL_RENDERER));
+	this->opengl_version	= std::string((const char*)glGetString(GL_VERSION));
+	this->glsl_version		= std::string((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 #if !defined(OSX)
 	// Check to see if OpenGL 3.0 is supported, which is required for our VAO usage etc...  (See https://www.opengl.org/wiki/History_of_OpenGL#OpenGL_3.0_.282008.29 etc..)
@@ -2671,13 +2674,19 @@ void OpenGLEngine::draw()
 
 		Matrix4f tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
 
-		// The first matrices in our packed array are the dynamic tex matrices
-		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
-			tex_matrices[i] = shadow_mapping->dynamic_tex_matrix[i];
+		if(shadow_mapping.nonNull())
+		{
+			// The first matrices in our packed array are the dynamic tex matrices
+			for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
+				tex_matrices[i] = shadow_mapping->dynamic_tex_matrix[i];
 
-		// Following those are the static tex matrices.  Use cur_static_depth_tex to select the current (complete) depth tex.
-		for(int i = 0; i < ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
-			tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + i] = shadow_mapping->static_tex_matrix[shadow_mapping->cur_static_depth_tex * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + i];
+			// Following those are the static tex matrices.  Use cur_static_depth_tex to select the current (complete) depth tex.
+			for(int i = 0; i < ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+				tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + i] = shadow_mapping->static_tex_matrix[shadow_mapping->cur_static_depth_tex * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + i];
+		}
+		else
+			for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+				tex_matrices[i] = Matrix4f::identity();
 
 		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
 			uniforms.shadow_texture_matrix[i] = tex_matrices[i];
@@ -5495,7 +5504,7 @@ float OpenGLEngine::getPixelDepth(int pixel_x, int pixel_y)
 		&depth);
 
 	const double z_far  = current_scene->max_draw_dist;
-	const double z_near = current_scene->max_draw_dist * 2e-5;
+	const double z_near = current_scene->near_draw_dist;
 
 	// From http://learnopengl.com/#!Advanced-OpenGL/Depth-testing
 	float z = depth * 2.0f - 1.0f; 
@@ -5607,7 +5616,10 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "texture CPU mem usage: " + getNiceByteSize(mem_usage.texture_cpu_usage) + "\n";
 	s += "texture GPU mem usage: " + getNiceByteSize(mem_usage.texture_gpu_usage) + "\n";
 	s += "num textures: " + toString(opengl_textures.size()) + "\n";
-	s += "OpenGL Version: " + opengl_version;
+	s += "OpenGL vendor: " + opengl_vendor + "\n";
+	s += "OpenGL renderer: " + opengl_renderer + "\n";
+	s += "OpenGL version: " + opengl_version + "\n";
+	s += "GLSL version: " + glsl_version;
 
 	return s;
 }

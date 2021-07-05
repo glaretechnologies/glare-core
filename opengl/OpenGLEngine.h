@@ -741,7 +741,11 @@ private:
 	mutable Mutex task_manager_mutex;
 	glare::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
 public:
+	std::string opengl_vendor;
+	std::string opengl_renderer;
 	std::string opengl_version;
+	std::string glsl_version;
+
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;
 	float max_anisotropy;
