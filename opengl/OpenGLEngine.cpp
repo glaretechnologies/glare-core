@@ -1937,13 +1937,6 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
-	glViewport(0, 0, viewport_w, viewport_h); // Viewport may have been changed by shadow mapping.
-	glClearColor(1, 0.5, 0.2, 1); // TEMP HACK IMPORTANT
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	return; // TEMP HACK IMPORTANT
-
-
-
 	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
