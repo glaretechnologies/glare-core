@@ -16,7 +16,9 @@ class Map2D;
 /*=====================================================================
 GIFDecoder
 -------------------
-
+See http://giflib.sourceforge.net/,
+http://giflib.sourceforge.net/whatsinagif/animation_and_transparency.html
+etc..
 =====================================================================*/
 class GIFDecoder
 {

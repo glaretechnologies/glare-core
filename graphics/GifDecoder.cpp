@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "ImageMapSequence.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
+#include "../utils/ConPrint.h"
 #include <stdio.h>
 #include <fcntl.h>
 #ifdef _WIN32
@@ -148,6 +149,10 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 				disposal_mode = control_block.DisposalMode;
 				transparent_color = control_block.TransparentColor;
 				num_hundredths = control_block.DelayTime;
+
+				// Some gif files have delay time = 0, which seems invalid.  The standard for this case seems to be to use a delay time of 10 hundredths of a second. (From chrome and windows photo viewer)
+				if(num_hundredths == 0)
+					num_hundredths = 10;
 			}
 
 			sequence->frame_durations  [im_i] = 0.01 * num_hundredths;
@@ -270,6 +275,8 @@ void GIFDecoder::test()
 	try
 	{
 		Reference<Map2D> im;
+
+		// im = GIFDecoder::decodeImageSequence("C:\\Users\\nick\\Downloads\\rabbitplayhouse.gif"); // keyboard cat
 
 		// im = GIFDecoder::decodeImageSequence("E:\\video\\2GU.gif"); // keyboard cat
 
