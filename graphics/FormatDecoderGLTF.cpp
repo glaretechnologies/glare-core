@@ -461,6 +461,13 @@ static void appendDataToMeshVector(GLTFData& data, GLTFPrimitive& primitive, con
 }
 
 
+// Just ignore primitives that do not have mode GLTF_MODE_TRIANGLES for now, instead of throwing an error.
+static inline bool shouldLoadPrimitive(const GLTFPrimitive& primitive)
+{
+	return primitive.mode == GLTF_MODE_TRIANGLES;
+}
+
+
 static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t& total_num_tris, size_t& total_num_verts)
 {
 	// Process mesh
@@ -473,14 +480,17 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 		{
 			GLTFPrimitive& primitive = *mesh.primitives[i];
 
-			if(primitive.mode != GLTF_MODE_TRIANGLES)
-				throw glare::Exception("Only GLTF_MODE_TRIANGLES handled currently.");
+			//if(primitive.mode != GLTF_MODE_TRIANGLES)
+			//	throw glare::Exception("Only GLTF_MODE_TRIANGLES handled currently. (mode: " + toString(primitive.mode) + ")");
 
 			if(primitive.indices == std::numeric_limits<size_t>::max())
-				throw glare::Exception("Primitve did not have indices.");
+				throw glare::Exception("primitive did not have indices.");
 
-			total_num_tris  += getAccessor(data, primitive.indices).count / 3;
-			total_num_verts += getAccessorForAttribute(data, primitive, "POSITION").count;
+			if(shouldLoadPrimitive(primitive))
+			{
+				total_num_tris  += getAccessor(data, primitive.indices).count / 3;
+				total_num_verts += getAccessorForAttribute(data, primitive, "POSITION").count;
+			}
 		}
 	}
 
@@ -619,6 +629,9 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 		for(size_t i=0; i<mesh.primitives.size(); ++i)
 		{
 			GLTFPrimitive& primitive = *mesh.primitives[i];
+
+			if(!shouldLoadPrimitive(primitive))
+				continue;
 
 #if USE_INDIGO_MESH_INDICES
 			size_t indices_write_i;
@@ -1005,7 +1018,7 @@ void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& m
 	buffer->binary_data = (const uint8*)file.fileData() + bin_buf_chunk_header_offset + 8;
 	buffer->data_size = bin_buf_header.chunk_length;
 
-	if(true)
+	if(false)
 	{
 		// Save JSON to disk for debugging
 		const std::string json((const char*)file.fileData() + 20, json_header.chunk_length);
@@ -1974,6 +1987,21 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
+		/*{
+			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
+			Indigo::Mesh mesh;
+			GLTFMaterials mats;
+			streamModel("D:\\models\\skatter_bush_01_full\\scene.gltf", mesh, 1.0, mats);
+
+			testAssert(mesh.num_materials_referenced == 2);
+			testAssert(mesh.vert_positions.size() == 72);
+			testAssert(mesh.vert_normals.size() == 72);
+			testAssert(mesh.vert_colours.size() == 72);
+			testAssert(mesh.uv_pairs.size() == 72);
+			testAssert(mesh.triangles.size() == 36);
+
+			testWriting(mesh, mats);
+		}*/
 		/*{
 			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
 			Indigo::Mesh mesh;
