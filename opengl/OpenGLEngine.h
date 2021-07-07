@@ -33,6 +33,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Task.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/StringUtils.h"
+#include "../utils/PrintOutput.h"
 #include <unordered_set>
 namespace Indigo { class Mesh; }
 namespace glare { class TaskManager; }
@@ -412,7 +413,7 @@ public:
 	friend class TextureLoading;
 
 	//---------------------------- Initialisation/deinitialisation --------------------------
-	void initialise(const std::string& data_dir, TextureServer* texture_server); // data_dir should have 'shaders' and 'gl_data' in it.
+	void initialise(const std::string& data_dir, TextureServer* texture_server, PrintOutput* print_output); // data_dir should have 'shaders' and 'gl_data' in it.
 	bool initSucceeded() const { return init_succeeded; }
 	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
 
@@ -777,7 +778,7 @@ private:
 	UniformBufObRef per_object_vert_uniform_buf_ob;
 
 public:
-	std::vector<std::string> opengl_msgs; // error and warning messages from myMessageCallback
+	PrintOutput* print_output; // May be NULL
 };
 
 

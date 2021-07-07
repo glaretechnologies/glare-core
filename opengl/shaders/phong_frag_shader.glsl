@@ -243,11 +243,16 @@ void main()
 	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
 		specular_fresnel;
 
+	float shadow_factor = smoothstep(-0.3, 0, dot(sundir_cs.xyz, unit_normal_cs));
+	specular *= shadow_factor;
+
 	// Shadow mapping
 	float sun_vis_factor;
 #if SHADOW_MAPPING
 
 #define VISUALISE_CASCADES 0
+
+	float samples_scale = 1.f;
 
 	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
 	float pattern_theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
@@ -266,7 +271,7 @@ void main()
 			float tex_0_vis = 0;
 			for(int i = 0; i < 16; ++i)
 			{
-				vec2 st = shadow_cds_0.xy + R * samples[i];
+				vec2 st = shadow_cds_0.xy + R * samples[i] * samples_scale;
 				float light_depth = texture(dynamic_depth_tex, st).x;
 				tex_0_vis += (light_depth > actual_depth_0) ? (1.0f / 16) : 0.0;
 			}
@@ -281,7 +286,7 @@ void main()
 				float tex_1_vis = 0;
 				for(int i = 0; i < 16; ++i)
 				{
-					vec2 st = shadow_cds_1.xy + R * samples[i];
+					vec2 st = shadow_cds_1.xy + R * samples[i] * samples_scale;
 					float light_depth = texture(dynamic_depth_tex, st).x;
 					tex_1_vis += (light_depth > actual_depth_1) ? (1.0f / 16) : 0.0;
 				}
@@ -304,7 +309,7 @@ void main()
 
 			for(int i = 0; i < 16; ++i)
 			{
-				vec2 st = shadow_cds.xy + R * samples[i];
+				vec2 st = shadow_cds.xy + R * samples[i] * samples_scale;
 				float light_depth = texture(dynamic_depth_tex, st).x;
 				sun_vis_factor += (light_depth > actual_depth) ? (1.0f / 16) : 0.0;
 			}
@@ -322,7 +327,7 @@ void main()
 				float static_sun_vis_factor = 0;
 				for(int i = 0; i < 16; ++i)
 				{
-					vec2 st = static_shadow_cds.xy + R * samples[i];
+					vec2 st = static_shadow_cds.xy + R * samples[i] * samples_scale;
 					float light_depth = texture(static_depth_tex, st).x;
 					static_sun_vis_factor += (light_depth > static_actual_depth) ? (1.0 / 16.0) : 0.0;
 				}
@@ -367,7 +372,7 @@ void main()
 
 			for(int i=0; i<16; ++i)
 			{
-				vec2 st = shadow_cds.xy + R * samples[i];
+				vec2 st = shadow_cds.xy + R * samples[i] * samples_scale;
 				float light_depth = texture(static_depth_tex, st).x;
 				sun_vis_factor += (light_depth > actual_depth) ? (1.0f / 16) : 0.0;
 			}
@@ -388,7 +393,7 @@ void main()
 					float next_sun_vis_factor = 0;
 					for(int i = 0; i < 16; ++i)
 					{
-						vec2 st = next_shadow_cds.xy + R * samples[i];
+						vec2 st = next_shadow_cds.xy + R * samples[i] * samples_scale;
 						float light_depth = texture(static_depth_tex, st).x;
 						next_sun_vis_factor += (light_depth > next_actual_depth) ? (1.0f / 16) : 0.0;
 					}

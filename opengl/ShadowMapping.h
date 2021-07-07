@@ -47,9 +47,11 @@ public:
 	static int numStaticDepthTextures() { return NUM_STATIC_DEPTH_TEXTURES; }
 	float getStaticDepthTextureScaleMultiplier() { return 6.0; }
 
-	void bindDepthTexAsTarget();
-	void bindStaticDepthTexAsTarget();
-	void unbindDepthTex();
+	void bindDepthTexFrameBufferAsTarget();
+	void bindStaticDepthTexFrameBufferAsTarget(int index);
+	void unbindFrameBuffer();
+
+	void setCurStaticDepthTex(int i) { cur_static_depth_tex = i; }
 
 private:
 	GLARE_DISABLE_COPY(ShadowMapping);
@@ -63,6 +65,7 @@ public:
 	Reference<FrameBuffer> frame_buffer;
 	Reference<OpenGLTexture> depth_tex;
 	
+	// There are 2 static depth maps: One is accumulated to over multiple frames, while the other is used for lookups.
 	int cur_static_depth_tex; // 0 or 1
 	Reference<FrameBuffer> static_frame_buffer[2];
 	Reference<OpenGLTexture> static_depth_tex[2];

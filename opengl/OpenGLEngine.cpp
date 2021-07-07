@@ -172,7 +172,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	are_8bit_textures_sRGB(true),
 	outline_tex_w(0),
 	outline_tex_h(0),
-	last_num_obs_in_frustum(0)
+	last_num_obs_in_frustum(0),
+	print_output(NULL)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -582,8 +583,8 @@ myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity
 
 		OpenGLEngine* engine = (OpenGLEngine*)userParam;
 		const size_t MAX_NUM_MSGS = 1000;
-		if(engine->opengl_msgs.size() < MAX_NUM_MSGS)
-			engine->opengl_msgs.push_back("severity: " + severitystr + ", type: " + typestr + ", message: " + message);
+		if(engine->print_output)
+			engine->print_output->print("OpenGL Engine: severity: " + severitystr + ", type: " + typestr + ", message: " + message);
 	}
 }
 
@@ -731,10 +732,11 @@ static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 1;
 
 static const int NUM_BLUR_DOWNSIZES = 8;
 
-void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_)
+void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_, PrintOutput* print_output_)
 {
 	data_dir = data_dir_;
 	texture_server = texture_server_;
+	print_output = print_output_;
 
 #if !defined(OSX)
 	if(gl3wInit() != 0)
@@ -1952,7 +1954,7 @@ void OpenGLEngine::draw()
 		if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
 #endif
 		//-------------------- Draw dynamic depth textures ----------------
-		shadow_mapping->bindDepthTexAsTarget();
+		shadow_mapping->bindDepthTexFrameBufferAsTarget();
 
 		glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -2141,7 +2143,7 @@ void OpenGLEngine::draw()
 			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
 		}
 
-		shadow_mapping->unbindDepthTex();
+		shadow_mapping->unbindFrameBuffer();
 		//-------------------- End draw dynamic depth textures ----------------
 
 		//-------------------- Draw static depth textures ----------------
@@ -2172,9 +2174,7 @@ void OpenGLEngine::draw()
 			// Bind the non-current ('other') static depth map.  We will render to that.
 			const int other_index = (shadow_mapping->cur_static_depth_tex + 1) % 2;
 
-			shadow_mapping->static_frame_buffer[other_index]->bind();
-			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, shadow_mapping->static_depth_tex[other_index]->texture_handle, 0);
-			glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+			shadow_mapping->bindStaticDepthTexFrameBufferAsTarget(other_index);
 
 			const uint32 ti = (frame_num % 12) / 4; // Texture index, in [0, numStaticDepthTextures)
 			const uint32 ob_set = frame_num % 4;    // Object set, in [0, 4)
@@ -2397,10 +2397,10 @@ void OpenGLEngine::draw()
 				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
 			}
 
-			shadow_mapping->unbindDepthTex();
+			shadow_mapping->unbindFrameBuffer();
 
 			if(frame_num % 12 == 11) // If we just finished drawing to our 'other' depth map, swap cur and other
-				shadow_mapping->cur_static_depth_tex = (shadow_mapping->cur_static_depth_tex + 1) % 2; // Swap cur and other
+				shadow_mapping->setCurStaticDepthTex((shadow_mapping->cur_static_depth_tex + 1) % 2); // Swap cur and other
 		}
 		//-------------------- End draw static depth textures ----------------
 

@@ -22,11 +22,12 @@ ShadowMapping::~ShadowMapping()
 
 void ShadowMapping::init()
 {
-	dynamic_w = 2048;
-	dynamic_h = 2048 * numDynamicDepthTextures();
+	const int base_res = 2048;
+	dynamic_w = base_res;
+	dynamic_h = base_res * numDynamicDepthTextures();
 
-	static_w = 2048;
-	static_h = 2048 * numStaticDepthTextures();
+	static_w = base_res;
+	static_h = base_res * numStaticDepthTextures();
 
 	// Create frame buffer
 	frame_buffer = new FrameBuffer();
@@ -64,31 +65,53 @@ void ShadowMapping::init()
 	//	GL_FLOAT, // type
 	//	true // nearest filtering
 	//);
-}
 
-
-void ShadowMapping::bindDepthTexAsTarget()
-{
+	// Attach depth texture to frame buffer
 	frame_buffer->bind();
 
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex->texture_handle, 0);
-	//glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, col_tex->texture_handle, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_tex->texture_handle, /*mipmap level=*/0);
 
-	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+	glDrawBuffer(GL_NONE); // No colour buffer is drawn to.
+	glReadBuffer(GL_NONE); // No colour buffer is read from.
+
+	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+	{
+		conPrint("Error: framebuffer is not complete.");
+		assert(0);
+	}
+
+	FrameBuffer::unbind();
 }
 
 
-void ShadowMapping::bindStaticDepthTexAsTarget()
+void ShadowMapping::bindDepthTexFrameBufferAsTarget()
 {
-	static_frame_buffer[cur_static_depth_tex]->bind();
-
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, static_depth_tex[cur_static_depth_tex]->texture_handle, 0);
-
-	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+	frame_buffer->bind();
 }
 
 
-void ShadowMapping::unbindDepthTex()
+void ShadowMapping::bindStaticDepthTexFrameBufferAsTarget(int index)
+{
+	assert(index >= 0 && index < 2);
+
+	static_frame_buffer[index]->bind();
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_depth_tex[index]->texture_handle, /*mipmap level=*/0);
+
+	glDrawBuffer(GL_NONE); // No colour buffer is drawn to.
+	glReadBuffer(GL_NONE); // No colour buffer is read from.
+
+	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+	{
+		conPrint("Error: static framebuffer is not complete.");
+		assert(0);
+	}
+}
+
+
+void ShadowMapping::unbindFrameBuffer()
 {
 	FrameBuffer::unbind();
 }

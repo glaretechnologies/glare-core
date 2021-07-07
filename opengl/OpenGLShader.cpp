@@ -78,6 +78,9 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& preproces
 		if(!isAllWhitespace(log))
 			conPrint("shader log for " + FileUtils::getFilename(path) + ":\n" + log);
 
+		// TEMP: dump full shader to disk
+		// FileUtils::writeEntireFileTextMode(FileUtils::getFilename(path), processed_src);
+
 		GLint shader_ok;
 		glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
 		if(!shader_ok)
