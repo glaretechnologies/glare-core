@@ -248,7 +248,7 @@ void main()
 
 	// Shadow mapping
 	float sun_vis_factor;
-#if SHADOW_MAPPING
+#if 0 // TEMP HACK IMPORTANT SHADOW_MAPPING
 
 #define VISUALISE_CASCADES 0
 

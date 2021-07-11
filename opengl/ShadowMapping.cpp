@@ -77,8 +77,9 @@ void ShadowMapping::init()
 	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if(is_complete != GL_FRAMEBUFFER_COMPLETE)
 	{
-		conPrint("Error: framebuffer is not complete.");
-		assert(0);
+		throw glare::Exception("Error: framebuffer is not complete.");
+		//conPrint("Error: framebuffer is not complete.");
+		//assert(0);
 	}
 
 	FrameBuffer::unbind();
@@ -105,8 +106,9 @@ void ShadowMapping::bindStaticDepthTexFrameBufferAsTarget(int index)
 	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if(is_complete != GL_FRAMEBUFFER_COMPLETE)
 	{
-		conPrint("Error: static framebuffer is not complete.");
-		assert(0);
+		throw glare::Exception("Error: static framebuffer is not complete.");
+		//conPrint("Error: static framebuffer is not complete.");
+		//assert(0);
 	}
 }
 
