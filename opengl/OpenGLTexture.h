@@ -104,6 +104,8 @@ public:
 		Wrapping wrapping
 	);
 
+	void setTWrappingEnabled(bool wrapping_enabled);
+
 	// Will return 0 if texture has not been loaded yet.
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }

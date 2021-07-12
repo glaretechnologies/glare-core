@@ -439,6 +439,13 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 }
 
 
+void OpenGLTexture::setTWrappingEnabled(bool wrapping_enabled)
+{
+	glBindTexture(GL_TEXTURE_2D, texture_handle);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapping_enabled ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+}
+
+
 void OpenGLTexture::loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
 	const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 	Format format_,
