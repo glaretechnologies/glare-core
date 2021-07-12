@@ -92,8 +92,8 @@ void PerlinNoise::buildData()
 	{
 		//float samples[2];
 		//halton.getSamples(samples, 2);
-
 		//new_gradients[i] = GeometrySampling::unitSquareToSphere(Vec2f(samples[0], samples[1])).toVec4fVector() * std::sqrt(2.f);
+
 		write_gradients[i] = GeometrySampling::unitSquareToSphere(Vec2f(rng.unitRandom(), rng.unitRandom())).toVec4fVector() * std::sqrt(2.f);
 	}
 
