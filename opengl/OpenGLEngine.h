@@ -662,6 +662,11 @@ private:
 	int env_diffuse_tex_location;
 	int env_texture_matrix_location;
 	int env_sundir_cs_location;
+	int env_noise_tex_location;
+	int env_fbm_tex_location;
+
+	Reference<OpenGLTexture> fbm_tex;
+	Reference<OpenGLTexture> noise_tex;
 
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;

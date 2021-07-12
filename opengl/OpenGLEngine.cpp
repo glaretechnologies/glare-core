@@ -16,6 +16,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/BatchedMesh.h"
 #include "../graphics/CompressedImage.h"
+#include "../graphics/PerlinNoise.h"
+#include "../graphics/EXRDecoder.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../utils/TestUtils.h"
@@ -986,6 +988,70 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		env_diffuse_tex_location		= env_prog->getUniformLocation("diffuse_tex");
 		env_texture_matrix_location		= env_prog->getUniformLocation("texture_matrix");
 		env_sundir_cs_location			= env_prog->getUniformLocation("sundir_cs");
+		env_noise_tex_location			= env_prog->getUniformLocation("noise_tex");
+		env_fbm_tex_location			= env_prog->getUniformLocation("fbm_tex");
+
+		// Make noise texture
+		{
+			Timer timer;
+			const size_t W = 128;
+			std::vector<float> data(W * W);
+			float maxval = 0;
+			float minval = 0;
+			for(int y=0; y<W; ++y)
+			for(int x=0; x<W; ++x)
+			{
+				float px = (float)x * (4.f / W);
+				float py = (float)y * (4.f / W);
+				const float v =  PerlinNoise::periodicNoise(px, py, /*period=*/4);
+				minval = myMin(minval, v);
+				maxval = myMax(maxval, v);
+				data[y * W + x] = 0.5f + 0.5f*v;
+				//data[y * W + x] = v * 0.05;
+			}
+			printVar(minval);
+			printVar(maxval);
+
+			EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
+
+			noise_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+			noise_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
+			conPrint("noise_tex creation took " + timer.elapsedString());
+		}
+		// Make FBM texture
+		{
+			Timer timer;
+			const size_t W = 1024;
+			std::vector<float> data(W * W);
+			float maxval = 0;
+			float minval = 0;
+			for(int y=0; y<W; ++y)
+				for(int x=0; x<W; ++x)
+				{
+					/*float px = (float)x * (32.f / W);
+					float py = (float)y * (32.f / W);
+					const float v = PerlinNoise::noise(px, py);*/
+					/*float px = (float)x * (32.f / W);
+					float py = (float)y * (32.f / W);
+					const float v = PerlinNoise::periodicNoise(px, py, 32);*/
+					float px = (float)x * (4.f / W);
+					float py = (float)y * (4.f / W);
+					//const float v = PerlinNoise::voronoiFBM<float>(Vec4f(10 * px, 10 * py, 0, 0), 1, 2, 2);
+					const float v =  PerlinNoise::periodicFBM(px, py, /*num octaves=*/12, /*period=*/4);
+					minval = myMin(minval, v);
+					maxval = myMax(maxval, v);
+					data[y * W + x] = 0.5f + 0.5f*v;
+					//data[y * W + x] = v * 0.05;
+				}
+			printVar(minval);
+			printVar(maxval);
+
+			EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
+
+			fbm_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+			fbm_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
+			conPrint("fbm_tex creation took " + timer.elapsedString());
+		}
 
 		overlay_prog = new OpenGLProgram(
 			"overlay",
@@ -4397,6 +4463,10 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		glUniform4fv(this->env_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 		glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 		glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
+		glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
+		if(shader_prog->time_loc >= 0)
+			glUniform1f(shader_prog->time_loc, this->current_time);
 
 		if(opengl_mat.albedo_texture.nonNull())
 		{
@@ -4410,6 +4480,19 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 			};
 			glUniformMatrix3fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 			glUniform1i(this->env_diffuse_tex_location, 0);
+		}
+
+		if(this->noise_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 1);
+			glBindTexture(GL_TEXTURE_2D, this->noise_tex->texture_handle);
+			glUniform1i(this->env_noise_tex_location, 1);
+		}
+		if(this->fbm_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 2);
+			glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
+			glUniform1i(this->env_fbm_tex_location, 2);
 		}
 	}
 	else if(shader_prog->is_depth_draw)

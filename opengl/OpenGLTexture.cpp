@@ -80,6 +80,11 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		gl_format = GL_RED; // NOTE: this sux, image turns out red.  Improve by converting texture here.
 		type = GL_UNSIGNED_BYTE;
 		break;
+	case Format_Greyscale_Float:
+		internal_format = GL_RED;
+		gl_format = GL_RED;
+		type = GL_FLOAT;
+		break;
 	case Format_SRGB_Uint8:
 		internal_format = GL_SRGB8;
 		gl_format = GL_RGB;
