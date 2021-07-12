@@ -24,9 +24,6 @@ void NoiseTests::test()
 {
 	conPrint("NoiseTests::test()");
 
-	PerlinNoise::init();
-
-
 	// Check that noise(x, y, 0) gives the same result as noise(x, y).
 	/*{
 		const float v = PerlinNoise::noise(Vec4f(0.f, 0.f, 0.f, 0));
@@ -80,9 +77,11 @@ void NoiseTests::test()
 		}
 
 		{
+			PerlinNoise::noise(Vec4f(1234.5, 0, 0, 0));
+
 			conPrint("PerlinNoise::noise()");
 			Timer t;
-			const int N = 1000000;
+			const int N = 100000000;
 			float sum = 0;
 			for(int i=0; i<N; ++i)
 			{
