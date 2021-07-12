@@ -276,7 +276,7 @@ void buildData()
 			const float d2 = p.getDist(sample);
 			const float v = exp(-4 * d2);
 
-			density.elem(x, y) += v * 0.1;
+			density.elem(x, y) += v * 0.1f;
 
 		}
 
@@ -284,9 +284,9 @@ void buildData()
 		for(int x = 0; x < W; ++x)
 		{
 			const float v = density.elem(x, y);
-			bitmap.getPixelNonConst(x, y)[0] = v * 255;
-			bitmap.getPixelNonConst(x, y)[1] = v * 255;
-			bitmap.getPixelNonConst(x, y)[2] = v * 255;
+			bitmap.getPixelNonConst(x, y)[0] = (uint8)(v * 255.f);
+			bitmap.getPixelNonConst(x, y)[1] = (uint8)(v * 255.f);
+			bitmap.getPixelNonConst(x, y)[2] = (uint8)(v * 255.f);
 		}
 
 		PNGDecoder::write(bitmap, "samples.png"); 
