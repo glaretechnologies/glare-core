@@ -591,7 +591,6 @@ myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity
 		conPrint("==============================================================");
 
 		OpenGLEngine* engine = (OpenGLEngine*)userParam;
-		const size_t MAX_NUM_MSGS = 1000;
 		if(engine->print_output)
 			engine->print_output->print("OpenGL Engine: severity: " + severitystr + ", type: " + typestr + ", message: " + message);
 	}
@@ -943,36 +942,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
-		// Eager creation of phong programs:
-		/*if(false)
-		{
-			for(int alpha_test=0; alpha_test <= 1; ++alpha_test)
-			for(int vert_colours=0; vert_colours <= 1; ++vert_colours)
-			for(int instance_matrices=0; instance_matrices <= 1; ++instance_matrices)
-			for(int lightmapping=0; lightmapping <= 1; ++lightmapping)
-			for(int gen_planar_uvs=0; gen_planar_uvs <= 1; ++gen_planar_uvs)
-			{
-				const std::string use_defs = preprocessor_defines + 
-					"#define ALPHA_TEST " + toString(alpha_test) + "\n" + 
-					"#define VERT_COLOURS " + toString(vert_colours) + "\n" +
-					"#define INSTANCE_MATRICES " + toString(instance_matrices) + "\n" +
-					"#define LIGHTMAPPING " + toString(lightmapping) + "\n" + 
-					"#define GENERATE_PLANAR_UVS " + toString(gen_planar_uvs) + "\n";
-
-				OpenGLProgramRef phong_prog = new OpenGLProgram(
-					"phong",
-					new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-					new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
-				);
-				phong_prog->is_phong = true;
-				phong_prog->uses_phong_uniforms = true;
-
-				const PhongKey key(alpha_test != 0, vert_colours != 0, instance_matrices != 0, lightmapping != 0, gen_planar_uvs != 0);
-				phong_progs[key] = phong_prog;
-
-				getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
-			}
-		}*/
 
 		phong_uniform_buf_ob = new UniformBufOb();
 		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms));
@@ -1028,6 +997,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			noise_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
 			conPrint("noise_tex creation took " + timer.elapsedString());
 		}
+
 		// Make FBM texture
 		{
 			Timer timer;
@@ -1070,13 +1040,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
-		//cirrus_tex = getTexture(gl_data_dir + "/cirrus.exr");
-		/*EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
-
-		noise_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
-		noise_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
-		conPrint("noise_tex creation took " + timer.elapsedString());
-		}*/
 
 		overlay_prog = new OpenGLProgram(
 			"overlay",
@@ -1199,7 +1162,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 		// Load diffuse irradiance maps
-		try
 		{
 			std::vector<Map2DRef> face_maps(6);
 			for(int i=0; i<6; ++i)
@@ -1212,13 +1174,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 			this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
 		}
-		catch(ImFormatExcep& e)
-		{
-			throw glare::Exception(e.what());
-		}
 
 		// Load specular-reflection env tex
-		try
 		{
 			const std::string path = gl_data_dir + "/specular_refl_sky_no_sun_combined.exr";
 			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", path);
@@ -1226,14 +1183,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			if(!specular_env.isType<ImageMapFloat>())
 				throw glare::Exception("specular env map Must be ImageMapFloat");
 
-			//BuildUInt8MapTextureDataScratchState state;
 			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
 		}
-		catch(ImFormatExcep& e)
-		{
-			throw glare::Exception(e.what());
-		}
-
 
 		init_succeeded = true;
 	}
@@ -1996,7 +1947,7 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 	clear_buf_overlay_ob->ob_to_world_matrix =
 		Matrix4f::translationMatrix(-1 + begin.x, -1 + begin.y, 1.f) * Matrix4f::scaleMatrix(2 * (end.x - begin.x), 2 * (end.y - begin.y), 1.f);
 
-	glDepthFunc(GL_ALWAYS); // Do this to effectively enable z-test, but still have z writes.
+	glDepthFunc(GL_ALWAYS); // Do this to effectively disable z-test, but still have z writes.
 
 	const OpenGLMeshRenderData& mesh_data = *clear_buf_overlay_ob->mesh_data;
 	bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
@@ -2506,7 +2457,7 @@ void OpenGLEngine::draw()
 			glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &shadow_depth_drawing_elapsed_ns); // Blocks
 		}
 #endif
-	}
+	} // End if(shadow_mapping.nonNull())
 
 #if !defined(OSX)
 	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);

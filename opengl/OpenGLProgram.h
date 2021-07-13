@@ -24,6 +24,7 @@ struct UniformLocations
 	int cosine_env_tex_location;
 	int specular_env_tex_location;
 	int lightmap_tex_location;
+	int fbm_tex_location;
 	int texture_matrix_location;
 	int sundir_cs_location;
 	int campos_ws_location;
