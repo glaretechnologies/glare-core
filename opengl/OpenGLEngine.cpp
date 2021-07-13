@@ -1989,7 +1989,7 @@ void OpenGLEngine::draw()
 	uint64 shadow_depth_drawing_elapsed_ns = 0;
 
 	//=============== Render to shadow map depth buffer if needed ===========
-	if(shadow_mapping.nonNull())
+	if(false)//shadow_mapping.nonNull())
 	{
 #if !defined(OSX)
 		if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
