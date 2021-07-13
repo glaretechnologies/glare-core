@@ -711,7 +711,7 @@ void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js:
 }
 
 
-void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& prog, bool shadow_mapping_enabled, UniformLocations& locations_out)
+void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shadow_mapping_enabled, UniformLocations& locations_out)
 {
 	locations_out.diffuse_colour_location			= prog->getUniformLocation("diffuse_colour");
 	locations_out.have_shading_normals_location		= prog->getUniformLocation("have_shading_normals");
@@ -1229,7 +1229,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		progs[key] = phong_prog;
 
-		getPhongUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
+		getUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
 
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PhongUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_uniforms_index, /*binding point=*/0);
@@ -1270,7 +1270,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		progs[key] = prog;
 
-		getPhongUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
 		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
@@ -1307,7 +1307,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key) // Thr
 
 		progs[key] = prog;
 
-		getPhongUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
 		if(key.instance_matrices) // SharedVertUniforms are only used in depth_vert_shader.glsl when INSTANCE_MATRICES is defined.
 		{
@@ -2008,7 +2008,8 @@ void OpenGLEngine::draw()
 		{
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
 
-#if 0
+// Code before here works
+#if 1
 			// Compute the 8 points making up the corner vertices of this slice of the view frustum
 			float near_dist = (float)std::pow<double>(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), ti);
 			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
@@ -2184,6 +2185,7 @@ void OpenGLEngine::draw()
 
 			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
 #endif
+			// Code after here works
 		}
 
 		shadow_mapping->unbindFrameBuffer();
@@ -2228,6 +2230,7 @@ void OpenGLEngine::draw()
 				const int static_per_map_h = shadow_mapping->static_h / shadow_mapping->numStaticDepthTextures();
 				glViewport(/*x=*/0, /*y=*/ti*static_per_map_h, /*width=*/shadow_mapping->static_w, /*height=*/static_per_map_h);
 
+				// Code before here works
 #if 0
 				if(ob_set == 0)
 				{
@@ -2440,6 +2443,7 @@ void OpenGLEngine::draw()
 
 				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
 #endif
+// Code after here works
 			}
 
 			shadow_mapping->unbindFrameBuffer();
