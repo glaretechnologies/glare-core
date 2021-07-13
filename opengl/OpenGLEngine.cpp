@@ -1989,7 +1989,7 @@ void OpenGLEngine::draw()
 	uint64 shadow_depth_drawing_elapsed_ns = 0;
 
 	//=============== Render to shadow map depth buffer if needed ===========
-	if(false)//shadow_mapping.nonNull())
+	if(shadow_mapping.nonNull())
 	{
 #if !defined(OSX)
 		if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
@@ -2008,6 +2008,7 @@ void OpenGLEngine::draw()
 		{
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
 
+#if 0
 			// Compute the 8 points making up the corner vertices of this slice of the view frustum
 			float near_dist = (float)std::pow<double>(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), ti);
 			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
@@ -2182,6 +2183,7 @@ void OpenGLEngine::draw()
 			current_bound_prog = NULL;
 
 			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
+#endif
 		}
 
 		shadow_mapping->unbindFrameBuffer();
@@ -2226,6 +2228,7 @@ void OpenGLEngine::draw()
 				const int static_per_map_h = shadow_mapping->static_h / shadow_mapping->numStaticDepthTextures();
 				glViewport(/*x=*/0, /*y=*/ti*static_per_map_h, /*width=*/shadow_mapping->static_w, /*height=*/static_per_map_h);
 
+#if 0
 				if(ob_set == 0)
 				{
 					glDisable(GL_CULL_FACE);
@@ -2436,6 +2439,7 @@ void OpenGLEngine::draw()
 				this->current_bound_prog = NULL;
 
 				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
+#endif
 			}
 
 			shadow_mapping->unbindFrameBuffer();
