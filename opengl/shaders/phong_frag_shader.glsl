@@ -25,6 +25,7 @@ uniform sampler2D dynamic_depth_tex;
 uniform sampler2D static_depth_tex;
 uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
+uniform sampler2D fbm_tex;
 #if LIGHTMAPPING
 uniform sampler2D lightmap_tex;
 #endif
@@ -39,6 +40,7 @@ layout (std140) uniform PhongUniforms
 	float roughness;
 	float fresnel_scale;
 	float metallic_frac;
+	float time;
 };
 
 
@@ -121,6 +123,22 @@ vec3 toNonLinear(vec3 x)
 {
 	// Approximation to pow(x, 0.4545).  Max error of ~0.004 over [0, 1].
 	return 0.124445006f*x*x + -0.35056138f*x + 1.2311935*sqrt(x);
+}
+
+
+float fbm(vec2 p)
+{
+	return (texture(fbm_tex, p).x - 0.5) * 2.f;
+}
+
+
+float fbmMix(vec2 p)
+{
+	return 
+		fbm(p) +
+		//fbm(rot(p * 1)) * 0.5 +
+		//fbm(rot2(p * 1)) * 0.25 +
+		0;
 }
 
 
@@ -248,7 +266,7 @@ void main()
 
 	// Shadow mapping
 	float sun_vis_factor;
-#if 0 // TEMP HACK IMPORTANT SHADOW_MAPPING
+#if SHADOW_MAPPING
 
 #define VISUALISE_CASCADES 0
 
@@ -414,6 +432,25 @@ void main()
 #else
 	sun_vis_factor = 1.0;
 #endif
+
+	// Apply cloud shadows
+	// Compute position on cumulus cloud layer
+	if(pos_ws.z < 1000.f)
+	{
+		vec3 sundir_ws = vec3(3.6716393E-01, 6.3513672E-01, 6.7955279E-01); // TEMP HACK
+		vec3 cum_layer_pos = pos_ws + sundir_ws * (1000.f - pos_ws.z) / sundir_ws.z;
+
+		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
+		cum_tex_coords.x += time * 0.002;
+
+		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2 + 2.3453, cum_tex_coords.y * 2 + 1.4354);
+		float cumulus_val = max(0.f, fbmMix(cumulus_coords));
+
+		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
+		sun_vis_factor *= cumulus_trans;
+	}
+
+
 
 	vec3 unit_normal_ws = normalize(use_normal_ws);
 	if(dot(unit_normal_ws, cam_to_pos_ws) > 0)

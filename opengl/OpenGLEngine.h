@@ -381,6 +381,7 @@ struct PhongUniforms
 	float roughness;
 	float fresnel_scale;
 	float metallic_frac;
+	float time;
 };
 
 
@@ -507,6 +508,8 @@ public:
 
 	void setEnvMat(const OpenGLMaterial& env_mat);
 	const OpenGLMaterial& getEnvMat() const { return current_scene->env_ob->materials[0]; }
+
+	void setCirrusTexture(const Reference<OpenGLTexture>& tex);
 	//----------------------------------------------------------------------------------------
 
 
@@ -664,9 +667,11 @@ private:
 	int env_sundir_cs_location;
 	int env_noise_tex_location;
 	int env_fbm_tex_location;
+	int env_cirrus_tex_location;
 
 	Reference<OpenGLTexture> fbm_tex;
 	Reference<OpenGLTexture> noise_tex;
+	Reference<OpenGLTexture> cirrus_tex;
 
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;

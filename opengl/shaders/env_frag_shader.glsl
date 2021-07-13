@@ -10,6 +10,7 @@ uniform int have_texture;
 uniform sampler2D diffuse_tex;
 uniform sampler2D noise_tex;
 uniform sampler2D fbm_tex;
+uniform sampler2D cirrus_tex;
 uniform mat3 texture_matrix;
 uniform vec3 campos_ws;
 uniform float time;
@@ -200,6 +201,7 @@ vec2 rotA(vec2 p)
 float fbm(vec2 p)
 {
 	return (texture(fbm_tex, p).x - 0.5) * 2.f;
+	//return (texture(fbm_tex, p).x) * 1.f - 0.8f; // For voronoi:
 }
 
 float noise(vec2 p)
@@ -214,11 +216,11 @@ float fbmMix(vec2 p)
 
 	return 
 		fbm(p) +
-		fbm(rot(p * 1)) * 0.5 +
+		//fbm(rot(p * 1)) * 0.5 +
 		//fbm(rot2(p * 1)) * 0.25 +
 		0;
-	
 }
+
 float fbmMixRotated(vec2 p)
 {
 	return fbmMix(rotA(p));
@@ -289,12 +291,15 @@ void main()
 
 
 		//float cloudfrac = max(0.f, course_detail) * (/*fine_detail2 * 0.2 + */fine_detail); //  max(0.f, fine_detail2 + 0.7)* fine_detail;
-		cirrus_cloudfrac =
-			-0.8 +
-			course_detail * 1.0 +
-			fine_detail * 0.6 +
-			fine_detail2 * 0.6 +
-			0;
+		//cirrus_cloudfrac =
+		//	-0.8 +
+		//	course_detail * 1.0 +
+		//	fine_detail * 0.6 +
+		//	fine_detail2 * 0.6 +
+		//	0;
+
+		cirrus_cloudfrac = max(course_detail * 0.9, 0.f) * texture(cirrus_tex, p * 1).x * 1.5 + 
+			fine_detail2 * 0.0;
 
 		
 #endif
@@ -337,7 +342,7 @@ void main()
 			vec2 cumulus_coords = vec2(p.x * 2 + 2.3453, p.y * 2 + 1.4354);
 			
 			float cumulus_val = fbmMix(cumulus_coords);
-			cumulus_alpha = max(0.f, cumulus_val);
+			cumulus_alpha = max(0.f, cumulus_val - 0.5f);
 
 			float w = 1.0e9;
 
@@ -378,6 +383,31 @@ void main()
 	// Blend lower hemisphere into a colour that matches fogged ground quad in Substrata
 	// Chosen by hand to match the fogged phong colour at ~2km (edge of ground quad)
 	vec4 lower_hemis_col = vec4(pow(6.5, 2.2), pow(6.8, 2.2), pow(7.3, 2.2), 1.0) * 1.6e7;
+
+	// Cloud shadows on lower half of hemisphere, to match shadows on ground plane
+	if(texture_coords.y > 1.58)
+	{
+		float ground_ray_t = campos_ws.z / -dir_ws.z;
+		vec3 ground_pos = campos_ws + dir_ws * ground_ray_t;
+
+		vec3 sundir_ws = vec3(3.6716393E-01, 6.3513672E-01, 6.7955279E-01); // TEMP HACK
+		vec3 cum_layer_pos = ground_pos + sundir_ws * (1000.f) * (1.f / sundir_ws.z);
+
+		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
+		cum_tex_coords.x += time * 0.002;
+
+		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2 + 2.3453, cum_tex_coords.y * 2 + 1.4354);
+		float cumulus_val = max(0.f, fbmMix(cumulus_coords));
+
+		float dist_factor = 1.f - smoothstep(10000, 20000, ground_ray_t);
+		cumulus_val *= dist_factor;
+
+		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
+		float sun_vis_factor = cumulus_trans;
+
+		vec4 shadowed_col = vec4(pow(4.5, 2.2), pow(5.4, 2.2), pow(6.4, 2.2), 1.0) * 1.4e7;
+		lower_hemis_col = mix(shadowed_col, lower_hemis_col, sun_vis_factor);
+	}
 
 	float lower_hemis_factor = smoothstep(1.52, 1.6, texture_coords.y);
 	col = mix(col, lower_hemis_col, lower_hemis_factor);

@@ -37,6 +37,7 @@ public:
 	{
 		Format_Greyscale_Uint8,
 		Format_Greyscale_Float,
+		Format_Greyscale_Half,
 		Format_SRGB_Uint8,
 		Format_SRGBA_Uint8,
 		Format_RGB_Linear_Uint8,

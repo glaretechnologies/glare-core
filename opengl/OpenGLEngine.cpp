@@ -519,6 +519,12 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 }
 
 
+void OpenGLEngine::setCirrusTexture(const Reference<OpenGLTexture>& tex)
+{
+	this->cirrus_tex = tex;
+}
+
+
 // Define some constants not defined on Mac for some reason.
 // From https://www.khronos.org/registry/OpenGL/api/GL/glext.h
 #ifndef GL_DEBUG_TYPE_ERROR
@@ -916,6 +922,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 	this->current_scene->env_ob->mesh_data = sphere_meshdata;
 
+	const std::string gl_data_dir = data_dir + "/gl_data";
 
 	try
 	{
@@ -1056,14 +1063,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			printVar(minval);
 			printVar(maxval);
 
-			EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
+			//EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
 			fbm_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
 			fbm_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
-//		cirrus_tex = getTexture("cirrus.exr");
+		//cirrus_tex = getTexture(gl_data_dir + "/cirrus.exr");
 		/*EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
 
 		noise_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
@@ -1192,13 +1199,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 		// Load diffuse irradiance maps
-		const std::string processed_envmap_dir = data_dir + "/gl_data";
 		try
 		{
 			std::vector<Map2DRef> face_maps(6);
 			for(int i=0; i<6; ++i)
 			{
-				face_maps[i] = ImFormatDecoder::decodeImage(".", processed_envmap_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
+				face_maps[i] = ImFormatDecoder::decodeImage(".", gl_data_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
 
 				if(!face_maps[i].isType<ImageMapFloat>())
 					throw glare::Exception("cosine env map Must be ImageMapFloat");
@@ -1214,7 +1220,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Load specular-reflection env tex
 		try
 		{
-			const std::string path = processed_envmap_dir + "/specular_refl_sky_no_sun_combined.exr";
+			const std::string path = gl_data_dir + "/specular_refl_sky_no_sun_combined.exr";
 			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", path);
 
 			if(!specular_env.isType<ImageMapFloat>())
@@ -5535,7 +5541,17 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
-			if(imagemap->getN() == 3)
+			if(imagemap->getN() == 1)
+			{
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_Greyscale_Half,
+					OpenGLTexture::Filtering_Fancy
+				);
+
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+				return opengl_tex;
+			}
+			else if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
 				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Half,
