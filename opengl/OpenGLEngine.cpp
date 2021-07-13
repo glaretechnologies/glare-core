@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../graphics/BatchedMesh.h"
 #include "../graphics/CompressedImage.h"
 #include "../graphics/PerlinNoise.h"
+#include "../graphics/Voronoi.h"
 #include "../graphics/EXRDecoder.h"
 #include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
@@ -714,6 +715,7 @@ void OpenGLEngine::getPhongUniformLocations(Reference<OpenGLProgram>& prog, bool
 	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
 	locations_out.specular_env_tex_location			= prog->getUniformLocation("specular_env_tex");
 	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
+	locations_out.fbm_tex_location					= prog->getUniformLocation("fbm_tex");
 	locations_out.texture_matrix_location			= prog->getUniformLocation("texture_matrix");
 	locations_out.sundir_cs_location				= prog->getUniformLocation("sundir_cs");
 	locations_out.campos_ws_location				= prog->getUniformLocation("campos_ws");
@@ -990,6 +992,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		env_sundir_cs_location			= env_prog->getUniformLocation("sundir_cs");
 		env_noise_tex_location			= env_prog->getUniformLocation("noise_tex");
 		env_fbm_tex_location			= env_prog->getUniformLocation("fbm_tex");
+		env_cirrus_tex_location			= env_prog->getUniformLocation("cirrus_tex");
 
 		// Make noise texture
 		{
@@ -1004,15 +1007,15 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				float px = (float)x * (4.f / W);
 				float py = (float)y * (4.f / W);
 				const float v =  PerlinNoise::periodicNoise(px, py, /*period=*/4);
-				minval = myMin(minval, v);
-				maxval = myMax(maxval, v);
-				data[y * W + x] = 0.5f + 0.5f*v;
-				//data[y * W + x] = v * 0.05;
+				const float normalised_v = 0.5f + 0.5f*v; // Map from [-1, 1] to [0, 1].
+				minval = myMin(minval, normalised_v);
+				maxval = myMax(maxval, normalised_v);
+				data[y * W + x] = normalised_v;
 			}
 			printVar(minval);
 			printVar(maxval);
 
-			EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
+			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
 
 			noise_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
 			noise_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
@@ -1026,23 +1029,30 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			float maxval = 0;
 			float minval = 0;
 			for(int y=0; y<W; ++y)
-				for(int x=0; x<W; ++x)
-				{
-					/*float px = (float)x * (32.f / W);
-					float py = (float)y * (32.f / W);
-					const float v = PerlinNoise::noise(px, py);*/
-					/*float px = (float)x * (32.f / W);
-					float py = (float)y * (32.f / W);
-					const float v = PerlinNoise::periodicNoise(px, py, 32);*/
-					float px = (float)x * (4.f / W);
-					float py = (float)y * (4.f / W);
-					//const float v = PerlinNoise::voronoiFBM<float>(Vec4f(10 * px, 10 * py, 0, 0), 1, 2, 2);
-					const float v =  PerlinNoise::periodicFBM(px, py, /*num octaves=*/12, /*period=*/4);
-					minval = myMin(minval, v);
-					maxval = myMax(maxval, v);
-					data[y * W + x] = 0.5f + 0.5f*v;
-					//data[y * W + x] = v * 0.05;
-				}
+			for(int x=0; x<W; ++x)
+			{
+				/*float px = (float)x * (32.f / W);
+				float py = (float)y * (32.f / W);
+				const float v = PerlinNoise::noise(px, py);*/
+				/*float px = (float)x * (32.f / W);
+				float py = (float)y * (32.f / W);
+				const float v = PerlinNoise::periodicNoise(px, py, 32);*/
+				float px = (float)x * (4.f / W);
+				float py = (float)y * (4.f / W);
+				//const float v = PerlinNoise::voronoiFBM<float>(Vec4f(10 * px, 10 * py, 0, 0), 1, 2, 2);
+
+				// 1024 pixels are covered by 4 perlin noise grid cells for base octave. // So each cell corresponds to 1024 / 4 = 256 pixels.
+				// So we need 8 octaves to get pixel-detail noise.
+				const float v =  PerlinNoise::periodicFBM(px, py, /*num octaves=*/8, /*period=*/4);
+				const float normalised_v = 0.5f + 0.5f*v; // Map from [-1, 1] to [0, 1].
+				
+				//const float v = Voronoi::voronoiFBM(Vec2f(px, py), /*num octaves=*/8);
+				//const float normalised_v = 0.5f*v; // Map from [-1, 1] to [0, 1].
+				
+				data[y * W + x] = normalised_v;
+				minval = myMin(minval, normalised_v);
+				maxval = myMax(maxval, normalised_v);
+			}
 			printVar(minval);
 			printVar(maxval);
 
@@ -1052,6 +1062,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			fbm_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
+
+//		cirrus_tex = getTexture("cirrus.exr");
+		/*EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
+
+		noise_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+		noise_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
+		conPrint("noise_tex creation took " + timer.elapsedString());
+		}*/
 
 		overlay_prog = new OpenGLProgram(
 			"overlay",
@@ -4329,6 +4347,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	uniforms.roughness = opengl_mat.roughness;
 	uniforms.fresnel_scale = opengl_mat.fresnel_scale;
 	uniforms.metallic_frac = opengl_mat.metallic_frac;
+	uniforms.time = this->current_time;
 
 
 
@@ -4352,6 +4371,13 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glActiveTexture(GL_TEXTURE0 + 4);
 		glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
 		glUniform1i(locations.specular_env_tex_location, 4);
+	}
+
+	if(this->fbm_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 5);
+		glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
+		glUniform1i(locations.fbm_tex_location, 5);
 	}
 
 	if(opengl_mat.albedo_texture.nonNull())
@@ -4493,6 +4519,12 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 			glActiveTexture(GL_TEXTURE0 + 2);
 			glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
 			glUniform1i(this->env_fbm_tex_location, 2);
+		}
+		if(this->cirrus_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 3);
+			glBindTexture(GL_TEXTURE_2D, this->cirrus_tex->texture_handle);
+			glUniform1i(this->env_cirrus_tex_location, 3);
 		}
 	}
 	else if(shader_prog->is_depth_draw)
@@ -5466,7 +5498,17 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 		if(res == this->opengl_textures.end())
 		{
 			// Load texture
-			if(imagemap->getN() == 3)
+			if(imagemap->getN() == 1)
+			{
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_Greyscale_Float,
+					filtering, wrapping
+				);
+
+				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+				return opengl_tex;
+			}
+			else if(imagemap->getN() == 3)
 			{
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
 				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Float,
@@ -5702,7 +5744,9 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "OpenGL vendor: " + opengl_vendor + "\n";
 	s += "OpenGL renderer: " + opengl_renderer + "\n";
 	s += "OpenGL version: " + opengl_version + "\n";
-	s += "GLSL version: " + glsl_version;
+	s += "GLSL version: " + glsl_version + "\n";
+	s += "texture sRGB support: " + boolToString(GL_EXT_texture_sRGB_support) + "\n";
+	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support);
 
 	return s;
 }
