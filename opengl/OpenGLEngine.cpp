@@ -966,11 +966,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		env_diffuse_tex_location		= env_prog->getUniformLocation("diffuse_tex");
 		env_texture_matrix_location		= env_prog->getUniformLocation("texture_matrix");
 		env_sundir_cs_location			= env_prog->getUniformLocation("sundir_cs");
-		env_noise_tex_location			= env_prog->getUniformLocation("noise_tex");
+		//env_noise_tex_location			= env_prog->getUniformLocation("noise_tex");
 		env_fbm_tex_location			= env_prog->getUniformLocation("fbm_tex");
 		env_cirrus_tex_location			= env_prog->getUniformLocation("cirrus_tex");
 
 		// Make noise texture
+		if(false)
 		{
 			Timer timer;
 			const size_t W = 128;
@@ -1003,22 +1004,15 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			Timer timer;
 			const size_t W = 1024;
 			std::vector<float> data(W * W);
-			float maxval = 0;
-			float minval = 0;
+			//float maxval = 0;
+			//float minval = 0;
 			for(int y=0; y<W; ++y)
 			for(int x=0; x<W; ++x)
 			{
-				/*float px = (float)x * (32.f / W);
-				float py = (float)y * (32.f / W);
-				const float v = PerlinNoise::noise(px, py);*/
-				/*float px = (float)x * (32.f / W);
-				float py = (float)y * (32.f / W);
-				const float v = PerlinNoise::periodicNoise(px, py, 32);*/
 				float px = (float)x * (4.f / W);
 				float py = (float)y * (4.f / W);
-				//const float v = PerlinNoise::voronoiFBM<float>(Vec4f(10 * px, 10 * py, 0, 0), 1, 2, 2);
-
-				// 1024 pixels are covered by 4 perlin noise grid cells for base octave. // So each cell corresponds to 1024 / 4 = 256 pixels.
+				
+				// 1024 pixels are covered by 4 perlin noise grid cells for base octave.  So each cell corresponds to 1024 / 4 = 256 pixels.
 				// So we need 8 octaves to get pixel-detail noise.
 				const float v =  PerlinNoise::periodicFBM(px, py, /*num octaves=*/8, /*period=*/4);
 				const float normalised_v = 0.5f + 0.5f*v; // Map from [-1, 1] to [0, 1].
@@ -1027,11 +1021,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				//const float normalised_v = 0.5f*v; // Map from [-1, 1] to [0, 1].
 				
 				data[y * W + x] = normalised_v;
-				minval = myMin(minval, normalised_v);
-				maxval = myMax(maxval, normalised_v);
+				//minval = myMin(minval, normalised_v);
+				//maxval = myMax(maxval, normalised_v);
 			}
-			printVar(minval);
-			printVar(maxval);
+			//printVar(minval);
+			//printVar(maxval);
 
 			//EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
@@ -4478,12 +4472,12 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 			glUniform1i(this->env_diffuse_tex_location, 0);
 		}
 
-		if(this->noise_tex.nonNull())
+		/*if(this->noise_tex.nonNull())
 		{
 			glActiveTexture(GL_TEXTURE0 + 1);
 			glBindTexture(GL_TEXTURE_2D, this->noise_tex->texture_handle);
 			glUniform1i(this->env_noise_tex_location, 1);
-		}
+		}*/
 		if(this->fbm_tex.nonNull())
 		{
 			glActiveTexture(GL_TEXTURE0 + 2);

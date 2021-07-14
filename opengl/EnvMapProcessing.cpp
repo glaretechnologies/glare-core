@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2017 -
 
 
 #include "OpenGLEngine.h"
-#include "../indigo/TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../utils/ConPrint.h"
@@ -68,13 +68,9 @@ void run(const std::string& indigo_base_dir)
 
 	try
 	{
-
-
-		Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "D:\\programming\\indigo_output\\vs2015\\indigo_x64\\RelWithDebInfo\\sky_no_sun.exr");
+		Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "C:\\programming\\indigo\\output\\vs2019\\indigo_x64\\RelWithDebInfo\\sky_no_sun.exr");
 		//Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "N:\\new_cyberspace\\trunk\\assets\\sky_no_sun.exr");
 		//Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "N:\\indigo\\trunk\\testscenes\\uffizi-large.exr");
-
-		
 
 
 		//ImageMapFloatRef uniform = new ImageMapFloat(128, 64, 3); // For debugging
@@ -196,7 +192,7 @@ void run(const std::string& indigo_base_dir)
 						}
 
 						// Normalise
-						sum /= (skymapf->getHeight() * skymapf->getWidth());
+						sum /= (float)(skymapf->getHeight() * skymapf->getWidth());
 						
 
 						//if(face == 0)
@@ -210,7 +206,7 @@ void run(const std::string& indigo_base_dir)
 				}
 
 				// Save out diffuse map
-				EXRDecoder::saveImageToEXR(*diffuse_map, "diffuse_sky_no_sun_" + toString(face) + ".exr", EXRDecoder::SaveOptions());
+				EXRDecoder::saveImageToEXR(*diffuse_map, "diffuse_sky_no_sun_" + toString(face) + ".exr", /*layer_name=*/"diffuse", EXRDecoder::SaveOptions());
 			}
 		}
 		//=============================== End build cosine refl map =====================================
@@ -284,16 +280,16 @@ void run(const std::string& indigo_base_dir)
 
 							const Vec2f phi_theta = GeometrySampling::sphericalCoordsForDir(sampled_dir);
 
-							const Colour3f sky_col = skymapf->vec3SampleTiled(phi_theta.x / Maths::get2Pi<float>(), -phi_theta.y / Maths::pi<float>());
+							const Colour4f sky_col = skymapf->vec3SampleTiled(phi_theta.x / Maths::get2Pi<float>(), -phi_theta.y / Maths::pi<float>());
 
-							sum += toVec3d(sky_col.toVec3());
+							sum += Vec3d(sky_col[0], sky_col[1], sky_col[2]);
 						}
 
 						sum /= NUM_SAMPLES;
 
-						combined_map->getPixel(x, y + z * diff_H)[0] = sum.x;
-						combined_map->getPixel(x, y + z * diff_H)[1] = sum.y;
-						combined_map->getPixel(x, y + z * diff_H)[2] = sum.z;
+						combined_map->getPixel(x, y + z * diff_H)[0] = (float)sum.x;
+						combined_map->getPixel(x, y + z * diff_H)[1] = (float)sum.y;
+						combined_map->getPixel(x, y + z * diff_H)[2] = (float)sum.z;
 
 						/*Colour3d sum(0.0);
 
@@ -335,7 +331,7 @@ void run(const std::string& indigo_base_dir)
 				}
 
 				// Save out diffuse map
-				EXRDecoder::saveImageToEXR(*combined_map, "specular_refl_sky_no_sun_combined.exr", EXRDecoder::SaveOptions());
+				EXRDecoder::saveImageToEXR(*combined_map, "specular_refl_sky_no_sun_combined.exr", /*layer name=*/"diffuse", EXRDecoder::SaveOptions());
 			}
 		}
 		//=============================== End build specular refl map =====================================

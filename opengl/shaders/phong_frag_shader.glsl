@@ -131,13 +131,17 @@ float fbm(vec2 p)
 	return (texture(fbm_tex, p).x - 0.5) * 2.f;
 }
 
+vec2 rot(vec2 p)
+{
+	float theta = 1.618034 * 3.141592653589 * 2;
+	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
+}
 
 float fbmMix(vec2 p)
 {
 	return 
 		fbm(p) +
-		//fbm(rot(p * 1)) * 0.5 +
-		//fbm(rot2(p * 1)) * 0.25 +
+		fbm(rot(p * 2)) * 0.5 +
 		0;
 }
 
@@ -444,7 +448,7 @@ void main()
 		cum_tex_coords.x += time * 0.002;
 
 		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2 + 2.3453, cum_tex_coords.y * 2 + 1.4354);
-		float cumulus_val = max(0.f, fbmMix(cumulus_coords));
+		float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
 
 		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
 		sun_vis_factor *= cumulus_trans;
@@ -461,7 +465,7 @@ void main()
 	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
 	sky_irradiance = texture(lightmap_tex, vec2(lightmap_coords.x, -lightmap_coords.y)) * 1.0e9f;
 #else
-	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky.
+	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz) * 1.0e9f; // integral over hemisphere of cosine * incoming radiance from sky.
 #endif
 
 
@@ -479,8 +483,8 @@ void main()
 	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - 1.f; // -1.f is to rotate reflection so it aligns with env rotation.
 	vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64, 1 - 1.0 / 64)); // Clamp to avoid texture coord wrapping artifacts.
 
-	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8)));
+	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f;
 	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
 
 
@@ -494,7 +498,7 @@ void main()
 
 	vec4 refl_fresnel = metallic_refl_fresnel * metallic_frac + dielectric_refl_fresnel * (1.0f - metallic_frac);
 
-	vec4 sun_light = vec4(19241787807.52632, 16425008333.387463, 13158082584.404182, 1) * sun_vis_factor;
+	vec4 sun_light = vec4(18333573286.57627,16541737714.860512,14495551899.203238, 1) * sun_vis_factor;
 
 	vec4 col =
 		sky_irradiance * diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
@@ -511,7 +515,7 @@ void main()
 	col = mix(col, sky_col, fog_factor);
 #endif
 		
-	col *= 0.0000000005; // tone-map
+	col *= 0.0000000004; // tone-map
 	
 	colour_out = vec4(toNonLinear(col.xyz), 1);
 }

@@ -121,8 +121,8 @@ void main()
 	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - 1.f; // -1.f is to rotate reflection so it aligns with env rotation.
 	vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64, 1 - 1.0 / 64)); // Clamp to avoid texture coord wrapping artifacts.
 
-	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8)));
+	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f;
 	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
 
 	vec4 transmission_col = diffuse_colour;
@@ -131,13 +131,13 @@ void main()
 	float spec_refl_fresnel = fresnellApprox(spec_refl_cos_theta, ior);
 
 	float sun_vis_factor = 1.0f;//TODO: use shadow mapping to compute this.
-	vec4 sun_light = vec4(9124154304.569067, 8038831044.193394, 7154376815.37873, 1) * sun_vis_factor;
+	vec4 sun_light = vec4(18333573286.57627,16541737714.860512,14495551899.203238, 1) * sun_vis_factor;
 
 	vec4 col = transmission_col*800000000 + spec_refl_light * spec_refl_fresnel + sun_light * sun_specular;
 
 	float alpha = spec_refl_fresnel + sun_specular;
 
-	col *= 0.0000000005; // tone-map
+	col *= 0.0000000004; // tone-map
 	colour_out = vec4(toNonLinear(col.xyz), alpha);
 
 
