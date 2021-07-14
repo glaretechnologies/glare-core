@@ -266,7 +266,7 @@ void main()
 
 	// Shadow mapping
 	float sun_vis_factor;
-#if 0 // TEMP HACK SHADOW_MAPPING
+#if SHADOW_MAPPING
 
 #define VISUALISE_CASCADES 0
 
@@ -494,7 +494,7 @@ void main()
 
 	vec4 refl_fresnel = metallic_refl_fresnel * metallic_frac + dielectric_refl_fresnel * (1.0f - metallic_frac);
 
-	vec4 sun_light = vec4(9124154304.569067, 8038831044.193394, 7154376815.37873, 1) * sun_vis_factor;
+	vec4 sun_light = vec4(19241787807.52632, 16425008333.387463, 13158082584.404182, 1) * sun_vis_factor;
 
 	vec4 col =
 		sky_irradiance * diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky

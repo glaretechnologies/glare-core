@@ -12,6 +12,11 @@ Generated at 2013-06-27 10:45:37 +0100
 
 #include "PerlinNoise.h"
 #include "GridNoise.h"
+#include "PNGDecoder.h"
+#include "bitmap.h"
+#include "Voronoi.h"
+#include "EXRDecoder.h"
+#include "../maths/vec2.h"
 #include "../utils/TestUtils.h"
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferOutStream.h"
@@ -57,7 +62,7 @@ void NoiseTests::test()
 	
 
 
-	//============================== Performance tests /==============================
+	//============================== Performance tests ==============================
 	if(false)
 	{
 		{

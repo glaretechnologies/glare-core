@@ -237,7 +237,7 @@ void main()
 {
 	vec4 col;
 	if(have_texture != 0)
-		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
+		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy) * 1.0e9f;
 	else
 		col = diffuse_colour;
 
@@ -368,7 +368,7 @@ void main()
 	}
 
 	float cloudfrac = max(cirrus_cloudfrac, cumulus_cloudfrac);
-	float w = 1.0e9;
+	float w = 2.0e9;
 	vec4 cloudcol = vec4(w, w, w, 1);
 	col = mix(col, cloudcol, max(0.f, cloudfrac));
 	float sunw = w * 2.5;
