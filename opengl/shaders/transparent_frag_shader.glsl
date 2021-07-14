@@ -137,7 +137,7 @@ void main()
 
 	float alpha = spec_refl_fresnel + sun_specular;
 
-	col *= 0.0000000004; // tone-map
+	col *= 0.0000000003; // tone-map
 	colour_out = vec4(toNonLinear(col.xyz), alpha);
 
 

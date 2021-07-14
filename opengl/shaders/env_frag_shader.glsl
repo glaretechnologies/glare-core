@@ -134,7 +134,7 @@ void main()
 #if DEPTH_FOG
 	// Blend lower hemisphere into a colour that matches fogged ground quad in Substrata
 	// Chosen by hand to match the fogged phong colour at ~2km (edge of ground quad)
-	vec4 lower_hemis_col = vec4(pow(8.08, 2.2), pow(8.2, 2.2), pow(8.47, 2.2), 1.0) * 1.6e7;
+	vec4 lower_hemis_col = vec4(pow(8.63, 2.2), pow(8.94, 2.2), pow(9.37, 2.2), 1.0) * 1.6e7;
 
 	// Cloud shadows on lower half of hemisphere, to match shadows on ground plane
 	if(texture_coords.y > 1.58)
@@ -165,6 +165,6 @@ void main()
 	col = mix(col, lower_hemis_col, lower_hemis_factor);
 #endif
 
-	col *= 0.0000000004;
+	col *= 0.0000000003; // tone-map
 	colour_out = vec4(toNonLinear(col.xyz), 1);
 }
