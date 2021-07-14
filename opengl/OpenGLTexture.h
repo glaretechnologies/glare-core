@@ -45,6 +45,8 @@ public:
 		Format_RGB_Linear_Float,
 		Format_RGB_Linear_Half,
 		Format_Depth_Float,
+		Format_Compressed_RGB_Uint8,
+		Format_Compressed_RGBA_Uint8,
 		Format_Compressed_SRGB_Uint8,
 		Format_Compressed_SRGBA_Uint8,
 		Format_Compressed_BC6 // BC6 half-float unsigned format: e.g. GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
@@ -118,6 +120,7 @@ public:
 private:
 	GLARE_DISABLE_COPY(OpenGLTexture);
 	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
+	static GLenum getInternalFormat(Format format);
 
 	Format format;
 	GLint gl_internal_format; // GL internal format (num channels)

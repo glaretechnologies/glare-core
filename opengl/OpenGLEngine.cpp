@@ -1480,8 +1480,12 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	const bool uses_lightmapping = material.lightmap_texture.nonNull();
 #endif
 
+	// If we do not support converting textures from sRGB to linear in opengl, then we need to do it in the shader.
+	// we only want to do this when we have a texture.
+	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support && material.albedo_texture.nonNull();
+
 	const ProgramKey key(material.transparent ? "transparent" : "phong", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb);
+		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 }
@@ -2010,6 +2014,7 @@ void OpenGLEngine::draw()
 
 // Code before here works
 #if 1
+// Code after here works too
 			// Compute the 8 points making up the corner vertices of this slice of the view frustum
 			float near_dist = (float)std::pow<double>(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), ti);
 			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
@@ -2231,7 +2236,7 @@ void OpenGLEngine::draw()
 				glViewport(/*x=*/0, /*y=*/ti*static_per_map_h, /*width=*/shadow_mapping->static_w, /*height=*/static_per_map_h);
 
 				// Code before here works
-#if 0
+#if 1
 				if(ob_set == 0)
 				{
 					glDisable(GL_CULL_FACE);

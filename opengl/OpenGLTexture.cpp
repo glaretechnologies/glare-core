@@ -6,8 +6,11 @@
 #include "../utils/StringUtils.h"
 
 
+// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
+#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT						0x83F0
+#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
+
 // See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt
-//#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT					0x83F0
 #define GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT					0x8C4C
 #define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT				0x8C4D
 #define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT				0x8C4E
@@ -67,7 +70,7 @@ OpenGLTexture::~OpenGLTexture()
 bool OpenGLTexture::hasAlpha() const
 {
 	//assert(texture_handle != 0);
-	return format == Format_SRGBA_Uint8 || format == Format_RGBA_Linear_Uint8 || format == Format_Compressed_SRGBA_Uint8;
+	return format == Format_SRGBA_Uint8 || format == Format_RGBA_Linear_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGBA_Uint8;
 }
 
 
@@ -124,6 +127,18 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		internal_format = GL_DEPTH_COMPONENT;
 		gl_format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
+		break;
+	case Format_Compressed_RGB_Uint8:
+		//assert(0); // getGLFormat() shouldn't be called for compressed formats
+		internal_format = GL_RGB8;
+		gl_format = GL_RGB;
+		type = GL_UNSIGNED_BYTE;
+		break;
+	case Format_Compressed_RGBA_Uint8:
+		//assert(0); // getGLFormat() shouldn't be called for compressed formats
+		internal_format = GL_RGB8;
+		gl_format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
 		break;
 	case Format_Compressed_SRGB_Uint8:
 		//assert(0); // getGLFormat() shouldn't be called for compressed formats
@@ -311,16 +326,39 @@ void OpenGLTexture::loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vec
 }
 
 
+// Only handles compressed formats.
+GLenum OpenGLTexture::getInternalFormat(Format format)
+{
+	if(format == Format_Compressed_SRGB_Uint8)
+		return GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT;
+	else if(format == Format_Compressed_SRGBA_Uint8)
+		return GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT;
+	else if(format == Format_Compressed_RGB_Uint8)
+		return GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT;
+	else if(format == Format_Compressed_RGBA_Uint8)
+		return GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+	else if(format == Format_Compressed_BC6)
+		return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+	else
+	{
+		assert(0);
+		return GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT;
+	}
+}
+
+
 void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data)
 {
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
-	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
 	{
+		const GLenum internal_format = getInternalFormat(format);
+
 		glCompressedTexImage2D(
 			GL_TEXTURE_2D,
 			0, // LOD level
-			(format == Format_Compressed_SRGB_Uint8) ? GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, // internal format
+			internal_format, // internal format
 			(GLsizei)tex_xres, (GLsizei)tex_yres,
 			0, // border
 			(GLsizei)tex_data.size(),
@@ -381,12 +419,14 @@ void OpenGLTexture::load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_d
 
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
-	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
 	{
+		const GLenum internal_format = getInternalFormat(format);
+
 		glCompressedTexImage2D(
 			GL_TEXTURE_2D,
 			0, // LOD level
-			(format == Format_Compressed_SRGB_Uint8) ? GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, // internal format
+			internal_format, // internal format
 			(GLsizei)tex_xres, (GLsizei)tex_yres,
 			0, // border
 			(GLsizei)tex_data.size(),
@@ -483,7 +523,7 @@ void OpenGLTexture::loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<u
 
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
-	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8)
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
 	{
 		glCompressedTexImage2D(
 			GL_TEXTURE_2D,
@@ -594,19 +634,9 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t
 	}
 	this->loaded_size += tex_data.size();
 
-	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_BC6)
+	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8 || format == Format_Compressed_BC6)
 	{
-		GLint internal_format = 0;
-		if(format == Format_Compressed_SRGB_Uint8)
-			internal_format = GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT;
-		else if(format == Format_Compressed_SRGBA_Uint8)
-			internal_format = GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT;
-		else if(format == Format_Compressed_BC6)
-			internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
-		else
-		{
-			assert(0);
-		}
+		const GLenum internal_format = getInternalFormat(format);
 
 		glCompressedTexImage2D(
 			GL_TEXTURE_2D,

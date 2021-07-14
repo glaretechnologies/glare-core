@@ -502,14 +502,14 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 		converted_image = imagemap;
 
 	// Try and load as a DXT texture compression
-	const bool compressed_sRGB_support = opengl_engine->GL_EXT_texture_sRGB_support && opengl_engine->GL_EXT_texture_compression_s3tc_support;
+	const bool DXT_support = opengl_engine->GL_EXT_texture_compression_s3tc_support;
 	const size_t W = converted_image->getWidth();
 	const size_t H = converted_image->getHeight();
 	const size_t bytes_pp = converted_image->getBytesPerPixel();
 	texture_data->W = W;
 	texture_data->H = H;
 	texture_data->bytes_pp = bytes_pp;
-	if(opengl_engine->settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
+	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
 	{
 		// We will store the resized, uncompressed texture data, for all levels, in temp_tex_buf.
 		// We will store the offset to the data for each layer in temp_tex_buf_offsets.
@@ -546,7 +546,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 	const ImageMapUInt8* imagemap_0 = seq->images[0].ptr();
 
 	// Try and load as a DXT texture compression
-	const bool compressed_sRGB_support = opengl_engine.isNull() || (opengl_engine->GL_EXT_texture_sRGB_support && opengl_engine->GL_EXT_texture_compression_s3tc_support);
+	const bool DXT_support = opengl_engine.isNull() || opengl_engine->GL_EXT_texture_compression_s3tc_support;
 	const bool compress_textures_enabled = opengl_engine.isNull() || opengl_engine->settings.compress_textures;
 	const size_t W = imagemap_0->getWidth();
 	const size_t H = imagemap_0->getHeight();
@@ -566,7 +566,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 	{
 		const ImageMapUInt8* imagemap = seq->images[frame_i].ptr();
 
-		if(compress_textures_enabled && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
+		if(compress_textures_enabled && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
 		{
 			compressImageFrame(total_compressed_size, temp_tex_buf, temp_tex_buf_offsets, compress_temp_data, texture_data.ptr(), /*cur frame i=*/frame_i, /*source image=*/imagemap, opengl_engine, task_manager);
 		}
@@ -595,13 +595,19 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	const int frame_i = 0;
 
 	// Try and load as a DXT texture compression
-	const bool compressed_sRGB_support = opengl_engine->GL_EXT_texture_sRGB_support && opengl_engine->GL_EXT_texture_compression_s3tc_support;
+	const bool DXT_support = opengl_engine->GL_EXT_texture_compression_s3tc_support;
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
 	const size_t bytes_pp = texture_data.bytes_pp;
-	if(opengl_engine->settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
+	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
 	{
-		opengl_tex->makeGLTexture(/*format=*/(bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8);
+		OpenGLTexture::Format format;
+		if(opengl_engine->GL_EXT_texture_sRGB_support)
+			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
+		else
+			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_RGB_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8;
+
+		opengl_tex->makeGLTexture(/*format=*/format);
 
 		for(size_t k=0; k<texture_data.level_offsets.size(); ++k) // For each mipmap level:
 		{
@@ -637,11 +643,11 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i, const Reference<OpenGLEngine>& opengl_engine)
 {
 	// Try and load as a DXT texture compression
-	const bool compressed_sRGB_support = opengl_engine->GL_EXT_texture_sRGB_support && opengl_engine->GL_EXT_texture_compression_s3tc_support;
+	const bool DXT_support = opengl_engine->GL_EXT_texture_compression_s3tc_support;
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
 	const size_t bytes_pp = texture_data.bytes_pp;
-	if(opengl_engine->settings.compress_textures && compressed_sRGB_support && (bytes_pp == 3 || bytes_pp == 4))
+	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
 	{
 		opengl_tex->bind();
 
