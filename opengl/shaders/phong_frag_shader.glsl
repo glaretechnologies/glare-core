@@ -207,19 +207,22 @@ void main()
 
 	vec3 h = normalize(frag_to_cam + sundir_cs.xyz);
 
-	vec4 diffuse_col;
+	vec4 texture_diffuse_col;
 	if(have_texture != 0)
-		diffuse_col = texture(diffuse_tex, (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy) * diffuse_colour;
-	else
-		diffuse_col = diffuse_colour;
-
+	{
+		texture_diffuse_col = texture(diffuse_tex, (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy);
 #if CONVERT_ALBEDO_FROM_SRGB
-	// Unfortunately needed for GPU-decoded video frame textures, which are non-linear sRGB but not marked as sRGB.
-	// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
-	vec4 c = diffuse_col;
-	vec4 c2 = c * c;
-	diffuse_col = c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
+		// Texture value is in non-linear sRGB, convert to linear sRGB.
+		// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
+		vec4 c = texture_diffuse_col;
+		vec4 c2 = c * c;
+		texture_diffuse_col = c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
 #endif
+	}
+	else
+		texture_diffuse_col = vec4(1.f);
+
+	vec4 diffuse_col = texture_diffuse_col * diffuse_colour; // diffuse_colour is linear sRGB already.
 
 #if VERT_COLOURS
 	diffuse_col.xyz *= vert_colour;

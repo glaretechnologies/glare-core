@@ -2230,7 +2230,7 @@ void OpenGLEngine::draw()
 				glViewport(/*x=*/0, /*y=*/ti*static_per_map_h, /*width=*/shadow_mapping->static_w, /*height=*/static_per_map_h);
 
 				// Code before here works
-#if 0
+#if 1
 				if(ob_set == 0)
 				{
 					glDisable(GL_CULL_FACE);

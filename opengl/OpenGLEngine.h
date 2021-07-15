@@ -374,7 +374,7 @@ struct BatchDrawInfo
 struct PhongUniforms
 {
 	Vec4f sundir_cs;
-	Colour4f diffuse_colour;
+	Colour4f diffuse_colour; // linear sRGB
 	float texture_matrix[12];
 	int have_shading_normals;
 	int have_texture;
