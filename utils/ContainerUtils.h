@@ -67,6 +67,20 @@ bool contains(const std::set<T, Compare, Alloc>& s, const T& elem)
 }
 
 
+// Removes the first occurrence (if present) of the element target from the vector. Returns true if it was in the vector, false otherwise.
+template <typename T>
+bool removeFirst(std::vector<T>& v, const T& target)
+{
+	const size_t sz = v.size();
+	for(size_t i=0; i<sz; ++i)
+		if(v[i] == target)
+		{
+			v.erase(v.begin() + i);
+			return true;
+		}
+	return false;
+}
+
 //template <typename T, typename Compare, typename Alloc>
 //std::vector<T> setToVector(const std::set<T, Compare, Alloc>& s)
 //{
