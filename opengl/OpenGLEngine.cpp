@@ -736,6 +736,36 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 }
 
 
+struct BuildFBMNoiseTask : public glare::Task
+{
+	virtual void run(size_t /*thread_index*/)
+	{
+		js::Vector<float, 16>& data_ = *data;
+		for(int y=begin_y; y<end_y; ++y)
+		for(int x=0; x<W; ++x)
+		{
+			float px = (float)x * (4.f / W);
+			float py = (float)y * (4.f / W);
+
+			// 1024 pixels are covered by 4 perlin noise grid cells for base octave.  So each cell corresponds to 1024 / 4 = 256 pixels.
+			// So we need 8 octaves to get pixel-detail noise.
+			const float v =  PerlinNoise::periodicFBM(px, py, /*num octaves=*/8, /*period=*/4);
+			const float normalised_v = 0.5f + 0.5f*v; // Map from [-1, 1] to [0, 1].
+
+			//const float v = Voronoi::voronoiFBM(Vec2f(px, py), /*num octaves=*/8);
+			//const float normalised_v = 0.5f*v; // Map from [-1, 1] to [0, 1].
+
+			data_[y * W + x] = normalised_v;
+		}
+	}
+
+	js::Vector<float, 16>* data;
+	size_t W;
+	int begin_y, end_y;
+};
+
+
+
 static const int FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX = 0;
 static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 1;
 
@@ -1003,31 +1033,23 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		{
 			Timer timer;
 			const size_t W = 1024;
-			std::vector<float> data(W * W);
-			//float maxval = 0;
-			//float minval = 0;
-			for(int y=0; y<W; ++y)
-			for(int x=0; x<W; ++x)
-			{
-				float px = (float)x * (4.f / W);
-				float py = (float)y * (4.f / W);
-				
-				// 1024 pixels are covered by 4 perlin noise grid cells for base octave.  So each cell corresponds to 1024 / 4 = 256 pixels.
-				// So we need 8 octaves to get pixel-detail noise.
-				const float v =  PerlinNoise::periodicFBM(px, py, /*num octaves=*/8, /*period=*/4);
-				const float normalised_v = 0.5f + 0.5f*v; // Map from [-1, 1] to [0, 1].
-				
-				//const float v = Voronoi::voronoiFBM(Vec2f(px, py), /*num octaves=*/8);
-				//const float normalised_v = 0.5f*v; // Map from [-1, 1] to [0, 1].
-				
-				data[y * W + x] = normalised_v;
-				//minval = myMin(minval, normalised_v);
-				//maxval = myMax(maxval, normalised_v);
-			}
-			//printVar(minval);
-			//printVar(maxval);
+			js::Vector<float, 16> data(W * W);
 
-			//EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
+			glare::TaskManager& manager = getTaskManager();
+			const size_t num_tasks = myMax<size_t>(1, manager.getNumThreads());
+			const size_t num_rows_per_task = Maths::roundedUpDivide(W, num_tasks);
+			for(size_t t=0; t<num_tasks; ++t)
+			{
+				BuildFBMNoiseTask* task = new BuildFBMNoiseTask();
+				task->data = &data;
+				task->W = W;
+				task->begin_y = myMin(t       * num_rows_per_task, W);
+				task->end_y   = myMin((t + 1) * num_rows_per_task, W);
+				manager.addTask(task);
+			}
+			manager.waitForTasksToComplete();
+
+			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
 			fbm_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
 			fbm_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
