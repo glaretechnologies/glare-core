@@ -79,8 +79,8 @@ public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	GLMemUsage getTotalMemUsage() const;
-	size_t getNumVerts() const; // Just for testing/debugging.  Only valid before data is uploaded and host buffers are cleared.
-	size_t getNumTris() const; // Just for testing/debugging.  Only valid before data is uploaded and host buffers are cleared.
+	size_t getNumVerts() const; // Just for testing/debugging.
+	size_t getNumTris() const; // Just for testing/debugging.
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 	

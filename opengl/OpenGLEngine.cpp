@@ -120,9 +120,13 @@ GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
 size_t OpenGLMeshRenderData::getNumVerts() const
 {
 	if(!vertex_spec.attributes.empty() && (vertex_spec.attributes[0].stride > 0))
-		return vert_data.size() / vertex_spec.attributes[0].stride;
-	else
-		return 0;
+	{
+		if(!vert_data.empty())
+			return vert_data.size() / vertex_spec.attributes[0].stride;
+		else if(vert_vbo.nonNull())
+			return vert_vbo->getSize() / vertex_spec.attributes[0].stride;
+	}
+	return 0;
 }
 
 
@@ -132,8 +136,15 @@ size_t OpenGLMeshRenderData::getNumTris() const
 		return vert_index_buffer.size() / 3;
 	else if(!vert_index_buffer_uint16.empty())
 		return vert_index_buffer_uint16.size() / 3;
-	else
+	else if(!vert_index_buffer_uint8.empty())
 		return vert_index_buffer_uint8.size() / 3;
+	else if(vert_indices_buf.nonNull())
+	{
+		const size_t index_type_size = index_type == GL_UNSIGNED_INT ? 4 : (index_type == GL_UNSIGNED_SHORT ? 2 : 1);
+		return vert_indices_buf->getSize() / index_type_size / 3;
+	}
+	else
+		return 0;
 }
 
 
@@ -1043,8 +1054,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				BuildFBMNoiseTask* task = new BuildFBMNoiseTask();
 				task->data = &data;
 				task->W = W;
-				task->begin_y = myMin(t       * num_rows_per_task, W);
-				task->end_y   = myMin((t + 1) * num_rows_per_task, W);
+				task->begin_y = (int)myMin(t       * num_rows_per_task, W);
+				task->end_y   = (int)myMin((t + 1) * num_rows_per_task, W);
 				manager.addTask(task);
 			}
 			manager.waitForTasksToComplete();
