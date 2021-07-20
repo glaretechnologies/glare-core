@@ -55,6 +55,7 @@ public:
 
 	inline float axisLength(unsigned int axis) const { return max_.x[axis] - min_.x[axis]; }
 	inline unsigned int longestAxis() const;
+	inline float longestLength() const; // Length along longest axis
 
 	GLARE_STRONG_INLINE const Vec4f centroid() const;
 
@@ -194,6 +195,12 @@ unsigned int AABBox::longestAxis() const
 		return axisLength(0) > axisLength(2) ? 0 : 2;
 	else // else 1 >= 0
 		return axisLength(1) > axisLength(2) ? 1 : 2;
+}
+
+
+float AABBox::longestLength() const
+{
+	return horizontalMax((max_ - min_).v);
 }
 
 
