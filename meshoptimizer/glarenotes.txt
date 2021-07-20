@@ -1,0 +1,3 @@
+Downloaded from https://github.com/zeux/meshoptimizer
+around the 18th of July 2021.
+Probably this version: https://github.com/zeux/meshoptimizer/commit/2866a3f4eeb19485d0a47dc992f731dd47ddb720

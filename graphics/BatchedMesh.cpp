@@ -420,39 +420,10 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 	const size_t num_merged_verts = next_merged_vert_i;
 
+	
 	// Build index data
-	const size_t num_indices = uint32_indices.size();
+	setIndexDataFromIndices(uint32_indices, num_merged_verts);
 
-	if(num_merged_verts < 128)
-	{
-		this->index_type = ComponentType_UInt8;
-
-		index_data.resize(num_indices * sizeof(uint8));
-
-		uint8* const dest_indices = index_data.data();
-		for(size_t i=0; i<num_indices; ++i)
-			dest_indices[i] = (uint8)uint32_indices[i];
-	}
-	else if(num_merged_verts < 32768)
-	{
-		this->index_type = ComponentType_UInt16;
-
-		index_data.resize(num_indices * sizeof(uint16));
-
-		uint16* const dest_indices = (uint16*)index_data.data();
-		for(size_t i=0; i<num_indices; ++i)
-			dest_indices[i] = (uint16)uint32_indices[i];
-	}
-	else
-	{
-		this->index_type = ComponentType_UInt32;
-
-		index_data.resize(num_indices * sizeof(uint32));
-
-		uint32* const dest_indices = (uint32*)index_data.data();
-		for(size_t i=0; i<num_indices; ++i)
-			dest_indices[i] = uint32_indices[i];
-	}
 
 	VertAttribute pos_attrib;
 	pos_attrib.type = VertAttribute_Position;
@@ -497,6 +468,44 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 
 	aabb_os.min_ = Vec4f(mesh->aabb_os.bound[0].x, mesh->aabb_os.bound[0].y, mesh->aabb_os.bound[0].z, 1.f);
 	aabb_os.max_ = Vec4f(mesh->aabb_os.bound[1].x, mesh->aabb_os.bound[1].y, mesh->aabb_os.bound[1].z, 1.f);
+}
+
+
+void BatchedMesh::setIndexDataFromIndices(const js::Vector<uint32, 16>& uint32_indices, size_t num_verts)
+{
+	// Build index data
+	const size_t num_indices = uint32_indices.size();
+
+	if(num_verts < 128)
+	{
+		this->index_type = ComponentType_UInt8;
+
+		index_data.resize(num_indices * sizeof(uint8));
+
+		uint8* const dest_indices = index_data.data();
+		for(size_t i=0; i<num_indices; ++i)
+			dest_indices[i] = (uint8)uint32_indices[i];
+	}
+	else if(num_verts < 32768)
+	{
+		this->index_type = ComponentType_UInt16;
+
+		index_data.resize(num_indices * sizeof(uint16));
+
+		uint16* const dest_indices = (uint16*)index_data.data();
+		for(size_t i=0; i<num_indices; ++i)
+			dest_indices[i] = (uint16)uint32_indices[i];
+	}
+	else
+	{
+		this->index_type = ComponentType_UInt32;
+
+		index_data.resize(num_indices * sizeof(uint32));
+
+		uint32* const dest_indices = (uint32*)index_data.data();
+		for(size_t i=0; i<num_indices; ++i)
+			dest_indices[i] = uint32_indices[i];
+	}
 }
 
 
@@ -697,6 +706,17 @@ bool BatchedMesh::operator == (const BatchedMesh& other) const
 		index_data == other.index_data &&
 		vertex_data == other.vertex_data &&
 		aabb_os == other.aabb_os;
+}
+
+
+void BatchedMesh::operator = (const BatchedMesh& other)
+{
+	vert_attributes = other.vert_attributes;
+	batches = other.batches;
+	index_type = other.index_type;
+	index_data = other.index_data;
+	vertex_data = other.vertex_data;
+	aabb_os = other.aabb_os;
 }
 
 
@@ -904,11 +924,11 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 		
 		const size_t uncompressed_size = index_data.size() + vertex_data.size();
 		const double compression_speed = uncompressed_size / timer.elapsed();
-		conPrint("");
-		conPrint("Uncompressed size:   " + toString(uncompressed_size) + " B");
-		conPrint("Compressed size:     " + toString(total_compressed_size) + " B");
-		conPrint("Compression ratio:   " + doubleToStringNSigFigs((double)uncompressed_size / total_compressed_size, 4));
-		conPrint("Compression took     " + timer.elapsedStringNSigFigs(4) + " (" + doubleToStringNSigFigs(compression_speed / (1024ull*1024ull), 4) + " MB/s)");
+		// conPrint("");
+		// conPrint("Uncompressed size:   " + toString(uncompressed_size) + " B");
+		// conPrint("Compressed size:     " + toString(total_compressed_size) + " B");
+		// conPrint("Compression ratio:   " + doubleToStringNSigFigs((double)uncompressed_size / total_compressed_size, 4));
+		// conPrint("Compression took     " + timer.elapsedStringNSigFigs(4) + " (" + doubleToStringNSigFigs(compression_speed / (1024ull*1024ull), 4) + " MB/s)");
 	}
 	else
 	{

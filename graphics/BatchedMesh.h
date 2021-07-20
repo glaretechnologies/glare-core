@@ -62,6 +62,8 @@ public:
 	void buildIndigoMesh(Indigo::Mesh& mesh_out) const;
 
 	bool operator == (const BatchedMesh& other) const;
+
+	void operator = (const BatchedMesh& other);
 	
 
 	enum ComponentType
@@ -112,6 +114,7 @@ public:
 	inline size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t numVerts() const;
 	inline size_t numIndices() const; // Equal to num triangles * 3.
+	inline uint32 getIndexAsUInt32(size_t i) const;
 
 	// Find the attribute identified by 'type'.  Returns NULL if not present.
 	const VertAttribute* findAttribute(VertAttributeType type) const;
@@ -120,6 +123,9 @@ public:
 
 	size_t getTotalMemUsage() const;
 
+	// Sets index_data and index_type.
+	// The index type will depend on num_verts. (will be ComponentType_UInt8 for num_verts < 128 etc..) 
+	void setIndexDataFromIndices(const js::Vector<uint32, 16>& uint32_indices, size_t num_verts);
 
 
 	std::vector<VertAttribute> vert_attributes;
@@ -207,4 +213,19 @@ size_t BatchedMesh::numIndices() const // in bytes
 	const size_t index_size = componentTypeSize(this->index_type);
 	assert(index_data.size() % index_size == 0);
 	return index_data.size() / index_size;
+}
+
+
+uint32 BatchedMesh::getIndexAsUInt32(size_t i) const
+{
+	switch(index_type)
+	{
+	case ComponentType_UInt8:
+		return (uint32)index_data[i];
+	case ComponentType_UInt16:
+		return (uint32)((uint16*)index_data.data())[i];
+	//case ComponentType_UInt32:
+	default:
+		return ((uint32*)index_data.data())[i];
+	}
 }
