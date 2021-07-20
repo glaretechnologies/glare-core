@@ -282,8 +282,8 @@ int Process::getExitCode()
 
 void Process::readAllRemainingStdOutAndStdErr(std::string& stdout_out, std::string& stderr_out)
 {
-	stdout_out = "";
-	stderr_out = "";
+	stdout_out.clear();
+	stderr_out.clear();
 
 	bool stdout_open = true;
 	bool stderr_open = true;
