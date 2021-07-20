@@ -26,6 +26,8 @@ namespace Voronoi
 		float& dist_out // Distance to closest point.
 	);
 
+	float voronoiFBM(const Vec2f& p, int octaves);
+
 
 	void evaluate3d(
 		const Vec4f& p, // input point

@@ -60,6 +60,33 @@ void evaluate(const Vec2f& uv, float irregularity, Vec2f& coords_ret_out, float&
 }
 
 
+float voronoiFBM(const Vec2f& p, int octaves)
+{
+	float sum = 0;
+	float freq = 1;
+	float weight = 1;
+
+	const Vec2f v = p;
+
+	for(int i=0; i<(int)octaves; ++i)
+	{
+		Vec2f closest_p;
+		float dist;
+		Voronoi::evaluate(v * freq,
+			1.f, // irregularity
+			closest_p,
+			dist
+		);
+
+		float val = 1 - dist * dist;//pow(dist, 2.0);
+		sum += weight * val;
+		freq *= 2.f;
+		weight *= 0.5f;
+	}
+	return sum;
+}
+
+
 static inline Vec4f getPoint3d(int x, int y, int z, float irregularity)
 {
 	// Generate random values in range [-0.5, 0.5]
