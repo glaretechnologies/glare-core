@@ -791,7 +791,7 @@ bool hasExtensionStringView(const string_view file, const string_view extension)
 
 const std::string getExtension(const std::string& filename)
 {
-	const std::string::size_type dot_index = filename.find_last_of(".");
+	const std::string::size_type dot_index = filename.find_last_of('.');
 
 	if(dot_index == std::string::npos)
 		return std::string();
@@ -802,13 +802,23 @@ const std::string getExtension(const std::string& filename)
 
 const std::string eatExtension(const std::string& filename)
 {
-	return eatSuffix(filename, getExtension(filename));
+	const std::string::size_type dot_index = filename.find_last_of('.');
+
+	if(dot_index == std::string::npos)
+		return filename;
+	else
+		return filename.substr(0, dot_index + 1);
 }
 
 
 const std::string removeDotAndExtension(const std::string& filename)
 {
-	return ::eatSuffix(eatExtension(filename), ".");
+	const std::string::size_type dot_index = filename.find_last_of('.');
+
+	if(dot_index == std::string::npos)
+		return filename;
+	else
+		return filename.substr(0, dot_index);
 }
 
 
@@ -2510,8 +2520,34 @@ void StringUtils::test()
 	testAssert(!hasExtensionStringView("", "jp"));
 	testAssert(!hasExtensionStringView("", "j"));
 	testAssert(!hasExtensionStringView("", ""));
+
+	//========================== getExtension ==========================
+	testAssert(getExtension("test.jpg") == "jpg");
+	testAssert(getExtension(".jpg") == "jpg");
+	testAssert(getExtension("jpg") == "");
+	testAssert(getExtension("") == "");
+	testAssert(getExtension("test.a.jpg") == "jpg");
+
+	//========================== eatExtension (remove extension) ==========================
+	testAssert(eatExtension("test") == "test");
+	testAssert(eatExtension("test.jpg") == "test.");
+	testAssert(eatExtension("test.") == "test.");
+	testAssert(eatExtension(".jpg") == ".");
+	testAssert(eatExtension(".") == ".");
+	testAssert(eatExtension("jpg") == "jpg");
+	testAssert(eatExtension("") == "");
+	testAssert(eatExtension("test.a.jpg") == "test.a.");
 	
-	
+	//========================== removeDotAndExtension ==========================
+	testAssert(removeDotAndExtension("test") == "test");
+	testAssert(removeDotAndExtension("test.jpg") == "test");
+	testAssert(removeDotAndExtension("test.") == "test");
+	testAssert(removeDotAndExtension(".jpg") == "");
+	testAssert(removeDotAndExtension(".") == "");
+	testAssert(removeDotAndExtension("jpg") == "jpg");
+	testAssert(removeDotAndExtension("") == "");
+	testAssert(removeDotAndExtension("test.a.jpg") == "test.a");
+
 
 /*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");
 
