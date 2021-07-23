@@ -147,7 +147,48 @@ public:
 						image->getPixel(x, y)[c] = (V)(sum[c] * scale); // Normalise
 				}
 		}
-		else if(src_image->getN() >= 3)
+		else if(src_N == 4)
+		{
+			for(int y = begin_y; y < end_y; ++y)
+				for(int x = 0; x < new_width; ++x)
+				{
+					const float src_x = x * scale_factor_x;
+					const float src_y = y * scale_factor_y;
+
+					const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1_x));
+					const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1_x));
+					const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1_y));
+					const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1_y));
+
+					Colour4f sum(0.f);
+					float filter_sum = 0.f;
+					for(int sy = src_begin_y; sy < src_end_y; ++sy)
+						for(int sx = src_begin_x; sx < src_end_x; ++sx)
+						{
+							const float dx = (float)sx - src_x;
+							const float dy = (float)sy - src_y;
+							const float fabs_dx = std::fabs(dx);
+							const float fabs_dy = std::fabs(dy);
+							const float filter_val = myMax(1 - fabs_dx * recip_filter_r_x, 0.f) * myMax(1 - fabs_dy * recip_filter_r_y, 0.f);
+							Colour4f px_col(
+								(float)src_image->getPixel(sx, sy)[0],
+								(float)src_image->getPixel(sx, sy)[1],
+								(float)src_image->getPixel(sx, sy)[2],
+								(float)src_image->getPixel(sx, sy)[3]
+							);
+
+							sum += px_col * filter_val;
+							filter_sum += filter_val;
+						}
+
+					const Colour4f col = sum * (1.f / filter_sum); // Normalise
+					image->getPixel(x, y)[0] = (V)col[0];
+					image->getPixel(x, y)[1] = (V)col[1];
+					image->getPixel(x, y)[2] = (V)col[2];
+					image->getPixel(x, y)[3] = (V)col[3];
+				}
+		}
+		else if(src_N == 3)
 		{
 			for(int y = begin_y; y < end_y; ++y)
 				for(int x = 0; x < new_width; ++x)
@@ -185,8 +226,47 @@ public:
 					image->getPixel(x, y)[2] = (V)col[2];
 				}
 		}
+		else if(src_N == 2)
+		{
+			for(int y = begin_y; y < end_y; ++y)
+				for(int x = 0; x < new_width; ++x)
+				{
+					const float src_x = x * scale_factor_x;
+					const float src_y = y * scale_factor_y;
+
+					const int src_begin_x = myMax(0, (int)(src_x - filter_r_minus_1_x));
+					const int src_end_x   = myMin(src_w, (int)(src_x + filter_r_plus_1_x));
+					const int src_begin_y = myMax(0, (int)(src_y - filter_r_minus_1_y));
+					const int src_end_y   = myMin(src_h, (int)(src_y + filter_r_plus_1_y));
+
+					Colour4f sum(0.f);
+					for(int sy = src_begin_y; sy < src_end_y; ++sy)
+						for(int sx = src_begin_x; sx < src_end_x; ++sx)
+						{
+							const float dx = (float)sx - src_x;
+							const float dy = (float)sy - src_y;
+							const float fabs_dx = std::fabs(dx);
+							const float fabs_dy = std::fabs(dy);
+							const float filter_val = myMax(1 - fabs_dx * recip_filter_r_x, 0.f) * myMax(1 - fabs_dy * recip_filter_r_y, 0.f);
+							Colour4f px_col(
+								(float)src_image->getPixel(sx, sy)[0],
+								(float)src_image->getPixel(sx, sy)[1],
+								1.f,
+								1.f
+							);
+
+							sum += px_col * filter_val;
+						}
+
+					const Colour4f col = sum * (1.f / sum[3]); // Normalise
+					image->getPixel(x, y)[0] = (V)col[0];
+					image->getPixel(x, y)[1] = (V)col[1];
+				}
+		}
 		else
 		{
+			assert(src_N == 1);
+
 			for(int y = begin_y; y < end_y; ++y)
 				for(int x = 0; x < new_width; ++x)
 				{
@@ -232,13 +312,11 @@ public:
 template <class V, class VTraits>
 Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const
 {
-	ImageMap<V, VTraits>* new_image;
-	if(!this->channel_names.empty() && ::hasPrefix(this->channel_names[0], "wavelength")) // If this is a spectral image:
-		new_image = new ImageMap<V, VTraits>(new_width, new_height, this->getN());
-	else if(this->getN() <= 2)
-		new_image = new ImageMap<V, VTraits>(new_width, new_height, 1);
-	else
-		new_image = new ImageMap<V, VTraits>(new_width, new_height, 3);
+	ImageMap<V, VTraits>* new_image = new ImageMap<V, VTraits>(new_width, new_height, this->getN());
+
+	const bool spectral = !this->channel_names.empty() && ::hasPrefix(this->channel_names[0], "wavelength"); // If this is a spectral image:
+	if(this->getN() > 4 && !spectral)
+		throw glare::Exception("Invalid num channels for resizing: " + toString(this->getN()));
 
 	new_image->channel_names = this->channel_names;
 

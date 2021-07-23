@@ -126,6 +126,8 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 		Reference<ImageMapSequenceUInt8> sequence = new ImageMapSequenceUInt8();
 		if(gif_file->ImageCount < 1)
 			throw ImFormatExcep("invalid ImageCount (< 1)");
+		if(gif_file->ImageCount > 1000000) // Sanity check ImageCount, avoid wraparound etc..
+			throw ImFormatExcep("invalid ImageCount (> 1000000)");
 
 		sequence->images           .resize(gif_file->ImageCount);
 		sequence->frame_durations  .resize(gif_file->ImageCount);
@@ -228,8 +230,8 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 			const int end_x = myMin((int)im_0_w, image_i->ImageDesc.Left + (int)w);
 			const int end_y = myMin((int)im_0_h, image_i->ImageDesc.Top  + (int)h);
 
-			for(int y=start_y; y != end_y; ++y)
-				for(int x=start_x; x != end_x; ++x)
+			for(int y=start_y; y < end_y; ++y)
+				for(int x=start_x; x < end_x; ++x)
 				{
 					uint8* const dest = image_map->getPixel(x, y);
 					const int src_i = (y - image_i->ImageDesc.Top) * image_i->ImageDesc.Width + (x - image_i->ImageDesc.Left);

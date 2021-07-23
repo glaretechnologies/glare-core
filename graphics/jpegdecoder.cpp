@@ -62,7 +62,7 @@ static void my_error_exit(j_common_ptr cinfo)
 
 	(*cinfo->err->format_message) (cinfo, buffer);
 	
-	throw ImFormatExcep("Error while reading JPEG file: " + std::string(buffer));
+	throw ImFormatExcep("Error while processing JPEG file: " + std::string(buffer));
 }
 
 
@@ -310,7 +310,7 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 		
 		cinfo.image_width = (JDIMENSION)image->getWidth(); // image width and height, in pixels
 		cinfo.image_height = (JDIMENSION)image->getHeight();
-		cinfo.input_components = (int)image->getN();	// # of color components per pixel
+		cinfo.input_components = (int)image->getN();	// # of color components per pixel in input image
 		cinfo.in_color_space = image->getN() >= 3 ? JCS_RGB : JCS_GRAYSCALE; // colorspace of input image
 
 		jpeg_set_defaults(&cinfo); // Set default parameters for compression.

@@ -112,6 +112,22 @@ void test()
 		testAssert(x == 1u << 7);
 	}
 
+	//===================================== setOrZeroBit =====================================
+	{
+		uint32 x = 1u << 7;
+		setOrZeroBit(x, 1u << 7, false);
+		testAssert(x == 0);
+
+		x = (1u << 7) | (1u << 3);
+		setOrZeroBit(x, 1u << 3, false);
+		testAssert(x == (1u << 7));
+
+		setOrZeroBit(x, 1u << 2, true);
+		testAssert(x == ((1u << 7) | (1u << 2)));
+	}
+
+
+
 	// Do a performance test of lowestSetBitIndex():
 	// On Nick's Ivy Bridge i7:
 	// sum: 9999985

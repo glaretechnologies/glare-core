@@ -130,6 +130,7 @@ public:
 	inline virtual Reference<Image> convertToImage() const;
 
 	inline virtual Reference<Map2D> extractChannelZero() const;
+	
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
 #if MAP2D_FILTERING_SUPPORT
@@ -142,6 +143,9 @@ public:
 	inline virtual size_t getBytesPerPixel() const;
 
 	inline virtual size_t getByteSize() const;
+
+	// This image must have >= 3 channels.
+	inline Reference<ImageMap<V, ComponentValueTraits> > extract3ChannelImage() const;
 
 	inline void zero(); // Set all pixels to zero.
 	inline void set(V value); // Set all pixel components to value.
@@ -952,4 +956,22 @@ void ImageMap<V, VTraits>::copyToImageMapUInt8(ImageMapUInt8& image_out) const
 	const size_t sz = getDataSize();
 	for(size_t i=0; i<sz; ++i)
 		image_out.getData()[i] = (unsigned char)(myClamp<float>(getData()[i] * scale, 0.f, 255.1f));
+}
+
+
+template <class V, class VTraits>
+Reference<ImageMap<V, VTraits> > ImageMap<V, VTraits>::extract3ChannelImage() const
+{
+	assert(getN() >= 3);
+
+	Reference<ImageMap<V, VTraits> > new_im = new ImageMap<V, VTraits>(getWidth(), getHeight(), 3);
+
+	for(size_t i=0; i<numPixels(); ++i)
+	{
+		new_im->getPixel(i)[0] = getPixel(i)[0];
+		new_im->getPixel(i)[1] = getPixel(i)[1];
+		new_im->getPixel(i)[2] = getPixel(i)[2];
+	}
+
+	return new_im;
 }

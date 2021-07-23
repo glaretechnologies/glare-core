@@ -1611,11 +1611,12 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 			for(size_t i=0; i<object->materials.size(); ++i)
 			{
 				OpenGLMaterial& mat = object->materials[i];
-				if(mat.albedo_texture.isNull() && mat.tex_path == path)
+				if((mat.albedo_texture.isNull() || mat.albedo_tex_is_placeholder) && mat.tex_path == path)
 				{
 					// conPrint("\tOpenGLEngine::textureLoaded(): Found object using tex '" + path + "'.");
 
 					mat.albedo_texture = opengl_texture;
+					mat.albedo_tex_is_placeholder = false;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());

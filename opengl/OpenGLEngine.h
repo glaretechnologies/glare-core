@@ -139,7 +139,8 @@ public:
 		metallic_frac(0.f),
 		gen_planar_uvs(false),
 		draw_planar_uv_grid(false),
-		convert_albedo_from_srgb(false)
+		convert_albedo_from_srgb(false),
+		albedo_tex_is_placeholder(false)
 	{}
 
 	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
@@ -166,6 +167,8 @@ public:
 	uint64 userdata;
 	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	std::string lightmap_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
+	bool albedo_tex_is_placeholder; // True if the albedo texture is from a different LOD level than desired, and should be replaced when the correct LOD level texture is loaded.
+	// NOTE: could also just always re-assign textures in textureLoaded(), we do this for lightmaps.
 
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 };
