@@ -989,6 +989,20 @@ int openFileDescriptor(const std::string& pathname, int open_flags)
 }
 
 
+int openFileDescriptor(const std::string& pathname, int open_flags, int perm_mode)
+{
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4996) // Disable warning: '_wopen': This function or variable may be unsafe. Consider using _wsopen_s instead.
+	// _wsopen_s is very complicated :)
+	return _wopen(StringUtils::UTF8ToPlatformUnicodeEncoding(pathname).c_str(), open_flags, perm_mode);
+#pragma warning(pop)
+#else
+	return open(pathname.c_str(), open_flags, perm_mode);
+#endif
+}
+
+
 // Remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name)
 {

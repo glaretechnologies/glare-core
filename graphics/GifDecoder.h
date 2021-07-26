@@ -16,7 +16,7 @@ class Map2D;
 /*=====================================================================
 GIFDecoder
 -------------------
-See http://giflib.sourceforge.net/,
+See http://giflib.sourceforge.net/gif_lib.html,
 http://giflib.sourceforge.net/whatsinagif/animation_and_transparency.html
 etc..
 =====================================================================*/
@@ -27,6 +27,8 @@ public:
 	static Reference<Map2D> decode(const std::string& path);
 
 	static Reference<Map2D> decodeImageSequence(const std::string& path);
+
+	static void resizeGIF(const std::string& src_path, const std::string& dest_path, int max_new_dim);
 
 	static void test();
 private:

@@ -115,6 +115,8 @@ FILE* openFile(const std::string& pathname, const std::string& openmode);
 // Returns -1 on failure.
 int openFileDescriptor(const std::string& pathname, int open_flags);
 
+int openFileDescriptor(const std::string& pathname, int open_flags, int perm_mode);
+
 // Remove non alphanumeric characters etc..
 const std::string makeOSFriendlyFilename(const std::string& name);
 
