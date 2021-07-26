@@ -23,6 +23,15 @@ Copyright Glare Technologies Limited 2021 -
 #include <gif_lib.h>
 
 
+#ifndef S_IREAD
+#define S_IREAD S_IRUSR
+#endif
+
+#ifndef S_IWRITE
+#define S_IWRITE S_IWUSR
+#endif
+
+
 static const std::string errorString(int error_code)
 {
 	const char* str = GifErrorString(error_code);
