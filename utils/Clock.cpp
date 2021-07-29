@@ -174,6 +174,23 @@ void getCurrentDay(int& day, int& month, int& year)
 }
 
 
+// Returns days since January 1 - [0, 365], and the year
+void getHourDayOfYearAndYear(time_t t, int& hour_out, int& day_out, int& year_out)
+{
+	tm thetime;
+	// Get calender time in UTC.  Use threadsafe versions of gmtime.
+#ifdef _WIN32
+	gmtime_s(&thetime, &t);
+#else
+	gmtime_r(&t, &thetime);
+#endif
+
+	hour_out = thetime.tm_hour; // hours since midnight - [0, 23]
+	day_out = thetime.tm_yday; // // days since January 1 - [0, 365]
+	year_out = thetime.tm_year + 1900; // tm_year = Year (current year minus 1900).
+}
+
+
 //-------------------------------------------------------------------------------------------
 
 

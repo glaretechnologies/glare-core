@@ -41,13 +41,17 @@ const std::string getAsciiTime(time_t t); // Get current time as nicely formatte
 const std::string RFC822FormatedString(); // Returns the current time, formatted.
 const std::string RFC822FormatedString(time_t t); // Get time, formatted
 
-
 /*
 	day = Day of month (1 – 31).
 	month = Month (0 – 11; January = 0).
 	year = e.g. 2009
 */
 void getCurrentDay(int& day, int& month, int& year);
+
+
+// Returns days since January 1 - [0, 365], and the year
+// also hours since midnight - [0, 23]
+void getHourDayOfYearAndYear(time_t t, int& hour_out, int& day_out, int& year_out);
 
 
 void test();
