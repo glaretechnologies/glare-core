@@ -24,6 +24,7 @@ Copyright Glare Technologies Limited 2020 -
 #include <string.h>
 #include <algorithm>
 #include <tls.h>
+#include <openssl/ssl.h>
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -42,6 +43,35 @@ Copyright Glare Technologies Limited 2020 -
 #include <poll.h>
 #endif
 
+// This is a hack so we can recover the internal tls structure, and call SSL_pending on the ssl_conn member.
+
+// Modified from C:\programming\LibreSSL\libressl-2.8.3\tls\tls_internal.h
+struct glare_tls_error {
+	char *msg;
+	int num;
+	int tls;
+};
+
+struct glare_tls {
+	struct tls_config *config;
+	struct tls_keypair *keypair;
+
+	struct glare_tls_error error;
+
+	uint32_t flags;
+	uint32_t state;
+
+	char *servername;
+	int socket;
+
+	SSL *ssl_conn;
+	SSL_CTX *ssl_ctx;
+
+	// More members follow...
+};
+
+// The hacked in structure above may become invalid for different libtls versions.
+static_assert(TLS_API == 20180210, "TLS_API == 20180210");
 
 
 #if defined(_WIN32)
@@ -244,6 +274,7 @@ void TLSSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		else if(num_bytes_read == 0) // Connection was closed gracefully
 			throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 
+		assert(num_bytes_read <= (ssize_t)num_bytes_to_read);
 		readlen -= num_bytes_read;
 		buffer = (void*)((uint8*)buffer + num_bytes_read);
 
@@ -323,36 +354,10 @@ uint32 TLSSocket::readUInt32()
 
 bool TLSSocket::readable(double timeout_s)
 {
-	return plain_socket->readable(timeout_s); // TEMP HACK
-
-	/*assert(timeout_s < 1.0);
-
-	timeval wait_period;
-	wait_period.tv_sec = 0;
-	wait_period.tv_usec = (long)(timeout_s * 1000000.0);
-
-	fd_set read_sockset;
-	initFDSetWithSocket(read_sockset, sockethandle);
-
-	fd_set error_sockset;
-	initFDSetWithSocket(error_sockset, sockethandle);
-
-	// Get number of handles that are ready to read from
-	const int num = select(
-		(int)(sockethandle + 1), 
-		&read_sockset, // Read fds
-		NULL, // Write fds
-		&error_sockset, // Error fds
-		&wait_period
-	);
-
-	if(num == SOCKET_ERROR)
-		throw MySocketExcep("select failed: " + Networking::getError());
-
-	if(FD_ISSET(sockethandle, &error_sockset))
-		throw MySocketExcep(Networking::getError()); 
-
-	return num > 0;*/
+	// "SSL_pending() returns the number of bytes which have been processed, buffered and are available inside ssl for immediate read." - https://www.openssl.org/docs/man1.1.0/man3/SSL_pending.html
+	if(SSL_pending(((glare_tls*)tls_context)->ssl_conn) > 0)
+		return true;
+	return plain_socket->readable(timeout_s);
 }
 
 
@@ -360,75 +365,9 @@ bool TLSSocket::readable(double timeout_s)
 // Returns true if the socket was readable, false if the event_fd was signalled.
 bool TLSSocket::readable(EventFD& event_fd)
 {	
-	return plain_socket->readable(event_fd); // TEMP HACK
-
-#if 0
-#if defined(_WIN32) || defined(OSX)
-	assert(0);
-	return false;
-#else
-	
-	// Make an array of 2 poll_fds
-	struct pollfd poll_fds[2];
-	poll_fds[0].fd = sockethandle;
-	poll_fds[0].events = POLLIN | POLLRDHUP | POLLERR; // NOTE: Do we want POLLRDHUP here?
-	poll_fds[0].revents = 0;
-	
-	poll_fds[1].fd = event_fd.efd;
-	poll_fds[1].events = POLLIN | POLLRDHUP | POLLERR; // NOTE: Do we want POLLRDHUP here?
-	poll_fds[1].revents = 0;
-	
-	const int num = poll(
-		poll_fds,
-		2, // num fds
-		-1 // timeout: -1 = infinite.
-	);
-	
-	if(num == SOCKET_ERROR)
-		throw MySocketExcep("poll failed: " + Networking::getError());
-
-	// Check for errors on either fd.
-	if(poll_fds[0].revents & POLLERR)
-		throw MySocketExcep(Networking::getError());
-	if(poll_fds[1].revents & POLLERR)
-		throw MySocketExcep(Networking::getError());
-		
-	//conPrint("poll_fds[0].revents & POLLIN:    " + toString((int)poll_fds[0].revents & POLLIN));
-	//conPrint("poll_fds[0].revents & POLLRDHUP: " + toString((int)poll_fds[0].revents & POLLRDHUP));
-	//conPrint("poll_fds[0].revents & POLLERR:   " + toString((int)poll_fds[0].revents & POLLERR));
-
-	// Return if socket was readable.
-	return (poll_fds[0].revents & POLLIN) || (poll_fds[0].revents & POLLRDHUP);
-	
-	// Make read socket set, add event_fd as well as the socket handle.
-	/*fd_set read_sockset;
-	FD_ZERO(&read_sockset);
-	FD_SET(sockethandle, &read_sockset);
-	FD_SET(event_fd.efd, &read_sockset);
-
-	fd_set error_sockset;
-	FD_ZERO(&error_sockset);
-	FD_SET(sockethandle, &error_sockset);
-	FD_SET(event_fd.efd, &error_sockset);
-
-	// Get number of handles that are ready to read from
-	const int num = select(
-		myMax((int)sockethandle, (int)event_fd.efd) + 1, // 'nfds is the highest-numbered file descriptor in any of the three sets, plus 1.'
-		&read_sockset, // Read fds
-		NULL, // Write fds
-		&error_sockset, // Error fds
-		NULL // timout - use NULL to block indefinitely.
-	);
-
-	if(num == SOCKET_ERROR)
-		throw MySocketExcep("select failed: " + Networking::getError());
-
-	if(FD_ISSET(sockethandle, &error_sockset))
-		throw MySocketExcep(Networking::getError()); 
-
-	return FD_ISSET(sockethandle, &read_sockset);*/
-#endif
-#endif
+	if(SSL_pending(((glare_tls*)tls_context)->ssl_conn) > 0)
+		return true;
+	return plain_socket->readable(event_fd);
 }
 
 
