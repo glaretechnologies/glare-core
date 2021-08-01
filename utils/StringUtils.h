@@ -55,6 +55,8 @@ const std::string doubleToString(double d);
 const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places);
 const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places);
 
+const std::string doubleToStringMaxNDecimalPlaces(double d, int num_decimal_places);
+
 const std::string floatToStringNSigFigs(float f, int num_sig_figs);
 const std::string doubleToStringNSigFigs(double d, int num_sig_figs);
 

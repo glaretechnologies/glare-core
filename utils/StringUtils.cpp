@@ -263,19 +263,94 @@ const std::string doubleToString(double d)
 }
 
 
+const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
+{
+	assert(num_decimal_places >= 0 && num_decimal_places <= 100);
+
+	// Due to fast maths optimisations with VS that treat -0 like 0, a float value of -0.0 will sometimes get passed in to this function instead of 0.0.
+	// We want to print "0" for this, so handle this case explicitly here.
+	if(f == 0 && !isNAN(f))
+		return "0";
+
+	// Convert double to string with Google's code
+	double_conversion::DoubleToStringConverter converter(
+		double_conversion::DoubleToStringConverter::NO_FLAGS,
+		"Inf", // Infinity symbol
+		"NaN", // NaN symbol
+		'e',
+		-6, // decimal_in_shortest_low (not used for ToFixed)
+		21, // decimal_in_shortest_high (not used for ToFixed)
+		0, // max_leading_padding_zeroes_in_precision_mode (not used for ToFixed)
+		0 // max_trailing_padding_zeroes_in_precision_mode (not used for ToFixed)
+	);
+
+	char buffer[128];
+	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
+
+	converter.ToFixed((double)f, num_decimal_places, &builder);
+
+	return std::string(builder.Finalize());
+}
+
+
 const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places)
 {
 	assert(num_decimal_places >= 0 && num_decimal_places <= 100);
 
+	// Due to fast maths optimisations with VS that treat -0 like 0, a float value of -0.0 will sometimes get passed in to this function instead of 0.0.
+	// We want to print "0" for this, so handle this case explicitly here.
+	if(d == 0 && !isNAN(d))
+		return "0";
+
+	// Convert double to string with Google's code
+	double_conversion::DoubleToStringConverter converter(
+		double_conversion::DoubleToStringConverter::NO_FLAGS,
+		"Inf", // Infinity symbol
+		"NaN", // NaN symbol
+		'e',
+		-6, // decimal_in_shortest_low (not used for ToFixed)
+		21, // decimal_in_shortest_high (not used for ToFixed)
+		0, // max_leading_padding_zeroes_in_precision_mode (not used for ToFixed)
+		0 // max_trailing_padding_zeroes_in_precision_mode (not used for ToFixed)
+	);
+
 	char buffer[128];
+	double_conversion::StringBuilder builder(buffer, sizeof(buffer));
 
-#ifdef _WIN32
-	sprintf_s(buffer, sizeof(buffer), std::string("%1." + toString(num_decimal_places) + "f").c_str(), d);
-#else
-	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "f").c_str(), d);
-#endif
+	converter.ToFixed(d, num_decimal_places, &builder);
 
-	return std::string(buffer);
+	return std::string(builder.Finalize());
+}
+
+
+const std::string doubleToStringMaxNDecimalPlaces(double d, int num_decimal_places)
+{
+	const std::string s = doubleToStringNDecimalPlaces(d, num_decimal_places);
+
+	// Trim off trailing zeros.  Also trim off the decimal point/dot if all digits after the dot were zeros.
+	// Note: Crappy suboptimal code.
+	const std::string::size_type dot_pos = s.find('.');
+	size_t trim_to_pos = s.size();
+	if(dot_pos != std::string::npos)
+	{
+		for(int z=(int)s.size() - 1; z >= (int)dot_pos; --z)
+		{
+			if(s[z] == '.') // We reached the decimal dot while trimming off trailing zeros.
+			{
+				trim_to_pos = z;
+				break;
+			}
+			if(s[z] == '0')
+				trim_to_pos = z;
+			else
+				break;
+		}
+	}
+
+	if(trim_to_pos != s.size())
+		return s.substr(0, trim_to_pos);
+	else
+		return s;
 }
 
 
@@ -290,27 +365,6 @@ const std::string doubleToStringScientific(double d, int num_decimal_places)
 	sprintf(buffer, std::string("%1." + toString(num_decimal_places) + "E").c_str(), d);
 #endif
 	
-	return std::string(buffer);
-}
-
-
-const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places)
-{
-	assert(num_decimal_places >= 0);
-
-	char buffer[128];
-
-	if(num_decimal_places >= 10)
-		num_decimal_places = 9;
-
-	const std::string format_string = "%1." + ::toString(num_decimal_places) + "f";
-
-#ifdef _WIN32
-	sprintf_s(buffer, sizeof(buffer), format_string.c_str(), f);
-#else
-	sprintf(buffer, format_string.c_str(), f);
-#endif
-
 	return std::string(buffer);
 }
 
@@ -1494,6 +1548,38 @@ void StringUtils::test()
 		testAssert(::floatToStringNDecimalPlaces(123.234f, 2) == "123.23");
 		testAssert(::floatToStringNDecimalPlaces(123.234f, 3) == "123.234");
 	}
+
+
+
+	//================= Test doubleToStringNDecimalPlaces ================================
+	{
+		testAssert(::doubleToStringNDecimalPlaces(123.456, 0) == "123");
+		testAssert(::doubleToStringNDecimalPlaces(123.234, 1) == "123.2");
+		testAssert(::doubleToStringNDecimalPlaces(123.234, 2) == "123.23");
+		testAssert(::doubleToStringNDecimalPlaces(123.234, 3) == "123.234");
+	}
+
+
+	//================= Test doubleToStringMaxNDecimalPlaces ================================
+	{
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.456, 0) == "123");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.234, 1) == "123.2");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.234, 2) == "123.23");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.234, 3) == "123.234");
+
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.0, 0) == "123");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.0, 1) == "123");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.0, 2) == "123");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.1, 0) == "123");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.1, 1) == "123.1");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.1, 2) == "123.1");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.12, 0) == "123");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.12, 1) == "123.1");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.12, 2) == "123.12");
+		testAssert(::doubleToStringMaxNDecimalPlaces(123.12, 3) == "123.12");
+	}
+
+
 
 	//================= Test string to float for invalid strings ================================
 
