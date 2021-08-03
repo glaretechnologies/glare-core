@@ -177,11 +177,60 @@ static void doTestWithHostname(const std::string& hostname, int port)
 //==============================================================================================================
 
 
+
+class TLSTestUseConfigThread : public MyThread
+{
+public:
+	TLSTestUseConfigThread(struct tls_config* config_) : config(config_) {}
+
+	virtual void run()
+	{
+		struct tls* tls_context = tls_client();
+		testAssert(tls_context); 
+
+		if(tls_configure(tls_context, config) != 0)
+			failTest("tls_configure failed.");
+
+		tls_free(tls_context);
+	}
+
+	struct tls_config* config;
+};
+
+
+static void doMultiThreadedConfigTest()
+{
+	struct tls_config* config = tls_config_new();
+
+	tls_config_insecure_noverifycert(config);
+	tls_config_insecure_noverifyname(config);
+
+	std::vector<Reference<TLSTestUseConfigThread>> threads;
+	for(size_t i=0; i<100; ++i)
+	{
+		Reference<TLSTestUseConfigThread> thread = new TLSTestUseConfigThread(config);
+		threads.push_back(thread);
+	}
+
+	for(size_t i=0; i<threads.size(); ++i)
+		threads[i]->launch();
+
+	for(size_t i=0; i<threads.size(); ++i)
+		threads[i]->join();
+
+	// At this point the config should have recount == 1.
+	tls_config_free(config);
+}
+
+
+
 void TLSSocketTests::test()
 {
 	conPrint("TLSSocketTests::test()");
 
 	testAssert(Networking::isNonNull());
+
+	doMultiThreadedConfigTest();
 
 	doTestWithHostname("localhost", /*port=*/5000);
 

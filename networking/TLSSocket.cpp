@@ -71,14 +71,11 @@ struct glare_tls {
 };
 
 // The hacked in structure above may become invalid for different libtls versions.
-static_assert(TLS_API == 20180210, "TLS_API == 20180210");
+static_assert(TLS_API == 20180210 || TLS_API == 20200120, "TLS_API == 20180210 || TLS_API == 20200120"); // Structure is the same in both these versions (2.8.3 and 3.3.3)
 
 
 #if defined(_WIN32)
-typedef int SOCKLEN_TYPE;
 #else
-typedef socklen_t SOCKLEN_TYPE;
-
 static const int SOCKET_ERROR = -1;
 #endif
 
