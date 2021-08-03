@@ -793,7 +793,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 		const size_t compressed_bound = myMax(ZSTD_compressBound(index_data.size()), ZSTD_compressBound(vertex_data.size())); // Make the buffer large enough that we don't need to resize it later.
 		js::Vector<uint8, 16> compressed_data(compressed_bound);
 
-		size_t total_compressed_size = 0;
+		//size_t total_compressed_size = 0;
 		Timer timer;
 		timer.pause();
 
@@ -862,7 +862,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 			// Now write compressed data to disk
 			file.writeData(compressed_data.data(), compressed_size);
 		
-			total_compressed_size += compressed_size;
+			//total_compressed_size += compressed_size;
 		}
 
 		// Build de-interleaved vertex data, compress it and then write it to disk.
@@ -918,12 +918,12 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 			// Now write compressed data to disk
 			file.writeData(compressed_data.data(), compressed_size);
 
-			total_compressed_size += compressed_size;
+			//total_compressed_size += compressed_size;
 		}
 
 		
-		const size_t uncompressed_size = index_data.size() + vertex_data.size();
-		const double compression_speed = uncompressed_size / timer.elapsed();
+		//const size_t uncompressed_size = index_data.size() + vertex_data.size();
+		//const double compression_speed = uncompressed_size / timer.elapsed();
 		// conPrint("");
 		// conPrint("Uncompressed size:   " + toString(uncompressed_size) + " B");
 		// conPrint("Compressed size:     " + toString(total_compressed_size) + " B");
