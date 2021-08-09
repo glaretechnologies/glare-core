@@ -8,6 +8,8 @@ Copyright Glare Technologies Limited 2018 -
 
 #include "../utils/Reference.h"
 #include "../graphics/colour3.h"
+#include "../graphics/AnimationData.h"
+#include "../maths/Quat.h"
 #include <string>
 #include <vector>
 namespace Indigo { class Mesh; }
@@ -43,6 +45,42 @@ struct GLTFMaterials
 };
 
 
+//struct GLTFNodeData
+//{
+//	int parent_index;
+//};
+
+
+//struct GLTFAnimationData : public RefCounted
+//{
+//	std::string name;
+//	std::vector<float> time_vals;
+//
+//	// Translation for node n at input time index i
+//	//	i * num_nodes + n						// is n * time_vals.size() + i
+//	std::vector<Vec3f> translations;
+//	std::vector<Quatf> rotations;
+//	std::vector<Vec3f> scales;
+//};
+//
+//
+//struct GLTFAnimations
+//{
+//	std::vector<Reference<GLTFAnimationData> > animations;
+//};
+
+
+struct GLTFLoadedData
+{
+	//std::vector<GLTFNodeData> nodes;
+	//std::vector<int> sorted_nodes; // Node indices sorted such that children always come after parents.
+
+	GLTFMaterials materials;
+	//GLTFAnimations animations;
+	AnimationData anim_data;
+};
+
+
 struct GLTFWriteOptions
 {
 	GLTFWriteOptions() : write_vert_normals(true) {}
@@ -61,17 +99,17 @@ class FormatDecoderGLTF
 public:
 
 	static void loadGLBFile(const std::string& filename, Indigo::Mesh& handler, float scale,
-		GLTFMaterials& mats_out); // throws glare::Exception on failure
+		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
 	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale,
-		GLTFMaterials& mats_out); // throws glare::Exception on failure
+		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
-	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFMaterials& mats); // throws glare::Exception on failure
+	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFLoadedData& data); // throws glare::Exception on failure
 
 	static void test();
 
 private:
 	static void loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, Indigo::Mesh& handler, float scale,
-		GLTFMaterials& mats_out); // throws glare::Exception on failure
+		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
 };

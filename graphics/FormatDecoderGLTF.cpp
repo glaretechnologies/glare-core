@@ -174,6 +174,48 @@ struct AttributesPresent
 };
 
 
+struct GLTFChannel
+{
+	int sampler; // sampler index
+	int target_node;
+
+	enum Path
+	{
+		Path_translation,
+		Path_rotation,
+		Path_scale,
+		Path_weights
+	};
+
+	Path target_path;
+};
+
+
+struct GLTFSampler
+{
+	int input; // Accessor index - "a set of floating point scalar values representing linear time in seconds"
+	enum Interpolation
+	{
+		Interpolation_linear,
+		Interpolation_step,
+		Interpolation_cubic_spline,
+	};
+	Interpolation interpolation; // interpolation method
+	int output; // Accessor index?
+};
+
+
+struct GLTFAnimation : public RefCounted
+{
+	GLTFAnimation() {}
+
+	std::string name;
+	std::vector<GLTFChannel> channels;
+	std::vector<GLTFSampler> samplers;
+};
+typedef Reference<GLTFAnimation> GLTFAnimationRef;
+
+
 struct GLTFData
 {
 	GLTFData() : scene(0) {}
@@ -186,6 +228,7 @@ struct GLTFData
 	std::vector<GLTFMaterialRef> materials;
 	std::vector<GLTFMeshRef> meshes;
 	std::vector<GLTFNodeRef> nodes;
+	std::vector<GLTFAnimationRef> animations;
 	std::vector<GLTFSceneRef> scenes;
 	size_t scene;
 
@@ -961,6 +1004,141 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 }
 
 
+static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const std::string& gltf_folder, AnimationDatum& anim_data_out)
+{
+	conPrint("Processing anim " + anim.name + "...");
+
+	anim_data_out.name = anim.name;
+
+
+	// NOTE: for now assume all channels use samplers with the same input accessor, e.g. all keyframe times are shared.
+	int input_accessor_idx = -1;
+	for(size_t c=0; c<anim.channels.size(); ++c)
+	{
+		const GLTFChannel& channel = anim.channels[c];
+
+		// Get sampler
+		if(channel.sampler < 0 || channel.sampler > (int)anim.samplers.size())
+			throw glare::Exception("invalid sampler index");
+
+		const GLTFSampler& sampler = anim.samplers[channel.sampler];
+
+		if(c == 0)
+			input_accessor_idx = sampler.input;
+		else
+		{
+			if(input_accessor_idx != sampler.input)
+			{
+				conPrint("Ignoring anim:  require all samplers use the same input accessor");
+				return; //throw glare::Exception("Animation: require all samplers use the same input accessor");
+			}
+		}
+	}
+
+	//--------------------------- Read input times (float scalars) ---------------------------
+	if(input_accessor_idx >= 0)
+	{
+		// input should be "a set of floating point scalar values representing linear time in seconds"
+		GLTFAccessor& input_accessor = getAccessor(data, input_accessor_idx);
+
+		if(input_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
+			throw glare::Exception("anim input component_type was not float");
+		if(input_accessor.type != "SCALAR")
+			throw glare::Exception("anim input type was not SCALAR");
+
+		GLTFBufferView& buf_view = getBufferView(data, input_accessor.buffer_view);
+		GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+		const size_t offset_B = input_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+		const uint8* offset_base = buffer.binary_data + offset_B;
+		const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : (componentTypeByteSize(input_accessor.component_type) * typeNumComponents(input_accessor.type));
+
+		if(byte_stride < sizeof(float))
+			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
+		if(offset_B + byte_stride * (input_accessor.count - 1) + sizeof(float) > buffer.data_size)
+			throw glare::Exception("anim: Out of bounds while trying to read input");
+
+		anim_data_out.time_vals.resize(input_accessor.count);
+		for(size_t i=0; i<input_accessor.count; ++i)
+			std::memcpy(&anim_data_out.time_vals[i], offset_base + byte_stride * i, sizeof(float));
+
+		anim_data_out.translations.resize(data.nodes.size() * anim_data_out.time_vals.size());
+		anim_data_out.rotations.resize(data.nodes.size() * anim_data_out.time_vals.size());
+		anim_data_out.scales.resize(data.nodes.size() * anim_data_out.time_vals.size());
+	}
+
+	//--------------------------- Fill translations, scales, rotations vectors with the non-animated static values. ---------------------------
+	for(size_t n=0; n<data.nodes.size(); ++n)
+		for(size_t i=0; i<anim_data_out.time_vals.size(); ++i)
+		{
+			anim_data_out.translations [i * data.nodes.size() + n] = data.nodes[n]->translation;
+			anim_data_out.scales       [i * data.nodes.size() + n] = data.nodes[n]->scale;
+			anim_data_out.rotations    [i * data.nodes.size() + n] = data.nodes[n]->rotation;
+		}
+
+	//--------------------------- Now overwrite with animated values. ---------------------------
+	for(size_t c=0; c<anim.channels.size(); ++c)
+	{
+		const GLTFChannel& channel = anim.channels[c];
+
+		// Get sampler
+		if(channel.sampler < 0 || channel.sampler > (int)anim.samplers.size())
+			throw glare::Exception("invalid sampler index");
+
+		const GLTFSampler& sampler = anim.samplers[channel.sampler];
+
+		GLTFAccessor& output_accessor = getAccessor(data, sampler.output);
+
+		if(output_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
+			throw glare::Exception("anim output component_type was not float");
+		//if(input_accessor.type != "SCALAR")
+		//	throw glare::Exception("anim output type was not SCALAR");
+
+		GLTFBufferView& buf_view = getBufferView(data, output_accessor.buffer_view);
+		GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+		const size_t offset_B = output_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+		const uint8* offset_base = buffer.binary_data + offset_B;
+		const size_t vec_byte_size = componentTypeByteSize(output_accessor.component_type) * typeNumComponents(output_accessor.type);
+		const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : vec_byte_size;
+
+		if(byte_stride < vec_byte_size)
+			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
+		if(offset_B + byte_stride * (output_accessor.count - 1) + vec_byte_size > buffer.data_size)
+			throw glare::Exception("anim: Out of bounds while trying to read input");
+
+		const int node_index = channel.target_node;
+		if(channel.target_path == GLTFChannel::Path_translation)
+		{
+			if(typeNumComponents(output_accessor.type) != 3)
+				throw glare::Exception("invalid number of components for animated translation.");
+
+			for(size_t i=0; i<output_accessor.count; ++i)
+				std::memcpy(&anim_data_out.translations[i * data.nodes.size() + node_index], offset_base + byte_stride * i, sizeof(float) * 3);
+		}
+		else if(channel.target_path == GLTFChannel::Path_rotation)
+		{
+			if(typeNumComponents(output_accessor.type) != 4)
+				throw glare::Exception("invalid number of components for animated rotation.");
+
+			for(size_t i=0; i<output_accessor.count; ++i)
+				std::memcpy(&anim_data_out.rotations[i * data.nodes.size() + node_index], offset_base + byte_stride * i, sizeof(float) * 4);
+		}
+		else if(channel.target_path == GLTFChannel::Path_scale)
+		{
+			if(typeNumComponents(output_accessor.type) != 3)
+				throw glare::Exception("invalid number of components for animated scale.");
+
+			for(size_t i=0; i<output_accessor.count; ++i)
+				std::memcpy(&anim_data_out.scales[i * data.nodes.size() + node_index], offset_base + byte_stride * i, sizeof(float) * 3);
+		}
+	}
+
+	conPrint("done.");
+}
+
+
+
 struct GLBHeader
 {
 	uint32 magic;
@@ -981,7 +1159,7 @@ static const uint32 CHUNK_TYPE_BIN  = 0x004E4942;
 
 
 void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& mesh, float scale,
-	GLTFMaterials& mats_out) // throws glare::Exception on failure
+	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	MemMappedFile file(pathname);
 
@@ -1032,23 +1210,23 @@ void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& m
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	loadGivenJSON(parser, gltf_base_dir, buffer, mesh, scale, mats_out);
+	loadGivenJSON(parser, gltf_base_dir, buffer, mesh, scale, data_out);
 }
 
 
-void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& mesh, float scale, GLTFMaterials& mats_out)
+void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& mesh, float scale, GLTFLoadedData& data_out)
 {
 	JSONParser parser;
 	parser.parseFile(pathname);
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, mesh, scale, mats_out);
+	loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, mesh, scale, data_out);
 }
 
 
 void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, Indigo::Mesh& mesh, float scale,
-	GLTFMaterials& mats_out) // throws glare::Exception on failure
+	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	const JSONNode& root = parser.nodes[0];
 	checkNodeType(root, JSONNode::Type_Object);
@@ -1354,7 +1532,82 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 			}
 		}
 
+	// Load animations
+	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
+		if(root.name_val_pairs[i].name == "animations")
+		{
+			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
+			checkNodeType(node_array, JSONNode::Type_Array);
 	
+			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			{
+				const JSONNode& anim_node = parser.nodes[node_array.child_indices[z]];
+
+				Reference<GLTFAnimation> gltf_anim = new GLTFAnimation();
+
+				if(anim_node.hasChild("name")) gltf_anim->name = anim_node.getChildStringValue(parser, "name");
+
+				// parse channels array
+				const JSONNode& channels_array_node = anim_node.getChildArray(parser, "channels");
+				for(size_t q=0; q<channels_array_node.child_indices.size(); ++q)
+				{
+					const JSONNode& channel_node = parser.nodes[channels_array_node.child_indices[q]];
+
+					GLTFChannel channel;
+					channel.sampler = (int)channel_node.getChildUIntValue(parser, "sampler");
+
+					const JSONNode& target_node = channel_node.getChildObject(parser, "target");
+
+					channel.target_node = (int)target_node.getChildUIntValue(parser, "node");
+					
+					const std::string target_path = target_node.getChildStringValue(parser, "path");
+					//channel.target_node = target_node.getChildUIntValue(parser, "node");
+
+					if(target_path == "translation")
+						channel.target_path = GLTFChannel::Path_translation;
+					else if(target_path == "rotation")
+						channel.target_path = GLTFChannel::Path_rotation;
+					else if(target_path == "scale")
+						channel.target_path = GLTFChannel::Path_scale;
+					else if(target_path == "weights")
+						channel.target_path = GLTFChannel::Path_weights;
+					else
+						throw glare::Exception("invalid channel target path: " + target_path);
+
+					gltf_anim->channels.push_back(channel);
+				}
+
+				// parse samplers
+				const JSONNode& samplers_array_node = anim_node.getChildArray(parser, "samplers");
+				for(size_t q=0; q<samplers_array_node.child_indices.size(); ++q)
+				{
+					const JSONNode& sampler_node = parser.nodes[samplers_array_node.child_indices[q]];
+
+					GLTFSampler sampler;
+					sampler.input  = (int)sampler_node.getChildUIntValue(parser, "input");
+					sampler.output = (int)sampler_node.getChildUIntValue(parser, "output");
+
+					const std::string interpolation = sampler_node.getChildStringValue(parser, "interpolation");
+
+					if(interpolation == "LINEAR")
+						sampler.interpolation = GLTFSampler::Interpolation_linear;
+					else if(interpolation == "STEP")
+						sampler.interpolation = GLTFSampler::Interpolation_step;
+					else if(interpolation == "CUBICSPLINE")
+						sampler.interpolation = GLTFSampler::Interpolation_cubic_spline;
+					else
+						throw glare::Exception("invalid interpolation: " + interpolation);
+
+					gltf_anim->samplers.push_back(sampler);
+				}
+
+				data.animations.push_back(gltf_anim);
+			}
+		}
+
+
+
+
 
 	// Load scenes
 	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
@@ -1512,10 +1765,64 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 	}
 
 	// Process materials
-	mats_out.materials.resize(data.materials.size());
+	data_out.materials.materials.resize(data.materials.size());
 	for(size_t i=0; i<data.materials.size(); ++i)
 	{
-		processMaterial(data, *data.materials[i], gltf_base_dir, mats_out.materials[i]);
+		processMaterial(data, *data.materials[i], gltf_base_dir, data_out.materials.materials[i]);
+	}
+
+	//-------------------- Process animations ---------------------------
+	// Write out nodes
+
+	// Set parent indices in data_out.nodes
+	data_out.anim_data.nodes.resize(data.nodes.size());
+	for(size_t i=0; i<data.nodes.size(); ++i)
+		data_out.anim_data.nodes[i].parent_index = -1;
+
+	for(size_t i=0; i<data.nodes.size(); ++i)
+	{
+		GLTFNode& node = *data.nodes[i];
+
+		conPrint("Node " + toString(i));
+		for(size_t z=0; z<node.children.size(); ++z)
+		{
+			const size_t child_index = node.children[z];
+			conPrint("\tchild " + toString(child_index));
+			data_out.anim_data.nodes[child_index].parent_index = i;
+		}
+	}
+	
+	// Build sorted_nodes - Node indices sorted such that children always come after parents.
+	// We will do this by doing a depth first traversal over the nodes.
+	std::vector<size_t> node_stack;
+
+	// Initialise node_stack with roots
+	for(size_t i=0; i<data.nodes.size(); ++i)
+		if(data_out.anim_data.nodes[i].parent_index == -1)
+			node_stack.push_back(i);
+
+	while(!node_stack.empty())
+	{
+		const int node_i = node_stack.back();
+		node_stack.pop_back();
+
+		data_out.anim_data.sorted_nodes.push_back(node_i);
+
+		// Add child nodes of the current node
+		const GLTFNode& node = *data.nodes[node_i];
+		for(size_t z=0; z<node.children.size(); ++z)
+		{
+			const size_t child_index = node.children[z];
+			node_stack.push_back(child_index);
+		}
+	}
+
+
+	data_out.anim_data.animations.resize(data.animations.size());
+	for(size_t i=0; i<data.animations.size(); ++i)
+	{
+		data_out.anim_data.animations[i] = new AnimationDatum();
+		processAnimation(data, *data.animations[i], gltf_base_dir, *data_out.anim_data.animations[i]);
 	}
 
 	mesh.endOfModel();
@@ -1572,7 +1879,7 @@ static const std::string JSONEscape(const std::string& s)
 }
 
 
-void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFMaterials& mats)
+void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFLoadedData& gltf_data)
 {
 	std::ofstream file(path);
 
@@ -1859,20 +2166,20 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 
 	std::vector<GLTFResultMap> textures;
 
-	for(size_t i=0; i<mats.materials.size(); ++i)
+	for(size_t i=0; i<gltf_data.materials.materials.size(); ++i)
 	{
 		file <<
 			"	" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
 			"		\"pbrMetallicRoughness\": {\n";
 
-		if(!mats.materials[i].diffuse_map.path.empty())
+		if(!gltf_data.materials.materials[i].diffuse_map.path.empty())
 		{
 			file <<
 				"			\"baseColorTexture\": {\n"
 				"				\"index\": " + toString(textures.size()) + "\n"
 				"			},\n";
 
-			textures.push_back(mats.materials[i].diffuse_map);
+			textures.push_back(gltf_data.materials.materials[i].diffuse_map);
 		}
 
 		file <<
@@ -1947,7 +2254,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 #include "../utils/PlatformUtils.h"
 
 
-static void testWriting(const Indigo::Mesh& mesh, const GLTFMaterials& mats)
+static void testWriting(const Indigo::Mesh& mesh, const GLTFLoadedData& data)
 {
 /*	try
 	{
@@ -1987,6 +2294,24 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
+		{
+			// Has vertex colours, also uses unsigned bytes for indices.
+			conPrint("---------------------------------cryptovoxels-avatar-all-actions.glb-----------------------------------");
+			Indigo::Mesh mesh;
+			GLTFLoadedData data;
+			loadGLBFile("D:\\models\\cryptovoxels-avatar-all-actions.glb", mesh, 1.0, data);
+
+			/*testAssert(mesh.num_materials_referenced == 2);
+			testAssert(mesh.vert_positions.size() == 72);
+			testAssert(mesh.vert_normals.size() == 72);
+			testAssert(mesh.vert_colours.size() == 72);
+			testAssert(mesh.uv_pairs.size() == 72);
+			testAssert(mesh.triangles.size() == 36);*/
+
+			testWriting(mesh, data);
+		}
+		return;
+
 		/*{
 			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
 			Indigo::Mesh mesh;
@@ -2022,8 +2347,8 @@ void FormatDecoderGLTF::test()
 			// Has vertex colours, also uses unsigned bytes for indices.
 			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/VertexColorTest.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/VertexColorTest.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 2);
 			testAssert(mesh.vert_positions.size() == 72);
@@ -2032,14 +2357,14 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 72);
 			testAssert(mesh.triangles.size() == 36);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 
 		{
 			conPrint("---------------------------------Box.glb-----------------------------------");
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Box.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Box.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -2048,14 +2373,14 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 12);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 	
 		{
 			conPrint("---------------------------------BoxInterleaved.glb-----------------------------------");
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -2064,14 +2389,14 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 12);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 
 		{
 			conPrint("---------------------------------BoxTextured.glb-----------------------------------");
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxTextured.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxTextured.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -2080,14 +2405,14 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 24);
 			testAssert(mesh.triangles.size() == 12);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 	
 		{
 			conPrint("---------------------------------BoxVertexColors.glb-----------------------------------");
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 24);
@@ -2096,14 +2421,14 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 24);
 			testAssert(mesh.triangles.size() == 12);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 	
 		{
 			conPrint("---------------------------------2CylinderEngine.glb-----------------------------------");
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 34);
 			testAssert(mesh.vert_positions.size() == 84657);
@@ -2112,13 +2437,13 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 121496);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 
 		{
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 370);
@@ -2127,13 +2452,13 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 256);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 	
 		{
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/CesiumMan.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/CesiumMan.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 1);
 			testAssert(mesh.vert_positions.size() == 3273);
@@ -2142,13 +2467,13 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 3273);
 			testAssert(mesh.triangles.size() == 4672);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 	
 		{
 			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", mesh, 1.0, mats);
+			GLTFLoadedData data;
+			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", mesh, 1.0, data);
 
 			testAssert(mesh.num_materials_referenced == 98 + 1); // Seems to use a default material
 			testAssert(mesh.vert_positions.size() == 528291);
@@ -2157,7 +2482,7 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh.uv_pairs.size() == 0);
 			testAssert(mesh.triangles.size() == 1040409);
 
-			testWriting(mesh, mats);
+			testWriting(mesh, data);
 		}
 	}
 	catch(glare::Exception& e)
@@ -2191,8 +2516,8 @@ void FormatDecoderGLTF::test()
 		// Read a GLTF file from disk
 		const std::string path = TestUtils::getTestReposDir() + "/testfiles/gltf/duck/Duck.gltf";
 		Indigo::Mesh mesh;
-		GLTFMaterials mats;
-		streamModel(path, mesh, 1.0, mats);
+		GLTFLoadedData data;
+		streamModel(path, mesh, 1.0, data);
 
 		testAssert(mesh.num_materials_referenced == 1);
 		testAssert(mesh.vert_positions.size() == 2399);
@@ -2205,16 +2530,16 @@ void FormatDecoderGLTF::test()
 		// Write it back to disk
 		GLTFWriteOptions options;
 		options.write_vert_normals = false;
-		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, mats);
+		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, data);
 
 		options.write_vert_normals = true;
-		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, mats);
+		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, data);
 
 
 		// Load again
 		Indigo::Mesh mesh2;
-		GLTFMaterials mats2;
-		streamModel(path, mesh2, 1.0, mats2);
+		GLTFLoadedData data2;
+		streamModel(path, mesh2, 1.0, data2);
 
 		testAssert(mesh2.num_materials_referenced == 1);
 		testAssert(mesh2.vert_positions.size() == 2399);
