@@ -115,25 +115,26 @@ static void perfTestWithMesh(const std::string& path)
 	conPrint("===================================================");
 	conPrint("Perf test with " + path);
 	conPrint("===================================================");
-	Indigo::Mesh indigo_mesh;
+	Reference<BatchedMesh> batched_mesh;
 	if(hasExtension(path, "glb"))
 	{
-		GLTFMaterials mats;
-		FormatDecoderGLTF::loadGLBFile(path, indigo_mesh, 1.f, mats);
+		GLTFLoadedData data;
+		batched_mesh = FormatDecoderGLTF::loadGLBFile(path, 1.f, data);
 	}
 	else if(hasExtension(path, "gltf"))
 	{
-		GLTFMaterials mats;
-		FormatDecoderGLTF::streamModel(path, indigo_mesh, 1.f, mats);
+		GLTFLoadedData data;
+		batched_mesh = FormatDecoderGLTF::loadGLTFFile(path, 1.f, data);
 	}
 	else if(hasExtension(path, "igmesh"))
 	{
+		Indigo::Mesh indigo_mesh;
 		Indigo::Mesh::readFromFile(toIndigoString(path), indigo_mesh);
+
+		batched_mesh = new BatchedMesh();
+		batched_mesh->buildFromIndigoMesh(indigo_mesh);
 	}
 
-
-	BatchedMesh batched_mesh;
-	batched_mesh.buildFromIndigoMesh(indigo_mesh);
 
 	const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp6789.bmesh";
 
@@ -148,7 +149,7 @@ static void perfTestWithMesh(const std::string& path)
 
 		conPrint("\nWriting with compression level " + toString(write_options.compression_level));
 		conPrint("----------------------------------------------");
-		batched_mesh.writeToFile(temp_path, write_options);
+		batched_mesh->writeToFile(temp_path, write_options);
 
 		// Load from disk to get decompression speed.
 		{

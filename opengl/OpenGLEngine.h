@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "TextureLoading.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
+#include "../graphics/AnimationData.h"
 #include "../graphics/BatchedMesh.h"
 #include "../physics/jscol_aabbox.h"
 #include "../opengl/OpenGLTexture.h"
@@ -26,6 +27,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../maths/plane.h"
 #include "../maths/Matrix4f.h"
 #include "../maths/PCG32.h"
+#include "../maths/Quat.h"
 #include "../utils/Timer.h"
 #include "../utils/Vector.h"
 #include "../utils/Reference.h"
@@ -34,6 +36,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/StringUtils.h"
 #include "../utils/PrintOutput.h"
+#include "../utils/ManagerWithCache.h"
 #include <unordered_set>
 namespace Indigo { class Mesh; }
 namespace glare { class TaskManager; }
@@ -55,13 +58,14 @@ public:
 
 struct GLMemUsage
 {
-	GLMemUsage() : geom_cpu_usage(0), geom_gpu_usage(0), texture_cpu_usage(0), texture_gpu_usage(0) {}
+	GLMemUsage() : geom_cpu_usage(0), geom_gpu_usage(0), texture_cpu_usage(0), texture_gpu_usage(0), sum_unused_tex_gpu_usage(0) {}
 
 	size_t geom_cpu_usage;
 	size_t geom_gpu_usage;
 
 	size_t texture_cpu_usage;
 	size_t texture_gpu_usage;
+	size_t sum_unused_tex_gpu_usage;
 
 	size_t totalCPUUsage() const;
 	size_t totalGPUUsage() const;
@@ -81,6 +85,8 @@ public:
 	GLMemUsage getTotalMemUsage() const;
 	size_t getNumVerts() const; // Just for testing/debugging.
 	size_t getNumTris() const; // Just for testing/debugging.
+	
+	bool usesSkinning() const { return !animation_data.joint_nodes.empty(); } // TEMP HACK
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 	
@@ -105,6 +111,8 @@ public:
 	// If this is non-null, load vertex and index data directly from batched_mesh instead of from vert_data and vert_index_buffer etc..
 	// We take this approach to avoid copying the data from batched_mesh to vert_data etc..
 	Reference<BatchedMesh> batched_mesh;
+
+	AnimationData animation_data;
 };
 
 
@@ -174,14 +182,6 @@ public:
 };
 
 
-struct OpenGLTextureKey
-{
-	OpenGLTextureKey() {}
-	explicit OpenGLTextureKey(const std::string& path_) : path(path_) {}
-	std::string path;
-
-	bool operator < (const OpenGLTextureKey& other) const { return path < other.path; }
-};
 
 
 #ifdef _WIN32
@@ -254,13 +254,15 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false) {}
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), max_tex_mem_usage(1024 * 1024 * 1024ull) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
 	bool compress_textures;
 	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool depth_fog;
+
+	uint64 max_tex_mem_usage; // Default: 1GB
 };
 
 
@@ -445,7 +447,7 @@ public:
 	void updateObjectTransformData(GLObject& object);
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
-	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing);
+	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
 	void objectMaterialsUpdated(const Reference<GLObject>& object);
 	//----------------------------------------------------------------------------------------
 
@@ -596,7 +598,7 @@ public:
 
 private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
-	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing);
+	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
@@ -625,7 +627,12 @@ private:
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 public:
 	glare::TaskManager& getTaskManager();
+
+	void textureBecameUnused(const OpenGLTexture* tex);
+	void textureBecameUsed(const OpenGLTexture* tex);
 private:
+	void trimTextureUsage();
+
 	bool init_succeeded;
 	std::string initialisation_error_msg;
 	
@@ -704,13 +711,17 @@ private:
 	Reference<OpenGLProgram> depth_draw_alpha_prog;
 	Reference<OpenGLProgram> depth_draw_instancing_prog;
 	Reference<OpenGLProgram> depth_draw_alpha_instancing_prog;
+	Reference<OpenGLProgram> depth_draw_skinning_prog;
+	Reference<OpenGLProgram> depth_draw_alpha_skinning_prog;
+	Reference<OpenGLProgram> depth_draw_instancing_skinning_prog;
+	Reference<OpenGLProgram> depth_draw_alpha_instancing_skinning_prog;
 
 	OverlayObjectRef clear_buf_overlay_ob;
 
 	double draw_time;
 	Timer draw_timer;
 
-	std::map<OpenGLTextureKey, Reference<OpenGLTexture> > opengl_textures;
+	ManagerWithCache<OpenGLTextureKey, Reference<OpenGLTexture>, OpenGLTextureKeyHash> opengl_textures;
 public:
 	Reference<TextureDataManager> texture_data_manager;
 private:
@@ -742,6 +753,8 @@ private:
 	bool draw_wireframes;
 
 	GLObjectRef debug_arrow_ob;
+
+	std::vector<GLObjectRef> debug_joint_obs;
 
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
@@ -790,8 +803,16 @@ private:
 	UniformBufObRef shared_vert_uniform_buf_ob;
 	UniformBufObRef per_object_vert_uniform_buf_ob;
 
+	// Some temporary vectors:
+	js::Vector<Matrix4f, 16> node_matrices;
+	std::vector<AnimationKeyFrameLocation> key_frame_locs;
+
 public:
 	PrintOutput* print_output; // May be NULL
+
+	uint64 tex_mem_usage; // Running sum of GPU RAM used by inserted textures.
+
+	uint64 max_tex_mem_usage;
 };
 
 

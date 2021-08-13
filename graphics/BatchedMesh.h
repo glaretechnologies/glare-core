@@ -83,7 +83,9 @@ public:
 		VertAttribute_Normal	= 1,
 		VertAttribute_Colour	= 2,
 		VertAttribute_UV_0		= 3,
-		VertAttribute_UV_1		= 4
+		VertAttribute_UV_1		= 4,
+		VertAttribute_Joints	= 5, // Indices of joint nodes for skinning
+		VertAttribute_Weights	= 6 // weights for skinning
 	};
 	static const uint32 MAX_VERT_ATTRIBUTE_TYPE_VALUE = 4;
 
@@ -118,6 +120,9 @@ public:
 
 	// Find the attribute identified by 'type'.  Returns NULL if not present.
 	const VertAttribute* findAttribute(VertAttributeType type) const;
+
+	// Find the attribute identified by 'type'.  Throws glare::Exception if attribute not present.
+	const VertAttribute& getAttribute(VertAttributeType type) const;
 
 	size_t numMaterialsReferenced() const;
 
@@ -171,6 +176,8 @@ size_t BatchedMesh::vertAttributeTypeNumComponents(VertAttributeType t)
 	case VertAttribute_Colour:   return 3;
 	case VertAttribute_UV_0:     return 2;
 	case VertAttribute_UV_1:     return 2;
+	case VertAttribute_Joints:   return 4; // 4 joints per vert, following GLTF
+	case VertAttribute_Weights:  return 4; // 4 weights per vert, following GLTF
 	};
 	assert(0);
 	return 1;
@@ -228,4 +235,15 @@ uint32 BatchedMesh::getIndexAsUInt32(size_t i) const
 	default:
 		return ((uint32*)index_data.data())[i];
 	}
+}
+
+
+inline static uint32 batchedMeshPackNormal(const Vec4f& normal)
+{
+	const Vec4f scaled_n = normal * 511.f; // Map from [-1, 1] to [-511, 511]
+	int x = (int)scaled_n[0]; 
+	int y = (int)scaled_n[1];
+	int z = (int)scaled_n[2];
+	// ANDing with 1023 isolates the bottom 10 bits.
+	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
 }

@@ -68,11 +68,7 @@ struct BMeshVertKeyHash
 
 inline static uint32 BMeshPackNormal(const Indigo::Vec3f& normal)
 {
-	int x = (int)(normal.x * 511.f); // Map from [-1, 1] to [-511, 511]
-	int y = (int)(normal.y * 511.f);
-	int z = (int)(normal.z * 511.f);
-	// ANDing with 1023 isolates the bottom 10 bits.
-	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+	return batchedMeshPackNormal(Vec4f(normal.x, normal.y, normal.z, 0));
 }
 
 
@@ -1164,6 +1160,14 @@ const BatchedMesh::VertAttribute* BatchedMesh::findAttribute(VertAttributeType t
 	return NULL;
 }
 
+
+const BatchedMesh::VertAttribute& BatchedMesh::getAttribute(VertAttributeType type) const
+{
+	const VertAttribute* attr = findAttribute(type);
+	if(!attr)
+		throw glare::Exception("Could not find attribute.");
+	return *attr;
+}
 
 size_t BatchedMesh::numMaterialsReferenced() const
 {

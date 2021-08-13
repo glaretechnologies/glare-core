@@ -19,10 +19,30 @@ Copyright Glare Technologies Limited 2018 -
 #include "../utils/IncludeXXHash.h"
 #include "../maths/Quat.h"
 #include "../graphics/Colour4f.h"
+#include "../graphics/BatchedMesh.h"
 #include <assert.h>
 #include <vector>
 #include <map>
 #include <fstream>
+
+
+// Kinda like assert(), but checks when NDEBUG enabled, and throws glare::Exception on failure.
+static void _doRuntimeCheck(bool b, const char* message)
+{
+	assert(b);
+	if(!b)
+		throw glare::Exception(std::string(message));
+}
+
+#define doRuntimeCheck(v) _doRuntimeCheck((v), (#v))
+
+
+// Throws an exception if b is false.
+static void checkProperty(bool b, const char* on_false_message)
+{
+	if(!b)
+		throw glare::Exception(std::string(on_false_message));
+}
 
 
 struct GLTFBuffer : public RefCounted
@@ -112,6 +132,8 @@ struct GLTFNode : public RefCounted
 	size_t mesh;
 	Vec3f scale;
 	Vec3f translation;
+
+	Matrix4f node_transform; // Computed matrix
 };
 typedef Reference<GLTFNode> GLTFNodeRef;
 
@@ -166,11 +188,13 @@ typedef Reference<GLTFMaterial> GLTFMaterialRef;
 // Attributes present on any of the meshes.
 struct AttributesPresent
 {
-	AttributesPresent() : normal_present(false), vert_col_present(false), texcoord_0_present(false) {}
+	AttributesPresent() : normal_present(false), vert_col_present(false), texcoord_0_present(false), joints_present(false), weights_present(false) {}
 
 	bool normal_present;
 	bool vert_col_present;
 	bool texcoord_0_present;
+	bool joints_present;
+	bool weights_present;
 };
 
 
@@ -216,6 +240,18 @@ struct GLTFAnimation : public RefCounted
 typedef Reference<GLTFAnimation> GLTFAnimationRef;
 
 
+struct GLTFSkin : public RefCounted
+{
+	GLTFSkin() {}
+
+	std::string name;
+	int inverse_bind_matrices; // accessor index
+	std::vector<int> joints; // Array of node indices
+	int skeleton; // "The skeleton property (if present) points to the node that is the common root of a joints hierarchy or to a direct or indirect parent node of the common root."
+};
+typedef Reference<GLTFSkin> GLTFSkinRef;
+
+
 struct GLTFData
 {
 	GLTFData() : scene(0) {}
@@ -229,6 +265,7 @@ struct GLTFData
 	std::vector<GLTFMeshRef> meshes;
 	std::vector<GLTFNodeRef> nodes;
 	std::vector<GLTFAnimationRef> animations;
+	std::vector<GLTFSkinRef> skins;
 	std::vector<GLTFSceneRef> scenes;
 	size_t scene;
 
@@ -441,69 +478,6 @@ static size_t typeNumComponents(const std::string& type)
 }
 
 
-// Only handles reading from vector attributes with at least 3 components, always writes/converts to 3-component vectors.
-static void appendDataToMeshVector(GLTFData& data, GLTFPrimitive& primitive, const std::string& attr_name, const Matrix4f& transform, Indigo::Vector<Indigo::Vec3f>& data_out)
-{
-	GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, attr_name);
-	GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
-	GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
-
-	const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
-	const uint8* offset_base = buffer.binary_data + offset_B;
-	const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : (componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type));
-
-	const size_t write_i = data_out.size();
-	data_out.resize(write_i + accessor.count);
-
-	if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
-	{
-		if(byte_stride < sizeof(uint8)*3)
-			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
-		if(offset_B + byte_stride * (accessor.count - 1) + sizeof(uint8)*3 > buffer.data_size)
-			throw glare::Exception("Out of bounds while trying to read '" + attr_name + "'");
-
-		for(size_t z=0; z<accessor.count; ++z)
-		{
-			const Vec4f v(
-				((const uint8*)(offset_base + byte_stride * z))[0],
-				((const uint8*)(offset_base + byte_stride * z))[1],
-				((const uint8*)(offset_base + byte_stride * z))[2],
-				1);
-
-			const Vec4f v_primed = transform * v;
-
-			data_out[write_i + z].x = v_primed[0] * (1 / 255.f);
-			data_out[write_i + z].y = v_primed[1] * (1 / 255.f);
-			data_out[write_i + z].z = v_primed[2] * (1 / 255.f);
-		}
-	}
-	else if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
-	{
-		if(byte_stride < sizeof(float)*3)
-			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
-		if(offset_B + byte_stride * (accessor.count - 1) + sizeof(float)*3 > buffer.data_size)
-			throw glare::Exception("Out of bounds while trying to read '" + attr_name + "'");
-
-		for(size_t z=0; z<accessor.count; ++z)
-		{
-			const Vec4f v(
-				((const float*)(offset_base + byte_stride * z))[0],
-				((const float*)(offset_base + byte_stride * z))[1],
-				((const float*)(offset_base + byte_stride * z))[2],
-				1);
-
-			const Vec4f v_primed = transform * v;
-
-			data_out[write_i + z].x = v_primed[0];
-			data_out[write_i + z].y = v_primed[1];
-			data_out[write_i + z].z = v_primed[2];
-		}
-	}
-	else
-		throw glare::Exception("unhandled component type for attribute " + attr_name + ": " + componentTypeString(accessor.component_type));
-}
-
-
 // Just ignore primitives that do not have mode GLTF_MODE_TRIANGLES for now, instead of throwing an error.
 static inline bool shouldLoadPrimitive(const GLTFPrimitive& primitive)
 {
@@ -511,28 +485,28 @@ static inline bool shouldLoadPrimitive(const GLTFPrimitive& primitive)
 }
 
 
-static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t& total_num_tris, size_t& total_num_verts)
+static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t& total_num_indices, size_t& total_num_verts)
 {
 	// Process mesh
 	if(node.mesh != std::numeric_limits<size_t>::max())
 	{
 		GLTFMesh& mesh = getMesh(data, node.mesh);
 
-		// Loop over primitive batches and get number of triangles and verts, add to total_num_tris and total_num_verts
+		// Loop over primitive batches and get number of triangles and verts, add to total_num_indices and total_num_verts
 		for(size_t i=0; i<mesh.primitives.size(); ++i)
 		{
 			GLTFPrimitive& primitive = *mesh.primitives[i];
 
-			//if(primitive.mode != GLTF_MODE_TRIANGLES)
-			//	throw glare::Exception("Only GLTF_MODE_TRIANGLES handled currently. (mode: " + toString(primitive.mode) + ")");
-
-			if(primitive.indices == std::numeric_limits<size_t>::max())
-				throw glare::Exception("primitive did not have indices.");
-
 			if(shouldLoadPrimitive(primitive))
 			{
-				total_num_tris  += getAccessor(data, primitive.indices).count / 3;
-				total_num_verts += getAccessorForAttribute(data, primitive, "POSITION").count;
+				const size_t num_vert_pos = getAccessorForAttribute(data, primitive, "POSITION").count;
+				
+				if(primitive.indices == std::numeric_limits<size_t>::max()) // If we don't have an indices accessor, we will use one index per vertex.
+					total_num_indices += num_vert_pos;
+				else
+					total_num_indices += getAccessor(data, primitive.indices).count;
+				
+				total_num_verts += num_vert_pos;
 			}
 		}
 	}
@@ -545,7 +519,7 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
-		processNodeToGetMeshCapacity(data, child, total_num_tris, total_num_verts);
+		processNodeToGetMeshCapacity(data, child, total_num_indices, total_num_verts);
 	}
 }
 
@@ -656,13 +630,74 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 }
 #endif
 
-
-static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_transform, Indigo::Mesh& mesh_out)
+// Copy some data from a buffer via an accessor, to a destination vertex_data buffer.
+// Converts types and applies a scale as well.
+template <typename SrcType, typename DestType, int N>
+static void copyData(size_t accessor_count, const uint8* const offset_base, const size_t byte_stride, js::Vector<uint8, 16>& vertex_data, const size_t vert_write_i, 
+	const size_t dest_vert_stride_B, const size_t dest_attr_offset_B, const DestType scale)
 {
+	// Bounds check destination addresses (should be done already, but check again)
+	if(dest_attr_offset_B + sizeof(DestType) * N > dest_vert_stride_B)
+		throw glare::Exception("Internal error: desination buffer overflow");
+
+	if((vert_write_i + accessor_count) * dest_vert_stride_B > vertex_data.size())
+		throw glare::Exception("Internal error: desination buffer overflow");
+
+	uint8* const offset_dest = vertex_data.data() + vert_write_i * dest_vert_stride_B + dest_attr_offset_B;
+
+	for(size_t z=0; z<accessor_count; ++z)
+	{
+		// Copy to v[]
+		SrcType v[N];
+		std::memcpy(v, offset_base + byte_stride * z, sizeof(SrcType) * N);
+
+		// Write to dest
+		DestType* dest = (DestType*)(offset_dest + z * dest_vert_stride_B);
+		for(int c=0; c<N; ++c)
+			dest[c] = (DestType)v[c] * scale;
+	}
+}
+
+
+// vert_byte_stride - vertex byte stride, in bytes.  This value may have come from the buffer view (user controlled data)
+// offset_B = Offset in bytes from start of buffer to the data we are accessing.  user controlled data.
+static void checkAccessorBounds(const size_t vert_byte_stride, const size_t offset_B, const size_t value_size_B, const GLTFAccessor& accessor, const GLTFBuffer& buffer)
+{
+	if(accessor.count > 1000000000)
+		throw glare::Exception("accessor_count is too large: " + toString(accessor.count));
+
+	if(value_size_B > vert_byte_stride)
+		throw glare::Exception("Invalid stride for buffer view: " + toString(vert_byte_stride) + " B");
+
+	if(accessor.count > 0)
+	{
+		if(offset_B + vert_byte_stride * (accessor.count - 1) + value_size_B > buffer.data_size)
+			throw glare::Exception("accessor tried to read out of bounds.");
+	}
+}
+
+
+// vert_byte_stride - vertex byte stride, in bytes.  This value may have come from the buffer view (user controlled data)
+// offset_B = Offset in bytes from start of buffer to the data we are accessing.  user controlled data.
+static void checkAccessorBounds(const size_t vert_byte_stride, const size_t offset_B, const size_t value_size_B, const GLTFAccessor& accessor, const GLTFBuffer& buffer, int expected_num_components)
+{
+	checkAccessorBounds(vert_byte_stride, offset_B, value_size_B, accessor, buffer);
+
+	if(typeNumComponents(accessor.type) != expected_num_components)
+		throw glare::Exception("Invalid num components (type) for accessor.");
+}
+
+
+static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_transform, BatchedMesh& mesh_out, js::Vector<uint32, 16>& uint32_indices_out, size_t& vert_write_i)
+{
+	const bool statically_apply_transform = data.skins.empty();
+
 	const Matrix4f trans = Matrix4f::translationMatrix(node.translation.x, node.translation.y, node.translation.z);
 	const Matrix4f rot = node.rotation.toMatrix();
 	const Matrix4f scale = Matrix4f::scaleMatrix(node.scale.x, node.scale.y, node.scale.z);
 	const Matrix4f node_transform = parent_transform * node.matrix * trans * rot * scale; // Matrix and T,R,S transforms should be mutually exclusive in GLTF files.  Just multiply them together however.
+
+	node.node_transform = node_transform;
 
 	// Process mesh
 	if(node.mesh != std::numeric_limits<size_t>::max())
@@ -676,123 +711,180 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 			if(!shouldLoadPrimitive(primitive))
 				continue;
 
-#if USE_INDIGO_MESH_INDICES
-			size_t indices_write_i;
-#else
-			size_t tri_write_i;
-#endif
-			// if(primitive.indices != std::numeric_limits<size_t>::max())
 			
-			GLTFAccessor& index_accessor = getAccessor(data, primitive.indices);
+			const GLTFAccessor& pos_accessor = getAccessorForAttribute(data, primitive, "POSITION");
+			const size_t vert_pos_count = pos_accessor.count;
 
+			//--------------------------------------- Read indices ---------------------------------------
+			const size_t indices_write_i = uint32_indices_out.size();
+
+			size_t primitive_num_indices;
+			if(primitive.indices == std::numeric_limits<size_t>::max())
 			{
-				GLTFBufferView& index_buf_view = getBufferView(data, index_accessor.buffer_view);
-				GLTFBuffer& buffer = getBuffer(data, index_buf_view.buffer);
+				// Write one index per vertex.
+				BatchedMesh::IndicesBatch batch;
+				batch.indices_start = (uint32)indices_write_i;
+				batch.material_index = (uint32)primitive.material;
+				batch.num_indices = (uint32)vert_pos_count;
+				mesh_out.batches.push_back(batch);
+
+				uint32_indices_out.resize(uint32_indices_out.size() + vert_pos_count);
+
+				for(size_t z=0; z<vert_pos_count; ++z)
+					uint32_indices_out[indices_write_i + z] = (uint32)(z + vert_write_i);
+				primitive_num_indices = vert_pos_count;
+			}
+			else
+			{
+				const GLTFAccessor& index_accessor = getAccessor(data, primitive.indices);
+				const GLTFBufferView& index_buf_view = getBufferView(data, index_accessor.buffer_view);
+				const GLTFBuffer& buffer = getBuffer(data, index_buf_view.buffer);
 
 				const size_t offset_B = index_accessor.byte_offset + index_buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
 				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t value_size_B = componentTypeByteSize(index_accessor.component_type);
+				const size_t byte_stride = (index_buf_view.byte_stride != 0) ? index_buf_view.byte_stride : value_size_B;
 
-#if USE_INDIGO_MESH_INDICES
-				mesh_out.chunks.push_back(Indigo::PrimitiveChunk());
-				Indigo::PrimitiveChunk& chunk = mesh_out.chunks.back();
-				chunk.indices_start = (uint32)mesh_out.indices.size();
-				chunk.num_indices	= (uint32)index_accessor.count;
-				chunk.mat_index		= (uint32)primitive.material;
+				if(offset_B + index_accessor.count * value_size_B > buffer.data_size)
+					throw glare::Exception("Out of bounds while trying to read indices");
 
+				BatchedMesh::IndicesBatch batch;
+				batch.indices_start = (uint32)indices_write_i;
+				batch.material_index = (uint32)primitive.material;
+				batch.num_indices = (uint32)index_accessor.count;
+				mesh_out.batches.push_back(batch);
 
-				// Process indices:
-				indices_write_i = mesh_out.indices.size();
-				mesh_out.indices.resize(indices_write_i + index_accessor.count);
-#else
-				tri_write_i = mesh_out.triangles.size();
-				mesh_out.triangles.resize(tri_write_i + index_accessor.count / 3);
-#endif
+				uint32_indices_out.resize(uint32_indices_out.size() + index_accessor.count);
 
-				const uint32 vert_i_offset = (uint32)mesh_out.vert_positions.size();
-				
 				if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
 				{
-					if(offset_B + index_accessor.count * sizeof(uint8) > buffer.data_size)
-						throw glare::Exception("Out of bounds while trying to read indices");
-
-#if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
-						mesh_out.indices[indices_write_i + z] = vert_i_offset + ((const uint8*)offset_base)[z];
-#else
-					for(size_t z=0; z<index_accessor.count / 3; ++z)
-					{
-						mesh_out.triangles[tri_write_i + z].vertex_indices[0]	= vert_i_offset + ((const uint8*)offset_base)[z*3 + 0];
-						mesh_out.triangles[tri_write_i + z].vertex_indices[1]	= vert_i_offset + ((const uint8*)offset_base)[z*3 + 1];
-						mesh_out.triangles[tri_write_i + z].vertex_indices[2]	= vert_i_offset + ((const uint8*)offset_base)[z*3 + 2];
-						mesh_out.triangles[tri_write_i + z].uv_indices[0]		= vert_i_offset + ((const uint8*)offset_base)[z*3 + 0];
-						mesh_out.triangles[tri_write_i + z].uv_indices[1]		= vert_i_offset + ((const uint8*)offset_base)[z*3 + 1];
-						mesh_out.triangles[tri_write_i + z].uv_indices[2]		= vert_i_offset + ((const uint8*)offset_base)[z*3 + 2];
-						mesh_out.triangles[tri_write_i + z].tri_mat_index = (uint32)primitive.material;
-					}
-#endif
+						uint32_indices_out[indices_write_i + z] = *((const uint8*)(offset_base + z * byte_stride)) + (uint32)vert_write_i;
 				}
 				else if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 				{
-					if(offset_B + index_accessor.count * sizeof(uint16) > buffer.data_size)
-						throw glare::Exception("Out of bounds while trying to read indices");
-
-#if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
-						mesh_out.indices[indices_write_i + z] = vert_i_offset + ((const uint16*)offset_base)[z];
-#else
-					for(size_t z=0; z<index_accessor.count / 3; ++z)
 					{
-						mesh_out.triangles[tri_write_i + z].vertex_indices[0]	= vert_i_offset + ((const uint16*)offset_base)[z*3 + 0];
-						mesh_out.triangles[tri_write_i + z].vertex_indices[1]	= vert_i_offset + ((const uint16*)offset_base)[z*3 + 1];
-						mesh_out.triangles[tri_write_i + z].vertex_indices[2]	= vert_i_offset + ((const uint16*)offset_base)[z*3 + 2];
-						mesh_out.triangles[tri_write_i + z].uv_indices[0]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 0];
-						mesh_out.triangles[tri_write_i + z].uv_indices[1]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 1];
-						mesh_out.triangles[tri_write_i + z].uv_indices[2]		= vert_i_offset + ((const uint16*)offset_base)[z*3 + 2];
-						mesh_out.triangles[tri_write_i + z].tri_mat_index = (uint32)primitive.material;
+						uint16 v;
+						std::memcpy(&v, offset_base + z * byte_stride, sizeof(uint16));
+						uint32_indices_out[indices_write_i + z] = (uint32)v + (uint32)vert_write_i;
 					}
-#endif
 				}
 				else if(index_accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_INT)
 				{
-					if(offset_B + index_accessor.count * sizeof(uint32) > buffer.data_size)
-						throw glare::Exception("Out of bounds while trying to read indices");
-
-#if USE_INDIGO_MESH_INDICES
 					for(size_t z=0; z<index_accessor.count; ++z)
-						mesh_out.indices[indices_write_i + z] = vert_i_offset + ((const uint32*)offset_base)[z];
-#else
-					for(size_t z=0; z<index_accessor.count / 3; ++z)
 					{
-						mesh_out.triangles[tri_write_i + z].vertex_indices[0]	= vert_i_offset + ((const uint32*)offset_base)[z*3 + 0];
-						mesh_out.triangles[tri_write_i + z].vertex_indices[1]	= vert_i_offset + ((const uint32*)offset_base)[z*3 + 1];
-						mesh_out.triangles[tri_write_i + z].vertex_indices[2]	= vert_i_offset + ((const uint32*)offset_base)[z*3 + 2];
-						mesh_out.triangles[tri_write_i + z].uv_indices[0]		= vert_i_offset + ((const uint32*)offset_base)[z*3 + 0];
-						mesh_out.triangles[tri_write_i + z].uv_indices[1]		= vert_i_offset + ((const uint32*)offset_base)[z*3 + 1];
-						mesh_out.triangles[tri_write_i + z].uv_indices[2]		= vert_i_offset + ((const uint32*)offset_base)[z*3 + 2];
-						mesh_out.triangles[tri_write_i + z].tri_mat_index = (uint32)primitive.material;
+						uint32 v;
+						std::memcpy(&v, offset_base + z * byte_stride, sizeof(uint32));
+						uint32_indices_out[indices_write_i + z] = v + (uint32)vert_write_i;
+						//uint32_indices_out[indices_write_i + z] = *((const uint32*)(offset_base + z * byte_stride)); // NOTE: can only do this with alignment check
 					}
-#endif
 				}
 				else
-					throw glare::Exception("Unhandled index accessor component type: " + componentTypeString(index_accessor.component_type));
+					throw glare::Exception("Invalid index accessor component type: " + componentTypeString(index_accessor.component_type));
+
+				primitive_num_indices = index_accessor.count;
 			}
 
-			// Process vertex positions
-			size_t vert_pos_count;
+			//--------------------------------------- Process vertex positions ---------------------------------------
+			const BatchedMesh::VertAttribute& pos_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Position);
 			{
-				const size_t initial_vert_pos_size = mesh_out.vert_positions.size();
+				const Matrix4f transform = statically_apply_transform ? node_transform : Matrix4f::identity();
+				
+				const GLTFBufferView& buf_view = getBufferView(data, pos_accessor.buffer_view);
+				const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
 
-				appendDataToMeshVector(data, primitive, "POSITION", node_transform, mesh_out.vert_positions);
+				const size_t offset_B = pos_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t value_size_B = componentTypeByteSize(pos_accessor.component_type) * typeNumComponents(pos_accessor.type);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
 
-				vert_pos_count = mesh_out.vert_positions.size() - initial_vert_pos_size;
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, pos_accessor, buffer, /*expected_num_components=*/3);
+
+				const size_t dest_vert_stride_B = mesh_out.vertexSize();
+				const size_t dest_attr_offset_B = pos_attr.offset_B;
+
+				doRuntimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float); // We store positions in float format.
+
+				// POSITION must be FLOAT
+				if(pos_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				{
+					for(size_t z=0; z<pos_accessor.count; ++z)
+					{
+						// NOTE: alignment is dodgy here, assuming offset_base is 4-byte aligned.
+						const Vec4f p_os(
+							((const float*)(offset_base + byte_stride * z))[0],
+							((const float*)(offset_base + byte_stride * z))[1],
+							((const float*)(offset_base + byte_stride * z))[2],
+							1
+						);
+
+						const Vec4f p_ws = transform * p_os;
+
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = p_ws[0];
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[1] = p_ws[1];
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[2] = p_ws[2];
+					}
+				}
+				else
+					throw glare::Exception("Invalid POSITION component type");
+
+				
 			}
 
-			// Process vertex normals
+			//--------------------------------------- Process vertex normals ---------------------------------------
 			if(primitive.attributes.count("NORMAL"))
 			{
 				Matrix4f normal_transform;
-				node_transform.getUpperLeftInverseTranspose(normal_transform);
-				appendDataToMeshVector(data, primitive, "NORMAL", normal_transform, mesh_out.vert_normals);
+				if(statically_apply_transform)
+					node_transform.getUpperLeftInverseTranspose(normal_transform);
+				else
+					normal_transform = Matrix4f::identity();
+
+				const Matrix4f transform = statically_apply_transform ? node_transform : Matrix4f::identity();
+
+				const BatchedMesh::VertAttribute& normals_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Normal);
+
+				const GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "NORMAL");
+				const GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+				const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t value_size_B = componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer, /*expected_num_components=*/3);
+
+				if(accessor.count != vert_pos_count) throw glare::Exception("invalid accessor.count");
+
+				const size_t dest_vert_stride_B = mesh_out.vertexSize();
+				const size_t dest_attr_offset_B = normals_attr.offset_B;
+
+				doRuntimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
+
+				// NORMAL must be FLOAT
+				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				{
+					for(size_t z=0; z<accessor.count; ++z)
+					{
+						// NOTE: alignment is dodgy here, assuming offset_base is 4-byte aligned.
+						const Vec4f n_os(
+							((const float*)(offset_base + byte_stride * z))[0],
+							((const float*)(offset_base + byte_stride * z))[1],
+							((const float*)(offset_base + byte_stride * z))[2],
+							0
+						);
+
+						const Vec4f n_ws = normalise(normal_transform * n_os);
+
+						const uint32 packed = batchedMeshPackNormal(n_ws);
+
+						*(uint32*)(&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B]) = packed;
+					}
+				}
+				else
+					throw glare::Exception("Invalid NORMAL component type");
 			}
 			else
 			{
@@ -800,98 +892,291 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				{
 					// Pad with normals.  This is a hack, needed because we only have one vertex layout per mesh.
 
-					// NOTE: Should use geometric normals here
+					const BatchedMesh::VertAttribute& normals_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Normal);
+					const size_t dest_vert_stride_B = mesh_out.vertexSize();
+					const size_t dest_attr_offset_B = normals_attr.offset_B;
 
-					const size_t normals_write_i = mesh_out.vert_normals.size();
-					mesh_out.vert_normals.resize(normals_write_i + vert_pos_count);
+					// Initialise with a default normal value
+					doRuntimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
 					for(size_t z=0; z<vert_pos_count; ++z)
-						mesh_out.vert_normals[normals_write_i + z].set(0, 0, 1);
-
-#if USE_INDIGO_MESH_INDICES
-					for(size_t z=0; z<index_accessor.count; z += 3) // For each tri (group of 3 indices)
 					{
-						uint32 v0i = mesh_out.indices[indices_write_i + z + 0];
-						uint32 v1i = mesh_out.indices[indices_write_i + z + 1];
-						uint32 v2i = mesh_out.indices[indices_write_i + z + 2];
-#else
-					for(size_t z=0; z<index_accessor.count/3; z++) // For each tri
+						const Vec4f n_ws(0,0,1,0);
+						const uint32 packed = batchedMeshPackNormal(n_ws);
+						*(uint32*)(&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B]) = packed;
+					}
+
+					for(size_t z=0; z<primitive_num_indices/3; z++) // For each tri, splat geometric normal to the vert normal for each vert
 					{
-						uint32 v0i = mesh_out.triangles[tri_write_i + z].vertex_indices[0];
-						uint32 v1i = mesh_out.triangles[tri_write_i + z].vertex_indices[1];
-						uint32 v2i = mesh_out.triangles[tri_write_i + z].vertex_indices[2];
-#endif
+						uint32 v0i = uint32_indices_out[indices_write_i + z * 3 + 0];
+						uint32 v1i = uint32_indices_out[indices_write_i + z * 3 + 1];
+						uint32 v2i = uint32_indices_out[indices_write_i + z * 3 + 2];
 
-						Indigo::Vec3f v0 = mesh_out.vert_positions[v0i];
-						Indigo::Vec3f v1 = mesh_out.vert_positions[v1i];
-						Indigo::Vec3f v2 = mesh_out.vert_positions[v2i];
+						const Vec4f v0(
+							((float*)&mesh_out.vertex_data[v0i * dest_vert_stride_B + pos_attr.offset_B])[0],
+							((float*)&mesh_out.vertex_data[v0i * dest_vert_stride_B + pos_attr.offset_B])[1],
+							((float*)&mesh_out.vertex_data[v0i * dest_vert_stride_B + pos_attr.offset_B])[2],
+							1);
 
-						Indigo::Vec3f normal = normalise(crossProduct(v1 - v0, v2 - v0));
-						mesh_out.vert_normals[v0i] = normal;
-						mesh_out.vert_normals[v1i] = normal;
-						mesh_out.vert_normals[v2i] = normal;
+						const Vec4f v1(
+							((float*)&mesh_out.vertex_data[v1i * dest_vert_stride_B + pos_attr.offset_B])[0],
+							((float*)&mesh_out.vertex_data[v1i * dest_vert_stride_B + pos_attr.offset_B])[1],
+							((float*)&mesh_out.vertex_data[v1i * dest_vert_stride_B + pos_attr.offset_B])[2],
+							1);
+
+						const Vec4f v2(
+							((float*)&mesh_out.vertex_data[v2i * dest_vert_stride_B + pos_attr.offset_B])[0],
+							((float*)&mesh_out.vertex_data[v2i * dest_vert_stride_B + pos_attr.offset_B])[1],
+							((float*)&mesh_out.vertex_data[v2i * dest_vert_stride_B + pos_attr.offset_B])[2],
+							1);
+
+						const Vec4f normal = normalise(crossProduct(v1 - v0, v2 - v0));
+						const uint32 packed = batchedMeshPackNormal(normal);
+						*(uint32*)(&mesh_out.vertex_data[v0i * dest_vert_stride_B + dest_attr_offset_B]) = packed;
+						*(uint32*)(&mesh_out.vertex_data[v1i * dest_vert_stride_B + dest_attr_offset_B]) = packed;
+						*(uint32*)(&mesh_out.vertex_data[v2i * dest_vert_stride_B + dest_attr_offset_B]) = packed;
 					}
 				}
 			}
 
-			// Process vertex colours
+			//--------------------------------------- Process vertex colours ---------------------------------------
 			if(primitive.attributes.count("COLOR_0"))
 			{
-				appendDataToMeshVector(data, primitive, "COLOR_0", Matrix4f::identity(), mesh_out.vert_colours);
+				const BatchedMesh::VertAttribute& colour_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Colour);
+
+				const GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "COLOR_0");
+				const GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+				const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t value_size_B = componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer);
+
+				if(accessor.count != vert_pos_count) throw glare::Exception("invalid accessor.count");
+
+				// It can be VEC3 or VEC4
+				const size_t num_components = typeNumComponents(accessor.type);
+				if(!((num_components == 3) || (num_components == 4)))
+					throw glare::Exception("Invalid num components (type) for accessor.");
+
+				const size_t dest_vert_stride_B = mesh_out.vertexSize();
+				const size_t dest_attr_offset_B = colour_attr.offset_B;
+
+				doRuntimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
+
+				// COLOR_0 must be FLOAT, UNSIGNED_BYTE, or UNSIGNED_SHORT.
+				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				{
+					if(num_components == 3)
+						copyData<float, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f);
+					else
+						copyData<float, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f);
+				}
+				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+				{
+					if(num_components == 3)
+						copyData<uint8, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 255);
+					else
+						copyData<uint8, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 255);
+				}
+				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+				{
+					if(num_components == 3)
+						copyData<uint16, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 65535);
+					else
+						copyData<uint16, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 65535);
+				}
+				else
+					throw glare::Exception("Invalid COLOR_0 component type");
 			}
 			else
 			{
 				if(data.attr_present.vert_col_present)
 				{
-					// Pad with colours zeroes.  This is a hack, needed because we only have one vertex layout per mesh.
-					const size_t colours_write_i = mesh_out.vert_colours.size();
-					mesh_out.vert_colours.resize(colours_write_i + vert_pos_count);
+					// Pad with colours.  This is a hack, needed because we only have one vertex layout per mesh.
+					const BatchedMesh::VertAttribute& colour_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Colour);
+					const size_t dest_vert_stride_B = mesh_out.vertexSize();
+					const size_t dest_attr_offset_B = colour_attr.offset_B;
+
+					doRuntimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
-						mesh_out.vert_colours[colours_write_i + z].set(1, 1, 1);
+					{
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 1.f;
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[1] = 1.f;
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[2] = 1.f;
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[3] = 1.f;
+					}
 				}
 			}
 
 			// Process uvs
 			if(primitive.attributes.count("TEXCOORD_0"))
 			{
+				const BatchedMesh::VertAttribute& texcoord_0_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_UV_0);
+
 				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "TEXCOORD_0");
 				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
 				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
 
 				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
 				const uint8* offset_base = buffer.binary_data + offset_B;
-				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : (componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type));
+				const size_t value_size_B = componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
 
-				const size_t uvs_write_i = mesh_out.uv_pairs.size();
-				mesh_out.uv_pairs.resize(uvs_write_i + accessor.count);
-				mesh_out.num_uv_mappings = 1;
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer, /*expected_num_components=*/2);
 
+				if(accessor.count != vert_pos_count) throw glare::Exception("invalid accessor.count");
+
+				const size_t dest_vert_stride_B = mesh_out.vertexSize();
+				const size_t dest_attr_offset_B = texcoord_0_attr.offset_B;
+
+				doRuntimeCheck(texcoord_0_attr.component_type == BatchedMesh::ComponentType_Float); // We store texcoords in float format for now.
+
+				// TEXCOORD_0 must be FLOAT, UNSIGNED_BYTE, or UNSIGNED_SHORT.
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 				{
-					if(byte_stride < sizeof(float)*2)
-						throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
-					if(offset_B + byte_stride * (accessor.count - 1) + sizeof(float)*2 > buffer.data_size)
-						throw glare::Exception("Out of bounds while trying to read 'TEXCOORD_0'");
-
-					for(size_t z=0; z<accessor.count; ++z)
-					{
-						mesh_out.uv_pairs[uvs_write_i + z].x = ((const float*)(offset_base + byte_stride * z))[0];
-						mesh_out.uv_pairs[uvs_write_i + z].y = ((const float*)(offset_base + byte_stride * z))[1];
-					}
+					copyData<float, float, 2>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f);
+				}
+				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+				{
+					copyData<uint8, float, 2>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 255);
+				}
+				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+				{
+					copyData<uint16, float, 2>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 65535);
 				}
 				else
-					throw glare::Exception("unhandled component type for TEXCOORD_0: " + componentTypeString(accessor.component_type));
+					throw glare::Exception("Invalid TEXCOORD_0 component type");
 			}
 			else
 			{
 				if(data.attr_present.texcoord_0_present)
 				{
 					// Pad with UV zeroes.  This is a bit of a hack, needed because we only have one vertex layout per mesh.
-					const size_t uvs_write_i = mesh_out.uv_pairs.size();
-					mesh_out.uv_pairs.resize(uvs_write_i + vert_pos_count);
+					const BatchedMesh::VertAttribute& texcoord_0_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_UV_0);
+					const size_t dest_vert_stride_B = mesh_out.vertexSize();
+					const size_t dest_attr_offset_B = texcoord_0_attr.offset_B;
+
+					doRuntimeCheck(texcoord_0_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
-						mesh_out.uv_pairs[uvs_write_i + z].set(0, 0);
+					{
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 0.f;
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[1] = 0.f;
+					}
 				}
 			}
+
+			//--------------------------------------- Process vertex joint indices ---------------------------------------
+			if(primitive.attributes.count("JOINTS_0"))
+			{
+				const BatchedMesh::VertAttribute& joint_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Joints);
+
+				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "JOINTS_0");
+				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t value_size_B = componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer, /*expected_num_components=*/4);
+
+				if(accessor.count != vert_pos_count) throw glare::Exception("invalid accessor.count");
+
+				const size_t dest_vert_stride_B = mesh_out.vertexSize();
+				const size_t dest_attr_offset_B = joint_attr.offset_B;
+
+				doRuntimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
+
+				// JOINTS_0 must be UNSIGNED_BYTE or UNSIGNED_SHORT
+				if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+				{
+					copyData<uint8, uint16, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1);
+				}
+				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+				{
+					copyData<uint16, uint16, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1);
+				}
+				else
+					throw glare::Exception("Unhandled component type for JOINTS_0");
+			}
+			else
+			{
+				if(data.attr_present.joints_present)
+				{
+					// Pad with zeroes.  This is a bit of a hack, needed because we only have one vertex layout per mesh.
+					const BatchedMesh::VertAttribute& joint_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Joints);
+					const size_t dest_vert_stride_B = mesh_out.vertexSize();
+					const size_t dest_attr_offset_B = joint_attr.offset_B;
+
+					doRuntimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
+					for(size_t z=0; z<vert_pos_count; ++z)
+						for(int c=0; c<4; ++c)
+							((uint16*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[c] = 0;
+				}
+			}
+
+
+			//--------------------------------------- Process vertex weights (skinning joint weights) ---------------------------------------
+			if(primitive.attributes.count("WEIGHTS_0"))
+			{
+				const BatchedMesh::VertAttribute& weights_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Weights);
+
+				GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "WEIGHTS_0");
+				GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+				GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t value_size_B = componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer, /*expected_num_components=*/4);
+
+				if(accessor.count != vert_pos_count) throw glare::Exception("invalid accessor.count");
+
+				const size_t dest_vert_stride_B = mesh_out.vertexSize();
+				const size_t dest_attr_offset_B = weights_attr.offset_B;
+
+				doRuntimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store weights as floats
+
+				// WEIGHTS_0 must be FLOAT, UNSIGNED_BYTE (normalised) or UNSIGNED_SHORT (normalised)
+				if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+				{
+					copyData<uint8, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 255);
+				}
+				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+				{
+					copyData<uint16, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 65535);
+				}
+				else if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				{
+					copyData<float, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f);
+				}
+				else
+					throw glare::Exception("unhandled accessor.component_type for weights attr");
+			}
+			else
+			{
+				if(data.attr_present.weights_present)
+				{
+					// Pad with zeroes.  This is a bit of a hack, needed because we only have one vertex layout per mesh.
+					const BatchedMesh::VertAttribute& weights_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Weights);
+					const size_t dest_vert_stride_B = mesh_out.vertexSize();
+					const size_t dest_attr_offset_B = weights_attr.offset_B;
+
+					doRuntimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
+					for(size_t z=0; z<vert_pos_count; ++z)
+						for(int c=0; c<4; ++c)
+							((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[c] = 0.f;
+				}
+			}
+
+			vert_write_i += vert_pos_count;
+
 		} // End for each primitive batch
 	} // End if(node.mesh != std::numeric_limits<size_t>::max())
 
@@ -904,7 +1189,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
-		processNode(data, child, node_transform, mesh_out);
+		processNode(data, child, node_transform, mesh_out, uint32_indices_out, vert_write_i);
 	}
 }
 
@@ -1011,132 +1296,191 @@ static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const st
 	anim_data_out.name = anim.name;
 
 
-	// NOTE: for now assume all channels use samplers with the same input accessor, e.g. all keyframe times are shared.
-	int input_accessor_idx = -1;
+	// Do a pass to get that largest input and output accessor indices.
+	int largest_input_accessor = -1;
+	int largest_output_accessor = -1;
+
 	for(size_t c=0; c<anim.channels.size(); ++c)
 	{
 		const GLTFChannel& channel = anim.channels[c];
 
 		// Get sampler
-		if(channel.sampler < 0 || channel.sampler > (int)anim.samplers.size())
-			throw glare::Exception("invalid sampler index");
-
+		checkProperty(channel.sampler >= 0 && channel.sampler < (int)anim.samplers.size(), "invalid sampler index");
 		const GLTFSampler& sampler = anim.samplers[channel.sampler];
 
-		if(c == 0)
-			input_accessor_idx = sampler.input;
-		else
-		{
-			if(input_accessor_idx != sampler.input)
-			{
-				conPrint("Ignoring anim:  require all samplers use the same input accessor");
-				return; //throw glare::Exception("Animation: require all samplers use the same input accessor");
-			}
-		}
+		largest_input_accessor  = myMax(largest_input_accessor,  sampler.input);
+		largest_output_accessor = myMax(largest_output_accessor, sampler.output);
 	}
 
-	//--------------------------- Read input times (float scalars) ---------------------------
-	if(input_accessor_idx >= 0)
-	{
-		// input should be "a set of floating point scalar values representing linear time in seconds"
-		GLTFAccessor& input_accessor = getAccessor(data, input_accessor_idx);
+	// sanity check largest_input_accessor etc.
+	checkProperty(largest_input_accessor  >= -1 && largest_input_accessor < 10000,  "invalid animation input accessor");
+	checkProperty(largest_output_accessor >= -1 && largest_output_accessor < 10000, "invalid animation output accessor");
 
-		if(input_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
-			throw glare::Exception("anim input component_type was not float");
-		if(input_accessor.type != "SCALAR")
-			throw glare::Exception("anim input type was not SCALAR");
+	anim_data_out.keyframe_times.resize(largest_input_accessor  + 1);
+	anim_data_out.output_data   .resize(largest_output_accessor + 1);
 
-		GLTFBufferView& buf_view = getBufferView(data, input_accessor.buffer_view);
-		GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
 
-		const size_t offset_B = input_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
-		const uint8* offset_base = buffer.binary_data + offset_B;
-		const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : (componentTypeByteSize(input_accessor.component_type) * typeNumComponents(input_accessor.type));
+	//--------------------------- Set default translations, scales, rotations with the non-animated static values. ---------------------------
 
-		if(byte_stride < sizeof(float))
-			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
-		if(offset_B + byte_stride * (input_accessor.count - 1) + sizeof(float) > buffer.data_size)
-			throw glare::Exception("anim: Out of bounds while trying to read input");
-
-		anim_data_out.time_vals.resize(input_accessor.count);
-		for(size_t i=0; i<input_accessor.count; ++i)
-			std::memcpy(&anim_data_out.time_vals[i], offset_base + byte_stride * i, sizeof(float));
-
-		anim_data_out.translations.resize(data.nodes.size() * anim_data_out.time_vals.size());
-		anim_data_out.rotations.resize(data.nodes.size() * anim_data_out.time_vals.size());
-		anim_data_out.scales.resize(data.nodes.size() * anim_data_out.time_vals.size());
-	}
-
-	//--------------------------- Fill translations, scales, rotations vectors with the non-animated static values. ---------------------------
+	anim_data_out.per_anim_node_data.resize(data.nodes.size());
 	for(size_t n=0; n<data.nodes.size(); ++n)
-		for(size_t i=0; i<anim_data_out.time_vals.size(); ++i)
-		{
-			anim_data_out.translations [i * data.nodes.size() + n] = data.nodes[n]->translation;
-			anim_data_out.scales       [i * data.nodes.size() + n] = data.nodes[n]->scale;
-			anim_data_out.rotations    [i * data.nodes.size() + n] = data.nodes[n]->rotation;
-		}
+	{
+		anim_data_out.per_anim_node_data[n].translation_input_accessor = -1;
+		anim_data_out.per_anim_node_data[n].translation_output_accessor = -1;
+		anim_data_out.per_anim_node_data[n].rotation_input_accessor = -1;
+		anim_data_out.per_anim_node_data[n].rotation_output_accessor = -1;
+		anim_data_out.per_anim_node_data[n].scale_input_accessor = -1;
+		anim_data_out.per_anim_node_data[n].scale_output_accessor = -1;
+	}
+	
 
-	//--------------------------- Now overwrite with animated values. ---------------------------
 	for(size_t c=0; c<anim.channels.size(); ++c)
 	{
 		const GLTFChannel& channel = anim.channels[c];
+		const GLTFSampler& sampler = anim.samplers[channel.sampler]; // Has been bound-checked earlier
 
-		// Get sampler
-		if(channel.sampler < 0 || channel.sampler > (int)anim.samplers.size())
-			throw glare::Exception("invalid sampler index");
+		checkProperty(sampler.interpolation == GLTFSampler::Interpolation_linear || sampler.interpolation == GLTFSampler::Interpolation_step, "Only linear and step interpolation types supported currently for animations.");
 
-		const GLTFSampler& sampler = anim.samplers[channel.sampler];
-
-		GLTFAccessor& output_accessor = getAccessor(data, sampler.output);
-
-		if(output_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
-			throw glare::Exception("anim output component_type was not float");
-		//if(input_accessor.type != "SCALAR")
-		//	throw glare::Exception("anim output type was not SCALAR");
-
-		GLTFBufferView& buf_view = getBufferView(data, output_accessor.buffer_view);
-		GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
-
-		const size_t offset_B = output_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
-		const uint8* offset_base = buffer.binary_data + offset_B;
-		const size_t vec_byte_size = componentTypeByteSize(output_accessor.component_type) * typeNumComponents(output_accessor.type);
-		const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : vec_byte_size;
-
-		if(byte_stride < vec_byte_size)
-			throw glare::Exception("Invalid stride for buffer view: " + toString(byte_stride) + " B");
-		if(offset_B + byte_stride * (output_accessor.count - 1) + vec_byte_size > buffer.data_size)
-			throw glare::Exception("anim: Out of bounds while trying to read input");
-
-		const int node_index = channel.target_node;
-		if(channel.target_path == GLTFChannel::Path_translation)
+		//---------------- read keyframe time values from the input accessor -----------------
+		std::vector<float>& time_vals = anim_data_out.keyframe_times[sampler.input];
+		if(time_vals.empty()) // If we have not already read the data for this input accessor:
 		{
-			if(typeNumComponents(output_accessor.type) != 3)
-				throw glare::Exception("invalid number of components for animated translation.");
+			const GLTFAccessor& input_accessor = getAccessor(data, sampler.input);
 
-			for(size_t i=0; i<output_accessor.count; ++i)
-				std::memcpy(&anim_data_out.translations[i * data.nodes.size() + node_index], offset_base + byte_stride * i, sizeof(float) * 3);
+			// input should be "a set of floating point scalar values representing linear time in seconds"
+			checkProperty(input_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT, "anim input component_type was not float");
+			checkProperty(input_accessor.type == "SCALAR", "anim input type was not SCALAR");
+
+			const GLTFBufferView& buf_view = getBufferView(data, input_accessor.buffer_view);
+			const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+			const size_t offset_B = input_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+			const uint8* offset_base = buffer.binary_data + offset_B;
+			const size_t value_size_B = componentTypeByteSize(input_accessor.component_type) * typeNumComponents(input_accessor.type);
+			const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+			checkAccessorBounds(byte_stride, offset_B, value_size_B, input_accessor, buffer, /*expected_num_components=*/1);
+
+			time_vals.resize(input_accessor.count);
+			for(size_t i=0; i<input_accessor.count; ++i)
+				std::memcpy(&time_vals[i], offset_base + byte_stride * i, sizeof(float));
 		}
-		else if(channel.target_path == GLTFChannel::Path_rotation)
-		{
-			if(typeNumComponents(output_accessor.type) != 4)
-				throw glare::Exception("invalid number of components for animated rotation.");
 
-			for(size_t i=0; i<output_accessor.count; ++i)
-				std::memcpy(&anim_data_out.rotations[i * data.nodes.size() + node_index], offset_base + byte_stride * i, sizeof(float) * 4);
-		}
-		else if(channel.target_path == GLTFChannel::Path_scale)
-		{
-			if(typeNumComponents(output_accessor.type) != 3)
-				throw glare::Exception("invalid number of components for animated scale.");
+		const GLTFAccessor& output_accessor = getAccessor(data, sampler.output);
+		
+		// For linear and step interpolation types, we have this constraint:
+		// "The number output of elements must equal the number of input elements."
+		// For cubic-spline there are tangents to handle as well.
+		checkProperty(time_vals.size() == output_accessor.count, "Animation: The number output of elements must equal the number of input elements.");
 
-			for(size_t i=0; i<output_accessor.count; ++i)
-				std::memcpy(&anim_data_out.scales[i * data.nodes.size() + node_index], offset_base + byte_stride * i, sizeof(float) * 3);
+		js::Vector<Vec4f, 16>& output_data = anim_data_out.output_data[sampler.output];
+
+		if(output_data.empty()) // If we have not already read the data for this output accessor:
+		{
+			// NOTE: GLTF translations and scales must be FLOAT.  But rotation can be a bunch of stuff, BYTE etc..  TODO: handle.
+			if(output_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
+				throw glare::Exception("anim output component_type was not float");
+
+			const GLTFBufferView& buf_view = getBufferView(data, output_accessor.buffer_view);
+			const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+			const size_t offset_B = output_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+			const uint8* offset_base = buffer.binary_data + offset_B;
+			const size_t value_size_B = componentTypeByteSize(output_accessor.component_type) * typeNumComponents(output_accessor.type);
+			const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+			checkAccessorBounds(byte_stride, offset_B, value_size_B, output_accessor, buffer);
+
+			output_data.resize(output_accessor.count, Vec4f(0.f));
+
+			if(channel.target_path == GLTFChannel::Path_translation)
+			{
+				anim_data_out.per_anim_node_data[channel.target_node].translation_input_accessor  = sampler.input;
+				anim_data_out.per_anim_node_data[channel.target_node].translation_output_accessor = sampler.output;
+
+				checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated translation");
+
+				for(size_t i=0; i<output_accessor.count; ++i)
+					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 3);
+			}
+			else if(channel.target_path == GLTFChannel::Path_rotation)
+			{
+				anim_data_out.per_anim_node_data[channel.target_node].rotation_input_accessor  = sampler.input;
+				anim_data_out.per_anim_node_data[channel.target_node].rotation_output_accessor = sampler.output;
+
+				checkProperty(typeNumComponents(output_accessor.type) == 4, "invalid number of components for animated rotation");
+
+				for(size_t i=0; i<output_accessor.count; ++i)
+					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 4);
+			}
+			else if(channel.target_path == GLTFChannel::Path_scale)
+			{
+				anim_data_out.per_anim_node_data[channel.target_node].scale_input_accessor  = sampler.input;
+				anim_data_out.per_anim_node_data[channel.target_node].scale_output_accessor = sampler.output;
+
+				checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated scale");
+
+				for(size_t i=0; i<output_accessor.count; ++i)
+					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 3);
+			}
 		}
 	}
 
 	conPrint("done.");
 }
 
+
+static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string& gltf_folder, AnimationData& anim_data)
+{
+	conPrint("Processing skin " + skin.name + "...");
+
+	// "Each skin is defined by the inverseBindMatrices property (which points to an accessor with IBM data), used to bring coordinates being skinned into the same space as each joint"
+	js::Vector<Matrix4f, 16> ibms(skin.joints.size());
+
+	// Read inverse bind matrices
+	if(skin.inverse_bind_matrices >= 0) // inverseBindMatrices are optional, default is identity matrix.
+	{
+		const GLTFAccessor& accessor = getAccessor(data, skin.inverse_bind_matrices);
+
+		checkProperty(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT, "anim inverse_bind_matrices component_type was not float");
+		checkProperty(accessor.type == "MAT4", "anim inverse_bind_matrices type was not MAT4");
+
+		const GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+		const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+		const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+		const uint8* offset_base = buffer.binary_data + offset_B;
+		const size_t value_size_B = componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type);
+		const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+		checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer);
+
+		checkProperty(accessor.count == ibms.size(), "accessor.count had invalid size"); // skin.joints: "The array length must be the same as the count property of the inverseBindMatrices accessor (when defined)."
+
+		for(int i=0; i<accessor.count; ++i)
+			std::memcpy(&ibms[i].e, offset_base + byte_stride * i, sizeof(float) * 16);
+	}
+	else
+	{
+		for(size_t i=0; i<ibms.size(); ++i)
+			ibms[i] = Matrix4f::identity();
+	}
+
+	// Assign bind matrices to nodes
+	for(size_t i=0; i<skin.joints.size(); ++i)
+	{
+		const int node_i = skin.joints[i];
+		checkProperty(node_i >= 0 && node_i < (int)data.nodes.size(), "node_index was invalid");
+		anim_data.nodes[node_i].inverse_bind_matrix = ibms[i];
+	}
+
+	anim_data.joint_nodes = skin.joints;
+
+	// Skeleton is "The index of the node used as a skeleton root", so we want to use the transform of that node.
+	if(skin.skeleton != -1)
+		anim_data.skeleton_root_transform = data.nodes[skin.skeleton]->node_transform;
+	else
+		anim_data.skeleton_root_transform = Matrix4f::identity();
+
+	conPrint("done.");
+}
 
 
 struct GLBHeader
@@ -1158,7 +1502,7 @@ static const uint32 CHUNK_TYPE_JSON = 0x4E4F534A;
 static const uint32 CHUNK_TYPE_BIN  = 0x004E4942;
 
 
-void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& mesh, float scale,
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFile(const std::string& pathname, float scale,
 	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	MemMappedFile file(pathname);
@@ -1196,7 +1540,7 @@ void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& m
 	buffer->binary_data = (const uint8*)file.fileData() + bin_buf_chunk_header_offset + 8;
 	buffer->data_size = bin_buf_header.chunk_length;
 
-	if(false)
+	if(true)
 	{
 		// Save JSON to disk for debugging
 		const std::string json((const char*)file.fileData() + 20, json_header.chunk_length);
@@ -1210,22 +1554,22 @@ void FormatDecoderGLTF::loadGLBFile(const std::string& pathname, Indigo::Mesh& m
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	loadGivenJSON(parser, gltf_base_dir, buffer, mesh, scale, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, buffer, scale, data_out);
 }
 
 
-void FormatDecoderGLTF::streamModel(const std::string& pathname, Indigo::Mesh& mesh, float scale, GLTFLoadedData& data_out)
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFile(const std::string& pathname, float scale, GLTFLoadedData& data_out)
 {
 	JSONParser parser;
 	parser.parseFile(pathname);
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, mesh, scale, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, scale, data_out);
 }
 
 
-void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, Indigo::Mesh& mesh, float scale,
+Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, float scale,
 	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	const JSONNode& root = parser.nodes[0];
@@ -1427,9 +1771,9 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 						primitive->attributes[attributes_ob.name_val_pairs[t].name] =
 							parser.nodes[attributes_ob.name_val_pairs[t].value_node_index].getUIntValue();
 
-					primitive->indices	= primitive_node.getChildUIntValueWithDefaultVal(parser, "indices", 0);
-					primitive->material = primitive_node.getChildUIntValueWithDefaultVal(parser, "material", data.materials.size()); // Default mat index is index of default material.
-					primitive->mode		= primitive_node.getChildUIntValueWithDefaultVal(parser, "mode", 4);
+					primitive->indices	= primitive_node.getChildUIntValueWithDefaultVal(parser, "indices", std::numeric_limits<size_t>::max()); // optional
+					primitive->material = primitive_node.getChildUIntValueWithDefaultVal(parser, "material", data.materials.size()); // Optional. Default mat index is index of default material.
+					primitive->mode		= primitive_node.getChildUIntValueWithDefaultVal(parser, "mode", 4); // Optional, default = 4.
 
 					// See if this primitive uses the default material
 					default_mat_used = default_mat_used || (primitive->material == data.materials.size());
@@ -1545,7 +1889,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 
 				Reference<GLTFAnimation> gltf_anim = new GLTFAnimation();
 
-				if(anim_node.hasChild("name")) gltf_anim->name = anim_node.getChildStringValue(parser, "name");
+				gltf_anim->name = anim_node.getChildStringValueWithDefaultVal(parser, "name", "");
 
 				// parse channels array
 				const JSONNode& channels_array_node = anim_node.getChildArray(parser, "channels");
@@ -1554,27 +1898,28 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 					const JSONNode& channel_node = parser.nodes[channels_array_node.child_indices[q]];
 
 					GLTFChannel channel;
-					channel.sampler = (int)channel_node.getChildUIntValue(parser, "sampler");
+					channel.sampler = channel_node.getChildIntValue(parser, "sampler");
 
 					const JSONNode& target_node = channel_node.getChildObject(parser, "target");
 
-					channel.target_node = (int)target_node.getChildUIntValue(parser, "node");
-					
-					const std::string target_path = target_node.getChildStringValue(parser, "path");
-					//channel.target_node = target_node.getChildUIntValue(parser, "node");
+					channel.target_node = target_node.getChildIntValueWithDefaultVal(parser, "node", -1); // NOTE: node is optional.  "When node isn't defined, channel should be ignored"
+					if(channel.target_node != -1)
+					{
+						const std::string target_path = target_node.getChildStringValue(parser, "path");
 
-					if(target_path == "translation")
-						channel.target_path = GLTFChannel::Path_translation;
-					else if(target_path == "rotation")
-						channel.target_path = GLTFChannel::Path_rotation;
-					else if(target_path == "scale")
-						channel.target_path = GLTFChannel::Path_scale;
-					else if(target_path == "weights")
-						channel.target_path = GLTFChannel::Path_weights;
-					else
-						throw glare::Exception("invalid channel target path: " + target_path);
+						if(target_path == "translation")
+							channel.target_path = GLTFChannel::Path_translation;
+						else if(target_path == "rotation")
+							channel.target_path = GLTFChannel::Path_rotation;
+						else if(target_path == "scale")
+							channel.target_path = GLTFChannel::Path_scale;
+						else if(target_path == "weights")
+							channel.target_path = GLTFChannel::Path_weights;
+						else
+							throw glare::Exception("invalid channel target path: " + target_path);
 
-					gltf_anim->channels.push_back(channel);
+						gltf_anim->channels.push_back(channel);
+					}
 				}
 
 				// parse samplers
@@ -1587,7 +1932,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 					sampler.input  = (int)sampler_node.getChildUIntValue(parser, "input");
 					sampler.output = (int)sampler_node.getChildUIntValue(parser, "output");
 
-					const std::string interpolation = sampler_node.getChildStringValue(parser, "interpolation");
+					const std::string interpolation = sampler_node.getChildStringValueWithDefaultVal(parser, "interpolation", "LINEAR");
 
 					if(interpolation == "LINEAR")
 						sampler.interpolation = GLTFSampler::Interpolation_linear;
@@ -1605,7 +1950,35 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 			}
 		}
 
+	// Load skins
+	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
+		if(root.name_val_pairs[i].name == "skins")
+		{
+			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
+			checkNodeType(node_array, JSONNode::Type_Array);
 
+			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			{
+				const JSONNode& skin_node = parser.nodes[node_array.child_indices[z]];
+
+				Reference<GLTFSkin> gltf_skin = new GLTFSkin();
+
+				if(skin_node.hasChild("name")) gltf_skin->name = skin_node.getChildStringValue(parser, "name");
+
+				gltf_skin->inverse_bind_matrices = skin_node.getChildIntValueWithDefaultVal(parser, "inverseBindMatrices", -1); // Optional, default is identity matrices
+				gltf_skin->skeleton              = skin_node.getChildIntValueWithDefaultVal(parser, "skeleton",            -1); // Optional.  NOTE: not used currently
+
+				// parse joints array
+				const JSONNode& joints_array_node = skin_node.getChildArray(parser, "joints");
+				for(size_t q=0; q<joints_array_node.child_indices.size(); ++q)
+				{
+					const int val = parser.nodes[joints_array_node.child_indices[q]].getIntValue();
+					gltf_skin->joints.push_back(val);
+				}
+
+				data.skins.push_back(gltf_skin);
+			}
+		}
 
 
 
@@ -1691,6 +2064,10 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 				data.attr_present.vert_col_present = true;
 			if(data.meshes[i]->primitives[z]->attributes.count("TEXCOORD_0"))
 				data.attr_present.texcoord_0_present = true;
+			if(data.meshes[i]->primitives[z]->attributes.count("JOINTS_0"))
+				data.attr_present.joints_present = true;
+			if(data.meshes[i]->primitives[z]->attributes.count("WEIGHTS_0"))
+				data.attr_present.weights_present = true;
 		}
 	}
 
@@ -1717,7 +2094,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 
 
 	// Process meshes referenced by nodes to get the total number of vertices and triangles, so we can reserve space for them.
-	size_t total_num_tris = 0;
+	size_t total_num_indices = 0;
 	size_t total_num_verts = 0;
 	for(size_t i=0; i<scene_node.nodes.size(); ++i)
 	{
@@ -1725,15 +2102,43 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 			throw glare::Exception("scene root node index out of bounds.");
 		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
 
-		processNodeToGetMeshCapacity(data, root_node, total_num_tris, total_num_verts);
+		processNodeToGetMeshCapacity(data, root_node, total_num_indices, total_num_verts);
 	}
 
+
+	Reference<BatchedMesh> batched_mesh = new BatchedMesh();
+
+	// Build mesh attributes
+	batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Position, BatchedMesh::ComponentType_Float, /*offset_B=*/0));
+
+	if(data.attr_present.normal_present)
+		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Normal, BatchedMesh::ComponentType_PackedNormal, /*offset_B=*/batched_mesh->vertexSize()));
+
+	if(data.attr_present.vert_col_present)
+		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Colour, BatchedMesh::ComponentType_Float, /*offset_B=*/batched_mesh->vertexSize()));
+
+	if(data.attr_present.texcoord_0_present)
+		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_UV_0, BatchedMesh::ComponentType_Float, /*offset_B=*/batched_mesh->vertexSize()));
+
+	if(data.attr_present.joints_present)
+		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Joints, BatchedMesh::ComponentType_UInt16, /*offset_B=*/batched_mesh->vertexSize()));
+
+	if(data.attr_present.weights_present)
+		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Weights, BatchedMesh::ComponentType_Float, /*offset_B=*/batched_mesh->vertexSize()));
+
+
+	batched_mesh->vertex_data.resize(batched_mesh->vertexSize() * total_num_verts);
+
 	// Reserve the space in the Indigo Mesh
-	mesh.triangles.reserve(total_num_tris);
-	mesh.vert_positions.reserve(total_num_verts);
-	if(data.attr_present.normal_present)     mesh.vert_normals.reserve(total_num_verts);
-	if(data.attr_present.vert_col_present)   mesh.vert_colours.reserve(total_num_verts);
-	if(data.attr_present.texcoord_0_present) mesh.uv_pairs.reserve(total_num_verts);
+	//mesh.triangles.reserve(total_num_tris);
+	//mesh.vert_positions.reserve(total_num_verts);
+	//if(data.attr_present.normal_present)     mesh.vert_normals.reserve(total_num_verts);
+	//if(data.attr_present.vert_col_present)   mesh.vert_colours.reserve(total_num_verts);
+	//if(data.attr_present.texcoord_0_present) mesh.uv_pairs.reserve(total_num_verts);
+
+	js::Vector<uint32, 16> uint32_indices;//(total_num_indices);
+	uint32_indices.reserve(total_num_indices);
+	size_t vert_write_i = 0;
 
 
 	for(size_t i=0; i<scene_node.nodes.size(); ++i)
@@ -1744,18 +2149,45 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 
 		Matrix4f current_transform = Matrix4f::identity();
 
-		processNode(data, root_node, current_transform, mesh);
+		processNode(data, root_node, current_transform, *batched_mesh, uint32_indices, vert_write_i);
 	}
 
-	// Check we reserved the right amount of space.
-	assert(mesh.vert_positions.size()     == total_num_verts);
-	assert(mesh.vert_positions.capacity() == total_num_verts);
-	assert(mesh.vert_normals.size()       == mesh.vert_normals.capacity());
-	assert(mesh.vert_colours.size()       == mesh.vert_colours.capacity());
-	assert(mesh.uv_pairs.size()           == mesh.uv_pairs.capacity());
+	assert(uint32_indices.size() == total_num_indices);
+	assert(vert_write_i == total_num_verts);
 
-	assert(mesh.triangles.size()          == total_num_tris);
-	assert(mesh.triangles.capacity()      == total_num_tris);
+
+	batched_mesh->setIndexDataFromIndices(uint32_indices, total_num_verts);
+
+	// Compute AABB
+	// TEMP
+	{
+		js::AABBox aabb = js::AABBox::emptyAABBox();
+		const size_t vert_size = batched_mesh->vertexSize();
+		const BatchedMesh::VertAttribute& pos_attr = batched_mesh->getAttribute(BatchedMesh::VertAttribute_Position);
+		doRuntimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float);
+		for(int v=0; v<total_num_verts; ++v)
+		{
+			Vec4f vert_pos = Vec4f(
+				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[0],
+				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[1],
+				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[2],
+				1);
+			aabb.enlargeToHoldPoint(vert_pos);
+		}
+		batched_mesh->aabb_os = aabb;
+	}
+
+
+
+	// Check we reserved the right amount of space.
+	//assert(mesh.vert_positions.size()     == total_num_verts);
+	//assert(mesh.vert_positions.capacity() == total_num_verts);
+	//assert(mesh.vert_normals.size()       == mesh.vert_normals.capacity());
+	//assert(mesh.vert_colours.size()       == mesh.vert_colours.capacity());
+	//assert(mesh.uv_pairs.size()           == mesh.uv_pairs.capacity());
+	//
+	//assert(mesh.triangles.size()          == total_num_tris);
+	//assert(mesh.triangles.capacity()      == total_num_tris);
 
 
 	// Process images - for any image embedded in the GLB file data, save onto disk in a temp location
@@ -1777,7 +2209,13 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 	// Set parent indices in data_out.nodes
 	data_out.anim_data.nodes.resize(data.nodes.size());
 	for(size_t i=0; i<data.nodes.size(); ++i)
+	{
 		data_out.anim_data.nodes[i].parent_index = -1;
+
+		data_out.anim_data.nodes[i].trans = data.nodes[i]->translation.toVec4fVector();
+		data_out.anim_data.nodes[i].rot   = data.nodes[i]->rotation;
+		data_out.anim_data.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
+	}
 
 	for(size_t i=0; i<data.nodes.size(); ++i)
 	{
@@ -1788,7 +2226,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 		{
 			const size_t child_index = node.children[z];
 			conPrint("\tchild " + toString(child_index));
-			data_out.anim_data.nodes[child_index].parent_index = i;
+			data_out.anim_data.nodes[child_index].parent_index = (int)i;
 		}
 	}
 	
@@ -1803,7 +2241,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 
 	while(!node_stack.empty())
 	{
-		const int node_i = node_stack.back();
+		const int node_i = (int)node_stack.back();
 		node_stack.pop_back();
 
 		data_out.anim_data.sorted_nodes.push_back(node_i);
@@ -1818,6 +2256,7 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 	}
 
 
+
 	data_out.anim_data.animations.resize(data.animations.size());
 	for(size_t i=0; i<data.animations.size(); ++i)
 	{
@@ -1825,7 +2264,14 @@ void FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf
 		processAnimation(data, *data.animations[i], gltf_base_dir, *data_out.anim_data.animations[i]);
 	}
 
-	mesh.endOfModel();
+
+	for(size_t i=0; i<data.skins.size(); ++i)
+	{
+		processSkin(data, *data.skins[i], gltf_base_dir, data_out.anim_data);
+	}
+
+	//mesh.endOfModel();
+	return batched_mesh;
 }
 
 
@@ -2254,37 +2700,37 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 #include "../utils/PlatformUtils.h"
 
 
-static void testWriting(const Indigo::Mesh& mesh, const GLTFLoadedData& data)
+static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData& data)
 {
-/*	try
-	{
-		const std::string path = PlatformUtils::getTempDirPath() + "/mesh_" + toString(mesh.checksum()) + ".gltf";
-
-		// Write it back to disk
-		GLTFWriteOptions options;
-		//options.write_vert_normals = false;
-		//FormatDecoderGLTF::writeToDisk(mesh, path, options, mats);
-
-		options.write_vert_normals = true;
-		FormatDecoderGLTF::writeToDisk(mesh, path, options, mats);
-
-		// Load again
-		Indigo::Mesh mesh2;
-		GLTFMaterials mats2;
-		FormatDecoderGLTF::streamModel(path, mesh2, 1.0, mats2);
-
-		// Check num vertices etc.. is the same
-		testAssert(mesh2.num_materials_referenced	== mesh.num_materials_referenced);
-		testAssert(mesh2.vert_positions.size()		== mesh.vert_positions.size());
-		testAssert(mesh2.vert_normals.size()		== mesh.vert_normals.size());
-		testAssert(mesh2.vert_colours.size()		== mesh.vert_colours.size());
-		testAssert(mesh2.uv_pairs.size()			== mesh.uv_pairs.size());
-		testAssert(mesh2.triangles.size()			== mesh.triangles.size());
-	}
-	catch(glare::Exception& e)
-	{
-		failTest(e.what());
-	}*/
+	//try
+	//{
+	//	const std::string path = PlatformUtils::getTempDirPath() + "/mesh_" + toString(mesh.checksum()) + ".gltf";
+	//
+	//	// Write it back to disk
+	//	GLTFWriteOptions options;
+	//	//options.write_vert_normals = false;
+	//	//FormatDecoderGLTF::writeToDisk(mesh, path, options, mats);
+	//
+	//	options.write_vert_normals = true;
+	//	FormatDecoderGLTF::writeToDisk(mesh, path, options, data);
+	//
+	//	// Load again
+	//	//Indigo::Mesh mesh2;
+	//	GLTFLoadedData data2;
+	//	Reference<BatchedMesh> mesh2 FormatDecoderGLTF::loadGLTFFile(path, 1.0, data2);
+	//
+	//	// Check num vertices etc.. is the same
+	//	testAssert(mesh2.num_materials_referenced	== mesh.num_materials_referenced);
+	//	testAssert(mesh2.vert_positions.size()		== mesh.vert_positions.size());
+	//	testAssert(mesh2.vert_normals.size()		== mesh.vert_normals.size());
+	//	testAssert(mesh2.vert_colours.size()		== mesh.vert_colours.size());
+	//	testAssert(mesh2.uv_pairs.size()			== mesh.uv_pairs.size());
+	//	testAssert(mesh2.triangles.size()			== mesh.triangles.size());
+	//}
+	//catch(glare::Exception& e)
+	//{
+	//	failTest(e.what());
+	//}
 }
 
 
@@ -2296,237 +2742,172 @@ void FormatDecoderGLTF::test()
 	{
 		{
 			// Has vertex colours, also uses unsigned bytes for indices.
-			conPrint("---------------------------------cryptovoxels-avatar-all-actions.glb-----------------------------------");
-			Indigo::Mesh mesh;
+			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
 			GLTFLoadedData data;
-			loadGLBFile("D:\\models\\cryptovoxels-avatar-all-actions.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/VertexColorTest.glb", 1.0, data);
 
-			/*testAssert(mesh.num_materials_referenced == 2);
-			testAssert(mesh.vert_positions.size() == 72);
-			testAssert(mesh.vert_normals.size() == 72);
-			testAssert(mesh.vert_colours.size() == 72);
-			testAssert(mesh.uv_pairs.size() == 72);
-			testAssert(mesh.triangles.size() == 36);*/
-
-			testWriting(mesh, data);
-		}
-		return;
-
-		/*{
-			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
-			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			streamModel("D:\\models\\skatter_bush_01_full\\scene.gltf", mesh, 1.0, mats);
-
-			testAssert(mesh.num_materials_referenced == 2);
-			testAssert(mesh.vert_positions.size() == 72);
-			testAssert(mesh.vert_normals.size() == 72);
-			testAssert(mesh.vert_colours.size() == 72);
-			testAssert(mesh.uv_pairs.size() == 72);
-			testAssert(mesh.triangles.size() == 36);
-
-			testWriting(mesh, mats);
-		}*/
-		/*{
-			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
-			Indigo::Mesh mesh;
-			GLTFMaterials mats;
-			loadGLBFile("C:\\Users\\nick\\Downloads\\Galery_01x.glb", mesh, 1.0, mats);
-
-			testAssert(mesh.num_materials_referenced == 2);
-			testAssert(mesh.vert_positions.size() == 72);
-			testAssert(mesh.vert_normals.size() == 72);
-			testAssert(mesh.vert_colours.size() == 72);
-			testAssert(mesh.uv_pairs.size() == 72);
-			testAssert(mesh.triangles.size() == 36);
-
-			testWriting(mesh, mats);
-		}*/
-
-		{
-			// Has vertex colours, also uses unsigned bytes for indices.
-			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
-			Indigo::Mesh mesh;
-			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/VertexColorTest.glb", mesh, 1.0, data);
-
-			testAssert(mesh.num_materials_referenced == 2);
-			testAssert(mesh.vert_positions.size() == 72);
-			testAssert(mesh.vert_normals.size() == 72);
-			testAssert(mesh.vert_colours.size() == 72);
-			testAssert(mesh.uv_pairs.size() == 72);
-			testAssert(mesh.triangles.size() == 36);
+			testAssert(mesh->numMaterialsReferenced() == 2);
+			testAssert(mesh->numVerts() == 72);
+			testAssert(mesh->numIndices() == 36 * 3);
 
 			testWriting(mesh, data);
 		}
 
 		{
 			conPrint("---------------------------------Box.glb-----------------------------------");
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Box.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Box.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 1);
-			testAssert(mesh.vert_positions.size() == 24);
-			testAssert(mesh.vert_normals.size() == 24);
-			testAssert(mesh.vert_colours.size() == 0);
-			testAssert(mesh.uv_pairs.size() == 0);
-			testAssert(mesh.triangles.size() == 12);
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 24);
+			testAssert(mesh->numIndices() == 12 * 3);
+			//testAssert(mesh.vert_normals.size() == 24);
+			//testAssert(mesh.vert_colours.size() == 0);
+			//testAssert(mesh.uv_pairs.size() == 0);
 
 			testWriting(mesh, data);
 		}
 	
 		{
 			conPrint("---------------------------------BoxInterleaved.glb-----------------------------------");
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 1);
-			testAssert(mesh.vert_positions.size() == 24);
-			testAssert(mesh.vert_normals.size() == 24);
-			testAssert(mesh.vert_colours.size() == 0);
-			testAssert(mesh.uv_pairs.size() == 0);
-			testAssert(mesh.triangles.size() == 12);
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 24);
+			testAssert(mesh->numIndices() == 12 * 3);
+			//testAssert(mesh.vert_normals.size() == 24);
+			//testAssert(mesh.vert_colours.size() == 0);
+			//testAssert(mesh.uv_pairs.size() == 0);
 
 			testWriting(mesh, data);
 		}
 
 		{
 			conPrint("---------------------------------BoxTextured.glb-----------------------------------");
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxTextured.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxTextured.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 1);
-			testAssert(mesh.vert_positions.size() == 24);
-			testAssert(mesh.vert_normals.size() == 24);
-			testAssert(mesh.vert_colours.size() == 0);
-			testAssert(mesh.uv_pairs.size() == 24);
-			testAssert(mesh.triangles.size() == 12);
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 24);
+			testAssert(mesh->numIndices() == 12 * 3);
+			//testAssert(mesh.vert_normals.size() == 24);
+			//testAssert(mesh.vert_colours.size() == 0);
+			//testAssert(mesh.uv_pairs.size() == 24);
 
 			testWriting(mesh, data);
 		}
 	
 		{
 			conPrint("---------------------------------BoxVertexColors.glb-----------------------------------");
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 1);
-			testAssert(mesh.vert_positions.size() == 24);
-			testAssert(mesh.vert_normals.size() == 24);
-			testAssert(mesh.vert_colours.size() == 24);
-			testAssert(mesh.uv_pairs.size() == 24);
-			testAssert(mesh.triangles.size() == 12);
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 24);
+			testAssert(mesh->numIndices() == 12 * 3);
+			//testAssert(mesh.vert_normals.size() == 24);
+			//testAssert(mesh.vert_colours.size() == 24);
+			//testAssert(mesh.uv_pairs.size() == 24);
 
 			testWriting(mesh, data);
 		}
 	
 		{
 			conPrint("---------------------------------2CylinderEngine.glb-----------------------------------");
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 34);
-			testAssert(mesh.vert_positions.size() == 84657);
-			testAssert(mesh.vert_normals.size() == 84657);
-			testAssert(mesh.vert_colours.size() == 0);
-			testAssert(mesh.uv_pairs.size() == 0);
-			testAssert(mesh.triangles.size() == 121496);
+			testAssert(mesh->numMaterialsReferenced() == 34);
+			testAssert(mesh->numVerts() == 84657);
+			testAssert(mesh->numIndices() == 121496 * 3);
+			//testAssert(mesh.vert_normals.size() == 84657);
+			//testAssert(mesh.vert_colours.size() == 0);
+			//testAssert(mesh.uv_pairs.size() == 0);
 
 			testWriting(mesh, data);
 		}
 
 		{
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 1);
-			testAssert(mesh.vert_positions.size() == 370);
-			testAssert(mesh.vert_normals.size() == 370);
-			testAssert(mesh.vert_colours.size() == 0);
-			testAssert(mesh.uv_pairs.size() == 0);
-			testAssert(mesh.triangles.size() == 256);
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 370);
+			testAssert(mesh->numIndices() == 256 * 3);
+			//testAssert(mesh.vert_normals.size() == 370);
+			//testAssert(mesh.vert_colours.size() == 0);
+			//testAssert(mesh.uv_pairs.size() == 0);
 
 			testWriting(mesh, data);
 		}
 	
 		{
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/CesiumMan.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/CesiumMan.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 1);
-			testAssert(mesh.vert_positions.size() == 3273);
-			testAssert(mesh.vert_normals.size() == 3273);
-			testAssert(mesh.vert_colours.size() == 0);
-			testAssert(mesh.uv_pairs.size() == 3273);
-			testAssert(mesh.triangles.size() == 4672);
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 3273);
+			testAssert(mesh->numIndices() == 4672 * 3);
+			//testAssert(mesh.vert_normals.size() == 3273);
+			//testAssert(mesh.vert_colours.size() == 0);
+			//testAssert(mesh.uv_pairs.size() == 3273);
 
 			testWriting(mesh, data);
 		}
 	
 		{
-			Indigo::Mesh mesh;
 			GLTFLoadedData data;
-			loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", mesh, 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", 1.0, data);
 
-			testAssert(mesh.num_materials_referenced == 98 + 1); // Seems to use a default material
-			testAssert(mesh.vert_positions.size() == 528291);
-			testAssert(mesh.vert_normals.size() == 528291);
-			testAssert(mesh.vert_colours.size() == 0);
-			testAssert(mesh.uv_pairs.size() == 0);
-			testAssert(mesh.triangles.size() == 1040409);
+			testAssert(mesh->numMaterialsReferenced() == 98 + 1); // Seems to use a default material
+			testAssert(mesh->numVerts() == 528291);
+			testAssert(mesh->numIndices() == 1040409 * 3);
+			//testAssert(mesh.vert_normals.size() == 528291);
+			//testAssert(mesh.vert_colours.size() == 0);
+			//testAssert(mesh.uv_pairs.size() == 0);
 
 			testWriting(mesh, data);
 		}
+
+		{
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedSimple.glb", 1.0, data);
+
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 160);
+			testAssert(mesh->numIndices() == 188 * 3);
+
+			testWriting(mesh, data);
+		}
+
 	}
 	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
 
-
-	/*try
-	{
-		// Read a GLTF file from disk
-		const std::string path = "D:\\downloads\\Avocado.glb";
-		Indigo::Mesh mesh;
-		GLTFMaterials mats;
-		loadGLBFile(path, mesh, 1.0, mats);
-
-		testAssert(mesh.num_materials_referenced == 1);
-		testAssert(mesh.vert_positions.size() == 406);
-		testAssert(mesh.vert_normals.size() == 406);
-		testAssert(mesh.vert_colours.size() == 0);
-		testAssert(mesh.uv_pairs.size() == 406);
-		testAssert(mesh.triangles.size() == 682);
-	}
-	catch(glare::Exception& e)
-	{
-		failTest(e.what());
-	}*/
 
 	try
 	{
 		// Read a GLTF file from disk
 		const std::string path = TestUtils::getTestReposDir() + "/testfiles/gltf/duck/Duck.gltf";
-		Indigo::Mesh mesh;
 		GLTFLoadedData data;
-		streamModel(path, mesh, 1.0, data);
+		Reference<BatchedMesh> mesh = loadGLTFFile(path, 1.0, data);
 
-		testAssert(mesh.num_materials_referenced == 1);
-		testAssert(mesh.vert_positions.size() == 2399);
-		testAssert(mesh.vert_normals.size() == 2399);
-		testAssert(mesh.vert_colours.size() == 0);
-		testAssert(mesh.uv_pairs.size() == 2399);
-		testAssert(mesh.triangles.size() == 4212);
+		testAssert(mesh->numMaterialsReferenced() == 1);
+		testAssert(mesh->numVerts() == 2399);
+		testAssert(mesh->numIndices() == 4212 * 3);
+
+		//testAssert(mesh.num_materials_referenced == 1);
+		//testAssert(mesh.vert_positions.size() == 2399);
+		//testAssert(mesh.vert_normals.size() == 2399);
+		//testAssert(mesh.vert_colours.size() == 0);
+		//testAssert(mesh.uv_pairs.size() == 2399);
+		//testAssert(mesh.triangles.size() == 4212);
 
 
+		/*
 		// Write it back to disk
 		GLTFWriteOptions options;
 		options.write_vert_normals = false;
@@ -2547,6 +2928,7 @@ void FormatDecoderGLTF::test()
 		testAssert(mesh2.vert_colours.size() == 0);
 		testAssert(mesh2.uv_pairs.size() == 2399);
 		testAssert(mesh2.triangles.size() == 4212);
+		*/
 	}
 	catch(glare::Exception& e)
 	{
@@ -2554,19 +2936,7 @@ void FormatDecoderGLTF::test()
 	}
 
 
-	/*try
-	{
-		// Read a GLTF file from disk
-		const std::string path = "C:\\programming\\indigo\\output\\vs2019\\indigo_x64\\RelWithDebInfo\\baked_indirect_only.gltf";
-		Indigo::Mesh mesh;
-		GLTFMaterials mats;
-		streamModel(path, mesh, 1.0, mats);
-	}
-	catch(glare::Exception& e)
-	{
-		failTest(e.what());
-	}
-	conPrint("FormatDecoderGLTF::test() done.");*/
+	conPrint("FormatDecoderGLTF::test() done.");
 }
 
 

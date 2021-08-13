@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2018 -
 namespace Indigo { class Mesh; }
 class JSONParser;
 struct GLTFBuffer;
+class BatchedMesh;
 
 
 struct GLTFResultMap
@@ -93,15 +94,19 @@ struct GLTFWriteOptions
 FormatDecoderGLTF
 -----------------
 See https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md
+
+Current limitations:
+
+Don't support non-skinned animations.
 =====================================================================*/
 class FormatDecoderGLTF
 {
 public:
 
-	static void loadGLBFile(const std::string& filename, Indigo::Mesh& handler, float scale,
+	static Reference<BatchedMesh> loadGLBFile(const std::string& filename, float scale,
 		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
-	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale,
+	static Reference<BatchedMesh> loadGLTFFile(const std::string& filename, float scale,
 		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
 	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFLoadedData& data); // throws glare::Exception on failure
@@ -109,7 +114,7 @@ public:
 	static void test();
 
 private:
-	static void loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, Indigo::Mesh& handler, float scale,
+	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, float scale,
 		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
 };

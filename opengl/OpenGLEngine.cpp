@@ -187,7 +187,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	outline_tex_w(0),
 	outline_tex_h(0),
 	last_num_obs_in_frustum(0),
-	print_output(NULL)
+	print_output(NULL),
+	tex_mem_usage(0)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -200,11 +201,19 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
 
 	texture_data_manager = new TextureDataManager();
+	
+	max_tex_mem_usage = settings.max_tex_mem_usage;
+
 }
 
 
 OpenGLEngine::~OpenGLEngine()
 {
+	// The textures may outlast the OpenGLEngine, so null out the pointer to the opengl engine.
+	for(auto it = opengl_textures.begin(); it != opengl_textures.end(); ++it)
+		it->second.value->m_opengl_engine = NULL;
+	opengl_textures.clear();
+
 	delete task_manager;
 }
 
@@ -993,8 +1002,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		per_object_vert_uniform_buf_ob = new UniformBufOb();
 		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
 
-		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
-		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
 
 		env_prog = new OpenGLProgram(
@@ -1124,10 +1133,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		if(settings.shadow_mapping)
 		{
-			depth_draw_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false));
-			depth_draw_alpha_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false));
-			depth_draw_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false));
-			depth_draw_alpha_instancing_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false));
+			depth_draw_prog								= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false));
+			depth_draw_alpha_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false));
+			depth_draw_instancing_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false));
+			depth_draw_alpha_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false));
+			depth_draw_skinning_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true));
+			depth_draw_alpha_skinning_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true));
+			depth_draw_instancing_skinning_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true));
+			depth_draw_alpha_instancing_skinning_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true));
 
 			shadow_mapping = new ShadowMapping();
 			shadow_mapping->init();
@@ -1233,7 +1246,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" +
 		"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
 		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
-		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n";
+		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" + 
+		"#define SKINNING " + toString(key.skinning) + "\n";
 }
 
 
@@ -1336,13 +1350,18 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key) // Thr
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
-		if(key.instance_matrices) // SharedVertUniforms are only used in depth_vert_shader.glsl when INSTANCE_MATRICES is defined.
+		if(key.instance_matrices || key.skinning) // SharedVertUniforms are only used in depth_vert_shader.glsl when INSTANCE_MATRICES is defined.
 		{
 			unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 			assert(shared_vert_uniforms_index != GL_INVALID_INDEX);
 			
 			glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
 			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+
+
+			unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
+			glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
+			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
 
 			prog->uses_vert_uniform_buf_obs = true;
 		}
@@ -1464,6 +1483,8 @@ void OpenGLEngine::unloadAllData()
 
 	opengl_textures.clear();
 	texture_data_manager->clear();
+
+	tex_mem_usage = 0;
 }
 
 
@@ -1489,7 +1510,7 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 }
 
 
-void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing)
+void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning)
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
 	if(material.shader_prog.nonNull() && 
@@ -1512,7 +1533,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support && material.albedo_texture.nonNull();
 
 	const ProgramKey key(material.transparent ? "transparent" : "phong", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb);
+		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 }
@@ -1538,7 +1559,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1568,7 +1589,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 	if(res != this->opengl_textures.end())
 	{
 		// conPrint("\tFound in opengl_textures.");
-		opengl_texture = res->second;
+		opengl_texture = res->second.value;
 	}
 	else
 	{
@@ -1619,7 +1640,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					mat.albedo_tex_is_placeholder = false;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 				}
 
 				if(/*mat.lightmap_texture.isNull() && */object->materials[i].lightmap_path == path)
@@ -1629,7 +1650,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 					mat.lightmap_texture = opengl_texture;
 
 					// Now that we have a lightmap, assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 				}
 			}
 		}
@@ -1669,11 +1690,12 @@ bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 }
 
 
-void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing)
+void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning)
 {
 	assignShaderProgToMaterial(mat,
 		use_vert_colours,
-		uses_instancing
+		uses_instancing,
+		uses_skinning
 	);
 }
 
@@ -1685,7 +1707,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 	bool have_transparent_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull());
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
 	}
 
@@ -1709,7 +1731,12 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 		// If the OpenGL texture for this path has already been created, return it.
 		auto res = this->opengl_textures.find(texture_key);
 		if(res != this->opengl_textures.end())
-			return res->second;
+		{
+			// If there was only one reference to the texture, it was the reference from the opengl_textures map, so it was unused.  Mark it as used.
+			if(res->second.value->getRefCount() == 1)
+				this->textureBecameUsed(res->second.value.ptr());
+			return res->second.value;
+		}
 
 		// TEMP HACK: need to set base dir here
 		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
@@ -1735,7 +1762,9 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey
 		if(res != this->opengl_textures.end())
 		{
 			// conPrint("\tFound in opengl_textures.");
-			return res->second;
+			if(res->second.value->getRefCount() == 1)
+				this->textureBecameUsed(res->second.value.ptr());
+			return res->second.value;
 		}
 
 		// If we have processed texture data for this texture, load it
@@ -1954,7 +1983,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
 		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false));
+			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -2012,6 +2041,9 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	// Unload unused textures if we have exceeded our texture mem usage budget.
+	trimTextureUsage();
+
 	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
@@ -2019,6 +2051,162 @@ void OpenGLEngine::draw()
 
 	this->draw_time = draw_timer.elapsed();
 	uint64 shadow_depth_drawing_elapsed_ns = 0;
+
+
+	//=============== TEMP: Set animated objects state ===========
+	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+	{
+		const GLObject* const ob = it->getPointer();
+
+		AnimationData& anim_data = ob->mesh_data->animation_data;
+		if(!anim_data.animations.empty())
+		{
+			const AnimationDatum& anim_datum = *anim_data.animations[0];
+
+			//TEMP create debug visualisation of the joints
+			//if(debug_joint_obs.empty())
+			//{
+			//	debug_joint_obs.resize(anim_data.sorted_nodes.size());
+			//	for(size_t i=0; i<anim_data.sorted_nodes.size(); ++i)
+			//	{
+			//		debug_joint_obs[i] = new GLObject();
+			//		debug_joint_obs[i]->mesh_data = getSphereMeshData();
+			//		debug_joint_obs[i]->materials.resize(1);
+			//		debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
+			//		debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
+			//			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
+			//
+			//		addObject(debug_joint_obs[i]);
+			//	}
+			//}
+
+			const float use_time = current_time;
+
+			/*
+			For each node,
+			if node translation is animated
+			get keyframe i_0, i_1 and frac for input time values for sampler input accessor index.  (this computaton should be shared.)
+			read translation values from output accessor
+			interpolate values based on sample interpolation type
+			*/
+			const size_t num_nodes = anim_data.sorted_nodes.size();
+			node_matrices.resizeNoCopy(num_nodes);
+
+			const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
+
+			// Iterate over each array of keyframe times.  (each array corresponds to an input accessor)
+			// For each array, find the current and next keyframe, and interpolation fraction, based on the current time.
+			key_frame_locs.resize(anim_datum.keyframe_times.size()); // For each input accessor
+			for(int z=0; z<(int)anim_datum.keyframe_times.size(); ++z)
+			{
+				const std::vector<float>& time_vals = anim_datum.keyframe_times[z];
+
+				if(!time_vals.empty())
+				{
+					assert(time_vals.size() >= 2);
+					const float in_anim_time = time_vals[0] + Maths::floatMod(use_time, time_vals.back() - time_vals[0]);
+
+					// Find current frame
+					auto res = std::lower_bound(time_vals.begin(), time_vals.end(), in_anim_time);
+					const int next_index = (int)(res - time_vals.begin());
+					int index = next_index - 1;
+
+					float index_time;
+					if(index < 0)
+					{
+						index = (int)time_vals.size() - 1; // Use last keyframe value
+						index_time = 0;
+					}
+					else
+						index_time = time_vals[index];
+
+					//if(index >= 0 && next_index < time_vals.size())
+					//{
+						float frac;
+						frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
+						assert(frac >= 0 && frac <= 1);
+					//}
+
+					key_frame_locs[z].i_0 = index;
+					key_frame_locs[z].i_1 = next_index;
+					key_frame_locs[z].frac = frac;
+				}
+			}
+
+			for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
+			{
+				const int node_i = anim_data.sorted_nodes[n];
+				const AnimationNodeData& node_data = anim_data.nodes[node_i];
+				const PerAnimationNodeData& node = anim_datum.per_anim_node_data[node_i];
+
+				Vec4f trans;
+				if(node.translation_input_accessor >= 0)
+				{
+					const int i_0    = key_frame_locs[node.translation_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node.translation_input_accessor].i_1;
+					const float frac = key_frame_locs[node.translation_input_accessor].frac;
+
+					// read translation values from output accessor.
+					const Vec4f trans_0 = (anim_datum.output_data[node.translation_output_accessor])[i_0];
+					const Vec4f trans_1 = (anim_datum.output_data[node.translation_output_accessor])[i_1];
+					trans = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+				}
+				else
+					trans = node_data.trans;
+
+				Quatf rot;
+				if(node.rotation_input_accessor >= 0)
+				{
+					const int i_0    = key_frame_locs[node.rotation_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node.rotation_input_accessor].i_1;
+					const float frac = key_frame_locs[node.rotation_input_accessor].frac;
+
+					// read rotation values from output accessor
+					const Quatf rot_0 = Quatf((anim_datum.output_data[node.rotation_output_accessor])[i_0]);
+					const Quatf rot_1 = Quatf((anim_datum.output_data[node.rotation_output_accessor])[i_1]);
+					rot = Quatf::nlerp(rot_0, rot_1, frac);
+				}
+				else
+					rot = node_data.rot;
+
+				Vec4f scale;
+				if(node.scale_input_accessor >= 0)
+				{
+					const int i_0    = key_frame_locs[node.scale_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node.scale_input_accessor].i_1;
+					const float frac = key_frame_locs[node.scale_input_accessor].frac;
+
+					// read scale values from output accessor
+					const Vec4f scale_0 = (anim_datum.output_data[node.scale_output_accessor])[i_0];
+					const Vec4f scale_1 = (anim_datum.output_data[node.scale_output_accessor])[i_1];
+					scale = Maths::lerp(scale_0, scale_1, frac);
+				}
+				else
+					scale = node_data.scale;
+
+
+
+				const Matrix4f rot_mat = rot.toMatrix();
+
+				const Matrix4f TRS(
+						rot_mat.getColumn(0) * copyToAll<0>(scale),
+						rot_mat.getColumn(1) * copyToAll<1>(scale),
+						rot_mat.getColumn(2) * copyToAll<2>(scale),
+						setWToOne(trans));
+
+				const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * TRS);
+
+				node_matrices[node_i] = node_transform;
+
+				anim_data.nodes[node_i].node_hierarchical_to_world = node_transform;
+
+				// Set location of debug joint visualisation objects
+				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+				//updateObjectTransformData(*debug_joint_obs[node_i]);
+			}
+		}
+	}
+
 
 	//=============== Render to shadow map depth buffer if needed ===========
 	if(shadow_mapping.nonNull())
@@ -2185,12 +2373,19 @@ void OpenGLEngine::draw()
 							{
 								const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
 								const bool use_instancing = ob->instance_matrix_vbo.nonNull();
+								const bool use_skinning = ob->mesh_data->usesSkinning();
 
 								BatchDrawInfo info;
 								info.ob = ob;
 								info.batch = &mesh_data.batches[z];
 								info.mat = &ob->materials[mat_index];
-								info.prog = use_instancing ? (use_alpha_test ? depth_draw_alpha_instancing_prog.ptr() : depth_draw_instancing_prog.ptr()) : (use_alpha_test ? depth_draw_alpha_prog.ptr() : depth_draw_prog.ptr());
+								info.prog = use_instancing ? 
+									(use_alpha_test ? 
+										(use_skinning ? depth_draw_alpha_instancing_skinning_prog.ptr() : depth_draw_alpha_instancing_prog.ptr()) : 
+										(use_skinning ? depth_draw_instancing_skinning_prog.ptr() : depth_draw_instancing_prog.ptr())) : 
+									(use_alpha_test ? 
+										(use_skinning ? depth_draw_alpha_skinning_prog.ptr() : depth_draw_alpha_prog.ptr()) : 
+										(use_skinning ? depth_draw_skinning_prog.ptr() : depth_draw_prog.ptr()));
 								batch_draw_info.push_back(info);
 							}
 						}
@@ -2441,12 +2636,19 @@ void OpenGLEngine::draw()
 									{
 										const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
 										const bool use_instancing = ob->instance_matrix_vbo.nonNull();
+										const bool use_skinning = ob->mesh_data->usesSkinning();
 
 										BatchDrawInfo info;
 										info.ob = ob;
 										info.batch = &mesh_data.batches[z];
 										info.mat = &ob->materials[mat_index];
-										info.prog = use_instancing ? (use_alpha_test ? depth_draw_alpha_instancing_prog.ptr() : depth_draw_instancing_prog.ptr()) : (use_alpha_test ? depth_draw_alpha_prog.ptr() : depth_draw_prog.ptr());
+										info.prog = use_instancing ? 
+											(use_alpha_test ? 
+												(use_skinning ? depth_draw_alpha_instancing_skinning_prog.ptr() : depth_draw_alpha_instancing_prog.ptr()) : 
+												(use_skinning ? depth_draw_instancing_skinning_prog.ptr() : depth_draw_instancing_prog.ptr())) : 
+											(use_alpha_test ? 
+												(use_skinning ? depth_draw_alpha_skinning_prog.ptr() : depth_draw_alpha_prog.ptr()) : 
+												(use_skinning ? depth_draw_skinning_prog.ptr() : depth_draw_prog.ptr()));
 										batch_draw_info.push_back(info);
 									}
 								}
@@ -3327,12 +3529,7 @@ struct UVsAtVert
 };
 
 
-// There were some problems with GL_INT_2_10_10_10_REV not being present in OS X header files before.
-#define NO_PACKED_NORMALS 0
-
-
 // Pack normal into GL_INT_2_10_10_10_REV format.
-#if !NO_PACKED_NORMALS
 inline static uint32 packNormal(const Indigo::Vec3f& normal)
 {
 	int x = (int)(normal.x * 511.f);
@@ -3341,7 +3538,6 @@ inline static uint32 packNormal(const Indigo::Vec3f& normal)
 	// ANDing with 1023 isolates the bottom 10 bits.
 	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
 }
-#endif
 
 
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
@@ -4170,6 +4366,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	const BatchedMesh::VertAttribute* uv0_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_0);
 	const BatchedMesh::VertAttribute* uv1_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_1);
 	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour);
+	const BatchedMesh::VertAttribute* joints_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Joints);
+	const BatchedMesh::VertAttribute* weights_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Weights);
+
 	if(!pos_attr)
 		throw glare::Exception("Pos attribute not present.");
 
@@ -4186,15 +4385,24 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 
 	VertexAttrib normal_attrib;
 	normal_attrib.enabled = normal_attr != NULL;
-#if NO_PACKED_NORMALS
-	normal_attrib.num_comps = 3;
-	normal_attrib.type = GL_FLOAT;
-	normal_attrib.normalised = false;
-#else
-	normal_attrib.num_comps = 4;
-	normal_attrib.type = GL_INT_2_10_10_10_REV;
-	normal_attrib.normalised = true;
-#endif
+	if(normal_attr)
+	{
+		if(normal_attr->component_type == BatchedMesh::ComponentType_Float)
+		{
+			normal_attrib.num_comps = 3;
+			normal_attrib.type = GL_FLOAT;
+			normal_attrib.normalised = false;
+		}
+		else if(normal_attr->component_type == BatchedMesh::ComponentType_PackedNormal)
+		{
+			normal_attrib.num_comps = 4;
+			normal_attrib.type = GL_INT_2_10_10_10_REV;
+			normal_attrib.normalised = true;
+		}
+		else
+			throw glare::Exception("Unhandled normal attr component type.");
+	}
+	
 	normal_attrib.stride = num_bytes_per_vert;
 	normal_attrib.offset = (uint32)(normal_attr ? normal_attr->offset_B : 0);
 	opengl_render_data->vertex_spec.attributes.push_back(normal_attrib);
@@ -4244,6 +4452,25 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 		opengl_render_data->vertex_spec.attributes.push_back(vec4_attrib);
 	}
 
+	// joints_attr
+	VertexAttrib joints_attrib;
+	joints_attrib.enabled = joints_attr != NULL;
+	joints_attrib.num_comps = 4;
+	joints_attrib.type = joints_attr ? componentTypeGLEnum(joints_attr->component_type) : GL_FLOAT;
+	joints_attrib.normalised = false;
+	joints_attrib.stride = num_bytes_per_vert;
+	joints_attrib.offset = (uint32)(joints_attr ? joints_attr->offset_B : 0);
+	opengl_render_data->vertex_spec.attributes.push_back(joints_attrib);
+
+	// weights_attr
+	VertexAttrib weights_attrib;
+	weights_attrib.enabled = weights_attr != NULL;
+	weights_attrib.num_comps = 4;
+	weights_attrib.type = weights_attr ? componentTypeGLEnum(weights_attr->component_type) : GL_FLOAT;
+	weights_attrib.normalised = weights_attr ? (weights_attr->component_type != BatchedMesh::ComponentType_Float) : false;
+	weights_attrib.stride = num_bytes_per_vert;
+	weights_attrib.offset = (uint32)(weights_attr ? weights_attr->offset_B : 0);
+	opengl_render_data->vertex_spec.attributes.push_back(weights_attrib);
 	
 
 
@@ -4458,6 +4685,26 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
 		glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
 		glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+	}
+
+	if(mesh_data.usesSkinning())
+	{
+		js::Vector<Matrix4f, 16> matrices(mesh_data.animation_data.joint_nodes.size());
+
+		const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
+
+		// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
+		for(size_t i=0; i<mesh_data.animation_data.joint_nodes.size(); ++i)
+		{
+			const int node_i = mesh_data.animation_data.joint_nodes[i];
+
+			matrices[i] = /*to_z_up **/ mesh_data.animation_data.skeleton_root_transform * mesh_data.animation_data.nodes[node_i].node_hierarchical_to_world * mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
+
+			//conPrint("matrices[" + toString(i) + "]:");
+			//conPrint(matrices[i].toString());
+		}
+
+		glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)matrices.size(), /*transpose=*/false, matrices[0].e);
 	}
 
 
@@ -5448,12 +5695,20 @@ Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGL
 		if(texture_data->frames.size() == 1)
 			this->texture_data_manager->removeTextureData(key.path);
 
+		opengl_tex->key = key;
+		opengl_tex->m_opengl_engine = this;
+		this->textureBecameUsed(opengl_tex.ptr());
+		this->tex_mem_usage += opengl_tex->getByteSize();
+
 		return opengl_tex;
 	}
 	else // Else if this map has already been loaded into an OpenGL Texture:
 	{
+		if(res->second.value->getRefCount() == 1)
+			this->textureBecameUsed(res->second.value.ptr());
+
 		// conPrint("\tTexture already loaded.");
-		return res->second;
+		return res->second.value;
 	}
 }
 
@@ -5480,12 +5735,21 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			this->texture_data_manager->removeTextureData(key.path);
 
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+			opengl_tex->key = key;
+			opengl_tex->m_opengl_engine = this;
+			this->textureBecameUsed(opengl_tex.ptr());
+			this->tex_mem_usage += opengl_tex->getByteSize();
+
 			return opengl_tex;
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
+			if(res->second.value->getRefCount() == 1)
+				this->textureBecameUsed(res->second.value.ptr());
+
 			// conPrint("\tTexture already loaded.");
-			return res->second;
+			return res->second.value;
 		}
 	}
 	else if(dynamic_cast<const ImageMapFloat*>(&map2d))
@@ -5504,6 +5768,12 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				opengl_tex->key = key;
+				opengl_tex->m_opengl_engine = this;
+				this->textureBecameUsed(opengl_tex.ptr());
+				this->tex_mem_usage += opengl_tex->getByteSize();
+
 				return opengl_tex;
 			}
 			else if(imagemap->getN() == 3)
@@ -5514,6 +5784,12 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				opengl_tex->key = key;
+				opengl_tex->m_opengl_engine = this;
+				this->textureBecameUsed(opengl_tex.ptr());
+				this->tex_mem_usage += opengl_tex->getByteSize();
+
 				return opengl_tex;
 			}
 			else
@@ -5522,7 +5798,10 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
-			return res->second;
+			if(res->second.value->getRefCount() == 1)
+				this->textureBecameUsed(res->second.value.ptr());
+
+			return res->second.value;
 		}
 	}
 	else if(dynamic_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d))
@@ -5541,6 +5820,12 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				opengl_tex->key = key;
+				opengl_tex->m_opengl_engine = this;
+				this->textureBecameUsed(opengl_tex.ptr());
+				this->tex_mem_usage += opengl_tex->getByteSize();
+
 				return opengl_tex;
 			}
 			else if(imagemap->getN() == 3)
@@ -5551,6 +5836,12 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+				opengl_tex->key = key;
+				opengl_tex->m_opengl_engine = this;
+				this->textureBecameUsed(opengl_tex.ptr());
+				this->tex_mem_usage += opengl_tex->getByteSize();
+
 				return opengl_tex;
 			}
 			else
@@ -5559,7 +5850,10 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
-			return res->second;
+			if(res->second.value->getRefCount() == 1)
+				this->textureBecameUsed(res->second.value.ptr());
+
+			return res->second.value;
 		}
 	}
 	else if(dynamic_cast<const CompressedImage*>(&map2d))
@@ -5596,11 +5890,20 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			}
 
 			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
+
+			opengl_tex->key = key;
+			opengl_tex->m_opengl_engine = this;
+			this->textureBecameUsed(opengl_tex.ptr());
+			this->tex_mem_usage += opengl_tex->getByteSize();
+
 			return opengl_tex;
 		}
 		else // Else if this map has already been loaded into an OpenGL Texture:
 		{
-			return res->second;
+			if(res->second.value->getRefCount() == 1)
+				this->textureBecameUsed(res->second.value.ptr());
+
+			return res->second.value;
 		}
 	}
 	else
@@ -5612,19 +5915,35 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 
 void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex)
 {
-	this->opengl_textures[key] = tex;
+	tex->key = key;
+	tex->m_opengl_engine = this;
+	this->opengl_textures.set(key, tex);
+
+	this->tex_mem_usage += tex->getByteSize();
+
+	trimTextureUsage();
 }
 
 
 void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 {
-	this->opengl_textures.erase(key);
+	auto it = this->opengl_textures.find(key);
+
+	if(it != this->opengl_textures.end())
+	{
+		OpenGLTexture* tex = it->second.value.ptr();
+
+		assert(this->tex_mem_usage >= tex->getByteSize());
+		this->tex_mem_usage -= tex->getByteSize();
+
+		this->opengl_textures.erase(it);
+	}
 }
 
 
 bool OpenGLEngine::isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) const
 {
-	return this->opengl_textures.count(key) > 0;
+	return this->opengl_textures.isInserted(key);
 }
 
 
@@ -5689,6 +6008,47 @@ glare::TaskManager& OpenGLEngine::getTaskManager()
 }
 
 
+void OpenGLEngine::textureBecameUnused(const OpenGLTexture* tex)
+{
+	opengl_textures.itemBecameUnused(tex->key);
+
+	// conPrint("Texture " + tex->key.path + " became unused.");
+	// conPrint("textures: " + toString(opengl_textures.numUsedItems()) + " used, " + toString(opengl_textures.numUnusedItems()) + " unused");
+}
+
+
+void OpenGLEngine::textureBecameUsed(const OpenGLTexture* tex)
+{
+	assert(tex->key.path != "");
+
+	opengl_textures.itemBecameUsed(tex->key);
+
+	// conPrint("Texture " + tex->key.path + " became used.");
+	// conPrint("textures: " + toString(opengl_textures.numUsedItems()) + " used, " + toString(opengl_textures.numUnusedItems()) + " unused");
+}
+
+
+void OpenGLEngine::trimTextureUsage()
+{
+	if(tex_mem_usage > max_tex_mem_usage)
+	{
+		// Remove textures from unused texture list until we are using <= max_tex_mem_usage
+		while((tex_mem_usage > max_tex_mem_usage) && (opengl_textures.numUnusedItems() > 0))
+		{
+			OpenGLTextureKey removed_key;
+			OpenGLTextureRef removed_tex;
+			const bool removed = opengl_textures.removeLRUUnusedItem(removed_key, removed_tex);
+			assert(removed);
+			if(removed)
+			{
+				assert(this->tex_mem_usage >= removed_tex->getByteSize());
+				this->tex_mem_usage -= removed_tex->getByteSize();
+			}
+		}
+	}
+}
+
+
 void OpenGLEngine::addScene(const Reference<OpenGLScene>& scene)
 {
 	scenes.insert(scene);
@@ -5726,8 +6086,21 @@ GLMemUsage OpenGLEngine::getTotalMemUsage() const
 	//----------- opengl_textures  ----------
 	for(auto i = opengl_textures.begin(); i != opengl_textures.end(); ++i)
 	{
-		const size_t tex_gpu_usage = i->second->getByteSize();
+		const size_t tex_gpu_usage = i->second.value->getByteSize();
 		sum.texture_gpu_usage += tex_gpu_usage;
+	}
+
+	// Get sum memory usage of unused (cached) textures.
+	// NOTE: this could be a bit slow with the map lookups.
+	sum.sum_unused_tex_gpu_usage = 0;
+	for(auto i = opengl_textures.unused_items.begin(); i != opengl_textures.unused_items.end(); ++i)
+	{
+		const auto res = opengl_textures.find(*i);
+		if(res != opengl_textures.end())
+		{
+			const size_t tex_gpu_usage = res->second.value->getByteSize();
+			sum.sum_unused_tex_gpu_usage += tex_gpu_usage;
+		}
 	}
 
 	return sum;
@@ -5747,7 +6120,12 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "geometry CPU mem usage: " + getNiceByteSize(mem_usage.geom_cpu_usage) + "\n";
 	s += "geometry GPU mem usage: " + getNiceByteSize(mem_usage.geom_gpu_usage) + "\n";
 	s += "texture CPU mem usage: " + getNiceByteSize(mem_usage.texture_cpu_usage) + "\n";
-	s += "texture GPU mem usage: " + getNiceByteSize(mem_usage.texture_gpu_usage) + "\n";
+	s += "texture GPU mem usage total: " + getNiceByteSize(tex_mem_usage) + "\n";
+	//s += "texture GPU mem usage (sum)    : " + getNiceByteSize(mem_usage.texture_gpu_usage) + "\n";
+	const size_t tex_usage_used = mem_usage.texture_gpu_usage - mem_usage.sum_unused_tex_gpu_usage;
+	s += "textures GPU active: " + toString(opengl_textures.numUsedItems()) + " (" + getNiceByteSize(tex_usage_used) + ")\n";
+	s += "textures GPU cached: " + toString(opengl_textures.numUnusedItems()) + " (" + getNiceByteSize(mem_usage.sum_unused_tex_gpu_usage) + ")\n";
+	//s += "textures: " + toString(opengl_textures.numUsedItems()) + " used (getNiceByteSize" + , " + toString(opengl_textures.numUnusedItems()) + " unused\n";
 	s += "num textures: " + toString(opengl_textures.size()) + "\n";
 	s += "OpenGL vendor: " + opengl_vendor + "\n";
 	s += "OpenGL renderer: " + opengl_renderer + "\n";

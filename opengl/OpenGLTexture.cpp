@@ -26,26 +26,30 @@ OpenGLTexture::OpenGLTexture()
 	xres(0),
 	yres(0),
 	loaded_size(0),
-	format(Format_SRGB_Uint8)
+	format(Format_SRGB_Uint8),
+	refcount(0),
+	m_opengl_engine(NULL)
 {
 }
 
 
 // Allocate uninitialised texture
-OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 	Format format_,
 	Filtering filtering_,
 	Wrapping wrapping_)
 :	texture_handle(0),
 	xres(0),
 	yres(0),
-	loaded_size(0)
+	loaded_size(0),
+	refcount(0),
+	m_opengl_engine(opengl_engine)
 {
 	load(tex_xres, tex_yres, ArrayRef<uint8>(NULL, 0), opengl_engine, format_, filtering_, wrapping_);
 }
 
 
-OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 	Format format_,
 	GLint gl_internal_format_,
 	GLenum gl_format_,
@@ -54,7 +58,9 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngin
 :	texture_handle(0),
 	xres(0),
 	yres(0),
-	loaded_size(0)
+	loaded_size(0),
+	refcount(0),
+	m_opengl_engine(opengl_engine)
 {
 	loadWithFormats(tex_xres, tex_yres, ArrayRef<uint8>(NULL, 0), opengl_engine, format_, gl_internal_format_, gl_format_, filtering_, wrapping_);
 }
@@ -718,4 +724,11 @@ void OpenGLTexture::setTexParams(const Reference<OpenGLEngine>& opengl_engine,
 size_t OpenGLTexture::getByteSize() const
 {
 	return this->loaded_size;
+}
+
+
+void OpenGLTexture::textureBecameUnused() const
+{
+	if(m_opengl_engine)
+		m_opengl_engine->textureBecameUnused(this);
 }

@@ -12,12 +12,35 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"
 #include <vector>
+#include <string>
 
 
 class OpenGLEngine;
 
 
-class OpenGLTexture : public RefCounted
+struct OpenGLTextureKey
+{
+	OpenGLTextureKey() {}
+	explicit OpenGLTextureKey(const std::string& path_) : path(path_) {}
+	std::string path;
+
+	bool operator < (const OpenGLTextureKey& other) const { return path < other.path; }
+	bool operator == (const OpenGLTextureKey& other) const { return path == other.path; }
+};
+
+
+struct OpenGLTextureKeyHash
+{
+	size_t operator () (const OpenGLTextureKey& key) const
+	{
+		std::hash<std::string> h;
+		return h(key.path);
+	}
+};
+
+
+// Instead of inheriting from RefCounted, will implement custom decRefCount() etc.. that calls textureBecameUnused().
+class OpenGLTexture
 {
 public:
 	enum Filtering
@@ -55,13 +78,13 @@ public:
 	OpenGLTexture();
 
 	// Allocate uninitialised texture
-	OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 		Format format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat);
 
 	// Allocate uninitialised texture, specify exact GL formats
-	OpenGLTexture(size_t tex_xres, size_t tex_yres, const OpenGLEngine* opengl_engine,
+	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 		Format format,
 		GLint gl_internal_format,
 		GLenum gl_format,
@@ -115,6 +138,37 @@ public:
 
 	size_t getByteSize() const;
 
+
+	/// Increment reference count
+	inline void incRefCount() const
+	{ 
+		assert(refcount >= 0);
+		refcount++;
+	}
+
+	/// Returns previous reference count
+	inline int64 decRefCount() const
+	{ 
+		const int64 prev_ref_count = refcount;
+		refcount--;
+		assert(refcount >= 0);
+
+		if(refcount == 1)
+			textureBecameUnused();
+
+		return prev_ref_count;
+	}
+
+	inline int64 getRefCount() const
+	{ 
+		assert(refcount >= 0);
+		return refcount; 
+	}
+
+	void textureBecameUnused() const;
+
+
+
 	GLuint texture_handle;
 
 private:
@@ -132,6 +186,12 @@ private:
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
 
 	size_t loaded_size;
+
+public:
+	mutable int64 refcount;
+
+	OpenGLEngine* m_opengl_engine;
+	OpenGLTextureKey key;
 };
 
 

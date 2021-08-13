@@ -10,33 +10,66 @@ Copyright Glare Technologies Limited 2021 -
 #include "../maths/Quat.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/Vector.h"
 #include <string>
 #include <vector>
 
-//TEMP:
+
 struct AnimationNodeData
 {
+	GLARE_ALIGNED_16_NEW_DELETE
+
+	Matrix4f node_hierarchical_to_world;
+	Matrix4f inverse_bind_matrix;
+
+	// Default values
+	Vec4f trans;
+	Quatf rot;
+	Vec4f scale;
+
 	int parent_index;
+};
+
+
+struct PerAnimationNodeData
+{
+	int translation_input_accessor;
+	int translation_output_accessor;
+	int rotation_input_accessor;
+	int rotation_output_accessor;
+	int scale_input_accessor;
+	int scale_output_accessor;
 };
 
 
 struct AnimationDatum : public RefCounted
 {
 	std::string name;
-	std::vector<float> time_vals;
 
-	// Translation for node n at input time index i
-	//	i * num_nodes + n						// is n * time_vals.size() + i
-	std::vector<Vec3f> translations;
-	std::vector<Quatf> rotations;
-	std::vector<Vec3f> scales;
+	std::vector<PerAnimationNodeData> per_anim_node_data;
+
+	std::vector<std::vector<float> > keyframe_times; // For each input accessor index, a vector of input keyframe times.
+
+	std::vector<js::Vector<Vec4f, 16> > output_data; // For each output accessor index, a vector of translations, rotations or scales.
 };
 
 
 struct AnimationData
 {
+	Matrix4f skeleton_root_transform;
+
 	std::vector<AnimationNodeData> nodes;
 	std::vector<int> sorted_nodes; // Node indices sorted such that children always come after parents.
 
+	std::vector<int> joint_nodes; // Indices into nodes array.
+
 	std::vector<Reference<AnimationDatum> > animations;
+};
+
+
+struct AnimationKeyFrameLocation
+{
+	int i_0;
+	int i_1;
+	float frac;
 };

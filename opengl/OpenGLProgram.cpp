@@ -60,7 +60,9 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glBindAttribLocation(program, 3, "vert_colours_in");
 	glBindAttribLocation(program, 4, "lightmap_coords_in");
 	glBindAttribLocation(program, 5, "instance_matrix_in"); // 5, 6, 7, 8
-	glBindAttribLocation(program, 9, "instance_colour_in");
+	//glBindAttribLocation(program, 9, "instance_colour_in");
+	glBindAttribLocation(program, 9, "joint");
+	glBindAttribLocation(program, 10, "weight");
 
 	glLinkProgram(program);
 
@@ -78,6 +80,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	view_matrix_loc    = glGetUniformLocation(program, "view_matrix");
 	proj_matrix_loc    = glGetUniformLocation(program, "proj_matrix");
 	normal_matrix_loc  = glGetUniformLocation(program, "normal_matrix");
+	joint_matrix_loc   = glGetUniformLocation(program, "joint_matrix");
 					   
 	campos_ws_loc      = glGetUniformLocation(program, "campos_ws");
 	time_loc           = glGetUniformLocation(program, "time");

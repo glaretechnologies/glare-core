@@ -43,6 +43,15 @@ const std::string& JSONNode::getStringValue() const
 }
 
 
+int JSONNode::getIntValue() const
+{
+	if(type == JSONNode::Type_Number)
+		return (int)this->value.double_v;
+	else
+		throw glare::Exception("Expected type Number.");
+}
+
+
 size_t JSONNode::getUIntValue() const
 {
 	if(type == JSONNode::Type_Number)
@@ -117,6 +126,32 @@ size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const
 	for(size_t i=0; i<name_val_pairs.size(); ++i)
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index].getUIntValue();
+
+	return default_val;
+}
+
+
+int JSONNode::getChildIntValue(const JSONParser& parser, const string_view& name) const
+{
+	if(type != JSONNode::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(size_t i=0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name)
+			return parser.nodes[name_val_pairs[i].value_node_index].getIntValue();
+
+	throw glare::Exception("Failed to find child name/value pair with name " + name + ".");
+}
+
+
+int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, int default_val) const
+{
+	if(type != JSONNode::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(size_t i=0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name)
+			return parser.nodes[name_val_pairs[i].value_node_index].getIntValue();
 
 	return default_val;
 }

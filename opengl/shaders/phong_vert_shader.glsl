@@ -13,6 +13,10 @@ in vec2 lightmap_coords_in;
 in mat4 instance_matrix_in;
 #endif
 
+#if SKINNING
+in vec4 joint;
+in vec4 weight;
+#endif
 
 out vec3 normal_cs; // cam (view) space
 out vec3 normal_ws; // world space
@@ -51,6 +55,10 @@ layout (std140) uniform PerObjectVertUniforms
 	mat4 normal_matrix; // per-object
 };
 
+#if SKINNING
+uniform mat4 joint_matrix[64];
+#endif
+
 
 void main()
 {
@@ -74,22 +82,41 @@ void main()
 #endif
 
 #else // else if !INSTANCE_MATRICES:
-	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
+
+	mat4 model_skin_matrix;
+	mat4 normal_skin_matrix;
+#if SKINNING
+	// See https://www.khronos.org/files/gltf20-reference-guide.pdf
+	mat4 skin_matrix =
+		weight.x * joint_matrix[int(joint.x)] +
+		weight.y * joint_matrix[int(joint.y)] +
+		weight.z * joint_matrix[int(joint.z)] +
+		weight.w * joint_matrix[int(joint.w)];
+
+
+	model_skin_matrix = model_matrix * skin_matrix;
+	normal_skin_matrix = normal_matrix * skin_matrix;// * transpose(skin_matrix);
+#else
+	model_skin_matrix = model_matrix;
+	normal_skin_matrix = normal_matrix;
+#endif
+
+	gl_Position = proj_matrix * (view_matrix * (model_skin_matrix * vec4(position_in, 1.0)));
 
 #if GENERATE_PLANAR_UVS
 	pos_os = position_in;
 #endif
 
-	pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
+	pos_ws = (model_skin_matrix  * vec4(position_in, 1.0)).xyz;
 	cam_to_pos_ws = pos_ws - campos_ws;
-	pos_cs = (view_matrix * (model_matrix  * vec4(position_in, 1.0))).xyz;
+	pos_cs = (view_matrix * (model_skin_matrix  * vec4(position_in, 1.0))).xyz;
 
-	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
-	normal_cs = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
+	normal_ws = (normal_skin_matrix * vec4(normal_in, 0.0)).xyz;
+	normal_cs = (view_matrix * (normal_skin_matrix * vec4(normal_in, 0.0))).xyz;
 
 #if NUM_DEPTH_TEXTURES > 0
 	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
-		shadow_tex_coords[i] = (shadow_texture_matrix[i] * (model_matrix * vec4(position_in, 1.0))).xyz;
+		shadow_tex_coords[i] = (shadow_texture_matrix[i] * (model_skin_matrix * vec4(position_in, 1.0))).xyz;
 #endif
 
 #endif // end if !INSTANCE_MATRICES
