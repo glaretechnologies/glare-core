@@ -67,6 +67,7 @@ public:
 		if(ob)
 		{
 			const int64 prev_ref_count = ob->decRefCount();
+			assert(prev_ref_count > 0);
 			if(prev_ref_count == 1)
 				destroyAndFreeOb(ob);
 		}
@@ -86,6 +87,7 @@ public:
 		if(old_ob)
 		{
 			const int64 prev_ref_count = old_ob->decRefCount();
+			assert(prev_ref_count > 0);
 			if(prev_ref_count == 1)
 				destroyAndFreeOb(old_ob);
 		}
@@ -114,6 +116,7 @@ public:
 		if(old_ob)
 		{
 			const int64 prev_ref_count = old_ob->decRefCount();
+			assert(prev_ref_count > 0);
 			if(prev_ref_count == 1)
 				destroyAndFreeOb(old_ob);
 		}

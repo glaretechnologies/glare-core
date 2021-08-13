@@ -94,7 +94,7 @@ void glare::testPoolAllocator()
 		}
 		testAssert(pool->numAllocatedObs() == 0);
 
-		testAssert(pool->decRefCount() == 1);
+		testAssert(pool->getRefCount() == 1);
 	}
 }
 
