@@ -1,7 +1,7 @@
 /*=====================================================================
 FormatDecoderGLTF.h
 -------------------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -26,7 +26,6 @@ struct GLTFResultMap
 };
 
 
-
 struct GLTFResultMaterial
 {
 	GLTFResultMaterial() : roughness(0.5f), metallic(0.f), alpha(1.f) {}
@@ -46,38 +45,9 @@ struct GLTFMaterials
 };
 
 
-//struct GLTFNodeData
-//{
-//	int parent_index;
-//};
-
-
-//struct GLTFAnimationData : public RefCounted
-//{
-//	std::string name;
-//	std::vector<float> time_vals;
-//
-//	// Translation for node n at input time index i
-//	//	i * num_nodes + n						// is n * time_vals.size() + i
-//	std::vector<Vec3f> translations;
-//	std::vector<Quatf> rotations;
-//	std::vector<Vec3f> scales;
-//};
-//
-//
-//struct GLTFAnimations
-//{
-//	std::vector<Reference<GLTFAnimationData> > animations;
-//};
-
-
 struct GLTFLoadedData
 {
-	//std::vector<GLTFNodeData> nodes;
-	//std::vector<int> sorted_nodes; // Node indices sorted such that children always come after parents.
-
 	GLTFMaterials materials;
-	//GLTFAnimations animations;
 	AnimationData anim_data;
 };
 
@@ -97,24 +67,22 @@ See https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md
 
 Current limitations:
 
-Don't support non-skinned animations.
+Doesn't support morph targets.
+Doesn't support non-skinned animations.
 =====================================================================*/
 class FormatDecoderGLTF
 {
 public:
 
-	static Reference<BatchedMesh> loadGLBFile(const std::string& filename, float scale,
-		GLTFLoadedData& data_out); // throws glare::Exception on failure
+	static Reference<BatchedMesh> loadGLBFile(const std::string& filename, GLTFLoadedData& data_out); // throws glare::Exception on failure
 
-	static Reference<BatchedMesh> loadGLTFFile(const std::string& filename, float scale,
-		GLTFLoadedData& data_out); // throws glare::Exception on failure
+	static Reference<BatchedMesh> loadGLTFFile(const std::string& filename, GLTFLoadedData& data_out); // throws glare::Exception on failure
 
 	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFLoadedData& data); // throws glare::Exception on failure
 
 	static void test();
 
 private:
-	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, float scale,
+	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer,
 		GLTFLoadedData& data_out); // throws glare::Exception on failure
-
 };

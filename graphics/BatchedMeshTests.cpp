@@ -119,12 +119,12 @@ static void perfTestWithMesh(const std::string& path)
 	if(hasExtension(path, "glb"))
 	{
 		GLTFLoadedData data;
-		batched_mesh = FormatDecoderGLTF::loadGLBFile(path, 1.f, data);
+		batched_mesh = FormatDecoderGLTF::loadGLBFile(path, data);
 	}
 	else if(hasExtension(path, "gltf"))
 	{
 		GLTFLoadedData data;
-		batched_mesh = FormatDecoderGLTF::loadGLTFFile(path, 1.f, data);
+		batched_mesh = FormatDecoderGLTF::loadGLTFFile(path, data);
 	}
 	else if(hasExtension(path, "igmesh"))
 	{

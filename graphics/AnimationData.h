@@ -19,10 +19,10 @@ struct AnimationNodeData
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	Matrix4f node_hierarchical_to_world;
+	Matrix4f node_hierarchical_to_world; // The overall transformation from walking up the node hierarchy
 	Matrix4f inverse_bind_matrix;
 
-	// Default values
+	// The non-animated transformation of the node.
 	Vec4f trans;
 	Quatf rot;
 	Vec4f scale;
@@ -33,8 +33,8 @@ struct AnimationNodeData
 
 struct PerAnimationNodeData
 {
-	int translation_input_accessor;
-	int translation_output_accessor;
+	int translation_input_accessor; // Indexes into keyframe_times, or -1 if translation is not animated.
+	int translation_output_accessor; // Indexes into output data, or -1 if translation is not animated.
 	int rotation_input_accessor;
 	int rotation_output_accessor;
 	int scale_input_accessor;

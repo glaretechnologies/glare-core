@@ -1,7 +1,7 @@
 /*=====================================================================
 FormatDecoderGLTF.cpp
 ---------------------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "FormatDecoderGLTF.h"
 
@@ -1502,8 +1502,7 @@ static const uint32 CHUNK_TYPE_JSON = 0x4E4F534A;
 static const uint32 CHUNK_TYPE_BIN  = 0x004E4942;
 
 
-Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFile(const std::string& pathname, float scale,
-	GLTFLoadedData& data_out) // throws glare::Exception on failure
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFile(const std::string& pathname, GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	MemMappedFile file(pathname);
 
@@ -1554,22 +1553,22 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFile(const std::string& pathnam
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	return loadGivenJSON(parser, gltf_base_dir, buffer, scale, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, buffer, data_out);
 }
 
 
-Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFile(const std::string& pathname, float scale, GLTFLoadedData& data_out)
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFile(const std::string& pathname, GLTFLoadedData& data_out)
 {
 	JSONParser parser;
 	parser.parseFile(pathname);
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, scale, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, data_out);
 }
 
 
-Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, float scale,
+Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer,
 	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	const JSONNode& root = parser.nodes[0];
@@ -2717,7 +2716,7 @@ static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData
 	//	// Load again
 	//	//Indigo::Mesh mesh2;
 	//	GLTFLoadedData data2;
-	//	Reference<BatchedMesh> mesh2 FormatDecoderGLTF::loadGLTFFile(path, 1.0, data2);
+	//	Reference<BatchedMesh> mesh2 FormatDecoderGLTF::loadGLTFFile(path, data2);
 	//
 	//	// Check num vertices etc.. is the same
 	//	testAssert(mesh2.num_materials_referenced	== mesh.num_materials_referenced);
@@ -2744,7 +2743,7 @@ void FormatDecoderGLTF::test()
 			// Has vertex colours, also uses unsigned bytes for indices.
 			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/VertexColorTest.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/VertexColorTest.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 2);
 			testAssert(mesh->numVerts() == 72);
@@ -2756,7 +2755,7 @@ void FormatDecoderGLTF::test()
 		{
 			conPrint("---------------------------------Box.glb-----------------------------------");
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Box.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Box.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 24);
@@ -2771,7 +2770,7 @@ void FormatDecoderGLTF::test()
 		{
 			conPrint("---------------------------------BoxInterleaved.glb-----------------------------------");
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxInterleaved.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 24);
@@ -2786,7 +2785,7 @@ void FormatDecoderGLTF::test()
 		{
 			conPrint("---------------------------------BoxTextured.glb-----------------------------------");
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxTextured.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxTextured.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 24);
@@ -2801,7 +2800,7 @@ void FormatDecoderGLTF::test()
 		{
 			conPrint("---------------------------------BoxVertexColors.glb-----------------------------------");
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxVertexColors.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 24);
@@ -2816,7 +2815,7 @@ void FormatDecoderGLTF::test()
 		{
 			conPrint("---------------------------------2CylinderEngine.glb-----------------------------------");
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/2CylinderEngine.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 34);
 			testAssert(mesh->numVerts() == 84657);
@@ -2830,7 +2829,7 @@ void FormatDecoderGLTF::test()
 
 		{
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedFigure.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 370);
@@ -2844,7 +2843,7 @@ void FormatDecoderGLTF::test()
 	
 		{
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/CesiumMan.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/CesiumMan.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 3273);
@@ -2858,7 +2857,7 @@ void FormatDecoderGLTF::test()
 	
 		{
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 98 + 1); // Seems to use a default material
 			testAssert(mesh->numVerts() == 528291);
@@ -2872,7 +2871,7 @@ void FormatDecoderGLTF::test()
 
 		{
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedSimple.glb", 1.0, data);
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RiggedSimple.glb", data);
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 160);
@@ -2893,7 +2892,7 @@ void FormatDecoderGLTF::test()
 		// Read a GLTF file from disk
 		const std::string path = TestUtils::getTestReposDir() + "/testfiles/gltf/duck/Duck.gltf";
 		GLTFLoadedData data;
-		Reference<BatchedMesh> mesh = loadGLTFFile(path, 1.0, data);
+		Reference<BatchedMesh> mesh = loadGLTFFile(path, data);
 
 		testAssert(mesh->numMaterialsReferenced() == 1);
 		testAssert(mesh->numVerts() == 2399);
@@ -2920,7 +2919,7 @@ void FormatDecoderGLTF::test()
 		// Load again
 		Indigo::Mesh mesh2;
 		GLTFLoadedData data2;
-		streamModel(path, mesh2, 1.0, data2);
+		streamModel(path, mesh2, data2);
 
 		testAssert(mesh2.num_materials_referenced == 1);
 		testAssert(mesh2.vert_positions.size() == 2399);
