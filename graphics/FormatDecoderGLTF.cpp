@@ -1539,7 +1539,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFile(const std::string& pathnam
 	buffer->binary_data = (const uint8*)file.fileData() + bin_buf_chunk_header_offset + 8;
 	buffer->data_size = bin_buf_header.chunk_length;
 
-	if(true)
+	if(false)
 	{
 		// Save JSON to disk for debugging
 		const std::string json((const char*)file.fileData() + 20, json_header.chunk_length);
