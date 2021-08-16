@@ -13,26 +13,36 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Vector.h"
 #include <string>
 #include <vector>
+class InStream;
+class OutStream;
 
 
 struct AnimationNodeData
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	Matrix4f node_hierarchical_to_world; // The overall transformation from walking up the node hierarchy
-	Matrix4f inverse_bind_matrix;
+	void writeToStream(OutStream& stream) const;
+	void readFromStream(InStream& stream);
+
+	Matrix4f node_hierarchical_to_world; // The overall transformation from walking up the node hierarchy.  Ephemeral data computed every frame.
+	Matrix4f inverse_bind_matrix; // As read from GLTF file
+	//Matrix4f default_node_hierarchical_to_world; // This could be stored and used in the no-animations case, but we will just recompute it for now.
 
 	// The non-animated transformation of the node.
 	Vec4f trans;
 	Quatf rot;
 	Vec4f scale;
 
-	int parent_index;
+	std::string name; // Name of the node.  Might come in handy for retargetting animations.
+	int parent_index; // Index of parent node, or -1 if this is a root.
 };
 
 
 struct PerAnimationNodeData
 {
+	void writeToStream(OutStream& stream) const;
+	void readFromStream(InStream& stream);
+
 	int translation_input_accessor; // Indexes into keyframe_times, or -1 if translation is not animated.
 	int translation_output_accessor; // Indexes into output data, or -1 if translation is not animated.
 	int rotation_input_accessor;
@@ -44,6 +54,9 @@ struct PerAnimationNodeData
 
 struct AnimationDatum : public RefCounted
 {
+	void writeToStream(OutStream& stream) const;
+	void readFromStream(InStream& stream);
+
 	std::string name;
 
 	std::vector<PerAnimationNodeData> per_anim_node_data;
@@ -56,12 +69,15 @@ struct AnimationDatum : public RefCounted
 
 struct AnimationData
 {
-	Matrix4f skeleton_root_transform;
+	void writeToStream(OutStream& stream) const;
+	void readFromStream(InStream& stream);
+
+	Matrix4f skeleton_root_transform; // to-world transform of the skeleton root node.
 
 	std::vector<AnimationNodeData> nodes;
-	std::vector<int> sorted_nodes; // Node indices sorted such that children always come after parents.
+	std::vector<int> sorted_nodes; // Indices of nodes, sorted such that children always come after parents.
 
-	std::vector<int> joint_nodes; // Indices into nodes array.
+	std::vector<int> joint_nodes; // Indices into nodes array.  Joint vertex values index into this array, or rather index into matrices with the same ordering.
 
 	std::vector<Reference<AnimationDatum> > animations;
 };

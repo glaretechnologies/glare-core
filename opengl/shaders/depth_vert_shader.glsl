@@ -38,7 +38,7 @@ layout (std140) uniform PerObjectVertUniforms
 
 
 #if SKINNING
-uniform mat4 joint_matrix[64];
+uniform mat4 joint_matrix[128];
 #endif
 
 void main()

@@ -139,6 +139,8 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 	simplified_mesh->batches = new_batches;
 
+	simplified_mesh->animation_data = mesh.animation_data;
+
 	conPrint("-------------- simplified mesh ------------");
 	conPrint("Original num indices: " + toString(mesh.numIndices()));
 	conPrint("new num indices:      " + toString(simplified_mesh->numIndices()));

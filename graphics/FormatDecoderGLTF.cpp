@@ -2128,14 +2128,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 	batched_mesh->vertex_data.resize(batched_mesh->vertexSize() * total_num_verts);
 
-	// Reserve the space in the Indigo Mesh
-	//mesh.triangles.reserve(total_num_tris);
-	//mesh.vert_positions.reserve(total_num_verts);
-	//if(data.attr_present.normal_present)     mesh.vert_normals.reserve(total_num_verts);
-	//if(data.attr_present.vert_col_present)   mesh.vert_colours.reserve(total_num_verts);
-	//if(data.attr_present.texcoord_0_present) mesh.uv_pairs.reserve(total_num_verts);
 
-	js::Vector<uint32, 16> uint32_indices;//(total_num_indices);
+	js::Vector<uint32, 16> uint32_indices;
 	uint32_indices.reserve(total_num_indices);
 	size_t vert_write_i = 0;
 
@@ -2158,7 +2152,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	batched_mesh->setIndexDataFromIndices(uint32_indices, total_num_verts);
 
 	// Compute AABB
-	// TEMP
+	// Assuming we are storing float vert positions here.
+	// We could also read the bounds from the GLTF file, but they may be incorrect.
 	{
 		js::AABBox aabb = js::AABBox::emptyAABBox();
 		const size_t vert_size = batched_mesh->vertexSize();
@@ -2166,7 +2161,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		doRuntimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float);
 		for(int v=0; v<total_num_verts; ++v)
 		{
-			Vec4f vert_pos = Vec4f(
+			const Vec4f vert_pos(
 				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[0],
 				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[1],
 				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[2],
@@ -2175,18 +2170,6 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 		batched_mesh->aabb_os = aabb;
 	}
-
-
-
-	// Check we reserved the right amount of space.
-	//assert(mesh.vert_positions.size()     == total_num_verts);
-	//assert(mesh.vert_positions.capacity() == total_num_verts);
-	//assert(mesh.vert_normals.size()       == mesh.vert_normals.capacity());
-	//assert(mesh.vert_colours.size()       == mesh.vert_colours.capacity());
-	//assert(mesh.uv_pairs.size()           == mesh.uv_pairs.capacity());
-	//
-	//assert(mesh.triangles.size()          == total_num_tris);
-	//assert(mesh.triangles.capacity()      == total_num_tris);
 
 
 	// Process images - for any image embedded in the GLB file data, save onto disk in a temp location
@@ -2205,37 +2188,41 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	//-------------------- Process animations ---------------------------
 	// Write out nodes
 
-	// Set parent indices in data_out.nodes
-	data_out.anim_data.nodes.resize(data.nodes.size());
+	AnimationData& anim_data_out = batched_mesh->animation_data;
+	anim_data_out.nodes.resize(data.nodes.size());
 	for(size_t i=0; i<data.nodes.size(); ++i)
 	{
-		data_out.anim_data.nodes[i].parent_index = -1;
+		anim_data_out.nodes[i].parent_index = -1;
+		anim_data_out.nodes[i].inverse_bind_matrix = Matrix4f::identity();
 
-		data_out.anim_data.nodes[i].trans = data.nodes[i]->translation.toVec4fVector();
-		data_out.anim_data.nodes[i].rot   = data.nodes[i]->rotation;
-		data_out.anim_data.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
+		anim_data_out.nodes[i].trans = data.nodes[i]->translation.toVec4fVector();
+		anim_data_out.nodes[i].rot   = data.nodes[i]->rotation;
+		anim_data_out.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
+		//data_out.anim_data.nodes[i].default_node_hierarchical_to_world = data.nodes[i]->node_transform;
+
+		anim_data_out.nodes[i].name = data.nodes[i]->name;
 	}
 
+	// Set parent indices in data_out.nodes
 	for(size_t i=0; i<data.nodes.size(); ++i)
 	{
-		GLTFNode& node = *data.nodes[i];
+		const GLTFNode& node = *data.nodes[i];
 
-		conPrint("Node " + toString(i));
 		for(size_t z=0; z<node.children.size(); ++z)
 		{
 			const size_t child_index = node.children[z];
-			conPrint("\tchild " + toString(child_index));
-			data_out.anim_data.nodes[child_index].parent_index = (int)i;
+			checkProperty(child_index < anim_data_out.nodes.size(), "invalid child_index");
+			anim_data_out.nodes[child_index].parent_index = (int)i;
 		}
 	}
 	
-	// Build sorted_nodes - Node indices sorted such that children always come after parents.
+	// Build sorted_nodes - Indices of nodes that are used as joints, sorted such that children always come after parents.
 	// We will do this by doing a depth first traversal over the nodes.
 	std::vector<size_t> node_stack;
 
 	// Initialise node_stack with roots
 	for(size_t i=0; i<data.nodes.size(); ++i)
-		if(data_out.anim_data.nodes[i].parent_index == -1)
+		if(anim_data_out.nodes[i].parent_index == -1)
 			node_stack.push_back(i);
 
 	while(!node_stack.empty())
@@ -2243,7 +2230,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		const int node_i = (int)node_stack.back();
 		node_stack.pop_back();
 
-		data_out.anim_data.sorted_nodes.push_back(node_i);
+		anim_data_out.sorted_nodes.push_back(node_i);
 
 		// Add child nodes of the current node
 		const GLTFNode& node = *data.nodes[node_i];
@@ -2255,21 +2242,20 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	}
 
 
-
-	data_out.anim_data.animations.resize(data.animations.size());
+	// Process animations
+	anim_data_out.animations.resize(data.animations.size());
 	for(size_t i=0; i<data.animations.size(); ++i)
 	{
-		data_out.anim_data.animations[i] = new AnimationDatum();
-		processAnimation(data, *data.animations[i], gltf_base_dir, *data_out.anim_data.animations[i]);
+		anim_data_out.animations[i] = new AnimationDatum();
+		processAnimation(data, *data.animations[i], gltf_base_dir, *anim_data_out.animations[i]);
 	}
 
-
+	// Process skins
 	for(size_t i=0; i<data.skins.size(); ++i)
 	{
-		processSkin(data, *data.skins[i], gltf_base_dir, data_out.anim_data);
+		processSkin(data, *data.skins[i], gltf_base_dir, anim_data_out);
 	}
 
-	//mesh.endOfModel();
 	return batched_mesh;
 }
 
@@ -2837,6 +2823,9 @@ void FormatDecoderGLTF::test()
 			//testAssert(mesh.vert_normals.size() == 370);
 			//testAssert(mesh.vert_colours.size() == 0);
 			//testAssert(mesh.uv_pairs.size() == 0);
+			testAssert(mesh->animation_data.nodes.size() == 22);
+			testAssert(mesh->animation_data.joint_nodes.size() == 19); // Aka num bones.
+			testAssert(mesh->animation_data.animations.size() == 1);
 
 			testWriting(mesh, data);
 		}
@@ -2851,6 +2840,9 @@ void FormatDecoderGLTF::test()
 			//testAssert(mesh.vert_normals.size() == 3273);
 			//testAssert(mesh.vert_colours.size() == 0);
 			//testAssert(mesh.uv_pairs.size() == 3273);
+			testAssert(mesh->animation_data.nodes.size() == 22);
+			testAssert(mesh->animation_data.joint_nodes.size() == 19); // Aka num bones.
+			testAssert(mesh->animation_data.animations.size() == 1);
 
 			testWriting(mesh, data);
 		}
@@ -2876,6 +2868,10 @@ void FormatDecoderGLTF::test()
 			testAssert(mesh->numMaterialsReferenced() == 1);
 			testAssert(mesh->numVerts() == 160);
 			testAssert(mesh->numIndices() == 188 * 3);
+
+			testAssert(mesh->animation_data.nodes.size() == 5);
+			testAssert(mesh->animation_data.joint_nodes.size() == 2); // Aka num bones.
+			testAssert(mesh->animation_data.animations.size() == 1);
 
 			testWriting(mesh, data);
 		}

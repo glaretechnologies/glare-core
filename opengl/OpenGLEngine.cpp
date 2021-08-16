@@ -2092,7 +2092,7 @@ void OpenGLEngine::draw()
 			const size_t num_nodes = anim_data.sorted_nodes.size();
 			node_matrices.resizeNoCopy(num_nodes);
 
-			const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
+			// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
 
 			// Iterate over each array of keyframe times.  (each array corresponds to an input accessor)
 			// For each array, find the current and next keyframe, and interpolation fraction, based on the current time.
@@ -2103,13 +2103,23 @@ void OpenGLEngine::draw()
 
 				if(!time_vals.empty())
 				{
+
+					/*
+					frame 0                     frame 1                        frame 2                      frame 3
+					|----------------------------|-----------------------------|-----------------------------|-------------------------> time
+					^                                         ^
+					cur_frame_i                             in_anim_time
+					*/
+
 					assert(time_vals.size() >= 2);
 					const float in_anim_time = time_vals[0] + Maths::floatMod(use_time, time_vals.back() - time_vals[0]);
 
 					// Find current frame
-					auto res = std::lower_bound(time_vals.begin(), time_vals.end(), in_anim_time);
-					const int next_index = (int)(res - time_vals.begin());
+					auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
+					int next_index = (int)(res - time_vals.begin());
 					int index = next_index - 1;
+
+					next_index = myMin(next_index, (int)time_vals.size() - 1);
 
 					float index_time;
 					if(index < 0)
@@ -2203,6 +2213,36 @@ void OpenGLEngine::draw()
 				// Set location of debug joint visualisation objects
 				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
 				//updateObjectTransformData(*debug_joint_obs[node_i]);
+			}
+		}
+		else // else if anim_data.animations.empty():
+		{
+			if(!anim_data.joint_nodes.empty()) // If we have a skin, but no animations, just use the default trans, rot, scales.
+			{
+				const size_t num_nodes = anim_data.sorted_nodes.size();
+				node_matrices.resizeNoCopy(num_nodes);
+
+				for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
+				{
+					const int node_i = anim_data.sorted_nodes[n];
+					const AnimationNodeData& node_data = anim_data.nodes[node_i];
+					const Vec4f trans = node_data.trans;
+					const Quatf rot = node_data.rot;
+					const Vec4f scale = node_data.scale;
+
+					const Matrix4f rot_mat = rot.toMatrix();
+					const Matrix4f TRS(
+						rot_mat.getColumn(0) * copyToAll<0>(scale),
+						rot_mat.getColumn(1) * copyToAll<1>(scale),
+						rot_mat.getColumn(2) * copyToAll<2>(scale),
+						setWToOne(trans));
+
+					const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * TRS);
+
+					node_matrices[node_i] = node_transform;
+
+					anim_data.nodes[node_i].node_hierarchical_to_world = node_transform;
+				}
 			}
 		}
 	}
@@ -4324,7 +4364,6 @@ inline static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 }
 
 
-
 Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const VBORef& instancing_matrix_data/*bool instancing*/)
 {
 	if(mesh_->index_data.empty())
@@ -4385,6 +4424,9 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 
 	VertexAttrib normal_attrib;
 	normal_attrib.enabled = normal_attr != NULL;
+	normal_attrib.num_comps = 3;
+	normal_attrib.type = GL_FLOAT;
+	normal_attrib.normalised = false;
 	if(normal_attr)
 	{
 		if(normal_attr->component_type == BatchedMesh::ComponentType_Float)
@@ -4691,7 +4733,7 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 	{
 		js::Vector<Matrix4f, 16> matrices(mesh_data.animation_data.joint_nodes.size());
 
-		const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
+		// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
 
 		// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
 		for(size_t i=0; i<mesh_data.animation_data.joint_nodes.size(); ++i)

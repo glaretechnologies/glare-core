@@ -719,6 +719,7 @@ void BatchedMesh::operator = (const BatchedMesh& other)
 static const uint32 MAGIC_NUMBER = 12456751;
 static const uint32 FORMAT_VERSION = 1;
 
+static const uint32 ANIMATION_DATA_CHUNK = 10000;
 
 static const uint32 FLAG_USE_COMPRESSION = 1;
 
@@ -932,6 +933,13 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 		file.writeData(vertex_data.data(), vertex_data.dataSizeBytes());
 	}
 
+	if(!animation_data.animations.empty() || !animation_data.joint_nodes.empty())
+	{
+		// Write animation data at the end
+		file.writeUInt32(ANIMATION_DATA_CHUNK);
+		animation_data.writeToStream(file);
+	}
+
 	//conPrint("Total time to write to disk: " + write_timer.elapsedString());
 }
 
@@ -979,7 +987,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			mesh_out.vert_attributes[i].type = (VertAttributeType)type;
 
 			const uint32 component_type = file.readUInt32();
-			if(type > MAX_COMPONENT_TYPE_VALUE)
+			if(component_type > MAX_COMPONENT_TYPE_VALUE)
 				throw glare::Exception("Invalid vert attribute component type value.");
 			mesh_out.vert_attributes[i].component_type = (ComponentType)component_type;
 
@@ -1141,6 +1149,20 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 		{
 			file.readData(mesh_out.index_data.data(),  mesh_out.index_data.dataSizeBytes());
 			file.readData(mesh_out.vertex_data.data(), mesh_out.vertex_data.dataSizeBytes());
+		}
+
+		// Read animation data chunk if present
+		if(file.getReadIndex() != file.fileSize())
+		{
+			const uint32 chunk = file.readUInt32();
+			if(chunk == ANIMATION_DATA_CHUNK)
+			{
+				// Timer timer;
+				mesh_out.animation_data.readFromStream(file);
+				// conPrint("Reading animation data took " + timer.elapsedStringNSigFigs(4));
+			}
+			else
+				throw glare::Exception("invalid chunk value: " + toString(chunk));
 		}
 
 		assert(file.getReadIndex() == file.fileSize());

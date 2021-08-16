@@ -5,7 +5,7 @@ Copyright Glare Technologies Limited 2020
 =====================================================================*/
 #pragma once
 
-
+#include "AnimationData.h"
 #include <physics/jscol_aabbox.h>
 #include <ThreadSafeRefCounted.h>
 #include <Platform.h>
@@ -61,10 +61,11 @@ public:
 	// Build an Indigo::Mesh from this BatchedMesh.
 	void buildIndigoMesh(Indigo::Mesh& mesh_out) const;
 
-	bool operator == (const BatchedMesh& other) const;
 
-	void operator = (const BatchedMesh& other);
-	
+	bool operator == (const BatchedMesh& other) const; // Just used in tests
+private:
+	void operator = (const BatchedMesh& other); // Just used in tests
+public:
 
 	enum ComponentType
 	{
@@ -87,7 +88,7 @@ public:
 		VertAttribute_Joints	= 5, // Indices of joint nodes for skinning
 		VertAttribute_Weights	= 6 // weights for skinning
 	};
-	static const uint32 MAX_VERT_ATTRIBUTE_TYPE_VALUE = 4;
+	static const uint32 MAX_VERT_ATTRIBUTE_TYPE_VALUE = 6;
 
 	struct VertAttribute
 	{
@@ -145,6 +146,8 @@ public:
 	js::Vector<uint8, 16> vertex_data;
 
 	js::AABBox aabb_os; // An AABB that contains the vertex positions.
+
+	AnimationData animation_data;
 };
 
 

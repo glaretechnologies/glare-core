@@ -48,7 +48,6 @@ struct GLTFMaterials
 struct GLTFLoadedData
 {
 	GLTFMaterials materials;
-	AnimationData anim_data;
 };
 
 
