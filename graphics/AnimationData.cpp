@@ -12,6 +12,14 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/StringUtils.h"
 
 
+// Throws an exception if b is false.
+static inline void checkProperty(bool b, const char* on_false_message)
+{
+	if(!b)
+		throw glare::Exception(std::string(on_false_message));
+}
+
+
 void AnimationNodeData::writeToStream(OutStream& stream) const
 {
 	stream.writeData(inverse_bind_matrix.e, sizeof(float) * 16);
@@ -132,6 +140,30 @@ void AnimationDatum::readFromStream(InStream& stream)
 			stream.readData(vec.data(), vec_size * sizeof(Vec4f));
 		}
 	}
+
+
+	// Bounds-check data
+	for(size_t i=0; i<per_anim_node_data.size(); ++i)
+	{
+		// -1 is a valid value
+		const PerAnimationNodeData& data = per_anim_node_data[i];
+		checkProperty(data.translation_input_accessor  >= -1 && data.translation_input_accessor   < (int)keyframe_times.size(), "invalid input accessor index");
+		checkProperty(data.rotation_input_accessor     >= -1 && data.rotation_input_accessor      < (int)keyframe_times.size(), "invalid input accessor index");
+		checkProperty(data.scale_input_accessor        >= -1 && data.scale_input_accessor         < (int)keyframe_times.size(), "invalid input accessor index");
+
+		checkProperty(data.translation_output_accessor >= -1 && data.translation_output_accessor  < (int)output_data.size(), "invalid output accessor index");
+		checkProperty(data.rotation_output_accessor    >= -1 && data.rotation_output_accessor     < (int)output_data.size(), "invalid output accessor index");
+		checkProperty(data.scale_output_accessor       >= -1 && data.scale_output_accessor        < (int)output_data.size(), "invalid output accessor index");
+
+		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].size() >= 2, "invalid num keyframes");
+		if(data.rotation_input_accessor    >= 0) checkProperty(keyframe_times[data.rotation_input_accessor   ].size() >= 2, "invalid num keyframes");
+		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].size() >= 2, "invalid num keyframes");
+
+		// Output data vectors should be the same size as the input keyframe vectors, when they are used together.
+		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].size() == output_data[data.translation_output_accessor].size(), "num keyframes != output_data size");
+		if(data.rotation_input_accessor    >= 0) checkProperty(keyframe_times[data.rotation_input_accessor   ].size() == output_data[data.rotation_output_accessor   ].size(), "num keyframes != output_data size");
+		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].size() == output_data[data.scale_output_accessor      ].size(), "num keyframes != output_data size");
+	}
 }
 
 
@@ -212,4 +244,15 @@ void AnimationData::readFromStream(InStream& stream)
 			animations[i]->readFromStream(stream);
 		}
 	}
+
+	// Bounds-check data
+	for(size_t i=0; i<sorted_nodes.size(); ++i)
+		checkProperty(sorted_nodes[i] >= 0 && sorted_nodes[i] < (int)nodes.size(), "invalid sorted_nodes index");
+
+	for(size_t i=0; i<joint_nodes.size(); ++i)
+		checkProperty(joint_nodes[i] >= 0 && joint_nodes[i] < (int)nodes.size(), "invalid joint_nodes index");
+
+	for(size_t i=0; i<nodes.size(); ++i)
+		checkProperty(nodes[i].parent_index >= -1 && nodes[i].parent_index < (int)nodes.size(), "invalid parent_index index"); // parent_index of -1 is valid.
+
 }
