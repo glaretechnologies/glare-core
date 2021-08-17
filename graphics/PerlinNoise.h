@@ -28,7 +28,7 @@ public:
 	// Fast Perlin noise implementation using SSE, for 2-vector input
 	static float noise(float x, float y);
 
-	static float periodicNoise(float x, float y, int period); // Period with period in x and y directions.  Period must be a power of two.
+	static float periodicNoise(float x, float y, int period); // Period with period in x and y directions.  Period must be a power of two.  Period currently is clamped to <= 256.
 
 	// Fast Perlin noise implementation that returns a 4-vector, with each component decorrelated noise.  3-vector input.
 	static const Vec4f noise4Valued(const Vec4f& point);

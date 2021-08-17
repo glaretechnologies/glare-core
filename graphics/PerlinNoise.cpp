@@ -362,6 +362,10 @@ float PerlinNoise::noise(float x, float y)
 float PerlinNoise::periodicNoise(float x, float y, int period) // Period with period in x and y directions.  Period must be a power of two.
 {
 	assert(Maths::isPowerOfTwo(period));
+
+	// NOTE: need to clamp to not overrun p_x array.  This sucks, use a hash function instead?
+	period = myMin(256, period);
+	
 	const int mask = period - 1;
 
 	const Vec4f point(x, y, 0, 0);
