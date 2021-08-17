@@ -199,7 +199,7 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 			if(im_i == 0)
 			{
 				// Initialise image 0 as blue.
-				for(int q=0; q<im_0_w * im_0_h; ++q)
+				for(size_t q=0; q<im_0_w * im_0_h; ++q)
 				{
 					uint8* const p = image_map->getPixel(q);
 					p[0] = 0;
@@ -218,7 +218,7 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 				{
 					// This seems to be how gif files encode transparency.
 					// For now just render as green.  TODO: handle this properly (Return a RGBA format etc..)
-					for(int q=0; q<im_0_w * im_0_h; ++q)
+					for(size_t q=0; q<im_0_w * im_0_h; ++q)
 					{
 						uint8* const p = image_map->getPixel(q);
 						p[0] = 0;
