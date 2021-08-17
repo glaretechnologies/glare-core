@@ -17,6 +17,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/FileUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/IncludeXXHash.h"
+#include "../utils/FileOutStream.h"
+#include "../utils/Base64.h"
 #include "../maths/Quat.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/BatchedMesh.h"
@@ -54,6 +56,7 @@ struct GLTFBuffer : public RefCounted
 	const uint8* binary_data;
 	size_t data_size;
 	std::string uri;
+	std::vector<unsigned char> decoded_base64_data;
 };
 typedef Reference<GLTFBuffer> GLTFBufferRef;
 
@@ -683,7 +686,7 @@ static void checkAccessorBounds(const size_t vert_byte_stride, const size_t offs
 {
 	checkAccessorBounds(vert_byte_stride, offset_B, value_size_B, accessor, buffer);
 
-	if(typeNumComponents(accessor.type) != expected_num_components)
+	if((int)typeNumComponents(accessor.type) != expected_num_components)
 		throw glare::Exception("Invalid num components (type) for accessor.");
 }
 
@@ -840,8 +843,6 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					node_transform.getUpperLeftInverseTranspose(normal_transform);
 				else
 					normal_transform = Matrix4f::identity();
-
-				const Matrix4f transform = statically_apply_transform ? node_transform : Matrix4f::identity();
 
 				const BatchedMesh::VertAttribute& normals_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Normal);
 
@@ -1454,7 +1455,7 @@ static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string&
 
 		checkProperty(accessor.count == ibms.size(), "accessor.count had invalid size"); // skin.joints: "The array length must be the same as the count property of the inverseBindMatrices accessor (when defined)."
 
-		for(int i=0; i<accessor.count; ++i)
+		for(size_t i=0; i<accessor.count; ++i)
 			std::memcpy(&ibms[i].e, offset_base + byte_stride * i, sizeof(float) * 16);
 	}
 	else
@@ -1589,7 +1590,23 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				GLTFBufferRef buffer = new GLTFBuffer();
 				if(buffer_node.hasChild("uri"))
+				{
 					buffer->uri = buffer_node.getChildStringValue(parser, "uri");
+
+					if(hasPrefix(buffer->uri, "data:")) // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
+					{
+						const std::string expected_prefix = "data:application/octet-stream;base64,";
+						if(!hasPrefix(buffer->uri, expected_prefix))
+							throw glare::Exception("Expected prefix " + expected_prefix + " in URI");
+
+						const std::string data_base64 = buffer->uri.substr(expected_prefix.size());
+
+						Base64::decode(data_base64, /*data out=*/buffer->decoded_base64_data);
+
+						buffer->binary_data = buffer->decoded_base64_data.data();
+						buffer->data_size = buffer->decoded_base64_data.size();
+					}
+				}
 				else
 				{
 					if(glb_bin_buffer.isNull())
@@ -2159,7 +2176,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		const size_t vert_size = batched_mesh->vertexSize();
 		const BatchedMesh::VertAttribute& pos_attr = batched_mesh->getAttribute(BatchedMesh::VertAttribute_Position);
 		doRuntimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float);
-		for(int v=0; v<total_num_verts; ++v)
+		for(size_t v=0; v<total_num_verts; ++v)
 		{
 			const Vec4f vert_pos(
 				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[0],
@@ -2725,6 +2742,30 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
+		if(false)
+		{
+			// Has vertex colours, also uses unsigned bytes for indices.
+			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\retarget_01\\animated_readyplayerme_avatar.glb", data);
+
+			FileOutStream file("D:\\models\\extracted_avatar_anim.bin");
+			mesh->animation_data.writeToStream(file);
+		}
+
+		{
+			// Has a buffer with a data URI with embedded base64 data.
+			conPrint("---------------------------------RockWithDataURI.gltf-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLTFFile(TestUtils::getTestReposDir() + "/testfiles/gltf/RockWithDataURI.gltf", data);
+
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 206);
+			testAssert(mesh->numIndices() == 290 * 3);
+
+			testWriting(mesh, data);
+		}
+
 		{
 			// Has vertex colours, also uses unsigned bytes for indices.
 			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
