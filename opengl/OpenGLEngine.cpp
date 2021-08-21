@@ -2061,7 +2061,7 @@ void OpenGLEngine::draw()
 		AnimationData& anim_data = ob->mesh_data->animation_data;
 		if(!anim_data.animations.empty())
 		{
-			const AnimationDatum& anim_datum = *anim_data.animations[0];
+			const AnimationDatum& anim_datum = *anim_data.animations[myClamp(anim_data.current_anim_i, 0, (int)anim_data.animations.size() - 1)];
 
 			//TEMP create debug visualisation of the joints
 			//if(debug_joint_obs.empty())
@@ -2096,50 +2096,60 @@ void OpenGLEngine::draw()
 
 			// Iterate over each array of keyframe times.  (each array corresponds to an input accessor)
 			// For each array, find the current and next keyframe, and interpolation fraction, based on the current time.
-			key_frame_locs.resize(anim_datum.keyframe_times.size()); // For each input accessor
-			for(int z=0; z<(int)anim_datum.keyframe_times.size(); ++z)
+			key_frame_locs.resize(anim_data.keyframe_times.size());
+			for(int z=0; z<(int)anim_data.keyframe_times.size(); ++z) // For each input accessor:
 			{
-				const std::vector<float>& time_vals = anim_datum.keyframe_times[z];
+				const std::vector<float>& time_vals = anim_data.keyframe_times[z];
 
 				if(!time_vals.empty())
 				{
-
-					/*
-					frame 0                     frame 1                        frame 2                      frame 3
-					|----------------------------|-----------------------------|-----------------------------|-------------------------> time
-					^                                         ^
-					cur_frame_i                             in_anim_time
-					*/
-
-					assert(time_vals.size() >= 2);
-					const float in_anim_time = time_vals[0] + Maths::floatMod(use_time, time_vals.back() - time_vals[0]);
-
-					// Find current frame
-					auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
-					int next_index = (int)(res - time_vals.begin());
-					int index = next_index - 1;
-
-					next_index = myMin(next_index, (int)time_vals.size() - 1);
-
-					float index_time;
-					if(index < 0)
+					if(time_vals.size() == 1)
 					{
-						index = (int)time_vals.size() - 1; // Use last keyframe value
-						index_time = 0;
+						key_frame_locs[z].i_0 = 0;
+						key_frame_locs[z].i_1 = 0;
+						key_frame_locs[z].frac = 0;
 					}
 					else
-						index_time = time_vals[index];
+					{
+						// TODO: use incremental search based on the position last frame, instead of using upper_bound.  (or combine)
 
-					//if(index >= 0 && next_index < time_vals.size())
-					//{
-						float frac;
-						frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
-						assert(frac >= 0 && frac <= 1);
-					//}
+						/*
+						frame 0                     frame 1                        frame 2                      frame 3
+						|----------------------------|-----------------------------|-----------------------------|-------------------------> time
+						^                                         ^
+						cur_frame_i                             in_anim_time
+						*/
 
-					key_frame_locs[z].i_0 = index;
-					key_frame_locs[z].i_1 = next_index;
-					key_frame_locs[z].frac = frac;
+						assert(time_vals.size() >= 2);
+						const float in_anim_time = time_vals[0] + Maths::floatMod(use_time, time_vals.back() - time_vals[0]);
+
+						// Find current frame
+						auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
+						int next_index = (int)(res - time_vals.begin());
+						int index = next_index - 1;
+
+						next_index = myMin(next_index, (int)time_vals.size() - 1);
+
+						float index_time;
+						if(index < 0)
+						{
+							index = (int)time_vals.size() - 1; // Use last keyframe value
+							index_time = 0;
+						}
+						else
+							index_time = time_vals[index];
+
+						//if(index >= 0 && next_index < time_vals.size())
+						//{
+							float frac;
+							frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
+							assert(frac >= 0 && frac <= 1);
+						//}
+
+						key_frame_locs[z].i_0 = index;
+						key_frame_locs[z].i_1 = next_index;
+						key_frame_locs[z].frac = frac;
+					}
 				}
 			}
 
@@ -2157,8 +2167,8 @@ void OpenGLEngine::draw()
 					const float frac = key_frame_locs[node.translation_input_accessor].frac;
 
 					// read translation values from output accessor.
-					const Vec4f trans_0 = (anim_datum.output_data[node.translation_output_accessor])[i_0];
-					const Vec4f trans_1 = (anim_datum.output_data[node.translation_output_accessor])[i_1];
+					const Vec4f trans_0 = (anim_data.output_data[node.translation_output_accessor])[i_0];
+					const Vec4f trans_1 = (anim_data.output_data[node.translation_output_accessor])[i_1];
 					trans = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
 				}
 				else
@@ -2172,8 +2182,8 @@ void OpenGLEngine::draw()
 					const float frac = key_frame_locs[node.rotation_input_accessor].frac;
 
 					// read rotation values from output accessor
-					const Quatf rot_0 = Quatf((anim_datum.output_data[node.rotation_output_accessor])[i_0]);
-					const Quatf rot_1 = Quatf((anim_datum.output_data[node.rotation_output_accessor])[i_1]);
+					const Quatf rot_0 = Quatf((anim_data.output_data[node.rotation_output_accessor])[i_0]);
+					const Quatf rot_1 = Quatf((anim_data.output_data[node.rotation_output_accessor])[i_1]);
 					rot = Quatf::nlerp(rot_0, rot_1, frac);
 				}
 				else
@@ -2187,8 +2197,8 @@ void OpenGLEngine::draw()
 					const float frac = key_frame_locs[node.scale_input_accessor].frac;
 
 					// read scale values from output accessor
-					const Vec4f scale_0 = (anim_datum.output_data[node.scale_output_accessor])[i_0];
-					const Vec4f scale_1 = (anim_datum.output_data[node.scale_output_accessor])[i_1];
+					const Vec4f scale_0 = (anim_data.output_data[node.scale_output_accessor])[i_0];
+					const Vec4f scale_1 = (anim_data.output_data[node.scale_output_accessor])[i_1];
 					scale = Maths::lerp(scale_0, scale_1, frac);
 				}
 				else

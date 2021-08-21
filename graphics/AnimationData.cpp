@@ -72,24 +72,6 @@ void AnimationDatum::writeToStream(OutStream& stream) const
 	stream.writeUInt32((uint32)per_anim_node_data.size());
 	for(size_t i=0; i<per_anim_node_data.size(); ++i)
 		per_anim_node_data[i].writeToStream(stream);
-
-	// Write keyframe_times
-	stream.writeUInt32((uint32)keyframe_times.size());
-	for(size_t i=0; i<keyframe_times.size(); ++i)
-	{
-		const std::vector<float>& vec = keyframe_times[i];
-		stream.writeUInt32((uint32)vec.size());
-		stream.writeData(vec.data(), sizeof(float) * vec.size());
-	}
-
-	// Write output_data
-	stream.writeUInt32((uint32)output_data.size());
-	for(size_t i=0; i<output_data.size(); ++i)
-	{
-		const js::Vector<Vec4f, 16>& vec = output_data[i];
-		stream.writeUInt32((uint32)vec.size());
-		stream.writeData(vec.data(), sizeof(Vec4f) * vec.size());
-	}
 }
 
 
@@ -106,42 +88,11 @@ void AnimationDatum::readFromStream(InStream& stream)
 		for(size_t i=0; i<per_anim_node_data.size(); ++i)
 			per_anim_node_data[i].readFromStream(stream);
 	}
-
-	// Read keyframe_times
-	{
-		const uint32 num = stream.readUInt32();
-		if(num > 100000)
-			throw glare::Exception("invalid num");
-		keyframe_times.resize(num);
-		for(size_t i=0; i<keyframe_times.size(); ++i)
-		{
-			std::vector<float>& vec = keyframe_times[i];
-			const uint32 vec_size = stream.readUInt32();
-			if(vec_size > 100000)
-				throw glare::Exception("invalid vec_size");
-			vec.resize(vec_size);
-			stream.readData(vec.data(), vec_size * sizeof(float));
-		}
-	}
-
-	// Read output_data
-	{
-		const uint32 num = stream.readUInt32();
-		if(num > 100000)
-			throw glare::Exception("invalid num");
-		output_data.resize(num);
-		for(size_t i=0; i<output_data.size(); ++i)
-		{
-			js::Vector<Vec4f, 16>& vec = output_data[i];
-			const uint32 vec_size = stream.readUInt32();
-			if(vec_size > 100000)
-				throw glare::Exception("invalid vec_size");
-			vec.resize(vec_size);
-			stream.readData(vec.data(), vec_size * sizeof(Vec4f));
-		}
-	}
+}
 
 
+void AnimationDatum::checkData(const std::vector<std::vector<float> >& keyframe_times, const std::vector<js::Vector<Vec4f, 16> >& output_data) const
+{
 	// Bounds-check data
 	for(size_t i=0; i<per_anim_node_data.size(); ++i)
 	{
@@ -155,9 +106,9 @@ void AnimationDatum::readFromStream(InStream& stream)
 		checkProperty(data.rotation_output_accessor    >= -1 && data.rotation_output_accessor     < (int)output_data.size(), "invalid output accessor index");
 		checkProperty(data.scale_output_accessor       >= -1 && data.scale_output_accessor        < (int)output_data.size(), "invalid output accessor index");
 
-		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].size() >= 2, "invalid num keyframes");
-		if(data.rotation_input_accessor    >= 0) checkProperty(keyframe_times[data.rotation_input_accessor   ].size() >= 2, "invalid num keyframes");
-		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].size() >= 2, "invalid num keyframes");
+		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].size() >= 1, "invalid num keyframes");
+		if(data.rotation_input_accessor    >= 0) checkProperty(keyframe_times[data.rotation_input_accessor   ].size() >= 1, "invalid num keyframes");
+		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].size() >= 1, "invalid num keyframes");
 
 		// Output data vectors should be the same size as the input keyframe vectors, when they are used together.
 		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].size() == output_data[data.translation_output_accessor].size(), "num keyframes != output_data size");
@@ -167,7 +118,7 @@ void AnimationDatum::readFromStream(InStream& stream)
 }
 
 
-static const int ANIMATION_DATA_VERSION = 1;
+static const uint32 ANIMATION_DATA_VERSION = 2;
 
 
 void AnimationData::writeToStream(OutStream& stream) const
@@ -188,6 +139,24 @@ void AnimationData::writeToStream(OutStream& stream) const
 	// Write joint_nodes
 	stream.writeUInt32((uint32)joint_nodes.size());
 	stream.writeData(joint_nodes.data(), sizeof(int) * joint_nodes.size());
+
+	// Write keyframe_times
+	stream.writeUInt32((uint32)keyframe_times.size());
+	for(size_t i=0; i<keyframe_times.size(); ++i)
+	{
+		const std::vector<float>& vec = keyframe_times[i];
+		stream.writeUInt32((uint32)vec.size());
+		stream.writeData(vec.data(), sizeof(float) * vec.size());
+	}
+
+	// Write output_data
+	stream.writeUInt32((uint32)output_data.size());
+	for(size_t i=0; i<output_data.size(); ++i)
+	{
+		const js::Vector<Vec4f, 16>& vec = output_data[i];
+		stream.writeUInt32((uint32)vec.size());
+		stream.writeData(vec.data(), sizeof(Vec4f) * vec.size());
+	}
 
 	// Write animations
 	stream.writeUInt32((uint32)animations.size());
@@ -232,6 +201,40 @@ void AnimationData::readFromStream(InStream& stream)
 		stream.readData(joint_nodes.data(), sizeof(int) * joint_nodes.size());
 	}
 
+	// Read keyframe_times
+	{
+		const uint32 num = stream.readUInt32();
+		if(num > 100000)
+			throw glare::Exception("invalid num");
+		keyframe_times.resize(num);
+		for(size_t i=0; i<keyframe_times.size(); ++i)
+		{
+			std::vector<float>& vec = keyframe_times[i];
+			const uint32 vec_size = stream.readUInt32();
+			if(vec_size > 100000)
+				throw glare::Exception("invalid vec_size");
+			vec.resize(vec_size);
+			stream.readData(vec.data(), vec_size * sizeof(float));
+		}
+	}
+
+	// Read output_data
+	{
+		const uint32 num = stream.readUInt32();
+		if(num > 100000)
+			throw glare::Exception("invalid num");
+		output_data.resize(num);
+		for(size_t i=0; i<output_data.size(); ++i)
+		{
+			js::Vector<Vec4f, 16>& vec = output_data[i];
+			const uint32 vec_size = stream.readUInt32();
+			if(vec_size > 100000)
+				throw glare::Exception("invalid vec_size");
+			vec.resize(vec_size);
+			stream.readData(vec.data(), vec_size * sizeof(Vec4f));
+		}
+	}
+
 	// Read animations
 	{
 		const uint32 num = stream.readUInt32();
@@ -242,8 +245,11 @@ void AnimationData::readFromStream(InStream& stream)
 		{
 			animations[i] = new AnimationDatum();
 			animations[i]->readFromStream(stream);
+			animations[i]->checkData(keyframe_times, output_data);
 		}
 	}
+
+	
 
 	// Bounds-check data
 	for(size_t i=0; i<sorted_nodes.size(); ++i)
@@ -254,5 +260,13 @@ void AnimationData::readFromStream(InStream& stream)
 
 	for(size_t i=0; i<nodes.size(); ++i)
 		checkProperty(nodes[i].parent_index >= -1 && nodes[i].parent_index < (int)nodes.size(), "invalid parent_index index"); // parent_index of -1 is valid.
+}
 
+
+int AnimationData::findAnimation(const std::string& name)
+{
+	for(size_t i=0; i<animations.size(); ++i)
+		if(animations[i]->name == name)
+			return (int)i;
+	return -1;
 }

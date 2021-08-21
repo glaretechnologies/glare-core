@@ -57,20 +57,22 @@ struct AnimationDatum : public RefCounted
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(InStream& stream);
 
+	void checkData(const std::vector<std::vector<float> >& keyframe_times, const std::vector<js::Vector<Vec4f, 16> >& output_data) const;
+
 	std::string name;
 
 	std::vector<PerAnimationNodeData> per_anim_node_data;
-
-	std::vector<std::vector<float> > keyframe_times; // For each input accessor index, a vector of input keyframe times.
-
-	std::vector<js::Vector<Vec4f, 16> > output_data; // For each output accessor index, a vector of translations, rotations or scales.
 };
 
 
 struct AnimationData
 {
+	AnimationData() : current_anim_i(0) {}
+
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(InStream& stream);
+
+	int findAnimation(const std::string& name);
 
 	Matrix4f skeleton_root_transform; // to-world transform of the skeleton root node.
 
@@ -79,7 +81,13 @@ struct AnimationData
 
 	std::vector<int> joint_nodes; // Indices into nodes array.  Joint vertex values index into this array, or rather index into matrices with the same ordering.
 
+	std::vector<std::vector<float> > keyframe_times; // For each input accessor index, a vector of input keyframe times.
+
+	std::vector<js::Vector<Vec4f, 16> > output_data; // For each output accessor index, a vector of translations, rotations or scales.
+
 	std::vector<Reference<AnimationDatum> > animations;
+
+	int current_anim_i; // Index into animations.  Ephemeral
 };
 
 

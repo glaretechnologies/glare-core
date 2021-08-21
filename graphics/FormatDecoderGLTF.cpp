@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/PlatformUtils.h"
 #include "../utils/IncludeXXHash.h"
 #include "../utils/FileOutStream.h"
+#include "../utils/FileInStream.h"
 #include "../utils/Base64.h"
 #include "../maths/Quat.h"
 #include "../graphics/Colour4f.h"
@@ -1290,48 +1291,24 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 }
 
 
-static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const std::string& gltf_folder, AnimationDatum& anim_data_out)
+static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const std::string& gltf_folder, const std::vector<int>& new_input_index, const std::vector<int>& new_output_index, 
+	AnimationData& anim_data_out, AnimationDatum& anim_datum_out)
 {
 	conPrint("Processing anim " + anim.name + "...");
 
-	anim_data_out.name = anim.name;
-
-
-	// Do a pass to get that largest input and output accessor indices.
-	int largest_input_accessor = -1;
-	int largest_output_accessor = -1;
-
-	for(size_t c=0; c<anim.channels.size(); ++c)
-	{
-		const GLTFChannel& channel = anim.channels[c];
-
-		// Get sampler
-		checkProperty(channel.sampler >= 0 && channel.sampler < (int)anim.samplers.size(), "invalid sampler index");
-		const GLTFSampler& sampler = anim.samplers[channel.sampler];
-
-		largest_input_accessor  = myMax(largest_input_accessor,  sampler.input);
-		largest_output_accessor = myMax(largest_output_accessor, sampler.output);
-	}
-
-	// sanity check largest_input_accessor etc.
-	checkProperty(largest_input_accessor  >= -1 && largest_input_accessor < 10000,  "invalid animation input accessor");
-	checkProperty(largest_output_accessor >= -1 && largest_output_accessor < 10000, "invalid animation output accessor");
-
-	anim_data_out.keyframe_times.resize(largest_input_accessor  + 1);
-	anim_data_out.output_data   .resize(largest_output_accessor + 1);
-
+	anim_datum_out.name = anim.name;
 
 	//--------------------------- Set default translations, scales, rotations with the non-animated static values. ---------------------------
 
-	anim_data_out.per_anim_node_data.resize(data.nodes.size());
+	anim_datum_out.per_anim_node_data.resize(data.nodes.size());
 	for(size_t n=0; n<data.nodes.size(); ++n)
 	{
-		anim_data_out.per_anim_node_data[n].translation_input_accessor = -1;
-		anim_data_out.per_anim_node_data[n].translation_output_accessor = -1;
-		anim_data_out.per_anim_node_data[n].rotation_input_accessor = -1;
-		anim_data_out.per_anim_node_data[n].rotation_output_accessor = -1;
-		anim_data_out.per_anim_node_data[n].scale_input_accessor = -1;
-		anim_data_out.per_anim_node_data[n].scale_output_accessor = -1;
+		anim_datum_out.per_anim_node_data[n].translation_input_accessor = -1;
+		anim_datum_out.per_anim_node_data[n].translation_output_accessor = -1;
+		anim_datum_out.per_anim_node_data[n].rotation_input_accessor = -1;
+		anim_datum_out.per_anim_node_data[n].rotation_output_accessor = -1;
+		anim_datum_out.per_anim_node_data[n].scale_input_accessor = -1;
+		anim_datum_out.per_anim_node_data[n].scale_output_accessor = -1;
 	}
 	
 
@@ -1342,86 +1319,34 @@ static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const st
 
 		checkProperty(sampler.interpolation == GLTFSampler::Interpolation_linear || sampler.interpolation == GLTFSampler::Interpolation_step, "Only linear and step interpolation types supported currently for animations.");
 
-		//---------------- read keyframe time values from the input accessor -----------------
-		std::vector<float>& time_vals = anim_data_out.keyframe_times[sampler.input];
-		if(time_vals.empty()) // If we have not already read the data for this input accessor:
-		{
-			const GLTFAccessor& input_accessor = getAccessor(data, sampler.input);
-
-			// input should be "a set of floating point scalar values representing linear time in seconds"
-			checkProperty(input_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT, "anim input component_type was not float");
-			checkProperty(input_accessor.type == "SCALAR", "anim input type was not SCALAR");
-
-			const GLTFBufferView& buf_view = getBufferView(data, input_accessor.buffer_view);
-			const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
-			const size_t offset_B = input_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
-			const uint8* offset_base = buffer.binary_data + offset_B;
-			const size_t value_size_B = componentTypeByteSize(input_accessor.component_type) * typeNumComponents(input_accessor.type);
-			const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
-
-			checkAccessorBounds(byte_stride, offset_B, value_size_B, input_accessor, buffer, /*expected_num_components=*/1);
-
-			time_vals.resize(input_accessor.count);
-			for(size_t i=0; i<input_accessor.count; ++i)
-				std::memcpy(&time_vals[i], offset_base + byte_stride * i, sizeof(float));
-		}
-
+		const GLTFAccessor& input_accessor  = getAccessor(data, sampler.input);
 		const GLTFAccessor& output_accessor = getAccessor(data, sampler.output);
-		
+
 		// For linear and step interpolation types, we have this constraint:
 		// "The number output of elements must equal the number of input elements."
 		// For cubic-spline there are tangents to handle as well.
-		checkProperty(time_vals.size() == output_accessor.count, "Animation: The number output of elements must equal the number of input elements.");
+		checkProperty(input_accessor.count == output_accessor.count, "Animation: The number output of elements must equal the number of input elements.");
 
-		js::Vector<Vec4f, 16>& output_data = anim_data_out.output_data[sampler.output];
-
-		if(output_data.empty()) // If we have not already read the data for this output accessor:
+		if(channel.target_path == GLTFChannel::Path_translation)
 		{
-			// NOTE: GLTF translations and scales must be FLOAT.  But rotation can be a bunch of stuff, BYTE etc..  TODO: handle.
-			if(output_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
-				throw glare::Exception("anim output component_type was not float");
+			anim_datum_out.per_anim_node_data[channel.target_node].translation_input_accessor  = new_input_index [sampler.input];
+			anim_datum_out.per_anim_node_data[channel.target_node].translation_output_accessor = new_output_index[sampler.output];
 
-			const GLTFBufferView& buf_view = getBufferView(data, output_accessor.buffer_view);
-			const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
-			const size_t offset_B = output_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
-			const uint8* offset_base = buffer.binary_data + offset_B;
-			const size_t value_size_B = componentTypeByteSize(output_accessor.component_type) * typeNumComponents(output_accessor.type);
-			const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+			checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated translation");
+		}
+		else if(channel.target_path == GLTFChannel::Path_rotation)
+		{
+			anim_datum_out.per_anim_node_data[channel.target_node].rotation_input_accessor  = new_input_index [sampler.input];
+			anim_datum_out.per_anim_node_data[channel.target_node].rotation_output_accessor = new_output_index[sampler.output];
 
-			checkAccessorBounds(byte_stride, offset_B, value_size_B, output_accessor, buffer);
+			checkProperty(typeNumComponents(output_accessor.type) == 4, "invalid number of components for animated rotation");
+		}
+		else if(channel.target_path == GLTFChannel::Path_scale)
+		{
+			anim_datum_out.per_anim_node_data[channel.target_node].scale_input_accessor  = new_input_index [sampler.input];
+			anim_datum_out.per_anim_node_data[channel.target_node].scale_output_accessor = new_output_index[sampler.output];
 
-			output_data.resize(output_accessor.count, Vec4f(0.f));
-
-			if(channel.target_path == GLTFChannel::Path_translation)
-			{
-				anim_data_out.per_anim_node_data[channel.target_node].translation_input_accessor  = sampler.input;
-				anim_data_out.per_anim_node_data[channel.target_node].translation_output_accessor = sampler.output;
-
-				checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated translation");
-
-				for(size_t i=0; i<output_accessor.count; ++i)
-					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 3);
-			}
-			else if(channel.target_path == GLTFChannel::Path_rotation)
-			{
-				anim_data_out.per_anim_node_data[channel.target_node].rotation_input_accessor  = sampler.input;
-				anim_data_out.per_anim_node_data[channel.target_node].rotation_output_accessor = sampler.output;
-
-				checkProperty(typeNumComponents(output_accessor.type) == 4, "invalid number of components for animated rotation");
-
-				for(size_t i=0; i<output_accessor.count; ++i)
-					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 4);
-			}
-			else if(channel.target_path == GLTFChannel::Path_scale)
-			{
-				anim_data_out.per_anim_node_data[channel.target_node].scale_input_accessor  = sampler.input;
-				anim_data_out.per_anim_node_data[channel.target_node].scale_output_accessor = sampler.output;
-
-				checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated scale");
-
-				for(size_t i=0; i<output_accessor.count; ++i)
-					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 3);
-			}
+			checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated scale");
 		}
 	}
 
@@ -2260,11 +2185,133 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 
 	// Process animations
+	// Do a pass to get that largest input and output accessor indices.
+	int largest_input_accessor = -1;
+	int largest_output_accessor = -1;
+
+	for(size_t i=0; i<data.animations.size(); ++i)
+	{
+		const GLTFAnimation* anim = data.animations[i].ptr();
+		for(size_t c=0; c<anim->channels.size(); ++c)
+		{
+			const GLTFChannel& channel = anim->channels[c];
+
+			// Get sampler
+			checkProperty(channel.sampler >= 0 && channel.sampler < (int)anim->samplers.size(), "invalid sampler index");
+			const GLTFSampler& sampler = anim->samplers[channel.sampler];
+
+			largest_input_accessor  = myMax(largest_input_accessor,  sampler.input);
+			largest_output_accessor = myMax(largest_output_accessor, sampler.output);
+		}
+	}
+
+	// Sanity check largest_input_accessor etc.
+	checkProperty(largest_input_accessor  >= -1 && largest_input_accessor  < 1000000, "invalid animation input accessor");
+	checkProperty(largest_output_accessor >= -1 && largest_output_accessor < 1000000, "invalid animation output accessor");
+
+	std::vector<int> new_input_index(largest_input_accessor   + 1, -1); // Map from old accessor index to new accessor data index.
+	std::vector<int> new_output_index(largest_output_accessor + 1, -1);
+
+	int cur_new_input_index = 0;
+	int cur_new_output_index = 0;
+
+	for(size_t i=0; i<data.animations.size(); ++i)
+	{
+		const GLTFAnimation* anim = data.animations[i].ptr();
+		for(size_t c=0; c<anim->channels.size(); ++c)
+		{
+			const GLTFChannel& channel = anim->channels[c];
+			const GLTFSampler& sampler = anim->samplers[channel.sampler];
+
+			if(new_input_index[sampler.input] == -1)
+				new_input_index[sampler.input] = cur_new_input_index++;
+
+			if(new_output_index[sampler.output] == -1)
+				new_output_index[sampler.output] = cur_new_output_index++;
+		}
+	}
+
+	anim_data_out.keyframe_times.resize(cur_new_input_index  + 1);
+	anim_data_out.output_data   .resize(cur_new_output_index + 1);
+
+
+	// Process channel input accessor data
+	for(size_t z=0; z<new_input_index.size(); ++z)
+	{
+		const size_t old_accessor_i = z;
+		const int new_i = new_input_index[z];
+		if(new_i != -1) // If used:
+		{
+			// Read keyframe time values from the input accessor
+			std::vector<float>& time_vals = anim_data_out.keyframe_times[new_i];
+			const GLTFAccessor& input_accessor = getAccessor(data, old_accessor_i);
+
+			// input should be "a set of floating point scalar values representing linear time in seconds"
+			checkProperty(input_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT, "anim input component_type was not float");
+			checkProperty(input_accessor.type == "SCALAR", "anim input type was not SCALAR");
+
+			const GLTFBufferView& buf_view = getBufferView(data, input_accessor.buffer_view);
+			const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+			const size_t offset_B = input_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+			const uint8* offset_base = buffer.binary_data + offset_B;
+			const size_t value_size_B = componentTypeByteSize(input_accessor.component_type) * typeNumComponents(input_accessor.type);
+			const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+			checkAccessorBounds(byte_stride, offset_B, value_size_B, input_accessor, buffer, /*expected_num_components=*/1);
+
+			time_vals.resize(input_accessor.count);
+			for(size_t i=0; i<input_accessor.count; ++i)
+				std::memcpy(&time_vals[i], offset_base + byte_stride * i, sizeof(float));
+		}
+	}
+
+	// Process channel output accessor data
+	for(size_t z=0; z<new_output_index.size(); ++z)
+	{
+		const size_t old_accessor_i = z;
+		const int new_i = new_output_index[z];
+		if(new_i != -1) // If used:
+		{
+			const GLTFAccessor& output_accessor = getAccessor(data, old_accessor_i);
+
+			js::Vector<Vec4f, 16>& output_data = anim_data_out.output_data[new_i];
+
+			// NOTE: GLTF translations and scales must be FLOAT.  But rotation can be a bunch of stuff, BYTE etc..  TODO: handle.
+			if(output_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
+				throw glare::Exception("anim output component_type was not float");
+
+			const GLTFBufferView& buf_view = getBufferView(data, output_accessor.buffer_view);
+			const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+			const size_t offset_B = output_accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+			const uint8* offset_base = buffer.binary_data + offset_B;
+			const size_t num_components = typeNumComponents(output_accessor.type);
+			const size_t value_size_B = componentTypeByteSize(output_accessor.component_type) * num_components;
+			const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+			checkAccessorBounds(byte_stride, offset_B, value_size_B, output_accessor, buffer);
+			checkProperty(num_components == 3 || num_components == 4, "Animation: num components must be 3 or 4.");
+
+			output_data.resize(output_accessor.count, Vec4f(0.f));
+			
+			if(num_components == 3)
+			{
+				for(size_t i=0; i<output_accessor.count; ++i)
+					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 3); // W component should already be zeroed.
+			}
+			else
+			{
+				for(size_t i=0; i<output_accessor.count; ++i)
+					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 4);
+			}
+		}
+	}
+
+
 	anim_data_out.animations.resize(data.animations.size());
 	for(size_t i=0; i<data.animations.size(); ++i)
 	{
 		anim_data_out.animations[i] = new AnimationDatum();
-		processAnimation(data, *data.animations[i], gltf_base_dir, *anim_data_out.animations[i]);
+		processAnimation(data, *data.animations[i], gltf_base_dir, new_input_index, new_output_index, anim_data_out, *anim_data_out.animations[i]);
 	}
 
 	// Process skins
@@ -2744,13 +2791,20 @@ void FormatDecoderGLTF::test()
 	{
 		if(false)
 		{
-			// Has vertex colours, also uses unsigned bytes for indices.
-			conPrint("---------------------------------VertexColorTest.glb-----------------------------------");
+			// Extract anims
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\retarget_01\\animated_readyplayerme_avatar.glb", data);
+			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\readyplayerme_avatar_animation_05_30fps.glb", data);
 
-			FileOutStream file("D:\\models\\extracted_avatar_anim.bin");
-			mesh->animation_data.writeToStream(file);
+			{
+				FileOutStream file("D:\\models\\extracted_avatar_anim.bin");
+				mesh->animation_data.writeToStream(file);
+			}
+
+			{
+				FileInStream file("D:\\models\\extracted_avatar_anim.bin");
+				AnimationData anim_data;
+				anim_data.readFromStream(file);
+			}
 		}
 
 		{
