@@ -255,6 +255,7 @@ void testManagerWithCache()
 		{
 			int key, val;
 			const bool removed = manager.removeLRUUnusedItem(key, val);
+			testAssert(removed);
 			testAssert(key == i && val == i);
 		}
 
