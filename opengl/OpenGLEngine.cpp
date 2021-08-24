@@ -2061,26 +2061,36 @@ void OpenGLEngine::draw()
 		AnimationData& anim_data = ob->mesh_data->animation_data;
 		if(!anim_data.animations.empty())
 		{
-			const AnimationDatum& anim_datum = *anim_data.animations[myClamp(anim_data.current_anim_i, 0, (int)anim_data.animations.size() - 1)];
-
-			//TEMP create debug visualisation of the joints
-			//if(debug_joint_obs.empty())
-			//{
-			//	debug_joint_obs.resize(anim_data.sorted_nodes.size());
-			//	for(size_t i=0; i<anim_data.sorted_nodes.size(); ++i)
-			//	{
-			//		debug_joint_obs[i] = new GLObject();
-			//		debug_joint_obs[i]->mesh_data = getSphereMeshData();
-			//		debug_joint_obs[i]->materials.resize(1);
-			//		debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-			//		debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			//			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
-			//
-			//		addObject(debug_joint_obs[i]);
-			//	}
-			//}
-
 			const float use_time = current_time;
+			
+			const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->mesh_data->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
+			
+			const int use_next_anim_i = (ob->mesh_data->next_anim_i == -1) ? ob->mesh_data->current_anim_i : ob->mesh_data->next_anim_i;
+			const AnimationDatum& anim_datum_b = *anim_data.animations[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
+
+			const float transition_frac = (float)Maths::smoothStep<double>(ob->mesh_data->transition_start_time, ob->mesh_data->transition_end_time, use_time);
+			
+			//TEMP create debug visualisation of the joints
+			if(false)
+			if(debug_joint_obs.empty())
+			{
+				debug_joint_obs.resize(anim_data.sorted_nodes.size());
+				for(size_t i=0; i<anim_data.sorted_nodes.size(); ++i)
+				{
+					debug_joint_obs[i] = new GLObject();
+					debug_joint_obs[i]->mesh_data = make3DBasisArrowMesh(); // Base will be at origin, tip will lie at (1, 0, 0)
+					debug_joint_obs[i]->materials.resize(3);
+					debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
+					debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
+					debug_joint_obs[i]->materials[2].albedo_rgb = Colour3f(0.3f, 0.5f, 0.9f);
+					//debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
+					//	/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
+			
+					addObject(debug_joint_obs[i]);
+				}
+			}
+
+			
 
 			/*
 			For each node,
@@ -2096,6 +2106,8 @@ void OpenGLEngine::draw()
 
 			// Iterate over each array of keyframe times.  (each array corresponds to an input accessor)
 			// For each array, find the current and next keyframe, and interpolation fraction, based on the current time.
+
+			// TODO: not all of these input accessors will be used, only compute data for used ones.
 			key_frame_locs.resize(anim_data.keyframe_times.size());
 			for(int z=0; z<(int)anim_data.keyframe_times.size(); ++z) // For each input accessor:
 			{
@@ -2157,52 +2169,106 @@ void OpenGLEngine::draw()
 			{
 				const int node_i = anim_data.sorted_nodes[n];
 				const AnimationNodeData& node_data = anim_data.nodes[node_i];
-				const PerAnimationNodeData& node = anim_datum.per_anim_node_data[node_i];
+				const PerAnimationNodeData& node_a = anim_datum_a.per_anim_node_data[node_i];
+				const PerAnimationNodeData& node_b = anim_datum_b.per_anim_node_data[node_i];
 
-				Vec4f trans;
-				if(node.translation_input_accessor >= 0)
+				Vec4f trans_a;
+				if(node_a.translation_input_accessor >= 0)
 				{
-					const int i_0    = key_frame_locs[node.translation_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node.translation_input_accessor].i_1;
-					const float frac = key_frame_locs[node.translation_input_accessor].frac;
+					const int i_0    = key_frame_locs[node_a.translation_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node_a.translation_input_accessor].i_1;
+					const float frac = key_frame_locs[node_a.translation_input_accessor].frac;
 
 					// read translation values from output accessor.
-					const Vec4f trans_0 = (anim_data.output_data[node.translation_output_accessor])[i_0];
-					const Vec4f trans_1 = (anim_data.output_data[node.translation_output_accessor])[i_1];
-					trans = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+					const Vec4f trans_0 = (anim_data.output_data[node_a.translation_output_accessor])[i_0];
+					const Vec4f trans_1 = (anim_data.output_data[node_a.translation_output_accessor])[i_1];
+					trans_a = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
 				}
 				else
-					trans = node_data.trans;
+					trans_a = node_data.trans;
 
-				Quatf rot;
-				if(node.rotation_input_accessor >= 0)
+				Vec4f trans_b;
+				if(node_b.translation_input_accessor >= 0)
 				{
-					const int i_0    = key_frame_locs[node.rotation_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node.rotation_input_accessor].i_1;
-					const float frac = key_frame_locs[node.rotation_input_accessor].frac;
+					const int i_0    = key_frame_locs[node_b.translation_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node_b.translation_input_accessor].i_1;
+					const float frac = key_frame_locs[node_b.translation_input_accessor].frac;
+
+					// read translation values from output accessor.
+					const Vec4f trans_0 = (anim_data.output_data[node_b.translation_output_accessor])[i_0];
+					const Vec4f trans_1 = (anim_data.output_data[node_b.translation_output_accessor])[i_1];
+					trans_b = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+				}
+				else
+					trans_b = node_data.trans;
+
+				const Vec4f trans = Maths::lerp(trans_a, trans_b, transition_frac);
+
+
+
+				Quatf rot_a;
+				if(node_a.rotation_input_accessor >= 0)
+				{
+					const int i_0    = key_frame_locs[node_a.rotation_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node_a.rotation_input_accessor].i_1;
+					const float frac = key_frame_locs[node_a.rotation_input_accessor].frac;
 
 					// read rotation values from output accessor
-					const Quatf rot_0 = Quatf((anim_data.output_data[node.rotation_output_accessor])[i_0]);
-					const Quatf rot_1 = Quatf((anim_data.output_data[node.rotation_output_accessor])[i_1]);
-					rot = Quatf::nlerp(rot_0, rot_1, frac);
+					const Quatf rot_0 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_0]);
+					const Quatf rot_1 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_1]);
+					rot_a = Quatf::nlerp(rot_0, rot_1, frac);
 				}
 				else
-					rot = node_data.rot;
+					rot_a = node_data.rot;
 
-				Vec4f scale;
-				if(node.scale_input_accessor >= 0)
+				Quatf rot_b;
+				if(node_b.rotation_input_accessor >= 0)
 				{
-					const int i_0    = key_frame_locs[node.scale_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node.scale_input_accessor].i_1;
-					const float frac = key_frame_locs[node.scale_input_accessor].frac;
+					const int i_0    = key_frame_locs[node_b.rotation_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node_b.rotation_input_accessor].i_1;
+					const float frac = key_frame_locs[node_b.rotation_input_accessor].frac;
+
+					// read rotation values from output accessor
+					const Quatf rot_0 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_0]);
+					const Quatf rot_1 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_1]);
+					rot_b = Quatf::nlerp(rot_0, rot_1, frac);
+				}
+				else
+					rot_b = node_data.rot;
+
+				const Quatf rot = Quatf::nlerp(rot_a, rot_b, transition_frac);
+
+				Vec4f scale_a;
+				if(node_a.scale_input_accessor >= 0)
+				{
+					const int i_0    = key_frame_locs[node_a.scale_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node_a.scale_input_accessor].i_1;
+					const float frac = key_frame_locs[node_a.scale_input_accessor].frac;
 
 					// read scale values from output accessor
-					const Vec4f scale_0 = (anim_data.output_data[node.scale_output_accessor])[i_0];
-					const Vec4f scale_1 = (anim_data.output_data[node.scale_output_accessor])[i_1];
-					scale = Maths::lerp(scale_0, scale_1, frac);
+					const Vec4f scale_0 = (anim_data.output_data[node_a.scale_output_accessor])[i_0];
+					const Vec4f scale_1 = (anim_data.output_data[node_a.scale_output_accessor])[i_1];
+					scale_a = Maths::lerp(scale_0, scale_1, frac);
 				}
 				else
-					scale = node_data.scale;
+					scale_a = node_data.scale;
+
+				Vec4f scale_b;
+				if(node_b.scale_input_accessor >= 0)
+				{
+					const int i_0    = key_frame_locs[node_b.scale_input_accessor].i_0;
+					const int i_1    = key_frame_locs[node_b.scale_input_accessor].i_1;
+					const float frac = key_frame_locs[node_b.scale_input_accessor].frac;
+
+					// read scale values from output accessor
+					const Vec4f scale_0 = (anim_data.output_data[node_b.scale_output_accessor])[i_0];
+					const Vec4f scale_1 = (anim_data.output_data[node_b.scale_output_accessor])[i_1];
+					scale_b = Maths::lerp(scale_0, scale_1, frac);
+				}
+				else
+					scale_b = node_data.scale;
+
+				const Vec4f scale = Maths::lerp(scale_a, scale_b, transition_frac);
 
 
 
@@ -2214,7 +2280,7 @@ void OpenGLEngine::draw()
 						rot_mat.getColumn(2) * copyToAll<2>(scale),
 						setWToOne(trans));
 
-				const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * TRS);
+				const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * node_data.retarget_adjustment * TRS);
 
 				node_matrices[node_i] = node_transform;
 
@@ -2222,7 +2288,11 @@ void OpenGLEngine::draw()
 
 				// Set location of debug joint visualisation objects
 				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
-				//updateObjectTransformData(*debug_joint_obs[node_i]);
+				if(!debug_joint_obs.empty())
+				{
+					debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.2f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+					updateObjectTransformData(*debug_joint_obs[node_i]);
+				}
 			}
 		}
 		else // else if anim_data.animations.empty():
@@ -5175,6 +5245,139 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::make3DArrowMesh()
 	}
 
 	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	return mesh_data;
+}
+
+
+// Base will be at origin, tips will lie at (1, 0, 0), (0,1,0), (0,0,1)
+Reference<OpenGLMeshRenderData> OpenGLEngine::make3DBasisArrowMesh()
+{
+	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
+
+	const int res = 20;
+
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(res * 4 * 2 * 3);
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(res * 4 * 2 * 3);
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(res * 4 * 2 * 3);
+	js::Vector<uint32, 16> indices;
+	indices.resize(res * 6 * 2 * 3); // two tris per quad
+
+	for(int z=0; z<3; ++z)
+	{
+		const int verts_offset   = res * 4 * 2 * z;
+		const int indices_offset = res * 6 * 2 * z;
+		Vec3f dir, basis_i, basis_j;
+		if(z == 0)
+		{
+			dir = Vec3f(1,0,0);
+			basis_i = Vec3f(0,1,0);
+		}
+		else if(z == 1)
+		{
+			dir = Vec3f(0,1,0);
+			basis_i = Vec3f(0,0,1);
+		}
+		else
+		{
+			dir = Vec3f(0,0,1);
+			basis_i = Vec3f(1,0,0);
+		}
+		basis_j = crossProduct(dir, basis_i);
+
+		const float length = 1;
+		const float shaft_r = length * 0.02f;
+		const float shaft_len = length * 0.8f;
+		const float head_r = length * 0.04f;
+
+		// Draw cylinder for shaft of arrow
+		for(int i=0; i<res; ++i)
+		{
+			const float angle      = i       * Maths::get2Pi<float>() / res;
+			const float next_angle = (i + 1) * Maths::get2Pi<float>() / res;
+
+			// Define quad
+			{
+				Vec3f normal1(basis_i * cos(angle     ) + basis_j * sin(angle     ));
+				Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
+
+				normals[verts_offset + i*8 + 0] = normal1;
+				normals[verts_offset + i*8 + 1] = normal2;
+				normals[verts_offset + i*8 + 2] = normal2;
+				normals[verts_offset + i*8 + 3] = normal1;
+
+				Vec3f v0((basis_i * cos(angle     ) + basis_j * sin(angle     )) * shaft_r);
+				Vec3f v1((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r);
+				Vec3f v2((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r + dir * shaft_len);
+				Vec3f v3((basis_i * cos(angle     ) + basis_j * sin(angle     )) * shaft_r + dir * shaft_len);
+
+				verts[verts_offset + i*8 + 0] = v0;
+				verts[verts_offset + i*8 + 1] = v1;
+				verts[verts_offset + i*8 + 2] = v2;
+				verts[verts_offset + i*8 + 3] = v3;
+
+				uvs[verts_offset + i*8 + 0] = Vec2f(0.f);
+				uvs[verts_offset + i*8 + 1] = Vec2f(0.f);
+				uvs[verts_offset + i*8 + 2] = Vec2f(0.f);
+				uvs[verts_offset + i*8 + 3] = Vec2f(0.f);
+
+				indices[indices_offset + i*12 + 0] = verts_offset + i*8 + 0; 
+				indices[indices_offset + i*12 + 1] = verts_offset + i*8 + 1; 
+				indices[indices_offset + i*12 + 2] = verts_offset + i*8 + 2; 
+				indices[indices_offset + i*12 + 3] = verts_offset + i*8 + 0;
+				indices[indices_offset + i*12 + 4] = verts_offset + i*8 + 2;
+				indices[indices_offset + i*12 + 5] = verts_offset + i*8 + 3;
+			}
+
+			// Define arrow head
+			{
+				//Vec3f normal(basis_i * cos(angle     ) + basis_j * sin(angle     ));
+				// NOTE: this normal is somewhat wrong.
+				Vec3f normal1(basis_i * cos(angle     ) + basis_j * sin(angle     ));
+				Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
+
+				normals[verts_offset + i*8 + 4] = normal1;
+				normals[verts_offset + i*8 + 5] = normal2;
+				normals[verts_offset + i*8 + 6] = normal2;
+				normals[verts_offset + i*8 + 7] = normal1;
+
+				Vec3f v0((basis_i * cos(angle     ) + basis_j * sin(angle     )) * head_r + dir * shaft_len);
+				Vec3f v1((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * head_r + dir * shaft_len);
+				Vec3f v2(dir * length);
+				Vec3f v3(dir * length);
+
+				verts[verts_offset + i*8 + 4] = v0;
+				verts[verts_offset + i*8 + 5] = v1;
+				verts[verts_offset + i*8 + 6] = v2;
+				verts[verts_offset + i*8 + 7] = v3;
+
+				uvs[verts_offset + i*8 + 4] = Vec2f(0.f);
+				uvs[verts_offset + i*8 + 5] = Vec2f(0.f);
+				uvs[verts_offset + i*8 + 6] = Vec2f(0.f);
+				uvs[verts_offset + i*8 + 7] = Vec2f(0.f);
+
+				indices[indices_offset + i*12 +  6] = verts_offset + i*8 + 4; 
+				indices[indices_offset + i*12 +  7] = verts_offset + i*8 + 5; 
+				indices[indices_offset + i*12 +  8] = verts_offset + i*8 + 6; 
+				indices[indices_offset + i*12 +  9] = verts_offset + i*8 + 4;
+				indices[indices_offset + i*12 + 10] = verts_offset + i*8 + 6;
+				indices[indices_offset + i*12 + 11] = verts_offset + i*8 + 7;
+			}
+		}
+	}
+
+	buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+
+	mesh_data->batches.resize(3);
+	for(int z=0; z<3; ++z)
+	{
+		mesh_data->batches[z].material_index = z;
+		mesh_data->batches[z].num_indices = (uint32)res * 6 * 2;
+		mesh_data->batches[z].prim_start_offset = sizeof(uint32) * res * 6 * 2 * z;
+	}
+
 	return mesh_data;
 }
 

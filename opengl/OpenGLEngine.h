@@ -78,7 +78,7 @@ struct GLMemUsage
 class OpenGLMeshRenderData : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false) {}
+	OpenGLMeshRenderData() : has_vert_colours(false), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -113,6 +113,11 @@ public:
 	Reference<BatchedMesh> batched_mesh;
 
 	AnimationData animation_data;
+
+	int current_anim_i; // Index into animations.
+	int next_anim_i;
+	double transition_start_time;
+	double transition_end_time;
 };
 
 
@@ -605,6 +610,7 @@ private:
 		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
 	void buildOutlineTextures();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
+	static Reference<OpenGLMeshRenderData> make3DBasisArrowMesh();
 public:
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
 private:

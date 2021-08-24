@@ -211,6 +211,12 @@ void BatchedMeshTests::test()
 
 	try
 	{
+		// Test loading a batched mesh with old version (1) animation data.
+		{
+			BatchedMesh batched_mesh;
+			BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh", batched_mesh);
+		}
+
 		// Test a mesh with 2 UV sets (from lightmap unwrapping)
 		{
 			Indigo::Mesh indigo_mesh;

@@ -10,6 +10,9 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/OutStream.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
+#include "../utils/ConPrint.h"
+#include "../utils/ContainerUtils.h"
+#include <unordered_map>
 
 
 // Throws an exception if b is false.
@@ -18,6 +21,9 @@ static inline void checkProperty(bool b, const char* on_false_message)
 	if(!b)
 		throw glare::Exception(std::string(on_false_message));
 }
+
+
+AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity()) {}
 
 
 void AnimationNodeData::writeToStream(OutStream& stream) const
@@ -75,7 +81,7 @@ void AnimationDatum::writeToStream(OutStream& stream) const
 }
 
 
-void AnimationDatum::readFromStream(InStream& stream)
+void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, std::vector<std::vector<float> >& old_keyframe_times_out, std::vector<js::Vector<Vec4f, 16> >& old_output_data)
 {
 	name = stream.readStringLengthFirst(10000);
 
@@ -87,6 +93,42 @@ void AnimationDatum::readFromStream(InStream& stream)
 		per_anim_node_data.resize(num);
 		for(size_t i=0; i<per_anim_node_data.size(); ++i)
 			per_anim_node_data[i].readFromStream(stream);
+	}
+
+	// Read keyframe_times
+	if(file_version == 1)
+	{
+		const uint32 num = stream.readUInt32();
+		if(num > 100000)
+			throw glare::Exception("invalid num");
+		old_keyframe_times_out.resize(num);
+		for(size_t i=0; i<old_keyframe_times_out.size(); ++i)
+		{
+			std::vector<float>& vec = old_keyframe_times_out[i];
+			const uint32 vec_size = stream.readUInt32();
+			if(vec_size > 100000)
+				throw glare::Exception("invalid vec_size");
+			vec.resize(vec_size);
+			stream.readData(vec.data(), vec_size * sizeof(float));
+		}
+	}
+
+	// Read output_data
+	if(file_version == 1)
+	{
+		const uint32 num = stream.readUInt32();
+		if(num > 100000)
+			throw glare::Exception("invalid num");
+		old_output_data.resize(num);
+		for(size_t i=0; i<old_output_data.size(); ++i)
+		{
+			js::Vector<Vec4f, 16>& vec = old_output_data[i];
+			const uint32 vec_size = stream.readUInt32();
+			if(vec_size > 100000)
+				throw glare::Exception("invalid vec_size");
+			vec.resize(vec_size);
+			stream.readData(vec.data(), vec_size * sizeof(Vec4f));
+		}
 	}
 }
 
@@ -168,7 +210,7 @@ void AnimationData::writeToStream(OutStream& stream) const
 void AnimationData::readFromStream(InStream& stream)
 {
 	const uint32 version = stream.readUInt32();
-	if(version != ANIMATION_DATA_VERSION)
+	if(version > ANIMATION_DATA_VERSION)
 		throw glare::Exception("Invalid animation data version: " + toString(version));
 
 	stream.readData(skeleton_root_transform.e, sizeof(float)*16);
@@ -202,6 +244,7 @@ void AnimationData::readFromStream(InStream& stream)
 	}
 
 	// Read keyframe_times
+	if(version >= 2)
 	{
 		const uint32 num = stream.readUInt32();
 		if(num > 100000)
@@ -219,6 +262,7 @@ void AnimationData::readFromStream(InStream& stream)
 	}
 
 	// Read output_data
+	if(version >= 2)
 	{
 		const uint32 num = stream.readUInt32();
 		if(num > 100000)
@@ -244,7 +288,33 @@ void AnimationData::readFromStream(InStream& stream)
 		for(size_t i=0; i<animations.size(); ++i)
 		{
 			animations[i] = new AnimationDatum();
-			animations[i]->readFromStream(stream);
+
+			std::vector<std::vector<float> > old_keyframe_times;
+			std::vector<js::Vector<Vec4f, 16> > old_output_data;
+
+			animations[i]->readFromStream(version, stream, old_keyframe_times, old_output_data);
+
+			// Do backwwards-compat handling
+			if(version == 1)
+			{
+				const int keyframe_times_offset = (int)keyframe_times.size();
+				const int output_data_offset = (int)output_data.size();
+				ContainerUtils::append(keyframe_times, old_keyframe_times);
+				ContainerUtils::append(output_data, old_output_data);
+
+				// Offset accessors
+				for(size_t z=0; z<animations[i]->per_anim_node_data.size(); ++z)
+				{
+					PerAnimationNodeData& data = animations[i]->per_anim_node_data[z];
+					if(data.translation_input_accessor != -1)	data.translation_input_accessor		+= keyframe_times_offset;
+					if(data.rotation_input_accessor != -1)		data.rotation_input_accessor		+= keyframe_times_offset;
+					if(data.scale_input_accessor != -1)			data.scale_input_accessor			+= keyframe_times_offset;
+					if(data.translation_output_accessor != -1)	data.translation_output_accessor	+= output_data_offset;
+					if(data.rotation_output_accessor != -1)		data.rotation_output_accessor		+= output_data_offset;
+					if(data.scale_output_accessor != -1)		data.scale_output_accessor			+= output_data_offset;
+				}
+			}
+
 			animations[i]->checkData(keyframe_times, output_data);
 		}
 	}
@@ -269,4 +339,90 @@ int AnimationData::findAnimation(const std::string& name)
 		if(animations[i]->name == name)
 			return (int)i;
 	return -1;
+}
+
+
+AnimationNodeData* AnimationData::findNode(const std::string& name) // Returns NULL if not found
+{
+	for(size_t i=0; i<nodes.size(); ++i)
+		if(nodes[i].name == name)
+			return &nodes[i];
+	return NULL;
+}
+
+
+void AnimationData::loadAndRetargetAnim(InStream& stream)
+{
+	const std::vector<AnimationNodeData> old_nodes = nodes; // Copy old node data
+	//const std::vector<int> old_joint_nodes = joint_nodes;
+
+	//AnimationData new_data;
+	//new_data.readFromStream(stream);
+
+	this->readFromStream(stream);
+
+	//joint_nodes = old_joint_nodes;
+
+	std::unordered_map<std::string, int> old_node_names_to_index;
+	for(size_t z=0; z<old_nodes.size(); ++z)
+		old_node_names_to_index.insert(std::make_pair(old_nodes[z].name, (int)z));
+
+	for(size_t i=0; i<nodes.size(); ++i)
+	{
+		AnimationNodeData& new_node = nodes[i];
+
+		auto res = old_node_names_to_index.find(new_node.name);
+		if(res != old_node_names_to_index.end())
+		{
+			const int old_node_index = res->second;
+			const AnimationNodeData& old_node = old_nodes[old_node_index];
+
+			const Vec4f old_translation = old_node.trans;
+			const Vec4f new_translation = new_node.trans;
+
+			Vec4f retarget_trans = old_translation - new_translation;
+
+			Matrix4f retarget_adjustment = Matrix4f::translationMatrix(retarget_trans);
+
+			new_node.inverse_bind_matrix = old_node.inverse_bind_matrix;
+
+			new_node.retarget_adjustment = retarget_adjustment;
+
+			//conPrint(new_node.name + ": new node: " + toString(i) + ", old node: " + toString(old_node_index) + ", retarget_trans: " + retarget_trans.toStringNSigFigs(4));
+		}
+		else
+		{
+			//conPrint("could not find old node for new node " + new_node.name);
+		}
+	}
+}
+
+
+Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment)
+{
+	const size_t num_nodes = sorted_nodes.size();
+	js::Vector<Matrix4f, 16> node_matrices(num_nodes);
+
+	for(int n=0; n<sorted_nodes.size(); ++n)
+	{
+		const int node_i = sorted_nodes[n];
+		const AnimationNodeData& node_data = nodes[node_i];
+		
+		const Matrix4f rot_mat = node_data.rot.toMatrix();
+
+		const Matrix4f TRS(
+			rot_mat.getColumn(0) * copyToAll<0>(node_data.scale),
+			rot_mat.getColumn(1) * copyToAll<1>(node_data.scale),
+			rot_mat.getColumn(2) * copyToAll<2>(node_data.scale),
+			setWToOne(node_data.trans));
+
+		const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * (use_retarget_adjustment ? node_data.retarget_adjustment : Matrix4f::identity()) * TRS);
+
+		node_matrices[node_i] = node_transform;
+
+		if(node_data.name == name)
+			return node_transform.getColumn(3);
+	}
+
+	return Vec4f(0,0,0,1);
 }
