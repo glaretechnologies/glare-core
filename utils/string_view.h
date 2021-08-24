@@ -1,7 +1,7 @@
 /*=====================================================================
 string_view.h
--------------------
-Copyright Glare Technologies Limited 2020 -
+-------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
 
@@ -13,7 +13,6 @@ Copyright Glare Technologies Limited 2020 -
 
 
 /*
-
 string_view is a lightweight 'view' of part or all of a string.
 It doesn't own the string, just points to one, so the string/buffer it points
 to needs to be around for >= the lifetime of the string view.
@@ -97,7 +96,7 @@ const std::string string_view::to_string() const
 
 inline bool operator == (string_view lhs, string_view rhs)
 {
-    if(lhs.size() != rhs.size()) 
+	if(lhs.size() != rhs.size()) 
 		return false;
 	return std::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
 }
@@ -105,7 +104,7 @@ inline bool operator == (string_view lhs, string_view rhs)
 
 inline bool operator != (string_view lhs, string_view rhs)
 {
-    if(lhs.size() != rhs.size()) 
+	if(lhs.size() != rhs.size()) 
 		return true;
 	return std::memcmp(lhs.data(), rhs.data(), lhs.size()) != 0;
 }

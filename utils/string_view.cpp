@@ -1,7 +1,7 @@
 /*=====================================================================
 string_view.cpp
--------------------
-Copyright Glare Technologies Limited 2015 -
+---------------
+Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #include "string_view.h"
 
