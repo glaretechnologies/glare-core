@@ -26,7 +26,6 @@ struct AnimationNodeData
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(InStream& stream);
 
-	Matrix4f node_hierarchical_to_world; // The overall transformation from walking up the node hierarchy.  Ephemeral data computed every frame.
 	Matrix4f inverse_bind_matrix; // As read from GLTF file skin data.
 	Matrix4f retarget_adjustment;
 	//Matrix4f default_node_hierarchical_to_world; // This could be stored and used in the no-animations case, but we will just recompute it for now.
@@ -70,7 +69,7 @@ struct AnimationDatum : public RefCounted
 
 struct AnimationData
 {
-	AnimationData() {}
+	AnimationData() : retarget_adjustments_set(false) {}
 
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(InStream& stream);
@@ -78,6 +77,7 @@ struct AnimationData
 	int findAnimation(const std::string& name);
 
 	AnimationNodeData* findNode(const std::string& name); // Returns NULL if not found
+	int getNodeIndex(const std::string& name); // Returns -1 if not found
 
 	void loadAndRetargetAnim(InStream& stream);
 
@@ -95,6 +95,8 @@ struct AnimationData
 	std::vector<js::Vector<Vec4f, 16> > output_data; // For each output accessor index, a vector of translations, rotations or scales.
 
 	std::vector<Reference<AnimationDatum> > animations;
+
+	bool retarget_adjustments_set;
 };
 
 

@@ -78,7 +78,7 @@ struct GLMemUsage
 class OpenGLMeshRenderData : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1) {}
+	OpenGLMeshRenderData() : has_vert_colours(false) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -113,11 +113,6 @@ public:
 	Reference<BatchedMesh> batched_mesh;
 
 	AnimationData animation_data;
-
-	int current_anim_i; // Index into animations.
-	int next_anim_i;
-	double transition_start_time;
-	double transition_end_time;
 };
 
 
@@ -194,11 +189,22 @@ public:
 #pragma warning(disable:4324) // Disable 'structure was padded due to __declspec(align())' warning.
 #endif
 
+
+struct GLObjectAnimNodeData
+{
+	GLARE_ALIGNED_16_NEW_DELETE
+
+	GLObjectAnimNodeData() : procedural_transform(Matrix4f::identity()) {}
+
+	Matrix4f node_hierarchical_to_world; // The overall transformation from walking up the node hierarchy.  Ephemeral data computed every frame.
+	Matrix4f procedural_transform;
+};
+
 struct GLObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLObject() : object_type(0), line_width(1.f), random_num(0) {}
+	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1) {}
 
 	void enableInstancing(const VBORef new_instance_matrix_vbo); // Enables instancing attributes, and builds vert_vao.
 
@@ -219,6 +225,14 @@ struct GLObject : public ThreadSafeRefCounted
 	int object_type; // 0 = tri mesh
 	float line_width;
 	uint32 random_num;
+
+	// Current animation state:
+	int current_anim_i; // Index into animations.
+	int next_anim_i;
+	double transition_start_time;
+	double transition_end_time;
+
+	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 };
 typedef Reference<GLObject> GLObjectRef;
 

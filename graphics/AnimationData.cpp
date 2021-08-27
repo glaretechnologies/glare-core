@@ -351,6 +351,15 @@ AnimationNodeData* AnimationData::findNode(const std::string& name) // Returns N
 }
 
 
+int AnimationData::getNodeIndex(const std::string& name) // Returns -1 if not found
+{
+	for(size_t i=0; i<nodes.size(); ++i)
+		if(nodes[i].name == name)
+			return (int)i;
+	return -1;
+}
+
+
 void AnimationData::loadAndRetargetAnim(InStream& stream)
 {
 	const std::vector<AnimationNodeData> old_nodes = nodes; // Copy old node data
@@ -395,6 +404,8 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 			//conPrint("could not find old node for new node " + new_node.name);
 		}
 	}
+
+	this->retarget_adjustments_set = true;
 }
 
 

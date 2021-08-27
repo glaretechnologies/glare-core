@@ -2056,19 +2056,21 @@ void OpenGLEngine::draw()
 	//=============== TEMP: Set animated objects state ===========
 	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
 	{
-		const GLObject* const ob = it->getPointer();
+		GLObject* const ob = it->getPointer();
 
 		AnimationData& anim_data = ob->mesh_data->animation_data;
 		if(!anim_data.animations.empty())
 		{
+			ob->anim_node_data.resize(anim_data.nodes.size());
+
 			const float use_time = current_time;
 			
-			const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->mesh_data->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
+			const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
 			
-			const int use_next_anim_i = (ob->mesh_data->next_anim_i == -1) ? ob->mesh_data->current_anim_i : ob->mesh_data->next_anim_i;
+			const int use_next_anim_i = (ob->next_anim_i == -1) ? ob->current_anim_i : ob->next_anim_i;
 			const AnimationDatum& anim_datum_b = *anim_data.animations[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
 
-			const float transition_frac = (float)Maths::smoothStep<double>(ob->mesh_data->transition_start_time, ob->mesh_data->transition_end_time, use_time);
+			const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, use_time);
 			
 			//TEMP create debug visualisation of the joints
 			if(false)
@@ -2284,7 +2286,7 @@ void OpenGLEngine::draw()
 
 				node_matrices[node_i] = node_transform;
 
-				anim_data.nodes[node_i].node_hierarchical_to_world = node_transform;
+				ob->anim_node_data[node_i].node_hierarchical_to_world = node_transform;
 
 				// Set location of debug joint visualisation objects
 				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
@@ -2301,6 +2303,7 @@ void OpenGLEngine::draw()
 			{
 				const size_t num_nodes = anim_data.sorted_nodes.size();
 				node_matrices.resizeNoCopy(num_nodes);
+				ob->anim_node_data.resize(num_nodes);
 
 				for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
 				{
@@ -2321,7 +2324,7 @@ void OpenGLEngine::draw()
 
 					node_matrices[node_i] = node_transform;
 
-					anim_data.nodes[node_i].node_hierarchical_to_world = node_transform;
+					ob->anim_node_data[node_i].node_hierarchical_to_world = node_transform;
 				}
 			}
 		}
@@ -4820,7 +4823,8 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		{
 			const int node_i = mesh_data.animation_data.joint_nodes[i];
 
-			matrices[i] = /*to_z_up **/ mesh_data.animation_data.skeleton_root_transform * mesh_data.animation_data.nodes[node_i].node_hierarchical_to_world * mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
+			matrices[i] = /*to_z_up **/ mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_world * 
+				ob.anim_node_data[node_i].procedural_transform * mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
 
 			//conPrint("matrices[" + toString(i) + "]:");
 			//conPrint(matrices[i].toString());
