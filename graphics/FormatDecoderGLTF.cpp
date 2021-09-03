@@ -168,7 +168,8 @@ struct GLTFMaterial : public RefCounted
 	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false), pbrMetallicRoughness_present(false) {}
 
 	std::string name;
-	
+	std::string alphaMode;
+
 	//----------- From KHR_materials_pbrSpecularGlossiness extension:------------
 	bool KHR_materials_pbrSpecularGlossiness_present;
 	Colour4f diffuseFactor;
@@ -1196,6 +1197,46 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 }
 
 
+// Returns path
+static std::string saveImageForMimeType(const std::string& mime_type, const uint8* data, size_t data_size)
+{
+	// Work out extension to use - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+	std::string extension;
+	if(mime_type == "image/bmp")
+		extension = "bmp";
+	else if(mime_type == "image/gif")
+		extension = "gif";
+	else if(mime_type == "image/jpeg")
+		extension = "jpg";
+	else if(mime_type == "image/png")
+		extension = "png";
+	else if(mime_type == "image/svg+xml")
+		extension = "svg";
+	else if(mime_type == "image/tiff")
+		extension = "tif";
+	else if(mime_type == "image/webp")
+		extension = "webp";
+	else
+		throw glare::Exception("Unknown MIME type for image.");
+
+	// Compute a hash over the data to get a semi-unique filename.
+	const uint64 hash = XXH64(data, data_size, /*seed=*/1);
+
+	const std::string path = PlatformUtils::getTempDirPath() + "/GLB_image_" + toString(hash) + "." + extension;
+
+	try
+	{
+		FileUtils::writeEntireFile(path, (const char*)data, data_size);
+	}
+	catch(FileUtils::FileUtilsExcep& e)
+	{
+		throw glare::Exception("Error while writing temp image file: " + e.what());
+	}
+
+	return path;
+}
+
+
 static void processImage(GLTFData& data, GLTFImage& image, const std::string& gltf_folder)
 {
 	if(image.uri.empty())
@@ -1247,6 +1288,31 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		// Update GLTF image to use URI on disk
 		image.uri = path;
 	}
+	else // else if !image.uri.empty():
+	{
+		// If image.uri is non-empty, it either refers to an external file, or is a data URI. (base 64 encoded data)
+		
+		// Try parsing as a data URI, e.g. "uri":"data:image/png;base64,iVBORw0KGgoAAAANSU
+		Parser parser(image.uri.c_str(), image.uri.size());
+		if(parser.parseCString("data:"))  // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
+		{
+			// parse mime type
+			string_view mime_type;
+			if(!parser.parseToChar(';', mime_type))
+				throw glare::Exception("Failed to parse mime type from image URI");
+
+			// Parse "base64,"
+			if(!parser.parseCString(";base64,"))
+				throw glare::Exception("Failed to parse base64 encoding type string from image URI");
+
+			const std::string data_base64(image.uri.begin() + parser.currentPos(), image.uri.end());
+			std::vector<unsigned char> decoded_data;
+			Base64::decode(data_base64, /*data out=*/decoded_data);
+
+			// Update GLTF image to use URI on disk
+			image.uri = saveImageForMimeType(mime_type.to_string(), decoded_data.data(), decoded_data.size());
+		}
+	}
 }
 
 
@@ -1255,6 +1321,7 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 	if(mat.pbrMetallicRoughness_present)
 	{
 		mat_out.diffuse = Colour3f(mat.baseColorFactor.x[0], mat.baseColorFactor.x[1], mat.baseColorFactor.x[2]);
+		mat_out.alpha = mat.baseColorFactor[3];
 		if(mat.baseColorTexture.valid())
 		{
 			GLTFTexture& texture = getTexture(data, mat.baseColorTexture.index);
@@ -1288,6 +1355,9 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 		*/
 		mat_out.roughness = pow(1.0f - mat.glossinessFactor, 0.6666666f);
 	}
+	
+	if(mat.alphaMode == "OPAQUE")
+		mat_out.alpha = 1; // "The alpha value is ignored and the rendered output is fully opaque."
 }
 
 
@@ -1643,6 +1713,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				GLTFMaterialRef mat = new GLTFMaterial();
 
 				if(mat_node.hasChild("name")) mat->name = mat_node.getChildStringValue(parser, "name");
+				mat->alphaMode = mat_node.getChildStringValueWithDefaultVal(parser, "alphaMode", "OPAQUE");
 
 				if(mat_node.hasChild("extensions"))
 				{
@@ -2806,6 +2877,20 @@ void FormatDecoderGLTF::test()
 				anim_data.readFromStream(file);
 			}
 		}
+
+		/*{
+			// Has a buffer with a data URI with embedded base64 data.
+			conPrint("---------------------------------RockWithDataURI.gltf-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLTFFile("C:\\models\\TheyLive_3D.gltf", data);
+
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 206);
+			testAssert(mesh->numIndices() == 290 * 3);
+
+			testWriting(mesh, data);
+		}*/
+
 
 		{
 			// Has a buffer with a data URI with embedded base64 data.
