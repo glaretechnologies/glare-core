@@ -4836,21 +4836,21 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 	if(mesh_data.usesSkinning())
 	{
-		js::Vector<Matrix4f, 16> matrices(mesh_data.animation_data.joint_nodes.size()); // TODO Don't keep reallocating!!!
+		temp_joint_matrices.resizeNoCopy(mesh_data.animation_data.joint_nodes.size());
 
 		// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
 		for(size_t i=0; i<mesh_data.animation_data.joint_nodes.size(); ++i)
 		{
 			const int node_i = mesh_data.animation_data.joint_nodes[i];
 
-			matrices[i] = mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_world * 
+			temp_joint_matrices[i] = mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_world * 
 				ob.anim_node_data[node_i].procedural_transform * mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
 
 			//conPrint("matrices[" + toString(i) + "]:");
 			//conPrint(matrices[i].toString());
 		}
 
-		glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)matrices.size(), /*transpose=*/false, matrices[0].e);
+		glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)temp_joint_matrices.size(), /*transpose=*/false, temp_joint_matrices[0].e);
 	}
 
 
