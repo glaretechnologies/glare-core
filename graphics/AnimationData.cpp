@@ -160,7 +160,8 @@ void AnimationDatum::checkData(const std::vector<std::vector<float> >& keyframe_
 }
 
 
-static const uint32 ANIMATION_DATA_VERSION = 2;
+static const uint32 ANIMATION_DATA_VERSION = 3;
+// Version 3: added serialisation of vrm_data if present
 
 
 void AnimationData::writeToStream(OutStream& stream) const
@@ -204,6 +205,19 @@ void AnimationData::writeToStream(OutStream& stream) const
 	stream.writeUInt32((uint32)animations.size());
 	for(size_t i=0; i<animations.size(); ++i)
 		animations[i]->writeToStream(stream);
+
+	const uint32 vrm_data_present = vrm_data.nonNull() ? 1 : 0;
+	stream.writeUInt32(vrm_data_present);
+
+	if(vrm_data.nonNull())
+	{
+		stream.writeUInt32((uint32)vrm_data->human_bones.size());
+		for(auto it = vrm_data->human_bones.begin(); it != vrm_data->human_bones.end(); ++it)
+		{
+			stream.writeStringLengthFirst(it->first); // Write bone name
+			stream.writeInt32(it->second.node_index); // Write node_index
+		}
+	}
 }
 
 
@@ -319,6 +333,27 @@ void AnimationData::readFromStream(InStream& stream)
 		}
 	}
 
+	// Read VRM data, if present
+	if(version >= 3)
+	{
+		const uint32 vrm_data_present = stream.readUInt32();
+		if(vrm_data_present == 1)
+		{
+			vrm_data = new GLTFVRMExtension();
+
+			const uint32 human_bones_size = stream.readUInt32();
+			for(size_t i=0; i<human_bones_size; ++i)
+			{
+				const std::string bone_name = stream.readStringLengthFirst(10000);
+				
+				VRMBoneInfo bone_info;
+				bone_info.node_index = stream.readInt32();
+
+				vrm_data->human_bones.insert(std::make_pair(bone_name, bone_info));
+			}
+		}
+	}
+
 	
 
 	// Bounds-check data
@@ -362,46 +397,612 @@ int AnimationData::getNodeIndex(const std::string& name) // Returns -1 if not fo
 
 void AnimationData::loadAndRetargetAnim(InStream& stream)
 {
-	const std::vector<AnimationNodeData> old_nodes = nodes; // Copy old node data
-	//const std::vector<int> old_joint_nodes = joint_nodes;
+	const bool VERBOSE = true;
 
-	//AnimationData new_data;
-	//new_data.readFromStream(stream);
+	const char* VRM_to_RPM_name_data[] = {
+		// From vroidhub_avatarsample_A.vrm or testguy.vrm
+		"J_Bip_L_Index3_end", "LeftHandIndex4",
+		"J_Bip_L_Little3_end", "LeftHandPinky4",
+		"J_Bip_L_Middle3_end", "LeftHandMiddle4",
+		"J_Bip_L_Ring3_end", "LeftHandRing4",
+
+		"J_Bip_R_Index3_end",  "RightHandIndex4",
+		"J_Bip_R_Little3_end", "RightHandPinky4",
+		"J_Bip_R_Middle3_end", "RightHandMiddle4",
+		"J_Bip_R_Ring3_end",   "RightHandRing4",
+
+		"J_Bip_L_Little2", "LeftHandPinky2",
+		"J_Bip_L_Thumb3_end", "LeftHandThumb4",
+		"J_Bip_L_Thumb1", "LeftHandThumb1",
+
+		"J_Bip_R_Little2", "RightHandPinky2",
+		"J_Bip_R_Thumb3_end", "RightHandThumb4",
+		"J_Bip_R_Thumb1", "RightHandThumb1",
+
+		// From PolygonApe_97.vrm
+		"LittleFinger1_L",		"LeftHandPinky1",
+		"LittleFinger2_L",		"LeftHandPinky2",
+		"LittleFinger3_L",		"LeftHandPinky3",
+		"LittleFinger3_L_end",	"LeftHandPinky4",
+
+		"RingFinger1_L",		"LeftHandRing1",
+		"RingFinger2_L",		"LeftHandRing2",
+		"RingFinger3_L",		"LeftHandRing3",
+		"RingFinger3_L_end",	"LeftHandRing4",
+
+		"MiddleFinger1_L",		"LeftHandMiddle1",
+		"MiddleFinger2_L",		"LeftHandMiddle2",
+		"MiddleFinger3_L",		"LeftHandMiddle3",
+		"MiddleFinger3_L_end",	"LeftHandMiddle4",
+		
+		"IndexFinger1_L",		"LeftHandIndex1",
+		"IndexFinger2_L",		"LeftHandIndex2",
+		"IndexFinger3_L",		"LeftHandIndex3",
+		"IndexFinger3_L_end",	"LeftHandIndex4",
+
+		"Thumb0_R",		"LeftHandThumb1", // NOTE: these mappings correct?
+		"Thumb1_R",		"LeftHandThumb2",
+		"Thumb2_R",		"LeftHandThumb3",
+		"Thumb2_R_end",	"LeftHandThumb4",
+
+		"LittleFinger1_R",		"RightHandPinky1",
+		"LittleFinger2_R",		"RightHandPinky2",
+		"LittleFinger3_R",		"RightHandPinky3",
+		"LittleFinger3_R_end",	"RightHandPinky4",
+
+		"RingFinger1_R",		"RightHandRing1",
+		"RingFinger2_R",		"RightHandRing2",
+		"RingFinger3_R",		"RightHandRing3",
+		"RingFinger3_R_end",	"RightHandRing4",
+
+		"MiddleFinger1_R",		"RightHandMiddle1",
+		"MiddleFinger2_R",		"RightHandMiddle2",
+		"MiddleFinger3_R",		"RightHandMiddle3",
+		"MiddleFinger3_R_end",	"RightHandMiddle4",
+
+		"IndexFinger1_R",		"RightHandIndex1",
+		"IndexFinger2_R",		"RightHandIndex2",
+		"IndexFinger3_R",		"RightHandIndex3",
+		"IndexFinger3_R_end",	"RightHandIndex4",
+
+		"Thumb0_R",		"RightHandThumb1", // NOTE: these mappings correct?
+		"Thumb1_R",		"RightHandThumb2",
+		"Thumb2_R",		"RightHandThumb3",
+		"Thumb2_R_end",	"RightHandThumb4",
+
+		"J_Bip_L_ToeBase_end",	"LeftToe_End",
+		"J_Bip_R_ToeBase_end",	"RightToe_End",
+	};
+	static_assert(staticArrayNumElems(VRM_to_RPM_name_data) % 2 == 0, "staticArrayNumElems(VRM_to_RPM_name_data) % 2 == 0");
+
+	std::map<std::string, std::string> VRM_to_RPM_names;
+
+	for(int z=0; z<staticArrayNumElems(VRM_to_RPM_name_data); z += 2)
+		VRM_to_RPM_names.insert(std::make_pair(VRM_to_RPM_name_data[z], VRM_to_RPM_name_data[z + 1]));
+
+
+	//----------- Make mappings like Mixamorig_RightHandPinky2 -> RightHandPinky2
+	const char* finger_VRM_names[] = {
+		"HandPinky1",
+		"HandPinky2",
+		"HandPinky3",
+		"HandPinky4",
+
+		"HandRing1",
+		"HandRing2",
+		"HandRing3",
+		"HandRing4",
+
+		"HandMiddle1",
+		"HandMiddle2",
+		"HandMiddle3",
+		"HandMiddle4",
+
+		"HandIndex1",
+		"HandIndex2",
+		"HandIndex3",
+		"HandIndex4",
+
+		"HandThumb1",
+		"HandThumb2",
+		"HandThumb3",
+		"HandThumb4"
+	};
+
+	for(int z=0; z<staticArrayNumElems(finger_VRM_names); ++z)
+	{
+		const std::string left_hand_name  = std::string("Left")  + finger_VRM_names[z];
+		const std::string right_hand_name = std::string("Right") + finger_VRM_names[z];
+
+		VRM_to_RPM_names.insert(std::make_pair("Mixamorig_" + left_hand_name, left_hand_name));
+		VRM_to_RPM_names.insert(std::make_pair("Mixamorig_" + right_hand_name, right_hand_name));
+	}
+
+
+	const char* RPM_bone_names[] = {
+		"Hips",
+		"Spine",
+		"Spine1",
+		"Spine2",
+		"Neck",
+		"Head",
+		"HeadTop_End",
+		"LeftEye",
+		"RightEye",
+		"LeftShoulder",
+		"LeftArm",
+		"LeftForeArm",
+		"LeftHand",
+		"LeftHandThumb1",
+		"LeftHandThumb2",
+		"LeftHandThumb3",
+		"LeftHandThumb4",
+		"LeftHandIndex1",
+		"LeftHandIndex2",
+		"LeftHandIndex3",
+		"LeftHandIndex4",
+		"LeftHandMiddle1",
+		"LeftHandMiddle2",
+		"LeftHandMiddle3",
+		"LeftHandMiddle4",
+		"LeftHandRing1",
+		"LeftHandRing2",
+		"LeftHandRing3",
+		"LeftHandRing4",
+		"LeftHandPinky1",
+		"LeftHandPinky2",
+		"LeftHandPinky3",
+		"LeftHandPinky4",
+		"RightShoulder",
+		"RightArm",
+		"RightForeArm",
+		"RightHand",
+		"RightHandThumb1",
+		"RightHandThumb2",
+		"RightHandThumb3",
+		"RightHandThumb4",
+		"RightHandRing1",
+		"RightHandRing2",
+		"RightHandRing3",
+		"RightHandRing4",
+		"RightHandMiddle1",
+		"RightHandMiddle2",
+		"RightHandMiddle3",
+		"RightHandMiddle4",
+		"RightHandIndex1",
+		"RightHandIndex2",
+		"RightHandIndex3",
+		"RightHandIndex4",
+		"RightHandPinky1",
+		"RightHandPinky2",
+		"RightHandPinky3",
+		"RightHandPinky4",
+		"LeftUpLeg",
+		"LeftLeg",
+		"LeftFoot",
+		"LeftToeBase",
+		"LeftToe_End",
+		"RightUpLeg",
+		"RightLeg",
+		"RightFoot",
+		"RightToeBase",
+		"RightToe_End"
+	};
+
+	const char* VRM_bone_names[] = {
+		"hips",
+		"spine",
+		"chest",
+		"upperChest",
+		"neck",
+		"head",
+		"",
+		"leftEye",
+		"rightEye",
+		"leftShoulder",
+		"leftUpperArm",
+		"leftLowerArm",
+		"leftHand",
+		"leftThumbProximal",
+		"leftThumbIntermediate",
+		"leftThumbDistal",
+		"",
+		"leftIndexProximal",
+		"leftIndexIntermediate",
+		"leftIndexDistal",
+		"",
+		"leftMiddleProximal",
+		"leftMiddleIntermediate",
+		"leftMiddleDistal",
+		"",
+		"leftRingProximal",
+		"leftRingIntermediate",
+		"leftRingDistal",
+		"",
+		"leftLittleProximal",
+		"leftLittleIntermediate",
+		"leftLittleDistal",
+		"",
+		"rightShoulder",
+		"rightUpperArm",
+		"rightLowerArm",
+		"rightHand",
+		"rightThumbProximal",
+		"rightThumbIntermediate",
+		"rightThumbDistal",
+		"",
+		"rightRingProximal",
+		"rightRingIntermediate",
+		"rightRingDistal",
+		"",
+		"rightMiddleProximal",
+		"rightMiddleIntermediate",
+		"rightMiddleDistal",
+		"",
+		"rightIndexProximal",
+		"rightIndexIntermediate",
+		"rightIndexDistal",
+		"",
+		"rightLittleProximal",
+		"rightLittleProximal",
+		"rightLittleDistal",
+		"",
+		"leftUpperLeg",
+		"leftLowerLeg",
+		"leftFoot",
+		"leftToes",
+		"",
+		"rightUpperLeg",
+		"rightLowerLeg",
+		"rightFoot",
+		"rightToes",
+		""
+	};
+
+	static_assert(staticArrayNumElems(RPM_bone_names) == staticArrayNumElems(VRM_bone_names), "staticArrayNumElems(RPM_bone_names) == staticArrayNumElems(VRM_bone_names)");
+
+
+	// Make map from RPM_bone_name to index
+	std::map<std::string, int> RPM_bone_name_to_index;
+	for(int z=0; z<staticArrayNumElems(RPM_bone_names); ++z)
+		RPM_bone_name_to_index.insert(std::make_pair(RPM_bone_names[z], z));
+	
+
+	const std::vector<AnimationNodeData> old_nodes = nodes; // Copy old node data
+	const std::vector<int> old_joint_nodes = joint_nodes;
+	const std::vector<int> old_sorted_nodes = sorted_nodes;
+
+	GLTFVRMExtensionRef old_vrm_data = vrm_data;
 
 	this->readFromStream(stream);
 
-	//joint_nodes = old_joint_nodes;
+	printVar(old_joint_nodes == joint_nodes);
+	printVar(old_sorted_nodes == sorted_nodes);
+
+
+	std::unordered_map<std::string, int> new_bone_names_to_index;
+	for(size_t z=0; z<nodes.size(); ++z)
+		new_bone_names_to_index.insert(std::make_pair(nodes[z].name, (int)z));
 
 	std::unordered_map<std::string, int> old_node_names_to_index;
 	for(size_t z=0; z<old_nodes.size(); ++z)
 		old_node_names_to_index.insert(std::make_pair(old_nodes[z].name, (int)z));
 
+
+	// Build mapping from old node index to new node index
+
+	// Add to mappings based on VRM metadata
+	std::map<int, int> old_to_new_node_index;
+	std::map<int, int> new_to_old_node_index;
+	for(size_t i=0; i<nodes.size(); ++i) // For each new node (node from GLB animation data):
+	{
+		AnimationNodeData& new_node = nodes[i];
+
+		int old_node_index = -1;
+		if(old_vrm_data.nonNull())
+		{
+			// We have the new node name (RPM name).
+			// Find corresponding VRM bone name.
+			// Then look up in map from VRM bone name to bone index.
+			auto res = RPM_bone_name_to_index.find(new_node.name); // Get index of this bone name in list of RPM bone names
+			if(res != RPM_bone_name_to_index.end())
+			{
+				const std::string VRM_name = VRM_bone_names[res->second]; // Get corresponding VRM bone name
+
+				// Lookup in our VRM metadata to get the node index for that bone name.
+				auto res2 = old_vrm_data->human_bones.find(VRM_name);
+				if(res2 != old_vrm_data->human_bones.end())
+				{
+					const int bone_index = res2->second.node_index;
+					if(VERBOSE) conPrint("Mapping new node " + new_node.name + " to old node " + old_nodes[bone_index].name + " via VRM metadata");
+					old_node_index = bone_index;
+				}
+			}
+		}
+		else
+		{
+			auto res = old_node_names_to_index.find(new_node.name);
+			if(res != old_node_names_to_index.end())
+			{
+				old_node_index = res->second;
+			}
+		}
+
+		if(old_node_index != -1)
+		{
+			new_to_old_node_index[(int)i] = old_node_index;
+			old_to_new_node_index[old_node_index] = (int)i;
+		}
+	}
+
+
+
+	// Map old nodes to new nodes based on our VRM_to_RPM_names map.
+	for(size_t i=0; i<old_nodes.size(); ++i) // For each old node (node from VRM data):
+	{
+		if(old_to_new_node_index.count((int)i) == 0) // If no mapping to new node yet:
+		{
+			const AnimationNodeData& old_node = old_nodes[i];
+			auto res = VRM_to_RPM_names.find(old_node.name);
+			if(res != VRM_to_RPM_names.end())
+			{
+				const std::string RPM_name = res->second;
+
+				// Find new node with such name
+				auto RPM_res = new_bone_names_to_index.find(RPM_name);
+				if(RPM_res != new_bone_names_to_index.end())
+				{
+					const int new_i = RPM_res->second;
+
+					if(VERBOSE) conPrint("----------------Found node match via VRM_to_RPM_names map.----------------");
+					if(VERBOSE) conPrint("old node: " + old_nodes[i].name);
+					if(VERBOSE) conPrint("new node: " + nodes[new_i].name);
+
+					old_to_new_node_index[(int)i] = new_i;
+					new_to_old_node_index[new_i] = (int)i;
+				}
+			}
+		}
+	}
+
+
+	// For old nodes for which we couldn't find a mapping to new nodes, just create a new node for the old node.
+	// This will cover nodes such as the hair nodes in VRM models, which don't have corresponding nodes in RPM files.
+	// TODO: make sure the sorted_nodes order is maintained/correct.
+
+	const size_t initial_num_new_nodes = nodes.size();
+	for(size_t i=0; i<old_nodes.size(); ++i) // For each old node (node from VRM data):
+	{
+		if(old_to_new_node_index.count((int)i) == 0) // If no mapping to new node yet:
+		{
+			const AnimationNodeData& old_node = old_nodes[i];
+
+			// If the old node has a parent, and the parent has a corresponding new node, use that new node as the parent
+			if(old_to_new_node_index.count(old_node.parent_index) > 0)
+			{
+				const int new_parent_i = old_to_new_node_index[old_node.parent_index];
+
+				const bool new_parent_is_new = new_parent_i >= initial_num_new_nodes;
+
+				const int new_i = (int)nodes.size();
+				nodes.push_back(AnimationNodeData());
+				nodes[new_i] = old_node;
+				nodes[new_i].parent_index = new_parent_i;
+
+				assert(new_parent_i < new_i);
+				this->sorted_nodes.push_back(new_i);
+
+				for(int z=0; z<this->animations.size(); ++z)
+				{
+					this->animations[z]->per_anim_node_data.push_back(PerAnimationNodeData());
+					this->animations[z]->per_anim_node_data.back().translation_input_accessor = -1;
+					this->animations[z]->per_anim_node_data.back().translation_output_accessor = -1;
+					this->animations[z]->per_anim_node_data.back().rotation_input_accessor = -1;
+					this->animations[z]->per_anim_node_data.back().rotation_output_accessor = -1;
+					this->animations[z]->per_anim_node_data.back().scale_input_accessor = -1;
+					this->animations[z]->per_anim_node_data.back().scale_output_accessor = -1;
+				}
+			
+				/*
+				old parent                     new parent
+					
+				^       trans                        trans
+				|      ^                           ^
+				|    /                           /
+				|  /                           /
+				|/                           /
+				-------------->              -------------->
+				                            |
+				                            |
+				                            |
+				                            |
+				                            v
+					
+				We want trans applied in new parent space to have the same effect (in model space) as trans in old parent space.
+				So do this, first apply trans in new old parent space, then transform to model space with old_parent_to_model, then 
+				to new parent space with new_parent_to_child (e.g. new_parent.inverse_bind_matrix)
+				*/
+
+				const AnimationNodeData& old_parent = old_nodes[old_node.parent_index];
+				const AnimationNodeData& new_parent = nodes[new_parent_i];
+
+				Matrix4f old_parent_to_model;
+				old_parent.inverse_bind_matrix.getInverseForAffine3Matrix(old_parent_to_model);
+				old_parent_to_model.setColumn(3, Vec4f(0,0,0,1));
+
+
+				Matrix4f new_parent_to_child = new_parent.inverse_bind_matrix;
+				new_parent_to_child.setColumn(3, Vec4f(0,0,0,1));
+
+				nodes[new_i].retarget_adjustment = new_parent_to_child * old_parent_to_model;
+
+				if(new_parent_is_new)
+					nodes[new_i].retarget_adjustment = Matrix4f::identity(); // If this is a newly created node, and the parent is also a newly created node, it shouldn't need any adjustment.
+
+
+				if(VERBOSE) conPrint("----------------Created new node.----------------");
+				if(VERBOSE) conPrint("new node: " + nodes[new_i].name + " (parent node: " + nodes[new_parent_i].name + ")");
+
+				old_to_new_node_index[(int)i] = new_i;
+				new_to_old_node_index[new_i] = (int)i;
+			}
+		}
+	}
+
+
 	for(size_t i=0; i<nodes.size(); ++i)
 	{
 		AnimationNodeData& new_node = nodes[i];
 
-		auto res = old_node_names_to_index.find(new_node.name);
-		if(res != old_node_names_to_index.end())
+		auto res = new_to_old_node_index.find((int)i);
+		if(res != new_to_old_node_index.end())
 		{
 			const int old_node_index = res->second;
 			const AnimationNodeData& old_node = old_nodes[old_node_index];
 
-			const Vec4f old_translation = old_node.trans;
-			const Vec4f new_translation = new_node.trans;
+			Matrix4f retarget_adjustment = Matrix4f::identity();
+			Vec4f retarget_trans(0.f);
+			if(old_node.parent_index != -1 && new_node.parent_index != -1)
+			{
+				const bool is_new_node_new = i >= initial_num_new_nodes;
+				if(!is_new_node_new)
+				{
+					// We want to compute a 'retargetting' translation, so that the bone lengths of the old model, with the new animation data applied (which gives relative node translations),
+					// are similar in length to the bones of the old model.
 
-			Vec4f retarget_trans = old_translation - new_translation;
+					// This is a complicated by the fact that the new translations and old translations may be in different bases.
 
-			Matrix4f retarget_adjustment = Matrix4f::translationMatrix(retarget_trans);
+					const Vec4f old_translation_bs = old_node.trans; // Translations in parent bone space
+					const Vec4f new_translation_bs = new_node.trans;
 
-			new_node.inverse_bind_matrix = old_node.inverse_bind_matrix;
+
+					const AnimationNodeData& old_parent = old_nodes[old_node.parent_index];
+					      AnimationNodeData& new_parent = nodes[new_node.parent_index];
+
+					// Get bone->world transform for the parent of the new node.
+					Matrix4f new_parent_to_world;
+					new_parent.inverse_bind_matrix.getInverseForAffine3Matrix(new_parent_to_world); // bind matrix = bone space to model/world space.  So inverse bind matrix = world to bone space.
+					
+					// Compute the translation for the new node in model space.
+					Vec4f new_translation_model_space = new_parent_to_world * new_translation_bs;
+
+
+					// Handle the case where the parents are not the same, but the parent of the old node is the grandparent of the new node.
+					// For now we will only try and handle this for specific nodes, such as the Spine2 case below.
+					if(old_to_new_node_index[old_node.parent_index] != new_node.parent_index)
+					{
+						/*
+						spine       spine1      spine2      neck         GLB (new anim data)
+						*------------*-----------*-----------*
+						^            ^                       ^
+						|            |                       |
+						v            v                       v
+						spine      chest                    neck         VRM (old data)
+						*------------*-----------------------*
+						
+						*/
+						if(VERBOSE) conPrint("!!!!!!!!parents don't match!  old_node: " + old_node.name + ", old_parent: " + old_parent.name + ", new_node: " + new_node.name + ", new_parent: " + new_parent.name);
+						// e.g. !!!!!!!!parents don't match!  old_node: Right shoulder, old_parent: Chest, new_node: RightShoulder, new_parent: Spine2
+						if(new_parent.name == "Spine2")
+						{
+							if(new_parent.parent_index >= 0)
+							{
+								const AnimationNodeData& grandparent = nodes[new_parent.parent_index]; // E.g. spine1
+
+								Matrix4f grandparent_to_world;
+								grandparent.inverse_bind_matrix.getInverseForAffine3Matrix(grandparent_to_world);
+
+								const Vec4f parent_translation_model_space = grandparent_to_world * new_parent.trans; // e.g. translation of Spine2 node in Spine1 space.
+
+								new_translation_model_space = new_translation_model_space + parent_translation_model_space; // Translation from spine1 to spine2, plus translation from spine2 to neck, in spine1 space.
+							}
+						}
+					}
+
+					Matrix4f old_parent_to_world;
+					old_parent.inverse_bind_matrix.getInverseForAffine3Matrix(old_parent_to_world);
+
+					// Compute the translation of the old node in model space.  Note that we rotate the VRM data around the y-axis to match the RPM data.
+					const Vec4f old_translation_model_space = /*Matrix4f::rotationAroundYAxis(Maths::pi<float>()) **/ old_parent_to_world * old_translation_bs;
+
+					// The retargetting vector (in model space) is now the extra translation to to make the new translation the same as the old translation
+					Vec4f retarget_trans_model_space = old_translation_model_space - new_translation_model_space;
+
+					// Transform translation back into the space of the new parent node.
+					Matrix4f new_parent_to_local = new_parent.inverse_bind_matrix;
+
+					Vec4f retarget_trans_new_parent_space = new_parent_to_local * retarget_trans_model_space;
+
+					retarget_trans = retarget_trans_new_parent_space;
+					retarget_adjustment = Matrix4f::translationMatrix(retarget_trans_new_parent_space);
+				}
+				else
+					retarget_adjustment = new_node.retarget_adjustment; // Keep existing value
+			}
 
 			new_node.retarget_adjustment = retarget_adjustment;
 
-			//conPrint(new_node.name + ": new node: " + toString(i) + ", old node: " + toString(old_node_index) + ", retarget_trans: " + retarget_trans.toStringNSigFigs(4));
+			if(VERBOSE) conPrint("new node: " + new_node.name + " (" + toString(i) + "), old node: " + old_node.name + " (index " + toString(old_node_index) + "), retarget_trans: " + retarget_trans.toStringNSigFigs(4));
 		}
 		else
 		{
-			//conPrint("could not find old node for new node " + new_node.name);
+			if(VERBOSE) conPrint("could not find old node for new node " + new_node.name);
+		}
+	}
+
+
+
+	// Update joint_nodes, since the nodes may have been completely updated
+	if(VERBOSE) conPrint("---------------------updating joint nodes.----------------------------");
+	joint_nodes = old_joint_nodes;
+	for(size_t i=0; i<joint_nodes.size(); ++i)
+	{
+		if(VERBOSE) conPrint("");
+		const int old_joint_node_i = joint_nodes[i];
+		const AnimationNodeData& old_node = old_nodes[old_joint_node_i];
+		const std::string old_joint_node_name = old_node.name;
+		if(VERBOSE) conPrint("old_joint_node_name: " + old_joint_node_name);
+		auto res = old_to_new_node_index.find(old_joint_node_i);
+
+		if(res != old_to_new_node_index.end())
+		{
+			joint_nodes[i] = res->second;
+
+			AnimationNodeData& new_node = nodes[joint_nodes[i]];
+
+			const std::string new_joint_node_name = new_node.name;
+			if(VERBOSE) conPrint("new_joint_node_name: " + new_joint_node_name);
+
+			// Our inverse bind matrix will take a point on the old mesh (VRM mesh)
+			// It will transform into a basis with origin at the old bone position, but with orientation given by the new bone.
+			// To find this transform, we will find the desired bind matrix (bone to model transform), then invert it.
+			// This will result in an inverse bind matrix, that when concatenated with the relevant joint matrices (animated joint to model space transforms), 
+			// Will transform a vertex from a point on the old mesh (VRM mesh), to bone space, and then finally to model space.
+			// Note that the joint matrices expect a certain orientation of the mesh data in bone space, which is why we use the new bone orientations.
+
+			// Take position of old node (VRM node).
+			// Use orientation of new matrix
+			
+			Matrix4f old_bind_matrix;
+			old_nodes[old_joint_node_i].inverse_bind_matrix.getInverseForAffine3Matrix(old_bind_matrix);
+			const Vec4f old_node_pos = old_bind_matrix.getColumn(3);
+			
+			Matrix4f bind_matrix; // = bone to model-space transform
+			new_node.inverse_bind_matrix.getInverseForAffine3Matrix(bind_matrix);
+
+			// Make our desired bind matrix, then invert it to get our desired inverse bind matrix.
+			bind_matrix.setColumn(3, old_node_pos);
+			
+			Matrix4f desired_inverse_bind_matrix;
+			bind_matrix.getInverseForAffine3Matrix(desired_inverse_bind_matrix);
+
+			new_node.inverse_bind_matrix = desired_inverse_bind_matrix;
+		}
+		else
+		{
+			conPrint("!!!!! Corresponding new node not found.");
+
+			joint_nodes[i] = 0;
 		}
 	}
 

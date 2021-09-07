@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Vector.h"
 #include <string>
 #include <vector>
+#include <map>
 class InStream;
 class OutStream;
 
@@ -67,6 +68,21 @@ struct AnimationDatum : public RefCounted
 };
 
 
+struct VRMBoneInfo
+{
+	int node_index;
+};
+
+struct GLTFVRMExtension : public RefCounted
+{
+	GLTFVRMExtension() {}
+
+	std::map<std::string, VRMBoneInfo> human_bones;
+};
+typedef Reference<GLTFVRMExtension> GLTFVRMExtensionRef;
+
+
+
 struct AnimationData
 {
 	AnimationData() : retarget_adjustments_set(false) {}
@@ -95,6 +111,8 @@ struct AnimationData
 	std::vector<js::Vector<Vec4f, 16> > output_data; // For each output accessor index, a vector of translations, rotations or scales.
 
 	std::vector<Reference<AnimationDatum> > animations;
+
+	GLTFVRMExtensionRef vrm_data;
 
 	bool retarget_adjustments_set;
 };

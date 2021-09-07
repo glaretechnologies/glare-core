@@ -72,25 +72,6 @@ inline static uint32 BMeshPackNormal(const Indigo::Vec3f& normal)
 }
 
 
-inline int convertToSigned(uint32 x)
-{
-	// Treat the rightmost 10 bits of x as a signed number, sign extend
-	if((x & 512) != 0)
-	{
-		// If sign bit was set:
-		// want to map all 11_1111_1111 (1023) to -1.
-		// Want to map 10_0000_0000 (512) to -512
-		// So can do this by subtracing 1024.
-		return (int)x - 1024;
-	}
-	else
-	{
-		// Sign bit (left bit) was 0
-		return (int)x;
-	}
-}
-
-
 inline static const Indigo::Vec3f BMeshUnpackNormal(const uint32 packed_normal)
 {
 	const uint32 x_bits = (packed_normal >> 0 ) & 1023;

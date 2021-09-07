@@ -272,6 +272,7 @@ struct GLTFData
 	std::vector<GLTFAnimationRef> animations;
 	std::vector<GLTFSkinRef> skins;
 	std::vector<GLTFSceneRef> scenes;
+	GLTFVRMExtensionRef vrm_data;
 	size_t scene;
 
 	AttributesPresent attr_present; // Attributes present on any of the meshes.
@@ -1246,53 +1247,25 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		GLTFBufferView& buffer_view = getBufferView(data, image.buffer_view);
 		GLTFBuffer& buffer = getBuffer(data, buffer_view.buffer);
 
-		// Work out extension to use - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
-		std::string extension;
-		if(image.mime_type == "image/bmp")
-			extension = "bmp";
-		else if(image.mime_type == "image/gif")
-			extension = "gif";
-		else if(image.mime_type == "image/jpeg")
-			extension = "jpg";
-		else if(image.mime_type == "image/png")
-			extension = "png";
-		else if(image.mime_type == "image/svg+xml")
-			extension = "svg";
-		else if(image.mime_type == "image/tiff")
-			extension = "tif";
-		else if(image.mime_type == "image/webp")
-			extension = "webp";
-		else
-			throw glare::Exception("Unknown MIME type for image.");
-
 		// Check length
 		if(buffer_view.byte_length == 0)
 			throw glare::Exception("Image buffer view too small.");
-		if(buffer_view.byte_offset + buffer_view.byte_length > buffer.data_size)
+		if(buffer_view.byte_length > 1000000000ull)
+			throw glare::Exception("Image byte_length too large.");
+		if(buffer_view.byte_offset >= buffer.data_size)
+			throw glare::Exception("Invalid byte_offset.");
+		if(buffer_view.byte_offset + buffer_view.byte_length > buffer.data_size) // NOTE: have to be careful handling unsigned wraparound here
 			throw glare::Exception("Image buffer view too large.");
 
-		// Compute a hash over the data to get a semi-unique filename.
-		const uint64 hash = XXH64((const char*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length, /*seed=*/1);
+		const std::string path = saveImageForMimeType(image.mime_type, (const uint8*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length);
 
-		const std::string path = PlatformUtils::getTempDirPath() + "/GLB_image_" + toString(hash) + "." + extension;
-
-		try
-		{
-			FileUtils::writeEntireFile(path, (const char*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length);
-		}
-		catch(FileUtils::FileUtilsExcep& e)
-		{
-			throw glare::Exception("Error while writing temp image file: " + e.what());
-		}
-
-		// Update GLTF image to use URI on disk
-		image.uri = path;
+		image.uri = path; // Update GLTF image to use URI on disk
 	}
 	else // else if !image.uri.empty():
 	{
 		// If image.uri is non-empty, it either refers to an external file, or is a data URI. (base 64 encoded data)
 		
-		// Try parsing as a data URI, e.g. "uri":"data:image/png;base64,iVBORw0KGgoAAAANSU
+		// Try parsing as a data URI, e.g. "uri":"data:image/png;base64,iVBORw0KGgoAAAANSU...
 		Parser parser(image.uri.c_str(), image.uri.size());
 		if(parser.parseCString("data:"))  // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
 		{
@@ -1309,8 +1282,9 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 			std::vector<unsigned char> decoded_data;
 			Base64::decode(data_base64, /*data out=*/decoded_data);
 
-			// Update GLTF image to use URI on disk
-			image.uri = saveImageForMimeType(mime_type.to_string(), decoded_data.data(), decoded_data.size());
+			const std::string path = saveImageForMimeType(mime_type.to_string(), decoded_data.data(), decoded_data.size());
+			
+			image.uri = path; // Update GLTF image to use URI on disk
 		}
 	}
 }
@@ -2029,6 +2003,50 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			data.scene = parser.nodes[root.name_val_pairs[i].value_node_index].getUIntValue();
 
 
+	// Load VRM extension data
+	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
+		if(root.name_val_pairs[i].name == "extensions")
+		{
+			const JSONNode& extensions_node = parser.nodes[root.name_val_pairs[i].value_node_index];
+			checkNodeType(extensions_node, JSONNode::Type_Object);
+
+			for(size_t z=0; z<extensions_node.name_val_pairs.size(); ++z)
+			{
+				if(extensions_node.name_val_pairs[z].name == "VRM")
+				{
+					data.vrm_data = new GLTFVRMExtension();
+
+					const JSONNode& VRM_node = parser.nodes[extensions_node.name_val_pairs[z].value_node_index];
+					checkNodeType(VRM_node, JSONNode::Type_Object);
+
+					for(size_t q=0; q<VRM_node.name_val_pairs.size(); ++q)
+					{
+						if(VRM_node.name_val_pairs[q].name == "humanoid")
+						{
+							const JSONNode& humanoid_node = parser.nodes[VRM_node.name_val_pairs[q].value_node_index];
+							checkNodeType(humanoid_node, JSONNode::Type_Object);
+
+							const JSONNode& bones_array = humanoid_node.getChildArray(parser, "humanBones");
+							
+							for(size_t t=0; t<bones_array.child_indices.size(); ++t)
+							{
+								const JSONNode& bone_node = parser.nodes[bones_array.child_indices[t]];
+								checkNodeType(bone_node, JSONNode::Type_Object);
+
+								const std::string bone_name = bone_node.getChildStringValue(parser, "bone");
+
+								VRMBoneInfo info;
+								info.node_index = bone_node.getChildIntValue(parser, "node");
+
+								data.vrm_data->human_bones.insert(std::make_pair(bone_name, info));
+							}
+						}
+					}
+				}
+			}
+		}
+
+
 
 	//======================== Process GLTF data ================================
 
@@ -2211,7 +2229,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		anim_data_out.nodes[i].trans = data.nodes[i]->translation.toVec4fVector();
 		anim_data_out.nodes[i].rot   = data.nodes[i]->rotation;
 		anim_data_out.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
-		//data_out.anim_data.nodes[i].default_node_hierarchical_to_world = data.nodes[i]->node_transform;
+		//anim_data_out.nodes[i].default_node_hierarchical_to_world = data.nodes[i]->node_transform;
 
 		anim_data_out.nodes[i].name = data.nodes[i]->name;
 	}
@@ -2390,6 +2408,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	{
 		processSkin(data, *data.skins[i], gltf_base_dir, anim_data_out);
 	}
+
+	batched_mesh->animation_data.vrm_data = data.vrm_data;
 
 	return batched_mesh;
 }
@@ -2864,6 +2884,24 @@ void FormatDecoderGLTF::test()
 		{
 			// Extract anims
 			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\arm_lower.glb", data);
+
+			{
+				FileOutStream file("D:\\models\\extracted_avatar_anim.bin");
+				mesh->animation_data.writeToStream(file);
+			}
+
+			{
+				FileInStream file("D:\\models\\extracted_avatar_anim.bin");
+				AnimationData anim_data;
+				anim_data.readFromStream(file);
+			}
+		}
+
+		if(false)
+		{
+			// Extract anims
+			GLTFLoadedData data;
 			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\readyplayerme_avatar_animation_05_30fps.glb", data);
 
 			{
@@ -2878,18 +2916,60 @@ void FormatDecoderGLTF::test()
 			}
 		}
 
-		/*{
+		// Test a file with an image with a data URI with embedded base64 data.
+		{
+			// Read a PNG, base-64 encode it, to get the embedded texture for duck_with_embedded_texture.gltf.
+			if(false)
+			{
+				std::string data = FileUtils::readEntireFile(TestUtils::getTestReposDir() + "/testfiles/pngs/PngSuite-2013jan13/basn3p02.png");
+				std::string data_base64;
+				Base64::encode(data.data(), data.size(), data_base64);
+
+				conPrint(data_base64); // Gives iVBORw0KGgoAAAANSUhEUgAAACAAAAAgAgMAAAAOFJJnAAAABGdBTUEAAYagMeiWXwAAAANzQklUAQEBfC53ggAAAAxQTFRFAP8A/wAA//8AAAD/ZT8rugAAACJJREFUeJxj+B+6igGEGfAw8MnBGKugLHwMqNL/+BiDzD0AvUl/geqJjhsAAAAASUVORK5CYII=
+			}
+
+
 			// Has a buffer with a data URI with embedded base64 data.
 			conPrint("---------------------------------RockWithDataURI.gltf-----------------------------------");
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLTFFile("C:\\models\\TheyLive_3D.gltf", data);
+			Reference<BatchedMesh> mesh = loadGLTFFile(TestUtils::getTestReposDir() + "/testfiles/gltf/duck_with_embedded_texture.gltf", data);
+
+			testAssert(data.materials.materials.size() == 1);
+			testAssert(hasExtension(data.materials.materials[0].diffuse_map.path, "png")); // Check the embedded PNG has been saved on disk and the image URI has been updated to the path to that file.
 
 			testAssert(mesh->numMaterialsReferenced() == 1);
-			testAssert(mesh->numVerts() == 206);
-			testAssert(mesh->numIndices() == 290 * 3);
+			testAssert(mesh->numVerts() == 2399);
+			testAssert(mesh->numIndices() == 4212 * 3);
+		}
 
-			testWriting(mesh, data);
-		}*/
+
+		{
+			// Test loading a VRM file
+			conPrint("---------------------------------meebit_09842_t_solid-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/VRMs/meebit_09842_t_solid.vrm", data);
+
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 5258);
+			testAssert(mesh->numIndices() == 9348 * 3);
+
+			//mesh->writeToFile(TestUtils::getTestReposDir() + "/testfiles/VRMs/meebit_09842_t_solid_vrm.bmesh");
+			//testWriting(mesh, data);
+		}
+
+		{
+			// Test loading a VRM file
+			conPrint("---------------------------------schurli.vrm-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/VRMs/schurli.vrm", data);
+
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 4678);
+			testAssert(mesh->numIndices() == 7444 * 3);
+
+			mesh->writeToFile(TestUtils::getTestReposDir() + "/testfiles/VRMs/schurli_vrm.bmesh");
+			//testWriting(mesh, data);
+		}
 
 
 		{

@@ -2059,6 +2059,33 @@ void OpenGLEngine::draw()
 		GLObject* const ob = it->getPointer();
 
 		AnimationData& anim_data = ob->mesh_data->animation_data;
+
+
+		if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+		{
+			//TEMP create debug visualisation of the joints
+			if(false)
+			if(debug_joint_obs.empty())
+			{
+				debug_joint_obs.resize(256);//anim_data.sorted_nodes.size());
+				for(size_t i=0; i<debug_joint_obs.size(); ++i)
+				{
+					debug_joint_obs[i] = new GLObject();
+					debug_joint_obs[i]->mesh_data = make3DBasisArrowMesh(); // Base will be at origin, tip will lie at (1, 0, 0)
+					debug_joint_obs[i]->materials.resize(3);
+					debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
+					debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
+					debug_joint_obs[i]->materials[2].albedo_rgb = Colour3f(0.3f, 0.5f, 0.9f);
+					//debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
+					//	/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
+					debug_joint_obs[i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
+
+					addObject(debug_joint_obs[i]);
+				}
+			}
+		}
+
+
 		if(!anim_data.animations.empty())
 		{
 			ob->anim_node_data.resize(anim_data.nodes.size());
@@ -2072,27 +2099,6 @@ void OpenGLEngine::draw()
 
 			const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, use_time);
 			
-			//TEMP create debug visualisation of the joints
-			if(false)
-			if(debug_joint_obs.empty())
-			{
-				debug_joint_obs.resize(anim_data.sorted_nodes.size());
-				for(size_t i=0; i<anim_data.sorted_nodes.size(); ++i)
-				{
-					debug_joint_obs[i] = new GLObject();
-					debug_joint_obs[i]->mesh_data = make3DBasisArrowMesh(); // Base will be at origin, tip will lie at (1, 0, 0)
-					debug_joint_obs[i]->materials.resize(3);
-					debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
-					debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
-					debug_joint_obs[i]->materials[2].albedo_rgb = Colour3f(0.3f, 0.5f, 0.9f);
-					//debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-					//	/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
-			
-					addObject(debug_joint_obs[i]);
-				}
-			}
-
-			
 
 			/*
 			For each node,
@@ -2102,6 +2108,7 @@ void OpenGLEngine::draw()
 			interpolate values based on sample interpolation type
 			*/
 			const size_t num_nodes = anim_data.sorted_nodes.size();
+			assert(num_nodes <= 256); // We only support 128 joint matrices for now.
 			node_matrices.resizeNoCopy(num_nodes);
 
 			// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
@@ -2292,7 +2299,10 @@ void OpenGLEngine::draw()
 				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
 				if(!debug_joint_obs.empty())
 				{
-					debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.2f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+					if(node_i == 116 || node_i == 50)
+						debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.6f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+					else
+						debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
 					updateObjectTransformData(*debug_joint_obs[node_i]);
 				}
 			}
@@ -2325,6 +2335,18 @@ void OpenGLEngine::draw()
 					node_matrices[node_i] = node_transform;
 
 					ob->anim_node_data[node_i].node_hierarchical_to_world = node_transform;
+
+
+					// Set location of debug joint visualisation objects
+					//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+					if(!debug_joint_obs.empty())
+					{
+						if(node_i == 27 || node_i == 28)
+							debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.2f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+						else
+							debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
+						updateObjectTransformData(*debug_joint_obs[node_i]);
+					}
 				}
 			}
 		}
@@ -4814,16 +4836,14 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 	if(mesh_data.usesSkinning())
 	{
-		js::Vector<Matrix4f, 16> matrices(mesh_data.animation_data.joint_nodes.size());
-
-		// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
+		js::Vector<Matrix4f, 16> matrices(mesh_data.animation_data.joint_nodes.size()); // TODO Don't keep reallocating!!!
 
 		// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
 		for(size_t i=0; i<mesh_data.animation_data.joint_nodes.size(); ++i)
 		{
 			const int node_i = mesh_data.animation_data.joint_nodes[i];
 
-			matrices[i] = /*to_z_up **/ mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_world * 
+			matrices[i] = mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_world * 
 				ob.anim_node_data[node_i].procedural_transform * mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
 
 			//conPrint("matrices[" + toString(i) + "]:");

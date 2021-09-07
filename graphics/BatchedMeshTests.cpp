@@ -172,24 +172,6 @@ inline static uint32 BMeshPackNormal(const Indigo::Vec3f& normal)
 	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
 }
 
-inline int convertToSigned(uint32 x)
-{
-	// Treat the rightmost 10 bits of x as a signed number, sign extend
-	if((x & 512) != 0)
-	{
-		// If sign bit was set:
-		// want to map all 11_1111_1111 (1023) to -1.
-		// Want to map 10_0000_0000 (512) to -512
-		// So can do this by subtracing 1024.
-		return (int)x - 1024;
-	}
-	else
-	{
-		// Sign bit (left bit) was 0
-		return (int)x;
-	}
-}
-
 
 inline static const Indigo::Vec3f BMeshUnpackNormal(const uint32 packed_normal)
 {
@@ -217,6 +199,7 @@ void BatchedMeshTests::test()
 			BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh", batched_mesh);
 		}
 
+
 		// Test a mesh with 2 UV sets (from lightmap unwrapping)
 		{
 			Indigo::Mesh indigo_mesh;
@@ -231,6 +214,23 @@ void BatchedMeshTests::test()
 			//testWritingAndReadingMesh(batched_mesh);
 			//testIndigoMeshConversion(batched_mesh);
 		}
+
+
+		// Test loading a mesh with version 3 animation data (contains VRM data)
+		{
+			BatchedMesh mesh;
+			BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/meebit_09842_t_solid_vrm.bmesh", mesh);
+
+			testAssert(mesh.numVerts() == 5258); // Check that vertices are merged for faces.
+			testAssert(mesh.numIndices() == 9348 * 3);
+		}
+
+
+
+
+
+
+
 
 		{
 			const uint32 packed = BMeshPackNormal(Indigo::Vec3f(-1.f, 0.f, 1.f));
