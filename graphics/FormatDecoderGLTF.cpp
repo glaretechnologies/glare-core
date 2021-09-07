@@ -77,6 +77,7 @@ typedef Reference<GLTFBufferView> GLTFBufferViewRef;
 
 struct GLTFImage : public RefCounted
 {
+	std::string name;
 	std::string uri;
 	size_t buffer_view;
 	std::string mime_type;
@@ -1198,8 +1199,18 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 }
 
 
+static std::string sanitiseString(const std::string& s)
+{
+	std::string res = s;
+	for(size_t i=0; i<s.size(); ++i)
+		if(!::isAlphaNumeric(s[i]))
+			res[i] = '_';
+	return res;
+}
+
+
 // Returns path
-static std::string saveImageForMimeType(const std::string& mime_type, const uint8* data, size_t data_size)
+static std::string saveImageForMimeType(const std::string& image_name, const std::string& mime_type, const uint8* data, size_t data_size)
 {
 	// Work out extension to use - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
 	std::string extension;
@@ -1223,7 +1234,14 @@ static std::string saveImageForMimeType(const std::string& mime_type, const uint
 	// Compute a hash over the data to get a semi-unique filename.
 	const uint64 hash = XXH64(data, data_size, /*seed=*/1);
 
-	const std::string path = PlatformUtils::getTempDirPath() + "/GLB_image_" + toString(hash) + "." + extension;
+	// Use the sanitised image.name if it is non-empty, otherwise use "GLB_image".  Then append a hash of the file data.
+	std::string base_name;
+	if(!image_name.empty())
+		base_name = sanitiseString(image_name);
+	else
+		base_name = "GLB_image";
+
+	const std::string path = PlatformUtils::getTempDirPath() + "/" + base_name + "_" + toString(hash) + "." + extension;
 
 	try
 	{
@@ -1257,7 +1275,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		if(buffer_view.byte_offset + buffer_view.byte_length > buffer.data_size) // NOTE: have to be careful handling unsigned wraparound here
 			throw glare::Exception("Image buffer view too large.");
 
-		const std::string path = saveImageForMimeType(image.mime_type, (const uint8*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length);
+		const std::string path = saveImageForMimeType(image.name, image.mime_type, (const uint8*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length);
 
 		image.uri = path; // Update GLTF image to use URI on disk
 	}
@@ -1282,7 +1300,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 			std::vector<unsigned char> decoded_data;
 			Base64::decode(data_base64, /*data out=*/decoded_data);
 
-			const std::string path = saveImageForMimeType(mime_type.to_string(), decoded_data.data(), decoded_data.size());
+			const std::string path = saveImageForMimeType(image.name, mime_type.to_string(), decoded_data.data(), decoded_data.size());
 			
 			image.uri = path; // Update GLTF image to use URI on disk
 		}
@@ -1642,6 +1660,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			{
 				const JSONNode& image_node = parser.nodes[image_node_array.child_indices[z]];
 				GLTFImageRef image = new GLTFImage();
+				image->name = image_node.getChildStringValueWithDefaultVal(parser, "name", "");
 				if(image_node.hasChild("uri"))
 				{
 					image->uri = image_node.getChildStringValue(parser, "uri");
