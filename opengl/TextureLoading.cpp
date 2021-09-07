@@ -506,10 +506,11 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 	const size_t W = converted_image->getWidth();
 	const size_t H = converted_image->getHeight();
 	const size_t bytes_pp = converted_image->getBytesPerPixel();
+	const bool is_one_dim_col_lookup_tex = (W == 1) || (H == 1); // Special case for palette textures: don't compress, since we can lose colours that way.
 	texture_data->W = W;
 	texture_data->H = H;
 	texture_data->bytes_pp = bytes_pp;
-	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
+	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
 	{
 		// We will store the resized, uncompressed texture data, for all levels, in temp_tex_buf.
 		// We will store the offset to the data for each layer in temp_tex_buf_offsets.
@@ -599,7 +600,8 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
 	const size_t bytes_pp = texture_data.bytes_pp;
-	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
+	const bool is_one_dim_col_lookup_tex = (W == 1) || (H == 1); //  // Special case for palette textures: don't compress, since we can lose colours that way.
+	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
 	{
 		OpenGLTexture::Format format;
 		if(opengl_engine->GL_EXT_texture_sRGB_support)
@@ -647,7 +649,8 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
 	const size_t bytes_pp = texture_data.bytes_pp;
-	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
+	const bool is_one_dim_col_lookup_tex = (W == 1) || (H == 1); // Special case for palette textures: don't compress, since we can lose colours that way.
+	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
 	{
 		opengl_tex->bind();
 
