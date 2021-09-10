@@ -347,7 +347,7 @@ void AnimationData::readFromStream(InStream& stream)
 				const std::string bone_name = stream.readStringLengthFirst(10000);
 				
 				VRMBoneInfo bone_info;
-				bone_info.node_index = stream.readInt32();
+				bone_info.node_index = stream.readInt32(); // Not bounds-checked on loading, bounds checked when used.
 
 				vrm_data->human_bones.insert(std::make_pair(bone_name, bone_info));
 			}
@@ -714,6 +714,9 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 				if(res2 != old_vrm_data->human_bones.end())
 				{
 					const int bone_index = res2->second.node_index;
+					// Check bone_index is in bounds
+					if(bone_index < 0 || bone_index >= (int)old_nodes.size())
+						throw glare::Exception("VRM node_index is out of bounds.");
 					if(VERBOSE) conPrint("Mapping new node " + new_node.name + " to old node " + old_nodes[bone_index].name + " via VRM metadata");
 					old_node_index = bone_index;
 				}
