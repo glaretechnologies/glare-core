@@ -2090,15 +2090,17 @@ void OpenGLEngine::draw()
 		{
 			ob->anim_node_data.resize(anim_data.nodes.size());
 
-			const float use_time = current_time;
+			const float DEBUG_SPEED_FACTOR = 1;
+			const float use_time = current_time * DEBUG_SPEED_FACTOR;
 			
 			const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
 			
 			const int use_next_anim_i = (ob->next_anim_i == -1) ? ob->current_anim_i : ob->next_anim_i;
 			const AnimationDatum& anim_datum_b = *anim_data.animations[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
 
-			const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, use_time);
+			const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, current_time/*use_time*/);
 			
+			const float use_in_anim_time = (current_time + ob->use_time_offset) * DEBUG_SPEED_FACTOR;
 
 			/*
 			For each node,
@@ -2142,7 +2144,7 @@ void OpenGLEngine::draw()
 						*/
 
 						assert(time_vals.size() >= 2);
-						const float in_anim_time = time_vals[0] + Maths::floatMod(use_time, time_vals.back() - time_vals[0]);
+						const float in_anim_time = time_vals[0] + Maths::floatMod(use_in_anim_time, time_vals.back() - time_vals[0]);
 
 						// Find current frame
 						auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
@@ -2164,7 +2166,10 @@ void OpenGLEngine::draw()
 						//{
 							float frac;
 							frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
-							assert(frac >= 0 && frac <= 1);
+							
+							if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
+								frac = 0;
+							//assert(frac >= 0 && frac <= 1);
 						//}
 
 						key_frame_locs[z].i_0 = index;
@@ -2184,6 +2189,8 @@ void OpenGLEngine::draw()
 				Vec4f trans_a;
 				if(node_a.translation_input_accessor >= 0)
 				{
+					//conPrint("anim_datum_a: " + anim_datum_a.name + "," + toString(anim_data.keyframe_times[node_a.translation_input_accessor].back()));
+
 					const int i_0    = key_frame_locs[node_a.translation_input_accessor].i_0;
 					const int i_1    = key_frame_locs[node_a.translation_input_accessor].i_1;
 					const float frac = key_frame_locs[node_a.translation_input_accessor].frac;
@@ -2289,17 +2296,19 @@ void OpenGLEngine::draw()
 						rot_mat.getColumn(2) * copyToAll<2>(scale),
 						setWToOne(trans));
 
-				const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * node_data.retarget_adjustment * TRS);
+				const Matrix4f last_pre_proc_to_object = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * node_data.retarget_adjustment * TRS); // Transform without procedural_transform applied
+				const Matrix4f node_transform = last_pre_proc_to_object * ob->anim_node_data[node_i].procedural_transform;
 
 				node_matrices[node_i] = node_transform;
 
-				ob->anim_node_data[node_i].node_hierarchical_to_world = node_transform;
+				ob->anim_node_data[node_i].last_pre_proc_to_object = last_pre_proc_to_object;
+				ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
 
 				// Set location of debug joint visualisation objects
 				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
 				if(!debug_joint_obs.empty())
 				{
-					if(node_i == 116 || node_i == 50)
+					if(node_i == 4)
 						debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.6f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
 					else
 						debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
@@ -2334,7 +2343,7 @@ void OpenGLEngine::draw()
 
 					node_matrices[node_i] = node_transform;
 
-					ob->anim_node_data[node_i].node_hierarchical_to_world = node_transform;
+					ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
 
 
 					// Set location of debug joint visualisation objects
@@ -4843,8 +4852,8 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		{
 			const int node_i = mesh_data.animation_data.joint_nodes[i];
 
-			temp_joint_matrices[i] = mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_world * 
-				ob.anim_node_data[node_i].procedural_transform * mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
+			temp_joint_matrices[i] = mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_object * 
+				mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
 
 			//conPrint("matrices[" + toString(i) + "]:");
 			//conPrint(matrices[i].toString());

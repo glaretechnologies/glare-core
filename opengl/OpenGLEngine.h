@@ -196,7 +196,8 @@ struct GLObjectAnimNodeData
 
 	GLObjectAnimNodeData() : procedural_transform(Matrix4f::identity()) {}
 
-	Matrix4f node_hierarchical_to_world; // The overall transformation from walking up the node hierarchy.  Ephemeral data computed every frame.
+	Matrix4f node_hierarchical_to_object; // The overall transformation from bone space to object space, computed by walking up the node hierarchy.  Ephemeral data computed every frame.
+	Matrix4f last_pre_proc_to_object; // Same as node_hierarchical_to_object, but without procedural_transform applied.
 	Matrix4f procedural_transform;
 };
 
@@ -204,7 +205,7 @@ struct GLObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1) {}
+	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0) {}
 
 	void enableInstancing(const VBORef new_instance_matrix_vbo); // Enables instancing attributes, and builds vert_vao.
 
@@ -231,6 +232,7 @@ struct GLObject : public ThreadSafeRefCounted
 	int next_anim_i;
 	double transition_start_time;
 	double transition_end_time;
+	double use_time_offset;
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 };
@@ -624,8 +626,8 @@ private:
 		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
 	void buildOutlineTextures();
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh();
-	static Reference<OpenGLMeshRenderData> make3DBasisArrowMesh();
 public:
+	static Reference<OpenGLMeshRenderData> make3DBasisArrowMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
 private:
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)
