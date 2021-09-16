@@ -1575,6 +1575,12 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 }
 
 
+void OpenGLEngine::removeOverlayObject(const Reference<OverlayObject>& object)
+{
+	current_scene->overlay_objects.erase(object);
+}
+
+
 // Notify the OpenGL engine that a texture has been loaded.
 void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key)
 {
@@ -1720,7 +1726,7 @@ void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
 
 // Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
 // Throws glare::Exception
-Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
+Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, bool allow_compression)
 {
 	try
 	{
@@ -1741,7 +1747,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path)
 		// TEMP HACK: need to set base dir here
 		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
 
-		return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+		return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, allow_compression);
 	}
 	catch(TextureServerExcep& e)
 	{
@@ -2100,7 +2106,7 @@ void OpenGLEngine::draw()
 
 			const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, current_time/*use_time*/);
 			
-			const float use_in_anim_time = (current_time + ob->use_time_offset) * DEBUG_SPEED_FACTOR;
+			const float use_in_anim_time = (current_time + (float)ob->use_time_offset) * DEBUG_SPEED_FACTOR;
 
 			/*
 			For each node,
@@ -6002,7 +6008,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGL
 
 
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
@@ -6014,7 +6020,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 		if(res == this->opengl_textures.end())
 		{
 			// Get processed texture data
-			Reference<TextureData> texture_data = this->texture_data_manager->getOrBuildTextureData(key.path, imagemap, this/*, state*/);
+			Reference<TextureData> texture_data = this->texture_data_manager->getOrBuildTextureData(key.path, imagemap, this/*, state*/, allow_compression);
 
 			// Load into OpenGL
 			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping);

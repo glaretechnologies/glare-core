@@ -483,7 +483,7 @@ public:
 	//---------------------------- Texture loading -------------------------------------------
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
 	// Throws glare::Exception
-	Reference<OpenGLTexture> getTexture(const std::string& tex_path);
+	Reference<OpenGLTexture> getTexture(const std::string& tex_path, bool allow_compression = true);
 
 	// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
 	// If the texture is not loaded or not processed yet, return a null reference.
@@ -500,7 +500,7 @@ public:
 		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
 
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
+		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true);
 
 	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex);
 

@@ -60,7 +60,7 @@ class TextureDataManager : public ThreadSafeRefCounted
 {
 public:
 	// Thread-safe
-	Reference<TextureData> getOrBuildTextureData(const std::string& key, const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/);
+	Reference<TextureData> getOrBuildTextureData(const std::string& key, const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/, bool allow_compression = true);
 
 	Reference<TextureData> getTextureData(const std::string& key); // returns null ref if not present.
 
@@ -96,7 +96,7 @@ public:
 	// Builds compressed, mip-map level data.
 	// Uses task_manager for multi-threading if non-null.
 	// May return a reference to imagemap in the returned TextureData.
-	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager);
+	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager, bool allow_compression = true);
 
 	// Builds compressed, mip-map level data for a sequence of images (e.g. animated gif)
 	static Reference<TextureData> buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager);

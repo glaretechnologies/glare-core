@@ -29,7 +29,8 @@ size_t TextureData::compressedSizeBytes() const
 
 
 // Thread-safe
-Reference<TextureData> TextureDataManager::getOrBuildTextureData(const std::string& key, const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/)
+Reference<TextureData> TextureDataManager::getOrBuildTextureData(const std::string& key, const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine/*, BuildUInt8MapTextureDataScratchState& scratch_state*/,
+	bool allow_compression)
 {
 	Lock lock(mutex);
 
@@ -38,7 +39,7 @@ Reference<TextureData> TextureDataManager::getOrBuildTextureData(const std::stri
 		return res->second;
 	else
 	{
-		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, opengl_engine.nonNull() ? &opengl_engine->getTaskManager() : NULL);
+		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, opengl_engine.nonNull() ? &opengl_engine->getTaskManager() : NULL, allow_compression);
 		loaded_textures[key] = data;
 		return data;
 	}
@@ -455,7 +456,7 @@ void TextureLoading::compressImageFrame(size_t total_compressed_size, js::Vector
 }
 
 
-Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager)
+Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager, bool allow_compression)
 {
 	// conPrint("Creating new OpenGL texture.");
 	Reference<TextureData> texture_data = new TextureData();
@@ -510,7 +511,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 	texture_data->W = W;
 	texture_data->H = H;
 	texture_data->bytes_pp = bytes_pp;
-	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
+	if(allow_compression && opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
 	{
 		// We will store the resized, uncompressed texture data, for all levels, in temp_tex_buf.
 		// We will store the offset to the data for each layer in temp_tex_buf_offsets.
@@ -601,7 +602,7 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	const size_t H = texture_data.H;
 	const size_t bytes_pp = texture_data.bytes_pp;
 	const bool is_one_dim_col_lookup_tex = (W == 1) || (H == 1); //  // Special case for palette textures: don't compress, since we can lose colours that way.
-	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
+	if(!texture_data.frames[0].compressed_data.empty() && opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
 	{
 		OpenGLTexture::Format format;
 		if(opengl_engine->GL_EXT_texture_sRGB_support)

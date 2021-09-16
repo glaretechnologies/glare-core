@@ -368,12 +368,36 @@ void AnimationData::readFromStream(InStream& stream)
 }
 
 
-int AnimationData::findAnimation(const std::string& name)
+const AnimationDatum* AnimationData::findAnimation(const std::string& name)
+{
+	for(size_t i=0; i<animations.size(); ++i)
+		if(animations[i]->name == name)
+			return animations[i].ptr();
+	return NULL;
+}
+
+
+int AnimationData::getAnimationIndex(const std::string& name)
 {
 	for(size_t i=0; i<animations.size(); ++i)
 		if(animations[i]->name == name)
 			return (int)i;
 	return -1;
+}
+
+
+float AnimationData::getAnimationLength(const AnimationDatum& anim) const
+{
+	float max_len = 0;
+	for(size_t i=0; i<anim.per_anim_node_data.size(); ++i)
+	{
+		if(anim.per_anim_node_data[i].rotation_input_accessor >= 0)
+		{
+			max_len = myMax(max_len, this->keyframe_times[anim.per_anim_node_data[i].rotation_input_accessor].back());
+		}
+	}
+
+	return max_len;
 }
 
 

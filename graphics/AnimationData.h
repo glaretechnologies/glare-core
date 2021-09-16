@@ -90,7 +90,10 @@ struct AnimationData
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(InStream& stream);
 
-	int findAnimation(const std::string& name);
+	const AnimationDatum* findAnimation(const std::string& name);
+	int getAnimationIndex(const std::string& name);
+
+	float getAnimationLength(const AnimationDatum& anim) const;
 
 	AnimationNodeData* findNode(const std::string& name); // Returns NULL if not found
 	int getNodeIndex(const std::string& name); // Returns -1 if not found
