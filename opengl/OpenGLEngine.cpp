@@ -2308,6 +2308,7 @@ void OpenGLEngine::draw()
 				node_matrices[node_i] = node_transform;
 
 				ob->anim_node_data[node_i].last_pre_proc_to_object = last_pre_proc_to_object;
+				ob->anim_node_data[node_i].last_rot = rot;
 				ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
 
 				// Set location of debug joint visualisation objects

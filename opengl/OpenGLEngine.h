@@ -198,6 +198,7 @@ struct GLObjectAnimNodeData
 
 	Matrix4f node_hierarchical_to_object; // The overall transformation from bone space to object space, computed by walking up the node hierarchy.  Ephemeral data computed every frame.
 	Matrix4f last_pre_proc_to_object; // Same as node_hierarchical_to_object, but without procedural_transform applied.
+	Quatf last_rot;
 	Matrix4f procedural_transform;
 };
 
