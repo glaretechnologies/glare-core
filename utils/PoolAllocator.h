@@ -36,6 +36,7 @@ public:
 };
 
 
+// TODO: there is no strong reason to make this class templated.
 template <class T>
 class PoolAllocator : public glare::Allocator
 {

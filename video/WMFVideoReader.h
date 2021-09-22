@@ -105,7 +105,7 @@ inline void destroyAndFreeOb<WMFSampleInfo>(WMFSampleInfo* ob)
 /*=====================================================================
 WMFVideoReader
 --------------
-Windows Media Foundation video reader.
+Windows Media Foundation video reader.  Also can read audio files.
 
 The following libs are needed for this code:
 mfplat.lib mfreadwrite.lib mfuuid.lib
@@ -119,7 +119,7 @@ public:
 	static void shutdownWMF();
 
 	// COM and WMF should be initialised before a WMFVideoReader is constructed.
-	WMFVideoReader(bool read_from_video_device, const std::string& URL, VideoReaderCallback* reader_callback, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
+	WMFVideoReader(bool read_from_video_device, bool just_read_audio, const std::string& URL, VideoReaderCallback* reader_callback, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
 	~WMFVideoReader();
 
 	virtual void startReadingNextSample() override;

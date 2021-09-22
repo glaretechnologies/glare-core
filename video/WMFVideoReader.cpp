@@ -349,7 +349,7 @@ static bool isStreamVideo(ComObHandle<IMFSourceReader>& reader, DWORD stream_ind
 }
 
 
-WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& URL, VideoReaderCallback* reader_callback_, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
+WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audio, const std::string& URL, VideoReaderCallback* reader_callback_, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
 :	read_from_video_device(read_from_video_device_),
 	reader_callback(reader_callback_),
 	com_reader_callback(NULL),
@@ -365,15 +365,18 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 	if(!SUCCEEDED(hr))
 		throw glare::Exception("COM init failure: " + PlatformUtils::COMErrorString(hr));
 
-	if(GPU_DECODE)
+	if(!just_read_audio)
 	{
-		throwOnError(pAttributes.ptr->SetUnknown(MF_SOURCE_READER_D3D_MANAGER, dx_device_manager));
-		throwOnError(pAttributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE));
-		throwOnError(pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, TRUE));
-	}
-	else
-	{
-		throwOnError(pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE));
+		if(GPU_DECODE)
+		{
+			throwOnError(pAttributes.ptr->SetUnknown(MF_SOURCE_READER_D3D_MANAGER, dx_device_manager));
+			throwOnError(pAttributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE));
+			throwOnError(pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, TRUE));
+		}
+		else
+		{
+			throwOnError(pAttributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE));
+		}
 	}
 
 	if(reader_callback != NULL)
@@ -430,7 +433,8 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, const std::string& 
 		//conPrint("MFCreateSourceReaderFromURL took " + timer2.elapsedString());
 	}
 
-	configureVideoDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->current_format);
+	if(!just_read_audio)
+		configureVideoDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->current_format);
 
 	configureAudioStream(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, this->current_format);
 
@@ -537,7 +541,6 @@ void WMFVideoReader::startReadingNextSample()
 }
 
 
-// TODO: read audio as well.
 Reference<SampleInfo> WMFVideoReader::getAndLockNextSample(bool just_get_vid_sample)
 {
 	ComObHandle<IMFSample> cur_sample;
@@ -546,7 +549,7 @@ Reference<SampleInfo> WMFVideoReader::getAndLockNextSample(bool just_get_vid_sam
 	LONGLONG llTimeStamp;
 	HRESULT hr;
 	hr = reader->ReadSample(
-		(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,    // Stream index.
+		just_get_vid_sample ? (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM : (DWORD)MF_SOURCE_READER_ANY_STREAM,    // Stream index.
 		0,                              // Flags.
 		&streamIndex,                   // Receives the actual stream index. 
 		&flags,                         // Receives status flags.
@@ -555,109 +558,171 @@ Reference<SampleInfo> WMFVideoReader::getAndLockNextSample(bool just_get_vid_sam
 	);
 	if(FAILED(hr))
 		throw glare::Exception("ReadSample failed: " + PlatformUtils::COMErrorString(hr));
-
-	if(flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+	if(streamIndex >= 10)
 	{
-		// The current media has type changed for one or more streams.
-		// This seems to happen e.g. when the video widths and heights are padded to a multiple of 16 for h264.
-
-		// Get the media type from the stream.
-		ComObHandle<IMFMediaType> media_type;
-		hr = reader->GetCurrentMediaType(
-			(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
-			&media_type.ptr
-		);
-		if(FAILED(hr))
-			throw glare::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
-
-		// Get the width and height
-		UINT32 width = 0, height = 0;
-		hr = MFGetAttributeSize(media_type.ptr, MF_MT_FRAME_SIZE, &width, &height);
-		if(FAILED(hr))
-			throw glare::Exception("MFGetAttributeSize failed: " + PlatformUtils::COMErrorString(hr));
-
-		current_format.im_width = width;
-		//stride_B_out = (size_t)format.internal_width * 4; // NOTE: should use result of MF_MT_DEFAULT_STRIDE instead? 
-
-		// Get the stride to find out if the bitmap is top-down or bottom-up.
-		LONG lStride = 0;
-		lStride = (LONG)MFGetAttributeUINT32(media_type.ptr, MF_MT_DEFAULT_STRIDE, 1);
-
-		current_format.top_down = lStride > 0; // lStride may be negative to indicate a bottom-up image.
-		current_format.stride_B = abs(lStride);
+		conPrint("Error, got streamIndex >= 10");
+		return NULL;
 	}
-
-	if(flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED) // "The native format has changed for one or more streams. The native format is the format delivered by the media source before any decoders are inserted."
+	const bool is_vid = stream_is_video[streamIndex];
+	if(is_vid)
 	{
-		// The format changed. Reconfigure the decoder.
-		configureVideoDecoder(this->reader.ptr, streamIndex, current_format);
-	}
-
-	//conPrint("Read sample from stream " + toString((uint64)streamIndex) + " with timestamp " + toString(frame_info.frame_time) + " s");
-
-	if(cur_sample.ptr) // May be NULL at end of stream.
-	{
-		LONGLONG sample_duration; // Duration of the sample, in 100-nanosecond units.
-		hr = cur_sample->GetSampleDuration(&sample_duration);
-		if(FAILED(hr))
-			throw glare::Exception("GetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
-
-		Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
-		frame_info->frame_time = llTimeStamp * 1.0e-7; // Timestamp is in 100 ns units, convert to s.
-		frame_info->frame_duration = sample_duration * 1.0e-7;
-		frame_info->width  = current_format.im_width;
-		frame_info->height = current_format.im_height;
-		frame_info->top_down = current_format.top_down;
-
-		ComObHandle<IMFMediaBuffer> buffer_ob;
-		hr = cur_sample->ConvertToContiguousBuffer(&buffer_ob.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
-		if(hr != S_OK) 
-			throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
-
-		if(decode_to_d3d_tex)
+		if(flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
 		{
-			ComObHandle<IMFDXGIBuffer> dx_buffer;
-			if(!buffer_ob.queryInterface<IMFDXGIBuffer>(dx_buffer))
-				throw glare::Exception("Failed to get IMFDXGIBuffer");
-		
-			hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&frame_info->d3d_tex.ptr)); // Receives a pointer to the interface. The caller must release the interface.
-			throwOnError(hr);
+			// The current media has type changed for one or more streams.
+			// This seems to happen e.g. when the video widths and heights are padded to a multiple of 16 for h264.
+
+			// Get the media type from the stream.
+			ComObHandle<IMFMediaType> media_type;
+			hr = reader->GetCurrentMediaType(
+				(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+				&media_type.ptr
+			);
+			if(FAILED(hr))
+				throw glare::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
+
+			// Get the width and height
+			UINT32 width = 0, height = 0;
+			hr = MFGetAttributeSize(media_type.ptr, MF_MT_FRAME_SIZE, &width, &height);
+			if(FAILED(hr))
+				throw glare::Exception("MFGetAttributeSize failed: " + PlatformUtils::COMErrorString(hr));
+
+			current_format.im_width = width;
+			//stride_B_out = (size_t)format.internal_width * 4; // NOTE: should use result of MF_MT_DEFAULT_STRIDE instead? 
+
+			// Get the stride to find out if the bitmap is top-down or bottom-up.
+			LONG lStride = 0;
+			lStride = (LONG)MFGetAttributeUINT32(media_type.ptr, MF_MT_DEFAULT_STRIDE, 1);
+
+			current_format.top_down = lStride > 0; // lStride may be negative to indicate a bottom-up image.
+			current_format.stride_B = abs(lStride);
 		}
-		else
+
+		if(flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED) // "The native format has changed for one or more streams. The native format is the format delivered by the media source before any decoders are inserted."
 		{
-			if(true) // If use IMF2DBuffer interface:
+			// The format changed. Reconfigure the decoder.
+			configureVideoDecoder(this->reader.ptr, streamIndex, current_format);
+		}
+
+		//conPrint("Read sample from stream " + toString((uint64)streamIndex) + " with timestamp " + toString(frame_info.frame_time) + " s");
+
+		if(cur_sample.ptr) // May be NULL at end of stream.
+		{
+			LONGLONG sample_duration; // Duration of the sample, in 100-nanosecond units.
+			hr = cur_sample->GetSampleDuration(&sample_duration);
+			if(FAILED(hr))
+				throw glare::Exception("GetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
+
+			Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
+			frame_info->frame_time = llTimeStamp * 1.0e-7; // Timestamp is in 100 ns units, convert to s.
+			frame_info->frame_duration = sample_duration * 1.0e-7;
+			frame_info->width  = current_format.im_width;
+			frame_info->height = current_format.im_height;
+			frame_info->top_down = current_format.top_down;
+
+			ComObHandle<IMFMediaBuffer> buffer_ob;
+			hr = cur_sample->ConvertToContiguousBuffer(&buffer_ob.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
+			if(hr != S_OK) 
+				throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
+
+			if(decode_to_d3d_tex)
 			{
-				if(!buffer_ob.queryInterface(frame_info->buffer2d))
-					throw glare::Exception("failed to get IMF2DBuffer interface");
-			
-				BYTE* scanline0;
-				LONG pitch;
-				hr = frame_info->buffer2d->Lock2D(&scanline0, &pitch);
-				if(FAILED(hr))
-					throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
-			
-				frame_info->frame_buffer = scanline0;
-				frame_info->top_down = pitch > 0;
-				frame_info->stride_B = abs(pitch);
-				//frame_info->media_buffer = (void*)buffer_ob.ptr;
+				ComObHandle<IMFDXGIBuffer> dx_buffer;
+				if(!buffer_ob.queryInterface<IMFDXGIBuffer>(dx_buffer))
+					throw glare::Exception("Failed to get IMFDXGIBuffer");
+		
+				hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&frame_info->d3d_tex.ptr)); // Receives a pointer to the interface. The caller must release the interface.
+				throwOnError(hr);
 			}
 			else
 			{
-				BYTE* buffer;
-				DWORD cur_len;
-				hr = buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len);
-				if(FAILED(hr))
-					throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+				if(true) // If use IMF2DBuffer interface:
+				{
+					if(!buffer_ob.queryInterface(frame_info->buffer2d))
+						throw glare::Exception("failed to get IMF2DBuffer interface");
 			
-				frame_info->frame_buffer = buffer;
-				frame_info->stride_B = current_format.stride_B;
+					BYTE* scanline0;
+					LONG pitch;
+					hr = frame_info->buffer2d->Lock2D(&scanline0, &pitch);
+					if(FAILED(hr))
+						throw glare::Exception("Error: " + PlatformUtils::COMErrorString(hr));
+			
+					frame_info->frame_buffer = scanline0;
+					frame_info->top_down = pitch > 0;
+					frame_info->stride_B = abs(pitch);
+					//frame_info->media_buffer = (void*)buffer_ob.ptr;
+				}
+				else
+				{
+					BYTE* buffer;
+					DWORD cur_len;
+					hr = buffer_ob->Lock(&buffer, /*max-len=*/NULL, &cur_len);
+					if(FAILED(hr))
+						throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+			
+					frame_info->frame_buffer = buffer;
+					frame_info->stride_B = current_format.stride_B;
+				}
 			}
+			return frame_info;
 		}
-		return frame_info;
+		else
+		{
+			return NULL;
+		}
 	}
-	else
+	else // else if !is_vid:
 	{
-		return NULL;
+		//conPrint("got audio sample");
+
+		if(flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+		{
+			// The format changed. Reconfigure the decoder.
+			configureAudioStream(this->reader.ptr, streamIndex, current_format);
+		}
+
+		ComObHandle<IMFMediaBuffer> media_buffer;
+
+		if(cur_sample.ptr) // May be NULL at end of stream.
+		{
+			LONGLONG sample_time; // Presentation time of the sample, in 100-nanosecond units.
+			hr = cur_sample.ptr->GetSampleTime(&sample_time);
+			if(FAILED(hr))
+				throw glare::Exception("GetSampleTime failed: " + PlatformUtils::COMErrorString(hr));
+
+			LONGLONG sample_duration; // Duration of the sample, in 100-nanosecond units.
+			hr = cur_sample.ptr->GetSampleDuration(&sample_duration);
+			if(FAILED(hr))
+				throw glare::Exception("GetSampleDuration failed: " + PlatformUtils::COMErrorString(hr));
+
+			hr = cur_sample.ptr->ConvertToContiguousBuffer(&media_buffer.ptr); // Receives a pointer to the IMFMediaBuffer interface. The caller must release the interface.
+			if(hr != S_OK) 
+				throw glare::Exception("ConvertToContiguousBuffer failed: " + PlatformUtils::COMErrorString(hr));
+
+			// Lock buffer
+			BYTE* buffer;
+			DWORD cur_len; // Receives the length of the valid data in the buffer, in bytes
+			hr = media_buffer->Lock(&buffer, /*max-len=*/NULL, &cur_len);
+			if(FAILED(hr))
+				throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
+
+			Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
+			frame_info->is_audio = true;
+			frame_info->num_channels    = current_format.num_channels;
+			frame_info->sample_rate_hz  = current_format.sample_rate_hz;
+			frame_info->bits_per_sample = current_format.bits_per_sample;
+			frame_info->frame_time     = sample_time * 1.0e-7;
+			frame_info->frame_duration = sample_duration * 1.0e-7;
+			frame_info->frame_buffer = buffer;
+			frame_info->buffer_len_B = cur_len;
+			frame_info->media_buffer_locked = true;
+			frame_info->media_buffer = media_buffer;
+
+			return frame_info;
+		}
+		else
+		{
+			return NULL;
+		}
 	}
 
 	/*if(flags & MF_SOURCE_READERF_ENDOFSTREAM)
@@ -1018,12 +1083,13 @@ void WMFVideoReader::test()
 		//const std::string URL = "http://video.chaoticafractals.com/videos/lindelokse_tatasz_dewberries.mp4";
 		//const std::string URL = "https://fnd.fleek.co/fnd-prod/QmZD6JqWswoDRjpbFmVXkQ8jDbFd6rEuit3wboFD4z8XEe/nft.mp4"; // 17 s
 		//const std::string URL = "E:\\video\\busted.mp4"; // 9 s
-		const std::string URL = "E:\\video\\aura_amethyst.mp4"; // has sound
+		//const std::string URL = "E:\\video\\aura_amethyst.mp4"; // has sound
+		const std::string URL = "D:\\audio\\signer - Isolated Dreams EP10\\signer - Isolated Dreams EP10 - 01 271 Redux- No sales pitch.mp3";
 
 		ThreadSafeQueue<Reference<SampleInfo>> frame_queue;
 		TestWMFVideoReaderCallback callback;
 
-		const bool TEST_ASYNC_CALLBACK = true;
+		const bool TEST_ASYNC_CALLBACK = false;
 		callback.frame_queue = &frame_queue;
 
 		conPrint("Reading vid '" + URL + "'...");
@@ -1036,7 +1102,7 @@ void WMFVideoReader::test()
 		ComObHandle<IMFDXGIDeviceManager> device_manager;
 		Direct3DUtils::createGPUDeviceAndMFDeviceManager(d3d_device, device_manager);
 
-		WMFVideoReader reader(/*read_from_video_device*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/true);
+		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/true, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/true);
 
 		conPrint("Reader construction took " + timer.elapsedString());
 		
