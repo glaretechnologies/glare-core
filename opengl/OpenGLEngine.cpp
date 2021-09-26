@@ -342,15 +342,9 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 }
 
 
+// Calculate the corner vertices of a slice of the view frustum, where the slice is defined by near and far distances from the camera.
 void OpenGLScene::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out)
 {
-	// Calculate frustum verts
-	const float shift_up_d    = lens_shift_up_distance    / lens_sensor_dist; // distance verts at far end of frustum are shifted up
-	const float shift_right_d = lens_shift_right_distance / lens_sensor_dist; // distance verts at far end of frustum are shifted up
-
-	const float d_w = use_sensor_width  / (2 * lens_sensor_dist);
-	const float d_h = use_sensor_height / (2 * lens_sensor_dist);
-
 	const Vec4f lens_center_cs(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
 	const Vec4f lens_center_ws = cam_to_world * lens_center_cs;
 
@@ -358,17 +352,47 @@ void OpenGLScene::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* ve
 	const Vec4f up_ws = cam_to_world * UP_OS;
 	const Vec4f right_ws = cam_to_world * RIGHT_OS;
 
-	// Verts on near plane
-	verts_out[0] = lens_center_ws + forwards_ws * near_dist + right_ws * (-d_w + shift_right_d) * near_dist + up_ws * (-d_h + shift_up_d) * near_dist; // bottom left
-	verts_out[1] = lens_center_ws + forwards_ws * near_dist + right_ws * ( d_w + shift_right_d) * near_dist + up_ws * (-d_h + shift_up_d) * near_dist; // bottom right
-	verts_out[2] = lens_center_ws + forwards_ws * near_dist + right_ws * ( d_w + shift_right_d) * near_dist + up_ws * ( d_h + shift_up_d) * near_dist; // top right
-	verts_out[3] = lens_center_ws + forwards_ws * near_dist + right_ws * (-d_w + shift_right_d) * near_dist + up_ws * ( d_h + shift_up_d) * near_dist; // top left
+	if(camera_type == OpenGLScene::CameraType_Perspective)
+	{
+		// Calculate frustum verts
+		const float shift_up_d    = lens_shift_up_distance    / lens_sensor_dist; // distance verts at far end of frustum are shifted up
+		const float shift_right_d = lens_shift_right_distance / lens_sensor_dist; // distance verts at far end of frustum are shifted up
 
-	// Verts on far plane
-	verts_out[4] = lens_center_ws + forwards_ws * far_dist + right_ws * (-d_w + shift_right_d) * far_dist + up_ws * (-d_h + shift_up_d) * far_dist; // bottom left
-	verts_out[5] = lens_center_ws + forwards_ws * far_dist + right_ws * ( d_w + shift_right_d) * far_dist + up_ws * (-d_h + shift_up_d) * far_dist; // bottom right
-	verts_out[6] = lens_center_ws + forwards_ws * far_dist + right_ws * ( d_w + shift_right_d) * far_dist + up_ws * ( d_h + shift_up_d) * far_dist; // top right
-	verts_out[7] = lens_center_ws + forwards_ws * far_dist + right_ws * (-d_w + shift_right_d) * far_dist + up_ws * ( d_h + shift_up_d) * far_dist; // top left
+		const float d_w = use_sensor_width  / (2 * lens_sensor_dist);
+		const float d_h = use_sensor_height / (2 * lens_sensor_dist);
+
+		// Verts on near plane
+		verts_out[0] = lens_center_ws + forwards_ws * near_dist + right_ws * (-d_w + shift_right_d) * near_dist + up_ws * (-d_h + shift_up_d) * near_dist; // bottom left
+		verts_out[1] = lens_center_ws + forwards_ws * near_dist + right_ws * ( d_w + shift_right_d) * near_dist + up_ws * (-d_h + shift_up_d) * near_dist; // bottom right
+		verts_out[2] = lens_center_ws + forwards_ws * near_dist + right_ws * ( d_w + shift_right_d) * near_dist + up_ws * ( d_h + shift_up_d) * near_dist; // top right
+		verts_out[3] = lens_center_ws + forwards_ws * near_dist + right_ws * (-d_w + shift_right_d) * near_dist + up_ws * ( d_h + shift_up_d) * near_dist; // top left
+
+		// Verts on far plane
+		verts_out[4] = lens_center_ws + forwards_ws * far_dist + right_ws * (-d_w + shift_right_d) * far_dist + up_ws * (-d_h + shift_up_d) * far_dist; // bottom left
+		verts_out[5] = lens_center_ws + forwards_ws * far_dist + right_ws * ( d_w + shift_right_d) * far_dist + up_ws * (-d_h + shift_up_d) * far_dist; // bottom right
+		verts_out[6] = lens_center_ws + forwards_ws * far_dist + right_ws * ( d_w + shift_right_d) * far_dist + up_ws * ( d_h + shift_up_d) * far_dist; // top right
+		verts_out[7] = lens_center_ws + forwards_ws * far_dist + right_ws * (-d_w + shift_right_d) * far_dist + up_ws * ( d_h + shift_up_d) * far_dist; // top left
+	}
+	else if(camera_type == OpenGLScene::CameraType_Orthographic || camera_type == OpenGLScene::CameraType_DiagonalOrthographic)
+	{
+		const float d_w = use_sensor_width  / 2;
+		const float d_h = use_sensor_height / 2;
+
+		// Verts on near plane
+		verts_out[0] = lens_center_ws + forwards_ws * near_dist + right_ws * -d_w + up_ws * -d_h; // bottom left
+		verts_out[1] = lens_center_ws + forwards_ws * near_dist + right_ws *  d_w + up_ws * -d_h; // bottom right
+		verts_out[2] = lens_center_ws + forwards_ws * near_dist + right_ws *  d_w + up_ws *  d_h; // top right
+		verts_out[3] = lens_center_ws + forwards_ws * near_dist + right_ws * -d_w + up_ws *  d_h; // top left
+
+		verts_out[4] = lens_center_ws + forwards_ws * far_dist  + right_ws * -d_w + up_ws * -d_h; // bottom left
+		verts_out[5] = lens_center_ws + forwards_ws * far_dist  + right_ws *  d_w + up_ws * -d_h; // bottom right
+		verts_out[6] = lens_center_ws + forwards_ws * far_dist  + right_ws *  d_w + up_ws *  d_h; // top right
+		verts_out[7] = lens_center_ws + forwards_ws * far_dist  + right_ws * -d_w + up_ws *  d_h; // top left
+	}
+	else
+	{
+		assert(0);
+	}
 }
 
 
@@ -482,6 +506,113 @@ void OpenGLScene::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_
 }
 
 
+void OpenGLScene::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float viewport_aspect_ratio)
+{
+	camera_type = CameraType_DiagonalOrthographic;
+
+	this->sensor_width = sensor_width_;
+	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
+	this->render_aspect_ratio = render_aspect_ratio_;
+	this->lens_shift_up_distance = 0;
+	this->lens_shift_right_distance = 0;
+
+	if(viewport_aspect_ratio > render_aspect_ratio) // if viewport has a wider aspect ratio than the render:
+	{
+		use_sensor_height = sensor_width / render_aspect_ratio; // Keep vertical field of view the same
+		use_sensor_width = use_sensor_height * viewport_aspect_ratio; // enlarge horizontal field of view as needed
+	}
+	else
+	{
+		use_sensor_width = sensor_width; // Keep horizontal field of view the same
+		use_sensor_height = sensor_width / viewport_aspect_ratio; // Enlarge vertical field of view as needed
+	}
+
+	//TEMP HACK:
+	use_sensor_width *= 2;
+	use_sensor_height *= 2;
+
+
+	// Make camera view volume clipping planes
+	const Vec4f lens_center(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
+
+	Planef planes_cs[6]; // Clipping planes in camera space
+
+	planes_cs[0] = Planef(
+		Vec4f(0,0,0,1), // pos.
+		-FORWARDS_OS // normal
+	); // near clip plane of frustum
+
+	planes_cs[1] = Planef(
+		Vec4f(0, 0, 0, 1) + FORWARDS_OS * this->max_draw_dist, // pos.
+		FORWARDS_OS // normal
+	); // far clip plane of frustum
+
+	const Vec4f left_normal = -RIGHT_OS;
+	planes_cs[2] = Planef(
+		lens_center + left_normal * use_sensor_width/2,
+		left_normal
+	); // left
+
+	const Vec4f right_normal = RIGHT_OS;
+	planes_cs[3] = Planef(
+		lens_center + right_normal * use_sensor_width/2,
+		right_normal
+	); // right
+
+	const Vec4f bottom_normal = -UP_OS;
+	planes_cs[4] = Planef(
+		lens_center + bottom_normal * use_sensor_height/2,
+		bottom_normal
+	); // bottom
+
+	const Vec4f top_normal = UP_OS;
+	planes_cs[5] = Planef(
+		lens_center + top_normal * use_sensor_height/2,
+		top_normal
+	); // top
+
+	// Transform clipping planes to world space
+	world_to_camera_space_matrix.getInverseForAffine3Matrix(this->cam_to_world);
+
+	for(int i=0; i<6; ++i)
+	{
+		// Get point on plane and plane normal in Camera space.
+		const Vec4f plane_point_cs = planes_cs[i].getPointOnPlane();
+
+		const Vec4f plane_normal_cs = planes_cs[i].getNormal();
+
+		// Transform from camera space -> world space, then world space -> object space.
+		const Vec4f plane_point_ws = cam_to_world * plane_point_cs;
+		const Vec4f normal_ws = normalise(cam_to_world * plane_normal_cs);
+
+		frustum_clip_planes[i] = Planef(plane_point_ws, normal_ws);
+	}
+
+	this->num_frustum_clip_planes = 6;
+
+	// Calculate frustum verts
+	Vec4f verts_cs[8];
+	verts_cs[0] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
+	verts_cs[1] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
+	verts_cs[2] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
+	verts_cs[3] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
+	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
+	verts_cs[5] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
+	verts_cs[6] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
+	verts_cs[7] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
+
+	frustum_aabb = js::AABBox::emptyAABBox();
+	for(int i=0; i<8; ++i)
+	{
+		assert(verts_cs[i][3] == 1.f);
+		frustum_verts[i] = cam_to_world * verts_cs[i];
+		const Vec4f frustum_vert_ws = cam_to_world * verts_cs[i];
+		//conPrint("frustum_verts " + toString(i) + ": " + frustum_verts[i].toString());
+		frustum_aabb.enlargeToHoldPoint(frustum_vert_ws);
+	}
+}
+
+
 void OpenGLScene::setIdentityCameraTransform()
 {
 	camera_type = CameraType_Identity;
@@ -497,6 +628,11 @@ void OpenGLEngine::setOrthoCameraTransform(const Matrix4f& world_to_camera_space
 	float lens_shift_right_distance_)
 {
 	current_scene->setOrthoCameraTransform(world_to_camera_space_matrix_, sensor_width_, render_aspect_ratio_, lens_shift_up_distance_, lens_shift_right_distance_, this->getViewPortAspectRatio());
+}
+
+void OpenGLEngine::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_)
+{
+	current_scene->setDiagonalOrthoCameraTransform(world_to_camera_space_matrix_, sensor_width_, render_aspect_ratio_, this->getViewPortAspectRatio());
 }
 
 
@@ -1949,6 +2085,39 @@ static const Matrix4f orthoMatrix(GLdouble left,
 }
 
 
+static const Matrix4f diagonalOrthoMatrix(GLdouble left,
+	GLdouble right,
+	GLdouble bottom,
+	GLdouble top,
+	GLdouble zNear, // positive
+	GLdouble zFar,
+	double cam_z) // positive
+{
+	const float t_z = (float)(-(zFar + zNear) / (zFar - zNear));
+
+	// x' = 2x / (right - left) - slope * z  + t_x   = 2x / (right - left) - z / ( right - left) + t_x = (2x - z) / (right - left) + t_x
+	// y' = 2y / (top - bottom) + slope * z  + t_y
+	// z' = -2z / (far - near) + t_z
+
+	// We want x' = 0 for x = 0 and z = -cam_z
+	// x' = (2x - z) / (right - left) + t_x
+	// 0 = (0 - (-cam_z)) / (right - left) + t_x
+	// 0 = cam_z / (right - left) + t_x
+	// t_x = -cam_z / (right - left)
+	const double t_x = -cam_z / (right - left);
+	const double t_y =  cam_z / (top - bottom);
+
+	const double slope = 1.0 / (right - left);
+
+	const float e[16] = {
+		(float)(2 / (right - left)),  0, -(float)slope, (float)t_x,
+		0, (float)(2 / (top - bottom)),  (float)slope, (float)t_y,
+		0, 0, (float)(-2 / (zFar - zNear)), (float)t_z,
+		0, 0, 0, 1 };
+	return Matrix4f(e).getTranspose();
+}
+
+
 void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, 
 	const Matrix4f& view_matrix, const Matrix4f& proj_matrix, float plane_draw_half_width)
 {
@@ -2630,12 +2799,25 @@ void OpenGLEngine::draw()
 
 				// Half-width in x and y directions in metres of static depth texture at this cascade level.
 				float w;
-				if(ti == 0)
-					w = 64;
-				else if(ti == 1)
-					w = 256;
+				if(current_scene->camera_type == OpenGLScene::CameraType_Perspective)
+				{
+					if(ti == 0)
+						w = 64;
+					else if(ti == 1)
+						w = 256;
+					else
+						w = 1024;
+				}
+				else if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic || current_scene->camera_type == OpenGLScene::CameraType_DiagonalOrthographic)
+				{
+					w = current_scene->use_sensor_width;
+				}
 				else
-					w = 1024;
+				{
+					assert(0);
+					w = 64;
+				}
+
 
 				const float h = 256; // Half-height (in z direction)
 
@@ -2984,6 +3166,39 @@ void OpenGLEngine::draw()
 				 current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // top
 				z_near,
 				z_far
+			);
+		}
+	}
+	else if(current_scene->camera_type == OpenGLScene::CameraType_DiagonalOrthographic)
+	{
+		const double sensor_height = current_scene->sensor_width / current_scene->render_aspect_ratio;
+
+		const float cam_z = current_scene->cam_to_world.getColumn(3)[2];
+
+		if(viewport_aspect_ratio > current_scene->render_aspect_ratio)
+		{
+			// Match on the vertical clip planes.
+			proj_matrix = diagonalOrthoMatrix(
+				-sensor_height * 0.5 * viewport_aspect_ratio, // left
+				sensor_height * 0.5 * viewport_aspect_ratio, // right
+				-sensor_height * 0.5, // bottom
+				sensor_height * 0.5, // top
+				z_near,
+				z_far,
+				cam_z
+			);
+		}
+		else
+		{
+			// Match on the horizontal clip planes.
+			proj_matrix = diagonalOrthoMatrix(
+				-current_scene->sensor_width * 0.5, // left
+				current_scene->sensor_width * 0.5, // right
+				-current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // bottom
+				current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // top
+				z_near,
+				z_far,
+				cam_z
 			);
 		}
 	}

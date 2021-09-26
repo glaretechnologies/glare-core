@@ -304,6 +304,7 @@ public:
 		float lens_shift_right_distance_, float viewport_aspect_ratio);
 	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float lens_shift_up_distance_,
 		float lens_shift_right_distance_, float viewport_aspect_ratio);
+	void setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float viewport_aspect_ratio);
 	void setIdentityCameraTransform();
 
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
@@ -334,7 +335,8 @@ private:
 	{
 		CameraType_Identity, // Identity camera transform.
 		CameraType_Perspective,
-		CameraType_Orthographic
+		CameraType_Orthographic,
+		CameraType_DiagonalOrthographic
 	};
 
 	CameraType camera_type;
@@ -522,6 +524,8 @@ public:
 	// Cam space width = sensor_width.
 	void setOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix, float sensor_width, float render_aspect_ratio, float lens_shift_up_distance,
 		float lens_shift_right_distance);
+
+	void setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix, float sensor_width, float render_aspect_ratio);
 
 	void setIdentityCameraTransform(); // See also use_z_up to use z-up like opengl.
 	//----------------------------------------------------------------------------------------
