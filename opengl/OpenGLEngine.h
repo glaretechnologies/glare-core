@@ -83,6 +83,8 @@ public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	GLMemUsage getTotalMemUsage() const;
+	size_t GPUVertMemUsage() const;
+	size_t GPUIndicesMemUsage() const;
 	size_t getNumVerts() const; // Just for testing/debugging.
 	size_t getNumTris() const; // Just for testing/debugging.
 	

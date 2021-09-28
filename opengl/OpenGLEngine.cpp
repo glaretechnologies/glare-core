@@ -117,6 +117,18 @@ GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
 }
 
 
+size_t OpenGLMeshRenderData::GPUVertMemUsage() const
+{
+	return vert_vbo.nonNull() ? vert_vbo->getSize() : 0;
+}
+
+
+size_t OpenGLMeshRenderData::GPUIndicesMemUsage() const
+{
+	return vert_indices_buf.nonNull() ? vert_indices_buf->getSize() : 0;
+}
+
+
 size_t OpenGLMeshRenderData::getNumVerts() const
 {
 	if(!vertex_spec.attributes.empty() && (vertex_spec.attributes[0].stride > 0))
