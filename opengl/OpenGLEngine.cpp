@@ -2278,7 +2278,7 @@ void OpenGLEngine::draw()
 			ob->anim_node_data.resize(anim_data.nodes.size());
 
 			const float DEBUG_SPEED_FACTOR = 1;
-			const float use_time = current_time * DEBUG_SPEED_FACTOR;
+			//const float use_time = current_time * DEBUG_SPEED_FACTOR;
 			
 			const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
 			
