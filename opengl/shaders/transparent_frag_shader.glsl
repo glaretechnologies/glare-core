@@ -131,13 +131,13 @@ void main()
 	float spec_refl_fresnel = fresnellApprox(spec_refl_cos_theta, ior);
 
 	float sun_vis_factor = 1.0f;//TODO: use shadow mapping to compute this.
-	vec4 sun_light = vec4(18333573286.57627,16541737714.860512,14495551899.203238, 1) * sun_vis_factor;
+	vec4 sun_light = vec4(1662102582.6479533,1499657101.1924045,1314152016.0871031, 1) * sun_vis_factor;
 
-	vec4 col = transmission_col*800000000 + spec_refl_light * spec_refl_fresnel + sun_light * sun_specular;
+	vec4 col = transmission_col*80000000 + spec_refl_light * spec_refl_fresnel + sun_light * sun_specular;
 
 	float alpha = spec_refl_fresnel + sun_specular;
 
-	col *= 0.0000000003; // tone-map
+	col *= 0.000000003; // tone-map
 	colour_out = vec4(toNonLinear(col.xyz), alpha);
 
 

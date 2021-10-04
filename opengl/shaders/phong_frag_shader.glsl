@@ -501,7 +501,7 @@ void main()
 
 	vec4 refl_fresnel = metallic_refl_fresnel * metallic_frac + dielectric_refl_fresnel * (1.0f - metallic_frac);
 
-	vec4 sun_light = vec4(18333573286.57627,16541737714.860512,14495551899.203238, 1) * sun_vis_factor;
+	vec4 sun_light = vec4(1662102582.6479533,1499657101.1924045,1314152016.0871031, 1) * sun_vis_factor; // Sun spectral radiance multiplied by solid angle, see SkyModel2Generator::makeSkyEnvMap().
 
 	vec4 col =
 		sky_irradiance * diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
@@ -514,11 +514,11 @@ void main()
 	// Blend with background/fog colour
 	float dist_ = -pos_cs.z;
 	float fog_factor = 1.0f - exp(dist_ * -0.00015);
-	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 2.0e8; // Bluish grey
+	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 2.0e7; // Bluish grey
 	col = mix(col, sky_col, fog_factor);
 #endif
 		
-	col *= 0.0000000003; // tone-map
+	col *= 0.000000003; // tone-map
 	
 	colour_out = vec4(toNonLinear(col.xyz), 1);
 }

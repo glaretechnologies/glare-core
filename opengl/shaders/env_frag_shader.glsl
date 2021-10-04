@@ -120,7 +120,7 @@ void main()
 	}
 
 	float cloudfrac = max(cirrus_cloudfrac, cumulus_cloudfrac);
-	float w = 2.0e9;
+	float w = 2.0e8;
 	vec4 cloudcol = vec4(w, w, w, 1);
 	col = mix(col, cloudcol, max(0.f, cloudfrac));
 	float sunw = w * 2.5;
@@ -134,7 +134,7 @@ void main()
 #if DEPTH_FOG
 	// Blend lower hemisphere into a colour that matches fogged ground quad in Substrata
 	// Chosen by hand to match the fogged phong colour at ~2km (edge of ground quad)
-	vec4 lower_hemis_col = vec4(pow(8.63, 2.2), pow(8.94, 2.2), pow(9.37, 2.2), 1.0) * 1.6e7;
+	vec4 lower_hemis_col = vec4(pow(8.63, 2.2), pow(8.94, 2.2), pow(9.37, 2.2), 1.0) * 1.6e6;
 
 	// Cloud shadows on lower half of hemisphere, to match shadows on ground plane
 	if(texture_coords.y > 1.58)
@@ -157,7 +157,7 @@ void main()
 		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
 		float sun_vis_factor = cumulus_trans;
 
-		vec4 shadowed_col = vec4(pow(4.5, 2.2), pow(5.4, 2.2), pow(6.4, 2.2), 1.0) * 2.0e7;
+		vec4 shadowed_col = vec4(pow(4.5, 2.2), pow(5.4, 2.2), pow(6.4, 2.2), 1.0) * 2.0e6;
 		lower_hemis_col = mix(shadowed_col, lower_hemis_col, sun_vis_factor);
 	}
 
@@ -165,6 +165,6 @@ void main()
 	col = mix(col, lower_hemis_col, lower_hemis_factor);
 #endif
 
-	col *= 0.0000000003; // tone-map
+	col *= 0.000000003; // tone-map
 	colour_out = vec4(toNonLinear(col.xyz), 1);
 }
