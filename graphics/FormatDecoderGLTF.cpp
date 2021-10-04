@@ -2850,7 +2850,7 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 }
 
 
-#if BUILD_TESTS
+#if BUILD_TESTS && !defined(SDK_LIB)
 
 
 #include "../utils/TestUtils.h"
@@ -2921,7 +2921,7 @@ void FormatDecoderGLTF::test()
 		{
 			// Extract anims
 			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\readyplayerme_avatar_animation_05_30fps.glb", data);
+			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\readyplayerme_avatar_animation_15.glb", data);
 
 			{
 				FileOutStream file("D:\\models\\extracted_avatar_anim.bin");
