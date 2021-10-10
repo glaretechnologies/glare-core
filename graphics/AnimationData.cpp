@@ -421,7 +421,7 @@ int AnimationData::getNodeIndex(const std::string& name) // Returns -1 if not fo
 
 void AnimationData::loadAndRetargetAnim(InStream& stream)
 {
-	const bool VERBOSE = true;
+	const bool VERBOSE = false;
 
 	const char* VRM_to_RPM_name_data[] = {
 		// From vroidhub_avatarsample_A.vrm or testguy.vrm
