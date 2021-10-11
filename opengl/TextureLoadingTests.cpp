@@ -38,8 +38,9 @@ void TextureLoadingTests::testDownSamplingGreyTexture(unsigned int W, unsigned i
 		const unsigned int level_H = (int)myMax(1u, H / (1 << k));
 
 		Reference<ImageMapUInt8> mip_level_image = new ImageMapUInt8(level_W, level_H, N);
+		float alpha_coverage;
 		TextureLoading::downSampleToNextMipMapLevel(prev_mip_level_image->getWidth(), prev_mip_level_image->getHeight(), prev_mip_level_image->getN(), prev_mip_level_image->getData(),
-			level_W, level_H, mip_level_image->getData());
+			/*alpha scale=*/1.f, level_W, level_H, mip_level_image->getData(), alpha_coverage);
 
 		for(size_t i=0; i<mip_level_image->numPixels(); ++i)
 			for(unsigned int c=0; c<N; ++c)
@@ -112,6 +113,14 @@ void TextureLoadingTests::test()
 	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif", task_manager);
 	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif", task_manager);
 
+	//{
+	//	Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", "C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\GLB_image_7509840974915305048_jpg_7509840974915305048.jpg");
+	//
+	//	testAssert(mip_level_image.isType<ImageMapUInt8>());
+	//
+	//	const ImageMapUInt8* map_imagemapuint8 = mip_level_image.downcastToPtr<ImageMapUInt8>();
+	//	Reference<TextureData> tex_data = TextureLoading::buildUInt8MapTextureData(map_imagemapuint8, &task_manager, /*allow compression=*/true);
+	//}
 
 	if(false)
 	{
@@ -127,8 +136,9 @@ void TextureLoadingTests::test()
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 
 			Reference<ImageMapUInt8> mip_level_image = new ImageMapUInt8(level_W, level_H, prev_mip_level_image->getN());
+			float alpha_coverage;
 			TextureLoading::downSampleToNextMipMapLevel(prev_mip_level_image->getWidth(), prev_mip_level_image->getHeight(), prev_mip_level_image->getN(), prev_mip_level_image->getData(),
-				level_W, level_H, mip_level_image->getData());
+				/*alpha scale=*/1.f, level_W, level_H, mip_level_image->getData(), alpha_coverage);
 
 
 			PNGDecoder::write(*mip_level_image, "mipmap_level_" + toString(k) + ".png");
