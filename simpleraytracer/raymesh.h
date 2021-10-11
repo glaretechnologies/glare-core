@@ -320,6 +320,8 @@ private:
 	Vec4f planar_normal;
 };
 
+typedef Reference<RayMesh> RayMeshRef;
+
 
 const Vec3f& RayMesh::vertPos(unsigned int vertindex) const
 {
