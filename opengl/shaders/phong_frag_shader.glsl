@@ -228,6 +228,14 @@ void main()
 	diffuse_col.xyz *= vert_colour;
 #endif
 
+	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
+	float pixel_hash = float(ha(uint(pixel_index))) * (1.f / 4294967296.0f);
+#if IMPOSTERABLE
+	float dist_alpha_factor = smoothstep(100.f, 120.f,  /*dist=*/-pos_cs.z);
+	if(dist_alpha_factor >= pixel_hash)
+		discard;
+#endif
+
 #if ALPHA_TEST
 	if(diffuse_col.a < 0.5f)
 		discard;
@@ -279,8 +287,7 @@ void main()
 
 	float samples_scale = 1.f;
 
-	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
-	float pattern_theta = float(float(ha(uint(pixel_index))) * (6.283185307179586 / 4294967296.0));
+	float pattern_theta = pixel_hash * 6.283185307179586f;
 	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
 
 	sun_vis_factor = 0.0;

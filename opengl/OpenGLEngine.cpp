@@ -59,6 +59,7 @@ static const bool MEM_PROFILE = false;
 void GLObject::enableInstancing(const VBORef new_instance_matrix_vbo)
 {
 	instance_matrix_vbo = new_instance_matrix_vbo;
+	num_instances_to_draw = (int)(new_instance_matrix_vbo->getSize() / sizeof(Matrix4f));
 
 	// Make sure instance matrix attributes use the instance_matrix_vbo.
 
@@ -1150,8 +1151,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		per_object_vert_uniform_buf_ob = new UniformBufOb();
 		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
 
-		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
-		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
 
 		env_prog = new OpenGLProgram(
@@ -1281,14 +1282,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		if(settings.shadow_mapping)
 		{
-			depth_draw_prog								= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false));
-			depth_draw_alpha_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false));
-			depth_draw_instancing_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false));
-			depth_draw_alpha_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false));
-			depth_draw_skinning_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true));
-			depth_draw_alpha_skinning_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true));
-			depth_draw_instancing_skinning_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true));
-			depth_draw_alpha_instancing_skinning_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true));
+			depth_draw_prog								= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false));
+			depth_draw_alpha_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false));
+			depth_draw_instancing_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false));
+			depth_draw_alpha_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false));
+			depth_draw_skinning_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false));
+			depth_draw_alpha_skinning_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false));
+			depth_draw_instancing_skinning_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false));
+			depth_draw_alpha_instancing_skinning_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false));
 
 			shadow_mapping = new ShadowMapping();
 			shadow_mapping->init();
@@ -1394,8 +1395,9 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" +
 		"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
 		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
-		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" + 
-		"#define SKINNING " + toString(key.skinning) + "\n";
+		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" +
+		"#define SKINNING " + toString(key.skinning) + "\n" +
+		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n";
 }
 
 
@@ -1477,6 +1479,47 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 }
 
 
+OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
+{
+	if(progs[key] == NULL)
+	{
+		//Timer timer;
+
+		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_shader_dir = data_dir + "/shaders";
+
+		OpenGLProgramRef prog = new OpenGLProgram(
+			"imposter",
+			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+		);
+		prog->is_phong = true; // Just set to true to use PhongUniforms block
+		prog->uses_vert_uniform_buf_obs = true;
+
+		progs[key] = prog;
+
+		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+
+		unsigned int phong_uniforms_index = glGetUniformBlockIndex(prog->program, "PhongUniforms");
+		glUniformBlockBinding(prog->program, phong_uniforms_index, /*binding point=*/0);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/0, this->phong_uniform_buf_ob->handle);
+
+		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
+		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+
+		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
+		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
+
+
+		//conPrint("Built imposter program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+	}
+
+	return progs[key];
+}
+
+
 OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(progs[key] == NULL)
@@ -1529,6 +1572,8 @@ OpenGLProgramRef OpenGLEngine::getProgramWithFallbackOnError(const ProgramKey& k
 			return getPhongProgram(key);
 		else if(key.program_name == "transparent")
 			return getTransparentProgram(key);
+		else if(key.program_name == "imposter")
+			return getImposterProgram(key);
 		else
 		{
 			assert(0);
@@ -1680,8 +1725,8 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	// we only want to do this when we have a texture.
 	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support && material.albedo_texture.nonNull();
 
-	const ProgramKey key(material.transparent ? "transparent" : "phong", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning);
+	const ProgramKey key(material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"), /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
+		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 }
@@ -1713,6 +1758,9 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 	if(have_transparent_mat)
 		current_scene->transparent_objects.insert(object);
+
+	if(object->is_instanced_ob_with_imposters)
+		current_scene->objects_with_imposters.insert(object);
 }
 
 
@@ -1834,6 +1882,8 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
 	current_scene->objects.erase(object);
 	current_scene->transparent_objects.erase(object);
+	if(object->is_instanced_ob_with_imposters)
+		current_scene->objects_with_imposters.erase(object);
 	selected_objects.erase(object.getPointer());
 }
 
@@ -2170,7 +2220,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
 		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
+			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false));
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -2221,6 +2271,95 @@ struct OverlayObjectZComparator
 		return a->ob_to_world_matrix.e[14] < b->ob_to_world_matrix.e[14];
 	}
 };
+
+
+// This code needs to be reasonably fast as it is executed twice per frame.
+void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping)
+{
+	const GlInstanceInfo* const instance_info = ob.instance_info.data();
+	const size_t instance_info_size = ob.instance_info.size();
+
+	temp_matrices.resize(0);
+	temp_matrices.reserve(ob.instance_info.size());
+
+	const Vec4f campos = this->current_scene->cam_to_world.getColumn(3);
+
+	const float IMPOSTER_FADE_DIST_START = 100.f;
+	const float IMPOSTER_FADE_DIST_END   = 120.f;
+
+	if(for_shadow_mapping)
+	{
+		if(!ob.is_imposter) // If not imposter:
+		{
+			// For each object, add transform to list of instance matrices to draw, if the object is close enough.
+			for(size_t i=0; i<instance_info_size; ++i)
+			{
+				const Vec4f pos = instance_info[i].to_world.getColumn(3);
+				const float dist2 = pos.getDist2(campos);
+				if(dist2 < Maths::square(IMPOSTER_FADE_DIST_START + 5.f)) // a little crossover with shadows
+					temp_matrices.push_back(instance_info[i].to_world);
+			}
+		}
+		else // else if is imposter:
+		{
+			// We want to rotate the quad towards the sun.
+			const Vec4f axis_k = Vec4f(0, 0, 1, 0);
+			const Vec4f axis_i = -normalise(crossProduct(axis_k, sun_dir)); // Negate, as only backfaces cast shadows currently.
+			const Vec4f axis_j = crossProduct(axis_k, axis_i);
+			Matrix4f rot(axis_i, axis_j, axis_k, Vec4f(0,0,0,1));
+
+			for(size_t i=0; i<instance_info_size; ++i)
+			{
+				const Vec4f pos = instance_info[i].to_world.getColumn(3);
+				const float dist2 = pos.getDist2(campos);
+				if(dist2 > Maths::square(IMPOSTER_FADE_DIST_START))
+					temp_matrices.push_back(leftTranslateAffine3(sun_dir * -2.f, instance_info[i].to_world * rot)); // Nudge the shadow casting quad away from the old position, to avoid self-shadowing of the imposter quad
+				// once it is rotated towards the camera
+			}
+
+			ob.materials[0].tex_matrix = Matrix2f(0.25f, 0, 0, -1.f); // Adjust texture matrix to pick just one of the texture sprites
+		}
+	}
+	else
+	{
+		if(!ob.is_imposter) // If not imposter:
+		{
+			for(size_t i=0; i<instance_info_size; ++i)
+			{
+				const Vec4f pos = instance_info[i].to_world.getColumn(3);
+				const float dist2 = pos.getDist2(campos);
+				if(dist2 < Maths::square(IMPOSTER_FADE_DIST_END))
+				{
+					temp_matrices.push_back(instance_info[i].to_world);
+				}
+			}
+		}
+		else // else if is imposter:
+		{
+			for(size_t i=0; i<instance_info_size; ++i)
+			{
+				const Vec4f pos = instance_info[i].to_world.getColumn(3);
+				const float dist2 = pos.getDist2(campos);
+				if(dist2 > Maths::square(IMPOSTER_FADE_DIST_START))
+				{
+					// We want to rotate the imposter towards the camera.
+					const Vec4f axis_k = Vec4f(0, 0, 1, 0);
+					const Vec4f axis_i = -normalise(crossProduct(axis_k, pos - campos)); // TEMP NEGATING, needed for some reason or leftleft looks like rightlit
+					const Vec4f axis_j = crossProduct(axis_k, axis_i);
+
+					Matrix4f rot(axis_i, axis_j, axis_k, Vec4f(0,0,0,1));
+
+					temp_matrices.push_back(instance_info[i].to_world * rot);
+				}
+			}
+
+			ob.materials[0].tex_matrix = Matrix2f(1.f, 0, 0, -1.f); // Restore texture matrix
+		}
+	}
+
+	ob.num_instances_to_draw = (int)temp_matrices.size();
+	ob.instance_matrix_vbo->updateData(temp_matrices.data(), temp_matrices.dataSizeBytes());
+}
 
 
 void OpenGLEngine::draw()
@@ -2553,6 +2692,13 @@ void OpenGLEngine::draw()
 	//=============== Render to shadow map depth buffer if needed ===========
 	if(shadow_mapping.nonNull())
 	{
+		// Set instance matrices for imposters.
+		for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
+		{
+			GLObject* const ob = it->getPointer();
+			updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/true);
+		}
+
 #if !defined(OSX)
 		if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
 #endif
@@ -3338,6 +3484,10 @@ void OpenGLEngine::draw()
 	
 	//================= Draw non-transparent batches from objects =================
 
+	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	// Update shared phong uniforms
 	{
 		SharedVertUniforms uniforms;
@@ -3369,6 +3519,15 @@ void OpenGLEngine::draw()
 	}
 
 #if 1
+	// Set instance matrices for imposters.
+	for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
+	{
+		GLObject* const ob = it->getPointer();
+		if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/false);
+	}
+
+
 	batch_draw_info.reserve(current_scene->objects.size());
 	batch_draw_info.resize(0);
 
@@ -5249,7 +5408,7 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 	if(ob.instance_matrix_vbo.nonNull())
 	{
-		const size_t num_instances = ob.instance_matrix_vbo->getSize() / sizeof(Matrix4f);
+		const size_t num_instances = ob.num_instances_to_draw;
 		glDrawElementsInstanced(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset, (uint32)num_instances);
 	}
 	else
@@ -6489,21 +6648,23 @@ float OpenGLEngine::getPixelDepth(int pixel_x, int pixel_y)
 
 Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRenderedColourBuffer()
 {
-	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > map = new ImageMap<uint8, UInt8ComponentValueTraits>(viewport_w, viewport_h, 3);
+	const bool capture_alpha = false;
 
-	js::Vector<uint8, 16> data(viewport_w * viewport_h * 3);
-
+	const int N = capture_alpha ? 4 : 3;
+	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > map = new ImageMap<uint8, UInt8ComponentValueTraits>(viewport_w, viewport_h, N);
+	js::Vector<uint8, 16> data(viewport_w * viewport_h * N);
 	glReadPixels(0, 0, // x, y
 		viewport_w, viewport_h,  // width, height
-		GL_RGB, GL_UNSIGNED_BYTE,
-		data.data()// map->getPixel(0)
+		capture_alpha ? GL_RGBA : GL_RGB,
+		GL_UNSIGNED_BYTE,
+		data.data()
 	);
-
+	
 	// Flip image upside down.
 	for(int dy=0; dy<viewport_h; ++dy)
 	{
 		const int sy = viewport_h - dy - 1;
-		std::memcpy(/*dest=*/map->getPixel(0, dy), /*src=*/&data[sy*viewport_w*3], /*size=*/viewport_w*3);
+		std::memcpy(/*dest=*/map->getPixel(0, dy), /*src=*/&data[sy*viewport_w*N], /*size=*/viewport_w*N);
 	}
 
 	return map;

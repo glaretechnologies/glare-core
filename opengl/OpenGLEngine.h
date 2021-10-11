@@ -150,12 +150,16 @@ public:
 		gen_planar_uvs(false),
 		draw_planar_uv_grid(false),
 		convert_albedo_from_srgb(false),
-		albedo_tex_is_placeholder(false)
+		albedo_tex_is_placeholder(false),
+		imposter(false),
+		imposterable(false)
 	{}
 
 	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
 	float alpha; // Used for transparent mats.
 
+	bool imposter; // Use imposter shader?
+	bool imposterable;
 	bool transparent;
 	bool gen_planar_uvs;
 	bool draw_planar_uv_grid;
@@ -204,11 +208,18 @@ struct GLObjectAnimNodeData
 	Matrix4f procedural_transform;
 };
 
+
+struct GlInstanceInfo
+{
+	Matrix4f to_world; // For imposters, this will not have rotation baked in.
+};
+
 struct GLObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0) {}
+	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
+		num_instances_to_draw(0) {}
 
 	void enableInstancing(const VBORef new_instance_matrix_vbo); // Enables instancing attributes, and builds vert_vao.
 
@@ -223,6 +234,11 @@ struct GLObject : public ThreadSafeRefCounted
 
 	VBORef instance_matrix_vbo;
 	VBORef instance_colour_vbo;
+	
+	bool is_imposter;
+	bool is_instanced_ob_with_imposters; // E.g. is a tree object or a tree imposter.
+	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
+	js::Vector<GlInstanceInfo, 16> instance_info;
 	
 	std::vector<OpenGLMaterial> materials;
 
@@ -349,6 +365,7 @@ public:
 	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
 	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
 	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
+	std::unordered_set<Reference<GLObject>, GLObjectHash> objects_with_imposters;
 
 	GLObjectRef env_ob;
 private:
@@ -653,6 +670,7 @@ private:
 
 	OpenGLProgramRef getPhongProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getTransparentProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	OpenGLProgramRef getImposterProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 public:
 	glare::TaskManager& getTaskManager();
@@ -661,6 +679,7 @@ public:
 	void textureBecameUsed(const OpenGLTexture* tex);
 private:
 	void trimTextureUsage();
+	void updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping);
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -836,6 +855,8 @@ private:
 	js::Vector<Matrix4f, 16> node_matrices;
 	std::vector<AnimationKeyFrameLocation> key_frame_locs;
 	js::Vector<Matrix4f, 16> temp_joint_matrices;
+
+	js::Vector<Matrix4f, 16> temp_matrices;
 
 public:
 	PrintOutput* print_output; // May be NULL
