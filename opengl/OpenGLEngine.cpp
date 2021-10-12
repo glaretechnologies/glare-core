@@ -5187,7 +5187,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	{
 		glActiveTexture(GL_TEXTURE0 + 7);
 		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
-		glUniform1i(locations.lightmap_tex_location, 6);
+		glUniform1i(locations.lightmap_tex_location, 7);
 	}
 
 	// Set shadow mapping uniforms
