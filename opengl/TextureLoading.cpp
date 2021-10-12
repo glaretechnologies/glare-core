@@ -655,7 +655,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 
 
 Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB)
 {
 	// conPrint("Creating new OpenGL texture.");
 	Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
@@ -698,9 +698,9 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	{
 		OpenGLTexture::Format format;
 		if(texture_data.bytes_pp == 3)
-			format = opengl_engine->are_8bit_textures_sRGB ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_RGB_Linear_Uint8;
+			format = (opengl_engine->are_8bit_textures_sRGB && use_sRGB) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_RGB_Linear_Uint8;
 		else if(texture_data.bytes_pp == 4)
-			format = opengl_engine->are_8bit_textures_sRGB ? OpenGLTexture::Format_SRGBA_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
+			format = (opengl_engine->are_8bit_textures_sRGB && use_sRGB) ? OpenGLTexture::Format_SRGBA_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
 		else
 			throw glare::Exception("Texture has unhandled number of components: " + toString(texture_data.bytes_pp));
 

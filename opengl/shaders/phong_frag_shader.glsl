@@ -25,6 +25,7 @@ uniform sampler2D dynamic_depth_tex;
 uniform sampler2D static_depth_tex;
 uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
+uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
 #if LIGHTMAPPING
 uniform sampler2D lightmap_tex;
@@ -106,17 +107,6 @@ vec2 samples[16] = vec2[](
 	vec2(0.00019336, 0.00042188),
 	vec2(0.00071289, -0.00025977)
 );
-
-
-uint ha(uint x)
-{
-	x  = (x ^ 12345391u) * 2654435769u;
-	x ^= (x << 6) ^ (x >> 26);
-	x *= 2654435769u;
-	x += (x << 5) ^ (x >> 12);
-
-	return x;
-}
 
 
 vec3 toNonLinear(vec3 x)
@@ -228,8 +218,7 @@ void main()
 	diffuse_col.xyz *= vert_colour;
 #endif
 
-	int pixel_index = int((gl_FragCoord.y * 1920.0 + gl_FragCoord.x));
-	float pixel_hash = float(ha(uint(pixel_index))) * (1.f / 4294967296.0f);
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
 #if IMPOSTERABLE
 	float dist_alpha_factor = smoothstep(100.f, 120.f,  /*dist=*/-pos_cs.z);
 	if(dist_alpha_factor >= pixel_hash)

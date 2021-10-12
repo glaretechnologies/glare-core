@@ -890,6 +890,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.specular_env_tex_location			= prog->getUniformLocation("specular_env_tex");
 	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
 	locations_out.fbm_tex_location					= prog->getUniformLocation("fbm_tex");
+	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	locations_out.texture_matrix_location			= prog->getUniformLocation("texture_matrix");
 	locations_out.sundir_cs_location				= prog->getUniformLocation("sundir_cs");
 	locations_out.campos_ws_location				= prog->getUniformLocation("campos_ws");
@@ -1373,6 +1374,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				throw glare::Exception("specular env map Must be ImageMapFloat");
 
 			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
+		}
+
+		// Load blue noise texture
+		{
+			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", gl_data_dir + "/LDR_LLL1_0.png");
+			this->blue_noise_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, OpenGLTexture::Filtering_Nearest, 
+				OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false, /*use_sRGB=*/false);
 		}
 
 		init_succeeded = true;
@@ -5153,6 +5161,13 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
 		glUniform1i(locations.fbm_tex_location, 5);
 	}
+	
+	if(this->blue_noise_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 6);
+		glBindTexture(GL_TEXTURE_2D, this->blue_noise_tex->texture_handle);
+		glUniform1i(locations.blue_noise_tex_location, 6);
+	}
 
 	if(opengl_mat.albedo_texture.nonNull())
 	{
@@ -5170,7 +5185,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 
 	if(opengl_mat.lightmap_texture.nonNull())
 	{
-		glActiveTexture(GL_TEXTURE0 + 6);
+		glActiveTexture(GL_TEXTURE0 + 7);
 		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
 		glUniform1i(locations.lightmap_tex_location, 6);
 	}
@@ -6395,7 +6410,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGL
 
 
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression)
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression, bool use_sRGB)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
@@ -6410,7 +6425,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			Reference<TextureData> texture_data = this->texture_data_manager->getOrBuildTextureData(key.path, imagemap, this/*, state*/, allow_compression);
 
 			// Load into OpenGL
-			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping);
+			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping, use_sRGB);
 
 			// Now that the data has been loaded into OpenGL, we can erase the texture data.
 			this->texture_data_manager->removeTextureData(key.path);

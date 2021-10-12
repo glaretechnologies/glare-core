@@ -105,7 +105,7 @@ public:
 
 	// Load the built texture data into OpenGL.
 	static Reference<OpenGLTexture> loadTextureIntoOpenGL(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
-		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
+		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB = true);
 
 	// Load the texture data for frame_i into an existing OpenGL texture
 	static void loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i, const Reference<OpenGLEngine>& opengl_engine);

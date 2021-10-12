@@ -522,7 +522,7 @@ public:
 		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
 
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true);
+		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true);
 
 	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex);
 
@@ -728,6 +728,7 @@ private:
 	int env_cirrus_tex_location;
 
 	Reference<OpenGLTexture> fbm_tex;
+	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;
 	Reference<OpenGLTexture> cirrus_tex;
 
