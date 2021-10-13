@@ -40,6 +40,10 @@ public:
 
 	inline void enlargeToHoldPoint(const Vec2<Real>& p);
 
+	// TODO: tests for these
+	inline bool disjoint(const Rect2<Real>& other) const;
+	inline bool intersectsRect2(const Rect2<Real>& other) const;
+
 private:
 	Vec2<Real> min;
 	Vec2<Real> max;
@@ -85,6 +89,21 @@ void Rect2<Real>::enlargeToHoldPoint(const Vec2<Real>& p)
 	min.y = myMin(min.y, p.y);
 	max.x = myMax(max.x, p.x);
 	max.y = myMax(max.y, p.y);
+}
+
+
+template <class Real>
+bool Rect2<Real>::disjoint(const Rect2<Real>& other) const
+{
+	return max.x < other.min.x || max.y < other.min.y ||
+		other.max.x < min.x || other.max.y < min.y;
+}
+
+
+template <class Real>
+bool Rect2<Real>::intersectsRect2(const Rect2<Real>& other) const
+{
+	return !disjoint(other);
 }
 
 
