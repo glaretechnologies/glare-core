@@ -66,10 +66,10 @@ public:
 	typedef int SOCKETHANDLE_TYPE;
 #endif
 
+	MySocket(); // For server listener sockets
 	MySocket(const std::string& hostname, int port); // Client connect via DNS lookup
 	MySocket(const IPAddress& ipaddress, int port); // Client connect
 	MySocket(SOCKETHANDLE_TYPE sockethandle_); // For sockets returned from acceptConnection().
-	MySocket();
 
 	~MySocket();
 

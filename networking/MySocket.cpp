@@ -688,11 +688,10 @@ uint64 MySocket::readUInt64()
 
 bool MySocket::readable(double timeout_s)
 {
-	assert(timeout_s < 1.0);
-
 	timeval wait_period;
-	wait_period.tv_sec = 0;
-	wait_period.tv_usec = (long)(timeout_s * 1000000.0);
+	wait_period.tv_sec = (long)timeout_s;
+	const double frac_sec = timeout_s - (double)((long)timeout_s);
+	wait_period.tv_usec = (long)(frac_sec * 1000000.0);
 
 	fd_set read_sockset;
 	initFDSetWithSocket(read_sockset, sockethandle);
