@@ -498,6 +498,7 @@ public:
 	//---------------------------- Object selection ------------------------------------------
 	void selectObject(const Reference<GLObject>& object);
 	void deselectObject(const Reference<GLObject>& object);
+	void deselectAllObjects();
 	void setSelectionOutlineColour(const Colour4f& col);
 	//----------------------------------------------------------------------------------------
 

@@ -1886,6 +1886,12 @@ void OpenGLEngine::deselectObject(const Reference<GLObject>& object)
 }
 
 
+void OpenGLEngine::deselectAllObjects()
+{
+	this->selected_objects.clear();
+}
+
+
 void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
 	current_scene->objects.erase(object);
