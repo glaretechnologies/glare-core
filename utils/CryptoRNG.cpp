@@ -64,7 +64,7 @@ void getRandomBytes(uint8* buf, size_t buflen)
 		buflen, // buflen
 		0 // flags
 	);
-	if(res < buflen)
+	if(res < (ssize_t)buflen)
 		throw glare::Exception("getrandom failed: " + PlatformUtils::getLastErrorString());
 
 #endif
