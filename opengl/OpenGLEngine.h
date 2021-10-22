@@ -152,22 +152,30 @@ public:
 		convert_albedo_from_srgb(false),
 		albedo_tex_is_placeholder(false),
 		imposter(false),
-		imposterable(false)
+		imposterable(false),
+		use_wind_vert_shader(false),
+		double_sided(false),
+		begin_fade_out_distance(100.f),
+		end_fade_out_distance(120.f)
 	{}
 
 	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
 	float alpha; // Used for transparent mats.
 
 	bool imposter; // Use imposter shader?
-	bool imposterable;
+	bool imposterable; // Fade out with distance
 	bool transparent;
 	bool gen_planar_uvs;
 	bool draw_planar_uv_grid;
 	bool convert_albedo_from_srgb;
+	bool use_wind_vert_shader;
+	bool double_sided;
 
 	Reference<OpenGLTexture> albedo_texture;
 	Reference<OpenGLTexture> lightmap_texture;
 	Reference<OpenGLTexture> texture_2;
+	Reference<OpenGLTexture> backface_albedo_texture;
+	Reference<OpenGLTexture> transmission_texture;
 
 	Reference<OpenGLProgram> shader_prog;
 
@@ -177,6 +185,8 @@ public:
 	float roughness;
 	float fresnel_scale;
 	float metallic_frac;
+	float begin_fade_out_distance; // Used when imposterable is true
+	float end_fade_out_distance; // Used when imposterable is true
 	
 	uint64 userdata;
 	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
@@ -238,7 +248,7 @@ struct GLObject : public ThreadSafeRefCounted
 	bool is_imposter;
 	bool is_instanced_ob_with_imposters; // E.g. is a tree object or a tree imposter.
 	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
-	js::Vector<GlInstanceInfo, 16> instance_info;
+	js::Vector<GlInstanceInfo, 16> instance_info; // Used for updating instance + imposter matrices.
 	
 	std::vector<OpenGLMaterial> materials;
 
@@ -430,6 +440,8 @@ struct PhongUniforms
 	float fresnel_scale;
 	float metallic_frac;
 	float time;
+	float begin_fade_out_distance;
+	float end_fade_out_distance;
 };
 
 
@@ -441,6 +453,7 @@ struct SharedVertUniforms
 	Matrix4f shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES]; // same for all objects
 	//#endif
 	Vec4f campos_ws; // same for all objects
+	float time;
 };
 
 

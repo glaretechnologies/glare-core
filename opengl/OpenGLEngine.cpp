@@ -886,6 +886,8 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.have_shading_normals_location		= prog->getUniformLocation("have_shading_normals");
 	locations_out.have_texture_location				= prog->getUniformLocation("have_texture");
 	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
+	locations_out.backface_diffuse_tex_location		= prog->getUniformLocation("backface_diffuse_tex");
+	locations_out.transmission_tex_location			= prog->getUniformLocation("transmission_tex");
 	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
 	locations_out.specular_env_tex_location			= prog->getUniformLocation("specular_env_tex");
 	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
@@ -1152,8 +1154,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		per_object_vert_uniform_buf_ob = new UniformBufOb();
 		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
 
-		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
-		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
 
 
 		env_prog = new OpenGLProgram(
@@ -1283,14 +1285,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		if(settings.shadow_mapping)
 		{
-			depth_draw_prog								= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false));
-			depth_draw_alpha_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false));
-			depth_draw_instancing_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false));
-			depth_draw_alpha_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false));
-			depth_draw_skinning_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false));
-			depth_draw_alpha_skinning_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false));
-			depth_draw_instancing_skinning_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false));
-			depth_draw_alpha_instancing_skinning_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false));
+			depth_draw_prog								= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false, false, false));
+			depth_draw_alpha_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false, false, false));
+			depth_draw_instancing_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false, false, false));
+			depth_draw_alpha_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false, false, false));
+			depth_draw_skinning_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false, false, false));
+			depth_draw_alpha_skinning_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false, false, false));
+			depth_draw_instancing_skinning_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false, false, false));
+			depth_draw_alpha_instancing_skinning_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false, false, false));
 
 			shadow_mapping = new ShadowMapping();
 			shadow_mapping->init();
@@ -1405,7 +1407,9 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
 		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" +
 		"#define SKINNING " + toString(key.skinning) + "\n" +
-		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n";
+		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
+		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
+		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n";
 }
 
 
@@ -1734,7 +1738,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support && material.albedo_texture.nonNull();
 
 	const ProgramKey key(material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"), /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable);
+		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 }
@@ -2234,7 +2238,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
 		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false));
+			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false));
 	}
 
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -3470,7 +3474,7 @@ void OpenGLEngine::draw()
 
 
 	// Draw background env map if there is one. (or if we are using a non-standard env shader)
-	if((this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr()) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
+	if((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
 	{
 		Matrix4f world_to_camera_space_no_translation = view_matrix;
 		world_to_camera_space_no_translation.e[12] = 0;
@@ -3528,6 +3532,7 @@ void OpenGLEngine::draw()
 			uniforms.shadow_texture_matrix[i] = tex_matrices[i];
 
 		uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
+		uniforms.time = current_time;
 
 		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 	}
@@ -5136,6 +5141,8 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	uniforms.fresnel_scale = opengl_mat.fresnel_scale;
 	uniforms.metallic_frac = opengl_mat.metallic_frac;
 	uniforms.time = this->current_time;
+	uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
+	uniforms.end_fade_out_distance = opengl_mat.end_fade_out_distance;
 
 
 
@@ -5194,6 +5201,31 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glActiveTexture(GL_TEXTURE0 + 7);
 		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
 		glUniform1i(locations.lightmap_tex_location, 7);
+	}
+
+	// for double-sided mat, check required textures are set
+	if(opengl_mat.double_sided && opengl_mat.albedo_texture.nonNull())
+	{
+		assert(opengl_mat.backface_albedo_texture.nonNull());
+		assert(opengl_mat.transmission_texture.nonNull());
+	}
+
+	// Set backface_albedo_texture
+	if(opengl_mat.double_sided && opengl_mat.backface_albedo_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 8);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.backface_albedo_texture->texture_handle);
+		glUniform1i(locations.backface_diffuse_tex_location, 8);
+		assert(locations.backface_diffuse_tex_location >= 0);
+	}
+
+	// Set transmission_texture
+	if(opengl_mat.double_sided && opengl_mat.transmission_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 9);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.transmission_texture->texture_handle);
+		glUniform1i(locations.transmission_tex_location, 9);
+		assert(locations.transmission_tex_location >= 0);
 	}
 
 	// Set shadow mapping uniforms
@@ -6415,10 +6447,26 @@ Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGL
 }
 
 
+static Reference<ImageMapUInt8> convertToUInt8ImageMap(const ImageMap<uint16, UInt16ComponentValueTraits>& map)
+{
+	Reference<ImageMapUInt8> new_map = new ImageMapUInt8(map.getWidth(), map.getHeight(), map.getN());
+	for(size_t i=0; i<map.getDataSize(); ++i)
+		new_map->getData()[i] = (uint8)(map.getData()[i] / 256);
+	return new_map;
+}
+
+
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression, bool use_sRGB)
 {
-	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
+	if(dynamic_cast<const ImageMap<uint16, UInt16ComponentValueTraits>*>(&map2d))
+	{
+		// Convert to 8-bit, then recurse.
+		Reference<ImageMapUInt8> im_map_uint8 = convertToUInt8ImageMap(static_cast<const ImageMap<uint16, UInt16ComponentValueTraits>&>(map2d));
+
+		return getOrLoadOpenGLTexture(key, *im_map_uint8, filtering, wrapping, allow_compression, use_sRGB);
+	}
+	else if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
 		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
 
@@ -6610,7 +6658,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 	}
 	else
 	{
-		throw glare::Exception("Unhandled texture type.");
+		throw glare::Exception("Unhandled texture type for texture '" + key.path + "': (B/pixel: " + toString(map2d.getBytesPerPixel()) + ", numChannels: " + toString(map2d.numChannels()) + ")");
 	}
 }
 
