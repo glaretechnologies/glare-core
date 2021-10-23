@@ -178,6 +178,7 @@ public:
 	Reference<OpenGLTexture> transmission_texture;
 
 	Reference<OpenGLProgram> shader_prog;
+	Reference<OpenGLProgram> depth_draw_shader_prog;
 
 	Matrix2f tex_matrix;
 	Vec2f tex_translation;
@@ -686,6 +687,7 @@ private:
 	OpenGLProgramRef getTransparentProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getImposterProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 public:
 	glare::TaskManager& getTaskManager();
 
@@ -730,6 +732,7 @@ private:
 	std::map<ProgramKey, OpenGLProgramRef> progs;
 	OpenGLProgramRef fallback_phong_prog;
 	OpenGLProgramRef fallback_transparent_prog;
+	OpenGLProgramRef fallback_depth_prog;
 
 	Reference<OpenGLProgram> env_prog;
 	int env_diffuse_colour_location;
@@ -770,14 +773,6 @@ private:
 	std::string data_dir;
 
 	Reference<ShadowMapping> shadow_mapping;
-	Reference<OpenGLProgram> depth_draw_prog;
-	Reference<OpenGLProgram> depth_draw_alpha_prog;
-	Reference<OpenGLProgram> depth_draw_instancing_prog;
-	Reference<OpenGLProgram> depth_draw_alpha_instancing_prog;
-	Reference<OpenGLProgram> depth_draw_skinning_prog;
-	Reference<OpenGLProgram> depth_draw_alpha_skinning_prog;
-	Reference<OpenGLProgram> depth_draw_instancing_skinning_prog;
-	Reference<OpenGLProgram> depth_draw_alpha_instancing_skinning_prog;
 
 	OverlayObjectRef clear_buf_overlay_ob;
 

@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include "../utils/Parser.h"
 
 
 static const std::string getLog(GLuint shader)
@@ -25,6 +26,36 @@ static const std::string getLog(GLuint shader)
 		glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
 	}
 	return log;
+}
+
+
+// Example error message (nvidia): 0(113) : error C7011: implicit cast from "vec4" to "vec3"
+static std::string updateLineNumber(const std::string& log, int line_adjustment)
+{
+	std::string newlog;
+	Parser parser(log.c_str(), log.size());
+
+	while(parser.notEOF())
+	{
+		int col;
+		if(!parser.parseInt(col))
+			return log;
+		if(!parser.parseChar('('))
+			return log;
+		int linenum;
+		if(!parser.parseInt(linenum))
+			return log;
+		if(!parser.parseChar(')'))
+			return log;
+
+		newlog += "line " + toString(linenum + line_adjustment) + ", col " + toString(col);
+
+		string_view rest_of_line;
+		parser.parseLine(rest_of_line);
+		newlog += rest_of_line.to_string();
+	}
+
+	return newlog;
 }
 
 
@@ -73,10 +104,16 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& preproces
 
 		glCompileShader(shader);
 
-		const std::string log = getLog(shader);
+		std::string log = getLog(shader);
 
 		if(!isAllWhitespace(log))
+		{
+			// Update line number in log to correct line number
+			const int num_preprocessor_lines = getNumMatches(preprocessor_defines, '\n');
+			log = updateLineNumber(log, -num_preprocessor_lines);
+
 			conPrint("shader log for " + FileUtils::getFilename(path) + ":\n" + log);
+		}
 
 		// TEMP: dump full shader to disk
 		// FileUtils::writeEntireFileTextMode(FileUtils::getFilename(path), processed_src);

@@ -1154,8 +1154,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		per_object_vert_uniform_buf_ob = new UniformBufOb();
 		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
 
-		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
-		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false, false, false)); // Will be used if we hit a shader compilation error later
+		// Will be used if we hit a shader compilation error later
+		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false));
+		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false, false, false));
+
+		if(settings.shadow_mapping)
+			fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       false, false, false, false, false, false, false, false, false, false, false));
 
 
 		env_prog = new OpenGLProgram(
@@ -1285,15 +1289,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		if(settings.shadow_mapping)
 		{
-			depth_draw_prog								= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false, false, false));
-			depth_draw_alpha_prog						= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/false, false, false, false));
-			depth_draw_instancing_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false, false, false));
-			depth_draw_alpha_instancing_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/false, false, false, false));
-			depth_draw_skinning_prog					= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false, false, false));
-			depth_draw_alpha_skinning_prog				= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/false, false, false, false, false, /*skinning=*/true, false, false, false));
-			depth_draw_instancing_skinning_prog			= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/false, false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false, false, false));
-			depth_draw_alpha_instancing_skinning_prog	= getDepthDrawProgram(ProgramKey("depth", /*alpha_test_=*/true,  false, /*instance_matrices_=*/true, false, false, false, false, /*skinning=*/true, false, false, false));
-
 			shadow_mapping = new ShadowMapping();
 			shadow_mapping->init();
 
@@ -1532,8 +1527,22 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 }
 
 
-OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
+OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Throws glare::Exception on shader compilation failure.
 {
+	// Only some fields are relevant for picking the correct depth draw prog.  Set the other options to false to avoid unnecessary state changes.
+	ProgramKey key = key_;
+	
+	if(!key_.use_wind_vert_shader)
+		key.vert_colours = false; // Vert colours will only be used for wind
+	key.lightmapping = false;
+	key.gen_planar_uvs = false; // relevant?
+	key.draw_planar_uv_grid = false;
+	key.convert_albedo_from_srgb = false;
+	// relevant: key.skinning
+	key.imposterable = false; // for now
+	// relevant: use_wind_vert_shader
+	key.double_sided = false; // for now
+
 	if(progs[key] == NULL)
 	{
 		Timer timer;
@@ -1586,6 +1595,8 @@ OpenGLProgramRef OpenGLEngine::getProgramWithFallbackOnError(const ProgramKey& k
 			return getTransparentProgram(key);
 		else if(key.program_name == "imposter")
 			return getImposterProgram(key);
+		else if(key.program_name == "depth")
+			return getDepthDrawProgram(key);
 		else
 		{
 			assert(0);
@@ -1598,6 +1609,21 @@ OpenGLProgramRef OpenGLEngine::getProgramWithFallbackOnError(const ProgramKey& k
 		return this->fallback_phong_prog;
 	}
 }
+
+
+OpenGLProgramRef OpenGLEngine::getDepthDrawProgramWithFallbackOnError(const ProgramKey& key) // On shader compilation failure, just returns a default phong program.
+{
+	try
+	{
+		return getDepthDrawProgram(key);
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint("ERROR: " + e.what());
+		return this->fallback_depth_prog;
+	}
+}
+
 
 
 // We want the outline textures to have the same resolution as the viewport.
@@ -1741,6 +1767,14 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
+
+	if(settings.shadow_mapping)
+	{
+		const ProgramKey depth_key("depth", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
+			material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided);
+
+		material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
+	}
 }
 
 
@@ -2849,6 +2883,7 @@ void OpenGLEngine::draw()
 				std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
 				uniforms.proj_matrix = proj_matrix;
 				uniforms.view_matrix = view_matrix;
+				uniforms.time = current_time;
 				this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 			}
 
@@ -2885,13 +2920,8 @@ void OpenGLEngine::draw()
 								info.ob = ob;
 								info.batch = &mesh_data.batches[z];
 								info.mat = &ob->materials[mat_index];
-								info.prog = use_instancing ? 
-									(use_alpha_test ? 
-										(use_skinning ? depth_draw_alpha_instancing_skinning_prog.ptr() : depth_draw_alpha_instancing_prog.ptr()) : 
-										(use_skinning ? depth_draw_instancing_skinning_prog.ptr() : depth_draw_instancing_prog.ptr())) : 
-									(use_alpha_test ? 
-										(use_skinning ? depth_draw_alpha_skinning_prog.ptr() : depth_draw_alpha_prog.ptr()) : 
-										(use_skinning ? depth_draw_skinning_prog.ptr() : depth_draw_prog.ptr()));
+								info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
+
 								batch_draw_info.push_back(info);
 							}
 						}
@@ -3161,13 +3191,7 @@ void OpenGLEngine::draw()
 										info.ob = ob;
 										info.batch = &mesh_data.batches[z];
 										info.mat = &ob->materials[mat_index];
-										info.prog = use_instancing ? 
-											(use_alpha_test ? 
-												(use_skinning ? depth_draw_alpha_instancing_skinning_prog.ptr() : depth_draw_alpha_instancing_prog.ptr()) : 
-												(use_skinning ? depth_draw_instancing_skinning_prog.ptr() : depth_draw_instancing_prog.ptr())) : 
-											(use_alpha_test ? 
-												(use_skinning ? depth_draw_alpha_skinning_prog.ptr() : depth_draw_alpha_prog.ptr()) : 
-												(use_skinning ? depth_draw_skinning_prog.ptr() : depth_draw_prog.ptr()));
+										info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
 										batch_draw_info.push_back(info);
 									}
 								}
