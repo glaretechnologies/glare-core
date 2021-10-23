@@ -66,7 +66,7 @@ public:
 	// NOTE: These methods may be called from another thread!
 	virtual void frameDecoded(VideoReader* vid_reader, const Reference<SampleInfo>& frameinfo) = 0;
 
-	virtual void endOfStream(VideoReader* vid_reader) {}
+	virtual void endOfStream(VideoReader* /*vid_reader*/) {}
 };
 
 
