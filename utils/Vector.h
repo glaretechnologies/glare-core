@@ -377,16 +377,19 @@ void Vector<T, alignment>::resize(size_t n)
 		{
 			::new (elem) T;
 		}
+
+		size_ = n;
 	}
 	else if(n < size_)
 	{
 		// Destroy elements e[n] to e[size-1]
 		for(size_t i=n; i<size_; ++i)
 			e[i].~T();
+
+		size_ = n;
 	}
 
-	size_ = n;
-
+	assert(size_ == n);
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
 }
