@@ -134,6 +134,11 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		gl_format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
 		break;
+	case Format_Depth_Uint16:
+		internal_format = GL_DEPTH_COMPONENT16;
+		gl_format = GL_DEPTH_COMPONENT;
+		type = GL_FLOAT;
+		break;
 	case Format_Compressed_RGB_Uint8:
 		//assert(0); // getGLFormat() shouldn't be called for compressed formats
 		internal_format = GL_RGB8;
@@ -238,6 +243,8 @@ static void setPixelStoreAlignment(size_t tex_xres, GLenum gl_format, GLenum typ
 	size_t component_size = 1;
 	if(type == GL_UNSIGNED_BYTE)
 		component_size = 1;
+	else if(type == GL_UNSIGNED_SHORT)
+		component_size = 2;
 	else if(type == GL_HALF_FLOAT)
 		component_size = 2;
 	else if(type == GL_FLOAT)

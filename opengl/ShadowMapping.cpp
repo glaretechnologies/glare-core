@@ -34,27 +34,18 @@ void ShadowMapping::init()
 	for(int i=0; i<2; ++i)
 		static_frame_buffer[i] = new FrameBuffer();
 
-	//blur_fb = new FrameBuffer();
-	
 	// Create depth tex
-	//depth_tex = new OpenGLTexture();
-	//depth_tex->load(w, h, NULL, NULL, 
-	//	GL_DEPTH_COMPONENT16, // internal format
-	//	GL_DEPTH_COMPONENT, // format
-	//	GL_FLOAT, // type
-	//	true // nearest filtering
-	//);
-
-	depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, NULL,
-		OpenGLTexture::Format_Depth_Float,
+	// We will use a 16-bit depth format as I haven't seen any noticable issues with it so far, compared to a 32-bit format.
+	depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, /*opengl_engine=*/NULL,
+		OpenGLTexture::Format_Depth_Uint16,
 		OpenGLTexture::Filtering_Nearest // nearest filtering
 	);
 
 	cur_static_depth_tex = 0;
 
 	for(int i=0; i<2; ++i)
-		static_depth_tex[i] = new OpenGLTexture(static_w, static_h, NULL,
-			OpenGLTexture::Format_Depth_Float,
+		static_depth_tex[i] = new OpenGLTexture(static_w, static_h, /*opengl_engine=*/NULL,
+			OpenGLTexture::Format_Depth_Uint16,
 			OpenGLTexture::Filtering_Nearest // nearest filtering
 		);
 

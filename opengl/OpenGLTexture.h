@@ -68,6 +68,7 @@ public:
 		Format_RGB_Linear_Float,
 		Format_RGB_Linear_Half,
 		Format_Depth_Float,
+		Format_Depth_Uint16,
 		Format_Compressed_RGB_Uint8,
 		Format_Compressed_RGBA_Uint8,
 		Format_Compressed_SRGB_Uint8,
