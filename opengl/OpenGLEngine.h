@@ -415,7 +415,7 @@ struct BatchDrawInfo
 	const OpenGLBatch* batch;
 	const OpenGLMaterial* mat;
 	const OpenGLProgram* prog;
-	uint32 flags; // 1 = use shading normals
+	//uint32 flags; // 1 = use shading normals
 
 	bool operator < (const BatchDrawInfo& other) const
 	{
