@@ -6,22 +6,16 @@ Copyright Glare Technologies Limited 2021 -
 #include "WebSocket.h"
 
 
-#include "Networking.h"
 #include "MySocket.h"
-#include "FractionListener.h"
 #include "../maths/mathstypes.h"
 #include "../utils/StringUtils.h"
 #include "../utils/MyThread.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/Timer.h"
-#include "../utils/EventFD.h"
 #include "../utils/ConPrint.h"
-#include "../utils/BitUtils.h"
-#include "../utils/OpenSSL.h"
 #include <vector>
 #include <string.h>
 #include <algorithm>
-
 
 
 WebSocket::WebSocket(SocketInterfaceRef underlying_socket_)
@@ -35,6 +29,7 @@ WebSocket::WebSocket(SocketInterfaceRef underlying_socket_)
 WebSocket::~WebSocket()
 {
 }
+
 
 void WebSocket::write(const void* data, size_t datalen)
 {
@@ -384,6 +379,7 @@ void WebSocket::writeDataInFrame(uint8 opcode, const uint8* data, size_t datalen
 	if(datalen > 0)
 		underlying_socket->writeData(data, datalen);
 }
+
 
 // Write all unflushed data written to this socket to the underlying socket.
 void WebSocket::flush()
