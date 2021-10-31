@@ -53,6 +53,8 @@ public:
 
 	virtual IPAddress getOtherEndIPAddress() const = 0;
 	virtual int getOtherEndPort() const = 0;
+
+	virtual void flush() {}
 };
 
 
