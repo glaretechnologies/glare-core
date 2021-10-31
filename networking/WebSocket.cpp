@@ -24,10 +24,11 @@ Copyright Glare Technologies Limited 2021 -
 
 
 
-WebSocket::WebSocket(SocketInterfaceRef plain_socket_)
+WebSocket::WebSocket(SocketInterfaceRef underlying_socket_)
 {
-	plain_socket = plain_socket_;
-	request_start_index = 0;
+	underlying_socket = underlying_socket_;
+	frame_start_index = 0;
+	read_header = false;
 }
 
 
@@ -37,12 +38,14 @@ WebSocket::~WebSocket()
 
 void WebSocket::write(const void* data, size_t datalen)
 {
+	// Append data to our output buffer.  Output data will be written to the underlying socket in the flush() method.
 	buffer_out.writeData(data, datalen);
 }
 
 
 void WebSocket::write(const void* data, size_t datalen, FractionListener* frac)
 {
+	// Append data to our output buffer.  Output data will be written to the underlying socket in the flush() method.
 	buffer_out.writeData(data, datalen);
 }
 
@@ -56,19 +59,19 @@ size_t WebSocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 
 void WebSocket::setNoDelayEnabled(bool enabled) // NoDelay option is off by default.
 {
-	plain_socket->setNoDelayEnabled(enabled);
+	underlying_socket->setNoDelayEnabled(enabled);
 }
 
 
 void WebSocket::enableTCPKeepAlive(float period)
 {
-	plain_socket->enableTCPKeepAlive(period);
+	underlying_socket->enableTCPKeepAlive(period);
 }
 
 
 void WebSocket::setAddressReuseEnabled(bool enabled)
 {
-	plain_socket->setAddressReuseEnabled(enabled);
+	underlying_socket->setAddressReuseEnabled(enabled);
 }
 
 
@@ -80,7 +83,7 @@ void WebSocket::readTo(void* buffer, size_t readlen)
 
 // Move bytes [request_start, socket_buffer.size()) to [0, socket_buffer.size() - request_start),
 // then resize buffer to socket_buffer.size() - request_start.
-static void moveToFrontOfBuffer(std::vector<uint8>& socket_buffer, size_t request_start)
+static void moveToFrontOfBuffer(js::Vector<uint8, 16>& socket_buffer, size_t request_start)
 {
 	assert(request_start < socket_buffer.size());
 	if(request_start < socket_buffer.size())
@@ -96,82 +99,71 @@ static void moveToFrontOfBuffer(std::vector<uint8>& socket_buffer, size_t reques
 
 void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 {
-	// Read from buffered frame data.  If we have read all of that, start reading a frame from the underlying socket.
+	// While we don't have enough data in the input buffer to complete the read from the local input buffer:
 	while(readlen > buffer_in.buf.size())
 	{
+		// Read some data from the socket into socket_buffer.
 		const size_t old_socket_buffer_size = socket_buffer.size();
 		const size_t read_chunk_size = 2048;
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
-		const size_t num_bytes_read = plain_socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size);
+		const size_t num_bytes_read = underlying_socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size);
 		if(num_bytes_read == 0) // if connection was closed gracefully
 			throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 
 		socket_buffer.resize(old_socket_buffer_size + num_bytes_read); // Trim the buffer down so it only extends to what we actually read.
 
-
-		// Process any complete frames we have in socket_buffer.
-		// Initial frame header is 2 bytes
-		bool keep_processing_frames = true;
-		while(keep_processing_frames)
+		// Process data from the socket read.  If we processed a full frame, keep looping to process any subsequent frames in socket_buffer.
+		bool processed_full_frame = true;
+		while(processed_full_frame)
 		{
-			//if(VERBOSE) conPrint("WorkerThread: Processing frame...");
+			processed_full_frame = false;
 
-			keep_processing_frames = false; // Break the loop, unless we process a full frame below
-
-			const size_t socket_buf_size = socket_buffer.size();
-			if(request_start_index + 2 <= socket_buf_size) // If there are 2 bytes in the buffer:
+			if(!read_header) // If we have not read a complete frame header:
 			{
-				const uint8* msg = &socket_buffer[request_start_index];
-
-				bool got_header = false; // Have we read the full frame header?
-
-				const uint32 fin = msg[0] & 0x80; // Fin bit. Indicates that this is the final fragment in a message.
-				const uint32 opcode = msg[0] & 0xF; // Opcode.  4 bits
-				const uint32 mask = msg[1] & 0x80; // Mask bit.  Defines whether the "Payload data" is masked.
-				uint32 payload_len = msg[1] & 0x7F; // Payload length.  7 bits.
-				uint32 header_size = mask != 0 ? 6 : 2; // If mask is present, it adds 4 bytes to the header size.
-				uint32 cur_offset = 2;
-
-				
-				if(payload_len <= 125) // "if 0-125, that is the payload length"
+				const size_t socket_buf_size = socket_buffer.size();
+				if(frame_start_index + 2 <= socket_buf_size) // If there are >= 2 bytes in the buffer:
 				{
-					got_header = true;
-				}
-				else if(payload_len == 126) // "If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length" - https://tools.ietf.org/html/rfc6455
-				{
-					if(request_start_index + 4 <= socket_buf_size) // If there are 4 bytes in the buffer:
+					const uint8* msg = &socket_buffer[frame_start_index];
+
+					this->header_opcode = msg[0] & 0xF; // Opcode.  4 bits
+					const uint32 mask = msg[1] & 0x80; // Mask bit.  Defines whether the "Payload data" is masked.
+					this->payload_len = msg[1] & 0x7F; // Payload length.  7 bits.
+					this->header_size = mask != 0 ? 6 : 2; // If mask is present, it adds 4 bytes to the header size.
+					size_t cur_offset = 2; // Offset in header
+
+					bool read_header_size = false;
+					if(payload_len <= 125) // "if 0-125, that is the payload length"
 					{
-						payload_len = (msg[2] << 8) | msg[3];
-						header_size += 2;
-						cur_offset += 2;
-						got_header = true;
+						read_header_size = true;
 					}
-				}
-				else // "If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0) are the payload length"
-				{
-					assert(payload_len == 127);
-					if(request_start_index + 10 <= socket_buf_size) // If there are 10 bytes in the buffer:
+					else if(payload_len == 126) // "If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length" - https://tools.ietf.org/html/rfc6455
 					{
-						uint64 len64 = 0;
-						for(int i=0; i<8; ++i)
-							len64 |= (uint64)msg[2 + i] << (8*(7 - i));
-
-						if(len64 > (uint64)std::numeric_limits<uint32>::max()) // We won't handle messages with length >= than 2^32 bytes for now.
-							throw MySocketExcep("Message too long");
-						payload_len = (uint32)len64;
-						header_size += 8;
-						cur_offset += 8;
-						got_header = true;
+						if(frame_start_index + 4 <= socket_buf_size) // If there are 4 bytes in the buffer:
+						{
+							payload_len = (msg[2] << 8) | msg[3];
+							header_size += 2;
+							cur_offset += 2;
+							read_header_size = true;
+						}
 					}
-				}
+					else // "If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0) are the payload length"
+					{
+						assert(payload_len == 127);
+						if(frame_start_index + 10 <= socket_buf_size) // If there are 10 bytes in the buffer:
+						{
+							payload_len = 0;
+							for(int i=0; i<8; ++i)
+								payload_len |= (uint64)msg[2 + i] << (8*(7 - i));
 
-				if(got_header)
-				{
-					// See if we have already read the full frame body:
-					if(request_start_index + header_size + payload_len <= socket_buf_size)
+							header_size += 8;
+							cur_offset += 8;
+							read_header_size = true;
+						}
+					}
+
+					if(read_header_size && (frame_start_index + header_size <= socket_buf_size))
 					{
 						// Read masking key
-						unsigned char masking_key[4];
 						if(mask != 0)
 						{
 							masking_key[0] = msg[cur_offset++];
@@ -182,89 +174,98 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 						else
 							masking_key[0] = masking_key[1] = masking_key[2] = masking_key[3] = 0;
 
-						// We should have read the entire header (including masking key) now.
-						assert(cur_offset == header_size);
-
-						if(payload_len > 0)
-						{
-							if(opcode == 0x1 && fin != 0) // Text frame:
-							{ 
-								// Append to the back of buffer_in
-								const size_t write_i = buffer_in.buf.size();
-								buffer_in.buf.resize(write_i + payload_len);
-
-								for(uint32 i=0; i<payload_len; ++i)
-								{
-									assert(request_start_index + header_size + i < socket_buffer.size());
-									buffer_in.buf[write_i + i] = msg[header_size + i] ^ masking_key[i % 4];
-								}
-							}
-							if(opcode == 0x2 && fin != 0) // Binary frame:
-							{ 
-								// Append to the back of buffer_in
-								const size_t write_i = buffer_in.buf.size();
-								buffer_in.buf.resize(write_i + payload_len);
-
-								for(uint32 i=0; i<payload_len; ++i)
-								{
-									assert(request_start_index + header_size + i < socket_buffer.size());
-									buffer_in.buf[write_i + i] = msg[header_size + i] ^ masking_key[i % 4];
-								}
-							}
-							else if(opcode == 0x8) // Close frame:
-							{
-								throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
-							}
-							else if(opcode == 0x9) // Ping
-							{
-								//conPrint("PING");
-								// TODO: Send back pong frame
-								//ResponseUtils::writeWebsocketTextMessage(reply_info, unmasked_payload_str);
-							}
-							else
-							{
-								//conPrint("Got unknown websocket opcode: " + toString(opcode));
-								throw MySocketExcep("Got unknown websocket opcode: " + toString(opcode));
-							}
-						}
-
-						// We have finished processing the websocket frame.  Advance request_start_index
-						request_start_index = request_start_index + header_size + payload_len;
-						keep_processing_frames = true;
-
-						// Move the remaining data in the buffer to the start of the buffer, and resize the buffer down.
-						// We do this so as to not exhaust memory when a connection is open for a long time and receiving lots of frames.
-						if(request_start_index < socket_buf_size)
-						{
-							moveToFrontOfBuffer(socket_buffer, request_start_index);
-							request_start_index = 0;
-						}
+						read_header = true;
 					}
 				}
 			}
+
+
+			if(read_header) // If we have read a complete frame header:
+			{
+				// See if we have already read the full frame body:
+				if(frame_start_index + header_size + payload_len <= socket_buffer.size())
+				{
+					// TODO: handle continuation frames, which have an opcode of zero.
+
+					if(header_opcode == 0x1 || header_opcode == 0x2) // Text or binary frame:
+					{ 
+						// Append to the back of buffer_in
+						const size_t write_i = buffer_in.buf.size();
+						buffer_in.buf.resize(write_i + payload_len);
+
+						for(size_t i=0; i<payload_len; ++i)
+						{
+							assert(frame_start_index + header_size + i < socket_buffer.size());
+							buffer_in.buf[write_i + i] = socket_buffer[frame_start_index + header_size + i] ^ masking_key[i % 4];
+						}
+					}
+					else if(header_opcode == 0x8) // Close frame:
+					{
+						// "If an endpoint receives a Close frame and did not previously send a Close frame, the endpoint MUST send a Close frame in response."
+						writeDataInFrame(/*opcode=*/0x8, /*data=*/NULL, /*datalen=*/0);
+
+						throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
+					}
+					else if(header_opcode == 0x9) // Ping
+					{
+						// "Upon receipt of a Ping frame, an endpoint MUST send a Pong frame in response, unless it already received a Close frame"
+						
+						// Send Pong frame back.
+						// "A Pong frame sent in response to a Ping frame must have identical "Application data" as found in the message body of the Ping frame being replied to."
+						writeDataInFrame(/*opcode (PONG)=*/0xA, &socket_buffer[frame_start_index + header_size], payload_len);
+					}
+					else
+					{
+						throw MySocketExcep("Got unknown websocket opcode: " + toString(header_opcode));
+					}
+
+					// We have finished processing the websocket frame.  Advance frame_start_index
+					frame_start_index = frame_start_index + header_size + payload_len;
+
+					// Move the remaining data in the buffer to the start of the buffer, and resize the buffer down.
+					// We do this so as to not exhaust memory when a connection is open for a long time and receiving lots of frames.
+					if((frame_start_index >= 4096) && (frame_start_index < socket_buffer.size()))
+					{
+						moveToFrontOfBuffer(socket_buffer, frame_start_index);
+						frame_start_index = 0;
+					}
+
+					if(frame_start_index == socket_buffer.size()) // If we have processed the complete socket_buffer:
+					{
+						socket_buffer.clear();
+						frame_start_index = 0;
+					}
+
+
+					// Reset our state to read the next frame header
+					read_header = false;
+					header_size = 0;
+					payload_len = 0;
+					header_opcode = 0;
+
+					processed_full_frame = true; // Keep looping
+
+				} // End if(have read full frame)
+			} // End if(have read header)
 		}
 	}
 
 	
-	buffer_in.readData(buffer, readlen);
-	if(buffer_in.endOfStream())
-	{
-		// Clear buffer_in
-		buffer_in.buf.resize(0);
-		buffer_in.read_index = 0;
-	}
+	buffer_in.readData(buffer, readlen); // Read from the internal buffer.
+	if(buffer_in.endOfStream()) // If we read all the data in the internal buffer, clear it.
+		buffer_in.clear();
 }
 
 
 void WebSocket::ungracefulShutdown()
 {
-	plain_socket->ungracefulShutdown();
+	underlying_socket->ungracefulShutdown();
 }
 
 
 void WebSocket::waitForGracefulDisconnect()
 {
-	plain_socket->waitForGracefulDisconnect();
+	underlying_socket->waitForGracefulDisconnect();
 }
 
 
@@ -314,7 +315,7 @@ bool WebSocket::readable(double timeout_s)
 {
 	if(!buffer_in.endOfStream())
 		return true;
-	return plain_socket->readable(timeout_s);
+	return underlying_socket->readable(timeout_s);
 }
 
 
@@ -324,7 +325,7 @@ bool WebSocket::readable(EventFD& event_fd)
 {	
 	if(!buffer_in.endOfStream())
 		return true;
-	return plain_socket->readable(event_fd);
+	return underlying_socket->readable(event_fd);
 }
 
 
@@ -350,43 +351,44 @@ void WebSocket::writeData(const void* data, size_t num_bytes)
 }
 
 
-// Write all unflushed data written to this socket to the underlying socket.
-void WebSocket::flush()
+void WebSocket::writeDataInFrame(uint8 opcode, const uint8* data, size_t datalen)
 {
-	const uint32 fin = 0x80;
-	const uint32 opcode = 0x2;
-
 	uint8 frame_prefix[10];
-	frame_prefix[0] = fin | opcode;
+	frame_prefix[0] = /*fin=*/0x80 | opcode;
 
-	const size_t buf_size = buffer_out.buf.size();
 	// Write payload len
-	if(buf_size <= 125)
+	if(datalen <= 125)
 	{
-		frame_prefix[1] = (uint8)buffer_out.buf.size();
+		frame_prefix[1] = (uint8)datalen;
 
-		plain_socket->writeData(frame_prefix, 2);
+		underlying_socket->writeData(frame_prefix, 2);
 	}
-	else if(buf_size <= 65536)
+	else if(datalen <= 65536)
 	{
 		frame_prefix[1] = 126;
-		frame_prefix[2] = (uint8)(buf_size >> 8);
-		frame_prefix[3] = (uint8)(buf_size & 0xFF);
+		frame_prefix[2] = (uint8)(datalen >> 8);
+		frame_prefix[3] = (uint8)(datalen & 0xFF);
 
-		plain_socket->writeData(frame_prefix, 4);
+		underlying_socket->writeData(frame_prefix, 4);
 	}
 	else
 	{
-		// TODO: check this
 		frame_prefix[1] = 127;
 		for(int i=0; i<8; ++i)
-			frame_prefix[2 + i] = (uint8)((buf_size >> (8*(7 - i))) & 0xFF);
+			frame_prefix[2 + i] = (uint8)((datalen >> (8*(7 - i))) & 0xFF);
 
-		plain_socket->writeData(frame_prefix, 10);
+		underlying_socket->writeData(frame_prefix, 10);
 	}
 
 	// Write data to the socket
-	plain_socket->writeData(buffer_out.buf.data(), buffer_out.buf.size());
+	if(datalen > 0)
+		underlying_socket->writeData(data, datalen);
+}
+
+// Write all unflushed data written to this socket to the underlying socket.
+void WebSocket::flush()
+{
+	writeDataInFrame(/*opcode (binary frame)=*/0x2, buffer_out.buf.data(), buffer_out.buf.size());
 
 	buffer_out.buf.resize(0);
 }

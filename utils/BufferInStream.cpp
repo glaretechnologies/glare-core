@@ -29,6 +29,13 @@ BufferInStream::~BufferInStream()
 }
 
 
+void BufferInStream::clear() // Resizes buffer to zero, resets read_index to zero.
+{
+	buf.clear();
+	read_index = 0;
+}
+
+
 int32 BufferInStream::readInt32()
 {
 	if(read_index + sizeof(int32) > buf.size())

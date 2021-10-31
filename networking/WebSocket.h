@@ -6,16 +6,11 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
-#include "IPAddress.h"
 #include "SocketInterface.h"
-#include "../utils/Platform.h"
-#include "../utils/InStream.h"
-#include "../utils/OutStream.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/BufferOutStream.h"
 #include "../utils/BufferInStream.h"
-#include <string>
 class FractionListener;
 class EventFD;
 
@@ -23,13 +18,15 @@ class EventFD;
 /*=====================================================================
 WebSocket
 ---------
+Implements reading and writing over a websocket connection.
+See https://tools.ietf.org/html/rfc6455 for the websocket specification.
 
+The write methods append data to a local buffer, which is written to the underlying socket in the flush() method.
 =====================================================================*/
 class WebSocket : public SocketInterface
 {
 public:
-
-	WebSocket(SocketInterfaceRef plain_socket);
+	WebSocket(SocketInterfaceRef underlying_socket);
 
 	~WebSocket();
 
@@ -62,8 +59,8 @@ public:
 
 	virtual void setAddressReuseEnabled(bool enabled);
 
-	virtual IPAddress getOtherEndIPAddress() const { return plain_socket->getOtherEndIPAddress(); }
-	virtual int getOtherEndPort() const { return plain_socket->getOtherEndPort(); }
+	virtual IPAddress getOtherEndIPAddress() const { return underlying_socket->getOtherEndIPAddress(); }
+	virtual int getOtherEndPort() const { return underlying_socket->getOtherEndPort(); }
 
 	virtual void flush();
 
@@ -95,13 +92,20 @@ private:
 	WebSocket(const WebSocket& other);
 	WebSocket& operator = (const WebSocket& other);
 
+	void writeDataInFrame(uint8 opcode, const uint8* data, size_t datalen);
+
 	BufferInStream buffer_in;
 	BufferOutStream buffer_out;
 
-	std::vector<uint8> socket_buffer;
-	size_t request_start_index;
+	js::Vector<uint8, 16> socket_buffer;
+	size_t frame_start_index;
+	uint8 masking_key[4];
+	bool read_header;
+	size_t header_size;
+	size_t payload_len;
+	uint32 header_opcode;
 
-	SocketInterfaceRef plain_socket;
+	SocketInterfaceRef underlying_socket;
 };
 
 
