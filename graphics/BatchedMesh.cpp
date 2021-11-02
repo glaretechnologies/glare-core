@@ -1188,4 +1188,22 @@ size_t BatchedMesh::getTotalMemUsage() const
 }
 
 
+js::AABBox BatchedMesh::computeAABB() const
+{
+	const BatchedMesh::VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
+	const size_t stride = vertexSize();
+	const size_t num_verts = numVerts();
+
+	js::AABBox aabb = js::AABBox::emptyAABBox();
+	for(size_t i=0; i<num_verts; ++i)
+	{
+		Vec4f vertpos;
+		std::memcpy(vertpos.x, &vertex_data[pos_attr.offset_B + stride * i], sizeof(float) * 3);
+		vertpos.x[3] = 1.f;
+		aabb.enlargeToHoldPoint(vertpos);
+	}
+	return aabb;
+}
+
+
 // Tests are in BatchedMeshTests
