@@ -654,6 +654,8 @@ public:
 	GLMemUsage getTotalMemUsage() const;
 
 	std::string getDiagnostics() const;
+
+	void setProfilingEnabled(bool enabled) { profiling_enabled = enabled; }
 	//----------------------------------------------------------------------------------------
 
 private:
@@ -855,6 +857,14 @@ private:
 	js::Vector<BatchDrawInfo, 16> batch_draw_info;
 	uint32 num_prog_changes;
 	uint32 last_num_prog_changes;
+	uint32 num_batches_bound;
+	uint32 last_num_batches_bound;
+
+	double last_anim_update_duration;
+	double last_depth_map_gen_GPU_time;
+	double last_render_GPU_time;
+
+	bool profiling_enabled;
 
 
 	UniformBufObRef phong_uniform_buf_ob;

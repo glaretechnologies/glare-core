@@ -46,7 +46,6 @@ Copyright Glare Technologies Limited 2020 -
 #include <algorithm>
 
 
-static const bool PROFILE = false;
 static const bool MEM_PROFILE = false;
 
 
@@ -201,7 +200,11 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	outline_tex_h(0),
 	last_num_obs_in_frustum(0),
 	print_output(NULL),
-	tex_mem_usage(0)
+	tex_mem_usage(0),
+	last_anim_update_duration(0),
+	last_depth_map_gen_GPU_time(0),
+	last_render_GPU_time(0),
+	profiling_enabled(false)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -1021,7 +1024,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	glDisable(GL_CULL_FACE);	// Disable backface culling
 
 #if !defined(OSX)
-	if(PROFILE)
+	if(profiling_enabled)
 		glGenQueries(1, &timer_query_id);
 #endif
 
@@ -1562,7 +1565,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
-		if(key.instance_matrices || key.skinning) // SharedVertUniforms are only used in depth_vert_shader.glsl when INSTANCE_MATRICES is defined.
+		if(key.instance_matrices || key.skinning || key.use_wind_vert_shader) // SharedVertUniforms are only used in depth_vert_shader.glsl when INSTANCE_MATRICES is defined.
 		{
 			unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 			assert(shared_vert_uniforms_index != GL_INVALID_INDEX);
@@ -2429,9 +2432,12 @@ void OpenGLEngine::draw()
 
 	this->draw_time = draw_timer.elapsed();
 	uint64 shadow_depth_drawing_elapsed_ns = 0;
+	double anim_update_duration = 0;
 
 
 	//=============== TEMP: Set animated objects state ===========
+	{
+	Timer anim_profile_timer;
 	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
 	{
 		GLObject* const ob = it->getPointer();
@@ -2739,6 +2745,8 @@ void OpenGLEngine::draw()
 			}
 		}
 	}
+	anim_update_duration = anim_profile_timer.elapsed();
+	}
 
 
 	//=============== Render to shadow map depth buffer if needed ===========
@@ -2752,7 +2760,7 @@ void OpenGLEngine::draw()
 		}
 
 #if !defined(OSX)
-		if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
+		if(profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
 #endif
 		//-------------------- Draw dynamic depth textures ----------------
 		shadow_mapping->bindDepthTexFrameBufferAsTarget();
@@ -3237,7 +3245,7 @@ void OpenGLEngine::draw()
 		glDisable(GL_CULL_FACE);
 
 #if !defined(OSX)
-		if(PROFILE)
+		if(profiling_enabled)
 		{
 			glEndQuery(GL_TIME_ELAPSED);
 			glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &shadow_depth_drawing_elapsed_ns); // Blocks
@@ -3246,7 +3254,7 @@ void OpenGLEngine::draw()
 	} // End if(shadow_mapping.nonNull())
 
 #if !defined(OSX)
-	if(PROFILE) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
+	if(profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id); // Start measuring everything else after depth buffer drawing:
 #endif
 
 	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
@@ -3610,15 +3618,48 @@ void OpenGLEngine::draw()
 
 	// Draw sorted batches
 	num_prog_changes = 0;
+	num_batches_bound = 0;
+
 	//const OpenGLMeshRenderData* last_mesh_data = NULL;
+	//VAO* last_VAO = NULL;
+	//VBO* last_indices = NULL;
 	for(size_t i=0; i<batch_draw_info.size(); ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info[i];
 		
+		// This technique crashes for some reason:
+		/*const GLObject& ob = *info.ob;
+		VAO* vao = ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : ob.mesh_data->vert_vao.ptr();
+		VBO* indices = ob.mesh_data->vert_indices_buf.ptr();
+
+		if(info.prog != current_bound_prog.ptr())
+		{
+			last_VAO = NULL;
+			last_indices = NULL;
+		}
+
+		if(vao != last_VAO)
+		{
+			vao->bind();
+			last_VAO = vao;
+		}
+		if(indices != last_indices)
+		{
+			indices->bind();
+			last_indices = indices;
+			num_batches_bound++;
+		}*/
+		
+
+		bindMeshData(*info.ob);
+		num_batches_bound++;
+
+
 		//if(last_mesh_data != info.ob->mesh_data.ptr()) // NOTE: need ot handle instancing on off here. should check ob is the same as well.  or vert_vao is the same
 		//{
-			bindMeshData(*info.ob); // Bind the mesh data, which is the same for all batches.
+		//	bindMeshData(*info.ob); // Bind the mesh data, which is the same for all batches.
 		//	last_mesh_data = info.ob->mesh_data.ptr();
+		//	num_batches_bound++;
 		//}
 
 		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
@@ -3626,6 +3667,7 @@ void OpenGLEngine::draw()
 	//if(last_mesh_data) unbindMeshData(*last_mesh_data);
 	//OpenGLProgram::useNoPrograms(); // NOTE: seems slightly faster without this
 	last_num_prog_changes = num_prog_changes;
+	last_num_batches_bound = num_batches_bound;
 #else
 	uint64 num_frustum_culled = 0;
 	num_prog_changes = 0;
@@ -4001,7 +4043,7 @@ void OpenGLEngine::draw()
 	} // End if(settings.use_final_image_buffer)
 	
 
-	if(PROFILE)
+	if(profiling_enabled)
 	{
 		const double cpu_time = profile_timer.elapsed();
 		uint64 elapsed_ns = 0;
@@ -4009,12 +4051,16 @@ void OpenGLEngine::draw()
 		glEndQuery(GL_TIME_ELAPSED);
 		glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
 #endif
-
+		/*conPrint("anim_update_duration: " + doubleToStringNDecimalPlaces(anim_update_duration * 1.0e3, 4) + " ms");
 		conPrint("Frame times: CPU: " + doubleToStringNDecimalPlaces(cpu_time * 1.0e3, 4) + 
 			" ms, depth map gen on GPU: " + doubleToStringNDecimalPlaces(shadow_depth_drawing_elapsed_ns * 1.0e-6, 4) + 
 			" ms, GPU: " + doubleToStringNDecimalPlaces(elapsed_ns * 1.0e-6, 4) + " ms.");
 		conPrint("Submitted: face groups: " + toString(num_face_groups_submitted) + ", faces: " + toString(num_indices_submitted / 3) + ", aabbs: " + toString(num_aabbs_submitted) + ", " + 
-			toString(current_scene->objects.size() - num_frustum_culled) + "/" + toString(current_scene->objects.size()) + " obs");
+			toString(current_scene->objects.size() - num_frustum_culled) + "/" + toString(current_scene->objects.size()) + " obs");*/
+
+		last_anim_update_duration = anim_update_duration;
+		last_depth_map_gen_GPU_time = shadow_depth_drawing_elapsed_ns * 1.0e-9;
+		last_render_GPU_time = elapsed_ns * 1.0e-9;
 	}
 
 	frame_num++;
@@ -4334,10 +4380,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 			//conPrint("merged_normals:    " + rightPad(toString(merged_normals.size()),    ' ', pad_w) + "(" + getNiceByteSize(merged_normals.dataSizeBytes()) + ")");
 			//conPrint("merged_uvs:        " + rightPad(toString(merged_uvs.size()),        ' ', pad_w) + "(" + getNiceByteSize(merged_uvs.dataSizeBytes()) + ")");
 			conPrint("vert_index_buffer: " + rightPad(toString(mesh->indices.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
-		}
-		if(PROFILE)
-		{
-			conPrint("buildIndigoMesh took " + timer.elapsedStringNPlaces(4));
 		}
 
 		opengl_render_data->aabb_os.min_ = Vec4f(mesh_->aabb_os.bound[0].x, mesh_->aabb_os.bound[0].y, mesh_->aabb_os.bound[0].z, 1.f);
@@ -4878,10 +4920,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildIndigoMesh(const Reference<In
 		conPrint("verts:             " + rightPad(toString(num_merged_verts),         ' ', pad_w) + "(" + getNiceByteSize(vert_data.dataSizeBytes()) + ")");
 		conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
 	}
-	if(PROFILE)
-	{
-		conPrint("buildIndigoMesh took " + timer.elapsedStringNPlaces(4));
-	}
 
 	// If we did the OpenGL calls, then the data has been uploaded to VBOs etc.. so we can free it.
 	if(!skip_opengl_calls)
@@ -5087,9 +5125,6 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::buildBatchedMesh(const Reference<B
 	opengl_render_data->has_vert_colours	= colour_attr != NULL;
 
 	opengl_render_data->aabb_os = mesh->aabb_os;
-
-	if(PROFILE)
-		conPrint("buildIndigoMesh took " + timer.elapsedStringNPlaces(4));
 
 	return opengl_render_data;
 }
@@ -6891,6 +6926,11 @@ std::string OpenGLEngine::getDiagnostics() const
 
 	s += "Num obs in view frustum: " + toString(last_num_obs_in_frustum) + "\n";
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
+	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
+
+	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";
+	s += "last_depth_map_gen_GPU_time: " + doubleToStringNSigFigs(last_depth_map_gen_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "last_render_GPU_time: " + doubleToStringNSigFigs(last_render_GPU_time * 1.0e3, 4) + " ms\n";
 
 	const GLMemUsage mem_usage = this->getTotalMemUsage();
 	s += "geometry CPU mem usage: " + getNiceByteSize(mem_usage.geom_cpu_usage) + "\n";
