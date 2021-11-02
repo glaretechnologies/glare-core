@@ -7,6 +7,9 @@ in vec3 pos_cs;
 in vec3 pos_os;
 #endif
 in vec3 cam_to_pos_ws;
+#if USE_LOGARITHMIC_DEPTH_BUFFER
+in float flogz;
+#endif
 
 uniform vec4 sundir_cs;
 uniform vec4 diffuse_colour;
@@ -156,5 +159,12 @@ void main()
 	if(fract(use_texture_coords.x) < border_w_u || fract(use_texture_coords.x) >= (1 - border_w_u) ||
 		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1 - border_w_v))
 		colour_out = vec4(0.2f, 0.8f, 0.54f, 1.f);
+#endif
+
+#if USE_LOGARITHMIC_DEPTH_BUFFER
+	float farplane = 10000.0;
+	float Fcoef = 2.0 / log2(farplane + 1.0);
+	float Fcoef_half = 0.5 * Fcoef;
+	gl_FragDepth = log2(flogz) * Fcoef_half;
 #endif
 }

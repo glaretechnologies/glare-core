@@ -178,6 +178,7 @@ OpenGLScene::OpenGLScene()
 	use_z_up = true;
 	dest_blending_factor = GL_ONE_MINUS_SRC_ALPHA;
 	bloom_strength = 0;
+	wind_strength = 1.f;
 
 	env_ob = new GLObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
@@ -1144,6 +1145,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define DEPTH_TEXTURE_SCALE_MULT " + (settings.shadow_mapping ? toString(shadow_mapping->getDynamicDepthTextureScaleMultiplier()) : std::string("1.0")) + "\n";
 
 		preprocessor_defines += "#define DEPTH_FOG " + (settings.depth_fog ? std::string("1") : std::string("0")) + "\n";
+
+		preprocessor_defines += "#define USE_LOGARITHMIC_DEPTH_BUFFER " + (settings.use_logarithmic_depth_buffer ? std::string("1") : std::string("0")) + "\n";
+
+		// static_cascade_blending causes a white-screen error on many Intel GPUs.
+		const bool is_intel_vendor = StringUtils::containsString(::toLowerCase(opengl_vendor), "intel");
+		const bool static_cascade_blending = !is_intel_vendor;
+		preprocessor_defines += "#define DO_STATIC_SHADOW_MAP_CASCADE_BLENDING " + (static_cascade_blending ? std::string("1") : std::string("0")) + "\n";
+		
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
@@ -2891,7 +2900,8 @@ void OpenGLEngine::draw()
 				std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
 				uniforms.proj_matrix = proj_matrix;
 				uniforms.view_matrix = view_matrix;
-				uniforms.time = current_time;
+				uniforms.vert_uniforms_time = current_time;
+				uniforms.wind_strength = current_scene->wind_strength;
 				this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 			}
 
@@ -3165,6 +3175,8 @@ void OpenGLEngine::draw()
 					std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
 					uniforms.proj_matrix = proj_matrix;
 					uniforms.view_matrix = view_matrix;
+					uniforms.vert_uniforms_time = current_time;
+					uniforms.wind_strength = current_scene->wind_strength;
 					this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 				}
 
@@ -3538,6 +3550,10 @@ void OpenGLEngine::draw()
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	// Required for logarithmic depth buffer to avoid clipping artifacts.
+	if(settings.use_logarithmic_depth_buffer)
+		glEnable(GL_DEPTH_CLAMP);
+
 	// Update shared phong uniforms
 	{
 		SharedVertUniforms uniforms;
@@ -3564,7 +3580,8 @@ void OpenGLEngine::draw()
 			uniforms.shadow_texture_matrix[i] = tex_matrices[i];
 
 		uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
-		uniforms.time = current_time;
+		uniforms.vert_uniforms_time = current_time;
+		uniforms.wind_strength = current_scene->wind_strength;
 
 		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 	}

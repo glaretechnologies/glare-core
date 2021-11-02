@@ -305,13 +305,14 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), max_tex_mem_usage(1024 * 1024 * 1024ull) {}
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), use_logarithmic_depth_buffer(false), max_tex_mem_usage(1024 * 1024 * 1024ull) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
 	bool compress_textures;
 	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool depth_fog;
+	bool use_logarithmic_depth_buffer;
 
 	uint64 max_tex_mem_usage; // Default: 1GB
 };
@@ -350,6 +351,8 @@ public:
 	GLenum dest_blending_factor; // Defaults to GL_ONE_MINUS_SRC_ALPHA
 
 	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
+
+	float wind_strength; // Default = 1.
 private:
 	float use_sensor_width;
 	float use_sensor_height;
@@ -454,7 +457,8 @@ struct SharedVertUniforms
 	Matrix4f shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES]; // same for all objects
 	//#endif
 	Vec4f campos_ws; // same for all objects
-	float time;
+	float vert_uniforms_time;
+	float wind_strength;
 };
 
 
@@ -481,6 +485,8 @@ public:
 	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
 
 	void unloadAllData();
+
+	const std::string getPreprocessorDefines() const { return preprocessor_defines; } // for compiling shader programs
 	//----------------------------------------------------------------------------------------
 
 

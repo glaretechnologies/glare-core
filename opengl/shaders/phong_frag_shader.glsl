@@ -18,6 +18,9 @@ in vec3 vert_colour;
 #if LIGHTMAPPING
 in vec2 lightmap_coords;
 #endif
+#if USE_LOGARITHMIC_DEPTH_BUFFER
+in float flogz;
+#endif
 
 uniform sampler2D diffuse_tex;
 #if DOUBLE_SIDED
@@ -440,6 +443,7 @@ void main()
 			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
 			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds); // NOTE: had cap and bias
 
+#if DO_STATIC_SHADOW_MAP_CASCADE_BLENDING
 			if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
 			{
 				float edge_dist = 0.7f * cascade_end_dist;
@@ -456,6 +460,7 @@ void main()
 					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
 				}
 			}
+#endif
 
 #if VISUALISE_CASCADES
 			refl_diffuse_col.xz *= float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES;
@@ -550,4 +555,11 @@ void main()
 	col *= 0.000000003; // tone-map
 	
 	colour_out = vec4(toNonLinear(col.xyz), 1);
+
+#if USE_LOGARITHMIC_DEPTH_BUFFER
+	float farplane = 10000.0;
+	float Fcoef = 2.0 / log2(farplane + 1.0);
+	float Fcoef_half = 0.5 * Fcoef;
+	gl_FragDepth = log2(flogz) * Fcoef_half;
+#endif
 }
