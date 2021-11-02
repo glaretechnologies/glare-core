@@ -47,7 +47,8 @@ public:
 	{
 		Filtering_Nearest,
 		Filtering_Bilinear,
-		Filtering_Fancy // Trilinear + anisotropic filtering if available
+		Filtering_Fancy, // Trilinear + anisotropic filtering if available
+		Filtering_PCF
 	};
 
 	enum Wrapping

@@ -33,6 +33,7 @@ public:
 
 	GLARE_STRONG_INLINE AABBox& operator = (const AABBox& rhs) { min_ = rhs.min_; max_ = rhs.max_; return *this; }
 	inline bool operator == (const AABBox& rhs) const;
+	inline bool operator != (const AABBox& rhs) const;
 
 	inline bool contains(const Vec4f& p) const;
 
@@ -213,6 +214,12 @@ inline const Vec4f AABBox::centroid() const
 bool AABBox::operator == (const AABBox& rhs) const
 {
 	return min_ == rhs.min_ && max_ == rhs.max_;
+}
+
+
+bool AABBox::operator != (const AABBox& rhs) const
+{
+	return min_ != rhs.min_ || max_ != rhs.max_;
 }
 
 

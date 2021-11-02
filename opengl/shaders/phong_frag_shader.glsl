@@ -19,14 +19,13 @@ in vec3 vert_colour;
 in vec2 lightmap_coords;
 #endif
 
-
 uniform sampler2D diffuse_tex;
 #if DOUBLE_SIDED
 uniform sampler2D backface_diffuse_tex;
 uniform sampler2D transmission_tex;
 #endif
-uniform sampler2D dynamic_depth_tex;
-uniform sampler2D static_depth_tex;
+uniform sampler2DShadow dynamic_depth_tex;
+uniform sampler2DShadow static_depth_tex;
 uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
@@ -139,6 +138,46 @@ float fbmMix(vec2 p)
 		fbm(p) +
 		fbm(rot(p * 2)) * 0.5 +
 		0;
+}
+
+
+float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords)
+{
+	// float actual_depth_0 = min(shadow_cds_0.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
+
+	// This technique blurs the shadows a bit, but works well to reduce swimming aliasing artifacts on shadow edges etc..
+	/*
+	float offset_scale = 1.f / 2048; // 2048 = tex res
+	float sum = 0;
+	for(int x=-1; x<=2; ++x)
+		for(int y=-1; y<=2; ++y)
+		{
+			vec2 st = shadow_coords.xy + R * (vec2(x - 0.5f, y - 0.5f) * offset_scale);
+			sum += texture(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z));
+		}
+	return sum * (1.f / 16);*/
+
+	// This technique is a bit sharper:
+	float sum = 0;
+	for(int i = 0; i < 16; ++i)
+	{
+		vec2 st = shadow_coords.xy + R * samples[i];
+		sum += texture(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z));
+	}
+	return sum * (1.f / 16);
+}
+
+
+float sampleStaticDepthMap(mat2 R, vec3 shadow_coords)
+{
+	// This technique gives sharper shadows, so will use for static depth maps to avoid shadows on smaller objects being blurred away.
+	float sum = 0;
+	for(int i = 0; i < 16; ++i)
+	{
+		vec2 st = shadow_coords.xy + R * samples[i];
+		sum += texture(static_depth_tex, vec3(st.x, st.y, shadow_coords.z));
+	}
+	return sum * (1.f / 16);
 }
 
 
@@ -335,31 +374,12 @@ void main()
 	{
 		if(dist < DEPTH_TEXTURE_SCALE_MULT) // if dynamic_depth_tex_index == 0:
 		{
-			vec3 shadow_cds_0 = shadow_tex_coords[0];
-			float actual_depth_0 = min(shadow_cds_0.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
-
-			float tex_0_vis = 0;
-			for(int i = 0; i < 16; ++i)
-			{
-				vec2 st = shadow_cds_0.xy + R * samples[i] * samples_scale;
-				float light_depth = texture(dynamic_depth_tex, st).x;
-				tex_0_vis += (light_depth > actual_depth_0) ? (1.0f / 16) : 0.0;
-			}
+			float tex_0_vis = sampleDynamicDepthMap(R, shadow_tex_coords[0]);
 
 			float edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT;
 			if(dist > edge_dist)
 			{
-				int next_tex_index = 1;
-				vec3 shadow_cds_1 = shadow_tex_coords[next_tex_index];
-				float actual_depth_1 = min(shadow_cds_1.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
-
-				float tex_1_vis = 0;
-				for(int i = 0; i < 16; ++i)
-				{
-					vec2 st = shadow_cds_1.xy + R * samples[i] * samples_scale;
-					float light_depth = texture(dynamic_depth_tex, st).x;
-					tex_1_vis += (light_depth > actual_depth_1) ? (1.0f / 16) : 0.0;
-				}
+				float tex_1_vis = sampleDynamicDepthMap(R, shadow_tex_coords[1]);
 
 				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT, dist);
 				sun_vis_factor = mix(tex_0_vis, tex_1_vis, blend_factor);
@@ -373,16 +393,7 @@ void main()
 		}
 		else
 		{
-			int dynamic_depth_tex_index = 1;
-			vec3 shadow_cds = shadow_tex_coords[dynamic_depth_tex_index];
-			float actual_depth = min(shadow_cds.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
-
-			for(int i = 0; i < 16; ++i)
-			{
-				vec2 st = shadow_cds.xy + R * samples[i] * samples_scale;
-				float light_depth = texture(dynamic_depth_tex, st).x;
-				sun_vis_factor += (light_depth > actual_depth) ? (1.0f / 16) : 0.0;
-			}
+			sun_vis_factor = sampleDynamicDepthMap(R, shadow_tex_coords[1]);
 
 			float edge_dist = 0.6f * (DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT);
 
@@ -391,16 +402,7 @@ void main()
 			{
 				vec3 static_shadow_cds = shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
 
-				float bias = 0.0005;// / abs(light_cos_theta);
-				float static_actual_depth = min(static_shadow_cds.z, 0.999f) - bias; // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
-
-				float static_sun_vis_factor = 0;
-				for(int i = 0; i < 16; ++i)
-				{
-					vec2 st = static_shadow_cds.xy + R * samples[i] * samples_scale;
-					float light_depth = texture(static_depth_tex, st).x;
-					static_sun_vis_factor += (light_depth > static_actual_depth) ? (1.0 / 16.0) : 0.0;
-				}
+				float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
 
 				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
 				sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
@@ -436,16 +438,7 @@ void main()
 			}
 
 			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
-
-			float bias = 0.0005;// / abs(light_cos_theta);
-			float actual_depth = min(shadow_cds.z, 0.999f) - bias; // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
-
-			for(int i=0; i<16; ++i)
-			{
-				vec2 st = shadow_cds.xy + R * samples[i] * samples_scale;
-				float light_depth = texture(static_depth_tex, st).x;
-				sun_vis_factor += (light_depth > actual_depth) ? (1.0f / 16) : 0.0;
-			}
+			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds); // NOTE: had cap and bias
 
 			if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
 			{
@@ -457,16 +450,7 @@ void main()
 					int next_tex_index = static_depth_tex_index + 1;
 					vec3 next_shadow_cds = shadow_tex_coords[next_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
 
-					float bias = 0.0005;// / abs(light_cos_theta);
-					float next_actual_depth = min(next_shadow_cds.z, 0.999f) - bias; // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
-
-					float next_sun_vis_factor = 0;
-					for(int i = 0; i < 16; ++i)
-					{
-						vec2 st = next_shadow_cds.xy + R * samples[i] * samples_scale;
-						float light_depth = texture(static_depth_tex, st).x;
-						next_sun_vis_factor += (light_depth > next_actual_depth) ? (1.0f / 16) : 0.0;
-					}
+					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds); // NOTE: had cap and bias
 
 					float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
 					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
@@ -481,7 +465,7 @@ void main()
 			sun_vis_factor = 1.0;
 	}
 
-#else
+#else // else if !SHADOW_MAPPING:
 	sun_vis_factor = 1.0;
 #endif
 
