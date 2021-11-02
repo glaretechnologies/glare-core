@@ -2453,45 +2453,27 @@ static const std::string formatDouble(double x)
 }
 
 
-/*
-NOTE: copied from Escaping.cpp in website_core repo.
-
-JSON RFC:
-http://tools.ietf.org/html/rfc7159
-
-"All Unicode characters may be placed within the
-quotation marks, except for the characters that must be escaped:
-quotation mark, reverse solidus, and the control characters (U+0000
-through U+001F)."
-*/
-static const std::string JSONEscape(const std::string& s)
+static int gltfComponentType(BatchedMesh::ComponentType t)
 {
-	std::string result;
-	result.reserve(s.size());
-
-	for(size_t i=0; i<s.size(); ++i)
+	switch(t)
 	{
-		if(s[i] == '"')
-			result += "\\\"";
-		else if(s[i] == '\\') // a single backslash needs to be escaped as two backslashes.
-			result += "\\\\";
-		else if(s[i] >= 0 && s[i] <= 0x1F) // control characters (U+0000 through U+001F).
-			result += "\\u" + leftPad(toString(s[i]), '0', 4);
-		else
-			result.push_back(s[i]);
+	case BatchedMesh::ComponentType_Float: return GLTF_COMPONENT_TYPE_FLOAT;
+	case BatchedMesh::ComponentType_Half: throw glare::Exception("Unhandled component type ComponentType_Half");
+	case BatchedMesh::ComponentType_UInt8: return GLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
+	case BatchedMesh::ComponentType_UInt16: return GLTF_COMPONENT_TYPE_UNSIGNED_SHORT;
+	case BatchedMesh::ComponentType_UInt32: return GLTF_COMPONENT_TYPE_UNSIGNED_INT;
+	case BatchedMesh::ComponentType_PackedNormal: throw glare::Exception("Unhandled component type ComponentType_PackedNormal");
+	default: throw glare::Exception("Error");
 	}
-	return result;
-}
+};
 
 
-void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFLoadedData& gltf_data)
+void FormatDecoderGLTF::makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::string& bin_path, std::string& json_out, js::Vector<uint8, 16>& bin_out)
 {
-	std::ofstream file(path);
-
-	file <<
+	json_out = 
 		"{\n"
 		"\"asset\": {\n"
-		"	\"generator\": \"Indigo Renderer\",\n"
+		"	\"generator\": \"Glare Technologies GLTF Writer\",\n"
 		"	\"version\": \"2.0\"\n"
 		"},\n"
 		"\"nodes\": [\n"
@@ -2509,275 +2491,329 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 		"],\n"
 		"\"scene\": 0,\n";
 
-	
+	const size_t tri_index_data_size = mesh.index_data.size();
 
-	const size_t tri_index_data_size = mesh.triangles.size() * 3 * sizeof(uint32);
+	// Compute new vert size, putting data in GLTF compatible format
 
-	const bool write_normals = !mesh.vert_normals.empty() && options.write_vert_normals;
+	const BatchedMesh::VertAttribute* pos_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Position);
+	const BatchedMesh::VertAttribute* normal_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Normal);
+	const BatchedMesh::VertAttribute* colour_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Colour);
+	const BatchedMesh::VertAttribute* uv0_attr = mesh.findAttribute(BatchedMesh::VertAttribute_UV_0);
+	const BatchedMesh::VertAttribute* uv1_attr = mesh.findAttribute(BatchedMesh::VertAttribute_UV_1);
 
-	const size_t vert_stride =
-		                              sizeof(Indigo::Vec3f) + // vert positions
-		(write_normals              ? sizeof(Indigo::Vec3f) : 0) +
-		(!mesh.vert_colours.empty() ? sizeof(Indigo::Vec3f) : 0) +
-		(!mesh.uv_pairs.empty()     ? sizeof(Indigo::Vec2f) : 0);
+	if(!pos_attr)
+		throw glare::Exception("pos_attr was missing.");
 
-	const size_t total_vert_data_size = mesh.vert_positions.size() * vert_stride;
+	size_t dest_vert_size = sizeof(Vec3f); // position
+	int normal_offset = -1;
+	if(normal_attr)
+	{
+		normal_offset = (int)dest_vert_size;
+		dest_vert_size += sizeof(Vec3f);
+	};
+	int colour_offset = -1;
+	if(colour_attr)
+	{
+		colour_offset = (int)dest_vert_size;
+		dest_vert_size += sizeof(Vec3f);
+	};
+	int uv0_offset = -1;
+	if(uv0_attr)
+	{
+		uv0_offset = (int)dest_vert_size;
+		dest_vert_size += sizeof(float) * 2;
+	};
+	int uv1_offset = -1;
+	if(uv1_attr)
+	{
+		uv1_offset = (int)dest_vert_size;
+		dest_vert_size += sizeof(float) * 2;
+	};
 
+	const size_t mesh_vert_size = mesh.vertexSize();
+	const size_t num_verts = mesh.numVerts();
+	const size_t total_vert_data_size = num_verts * dest_vert_size;
 
 	// Build and then write data binary (.bin) file.
-	std::vector<unsigned char> data;
+	js::Vector<uint8, 16>& data = bin_out;
 	data.resize(tri_index_data_size + total_vert_data_size);
 
-	for(size_t i=0; i<mesh.triangles.size(); ++i)
-		std::memcpy(data.data() + sizeof(uint32) * 3 * i, mesh.triangles[i].vertex_indices, sizeof(uint32) * 3); // Copy vert indices for tri.
+	std::memcpy(data.data(), mesh.index_data.data(), mesh.index_data.size()); // Copy vert indices
 
-	for(size_t i=0; i<mesh.vert_positions.size(); ++i)
+	for(size_t i=0; i<num_verts; ++i)
 	{
-		float* write_pos = (float*)(data.data() + tri_index_data_size + vert_stride * i);
-		std::memcpy(write_pos, &mesh.vert_positions[i], sizeof(Indigo::Vec3f)); // Copy vert position
-		write_pos += 3;
+		float* write_pos = (float*)(data.data() + tri_index_data_size + dest_vert_size * i);
 
-		if(write_normals)
+		if(pos_attr->component_type == BatchedMesh::ComponentType_Float)
 		{
-			std::memcpy(write_pos, &mesh.vert_normals[i], sizeof(Indigo::Vec3f)); // Copy vert normal
+			std::memcpy(write_pos, &mesh.vertex_data[mesh_vert_size * i], sizeof(Indigo::Vec3f)); // Copy vert position
 			write_pos += 3;
 		}
+		else
+			throw glare::Exception("Unhandled pos component type: " + toString((int)pos_attr->component_type));
 
-		if(!mesh.vert_colours.empty())
+		if(normal_attr)
 		{
-			std::memcpy(write_pos, &mesh.vert_colours[i], sizeof(Indigo::Vec3f)); // Copy vert colour
-			write_pos += 3;
-		}
-
-		if(!mesh.uv_pairs.empty())
-		{
-			std::memcpy(write_pos, &mesh.uv_pairs[i], sizeof(Indigo::Vec2f)); // Copy vert UV
-			write_pos += 2;
-		}
-	}
-
-	const std::string bin_filename = ::eatExtension(FileUtils::getFilename(path)) + "bin";
-	const std::string bin_path = ::eatExtension(path) + "bin";
-	FileUtils::writeEntireFile(bin_path, data);
-
-	// Write buffer element
-	// See https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#binary-data-storage
-	file << 
-	"\"buffers\": [\n"
-	"	{\n"
-	"		\"byteLength\": " + toString(data.size()) + ",\n"
-	"		\"uri\": \"" + bin_filename + "\"\n"
-	"	}\n"
-	"],\n";
-
-	
-	// Assume all triangles are sorted by material index currently.
-	// Build a temp PrimitiveChunk array
-	std::vector<GLTFChunkInfo> chunks;
-	uint32 last_mat_index = std::numeric_limits<uint32>::max();
-	size_t last_chunk_start = 0; // index into triangles
-	for(size_t i=0; i<mesh.triangles.size(); ++i)
-	{
-		if(mesh.triangles[i].tri_mat_index != last_mat_index)
-		{
-			if(i > last_chunk_start)
+			if(normal_attr->component_type == BatchedMesh::ComponentType_Float)
 			{
-				chunks.push_back(GLTFChunkInfo());
-				chunks.back().indices_start = (int)last_chunk_start * 3;
-				chunks.back().num_indices = (i - last_chunk_start) * 3;
-				chunks.back().mat_index = mesh.triangles[last_chunk_start].tri_mat_index;
+				std::memcpy(write_pos, &mesh.vertex_data[mesh_vert_size * i + normal_attr->offset_B], sizeof(Indigo::Vec3f)); // Copy vert position
+				write_pos += 3;
 			}
-			last_chunk_start = i;
-			last_mat_index = mesh.triangles[i].tri_mat_index;
+			else if(normal_attr->component_type == BatchedMesh::ComponentType_PackedNormal)
+			{
+				uint32 packed_normal;
+				std::memcpy(&packed_normal, &mesh.vertex_data[mesh_vert_size * i + normal_attr->offset_B], sizeof(uint32));
+				const Vec4f vert_normal = batchedMeshUnpackNormal(packed_normal);
+				std::memcpy(write_pos, vert_normal.x, sizeof(Indigo::Vec3f)); // Copy vert normal
+				write_pos += 3;
+			}
+			else
+				throw glare::Exception("Unhandled normal component type: " + toString((int)normal_attr->component_type));
+		}
+
+		if(colour_attr)
+		{
+			if(colour_attr->component_type == BatchedMesh::ComponentType_Float)
+			{
+				std::memcpy(write_pos, &mesh.vertex_data[mesh_vert_size * i + colour_attr->offset_B], sizeof(Indigo::Vec3f)); // Copy vert colour
+				write_pos += 3;
+			}
+			else
+				throw glare::Exception("Unhandled colour component type: " + toString((int)colour_attr->component_type));
+		}
+
+		if(uv0_attr)
+		{
+			if(uv0_attr->component_type == BatchedMesh::ComponentType_Float)
+			{
+				std::memcpy(write_pos, &mesh.vertex_data[mesh_vert_size * i + uv0_attr->offset_B], sizeof(Indigo::Vec2f)); // Copy vert UV
+				write_pos += 2;
+			}
+			else
+				throw glare::Exception("Unhandled uv0 component type: " + toString((int)uv0_attr->component_type));
+		}
+
+		if(uv1_attr)
+		{
+			if(uv1_attr->component_type == BatchedMesh::ComponentType_Float)
+			{
+				std::memcpy(write_pos, &mesh.vertex_data[mesh_vert_size * i + uv1_attr->offset_B], sizeof(Indigo::Vec2f)); // Copy vert UV
+				write_pos += 2;
+			}
+			else
+				throw glare::Exception("Unhandled uv0 component type: " + toString((int)uv1_attr->component_type));
 		}
 	}
-	if(last_chunk_start < mesh.triangles.size())
+
+
+	if(bin_path.empty())
 	{
-		chunks.push_back(GLTFChunkInfo());
-		chunks.back().indices_start = (int)last_chunk_start * 3;
-		chunks.back().num_indices = (mesh.triangles.size() - last_chunk_start) * 3;
-		chunks.back().mat_index = mesh.triangles[last_chunk_start].tri_mat_index;
+		json_out +=
+			"\"buffers\": [\n"
+			"	{\n"
+			"		\"byteLength\": " + toString(data.size()) + "\n"
+			"	}\n"
+			"],\n";
 	}
+	else
+	{
+		const std::string bin_filename = FileUtils::getFilename(bin_path);
+
+		// Write buffer element
+		// See https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#binary-data-storage
+		json_out +=
+		"\"buffers\": [\n"
+		"	{\n"
+		"		\"byteLength\": " + toString(data.size()) + ",\n"
+		"		\"uri\": \"" + bin_filename + "\"\n"
+		"	}\n"
+		"],\n";
+	}
+
 
 	// Write bufferViews
-	file << "\"bufferViews\": [\n";
+	json_out += "\"bufferViews\": [\n";
 
-	file << 
+	json_out +=
 	"	{\n" // Buffer view for triangle vert indices (for all chunks)
 	"		\"buffer\": 0,\n"
 	"		\"byteLength\": " + toString(tri_index_data_size) + ",\n"
 	"		\"byteOffset\": 0,\n"
-	"		\"target\": 34963\n"
+	"		\"target\": 34963\n" // 34963 = ELEMENT_ARRAY_BUFFER
 	"	},\n";
 	
-
-	// Write buffer views - 1 for each chunk.  Not stricly neccessary buy needed for how the loader works currently, to avoid duplicated verts.
-	//for(size_t i=0; i<chunks.size(); ++i)
-	//{
-	//	file <<
-	//		"	{\n" // Buffer view for vertex data
-	//		"		\"buffer\": 0,\n"
-	//		"		\"byteLength\": " + toString(total_vert_data_size) + ",\n"
-	//		"		\"byteOffset\": " + toString(tri_index_data_size) + ",\n"
-	//		"		\"byteStride\": " + toString(vert_stride) + ",\n"
-	//		"		\"target\": 34962\n"
-	//		"	}\n"
-	//		"],\n";
-	//}
-
-
-	file << 
+	json_out +=
 	"	{\n" // Buffer view for vertex data
 	"		\"buffer\": 0,\n"
 	"		\"byteLength\": " + toString(total_vert_data_size) + ",\n"
 	"		\"byteOffset\": " + toString(tri_index_data_size) + ",\n"
-	"		\"byteStride\": " + toString(vert_stride) + ",\n"
-	"		\"target\": 34962\n"
+	"		\"byteStride\": " + toString(dest_vert_size) + ",\n"
+	"		\"target\": 34962\n" // 34962 = ARRAY_BUFFER
 	"	}\n"
 	"],\n";
 	
 	// Write accessors
-	file << "\"accessors\": [\n";
+	json_out += "\"accessors\": [\n";
 
-	for(size_t i=0; i<chunks.size(); ++i)
+	const size_t index_type_size = BatchedMesh::componentTypeSize(mesh.index_type);
+
+	for(size_t i=0; i<mesh.batches.size(); ++i)
 	{
+		const BatchedMesh::IndicesBatch& batch = mesh.batches[i];
+
 		// Make accessors for chunk indices
-		file << 
-		"	" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
-		"		\"bufferView\": 0,\n" // buffer view 0 is the index buffer view
-		"		\"byteOffset\": " + toString(chunks[i].indices_start * sizeof(uint32)) + ",\n"
-		"		\"componentType\": 5125,\n" // 5125 = UNSIGNED_INT
-		"		\"count\": " + toString(chunks[i].num_indices) + ",\n"
-		"		\"type\": \"SCALAR\"\n"
-		"	}\n";
+		json_out +=
+			"	" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
+			"		\"bufferView\": 0,\n" // buffer view 0 is the index buffer view
+			"		\"byteOffset\": " + toString(batch.indices_start * index_type_size) + ",\n"
+			"		\"componentType\": " + toString(gltfComponentType(mesh.index_type)) + ",\n"
+			"		\"count\": " + toString(batch.num_indices) + ",\n"
+			"		\"type\": \"SCALAR\"\n"
+			"	}\n";
 	}
 
-	int next_accessor = (int)chunks.size();
+
+	int next_accessor = (int)mesh.batches.size();
 
 	// Write accessor for vertex position
 	const int position_accessor = next_accessor++;
-	file << 
+	json_out +=
 	"	,{\n"
 	"		\"bufferView\": 1,\n"
 	"		\"byteOffset\": 0,\n"
-	"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
-	"		\"count\": " + toString(mesh.vert_positions.size()) + ",\n"
+	"		\"componentType\": " + toString(GLTF_COMPONENT_TYPE_FLOAT) + ",\n"
+	"		\"count\": " + toString(mesh.numVerts()) + ",\n"
 	"		\"max\": [\n"
-	"			" + formatDouble(mesh.aabb_os.bound[1].x) + ",\n"
-	"			" + formatDouble(mesh.aabb_os.bound[1].y) + ",\n"
-	"			" + formatDouble(mesh.aabb_os.bound[1].z) + "\n"
+	"			" + formatDouble(mesh.aabb_os.max_[0]) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.max_[1]) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.max_[2]) + "\n"
 	"		],\n"
 	"		\"min\": [\n"
-	"			" + formatDouble(mesh.aabb_os.bound[0].x) + ",\n"
-	"			" + formatDouble(mesh.aabb_os.bound[0].y) + ",\n"
-	"			" + formatDouble(mesh.aabb_os.bound[0].z) + "\n"
+	"			" + formatDouble(mesh.aabb_os.min_[0]) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.min_[1]) + ",\n"
+	"			" + formatDouble(mesh.aabb_os.min_[2]) + "\n"
 	"		],\n"
 	"		\"type\": \"VEC3\"\n"
 	"	}\n";
 
-		
-	size_t byte_offset = sizeof(Indigo::Vec3f);
 	int vert_normal_accessor = -1;
-	if(write_normals)
+	if(normal_attr)
 	{
 		//  Write accessor for vertex normals
-		file << 
+		json_out +=
 		"	,{\n"
 		"		\"bufferView\": 1,\n"
-		"		\"byteOffset\": " + toString(byte_offset) + ",\n"
-		"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
-		"		\"count\": " + toString(mesh.vert_normals.size()) + ",\n"
+		"		\"byteOffset\": " + toString(normal_offset) + ",\n"
+		"		\"componentType\": " + toString(GLTF_COMPONENT_TYPE_FLOAT) + ",\n"
+		"		\"count\": " + toString(mesh.numVerts()) + ",\n"
 		"		\"type\": \"VEC3\"\n"
 		"	}\n";
 
 		vert_normal_accessor = next_accessor++;
-		byte_offset += sizeof(Indigo::Vec3f);
 	}
 
 	int vert_colour_accessor = -1;
-	if(!mesh.vert_colours.empty())
+	if(colour_attr)
 	{
 		//  Write accessor for vertex colours
-		file <<
+		json_out +=
 		"	,{\n"
 		"		\"bufferView\": 1,\n"
-		"		\"byteOffset\": " + toString(byte_offset) + ",\n"
-		"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
-		"		\"count\": " + toString(mesh.vert_colours.size()) + ",\n"
+		"		\"byteOffset\": " + toString(colour_offset) + ",\n"
+		"		\"componentType\": " + toString(GLTF_COMPONENT_TYPE_FLOAT) + ",\n"
+		"		\"count\": " + toString(mesh.numVerts()) + ",\n"
 		"		\"type\": \"VEC3\"\n"
 		"	}\n";
 		vert_colour_accessor = next_accessor++;
-		byte_offset += sizeof(Indigo::Vec3f);
 	}
-
-	int uv_accessor = -1;
-	if(!mesh.uv_pairs.empty())
+	
+	int uv0_accessor = -1;
+	if(uv0_attr)
 	{
 		//  Write accessor for vertex UVs
-		file << 
+		json_out +=
 		"	,{\n"
 		"		\"bufferView\": 1,\n"
-		"		\"byteOffset\": " + toString(byte_offset) + ",\n"
-		"		\"componentType\": 5126,\n" // 5126 = GLTF_COMPONENT_TYPE_FLOAT
-		"		\"count\": " + toString(mesh.uv_pairs.size()) + ",\n"
+		"		\"byteOffset\": " + toString(uv0_offset) + ",\n"
+		"		\"componentType\": " + toString(GLTF_COMPONENT_TYPE_FLOAT) + ",\n"
+		"		\"count\": " + toString(mesh.numVerts()) + ",\n"
 		"		\"type\": \"VEC2\"\n"
 		"	}\n";
-		uv_accessor = next_accessor++;
-		byte_offset += sizeof(Indigo::Vec2f);
+		uv0_accessor = next_accessor++;
+	}
+
+	int uv1_accessor = -1;
+	if(uv1_attr)
+	{
+		//  Write accessor for vertex UVs
+		json_out +=
+			"	,{\n"
+			"		\"bufferView\": 1,\n"
+			"		\"byteOffset\": " + toString(uv1_offset) + ",\n"
+			"		\"componentType\": " + toString(GLTF_COMPONENT_TYPE_FLOAT) + ",\n"
+			"		\"count\": " + toString(mesh.numVerts()) + ",\n"
+			"		\"type\": \"VEC2\"\n"
+			"	}\n";
+		uv1_accessor = next_accessor++;
 	}
 
 	// Finish accessors array
-	file << "],\n";
+	json_out += "],\n";
 
 	// Write meshes element.
-	file << "\"meshes\": [\n"
+	json_out += "\"meshes\": [\n"
 	"	{\n"
 	"		\"primitives\": [\n";
 
-	for(size_t i=0; i<chunks.size(); ++i)
+	for(size_t i=0; i<mesh.batches.size(); ++i)
 	{
-		file << "			" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
+		const BatchedMesh::IndicesBatch& batch = mesh.batches[i];
+
+		json_out += "			" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
 			"				\"attributes\": {\n"
 			"					\"POSITION\": " + toString(position_accessor);
 
 		if(vert_normal_accessor >= 0)
-			file << ",\n					\"NORMAL\": " + toString(vert_normal_accessor);
+			json_out += ",\n					\"NORMAL\": " + toString(vert_normal_accessor);
 
 		if(vert_colour_accessor >= 0)
-			file << ",\n					\"COLOR_0\": " + toString(vert_colour_accessor);
+			json_out += ",\n					\"COLOR_0\": " + toString(vert_colour_accessor);
 
-		if(uv_accessor >= 0)
-			file << ",\n					\"TEXCOORD_0\": " + toString(uv_accessor);
+		if(uv0_accessor >= 0)
+			json_out += ",\n					\"TEXCOORD_0\": " + toString(uv0_accessor);
 
-		file << "\n";
+		if(uv1_accessor >= 0)
+			json_out += ",\n					\"TEXCOORD_1\": " + toString(uv1_accessor);
 
-		file <<
+		json_out += "\n";
+
+		json_out +=
 		"				},\n"
 		"				\"indices\": " + toString(i) + ",\n" // First accessors are the index accessors
-		"				\"material\": " + toString(chunks[i].mat_index) + ",\n"
+		"				\"material\": " + toString(batch.material_index) + ",\n"
 		"				\"mode\": 4\n" // 4 = GLTF_MODE_TRIANGLES
 		"			}\n";
 	}
 
 	// End primitives and meshes array
-	file << 
+	json_out +=
 	"		]\n" // End primitives array
 	"	}\n" // End mesh hash
 	"],\n"; // End meshes array
 
 
 	// Write materials
-	file << "\"materials\": [\n";
+	json_out += "\"materials\": [\n";
 
 	std::vector<GLTFResultMap> textures;
 
-	for(size_t i=0; i<gltf_data.materials.materials.size(); ++i)
+	for(size_t i=0; i<mesh.numMaterialsReferenced(); ++i)
 	{
-		file <<
+		json_out +=
 			"	" + ((i > 0) ? std::string(",") : std::string(""))  + "{\n"
 			"		\"pbrMetallicRoughness\": {\n";
 
-		if(!gltf_data.materials.materials[i].diffuse_map.path.empty())
+		/*if(!gltf_data.materials.materials[i].diffuse_map.path.empty())
 		{
 			file <<
 				"			\"baseColorTexture\": {\n"
@@ -2785,9 +2821,9 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 				"			},\n";
 
 			textures.push_back(gltf_data.materials.materials[i].diffuse_map);
-		}
+		}*/
 
-		file <<
+		json_out +=
 			"			\"metallicFactor\": 0.0\n"
 			"		},\n" //  end of pbrMetallicRoughness hash
 			"		\"emissiveFactor\": [\n"
@@ -2798,10 +2834,11 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 			"	}\n"; // end of material hash
 	}
 
-	file << "],\n"; // end materials array
+	json_out += "]\n"; // end materials array
+
 
 	// Write textures
-	if(!textures.empty())
+	/*if(!textures.empty())
 	{
 		file << "\"textures\": [\n";
 
@@ -2833,10 +2870,10 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 				"	}\n";
 		}
 		file << "],\n"; // end images array
-	}
+	}*/
 
 	// Write samplers
-	file <<
+	/*file <<
 		"\"samplers\": [\n"
 		"	{\n"
 		"		\"magFilter\": 9729,\n" // TODO: work out best values for these
@@ -2845,8 +2882,80 @@ void FormatDecoderGLTF::writeToDisk(const Indigo::Mesh& mesh, const std::string&
 		"		\"wrapT\": 10497\n"
 		"	}\n"
 		"]\n";
+	*/
 
-	file << "}\n";
+	json_out += "}\n";
+}
+
+
+void FormatDecoderGLTF::writeBatchedMeshToGLTFFile(const BatchedMesh& mesh, const std::string& path, const GLTFWriteOptions& options)
+{
+	const std::string bin_filename = ::eatExtension(FileUtils::getFilename(path)) + "bin";
+	const std::string bin_path = ::eatExtension(path) + "bin";
+
+	std::string json;
+	js::Vector<uint8, 16> bin;
+	makeGLTFJSONAndBin(mesh, bin_path, json, bin);
+
+	std::ofstream file(path);
+	file << json;
+	
+	FileUtils::writeEntireFile(bin_path, (const char*)bin.data(), bin.size());
+}
+
+
+void FormatDecoderGLTF::writeBatchedMeshToGLBFile(const BatchedMesh& mesh, const std::string& path, const GLTFWriteOptions& options) // throws glare::Exception on failure
+{
+	std::string json;
+	js::Vector<uint8, 16> bin;
+	makeGLTFJSONAndBin(mesh, /*bin_path=*/"", json, bin);
+
+
+	FileOutStream file(path);
+
+	const size_t padded_json_size = Maths::roundUpToMultipleOfPowerOf2<size_t>(json.size(), 4);
+	const size_t num_json_padding_bytes = padded_json_size - json.size();
+
+	const size_t padded_bin_size = Maths::roundUpToMultipleOfPowerOf2<size_t>(bin.size(), 4);
+	const size_t num_bin_padding_bytes = padded_bin_size - bin.size();
+
+	GLBHeader glb_header;
+	glb_header.magic = 0x46546C67;
+	glb_header.version = 2;
+	glb_header.length = (uint32)(sizeof(GLBHeader) + 
+		sizeof(GLBChunkHeader) + padded_json_size + 
+		sizeof(GLBChunkHeader) + padded_bin_size);
+		// length = "total length of the Binary glTF, including header and all chunks, in bytes."
+
+	file.writeData(&glb_header, sizeof(GLBHeader));
+
+	//--------------- Write JSON chunk ---------------
+	GLBChunkHeader json_chunk_header;
+	json_chunk_header.chunk_length = (uint32)padded_json_size;
+	json_chunk_header.chunk_type = 0x4E4F534A;
+
+	file.writeData(&json_chunk_header, sizeof(GLBChunkHeader));
+
+	file.writeData(json.data(), json.size());
+
+	// Write padding after json data if needed, to get to multiple of 4 bytes.
+	const char json_padding[4] = {' ', ' ', ' ', ' '}; // Pad with spaces
+	file.writeData(json_padding, num_json_padding_bytes);
+
+	//--------------- Write Binary chunk ---------------
+	GLBChunkHeader bin_chunk_header;
+	bin_chunk_header.chunk_length = (uint32)padded_bin_size;
+	bin_chunk_header.chunk_type = 0x004E4942;
+
+	file.writeData(&bin_chunk_header, sizeof(GLBChunkHeader));
+
+	file.writeData(bin.data(), bin.size());
+
+	// Write padding after binary data if needed, to get to multiple of 4 bytes.
+	const uint8 zero_padding[4] = {0, 0, 0, 0};
+	file.writeData(zero_padding, num_bin_padding_bytes);
+
+	assert(file.getWriteIndex() == glb_header.length);
 }
 
 
@@ -3161,7 +3270,7 @@ void FormatDecoderGLTF::test()
 		failTest(e.what());
 	}
 
-
+	//================= Test writeBatchedMeshToGLBFile =================
 	try
 	{
 		// Read a GLTF file from disk
@@ -3173,36 +3282,21 @@ void FormatDecoderGLTF::test()
 		testAssert(mesh->numVerts() == 2399);
 		testAssert(mesh->numIndices() == 4212 * 3);
 
-		//testAssert(mesh.num_materials_referenced == 1);
-		//testAssert(mesh.vert_positions.size() == 2399);
-		//testAssert(mesh.vert_normals.size() == 2399);
-		//testAssert(mesh.vert_colours.size() == 0);
-		//testAssert(mesh.uv_pairs.size() == 2399);
-		//testAssert(mesh.triangles.size() == 4212);
 
-
-		/*
-		// Write it back to disk
 		GLTFWriteOptions options;
-		options.write_vert_normals = false;
-		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, data);
+		//writeBatchedMeshToGLTFFile(*mesh, TestUtils::getTestReposDir() + "/testfiles/gltf/duck/duck_new.gltf", options);
 
-		options.write_vert_normals = true;
-		writeToDisk(mesh, PlatformUtils::getTempDirPath() + "/duck_new.gltf", options, data);
+		const std::string new_path = PlatformUtils::getTempDirPath() + "/duck_new.glb";
+		//const std::string write_path = TestUtils::getTestReposDir() + "/testfiles/gltf/duck/duck_new.glb";
 
+		writeBatchedMeshToGLBFile(*mesh, new_path, options);
 
 		// Load again
-		Indigo::Mesh mesh2;
-		GLTFLoadedData data2;
-		streamModel(path, mesh2, data2);
+		Reference<BatchedMesh> mesh2 = loadGLBFile(new_path, data);
 
-		testAssert(mesh2.num_materials_referenced == 1);
-		testAssert(mesh2.vert_positions.size() == 2399);
-		testAssert(mesh2.vert_normals.size() == 2399);
-		testAssert(mesh2.vert_colours.size() == 0);
-		testAssert(mesh2.uv_pairs.size() == 2399);
-		testAssert(mesh2.triangles.size() == 4212);
-		*/
+		testAssert(mesh2->numMaterialsReferenced() == 1);
+		testAssert(mesh2->numVerts() == 2399);
+		testAssert(mesh2->numIndices() == 4212 * 3);
 	}
 	catch(glare::Exception& e)
 	{

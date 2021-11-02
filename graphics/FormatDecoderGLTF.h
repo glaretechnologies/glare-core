@@ -77,11 +77,15 @@ public:
 
 	static Reference<BatchedMesh> loadGLTFFile(const std::string& filename, GLTFLoadedData& data_out); // throws glare::Exception on failure
 
-	static void writeToDisk(const Indigo::Mesh& mesh, const std::string& path, const GLTFWriteOptions& options, const GLTFLoadedData& data); // throws glare::Exception on failure
+	static void writeBatchedMeshToGLTFFile(const BatchedMesh& mesh, const std::string& path, const GLTFWriteOptions& options); // throws glare::Exception on failure
+
+	static void writeBatchedMeshToGLBFile(const BatchedMesh& mesh, const std::string& path, const GLTFWriteOptions& options); // throws glare::Exception on failure
 
 	static void test();
 
 private:
 	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer,
 		GLTFLoadedData& data_out); // throws glare::Exception on failure
+
+	static void makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::string& bin_path, std::string& json_out, js::Vector<uint8, 16>& bin_out);
 };
