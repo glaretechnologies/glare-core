@@ -2930,10 +2930,6 @@ void OpenGLEngine::draw()
 						{
 							if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
 							{
-								const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-								const bool use_instancing = ob->instance_matrix_vbo.nonNull();
-								const bool use_skinning = ob->mesh_data->usesSkinning();
-
 								BatchDrawInfo info;
 								info.ob = ob;
 								info.batch = &mesh_data.batches[z];
@@ -3203,10 +3199,6 @@ void OpenGLEngine::draw()
 								{
 									if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
 									{
-										const bool use_alpha_test = ob->materials[mat_index].albedo_texture.nonNull() && ob->materials[mat_index].albedo_texture->hasAlpha();
-										const bool use_instancing = ob->instance_matrix_vbo.nonNull();
-										const bool use_skinning = ob->mesh_data->usesSkinning();
-
 										BatchDrawInfo info;
 										info.ob = ob;
 										info.batch = &mesh_data.batches[z];
