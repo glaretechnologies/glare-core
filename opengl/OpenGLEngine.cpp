@@ -53,6 +53,9 @@ static const bool MEM_PROFILE = false;
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
 
+// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
+#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT						0x83F0
+#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
 
 
 void GLObject::enableInstancing(const VBORef new_instance_matrix_vbo)
@@ -1665,14 +1668,14 @@ void OpenGLEngine::buildOutlineTextures()
 
 		// TEMP: Add overlay quad to preview texture
 		Reference<OverlayObject> preview_overlay_ob = new OverlayObject();
-		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0,0,0);
+		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.0, 0, -0.999f);
 		preview_overlay_ob->material.shader_prog = this->overlay_prog;
 		preview_overlay_ob->material.albedo_texture = outline_solid_tex;
 		preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 		addOverlayObject(preview_overlay_ob);
 
 		preview_overlay_ob = new OverlayObject();
-		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,0);
+		preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.0,0,-0.999f);
 		preview_overlay_ob->material.shader_prog = this->overlay_prog;
 		preview_overlay_ob->material.albedo_texture = outline_edge_tex;
 		preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
@@ -3780,7 +3783,7 @@ void OpenGLEngine::draw()
 		glDepthMask(GL_FALSE); // Don't write to z-buffer
 
 		// Position quad to cover viewport
-		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, 0, 0));
+		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, -0.999f, 0));
 
 		const OpenGLMeshRenderData& mesh_data = *outline_quad_meshdata;
 		bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
@@ -6685,11 +6688,27 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			//printVar(compressed_image->gl_internal_format);
 			//printVar(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT);
 
-			if(compressed_image->gl_internal_format != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
+			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+
+			size_t bytes_per_block;
+			if(compressed_image->gl_base_internal_format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
+			{
+				opengl_tex->makeGLTexture(OpenGLTexture::Format_Compressed_BC6); // Binds texture
+				bytes_per_block = 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
+			}
+			else if(compressed_image->gl_base_internal_format == GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT)
+			{
+				opengl_tex->makeGLTexture(GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8); // Binds texture
+				bytes_per_block = 8;
+			}
+			else if(compressed_image->gl_base_internal_format == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
+			{
+				opengl_tex->makeGLTexture(GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8); // Binds texture
+				bytes_per_block = 16;
+			}
+			else
 				throw glare::Exception("Unhandled internal format for compressed image.");
 
-			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-			opengl_tex->makeGLTexture(OpenGLTexture::Format_Compressed_BC6); // Binds texture
 			opengl_tex->setTexParams(this, filtering);
 
 			for(size_t i=0; i<compressed_image->mipmap_level_data.size(); ++i)
@@ -6700,7 +6719,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				// Check mipmap_level_data is the correct size for this mipmap level.
 				const size_t num_xblocks = Maths::roundedUpDivide(level_w, (size_t)4);
 				const size_t num_yblocks = Maths::roundedUpDivide(level_h, (size_t)4);
-				const size_t expected_size_B = num_xblocks * num_yblocks * 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
+				const size_t expected_size_B = num_xblocks * num_yblocks * bytes_per_block;
 				if(expected_size_B != compressed_image->mipmap_level_data[i].size())
 					throw glare::Exception("Compressed image data was wrong size.");
 

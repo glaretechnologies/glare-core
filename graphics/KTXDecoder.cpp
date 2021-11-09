@@ -21,6 +21,9 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
+// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
+#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT						0x83F0
+#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
 
 
 // Adapted from https://stackoverflow.com/questions/105252/how-do-i-convert-between-big-endian-and-little-endian-values-in-c
@@ -200,6 +203,22 @@ Reference<Map2D> KTXDecoder::decodeKTX2(const std::string& path)
 			image->gl_internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
 			image->gl_format = GL_RGB;
 			image->gl_base_internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT; // Correct?
+		}
+		else if(vkFormat == VK_FORMAT_BC1_RGB_UNORM_BLOCK) // Aka DXT1 (DXT without alpha)
+		{
+			image->gl_type = GL_UNSIGNED_BYTE; // correct?
+			image->gl_type_size = 0; // not sure
+			image->gl_internal_format = GL_RGB8;
+			image->gl_format = GL_RGB;
+			image->gl_base_internal_format = GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT; // Correct?
+		}
+		else if(vkFormat == VK_FORMAT_BC3_UNORM_BLOCK) // Aka DXT5 (DXT with alpha)
+		{
+			image->gl_type = GL_UNSIGNED_BYTE; // correct?
+			image->gl_type_size = 0; // not sure
+			image->gl_internal_format = GL_RGBA8;
+			image->gl_format = GL_RGBA;
+			image->gl_base_internal_format = GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT; // Correct?
 		}
 		else
 			throw glare::Exception("Unhandled vkFormat " + toString(vkFormat) + ".");
