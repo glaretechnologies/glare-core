@@ -264,7 +264,7 @@ void main()
 		if(frag_to_cam_dot_normal < 0.f)
 		{
 			refl_texture_diffuse_col = texture(backface_diffuse_tex, (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy); // backface
-			//refl_texture_diffuse_col.xyz = vec3(0,0,1);//TEMP
+			//refl_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
 		}
 		else
 			refl_texture_diffuse_col = texture(diffuse_tex,          (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy); // frontface
@@ -335,7 +335,10 @@ void main()
 	float border_w_v = max(0.01f, b * 0.5f);
 	if(	fract(use_texture_coords.x) < border_w_u || fract(use_texture_coords.x) >= (1 - border_w_u) ||
 		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1 - border_w_v))
+	{
 		refl_diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
+		sun_diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
+	}
 #endif
 
 	//------------- Compute specular microfacet terms --------------
