@@ -34,6 +34,8 @@ public:
 	virtual void writeUInt32(uint32 x);
 	virtual void writeUInt64(uint64 x);
 
+	void clear() { buf.resize(0); }
+
 	std::vector<unsigned char> buf;
 	bool use_network_byte_order;
 };
