@@ -686,6 +686,10 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
 
+			assert(texture_data.level_offsets[k] + level_compressed_size <= texture_data.frames[frame_i].compressed_data.size());
+			if(texture_data.level_offsets[k] + level_compressed_size > texture_data.frames[frame_i].compressed_data.size())
+				throw glare::Exception("TextureLoading::loadTextureIntoOpenGL(): Internal error A");
+
 			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].compressed_data[texture_data.level_offsets[k]], level_compressed_size));
 		}
 
