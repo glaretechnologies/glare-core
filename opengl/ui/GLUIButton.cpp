@@ -74,9 +74,6 @@ void GLUIButton::destroy()
 }
 
 
-
-
-
 bool GLUIButton::doHandleMouseClick(const Vec2f& coords)
 {
 	if(rect.inOpenRectangle(coords))

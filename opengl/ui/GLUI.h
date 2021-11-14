@@ -25,7 +25,6 @@ GLUI
 class GLUI : public RefCounted
 {
 public:
-	// preprocessor_defines are just inserted directly into the source after the first line.
 	GLUI();
 	~GLUI();
 

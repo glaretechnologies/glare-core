@@ -26,7 +26,6 @@ GLUIButton
 class GLUIButton : public GLUIWidget
 {
 public:
-	// preprocessor_defines are just inserted directly into the source after the first line.
 	GLUIButton();
 	~GLUIButton();
 

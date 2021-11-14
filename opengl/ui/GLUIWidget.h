@@ -21,7 +21,6 @@ GLUIButton
 class GLUIWidget : public RefCounted
 {
 public:
-	// preprocessor_defines are just inserted directly into the source after the first line.
 	GLUIWidget();
 	virtual ~GLUIWidget();
 
