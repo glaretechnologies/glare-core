@@ -664,6 +664,12 @@ public:
 	void setProfilingEnabled(bool enabled) { profiling_enabled = enabled; }
 	//----------------------------------------------------------------------------------------
 
+	//----------------------------------- Settings ----------------------------------------
+	void setMSAAEnabled(bool enabled);
+
+	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
+	//----------------------------------------------------------------------------------------
+
 private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning);

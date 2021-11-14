@@ -547,10 +547,9 @@ void OpenGLScene::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camer
 		use_sensor_height = sensor_width / viewport_aspect_ratio; // Enlarge vertical field of view as needed
 	}
 
-	//TEMP HACK:
+	//TEMP HACK: These camera clipping planes are completely wrong for diagonal ortho.
 	use_sensor_width *= 2;
 	use_sensor_height *= 2;
-
 
 	// Make camera view volume clipping planes
 	const Vec4f lens_center(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
@@ -1152,7 +1151,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define USE_LOGARITHMIC_DEPTH_BUFFER " + (settings.use_logarithmic_depth_buffer ? std::string("1") : std::string("0")) + "\n";
 
 		// static_cascade_blending causes a white-screen error on many Intel GPUs.
-		const bool is_intel_vendor = StringUtils::containsString(::toLowerCase(opengl_vendor), "intel");
+		const bool is_intel_vendor = openglDriverVendorIsIntel();
 		const bool static_cascade_blending = !is_intel_vendor;
 		preprocessor_defines += "#define DO_STATIC_SHADOW_MAP_CASCADE_BLENDING " + (static_cascade_blending ? std::string("1") : std::string("0")) + "\n";
 		
@@ -4057,7 +4056,7 @@ void OpenGLEngine::draw()
 
 	if(profiling_enabled)
 	{
-		const double cpu_time = profile_timer.elapsed();
+		//const double cpu_time = profile_timer.elapsed();
 		uint64 elapsed_ns = 0;
 #if !defined(OSX)
 		glEndQuery(GL_TIME_ELAPSED);
@@ -6905,6 +6904,21 @@ void OpenGLEngine::removeScene(const Reference<OpenGLScene>& scene)
 void OpenGLEngine::setCurrentScene(const Reference<OpenGLScene>& scene)
 {
 	current_scene = scene;
+}
+
+
+void OpenGLEngine::setMSAAEnabled(bool enabled)
+{
+	if(enabled)
+		glEnable(GL_MULTISAMPLE);
+	else
+		glDisable(GL_MULTISAMPLE);
+}
+
+
+bool OpenGLEngine::openglDriverVendorIsIntel() const
+{
+	return StringUtils::containsString(::toLowerCase(opengl_vendor), "intel");
 }
 
 
