@@ -10,10 +10,10 @@ Copyright Glare Technologies Limited 2021 -
 #include "Exception.h"
 
 
-FileOutStream::FileOutStream(const std::string& path)
+FileOutStream::FileOutStream(const std::string& path, std::ios_base::openmode openmode)
 :	write_i(0)
 {
-	file.open(FileUtils::convertUTF8ToFStreamPath(path).c_str(), std::ios::binary);
+	file.open(FileUtils::convertUTF8ToFStreamPath(path).c_str(), openmode);
 
 	if(file.fail())
 		throw glare::Exception("Failed to open file '" + path + "' for writing.");
@@ -66,4 +66,11 @@ void FileOutStream::writeData(const void* data, size_t num_bytes)
 		throw glare::Exception("Write to file failed.");
 
 	write_i += num_bytes;
+}
+
+
+void FileOutStream::seek(size_t new_index)
+{
+	file.seekp(new_index);
+	write_i = new_index;
 }

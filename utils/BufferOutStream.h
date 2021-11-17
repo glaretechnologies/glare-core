@@ -25,6 +25,7 @@ public:
 	virtual void writeUInt32(uint32 x);
 	virtual void writeData(const void* data, size_t num_bytes);
 
+	void clear() { buf.resize(0); }
 
 	std::vector<unsigned char> buf;
 };
