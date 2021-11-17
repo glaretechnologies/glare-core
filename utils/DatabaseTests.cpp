@@ -15,8 +15,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "TestUtils.h"
 #include "ConPrint.h"
 #include "PlatformUtils.h"
-#include "PCG32.h"
 #include "Timer.h"
+#include "../maths/PCG32.h"
 
 
 #if BUILD_TESTS
