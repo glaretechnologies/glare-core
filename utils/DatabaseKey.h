@@ -15,6 +15,7 @@ struct DatabaseKey
 	DatabaseKey() : val(std::numeric_limits<uint64>::max()) {}
 	DatabaseKey(uint64 val_) : val(val_) {}
 
+	bool operator < (const DatabaseKey& other) const { return val < other.val; }
 	bool operator == (const DatabaseKey& other) const { return val == other.val; }
 
 	uint64 value() const { return val; }

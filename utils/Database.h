@@ -33,7 +33,20 @@ public:
 Database
 --------
 
+To read an existing DB:
 
+Database database;
+database.startReadingFromDisk(path);
+for(auto it = database.getRecordMap().begin(); it != database.getRecordMap().end(); ++it)
+{
+	const Database::RecordInfo& record = it->second;
+	if(record.isRecordValid())
+	{
+		 const uint8* data = database.getInitialRecordData(record)
+		 // Do something with data and record.len
+	}
+}
+database.finishReadingFromDisk();
 
 =====================================================================*/
 class Database
@@ -48,9 +61,15 @@ public:
 
 	void startReadingFromDisk(const std::string& path);
 
-	void finishReadingFromDisk();
+	struct RecordInfo;
 
-	void setPath(const std::string& db_path_) { db_path = db_path_; }
+	// Call only after startReadingFromDisk() and before finishReadingFromDisk().
+	const uint8* getInitialRecordData(const RecordInfo& info) const
+	{
+		return (const uint8*)file_in->fileData() + info.offset + 20; // 20 = size of record header
+	}
+
+	void finishReadingFromDisk();
 
 	DatabaseKey allocUnusedKey();
 
@@ -58,45 +77,26 @@ public:
 
 	void deleteRecord(const DatabaseKey& key);
 
-	size_t numRecords() const; // NOTE: linear time on number of records.
-
-	//const js::Vector<RecordInfo, 16>& getInitialRecords() const { return initial_records; }
-	//const size_t getInitialNumRecords() const { return initial_records.size(); }
-	//const uint8* getInitialRecordData(size_t record_index, uint32& data_len_out) const
-	//{
-	//	const RecordInfo& info = initial_records[record_index];
-	//	data_len_out = info.len;
-	//	return (const uint8*)file_in->fileData() + info.offset + 20; // 20 = size of record header
-	//}
+	size_t numRecords() const; // Get number of valid records. NOTE: linear time on number of records.
 
 	struct RecordInfo
 	{
-		size_t offset;
-		uint32 len;
-		uint32 capacity;
-		uint32 seq_num;
+		size_t offset; // Offset in bytes from start of file
+		uint32 len; // Length of record data in bytes.  Has a sentinel value which indicates this is not a valid record, e.g. the record has been deleted.
+		uint32 capacity; // Capacity of record in bytes.  >= len.
+		uint32 seq_num; // Sequence number.  Whenever a record is written to a new location, the sequence number is incremented.
 
 		bool isRecordValid() const { return len != std::numeric_limits<uint32>::max(); }
 	};
 
 	const std::unordered_map<DatabaseKey, RecordInfo, DatabaseKeyHash>& getRecordMap() const { return key_to_info_map; }
 
-	const uint8* getInitialRecordData(const RecordInfo& info/*, uint32& data_len_out*/) const
-	{
-		//data_len_out = info.len;
-		return (const uint8*)file_in->fileData() + info.offset + 20; // 20 = size of record header
-	}
-
 private:
 	void allocRecordSpace(uint32 data_size, size_t& offset_out, uint32& capacity_out);
-
-	//void writeDataToNewRecord(RecordInfo& info, const DatabaseKey& key, ArrayRef<uint8> data);
 
 	std::unordered_map<DatabaseKey, RecordInfo, DatabaseKeyHash> key_to_info_map;
 
 	std::string db_path;
-
-	//js::Vector<RecordInfo, 16> initial_records;
 
 	FileInStream* file_in;
 	FileOutStream* file_out;

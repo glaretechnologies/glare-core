@@ -138,13 +138,7 @@ void Database::startReadingFromDisk(const std::string& path)
 			const uint32 seq_num  = file_in->readUInt32();
 
 			if(file_in->getReadIndex() + capacity > file_in->fileSize())
-				throw glare::Exception("Invalid file capacity, file data went past end of file.");
-
-			
-
-			// Read data
-			//ArrayRef<uint8> data((const uint8*)file_in->fileData() + file_in->getReadIndex(), len);
-
+				throw glare::Exception("Invalid file capacity, went past end of file.");
 
 			// Advance past this record data.
 			const size_t new_unaligned_index = file_in->getReadIndex() + capacity;
@@ -189,8 +183,6 @@ void Database::startReadingFromDisk(const std::string& path)
 					}
 				}
 			}
-
-			//initial_records.push_back(info);
 
 			max_used_key = myMax(max_used_key, key.val);
 		}
@@ -262,6 +254,9 @@ void Database::allocRecordSpace(uint32 data_size, size_t& offset_out, uint32& ca
 
 void Database::updateRecord(const DatabaseKey& key, ArrayRef<uint8> data)
 {
+	if(data.size() >= (size_t)std::numeric_limits<uint32>::max() - 1) // Data size must be 32-bit, and also != std::numeric_limits<uint32>::max(), which we use as a sentinel value.
+		throw glare::Exception("data too large.");
+
 	if(file_out == NULL)
 		file_out = new FileOutStream(db_path, std::ios::binary | std::ios::in | std::ios::out);
 
@@ -284,10 +279,10 @@ void Database::updateRecord(const DatabaseKey& key, ArrayRef<uint8> data)
 			std::memcpy(&temp_buf[12], &info.capacity, sizeof(uint32)); // capacity
 			std::memcpy(&temp_buf[16], &info.seq_num, sizeof(uint32)); // seq_num
 
-			std::memcpy(&temp_buf[20], data.data(), data.size());
+			if(data.size() > 0)
+				std::memcpy(&temp_buf[20], data.data(), data.size());
 
 			// Update the record in the DB file
-			//FileOutStream file(db_path, std::ios::binary | std::ios::in | std::ios::out);
 			file_out->seek(info.offset);
 			file_out->writeData(temp_buf.data(), temp_buf.size());
 
@@ -313,7 +308,8 @@ void Database::updateRecord(const DatabaseKey& key, ArrayRef<uint8> data)
 			std::memcpy(&temp_buf[12], &info.capacity, sizeof(uint32)); // capacity
 			std::memcpy(&temp_buf[16], &info.seq_num, sizeof(uint32)); // seq_num
 
-			std::memcpy(&temp_buf[20], data.data(), data.size());
+			if(data.size() > 0)
+				std::memcpy(&temp_buf[20], data.data(), data.size());
 			std::memset(&temp_buf[20] + data.size(), 0, new_record_capacity - data.size()); // Zero out unused part of buffer.
 
 			// Update the record in the DB file
@@ -342,7 +338,8 @@ void Database::updateRecord(const DatabaseKey& key, ArrayRef<uint8> data)
 		std::memcpy(&temp_buf[12], &info.capacity, sizeof(uint32)); // capacity
 		std::memcpy(&temp_buf[16], &info.seq_num, sizeof(uint32)); // seq_num
 
-		std::memcpy(&temp_buf[20], data.data(), data.size());
+		if(data.size() > 0)
+			std::memcpy(&temp_buf[20], data.data(), data.size());
 		std::memset(&temp_buf[20] + data.size(), 0, new_record_capacity - data.size()); // Zero out unused part of buffer.
 
 		// Update the record in the DB file
@@ -378,7 +375,17 @@ void Database::deleteRecord(const DatabaseKey& key)
 		file_out->seek(info.offset);
 		file_out->writeData(temp_buf.data(), temp_buf.size());
 
-		key_to_info_map.erase(res);
+		// If seq_num > 0, We need to keep in key_to_info_map, so that we have the seq number for the key handy.
+		// That way if an item with the same key gets re-added, the record with the new item will have a sufficiently high seq num.
+		if(info.seq_num == 0)
+		{
+			// If the seq num is zero, then we know there are no other records using this key in the file.  So we can remove this info from the key_to_info_map.
+			key_to_info_map.erase(res);
+		}
+		else
+		{
+			info.len = invalid_len;
+		}
 	}
 }
 
