@@ -58,7 +58,7 @@ void GLUIButton::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, con
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	const float z = -0.9f;
+	const float z = -0.999f;
 	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 
 	opengl_engine->addOverlayObject(overlay_ob);
