@@ -1534,7 +1534,7 @@ void StringUtils::test()
 
 			float x2 = stringToFloat(s);
 
-			testAssert(x == x2);
+			testEqual(x, x2);
 		}
 	}
 
