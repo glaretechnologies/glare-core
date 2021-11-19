@@ -1256,6 +1256,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
 		overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
 		overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
+
+		clear_prog = new OpenGLProgram(
+			"clear",
+			new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+		);
 		
 		outline_prog = new OpenGLProgram(
 			"outline",
@@ -1310,7 +1316,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				clear_buf_overlay_ob =  new OverlayObject();
 				clear_buf_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, -0.9999f);
 				clear_buf_overlay_ob->material.albedo_rgb = Colour3f(1.f, 0.2f, 0.2f);
-				clear_buf_overlay_ob->material.shader_prog = this->overlay_prog;
+				clear_buf_overlay_ob->material.shader_prog = this->clear_prog;
 				clear_buf_overlay_ob->mesh_data = this->unit_quad_meshdata;
 			}
 
@@ -2316,11 +2322,8 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 	const OpenGLMeshRenderData& mesh_data = *clear_buf_overlay_ob->mesh_data;
 	bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
 	const OpenGLMaterial& opengl_mat = clear_buf_overlay_ob->material;
-	assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
 	opengl_mat.shader_prog->useProgram();
-	glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
 	glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, clear_buf_overlay_ob->ob_to_world_matrix.e);
-	glUniform1i(this->overlay_have_texture_location, 0);
 	glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
 	opengl_mat.shader_prog->useNoPrograms();
 	unbindMeshData(mesh_data);

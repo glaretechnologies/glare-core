@@ -769,6 +769,8 @@ private:
 	int overlay_diffuse_tex_location;
 	int overlay_texture_matrix_location;
 
+	Reference<OpenGLProgram> clear_prog;
+
 	Reference<OpenGLProgram> outline_prog; // Used for drawing constant flat shaded pixels currently.
 
 	Reference<OpenGLProgram> edge_extract_prog;
