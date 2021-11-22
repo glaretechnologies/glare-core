@@ -74,3 +74,9 @@ void FileOutStream::seek(size_t new_index)
 	file.seekp(new_index);
 	write_i = new_index;
 }
+
+
+void FileOutStream::flush()
+{
+	file.flush();
+}

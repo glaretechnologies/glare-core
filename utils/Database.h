@@ -77,6 +77,8 @@ public:
 
 	void deleteRecord(const DatabaseKey& key);
 
+	void flush();
+
 	size_t numRecords() const; // Get number of valid records. NOTE: linear time on number of records.
 
 	struct RecordInfo

@@ -31,6 +31,8 @@ public:
 	void seek(size_t new_index);
 
 	size_t getWriteIndex() const { return write_i; } // std::ofstream.tellp() is non-const, so maintain the write index ourselves.
+
+	void flush();
 private:
 	std::ofstream file;
 	size_t write_i; 

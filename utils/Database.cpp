@@ -390,6 +390,13 @@ void Database::deleteRecord(const DatabaseKey& key)
 }
 
 
+void Database::flush()
+{
+	if(file_out)
+		file_out->flush();
+}
+
+
 size_t Database::numRecords() const
 {
 	size_t num = 0;
