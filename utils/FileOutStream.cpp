@@ -72,6 +72,10 @@ void FileOutStream::writeData(const void* data, size_t num_bytes)
 void FileOutStream::seek(size_t new_index)
 {
 	file.seekp(new_index);
+
+	if(file.fail())
+		throw glare::Exception("Seek failed.");
+
 	write_i = new_index;
 }
 

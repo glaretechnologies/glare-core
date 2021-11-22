@@ -258,7 +258,7 @@ void Database::updateRecord(const DatabaseKey& key, ArrayRef<uint8> data)
 		throw glare::Exception("data too large.");
 
 	if(file_out == NULL)
-		file_out = new FileOutStream(db_path, std::ios::binary | std::ios::in | std::ios::out);
+		file_out = new FileOutStream(db_path, std::ios::binary | std::ios::in | std::ios::out); // Although we are not actually doing reads, std::ios::in seems to be necessary or we end up with zeros in the file after updating.
 
 	auto res = key_to_info_map.find(key);
 	if(res != key_to_info_map.end())
