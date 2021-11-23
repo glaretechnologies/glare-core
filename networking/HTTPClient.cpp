@@ -32,7 +32,7 @@ HTTPClient::~HTTPClient()
 // The response header is in [socket_buffer[request_start_index], socket_buffer[request_start_index + response_header_size])
 HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, RequestType request_type, int num_redirects_done, std::string& data_out)
 {
-	// conPrint(std::string(&socket_buffer[request_start_index], &socket_buffer[request_start_index] + request_header_size));
+	// conPrint(std::string(&socket_buffer[0], &socket_buffer[0] + response_header_size));
 
 	assert(response_header_size > 0);
 
@@ -118,7 +118,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 
 		// conPrint(field_name + ": " + field_value);
 
-		if(field_name == "Content-Length")
+		if(StringUtils::equalCaseInsensitive(field_name, "content-length"))
 		{
 			try
 			{
@@ -130,16 +130,16 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				throw glare::Exception("Failed to parse content length: " + e.what());
 			}
 		}
-		else if(field_name == "Content-Type")
+		else if(StringUtils::equalCaseInsensitive(field_name, "content-type"))
 		{
 			file_info.mime_type = field_value.to_string();
 		}
-		else if(field_name == "Transfer-Encoding")
+		else if(StringUtils::equalCaseInsensitive(field_name, "transfer-encoding"))
 		{
 			if(field_value == "chunked")
 				chunked = true;
 		}
-		else if(field_name == "Location")
+		else if(StringUtils::equalCaseInsensitive(field_name, "location"))
 		{
 			location = field_value;
 		}
@@ -465,6 +465,8 @@ void HTTPClient::test()
 	// Test downloading a file
 	try
 	{
+		// TODO: test with lower case header keys and chunked encoding.
+		
 		{
 			HTTPClient client;
 			std::string data;
