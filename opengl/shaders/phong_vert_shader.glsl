@@ -113,10 +113,11 @@ void main()
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 #endif
 
-	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.f));
+	vec4 pos_cs_vec4 = view_matrix * vec4(pos_ws, 1.0);
+	gl_Position = proj_matrix * pos_cs_vec4;
 
 	cam_to_pos_ws = pos_ws - campos_ws.xyz;
-	pos_cs = (view_matrix * vec4(pos_ws, 1.0)).xyz;
+	pos_cs = pos_cs_vec4.xyz;
 
 #if NUM_DEPTH_TEXTURES > 0
 	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
@@ -158,9 +159,11 @@ void main()
 #endif
 
 	cam_to_pos_ws = pos_ws - campos_ws.xyz;
-	pos_cs = (view_matrix * vec4(pos_ws, 1.0)).xyz;
 
-	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
+	vec4 pos_cs_vec4 = view_matrix * vec4(pos_ws, 1.0);
+	pos_cs = pos_cs_vec4.xyz;
+
+	gl_Position = proj_matrix * pos_cs_vec4;
 
 #if NUM_DEPTH_TEXTURES > 0
 	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
@@ -187,8 +190,9 @@ void main()
 #if USE_LOGARITHMIC_DEPTH_BUFFER
 	float farplane = 10000.0;
 	float Fcoef = 2.0 / log2(farplane + 1.0);
-	gl_Position.z = log2(max(1e-6, 1.0 + gl_Position.w)) * Fcoef - 1.0;
+	float pos_depth = -pos_cs_vec4.z;
+	gl_Position.z = log2(max(1e-6, 1.0 + pos_depth)) * Fcoef - 1.0;
 
-	flogz = 1.0 + gl_Position.w;
+	flogz = 1.0 + pos_depth;
 #endif
 }

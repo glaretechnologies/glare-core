@@ -40,7 +40,7 @@ layout(std140) uniform PerObjectVertUniforms
 
 void main()
 {
-#if INSTANCE_MATRICES
+#if INSTANCE_MATRICES //-------------------------
 	gl_Position = proj_matrix * (view_matrix * (instance_matrix_in * vec4(position_in, 1.0)));
 
 #if GENERATE_PLANAR_UVS
@@ -53,7 +53,7 @@ void main()
 
 	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
 	normal_cs = (view_matrix * (instance_matrix_in * vec4(normal_in, 0.0))).xyz;
-#else
+#else //-------- else if !INSTANCE_MATRICES:
 	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
 
 #if GENERATE_PLANAR_UVS
@@ -66,14 +66,15 @@ void main()
  
 	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
 	normal_cs = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
-#endif
+#endif //-------------------------
 	//texture_coords = texture_coords_0_in;
 
 #if USE_LOGARITHMIC_DEPTH_BUFFER
 	float farplane = 10000.0;
 	float Fcoef = 2.0 / log2(farplane + 1.0);
-	gl_Position.z = log2(max(1e-6, 1.0 + gl_Position.w)) * Fcoef - 1.0;
+	float pos_depth = -pos_cs.z;
+	gl_Position.z = log2(max(1e-6, 1.0 + pos_depth)) * Fcoef - 1.0;
 
-	flogz = 1.0 + gl_Position.w;
+	flogz = 1.0 + pos_depth;
 #endif
 }
