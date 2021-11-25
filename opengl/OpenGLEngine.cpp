@@ -1806,7 +1806,9 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	// Compute world space AABB of object
 	updateObjectTransformData(*object.getPointer());
 	
-	current_scene->objects.insert(object);
+	// Don't add always_visible objects to objects set, we will draw them a special way.
+	if(!object->always_visible)
+		current_scene->objects.insert(object);
 
 	object->random_num = rng.nextUInt();
 
@@ -1824,6 +1826,9 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 	if(have_transparent_mat)
 		current_scene->transparent_objects.insert(object);
+
+	if(object->always_visible)
+		current_scene->always_visible_objects.insert(object);
 
 	if(object->is_instanced_ob_with_imposters)
 		current_scene->objects_with_imposters.insert(object);
@@ -1954,6 +1959,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
 	current_scene->objects.erase(object);
 	current_scene->transparent_objects.erase(object);
+	current_scene->always_visible_objects.erase(object);
 	if(object->is_instanced_ob_with_imposters)
 		current_scene->objects_with_imposters.erase(object);
 	selected_objects.erase(object.getPointer());
@@ -3775,6 +3781,68 @@ void OpenGLEngine::draw()
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+
+	//================= Draw always-visible objects =================
+	// These are objects like the move/rotate arrows, that should be visible even when behind other objects.
+	// The drawing strategy for these will be:
+	// Draw once without depth testing, and without depth writes, but with blending, so they are always partially visible.
+	// Then draw again with depth testing, so they look proper when not occluded by another object.
+
+	if(!current_scene->always_visible_objects.empty())
+	{
+		glDisable(GL_DEPTH_TEST); // Turn off depth testing
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+		glBlendColor(1, 1, 1, 0.5f);
+		
+
+		glEnable(GL_CULL_FACE); // We will cull backfaces, since we are not doing depth testing, to make it looks slightly less weird.
+		glCullFace(GL_BACK);
+
+		for(auto it = current_scene->always_visible_objects.begin(); it != current_scene->always_visible_objects.end(); ++it)
+		{
+			const GLObject* const ob = it->getPointer();
+			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			{
+				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
+				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+				{
+					const uint32 mat_index = mesh_data.batches[z].material_index;
+					if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
+				}
+				unbindMeshData(*ob);
+			}
+		}
+
+		glDisable(GL_CULL_FACE);
+
+		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+		glDisable(GL_BLEND);
+
+		glEnable(GL_DEPTH_TEST); // Restore depth testing
+
+		// Re-draw objects over the top where not occluded.
+		for(auto it = current_scene->always_visible_objects.begin(); it != current_scene->always_visible_objects.end(); ++it)
+		{
+			const GLObject* const ob = it->getPointer();
+			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			{
+				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
+				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+				{
+					const uint32 mat_index = mesh_data.batches[z].material_index;
+					if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
+				}
+				unbindMeshData(*ob);
+			}
+		}
+	}
 
 	//================= Draw outlines around selected objects =================
 	// At this stage the outline texture has been generated in outline_edge_tex.  So we will just blend it over the current frame.

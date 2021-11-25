@@ -230,7 +230,7 @@ struct GLObject : public ThreadSafeRefCounted
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
-		num_instances_to_draw(0) {}
+		num_instances_to_draw(0), always_visible(false) {}
 
 	void enableInstancing(const VBORef new_instance_matrix_vbo); // Enables instancing attributes, and builds vert_vao.
 
@@ -246,6 +246,8 @@ struct GLObject : public ThreadSafeRefCounted
 	VBORef instance_matrix_vbo;
 	VBORef instance_colour_vbo;
 	
+	bool always_visible; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
+
 	bool is_imposter;
 	bool is_instanced_ob_with_imposters; // E.g. is a tree object or a tree imposter.
 	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
@@ -378,6 +380,7 @@ private:
 public:
 	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
 	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
+	std::unordered_set<Reference<GLObject>, GLObjectHash> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
 	std::unordered_set<Reference<GLObject>, GLObjectHash> objects_with_imposters;
 
