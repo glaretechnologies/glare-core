@@ -379,6 +379,7 @@ private:
 	Matrix4f cam_to_world;
 public:
 	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
+	std::unordered_set<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
 	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
 	std::unordered_set<Reference<GLObject>, GLObjectHash> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays

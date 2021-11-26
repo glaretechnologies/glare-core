@@ -1832,6 +1832,10 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 	if(object->is_instanced_ob_with_imposters)
 		current_scene->objects_with_imposters.insert(object);
+
+	const AnimationData& anim_data = object->mesh_data->animation_data;
+	if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+		current_scene->animated_objects.insert(object);
 }
 
 
@@ -1962,6 +1966,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 	current_scene->always_visible_objects.erase(object);
 	if(object->is_instanced_ob_with_imposters)
 		current_scene->objects_with_imposters.erase(object);
+	current_scene->animated_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 }
 
@@ -2455,10 +2460,9 @@ void OpenGLEngine::draw()
 	double anim_update_duration = 0;
 
 
-	//=============== TEMP: Set animated objects state ===========
-	{
+	//=============== Set animated objects state (update bone matrices etc.)===========
 	Timer anim_profile_timer;
-	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+	for(auto it = current_scene->animated_objects.begin(); it != current_scene->animated_objects.end(); ++it)
 	{
 		GLObject* const ob = it->getPointer();
 
@@ -2766,7 +2770,6 @@ void OpenGLEngine::draw()
 		}
 	}
 	anim_update_duration = anim_profile_timer.elapsed();
-	}
 
 
 	//=============== Render to shadow map depth buffer if needed ===========
