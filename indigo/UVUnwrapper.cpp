@@ -26,6 +26,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "../graphics/bitmap.h"
 #include "../graphics/Drawing.h"
 #include "../maths/PCG32.h"
+#include "../maths/Matrix4f.h"
+#include "../maths/Matrix2.h"
 
 
 UVUnwrapper::UVUnwrapper()

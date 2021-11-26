@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2020 -
 #pragma once
 
 
-#include "object.h"
 #include "../dll/include/IndigoMesh.h"
 #include "SampleTypes.h"
 #include "../graphics/ImageMap.h"
@@ -16,6 +15,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Vector.h"
 #include "../utils/Mutex.h"
 #include "../utils/HashMapInsertOnly2.h"
+class Matrix4f;
+class PrintOutput;
 
 
 /*=====================================================================
