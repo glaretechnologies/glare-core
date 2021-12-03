@@ -197,9 +197,13 @@ public:
 	Reference<RayMesh> getClippedCopy(const std::vector<Planef>& section_planes_os) const;
 	Reference<RayMesh> getCopy() const;
 
-	
+
+	void fromIndigoMeshForPhysics(const Indigo::Mesh& mesh); // Just copy data needed for phsyics/collision/picking, but not rendering data.
+															 // Also doesn't do bounds checking of vertex indices, assumes are already checked
+
 	void fromIndigoMesh(const Indigo::Mesh& mesh);
-	void fromBatchedMesh(const BatchedMesh& mesh);
+
+	void fromBatchedMesh(const BatchedMesh& mesh); // Doesn't do bounds checking of vertex indices, assume are already checked.
 
 	const Reference<Indigo::Mesh> toIndigoMesh() const;
 

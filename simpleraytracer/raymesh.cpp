@@ -1037,6 +1037,55 @@ inline static float getTriArea(const RayMesh& mesh, unsigned int tri_index, cons
 static const float MIN_TRIANGLE_AREA_TIMES_TWO = 2.0e-20f;
 
 
+// Just copy data needed for phsyics/collision/picking, but not rendering data.
+// Also doesn't do bounds checking of vertex indices, assumes are already checked
+void RayMesh::fromIndigoMeshForPhysics(const Indigo::Mesh& mesh)
+{
+	// Copy Vertices
+	const size_t num_verts = mesh.vert_positions.size();
+	this->vertices.resize(num_verts);
+
+	for(size_t i = 0; i < num_verts; ++i)
+	{
+		this->vertices[i].pos.set(mesh.vert_positions[i].x, mesh.vert_positions[i].y, mesh.vert_positions[i].z);
+		this->vertices[i].normal.set(0.f, 0.f, 0.f);
+	}
+	vertex_shading_normals_provided = false;
+
+	// Don't copy UVs
+	this->num_uv_sets = 0;
+
+	// Copy Triangles
+
+	const size_t mesh_num_tris = mesh.triangles.size();
+
+	this->triangles.resize(mesh_num_tris);
+
+	for(size_t i = 0; i < mesh_num_tris; ++i)
+	{
+		const Indigo::Triangle& src_tri = mesh.triangles[i];
+
+		const Vec4f v0pos = loadUnalignedVec4f(&vertices[src_tri.vertex_indices[0]].pos.x); // Use unaligned 4-vector load.  Loaded W component will be garbage.
+		const Vec4f v1pos = loadUnalignedVec4f(&vertices[src_tri.vertex_indices[1]].pos.x);
+		const Vec4f v2pos = loadUnalignedVec4f(&vertices[src_tri.vertex_indices[2]].pos.x);
+		const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
+
+		RayMeshTriangle& dest_tri = this->triangles[i];
+
+		dest_tri.vertex_indices[0] = src_tri.vertex_indices[0];
+		dest_tri.vertex_indices[1] = src_tri.vertex_indices[1];
+		dest_tri.vertex_indices[2] = src_tri.vertex_indices[2];
+
+		dest_tri.uv_indices[0] = 0;
+		dest_tri.uv_indices[1] = 0;
+		dest_tri.uv_indices[2] = 0;
+
+		dest_tri.inv_cross_magnitude = 1.f / cross_prod_len;
+		dest_tri.setMatIndexAndUseShadingNormals(src_tri.tri_mat_index, RayMesh_ShadingNormals::RayMesh_NoShadingNormals);
+	}
+}
+
+
 void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 {
 	if(mesh.num_uv_mappings > MAX_NUM_UV_SETS)
@@ -1207,6 +1256,7 @@ void RayMesh::fromIndigoMesh(const Indigo::Mesh& mesh)
 
 
 // For now, don't bother copying normals, uvs.  Just copy vert positions and make triangles.
+// This is because this is just used for physics/collision/picking.
 void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 {
 	this->setMaxNumTexcoordSets(0);
@@ -1246,8 +1296,8 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 	const uint16* const index_data_uint16 = (const uint16*)mesh.index_data.data();
 	const uint32* const index_data_uint32 = (const uint32*)mesh.index_data.data();
 
-	this->triangles.reserve(num_tris);
-	unsigned int dest_i = 0;
+	this->triangles.resize(num_tris);
+	unsigned int dest_tri_i = 0;
 	for(size_t b = 0; b < mesh.batches.size(); ++b)
 	{
 		const size_t tri_begin = mesh.batches[b].indices_start / 3;
@@ -1294,9 +1344,7 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 			else
 			{
 				// Add a triangle
-				this->triangles.resize(this->triangles.size() + 1);
-
-				RayMeshTriangle& dest_tri = this->triangles[dest_i];
+				RayMeshTriangle& dest_tri = this->triangles[dest_tri_i];
 
 				dest_tri.vertex_indices[0] = vertex_indices[0];
 				dest_tri.vertex_indices[1] = vertex_indices[1];
@@ -1309,10 +1357,14 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 				dest_tri.inv_cross_magnitude = 1.f / cross_prod_len;
 				dest_tri.setMatIndexAndUseShadingNormals(mat_index, use_shading_normals_enum);
 
-				dest_i++;
+				dest_tri_i++;
 			}
 		}
 	}
+
+	// Trim triangles size down to actual number of added triangles
+	assert(dest_tri_i <= this->triangles.size());
+	this->triangles.resize(dest_tri_i);
 }
 
 
