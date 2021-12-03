@@ -17,7 +17,7 @@ Copyright Glare Technologies Limited 2021 -
 /*=====================================================================
 UniformBufOb
 ------------
-Vertex array object
+
 =====================================================================*/
 class UniformBufOb : public RefCounted
 {
