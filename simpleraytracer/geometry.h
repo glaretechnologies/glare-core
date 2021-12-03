@@ -122,8 +122,9 @@ public:
 
 	struct BuildOptions
 	{
-		BuildOptions() : build_small_bvh(false), embree_device(NULL) {}
+		BuildOptions() : build_small_bvh(false), compute_is_planar(true), embree_device(NULL) {}
 		bool build_small_bvh;
+		bool compute_is_planar; // If true, computes planar and planar_normal in RayMesh::build()
 		RTCDeviceTy* embree_device; // Used in EmbreeAccel::build()
 	};
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager) = 0; // throws glare::Exception

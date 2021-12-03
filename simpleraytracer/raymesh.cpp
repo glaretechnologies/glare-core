@@ -820,7 +820,7 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 {
 	Timer timer;
 
-	if(triangles.size() == 0)
+ 	if(triangles.size() == 0)
 		throw glare::Exception("No triangles in mesh.");
 
 	if(tritree != NULL)
@@ -831,18 +831,23 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 
 	// Compute if this geometry is planar
 	// TODO: this could be optimised, we don't need to compute the full normalised normal, and even if we did, we could use the precomputed inv normal len.
-	this->planar = true;
-	const Vec4f normal_0 = triGeometricNormal(vertices, triangles[0].vertex_indices[0], triangles[0].vertex_indices[1], triangles[0].vertex_indices[2]);
-	this->planar_normal = normal_0;
-	for(size_t i=1; i<triangles.size(); ++i)
+	if(options.compute_is_planar)
 	{
-		const Vec4f n = triGeometricNormal(vertices, triangles[i].vertex_indices[0], triangles[i].vertex_indices[1], triangles[i].vertex_indices[2]);
-		if(!epsEqual(n, normal_0, 1.0e-5f))
+		this->planar = true;
+		const Vec4f normal_0 = triGeometricNormal(vertices, triangles[0].vertex_indices[0], triangles[0].vertex_indices[1], triangles[0].vertex_indices[2]);
+		this->planar_normal = normal_0;
+		for(size_t i=1; i<triangles.size(); ++i)
 		{
-			this->planar = false;
-			break;
+			const Vec4f n = triGeometricNormal(vertices, triangles[i].vertex_indices[0], triangles[i].vertex_indices[1], triangles[i].vertex_indices[2]);
+			if(!epsEqual(n, normal_0, 1.0e-5f))
+			{
+				this->planar = false;
+				break;
+			}
 		}
 	}
+	else
+		this->planar = false;
 	// conPrint("RayMesh::build, name=" + name + ", planar: " + boolToString(planar));
 
 	// Don't use SmallBVH for now, because that would require us using BVHObjectTree.
