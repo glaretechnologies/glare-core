@@ -1781,7 +1781,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 
 	// If we do not support converting textures from sRGB to linear in opengl, then we need to do it in the shader.
 	// we only want to do this when we have a texture.
-	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support && material.albedo_texture.nonNull();
+	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support;// && material.albedo_texture.nonNull();
 
 	const ProgramKey key(material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"), /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
 		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided);
