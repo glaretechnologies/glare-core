@@ -911,6 +911,9 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	}
 
 	locations_out.proj_view_model_matrix_location	= prog->getUniformLocation("proj_view_model_matrix");
+
+	locations_out.num_blob_positions_location		= prog->getUniformLocation("num_blob_positions");
+	locations_out.blob_positions_location			= prog->getUniformLocation("blob_positions");
 }
 
 
@@ -1424,7 +1427,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define SKINNING " + toString(key.skinning) + "\n" +
 		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
 		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
-		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n";
+		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n" + 
+		"#define BLOB_SHADOWS " + toString(1) + "\n"; // TEMP
 }
 
 
@@ -5385,6 +5389,10 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
 		glUniform1i(locations.static_depth_tex_location, 2);
 	}
+
+	//TEMP: Set blob shadows location
+	glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
+	glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
 
 	this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 }

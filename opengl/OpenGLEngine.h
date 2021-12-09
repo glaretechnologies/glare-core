@@ -355,6 +355,8 @@ public:
 	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
 
 	float wind_strength; // Default = 1.
+
+	js::Vector<Vec4f, 16> blob_shadow_locations;
 private:
 	float use_sensor_width;
 	float use_sensor_height;
