@@ -798,82 +798,96 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 	// TODO: make sure the sorted_nodes order is maintained/correct.
 
 	const size_t initial_num_new_nodes = nodes.size();
-	for(size_t i=0; i<old_nodes.size(); ++i) // For each old node (node from VRM data):
+
+	// We will do multiple passes over this, assigning new nodes.  This is to handle cases where the nodes are in reverse order, like
+	// Tail_2, Tail_1, Tail, where Tail_1 is a child of Tail.  Tail needs to be created first before Tail_1 can use it as a parent.
+	for(int q=0; ; ++q)
 	{
-		if(old_to_new_node_index.count((int)i) == 0) // If no mapping to new node yet:
+		bool made_change = false; // Once we have done a pass that makes no change, we are done doing passes.
+		for(size_t i=0; i<old_nodes.size(); ++i) // For each old node (node from VRM data):
 		{
-			const AnimationNodeData& old_node = old_nodes[i];
-
-			// If the old node has a parent, and the parent has a corresponding new node, use that new node as the parent
-			if(old_to_new_node_index.count(old_node.parent_index) > 0)
+			if(old_to_new_node_index.count((int)i) == 0) // If no mapping to new node yet:
 			{
-				const int new_parent_i = old_to_new_node_index[old_node.parent_index];
+				const AnimationNodeData& old_node = old_nodes[i];
 
-				const bool new_parent_is_new = new_parent_i >= initial_num_new_nodes;
-
-				const int new_i = (int)nodes.size();
-				nodes.push_back(AnimationNodeData());
-				nodes[new_i] = old_node;
-				nodes[new_i].parent_index = new_parent_i;
-
-				assert(new_parent_i < new_i);
-				this->sorted_nodes.push_back(new_i);
-
-				for(int z=0; z<this->animations.size(); ++z)
+				// If the old node has a parent, and the parent has a corresponding new node, use that new node as the parent
+				if(old_to_new_node_index.count(old_node.parent_index) > 0)
 				{
-					this->animations[z]->per_anim_node_data.push_back(PerAnimationNodeData());
-					this->animations[z]->per_anim_node_data.back().translation_input_accessor = -1;
-					this->animations[z]->per_anim_node_data.back().translation_output_accessor = -1;
-					this->animations[z]->per_anim_node_data.back().rotation_input_accessor = -1;
-					this->animations[z]->per_anim_node_data.back().rotation_output_accessor = -1;
-					this->animations[z]->per_anim_node_data.back().scale_input_accessor = -1;
-					this->animations[z]->per_anim_node_data.back().scale_output_accessor = -1;
-				}
+					const int new_parent_i = old_to_new_node_index[old_node.parent_index];
+
+					const bool new_parent_is_new = new_parent_i >= initial_num_new_nodes;
+
+					const int new_i = (int)nodes.size();
+					nodes.push_back(AnimationNodeData());
+					nodes[new_i] = old_node;
+					nodes[new_i].parent_index = new_parent_i;
+
+					assert(new_parent_i < new_i);
+					this->sorted_nodes.push_back(new_i);
+
+					for(int z=0; z<this->animations.size(); ++z)
+					{
+						this->animations[z]->per_anim_node_data.push_back(PerAnimationNodeData());
+						this->animations[z]->per_anim_node_data.back().translation_input_accessor = -1;
+						this->animations[z]->per_anim_node_data.back().translation_output_accessor = -1;
+						this->animations[z]->per_anim_node_data.back().rotation_input_accessor = -1;
+						this->animations[z]->per_anim_node_data.back().rotation_output_accessor = -1;
+						this->animations[z]->per_anim_node_data.back().scale_input_accessor = -1;
+						this->animations[z]->per_anim_node_data.back().scale_output_accessor = -1;
+					}
 			
-				/*
-				old parent                     new parent
+					/*
+					old parent                     new parent
 					
-				^       trans                        trans
-				|      ^                           ^
-				|    /                           /
-				|  /                           /
-				|/                           /
-				-------------->              -------------->
-				                            |
-				                            |
-				                            |
-				                            |
-				                            v
+					^       trans                        trans
+					|      ^                           ^
+					|    /                           /
+					|  /                           /
+					|/                           /
+					-------------->              -------------->
+												|
+												|
+												|
+												|
+												v
 					
-				We want trans applied in new parent space to have the same effect (in model space) as trans in old parent space.
-				So do this, first apply trans in new old parent space, then transform to model space with old_parent_to_model, then 
-				to new parent space with new_parent_to_child (e.g. new_parent.inverse_bind_matrix)
-				*/
+					We want trans applied in new parent space to have the same effect (in model space) as trans in old parent space.
+					So do this, first apply trans in new old parent space, then transform to model space with old_parent_to_model, then 
+					to new parent space with new_parent_to_child (e.g. new_parent.inverse_bind_matrix)
+					*/
 
-				const AnimationNodeData& old_parent = old_nodes[old_node.parent_index];
-				const AnimationNodeData& new_parent = nodes[new_parent_i];
+					const AnimationNodeData& old_parent = old_nodes[old_node.parent_index];
+					const AnimationNodeData& new_parent = nodes[new_parent_i];
 
-				Matrix4f old_parent_to_model;
-				old_parent.inverse_bind_matrix.getInverseForAffine3Matrix(old_parent_to_model);
-				old_parent_to_model.setColumn(3, Vec4f(0,0,0,1));
-
-
-				Matrix4f new_parent_to_child = new_parent.inverse_bind_matrix;
-				new_parent_to_child.setColumn(3, Vec4f(0,0,0,1));
-
-				nodes[new_i].retarget_adjustment = new_parent_to_child * old_parent_to_model;
-
-				if(new_parent_is_new)
-					nodes[new_i].retarget_adjustment = Matrix4f::identity(); // If this is a newly created node, and the parent is also a newly created node, it shouldn't need any adjustment.
+					Matrix4f old_parent_to_model;
+					old_parent.inverse_bind_matrix.getInverseForAffine3Matrix(old_parent_to_model);
+					old_parent_to_model.setColumn(3, Vec4f(0,0,0,1));
 
 
-				if(VERBOSE) conPrint("----------------Created new node.----------------");
-				if(VERBOSE) conPrint("new node: " + nodes[new_i].name + " (parent node: " + nodes[new_parent_i].name + ")");
+					Matrix4f new_parent_to_child = new_parent.inverse_bind_matrix;
+					new_parent_to_child.setColumn(3, Vec4f(0,0,0,1));
 
-				old_to_new_node_index[(int)i] = new_i;
-				new_to_old_node_index[new_i] = (int)i;
+					nodes[new_i].retarget_adjustment = new_parent_to_child * old_parent_to_model;
+
+					if(new_parent_is_new)
+						nodes[new_i].retarget_adjustment = Matrix4f::identity(); // If this is a newly created node, and the parent is also a newly created node, it shouldn't need any adjustment.
+
+
+					if(VERBOSE) conPrint("----------------Created new node.----------------");
+					if(VERBOSE) conPrint("new node: " + nodes[new_i].name + " (parent node: " + nodes[new_parent_i].name + ")");
+
+					old_to_new_node_index[(int)i] = new_i;
+					new_to_old_node_index[new_i] = (int)i;
+
+					made_change = true;
+				}
 			}
 		}
+
+		if(!made_change)
+			break;
+		if(q > 100)
+			throw glare::Exception("Apparent infinite loop while creating node mappings");
 	}
 
 
