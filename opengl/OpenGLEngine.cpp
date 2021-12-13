@@ -5263,7 +5263,7 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 }
 
 
-void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
+void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations, bool prog_changed)
 {
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
@@ -5302,32 +5302,35 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	//if(locations.fresnel_scale_location >= 0)        glUniform1f(locations.fresnel_scale_location, opengl_mat.fresnel_scale);
 	//if(locations.metallic_frac_location >= 0)        glUniform1f(locations.metallic_frac_location, opengl_mat.metallic_frac);
 
-	if(this->cosine_env_tex.nonNull())
+	if(prog_changed)
 	{
-		glActiveTexture(GL_TEXTURE0 + 3);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, this->cosine_env_tex->texture_handle);
-		glUniform1i(locations.cosine_env_tex_location, 3);
-	}
+		if(this->cosine_env_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 3);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, this->cosine_env_tex->texture_handle);
+			glUniform1i(locations.cosine_env_tex_location, 3);
+		}
 			
-	if(this->specular_env_tex.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 4);
-		glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-		glUniform1i(locations.specular_env_tex_location, 4);
-	}
+		if(this->specular_env_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 4);
+			glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
+			glUniform1i(locations.specular_env_tex_location, 4);
+		}
 
-	if(this->fbm_tex.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 5);
-		glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
-		glUniform1i(locations.fbm_tex_location, 5);
-	}
+		if(this->fbm_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 5);
+			glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
+			glUniform1i(locations.fbm_tex_location, 5);
+		}
 	
-	if(this->blue_noise_tex.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 6);
-		glBindTexture(GL_TEXTURE_2D, this->blue_noise_tex->texture_handle);
-		glUniform1i(locations.blue_noise_tex_location, 6);
+		if(this->blue_noise_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 6);
+			glBindTexture(GL_TEXTURE_2D, this->blue_noise_tex->texture_handle);
+			glUniform1i(locations.blue_noise_tex_location, 6);
+		}
 	}
 
 	if(opengl_mat.albedo_texture.nonNull())
@@ -5352,32 +5355,35 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	}
 
 	// for double-sided mat, check required textures are set
-	if(opengl_mat.double_sided && opengl_mat.albedo_texture.nonNull())
+	if(opengl_mat.double_sided)
 	{
-		assert(opengl_mat.backface_albedo_texture.nonNull());
-		assert(opengl_mat.transmission_texture.nonNull());
-	}
+		if(opengl_mat.albedo_texture.nonNull())
+		{
+			assert(opengl_mat.backface_albedo_texture.nonNull());
+			assert(opengl_mat.transmission_texture.nonNull());
+		}
 
-	// Set backface_albedo_texture
-	if(opengl_mat.double_sided && opengl_mat.backface_albedo_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 8);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.backface_albedo_texture->texture_handle);
-		glUniform1i(locations.backface_diffuse_tex_location, 8);
-		assert(locations.backface_diffuse_tex_location >= 0);
-	}
+		// Set backface_albedo_texture
+		if(opengl_mat.backface_albedo_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 8);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.backface_albedo_texture->texture_handle);
+			glUniform1i(locations.backface_diffuse_tex_location, 8);
+			assert(locations.backface_diffuse_tex_location >= 0);
+		}
 
-	// Set transmission_texture
-	if(opengl_mat.double_sided && opengl_mat.transmission_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 9);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.transmission_texture->texture_handle);
-		glUniform1i(locations.transmission_tex_location, 9);
-		assert(locations.transmission_tex_location >= 0);
+		// Set transmission_texture
+		if(opengl_mat.transmission_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 9);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.transmission_texture->texture_handle);
+			glUniform1i(locations.transmission_tex_location, 9);
+			assert(locations.transmission_tex_location >= 0);
+		}
 	}
 
 	// Set shadow mapping uniforms
-	if(shadow_mapping.nonNull())
+	if(prog_changed && shadow_mapping.nonNull())
 	{
 		glActiveTexture(GL_TEXTURE0 + 1);
 
@@ -5390,9 +5396,12 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		glUniform1i(locations.static_depth_tex_location, 2);
 	}
 
-	//TEMP: Set blob shadows location
-	glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
-	glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
+	// Set blob shadows location
+	if(prog_changed)
+	{
+		glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
+		glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
+	}
 
 	this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 }
@@ -5413,11 +5422,13 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 	const OpenGLProgram* shader_prog = &shader_prog_;
 
+	bool prog_changed = false;
 	if(shader_prog != current_bound_prog.ptr())
 	{
 		current_bound_prog = shader_prog;
 		shader_prog->useProgram();
 		num_prog_changes++;
+		prog_changed = true;
 	}
 	//shader_prog->useProgram();
 	//num_prog_changes++;
@@ -5436,9 +5447,13 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 	else
 	{
 		glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-		glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
-		glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
 		glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+
+		if(prog_changed) // THese uniforms are the same for every object, so we can just set this once for this program, for this frame.
+		{
+			glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
+			glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
+		}
 	}
 
 	if(mesh_data.usesSkinning())
@@ -5463,24 +5478,30 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 	if(shader_prog->is_phong)
 	{
-		setUniformsForPhongProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
+		setUniformsForPhongProg(opengl_mat, mesh_data, shader_prog->uniform_locations, prog_changed);
 	}
 	else if(shader_prog->is_transparent)
 	{
 		const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 		const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
 
-		glUniform4fv(shader_prog->uniform_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 		glUniform4f(shader_prog->uniform_locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], opengl_mat.alpha);
 		glUniform1i(shader_prog->uniform_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-		if(this->specular_env_tex.nonNull())
+		
+		if(prog_changed)
 		{
-			glActiveTexture(GL_TEXTURE0 + 4);
-			glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-			glUniform1i(shader_prog->uniform_locations.specular_env_tex_location, 4);
+			glUniform4fv(shader_prog->uniform_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
+
+			if(this->specular_env_tex.nonNull())
+			{
+				glActiveTexture(GL_TEXTURE0 + 4);
+				glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
+				glUniform1i(shader_prog->uniform_locations.specular_env_tex_location, 4);
+			}
+
+			const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
+			glUniform3fv(shader_prog->uniform_locations.campos_ws_location, 1, campos_ws.x);
 		}
-		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-		glUniform3fv(shader_prog->uniform_locations.campos_ws_location, 1, campos_ws.x);
 	}
 	else if(shader_prog == this->env_prog.getPointer())
 	{

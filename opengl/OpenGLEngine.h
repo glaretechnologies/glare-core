@@ -695,7 +695,7 @@ private:
 public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
-	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
+	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations, bool prog_changed);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);

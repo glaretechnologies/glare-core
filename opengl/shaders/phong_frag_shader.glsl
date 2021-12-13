@@ -515,59 +515,19 @@ void main()
 #endif
 
 #if BLOB_SHADOWS
-	float max_block_factor = 0;
 	for(int i=0; i<num_blob_positions; ++i)
 	{
-	//	vec3 pos_to_blob_centre = blob_positions[i].xyz - pos_ws;
-	//	vec2 pos_to_blob_xy = blob_positions[i].xy - pos_ws.xy;
-	//	float radial_dist2 = dot(pos_to_blob_xy, pos_to_blob_xy);
-	//
-	//	float pos_to_blob_z = blob_positions[i].z - pos_ws.z;
-	//
-	//	//float block = 1 - radial_dist
-	//
-	//	//float radial_block_factor = 1 - min(1.f, radial_dist / 0.5f);
-	//	//\frac{1}{\left(3x+1\right)^{2}}
-	//	//float radial_block_factor = 1 / square(3*radial_dist + 1);
-	//	//float radial_block_factor = 1 / pow4(radial_dist + 1);
-	//	float radial_block_factor = exp(-4 * radial_dist2);
-	//
-	//	float h = pos_ws.z - blob_positions[i].z;
-	//	float height_block_factor = smoothstep(-0.6, 0.2, h) - smoothstep(1.0, 1.9, h);
-	//
-	//
-	//
-	//	//float cosine_factor = max(0.5f, unit_normal_ws.z);
-	//
-	//
-	//	float vis = 1 - radial_block_factor * height_block_factor;// * cosine_factor;
-
-
-
-	//	sky_irradiance *= vis;
 		vec3 pos_to_blob_centre = blob_positions[i].xyz - pos_ws;
 		float r = 0.4;
 		float r2 = r * r;
 		float d2 = dot(pos_to_blob_centre, pos_to_blob_centre); // d^2
 	
-		// cos(alpha) * (r/d)^2
-		// = dot(n, v/||v||) * (r/||v||)^2
-		// = dot(n, v) * (r/||v||)^2 /||v||
-		// = dot(n, v) * r^2/||v||^2 /||v||
-		// = dot(n, v) * r^2 / ||v||^3
-		//float bl = dot(unit_normal_ws, pos_to_blob_centre)  * r2/ (d2 * sqrt(d2));
-		//float bl = min(0.5f, max(0.f, dot(unit_normal_ws, normalize(pos_to_blob_centre))) * r2 / d2);
-		float bl = max(0.f, dot(unit_normal_ws, normalize(pos_to_blob_centre))) * min(1.f, r2 / d2);
+//		float bl = max(0.f, dot(unit_normal_ws, normalize(pos_to_blob_centre))) * min(1.f, r2 / d2);
+		float bl = max(0.f, dot(unit_normal_ws, pos_to_blob_centre) * inversesqrt(d2)) * min(1.f, r2 / d2);
 	
-		//if(d2 < r2)
-		//	bl = 1;
-	
-		//max_block_factor = max(max_block_factor, bl);
 		float vis = 1 - bl * 0.7f;
-		//max_block_factor += bl;
 		sky_irradiance *= vis;
 	}
-	//sky_irradiance *= 1 - max_block_factor * 0.8f;
 #endif
 
 
