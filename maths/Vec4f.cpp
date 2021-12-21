@@ -408,6 +408,15 @@ void Vec4f::test()
 	testAssert(!Vec4f(std::numeric_limits<float>::quiet_NaN(), 1.f, 2.f, 3.f).isFinite());
 	testAssert(!Vec4f(std::numeric_limits<float>::quiet_NaN()).isFinite());
 
+	// Test fastApproxRecipLength()
+	{
+		testEpsEqualWithEps(Vec4f(1,0,0,0).fastApproxRecipLength(), 1.f / Vec4f(1,0,0,0).length(), 3.0e-4f);
+		testEpsEqualWithEps(Vec4f(2,0,0,0).fastApproxRecipLength(), 1.f / Vec4f(2,0,0,0).length(), 3.0e-4f);
+		testEpsEqualWithEps(Vec4f(0.f, 1.f, 2.f, 0).fastApproxRecipLength(), 1.f / Vec4f(0.f, 1.f, 2.f, 0).length(), 3.0e-4f);
+		testEpsEqualWithEps(Vec4f(0.f, 1.f, 2.f, 3.f).fastApproxRecipLength(), 1.f / Vec4f(0.f, 1.f, 2.f, 3.f).length(), 3.0e-4f);
+		testEpsEqualWithEps(Vec4f(0.f, 1.f, -2.f, 3.f).fastApproxRecipLength(), 1.f / Vec4f(0.f, 1.f, -2.f, 3.f).length(), 3.0e-4f);
+	}
+
 
 	conPrint("================ Perf test ================");
 	{

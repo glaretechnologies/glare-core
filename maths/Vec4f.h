@@ -53,6 +53,8 @@ public:
 	GLARE_STRONG_INLINE float getDist(const Vec4f& a) const;
 	GLARE_STRONG_INLINE float getDist2(const Vec4f& a) const;
 
+	GLARE_STRONG_INLINE float fastApproxRecipLength() const; // Uses rsqrt SSE instruction
+
 	inline bool isUnitLength() const;
 
 	inline bool isFinite() const;
@@ -247,6 +249,12 @@ float Vec4f::getDist(const Vec4f& a) const
 float Vec4f::getDist2(const Vec4f& a) const
 {
 	return (a - *this).length2();
+}
+
+
+float Vec4f::fastApproxRecipLength() const // Uses rsqrt SSE instruction
+{
+	return _mm_cvtss_f32(_mm_rsqrt_ps(_mm_dp_ps(v, v, 255)));
 }
 
 
