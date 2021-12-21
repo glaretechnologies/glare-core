@@ -190,6 +190,15 @@ float sampleStaticDepthMap(mat2 R, vec3 shadow_coords)
 }
 
 
+// Convert a non-linear sRGB colour to linear sRGB.
+// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
+vec3 toLinearSRGB(vec3 c)
+{
+	vec3 c2 = c * c;
+	return c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
+}
+
+
 void main()
 {
 	vec3 use_normal_cs;
@@ -311,8 +320,9 @@ void main()
 	vec4 refl_diffuse_col = refl_texture_diffuse_col * diffuse_colour;
 
 #if VERT_COLOURS
-	sun_diffuse_col.xyz *= vert_colour;
-	refl_diffuse_col.xyz *= vert_colour;
+	vec3 linear_vert_col = toLinearSRGB(vert_colour);
+	sun_diffuse_col.xyz *= linear_vert_col;
+	refl_diffuse_col.xyz *= linear_vert_col;
 #endif
 
 	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
