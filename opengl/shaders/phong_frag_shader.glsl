@@ -23,6 +23,7 @@ in float flogz;
 #endif
 
 uniform sampler2D diffuse_tex;
+uniform sampler2D metallic_roughness_tex;
 #if DOUBLE_SIDED
 uniform sampler2D backface_diffuse_tex;
 uniform sampler2D transmission_tex;
@@ -44,6 +45,7 @@ layout (std140) uniform PhongUniforms
 	mat3 texture_matrix;
 	int have_shading_normals;
 	int have_texture;
+	int have_metallic_roughness_tex;
 	float roughness;
 	float fresnel_scale;
 	float metallic_frac;
@@ -68,7 +70,8 @@ float pow6(float x) { return x*x*x*x*x*x; }
 
 float alpha2ForRoughness(float r)
 {
-	return pow6(r);
+	//return pow6(r);
+	return pow4(r);
 }
 
 float trowbridgeReitzPDF(float cos_theta, float alpha2)
@@ -269,6 +272,8 @@ void main()
 	// We will get two diffuse colours - one for the sun contribution, and one for reflected light from the same hemisphere the camera is in.
 	// The sun contribution diffuse colour may use the transmission texture.  The reflected light colour may be the front or backface albedo texture.
 
+	vec2 main_tex_coords = (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy;
+
 	vec4 sun_texture_diffuse_col;
 	vec4 refl_texture_diffuse_col;
 	if(have_texture != 0)
@@ -278,22 +283,22 @@ void main()
 		float frag_to_cam_dot_normal = dot(frag_to_cam, unit_normal_cs);
 		if(frag_to_cam_dot_normal < 0.f)
 		{
-			refl_texture_diffuse_col = texture(backface_diffuse_tex, (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy); // backface
+			refl_texture_diffuse_col = texture(backface_diffuse_tex, main_tex_coords); // backface
 			//refl_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
 		}
 		else
-			refl_texture_diffuse_col = texture(diffuse_tex,          (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy); // frontface
+			refl_texture_diffuse_col = texture(diffuse_tex,          main_tex_coords); // frontface
 
 
 		if(frag_to_cam_dot_normal * light_cos_theta <= 0.f) // If frag_to_cam and sundir_cs in different geometric hemispheres:
 		{
-			sun_texture_diffuse_col = texture(transmission_tex, (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy);
+			sun_texture_diffuse_col = texture(transmission_tex, main_tex_coords);
 			//sun_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
 		}
 		else
 			sun_texture_diffuse_col = refl_texture_diffuse_col; // Else sun is illuminating the face facing the camera.
 #else
-		sun_texture_diffuse_col = texture(diffuse_tex, (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy);
+		sun_texture_diffuse_col = texture(diffuse_tex, main_tex_coords);
 		refl_texture_diffuse_col = sun_texture_diffuse_col;
 #endif
 
@@ -357,6 +362,8 @@ void main()
 	}
 #endif
 
+	float final_metallic_frac = (have_metallic_roughness_tex != 0) ? (metallic_frac * texture(metallic_roughness_tex, main_tex_coords).b) : metallic_frac;
+
 	//------------- Compute specular microfacet terms --------------
 	//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
 	float h_cos_theta = abs(dot(h, unit_normal_cs));
@@ -370,9 +377,12 @@ void main()
 			1);
 
 		// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
-		specular_fresnel = metal_fresnel * metallic_frac + dielectric_fresnel * (1.0 - metallic_frac);
+		specular_fresnel = metal_fresnel * final_metallic_frac + dielectric_fresnel * (1.0 - final_metallic_frac);
 	}
-	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
+
+	float final_roughness = (have_metallic_roughness_tex != 0) ? (roughness * texture(metallic_roughness_tex, main_tex_coords).g) : roughness;
+
+	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * 
 		specular_fresnel;
 
 	float shadow_factor = smoothstep(-0.3, 0, dot(sundir_cs.xyz, unit_normal_cs));
@@ -547,9 +557,9 @@ void main()
 
 	//========================= Look up env map for reflected dir ============================
 	
-	int map_lower = int(roughness * 6.9999);
+	int map_lower = int(final_roughness * 6.9999);
 	int map_higher = map_lower + 1;
-	float map_t = roughness * 6.9999 - float(map_lower);
+	float map_t = final_roughness * 6.9999 - float(map_lower);
 
 	float refl_theta = acos(reflected_dir_ws.z);
 	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - 1.f; // -1.f is to rotate reflection so it aligns with env rotation.
@@ -568,14 +578,14 @@ void main()
 		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.b),
 		1)/* * fresnel_scale*/;
 
-	vec4 refl_fresnel = metallic_refl_fresnel * metallic_frac + dielectric_refl_fresnel * (1.0f - metallic_frac);
+	vec4 refl_fresnel = metallic_refl_fresnel * final_metallic_frac + dielectric_refl_fresnel * (1.0f - final_metallic_frac);
 
 	vec4 sun_light = vec4(1662102582.6479533,1499657101.1924045,1314152016.0871031, 1) * sun_vis_factor; // Sun spectral radiance multiplied by solid angle, see SkyModel2Generator::makeSkyEnvMap().
 
 	vec4 col =
-		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
+		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
 		refl_fresnel * spec_refl_light + // Specular reflection of sky
-		sun_light * (1.0 - refl_fresnel) * (1.0 - metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * sun light
+		sun_light * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * sun light
 		sun_light * specular; // sun light * specular microfacet terms
 	//vec4 col = (sun_light + 3000000000.0)  * diffuse_col;
 

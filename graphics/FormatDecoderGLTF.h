@@ -33,6 +33,7 @@ struct GLTFResultMaterial
 	Colour3f diffuse; // diffuse col.
 	float alpha;
 	GLTFResultMap diffuse_map;
+	GLTFResultMap metallic_roughness_map;
 
 	float roughness;
 	float metallic;
@@ -53,9 +54,9 @@ struct GLTFLoadedData
 
 struct GLTFWriteOptions
 {
-	GLTFWriteOptions() : write_vert_normals(true) {}
+	GLTFWriteOptions()/* : write_vert_normals(true) */{}
 
-	bool write_vert_normals; // Write vertex normals, if present in mesh.
+	//bool write_vert_normals; // Write vertex normals, if present in mesh.
 };
 
 
@@ -66,8 +67,11 @@ See https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md
 
 Current limitations:
 
+May duplicate vertices when loading them if the same vertices are referenced from multiple primitives.
 Doesn't support morph targets.
 Doesn't support non-skinned animations.
+
+TODO: when loading multiple primitives using the same vertex accessors, don't duplicate verts.
 =====================================================================*/
 class FormatDecoderGLTF
 {

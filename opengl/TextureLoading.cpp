@@ -673,7 +673,7 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 		//Timer timer;
 
 		OpenGLTexture::Format format;
-		if(opengl_engine->GL_EXT_texture_sRGB_support)
+		if(use_sRGB && opengl_engine->GL_EXT_texture_sRGB_support)
 			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
 		else
 			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_RGB_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8;

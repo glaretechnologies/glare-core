@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "OpenGLShader.h"
 #include "ShadowMapping.h"
 #include "TextureLoading.h"
+//#include "TerrainSystem.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
@@ -892,6 +893,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.have_shading_normals_location		= prog->getUniformLocation("have_shading_normals");
 	locations_out.have_texture_location				= prog->getUniformLocation("have_texture");
 	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
+	locations_out.metallic_roughness_tex_location	= prog->getUniformLocation("metallic_roughness_tex");
 	locations_out.backface_diffuse_tex_location		= prog->getUniformLocation("backface_diffuse_tex");
 	locations_out.transmission_tex_location			= prog->getUniformLocation("transmission_tex");
 	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
@@ -1310,6 +1312,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			}
 		}
 
+
+		//terrain_system = new TerrainSystem();
+		//terrain_system->init(*this, Vec3d(0,0,2));
+
 		if(settings.shadow_mapping)
 		{
 			shadow_mapping = new ShadowMapping();
@@ -1475,6 +1481,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
+	// TODO: use buildProgram() below
+
 	if(progs[key] == NULL)
 	{
 		Timer timer;
@@ -1486,6 +1494,44 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 			"transparent",
 			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+		);
+		prog->is_transparent = true;
+		prog->uses_vert_uniform_buf_obs = true;
+
+		progs[key] = prog;
+
+		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+
+		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
+		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+
+		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
+		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
+
+
+		conPrint("Built transparent program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+	}
+
+	return progs[key];
+}
+
+
+// shader_name_prefix should be something like "water" or "transparent"
+OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefix, const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
+{
+	if(progs[key] == NULL)
+	{
+		Timer timer;
+
+		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_shader_dir = data_dir + "/shaders";
+
+		OpenGLProgramRef prog = new OpenGLProgram(
+			shader_name_prefix,
+			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
 		);
 		prog->is_transparent = true;
 		prog->uses_vert_uniform_buf_obs = true;
@@ -1857,7 +1903,7 @@ void OpenGLEngine::removeOverlayObject(const Reference<OverlayObject>& object)
 
 
 // Notify the OpenGL engine that a texture has been loaded.
-void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key)
+void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB)
 {
 	// conPrint("textureLoaded(): path: " + path);
 
@@ -1884,7 +1930,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 			const bool compressed = !tex_data->frames[0].compressed_data.empty();
 			const OpenGLTexture::Filtering filtering = (animated && !compressed) ? OpenGLTexture::Filtering_Bilinear : OpenGLTexture::Filtering_Fancy;
 
-			opengl_texture = this->loadOpenGLTextureFromTexData(key, tex_data, filtering, OpenGLTexture::Wrapping_Repeat);
+			opengl_texture = this->loadOpenGLTextureFromTexData(key, tex_data, filtering, OpenGLTexture::Wrapping_Repeat, use_sRGB);
 			assert(opengl_texture.nonNull());
 			// conPrint("\tLoaded from tex data.");
 		}
@@ -1922,6 +1968,11 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+				}
+
+				if(object->materials[i].metallic_roughness_tex_path == path)
+				{
+					mat.metallic_roughness_texture = opengl_texture;
 				}
 
 				if(/*mat.lightmap_texture.isNull() && */object->materials[i].lightmap_path == path)
@@ -3606,6 +3657,132 @@ void OpenGLEngine::draw()
 	}
 
 
+#if 0
+	if(terrain_system.nonNull())
+	{
+		//terrain_system->render(*this);
+
+		for(auto it = terrain_system->chunks.begin(); it != terrain_system->chunks.end(); ++it)
+		{
+			TerrainChunk& chunk = it->second;
+
+			//------------------------------ Draw terrain ------------------------------
+			{
+				OpenGLMeshRenderData* meshdata = chunk.mesh_data_LODs[0].ptr();
+				bindMeshData(*meshdata);
+
+				const OpenGLProgram* shader_prog = terrain_system->mat.shader_prog.ptr();
+				shader_prog->useProgram();
+
+				// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
+
+				// Set per-object vert uniforms
+				if(shader_prog->uses_vert_uniform_buf_obs)
+				{
+					Matrix4f ob_to_world_matrix = Matrix4f::identity();
+					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
+
+					PerObjectVertUniforms uniforms;
+					uniforms.model_matrix = ob_to_world_matrix;
+					uniforms.normal_matrix = ob_to_world_inv_transpose_matrix;
+
+					this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
+				}
+				else
+				{
+					Matrix4f ob_to_world_matrix = Matrix4f::identity();
+					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
+					glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
+					glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+
+					glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_matrix.e);
+					glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_matrix.e);
+				}
+
+				//if(shader_prog->is_phong)
+				{
+					setUniformsForPhongProg(terrain_system->mat, *meshdata, shader_prog->uniform_locations, /*prog_changed=*/true);
+				}
+			
+				GLenum draw_mode = GL_TRIANGLES;
+
+				glDrawElements(draw_mode, (GLsizei)meshdata->batches[0].num_indices, meshdata->index_type, (void*)(uint64)meshdata->batches[0].prim_start_offset);
+
+				this->num_indices_submitted += meshdata->batches[0].num_indices;
+				this->num_face_groups_submitted++;
+			}
+
+			//------------------------------ Draw water ------------------------------
+			{
+				OpenGLMeshRenderData* meshdata = chunk.water_mesh_data_LODs[0].ptr();
+				bindMeshData(*meshdata);
+
+				const OpenGLProgram* shader_prog = terrain_system->water_mat.shader_prog.ptr();
+				shader_prog->useProgram();
+
+
+				// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
+
+				// Set per-object vert uniforms
+				if(shader_prog->uses_vert_uniform_buf_obs)
+				{
+					Matrix4f ob_to_world_matrix = Matrix4f::identity();
+					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
+
+					PerObjectVertUniforms uniforms;
+					uniforms.model_matrix = ob_to_world_matrix;
+					uniforms.normal_matrix = ob_to_world_inv_transpose_matrix;
+
+					this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
+				}
+				else
+				{
+					Matrix4f ob_to_world_matrix = Matrix4f::identity();
+					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
+					glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
+					glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+
+					glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_matrix.e);
+					glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_matrix.e);
+				}
+
+				if(this->fbm_tex.nonNull())
+				{
+					glActiveTexture(GL_TEXTURE0 + 2);
+					glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
+					glUniform1i(terrain_system->water_fbm_tex_location, 2);
+				}
+				if(this->cirrus_tex.nonNull())
+				{
+					glActiveTexture(GL_TEXTURE0 + 3);
+					glBindTexture(GL_TEXTURE_2D, this->cirrus_tex->texture_handle);
+					glUniform1i(terrain_system->water_cirrus_tex_location, 3);
+				}
+
+				if(shader_prog->time_loc >= 0)
+					glUniform1f(shader_prog->time_loc, this->current_time);
+
+				glUniform4fv(terrain_system->water_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
+
+				//if(shader_prog->is_phong)
+				{
+					setUniformsForPhongProg(terrain_system->mat, *meshdata, shader_prog->uniform_locations, /*prog_changed=*/true);
+				}
+
+				GLenum draw_mode = GL_TRIANGLES;
+
+				glDrawElements(draw_mode, (GLsizei)meshdata->batches[0].num_indices, meshdata->index_type, (void*)(uint64)meshdata->batches[0].prim_start_offset);
+
+				this->num_indices_submitted += meshdata->batches[0].num_indices;
+				this->num_face_groups_submitted++;
+
+				unbindMeshData(*meshdata);
+			}
+		}
+	}
+#endif
+
+
 	batch_draw_info.reserve(current_scene->objects.size());
 	batch_draw_info.resize(0);
 
@@ -5285,6 +5462,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	std::memcpy(uniforms.texture_matrix, tex_elems, sizeof(float) * 12);
 	uniforms.have_shading_normals = mesh_data.has_shading_normals ? 1 : 0;
 	uniforms.have_texture = opengl_mat.albedo_texture.nonNull() ? 1 : 0;
+	uniforms.have_metallic_roughness_tex = opengl_mat.metallic_roughness_texture.nonNull() ? 1 : 0;
 	uniforms.roughness = opengl_mat.roughness;
 	uniforms.fresnel_scale = opengl_mat.fresnel_scale;
 	uniforms.metallic_frac = opengl_mat.metallic_frac;
@@ -5380,6 +5558,14 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			glUniform1i(locations.transmission_tex_location, 9);
 			assert(locations.transmission_tex_location >= 0);
 		}
+	}
+
+	if(opengl_mat.metallic_roughness_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 10);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
+
+		glUniform1i(locations.metallic_roughness_tex_location, 10);
 	}
 
 	// Set shadow mapping uniforms
@@ -6588,13 +6774,13 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 
 Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGLTextureKey& key, Reference<TextureData> texture_data,
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping)
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB)
 {
 	auto res = this->opengl_textures.find(key);
 	if(res == this->opengl_textures.end())
 	{
 		// Load into OpenGL
-		Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping);
+		Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping, use_sRGB);
 
 		this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 

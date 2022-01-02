@@ -169,7 +169,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 
 
 		//----------------- Notify the opengl engine that the texture was loaded, and check the object has had the texture assigned. -----------------
-		engine.textureLoaded(path, OpenGLTextureKey(key));
+		engine.textureLoaded(path, OpenGLTextureKey(key), /*use_sRGB=*/true);
 
 		testAssert(ob->materials[0].albedo_texture.nonNull());
 

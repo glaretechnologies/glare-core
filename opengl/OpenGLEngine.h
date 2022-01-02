@@ -43,6 +43,7 @@ namespace glare { class TaskManager; }
 class Map2D;
 class TextureServer;
 class UInt8ComponentValueTraits;
+class TerrainSystem;
 template <class V, class VTraits> class ImageMap;
 
 
@@ -172,6 +173,7 @@ public:
 	bool double_sided;
 
 	Reference<OpenGLTexture> albedo_texture;
+	Reference<OpenGLTexture> metallic_roughness_texture;
 	Reference<OpenGLTexture> lightmap_texture;
 	Reference<OpenGLTexture> texture_2;
 	Reference<OpenGLTexture> backface_albedo_texture;
@@ -191,14 +193,13 @@ public:
 	
 	uint64 userdata;
 	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
+	std::string metallic_roughness_tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	std::string lightmap_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	bool albedo_tex_is_placeholder; // True if the albedo texture is from a different LOD level than desired, and should be replaced when the correct LOD level texture is loaded.
 	// NOTE: could also just always re-assign textures in textureLoaded(), we do this for lightmaps.
 
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 };
-
-
 
 
 #ifdef _WIN32
@@ -446,6 +447,7 @@ struct PhongUniforms
 	float texture_matrix[12];
 	int have_shading_normals;
 	int have_texture;
+	int have_metallic_roughness_tex;
 	float roughness;
 	float fresnel_scale;
 	float metallic_frac;
@@ -540,13 +542,13 @@ public:
 	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key);
 
 	// Notify the OpenGL engine that a texture has been loaded.
-	void textureLoaded(const std::string& path, const OpenGLTextureKey& key);
+	void textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB);
 
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
 	Reference<OpenGLTexture> loadOpenGLTextureFromTexData(const OpenGLTextureKey& key, Reference<TextureData> texture_data,
-		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping);
+		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB = true);
 
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true);
@@ -678,7 +680,9 @@ public:
 
 private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
+public:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
+private:
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
 		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
 	void drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
@@ -709,6 +713,8 @@ private:
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 public:
+	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+
 	glare::TaskManager& getTaskManager();
 
 	void textureBecameUnused(const OpenGLTexture* tex);
@@ -795,6 +801,8 @@ private:
 	std::string data_dir;
 
 	Reference<ShadowMapping> shadow_mapping;
+
+	// Reference<TerrainSystem> terrain_system;
 
 	OverlayObjectRef clear_buf_overlay_ob;
 

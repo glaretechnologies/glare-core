@@ -184,6 +184,7 @@ struct GLTFMaterial : public RefCounted
 	bool pbrMetallicRoughness_present;
 	Colour4f baseColorFactor;
 	GLTFTextureObject baseColorTexture;
+	GLTFTextureObject metallicRoughnessTexture;
 	float metallicFactor;
 	float roughnessFactor;
 	//----------- End from pbrMetallicRoughness:------------
@@ -1323,6 +1324,13 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 		}
 		mat_out.roughness = mat.roughnessFactor;
 		mat_out.metallic = mat.metallicFactor;
+		if(mat.metallicRoughnessTexture.valid())
+		{
+			GLTFTexture& texture = getTexture(data, mat.metallicRoughnessTexture.index);
+			GLTFImage& image = getImage(data, texture.source);
+			const std::string path = FileUtils::join(gltf_folder, image.uri);
+			mat_out.metallic_roughness_map.path = path;
+		}
 	}
 
 	if(mat.KHR_materials_pbrSpecularGlossiness_present)
@@ -1736,6 +1744,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 					mat->baseColorFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "baseColorFactor", Colour4f(1, 1, 1, 1));
 					mat->roughnessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "roughnessFactor", 1.0);
 					mat->metallicFactor		= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "metallicFactor", 1.0);
+					mat->metallicRoughnessTexture = parseTextureIfPresent(parser, pbr_node, "metallicRoughnessTexture");
 				}
 				else
 				{
@@ -2491,7 +2500,6 @@ void FormatDecoderGLTF::makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::s
 		"],\n"
 		"\"scene\": 0,\n";
 
-	const size_t tri_index_data_size = mesh.index_data.size();
 
 	// Compute new vert size, putting data in GLTF compatible format
 
@@ -2534,15 +2542,26 @@ void FormatDecoderGLTF::makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::s
 	const size_t num_verts = mesh.numVerts();
 	const size_t total_vert_data_size = num_verts * dest_vert_size;
 
+	// The vertex data needs to be 4-byte aligned, so pad the index data.
+	const size_t tri_index_data_size = mesh.index_data.size();
+	const size_t padded_tri_index_data_size = Maths::roundUpToMultipleOfPowerOf2<size_t>(tri_index_data_size, 4);
+	const size_t tri_index_padding_bytes = padded_tri_index_data_size - tri_index_data_size;
+	assert(tri_index_padding_bytes < 4);
+
 	// Build and then write data binary (.bin) file.
 	js::Vector<uint8, 16>& data = bin_out;
-	data.resize(tri_index_data_size + total_vert_data_size);
+	data.resize(padded_tri_index_data_size + total_vert_data_size);
 
 	std::memcpy(data.data(), mesh.index_data.data(), mesh.index_data.size()); // Copy vert indices
 
+	// Zero out padding if present
+	if(tri_index_padding_bytes > 0)
+		std::memset(&data[tri_index_data_size], 0, tri_index_padding_bytes);
+
+	float* write_pos = (float*)(data.data() + padded_tri_index_data_size);
 	for(size_t i=0; i<num_verts; ++i)
 	{
-		float* write_pos = (float*)(data.data() + tri_index_data_size + dest_vert_size * i);
+		//float* write_pos = (float*)(data.data() + padded_tri_index_data_size + dest_vert_size * i);
 
 		if(pos_attr->component_type == BatchedMesh::ComponentType_Float)
 		{
@@ -2604,6 +2623,7 @@ void FormatDecoderGLTF::makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::s
 				throw glare::Exception("Unhandled uv0 component type: " + toString((int)uv1_attr->component_type));
 		}
 	}
+	assert(write_pos == (float*)(data.data() + padded_tri_index_data_size + dest_vert_size * num_verts));
 
 
 	if(bin_path.empty())
@@ -2646,7 +2666,7 @@ void FormatDecoderGLTF::makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::s
 	"	{\n" // Buffer view for vertex data
 	"		\"buffer\": 0,\n"
 	"		\"byteLength\": " + toString(total_vert_data_size) + ",\n"
-	"		\"byteOffset\": " + toString(tri_index_data_size) + ",\n"
+	"		\"byteOffset\": " + toString(padded_tri_index_data_size) + ",\n"
 	"		\"byteStride\": " + toString(dest_vert_size) + ",\n"
 	"		\"target\": 34962\n" // 34962 = ARRAY_BUFFER
 	"	}\n"
@@ -2906,6 +2926,7 @@ void FormatDecoderGLTF::writeBatchedMeshToGLTFFile(const BatchedMesh& mesh, cons
 
 void FormatDecoderGLTF::writeBatchedMeshToGLBFile(const BatchedMesh& mesh, const std::string& path, const GLTFWriteOptions& options) // throws glare::Exception on failure
 {
+	// Make the JSON and binary buffer
 	std::string json;
 	js::Vector<uint8, 16> bin;
 	makeGLTFJSONAndBin(mesh, /*bin_path=*/"", json, bin);
@@ -2915,9 +2936,11 @@ void FormatDecoderGLTF::writeBatchedMeshToGLBFile(const BatchedMesh& mesh, const
 
 	const size_t padded_json_size = Maths::roundUpToMultipleOfPowerOf2<size_t>(json.size(), 4);
 	const size_t num_json_padding_bytes = padded_json_size - json.size();
+	assert(num_json_padding_bytes < 4);
 
 	const size_t padded_bin_size = Maths::roundUpToMultipleOfPowerOf2<size_t>(bin.size(), 4);
 	const size_t num_bin_padding_bytes = padded_bin_size - bin.size();
+	assert(num_bin_padding_bytes < 4);
 
 	GLBHeader glb_header;
 	glb_header.magic = 0x46546C67;
@@ -3002,6 +3025,35 @@ static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData
 }
 
 
+static void testWritingToGLB(const std::string& bmesh_path)
+{
+	try
+	{
+		Reference<BatchedMesh> mesh = new BatchedMesh();
+		BatchedMesh::readFromFile(bmesh_path, *mesh);
+
+		GLTFWriteOptions options;
+		//const std::string new_path = PlatformUtils::getTempDirPath() + "/temp.glb";
+		const std::string new_path = "d:/files/temp.glb";
+
+		FormatDecoderGLTF::writeBatchedMeshToGLBFile(*mesh, new_path, options);
+
+		// Load again
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh2 = FormatDecoderGLTF::loadGLBFile(new_path, data);
+
+		testEqual(mesh2->numMaterialsReferenced(), mesh->numMaterialsReferenced());
+		//testEqual(mesh2->numVerts(), mesh->numVerts());
+		testAssert(mesh2->numVerts() >= mesh->numVerts());
+		testEqual(mesh2->numIndices(), mesh->numIndices());
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
 void FormatDecoderGLTF::test()
 {
 	conPrint("FormatDecoderGLTF::test()");
@@ -3043,6 +3095,23 @@ void FormatDecoderGLTF::test()
 				anim_data.readFromStream(file);
 			}
 		}
+
+
+
+		/*{
+			// Test loading a VRM file
+			conPrint("---------------------------------meebit_09842_t_solid-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\fARTofwar_final.glb", data);
+
+			testAssert(mesh->numMaterialsReferenced() == 1);
+			testAssert(mesh->numVerts() == 5258);
+			testAssert(mesh->numIndices() == 9348 * 3);
+
+			//mesh->writeToFile(TestUtils::getTestReposDir() + "/testfiles/VRMs/meebit_09842_t_solid_vrm.bmesh");
+			//testWriting(mesh, data);
+		}*/
+
 
 		// Test a file with an image with a data URI with embedded base64 data.
 		{
@@ -3303,6 +3372,24 @@ void FormatDecoderGLTF::test()
 		failTest(e.what());
 	}
 
+	/*{
+		const std::string path = "C:\\Users\\nick\\AppData\\Roaming\\Substrata/server_data/server_resources/arm_lower_glb_4324645340467802603.bmesh";
+		testWritingToGLB(path);
+	}*/
+
+	//================= Test writeBatchedMeshToGLBFile on all GLBs we can find =================
+	/*{
+		std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources", "bmesh");
+		std::sort(paths.begin(), paths.end());
+
+		for(size_t i=0; i<paths.size(); ++i)
+		{
+			const std::string path = paths[i];
+			conPrint(path);
+			
+			testWritingToGLB(path);
+		}
+	}*/
 
 	conPrint("FormatDecoderGLTF::test() done.");
 }
