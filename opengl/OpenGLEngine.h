@@ -539,7 +539,7 @@ public:
 	// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
 	// If the texture is not loaded or not processed yet, return a null reference.
 	// Throws glare::Exception
-	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key);
+	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key, bool use_sRGB);
 
 	// Notify the OpenGL engine that a texture has been loaded.
 	void textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB);
@@ -548,7 +548,7 @@ public:
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
 	Reference<OpenGLTexture> loadOpenGLTextureFromTexData(const OpenGLTextureKey& key, Reference<TextureData> texture_data,
-		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB = true);
+		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB);
 
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true);

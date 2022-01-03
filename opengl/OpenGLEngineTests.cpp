@@ -132,11 +132,11 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 		engine.texture_data_manager->insertBuiltTextureData(key, texture_data);
 
 		//----------------- Now query engine for texture and make sure we get a texture back .-----------------
-		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
+		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key), /*use_sRGB=*/true);
 		testAssert(opengl_tex.nonNull());
 
 		// Query again
-		opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
+		opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key), /*use_sRGB=*/true);
 		testAssert(opengl_tex.nonNull());
 	}
 
@@ -164,7 +164,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 		engine.texture_data_manager->insertBuiltTextureData(key, texture_data); // Give data to OpenGL engine
 
 		//----------------- query engine for texture and make sure we get a texture back .-----------------
-		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
+		Reference<OpenGLTexture> opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key), /*use_sRGB=*/true);
 		testAssert(opengl_tex.nonNull());
 
 
@@ -174,7 +174,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 		testAssert(ob->materials[0].albedo_texture.nonNull());
 
 		//----------------- Now query engine for texture and make sure we get a texture back .-----------------
-		opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key));
+		opengl_tex = engine.getTextureIfLoaded(OpenGLTextureKey(key), /*use_sRGB=*/true);
 		testAssert(opengl_tex.nonNull());
 	}
 }

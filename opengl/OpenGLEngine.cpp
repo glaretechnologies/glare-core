@@ -1939,7 +1939,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 			Reference<Map2D> map = texture_server->getTexForRawNameIfLoaded(key.path);
 			if(map.nonNull())
 			{
-				opengl_texture = this->getOrLoadOpenGLTexture(key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat);
+				opengl_texture = this->getOrLoadOpenGLTexture(key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow compression=*/true, use_sRGB);
 				assert(opengl_texture.nonNull());
 				// conPrint("\tLoaded from map.");
 			}
@@ -2092,9 +2092,10 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, b
 }
 
 
-// Return an OpenGL texture based on tex_path.
+// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
+// If the texture is not loaded or not processed yet, return a null reference.
 // Throws glare::Exception
-Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key)
+Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key, bool use_sRGB)
 {
 	// conPrint("getTextureIfLoaded(), tex_path: " + tex_path);
 	try
@@ -2114,7 +2115,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey
 		if(tex_data.nonNull())
 		{
 			// conPrint("\tFound in tex_data.");
-			Reference<OpenGLTexture> gl_tex = this->loadOpenGLTextureFromTexData(texture_key, tex_data, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Load into OpenGL and return it.
+			Reference<OpenGLTexture> gl_tex = this->loadOpenGLTextureFromTexData(texture_key, tex_data, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, use_sRGB); // Load into OpenGL and return it.
 			assert(gl_tex.nonNull());
 			return gl_tex;
 		}
@@ -2126,8 +2127,9 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey
 				return Reference<OpenGLTexture>(); // Consider this texture not loaded yet.  (Needs to be processed first)
 			else
 			{
+				// Not an UInt8 map so doesn't need processing, so load it.
 				// conPrint("\tloading from map.");
-				Reference<OpenGLTexture> gl_tex = this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat); // Not an UInt8 map so doesn't need processing, so load it.
+				Reference<OpenGLTexture> gl_tex = this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow_compression=*/true, use_sRGB); 
 				assert(gl_tex.nonNull());
 				return gl_tex;
 			}
