@@ -113,14 +113,16 @@ Geometry::DistType RayMesh::traceRay(const Ray& ray, HitInfo& hitinfo_out) const
 }
 
 
-RayMesh::DistType RayMesh::traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const
+RayMesh::DistType RayMesh::traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_pos_ws_out, Vec4f& hit_normal_ws_out, bool& point_in_tri_out) const
 {
 	return tritree->traceSphere(
 		ray_ws,
 		to_object,
 		to_world,
 		radius_ws,
-		hit_normal_ws_out
+		hit_pos_ws_out,
+		hit_normal_ws_out,
+		point_in_tri_out
 	);
 }
 

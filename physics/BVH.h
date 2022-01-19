@@ -53,7 +53,7 @@ public:
 	virtual void build(PrintOutput& print_output, ShouldCancelCallback& should_cancel_callback, glare::TaskManager& task_manager); // throws glare::Exception
 
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
-	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const;
+	virtual DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_pos_ws_out, Vec4f& hit_normal_ws_out, bool& point_in_tri_out) const;
 	virtual void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const;
 	virtual const js::AABBox& getAABBox() const;
 
@@ -66,7 +66,7 @@ public:
 	typedef uint32 TRI_INDEX;
 private:
 	inline void intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws,
-		TRI_INDEX tri_index, Vec4f& hit_normal_ws_out) const;
+		TRI_INDEX tri_index, Vec4f& hit_pos_ws_out, Vec4f& hit_normal_ws_out, bool& point_in_tri_out) const;
 
 	typedef js::Vector<BVHNode, 64> NODE_VECTOR_TYPE;
 	typedef MollerTrumboreTri INTERSECT_TRI_TYPE;

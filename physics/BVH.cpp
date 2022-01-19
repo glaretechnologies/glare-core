@@ -333,7 +333,7 @@ stack_pop:
 }
 
 
-BVH::DistType BVH::traceSphere(const Ray& ray_ws_, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const
+BVH::DistType BVH::traceSphere(const Ray& ray_ws_, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_pos_ws_out, Vec4f& hit_normal_ws_out, bool& point_in_tri_out) const
 {
 	Ray ray_ws = ray_ws_;
 	const Vec4f start_ws = ray_ws_.startPos();
@@ -421,7 +421,7 @@ stack_pop:
 		for(size_t i=ofs; i<ofs+num; i++)
 		{
 			const uint32 tri_index = leaf_tri_indices[i];
-			intersectSphereAgainstLeafTri(ray_ws, to_world, radius_ws, tri_index, hit_normal_ws_out);
+			intersectSphereAgainstLeafTri(ray_ws, to_world, radius_ws, tri_index, hit_pos_ws_out, hit_normal_ws_out, point_in_tri_out);
 		}
 	}
 
@@ -456,7 +456,7 @@ static inline float traceRayAgainstSphere(const Vec4f& ray_origin, const Vec4f& 
 }
 
 
-void BVH::intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws, TRI_INDEX tri_index, Vec4f& hit_normal_ws_out) const
+void BVH::intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, float radius_ws, TRI_INDEX tri_index, Vec4f& hit_pos_ws_out, Vec4f& hit_normal_ws_out, bool& point_in_tri_out) const
 {
 	const Vec4f sourcePoint3_ws(ray_ws.startPos());
 	const Vec4f unitdir3_ws(ray_ws.unitDir());
@@ -555,6 +555,9 @@ void BVH::intersectSphereAgainstLeafTri(Ray& ray_ws, const Matrix4f& to_world, f
 	if(dist >= 0 && dist < ray_ws.maxT())
 	{
 		ray_ws.setMaxT(dist);
+
+		hit_pos_ws_out = triIntersectionPoint;
+		point_in_tri_out = point_in_tri;
 
 		//-----------------------------------------------------------------
 		//calc hit normal

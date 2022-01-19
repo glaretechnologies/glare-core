@@ -21,7 +21,7 @@ Tree::~Tree()
 {}
 
 
-Tree::DistType Tree::traceSphere(const Ray& ray_dir_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const
+Tree::DistType Tree::traceSphere(const Ray& ray_dir_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_pos_out, Vec4f& hit_normal_ws_out, bool& point_in_tri_out) const
 {
 	assert(0);
 	return -1.f;

@@ -158,9 +158,10 @@ public:
 
 	virtual ~RayMesh();
 
+	DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_pos_ws_out, Vec4f& hit_normal_ws_out, bool& point_in_tri_out) const;
+
 	////////////////////// Geometry interface ///////////////////
 	virtual DistType traceRay(const Ray& ray, HitInfo& hitinfo_out) const;
-	DistType traceSphere(const Ray& ray_ws, const Matrix4f& to_object, const Matrix4f& to_world, float radius_ws, Vec4f& hit_normal_ws_out) const;
 	void appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Matrix4f& to_object, const Matrix4f& to_world, std::vector<Vec4f>& points_ws_in_out) const;
 	virtual const js::AABBox getAABBox() const;
 	virtual const js::AABBox getTightAABBoxWS(const TransformPath& transform_path) const;
