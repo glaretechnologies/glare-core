@@ -2575,7 +2575,8 @@ void OpenGLEngine::draw()
 			interpolate values based on sample interpolation type
 			*/
 			const size_t num_nodes = anim_data.sorted_nodes.size();
-			assert(num_nodes <= 256); // We only support 128 joint matrices for now.
+			// assert(num_nodes <= 256); 
+			// We only support 256 joint matrices for now.  Currently we just don't upload more than 256 matrices.
 			node_matrices.resizeNoCopy(num_nodes);
 
 			// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
@@ -5653,14 +5654,15 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		{
 			const int node_i = mesh_data.animation_data.joint_nodes[i];
 
-			temp_joint_matrices[i] = mesh_data.animation_data.skeleton_root_transform * ob.anim_node_data[node_i].node_hierarchical_to_object * 
+			temp_joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob.anim_node_data[node_i].node_hierarchical_to_object * 
 				mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
 
 			//conPrint("matrices[" + toString(i) + "]:");
 			//conPrint(matrices[i].toString());
 		}
 
-		glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)temp_joint_matrices.size(), /*transpose=*/false, temp_joint_matrices[0].e);
+		const size_t num_joint_matrices_to_upload = myMin<size_t>(256, temp_joint_matrices.size()); // The joint_matrix uniform array has 256 elems, don't upload more than that.
+		glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)num_joint_matrices_to_upload, /*transpose=*/false, temp_joint_matrices[0].e);
 	}
 
 
