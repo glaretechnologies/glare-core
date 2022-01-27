@@ -81,7 +81,7 @@ void GLUITextView::setText(GLUI& glui, const std::string& new_text)
 Vec2f GLUITextView::getTextureDimensions() const
 {
 	if(overlay_ob->material.albedo_texture.nonNull())
-		return Vec2f(overlay_ob->material.albedo_texture->xRes(), overlay_ob->material.albedo_texture->yRes());
+		return Vec2f((float)overlay_ob->material.albedo_texture->xRes(), (float)overlay_ob->material.albedo_texture->yRes());
 	else
 		return Vec2f(1.f);
 }
