@@ -503,16 +503,25 @@ GLARE_STRONG_INLINE T roundedUpDivide(T x, T N)
 }
 
 
-// Returns the smallest multiple of N that is >= x.
+// Returns the smallest multiple of N that is >= x, for the integers x and N.
 // Which is equal to ceil(x / N) * N.
 // Note: this can overflow, and only works for x >= 0.
 // Requires N > 0.
 template <class T>
 GLARE_STRONG_INLINE T roundUpToMultiple(T x, T N)
 {
+	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
 	assert(x >= 0);
 	assert(N >  0);
 	return ((x + N - 1) / N) * N;
+}
+
+
+// Returns the smallest multiple of N that is >= x, for floats or doubles x and N.
+template <class T>
+GLARE_STRONG_INLINE T roundUpToMultipleFloating(T x, T N)
+{
+	return std::ceil(x / N) * N;
 }
 
 

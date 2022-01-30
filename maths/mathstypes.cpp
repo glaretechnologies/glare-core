@@ -546,6 +546,12 @@ void Maths::test()
 	testAssert(roundUpToMultiple(15, 5) == 15);
 	testAssert(roundUpToMultiple(16, 5) == 20);
 
+	testEpsEqual(roundUpToMultipleFloating(500.f, 200.0f), 600.f);
+	testEpsEqual(roundUpToMultipleFloating(-500.f, 200.0f), -400.f);
+
+	testEpsEqual(roundUpToMultipleFloating(500.0, 200.0), 600.0);
+	testEpsEqual(roundUpToMultipleFloating(-500.0, 200.0), -400.0);
+
 	testAssert(!isPowerOfTwo((int)-4));
 	testAssert(!isPowerOfTwo((int)-3));
 	testAssert(!isPowerOfTwo((int)-2));
