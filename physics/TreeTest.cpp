@@ -899,8 +899,9 @@ static void testSphereTracingOnMesh(RayMesh& raymesh)
 		);
 		const float radius = rng.unitRandom() * 0.2f;
 		
-		Vec4f hit_normal;
-		const double d = bvh.traceSphere(ray, to_object, to_world, radius, hit_normal);
+		Vec4f hit_pos_ws, hit_normal;
+		bool is_point_in_tri;
+		const double d = bvh.traceSphere(ray, to_object, to_world, radius, hit_pos_ws, hit_normal, is_point_in_tri);
 
 		// Do reference trace against all triangles
 		const Vec4f sourcePoint(ray.startPos());
