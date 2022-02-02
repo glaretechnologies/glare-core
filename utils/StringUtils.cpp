@@ -1360,6 +1360,19 @@ bool containsString(const std::string& s, const std::string& target)
 }
 
 
+static bool caseInvariantCompare(char a, char b)
+{
+	return toLowerCase(a) == toLowerCase(b);
+}
+
+bool containsStringCaseInvariant(const std::string& s, const std::string& target)
+{
+	const auto res = std::search(s.begin(), s.end(), target.begin(), target.end(), caseInvariantCompare);
+
+	return res != s.end();
+}
+
+
 // Replace non-printable chars with '?'
 const std::string removeNonPrintableChars(const std::string& s)
 {
@@ -2633,6 +2646,37 @@ void StringUtils::test()
 	testAssert(removeDotAndExtension("jpg") == "jpg");
 	testAssert(removeDotAndExtension("") == "");
 	testAssert(removeDotAndExtension("test.a.jpg") == "test.a");
+
+
+	//========================== containsString ==========================
+	testAssert(containsString("abc", "a"));
+	testAssert(containsString("abc", "ab"));
+	testAssert(containsString("abc", "abc"));
+	testAssert(containsString("abc", ""));
+	testAssert(containsString("", ""));
+
+	testAssert(!containsString("abc", "d"));
+	testAssert(!containsString("abc", "ad"));
+	testAssert(!containsString("abc", "abcd"));
+	testAssert(!containsString("", "a"));
+
+
+	//========================== containsStringCaseInvariant ==========================
+	testAssert(containsStringCaseInvariant("abc", "a"));
+	testAssert(containsStringCaseInvariant("abc", "ab"));
+	testAssert(containsStringCaseInvariant("abc", "abc"));
+	testAssert(containsStringCaseInvariant("abc", "a"));
+	testAssert(containsStringCaseInvariant("abc", "aB"));
+	testAssert(containsStringCaseInvariant("aBc", "abC"));
+	testAssert(containsStringCaseInvariant("abC", ""));
+	//testAssert(containsStringCaseInvariant("", ""));
+
+	testAssert(!containsStringCaseInvariant("abc", "d"));
+	testAssert(!containsStringCaseInvariant("abc", "ad"));
+	testAssert(!containsStringCaseInvariant("Abc", "abcd"));
+	testAssert(!containsStringCaseInvariant("", "a"));
+
+
 
 
 /*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");
