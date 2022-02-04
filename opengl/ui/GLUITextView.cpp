@@ -28,8 +28,8 @@ GLUITextView::~GLUITextView()
 
 
 // For non-toggleable buttons:
-static const Colour3f widget_colour(1.f);
-static const Colour3f mouseover_widget_colour(0.9f);
+static const Colour3f default_widget_colour(1.f);
+static const Colour3f default_mouseover_widget_colour(0.9f);
 
 
 void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft, const Vec2f& dims,
@@ -39,6 +39,9 @@ void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, c
 	tooltip = tooltip_;
 
 	text = text_;
+
+	widget_colour = default_widget_colour;
+	mouseover_widget_colour = default_mouseover_widget_colour;
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -84,6 +87,18 @@ Vec2f GLUITextView::getTextureDimensions() const
 		return Vec2f((float)overlay_ob->material.albedo_texture->xRes(), (float)overlay_ob->material.albedo_texture->yRes());
 	else
 		return Vec2f(1.f);
+}
+
+
+void GLUITextView::setColour(const Colour3f& col)
+{
+	widget_colour = col;
+	mouseover_widget_colour = col;
+
+	if(overlay_ob.nonNull())
+	{
+		overlay_ob->material.albedo_rgb = widget_colour;
+	}
 }
 
 

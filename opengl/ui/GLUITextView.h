@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../maths/Rect2.h"
+#include "../graphics/colour3.h"
 #include <string>
 
 
@@ -37,6 +38,8 @@ public:
 	void setText(GLUI& glui, const std::string& new_text);
 	Vec2f getTextureDimensions() const;
 
+	void setColour(const Colour3f& col);
+
 	virtual bool doHandleMouseClick(const Vec2f& coords) override;
 	virtual bool doHandleMouseMoved(const Vec2f& coords) override;
 
@@ -51,6 +54,9 @@ private:
 	GLARE_DISABLE_COPY(GLUITextView);
 
 	std::string text;
+
+	Colour3f widget_colour;
+	Colour3f mouseover_widget_colour;
 };
 
 
