@@ -23,6 +23,7 @@ class FrameBuffer : public RefCounted
 {
 public:
 	FrameBuffer();
+	explicit FrameBuffer(GLuint buffer_name); // Does not take ownership of framebuffer.
 	~FrameBuffer();
 
 	void bind();
@@ -40,6 +41,7 @@ public:
 	
 	GLuint buffer_name;
 	size_t xres, yres; // Will be set after bindTextureAsTarget() is called, and 0 beforehand.
+	bool own_buffer; // If true, will call glDeleteFramebuffers on destruction.
 };
 
 

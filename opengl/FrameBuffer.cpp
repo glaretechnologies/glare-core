@@ -9,16 +9,27 @@ Copyright Glare Technologies Limited 2016 -
 FrameBuffer::FrameBuffer()
 :	buffer_name(0),
 	xres(0),
-	yres(0)
+	yres(0),
+	own_buffer(true)
 {
 	// Create new frame buffer
 	glGenFramebuffers(1, &buffer_name);
 }
 
 
+FrameBuffer::FrameBuffer(GLuint buffer_name_)
+:	buffer_name(buffer_name_),
+	xres(0),
+	yres(0),
+	own_buffer(false)
+{
+}
+
+
 FrameBuffer::~FrameBuffer()
 {
-	glDeleteFramebuffers(1, &buffer_name);
+	if(own_buffer)
+		glDeleteFramebuffers(1, &buffer_name);
 }
 
 
