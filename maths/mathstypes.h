@@ -525,6 +525,14 @@ GLARE_STRONG_INLINE T roundUpToMultipleFloating(T x, T N)
 }
 
 
+// Returns x rounded to the nearest multiple of N, for floats or doubles x and N.
+template <class T>
+GLARE_STRONG_INLINE T roundToMultipleFloating(T x, T N)
+{
+	return std::round(x / N) * N;
+}
+
+
 // Check that an integer is a power of two.
 // from http://en.wikipedia.org/wiki/Power_of_two#Fast_algorithm_to_check_if_a_number_is_a_power_of_two
 template <class T>
