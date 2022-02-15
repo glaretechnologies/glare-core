@@ -127,6 +127,7 @@ void Maths::test()
 	for(uint32 i=0; i<63; ++i)
 		testAssert(intLogBase2(1ULL << i) == i);
 
+
 	//=============================== roundToNextHighestPowerOf2() =========================================
 	testAssert(roundToNextHighestPowerOf2(0) == 0); // This is expected.
 	testAssert(roundToNextHighestPowerOf2(1) == 1);
@@ -149,6 +150,7 @@ void Maths::test()
 	testAssert(roundToNextHighestPowerOf2(9223372036854775807ull) == 9223372036854775808ull);
 	testAssert(roundToNextHighestPowerOf2(9223372036854775808ull) == 9223372036854775808ull);
 
+
 	//======================================= uInt32ToUnitFloatScale() ========================================
 	{
 		const float x = 4294967295u * Maths::uInt32ToUnitFloatScale();
@@ -156,9 +158,11 @@ void Maths::test()
 		testAssert(x == 0.99999994f);
 	}
 
+
 	//======================================== sqrt2Pi(), recipSqrt2Pi() ========================================
 	testAssert(epsEqual(sqrt2Pi<float>(), std::sqrt(2 * pi<float>())));
 	testAssert(epsEqual(recipSqrt2Pi<float>(), 1 / std::sqrt(2 * pi<float>())));
+
 
 	//======================================== logBase2() ========================================
 	testAssert(epsEqual(logBase2(0.5), -1.0));
@@ -459,6 +463,7 @@ void Maths::test()
 	testAssert(copySign(0.0,  10.0) ==  0.0);
 	testAssert(isNegativeZero(copySign(0.0, -10.0)));
 
+
 	//======================================= sign() ==============================================
 	testAssert(sign( 1.f) ==  1.0f);
 	testAssert(sign(-1.f) == -1.0f);
@@ -486,8 +491,7 @@ void Maths::test()
 	testAssert(isNegativeZero(sign(-0.0)));
 
 
-
-
+	//======================================= approxEq() ==============================================
 	testAssert(approxEq(1.0, 1.0));
 	testAssert(approxEq(1.0, 1.0000001));
 	testAssert(approxEq(1.0, 0.9999999));
@@ -499,6 +503,7 @@ void Maths::test()
 	testAssert(approxEq(1.0e15, 0.9999999e15));
 
 
+	//======================================= posOverflowed(), posUnderflowed() ==============================================
 	double one = 1.0;
 	//double zero = 0.0;
 	//testAssert(posOverflowed(one / zero));
@@ -509,6 +514,8 @@ void Maths::test()
 	testAssert(!posUnderflowed(1.0));
 	testAssert(!posUnderflowed(0.0));
 
+
+	//======================================= posFloorToInt() ==============================================
 	testAssert(posFloorToInt(0.5) == 0);
 	testAssert(posFloorToInt(0.0) == 0);
 	testAssert(posFloorToInt(1.0) == 1);
@@ -516,6 +523,8 @@ void Maths::test()
 	testAssert(posFloorToInt(1.99999) == 1);
 	testAssert(posFloorToInt(2.0) == 2);
 
+
+	//======================================= floorToInt() ==============================================
 	testAssert(floorToInt(-0.5) == -1);
 	testAssert(floorToInt(0.5) == 0);
 	testAssert(floorToInt(-0.0) == 0);
@@ -525,9 +534,12 @@ void Maths::test()
 	testAssert(floorToInt(-2.0) == -2);
 	testAssert(floorToInt(2.1) == 2);
 
+
+	//======================================= tanForCos() ==============================================
 	testAssert(epsEqual(tanForCos(0.2), tan(acos(0.2))));
 
 
+	//======================================= roundedUpDivide() ==============================================
 	testAssert(roundedUpDivide(0, 1) == 0);
 	testAssert(roundedUpDivide(1, 1) == 1);
 	testAssert(roundedUpDivide(1, 2) == 1);
@@ -538,6 +550,8 @@ void Maths::test()
 	testAssert(roundedUpDivide(15, 5) == 3);
 	testAssert(roundedUpDivide(16, 5) == 4);
 
+
+	//======================================= roundUpToMultiple() ==============================================
 	testAssert(roundUpToMultiple(0, 1) == 0);
 	testAssert(roundUpToMultiple(1, 1) == 1);
 	testAssert(roundUpToMultiple(2, 1) == 2);
@@ -546,12 +560,32 @@ void Maths::test()
 	testAssert(roundUpToMultiple(15, 5) == 15);
 	testAssert(roundUpToMultiple(16, 5) == 20);
 
+
+	//======================================= roundUpToMultipleFloating() ==============================================
+	// single precision
 	testEpsEqual(roundUpToMultipleFloating(500.f, 200.0f), 600.f);
 	testEpsEqual(roundUpToMultipleFloating(-500.f, 200.0f), -400.f);
 
+	// double precision
 	testEpsEqual(roundUpToMultipleFloating(500.0, 200.0), 600.0);
 	testEpsEqual(roundUpToMultipleFloating(-500.0, 200.0), -400.0);
 
+
+	//======================================= roundToMultipleFloating() ==============================================
+	// single precision
+	testEpsEqual(roundToMultipleFloating(490.f, 200.0f), 400.f);
+	testEpsEqual(roundToMultipleFloating(510.f, 200.0f), 600.f);
+	testEpsEqual(roundToMultipleFloating(-490.f, 200.0f), -400.f);
+	testEpsEqual(roundToMultipleFloating(-510.f, 200.0f), -600.f);
+
+	// double precision
+	testEpsEqual(roundToMultipleFloating(490.0, 200.0), 400.0);
+	testEpsEqual(roundToMultipleFloating(510.0, 200.0), 600.0);
+	testEpsEqual(roundToMultipleFloating(-490.0, 200.0), -400.0);
+	testEpsEqual(roundToMultipleFloating(-510.0, 200.0), -600.0);
+
+
+	//======================================= isPowerOfTwo() ==============================================
 	testAssert(!isPowerOfTwo((int)-4));
 	testAssert(!isPowerOfTwo((int)-3));
 	testAssert(!isPowerOfTwo((int)-2));
@@ -596,6 +630,7 @@ void Maths::test()
 	testAssert(roundUpToMultipleOfPowerOf2(129, 128) == 256);
 
 
+	//======================================= Matrix2::inverse() ==============================================
 	{
 	const Matrix2d m(1, 2, 3, 4);
 	// determinant = 1 / (ad - bc) = 1 / (4 - 6) = -1/2
@@ -634,7 +669,7 @@ void Maths::test()
 	}
 
 
-
+	//======================================= Matrix3d::inverse() ==============================================
 	{
 	const double e[9] = {1, 2, 3, 4, 5, 6, 7, 8, 0};
 	const Matrix3d m(e);
@@ -681,8 +716,7 @@ void Maths::test()
 		testAssert(epsEqual(std::pow(x, 2.2f), Maths::fastPow(x, 2.2f), 0.02f));
 	}
 
-	// Test oneMinusCosX()
-
+	//======================================= oneMinusCosX() ==============================================
 	float max_direct_error = 0;
 	float max_func_error = 0;
 	float max_direct_relative_error = 0;
@@ -729,12 +763,8 @@ void Maths::test()
 
 	
 
-
-
-
+	//======================================= Misc perf tests ==============================================
 	/*conPrint("float sin()");
-	
-
 	{
 		float sum = 0.0;
 		int64_t least_cycles = std::numeric_limits<int64_t>::max();
