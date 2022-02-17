@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "OpenGLEngine.h"
+#include "GLMeshBuilding.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/bitmap.h"
@@ -48,7 +49,7 @@ static void doTest(const std::string& indigo_base_dir, const std::string& mesh_p
 		for(int t=0; t<NUM_TRIALS; ++t)
 		{
 			Timer timer;
-			Reference<OpenGLMeshRenderData> mesh_renderdata = OpenGLEngine::buildIndigoMesh(mesh,
+			Reference<OpenGLMeshRenderData> mesh_renderdata = GLMeshBuilding::buildIndigoMesh(mesh,
 				true // skip opengl calls
 			);
 			conPrint("Build time for '" + mesh_path + "': " + timer.elapsedStringNSigFigs(5));
