@@ -927,99 +927,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		glGenQueries(1, &timer_query_id);
 #endif
 
-	// Create VBOs for sphere
-	{
-		int phi_res = 100;
-		int theta_res = 50;
-
-		js::Vector<Vec3f, 16> verts;
-		verts.resize(phi_res * theta_res * 4);
-		js::Vector<Vec3f, 16> normals;
-		normals.resize(phi_res * theta_res * 4);
-		js::Vector<Vec2f, 16> uvs;
-		uvs.resize(phi_res * theta_res * 4);
-		js::Vector<uint32, 16> indices;
-		indices.resize(phi_res * theta_res * 6); // two tris per quad
-
-		int i = 0;
-		int quad_i = 0;
-		for(int phi_i=0; phi_i<phi_res; ++phi_i)
-		for(int theta_i=0; theta_i<theta_res; ++theta_i)
-		{
-			const float phi_1 = Maths::get2Pi<float>() * phi_i / phi_res;
-			const float phi_2 = Maths::get2Pi<float>() * (phi_i + 1) / phi_res;
-			const float theta_1 = Maths::pi<float>() * theta_i / theta_res;
-			const float theta_2 = Maths::pi<float>() * (theta_i + 1) / theta_res;
-
-			const Vec4f p1 = GeometrySampling::dirForSphericalCoords(phi_1, theta_1);
-			const Vec4f p2 = GeometrySampling::dirForSphericalCoords(phi_2, theta_1);
-			const Vec4f p3 = GeometrySampling::dirForSphericalCoords(phi_2, theta_2);
-			const Vec4f p4 = GeometrySampling::dirForSphericalCoords(phi_1, theta_2);
-
-			verts[i    ] = Vec3f(p1); 
-			verts[i + 1] = Vec3f(p2); 
-			verts[i + 2] = Vec3f(p3); 
-			verts[i + 3] = Vec3f(p4);
-
-			normals[i    ] = Vec3f(p1); 
-			normals[i + 1] = Vec3f(p2);
-			normals[i + 2] = Vec3f(p3); 
-			normals[i + 3] = Vec3f(p4);
-
-			uvs[i    ] = Vec2f(phi_1, theta_1); 
-			uvs[i + 1] = Vec2f(phi_2, theta_1); 
-			uvs[i + 2] = Vec2f(phi_2, theta_2); 
-			uvs[i + 3] = Vec2f(phi_1, theta_2);
-
-			indices[quad_i + 0] = i + 0; 
-			indices[quad_i + 1] = i + 1; 
-			indices[quad_i + 2] = i + 2; 
-			indices[quad_i + 3] = i + 0;
-			indices[quad_i + 4] = i + 2;
-			indices[quad_i + 5] = i + 3;
-
-			i += 4;
-			quad_i += 6;
-		}
-
-		sphere_meshdata = new OpenGLMeshRenderData();
-		buildMeshRenderData(*sphere_meshdata, verts, normals, uvs, indices);
-	}
-
-	// Make line_meshdata
-	{
-		line_meshdata = new OpenGLMeshRenderData();
-
-		js::Vector<Vec3f, 16> verts;
-		verts.resize(2);
-		js::Vector<Vec3f, 16> normals;
-		normals.resize(2);
-		js::Vector<Vec2f, 16> uvs;
-		uvs.resize(2);
-		js::Vector<uint32, 16> indices;
-		indices.resize(2); // two tris per face
-
-		indices[0] = 0;
-		indices[1] = 1;
-
-		Vec3f v0(0, 0, 0); // bottom left
-		Vec3f v1(1, 0, 0); // bottom right
-
-		verts[0] = v0;
-		verts[1] = v1;
-
-		Vec2f uv0(0, 0);
-		Vec2f uv1(1, 0);
-
-		uvs[0] = uv0;
-		uvs[1] = uv1;
-
-		for(int i=0; i<2; ++i)
-			normals[i] = Vec3f(0, 0, 1);
-
-		buildMeshRenderData(*line_meshdata, verts, normals, uvs, indices);
-	}
-
+	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh();
+	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh();
 	this->cube_meshdata = MeshPrimitiveBuilding::makeCubeMesh();
 	this->unit_quad_meshdata = MeshPrimitiveBuilding::makeUnitQuadMesh();
 
@@ -3223,6 +3132,34 @@ void OpenGLEngine::draw()
 #if !defined(OSX)
 	if(profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id); // Start measuring everything else after depth buffer drawing:
 #endif
+
+	//------------------------------ water ----------------------------------------
+#if 0
+	if(pre_water_framebuffer.isNull())
+		pre_water_framebuffer = new FrameBuffer();
+
+	if(pre_water_colour_tex.isNull())
+	{
+		conPrint("Allocing pre_water_colour_tex with width " + toString(viewport_w) + " and height " + toString(viewport_h));
+		pre_water_colour_tex = new OpenGLTexture(viewport_w, viewport_h, this,
+			OpenGLTexture::Format_RGB_Linear_Float,
+			OpenGLTexture::Filtering_Bilinear,
+			OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+		);
+
+		pre_water_depth_tex = new OpenGLTexture(viewport_w, viewport_h, this,
+			OpenGLTexture::Format_Depth_Float,
+			OpenGLTexture::Filtering_Bilinear,
+			OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+		);
+	}
+
+	pre_water_framebuffer->bindTextureAsTarget(*pre_water_colour_tex, GL_COLOR_ATTACHMENT0);
+	pre_water_framebuffer->bindTextureAsTarget(*pre_water_depth_tex,  GL_DEPTH_ATTACHMENT);
+	pre_water_framebuffer->bind();
+#endif
+	//------------------------------ end water ----------------------------------------
+
 
 	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
 	FrameBufTextures current_framebuf_textures;

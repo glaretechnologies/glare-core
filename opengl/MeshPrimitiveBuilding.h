@@ -22,6 +22,8 @@ MeshPrimitiveBuilding
 class MeshPrimitiveBuilding
 {
 public:
+	static Reference<OpenGLMeshRenderData> makeLineMesh();
+	static Reference<OpenGLMeshRenderData> makeSphereMesh();
 	static Reference<OpenGLMeshRenderData> makeCubeMesh();
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(const Vec4f& i, const Vec4f& j);
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(); // Makes a quad from (0, 0, 0) to (1, 1, 0)

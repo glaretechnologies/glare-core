@@ -118,6 +118,8 @@ public:
 	AnimationData animation_data;
 };
 
+typedef Reference<OpenGLMeshRenderData> OpenGLMeshRenderDataRef;
+
 
 struct OpenGLUniformVal // variant class
 {
@@ -817,6 +819,11 @@ private:
 	std::vector<Reference<OpenGLTexture> > blur_target_textures;
 
 	Reference<FrameBuffer> main_render_framebuffer;
+
+	//Reference<FrameBuffer> pre_water_framebuffer;
+	//OpenGLTextureRef pre_water_colour_tex;
+	//OpenGLTextureRef pre_water_depth_tex;
+
 	//Reference<OpenGLTexture> main_render_texture;
 	//Reference<OpenGLTexture> main_depth_texture;
 	std::map<Vec2i, FrameBufTextures> main_render_textures; // Map from (viewport w, viewport_h) to framebuffer textures of that size.
