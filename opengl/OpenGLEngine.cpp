@@ -211,7 +211,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_anim_update_duration(0),
 	last_depth_map_gen_GPU_time(0),
 	last_render_GPU_time(0),
-	profiling_enabled(false)
+	last_draw_CPU_time(0),
+	query_profiling_enabled(false)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -915,15 +916,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	// Init TextureLoading (in particular stb_compress_dxt lib) before it's called from multiple threads
 	TextureLoading::init();
 
-
-	// Set up the rendering context, define display lists etc.:
 	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
 
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
 	glDisable(GL_CULL_FACE);	// Disable backface culling
 
 #if !defined(OSX)
-	if(profiling_enabled)
+	if(query_profiling_enabled)
 		glGenQueries(1, &timer_query_id);
 #endif
 
@@ -2304,9 +2303,6 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
-	// Unload unused textures if we have exceeded our texture mem usage budget.
-	trimTextureUsage();
-
 	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
@@ -2316,6 +2312,9 @@ void OpenGLEngine::draw()
 	uint64 shadow_depth_drawing_elapsed_ns = 0;
 	double anim_update_duration = 0;
 
+
+	// Unload unused textures if we have exceeded our texture mem usage budget.
+	trimTextureUsage();
 
 	//=============== Set animated objects state (update bone matrices etc.)===========
 	Timer anim_profile_timer;
@@ -2641,7 +2640,7 @@ void OpenGLEngine::draw()
 		}
 
 #if !defined(OSX)
-		if(profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
+		if(query_profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
 #endif
 		//-------------------- Draw dynamic depth textures ----------------
 		shadow_mapping->bindDepthTexFrameBufferAsTarget();
@@ -3121,7 +3120,7 @@ void OpenGLEngine::draw()
 		glDisable(GL_CULL_FACE);
 
 #if !defined(OSX)
-		if(profiling_enabled)
+		if(query_profiling_enabled)
 		{
 			glEndQuery(GL_TIME_ELAPSED);
 			glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &shadow_depth_drawing_elapsed_ns); // Blocks
@@ -3130,7 +3129,7 @@ void OpenGLEngine::draw()
 	} // End if(shadow_mapping.nonNull())
 
 #if !defined(OSX)
-	if(profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id); // Start measuring everything else after depth buffer drawing:
+	if(query_profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id); // Start measuring everything else after depth buffer drawing:
 #endif
 
 	//------------------------------ water ----------------------------------------
@@ -4140,7 +4139,7 @@ void OpenGLEngine::draw()
 	} // End if(settings.use_final_image_buffer)
 	
 
-	if(profiling_enabled)
+	if(query_profiling_enabled)
 	{
 		//const double cpu_time = profile_timer.elapsed();
 		uint64 elapsed_ns = 0;
@@ -4155,10 +4154,12 @@ void OpenGLEngine::draw()
 		conPrint("Submitted: face groups: " + toString(num_face_groups_submitted) + ", faces: " + toString(num_indices_submitted / 3) + ", aabbs: " + toString(num_aabbs_submitted) + ", " + 
 			toString(current_scene->objects.size() - num_frustum_culled) + "/" + toString(current_scene->objects.size()) + " obs");*/
 
-		last_anim_update_duration = anim_update_duration;
-		last_depth_map_gen_GPU_time = shadow_depth_drawing_elapsed_ns * 1.0e-9;
 		last_render_GPU_time = elapsed_ns * 1.0e-9;
 	}
+
+	last_draw_CPU_time = profile_timer.elapsed();
+	last_anim_update_duration = anim_update_duration;
+	last_depth_map_gen_GPU_time = shadow_depth_drawing_elapsed_ns * 1.0e-9;
 
 	frame_num++;
 }
@@ -5222,6 +5223,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
 
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";
+	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
 	s += "last_depth_map_gen_GPU_time: " + doubleToStringNSigFigs(last_depth_map_gen_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "last_render_GPU_time: " + doubleToStringNSigFigs(last_render_GPU_time * 1.0e3, 4) + " ms\n";
 

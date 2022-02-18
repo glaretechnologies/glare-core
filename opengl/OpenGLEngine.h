@@ -662,7 +662,7 @@ public:
 
 	std::string getDiagnostics() const;
 
-	void setProfilingEnabled(bool enabled) { profiling_enabled = enabled; }
+	void setProfilingEnabled(bool enabled) { query_profiling_enabled = enabled; }
 	//----------------------------------------------------------------------------------------
 
 	//----------------------------------- Settings ----------------------------------------
@@ -883,8 +883,9 @@ private:
 	double last_anim_update_duration;
 	double last_depth_map_gen_GPU_time;
 	double last_render_GPU_time;
+	double last_draw_CPU_time;
 
-	bool profiling_enabled;
+	bool query_profiling_enabled;
 
 
 	UniformBufObRef phong_uniform_buf_ob;
