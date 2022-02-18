@@ -115,3 +115,5 @@ GLARE_STRONG_INLINE Vec4i max(const Vec4i& a, const Vec4i& b) { return Vec4i(_mm
 GLARE_STRONG_INLINE Vec4i clamp(const Vec4i& v, const Vec4i& a, const Vec4i& b) { return max(a, min(v, b)); }
 #endif // COMPILE_SSE4_CODE
 
+
+inline const std::string toString(const Vec4i& v) { return v.toString(); }
