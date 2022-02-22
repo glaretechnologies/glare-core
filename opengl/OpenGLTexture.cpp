@@ -581,6 +581,10 @@ void OpenGLTexture::textureBecameUnused() const
 
 uint64 OpenGLTexture::getBindlessTextureHandle()
 {
+#if defined(OSX)
+	assert(0);
+	return 0;
+#else
 	if(bindless_tex_handle == 0)
 	{
 		bindless_tex_handle = glGetTextureHandleARB(this->texture_handle);
@@ -588,4 +592,5 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 		glMakeTextureHandleResidentARB(bindless_tex_handle);
 	}
 	return bindless_tex_handle;
+#endif
 }

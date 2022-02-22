@@ -925,6 +925,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
 	}
 
+#if defined(OSX)
+	// Am pretty sure there is no bindless texture support on Mac (bindless texture support is opengl 4.0), set it to false anyway to make sure OpenGLTexture::getBindlessTextureHandle() is not called.
+	this->GL_ARB_bindless_texture_support = false;
+#endif
+
 	// Init TextureLoading (in particular stb_compress_dxt lib) before it's called from multiple threads
 	TextureLoading::init();
 
