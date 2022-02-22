@@ -93,6 +93,8 @@ public:
 	// Init stb_compress_dxt lib.
 	static void init();
 
+	static int computeNumMIPLevels(size_t width, size_t height);
+
 	// Builds compressed, mip-map level data.
 	// Uses task_manager for multi-threading if non-null.
 	// May return a reference to imagemap in the returned TextureData.

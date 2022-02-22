@@ -34,9 +34,12 @@ void ShadowMapping::init()
 	for(int i=0; i<2; ++i)
 		static_frame_buffer[i] = new FrameBuffer();
 
+	js::Vector<uint8, 16> buf(dynamic_w * dynamic_h * sizeof(float), 0);
+
 	// Create depth tex
 	// We will use a 16-bit depth format as I haven't seen any noticable issues with it so far, compared to a 32-bit format.
 	depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, /*opengl_engine=*/NULL,
+		buf,
 		OpenGLTexture::Format_Depth_Uint16, // Uint16,
 		OpenGLTexture::Filtering_PCF
 	);
@@ -45,8 +48,11 @@ void ShadowMapping::init()
 
 	cur_static_depth_tex = 0;
 
+	buf.resize(static_w * static_h * sizeof(float), 0);
+
 	for(int i=0; i<2; ++i)
 		static_depth_tex[i] = new OpenGLTexture(static_w, static_h, /*opengl_engine=*/NULL,
+			buf,
 			OpenGLTexture::Format_Depth_Uint16,
 			OpenGLTexture::Filtering_PCF // nearest filtering
 		);

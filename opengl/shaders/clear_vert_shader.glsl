@@ -1,4 +1,3 @@
-#version 330 core
 
 in vec3 position_in;
 uniform mat4 model_matrix;

@@ -1,4 +1,3 @@
-#version 330 core
 
 uniform vec4 diffuse_colour;
 uniform mat3 texture_matrix;

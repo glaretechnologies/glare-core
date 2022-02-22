@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenGLTexture.h
 ---------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
@@ -79,14 +79,16 @@ public:
 
 	OpenGLTexture();
 
-	// Allocate uninitialised texture
+	// Create texture.  Uploads tex_data to texture if tex_data is non-null.
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
+		ArrayRef<uint8> tex_data,
 		Format format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat);
 
-	// Allocate uninitialised texture, specify exact GL formats
+	// Create texture, specify exact GL formats
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
+		ArrayRef<uint8> tex_data,
 		Format format,
 		GLint gl_internal_format,
 		GLenum gl_format,
@@ -95,46 +97,25 @@ public:
 
 	~OpenGLTexture();
 
-	bool hasAlpha() const;
+	
+	void createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format);
 
+
+	//--------------------------------------------- Updating existing texture ---------------------------------------------
+	void setMipMapLevelData(int mipmap_level, size_t level_W, size_t level_H, ArrayRef<uint8> tex_data); // Texture should be bound beforehand
+	
+	// Load into a texture that has already had its format, filtering and wrapping modes set.
+	void loadIntoExistingTexture(size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data);
+
+	void setTWrappingEnabled(bool wrapping_enabled);
+	//---------------------------------------------------------------------------------------------------------------------
 	
 	void bind();
 	void unbind();
 
-	void loadCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format);
+	bool hasAlpha() const;
 
-
-	void makeGLTexture(Format format);
-	void setMipMapLevelData(int mipmap_level, size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data); // Texture should be bound beforehand
-	void setTexParams(const Reference<OpenGLEngine>& opengl_engine, // Texture should be bound beforehand
-		Filtering filtering,
-		Wrapping wrapping = Wrapping_Repeat
-	);
-
-	// Load into a texture that has already had its format, filtering and wrapping modes set.
-	void load(size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data);
-
-	void load(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
-		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
-		Format format,
-		Filtering filtering,
-		Wrapping wrapping = Wrapping_Repeat
-	);
-
-	// Allocate GL texture if not already done so, set texture parameters (filtering etc..),
-	// Load data into GL if data is non-null
-	void loadWithFormats(size_t tex_xres, size_t tex_yres, ArrayRef<uint8> tex_data, 
-		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
-		Format format,
-		GLint gl_internal_format,
-		GLenum gl_format,
-		Filtering filtering,
-		Wrapping wrapping
-	);
-
-	void setTWrappingEnabled(bool wrapping_enabled);
-
-	// Will return 0 if texture has not been loaded yet.
+	// Will return 0 if texture has not been created yet.
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }
 
@@ -170,16 +151,24 @@ public:
 	void textureBecameUnused() const;
 
 
+	uint64 getBindlessTextureHandle();
+
 
 	GLuint texture_handle;
 
 private:
 	GLARE_DISABLE_COPY(OpenGLTexture);
+
+	// Create texture, given that xres, yres, gl_internal_format etc. have been set.
+	void doCreateTexture(ArrayRef<uint8> tex_data, 
+		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
+		Wrapping wrapping
+	);
+
 	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
-	static GLenum getInternalFormat(Format format);
 
 	Format format;
-	GLint gl_internal_format; // GL internal format (num channels)
+	GLint gl_internal_format; // sized GL internal format (num channels)
 	GLenum gl_format; // GL format (order of RGBA channels etc..)
 	GLenum gl_type; // Type of pixel channel (GL_UNSIGNED_BYTE, GL_HALF_FLOAT etc..)
 
@@ -194,6 +183,8 @@ public:
 
 	OpenGLEngine* m_opengl_engine;
 	OpenGLTextureKey key;
+
+	uint64 bindless_tex_handle;
 };
 
 

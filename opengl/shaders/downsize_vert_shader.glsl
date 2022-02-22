@@ -1,4 +1,3 @@
-#version 150
 
 in vec3 position_in; // position_in is [0, 1] x [0, 1]
 

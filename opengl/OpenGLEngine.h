@@ -87,6 +87,7 @@ public:
 	size_t GPUVertMemUsage() const;
 	size_t GPUIndicesMemUsage() const;
 	size_t getNumVerts() const; // Just for testing/debugging.
+	size_t getVertStrideB() const;
 	size_t getNumTris() const; // Just for testing/debugging.
 	
 	bool usesSkinning() const { return !animation_data.joint_nodes.empty(); } // TEMP HACK
@@ -447,6 +448,11 @@ struct PhongUniforms
 	Vec4f sundir_cs;
 	Colour4f diffuse_colour; // linear sRGB
 	float texture_matrix[12];
+
+	uint64 diffuse_tex; // Bindless texture handle
+	uint64 metallic_roughness_tex; // Bindless texture handle
+	uint64 lightmap_tex; // Bindless texture handle
+
 	int have_shading_normals;
 	int have_texture;
 	int have_metallic_roughness_tex;
@@ -497,6 +503,7 @@ public:
 	void unloadAllData();
 
 	const std::string getPreprocessorDefines() const { return preprocessor_defines; } // for compiling shader programs
+	const std::string getVersionDirective() const { return version_directive; } // for compiling shader programs
 	//----------------------------------------------------------------------------------------
 
 
@@ -532,6 +539,10 @@ public:
 	void setSelectionOutlineColour(const Colour4f& col);
 	//----------------------------------------------------------------------------------------
 
+
+	//---------------------------- Object queries --------------------------------------------
+	bool isObjectInCameraFrustum(const GLObject& object);
+	//----------------------------------------------------------------------------------------
 
 	//---------------------------- Texture loading -------------------------------------------
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
@@ -740,6 +751,7 @@ private:
 	uint64 num_aabbs_submitted;
 
 	std::string preprocessor_defines;
+	std::string version_directive;
 
 	// Map from preprocessor defs to phong program.
 	std::map<ProgramKey, OpenGLProgramRef> progs;
@@ -855,6 +867,7 @@ public:
 
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;
+	bool GL_ARB_bindless_texture_support;
 	float max_anisotropy;
 
 	OpenGLEngineSettings settings;
@@ -880,10 +893,15 @@ private:
 	uint32 num_batches_bound;
 	uint32 last_num_batches_bound;
 
+	Timer fps_display_timer;
+	int num_frames_since_fps_timer_reset;
+
+
 	double last_anim_update_duration;
 	double last_depth_map_gen_GPU_time;
 	double last_render_GPU_time;
 	double last_draw_CPU_time;
+	double last_fps;
 
 	bool query_profiling_enabled;
 

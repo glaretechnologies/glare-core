@@ -1,4 +1,3 @@
-#version 150
 
 in vec3 pos_cs;
 in vec2 texture_coords;

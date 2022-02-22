@@ -386,6 +386,23 @@ void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, s
 }
 
 
+int TextureLoading::computeNumMIPLevels(size_t W, size_t H)
+{
+	int num_levels = 0;
+	for(size_t k=0; ; ++k)
+	{
+		num_levels++;
+
+		const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
+		const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+
+		if(level_W == 1 && level_H == 1)
+			break;
+	}
+	return num_levels;
+}
+
+
 // Work out number of MIP levels we need, also work out byte offsets for the compressed data for each level.
 // temp_tex_buf_offsets is the offset for each texture level in our temp uncompressed buffer.
 static void computeMipLevelOffsets(TextureData* texture_data, SmallVector<size_t, 20>& temp_tex_buf_offsets_out, size_t& total_compressed_size_out, size_t& temp_tex_buf_size_out)
@@ -658,8 +675,6 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB)
 {
 	// conPrint("Creating new OpenGL texture.");
-	Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-
 	const int frame_i = 0;
 
 	// Try and load as a DXT texture compression
@@ -678,7 +693,7 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 		else
 			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_RGB_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8;
 
-		opengl_tex->makeGLTexture(/*format=*/format);
+		Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(W, H, opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0), /*format=*/format, filtering, wrapping);
 
 		for(size_t k=0; k<texture_data.level_offsets.size(); ++k) // For each mipmap level:
 		{
@@ -693,10 +708,9 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].compressed_data[texture_data.level_offsets[k]], level_compressed_size));
 		}
 
-		opengl_tex->setTexParams(opengl_engine, filtering, wrapping);
-
 		// if(timer.elapsed() > 0.005)
 		//	conPrint("\t\t\tTextureLoading::loadTextureIntoOpenGL: loading compressed texture data into OpenGL took " + doubleToStringNSigFigs(timer.elapsed() * 1.0e3, 4) + " ms:");
+		return opengl_tex;
 	}
 	else // Else if not using a compressed texture format:
 	{
@@ -708,12 +722,12 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 		else
 			throw glare::Exception("Texture has unhandled number of components: " + toString(texture_data.bytes_pp));
 
-		opengl_tex->load(W, H, ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()), opengl_engine.ptr(),
+		Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(W, H, opengl_engine.ptr(),
+			ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()),
 			format, filtering, wrapping
 		);
+		return opengl_tex;
 	}
-
-	return opengl_tex;
 }
 
 
@@ -743,7 +757,7 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 	}
 	else // Else if not using a compressed texture format:
 	{
-		opengl_tex->load(W, H, 
+		opengl_tex->loadIntoExistingTexture(W, H, 
 			W * texture_data.frames[frame_i].converted_image->getBytesPerPixel(), // row stride (B)
 			ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()));
 	}

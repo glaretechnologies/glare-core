@@ -59,7 +59,7 @@ static std::string updateLineNumber(const std::string& log, int line_adjustment)
 }
 
 
-OpenGLShader::OpenGLShader(const std::string& path, const std::string& preprocessor_defines, GLenum shader_type)
+OpenGLShader::OpenGLShader(const std::string& path, const std::string& version_directive, const std::string& preprocessor_defines, GLenum shader_type)
 :	shader(0)
 {
 	shader = glCreateShader(shader_type);
@@ -70,18 +70,9 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& preproces
 	{
 		const std::string shader_src = FileUtils::readEntireFileTextMode(path);
 
-		// Insert the preprocessor defines into the source code, after the first line, which should contain the version string.
-
-		const size_t first_newline_index = shader_src.find('\n');
-		if(first_newline_index == std::string::npos)
-			throw glare::Exception("Shader source must have at least one newline.");
-
-		const std::string first_line = shader_src.substr(0, first_newline_index + 1); // First line including newline char
-
-		std::string processed_src = first_line;
+		std::string processed_src = version_directive + "\n";
 		processed_src += preprocessor_defines;
-		processed_src += shader_src.substr(first_newline_index + 1); // The tail part of the src.
-
+		processed_src += shader_src;
 
 		// Build string pointer and length arrays
 		std::vector<const char*> strings;
@@ -110,7 +101,7 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& preproces
 		{
 			// Update line number in log to correct line number
 			const int num_preprocessor_lines = getNumMatches(preprocessor_defines, '\n');
-			log = updateLineNumber(log, -num_preprocessor_lines);
+			log = updateLineNumber(log, -1 - num_preprocessor_lines); // Adjust for version directive line and preprocessor lines.
 
 			conPrint("shader log for " + FileUtils::getFilename(path) + ":\n" + log);
 		}

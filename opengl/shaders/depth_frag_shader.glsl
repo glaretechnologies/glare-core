@@ -1,4 +1,3 @@
-#version 150
 
 
 in vec2 texture_coords;

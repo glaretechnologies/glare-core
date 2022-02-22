@@ -148,6 +148,15 @@ size_t OpenGLMeshRenderData::getNumVerts() const
 }
 
 
+size_t OpenGLMeshRenderData::getVertStrideB() const
+{
+	if(!vertex_spec.attributes.empty())
+		return vertex_spec.attributes[0].stride;
+	else
+		return 0;
+}
+
+
 size_t OpenGLMeshRenderData::getNumTris() const
 {
 	if(!vert_index_buffer.empty())
@@ -212,7 +221,9 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_depth_map_gen_GPU_time(0),
 	last_render_GPU_time(0),
 	last_draw_CPU_time(0),
-	query_profiling_enabled(false)
+	last_fps(0),
+	query_profiling_enabled(false),
+	num_frames_since_fps_timer_reset(0)
 {
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -900,6 +911,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 	this->GL_EXT_texture_sRGB_support = false;
 	this->GL_EXT_texture_compression_s3tc_support = false;
+	this->GL_ARB_bindless_texture_support = false;
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -910,8 +922,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		if(stringEqual(ext, "GL_EXT_texture_sRGB")) this->GL_EXT_texture_sRGB_support = true;
 		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->GL_EXT_texture_compression_s3tc_support = true;
 		// if(stringEqual(ext, "GL_ARB_texture_compression_bptc")) conPrint("GL_ARB_texture_compression_bptc supported");
+		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
 	}
-	
 
 	// Init TextureLoading (in particular stb_compress_dxt lib) before it's called from multiple threads
 	TextureLoading::init();
@@ -958,7 +970,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		const bool is_intel_vendor = openglDriverVendorIsIntel();
 		const bool static_cascade_blending = !is_intel_vendor;
 		preprocessor_defines += "#define DO_STATIC_SHADOW_MAP_CASCADE_BLENDING " + (static_cascade_blending ? std::string("1") : std::string("0")) + "\n";
+
+		preprocessor_defines += "#define USE_BINDLESS_TEXTURES " + (GL_ARB_bindless_texture_support ? std::string("1") : std::string("0")) + "\n";
 		
+		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
+		this->version_directive = GL_ARB_bindless_texture_support ? "#version 400 core" : "#version 330 core";
+
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
@@ -982,8 +999,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		env_prog = new OpenGLProgram(
 			"env",
-			new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		env_diffuse_colour_location		= env_prog->getUniformLocation("diffuse_colour");
 		env_have_texture_location		= env_prog->getUniformLocation("have_texture");
@@ -1018,8 +1035,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
 
-			noise_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
-			noise_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
+			noise_tex = new OpenGLTexture(W, W, this, 
+				ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)), 
+				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+
 			conPrint("noise_tex creation took " + timer.elapsedString());
 		}
 
@@ -1045,16 +1064,16 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
-			fbm_tex = new OpenGLTexture(W, W, this, OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
-			fbm_tex->load(W, W, W * sizeof(float), ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)));
+			fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)),
+				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
 
 		overlay_prog = new OpenGLProgram(
 			"overlay",
-			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
 		overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
@@ -1063,20 +1082,20 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		clear_prog = new OpenGLProgram(
 			"clear",
-			new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		
 		outline_prog = new OpenGLProgram(
 			"outline",
-			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 
 		edge_extract_prog = new OpenGLProgram(
 			"edge_extract",
-			new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 		);
 		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
 		edge_extract_col_location		= edge_extract_prog->getUniformLocation("col");
@@ -1085,21 +1104,21 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		{
 			downsize_prog = new OpenGLProgram(
 				"downsize",
-				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 			);
 
 			gaussian_blur_prog = new OpenGLProgram(
 				"gaussian_blur",
-				new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+				new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 			);
 			gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
 		
 			final_imaging_prog = new OpenGLProgram(
 				"final_imaging",
-				new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", preprocessor_defines, GL_FRAGMENT_SHADER)
+				new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
 			);
 			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
 			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
@@ -1248,8 +1267,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
 			"phong",
-			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
 		phong_prog->is_phong = true;
 		phong_prog->uses_vert_uniform_buf_obs = true;
@@ -1291,8 +1310,8 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"transparent",
-			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
 		prog->is_transparent = true;
 		prog->uses_vert_uniform_buf_obs = true;
@@ -1329,8 +1348,8 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			shader_name_prefix,
-			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
 		prog->is_transparent = true;
 		prog->uses_vert_uniform_buf_obs = true;
@@ -1366,8 +1385,8 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"imposter",
-			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
 		prog->is_phong = true; // Just set to true to use PhongUniforms block
 		prog->uses_vert_uniform_buf_obs = true;
@@ -1421,8 +1440,8 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"depth",
-			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
 		prog->key = key;
 		prog->is_depth_draw = true;
@@ -1503,13 +1522,17 @@ void OpenGLEngine::buildOutlineTextures()
 
 	// conPrint("buildOutlineTextures(), size: " + toString(outline_tex_w) + " x " + toString(outline_tex_h));
 
+	js::Vector<uint8, 16> buf(outline_tex_w * outline_tex_h * 4, 0); // large enough for RGBA below
+
 	outline_solid_tex = new OpenGLTexture(outline_tex_w, outline_tex_h, this,
+		buf,
 		OpenGLTexture::Format_RGB_Linear_Uint8,
 		OpenGLTexture::Filtering_Bilinear,
 		OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 	);
 
 	outline_edge_tex = new OpenGLTexture(outline_tex_w, outline_tex_h, this,
+		buf,
 		OpenGLTexture::Format_RGBA_Linear_Uint8,
 		OpenGLTexture::Filtering_Bilinear
 	);
@@ -2004,6 +2027,12 @@ static bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int num_fru
 		return false;
 
 	return true;
+}
+
+
+bool OpenGLEngine::isObjectInCameraFrustum(const GLObject& ob)
+{
+	return AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob.aabb_ws);
 }
 
 
@@ -3176,12 +3205,14 @@ void OpenGLEngine::draw()
 		{
 			conPrint("Allocing main_render_texture with width " + toString(viewport_w) + " and height " + toString(viewport_h));
 			OpenGLTextureRef main_render_texture = new OpenGLTexture(viewport_w, viewport_h, this,
+				ArrayRef<uint8>(NULL, 0), // TODO: this needs to be an actual buffer with immutable textures (of find a better way)
 				OpenGLTexture::Format_RGB_Linear_Float,
 				OpenGLTexture::Filtering_Bilinear,
 				OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 			);
 
 			OpenGLTextureRef main_depth_texture = new OpenGLTexture(viewport_w, viewport_h, this,
+				ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_Depth_Float,
 				OpenGLTexture::Filtering_Bilinear,
 				OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
@@ -4001,15 +4032,15 @@ void OpenGLEngine::draw()
 				h /= 2;
 
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
-				downsize_target_textures[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				downsize_framebuffers[i] = new FrameBuffer();
 				downsize_framebuffers[i]->bindTextureAsTarget(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
 
-				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers_x[i] = new FrameBuffer();
 				blur_framebuffers_x[i]->bindTextureAsTarget(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
 
-				blur_target_textures[i] = new OpenGLTexture(w, h, this, OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers[i] = new FrameBuffer();
 				blur_framebuffers[i]->bindTextureAsTarget(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
 			}
@@ -4161,6 +4192,14 @@ void OpenGLEngine::draw()
 	last_anim_update_duration = anim_update_duration;
 	last_depth_map_gen_GPU_time = shadow_depth_drawing_elapsed_ns * 1.0e-9;
 
+	num_frames_since_fps_timer_reset++;
+	if(fps_display_timer.elapsed() > 1.0)
+	{
+		last_fps = num_frames_since_fps_timer_reset / fps_display_timer.elapsed();
+		num_frames_since_fps_timer_reset = 0;
+		fps_display_timer.reset();
+	}
+
 	frame_num++;
 }
 
@@ -4296,6 +4335,19 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1, 0
 	};
 	std::memcpy(uniforms.texture_matrix, tex_elems, sizeof(float) * 12);
+
+	if(this->GL_ARB_bindless_texture_support)
+	{
+		if(opengl_mat.albedo_texture.nonNull())
+			uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
+
+		if(opengl_mat.metallic_roughness_texture.nonNull())
+			uniforms.metallic_roughness_tex = opengl_mat.metallic_roughness_texture->getBindlessTextureHandle();
+
+		if(opengl_mat.lightmap_texture.nonNull())
+			uniforms.lightmap_tex = opengl_mat.lightmap_texture->getBindlessTextureHandle();
+	}
+
 	uniforms.have_shading_normals = mesh_data.has_shading_normals ? 1 : 0;
 	uniforms.have_texture = opengl_mat.albedo_texture.nonNull() ? 1 : 0;
 	uniforms.have_metallic_roughness_tex = opengl_mat.metallic_roughness_texture.nonNull() ? 1 : 0;
@@ -4347,25 +4399,30 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		}
 	}
 
-	if(opengl_mat.albedo_texture.nonNull())
+	if(!this->GL_ARB_bindless_texture_support)
 	{
-		glActiveTexture(GL_TEXTURE0 + 0);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+		if(opengl_mat.albedo_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 0);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-		//const GLfloat tex_elems[9] ={
-		//	opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
-		//	opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
-		//	opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
-		//};
-		//glUniformMatrix3fv(locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-		glUniform1i(locations.diffuse_tex_location, 0);
-	}
+			//const GLfloat tex_elems[9] ={
+			//	opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+			//	opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+			//	opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
+			//};
+			//glUniformMatrix3fv(locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+			assert(locations.diffuse_tex_location >= 0);
+			glUniform1i(locations.diffuse_tex_location, 0);
+		}
 
-	if(opengl_mat.lightmap_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 7);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
-		glUniform1i(locations.lightmap_tex_location, 7);
+		if(opengl_mat.lightmap_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 7);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
+			assert(locations.lightmap_tex_location >= 0);
+			glUniform1i(locations.lightmap_tex_location, 7);
+		}
 	}
 
 	// for double-sided mat, check required textures are set
@@ -4396,11 +4453,13 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		}
 	}
 
+	if(!this->GL_ARB_bindless_texture_support)
 	if(opengl_mat.metallic_roughness_texture.nonNull())
 	{
 		glActiveTexture(GL_TEXTURE0 + 10);
 		glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
 
+		assert(locations.metallic_roughness_tex_location >= 0);
 		glUniform1i(locations.metallic_roughness_tex_location, 10);
 	}
 
@@ -4671,7 +4730,6 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
 	OpenGLTexture::Filtering /*filtering*/, OpenGLTexture::Wrapping /*wrapping*/)
 {
-	Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
 
 	if(dynamic_cast<const ImageMapFloat*>(face_maps[0].getPointer()))
 	{
@@ -4688,7 +4746,8 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 		const size_t tex_xres = face_maps[0]->getMapWidth();
 		const size_t tex_yres = face_maps[0]->getMapHeight();
-		opengl_tex->loadCubeMap(tex_xres, tex_yres, tex_data, OpenGLTexture::Format_RGB_Linear_Float);
+		Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+		opengl_tex->createCubeMap(tex_xres, tex_yres, tex_data, OpenGLTexture::Format_RGB_Linear_Float);
 
 		//this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 
@@ -4834,8 +4893,9 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			// Load texture
 			if(imagemap->getN() == 1)
 			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_Greyscale_Float,
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
+					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
+					OpenGLTexture::Format_Greyscale_Float,
 					filtering, wrapping
 				);
 
@@ -4850,8 +4910,9 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			}
 			else if(imagemap->getN() == 3)
 			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Float,
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
+					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
+					OpenGLTexture::Format_RGB_Linear_Float,
 					filtering, wrapping
 				);
 
@@ -4886,8 +4947,9 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			// Load texture
 			if(imagemap->getN() == 1)
 			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_Greyscale_Half,
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
+					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
+					OpenGLTexture::Format_Greyscale_Half,
 					OpenGLTexture::Filtering_Fancy
 				);
 
@@ -4902,8 +4964,9 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			}
 			else if(imagemap->getN() == 3)
 			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-				opengl_tex->load(map2d.getMapWidth(), map2d.getMapHeight(), ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), this, OpenGLTexture::Format_RGB_Linear_Half,
+				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
+					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
+					OpenGLTexture::Format_RGB_Linear_Half,
 					OpenGLTexture::Filtering_Fancy
 				);
 
@@ -4939,28 +5002,36 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 			//printVar(compressed_image->gl_internal_format);
 			//printVar(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT);
 
-			Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
+			Reference<OpenGLTexture> opengl_tex;
 
 			size_t bytes_per_block;
 			if(compressed_image->gl_base_internal_format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
 			{
-				opengl_tex->makeGLTexture(OpenGLTexture::Format_Compressed_BC6); // Binds texture
+				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
+					ArrayRef<uint8>(NULL, 0),
+					OpenGLTexture::Format_Compressed_BC6, 
+					filtering, wrapping); // Binds texture
+
 				bytes_per_block = 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
 			}
 			else if(compressed_image->gl_base_internal_format == GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT)
 			{
-				opengl_tex->makeGLTexture(GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8); // Binds texture
+				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
+					ArrayRef<uint8>(NULL, 0), 
+					GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8,
+					filtering, wrapping); // Binds texture
 				bytes_per_block = 8;
 			}
 			else if(compressed_image->gl_base_internal_format == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
 			{
-				opengl_tex->makeGLTexture(GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8); // Binds texture
+				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
+					ArrayRef<uint8>(NULL, 0), 
+					GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8,
+					filtering, wrapping); // Binds texture
 				bytes_per_block = 16;
 			}
 			else
 				throw glare::Exception("Unhandled internal format for compressed image.");
-
-			opengl_tex->setTexParams(this, filtering);
 
 			for(size_t i=0; i<compressed_image->mipmap_level_data.size(); ++i)
 			{
@@ -5222,6 +5293,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
 
+	s += "FPS: " + doubleToStringNSigFigs(last_fps, 3) + "\n";
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";
 	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
 	s += "last_depth_map_gen_GPU_time: " + doubleToStringNSigFigs(last_depth_map_gen_GPU_time * 1.0e3, 4) + " ms\n";
@@ -5243,7 +5315,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "OpenGL version: " + opengl_version + "\n";
 	s += "GLSL version: " + glsl_version + "\n";
 	s += "texture sRGB support: " + boolToString(GL_EXT_texture_sRGB_support) + "\n";
-	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support);
+	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support) + "\n";
+	s += "bindless texture support: " + boolToString(GL_ARB_bindless_texture_support);
 
 	return s;
 }

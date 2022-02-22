@@ -1,4 +1,3 @@
-#version 150
 
 uniform sampler2D albedo_texture;
 uniform int x_blur;

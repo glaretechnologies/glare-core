@@ -1,4 +1,7 @@
-#version 330 core
+
+#if USE_BINDLESS_TEXTURES
+#extension GL_ARB_bindless_texture : require
+#endif
 
 in vec3 normal_cs;
 in vec3 normal_ws;
@@ -22,8 +25,10 @@ in vec2 lightmap_coords;
 in float flogz;
 #endif
 
+#if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
 uniform sampler2D metallic_roughness_tex;
+#endif
 #if DOUBLE_SIDED
 uniform sampler2D backface_diffuse_tex;
 uniform sampler2D transmission_tex;
@@ -35,7 +40,9 @@ uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
 #if LIGHTMAPPING
+#if !USE_BINDLESS_TEXTURES
 uniform sampler2D lightmap_tex;
+#endif
 #endif
 
 layout (std140) uniform PhongUniforms
@@ -43,6 +50,20 @@ layout (std140) uniform PhongUniforms
 	vec4 sundir_cs;
 	vec4 diffuse_colour;
 	mat3 texture_matrix;
+
+#if USE_BINDLESS_TEXTURES
+	sampler2D diffuse_tex;
+	sampler2D metallic_roughness_tex;
+	sampler2D lightmap_tex;
+#else
+	float padding0;
+	float padding1;
+	float padding2;
+	float padding3;
+	float padding4;
+	float padding5;
+#endif
+
 	int have_shading_normals;
 	int have_texture;
 	int have_metallic_roughness_tex;
@@ -385,7 +406,7 @@ void main()
 	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * 
 		specular_fresnel;
 
-	float shadow_factor = smoothstep(-0.3, 0, dot(sundir_cs.xyz, unit_normal_cs));
+	float shadow_factor = smoothstep(-0.3, 0.0, dot(sundir_cs.xyz, unit_normal_cs));
 	specular *= shadow_factor;
 
 	// Shadow mapping

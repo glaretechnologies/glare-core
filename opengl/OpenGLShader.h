@@ -21,7 +21,7 @@ class OpenGLShader : public RefCounted
 {
 public:
 	// preprocessor_defines are just inserted directly into the source after the first line.
-	OpenGLShader(const std::string& path, const std::string& preprocessor_defines, GLenum shader_type);
+	OpenGLShader(const std::string& path, const std::string& version_directive, const std::string& preprocessor_defines, GLenum shader_type);
 	~OpenGLShader();
 
 	GLuint shader;

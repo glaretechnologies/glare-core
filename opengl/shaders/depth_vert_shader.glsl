@@ -1,4 +1,3 @@
-#version 150
 
 // For capturing depth data for shadow mapping
 
