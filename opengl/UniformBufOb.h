@@ -36,6 +36,8 @@ public:
 
 private:
 	GLARE_DISABLE_COPY(UniformBufOb)
+
+	size_t allocated_size;
 };
 
 
