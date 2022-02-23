@@ -1263,6 +1263,15 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 }
 
 
+static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
+{
+	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
+	GLint size = 0;
+	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
+	return size;
+}
+
+
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(progs[key] == NULL)
@@ -1284,6 +1293,11 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		getUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
 
+		// Check we got the size of our uniform blocks on the CPU side correct.
+		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PhongUniforms") == sizeof(PhongUniforms));
+		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "SharedVertUniforms") == sizeof(SharedVertUniforms));
+		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms));
+
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PhongUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_uniforms_index, /*binding point=*/0);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/0, this->phong_uniform_buf_ob->handle);
@@ -1295,7 +1309,6 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		unsigned int phong_per_object_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PerObjectVertUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_per_object_vert_uniforms_index, /*binding point=*/2);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
-		
 
 		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
