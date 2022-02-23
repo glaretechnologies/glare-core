@@ -374,6 +374,11 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 	assert(xres > 0);
 	assert(yres > 0);
 
+#ifdef OSX
+	if(this->format == Format_Compressed_BC6)
+		throw glare::Exception("Don't support BC6 texture format on Mac");
+#endif
+
 	if(texture_handle == 0)
 	{
 		glGenTextures(1, &texture_handle);
