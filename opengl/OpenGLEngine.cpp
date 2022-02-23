@@ -61,8 +61,10 @@ static const bool MEM_PROFILE = false;
 #define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
 
 
-void GLObject::enableInstancing(const VBORef new_instance_matrix_vbo)
+void GLObject::enableInstancing(const void* instance_matrix_data, size_t instance_matrix_data_size)
 {
+	VBORef new_instance_matrix_vbo = new VBO(instance_matrix_data, instance_matrix_data_size, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+
 	instance_matrix_vbo = new_instance_matrix_vbo;
 	num_instances_to_draw = (int)(new_instance_matrix_vbo->getSize() / sizeof(Matrix4f));
 

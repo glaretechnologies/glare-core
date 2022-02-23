@@ -46,7 +46,10 @@ void VBO::updateData(const void* data, size_t data_size)
 	// http://www.opengl.org/wiki/Buffer_Object_Streaming
 
 	glBindBuffer(buffer_type, buffer_name);
-	glBufferData(buffer_type, size, NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
+
+	// NOTE: buffer orphaning seems slower.
+	//glBufferData(buffer_type, size, NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
+	
 	glBufferSubData(buffer_type, /*offset=*/0, data_size, data);
 }
 
