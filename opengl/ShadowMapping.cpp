@@ -82,6 +82,27 @@ void ShadowMapping::init()
 	}
 
 	FrameBuffer::unbind();
+
+	// Attach static depth textures to static frame buffers
+	for(int i=0; i<2; ++i)
+	{
+		static_frame_buffer[i]->bind();
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_depth_tex[i]->texture_handle, /*mipmap level=*/0);
+
+		glDrawBuffer(GL_NONE); // No colour buffer is drawn to.
+		glReadBuffer(GL_NONE); // No colour buffer is read from.
+
+		is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+		{
+			throw glare::Exception("Error: static framebuffer is not complete.");
+			//conPrint("Error: static framebuffer is not complete.");
+			//assert(0);
+		}
+
+		FrameBuffer::unbind();
+	}
 }
 
 
@@ -96,19 +117,6 @@ void ShadowMapping::bindStaticDepthTexFrameBufferAsTarget(int index)
 	assert(index >= 0 && index < 2);
 
 	static_frame_buffer[index]->bind();
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_depth_tex[index]->texture_handle, /*mipmap level=*/0);
-
-	glDrawBuffer(GL_NONE); // No colour buffer is drawn to.
-	glReadBuffer(GL_NONE); // No colour buffer is read from.
-
-	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if(is_complete != GL_FRAMEBUFFER_COMPLETE)
-	{
-		throw glare::Exception("Error: static framebuffer is not complete.");
-		//conPrint("Error: static framebuffer is not complete.");
-		//assert(0);
-	}
 }
 
 
