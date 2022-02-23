@@ -2339,6 +2339,8 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	checkForOpenGLErrors(); // Just for Mac
+
 	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
 	this->num_aabbs_submitted = 0;
@@ -5326,4 +5328,32 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "bindless texture support: " + boolToString(GL_ARB_bindless_texture_support);
 
 	return s;
+}
+
+
+static std::string errorCodeString(GLenum code)
+{
+	switch(code)
+	{
+		case GL_INVALID_ENUM: return "GL_INVALID_ENUM";
+		case GL_INVALID_VALUE: return "GL_INVALID_VALUE";
+		case GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
+		case GL_INVALID_FRAMEBUFFER_OPERATION: return "GL_INVALID_FRAMEBUFFER_OPERATION";
+		case GL_OUT_OF_MEMORY: return "GL_OUT_OF_MEMORY";
+		case GL_STACK_UNDERFLOW: return "GL_STACK_UNDERFLOW";
+		case GL_STACK_OVERFLOW: return "GL_STACK_OVERFLOW";
+		default: return "[Unknown]";
+	}
+}
+
+		
+
+void checkForOpenGLErrors()
+{
+	GLenum code = glGetError();
+	if(code != GL_NO_ERROR)
+	{
+		conPrint("OpenGL error detected: " + errorCodeString(code));
+		assert(0);
+	}
 }

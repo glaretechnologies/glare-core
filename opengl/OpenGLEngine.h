@@ -929,3 +929,8 @@ public:
 #ifdef _WIN32
 #pragma warning(pop)
 #endif
+
+
+void checkForOpenGLErrors();
+
+
