@@ -4401,7 +4401,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 }
 
 
-void OpenGLEngine::setUniformsForPhongProg(OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
+void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
