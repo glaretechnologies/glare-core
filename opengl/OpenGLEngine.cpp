@@ -1052,17 +1052,27 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false, /*use_sRGB=*/false);
 		}
 
+		const bool is_intel_vendor = openglDriverVendorIsIntel();
+
+#ifdef OSX
+		const bool is_intel_on_mac = is_intel_vendor;
+#else
+		const bool is_intel_on_mac = false;
+#endif
+		if(is_intel_on_mac)
+			settings.shadow_mapping = false; // Shadow mapping with Intel drivers on Mac just seems to cause crashes, so disable shadow mapping.
+
 
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
 		preprocessor_defines += "#define NUM_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
-			toString(shadow_mapping->numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures()) : std::string("0")) + "\n";
+			toString(ShadowMapping::numDynamicDepthTextures() + shadow_mapping->numStaticDepthTextures()) : std::string("0")) + "\n";
 		
 		preprocessor_defines += "#define NUM_DYNAMIC_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
-			toString(shadow_mapping->numDynamicDepthTextures()) : std::string("0")) + "\n";
+			toString(ShadowMapping::numDynamicDepthTextures()) : std::string("0")) + "\n";
 		
 		preprocessor_defines += "#define NUM_STATIC_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
-			toString(shadow_mapping->numStaticDepthTextures()) : std::string("0")) + "\n";
+			toString(ShadowMapping::numStaticDepthTextures()) : std::string("0")) + "\n";
 
 		preprocessor_defines += "#define DEPTH_TEXTURE_SCALE_MULT " + (settings.shadow_mapping ? toString(shadow_mapping->getDynamicDepthTextureScaleMultiplier()) : std::string("1.0")) + "\n";
 
@@ -1071,7 +1081,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define USE_LOGARITHMIC_DEPTH_BUFFER " + (settings.use_logarithmic_depth_buffer ? std::string("1") : std::string("0")) + "\n";
 
 		// static_cascade_blending causes a white-screen error on many Intel GPUs.
-		const bool is_intel_vendor = openglDriverVendorIsIntel();
 		const bool static_cascade_blending = !is_intel_vendor;
 		preprocessor_defines += "#define DO_STATIC_SHADOW_MAP_CASCADE_BLENDING " + (static_cascade_blending ? std::string("1") : std::string("0")) + "\n";
 
