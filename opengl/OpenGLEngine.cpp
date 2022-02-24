@@ -962,6 +962,97 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 	try
 	{
+		// Make noise texture
+		if(false)
+		{
+			Timer timer;
+			const size_t W = 128;
+			std::vector<float> data(W * W);
+			float maxval = 0;
+			float minval = 0;
+			for(int y=0; y<W; ++y)
+			for(int x=0; x<W; ++x)
+			{
+				float px = (float)x * (4.f / W);
+				float py = (float)y * (4.f / W);
+				const float v =  PerlinNoise::periodicNoise(px, py, /*period=*/4);
+				const float normalised_v = 0.5f + 0.5f*v; // Map from [-1, 1] to [0, 1].
+				minval = myMin(minval, normalised_v);
+				maxval = myMax(maxval, normalised_v);
+				data[y * W + x] = normalised_v;
+			}
+			printVar(minval);
+			printVar(maxval);
+
+			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
+
+			noise_tex = new OpenGLTexture(W, W, this, 
+				ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)), 
+				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+
+			conPrint("noise_tex creation took " + timer.elapsedString());
+		}
+
+		// Make FBM texture
+		{
+			Timer timer;
+			const size_t W = 1024;
+			js::Vector<float, 16> data(W * W);
+
+			glare::TaskManager& manager = getTaskManager();
+			const size_t num_tasks = myMax<size_t>(1, manager.getNumThreads());
+			const size_t num_rows_per_task = Maths::roundedUpDivide(W, num_tasks);
+			for(size_t t=0; t<num_tasks; ++t)
+			{
+				BuildFBMNoiseTask* task = new BuildFBMNoiseTask();
+				task->data = &data;
+				task->W = W;
+				task->begin_y = (int)myMin(t       * num_rows_per_task, W);
+				task->end_y   = (int)myMin((t + 1) * num_rows_per_task, W);
+				manager.addTask(task);
+			}
+			manager.waitForTasksToComplete();
+
+			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
+
+			fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)),
+				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+			conPrint("fbm_tex creation took " + timer.elapsedString());
+		}
+
+		// Load diffuse irradiance maps
+		{
+			std::vector<Map2DRef> face_maps(6);
+			for(int i=0; i<6; ++i)
+			{
+				face_maps[i] = ImFormatDecoder::decodeImage(".", gl_data_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
+
+				if(!face_maps[i].isType<ImageMapFloat>())
+					throw glare::Exception("cosine env map Must be ImageMapFloat");
+			}
+
+			this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
+		}
+
+		// Load specular-reflection env tex
+		{
+			const std::string path = gl_data_dir + "/specular_refl_sky_no_sun_combined.exr";
+			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", path);
+
+			if(!specular_env.isType<ImageMapFloat>())
+				throw glare::Exception("specular env map Must be ImageMapFloat");
+
+			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
+		}
+
+		// Load blue noise texture
+		{
+			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", gl_data_dir + "/LDR_LLL1_0.png");
+			this->blue_noise_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, OpenGLTexture::Filtering_Nearest, 
+				OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false, /*use_sRGB=*/false);
+		}
+
+
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
 		preprocessor_defines += "#define NUM_DEPTH_TEXTURES " + (settings.shadow_mapping ? 
@@ -1032,63 +1123,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		env_fbm_tex_location			= env_prog->getUniformLocation("fbm_tex");
 		env_cirrus_tex_location			= env_prog->getUniformLocation("cirrus_tex");
 
-		// Make noise texture
-		if(false)
-		{
-			Timer timer;
-			const size_t W = 128;
-			std::vector<float> data(W * W);
-			float maxval = 0;
-			float minval = 0;
-			for(int y=0; y<W; ++y)
-			for(int x=0; x<W; ++x)
-			{
-				float px = (float)x * (4.f / W);
-				float py = (float)y * (4.f / W);
-				const float v =  PerlinNoise::periodicNoise(px, py, /*period=*/4);
-				const float normalised_v = 0.5f + 0.5f*v; // Map from [-1, 1] to [0, 1].
-				minval = myMin(minval, normalised_v);
-				maxval = myMax(maxval, normalised_v);
-				data[y * W + x] = normalised_v;
-			}
-			printVar(minval);
-			printVar(maxval);
-
-			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "noise.exr", "noise", EXRDecoder::SaveOptions());
-
-			noise_tex = new OpenGLTexture(W, W, this, 
-				ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)), 
-				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
-
-			conPrint("noise_tex creation took " + timer.elapsedString());
-		}
-
-		// Make FBM texture
-		{
-			Timer timer;
-			const size_t W = 1024;
-			js::Vector<float, 16> data(W * W);
-
-			glare::TaskManager& manager = getTaskManager();
-			const size_t num_tasks = myMax<size_t>(1, manager.getNumThreads());
-			const size_t num_rows_per_task = Maths::roundedUpDivide(W, num_tasks);
-			for(size_t t=0; t<num_tasks; ++t)
-			{
-				BuildFBMNoiseTask* task = new BuildFBMNoiseTask();
-				task->data = &data;
-				task->W = W;
-				task->begin_y = (int)myMin(t       * num_rows_per_task, W);
-				task->end_y   = (int)myMin((t + 1) * num_rows_per_task, W);
-				manager.addTask(task);
-			}
-			manager.waitForTasksToComplete();
-
-			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
-
-			fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)),
-				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
-			conPrint("fbm_tex creation took " + timer.elapsedString());
-		}
+		
 
 
 		overlay_prog = new OpenGLProgram(
@@ -1216,37 +1251,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			outline_quad_meshdata = this->unit_quad_meshdata;
 		}
 
-		// Load diffuse irradiance maps
-		{
-			std::vector<Map2DRef> face_maps(6);
-			for(int i=0; i<6; ++i)
-			{
-				face_maps[i] = ImFormatDecoder::decodeImage(".", gl_data_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
-
-				if(!face_maps[i].isType<ImageMapFloat>())
-					throw glare::Exception("cosine env map Must be ImageMapFloat");
-			}
-
-			this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
-		}
-
-		// Load specular-reflection env tex
-		{
-			const std::string path = gl_data_dir + "/specular_refl_sky_no_sun_combined.exr";
-			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", path);
-
-			if(!specular_env.isType<ImageMapFloat>())
-				throw glare::Exception("specular env map Must be ImageMapFloat");
-
-			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
-		}
-
-		// Load blue noise texture
-		{
-			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", gl_data_dir + "/LDR_LLL1_0.png");
-			this->blue_noise_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, OpenGLTexture::Filtering_Nearest, 
-				OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false, /*use_sRGB=*/false);
-		}
+		
 
 		init_succeeded = true;
 	}
@@ -1302,7 +1307,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
-		phong_prog->is_phong = true;
+		phong_prog->uses_phong_uniforms = true;
 		phong_prog->uses_vert_uniform_buf_obs = true;
 
 		progs[key] = phong_prog;
@@ -1417,7 +1422,7 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
-		prog->is_phong = true; // Just set to true to use PhongUniforms block
+		prog->uses_phong_uniforms = true; // Just set to true to use PhongUniforms block
 		prog->uses_vert_uniform_buf_obs = true;
 
 		progs[key] = prog;
@@ -1432,7 +1437,6 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 
 		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
 		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
-
 
 		//conPrint("Built imposter program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
@@ -1666,7 +1670,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
 	if(material.shader_prog.nonNull() && 
-		!(material.shader_prog->is_transparent || material.shader_prog->is_phong)
+		!(material.shader_prog->is_transparent || material.shader_prog->uses_phong_uniforms)
 		)
 		return;
 
@@ -4346,7 +4350,58 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 }
 
 
-void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations, bool prog_changed)
+void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations& locations)
+{
+	if(this->cosine_env_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 3);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, this->cosine_env_tex->texture_handle);
+		glUniform1i(locations.cosine_env_tex_location, 3);
+	}
+			
+	if(this->specular_env_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 4);
+		glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
+		glUniform1i(locations.specular_env_tex_location, 4);
+	}
+
+	if(this->fbm_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 5);
+		glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
+		glUniform1i(locations.fbm_tex_location, 5);
+	}
+	
+	if(this->blue_noise_tex.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 6);
+		glBindTexture(GL_TEXTURE_2D, this->blue_noise_tex->texture_handle);
+		glUniform1i(locations.blue_noise_tex_location, 6);
+	}
+
+
+	// Set shadow mapping uniforms
+	if(shadow_mapping.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 1);
+
+		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
+		glUniform1i(locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
+
+		glActiveTexture(GL_TEXTURE0 + 2);
+
+		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
+		glUniform1i(locations.static_depth_tex_location, 2);
+	}
+
+	// Set blob shadows location data
+	glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
+	glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
+}
+
+
+void OpenGLEngine::setUniformsForPhongProg(OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
@@ -4389,46 +4444,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
 	uniforms.end_fade_out_distance = opengl_mat.end_fade_out_distance;
 
-
-
 	//if(locations.sundir_cs_location >= 0)            glUniform4fv(locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-	//if(locations.diffuse_colour_location >= 0)       glUniform4f(locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], 1.f);
-	//if(locations.have_shading_normals_location >= 0) glUniform1i(locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-	//if(locations.have_texture_location >= 0)         glUniform1i(locations.have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
-	//if(locations.roughness_location >= 0)            glUniform1f(locations.roughness_location, opengl_mat.roughness);
-	//if(locations.fresnel_scale_location >= 0)        glUniform1f(locations.fresnel_scale_location, opengl_mat.fresnel_scale);
-	//if(locations.metallic_frac_location >= 0)        glUniform1f(locations.metallic_frac_location, opengl_mat.metallic_frac);
-
-	if(prog_changed)
-	{
-		if(this->cosine_env_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 3);
-			glBindTexture(GL_TEXTURE_CUBE_MAP, this->cosine_env_tex->texture_handle);
-			glUniform1i(locations.cosine_env_tex_location, 3);
-		}
-			
-		if(this->specular_env_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 4);
-			glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-			glUniform1i(locations.specular_env_tex_location, 4);
-		}
-
-		if(this->fbm_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 5);
-			glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
-			glUniform1i(locations.fbm_tex_location, 5);
-		}
-	
-		if(this->blue_noise_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 6);
-			glBindTexture(GL_TEXTURE_2D, this->blue_noise_tex->texture_handle);
-			glUniform1i(locations.blue_noise_tex_location, 6);
-		}
-	}
 
 	if(!this->GL_ARB_bindless_texture_support)
 	{
@@ -4437,12 +4453,6 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			glActiveTexture(GL_TEXTURE0 + 0);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-			//const GLfloat tex_elems[9] ={
-			//	opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
-			//	opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
-			//	opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
-			//};
-			//glUniformMatrix3fv(locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 			assert(locations.diffuse_tex_location >= 0);
 			glUniform1i(locations.diffuse_tex_location, 0);
 		}
@@ -4453,6 +4463,15 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
 			assert(locations.lightmap_tex_location >= 0);
 			glUniform1i(locations.lightmap_tex_location, 7);
+		}
+
+		if(opengl_mat.metallic_roughness_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 10);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
+
+			assert(locations.metallic_roughness_tex_location >= 0);
+			glUniform1i(locations.metallic_roughness_tex_location, 10);
 		}
 	}
 
@@ -4484,38 +4503,14 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		}
 	}
 
-	if(!this->GL_ARB_bindless_texture_support)
-	if(opengl_mat.metallic_roughness_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 10);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
-
-		assert(locations.metallic_roughness_tex_location >= 0);
-		glUniform1i(locations.metallic_roughness_tex_location, 10);
-	}
-
-	// Set shadow mapping uniforms
-	if(prog_changed && shadow_mapping.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 1);
-
-		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
-		glUniform1i(locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
-
-		glActiveTexture(GL_TEXTURE0 + 2);
-
-		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
-		glUniform1i(locations.static_depth_tex_location, 2);
-	}
-
-	// Set blob shadows location
-	if(prog_changed)
-	{
-		glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
-		glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
-	}
 
 	this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+//	if(opengl_mat.uniform_ubo.isNull())
+//	{
+//		opengl_mat.uniform_ubo = new UniformBufOb();
+//		opengl_mat.uniform_ubo->allocate(sizeof(PhongUniforms));
+//	}
+//	opengl_mat.uniform_ubo->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 }
 
 
@@ -4589,9 +4584,15 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 	}
 
 
-	if(shader_prog->is_phong)
+	if(shader_prog->uses_phong_uniforms)
 	{
-		setUniformsForPhongProg(opengl_mat, mesh_data, shader_prog->uniform_locations, prog_changed);
+		if(prog_changed)
+			doPhongProgramBindingsForProgramChange(shader_prog->uniform_locations);
+
+		setUniformsForPhongProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
+
+		// Bind this material's phong uniform buffer to the phong UBO binding point.
+		//glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, opengl_mat.uniform_ubo->handle);
 	}
 	else if(shader_prog->is_transparent)
 	{

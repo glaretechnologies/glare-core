@@ -138,7 +138,7 @@ public:
 
 	std::string prog_name;
 
-	bool is_phong; // bit of a hack
+	bool uses_phong_uniforms;
 	bool is_transparent; // bit of a hack
 	bool is_depth_draw;
 	bool uses_vert_uniform_buf_obs;

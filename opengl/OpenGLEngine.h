@@ -202,6 +202,8 @@ public:
 	// NOTE: could also just always re-assign textures in textureLoaded(), we do this for lightmaps.
 
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
+
+	// UniformBufObRef uniform_ubo;
 };
 
 
@@ -708,7 +710,8 @@ private:
 public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
-	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations, bool prog_changed);
+	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
+	void setUniformsForPhongProg(OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
