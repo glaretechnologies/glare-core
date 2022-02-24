@@ -859,6 +859,12 @@ static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 1;
 
 static const int NUM_BLUR_DOWNSIZES = 8;
 
+static const int PHONG_UBO_BINDING_POINT_INDEX = 0;
+static const int SHARED_VERT_UBO_BINDING_POINT_INDEX = 1;
+static const int PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX = 2;
+static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
+
+
 void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_, PrintOutput* print_output_)
 {
 	data_dir = data_dir_;
@@ -995,6 +1001,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		per_object_vert_uniform_buf_ob = new UniformBufOb();
 		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
+
+		depth_uniform_buf_ob = new UniformBufOb();
+		depth_uniform_buf_ob->allocate(sizeof(DepthUniforms));
+
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX, this->shared_vert_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX, this->per_object_vert_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
 
 		// Will be used if we hit a shader compilation error later
 		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false));
@@ -1263,6 +1277,7 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 }
 
 
+#ifndef NDEBUG
 static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
 {
 	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
@@ -1270,6 +1285,7 @@ static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* 
 	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
 	return size;
 }
+#endif
 
 
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
@@ -1299,16 +1315,13 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms));
 
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PhongUniforms");
-		glUniformBlockBinding(phong_prog->program, phong_uniforms_index, /*binding point=*/0);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/0, this->phong_uniform_buf_ob->handle);
+		glUniformBlockBinding(phong_prog->program, phong_uniforms_index, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX);
 
 		unsigned int phong_shared_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "SharedVertUniforms");
-		glUniformBlockBinding(phong_prog->program, phong_shared_vert_uniforms_index, /*binding point=*/1);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+		glUniformBlockBinding(phong_prog->program, phong_shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
 		unsigned int phong_per_object_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PerObjectVertUniforms");
-		glUniformBlockBinding(phong_prog->program, phong_per_object_vert_uniforms_index, /*binding point=*/2);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
+		glUniformBlockBinding(phong_prog->program, phong_per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 
 		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
@@ -1342,11 +1355,9 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
 
 		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
 		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
 
 
 		conPrint("Built transparent program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
@@ -1379,12 +1390,10 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
 		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
-		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
 		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
-		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
+		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 
 
 		conPrint("Built transparent program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
@@ -1416,16 +1425,13 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(prog->program, "PhongUniforms");
-		glUniformBlockBinding(prog->program, phong_uniforms_index, /*binding point=*/0);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/0, this->phong_uniform_buf_ob->handle);
+		glUniformBlockBinding(prog->program, phong_uniforms_index, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX);
 
 		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
-		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
 		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
-		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
+		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 
 
 		//conPrint("Built imposter program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
@@ -1474,17 +1480,20 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		{
 			unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 			assert(shared_vert_uniforms_index != GL_INVALID_INDEX);
-			
-			glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
-			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/1, this->shared_vert_uniform_buf_ob->handle);
+			glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
 
 			unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
-			glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
-			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/2, this->per_object_vert_uniform_buf_ob->handle);
+			glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 
 			prog->uses_vert_uniform_buf_obs = true;
 		}
+
+		// Check we got the size of our uniform blocks on the CPU side correct.
+		assert(getSizeOfUniformBlockInOpenGL(prog, "DepthUniforms") == sizeof(DepthUniforms));
+
+		unsigned int depth_uniforms_index = glGetUniformBlockIndex(prog->program, "DepthUniforms");
+		glUniformBlockBinding(prog->program, depth_uniforms_index, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX);
 
 		conPrint("Built depth draw program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
@@ -2696,7 +2705,7 @@ void OpenGLEngine::draw()
 		//-------------------- Draw dynamic depth textures ----------------
 		shadow_mapping->bindDepthTexFrameBufferAsTarget();
 
-		glClear(GL_DEPTH_BUFFER_BIT);
+		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
 
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_FRONT);
@@ -4658,19 +4667,32 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		if(shader_prog->key.alpha_test)
 		{
 			assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
-			if(opengl_mat.albedo_texture.nonNull())
+
+
+			DepthUniforms uniforms;
+
+			const GLfloat tex_elems[12] = {
+				opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
+				opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
+				opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1, 0
+			};
+			std::memcpy(uniforms.texture_matrix, tex_elems, sizeof(float) * 12);
+
+			if(this->GL_ARB_bindless_texture_support)
+			{
+				if(opengl_mat.albedo_texture.nonNull())
+					uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
+			}
+			else
 			{
 				glActiveTexture(GL_TEXTURE0 + 0);
 				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
 
-				const GLfloat tex_elems[9] = {
-					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
-					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
-					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
-				};
-				glUniformMatrix3fv(shader_prog->uniform_locations.texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+				assert(shader_prog->uniform_locations.diffuse_tex_location >= 0);
 				glUniform1i(shader_prog->uniform_locations.diffuse_tex_location, 0);
 			}
+
+			this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
 		}
 	}
 	else if(shader_prog == this->outline_prog.getPointer())
@@ -5315,7 +5337,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
 
-	s += "FPS: " + doubleToStringNSigFigs(last_fps, 3) + "\n";
+	s += "FPS: " + doubleToStringNDecimalPlaces(last_fps, 1) + "\n";
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";
 	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
 	s += "last_depth_map_gen_GPU_time: " + doubleToStringNSigFigs(last_depth_map_gen_GPU_time * 1.0e3, 4) + " ms\n";

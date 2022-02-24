@@ -465,6 +465,16 @@ struct PhongUniforms
 };
 
 
+// Matches DepthUniforms defined in depth_frag_shader.glsl
+SSE_CLASS_ALIGN DepthUniforms
+{
+public:
+	float texture_matrix[12];
+
+	uint64 diffuse_tex; // Bindless texture handle
+};
+
+
 struct SharedVertUniforms
 {
 	Matrix4f proj_matrix; // same for all objects
@@ -907,6 +917,7 @@ private:
 
 
 	UniformBufObRef phong_uniform_buf_ob;
+	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;
 	UniformBufObRef per_object_vert_uniform_buf_ob;
 

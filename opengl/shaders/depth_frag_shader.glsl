@@ -1,8 +1,25 @@
 
+#if USE_BINDLESS_TEXTURES
+#extension GL_ARB_bindless_texture : require
+#endif
 
 in vec2 texture_coords;
+
+
+#if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
-uniform mat3 texture_matrix;
+#endif
+
+layout (std140) uniform DepthUniforms
+{
+	mat3 texture_matrix;
+#if USE_BINDLESS_TEXTURES
+	sampler2D diffuse_tex;
+#else
+	int padding0;
+	int padding1;
+#endif
+};
 
 void main()
 {
