@@ -205,24 +205,26 @@ BVH::DistType BVH::traceRay(const Ray& ray_, HitInfo& hitinfo_out) const
 	stack[0] = root_node_index; // Push root node onto stack
 	dist_stack[0] = -std::numeric_limits<float>::infinity(); // Near distances to nodes on the stack.
 
-	const Vec4f r_x(ray.startPos().x[0]); // (r_x, r_x, r_x, r_x)
-	const Vec4f r_y(ray.startPos().x[1]); // (r_y, r_y, r_y, r_y)
-	const Vec4f r_z(ray.startPos().x[2]); // (r_z, r_z, r_z, r_z)
+	const Vec4f r_x = copyToAll<0>(ray.startpos_f); // (r_x, r_x, r_x, r_x)
+	const Vec4f r_y = copyToAll<1>(ray.startpos_f); // (r_y, r_y, r_y, r_y)
+	const Vec4f r_z = copyToAll<2>(ray.startpos_f); // (r_z, r_z, r_z, r_z)
 
 	const Vec4i negate(0x00000000, 0x00000000, 0x80000000, 0x80000000); // To flip sign bits on floats 2 and 3.
-	const Vec4f rdir_x = vec4XOR(Vec4f(ray.getRecipRayDirF().x[0]), negate); // (1/d_x, 1/d_x, -1/d_x, -1/d_x)
-	const Vec4f rdir_y = vec4XOR(Vec4f(ray.getRecipRayDirF().x[1]), negate); // (1/d_y, 1/d_y, -1/d_y, -1/d_y)
-	const Vec4f rdir_z = vec4XOR(Vec4f(ray.getRecipRayDirF().x[2]), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
+	const Vec4f rdir_x = vec4XOR(copyToAll<0>(ray.recip_unitdir_f), negate); // (1/d_x, 1/d_x, -1/d_x, -1/d_x)
+	const Vec4f rdir_y = vec4XOR(copyToAll<1>(ray.recip_unitdir_f), negate); // (1/d_y, 1/d_y, -1/d_y, -1/d_y)
+	const Vec4f rdir_z = vec4XOR(copyToAll<2>(ray.recip_unitdir_f), negate); // (1/d_z, 1/d_z, -1/d_z, -1/d_z)
 
 	// Near_far will store current ray segment as (near, near, -far, -far)
-	Vec4f near_far(ray.minT(), ray.minT(), -ray.maxT(), -ray.maxT());
+	const Vec4f ray_near_far = loadVec4f(&ray.min_t); // (near, far, junk, junk)
+	Vec4f near_far = vec4XOR(swizzle<0, 0, 1, 1>(ray_near_far), negate); // (near, near, -far, -far)
+	assert(near_far == Vec4f(ray.minT(), ray.minT(), -ray.maxT(), -ray.maxT()));
 
 	const Vec4i identity(_mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0));
 	const Vec4i swap(_mm_set_epi8(7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8));
 
-	const Vec4i x_shuffle = ray.getRecipRayDirF().x[0] > 0 ? identity : swap;
-	const Vec4i y_shuffle = ray.getRecipRayDirF().x[1] > 0 ? identity : swap;
-	const Vec4i z_shuffle = ray.getRecipRayDirF().x[2] > 0 ? identity : swap;
+	const Vec4i x_shuffle = ray.recip_unitdir_f[0] > 0 ? identity : swap; // TODO: do this without branching
+	const Vec4i y_shuffle = ray.recip_unitdir_f[1] > 0 ? identity : swap;
+	const Vec4i z_shuffle = ray.recip_unitdir_f[2] > 0 ? identity : swap;
 
 stack_pop:
 	while(stack_top >= 0) // While still one or more nodes on the stack:
