@@ -135,7 +135,7 @@ void GLMeshBuilding::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const j
 		spec.attributes.push_back(vec4_attrib);
 	}
 
-	meshdata.vert_vao = new VAO(meshdata.vert_vbo, spec);
+	meshdata.vert_vao = new VAO(meshdata.vert_vbo, meshdata.vert_indices_buf, spec);
 }
 
 
@@ -917,8 +917,6 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<
 	colour_attrib.offset = (uint32)vert_col_offset;
 	spec.attributes.push_back(colour_attrib);
 
-	if(!skip_opengl_calls)
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, spec);
 
 	opengl_render_data->has_uvs				= mesh_has_uvs;
 	opengl_render_data->has_shading_normals = mesh_has_shading_normals;
@@ -967,6 +965,9 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<
 			opengl_render_data->vert_indices_buf = new VBO(vert_index_buffer.data(), vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
 		opengl_render_data->index_type = GL_UNSIGNED_INT;
 	}
+
+	if(!skip_opengl_calls)
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vert_indices_buf, spec);
 
 #ifndef NDEBUG
 	for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
@@ -1188,7 +1189,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(const Reference
 	{
 		opengl_render_data->vert_indices_buf = new VBO(mesh->index_data.data(), mesh->index_data.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
 		opengl_render_data->vert_vbo = new VBO(mesh->vertex_data.data(), mesh->vertex_data.dataSizeBytes());
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vertex_spec);
+		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vert_indices_buf, opengl_render_data->vertex_spec);
 	}
 
 

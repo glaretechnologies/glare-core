@@ -9,17 +9,18 @@ Copyright Glare Technologies Limited 2020 -
 #include "IncludeOpenGL.h"
 #include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
 #include "TextureLoading.h"
+#include "OpenGLTexture.h"
+#include "OpenGLProgram.h"
+#include "ShadowMapping.h"
+//#include "DrawIndirectBuffer.h"
+#include "UniformBufOb.h"
+#include "VBO.h"
+#include "VAO.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/AnimationData.h"
 #include "../graphics/BatchedMesh.h"
 #include "../physics/jscol_aabbox.h"
-#include "../opengl/OpenGLTexture.h"
-#include "../opengl/OpenGLProgram.h"
-#include "../opengl/ShadowMapping.h"
-#include "../opengl/VBO.h"
-#include "../opengl/VAO.h"
-#include "../opengl/UniformBufOb.h"
 #include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
@@ -930,6 +931,8 @@ private:
 	js::Vector<Matrix4f, 16> temp_joint_matrices;
 
 	js::Vector<Matrix4f, 16> temp_matrices;
+
+	// DrawIndirectBufferRef draw_indirect_buffer;
 
 public:
 	PrintOutput* print_output; // May be NULL

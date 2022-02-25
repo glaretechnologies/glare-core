@@ -81,7 +81,7 @@ void GLObject::enableInstancing(const void* instance_matrix_data, size_t instanc
 		}
 	}
 
-	this->vert_vao = new VAO(mesh_data->vert_vbo, vertex_spec);
+	this->vert_vao = new VAO(mesh_data->vert_vbo, mesh_data->vert_indices_buf, vertex_spec);
 }
 
 
@@ -2081,14 +2081,12 @@ bool OpenGLEngine::isObjectInCameraFrustum(const GLObject& ob)
 static void bindMeshData(const OpenGLMeshRenderData& mesh_data)
 {
 	mesh_data.vert_vao->bind();
-	mesh_data.vert_indices_buf->bind();
 }
 
 
 static void unbindMeshData(const OpenGLMeshRenderData& mesh_data)
 {
-	mesh_data.vert_indices_buf->unbind();
-	mesh_data.vert_vao->unbind();
+	VAO::unbind();
 }
 
 
@@ -2098,16 +2096,13 @@ static void bindMeshData(const GLObject& ob)
 		ob.vert_vao->bind();
 	else
 		ob.mesh_data->vert_vao->bind();
-	ob.mesh_data->vert_indices_buf->bind();
 }
 
 
 static void unbindMeshData(const GLObject& ob)
 {
-	ob.mesh_data->vert_indices_buf->unbind();
 	VAO::unbind();
 }
-
 
 
 // http://www.manpagez.com/man/3/glFrustum/
@@ -2374,7 +2369,7 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
-	checkForOpenGLErrors(); // Just for Mac
+	// checkForOpenGLErrors(); // Just for Mac
 
 	this->num_indices_submitted = 0;
 	this->num_face_groups_submitted = 0;
@@ -4346,7 +4341,7 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
 	}
 
 	
-	data.vert_vao = new VAO(data.vert_vbo, data.vertex_spec);
+	data.vert_vao = new VAO(data.vert_vbo, data.vert_indices_buf, data.vertex_spec);
 
 
 	// Now that data has been uploaded, free the buffers.
@@ -4774,7 +4769,57 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		glDrawElementsInstanced(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset, (uint32)num_instances);
 	}
 	else
+	{
+		
+#if 0
+		// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMultiDrawElementsIndirect.xhtml
+		struct DrawElementsIndirectCommand
+		{
+			uint32 count;
+			uint32 instanceCount;
+			uint32 firstIndex;
+			uint32 baseVertex;
+			uint32 baseInstance;
+		};
+
+		if(draw_indirect_buffer.isNull())
+		{
+			draw_indirect_buffer = new DrawIndirectBuffer();
+			draw_indirect_buffer->allocate(sizeof(DrawElementsIndirectCommand));
+		}
+
+		int index_type_size_B = 1;
+		if(mesh_data.index_type == GL_UNSIGNED_BYTE)
+			index_type_size_B = 1;
+		else if(mesh_data.index_type == GL_UNSIGNED_SHORT)
+			index_type_size_B = 2;
+		else
+			index_type_size_B = 4;
+
+		DrawElementsIndirectCommand command;
+		command.count = (GLsizei)num_indices;
+		command.instanceCount = 1;
+		command.firstIndex = prim_start_offset / index_type_size_B; // First index is not a byte offset, but a number-of-indices offset.
+		command.baseVertex = 0;
+		command.baseInstance = 0;
+		draw_indirect_buffer->updateData(/*dest offset=*/0, &command, sizeof(DrawElementsIndirectCommand));
+
+		draw_indirect_buffer->bind();
+
+
+		//TEMP:
+		glMultiDrawElementsIndirect(draw_mode,
+			mesh_data.index_type, // index type
+			(const void*)0, // indirect - bytes into the GL_DRAW_INDIRECT_BUFFER.
+			1, // drawcount
+			0 // stride - use 0 to mean tightly packed.
+		);
+
+		draw_indirect_buffer->unbind();
+#else
 		glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
+#endif
+	}
 
 	this->num_indices_submitted += num_indices;
 	this->num_face_groups_submitted++;

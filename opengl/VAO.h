@@ -43,7 +43,7 @@ Vertex array object
 class VAO : public RefCounted
 {
 public:
-	VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec);
+	VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec);
 	~VAO();
 
 	void bind();

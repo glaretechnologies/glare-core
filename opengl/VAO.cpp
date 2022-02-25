@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "VBO.h"
 
 
-VAO::VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec)
+VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec)
 :	handle(0)
 {
 	// Create new VAO
@@ -18,13 +18,10 @@ VAO::VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec)
 	// Make buffer active
 	glBindVertexArray(handle);
 
-	// Upload vertex data to the video device
-	//glBufferData(buffer_type, size, data, GL_STATIC_DRAW);
+	vert_indices_buf->bind(); // Bind the vertex indices buffer to this VAO.
 
-	// Unbind buffer
-	//glBindBuffer(buffer_type, 0);
+	vertex_data->bind(); // Use vertex_data by default.  This binding is stored by the glVertexAttribPointer() call. See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribPointer.xhtml
 
-	vertex_data->bind(); // Use vertex_data by default.
 	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
 	{
 		if(vertex_spec.attributes[i].vbo.nonNull()) // If this attribute uses its own vertex buffer, bind it
@@ -56,7 +53,9 @@ VAO::VAO(const Reference<VBO>& vertex_data, const VertexSpec& vertex_spec)
 			vertex_data->bind();
 		}
 	}
+	
 	vertex_data->unbind();
+	
 	glBindVertexArray(0);
 }
 
