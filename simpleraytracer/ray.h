@@ -21,6 +21,14 @@ public:
 
 	GLARE_STRONG_INLINE Ray() {}
 
+	GLARE_STRONG_INLINE Ray(const Ray& other)
+	:	startpos_f(other.startpos_f),
+		unitdir_f(other.unitdir_f),
+		recip_unitdir_f(other.recip_unitdir_f)
+	{
+		storeVec4f(loadVec4f(&other.min_t), &min_t);
+	}
+
 	GLARE_STRONG_INLINE Ray(const Vec4f& startpos_, const Vec4f& unitdir_, float min_t_, float max_t_)
 	:	startpos_f(startpos_),
 		unitdir_f(unitdir_),
@@ -75,4 +83,6 @@ public:
 	Vec4f recip_unitdir_f;
 	float min_t;
 	float max_t;
+	float padding_0;
+	float padding_1;
 };

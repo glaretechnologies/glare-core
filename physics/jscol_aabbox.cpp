@@ -1,8 +1,7 @@
 /*=====================================================================
 jscol_aabbox.cpp
 ----------------
-Copyright Glare Technologies Limited 2019 -
-File created by ClassTemplate on Thu Nov 18 03:48:29 2004
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #include "jscol_aabbox.h"
 
@@ -147,6 +146,83 @@ void js::AABBox::test()
 		testAssert(hit != 0);
 		testAssert(::epsEqual(near, 1.0f));
 		testAssert(::epsEqual(far, 2.0f));
+	}
+
+	//------------------- Test rayTrace -------------------
+	//const float nearly_zero = 1.0e-30f;
+	{
+		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+		const Vec4f dir = normalise(Vec4f(nearly_zero, nearly_zero, 1.0f, 0.f)); // +z dir
+		const Vec4f raystart(0, 0, -1.0f, 1);
+		Ray ray(raystart, dir, 0.f, 100.f);
+		const int hit = box.traceRay(ray);
+		testAssert(hit != 0);
+		testAssert(::epsEqual(ray.min_t, 1.0f));
+		testAssert(::epsEqual(ray.max_t, 2.0f));
+	}
+	{
+		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+		const Vec4f dir = normalise(Vec4f(nearly_zero, nearly_zero, 1.0f, 0.f)); // +z dir
+		const Vec4f raystart(2.0f, 0,-1.0f, 1.f);
+		Ray ray(raystart, dir, 0.f, 100.f);
+		const int hit = box.traceRay(ray);
+		testAssert(hit == 0);
+	}
+
+	{
+		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+		const Vec4f dir = Vec4f(-nearly_zero, nearly_zero, 1.0f, 0.f); // +z dir
+		const Vec4f raystart(1.0f, 0, -1.0f, 1.f);
+		Ray ray(raystart, dir, 0.f, 100.f);
+		const int hit = box.traceRay(ray);
+		testAssert(hit != 0);
+		testAssert(::epsEqual(ray.min_t, 1.0f));
+		testAssert(::epsEqual(ray.max_t, 2.0f));
+	}
+
+	// Test a trace that would hit the AABB, except the ray max_t is too low
+	{
+		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+		const Vec4f dir = normalise(Vec4f(nearly_zero, nearly_zero, 1.0f, 0.f)); // +z
+		const Vec4f raystart(0.5f, 0.5f, -1.0f, 1);
+		Ray ray(raystart, dir, 0.f, /*max_t=*/0.5f);
+		const int hit = box.traceRay(ray);
+		testAssert(hit == 0);
+	}
+
+	// Test a trace that would hit the AABB, except the ray min_t is too high
+	{
+		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+		const Vec4f dir = normalise(Vec4f(nearly_zero, nearly_zero, 1.0f, 0.f)); // +z
+		const Vec4f raystart(0.5f, 0.5f, -1.0f, 1);
+		Ray ray(raystart, dir, /*min_t=*/3.f, /*max_t=*/100.0f);
+		const int hit = box.traceRay(ray);
+		testAssert(hit == 0);
+	}
+
+	// Test tracing along -x dir
+	{
+		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+		const Vec4f dir = normalise(Vec4f(-1.f, nearly_zero, nearly_zero, 0.f)); // -x dir
+		const Vec4f raystart(2.f, 0.5f, 0.5f, 1);
+		Ray ray(raystart, dir, 0.f, 100.f);
+		const int hit = box.traceRay(ray);
+		testAssert(hit != 0);
+		testAssert(::epsEqual(ray.min_t, 1.0f));
+		testAssert(::epsEqual(ray.max_t, 2.0f));
+	}
+
+
+	// Test tracing with zero-valued ray components (see if we handle INF values for reciprocal ray dirs properly)
+	{
+		const AABBox box(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+		const Vec4f dir = normalise(Vec4f(-1.f, 0, 0, 0)); // -x dir
+		const Vec4f raystart(2.f, 0.5f, 0.5f, 1);
+		Ray ray(raystart, dir, 0.f, 100.f);
+		const int hit = box.traceRay(ray);
+		testAssert(hit != 0);
+		testAssert(::epsEqual(ray.min_t, 1.0f));
+		testAssert(::epsEqual(ray.max_t, 2.0f));
 	}
 
 	//----------------- Test contains(const Vec4f& p) -------------------

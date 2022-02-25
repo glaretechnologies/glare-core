@@ -1,13 +1,12 @@
 /*=====================================================================
 jscol_aabbox.h
 --------------
-Copyright Glare Technologies Limited 2019 -
-File created by ClassTemplate on Thu Nov 18 03:48:29 2004
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
 
-#include "../maths/Vec4f.h"
+#include "../simpleraytracer/ray.h"
 #include "../maths/Matrix4f.h"
 #include <limits>
 #include <string>
@@ -47,6 +46,9 @@ public:
 	GLARE_STRONG_INLINE int isEmpty() const; // Returns non-zero if this AABB is empty (e.g. if it has an upper bound < lower bound)
 
 	GLARE_STRONG_INLINE int rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir,  float& near_hitd_out, float& far_hitd_out) const;
+
+	// Returns non-zero if the ray intersected this AABB.  If the ray intersects the AABB, updates ray min_t and max_t, clipping out segments of the ray outside the AABB.
+	inline int traceRay(Ray& ray) const;
 
 	inline static AABBox emptyAABBox(); // Returns empty AABBox, (inf, -inf) as (min, max) resp.
 
@@ -178,6 +180,46 @@ int AABBox::rayAABBTrace(const Vec4f& raystartpos, const Vec4f& recip_unitraydir
 
 	// If far hit dist is >= 0 and far hit dist is >= near hit dist, then the ray intersected the AABB.
 	return _mm_comige_ss(maxt_4.v, _mm_setzero_ps()) & _mm_comige_ss(maxt_4.v, mint_4.v);
+}
+
+
+int AABBox::traceRay(Ray& ray) const
+{
+	assert(ray.recip_unitdir_f.isFinite());
+
+	// Get ray t values to lower and upper AABB bounds.
+	const Vec4f lower_t = mul(min_ - ray.startpos_f, ray.recip_unitdir_f);
+	const Vec4f upper_t = mul(max_ - ray.startpos_f, ray.recip_unitdir_f);
+
+	// Get min and max t values for each axis.
+	const Vec4f maxt = max(lower_t, upper_t);
+	const Vec4f mint = min(lower_t, upper_t);
+
+	const Vec4f rminmax = loadVec4f(&ray.min_t); // (rmin_t, rmax_t, 0, 0)
+
+	const Vec4f maxt_1 = shuffle<0, 0, 1, 1>(maxt, maxt);     // (maxt_0, maxt_0, maxt_1, maxt_1)
+	const Vec4f maxt_2 = shuffle<2, 2, 1, 1>(maxt, rminmax);  // (maxt_2, maxt_2, rmax_t, rmax_t)
+	const Vec4f maxt_3 = min(maxt_1, maxt_2);                 // (min(maxt_0, maxt_2), min(maxt_0, maxt_2), min(maxt_1, rmax_t), min(maxt_1, rmax_t))
+	const Vec4f maxt_4 = shuffle<2, 0, 2, 0>(maxt_3, maxt_3); // (min(maxt_1, rmax_t),  min(maxt_0, maxt_2), min(maxt_1, rmax_t), min(maxt_0, maxt_2))
+	const Vec4f maxt_5 = min(maxt_3, maxt_4);                 // (min(maxt_0, maxt_2, maxt_1, rmax_t), ...)
+
+	const Vec4f mint_1 = shuffle<0, 0, 1, 1>(mint, mint);    
+	const Vec4f mint_2 = shuffle<2, 2, 0, 0>(mint, rminmax);   
+	const Vec4f mint_3 = max(mint_1, mint_2);                
+	const Vec4f mint_4 = shuffle<2, 0, 2, 0>(mint_3, mint_3);
+	const Vec4f mint_5 = max(mint_3, mint_4);                
+
+	// if far hit dist is >= near hit dist, then the ray intersected the AABB.
+	if(_mm_comige_ss(maxt_5.v, mint_5.v))
+	{
+		// Update ray near and far
+		const Vec4f minmax = shuffle<0, 0, 0, 0>(mint_5, maxt_5); // (mint, mint, maxt, maxt)
+		const Vec4f res    = shuffle<0, 2, 0, 2>(minmax, minmax); // (mint, maxt, mint, maxt)
+		storeVec4f(res, &ray.min_t);
+		return 1;
+	}
+	else
+		return 0;
 }
 
 
