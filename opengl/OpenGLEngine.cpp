@@ -46,6 +46,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/IncludeHalf.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Sort.h"
+#include "../utils/Check.h"
 #include <algorithm>
 
 
@@ -77,13 +78,17 @@ void GLObject::enableInstancing(VertexBufferAllocator& allocator, const void* in
 	{
 		if(vertex_spec.attributes[i].instancing)
 		{
-			//vertex_spec.attributes[i].vbo = new_instance_matrix_vbo;
+			vertex_spec.attributes[i].vbo = new_instance_matrix_vbo;
 			vertex_spec.attributes[i].enabled = true;
 		}
 	}
 
-	//this->vert_vao = new VAO(mesh_data->vert_vbo, mesh_data->vert_indices_buf, vertex_spec);
+#if DO_INDIVIDUAL_VAO_ALLOC
+	// Old style VAO that binds vertex buffer and indices buffer into it.
+	this->vert_vao = new VAO(mesh_data->vbo_handle.vbo, mesh_data->indices_vbo_handle.index_vbo, vertex_spec);
+#else
 	this->vert_vao = new VAO(vertex_spec);
+#endif
 }
 
 
@@ -2145,6 +2150,14 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 {
 	assert(mesh_data.vbo_handle.valid());
 
+#if DO_INDIVIDUAL_VAO_ALLOC
+	mesh_data.individual_vao->bindVertexArray();
+
+	// Check the correct buffers are still bound
+	assert(mesh_data.individual_vao->getBoundVertexBuffer(0) == mesh_data.vbo_handle.vbo->bufferName());
+	assert(mesh_data.individual_vao->getBoundIndexBuffer() == mesh_data.indices_vbo_handle.index_vbo->bufferName());
+#else
+
 	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator.per_spec_data[mesh_data.vbo_handle.per_spec_data_index];
 
 	// Get the buffers we want to use for this batch.
@@ -2197,11 +2210,34 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 			current_bound_index_VBO = index_vbo;
 		}
 	}
+#endif
 }
 
 
 void OpenGLEngine::bindMeshData(const GLObject& ob)
 {
+#if DO_INDIVIDUAL_VAO_ALLOC
+	if(ob.vert_vao.nonNull())
+	{
+		// Instancing case:
+
+		ob.vert_vao->bindVertexArray();
+
+		// Check the correct buffers are still bound
+		assert(ob.vert_vao->getBoundVertexBuffer(0) == ob.mesh_data->vbo_handle.vbo->bufferName());
+		assert(ob.vert_vao->getBoundIndexBuffer()   == ob.mesh_data->indices_vbo_handle.index_vbo->bufferName());
+	}
+	else
+	{
+		ob.mesh_data->individual_vao->bindVertexArray();
+
+		// Check the correct buffers are still bound
+		assert(ob.mesh_data->individual_vao->getBoundVertexBuffer(0) == ob.mesh_data->vbo_handle.vbo->bufferName());
+		assert(ob.mesh_data->individual_vao->getBoundIndexBuffer()   == ob.mesh_data->indices_vbo_handle.index_vbo->bufferName());
+	}
+
+#else
+
 	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator.per_spec_data[ob.mesh_data->vbo_handle.per_spec_data_index];
 
 	// Check to see if we should use the object's VAO that has the instance matrix stuff
@@ -2271,6 +2307,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 			sizeof(Matrix4f) // stride
 		);
 	}
+#endif
 }
 
 
@@ -4338,6 +4375,9 @@ void OpenGLEngine::draw()
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 		}
 	} // End if(settings.use_final_image_buffer)
+
+
+	VAO::unbind(); // Unbind any bound VAO, so that it's vertex and index buffers don't get accidentally overridden.
 	
 
 	if(query_profiling_enabled)
@@ -4471,8 +4511,9 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator
 		}
 	}
 
-	
-	//data.vert_vao = new VAO(data.vert_vbo, data.vert_indices_buf, data.vertex_spec);
+#if DO_INDIVIDUAL_VAO_ALLOC
+	data.individual_vao = new VAO(data.vbo_handle.vbo, data.indices_vbo_handle.index_vbo, data.vertex_spec);
+#endif
 
 
 	// Now that data has been uploaded, free the buffers.

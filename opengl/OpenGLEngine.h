@@ -106,6 +106,8 @@ public:
 
 	IndexBufAllocationHandle indices_vbo_handle;
 
+	VAORef individual_vao; // Just for Mac
+
 	std::vector<OpenGLBatch> batches;
 	bool has_uvs;
 	bool has_shading_normals;

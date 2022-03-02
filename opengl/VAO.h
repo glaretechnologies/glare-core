@@ -25,7 +25,7 @@ struct VertexAttrib
 	uint32 offset;
 	bool instancing;
 
-	//Reference<VBO> vbo; // VBO to be bound for this attribute.  Can be left to NULL in which case the usual mesh data vert_vbo will be used.
+	Reference<VBO> vbo; // VBO to be bound for this attribute.  Can be left to NULL in which case the usual mesh data vert_vbo will be used.  Only used on Mac.
 
 	bool operator < (const VertexAttrib& other) const
 	{
@@ -91,6 +91,9 @@ public:
 	static void unbind();
 
 	void bindVertexBuffer(const VBO& vertex_data);
+
+	GLuint getBoundVertexBuffer(GLint attribute_index) const;
+	GLuint getBoundIndexBuffer() const;
 
 private:
 	GLARE_DISABLE_COPY(VAO)

@@ -137,6 +137,10 @@ void GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, OpenG
 	}
 
 	meshdata.vbo_handle = allocator.allocate(spec, combined_vert_data.data(), combined_vert_data.dataSizeBytes());
+
+#if DO_INDIVIDUAL_VAO_ALLOC
+	meshdata.individual_vao = new VAO(meshdata.vbo_handle.vbo, meshdata.indices_vbo_handle.index_vbo, spec);
+#endif
 }
 
 
@@ -996,6 +1000,10 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 	{
 		opengl_render_data->vbo_handle = allocator->allocate(spec, vert_data.data(), vert_data.dataSizeBytes());
 
+#if DO_INDIVIDUAL_VAO_ALLOC
+		opengl_render_data->individual_vao = new VAO(opengl_render_data->vbo_handle.vbo, opengl_render_data->indices_vbo_handle.index_vbo, spec);
+#endif
+
 		opengl_render_data->vert_data.clearAndFreeMem();
 		opengl_render_data->vert_index_buffer.clearAndFreeMem();
 		opengl_render_data->vert_index_buffer_uint16.clearAndFreeMem();
@@ -1189,6 +1197,10 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(mesh->index_data.data(), mesh->index_data.dataSizeBytes());
 		
 		opengl_render_data->vbo_handle = allocator->allocate(opengl_render_data->vertex_spec, mesh->vertex_data.data(), mesh->vertex_data.dataSizeBytes());
+
+#if DO_INDIVIDUAL_VAO_ALLOC
+		opengl_render_data->individual_vao = new VAO(opengl_render_data->vbo_handle.vbo, opengl_render_data->indices_vbo_handle.index_vbo, opengl_render_data->vertex_spec);
+#endif
 	}
 
 

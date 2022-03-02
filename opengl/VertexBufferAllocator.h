@@ -33,12 +33,20 @@ struct IndexBufAllocationHandle
 	IndexBufAllocationHandle() : offset(std::numeric_limits<size_t>::max()) {}
 
 	VBORef index_vbo;
-	size_t per_spec_data_index;
+	//size_t per_spec_data_index;
 	size_t offset; // offset in VBO
 	size_t size; // size of allocation
 
 	inline bool valid() const { return offset != std::numeric_limits<size_t>::max(); }
 };
+
+
+// This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
+#ifdef OSX
+#define DO_INDIVIDUAL_VAO_ALLOC 1
+#else
+#define DO_INDIVIDUAL_VAO_ALLOC 0
+#endif
 
 
 /*=====================================================================
@@ -61,7 +69,6 @@ private:
 	GLARE_DISABLE_COPY(VertexBufferAllocator)
 public:
 	
-
 	struct PerSpecData
 	{
 		VBORef vbo;

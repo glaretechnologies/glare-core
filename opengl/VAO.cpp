@@ -12,6 +12,9 @@ Copyright Glare Technologies Limited 2016 -
 VAO::VAO(const VertexSpec& vertex_spec_)
 :	handle(0)
 {
+#ifdef OSX
+	assert(0);
+#else
 	vertex_spec = vertex_spec_;
 
 	// Create new VAO
@@ -51,12 +54,17 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 	}
 	
 	glBindVertexArray(0);
+#endif
 }
 
 
+// Constructor that uses old-style glVertexAttribPointer().  Just kept around for Mac.
 VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec_)
 :	handle(0)
 {
+	assert(vertex_data.nonNull());
+	assert(vert_indices_buf.nonNull());
+
 	vertex_spec = vertex_spec_;
 
 	// Create new VAO
@@ -73,32 +81,23 @@ VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, co
 
 	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
 	{
-	//	if(vertex_spec.attributes[i].vbo.nonNull()) // If this attribute uses its own vertex buffer, bind it
-	//	{
-	//		if(vertex_data.nonNull())
-	//			vertex_data->unbind();
-	//		vertex_spec.attributes[i].vbo->bind();
-	//	}
+		if(vertex_spec.attributes[i].vbo.nonNull()) // If this attribute uses its own vertex buffer, bind it
+		{
+			if(vertex_data.nonNull())
+				vertex_data->unbind();
+			vertex_spec.attributes[i].vbo->bind();
+		}
 
-		//glVertexAttribPointer(
-		//	(uint32)i, // index
-		//	vertex_spec.attributes[i].num_comps, // size - "Specifies the number of components per generic vertex attribute"
-		//	vertex_spec.attributes[i].type, // type
-		//	vertex_spec.attributes[i].normalised, // normalised
-		//	vertex_spec.attributes[i].stride, // stride
-		//	(void*)(uint64)vertex_spec.attributes[i].offset // pointer (offset)
-		//);
-
-		//TEMP:
-		glVertexAttribFormat(
+		glVertexAttribPointer(
 			(uint32)i, // index
 			vertex_spec.attributes[i].num_comps, // size - "Specifies the number of components per generic vertex attribute"
 			vertex_spec.attributes[i].type, // type
 			vertex_spec.attributes[i].normalised, // normalised
-			//vertex_spec.attributes[i].stride, // stride
-			vertex_spec.attributes[i].offset // relativeoffset
+			vertex_spec.attributes[i].stride, // stride
+			(void*)(uint64)vertex_spec.attributes[i].offset // pointer (offset)
 		);
 
+		
 		if(vertex_spec.attributes[i].enabled)
 			glEnableVertexAttribArray((uint32)i);
 		else
@@ -107,19 +106,22 @@ VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, co
 		if(vertex_spec.attributes[i].instancing)
 			glVertexAttribDivisor((GLuint)i, 1);
 
-	//	if(vertex_spec.attributes[i].vbo.nonNull())
-	//	{
-	//		vertex_spec.attributes[i].vbo->unbind();
-	//		if(vertex_data.nonNull())
-	//			vertex_data->bind();
-	//	}
+		if(vertex_spec.attributes[i].vbo.nonNull())
+		{
+			vertex_spec.attributes[i].vbo->unbind();
+			if(vertex_data.nonNull())
+				vertex_data->bind();
+		}
 	}
 	
 	if(vertex_data.nonNull())
 		vertex_data->unbind();
+
+	assert(getBoundVertexBuffer(0) == vertex_data->bufferName());
+	assert(getBoundIndexBuffer() == vert_indices_buf->bufferName());
 	
 	glBindVertexArray(0);
-}
+} 
 
 
 VAO::~VAO()
@@ -155,3 +157,22 @@ void VAO::bindVertexBuffer(const VBO& vertex_data)
 	}
 }
 
+
+GLuint VAO::getBoundVertexBuffer(GLint attribute_index) const
+{
+	glBindVertexArray(handle);
+
+	GLuint id;
+	glGetVertexAttribIuiv(attribute_index, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &id);
+	return id;
+}
+
+
+GLuint VAO::getBoundIndexBuffer() const
+{
+	glBindVertexArray(handle);
+
+	GLuint id;
+	glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, (GLint*)&id);
+	return id;
+}

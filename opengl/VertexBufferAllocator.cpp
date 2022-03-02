@@ -31,6 +31,18 @@ VertexBufferAllocator::~VertexBufferAllocator()
 
 VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex_spec, const void* vbo_data, size_t size)
 {
+#if DO_INDIVIDUAL_VAO_ALLOC
+
+	VertBufAllocationHandle handle;
+	handle.vbo = new VBO(vbo_data, size);
+	handle.per_spec_data_index = 0;
+	handle.offset = 0;
+	handle.size = size;
+	handle.base_vertex = 0;
+	return handle;
+
+#else
+
 	if(USE_INDIVIDUAL_VBOS)
 	{
 		auto res = per_spec_data_index.find(vertex_spec);
@@ -118,11 +130,22 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		else
 			throw glare::Exception("VertexBufferAllocator: allocation failed");
 	}
+#endif
 }
 
 
 IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* data, size_t size)
 {
+#if DO_INDIVIDUAL_VAO_ALLOC
+
+	IndexBufAllocationHandle handle;
+	handle.index_vbo = new VBO(data, size, GL_ELEMENT_ARRAY_BUFFER);
+	handle.offset = 0;
+	handle.size = size;
+	return handle;
+
+#else
+
 	if(USE_INDIVIDUAL_VBOS)
 	{
 		IndexBufAllocationHandle handle;
@@ -155,4 +178,5 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 		else
 			throw glare::Exception("VertexBufferAllocator: index allocation failed");
 	}
+#endif
 }
