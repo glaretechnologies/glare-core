@@ -1506,8 +1506,8 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
 		);
-		prog->key = key;
 		prog->is_depth_draw = true;
+		prog->is_depth_draw_with_alpha_test = key.alpha_test;
 		prog->uses_vert_uniform_buf_obs = true;
 
 		progs[key] = prog;
@@ -2214,7 +2214,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 	const VBO* index_vbo = ob.mesh_data->indices_vbo_handle.index_vbo.ptr();
 
 	// For instancing, always just start a new draw command, for now.
-	if(ob.instance_matrix_vbo.nonNull())
+	if(use_multi_draw_indirect && ob.instance_matrix_vbo.nonNull())
 		submitBufferedDrawCommands();
 
 	if(index_type != current_index_type || vao != current_bound_VAO || vert_data_vbo != current_bound_vertex_VBO || index_vbo != current_bound_index_VBO)
@@ -2377,8 +2377,10 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		ob.ob_to_world_matrix = quad_to_world;
 
 		const bool program_changed = checkUseProgram(outline_edge_mat.shader_prog.ptr());
+		if(program_changed)
+			setSharedUniformsForProg(*outline_edge_mat.shader_prog, view_matrix, proj_matrix);
 		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
-		drawBatch(ob, view_matrix, proj_matrix, outline_edge_mat, *outline_edge_mat.shader_prog, *outline_quad_meshdata, outline_quad_meshdata->batches[0], program_changed);
+		drawBatch(ob, outline_edge_mat, *outline_edge_mat.shader_prog, *outline_quad_meshdata, outline_quad_meshdata->batches[0]);
 	}
 
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -2402,8 +2404,11 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 	
 	debug_arrow_ob->ob_to_world_matrix = arrow_to_world;
 	const bool program_changed = checkUseProgram(debug_arrow_ob->materials[0].shader_prog.ptr());
+	if(program_changed)
+		setSharedUniformsForProg(*debug_arrow_ob->materials[0].shader_prog, view_matrix, proj_matrix);
+
 	bindMeshData(*debug_arrow_ob); // Bind the mesh data, which is the same for all batches.
-	drawBatch(*debug_arrow_ob, view_matrix, proj_matrix, debug_arrow_ob->materials[0], *debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0], program_changed);
+	drawBatch(*debug_arrow_ob, debug_arrow_ob->materials[0], *debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
 }
 
 
@@ -3069,8 +3074,10 @@ void OpenGLEngine::draw()
 			{
 				const BatchDrawInfo& info = batch_draw_info[z];
 				const bool program_changed = checkUseProgram(info.prog);
+				if(program_changed)
+					setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
 				bindMeshData(*info.ob);
-				drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
+				drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
 			}
 			if(use_multi_draw_indirect)
 				submitBufferedDrawCommands();
@@ -3334,8 +3341,10 @@ void OpenGLEngine::draw()
 				{
 					const BatchDrawInfo& info = batch_draw_info[z];
 					const bool program_changed = checkUseProgram(info.prog);
+					if(program_changed)
+						setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
 					bindMeshData(*info.ob);
-					drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
+					drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
 				}
 				if(use_multi_draw_indirect)
 					submitBufferedDrawCommands();
@@ -3599,9 +3608,11 @@ void OpenGLEngine::draw()
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 				const bool program_changed = checkUseProgram(outline_solid_mat.shader_prog.ptr());
+				if(program_changed)
+					setSharedUniformsForProg(*outline_solid_mat.shader_prog, view_matrix, proj_matrix);
 				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, view_matrix, proj_matrix, outline_solid_mat, *outline_solid_mat.shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw object with outline_mat.
+					drawBatch(*ob, outline_solid_mat, *outline_solid_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
 			}
 		}
 
@@ -3667,8 +3678,10 @@ void OpenGLEngine::draw()
 			use_proj_mat = proj_matrix;
 
 		const bool program_changed = checkUseProgram(current_scene->env_ob->materials[0].shader_prog.ptr());
+		if(program_changed)
+			setSharedUniformsForProg(*current_scene->env_ob->materials[0].shader_prog, world_to_camera_space_no_translation, use_proj_mat);
 		bindMeshData(*current_scene->env_ob);
-		drawBatch(*current_scene->env_ob, world_to_camera_space_no_translation, use_proj_mat, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0], program_changed);
+		drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
 			
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
@@ -3893,10 +3906,13 @@ void OpenGLEngine::draw()
 		const BatchDrawInfo& info = batch_draw_info[i];
 		
 		const bool program_changed = checkUseProgram(info.prog);
+		if(program_changed)
+			setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
+
 		bindMeshData(*info.ob);
 		num_batches_bound++;
 
-		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
+		drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
 	}
 	last_num_prog_changes = num_prog_changes;
 	last_num_batches_bound = num_batches_bound;
@@ -3912,6 +3928,8 @@ void OpenGLEngine::draw()
 		wire_mat.shader_prog = outline_prog;
 
 		const bool program_changed = checkUseProgram(outline_prog.ptr());
+		if(program_changed)
+			setSharedUniformsForProg(*outline_prog, view_matrix, proj_matrix);
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
@@ -3927,7 +3945,7 @@ void OpenGLEngine::draw()
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, view_matrix, proj_matrix, wire_mat, *wire_mat.shader_prog, mesh_data, mesh_data.batches[z], program_changed);
+					drawBatch(*ob, wire_mat, *wire_mat.shader_prog, mesh_data, mesh_data.batches[z]);
 			}
 		}
 
@@ -3975,8 +3993,11 @@ void OpenGLEngine::draw()
 		const BatchDrawInfo& info = batch_draw_info[i];
 		
 		const bool program_changed = checkUseProgram(info.prog);
+		if(program_changed)
+			setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
+
 		bindMeshData(*info.ob);
-		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
+		drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
 	}
 
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -4015,7 +4036,9 @@ void OpenGLEngine::draw()
 				{
 					const uint32 mat_index = mesh_data.batches[z].material_index;
 					const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
-					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
+					if(program_changed)
+						setSharedUniformsForProg(*ob->materials[mat_index].shader_prog, view_matrix, proj_matrix);
+					drawBatch(*ob, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
 				}
 			}
 		}
@@ -4039,7 +4062,9 @@ void OpenGLEngine::draw()
 				{
 					const uint32 mat_index = mesh_data.batches[z].material_index;
 					const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
-					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
+					if(program_changed)
+						setSharedUniformsForProg(*ob->materials[mat_index].shader_prog, view_matrix, proj_matrix);
+					drawBatch(*ob, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
 				}
 			}
 		}
@@ -4635,16 +4660,41 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 }
 
 
-void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, 
-	const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch, bool prog_changed)
+// Set uniforms that are the same for every batch for the duration of this frame.
+void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat)
 {
-	drawPrimitives(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, prog_changed);
+	if(shader_prog.view_matrix_loc >= 0)
+	{
+		glUniformMatrix4fv(shader_prog.view_matrix_loc, 1, false, view_mat.e);
+		glUniformMatrix4fv(shader_prog.proj_matrix_loc, 1, false, proj_mat.e);
+	}
+
+	if(shader_prog.uses_phong_uniforms)
+	{
+		doPhongProgramBindingsForProgramChange(shader_prog.uniform_locations);
+	}
+	else if(shader_prog.is_transparent)
+	{
+		glUniform4fv(shader_prog.uniform_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
+
+		if(this->specular_env_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 4);
+			glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
+			glUniform1i(shader_prog.uniform_locations.specular_env_tex_location, 4);
+		}
+
+		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
+		glUniform3fv(shader_prog.uniform_locations.campos_ws_location, 1, campos_ws.x);
+	}
 }
 
 
-void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat,
-		const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool prog_changed)
+void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
+	const uint32 prim_start_offset = batch.prim_start_offset;
+	const uint32 num_indices = batch.num_indices;
+
 	if(num_indices == 0)
 		return;
 
@@ -4677,12 +4727,6 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 	{
 		glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
 		glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
-
-		if(prog_changed) // THese uniforms are the same for every object, so we can just set this once for this program, for this frame.
-		{
-			glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_mat.e);
-			glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_mat.e);
-		}
 	}
 
 	if(mesh_data.usesSkinning())
@@ -4711,9 +4755,6 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 	if(shader_prog->uses_phong_uniforms)
 	{
-		if(prog_changed)
-			doPhongProgramBindingsForProgramChange(shader_prog->uniform_locations);
-
 		setUniformsForPhongProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
 
 		// Bind this material's phong uniform buffer to the phong UBO binding point.
@@ -4726,21 +4767,6 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 		glUniform4f(shader_prog->uniform_locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], opengl_mat.alpha);
 		glUniform1i(shader_prog->uniform_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
-		
-		if(prog_changed)
-		{
-			glUniform4fv(shader_prog->uniform_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-
-			if(this->specular_env_tex.nonNull())
-			{
-				glActiveTexture(GL_TEXTURE0 + 4);
-				glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-				glUniform1i(shader_prog->uniform_locations.specular_env_tex_location, 4);
-			}
-
-			const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-			glUniform3fv(shader_prog->uniform_locations.campos_ws_location, 1, campos_ws.x);
-		}
 	}
 	else if(shader_prog == this->env_prog.getPointer())
 	{
@@ -4790,10 +4816,9 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		//const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
 		//glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
 
-		//if(shader_prog->key.alpha_test)
+		if(shader_prog->is_depth_draw_with_alpha_test)
 		{
-			//assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
-
+			assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
 
 			DepthUniforms uniforms;
 
@@ -4937,7 +4962,7 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 		//conPrint("   appended draw call.");
 
-		if(draw_commands.size() >= 256 || instance_count > 1)
+		if(draw_commands.size() >= 256 || instance_count > 1 || mesh_data.usesSkinning())
 			submitBufferedDrawCommands(); // We have limited space in the uniform buffers (256 elems)
 	}
 	else // else if !use_multi_draw_indirect:
@@ -4953,10 +4978,6 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 			glDrawElementsBaseVertex(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 		}
 	}
-
-
-	if(use_multi_draw_indirect && mesh_data.usesSkinning())
-		submitBufferedDrawCommands();
 
 	this->num_indices_submitted += num_indices;
 	this->num_face_groups_submitted++;

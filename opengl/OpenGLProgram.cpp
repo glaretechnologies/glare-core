@@ -40,6 +40,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	uses_phong_uniforms(false),
 	is_transparent(false),
 	is_depth_draw(false),
+	is_depth_draw_with_alpha_test(false),
 	uses_vert_uniform_buf_obs(false)
 {
 	vert_shader = vert_shader_;

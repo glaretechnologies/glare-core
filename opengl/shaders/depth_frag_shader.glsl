@@ -28,7 +28,7 @@ struct DepthUniformsStruct
 layout(std140) uniform DepthUniforms // MaterialDataUBO
 {
 	DepthUniformsStruct material_data[256];
-};
+} mat_data;
 
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
@@ -46,6 +46,13 @@ layout (std140) uniform DepthUniforms
 #endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 
+#if USE_BINDLESS_TEXTURES
+#define DIFFUSE_TEX mat_data.diffuse_tex
+#else
+#define DIFFUSE_TEX diffuse_tex
+#endif
+
+
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -53,7 +60,7 @@ void main()
 #endif
 
 #if ALPHA_TEST
-	vec4 col = texture(mat_data.diffuse_tex, (mat_data.texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
+	vec4 col = texture(DIFFUSE_TEX, (mat_data.texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
 	if(col.a < 0.5f)
 		discard;
 #endif

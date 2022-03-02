@@ -139,14 +139,13 @@ public:
 	bool uses_phong_uniforms;
 	bool is_transparent; // bit of a hack
 	bool is_depth_draw;
+	bool is_depth_draw_with_alpha_test;
 	bool uses_vert_uniform_buf_obs;
 
 
 	UniformLocations uniform_locations;
 
 	std::vector<UserUniformInfo> user_uniform_info;
-
-	ProgramKey key;
 };
 
 
