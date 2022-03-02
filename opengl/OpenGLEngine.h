@@ -12,7 +12,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "OpenGLTexture.h"
 #include "OpenGLProgram.h"
 #include "ShadowMapping.h"
-//#include "DrawIndirectBuffer.h"
+#include "VertexBufferAllocator.h"
+#include "DrawIndirectBuffer.h"
 #include "UniformBufOb.h"
 #include "VBO.h"
 #include "VAO.h"
@@ -96,12 +97,14 @@ public:
 	js::AABBox aabb_os; // Should go first as is aligned.
 	
 	js::Vector<uint8, 16> vert_data;
-	VBORef vert_vbo;
+
+	VertBufAllocationHandle vbo_handle;
 
 	js::Vector<uint32, 16> vert_index_buffer;
 	js::Vector<uint16, 16> vert_index_buffer_uint16;
 	js::Vector<uint8, 16> vert_index_buffer_uint8;
-	VBORef vert_indices_buf;
+
+	IndexBufAllocationHandle indices_vbo_handle;
 
 	std::vector<OpenGLBatch> batches;
 	bool has_uvs;
@@ -111,8 +114,6 @@ public:
 
 	VertexSpec vertex_spec;
 	
-	VAORef vert_vao;
-
 	// If this is non-null, load vertex and index data directly from batched_mesh instead of from vert_data and vert_index_buffer etc..
 	// We take this approach to avoid copying the data from batched_mesh to vert_data etc..
 	Reference<BatchedMesh> batched_mesh;
@@ -239,7 +240,7 @@ struct GLObject : public ThreadSafeRefCounted
 	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
 		num_instances_to_draw(0), always_visible(false) {}
 
-	void enableInstancing(const void* instance_matrix_data, size_t instance_matrix_data_size); // Enables instancing attributes, and builds vert_vao.
+	void enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size); // Enables instancing attributes, and builds vert_vao.
 
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
@@ -250,6 +251,7 @@ struct GLObject : public ThreadSafeRefCounted
 
 	VAORef vert_vao; // Overrides mesh_data->vert_vao if non-null.  Having a vert_vao here allows us to enable instancing, by binding to the instance_matrix_vbo etc..
 
+	//IndexBufAllocationHandle instance_matrix_vbo_handle;
 	VBORef instance_matrix_vbo;
 	VBORef instance_colour_vbo;
 	
@@ -431,6 +433,7 @@ struct BatchDrawInfo
 	const OpenGLBatch* batch;
 	const OpenGLMaterial* mat;
 	const OpenGLProgram* prog;
+	int vao_buffer_id;
 	//uint32 flags; // 1 = use shading normals
 
 	bool operator < (const BatchDrawInfo& other) const
@@ -440,7 +443,14 @@ struct BatchDrawInfo
 		else if(prog > other.prog)
 			return false;
 		else
+		{
+			if(vao_buffer_id < other.vao_buffer_id)
+				return true;
+			else if(vao_buffer_id > other.vao_buffer_id)
+				return false;
+
 			return ob->mesh_data.ptr() < other.ob->mesh_data.ptr();
+		}
 	}
 };
 
@@ -495,6 +505,17 @@ struct PerObjectVertUniforms
 {
 	Matrix4f model_matrix; // per-object
 	Matrix4f normal_matrix; // per-object
+};
+
+
+// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMultiDrawElementsIndirect.xhtml
+struct DrawElementsIndirectCommand
+{
+	uint32 count;
+	uint32 instanceCount;
+	uint32 firstIndex;
+	uint32 baseVertex;
+	uint32 baseInstance;
 };
 
 
@@ -651,9 +672,9 @@ public:
 	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
 	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
 
-	static void buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
+	static void buildMeshRenderData(VertexBufferAllocator& allocator, OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 
-	static void loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data);
+	static void loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data);
 	//---------------------------- End mesh functions ----------------------------------------
 
 
@@ -701,9 +722,9 @@ public:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
 private:
 	void drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
-		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
+		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch, bool prog_changed);
 	void drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat, 
-		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices);
+		const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool prog_changed);
 	void buildOutlineTextures();
 private:
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
@@ -734,6 +755,10 @@ public:
 private:
 	void trimTextureUsage();
 	void updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping);
+	void bindMeshData(const OpenGLMeshRenderData& mesh_data);
+	void bindMeshData(const GLObject& ob);
+	bool checkUseProgram(const OpenGLProgram* prog);
+	void submitBufferedDrawCommands();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -899,8 +924,6 @@ private:
 
 	uint64 last_num_obs_in_frustum;
 
-	Reference<const OpenGLProgram> current_bound_prog;
-
 	js::Vector<BatchDrawInfo, 16> batch_draw_info;
 	uint32 num_prog_changes;
 	uint32 last_num_prog_changes;
@@ -932,14 +955,30 @@ private:
 
 	js::Vector<Matrix4f, 16> temp_matrices;
 
-	// DrawIndirectBufferRef draw_indirect_buffer;
+	DrawIndirectBufferRef draw_indirect_buffer;
 
+	js::Vector<DrawElementsIndirectCommand, 16> draw_commands;
+	bool use_multi_draw_indirect;
+	
+	GLenum current_index_type;
+	const OpenGLProgram* current_bound_prog;
+	const VAO* current_bound_VAO;
+	const VBO* current_bound_vertex_VBO;
+	const VBO* current_bound_index_VBO;
+
+	js::Vector<PerObjectVertUniforms, 16> MDI_per_object_vert_uniforms;
+	js::Vector<PhongUniforms, 16> MDI_phong_uniforms;
+	js::Vector<DepthUniforms, 16> MDI_depth_uniforms;
+
+	
 public:
 	PrintOutput* print_output; // May be NULL
 
 	uint64 tex_mem_usage; // Running sum of GPU RAM used by inserted textures.
 
 	uint64 max_tex_mem_usage;
+
+	VertexBufferAllocator vert_buf_allocator;
 };
 
 

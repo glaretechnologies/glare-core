@@ -22,7 +22,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 // Make a cylinder from (0,0,0), to (0,0,1) with radius 1.
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh()
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBufferAllocator& allocator)
 {
 	const Vec3f endpoint_a(0, 0, 0);
 	const Vec3f endpoint_b(0, 0, 1);
@@ -106,13 +106,13 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh()
 		indices[i*12 + 11] = res*4 + 1; // bottom centre vert
 	}
 
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
 }
 
 
 // Base will be at origin, tip will lie at (1, 0, 0)
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh()
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh(VertexBufferAllocator& allocator)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
@@ -211,13 +211,13 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh()
 		}
 	}
 
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
 }
 
 
 // Base will be at origin, tips will lie at (1, 0, 0), (0,1,0), (0,0,1)
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh()
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh(VertexBufferAllocator& allocator)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
@@ -335,7 +335,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh()
 		}
 	}
 
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 
 	mesh_data->batches.resize(3);
 	for(int z=0; z<3; ++z)
@@ -350,7 +350,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh()
 
 
 // Base will be at origin, tip will lie at (1, 0, 0)
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCapsuleMesh(const Vec3f& /*bottom_spans*/, const Vec3f& /*top_spans*/)
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCapsuleMesh(VertexBufferAllocator& allocator, const Vec3f& /*bottom_spans*/, const Vec3f& /*top_spans*/)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
@@ -469,12 +469,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCapsuleMesh(const Vec
 
 
 #endif
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
 }
 
 
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeLineMesh()
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeLineMesh(VertexBufferAllocator& allocator)
 {
 	OpenGLMeshRenderDataRef line_meshdata = new OpenGLMeshRenderData();
 
@@ -505,12 +505,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeLineMesh()
 	for(int i=0; i<2; ++i)
 		normals[i] = Vec3f(0, 0, 1);
 
-	GLMeshBuilding::buildMeshRenderData(*line_meshdata, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *line_meshdata, verts, normals, uvs, indices);
 	return line_meshdata;
 }
 
 
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSphereMesh()
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSphereMesh(VertexBufferAllocator& allocator)
 {
 	const int phi_res = 100;
 	const int theta_res = 50;
@@ -566,13 +566,13 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSphereMesh()
 	}
 
 	OpenGLMeshRenderDataRef sphere_meshdata = new OpenGLMeshRenderData();
-	GLMeshBuilding::buildMeshRenderData(*sphere_meshdata, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *sphere_meshdata, verts, normals, uvs, indices);
 	return sphere_meshdata;
 }
 
 
 // Make a cube mesh.  Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCubeMesh()
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCubeMesh(VertexBufferAllocator& allocator)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
@@ -735,12 +735,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCubeMesh()
 		face++;
 	}
 
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
 }
 
 
-GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col)
+GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(VertexBufferAllocator& allocator, const Vec4f* verts_ws, const Colour4f& col)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
@@ -818,7 +818,7 @@ GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(const Vec4f* verts_ws, co
 		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
 	face++;
 
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 
 
 	// Make the object
@@ -835,7 +835,7 @@ GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(const Vec4f* verts_ws, co
 
 
 // Makes a quad with xspan = 1, yspan = 1, lying on the z = 0 plane.
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeUnitQuadMesh()
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeUnitQuadMesh(VertexBufferAllocator& allocator)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
@@ -878,12 +878,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeUnitQuadMesh()
 	for(int i=0; i<4; ++i)
 		normals[i] = Vec3f(0, 0, 1);
 
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
 }
 
 
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(const Vec4f& i, const Vec4f& j)
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j)
 {
 	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
@@ -926,6 +926,6 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(const Vec4f&
 	for(int z=0; z<4; ++z)
 		normals[z] = toVec3f(crossProduct(i, j));// Vec3f(0, 0, -1);
 
-	GLMeshBuilding::buildMeshRenderData(*mesh_data, verts, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
 	return mesh_data;
 }

@@ -61,10 +61,11 @@ static const bool MEM_PROFILE = false;
 #define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
 
 
-void GLObject::enableInstancing(const void* instance_matrix_data, size_t instance_matrix_data_size)
+void GLObject::enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size)
 {
 	VBORef new_instance_matrix_vbo = new VBO(instance_matrix_data, instance_matrix_data_size, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
+	//instance_matrix_vbo_handle = allocator.allocate(instance_matrix_data, instance_matrix_data_size
 	instance_matrix_vbo = new_instance_matrix_vbo;
 	num_instances_to_draw = (int)(new_instance_matrix_vbo->getSize() / sizeof(Matrix4f));
 
@@ -76,12 +77,13 @@ void GLObject::enableInstancing(const void* instance_matrix_data, size_t instanc
 	{
 		if(vertex_spec.attributes[i].instancing)
 		{
-			vertex_spec.attributes[i].vbo = new_instance_matrix_vbo;
+			//vertex_spec.attributes[i].vbo = new_instance_matrix_vbo;
 			vertex_spec.attributes[i].enabled = true;
 		}
 	}
 
-	this->vert_vao = new VAO(mesh_data->vert_vbo, mesh_data->vert_indices_buf, vertex_spec);
+	//this->vert_vao = new VAO(mesh_data->vert_vbo, mesh_data->vert_indices_buf, vertex_spec);
+	this->vert_vao = new VAO(vertex_spec);
 }
 
 
@@ -117,9 +119,9 @@ GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
 		vert_index_buffer_uint8.capacitySizeBytes() +
 		(batched_mesh.nonNull() ? batched_mesh->getTotalMemUsage() : 0);
 
-	usage.geom_gpu_usage = 
-		(vert_vbo.nonNull() ? vert_vbo->getSize() : 0) +
-		(vert_indices_buf.nonNull() ? vert_indices_buf->getSize() : 0);
+	usage.geom_gpu_usage =
+		(this->vbo_handle.valid() ? this->vbo_handle.size : 0) +
+		(this->indices_vbo_handle.valid() ? this->indices_vbo_handle.size : 0);
 
 	return usage;
 }
@@ -127,13 +129,13 @@ GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
 
 size_t OpenGLMeshRenderData::GPUVertMemUsage() const
 {
-	return vert_vbo.nonNull() ? vert_vbo->getSize() : 0;
+	return this->vbo_handle.valid() ? this->vbo_handle.size : 0;
 }
 
 
 size_t OpenGLMeshRenderData::GPUIndicesMemUsage() const
 {
-	return vert_indices_buf.nonNull() ? vert_indices_buf->getSize() : 0;
+	return this->indices_vbo_handle.valid() ? this->indices_vbo_handle.size : 0;
 }
 
 
@@ -143,8 +145,8 @@ size_t OpenGLMeshRenderData::getNumVerts() const
 	{
 		if(!vert_data.empty())
 			return vert_data.size() / vertex_spec.attributes[0].stride;
-		else if(vert_vbo.nonNull())
-			return vert_vbo->getSize() / vertex_spec.attributes[0].stride;
+		else if(this->vbo_handle.valid())
+			return vbo_handle.size / vertex_spec.attributes[0].stride;
 	}
 	return 0;
 }
@@ -167,10 +169,10 @@ size_t OpenGLMeshRenderData::getNumTris() const
 		return vert_index_buffer_uint16.size() / 3;
 	else if(!vert_index_buffer_uint8.empty())
 		return vert_index_buffer_uint8.size() / 3;
-	else if(vert_indices_buf.nonNull())
+	else if(indices_vbo_handle.valid())
 	{
 		const size_t index_type_size = index_type == GL_UNSIGNED_INT ? 4 : (index_type == GL_UNSIGNED_SHORT ? 2 : 1);
-		return vert_indices_buf->getSize() / index_type_size / 3;
+		return indices_vbo_handle.size / index_type_size / 3;
 	}
 	else
 		return 0;
@@ -227,6 +229,14 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	query_profiling_enabled(false),
 	num_frames_since_fps_timer_reset(0)
 {
+	use_multi_draw_indirect = false;
+	
+	current_index_type = 0;
+	current_bound_prog = NULL;
+	current_bound_VAO = NULL;
+	current_bound_vertex_VBO = NULL;
+	current_bound_index_VBO = NULL;
+
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
 
@@ -240,7 +250,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	texture_data_manager = new TextureDataManager();
 	
 	max_tex_mem_usage = settings.max_tex_mem_usage;
-
 }
 
 
@@ -817,7 +826,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 		locations_out.shadow_texture_matrix_location	= prog->getUniformLocation("shadow_texture_matrix");
 	}
 
-	locations_out.proj_view_model_matrix_location	= prog->getUniformLocation("proj_view_model_matrix");
+	//locations_out.proj_view_model_matrix_location	= prog->getUniformLocation("proj_view_model_matrix");
 
 	locations_out.num_blob_positions_location		= prog->getUniformLocation("num_blob_positions");
 	locations_out.blob_positions_location			= prog->getUniformLocation("blob_positions");
@@ -951,10 +960,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		glGenQueries(1, &timer_query_id);
 #endif
 
-	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh();
-	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh();
-	this->cube_meshdata = MeshPrimitiveBuilding::makeCubeMesh();
-	this->unit_quad_meshdata = MeshPrimitiveBuilding::makeUnitQuadMesh();
+	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(vert_buf_allocator);
+	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(vert_buf_allocator);
+	this->cube_meshdata = MeshPrimitiveBuilding::makeCubeMesh(vert_buf_allocator);
+	this->unit_quad_meshdata = MeshPrimitiveBuilding::makeUnitQuadMesh(vert_buf_allocator);
 
 	this->current_scene->env_ob->mesh_data = sphere_meshdata;
 
@@ -1086,24 +1095,30 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define USE_BINDLESS_TEXTURES " + (GL_ARB_bindless_texture_support ? std::string("1") : std::string("0")) + "\n";
 		
+
+		preprocessor_defines += "#define USE_MULTIDRAW_ELEMENTS_INDIRECT " + (use_multi_draw_indirect ? std::string("1") : std::string("0")) + "\n";
+
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
 		this->version_directive = GL_ARB_bindless_texture_support ? "#version 400 core" : "#version 330 core";
+
+		if(use_multi_draw_indirect)
+			this->version_directive = "#version 460 core";
 
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
-
+		const int num_uniform_buf_instances = use_multi_draw_indirect ? 256 : 1;
 		phong_uniform_buf_ob = new UniformBufOb();
-		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms));
+		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms) * num_uniform_buf_instances);
 
 		shared_vert_uniform_buf_ob = new UniformBufOb();
 		shared_vert_uniform_buf_ob->allocate(sizeof(SharedVertUniforms));
 
 		per_object_vert_uniform_buf_ob = new UniformBufOb();
-		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms));
+		per_object_vert_uniform_buf_ob->allocate(sizeof(PerObjectVertUniforms) * num_uniform_buf_instances);
 
 		depth_uniform_buf_ob = new UniformBufOb();
-		depth_uniform_buf_ob->allocate(sizeof(DepthUniforms));
+		depth_uniform_buf_ob->allocate(sizeof(DepthUniforms) * num_uniform_buf_instances);
 
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX, this->shared_vert_uniform_buf_ob->handle);
@@ -1214,7 +1229,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 			if(false)
 			{
-				// Add overlay quad to preview depth map
+				// Add overlay quads to preview depth maps.  NOTE: doesn't really work with PCF texture types.
 
 				{
 					OverlayObjectRef tex_preview_overlay_ob =  new OverlayObject();
@@ -1324,9 +1339,18 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		getUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
-		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PhongUniforms") == sizeof(PhongUniforms));
+		if(use_multi_draw_indirect)
+		{
+			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PhongUniforms") == sizeof(PhongUniforms) * 256);
+			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms) * 256);
+		}
+		else
+		{
+			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PhongUniforms") == sizeof(PhongUniforms));
+			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms));
+		}
+
 		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "SharedVertUniforms") == sizeof(SharedVertUniforms));
-		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms));
 
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PhongUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_uniforms_index, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX);
@@ -1484,26 +1508,30 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		);
 		prog->key = key;
 		prog->is_depth_draw = true;
+		prog->uses_vert_uniform_buf_obs = true;
 
 		progs[key] = prog;
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
-		if(key.instance_matrices || key.skinning || key.use_wind_vert_shader) // SharedVertUniforms are only used in depth_vert_shader.glsl when INSTANCE_MATRICES is defined.
-		{
-			unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
-			assert(shared_vert_uniforms_index != GL_INVALID_INDEX);
-			glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
+		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
+		assert(shared_vert_uniforms_index != GL_INVALID_INDEX);
+		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
 
-			unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
-			glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
-
-			prog->uses_vert_uniform_buf_obs = true;
-		}
+		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
+		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
-		assert(getSizeOfUniformBlockInOpenGL(prog, "DepthUniforms") == sizeof(DepthUniforms));
+		if(use_multi_draw_indirect)
+		{
+			assert(getSizeOfUniformBlockInOpenGL(prog, "DepthUniforms") == sizeof(DepthUniforms) * 256);
+		}
+		else
+		{
+			assert(getSizeOfUniformBlockInOpenGL(prog, "DepthUniforms") == sizeof(DepthUniforms));
+		}
+
 
 		unsigned int depth_uniforms_index = glGetUniformBlockIndex(prog->program, "DepthUniforms");
 		glUniformBlockBinding(prog->program, depth_uniforms_index, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX);
@@ -1715,7 +1743,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 void OpenGLEngine::addObject(const Reference<GLObject>& object)
 {
 	assert(object->mesh_data.nonNull());
-	assert(object->mesh_data->vert_vao.nonNull());
+	//assert(object->mesh_data->vert_vao.nonNull());
 
 	// Compute world space AABB of object
 	updateObjectTransformData(*object.getPointer());
@@ -2078,30 +2106,161 @@ bool OpenGLEngine::isObjectInCameraFrustum(const GLObject& ob)
 }
 
 
-static void bindMeshData(const OpenGLMeshRenderData& mesh_data)
+// If prog is not the current bound/used program, then bind it, and update current_bound_prog.
+// Returns true if prog was not the current bound program, and hence the currently bound program changed.
+bool OpenGLEngine::checkUseProgram(const OpenGLProgram* prog)
 {
-	mesh_data.vert_vao->bind();
-}
+	if(prog != current_bound_prog)
+	{
+		// Flush existing draw commands
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
 
+		// conPrint("---- Changed to program " + prog->prog_name + " ----");
 
-static void unbindMeshData(const OpenGLMeshRenderData& mesh_data)
-{
-	VAO::unbind();
-}
+		prog->useProgram();
+		current_bound_prog = prog;
 
+		num_prog_changes++;
 
-static void bindMeshData(const GLObject& ob)
-{
-	if(ob.vert_vao.nonNull())
-		ob.vert_vao->bind();
+		return true;
+	}
 	else
-		ob.mesh_data->vert_vao->bind();
+		return false;
 }
 
 
-static void unbindMeshData(const GLObject& ob)
+// non-instancing binding
+void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 {
-	VAO::unbind();
+	assert(mesh_data.vbo_handle.valid());
+
+	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator.per_spec_data[mesh_data.vbo_handle.per_spec_data_index];
+
+	// Get the buffers we want to use for this batch.
+	const GLenum index_type = mesh_data.index_type;
+	const VAO* vao = per_spec_data.vao.ptr();
+	const VBO* vert_data_vbo = mesh_data.vbo_handle.vbo.ptr();
+	const VBO* index_vbo = mesh_data.indices_vbo_handle.index_vbo.ptr();
+
+	
+	if(index_type != current_index_type || vao != current_bound_VAO || vert_data_vbo != current_bound_vertex_VBO || index_vbo != current_bound_index_VBO)
+	{
+		// A buffer or index type has changed.  submit queued draw commands, start queueing new commands.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
+		current_index_type = index_type;
+
+		// Bind new VAO (if changed)
+		if(current_bound_VAO != vao)
+		{
+			// conPrint("Binding to VAO " + toString(vao->handle));
+
+			vao->bindVertexArray();
+			current_bound_VAO = vao;
+			current_bound_vertex_VBO = NULL; // Since we have changed VAO, reset our vars for what VBOs the current VAO has bound.
+			current_bound_index_VBO = NULL;
+		}
+
+		if(current_bound_vertex_VBO != vert_data_vbo)
+		{
+			// conPrint("Binding vertex data " + toString(vert_data_vbo->bufferName()));
+
+			// Bind vertex data VBO to the VAO
+			glBindVertexBuffer(
+				0, // binding point index
+				vert_data_vbo->bufferName(), // buffer
+				0, // offset - offset of the first element within the buffer
+				vao->vertex_spec.attributes[0].stride // stride
+			);
+
+			current_bound_vertex_VBO = vert_data_vbo;
+		}
+
+		if(current_bound_index_VBO != index_vbo)
+		{
+			// conPrint("Binding index data " + toString(index_vbo->bufferName()));
+
+			// Bind index VBO to the VAO
+			index_vbo->bind();
+			current_bound_index_VBO = index_vbo;
+		}
+	}
+}
+
+
+void OpenGLEngine::bindMeshData(const GLObject& ob)
+{
+	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator.per_spec_data[ob.mesh_data->vbo_handle.per_spec_data_index];
+
+	// Check to see if we should use the object's VAO that has the instance matrix stuff
+
+	const VAO* vao = ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : per_spec_data.vao.ptr();
+
+	// Get the buffers we want to use for this batch.
+	const GLenum index_type = ob.mesh_data->index_type;
+	const VBO* vert_data_vbo = ob.mesh_data->vbo_handle.vbo.ptr();
+	const VBO* index_vbo = ob.mesh_data->indices_vbo_handle.index_vbo.ptr();
+
+	// For instancing, always just start a new draw command, for now.
+	if(ob.instance_matrix_vbo.nonNull())
+		submitBufferedDrawCommands();
+
+	if(index_type != current_index_type || vao != current_bound_VAO || vert_data_vbo != current_bound_vertex_VBO || index_vbo != current_bound_index_VBO)
+	{
+		// A buffer or index type has changed.  submit queued draw commands, start queueing new commands.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
+		current_index_type = index_type;
+
+		// Bind new VAO (if changed)
+		if(current_bound_VAO != vao)
+		{
+			// conPrint("Binding to VAO " + toString(vao->handle));
+
+			vao->bindVertexArray();
+			current_bound_VAO = vao;
+			current_bound_vertex_VBO = NULL; // Since we have changed VAO, we reset our vars for what VBOs the current VAO has bound
+			current_bound_index_VBO = NULL;
+		}
+
+		if(current_bound_vertex_VBO != vert_data_vbo)
+		{
+			// conPrint("Binding vertex data " + toString(vert_data_vbo->bufferName()));
+
+			// Bind vertex data VBO to the VAO
+			glBindVertexBuffer(
+				0, // binding point index
+				vert_data_vbo->bufferName(), // buffer
+				0, // offset - offset of the first element within the buffer
+				vao->vertex_spec.attributes[0].stride // stride
+			);
+
+			current_bound_vertex_VBO = vert_data_vbo;
+		}
+
+		if(current_bound_index_VBO != index_vbo)
+		{
+			// conPrint("Binding index data " + toString(index_vbo->bufferName()));
+
+			// Bind index VBO to the VAO
+			index_vbo->bind();
+			current_bound_index_VBO = index_vbo;
+		}
+	}
+
+	// Bind instancing vertex buffer, if used
+	if(ob.instance_matrix_vbo.nonNull())
+	{
+		glBindVertexBuffer(
+			1, // binding point index
+			ob.instance_matrix_vbo->bufferName(), // buffer
+			0, // offset - offset of the first element within the buffer
+			sizeof(Matrix4f) // stride
+		);
+	}
 }
 
 
@@ -2207,9 +2366,9 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		GLObject ob;
 		ob.ob_to_world_matrix = quad_to_world;
 
+		const bool program_changed = checkUseProgram(outline_edge_mat.shader_prog.ptr());
 		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
-		drawBatch(ob, view_matrix, proj_matrix, outline_edge_mat, *outline_edge_mat.shader_prog, *outline_quad_meshdata, outline_quad_meshdata->batches[0]);
-		unbindMeshData(*outline_quad_meshdata);
+		drawBatch(ob, view_matrix, proj_matrix, outline_edge_mat, *outline_edge_mat.shader_prog, *outline_quad_meshdata, outline_quad_meshdata->batches[0], program_changed);
 	}
 
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -2220,7 +2379,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 	{
 		debug_arrow_ob = new GLObject();
 		if(arrow_meshdata.isNull())
-			arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(); // tip lies at (1,0,0).
+			arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(vert_buf_allocator); // tip lies at (1,0,0).
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
@@ -2232,9 +2391,9 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		Matrix4f::scaleMatrix(2, 2, 2) * Matrix4f::rotationMatrix(Vec4f(0,1,0,0), -Maths::pi_2<float>()); // rot x axis to z axis
 	
 	debug_arrow_ob->ob_to_world_matrix = arrow_to_world;
+	const bool program_changed = checkUseProgram(debug_arrow_ob->materials[0].shader_prog.ptr());
 	bindMeshData(*debug_arrow_ob); // Bind the mesh data, which is the same for all batches.
-	drawBatch(*debug_arrow_ob, view_matrix, proj_matrix, debug_arrow_ob->materials[0], *debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
-	unbindMeshData(*debug_arrow_ob);
+	drawBatch(*debug_arrow_ob, view_matrix, proj_matrix, debug_arrow_ob->materials[0], *debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0], program_changed);
 }
 
 
@@ -2252,14 +2411,17 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 
 	glDepthFunc(GL_ALWAYS); // Do this to effectively disable z-test, but still have z writes.
 
+	const OpenGLMaterial& opengl_mat = clear_buf_overlay_ob->material;
+
+	checkUseProgram(opengl_mat.shader_prog.ptr());
+
 	const OpenGLMeshRenderData& mesh_data = *clear_buf_overlay_ob->mesh_data;
 	bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-	const OpenGLMaterial& opengl_mat = clear_buf_overlay_ob->material;
-	opengl_mat.shader_prog->useProgram();
+	
 	glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, clear_buf_overlay_ob->ob_to_world_matrix.e);
-	glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
-	opengl_mat.shader_prog->useNoPrograms();
-	unbindMeshData(mesh_data);
+
+	const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
+	glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 
 	glDepthFunc(GL_LESS); // restore
 }
@@ -2369,6 +2531,13 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	// Some other code (e.g. Qt) may have bound some other buffer since the last draw() call.  So reset all this stuff.
+	current_index_type = 0;
+	current_bound_prog = NULL;
+	current_bound_VAO = NULL;
+	current_bound_vertex_VBO = NULL;
+	current_bound_index_VBO = NULL;
+
 	// checkForOpenGLErrors(); // Just for Mac
 
 	this->num_indices_submitted = 0;
@@ -2403,7 +2572,7 @@ void OpenGLEngine::draw()
 				for(size_t i=0; i<debug_joint_obs.size(); ++i)
 				{
 					debug_joint_obs[i] = new GLObject();
-					debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(); // Base will be at origin, tip will lie at (1, 0, 0)
+					debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
 					debug_joint_obs[i]->materials.resize(3);
 					debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
 					debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
@@ -2874,6 +3043,7 @@ void OpenGLEngine::draw()
 								info.batch = &mesh_data.batches[z];
 								info.mat = &ob->materials[mat_index];
 								info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
+								info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
 
 								batch_draw_info.push_back(info);
 							}
@@ -2889,16 +3059,15 @@ void OpenGLEngine::draw()
 
 			// Draw sorted batches
 			num_prog_changes = 0;
-			//const OpenGLMeshRenderData* last_mesh_data = NULL;
 			for(size_t z = 0; z < batch_draw_info.size(); ++z)
 			{
 				const BatchDrawInfo& info = batch_draw_info[z];
+				const bool program_changed = checkUseProgram(info.prog);
 				bindMeshData(*info.ob);
-				drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
+				drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
 			}
-			//if(last_mesh_data) unbindMeshData(*last_mesh_data);
-			OpenGLProgram::useNoPrograms();
-			current_bound_prog = NULL;
+			if(use_multi_draw_indirect)
+				submitBufferedDrawCommands();
 
 			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
 #endif
@@ -3143,6 +3312,7 @@ void OpenGLEngine::draw()
 										info.batch = &mesh_data.batches[z];
 										info.mat = &ob->materials[mat_index];
 										info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
+										info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
 										batch_draw_info.push_back(info);
 									}
 								}
@@ -3158,17 +3328,15 @@ void OpenGLEngine::draw()
 
 				// Draw sorted batches
 				num_prog_changes = 0;
-				//const OpenGLMeshRenderData* last_mesh_data = NULL;
 				for(size_t z = 0; z < batch_draw_info.size(); ++z)
 				{
 					const BatchDrawInfo& info = batch_draw_info[z];
+					const bool program_changed = checkUseProgram(info.prog);
 					bindMeshData(*info.ob);
-					drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
-					//unbindMeshData(*info.ob); // TEMP
+					drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
 				}
-				//if(last_mesh_data) unbindMeshData(*last_mesh_data);
-				OpenGLProgram::useNoPrograms();
-				this->current_bound_prog = NULL;
+				if(use_multi_draw_indirect)
+					submitBufferedDrawCommands();
 
 				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
 #endif
@@ -3428,10 +3596,10 @@ void OpenGLEngine::draw()
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+				const bool program_changed = checkUseProgram(outline_solid_mat.shader_prog.ptr());
 				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, view_matrix, proj_matrix, outline_solid_mat, *outline_solid_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
-				unbindMeshData(*ob);
+					drawBatch(*ob, view_matrix, proj_matrix, outline_solid_mat, *outline_solid_mat.shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw object with outline_mat.
 			}
 		}
 
@@ -3444,7 +3612,7 @@ void OpenGLEngine::draw()
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outline_edge_tex->texture_handle, 0);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 
-		edge_extract_prog->useProgram();
+		checkUseProgram(edge_extract_prog.ptr());
 
 		// Position quad to cover viewport
 		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, 0, 0));
@@ -3460,11 +3628,9 @@ void OpenGLEngine::draw()
 
 			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
 				
-			glDrawElements(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->index_type, (void*)(uint64)outline_quad_meshdata->batches[0].prim_start_offset);
+			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset;
+			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->index_type, (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);
 		}
-		unbindMeshData(*outline_quad_meshdata);
-
-		edge_extract_prog->useNoPrograms();
 
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 		outline_edge_framebuffer->unbind();
@@ -3498,9 +3664,9 @@ void OpenGLEngine::draw()
 		else
 			use_proj_mat = proj_matrix;
 
+		const bool program_changed = checkUseProgram(current_scene->env_ob->materials[0].shader_prog.ptr());
 		bindMeshData(*current_scene->env_ob);
-		drawBatch(*current_scene->env_ob, world_to_camera_space_no_translation, use_proj_mat, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
-		unbindMeshData(*current_scene->env_ob);
+		drawBatch(*current_scene->env_ob, world_to_camera_space_no_translation, use_proj_mat, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0], program_changed);
 			
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
@@ -3676,7 +3842,6 @@ void OpenGLEngine::draw()
 				this->num_indices_submitted += meshdata->batches[0].num_indices;
 				this->num_face_groups_submitted++;
 
-				unbindMeshData(*meshdata);
 			}
 		}
 	}
@@ -3706,6 +3871,7 @@ void OpenGLEngine::draw()
 						info.batch = &mesh_data.batches[z];
 						info.mat = &ob->materials[mat_index];
 						info.prog = ob->materials[mat_index].shader_prog.ptr();
+						info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
 						batch_draw_info.push_back(info);
 					}
 				}
@@ -3724,52 +3890,16 @@ void OpenGLEngine::draw()
 	num_prog_changes = 0;
 	num_batches_bound = 0;
 
-	//const OpenGLMeshRenderData* last_mesh_data = NULL;
-	//VAO* last_VAO = NULL;
-	//VBO* last_indices = NULL;
 	for(size_t i=0; i<batch_draw_info.size(); ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info[i];
 		
-		// This technique crashes for some reason:
-		/*const GLObject& ob = *info.ob;
-		VAO* vao = ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : ob.mesh_data->vert_vao.ptr();
-		VBO* indices = ob.mesh_data->vert_indices_buf.ptr();
-
-		if(info.prog != current_bound_prog.ptr())
-		{
-			last_VAO = NULL;
-			last_indices = NULL;
-		}
-
-		if(vao != last_VAO)
-		{
-			vao->bind();
-			last_VAO = vao;
-		}
-		if(indices != last_indices)
-		{
-			indices->bind();
-			last_indices = indices;
-			num_batches_bound++;
-		}*/
-		
-
+		const bool program_changed = checkUseProgram(info.prog);
 		bindMeshData(*info.ob);
 		num_batches_bound++;
 
-
-		//if(last_mesh_data != info.ob->mesh_data.ptr()) // NOTE: need ot handle instancing on off here. should check ob is the same as well.  or vert_vao is the same
-		//{
-		//	bindMeshData(*info.ob); // Bind the mesh data, which is the same for all batches.
-		//	last_mesh_data = info.ob->mesh_data.ptr();
-		//	num_batches_bound++;
-		//}
-
-		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
+		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
 	}
-	//if(last_mesh_data) unbindMeshData(*last_mesh_data);
-	//OpenGLProgram::useNoPrograms(); // NOTE: seems slightly faster without this
 	last_num_prog_changes = num_prog_changes;
 	last_num_batches_bound = num_batches_bound;
 #else
@@ -3792,7 +3922,6 @@ void OpenGLEngine::draw()
 						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]);
 				}
 			}
-			unbindMeshData(*ob);
 		}
 		else
 			num_frustum_culled++;
@@ -3802,8 +3931,8 @@ void OpenGLEngine::draw()
 	last_num_prog_changes = num_prog_changes;
 #endif
 
-	OpenGLProgram::useNoPrograms();
-	this->current_bound_prog = NULL;
+	if(use_multi_draw_indirect)
+		submitBufferedDrawCommands();
 
 	//================= Draw wireframes if required =================
 	if(draw_wireframes)
@@ -3811,6 +3940,8 @@ void OpenGLEngine::draw()
 		// Use outline shaders for now as they just generate white fragments, which is what we want.
 		OpenGLMaterial wire_mat;
 		wire_mat.shader_prog = outline_prog;
+
+		const bool program_changed = checkUseProgram(outline_prog.ptr());
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
@@ -3826,8 +3957,7 @@ void OpenGLEngine::draw()
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, view_matrix, proj_matrix, wire_mat, *wire_mat.shader_prog, mesh_data, mesh_data.batches[z]);
-				unbindMeshData(*ob);
+					drawBatch(*ob, view_matrix, proj_matrix, wire_mat, *wire_mat.shader_prog, mesh_data, mesh_data.batches[z], program_changed);
 			}
 		}
 
@@ -3840,13 +3970,16 @@ void OpenGLEngine::draw()
 	glBlendFunc(GL_SRC_ALPHA, current_scene->dest_blending_factor);
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
 
+
+	//const bool program_changed = checkUseProgram(transparent.ptr());
+
 	for(auto it = current_scene->transparent_objects.begin(); it != current_scene->transparent_objects.end(); ++it)
 	{
 		const GLObject* const ob = it->getPointer();
 		if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-			bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
+			//bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
 				const uint32 mat_index = mesh_data.batches[z].material_index;
@@ -3854,10 +3987,13 @@ void OpenGLEngine::draw()
 				{
 					// Draw primitives for the given material
 					if(ob->materials[mat_index].transparent)
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]);
+					{
+						const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
+						bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed);
+					}
 				}
 			}
-			unbindMeshData(*ob);
 		}
 	}
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -3896,9 +4032,11 @@ void OpenGLEngine::draw()
 				{
 					const uint32 mat_index = mesh_data.batches[z].material_index;
 					if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
+					{
+						const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
+					}
 				}
-				unbindMeshData(*ob);
 			}
 		}
 
@@ -3921,9 +4059,11 @@ void OpenGLEngine::draw()
 				{
 					const uint32 mat_index = mesh_data.batches[z].material_index;
 					if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
+					{
+						const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
+						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
+					}
 				}
-				unbindMeshData(*ob);
 			}
 		}
 	}
@@ -3947,7 +4087,7 @@ void OpenGLEngine::draw()
 
 			assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
 
-			opengl_mat.shader_prog->useProgram();
+			checkUseProgram(opengl_mat.shader_prog.ptr());
 
 			glUniform4f(overlay_diffuse_colour_location, 1, 1, 1, 1);
 			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
@@ -3960,11 +4100,9 @@ void OpenGLEngine::draw()
 			glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, identity.e);
 			glUniform1i(overlay_diffuse_tex_location, 0);
 				
-			glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
-
-			opengl_mat.shader_prog->useNoPrograms();
+			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
+			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 		}
-		unbindMeshData(mesh_data);
 
 		glDepthMask(GL_TRUE); // Restore
 		glDisable(GL_BLEND);
@@ -3995,7 +4133,7 @@ void OpenGLEngine::draw()
 
 				assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
 
-				opengl_mat.shader_prog->useProgram();
+				checkUseProgram(opengl_mat.shader_prog.ptr());
 
 				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
 				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob->ob_to_world_matrix.e);
@@ -4015,11 +4153,9 @@ void OpenGLEngine::draw()
 					glUniform1i(overlay_diffuse_tex_location, 0);
 				}
 				
-				glDrawElements(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)(uint64)mesh_data.batches[0].prim_start_offset);
-
-				opengl_mat.shader_prog->useNoPrograms();
+				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
+				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 			}
-			unbindMeshData(mesh_data);
 		}
 
 		glDepthMask(GL_TRUE); // Restore
@@ -4157,10 +4293,6 @@ void OpenGLEngine::draw()
 				glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
 			}
 
-			OpenGLProgram::useNoPrograms();
-
-			unbindMeshData(*unit_quad_meshdata);
-
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 			glEnable(GL_DEPTH_TEST);
 	
@@ -4199,9 +4331,6 @@ void OpenGLEngine::draw()
 			}
 
 			glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
-			unbindMeshData(*unit_quad_meshdata);
-
-			OpenGLProgram::useNoPrograms();
 
 			glEnable(GL_DEPTH_TEST);
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
@@ -4246,7 +4375,7 @@ void OpenGLEngine::draw()
 Reference<OpenGLMeshRenderData> OpenGLEngine::getCylinderMesh() // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 {
 	if(cylinder_meshdata.isNull())
-		cylinder_meshdata = MeshPrimitiveBuilding::makeCylinderMesh();
+		cylinder_meshdata = MeshPrimitiveBuilding::makeCylinderMesh(vert_buf_allocator);
 	return cylinder_meshdata;
 }
 
@@ -4276,7 +4405,7 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 	ob->ob_to_world_matrix = arrowObjectTransform(startpos, endpos, radius_scale);
 
 	if(arrow_meshdata.isNull())
-		arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh();
+		arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(vert_buf_allocator);
 	ob->mesh_data = arrow_meshdata;
 	ob->materials.resize(1);
 	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
@@ -4304,44 +4433,44 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 }
 
 
-void OpenGLEngine::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
+void OpenGLEngine::buildMeshRenderData(VertexBufferAllocator& allocator, OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
 {
-	GLMeshBuilding::buildMeshRenderData(meshdata, vertices, normals, uvs, indices);
+	GLMeshBuilding::buildMeshRenderData(allocator, meshdata, vertices, normals, uvs, indices);
 }
 
 
-void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(OpenGLMeshRenderData& data)
+void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data)
 {
 	// If we have a ref to a BatchedMesh, upload directly from it:
 	if(data.batched_mesh.nonNull())
 	{
-		data.vert_vbo = new VBO(data.batched_mesh->vertex_data.data(), data.batched_mesh->vertex_data.dataSizeBytes());
+		data.vbo_handle = allocator.allocate(data.vertex_spec, data.batched_mesh->vertex_data.data(), data.batched_mesh->vertex_data.dataSizeBytes());
 
-		data.vert_indices_buf = new VBO(data.batched_mesh->index_data.data(), data.batched_mesh->index_data.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+		data.indices_vbo_handle = allocator.allocateIndexData(data.batched_mesh->index_data.data(), data.batched_mesh->index_data.dataSizeBytes());
 	}
 	else
 	{
-		data.vert_vbo = new VBO(data.vert_data.data(), data.vert_data.dataSizeBytes());
+		data.vbo_handle = allocator.allocate(data.vertex_spec, data.vert_data.data(), data.vert_data.dataSizeBytes());
 
 		if(!data.vert_index_buffer_uint8.empty())
 		{
-			data.vert_indices_buf = new VBO(data.vert_index_buffer_uint8.data(), data.vert_index_buffer_uint8.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			data.indices_vbo_handle = allocator.allocateIndexData(data.vert_index_buffer_uint8.data(), data.vert_index_buffer_uint8.dataSizeBytes());
 			assert(data.index_type == GL_UNSIGNED_BYTE);
 		}
 		else if(!data.vert_index_buffer_uint16.empty())
 		{
-			data.vert_indices_buf = new VBO(data.vert_index_buffer_uint16.data(), data.vert_index_buffer_uint16.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			data.indices_vbo_handle = allocator.allocateIndexData(data.vert_index_buffer_uint16.data(), data.vert_index_buffer_uint16.dataSizeBytes());
 			assert(data.index_type == GL_UNSIGNED_SHORT);
 		}
 		else
 		{
-			data.vert_indices_buf = new VBO(data.vert_index_buffer.data(), data.vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			data.indices_vbo_handle = allocator.allocateIndexData(data.vert_index_buffer.data(), data.vert_index_buffer.dataSizeBytes());
 			assert(data.index_type == GL_UNSIGNED_INT);
 		}
 	}
 
 	
-	data.vert_vao = new VAO(data.vert_vbo, data.vert_indices_buf, data.vertex_spec);
+	//data.vert_vao = new VAO(data.vert_vbo, data.vert_indices_buf, data.vertex_spec);
 
 
 	// Now that data has been uploaded, free the buffers.
@@ -4507,8 +4636,19 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		}
 	}
 
+	if(use_multi_draw_indirect)
+	{
+		// Copy to MDI_phong_uniforms host buffer
+		const size_t index = this->draw_commands.size();
+		if(index >= MDI_phong_uniforms.size())
+			MDI_phong_uniforms.resize(index + 1);
 
-	this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+		std::memcpy(&MDI_phong_uniforms[index], &uniforms, sizeof(PhongUniforms));
+		//this->phong_uniform_buf_ob->updateData(/*dest offset=*/offset, &uniforms, sizeof(PhongUniforms));
+	}
+	else
+		this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+
 //	if(opengl_mat.uniform_ubo.isNull())
 //	{
 //		opengl_mat.uniform_ubo = new UniformBufOb();
@@ -4519,30 +4659,19 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 
 
 void OpenGLEngine::drawBatch(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, 
-	const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
+	const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch, bool prog_changed)
 {
-	drawPrimitives(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices);
+	drawPrimitives(ob, view_mat, proj_mat, opengl_mat, shader_prog, mesh_data, batch.prim_start_offset, batch.num_indices, prog_changed);
 }
 
 
 void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, const Matrix4f& proj_mat, const OpenGLMaterial& opengl_mat,
-		const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices)
+		const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, uint32 prim_start_offset, uint32 num_indices, bool prog_changed)
 {
 	if(num_indices == 0)
 		return;
 
 	const OpenGLProgram* shader_prog = &shader_prog_;
-
-	bool prog_changed = false;
-	if(shader_prog != current_bound_prog.ptr())
-	{
-		current_bound_prog = shader_prog;
-		shader_prog->useProgram();
-		num_prog_changes++;
-		prog_changed = true;
-	}
-	//shader_prog->useProgram();
-	//num_prog_changes++;
 
 	// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
 
@@ -4553,7 +4682,19 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		uniforms.model_matrix = ob.ob_to_world_matrix;
 		uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
 
-		this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
+		if(use_multi_draw_indirect)
+		{
+			// Copy to MDI_per_object_vert_uniforms host buffer
+			const size_t index = this->draw_commands.size();
+			if(index >= MDI_per_object_vert_uniforms.size())
+				MDI_per_object_vert_uniforms.resize(index + 1);
+
+			std::memcpy(&MDI_per_object_vert_uniforms[index], &uniforms, sizeof(PerObjectVertUniforms));
+
+			//this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/offset, &uniforms, sizeof(PerObjectVertUniforms));
+		}
+		else
+			this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 	}
 	else
 	{
@@ -4569,6 +4710,9 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 
 	if(mesh_data.usesSkinning())
 	{
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
 		temp_joint_matrices.resizeNoCopy(mesh_data.animation_data.joint_nodes.size());
 
 		// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
@@ -4666,12 +4810,12 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 	}
 	else if(shader_prog->is_depth_draw)
 	{
-		const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
-		glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
+		//const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
+		//glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
 
-		if(shader_prog->key.alpha_test)
+		//if(shader_prog->key.alpha_test)
 		{
-			assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
+			//assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
 
 
 			DepthUniforms uniforms;
@@ -4697,7 +4841,17 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 				glUniform1i(shader_prog->uniform_locations.diffuse_tex_location, 0);
 			}
 
-			this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
+			if(use_multi_draw_indirect)
+			{
+				// Copy to MDI_depth_uniforms host buffer
+				const size_t index = this->draw_commands.size();
+				if(index >= MDI_depth_uniforms.size())
+					MDI_depth_uniforms.resize(index + 1);
+
+				std::memcpy(&MDI_depth_uniforms[index], &uniforms, sizeof(DepthUniforms));
+			}
+			else
+				this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
 		}
 	}
 	else if(shader_prog == this->outline_prog.getPointer())
@@ -4763,31 +4917,8 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		glLineWidth(ob.line_width);
 	}
 
-	if(ob.instance_matrix_vbo.nonNull())
+	if(use_multi_draw_indirect)
 	{
-		const size_t num_instances = ob.num_instances_to_draw;
-		glDrawElementsInstanced(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset, (uint32)num_instances);
-	}
-	else
-	{
-		
-#if 0
-		// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMultiDrawElementsIndirect.xhtml
-		struct DrawElementsIndirectCommand
-		{
-			uint32 count;
-			uint32 instanceCount;
-			uint32 firstIndex;
-			uint32 baseVertex;
-			uint32 baseInstance;
-		};
-
-		if(draw_indirect_buffer.isNull())
-		{
-			draw_indirect_buffer = new DrawIndirectBuffer();
-			draw_indirect_buffer->allocate(sizeof(DrawElementsIndirectCommand));
-		}
-
 		int index_type_size_B = 1;
 		if(mesh_data.index_type == GL_UNSIGNED_BYTE)
 			index_type_size_B = 1;
@@ -4796,33 +4927,116 @@ void OpenGLEngine::drawPrimitives(const GLObject& ob, const Matrix4f& view_mat, 
 		else
 			index_type_size_B = 4;
 
+		// A mesh might have indices 0, 1, 2.  
+		/*
+		indices
+		----------
+		mesh_0 indices                                       mesh_1 indices
+		[0, 1, 2, 0, 2, 3, ....                              , 0, 1, 2, 0, 2, 3, ...                          ]
+		
+		
+		vertex data
+		-----------
+		mesh 0 vertex data                                          mesh 1 vertex data
+		[0.2343, 0.1243, 0.645, ...                                 , 0.865, 2.343, 0.454, ....                   ]
+
+		So we need to add a constant to the index values for mesh_1 - this is the offset into the vertex buffer at which mesh 1 vertex data is at.
+		This is the baseVertex argument.
+		*/
+
+		const size_t instance_count = ob.instance_matrix_vbo.nonNull() ? ob.num_instances_to_draw : 1;
+
+		const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset;
+		assert(total_buffer_offset % index_type_size_B == 0);
+
 		DrawElementsIndirectCommand command;
 		command.count = (GLsizei)num_indices;
-		command.instanceCount = 1;
-		command.firstIndex = prim_start_offset / index_type_size_B; // First index is not a byte offset, but a number-of-indices offset.
-		command.baseVertex = 0;
+		command.instanceCount = (uint32)instance_count;
+		command.firstIndex = (uint32)(total_buffer_offset / index_type_size_B); // First index is not a byte offset, but a number-of-indices offset.
+		command.baseVertex = mesh_data.vbo_handle.base_vertex; // "Specifies a constant that should be added to each element of indices when chosing elements from the enabled vertex arrays."
 		command.baseInstance = 0;
-		draw_indirect_buffer->updateData(/*dest offset=*/0, &command, sizeof(DrawElementsIndirectCommand));
 
-		draw_indirect_buffer->bind();
+		this->draw_commands.push_back(command);
 
+		//conPrint("   appended draw call.");
 
-		//TEMP:
-		glMultiDrawElementsIndirect(draw_mode,
-			mesh_data.index_type, // index type
-			(const void*)0, // indirect - bytes into the GL_DRAW_INDIRECT_BUFFER.
-			1, // drawcount
-			0 // stride - use 0 to mean tightly packed.
-		);
-
-		draw_indirect_buffer->unbind();
-#else
-		glDrawElements(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)(uint64)prim_start_offset);
-#endif
+		if(draw_commands.size() >= 256 || instance_count > 1)
+			submitBufferedDrawCommands(); // We have limited space in the uniform buffers (256 elems)
 	}
+	else // else if !use_multi_draw_indirect:
+	{
+		if(ob.instance_matrix_vbo.nonNull() && ob.num_instances_to_draw > 0)
+		{
+			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset;
+			glDrawElementsInstancedBaseVertex(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)total_buffer_offset, (uint32)ob.num_instances_to_draw, mesh_data.vbo_handle.base_vertex);
+		}
+		else
+		{
+			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset;
+			glDrawElementsBaseVertex(draw_mode, (GLsizei)num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+		}
+	}
+
+
+	if(use_multi_draw_indirect && mesh_data.usesSkinning())
+		submitBufferedDrawCommands();
 
 	this->num_indices_submitted += num_indices;
 	this->num_face_groups_submitted++;
+}
+
+
+void OpenGLEngine::submitBufferedDrawCommands()
+{
+	assert(use_multi_draw_indirect);
+
+	//conPrint("Flushing " + toString(this->draw_commands.size()) + " draw commands");
+
+	// Copy draw_commands in host mem to GPU mem
+	if(draw_indirect_buffer.isNull())
+	{
+		draw_indirect_buffer = new DrawIndirectBuffer();
+	}
+
+	// Resize if needed
+	if(draw_indirect_buffer->byteSize() < this->draw_commands.dataSizeBytes())
+	{
+		draw_indirect_buffer = NULL;
+		draw_indirect_buffer = new DrawIndirectBuffer();
+		draw_indirect_buffer->allocate(this->draw_commands.dataSizeBytes() * 2); // TEMP
+	}
+
+	if(!this->draw_commands.empty())
+	{
+		draw_indirect_buffer->updateData(/*offset=*/0, this->draw_commands.data(), this->draw_commands.dataSizeBytes());
+
+		const size_t draw_count = this->draw_commands.size();
+
+		// Update uniforms
+		per_object_vert_uniform_buf_ob->updateData(0, MDI_per_object_vert_uniforms.data(), draw_count * sizeof(PerObjectVertUniforms));
+
+		if(!MDI_phong_uniforms.empty())
+			phong_uniform_buf_ob->updateData(0, MDI_phong_uniforms.data(), draw_count * sizeof(PhongUniforms));
+
+		if(!MDI_depth_uniforms.empty())
+			depth_uniform_buf_ob->updateData(0, MDI_depth_uniforms.data(), draw_count * sizeof(DepthUniforms));
+
+
+		//conPrint("Submitting " + toString(this->draw_commands.size()) + " draw commands.");
+	
+		glMultiDrawElementsIndirect(
+			GL_TRIANGLES,
+			this->current_index_type, // index type
+			(const void*)0, // indirect - bytes into the GL_DRAW_INDIRECT_BUFFER.
+			(GLsizei)this->draw_commands.size(), // drawcount
+			0 // stride - use 0 to mean tightly packed.
+		);
+
+		this->draw_commands.resize(0);
+
+		this->MDI_phong_uniforms.resize(0);
+		this->MDI_depth_uniforms.resize(0);
+	}
 }
 
 

@@ -18,9 +18,11 @@ in vec4 weight;
 
 out vec2 texture_coords;
 
-uniform mat4 proj_view_model_matrix; 
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+out flat int material_index;
+#endif
 
-#if INSTANCE_MATRICES || SKINNING || USE_WIND_VERT_SHADER
+
 layout(std140) uniform SharedVertUniforms
 {
 	mat4 proj_matrix; // same for all objects
@@ -34,12 +36,29 @@ layout(std140) uniform SharedVertUniforms
 };
 
 
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+
+struct PerObjectVertUniformsStruct
+{
+	mat4 model_matrix; // per-object
+	mat4 normal_matrix; // per-object
+};
+
+
+layout(std140) uniform PerObjectVertUniforms
+{
+	PerObjectVertUniformsStruct per_object_data[256];
+};
+
+#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+
 layout (std140) uniform PerObjectVertUniforms
 {
 	mat4 model_matrix; // per-object
 	mat4 normal_matrix; // per-object
 };
-#endif
+
+#endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 
 #if SKINNING
@@ -80,6 +99,12 @@ vec3 newPosGivenWind(vec3 pos_ws, vec3 normal_ws)
 
 void main()
 {
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+	material_index = gl_DrawID;
+	mat4 model_matrix  = per_object_data[material_index].model_matrix;
+	mat4 normal_matrix = per_object_data[material_index].normal_matrix;
+#endif
+
 #if INSTANCE_MATRICES // -----------------
 
 #if USE_WIND_VERT_SHADER
@@ -121,7 +146,7 @@ void main()
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #else
-	gl_Position = proj_view_model_matrix * vec4(position_in, 1.0);
+	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
 #endif // USE_WIND_VERT_SHADER
 	
 #endif // endif !SKINNING

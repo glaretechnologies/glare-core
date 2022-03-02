@@ -25,13 +25,53 @@ struct VertexAttrib
 	uint32 offset;
 	bool instancing;
 
-	Reference<VBO> vbo; // VBO to be bound for this attribute.  Can be left to NULL in which case the usual mesh data vert_vbo will be used.
+	//Reference<VBO> vbo; // VBO to be bound for this attribute.  Can be left to NULL in which case the usual mesh data vert_vbo will be used.
+
+	bool operator < (const VertexAttrib& other) const
+	{
+		if(enabled && !other.enabled)
+			return true;
+		if(other.enabled && !enabled)
+			return false;
+
+		if(num_comps < other.num_comps)
+			return true;
+		else if(other.num_comps < num_comps)
+			return false;
+
+		if(type < other.type)
+			return true;
+		else if(other.type < type)
+			return false;
+
+		return false;
+	}
 };
 
 
 struct VertexSpec
 {
 	std::vector<VertexAttrib> attributes;
+
+	bool operator < (const VertexSpec& other) const
+	{
+		if(attributes.size() < other.attributes.size())
+			return true;
+		else if(attributes.size() > other.attributes.size())
+			return false;
+		else
+		{
+			for(size_t i=0; i<attributes.size(); ++i)
+			{
+				if(attributes[i] < other.attributes[i])
+					return true;
+				else if(other.attributes[i] < attributes[i])
+					return false;
+			}
+		}
+
+		return false;
+	}
 };
 
 
@@ -43,17 +83,21 @@ Vertex array object
 class VAO : public RefCounted
 {
 public:
+	VAO(const VertexSpec& vertex_spec);
 	VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec);
 	~VAO();
 
-	void bind();
+	void bindVertexArray() const;
 	static void unbind();
+
+	void bindVertexBuffer(const VBO& vertex_data);
 
 private:
 	GLARE_DISABLE_COPY(VAO)
 
+public:
 	GLuint handle;
-
+	VertexSpec vertex_spec;
 };
 
 

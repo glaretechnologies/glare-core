@@ -45,7 +45,12 @@ uniform sampler2D lightmap_tex;
 #endif
 #endif
 
-layout (std140) uniform PhongUniforms
+
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+
+in flat int material_index;
+
+struct MaterialData
 {
 	vec4 sundir_cs;
 	vec4 diffuse_colour;
@@ -74,6 +79,65 @@ layout (std140) uniform PhongUniforms
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
 };
+
+
+layout(std140) uniform PhongUniforms // MaterialDataUBO
+{
+	MaterialData material_data[256];
+};
+
+#define MAT_UNIFORM mat_data
+
+#define DIFFUSE_TEX mat_data.diffuse_tex
+#define METALLIC_ROUGHNESS_TEX mat_data.metallic_roughness_tex
+#define LIGHTMAP_TEX mat_data.lightmap_tex
+
+#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+
+layout (std140) uniform PhongUniforms
+{
+	vec4 sundir_cs;				// 4
+	vec4 diffuse_colour;		// 4
+	mat3 texture_matrix;		// 12
+
+#if USE_BINDLESS_TEXTURES
+	sampler2D diffuse_tex;
+	sampler2D metallic_roughness_tex;
+	sampler2D lightmap_tex;
+#else
+	float padding0;
+	float padding1;
+	float padding2;
+	float padding3;
+	float padding4;
+	float padding5;				// 6
+#endif
+
+	int have_shading_normals;
+	int have_texture;
+	int have_metallic_roughness_tex;
+	float roughness;
+	float fresnel_scale;
+	float metallic_frac;
+	float time;
+	float begin_fade_out_distance;
+	float end_fade_out_distance; // 9
+} mat_data;
+
+#define MAT_UNIFORM mat_data
+
+#if USE_BINDLESS_TEXTURES
+#define DIFFUSE_TEX mat_data.diffuse_tex
+#define METALLIC_ROUGHNESS_TEX mat_data.metallic_roughness_tex
+#define LIGHTMAP_TEX mat_data.lightmap_tex
+#else
+#define DIFFUSE_TEX diffuse_tex
+#define METALLIC_ROUGHNESS_TEX metallic_roughness_tex
+#define LIGHTMAP_TEX lightmap_tex
+#endif
+
+#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+
 
 #if BLOB_SHADOWS
 uniform int num_blob_positions;
@@ -225,10 +289,14 @@ vec3 toLinearSRGB(vec3 c)
 
 void main()
 {
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+	MaterialData mat_data = material_data[material_index];
+#endif
+
 	vec3 use_normal_cs;
 	vec3 use_normal_ws;
 	vec2 use_texture_coords = texture_coords;
-	if(have_shading_normals != 0)
+	if(MAT_UNIFORM.have_shading_normals != 0)
 	{
 		use_normal_cs = normal_cs;
 		use_normal_ws = normal_ws;
@@ -278,7 +346,7 @@ void main()
 	}
 	vec3 unit_normal_cs = normalize(use_normal_cs);
 
-	float light_cos_theta = dot(unit_normal_cs, sundir_cs.xyz);
+	float light_cos_theta = dot(unit_normal_cs, MAT_UNIFORM.sundir_cs.xyz);
 
 #if DOUBLE_SIDED
 	float sun_light_cos_theta_factor = abs(light_cos_theta);
@@ -288,16 +356,16 @@ void main()
 
 	vec3 frag_to_cam = normalize(pos_cs * -1.0);
 
-	vec3 h = normalize(frag_to_cam + sundir_cs.xyz);
+	vec3 h = normalize(frag_to_cam + MAT_UNIFORM.sundir_cs.xyz);
 
 	// We will get two diffuse colours - one for the sun contribution, and one for reflected light from the same hemisphere the camera is in.
 	// The sun contribution diffuse colour may use the transmission texture.  The reflected light colour may be the front or backface albedo texture.
 
-	vec2 main_tex_coords = (texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy;
+	vec2 main_tex_coords = (MAT_UNIFORM.texture_matrix * vec3(use_texture_coords.x, use_texture_coords.y, 1.0)).xy;
 
 	vec4 sun_texture_diffuse_col;
 	vec4 refl_texture_diffuse_col;
-	if(have_texture != 0)
+	if(MAT_UNIFORM.have_texture != 0)
 	{
 #if DOUBLE_SIDED
 		// Work out if we are seeing the front or back face of the material
@@ -308,7 +376,7 @@ void main()
 			//refl_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
 		}
 		else
-			refl_texture_diffuse_col = texture(diffuse_tex,          main_tex_coords); // frontface
+			refl_texture_diffuse_col = texture(DIFFUSE_TEX,          main_tex_coords); // frontface
 
 
 		if(frag_to_cam_dot_normal * light_cos_theta <= 0.f) // If frag_to_cam and sundir_cs in different geometric hemispheres:
@@ -319,7 +387,7 @@ void main()
 		else
 			sun_texture_diffuse_col = refl_texture_diffuse_col; // Else sun is illuminating the face facing the camera.
 #else
-		sun_texture_diffuse_col = texture(diffuse_tex, main_tex_coords);
+		sun_texture_diffuse_col = texture(DIFFUSE_TEX, main_tex_coords);
 		refl_texture_diffuse_col = sun_texture_diffuse_col;
 #endif
 
@@ -342,8 +410,8 @@ void main()
 	}
 
 	// Final diffuse colour = texture diffuse colour * constant diffuse colour
-	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * diffuse_colour; // diffuse_colour is linear sRGB already.
-	vec4 refl_diffuse_col = refl_texture_diffuse_col * diffuse_colour;
+	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * MAT_UNIFORM.diffuse_colour; // diffuse_colour is linear sRGB already.
+	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
 
 #if VERT_COLOURS
 	vec3 linear_vert_col = toLinearSRGB(vert_colour);
@@ -353,7 +421,7 @@ void main()
 
 	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
 #if IMPOSTERABLE
-	float dist_alpha_factor = smoothstep(begin_fade_out_distance, end_fade_out_distance,  /*dist=*/-pos_cs.z);
+	float dist_alpha_factor = smoothstep(MAT_UNIFORM.begin_fade_out_distance, MAT_UNIFORM.end_fade_out_distance,  /*dist=*/-pos_cs.z);
 	if(dist_alpha_factor > pixel_hash)
 		discard;
 #endif
@@ -383,14 +451,14 @@ void main()
 	}
 #endif
 
-	float final_metallic_frac = (have_metallic_roughness_tex != 0) ? (metallic_frac * texture(metallic_roughness_tex, main_tex_coords).b) : metallic_frac;
+	float final_metallic_frac = (MAT_UNIFORM.have_metallic_roughness_tex != 0) ? (MAT_UNIFORM.metallic_frac * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).b) : MAT_UNIFORM.metallic_frac;
 
 	//------------- Compute specular microfacet terms --------------
 	//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
 	float h_cos_theta = abs(dot(h, unit_normal_cs));
 	vec4 specular_fresnel;
 	{
-		vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * fresnel_scale;
+		vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * MAT_UNIFORM.fresnel_scale;
 		vec4 metal_fresnel = vec4(
 			metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
 			metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
@@ -401,12 +469,12 @@ void main()
 		specular_fresnel = metal_fresnel * final_metallic_frac + dielectric_fresnel * (1.0 - final_metallic_frac);
 	}
 
-	float final_roughness = (have_metallic_roughness_tex != 0) ? (roughness * texture(metallic_roughness_tex, main_tex_coords).g) : roughness;
+	float final_roughness = (MAT_UNIFORM.have_metallic_roughness_tex != 0) ? (MAT_UNIFORM.roughness * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
 
 	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * 
 		specular_fresnel;
 
-	float shadow_factor = smoothstep(-0.3, 0.0, dot(sundir_cs.xyz, unit_normal_cs));
+	float shadow_factor = smoothstep(-0.3, 0.0, dot(MAT_UNIFORM.sundir_cs.xyz, unit_normal_cs));
 	specular *= shadow_factor;
 
 	// Shadow mapping
@@ -532,7 +600,7 @@ void main()
 		vec3 cum_layer_pos = pos_ws + sundir_ws * (1000.f - pos_ws.z) / sundir_ws.z;
 
 		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
-		cum_tex_coords.x += time * 0.002;
+		cum_tex_coords.x += MAT_UNIFORM.time * 0.002;
 
 		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2 + 2.3453, cum_tex_coords.y * 2 + 1.4354);
 		float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
@@ -550,7 +618,7 @@ void main()
 	vec4 sky_irradiance;
 #if LIGHTMAPPING
 	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
-	sky_irradiance = texture(lightmap_tex, vec2(lightmap_coords.x, -lightmap_coords.y)) * 1.0e9f;
+	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y)) * 1.0e9f;
 #else
 	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz) * 1.0e9f; // integral over hemisphere of cosine * incoming radiance from sky.
 #endif
@@ -592,7 +660,7 @@ void main()
 
 
 	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));
-	vec4 dielectric_refl_fresnel = vec4(fresnelApprox(fresnel_cos_theta, 1.5) * fresnel_scale);
+	vec4 dielectric_refl_fresnel = vec4(fresnelApprox(fresnel_cos_theta, 1.5) * MAT_UNIFORM.fresnel_scale);
 	vec4 metallic_refl_fresnel = vec4(
 		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.r),
 		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.g),

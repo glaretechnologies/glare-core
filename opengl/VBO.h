@@ -27,7 +27,9 @@ public:
 
 	void updateData(const void* data, size_t data_size); // data_size must be <= size
 
-	void bind();
+	void updateData(size_t offset, const void* data, size_t data_size);
+
+	void bind() const;
 	void unbind();
 
 	const GLuint bufferName() const { return buffer_name; }

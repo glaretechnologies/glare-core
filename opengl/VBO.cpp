@@ -35,6 +35,9 @@ void VBO::updateData(const void* data, size_t data_size)
 {
 	assert(data_size <= size);
 
+	if(data_size == 0)
+		return;
+
 	// From http://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/
 	// Update the buffers that OpenGL uses for rendering.
 	// There are much more sophisticated means to stream data from the CPU to the GPU,
@@ -50,7 +53,20 @@ void VBO::updateData(const void* data, size_t data_size)
 }
 
 
-void VBO::bind()
+void VBO::updateData(size_t offset, const void* data, size_t data_size)
+{
+	assert(offset + data_size <= size);
+
+	if(data_size == 0)
+		return;
+
+	glBindBuffer(buffer_type, buffer_name);
+
+	glBufferSubData(buffer_type, /*offset=*/offset, data_size, data);
+}
+
+
+void VBO::bind() const
 {
 	// Make buffer active
 #ifdef OSX // OSX doesn't define GL_SHADER_STORAGE_BUFFER

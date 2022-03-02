@@ -37,8 +37,6 @@ struct UniformLocations
 	int static_depth_tex_location;
 	int shadow_texture_matrix_location;
 
-	int proj_view_model_matrix_location;
-
 	int num_blob_positions_location;
 	int blob_positions_location;
 };

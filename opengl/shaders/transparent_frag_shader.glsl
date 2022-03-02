@@ -10,6 +10,10 @@ in vec3 cam_to_pos_ws;
 in float flogz;
 #endif
 
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+in flat int material_index;
+#endif
+
 uniform vec4 sundir_cs;
 uniform vec4 diffuse_colour;
 uniform int have_shading_normals;

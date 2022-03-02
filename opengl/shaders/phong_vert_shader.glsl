@@ -42,6 +42,10 @@ out vec2 lightmap_coords;
 out float flogz;
 #endif
 
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+out flat int material_index;
+#endif
+
 layout (std140) uniform SharedVertUniforms
 {
 	mat4 proj_matrix; // same for all objects
@@ -54,11 +58,30 @@ layout (std140) uniform SharedVertUniforms
 	float wind_strength;
 };
 
+
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+
+struct PerObjectVertUniformsStruct
+{
+	mat4 model_matrix; // per-object
+	mat4 normal_matrix; // per-object
+};
+
+
+layout(std140) uniform PerObjectVertUniforms
+{
+	PerObjectVertUniformsStruct per_object_data[256];
+};
+
+#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+
 layout (std140) uniform PerObjectVertUniforms
 {
 	mat4 model_matrix; // per-object
 	mat4 normal_matrix; // per-object
 };
+
+#endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 #if SKINNING
 uniform mat4 joint_matrix[256];
@@ -97,6 +120,12 @@ vec3 newPosGivenWind(vec3 pos_ws, vec3 normal_ws)
 
 void main()
 {
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+	material_index = gl_DrawID;
+	mat4 model_matrix  = per_object_data[material_index].model_matrix;
+	mat4 normal_matrix = per_object_data[material_index].normal_matrix;
+#endif
+
 #if INSTANCE_MATRICES
 
 #if GENERATE_PLANAR_UVS

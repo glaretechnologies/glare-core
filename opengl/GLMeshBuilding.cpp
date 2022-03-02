@@ -25,7 +25,8 @@ Copyright Glare Technologies Limited 2022 -
 static const bool MEM_PROFILE = false;
 
 
-void GLMeshBuilding::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
+void GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, OpenGLMeshRenderData& meshdata, 
+	const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
 {
 	meshdata.has_uvs = !uvs.empty();
 	meshdata.has_shading_normals = !normals.empty();
@@ -36,26 +37,26 @@ void GLMeshBuilding::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const j
 
 	meshdata.aabb_os = js::AABBox::emptyAABBox();
 
-	js::Vector<float, 16> combined_data;
+	js::Vector<float, 16> combined_vert_data;
 	const int NUM_COMPONENTS = 8;
-	combined_data.resizeNoCopy(NUM_COMPONENTS * vertices.size());
+	combined_vert_data.resizeNoCopy(NUM_COMPONENTS * vertices.size());
 	for(size_t i=0; i<vertices.size(); ++i)
 	{
-		combined_data[i*NUM_COMPONENTS + 0] = vertices[i].x;
-		combined_data[i*NUM_COMPONENTS + 1] = vertices[i].y;
-		combined_data[i*NUM_COMPONENTS + 2] = vertices[i].z;
-		combined_data[i*NUM_COMPONENTS + 3] = normals[i].x;
-		combined_data[i*NUM_COMPONENTS + 4] = normals[i].y;
-		combined_data[i*NUM_COMPONENTS + 5] = normals[i].z;
-		combined_data[i*NUM_COMPONENTS + 6] = uvs[i].x;
-		combined_data[i*NUM_COMPONENTS + 7] = uvs[i].y;
+		combined_vert_data[i*NUM_COMPONENTS + 0] = vertices[i].x;
+		combined_vert_data[i*NUM_COMPONENTS + 1] = vertices[i].y;
+		combined_vert_data[i*NUM_COMPONENTS + 2] = vertices[i].z;
+		combined_vert_data[i*NUM_COMPONENTS + 3] = normals[i].x;
+		combined_vert_data[i*NUM_COMPONENTS + 4] = normals[i].y;
+		combined_vert_data[i*NUM_COMPONENTS + 5] = normals[i].z;
+		combined_vert_data[i*NUM_COMPONENTS + 6] = uvs[i].x;
+		combined_vert_data[i*NUM_COMPONENTS + 7] = uvs[i].y;
 
 		meshdata.aabb_os.enlargeToHoldPoint(Vec4f(vertices[i].x, vertices[i].y, vertices[i].z, 1.f));
 	}
 
-	meshdata.vert_vbo = new VBO(&combined_data[0], combined_data.dataSizeBytes());
-	meshdata.vert_indices_buf = new VBO(&indices[0], indices.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
 	meshdata.index_type = GL_UNSIGNED_INT;
+
+	meshdata.indices_vbo_handle = allocator.allocateIndexData(indices.data(), indices.dataSizeBytes());
 
 	VertexSpec spec;
 	const uint32 vert_stride = (uint32)(sizeof(float) * 3 + (sizeof(float) * 3) + (sizeof(float) * 2)); // also vertex size.
@@ -115,8 +116,8 @@ void GLMeshBuilding::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const j
 		vec4_attrib.num_comps = 4;
 		vec4_attrib.type = GL_FLOAT;
 		vec4_attrib.normalised = false;
-		vec4_attrib.stride = 16 * sizeof(float);
-		vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
+		vec4_attrib.stride = 16 * sizeof(float); // stride of instance matrix buffer
+		vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i); // offset into instance matrix
 		vec4_attrib.instancing = true;
 
 		spec.attributes.push_back(vec4_attrib);
@@ -135,7 +136,7 @@ void GLMeshBuilding::buildMeshRenderData(OpenGLMeshRenderData& meshdata, const j
 		spec.attributes.push_back(vec4_attrib);
 	}
 
-	meshdata.vert_vao = new VAO(meshdata.vert_vbo, meshdata.vert_indices_buf, spec);
+	meshdata.vbo_handle = allocator.allocate(spec, combined_vert_data.data(), combined_vert_data.dataSizeBytes());
 }
 
 
@@ -248,7 +249,7 @@ struct TakeFirstElement
 //#define USE_INDIGO_MESH_INDICES 1
 
 
-Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
+Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllocator* allocator, const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls)
 {
 	if(mesh_->triangles.empty() && mesh_->quads.empty())
 		throw glare::Exception("Mesh empty.");
@@ -870,8 +871,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<
 		"can_load_mesh_directly: " + boolToString(can_load_mesh_directly) + "\n" +
 		"num_merged_verts: " + toString(num_merged_verts));*/
 
-	if(!skip_opengl_calls)
-		opengl_render_data->vert_vbo = new VBO(&vert_data[0], vert_data.dataSizeBytes());
+	
 
 	VertexSpec& spec = opengl_render_data->vertex_spec;
 
@@ -935,7 +935,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<
 			index_buf[i] = (uint8)vert_index_buffer[i];
 		}
 		if(!skip_opengl_calls)
-			opengl_render_data->vert_indices_buf = new VBO(index_buf.data(), index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(index_buf.data(), index_buf.dataSizeBytes());
 
 		opengl_render_data->index_type = GL_UNSIGNED_BYTE;
 		// Go through the batches and adjust the start offset to take into account we're using uint8s.
@@ -952,7 +952,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<
 			index_buf[i] = (uint16)vert_index_buffer[i];
 		}
 		if(!skip_opengl_calls)
-			opengl_render_data->vert_indices_buf = new VBO(index_buf.data(), index_buf.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(index_buf.data(), index_buf.dataSizeBytes());
 
 		opengl_render_data->index_type = GL_UNSIGNED_SHORT;
 		// Go through the batches and adjust the start offset to take into account we're using uint16s.
@@ -962,12 +962,9 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<
 	else
 	{
 		if(!skip_opengl_calls)
-			opengl_render_data->vert_indices_buf = new VBO(vert_index_buffer.data(), vert_index_buffer.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
+			opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(vert_index_buffer.data(), vert_index_buffer.dataSizeBytes());
 		opengl_render_data->index_type = GL_UNSIGNED_INT;
 	}
-
-	if(!skip_opengl_calls)
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vert_indices_buf, spec);
 
 #ifndef NDEBUG
 	for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
@@ -991,12 +988,14 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(const Reference<
 		conPrint("Src num verts:     " + toString(mesh->vert_positions.size()) + ", num tris: " + toString(mesh->triangles.size()) + ", num quads: " + toString(mesh->quads.size()));
 		if(use_half_uvs) conPrint("Using half UVs.");
 		conPrint("verts:             " + rightPad(toString(num_merged_verts),         ' ', pad_w) + "(" + getNiceByteSize(vert_data.dataSizeBytes()) + ")");
-		conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
+		//conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
 	}
 
 	// If we did the OpenGL calls, then the data has been uploaded to VBOs etc.. so we can free it.
 	if(!skip_opengl_calls)
 	{
+		opengl_render_data->vbo_handle = allocator->allocate(spec, vert_data.data(), vert_data.dataSizeBytes());
+
 		opengl_render_data->vert_data.clearAndFreeMem();
 		opengl_render_data->vert_index_buffer.clearAndFreeMem();
 		opengl_render_data->vert_index_buffer_uint16.clearAndFreeMem();
@@ -1025,7 +1024,7 @@ inline static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 }
 
 
-Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const VBORef& instancing_matrix_data/*bool instancing*/)
+Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAllocator* allocator, const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const VBORef& instancing_matrix_data/*bool instancing*/)
 {
 	if(mesh_->index_data.empty())
 		throw glare::Exception("Mesh empty.");
@@ -1150,7 +1149,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(const Reference
 		vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
 		vec4_attrib.instancing = true;
 
-		vec4_attrib.vbo = instancing_matrix_data;
+		//vec4_attrib.vbo = instancing_matrix_data;
 
 		opengl_render_data->vertex_spec.attributes.push_back(vec4_attrib);
 	}
@@ -1187,9 +1186,9 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(const Reference
 	}
 	else
 	{
-		opengl_render_data->vert_indices_buf = new VBO(mesh->index_data.data(), mesh->index_data.dataSizeBytes(), GL_ELEMENT_ARRAY_BUFFER);
-		opengl_render_data->vert_vbo = new VBO(mesh->vertex_data.data(), mesh->vertex_data.dataSizeBytes());
-		opengl_render_data->vert_vao = new VAO(opengl_render_data->vert_vbo, opengl_render_data->vert_indices_buf, opengl_render_data->vertex_spec);
+		opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(mesh->index_data.data(), mesh->index_data.dataSizeBytes());
+		
+		opengl_render_data->vbo_handle = allocator->allocate(opengl_render_data->vertex_spec, mesh->vertex_data.data(), mesh->vertex_data.dataSizeBytes());
 	}
 
 

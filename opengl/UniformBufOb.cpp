@@ -41,7 +41,6 @@ void UniformBufOb::allocate(size_t size_B)
 	// "DRAW": The data store contents are modified by the application, and used as the source for GL drawing and image specification commands.
 	glBindBuffer(GL_UNIFORM_BUFFER, handle);
 	glBufferData(GL_UNIFORM_BUFFER, size_B, NULL, GL_DYNAMIC_DRAW); // allocate mem
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	this->allocated_size = size_B;
 }
@@ -57,6 +56,4 @@ void UniformBufOb::updateData(size_t dest_offset, const void* src_data, size_t s
 	
 	//glBufferData(GL_UNIFORM_BUFFER, (GLsizeiptr)src_size, NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See http://www.opengl.org/wiki/Buffer_Object_Streaming for details.
 	//glBufferData(GL_UNIFORM_BUFFER, (GLsizeiptr)src_size, src_data, GL_STREAM_DRAW); // allocate mem
-	
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
