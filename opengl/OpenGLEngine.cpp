@@ -5062,7 +5062,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 
 
 		//conPrint("Submitting " + toString(this->draw_commands.size()) + " draw commands.");
-	
+#ifndef OSX
 		glMultiDrawElementsIndirect(
 			GL_TRIANGLES,
 			this->current_index_type, // index type
@@ -5070,6 +5070,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 			(GLsizei)this->draw_commands.size(), // drawcount
 			0 // stride - use 0 to mean tightly packed.
 		);
+#endif
 
 		this->draw_commands.resize(0);
 
