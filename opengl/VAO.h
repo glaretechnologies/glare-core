@@ -90,8 +90,6 @@ public:
 	void bindVertexArray() const;
 	static void unbind();
 
-	void bindVertexBuffer(const VBO& vertex_data);
-
 	GLuint getBoundVertexBuffer(GLint attribute_index) const;
 	GLuint getBoundIndexBuffer() const;
 

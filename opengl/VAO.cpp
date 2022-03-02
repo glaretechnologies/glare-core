@@ -144,20 +144,6 @@ void VAO::unbind()
 }
 
 
-void VAO::bindVertexBuffer(const VBO& vertex_data)
-{
-	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
-	{
-		glBindVertexBuffer(
-			(GLuint)i, // binding index
-			vertex_data.bufferName(), // buffer
-			0, // offset - offset of the first element within the buffer
-			vertex_spec.attributes[i].stride // stride
-		);
-	}
-}
-
-
 GLuint VAO::getBoundVertexBuffer(GLint attribute_index) const
 {
 	glBindVertexArray(handle);
