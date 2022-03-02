@@ -1745,6 +1745,11 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	assert(object->mesh_data.nonNull());
 	//assert(object->mesh_data->vert_vao.nonNull());
 
+	// Check object material indices are in-bounds, so we don't have to check in inner draw loop.
+	for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
+		if(object->mesh_data->batches[i].material_index >= object->materials.size())
+			throw glare::Exception("GLObject material_index is out of bounds.");
+
 	// Compute world space AABB of object
 	updateObjectTransformData(*object.getPointer());
 	
@@ -1783,6 +1788,11 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 {
+	// Check object material indices are in-bounds.
+	for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
+		if(object->mesh_data->batches[i].material_index >= 1)
+			throw glare::Exception("GLObject material_index is out of bounds.");
+
 	current_scene->overlay_objects.insert(object);
 	object->material.shader_prog = overlay_prog;
 }
@@ -3034,19 +3044,16 @@ void OpenGLEngine::draw()
 					for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 					{
 						const uint32 mat_index = mesh_data.batches[z].material_index;
-						if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+						if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
 						{
-							if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
-							{
-								BatchDrawInfo info;
-								info.ob = ob;
-								info.batch = &mesh_data.batches[z];
-								info.mat = &ob->materials[mat_index];
-								info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
-								info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
+							BatchDrawInfo info;
+							info.ob = ob;
+							info.batch = &mesh_data.batches[z];
+							info.mat = &ob->materials[mat_index];
+							info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
+							info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
 
-								batch_draw_info.push_back(info);
-							}
+							batch_draw_info.push_back(info);
 						}
 					}
 				}
@@ -3303,18 +3310,15 @@ void OpenGLEngine::draw()
 							for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 							{
 								const uint32 mat_index = mesh_data.batches[z].material_index;
-								if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+								if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
 								{
-									if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
-									{
-										BatchDrawInfo info;
-										info.ob = ob;
-										info.batch = &mesh_data.batches[z];
-										info.mat = &ob->materials[mat_index];
-										info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
-										info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
-										batch_draw_info.push_back(info);
-									}
+									BatchDrawInfo info;
+									info.ob = ob;
+									info.batch = &mesh_data.batches[z];
+									info.mat = &ob->materials[mat_index];
+									info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
+									info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
+									batch_draw_info.push_back(info);
 								}
 							}
 						}
@@ -3713,7 +3717,6 @@ void OpenGLEngine::draw()
 		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 	}
 
-#if 1
 	// Set instance matrices for imposters.
 	for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
 	{
@@ -3861,19 +3864,16 @@ void OpenGLEngine::draw()
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
 				const uint32 mat_index = mesh_data.batches[z].material_index;
-				if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+				// Draw primitives for the given material
+				if(!ob->materials[mat_index].transparent)
 				{
-					// Draw primitives for the given material
-					if(!ob->materials[mat_index].transparent)
-					{
-						BatchDrawInfo info;
-						info.ob = ob;
-						info.batch = &mesh_data.batches[z];
-						info.mat = &ob->materials[mat_index];
-						info.prog = ob->materials[mat_index].shader_prog.ptr();
-						info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
-						batch_draw_info.push_back(info);
-					}
+					BatchDrawInfo info;
+					info.ob = ob;
+					info.batch = &mesh_data.batches[z];
+					info.mat = &ob->materials[mat_index];
+					info.prog = ob->materials[mat_index].shader_prog.ptr();
+					info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
+					batch_draw_info.push_back(info);
 				}
 			}
 		}
@@ -3902,34 +3902,6 @@ void OpenGLEngine::draw()
 	}
 	last_num_prog_changes = num_prog_changes;
 	last_num_batches_bound = num_batches_bound;
-#else
-	uint64 num_frustum_culled = 0;
-	num_prog_changes = 0;
-	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
-	{
-		const GLObject* const ob = it->getPointer();
-		if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
-		{
-			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-			bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-			{
-				const uint32 mat_index = mesh_data.batches[z].material_index;
-				if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
-				{
-					// Draw primitives for the given material
-					if(!ob->materials[mat_index].transparent)
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]);
-				}
-			}
-		}
-		else
-			num_frustum_culled++;
-
-		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
-	}
-	last_num_prog_changes = num_prog_changes;
-#endif
 
 	if(use_multi_draw_indirect)
 		submitBufferedDrawCommands();
@@ -3965,13 +3937,13 @@ void OpenGLEngine::draw()
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 
-	//================= Draw transparent batches =================
+	//================= Draw triangle batches with transparent materials =================
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, current_scene->dest_blending_factor);
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
 
 
-	//const bool program_changed = checkUseProgram(transparent.ptr());
+	batch_draw_info.resize(0);
 
 	for(auto it = current_scene->transparent_objects.begin(); it != current_scene->transparent_objects.end(); ++it)
 	{
@@ -3979,23 +3951,38 @@ void OpenGLEngine::draw()
 		if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-			//bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
 				const uint32 mat_index = mesh_data.batches[z].material_index;
-				if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
+				if(ob->materials[mat_index].transparent)
 				{
-					// Draw primitives for the given material
-					if(ob->materials[mat_index].transparent)
-					{
-						const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
-						bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed);
-					}
+					BatchDrawInfo info;
+					info.ob = ob;
+					info.batch = &mesh_data.batches[z];
+					info.mat = &ob->materials[mat_index];
+					info.prog = ob->materials[mat_index].shader_prog.ptr();
+					info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
+					batch_draw_info.push_back(info);
 				}
 			}
 		}
+
+		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
+
+	// Sort by shader program
+	std::sort(batch_draw_info.begin(), batch_draw_info.end());
+
+	// Draw sorted batches
+	for(size_t i=0; i<batch_draw_info.size(); ++i)
+	{
+		const BatchDrawInfo& info = batch_draw_info[i];
+		
+		const bool program_changed = checkUseProgram(info.prog);
+		bindMeshData(*info.ob);
+		drawBatch(*info.ob, view_matrix, proj_matrix, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch, program_changed);
+	}
+
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	glDisable(GL_BLEND);
 
@@ -4031,11 +4018,8 @@ void OpenGLEngine::draw()
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 				{
 					const uint32 mat_index = mesh_data.batches[z].material_index;
-					if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
-					{
-						const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
-					}
+					const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
+					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
 				}
 			}
 		}
@@ -4058,11 +4042,8 @@ void OpenGLEngine::draw()
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 				{
 					const uint32 mat_index = mesh_data.batches[z].material_index;
-					if(mat_index < ob->materials.size()) // This can happen for some dodgy meshes.  TODO: Filter such batches out in mesh creation stage.
-					{
-						const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
-						drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
-					}
+					const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
+					drawBatch(*ob, view_matrix, proj_matrix, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], program_changed); // Draw primitives for the given material
 				}
 			}
 		}
