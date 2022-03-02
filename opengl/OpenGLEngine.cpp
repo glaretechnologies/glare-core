@@ -3065,7 +3065,6 @@ void OpenGLEngine::draw()
 			std::sort(batch_draw_info.begin(), batch_draw_info.end());
 
 			// Draw sorted batches
-			num_prog_changes = 0;
 			for(size_t z = 0; z < batch_draw_info.size(); ++z)
 			{
 				const BatchDrawInfo& info = batch_draw_info[z];
@@ -3331,7 +3330,6 @@ void OpenGLEngine::draw()
 				std::sort(batch_draw_info.begin(), batch_draw_info.end());
 
 				// Draw sorted batches
-				num_prog_changes = 0;
 				for(size_t z = 0; z < batch_draw_info.size(); ++z)
 				{
 					const BatchDrawInfo& info = batch_draw_info[z];
@@ -3966,8 +3964,6 @@ void OpenGLEngine::draw()
 				}
 			}
 		}
-
-		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
 
 	// Sort by shader program
