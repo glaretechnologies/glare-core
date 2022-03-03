@@ -29,9 +29,9 @@ struct VertexAttrib
 
 	bool operator < (const VertexAttrib& other) const
 	{
-		if(enabled && !other.enabled)
+		if(!enabled && other.enabled)
 			return true;
-		if(other.enabled && !enabled)
+		if(!other.enabled && enabled)
 			return false;
 
 		if(num_comps < other.num_comps)
@@ -42,6 +42,21 @@ struct VertexAttrib
 		if(type < other.type)
 			return true;
 		else if(other.type < type)
+			return false;
+
+		if(!normalised && other.normalised)
+			return true;
+		if(!other.normalised && normalised)
+			return false;
+
+		if(offset < other.offset)
+			return true;
+		else if(other.offset < offset)
+			return false;
+
+		if(!instancing && other.instancing)
+			return true;
+		if(!other.instancing && instancing)
 			return false;
 
 		return false;
@@ -90,8 +105,12 @@ public:
 	void bindVertexArray() const;
 	static void unbind();
 
+	static GLuint getBoundVAO();
+
 	GLuint getBoundVertexBuffer(GLint attribute_index) const;
 	GLuint getBoundIndexBuffer() const;
+
+	static void test();
 
 private:
 	GLARE_DISABLE_COPY(VAO)

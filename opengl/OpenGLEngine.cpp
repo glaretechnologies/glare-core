@@ -2150,6 +2150,17 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 {
 	assert(mesh_data.vbo_handle.valid());
 
+	// Check current_bound_VAO is correct
+#ifndef NDEBUG
+	{
+		GLuint vao = VAO::getBoundVAO();
+		if(current_bound_VAO == NULL)
+			doRuntimeCheck(vao == 0);
+		else
+			doRuntimeCheck(current_bound_VAO->handle == vao);
+	}
+#endif
+
 #if DO_INDIVIDUAL_VAO_ALLOC
 	mesh_data.individual_vao->bindVertexArray();
 
@@ -2271,6 +2282,21 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 			current_bound_vertex_VBO = NULL; // Since we have changed VAO, we reset our vars for what VBOs the current VAO has bound
 			current_bound_index_VBO = NULL;
 		}
+
+		// Check current_bound_vertex_VBO is correct etc..
+#ifndef NDEBUG
+		{
+			if(current_bound_vertex_VBO != NULL)
+			{
+				doRuntimeCheck(current_bound_vertex_VBO->bufferName() == vao->getBoundVertexBuffer(0));
+			}
+
+			if(current_bound_index_VBO != NULL)
+			{
+				doRuntimeCheck(current_bound_index_VBO->bufferName() == vao->getBoundIndexBuffer());
+			}
+		}
+#endif
 
 		if(current_bound_vertex_VBO != vert_data_vbo)
 		{
@@ -4528,6 +4554,17 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator
 
 void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations& locations)
 {
+	if(!GL_ARB_bindless_texture_support)
+	{
+		assert(locations.diffuse_tex_location >= 0);
+		glUniform1i(locations.diffuse_tex_location, 0);
+		glUniform1i(locations.lightmap_tex_location, 7);
+		glUniform1i(locations.metallic_roughness_tex_location, 10);
+	}
+
+	glUniform1i(locations.backface_diffuse_tex_location, 8);
+	glUniform1i(locations.transmission_tex_location, 9);
+	
 	if(this->cosine_env_tex.nonNull())
 	{
 		glActiveTexture(GL_TEXTURE0 + 3);
@@ -4561,13 +4598,12 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	if(shadow_mapping.nonNull())
 	{
 		glActiveTexture(GL_TEXTURE0 + 1);
-
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
-		glUniform1i(locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
 
 		glActiveTexture(GL_TEXTURE0 + 2);
-
 		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
+
+		glUniform1i(locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
 		glUniform1i(locations.static_depth_tex_location, 2);
 	}
 
@@ -4628,26 +4664,18 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		{
 			glActiveTexture(GL_TEXTURE0 + 0);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
-			assert(locations.diffuse_tex_location >= 0);
-			glUniform1i(locations.diffuse_tex_location, 0);
 		}
 
 		if(opengl_mat.lightmap_texture.nonNull())
 		{
 			glActiveTexture(GL_TEXTURE0 + 7);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
-			assert(locations.lightmap_tex_location >= 0);
-			glUniform1i(locations.lightmap_tex_location, 7);
 		}
 
 		if(opengl_mat.metallic_roughness_texture.nonNull())
 		{
 			glActiveTexture(GL_TEXTURE0 + 10);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
-
-			assert(locations.metallic_roughness_tex_location >= 0);
-			glUniform1i(locations.metallic_roughness_tex_location, 10);
 		}
 	}
 
@@ -4665,8 +4693,6 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		{
 			glActiveTexture(GL_TEXTURE0 + 8);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.backface_albedo_texture->texture_handle);
-			glUniform1i(locations.backface_diffuse_tex_location, 8);
-			assert(locations.backface_diffuse_tex_location >= 0);
 		}
 
 		// Set transmission_texture
@@ -4674,8 +4700,6 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		{
 			glActiveTexture(GL_TEXTURE0 + 9);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.transmission_texture->texture_handle);
-			glUniform1i(locations.transmission_tex_location, 9);
-			assert(locations.transmission_tex_location >= 0);
 		}
 	}
 

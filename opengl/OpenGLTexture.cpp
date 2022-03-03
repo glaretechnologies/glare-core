@@ -594,6 +594,8 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 	{
 		bindless_tex_handle = glGetTextureHandleARB(this->texture_handle);
 
+		assert(bindless_tex_handle != 0);
+
 		glMakeTextureHandleResidentARB(bindless_tex_handle);
 	}
 	return bindless_tex_handle;

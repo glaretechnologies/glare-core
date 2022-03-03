@@ -964,8 +964,8 @@ private:
 	GLenum current_index_type;
 	const OpenGLProgram* current_bound_prog;
 	const VAO* current_bound_VAO;
-	const VBO* current_bound_vertex_VBO;
-	const VBO* current_bound_index_VBO;
+	const VBO* current_bound_vertex_VBO; // Currently bound vertex data buffer, for the current VAO
+	const VBO* current_bound_index_VBO; // Currently bound index buffer, for the current VAO
 
 	js::Vector<PerObjectVertUniforms, 16> MDI_per_object_vert_uniforms;
 	js::Vector<PhongUniforms, 16> MDI_phong_uniforms;

@@ -144,6 +144,14 @@ void VAO::unbind()
 }
 
 
+GLuint VAO::getBoundVAO()
+{
+	GLuint id;
+	glGetIntegerv(GL_VERTEX_ARRAY_BINDING, (GLint*)&id);
+	return id;
+}
+
+
 GLuint VAO::getBoundVertexBuffer(GLint attribute_index) const
 {
 	glBindVertexArray(handle);
@@ -162,3 +170,57 @@ GLuint VAO::getBoundIndexBuffer() const
 	glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, (GLint*)&id);
 	return id;
 }
+
+
+#if BUILD_TESTS
+
+
+#include "../utils/TestUtils.h"
+
+
+static VertexAttrib makeTestAttrib()
+{
+	VertexAttrib attr;
+	attr.enabled = true;
+	attr.num_comps = 3;
+	attr.type = GL_FLOAT;
+	attr.normalised = false;
+	attr.stride = 12;
+	attr.offset = 0;
+	return attr;
+}
+
+
+void VAO::test()
+{
+	//------------------------------ Test VertexSpec ------------------------------
+	{
+		VertexSpec spec_a;
+		spec_a.attributes.push_back(makeTestAttrib());
+
+		VertexSpec spec_b;
+		spec_b.attributes.push_back(makeTestAttrib());
+		
+		testAssert(!(spec_a < spec_b));
+		testAssert(!(spec_b < spec_a));
+
+		spec_b.attributes[0].enabled = false;
+
+		testAssert(spec_b < spec_a);
+		testAssert(!(spec_a < spec_b));
+	}
+	{
+		VertexSpec spec_a;
+		spec_a.attributes.push_back(makeTestAttrib());
+
+		VertexSpec spec_b;
+		spec_b.attributes.push_back(makeTestAttrib());
+		spec_b.attributes.push_back(makeTestAttrib());
+		
+		testAssert(spec_a < spec_b);
+		testAssert(!(spec_b < spec_a));
+	}
+}
+
+
+#endif // BUILD_TESTS
