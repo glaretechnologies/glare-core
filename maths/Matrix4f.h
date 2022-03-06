@@ -760,8 +760,6 @@ void Matrix4f::rightMultiplyWithTranslationMatrix(const Vec4f& translation_vec, 
 // Equivalent to mat * Matrix4f::translationMatrix(translation_vec)
 inline Matrix4f rightTranslate(const Matrix4f& mat, const Vec4f& translation_vec)
 {
-	assert(translation_vec[3] == 0.f);
-
 	/*
 	(m_11   m_12   m_13   m_14)  (1  0  0  t_x) = (m_11   m_12   m_13   m_11.t_x + m_12.t_y + m_13.t_z + m_14)
 	(m_21   m_22   m_23   m_24)  (0  1  0  t_y)   (m_21   m_22   m_23   m_21.t_x + m_22.t_y + m_23.t_z + m_24)
