@@ -99,7 +99,7 @@ OpenGLProgram
 class OpenGLProgram : public RefCounted
 {
 public:
-	OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader);
+	OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader, uint32 program_index);
 	~OpenGLProgram();
 
 	void useProgram() const;
@@ -146,6 +146,8 @@ public:
 	UniformLocations uniform_locations;
 
 	std::vector<UserUniformInfo> user_uniform_info;
+
+	uint32 program_index;
 };
 
 

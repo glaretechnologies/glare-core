@@ -40,6 +40,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/PrintOutput.h"
 #include "../utils/ManagerWithCache.h"
 #include <unordered_set>
+#include <assert.h>
 namespace Indigo { class Mesh; }
 namespace glare { class TaskManager; }
 class Map2D;
@@ -431,28 +432,29 @@ struct FrameBufTextures
 
 struct BatchDrawInfo
 {
+	BatchDrawInfo() {}
+	BatchDrawInfo(uint32 program_index, uint32 vao_id, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key((program_index << 16) | vao_id),
+		batch_i(batch_i_), ob(ob_)
+	{
+		// Assume program index and VAO index is < 2^16, so we can pack them together into one 32 bit uint.
+		assert(program_index < (1 << 16));
+		assert(vao_id < (1 << 16));
+	}
+	uint32 prog_vao_key;
+	uint32 batch_i;
 	const GLObject* ob;
-	const OpenGLBatch* batch;
-	const OpenGLMaterial* mat;
-	const OpenGLProgram* prog;
-	int vao_buffer_id;
+	
 	//uint32 flags; // 1 = use shading normals
 
 	bool operator < (const BatchDrawInfo& other) const
 	{
-		if(prog < other.prog)
+		if(prog_vao_key < other.prog_vao_key)
 			return true;
-		else if(prog > other.prog)
+		else if(prog_vao_key > other.prog_vao_key)
 			return false;
 		else
-		{
-			if(vao_buffer_id < other.vao_buffer_id)
-				return true;
-			else if(vao_buffer_id > other.vao_buffer_id)
-				return false;
-
 			return ob->mesh_data.ptr() < other.ob->mesh_data.ptr();
-		}
 	}
 };
 
@@ -748,6 +750,7 @@ private:
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 public:
 	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }
 
 	glare::TaskManager& getTaskManager();
 
@@ -760,6 +763,7 @@ private:
 	void bindMeshData(const GLObject& ob);
 	bool checkUseProgram(const OpenGLProgram* prog);
 	void submitBufferedDrawCommands();
+	void sortBatchDrawInfos();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -798,6 +802,7 @@ private:
 	OpenGLProgramRef fallback_phong_prog;
 	OpenGLProgramRef fallback_transparent_prog;
 	OpenGLProgramRef fallback_depth_prog;
+	uint32 next_program_index;
 
 	Reference<OpenGLProgram> env_prog;
 	int env_diffuse_colour_location;
@@ -930,6 +935,8 @@ private:
 	uint32 last_num_prog_changes;
 	uint32 num_batches_bound;
 	uint32 last_num_batches_bound;
+	uint32 num_vao_binds;
+	uint32 last_num_vao_binds;
 
 	Timer fps_display_timer;
 	int num_frames_since_fps_timer_reset;

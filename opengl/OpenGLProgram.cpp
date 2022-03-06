@@ -29,7 +29,7 @@ static const std::string getLog(GLuint program)
 }
 
 
-OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_)
+OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_, uint32 program_index_)
 :	program(0),
 	prog_name(prog_name_),
 	campos_ws_loc(-1),
@@ -41,7 +41,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	is_transparent(false),
 	is_depth_draw(false),
 	is_depth_draw_with_alpha_test(false),
-	uses_vert_uniform_buf_obs(false)
+	uses_vert_uniform_buf_obs(false),
+	program_index(program_index_)
 {
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;

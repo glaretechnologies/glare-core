@@ -232,7 +232,11 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_draw_CPU_time(0),
 	last_fps(0),
 	query_profiling_enabled(false),
-	num_frames_since_fps_timer_reset(0)
+	num_frames_since_fps_timer_reset(0),
+	last_num_prog_changes(0),
+	last_num_batches_bound(0),
+	last_num_vao_binds(0),
+	next_program_index(0)
 {
 	use_multi_draw_indirect = false;
 	
@@ -1141,7 +1145,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		env_prog = new OpenGLProgram(
 			"env",
 			new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		env_diffuse_colour_location		= env_prog->getUniformLocation("diffuse_colour");
 		env_have_texture_location		= env_prog->getUniformLocation("have_texture");
@@ -1158,7 +1163,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		overlay_prog = new OpenGLProgram(
 			"overlay",
 			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
 		overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
@@ -1168,19 +1174,22 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		clear_prog = new OpenGLProgram(
 			"clear",
 			new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		
 		outline_prog = new OpenGLProgram(
 			"outline",
 			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 
 		edge_extract_prog = new OpenGLProgram(
 			"edge_extract",
 			new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
 		edge_extract_col_location		= edge_extract_prog->getUniformLocation("col");
@@ -1190,20 +1199,23 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			downsize_prog = new OpenGLProgram(
 				"downsize",
 				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+				getAndIncrNextProgramIndex()
 			);
 
 			gaussian_blur_prog = new OpenGLProgram(
 				"gaussian_blur",
 				new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+				new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+				getAndIncrNextProgramIndex()
 			);
 			gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
 		
 			final_imaging_prog = new OpenGLProgram(
 				"final_imaging",
 				new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER)
+				new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+				getAndIncrNextProgramIndex()
 			);
 			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
 			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
@@ -1334,7 +1346,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
 			"phong",
 			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		phong_prog->uses_phong_uniforms = true;
 		phong_prog->uses_vert_uniform_buf_obs = true;
@@ -1387,7 +1400,8 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"transparent",
 			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		prog->is_transparent = true;
 		prog->uses_vert_uniform_buf_obs = true;
@@ -1423,7 +1437,8 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 		OpenGLProgramRef prog = new OpenGLProgram(
 			shader_name_prefix,
 			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		prog->is_transparent = true;
 		prog->uses_vert_uniform_buf_obs = true;
@@ -1458,7 +1473,8 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"imposter",
 			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		prog->uses_phong_uniforms = true; // Just set to true to use PhongUniforms block
 		prog->uses_vert_uniform_buf_obs = true;
@@ -1509,7 +1525,8 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"depth",
 			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER)
+			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
 		);
 		prog->is_depth_draw = true;
 		prog->is_depth_draw_with_alpha_test = key.alpha_test;
@@ -2281,6 +2298,8 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 			current_bound_VAO = vao;
 			current_bound_vertex_VBO = NULL; // Since we have changed VAO, we reset our vars for what VBOs the current VAO has bound
 			current_bound_index_VBO = NULL;
+			
+			num_vao_binds++;
 		}
 
 		// Check current_bound_vertex_VBO is correct etc..
@@ -2601,6 +2620,12 @@ void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool f
 
 	ob.num_instances_to_draw = (int)temp_matrices.size();
 	ob.instance_matrix_vbo->updateData(temp_matrices.data(), temp_matrices.dataSizeBytes());
+}
+
+
+void OpenGLEngine::sortBatchDrawInfos()
+{
+	std::sort(batch_draw_info.begin(), batch_draw_info.end());
 }
 
 
@@ -3111,16 +3136,13 @@ void OpenGLEngine::draw()
 					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 					for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 					{
-						const uint32 mat_index = mesh_data.batches[z].material_index;
-						if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
+						const OpenGLMaterial& mat = ob->materials[mesh_data.batches[z].material_index];
+						if(!mat.transparent) // Don't draw shadows from transparent obs
 						{
-							BatchDrawInfo info;
-							info.ob = ob;
-							info.batch = &mesh_data.batches[z];
-							info.mat = &ob->materials[mat_index];
-							info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
-							info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
-
+							BatchDrawInfo info(
+								mat.depth_draw_shader_prog->program_index, // program index
+								(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
+								ob, (uint32)z);
 							batch_draw_info.push_back(info);
 						}
 					}
@@ -3129,18 +3151,22 @@ void OpenGLEngine::draw()
 					num_frustum_culled++;
 			}
 
-			// Sort by shader program
-			std::sort(batch_draw_info.begin(), batch_draw_info.end());
+			sortBatchDrawInfos();
 
 			// Draw sorted batches
 			for(size_t z = 0; z < batch_draw_info.size(); ++z)
 			{
 				const BatchDrawInfo& info = batch_draw_info[z];
-				const bool program_changed = checkUseProgram(info.prog);
+				const OpenGLBatch& batch = info.ob->mesh_data->batches[info.batch_i];
+				const OpenGLMaterial& mat = info.ob->materials[batch.material_index];
+				const OpenGLProgram* prog = mat.depth_draw_shader_prog.ptr();
+
+				const bool program_changed = checkUseProgram(prog);
 				if(program_changed)
-					setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
+					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 				bindMeshData(*info.ob);
-				drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
+				
+				drawBatch(*info.ob, mat, *prog, *info.ob->mesh_data, batch);
 			}
 			if(use_multi_draw_indirect)
 				submitBufferedDrawCommands();
@@ -3378,15 +3404,13 @@ void OpenGLEngine::draw()
 							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 							for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 							{
-								const uint32 mat_index = mesh_data.batches[z].material_index;
-								if(!ob->materials[mat_index].transparent) // Don't draw shadows from transparent obs
+								const OpenGLMaterial& mat = ob->materials[mesh_data.batches[z].material_index];
+								if(!mat.transparent) // Don't draw shadows from transparent obs
 								{
-									BatchDrawInfo info;
-									info.ob = ob;
-									info.batch = &mesh_data.batches[z];
-									info.mat = &ob->materials[mat_index];
-									info.prog = ob->materials[mat_index].depth_draw_shader_prog.ptr();
-									info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
+									BatchDrawInfo info(
+										mat.depth_draw_shader_prog->program_index, // program index
+										(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
+										ob, (uint32)z);
 									batch_draw_info.push_back(info);
 								}
 							}
@@ -3396,18 +3420,22 @@ void OpenGLEngine::draw()
 					}
 				}
 
-				// Sort by shader program
-				std::sort(batch_draw_info.begin(), batch_draw_info.end());
+				sortBatchDrawInfos();
 
 				// Draw sorted batches
 				for(size_t z = 0; z < batch_draw_info.size(); ++z)
 				{
 					const BatchDrawInfo& info = batch_draw_info[z];
-					const bool program_changed = checkUseProgram(info.prog);
+					const OpenGLBatch& batch = info.ob->mesh_data->batches[info.batch_i];
+					const OpenGLMaterial& mat = info.ob->materials[batch.material_index];
+					const OpenGLProgram* prog = mat.depth_draw_shader_prog.ptr();
+
+					const bool program_changed = checkUseProgram(prog);
 					if(program_changed)
-						setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
+						setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 					bindMeshData(*info.ob);
-					drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
+					
+					drawBatch(*info.ob, mat, *prog, *info.ob->mesh_data, batch);
 				}
 				if(use_multi_draw_indirect)
 					submitBufferedDrawCommands();
@@ -3937,16 +3965,14 @@ void OpenGLEngine::draw()
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
-				const uint32 mat_index = mesh_data.batches[z].material_index;
+				const OpenGLMaterial& mat = ob->materials[mesh_data.batches[z].material_index];
 				// Draw primitives for the given material
-				if(!ob->materials[mat_index].transparent)
+				if(!mat.transparent)
 				{
-					BatchDrawInfo info;
-					info.ob = ob;
-					info.batch = &mesh_data.batches[z];
-					info.mat = &ob->materials[mat_index];
-					info.prog = ob->materials[mat_index].shader_prog.ptr();
-					info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
+					BatchDrawInfo info(
+						mat.shader_prog->program_index, // program index
+						(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
+						ob, (uint32)z);
 					batch_draw_info.push_back(info);
 				}
 			}
@@ -3957,28 +3983,32 @@ void OpenGLEngine::draw()
 		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
 
-	// Sort by shader program
-	std::sort(batch_draw_info.begin(), batch_draw_info.end());
+	sortBatchDrawInfos();
 
 	// Draw sorted batches
 	num_prog_changes = 0;
 	num_batches_bound = 0;
+	num_vao_binds = 0;
 
 	for(size_t i=0; i<batch_draw_info.size(); ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info[i];
+		const OpenGLBatch& batch = info.ob->mesh_data->batches[info.batch_i];
+		const OpenGLMaterial& mat = info.ob->materials[batch.material_index];
+		const OpenGLProgram* prog = mat.shader_prog.ptr();
 		
-		const bool program_changed = checkUseProgram(info.prog);
+		const bool program_changed = checkUseProgram(prog);
 		if(program_changed)
-			setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
+			setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 
 		bindMeshData(*info.ob);
 		num_batches_bound++;
 
-		drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
+		drawBatch(*info.ob, mat, *prog, *info.ob->mesh_data, batch);
 	}
 	last_num_prog_changes = num_prog_changes;
 	last_num_batches_bound = num_batches_bound;
+	last_num_vao_binds = num_vao_binds;
 
 	if(use_multi_draw_indirect)
 		submitBufferedDrawCommands();
@@ -4032,35 +4062,36 @@ void OpenGLEngine::draw()
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
-				const uint32 mat_index = mesh_data.batches[z].material_index;
-				if(ob->materials[mat_index].transparent)
+				const OpenGLMaterial& mat = ob->materials[mesh_data.batches[z].material_index];
+				if(mat.transparent)
 				{
-					BatchDrawInfo info;
-					info.ob = ob;
-					info.batch = &mesh_data.batches[z];
-					info.mat = &ob->materials[mat_index];
-					info.prog = ob->materials[mat_index].shader_prog.ptr();
-					info.vao_buffer_id = (int)ob->mesh_data->vbo_handle.per_spec_data_index;
+					BatchDrawInfo info(
+						mat.shader_prog->program_index, // program index
+						(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
+						ob, (uint32)z);
 					batch_draw_info.push_back(info);
 				}
 			}
 		}
 	}
 
-	// Sort by shader program
-	std::sort(batch_draw_info.begin(), batch_draw_info.end());
+	sortBatchDrawInfos();
 
 	// Draw sorted batches
 	for(size_t i=0; i<batch_draw_info.size(); ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info[i];
-		
-		const bool program_changed = checkUseProgram(info.prog);
+		const OpenGLBatch& batch = info.ob->mesh_data->batches[info.batch_i];
+		const OpenGLMaterial& mat = info.ob->materials[batch.material_index];
+		const OpenGLProgram* prog = mat.shader_prog.ptr();
+
+		const bool program_changed = checkUseProgram(prog);
 		if(program_changed)
-			setSharedUniformsForProg(*info.prog, view_matrix, proj_matrix);
+			setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 
 		bindMeshData(*info.ob);
-		drawBatch(*info.ob, *info.mat, *info.prog, *info.ob->mesh_data, *info.batch);
+		
+		drawBatch(*info.ob, mat, *prog, *info.ob->mesh_data, batch);
 	}
 
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -5668,6 +5699,7 @@ std::string OpenGLEngine::getDiagnostics() const
 
 	s += "Num obs in view frustum: " + toString(last_num_obs_in_frustum) + "\n";
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
+	s += "Num VAO binds: " + toString(last_num_vao_binds) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
 
 	s += "FPS: " + doubleToStringNDecimalPlaces(last_fps, 1) + "\n";
