@@ -236,7 +236,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_prog_changes(0),
 	last_num_batches_bound(0),
 	last_num_vao_binds(0),
-	next_program_index(0)
+	next_program_index(0),
+	use_bindless_textures(false)
 {
 	use_multi_draw_indirect = false;
 	
@@ -1080,6 +1081,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		if(is_intel_on_mac)
 			settings.shadow_mapping = false; // Shadow mapping with Intel drivers on Mac just seems to cause crashes, so disable shadow mapping.
 
+		// Don't use bindless textures with Intel drivers/GPUs, they don't seem to work properly.  (Deadstock was having issues with textures being seemingly randomly assigned)
+		use_bindless_textures = GL_ARB_bindless_texture_support && !is_intel_vendor;
+
 
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
@@ -1102,13 +1106,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		const bool static_cascade_blending = !is_intel_vendor;
 		preprocessor_defines += "#define DO_STATIC_SHADOW_MAP_CASCADE_BLENDING " + (static_cascade_blending ? std::string("1") : std::string("0")) + "\n";
 
-		preprocessor_defines += "#define USE_BINDLESS_TEXTURES " + (GL_ARB_bindless_texture_support ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define USE_BINDLESS_TEXTURES " + (use_bindless_textures ? std::string("1") : std::string("0")) + "\n";
 		
 
 		preprocessor_defines += "#define USE_MULTIDRAW_ELEMENTS_INDIRECT " + (use_multi_draw_indirect ? std::string("1") : std::string("0")) + "\n";
 
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
-		this->version_directive = GL_ARB_bindless_texture_support ? "#version 400 core" : "#version 330 core";
+		this->version_directive = use_bindless_textures ? "#version 400 core" : "#version 330 core";
 
 		if(use_multi_draw_indirect)
 			this->version_directive = "#version 460 core";
@@ -4585,7 +4589,7 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator
 
 void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations& locations)
 {
-	if(!GL_ARB_bindless_texture_support)
+	if(!use_bindless_textures)
 	{
 		assert(locations.diffuse_tex_location >= 0);
 		glUniform1i(locations.diffuse_tex_location, 0);
@@ -4665,7 +4669,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	};
 	std::memcpy(uniforms.texture_matrix, tex_elems, sizeof(float) * 12);
 
-	if(this->GL_ARB_bindless_texture_support)
+	if(this->use_bindless_textures)
 	{
 		if(opengl_mat.albedo_texture.nonNull())
 			uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
@@ -4689,7 +4693,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 
 	//if(locations.sundir_cs_location >= 0)            glUniform4fv(locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 
-	if(!this->GL_ARB_bindless_texture_support)
+	if(!this->use_bindless_textures)
 	{
 		if(opengl_mat.albedo_texture.nonNull())
 		{
@@ -4925,7 +4929,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			};
 			std::memcpy(uniforms.texture_matrix, tex_elems, sizeof(float) * 12);
 
-			if(this->GL_ARB_bindless_texture_support)
+			if(this->use_bindless_textures)
 			{
 				if(opengl_mat.albedo_texture.nonNull())
 					uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
@@ -5725,7 +5729,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "GLSL version: " + glsl_version + "\n";
 	s += "texture sRGB support: " + boolToString(GL_EXT_texture_sRGB_support) + "\n";
 	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support) + "\n";
-	s += "bindless texture support: " + boolToString(GL_ARB_bindless_texture_support);
+	s += "using bindless textures: " + boolToString(use_bindless_textures);
 
 	return s;
 }

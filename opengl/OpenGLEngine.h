@@ -914,6 +914,7 @@ public:
 	bool GL_EXT_texture_compression_s3tc_support;
 	bool GL_ARB_bindless_texture_support;
 	float max_anisotropy;
+	bool use_bindless_textures;
 
 	OpenGLEngineSettings settings;
 
