@@ -44,9 +44,6 @@ namespace Sort
 	template <class T, class BucketChooser>
 	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_chooser);
 
-	template <class T, class BucketChooser>
-	inline void serialCountingSort(const T* in, T* out, size_t num, BucketChooser bucket_chooser);
-
 	// For when num buckets is already known.
 	template <class T, class BucketChooser>
 	inline void serialCountingSortWithNumBuckets(const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser);
