@@ -130,6 +130,8 @@ public:
 
 	static void test();
 
+	double getSourceDuration() const;
+
 	// NOTE: be careful using this with async callbacks, may not match current frame.  Better to use the values in FrameInfo instead.
 	const FormatInfo& getCurrentFormat() { return current_format; }
 

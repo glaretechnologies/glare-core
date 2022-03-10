@@ -425,6 +425,14 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 	}
 	else
 	{
+		// Set thread priority.  NOTE: doesn't fix stuttering issue.
+		/*hr = pAttributes->SetString(MF_READWRITE_MMCSS_CLASS_AUDIO, L"Games");
+		if(!SUCCEEDED(hr))
+			throw glare::Exception("failure: " + PlatformUtils::COMErrorString(hr));
+		hr = pAttributes->SetUINT32(MF_READWRITE_MMCSS_PRIORITY_AUDIO, 1);
+		if(!SUCCEEDED(hr))
+			throw glare::Exception("failure: " + PlatformUtils::COMErrorString(hr));*/
+
 		// Create the source reader.
 		//Timer timer2;
 		hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
@@ -517,6 +525,23 @@ WMFVideoReader::~WMFVideoReader()
 		it->Release();
 
 	//conPrint("Shutting down WMFVideoReader took " + timer.elapsedString());
+}
+
+
+double WMFVideoReader::getSourceDuration() const
+{
+	if(reader.ptr)
+	{
+		PROPVARIANT prop;
+		PropVariantInit(&prop);
+		const HRESULT hr = reader.ptr->GetPresentationAttribute((DWORD)MF_SOURCE_READER_MEDIASOURCE, MF_PD_DURATION, &prop);
+		if(!SUCCEEDED(hr))
+			throw glare::Exception("Failed to get source length: " + PlatformUtils::COMErrorString(hr));
+		PropVariantClear(&prop);
+		return prop.uhVal.QuadPart * 1.0e-7; // MF_PD_DURATION returns a value in 100ns units.
+	}
+	else
+		return 0;
 }
 
 
