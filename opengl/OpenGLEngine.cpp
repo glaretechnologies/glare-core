@@ -49,6 +49,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Check.h"
 #include <algorithm>
 
+//#include "Superluminal/PerformanceAPI_capi.h"
+
 
 static const bool MEM_PROFILE = false;
 
@@ -2638,6 +2640,8 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	//PerformanceAPI_BeginEvent("draw", NULL, PERFORMANCEAPI_DEFAULT_COLOR);
+
 	// Some other code (e.g. Qt) may have bound some other buffer since the last draw() call.  So reset all this stuff.
 	current_index_type = 0;
 	current_bound_prog = NULL;
@@ -4472,6 +4476,8 @@ void OpenGLEngine::draw()
 	}
 
 	frame_num++;
+
+	//PerformanceAPI_EndEvent();
 }
 
 
@@ -4539,6 +4545,113 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 void OpenGLEngine::buildMeshRenderData(VertexBufferAllocator& allocator, OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
 {
 	GLMeshBuilding::buildMeshRenderData(allocator, meshdata, vertices, normals, uvs, indices);
+}
+
+
+std::string MeshDataLoadingProgress::summaryString() const
+{ 
+	return "vert data: " + toString(vert_next_i) + " / " + toString(vert_total_size_B) + " B, index data: " + toString(index_next_i) + "/" + toString(index_total_size_B) + " B";
+}
+
+
+void OpenGLEngine::initialiseLoadingProgress(OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress)
+{
+	loading_progress.vert_next_i = 0;
+	loading_progress.index_next_i = 0;
+
+	if(data.batched_mesh.nonNull())
+	{
+		loading_progress.vert_total_size_B = data.batched_mesh->vertex_data.dataSizeBytes();
+		loading_progress.index_total_size_B = data.batched_mesh->index_data.dataSizeBytes();
+	}
+	else
+	{
+		loading_progress.vert_total_size_B = data.vert_data.dataSizeBytes();
+
+		if(!data.vert_index_buffer_uint8.empty())
+			loading_progress.index_total_size_B = data.vert_index_buffer_uint8.dataSizeBytes();
+		else if(!data.vert_index_buffer_uint16.empty())
+			loading_progress.index_total_size_B = data.vert_index_buffer_uint16.dataSizeBytes();
+		else
+			loading_progress.index_total_size_B = data.vert_index_buffer.dataSizeBytes();
+	}
+
+	assert(loading_progress.vert_total_size_B > 0);
+	assert(loading_progress.index_total_size_B > 0);
+}
+
+
+void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress)
+{
+	assert(!loading_progress.done());
+
+	const size_t max_chunk_size = 512 * 1024;
+
+	if(!data.vbo_handle.valid())
+		data.vbo_handle = allocator.allocate(data.vertex_spec, /*data=*/NULL, loading_progress.vert_total_size_B); // Just allocate the buffer, don't upload
+
+	if(!data.indices_vbo_handle.valid()) // loading_progress.index_next_i == 0)
+		data.indices_vbo_handle = allocator.allocateIndexData(/*data=*/NULL, loading_progress.index_total_size_B); // Just allocate the buffer, don't upload
+
+	if(data.batched_mesh.nonNull())
+	{
+		assert(loading_progress.vert_total_size_B == data.batched_mesh->vertex_data.dataSizeBytes());
+		assert(loading_progress.index_total_size_B == data.batched_mesh->index_data.dataSizeBytes());
+
+		// Upload a chunk of vertex data, if not finished uploading it already.
+		if(loading_progress.vert_next_i < loading_progress.vert_total_size_B)
+		{
+			const size_t chunk_size = myMin(max_chunk_size, loading_progress.vert_total_size_B - loading_progress.vert_next_i);
+			data.vbo_handle.vbo->updateData(/*offset=*/data.vbo_handle.offset + loading_progress.vert_next_i, /*data=*/data.batched_mesh->vertex_data.data() + loading_progress.vert_next_i, 
+				/*data_size=*/chunk_size);
+			loading_progress.vert_next_i += chunk_size;
+		}
+		else
+		{
+			// Upload a chunk of index data, if not finished uploading it already.
+			if(loading_progress.index_next_i < loading_progress.index_total_size_B)
+			{
+				const size_t chunk_size = myMin(max_chunk_size, loading_progress.index_total_size_B - loading_progress.index_next_i);
+				data.indices_vbo_handle.index_vbo->updateData(/*offset=*/data.indices_vbo_handle.offset + loading_progress.index_next_i, /*data=*/data.batched_mesh->index_data.data() + loading_progress.index_next_i, 
+					/*data_size=*/chunk_size);
+				loading_progress.index_next_i += chunk_size;
+			}
+		}
+	}
+	else
+	{
+		// Upload a chunk of vertex data, if not finished uploading it already.
+		if(loading_progress.vert_next_i < loading_progress.vert_total_size_B)
+		{
+			const size_t chunk_size = myMin(max_chunk_size, loading_progress.vert_total_size_B - loading_progress.vert_next_i);
+			data.vbo_handle.vbo->updateData(/*offset=*/data.vbo_handle.offset + loading_progress.vert_next_i, data.vert_data.data() + loading_progress.vert_next_i, chunk_size);
+			loading_progress.vert_next_i += chunk_size;
+		}
+		else
+		{
+			const uint8* src_data;
+			if(!data.vert_index_buffer_uint8.empty())
+			{
+				src_data = data.vert_index_buffer_uint8.data();
+			}
+			else if(!data.vert_index_buffer_uint16.empty())
+			{
+				src_data = (const uint8*)data.vert_index_buffer_uint16.data();
+			}
+			else
+			{
+				src_data = (const uint8*)data.vert_index_buffer.data();
+			}
+
+			// Upload a chunk of index data, if not finished uploading it already.
+			if(loading_progress.index_next_i < loading_progress.index_total_size_B)
+			{
+				const size_t chunk_size = myMin(max_chunk_size, loading_progress.index_total_size_B - loading_progress.index_next_i);
+				data.indices_vbo_handle.index_vbo->updateData(/*offset=*/data.indices_vbo_handle.offset + loading_progress.index_next_i, src_data + loading_progress.index_next_i, chunk_size);
+				loading_progress.index_next_i += chunk_size;
+			}
+		}
+	}
 }
 
 

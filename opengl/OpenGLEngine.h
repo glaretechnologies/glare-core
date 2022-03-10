@@ -523,6 +523,21 @@ struct DrawElementsIndirectCommand
 };
 
 
+struct MeshDataLoadingProgress
+{
+	MeshDataLoadingProgress() : vert_total_size_B(0), vert_next_i(0), index_total_size_B(0), index_next_i(0) {}
+
+	bool done() { return vert_next_i >= vert_total_size_B && index_next_i >= index_total_size_B; }
+
+	std::string summaryString() const;
+
+	size_t vert_total_size_B;
+	size_t vert_next_i;
+	size_t index_total_size_B;
+	size_t index_next_i;
+};
+
+
 class OpenGLEngine : public ThreadSafeRefCounted
 {
 public:
@@ -677,6 +692,9 @@ public:
 	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
 
 	static void buildMeshRenderData(VertexBufferAllocator& allocator, OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
+
+	static void initialiseLoadingProgress(OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress);
+	static void partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress);
 
 	static void loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data);
 	//---------------------------- End mesh functions ----------------------------------------
