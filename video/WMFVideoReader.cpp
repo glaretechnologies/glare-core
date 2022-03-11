@@ -309,6 +309,12 @@ static void configureAudioStream(IMFSourceReader *pReader, DWORD dwStreamIndex, 
 	if(FAILED(hr))
 		throw glare::Exception("GetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
 
+	/*GUID val;
+	hr = uncompressed_audio_type->GetGUID(MF_MT_MAJOR_TYPE, &val);
+	throwOnError(hr);
+	hr = uncompressed_audio_type->GetGUID(MF_MT_SUBTYPE, &val);
+	throwOnError(hr);*/
+
 	hr = uncompressed_audio_type->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &format_out.num_channels);
 	throwOnError(hr);
 	hr = uncompressed_audio_type->GetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, &format_out.bits_per_sample);
@@ -321,6 +327,14 @@ static void configureAudioStream(IMFSourceReader *pReader, DWORD dwStreamIndex, 
 	if(FAILED(hr))
 		throw glare::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
 }
+
+
+//static bool isStreamValid(ComObHandle<IMFSourceReader>& reader, DWORD stream_index)
+//{
+//	ComObHandle<IMFMediaType> media_type;
+//	HRESULT hr = reader->GetCurrentMediaType(/*stream index=*/stream_index, &media_type.ptr);
+//	return !FAILED(hr);
+//}
 
 
 static bool isStreamVideo(ComObHandle<IMFSourceReader>& reader, DWORD stream_index)
@@ -441,10 +455,26 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 		//conPrint("MFCreateSourceReaderFromURL took " + timer2.elapsedString());
 	}
 
-	if(!just_read_audio)
-		configureVideoDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->current_format);
+	try
+	{
+		if(!just_read_audio)
+			configureVideoDecoder(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, this->current_format);
+	}
+	catch(glare::Exception& e)
+	{
+		throw glare::Exception("Error while configuring video stream: " + e.what());
+	}
 
-	configureAudioStream(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, this->current_format);
+	//const bool have_audio_stream = isStreamValid(this->reader, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM);
+
+	try
+	{
+		configureAudioStream(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, this->current_format);
+	}
+	catch(glare::Exception& e)
+	{
+		throw glare::Exception("Error while configuring audio stream: " + e.what());
+	}
 
 	// Work out what streams we have on various indices
 	for(int i=0; i<10; ++i) // Bit of a hack going to 10.  TODO: work out how to get how many streams there are.
@@ -1109,7 +1139,9 @@ void WMFVideoReader::test()
 		//const std::string URL = "https://fnd.fleek.co/fnd-prod/QmZD6JqWswoDRjpbFmVXkQ8jDbFd6rEuit3wboFD4z8XEe/nft.mp4"; // 17 s
 		//const std::string URL = "E:\\video\\busted.mp4"; // 9 s
 		//const std::string URL = "E:\\video\\aura_amethyst.mp4"; // has sound
-		const std::string URL = "D:\\audio\\signer - Isolated Dreams EP10\\signer - Isolated Dreams EP10 - 01 271 Redux- No sales pitch.mp3";
+		//const std::string URL = "D:\\audio\\signer - Isolated Dreams EP10\\signer - Isolated Dreams EP10 - 01 271 Redux- No sales pitch.mp3";
+		const std::string URL = "C:\\Users\\nick\\Downloads\\take2.mp4";
+		//const std::string URL = "D:\\video\\gannet.MP4";
 
 		ThreadSafeQueue<Reference<SampleInfo>> frame_queue;
 		TestWMFVideoReaderCallback callback;
@@ -1127,7 +1159,7 @@ void WMFVideoReader::test()
 		ComObHandle<IMFDXGIDeviceManager> device_manager;
 		Direct3DUtils::createGPUDeviceAndMFDeviceManager(d3d_device, device_manager);
 
-		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/true, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/true);
+		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/true);
 
 		conPrint("Reader construction took " + timer.elapsedString());
 		
