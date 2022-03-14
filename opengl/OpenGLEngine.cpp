@@ -48,20 +48,29 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Sort.h"
 #include "../utils/Check.h"
 #include <algorithm>
-
-//#include "Superluminal/PerformanceAPI_capi.h"
+#include "superluminal/PerformanceAPI.h"
 
 
 static const bool MEM_PROFILE = false;
 
 
 // https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_filter_anisotropic.txt
-#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
-#define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT				0x84FF
+#define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT			0x8E8F
 
 // See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
-#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT						0x83F0
-#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
+#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT				0x83F0
+#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT			0x83F3
+
+// https://developer.download.nvidia.com/opengl/specs/GL_NVX_gpu_memory_info.txt
+#define GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX			0x9047
+#define GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX		0x9048
+#define GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX	0x9049
+
+// https://www.khronos.org/registry/OpenGL/extensions/ATI/ATI_meminfo.txt
+#define VBO_FREE_MEMORY_ATI								0x87FB
+#define TEXTURE_FREE_MEMORY_ATI							0x87FC
+
 
 
 void GLObject::enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size)
@@ -122,7 +131,6 @@ GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
 		vert_data.capacitySizeBytes() +
 		vert_index_buffer.capacitySizeBytes() +
 		vert_index_buffer_uint16.capacitySizeBytes() +
-		vert_index_buffer_uint8.capacitySizeBytes() +
 		vert_index_buffer_uint8.capacitySizeBytes() +
 		(batched_mesh.nonNull() ? batched_mesh->getTotalMemUsage() : 0);
 
@@ -238,6 +246,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_prog_changes(0),
 	last_num_batches_bound(0),
 	last_num_vao_binds(0),
+	last_num_vbo_binds(0),
 	next_program_index(0),
 	use_bindless_textures(false)
 {
@@ -262,6 +271,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	texture_data_manager = new TextureDataManager();
 	
 	max_tex_mem_usage = settings.max_tex_mem_usage;
+
+	vert_buf_allocator = new VertexBufferAllocator();
 }
 
 
@@ -271,6 +282,9 @@ OpenGLEngine::~OpenGLEngine()
 	for(auto it = opengl_textures.begin(); it != opengl_textures.end(); ++it)
 		it->second.value->m_opengl_engine = NULL;
 	opengl_textures.clear();
+
+	current_scene = NULL;
+	scenes.clear();
 
 	delete task_manager;
 }
@@ -959,6 +973,52 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	this->GL_ARB_bindless_texture_support = false;
 #endif
 
+	// Query amount of GPU RAM available.  See https://stackoverflow.com/questions/4552372/determining-available-video-memory
+	this->total_available_GPU_mem_B = 0;
+	this->total_available_GPU_VBO_mem_B = 0;
+
+	// For nvidia drivers:
+	if(StringUtils::containsString(::toLowerCase(opengl_vendor), "nvidia"))
+	{
+		GLint available_kB = 0;
+		glGetIntegerv(GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &available_kB);
+		GLenum code = glGetError();
+		if(code == GL_NO_ERROR)
+		{
+			this->total_available_GPU_mem_B = (uint64)available_kB * 1024;
+		}
+	}
+
+	// For AMD drivers:
+	if(StringUtils::containsString(::toLowerCase(opengl_vendor), "amd"))
+	{
+		GLint available_kB[4] = { 0, 0, 0, 0 };
+		glGetIntegerv(VBO_FREE_MEMORY_ATI, available_kB); // "The query returns a 4-tuple integer where the values are in Kbyte ..."
+		GLenum code = glGetError();
+		if(code == GL_NO_ERROR)
+		{
+			this->total_available_GPU_VBO_mem_B = (uint64)available_kB[0] * 1024; // "param[0] - total memory free in the pool": https://www.khronos.org/registry/OpenGL/extensions/ATI/ATI_meminfo.txt
+		}
+	}
+
+	// Work out a good size to use for VBOs.
+	// If the VBO size is much too small (like 8MB), some allocations won't fit in an empty VBO.
+	// If the VBO size is a little too small, then multiple VBOs will be allocated and we will have to pay the driver overhead of changing VBO bindings.
+	// if the VBO size is much to big, and it can't actually fit in GPU RAM, it will be allocated in host RAM (tested on RTX 3080), which results in catastrophically bad performance)
+	// Note that the VBO size will be used individually for both vertex and index data.
+	if(this->total_available_GPU_mem_B != 0)
+	{
+		vert_buf_allocator->use_VBO_size_B = this->total_available_GPU_mem_B / 16;
+	}
+	else if(this->total_available_GPU_VBO_mem_B != 0)
+	{
+		// NOTE: what's the relation between VBO mem available and total mem available?
+		vert_buf_allocator->use_VBO_size_B = this->total_available_GPU_VBO_mem_B / 16;
+	}
+	else
+		vert_buf_allocator->use_VBO_size_B = 64 * 1024 * 1024; // A resonably small size, needs to work well for weaker GPUs
+
+
 	// Init TextureLoading (in particular stb_compress_dxt lib) before it's called from multiple threads
 	TextureLoading::init();
 
@@ -972,10 +1032,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		glGenQueries(1, &timer_query_id);
 #endif
 
-	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(vert_buf_allocator);
-	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(vert_buf_allocator);
-	this->cube_meshdata = MeshPrimitiveBuilding::makeCubeMesh(vert_buf_allocator);
-	this->unit_quad_meshdata = MeshPrimitiveBuilding::makeUnitQuadMesh(vert_buf_allocator);
+	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(*vert_buf_allocator);
+	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(*vert_buf_allocator);
+	this->cube_meshdata = MeshPrimitiveBuilding::makeCubeMesh(*vert_buf_allocator);
+	this->unit_quad_meshdata = MeshPrimitiveBuilding::makeUnitQuadMesh(*vert_buf_allocator);
 
 	this->current_scene->env_ob->mesh_data = sphere_meshdata;
 
@@ -2192,7 +2252,7 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 	assert(mesh_data.individual_vao->getBoundIndexBuffer() == mesh_data.indices_vbo_handle.index_vbo->bufferName());
 #else
 
-	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator.per_spec_data[mesh_data.vbo_handle.per_spec_data_index];
+	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator->per_spec_data[mesh_data.vbo_handle.per_spec_data_index];
 
 	// Get the buffers we want to use for this batch.
 	const GLenum index_type = mesh_data.index_type;
@@ -2218,6 +2278,7 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 			current_bound_VAO = vao;
 			current_bound_vertex_VBO = NULL; // Since we have changed VAO, reset our vars for what VBOs the current VAO has bound.
 			current_bound_index_VBO = NULL;
+			num_vao_binds++;
 		}
 
 		if(current_bound_vertex_VBO != vert_data_vbo)
@@ -2233,6 +2294,7 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 			);
 
 			current_bound_vertex_VBO = vert_data_vbo;
+			num_vbo_binds++;
 		}
 
 		if(current_bound_index_VBO != index_vbo)
@@ -2272,7 +2334,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 #else
 
-	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator.per_spec_data[ob.mesh_data->vbo_handle.per_spec_data_index];
+	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator->per_spec_data[ob.mesh_data->vbo_handle.per_spec_data_index];
 
 	// Check to see if we should use the object's VAO that has the instance matrix stuff
 
@@ -2336,6 +2398,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 			);
 
 			current_bound_vertex_VBO = vert_data_vbo;
+			num_vbo_binds++;
 		}
 
 		if(current_bound_index_VBO != index_vbo)
@@ -2479,7 +2542,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 	{
 		debug_arrow_ob = new GLObject();
 		if(arrow_meshdata.isNull())
-			arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(vert_buf_allocator); // tip lies at (1,0,0).
+			arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(*vert_buf_allocator); // tip lies at (1,0,0).
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
@@ -2683,7 +2746,7 @@ void OpenGLEngine::draw()
 				for(size_t i=0; i<debug_joint_obs.size(); ++i)
 				{
 					debug_joint_obs[i] = new GLObject();
-					debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
+					debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(*vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
 					debug_joint_obs[i]->materials.resize(3);
 					debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
 					debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
@@ -3997,6 +4060,7 @@ void OpenGLEngine::draw()
 	num_prog_changes = 0;
 	num_batches_bound = 0;
 	num_vao_binds = 0;
+	num_vbo_binds = 0;
 
 	for(size_t i=0; i<batch_draw_info.size(); ++i)
 	{
@@ -4017,6 +4081,7 @@ void OpenGLEngine::draw()
 	last_num_prog_changes = num_prog_changes;
 	last_num_batches_bound = num_batches_bound;
 	last_num_vao_binds = num_vao_binds;
+	last_num_vbo_binds = num_vbo_binds;
 
 	if(use_multi_draw_indirect)
 		submitBufferedDrawCommands();
@@ -4484,7 +4549,7 @@ void OpenGLEngine::draw()
 Reference<OpenGLMeshRenderData> OpenGLEngine::getCylinderMesh() // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 {
 	if(cylinder_meshdata.isNull())
-		cylinder_meshdata = MeshPrimitiveBuilding::makeCylinderMesh(vert_buf_allocator);
+		cylinder_meshdata = MeshPrimitiveBuilding::makeCylinderMesh(*vert_buf_allocator);
 	return cylinder_meshdata;
 }
 
@@ -4514,7 +4579,7 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 	ob->ob_to_world_matrix = arrowObjectTransform(startpos, endpos, radius_scale);
 
 	if(arrow_meshdata.isNull())
-		arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(vert_buf_allocator);
+		arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(*vert_buf_allocator);
 	ob->mesh_data = arrow_meshdata;
 	ob->materials.resize(1);
 	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
@@ -4651,6 +4716,17 @@ void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& al
 				loading_progress.index_next_i += chunk_size;
 			}
 		}
+	}
+
+	if(loading_progress.done())
+	{
+		// Now that data has been uploaded, free the host buffers.
+		data.vert_data.clearAndFreeMem();
+		data.vert_index_buffer_uint8.clearAndFreeMem();
+		data.vert_index_buffer_uint16.clearAndFreeMem();
+		data.vert_index_buffer.clearAndFreeMem();
+
+		data.batched_mesh = NULL;
 	}
 }
 
@@ -5817,6 +5893,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num obs in view frustum: " + toString(last_num_obs_in_frustum) + "\n";
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
 	s += "Num VAO binds: " + toString(last_num_vao_binds) + "\n";
+	s += "Num VBO binds: " + toString(last_num_vbo_binds) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
 
 	s += "FPS: " + doubleToStringNDecimalPlaces(last_fps, 1) + "\n";

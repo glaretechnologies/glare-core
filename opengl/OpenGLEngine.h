@@ -956,6 +956,8 @@ private:
 	uint32 last_num_batches_bound;
 	uint32 num_vao_binds;
 	uint32 last_num_vao_binds;
+	uint32 num_vbo_binds;
+	uint32 last_num_vbo_binds;
 
 	Timer fps_display_timer;
 	int num_frames_since_fps_timer_reset;
@@ -1005,7 +1007,10 @@ public:
 
 	uint64 max_tex_mem_usage;
 
-	VertexBufferAllocator vert_buf_allocator;
+	VertexBufferAllocatorRef vert_buf_allocator;
+
+	uint64 total_available_GPU_mem_B; // Set by NVidia drivers
+	uint64 total_available_GPU_VBO_mem_B; // Set by AMD drivers
 };
 
 
