@@ -104,9 +104,9 @@ public:
 	std::vector<JSONNode> nodes;
 private:
 	std::string parseString(Parser& p);
-	uint32 parseNode(Parser& p);
-	uint32 parseObject(Parser& p);
-	uint32 parseArray(Parser& p);
+	uint32 parseNode(Parser& p, int depth);
+	uint32 parseObject(Parser& p, int depth);
+	uint32 parseArray(Parser& p, int depth);
 	uint32 parseStringNode(Parser& p);
 	uint32 parseTrue(Parser& p);
 	uint32 parseFalse(Parser& p);

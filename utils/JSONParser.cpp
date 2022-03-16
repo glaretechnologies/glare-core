@@ -381,14 +381,20 @@ std::string JSONParser::parseString(Parser& p)
 }
 
 
-uint32 JSONParser::parseNode(Parser& parser)
+uint32 JSONParser::parseNode(Parser& parser, int depth)
 {
+	if(parser.eof())
+		throw glare::Exception("Unexpected end of file while parsing JSON node." + errorContext(parser));
+
+	if(depth > 256)
+		throw glare::Exception("Parse depth is too large. (> 256)");
+
 	switch(parser.current())
 	{
 	case '{':
-		return parseObject(parser);
+		return parseObject(parser, /*depth=*/depth + 1);
 	case '[':
-		return parseArray(parser);
+		return parseArray(parser, /*depth=*/depth + 1);
 	case '"':
 		return parseStringNode(parser);
 	case 't':
@@ -469,7 +475,7 @@ uint32 JSONParser::parseNumber(Parser& p)
 }
 
 
-uint32 JSONParser::parseArray(Parser& p)
+uint32 JSONParser::parseArray(Parser& p, int depth)
 {
 	const uint32 node_index = (uint32)nodes.size();
 	nodes.push_back(JSONNode());
@@ -481,7 +487,7 @@ uint32 JSONParser::parseArray(Parser& p)
 	while(!p.currentIsChar(']'))
 	{
 		// Parse name string
-		const uint32 child_index = parseNode(p);
+		const uint32 child_index = parseNode(p, /*depth=*/depth + 1);
 		nodes[node_index].child_indices.push_back(child_index);
 
 		p.parseWhiteSpace();
@@ -502,7 +508,7 @@ uint32 JSONParser::parseArray(Parser& p)
 }
 
 
-uint32 JSONParser::parseObject(Parser& p)
+uint32 JSONParser::parseObject(Parser& p, int depth)
 {
 	const uint32 node_index = (uint32)nodes.size();
 	nodes.push_back(JSONNode());
@@ -522,7 +528,7 @@ uint32 JSONParser::parseObject(Parser& p)
 			throw glare::Exception("Expected :" + errorContext(p));
 		p.parseWhiteSpace();
 
-		const uint32 child_index = parseNode(p);
+		const uint32 child_index = parseNode(p, /*depth=*/depth + 1);
 		nodes[node_index].name_val_pairs.back().value_node_index = child_index;
 
 		p.parseWhiteSpace();
@@ -546,7 +552,7 @@ void JSONParser::parseBuffer(const char* data, size_t size)
 {
 	Parser parser(data, (unsigned int)size);
 
-	parseNode(parser);
+	parseNode(parser, /*depth=*/0);
 }
 
 
@@ -582,6 +588,33 @@ std::string JSONParser::errorContext(Parser& p)
 
 #include "../utils/TestUtils.h"
 #include "Timer.h"
+
+
+#if 0
+// Command line:
+// C:\fuzz_corpus\json -max_len=1000000 -seed=1
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	return 0;
+}
+
+
+// We will use the '!' character to break apart the input buffer into different 'packets'.
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		JSONParser parser;
+		parser.parseBuffer((const char*)data, size);
+	}
+	catch(glare::Exception&)
+	{
+	}
+	
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
 
 
 static void testStringEscapeSequence(const std::string& encoded_string, const std::string& target_decoding)
@@ -661,6 +694,18 @@ void JSONParser::test()
 		failTest(e.what());
 	}
 
+
+	//--------- Test tring to parse empty string ----------
+	try
+	{
+		JSONParser p;
+		std::string s = "";
+		p.parseBuffer(s.data(), s.size());
+
+		failTest("Expected excep to be thrown.");
+	}
+	catch(glare::Exception&)
+	{}
 
 	//--------- Test empty array ----------
 	try
