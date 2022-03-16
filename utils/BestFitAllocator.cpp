@@ -20,7 +20,7 @@ static const size_t MIN_ALIGNMENT = 4;
 BestFitAllocator::BestFitAllocator(size_t arena_size_)
 :	arena_size(arena_size_)
 {
-	conPrint("BestFitAllocator::BestFitAllocator()");
+	//conPrint("BestFitAllocator::BestFitAllocator()");
 	BlockInfo* block = new BlockInfo();
 	block->offset = 0;
 	block->size = arena_size;
@@ -37,7 +37,7 @@ BestFitAllocator::BestFitAllocator(size_t arena_size_)
 
 BestFitAllocator::~BestFitAllocator()
 {
-	conPrint("BestFitAllocator::~BestFitAllocator()");
+	//conPrint("BestFitAllocator::~BestFitAllocator()");
 
 	checkInvariants();
 
@@ -181,6 +181,7 @@ void BestFitAllocator::free(BlockInfo* block)
 	{
 		// Add back into free map
 		size_to_free_blocks.insert(std::make_pair(block->size, block));
+		block->allocator = NULL; // Set the allocator reference to NULL, so that we don't have circular references that prevent the BestFitAllocator from being freed.
 		block->allocated = false;
 	}
 	/*
@@ -230,7 +231,7 @@ void BestFitAllocator::free(BlockInfo* block)
 
 		// Remove prev block
 		removeBlockFromFreeMap(prev);
-		delete prev; // NOTE: crash here
+		delete prev;
 	}
 	/*
 	Case where block B is being freed, and is adjacent to a free block to the right only:
@@ -416,6 +417,70 @@ void BestFitAllocator::checkInvariants()
 #include "../maths/PCG32.h"
 #include <set>
 
+
+
+// Command line:
+// C:\fuzz_corpus\best_fit_allocator -max_len=10000 -seed=1
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	return 0;
+}
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		std::set<glare::BestFitAllocator::BlockInfo*> blocks;
+
+		glare::BestFitAllocatorRef allocator = new glare::BestFitAllocator(1024);
+
+		for(int i=0; i+8<size; i += 8)
+		{
+			int x;
+			std::memcpy(&x, &data[i], 4);
+			if(x >= 0)
+			{
+				// Do an allocation
+				uint32 alloc_size = myMin<uint32>(2000, (uint32)x);
+				uint32 alignment;
+				std::memcpy(&alignment,  &data[i + 4], 4);
+
+				alignment = alignment << 2; // Must be multiple of 4.
+
+				glare::BestFitAllocator::BlockInfo* block = allocator->alloc(alloc_size, alignment);
+				if(block)
+					blocks.insert(block);
+			}
+			else
+			{
+				// Do a free
+				size_t index = myMin(blocks.size() - 1, (size_t)(-x));
+				size_t z = 0;
+				for(auto it = blocks.begin(); it != blocks.end(); ++it)
+				{
+					if(z == index)
+					{
+						glare::BestFitAllocator::BlockInfo* block = *it;
+						allocator->free(block);
+						blocks.erase(block);
+						break;
+					}
+					z++;
+				}
+			}
+		}
+
+		// Free blocks
+		for(auto it = blocks.begin(); it != blocks.end(); ++it)
+			allocator->free(*it);
+
+		testAssert(allocator->getRefCount() == 1);
+	}
+	catch(glare::Exception& )
+	{}
+	return 0;  // Non-zero return values are reserved for future use.
+}
 
 
 void glare::BestFitAllocator::test()
