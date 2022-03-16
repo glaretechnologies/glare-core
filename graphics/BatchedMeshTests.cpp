@@ -187,9 +187,49 @@ inline static const Indigo::Vec3f BMeshUnpackNormal(const uint32 packed_normal)
 }
 
 
+#if 1
+// Command line:
+// C:\fuzz_corpus\bmesh -max_len=1000000 -seed=1
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	Clock::init();
+	return 0;
+}
+
+//static int iter = 0;
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		BatchedMesh batched_mesh;
+		BatchedMesh::readFromData(data, size, batched_mesh);
+	}
+	catch(glare::Exception& )
+	{
+	}
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
+
+
 void BatchedMeshTests::test()
 {
 	conPrint("BatchedMeshTests::test()");
+
+	//----------------------------------- Test handling of some invalid files -----------------------------------
+	// channel.target_node out of bounds
+	try
+	{
+		BatchedMesh batched_mesh;
+		BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/crash-1397c795a85df6b9a878fb195366bb98bbb8c701", batched_mesh);
+
+		failTest("Expected exception");
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint("received expected exception: " + e.what());
+	}
 
 	try
 	{

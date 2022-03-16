@@ -53,6 +53,8 @@ public:
 	/// @throws glare::Exception on failure.
 	static void readFromFile(const std::string& src_path, BatchedMesh& mesh_out);
 
+	static void readFromData(const void* data, size_t data_len, BatchedMesh& mesh_out);
+
 	// Builds a BatchedMesh from an Indigo::Mesh.
 	// Any quads are converted to triangles.
 	// Merges any vertices with the same position and UVs.

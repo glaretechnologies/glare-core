@@ -19,6 +19,7 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/FileOutStream.h"
 #include "../utils/IncludeHalf.h"
 #include "../utils/HashMapInsertOnly2.h"
+#include "../utils/BufferViewInStream.h"
 #include <limits>
 #include <zstd.h>
 
@@ -831,7 +832,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				write_options.compression_level // compression level
 			);
 			if(ZSTD_isError(compressed_size))
-				throw glare::Exception("Compression failed: " + toString(compressed_size));
+				throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
 			timer.pause();
 
 			// Write compressed size as uint64
@@ -887,7 +888,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				write_options.compression_level // compression level
 			);
 			if(ZSTD_isError(compressed_size))
-				throw glare::Exception("Compression failed: " + toString(compressed_size));
+				throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
 			timer.pause();
 
 			// Write compressed size as uint64
@@ -929,11 +930,20 @@ static const uint32 MAX_NUM_VERT_ATTRIBUTES = 100;
 static const uint32 MAX_NUM_BATCHES = 1000000;
 
 
-void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_out) // throws IndigoException on failure
+void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_out)
+{
+	FileInStream file(src_path);
+
+	readFromData(file.fileData(), file.fileSize(), mesh_out);
+}
+
+
+
+void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& mesh_out)
 {
 	try
 	{
-		FileInStream file(src_path);
+		BufferViewInStream file(ArrayRef<uint8>((const uint8*)data, data_len));
 
 		// Read header
 		BatchedMeshHeader header;
@@ -947,7 +957,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 
 		
 		// Skip past rest of header
-		if(header.header_size > 10000 || header.header_size > file.fileSize())
+		if(header.header_size > 10000 || header.header_size > file.size())
 			throw glare::Exception("Header size too large.");
 		file.setReadIndex(header.header_size);
 
@@ -994,13 +1004,21 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 		if(header.index_data_size_B % componentTypeSize(mesh_out.index_type) != 0)
 			throw glare::Exception("Invalid index_data_size_B.");
 
-		mesh_out.index_data.resize(header.index_data_size_B); // TODO: size check? 32-bit limit of index_data_size_B may be enough.
+		const uint32 MAX_INDEX_DATA_SIZE = 1 << 29; // 512 MB
+		if(header.index_data_size_B > MAX_INDEX_DATA_SIZE)
+			throw glare::Exception("Invalid index_data_size_B (too large).");
+
+		mesh_out.index_data.resize(header.index_data_size_B);
 
 		// Check total vert data size is a multiple of each vertex size.  Note that vertexSize() should be > 0 since we have set mesh_out.vert_attributes and checked there is at least one attribute.
 		if(header.vertex_data_size_B % mesh_out.vertexSize() != 0)
 			throw glare::Exception("Invalid vertex_data_size_B.");
 
-		mesh_out.vertex_data.resize(header.vertex_data_size_B); // TODO: size check? 32-bit limit of vertex_data_size_B may be enough.
+		const uint32 MAX_VERTEX_DATA_SIZE = 1 << 29; // 512 MB
+		if(header.vertex_data_size_B > MAX_VERTEX_DATA_SIZE)
+			throw glare::Exception("Invalid vertex_data_size_B (too large).");
+
+		mesh_out.vertex_data.resize(header.vertex_data_size_B);
 
 		mesh_out.aabb_os.min_ = Vec4f(header.aabb_min.x, header.aabb_min.y, header.aabb_min.z, 1.f);
 		mesh_out.aabb_os.max_ = Vec4f(header.aabb_max.x, header.aabb_max.y, header.aabb_max.z, 1.f);
@@ -1015,14 +1033,14 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			timer.pause();
 			{
 				const uint64 index_data_compressed_size = file.readUInt64();
-				if((index_data_compressed_size >= file.fileSize()) || (file.getReadIndex() + index_data_compressed_size > file.fileSize())) // Check index_data_compressed_size is valid, while taking care with wraparound
+				if((index_data_compressed_size >= file.size()) || (file.getReadIndex() + index_data_compressed_size > file.size())) // Check index_data_compressed_size is valid, while taking care with wraparound
 					throw glare::Exception("index_data_compressed_size was invalid.");
 
 				// Decompress index data into plaintext buffer.
 				timer.unpause();
-				const size_t res = ZSTD_decompress(plaintext.begin(), header.index_data_size_B, file.currentReadPtr(), index_data_compressed_size);
+				const size_t res = ZSTD_decompress(/*dest=*/plaintext.begin(), /*dest capacity=*/header.index_data_size_B, /*src=*/file.currentReadPtr(), /*compressed size=*/index_data_compressed_size);
 				if(ZSTD_isError(res))
-					throw glare::Exception("Decompression of index buffer failed: " + toString(res));
+					throw glare::Exception(std::string("Decompression of index buffer failed: ") + ZSTD_getErrorName(res));
 				if(res < (size_t)header.index_data_size_B)
 					throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
 				timer.pause();
@@ -1075,14 +1093,14 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 			// Decompress and de-filter vertex data.
 			{
 				const uint64 vertex_data_compressed_size = file.readUInt64();
-				if((vertex_data_compressed_size >= file.fileSize()) || (file.getReadIndex() + vertex_data_compressed_size > file.fileSize())) // Check vertex_data_compressed_size is valid, while taking care with wraparound
+				if((vertex_data_compressed_size >= file.size()) || (file.getReadIndex() + vertex_data_compressed_size > file.size())) // Check vertex_data_compressed_size is valid, while taking care with wraparound
 					throw glare::Exception("vertex_data_compressed_size was invalid.");
 
 				// Decompress data into plaintext buffer.
 				timer.unpause();
 				const size_t res = ZSTD_decompress(plaintext.begin(), header.vertex_data_size_B, file.currentReadPtr(), vertex_data_compressed_size);
 				if(ZSTD_isError(res))
-					throw glare::Exception("Decompression of index buffer failed: " + toString(res));
+					throw glare::Exception(std::string("Decompression of index buffer failed: ") + ZSTD_getErrorName(res));
 				if(res < (size_t)header.vertex_data_size_B)
 					throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
 				timer.pause();
@@ -1133,7 +1151,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 		}
 
 		// Read animation data chunk if present
-		if(file.getReadIndex() != file.fileSize())
+		if(file.getReadIndex() != file.size())
 		{
 			const uint32 chunk = file.readUInt32();
 			if(chunk == ANIMATION_DATA_CHUNK)
@@ -1146,7 +1164,7 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 				throw glare::Exception("invalid chunk value: " + toString(chunk));
 		}
 
-		assert(file.getReadIndex() == file.fileSize());
+		assert(file.getReadIndex() == file.size());
 	}
 	catch(std::bad_alloc&)
 	{

@@ -418,7 +418,7 @@ void BestFitAllocator::checkInvariants()
 #include <set>
 
 
-
+#if 0
 // Command line:
 // C:\fuzz_corpus\best_fit_allocator -max_len=10000 -seed=1
 
@@ -481,6 +481,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	{}
 	return 0;  // Non-zero return values are reserved for future use.
 }
+#endif
 
 
 void glare::BestFitAllocator::test()

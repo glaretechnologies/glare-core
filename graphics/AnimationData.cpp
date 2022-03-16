@@ -23,7 +23,7 @@ static inline void checkProperty(bool b, const char* on_false_message)
 }
 
 
-AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity()) {}
+AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity())/*, is_joint_node(false)*/ {}
 
 
 void AnimationNodeData::writeToStream(OutStream& stream) const
@@ -153,9 +153,21 @@ void AnimationDatum::checkData(const std::vector<std::vector<float> >& keyframe_
 		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].size() >= 1, "invalid num keyframes");
 
 		// Output data vectors should be the same size as the input keyframe vectors, when they are used together.
-		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].size() == output_data[data.translation_output_accessor].size(), "num keyframes != output_data size");
-		if(data.rotation_input_accessor    >= 0) checkProperty(keyframe_times[data.rotation_input_accessor   ].size() == output_data[data.rotation_output_accessor   ].size(), "num keyframes != output_data size");
-		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].size() == output_data[data.scale_output_accessor      ].size(), "num keyframes != output_data size");
+		if(data.translation_input_accessor >= 0)
+		{
+			checkProperty(data.translation_output_accessor >= 0, "invalid output_accessor");
+			checkProperty(keyframe_times[data.translation_input_accessor].size() == output_data[data.translation_output_accessor].size(), "num keyframes != output_data size");
+		}
+		if(data.rotation_input_accessor    >= 0)
+		{
+			checkProperty(data.rotation_output_accessor >= 0, "invalid output_accessor");
+			checkProperty(keyframe_times[data.rotation_input_accessor   ].size() == output_data[data.rotation_output_accessor   ].size(), "num keyframes != output_data size");
+		}
+		if(data.scale_input_accessor       >= 0)
+		{
+			checkProperty(data.scale_output_accessor >= 0, "invalid output_accessor");
+			checkProperty(keyframe_times[data.scale_input_accessor      ].size() == output_data[data.scale_output_accessor      ].size(), "num keyframes != output_data size");
+		}
 	}
 }
 
@@ -365,6 +377,18 @@ void AnimationData::readFromStream(InStream& stream)
 
 	for(size_t i=0; i<nodes.size(); ++i)
 		checkProperty(nodes[i].parent_index >= -1 && nodes[i].parent_index < (int)nodes.size(), "invalid parent_index index"); // parent_index of -1 is valid.
+
+	// Rebuild is_joint_node booleans
+	/*for(size_t i=0; i<joint_nodes.size(); ++i)
+	{
+		nodes[joint_nodes[i]].is_joint_node = true;
+	}*/
+
+	//for(size_t i=0; i<nodes.size(); ++i)
+	//	conPrint("Node " + toString(i) + ": " + nodes[i].name + " , is_joint_node: " + toString(nodes[i].is_joint_node));
+	//
+	//for(size_t i=0; i<sorted_nodes.size(); ++i)
+	//	conPrint("sorted_nodes[ " + toString(i) + "]: " + toString(sorted_nodes[i]) + " (" + nodes[sorted_nodes[i]].name + ")");
 }
 
 
@@ -745,6 +769,15 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 					old_node_index = bone_index;
 				}
 			}
+
+			if(old_node_index == -1) // If no mapping found yet:
+			{
+				auto res2 = old_node_names_to_index.find(new_node.name);
+				if(res2 != old_node_names_to_index.end())
+				{
+					old_node_index = res2->second;
+				}
+			}
 		}
 		else
 		{
@@ -752,6 +785,15 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 			if(res != old_node_names_to_index.end())
 			{
 				old_node_index = res->second;
+			}
+
+			if(old_node_index == -1) // If no mapping found yet:
+			{
+				res = old_node_names_to_index.find("mixamorig:" + new_node.name); // Try matching with a "mixamorig:" prefix.
+				if(res != old_node_names_to_index.end())
+				{
+					old_node_index = res->second;
+				}
 			}
 		}
 
@@ -1041,7 +1083,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		}
 		else
 		{
-			conPrint("!!!!! Corresponding new node not found.");
+			if(VERBOSE) conPrint("!!!!! Corresponding new node not found (old_joint_node_name: " + old_joint_node_name + ")");
 
 			joint_nodes[i] = 0;
 		}

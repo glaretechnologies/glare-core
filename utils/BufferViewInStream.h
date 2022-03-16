@@ -30,6 +30,10 @@ public:
 	void setReadIndex(size_t i);
 	size_t getReadIndex() const { return read_index; }
 
+	size_t size() const { return data.size(); }
+
+	const void* currentReadPtr() const { return data.data() + read_index; }
+
 	ArrayRef<uint8> data;
 	size_t read_index;
 };
