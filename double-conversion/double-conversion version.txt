@@ -1,3 +1,11 @@
 Double conversion code from https://github.com/google/double-conversion
-Version here is 3.0.0
+Version here is 3.2.0: https://github.com/google/double-conversion/releases/tag/v3.2.0 (fetched 16th march 2022)
+
+
+Slightly modified code (manually inlined operator []) to avoid ASAN crash in MSVC: (see https://developercommunity.visualstudio.com/t/miscompile-and-crash-with-address-sanitizer/1692425)
+
+int digit = buffer.start_[i++] - '0'; // NICK NEWCODE to avoid asan crash
+
+strtod.cc, line 156.
+
 --Nick
