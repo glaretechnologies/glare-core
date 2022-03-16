@@ -87,8 +87,10 @@ public:
 
 	static void test();
 
+	// For fuzz testing:
+	static Reference<BatchedMesh> loadGLBFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, GLTFLoadedData& data_out);
 private:
-	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer,
+	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, bool write_images_to_disk,
 		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
 	static void makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::string& bin_path, std::string& json_out, js::Vector<uint8, 16>& bin_out);

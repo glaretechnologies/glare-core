@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Parser.h"
 #include "../utils/JSONParser.h"
 #include "../utils/FileUtils.h"
+#include "../utils/BufferViewInStream.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/FileUtils.h"
@@ -336,7 +337,7 @@ static GLTFTexture& getTexture(GLTFData& data, size_t texture_index)
 
 static GLTFImage& getImage(GLTFData& data, size_t image_index)
 {
-	if(image_index >= data.textures.size())
+	if(image_index >= data.images.size())
 		throw glare::Exception("image_index out of bounds.");
 	return *data.images[image_index];
 }
@@ -493,8 +494,12 @@ static inline bool shouldLoadPrimitive(const GLTFPrimitive& primitive)
 }
 
 
-static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t& total_num_indices, size_t& total_num_verts)
+static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, int depth, size_t& total_num_indices, size_t& total_num_verts)
 {
+	// Check depth to ensure we don't get stuck in an infinite loop if there are cycles in the children references.
+	if(depth > 256)
+		throw glare::Exception("Exceeded max depth while computing mesh capacity");
+
 	// Process mesh
 	if(node.mesh != std::numeric_limits<size_t>::max())
 	{
@@ -527,7 +532,7 @@ static void processNodeToGetMeshCapacity(GLTFData& data, GLTFNode& node, size_t&
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
-		processNodeToGetMeshCapacity(data, child, total_num_indices, total_num_verts);
+		processNodeToGetMeshCapacity(data, child, depth + 1, total_num_indices, total_num_verts);
 	}
 }
 
@@ -696,6 +701,8 @@ static void checkAccessorBounds(const size_t vert_byte_stride, const size_t offs
 }
 
 
+// uint32_indices_out should have sufficient capacity for all indices, but does need to be resized for new indices.
+// mesh_out.vertex_data should have sufficient size for all vertex data (has already been resized)
 static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_transform, BatchedMesh& mesh_out, js::Vector<uint32, 16>& uint32_indices_out, size_t& vert_write_i)
 {
 	const bool statically_apply_transform = data.skins.empty();
@@ -836,8 +843,6 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				}
 				else
 					throw glare::Exception("Invalid POSITION component type");
-
-				
 			}
 
 			//--------------------------------------- Process vertex normals ---------------------------------------
@@ -911,28 +916,44 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 						*(uint32*)(&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B]) = packed;
 					}
 
+					const size_t total_num_verts = mesh_out.vertex_data.size() / dest_vert_stride_B;
+
 					for(size_t z=0; z<primitive_num_indices/3; z++) // For each tri, splat geometric normal to the vert normal for each vert
 					{
-						uint32 v0i = uint32_indices_out[indices_write_i + z * 3 + 0];
-						uint32 v1i = uint32_indices_out[indices_write_i + z * 3 + 1];
-						uint32 v2i = uint32_indices_out[indices_write_i + z * 3 + 2];
+						const uint32 v0i = uint32_indices_out[indices_write_i + z * 3 + 0];
+						const uint32 v1i = uint32_indices_out[indices_write_i + z * 3 + 1];
+						const uint32 v2i = uint32_indices_out[indices_write_i + z * 3 + 2];
+
+						// Vert indices are not checked yet (are still user-controlled) so check before we use them.
+						checkProperty(v0i < total_num_verts, "vert index out of bounds");
+						checkProperty(v1i < total_num_verts, "vert index out of bounds");
+						checkProperty(v2i < total_num_verts, "vert index out of bounds");
+
+						const size_t v0_offset_B = v0i * dest_vert_stride_B + pos_attr.offset_B;
+						const size_t v1_offset_B = v1i * dest_vert_stride_B + pos_attr.offset_B;
+						const size_t v2_offset_B = v2i * dest_vert_stride_B + pos_attr.offset_B;
+
+						// This should be redundant, but check anwyay:
+						checkProperty(v0_offset_B + sizeof(float)*3 <= mesh_out.vertex_data.size(), "vert index out of bounds");
+						checkProperty(v1_offset_B + sizeof(float)*3 <= mesh_out.vertex_data.size(), "vert index out of bounds");
+						checkProperty(v2_offset_B + sizeof(float)*3 <= mesh_out.vertex_data.size(), "vert index out of bounds");
 
 						const Vec4f v0(
-							((float*)&mesh_out.vertex_data[v0i * dest_vert_stride_B + pos_attr.offset_B])[0],
-							((float*)&mesh_out.vertex_data[v0i * dest_vert_stride_B + pos_attr.offset_B])[1],
-							((float*)&mesh_out.vertex_data[v0i * dest_vert_stride_B + pos_attr.offset_B])[2],
+							((float*)&mesh_out.vertex_data[v0_offset_B])[0],
+							((float*)&mesh_out.vertex_data[v0_offset_B])[1],
+							((float*)&mesh_out.vertex_data[v0_offset_B])[2],
 							1);
 
 						const Vec4f v1(
-							((float*)&mesh_out.vertex_data[v1i * dest_vert_stride_B + pos_attr.offset_B])[0],
-							((float*)&mesh_out.vertex_data[v1i * dest_vert_stride_B + pos_attr.offset_B])[1],
-							((float*)&mesh_out.vertex_data[v1i * dest_vert_stride_B + pos_attr.offset_B])[2],
+							((float*)&mesh_out.vertex_data[v1_offset_B])[0],
+							((float*)&mesh_out.vertex_data[v1_offset_B])[1],
+							((float*)&mesh_out.vertex_data[v1_offset_B])[2],
 							1);
 
 						const Vec4f v2(
-							((float*)&mesh_out.vertex_data[v2i * dest_vert_stride_B + pos_attr.offset_B])[0],
-							((float*)&mesh_out.vertex_data[v2i * dest_vert_stride_B + pos_attr.offset_B])[1],
-							((float*)&mesh_out.vertex_data[v2i * dest_vert_stride_B + pos_attr.offset_B])[2],
+							((float*)&mesh_out.vertex_data[v2_offset_B])[0],
+							((float*)&mesh_out.vertex_data[v2_offset_B])[1],
+							((float*)&mesh_out.vertex_data[v2_offset_B])[2],
 							1);
 
 						const Vec4f normal = normalise(crossProduct(v1 - v0, v2 - v0));
@@ -1211,7 +1232,7 @@ static std::string sanitiseString(const std::string& s)
 
 
 // Returns path
-static std::string saveImageForMimeType(const std::string& image_name, const std::string& mime_type, const uint8* data, size_t data_size)
+static std::string saveImageForMimeType(const std::string& image_name, const std::string& mime_type, const uint8* data, size_t data_size, bool write_images_to_disk)
 {
 	// Work out extension to use - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
 	std::string extension;
@@ -1246,7 +1267,8 @@ static std::string saveImageForMimeType(const std::string& image_name, const std
 
 	try
 	{
-		FileUtils::writeEntireFile(path, (const char*)data, data_size);
+		if(write_images_to_disk)
+			FileUtils::writeEntireFile(path, (const char*)data, data_size);
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
@@ -1257,7 +1279,7 @@ static std::string saveImageForMimeType(const std::string& image_name, const std
 }
 
 
-static void processImage(GLTFData& data, GLTFImage& image, const std::string& gltf_folder)
+static void processImage(GLTFData& data, GLTFImage& image, const std::string& gltf_folder, bool write_images_to_disk)
 {
 	if(image.uri.empty())
 	{
@@ -1276,7 +1298,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		if(buffer_view.byte_offset + buffer_view.byte_length > buffer.data_size) // NOTE: have to be careful handling unsigned wraparound here
 			throw glare::Exception("Image buffer view too large.");
 
-		const std::string path = saveImageForMimeType(image.name, image.mime_type, (const uint8*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length);
+		const std::string path = saveImageForMimeType(image.name, image.mime_type, (const uint8*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length, write_images_to_disk);
 
 		image.uri = path; // Update GLTF image to use URI on disk
 	}
@@ -1301,7 +1323,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 			std::vector<unsigned char> decoded_data;
 			Base64::decode(data_base64, /*data out=*/decoded_data);
 
-			const std::string path = saveImageForMimeType(image.name, mime_type.to_string(), decoded_data.data(), decoded_data.size());
+			const std::string path = saveImageForMimeType(image.name, mime_type.to_string(), decoded_data.data(), decoded_data.size(), write_images_to_disk);
 			
 			image.uri = path; // Update GLTF image to use URI on disk
 		}
@@ -1364,7 +1386,7 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const std::string& gltf_folder, const std::vector<int>& new_input_index, const std::vector<int>& new_output_index, 
 	AnimationData& anim_data_out, AnimationDatum& anim_datum_out)
 {
-	conPrint("Processing anim " + anim.name + "...");
+	// conPrint("Processing anim " + anim.name + "...");
 
 	anim_datum_out.name = anim.name;
 
@@ -1397,6 +1419,9 @@ static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const st
 		// For cubic-spline there are tangents to handle as well.
 		checkProperty(input_accessor.count == output_accessor.count, "Animation: The number output of elements must equal the number of input elements.");
 
+		// channel.target_node is user-controlled and not checked yet.
+		checkProperty(channel.target_node >= 0 && channel.target_node < (int)anim_datum_out.per_anim_node_data.size(), "channel.target_node is invalid.");
+
 		if(channel.target_path == GLTFChannel::Path_translation)
 		{
 			anim_datum_out.per_anim_node_data[channel.target_node].translation_input_accessor  = new_input_index [sampler.input];
@@ -1420,13 +1445,13 @@ static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const st
 		}
 	}
 
-	conPrint("done.");
+	// conPrint("done.");
 }
 
 
 static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string& gltf_folder, AnimationData& anim_data)
 {
-	conPrint("Processing skin " + skin.name + "...");
+	// conPrint("Processing skin " + skin.name + "...");
 
 	// "Each skin is defined by the inverseBindMatrices property (which points to an accessor with IBM data), used to bring coordinates being skinned into the same space as each joint"
 	js::Vector<Matrix4f, 16> ibms(skin.joints.size());
@@ -1465,17 +1490,20 @@ static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string&
 		const int node_i = skin.joints[i];
 		checkProperty(node_i >= 0 && node_i < (int)data.nodes.size(), "node_index was invalid");
 		anim_data.nodes[node_i].inverse_bind_matrix = ibms[i];
+
+		//anim_data.nodes[node_i].is_joint_node = true; // "A node object does not specify whether it is a joint. Client implementations may need to traverse the skins array first, marking each joint node."  (https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#joint-hierarchy)
 	}
 
 	anim_data.joint_nodes = skin.joints;
 
-	// Skeleton is "The index of the node used as a skeleton root", so we want to use the transform of that node.
+	// OLD: Skeleton is "The index of the node used as a skeleton root", so we want to use the transform of that node.  NOTE: Actually we don't need this.
+	// "Although the skeleton property is not needed for computing skinning transforms, it may be used to provide a specific “pivot point” for the skinned geometry." (https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#skins-overview)
 	if(skin.skeleton != -1)
 		anim_data.skeleton_root_transform = data.nodes[skin.skeleton]->node_transform;
 	else
 		anim_data.skeleton_root_transform = Matrix4f::identity();
 
-	conPrint("done.");
+	// conPrint("done.");
 }
 
 
@@ -1502,54 +1530,74 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFile(const std::string& pathnam
 {
 	MemMappedFile file(pathname);
 
-	if(file.fileSize() < sizeof(GLBHeader) + sizeof(GLBChunkHeader))
-		throw glare::Exception("File too small.");
+	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	// Read header
+	return loadGLBFileFromData(file.fileData(), file.fileSize(), gltf_base_dir, /*write_images_to_disk=*/true, data_out);
+}
+
+
+static_assert(sizeof(GLBHeader) == 12, "sizeof(GLBHeader) == 12");
+static_assert(sizeof(GLBChunkHeader) == 8, "sizeof(GLBChunkHeader) == 8");
+
+
+// Takes raw data pointer so we can use for fuzzing.
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_data, const size_t file_size, const std::string& gltf_base_dir, bool write_images_to_disk, GLTFLoadedData& data_out)
+{
+	BufferViewInStream stream(ArrayRef<uint8>((const uint8*)file_data, file_size));
+
+	// Read GLB header
 	GLBHeader header;
-	std::memcpy(&header, file.fileData(), sizeof(GLBHeader));
+	stream.readData(&header, sizeof(GLBHeader));
+
+	if(header.magic != 0x46546C67)
+		throw glare::Exception("Invalid magic number in header");
+	
 
 	// Read JSON chunk header
 	GLBChunkHeader json_header;
-	std::memcpy(&json_header, (const uint8*)file.fileData() + 12, sizeof(GLBChunkHeader));
+	stream.readData(&json_header, sizeof(GLBChunkHeader));
 	if(json_header.chunk_type != CHUNK_TYPE_JSON)
 		throw glare::Exception("Expected JSON chunk type");
 
-	// Check json_header length
-	if(12 + sizeof(GLBChunkHeader) + json_header.chunk_length > file.fileSize())
+	doRuntimeCheck(stream.getReadIndex() == 20);
+
+	// Check JSON header chunk_length is valid:
+	const size_t json_chunk_end = stream.getReadIndex() + (size_t)json_header.chunk_length;
+	if(json_chunk_end > file_size)
 		throw glare::Exception("JSON Chunk too large.");
 
+	
 	// Read binary buffer chunk header
-	const size_t bin_buf_chunk_header_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(20 + (size_t)json_header.chunk_length, 4);
+	// First determine the offset of the binary buffer chunk header
+	const size_t bin_buf_chunk_header_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(json_chunk_end, 4);
 	GLBChunkHeader bin_buf_header;
-	std::memcpy(&bin_buf_header, (const uint8*)file.fileData() + bin_buf_chunk_header_offset, sizeof(GLBChunkHeader));
+	stream.setReadIndex(bin_buf_chunk_header_offset); // NOTE: bin_buf_chunk_header_offset may be invalid, in which case setReadIndex() will throw an exception.
+	stream.readData(&bin_buf_header, sizeof(GLBChunkHeader));
 	if(bin_buf_header.chunk_type != CHUNK_TYPE_BIN)
 		throw glare::Exception("Expected BIN chunk type");
 
-	// Check bin_buf_header length
-	if(bin_buf_chunk_header_offset + sizeof(GLBChunkHeader) + bin_buf_header.chunk_length > file.fileSize())
+	// Check binary buffer chunk_length is valid:
+	if(bin_buf_chunk_header_offset + sizeof(GLBChunkHeader) + bin_buf_header.chunk_length > file_size)
 		throw glare::Exception("Bin buf Chunk too large.");
 
 	// Make a buffer object for it
 	GLTFBufferRef buffer = new GLTFBuffer();
-	buffer->binary_data = (const uint8*)file.fileData() + bin_buf_chunk_header_offset + 8;
+	buffer->binary_data = (const uint8*)file_data + bin_buf_chunk_header_offset + sizeof(GLBChunkHeader);
 	buffer->data_size = bin_buf_header.chunk_length;
 
 	if(false)
 	{
 		// Save JSON to disk for debugging
-		const std::string json((const char*)file.fileData() + 20, json_header.chunk_length);
-		conPrint(PlatformUtils::getCurrentWorkingDirPath());
-		FileUtils::writeEntireFileTextMode(pathname + ".json", json);
+		//const std::string json((const char*)file_data + 20, json_header.chunk_length);
+		//conPrint(PlatformUtils::getCurrentWorkingDirPath());
+		//FileUtils::writeEntireFileTextMode(pathname + ".json", json);
 	}
 
-	// Parse JSON chunk
+	// Parse JSON chunk. (chunk length already checked above)
 	JSONParser parser;
-	parser.parseBuffer((const char*)file.fileData() + 20, json_header.chunk_length);
+	parser.parseBuffer((const char*)file_data + 20, json_header.chunk_length);
 
-	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
-
-	return loadGivenJSON(parser, gltf_base_dir, buffer, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, buffer, write_images_to_disk, data_out);
 }
 
 
@@ -1560,11 +1608,11 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFile(const std::string& pathna
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, /*write_images_to_disk=*/true, data_out);
 }
 
 
-Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer,
+Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, bool write_images_to_disk,
 	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	const JSONNode& root = parser.nodes[0];
@@ -2160,7 +2208,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			throw glare::Exception("scene root node index out of bounds.");
 		GLTFNode& root_node = *data.nodes[scene_node.nodes[i]];
 
-		processNodeToGetMeshCapacity(data, root_node, total_num_indices, total_num_verts);
+		processNodeToGetMeshCapacity(data, root_node, /*depth=*/0, total_num_indices, total_num_verts);
 	}
 
 
@@ -2234,7 +2282,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	// Process images - for any image embedded in the GLB file data, save onto disk in a temp location
 	for(size_t i=0; i<data.images.size(); ++i)
 	{
-		processImage(data, *data.images[i], gltf_base_dir);
+		processImage(data, *data.images[i], gltf_base_dir, write_images_to_disk);
 	}
 
 	// Process materials
@@ -3025,7 +3073,7 @@ static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData
 }
 
 
-static void testWritingToGLB(const std::string& bmesh_path)
+/*static void testWritingToGLB(const std::string& bmesh_path)
 {
 	try
 	{
@@ -3051,12 +3099,64 @@ static void testWritingToGLB(const std::string& bmesh_path)
 	{
 		failTest(e.what());
 	}
+}*/
+
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	return 0;
+}
+
+static int iter = 0;
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		//printVar(iter);
+		//printVar(size);
+		//iter++;
+
+		GLTFLoadedData loaded_data;
+		FormatDecoderGLTF::loadGLBFileFromData(data, size, "dummy_path", /*write_images_to_disk=*/false, loaded_data);
+	
+		//conPrint("parsed ok");
+	}
+	catch(glare::Exception& )
+	{
+		//conPrint("excep");
+		//conPrint("excep: " + e.what());
+	}
+	return 0;  // Non-zero return values are reserved for future use.
 }
 
 
 void FormatDecoderGLTF::test()
 {
 	conPrint("FormatDecoderGLTF::test()");
+
+	//----------------------------------- Test handling of some invalid files -----------------------------------
+	// channel.target_node out of bounds
+	try
+	{
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/crash-13e1627185a5ccb34acb7b96c2f8928d2f7d32ea.glb", data);
+
+		failTest("Expected exception");
+	}
+	catch(glare::Exception&)
+	{}
+
+	// vert index out of bounds, was crashing in geometric normal generation:
+	try
+	{
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/crash-357f6ffbac1bf40494ac432acafd26c3af217e21.glb", data);
+
+		failTest("Expected exception");
+	}
+	catch(glare::Exception&)
+	{}
+
 
 	try
 	{
@@ -3112,6 +3212,14 @@ void FormatDecoderGLTF::test()
 			//testWriting(mesh, data);
 		}*/
 
+
+		//
+		/*{
+			// Test loading a VRM file
+			conPrint("---------------------------------Wave_Hip_Hop_Dance.glb-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\VRMs\\Wave_Hip_Hop_Dance.glb", data);
+		}*/
 
 		// Test a file with an image with a data URI with embedded base64 data.
 		{
