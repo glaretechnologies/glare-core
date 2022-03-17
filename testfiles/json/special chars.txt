@@ -1,0 +1,6 @@
+{
+  "squadName": "Super hero squad",
+  "homeTown": "Metro City",
+  "formed": "\uabCD",
+  "dsfd": "\n\r"\"  \\ \/  \b \f  \n \r  \t \u2543"
+}
