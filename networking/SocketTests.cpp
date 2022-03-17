@@ -190,7 +190,7 @@ public:
 		}
 		catch(MySocketExcep& e)
 		{
-			failTest("TestClientThread: " + e.what());
+			failTest("TestClientThread: MySocketExcep: " + e.what());
 		}
 	}
 

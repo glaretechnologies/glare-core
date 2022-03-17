@@ -19,6 +19,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/SocketBufferOutStream.h"
 #include <cstring>
 #include <tls.h>
+#include <openssl/err.h>
 
 
 class TestServerTLSSocketThread : public MyThread
@@ -35,6 +36,9 @@ public:
 			// Read Uint32
 			testAssert(socket->readUInt32() == 1);
 			testAssert(socket->readUInt32() == 2);
+
+			ERR_remove_thread_state(/*thread id=*/NULL); // Check calling this early doesn't cause a crash
+
 			testAssert(socket->readUInt32() == 3);
 
 			// Keep reading until we fail to read any more
@@ -44,6 +48,11 @@ public:
 		{
 			failTest("TestServerSocketThread excep: " + e.what());
 		}
+
+		// Remove thread-local error state, to avoid leakin git.
+		// NOTE: have to destroy socket first, before calling ERR_remove_thread_state()
+		socket = NULL;
+		ERR_remove_thread_state(/*thread id=*/NULL); // Set thread ID to null to use current thread.
 	}
 
 	TLSSocketRef socket;
@@ -96,6 +105,8 @@ public:
 
 		if(!succeeded)
 			failTest("TestClientThread: failed to connect to server");
+
+		ERR_remove_thread_state(NULL);
 	}
 
 	std::string server_hostname;
@@ -106,7 +117,7 @@ public:
 class TLSTestListenerThread : public MyThread
 {
 public:
-	TLSTestListenerThread(int port_) : port(port_) {}
+	TLSTestListenerThread(int port_) : loop(false), port(port_) {}
 	~TLSTestListenerThread() {}
 
 	virtual void run()
@@ -136,18 +147,24 @@ public:
 			listener.bindAndListen(port);
 			
 		
-			// Accept connection
-			MySocketRef plain_worker_sock = listener.acceptConnection();
+			do
+			{
+				// Accept connection
+				MySocketRef plain_worker_sock = listener.acceptConnection();
 
-			struct tls* worker_tls_context = NULL;
-			if(tls_accept_socket(tls_context, &worker_tls_context, (int)plain_worker_sock->getSocketHandle()) != 0)
-				throw MySocketExcep("tls_accept_socket failed: " + getTLSErrorString(tls_context));
+				struct tls* worker_tls_context = NULL;
+				if(tls_accept_socket(tls_context, &worker_tls_context, (int)plain_worker_sock->getSocketHandle()) != 0)
+					throw MySocketExcep("tls_accept_socket failed: " + getTLSErrorString(tls_context));
 
-			TLSSocketRef worker_tls_socket = new TLSSocket(plain_worker_sock, worker_tls_context);
+				TLSSocketRef worker_tls_socket = new TLSSocket(plain_worker_sock, worker_tls_context);
 
-			Reference<TestServerTLSSocketThread> server_thread = new TestServerTLSSocketThread(worker_tls_socket);
-			server_thread->launch();
-			server_thread->join(); // Wait for server thread
+				Reference<TestServerTLSSocketThread> server_thread = new TestServerTLSSocketThread(worker_tls_socket);
+				server_thread->launch();
+
+				if(!loop)
+					server_thread->join(); // Wait for server thread
+			}
+			while(loop);
 
 			tls_free(tls_context);
 		}
@@ -157,6 +174,7 @@ public:
 		}
 	}
 
+	bool loop;
 	int port;
 };
 
@@ -171,6 +189,31 @@ static void doTestWithHostname(const std::string& hostname, int port)
 
 	listener_thread->join();
 	client_thread->join();
+}
+
+
+
+//==============================================================================================================
+
+// Does repeated connections to a server to see if any memory is leaked.
+// NOTE: this test doesn't terminate currnetly due to listener_thread->join().
+static void doMemLeakTest()
+{
+	Reference<TLSTestListenerThread> listener_thread = new TLSTestListenerThread(/*port=*/5000);
+	listener_thread->loop = true;
+	listener_thread->launch();
+
+	const int N = 1000;
+	for(int i=0; i<N; ++i)
+	{
+		Reference<TLSTestClientThread> client_thread = new TLSTestClientThread("localhost", /*port=*/5000);
+		client_thread->launch();
+
+		PlatformUtils::Sleep(100);
+	}
+
+	listener_thread->join();
+	//client_thread->join();
 }
 
 
@@ -229,6 +272,8 @@ void TLSSocketTests::test()
 	conPrint("TLSSocketTests::test()");
 
 	testAssert(Networking::isNonNull());
+
+	// doMemLeakTest(); // doesn't terminate
 
 	doMultiThreadedConfigTest();
 
