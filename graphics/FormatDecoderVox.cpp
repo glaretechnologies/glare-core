@@ -361,6 +361,7 @@ bool FormatDecoderVox::isValidVoxFile(const std::string& filename)
 #if BUILD_TESTS
 
 
+#if 0
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
@@ -374,6 +375,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	
 	return 0;  // Non-zero return values are reserved for future use.
 }
+#endif
+
 
 #include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
