@@ -187,7 +187,7 @@ inline static const Indigo::Vec3f BMeshUnpackNormal(const uint32 packed_normal)
 }
 
 
-#if 1
+#if 0
 // Command line:
 // C:\fuzz_corpus\bmesh -max_len=1000000 -seed=1
 
