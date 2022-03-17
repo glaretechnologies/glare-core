@@ -1074,12 +1074,14 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			//conPrint("------------- perf test --------------");
 			Timer timer;
 
-			const int max_num_objects_per_leaf = 16;
-			const float intersection_cost = 1.f;
+			
 
 			//------------- Embree -----------------
 #ifndef NO_EMBREE
 #if 1
+			const int max_num_objects_per_leaf = 16;
+			const float intersection_cost = 1.f;
+
 			const bool DO_SBVH_BUILD = true;
 			EmbreeBVHBuilder builder(DO_SBVH_BUILD, max_num_objects_per_leaf, intersection_cost,
 				tris.data(),
