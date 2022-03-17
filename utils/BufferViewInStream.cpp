@@ -70,3 +70,15 @@ void BufferViewInStream::setReadIndex(size_t i)
 		throw glare::Exception("Invalid read index for setReadIndex().");
 	read_index = i;
 }
+
+
+uint16 BufferViewInStream::readUInt16()
+{
+	if(read_index + sizeof(uint16) > data.size())
+		throw glare::Exception("Read past end of file.");
+
+	uint16 x;
+	std::memcpy(&x, data.data() + read_index, sizeof(x));
+	read_index += sizeof(x);
+	return x;
+}

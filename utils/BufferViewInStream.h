@@ -27,6 +27,8 @@ public:
 	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 
+	uint16 readUInt16();
+
 	void setReadIndex(size_t i);
 	size_t getReadIndex() const { return read_index; }
 
