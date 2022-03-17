@@ -709,18 +709,21 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 
 	const std::wstring varname_w = StringUtils::UTF8ToWString(varname);
 
-	TCHAR buffer[2048];
+	// Call once with an empty/null buffer, to get the required buffer size.
+	const DWORD required_size_with_terminator = GetEnvironmentVariable(varname_w.c_str(), NULL, 0);
+	if(required_size_with_terminator == 0)
+		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
 
-	const DWORD size = 2048;
+	std::wstring result_string(required_size_with_terminator - 1, '\0');
 
 	if(GetEnvironmentVariable(
 		varname_w.c_str(),
-		buffer,
-		size
+		result_string.data(),
+		required_size_with_terminator
 		) == 0)
 		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
 
-	return StringUtils::WToUTF8String(buffer);
+	return StringUtils::WToUTF8String(result_string);
 
 #else
 	const char* env_val = getenv(varname.c_str());
