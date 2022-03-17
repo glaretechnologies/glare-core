@@ -431,13 +431,15 @@ ${pugixmldir}/pugiconfig.hpp
 
 # MESSAGE(${pugixml})
 
+enable_language(ASM) # For the .S file in zstd below.
+
 FILE(GLOB giflib "../giflib/lib/*.c" "../giflib/lib/*.cpp" "../giflib/lib/*.h")
 FILE(GLOB little_cms "../little_cms/src/*.c"  "../little_cms/include/*.h")
 FILE(GLOB zstandard 
 "${zstddir}/lib/*.h"
 "${zstddir}/lib/common/*.c"     "${zstddir}/lib/common/*.h"
 "${zstddir}/lib/compress/*.c"   "${zstddir}/lib/compress/*.h"
-"${zstddir}/lib/decompress/*.c" "${zstddir}/lib/decompress/*.h"
+"${zstddir}/lib/decompress/*.c" "${zstddir}/lib/decompress/*.h"  "${zstddir}/lib/decompress/*.S"
 )
 
 
