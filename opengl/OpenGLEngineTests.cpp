@@ -48,11 +48,12 @@ static void doTest(const std::string& indigo_base_dir, const std::string& mesh_p
 		const int NUM_TRIALS = 1;
 		for(int t=0; t<NUM_TRIALS; ++t)
 		{
+
 			Timer timer;
-			Reference<OpenGLMeshRenderData> mesh_renderdata;
-			//= GLMeshBuilding::buildIndigoMesh(mesh,
-			//	true // skip opengl calls
-			//);
+
+			Reference<OpenGLMeshRenderData> mesh_renderdata = GLMeshBuilding::buildIndigoMesh(/*allocator=*/NULL, mesh,
+				true // skip opengl calls
+			);
 			conPrint("Build time for '" + mesh_path + "': " + timer.elapsedStringNSigFigs(5));
 			
 
