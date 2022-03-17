@@ -714,16 +714,20 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 	if(required_size_with_terminator == 0)
 		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
 
-	std::wstring result_string(required_size_with_terminator - 1, '\0');
+	std::vector<wchar_t> buf(required_size_with_terminator);
 
-	if(GetEnvironmentVariable(
+	const DWORD res = GetEnvironmentVariable(
 		varname_w.c_str(),
-		result_string.data(),
+		buf.data(),
 		required_size_with_terminator
-		) == 0)
+	);
+
+	if((res == 0) || res != (required_size_with_terminator - 1))
 		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
 
-	return StringUtils::WToUTF8String(result_string);
+	const std::wstring resstring(buf.data());
+
+	return StringUtils::WToUTF8String(resstring);
 
 #else
 	const char* env_val = getenv(varname.c_str());
@@ -1010,6 +1014,14 @@ void PlatformUtils::testPlatformUtils()
 
 		//--------------------- Test getEnvironmentVariable() -------------------
 		testAssert(getEnvironmentVariable("PATH") != "");
+
+		try
+		{
+			getEnvironmentVariable("NOTANENVVAR_dsfdfg");
+			failTest("Expected excep");
+		}
+		catch(PlatformUtilsExcep&)
+		{}
 
 		//--------------------- Test isEnvironmentVariableDefined() -------------------
 		testAssert(isEnvironmentVariableDefined("PATH"));
