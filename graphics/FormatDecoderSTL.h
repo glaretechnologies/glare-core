@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
+#include "../utils/Platform.h"
 #include <string>
 namespace Indigo { class Mesh; }
 
@@ -21,6 +22,8 @@ class FormatDecoderSTL
 {
 public:
 	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale); // throws glare::Exception on failure
+
+	static void loadModelFromBuffer(const uint8* data, size_t len, Indigo::Mesh& handler, float scale); // throws glare::Exception on failure
 
 	static void test();
 };

@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Exception.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Parser.h"
+#include "../utils/BufferViewInStream.h"
 #include <assert.h>
 #include <vector>
 
@@ -17,16 +18,21 @@ Copyright Glare Technologies Limited 2016 -
 void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& mesh, float scale)
 {
 	MemMappedFile file(pathname);
-	const uint8* const data = (const uint8*)file.fileData();
 
+	loadModelFromBuffer((const uint8*)file.fileData(), file.fileSize(), mesh, scale);
+}
+
+
+void FormatDecoderSTL::loadModelFromBuffer(const uint8* data, size_t buffer_size, Indigo::Mesh& mesh, float scale) // throws glare::Exception on failure
+{
 	// Try and determine if this is a ASCII or binary STL file.  If it starts with the string 'solid', treat as ASCII.
-	if(file.fileSize() < 5)
+	if(buffer_size < 5)
 		throw glare::Exception("Invalid file.  (file size too small)");
 	if(data[0] == 's' && data[1] == 'o' && data[2] == 'l' && data[3] == 'i' && data[4] == 'd')
 	{
 		// Treat as an ASCII file.
 
-		Parser parser((const char*)data, (uint32)file.fileSize());
+		Parser parser((const char*)data, buffer_size);
 
 		if(!parser.parseCString("solid"))
 			throw glare::Exception("Invalid file, expected 'solid'");
@@ -111,14 +117,14 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 
 		const size_t HEADER_SIZE = 80;
 
-		if(file.fileSize() < HEADER_SIZE + sizeof(uint32))
+		if(buffer_size < HEADER_SIZE + sizeof(uint32))
 			throw glare::Exception("Invalid file.  (file size too small)");
 
 		uint32 num_faces;
 		std::memcpy(&num_faces, data + HEADER_SIZE, sizeof(uint32));
 
 		const size_t expected_min_file_size = HEADER_SIZE + sizeof(uint32) + num_faces * (sizeof(float)*12 + 2);
-		if(file.fileSize() < expected_min_file_size)
+		if(buffer_size < expected_min_file_size)
 			throw glare::Exception("Invalid file.  (file size too small)");
 
 		//mesh.vert_normals.resize(num_faces * 3);
@@ -129,7 +135,7 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 		for(uint32 i=0; i<num_faces; ++i)
 		{
 			// Note that cur_data_uint8 may not be a multiple of 4, so can't just cast to float* and read directly.  memcpy instead.
-			const uint8* const cur_data_uint8 = data + HEADER_SIZE + sizeof(uint32) + i * (sizeof(float)*12 + 2);
+			const uint8* const cur_data_uint8 = data + HEADER_SIZE + sizeof(uint32) + i * (sizeof(float)*12 + 2); // See http://www.fabbers.com/tech/STL_Format
 			
 			std::memcpy(cur_data, cur_data_uint8, sizeof(float) * 12);
 			
@@ -163,6 +169,32 @@ void FormatDecoderSTL::streamModel(const std::string& pathname, Indigo::Mesh& me
 #include "../utils/TestUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
+
+
+#if 0
+// Command line:
+// C:\fuzz_corpus\stl N:\indigo\trunk\testfiles\stl
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	return 0;
+}
+
+
+// Fuzz obj loading:
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		Indigo::Mesh mesh;
+		FormatDecoderSTL::loadModelFromBuffer(data, size,mesh, 1.f);
+	}
+	catch(glare::Exception&)
+	{}
+	return 0;  // Non-zero return values are reserved for future use.
+}
+
+#endif
 
 
 void FormatDecoderSTL::test()
