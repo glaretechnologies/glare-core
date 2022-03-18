@@ -57,7 +57,12 @@ class FormatDecoderObj
 public:
 	static void streamModel(const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out); // Throws glare::Exception on failure.
 
+	// filename is used for finding .mtl file, if parse_mtllib is true.
+	static void loadModelFromBuffer(const uint8* data, size_t len, const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out); // Throws glare::Exception on failure.
+
 	static void parseMTLLib(const std::string& filename, MLTLibMaterials& mtllib_mats_out);
+
+	static void parseMTLLibFromBuffer(const uint8* data, size_t len, const std::string& filename, MLTLibMaterials& mtllib_mats_out);
 
 	static void test();
 };

@@ -8,6 +8,7 @@ Code By Nicholas Chapman.
 
 
 #include "../dll/include/IndigoMesh.h"
+#include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../indigo/globals.h"
 #include "../utils/NameMap.h"
@@ -97,321 +98,337 @@ static inline void skipWhitespace(Parser& parser)
 
 void FormatDecoderObj::streamModel(const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out)
 {
-	// Timer load_timer;
-
-	bool encountered_uvs = false;
-
-	NameMap<int> materials;
-
-	int current_mat_index = -1;
-
-	Indigo::Vector<Indigo::Vec2f> uv_vector(1);
-
 	MemMappedFile file(filename);
-	
-	Parser parser((const char*)file.fileData(), (unsigned int)file.fileSize());
 
-	const unsigned int MAX_NUM_FACE_VERTICES = 256;
-	std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES, 0);
-
-	// Positions, normals and UVs as parsed from the OBJ file.
-	std::vector<Indigo::Vec3f> vert_positions;
-	std::vector<Indigo::Vec3f> vert_normals;
-	std::vector<Indigo::Vec2f> uvs;
-
-	//std::unordered_map<Vert, unsigned int, VertHash> added_verts; // Hash map from Vertex to index of where the vertex was added to the Indigo Mesh.
-	Vert empty_key;
-	empty_key.vert_i = std::numeric_limits<unsigned int>::max();
-	empty_key.norm_i = std::numeric_limits<unsigned int>::max();
-
-	HashMapInsertOnly2<Vert, unsigned int, VertHash> added_verts(empty_key,
-		45000
-	);
-
-	unsigned int num_verts_added = 0;
-	std::vector<unsigned int> face_added_vert_indices(MAX_NUM_FACE_VERTICES);
+	loadModelFromBuffer((const uint8*)file.fileData(), file.fileSize(), filename, handler, scale, parse_mtllib, mtllib_mats_out);
+}
 
 
-	int linenum = 0;
-	string_view token;
-	while(!parser.eof())
+static std::string sanitiseString(const std::string& s)
+{
+	std::string res = s;
+	for(size_t i=0; i<s.size(); ++i)
+		if(!(::isAlphaNumeric(s[i]) || s[i] == '-' || s[i] == '.'))
+			res[i] = '_';
+	return res;
+}
+
+
+void FormatDecoderObj::loadModelFromBuffer(const uint8* data, size_t len, const std::string& filename, Indigo::Mesh& handler, float scale, bool parse_mtllib, MLTLibMaterials& mtllib_mats_out) // Throws glare::Exception on failure.
+{
+	// NOTE: pretty crufty and dubious old code.
+	// 
+	// Timer load_timer;
+	try
 	{
-		linenum++;
+		bool encountered_uvs = false;
 
-		parser.parseSpacesAndTabs();
-		
-		if(parser.current() == '#') // Skip comments
+		NameMap<int> materials;
+
+		int current_mat_index = -1;
+
+		Indigo::Vector<Indigo::Vec2f> uv_vector(1);
+
+		Parser parser((const char*)data, len);
+
+		const unsigned int MAX_NUM_FACE_VERTICES = 256;
+		std::vector<unsigned int> face_uv_indices(MAX_NUM_FACE_VERTICES, 0);
+
+		// Positions, normals and UVs as parsed from the OBJ file.
+		std::vector<Indigo::Vec3f> vert_positions;
+		std::vector<Indigo::Vec3f> vert_normals;
+		std::vector<Indigo::Vec2f> uvs;
+
+		//std::unordered_map<Vert, unsigned int, VertHash> added_verts; // Hash map from Vertex to index of where the vertex was added to the Indigo Mesh.
+		Vert empty_key;
+		empty_key.vert_i = std::numeric_limits<unsigned int>::max();
+		empty_key.norm_i = std::numeric_limits<unsigned int>::max();
+
+		HashMapInsertOnly2<Vert, unsigned int, VertHash> added_verts(empty_key,
+			45000
+		);
+
+		unsigned int num_verts_added = 0;
+		std::vector<unsigned int> face_added_vert_indices(MAX_NUM_FACE_VERTICES);
+
+
+		int linenum = 0;
+		string_view token;
+		while(parser.notEOF())
 		{
-			parser.advancePastLine();
-			continue;
-		}
+			linenum++;
 
-		parser.parseAlphaToken(token);
+			parser.parseSpacesAndTabs();
 
-		if(token == "v") // vertex position
-		{
-			Indigo::Vec3f pos;
-			skipWhitespace(parser);
-			const bool r1 = parser.parseFloat(pos.x);
-			skipWhitespace(parser);
-			const bool r2 = parser.parseFloat(pos.y);
-			skipWhitespace(parser);
-			const bool r3 = parser.parseFloat(pos.z);
+			if(parser.currentIsChar('#')) // Skip comments
+			{
+				parser.advancePastLine();
+				continue;
+			}
 
-			if(!r1 || !r2 || !r3)
-				throw glare::Exception("Parse error while reading position on line " + toString(linenum));
+			if(parser.notEOF() && isAlphabetic(parser.current()))
+			{
+				const bool parsed_token = parser.parseAlphaToken(token);
+				if(!parsed_token)
+					throw glare::Exception("Failed to parse token at line " + toString(linenum));
 
-			pos *= scale;
+				if(token == "v") // vertex position
+				{
+					Indigo::Vec3f pos;
+					skipWhitespace(parser);
+					const bool r1 = parser.parseFloat(pos.x);
+					skipWhitespace(parser);
+					const bool r2 = parser.parseFloat(pos.y);
+					skipWhitespace(parser);
+					const bool r3 = parser.parseFloat(pos.z);
+
+					if(!r1 || !r2 || !r3)
+						throw glare::Exception("Parse error while reading position on line " + toString(linenum));
+
+					pos *= scale;
 			
-			vert_positions.push_back(pos);
-		}
-		else if(token == "vt") // vertex tex coordinate
-		{
-			Indigo::Vec2f texcoord;
-			skipWhitespace(parser);
-			const bool r1 = parser.parseFloat(texcoord.x);
-			skipWhitespace(parser);
-			const bool r2 = parser.parseFloat(texcoord.y);
-
-			if(!r1 || !r2)
-				throw glare::Exception("Parse error while reading tex coord on line " + toString(linenum));
-
-
-			// Assume one texcoord per vertex.
-			if(!encountered_uvs)
-			{
-				handler.setMaxNumTexcoordSets(1);
-				encountered_uvs = true;
-			}
-
-			assert(uv_vector.size() == 1);
-			uv_vector[0] = texcoord;
-			handler.addUVs(uv_vector);
-			uvs.push_back(texcoord);
-		}
-		else if(token == "vn") // vertex normal
-		{
-			Indigo::Vec3f normal;
-			skipWhitespace(parser);
-			const bool r1 = parser.parseFloat(normal.x);
-			skipWhitespace(parser);
-			const bool r2 = parser.parseFloat(normal.y);
-			skipWhitespace(parser);
-			const bool r3 = parser.parseFloat(normal.z);
-
-			if(!r1 || !r2 || !r3)
-				throw glare::Exception("Parse error while reading normal on line " + toString(linenum));
-
-			vert_normals.push_back(normal);
-		}
-		else if(token == "f") // face
-		{
-			int numfaceverts = 0;
-
-			for(int i=0; i<(int)MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
-			{
-				skipWhitespace(parser);
-				if(parser.eof() || parser.current() == '\n' || parser.current() == '\r')
-					break; // end of line, we're done parsing this face.
-
-				//------------------------------------------------------------------------
-				//Parse vert, texcoord, normal indices
-				//------------------------------------------------------------------------
-				bool read_normal_index = false;
-				int zero_based_vert_index;
-				int zero_based_normal_index = 0;
-
-				// Read vertex position index
-				int vert_index;
-				if(parser.parseInt(vert_index))
+					vert_positions.push_back(pos);
+				}
+				else if(token == "vt") // vertex tex coordinate
 				{
-					numfaceverts++;
+					Indigo::Vec2f texcoord;
+					skipWhitespace(parser);
+					const bool r1 = parser.parseFloat(texcoord.x);
+					skipWhitespace(parser);
+					const bool r2 = parser.parseFloat(texcoord.y);
 
-					if(vert_index < 0)
-						zero_based_vert_index = (unsigned int)vert_positions.size() + vert_index;
-					else if(vert_index > 0)
-						zero_based_vert_index = vert_index - 1; // Convert to 0-based index
-					else
-						throw glare::Exception("Position index invalid. (index '" + toString(vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
+					if(!r1 || !r2)
+						throw glare::Exception("Parse error while reading tex coord on line " + toString(linenum));
 
-					// Try and read vertex texcoord index
-					if(parser.parseChar('/'))
+
+					// Assume one texcoord per vertex.
+					if(!encountered_uvs)
 					{
-						int uv_index;
-						if(parser.parseInt(uv_index))
-						{
-							if(uv_index < 0)
-								face_uv_indices[i] = (unsigned int)uvs.size() + uv_index;
-							else if(uv_index > 0)
-								face_uv_indices[i] = uv_index - 1; // Convert to 0-based index
-							else
-								throw glare::Exception("Invalid tex coord index. (index '" + toString(uv_index) + "' out of bounds, on line " + toString(linenum) + ")");
-						}
+						handler.setMaxNumTexcoordSets(1);
+						encountered_uvs = true;
+					}
 
-						// Try and read vertex normal index
-						if(parser.parseChar('/'))
-						{
-							int normal_index;
-							if(!parser.parseInt(normal_index))
-								throw glare::Exception("syntax error: no integer following '/' (line " + toString(linenum) + ")");
+					assert(uv_vector.size() == 1);
+					uv_vector[0] = texcoord;
+					handler.addUVs(uv_vector);
+					uvs.push_back(texcoord);
+				}
+				else if(token == "vn") // vertex normal
+				{
+					Indigo::Vec3f normal;
+					skipWhitespace(parser);
+					const bool r1 = parser.parseFloat(normal.x);
+					skipWhitespace(parser);
+					const bool r2 = parser.parseFloat(normal.y);
+					skipWhitespace(parser);
+					const bool r3 = parser.parseFloat(normal.z);
 
-							if(normal_index < 0)
-								zero_based_normal_index = (unsigned int)vert_normals.size() + normal_index;
-							else if(normal_index > 0)
-								zero_based_normal_index = normal_index - 1; // Convert to 0-based index
+					if(!r1 || !r2 || !r3)
+						throw glare::Exception("Parse error while reading normal on line " + toString(linenum));
+
+					vert_normals.push_back(normal);
+				}
+				else if(token == "f") // face
+				{
+					int numfaceverts = 0;
+
+					for(int i=0; i<(int)MAX_NUM_FACE_VERTICES; ++i)//for each vert in face polygon
+					{
+						skipWhitespace(parser);
+						if(parser.eof() || parser.current() == '\n' || parser.current() == '\r')
+							break; // end of line, we're done parsing this face.
+
+						//------------------------------------------------------------------------
+						//Parse vert, texcoord, normal indices
+						//------------------------------------------------------------------------
+						bool read_normal_index = false;
+						int zero_based_vert_index;
+						int zero_based_normal_index = 0;
+
+						// Read vertex position index
+						int vert_index;
+						if(parser.parseInt(vert_index))
+						{
+							numfaceverts++;
+
+							if(vert_index < 0)
+								zero_based_vert_index = (unsigned int)vert_positions.size() + vert_index;
+							else if(vert_index > 0)
+								zero_based_vert_index = vert_index - 1; // Convert to 0-based index
 							else
-								throw glare::Exception("Invalid normal index. (index '" + toString(normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
+								throw glare::Exception("Position index invalid. (index '" + toString(vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
+
+							// Try and read vertex texcoord index
+							if(parser.parseChar('/'))
+							{
+								int uv_index;
+								if(parser.parseInt(uv_index))
+								{
+									if(uv_index < 0)
+										face_uv_indices[i] = (unsigned int)uvs.size() + uv_index;
+									else if(uv_index > 0)
+										face_uv_indices[i] = uv_index - 1; // Convert to 0-based index
+									else
+										throw glare::Exception("Invalid tex coord index. (index '" + toString(uv_index) + "' out of bounds, on line " + toString(linenum) + ")");
+								}
+
+								// Try and read vertex normal index
+								if(parser.parseChar('/'))
+								{
+									int normal_index;
+									if(!parser.parseInt(normal_index))
+										throw glare::Exception("syntax error: no integer following '/' (line " + toString(linenum) + ")");
+
+									if(normal_index < 0)
+										zero_based_normal_index = (unsigned int)vert_normals.size() + normal_index;
+									else if(normal_index > 0)
+										zero_based_normal_index = normal_index - 1; // Convert to 0-based index
+									else
+										throw glare::Exception("Invalid normal index. (index '" + toString(normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
 						
-							read_normal_index = true;
+									read_normal_index = true;
+								}
+							}
+						}
+						else 
+							throw glare::Exception("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
+
+						// Add the vertex to the mesh, if it hasn't been added already.
+
+						if((zero_based_vert_index < 0) || (zero_based_vert_index >= (int)vert_positions.size()))
+							throw glare::Exception("Position index invalid. (index '" + toString(zero_based_vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
+
+						if(read_normal_index)
+						{
+							if((zero_based_normal_index < 0) || (zero_based_normal_index >= (int)vert_normals.size()))
+								throw glare::Exception("Normal index invalid. (index '" + toString(zero_based_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
+
+							Vert v;
+							v.vert_i = zero_based_vert_index;
+							v.norm_i = zero_based_normal_index;
+
+							const auto insert_res = added_verts.insert(std::make_pair(v, num_verts_added)); // Try and add to map
+							if(insert_res.second)
+							{
+								// Vert was not in map, but is added now.
+								handler.addVertex(vert_positions[zero_based_vert_index], vert_normals[zero_based_normal_index]);
+								face_added_vert_indices[i] = num_verts_added;
+								num_verts_added++;
+							}
+							else
+							{
+								// Vert was in map already, and insert_res.first is an iterator referring to the existing item.
+								face_added_vert_indices[i] = insert_res.first->second;
+							}
+					
+						}
+						else
+						{
+							Vert v;
+							v.vert_i = zero_based_vert_index;
+							v.norm_i = 0;
+							const auto res = added_verts.find(v);
+							if(res == added_verts.end())
+							{
+								// Not added yet, add:
+								handler.addVertex(vert_positions[zero_based_vert_index]);
+								added_verts.insert(std::make_pair(v, num_verts_added));
+								face_added_vert_indices[i] = num_verts_added;
+								num_verts_added++;
+							}
+							else
+								face_added_vert_indices[i] = res->second;
+						}
+
+					}//end for each vertex
+
+					//if(numfaceverts >= MAX_NUM_FACE_VERTICES)
+					//	conPrint("Warning, maximum number of verts per face reached or exceeded.");
+
+					if(numfaceverts < 3)
+						throw glare::Exception("Invalid number of vertices in face: " + toString(numfaceverts) + " (line " + toString(linenum) + ")");
+
+					//------------------------------------------------------------------------
+					//Check current material index
+					//------------------------------------------------------------------------
+					if(current_mat_index < 0)
+					{
+						//conPrint("WARNING: found faces without a 'usemtl' line first.  Using material 'default'");
+						current_mat_index = 0;
+						materials.insert("default", current_mat_index);
+						handler.addMaterialUsed("default");
+					}
+
+					if(numfaceverts == 3)
+					{
+						handler.addTriangle(&face_added_vert_indices[0], &face_uv_indices[0], current_mat_index);
+					}
+					else if(numfaceverts == 4)
+					{
+						handler.addQuad(&face_added_vert_indices[0], &face_uv_indices[0], current_mat_index);
+					}
+					else
+					{
+						// Add all tris needed to make up the face polygon
+						for(int i=2; i<numfaceverts; ++i)
+						{
+							const unsigned int v_indices[3] = { face_added_vert_indices[0], face_added_vert_indices[i - 1], face_added_vert_indices[i] };
+							const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i] };
+							handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
 						}
 					}
+
+					// Finished handling face.
 				}
-				else 
-					throw glare::Exception("syntax error: no integer following 'f' (line " + toString(linenum) + ")");
-
-				// Add the vertex to the mesh, if it hasn't been added already.
-
-				if(zero_based_vert_index >= (int)vert_positions.size())
-					throw glare::Exception("Position index invalid. (index '" + toString(zero_based_vert_index) + "' out of bounds, on line " + toString(linenum) + ")");
-
-				if(read_normal_index)
+				else if(token == "mtllib")
 				{
-					if(zero_based_normal_index >= (int)vert_normals.size())
-						throw glare::Exception("Normal index invalid. (index '" + toString(zero_based_normal_index) + "' out of bounds, on line " + toString(linenum) + ")");
+					skipWhitespace(parser);
 
-					/*Vert v;
-					v.vert_i = zero_based_vert_index;
-					v.norm_i = zero_based_normal_index;
-					const auto res = added_verts.find(v);
-					if(res == added_verts.end())
-					{
-						// Not added yet, add:
-						handler.addVertex(vert_positions[zero_based_vert_index], vert_normals[zero_based_normal_index]);
-						added_verts.insert(std::make_pair(v, num_verts_added));
-						face_added_vert_indices[i] = num_verts_added;
-						num_verts_added++;
-					}
-					else
-						face_added_vert_indices[i] = res->second;
-					*/
-					Vert v;
-					v.vert_i = zero_based_vert_index;
-					v.norm_i = zero_based_normal_index;
+					string_view mtllib_path;
+					parser.parseNonWSToken(mtllib_path);
 
-					const auto insert_res = added_verts.insert(std::make_pair(v, num_verts_added)); // Try and add to map
-					if(insert_res.second)
+					if(parse_mtllib)
 					{
-						// Vert was not in map, but is added now.
-						handler.addVertex(vert_positions[zero_based_vert_index], vert_normals[zero_based_normal_index]);
-						face_added_vert_indices[i] = num_verts_added;
-						num_verts_added++;
+						// NOTE: what's the best way to handle this?  Should we allow a "./" prefix?
+						const std::string safe_mtl_path = sanitiseString(mtllib_path.to_string());
+
+						// If .mtl file does not exist, just skip trying to parse it instead of throwing an exception.
+						const std::string mtl_fullpath = FileUtils::join(FileUtils::getDirectory(filename), safe_mtl_path);
+						if(FileUtils::fileExists(mtl_fullpath))
+							parseMTLLib(mtl_fullpath, mtllib_mats_out);
 					}
+				}
+				else if(token == "usemtl")  //material to use for subsequent faces
+				{
+					/// Parse material name ///
+					skipWhitespace(parser);
+
+					string_view material_name;
+					parser.parseNonWSToken(material_name);
+
+					/// See if material has already been created, create it if it hasn't been ///
+					if(materials.isInserted(material_name.to_string()))
+						current_mat_index = materials.getValue(material_name.to_string());
 					else
 					{
-						// Vert was in map already, and insert_res.first is an iterator referring to the existing item.
-						face_added_vert_indices[i] = insert_res.first->second;
+						//conPrint("\tFound reference to material '" + material_name + "'.");
+						current_mat_index = (int)materials.size();
+						materials.insert(material_name.to_string(), current_mat_index);
+						handler.addMaterialUsed(toIndigoString(material_name.to_string()));
 					}
-					
-				}
-				else
-				{
-					Vert v;
-					v.vert_i = zero_based_vert_index;
-					v.norm_i = 0;
-					const auto res = added_verts.find(v);
-					if(res == added_verts.end())
-					{
-						// Not added yet, add:
-						handler.addVertex(vert_positions[zero_based_vert_index]);
-						added_verts.insert(std::make_pair(v, num_verts_added));
-						face_added_vert_indices[i] = num_verts_added;
-						num_verts_added++;
-					}
-					else
-						face_added_vert_indices[i] = res->second;
-				}
-
-			}//end for each vertex
-
-			//if(numfaceverts >= MAX_NUM_FACE_VERTICES)
-			//	conPrint("Warning, maximum number of verts per face reached or exceeded.");
-
-			if(numfaceverts < 3)
-				throw glare::Exception("Invalid number of vertices in face: " + toString(numfaceverts) + " (line " + toString(linenum) + ")");
-
-			//------------------------------------------------------------------------
-			//Check current material index
-			//------------------------------------------------------------------------
-			if(current_mat_index < 0)
-			{
-				//conPrint("WARNING: found faces without a 'usemtl' line first.  Using material 'default'");
-				current_mat_index = 0;
-				materials.insert("default", current_mat_index);
-				handler.addMaterialUsed("default");
-			}
-
-			if(numfaceverts == 3)
-			{
-				handler.addTriangle(&face_added_vert_indices[0], &face_uv_indices[0], current_mat_index);
-			}
-			else if(numfaceverts == 4)
-			{
-				handler.addQuad(&face_added_vert_indices[0], &face_uv_indices[0], current_mat_index);
-			}
-			else
-			{
-				// Add all tris needed to make up the face polygon
-				for(int i=2; i<numfaceverts; ++i)
-				{
-					const unsigned int v_indices[3] = { face_added_vert_indices[0], face_added_vert_indices[i - 1], face_added_vert_indices[i] };
-					const unsigned int tri_uv_indices[3] = { face_uv_indices[0], face_uv_indices[i-1], face_uv_indices[i] };
-					handler.addTriangle(v_indices, tri_uv_indices, current_mat_index);
 				}
 			}
 
-			// Finished handling face.
-		}
-		else if(token == "mtllib")
-		{
-			skipWhitespace(parser);
-
-			string_view mtllib_path;
-			parser.parseNonWSToken(mtllib_path);
-
-			if(parse_mtllib)
-			{
-				// If .mtl file does not exist, just skip trying to parse it instead of throwing an exception.
-				const std::string mtl_fullpath = FileUtils::join(FileUtils::getDirectory(filename), mtllib_path.to_string());
-				if(FileUtils::fileExists(mtl_fullpath))
-					parseMTLLib(mtl_fullpath, mtllib_mats_out);
-			}
-		}
-		else if(token == "usemtl")  //material to use for subsequent faces
-		{
-			/// Parse material name ///
-			skipWhitespace(parser);
-
-			string_view material_name;
-			parser.parseNonWSToken(material_name);
-
-			/// See if material has already been created, create it if it hasn't been ///
-			if(materials.isInserted(material_name.to_string()))
-				current_mat_index = materials.getValue(material_name.to_string());
-			else
-			{
-				//conPrint("\tFound reference to material '" + material_name + "'.");
-				current_mat_index = (int)materials.size();
-				materials.insert(material_name.to_string(), current_mat_index);
-				handler.addMaterialUsed(toIndigoString(material_name.to_string()));
-			}
+			parser.advancePastLine();
 		}
 
-
-		parser.advancePastLine();
+		handler.endOfModel();
+		// conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
 	}
-
-	handler.endOfModel();
-	// conPrint("\tOBJ parse took " + toString(load_timer.getSecondsElapsed()) + "s");
+	catch(Indigo::IndigoException& e)
+	{
+		throw glare::Exception(toStdString(e.what()));
+	}
 }
 
 
@@ -433,12 +450,18 @@ static Colour3f parseCol3(Parser& parser, int& linenum)
 
 void FormatDecoderObj::parseMTLLib(const std::string& filename, MLTLibMaterials& mtllib_mats_out)
 {
+	MemMappedFile file(filename);
+
+	parseMTLLibFromBuffer((const uint8*)file.fileData(), file.fileSize(), filename, mtllib_mats_out);
+}
+
+
+void FormatDecoderObj::parseMTLLibFromBuffer(const uint8* data, size_t len, const std::string& filename, MLTLibMaterials& mtllib_mats_out)
+{
 	mtllib_mats_out.mtl_file_path = filename;
 	mtllib_mats_out.materials.resize(0);
 
-	MemMappedFile file(filename);
-	
-	Parser parser((const char*)file.fileData(), (unsigned int)file.fileSize());
+	Parser parser((const char*)data, len);
 
 	int linenum = 0;
 	string_view token;
@@ -447,6 +470,9 @@ void FormatDecoderObj::parseMTLLib(const std::string& filename, MLTLibMaterials&
 		linenum++;
 
 		parser.parseSpacesAndTabs();
+
+		if(parser.eof())
+			break;
 		
 		if(parser.current() == '#') // Skip comments
 		{
@@ -546,9 +572,96 @@ void FormatDecoderObj::parseMTLLib(const std::string& filename, MLTLibMaterials&
 #include "../utils/FileUtils.h"
 
 
+#if 0
+// Command line:
+// C:\fuzz_corpus\obj -max_len=1000000 -seed=1
+// or
+// C:\fuzz_corpus\obj -max_len=1000000 -jobs=16
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	return 0;
+}
+
+#if 1
+// Fuzz obj loading:
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		Indigo::Mesh mesh;
+		MLTLibMaterials mtllib_mats;
+		FormatDecoderObj::loadModelFromBuffer(data, size, "dummy_filename", mesh, 1.f, /*parse mtllib=*/false, mtllib_mats);
+	}
+	catch(glare::Exception&)
+	{}
+	return 0;  // Non-zero return values are reserved for future use.
+}
+
+#else
+
+// Fuzz MTL loading:
+// C:\fuzz_corpus\mtl -max_len=1000000 -seed=1
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		MLTLibMaterials mtllib_mats;
+		FormatDecoderObj::parseMTLLibFromBuffer(data, size, "dummy_filename", mtllib_mats);
+	}
+	catch(glare::Exception&)
+	{}
+	return 0;  // Non-zero return values are reserved for future use.
+}
+
+#endif
+
+#endif
+
+
 void FormatDecoderObj::test()
 {
 	conPrint("FormatDecoderObj::test()");
+
+
+	// vert index out of bounds
+	try
+	{
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/obj/neg pos indices.obj";
+		Indigo::Mesh mesh;
+		MLTLibMaterials mats;
+		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
+
+		failTest("Expected excep");
+	}
+	catch(glare::Exception&)
+	{}
+
+	// normal index out of bounds
+	try
+	{
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/obj/neg normal indices.obj";
+		Indigo::Mesh mesh;
+		MLTLibMaterials mats;
+		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
+
+		failTest("Expected excep");
+	}
+	catch(glare::Exception&)
+	{}
+
+	// uv index out of bounds
+	try
+	{
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/obj/neg uv indices.obj";
+		Indigo::Mesh mesh;
+		MLTLibMaterials mats;
+		streamModel(path, mesh, 1.0, /*parse mtllib=*/false, mats);
+
+		failTest("Expected excep");
+	}
+	catch(glare::Exception&)
+	{}
 
 
 	if(false)
