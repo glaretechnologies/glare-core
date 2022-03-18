@@ -126,7 +126,7 @@ void Parser::advancePastLine()
 		else if(current() == '\r') // carriage return
 		{
 			currentpos++;
-			if(current() == '\n')
+			if(notEOF() && (current() == '\n'))
 			{
 				// Assume we are seeing a CRLF on windows.  Treat as one new line.
 				currentpos++;
