@@ -283,8 +283,22 @@ OpenGLEngine::~OpenGLEngine()
 		it->second.value->m_opengl_engine = NULL;
 	opengl_textures.clear();
 
+	// Free mesh data before we free the vertex allocator.
 	current_scene = NULL;
 	scenes.clear();
+
+	clear_buf_overlay_ob = NULL;
+	outline_quad_meshdata = NULL;
+
+	debug_arrow_ob = NULL;
+	debug_joint_obs.clear();
+
+	line_meshdata = NULL;
+	sphere_meshdata = NULL;
+	arrow_meshdata = NULL;
+	cube_meshdata = NULL;
+	unit_quad_meshdata = NULL;
+	cylinder_meshdata = NULL;
 
 	delete task_manager;
 }
