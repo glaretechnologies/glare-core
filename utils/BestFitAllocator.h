@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "Reference.h"
 #include <cstring> // for size_t
 #include <map>
+#include <string>
 
 
 namespace glare
@@ -30,8 +31,8 @@ public:
 
 		size_t aligned_offset; // Offset for client
 
-		//glare::BestFitAllocator* allocator;
-		Reference<glare::BestFitAllocator> allocator;
+		glare::BestFitAllocator* allocator;
+		//Reference<glare::BestFitAllocator> allocator;
 
 		bool allocated;
 	};
@@ -42,7 +43,12 @@ public:
 	BlockInfo* alloc(size_t size, size_t alignment);
 	void free(BlockInfo* block);
 
+	size_t getNumAllocatedBlocks() const;
+	size_t getNumFreeBlocks() const { return size_to_free_blocks.size(); }
+
 	static void test();
+
+	std::string name;
 private:
 	void removeBlockFromFreeMap(BlockInfo* block);
 	void checkInvariants();

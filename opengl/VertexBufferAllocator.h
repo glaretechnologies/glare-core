@@ -27,8 +27,10 @@ struct BlockHandle : public RefCounted
 	BlockHandle(glare::BestFitAllocator::BlockInfo* block_) : block(block_) {}
 	~BlockHandle()
 	{
-		glare::BestFitAllocator* allocator = block->allocator.ptr();
-		allocator->free(block);
+		glare::BestFitAllocator* allocator = block->allocator;
+		assert(allocator); // Should be non-null unless the BestFitAllocator has been destroyed (internal logic error)
+		if(allocator)
+			allocator->free(block);
 	}
 
 	glare::BestFitAllocator::BlockInfo* block;

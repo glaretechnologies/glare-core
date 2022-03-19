@@ -19,11 +19,13 @@ const static bool USE_INDIVIDUAL_VBOS = false;
 VertexBufferAllocator::VertexBufferAllocator()
 :	use_VBO_size_B(128 * 1024 * 1024)
 {
+	//conPrint("VertexBufferAllocator::VertexBufferAllocator()");
 }
 
 
 VertexBufferAllocator::~VertexBufferAllocator()
 {
+	//conPrint("VertexBufferAllocator::~VertexBufferAllocator()");
 }
 
 
@@ -120,6 +122,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 			VBOAndAllocator vbo_and_alloc;
 			vbo_and_alloc.vbo = new VBO(NULL, this->use_VBO_size_B);
 			vbo_and_alloc.allocator = new glare::BestFitAllocator(this->use_VBO_size_B);
+			vbo_and_alloc.allocator->name = "VBO allocator";
 			vert_vbos.push_back(vbo_and_alloc);
 
 			// Allocate from the new VBO
@@ -198,6 +201,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 			VBOAndAllocator vbo_and_alloc;
 			vbo_and_alloc.vbo = new VBO(NULL, this->use_VBO_size_B, GL_ELEMENT_ARRAY_BUFFER);
 			vbo_and_alloc.allocator = new glare::BestFitAllocator(this->use_VBO_size_B);
+			vbo_and_alloc.allocator->name = "index VBO allocator";
 			index_vbos.push_back(vbo_and_alloc);
 
 			// Allocate from the new VBO
