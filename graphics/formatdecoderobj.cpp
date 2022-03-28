@@ -578,11 +578,6 @@ void FormatDecoderObj::parseMTLLibFromBuffer(const uint8* data, size_t len, cons
 // or
 // C:\fuzz_corpus\obj -max_len=1000000 -jobs=16
 
-extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
-{
-	return 0;
-}
-
 #if 1
 // Fuzz obj loading:
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)

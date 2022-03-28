@@ -175,12 +175,6 @@ void FormatDecoderSTL::loadModelFromBuffer(const uint8* data, size_t buffer_size
 // Command line:
 // C:\fuzz_corpus\stl N:\indigo\trunk\testfiles\stl
 
-extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
-{
-	return 0;
-}
-
-
 // Fuzz obj loading:
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {

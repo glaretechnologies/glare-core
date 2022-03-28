@@ -450,11 +450,6 @@ void BestFitAllocator::checkInvariants()
 // Command line:
 // C:\fuzz_corpus\best_fit_allocator -max_len=10000 -seed=1
 
-//extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
-//{
-//	return 0;
-//}
-
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try

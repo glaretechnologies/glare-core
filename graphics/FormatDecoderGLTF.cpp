@@ -3103,10 +3103,6 @@ static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData
 
 
 #if 0
-extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
-{
-	return 0;
-}
 
 //static int iter = 0;
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
