@@ -1,8 +1,7 @@
 /*=====================================================================
 PNGDecoder.h
 ------------
-Copyright Glare Technologies Limited 2016 -
-File created by ClassTemplate on Wed Jul 26 22:08:57 2006
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
@@ -20,7 +19,7 @@ template <class V, class VTraits> class ImageMap;
 /*=====================================================================
 PNGDecoder
 ----------
-Loading and saving of PNG files.
+Loading and saving of PNG files using libpng.
 =====================================================================*/
 class PNGDecoder
 {
@@ -28,6 +27,8 @@ public:
 	// All methods throw ImFormatExcep on failure.
 
 	static Reference<Map2D> decode(const std::string& path);
+
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, const std::string& path);
 	
 	static void write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& path);
 	static void write(const Bitmap& bitmap, const std::string& path); // Write with no metadata
