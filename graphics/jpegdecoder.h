@@ -37,6 +37,8 @@ public:
 
 	static Reference<Map2D> decode(const std::string& indigo_base_dir, const std::string& path);
 
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, const std::string& indigo_base_dir);
+
 	static void save(const Reference<ImageMapUInt8>& image, const std::string& path, const SaveOptions& options);
 
 

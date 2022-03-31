@@ -73,9 +73,6 @@ static void my_output_message(j_common_ptr cinfo)
 {}
 
 
-//static double total_jpeg_decoding_time = 0;
-
-
 // RAII wrapper for jpeg_decompress_struct, so jpeg_destroy() will always be called, even if an exception is thrown.
 class JpegDecompress
 {
@@ -89,9 +86,20 @@ public:
 
 Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const std::string& path)
 {
-	//conPrint("JPEGDecoder::decode(), path: " + path);
-	//Timer timer;
+	try
+	{
+		MemMappedFile file(path);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), indigo_base_dir);
+	}
+	catch(glare::Exception& e)
+	{
+		throw ImFormatExcep(e.what());
+	}
+}
 
+
+Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& indigo_base_dir)
+{
 	try
 	{
 		JpegDecompress decompress;
@@ -101,31 +109,32 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 		//set error handling
 		//------------------------------------------------------------------------
 		struct jpeg_error_mgr error_manager;
-		jpeg_std_error(&error_manager); // Initialise.  NOTE: Assuming this won't throw an exception.
+		jpeg_std_error(&error_manager);
 		error_manager.emit_message = my_emit_message;
 		error_manager.error_exit = my_error_exit;
 		error_manager.output_message = my_output_message;
 		
 		cinfo.err = &error_manager; // Set error manager
 
+		
+
 		//------------------------------------------------------------------------
 		//Init main struct
 		//------------------------------------------------------------------------
 		jpeg_create_decompress(&cinfo);
 
-		//------------------------------------------------------------------------
-		//Open file
-		//------------------------------------------------------------------------
-		FileHandle infile(path, "rb");
+		cinfo.mem->max_memory_to_use = 256 * 1024 * 1024;
 
-		// Specify file data source
-		jpeg_stdio_src(&cinfo, infile.getFile());
+		if(size > (size_t)std::numeric_limits<unsigned long>::max())
+			throw glare::Exception("Buffer size too large");
+
+		jpeg_mem_src(&cinfo, (const unsigned char*)data, (unsigned long)size);
 
 
 		//------------------------------------------------------------------------
 		//read header
 		//------------------------------------------------------------------------
-		jpeg_read_header(&cinfo, TRUE);
+		jpeg_read_header(&cinfo, /*require_image=*/TRUE);
 
 		// Go through markers until we find the icc profile
 		//jpeg_saved_marker_ptr marker = cinfo.marker_list;
@@ -166,9 +175,16 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 		// Num components to use for our returned image.  JPEG never has alpha so we have a max of 3 channels.
 		const int final_num_components = myMin(3, cinfo.num_components);
 
-		Reference<ImageMap<uint8_t, UInt8ComponentValueTraits> > texture( new ImageMap<uint8_t, UInt8ComponentValueTraits>(
-			cinfo.output_width, cinfo.output_height, final_num_components
-		));
+		if(cinfo.output_width > 1000000)
+			throw ImFormatExcep("Invalid width: " + toString(cinfo.output_width));
+		if(cinfo.output_height > 1000000)
+			throw ImFormatExcep("Invalid height: " + toString(cinfo.output_height));
+
+		const size_t max_num_pixels = 1 << 27;
+		if((size_t)cinfo.output_width * (size_t)cinfo.output_height > max_num_pixels)
+			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(cinfo.output_width) + ", " + toString(cinfo.output_height));
+
+		ImageMapUInt8Ref texture = new ImageMapUInt8(cinfo.output_width, cinfo.output_height, final_num_components);
 
 		// Read gamma.  NOTE: this seems to just always be 1.
 		// We need to extract the ICC profile.
@@ -215,7 +231,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 			cmsCloseProfile(hOutProfile); 
 
 			int y = 0;
-			while (cinfo.output_scanline < cinfo.output_height)
+			while(cinfo.output_scanline < cinfo.output_height)
 			{
 				jpeg_read_scanlines(&cinfo, scanline_ptrs, 1);
 
@@ -260,9 +276,6 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 
 		jpeg_finish_decompress(&cinfo);
 		
-		//conPrint("   Finished, elapsed: " + timer.elapsedString() + ", total time: " + doubleToStringNDecimalPlaces(total_jpeg_decoding_time, 3) + "s");
-		//total_jpeg_decoding_time += timer.elapsed();
-
 		return texture;
 	}
 	catch(glare::Exception& e)
@@ -401,6 +414,29 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 
 
 #if BUILD_TESTS
+
+
+#include "PlatformUtils.h"
+
+
+#if 0
+// Command line:
+// C:\fuzz_corpus\jpeg N:\indigo\trunk\testfiles\jpegs
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		const std::string indigo_base_dir_path = FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
+		JPEGDecoder::decodeFromBuffer(data, size, indigo_base_dir_path);
+	}
+	catch(glare::Exception&)
+	{
+	}
+
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
 
 
 #include "../utils/TestUtils.h"
