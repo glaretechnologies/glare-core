@@ -15,7 +15,6 @@ Copyright Glare Technologies Limited 2020 -
 //#include "TerrainSystem.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
-#include "../graphics/imformatdecoder.h"
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/BatchedMesh.h"
 #include "../graphics/CompressedImage.h"
@@ -1120,7 +1119,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			std::vector<Map2DRef> face_maps(6);
 			for(int i=0; i<6; ++i)
 			{
-				face_maps[i] = ImFormatDecoder::decodeImage(".", gl_data_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
+				face_maps[i] = EXRDecoder::decode(gl_data_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
 
 				if(!face_maps[i].isType<ImageMapFloat>())
 					throw glare::Exception("cosine env map Must be ImageMapFloat");
@@ -1132,7 +1131,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Load specular-reflection env tex
 		{
 			const std::string path = gl_data_dir + "/specular_refl_sky_no_sun_combined.exr";
-			Map2DRef specular_env = ImFormatDecoder::decodeImage(".", path);
+			Map2DRef specular_env = EXRDecoder::decode(path);
 
 			if(!specular_env.isType<ImageMapFloat>())
 				throw glare::Exception("specular env map Must be ImageMapFloat");

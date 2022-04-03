@@ -34,7 +34,6 @@ http://www.cs.rice.edu/~jwarren/papers/subdivision_tutorial.pdf
 #include "../graphics/Drawing.h"
 #include "../graphics/TextDrawer.h"
 #include "../graphics/PNGDecoder.h"
-#include "../graphics/imformatdecoder.h"
 #include "../utils/HashMapInsertOnly2.h"
 #include "../utils/BitUtils.h"
 #include "../lang/WinterEnv.h"
@@ -3417,7 +3416,7 @@ void DisplacementUtils::draw(const Polygons& polygons, const VertsAndUVs& verts_
 	{
 		conPrint("TextDrawerExcep: " + e.what());
 	}
-	catch(ImFormatExcep& e)
+	catch(glare::Exception& e)
 	{
 		conPrint("Error while writing: " + e.what());
 	}
