@@ -25,11 +25,14 @@ OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
 	xres(0),
 	yres(0),
-	loaded_size(0),
 	format(Format_SRGB_Uint8),
 	refcount(0),
 	m_opengl_engine(NULL),
-	bindless_tex_handle(0)
+	bindless_tex_handle(0),
+	gl_format(GL_RGB), // Just set some defaults for getByteSize().
+	gl_type(GL_UNSIGNED_BYTE),
+	gl_internal_format(GL_RGB),
+	filtering(Filtering_Fancy)
 {
 }
 
@@ -43,7 +46,6 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 :	texture_handle(0),
 	xres(0),
 	yres(0),
-	loaded_size(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0)
@@ -52,7 +54,6 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	this->filtering = filtering_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
-	this->loaded_size = tex_data.size();
 
 	// Work out gl_internal_format etc..
 	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
@@ -71,7 +72,6 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 :	texture_handle(0),
 	xres(0),
 	yres(0),
-	loaded_size(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0)
@@ -82,7 +82,6 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	this->filtering = filtering_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
-	this->loaded_size = tex_data.size();
 
 	// Work out gl_type
 	GLint dummy_gl_internal_format;
@@ -227,6 +226,36 @@ static size_t getPixelSizeB(GLenum gl_format, GLenum type)
 	}
 
 	return component_size * num_components;
+}
+
+
+// Compute number of bytes per pixel used for the texture on the GPU.
+static double getInternalPixelSizeB(GLint internal_format)
+{
+	switch(internal_format)
+	{
+		case GL_RGB: return 3;
+		case GL_R32F: return 4;
+		case GL_R16F: return 2;
+		case GL_SRGB8: return 3;
+		case GL_SRGB8_ALPHA8: return 4;
+		case GL_RGB8: return 3;
+		case GL_RGBA8: return 4;
+		case GL_RGBA32F: return 16;
+		case GL_RGB16F: return 6;
+		case GL_DEPTH_COMPONENT32: return 4;
+		case GL_DEPTH_COMPONENT16: return 2;
+		case GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT: return 0.5; // 8 bytes per 4*4 pixel block
+		case GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT: return 1; // 16 bytes per 4*4 pixel block
+		case GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT: return 0.5; // 8 bytes per 4*4 pixel block
+		case GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: return 1; // 16 bytes per 4*4 pixel block
+		case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT: return 1; // 16 bytes per 4*4 pixel block
+		default:
+		{
+			assert(0);
+			return 1;
+		}
+	};
 }
 
 
@@ -542,13 +571,13 @@ void OpenGLTexture::unbind()
 }
 
 
+// Updating existing texture
 void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t level_H, ArrayRef<uint8> tex_data)
 {
 	if(mipmap_level == 0)
 	{
 		assert(level_W == this->xres && level_H == this->yres);
 	}
-	this->loaded_size += tex_data.size();
 
 	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8 || format == Format_Compressed_BC6)
 	{
@@ -573,7 +602,13 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t 
 
 size_t OpenGLTexture::getByteSize() const
 {
-	return this->loaded_size;
+	const double pixel_size_B = getInternalPixelSizeB(gl_internal_format);
+	double total_size = xres * yres * pixel_size_B;
+
+	if(filtering == Filtering_Fancy)
+		total_size = total_size * 1.333333; // Space for Mipmaps.
+
+	return (size_t)total_size;
 }
 
 

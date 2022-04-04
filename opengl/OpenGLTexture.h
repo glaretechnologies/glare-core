@@ -175,9 +175,6 @@ private:
 	Filtering filtering;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
-
-	size_t loaded_size;
-
 public:
 	mutable int64 refcount;
 
