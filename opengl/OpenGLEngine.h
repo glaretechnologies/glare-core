@@ -82,7 +82,7 @@ struct GLMemUsage
 class OpenGLMeshRenderData : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false) {}
+	OpenGLMeshRenderData() : has_vert_colours(false), num_materials_referenced(0) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -122,6 +122,8 @@ public:
 	Reference<BatchedMesh> batched_mesh;
 
 	AnimationData animation_data;
+
+	size_t num_materials_referenced;
 };
 
 typedef Reference<OpenGLMeshRenderData> OpenGLMeshRenderDataRef;
