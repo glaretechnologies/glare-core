@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/BufferViewInStream.h"
 #include <stdio.h>
 #include <fcntl.h>
+#include <limits.h> // For INT_MAX
 #ifdef _WIN32
 #include <io.h>
 #else
