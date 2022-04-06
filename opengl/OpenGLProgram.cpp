@@ -44,6 +44,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	uses_vert_uniform_buf_obs(false),
 	program_index(program_index_)
 {
+	// conPrint("Creating OpenGLProgram " + prog_name_ + "...");
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
 
@@ -121,8 +122,8 @@ int OpenGLProgram::getUniformLocation(const std::string& name)
 {
 	const int res = glGetUniformLocation(program, name.c_str());
 #ifndef NDEBUG
-	if(res < 0)
-		conPrint("Warning: for program '" + prog_name + "': failed to get uniform '" + name + "'.");
+	//if(res < 0)
+	//	conPrint("Warning: for program '" + prog_name + "': failed to get uniform '" + name + "'.");
 #endif
 	return res;
 }
