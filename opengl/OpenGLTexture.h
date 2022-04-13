@@ -107,6 +107,8 @@ public:
 	// Load into a texture that has already had its format, filtering and wrapping modes set.
 	void loadIntoExistingTexture(size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data);
 
+	void loadRegionIntoExistingTexture(size_t x, size_t y, size_t w, size_t h, size_t row_stride_B, ArrayRef<uint8> tex_data);
+
 	void setTWrappingEnabled(bool wrapping_enabled);
 	//---------------------------------------------------------------------------------------------------------------------
 	

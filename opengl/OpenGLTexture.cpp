@@ -551,6 +551,58 @@ void OpenGLTexture::loadIntoExistingTexture(size_t tex_xres, size_t tex_yres, si
 }
 
 
+void OpenGLTexture::loadRegionIntoExistingTexture(size_t x, size_t y, size_t region_w, size_t region_h, size_t row_stride_B, ArrayRef<uint8> tex_data)
+{
+	glBindTexture(GL_TEXTURE_2D, texture_handle);
+
+	if(tex_data.data() != NULL)
+	{
+		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
+		{
+			glCompressedTexSubImage2D(
+				GL_TEXTURE_2D,
+				0, // LOD level
+				(GLsizei)x, // x offset
+				(GLsizei)y, // y offset
+				(GLsizei)region_w, (GLsizei)region_h,
+				gl_internal_format, // internal format
+				(GLsizei)tex_data.size(),
+				tex_data.data()
+			);
+		}
+		else
+		{
+			const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
+
+			// Set row stride if needed (not tightly packed)
+			if(row_stride_B != region_w * pixel_size_B) // If not tightly packed:
+				glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
+
+			setPixelStoreAlignment(tex_data.data(), row_stride_B);
+
+			// NOTE: can't use glTexImage2D on immutable storage.
+			glTexSubImage2D(
+				GL_TEXTURE_2D,
+				0, // LOD level
+				(GLsizei)x, // x offset
+				(GLsizei)y, // y offset
+				(GLsizei)region_w, (GLsizei)region_h,
+				gl_format,
+				gl_type,
+				tex_data.data()
+			);
+
+			if(row_stride_B != region_w * pixel_size_B)
+				glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
+		}
+
+		// Generate mipmaps if needed
+		if(filtering == Filtering_Fancy)
+			glGenerateMipmap(GL_TEXTURE_2D);
+	}
+}
+
+
 void OpenGLTexture::setTWrappingEnabled(bool wrapping_enabled)
 {
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
