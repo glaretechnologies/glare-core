@@ -2248,6 +2248,7 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 
 	// Check current_bound_VAO is correct
 #ifndef NDEBUG
+#if !DO_INDIVIDUAL_VAO_ALLOC
 	{
 		GLuint vao = VAO::getBoundVAO();
 		if(current_bound_VAO == NULL)
@@ -2255,6 +2256,7 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 		else
 			doRuntimeCheck(current_bound_VAO->handle == vao);
 	}
+#endif
 #endif
 
 #if DO_INDIVIDUAL_VAO_ALLOC
