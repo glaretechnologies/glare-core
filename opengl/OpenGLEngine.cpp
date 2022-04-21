@@ -4673,6 +4673,11 @@ void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& al
 	if(!data.indices_vbo_handle.valid()) // loading_progress.index_next_i == 0)
 		data.indices_vbo_handle = allocator.allocateIndexData(/*data=*/NULL, loading_progress.index_total_size_B); // Just allocate the buffer, don't upload
 
+#if DO_INDIVIDUAL_VAO_ALLOC
+	if(data.individual_vao.isNull())
+		data.individual_vao = new VAO(data.vbo_handle.vbo, data.indices_vbo_handle.index_vbo, data.vertex_spec);
+#endif
+
 	if(data.batched_mesh.nonNull())
 	{
 		assert(loading_progress.vert_total_size_B == data.batched_mesh->vertex_data.dataSizeBytes());
