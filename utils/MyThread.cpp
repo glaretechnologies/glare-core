@@ -8,6 +8,9 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "StringUtils.h"
 #include "PlatformUtils.h"
+#if BUGSPLAT_SUPPORT
+#include <BugSplat.h>
+#endif
 #include <cassert>
 #if defined(_WIN32)
 #include <process.h>
@@ -26,11 +29,12 @@ MyThread::MyThread()
 MyThread::~MyThread()
 {
 #if defined(_WIN32)
-	if(!CloseHandle(thread_handle))
-	{
-		assert(0);
-		//std::cerr << "ERROR: CloseHandle on thread failed." << std::endl;
-	}
+	if(thread_handle != 0)
+		if(!CloseHandle(thread_handle))
+		{
+			assert(0);
+			//std::cerr << "ERROR: CloseHandle on thread failed." << std::endl;
+		}
 #else
 	// Mark the thread resources as freeable if needed.
 	// Each pthread must either have pthread_join() or pthread_detach() call on it.
@@ -52,6 +56,10 @@ MyThread::~MyThread()
 #endif
 threadFunction(void* the_thread_)
 {
+#if BUGSPLAT_SUPPORT
+	SetPerThreadCRTExceptionBehavior(); // For BugSplat: This call is needed in each thread of the app.
+#endif
+
 	MyThread* the_thread = static_cast<MyThread*>(the_thread_);
 
 	the_thread->run();
