@@ -25,9 +25,12 @@ Copyright Glare Technologies Limited 2022 -
 static const bool MEM_PROFILE = false;
 
 
-void GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, OpenGLMeshRenderData& meshdata, 
+Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, 
 	const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
 {
+	Reference<OpenGLMeshRenderData> meshdata_ref = new OpenGLMeshRenderData();
+	OpenGLMeshRenderData& meshdata = *meshdata_ref;
+
 	meshdata.has_uvs = !uvs.empty();
 	meshdata.has_shading_normals = !normals.empty();
 	meshdata.batches.resize(1);
@@ -58,7 +61,8 @@ void GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, OpenG
 
 	meshdata.indices_vbo_handle = allocator.allocateIndexData(indices.data(), indices.dataSizeBytes());
 
-	VertexSpec spec;
+	VertexSpec& spec = meshdata.vertex_spec;
+
 	const uint32 vert_stride = (uint32)(sizeof(float) * 3 + (sizeof(float) * 3) + (sizeof(float) * 2)); // also vertex size.
 
 	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
@@ -141,6 +145,8 @@ void GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, OpenG
 #if DO_INDIVIDUAL_VAO_ALLOC
 	meshdata.individual_vao = new VAO(meshdata.vbo_handle.vbo, meshdata.indices_vbo_handle.index_vbo, spec);
 #endif
+
+	return meshdata_ref;
 }
 
 
@@ -1039,7 +1045,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 
 	Timer timer;
 
-	const BatchedMesh* const mesh				= mesh_.getPointer();
+	const BatchedMesh* const mesh = mesh_.getPointer();
 
 	Reference<OpenGLMeshRenderData> opengl_render_data = new OpenGLMeshRenderData();
 

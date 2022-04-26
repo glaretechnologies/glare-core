@@ -26,7 +26,6 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBu
 {
 	const Vec3f endpoint_a(0, 0, 0);
 	const Vec3f endpoint_b(0, 0, 1);
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
 
 	const int res = 16;
 
@@ -106,16 +105,13 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBu
 		indices[i*12 + 11] = res*4 + 1; // bottom centre vert
 	}
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
-	return mesh_data;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
 // Base will be at origin, tip will lie at (1, 0, 0)
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh(VertexBufferAllocator& allocator)
 {
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-
 	const int res = 20;
 
 	js::Vector<Vec3f, 16> verts;
@@ -211,16 +207,13 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh(VertexBuf
 		}
 	}
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
-	return mesh_data;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
 // Base will be at origin, tips will lie at (1, 0, 0), (0,1,0), (0,0,1)
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh(VertexBufferAllocator& allocator)
 {
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-
 	const int res = 20;
 
 	js::Vector<Vec3f, 16> verts;
@@ -335,7 +328,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh(Vert
 		}
 	}
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
+	Reference<OpenGLMeshRenderData> mesh_data = GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 
 	mesh_data->batches.resize(3);
 	for(int z=0; z<3; ++z)
@@ -352,8 +345,6 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh(Vert
 // Base will be at origin, tip will lie at (1, 0, 0)
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCapsuleMesh(VertexBufferAllocator& allocator, const Vec3f& /*bottom_spans*/, const Vec3f& /*top_spans*/)
 {
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-
 	const int phi_res = 20;
 	//	const int theta_res = 10;
 
@@ -469,15 +460,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCapsuleMesh(VertexBuf
 
 
 #endif
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
-	return mesh_data;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeLineMesh(VertexBufferAllocator& allocator)
 {
-	OpenGLMeshRenderDataRef line_meshdata = new OpenGLMeshRenderData();
-
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(2);
 	js::Vector<Vec3f, 16> normals;
@@ -505,8 +493,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeLineMesh(VertexBuffer
 	for(int i=0; i<2; ++i)
 		normals[i] = Vec3f(0, 0, 1);
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *line_meshdata, verts, normals, uvs, indices);
-	return line_meshdata;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
@@ -565,17 +552,13 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSphereMesh(VertexBuff
 		quad_i += 6;
 	}
 
-	OpenGLMeshRenderDataRef sphere_meshdata = new OpenGLMeshRenderData();
-	GLMeshBuilding::buildMeshRenderData(allocator, *sphere_meshdata, verts, normals, uvs, indices);
-	return sphere_meshdata;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
 // Make a cube mesh.  Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCubeMesh(VertexBufferAllocator& allocator)
 {
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(24); // 6 faces * 4 verts/face
 	js::Vector<Vec3f, 16> normals;
@@ -735,15 +718,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCubeMesh(VertexBuffer
 		face++;
 	}
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
-	return mesh_data;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
 GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(VertexBufferAllocator& allocator, const Vec4f* verts_ws, const Colour4f& col)
 {
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(24); // 6 faces * 4 verts/face
 	js::Vector<Vec3f, 16> normals;
@@ -818,8 +798,7 @@ GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(VertexBufferAllocator& al
 		normals[face*4 + i] = crossProduct(verts[face*4 + 1] - verts[face*4 + 0], verts[face*4 + 3] - verts[face*4 + 0]);
 	face++;
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
-
+	Reference<OpenGLMeshRenderData> mesh_data = GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 
 	// Make the object
 	GLObjectRef ob = new GLObject();
@@ -837,8 +816,6 @@ GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(VertexBufferAllocator& al
 // Makes a quad with xspan = 1, yspan = 1, lying on the z = 0 plane.
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeUnitQuadMesh(VertexBufferAllocator& allocator)
 {
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(4);
 	js::Vector<Vec3f, 16> normals;
@@ -878,15 +855,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeUnitQuadMesh(VertexBu
 	for(int i=0; i<4; ++i)
 		normals[i] = Vec3f(0, 0, 1);
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
-	return mesh_data;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j)
 {
-	Reference<OpenGLMeshRenderData> mesh_data = new OpenGLMeshRenderData();
-
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(4);
 	js::Vector<Vec3f, 16> normals;
@@ -926,6 +900,5 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(VertexBuffer
 	for(int z=0; z<4; ++z)
 		normals[z] = toVec3f(crossProduct(i, j));// Vec3f(0, 0, -1);
 
-	GLMeshBuilding::buildMeshRenderData(allocator, *mesh_data, verts, normals, uvs, indices);
-	return mesh_data;
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }

@@ -1844,6 +1844,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 void OpenGLEngine::addObject(const Reference<GLObject>& object)
 {
 	assert(object->mesh_data.nonNull());
+	assert(!object->mesh_data->vertex_spec.attributes.empty());
 	//assert(object->mesh_data->vert_vao.nonNull());
 
 	// Check object material indices are in-bounds, so we don't have to check in inner draw loop.
@@ -4622,9 +4623,9 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 }
 
 
-void OpenGLEngine::buildMeshRenderData(VertexBufferAllocator& allocator, OpenGLMeshRenderData& meshdata, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
+Reference<OpenGLMeshRenderData> OpenGLEngine::buildMeshRenderData(VertexBufferAllocator& allocator, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
 {
-	GLMeshBuilding::buildMeshRenderData(allocator, meshdata, vertices, normals, uvs, indices);
+	return GLMeshBuilding::buildMeshRenderData(allocator, vertices, normals, uvs, indices);
 }
 
 
