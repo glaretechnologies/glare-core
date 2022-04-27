@@ -271,7 +271,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	
 	max_tex_mem_usage = settings.max_tex_mem_usage;
 
-	vert_buf_allocator = new VertexBufferAllocator();
+	vert_buf_allocator = new VertexBufferAllocator(settings.use_grouped_vbo_allocator);
 }
 
 
@@ -5940,7 +5940,11 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "GLSL version: " + glsl_version + "\n";
 	s += "texture sRGB support: " + boolToString(GL_EXT_texture_sRGB_support) + "\n";
 	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support) + "\n";
-	s += "using bindless textures: " + boolToString(use_bindless_textures);
+	s += "using bindless textures: " + boolToString(use_bindless_textures) + "\n";
+	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
+	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
+
+	s += vert_buf_allocator->getDiagnostics();
 
 	return s;
 }

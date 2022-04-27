@@ -84,13 +84,16 @@ VertexBufferAllocator
 class VertexBufferAllocator : public RefCounted
 {
 public:
-	VertexBufferAllocator();
+	// If use_grouped_vbo_allocator is true, use the best-fit allocator, otherwise just make a new VBO for each allocation.
+	VertexBufferAllocator(bool use_grouped_vbo_allocator);
 	~VertexBufferAllocator();
 
 
 	VertBufAllocationHandle allocate(const VertexSpec& vertex_spec, const void* data, size_t size);
 
 	IndexBufAllocationHandle allocateIndexData(const void* data, size_t size);
+
+	std::string getDiagnostics() const;
 
 private:
 	GLARE_DISABLE_COPY(VertexBufferAllocator)
@@ -117,6 +120,7 @@ public:
 	std::vector<VBOAndAllocator> index_vbos;
 
 	size_t use_VBO_size_B;
+	bool use_grouped_vbo_allocator;
 };
 
 

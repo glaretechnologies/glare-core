@@ -321,7 +321,8 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), use_logarithmic_depth_buffer(false), max_tex_mem_usage(1024 * 1024 * 1024ull) {}
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), use_logarithmic_depth_buffer(false), max_tex_mem_usage(1024 * 1024 * 1024ull),
+		use_grouped_vbo_allocator(true) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -329,6 +330,7 @@ public:
 	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool depth_fog;
 	bool use_logarithmic_depth_buffer;
+	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
 
 	uint64 max_tex_mem_usage; // Default: 1GB
 };

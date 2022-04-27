@@ -13,11 +13,9 @@ Copyright Glare Technologies Limited 2022 -
 #include "../maths/mathstypes.h"
 
 
-const static bool USE_INDIVIDUAL_VBOS = false;
-
-
-VertexBufferAllocator::VertexBufferAllocator()
-:	use_VBO_size_B(128 * 1024 * 1024)
+VertexBufferAllocator::VertexBufferAllocator(bool use_grouped_vbo_allocator_)
+:	use_grouped_vbo_allocator(use_grouped_vbo_allocator_), 
+	use_VBO_size_B(64 * 1024 * 1024) // Default VBO size to use, will be overridden in OpenGLEngine::initialise() though.
 {
 	//conPrint("VertexBufferAllocator::VertexBufferAllocator()");
 }
@@ -32,7 +30,7 @@ VertexBufferAllocator::~VertexBufferAllocator()
 VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex_spec, const void* vbo_data, size_t size)
 {
 #if DO_INDIVIDUAL_VAO_ALLOC
-
+	// This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
 	VertBufAllocationHandle handle;
 	handle.vbo = new VBO(vbo_data, size);
 	handle.per_spec_data_index = 0;
@@ -43,57 +41,38 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 
 #else
 
-	if(USE_INDIVIDUAL_VBOS)
+	auto res = per_spec_data_index.find(vertex_spec);
+	size_t use_per_spec_data_index;
+	if(res == per_spec_data_index.end())
 	{
-		auto res = per_spec_data_index.find(vertex_spec);
-		size_t index;
-		if(res == per_spec_data_index.end())
-		{
-			// This is a new vertex specification we don't have a VAO for.
+		// This is a new vertex specification we don't have a VAO for.
 
-			index = per_spec_data.size();
+		use_per_spec_data_index = per_spec_data.size();
 
-			PerSpecData new_data;
-			new_data.vao = new VAO(vertex_spec);
-			new_data.next_offset = 0;
-			per_spec_data.push_back(new_data);
+		PerSpecData new_data;
+		new_data.vao = new VAO(vertex_spec);
+		new_data.next_offset = 0;
+		per_spec_data.push_back(new_data);
 
-			per_spec_data_index.insert(std::make_pair(vertex_spec, (int)index));
-		}
-		else
-			index = res->second;
+		per_spec_data_index.insert(std::make_pair(vertex_spec, (int)use_per_spec_data_index));
+	}
+	else
+		use_per_spec_data_index = res->second;
 
+	if(!use_grouped_vbo_allocator)
+	{
+		// Not using best-fit allocator, just allocate a new VBO for each individual vertex data buffer:
 		VertBufAllocationHandle handle;
-
-		// Individual buffers:
 		handle.vbo = new VBO(vbo_data, size);
-		handle.per_spec_data_index = index;
+		handle.per_spec_data_index = use_per_spec_data_index;
 		handle.offset = 0;
 		handle.size = size;
 		handle.base_vertex = 0;
 		return handle;
 	}
-	else // else if !USE_INDIVIDUAL_VBOS:
+	else
 	{
-		auto res = per_spec_data_index.find(vertex_spec);
-		size_t index;
-		if(res == per_spec_data_index.end())
-		{
-			// This is a new vertex specification we don't have a VAO for.
-
-			index = per_spec_data.size();
-
-			PerSpecData new_data;
-			new_data.vao = new VAO(vertex_spec);
-			new_data.next_offset = 0;
-			per_spec_data.push_back(new_data);
-
-			per_spec_data_index.insert(std::make_pair(vertex_spec, (int)index));
-		}
-		else
-			index = res->second;
-
-		PerSpecData& data = per_spec_data[index];
+		PerSpecData& data = per_spec_data[use_per_spec_data_index];
 
 		const size_t vert_stride = data.vao->vertex_spec.attributes[0].stride;
 		
@@ -143,7 +122,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		handle.block_handle = new BlockHandle(used_block);
 		doRuntimeCheck(handle.block_handle->block->aligned_offset % vert_stride == 0);
 		handle.vbo = used_vbo;
-		handle.per_spec_data_index = index;
+		handle.per_spec_data_index = use_per_spec_data_index;
 		handle.offset = handle.block_handle->block->aligned_offset;
 		handle.size = size;
 		handle.base_vertex = (int)(handle.block_handle->block->aligned_offset / vert_stride);
@@ -167,9 +146,9 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 	return handle;
 
 #else
-
-	if(USE_INDIVIDUAL_VBOS)
+	if(!use_grouped_vbo_allocator)
 	{
+		// Not using best-fit allocator, just allocate a new VBO for each individual vertex data buffer:
 		IndexBufAllocationHandle handle;
 		handle.offset = 0;
 		handle.size = size;
@@ -229,4 +208,14 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 		return handle;
 	}
 #endif
+}
+
+
+std::string VertexBufferAllocator::getDiagnostics() const
+{
+	std::string s;
+	s += "use_VBO_size: " + getNiceByteSize(use_VBO_size_B) + "\n";
+	s += "Vert VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";
+	s += "Index VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";
+	return s;
 }
