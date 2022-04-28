@@ -21,7 +21,7 @@ extern "C" {
 #define GIF_OK      1
 
 #include <stddef.h>
-//#include <stdbool.h>
+#include <stdbool.h>
 
 #define GIF_STAMP "GIFVER"          /* First chars in file - GIF stamp.  */
 #define GIF_STAMP_LEN sizeof(GIF_STAMP) - 1

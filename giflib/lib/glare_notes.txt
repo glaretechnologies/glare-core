@@ -2,11 +2,19 @@
 Giflib is giflib-5.2.1
 See https://sourceforge.net/p/giflib/code/ci/0861b5ccb749af58f26c42d5cfb0c918049bbb81/tree/NEWS
 
+
+Added an extern "C"  around openbsd_reallocarray declaration
+
+
+I also had to comment out a few includes of C99 header files.
+See gif_hash.h:
+//#include <unistd.h> // glare new - commented out
+
+
+OLD:
 These files were originally .c files.
 I changed the extension to .cpp so they would compile as c++ files.
 This is needed on windows as they use 'bool', which is only valid c in c99, which VS doesn't support.
 (in vs2010 at least.  I think vs2015 and later do support c99)
 
-I also had to comment out a few includes of C99 header files.
-See gif_hash.h:
-//#include <unistd.h> // glare new - commented out
+
