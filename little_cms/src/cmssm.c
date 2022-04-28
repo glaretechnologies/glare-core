@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------
 //
 //  Little Color Management System
-//  Copyright (c) 1998-2011 Marti Maria Saguer
+//  Copyright (c) 1998-2022 Marti Maria Saguer
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the "Software"),
@@ -170,10 +170,10 @@ void QuantizeToSector(const cmsSpherical* sp, int* alpha, int* theta)
     *alpha = (int) floor(((sp->alpha * (SECTORS)) / 360.0) );
     *theta = (int) floor(((sp->theta * (SECTORS)) / 180.0) );
 
-	if (*alpha >= SECTORS)
-		*alpha = SECTORS-1;
-	if (*theta >= SECTORS)
-		*theta = SECTORS-1;
+    if (*alpha >= SECTORS)
+        *alpha = SECTORS-1;
+    if (*theta >= SECTORS)
+        *theta = SECTORS-1;
 }
 
 
@@ -218,7 +218,8 @@ cmsBool ClosestLineToLine(cmsVEC3* r, const cmsLine* line1, const cmsLine* line2
 {
     cmsFloat64Number a, b, c, d, e, D;
     cmsFloat64Number sc, sN, sD;
-    cmsFloat64Number tc, tN, tD;
+    //cmsFloat64Number tc; // left for future use
+    cmsFloat64Number tN, tD;
     cmsVEC3 w0;
 
     _cmsVEC3minus(&w0, &line1 ->a, &line2 ->a);
@@ -286,7 +287,7 @@ cmsBool ClosestLineToLine(cmsVEC3* r, const cmsLine* line1, const cmsLine* line2
     }
     // finally do the division to get sc and tc
     sc = (fabs(sN) < MATRIX_DET_TOLERANCE ? 0.0 : sN / sD);
-    tc = (fabs(tN) < MATRIX_DET_TOLERANCE ? 0.0 : tN / tD);
+    //tc = (fabs(tN) < MATRIX_DET_TOLERANCE ? 0.0 : tN / tD); // left for future use.
 
     GetPointOfLine(r, line1, sc);
     return TRUE;
@@ -317,7 +318,7 @@ void CMSEXPORT cmsGBDFree(cmsHANDLE hGBD)
 }
 
 
-// Auxiliar to retrieve a pointer to the segmentr containing the Lab value
+// Auxiliary to retrieve a pointer to the segmentr containing the Lab value
 static
 cmsGDBPoint* GetPoint(cmsGDB* gbd, const cmsCIELab* Lab, cmsSpherical* sp)
 {
@@ -326,10 +327,10 @@ cmsGDBPoint* GetPoint(cmsGDB* gbd, const cmsCIELab* Lab, cmsSpherical* sp)
 
     // Housekeeping
     _cmsAssert(gbd != NULL);
-	_cmsAssert(Lab != NULL);
-	_cmsAssert(sp != NULL);
+    _cmsAssert(Lab != NULL);
+    _cmsAssert(sp != NULL);
 
-    // Center L* by substracting half of its domain, that's 50
+    // Center L* by subtracting half of its domain, that's 50
     _cmsVEC3init(&v, Lab ->L - 50.0, Lab ->a, Lab ->b);
 
     // Convert to spherical coordinates
@@ -709,10 +710,10 @@ cmsBool cmsGBDdumpVRML(cmsHANDLE hGBD, const char* fname)
         else
             if (pt ->Type == GP_MODELED)
                 fprintf (fp, "\t\t\t\t\t%g %g %g", 1.0, .5, .5);
-			else {
+            else {
                 fprintf (fp, "\t\t\t\t\t%g %g %g", 1.0, 1.0, 1.0);
 
-			}
+            }
 
         if ((j == SECTORS - 1) && (i == SECTORS - 1))
                 fprintf (fp, "]\n");

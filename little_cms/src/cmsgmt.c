@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------
 //
 //  Little Color Management System
-//  Copyright (c) 1998-2012 Marti Maria Saguer
+//  Copyright (c) 1998-2021 Marti Maria Saguer
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the "Software"),
@@ -27,7 +27,7 @@
 #include "lcms2_internal.h"
 
 
-// Auxiliar: append a Lab identity after the given sequence of profiles
+// Auxiliary: append a Lab identity after the given sequence of profiles
 // and return the transform. Lab profile is closed, rest of profiles are kept open.
 cmsHTRANSFORM _cmsChain2Lab(cmsContext            ContextID,
                             cmsUInt32Number        nProfiles,
@@ -162,7 +162,7 @@ cmsToneCurve* _cmsBuildKToneCurve(cmsContext        ContextID,
 
     out = ComputeKToLstar(ContextID, nPoints, 1,
                             Intents + (nProfiles - 1),
-                            hProfiles + (nProfiles - 1),
+                            &hProfiles [nProfiles - 1],
                             BPC + (nProfiles - 1),
                             AdaptationStates + (nProfiles - 1),
                             dwFlags);
@@ -172,7 +172,7 @@ cmsToneCurve* _cmsBuildKToneCurve(cmsContext        ContextID,
     }
 
     // Build the relationship. This effectively limits the maximum accuracy to 16 bits, but
-    // since this is used on black-preserving LUTs, we are not loosing  accuracy in any case
+    // since this is used on black-preserving LUTs, we are not losing  accuracy in any case
     KTone = cmsJoinToneCurve(ContextID, in, out, nPoints);
 
     // Get rid of components
@@ -199,19 +199,19 @@ typedef struct {
 
     cmsHTRANSFORM hInput;               // From whatever input color space. 16 bits to DBL
     cmsHTRANSFORM hForward, hReverse;   // Transforms going from Lab to colorant and back
-    cmsFloat64Number Thereshold;        // The thereshold after which is considered out of gamut
+    cmsFloat64Number Threshold;         // The threshold after which is considered out of gamut
 
     } GAMUTCHAIN;
 
 // This sampler does compute gamut boundaries by comparing original
-// values with a transform going back and forth. Values above ERR_THERESHOLD
+// values with a transform going back and forth. Values above ERR_THRESHOLD
 // of maximum are considered out of gamut.
 
-#define ERR_THERESHOLD      5
+#define ERR_THRESHOLD      5
 
 
 static
-int GamutSampler(register const cmsUInt16Number In[], register cmsUInt16Number Out[], register void* Cargo)
+int GamutSampler(CMSREGISTER const cmsUInt16Number In[], CMSREGISTER cmsUInt16Number Out[], CMSREGISTER void* Cargo)
 {
     GAMUTCHAIN*  t = (GAMUTCHAIN* ) Cargo;
     cmsCIELab LabIn1, LabOut1;
@@ -246,17 +246,17 @@ int GamutSampler(register const cmsUInt16Number In[], register cmsUInt16Number O
 
 
     // if dE1 is small and dE2 is small, value is likely to be in gamut
-    if (dE1 < t->Thereshold && dE2 < t->Thereshold)
+    if (dE1 < t->Threshold && dE2 < t->Threshold)
         Out[0] = 0;
     else {
 
         // if dE1 is small and dE2 is big, undefined. Assume in gamut
-        if (dE1 < t->Thereshold && dE2 > t->Thereshold)
+        if (dE1 < t->Threshold && dE2 > t->Threshold)
             Out[0] = 0;
         else
             // dE1 is big and dE2 is small, clearly out of gamut
-            if (dE1 > t->Thereshold && dE2 < t->Thereshold)
-                Out[0] = (cmsUInt16Number) _cmsQuickFloor((dE1 - t->Thereshold) + .5);
+            if (dE1 > t->Threshold && dE2 < t->Threshold)
+                Out[0] = (cmsUInt16Number) _cmsQuickFloor((dE1 - t->Threshold) + .5);
             else  {
 
                 // dE1 is big and dE2 is also big, could be due to perceptual mapping
@@ -266,8 +266,8 @@ int GamutSampler(register const cmsUInt16Number In[], register cmsUInt16Number O
                 else
                     ErrorRatio = dE1 / dE2;
 
-                if (ErrorRatio > t->Thereshold)
-                    Out[0] = (cmsUInt16Number)  _cmsQuickFloor((ErrorRatio - t->Thereshold) + .5);
+                if (ErrorRatio > t->Threshold)
+                    Out[0] = (cmsUInt16Number)  _cmsQuickFloor((ErrorRatio - t->Threshold) + .5);
                 else
                     Out[0] = 0;
             }
@@ -278,139 +278,136 @@ int GamutSampler(register const cmsUInt16Number In[], register cmsUInt16Number O
 }
 
 // Does compute a gamut LUT going back and forth across pcs -> relativ. colorimetric intent -> pcs
-// the dE obtained is then annotated on the LUT. Values truely out of gamut are clipped to dE = 0xFFFE
+// the dE obtained is then annotated on the LUT. Values truly out of gamut are clipped to dE = 0xFFFE
 // and values changed are supposed to be handled by any gamut remapping, so, are out of gamut as well.
 //
 // **WARNING: This algorithm does assume that gamut remapping algorithms does NOT move in-gamut colors,
 // of course, many perceptual and saturation intents does not work in such way, but relativ. ones should.
 
 cmsPipeline* _cmsCreateGamutCheckPipeline(cmsContext ContextID,
-										  cmsHPROFILE hProfiles[],
-										  cmsBool  BPC[],
-										  cmsUInt32Number Intents[],
-										  cmsFloat64Number AdaptationStates[],
-										  cmsUInt32Number nGamutPCSposition,
-										  cmsHPROFILE hGamut)
+                                          cmsHPROFILE hProfiles[],
+                                          cmsBool  BPC[],
+                                          cmsUInt32Number Intents[],
+                                          cmsFloat64Number AdaptationStates[],
+                                          cmsUInt32Number nGamutPCSposition,
+                                          cmsHPROFILE hGamut)
 {
-	cmsHPROFILE hLab;
-	cmsPipeline* Gamut;
-	cmsStage* CLUT;
-	cmsUInt32Number dwFormat;
-	GAMUTCHAIN Chain;
-	int nChannels, nGridpoints;
-	cmsColorSpaceSignature ColorSpace;
-	cmsUInt32Number i;
-	cmsHPROFILE ProfileList[256];
-	cmsBool     BPCList[256];
-	cmsFloat64Number AdaptationList[256];
-	cmsUInt32Number IntentList[256];
+    cmsHPROFILE hLab;
+    cmsPipeline* Gamut;
+    cmsStage* CLUT;
+    cmsUInt32Number dwFormat;
+    GAMUTCHAIN Chain;
+    cmsUInt32Number nChannels, nGridpoints;
+    cmsColorSpaceSignature ColorSpace;
+    cmsUInt32Number i;
+    cmsHPROFILE ProfileList[256];
+    cmsBool     BPCList[256];
+    cmsFloat64Number AdaptationList[256];
+    cmsUInt32Number IntentList[256];
 
-	memset(&Chain, 0, sizeof(GAMUTCHAIN));
-
-
-	if (nGamutPCSposition <= 0 || nGamutPCSposition > 255) {
-		cmsSignalError(ContextID, cmsERROR_RANGE, "Wrong position of PCS. 1..255 expected, %d found.", nGamutPCSposition);
-		return NULL;
-	}
-
-	hLab = cmsCreateLab4ProfileTHR(ContextID, NULL);
-	if (hLab == NULL) return NULL;
+    memset(&Chain, 0, sizeof(GAMUTCHAIN));
 
 
-	// The figure of merit. On matrix-shaper profiles, should be almost zero as
-	// the conversion is pretty exact. On LUT based profiles, different resolutions
-	// of input and output CLUT may result in differences.
+    if (nGamutPCSposition <= 0 || nGamutPCSposition > 255) {
+        cmsSignalError(ContextID, cmsERROR_RANGE, "Wrong position of PCS. 1..255 expected, %d found.", nGamutPCSposition);
+        return NULL;
+    }
 
-	if (cmsIsMatrixShaper(hGamut)) {
-
-		Chain.Thereshold = 1.0;
-	}
-	else {
-		Chain.Thereshold = ERR_THERESHOLD;
-	}
+    hLab = cmsCreateLab4ProfileTHR(ContextID, NULL);
+    if (hLab == NULL) return NULL;
 
 
-	// Create a copy of parameters
-	for (i=0; i < nGamutPCSposition; i++) {
-		ProfileList[i]    = hProfiles[i];
-		BPCList[i]        = BPC[i];
-		AdaptationList[i] = AdaptationStates[i];
-		IntentList[i]     = Intents[i];
-	}
+    // The figure of merit. On matrix-shaper profiles, should be almost zero as
+    // the conversion is pretty exact. On LUT based profiles, different resolutions
+    // of input and output CLUT may result in differences.
 
-	// Fill Lab identity
-	ProfileList[nGamutPCSposition] = hLab;
-	BPCList[nGamutPCSposition] = 0;
-	AdaptationList[nGamutPCSposition] = 1.0;
-	IntentList[nGamutPCSposition] = INTENT_RELATIVE_COLORIMETRIC;
+    if (cmsIsMatrixShaper(hGamut)) {
+
+        Chain.Threshold = 1.0;
+    }
+    else {
+        Chain.Threshold = ERR_THRESHOLD;
+    }
 
 
-	ColorSpace  = cmsGetColorSpace(hGamut);
+    // Create a copy of parameters
+    for (i=0; i < nGamutPCSposition; i++) {
+        ProfileList[i]    = hProfiles[i];
+        BPCList[i]        = BPC[i];
+        AdaptationList[i] = AdaptationStates[i];
+        IntentList[i]     = Intents[i];
+    }
 
-	nChannels   = cmsChannelsOf(ColorSpace);
-	nGridpoints = _cmsReasonableGridpointsByColorspace(ColorSpace, cmsFLAGS_HIGHRESPRECALC);
-	dwFormat    = (CHANNELS_SH(nChannels)|BYTES_SH(2));
-
-	// 16 bits to Lab double
-	Chain.hInput = cmsCreateExtendedTransform(ContextID,
-		nGamutPCSposition + 1,
-		ProfileList,
-		BPCList,
-		IntentList,
-		AdaptationList,
-		NULL, 0,
-		dwFormat, TYPE_Lab_DBL,
-		cmsFLAGS_NOCACHE);
+    // Fill Lab identity
+    ProfileList[nGamutPCSposition] = hLab;
+    BPCList[nGamutPCSposition] = 0;
+    AdaptationList[nGamutPCSposition] = 1.0;
+    IntentList[nGamutPCSposition] = INTENT_RELATIVE_COLORIMETRIC;
 
 
-	// Does create the forward step. Lab double to device
-	dwFormat    = (CHANNELS_SH(nChannels)|BYTES_SH(2));
-	Chain.hForward = cmsCreateTransformTHR(ContextID,
-		hLab, TYPE_Lab_DBL,
-		hGamut, dwFormat,
-		INTENT_RELATIVE_COLORIMETRIC,
-		cmsFLAGS_NOCACHE);
+    ColorSpace  = cmsGetColorSpace(hGamut);
 
-	// Does create the backwards step
-	Chain.hReverse = cmsCreateTransformTHR(ContextID, hGamut, dwFormat,
-		hLab, TYPE_Lab_DBL,
-		INTENT_RELATIVE_COLORIMETRIC,
-		cmsFLAGS_NOCACHE);
+    nChannels   = cmsChannelsOf(ColorSpace);
+    nGridpoints = _cmsReasonableGridpointsByColorspace(ColorSpace, cmsFLAGS_HIGHRESPRECALC);
+    dwFormat    = (CHANNELS_SH(nChannels)|BYTES_SH(2));
+
+    // 16 bits to Lab double
+    Chain.hInput = cmsCreateExtendedTransform(ContextID,
+        nGamutPCSposition + 1,
+        ProfileList,
+        BPCList,
+        IntentList,
+        AdaptationList,
+        NULL, 0,
+        dwFormat, TYPE_Lab_DBL,
+        cmsFLAGS_NOCACHE);
 
 
-	// All ok?
-	if (Chain.hInput && Chain.hForward && Chain.hReverse) {
+    // Does create the forward step. Lab double to device
+    dwFormat    = (CHANNELS_SH(nChannels)|BYTES_SH(2));
+    Chain.hForward = cmsCreateTransformTHR(ContextID,
+        hLab, TYPE_Lab_DBL,
+        hGamut, dwFormat,
+        INTENT_RELATIVE_COLORIMETRIC,
+        cmsFLAGS_NOCACHE);
 
-		// Go on, try to compute gamut LUT from PCS. This consist on a single channel containing
-		// dE when doing a transform back and forth on the colorimetric intent.
+    // Does create the backwards step
+    Chain.hReverse = cmsCreateTransformTHR(ContextID, hGamut, dwFormat,
+        hLab, TYPE_Lab_DBL,
+        INTENT_RELATIVE_COLORIMETRIC,
+        cmsFLAGS_NOCACHE);
 
-		Gamut = cmsPipelineAlloc(ContextID, 3, 1);
+
+    // All ok?
+    if (Chain.hInput && Chain.hForward && Chain.hReverse) {
+
+        // Go on, try to compute gamut LUT from PCS. This consist on a single channel containing
+        // dE when doing a transform back and forth on the colorimetric intent.
+
+        Gamut = cmsPipelineAlloc(ContextID, 3, 1);
         if (Gamut != NULL) {
 
             CLUT = cmsStageAllocCLut16bit(ContextID, nGridpoints, nChannels, 1, NULL);
-            if (CLUT == NULL) {
-
+            if (!cmsPipelineInsertStage(Gamut, cmsAT_BEGIN, CLUT)) {
                 cmsPipelineFree(Gamut);
                 Gamut = NULL;
             } 
             else {
-
-                cmsPipelineInsertStage(Gamut, cmsAT_BEGIN, CLUT);
                 cmsStageSampleCLut16bit(CLUT, GamutSampler, (void*) &Chain, 0);
             }
         }
     }
-	else
-		Gamut = NULL;   // Didn't work...
+    else
+        Gamut = NULL;   // Didn't work...
 
-	// Free all needed stuff.
-	if (Chain.hInput)   cmsDeleteTransform(Chain.hInput);
-	if (Chain.hForward) cmsDeleteTransform(Chain.hForward);
-	if (Chain.hReverse) cmsDeleteTransform(Chain.hReverse);
-	if (hLab) cmsCloseProfile(hLab);
+    // Free all needed stuff.
+    if (Chain.hInput)   cmsDeleteTransform(Chain.hInput);
+    if (Chain.hForward) cmsDeleteTransform(Chain.hForward);
+    if (Chain.hReverse) cmsDeleteTransform(Chain.hReverse);
+    if (hLab) cmsCloseProfile(hLab);
 
-	// And return computed hull
-	return Gamut;
+    // And return computed hull
+    return Gamut;
 }
 
 // Total Area Coverage estimation ----------------------------------------------------------------
@@ -427,7 +424,7 @@ typedef struct {
 // This callback just accounts the maximum ink dropped in the given node. It does not populate any
 // memory, as the destination table is NULL. Its only purpose it to know the global maximum.
 static
-int EstimateTAC(register const cmsUInt16Number In[], register cmsUInt16Number Out[], register void * Cargo)
+int EstimateTAC(CMSREGISTER const cmsUInt16Number In[], CMSREGISTER cmsUInt16Number Out[], CMSREGISTER void * Cargo)
 {
     cmsTACestimator* bp = (cmsTACestimator*) Cargo;
     cmsFloat32Number RoundTrip[cmsMAXCHANNELS];
@@ -496,9 +493,9 @@ cmsFloat64Number CMSEXPORT cmsDetectTAC(cmsHPROFILE hProfile)
     GridPoints[2] = 74;
 
 
-	if (!cmsSliceSpace16(3, GridPoints, EstimateTAC, &bp)) {
-		bp.MaxTAC = 0;
-	}
+    if (!cmsSliceSpace16(3, GridPoints, EstimateTAC, &bp)) {
+        bp.MaxTAC = 0;
+    }
 
     cmsDeleteTransform(bp.hRoundTrip);
 
@@ -591,3 +588,67 @@ cmsBool CMSEXPORT cmsDesaturateLab(cmsCIELab* Lab,
 
     return TRUE;
 }
+
+// Detect whatever a given ICC profile works in linear (gamma 1.0) space
+// Actually, doing that "well" is quite hard, since every component may behave completely different.
+// Since the true point of this function is to detect suitable optimizations, I am imposing some requirements 
+// that simplifies things: only RGB, and only profiles that can got in both directions.
+// The algorithm obtains Y from a syntetical gray R=G=B. Then least squares fitting is used to estimate gamma. 
+// For gamma close to 1.0, RGB is linear. On profiles not supported, -1 is returned.
+
+cmsFloat64Number CMSEXPORT cmsDetectRGBProfileGamma(cmsHPROFILE hProfile, cmsFloat64Number threshold)
+{
+    cmsContext ContextID;
+    cmsHPROFILE hXYZ;
+    cmsHTRANSFORM xform;
+    cmsToneCurve* Y_curve;
+    cmsUInt16Number rgb[256][3];
+    cmsCIEXYZ XYZ[256];
+    cmsFloat32Number Y_normalized[256];
+    cmsFloat64Number gamma;
+    cmsProfileClassSignature cl;
+    int i;
+
+    if (cmsGetColorSpace(hProfile) != cmsSigRgbData)
+        return -1;
+
+    cl = cmsGetDeviceClass(hProfile);
+    if (cl != cmsSigInputClass && cl != cmsSigDisplayClass && 
+        cl != cmsSigOutputClass && cl != cmsSigColorSpaceClass)
+        return -1;
+
+    ContextID = cmsGetProfileContextID(hProfile);
+    hXYZ = cmsCreateXYZProfileTHR(ContextID);
+    xform = cmsCreateTransformTHR(ContextID, hProfile, TYPE_RGB_16, hXYZ, TYPE_XYZ_DBL, 
+                                    INTENT_RELATIVE_COLORIMETRIC, cmsFLAGS_NOOPTIMIZE);
+
+    if (xform == NULL) { // If not RGB or forward direction is not supported, regret with the previous error
+
+        cmsCloseProfile(hXYZ);        
+        return -1;
+    }
+
+    for (i = 0; i < 256; i++) {
+        rgb[i][0] = rgb[i][1] = rgb[i][2] = FROM_8_TO_16(i);       
+    }
+
+    cmsDoTransform(xform, rgb, XYZ, 256);
+
+    cmsDeleteTransform(xform);
+    cmsCloseProfile(hXYZ);
+
+    for (i = 0; i < 256; i++) {
+        Y_normalized[i] = (cmsFloat32Number) XYZ[i].Y;
+    }
+
+    Y_curve = cmsBuildTabulatedToneCurveFloat(ContextID, 256, Y_normalized);
+    if (Y_curve == NULL)     
+        return -1;
+    
+    gamma = cmsEstimateGamma(Y_curve, threshold);
+
+    cmsFreeToneCurve(Y_curve);
+
+    return gamma;
+}
+

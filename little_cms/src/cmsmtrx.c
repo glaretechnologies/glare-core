@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------
 //
 //  Little Color Management System
-//  Copyright (c) 1998-2012 Marti Maria Saguer
+//  Copyright (c) 1998-2022 Marti Maria Saguer
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,7 @@ void CMSEXPORT _cmsVEC3init(cmsVEC3* r, cmsFloat64Number x, cmsFloat64Number y, 
     r -> n[VZ] = z;
 }
 
-// Vector substraction
+// Vector subtraction
 void CMSEXPORT _cmsVEC3minus(cmsVEC3* r, const cmsVEC3* a, const cmsVEC3* b)
 {
   r -> n[VX] = a -> n[VX] - b -> n[VX];
@@ -97,16 +97,16 @@ cmsBool CloseEnough(cmsFloat64Number a, cmsFloat64Number b)
 
 cmsBool CMSEXPORT _cmsMAT3isIdentity(const cmsMAT3* a)
 {
-	cmsMAT3 Identity;
-	int i, j;
+    cmsMAT3 Identity;
+    int i, j;
 
-	_cmsMAT3identity(&Identity);
+    _cmsMAT3identity(&Identity);
 
-	for (i=0; i < 3; i++)
-		for (j=0; j < 3; j++)
-			if (!CloseEnough(a ->v[i].n[j], Identity.v[i].n[j])) return FALSE;
+    for (i=0; i < 3; i++)
+        for (j=0; j < 3; j++)
+            if (!CloseEnough(a ->v[i].n[j], Identity.v[i].n[j])) return FALSE;
 
-	return TRUE;
+    return TRUE;
 }
 
 

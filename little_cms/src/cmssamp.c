@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------
 //
 //  Little Color Management System
-//  Copyright (c) 1998-2010 Marti Maria Saguer
+//  Copyright (c) 1998-2022 Marti Maria Saguer
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the "Software"),
@@ -83,10 +83,10 @@ cmsBool  BlackPointAsDarkerColorant(cmsHPROFILE    hInput,
         return FALSE;
     }
 
-    // Create a formatter which has n channels and floating point
+    // Create a formatter which has n channels and no floating point
     dwFormat = cmsFormatterForColorspaceOfProfile(hInput, 2, FALSE);
 
-   // Try to get black by using black colorant
+    // Try to get black by using black colorant
     Space = cmsGetColorSpace(hInput);
 
     // This function returns darker colorant in 16 bits for several spaces
@@ -190,12 +190,23 @@ cmsBool BlackPointUsingPerceptualBlack(cmsCIEXYZ* BlackPoint, cmsHPROFILE hProfi
 // involves to turn BP to neutral and to use only L component.
 cmsBool CMSEXPORT cmsDetectBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
 {
+    cmsProfileClassSignature devClass;
 
-    // Zero for black point
-    if (cmsGetDeviceClass(hProfile) == cmsSigLinkClass) {
+    // Make sure the device class is adequate
+    devClass = cmsGetDeviceClass(hProfile);
+    if (devClass == cmsSigLinkClass ||
+        devClass == cmsSigAbstractClass ||
+        devClass == cmsSigNamedColorClass) {
+            BlackPoint -> X = BlackPoint ->Y = BlackPoint -> Z = 0.0;
+            return FALSE;
+    }
 
-        BlackPoint -> X = BlackPoint ->Y = BlackPoint -> Z = 0.0;
-        return FALSE;
+    // Make sure intent is adequate
+    if (Intent != INTENT_PERCEPTUAL &&
+        Intent != INTENT_RELATIVE_COLORIMETRIC &&
+        Intent != INTENT_SATURATION) {
+            BlackPoint -> X = BlackPoint ->Y = BlackPoint -> Z = 0.0;
+            return FALSE;
     }
 
     // v4 + perceptual & saturation intents does have its own black point, and it is
@@ -329,28 +340,7 @@ cmsFloat64Number RootOfLeastSquaresFitQuadraticCurve(int n, cmsFloat64Number x[]
 
 }
 
-/*
-static
-cmsBool IsMonotonic(int n, const cmsFloat64Number Table[])
-{
-	int i;
-	cmsFloat64Number last;
 
-    last = Table[n-1];
-
-    for (i = n-2; i >= 0; --i) {
-
-        if (Table[i] > last)
-
-            return FALSE;
-        else
-            last = Table[i];
-
-    }
-
-    return TRUE;
-}
-*/
 
 // Calculates the black point of a destination profile.
 // This algorithm comes from the Adobe paper disclosing its black point compensation method.
@@ -366,15 +356,24 @@ cmsBool CMSEXPORT cmsDetectDestinationBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROF
     cmsFloat64Number x[256], y[256];
     cmsFloat64Number lo, hi;
     int n, l;
+    cmsProfileClassSignature devClass;
 
+    // Make sure the device class is adequate
+    devClass = cmsGetDeviceClass(hProfile);
+    if (devClass == cmsSigLinkClass ||
+        devClass == cmsSigAbstractClass ||
+        devClass == cmsSigNamedColorClass) {
+            BlackPoint -> X = BlackPoint ->Y = BlackPoint -> Z = 0.0;
+            return FALSE;
+    }
 
     // Make sure intent is adequate
     if (Intent != INTENT_PERCEPTUAL &&
         Intent != INTENT_RELATIVE_COLORIMETRIC &&
-		Intent != INTENT_SATURATION) {
-			BlackPoint -> X = BlackPoint ->Y = BlackPoint -> Z = 0.0;
-			return FALSE;
-	}
+        Intent != INTENT_SATURATION) {
+            BlackPoint -> X = BlackPoint ->Y = BlackPoint -> Z = 0.0;
+            return FALSE;
+    }
 
 
     // v4 + perceptual & saturation intents does have its own black point, and it is
@@ -466,7 +465,6 @@ cmsBool CMSEXPORT cmsDetectDestinationBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROF
 
 
     // Test for mid range straight (only on relative colorimetric)
-
     NearlyStraightMidrange = TRUE;
     MinL = outRamp[0]; MaxL = outRamp[255];
     if (Intent == INTENT_RELATIVE_COLORIMETRIC) {
@@ -482,7 +480,6 @@ cmsBool CMSEXPORT cmsDetectDestinationBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROF
         // DestinationBlackPoint shall be the same as initialLab. 
         // Otherwise, the DestinationBlackPoint shall be determined 
         // using curve fitting.
-
         if (NearlyStraightMidrange) {
 
             cmsLab2XYZ(NULL, BlackPoint, &InitialLab);
@@ -493,15 +490,13 @@ cmsBool CMSEXPORT cmsDetectDestinationBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROF
 
  
     // curve fitting: The round-trip curve normally looks like a nearly constant section at the black point,
-    // with a corner and a nearly straight line to the white point.
-  
+    // with a corner and a nearly straight line to the white point.  
     for (l=0; l < 256; l++) {
     
         yRamp[l] = (outRamp[l] - MinL) / (MaxL - MinL);
     }
 
     // find the black point using the least squares error quadratic curve fitting
-
     if (Intent == INTENT_RELATIVE_COLORIMETRIC) {
         lo = 0.1;
         hi = 0.5;
@@ -526,7 +521,7 @@ cmsBool CMSEXPORT cmsDetectDestinationBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROF
         }    
     }
 
- 	
+    
     // No suitable points
     if (n < 3 ) {
         cmsDeleteTransform(hRoundTrip);

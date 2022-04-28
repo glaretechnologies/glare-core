@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------
 //
 //  Little Color Management System
-//  Copyright (c) 1998-2012 Marti Maria Saguer
+//  Copyright (c) 1998-2022 Marti Maria Saguer
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the "Software"),
@@ -48,7 +48,7 @@
 // Symbols
 typedef enum {
 
-        SNONE,
+        SUNDEFINED,
         SINUM,      // Integer
         SDNUM,      // Real
         SIDENT,     // Identifier
@@ -129,13 +129,22 @@ typedef struct _Table {
 
 // File stream being parsed
 typedef struct _FileContext {
-        char           FileName[cmsMAX_PATH];    // File name if being readed from file
+        char           FileName[cmsMAX_PATH];    // File name if being read from file
         FILE*          Stream;                   // File stream or NULL if holded in memory
     } FILECTX;
 
-// This struct hold all information about an open IT8 handler.
+//Very simple string 
 typedef struct {
 
+        struct struct_it8* it8;
+        cmsInt32Number max;
+        cmsInt32Number len;
+        char* begin;
+    } string;
+
+
+// This struct hold all information about an open IT8 handler.
+typedef struct struct_it8 {
 
         cmsUInt32Number  TablesCount;                     // How many tables in this stream
         cmsUInt32Number  nTable;                          // The actual table
@@ -147,23 +156,24 @@ typedef struct {
         SUBALLOCATOR   Allocator;             // String suballocator -- just to keep it fast
 
         // Parser state machine
-        SYMBOL         sy;                    // Current symbol
-        int            ch;                    // Current character
+        SYMBOL             sy;                // Current symbol
+        int                ch;                // Current character
 
-        int            inum;                  // integer value
-        cmsFloat64Number         dnum;                  // real value
-        char           id[MAXID];             // identifier
-        char           str[MAXSTR];           // string
+        cmsInt32Number     inum;              // integer value
+        cmsFloat64Number   dnum;              // real value
+
+        string*        id;            // identifier
+        string*        str;           // string
 
         // Allowed keywords & datasets. They have visibility on whole stream
-        KEYVALUE*     ValidKeywords;
-        KEYVALUE*     ValidSampleID;
+        KEYVALUE*      ValidKeywords;
+        KEYVALUE*      ValidSampleID;
 
         char*          Source;                // Points to loc. being parsed
-        int            lineno;                // line counter for error reporting
+        cmsInt32Number lineno;                // line counter for error reporting
 
         FILECTX*       FileStack[MAXINCLUDE]; // Stack of files being parsed
-        int            IncludeSP;             // Include Stack Pointer
+        cmsInt32Number IncludeSP;             // Include Stack Pointer
 
         char*          MemoryBlock;           // The stream if holded in memory
 
@@ -236,65 +246,64 @@ static PROPERTY PredefinedProperties[] = {
         {"PROD_DATE",        WRITE_STRINGIFY},   // Identifies year and month of production of the target in the form yyyy:mm.
         {"SERIAL",           WRITE_STRINGIFY},   // Uniquely identifies individual physical target.
 
-        {"MATERIAL",         WRITE_STRINGIFY},   // Identifies the material on which the target was produced using a code
-                               // uniquely identifying th e material. This is intend ed to be used for IT8.7
-                               // physical targets only (i.e . IT8.7/1 a nd IT8.7/2).
+        {"MATERIAL",         WRITE_STRINGIFY},    // Identifies the material on which the target was produced using a code
+                                                  // uniquely identifying th e material. This is intend ed to be used for IT8.7
+                                                  // physical targets only (i.e . IT8.7/1 and IT8.7/2).
 
-        {"INSTRUMENTATION",  WRITE_STRINGIFY},   // Used to report the specific instrumentation used (manufacturer and
-                               // model number) to generate the data reported. This data will often
-                               // provide more information about the particular data collected than an
-                               // extensive list of specific details. This is particularly important for
-                               // spectral data or data derived from spectrophotometry.
+        {"INSTRUMENTATION",  WRITE_STRINGIFY},    // Used to report the specific instrumentation used (manufacturer and
+                                                  // model number) to generate the data reported. This data will often
+                                                  // provide more information about the particular data collected than an
+                                                  // extensive list of specific details. This is particularly important for
+                                                  // spectral data or data derived from spectrophotometry.
 
-        {"MEASUREMENT_SOURCE", WRITE_STRINGIFY}, // Illumination used for spectral measurements. This data helps provide
-                               // a guide to the potential for issues of paper fluorescence, etc.
+        {"MEASUREMENT_SOURCE", WRITE_STRINGIFY},  // Illumination used for spectral measurements. This data helps provide
+                                                  // a guide to the potential for issues of paper fluorescence, etc.
 
-        {"PRINT_CONDITIONS", WRITE_STRINGIFY},   // Used to define the characteristics of the printed sheet being reported.
-                               // Where standard conditions have been defined (e.g., SWOP at nominal)
-                               // named conditions may suffice. Otherwise, detailed information is
-                               // needed.
+        {"PRINT_CONDITIONS", WRITE_STRINGIFY},     // Used to define the characteristics of the printed sheet being reported.
+                                                   // Where standard conditions have been defined (e.g., SWOP at nominal)
+                                                   // named conditions may suffice. Otherwise, detailed information is
+                                                   // needed.
 
-        {"SAMPLE_BACKING",   WRITE_STRINGIFY},   // Identifies the backing material used behind the sample during
-                               // measurement. Allowed values are “black”, “white”, or {"na".
-
-        {"CHISQ_DOF",        WRITE_STRINGIFY},   // Degrees of freedom associated with the Chi squared statistic
-
-       // below properties are new in recent specs:
+        {"SAMPLE_BACKING",   WRITE_STRINGIFY},     // Identifies the backing material used behind the sample during
+                                                   // measurement. Allowed values are "black", "white", or {"na".
+                                                  
+        {"CHISQ_DOF",        WRITE_STRINGIFY},     // Degrees of freedom associated with the Chi squared statistic
+                                                   // below properties are new in recent specs:
 
         {"MEASUREMENT_GEOMETRY", WRITE_STRINGIFY}, // The type of measurement, either reflection or transmission, should be indicated
-                               // along with details of the geometry and the aperture size and shape. For example,
-                               // for transmission measurements it is important to identify 0/diffuse, diffuse/0,
-                               // opal or integrating sphere, etc. For reflection it is important to identify 0/45,
-                               // 45/0, sphere (specular included or excluded), etc.
+                                                   // along with details of the geometry and the aperture size and shape. For example,
+                                                   // for transmission measurements it is important to identify 0/diffuse, diffuse/0,
+                                                   // opal or integrating sphere, etc. For reflection it is important to identify 0/45,
+                                                   // 45/0, sphere (specular included or excluded), etc.
 
-       {"FILTER",            WRITE_STRINGIFY},   // Identifies the use of physical filter(s) during measurement. Typically used to
-                               // denote the use of filters such as none, D65, Red, Green or Blue.
+       {"FILTER",            WRITE_STRINGIFY},     // Identifies the use of physical filter(s) during measurement. Typically used to
+                                                   // denote the use of filters such as none, D65, Red, Green or Blue.
+                                                  
+       {"POLARIZATION",      WRITE_STRINGIFY},     // Identifies the use of a physical polarization filter during measurement. Allowed
+                                                   // values are {"yes", "white", "none" or "na".
 
-       {"POLARIZATION",      WRITE_STRINGIFY},   // Identifies the use of a physical polarization filter during measurement. Allowed
-                               // values are {"yes”, “white”, “none” or “na”.
+       {"WEIGHTING_FUNCTION", WRITE_PAIR},         // Indicates such functions as: the CIE standard observer functions used in the
+                                                   // calculation of various data parameters (2 degree and 10 degree), CIE standard
+                                                   // illuminant functions used in the calculation of various data parameters (e.g., D50,
+                                                   // D65, etc.), density status response, etc. If used there shall be at least one
+                                                   // name-value pair following the WEIGHTING_FUNCTION tag/keyword. The first attribute
+                                                   // in the set shall be {"name" and shall identify the particular parameter used.
+                                                   // The second shall be {"value" and shall provide the value associated with that name.
+                                                   // For ASCII data, a string containing the Name and Value attribute pairs shall follow
+                                                   // the weighting function keyword. A semi-colon separates attribute pairs from each
+                                                   // other and within the attribute the name and value are separated by a comma.
 
-       {"WEIGHTING_FUNCTION", WRITE_PAIR},   // Indicates such functions as: the CIE standard observer functions used in the
-                               // calculation of various data parameters (2 degree and 10 degree), CIE standard
-                               // illuminant functions used in the calculation of various data parameters (e.g., D50,
-                               // D65, etc.), density status response, etc. If used there shall be at least one
-                               // name-value pair following the WEIGHTING_FUNCTION tag/keyword. The first attribute
-                               // in the set shall be {"name" and shall identify the particular parameter used.
-                               // The second shall be {"value" and shall provide the value associated with that name.
-                               // For ASCII data, a string containing the Name and Value attribute pairs shall follow
-                               // the weighting function keyword. A semi-colon separates attribute pairs from each
-                               // other and within the attribute the name and value are separated by a comma.
-
-       {"COMPUTATIONAL_PARAMETER", WRITE_PAIR}, // Parameter that is used in computing a value from measured data. Name is the name
-                               // of the calculation, parameter is the name of the parameter used in the calculation
-                               // and value is the value of the parameter.
-
-       {"TARGET_TYPE",        WRITE_STRINGIFY},  // The type of target being measured, e.g. IT8.7/1, IT8.7/3, user defined, etc.
-
-       {"COLORANT",           WRITE_STRINGIFY},  // Identifies the colorant(s) used in creating the target.
-
-       {"TABLE_DESCRIPTOR",   WRITE_STRINGIFY},  // Describes the purpose or contents of a data table.
-
-       {"TABLE_NAME",         WRITE_STRINGIFY}   // Provides a short name for a data table.
+       {"COMPUTATIONAL_PARAMETER", WRITE_PAIR},    // Parameter that is used in computing a value from measured data. Name is the name
+                                                   // of the calculation, parameter is the name of the parameter used in the calculation
+                                                   // and value is the value of the parameter.
+                                                   
+       {"TARGET_TYPE",        WRITE_STRINGIFY},    // The type of target being measured, e.g. IT8.7/1, IT8.7/3, user defined, etc.
+                                                  
+       {"COLORANT",           WRITE_STRINGIFY},    // Identifies the colorant(s) used in creating the target.
+                                                  
+       {"TABLE_DESCRIPTOR",   WRITE_STRINGIFY},    // Describes the purpose or contents of a data table.
+                                                  
+       {"TABLE_NAME",         WRITE_STRINGIFY}     // Provides a short name for a data table.
 };
 
 #define NUMPREDEFINEDPROPS (sizeof(PredefinedProperties)/sizeof(PROPERTY))
@@ -324,7 +333,7 @@ static const char* PredefinedSampleID[] = {
         "XYZ_X",          // X component of tristimulus data
         "XYZ_Y",          // Y component of tristimulus data
         "XYZ_Z",          // Z component of tristimulus data
-        "XYY_X"           // x component of chromaticity data
+        "XYY_X",          // x component of chromaticity data
         "XYY_Y",          // y component of chromaticity data
         "XYY_CAPY",       // Y component of tristimulus data
         "LAB_L",          // L* component of Lab data
@@ -353,6 +362,59 @@ static const char* PredefinedSampleID[] = {
 
 //Forward declaration of some internal functions
 static void* AllocChunk(cmsIT8* it8, cmsUInt32Number size);
+
+static
+string* StringAlloc(cmsIT8* it8, int max)
+{
+    string* s = (string*) AllocChunk(it8, sizeof(string));
+
+    s->it8 = it8;
+    s->max = max;
+    s->len = 0;
+    s->begin = (char*) AllocChunk(it8, s->max);
+
+    return s;
+}
+
+static
+void StringClear(string* s)
+{
+    s->len = 0;
+}
+
+static
+void StringAppend(string* s, char c)
+{
+    if (s->len + 1 >= s->max)
+    {
+        char* new_ptr;
+
+        s->max *= 10;
+        new_ptr = AllocChunk(s->it8, s->max);
+        memcpy(new_ptr, s->begin, s->len);
+        s->begin = new_ptr;
+    }
+
+    s->begin[s->len++] = c;
+    s->begin[s->len] = 0;
+}
+
+static
+char* StringPtr(string* s)
+{
+    return s->begin;
+}
+
+static
+void StringCat(string* s, const char* c)
+{
+    while (*c)
+    {
+        StringAppend(s, *c);
+        c++;
+    }
+}
+
 
 // Checks whatever c is a separator
 static
@@ -521,7 +583,7 @@ SYMBOL BinSrchKey(const char *id)
         else l = x + 1;
     }
 
-    return SNONE;
+    return SUNDEFINED;
 }
 
 
@@ -535,13 +597,13 @@ cmsFloat64Number xpow10(int n)
 
 //  Reads a Real number, tries to follow from integer number
 static
-void ReadReal(cmsIT8* it8, int inum)
+void ReadReal(cmsIT8* it8, cmsInt32Number inum)
 {
-    it8->dnum = (cmsFloat64Number) inum;
+    it8->dnum = (cmsFloat64Number)inum;
 
     while (isdigit(it8->ch)) {
 
-        it8->dnum = it8->dnum * 10.0 + (it8->ch - '0');
+        it8->dnum = (cmsFloat64Number)it8->dnum * 10.0 + (cmsFloat64Number)(it8->ch - '0');
         NextCh(it8);
     }
 
@@ -554,7 +616,7 @@ void ReadReal(cmsIT8* it8, int inum)
 
         while (isdigit(it8->ch)) {
 
-            frac = frac * 10.0 + (it8->ch - '0');
+            frac = frac * 10.0 + (cmsFloat64Number)(it8->ch - '0');
             prec++;
             NextCh(it8);
         }
@@ -565,8 +627,8 @@ void ReadReal(cmsIT8* it8, int inum)
     // Exponent, example 34.00E+20
     if (toupper(it8->ch) == 'E') {
 
-        int e;
-        int sgn;
+        cmsInt32Number e;
+        cmsInt32Number sgn;
 
         NextCh(it8); sgn = 1;
 
@@ -581,22 +643,24 @@ void ReadReal(cmsIT8* it8, int inum)
                 NextCh(it8);
             }
 
-            e = 0;
-            while (isdigit(it8->ch)) {
+        e = 0;
+        while (isdigit(it8->ch)) {
 
-                if ((cmsFloat64Number) e * 10L < INT_MAX)
-                    e = e * 10 + (it8->ch - '0');
+            cmsInt32Number digit = (it8->ch - '0');
 
-                NextCh(it8);
-            }
+            if ((cmsFloat64Number)e * 10.0 + (cmsFloat64Number)digit < (cmsFloat64Number)+2147483647.0)
+                e = e * 10 + digit;
 
-            e = sgn*e;
-            it8 -> dnum = it8 -> dnum * xpow10(e);
+            NextCh(it8);
+        }
+
+        e = sgn*e;
+        it8->dnum = it8->dnum * xpow10(e);
     }
 }
 
 // Parses a float number
-// This can not call directly atof because it uses locale dependant
+// This can not call directly atof because it uses locale dependent
 // parsing, while CCMX files always use . as decimal separator
 static
 cmsFloat64Number ParseFloatNumber(const char *Buffer)
@@ -609,12 +673,12 @@ cmsFloat64Number ParseFloatNumber(const char *Buffer)
 
     if (*Buffer == '-' || *Buffer == '+') {
 
-         sign = (*Buffer == '-') ? -1 : 1;
-         Buffer++;
+        sign = (*Buffer == '-') ? -1 : 1;
+        Buffer++;
     }
 
 
-    while (*Buffer && isdigit((int) *Buffer)) {
+    while (*Buffer && isdigit((int)*Buffer)) {
 
         dnum = dnum * 10.0 + (*Buffer - '0');
         if (*Buffer) Buffer++;
@@ -623,11 +687,11 @@ cmsFloat64Number ParseFloatNumber(const char *Buffer)
     if (*Buffer == '.') {
 
         cmsFloat64Number frac = 0.0;      // fraction
-        int prec = 0;                     // precission
+        int prec = 0;                     // precision
 
         if (*Buffer) Buffer++;
 
-        while (*Buffer && isdigit((int) *Buffer)) {
+        while (*Buffer && isdigit((int)*Buffer)) {
 
             frac = frac * 10.0 + (*Buffer - '0');
             prec++;
@@ -658,31 +722,63 @@ cmsFloat64Number ParseFloatNumber(const char *Buffer)
                 if (*Buffer) Buffer++;
             }
 
-            e = 0;
-            while (*Buffer && isdigit((int) *Buffer)) {
+        e = 0;
+        while (*Buffer && isdigit((int)*Buffer)) {
 
-                if ((cmsFloat64Number) e * 10L < INT_MAX)
-                    e = e * 10 + (*Buffer - '0');
+            cmsInt32Number digit = (*Buffer - '0');
 
-                if (*Buffer) Buffer++;
-            }
+            if ((cmsFloat64Number)e * 10.0 + digit < (cmsFloat64Number)+2147483647.0)
+                e = e * 10 + digit;
 
-            e = sgn*e;
-            dnum = dnum * xpow10(e);
+            if (*Buffer) Buffer++;
+        }
+
+        e = sgn*e;
+        dnum = dnum * xpow10(e);
     }
 
     return sign * dnum;
 }
 
 
+// Reads a string, special case to avoid infinite resursion on .include
+static
+void InStringSymbol(cmsIT8* it8)
+{
+    while (isseparator(it8->ch))
+        NextCh(it8);
+
+    if (it8->ch == '\'' || it8->ch == '\"')
+    {
+        int sng;
+
+        sng = it8->ch;
+        StringClear(it8->str);
+
+        NextCh(it8);
+
+        while (it8->ch != sng) {
+
+            if (it8->ch == '\n' || it8->ch == '\r' || it8->ch == 0) break;
+            else {
+                StringAppend(it8->str, (char)it8->ch);
+                NextCh(it8);
+            }
+        }
+
+        it8->sy = SSTRING;
+        NextCh(it8);        
+    }
+    else
+        SynError(it8, "String expected");
+
+}
+
 // Reads next symbol
 static
 void InSymbol(cmsIT8* it8)
 {
-    register char *idptr;
-    register int k;
     SYMBOL key;
-    int sng;
     
     do {
 
@@ -691,22 +787,19 @@ void InSymbol(cmsIT8* it8)
 
         if (isfirstidchar(it8->ch)) {          // Identifier
 
-            k = 0;
-            idptr = it8->id;
+            StringClear(it8->id);
 
             do {
 
-                if (++k < MAXID) *idptr++ = (char) it8->ch;
+                StringAppend(it8->id, (char) it8->ch);
 
                 NextCh(it8);
 
             } while (isidchar(it8->ch));
 
-            *idptr = '\0';
 
-
-            key = BinSrchKey(it8->id);
-            if (key == SNONE) it8->sy = SIDENT;
+            key = BinSrchKey(StringPtr(it8->id));
+            if (key == SUNDEFINED) it8->sy = SIDENT;
             else it8->sy = key;
 
         }
@@ -737,7 +830,7 @@ void InSymbol(cmsIT8* it8)
                             if (it8->ch >= 'A' && it8->ch <= 'F')  j = it8->ch -'A'+10;
                             else j = it8->ch - '0';
 
-                            if ((long) it8->inum * 16L > (long) INT_MAX)
+                            if ((cmsFloat64Number) it8->inum * 16.0 + (cmsFloat64Number) j > (cmsFloat64Number)+2147483647.0)
                             {
                                 SynError(it8, "Invalid hexadecimal number");
                                 return;
@@ -758,7 +851,7 @@ void InSymbol(cmsIT8* it8)
                         {
                             j = it8->ch - '0';
 
-                            if ((long) it8->inum * 2L > (long) INT_MAX)
+                            if ((cmsFloat64Number) it8->inum * 2.0 + j > (cmsFloat64Number)+2147483647.0)
                             {
                                 SynError(it8, "Invalid binary number");
                                 return;
@@ -774,14 +867,16 @@ void InSymbol(cmsIT8* it8)
 
                 while (isdigit(it8->ch)) {
 
-                    if ((long) it8->inum * 10L > (long) INT_MAX) {
+                    cmsInt32Number digit = (it8->ch - '0');
+
+                    if ((cmsFloat64Number) it8->inum * 10.0 + (cmsFloat64Number) digit > (cmsFloat64Number) +2147483647.0) {
                         ReadReal(it8, it8->inum);
                         it8->sy = SDNUM;
                         it8->dnum *= sign;
                         return;
                     }
 
-                    it8->inum = it8->inum * 10 + (it8->ch - '0');
+                    it8->inum = it8->inum * 10 + digit;
                     NextCh(it8);
                 }
 
@@ -799,26 +894,27 @@ void InSymbol(cmsIT8* it8)
 
                 if (isidchar(it8 ->ch)) {
 
+                    char buffer[127];
+
                     if (it8 ->sy == SINUM) {
 
-                        sprintf(it8->id, "%d", it8->inum);
+                        snprintf(buffer, sizeof(buffer), "%d", it8->inum);
                     }
                     else {
 
-                        sprintf(it8->id, it8 ->DoubleFormatter, it8->dnum);
+                        snprintf(buffer, sizeof(buffer), it8 ->DoubleFormatter, it8->dnum);
                     }
 
-                    k = (int) strlen(it8 ->id);
-                    idptr = it8 ->id + k;
+                    StringCat(it8->id, buffer);
+
                     do {
 
-                        if (++k < MAXID) *idptr++ = (char) it8->ch;
+                        StringAppend(it8->id, (char) it8->ch);
 
                         NextCh(it8);
 
                     } while (isidchar(it8->ch));
 
-                    *idptr = '\0';
                     it8->sy = SIDENT;
                 }
                 return;
@@ -866,24 +962,7 @@ void InSymbol(cmsIT8* it8)
         // String.
         case '\'':
         case '\"':
-            idptr = it8->str;
-            sng = it8->ch;
-            k = 0;
-            NextCh(it8);
-
-            while (k < MAXSTR && it8->ch != sng) {
-
-                if (it8->ch == '\n'|| it8->ch == '\r') k = MAXSTR+1;
-                else {
-                    *idptr++ = (char) it8->ch;
-                    NextCh(it8);
-                    k++;
-                }
-            }
-
-            it8->sy = SSTRING;
-            *idptr = '\0';
-            NextCh(it8);
+            InStringSymbol(it8);
             break;
 
 
@@ -906,7 +985,7 @@ void InSymbol(cmsIT8* it8)
                     return;
                 }
 
-                InSymbol(it8);
+                InStringSymbol(it8);
                 if (!Check(it8, SSTRING, "Filename expected")) return;
 
                 FileNest = it8 -> FileStack[it8 -> IncludeSP + 1];
@@ -917,7 +996,7 @@ void InSymbol(cmsIT8* it8)
                     //  TODO: how to manage out-of-memory conditions?
                 }
 
-                if (BuildAbsolutePath(it8->str,
+                if (BuildAbsolutePath(StringPtr(it8->str),
                                       it8->FileStack[it8->IncludeSP]->FileName,
                                       FileNest->FileName, cmsMAX_PATH-1) == FALSE) {
                     SynError(it8, "File path too long");
@@ -978,12 +1057,12 @@ cmsBool GetVal(cmsIT8* it8, char* Buffer, cmsUInt32Number max, const char* Error
     case SEOLN:   // Empty value
                   Buffer[0]=0;
                   break;
-    case SIDENT:  strncpy(Buffer, it8->id, max);
+    case SIDENT:  strncpy(Buffer, StringPtr(it8->id), max);
                   Buffer[max-1]=0;
                   break;
     case SINUM:   snprintf(Buffer, max, "%d", it8 -> inum); break;
     case SDNUM:   snprintf(Buffer, max, it8->DoubleFormatter, it8 -> dnum); break;
-    case SSTRING: strncpy(Buffer, it8->str, max);
+    case SSTRING: strncpy(Buffer, StringPtr(it8->str), max);
                   Buffer[max-1] = 0;
                   break;
 
@@ -1108,7 +1187,7 @@ char *AllocString(cmsIT8* it8, const char* str)
 
 
     ptr = (char *) AllocChunk(it8, Size);
-    if (ptr) strncpy (ptr, str, Size-1);
+    if (ptr) memcpy(ptr, str, Size-1);
 
     return ptr;
 }
@@ -1297,7 +1376,7 @@ cmsHANDLE  CMSEXPORT cmsIT8Alloc(cmsContext ContextID)
     it8->ValidKeywords = NULL;
     it8->ValidSampleID = NULL;
 
-    it8 -> sy = SNONE;
+    it8 -> sy = SUNDEFINED;
     it8 -> ch = ' ';
     it8 -> Source = NULL;
     it8 -> inum = 0;
@@ -1306,6 +1385,9 @@ cmsHANDLE  CMSEXPORT cmsIT8Alloc(cmsContext ContextID)
     it8->FileStack[0] = (FILECTX*)AllocChunk(it8, sizeof(FILECTX));
     it8->IncludeSP   = 0;
     it8 -> lineno = 1;
+
+    it8->id = StringAlloc(it8, MAXSTR);
+    it8->str = StringAlloc(it8, MAXSTR);
 
     strcpy(it8->DoubleFormatter, DEFAULT_DBL_FORMAT);
     cmsIT8SetSheetType((cmsHANDLE) it8, "CGATS.17");
@@ -1363,7 +1445,7 @@ cmsBool CMSEXPORT cmsIT8SetPropertyDbl(cmsHANDLE hIT8, const char* cProp, cmsFlo
     cmsIT8* it8 = (cmsIT8*) hIT8;
     char Buffer[1024];
 
-    sprintf(Buffer, it8->DoubleFormatter, Val);
+    snprintf(Buffer, 1023, it8->DoubleFormatter, Val);
 
     return AddToList(it8, &GetTable(it8)->HeaderList, cProp, NULL, Buffer, WRITE_UNCOOKED) != NULL;
 }
@@ -1373,7 +1455,7 @@ cmsBool CMSEXPORT cmsIT8SetPropertyHex(cmsHANDLE hIT8, const char* cProp, cmsUIn
     cmsIT8* it8 = (cmsIT8*) hIT8;
     char Buffer[1024];
 
-    sprintf(Buffer, "%d", Val);
+    snprintf(Buffer, 1023, "%u", Val);
 
     return AddToList(it8, &GetTable(it8)->HeaderList, cProp, NULL, Buffer, WRITE_HEXADECIMAL) != NULL;
 }
@@ -1486,9 +1568,36 @@ cmsBool SetDataFormat(cmsIT8* it8, int n, const char *label)
 
 cmsBool CMSEXPORT cmsIT8SetDataFormat(cmsHANDLE  h, int n, const char *Sample)
 {
-        cmsIT8* it8 = (cmsIT8*) h;
-        return SetDataFormat(it8, n, Sample);
+    cmsIT8* it8 = (cmsIT8*)h;
+    return SetDataFormat(it8, n, Sample);
 }
+
+// A safe atoi that returns 0 when NULL input is given
+static
+cmsInt32Number satoi(const char* b)
+{
+    if (b == NULL) return 0;
+    return atoi(b);
+}
+
+// Convert to binary
+static
+const char* satob(const char* v)
+{
+    cmsUInt32Number x;
+    static char buf[33];
+    char *s = buf + 33;
+    
+    if (v == NULL) return "0";
+    
+    x = atoi(v);
+    *--s = 0;
+    if (!x) *--s = '0';
+    for (; x; x /= 2) *--s = '0' + x%2;
+    
+    return s;
+}
+
 
 static
 void AllocateDataSet(cmsIT8* it8)
@@ -1497,13 +1606,20 @@ void AllocateDataSet(cmsIT8* it8)
 
     if (t -> Data) return;    // Already allocated
 
-    t-> nSamples   = atoi(cmsIT8GetProperty(it8, "NUMBER_OF_FIELDS"));
-    t-> nPatches   = atoi(cmsIT8GetProperty(it8, "NUMBER_OF_SETS"));
+    t-> nSamples   = satoi(cmsIT8GetProperty(it8, "NUMBER_OF_FIELDS"));
+    t-> nPatches   = satoi(cmsIT8GetProperty(it8, "NUMBER_OF_SETS"));
 
-    t-> Data = (char**)AllocChunk (it8, ((cmsUInt32Number) t->nSamples + 1) * ((cmsUInt32Number) t->nPatches + 1) *sizeof (char*));
-    if (t->Data == NULL) {
+    if (t -> nSamples < 0 || t->nSamples > 0x7ffe || t->nPatches < 0 || t->nPatches > 0x7ffe)
+    {
+        SynError(it8, "AllocateDataSet: too much data");
+    }
+    else {
+        // Some dumb analizers warns of possible overflow here, just take a look couple of lines above.
+        t->Data = (char**)AllocChunk(it8, ((cmsUInt32Number)t->nSamples + 1) * ((cmsUInt32Number)t->nPatches + 1) * sizeof(char*));
+        if (t->Data == NULL) {
 
-        SynError(it8, "AllocateDataSet: Unable to allocate data array");
+            SynError(it8, "AllocateDataSet: Unable to allocate data array");
+        }
     }
 
 }
@@ -1512,8 +1628,8 @@ static
 char* GetData(cmsIT8* it8, int nSet, int nField)
 {
     TABLE* t = GetTable(it8);
-    int  nSamples   = t -> nSamples;
-    int  nPatches   = t -> nPatches;
+    int nSamples    = t -> nSamples;
+    int nPatches    = t -> nPatches;
 
     if (nSet >= nPatches || nField >= nSamples)
         return NULL;
@@ -1664,11 +1780,11 @@ void WriteHeader(cmsIT8* it8, SAVESTREAM* fp)
                     break;
 
             case WRITE_HEXADECIMAL:
-                    Writef(fp, "\t0x%X", atoi(p ->Value));
+                    Writef(fp, "\t0x%X", satoi(p ->Value));
                     break;
 
             case WRITE_BINARY:
-                    Writef(fp, "\t0x%B", atoi(p ->Value));
+                    Writef(fp, "\t0b%s", satob(p ->Value));
                     break;
 
             case WRITE_PAIR:
@@ -1697,7 +1813,7 @@ void WriteDataFormat(SAVESTREAM* fp, cmsIT8* it8)
 
        WriteStr(fp, "BEGIN_DATA_FORMAT\n");
        WriteStr(fp, " ");
-       nSamples = atoi(cmsIT8GetProperty(it8, "NUMBER_OF_FIELDS"));
+       nSamples = satoi(cmsIT8GetProperty(it8, "NUMBER_OF_FIELDS"));
 
        for (i = 0; i < nSamples; i++) {
 
@@ -1720,7 +1836,7 @@ void WriteData(SAVESTREAM* fp, cmsIT8* it8)
 
        WriteStr (fp, "BEGIN_DATA\n");
 
-       t->nPatches = atoi(cmsIT8GetProperty(it8, "NUMBER_OF_SETS"));
+       t->nPatches = satoi(cmsIT8GetProperty(it8, "NUMBER_OF_SETS"));
 
        for (i = 0; i < t-> nPatches; i++) {
 
@@ -1817,7 +1933,7 @@ cmsBool CMSEXPORT cmsIT8SaveToMem(cmsHANDLE hIT8, void *MemPtr, cmsUInt32Number*
 }
 
 
-// -------------------------------------------------------------- Higer level parsing
+// -------------------------------------------------------------- Higher level parsing
 
 static
 cmsBool DataFormatSection(cmsIT8* it8)
@@ -1838,7 +1954,7 @@ cmsBool DataFormatSection(cmsIT8* it8)
                 return SynError(it8, "Sample type expected");
             }
 
-            if (!SetDataFormat(it8, iField, it8->id)) return FALSE;
+            if (!SetDataFormat(it8, iField, StringPtr(it8->id))) return FALSE;
             iField++;
 
             InSymbol(it8);
@@ -1884,11 +2000,28 @@ cmsBool DataSection (cmsIT8* it8)
 
         if (it8->sy != SEND_DATA && it8->sy != SEOF) {
 
+            switch (it8->sy)
+            {
+
+            // To keep very long data
+            case SIDENT:  
+                if (!SetData(it8, iSet, iField, StringPtr(it8->id)))
+                    return FALSE;
+                break;
+
+            case SSTRING:
+                if (!SetData(it8, iSet, iField, StringPtr(it8->str)))
+                    return FALSE;
+                break;
+
+            default:
+
             if (!GetVal(it8, Buffer, 255, "Sample data expected"))
                 return FALSE;
 
             if (!SetData(it8, iSet, iField, Buffer))
                 return FALSE;
+            }
 
             iField++;
 
@@ -1944,67 +2077,67 @@ cmsBool HeaderSection(cmsIT8* it8)
 
 
         case SIDENT:
-                strncpy(VarName, it8->id, MAXID-1);
-                VarName[MAXID-1] = 0;
+            strncpy(VarName, StringPtr(it8->id), MAXID - 1);
+            VarName[MAXID - 1] = 0;
 
-                if (!IsAvailableOnList(it8-> ValidKeywords, VarName, NULL, &Key)) {
+            if (!IsAvailableOnList(it8->ValidKeywords, VarName, NULL, &Key)) {
 
 #ifdef CMS_STRICT_CGATS
-                 return SynError(it8, "Undefined keyword '%s'", VarName);
+                return SynError(it8, "Undefined keyword '%s'", VarName);
 #else
-                    Key = AddAvailableProperty(it8, VarName, WRITE_UNCOOKED);
-                    if (Key == NULL) return FALSE;
+                Key = AddAvailableProperty(it8, VarName, WRITE_UNCOOKED);
+                if (Key == NULL) return FALSE;
 #endif
+            }
+
+            InSymbol(it8);
+            if (!GetVal(it8, Buffer, MAXSTR - 1, "Property data expected")) return FALSE;
+
+            if (Key->WriteAs != WRITE_PAIR) {
+                AddToList(it8, &GetTable(it8)->HeaderList, VarName, NULL, Buffer,
+                    (it8->sy == SSTRING) ? WRITE_STRINGIFY : WRITE_UNCOOKED);
+            }
+            else {
+                const char *Subkey;
+                char *Nextkey;
+                if (it8->sy != SSTRING)
+                    return SynError(it8, "Invalid value '%s' for property '%s'.", Buffer, VarName);
+
+                // chop the string as a list of "subkey, value" pairs, using ';' as a separator
+                for (Subkey = Buffer; Subkey != NULL; Subkey = Nextkey)
+                {
+                    char *Value, *temp;
+
+                    //  identify token pair boundary
+                    Nextkey = (char*)strchr(Subkey, ';');
+                    if (Nextkey)
+                        *Nextkey++ = '\0';
+
+                    // for each pair, split the subkey and the value
+                    Value = (char*)strrchr(Subkey, ',');
+                    if (Value == NULL)
+                        return SynError(it8, "Invalid value for property '%s'.", VarName);
+
+                    // gobble the spaces before the coma, and the coma itself
+                    temp = Value++;
+                    do *temp-- = '\0'; while (temp >= Subkey && *temp == ' ');
+
+                    // gobble any space at the right
+                    temp = Value + strlen(Value) - 1;
+                    while (*temp == ' ') *temp-- = '\0';
+
+                    // trim the strings from the left
+                    Subkey += strspn(Subkey, " ");
+                    Value += strspn(Value, " ");
+
+                    if (Subkey[0] == 0 || Value[0] == 0)
+                        return SynError(it8, "Invalid value for property '%s'.", VarName);
+                    AddToList(it8, &GetTable(it8)->HeaderList, VarName, Subkey, Value, WRITE_PAIR);
                 }
+            }
 
-                InSymbol(it8);
-                if (!GetVal(it8, Buffer, MAXSTR-1, "Property data expected")) return FALSE;
-
-                if(Key->WriteAs != WRITE_PAIR) {
-                    AddToList(it8, &GetTable(it8)->HeaderList, VarName, NULL, Buffer,
-                                (it8->sy == SSTRING) ? WRITE_STRINGIFY : WRITE_UNCOOKED);
-                }
-                else {
-                    const char *Subkey;
-                    char *Nextkey;
-                    if (it8->sy != SSTRING)
-                        return SynError(it8, "Invalid value '%s' for property '%s'.", Buffer, VarName);
-
-                    // chop the string as a list of "subkey, value" pairs, using ';' as a separator
-                    for (Subkey = Buffer; Subkey != NULL; Subkey = Nextkey)
-                    {
-                        char *Value, *temp;
-
-                        //  identify token pair boundary
-                        Nextkey = (char*) strchr(Subkey, ';');
-                        if(Nextkey)
-                            *Nextkey++ = '\0';
-
-                        // for each pair, split the subkey and the value
-                        Value = (char*) strrchr(Subkey, ',');
-                        if(Value == NULL)
-                            return SynError(it8, "Invalid value for property '%s'.", VarName);
-
-                        // gobble the spaces before the coma, and the coma itself
-                        temp = Value++;
-                        do *temp-- = '\0'; while(temp >= Subkey && *temp == ' ');
-
-                        // gobble any space at the right
-                        temp = Value + strlen(Value) - 1;
-                        while(*temp == ' ') *temp-- = '\0';
-
-                        // trim the strings from the left
-                        Subkey += strspn(Subkey, " ");
-                        Value += strspn(Value, " ");
-
-                        if(Subkey[0] == 0 || Value[0] == 0)
-                            return SynError(it8, "Invalid value for property '%s'.", VarName);
-                        AddToList(it8, &GetTable(it8)->HeaderList, VarName, Subkey, Value, WRITE_PAIR);
-                    }
-                }
-
-                InSymbol(it8);
-                break;
+            InSymbol(it8);
+            break;
 
 
         case SEOLN: break;
@@ -2024,14 +2157,17 @@ cmsBool HeaderSection(cmsIT8* it8)
 static
 void ReadType(cmsIT8* it8, char* SheetTypePtr)
 {
+    cmsInt32Number cnt = 0;
+
     // First line is a very special case.
 
     while (isseparator(it8->ch))
             NextCh(it8);
 
-    while (it8->ch != '\r' && it8 ->ch != '\n' && it8->ch != '\t' && it8 -> ch != -1) {
+    while (it8->ch != '\r' && it8 ->ch != '\n' && it8->ch != '\t' && it8 -> ch != 0) {
 
-        *SheetTypePtr++= (char) it8 ->ch;
+        if (cnt++ < MAXSTR) 
+            *SheetTypePtr++= (char) it8 ->ch;
         NextCh(it8);
     }
 
@@ -2085,7 +2221,7 @@ cmsBool ParseIT8(cmsIT8* it8, cmsBool nosheet)
                                      // If a newline is found, then this is a type string
                                     if (it8 ->ch == '\n' || it8->ch == '\r') {
 
-                                         cmsIT8SetSheetType(it8, it8 ->id);
+                                         cmsIT8SetSheetType(it8, StringPtr(it8 ->id));
                                          InSymbol(it8);
                                     }
                                     else
@@ -2097,7 +2233,7 @@ cmsBool ParseIT8(cmsIT8* it8, cmsBool nosheet)
                                 else
                                     // Validate quoted strings
                                     if (it8 ->sy == SSTRING) {
-                                        cmsIT8SetSheetType(it8, it8 ->str);
+                                        cmsIT8SetSheetType(it8, StringPtr(it8 ->str));
                                         InSymbol(it8);
                                     }
                            }
@@ -2120,7 +2256,7 @@ cmsBool ParseIT8(cmsIT8* it8, cmsBool nosheet)
 
 
 
-// Init usefull pointers
+// Init useful pointers
 
 static
 void CookPointers(cmsIT8* it8)
@@ -2150,66 +2286,48 @@ void CookPointers(cmsIT8* it8)
 
         if (cmsstrcasecmp(Fld, "SAMPLE_ID") == 0) {
 
-                    t -> SampleID = idField;
-
-        for (i=0; i < t -> nPatches; i++) {
-
-                char *Data = GetData(it8, i, idField);
-                if (Data) {
-                    char Buffer[256];
-
-                    strncpy(Buffer, Data, 255);
-                    Buffer[255] = 0;
-
-                    if (strlen(Buffer) <= strlen(Data))
-                        strcpy(Data, Buffer);
-                    else
-                        SetData(it8, i, idField, Buffer);
-
-                }
-                }
-
+            t -> SampleID = idField;            
         }
 
         // "LABEL" is an extension. It keeps references to forward tables
 
-        if ((cmsstrcasecmp(Fld, "LABEL") == 0) || Fld[0] == '$' ) {
+        if ((cmsstrcasecmp(Fld, "LABEL") == 0) || Fld[0] == '$') {
 
-                    // Search for table references...
-                    for (i=0; i < t -> nPatches; i++) {
+            // Search for table references...
+            for (i = 0; i < t->nPatches; i++) {
 
-                            char *Label = GetData(it8, i, idField);
+                char* Label = GetData(it8, i, idField);
 
-                            if (Label) {
+                if (Label) {
 
-                                cmsUInt32Number k;
+                    cmsUInt32Number k;
 
-                                // This is the label, search for a table containing
-                                // this property
+                    // This is the label, search for a table containing
+                    // this property
 
-                                for (k=0; k < it8 ->TablesCount; k++) {
+                    for (k = 0; k < it8->TablesCount; k++) {
 
-                                    TABLE* Table = it8 ->Tab + k;
-                                    KEYVALUE* p;
+                        TABLE* Table = it8->Tab + k;
+                        KEYVALUE* p;
 
-                                    if (IsAvailableOnList(Table->HeaderList, Label, NULL, &p)) {
+                        if (IsAvailableOnList(Table->HeaderList, Label, NULL, &p)) {
 
-                                        // Available, keep type and table
-                                        char Buffer[256];
+                            // Available, keep type and table
+                            char Buffer[256];
 
-                                        char *Type  = p ->Value;
-                                        int  nTable = (int) k;
+                            char* Type = p->Value;
+                            int  nTable = (int)k;
 
-                                        snprintf(Buffer, 255, "%s %d %s", Label, nTable, Type );
+                            snprintf(Buffer, 255, "%s %d %s", Label, nTable, Type);
 
-                                        SetData(it8, i, idField, Buffer);
-                                    }
-                                }
-
-
-                            }
-
+                            SetData(it8, i, idField, Buffer);
+                        }
                     }
+
+
+                }
+
+            }
 
 
         }
@@ -2224,10 +2342,10 @@ void CookPointers(cmsIT8* it8)
 // that should be something like some printable characters plus a \n
 // returns 0 if this is not like a CGATS, or an integer otherwise. This integer is the number of words in first line?
 static
-int IsMyBlock(cmsUInt8Number* Buffer, int n)
+int IsMyBlock(const cmsUInt8Number* Buffer, cmsUInt32Number n)
 {
     int words = 1, space = 0, quot = 0;
-    int i;
+    cmsUInt32Number i;
 
     if (n < 10) return 0;   // Too small
 
@@ -2288,7 +2406,7 @@ cmsBool IsMyFile(const char* FileName)
 // ---------------------------------------------------------- Exported routines
 
 
-cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, void *Ptr, cmsUInt32Number len)
+cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, const void *Ptr, cmsUInt32Number len)
 {
     cmsHANDLE hIT8;
     cmsIT8*  it8;
@@ -2297,7 +2415,7 @@ cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, void *Ptr, cmsUInt3
     _cmsAssert(Ptr != NULL);
     _cmsAssert(len != 0);
 
-    type = IsMyBlock((cmsUInt8Number*)Ptr, len);
+    type = IsMyBlock((const cmsUInt8Number*)Ptr, len);
     if (type == 0) return NULL;
 
     hIT8 = cmsIT8Alloc(ContextID);
@@ -2305,6 +2423,11 @@ cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, void *Ptr, cmsUInt3
 
     it8 = (cmsIT8*) hIT8;
     it8 ->MemoryBlock = (char*) _cmsMalloc(ContextID, len + 1);
+    if (it8->MemoryBlock == NULL)
+    {
+        cmsIT8Free(hIT8);
+        return FALSE;
+    }
 
     strncpy(it8 ->MemoryBlock, (const char*) Ptr, len);
     it8 ->MemoryBlock[len] = 0;
@@ -2516,8 +2639,10 @@ int LocateSample(cmsIT8* it8, const char* cSample)
     for (i=0; i < t->nSamples; i++) {
 
         fld = GetDataFormat(it8, i);
-        if (cmsstrcasecmp(fld, cSample) == 0)
-            return i;
+        if (fld != NULL) {
+            if (cmsstrcasecmp(fld, cSample) == 0)
+                return i;
+        }
     }
 
     return -1;
@@ -2575,7 +2700,7 @@ cmsBool CMSEXPORT cmsIT8SetDataRowColDbl(cmsHANDLE hIT8, int row, int col, cmsFl
 
     _cmsAssert(hIT8 != NULL);
 
-    sprintf(Buff, it8->DoubleFormatter, Val);
+    snprintf(Buff, 255, it8->DoubleFormatter, Val);
 
     return SetData(it8, row, col, Buff);
 }
@@ -2713,7 +2838,7 @@ int CMSEXPORT cmsIT8SetTableByLabel(cmsHANDLE hIT8, const char* cSet, const char
 {
     const char* cLabelFld;
     char Type[256], Label[256];
-    int nTable;
+    cmsUInt32Number nTable;
 
     _cmsAssert(hIT8 != NULL);
 
@@ -2726,7 +2851,7 @@ int CMSEXPORT cmsIT8SetTableByLabel(cmsHANDLE hIT8, const char* cSet, const char
     cLabelFld = cmsIT8GetData(hIT8, cSet, cField);
     if (!cLabelFld) return -1;
 
-    if (sscanf(cLabelFld, "%255s %d %255s", Label, &nTable, Type) != 3)
+    if (sscanf(cLabelFld, "%255s %u %255s", Label, &nTable, Type) != 3)
             return -1;
 
     if (ExpectedType != NULL && *ExpectedType == 0)
@@ -2766,7 +2891,7 @@ void CMSEXPORT cmsIT8DefineDblFormat(cmsHANDLE hIT8, const char* Formatter)
     if (Formatter == NULL)
         strcpy(it8->DoubleFormatter, DEFAULT_DBL_FORMAT);
     else
-        strcpy(it8->DoubleFormatter, Formatter);
+        strncpy(it8->DoubleFormatter, Formatter, sizeof(it8->DoubleFormatter));
 
     it8 ->DoubleFormatter[sizeof(it8 ->DoubleFormatter)-1] = 0;
 }

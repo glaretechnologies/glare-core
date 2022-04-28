@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------
 //
 //  Little Color Management System
-//  Copyright (c) 1998-2011 Marti Maria Saguer
+//  Copyright (c) 1998-2022 Marti Maria Saguer
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the "Software"),
@@ -30,9 +30,9 @@
 // This file implements every single tag and tag type as described in the ICC spec. Some types
 // have been deprecated, like ncl and Data. There is no implementation for those types as there
 // are no profiles holding them. The programmer can also extend this list by defining his own types
-// by using the appropiate plug-in. There are three types of plug ins regarding that. First type
+// by using the appropriate plug-in. There are three types of plug ins regarding that. First type
 // allows to define new tags using any existing type. Next plug-in type allows to define new types
-// and the third one is very specific: allows to extend the number of elements in the multiprofile
+// and the third one is very specific: allows to extend the number of elements in the multiprocessing
 // elements special type.
 //--------------------------------------------------------------------------------------------------
 
@@ -60,54 +60,54 @@ typedef struct _cmsTagTypeLinkedList_st {
 // Helper macro to define a MPE handler. Callbacks do have a fixed naming convention
 #define TYPE_MPE_HANDLER(t, x)  { (t), READ_FN(x), WRITE_FN(x), GenericMPEdup, GenericMPEfree, NULL, 0 }
 
-// Register a new type handler. This routine is shared between normal types and MPE
+// Infinites
+#define MINUS_INF   (-1E22F)
+#define PLUS_INF    (+1E22F)
+
+
+// Register a new type handler. This routine is shared between normal types and MPE. LinkedList points to the optional list head
 static
-cmsBool RegisterTypesPlugin(cmsContext id, cmsPluginBase* Data, _cmsTagTypeLinkedList* LinkedList, cmsUInt32Number DefaultListCount)
+cmsBool RegisterTypesPlugin(cmsContext id, cmsPluginBase* Data, _cmsMemoryClient pos)
 {
     cmsPluginTagType* Plugin = (cmsPluginTagType*) Data;
-    _cmsTagTypeLinkedList *pt, *Anterior = NULL;
+    _cmsTagTypePluginChunkType* ctx = ( _cmsTagTypePluginChunkType*) _cmsContextGetClientChunk(id, pos);
+    _cmsTagTypeLinkedList *pt;
 
     // Calling the function with NULL as plug-in would unregister the plug in.
     if (Data == NULL) {
 
-        LinkedList[DefaultListCount-1].Next = NULL;
+        // There is no need to set free the memory, as pool is destroyed as a whole.
+        ctx ->TagTypes = NULL;
         return TRUE;
     }
 
-    pt = Anterior = LinkedList;
-    while (pt != NULL) {
-
-        if (Plugin->Handler.Signature == pt -> Handler.Signature) {
-            pt ->Handler = Plugin ->Handler;    // Replace old behaviour.
-            // Note that since no memory is allocated, unregister does not
-            // reset this action.
-            return TRUE;
-        }
-
-        Anterior = pt;
-        pt = pt ->Next;
-    }
-
-    // Registering happens in plug-in memory pool
+    // Registering happens in plug-in memory pool.
     pt = (_cmsTagTypeLinkedList*) _cmsPluginMalloc(id, sizeof(_cmsTagTypeLinkedList));
     if (pt == NULL) return FALSE;
 
     pt ->Handler   = Plugin ->Handler;
-    pt ->Next      = NULL;
+    pt ->Next      = ctx ->TagTypes;
 
-    if (Anterior)
-        Anterior -> Next = pt;
-
+    ctx ->TagTypes = pt;
+     
     return TRUE;
 }
 
-// Return handler for a given type or NULL if not found. Shared between normal types and MPE
+// Return handler for a given type or NULL if not found. Shared between normal types and MPE. It first tries the additons 
+// made by plug-ins and then the built-in defaults.
 static
-cmsTagTypeHandler* GetHandler(cmsTagTypeSignature sig, _cmsTagTypeLinkedList* LinkedList)
+cmsTagTypeHandler* GetHandler(cmsTagTypeSignature sig, _cmsTagTypeLinkedList* PluginLinkedList, _cmsTagTypeLinkedList* DefaultLinkedList)
 {
     _cmsTagTypeLinkedList* pt;
 
-    for (pt = LinkedList;
+    for (pt = PluginLinkedList;
+         pt != NULL;
+         pt = pt ->Next) {
+
+            if (sig == pt -> Handler.Signature) return &pt ->Handler;
+    }
+
+    for (pt = DefaultLinkedList;
          pt != NULL;
          pt = pt ->Next) {
 
@@ -118,7 +118,7 @@ cmsTagTypeHandler* GetHandler(cmsTagTypeSignature sig, _cmsTagTypeLinkedList* Li
 }
 
 
-// Auxiliar to convert UTF-32 to UTF-16 in some cases
+// Auxiliary to convert UTF-32 to UTF-16 in some cases
 static
 cmsBool _cmsWriteWCharArray(cmsIOHANDLER* io, cmsUInt32Number n, const wchar_t* Array)
 {
@@ -134,13 +134,61 @@ cmsBool _cmsWriteWCharArray(cmsIOHANDLER* io, cmsUInt32Number n, const wchar_t* 
     return TRUE;
 }
 
+// Try to promote correctly to wchar_t when 32 bits
+cmsINLINE cmsBool is_surrogate(cmsUInt32Number uc) { return (uc - 0xd800u) < 2048u; }
+cmsINLINE cmsBool is_high_surrogate(cmsUInt32Number uc) { return (uc & 0xfffffc00) == 0xd800; }
+cmsINLINE cmsBool is_low_surrogate(cmsUInt32Number uc)  { return (uc & 0xfffffc00) == 0xdc00; }
+
+cmsINLINE cmsUInt32Number surrogate_to_utf32(cmsUInt32Number high, cmsUInt32Number low)
+{
+    return (high << 10) + low - 0x35fdc00;
+}
+
+cmsINLINE cmsBool convert_utf16_to_utf32(cmsIOHANDLER* io, cmsInt32Number n, wchar_t* output)
+{
+    cmsUInt16Number uc;
+
+    while (n > 0)
+    {
+        if (!_cmsReadUInt16Number(io, &uc)) return FALSE;
+        n--;
+
+        if (!is_surrogate(uc))
+        {
+            *output++ = (wchar_t)uc;
+        }
+        else {
+
+            cmsUInt16Number low;
+
+            if (!_cmsReadUInt16Number(io, &low)) return FALSE;
+            n--;
+
+            if (is_high_surrogate(uc) && is_low_surrogate(low))
+                *output++ = (wchar_t)surrogate_to_utf32(uc, low);
+            else
+                return FALSE;   // Corrupted string, just ignore
+        }
+    }
+
+    return TRUE;
+}
+
+
+// Auxiliary to read an array of wchar_t
 static
 cmsBool _cmsReadWCharArray(cmsIOHANDLER* io, cmsUInt32Number n, wchar_t* Array)
 {
     cmsUInt32Number i;
     cmsUInt16Number tmp;
+    cmsBool is32 = sizeof(wchar_t) > sizeof(cmsUInt16Number);
 
     _cmsAssert(io != NULL);
+
+    if (is32 && Array != NULL)
+    {
+        return convert_utf16_to_utf32(io, n, Array);
+    }
 
     for (i=0; i < n; i++) {
 
@@ -164,8 +212,8 @@ typedef cmsBool (* PositionTableEntryFn)(struct _cms_typehandler_struct* self,
                                              cmsUInt32Number n,
                                              cmsUInt32Number SizeOfTag);
 
-// Helper function to deal with position tables as decribed in ICC spec 4.3
-// A table of n elements is readed, where first comes n records containing offsets and sizes and
+// Helper function to deal with position tables as described in ICC spec 4.3
+// A table of n elements is read, where first comes n records containing offsets and sizes and
 // then a block containing the data itself. This allows to reuse same data in more than one entry
 static
 cmsBool ReadPositionTable(struct _cms_typehandler_struct* self,
@@ -177,6 +225,13 @@ cmsBool ReadPositionTable(struct _cms_typehandler_struct* self,
 {
     cmsUInt32Number i;
     cmsUInt32Number *ElementOffsets = NULL, *ElementSizes = NULL;
+    cmsUInt32Number currentPosition;
+
+    currentPosition = io->Tell(io);
+
+    // Verify there is enough space left to read at least two cmsUInt32Number items for Count items.
+    if (((io->ReportedSize - currentPosition) / (2 * sizeof(cmsUInt32Number))) < Count)
+        return FALSE;
 
     // Let's take the offsets to each element
     ElementOffsets = (cmsUInt32Number *) _cmsCalloc(io ->ContextID, Count, sizeof(cmsUInt32Number));
@@ -236,7 +291,7 @@ cmsBool WritePositionTable(struct _cms_typehandler_struct* self,
 
     // Keep starting position of curve offsets
     DirectoryPos = io ->Tell(io);
-
+  
     // Write a fake directory to be filled latter on
     for (i=0; i < Count; i++) {
 
@@ -399,8 +454,8 @@ Error:
 static
 cmsBool  SaveOneChromaticity(cmsFloat64Number x, cmsFloat64Number y, cmsIOHANDLER* io)
 {
-    if (!_cmsWriteUInt32Number(io, _cmsDoubleTo15Fixed16(x))) return FALSE;
-    if (!_cmsWriteUInt32Number(io, _cmsDoubleTo15Fixed16(y))) return FALSE;
+    if (!_cmsWriteUInt32Number(io, (cmsUInt32Number) _cmsDoubleTo15Fixed16(x))) return FALSE;
+    if (!_cmsWriteUInt32Number(io, (cmsUInt32Number) _cmsDoubleTo15Fixed16(y))) return FALSE;
 
     return TRUE;
 }
@@ -427,7 +482,7 @@ static
 void* Type_Chromaticity_Dup(struct _cms_typehandler_struct* self, const void *Ptr, cmsUInt32Number n)
 {
     return _cmsDupMem(self ->ContextID, Ptr, sizeof(cmsCIExyYTRIPLE));
-	
+
     cmsUNUSED_PARAMETER(n);
 }
 
@@ -748,6 +803,8 @@ cmsBool Type_Text_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, 
 
     // Create memory
     Text = (char*) _cmsMalloc(self ->ContextID, size);
+    if (Text == NULL) return FALSE;
+
     cmsMLUgetASCII(mlu, cmsNoLanguage, cmsNoCountry, Text, size);
 
     // Write it, including separator
@@ -953,27 +1010,28 @@ cmsBool  Type_Text_Description_Write(struct _cms_typehandler_struct* self, cmsIO
     cmsMLU* mlu = (cmsMLU*) Ptr;
     char *Text = NULL;
     wchar_t *Wide = NULL;
-    cmsUInt32Number len, len_aligned, len_filler_alignment;
+    cmsUInt32Number len, len_text, len_tag_requirement, len_aligned;
     cmsBool  rc = FALSE;
     char Filler[68];
 
-    // Used below for writting zeroes
+    // Used below for writing zeroes
     memset(Filler, 0, sizeof(Filler));
 
     // Get the len of string
     len = cmsMLUgetASCII(mlu, cmsNoLanguage, cmsNoCountry, NULL, 0);
 
-    // From ICC3.4: It has been found that textDescriptionType can contain misaligned data
-    //(see clause 4.1 for the definition of “aligned”). Because the Unicode language
+    // Specification ICC.1:2001-04 (v2.4.0): It has been found that textDescriptionType can contain misaligned data
+    //(see clause 4.1 for the definition of 'aligned'). Because the Unicode language
     // code and Unicode count immediately follow the ASCII description, their
     // alignment is not correct if the ASCII count is not a multiple of four. The
     // ScriptCode code is misaligned when the ASCII count is odd. Profile reading and
     // writing software must be written carefully in order to handle these alignment
     // problems.
-
-    // Compute an aligned size
-    len_aligned = _cmsALIGNLONG(len);
-    len_filler_alignment = len_aligned - len;
+    //
+    // The above last sentence suggest to handle alignment issues in the
+    // parser. The provided example (Table 69 on Page 60) makes this clear. 
+    // The padding only in the ASCII count is not sufficient for a aligned tag
+    // size, with the same text size in ASCII and Unicode.
 
     // Null strings
     if (len <= 0) {
@@ -994,6 +1052,12 @@ cmsBool  Type_Text_Description_Write(struct _cms_typehandler_struct* self, cmsIO
         cmsMLUgetWide(mlu,  cmsNoLanguage, cmsNoCountry,  Wide, len * sizeof(wchar_t));
     }
 
+    // Tell the real text len including the null terminator and padding
+    len_text = (cmsUInt32Number) strlen(Text) + 1;
+    // Compute an total tag size requirement
+    len_tag_requirement = (8+4+len_text+4+4+2*len_text+2+1+67);
+    len_aligned = _cmsALIGNLONG(len_tag_requirement);
+
   // * cmsUInt32Number       count;          * Description length
   // * cmsInt8Number         desc[count]     * NULL terminated ascii string
   // * cmsUInt32Number       ucLangCode;     * UniCode language code
@@ -1003,26 +1067,24 @@ cmsBool  Type_Text_Description_Write(struct _cms_typehandler_struct* self, cmsIO
   // * cmsUInt8Number        scCount;        * ScriptCode count
   // * cmsInt8Number         scDesc[67];     * ScriptCode Description
 
-    if (!_cmsWriteUInt32Number(io, len_aligned)) goto Error;
-    if (!io ->Write(io, len, Text)) goto Error;
-    if (!io ->Write(io, len_filler_alignment, Filler)) goto Error;
+    if (!_cmsWriteUInt32Number(io, len_text)) goto Error;
+    if (!io ->Write(io, len_text, Text)) goto Error;
 
     if (!_cmsWriteUInt32Number(io, 0)) goto Error;  // ucLanguageCode
 
-    // This part is tricky: we need an aligned tag size, and the ScriptCode part
-    // takes 70 bytes, so we need 2 extra bytes to do the alignment
-
-    if (!_cmsWriteUInt32Number(io, len_aligned+1)) goto Error;
-
+    if (!_cmsWriteUInt32Number(io, len_text)) goto Error;
     // Note that in some compilers sizeof(cmsUInt16Number) != sizeof(wchar_t)
-    if (!_cmsWriteWCharArray(io, len, Wide)) goto Error;
-    if (!_cmsWriteUInt16Array(io, len_filler_alignment+1, (cmsUInt16Number*) Filler)) goto Error;
+    if (!_cmsWriteWCharArray(io, len_text, Wide)) goto Error;
 
     // ScriptCode Code & count (unused)
     if (!_cmsWriteUInt16Number(io, 0)) goto Error;
     if (!_cmsWriteUInt8Number(io, 0)) goto Error;
 
     if (!io ->Write(io, 67, Filler)) goto Error;
+
+    // possibly add pad at the end of tag
+    if(len_aligned - len_tag_requirement > 0)
+      if (!io ->Write(io, len_aligned - len_tag_requirement, Filler)) goto Error;
 
     rc = TRUE;
 
@@ -1114,7 +1176,10 @@ void *Type_Curve_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cm
                NewGamma = cmsBuildTabulatedToneCurve16(self ->ContextID, Count, NULL);
                if (!NewGamma) return NULL;
 
-               if (!_cmsReadUInt16Array(io, Count, NewGamma -> Table16)) return NULL;
+               if (!_cmsReadUInt16Array(io, Count, NewGamma -> Table16)) {
+                   cmsFreeToneCurve(NewGamma);
+                   return NULL;
+               }
 
                *nItems = 1;
                return NewGamma;
@@ -1174,7 +1239,7 @@ void Type_Curve_Free(struct _cms_typehandler_struct* self, void* Ptr)
 // ********************************************************************************
 
 
-// Decide which curve type to use on writting
+// Decide which curve type to use on writing
 static
 cmsTagTypeSignature DecideCurveType(cmsFloat64Number ICCVersion, const void *Data)
 {
@@ -1289,7 +1354,7 @@ void Type_ParametricCurve_Free(struct _cms_typehandler_struct* self, void* Ptr)
 //
 // All the dateTimeNumber values in a profile shall be in Coordinated Universal Time
 // (UTC, also known as GMT or ZULU Time). Profile writers are required to convert local
-// time to UTC when setting these values. Programmes that display these values may show
+// time to UTC when setting these values. Programs that display these values may show
 // the dateTimeNumber as UTC, show the equivalent local time (at current locale), or
 // display both UTC and local versions of the dateTimeNumber.
 
@@ -1360,6 +1425,9 @@ void *Type_Measurement_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* 
 {
     cmsICCMeasurementConditions mc;
 
+	
+    memset(&mc, 0, sizeof(mc));
+	
     if (!_cmsReadUInt32Number(io, &mc.Observer)) return NULL;
     if (!_cmsReadXYZNumber(io,    &mc.Backing)) return NULL;
     if (!_cmsReadUInt32Number(io, &mc.Geometry)) return NULL;
@@ -1453,12 +1521,13 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
         if (!_cmsReadUInt32Number(io, &Offset)) goto Error;
 
         // Check for overflow
-        if (Offset < (SizeOfHeader + 8)) goto Error;
+        if (Offset < (SizeOfHeader + 8)) goto Error;        
+        if (((Offset + Len) < Len) || ((Offset + Len) > SizeOfTag + 8)) goto Error;
 
         // True begin of the string
         BeginOfThisString = Offset - SizeOfHeader - 8;
 
-        // Ajust to wchar_t elements
+        // Adjust to wchar_t elements
         mlu ->Entries[i].Len = (Len * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
         mlu ->Entries[i].StrW = (BeginOfThisString * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
 
@@ -1468,7 +1537,7 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
             LargestPosition = EndOfThisString;
     }
 
-    // Now read the remaining of tag and fill all strings. Substract the directory
+    // Now read the remaining of tag and fill all strings. Subtract the directory
     SizeOfTag   = (LargestPosition * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
     if (SizeOfTag == 0)
     {
@@ -1502,7 +1571,7 @@ cmsBool  Type_MLU_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, 
     cmsMLU* mlu =(cmsMLU*) Ptr;
     cmsUInt32Number HeaderSize;
     cmsUInt32Number  Len, Offset;
-    int i;
+    cmsUInt32Number i;
 
     if (Ptr == NULL) {
 
@@ -1563,7 +1632,7 @@ void Type_MLU_Free(struct _cms_typehandler_struct* self, void* Ptr)
 // Type cmsSigLut8Type
 // ********************************************************************************
 
-// Decide which LUT type to use on writting
+// Decide which LUT type to use on writing
 static
 cmsTagTypeSignature DecideLUTtypeA2B(cmsFloat64Number ICCVersion, const void *Data)
 {
@@ -1612,11 +1681,10 @@ Byte Position   Field Length (bytes)  Content Encoded as...
 
 // Read 8 bit tables as gamma functions
 static
-cmsBool  Read8bitTables(cmsContext ContextID, cmsIOHANDLER* io, cmsPipeline* lut, int nChannels)
+cmsBool  Read8bitTables(cmsContext ContextID, cmsIOHANDLER* io, cmsPipeline* lut, cmsUInt32Number nChannels)
 {
-    cmsStage* mpe;
     cmsUInt8Number* Temp = NULL;
-    int i, j;
+    cmsUInt32Number i, j;
     cmsToneCurve* Tables[cmsMAXCHANNELS];
 
     if (nChannels > cmsMAXCHANNELS) return FALSE;
@@ -1643,11 +1711,8 @@ cmsBool  Read8bitTables(cmsContext ContextID, cmsIOHANDLER* io, cmsPipeline* lut
     _cmsFree(ContextID, Temp);
     Temp = NULL;
 
-
-    mpe = cmsStageAllocToneCurves(ContextID, nChannels, Tables);
-    if (mpe == NULL) goto Error;
-
-    cmsPipelineInsertStage(lut, cmsAT_END, mpe);
+    if (!cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(ContextID, nChannels, Tables)))
+        goto Error;
 
     for (i=0; i < nChannels; i++)
         cmsFreeToneCurve(Tables[i]);
@@ -1692,10 +1757,7 @@ cmsBool Write8bitTables(cmsContext ContextID, cmsIOHANDLER* io, cmsUInt32Number 
                 else
                     for (j=0; j < 256; j++) {
 
-                        if (Tables != NULL)
-                            val = (cmsUInt8Number) FROM_16_TO_8(Tables->TheCurves[i]->Table16[j]);
-                        else
-                            val = (cmsUInt8Number) j;
+                        val = (cmsUInt8Number) FROM_16_TO_8(Tables->TheCurves[i]->Table16[j]);
 
                         if (!_cmsWriteUInt8Number(io, val)) return FALSE;
                     }
@@ -1731,7 +1793,7 @@ cmsUInt32Number uipow(cmsUInt32Number n, cmsUInt32Number a, cmsUInt32Number b)
 
 
 // That will create a MPE LUT with Matrix, pre tables, CLUT and post tables.
-// 8 bit lut may be scaled easely to v4 PCS, but we need also to properly adjust
+// 8 bit lut may be scaled easily to v4 PCS, but we need also to properly adjust
 // PCS on BToAxx tags and AtoB if abstract. We need to fix input direction.
 
 static
@@ -1740,7 +1802,6 @@ void *Type_LUT8_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cms
     cmsUInt8Number InputChannels, OutputChannels, CLUTpoints;
     cmsUInt8Number* Temp = NULL;
     cmsPipeline* NewLUT = NULL;
-    cmsStage *mpemat, *mpeclut;
     cmsUInt32Number nTabSize, i;
     cmsFloat64Number Matrix[3*3];
 
@@ -1756,9 +1817,8 @@ void *Type_LUT8_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cms
     if (!_cmsReadUInt8Number(io, NULL)) goto Error;
 
     // Do some checking
-
-    if (InputChannels > cmsMAXCHANNELS)  goto Error;
-    if (OutputChannels > cmsMAXCHANNELS) goto Error;
+    if (InputChannels == 0 || InputChannels > cmsMAXCHANNELS)  goto Error;
+    if (OutputChannels == 0 || OutputChannels > cmsMAXCHANNELS) goto Error;
 
    // Allocates an empty Pipeline
     NewLUT = cmsPipelineAlloc(self ->ContextID, InputChannels, OutputChannels);
@@ -1779,9 +1839,8 @@ void *Type_LUT8_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cms
     // Only operates if not identity...
     if ((InputChannels == 3) && !_cmsMAT3isIdentity((cmsMAT3*) Matrix)) {
 
-        mpemat = cmsStageAllocMatrix(self ->ContextID, 3, 3, Matrix, NULL);
-        if (mpemat == NULL) goto Error;
-        cmsPipelineInsertStage(NewLUT, cmsAT_BEGIN, mpemat);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_BEGIN, cmsStageAllocMatrix(self ->ContextID, 3, 3, Matrix, NULL)))
+            goto Error;
     }
 
     // Get input tables
@@ -1798,9 +1857,16 @@ void *Type_LUT8_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cms
         if (T  == NULL) goto Error;
 
         Temp = (cmsUInt8Number*) _cmsMalloc(self ->ContextID, nTabSize);
-        if (Temp == NULL) goto Error;
+        if (Temp == NULL) {
+            _cmsFree(self ->ContextID, T);
+            goto Error;
+        }
 
-        if (io ->Read(io, Temp, nTabSize, 1) != 1) goto Error;
+        if (io ->Read(io, Temp, nTabSize, 1) != 1) {
+            _cmsFree(self ->ContextID, T);
+            _cmsFree(self ->ContextID, Temp);
+            goto Error;
+        }
 
         for (i = 0; i < nTabSize; i++) {
 
@@ -1809,10 +1875,10 @@ void *Type_LUT8_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cms
         _cmsFree(self ->ContextID, Temp);
         Temp = NULL;
 
-
-        mpeclut = cmsStageAllocCLut16bit(self ->ContextID, CLUTpoints, InputChannels, OutputChannels, T);
-        if (mpeclut == NULL) goto Error;
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpeclut);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, cmsStageAllocCLut16bit(self ->ContextID, CLUTpoints, InputChannels, OutputChannels, T))) {
+            _cmsFree(self ->ContextID, T);
+            goto Error;
+        }
         _cmsFree(self ->ContextID, T);
     }
 
@@ -1834,19 +1900,20 @@ Error:
 static
 cmsBool  Type_LUT8_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
-    cmsUInt32Number j, nTabSize;
+    cmsUInt32Number j, nTabSize, i;
     cmsUInt8Number  val;
     cmsPipeline* NewLUT = (cmsPipeline*) Ptr;
     cmsStage* mpe;
     _cmsStageToneCurvesData* PreMPE = NULL, *PostMPE = NULL;
     _cmsStageMatrixData* MatMPE = NULL;
     _cmsStageCLutData* clut = NULL;
-    int clutPoints;
+    cmsUInt32Number clutPoints;
 
     // Disassemble the LUT into components.
     mpe = NewLUT -> Elements;
     if (mpe ->Type == cmsSigMatrixElemType) {
 
+        if (mpe->InputChannels != 3 || mpe->OutputChannels != 3) return FALSE;
         MatMPE = (_cmsStageMatrixData*) mpe ->Data;
         mpe = mpe -> Next;
     }
@@ -1872,7 +1939,6 @@ cmsBool  Type_LUT8_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io,
         return FALSE;
     }
 
-
     if (clut == NULL)
         clutPoints = 0;
     else
@@ -1883,22 +1949,15 @@ cmsBool  Type_LUT8_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io,
     if (!_cmsWriteUInt8Number(io, (cmsUInt8Number) clutPoints)) return FALSE;
     if (!_cmsWriteUInt8Number(io, 0)) return FALSE; // Padding
 
-
     if (MatMPE != NULL) {
-
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[0])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[1])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[2])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[3])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[4])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[5])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[6])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[7])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[8])) return FALSE;
-
+        
+		for (i = 0; i < 9; i++)
+		{
+			if (!_cmsWrite15Fixed16Number(io, MatMPE->Double[i])) return FALSE;
+		}
     }
     else {
-
+		
         if (!_cmsWrite15Fixed16Number(io, 1)) return FALSE;
         if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
         if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
@@ -1961,10 +2020,10 @@ void Type_LUT8_Free(struct _cms_typehandler_struct* self, void* Ptr)
 
 // Read 16 bit tables as gamma functions
 static
-cmsBool  Read16bitTables(cmsContext ContextID, cmsIOHANDLER* io, cmsPipeline* lut, int nChannels, int nEntries)
+cmsBool  Read16bitTables(cmsContext ContextID, cmsIOHANDLER* io, cmsPipeline* lut, 
+                                    cmsUInt32Number nChannels, cmsUInt32Number nEntries)
 {
-    cmsStage* mpe;
-    int i;
+    cmsUInt32Number i;
     cmsToneCurve* Tables[cmsMAXCHANNELS];
 
     // Maybe an empty table? (this is a lcms extension)
@@ -1987,10 +2046,8 @@ cmsBool  Read16bitTables(cmsContext ContextID, cmsIOHANDLER* io, cmsPipeline* lu
 
 
     // Add the table (which may certainly be an identity, but this is up to the optimizer, not the reading code)
-    mpe = cmsStageAllocToneCurves(ContextID, nChannels, Tables);
-    if (mpe == NULL) goto Error;
-
-    cmsPipelineInsertStage(lut, cmsAT_END, mpe);
+    if (!cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(ContextID, nChannels, Tables)))
+        goto Error;
 
     for (i=0; i < nChannels; i++)
         cmsFreeToneCurve(Tables[i]);
@@ -2008,10 +2065,10 @@ Error:
 static
 cmsBool Write16bitTables(cmsContext ContextID, cmsIOHANDLER* io, _cmsStageToneCurvesData* Tables)
 {
-    int j;
+    cmsUInt32Number j;
     cmsUInt32Number i;
     cmsUInt16Number val;
-    int nEntries;
+    cmsUInt32Number nEntries;
 
     _cmsAssert(Tables != NULL);
 
@@ -2035,7 +2092,6 @@ void *Type_LUT16_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cm
 {
     cmsUInt8Number InputChannels, OutputChannels, CLUTpoints;
     cmsPipeline* NewLUT = NULL;
-    cmsStage *mpemat,  *mpeclut;
     cmsUInt32Number nTabSize;
     cmsFloat64Number Matrix[3*3];
     cmsUInt16Number InputEntries, OutputEntries;
@@ -2050,8 +2106,8 @@ void *Type_LUT16_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cm
     if (!_cmsReadUInt8Number(io, NULL)) return NULL;
 
     // Do some checking
-    if (InputChannels > cmsMAXCHANNELS)  goto Error;
-    if (OutputChannels > cmsMAXCHANNELS) goto Error;
+    if (InputChannels == 0 || InputChannels > cmsMAXCHANNELS)  goto Error;
+    if (OutputChannels == 0 || OutputChannels > cmsMAXCHANNELS) goto Error;
 
     // Allocates an empty LUT
     NewLUT = cmsPipelineAlloc(self ->ContextID, InputChannels, OutputChannels);
@@ -2072,9 +2128,8 @@ void *Type_LUT16_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cm
     // Only operates on 3 channels
     if ((InputChannels == 3) && !_cmsMAT3isIdentity((cmsMAT3*) Matrix)) {
 
-        mpemat = cmsStageAllocMatrix(self ->ContextID, 3, 3, Matrix, NULL);
-        if (mpemat == NULL) goto Error;
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpemat);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, cmsStageAllocMatrix(self ->ContextID, 3, 3, Matrix, NULL)))
+            goto Error;
     }
 
     if (!_cmsReadUInt16Number(io, &InputEntries)) goto Error;
@@ -2101,13 +2156,10 @@ void *Type_LUT16_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cm
             goto Error;
         }
 
-        mpeclut = cmsStageAllocCLut16bit(self ->ContextID, CLUTpoints, InputChannels, OutputChannels, T);
-        if (mpeclut == NULL) {
-             _cmsFree(self ->ContextID, T);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, cmsStageAllocCLut16bit(self ->ContextID, CLUTpoints, InputChannels, OutputChannels, T))) {
+            _cmsFree(self ->ContextID, T);
             goto Error;
         }
-
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpeclut);
         _cmsFree(self ->ContextID, T);
     }
 
@@ -2129,7 +2181,7 @@ Error:
 // Some empty defaults are created for missing parts
 
 static
-cmsBool  Type_LUT16_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
+cmsBool Type_LUT16_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
     cmsUInt32Number nTabSize;
     cmsPipeline* NewLUT = (cmsPipeline*) Ptr;
@@ -2137,13 +2189,14 @@ cmsBool  Type_LUT16_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
     _cmsStageToneCurvesData* PreMPE = NULL, *PostMPE = NULL;
     _cmsStageMatrixData* MatMPE = NULL;
     _cmsStageCLutData* clut = NULL;
-    int InputChannels, OutputChannels, clutPoints;
+    cmsUInt32Number i, InputChannels, OutputChannels, clutPoints;
 
     // Disassemble the LUT into components.
     mpe = NewLUT -> Elements;
     if (mpe != NULL && mpe ->Type == cmsSigMatrixElemType) {
 
         MatMPE = (_cmsStageMatrixData*) mpe ->Data;
+        if (mpe->InputChannels != 3 || mpe->OutputChannels != 3) return FALSE;
         mpe = mpe -> Next;
     }
 
@@ -2181,22 +2234,17 @@ cmsBool  Type_LUT16_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
     if (!_cmsWriteUInt8Number(io, (cmsUInt8Number) OutputChannels)) return FALSE;
     if (!_cmsWriteUInt8Number(io, (cmsUInt8Number) clutPoints)) return FALSE;
     if (!_cmsWriteUInt8Number(io, 0)) return FALSE; // Padding
-
-
+	
     if (MatMPE != NULL) {
-
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[0])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[1])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[2])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[3])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[4])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[5])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[6])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[7])) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, MatMPE -> Double[8])) return FALSE;
+                
+		for (i = 0; i < 9; i++)
+		{
+			if (!_cmsWrite15Fixed16Number(io, MatMPE->Double[i])) return FALSE;
+		}
+      
     }
     else {
-
+		
         if (!_cmsWrite15Fixed16Number(io, 1)) return FALSE;
         if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
         if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
@@ -2212,13 +2260,13 @@ cmsBool  Type_LUT16_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
     if (PreMPE != NULL) {
         if (!_cmsWriteUInt16Number(io, (cmsUInt16Number) PreMPE ->TheCurves[0]->nEntries)) return FALSE;
     } else {
-            if (!_cmsWriteUInt16Number(io, 0)) return FALSE;
+            if (!_cmsWriteUInt16Number(io, 2)) return FALSE;
     }
 
     if (PostMPE != NULL) {
         if (!_cmsWriteUInt16Number(io, (cmsUInt16Number) PostMPE ->TheCurves[0]->nEntries)) return FALSE;
     } else {
-        if (!_cmsWriteUInt16Number(io, 0)) return FALSE;
+        if (!_cmsWriteUInt16Number(io, 2)) return FALSE;
 
     }
 
@@ -2226,6 +2274,13 @@ cmsBool  Type_LUT16_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
 
     if (PreMPE != NULL) {
         if (!Write16bitTables(self ->ContextID, io, PreMPE)) return FALSE;
+    }
+    else {
+        for (i=0; i < InputChannels; i++) {
+
+            if (!_cmsWriteUInt16Number(io, 0)) return FALSE;
+            if (!_cmsWriteUInt16Number(io, 0xffff)) return FALSE;
+        }
     }
 
     nTabSize = uipow(OutputChannels, clutPoints, InputChannels);
@@ -2241,7 +2296,13 @@ cmsBool  Type_LUT16_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
     if (PostMPE != NULL) {
         if (!Write16bitTables(self ->ContextID, io, PostMPE)) return FALSE;
     }
+    else {
+        for (i=0; i < OutputChannels; i++) {
 
+            if (!_cmsWriteUInt16Number(io, 0)) return FALSE;
+            if (!_cmsWriteUInt16Number(io, 0xffff)) return FALSE;
+        }
+    }
 
     return TRUE;
 
@@ -2310,7 +2371,8 @@ cmsStage* ReadMatrix(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cms
 //  V4 stuff. Read CLUT part for LutAtoB and LutBtoA
 
 static
-cmsStage* ReadCLUT(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsUInt32Number Offset, int InputChannels, int OutputChannels)
+cmsStage* ReadCLUT(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, 
+                   cmsUInt32Number Offset, cmsUInt32Number InputChannels, cmsUInt32Number OutputChannels)
 {
     cmsUInt8Number  gridPoints8[cmsMAXCHANNELS]; // Number of grid points in each dimension.
     cmsUInt32Number GridPoints[cmsMAXCHANNELS], i;
@@ -2342,25 +2404,31 @@ cmsStage* ReadCLUT(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsUI
     // Precision can be 1 or 2 bytes
     if (Precision == 1) {
 
-       cmsUInt8Number  v;
+        cmsUInt8Number  v;
 
         for (i=0; i < Data ->nEntries; i++) {
 
-                if (io ->Read(io, &v, sizeof(cmsUInt8Number), 1) != 1) return NULL;
-                Data ->Tab.T[i] = FROM_8_TO_16(v);
+            if (io ->Read(io, &v, sizeof(cmsUInt8Number), 1) != 1) {
+                cmsStageFree(CLUT);
+                return NULL;
+            }
+            Data ->Tab.T[i] = FROM_8_TO_16(v);
         }
 
     }
     else
         if (Precision == 2) {
 
-            if (!_cmsReadUInt16Array(io, Data->nEntries, Data ->Tab.T)) return NULL;
-    }
-    else {
-        cmsSignalError(self ->ContextID, cmsERROR_UNKNOWN_EXTENSION, "Unknown precision of '%d'", Precision);
-        return NULL;
-    }
-
+            if (!_cmsReadUInt16Array(io, Data->nEntries, Data ->Tab.T)) {
+                cmsStageFree(CLUT);
+                return NULL;
+            }
+        }
+        else {
+            cmsStageFree(CLUT);
+            cmsSignalError(self ->ContextID, cmsERROR_UNKNOWN_EXTENSION, "Unknown precision of '%d'", Precision);
+            return NULL;
+        }
 
     return CLUT;
 }
@@ -2457,7 +2525,6 @@ void* Type_LUTA2B_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, c
     cmsUInt32Number      offsetM;        // Offset to first "M" curve
     cmsUInt32Number      offsetC;        // Offset to CLUT
     cmsUInt32Number      offsetA;        // Offset to first "A" curve
-    cmsStage* mpe;
     cmsPipeline* NewLUT = NULL;
 
 
@@ -2474,42 +2541,43 @@ void* Type_LUTA2B_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, c
     if (!_cmsReadUInt32Number(io, &offsetC)) return NULL;
     if (!_cmsReadUInt32Number(io, &offsetA)) return NULL;
 
-   // Allocates an empty LUT
+    if (inputChan == 0 || inputChan >= cmsMAXCHANNELS) return NULL;
+    if (outputChan == 0 || outputChan >= cmsMAXCHANNELS) return NULL;
+
+    // Allocates an empty LUT
     NewLUT = cmsPipelineAlloc(self ->ContextID, inputChan, outputChan);
     if (NewLUT == NULL) return NULL;
 
     if (offsetA!= 0) {
-        mpe = ReadSetOfCurves(self, io, BaseOffset + offsetA, inputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadSetOfCurves(self, io, BaseOffset + offsetA, inputChan)))
+            goto Error;
     }
 
     if (offsetC != 0) {
-        mpe = ReadCLUT(self, io, BaseOffset + offsetC, inputChan, outputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadCLUT(self, io, BaseOffset + offsetC, inputChan, outputChan)))
+            goto Error;
     }
 
     if (offsetM != 0) {
-        mpe = ReadSetOfCurves(self, io, BaseOffset + offsetM, outputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadSetOfCurves(self, io, BaseOffset + offsetM, outputChan)))
+            goto Error;
     }
 
     if (offsetMat != 0) {
-        mpe = ReadMatrix(self, io, BaseOffset + offsetMat);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadMatrix(self, io, BaseOffset + offsetMat)))
+            goto Error;
     }
 
     if (offsetB != 0) {
-        mpe = ReadSetOfCurves(self, io, BaseOffset + offsetB, outputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadSetOfCurves(self, io, BaseOffset + offsetB, outputChan)))
+            goto Error;
     }
 
     *nItems = 1;
     return NewLUT;
+Error:
+    cmsPipelineFree(NewLUT);
+    return NULL;
 
     cmsUNUSED_PARAMETER(SizeOfTag);
 }
@@ -2518,31 +2586,31 @@ void* Type_LUTA2B_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, c
 static
 cmsBool  WriteMatrix(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsStage* mpe)
 {
+	cmsUInt32Number i, n;
+
     _cmsStageMatrixData* m = (_cmsStageMatrixData*) mpe -> Data;
 
-    // Write the Matrix
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[0])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[1])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[2])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[3])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[4])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[5])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[6])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[7])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Double[8])) return FALSE;
+	n = mpe->InputChannels * mpe->OutputChannels;
 
-    if (m ->Offset != NULL) {
+	// Write the Matrix
+	for (i = 0; i < n; i++)
+	{
+		if (!_cmsWrite15Fixed16Number(io, m->Double[i])) return FALSE;
+	}
 
-    if (!_cmsWrite15Fixed16Number(io, m -> Offset[0])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Offset[1])) return FALSE;
-    if (!_cmsWrite15Fixed16Number(io, m -> Offset[2])) return FALSE;
-    }
-    else {
-        if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
-        if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
+	if (m->Offset != NULL) {
 
-    }
+		for (i = 0; i < mpe->OutputChannels; i++)
+		{
+			if (!_cmsWrite15Fixed16Number(io, m->Offset[i])) return FALSE;
+		}
+	}
+	else {
+		for (i = 0; i < mpe->OutputChannels; i++)
+		{
+			if (!_cmsWrite15Fixed16Number(io, 0)) return FALSE;
+		}
+	}
 
 
     return TRUE;
@@ -2646,9 +2714,9 @@ cmsBool WriteCLUT(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsUIn
             return FALSE;
         }
 
-        if (!_cmsWriteAlignment(io)) return FALSE;
+    if (!_cmsWriteAlignment(io)) return FALSE;
 
-        return TRUE;
+    return TRUE;
 }
 
 
@@ -2658,7 +2726,7 @@ static
 cmsBool Type_LUTA2B_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
     cmsPipeline* Lut = (cmsPipeline*) Ptr;
-    int inputChan, outputChan;
+    cmsUInt32Number inputChan, outputChan;
     cmsStage *A = NULL, *B = NULL, *M = NULL;
     cmsStage * Matrix = NULL;
     cmsStage * CLUT = NULL;
@@ -2706,7 +2774,7 @@ cmsBool Type_LUTA2B_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
 
     if (CLUT != NULL) {
         offsetC = io ->Tell(io) - BaseOffset;
-        if (!WriteCLUT(self, io, Lut ->SaveAs8Bits ? 1 : 2, CLUT)) return FALSE;
+        if (!WriteCLUT(self, io, (Lut ->SaveAs8Bits ? 1U : 2U), CLUT)) return FALSE;
 
     }
     if (M != NULL) {
@@ -2776,7 +2844,6 @@ void* Type_LUTB2A_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, c
     cmsUInt32Number      offsetM;        // Offset to first "M" curve
     cmsUInt32Number      offsetC;        // Offset to CLUT
     cmsUInt32Number      offsetA;        // Offset to first "A" curve
-    cmsStage* mpe;
     cmsPipeline* NewLUT = NULL;
 
 
@@ -2784,6 +2851,9 @@ void* Type_LUTB2A_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, c
 
     if (!_cmsReadUInt8Number(io, &inputChan)) return NULL;
     if (!_cmsReadUInt8Number(io, &outputChan)) return NULL;
+
+    if (inputChan == 0 || inputChan >= cmsMAXCHANNELS) return NULL;
+    if (outputChan == 0 || outputChan >= cmsMAXCHANNELS) return NULL;
 
     // Padding
     if (!_cmsReadUInt16Number(io, NULL)) return NULL;
@@ -2799,37 +2869,35 @@ void* Type_LUTB2A_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, c
     if (NewLUT == NULL) return NULL;
 
     if (offsetB != 0) {
-        mpe = ReadSetOfCurves(self, io, BaseOffset + offsetB, inputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadSetOfCurves(self, io, BaseOffset + offsetB, inputChan)))
+            goto Error;
     }
 
     if (offsetMat != 0) {
-        mpe = ReadMatrix(self, io, BaseOffset + offsetMat);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadMatrix(self, io, BaseOffset + offsetMat)))
+            goto Error;
     }
 
     if (offsetM != 0) {
-        mpe = ReadSetOfCurves(self, io, BaseOffset + offsetM, inputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadSetOfCurves(self, io, BaseOffset + offsetM, inputChan)))
+            goto Error;
     }
 
     if (offsetC != 0) {
-        mpe = ReadCLUT(self, io, BaseOffset + offsetC, inputChan, outputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadCLUT(self, io, BaseOffset + offsetC, inputChan, outputChan)))
+            goto Error;
     }
 
     if (offsetA!= 0) {
-        mpe = ReadSetOfCurves(self, io, BaseOffset + offsetA, outputChan);
-        if (mpe == NULL) { cmsPipelineFree(NewLUT); return NULL; }
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, ReadSetOfCurves(self, io, BaseOffset + offsetA, outputChan)))
+            goto Error;
     }
 
     *nItems = 1;
     return NewLUT;
+Error:
+    cmsPipelineFree(NewLUT);
+    return NULL;
 
     cmsUNUSED_PARAMETER(SizeOfTag);
 }
@@ -2846,7 +2914,7 @@ static
 cmsBool  Type_LUTB2A_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
     cmsPipeline* Lut = (cmsPipeline*) Ptr;
-    int inputChan, outputChan;
+    cmsUInt32Number inputChan, outputChan;
     cmsStage *A = NULL, *B = NULL, *M = NULL;
     cmsStage *Matrix = NULL;
     cmsStage *CLUT = NULL;
@@ -2888,7 +2956,7 @@ cmsBool  Type_LUTB2A_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* i
 
     if (CLUT != NULL) {
         offsetC = io ->Tell(io) - BaseOffset;
-        if (!WriteCLUT(self, io, Lut ->SaveAs8Bits ? 1 : 2, CLUT)) return FALSE;
+        if (!WriteCLUT(self, io, (Lut ->SaveAs8Bits ? 1U : 2U), CLUT)) return FALSE;
 
     }
     if (M != NULL) {
@@ -2975,10 +3043,13 @@ void *Type_ColorantTable_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER
     }
 
     List = cmsAllocNamedColorList(self ->ContextID, Count, 0, "", "");
+    if (List == NULL)           
+        return NULL; 
+        
     for (i=0; i < Count; i++) {
 
         if (io ->Read(io, Name, 32, 1) != 1) goto Error;
-        Name[33] = 0;
+        Name[32] = 0;
 
         if (!_cmsReadUInt16Array(io, 3, PCS)) goto Error;
 
@@ -3004,7 +3075,7 @@ static
 cmsBool  Type_ColorantTable_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
     cmsNAMEDCOLORLIST* NamedColorList = (cmsNAMEDCOLORLIST*) Ptr;
-    int i, nColors;
+    cmsUInt32Number i, nColors;
 
     nColors = cmsNamedColorCount(NamedColorList);
 
@@ -3012,8 +3083,10 @@ cmsBool  Type_ColorantTable_Write(struct _cms_typehandler_struct* self, cmsIOHAN
 
     for (i=0; i < nColors; i++) {
 
-        char root[33];
+        char root[cmsMAX_PATH];
         cmsUInt16Number PCS[3];
+
+        memset(root, 0, sizeof(root));
 
         if (!cmsNamedColorInfo(NamedColorList, i, root, NULL, NULL, PCS, NULL)) return 0;
         root[32] = 0;
@@ -3057,10 +3130,10 @@ void Type_ColorantTable_Free(struct _cms_typehandler_struct* self, void* Ptr)
 //The namedColor2Type is a count value and array of structures that provide color
 //coordinates for 7-bit ASCII color names. For each named color, a PCS and optional
 //device representation of the color are given. Both representations are 16-bit values.
-//The device representation corresponds to the header’s “color space of data” field.
-//This representation should be consistent with the “number of device components”
+//The device representation corresponds to the header's 'color space of data' field.
+//This representation should be consistent with the 'number of device components'
 //field in the namedColor2Type. If this field is 0, device coordinates are not provided.
-//The PCS representation corresponds to the header’s PCS field. The PCS representation
+//The PCS representation corresponds to the header's PCS field. The PCS representation
 //is always provided. Color names are fixed-length, 32-byte fields including null
 //termination. In order to maintain maximum portability, it is strongly recommended
 //that special characters of the 7-bit ASCII set not be used.
@@ -3074,8 +3147,8 @@ void *Type_NamedColor_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* i
     cmsUInt32Number      nDeviceCoords;  // Num of device coordinates
     char                 prefix[32];     // Prefix for each color name
     char                 suffix[32];     // Suffix for each color name
-    cmsNAMEDCOLORLIST*  v;
-    cmsUInt32Number i;
+    cmsNAMEDCOLORLIST*   v;
+    cmsUInt32Number      i;
 
 
     *nItems = 0;
@@ -3096,7 +3169,7 @@ void *Type_NamedColor_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* i
 
     if (nDeviceCoords > cmsMAXCHANNELS) {
         cmsSignalError(self->ContextID, cmsERROR_RANGE, "Too many device coordinates '%d'", nDeviceCoords);
-        return 0;
+        goto Error;
     }
     for (i=0; i < count; i++) {
 
@@ -3105,7 +3178,9 @@ void *Type_NamedColor_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* i
         char Root[33];
 
         memset(Colorant, 0, sizeof(Colorant));
-        if (io -> Read(io, Root, 32, 1) != 1) return NULL;
+        if (io -> Read(io, Root, 32, 1) != 1) goto Error;
+        Root[32] = 0;  // To prevent exploits
+
         if (!_cmsReadUInt16Array(io, 3, PCS)) goto Error;
         if (!_cmsReadUInt16Array(io, nDeviceCoords, Colorant)) goto Error;
 
@@ -3128,9 +3203,9 @@ static
 cmsBool Type_NamedColor_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
     cmsNAMEDCOLORLIST* NamedColorList = (cmsNAMEDCOLORLIST*) Ptr;
-    char                prefix[32];     // Prefix for each color name
-    char                suffix[32];     // Suffix for each color name
-    int i, nColors;
+    char                prefix[33];     // Prefix for each color name
+    char                suffix[33];     // Suffix for each color name
+    cmsUInt32Number     i, nColors;
 
     nColors = cmsNamedColorCount(NamedColorList);
 
@@ -3138,10 +3213,10 @@ cmsBool Type_NamedColor_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER
     if (!_cmsWriteUInt32Number(io, nColors)) return FALSE;
     if (!_cmsWriteUInt32Number(io, NamedColorList ->ColorantCount)) return FALSE;
 
-    strncpy(prefix, (const char*) NamedColorList->Prefix, 32);
-    strncpy(suffix, (const char*) NamedColorList->Suffix, 32);
+    memcpy(prefix, (const char*) NamedColorList->Prefix, sizeof(prefix));
+    memcpy(suffix, (const char*) NamedColorList->Suffix, sizeof(suffix));
 
-    suffix[31] = prefix[31] = 0;
+    suffix[32] = prefix[32] = 0;
 
     if (!io ->Write(io, 32, prefix)) return FALSE;
     if (!io ->Write(io, 32, suffix)) return FALSE;
@@ -3150,9 +3225,14 @@ cmsBool Type_NamedColor_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER
 
        cmsUInt16Number PCS[3];
        cmsUInt16Number Colorant[cmsMAXCHANNELS];
-       char Root[33];
+       char Root[cmsMAX_PATH];
+
+       memset(Root, 0, sizeof(Root));
+       memset(PCS, 0, sizeof(PCS));
+       memset(Colorant, 0, sizeof(Colorant));
 
         if (!cmsNamedColorInfo(NamedColorList, i, Root, NULL, NULL, PCS, Colorant)) return 0;
+        Root[32] = 0;
         if (!io ->Write(io, 32 , Root)) return FALSE;
         if (!_cmsWriteUInt16Array(io, 3, PCS)) return FALSE;
         if (!_cmsWriteUInt16Array(io, NamedColorList ->ColorantCount, Colorant)) return FALSE;
@@ -3484,47 +3564,68 @@ void *Type_UcrBg_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cm
 {
     cmsUcrBg* n = (cmsUcrBg*) _cmsMallocZero(self ->ContextID, sizeof(cmsUcrBg));
     cmsUInt32Number CountUcr, CountBg;
+    cmsInt32Number SignedSizeOfTag = (cmsInt32Number)SizeOfTag;
     char* ASCIIString;
 
     *nItems = 0;
     if (n == NULL) return NULL;
 
     // First curve is Under color removal
+
+    if (SignedSizeOfTag < (cmsInt32Number) sizeof(cmsUInt32Number)) return NULL;
     if (!_cmsReadUInt32Number(io, &CountUcr)) return NULL;
-    if (SizeOfTag < sizeof(cmsUInt32Number)) return NULL;
-    SizeOfTag -= sizeof(cmsUInt32Number);
+    SignedSizeOfTag -= sizeof(cmsUInt32Number);
 
     n ->Ucr = cmsBuildTabulatedToneCurve16(self ->ContextID, CountUcr, NULL);
-    if (n ->Ucr == NULL) return NULL;
+    if (n ->Ucr == NULL) goto error;
 
-    if (!_cmsReadUInt16Array(io, CountUcr, n ->Ucr->Table16)) return NULL;
-    if (SizeOfTag < sizeof(cmsUInt32Number)) return NULL;
-    SizeOfTag -= CountUcr * sizeof(cmsUInt16Number);
+    if (SignedSizeOfTag < (cmsInt32Number)(CountUcr * sizeof(cmsUInt16Number))) goto error;
+    if (!_cmsReadUInt16Array(io, CountUcr, n ->Ucr->Table16)) goto error;
+  
+    SignedSizeOfTag -= CountUcr * sizeof(cmsUInt16Number);
 
     // Second curve is Black generation
-    if (!_cmsReadUInt32Number(io, &CountBg)) return NULL;
-    if (SizeOfTag < sizeof(cmsUInt32Number)) return NULL;
-    SizeOfTag -= sizeof(cmsUInt32Number);
+
+    if (SignedSizeOfTag < (cmsInt32Number)sizeof(cmsUInt32Number)) goto error;
+    if (!_cmsReadUInt32Number(io, &CountBg)) goto error;
+    SignedSizeOfTag -= sizeof(cmsUInt32Number);
 
     n ->Bg = cmsBuildTabulatedToneCurve16(self ->ContextID, CountBg, NULL);
-    if (n ->Bg == NULL) return NULL;
-    if (!_cmsReadUInt16Array(io, CountBg, n ->Bg->Table16)) return NULL;
-    if (SizeOfTag < CountBg * sizeof(cmsUInt16Number)) return NULL;
-    SizeOfTag -= CountBg * sizeof(cmsUInt16Number);
-    if (SizeOfTag == UINT_MAX) return NULL;
+    if (n ->Bg == NULL) goto error;
+
+    if (SignedSizeOfTag < (cmsInt32Number) (CountBg * sizeof(cmsUInt16Number))) goto error;
+    if (!_cmsReadUInt16Array(io, CountBg, n ->Bg->Table16)) goto error;
+    SignedSizeOfTag -= CountBg * sizeof(cmsUInt16Number);
+
+    if (SignedSizeOfTag < 0 || SignedSizeOfTag > 32000) goto error;
 
     // Now comes the text. The length is specified by the tag size
     n ->Desc = cmsMLUalloc(self ->ContextID, 1);
-    if (n ->Desc == NULL) return NULL;
+    if (n ->Desc == NULL) goto error;
 
-    ASCIIString = (char*) _cmsMalloc(self ->ContextID, SizeOfTag + 1);
-    if (io ->Read(io, ASCIIString, sizeof(char), SizeOfTag) != SizeOfTag) return NULL;
-    ASCIIString[SizeOfTag] = 0;
+    ASCIIString = (char*) _cmsMalloc(self ->ContextID, SignedSizeOfTag + 1);
+    if (io->Read(io, ASCIIString, sizeof(char), SignedSizeOfTag) != (cmsUInt32Number)SignedSizeOfTag)
+    {
+        _cmsFree(self->ContextID, ASCIIString);
+        goto error;
+    }
+
+    ASCIIString[SignedSizeOfTag] = 0;
     cmsMLUsetASCII(n ->Desc, cmsNoLanguage, cmsNoCountry, ASCIIString);
     _cmsFree(self ->ContextID, ASCIIString);
 
     *nItems = 1;
     return (void*) n;
+
+error:
+
+    if (n->Ucr) cmsFreeToneCurve(n->Ucr);
+    if (n->Bg) cmsFreeToneCurve(n->Bg);
+    if (n->Desc) cmsMLUfree(n->Desc);
+    _cmsFree(self->ContextID, n);
+    *nItems = 0;
+    return NULL;
+
 }
 
 static
@@ -3603,7 +3704,7 @@ country varies for each element:
 
 
 
-// Auxiliar, read an string specified as count + string
+// Auxiliary, read an string specified as count + string
 static
 cmsBool  ReadCountAndSting(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsMLU* mlu, cmsUInt32Number* SizeOfTag, const char* Section)
 {
@@ -3802,7 +3903,7 @@ void Type_Screening_Free(struct _cms_typehandler_struct* self, void* Ptr)
 // ********************************************************************************
 //
 //This type represents a set of viewing condition parameters including:
-//CIE ’absolute’ illuminant white point tristimulus values and CIE ’absolute’
+//CIE 'absolute' illuminant white point tristimulus values and CIE 'absolute'
 //surround tristimulus values.
 
 static
@@ -3852,7 +3953,7 @@ cmsBool Type_ViewingConditions_Write(struct _cms_typehandler_struct* self, cmsIO
 static
 void* Type_ViewingConditions_Dup(struct _cms_typehandler_struct* self, const void *Ptr, cmsUInt32Number n)
 {
-   return _cmsDupMem(self ->ContextID, Ptr, sizeof(cmsScreening));
+   return _cmsDupMem(self->ContextID, Ptr, sizeof(cmsICCViewingConditions));
 
    cmsUNUSED_PARAMETER(n);
 }
@@ -3889,7 +3990,7 @@ void GenericMPEfree(struct _cms_typehandler_struct* self, void *Ptr)
 }
 
 // Each curve is stored in one or more curve segments, with break-points specified between curve segments.
-// The first curve segment always starts at –Infinity, and the last curve segment always ends at +Infinity. The
+// The first curve segment always starts at -Infinity, and the last curve segment always ends at +Infinity. The
 // first and last curve segments shall be specified in terms of a formula, whereas the other segments shall be
 // specified either in terms of a formula, or by a sampled curve.
 
@@ -3903,7 +4004,7 @@ cmsToneCurve* ReadSegmentedCurve(struct _cms_typehandler_struct* self, cmsIOHAND
     cmsUInt16Number nSegments;
     cmsCurveSegment*  Segments;
     cmsToneCurve* Curve;
-    cmsFloat32Number PrevBreak = -1E22F;    // - infinite
+    cmsFloat32Number PrevBreak = MINUS_INF;    // - infinite
 
     // Take signature and channels for each element.
      if (!_cmsReadUInt32Number(io, (cmsUInt32Number*) &ElementSig)) return NULL;
@@ -3928,7 +4029,7 @@ cmsToneCurve* ReadSegmentedCurve(struct _cms_typehandler_struct* self, cmsIOHAND
      }
 
      Segments[nSegments-1].x0 = PrevBreak;
-     Segments[nSegments-1].x1 = 1E22F;     // A big cmsFloat32Number number
+     Segments[nSegments-1].x1 = PLUS_INF;     // A big cmsFloat32Number number
 
      // Read segments
      for (i=0; i < nSegments; i++) {
@@ -3938,41 +4039,44 @@ cmsToneCurve* ReadSegmentedCurve(struct _cms_typehandler_struct* self, cmsIOHAND
 
            switch (ElementSig) {
 
-            case cmsSigFormulaCurveSeg: {
+           case cmsSigFormulaCurveSeg: {
 
-                cmsUInt16Number Type;
-                cmsUInt32Number ParamsByType[] = {4, 5, 5 };
+               cmsUInt16Number Type;
+               cmsUInt32Number ParamsByType[] = { 4, 5, 5 };
 
-                if (!_cmsReadUInt16Number(io, &Type)) goto Error;
-                if (!_cmsReadUInt16Number(io, NULL)) goto Error;
+               if (!_cmsReadUInt16Number(io, &Type)) goto Error;
+               if (!_cmsReadUInt16Number(io, NULL)) goto Error;
 
-                Segments[i].Type = Type + 6;
-                if (Type > 2) goto Error;
+               Segments[i].Type = Type + 6;
+               if (Type > 2) goto Error;
 
-                for (j=0; j < ParamsByType[Type]; j++) {
+               for (j = 0; j < ParamsByType[Type]; j++) {
 
-                    cmsFloat32Number f;
-                    if (!_cmsReadFloat32Number(io, &f)) goto Error;
-                    Segments[i].Params[j] = f;
-                }
-                }
-                break;
+                   cmsFloat32Number f;
+                   if (!_cmsReadFloat32Number(io, &f)) goto Error;
+                   Segments[i].Params[j] = f;
+               }
+           }
+           break;
 
 
-            case cmsSigSampledCurveSeg: {
-                cmsUInt32Number Count;
+           case cmsSigSampledCurveSeg: {
+               cmsUInt32Number Count;
 
-                if (!_cmsReadUInt32Number(io, &Count)) return NULL;
+               if (!_cmsReadUInt32Number(io, &Count)) goto Error;
 
-                Segments[i].nGridPoints = Count;
-                Segments[i].SampledPoints = (cmsFloat32Number*) _cmsCalloc(self ->ContextID, Count, sizeof(cmsFloat32Number));
-                if (Segments[i].SampledPoints == NULL) goto Error;
+               // The first point is implicit in the last stage, we allocate an extra note to be populated latter on
+               Count++;
+               Segments[i].nGridPoints = Count;
+               Segments[i].SampledPoints = (cmsFloat32Number*)_cmsCalloc(self->ContextID, Count, sizeof(cmsFloat32Number));
+               if (Segments[i].SampledPoints == NULL) goto Error;
 
-                for (j=0; j < Count; j++) {
-                    if (!_cmsReadFloat32Number(io, &Segments[i].SampledPoints[j])) goto Error;
-                }
-                }
-                break;
+               Segments[i].SampledPoints[0] = 0;
+               for (j = 1; j < Count; j++) {
+                   if (!_cmsReadFloat32Number(io, &Segments[i].SampledPoints[j])) goto Error;
+               }
+           }
+           break;
 
             default:
                 {
@@ -3981,7 +4085,7 @@ cmsToneCurve* ReadSegmentedCurve(struct _cms_typehandler_struct* self, cmsIOHAND
                 _cmsTagSignature2String(String, (cmsTagSignature) ElementSig);
                 cmsSignalError(self->ContextID, cmsERROR_UNKNOWN_EXTENSION, "Unknown curve element type '%s' found.", String);
                 }
-                return NULL;
+                goto Error;
 
          }
      }
@@ -3992,10 +4096,26 @@ cmsToneCurve* ReadSegmentedCurve(struct _cms_typehandler_struct* self, cmsIOHAND
          if (Segments[i].SampledPoints) _cmsFree(self ->ContextID, Segments[i].SampledPoints);
      }
      _cmsFree(self ->ContextID, Segments);
+
+     // Explore for missing implicit points 
+     for (i = 0; i < nSegments; i++) {
+
+         // If sampled curve, fix it
+         if (Curve->Segments[i].Type == 0) {
+
+             Curve->Segments[i].SampledPoints[0] = cmsEvalToneCurveFloat(Curve, Curve->Segments[i].x0);
+         }
+     }
+
      return Curve;
 
 Error:
-     if (Segments) _cmsFree(self ->ContextID, Segments);
+     if (Segments) {
+         for (i=0; i < nSegments; i++) {
+             if (Segments[i].SampledPoints) _cmsFree(self ->ContextID, Segments[i].SampledPoints);
+         }
+         _cmsFree(self ->ContextID, Segments);
+     }
      return NULL;
 }
 
@@ -4049,7 +4169,7 @@ void *Type_MPEcurve_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io,
     }
 
     _cmsFree(self ->ContextID, GammaTables);
-    *nItems = (mpe != NULL) ? 1 : 0;
+    *nItems = (mpe != NULL) ? 1U : 0;
     return mpe;
 
     cmsUNUSED_PARAMETER(SizeOfTag);
@@ -4081,12 +4201,12 @@ cmsBool WriteSegmentedCurve(cmsIOHANDLER* io, cmsToneCurve* g)
 
         if (ActualSeg -> Type == 0) {
 
-            // This is a sampled curve
+            // This is a sampled curve. First point is implicit in the ICC format, but not in our representation
             if (!_cmsWriteUInt32Number(io, (cmsUInt32Number) cmsSigSampledCurveSeg)) goto Error;
             if (!_cmsWriteUInt32Number(io, 0)) goto Error;
-            if (!_cmsWriteUInt32Number(io, ActualSeg -> nGridPoints)) goto Error;
+            if (!_cmsWriteUInt32Number(io, ActualSeg -> nGridPoints - 1)) goto Error;
 
-            for (j=0; j < g ->Segments[i].nGridPoints; j++) {
+            for (j=1; j < g ->Segments[i].nGridPoints; j++) {
                 if (!_cmsWriteFloat32Number(io, ActualSeg -> SampledPoints[j])) goto Error;
             }
 
@@ -4165,7 +4285,7 @@ cmsBool  Type_MPEcurve_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER*
 // The matrix is organized as an array of PxQ+Q elements, where P is the number of input channels to the
 // matrix, and Q is the number of output channels. The matrix elements are each float32Numbers. The array
 // is organized as follows:
-// array = [e11, e12, …, e1P, e21, e22, …, e2P, …, eQ1, eQ2, …, eQP, e1, e2, …, eQ]
+// array = [e11, e12, ..., e1P, e21, e22, ..., e2P, ..., eQ1, eQ2, ..., eQP, e1, e2, ..., eQ]
 
 static
 void *Type_MPEmatrix_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsUInt32Number* nItems, cmsUInt32Number SizeOfTag)
@@ -4180,9 +4300,13 @@ void *Type_MPEmatrix_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
     if (!_cmsReadUInt16Number(io, &OutputChans)) return NULL;
 
 
-    nElems = InputChans * OutputChans;
+    // Input and output chans may be ANY (up to 0xffff), 
+    // but we choose to limit to 16 channels for now
+    if (InputChans >= cmsMAXCHANNELS) return NULL;
+    if (OutputChans >= cmsMAXCHANNELS) return NULL;
 
-    // Input and output chans may be ANY (up to 0xffff)
+    nElems = (cmsUInt32Number) InputChans * OutputChans;
+
     Matrix = (cmsFloat64Number*) _cmsCalloc(self ->ContextID, nElems, sizeof(cmsFloat64Number));
     if (Matrix == NULL) return NULL;
 
@@ -4197,7 +4321,11 @@ void *Type_MPEmatrix_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
 
         cmsFloat32Number v;
 
-        if (!_cmsReadFloat32Number(io, &v)) return NULL;
+        if (!_cmsReadFloat32Number(io, &v)) {
+            _cmsFree(self ->ContextID, Matrix);
+            _cmsFree(self ->ContextID, Offsets);
+            return NULL;
+        }
         Matrix[i] = v;
     }
 
@@ -4206,7 +4334,11 @@ void *Type_MPEmatrix_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io
 
         cmsFloat32Number v;
 
-        if (!_cmsReadFloat32Number(io, &v)) return NULL;
+        if (!_cmsReadFloat32Number(io, &v)) {
+            _cmsFree(self ->ContextID, Matrix);
+            _cmsFree(self ->ContextID, Offsets);
+            return NULL;
+        }
         Offsets[i] = v;
     }
 
@@ -4277,18 +4409,22 @@ void *Type_MPEclut_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, 
         goto Error;
 
     // Copy MAX_INPUT_DIMENSIONS at most. Expand to cmsUInt32Number
-    nMaxGrids = InputChans > MAX_INPUT_DIMENSIONS ? MAX_INPUT_DIMENSIONS : InputChans;
-    for (i=0; i < nMaxGrids; i++) GridPoints[i] = (cmsUInt32Number) Dimensions8[i];
+    nMaxGrids = InputChans > MAX_INPUT_DIMENSIONS ? (cmsUInt32Number) MAX_INPUT_DIMENSIONS : InputChans;
 
+    for (i = 0; i < nMaxGrids; i++) {
+        if (Dimensions8[i] == 1) goto Error; // Impossible value, 0 for no CLUT and then 2 at least
+        GridPoints[i] = (cmsUInt32Number)Dimensions8[i];
+    }
+    
     // Allocate the true CLUT
     mpe = cmsStageAllocCLutFloatGranular(self ->ContextID, GridPoints, InputChans, OutputChans, NULL);
     if (mpe == NULL) goto Error;
 
-    // Read the data
+    // Read and sanitize the data
     clut = (_cmsStageCLutData*) mpe ->Data;
     for (i=0; i < clut ->nEntries; i++) {
 
-        if (!_cmsReadFloat32Number(io, &clut ->Tab.TFloat[i])) goto Error;
+        if (!_cmsReadFloat32Number(io, &clut->Tab.TFloat[i])) goto Error;       
     }
 
     *nItems = 1;
@@ -4306,13 +4442,13 @@ Error:
 static
 cmsBool  Type_MPEclut_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
-    cmsUInt8Number Dimensions8[16];
+    cmsUInt8Number Dimensions8[16];  // 16 because the spec says 16 and not max number of channels
     cmsUInt32Number i;
     cmsStage* mpe = (cmsStage*) Ptr;
     _cmsStageCLutData* clut = (_cmsStageCLutData*) mpe ->Data;
 
-    // Check for maximum number of channels
-    if (mpe -> InputChannels > 15) return FALSE;
+    // Check for maximum number of channels supported by lcms
+    if (mpe -> InputChannels > MAX_INPUT_DIMENSIONS) return FALSE;
 
     // Only floats are supported in MPE
     if (clut ->HasFloatValues == FALSE) return FALSE;
@@ -4351,7 +4487,7 @@ static _cmsTagTypeLinkedList SupportedMPEtypes[] = {
 {TYPE_MPE_HANDLER((cmsTagTypeSignature) cmsSigCLutElemType,         MPEclut),        NULL },
 };
 
-#define DEFAULT_MPE_TYPE_COUNT  (sizeof(SupportedMPEtypes) / sizeof(_cmsTagTypeLinkedList))
+_cmsTagTypePluginChunkType _cmsMPETypePluginChunk = { NULL };
 
 static
 cmsBool ReadMPEElem(struct _cms_typehandler_struct* self,
@@ -4362,9 +4498,10 @@ cmsBool ReadMPEElem(struct _cms_typehandler_struct* self,
 {
     cmsStageSignature ElementSig;
     cmsTagTypeHandler* TypeHandler;
-    cmsStage *mpe = NULL;
     cmsUInt32Number nItems;
     cmsPipeline *NewLUT = (cmsPipeline *) Cargo;
+    _cmsTagTypePluginChunkType* MPETypePluginChunk  = ( _cmsTagTypePluginChunkType*) _cmsContextGetClientChunk(self->ContextID, MPEPlugin);
+
 
     // Take signature and channels for each element.
     if (!_cmsReadUInt32Number(io, (cmsUInt32Number*) &ElementSig)) return FALSE;
@@ -4373,7 +4510,7 @@ cmsBool ReadMPEElem(struct _cms_typehandler_struct* self,
     if (!_cmsReadUInt32Number(io, NULL)) return FALSE;
 
     // Read diverse MPE types
-    TypeHandler = GetHandler((cmsTagTypeSignature) ElementSig, SupportedMPEtypes);
+    TypeHandler = GetHandler((cmsTagTypeSignature) ElementSig, MPETypePluginChunk ->TagTypes, SupportedMPEtypes);
     if (TypeHandler == NULL)  {
 
         char String[5];
@@ -4390,11 +4527,8 @@ cmsBool ReadMPEElem(struct _cms_typehandler_struct* self,
     if (TypeHandler ->ReadPtr != NULL) {
 
         // This is a real element which should be read and processed
-        mpe = (cmsStage*) TypeHandler ->ReadPtr(self, io, &nItems, SizeOfTag);
-        if (mpe == NULL) return FALSE;
-
-        // All seems ok, insert element
-        cmsPipelineInsertStage(NewLUT, cmsAT_END, mpe);
+        if (!cmsPipelineInsertStage(NewLUT, cmsAT_END, (cmsStage*) TypeHandler ->ReadPtr(self, io, &nItems, SizeOfTag)))
+            return FALSE;
     }
 
     return TRUE;
@@ -4420,39 +4554,48 @@ void *Type_MPE_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
     if (!_cmsReadUInt16Number(io, &InputChans)) return NULL;
     if (!_cmsReadUInt16Number(io, &OutputChans)) return NULL;
 
+    if (InputChans == 0 || InputChans >= cmsMAXCHANNELS) return NULL;
+    if (OutputChans == 0 || OutputChans >= cmsMAXCHANNELS) return NULL;
+
     // Allocates an empty LUT
     NewLUT = cmsPipelineAlloc(self ->ContextID, InputChans, OutputChans);
     if (NewLUT == NULL) return NULL;
 
-    if (!_cmsReadUInt32Number(io, &ElementCount)) return NULL;
+    if (!_cmsReadUInt32Number(io, &ElementCount)) goto Error;    
+    if (!ReadPositionTable(self, io, ElementCount, BaseOffset, NewLUT, ReadMPEElem)) goto Error;
 
-    if (!ReadPositionTable(self, io, ElementCount, BaseOffset, NewLUT, ReadMPEElem)) {
-        if (NewLUT != NULL) cmsPipelineFree(NewLUT);
-        *nItems = 0;
-        return NULL;
-    }
+    // Check channel count
+    if (InputChans != NewLUT->InputChannels ||
+        OutputChans != NewLUT->OutputChannels) goto Error;
 
     // Success
     *nItems = 1;
     return NewLUT;
+
+    // Error
+Error:    
+    if (NewLUT != NULL) cmsPipelineFree(NewLUT);
+    *nItems = 0;
+    return NULL;
 
     cmsUNUSED_PARAMETER(SizeOfTag);
 }
 
 
 
-// This one is a liitle bit more complex, so we don't use position tables this time.
+// This one is a little bit more complex, so we don't use position tables this time.
 static
 cmsBool Type_MPE_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, void* Ptr, cmsUInt32Number nItems)
 {
     cmsUInt32Number i, BaseOffset, DirectoryPos, CurrentPos;
-    int inputChan, outputChan;
+    cmsUInt32Number inputChan, outputChan;
     cmsUInt32Number ElemCount;
     cmsUInt32Number *ElementOffsets = NULL, *ElementSizes = NULL, Before;
     cmsStageSignature ElementSig;
     cmsPipeline* Lut = (cmsPipeline*) Ptr;
     cmsStage* Elem = Lut ->Elements;
     cmsTagTypeHandler* TypeHandler;
+    _cmsTagTypePluginChunkType* MPETypePluginChunk  = ( _cmsTagTypePluginChunkType*) _cmsContextGetClientChunk(self->ContextID, MPEPlugin);
 
     BaseOffset = io ->Tell(io) - sizeof(_cmsTagBase);
 
@@ -4486,14 +4629,14 @@ cmsBool Type_MPE_Write(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, v
 
         ElementSig = Elem ->Type;
 
-        TypeHandler = GetHandler((cmsTagTypeSignature) ElementSig, SupportedMPEtypes);
+        TypeHandler = GetHandler((cmsTagTypeSignature) ElementSig, MPETypePluginChunk->TagTypes, SupportedMPEtypes);
         if (TypeHandler == NULL)  {
 
                 char String[5];
 
                 _cmsTagSignature2String(String, (cmsTagSignature) ElementSig);
 
-                 // An unknow element was found.
+                 // An unknown element was found.
                  cmsSignalError(self->ContextID, cmsERROR_UNKNOWN_EXTENSION, "Found unknown MPE type '%s'", String);
                  goto Error;
         }
@@ -4665,10 +4808,10 @@ void *Type_vcgt_Read(struct _cms_typehandler_struct* self,
             // Y = cX + f             | X < d
 
             // vcgt formula is:
-            // Y = (Max – Min) * (X ^ Gamma) + Min
+            // Y = (Max - Min) * (X ^ Gamma) + Min
 
             // So, the translation is
-            // a = (Max – Min) ^ ( 1 / Gamma)
+            // a = (Max - Min) ^ ( 1 / Gamma)
             // e = Min
             // b=c=d=f=0
 
@@ -4872,7 +5015,7 @@ cmsBool ReadOneElem(cmsIOHANDLER* io,  _cmsDICelem* e, cmsUInt32Number i, cmsUIn
     if (!_cmsReadUInt32Number(io, &e->Offsets[i])) return FALSE;
     if (!_cmsReadUInt32Number(io, &e ->Sizes[i])) return FALSE;
 
-    // An offset of zero has special meaning and shal be preserved
+    // An offset of zero has special meaning and shall be preserved
     if (e ->Offsets[i] > 0)
         e ->Offsets[i] += BaseOffset;
     return TRUE;
@@ -4880,17 +5023,26 @@ cmsBool ReadOneElem(cmsIOHANDLER* io,  _cmsDICelem* e, cmsUInt32Number i, cmsUIn
 
 
 static
-cmsBool ReadOffsetArray(cmsIOHANDLER* io,  _cmsDICarray* a, cmsUInt32Number Count, cmsUInt32Number Length, cmsUInt32Number BaseOffset)
+cmsBool ReadOffsetArray(cmsIOHANDLER* io,  _cmsDICarray* a, 
+                        cmsUInt32Number Count, cmsUInt32Number Length, cmsUInt32Number BaseOffset,
+                        cmsInt32Number* SignedSizeOfTagPtr)
 {
     cmsUInt32Number i;
+    cmsInt32Number SignedSizeOfTag = *SignedSizeOfTagPtr;
 
     // Read column arrays
     for (i=0; i < Count; i++) {
+
+        if (SignedSizeOfTag < 4 * (cmsInt32Number) sizeof(cmsUInt32Number)) return FALSE;
+        SignedSizeOfTag -= 4 * sizeof(cmsUInt32Number);
 
         if (!ReadOneElem(io, &a -> Name, i, BaseOffset)) return FALSE;
         if (!ReadOneElem(io, &a -> Value, i, BaseOffset)) return FALSE;
 
         if (Length > 16) {
+
+            if (SignedSizeOfTag < 2 * (cmsInt32Number) sizeof(cmsUInt32Number)) return FALSE;
+            SignedSizeOfTag -= 2 * sizeof(cmsUInt32Number);
 
             if (!ReadOneElem(io, &a ->DisplayName, i, BaseOffset)) return FALSE;
 
@@ -4898,9 +5050,14 @@ cmsBool ReadOffsetArray(cmsIOHANDLER* io,  _cmsDICarray* a, cmsUInt32Number Coun
 
         if (Length > 24) {
 
+            if (SignedSizeOfTag < 2 * (cmsInt32Number) sizeof(cmsUInt32Number)) return FALSE;
+            SignedSizeOfTag -= 2 * (cmsInt32Number) sizeof(cmsUInt32Number);
+
             if (!ReadOneElem(io, & a -> DisplayValue, i, BaseOffset)) return FALSE;
         }
     }
+
+    *SignedSizeOfTagPtr = SignedSizeOfTag;
     return TRUE;
 }
 
@@ -5048,26 +5205,31 @@ cmsBool WriteOneMLUC(struct _cms_typehandler_struct* self, cmsIOHANDLER* io,  _c
 static
 void *Type_Dictionary_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsUInt32Number* nItems, cmsUInt32Number SizeOfTag)
 {
-   cmsHANDLE hDict;
+   cmsHANDLE hDict = NULL;
    cmsUInt32Number i, Count, Length;
    cmsUInt32Number BaseOffset;
    _cmsDICarray a;
    wchar_t *NameWCS = NULL, *ValueWCS = NULL;
    cmsMLU *DisplayNameMLU = NULL, *DisplayValueMLU=NULL;
    cmsBool rc;
+   cmsInt32Number SignedSizeOfTag = (cmsInt32Number)SizeOfTag;
 
     *nItems = 0;
+    memset(&a, 0, sizeof(a));
 
     // Get actual position as a basis for element offsets
     BaseOffset = io ->Tell(io) - sizeof(_cmsTagBase);
 
     // Get name-value record count
+    SignedSizeOfTag -= sizeof(cmsUInt32Number);
+    if (SignedSizeOfTag < 0) goto Error;
     if (!_cmsReadUInt32Number(io, &Count)) return NULL;
-    SizeOfTag -= sizeof(cmsUInt32Number);
-
+    
     // Get rec length
+    SignedSizeOfTag -= sizeof(cmsUInt32Number);
+    if (SignedSizeOfTag < 0) goto Error;
     if (!_cmsReadUInt32Number(io, &Length)) return NULL;
-    SizeOfTag -= sizeof(cmsUInt32Number);
+    
 
     // Check for valid lengths
     if (Length != 16 && Length != 24 && Length != 32) {
@@ -5083,7 +5245,7 @@ void *Type_Dictionary_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* i
     if (!AllocArray(self -> ContextID, &a, Count, Length)) goto Error;
 
     // Read column arrays
-    if (!ReadOffsetArray(io, &a, Count, Length, BaseOffset)) goto Error;
+    if (!ReadOffsetArray(io, &a, Count, Length, BaseOffset, &SignedSizeOfTag)) goto Error;
 
     // Seek to each element and read it
     for (i=0; i < Count; i++) {
@@ -5099,14 +5261,22 @@ void *Type_Dictionary_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* i
             if (!ReadOneMLUC(self, io, &a.DisplayValue, i, &DisplayValueMLU)) goto Error;
         }
 
-        rc = cmsDictAddEntry(hDict, NameWCS, ValueWCS, DisplayNameMLU, DisplayValueMLU);
+        if (NameWCS == NULL || ValueWCS == NULL) {
+        
+            cmsSignalError(self->ContextID, cmsERROR_CORRUPTION_DETECTED, "Bad dictionary Name/Value");        
+            rc = FALSE;
+        }
+        else {
+
+            rc = cmsDictAddEntry(hDict, NameWCS, ValueWCS, DisplayNameMLU, DisplayValueMLU);
+        }
 
         if (NameWCS != NULL) _cmsFree(self ->ContextID, NameWCS);
         if (ValueWCS != NULL) _cmsFree(self ->ContextID, ValueWCS);
         if (DisplayNameMLU != NULL) cmsMLUfree(DisplayNameMLU);
         if (DisplayValueMLU != NULL) cmsMLUfree(DisplayValueMLU);
 
-        if (!rc) return FALSE;
+        if (!rc) goto Error;
     }
 
    FreeArray(&a);
@@ -5115,7 +5285,7 @@ void *Type_Dictionary_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* i
 
 Error:
    FreeArray(&a);
-   cmsDictFree(hDict);
+   if (hDict != NULL) cmsDictFree(hDict);
    return NULL;
 }
 
@@ -5220,59 +5390,130 @@ void Type_Dictionary_Free(struct _cms_typehandler_struct* self, void* Ptr)
 
 
 // This is the list of built-in types
-static _cmsTagTypeLinkedList SupportedTagTypes[] = {
+static const _cmsTagTypeLinkedList SupportedTagTypes[] = {
 
-{TYPE_HANDLER(cmsSigChromaticityType,          Chromaticity),        &SupportedTagTypes[1] },
-{TYPE_HANDLER(cmsSigColorantOrderType,         ColorantOrderType),   &SupportedTagTypes[2] },
-{TYPE_HANDLER(cmsSigS15Fixed16ArrayType,       S15Fixed16),          &SupportedTagTypes[3] },
-{TYPE_HANDLER(cmsSigU16Fixed16ArrayType,       U16Fixed16),          &SupportedTagTypes[4] },
-{TYPE_HANDLER(cmsSigTextType,                  Text),                &SupportedTagTypes[5] },
-{TYPE_HANDLER(cmsSigTextDescriptionType,       Text_Description),    &SupportedTagTypes[6] },
-{TYPE_HANDLER(cmsSigCurveType,                 Curve),               &SupportedTagTypes[7] },
-{TYPE_HANDLER(cmsSigParametricCurveType,       ParametricCurve),     &SupportedTagTypes[8] },
-{TYPE_HANDLER(cmsSigDateTimeType,              DateTime),            &SupportedTagTypes[9] },
-{TYPE_HANDLER(cmsSigLut8Type,                  LUT8),                &SupportedTagTypes[10] },
-{TYPE_HANDLER(cmsSigLut16Type,                 LUT16),               &SupportedTagTypes[11] },
-{TYPE_HANDLER(cmsSigColorantTableType,         ColorantTable),       &SupportedTagTypes[12] },
-{TYPE_HANDLER(cmsSigNamedColor2Type,           NamedColor),          &SupportedTagTypes[13] },
-{TYPE_HANDLER(cmsSigMultiLocalizedUnicodeType, MLU),                 &SupportedTagTypes[14] },
-{TYPE_HANDLER(cmsSigProfileSequenceDescType,   ProfileSequenceDesc), &SupportedTagTypes[15] },
-{TYPE_HANDLER(cmsSigSignatureType,             Signature),           &SupportedTagTypes[16] },
-{TYPE_HANDLER(cmsSigMeasurementType,           Measurement),         &SupportedTagTypes[17] },
-{TYPE_HANDLER(cmsSigDataType,                  Data),                &SupportedTagTypes[18] },
-{TYPE_HANDLER(cmsSigLutAtoBType,               LUTA2B),              &SupportedTagTypes[19] },
-{TYPE_HANDLER(cmsSigLutBtoAType,               LUTB2A),              &SupportedTagTypes[20] },
-{TYPE_HANDLER(cmsSigUcrBgType,                 UcrBg),               &SupportedTagTypes[21] },
-{TYPE_HANDLER(cmsSigCrdInfoType,               CrdInfo),             &SupportedTagTypes[22] },
-{TYPE_HANDLER(cmsSigMultiProcessElementType,   MPE),                 &SupportedTagTypes[23] },
-{TYPE_HANDLER(cmsSigScreeningType,             Screening),           &SupportedTagTypes[24] },
-{TYPE_HANDLER(cmsSigViewingConditionsType,     ViewingConditions),   &SupportedTagTypes[25] },
-{TYPE_HANDLER(cmsSigXYZType,                   XYZ),                 &SupportedTagTypes[26] },
-{TYPE_HANDLER(cmsCorbisBrokenXYZtype,          XYZ),                 &SupportedTagTypes[27] },
-{TYPE_HANDLER(cmsMonacoBrokenCurveType,        Curve),               &SupportedTagTypes[28] },
-{TYPE_HANDLER(cmsSigProfileSequenceIdType,     ProfileSequenceId),   &SupportedTagTypes[29] },
-{TYPE_HANDLER(cmsSigDictType,                  Dictionary),          &SupportedTagTypes[30] },
+{TYPE_HANDLER(cmsSigChromaticityType,          Chromaticity),       (_cmsTagTypeLinkedList*) &SupportedTagTypes[1] },
+{TYPE_HANDLER(cmsSigColorantOrderType,         ColorantOrderType),  (_cmsTagTypeLinkedList*) &SupportedTagTypes[2] },
+{TYPE_HANDLER(cmsSigS15Fixed16ArrayType,       S15Fixed16),         (_cmsTagTypeLinkedList*) &SupportedTagTypes[3] },
+{TYPE_HANDLER(cmsSigU16Fixed16ArrayType,       U16Fixed16),         (_cmsTagTypeLinkedList*) &SupportedTagTypes[4] },
+{TYPE_HANDLER(cmsSigTextType,                  Text),               (_cmsTagTypeLinkedList*) &SupportedTagTypes[5] },
+{TYPE_HANDLER(cmsSigTextDescriptionType,       Text_Description),   (_cmsTagTypeLinkedList*) &SupportedTagTypes[6] },
+{TYPE_HANDLER(cmsSigCurveType,                 Curve),              (_cmsTagTypeLinkedList*) &SupportedTagTypes[7] },
+{TYPE_HANDLER(cmsSigParametricCurveType,       ParametricCurve),    (_cmsTagTypeLinkedList*) &SupportedTagTypes[8] },
+{TYPE_HANDLER(cmsSigDateTimeType,              DateTime),           (_cmsTagTypeLinkedList*) &SupportedTagTypes[9] },
+{TYPE_HANDLER(cmsSigLut8Type,                  LUT8),               (_cmsTagTypeLinkedList*) &SupportedTagTypes[10] },
+{TYPE_HANDLER(cmsSigLut16Type,                 LUT16),              (_cmsTagTypeLinkedList*) &SupportedTagTypes[11] },
+{TYPE_HANDLER(cmsSigColorantTableType,         ColorantTable),      (_cmsTagTypeLinkedList*) &SupportedTagTypes[12] },
+{TYPE_HANDLER(cmsSigNamedColor2Type,           NamedColor),         (_cmsTagTypeLinkedList*) &SupportedTagTypes[13] },
+{TYPE_HANDLER(cmsSigMultiLocalizedUnicodeType, MLU),                (_cmsTagTypeLinkedList*) &SupportedTagTypes[14] },
+{TYPE_HANDLER(cmsSigProfileSequenceDescType,   ProfileSequenceDesc),(_cmsTagTypeLinkedList*) &SupportedTagTypes[15] },
+{TYPE_HANDLER(cmsSigSignatureType,             Signature),          (_cmsTagTypeLinkedList*) &SupportedTagTypes[16] },
+{TYPE_HANDLER(cmsSigMeasurementType,           Measurement),        (_cmsTagTypeLinkedList*) &SupportedTagTypes[17] },
+{TYPE_HANDLER(cmsSigDataType,                  Data),               (_cmsTagTypeLinkedList*) &SupportedTagTypes[18] },
+{TYPE_HANDLER(cmsSigLutAtoBType,               LUTA2B),             (_cmsTagTypeLinkedList*) &SupportedTagTypes[19] },
+{TYPE_HANDLER(cmsSigLutBtoAType,               LUTB2A),             (_cmsTagTypeLinkedList*) &SupportedTagTypes[20] },
+{TYPE_HANDLER(cmsSigUcrBgType,                 UcrBg),              (_cmsTagTypeLinkedList*) &SupportedTagTypes[21] },
+{TYPE_HANDLER(cmsSigCrdInfoType,               CrdInfo),            (_cmsTagTypeLinkedList*) &SupportedTagTypes[22] },
+{TYPE_HANDLER(cmsSigMultiProcessElementType,   MPE),                (_cmsTagTypeLinkedList*) &SupportedTagTypes[23] },
+{TYPE_HANDLER(cmsSigScreeningType,             Screening),          (_cmsTagTypeLinkedList*) &SupportedTagTypes[24] },
+{TYPE_HANDLER(cmsSigViewingConditionsType,     ViewingConditions),  (_cmsTagTypeLinkedList*) &SupportedTagTypes[25] },
+{TYPE_HANDLER(cmsSigXYZType,                   XYZ),                (_cmsTagTypeLinkedList*) &SupportedTagTypes[26] },
+{TYPE_HANDLER(cmsCorbisBrokenXYZtype,          XYZ),                (_cmsTagTypeLinkedList*) &SupportedTagTypes[27] },
+{TYPE_HANDLER(cmsMonacoBrokenCurveType,        Curve),              (_cmsTagTypeLinkedList*) &SupportedTagTypes[28] },
+{TYPE_HANDLER(cmsSigProfileSequenceIdType,     ProfileSequenceId),  (_cmsTagTypeLinkedList*) &SupportedTagTypes[29] },
+{TYPE_HANDLER(cmsSigDictType,                  Dictionary),         (_cmsTagTypeLinkedList*) &SupportedTagTypes[30] },
 {TYPE_HANDLER(cmsSigVcgtType,                  vcgt),                NULL }
 };
 
-#define DEFAULT_TAG_TYPE_COUNT  (sizeof(SupportedTagTypes) / sizeof(_cmsTagTypeLinkedList))
+
+_cmsTagTypePluginChunkType _cmsTagTypePluginChunk = { NULL };
+
+
+
+// Duplicates the zone of memory used by the plug-in in the new context
+static
+void DupTagTypeList(struct _cmsContext_struct* ctx, 
+                    const struct _cmsContext_struct* src, 
+                    int loc)
+{
+   _cmsTagTypePluginChunkType newHead = { NULL };
+   _cmsTagTypeLinkedList*  entry;
+   _cmsTagTypeLinkedList*  Anterior = NULL;
+   _cmsTagTypePluginChunkType* head = (_cmsTagTypePluginChunkType*) src->chunks[loc];
+
+   // Walk the list copying all nodes
+   for (entry = head->TagTypes;
+       entry != NULL;
+       entry = entry ->Next) {
+
+           _cmsTagTypeLinkedList *newEntry = ( _cmsTagTypeLinkedList *) _cmsSubAllocDup(ctx ->MemPool, entry, sizeof(_cmsTagTypeLinkedList));
+
+           if (newEntry == NULL) 
+               return;
+
+           // We want to keep the linked list order, so this is a little bit tricky
+           newEntry -> Next = NULL;
+           if (Anterior)
+               Anterior -> Next = newEntry;
+
+           Anterior = newEntry;
+
+           if (newHead.TagTypes == NULL)
+               newHead.TagTypes = newEntry;
+   }
+
+   ctx ->chunks[loc] = _cmsSubAllocDup(ctx->MemPool, &newHead, sizeof(_cmsTagTypePluginChunkType));
+}
+
+
+void _cmsAllocTagTypePluginChunk(struct _cmsContext_struct* ctx, 
+                                 const struct _cmsContext_struct* src)
+{
+    if (src != NULL) {
+        
+        // Duplicate the LIST
+        DupTagTypeList(ctx, src, TagTypePlugin);
+    }
+    else {
+        static _cmsTagTypePluginChunkType TagTypePluginChunk = { NULL };
+        ctx ->chunks[TagTypePlugin] = _cmsSubAllocDup(ctx ->MemPool, &TagTypePluginChunk, sizeof(_cmsTagTypePluginChunkType));
+    }
+}
+
+void _cmsAllocMPETypePluginChunk(struct _cmsContext_struct* ctx, 
+                               const struct _cmsContext_struct* src)
+{
+    if (src != NULL) {
+        
+        // Duplicate the LIST
+        DupTagTypeList(ctx, src, MPEPlugin);
+    }
+    else {
+        static _cmsTagTypePluginChunkType TagTypePluginChunk = { NULL };
+        ctx ->chunks[MPEPlugin] = _cmsSubAllocDup(ctx ->MemPool, &TagTypePluginChunk, sizeof(_cmsTagTypePluginChunkType));
+    }
+
+}
+
 
 // Both kind of plug-ins share same structure
 cmsBool  _cmsRegisterTagTypePlugin(cmsContext id, cmsPluginBase* Data)
 {
-    return RegisterTypesPlugin(id, Data, SupportedTagTypes, DEFAULT_TAG_TYPE_COUNT);
+    return RegisterTypesPlugin(id, Data, TagTypePlugin);
 }
 
 cmsBool  _cmsRegisterMultiProcessElementPlugin(cmsContext id, cmsPluginBase* Data)
 {
-    return RegisterTypesPlugin(id, Data, SupportedMPEtypes, DEFAULT_MPE_TYPE_COUNT);
+    return RegisterTypesPlugin(id, Data,MPEPlugin);
 }
 
 
 // Wrapper for tag types
-cmsTagTypeHandler* _cmsGetTagTypeHandler(cmsTagTypeSignature sig)
+cmsTagTypeHandler* _cmsGetTagTypeHandler(cmsContext ContextID, cmsTagTypeSignature sig)
 {
-    return GetHandler(sig, SupportedTagTypes);
+    _cmsTagTypePluginChunkType* ctx = ( _cmsTagTypePluginChunkType*) _cmsContextGetClientChunk(ContextID, TagTypePlugin);
+
+    return GetHandler(sig, ctx->TagTypes, (_cmsTagTypeLinkedList*) SupportedTagTypes);
 }
 
 // ********************************************************************************
@@ -5287,7 +5528,7 @@ typedef struct _cmsTagLinkedList_st {
 
 } _cmsTagLinkedList;
 
-// This is the list of built-in tags
+// This is the list of built-in tags. The data of this list can be modified by plug-ins
 static _cmsTagLinkedList SupportedTags[] = {
 
     { cmsSigAToB0Tag,               { 1, 3,  { cmsSigLut16Type,  cmsSigLutAtoBType, cmsSigLut8Type}, DecideLUTtypeA2B}, &SupportedTags[1]},
@@ -5336,7 +5577,7 @@ static _cmsTagLinkedList SupportedTags[] = {
     { cmsSigPreview2Tag,            { 1, 3,  { cmsSigLut16Type, cmsSigLutBtoAType, cmsSigLut8Type }, DecideLUTtypeB2A}, &SupportedTags[32]},
 
     { cmsSigProfileDescriptionTag,  { 1, 3, { cmsSigTextDescriptionType, cmsSigMultiLocalizedUnicodeType, cmsSigTextType}, DecideTextDescType}, &SupportedTags[33]},
-    { cmsSigProfileSequenceDescTag, { 1, 1, { cmsSigProfileSequenceDescType }, NULL}, &SupportedTags[34]},
+    { cmsSigProfileSequenceDescTag, { 1, 1, { cmsSigProfileSequenceDescType }, NULL},  &SupportedTags[34]},
     { cmsSigTechnologyTag,          { 1, 1, { cmsSigSignatureType }, NULL},  &SupportedTags[35]},
 
     { cmsSigColorimetricIntentImageStateTag,   { 1, 1, { cmsSigSignatureType }, NULL}, &SupportedTags[36]},
@@ -5372,9 +5613,10 @@ static _cmsTagLinkedList SupportedTags[] = {
     { cmsSigScreeningTag,           { 1, 1, { cmsSigScreeningType},          NULL }, &SupportedTags[59]},
     { cmsSigVcgtTag,                { 1, 1, { cmsSigVcgtType},               NULL }, &SupportedTags[60]},
     { cmsSigMetaTag,                { 1, 1, { cmsSigDictType},               NULL }, &SupportedTags[61]},
-    { cmsSigProfileSequenceIdTag,   { 1, 1, { cmsSigProfileSequenceIdType},  NULL },  &SupportedTags[62]},
-    { cmsSigProfileDescriptionMLTag,{ 1, 1, { cmsSigMultiLocalizedUnicodeType}, NULL}, NULL}
+    { cmsSigProfileSequenceIdTag,   { 1, 1, { cmsSigProfileSequenceIdType},  NULL }, &SupportedTags[62]},
 
+    { cmsSigProfileDescriptionMLTag,{ 1, 1, { cmsSigMultiLocalizedUnicodeType}, NULL}, &SupportedTags[63]},
+    { cmsSigArgyllArtsTag,          { 9, 1, { cmsSigS15Fixed16ArrayType},    NULL}, NULL}
 
 };
 
@@ -5387,30 +5629,68 @@ static _cmsTagLinkedList SupportedTags[] = {
     cmsSigDeviceSettingsTag   ==> Deprecated, useless
 */
 
-#define DEFAULT_TAG_COUNT  (sizeof(SupportedTags) / sizeof(_cmsTagLinkedList))
+
+_cmsTagPluginChunkType _cmsTagPluginChunk = { NULL };
+
+
+// Duplicates the zone of memory used by the plug-in in the new context
+static
+void DupTagList(struct _cmsContext_struct* ctx, 
+                    const struct _cmsContext_struct* src)
+{
+   _cmsTagPluginChunkType newHead = { NULL };
+   _cmsTagLinkedList*  entry;
+   _cmsTagLinkedList*  Anterior = NULL;
+   _cmsTagPluginChunkType* head = (_cmsTagPluginChunkType*) src->chunks[TagPlugin];
+
+   // Walk the list copying all nodes
+   for (entry = head->Tag;
+       entry != NULL;
+       entry = entry ->Next) {
+
+           _cmsTagLinkedList *newEntry = ( _cmsTagLinkedList *) _cmsSubAllocDup(ctx ->MemPool, entry, sizeof(_cmsTagLinkedList));
+
+           if (newEntry == NULL) 
+               return;
+
+           // We want to keep the linked list order, so this is a little bit tricky
+           newEntry -> Next = NULL;
+           if (Anterior)
+               Anterior -> Next = newEntry;
+
+           Anterior = newEntry;
+
+           if (newHead.Tag == NULL)
+               newHead.Tag = newEntry;
+   }
+
+   ctx ->chunks[TagPlugin] = _cmsSubAllocDup(ctx->MemPool, &newHead, sizeof(_cmsTagPluginChunkType));
+}
+
+void _cmsAllocTagPluginChunk(struct _cmsContext_struct* ctx, 
+                                 const struct _cmsContext_struct* src)
+{
+    if (src != NULL) {
+
+        DupTagList(ctx, src);
+    }
+    else {
+        static _cmsTagPluginChunkType TagPluginChunk = { NULL };
+        ctx ->chunks[TagPlugin] = _cmsSubAllocDup(ctx ->MemPool, &TagPluginChunk, sizeof(_cmsTagPluginChunkType));
+    }
+
+}
 
 cmsBool  _cmsRegisterTagPlugin(cmsContext id, cmsPluginBase* Data)
 {
     cmsPluginTag* Plugin = (cmsPluginTag*) Data;
-    _cmsTagLinkedList *pt, *Anterior;
-
+    _cmsTagLinkedList *pt;
+    _cmsTagPluginChunkType* TagPluginChunk = ( _cmsTagPluginChunkType*) _cmsContextGetClientChunk(id, TagPlugin);
 
     if (Data == NULL) {
 
-        SupportedTags[DEFAULT_TAG_COUNT-1].Next = NULL;
+        TagPluginChunk->Tag = NULL;
         return TRUE;
-    }
-
-    pt = Anterior = SupportedTags;
-    while (pt != NULL) {
-
-        if (Plugin->Signature == pt -> Signature) {
-            pt ->Descriptor = Plugin ->Descriptor;  // Replace old behaviour
-            return TRUE;
-        }
-
-        Anterior = pt;
-        pt = pt ->Next;
     }
 
     pt = (_cmsTagLinkedList*) _cmsPluginMalloc(id, sizeof(_cmsTagLinkedList));
@@ -5418,17 +5698,25 @@ cmsBool  _cmsRegisterTagPlugin(cmsContext id, cmsPluginBase* Data)
 
     pt ->Signature  = Plugin ->Signature;
     pt ->Descriptor = Plugin ->Descriptor;
-    pt ->Next       = NULL;
+    pt ->Next       = TagPluginChunk ->Tag;
 
-    if (Anterior != NULL) Anterior -> Next = pt;
-
+    TagPluginChunk ->Tag = pt;
+    
     return TRUE;
 }
 
 // Return a descriptor for a given tag or NULL
-cmsTagDescriptor* _cmsGetTagDescriptor(cmsTagSignature sig)
+cmsTagDescriptor* _cmsGetTagDescriptor(cmsContext ContextID, cmsTagSignature sig)
 {
     _cmsTagLinkedList* pt;
+    _cmsTagPluginChunkType* TagPluginChunk = ( _cmsTagPluginChunkType*) _cmsContextGetClientChunk(ContextID, TagPlugin);
+
+    for (pt = TagPluginChunk->Tag;
+             pt != NULL;
+             pt = pt ->Next) {
+
+                if (sig == pt -> Signature) return &pt ->Descriptor;
+    }
 
     for (pt = SupportedTags;
             pt != NULL;
