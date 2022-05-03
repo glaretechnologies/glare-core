@@ -301,7 +301,8 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size)
 			}
 			else
 			{
-				throw glare::Exception("Unhandled supercompression scheme: " + toString(supercompressionScheme));
+				// supercompressionScheme is checked above also.
+				throw glare::Exception("Unhandled supercompression scheme.");
 			}
 		}
 
