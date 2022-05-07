@@ -564,7 +564,7 @@ void runPipelineFullBuffer(
 	if(reinhard != NULL)
 		reinhard->computeLumiScales(render_channels, layer_weights, image_scale, avg_lumi, max_lumi);
 
-	const ToneMapperParams tonemap_params(input_to_sRGB, avg_lumi, max_lumi);
+	ToneMapperParams tonemap_params(input_to_sRGB, avg_lumi, max_lumi);
 
 	const bool blend_main_layers = channel == NULL;
 	const bool tonemap_channel = do_tonemapping && (blend_main_layers || (channel->type == ChannelInfo::ChannelType_MainLayers || channel->type == ChannelInfo::ChannelType_Beauty));
@@ -726,11 +726,31 @@ void runPipelineFullBuffer(
 			(scratch_state.last_committed_albedo_enabled == render_channels.albedo.isEnabled()) &&
 			(scratch_state.last_committed_normals_enabled == render_channels.normals.isEnabled());
 
+
+		// To avoid nasty colour artifacts introduced into lightmaps by the denoiser, preserve chromaticity - just denoise luminance.
+		const bool preserve_chromaticity = renderer_settings.lightMapBakingEnabled();
+
+		Image4f temp_summed_buffer_copy_XYZ;
+		if(preserve_chromaticity)
+			temp_summed_buffer_copy_XYZ = temp_summed_buffer; // Save to use for chromaticity preservation.
+
+		// Convert image to sRGB, denoising works better on a sRGB buffer than an XYZ buffer.
+		const Matrix4f input_to_sRGB_mat4(input_to_sRGB, Vec3f(0.f));
+		for(size_t z=0; z<temp_summed_buffer.numPixels(); ++z)
+		{
+			const Colour4f col_XYZ = temp_summed_buffer.getPixel(z);
+			Colour4f col_sRGB((input_to_sRGB_mat4 * col_XYZ.v).v);
+			col_sRGB = max(Colour4f(0.f), col_sRGB);
+			temp_summed_buffer.getPixel(z) = col_sRGB;
+		}
+
+		const Image4f temp_summed_buffer_copy_sRGB = temp_summed_buffer;
+
 		if(!last_commit_valid)
 		{
 			conPrint("Last commmit invalid, resetting denoise args.");
 
-			oidnSetSharedFilterImage(scratch_state.filter, "color", &temp_summed_buffer.getPixel(0), OIDN_FORMAT_FLOAT3,
+			oidnSetSharedFilterImage(scratch_state.filter, /*name=*/"color", /*ptr=*/&temp_summed_buffer.getPixel(0), OIDN_FORMAT_FLOAT3,
 				/*width=*/W, /*height=*/H, /*byteOffset=*/0, /*bytePixelStride=*/sizeof(float) * 4, /*byteRowStride=*/W * sizeof(float) * 4);
 
 			// RTLightmap filter complains when an albedo map is provided.
@@ -808,7 +828,52 @@ void runPipelineFullBuffer(
 			else
 				conPrint("OIDN Error: " + std::string(errorMessage));
 		}
-	}
+
+		// Make chromaticities the same in the denoised image as in the pre-denoised image.
+		if(preserve_chromaticity)
+		{
+			Matrix3f sRGB_to_XYZ;
+			input_to_sRGB.inverse(sRGB_to_XYZ);
+
+			const Matrix4f sRGB_to_XYZ_mat4(sRGB_to_XYZ, Vec3f(0.f));
+
+			for(size_t z=0; z<temp_summed_buffer.numPixels(); ++z) // For each pixel:
+			{
+				// Compute chromaticity coords for old (pre-denoised) pixel:
+				const Colour4f old_XYZ = temp_summed_buffer_copy_XYZ.getPixel(z);
+				const float sum = old_XYZ[0] + old_XYZ[1] + old_XYZ[2];
+				if(sum > 0)
+				{
+					const float old_x = old_XYZ[0] * (1.f / sum); // x = X / (X + Y + Z)
+					const float old_y = old_XYZ[1] * (1.f / sum); // y = Y / (X + Y + Z)
+
+					assert(isFinite(old_x) && isFinite(old_y));
+
+					const Colour4f denoised_XYZ((sRGB_to_XYZ_mat4 * temp_summed_buffer.getPixel(z).v).v); // Transform denoised sRGB colour to XYZ
+
+					// Construct a new colour in the XYZ colour space, with the denoised luminance, but preserved chromaticities.
+					// y = Y / (X + Y + Z), so Y / y = X + Y + Z
+					// X = x * (X + Y + Z), so X = x * (Y / y)
+					// Z = z * (X + Y + Z), so Z = z * (Y / y) = (1 - x - y) * (Y / y)
+					const float Y_over_y = denoised_XYZ[1] / old_y;
+					Colour4f new_XYZ;
+					new_XYZ[0] = Y_over_y * old_x;
+					new_XYZ[1] = denoised_XYZ[1];
+					new_XYZ[2] = Y_over_y * (1 - old_x - old_y);
+					new_XYZ[3] = denoised_XYZ[3];
+
+					temp_summed_buffer.getPixel(z) = new_XYZ; // temp_summed_buffer is now colours in XYZ colour space.
+				}
+			}
+		}
+		else
+		{
+			// temp_summed_buffer colours are in sRGB colour space.
+			tonemap_params.XYZ_to_sRGB = Matrix3f::identity(); // We have already converted to sRGB, don't need to do it while tonemapping.
+		}
+
+		
+	} // end if(do_denoising)
 #endif
 
 
@@ -1551,7 +1616,7 @@ void runPipeline(
 	const RendererSettings& renderer_settings,
 	const float* const resize_filter,
 	const Reference<PostProDiffraction>& post_pro_diffraction,
-	Image4f& ldr_buffer_out,
+	Image4f& ldr_buffer_out, // Output image, can be HDR as well actually.
 	const Reference<ImageMapFloat>& spectral_buffer_out, // May be NULL
 	bool& output_is_nonlinear,
 	bool input_in_XYZ_colourspace,
