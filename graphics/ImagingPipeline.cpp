@@ -871,8 +871,6 @@ void runPipelineFullBuffer(
 			// temp_summed_buffer colours are in sRGB colour space.
 			tonemap_params.XYZ_to_sRGB = Matrix3f::identity(); // We have already converted to sRGB, don't need to do it while tonemapping.
 		}
-
-		
 	} // end if(do_denoising)
 #endif
 
