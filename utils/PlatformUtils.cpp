@@ -900,6 +900,17 @@ typedef HRESULT(WINAPI* SetThreadDescriptionFuncType)(HANDLE hThread, PCWSTR lpT
 #endif
 
 
+uint64 PlatformUtils::getCurrentThreadID()
+{
+#if defined(_WIN32)
+	return GetCurrentThreadId();
+#else
+	// Mac, Linux:
+	return pthread_getthreadid_np();
+#endif
+}
+
+
 void PlatformUtils::setCurrentThreadName(const std::string& name)
 {
 #if defined(_WIN32)
