@@ -1906,8 +1906,8 @@ void OpenGLEngine::removeOverlayObject(const Reference<OverlayObject>& object)
 }
 
 
-// Notify the OpenGL engine that a texture has been loaded.
-void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB)
+// Notify the OpenGL engine that a texture has been loaded - i.e. either inserted into texture_server or inserted into texture_data_manager.
+void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps)
 {
 	// conPrint("textureLoaded(): path: " + path);
 
@@ -1943,7 +1943,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 			Reference<Map2D> map = texture_server->getTexForRawNameIfLoaded(key.path);
 			if(map.nonNull())
 			{
-				opengl_texture = this->getOrLoadOpenGLTexture(key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow compression=*/true, use_sRGB);
+				opengl_texture = this->getOrLoadOpenGLTexture(key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow compression=*/true, use_sRGB, use_mipmaps);
 				assert(opengl_texture.nonNull());
 				// conPrint("\tLoaded from map.");
 			}
@@ -2099,7 +2099,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, b
 // If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
 // If the texture is not loaded or not processed yet, return a null reference.
 // Throws glare::Exception
-Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key, bool use_sRGB)
+Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key, bool use_sRGB, bool use_mipmaps)
 {
 	// conPrint("getTextureIfLoaded(), tex_path: " + tex_path);
 	try
@@ -2133,7 +2133,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey
 			{
 				// Not an UInt8 map so doesn't need processing, so load it.
 				// conPrint("\tloading from map.");
-				Reference<OpenGLTexture> gl_tex = this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow_compression=*/true, use_sRGB); 
+				Reference<OpenGLTexture> gl_tex = this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow_compression=*/true, use_sRGB, use_mipmaps); 
 				assert(gl_tex.nonNull());
 				return gl_tex;
 			}
@@ -5460,7 +5460,7 @@ static Reference<ImageMapUInt8> convertToUInt8ImageMap(const ImageMap<uint16, UI
 
 
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression, bool use_sRGB)
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression, bool use_sRGB, bool use_mipmaps)
 {
 	if(dynamic_cast<const ImageMap<uint16, UInt16ComponentValueTraits>*>(&map2d))
 	{
@@ -5518,7 +5518,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
 					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
 					OpenGLTexture::Format_Greyscale_Float,
-					filtering, wrapping
+					filtering, wrapping, use_mipmaps
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
@@ -5535,7 +5535,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
 					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
 					OpenGLTexture::Format_RGB_Linear_Float,
-					filtering, wrapping
+					filtering, wrapping, use_mipmaps
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
@@ -5572,7 +5572,8 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
 					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
 					OpenGLTexture::Format_Greyscale_Half,
-					OpenGLTexture::Filtering_Fancy
+					filtering, wrapping,
+					use_mipmaps
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
@@ -5589,7 +5590,8 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
 					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
 					OpenGLTexture::Format_RGB_Linear_Half,
-					OpenGLTexture::Filtering_Fancy
+					filtering, wrapping,
+					use_mipmaps
 				);
 
 				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
@@ -5626,13 +5628,15 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 
 			Reference<OpenGLTexture> opengl_tex;
 
+			const bool has_mipmaps = compressed_image->mipmap_level_data.size() > 1;
+
 			size_t bytes_per_block;
 			if(compressed_image->gl_base_internal_format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
 			{
 				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
 					ArrayRef<uint8>(NULL, 0),
 					OpenGLTexture::Format_Compressed_BC6, 
-					filtering, wrapping); // Binds texture
+					filtering, wrapping, has_mipmaps); // Binds texture
 
 				bytes_per_block = 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
 			}
@@ -5641,7 +5645,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
 					ArrayRef<uint8>(NULL, 0), 
 					GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8,
-					filtering, wrapping); // Binds texture
+					filtering, wrapping, has_mipmaps); // Binds texture
 				bytes_per_block = 8;
 			}
 			else if(compressed_image->gl_base_internal_format == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
@@ -5649,7 +5653,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextur
 				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
 					ArrayRef<uint8>(NULL, 0), 
 					GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8,
-					filtering, wrapping); // Binds texture
+					filtering, wrapping, has_mipmaps); // Binds texture
 				bytes_per_block = 16;
 			}
 			else

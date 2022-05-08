@@ -609,10 +609,10 @@ public:
 	// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
 	// If the texture is not loaded or not processed yet, return a null reference.
 	// Throws glare::Exception
-	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key, bool use_sRGB);
+	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps = true);
 
-	// Notify the OpenGL engine that a texture has been loaded.
-	void textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB);
+	// Notify the OpenGL engine that a texture has been loaded - i.e. either inserted into texture_server or inserted into texture_data_manager.
+	void textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps);
 
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
@@ -621,7 +621,7 @@ public:
 		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB);
 
 	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true);
+		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true, bool use_mipmaps = true);
 
 	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex);
 

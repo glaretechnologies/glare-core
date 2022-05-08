@@ -84,7 +84,8 @@ public:
 		ArrayRef<uint8> tex_data,
 		Format format,
 		Filtering filtering,
-		Wrapping wrapping = Wrapping_Repeat);
+		Wrapping wrapping = Wrapping_Repeat,
+		bool has_mipmaps = true);
 
 	// Create texture, specify exact GL formats
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
@@ -164,7 +165,8 @@ private:
 	// Create texture, given that xres, yres, gl_internal_format etc. have been set.
 	void doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
-		Wrapping wrapping
+		Wrapping wrapping,
+		bool has_mipmaps
 	);
 
 	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
@@ -177,6 +179,7 @@ private:
 	Filtering filtering;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
+	int num_mipmap_levels_allocated;
 public:
 	mutable int64 refcount;
 

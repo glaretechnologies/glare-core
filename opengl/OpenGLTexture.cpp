@@ -25,6 +25,7 @@ OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	num_mipmap_levels_allocated(0),
 	format(Format_SRGB_Uint8),
 	refcount(0),
 	m_opengl_engine(NULL),
@@ -42,10 +43,12 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	ArrayRef<uint8> tex_data,
 	Format format_,
 	Filtering filtering_,
-	Wrapping wrapping_)
+	Wrapping wrapping_,
+	bool has_mipmaps_)
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	num_mipmap_levels_allocated(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0)
@@ -58,7 +61,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	// Work out gl_internal_format etc..
 	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_);
+	doCreateTexture(tex_data, opengl_engine, wrapping_, has_mipmaps_);
 }
 
 
@@ -72,6 +75,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	num_mipmap_levels_allocated(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0)
@@ -89,7 +93,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	getGLFormat(format, dummy_gl_internal_format, dummy_gl_format, new_gl_type);
 	this->gl_type = new_gl_type;
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_);
+	doCreateTexture(tex_data, opengl_engine, wrapping_, /*use mipmaps=*/true);
 }
 
 
@@ -353,6 +357,7 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 	this->format = format_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
+	this->num_mipmap_levels_allocated = 1;
 
 	if(texture_handle)
 	{
@@ -396,7 +401,8 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 // Create texture, given that xres, yres, gl_internal_format etc. have been set.
 void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
-		Wrapping wrapping
+		Wrapping wrapping,
+		bool use_mipmaps
 	)
 {
 	// xres, yres, gl_internal_format etc. should all have been set.
@@ -417,8 +423,9 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 
 	// Allocate / specify immutable storage for the texture.
-	const int num_levels = (filtering == Filtering_Fancy) ? TextureLoading::computeNumMIPLevels(xres, yres) : 1;
+	const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureLoading::computeNumMIPLevels(xres, yres) : 1;
 	glTexStorage2D(GL_TEXTURE_2D, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
+	this->num_mipmap_levels_allocated = num_levels;
 
 	if(tex_data.data() != NULL)
 	{
@@ -477,10 +484,16 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		// Enable anisotropic texture filtering
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
 
-		if(tex_data.data() != NULL)
+		if(tex_data.data() != NULL && use_mipmaps)
+		{
+			// conPrint("Generating mipmaps");
 			glGenerateMipmap(GL_TEXTURE_2D);
+		}
 
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		if(use_mipmaps)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		else
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
@@ -657,7 +670,7 @@ size_t OpenGLTexture::getByteSize() const
 	const double pixel_size_B = getInternalPixelSizeB(gl_internal_format);
 	double total_size = xres * yres * pixel_size_B;
 
-	if(filtering == Filtering_Fancy)
+	if(num_mipmap_levels_allocated > 1)
 		total_size = total_size * 1.333333; // Space for Mipmaps.
 
 	return (size_t)total_size;
