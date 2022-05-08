@@ -299,37 +299,6 @@ ${openexrdir}/src/lib/OpenEXR/ImfVecAttribute.h
 ${openexrdir}/src/lib/OpenEXR/ImfVersion.h
 ${openexrdir}/src/lib/OpenEXR/ImfWav.h
 ${openexrdir}/src/lib/OpenEXR/ImfXdr.h
-
-# NOTE: Do we need these util files?
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImage.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImage.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImageChannel.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImageChannel.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImageIO.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImageIO.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImageLevel.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfDeepImageLevel.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImage.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImage.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImageChannel.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImageChannel.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImageIO.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImageIO.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImageLevel.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfFlatImageLevel.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfImage.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfImage.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageChannel.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageChannel.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageChannelRenaming.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageDataWindow.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageDataWindow.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageIO.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageIO.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageLevel.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfImageLevel.h
-${openexrdir}/src/lib/OpenEXRUtil/ImfSampleCountChannel.cpp
-${openexrdir}/src/lib/OpenEXRUtil/ImfSampleCountChannel.h
 )
 
 
