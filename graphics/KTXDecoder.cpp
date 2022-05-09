@@ -474,7 +474,7 @@ void KTXDecoder::writeSupercompressKTX2File(int w, int h, const std::vector<std:
 #include "../utils/FileUtils.h"
 
 
-#if 1
+#if 0
 // Command line:
 // C:\fuzz_corpus\ktx N:\indigo\trunk\testfiles\ktx
 
