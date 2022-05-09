@@ -904,8 +904,10 @@ uint64 PlatformUtils::getCurrentThreadID()
 {
 #if defined(_WIN32)
 	return GetCurrentThreadId();
+#elif defined(OSX)
+	return pthread_threadid_np();
 #else
-	// Mac, Linux:
+	// Linux:
 	return pthread_getthreadid_np();
 #endif
 }
