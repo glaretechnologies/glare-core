@@ -436,11 +436,12 @@ endif()
 
 add_library(indigo_libs
 #${fftss}
+
 ${imath}
 ${iex}
-#${ilmbase}
 ${ilmthread}
 ${openexr}
+
 #${lib3ds}
 ${libjpg}
 ${libpng}

@@ -17,6 +17,8 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include "../utils/PlatformUtils.h"
 #include "../utils/Vector.h"
 #include "../utils/IncludeHalf.h"
+#include "../utils/BufferInStream.h"
+#include "../utils/MemMappedFile.h"
 #include <ImathBox.h>
 #include <fstream>
 #include <ImfStdIO.h>
@@ -73,17 +75,125 @@ void EXRDecoder::setEXRThreadPoolSize()
 }
 
 
+class EXRDecoderInputStream : public Imf::IStream
+{
+public:
+	EXRDecoderInputStream(const ArrayRef<uint8> data, const std::string& filename_) : Imf::IStream(filename_.c_str()), filename(filename_), stream(data) {}
+	virtual ~EXRDecoderInputStream() {}
+
+	//-------------------------------------------------
+	// Does this input stream support memory-mapped IO?
+	//
+	// Memory-mapped streams can avoid an extra copy;
+	// memory-mapped read operations return a pointer
+	// to an internal buffer instead of copying data
+	// into a buffer supplied by the caller.
+	//-------------------------------------------------
+	virtual bool isMemoryMapped() const { return true; }
+
+	//------------------------------------------------------
+	// Read from the stream:
+	//
+	// read(c,n) reads n bytes from the stream, and stores
+	// them in array c.  If the stream contains less than n
+	// bytes, or if an I/O error occurs, read(c,n) throws
+	// an exception.  If read(c,n) reads the last byte from
+	// the file it returns false, otherwise it returns true.
+	//------------------------------------------------------
+	virtual bool read(char c[/*n*/], int n)
+	{
+		if(n < 0)
+			throw glare::Exception("Invalid num bytes to read");
+
+		stream.readData(c, (size_t)n);
+		return !stream.endOfStream();
+	}
+
+	//---------------------------------------------------
+	// Read from a memory-mapped stream:
+	//
+	// readMemoryMapped(n) reads n bytes from the stream
+	// and returns a pointer to the first byte.  The
+	// returned pointer remains valid until the stream
+	// is closed.  If there are less than n byte left to
+	// read in the stream or if the stream is not memory-
+	// mapped, readMemoryMapped(n) throws an exception.  
+	//---------------------------------------------------
+	virtual char* readMemoryMapped(int n)
+	{
+		if(n < 0)
+			throw glare::Exception("Invalid num bytes to read");
+
+		if(stream.getReadIndex() + (size_t)n > stream.size())
+			throw glare::Exception("tried to read too many bytes");
+
+		char* ptr = (char*)stream.currentReadPtr();
+		stream.setReadIndex(stream.getReadIndex() + (size_t)n);
+		return ptr;
+	}
+
+	//--------------------------------------------------------
+	// Get the current reading position, in bytes from the
+	// beginning of the file.  If the next call to read() will
+	// read the first byte in the file, tellg() returns 0.
+	//--------------------------------------------------------
+	virtual uint64_t tellg()
+	{
+		return stream.getReadIndex();
+	}
+	
+	//-------------------------------------------
+	// Set the current reading position.
+	// After calling seekg(i), tellg() returns i.
+	//-------------------------------------------
+	virtual void seekg(uint64_t pos)
+	{
+		stream.setReadIndex(pos);
+	}
+
+	//------------------------------------------------------
+	// Clear error conditions after an operation has failed.
+	//------------------------------------------------------
+	virtual void clear()
+	{}
+
+	//------------------------------------------------------
+	// Get the name of the file associated with this stream.
+	//------------------------------------------------------
+	const char* fileName() const
+	{
+		return filename.c_str();
+	}
+
+	std::string filename;
+	BufferInStream stream; // Note that we need to have a buffer than OpenEXR can write to, as the DWAB decompressor writes back to the buffer.
+	// So use BufferInStream which makes a copy
+};
+
+
 Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
+{
+	try
+	{
+		MemMappedFile file(pathname);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), pathname);
+	}
+	catch(glare::Exception& e)
+	{
+		throw ImFormatExcep(e.what());
+	}
+}
+
+
+Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& pathname)
 {
 	try
 	{
 		setEXRThreadPoolSize();
 
-		std::ifstream infile(FileUtils::convertUTF8ToFStreamPath(pathname).c_str(), std::ios::binary);
+		EXRDecoderInputStream in_stream(ArrayRef<uint8>((const uint8*)data, size), pathname);
 
-		Imf::StdIFStream exr_ifstream(infile, pathname.c_str());
-
-		Imf::InputFile file(exr_ifstream);
+		Imf::InputFile file(in_stream);
 
 		const Imf::ChannelList& channels = file.header().channels();
 
@@ -444,6 +554,25 @@ void EXRDecoder::saveImageToEXR(const ImageMapFloat& image, const std::string& p
 #if BUILD_TESTS
 
 
+#if 0
+// Command line:
+// C:\fuzz_corpus\exr N:\indigo\trunk\testfiles\EXRs
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		EXRDecoder::decodeFromBuffer(data, size, "dummy_path");
+	}
+	catch (glare::Exception&)
+	{
+	}
+
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
+
+
 #include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
@@ -631,6 +760,16 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 void EXRDecoder::test()
 {
 	conPrint("EXRDecoder::test()");
+
+	// Try with an OOM test failure
+	/*try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/oom-408c93fd0c54089cff73306a44d5ede1c8450dcd");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}*/
 
 	// Write spectral EXR
 	if(false)

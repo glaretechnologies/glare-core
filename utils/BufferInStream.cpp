@@ -19,8 +19,17 @@ BufferInStream::BufferInStream(const std::vector<unsigned char>& buf_)
 :	read_index(0)
 {
 	buf.resizeNoCopy(buf_.size());
-	for(size_t i=0; i<buf_.size(); ++i)
-		buf[i] = buf_[i];
+	if(!buf_.empty())
+		std::memcpy(buf.data(), buf_.data(), buf_.size());
+}
+
+
+BufferInStream::BufferInStream(const ArrayRef<unsigned char>& data)
+:	read_index(0)
+{
+	buf.resizeNoCopy(data.size());
+	if(!data.empty())
+		std::memcpy(buf.data(), data.data(), data.size());
 }
 
 
@@ -76,4 +85,12 @@ void BufferInStream::readData(void* target_buf, size_t num_bytes)
 bool BufferInStream::endOfStream()
 {
 	return read_index >= buf.size();
+}
+
+
+void BufferInStream::setReadIndex(size_t i)
+{
+	if(i > buf.size())
+		throw glare::Exception("Invalid read index for setReadIndex().");
+	read_index = i;
 }
