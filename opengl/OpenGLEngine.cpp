@@ -1816,7 +1816,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 
 	// Lightmapping doesn't work properly on Mac currently, because lightmaps use the BC6H format, which isn't supported on mac.
 	// This results in lightmaps rendering black, so it's better to just not use lightmaps for now.
-#ifdef OSX
+#if 0 //def OSX
 	const bool uses_lightmapping = false;
 #else
 	const bool uses_lightmapping = material.lightmap_texture.nonNull();
