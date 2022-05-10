@@ -138,8 +138,8 @@ void Maths::test()
 	testAssert(!unsignedIntAdditionWraps(1ull, 2ull));
 	testAssert(!unsignedIntAdditionWraps(18446744073709551615ull, 0ull));
 	testAssert(!unsignedIntAdditionWraps(18446744073709551614ull, 1ull));
-	testAssert(unsignedIntAdditionWraps(18446744073709551615u, 1ull));
-	testAssert(unsignedIntAdditionWraps(18446744073709551615u, 2ull));
+	testAssert(unsignedIntAdditionWraps(18446744073709551615ull, 1ull));
+	testAssert(unsignedIntAdditionWraps(18446744073709551615ull, 2ull));
 	testAssert(unsignedIntAdditionWraps(1ull, 18446744073709551615ull));
 	testAssert(unsignedIntAdditionWraps(2ull, 18446744073709551615ull));
 	testAssert(unsignedIntAdditionWraps(18446744073709551615ull , 18446744073709551615ull));
