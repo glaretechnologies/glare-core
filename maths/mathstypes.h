@@ -773,6 +773,16 @@ inline double sign(double x)
 }
 
 
+template <class T>
+inline bool unsignedIntAdditionWraps(T x, T y)
+{
+	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
+	static_assert(!std::numeric_limits<T>::is_signed, "Template param must not be signed");
+
+	return (x + y) < x;
+}
+
+
 void test();
 
 

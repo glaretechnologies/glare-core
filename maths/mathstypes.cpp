@@ -121,6 +121,30 @@ void Maths::test()
 	conPrint("Maths::test()");
 
 	//=============================== intLogBase2 ================================
+	testAssert(!unsignedIntAdditionWraps(0u, 0u));
+	testAssert(!unsignedIntAdditionWraps(1u, 2u));
+	testAssert(!unsignedIntAdditionWraps(4294967295u, 0u));
+	testAssert(!unsignedIntAdditionWraps(4294967294u, 1u));
+	testAssert(unsignedIntAdditionWraps(4294967295u, 1u));
+	testAssert(unsignedIntAdditionWraps(4294967295u, 2u));
+	testAssert(unsignedIntAdditionWraps(1u, 4294967295u));
+	testAssert(unsignedIntAdditionWraps(2u, 4294967295u));
+	testAssert(unsignedIntAdditionWraps(4294967295u, 4294967295u));
+	testAssert(!unsignedIntAdditionWraps(2147483648u, 2147483647u)); // 2^31 + 2^31-1 = 2^32-1
+	testAssert(unsignedIntAdditionWraps(2147483648u, 2147483648u)); // 2^31 + 2^31 = 2^32
+
+	// max uint64 val = 2^64 - 1 = 18446744073709551615
+	testAssert(!unsignedIntAdditionWraps(0ull, 0ull));
+	testAssert(!unsignedIntAdditionWraps(1ull, 2ull));
+	testAssert(!unsignedIntAdditionWraps(18446744073709551615ull, 0ull));
+	testAssert(!unsignedIntAdditionWraps(18446744073709551614ull, 1ull));
+	testAssert(unsignedIntAdditionWraps(18446744073709551615u, 1ull));
+	testAssert(unsignedIntAdditionWraps(18446744073709551615u, 2ull));
+	testAssert(unsignedIntAdditionWraps(1ull, 18446744073709551615ull));
+	testAssert(unsignedIntAdditionWraps(2ull, 18446744073709551615ull));
+	testAssert(unsignedIntAdditionWraps(18446744073709551615ull , 18446744073709551615ull));
+
+	//=============================== intLogBase2 ================================
 	testAssert(intLogBase2(1) == 0);
 	testAssert(intLogBase2(2) == 1);
 	testAssert(intLogBase2(4) == 2);

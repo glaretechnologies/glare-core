@@ -1,7 +1,7 @@
 /*=====================================================================
 BufferInStream.h
 -------------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
@@ -32,7 +32,9 @@ public:
 	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 
+	bool canReadNBytes(size_t N) const;
 	void setReadIndex(size_t i);
+	void advanceReadIndex(size_t n);
 	size_t getReadIndex() const { return read_index; }
 
 	size_t size() const { return buf.size(); }

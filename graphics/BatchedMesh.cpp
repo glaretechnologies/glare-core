@@ -1033,7 +1033,7 @@ void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& m
 			timer.pause();
 			{
 				const uint64 index_data_compressed_size = file.readUInt64();
-				if((index_data_compressed_size >= file.size()) || (file.getReadIndex() + index_data_compressed_size > file.size())) // Check index_data_compressed_size is valid, while taking care with wraparound
+				if(!file.canReadNBytes(index_data_compressed_size)) // Check index_data_compressed_size is valid, while taking care with wraparound
 					throw glare::Exception("index_data_compressed_size was invalid.");
 
 				// Decompress index data into plaintext buffer.
@@ -1086,14 +1086,14 @@ void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& m
 				else
 					throw glare::Exception("Invalid index component type " + toString((int)header.index_type));
 
-				file.setReadIndex(file.getReadIndex() + index_data_compressed_size);
+				file.advanceReadIndex(index_data_compressed_size);
 			}
 
 		
 			// Decompress and de-filter vertex data.
 			{
 				const uint64 vertex_data_compressed_size = file.readUInt64();
-				if((vertex_data_compressed_size >= file.size()) || (file.getReadIndex() + vertex_data_compressed_size > file.size())) // Check vertex_data_compressed_size is valid, while taking care with wraparound
+				if(!file.canReadNBytes(vertex_data_compressed_size)) // Check vertex_data_compressed_size is valid, while taking care with wraparound
 					throw glare::Exception("vertex_data_compressed_size was invalid.");
 
 				// Decompress data into plaintext buffer.
@@ -1141,7 +1141,7 @@ void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& m
 					attr_offset += attr_size;
 				}
 
-				file.setReadIndex(file.getReadIndex() + vertex_data_compressed_size);
+				file.advanceReadIndex(vertex_data_compressed_size);
 			}
 		}
 		else // else if !compression:

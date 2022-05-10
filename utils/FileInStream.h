@@ -1,7 +1,7 @@
 /*=====================================================================
 FileInStream.h
 --------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
@@ -32,10 +32,13 @@ public:
 	const void* fileData() const { return file.fileData(); } // Returns pointer to file data.  NOTE: This pointer will be the null pointer if the file size is zero.
 	size_t fileSize() const { return file.fileSize(); }
 
+	bool canReadNBytes(size_t N) const;
+
 	const void* currentReadPtr() const { return (const uint8*)file.fileData() + read_index; }
 	
 	void setReadIndex(size_t i);
 	size_t getReadIndex() const { return read_index; }
+
 private:
 	MemMappedFile file;
 	size_t read_index;

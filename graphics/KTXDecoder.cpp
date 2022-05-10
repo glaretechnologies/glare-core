@@ -107,7 +107,7 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size)
 			throw glare::Exception("numberOfFaces != 1 not supported.");
 
 		// Skip key-value data
-		file.setReadIndex(file.getReadIndex() + bytesOfKeyValueData);
+		file.advanceReadIndex(bytesOfKeyValueData);
 
 		const size_t N = 3;
 		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, N);
@@ -129,7 +129,7 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size)
 		{
 			const uint32 image_size = readUInt32(file, swap_endianness);
 
-			if(file.getReadIndex() + (size_t)image_size > file.size())
+			if(!file.canReadNBytes((size_t)image_size))
 				throw glare::Exception("MIP image size is too large");
 
 			// Assume there are no array elements (this is not an array texture)
@@ -266,7 +266,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size)
 		// Read levels in reverse order, since lowest level mipmap (smallest) should be first in file.
 		for(int lvl = (int)use_num_mipmap_levels - 1; lvl >= 0; --lvl)
 		{
-			file.setReadIndex(level_data[lvl].byteOffset);
+			file.setReadIndex(level_data[lvl].byteOffset); // TODO: check this has a reasonable value - past header etc.
 			
 			// Assume there are no array elements (this is not an array texture)
 			glare::AllocatorVector<uint8, 16>& cur_level_data = image->mipmap_level_data[lvl];
@@ -282,7 +282,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size)
 			}
 			else if(supercompressionScheme == 2) // ZSTD compression:
 			{
-				if((level_data[lvl].byteLength >= file.size()) || (file.getReadIndex() + level_data[lvl].byteLength > file.size())) // Check compressed_size is valid, while taking care with wraparound
+				if(!file.canReadNBytes(level_data[lvl].byteLength)) // Check compressed_size is valid, while taking care with wraparound
 					throw glare::Exception("Compressed size is too large.");
 
 				const uint64 decompressed_size = ZSTD_getFrameContentSize(file.currentReadPtr(), level_data[lvl].byteLength);

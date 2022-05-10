@@ -29,13 +29,16 @@ public:
 
 	uint16 readUInt16();
 
+	bool canReadNBytes(size_t N) const;
 	void setReadIndex(size_t i);
+	void advanceReadIndex(size_t n);
 	size_t getReadIndex() const { return read_index; }
 
 	size_t size() const { return data.size(); }
 
 	const void* currentReadPtr() const { return data.data() + read_index; }
 
+private:
 	ArrayRef<uint8> data;
 	size_t read_index;
 };

@@ -137,7 +137,7 @@ void Database::startReadingFromDisk(const std::string& path)
 			const uint32 capacity = file_in->readUInt32();
 			const uint32 seq_num  = file_in->readUInt32();
 
-			if(file_in->getReadIndex() + capacity > file_in->fileSize())
+			if(!file_in->canReadNBytes(capacity))
 				throw glare::Exception("Invalid file capacity, went past end of file.");
 
 			// Advance past this record data.

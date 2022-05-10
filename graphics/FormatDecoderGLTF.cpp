@@ -1563,7 +1563,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 
 	// Check JSON header chunk_length is valid:
 	const size_t json_chunk_end = stream.getReadIndex() + (size_t)json_header.chunk_length;
-	if(json_chunk_end > file_size)
+	if(!stream.canReadNBytes((size_t)json_header.chunk_length))
 		throw glare::Exception("JSON Chunk too large.");
 
 	
@@ -1577,8 +1577,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 		throw glare::Exception("Expected BIN chunk type");
 
 	// Check binary buffer chunk_length is valid:
-	if(bin_buf_chunk_header_offset + sizeof(GLBChunkHeader) + bin_buf_header.chunk_length > file_size)
-		throw glare::Exception("Bin buf Chunk too large.");
+	if(!stream.canReadNBytes(bin_buf_header.chunk_length)) // bin_buf_chunk_header_offset + sizeof(GLBChunkHeader) + bin_buf_header.chunk_length > file_size)
+		throw glare::Exception("Bin buf chunk too large.");
 
 	// Make a buffer object for it
 	GLTFBufferRef buffer = new GLTFBuffer();

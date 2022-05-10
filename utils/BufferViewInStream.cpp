@@ -23,7 +23,7 @@ BufferViewInStream::~BufferViewInStream()
 
 int32 BufferViewInStream::readInt32()
 {
-	if(read_index + sizeof(int32) > data.size())
+	if(!canReadNBytes(sizeof(int32)))
 		throw glare::Exception("Read past end of buffer.");
 
 	int32 x;
@@ -35,7 +35,7 @@ int32 BufferViewInStream::readInt32()
 
 uint32 BufferViewInStream::readUInt32()
 {
-	if(read_index + sizeof(uint32) > data.size())
+	if(!canReadNBytes(sizeof(uint32)))
 		throw glare::Exception("Read past end of buffer.");
 
 	uint32 x;
@@ -49,7 +49,7 @@ void BufferViewInStream::readData(void* target_buf, size_t num_bytes)
 {
 	if(num_bytes > 0)
 	{
-		if(read_index + num_bytes > data.size())
+		if(!canReadNBytes(num_bytes))
 			throw glare::Exception("Read past end of buffer.");
 
 		std::memcpy(target_buf, &data.data()[read_index], num_bytes);
@@ -64,6 +64,12 @@ bool BufferViewInStream::endOfStream()
 }
 
 
+bool BufferViewInStream::canReadNBytes(size_t N) const
+{
+	return ((read_index + N) <= data.size()) && !Maths::unsignedIntAdditionWraps(read_index, N);
+}
+
+
 void BufferViewInStream::setReadIndex(size_t i)
 {
 	if(i > data.size())
@@ -72,9 +78,17 @@ void BufferViewInStream::setReadIndex(size_t i)
 }
 
 
+void BufferViewInStream::advanceReadIndex(size_t n)
+{
+	if(!canReadNBytes(n)) // Does wrapping/overflow check and checks against file size.
+		throw glare::Exception("Invalid number of bytes to advance for advanceReadIndex - read past end of file.");
+	read_index += n;
+}
+
+
 uint16 BufferViewInStream::readUInt16()
 {
-	if(read_index + sizeof(uint16) > data.size())
+	if(!canReadNBytes(sizeof(uint16)))
 		throw glare::Exception("Read past end of file.");
 
 	uint16 x;

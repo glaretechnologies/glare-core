@@ -124,11 +124,11 @@ public:
 		if(n < 0)
 			throw glare::Exception("Invalid num bytes to read");
 
-		if(stream.getReadIndex() + (size_t)n > stream.size())
+		if(!stream.canReadNBytes((size_t)n))
 			throw glare::Exception("tried to read too many bytes");
 
 		char* ptr = (char*)stream.currentReadPtr();
-		stream.setReadIndex(stream.getReadIndex() + (size_t)n);
+		stream.advanceReadIndex((size_t)n);
 		return ptr;
 	}
 
