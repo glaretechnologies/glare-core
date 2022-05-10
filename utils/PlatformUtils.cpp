@@ -29,6 +29,7 @@ Copyright Glare Technologies Limited 2021 -
 	#ifndef OSX
 		#include <sys/sysinfo.h>
 		#include <sys/utsname.h>
+		#include <sys/syscall.h>
 	#endif
 
 	#include <sys/types.h>
@@ -904,12 +905,16 @@ uint64 PlatformUtils::getCurrentThreadID()
 {
 #if defined(_WIN32)
 	return GetCurrentThreadId();
-#else
+#elif defined(OSX)
 	// Mac, Linux:
 	uint64_t thread_id;
 	const int res = pthread_threadid_np(NULL, &thread_id);
 	assert(res == 0);
 	return thread_id;
+#else
+	// NOTE: pid_t is actually signed.  Improve this, or use pthread_equal, see https://stackoverflow.com/a/27238113
+	const pid_t tid = syscall(SYS_gettid);
+	return tid;
 #endif
 }
 
