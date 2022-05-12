@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <unordered_map>
 #include <list>
 #include <assert.h>
+#include <stdlib.h> // for size_t
 
 
 template <typename Key, typename Value>
