@@ -18,6 +18,7 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include "../utils/Vector.h"
 #include "../utils/IncludeHalf.h"
 #include "../utils/BufferInStream.h"
+#include "../utils/BufferViewInStream.h"
 #include "../utils/MemMappedFile.h"
 #include <ImathBox.h>
 #include <fstream>
@@ -89,7 +90,7 @@ public:
 	// to an internal buffer instead of copying data
 	// into a buffer supplied by the caller.
 	//-------------------------------------------------
-	virtual bool isMemoryMapped() const { return true; }
+	virtual bool isMemoryMapped() const { return false; } // NOTE: Have to return false here, as OpenEXR was causing crashes with it set to true.
 
 	//------------------------------------------------------
 	// Read from the stream:
@@ -166,7 +167,8 @@ public:
 	}
 
 	std::string filename;
-	BufferInStream stream; // Note that we need to have a buffer than OpenEXR can write to, as the DWAB decompressor writes back to the buffer.
+	//BufferInStream stream; // Note that we need to have a buffer than OpenEXR can write to, as the DWAB decompressor writes back to the buffer.
+	BufferViewInStream stream; // Use if we are not returning true from isMemoryMapped() - avoids a copy.
 	// So use BufferInStream which makes a copy
 };
 
@@ -301,11 +303,23 @@ Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, con
 
 		const Imf::PixelType use_pixel_type = channels.findChannel(channels_to_load_names[0])->type;
 
-		const unsigned int result_num_channels = (unsigned int)channels_to_load_names.size();
+		const size_t result_num_channels = channels_to_load_names.size();
 
-		Imath::Box2i dw = file.header().dataWindow();
-		const int width = dw.max.x - dw.min.x + 1;
+		const Imath::Box2i dw = file.header().dataWindow();
+		if(dw.min.x > dw.max.x || dw.min.y > dw.max.y)
+			throw ImFormatExcep("Invalid data window");
+		const int width  = dw.max.x - dw.min.x + 1;
 		const int height = dw.max.y - dw.min.y + 1;
+
+		if(width > 1000000)
+			throw glare::Exception("Width is too large: " + toString(width));
+		if(height > 1000000)
+			throw glare::Exception("Height is too large: " + toString(height));
+		const size_t max_num_pixels = 1 << 28;
+		if((size_t)width * (size_t)height > max_num_pixels)
+			throw glare::Exception("invalid width and height (too many pixels): " + toString(width) + ", " + toString(height));
+		if(result_num_channels > 100000)
+			throw glare::Exception("Num channels to load is too large: " + toString(result_num_channels));
 
 		Imf::FrameBuffer frameBuffer;
 
@@ -317,12 +331,15 @@ Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, con
 
 			const size_t x_stride = sizeof(float) * result_num_channels;
 			const size_t y_stride = sizeof(float) * result_num_channels * width;
+			float* channel_0_base = new_image->getData() + (-(intptr_t)dw.min.x - (intptr_t)dw.min.y * (intptr_t)width) * (intptr_t)result_num_channels;
 
 			for(size_t i=0; i<channels_to_load_names.size(); ++i)
 			{
-				frameBuffer.insert(channels_to_load_names[i],	// name
-					Imf::Slice(Imf::FLOAT,						// type
-						(char*)(new_image->getData() + i),		// base
+				frameBuffer.insert(
+					channels_to_load_names[i],			// name
+					Imf::Slice(
+						Imf::FLOAT,						// type
+						(char*)(channel_0_base + i),	// base
 						x_stride,
 						y_stride
 					)
@@ -339,14 +356,19 @@ Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, con
 			Reference<ImageMap<half, HalfComponentValueTraits> > new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, result_num_channels);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 
+			static_assert(sizeof(half) == 2);
 			const size_t x_stride = sizeof(half) * result_num_channels;
 			const size_t y_stride = sizeof(half) * result_num_channels * width;
 
+			half* channel_0_base = new_image->getData() + (-(intptr_t)dw.min.x - (intptr_t)dw.min.y * (intptr_t)width) * (intptr_t)result_num_channels;
+
 			for(size_t i=0; i<channels_to_load_names.size(); ++i)
 			{
-				frameBuffer.insert(channels_to_load_names[i],	// name
-					Imf::Slice(Imf::HALF,						// type
-					(char*)(new_image->getData() + i),		// base
+				frameBuffer.insert(
+					channels_to_load_names[i],			// name
+					Imf::Slice(
+						Imf::HALF,						// type
+						(char*)(channel_0_base + i),	// base
 						x_stride,
 						y_stride
 					)
@@ -556,7 +578,7 @@ void EXRDecoder::saveImageToEXR(const ImageMapFloat& image, const std::string& p
 
 #if 0
 // Command line:
-// C:\fuzz_corpus\exr N:\indigo\trunk\testfiles\EXRs
+// C:\fuzz_corpus\exr N:\indigo\trunk\testfiles\EXRs -rss_limit_mb=20000
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
@@ -760,6 +782,122 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 void EXRDecoder::test()
 {
 	conPrint("EXRDecoder::test()");
+
+	
+	// Test an EXR file with data window != visible window.
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/DisplayWindow/t08.exr");
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+
+	// Test all files in EXRs\openexr-images-master/Chromaticities
+	try
+	{
+		const auto paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/Chromaticities", "exr");
+		for(size_t i=0; i<paths.size(); ++i)
+		{
+			conPrint("Testing '" + paths[i] + "'...");
+			try
+			{
+				EXRDecoder::decode(paths[i]);
+			}
+			catch(ImFormatExcep& e)
+			{
+				conPrint("Caught excep: " + e.what());
+			}
+		}
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test all files in EXRs\openexr-images-master/DisplayWindow
+	try
+	{
+		const auto paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/DisplayWindow", "exr");
+		for(size_t i=0; i<paths.size(); ++i)
+		{
+			conPrint("Testing '" + paths[i] + "'...");
+			try
+			{
+				EXRDecoder::decode(paths[i]);
+			}
+			catch(ImFormatExcep& e)
+			{
+				conPrint("Caught excep: " + e.what());
+			}
+		}
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test all files in EXRs\openexr-images-master/Damaged
+	try
+	{
+		const auto paths = FileUtils::getFilesInDirFullPaths(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/Damaged");
+		for(size_t i=0; i<paths.size(); ++i)
+		{
+			conPrint("Testing file " + toString(i) + " / " + toString(paths.size()) + ": '" + paths[i] + "'...");
+			try
+			{
+				EXRDecoder::decode(paths[i]);
+			}
+			catch(ImFormatExcep& e)
+			{
+				conPrint("Caught expected excep: " + e.what());
+			}
+		}
+	}
+	catch(ImFormatExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	
+	// This EXR file used to allocate a lot of memory, lots per worker thread.
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/Damaged/clusterfuzz-testcase-minimized-openexr_exrcheck_fuzzer-4755804284649472");
+	}
+	catch(ImFormatExcep& e)
+	{
+	}
+
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/crash-3b663cdb256db6f3f9b7557611efc6f8adcf7ae7");
+
+		//failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/crash-0ea96c18289d944be2a8471c4be4dd23b7f6844b");
+
+		//failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
+
+	// This EXR file allocates about 5GB per OpenEXR worker thread.
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/crash-b24aa7f86b3301058d216148f3286a73f6130c08");
+
+		failTest("Shouldn't get here.");
+	}
+	catch(ImFormatExcep&)
+	{}
 
 	// Try with an OOM test failure
 	/*try

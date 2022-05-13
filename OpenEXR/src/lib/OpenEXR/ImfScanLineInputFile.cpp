@@ -1102,8 +1102,13 @@ void ScanLineInputFile::initialize(const Header& header)
         _data->linesInBuffer =
             numLinesInBuffer (comp);
 
-        int lineOffsetSize = (dataWindow.max.y - dataWindow.min.y +
-                              _data->linesInBuffer) / _data->linesInBuffer;
+        //int lineOffsetSize = (dataWindow.max.y - dataWindow.min.y +
+        //                      _data->linesInBuffer) / _data->linesInBuffer;
+        // GLARE NEW
+        uint64_t lineOffsetSize =
+            (static_cast<int64_t>(dataWindow.max.y) - static_cast<int64_t>(dataWindow.min.y) + static_cast<int64_t>(_data->linesInBuffer)) /
+            static_cast<int64_t>(_data->linesInBuffer);
+
 
         //
         // avoid allocating excessive memory due to large lineOffsets and bytesPerLine table sizes.
@@ -1132,6 +1137,13 @@ void ScanLineInputFile::initialize(const Header& header)
             throw IEX_NAMESPACE::InputExc("maximum bytes per scanline exceeds maximum permissible size");
         }
 
+
+        // GLARE NEW
+        const int num_lines_in_buffer = numLinesInBuffer(comp);
+        const size_t line_buffer_alloc_size = maxBytesPerLine * (size_t)num_lines_in_buffer;
+
+        if(line_buffer_alloc_size > 100000000)
+            throw IEX_NAMESPACE::InputExc("line_buffer_alloc_size is too large");
 
         //
         // allocate compressor objects

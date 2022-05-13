@@ -37,6 +37,7 @@
 #include <assert.h>
 #include "ImfInputPartData.h"
 #include "ImfNamespace.h"
+#include "ImfCheckedArithmetic.h" // GLARE NEW
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
@@ -1018,6 +1019,11 @@ TiledInputFile::initialize ()
     _data->tileDesc = _data->header.tileDescription();
     _data->lineOrder = _data->header.lineOrder();
 
+
+    // GLARE NEW
+    if(_data->tileDesc.ySize > 1000000)
+        throw IEX_NAMESPACE::ArgExc ("tileDesc.ySize is too large.");
+
     //
     // Save the dataWindow information
     //
@@ -1057,6 +1063,11 @@ TiledInputFile::initialize ()
     //
     // Create all the TileBuffers and allocate their internal buffers
     //
+
+    // GLARE NEW:
+    const size_t expected_buffer_size = uiMult((size_t)_data->maxBytesPerTileLine, (size_t)_data->tileDesc.ySize); // The newTileCompressor call below will allocate buffer(s) roughly this big
+    if(expected_buffer_size > 100000000) // ~ 100 MB
+        throw IEX_NAMESPACE::InputExc("tile expected_buffer_size is too large");
 
     for (size_t i = 0; i < _data->tileBuffers.size(); i++)
     {
