@@ -986,6 +986,14 @@ Header::sanityCheck (bool isTiled, bool isMultipartFile) const
 	throw IEX_NAMESPACE::ArgExc ("Invalid data window in image header.");
     }
 
+
+    if((int64_t)dataWindow.max.x - (int64_t)dataWindow.min.x > 1000000) // GLARE NEW.  NOTE: prevents overflow bug in DeepScanLineInputFile computing maxSampleCountTableSize
+        throw IEX_NAMESPACE::ArgExc("data window x span is too large.");
+
+    if((int64_t)dataWindow.max.y - (int64_t)dataWindow.min.y > 1000000) // GLARE NEW
+        throw IEX_NAMESPACE::ArgExc("dta window y span is too large.");
+
+
     int w = (dataWindow.max.x - dataWindow.min.x + 1);
     if (maxImageWidth > 0 && maxImageWidth < w)
     {

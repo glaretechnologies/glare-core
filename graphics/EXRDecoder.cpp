@@ -784,6 +784,33 @@ void EXRDecoder::test()
 	conPrint("EXRDecoder::test()");
 
 	
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/slow-unit-119922327e38b857c65f237b0ad0cedab8761fcd");
+	}
+	catch(ImFormatExcep& )
+	{
+	}
+
+	// Very large number of lines in image
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/oom-119922327e38b857c65f237b0ad0cedab8761fcd");
+	}
+	catch(ImFormatExcep& )
+	{
+	}
+
+	// A negatively sized alloc due to overflow:
+	try
+	{
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/crash-84e803c816272a4547539578494826c6d42bfb74");
+	}
+	catch(ImFormatExcep& )
+	{
+	}
+
+
 	// Test an EXR file with data window != visible window.
 	try
 	{
@@ -867,7 +894,7 @@ void EXRDecoder::test()
 	{
 		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/Damaged/clusterfuzz-testcase-minimized-openexr_exrcheck_fuzzer-4755804284649472");
 	}
-	catch(ImFormatExcep& e)
+	catch(ImFormatExcep&)
 	{
 	}
 
