@@ -21,8 +21,8 @@ AESEncryption::AESEncryption(const std::string& key_data, const std::string& sal
 	if(salt.size() < 8)
 		throw glare::Exception("Invalid salt size");
 
-	encrypt_context = new EVP_CIPHER_CTX;
-	decrypt_context = new EVP_CIPHER_CTX;
+	encrypt_context = EVP_CIPHER_CTX_new(); // new EVP_CIPHER_CTX;
+	decrypt_context = EVP_CIPHER_CTX_new(); // new EVP_CIPHER_CTX;
 
 	const int num_rounds = 5;
 	
@@ -34,8 +34,10 @@ AESEncryption::AESEncryption(const std::string& key_data, const std::string& sal
 	{
 		EVP_CIPHER_CTX_cleanup(encrypt_context);
 		EVP_CIPHER_CTX_cleanup(decrypt_context);
-		delete encrypt_context; encrypt_context = NULL;
-		delete decrypt_context; decrypt_context = NULL;
+		//delete encrypt_context; encrypt_context = NULL;
+		//delete decrypt_context; decrypt_context = NULL;
+		EVP_CIPHER_CTX_free(encrypt_context); encrypt_context = NULL;
+		EVP_CIPHER_CTX_free(decrypt_context); decrypt_context = NULL;
 		throw glare::Exception("Invalid key size");
 	}
 
@@ -52,8 +54,8 @@ AESEncryption::~AESEncryption()
 {
 	EVP_CIPHER_CTX_cleanup(encrypt_context);
 	EVP_CIPHER_CTX_cleanup(decrypt_context);
-	delete encrypt_context;
-	delete decrypt_context;
+	EVP_CIPHER_CTX_free(encrypt_context);
+	EVP_CIPHER_CTX_free(decrypt_context);
 }
 
 
