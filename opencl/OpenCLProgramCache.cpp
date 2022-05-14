@@ -15,6 +15,7 @@ Generated at 2016-10-14 15:08:16 +0100
 #include "../utils/IncludeXXHash.h"
 #include "../utils/Lock.h"
 #include "../utils/Mutex.h"
+#include <limits>
 
 
 static const bool DO_CACHING = true; // Can disable caching for debugging with this.
