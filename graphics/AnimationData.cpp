@@ -525,7 +525,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 	std::map<std::string, std::string> VRM_to_RPM_names;
 
-	for(int z=0; z<staticArrayNumElems(VRM_to_RPM_name_data); z += 2)
+	for(size_t z=0; z<staticArrayNumElems(VRM_to_RPM_name_data); z += 2)
 		VRM_to_RPM_names.insert(std::make_pair(VRM_to_RPM_name_data[z], VRM_to_RPM_name_data[z + 1]));
 
 
@@ -557,7 +557,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		"HandThumb4"
 	};
 
-	for(int z=0; z<staticArrayNumElems(finger_VRM_names); ++z)
+	for(size_t z=0; z<staticArrayNumElems(finger_VRM_names); ++z)
 	{
 		const std::string left_hand_name  = std::string("Left")  + finger_VRM_names[z];
 		const std::string right_hand_name = std::string("Right") + finger_VRM_names[z];
@@ -712,7 +712,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 	// Make map from RPM_bone_name to index
 	std::map<std::string, int> RPM_bone_name_to_index;
-	for(int z=0; z<staticArrayNumElems(RPM_bone_names); ++z)
+	for(size_t z=0; z<staticArrayNumElems(RPM_bone_names); ++z)
 		RPM_bone_name_to_index.insert(std::make_pair(RPM_bone_names[z], z));
 	
 
@@ -857,7 +857,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 				{
 					const int new_parent_i = old_to_new_node_index[old_node.parent_index];
 
-					const bool new_parent_is_new = new_parent_i >= initial_num_new_nodes;
+					const bool new_parent_is_new = new_parent_i >= (int)initial_num_new_nodes;
 
 					const int new_i = (int)nodes.size();
 					nodes.push_back(AnimationNodeData());
@@ -867,7 +867,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 					assert(new_parent_i < new_i);
 					this->sorted_nodes.push_back(new_i);
 
-					for(int z=0; z<this->animations.size(); ++z)
+					for(size_t z=0; z<this->animations.size(); ++z)
 					{
 						this->animations[z]->per_anim_node_data.push_back(PerAnimationNodeData());
 						this->animations[z]->per_anim_node_data.back().translation_input_accessor = -1;
@@ -1098,7 +1098,7 @@ Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use
 	const size_t num_nodes = sorted_nodes.size();
 	js::Vector<Matrix4f, 16> node_matrices(num_nodes);
 
-	for(int n=0; n<sorted_nodes.size(); ++n)
+	for(size_t n=0; n<sorted_nodes.size(); ++n)
 	{
 		const int node_i = sorted_nodes[n];
 		const AnimationNodeData& node_data = nodes[node_i];

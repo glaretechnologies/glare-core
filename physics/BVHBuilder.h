@@ -88,26 +88,27 @@ public:
 
 	virtual const ResultObIndicesVec& getResultObjectIndices() const = 0;
 
-	// Required stack size for traversal of the BVH will be max(1, max_leaf_depth)
-	// We will always require at least 1 entry in the stack since the root node is always pushed.
-	// We push a node onto the stack at interior nodes, not leaf nodes.
-	// Therefore the lowest level of leaf nodes does not contribute to the stack depth,
-	// so with e.g. 3 node levels (max depth=2), we require a stack size of 2.
-	//
-	//
-	//     depth
-	//       0            A
-	//                 /     \
-	//       1       B         C
-	//             /  \       /  \
-	//       2    D    E     F    G
-	//
-	//  Max size stack will look like
-	//
-	//       E
-	//       C
-	//
-	// upon traversal to D.
+	/* Required stack size for traversal of the BVH will be max(1, max_leaf_depth)
+	 We will always require at least 1 entry in the stack since the root node is always pushed.
+	 We push a node onto the stack at interior nodes, not leaf nodes.
+	 Therefore the lowest level of leaf nodes does not contribute to the stack depth,
+	 so with e.g. 3 node levels (max depth=2), we require a stack size of 2.
+	
+	
+	     depth
+	       0            A                   
+	                 /     \                
+	       1       B         C              
+	             /  \       /  \            
+	       2    D    E     F    G           
+	
+	  Max size stack will look like
+	
+	       E
+	       C
+	
+	 upon traversal to D.
+	*/
 	virtual int getMaxLeafDepth() const = 0; // Root node is considered to have depth 0.
 
 	virtual const js::AABBox getRootAABB() const = 0; // root AABB will have been computed after build() has been called. 

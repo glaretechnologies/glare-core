@@ -275,7 +275,6 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 
 	// Get normalisation factor for filter
 	float norm_factor = 1;
-	float precomputed_f_sum = 1;
 	{
 		int x_begin = 0 - r + 1;
 		int y_begin = 0 - r + 1;
@@ -298,7 +297,6 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 			f_sum += f;
 		}
 
-		precomputed_f_sum = f_sum;
 		norm_factor = 1 / f_sum;
 	}
 
@@ -512,7 +510,6 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 
 	// Get normalisation factor for filter
 	float norm_factor = 1;
-	float precomputed_f_sum = 1;
 	{
 		int x_begin = 0 - r + 1;
 		int y_begin = 0 - r + 1;
@@ -536,7 +533,6 @@ x_i-2      x_i-1       x_i       x_i+1      x_i+2       x_1+3
 			f_sum += f;
 		}
 
-		precomputed_f_sum = f_sum;
 		norm_factor = 1 / f_sum;
 	}
 
@@ -1397,9 +1393,9 @@ void ImageFilter::convolveImageFFTBySections(const Image& in, const Image& filte
 	Image temp_in (block_w, block_w);
 	Image temp_out(block_w, block_w);
 
-	for(int y=0; y<in.getHeight(); y+=fw_2)
+	for(int y=0; y<(int)in.getHeight(); y+=fw_2)
 	{
-		for(int x=0; x<in.getWidth(); x+=fw_2)
+		for(int x=0; x<(int)in.getWidth(); x+=fw_2)
 		{
 			conPrint("");
 			conPrint("Processing chunk x: " + toString(x) + ", y: " + toString(y));

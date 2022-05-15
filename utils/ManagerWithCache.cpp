@@ -253,7 +253,8 @@ void testManagerWithCache()
 
 		for(int i=0; i<N; ++i)
 		{
-			int key, val;
+			int key = -1;
+			int val = -1;
 			const bool removed = manager.removeLRUUnusedItem(key, val);
 			testAssert(removed);
 			testAssert(key == i && val == i);
