@@ -2595,6 +2595,7 @@ void StringUtils::test()
 	testAssert(equalCaseInsensitive("!", "!"));
 
 	testAssert(!equalCaseInsensitive("a", ""));
+	testAssert(!equalCaseInsensitive("", "a"));
 	testAssert(!equalCaseInsensitive("ab", ""));
 	testAssert(!equalCaseInsensitive("ab", "a"));
 	testAssert(!equalCaseInsensitive("ab", "abc"));
