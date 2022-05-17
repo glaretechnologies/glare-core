@@ -1775,6 +1775,9 @@ void OpenGLEngine::unloadAllData()
 
 	this->selected_objects.clear();
 
+	// null out the pointer to the opengl engine so the textures doesn't try and call textureBecameUnused() while we're clearing opengl_textures.
+	for(auto it = opengl_textures.begin(); it != opengl_textures.end(); ++it)
+		it->second.value->m_opengl_engine = NULL;
 	opengl_textures.clear();
 	texture_data_manager->clear();
 

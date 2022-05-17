@@ -677,8 +677,11 @@ size_t OpenGLTexture::getByteSize() const
 }
 
 
-void OpenGLTexture::textureBecameUnused() const
+void OpenGLTexture::textureRefCountDecreasedToOne() const
 {
+	// If m_opengl_engine is set, that means this texture was inserted into the opengl_texture ManagerWithCache.
+	// The ref count dropping to one means that the only reference held is by the opengl_texture ManagerWithCache.
+	// Therefore the texture is not used.
 	if(m_opengl_engine)
 		m_opengl_engine->textureBecameUnused(this);
 }

@@ -140,7 +140,7 @@ public:
 		assert(refcount >= 0);
 
 		if(refcount == 1)
-			textureBecameUnused();
+			textureRefCountDecreasedToOne();
 
 		return prev_ref_count;
 	}
@@ -151,7 +151,7 @@ public:
 		return refcount; 
 	}
 
-	void textureBecameUnused() const;
+	void textureRefCountDecreasedToOne() const;
 
 
 	uint64 getBindlessTextureHandle();
