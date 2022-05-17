@@ -356,7 +356,6 @@ Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, con
 			Reference<ImageMap<half, HalfComponentValueTraits> > new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, result_num_channels);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 
-			static_assert(sizeof(half) == 2);
 			const size_t x_stride = sizeof(half) * result_num_channels;
 			const size_t y_stride = sizeof(half) * result_num_channels * width;
 
