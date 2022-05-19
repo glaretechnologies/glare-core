@@ -2221,6 +2221,39 @@ bool OpenGLEngine::isObjectInCameraFrustum(const GLObject& ob)
 }
 
 
+Vec4f OpenGLEngine::getCameraPositionWS() const
+{
+	return current_scene->cam_to_world.getColumn(3);
+}
+
+
+bool OpenGLEngine::getWindowCoordsForWSPos(const Vec4f& pos_ws, Vec2f& coords_out) const
+{
+	const Vec4f pos_cs = current_scene->world_to_camera_space_matrix * pos_ws;
+
+	if(current_scene->camera_type == OpenGLScene::CameraType_Perspective)
+	{
+		const float right_ratio = pos_cs[0] / pos_cs[1];
+		const float up_ratio    = pos_cs[2] / pos_cs[1];
+
+		// NOTE: ignoring lens shift here.
+		const float frac_right = right_ratio / current_scene->use_sensor_width  * current_scene->lens_sensor_dist;
+		const float frac_up    = up_ratio    / current_scene->use_sensor_height * current_scene->lens_sensor_dist;
+
+		coords_out.x = (0.5f + frac_right) * main_viewport_w;
+		coords_out.y = (0.5f - frac_up)    * main_viewport_h;
+	}
+	else
+	{
+		// TODO
+		assert(0);
+		coords_out = Vec2f(0.f);
+	}
+
+	return pos_cs[1] > 0;
+}
+
+
 // If prog is not the current bound/used program, then bind it, and update current_bound_prog.
 // Returns true if prog was not the current bound program, and hence the currently bound program changed.
 bool OpenGLEngine::checkUseProgram(const OpenGLProgram* prog)

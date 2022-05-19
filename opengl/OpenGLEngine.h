@@ -601,6 +601,15 @@ public:
 	bool isObjectInCameraFrustum(const GLObject& object);
 	//----------------------------------------------------------------------------------------
 
+
+	//---------------------------- Camera queries --------------------------------------------
+	Vec4f getCameraPositionWS() const;
+
+	// Return window coordinates - e.g. coordinates in the viewport, for a given world space position.  (0,0) is the top left of the viewport.
+	bool getWindowCoordsForWSPos(const Vec4f& pos_ws, Vec2f& coords_out) const; // Returns true if in front of camera
+	//----------------------------------------------------------------------------------------
+
+
 	//---------------------------- Texture loading -------------------------------------------
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
 	// Throws glare::Exception
