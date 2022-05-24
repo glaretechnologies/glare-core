@@ -854,6 +854,20 @@ const std::string getExtension(const std::string& filename)
 }
 
 
+string_view getExtensionStringView(const std::string& path) // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
+{
+	const std::string::size_type dot_index = path.find_last_of('.');
+
+	if(dot_index == std::string::npos)
+		return string_view();
+	else
+	{
+		assert(dot_index < path.size());
+		return string_view(path.data() + dot_index + 1, path.size() - dot_index - 1);
+	}
+}
+
+
 const std::string eatExtension(const std::string& filename)
 {
 	const std::string::size_type dot_index = filename.find_last_of('.');
@@ -2626,7 +2640,16 @@ void StringUtils::test()
 	testAssert(getExtension(".jpg") == "jpg");
 	testAssert(getExtension("jpg") == "");
 	testAssert(getExtension("") == "");
+	testAssert(getExtension(".") == "");
 	testAssert(getExtension("test.a.jpg") == "jpg");
+	
+	//========================== getExtension ==========================
+	testAssert(getExtensionStringView("test.jpg") == "jpg");
+	testAssert(getExtensionStringView(".jpg") == "jpg");
+	testAssert(getExtensionStringView("jpg") == "");
+	testAssert(getExtensionStringView("") == "");
+	testAssert(getExtensionStringView(".") == "");
+	testAssert(getExtensionStringView("test.a.jpg") == "jpg");
 
 	//========================== eatExtension (remove extension) ==========================
 	testAssert(eatExtension("test") == "test");

@@ -149,6 +149,7 @@ char toLowerCase(char c);
 char toUpperCase(char c);
 
 const std::string getExtension(const std::string& filename); // Returns everything after the last dot.
+string_view getExtensionStringView(const std::string& path); // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
 
 const std::string eatExtension(const std::string& filename);
 const std::string removeDotAndExtension(const std::string& filename);
