@@ -16,14 +16,14 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 	URL result;
 	result.port = -1;
 
-	Parser parser(url.data(), (unsigned int)url.size());
+	Parser parser(url.data(), url.size());
 
 	//---------------- Parse scheme ----------------
 	const size_t scheme_terminator_pos = url.find("://");
 	if(scheme_terminator_pos != std::string::npos)
 	{
 		result.scheme = url.substr(0, scheme_terminator_pos);
-		parser.setCurrentPos((unsigned int)scheme_terminator_pos + 3);
+		parser.setCurrentPos(scheme_terminator_pos + 3);
 	}
 
 	//---------------- Parse host ----------------
