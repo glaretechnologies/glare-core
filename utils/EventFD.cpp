@@ -8,6 +8,8 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "Exception.h"
 #include "PlatformUtils.h"
+#include "StringUtils.h"
+#include "ConPrint.h"
 
 
 #if defined(_WIN32) || defined(OSX)
@@ -15,6 +17,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <sys/eventfd.h>
 #include <unistd.h>
 #endif
+#include <assert.h>
 
 
 EventFD::EventFD()
@@ -57,7 +60,8 @@ uint64 EventFD::read()
 #if defined(_WIN32) || defined(OSX)
 #else
 	uint64 val;
-	::read(efd, &val, 8);
+	const ssize_t res = ::read(efd, &val, 8); // Note that this returns the number of bytes read, or an error code.
+	assert(res == 8);
 	return val;
 #endif
 	return 0;
