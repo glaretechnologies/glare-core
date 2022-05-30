@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"
 #include <vector>
+#include <stdlib.h>
 class VBO;
 
 
