@@ -6,11 +6,12 @@ Copyright Glare Technologies Limited 2020 -
 #pragma once
 
 
-#include "IncludeOpenGL.h"
-#include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
+#include "BasicOpenGLTypes.h"
+#include "OpenGLMeshRenderData.h"
 #include "TextureLoading.h"
 #include "OpenGLTexture.h"
 #include "OpenGLProgram.h"
+#include "GLMemUsage.h"
 #include "ShadowMapping.h"
 #include "VertexBufferAllocator.h"
 #include "DrawIndirectBuffer.h"
@@ -49,84 +50,6 @@ class UInt8ComponentValueTraits;
 class TerrainSystem;
 template <class V, class VTraits> class ImageMap;
 
-
-// Data for a bunch of triangles from a given mesh, that all share the same material.
-class OpenGLBatch
-{
-public:
-	uint32 material_index;
-	uint32 prim_start_offset; // Offset in bytes from the start of the index buffer.
-	uint32 num_indices; // Number of vertex indices (= num triangles/3).
-};
-
-
-struct GLMemUsage
-{
-	GLMemUsage() : geom_cpu_usage(0), geom_gpu_usage(0), texture_cpu_usage(0), texture_gpu_usage(0), sum_unused_tex_gpu_usage(0) {}
-
-	size_t geom_cpu_usage;
-	size_t geom_gpu_usage;
-
-	size_t texture_cpu_usage;
-	size_t texture_gpu_usage;
-	size_t sum_unused_tex_gpu_usage;
-
-	size_t totalCPUUsage() const;
-	size_t totalGPUUsage() const;
-
-	void operator += (const GLMemUsage& other);
-};
-
-
-// OpenGL data for a given mesh.
-class OpenGLMeshRenderData : public ThreadSafeRefCounted
-{
-public:
-	OpenGLMeshRenderData() : has_vert_colours(false), num_materials_referenced(0) {}
-
-	GLARE_ALIGNED_16_NEW_DELETE
-
-	GLMemUsage getTotalMemUsage() const;
-	size_t GPUVertMemUsage() const;
-	size_t GPUIndicesMemUsage() const;
-	size_t getNumVerts() const; // Just for testing/debugging.
-	size_t getVertStrideB() const;
-	size_t getNumTris() const; // Just for testing/debugging.
-	
-	bool usesSkinning() const { return !animation_data.joint_nodes.empty(); } // TEMP HACK
-
-	js::AABBox aabb_os; // Should go first as is aligned.
-	
-	js::Vector<uint8, 16> vert_data;
-
-	VertBufAllocationHandle vbo_handle;
-
-	js::Vector<uint32, 16> vert_index_buffer;
-	js::Vector<uint16, 16> vert_index_buffer_uint16;
-	js::Vector<uint8, 16> vert_index_buffer_uint8;
-
-	IndexBufAllocationHandle indices_vbo_handle;
-
-	VAORef individual_vao; // Just for Mac
-
-	std::vector<OpenGLBatch> batches;
-	bool has_uvs;
-	bool has_shading_normals;
-	bool has_vert_colours;
-	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
-
-	VertexSpec vertex_spec;
-	
-	// If this is non-null, load vertex and index data directly from batched_mesh instead of from vert_data and vert_index_buffer etc..
-	// We take this approach to avoid copying the data from batched_mesh to vert_data etc..
-	Reference<BatchedMesh> batched_mesh;
-
-	AnimationData animation_data;
-
-	size_t num_materials_referenced;
-};
-
-typedef Reference<OpenGLMeshRenderData> OpenGLMeshRenderDataRef;
 
 
 struct OpenGLUniformVal // variant class
@@ -242,8 +165,8 @@ struct GLObject : public ThreadSafeRefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLObject() : object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
-		num_instances_to_draw(0), always_visible(false) {}
+	GLObject();
+	~GLObject();
 
 	void enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size); // Enables instancing attributes, and builds vert_vao.
 
@@ -694,10 +617,10 @@ public:
 
 
 	//----------------------------------- Mesh functions -------------------------------------
-	Reference<OpenGLMeshRenderData> getLineMeshData() { return line_meshdata; } // A line from (0, 0, 0) to (1, 0, 0)
-	Reference<OpenGLMeshRenderData> getSphereMeshData() { return sphere_meshdata; }
-	Reference<OpenGLMeshRenderData> getCubeMeshData() { return cube_meshdata; }
-	Reference<OpenGLMeshRenderData> getUnitQuadMeshData() { return unit_quad_meshdata; } // A quad from (0, 0, 0) to (1, 1, 0)
+	Reference<OpenGLMeshRenderData> getLineMeshData(); // A line from (0, 0, 0) to (1, 0, 0)
+	Reference<OpenGLMeshRenderData> getSphereMeshData();
+	Reference<OpenGLMeshRenderData> getCubeMeshData();
+	Reference<OpenGLMeshRenderData> getUnitQuadMeshData(); // A quad from (0, 0, 0) to (1, 1, 0)
 	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 
 	static Matrix4f arrowObjectTransform(const Vec4f& startpos, const Vec4f& endpos, float radius_scale);

@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits>
+#include <algorithm>
 
 
 float stringToFloat(const std::string& s) // throws StringUtilsExcep

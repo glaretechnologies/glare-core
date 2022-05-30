@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
-#include "IncludeOpenGL.h"
+#include "BasicOpenGLTypes.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"
@@ -21,7 +21,7 @@ class VBO : public RefCounted
 {
 public:
 	// data can be NULL
-	VBO(const void* data, size_t size, GLenum buffer_type = GL_ARRAY_BUFFER, GLenum usage = GL_STATIC_DRAW);
+	VBO(const void* data, size_t size, GLenum buffer_type = /*GL_ARRAY_BUFFER=*/0x8892, GLenum usage = /*GL_STATIC_DRAW=*/0x88E4);
 	~VBO();
 
 

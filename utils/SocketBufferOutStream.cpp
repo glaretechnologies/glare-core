@@ -17,7 +17,9 @@ Generated at 2013-01-27 17:56:55 +0000
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <winsock.h>
 #else
 #include <netinet/in.h>

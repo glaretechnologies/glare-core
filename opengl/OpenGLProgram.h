@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
-#include "IncludeOpenGL.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/StringUtils.h"
@@ -114,7 +113,7 @@ public:
 
 	void appendUserUniformInfo(UserUniformInfo::UniformType uniform_type, const std::string& name);
 
-	GLuint program;
+	/*GLuint*/unsigned int program;
 private:
 	GLARE_DISABLE_COPY(OpenGLProgram);
 public:

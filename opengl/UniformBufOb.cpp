@@ -6,6 +6,9 @@ Copyright Glare Technologies Limited 2021 -
 #include "UniformBufOb.h"
 
 
+#include "IncludeOpenGL.h"
+
+
 UniformBufOb::UniformBufOb()
 :	handle(0),
 	allocated_size(0)

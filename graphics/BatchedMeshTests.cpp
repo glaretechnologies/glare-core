@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/PlatformUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
+#include <algorithm>
 
 
 static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)

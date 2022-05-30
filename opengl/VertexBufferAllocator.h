@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
-#include "IncludeOpenGL.h"
+#include "BasicOpenGLTypes.h"
 #include "VAO.h"
 #include "VBO.h"
 #include "../utils/RefCounted.h"

@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "VAO.h"
 
 
+#include "IncludeOpenGL.h"
 #include "VBO.h"
 
 

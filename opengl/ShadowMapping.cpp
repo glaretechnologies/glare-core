@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "ShadowMapping.h"
 
 
+#include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
 
 

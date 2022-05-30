@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "VertexBufferAllocator.h"
 
 
+#include "IncludeOpenGL.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Check.h"

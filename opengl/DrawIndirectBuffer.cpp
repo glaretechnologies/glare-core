@@ -6,6 +6,9 @@ Copyright Glare Technologies Limited 2022 -
 #include "DrawIndirectBuffer.h"
 
 
+#include "IncludeOpenGL.h"
+
+
 DrawIndirectBuffer::DrawIndirectBuffer()
 :	handle(0),
 	allocated_size(0)

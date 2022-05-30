@@ -6,12 +6,14 @@ Copyright Glare Technologies Limited 2020 -
 #include "OpenGLEngine.h"
 
 
+#include "IncludeOpenGL.h"
 #include "OpenGLProgram.h"
 #include "OpenGLShader.h"
 #include "ShadowMapping.h"
 #include "TextureLoading.h"
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
+#include "OpenGLMeshRenderData.h"
 //#include "TerrainSystem.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
@@ -70,6 +72,15 @@ static const bool MEM_PROFILE = false;
 #define VBO_FREE_MEMORY_ATI								0x87FB
 #define TEXTURE_FREE_MEMORY_ATI							0x87FC
 
+
+GLObject::GLObject()
+	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
+	num_instances_to_draw(0), always_visible(false)
+{}
+
+
+GLObject::~GLObject()
+{}
 
 
 void GLObject::enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size)
@@ -4596,6 +4607,12 @@ void OpenGLEngine::draw()
 
 	//PerformanceAPI_EndEvent();
 }
+
+
+Reference<OpenGLMeshRenderData> OpenGLEngine::getLineMeshData() { return line_meshdata; } // A line from (0, 0, 0) to (1, 0, 0)
+Reference<OpenGLMeshRenderData> OpenGLEngine::getSphereMeshData() { return sphere_meshdata; }
+Reference<OpenGLMeshRenderData> OpenGLEngine::getCubeMeshData() { return cube_meshdata; }
+Reference<OpenGLMeshRenderData> OpenGLEngine::getUnitQuadMeshData() { return unit_quad_meshdata; } // A quad from (0, 0, 0) to (1, 1, 0)
 
 
 Reference<OpenGLMeshRenderData> OpenGLEngine::getCylinderMesh() // A cylinder from (0,0,0), to (0,0,1) with radius 1;

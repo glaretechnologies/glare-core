@@ -6,8 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
-#include "IncludeOpenGL.h"
-#include "../utils/IncludeWindows.h" // This needs to go first for NOMINMAX.
+#include "BasicOpenGLTypes.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"

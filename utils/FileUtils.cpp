@@ -32,6 +32,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <stdlib.h>
 #include <assert.h>
 #include <fstream>
+#include <algorithm>
 
 
 namespace FileUtils

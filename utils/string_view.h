@@ -9,7 +9,6 @@ Copyright Glare Technologies Limited 2021 -
 #include <string>
 #include <cassert>
 #include <cstring>
-#include <algorithm>
 
 
 /*
@@ -82,7 +81,9 @@ char string_view::operator [] (size_t index) const
 
 string_view string_view::substr(size_t pos, size_t n) const
 {
-    return string_view(data() + pos, std::min(n, size() - pos));
+	assert(pos < size_);
+	const size_t remaining = size_ - pos;
+	return string_view(data() + pos, (n < remaining) ? n : remaining/*std::min(n, size() - pos)*/); // Avoid including algorithm or mathstypes just for min().
 }
 
 

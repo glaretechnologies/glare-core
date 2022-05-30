@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2022 -
 
 #include "OpenGLEngine.h"
 #include "GLMeshBuilding.h"
+#include "OpenGLMeshRenderData.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/DXTCompression.h"
 #include "../maths/mathstypes.h"

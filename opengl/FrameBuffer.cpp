@@ -6,6 +6,9 @@ Copyright Glare Technologies Limited 2016 -
 #include "FrameBuffer.h"
 
 
+#include "IncludeOpenGL.h"
+
+
 FrameBuffer::FrameBuffer()
 :	buffer_name(0),
 	xres(0),

@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #pragma once
 
 
-#include "IncludeOpenGL.h"
+#include "BasicOpenGLTypes.h"
 #include "OpenGLTexture.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"

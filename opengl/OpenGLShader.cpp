@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "OpenGLShader.h"
 
 
+#include "IncludeOpenGL.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"

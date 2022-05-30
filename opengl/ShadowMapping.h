@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
-#include "IncludeOpenGL.h"
+#include "BasicOpenGLTypes.h"
 #include "FrameBuffer.h"
 #include "OpenGLTexture.h"
 #include "../utils/RefCounted.h"

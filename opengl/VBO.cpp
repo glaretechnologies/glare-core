@@ -6,6 +6,9 @@ Copyright Glare Technologies Limited 2022 -
 #include "VBO.h"
 
 
+#include "IncludeOpenGL.h"
+
+
 VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage)
 :	buffer_name(0),
 	buffer_type(buffer_type_),

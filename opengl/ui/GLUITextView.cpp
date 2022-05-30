@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "GLUI.h"
+#include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"

@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2019 -
 
 
 #include "OpenGLEngine.h"
+#include "OpenGLTexture.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/DXTCompression.h"
 #include "../maths/mathstypes.h"

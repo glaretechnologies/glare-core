@@ -18,7 +18,9 @@ Copyright Glare Technologies Limited 2021 -
 
 
 // Try and cut down the number of header files included by windows.h
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 
 #include <windows.h>
 

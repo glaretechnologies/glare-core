@@ -1,7 +1,14 @@
+/*=====================================================================
+OpenGLTexture.cpp
+-----------------
+Copyright Glare Technologies Limited 2022 -
+=====================================================================*/
 #include "OpenGLTexture.h"
 
 
+#include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
+#include "OpenGLMeshRenderData.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 

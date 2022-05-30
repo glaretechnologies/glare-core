@@ -110,6 +110,21 @@ void testStringView()
 			testAssert(v2.to_string() == std::string(""));
 		}
 	}
+
+	//==================================== Test substr ====================================
+	{
+		testAssert(string_view("").substr(0, 0) == std::string(""));
+		testAssert(string_view("a").substr(0, 0) == std::string(""));
+		testAssert(string_view("a").substr(0, 1) == std::string("a"));
+		testAssert(string_view("ab").substr(0, 1) == std::string("a"));
+		testAssert(string_view("ab").substr(1, 1) == std::string("b"));
+		testAssert(string_view("ab").substr(0, 2) == std::string("ab"));
+
+		// Test n being greater than the number of remaining chars, in this case just returns all remaining chars.
+		testAssert(string_view("").substr(0, 10) == std::string(""));
+		testAssert(string_view("ab").substr(0, 10) == std::string("ab"));
+		testAssert(string_view("ab").substr(1, 10) == std::string("b"));
+	}
 }
 
 

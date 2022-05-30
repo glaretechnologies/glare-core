@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "GLUIButton.h"
 
 
+#include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"

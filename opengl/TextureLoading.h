@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2019 -
 #include <map>
 
 
+class OpenGLTexture;
 class OpenGLEngine;
 namespace DXTCompression { struct TempData; }
 
