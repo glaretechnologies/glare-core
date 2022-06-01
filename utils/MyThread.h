@@ -8,19 +8,10 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "ThreadSafeRefCounted.h"
 #include "Reference.h"
-#include "Exception.h"
 #include "IncludeWindows.h"
 #if !defined(_WIN32)
 #include <pthread.h>
 #endif
-#include <string>
-
-
-class MyThreadExcep : public glare::Exception
-{
-public:
-	MyThreadExcep(const std::string& text_) : glare::Exception(text_) {}
-};
 
 
 /*=====================================================================
@@ -52,12 +43,12 @@ public:
 		Priority_Idle
 	};
 	// Set the priority of this thread
-	void setPriority(Priority p); // throws MyThreadExcep
+	void setPriority(Priority p); // throws glare::Exception
 
 #if defined(_WIN32)
 	HANDLE getHandle() { return thread_handle; }
 
-	void setAffinity(int32 group, uint64 proc_affinity_mask); // throws MyThreadExcep
+	void setAffinity(int32 group, uint64 proc_affinity_mask); // throws glare::Exception
 #endif
 
 private:

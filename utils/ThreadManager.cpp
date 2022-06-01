@@ -95,7 +95,7 @@ void ThreadManager::addThread(const Reference<MessageableThread>& t)
 		// Launch the thread
 		t->launch();
 	}
-	catch(MyThreadExcep& e)
+	catch(glare::Exception& e)
 	{
 		// Thread could not be created for some reason.
 
@@ -237,7 +237,7 @@ void ThreadManager::test()
 			conPrint("num_runs: " + toString(num_runs));
 		}
 	}
-	catch(MyThreadExcep& e)
+	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}

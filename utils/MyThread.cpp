@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "StringUtils.h"
 #include "PlatformUtils.h"
+#include "Exception.h"
 #if BUGSPLAT_SUPPORT
 #include <BugSplat.h>
 #endif
@@ -94,7 +95,7 @@ void MyThread::launch()
 	);
 
 	if(thread_handle == 0)
-		throw MyThreadExcep("Thread creation failed.");
+		throw glare::Exception("Thread creation failed.");
 #else
 	const int result = pthread_create(
 		&thread_handle, // Thread
@@ -105,13 +106,13 @@ void MyThread::launch()
 	if(result != 0)
 	{
 		if(result == EAGAIN)
-			throw MyThreadExcep("Thread creation failed.  (EAGAIN)");
+			throw glare::Exception("Thread creation failed.  (EAGAIN)");
 		else if(result == EINVAL)
-			throw MyThreadExcep("Thread creation failed.  (EINVAL)");
+			throw glare::Exception("Thread creation failed.  (EINVAL)");
 		else if(result == EPERM)
-			throw MyThreadExcep("Thread creation failed.  (EPERM)");
+			throw glare::Exception("Thread creation failed.  (EPERM)");
 		else
-			throw MyThreadExcep("Thread creation failed.  (Error code: " + toString(result) + ")");
+			throw glare::Exception("Thread creation failed.  (Error code: " + toString(result) + ")");
 	}
 #endif
 }
@@ -147,15 +148,15 @@ void MyThread::setPriority(Priority p)
 	}
 	const BOOL res = ::SetThreadPriority(thread_handle, pri);
 	if(res == 0)
-		throw MyThreadExcep("SetThreadPriority failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("SetThreadPriority failed: " + PlatformUtils::getLastErrorString());
 #else
-	throw MyThreadExcep("Can't change thread priority after creation on Linux or OS X");
+	throw glare::Exception("Can't change thread priority after creation on Linux or OS X");
 	/*// Get current priority
 	int policy;
 	sched_param param;
 	const int ret = pthread_getschedparam(thread_handle, &policy, &param);
 	if(ret != 0)
-		throw MyThreadExcep("pthread_getschedparam failed: " + toString(ret));
+		throw glare::Exception("pthread_getschedparam failed: " + toString(ret));
 	std::cout << "param.sched_priority: " << param.sched_priority << std::endl;
 
 	std::cout << "SCHED_OTHER: " << SCHED_OTHER << std::endl;
@@ -166,7 +167,7 @@ void MyThread::setPriority(Priority p)
 	param.sched_priority = -1;
 	const int res = pthread_setschedparam(thread_handle, policy, &param);
 	if(res != 0)
-		throw MyThreadExcep("pthread_setschedparam failed: " + toString(res));*/
+		throw glare::Exception("pthread_setschedparam failed: " + toString(res));*/
 #endif
 }
 
@@ -180,6 +181,6 @@ void MyThread::setAffinity(int32 group, uint64 proc_affinity_mask)
 	affinity.Mask = proc_affinity_mask;
 
 	if(SetThreadGroupAffinity(thread_handle, &affinity, NULL) == 0)
-		throw MyThreadExcep("SetThreadGroupAffinity failed: " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("SetThreadGroupAffinity failed: " + PlatformUtils::getLastErrorString());
 }
 #endif

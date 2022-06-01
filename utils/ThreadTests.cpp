@@ -304,13 +304,9 @@ void ThreadTests::test()
 			testAssert(queue.empty());
 			conPrint(toString(timer.getSecondsElapsed()));
 		}
-		catch(MyThreadExcep& )
-		{		
-			failTest("MyThreadExcep");
-		}
 		catch(...)
 		{
-			failTest("Other exception");
+			failTest("exception");
 		}
 
 		//delete reader;
