@@ -11,7 +11,6 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"
 #include <stdlib.h>
-#include <vector>
 
 
 /*=====================================================================

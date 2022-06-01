@@ -12,7 +12,6 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../maths/Matrix4f.h"
-#include <string>
 class OpenGLShader;
 
 

@@ -10,13 +10,12 @@ Copyright Glare Technologies Limited 2016 -
 #include "OpenGLTexture.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
-#include <string>
 class OpenGLShader;
 
 
 /*=====================================================================
 FrameBuffer
----------
+-----------
 
 =====================================================================*/
 class FrameBuffer : public RefCounted

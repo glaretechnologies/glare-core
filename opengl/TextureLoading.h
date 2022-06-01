@@ -13,14 +13,13 @@ Copyright Glare Technologies Limited 2019 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Mutex.h"
-#include "../utils/TaskManager.h"
-#include <unordered_set>
 #include <map>
 
 
 class OpenGLTexture;
 class OpenGLEngine;
 namespace DXTCompression { struct TempData; }
+namespace glare { class TaskManager; }
 
 
 class TextureFrameData
