@@ -1240,8 +1240,7 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 	for(size_t b=0; b<batches.size(); ++b)
 	{
 		const IndicesBatch& batch = batches[b];
-		if((size_t)batch.indices_start >= num_indices)
-			throw glare::Exception("Invalid batch indices_start");
+
 		if((size_t)batch.indices_start + (size_t)batch.num_indices > num_indices)
 			throw glare::Exception("Invalid batch index range");
 
