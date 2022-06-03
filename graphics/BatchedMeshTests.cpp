@@ -190,7 +190,7 @@ inline static const Indigo::Vec3f BMeshUnpackNormal(const uint32 packed_normal)
 
 #if 0
 // Command line:
-// C:\fuzz_corpus\bmesh -max_len=1000000 -seed=1
+// C:\fuzz_corpus\bmesh -max_len=1000000
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
@@ -205,6 +205,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	{
 		BatchedMesh batched_mesh;
 		BatchedMesh::readFromData(data, size, batched_mesh);
+
+		batched_mesh.checkValidAndSanitiseMesh();
 	}
 	catch(glare::Exception& )
 	{

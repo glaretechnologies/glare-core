@@ -55,6 +55,11 @@ public:
 
 	static void readFromData(const void* data, size_t data_len, BatchedMesh& mesh_out);
 
+	// Check vertex, joint indices are in bounds etc.
+	// Throws glare::Exception on invalid mesh.
+	// May also change vertex joint weights so they sum to 1.
+	void checkValidAndSanitiseMesh();
+
 	// Builds a BatchedMesh from an Indigo::Mesh.
 	// Any quads are converted to triangles.
 	// Merges any vertices with the same position and UVs.
@@ -237,7 +242,7 @@ uint32 BatchedMesh::getIndexAsUInt32(size_t i) const
 	case ComponentType_UInt8:
 		return (uint32)index_data[i];
 	case ComponentType_UInt16:
-		return (uint32)((uint16*)index_data.data())[i];
+		return (uint32)(((uint16*)index_data.data())[i]);
 	//case ComponentType_UInt32:
 	default:
 		return ((uint32*)index_data.data())[i];

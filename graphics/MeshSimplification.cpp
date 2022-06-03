@@ -1,7 +1,7 @@
 /*=====================================================================
 MeshSimplification.cpp
 ----------------------
-Copyright Glare Technologies Limited 2021
+Copyright Glare Technologies Limited 2022
 =====================================================================*/
 #include "MeshSimplification.h"
 
@@ -27,7 +27,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	simplified_mesh->vert_attributes = mesh.vert_attributes;
 	simplified_mesh->aabb_os = mesh.aabb_os;
 
-	const size_t vertex_size = mesh.vertexSize();
+	const size_t vertex_size = mesh.vertexSize(); // In bytes
 	 
 	js::Vector<uint32, 16> new_indices;
 	new_indices.reserve(mesh.numIndices());
@@ -37,23 +37,33 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 	std::vector<unsigned int> new_vert_index(mesh.numVerts(), 0xFFFFFFFFu); // Map from old vert index to new vert index, or -1 if not used
 
+	const BatchedMesh::VertAttribute& pos_attr = mesh.getAttribute(BatchedMesh::VertAttribute_Position);
+	if(pos_attr.component_type != BatchedMesh::ComponentType_Float)
+		throw glare::Exception("Mesh simplification needs float position type.");
+
+	js::Vector<uint32, 16> temp_batch_indices;
+	js::Vector<uint32, 16> simplified_indices;
 	for(size_t b=0; b<mesh.batches.size(); ++b)
 	{
 		const BatchedMesh::IndicesBatch& batch = mesh.batches[b];
 
-		std::vector<uint32> indices(batch.num_indices);
-		for(size_t i=0; i<indices.size(); ++i)
-			indices[i] = mesh.getIndexAsUInt32(batch.indices_start + i);
+		if((batch.num_indices % 3) != 0)
+			throw glare::Exception("Mesh simplification requires batch num indices to be a multiple of 3.");
 
-		const size_t target_index_count = (size_t)(indices.size() / target_reduction_ratio);
+		// Build vector of uint32 indices for this batch
+		temp_batch_indices.resizeNoCopy(batch.num_indices);
+		for(size_t i=0; i<(size_t)batch.num_indices; ++i)
+			temp_batch_indices[i] = mesh.getIndexAsUInt32(batch.indices_start + i);
+
+		const size_t target_index_count = (size_t)(temp_batch_indices.size() / target_reduction_ratio);
 		float result_error = 0;
 
-		std::vector<uint32> simplified_indices(indices.size());
+		simplified_indices.resizeNoCopy(temp_batch_indices.size());
 		size_t res_num_indices;
 		if(sloppy)
 		{
-			res_num_indices = meshopt_simplifySloppy(simplified_indices.data(), indices.data(), indices.size(),
-				(const float*)&mesh.vertex_data[mesh.findAttribute(BatchedMesh::VertAttribute_Position)->offset_B], // vert positions
+			res_num_indices = meshopt_simplifySloppy(/*destination=*/simplified_indices.data(), temp_batch_indices.data(), temp_batch_indices.size(),
+				(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
 				mesh.numVerts(), // vert count
 				mesh.vertexSize(), // vert stride
 				target_index_count,
@@ -63,8 +73,8 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		}
 		else
 		{
-			res_num_indices = meshopt_simplify(simplified_indices.data(), indices.data(), indices.size(),
-				(const float*)&mesh.vertex_data[mesh.findAttribute(BatchedMesh::VertAttribute_Position)->offset_B], // vert positions
+			res_num_indices = meshopt_simplify(/*destination=*/simplified_indices.data(), temp_batch_indices.data(), temp_batch_indices.size(),
+				(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
 				mesh.numVerts(), // vert count
 				mesh.vertexSize(), // vert stride
 				target_index_count,
@@ -141,13 +151,16 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 	simplified_mesh->animation_data = mesh.animation_data;
 
-	conPrint("-------------- simplified mesh ------------");
-	conPrint("Original num indices: " + toString(mesh.numIndices()));
-	conPrint("new num indices:      " + toString(simplified_mesh->numIndices()));
-	conPrint("reduction ratio:      " + toString((float)mesh.numIndices() / simplified_mesh->numIndices()));
-	conPrint("Original num verts:   " + toString(mesh.numVerts()));
-	conPrint("new num verts:        " + toString(simplified_mesh->numVerts()));
-	conPrint("reduction ratio:      " + toString((float)mesh.numVerts() / simplified_mesh->numVerts()));
+	if(false)
+	{
+		conPrint("-------------- simplified mesh ------------");
+		conPrint("Original num indices: " + toString(mesh.numIndices()));
+		conPrint("new num indices:      " + toString(simplified_mesh->numIndices()));
+		conPrint("reduction ratio:      " + toString((float)mesh.numIndices() / simplified_mesh->numIndices()));
+		conPrint("Original num verts:   " + toString(mesh.numVerts()));
+		conPrint("new num verts:        " + toString(simplified_mesh->numVerts()));
+		conPrint("reduction ratio:      " + toString((float)mesh.numVerts() / simplified_mesh->numVerts()));
+	}
 
 	return simplified_mesh;
 }
@@ -248,8 +261,45 @@ void buildLODVersions(const std::string& src_path)
 }
 
 
+#if 0
+// Command line:
+// C:\fuzz_corpus\mesh_simplification
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	Clock::init();
+	return 0;
+}
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		BatchedMesh batched_mesh;
+		BatchedMesh::readFromData(data, size, batched_mesh);
+
+		batched_mesh.checkValidAndSanitiseMesh();
+
+		// From generateLODModel() in LodGeneration.cpp:
+
+		buildSimplifiedMesh(batched_mesh, /*target_reduction_ratio=*/10.f, /*target_error=*/0.02f, /*sloppy=*/false);
+
+		buildSimplifiedMesh(batched_mesh, /*target_reduction_ratio=*/10.f, /*target_error=*/0.02f, /*sloppy=*/true);
+
+		buildSimplifiedMesh(batched_mesh, /*target_reduction_ratio=*/100.f, /*target_error=*/0.08f, /*sloppy=*/true);
+	}
+	catch(glare::Exception& )
+	{
+	}
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
+
+
 void test()
 {
+	buildLODVersions("D:\\models\\dancedevil_glb_16934124793649044515.bmesh");
+
 	/*try
 	{
 		Indigo::Mesh indigo_mesh;

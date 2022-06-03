@@ -1269,6 +1269,8 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 	const BatchedMesh::VertAttribute* pos_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Position);
 	if(!pos_attr)
 		throw glare::Exception("Pos attribute not present.");
+	if(pos_attr->component_type != BatchedMesh::ComponentType_Float)
+		throw glare::Exception("Pos attribute must have float type.");
 	const size_t pos_offset = pos_attr->offset_B;
 
 	// Copy Vertices

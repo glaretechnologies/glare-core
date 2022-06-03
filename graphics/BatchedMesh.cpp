@@ -938,7 +938,6 @@ void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_ou
 }
 
 
-
 void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& mesh_out)
 {
 	try
@@ -983,7 +982,10 @@ void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& m
 			mesh_out.vert_attributes[i].component_type = (ComponentType)component_type;
 
 			mesh_out.vert_attributes[i].offset_B = cur_offset;
-			cur_offset += vertAttributeSize(mesh_out.vert_attributes[i]);
+			const size_t vert_attr_size_B = vertAttributeSize(mesh_out.vert_attributes[i]);
+			if((vert_attr_size_B % 4) != 0)
+				throw glare::Exception("Invalid vert attribute: size must be a multiple of 4 bytes.");
+			cur_offset += vert_attr_size_B;
 		}
 
 		// Read batches
@@ -1164,7 +1166,7 @@ void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& m
 				throw glare::Exception("invalid chunk value: " + toString(chunk));
 		}
 
-		assert(file.getReadIndex() == file.size());
+		//assert(file.getReadIndex() == file.size());
 	}
 	catch(std::bad_alloc&)
 	{
@@ -1221,6 +1223,172 @@ js::AABBox BatchedMesh::computeAABB() const
 		aabb.enlargeToHoldPoint(vertpos);
 	}
 	return aabb;
+}
+
+
+void BatchedMesh::checkValidAndSanitiseMesh()
+{
+	BatchedMesh& mesh = *this;
+
+	const uint32 num_verts = (uint32)mesh.numVerts();
+	const BatchedMesh::ComponentType the_index_type = mesh.index_type;
+	const size_t num_indices = mesh.numIndices();
+	const size_t num_tris = num_indices / 3;
+
+
+	// Check batch index ranges are in range.
+	for(size_t b=0; b<batches.size(); ++b)
+	{
+		const IndicesBatch& batch = batches[b];
+		if((size_t)batch.indices_start >= num_indices)
+			throw glare::Exception("Invalid batch indices_start");
+		if((size_t)batch.indices_start + (size_t)batch.num_indices > num_indices)
+			throw glare::Exception("Invalid batch index range");
+
+		if(batch.material_index >= 10000)
+			throw glare::Exception("Too many materials referenced.");
+	}
+
+
+	const uint8* const index_data_uint8  = (const uint8*)mesh.index_data.data();
+	const uint16* const index_data_uint16 = (const uint16*)mesh.index_data.data();
+	const uint32* const index_data_uint32 = (const uint32*)mesh.index_data.data();
+
+	for(size_t t = 0; t < num_tris; ++t)
+	{
+		uint32 vertex_indices[3];
+		if(the_index_type == BatchedMesh::ComponentType_UInt8)
+		{
+			vertex_indices[0] = index_data_uint8[t*3 + 0];
+			vertex_indices[1] = index_data_uint8[t*3 + 1];
+			vertex_indices[2] = index_data_uint8[t*3 + 2];
+		}
+		else if(the_index_type == BatchedMesh::ComponentType_UInt16)
+		{
+			vertex_indices[0] = index_data_uint16[t*3 + 0];
+			vertex_indices[1] = index_data_uint16[t*3 + 1];
+			vertex_indices[2] = index_data_uint16[t*3 + 2];
+		}
+		else if(the_index_type == BatchedMesh::ComponentType_UInt32)
+		{
+			vertex_indices[0] = index_data_uint32[t*3 + 0];
+			vertex_indices[1] = index_data_uint32[t*3 + 1];
+			vertex_indices[2] = index_data_uint32[t*3 + 2];
+		}
+		else
+			throw glare::Exception("Invalid index_type.");
+
+		for(unsigned int v = 0; v < 3; ++v)
+			if(vertex_indices[v] >= num_verts)
+				throw glare::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[v]) + ", num verts: " + toString(num_verts) + ")");
+	}
+
+	js::Vector<uint8, 16>& vert_data = mesh.vertex_data;
+	const size_t vert_size_B = mesh.vertexSize();
+	const size_t num_joints = mesh.animation_data.joint_nodes.size();
+
+	// Check joint indices are valid for all vertices
+	const BatchedMesh::VertAttribute* joints_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Joints);
+	if(joints_attr)
+	{
+		const size_t joint_offset_B = joints_attr->offset_B;
+		if(joints_attr->component_type == BatchedMesh::ComponentType_UInt8)
+		{
+			for(uint32 i=0; i<num_verts; ++i)
+			{
+				uint8 joints[4];
+				std::memcpy(joints, &vert_data[i * vert_size_B + joint_offset_B], sizeof(uint8) * 4);
+
+				for(int c=0; c<4; ++c)
+					if((size_t)joints[c] >= num_joints)
+						throw glare::Exception("Joint index is out of bounds");
+			}
+		}
+		else if(joints_attr->component_type == BatchedMesh::ComponentType_UInt16)
+		{
+			for(uint32 i=0; i<num_verts; ++i)
+			{
+				uint16 joints[4];
+				std::memcpy(joints, &vert_data[i * vert_size_B + joint_offset_B], sizeof(uint16) * 4);
+
+				for(int c=0; c<4; ++c)
+					if((size_t)joints[c] >= num_joints)
+						throw glare::Exception("Joint index is out of bounds");
+			}
+		}
+		else
+			throw glare::Exception("Invalid joint index component type: " + toString((uint32)joints_attr->component_type));
+	}
+
+	// Check weight data is valid for all vertices.
+	// For now we will just catch cases where all weights are zero, and set one of them to 1 (or the uint equiv).
+	// We could also normalise the weight sum but that would be slower.
+	// This prevents the rendering error with dancedevil_glb_16934124793649044515_lod2.bmesh.
+	const BatchedMesh::VertAttribute* weight_attr = mesh.findAttribute(BatchedMesh::VertAttribute_Weights);
+	if(weight_attr)
+	{
+		//conPrint("Checking weight data");
+		//Timer timer;
+
+		const size_t weights_offset_B = weight_attr->offset_B;
+		if(weight_attr->component_type == BatchedMesh::ComponentType_UInt8)
+		{
+			for(uint32 i=0; i<num_verts; ++i)
+			{
+				uint8 weights[4];
+				std::memcpy(weights, &vert_data[i * vert_size_B + weights_offset_B], sizeof(uint8) * 4);
+				if(weights[0] == 0 && weights[1] == 0 && weights[2] == 0 && weights[3] == 0)
+				{
+					weights[0] = 255;
+					std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(uint8) * 4); // Copy back to vertex data
+				}
+			}
+		}
+		else if(weight_attr->component_type == BatchedMesh::ComponentType_UInt16)
+		{
+			for(uint32 i=0; i<num_verts; ++i)
+			{
+				uint16 weights[4];
+				std::memcpy(weights, &vert_data[i * vert_size_B + weights_offset_B], sizeof(uint16) * 4);
+				if(weights[0] == 0 && weights[1] == 0 && weights[2] == 0 && weights[3] == 0)
+				{
+					weights[0] = 65535;
+					std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(uint16) * 4); // Copy back to vertex data
+				}
+			}
+		}
+		else if(weight_attr->component_type == BatchedMesh::ComponentType_Float)
+		{
+			for(uint32 i=0; i<num_verts; ++i)
+			{
+				float weights[4];
+				std::memcpy(weights, &vert_data[i * vert_size_B + weights_offset_B], sizeof(float) * 4);
+				/*const float sum = (weights[0] + weights[1]) + (weights[2] + weights[3]);
+				if(sum < 0.9999f || sum >= 1.0001f)
+				{
+				if(std::fabs(sum) < 1.0e-3f)
+				{
+				weights[0] = 1.f;
+				std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(float) * 4); // Copy back to vertex data
+				}
+				else
+				{
+				const float scale = 1 / sum;
+				for(int c=0; c<4; ++c) weights[c] *= scale;
+				std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(float) * 4); // Copy back to vertex data
+				}
+				}*/
+
+				if(weights[0] == 0 && weights[1] == 0 && weights[2] == 0 && weights[3] == 0)
+				{
+					weights[0] = 1.f;
+					std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(float) * 4); // Copy back to vertex data
+				}
+			}
+		}
+
+		//conPrint("Checking weight data took " + timer.elapsedStringNSigFigs(4));
+	}
 }
 
 
