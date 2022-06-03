@@ -923,7 +923,6 @@ private:
 	DrawIndirectBufferRef draw_indirect_buffer;
 
 	js::Vector<DrawElementsIndirectCommand, 16> draw_commands;
-	bool use_multi_draw_indirect;
 	
 	GLenum current_index_type;
 	const OpenGLProgram* current_bound_prog;

@@ -231,6 +231,9 @@ OpenGLScene::OpenGLScene()
 }
 
 
+static const bool use_multi_draw_indirect = false;
+
+
 OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 :	init_succeeded(false),
 	settings(settings_),
@@ -260,8 +263,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	next_program_index(0),
 	use_bindless_textures(false)
 {
-	use_multi_draw_indirect = false;
-	
 	current_index_type = 0;
 	current_bound_prog = NULL;
 	current_bound_VAO = NULL;
@@ -5108,7 +5109,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
 
 			//conPrint("matrices[" + toString(i) + "]:");
-			//conPrint(matrices[i].toString());
+			//conPrint(temp_joint_matrices[i].toString());
 		}
 
 		const size_t num_joint_matrices_to_upload = myMin<size_t>(256, temp_joint_matrices.size()); // The joint_matrix uniform array has 256 elems, don't upload more than that.
