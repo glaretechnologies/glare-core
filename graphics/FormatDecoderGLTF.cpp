@@ -2408,7 +2408,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		if(new_i != -1) // If used:
 		{
 			// Read keyframe time values from the input accessor
-			std::vector<float>& time_vals = anim_data_out.keyframe_times[new_i];
+			std::vector<float>& time_vals = anim_data_out.keyframe_times[new_i].times;
 			const GLTFAccessor& input_accessor = getAccessor(data, old_accessor_i);
 
 			// input should be "a set of floating point scalar values representing linear time in seconds"

@@ -268,6 +268,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	current_bound_VAO = NULL;
 	current_bound_vertex_VBO = NULL;
 	current_bound_index_VBO = NULL;
+	current_joint_matrices_ob = NULL;
 
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -2281,6 +2282,8 @@ bool OpenGLEngine::checkUseProgram(const OpenGLProgram* prog)
 		prog->useProgram();
 		current_bound_prog = prog;
 
+		current_joint_matrices_ob = NULL;
+
 		num_prog_changes++;
 
 		return true;
@@ -2775,6 +2778,7 @@ void OpenGLEngine::draw()
 	current_bound_VAO = NULL;
 	current_bound_vertex_VBO = NULL;
 	current_bound_index_VBO = NULL;
+	current_joint_matrices_ob = NULL;
 
 	// checkForOpenGLErrors(); // Just for Mac
 
@@ -2862,59 +2866,84 @@ void OpenGLEngine::draw()
 			key_frame_locs.resize(anim_data.keyframe_times.size());
 			for(int z=0; z<(int)anim_data.keyframe_times.size(); ++z) // For each input accessor:
 			{
-				const std::vector<float>& time_vals = anim_data.keyframe_times[z];
-
-				if(!time_vals.empty())
+				const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[z];
+				// If keyframe times are equally spaced, we can skip the binary search stuff, and just compute the keyframes we are between directly.
+				if(keyframe_time_info.equally_spaced)
 				{
-					if(time_vals.size() == 1)
+					const float wrapped_t_minus_t_0 = Maths::floatMod(use_in_anim_time, keyframe_time_info.t_back_minus_t_0);
+
+					int index = (int)(wrapped_t_minus_t_0 * keyframe_time_info.recip_spacing);
+
+					const float frac = (wrapped_t_minus_t_0 - (float)index * keyframe_time_info.spacing) * keyframe_time_info.recip_spacing; // Fraction of way through frame
+					assert(frac >= 0 && frac < 1.f);
+
+					if(index >= keyframe_time_info.times_size)
+						index = 0;
+
+					int next_index = index + 1;
+					if(next_index >= keyframe_time_info.times_size)
+						next_index = 0;
+
+					key_frame_locs[z].i_0 = index;
+					key_frame_locs[z].i_1 = next_index;
+					key_frame_locs[z].frac = frac;
+				}
+				else
+				{
+					const std::vector<float>& time_vals = keyframe_time_info.times;
+
+					if(!time_vals.empty())
 					{
-						key_frame_locs[z].i_0 = 0;
-						key_frame_locs[z].i_1 = 0;
-						key_frame_locs[z].frac = 0;
-					}
-					else
-					{
-						// TODO: use incremental search based on the position last frame, instead of using upper_bound.  (or combine)
-
-						/*
-						frame 0                     frame 1                        frame 2                      frame 3
-						|----------------------------|-----------------------------|-----------------------------|-------------------------> time
-						^                                         ^
-						cur_frame_i                             in_anim_time
-						*/
-
-						assert(time_vals.size() >= 2);
-						const float in_anim_time = time_vals[0] + Maths::floatMod(use_in_anim_time, time_vals.back() - time_vals[0]);
-
-						// Find current frame
-						auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
-						int next_index = (int)(res - time_vals.begin());
-						int index = next_index - 1;
-
-						next_index = myMin(next_index, (int)time_vals.size() - 1);
-
-						float index_time;
-						if(index < 0)
+						if(time_vals.size() == 1)
 						{
-							index = (int)time_vals.size() - 1; // Use last keyframe value
-							index_time = 0;
+							key_frame_locs[z].i_0 = 0;
+							key_frame_locs[z].i_1 = 0;
+							key_frame_locs[z].frac = 0;
 						}
 						else
-							index_time = time_vals[index];
+						{
+							// TODO: use incremental search based on the position last frame, instead of using upper_bound.  (or combine)
 
-						//if(index >= 0 && next_index < time_vals.size())
-						//{
-							float frac;
-							frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
+							/*
+							frame 0                     frame 1                        frame 2                      frame 3
+							|----------------------------|-----------------------------|-----------------------------|-------------------------> time
+							^                                         ^
+							cur_frame_i                             in_anim_time
+							*/
+
+							assert(time_vals.size() >= 2);
+							const float in_anim_time = time_vals[0] + Maths::floatMod(use_in_anim_time, time_vals.back() - time_vals[0]);
+
+							// Find current frame
+							auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
+							int next_index = (int)(res - time_vals.begin());
+							int index = next_index - 1;
+
+							next_index = myMin(next_index, (int)time_vals.size() - 1);
+
+							float index_time;
+							if(index < 0)
+							{
+								index = (int)time_vals.size() - 1; // Use last keyframe value
+								index_time = 0;
+							}
+							else
+								index_time = time_vals[index];
+
+							//if(index >= 0 && next_index < time_vals.size())
+							//{
+								float frac;
+								frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
 							
-							if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
-								frac = 0;
-							//assert(frac >= 0 && frac <= 1);
-						//}
+								if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
+									frac = 0;
+								//assert(frac >= 0 && frac <= 1);
+							//}
 
-						key_frame_locs[z].i_0 = index;
-						key_frame_locs[z].i_1 = next_index;
-						key_frame_locs[z].frac = frac;
+							key_frame_locs[z].i_0 = index;
+							key_frame_locs[z].i_1 = next_index;
+							key_frame_locs[z].frac = frac;
+						}
 					}
 				}
 			}
@@ -3047,6 +3076,7 @@ void OpenGLEngine::draw()
 
 				// Set location of debug joint visualisation objects
 				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+				if(false)
 				if(!debug_joint_obs.empty())
 				{
 					if(node_i == 4)
@@ -3089,6 +3119,7 @@ void OpenGLEngine::draw()
 
 					// Set location of debug joint visualisation objects
 					//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+					if(false)
 					if(!debug_joint_obs.empty())
 					{
 						if(node_i == 27 || node_i == 28)
@@ -3098,6 +3129,25 @@ void OpenGLEngine::draw()
 						updateObjectTransformData(*debug_joint_obs[node_i]);
 					}
 				}
+			}
+		}
+
+		if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+		{
+			ob->joint_matrices.resizeNoCopy(anim_data.joint_nodes.size());
+
+			// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
+			for(size_t i=0; i<anim_data.joint_nodes.size(); ++i)
+			{
+				const int node_i = anim_data.joint_nodes[i];
+
+				// TODO: can remove anim_node_data from ob, just make it a temp local vector
+
+				ob->joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob->anim_node_data[node_i].node_hierarchical_to_object * 
+					anim_data.nodes[node_i].inverse_bind_matrix;
+
+				//conPrint("matrices[" + toString(i) + "]:");
+				//conPrint(temp_joint_matrices[i].toString());
 			}
 		}
 	}
@@ -5098,22 +5148,13 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
 
-		temp_joint_matrices.resizeNoCopy(mesh_data.animation_data.joint_nodes.size());
-
-		// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
-		for(size_t i=0; i<mesh_data.animation_data.joint_nodes.size(); ++i)
+		if(&ob != current_joint_matrices_ob)
 		{
-			const int node_i = mesh_data.animation_data.joint_nodes[i];
+			const size_t num_joint_matrices_to_upload = myMin<size_t>(256, ob.joint_matrices.size()); // The joint_matrix uniform array has 256 elems, don't upload more than that.
+			glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)num_joint_matrices_to_upload, /*transpose=*/false, ob.joint_matrices[0].e);
 
-			temp_joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob.anim_node_data[node_i].node_hierarchical_to_object * 
-				mesh_data.animation_data.nodes[node_i].inverse_bind_matrix;
-
-			//conPrint("matrices[" + toString(i) + "]:");
-			//conPrint(temp_joint_matrices[i].toString());
+			current_joint_matrices_ob = &ob;
 		}
-
-		const size_t num_joint_matrices_to_upload = myMin<size_t>(256, temp_joint_matrices.size()); // The joint_matrix uniform array has 256 elems, don't upload more than that.
-		glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)num_joint_matrices_to_upload, /*transpose=*/false, temp_joint_matrices[0].e);
 	}
 
 

@@ -81,7 +81,7 @@ void AnimationDatum::writeToStream(OutStream& stream) const
 }
 
 
-void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, std::vector<std::vector<float> >& old_keyframe_times_out, std::vector<js::Vector<Vec4f, 16> >& old_output_data)
+void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, std::vector<KeyFrameTimeInfo>& old_keyframe_times_out, std::vector<js::Vector<Vec4f, 16> >& old_output_data)
 {
 	name = stream.readStringLengthFirst(10000);
 
@@ -104,7 +104,7 @@ void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, std::
 		old_keyframe_times_out.resize(num);
 		for(size_t i=0; i<old_keyframe_times_out.size(); ++i)
 		{
-			std::vector<float>& vec = old_keyframe_times_out[i];
+			std::vector<float>& vec = old_keyframe_times_out[i].times;
 			const uint32 vec_size = stream.readUInt32();
 			if(vec_size > 100000)
 				throw glare::Exception("invalid vec_size");
@@ -133,7 +133,7 @@ void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, std::
 }
 
 
-void AnimationDatum::checkData(const std::vector<std::vector<float> >& keyframe_times, const std::vector<js::Vector<Vec4f, 16> >& output_data) const
+void AnimationDatum::checkData(const std::vector<KeyFrameTimeInfo>& keyframe_times, const std::vector<js::Vector<Vec4f, 16> >& output_data) const
 {
 	// Bounds-check data
 	for(size_t i=0; i<per_anim_node_data.size(); ++i)
@@ -148,25 +148,25 @@ void AnimationDatum::checkData(const std::vector<std::vector<float> >& keyframe_
 		checkProperty(data.rotation_output_accessor    >= -1 && data.rotation_output_accessor     < (int)output_data.size(), "invalid output accessor index");
 		checkProperty(data.scale_output_accessor       >= -1 && data.scale_output_accessor        < (int)output_data.size(), "invalid output accessor index");
 
-		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].size() >= 1, "invalid num keyframes");
-		if(data.rotation_input_accessor    >= 0) checkProperty(keyframe_times[data.rotation_input_accessor   ].size() >= 1, "invalid num keyframes");
-		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].size() >= 1, "invalid num keyframes");
+		if(data.translation_input_accessor >= 0) checkProperty(keyframe_times[data.translation_input_accessor].times.size() >= 1, "invalid num keyframes");
+		if(data.rotation_input_accessor    >= 0) checkProperty(keyframe_times[data.rotation_input_accessor   ].times.size() >= 1, "invalid num keyframes");
+		if(data.scale_input_accessor       >= 0) checkProperty(keyframe_times[data.scale_input_accessor      ].times.size() >= 1, "invalid num keyframes");
 
 		// Output data vectors should be the same size as the input keyframe vectors, when they are used together.
 		if(data.translation_input_accessor >= 0)
 		{
 			checkProperty(data.translation_output_accessor >= 0, "invalid output_accessor");
-			checkProperty(keyframe_times[data.translation_input_accessor].size() == output_data[data.translation_output_accessor].size(), "num keyframes != output_data size");
+			checkProperty(keyframe_times[data.translation_input_accessor].times.size() == output_data[data.translation_output_accessor].size(), "num keyframes != output_data size");
 		}
 		if(data.rotation_input_accessor    >= 0)
 		{
 			checkProperty(data.rotation_output_accessor >= 0, "invalid output_accessor");
-			checkProperty(keyframe_times[data.rotation_input_accessor   ].size() == output_data[data.rotation_output_accessor   ].size(), "num keyframes != output_data size");
+			checkProperty(keyframe_times[data.rotation_input_accessor   ].times.size() == output_data[data.rotation_output_accessor   ].size(), "num keyframes != output_data size");
 		}
 		if(data.scale_input_accessor       >= 0)
 		{
 			checkProperty(data.scale_output_accessor >= 0, "invalid output_accessor");
-			checkProperty(keyframe_times[data.scale_input_accessor      ].size() == output_data[data.scale_output_accessor      ].size(), "num keyframes != output_data size");
+			checkProperty(keyframe_times[data.scale_input_accessor      ].times.size() == output_data[data.scale_output_accessor      ].size(), "num keyframes != output_data size");
 		}
 	}
 }
@@ -199,7 +199,7 @@ void AnimationData::writeToStream(OutStream& stream) const
 	stream.writeUInt32((uint32)keyframe_times.size());
 	for(size_t i=0; i<keyframe_times.size(); ++i)
 	{
-		const std::vector<float>& vec = keyframe_times[i];
+		const std::vector<float>& vec = keyframe_times[i].times;
 		stream.writeUInt32((uint32)vec.size());
 		stream.writeData(vec.data(), sizeof(float) * vec.size());
 	}
@@ -278,7 +278,7 @@ void AnimationData::readFromStream(InStream& stream)
 		keyframe_times.resize(num);
 		for(size_t i=0; i<keyframe_times.size(); ++i)
 		{
-			std::vector<float>& vec = keyframe_times[i];
+			std::vector<float>& vec = keyframe_times[i].times;
 			const uint32 vec_size = stream.readUInt32();
 			if(vec_size > 100000)
 				throw glare::Exception("invalid vec_size");
@@ -315,7 +315,7 @@ void AnimationData::readFromStream(InStream& stream)
 		{
 			animations[i] = new AnimationDatum();
 
-			std::vector<std::vector<float> > old_keyframe_times;
+			std::vector<KeyFrameTimeInfo> old_keyframe_times;
 			std::vector<js::Vector<Vec4f, 16> > old_output_data;
 
 			animations[i]->readFromStream(version, stream, old_keyframe_times, old_output_data);
@@ -389,6 +389,46 @@ void AnimationData::readFromStream(InStream& stream)
 	//
 	//for(size_t i=0; i<sorted_nodes.size(); ++i)
 	//	conPrint("sorted_nodes[ " + toString(i) + "]: " + toString(sorted_nodes[i]) + " (" + nodes[sorted_nodes[i]].name + ")");
+
+
+	// Check if keyframe_times are equally spaced.  If they are, store some info that will allow fast finding of the current frame given the time in the animation.
+	for(size_t i=0; i<keyframe_times.size(); ++i)
+	{
+		const std::vector<float>& vec = keyframe_times[i].times;
+
+		if(vec.size() >= 2)
+		{
+			bool is_equally_spaced = true;
+			const float t_0 = vec[0];
+			const float t_back = vec.back();
+			const float equal_gap = (t_back - t_0) / (float)(vec.size() - 1);
+			for(size_t z=0; z<vec.size(); ++z)
+			{
+				const float t = vec[z];
+				const float expected_t = t_0 + z * equal_gap;
+				if(!::epsEqual(t, expected_t, /*eps=*/1.0e-3f))
+				{
+					// conPrint("key frame not equally spaced: t: " + toString(t) + ", expected_t: " + toString(expected_t));
+					is_equally_spaced = false;
+					break;
+				}
+			}
+
+			// conPrint("Anim data with " + toString(vec.size()) + " keyframe times: is_equally_spaced: " + boolToString(is_equally_spaced));
+
+			keyframe_times[i].equally_spaced = is_equally_spaced;
+			if(is_equally_spaced)
+			{
+				keyframe_times[i].times_size = (int)vec.size();
+				keyframe_times[i].spacing = equal_gap;
+				keyframe_times[i].recip_spacing = (float)(vec.size() - 1) / (t_back - t_0);
+				keyframe_times[i].t_0 = vec[0];
+				keyframe_times[i].t_back_minus_t_0 = t_back - t_0;
+			}
+		}
+		else
+			keyframe_times[i].equally_spaced = false;
+	}
 }
 
 
@@ -417,7 +457,7 @@ float AnimationData::getAnimationLength(const AnimationDatum& anim) const
 	{
 		if(anim.per_anim_node_data[i].rotation_input_accessor >= 0)
 		{
-			max_len = myMax(max_len, this->keyframe_times[anim.per_anim_node_data[i].rotation_input_accessor].back());
+			max_len = myMax(max_len, this->keyframe_times[anim.per_anim_node_data[i].rotation_input_accessor].times.back());
 		}
 	}
 
@@ -713,7 +753,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 	// Make map from RPM_bone_name to index
 	std::map<std::string, int> RPM_bone_name_to_index;
 	for(size_t z=0; z<staticArrayNumElems(RPM_bone_names); ++z)
-		RPM_bone_name_to_index.insert(std::make_pair(RPM_bone_names[z], z));
+		RPM_bone_name_to_index.insert(std::make_pair(RPM_bone_names[z], (int)z));
 	
 
 	const std::vector<AnimationNodeData> old_nodes = nodes; // Copy old node data

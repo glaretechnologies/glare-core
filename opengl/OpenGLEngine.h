@@ -204,6 +204,7 @@ struct GLObject : public ThreadSafeRefCounted
 	double use_time_offset;
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
+	js::Vector<Matrix4f, 16> joint_matrices;
 };
 typedef Reference<GLObject> GLObjectRef;
 
@@ -929,6 +930,7 @@ private:
 	const VAO* current_bound_VAO;
 	const VBO* current_bound_vertex_VBO; // Currently bound vertex data buffer, for the current VAO
 	const VBO* current_bound_index_VBO; // Currently bound index buffer, for the current VAO
+	const GLObject* current_joint_matrices_ob; // Last object for which we upload joint matrices.  Used to stop uploading the same joint matrices repeatedly.
 
 	js::Vector<PerObjectVertUniforms, 16> MDI_per_object_vert_uniforms;
 	js::Vector<PhongUniforms, 16> MDI_phong_uniforms;
