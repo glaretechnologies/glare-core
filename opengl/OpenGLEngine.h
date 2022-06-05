@@ -687,6 +687,8 @@ private:
 private:
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
 		float plane_draw_half_width);
+	void drawDebugSphere(const Vec4f& point, float radius, const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+
 public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
@@ -719,6 +721,7 @@ private:
 	bool checkUseProgram(const OpenGLProgram* prog);
 	void submitBufferedDrawCommands();
 	void sortBatchDrawInfos();
+	void getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -845,6 +848,7 @@ private:
 	bool draw_wireframes;
 
 	GLObjectRef debug_arrow_ob;
+	GLObjectRef debug_sphere_ob;
 
 	std::vector<GLObjectRef> debug_joint_obs;
 
@@ -895,6 +899,7 @@ private:
 	uint32 last_num_vao_binds;
 	uint32 num_vbo_binds;
 	uint32 last_num_vbo_binds;
+	uint32 last_num_animated_obs_processed;
 
 	Timer fps_display_timer;
 	int num_frames_since_fps_timer_reset;
@@ -917,7 +922,6 @@ private:
 	// Some temporary vectors:
 	js::Vector<Matrix4f, 16> node_matrices;
 	std::vector<AnimationKeyFrameLocation> key_frame_locs;
-	js::Vector<Matrix4f, 16> temp_joint_matrices;
 
 	js::Vector<Matrix4f, 16> temp_matrices;
 
@@ -930,7 +934,7 @@ private:
 	const VAO* current_bound_VAO;
 	const VBO* current_bound_vertex_VBO; // Currently bound vertex data buffer, for the current VAO
 	const VBO* current_bound_index_VBO; // Currently bound index buffer, for the current VAO
-	const GLObject* current_joint_matrices_ob; // Last object for which we upload joint matrices.  Used to stop uploading the same joint matrices repeatedly.
+	const GLObject* current_uniforms_ob; // Last object for which we uploaded joint matrices, and set the per_object_vert_uniform_buf_ob.  Used to stop uploading the same uniforms repeatedly for the same object.
 
 	js::Vector<PerObjectVertUniforms, 16> MDI_per_object_vert_uniforms;
 	js::Vector<PhongUniforms, 16> MDI_phong_uniforms;

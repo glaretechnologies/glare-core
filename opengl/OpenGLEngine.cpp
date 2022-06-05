@@ -260,6 +260,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_batches_bound(0),
 	last_num_vao_binds(0),
 	last_num_vbo_binds(0),
+	last_num_animated_obs_processed(0),
 	next_program_index(0),
 	use_bindless_textures(false)
 {
@@ -268,7 +269,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	current_bound_VAO = NULL;
 	current_bound_vertex_VBO = NULL;
 	current_bound_index_VBO = NULL;
-	current_joint_matrices_ob = NULL;
+	current_uniforms_ob = NULL;
 
 	current_scene = new OpenGLScene();
 	scenes.insert(current_scene);
@@ -303,6 +304,7 @@ OpenGLEngine::~OpenGLEngine()
 	outline_quad_meshdata = NULL;
 
 	debug_arrow_ob = NULL;
+	debug_sphere_ob = NULL;
 	debug_joint_obs.clear();
 
 	line_meshdata = NULL;
@@ -2282,7 +2284,7 @@ bool OpenGLEngine::checkUseProgram(const OpenGLProgram* prog)
 		prog->useProgram();
 		current_bound_prog = prog;
 
-		current_joint_matrices_ob = NULL;
+		current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
 
 		num_prog_changes++;
 
@@ -2593,17 +2595,19 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 
 		GLObject ob;
 		ob.ob_to_world_matrix = quad_to_world;
+		quad_to_world.getUpperLeftInverseTranspose(ob.ob_to_world_inv_transpose_matrix);
 
 		const bool program_changed = checkUseProgram(outline_edge_mat.shader_prog.ptr());
 		if(program_changed)
 			setSharedUniformsForProg(*outline_edge_mat.shader_prog, view_matrix, proj_matrix);
 		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
+		this->current_uniforms_ob = NULL;
 		drawBatch(ob, outline_edge_mat, *outline_edge_mat.shader_prog, *outline_quad_meshdata, outline_quad_meshdata->batches[0]);
 	}
 
-	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
-	glDisable(GL_BLEND);
-
+	 glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+	 glDisable(GL_BLEND);
+	
 	// Draw an arrow to show the plane normal
 	if(debug_arrow_ob.isNull())
 	{
@@ -2616,17 +2620,47 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
 			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false));
 	}
-
+	
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
-		Matrix4f::scaleMatrix(2, 2, 2) * Matrix4f::rotationMatrix(Vec4f(0,1,0,0), -Maths::pi_2<float>()); // rot x axis to z axis
+		Matrix4f::uniformScaleMatrix(10.f) * Matrix4f::rotationMatrix(Vec4f(0,1,0,0), -Maths::pi_2<float>()); // rot x axis to z axis
 	
 	debug_arrow_ob->ob_to_world_matrix = arrow_to_world;
+	arrow_to_world.getUpperLeftInverseTranspose(debug_arrow_ob->ob_to_world_inv_transpose_matrix);
+
 	const bool program_changed = checkUseProgram(debug_arrow_ob->materials[0].shader_prog.ptr());
 	if(program_changed)
 		setSharedUniformsForProg(*debug_arrow_ob->materials[0].shader_prog, view_matrix, proj_matrix);
-
+	
 	bindMeshData(*debug_arrow_ob); // Bind the mesh data, which is the same for all batches.
+	this->current_uniforms_ob = NULL;
 	drawBatch(*debug_arrow_ob, debug_arrow_ob->materials[0], *debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
+}
+
+
+void OpenGLEngine::drawDebugSphere(const Vec4f& point, float radius, const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	if(debug_sphere_ob.isNull())
+	{
+		debug_sphere_ob = new GLObject();
+		debug_sphere_ob->mesh_data = sphere_meshdata;
+		debug_sphere_ob->materials.resize(1);
+		debug_sphere_ob->materials[0].albedo_rgb = Colour3f(0.1f, 0.4f, 0.9f);
+		debug_sphere_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
+			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false));
+	}
+
+	const Matrix4f sphere_to_world = Matrix4f::translationMatrix(point) * Matrix4f::uniformScaleMatrix(radius);
+
+	debug_sphere_ob->ob_to_world_matrix = sphere_to_world;
+	sphere_to_world.getUpperLeftInverseTranspose(debug_sphere_ob->ob_to_world_inv_transpose_matrix);
+
+	const bool program_changed = checkUseProgram(debug_sphere_ob->materials[0].shader_prog.ptr());
+	if(program_changed)
+		setSharedUniformsForProg(*debug_sphere_ob->materials[0].shader_prog, view_matrix, proj_matrix);
+
+	bindMeshData(*debug_sphere_ob); // Bind the mesh data, which is the same for all batches.
+	this->current_uniforms_ob = NULL;
+	drawBatch(*debug_sphere_ob, debug_sphere_ob->materials[0], *debug_sphere_ob->materials[0].shader_prog, *debug_sphere_ob->mesh_data, debug_sphere_ob->mesh_data->batches[0]);
 }
 
 
@@ -2765,6 +2799,85 @@ void OpenGLEngine::sortBatchDrawInfos()
 }
 
 
+void OpenGLEngine::getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out)
+{
+	// Compute the 8 points making up the corner vertices of this slice of the view frustum
+	Vec4f frustum_verts_ws[8];
+	calcCamFrustumVerts(near_dist, far_dist, frustum_verts_ws);
+
+	Vec4f extended_verts_ws[8]; // Get vertices, moved along the sun vector towards the sun by max shadowing distance.
+	for(int z=0; z<8; ++z)
+		extended_verts_ws[z] = frustum_verts_ws[z] + sun_dir * max_shadowing_dist;
+
+	js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
+	for(int z=0; z<8; ++z)
+	{
+		shadow_vol_aabb.enlargeToHoldPoint(frustum_verts_ws[z]);
+		shadow_vol_aabb.enlargeToHoldPoint(extended_verts_ws[z]);
+	}
+
+	// Get a basis for our distance map, where k is the direction to the sun.
+	const Vec4f up(0, 0, 1, 0);
+	const Vec4f k = sun_dir;
+	const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
+	const Vec4f j = crossProduct(k, i); // up
+
+	//const Matrix4f to_sun_basis = Matrix4f(k, j, k , Vec4f(0,0,0,1)).getTranspose();
+
+	assert(k.isUnitLength());
+
+	// Get bounds of the view frustum slice along i, j, k vectors
+	float min_i = std::numeric_limits<float>::max();
+	float min_j = std::numeric_limits<float>::max();
+	float min_k = std::numeric_limits<float>::max();
+	float max_i = -std::numeric_limits<float>::max();
+	float max_j = -std::numeric_limits<float>::max();
+	float max_k = -std::numeric_limits<float>::max();
+
+	for(int z=0; z<8; ++z)
+	{
+		assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
+		const float dot_i = dot(i, frustum_verts_ws[z]);
+		const float dot_j = dot(j, frustum_verts_ws[z]);
+		const float dot_k = dot(k, frustum_verts_ws[z]);
+		min_i = myMin(min_i, dot_i);
+		min_j = myMin(min_j, dot_j);
+		min_k = myMin(min_k, dot_k);
+		max_i = myMax(max_i, dot_i);
+		max_j = myMax(max_j, dot_j);
+		max_k = myMax(max_k, dot_k);
+	}
+
+	for(int z=0; z<8; ++z)
+	{
+		assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
+		const float dot_i = dot(i, extended_verts_ws[z]);
+		const float dot_j = dot(j, extended_verts_ws[z]);
+		const float dot_k = dot(k, extended_verts_ws[z]);
+		min_i = myMin(min_i, dot_i);
+		min_j = myMin(min_j, dot_j);
+		min_k = myMin(min_k, dot_k);
+		max_i = myMax(max_i, dot_i);
+		max_j = myMax(max_j, dot_j);
+		max_k = myMax(max_k, dot_k);
+	}
+
+	// Compute clipping planes for shadow mapping.  These are clipping planes that surround the sun-extended view frustum.  NOTE: not optimal.
+	shadow_clip_planes_out[0] = Planef( i,  max_i);
+	shadow_clip_planes_out[1] = Planef(-i, -min_i);
+	shadow_clip_planes_out[2] = Planef( j,  max_j);
+	shadow_clip_planes_out[3] = Planef(-j, -min_j);
+	shadow_clip_planes_out[4] = Planef( k,  max_k);
+	shadow_clip_planes_out[5] = Planef(-k, -min_k);
+
+	shadow_vol_aabb_out = shadow_vol_aabb;
+}
+
+
+// static Planef draw_anim_shadow_clip_planes[6]; // Some stuff for debug visualisation
+// static Vec4f draw_frustum_verts_ws[8];
+// static Vec4f draw_extended_verts_ws[8];
+
 void OpenGLEngine::draw()
 {
 	if(!init_succeeded)
@@ -2778,7 +2891,7 @@ void OpenGLEngine::draw()
 	current_bound_VAO = NULL;
 	current_bound_vertex_VBO = NULL;
 	current_bound_index_VBO = NULL;
-	current_joint_matrices_ob = NULL;
+	current_uniforms_ob = NULL;
 
 	// checkForOpenGLErrors(); // Just for Mac
 
@@ -2796,361 +2909,412 @@ void OpenGLEngine::draw()
 	trimTextureUsage();
 
 	//=============== Set animated objects state (update bone matrices etc.)===========
+
+	// We will only compute updated animation data for objects (current joint matrices), if the object is in a view frustum that extends some distance from the camera,
+	// or may cast a shadow into that frustum a little distance.
+	Planef anim_shadow_clip_planes[6];
+	js::AABBox anim_shadow_vol_aabb;
+	{
+		const float near_dist = 0.f;
+		const float far_dist = 200.f;
+		const float max_shadowing_dist = 30.f;
+		getCameraShadowMappingPlanesAndAABB(near_dist, far_dist, max_shadowing_dist, anim_shadow_clip_planes, anim_shadow_vol_aabb);
+
+		/*if(frame_num == 0)
+		{
+			// Set debug visualisation data
+			
+			Vec4f frustum_verts_ws[8];
+			calcCamFrustumVerts(near_dist, far_dist, frustum_verts_ws); // Compute the 8 points making up the corner vertices of this slice of the view frustum
+
+			Vec4f extended_verts_ws[8]; // Get vertices, moved along the sun vector towards the sun by max shadowing distance.
+			for(int z=0; z<8; ++z)
+				extended_verts_ws[z] = frustum_verts_ws[z] + sun_dir * max_shadowing_dist;
+
+			for(int z=0; z<8; ++z)
+			{
+				draw_frustum_verts_ws[z] = frustum_verts_ws[z];
+				draw_extended_verts_ws[z] = extended_verts_ws[z];
+			}
+			for(int i=0; i<6; ++i)
+				draw_anim_shadow_clip_planes[i] = anim_shadow_clip_planes[i];
+		}*/
+	}
+
+	const Vec4f campos_ws = this->getCameraPositionWS();
 	Timer anim_profile_timer;
+	uint32 num_animated_obs_processed = 0;
 	for(auto it = current_scene->animated_objects.begin(); it != current_scene->animated_objects.end(); ++it)
 	{
 		GLObject* const ob = it->getPointer();
 
 		AnimationData& anim_data = ob->mesh_data->animation_data;
 
-
-		if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+		bool visible_and_large_enough = AABBIntersectsFrustum(anim_shadow_clip_planes, 6, anim_shadow_vol_aabb, ob->aabb_ws);
+		if(visible_and_large_enough)
 		{
-			//TEMP create debug visualisation of the joints
-			if(false)
-			if(debug_joint_obs.empty())
-			{
-				debug_joint_obs.resize(256);//anim_data.sorted_nodes.size());
-				for(size_t i=0; i<debug_joint_obs.size(); ++i)
-				{
-					debug_joint_obs[i] = new GLObject();
-					debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(*vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
-					debug_joint_obs[i]->materials.resize(3);
-					debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
-					debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
-					debug_joint_obs[i]->materials[2].albedo_rgb = Colour3f(0.3f, 0.5f, 0.9f);
-					//debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-					//	/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
-					debug_joint_obs[i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
-
-					addObject(debug_joint_obs[i]);
-				}
-			}
+			// Don't update anim data for object if it is too small as seen from the camera.
+			const float ob_w = largestDim(ob->aabb_ws);
+			const float recip_dist = (ob->aabb_ws.centroid() - campos_ws).fastApproxRecipLength();
+			const float proj_len = ob_w * recip_dist;
+			visible_and_large_enough = proj_len > 0.01f;
 		}
 
-
-		if(!anim_data.animations.empty())
+		const bool process = visible_and_large_enough || ob->joint_matrices.empty(); // If the joint matrices are empty we need to compute them at least once.
+		if(process)
 		{
-			ob->anim_node_data.resize(anim_data.nodes.size());
+			num_animated_obs_processed++;
 
-			const float DEBUG_SPEED_FACTOR = 1;
-			//const float use_time = current_time * DEBUG_SPEED_FACTOR;
-			
-			const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
-			
-			const int use_next_anim_i = (ob->next_anim_i == -1) ? ob->current_anim_i : ob->next_anim_i;
-			const AnimationDatum& anim_datum_b = *anim_data.animations[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
-
-			const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, current_time/*use_time*/);
-			
-			const float use_in_anim_time = (current_time + (float)ob->use_time_offset) * DEBUG_SPEED_FACTOR;
-
-			/*
-			For each node,
-			if node translation is animated
-			get keyframe i_0, i_1 and frac for input time values for sampler input accessor index.  (this computaton should be shared.)
-			read translation values from output accessor
-			interpolate values based on sample interpolation type
-			*/
-			const size_t num_nodes = anim_data.sorted_nodes.size();
-			// assert(num_nodes <= 256); 
-			// We only support 256 joint matrices for now.  Currently we just don't upload more than 256 matrices.
-			node_matrices.resizeNoCopy(num_nodes);
-
-			// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
-
-			// Iterate over each array of keyframe times.  (each array corresponds to an input accessor)
-			// For each array, find the current and next keyframe, and interpolation fraction, based on the current time.
-
-			// TODO: not all of these input accessors will be used, only compute data for used ones.
-			key_frame_locs.resize(anim_data.keyframe_times.size());
-			for(int z=0; z<(int)anim_data.keyframe_times.size(); ++z) // For each input accessor:
+			if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
 			{
-				const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[z];
-				// If keyframe times are equally spaced, we can skip the binary search stuff, and just compute the keyframes we are between directly.
-				if(keyframe_time_info.equally_spaced)
+				//TEMP create debug visualisation of the joints
+				if(false)
+				if(debug_joint_obs.empty())
 				{
-					const float wrapped_t_minus_t_0 = Maths::floatMod(use_in_anim_time, keyframe_time_info.t_back_minus_t_0);
-
-					int index = (int)(wrapped_t_minus_t_0 * keyframe_time_info.recip_spacing);
-
-					const float frac = (wrapped_t_minus_t_0 - (float)index * keyframe_time_info.spacing) * keyframe_time_info.recip_spacing; // Fraction of way through frame
-					assert(frac >= 0 && frac < 1.f);
-
-					if(index >= keyframe_time_info.times_size)
-						index = 0;
-
-					int next_index = index + 1;
-					if(next_index >= keyframe_time_info.times_size)
-						next_index = 0;
-
-					key_frame_locs[z].i_0 = index;
-					key_frame_locs[z].i_1 = next_index;
-					key_frame_locs[z].frac = frac;
-				}
-				else
-				{
-					const std::vector<float>& time_vals = keyframe_time_info.times;
-
-					if(!time_vals.empty())
+					debug_joint_obs.resize(256);//anim_data.sorted_nodes.size());
+					for(size_t i=0; i<debug_joint_obs.size(); ++i)
 					{
-						if(time_vals.size() == 1)
-						{
-							key_frame_locs[z].i_0 = 0;
-							key_frame_locs[z].i_1 = 0;
-							key_frame_locs[z].frac = 0;
-						}
-						else
-						{
-							// TODO: use incremental search based on the position last frame, instead of using upper_bound.  (or combine)
+						debug_joint_obs[i] = new GLObject();
+						debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(*vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
+						debug_joint_obs[i]->materials.resize(3);
+						debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
+						debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
+						debug_joint_obs[i]->materials[2].albedo_rgb = Colour3f(0.3f, 0.5f, 0.9f);
+						//debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
+						//	/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
+						debug_joint_obs[i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
 
-							/*
-							frame 0                     frame 1                        frame 2                      frame 3
-							|----------------------------|-----------------------------|-----------------------------|-------------------------> time
-							^                                         ^
-							cur_frame_i                             in_anim_time
-							*/
-
-							assert(time_vals.size() >= 2);
-							const float in_anim_time = time_vals[0] + Maths::floatMod(use_in_anim_time, time_vals.back() - time_vals[0]);
-
-							// Find current frame
-							auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
-							int next_index = (int)(res - time_vals.begin());
-							int index = next_index - 1;
-
-							next_index = myMin(next_index, (int)time_vals.size() - 1);
-
-							float index_time;
-							if(index < 0)
-							{
-								index = (int)time_vals.size() - 1; // Use last keyframe value
-								index_time = 0;
-							}
-							else
-								index_time = time_vals[index];
-
-							//if(index >= 0 && next_index < time_vals.size())
-							//{
-								float frac;
-								frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
-							
-								if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
-									frac = 0;
-								//assert(frac >= 0 && frac <= 1);
-							//}
-
-							key_frame_locs[z].i_0 = index;
-							key_frame_locs[z].i_1 = next_index;
-							key_frame_locs[z].frac = frac;
-						}
+						addObject(debug_joint_obs[i]);
 					}
 				}
 			}
 
-			for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
+
+			if(!anim_data.animations.empty())
 			{
-				const int node_i = anim_data.sorted_nodes[n];
-				const AnimationNodeData& node_data = anim_data.nodes[node_i];
-				const PerAnimationNodeData& node_a = anim_datum_a.per_anim_node_data[node_i];
-				const PerAnimationNodeData& node_b = anim_datum_b.per_anim_node_data[node_i];
+				ob->anim_node_data.resize(anim_data.nodes.size());
 
-				Vec4f trans_a;
-				if(node_a.translation_input_accessor >= 0)
-				{
-					//conPrint("anim_datum_a: " + anim_datum_a.name + "," + toString(anim_data.keyframe_times[node_a.translation_input_accessor].back()));
+				const float DEBUG_SPEED_FACTOR = 1;
+				//const float use_time = current_time * DEBUG_SPEED_FACTOR;
+			
+				const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
+			
+				const int use_next_anim_i = (ob->next_anim_i == -1) ? ob->current_anim_i : ob->next_anim_i;
+				const AnimationDatum& anim_datum_b = *anim_data.animations[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
 
-					const int i_0    = key_frame_locs[node_a.translation_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node_a.translation_input_accessor].i_1;
-					const float frac = key_frame_locs[node_a.translation_input_accessor].frac;
+				const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, current_time/*use_time*/);
+			
+				const float use_in_anim_time = (current_time + (float)ob->use_time_offset) * DEBUG_SPEED_FACTOR;
 
-					// read translation values from output accessor.
-					const Vec4f trans_0 = (anim_data.output_data[node_a.translation_output_accessor])[i_0];
-					const Vec4f trans_1 = (anim_data.output_data[node_a.translation_output_accessor])[i_1];
-					trans_a = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
-				}
-				else
-					trans_a = node_data.trans;
-
-				Vec4f trans_b;
-				if(node_b.translation_input_accessor >= 0)
-				{
-					const int i_0    = key_frame_locs[node_b.translation_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node_b.translation_input_accessor].i_1;
-					const float frac = key_frame_locs[node_b.translation_input_accessor].frac;
-
-					// read translation values from output accessor.
-					const Vec4f trans_0 = (anim_data.output_data[node_b.translation_output_accessor])[i_0];
-					const Vec4f trans_1 = (anim_data.output_data[node_b.translation_output_accessor])[i_1];
-					trans_b = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
-				}
-				else
-					trans_b = node_data.trans;
-
-				const Vec4f trans = Maths::lerp(trans_a, trans_b, transition_frac);
-
-
-
-				Quatf rot_a;
-				if(node_a.rotation_input_accessor >= 0)
-				{
-					const int i_0    = key_frame_locs[node_a.rotation_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node_a.rotation_input_accessor].i_1;
-					const float frac = key_frame_locs[node_a.rotation_input_accessor].frac;
-
-					// read rotation values from output accessor
-					const Quatf rot_0 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_0]);
-					const Quatf rot_1 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_1]);
-					rot_a = Quatf::nlerp(rot_0, rot_1, frac);
-				}
-				else
-					rot_a = node_data.rot;
-
-				Quatf rot_b;
-				if(node_b.rotation_input_accessor >= 0)
-				{
-					const int i_0    = key_frame_locs[node_b.rotation_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node_b.rotation_input_accessor].i_1;
-					const float frac = key_frame_locs[node_b.rotation_input_accessor].frac;
-
-					// read rotation values from output accessor
-					const Quatf rot_0 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_0]);
-					const Quatf rot_1 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_1]);
-					rot_b = Quatf::nlerp(rot_0, rot_1, frac);
-				}
-				else
-					rot_b = node_data.rot;
-
-				const Quatf rot = Quatf::nlerp(rot_a, rot_b, transition_frac);
-
-				Vec4f scale_a;
-				if(node_a.scale_input_accessor >= 0)
-				{
-					const int i_0    = key_frame_locs[node_a.scale_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node_a.scale_input_accessor].i_1;
-					const float frac = key_frame_locs[node_a.scale_input_accessor].frac;
-
-					// read scale values from output accessor
-					const Vec4f scale_0 = (anim_data.output_data[node_a.scale_output_accessor])[i_0];
-					const Vec4f scale_1 = (anim_data.output_data[node_a.scale_output_accessor])[i_1];
-					scale_a = Maths::lerp(scale_0, scale_1, frac);
-				}
-				else
-					scale_a = node_data.scale;
-
-				Vec4f scale_b;
-				if(node_b.scale_input_accessor >= 0)
-				{
-					const int i_0    = key_frame_locs[node_b.scale_input_accessor].i_0;
-					const int i_1    = key_frame_locs[node_b.scale_input_accessor].i_1;
-					const float frac = key_frame_locs[node_b.scale_input_accessor].frac;
-
-					// read scale values from output accessor
-					const Vec4f scale_0 = (anim_data.output_data[node_b.scale_output_accessor])[i_0];
-					const Vec4f scale_1 = (anim_data.output_data[node_b.scale_output_accessor])[i_1];
-					scale_b = Maths::lerp(scale_0, scale_1, frac);
-				}
-				else
-					scale_b = node_data.scale;
-
-				const Vec4f scale = Maths::lerp(scale_a, scale_b, transition_frac);
-
-
-
-				const Matrix4f rot_mat = rot.toMatrix();
-
-				const Matrix4f TRS(
-						rot_mat.getColumn(0) * copyToAll<0>(scale),
-						rot_mat.getColumn(1) * copyToAll<1>(scale),
-						rot_mat.getColumn(2) * copyToAll<2>(scale),
-						setWToOne(trans));
-
-				const Matrix4f last_pre_proc_to_object = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * node_data.retarget_adjustment * TRS); // Transform without procedural_transform applied
-				const Matrix4f node_transform = last_pre_proc_to_object * ob->anim_node_data[node_i].procedural_transform;
-
-				node_matrices[node_i] = node_transform;
-
-				ob->anim_node_data[node_i].last_pre_proc_to_object = last_pre_proc_to_object;
-				ob->anim_node_data[node_i].last_rot = rot;
-				ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
-
-				// Set location of debug joint visualisation objects
-				//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
-				if(false)
-				if(!debug_joint_obs.empty())
-				{
-					if(node_i == 4)
-						debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.6f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
-					else
-						debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
-					updateObjectTransformData(*debug_joint_obs[node_i]);
-				}
-			}
-		}
-		else // else if anim_data.animations.empty():
-		{
-			if(!anim_data.joint_nodes.empty()) // If we have a skin, but no animations, just use the default trans, rot, scales.
-			{
+				/*
+				For each node,
+				if node translation is animated
+				get keyframe i_0, i_1 and frac for input time values for sampler input accessor index.  (this computaton should be shared.)
+				read translation values from output accessor
+				interpolate values based on sample interpolation type
+				*/
 				const size_t num_nodes = anim_data.sorted_nodes.size();
+				// assert(num_nodes <= 256); 
+				// We only support 256 joint matrices for now.  Currently we just don't upload more than 256 matrices.
 				node_matrices.resizeNoCopy(num_nodes);
-				ob->anim_node_data.resize(num_nodes);
+
+				// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
+
+				// Iterate over each array of keyframe times.  (each array corresponds to an input accessor)
+				// For each array, find the current and next keyframe, and interpolation fraction, based on the current time.
+
+				// TODO: not all of these input accessors will be used, only compute data for used ones.
+				key_frame_locs.resize(anim_data.keyframe_times.size());
+				for(int z=0; z<(int)anim_data.keyframe_times.size(); ++z) // For each input accessor:
+				{
+					const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[z];
+					// If keyframe times are equally spaced, we can skip the binary search stuff, and just compute the keyframes we are between directly.
+					if(keyframe_time_info.equally_spaced)
+					{
+						const float wrapped_t_minus_t_0 = Maths::floatMod(use_in_anim_time, keyframe_time_info.t_back_minus_t_0);
+
+						int index = (int)(wrapped_t_minus_t_0 * keyframe_time_info.recip_spacing);
+
+						const float frac = (wrapped_t_minus_t_0 - (float)index * keyframe_time_info.spacing) * keyframe_time_info.recip_spacing; // Fraction of way through frame
+						assert(frac >= 0 && frac < 1.f);
+
+						if(index >= keyframe_time_info.times_size)
+							index = 0;
+
+						int next_index = index + 1;
+						if(next_index >= keyframe_time_info.times_size)
+							next_index = 0;
+
+						key_frame_locs[z].i_0 = index;
+						key_frame_locs[z].i_1 = next_index;
+						key_frame_locs[z].frac = frac;
+					}
+					else
+					{
+						const std::vector<float>& time_vals = keyframe_time_info.times;
+
+						if(!time_vals.empty())
+						{
+							if(time_vals.size() == 1)
+							{
+								key_frame_locs[z].i_0 = 0;
+								key_frame_locs[z].i_1 = 0;
+								key_frame_locs[z].frac = 0;
+							}
+							else
+							{
+								// TODO: use incremental search based on the position last frame, instead of using upper_bound.  (or combine)
+
+								/*
+								frame 0                     frame 1                        frame 2                      frame 3
+								|----------------------------|-----------------------------|-----------------------------|-------------------------> time
+								^                                         ^
+								cur_frame_i                             in_anim_time
+								*/
+
+								assert(time_vals.size() >= 2);
+								const float in_anim_time = time_vals[0] + Maths::floatMod(use_in_anim_time, time_vals.back() - time_vals[0]);
+
+								// Find current frame
+								auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
+								int next_index = (int)(res - time_vals.begin());
+								int index = next_index - 1;
+
+								next_index = myMin(next_index, (int)time_vals.size() - 1);
+
+								float index_time;
+								if(index < 0)
+								{
+									index = (int)time_vals.size() - 1; // Use last keyframe value
+									index_time = 0;
+								}
+								else
+									index_time = time_vals[index];
+
+								//if(index >= 0 && next_index < time_vals.size())
+								//{
+									float frac;
+									frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
+							
+									if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
+										frac = 0;
+									//assert(frac >= 0 && frac <= 1);
+								//}
+
+								key_frame_locs[z].i_0 = index;
+								key_frame_locs[z].i_1 = next_index;
+								key_frame_locs[z].frac = frac;
+							}
+						}
+					}
+				}
 
 				for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
 				{
 					const int node_i = anim_data.sorted_nodes[n];
 					const AnimationNodeData& node_data = anim_data.nodes[node_i];
-					const Vec4f trans = node_data.trans;
-					const Quatf rot = node_data.rot;
-					const Vec4f scale = node_data.scale;
+					const PerAnimationNodeData& node_a = anim_datum_a.per_anim_node_data[node_i];
+					const PerAnimationNodeData& node_b = anim_datum_b.per_anim_node_data[node_i];
+
+					Vec4f trans_a;
+					if(node_a.translation_input_accessor >= 0)
+					{
+						//conPrint("anim_datum_a: " + anim_datum_a.name + "," + toString(anim_data.keyframe_times[node_a.translation_input_accessor].back()));
+
+						const int i_0    = key_frame_locs[node_a.translation_input_accessor].i_0;
+						const int i_1    = key_frame_locs[node_a.translation_input_accessor].i_1;
+						const float frac = key_frame_locs[node_a.translation_input_accessor].frac;
+
+						// read translation values from output accessor.
+						const Vec4f trans_0 = (anim_data.output_data[node_a.translation_output_accessor])[i_0];
+						const Vec4f trans_1 = (anim_data.output_data[node_a.translation_output_accessor])[i_1];
+						trans_a = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+					}
+					else
+						trans_a = node_data.trans;
+
+					Vec4f trans_b;
+					if(node_b.translation_input_accessor >= 0)
+					{
+						const int i_0    = key_frame_locs[node_b.translation_input_accessor].i_0;
+						const int i_1    = key_frame_locs[node_b.translation_input_accessor].i_1;
+						const float frac = key_frame_locs[node_b.translation_input_accessor].frac;
+
+						// read translation values from output accessor.
+						const Vec4f trans_0 = (anim_data.output_data[node_b.translation_output_accessor])[i_0];
+						const Vec4f trans_1 = (anim_data.output_data[node_b.translation_output_accessor])[i_1];
+						trans_b = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+					}
+					else
+						trans_b = node_data.trans;
+
+					const Vec4f trans = Maths::lerp(trans_a, trans_b, transition_frac);
+
+
+
+					Quatf rot_a;
+					if(node_a.rotation_input_accessor >= 0)
+					{
+						const int i_0    = key_frame_locs[node_a.rotation_input_accessor].i_0;
+						const int i_1    = key_frame_locs[node_a.rotation_input_accessor].i_1;
+						const float frac = key_frame_locs[node_a.rotation_input_accessor].frac;
+
+						// read rotation values from output accessor
+						const Quatf rot_0 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_0]);
+						const Quatf rot_1 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_1]);
+						rot_a = Quatf::nlerp(rot_0, rot_1, frac);
+					}
+					else
+						rot_a = node_data.rot;
+
+					Quatf rot_b;
+					if(node_b.rotation_input_accessor >= 0)
+					{
+						const int i_0    = key_frame_locs[node_b.rotation_input_accessor].i_0;
+						const int i_1    = key_frame_locs[node_b.rotation_input_accessor].i_1;
+						const float frac = key_frame_locs[node_b.rotation_input_accessor].frac;
+
+						// read rotation values from output accessor
+						const Quatf rot_0 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_0]);
+						const Quatf rot_1 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_1]);
+						rot_b = Quatf::nlerp(rot_0, rot_1, frac);
+					}
+					else
+						rot_b = node_data.rot;
+
+					const Quatf rot = Quatf::nlerp(rot_a, rot_b, transition_frac);
+
+					Vec4f scale_a;
+					if(node_a.scale_input_accessor >= 0)
+					{
+						const int i_0    = key_frame_locs[node_a.scale_input_accessor].i_0;
+						const int i_1    = key_frame_locs[node_a.scale_input_accessor].i_1;
+						const float frac = key_frame_locs[node_a.scale_input_accessor].frac;
+
+						// read scale values from output accessor
+						const Vec4f scale_0 = (anim_data.output_data[node_a.scale_output_accessor])[i_0];
+						const Vec4f scale_1 = (anim_data.output_data[node_a.scale_output_accessor])[i_1];
+						scale_a = Maths::lerp(scale_0, scale_1, frac);
+					}
+					else
+						scale_a = node_data.scale;
+
+					Vec4f scale_b;
+					if(node_b.scale_input_accessor >= 0)
+					{
+						const int i_0    = key_frame_locs[node_b.scale_input_accessor].i_0;
+						const int i_1    = key_frame_locs[node_b.scale_input_accessor].i_1;
+						const float frac = key_frame_locs[node_b.scale_input_accessor].frac;
+
+						// read scale values from output accessor
+						const Vec4f scale_0 = (anim_data.output_data[node_b.scale_output_accessor])[i_0];
+						const Vec4f scale_1 = (anim_data.output_data[node_b.scale_output_accessor])[i_1];
+						scale_b = Maths::lerp(scale_0, scale_1, frac);
+					}
+					else
+						scale_b = node_data.scale;
+
+					const Vec4f scale = Maths::lerp(scale_a, scale_b, transition_frac);
+
+
 
 					const Matrix4f rot_mat = rot.toMatrix();
-					const Matrix4f TRS(
-						rot_mat.getColumn(0) * copyToAll<0>(scale),
-						rot_mat.getColumn(1) * copyToAll<1>(scale),
-						rot_mat.getColumn(2) * copyToAll<2>(scale),
-						setWToOne(trans));
 
-					const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * TRS);
+					const Matrix4f TRS(
+							rot_mat.getColumn(0) * copyToAll<0>(scale),
+							rot_mat.getColumn(1) * copyToAll<1>(scale),
+							rot_mat.getColumn(2) * copyToAll<2>(scale),
+							setWToOne(trans));
+
+					const Matrix4f last_pre_proc_to_object = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * node_data.retarget_adjustment * TRS); // Transform without procedural_transform applied
+					const Matrix4f node_transform = last_pre_proc_to_object * ob->anim_node_data[node_i].procedural_transform;
 
 					node_matrices[node_i] = node_transform;
 
+					ob->anim_node_data[node_i].last_pre_proc_to_object = last_pre_proc_to_object;
+					ob->anim_node_data[node_i].last_rot = rot;
 					ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
-
 
 					// Set location of debug joint visualisation objects
 					//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
 					if(false)
 					if(!debug_joint_obs.empty())
 					{
-						if(node_i == 27 || node_i == 28)
-							debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.2f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+						if(node_i == 4)
+							debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.6f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
 						else
 							debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
 						updateObjectTransformData(*debug_joint_obs[node_i]);
 					}
 				}
 			}
-		}
-
-		if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
-		{
-			ob->joint_matrices.resizeNoCopy(anim_data.joint_nodes.size());
-
-			// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
-			for(size_t i=0; i<anim_data.joint_nodes.size(); ++i)
+			else // else if anim_data.animations.empty():
 			{
-				const int node_i = anim_data.joint_nodes[i];
+				if(!anim_data.joint_nodes.empty()) // If we have a skin, but no animations, just use the default trans, rot, scales.
+				{
+					const size_t num_nodes = anim_data.sorted_nodes.size();
+					node_matrices.resizeNoCopy(num_nodes);
+					ob->anim_node_data.resize(num_nodes);
 
-				// TODO: can remove anim_node_data from ob, just make it a temp local vector
+					for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
+					{
+						const int node_i = anim_data.sorted_nodes[n];
+						const AnimationNodeData& node_data = anim_data.nodes[node_i];
+						const Vec4f trans = node_data.trans;
+						const Quatf rot = node_data.rot;
+						const Vec4f scale = node_data.scale;
 
-				ob->joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob->anim_node_data[node_i].node_hierarchical_to_object * 
-					anim_data.nodes[node_i].inverse_bind_matrix;
+						const Matrix4f rot_mat = rot.toMatrix();
+						const Matrix4f TRS(
+							rot_mat.getColumn(0) * copyToAll<0>(scale),
+							rot_mat.getColumn(1) * copyToAll<1>(scale),
+							rot_mat.getColumn(2) * copyToAll<2>(scale),
+							setWToOne(trans));
 
-				//conPrint("matrices[" + toString(i) + "]:");
-				//conPrint(temp_joint_matrices[i].toString());
+						const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * TRS);
+
+						node_matrices[node_i] = node_transform;
+
+						ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
+
+
+						// Set location of debug joint visualisation objects
+						//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+						if(false)
+						if(!debug_joint_obs.empty())
+						{
+							if(node_i == 27 || node_i == 28)
+								debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.2f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+							else
+								debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
+							updateObjectTransformData(*debug_joint_obs[node_i]);
+						}
+					}
+				}
 			}
-		}
-	}
+
+			if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+			{
+				ob->joint_matrices.resizeNoCopy(anim_data.joint_nodes.size());
+
+				// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
+				for(size_t i=0; i<anim_data.joint_nodes.size(); ++i)
+				{
+					const int node_i = anim_data.joint_nodes[i];
+
+					// TODO: can remove anim_node_data from ob, just make it a temp local vector
+
+					ob->joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob->anim_node_data[node_i].node_hierarchical_to_object * 
+						anim_data.nodes[node_i].inverse_bind_matrix;
+
+					//conPrint("matrices[" + toString(i) + "]:");
+					//conPrint(temp_joint_matrices[i].toString());
+				}
+			}
+		} // end if(process)
+	} // end for each animated object
+
+	this->last_num_animated_obs_processed = num_animated_obs_processed;
 	anim_update_duration = anim_profile_timer.elapsed();
 
 
@@ -3438,7 +3602,6 @@ void OpenGLEngine::draw()
 
 				// Get a bounding AABB centered on camera.
 				// Quantise camera coords to avoid shimmering artifacts when moving camera.
-				const Vec4f campos_ws = current_scene->cam_to_world * Vec4f(0, 0, 0, 1);
 				const float quant_w = 10;
 				const Vec4f cur_vol_centre(
 					floor(campos_ws[0] / quant_w) * quant_w, 
@@ -4232,6 +4395,16 @@ void OpenGLEngine::draw()
 		glDisable(GL_POLYGON_OFFSET_LINE);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
+
+
+	// Visualise clip planes and view frustum
+	/*for(int i=0; i<6; ++i)
+		drawDebugPlane(Vec3f(draw_anim_shadow_clip_planes[i].getPointOnPlane()), Vec3f(draw_anim_shadow_clip_planes[i].getNormal()), view_matrix, proj_matrix, 200);
+	for(int i=0; i<8; ++i)
+		drawDebugSphere(draw_frustum_verts_ws[i], 1.f, view_matrix, proj_matrix);
+	for(int i=0; i<8; ++i)
+		drawDebugSphere(draw_extended_verts_ws[i], 1.f, view_matrix, proj_matrix);*/
+
 
 	//================= Draw triangle batches with transparent materials =================
 	glEnable(GL_BLEND);
@@ -5116,45 +5289,45 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 	// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
 
-	// Set per-object vert uniforms
-	if(shader_prog->uses_vert_uniform_buf_obs)
+	// Set per-object vert uniforms.  Only do this if the current object has changed.
+	if(&ob != current_uniforms_ob)
 	{
-		PerObjectVertUniforms uniforms;
-		uniforms.model_matrix = ob.ob_to_world_matrix;
-		uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
-
-		if(use_multi_draw_indirect)
+		if(shader_prog->uses_vert_uniform_buf_obs)
 		{
-			// Copy to MDI_per_object_vert_uniforms host buffer
-			const size_t index = this->draw_commands.size();
-			if(index >= MDI_per_object_vert_uniforms.size())
-				MDI_per_object_vert_uniforms.resize(index + 1);
+			PerObjectVertUniforms uniforms;
+			uniforms.model_matrix = ob.ob_to_world_matrix;
+			uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
 
-			std::memcpy(&MDI_per_object_vert_uniforms[index], &uniforms, sizeof(PerObjectVertUniforms));
+			if(use_multi_draw_indirect)
+			{
+				// Copy to MDI_per_object_vert_uniforms host buffer
+				const size_t index = this->draw_commands.size();
+				if(index >= MDI_per_object_vert_uniforms.size())
+					MDI_per_object_vert_uniforms.resize(index + 1);
 
-			//this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/offset, &uniforms, sizeof(PerObjectVertUniforms));
+				std::memcpy(&MDI_per_object_vert_uniforms[index], &uniforms, sizeof(PerObjectVertUniforms));
+
+				//this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/offset, &uniforms, sizeof(PerObjectVertUniforms));
+			}
+			else
+				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 		}
 		else
-			this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
-	}
-	else
-	{
-		glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-		glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
-	}
-
-	if(mesh_data.usesSkinning())
-	{
-		if(use_multi_draw_indirect)
-			submitBufferedDrawCommands();
-
-		if(&ob != current_joint_matrices_ob)
 		{
+			glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
+			glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+		}
+
+		if(mesh_data.usesSkinning())
+		{
+			if(use_multi_draw_indirect)
+				submitBufferedDrawCommands();
+
 			const size_t num_joint_matrices_to_upload = myMin<size_t>(256, ob.joint_matrices.size()); // The joint_matrix uniform array has 256 elems, don't upload more than that.
 			glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)num_joint_matrices_to_upload, /*transpose=*/false, ob.joint_matrices[0].e);
-
-			current_joint_matrices_ob = &ob;
 		}
+
+		current_uniforms_ob = &ob;
 	}
 
 
@@ -6018,6 +6191,7 @@ std::string OpenGLEngine::getDiagnostics() const
 
 	s += "FPS: " + doubleToStringNDecimalPlaces(last_fps, 1) + "\n";
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";
+	s += "Processed " + toString(last_num_animated_obs_processed) + " / " + toString(current_scene->animated_objects.size()) + " animated obs\n";
 	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
 	s += "last_depth_map_gen_GPU_time: " + doubleToStringNSigFigs(last_depth_map_gen_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "last_render_GPU_time: " + doubleToStringNSigFigs(last_render_GPU_time * 1.0e3, 4) + " ms\n";
