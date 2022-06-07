@@ -89,7 +89,7 @@ inline void BitField<T>::setBitToZero(uint32 index)
 {
 	assert(index >= 0 && index < sizeof(T) * 8);
 
-	v &= ~(1u << index);
+	v &= ~((T)1u << index);
 }
 
 
@@ -98,7 +98,7 @@ inline void BitField<T>::setBitToOne(uint32 index)
 {
 	assert(index >= 0 && index < sizeof(T) * 8);
 
-	v |= (1u << index);
+	v |= ((T)1u << index);
 }
 
 

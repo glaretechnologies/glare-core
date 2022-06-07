@@ -36,9 +36,11 @@ namespace BitUtils
 
 	// Return the zero-based index of the least-significant bit in x that is set to 1.  If no bits are set to 1 (e.g. if x=0), then returns 0.
 	inline uint32 lowestSetBitIndex(uint32 x);
+	inline uint32 lowestSetBitIndex(uint64 x);
 
 	// Return the zero-based index of the least-significant bit in x that is set to 0.  If no bits are set to 0 (e.g. if x=2^32-1), then returns 0.
 	inline uint32 lowestZeroBitIndex(uint32 x);
+	inline uint32 lowestZeroBitIndex(uint64 x);
 
 
 	inline uint32 highestSetBitIndex(uint64 x);
@@ -83,7 +85,31 @@ namespace BitUtils
 	}
 
 
+	uint32 lowestSetBitIndex(uint64 x)
+	{
+		if(x == 0)
+			return 0;
+
+#ifdef _WIN32
+		// _BitScanForward: Search the mask data from least significant bit (LSB) to the most significant bit (MSB) for a set bit (1).
+		// https://docs.microsoft.com/en-us/cpp/intrinsics/bitscanforward-bitscanforward64?view=msvc-170
+		unsigned long pos;
+		_BitScanForward64(&pos, x);
+		return pos;
+#else
+		// __builtin_ctz: Returns the number of trailing 0-bits in x, starting at the least significant bit position. If x is 0, the result is undefined.  (http://gcc.gnu.org/onlinedocs/gcc-4.4.5/gcc/Other-Builtins.html)
+		return __builtin_ctz(x);
+#endif
+	}
+
+
 	uint32 lowestZeroBitIndex(uint32 x)
+	{
+		return lowestSetBitIndex(~x); // Negate bits of x.
+	}
+
+
+	uint32 lowestZeroBitIndex(uint64 x)
 	{
 		return lowestSetBitIndex(~x); // Negate bits of x.
 	}
