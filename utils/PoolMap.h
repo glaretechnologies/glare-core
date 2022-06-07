@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "Platform.h"
 #include "BitField.h"
 #include "Vector.h"
+#include "Exception.h"
 #include "../maths/mathstypes.h"
 #include <unordered_map>
 #include <limits>
@@ -396,7 +397,7 @@ class PoolMap
 {
 public:
 	PoolMap()
-	:	pool_vector(Maths::roundUpToMultipleOfPowerOf2(sizeof(Value), 32ull), /*alignment=*/32)
+	:	pool_vector(Maths::roundUpToMultipleOfPowerOf2<size_t>(sizeof(Value), 32), /*alignment=*/32)
 	{}
 
 	~PoolMap()
