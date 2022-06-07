@@ -245,7 +245,7 @@ void glare::testPoolMap()
 	//============================================= Random stress/fuzz test. =============================================
 	{
 		PCG32 rng(1);
-		for(int z=0; z<1; ++z)
+		for(int q=0; q<1; ++q)
 		{
 			PoolMap<int, int, std::hash<uint64>> map;
 			std::unordered_set<int> keys;
