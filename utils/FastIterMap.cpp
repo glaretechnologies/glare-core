@@ -58,9 +58,10 @@ void glare::testFastIterMap()
 		testAssert(!map.insert(10, 20));
 		testAssert(!map.insert(10, 21));
 
+		// Test iteration over values gives expected results
 		{
 			std::set<int> seen_items;
-			for(auto it = map.begin(); it != map.end(); ++it)
+			for(auto it = map.valuesBegin(); it != map.valuesEnd(); ++it)
 			{
 				const int val = it.getValue();
 				testAssert(seen_items.count(val) == 0); // Check we haven't seen this object already.
@@ -77,7 +78,7 @@ void glare::testFastIterMap()
 
 		{
 			std::set<int> seen_items;
-			for(auto it = map.begin(); it != map.end(); ++it)
+			for(auto it = map.valuesBegin(); it != map.valuesEnd(); ++it)
 			{
 				const int val = it.getValue();
 				testAssert(seen_items.count(val) == 0); // Check we haven't seen this object already.
@@ -98,7 +99,7 @@ void glare::testFastIterMap()
 
 		{
 			std::set<int> seen_items;
-			for(auto it = map.begin(); it != map.end(); ++it)
+			for(auto it = map.valuesBegin(); it != map.valuesEnd(); ++it)
 			{
 				const int val = it.getValue();
 				testAssert(seen_items.count(val) == 0); // Check we haven't seen this object already.
@@ -115,7 +116,7 @@ void glare::testFastIterMap()
 
 		{
 			std::set<int> seen_items;
-			for(auto it = map.begin(); it != map.end(); ++it)
+			for(auto it = map.valuesBegin(); it != map.valuesEnd(); ++it)
 			{
 				const int val = it.getValue();
 				testAssert(seen_items.count(val) == 0); // Check we haven't seen this object already.
@@ -134,7 +135,7 @@ void glare::testFastIterMap()
 
 		{
 			std::set<int> seen_items;
-			for(auto it = map.begin(); it != map.end(); ++it)
+			for(auto it = map.valuesBegin(); it != map.valuesEnd(); ++it)
 			{
 				const int val = it.getValue();
 				testAssert(seen_items.count(val) == 0); // Check we haven't seen this object already.
@@ -151,7 +152,7 @@ void glare::testFastIterMap()
 
 		{
 			std::set<int> seen_items;
-			for(auto it = map.begin(); it != map.end(); ++it)
+			for(auto it = map.valuesBegin(); it != map.valuesEnd(); ++it)
 			{
 				const int val = it.getValue();
 				testAssert(seen_items.count(val) == 0); // Check we haven't seen this object already.
