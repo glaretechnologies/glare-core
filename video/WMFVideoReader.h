@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <string>
 #include <map>
 #include <set>
+#include <vector>
 
 
 class WMFVideoReaderCallback;
@@ -89,14 +90,14 @@ public:
 template <>
 inline void destroyAndFreeOb<WMFSampleInfo>(WMFSampleInfo* ob)
 {
-	Reference<glare::Allocator> allocator = ob->allocator;
+	Reference<glare::PoolAllocator> allocator = ob->allocator;
 
 	// Destroy object
 	ob->~WMFSampleInfo();
 
 	// Free object mem
 	if(allocator.nonNull())
-		ob->allocator->free(ob);
+		ob->allocator->free(ob->allocation_index);
 	else
 		delete ob;
 }
@@ -166,7 +167,7 @@ private:
 public:
 	Reference<TexturePool> texture_pool;
 
-	Reference<glare::PoolAllocator<WMFSampleInfo>> frame_info_allocator;
+	Reference<glare::PoolAllocator> frame_info_allocator;
 
 	glare::AtomicInt num_pending_reads;
 };

@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Reference.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Platform.h"
+#include "../utils/PoolAllocator.h"
 #include "../utils/GlareAllocator.h"
 
 
@@ -37,7 +38,8 @@ public:
 	uint64 buffer_len_B;
 	uint32 bits_per_sample;
 
-	Reference<glare::Allocator> allocator;
+	Reference<glare::PoolAllocator> allocator;
+	int allocation_index;
 };
 
 typedef Reference<SampleInfo> SampleInfoRef;
@@ -47,14 +49,14 @@ typedef Reference<SampleInfo> SampleInfoRef;
 template <>
 inline void destroyAndFreeOb<SampleInfo>(SampleInfo* ob)
 {
-	Reference<glare::Allocator> allocator = ob->allocator;
+	Reference<glare::PoolAllocator> allocator = ob->allocator;
 
 	// Destroy object
 	ob->~SampleInfo();
 
 	// Free object mem
 	if(allocator.nonNull())
-		ob->allocator->free(ob);
+		ob->allocator->free(ob->allocation_index);
 	else
 		delete ob;
 }

@@ -148,7 +148,7 @@ static void doTextureLoadingAndInsertionTests(OpenGLEngine& engine, bool use_can
 		//----------------- Make an object using a texture, insert into engine -----------------
 		const std::string path = TestUtils::getTestReposDir() + "/testfiles/checker.jpg";
 
-		GLObjectRef ob = new GLObject();
+		GLObjectRef ob = engine.allocateObject();
 		ob->materials.resize(1);
 		ob->materials[0].tex_path = path;
 		ob->ob_to_world_matrix = Matrix4f::identity();

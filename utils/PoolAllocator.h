@@ -9,44 +9,39 @@ Copyright Glare Technologies Limited 2021 -
 #include "Platform.h"
 #include "MemAlloc.h"
 #include "GlareAllocator.h"
-#include "BitField.h"
 #include "Mutex.h"
 #include "Lock.h"
+#include "Vector.h"
+#include "ConPrint.h"
 #include "../maths/mathstypes.h"
 #include <stddef.h> // For size_t
-#include <vector>
+#include <set>
 
 
 /*=====================================================================
 PoolAllocator
 -------------
 Thread-safe.
+
+Uses a set so we can keep free indices sorted by index, and allocate the 
+next object at the lowest index, hopefully packing objects closely together.
 =====================================================================*/
 namespace glare
 {
 
 
-class BlockInfo
+class PoolAllocator : public ThreadSafeRefCounted // public glare::Allocator
 {
 public:
-	BlockInfo() : used(0) {}
+	const static size_t block_capacity = 1024; // Max num objects per block.
 
-	BitField<uint32> used; // A bitmask where 0 = slot not used, 1 = slot used.
-	uint8* data;
-};
-
-
-// TODO: there is no strong reason to make this class templated.
-template <class T>
-class PoolAllocator : public glare::Allocator
-{
-public:
-	const size_t block_capacity = 16; // Max num objects per block.
-
-	// When calling alloc(), the requested_alignemnt passed to alloc() must be <= alignment_.
-	PoolAllocator(size_t alignment_)
-	:	alignment(alignment_)
-	{}
+	// When calling alloc(), the requested_alignment passed to alloc() must be <= alignment_.
+	PoolAllocator(size_t ob_alloc_size_, size_t alignment_)
+	:	ob_alloc_size(Maths::roundUpToMultipleOfPowerOf2<size_t>(ob_alloc_size_, alignment_)),
+		alignment(alignment_)
+	{
+		assert(Maths::isPowerOfTwo(alignment_));
+	}
 
 	virtual ~PoolAllocator()
 	{
@@ -58,79 +53,85 @@ public:
 	{
 		Lock lock(mutex);
 
-		size_t c = 0;
-		for(size_t i=0; i<blocks.size(); ++i)
-		{
-			const BlockInfo& block = blocks[i];
-			for(size_t z=0; z<block_capacity; ++z) // TODO: use popcount
-				if(block.used.getBit((uint32)z))
-					c++;
-		}
-		return c;
+		assert(blocks.size() * block_capacity >= free_indices.size());
+		return blocks.size() * block_capacity - free_indices.size();
 	}
 
 	size_t numAllocatedBlocks() const
 	{
 		Lock lock(mutex);
-
 		return blocks.size();
 	}
 
-	virtual void* alloc(size_t size, size_t requested_alignment)
-	{
-		assert(requested_alignment <= this->alignment);
-		assert(size == sizeof(T));
-		const size_t ob_mem_usage = Maths::roundUpToMultipleOfPowerOf2(size, alignment);
 
+	struct AllocResult
+	{
+		void* ptr;
+		int32 index;
+	};
+
+	struct BlockInfo
+	{
+		uint8* data;
+	};
+
+	virtual AllocResult alloc()
+	{
 		Lock lock(mutex);
 
-		for(size_t i=0; i<blocks.size(); ++i)
+		auto res = free_indices.begin();
+		if(res != free_indices.end())
 		{
-			BlockInfo& block = blocks[i];
+			// There was at least one free index:
+			const int index = *res;
+			size_t block_i    = (size_t)index / block_capacity;
+			size_t in_block_i = (size_t)index % block_capacity;
 
-			if(block.used.v != ((1u << block_capacity) - 1u)) // If block is not entirely used:
-			{
-				const uint32 free_index = BitUtils::lowestZeroBitIndex(block.used.v); // Get first availabile free slot in block
-				assert(block.used.getBit(free_index) == 0);
+			free_indices.erase(res); // Remove slot from free indices.
 
-				block.used.setBitToOne(free_index); // Mark spot in block as used
-				return block.data + ob_mem_usage * free_index;
-			}
+			AllocResult alloc_res;
+			alloc_res.ptr = blocks[block_i].data + ob_alloc_size * in_block_i;
+			alloc_res.index = index;
+			return alloc_res;
 		}
+		else
+		{
+			// No free indices - All blocks (if any) are full.  Allocate a new block.
+			const size_t new_block_index = blocks.size();
+			blocks.push_back(BlockInfo());
 
-		// No free room in any existing blocks.
-		blocks.push_back(BlockInfo());
-		blocks.back().data = (uint8*)MemAlloc::alignedMalloc(block_capacity * ob_mem_usage, alignment);
-		blocks.back().used.setBitToOne(0); // Mark spot in block as used
-		return blocks.back().data;
+			for(int i=1; i<block_capacity; ++i) // Don't add slot 0, we will use that one.
+				free_indices.insert((int)(new_block_index * block_capacity + i));
+
+			BlockInfo& new_block = blocks[new_block_index];
+			new_block.data = (uint8*)MemAlloc::alignedMalloc(block_capacity * ob_alloc_size, alignment);
+
+			AllocResult alloc_res;
+			alloc_res.ptr = new_block.data;
+			alloc_res.index = (int)(new_block_index * block_capacity);
+			return alloc_res;
+		}
 	}
 
-	virtual void free(void* ptr)
+	virtual void free(int allocation_index)
 	{
-		const size_t ob_mem_usage = Maths::roundUpToMultipleOfPowerOf2(sizeof(T), alignment);
-
 		Lock lock(mutex);
 
-		for(size_t i=0; i<blocks.size(); ++i)
+		const auto res = free_indices.insert(allocation_index);
+		const bool was_inserted = res.second;
+		if(!was_inserted) // If it was not inserted, it means it was already in free_indices
 		{
-			BlockInfo& block = blocks[i];
-			if(ptr >= block.data && ptr < block.data + block_capacity * ob_mem_usage) // If ptr lies within memory range for the block:
-			{
-				// ptr was from this block
-				const size_t index = ((uint8*)ptr - block.data) / ob_mem_usage;
-				assert(ptr == block.data + index * ob_mem_usage);
-				block.used.setBitToZero((uint32)index); // Mark spot as not-used.
-				return;
-			}
+			conPrint("Warning: tried to free the same memory slot more than once.");
+			assert(0);
 		}
-
-		assert(0); // Memory was not found in any block!
 	}
 
 
 	mutable Mutex mutex;
-	std::vector<BlockInfo> blocks;
-	size_t alignment;
+	js::Vector<BlockInfo, 16> blocks;
+	size_t ob_alloc_size, alignment;
+
+	std::set<int> free_indices;
 };
 
 

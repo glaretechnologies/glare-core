@@ -1,7 +1,7 @@
 /*=====================================================================
 PoolAllocator.cpp
 -----------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #include "PoolAllocator.h"
 
@@ -17,7 +17,6 @@ Copyright Glare Technologies Limited 2021 -
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include "Timer.h"
-#include "CycleTimer.h"
 #include "Reference.h"
 
 
@@ -47,40 +46,43 @@ inline void destroyAndFreeOb<PoolAllocatorTestStruct>(PoolAllocatorTestStruct* o
 
 void glare::testPoolAllocator()
 {
-	{
-		PoolAllocator<int> pool(/*alignment=*/4);
+	conPrint("glare::testPoolAllocator()");
 
-		void* a = pool.alloc(sizeof(int), 4);
-		void* b = pool.alloc(sizeof(int), 4);
-		void* c = pool.alloc(sizeof(int), 4);
+	{
+		PoolAllocator pool(/*ob alloc size=*/4, /*alignment=*/4);
+
+		PoolAllocator::AllocResult a = pool.alloc();
+		PoolAllocator::AllocResult b = pool.alloc();
+		PoolAllocator::AllocResult c = pool.alloc();
 
 		testAssert(pool.numAllocatedObs() == 3);
 
-		pool.free(a);
-		pool.free(b);
-		pool.free(c);
+		pool.free(a.index);
+		pool.free(b.index);
+		pool.free(c.index);
 
 		testAssert(pool.numAllocatedObs() == 0);
 
-		const int N = 100;
-		std::vector<void*> ptrs;
+		const int N = 10000;
+		std::vector<int> indices;
 		for(int i=0; i<N; ++i)
 		{
-			ptrs.push_back(pool.alloc(sizeof(int), 4));
+			PoolAllocator::AllocResult res = pool.alloc();
+			indices.push_back(res.index);
 		}
 
 		testAssert(pool.numAllocatedObs() == N);
 
 		for(int i=0; i<N; ++i)
 		{
-			pool.free(ptrs[i]);
+			pool.free(indices[i]);
 		}
 
 		testAssert(pool.numAllocatedObs() == 0);
 	}
 
 	// Test with references 
-	{
+	/*{
 		Reference<PoolAllocator<PoolAllocatorTestStruct>> pool = new PoolAllocator<PoolAllocatorTestStruct>(16);
 		
 		testAssert(pool->numAllocatedObs() == 0);
@@ -95,7 +97,9 @@ void glare::testPoolAllocator()
 		testAssert(pool->numAllocatedObs() == 0);
 
 		testAssert(pool->getRefCount() == 1);
-	}
+	}*/
+
+	conPrint("glare::testPoolAllocator() done.");
 }
 
 

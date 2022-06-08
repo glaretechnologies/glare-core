@@ -40,8 +40,10 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/StringUtils.h"
 #include "../utils/PrintOutput.h"
 #include "../utils/ManagerWithCache.h"
-#include <unordered_set>
+#include "../utils/PoolAllocator.h"
 #include <assert.h>
+#include <unordered_set>
+#include <set>
 namespace Indigo { class Mesh; }
 namespace glare { class TaskManager; }
 class Map2D;
@@ -161,12 +163,19 @@ struct GlInstanceInfo
 	Matrix4f to_world; // For imposters, this will not have rotation baked in.
 };
 
-struct GLObject : public ThreadSafeRefCounted
+struct GLObject
 {
+	GLObject() noexcept;
+	~GLObject();
+
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLObject();
-	~GLObject();
+	// For placement new in PoolAllocator:
+#if __cplusplus >= 201703L
+		void* operator new  (size_t size, std::align_val_t alignment, void* ptr) { return ptr; }
+#else
+		void* operator new  (size_t size, void* ptr) { return ptr; }
+#endif
 
 	void enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size); // Enables instancing attributes, and builds vert_vao.
 
@@ -205,8 +214,32 @@ struct GLObject : public ThreadSafeRefCounted
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 	js::Vector<Matrix4f, 16> joint_matrices;
+
+	//glare::PoolAllocator* allocator;
+	//int allocation_index;
+
+
+	// From ThreadSafeRefCounted.  Manually define this stuff here, so refcount can be defined not at the start of the structure, which wastes space due to alignment issues.
+	inline glare::atomic_int decRefCount() const { return refcount.decrement(); }
+	inline void incRefCount() const { refcount.increment(); }
+	inline glare::atomic_int getRefCount() const { return refcount; }
+	mutable glare::AtomicInt refcount;
 };
+
 typedef Reference<GLObject> GLObjectRef;
+
+
+void doDestroyGLOb(GLObject* ob);
+
+// Template specialisation of destroyAndFreeOb for GLObject.  This is called when being freed by a Reference.
+// We will use this to free from the OpenGLEngine PoolAllocator if the object was allocated from there.
+template <>
+inline void destroyAndFreeOb<GLObject>(GLObject* ob)
+{
+	doDestroyGLOb(ob);
+}
+
+
 
 
 struct GLObjectHash
@@ -268,7 +301,7 @@ class OpenGLScene : public ThreadSafeRefCounted
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	OpenGLScene();
+	OpenGLScene(OpenGLEngine& engine);
 
 	friend class OpenGLEngine;
 
@@ -320,13 +353,14 @@ private:
 	Matrix4f world_to_camera_space_matrix;
 	Matrix4f cam_to_world;
 public:
-	std::unordered_set<Reference<GLObject>, GLObjectHash> objects;
-	std::unordered_set<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
-	std::unordered_set<Reference<GLObject>, GLObjectHash> transparent_objects;
-	std::unordered_set<Reference<GLObject>, GLObjectHash> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
-	std::unordered_set<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
-	std::unordered_set<Reference<GLObject>, GLObjectHash> objects_with_imposters;
-
+	// NOTE: Use std::set instead of unordered_set, so that iteration over objects is in memory order.
+	std::set<Reference<GLObject>> objects;
+	std::set<Reference<GLObject>> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
+	std::set<Reference<GLObject>> transparent_objects;
+	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
+	std::set<Reference<OverlayObject>> overlay_objects; // UI overlays
+	std::set<Reference<GLObject>> objects_with_imposters;
+	
 	GLObjectRef env_ob;
 private:
 	float max_draw_dist;
@@ -489,6 +523,9 @@ public:
 
 
 	//---------------------------- Adding and removing objects -------------------------------
+
+	Reference<GLObject> allocateObject();
+
 	void addObject(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
 	bool isObjectAdded(const Reference<GLObject>& object) const;
@@ -952,6 +989,9 @@ public:
 
 	uint64 total_available_GPU_mem_B; // Set by NVidia drivers
 	uint64 total_available_GPU_VBO_mem_B; // Set by AMD drivers
+
+private:
+	glare::PoolAllocator object_pool_allocator;
 };
 
 

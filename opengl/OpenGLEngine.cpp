@@ -73,9 +73,9 @@ static const bool MEM_PROFILE = false;
 #define TEXTURE_FREE_MEMORY_ATI							0x87FC
 
 
-GLObject::GLObject()
+GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
-	num_instances_to_draw(0), always_visible(false)
+	num_instances_to_draw(0), always_visible(false)/*, allocator(NULL)*/, refcount(0)
 {}
 
 
@@ -83,7 +83,21 @@ GLObject::~GLObject()
 {}
 
 
-void GLObject::enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size)
+void doDestroyGLOb(GLObject* ob)
+{
+	/*if(ob->allocator)
+	{
+		glare::PoolAllocator* allocator = ob->allocator;
+		const int allocation_index = ob->allocation_index;
+		ob->~GLObject(); // Call destructor
+		allocator->free(allocation_index); // Free memory
+	}
+	else*/
+		delete ob;
+}
+
+
+void GLObject::enableInstancing(VertexBufferAllocator& vert_allocator, const void* instance_matrix_data, size_t instance_matrix_data_size)
 {
 	VBORef new_instance_matrix_vbo = new VBO(instance_matrix_data, instance_matrix_data_size, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
@@ -210,7 +224,7 @@ OverlayObject::OverlayObject()
 }
 
 
-OpenGLScene::OpenGLScene()
+OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -224,7 +238,7 @@ OpenGLScene::OpenGLScene()
 	bloom_strength = 0;
 	wind_strength = 1.f;
 
-	env_ob = new GLObject();
+	env_ob = engine.allocateObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
 	env_ob->ob_to_world_inv_transpose_matrix = Matrix4f::identity();
 	env_ob->materials.resize(1);
@@ -262,7 +276,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_vbo_binds(0),
 	last_num_animated_obs_processed(0),
 	next_program_index(0),
-	use_bindless_textures(false)
+	use_bindless_textures(false),
+	object_pool_allocator(sizeof(GLObject), 16)
 {
 	current_index_type = 0;
 	current_bound_prog = NULL;
@@ -271,7 +286,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	current_bound_index_VBO = NULL;
 	current_uniforms_ob = NULL;
 
-	current_scene = new OpenGLScene();
+	current_scene = new OpenGLScene(*this);
 	scenes.insert(current_scene);
 
 	viewport_w = viewport_h = 100;
@@ -1856,6 +1871,20 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 
 		material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
 	}
+}
+
+
+Reference<GLObject> OpenGLEngine::allocateObject()
+{
+	return new GLObject();
+
+	/*glare::PoolAllocator::AllocResult alloc_res = object_pool_allocator.alloc();
+
+	GLObject* ob_ptr = new (alloc_res.ptr) GLObject(); // construct with placement new
+	ob_ptr->allocator = &object_pool_allocator;
+	ob_ptr->allocation_index = alloc_res.index;
+
+	return ob_ptr;*/
 }
 
 
@@ -4882,7 +4911,7 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 
 GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col)
 {
-	GLObjectRef ob = new GLObject();
+	GLObjectRef ob = allocateObject();
 
 	const Vec4f span = max_ - min_;
 

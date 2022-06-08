@@ -13,6 +13,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "../graphics/ImageMap.h"
 #include "../graphics/PNGDecoder.h"
 #include "../direct3d/Direct3DUtils.h"
+#include "../opengl/WGL.h"
+#include "../opengl/OpenGLTexture.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
@@ -31,6 +33,9 @@ Copyright Glare Technologies Limited 2021 -
 
 
 static const bool GPU_DECODE = true;
+
+
+static const bool COPY_D3D_TEXTURES = true;
 
 
 // Some code adapted from https://docs.microsoft.com/en-us/windows/win32/medfound/processing-media-data-with-the-source-reader
@@ -96,15 +101,16 @@ WMFSampleInfo::~WMFSampleInfo()
 			conPrint("Warning: media_buffer->Unlock() failed: " + PlatformUtils::COMErrorString(hres));
 	}
 
-	assert(texture_pool.nonNull());
+	assert(!COPY_D3D_TEXTURES || texture_pool.nonNull());
 	if(texture_pool.nonNull())
 	{
 		if(d3d_tex.ptr)
 		{
 			// Remove from used textures, add to free textures
 			Lock lock(texture_pool->mutex);
-			texture_pool->used_textures.erase(d3d_tex.ptr);
-			texture_pool->free_textures.push_back(d3d_tex.ptr);
+			const size_t num_erased = texture_pool->used_textures.erase(d3d_tex.ptr);
+			if(num_erased > 0)
+				texture_pool->free_textures.push_back(d3d_tex.ptr);
 		}
 	}
 }
@@ -368,7 +374,7 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 	reader_callback(reader_callback_),
 	com_reader_callback(NULL),
 	decode_to_d3d_tex(decode_to_d3d_tex_),
-	frame_info_allocator(new glare::PoolAllocator<WMFSampleInfo>(/*alignment=*/16))
+	frame_info_allocator(new glare::PoolAllocator(/*ob alloc size=*/sizeof(WMFSampleInfo), /*alignment=*/16))
 {
 	HRESULT hr;
 
@@ -520,7 +526,8 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 	}
 #endif
 	
-	texture_pool = new TexturePool();
+	if(COPY_D3D_TEXTURES)
+		texture_pool = new TexturePool();
 
 	//conPrint("Rest of init took " + timer.elapsedString());
 }
@@ -549,10 +556,13 @@ WMFVideoReader::~WMFVideoReader()
 	reader.release();
 
 	// Release textures in texture pool
-	for(auto it : texture_pool->used_textures)
-		it->Release();
-	for(auto it : texture_pool->free_textures)
-		it->Release();
+	if(COPY_D3D_TEXTURES)
+	{
+		for(auto it : texture_pool->used_textures)
+			it->Release();
+		for(auto it : texture_pool->free_textures)
+			it->Release();
+	}
 
 	//conPrint("Shutting down WMFVideoReader took " + timer.elapsedString());
 }
@@ -896,7 +906,7 @@ void WMFVideoReader::OnReadSample(
 						throw glare::Exception("Failed to get IMFDXGIBuffer");
 
 					ComObHandle<ID3D11Texture2D> d3d_tex;
-					hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&d3d_tex.ptr));
+					hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&d3d_tex.ptr)); // Receives a pointer to the interface. The caller must release the interface.
 					throwOnError(hr);
 
 					// Direct3DUtils::saveTextureToBmp(std::string("frame " + toString(frame++) + ".bmp").c_str(), d3d_tex.ptr);
@@ -904,64 +914,68 @@ void WMFVideoReader::OnReadSample(
 					//=======================================
 					// Copy the tex.  This seems to be needed for the OpenGL texture sharing to pick up the texture change.
 					// Hopefully can work out some better way of doing this.
-#if 1
-					ComObHandle<ID3D11Device> d3d_device;
-					d3d_tex->GetDevice(&d3d_device.ptr);
 
-					ComObHandle<ID3D11DeviceContext> d3d_context;
-					d3d_device->GetImmediateContext(&d3d_context.ptr);
+					if(COPY_D3D_TEXTURES)
+					{
+						ComObHandle<ID3D11Device> d3d_device;
+						d3d_tex->GetDevice(&d3d_device.ptr);
 
-					ComObHandle<ID3D11Texture2D> use_tex;
-					{ // Scope for texture_pool mutex lock
-						Lock mutex(texture_pool->mutex);
-						if(texture_pool->free_textures.empty()) // If there are no free textures:
-						{
-							// Allocate a texture, add to used_textures.
-						
-							// conPrint("Allocating new D3D texture. (used_textures: " + toString(texture_pool->used_textures.size()) + ")");
+						ComObHandle<ID3D11DeviceContext> d3d_context;
+						d3d_device->GetImmediateContext(&d3d_context.ptr);
 
-							// conPrint("Creating copy of texture " + toHexString((uint64)d3d_tex.ptr) + "...");
-							D3D11_TEXTURE2D_DESC desc;
-							d3d_tex->GetDesc(&desc);
+						ComObHandle<ID3D11Texture2D> use_tex;
+						{ // Scope for texture_pool mutex lock
+							Lock mutex(texture_pool->mutex);
+							if(texture_pool->free_textures.empty()) // If there are no free textures:
+							{
+								// Allocate a texture, add to used_textures.
 
-							D3D11_TEXTURE2D_DESC desc2;
-							desc2.Width = desc.Width;
-							desc2.Height = desc.Height;
-							desc2.MipLevels = desc.MipLevels;
-							desc2.ArraySize = desc.ArraySize;
-							desc2.Format = desc.Format;
-							desc2.SampleDesc = desc.SampleDesc;
-							desc2.Usage = D3D11_USAGE_DEFAULT;
-							desc2.BindFlags = 0;
-							desc2.CPUAccessFlags = 0;
-							desc2.MiscFlags = 0;
+								// conPrint("Allocating new D3D texture. (used_textures: " + toString(texture_pool->used_textures.size()) + ")");
 
-							ComObHandle<ID3D11Texture2D> texture_copy;
-							hr = d3d_device->CreateTexture2D(&desc2, nullptr, &texture_copy.ptr);
-							if(FAILED(hr))
-								throw glare::Exception("Failed to create texture copy");
+								// conPrint("Creating copy of texture " + toHexString((uint64)d3d_tex.ptr) + "...");
+								D3D11_TEXTURE2D_DESC desc;
+								d3d_tex->GetDesc(&desc);
 
-							// conPrint("Texture copy: " + toHexString((uint64)texture_copy.ptr) + "...");
+								D3D11_TEXTURE2D_DESC desc2;
+								desc2.Width = desc.Width;
+								desc2.Height = desc.Height;
+								desc2.MipLevels = desc.MipLevels;
+								desc2.ArraySize = desc.ArraySize;
+								desc2.Format = desc.Format;
+								desc2.SampleDesc = desc.SampleDesc;
+								desc2.Usage = D3D11_USAGE_DEFAULT;
+								desc2.BindFlags = 0;
+								desc2.CPUAccessFlags = 0;
+								desc2.MiscFlags = 0;
 
-							texture_copy->AddRef();
-							texture_pool->used_textures.insert(texture_copy.ptr);
+								ComObHandle<ID3D11Texture2D> texture_copy;
+								hr = d3d_device->CreateTexture2D(&desc2, nullptr, &texture_copy.ptr);
+								if(FAILED(hr))
+									throw glare::Exception("Failed to create texture copy");
 
-							use_tex = texture_copy;
-						}
-						else // Else there is a free texture, use it:
-						{
-							ID3D11Texture2D* tex = texture_pool->free_textures.back();
-							texture_pool->free_textures.pop_back();
-							use_tex = tex;
-						}
-					} // End texture pool mutex scope.
+								// conPrint("Texture copy: " + toHexString((uint64)texture_copy.ptr) + "...");
 
-					d3d_context->CopyResource(use_tex.ptr, d3d_tex.ptr); // Copy the texture
+								texture_copy->AddRef();
+								texture_pool->used_textures.insert(texture_copy.ptr);
+
+								use_tex = texture_copy;
+							}
+							else // Else there is a free texture, use it:
+							{
+								ID3D11Texture2D* tex = texture_pool->free_textures.back();
+								texture_pool->free_textures.pop_back();
+								use_tex = tex;
+							}
+						} // End texture pool mutex scope.
+
+						d3d_context->CopyResource(use_tex.ptr, d3d_tex.ptr); // Copy the texture
 				
-					frame_info->d3d_tex = use_tex;
-#else	
-					frame_info->d3d_tex = d3d_tex;
-#endif
+						frame_info->d3d_tex = use_tex;
+					}
+					else // else if !COPY_D3D_TEXTURES:
+					{
+						frame_info->d3d_tex = d3d_tex;
+					}
 					
 					//frame_info.media_buffer = (void*)media_buffer.ptr;
 				}
@@ -1086,9 +1100,11 @@ void WMFVideoReader::seek(double time)
 WMFSampleInfo* WMFVideoReader::allocWMFSampleInfo()
 {
 	// Allocate from pool allocator
-	void* mem = frame_info_allocator->alloc(sizeof(WMFSampleInfo), 16);
-	WMFSampleInfo* frame = ::new (mem) WMFSampleInfo();
+	auto res = frame_info_allocator->alloc();
+	//void* mem = frame_info_allocator->alloc(sizeof(WMFSampleInfo), 16);
+	WMFSampleInfo* frame = ::new (res.ptr) WMFSampleInfo();
 	frame->allocator = frame_info_allocator;
+	frame->allocation_index = res.index;
 	frame->texture_pool = this->texture_pool;
 	return frame;
 }
@@ -1140,13 +1156,14 @@ void WMFVideoReader::test()
 		//const std::string URL = "E:\\video\\busted.mp4"; // 9 s
 		//const std::string URL = "E:\\video\\aura_amethyst.mp4"; // has sound
 		//const std::string URL = "D:\\audio\\signer - Isolated Dreams EP10\\signer - Isolated Dreams EP10 - 01 271 Redux- No sales pitch.mp3";
-		const std::string URL = "C:\\Users\\nick\\Downloads\\take2.mp4";
+		//const std::string URL = "C:\\Users\\nick\\Downloads\\take2.mp4";
 		//const std::string URL = "D:\\video\\gannet.MP4";
+		const std::string URL = "C:\\Users\\nick\\Videos\\2022-04-22 13-30-59.mp4";
 
 		ThreadSafeQueue<Reference<SampleInfo>> frame_queue;
 		TestWMFVideoReaderCallback callback;
 
-		const bool TEST_ASYNC_CALLBACK = false;
+		const bool TEST_ASYNC_CALLBACK = true;
 		callback.frame_queue = &frame_queue;
 
 		conPrint("Reading vid '" + URL + "'...");
@@ -1160,6 +1177,18 @@ void WMFVideoReader::test()
 		Direct3DUtils::createGPUDeviceAndMFDeviceManager(d3d_device, device_manager);
 
 		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/true);
+
+		// Test interoperability with OpenGL
+		WGL wgl_funcs;
+		wgl_funcs.init();
+
+		HANDLE interop_device_handle = wgl_funcs.wglDXOpenDeviceNV(d3d_device.ptr); // prepare for interoperability with opengl
+		if(interop_device_handle == 0)
+			throw glare::Exception("wglDXOpenDeviceNV failed.");
+
+
+	
+
 
 		conPrint("Reader construction took " + timer.elapsedString());
 		
@@ -1219,7 +1248,39 @@ void WMFVideoReader::test()
 							conPrint("Processing video frame, frame time " + toString(front_frame->frame_time) + ", queue_size: " + toString(queue_size));
 
 							WMFSampleInfo* wmf_frame = front_frame.downcastToPtr<WMFSampleInfo>();
-							Direct3DUtils::saveTextureToBmp("frames/test_frame_" + toString(vid_frame_index) + ".bmp", wmf_frame->d3d_tex.ptr);
+							//Direct3DUtils::saveTextureToBmp("frames/test_frame_" + toString(vid_frame_index) + ".bmp", wmf_frame->d3d_tex.ptr);
+
+
+							// Get as an OpenGL texture
+							if(false)
+							{
+								OpenGLTextureRef opengl_tex = new OpenGLTexture();
+								glGenTextures(1, &opengl_tex->texture_handle);
+
+								const GLenum WGL_ACCESS_READ_ONLY_NV = 0x0;
+								HANDLE interop_tex_ob = wgl_funcs.wglDXRegisterObjectNV(interop_device_handle, /*dxResource=*/wmf_frame->d3d_tex.ptr, /*name=*/opengl_tex->texture_handle, /*type=*/GL_TEXTURE_2D, /*access=*/WGL_ACCESS_READ_ONLY_NV);
+
+								//HANDLE tex_interop_handle;
+								BOOL res = wgl_funcs.wglDXLockObjectsNV(/*hDevice=*/interop_device_handle, /*count=*/1, &interop_tex_ob);
+
+
+								res = wgl_funcs.wglDXUnlockObjectsNV(/*hDevice=*/interop_device_handle, /*count=*/1, &interop_tex_ob);
+								if(!res)
+									conPrint("Warning: wglDXUnlockObjectsNV failed.");
+
+								res = wgl_funcs.wglDXUnregisterObjectNV(interop_device_handle, interop_tex_ob);
+								if(!res)
+									conPrint("Warning: wglDXUnregisterObjectNV failed.");
+
+								opengl_tex = NULL;
+							}
+
+
+
+
+
+
+
 
 							vid_frame_index++;
 						}
@@ -1313,11 +1374,42 @@ void WMFVideoReader::test()
 
 		printVar(reader.frame_info_allocator->numAllocatedObs());
 		testAssert(reader.frame_info_allocator->numAllocatedBlocks() == 1);
+
+
+
+		if(interop_device_handle)
+		{
+			const BOOL res = wgl_funcs.wglDXCloseDeviceNV(interop_device_handle); // close interoperability with opengl
+			assertOrDeclareUsed(res);
+		}
+
+
+		//if(debug)
+		//{
+		//	//debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL); // NOTE: need to link to dxguid.lib to get DXGI_DEBUG_ALL symbol.
+		//}
 	}
 	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
+
+	//IDXGIDebug::ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+	//auto handle = GetModuleHandle(L"dxgidebug.dll");
+	//if(handle != INVALID_HANDLE_VALUE)
+	//{
+	//	auto fun = reinterpret_cast<decltype(&DXGIGetDebugInterface)>(GetProcAddress(handle, "DXGIGetDebugInterface"));
+	//	if (fun) // TODO FIXME: "DXGIGetDebugInterface" not found on certain systems
+	//	{
+	//		IDXGIDebug* pDebug = nullptr;
+	//		fun(__uuidof(IDXGIDebug), (void**)&pDebug);
+	//		if (pDebug)
+	//		{
+	//			pDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+	//		}
+	//	}
+	//}
+	
 }
 
 
