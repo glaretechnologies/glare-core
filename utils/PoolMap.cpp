@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include "Timer.h"
+#include "FastIterMap.h"
 #include "../maths/PCG32.h"
 #include <set>
 #include <map>
@@ -308,13 +309,27 @@ void glare::testPoolMap()
 		//	allocator->free(*it);
 	}
 
+
+
+
+
+
 	//============================================= Do some perf tests. =============================================
+	const int num_objs = 730000;
+	const int num_trials = 40;
+
+	std::vector<PoolMapTestLargeClass*> test_obs(num_objs);
+	for(int i=0; i<num_objs; ++i)
+	{
+		test_obs[i] = new PoolMapTestLargeClass();
+		test_obs[i]->data[0] = 0;
+	}
+
 
 	// Test speed of iteration with PoolMap
-	{
+	/*{
 		PoolMap<uint64, PoolMapTestLargeClass, std::hash<uint64>> map;
 
-		const int num_objs = 7300;
 		for(int i=0; i<num_objs; ++i)
 		{
 			PoolMapTestLargeClass* value_ptr = map.allocateWithKey(i);
@@ -322,7 +337,7 @@ void glare::testPoolMap()
 		}
 		
 		double least_time = 1.0e10;
-		for(int trial = 0; trial < 100; ++trial)
+		for(int trial = 0; trial < num_trials; ++trial)
 		{
 			Timer timer;
 			uint64 sum = 0;
@@ -338,7 +353,7 @@ void glare::testPoolMap()
 		conPrint("PoolMap: Iteration over " + toString(num_objs) + " objects took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
 
 		least_time = 1.0e10;
-		for(int trial = 0; trial < 100; ++trial)
+		for(int trial = 0; trial < num_trials; ++trial)
 		{
 			Timer timer;
 			uint64 sum = 0;
@@ -353,14 +368,71 @@ void glare::testPoolMap()
 		per_ob_iter_time_ns = least_time / num_objs * 1.0e9;
 		conPrint("PoolMap: Iteration over " + toString(num_objs) + " objects with ob access took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
 			
-	}
+	}*/
 
+	// Test speed of iteration with FastIterMap
+	{
+		FastIterMap<uint64, PoolMapTestLargeClass*, std::hash<uint64>> map;
+
+		
+		for(int i=0; i<num_objs; ++i)
+		{
+			//PoolMapTestLargeClass* value_ptr = new PoolMapTestLargeClass();
+			//PoolMapTestLargeClass* value_ptr = map.allocateWithKey(i);
+			//value_ptr->data[0] = 0;
+			map.insert(i, test_obs[i]);
+		}
+
+		double least_time = 1.0e10;
+		for(int trial = 0; trial < num_trials; ++trial)
+		{
+			Timer timer;
+			uint64 sum = 0;
+			std::set<PoolMapTestLargeClass*>& values = map.values;
+			for(auto it = values.begin(); it != values.end(); ++it)
+				sum++;
+			const double elapsed = timer.elapsed();
+			least_time = myMin(least_time, elapsed);
+			if(sum == 234534)
+				conPrint("boo");
+		}
+
+		double per_ob_iter_time_ns = least_time / num_objs * 1.0e9;
+		conPrint("PoolMap2: Iteration over " + toString(num_objs) + " objects took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
+
+		//uint64 last_address = 0;
+
+		least_time = 1.0e10;
+		for(int trial = 0; trial < num_trials; ++trial)
+		{
+			Timer timer;
+			uint64 sum = 0;
+			std::set<PoolMapTestLargeClass*>& values = map.values;
+			for(auto it = values.begin(); it != values.end(); ++it)
+			{
+				//const int64 address_diff = (int64)(it.getValue()) - (int64)last_address;
+				//printVar(address_diff);
+				//sum += (uint64)it.getValue()->data[0];
+				sum += (uint64)(*it)->data[0];
+
+				//last_address = (int64)(it.getValue());
+			}
+			const double elapsed = timer.elapsed();
+			least_time = myMin(least_time, elapsed);
+			if(sum == 234534)
+				conPrint("boo");
+		}
+
+		per_ob_iter_time_ns = least_time / num_objs * 1.0e9;
+		conPrint("PoolMap2: Iteration over " + toString(num_objs) + " objects with ob access took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
+
+	}
+/*
 
 	// Test speed of iteration with std::unordered_map
 	{
 		std::unordered_map<uint64, PoolMapTestLargeClass, std::hash<uint64>> map;
 
-		const int num_objs = 7300;
 		for(int i=0; i<num_objs; ++i)
 		{
 			PoolMapTestLargeClass value;
@@ -369,7 +441,7 @@ void glare::testPoolMap()
 		}
 
 		double least_time = 1.0e10;
-		for(int trial = 0; trial < 100; ++trial)
+		for(int trial = 0; trial < num_trials; ++trial)
 		{
 			Timer timer;
 			uint64 sum = 0;
@@ -385,7 +457,7 @@ void glare::testPoolMap()
 		conPrint("std::unordered_map: Iteration over " + toString(num_objs) + " objects took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
 
 		least_time = 1.0e10;
-		for(int trial = 0; trial < 100; ++trial)
+		for(int trial = 0; trial < num_trials; ++trial)
 		{
 			Timer timer;
 			uint64 sum = 0;
@@ -405,7 +477,6 @@ void glare::testPoolMap()
 	{
 		std::map<uint64, PoolMapTestLargeClass> map;
 
-		const int num_objs = 7300;
 		for(int i=0; i<num_objs; ++i)
 		{
 			PoolMapTestLargeClass value;
@@ -414,7 +485,7 @@ void glare::testPoolMap()
 		}
 
 		double least_time = 1.0e10;
-		for(int trial = 0; trial < 100; ++trial)
+		for(int trial = 0; trial < num_trials; ++trial)
 		{
 			Timer timer;
 			uint64 sum = 0;
@@ -430,7 +501,7 @@ void glare::testPoolMap()
 		conPrint("std::map: Iteration over " + toString(num_objs) + " objects took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
 
 		least_time = 1.0e10;
-		for(int trial = 0; trial < 100; ++trial)
+		for(int trial = 0; trial < num_trials; ++trial)
 		{
 			Timer timer;
 			uint64 sum = 0;
@@ -444,6 +515,50 @@ void glare::testPoolMap()
 
 		per_ob_iter_time_ns = least_time / num_objs * 1.0e9;
 		conPrint("std::map: Iteration over " + toString(num_objs) + " objects with ob access took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
+	}
+*/
+	// Test speed of iteration with std::map
+	{
+		std::set<PoolMapTestLargeClass*> set;
+
+		for(int i=0; i<num_objs; ++i)
+		{
+			//PoolMapTestLargeClass* value = new PoolMapTestLargeClass();
+			//value->data[0] = 0;
+			set.insert(test_obs[i]);
+		}
+
+		double least_time = 1.0e10;
+		for(int trial = 0; trial < num_trials; ++trial)
+		{
+			Timer timer;
+			uint64 sum = 0;
+			for(auto it = set.begin(); it != set.end(); ++it)
+				sum++;
+			const double elapsed = timer.elapsed();
+			least_time = myMin(least_time, elapsed);
+			if(sum == 234534)
+				conPrint("boo");
+		}
+
+		double per_ob_iter_time_ns = least_time / num_objs * 1.0e9;
+		conPrint("std::set<Value*>: Iteration over " + toString(num_objs) + " objects took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
+
+		least_time = 1.0e10;
+		for(int trial = 0; trial < num_trials; ++trial)
+		{
+			Timer timer;
+			uint64 sum = 0;
+			for(auto it = set.begin(); it != set.end(); ++it)
+				sum += (uint64)(*it)->data[0];
+			const double elapsed = timer.elapsed();
+			least_time = myMin(least_time, elapsed);
+			if(sum == 234534)
+				conPrint("boo");
+		}
+
+		per_ob_iter_time_ns = least_time / num_objs * 1.0e9;
+		conPrint("std::set<Value*>: Iteration over " + toString(num_objs) + " objects with ob access took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
 	}
 
 	conPrint("glare::testPoolMap() done.");
