@@ -115,7 +115,7 @@ public:
 	// NOTE: this double lookup sucks.
 	PoolMap2Iterator<Key, Value> find(const Key& key)
 	{
-		std::unordered_map<Key, Value, KeyHasher>::iterator res = key_info_map.find(key);
+		typename std::unordered_map<Key, Value, KeyHasher>::iterator res = key_info_map.find(key);
 		if(res == key_info_map.end())
 			return end();
 		else

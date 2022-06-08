@@ -100,7 +100,7 @@ public:
 			const size_t new_block_index = blocks.size();
 			blocks.push_back(BlockInfo());
 
-			for(int i=1; i<block_capacity; ++i) // Don't add slot 0, we will use that one.
+			for(size_t i=1; i<block_capacity; ++i) // Don't add slot 0, we will use that one.
 				free_indices.insert((int)(new_block_index * block_capacity + i));
 
 			BlockInfo& new_block = blocks[new_block_index];
