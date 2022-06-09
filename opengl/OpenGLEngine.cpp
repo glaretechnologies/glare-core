@@ -941,6 +941,7 @@ static const int PHONG_UBO_BINDING_POINT_INDEX = 0;
 static const int SHARED_VERT_UBO_BINDING_POINT_INDEX = 1;
 static const int PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX = 2;
 static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
+static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 
 
 void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_, PrintOutput* print_output_)
@@ -1229,6 +1230,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		phong_uniform_buf_ob = new UniformBufOb();
 		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms) * num_uniform_buf_instances);
 
+		material_common_uniform_buf_ob = new UniformBufOb();
+		material_common_uniform_buf_ob->allocate(sizeof(MaterialCommonUniforms));
+
 		shared_vert_uniform_buf_ob = new UniformBufOb();
 		shared_vert_uniform_buf_ob->allocate(sizeof(SharedVertUniforms));
 
@@ -1242,6 +1246,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX, this->shared_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX, this->per_object_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX, this->material_common_uniform_buf_ob->handle);
 
 		// Will be used if we hit a shader compilation error later
 		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false));
@@ -1433,12 +1438,43 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 
 
 #ifndef NDEBUG
+// See https://www.khronos.org/opengl/wiki/Program_Introspection#Uniforms_and_blocks
 static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
 {
 	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
 	GLint size = 0;
 	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
 	return size;
+}
+
+static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
+{
+	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
+
+	GLint num_fields = 0;
+	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS, &num_fields); // Get 'number of active uniforms within this block'.
+
+	std::map<int, std::string> offset_to_name;
+	for(int i=0; i<num_fields; ++i)
+	{
+		char buf[2048];
+		GLsizei string_len = 0;
+		glGetActiveUniformName(prog->program, i, sizeof(buf), &string_len, buf);
+		std::string name(buf, buf + string_len);
+		//conPrint(name);
+
+		// Get offset:
+		GLuint index = i;
+		GLint offset = 0;
+		glGetActiveUniformsiv(prog->program, /*uniformCount=*/1, /*indices=*/&index, GL_UNIFORM_OFFSET, &offset);
+		//printVar(offset);
+
+		offset_to_name[offset] = name;
+	}
+	for(auto it = offset_to_name.begin(); it != offset_to_name.end(); ++it)
+	{
+		conPrint("Offset " + toString(it->first) + ": " + it->second);
+	}
 }
 #endif
 
@@ -1473,14 +1509,19 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		}
 		else
 		{
+			// printFieldOffsets(phong_prog, "PhongUniforms");			
 			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PhongUniforms") == sizeof(PhongUniforms));
 			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms));
 		}
 
+		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "MaterialCommonUniforms") == sizeof(MaterialCommonUniforms));
 		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "SharedVertUniforms") == sizeof(SharedVertUniforms));
 
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PhongUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_uniforms_index, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX);
+
+		unsigned int material_common_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "MaterialCommonUniforms");
+		glUniformBlockBinding(phong_prog->program, material_common_uniforms_index, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
 		unsigned int phong_shared_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "SharedVertUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
@@ -1594,6 +1635,9 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 
 		unsigned int phong_uniforms_index = glGetUniformBlockIndex(prog->program, "PhongUniforms");
 		glUniformBlockBinding(prog->program, phong_uniforms_index, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX);
+
+		unsigned int material_common_uniforms_index = glGetUniformBlockIndex(prog->program, "MaterialCommonUniforms");
+		glUniformBlockBinding(prog->program, material_common_uniforms_index, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
 		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
@@ -4329,7 +4373,7 @@ void OpenGLEngine::draw()
 	}
 #endif
 
-
+	//Timer timer;
 	batch_draw_info.reserve(current_scene->objects.size());
 	batch_draw_info.resize(0);
 
@@ -4359,6 +4403,7 @@ void OpenGLEngine::draw()
 
 		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
+	//conPrint("Main batch loop took " + timer.elapsedStringNSigFigs(4));
 
 	sortBatchDrawInfos();
 
@@ -5161,6 +5206,12 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	// Set blob shadows location data
 	glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
 	glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
+
+
+	MaterialCommonUniforms common_uniforms;
+	common_uniforms.sundir_cs = this->sun_dir_cam_space;
+	common_uniforms.time = this->current_time;
+	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 }
 
 
@@ -5170,20 +5221,13 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
 
 	PhongUniforms uniforms;
-	uniforms.sundir_cs = this->sun_dir_cam_space;
 	uniforms.diffuse_colour = col_linear;
 
-	/*
-	Matrix2f layout:
-	0 1
-	2 3
-	*/
-	const GLfloat tex_elems[12] = {
-			opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0, 0,
-			opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0, 0,
-			opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1, 0
-	};
-	std::memcpy(uniforms.texture_matrix, tex_elems, sizeof(float) * 12);
+	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
+	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
+	uniforms.texture_upper_left_matrix_col1.x = opengl_mat.tex_matrix.e[1];
+	uniforms.texture_upper_left_matrix_col1.y = opengl_mat.tex_matrix.e[3];
+	uniforms.texture_matrix_translation = opengl_mat.tex_translation;
 
 	if(this->use_bindless_textures)
 	{
@@ -5197,13 +5241,17 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			uniforms.lightmap_tex = opengl_mat.lightmap_texture->getBindlessTextureHandle();
 	}
 
-	uniforms.have_shading_normals = mesh_data.has_shading_normals ? 1 : 0;
-	uniforms.have_texture = opengl_mat.albedo_texture.nonNull() ? 1 : 0;
-	uniforms.have_metallic_roughness_tex = opengl_mat.metallic_roughness_texture.nonNull() ? 1 : 0;
+	#define HAVE_SHADING_NORMALS_FLAG			1
+	#define HAVE_TEXTURE_FLAG					2
+	#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
+
+	uniforms.flags =
+		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
+		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
+		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0);
 	uniforms.roughness = opengl_mat.roughness;
 	uniforms.fresnel_scale = opengl_mat.fresnel_scale;
 	uniforms.metallic_frac = opengl_mat.metallic_frac;
-	uniforms.time = this->current_time;
 	uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
 	uniforms.end_fade_out_distance = opengl_mat.end_fade_out_distance;
 

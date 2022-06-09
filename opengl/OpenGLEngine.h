@@ -424,23 +424,28 @@ struct BatchDrawInfo
 // Matches that defined in phong_frag_shader.glsl.
 struct PhongUniforms
 {
-	Vec4f sundir_cs;
 	Colour4f diffuse_colour; // linear sRGB
-	float texture_matrix[12];
+	Vec2f texture_upper_left_matrix_col0;
+	Vec2f texture_upper_left_matrix_col1;
+	Vec2f texture_matrix_translation;
 
 	uint64 diffuse_tex; // Bindless texture handle
 	uint64 metallic_roughness_tex; // Bindless texture handle
 	uint64 lightmap_tex; // Bindless texture handle
 
-	int have_shading_normals;
-	int have_texture;
-	int have_metallic_roughness_tex;
+	int flags;
 	float roughness;
 	float fresnel_scale;
 	float metallic_frac;
-	float time;
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
+};
+
+
+struct MaterialCommonUniforms
+{
+	Vec4f sundir_cs;
+	float time;
 };
 
 
@@ -952,6 +957,7 @@ private:
 
 
 	UniformBufObRef phong_uniform_buf_ob;
+	UniformBufObRef material_common_uniform_buf_ob;
 	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;
 	UniformBufObRef per_object_vert_uniform_buf_ob;
