@@ -29,10 +29,10 @@ public:
 
 
 // OpenGL data for a given mesh.
-class OpenGLMeshRenderData : public ThreadSafeRefCounted
+class OpenGLMeshRenderData // : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false), num_materials_referenced(0) {}
+	OpenGLMeshRenderData() : has_vert_colours(false), num_materials_referenced(0), refcount(0) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -74,6 +74,12 @@ public:
 	AnimationData animation_data;
 
 	size_t num_materials_referenced;
+
+	// From ThreadSafeRefCounted.  Manually define this stuff here, so refcount can be defined not at the start of the structure, which wastes space due to alignment issues.
+	inline glare::atomic_int decRefCount() const { return refcount.decrement(); }
+	inline void incRefCount() const { refcount.increment(); }
+	inline glare::atomic_int getRefCount() const { return refcount; }
+	mutable glare::AtomicInt refcount;
 };
 
 typedef Reference<OpenGLMeshRenderData> OpenGLMeshRenderDataRef;
