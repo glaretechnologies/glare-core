@@ -6,8 +6,103 @@ Copyright Glare Technologies Limited 2022 -
 #include "PoolAllocator.h"
 
 
-#include "../maths/mathstypes.h"
-#include <new>
+#include "MemAlloc.h"
+#include "StringUtils.h"
+#include "ConPrint.h"
+
+
+static const size_t block_capacity = 1024; // Max num objects per block.
+
+
+glare::PoolAllocator::PoolAllocator(size_t ob_alloc_size_, size_t alignment_)
+:	ob_alloc_size(Maths::roundUpToMultipleOfPowerOf2<size_t>(ob_alloc_size_, alignment_)),
+	alignment(alignment_)
+{
+	assert(Maths::isPowerOfTwo(alignment_));
+}
+
+
+glare::PoolAllocator::~PoolAllocator()
+{
+	const size_t num_allocated_obs = numAllocatedObs();
+	if(num_allocated_obs > 0)
+	{
+		conPrint(toString(num_allocated_obs) + " obs still allocated in PoolAllocator destructor!");
+		assert(0);
+	}
+
+	for(size_t i=0; i<blocks.size(); ++i)
+		MemAlloc::alignedFree(blocks[i].data);
+}
+
+
+size_t glare::PoolAllocator::numAllocatedObs() const
+{
+	Lock lock(mutex);
+
+	assert(blocks.size() * block_capacity >= free_indices.size());
+	return blocks.size() * block_capacity - free_indices.size();
+}
+
+
+size_t glare::PoolAllocator::numAllocatedBlocks() const
+{
+	Lock lock(mutex);
+	return blocks.size();
+}
+
+
+glare::PoolAllocator::AllocResult glare::PoolAllocator::alloc()
+{
+	Lock lock(mutex);
+
+	auto res = free_indices.begin();
+	if(res != free_indices.end())
+	{
+		// There was at least one free index:
+		const int index = *res;
+		size_t block_i    = (size_t)index / block_capacity;
+		size_t in_block_i = (size_t)index % block_capacity;
+
+		free_indices.erase(res); // Remove slot from free indices.
+
+		AllocResult alloc_res;
+		alloc_res.ptr = blocks[block_i].data + ob_alloc_size * in_block_i;
+		alloc_res.index = index;
+		return alloc_res;
+	}
+	else
+	{
+		// No free indices - All blocks (if any) are full.  Allocate a new block.
+		const size_t new_block_index = blocks.size();
+		blocks.push_back(BlockInfo());
+
+		for(size_t i=1; i<block_capacity; ++i) // Don't add slot 0, we will use that one.
+			free_indices.insert((int)(new_block_index * block_capacity + i));
+
+		BlockInfo& new_block = blocks[new_block_index];
+		new_block.data = (uint8*)MemAlloc::alignedMalloc(block_capacity * ob_alloc_size, alignment);
+
+		AllocResult alloc_res;
+		alloc_res.ptr = new_block.data;
+		alloc_res.index = (int)(new_block_index * block_capacity);
+		return alloc_res;
+	}
+}
+
+
+void glare::PoolAllocator::free(int allocation_index)
+{
+	Lock lock(mutex);
+
+	const auto res = free_indices.insert(allocation_index);
+	const bool was_inserted = res.second;
+	if(!was_inserted) // If it was not inserted, it means it was already in free_indices
+	{
+		conPrint("Warning: tried to free the same memory slot more than once.");
+		assert(0);
+	}
+}
 
 
 #if BUILD_TESTS
@@ -20,7 +115,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "Reference.h"
 
 
-struct PoolAllocatorTestStruct : public RefCounted
+/*struct PoolAllocatorTestStruct : public RefCounted
 {
 	int a, b, c, d;
 
@@ -42,7 +137,8 @@ inline void destroyAndFreeOb<PoolAllocatorTestStruct>(PoolAllocatorTestStruct* o
 		ob->allocator->free(ob);
 	else
 		delete ob;
-}
+}*/
+
 
 void glare::testPoolAllocator()
 {
