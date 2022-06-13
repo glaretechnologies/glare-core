@@ -155,6 +155,38 @@ void testHashSet()
 		testAssert(m.size() == 0);
 	}
 
+	// Test erase() that takes an iterator.
+	{
+		HashSet<int> m(/*empty key=*/std::numeric_limits<int>::max());
+
+		m.insert(1);
+		m.insert(2);
+		m.insert(3);
+
+		testAssert(m.size() == 3);
+
+		testAssert(m.find(2) != m.end());
+		m.erase(m.find(2));
+		testAssert(m.find(2) == m.end());
+		testAssert(m.size() == 2);
+
+		//printSet(m);
+
+		testAssert(m.find(1) != m.end());
+		m.erase(m.find(1));
+		testAssert(m.find(1) == m.end());
+		testAssert(m.size() == 1);
+
+		testAssert(m.find(3) != m.end());
+		m.erase(m.find(3));
+		testAssert(m.find(3) == m.end());
+		testAssert(m.size() == 0);
+
+		// Check erasing a non-existent key is fine
+		//m.erase(100);
+		//testAssert(m.size() == 0);
+	}
+
 	// Test erase with references
 	{
 		Reference<HashSetTestClass> test_ob = new HashSetTestClass();

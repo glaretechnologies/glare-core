@@ -222,8 +222,10 @@ public:
 		num_items--;
 	}
 
+	// it must be a valid iterator that is != end().
 	void erase(const iterator& it)
 	{
+		assert(it != end());
 		size_t i = it.bucket - buckets;
 
 		size_t j = i; // j = current probe index to right of i, i = the current slot we will make empty
