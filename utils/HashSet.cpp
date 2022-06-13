@@ -212,10 +212,22 @@ void testHashSet()
 		testAssert(*m.find(1) == 1);
 	}
 
+	// Test constructor without num elems expected
+	{
+		HashSet<int> m(/*empty key=*/std::numeric_limits<int>::max());
+		testAssert(m.empty());
+		testAssert(m.buckets_size >= 32);
+
+		m.insert(1);
+		testAssert(m.find(1) != m.end());
+		testAssert(*m.find(1) == 1);
+	}
+
 	// Test constructor with num elems expected
 	{
 		HashSet<int> m(/*empty key=*/std::numeric_limits<int>::max(), /*expected num elems=*/1000);
 		testAssert(m.empty());
+		testAssert(m.buckets_size >= 1000);
 
 		m.insert(1);
 		testAssert(m.find(1) != m.end());

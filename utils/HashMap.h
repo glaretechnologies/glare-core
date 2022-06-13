@@ -170,6 +170,7 @@ public:
 
 	// The basic idea here is instead of marking bucket i empty immediately, we will scan right, looking for objects that can be moved left to fill the empty slot.
 	// See https://en.wikipedia.org/wiki/Open_addressing and https://en.wikipedia.org/w/index.php?title=Hash_table&oldid=95275577
+	// This is also pretty much the same algorithm as 'Algorithm R (Deletion with linear probing)' in Section 6.4 of The Art of Computer Programming, Volume 3.
 	void erase(const Key& key)
 	{
 		// Search for bucket item is in, or until we get to an empty bucket, which indicates the key is not in the map.

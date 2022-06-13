@@ -34,6 +34,7 @@ public:
 	typedef ConstHashSetIterator<Key, HashFunc> const_iterator;
 
 
+	// Initialise with 32 buckets.
 	HashSet(Key empty_key_)
 	:	buckets((Key*)MemAlloc::alignedMalloc(sizeof(Key) * 32, 64)), buckets_size(32), num_items(0), hash_mask(31), empty_key(empty_key_)
 	{
@@ -46,7 +47,7 @@ public:
 	HashSet(Key empty_key_, size_t expected_num_items)
 	:	num_items(0), empty_key(empty_key_)
 	{
-		buckets_size = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
+		buckets_size = myMax<size_t>(4ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
 		
 		buckets = (Key*)MemAlloc::alignedMalloc(sizeof(Key) * buckets_size, 64);
 
@@ -154,6 +155,7 @@ public:
 
 	// The basic idea here is instead of marking bucket i empty immediately, we will scan right, looking for objects that can be moved left to fill the empty slot.
 	// See https://en.wikipedia.org/wiki/Open_addressing and https://en.wikipedia.org/w/index.php?title=Hash_table&oldid=95275577
+	// This is also pretty much the same algorithm as 'Algorithm R (Deletion with linear probing)' in Section 6.4 of The Art of Computer Programming, Volume 3.
 	void erase(const Key& key)
 	{
 		// Search for bucket item is in, or until we get to an empty bucket, which indicates the key is not in the set.
