@@ -1,12 +1,12 @@
 /*=====================================================================
-HashMapInsertOnly2.h
---------------------
-Copyright Glare Technologies Limited 2021 -
+HashMap.h
+---------
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
 
-#include "HashMapInsertOnly2Iterators.h"
+#include "HashMapIterators.h"
 #include "Vector.h"
 #include <functional>
 #include <type_traits>
@@ -18,41 +18,24 @@ Copyright Glare Technologies Limited 2021 -
 #endif
 
 
-// Implemented using FNV-1a hash.
-// See https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
-// FNV is a good hash function for smaller key lengths.
-// For longer key lengths, use something like xxhash.
-// See http://aras-p.info/blog/2016/08/02/Hash-Functions-all-the-way-down/ for a performance comparison.
-//
-static inline size_t hashBytes(const uint8* data, size_t len)
-{
-	static_assert(sizeof(size_t) == 8, "sizeof(size_t) == 8");
-	uint64 hash = 14695981039346656037ULL;
-	for(size_t i=0; i<len; ++i)
-		hash = (hash ^ data[i]) * 1099511628211ULL;
-	return hash;
-}
-
-
 /*=====================================================================
-HashMapInsertOnly2
-------------------
+HashMap
+-------
 A map class using a hash table.
-Only insertion and lookup is supported, not removal of individual elements.
 This class requires passing an 'empty key' to the constructor.
 This is a sentinel value that is never inserted in the map, and marks empty buckets.
 =====================================================================*/
 template <typename Key, typename Value, typename HashFunc = std::hash<Key>>
-class HashMapInsertOnly2
+class HashMap
 {
 public:
 
-	typedef HashMapInsertOnly2Iterator<Key, Value, HashFunc> iterator;
-	typedef ConstHashMapInsertOnly2Iterator<Key, Value, HashFunc> const_iterator;
+	typedef HashMapIterator<Key, Value, HashFunc> iterator;
+	typedef ConstHashMapIterator<Key, Value, HashFunc> const_iterator;
 	typedef std::pair<Key, Value> KeyValuePair;
 
 
-	HashMapInsertOnly2(Key empty_key_)
+	HashMap(Key empty_key_)
 	:	buckets((std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * 32, 64)), buckets_size(32), num_items(0), hash_mask(31), empty_key(empty_key_)
 	{
 		// Initialise elements
@@ -62,7 +45,7 @@ public:
 	}
 
 
-	HashMapInsertOnly2(Key empty_key_, size_t expected_num_items)
+	HashMap(Key empty_key_, size_t expected_num_items)
 	:	num_items(0), empty_key(empty_key_)
 	{
 		buckets_size = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
@@ -86,7 +69,34 @@ public:
 		hash_mask = buckets_size - 1;
 	}
 
-	~HashMapInsertOnly2()
+	HashMap(const HashMap& other)
+	{
+		buckets_size = other.buckets_size;
+		hash_func = other.hash_func;
+		empty_key = other.empty_key;
+		num_items = other.num_items;
+		hash_mask = other.hash_mask;
+
+		buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * buckets_size, 64);
+		// Initialise elements
+		//if(std::is_pod<Key>::value && std::is_pod<Value>::value)
+		//{
+		//	std::pair<Key, Value>* const buckets_ = buckets; // Having this as a local var gives better codegen in VS.
+		//	for(size_t z=0; z<buckets_size; ++z)
+		//		buckets_[z].first = empty_key_;
+		//}
+		//else
+		//{
+		//std::pair<Key, Value> empty_key_val(empty_key, Value());
+		//for(std::pair<Key, Value>* elem=buckets; elem<buckets + buckets_size; ++elem)
+		//	::new (elem) std::pair<Key, Value>(other.buckets[i]);
+		//}
+
+		for(size_t i=0; i<buckets_size; ++i)
+			::new (&buckets[i]) std::pair<Key, Value>(other.buckets[i]);
+	}
+
+	~HashMap()
 	{
 		// Destroy objects
 		for(size_t i=0; i<buckets_size; ++i)
@@ -116,8 +126,8 @@ public:
 		return const_iterator(this, buckets + buckets_size);
 	}
 
-	iterator end() { return HashMapInsertOnly2Iterator<Key, Value, HashFunc>(this, buckets + buckets_size); }
-	const_iterator end() const { return ConstHashMapInsertOnly2Iterator<Key, Value, HashFunc>(this, buckets + buckets_size); }
+	iterator end() { return HashMapIterator<Key, Value, HashFunc>(this, buckets + buckets_size); }
+	const_iterator end() const { return ConstHashMapIterator<Key, Value, HashFunc>(this, buckets + buckets_size); }
 
 
 	iterator find(const Key& k)
@@ -128,7 +138,7 @@ public:
 		while(1)
 		{
 			if(buckets[bucket_i].first == k)
-				return HashMapInsertOnly2Iterator<Key, Value, HashFunc>(this, &buckets[bucket_i]); // Found it
+				return HashMapIterator<Key, Value, HashFunc>(this, &buckets[bucket_i]); // Found it
 
 			if(buckets[bucket_i].first == empty_key)
 				return end(); // No such key in map.
@@ -146,7 +156,7 @@ public:
 		while(1)
 		{
 			if(buckets[bucket_i].first == k)
-				return ConstHashMapInsertOnly2Iterator<Key, Value, HashFunc>(this, &buckets[bucket_i]); // Found it
+				return ConstHashMapIterator<Key, Value, HashFunc>(this, &buckets[bucket_i]); // Found it
 
 			if(buckets[bucket_i].first == empty_key)
 				return end(); // No such key in map.
@@ -157,6 +167,76 @@ public:
 		return end();
 	}
 
+
+	// The basic idea here is instead of marking bucket i empty immediately, we will scan right, looking for objects that can be moved left to fill the empty slot.
+	// See https://en.wikipedia.org/wiki/Open_addressing and https://en.wikipedia.org/w/index.php?title=Hash_table&oldid=95275577
+	void erase(const Key& key)
+	{
+		// Search for bucket item is in, or until we get to an empty bucket, which indicates the key is not in the map.
+		// Bucket i is the bucket we will finally mark as empty.
+		size_t i = hashKey(key);
+		while(1)
+		{
+			if(buckets[i].first == empty_key)
+				return; // No such key in map.
+
+			if(buckets[i].first == key)
+				break;
+
+			// Else advance to next bucket, with wrap-around
+			i = (i + 1) & hash_mask;
+		}
+
+		assert(buckets[i].first == key);
+
+		size_t j = i; // j = current probe index to right of i, i = the current slot we will make empty
+		while(1)
+		{
+			j = (j + 1) & hash_mask;
+			if(buckets[j].first == empty_key)
+				break;
+			/*
+			We are considering whether the item at location j can be moved to location i.
+			This is allowed if the natural hash location k of the item is <= i, before modulo.
+
+			Two cases to handle here: case where j does not wrap relative to i (j > i):
+			Then acceptable ranges for k (natural hash location of j), such that j can be moved to location i:
+			basically k has to be <= i before the modulo.
+			
+			-------------------------------------
+			|   |   |   | a | b | c |   |   |   |
+			-------------------------------------
+			              i       j
+			----------------|       |-----------
+			  k <= i                     k > j
+
+			Case where j does wrap relative to i (j < i):
+			Then acceptable ranges for k (natural hash location of j), such that j can be moved to location i:
+			basically k has to be <= i before the modulo.
+
+			-------------------------------------
+			| c | d |   |   |   |   |   | a | b |
+			-------------------------------------
+			      j                       i
+			        |-----------------------|
+			          k > j && k <= i
+
+			Note that the natural hash location of an item at j is always <= j (before modulo)
+			*/
+			const size_t k = hashKey(buckets[j].first); // k = natural hash location of item in bucket j.
+			if((j > i) ? (k <= i || k > j) : (k <= i && k > j))
+			{
+				buckets[i] = buckets[j];
+				buckets[j].second = Value();
+				i = j;
+			}
+		}
+
+		buckets[i].first = empty_key;
+		buckets[i].second = Value();
+
+		num_items--;
+	}
 
 	size_t count(const Key& k) const
 	{
@@ -170,42 +250,32 @@ public:
 	{
 		assert(key_val_pair.first != empty_key);
 
-		size_t bucket_i = hashKey(key_val_pair.first);
-
-		// Search for bucket item is in, or an empty bucket
-		while(1)
+		iterator find_res = find(key_val_pair.first);
+		if(find_res == end())
 		{
-			if(buckets[bucket_i].first == empty_key) // If bucket is empty:
+			// Item is not already inserted, insert:
+
+			num_items++;
+			checkForExpand();
+
+			size_t bucket_i = hashKey(key_val_pair.first);
+			// Search for bucket item is in, or an empty bucket
+			while(1)
 			{
-				// Item was not found in the map.  So we will need to insert it.
-				num_items++;
-				if(checkForExpand()) // If expansion/rehashing occurred:
+				if(buckets[bucket_i].first == empty_key) // If bucket is empty:
 				{
-					// num buckets will have changed, so we need to rehash.
-					bucket_i = hashKey(key_val_pair.first);
-					while(1)
-					{
-						if(buckets[bucket_i].first == empty_key) // If bucket is empty:
-						{
-							buckets[bucket_i] = key_val_pair;
-							return std::make_pair(HashMapInsertOnly2Iterator<Key, Value, HashFunc>(this, buckets/*.begin()*/ + bucket_i), true);
-						}
-						// If bucket is full, we don't need to establish that the item in the bucket is != our key, since we already know that.
-						// Else advance to next bucket, with wrap-around
-						bucket_i = (bucket_i + 1) & hash_mask; // bucket_i = (bucket_i + 1) % buckets.size();
-					}
+					buckets[bucket_i] = key_val_pair;
+					return std::make_pair(HashMapIterator<Key, Value, HashFunc>(this, buckets/*.begin()*/ + bucket_i), /*inserted=*/true);
 				}
-				
-				buckets[bucket_i] = key_val_pair;
-				return std::make_pair(HashMapInsertOnly2Iterator<Key, Value, HashFunc>(this, buckets + bucket_i), true);
+
+				// Else advance to next bucket, with wrap-around
+				bucket_i = (bucket_i + 1) & hash_mask; // bucket_i = (bucket_i + 1) % buckets.size();
 			}
-
-			// Else if bucket contains an item with matching key:
-			if(buckets[bucket_i].first == key_val_pair.first)
-				return std::make_pair(HashMapInsertOnly2Iterator<Key, Value, HashFunc>(this, buckets + bucket_i), false); // Found it, return iterator to existing item and false.
-
-			// Else advance to next bucket, with wrap-around
-			bucket_i = (bucket_i + 1) & hash_mask; // bucket_i = (bucket_i + 1) % buckets.size();
+		}
+		else
+		{
+			// Item was already in map: return (iterator to existing item, false)
+			return std::make_pair(find_res, /*inserted=*/false);
 		}
 	}
 
@@ -229,11 +299,28 @@ public:
 		for(size_t i=0; i<buckets_size; ++i)
 		{
 			buckets[i].first = empty_key;
-			
+
 			if(!std::is_pod<Value>::value)
 				buckets[i].second = Value();
 		}
 		num_items = 0;
+	}
+
+	void invariant()
+	{
+		for(size_t i=0; i<buckets_size; ++i)
+		{
+			const Key key = buckets[i].first;
+			if(key != empty_key)
+			{
+				const size_t k = hashKey(key);
+
+				for(size_t z=k; z != i; z = (z + 1) & hash_mask)
+				{
+					assert(buckets[z].first != empty_key);
+				}
+			}
+		}
 	}
 
 	bool empty() const { return num_items == 0; }
@@ -323,7 +410,7 @@ private:
 			(old_buckets + i)->~KeyValuePair();
 		MemAlloc::alignedFree((std::pair<Key, Value>*)old_buckets);
 	}
-				
+
 public:
 	std::pair<Key, Value>* buckets; // Elements
 	size_t buckets_size;
@@ -335,7 +422,7 @@ private:
 };
 
 
-void testHashMapInsertOnly2();
+void testHashMap();
 
 
 #ifdef _WIN32
