@@ -1088,7 +1088,7 @@ void testHashMapInsertOnly2()
 
 	{
 		Timer timer;
-		HashMap<int, int> m(std::numeric_limits<int>::max(), std::numeric_limits<int>::max() - 1);
+		HashMap<int, int> m(std::numeric_limits<int>::max());
 		for(int i=0; i<N; ++i)
 		{
 			const int x = dense_testdata[i];
