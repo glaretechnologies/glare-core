@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2019 -
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/jpegdecoder.h"
 #include "../graphics/GifDecoder.h"
+#include "../graphics/DXTCompression.h"
 #include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/Task.h"
@@ -53,6 +54,55 @@ void TextureLoadingTests::testDownSamplingGreyTexture(unsigned int W, unsigned i
 	}
 }
 
+#if 0
+static void testLoadingFile(const std::string& path, glare::TaskManager& task_manager)
+{
+	try
+	{
+		Reference<Map2D> mip_level_image = PNGDecoder::decode(path);
+
+		testAssert(mip_level_image.isType<ImageMapUInt8>());
+
+		const ImageMapUInt8* map_uint8 = mip_level_image.downcastToPtr<ImageMapUInt8>();
+
+
+		Reference<TextureData> texdata = TextureLoading::buildUInt8MapTextureData(map_uint8, &task_manager, /*allow_compression=*/true);
+
+		testAssert(texdata->W == map_uint8->getMapWidth());
+		testAssert(texdata->H == map_uint8->getMapHeight());
+		testAssert(texdata->bytes_pp == map_uint8->getBytesPerPixel());
+
+		// Check MIP level offsets are valid
+		for(size_t k=0; k<texdata->level_offsets.size(); ++k)
+		{
+			const size_t offset = texdata->level_offsets[k];
+
+			// Check offset is aligned.  Note: I'm not sure what this alignment needs to be, if anything
+			testAssert(offset % 8 == 0);
+
+			const size_t level_W = myMax((size_t)1, texdata->W / ((size_t)1 << k));
+			const size_t level_H = myMax((size_t)1, texdata->H / ((size_t)1 << k));
+			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, texdata->bytes_pp);
+
+			testAssert(offset < texdata->frames[0].compressed_data.size());
+			testAssert(offset + level_compressed_size <= texdata->frames[0].compressed_data.size());
+		}
+
+
+		/*testAssert(texdata->frames.size() == seq->images.size());
+		for(size_t i=0; i<texdata->frames.size(); ++i)
+		{
+			testAssert(texdata->frames[i].compressed_data.size() > 0);
+		}*/
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
+#endif
+
+
 static void testLoadingAnimatedFile(const std::string& path, glare::TaskManager& task_manager)
 {
 	try
@@ -88,11 +138,16 @@ static void testLoadingAnimatedFile(const std::string& path, glare::TaskManager&
 	}
 }
 
+
 void TextureLoadingTests::test()
 {
 	conPrint("TextureLoading::test()");
 
 	TextureLoading::init();
+
+	glare::TaskManager task_manager;
+
+	//testLoadingFile("resources/imposters/elm_imposters.png", task_manager);
 
 	testDownSamplingGreyTexture(256, 256, 3);
 	testDownSamplingGreyTexture(250, 250, 3);
@@ -106,7 +161,7 @@ void TextureLoadingTests::test()
 	testDownSamplingGreyTexture(7, 250, 4);
 	testDownSamplingGreyTexture(2, 2, 4);
 
-	glare::TaskManager task_manager;
+	
 
 	// Test loading animated gifs
 	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/fire.gif", task_manager);
