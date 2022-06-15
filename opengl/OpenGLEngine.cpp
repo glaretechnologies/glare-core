@@ -3109,7 +3109,7 @@ void OpenGLEngine::draw()
 						int index = (int)(wrapped_t_minus_t_0 * keyframe_time_info.recip_spacing);
 
 						const float frac = (wrapped_t_minus_t_0 - (float)index * keyframe_time_info.spacing) * keyframe_time_info.recip_spacing; // Fraction of way through frame
-						assert(frac >= 0 && frac < 1.f);
+						assert(frac >= -0.001f && frac < 1.001f);
 
 						if(index >= keyframe_time_info.times_size)
 							index = 0;

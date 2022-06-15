@@ -573,7 +573,7 @@ template <class T, class Real>
 GLARE_STRONG_INLINE const T lerp(const T& a, const T& b, Real t)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer");
-	assert(Maths::inRange(t, (Real)0.0, (Real)1.0));
+	assert(Maths::inRange(t, (Real)-0.0001, (Real)1.0001));
 	return a * (1 - t) + b * t;
 }
 
