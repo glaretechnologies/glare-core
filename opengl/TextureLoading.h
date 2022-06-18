@@ -33,6 +33,8 @@ public:
 class TextureData : public ThreadSafeRefCounted
 {
 public:
+	TextureData() : frame_durations_equal(false) {}
+
 	size_t compressedSizeBytes() const;
 
 	size_t W, H, bytes_pp;
@@ -41,8 +43,12 @@ public:
 
 	std::vector<TextureFrameData> frames; // will have 1 element for non-animated images, more than 1 for animated gifs etc..
 
-	std::vector<double> frame_durations; // For gifs basically
-	std::vector<double> frame_start_times;
+	std::vector<double> frame_end_times;
+
+	bool frame_durations_equal;
+	double recip_frame_duration; // Set if frame_durations_equal is true.
+	double last_frame_end_time;
+	size_t num_frames; // == frames.size() == frame_end_times.size()
 };
 
 

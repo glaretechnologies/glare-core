@@ -665,8 +665,41 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 		}
 	}
 
-	texture_data->frame_durations   = seq->frame_durations;
-	texture_data->frame_start_times = seq->frame_start_times;
+	const std::vector<double>& frame_durations = seq->frame_durations;
+
+	// Build frame_end_times
+	texture_data->frame_end_times.resize(frame_durations.size());
+	for(size_t i=0; i<frame_durations.size(); ++i)
+		texture_data->frame_end_times[i] = seq->frame_start_times[i] + frame_durations[i];
+
+	texture_data->last_frame_end_time = texture_data->frame_end_times.back();
+	texture_data->num_frames = texture_data->frame_end_times.size();
+	assert(texture_data->num_frames == texture_data->frames.size());
+
+	// See if the frame durations are equal
+	texture_data->frame_durations_equal = false;
+
+	if(frame_durations.size() >= 1)
+	{
+		bool is_equally_spaced = true;
+		const double duration_0 = frame_durations[0];
+		for(size_t i=1; i<frame_durations.size(); ++i)
+		{
+			if(frame_durations[i] != duration_0)
+			{
+				//conPrint("============frame duration not equal: duration: " + toString(frame_durations[i]) + ", duration_0: " + toString(duration_0));
+				is_equally_spaced = false;
+				break;
+			}
+		}
+
+		if(is_equally_spaced)
+		{
+			//conPrint("==============Image frames durations are equal!");
+			texture_data->frame_durations_equal = true;
+			texture_data->recip_frame_duration = 1.0 / duration_0;
+		}
+	}
 
 	return texture_data;
 }
