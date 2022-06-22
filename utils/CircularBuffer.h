@@ -1,7 +1,7 @@
 /*=====================================================================
 CircularBuffer.h
 ----------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
@@ -16,23 +16,61 @@ Copyright Glare Technologies Limited 2021 -
 #include <memory>
 
 
-/*=====================================================================
-CircularBuffer
---------------
-A dynamically growable circular buffer.
-The interface should be similar to std::list
-=====================================================================*/
-
-
 template <class T> class CircularBufferIterator;
 
 
+/*=====================================================================
+CircularBuffer
+--------------
+A dynamically-growable circular buffer.
+The interface should be similar to std::list
+
+
+non-wrapped case, num_items=7:
+(end >= begin
+
+ data[0]                                           data[data_size-1]
+  v                                                  v
+|   |   |---|---|---|---|---|---|---|   |   |   |   |   |
+          ^                           ^
+        begin                        end
+
+Wrapped case:
+end < begin || (end == begin && num_items > 0)
+
+|---|---|---|---|   |   |   |   |   |   |   |---|---|---|
+                  ^                           ^
+                 end                         begin
+
+case with num_items=0:
+
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+                  ^                           
+                begin, end
+
+case with num_items=data_size
+
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+                  ^                           
+                begin, end
+
+We distinguish these two cases using num_items.
+
+case with data_size = 0:
+
+||
+^
+begin = end = num_items = data_size = 0
+
+=====================================================================*/
 template <class T>
 class CircularBuffer
 {
 public:
 	inline CircularBuffer();
 	inline ~CircularBuffer();
+
+	inline void operator = (const CircularBuffer<T>& other);
 
 	inline void push_back(const T& t);
 	
@@ -66,8 +104,8 @@ public:
 	typedef CircularBufferIterator<T> iterator;
 
 
-	inline iterator beginIt() { return CircularBufferIterator<T>(this, begin, false); }
-	inline iterator endIt() { return CircularBufferIterator<T>(this, end, !empty() && end <= begin); }
+	inline iterator beginIt() { return CircularBufferIterator<T>(this, begin, /*wrapped=*/false); }
+	inline iterator endIt() { return CircularBufferIterator<T>(this, end, /*wrapped=*/!empty() && (end <= begin)); }
 
 
 	friend void circularBufferTest();
@@ -77,15 +115,16 @@ public:
 	Reference<glare::Allocator>& getAllocator() { return allocator; }
 
 private:
-	GLARE_DISABLE_COPY(CircularBuffer)
+	CircularBuffer(const CircularBuffer& other);
+	void destroyAndFreeData();
 	inline void increaseSize(size_t requested_new_data_size);
 	inline void invariant();
 	inline T* alloc(size_t size, size_t alignment);
 	inline void free(T* ptr);
 	
 
-	size_t begin; // Index of first item in buffer.  Wrapped to zero when it reaches num_items.
-	size_t end; // Index one past last item in buffer.  Wrapped to zero when it reaches num_items.
+	size_t begin; // Index of first item in buffer, wrapped to [0, data_size), unless data_size = 0.
+	size_t end; // Index one past last item in buffer, wrapped to [0, data_size), unless data_size = 0.
 	size_t num_items; // Number of items in buffer
 	T* data; // Storage
 	size_t data_size; // Size/capacity in number of elements of data.
@@ -97,7 +136,7 @@ void circularBufferTest();
 
 
 /*
-Because begin=end can happen in two circumstances - num_items = 0 or num_items = data.size(), we need to distinguish between the two.
+Because begin=end can happen in two circumstances - num_items = 0 or num_items = data_size, we need to distinguish between the two.
 So we will keep track of if an iterator has wrapped past the end of the buffer back to the beginning.
 So beginIt() == endIt() if they both index the same element, *and* they are both unwrapped or wrapped.
 */
@@ -110,12 +149,12 @@ public:
 
 	bool operator == (const CircularBufferIterator& other) const
 	{
-		return i == other.i && wrapped == other.wrapped;
+		return (i == other.i) && (wrapped == other.wrapped);
 	}
 
 	bool operator != (const CircularBufferIterator& other) const
 	{
-		return i != other.i || wrapped != other.wrapped;
+		return (i != other.i) || (wrapped != other.wrapped);
 	}
 
 	void operator ++ ()
@@ -165,17 +204,58 @@ CircularBuffer<T>::~CircularBuffer()
 {
 	invariant();
 
-	// Destroy first segment.
-	const bool wrapped = ((end <= begin) && (num_items > 0));
-	const size_t first_segment_end = wrapped ? data_size : end;
-	for(size_t i=begin; i<first_segment_end; ++i)
-		data[i].~T();
-	// Destroy wrapped-around segment, if any.
-	if(wrapped)
-		for(size_t i=0; i<end; ++i)
-			data[i].~T();
+	destroyAndFreeData();
+}
 
-	free(data);
+
+template <class T>
+void CircularBuffer<T>::destroyAndFreeData()
+{
+	if(data)
+	{
+		// Destroy first segment.
+		const bool wrapped = ((end <= begin) && (num_items > 0));
+		const size_t first_segment_end = wrapped ? data_size : end;
+		for(size_t i=begin; i<first_segment_end; ++i)
+			data[i].~T();
+		// Destroy wrapped-around segment, if any.
+		if(wrapped)
+			for(size_t i=0; i<end; ++i)
+				data[i].~T();
+
+		free(data);
+	}
+}
+
+
+template <class T>
+void CircularBuffer<T>::operator = (const CircularBuffer<T>& other)
+{
+	invariant();
+
+	destroyAndFreeData();
+
+	begin = 0;
+	end = 0; // = other.num_items wrapped to zero.
+	num_items = other.num_items;
+	data_size = other.num_items;
+	if(data_size > 0)
+		data = alloc(sizeof(T) * data_size, glare::AlignOf<T>::Alignment);
+	else
+		data = NULL;
+
+	size_t other_i = other.begin;
+	for(size_t i=0; i<num_items; ++i)
+	{
+		::new (data + i) T(other.data[other_i]); // Construct data[i] from other.data[other_i]
+		other_i++;
+		if(other_i >= other.data_size)
+			other_i = 0;
+	}
+
+	allocator = other.allocator;
+
+	invariant();
 }
 
 
@@ -189,12 +269,12 @@ void CircularBuffer<T>::push_back(const T& t)
 		increaseSize(data_size * 2);
 
 	// Construct data[end] from t
-	::new ((data + end)) T(t);
+	::new (data + end) T(t);
 	end++;
 
 	// Wrap end
 	if(end >= data_size)
-		end -= data_size;
+		end = 0;
 
 	num_items++;
 
@@ -385,7 +465,7 @@ void CircularBuffer<T>::invariant()
 template <class T>
 void CircularBuffer<T>::increaseSize(size_t requested_new_data_size)
 {
-	const size_t new_data_size = myMax<size_t>(4, requested_new_data_size/*data_size * 2*/);
+	const size_t new_data_size = myMax<size_t>(4, requested_new_data_size);
 	T* new_data = alloc(sizeof(T) * new_data_size, glare::AlignOf<T>::Alignment);
 
 	// Copy-construct new objects from existing objects:

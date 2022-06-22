@@ -83,6 +83,14 @@ bool FileInStream::canReadNBytes(size_t N) const
 }
 
 
+void FileInStream::advanceReadIndex(size_t n)
+{
+	if(!canReadNBytes(n)) // Does wrapping/overflow check and checks against file size.
+		throw glare::Exception("Invalid number of bytes to advance for advanceReadIndex - read past end of file.");
+	read_index += n;
+}
+
+
 void FileInStream::setReadIndex(size_t i)
 {
 	if(i > file.fileSize())

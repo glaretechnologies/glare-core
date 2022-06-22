@@ -112,6 +112,116 @@ void circularBufferTest()
 		testAssert(buf.empty());
 	}
 
+	//======================= Test operator = ========================
+	{
+		{
+			CircularBuffer<int> buf;
+			CircularBuffer<int> buf2;
+			buf2 = buf;
+			testAssert(buf.empty());
+			testAssert(buf2.empty());
+		}
+
+		{
+			CircularBuffer<int> buf;
+
+			for(size_t i=0; i<32; ++i)
+				buf.push_back((int)i);
+
+			for(size_t i=0; i<10; ++i)
+				buf.pop_front();
+
+			CircularBuffer<int> buf2;
+			buf2 = buf;
+
+			testAssert(buf.size() == 32 - 10);
+			testAssert(buf2.size() == 32 - 10);
+			for(int i=10; i<32; ++i)
+			{
+				testAssert(buf2.front() == i);
+				buf2.pop_front();
+			}
+
+			buf.push_back(100); // Should wrap around in buf
+
+			buf2 = buf;
+			testAssert(buf2.size() == 32 - 10 + 1);
+			for(int i=10; i<32; ++i)
+			{
+				testAssert(buf2.front() == i);
+				buf2.pop_front();
+			}
+			testAssert(buf2.front() == 100);
+			buf2.pop_front();
+		}
+
+		// Test operator = with references (tests non-trivial constructors and destructors)
+		{
+			Reference<TestCircBufferStruct> t = new TestCircBufferStruct();
+
+			testAssert(t->getRefCount() == 1);
+
+			CircularBuffer<Reference<TestCircBufferStruct>> buf;
+
+			for(int i=0; i<100; ++i)
+				buf.push_back(t);
+
+			testAssert(t->getRefCount() == 101);
+
+			CircularBuffer<Reference<TestCircBufferStruct>> buf2;
+
+			for(int i=0; i<10; ++i)
+				buf2.push_back(t);
+
+			testAssert(t->getRefCount() == 111);
+
+			buf2 = buf;
+
+			testAssert(t->getRefCount() == 201);
+		}
+
+		// Test operator = with references (tests non-trivial constructors and destructors), with a wrapped buffer
+		{
+			Reference<TestCircBufferStruct> t = new TestCircBufferStruct();
+
+			testAssert(t->getRefCount() == 1);
+
+			CircularBuffer<Reference<TestCircBufferStruct>> buf;
+
+			for(int i=0; i<100; ++i)
+				buf.push_back(t);
+
+			testAssert(t->getRefCount() == 101);
+
+			for(int i=0; i<50; ++i)
+				buf.pop_front(); // data [0, 50) should be free now.
+
+			for(int i=0; i<50; ++i)
+				buf.push_back(t);
+
+			testAssert(t->getRefCount() == 101);
+			testAssert(&(*buf.beginIt()) > &(*buf.endIt())); // Test buf is wrapped
+
+
+			CircularBuffer<Reference<TestCircBufferStruct>> buf2;
+
+			for(int i=0; i<100; ++i)
+				buf2.push_back(t);
+			for(int i=0; i<50; ++i)
+				buf2.pop_front(); // data [0, 50) should be free now.
+			for(int i=0; i<50; ++i)
+				buf2.push_back(t);
+
+			testAssert(&(*buf2.beginIt()) > &(*buf2.endIt())); // Test buf2 is wrapped
+
+			testAssert(t->getRefCount() == 201);
+
+			buf2 = buf;
+
+			testAssert(t->getRefCount() == 201);
+		}
+	}
+
 	//======================== Test push_back ========================
 	{
 		CircularBuffer<int> buf;
