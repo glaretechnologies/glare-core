@@ -86,6 +86,9 @@ public:
 
 	inline void popFrontNItems(T* dest, size_t N); // Copies N items to dest.  N must be <= size()
 
+	// Remove items from front without copying them to a buffer.
+	inline void popFrontNItems(size_t N); // N must be <= size()
+
 	inline void pushBackNItems(const T* src, size_t N);
 
 	inline size_t getFirstSegmentSize() const { return (begin <= end) ? (end - begin) : (data_size - begin); } // Number of items in segment from begin to either end or where it wraps (data_size).
@@ -515,6 +518,37 @@ void CircularBuffer<T>::popFrontNItems(T* dest, size_t N) // N must be <= size()
 		for(size_t i=0; i<second_range_size; ++i)
 		{
 			dest[first_range_size + i] = data[i];
+			data[i].~T(); // Destroy object
+		}
+
+		new_begin = second_range_size;
+	}
+
+	begin = new_begin;
+	if(begin == data_size)
+		begin = 0; // Wrap begin if needed.
+
+	invariant();
+}
+
+
+template <class T>
+void CircularBuffer<T>::popFrontNItems(size_t N) // N must be <= size()
+{
+	assert(N <= size());
+	const size_t first_range_size = myMin(N, data_size - begin);
+	for(size_t i=0; i<first_range_size; ++i)
+	{
+		data[begin + i].~T(); // Destroy object
+	}
+
+	size_t new_begin = begin + first_range_size;
+
+	if(N > data_size - begin) // If part of the data being popped wraps around:
+	{
+		const size_t second_range_size = N - (data_size - begin);
+		for(size_t i=0; i<second_range_size; ++i)
+		{
 			data[i].~T(); // Destroy object
 		}
 
