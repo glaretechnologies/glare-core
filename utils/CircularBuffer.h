@@ -26,42 +26,29 @@ A dynamically-growable circular buffer.
 The interface should be similar to std::list
 
 
-non-wrapped case, num_items=7:
-(end >= begin
+non-wrapped case (begin <= end), size()=7:
 
  data[0]                                           data[data_size-1]
-  v                                                  v
+  v                                                   v
 |   |   |---|---|---|---|---|---|---|   |   |   |   |   |
           ^                           ^
         begin                        end
 
-Wrapped case:
-end < begin || (end == begin && num_items > 0)
+Wrapped case (end < begin):
 
 |---|---|---|---|   |   |   |   |   |   |   |---|---|---|
                   ^                           ^
                  end                         begin
 
-case with num_items=0:
+case with size()=0:
 
 |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
                   ^                           
                 begin, end
 
-case with num_items=data_size
 
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-                  ^                           
-                begin, end
-
-We distinguish these two cases using num_items.
-
-case with data_size = 0:
-
-||
-^
-begin = end = num_items = data_size = 0
-
+If we were to have size() == data_size, then end would wrap to begin, so we wouldn't be able to distinguish from the size()=0 case.
+Therefore, we will always have data_size > size(), except for when data_size = size() = 0.
 =====================================================================*/
 template <class T>
 class CircularBuffer
@@ -86,26 +73,28 @@ public:
 
 	inline T& back();
 
-	inline T& operator [] (const size_t offset); // Returns a reference to the item at the given offset from the front (*beginIt()).
+	//inline T& operator [] (const size_t offset); // Returns a reference to the item at the given offset from the front (*beginIt()).
 
 	inline void clear();
 	inline void clearAndFreeMem();
-	
+
 	inline size_t size() const;
 
-	inline bool empty() const { return num_items == 0; }
+	inline bool empty() const { return begin == end; }
 
-	inline bool nonEmpty() const { return num_items != 0; }
+	inline bool nonEmpty() const { return begin != end; }
 
-	inline void popFrontNItems(T* dest, size_t N); // N must be <= size()
+	inline void popFrontNItems(T* dest, size_t N); // Copies N items to dest.  N must be <= size()
 
 	inline void pushBackNItems(const T* src, size_t N);
+
+	inline size_t getFirstSegmentSize() const { return (begin <= end) ? (end - begin) : (data_size - begin); } // Number of items in segment from begin to either end or where it wraps (data_size).
 
 	typedef CircularBufferIterator<T> iterator;
 
 
-	inline iterator beginIt() { return CircularBufferIterator<T>(this, begin, /*wrapped=*/false); }
-	inline iterator endIt() { return CircularBufferIterator<T>(this, end, /*wrapped=*/!empty() && (end <= begin)); }
+	inline iterator beginIt() { return CircularBufferIterator<T>(this, begin); }
+	inline iterator endIt() { return CircularBufferIterator<T>(this, end); }
 
 
 	friend void circularBufferTest();
@@ -117,7 +106,7 @@ public:
 private:
 	CircularBuffer(const CircularBuffer& other);
 	void destroyAndFreeData();
-	inline void increaseSize(size_t requested_new_data_size);
+	inline void increaseDataSize(size_t requested_new_data_size);
 	inline void invariant();
 	inline T* alloc(size_t size, size_t alignment);
 	inline void free(T* ptr);
@@ -125,7 +114,6 @@ private:
 
 	size_t begin; // Index of first item in buffer, wrapped to [0, data_size), unless data_size = 0.
 	size_t end; // Index one past last item in buffer, wrapped to [0, data_size), unless data_size = 0.
-	size_t num_items; // Number of items in buffer
 	T* data; // Storage
 	size_t data_size; // Size/capacity in number of elements of data.
 	Reference<glare::Allocator> allocator;
@@ -135,36 +123,28 @@ private:
 void circularBufferTest();
 
 
-/*
-Because begin=end can happen in two circumstances - num_items = 0 or num_items = data_size, we need to distinguish between the two.
-So we will keep track of if an iterator has wrapped past the end of the buffer back to the beginning.
-So beginIt() == endIt() if they both index the same element, *and* they are both unwrapped or wrapped.
-*/
 template <class T>
 class CircularBufferIterator
 {
 public:
-	CircularBufferIterator(CircularBuffer<T>* buffer, size_t i_, bool wrapped_) : buffer(buffer), i(i_), wrapped(wrapped_) {}
+	CircularBufferIterator(CircularBuffer<T>* buffer, size_t i_) : buffer(buffer), i(i_) {}
 	~CircularBufferIterator(){}
 
 	bool operator == (const CircularBufferIterator& other) const
 	{
-		return (i == other.i) && (wrapped == other.wrapped);
+		return i == other.i;
 	}
 
 	bool operator != (const CircularBufferIterator& other) const
 	{
-		return (i != other.i) || (wrapped != other.wrapped);
+		return i != other.i;
 	}
 
 	void operator ++ ()
 	{
 		i++;
 		if(i >= buffer->data_size)
-		{
 			i = 0;
-			wrapped = true;
-		}
 	}
 
 	T& operator * ()
@@ -187,13 +167,12 @@ public:
 
 	CircularBuffer<T>* buffer;
 	size_t i;
-	bool wrapped;
 };
 
 
 template <class T>
 CircularBuffer<T>::CircularBuffer()
-:	begin(0), end(0), num_items(0), data(0), data_size(0)
+:	begin(0), end(0), data(0), data_size(0)
 {
 	invariant(); 
 }
@@ -214,7 +193,7 @@ void CircularBuffer<T>::destroyAndFreeData()
 	if(data)
 	{
 		// Destroy first segment.
-		const bool wrapped = ((end <= begin) && (num_items > 0));
+		const bool wrapped = end < begin;
 		const size_t first_segment_end = wrapped ? data_size : end;
 		for(size_t i=begin; i<first_segment_end; ++i)
 			data[i].~T();
@@ -235,17 +214,14 @@ void CircularBuffer<T>::operator = (const CircularBuffer<T>& other)
 
 	destroyAndFreeData();
 
+	const size_t other_size = other.size();
 	begin = 0;
-	end = 0; // = other.num_items wrapped to zero.
-	num_items = other.num_items;
-	data_size = other.num_items;
-	if(data_size > 0)
-		data = alloc(sizeof(T) * data_size, glare::AlignOf<T>::Alignment);
-	else
-		data = NULL;
+	end = other_size;
+	data_size = myMax<size_t>(4, other_size + 1);
+	data = alloc(sizeof(T) * data_size, glare::AlignOf<T>::Alignment);
 
 	size_t other_i = other.begin;
-	for(size_t i=0; i<num_items; ++i)
+	for(size_t i=0; i<other_size; ++i)
 	{
 		::new (data + i) T(other.data[other_i]); // Construct data[i] from other.data[other_i]
 		other_i++;
@@ -265,8 +241,8 @@ void CircularBuffer<T>::push_back(const T& t)
 	invariant();
 
 	// If there is no free space
-	if(num_items == data_size)
-		increaseSize(data_size * 2);
+	if(size() + 1 >= data_size)
+		increaseDataSize(myMax(size() + 2, data_size * 2)); // new data size should be > size + 1 (as we are adding an item below).
 
 	// Construct data[end] from t
 	::new (data + end) T(t);
@@ -275,8 +251,6 @@ void CircularBuffer<T>::push_back(const T& t)
 	// Wrap end
 	if(end >= data_size)
 		end = 0;
-
-	num_items++;
 
 	invariant();
 }
@@ -288,8 +262,8 @@ void CircularBuffer<T>::push_front(const T& t)
 	invariant();
 
 	// If there is no free space
-	if(num_items == data_size)
-		increaseSize(data_size * 2);
+	if(size() + 1 >= data_size)
+		increaseDataSize(myMax(size() + 2, data_size * 2)); // new data size should be > size + 1 (as we are adding an item below).
 
 	// Decrement and wrap begin
 	if(begin == 0)
@@ -300,8 +274,6 @@ void CircularBuffer<T>::push_front(const T& t)
 	// Construct data[begin] from t
 	::new ((data + begin)) T(t);
 
-	num_items++;
-
 	invariant();
 }
 
@@ -310,7 +282,7 @@ template <class T>
 void CircularBuffer<T>::pop_back()
 {
 	invariant();
-	assert(num_items > 0);
+	assert(size() > 0);
 
 	// Decrement and wrap end
 	if(end == 0)
@@ -321,8 +293,6 @@ void CircularBuffer<T>::pop_back()
 	// Destroy object
 	data[end].~T();
 
-	num_items--;
-
 	invariant();
 }
 
@@ -331,7 +301,7 @@ template <class T>
 void CircularBuffer<T>::pop_front()
 {
 	invariant();
-	assert(num_items > 0);
+	assert(size() > 0);
 
 	// Destroy object
 	data[begin].~T();
@@ -341,8 +311,6 @@ void CircularBuffer<T>::pop_front()
 		begin = 0;
 	else 
 		begin++;
-
-	num_items--;
 
 	invariant();
 }
@@ -354,11 +322,13 @@ void CircularBuffer<T>::clear()
 	invariant();
 
 	// Destroy objects
+
 	// Destroy first segment.
-	const bool wrapped = ((end <= begin) && (num_items > 0));
+	const bool wrapped = end < begin;
 	const size_t first_segment_end = wrapped ? data_size : end;
 	for(size_t i=begin; i<first_segment_end; ++i)
 		data[i].~T();
+
 	// Destroy wrapped-around segment, if any.
 	if(wrapped)
 		for(size_t i=0; i<end; ++i)
@@ -366,7 +336,6 @@ void CircularBuffer<T>::clear()
 	
 	begin = 0;
 	end = 0;
-	num_items = 0;
 
 	invariant();
 }
@@ -391,7 +360,7 @@ template <class T>
 T& CircularBuffer<T>::front()
 {
 	invariant();
-	assert(num_items > 0);
+	assert(size() > 0);
 
 	return data[begin];
 }
@@ -401,7 +370,7 @@ template <class T>
 T& CircularBuffer<T>::back()
 {
 	invariant();
-	assert(num_items > 0);
+	assert(size() > 0);
 
 	if(end == 0)
 		return data[data_size - 1];
@@ -410,52 +379,45 @@ T& CircularBuffer<T>::back()
 }
 
 
-template <class T>
-T& CircularBuffer<T>::operator [] (const size_t offset)
-{
-	size_t i = begin + offset;
-	if(i >= num_items)
-		i -= num_items;
-	return data[i];
-}
+//template <class T>
+//T& CircularBuffer<T>::operator [] (const size_t offset)
+//{
+//	size_t i = begin + offset;
+//	if(i >= data_size)
+//		i -= data_size;
+//	return data[i];
+//}
 
 
+/*
+Unwrapped case:
+|   |   |---|---|---|---|---|---|---|   |   |   |   |   |
+          ^                           ^
+        begin                        end
+
+Wrapped case:
+|---|---|---|---|   |   |   |   |   |   |   |---|---|---|
+                  ^                           ^
+                 end                         begin
+*/
 template <class T>
-size_t CircularBuffer<T>::size() const { return num_items; }
+size_t CircularBuffer<T>::size() const { return (begin <= end) ? (end - begin) : (data_size - begin + end); }
 
 
 template <class T>
 void CircularBuffer<T>::invariant()
 {
 #ifndef NDEBUG // If in debug mode:
-	assert(num_items <= data_size);
-
 	if(data_size == 0)
 	{
 		assert(begin == 0 && end == 0);
 	}
 	else
 	{
+		assert(data_size > size());
 		assert(begin < data_size); // begin should never be == data_size, it should wrap to 0.
 		assert(end   < data_size); // end should never be == data_size, it should wrap to 0.
 		assert(data);
-	}
-
-	if(begin < end)
-	{
-		// Unwrapped case:
-		assert(num_items == end - begin);
-	}
-	else if(begin == end)
-	{
-		// Possibly wrapped case:
-		assert(num_items == 0 || num_items == data_size);
-	}
-	else
-	{
-		// Data wrapped around case.
-		assert(begin > end);
-		assert((data_size - begin) + end == num_items);
 	}
 #endif
 }
@@ -463,32 +425,42 @@ void CircularBuffer<T>::invariant()
 
 // Resize buffer.  Need to make it least twice as big so that we can copy all the wrapped elements directly.
 template <class T>
-void CircularBuffer<T>::increaseSize(size_t requested_new_data_size)
+void CircularBuffer<T>::increaseDataSize(size_t requested_new_data_size)
 {
+	assert(requested_new_data_size >= data_size * 2); // We should always be at least doubling the data_size, so we can unwrap data when copying.
+
+	const size_t cur_size = size();
 	const size_t new_data_size = myMax<size_t>(4, requested_new_data_size);
 	T* new_data = alloc(sizeof(T) * new_data_size, glare::AlignOf<T>::Alignment);
 
 	// Copy-construct new objects from existing objects:
-	// Copy data[begin] to data[first_segment_end], to new_data[begin] to new_data[first_segment_end]
-	const bool wrapped = ((end <= begin) && (num_items > 0));
+	
+	const bool wrapped = end < begin;
 	const size_t first_segment_end = wrapped ? data_size : end;
-	std::uninitialized_copy(data + begin, data + first_segment_end, new_data + begin);
+
+	// Copy data [begin, first_segment_end) to new_data [begin, first_segment_end)
+	std::uninitialized_copy(/*src first=*/data + begin, /*src last=*/data + first_segment_end, /*dest first=*/new_data + begin);
+
 	size_t new_end = end;
 	if(wrapped) // If the data was wrapping before the resize:
 	{
-		// Copy data from [0, end) to [data_size, data_size + end)
-		std::uninitialized_copy(data, data + end, new_data + data_size);
+		assert(new_data_size - data_size >= end); // We should have enough space in new_data to copy the wrapped segment [0, end).
+
+		// Copy from data [0, end) to new_data [data_size, data_size + end)
+		std::uninitialized_copy(/*src first=*/data, /*src last=*/data + end, /*dest first=*/new_data + data_size);
 
 		// Update end since data is no longer wrapping.
-		new_end = begin + num_items;
+		new_end = begin + cur_size;
 	}
 
 	if(data)
 	{
 		// Destroy old objects:
+
 		// Destroy first segment
 		for(size_t i=begin; i<first_segment_end; ++i)
 			data[i].~T();
+
 		// Destroy wrapped-around segment, if any.
 		if(wrapped)
 			for(size_t i=0; i<end; ++i)
@@ -500,7 +472,6 @@ void CircularBuffer<T>::increaseSize(size_t requested_new_data_size)
 	end = new_end;
 	data_size = new_data_size;
 
-	assert(end == begin + num_items);
 	assert(end <= data_size);
 }
 
@@ -538,7 +509,7 @@ void CircularBuffer<T>::popFrontNItems(T* dest, size_t N) // N must be <= size()
 
 	size_t new_begin = begin + first_range_size;
 
-	if(N > data_size - begin) // If part of the data wraps around:
+	if(N > data_size - begin) // If part of the data being popped wraps around:
 	{
 		const size_t second_range_size = N - (data_size - begin);
 		for(size_t i=0; i<second_range_size; ++i)
@@ -553,34 +524,34 @@ void CircularBuffer<T>::popFrontNItems(T* dest, size_t N) // N must be <= size()
 	begin = new_begin;
 	if(begin == data_size)
 		begin = 0; // Wrap begin if needed.
-	num_items -= N;
 
 	invariant();
 }
 
 
-
 template <class T>
 void CircularBuffer<T>::pushBackNItems(const T* src, size_t N)
 {
-	if(num_items + N > data_size)
-		increaseSize(myMax(num_items + N, data_size * 2));
+	if(size() + N >= data_size)
+		increaseDataSize(myMax(size() + N + 1, data_size * 2));
 
 	const size_t end_capacity = data_size - end;
 	const size_t first_range_size = myMin(N, end_capacity);
 	for(size_t i=0; i<first_range_size; ++i)
 	{
-		data[end + i] = src[i];
+		// Construct data[end + i] from src[i]
+		::new (data + end + i) T(src[i]);
 	}
 
 	size_t new_end = end + first_range_size;
 
-	if(N > end_capacity) // If part of the data wraps around:
+	if(N > end_capacity) // If part of the data being pushed wraps around:
 	{
 		const size_t second_range_size = N - end_capacity;
 		for(size_t i=0; i<second_range_size; ++i)
 		{
-			data[i] = src[first_range_size + i];
+			// Construct data[i] from src[first_range_size + i];
+			::new (data + i) T(src[first_range_size + i]);
 		}
 
 		new_end = second_range_size;
@@ -589,8 +560,6 @@ void CircularBuffer<T>::pushBackNItems(const T* src, size_t N)
 	end = new_end;
 	if(end == data_size)
 		end = 0; // Wrap end if needed.
-
-	num_items += N;
 
 	invariant();
 }

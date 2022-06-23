@@ -1,7 +1,7 @@
 /*=====================================================================
 CircularBuffer.cpp
 ------------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #include "CircularBuffer.h"
 
@@ -59,16 +59,81 @@ void circularBufferTest()
 		buf.pushBackNItems(items, 4);
 		
 		testAssert(buf.size() == 4);
-		for(int i=0; i<4; ++i)
-			testAssert(buf[i] == i);
+		int i = 0;
+		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it, ++i)
+			testAssert(*it == i);
 
 		buf.pushBackNItems(items, 4);
 
 		testAssert(buf.size() == 8);
-		for(int i=0; i<4; ++i)
-			testAssert(buf[i] == i);
-		for(int i=0; i<4; ++i)
-			testAssert(buf[4 + i] == i);
+		i = 0;
+		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it, ++i)
+		{
+			if(i < 4)
+				testAssert(*it == i);
+			else
+				testAssert(*it == i - 4);
+		}
+	}
+
+	// Test pushBackNItems that wraps when inserting
+	{
+		CircularBuffer<int> buf;
+		std::vector<int> items(32);
+		const int N = 32;
+		for(int i=0; i<N; ++i)
+			items[i] = i;
+		
+		buf.pushBackNItems(items.data(), N);
+		testAssert(buf.size() == N);
+
+		for(int i=0; i<32; ++i)
+		{
+			testAssert(buf.front() == i);
+			buf.pop_front();
+		}
+
+		testAssert(buf.size() == 0);
+
+		buf.pushBackNItems(items.data(), N); // This should wrap around while inserting
+		testAssert(buf.size() == N);
+		testAssert(buf.end < buf.begin); // Check it wrapped
+
+		for(int i=0; i<32; ++i)
+		{
+			testAssert(buf.front() == i);
+			buf.pop_front();
+		}
+
+		testAssert(buf.size() == 0);
+	}
+
+	// Test pushBackNItems where we end up with exactly end == data_size
+	{
+		CircularBuffer<int> buf;
+		std::vector<int> items(32);
+		const int N = 32;
+		for(int i=0; i<N; ++i)
+			items[i] = i;
+
+		buf.pushBackNItems(items.data(), N);
+		testAssert(buf.size() == N);
+
+		for(int i=0; i<N; ++i)
+		{
+			testAssert(buf.front() == i);
+			buf.pop_front();
+		}
+
+		testAssert(buf.size() == 0);
+
+		const size_t remaining_before_wrap = buf.data_size - buf.begin;
+
+		items.resize(remaining_before_wrap);
+
+		buf.pushBackNItems(items.data(), remaining_before_wrap); // This should wrap around while inserting
+		testAssert(buf.size() == remaining_before_wrap);
+		testAssert(buf.end < buf.begin); // Check it wrapped
 	}
 
 	//======================== Test popFrontNItems ========================
@@ -106,10 +171,84 @@ void circularBufferTest()
 		testAssert(buf.size() == 0);
 	}
 
+	// Test where we wrap while popping, e.g. popping 5 items from the front of:
+	// 
+	// |-3-|-4-|-5-|   |   |   |   |   |   |   |-1-|-2-|
+	//               ^                           ^
+	//              end                        begin
+	{
+		CircularBuffer<int> buf;
+
+		const int N = 100;
+		std::vector<int> items(N);
+		// Make sure capacity is large
+		buf.pushBackNItems(items.data(), N);
+		for(int i=0; i<N; ++i)
+			buf.pop_back();
+		testAssert(buf.size() == 0);
+		testAssert(buf.begin == 0);
+
+		buf.push_front(2);
+		buf.push_front(1);
+		buf.push_back(3);
+		buf.push_back(4);
+		buf.push_back(5);
+
+		testAssert(buf.size() == 5);
+		testAssert(buf.end < buf.begin); // Check wrapped
+
+		buf.popFrontNItems(items.data(), 5);
+		for(int i=0; i<5; ++i)
+			testAssert(items[i] == i + 1);
+
+		testAssert(buf.size() == 0);
+		testAssert(buf.begin == 3);
+	}
+
+
+	// Test where we wrap while popping, where we wend up with exactly begin == data_size, which then wraps to 0.
+	// e.g. popping 3 items from the front of:
+	// 
+	// |-3-|-4-|-5-|   |   |   |   |   |   |   |-1-|-2-|
+	//               ^                           ^
+	//              end                        begin
+	{
+		CircularBuffer<int> buf;
+
+		const int N = 100;
+		std::vector<int> items(N);
+		// Make sure capacity is large
+		buf.pushBackNItems(items.data(), N);
+		for(int i=0; i<N; ++i)
+			buf.pop_back();
+		testAssert(buf.size() == 0);
+		testAssert(buf.begin == 0);
+
+		buf.push_front(2);
+		buf.push_front(1);
+		buf.push_back(3);
+		buf.push_back(4);
+		buf.push_back(5);
+
+		testAssert(buf.size() == 5);
+		testAssert(buf.end < buf.begin); // Check wrapped
+
+		buf.popFrontNItems(items.data(), 2);
+		for(int i=0; i<2; ++i)
+			testAssert(items[i] == i + 1);
+
+		testAssert(buf.size() == 3);
+		testAssert(buf.begin == 0);
+	}
+
+	
+
+
 	//======================== Test construction and destruction ========================
 	{
 		CircularBuffer<int> buf;
 		testAssert(buf.empty());
+		testAssert(!buf.nonEmpty());
 	}
 
 	//======================= Test operator = ========================
@@ -588,54 +727,114 @@ void circularBufferTest()
 			
 			{
 				CircularBuffer<Reference<TestCircBufferStruct> > buf;
+				int expected_size = 0;
 				
 				for(int i=0; i<1000; ++i)
 				{
 					const float r = rng.unitRandom();
-					if(r < 0.2f)
+					if(r < 0.1f)
 					{
+						// Test push_back
 						buf.push_back(test_struct);
+						expected_size++;
+					}
+					else if(r < 0.2f)
+					{
+						// Test push_front
+						buf.push_front(test_struct);
+						expected_size++;
+					}
+					else if(r < 0.3f)
+					{
+						// Test pop_back
+						if(!buf.empty())
+						{
+							buf.pop_back();
+							expected_size--;
+						}
 					}
 					else if(r < 0.4f)
 					{
-						buf.push_front(test_struct);
-					}
-					else if(r < 0.6f)
-					{
+						// Test pop_front
 						if(!buf.empty())
-							buf.pop_back();
-					}
-					else if(r < 0.8f)
-					{
-						if(!buf.empty())
+						{
 							buf.pop_front();
+							expected_size--;
+						}
 					}
-					else if(r < 0.85f)
+					else if(r < 0.5f)
 					{
+						// Test buf.front()
 						if(!buf.empty())
 							sum += buf.front()->getRefCount();
 					}
-					else if(r < 0.9f)
+					else if(r < 0.6f)
 					{
+						// Test buf.back()
 						if(!buf.empty())
 							sum += buf.back()->getRefCount();
 					}
-					else if(r < 0.95f)
+					else if(r < 0.7f)
 					{
+						// Test buf.size()
 						sum += buf.size();
+					}
+					else if(r < 0.8f)
+					{
+						// Test popFrontNItems
+						const int num = rng.nextUInt((uint32)buf.size() + 1);
+						std::vector<Reference<TestCircBufferStruct>> popped(num);
+						buf.popFrontNItems(popped.data(), num);
+						expected_size -= num;
+					}
+					else if(r < 0.9f)
+					{
+						// Test pushBackNItems
+						const int num = rng.nextUInt(10);
+						std::vector<Reference<TestCircBufferStruct>> to_push(num, test_struct);
+						buf.pushBackNItems(to_push.data(), num);
+						expected_size += num;
+					}
+					else if(r < 0.96f)
+					{
+						// Test operator = 
+						{
+							CircularBuffer<Reference<TestCircBufferStruct> > buf2;
+							buf2 = buf;
+
+							testAssert(buf2.size() == buf.size());
+
+							testAssert(test_struct->getRefCount() == (int64)(1 + 2 * buf.size()));
+						}
+
+						testAssert(test_struct->getRefCount() == (int64)(1 + buf.size()));
+					}
+					else if(r < 0.97f)
+					{
+						// Test iteration
+						int c = 0;
+						for(auto it = buf.beginIt(); it != buf.endIt(); ++it)
+						{
+							sum += (*it)->getRefCount();
+							c++;
+						}
+						testAssert(c == expected_size);
+					}
+					else if(r < 0.98f)
+					{
+						// Test clear();
+						buf.clear();
+						expected_size = 0;
 					}
 					else
 					{
-						buf.clear();
+						// Test clearAndFreeMem();
+						buf.clearAndFreeMem();
+						expected_size = 0;
 					}
 
+					testAssert(expected_size == buf.size());
 					testAssert(test_struct->getRefCount() == (int64)(1 + buf.size()));
-
-					// Test iterating over resulting buffer
-					size_t c = 0;
-					for(CircularBuffer<Reference<TestCircBufferStruct> >::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
-						c++;
-					testAssert(c == buf.size());
 				}
 			}
 
