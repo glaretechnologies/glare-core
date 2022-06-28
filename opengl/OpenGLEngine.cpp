@@ -1447,6 +1447,7 @@ static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* 
 	return size;
 }
 
+#if 0
 static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
 {
 	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
@@ -1476,6 +1477,7 @@ static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
 		conPrint("Offset " + toString(it->first) + ": " + it->second);
 	}
 }
+#endif
 #endif
 
 

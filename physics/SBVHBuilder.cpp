@@ -496,9 +496,6 @@ void SBVHBuilder::build(
 		for(size_t i=0; i<leaf_result_chunks[c]->size; ++i)
 			final_leaf_geom_indices[c * SBVHLeafResultChunk::MAX_RESULT_CHUNK_SIZE + i] = write_i++;
 
-#ifndef NDEBUG
-	const int total_num_leaf_geom = write_i;
-#endif
 	result_indices.resizeNoCopy(write_i);
 
 	for(size_t c=0; c<leaf_result_chunks.size(); ++c)

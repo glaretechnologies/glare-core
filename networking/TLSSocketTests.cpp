@@ -196,7 +196,8 @@ static void doTestWithHostname(const std::string& hostname, int port)
 //==============================================================================================================
 
 // Does repeated connections to a server to see if any memory is leaked.
-// NOTE: this test doesn't terminate currnetly due to listener_thread->join().
+// NOTE: this test doesn't terminate currently due to listener_thread->join().
+#if 0
 static void doMemLeakTest()
 {
 	Reference<TLSTestListenerThread> listener_thread = new TLSTestListenerThread(/*port=*/5000);
@@ -215,7 +216,7 @@ static void doMemLeakTest()
 	listener_thread->join();
 	//client_thread->join();
 }
-
+#endif
 
 //==============================================================================================================
 

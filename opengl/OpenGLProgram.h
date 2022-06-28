@@ -64,7 +64,6 @@ struct UserUniformInfo
 
 struct ProgramKey
 {
-	ProgramKey() {}
 	ProgramKey(const std::string& program_name_, bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_, bool gen_planar_uvs_, bool draw_planar_uv_grid_, bool convert_albedo_from_srgb_, bool skinning_,
 		bool imposterable_, bool use_wind_vert_shader_, bool double_sided_) :
 		program_name(program_name_), alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_), gen_planar_uvs(gen_planar_uvs_), draw_planar_uv_grid(draw_planar_uv_grid_), 
