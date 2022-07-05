@@ -9,6 +9,12 @@ Copyright Glare Technologies Limited 2022 -
 #include "IncludeOpenGL.h"
 
 
+// Just for Mac
+#ifndef GL_SHADER_STORAGE_BUFFER
+#define GL_SHADER_STORAGE_BUFFER          0x90D2
+#endif
+
+
 SSBO::SSBO()
 :	handle(0),
 	allocated_size(0)
