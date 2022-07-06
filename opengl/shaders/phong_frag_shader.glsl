@@ -128,6 +128,11 @@ layout (std140) uniform PhongUniforms
 	float metallic_frac;
 	float begin_fade_out_distance;
 	float end_fade_out_distance; // 9
+
+	int padding6;
+	int padding7;
+	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
+	ivec4 light_indices_1;
 } mat_data;
 
 #define MAT_UNIFORM mat_data
@@ -151,6 +156,29 @@ uniform vec4 blob_positions[8];
 #endif
 
 
+struct LightData
+{
+	vec4 pos;
+	vec4 dir;
+	vec4 col;
+	int light_type; // 0 = point light, 1 = spotlight
+	float cone_cos_angle_start;
+	float cone_cos_angle_end;
+};
+
+#if USE_SSBOS
+layout (std430) buffer LightDataStorage
+{
+	LightData light_data[];
+};
+#else
+layout (std140) uniform LightDataStorage
+{
+	LightData light_data[256];
+};
+#endif
+
+
 out vec4 colour_out;
 
 
@@ -170,11 +198,11 @@ float trowbridgeReitzPDF(float cos_theta, float alpha2)
 	return cos_theta * alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
 }
 
-// https://en.wikipedia.org/wiki/Schlick%27s_approximation
+
 float fresnelApprox(float cos_theta_i, float n2)
 {
 	//float r_0 = square((1.0 - n2) / (1.0 + n2));
-	//return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i);
+	//return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i); // https://en.wikipedia.org/wiki/Schlick%27s_approximation
 
 	float sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
 	float sintheta_t = sintheta_i / n2; // Use Snell's law to get sin(theta_t)
@@ -420,6 +448,7 @@ void main()
 	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * MAT_UNIFORM.diffuse_colour; // diffuse_colour is linear sRGB already.
 	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
 
+	// Apply vertex colour, if enabled.
 #if VERT_COLOURS
 	vec3 linear_vert_col = toLinearSRGB(vert_colour);
 	sun_diffuse_col.xyz *= linear_vert_col;
@@ -427,6 +456,7 @@ void main()
 #endif
 
 	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
+	// Fade out (to fade in an imposter), if enabled.
 #if IMPOSTERABLE
 	float dist_alpha_factor = smoothstep(MAT_UNIFORM.begin_fade_out_distance, MAT_UNIFORM.end_fade_out_distance,  /*dist=*/-pos_cs.z);
 	if(dist_alpha_factor > pixel_hash)
@@ -458,7 +488,82 @@ void main()
 	}
 #endif
 
+	vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
+
+	// Flip normal into hemisphere camera is in.
+	vec3 unit_normal_ws = normalize(use_normal_ws);
+	if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
+		unit_normal_ws = -unit_normal_ws;
+
 	float final_metallic_frac = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.metallic_frac * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).b) : MAT_UNIFORM.metallic_frac;
+	float final_roughness     = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
+
+
+	//----------------------- Direct lighting from interior lights ----------------------------
+	// Load indices into a local array, so we can iterate over the array in a for loop.  TODO: find a better way of doing this.
+	int indices[8];
+	indices[0] = MAT_UNIFORM.light_indices_0.x;
+	indices[1] = MAT_UNIFORM.light_indices_0.y;
+	indices[2] = MAT_UNIFORM.light_indices_0.z;
+	indices[3] = MAT_UNIFORM.light_indices_0.w;
+	indices[4] = MAT_UNIFORM.light_indices_1.x;
+	indices[5] = MAT_UNIFORM.light_indices_1.y;
+	indices[6] = MAT_UNIFORM.light_indices_1.z;
+	indices[7] = MAT_UNIFORM.light_indices_1.w;
+
+	vec4 local_light_radiance = vec4(0.f);
+	for(int i=0; i<8; ++i)
+	{
+		int light_index = indices[i];
+		if(light_index >= 0)
+		{
+			vec3 light_emitted_radiance = light_data[light_index].col.xyz;
+
+			vec3 pos_to_light = light_data[light_index].pos.xyz - pos_ws;
+			float pos_to_light_len2 = dot(pos_to_light, pos_to_light);
+			vec3 unit_pos_to_light = pos_to_light * inversesqrt(pos_to_light_len2);
+
+			float dir_factor;
+			if(light_data[light_index].light_type == 0) // Point light:
+			{
+				dir_factor = 1;
+			}
+			else
+			{
+				// light_type == 1: spotlight
+				float from_light_cos_angle = -dot(light_data[light_index].dir.xyz, unit_pos_to_light);
+				dir_factor = smoothstep(light_data[light_index].cone_cos_angle_start, light_data[light_index].cone_cos_angle_end, from_light_cos_angle);
+			}
+
+			float cos_theta_term = max(0.f, dot(unit_normal_ws, unit_pos_to_light));
+
+			vec3 diffuse_bsdf = refl_diffuse_col.xyz * (1.0 / 3.141592653589793);
+
+			// Compute specular bsdf
+			vec3 h_ws = normalize(unit_pos_to_light - unit_cam_to_pos_ws);
+			float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
+			vec4 specular_fresnel;
+			{
+				vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * MAT_UNIFORM.fresnel_scale;
+				vec4 metal_fresnel = vec4(
+					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
+					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
+					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b),
+					1);
+
+				// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
+				specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
+			}
+
+			vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * specular_fresnel;
+
+			vec3 bsdf = diffuse_bsdf + specular.xyz;
+			vec3 reflected_radiance = bsdf * cos_theta_term * light_emitted_radiance * dir_factor / pos_to_light_len2;
+
+			local_light_radiance.xyz += reflected_radiance;
+		}
+	}
+
 
 	//------------- Compute specular microfacet terms --------------
 	//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
@@ -473,13 +578,10 @@ void main()
 			1);
 
 		// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
-		specular_fresnel = metal_fresnel * final_metallic_frac + dielectric_fresnel * (1.0 - final_metallic_frac);
+		specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
 	}
 
-	float final_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.roughness * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
-
-	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * 
-		specular_fresnel;
+	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * specular_fresnel;
 
 	float shadow_factor = smoothstep(-0.3, 0.0, dot(sundir_cs.xyz, unit_normal_cs));
 	specular *= shadow_factor;
@@ -618,9 +720,7 @@ void main()
 
 
 
-	vec3 unit_normal_ws = normalize(use_normal_ws);
-	if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
-		unit_normal_ws = -unit_normal_ws;
+	
 
 	vec4 sky_irradiance;
 #if LIGHTMAPPING
@@ -643,11 +743,11 @@ void main()
 	
 		float vis = 1 - bl * 0.7f;
 		sky_irradiance *= vis;
+		local_light_radiance *= vis;
 	}
 #endif
 
 
-	vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
 	// Reflect cam-to-fragment vector in ws normal
 	vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
 
@@ -682,7 +782,8 @@ void main()
 		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
 		refl_fresnel * spec_refl_light + // Specular reflection of sky
 		sun_light * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * sun light
-		sun_light * specular; // sun light * specular microfacet terms
+		sun_light * specular + // sun light * specular microfacet terms
+		local_light_radiance; // Reflected light from local light sources.
 	//vec4 col = (sun_light + 3000000000.0)  * diffuse_col;
 
 #if DEPTH_FOG

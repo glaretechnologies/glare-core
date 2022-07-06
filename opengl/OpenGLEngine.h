@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "UniformBufOb.h"
 #include "VBO.h"
 #include "VAO.h"
+#include "SSBO.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/AnimationData.h"
@@ -41,6 +42,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/PrintOutput.h"
 #include "../utils/ManagerWithCache.h"
 #include "../utils/PoolAllocator.h"
+#include "../physics/HashedGrid2.h"
 #include <assert.h>
 #include <unordered_set>
 #include <set>
@@ -215,6 +217,9 @@ struct GLObject
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 	js::Vector<Matrix4f, 16> joint_matrices;
 
+	static const int MAX_NUM_LIGHT_INDICES = 8;
+	int light_indices[MAX_NUM_LIGHT_INDICES];
+
 	//glare::PoolAllocator* allocator;
 	//int allocation_index;
 
@@ -293,6 +298,28 @@ public:
 };
 
 
+// Should match LightData struct in phong_frag_shader.glsl etc.
+struct LightGPUData
+{
+	LightGPUData() : light_type(0), cone_cos_angle_start(0.8f), cone_cos_angle_end(0.85f) {}
+	Vec4f pos;
+	Vec4f dir;
+	Colour4f col;
+	int light_type; // 0 = point light, 1 = spotlight
+	float cone_cos_angle_start;
+	float cone_cos_angle_end;
+};
+
+
+struct GLLight : public ThreadSafeRefCounted
+{
+	LightGPUData gpu_data;
+	int buffer_index;
+};
+
+typedef Reference<GLLight> GLLightRef;
+
+
 // The OpenGLEngine contains one or more OpenGLScene.
 // An OpenGLScene is a set of objects, plus a camera transform, and associated information.
 // The current scene being rendered by the OpenGLEngine can be set with OpenGLEngine::setCurrentScene().
@@ -362,6 +389,11 @@ public:
 	std::set<Reference<GLObject>> objects_with_imposters;
 	
 	GLObjectRef env_ob;
+
+	std::set<Reference<GLLight>> lights;
+
+	HashedGrid2<GLLight*, std::hash<GLLight*>> light_grid;
+
 private:
 	float max_draw_dist;
 	float near_draw_dist;
@@ -439,6 +471,10 @@ struct PhongUniforms
 	float metallic_frac;
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
+
+	int padding[2];
+
+	int light_indices[8];
 };
 
 
@@ -504,7 +540,6 @@ struct MeshDataLoadingProgress
 	size_t index_next_i;
 };
 
-
 class OpenGLEngine : public ThreadSafeRefCounted
 {
 public:
@@ -545,6 +580,13 @@ public:
 	void removeOverlayObject(const Reference<OverlayObject>& object);
 	//----------------------------------------------------------------------------------------
 
+
+	//---------------------------- Lights ----------------------------------------------------
+	void addLight(GLLightRef light);
+	void removeLight(GLLightRef light);
+	void lightUpdated(GLLightRef light);
+	void setLightPos(GLLightRef light, const Vec4f& new_pos);
+	//----------------------------------------------------------------------------------------
 
 	//---------------------------- Updating objects ------------------------------------------
 	void updateObjectTransformData(GLObject& object);
@@ -719,6 +761,8 @@ public:
 
 private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
+	void assignLightsToObject(GLObject& ob);
+	void assignLightsToAllObjects();
 public:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
 private:
@@ -735,7 +779,7 @@ public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
-	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
+	void setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
@@ -998,6 +1042,12 @@ public:
 
 private:
 	glare::PoolAllocator object_pool_allocator;
+
+	SSBORef light_buffer; // SSBO
+	UniformBufObRef light_ubo; // UBO for Mac.
+
+	std::set<int> light_free_indices;
+
 };
 
 

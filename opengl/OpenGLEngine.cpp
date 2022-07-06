@@ -76,7 +76,10 @@ static const bool MEM_PROFILE = false;
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
 	num_instances_to_draw(0), always_visible(false)/*, allocator(NULL)*/, refcount(0)
-{}
+{
+	for(int i=0; i<MAX_NUM_LIGHT_INDICES; ++i)
+		light_indices[i] = -1;
+}
 
 
 GLObject::~GLObject()
@@ -225,6 +228,7 @@ OverlayObject::OverlayObject()
 
 
 OpenGLScene::OpenGLScene(OpenGLEngine& engine)
+:	light_grid(64.0, /*num buckets=*/1024, /*expected_num_items_per_bucket=*/4, /*empty key=*/NULL)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -942,6 +946,9 @@ static const int SHARED_VERT_UBO_BINDING_POINT_INDEX = 1;
 static const int PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX = 2;
 static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
 static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
+static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
+
+static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
 
 
 void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_, PrintOutput* print_output_)
@@ -1177,6 +1184,23 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false, /*use_sRGB=*/false);
 		}
 
+
+		// Build light data buffer.  We will use a SSBO on non-mac, and a UBO on mac, since it doesn't support OpenGL 4.3 for SSBOs.
+#ifndef OSX
+		light_buffer = new SSBO();
+		const size_t light_buf_items = 1 << 14;
+		light_buffer->allocate(sizeof(LightGPUData) * light_buf_items);
+#else
+		// Mac doesn't support SSBOs
+		light_ubo = new UniformBufOb();
+		const size_t light_buf_items = 256;
+		light_ubo->allocate(sizeof(LightGPUData) * light_buf_items);
+#endif
+		for(size_t i=0; i<light_buf_items; ++i)
+			light_free_indices.insert((int)i);
+
+
+
 		const bool is_intel_vendor = openglDriverVendorIsIntel();
 
 #ifdef OSX
@@ -1217,8 +1241,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define USE_MULTIDRAW_ELEMENTS_INDIRECT " + (use_multi_draw_indirect ? std::string("1") : std::string("0")) + "\n";
 
+		preprocessor_defines += "#define USE_SSBOS " + (light_buffer.nonNull() ? std::string("1") : std::string("0")) + "\n";
+
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
-		this->version_directive = use_bindless_textures ? "#version 400 core" : "#version 330 core";
+		this->version_directive = use_bindless_textures ? "#version 430 core" : "#version 330 core"; // NOTE: 430 for SSBO
 
 		if(use_multi_draw_indirect)
 			this->version_directive = "#version 460 core";
@@ -1247,6 +1273,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX, this->per_object_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX, this->material_common_uniform_buf_ob->handle);
+		
+		if(light_buffer.nonNull())
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/LIGHT_DATA_SSBO_BINDING_POINT_INDEX, this->light_buffer->handle);
+		else
+		{
+			assert(light_ubo.nonNull());
+			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/LIGHT_DATA_UBO_BINDING_POINT_INDEX, this->light_ubo->handle);
+		}
 
 		// Will be used if we hit a shader compilation error later
 		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false));
@@ -1442,15 +1476,19 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
 {
 	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
+	if(block_index == GL_INVALID_INDEX)
+		throw glare::Exception("getSizeOfUniformBlockInOpenGL(): No such named uniform block '" + std::string(block_name) + "'");
 	GLint size = 0;
 	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
 	return size;
 }
 
-#if 0
+#if 1
 static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
 {
 	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
+	if(block_index == GL_INVALID_INDEX)
+		throw glare::Exception("printFieldOffsets(): No such named uniform block '" + std::string(block_name));
 
 	GLint num_fields = 0;
 	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS, &num_fields); // Get 'number of active uniforms within this block'.
@@ -1476,9 +1514,22 @@ static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
 	{
 		conPrint("Offset " + toString(it->first) + ": " + it->second);
 	}
+	conPrint("Struct size: " + toString(getSizeOfUniformBlockInOpenGL(prog, block_name)));
 }
 #endif
 #endif
+
+
+//static void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size)
+//{
+//	const size_t block_size = getSizeOfUniformBlockInOpenGL(prog, block_name);
+//	if(block_size != target_size)
+//	{
+//		conPrint("Uniform block had size " + toString(block_size) + " B, expected " + toString(target_size) + " B.");
+//		printFieldOffsets(prog, block_name);
+//		assert(0);
+//	}
+//}
 
 
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
@@ -1511,7 +1562,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		}
 		else
 		{
-			// printFieldOffsets(phong_prog, "PhongUniforms");			
+			// printFieldOffsets(phong_prog, "PhongUniforms");
 			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PhongUniforms") == sizeof(PhongUniforms));
 			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms));
 		}
@@ -1530,6 +1581,17 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		unsigned int phong_per_object_vert_uniforms_index = glGetUniformBlockIndex(phong_prog->program, "PerObjectVertUniforms");
 		glUniformBlockBinding(phong_prog->program, phong_per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+
+		if(light_buffer.nonNull())
+		{
+			unsigned int light_data_index = glGetProgramResourceIndex(phong_prog->program, GL_SHADER_STORAGE_BLOCK, "LightDataStorage");
+			glShaderStorageBlockBinding(phong_prog->program, light_data_index, /*binding point=*/LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
+		}
+		else
+		{
+			unsigned int light_data_index = glGetUniformBlockIndex(phong_prog->program, "LightDataStorage");
+			glUniformBlockBinding(phong_prog->program, light_data_index, /*binding point=*/LIGHT_DATA_UBO_BINDING_POINT_INDEX);
+		}
 
 		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
@@ -1867,6 +1929,19 @@ const js::AABBox OpenGLEngine::getAABBWSForObjectWithTransform(GLObject& object,
 }
 
 
+struct LightDistComparator
+{
+	LightDistComparator(const Vec4f& use_ob_pos_) : use_ob_pos(use_ob_pos_) {}
+
+	inline bool operator () (const GLLight* a, const GLLight* b)
+	{
+		return use_ob_pos.getDist2(a->gpu_data.pos) < use_ob_pos.getDist2(b->gpu_data.pos);
+	}
+
+	Vec4f use_ob_pos;
+};
+
+
 // Updates object ob_to_world_inv_transpose_matrix and aabb_ws.
 void OpenGLEngine::updateObjectTransformData(GLObject& object)
 {
@@ -1880,6 +1955,89 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 	// Hopefully we won't encounter non-invertible matrices here anyway.
 
 	object.aabb_ws = object.mesh_data->aabb_os.transformedAABBFast(to_world);
+
+	assignLightsToObject(object);
+}
+
+
+static inline js::AABBox lightAABB(const GLLight& light)
+{
+	const float half_w = 20.0f;
+	return js::AABBox(
+		light.gpu_data.pos - Vec4f(half_w, half_w, half_w, 0),
+		light.gpu_data.pos + Vec4f(half_w, half_w, half_w, 0)
+	);
+}
+
+
+void OpenGLEngine::assignLightsToObject(GLObject& object)
+{
+	// Assign lights to object
+	const Vec4i min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(object.aabb_ws.min_);
+	const Vec4i max_bucket_i = current_scene->light_grid.bucketIndicesForPoint(object.aabb_ws.max_);
+
+	if(!object.aabb_ws.min_.isFinite() || !object.aabb_ws.max_.isFinite())
+		return;
+
+	const int MAX_LIGHTS = 128; // Max number of lights to consider
+	const GLLight* lights[MAX_LIGHTS];
+
+	const int64 x_num_buckets = (int64)max_bucket_i[0] - (int64)min_bucket_i[0] + 1;
+	const int64 y_num_buckets = (int64)max_bucket_i[1] - (int64)min_bucket_i[1] + 1;
+	const int64 z_num_buckets = (int64)max_bucket_i[2] - (int64)min_bucket_i[2] + 1;
+	if(x_num_buckets > 256 || y_num_buckets > 256 || z_num_buckets > 256 || (x_num_buckets * y_num_buckets * z_num_buckets) > 256)
+		return;
+
+	const js::AABBox ob_aabb_ws = object.aabb_ws;
+
+	int num_lights = 0;
+	for(int x=min_bucket_i[0]; x <= max_bucket_i[0]; ++x)
+	for(int y=min_bucket_i[1]; y <= max_bucket_i[1]; ++y)
+	for(int z=min_bucket_i[2]; z <= max_bucket_i[2]; ++z)
+	{
+		const auto& bucket = current_scene->light_grid.getBucketForIndices(x, y, z);
+
+		for(auto it = bucket.objects.begin(); it != bucket.objects.end(); ++it)
+		{
+			const GLLight* light = *it;
+			const js::AABBox light_aabb = lightAABB(*light);
+			if(light_aabb.intersectsAABB(ob_aabb_ws) && num_lights < MAX_LIGHTS)
+				lights[num_lights++] = light;
+		}
+	}
+
+	// Sort lights based on distance from object centre
+	const Vec4f use_ob_pos = object.aabb_ws.centroid();
+	LightDistComparator comparator(use_ob_pos);
+	std::sort(lights, lights + num_lights, comparator);
+
+	const GLLight* prev_light = NULL;
+	int dest_i = 0;
+	for(int i=0; i<num_lights; ++i)
+	{
+		if(lights[i] != prev_light) // Avoid adding the same light twice.
+		{
+			object.light_indices[dest_i++] = lights[i]->buffer_index;
+			prev_light = lights[i];
+			if(dest_i >= GLObject::MAX_NUM_LIGHT_INDICES)
+				break;
+		}
+	}
+}
+
+
+// This is linear-time on the number of objects in the scene.
+// Could make it sub-linear by using an acceleration structure for the objects.
+void OpenGLEngine::assignLightsToAllObjects()
+{
+	//Timer timer;
+	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+	{
+		GLObject* ob = it->ptr();
+
+		assignLightsToObject(*ob);
+	}
+	//conPrint("assignLightsToAllObjects() for " + toString(current_scene->objects.size()) + " objects took " + timer.elapsedStringNSigFigs(3));
 }
 
 
@@ -1996,6 +2154,106 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 void OpenGLEngine::removeOverlayObject(const Reference<OverlayObject>& object)
 {
 	current_scene->overlay_objects.erase(object);
+}
+
+
+void OpenGLEngine::addLight(GLLightRef light)
+{
+	current_scene->lights.insert(light);
+
+	// Alloc spot in uniform buffer
+	int free_index;
+	auto it = light_free_indices.begin();
+	if(it == light_free_indices.end())
+		free_index = -1; // Out of free spaces
+	else
+	{
+		free_index = *it;
+		light_free_indices.erase(it);
+	}
+
+	if(free_index >= 0)
+	{
+		if(light_buffer.nonNull())
+			light_buffer->updateData(sizeof(LightGPUData) * free_index, &light->gpu_data, sizeof(LightGPUData));
+		else
+		{
+			assert(light_ubo.nonNull());
+			light_ubo->updateData(sizeof(LightGPUData) * free_index, &light->gpu_data, sizeof(LightGPUData));
+		}
+	}
+	light->buffer_index = free_index;
+
+
+	const js::AABBox light_aabb = lightAABB(*light);
+
+	current_scene->light_grid.insert(light.ptr(), light_aabb);
+
+	assignLightsToAllObjects(); // NOTE: slow
+}
+
+
+void OpenGLEngine::removeLight(GLLightRef light)
+{
+	current_scene->lights.erase(light);
+
+	if(light->buffer_index >= 0)
+	{
+		light_free_indices.insert(light->buffer_index);
+		light->buffer_index = -1;
+	}
+
+	const js::AABBox light_aabb = lightAABB(*light);
+
+	current_scene->light_grid.remove(light.ptr(), light_aabb);
+}
+
+
+void OpenGLEngine::lightUpdated(GLLightRef light)
+{
+	if(light->buffer_index >= 0)
+	{
+		if(light_buffer.nonNull())
+			light_buffer->updateData(sizeof(LightGPUData) * light->buffer_index, &light->gpu_data, sizeof(LightGPUData));
+		else
+		{
+			assert(light_ubo.nonNull());
+			light_ubo->updateData(sizeof(LightGPUData) * light->buffer_index, &light->gpu_data, sizeof(LightGPUData));
+		}
+	}
+}
+
+
+void OpenGLEngine::setLightPos(GLLightRef light, const Vec4f& new_pos)
+{
+	const js::AABBox& old_aabb_ws = lightAABB(*light);
+	light->gpu_data.pos = new_pos;
+	const js::AABBox new_aabb_ws = lightAABB(*light);
+
+	// See if the object has changed grid cells
+	const Vec4i old_min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(old_aabb_ws.min_);
+	const Vec4i old_max_bucket_i = current_scene->light_grid.bucketIndicesForPoint(old_aabb_ws.max_);
+
+	const Vec4i new_min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(new_aabb_ws.min_);
+	const Vec4i new_max_bucket_i = current_scene->light_grid.bucketIndicesForPoint(new_aabb_ws.max_);
+
+	if(new_min_bucket_i != old_min_bucket_i || new_max_bucket_i != old_max_bucket_i)
+	{
+		// cells have changed.
+		current_scene->light_grid.remove(light.ptr(), old_aabb_ws);
+		current_scene->light_grid.insert(light.ptr(), new_aabb_ws);
+	}
+
+	if(light->buffer_index >= 0)
+	{
+		if(light_buffer.nonNull())
+			light_buffer->updateData(sizeof(LightGPUData) * light->buffer_index, &light->gpu_data, sizeof(LightGPUData));
+		else
+		{
+			assert(light_ubo.nonNull());
+			light_ubo->updateData(sizeof(LightGPUData) * light->buffer_index, &light->gpu_data, sizeof(LightGPUData));
+		}
+	}
 }
 
 
@@ -5217,7 +5475,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 }
 
 
-void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
+void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
@@ -5256,6 +5514,10 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	uniforms.metallic_frac = opengl_mat.metallic_frac;
 	uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
 	uniforms.end_fade_out_distance = opengl_mat.end_fade_out_distance;
+
+	for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+		uniforms.light_indices[i] = ob.light_indices[i];
+
 
 	//if(locations.sundir_cs_location >= 0)            glUniform4fv(locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 
@@ -5412,7 +5674,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 	if(shader_prog->uses_phong_uniforms)
 	{
-		setUniformsForPhongProg(opengl_mat, mesh_data, shader_prog->uniform_locations);
+		setUniformsForPhongProg(ob, opengl_mat, mesh_data, shader_prog->uniform_locations);
 
 		// Bind this material's phong uniform buffer to the phong UBO binding point.
 		//glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, opengl_mat.uniform_ubo->handle);
@@ -6261,6 +6523,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	std::string s;
 	s += "Objects: " + toString(current_scene->objects.size()) + "\n";
 	s += "Transparent objects: " + toString(current_scene->transparent_objects.size()) + "\n";
+	s += "Lights: " + toString(current_scene->lights.size()) + "\n";
 
 	s += "Num obs in view frustum: " + toString(last_num_obs_in_frustum) + "\n";
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
