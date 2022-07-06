@@ -1275,7 +1275,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX, this->material_common_uniform_buf_ob->handle);
 		
 		if(light_buffer.nonNull())
+		{
+#if defined(OSX)
+			assert(0); // GL_SHADER_STORAGE_BUFFER is not defined on Mac. (SSBOs are not supported)
+#else
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/LIGHT_DATA_SSBO_BINDING_POINT_INDEX, this->light_buffer->handle);
+#endif
+		}
 		else
 		{
 			assert(light_ubo.nonNull());
@@ -1584,8 +1590,12 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		if(light_buffer.nonNull())
 		{
+#if defined(OSX)
+			assert(0); // glShaderStorageBlockBinding is not defined on Mac. (SSBOs are not supported)
+#else
 			unsigned int light_data_index = glGetProgramResourceIndex(phong_prog->program, GL_SHADER_STORAGE_BLOCK, "LightDataStorage");
 			glShaderStorageBlockBinding(phong_prog->program, light_data_index, /*binding point=*/LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
+#endif
 		}
 		else
 		{
