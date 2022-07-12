@@ -72,6 +72,13 @@ static const bool MEM_PROFILE = false;
 #define VBO_FREE_MEMORY_ATI								0x87FB
 #define TEXTURE_FREE_MEMORY_ATI							0x87FC
 
+#ifndef GL_ZERO_TO_ONE
+#define GL_ZERO_TO_ONE									0x935F // For mac
+#endif 
+#ifndef GL_NEGATIVE_ONE_TO_ONE
+#define GL_NEGATIVE_ONE_TO_ONE							0x935E // For mac
+#endif
+
 
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
