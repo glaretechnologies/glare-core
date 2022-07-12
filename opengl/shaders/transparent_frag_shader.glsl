@@ -6,9 +6,6 @@ in vec3 pos_cs;
 in vec3 pos_os;
 #endif
 in vec3 cam_to_pos_ws;
-#if USE_LOGARITHMIC_DEPTH_BUFFER
-in float flogz;
-#endif
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 in flat int material_index;
@@ -24,6 +21,7 @@ out vec4 colour_out;
 
 
 float square(float x) { return x*x; }
+float pow4(float x) { return (x*x)*(x*x); }
 float pow5(float x) { return x*x*x*x*x; }
 float pow6(float x) { return x*x*x*x*x*x; }
 
@@ -40,7 +38,7 @@ float trowbridgeReitzPDF(float cos_theta, float alpha2)
 
 float alpha2ForRoughness(float r)
 {
-	return pow6(r);
+	return pow4(r);
 }
 
 
@@ -144,7 +142,11 @@ void main()
 	float alpha = spec_refl_fresnel + sun_specular;
 
 	col *= 0.000000003; // tone-map
+#if DO_POST_PROCESSING
+	colour_out = vec4(col.xyz, alpha);
+#else
 	colour_out = vec4(toNonLinear(col.xyz), alpha);
+#endif
 
 
 #if DRAW_PLANAR_UV_GRID
@@ -162,12 +164,5 @@ void main()
 	if(fract(use_texture_coords.x) < border_w_u || fract(use_texture_coords.x) >= (1 - border_w_u) ||
 		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1 - border_w_v))
 		colour_out = vec4(0.2f, 0.8f, 0.54f, 1.f);
-#endif
-
-#if USE_LOGARITHMIC_DEPTH_BUFFER
-	float farplane = 10000.0;
-	float Fcoef = 2.0 / log2(farplane + 1.0);
-	float Fcoef_half = 0.5 * Fcoef;
-	gl_FragDepth = log2(flogz) * Fcoef_half;
 #endif
 }

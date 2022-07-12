@@ -51,7 +51,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	Format format_,
 	Filtering filtering_,
 	Wrapping wrapping_,
-	bool has_mipmaps_)
+	bool has_mipmaps_,
+	int MSAA_samples_)
 :	texture_handle(0),
 	xres(0),
 	yres(0),
@@ -68,7 +69,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	// Work out gl_internal_format etc..
 	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_, has_mipmaps_);
+	doCreateTexture(tex_data, opengl_engine, wrapping_, has_mipmaps_, MSAA_samples_);
 }
 
 
@@ -100,7 +101,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	getGLFormat(format, dummy_gl_internal_format, dummy_gl_format, new_gl_type);
 	this->gl_type = new_gl_type;
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_, /*use mipmaps=*/true);
+	doCreateTexture(tex_data, opengl_engine, wrapping_, /*use mipmaps=*/true, /*MSAA_samples=*/-1);
 }
 
 
@@ -170,7 +171,7 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		type = GL_HALF_FLOAT;
 		break;
 	case Format_Depth_Float:
-		internal_format = GL_DEPTH_COMPONENT32;
+		internal_format = GL_DEPTH_COMPONENT32F;
 		gl_format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
 		break;
@@ -409,7 +410,8 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 		Wrapping wrapping,
-		bool use_mipmaps
+		bool use_mipmaps,
+		int MSAA_samples // -1 to disable MSAA
 	)
 {
 	// xres, yres, gl_internal_format etc. should all have been set.
@@ -427,12 +429,22 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		assert(texture_handle != 0);
 	}
 
-	glBindTexture(GL_TEXTURE_2D, texture_handle);
+	
 
-	// Allocate / specify immutable storage for the texture.
-	const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureLoading::computeNumMIPLevels(xres, yres) : 1;
-	glTexStorage2D(GL_TEXTURE_2D, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
-	this->num_mipmap_levels_allocated = num_levels;
+	if(MSAA_samples > 1)
+	{
+		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture_handle);
+		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+	}
+	else
+	{
+		glBindTexture(GL_TEXTURE_2D, texture_handle);
+
+		// Allocate / specify immutable storage for the texture.
+		const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureLoading::computeNumMIPLevels(xres, yres) : 1;
+		glTexStorage2D(GL_TEXTURE_2D, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
+		this->num_mipmap_levels_allocated = num_levels;
+	}
 
 	if(tex_data.data() != NULL)
 	{

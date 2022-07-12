@@ -281,6 +281,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_animated_obs_processed(0),
 	next_program_index(0),
 	use_bindless_textures(false),
+	use_reverse_z(true),
 	object_pool_allocator(sizeof(GLObject), 16)
 {
 	current_index_type = 0;
@@ -1006,6 +1007,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	this->GL_EXT_texture_sRGB_support = false;
 	this->GL_EXT_texture_compression_s3tc_support = false;
 	this->GL_ARB_bindless_texture_support = false;
+	this->GL_ARB_clip_control_support = false;
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -1017,6 +1019,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->GL_EXT_texture_compression_s3tc_support = true;
 		// if(stringEqual(ext, "GL_ARB_texture_compression_bptc")) conPrint("GL_ARB_texture_compression_bptc supported");
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
+		if(stringEqual(ext, "GL_ARB_clip_control")) this->GL_ARB_clip_control_support = true;
 	}
 
 #if defined(OSX)
@@ -1214,6 +1217,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Don't use bindless textures with Intel drivers/GPUs, they don't seem to work properly.  (Deadstock was having issues with textures being seemingly randomly assigned)
 		use_bindless_textures = GL_ARB_bindless_texture_support && !is_intel_vendor;
 
+		use_reverse_z = GL_ARB_clip_control_support;
+
 
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
@@ -1230,8 +1235,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define DEPTH_FOG " + (settings.depth_fog ? std::string("1") : std::string("0")) + "\n";
 
-		preprocessor_defines += "#define USE_LOGARITHMIC_DEPTH_BUFFER " + (settings.use_logarithmic_depth_buffer ? std::string("1") : std::string("0")) + "\n";
-
 		// static_cascade_blending causes a white-screen error on many Intel GPUs.
 		const bool static_cascade_blending = !is_intel_vendor;
 		preprocessor_defines += "#define DO_STATIC_SHADOW_MAP_CASCADE_BLENDING " + (static_cascade_blending ? std::string("1") : std::string("0")) + "\n";
@@ -1243,8 +1246,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define USE_SSBOS " + (light_buffer.nonNull() ? std::string("1") : std::string("0")) + "\n";
 
+		preprocessor_defines += "#define DO_POST_PROCESSING " + (settings.use_final_image_buffer ? std::string("1") : std::string("0")) + "\n";
+
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
 		this->version_directive = use_bindless_textures ? "#version 430 core" : "#version 330 core"; // NOTE: 430 for SSBO
+		// NOTE: use_bindless_textures is false when running under RenderDoc for some reason, need to force version to 430 when running under RenderDoc.
 
 		if(use_multi_draw_indirect)
 			this->version_directive = "#version 460 core";
@@ -1350,12 +1356,25 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		if(settings.use_final_image_buffer)
 		{
-			downsize_prog = new OpenGLProgram(
-				"downsize",
-				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-				getAndIncrNextProgramIndex()
-			);
+			{
+				const std::string use_preprocessor_defines = preprocessor_defines + "#define READ_FROM_MSAA_TEX 0\n";
+				downsize_prog = new OpenGLProgram(
+					"downsize",
+					new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines  , GL_VERTEX_SHADER),
+					new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+					getAndIncrNextProgramIndex()
+				);
+			}
+			
+			{
+				const std::string use_preprocessor_defines = preprocessor_defines + "#define READ_FROM_MSAA_TEX 1\n";
+				downsize_msaa_prog = new OpenGLProgram(
+					"downsize_msaa",
+					new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
+					new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+					getAndIncrNextProgramIndex()
+				);
+			}
 
 			gaussian_blur_prog = new OpenGLProgram(
 				"gaussian_blur",
@@ -1446,7 +1465,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			outline_quad_meshdata = this->unit_quad_meshdata;
 		}
 
-		
+
+		// Change clips space z range from [-1, 1] to [0, 1], in order to improve z-buffer precision.
+		// See https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
+		// and https://developer.nvidia.com/content/depth-precision-visualized
+		if(use_reverse_z)
+			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
 		init_succeeded = true;
 	}
@@ -1477,7 +1501,6 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 }
 
 
-#ifndef NDEBUG
 // See https://www.khronos.org/opengl/wiki/Program_Introspection#Uniforms_and_blocks
 static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
 {
@@ -1489,7 +1512,7 @@ static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* 
 	return size;
 }
 
-#if 1
+
 static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
 {
 	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
@@ -1522,20 +1545,18 @@ static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
 	}
 	conPrint("Struct size: " + toString(getSizeOfUniformBlockInOpenGL(prog, block_name)));
 }
-#endif
-#endif
 
 
-//static void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size)
-//{
-//	const size_t block_size = getSizeOfUniformBlockInOpenGL(prog, block_name);
-//	if(block_size != target_size)
-//	{
-//		conPrint("Uniform block had size " + toString(block_size) + " B, expected " + toString(target_size) + " B.");
-//		printFieldOffsets(prog, block_name);
-//		assert(0);
-//	}
-//}
+static void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size)
+{
+	const size_t block_size = getSizeOfUniformBlockInOpenGL(prog, block_name);
+	if(block_size != target_size)
+	{
+		conPrint("Uniform block had size " + toString(block_size) + " B, expected " + toString(target_size) + " B.");
+		printFieldOffsets(prog, block_name);
+		assert(0);
+	}
+}
 
 
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
@@ -1569,8 +1590,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		else
 		{
 			// printFieldOffsets(phong_prog, "PhongUniforms");
-			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PhongUniforms") == sizeof(PhongUniforms));
-			assert(getSizeOfUniformBlockInOpenGL(phong_prog, "PerObjectVertUniforms") == sizeof(PerObjectVertUniforms));
+			checkUniformBlockSize(phong_prog, "PhongUniforms", sizeof(PhongUniforms));
+			checkUniformBlockSize(phong_prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
 		}
 
 		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "MaterialCommonUniforms") == sizeof(MaterialCommonUniforms));
@@ -2033,6 +2054,10 @@ void OpenGLEngine::assignLightsToObject(GLObject& object)
 				break;
 		}
 	}
+
+	// Set remaining light indices to -1 (no light)
+	for(int i=dest_i; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+		object.light_indices[i] = -1;
 }
 
 
@@ -2348,6 +2373,11 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 
 					// Now that we have a lightmap, assign a different shader.
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+				}
+
+				if(object->materials[i].emission_tex_path == path)
+				{
+					mat.emission_texture = opengl_texture;
 				}
 			}
 		}
@@ -2861,6 +2891,30 @@ static const Matrix4f frustumMatrix(GLdouble left,
 }
 
 
+// Like frustumMatrix(), but with an infinite zFar.
+// This is supposedly more accurate in terms of precision - see 'Tightening the Precision of Perspective Rendering', http://www.geometry.caltech.edu/pubs/UD12.pdf
+static const Matrix4f infiniteFrustumMatrix(GLdouble left,
+	GLdouble right,
+	GLdouble bottom,
+	GLdouble top,
+	GLdouble zNear)
+{
+	double A = (right + left) / (right - left);
+	double B = (top + bottom) / (top - bottom);
+	double C = -1; // = -(zFar + zNear) / (zFar - zNear) as zFar goes to infinity:
+	double D =  -(2 * zNear); // = -(2 * zFar * zNear) / (zFar - zNear) as zFar goes to infinity:
+
+	float e[16] = {
+		(float)(2*zNear / (right - left)), 0, (float)A, 0,
+		0, (float)(2*zNear / (top - bottom)), (float)B, 0,
+		0, 0, (float)C, (float)D,
+		0, 0, -1.f, 0 };
+	Matrix4f t;
+	Matrix4f(e).getTranspose(t);
+	return t;
+}
+
+
 // https://msdn.microsoft.com/en-us/library/windows/desktop/dd373965(v=vs.85).aspx
 static const Matrix4f orthoMatrix(GLdouble left,
                        GLdouble right,
@@ -3033,7 +3087,7 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 	const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
 	glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 
-	glDepthFunc(GL_LESS); // restore
+	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS); // restore
 }
 
 
@@ -3214,6 +3268,27 @@ void OpenGLEngine::getCameraShadowMappingPlanesAndAABB(float near_dist, float fa
 	shadow_clip_planes_out[5] = Planef(-k, -min_k);
 
 	shadow_vol_aabb_out = shadow_vol_aabb;
+}
+
+
+Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
+{
+	if(use_reverse_z)
+	{
+		// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
+		// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
+		// Maps (0, 0, -n, n) to (0, 0, n, n) (e.g. z=-n to +n, or +1 after divide by w)
+		// Maps (0, 0, f, f) to (0, 0, 0, f) (e.g. z=+f to 0)
+		const Matrix4f reverse_matrix(
+			Vec4f(1, 0, 0, 0), // col 0
+			Vec4f(0, 1, 0, 0), // col 1
+			Vec4f(0, 0, -0.5f, 0), // col 2
+			Vec4f(0, 0, 0.5f, 1.f) // col 3
+		);
+		return reverse_matrix;
+	}
+	else
+		return Matrix4f::identity();
 }
 
 
@@ -3677,10 +3752,15 @@ void OpenGLEngine::draw()
 		//-------------------- Draw dynamic depth textures ----------------
 		shadow_mapping->bindDepthTexFrameBufferAsTarget();
 
+		glClearDepth(1.f);
 		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
 
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_FRONT);
+
+		// Use opengl-default clip coords
+		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+		glDepthFunc(GL_LESS);
 
 		const int per_map_h = shadow_mapping->dynamic_h / shadow_mapping->numDynamicDepthTextures();
 
@@ -3740,7 +3820,7 @@ void OpenGLEngine::draw()
 			const float near_signed_dist = -use_max_k; // k is towards sun so negate
 			const float far_signed_dist = -min_k;
 
-			Matrix4f proj_matrix = orthoMatrix(
+			const Matrix4f proj_matrix = orthoMatrix(
 				min_i, max_i, // left, right
 				min_j, max_j, // bottom, top
 				near_signed_dist, far_signed_dist // near, far
@@ -3777,7 +3857,7 @@ void OpenGLEngine::draw()
 				shadow_vol_aabb.enlargeToHoldPoint(shadow_vol_verts[z]);
 
 			
-			// We need to a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
+			// We need to use a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
 			const Matrix4f texcoord_bias(
 				Vec4f(0.5f, 0, 0, 0), // col 0
 				Vec4f(0, 0.5f, 0, 0), // col 1
@@ -4148,6 +4228,13 @@ void OpenGLEngine::draw()
 
 		glDisable(GL_CULL_FACE);
 
+		// Restore clip coord range and depth comparison func
+		if(use_reverse_z)
+		{
+			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+			glDepthFunc(GL_GREATER);
+		}
+
 #if !defined(OSX)
 		if(query_profiling_enabled)
 		{
@@ -4188,51 +4275,50 @@ void OpenGLEngine::draw()
 #endif
 	//------------------------------ end water ----------------------------------------
 
-
 	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
-	FrameBufTextures current_framebuf_textures;
 	if(settings.use_final_image_buffer)
 	{
-		if(main_render_framebuffer.isNull())
-			main_render_framebuffer = new FrameBuffer();
+		const int xres = main_viewport_w;
+		const int yres = main_viewport_h;
 
-		// Allocate a framebuffer for this viewport width and height
-		// We support multiple framebuffer sizes so viewport can be changed at runtime without constant reallocation.
-		// TODO: improve: use max of all sizes seen maybe?  then need to adjust read UVs
-
-		auto res = main_render_textures.find(Vec2i(viewport_w, viewport_h));
-		if(res == main_render_textures.end())
+		// If buffer textures are too low res, free them, we wil alloc larger ones below.
+		if(main_colour_texture.nonNull() &&
+			((main_colour_texture->xRes() != xres) ||
+			(main_colour_texture->yRes() != yres)))
 		{
-			conPrint("Allocing main_render_texture with width " + toString(viewport_w) + " and height " + toString(viewport_h));
-			OpenGLTextureRef main_render_texture = new OpenGLTexture(viewport_w, viewport_h, this,
-				ArrayRef<uint8>(NULL, 0), // TODO: this needs to be an actual buffer with immutable textures (of find a better way)
+			main_colour_texture = NULL;
+			main_depth_texture = NULL;
+			main_render_framebuffer = NULL;
+		}
+
+		if(main_colour_texture.isNull())
+		{
+			conPrint("Allocing main_render_texture with width " + toString(xres) + " and height " + toString(yres));
+
+			const int MSAA_SAMPLES = 4;
+			main_colour_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
 				OpenGLTexture::Format_RGB_Linear_Float,
-				OpenGLTexture::Filtering_Bilinear,
-				OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				false, // has_mipmaps
+				/*MSAA_samples=*/MSAA_SAMPLES
 			);
 
-			OpenGLTextureRef main_depth_texture = new OpenGLTexture(viewport_w, viewport_h, this,
-				ArrayRef<uint8>(NULL, 0),
+			main_depth_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
 				OpenGLTexture::Format_Depth_Float,
-				OpenGLTexture::Filtering_Bilinear,
-				OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				false, // has_mipmaps
+				/*MSAA_samples=*/MSAA_SAMPLES
 			);
 
-			FrameBufTextures textures;
-			textures.colour_texture = main_render_texture;
-			textures.depth_texture = main_depth_texture;
-
-			main_render_textures.insert(std::make_pair(Vec2i(viewport_w, viewport_h), textures));
-
-			current_framebuf_textures = textures;
-		}
-		else
-		{
-			current_framebuf_textures = res->second;
+			main_render_framebuffer = new FrameBuffer();
+			main_render_framebuffer->bindTextureAsTarget(*main_colour_texture, GL_COLOR_ATTACHMENT0);
+			main_render_framebuffer->bindTextureAsTarget(*main_depth_texture,  GL_DEPTH_ATTACHMENT);
 		}
 
-		main_render_framebuffer->bindTextureAsTarget(*current_framebuf_textures.colour_texture, GL_COLOR_ATTACHMENT0);
-		main_render_framebuffer->bindTextureAsTarget(*current_framebuf_textures.depth_texture,  GL_DEPTH_ATTACHMENT);
 		main_render_framebuffer->bind();
 	}
 	else
@@ -4244,9 +4330,17 @@ void OpenGLEngine::draw()
 
 	glViewport(0, 0, viewport_w, viewport_h); // Viewport may have been changed by shadow mapping.
 	
+	if(use_reverse_z)
+		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+	
+	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
+
 	// NOTE: We want to clear here first, even if the scene node is null.
 	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
 	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
+
+	glClearDepth(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	glLineWidth(1);
@@ -4280,7 +4374,49 @@ void OpenGLEngine::draw()
 		const double x_max = z_near * ( w + unit_shift_right);
 		const double y_min = z_near * (-h + unit_shift_up);
 		const double y_max = z_near * ( h + unit_shift_up);
-		proj_matrix = frustumMatrix(x_min, x_max, y_min, y_max, z_near, z_far);
+
+		const Matrix4f raw_proj_matrix = infiniteFrustumMatrix(x_min, x_max, y_min, y_max, z_near);
+		if(use_reverse_z)
+		{
+			// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
+			// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
+			// Maps (0, 0, -n, n) to (0, 0, n, n) (e.g. z=-n to +n, or +1 after divide by w)
+			// Maps (0, 0, f, f) to (0, 0, 0, f) (e.g. z=+f to 0)
+			const Matrix4f reverse_matrix(
+				Vec4f(1, 0, 0, 0), // col 0
+				Vec4f(0, 1, 0, 0), // col 1
+				Vec4f(0, 0, -0.5f, 0), // col 2
+				Vec4f(0, 0, 0.5f, 1.f) // col 3
+			);
+
+			proj_matrix = reverse_matrix * raw_proj_matrix;
+			//conPrint(proj_matrix.toString());
+			{
+				Vec4f test_v = raw_proj_matrix * Vec4f(0, 0, -(float)z_near, 1.f);
+				assert(epsEqual(test_v, Vec4f(0, 0, -(float)z_near, (float)z_near)));// Gets mapped to -1 after w_c divide.
+			}
+			{
+				Vec4f test_v = proj_matrix * Vec4f(0, 0, -(float)z_near, 1.f);
+				assert(epsEqual(test_v, Vec4f(0, 0, (float)z_near, (float)z_near))); // Gets mapped to +1 after w_c divide.
+			}
+			/*{
+				const float far_dist = 1.0e6f;
+				Vec4f test_v = raw_proj_matrix * Vec4f(0, 0, -far_dist, 1.f);
+				const float ndc_z = test_v[2] / test_v[3];
+				assert(epsEqual(ndc_z, 1.f));// Gets mapped to +1 after w divide.
+				//assert(approxEq(test_v, Vec4f(0, 0, far_dist, far_dist)));// Gets mapped to +1 after w divide.
+			}
+			{
+				const float far_dist = 1.0e6f;
+				Vec4f test_v = proj_matrix * Vec4f(0, 0, -far_dist, 1.f);
+				const float ndc_z = test_v[2] / test_v[3];
+				assert(epsEqual(ndc_z, 0.f));// Gets mapped to +1 after w divide.
+
+				//assert(approxEq(test_v, Vec4f(0, 0, 0, far_dist)));// Gets mapped to 0 after w divide.
+			}*/
+		}
+		else
+			proj_matrix = raw_proj_matrix;
 	}
 	else if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
 	{
@@ -4381,6 +4517,7 @@ void OpenGLEngine::draw()
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outline_solid_tex->texture_handle, 0);
 		glViewport(0, 0, (GLsizei)outline_tex_w, (GLsizei)outline_tex_h); // Make viewport same size as texture.
 		glClearColor(0.f, 0.f, 0.f, 1.f);
+		glClearDepth(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		for(auto i = selected_objects.begin(); i != selected_objects.end(); ++i)
@@ -4452,7 +4589,7 @@ void OpenGLEngine::draw()
 		Matrix4f use_proj_mat;
 		if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
 		{
-			// Use a perpective transformation for rendering the env sphere, with a few narrow field of view, to provide just a hint of texture detail.
+			// Use a perpective transformation for rendering the env sphere, with a narrow field of view, to provide just a hint of texture detail.
 			const float w = 0.01f;
 			use_proj_mat = frustumMatrix(-w, w, -w, w, 0.5, 100);
 		}
@@ -4473,10 +4610,6 @@ void OpenGLEngine::draw()
 	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	// Required for logarithmic depth buffer to avoid clipping artifacts.
-	if(settings.use_logarithmic_depth_buffer)
-		glEnable(GL_DEPTH_CLAMP);
 
 	// Update shared phong uniforms
 	{
@@ -4978,8 +5111,8 @@ void OpenGLEngine::draw()
 		                                                  |------------------> low res buffer 1 -----------> blur_framebuffers_x[1] ------------>  blur_framebuffers[1]
 		                                                       downsize               |             blur x                             blur y
 		                                                                              |
-		                                                                              ------------------> low res buffer 2
-		                                                                                  downsize              |
+		                                                                              ------------------> low res buffer 2 -----------> blur_framebuffers_x[2] ------------>  blur_framebuffers[2]
+		                                                                                  downsize              |             blur x                             blur y
 		
 		All blurred low res buffers are then read from and added to the resulting buffer.
 		*/
@@ -5007,14 +5140,15 @@ void OpenGLEngine::draw()
 				h /= 2;
 
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
-				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				downsize_framebuffers[i] = new FrameBuffer();
 				downsize_framebuffers[i]->bindTextureAsTarget(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
 
-				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers_x[i] = new FrameBuffer();
 				blur_framebuffers_x[i]->bindTextureAsTarget(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
 
+				// Use bilinear, this tex is read from and accumulated into final buffer.
 				blur_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers[i] = new FrameBuffer();
 				blur_framebuffers[i]->bindTextureAsTarget(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
@@ -5048,19 +5182,22 @@ void OpenGLEngine::draw()
 				//-------------------------------- Execute downsize shader --------------------------------
 				// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
 
-				OpenGLTextureRef src_texture = (i == 0) ? current_framebuf_textures.colour_texture : downsize_target_textures[i - 1];
+				OpenGLTextureRef src_texture = (i == 0) ? main_colour_texture : downsize_target_textures[i - 1];
+				GLenum src_texture_type      = (i == 0) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 
 				downsize_framebuffers[i]->bind(); // Target downsize_framebuffers[i]
 		
 				glViewport(0, 0, (int)downsize_framebuffers[i]->xRes(), (int)downsize_framebuffers[i]->yRes()); // Set viewport to target texture size
 
-				downsize_prog->useProgram();
+				OpenGLProgram* use_downsize_prog = (i == 0) ? downsize_msaa_prog.ptr() : downsize_prog.ptr();
+				use_downsize_prog->useProgram();
 
 				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(GL_TEXTURE_2D, src_texture->texture_handle);  // Set source texture
-				glUniform1i(downsize_prog->albedo_texture_loc, 0);
+				glBindTexture(src_texture_type, src_texture->texture_handle);  // Set source texture
+				glUniform1i(use_downsize_prog->albedo_texture_loc, 0);
 
-				glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
+				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 
 
 				//-------------------------------- Execute blur shader in x direction --------------------------------
@@ -5076,7 +5213,7 @@ void OpenGLEngine::draw()
 				glBindTexture(GL_TEXTURE_2D, downsize_target_textures[i]->texture_handle); // Set source texture
 				glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
 
-				glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 
 
 				//-------------------------------- Execute blur shader in y direction --------------------------------
@@ -5090,7 +5227,7 @@ void OpenGLEngine::draw()
 				glBindTexture(GL_TEXTURE_2D, blur_target_textures_x[i]->texture_handle); // Set source texture
 				glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
 
-				glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 			}
 
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
@@ -5114,7 +5251,7 @@ void OpenGLEngine::draw()
 			assert(unit_quad_meshdata->batches.size() == 1);
 
 			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, current_framebuf_textures.colour_texture->texture_handle);
+			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, main_colour_texture->texture_handle);
 			glUniform1i(final_imaging_prog->albedo_texture_loc, 0);
 
 			glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
@@ -5130,7 +5267,8 @@ void OpenGLEngine::draw()
 				}
 			}
 
-			glDrawElements(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)(uint64)unit_quad_meshdata->batches[0].prim_start_offset); // Draw quad
+			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
+			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
 
 			glEnable(GL_DEPTH_TEST);
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
@@ -5490,8 +5628,12 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
 	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
 
+	const Colour4f emission_col_nonlinear(opengl_mat.emission_rgb.r, opengl_mat.emission_rgb.g, opengl_mat.emission_rgb.b, 1.f);
+	const Colour4f emission_col_linear = fastApproxSRGBToLinearSRGB(emission_col_nonlinear) * opengl_mat.emission_scale;
+
 	PhongUniforms uniforms;
 	uniforms.diffuse_colour = col_linear;
+	uniforms.emission_colour = emission_col_linear;
 
 	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
 	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
@@ -5509,16 +5651,21 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 
 		if(opengl_mat.lightmap_texture.nonNull())
 			uniforms.lightmap_tex = opengl_mat.lightmap_texture->getBindlessTextureHandle();
+
+		if(opengl_mat.emission_texture.nonNull())
+			uniforms.emission_tex = opengl_mat.emission_texture->getBindlessTextureHandle();
 	}
 
 	#define HAVE_SHADING_NORMALS_FLAG			1
 	#define HAVE_TEXTURE_FLAG					2
 	#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
+	#define HAVE_EMISSION_TEX_FLAG				8
 
 	uniforms.flags =
 		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
 		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
-		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0);
+		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0) |
+		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0);
 	uniforms.roughness = opengl_mat.roughness;
 	uniforms.fresnel_scale = opengl_mat.fresnel_scale;
 	uniforms.metallic_frac = opengl_mat.metallic_frac;
@@ -5549,6 +5696,12 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 		{
 			glActiveTexture(GL_TEXTURE0 + 10);
 			glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
+		}
+
+		if(opengl_mat.emission_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 11);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.emission_texture->texture_handle);
 		}
 	}
 
@@ -6566,6 +6719,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "texture sRGB support: " + boolToString(GL_EXT_texture_sRGB_support) + "\n";
 	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support) + "\n";
 	s += "using bindless textures: " + boolToString(use_bindless_textures) + "\n";
+	s += "using reverse z: " + boolToString(use_reverse_z) + "\n";
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
 	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
 

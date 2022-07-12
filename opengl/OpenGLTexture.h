@@ -84,7 +84,8 @@ public:
 		Format format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat,
-		bool has_mipmaps = true);
+		bool has_mipmaps = true,
+		int MSAA_samples = -1);
 
 	// Create texture, specify exact GL formats
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
@@ -165,7 +166,8 @@ private:
 	void doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 		Wrapping wrapping,
-		bool has_mipmaps
+		bool has_mipmaps,
+		int MSAA_samples
 	);
 
 	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);

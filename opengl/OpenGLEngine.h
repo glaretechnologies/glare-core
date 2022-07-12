@@ -79,6 +79,8 @@ public:
 	:	transparent(false),
 		albedo_rgb(0.85f, 0.85f, 0.85f),
 		alpha(1.f),
+		emission_rgb(0.f, 0.f, 0.f),
+		emission_scale(0.f),
 		roughness(0.5f),
 		tex_matrix(1,0,0,1),
 		tex_translation(0,0),
@@ -99,6 +101,8 @@ public:
 
 	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
 	float alpha; // Used for transparent mats.
+	Colour3f emission_rgb; // Non-linear sRGB in [0, 1]
+	float emission_scale; // [0, inf)
 
 	bool imposter; // Use imposter shader?
 	bool imposterable; // Fade out with distance
@@ -115,6 +119,7 @@ public:
 	Reference<OpenGLTexture> texture_2;
 	Reference<OpenGLTexture> backface_albedo_texture;
 	Reference<OpenGLTexture> transmission_texture;
+	Reference<OpenGLTexture> emission_texture;
 
 	Reference<OpenGLProgram> shader_prog;
 	Reference<OpenGLProgram> depth_draw_shader_prog;
@@ -132,6 +137,7 @@ public:
 	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	std::string metallic_roughness_tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	std::string lightmap_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
+	std::string emission_tex_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	bool albedo_tex_is_placeholder; // True if the albedo texture is from a different LOD level than desired, and should be replaced when the correct LOD level texture is loaded.
 	// NOTE: could also just always re-assign textures in textureLoaded(), we do this for lightmaps.
 
@@ -283,7 +289,7 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), use_logarithmic_depth_buffer(false), max_tex_mem_usage(1024 * 1024 * 1024ull),
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), max_tex_mem_usage(1024 * 1024 * 1024ull),
 		use_grouped_vbo_allocator(true) {}
 
 	bool enable_debug_output;
@@ -291,7 +297,6 @@ public:
 	bool compress_textures;
 	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool depth_fog;
-	bool use_logarithmic_depth_buffer;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
 
 	uint64 max_tex_mem_usage; // Default: 1GB
@@ -420,6 +425,7 @@ struct OpenGLSceneHash
 struct FrameBufTextures
 {
 	Reference<OpenGLTexture> colour_texture;
+	Reference<OpenGLTexture> emission_texture;
 	Reference<OpenGLTexture> depth_texture;
 };
 
@@ -457,6 +463,7 @@ struct BatchDrawInfo
 struct PhongUniforms
 {
 	Colour4f diffuse_colour; // linear sRGB
+	Colour4f emission_colour; // linear sRGB
 	Vec2f texture_upper_left_matrix_col0;
 	Vec2f texture_upper_left_matrix_col1;
 	Vec2f texture_matrix_translation;
@@ -464,6 +471,7 @@ struct PhongUniforms
 	uint64 diffuse_tex; // Bindless texture handle
 	uint64 metallic_roughness_tex; // Bindless texture handle
 	uint64 lightmap_tex; // Bindless texture handle
+	uint64 emission_tex; // Bindless texture handle
 
 	int flags;
 	float roughness;
@@ -471,8 +479,6 @@ struct PhongUniforms
 	float metallic_frac;
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
-
-	int padding[2];
 
 	int light_indices[8];
 };
@@ -781,6 +787,7 @@ private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
 	void setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
+	Matrix4f getReverseZMatrixOrIdentity() const;
 
 	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
 
@@ -879,6 +886,7 @@ private:
 	Colour4f outline_colour;
 
 	Reference<OpenGLProgram> downsize_prog;
+	Reference<OpenGLProgram> downsize_msaa_prog;
 	Reference<OpenGLProgram> gaussian_blur_prog;
 
 	Reference<OpenGLProgram> final_imaging_prog; // Adds bloom, tonemaps
@@ -921,13 +929,12 @@ private:
 
 	Reference<FrameBuffer> main_render_framebuffer;
 
+	OpenGLTextureRef main_colour_texture;
+	OpenGLTextureRef main_depth_texture;
+
 	//Reference<FrameBuffer> pre_water_framebuffer;
 	//OpenGLTextureRef pre_water_colour_tex;
 	//OpenGLTextureRef pre_water_depth_tex;
-
-	//Reference<OpenGLTexture> main_render_texture;
-	//Reference<OpenGLTexture> main_depth_texture;
-	std::map<Vec2i, FrameBufTextures> main_render_textures; // Map from (viewport w, viewport_h) to framebuffer textures of that size.
 
 	std::unordered_set<GLObject*> selected_objects;
 
@@ -958,8 +965,10 @@ public:
 	bool GL_EXT_texture_sRGB_support;
 	bool GL_EXT_texture_compression_s3tc_support;
 	bool GL_ARB_bindless_texture_support;
+	bool GL_ARB_clip_control_support;
 	float max_anisotropy;
 	bool use_bindless_textures;
+	bool use_reverse_z;
 
 	OpenGLEngineSettings settings;
 

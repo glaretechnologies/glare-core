@@ -38,10 +38,6 @@ out vec3 vert_colour;
 out vec2 lightmap_coords;
 #endif
 
-#if USE_LOGARITHMIC_DEPTH_BUFFER
-out float flogz;
-#endif
-
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 out flat int material_index;
 #endif
@@ -213,14 +209,5 @@ void main()
 
 #if LIGHTMAPPING
 	lightmap_coords = lightmap_coords_in;
-#endif
-
-#if USE_LOGARITHMIC_DEPTH_BUFFER
-	float farplane = 10000.0;
-	float Fcoef = 2.0 / log2(farplane + 1.0);
-	float pos_depth = -pos_cs_vec4.z;
-	gl_Position.z = log2(max(1e-6, 1.0 + pos_depth)) * Fcoef - 1.0;
-
-	flogz = 1.0 + pos_depth;
 #endif
 }

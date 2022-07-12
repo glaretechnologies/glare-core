@@ -1,5 +1,5 @@
 
-uniform sampler2D albedo_texture;
+uniform sampler2DMS albedo_texture;
 
 uniform sampler2D blur_tex_0;
 uniform sampler2D blur_tex_1;
@@ -28,9 +28,14 @@ vec3 toNonLinear(vec3 x)
 
 void main()
 {
-	vec4 main_col = texture(albedo_texture, pos);
+	ivec2 tex_res = textureSize(albedo_texture);
+	ivec2 px_coords = ivec2(int(tex_res.x * pos.x), int(tex_res.y * pos.y));
+
+	vec4 col =	(texelFetch(albedo_texture, px_coords, 0) +
+				texelFetch(albedo_texture, px_coords, 1) +
+				texelFetch(albedo_texture, px_coords, 2) +
+				texelFetch(albedo_texture, px_coords, 3)) * 0.25;
 	
-	vec4 col = main_col;
 	if(bloom_strength > 0)
 	{
 		vec4 blur_col_0 = texture(blur_tex_0, pos);
@@ -42,11 +47,6 @@ void main()
 		vec4 blur_col_6 = texture(blur_tex_6, pos);
 		vec4 blur_col_7 = texture(blur_tex_7, pos);
 
-		float normal_weight = mix(1.0, 0.2, bloom_strength);
-		float blur_weight = mix(0.2, 1.0, bloom_strength);
-
-		col *= normal_weight;
-
 		vec4 blur_col =
 			blur_col_0 * (0.5 / 8.0) +
 			blur_col_1 * (0.5 / 8.0) +
@@ -57,8 +57,9 @@ void main()
 			blur_col_6 * (1.0 / 8.0) +
 			blur_col_7 * (3.0 / 8.0);
 
-		col += blur_col * blur_weight;
+		col += blur_col * bloom_strength;
 	}
 	
-	colour_out = vec4(/*toNonLinear*/(col.xyz), 1);
+	float alpha = 1.f;
+	colour_out = vec4(toNonLinear(col.xyz), alpha);
 }

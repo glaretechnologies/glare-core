@@ -71,12 +71,13 @@ void main()
 		col = diffuse_colour;
 
 	// Render sun
-	vec4 suncol = vec4(9124154304.569067, 8038831044.193394, 7154376815.37873, 1);
+	
+	float sunscale = 2.0e-3f; // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
+	vec4 suncol = vec4(2.45126E+13 * sunscale, 2.21169E+13 * sunscale, 1.93810E+13 * sunscale, 1); // From Indigo SkyModel2Generator.cpp::makeSkyEnvMap().
 	float d = dot(sundir_cs.xyz, normalize(pos_cs));
 	//col = mix(col, suncol, smoothstep(0.9999, 0.9999892083461507, d));
 	col = mix(col, suncol, smoothstep(0.99997, 0.9999892083461507, d));
 
-	
 	// Get position ray hits cloud plane
 	float cirrus_cloudfrac = 0;
 	float cumulus_cloudfrac = 0;
@@ -165,5 +166,10 @@ void main()
 #endif
 
 	col *= 0.000000003; // tone-map
+
+#if DO_POST_PROCESSING
+	colour_out = vec4(col.xyz, 1);
+#else
 	colour_out = vec4(toNonLinear(col.xyz), 1);
+#endif
 }

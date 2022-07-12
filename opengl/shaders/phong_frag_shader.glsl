@@ -21,9 +21,6 @@ in vec3 vert_colour;
 #if LIGHTMAPPING
 in vec2 lightmap_coords;
 #endif
-#if USE_LOGARITHMIC_DEPTH_BUFFER
-in float flogz;
-#endif
 
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
@@ -33,6 +30,7 @@ uniform sampler2D metallic_roughness_tex;
 uniform sampler2D backface_diffuse_tex;
 uniform sampler2D transmission_tex;
 #endif
+uniform sampler2D emission_tex;
 uniform sampler2DShadow dynamic_depth_tex;
 uniform sampler2DShadow static_depth_tex;
 uniform samplerCube cosine_env_tex;
@@ -55,6 +53,7 @@ layout (std140) uniform MaterialCommonUniforms
 #define HAVE_SHADING_NORMALS_FLAG			1
 #define HAVE_TEXTURE_FLAG					2
 #define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
+#define HAVE_EMISSION_TEX_FLAG				8
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
@@ -63,6 +62,7 @@ in flat int material_index;
 struct MaterialData
 {
 	vec4 diffuse_colour;
+	vec4 emission_colour;
 	vec2 texture_upper_left_matrix_col0;
 	vec2 texture_upper_left_matrix_col1;
 	vec2 texture_matrix_translation;
@@ -71,6 +71,7 @@ struct MaterialData
 	sampler2D diffuse_tex;
 	sampler2D metallic_roughness_tex;
 	sampler2D lightmap_tex;
+	sampler2D emission_tex;
 #else
 	float padding0;
 	float padding1;
@@ -78,6 +79,8 @@ struct MaterialData
 	float padding3;
 	float padding4;
 	float padding5;
+	float padding6;
+	float padding7;	
 #endif
 
 	int flags;
@@ -99,12 +102,14 @@ layout(std140) uniform PhongUniforms // MaterialDataUBO
 #define DIFFUSE_TEX mat_data.diffuse_tex
 #define METALLIC_ROUGHNESS_TEX mat_data.metallic_roughness_tex
 #define LIGHTMAP_TEX mat_data.lightmap_tex
+#define EMISSION_TEX mat_data.emission_tex
 
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
 layout (std140) uniform PhongUniforms
 {
 	vec4 diffuse_colour;		// 4
+	vec4 emission_colour;
 	vec2 texture_upper_left_matrix_col0;
 	vec2 texture_upper_left_matrix_col1;
 	vec2 texture_matrix_translation;
@@ -113,6 +118,7 @@ layout (std140) uniform PhongUniforms
 	sampler2D diffuse_tex;
 	sampler2D metallic_roughness_tex;
 	sampler2D lightmap_tex;
+	sampler2D emission_tex;
 #else
 	float padding0;
 	float padding1;
@@ -120,6 +126,8 @@ layout (std140) uniform PhongUniforms
 	float padding3;
 	float padding4;
 	float padding5;				// 6
+	float padding6;
+	float padding7;	
 #endif
 
 	int flags;
@@ -129,8 +137,6 @@ layout (std140) uniform PhongUniforms
 	float begin_fade_out_distance;
 	float end_fade_out_distance; // 9
 
-	int padding6;
-	int padding7;
 	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
 	ivec4 light_indices_1;
 } mat_data;
@@ -141,10 +147,12 @@ layout (std140) uniform PhongUniforms
 #define DIFFUSE_TEX mat_data.diffuse_tex
 #define METALLIC_ROUGHNESS_TEX mat_data.metallic_roughness_tex
 #define LIGHTMAP_TEX mat_data.lightmap_tex
+#define EMISSION_TEX mat_data.emission_tex
 #else
 #define DIFFUSE_TEX diffuse_tex
 #define METALLIC_ROUGHNESS_TEX metallic_roughness_tex
 #define LIGHTMAP_TEX lightmap_tex
+#define EMISSION_TEX emission_tex
 #endif
 
 #endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -532,7 +540,7 @@ void main()
 			{
 				// light_type == 1: spotlight
 				float from_light_cos_angle = -dot(light_data[light_index].dir.xyz, unit_pos_to_light);
-				dir_factor = smoothstep(light_data[light_index].cone_cos_angle_start, light_data[light_index].cone_cos_angle_end, from_light_cos_angle);
+				dir_factor = max(0.f, from_light_cos_angle) * 0.1 + smoothstep(light_data[light_index].cone_cos_angle_start, light_data[light_index].cone_cos_angle_end, from_light_cos_angle);
 			}
 
 			float cos_theta_term = max(0.f, dot(unit_normal_ws, unit_pos_to_light));
@@ -778,12 +786,20 @@ void main()
 
 	vec4 sun_light = vec4(1662102582.6479533,1499657101.1924045,1314152016.0871031, 1) * sun_vis_factor; // Sun spectral radiance multiplied by solid angle, see SkyModel2Generator::makeSkyEnvMap().
 
+	vec4 emission_col = MAT_UNIFORM.emission_colour;
+	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
+	{
+		emission_col *= texture(EMISSION_TEX, main_tex_coords);
+	}
+
 	vec4 col =
 		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
 		refl_fresnel * spec_refl_light + // Specular reflection of sky
 		sun_light * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * sun light
 		sun_light * specular + // sun light * specular microfacet terms
-		local_light_radiance; // Reflected light from local light sources.
+		local_light_radiance + // Reflected light from local light sources.
+		emission_col;
+	
 	//vec4 col = (sun_light + 3000000000.0)  * diffuse_col;
 
 #if DEPTH_FOG
@@ -793,15 +809,12 @@ void main()
 	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 2.0e7; // Bluish grey
 	col = mix(col, sky_col, fog_factor);
 #endif
-		
+
 	col *= 0.000000003; // tone-map
 	
+#if DO_POST_PROCESSING
+	colour_out = vec4(col.xyz, 1); // toNonLinear will be done after adding blurs etc.
+#else
 	colour_out = vec4(toNonLinear(col.xyz), 1);
-
-#if USE_LOGARITHMIC_DEPTH_BUFFER
-	float farplane = 10000.0;
-	float Fcoef = 2.0 / log2(farplane + 1.0);
-	float Fcoef_half = 0.5 * Fcoef;
-	gl_FragDepth = log2(flogz) * Fcoef_half;
 #endif
 }
