@@ -72,13 +72,6 @@ static const bool MEM_PROFILE = false;
 #define VBO_FREE_MEMORY_ATI								0x87FB
 #define TEXTURE_FREE_MEMORY_ATI							0x87FC
 
-#ifndef GL_ZERO_TO_ONE
-#define GL_ZERO_TO_ONE									0x935F // For mac
-#endif 
-#ifndef GL_NEGATIVE_ONE_TO_ONE
-#define GL_NEGATIVE_ONE_TO_ONE							0x935E // For mac
-#endif
-
 
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
@@ -1476,8 +1469,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Change clips space z range from [-1, 1] to [0, 1], in order to improve z-buffer precision.
 		// See https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 		// and https://developer.nvidia.com/content/depth-precision-visualized
+#if !defined(OSX)
 		if(use_reverse_z)
 			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+#endif
 
 		init_succeeded = true;
 	}
@@ -3766,7 +3761,9 @@ void OpenGLEngine::draw()
 		glCullFace(GL_FRONT);
 
 		// Use opengl-default clip coords
+#if !defined(OSX)
 		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+#endif
 		glDepthFunc(GL_LESS);
 
 		const int per_map_h = shadow_mapping->dynamic_h / shadow_mapping->numDynamicDepthTextures();
@@ -4236,11 +4233,13 @@ void OpenGLEngine::draw()
 		glDisable(GL_CULL_FACE);
 
 		// Restore clip coord range and depth comparison func
+#if !defined(OSX)
 		if(use_reverse_z)
 		{
 			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 			glDepthFunc(GL_GREATER);
 		}
+#endif
 
 #if !defined(OSX)
 		if(query_profiling_enabled)
@@ -4337,8 +4336,10 @@ void OpenGLEngine::draw()
 
 	glViewport(0, 0, viewport_w, viewport_h); // Viewport may have been changed by shadow mapping.
 	
+#if !defined(OSX)
 	if(use_reverse_z)
 		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+#endif
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
