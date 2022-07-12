@@ -3069,7 +3069,7 @@ static inline float largestDim(const js::AABBox& aabb)
 }
 
 
-// Draws a quad, with z value at far clip plane.
+// Draws a quad, with z value at far clip plane.  Clobbers depth func.
 void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 {
 	clear_buf_overlay_ob->ob_to_world_matrix =
@@ -3088,8 +3088,6 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 
 	const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
 	glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
-
-	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS); // restore
 }
 
 
@@ -3999,8 +3997,9 @@ void OpenGLEngine::draw()
 				if(ob_set == 0)
 				{
 					glDisable(GL_CULL_FACE);
-					partiallyClearBuffer(Vec2f(0, 0), Vec2f(1, 1));
+					partiallyClearBuffer(Vec2f(0, 0), Vec2f(1, 1)); // Clobbers depth func
 					glEnable(GL_CULL_FACE);
+					glDepthFunc(GL_LESS); // restore depth func
 				}
 
 				// Half-width in x and y directions in metres of static depth texture at this cascade level.
