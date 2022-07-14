@@ -280,7 +280,7 @@ float fbmMix(vec2 p)
 }
 
 
-float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords)
+float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias)
 {
 	// float actual_depth_0 = min(shadow_cds_0.z, 0.999f); // Cap so that if shadow depth map is max out at value 1, fragment will be considered to be unshadowed.
 
@@ -301,20 +301,20 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords)
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += texture(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z));
+		sum += texture(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias));
 	}
 	return sum * (1.f / 16);
 }
 
 
-float sampleStaticDepthMap(mat2 R, vec3 shadow_coords)
+float sampleStaticDepthMap(mat2 R, vec3 shadow_coords, float bias)
 {
 	// This technique gives sharper shadows, so will use for static depth maps to avoid shadows on smaller objects being blurred away.
 	float sum = 0;
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += texture(static_depth_tex, vec3(st.x, st.y, shadow_coords.z));
+		sum += texture(static_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias));
 	}
 	return sum * (1.f / 16);
 }
@@ -609,17 +609,21 @@ void main()
 
 	sun_vis_factor = 0.0;
 
+	float depth_map_0_bias = 8.0e-5f;
+	float depth_map_1_bias = 4.0e-4f;
+	float static_depth_map_bias = 2.2e-3f;
+
 	float dist = -pos_cs.z;
 	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
 	{
 		if(dist < DEPTH_TEXTURE_SCALE_MULT) // if dynamic_depth_tex_index == 0:
 		{
-			float tex_0_vis = sampleDynamicDepthMap(R, shadow_tex_coords[0]);
+			float tex_0_vis = sampleDynamicDepthMap(R, shadow_tex_coords[0], /*bias=*/depth_map_0_bias);
 
 			float edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT;
 			if(dist > edge_dist)
 			{
-				float tex_1_vis = sampleDynamicDepthMap(R, shadow_tex_coords[1]);
+				float tex_1_vis = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
 
 				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT, dist);
 				sun_vis_factor = mix(tex_0_vis, tex_1_vis, blend_factor);
@@ -633,7 +637,7 @@ void main()
 		}
 		else
 		{
-			sun_vis_factor = sampleDynamicDepthMap(R, shadow_tex_coords[1]);
+			sun_vis_factor = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
 
 			float edge_dist = 0.6f * (DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT);
 
@@ -642,7 +646,7 @@ void main()
 			{
 				vec3 static_shadow_cds = shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
 
-				float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
+				float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds, static_depth_map_bias); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
 
 				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
 				sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
@@ -678,7 +682,7 @@ void main()
 			}
 
 			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
-			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds); // NOTE: had cap and bias
+			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds, static_depth_map_bias); // NOTE: had cap and bias
 
 #if DO_STATIC_SHADOW_MAP_CASCADE_BLENDING
 			if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
@@ -691,7 +695,7 @@ void main()
 					int next_tex_index = static_depth_tex_index + 1;
 					vec3 next_shadow_cds = shadow_tex_coords[next_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
 
-					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds); // NOTE: had cap and bias
+					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds, static_depth_map_bias); // NOTE: had cap and bias
 
 					float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
 					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);

@@ -122,7 +122,11 @@ public:
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }
 
+	int MSAASamples() const { return MSAA_samples; }
+
 	size_t getByteSize() const;
+
+	GLenum getTextureTarget() const; // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE.
 
 
 	/// Increment reference count
@@ -162,12 +166,11 @@ public:
 private:
 	GLARE_DISABLE_COPY(OpenGLTexture);
 
-	// Create texture, given that xres, yres, gl_internal_format etc. have been set.
+	// Create texture, given that xres, yres, MSAA_samples, gl_internal_format etc. have been set.
 	void doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 		Wrapping wrapping,
-		bool has_mipmaps,
-		int MSAA_samples
+		bool has_mipmaps
 	);
 
 	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
@@ -181,6 +184,7 @@ private:
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
 	int num_mipmap_levels_allocated;
+	int MSAA_samples;
 public:
 	mutable int64 refcount;
 

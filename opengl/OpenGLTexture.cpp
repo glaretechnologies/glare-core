@@ -32,6 +32,7 @@ OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	MSAA_samples(-1),
 	num_mipmap_levels_allocated(0),
 	format(Format_SRGB_Uint8),
 	refcount(0),
@@ -65,11 +66,12 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	this->filtering = filtering_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
+	this->MSAA_samples = MSAA_samples_;
 
 	// Work out gl_internal_format etc..
 	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_, has_mipmaps_, MSAA_samples_);
+	doCreateTexture(tex_data, opengl_engine, wrapping_, has_mipmaps_);
 }
 
 
@@ -83,6 +85,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	MSAA_samples(-1),
 	num_mipmap_levels_allocated(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
@@ -101,7 +104,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	getGLFormat(format, dummy_gl_internal_format, dummy_gl_format, new_gl_type);
 	this->gl_type = new_gl_type;
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_, /*use mipmaps=*/true, /*MSAA_samples=*/-1);
+	doCreateTexture(tex_data, opengl_engine, wrapping_, /*use mipmaps=*/true);
 }
 
 
@@ -410,8 +413,7 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
 		Wrapping wrapping,
-		bool use_mipmaps,
-		int MSAA_samples // -1 to disable MSAA
+		bool use_mipmaps
 	)
 {
 	// xres, yres, gl_internal_format etc. should all have been set.
@@ -429,20 +431,20 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		assert(texture_handle != 0);
 	}
 
-	
-
-	if(MSAA_samples > 1)
+	const bool is_MSAA_tex = MSAA_samples > 1;
+	const GLenum tex_target = is_MSAA_tex ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+	if(is_MSAA_tex)
 	{
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture_handle);
-		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+		glBindTexture(tex_target, texture_handle);
+		glTexImage2DMultisample(tex_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, texture_handle);
+		glBindTexture(tex_target, texture_handle);
 
 		// Allocate / specify immutable storage for the texture.
 		const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureLoading::computeNumMIPLevels(xres, yres) : 1;
-		glTexStorage2D(GL_TEXTURE_2D, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
+		glTexStorage2D(tex_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
 		this->num_mipmap_levels_allocated = num_levels;
 	}
 
@@ -451,7 +453,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
 		{
 			glCompressedTexSubImage2D(
-				GL_TEXTURE_2D,
+				tex_target,
 				0, // LOD level
 				0, // xoffset
 				0, // yoffset
@@ -468,7 +470,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 			// NOTE: can't use glTexImage2D on immutable storage.
 			glTexSubImage2D(
-				GL_TEXTURE_2D,
+				tex_target,
 				0, // LOD level
 				0, // x offset
 				0, // y offset
@@ -481,51 +483,54 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		}
 	}
 
-	if(wrapping == Wrapping_Clamp)
+	if(!is_MSAA_tex) // You can't set 'sampler state' params for MSAA textures.
 	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	}
-
-
-	if(filtering == Filtering_Nearest)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	}
-	else if(filtering == Filtering_Bilinear)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	}
-	else if(filtering == Filtering_Fancy)
-	{
-		// Enable anisotropic texture filtering
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
-
-		if(tex_data.data() != NULL && use_mipmaps)
+		if(wrapping == Wrapping_Clamp)
 		{
-			// conPrint("Generating mipmaps");
-			glGenerateMipmap(GL_TEXTURE_2D);
+			glTexParameteri(tex_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(tex_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		}
 
-		if(use_mipmaps)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		else
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	}
-	else if(filtering == Filtering_PCF)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-	}
-	else
-	{
-		assert(0);
+		if(filtering == Filtering_Nearest)
+		{
+			glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		}
+		else if(filtering == Filtering_Bilinear)
+		{
+			glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+		else if(filtering == Filtering_Fancy)
+		{
+			// Enable anisotropic texture filtering
+			glTexParameterf(tex_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
+
+			if(tex_data.data() != NULL && use_mipmaps)
+			{
+				// conPrint("Generating mipmaps");
+				glGenerateMipmap(tex_target);
+			}
+
+			if(use_mipmaps)
+				glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			else
+				glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+		else if(filtering == Filtering_PCF)
+		{
+			glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(tex_target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+			glTexParameteri(tex_target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+		}
+		else
+		{
+			assert(0);
+		}
 	}
 }
 
@@ -693,6 +698,12 @@ size_t OpenGLTexture::getByteSize() const
 		total_size = total_size * 1.333333; // Space for Mipmaps.
 
 	return (size_t)total_size;
+}
+
+
+GLenum OpenGLTexture::getTextureTarget() const
+{
+	return (MSAA_samples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D; // TODO: handle cube map (GL_TEXTURE_CUBE_MAP) also
 }
 
 

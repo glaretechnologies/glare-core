@@ -1,5 +1,9 @@
 
-uniform sampler2DMS albedo_texture;
+#if MAIN_BUFFER_MSAA_SAMPLES > 1
+uniform sampler2DMS albedo_texture; // main colour buffer
+#else
+uniform sampler2D albedo_texture; // main colour buffer
+#endif
 
 uniform sampler2D blur_tex_0;
 uniform sampler2D blur_tex_1;
@@ -28,14 +32,23 @@ vec3 toNonLinear(vec3 x)
 
 void main()
 {
+#if MAIN_BUFFER_MSAA_SAMPLES > 1
 	ivec2 tex_res = textureSize(albedo_texture);
+#else
+	ivec2 tex_res = textureSize(albedo_texture, /*mip level*/0);
+#endif
+
 	ivec2 px_coords = ivec2(int(tex_res.x * pos.x), int(tex_res.y * pos.y));
 
-	vec4 col =	(texelFetch(albedo_texture, px_coords, 0) +
-				texelFetch(albedo_texture, px_coords, 1) +
-				texelFetch(albedo_texture, px_coords, 2) +
-				texelFetch(albedo_texture, px_coords, 3)) * 0.25;
-	
+#if MAIN_BUFFER_MSAA_SAMPLES > 1
+	vec4 col = vec4(0.f);
+	for(int i=0; i<MAIN_BUFFER_MSAA_SAMPLES; ++i)
+		col += texelFetch(albedo_texture, px_coords, i);
+	col *= (1.f / MAIN_BUFFER_MSAA_SAMPLES);
+#else
+	vec4 col = texelFetch(albedo_texture, px_coords, /*mip level=*/0);
+#endif
+
 	if(bloom_strength > 0)
 	{
 		vec4 blur_col_0 = texture(blur_tex_0, pos);

@@ -290,7 +290,7 @@ class OpenGLEngineSettings
 {
 public:
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), max_tex_mem_usage(1024 * 1024 * 1024ull),
-		use_grouped_vbo_allocator(true) {}
+		use_grouped_vbo_allocator(true), msaa_samples(4) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -298,6 +298,7 @@ public:
 	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool depth_fog;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
+	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
 
 	uint64 max_tex_mem_usage; // Default: 1GB
 };
@@ -760,7 +761,7 @@ public:
 	//----------------------------------------------------------------------------------------
 
 	//----------------------------------- Settings ----------------------------------------
-	void setMSAAEnabled(bool enabled);
+	//void setMSAAEnabled(bool enabled);
 
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	//----------------------------------------------------------------------------------------
@@ -886,7 +887,7 @@ private:
 	Colour4f outline_colour;
 
 	Reference<OpenGLProgram> downsize_prog;
-	Reference<OpenGLProgram> downsize_msaa_prog;
+	Reference<OpenGLProgram> downsize_from_main_buf_prog;
 	Reference<OpenGLProgram> gaussian_blur_prog;
 
 	Reference<OpenGLProgram> final_imaging_prog; // Adds bloom, tonemaps

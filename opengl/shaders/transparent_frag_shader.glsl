@@ -102,7 +102,7 @@ void main()
 
 	vec3 sunrefl_h = normalize(frag_to_cam + sundir_cs.xyz);
 	float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
-	float roughness = 0.2;
+	float roughness = 0.3;
 	float fresnel_scale = 1.0;
 	float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
 		fresnel_scale * fresnellApprox(sunrefl_h_cos_theta, ior);

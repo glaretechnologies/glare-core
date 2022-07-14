@@ -1248,6 +1248,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define DO_POST_PROCESSING " + (settings.use_final_image_buffer ? std::string("1") : std::string("0")) + "\n";
 
+		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES " + toString(settings.msaa_samples) + "\n";
+
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
 		this->version_directive = use_bindless_textures ? "#version 430 core" : "#version 330 core"; // NOTE: 430 for SSBO
 		// NOTE: use_bindless_textures is false when running under RenderDoc for some reason, need to force version to 430 when running under RenderDoc.
@@ -1357,7 +1359,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		if(settings.use_final_image_buffer)
 		{
 			{
-				const std::string use_preprocessor_defines = preprocessor_defines + "#define READ_FROM_MSAA_TEX 0\n";
+				const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 0\n";
 				downsize_prog = new OpenGLProgram(
 					"downsize",
 					new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines  , GL_VERTEX_SHADER),
@@ -1367,9 +1369,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			}
 			
 			{
-				const std::string use_preprocessor_defines = preprocessor_defines + "#define READ_FROM_MSAA_TEX 1\n";
-				downsize_msaa_prog = new OpenGLProgram(
-					"downsize_msaa",
+				const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 1\n";
+				downsize_from_main_buf_prog = new OpenGLProgram(
+					"downsize_from_main_buf",
 					new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
 					new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
 					getAndIncrNextProgramIndex()
@@ -1392,6 +1394,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			);
 			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
 			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
+			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
 
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 			{
@@ -3755,8 +3758,8 @@ void OpenGLEngine::draw()
 		glClearDepth(1.f);
 		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
 
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_FRONT);
+		// We will draw both back and front faces to the depth buffer.  Just drawing backfaces results in light leaks in some cases, and also incorrect shadowing for objects with no volume.
+		glDisable(GL_CULL_FACE);
 
 		// Use opengl-default clip coords
 #if !defined(OSX)
@@ -3770,9 +3773,6 @@ void OpenGLEngine::draw()
 		{
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
 
-// Code before here works
-#if 1
-// Code after here works too
 			// Compute the 8 points making up the corner vertices of this slice of the view frustum
 			float near_dist = (float)std::pow<double>(shadow_mapping->getDynamicDepthTextureScaleMultiplier(), ti);
 			float far_dist = near_dist * shadow_mapping->getDynamicDepthTextureScaleMultiplier();
@@ -3815,9 +3815,8 @@ void OpenGLEngine::draw()
 			}
 
 			// We want objects some distance outside of the view frustum to be able to cast shadows as well
-			const float max_shadowing_dist = 300.0f;
-
-			const float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist); // extend k bound to encompass max_shadowing_dist from min_k.
+			const float max_shadowing_dist = 250.f;
+			const float use_max_k = max_k + max_shadowing_dist; // extend k bound to encompass max_shadowing_dist from max_k.
 
 			const float near_signed_dist = -use_max_k; // k is towards sun so negate
 			const float far_signed_dist = -min_k;
@@ -3946,8 +3945,6 @@ void OpenGLEngine::draw()
 				submitBufferedDrawCommands();
 
 			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
-#endif
-			// Code after here works
 		}
 
 		shadow_mapping->unbindFrameBuffer();
@@ -3998,7 +3995,6 @@ void OpenGLEngine::draw()
 				{
 					glDisable(GL_CULL_FACE);
 					partiallyClearBuffer(Vec2f(0, 0), Vec2f(1, 1)); // Clobbers depth func
-					glEnable(GL_CULL_FACE);
 					glDepthFunc(GL_LESS); // restore depth func
 				}
 
@@ -4080,9 +4076,8 @@ void OpenGLEngine::draw()
 					max_k = myMax(max_k, dot_k);
 				}
 
-				const float max_shadowing_dist = 300.0f;
-
-				float use_max_k = myMax(max_k - min_k, min_k + max_shadowing_dist);
+				const float max_shadowing_dist = 250.0f;
+				const float use_max_k = max_k + max_shadowing_dist; // extend k bound to encompass max_shadowing_dist from max_k.
 
 				const float near_signed_dist = -use_max_k;
 				const float far_signed_dist = -min_k;
@@ -4300,14 +4295,14 @@ void OpenGLEngine::draw()
 		{
 			conPrint("Allocing main_render_texture with width " + toString(xres) + " and height " + toString(yres));
 
-			const int MSAA_SAMPLES = 4;
+			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
 			main_colour_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
 				OpenGLTexture::Format_RGB_Linear_Float,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 				false, // has_mipmaps
-				/*MSAA_samples=*/MSAA_SAMPLES
+				/*MSAA_samples=*/msaa_samples
 			);
 
 			main_depth_texture = new OpenGLTexture(xres, yres, this,
@@ -4316,7 +4311,7 @@ void OpenGLEngine::draw()
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 				false, // has_mipmaps
-				/*MSAA_samples=*/MSAA_SAMPLES
+				/*MSAA_samples=*/msaa_samples
 			);
 
 			main_render_framebuffer = new FrameBuffer();
@@ -5190,17 +5185,16 @@ void OpenGLEngine::draw()
 				// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
 
 				OpenGLTextureRef src_texture = (i == 0) ? main_colour_texture : downsize_target_textures[i - 1];
-				GLenum src_texture_type      = (i == 0) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 
 				downsize_framebuffers[i]->bind(); // Target downsize_framebuffers[i]
 		
 				glViewport(0, 0, (int)downsize_framebuffers[i]->xRes(), (int)downsize_framebuffers[i]->yRes()); // Set viewport to target texture size
 
-				OpenGLProgram* use_downsize_prog = (i == 0) ? downsize_msaa_prog.ptr() : downsize_prog.ptr();
+				OpenGLProgram* use_downsize_prog = (i == 0) ? downsize_from_main_buf_prog.ptr() : downsize_prog.ptr();
 				use_downsize_prog->useProgram();
 
 				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(src_texture_type, src_texture->texture_handle);  // Set source texture
+				glBindTexture(src_texture->getTextureTarget(), src_texture->texture_handle);  // Set source texture
 				glUniform1i(use_downsize_prog->albedo_texture_loc, 0);
 
 				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
@@ -5258,20 +5252,19 @@ void OpenGLEngine::draw()
 			assert(unit_quad_meshdata->batches.size() == 1);
 
 			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, main_colour_texture->texture_handle);
+			glBindTexture(main_colour_texture->getTextureTarget(), main_colour_texture->texture_handle);
 			glUniform1i(final_imaging_prog->albedo_texture_loc, 0);
 
 			glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
 
 			// Bind downsize_target_textures
-			if(current_scene->bloom_strength > 0)
+			// We need to bind these textures even when bloom_strength == 0, or we get runtime opengl errors.
+			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 			{
-				for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
-				{
-					glActiveTexture(GL_TEXTURE0 + 1 + i); // Bind after current_framebuf_textures above
-					glBindTexture(GL_TEXTURE_2D, blur_target_textures[i]->texture_handle);
-					glUniform1i(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc, /*val=*/1 + i);
-				}
+				glActiveTexture(GL_TEXTURE0 + 1 + i); // Bind after main_colour_texture above
+				glBindTexture(GL_TEXTURE_2D, blur_target_textures[i]->texture_handle);
+				assert(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc >= 0);
+				glUniform1i(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc, /*val=*/1 + i);
 			}
 
 			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
@@ -6635,13 +6628,13 @@ void OpenGLEngine::setCurrentScene(const Reference<OpenGLScene>& scene)
 }
 
 
-void OpenGLEngine::setMSAAEnabled(bool enabled)
-{
-	if(enabled)
-		glEnable(GL_MULTISAMPLE);
-	else
-		glDisable(GL_MULTISAMPLE);
-}
+//void OpenGLEngine::setMSAAEnabled(bool enabled)
+//{
+//	if(enabled)
+//		glEnable(GL_MULTISAMPLE);
+//	else
+//		glDisable(GL_MULTISAMPLE);
+//}
 
 
 bool OpenGLEngine::openglDriverVendorIsIntel() const
