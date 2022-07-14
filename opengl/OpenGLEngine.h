@@ -967,6 +967,7 @@ public:
 	bool GL_EXT_texture_compression_s3tc_support;
 	bool GL_ARB_bindless_texture_support;
 	bool GL_ARB_clip_control_support;
+	bool GL_ARB_shader_storage_buffer_object_support;
 	float max_anisotropy;
 	bool use_bindless_textures;
 	bool use_reverse_z;

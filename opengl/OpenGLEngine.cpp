@@ -1008,6 +1008,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	this->GL_EXT_texture_compression_s3tc_support = false;
 	this->GL_ARB_bindless_texture_support = false;
 	this->GL_ARB_clip_control_support = false;
+	this->GL_ARB_shader_storage_buffer_object_support = false;
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -1020,6 +1021,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// if(stringEqual(ext, "GL_ARB_texture_compression_bptc")) conPrint("GL_ARB_texture_compression_bptc supported");
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
 		if(stringEqual(ext, "GL_ARB_clip_control")) this->GL_ARB_clip_control_support = true;
+		if(stringEqual(ext, "GL_ARB_shader_storage_buffer_object")) this->GL_ARB_shader_storage_buffer_object_support = true;
 	}
 
 #if defined(OSX)
@@ -1189,19 +1191,24 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 
 		// Build light data buffer.  We will use a SSBO on non-mac, and a UBO on mac, since it doesn't support OpenGL 4.3 for SSBOs.
-#ifndef OSX
-		light_buffer = new SSBO();
-		const size_t light_buf_items = 1 << 14;
-		light_buffer->allocate(sizeof(LightGPUData) * light_buf_items);
-#else
-		// Mac doesn't support SSBOs
-		light_ubo = new UniformBufOb();
-		const size_t light_buf_items = 256;
-		light_ubo->allocate(sizeof(LightGPUData) * light_buf_items);
-#endif
-		for(size_t i=0; i<light_buf_items; ++i)
-			light_free_indices.insert((int)i);
+		if(GL_ARB_shader_storage_buffer_object_support)
+		{
+			light_buffer = new SSBO();
+			const size_t light_buf_items = 1 << 14;
+			light_buffer->allocate(sizeof(LightGPUData) * light_buf_items);
 
+			for(size_t i=0; i<light_buf_items; ++i)
+				light_free_indices.insert((int)i);
+		}
+		else
+		{
+			light_ubo = new UniformBufOb();
+			const size_t light_buf_items = 256;
+			light_ubo->allocate(sizeof(LightGPUData) * light_buf_items);
+
+			for(size_t i=0; i<light_buf_items; ++i)
+				light_free_indices.insert((int)i);
+		}
 
 
 		const bool is_intel_vendor = openglDriverVendorIsIntel();
@@ -6723,6 +6730,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support) + "\n";
 	s += "using bindless textures: " + boolToString(use_bindless_textures) + "\n";
 	s += "using reverse z: " + boolToString(use_reverse_z) + "\n";
+	s += "SSBO support: " + boolToString(GL_ARB_shader_storage_buffer_object_support) + "\n";
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
 	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
 
