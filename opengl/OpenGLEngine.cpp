@@ -1477,6 +1477,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 #endif
 
+		if(settings.msaa_samples <= 1)
+			glDisable(GL_MULTISAMPLE); // The initial value for GL_MULTISAMPLE is GL_TRUE.
+
 		init_succeeded = true;
 	}
 	catch(glare::Exception& e)
