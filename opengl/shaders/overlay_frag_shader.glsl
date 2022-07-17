@@ -17,8 +17,4 @@ void main()
 	}
 	else
 		colour_out = diffuse_colour;
-
-#if USE_LOGARITHMIC_DEPTH_BUFFER
-	gl_FragDepth = -1.f; // Just use a fixed frag depth that should be in front of everything else in the scene.  Depth buffer writes are off for overlays so shouldn't affect ordering.
-#endif
 }
