@@ -2364,23 +2364,24 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 			for(size_t i=0; i<object->materials.size(); ++i)
 			{
 				OpenGLMaterial& mat = object->materials[i];
-				if((mat.albedo_texture.isNull() || mat.albedo_tex_is_placeholder) && mat.tex_path == path)
+
+				if((mat.tex_path == path) && (mat.albedo_texture != opengl_texture)) // If this texture should be assigned to this material, and it is not already assigned:
 				{
-					// conPrint("\tOpenGLEngine::textureLoaded(): Found object using tex '" + path + "'.");
+					// conPrint("Assigning texture '" + path + "'.");
 
 					mat.albedo_texture = opengl_texture;
-					mat.albedo_tex_is_placeholder = false;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 				}
+
 
 				if(object->materials[i].metallic_roughness_tex_path == path)
 				{
 					mat.metallic_roughness_texture = opengl_texture;
 				}
 
-				if(/*mat.lightmap_texture.isNull() && */object->materials[i].lightmap_path == path)
+				if((object->materials[i].lightmap_path == path) && (mat.lightmap_texture != opengl_texture)) // If this lightmap texture should be assigned to this material, and it is not already assigned:
 				{
 					// conPrint("\tOpenGLEngine::textureLoaded(): Found object using lightmap '" + path + "'.");
 

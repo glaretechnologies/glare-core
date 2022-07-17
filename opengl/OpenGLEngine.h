@@ -79,7 +79,7 @@ public:
 	:	transparent(false),
 		albedo_rgb(0.85f, 0.85f, 0.85f),
 		alpha(1.f),
-		emission_rgb(0.f, 0.f, 0.f),
+		emission_rgb(0.85f, 0.85f, 0.85f),
 		emission_scale(0.f),
 		roughness(0.5f),
 		tex_matrix(1,0,0,1),
@@ -90,7 +90,6 @@ public:
 		gen_planar_uvs(false),
 		draw_planar_uv_grid(false),
 		convert_albedo_from_srgb(false),
-		albedo_tex_is_placeholder(false),
 		imposter(false),
 		imposterable(false),
 		use_wind_vert_shader(false),
@@ -138,8 +137,6 @@ public:
 	std::string metallic_roughness_tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	std::string lightmap_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
 	std::string emission_tex_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
-	bool albedo_tex_is_placeholder; // True if the albedo texture is from a different LOD level than desired, and should be replaced when the correct LOD level texture is loaded.
-	// NOTE: could also just always re-assign textures in textureLoaded(), we do this for lightmaps.
 
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 
