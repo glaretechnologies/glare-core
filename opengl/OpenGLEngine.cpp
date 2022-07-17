@@ -4558,8 +4558,7 @@ void OpenGLEngine::draw()
 		// ------------------- Stage 2: Extract edges with Sobel filter---------------------
 		// Shader reads from outline_solid_tex, writes to outline_edge_tex.
 	
-		outline_edge_framebuffer->bind();
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outline_edge_tex->texture_handle, 0);
+		outline_edge_framebuffer->bindTextureAsTarget(*outline_edge_tex, GL_COLOR_ATTACHMENT0);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 
 		checkUseProgram(edge_extract_prog.ptr());
@@ -4583,7 +4582,6 @@ void OpenGLEngine::draw()
 		}
 
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
-		outline_edge_framebuffer->unbind();
 
 		if(settings.use_final_image_buffer)
 			main_render_framebuffer->bind(); // Restore main render framebuffer binding.
@@ -5026,9 +5024,11 @@ void OpenGLEngine::draw()
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer
+		glDisable(GL_DEPTH_TEST); // Disable depth testing
 
 		// Position quad to cover viewport
-		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, -0.999f, 0));
+		const float use_z = 0.5f; // Use a z value that will be in the clip volume for both default and reverse z.
+		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, use_z, 0));
 
 		const OpenGLMeshRenderData& mesh_data = *outline_quad_meshdata;
 		bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
@@ -5055,6 +5055,7 @@ void OpenGLEngine::draw()
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 		}
 
+		glEnable(GL_DEPTH_TEST); // Restore depth testing
 		glDepthMask(GL_TRUE); // Restore
 		glDisable(GL_BLEND);
 	}
@@ -5073,6 +5074,8 @@ void OpenGLEngine::draw()
 
 		std::sort(temp_obs.begin(), temp_obs.end(), OverlayObjectZComparator());
 
+		const Matrix4f reverse_z_matrix = getReverseZMatrixOrIdentity();
+
 		for(size_t i=0; i<temp_obs.size(); ++i)
 		{
 			const OverlayObject* const ob = temp_obs[i];
@@ -5087,7 +5090,7 @@ void OpenGLEngine::draw()
 				checkUseProgram(opengl_mat.shader_prog.ptr());
 
 				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
-				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob->ob_to_world_matrix.e);
+				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, (reverse_z_matrix * ob->ob_to_world_matrix).e);
 				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 
 				if(opengl_mat.albedo_texture.nonNull())
