@@ -949,7 +949,9 @@ static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
 static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
 
+#if !defined(OSX)
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
+#endif
 
 
 void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_, PrintOutput* print_output_)
@@ -1190,8 +1192,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 
+		const bool is_intel_vendor = openglDriverVendorIsIntel();
+
 		// Build light data buffer.  We will use a SSBO on non-mac, and a UBO on mac, since it doesn't support OpenGL 4.3 for SSBOs.
-		if(GL_ARB_shader_storage_buffer_object_support)
+		// Intel drivers seem to choke on std430 layouts, see https://github.com/RPCS3/rpcs3/issues/12285
+		// So don't try to use SSBOs (which use the std430 layout) on Intel.
+		if(GL_ARB_shader_storage_buffer_object_support && !is_intel_vendor)
 		{
 			light_buffer = new SSBO();
 			const size_t light_buf_items = 1 << 14;
@@ -1209,9 +1215,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			for(size_t i=0; i<light_buf_items; ++i)
 				light_free_indices.insert((int)i);
 		}
-
-
-		const bool is_intel_vendor = openglDriverVendorIsIntel();
 
 #ifdef OSX
 		const bool is_intel_on_mac = is_intel_vendor;
@@ -4404,6 +4407,7 @@ void OpenGLEngine::draw()
 
 			proj_matrix = reverse_matrix * raw_proj_matrix;
 			//conPrint(proj_matrix.toString());
+#ifndef NDEBUG
 			{
 				Vec4f test_v = raw_proj_matrix * Vec4f(0, 0, -(float)z_near, 1.f);
 				assert(epsEqual(test_v, Vec4f(0, 0, -(float)z_near, (float)z_near)));// Gets mapped to -1 after w_c divide.
@@ -4412,6 +4416,7 @@ void OpenGLEngine::draw()
 				Vec4f test_v = proj_matrix * Vec4f(0, 0, -(float)z_near, 1.f);
 				assert(epsEqual(test_v, Vec4f(0, 0, (float)z_near, (float)z_near))); // Gets mapped to +1 after w_c divide.
 			}
+#endif
 			/*{
 				const float far_dist = 1.0e6f;
 				Vec4f test_v = raw_proj_matrix * Vec4f(0, 0, -far_dist, 1.f);
