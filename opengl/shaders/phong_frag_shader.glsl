@@ -25,12 +25,14 @@ in vec2 lightmap_coords;
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
 uniform sampler2D metallic_roughness_tex;
+uniform sampler2D emission_tex;
 #endif
+
 #if DOUBLE_SIDED
 uniform sampler2D backface_diffuse_tex;
 uniform sampler2D transmission_tex;
 #endif
-uniform sampler2D emission_tex;
+
 uniform sampler2DShadow dynamic_depth_tex;
 uniform sampler2DShadow static_depth_tex;
 uniform samplerCube cosine_env_tex;

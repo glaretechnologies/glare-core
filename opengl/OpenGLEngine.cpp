@@ -882,6 +882,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.have_texture_location				= prog->getUniformLocation("have_texture");
 	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
 	locations_out.metallic_roughness_tex_location	= prog->getUniformLocation("metallic_roughness_tex");
+	locations_out.emission_tex_location				= prog->getUniformLocation("emission_tex");
 	locations_out.backface_diffuse_tex_location		= prog->getUniformLocation("backface_diffuse_tex");
 	locations_out.transmission_tex_location			= prog->getUniformLocation("transmission_tex");
 	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
@@ -5583,8 +5584,10 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 		glUniform1i(locations.diffuse_tex_location, 0);
 		glUniform1i(locations.lightmap_tex_location, 7);
 		glUniform1i(locations.metallic_roughness_tex_location, 10);
+		glUniform1i(locations.emission_tex_location, 11);
 	}
 
+	// We don't currently use bindless textures for backface_diffuse_tex and transmission_tex.
 	glUniform1i(locations.backface_diffuse_tex_location, 8);
 	glUniform1i(locations.transmission_tex_location, 9);
 	
