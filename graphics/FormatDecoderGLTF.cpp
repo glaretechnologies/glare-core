@@ -189,6 +189,9 @@ struct GLTFMaterial : public RefCounted
 	float metallicFactor;
 	float roughnessFactor;
 	//----------- End from pbrMetallicRoughness:------------
+
+	GLTFTextureObject emissiveTexture;
+	Colour3f emissiveFactor;
 };
 typedef Reference<GLTFMaterial> GLTFMaterialRef;
 
@@ -1377,6 +1380,15 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 		*/
 		mat_out.roughness = pow(1.0f - mat.glossinessFactor, 0.6666666f);
 	}
+
+	mat_out.emissive_factor = mat.emissiveFactor;
+	if(mat.emissiveTexture.valid())
+	{
+		GLTFTexture& texture = getTexture(data, mat.emissiveTexture.index);
+		GLTFImage& image = getImage(data, texture.source);
+		const std::string path = FileUtils::join(gltf_folder, image.uri);
+		mat_out.emissive_map.path = path;
+	}
 	
 	if(mat.alphaMode == "OPAQUE")
 		mat_out.alpha = 1; // "The alpha value is ignored and the rendered output is fully opaque."
@@ -1800,6 +1812,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 					mat->roughnessFactor = 0.5;
 					mat->metallicFactor = 0.0;
 				}
+
+				mat->emissiveTexture = parseTextureIfPresent(parser, mat_node, "emissiveTexture");
+				mat->emissiveFactor = parseColour3ChildArrayWithDefault(parser, mat_node, "emissiveFactor", Colour3f(0, 0, 0));
 
 				data.materials.push_back(mat);
 			}

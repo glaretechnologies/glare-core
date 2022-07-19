@@ -35,6 +35,9 @@ struct GLTFResultMaterial
 	GLTFResultMap diffuse_map;
 	GLTFResultMap metallic_roughness_map;
 
+	Colour3f emissive_factor; // sRGB, usually in [0, 1].
+	GLTFResultMap emissive_map;
+
 	float roughness;
 	float metallic;
 };
