@@ -5158,8 +5158,8 @@ void OpenGLEngine::draw()
 
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 			{
-				w /= 2;
-				h /= 2;
+				w = myMax(1, w / 2);
+				h = myMax(1, h / 2);
 
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
