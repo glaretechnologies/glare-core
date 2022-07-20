@@ -100,7 +100,8 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 
 			// Create a new VBO and allocator, add to list of VBOs
 			VBOAndAllocator vbo_and_alloc;
-			vbo_and_alloc.vbo = new VBO(NULL, this->use_VBO_size_B);
+			vbo_and_alloc.vbo = new VBO(NULL, this->use_VBO_size_B, /*buffer_type=*/GL_ARRAY_BUFFER, /*usage=*/GL_DYNAMIC_DRAW); 
+			// Since we will be updating chunks of the VBO, we will make it GL_DYNAMIC_DRAW instead of GL_STATIC_DRAW, otherwise will get OpenGL error/warning messages about updating a GL_STATIC_DRAW buffer.
 			vbo_and_alloc.allocator = new glare::BestFitAllocator(this->use_VBO_size_B);
 			vbo_and_alloc.allocator->name = "VBO allocator";
 			vert_vbos.push_back(vbo_and_alloc);
@@ -179,7 +180,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 
 			// Create a new VBO and allocator, add to list of VBOs
 			VBOAndAllocator vbo_and_alloc;
-			vbo_and_alloc.vbo = new VBO(NULL, this->use_VBO_size_B, GL_ELEMENT_ARRAY_BUFFER);
+			vbo_and_alloc.vbo = new VBO(NULL, this->use_VBO_size_B, GL_ELEMENT_ARRAY_BUFFER, /*usage=*/GL_DYNAMIC_DRAW);
 			vbo_and_alloc.allocator = new glare::BestFitAllocator(this->use_VBO_size_B);
 			vbo_and_alloc.allocator->name = "index VBO allocator";
 			index_vbos.push_back(vbo_and_alloc);
