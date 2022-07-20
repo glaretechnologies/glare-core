@@ -2826,7 +2826,8 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 			vao->bindVertexArray();
 			current_bound_VAO = vao;
-			current_bound_vertex_VBO = NULL; // Since we have changed VAO, we reset our vars for what VBOs the current VAO has bound
+			current_bound_vertex_VBO = NULL; // Since we have changed VAO, we reset our vars for what VBOs the current VAO has bound.
+			// Note that instead of doing this, we could keep track of which VBOs the VAO has bound.
 			current_bound_index_VBO = NULL;
 			
 			num_vao_binds++;

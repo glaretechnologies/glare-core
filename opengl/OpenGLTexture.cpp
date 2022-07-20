@@ -164,7 +164,7 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		type = GL_UNSIGNED_BYTE;
 		break;
 	case Format_RGB_Linear_Float:
-		internal_format = GL_RGBA32F;
+		internal_format = GL_RGB32F;
 		gl_format = GL_RGB;
 		type = GL_FLOAT;
 		break;
@@ -256,6 +256,7 @@ static double getInternalPixelSizeB(GLint internal_format)
 		case GL_SRGB8_ALPHA8: return 4;
 		case GL_RGB8: return 3;
 		case GL_RGBA8: return 4;
+		case GL_RGB32F: return 12;
 		case GL_RGBA32F: return 16;
 		case GL_RGB16F: return 6;
 		case GL_DEPTH_COMPONENT32: return 4;
