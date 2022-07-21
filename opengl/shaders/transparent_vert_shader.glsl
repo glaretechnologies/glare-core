@@ -1,7 +1,7 @@
 
 in vec3 position_in;
 in vec3 normal_in;
-//in vec2 texture_coords_0_in;
+in vec2 texture_coords_0_in;
 #if INSTANCE_MATRICES
 in mat4 instance_matrix_in;
 #endif
@@ -12,7 +12,7 @@ out vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
 out vec3 pos_os;
 #endif
-//out vec2 texture_coords;
+out vec2 texture_coords;
 out vec3 cam_to_pos_ws;
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -92,4 +92,6 @@ void main()
 	normal_cs = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
 #endif //-------------------------
 	//texture_coords = texture_coords_0_in;
+
+	texture_coords = texture_coords_0_in;
 }

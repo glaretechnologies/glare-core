@@ -77,6 +77,7 @@ public:
 
 	OpenGLMaterial()
 	:	transparent(false),
+		hologram(false),
 		albedo_rgb(0.85f, 0.85f, 0.85f),
 		alpha(1.f),
 		emission_rgb(0.85f, 0.85f, 0.85f),
@@ -106,6 +107,7 @@ public:
 	bool imposter; // Use imposter shader?
 	bool imposterable; // Fade out with distance
 	bool transparent;
+	bool hologram; // E.g. just emission, no light scattering.
 	bool gen_planar_uvs;
 	bool draw_planar_uv_grid;
 	bool convert_albedo_from_srgb;
@@ -353,8 +355,6 @@ public:
 	bool use_z_up; // Should the +z axis be up (for cameras, sun lighting etc..).  True by default.  If false, y is up.
 	// NOTE: Use only with CameraType_Identity currently, clip planes won't be computed properly otherwise.
 
-	GLenum dest_blending_factor; // Defaults to GL_ONE_MINUS_SRC_ALPHA
-
 	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
 
 	float wind_strength; // Default = 1.
@@ -479,6 +479,25 @@ struct PhongUniforms
 	float end_fade_out_distance;
 
 	int light_indices[8];
+};
+
+
+// Matches that defined in transparent_frag_shader.glsl.
+struct TransparentUniforms
+{
+	Colour4f diffuse_colour; // linear sRGB
+	Colour4f emission_colour; // linear sRGB
+	Vec2f texture_upper_left_matrix_col0;
+	Vec2f texture_upper_left_matrix_col1;
+	Vec2f texture_matrix_translation;
+
+	uint64 diffuse_tex; // Bindless texture handle
+	uint64 emission_tex; // Bindless texture handle
+
+	int flags;
+	float roughness;
+
+	// int light_indices[8];
 };
 
 
@@ -784,6 +803,7 @@ public:
 private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
 	void setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
+	void setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;
 
@@ -1009,6 +1029,7 @@ private:
 
 
 	UniformBufObRef phong_uniform_buf_ob;
+	UniformBufObRef transparent_uniform_buf_ob;
 	UniformBufObRef material_common_uniform_buf_ob;
 	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;

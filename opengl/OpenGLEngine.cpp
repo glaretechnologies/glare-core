@@ -238,7 +238,6 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	camera_type = OpenGLScene::CameraType_Perspective;
 	background_colour = Colour3f(0.1f);
 	use_z_up = true;
-	dest_blending_factor = GL_ONE_MINUS_SRC_ALPHA;
 	bloom_strength = 0;
 	wind_strength = 1.f;
 
@@ -949,6 +948,7 @@ static const int PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX = 2;
 static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
 static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
+static const int TRANSPARENT_UBO_BINDING_POINT_INDEX = 6;
 
 #if !defined(OSX)
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
@@ -1274,6 +1274,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		const int num_uniform_buf_instances = use_multi_draw_indirect ? 256 : 1;
 		phong_uniform_buf_ob = new UniformBufOb();
 		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms) * num_uniform_buf_instances);
+	
+		transparent_uniform_buf_ob = new UniformBufOb();
+		transparent_uniform_buf_ob->allocate(sizeof(TransparentUniforms) * num_uniform_buf_instances);
 
 		material_common_uniform_buf_ob = new UniformBufOb();
 		material_common_uniform_buf_ob->allocate(sizeof(MaterialCommonUniforms));
@@ -1288,6 +1291,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		depth_uniform_buf_ob->allocate(sizeof(DepthUniforms) * num_uniform_buf_instances);
 
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/TRANSPARENT_UBO_BINDING_POINT_INDEX, this->transparent_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX, this->shared_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX, this->per_object_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
@@ -1673,6 +1677,16 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		progs[key] = prog;
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+
+		// Check we got the size of our uniform blocks on the CPU side correct.
+		if(!use_multi_draw_indirect)
+		{
+			checkUniformBlockSize(prog, "TransparentUniforms", sizeof(TransparentUniforms));
+			checkUniformBlockSize(prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
+		}
+
+		unsigned int transparent_uniforms_index = glGetUniformBlockIndex(prog->program, "TransparentUniforms");
+		glUniformBlockBinding(prog->program, transparent_uniforms_index, /*binding point=*/TRANSPARENT_UBO_BINDING_POINT_INDEX);
 
 		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
@@ -4903,9 +4917,14 @@ void OpenGLEngine::draw()
 
 	//================= Draw triangle batches with transparent materials =================
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, current_scene->dest_blending_factor);
-	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
 
+	// We will use source factor = 1  (source factor is the blending factor for incoming colour).
+	// To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
+	// For completely additive blending (hologram shader), we don't multiply by alpha in the fragment shader, and set a fragment colour with alpha = 0, so dest factor = 1 - 0 = 1.
+	// See https://gamedev.stackexchange.com/a/143117
+	glBlendFunc(/*source factor=*/GL_ONE, /*destination factor=*/GL_ONE_MINUS_SRC_ALPHA);
+
+	glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
 
 	batch_draw_info.resize(0);
 
@@ -5646,6 +5665,13 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 }
 
 
+#define HAVE_SHADING_NORMALS_FLAG			1
+#define HAVE_TEXTURE_FLAG					2
+#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
+#define HAVE_EMISSION_TEX_FLAG				8
+#define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
+
+
 void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
 	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
@@ -5678,11 +5704,6 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 		if(opengl_mat.emission_texture.nonNull())
 			uniforms.emission_tex = opengl_mat.emission_texture->getBindlessTextureHandle();
 	}
-
-	#define HAVE_SHADING_NORMALS_FLAG			1
-	#define HAVE_TEXTURE_FLAG					2
-	#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
-	#define HAVE_EMISSION_TEX_FLAG				8
 
 	uniforms.flags =
 		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
@@ -5774,6 +5795,67 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 }
 
 
+void OpenGLEngine::setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
+{
+	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
+
+	const Colour4f emission_col_nonlinear(opengl_mat.emission_rgb.r, opengl_mat.emission_rgb.g, opengl_mat.emission_rgb.b, 1.f);
+	const Colour4f unscaled_emission_col_linear = fastApproxSRGBToLinearSRGB(emission_col_nonlinear);
+	const Colour4f scaled_emission_col_linear = Colour4f(
+		unscaled_emission_col_linear[0] * opengl_mat.emission_scale, 
+		unscaled_emission_col_linear[1] * opengl_mat.emission_scale, 
+		unscaled_emission_col_linear[2] * opengl_mat.emission_scale, 
+		unscaled_emission_col_linear[3]); // Don't multiply alpha by emission_scale
+
+	TransparentUniforms uniforms;
+	uniforms.diffuse_colour = col_linear;
+	uniforms.emission_colour = scaled_emission_col_linear;
+
+	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
+	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
+	uniforms.texture_upper_left_matrix_col1.x = opengl_mat.tex_matrix.e[1];
+	uniforms.texture_upper_left_matrix_col1.y = opengl_mat.tex_matrix.e[3];
+	uniforms.texture_matrix_translation = opengl_mat.tex_translation;
+
+	if(this->use_bindless_textures)
+	{
+		if(opengl_mat.albedo_texture.nonNull())
+			uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
+
+		if(opengl_mat.emission_texture.nonNull())
+			uniforms.emission_tex = opengl_mat.emission_texture->getBindlessTextureHandle();
+	}
+
+	uniforms.flags =
+		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
+		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
+		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0) |
+		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0);
+	uniforms.roughness = opengl_mat.roughness;
+
+	//for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+	//	uniforms.light_indices[i] = ob.light_indices[i];
+
+	if(!this->use_bindless_textures)
+	{
+		if(opengl_mat.albedo_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 0);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+		}
+
+		if(opengl_mat.emission_texture.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 11);
+			glBindTexture(GL_TEXTURE_2D, opengl_mat.emission_texture->texture_handle);
+		}
+	}
+
+	this->transparent_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(TransparentUniforms));
+}
+
+
 // Set uniforms that are the same for every batch for the duration of this frame.
 void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat)
 {
@@ -5789,6 +5871,12 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	}
 	else if(shader_prog.is_transparent)
 	{
+		if(!use_bindless_textures)
+		{
+			glUniform1i(shader_prog.uniform_locations.diffuse_tex_location, 0);
+			glUniform1i(shader_prog.uniform_locations.emission_tex_location, 11);
+		}
+
 		glUniform4fv(shader_prog.uniform_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 
 		if(this->specular_env_tex.nonNull())
@@ -5867,11 +5955,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	}
 	else if(shader_prog->is_transparent)
 	{
-		const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-		const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
-
-		glUniform4f(shader_prog->uniform_locations.diffuse_colour_location, col_linear[0], col_linear[1], col_linear[2], opengl_mat.alpha);
-		glUniform1i(shader_prog->uniform_locations.have_shading_normals_location, mesh_data.has_shading_normals ? 1 : 0);
+		setUniformsForTransparentProg(ob, opengl_mat, mesh_data, shader_prog->uniform_locations);
 	}
 	else if(shader_prog == this->env_prog.getPointer())
 	{
