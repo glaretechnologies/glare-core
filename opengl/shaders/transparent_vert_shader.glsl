@@ -12,6 +12,7 @@ out vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
 out vec3 pos_os;
 #endif
+out vec3 pos_ws;
 out vec2 texture_coords;
 out vec3 cam_to_pos_ws;
 
@@ -71,7 +72,7 @@ void main()
 	pos_os = position_in;
 #endif
 
-	vec3 pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
+	pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
 	cam_to_pos_ws = pos_ws - campos_ws;
 	pos_cs = (view_matrix * (instance_matrix_in * vec4(position_in, 1.0))).xyz;
 
@@ -84,7 +85,7 @@ void main()
 	pos_os = position_in;
 #endif
 
-	vec3 pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
+	pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
 	cam_to_pos_ws = pos_ws - campos_ws;
 	pos_cs = (view_matrix * (model_matrix  * vec4(position_in, 1.0))).xyz;
  

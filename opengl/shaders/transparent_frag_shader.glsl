@@ -9,6 +9,7 @@ in vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
 in vec3 pos_os;
 #endif
+in vec3 pos_ws;
 in vec2 texture_coords;
 in vec3 cam_to_pos_ws;
 
@@ -48,8 +49,8 @@ layout (std140) uniform TransparentUniforms
 	int flags;
 	float roughness;
 
-	//ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
-	//ivec4 light_indices_1;
+	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
+	ivec4 light_indices_1;
 } mat_data;
 
 
@@ -68,8 +69,33 @@ uniform sampler2D emission_tex;
 #endif
 
 
-out vec4 colour_out;
+struct LightData
+{
+	vec4 pos;
+	vec4 dir;
+	vec4 col;
+	int light_type; // 0 = point light, 1 = spotlight
+	float cone_cos_angle_start;
+	float cone_cos_angle_end;
+};
 
+#if USE_SSBOS
+layout (std430) buffer LightDataStorage
+{
+	LightData light_data[];
+};
+#else
+layout (std140) uniform LightDataStorage
+{
+	LightData light_data[256];
+};
+#endif
+
+
+// Various outputs for order-independent transparency.
+layout(location = 0) out vec4 transmittance_out;
+layout(location = 1) out vec4 accum_out;
+layout(location = 2) out float av_transmittance_out;
 
 
 float square(float x) { return x*x; }
@@ -77,10 +103,23 @@ float pow4(float x) { return (x*x)*(x*x); }
 float pow5(float x) { return x*x*x*x*x; }
 float pow6(float x) { return x*x*x*x*x*x; }
 
-float fresnellApprox(float cos_theta, float ior)
+float fresnelApprox(float cos_theta_i, float n2)
 {
-	float r_0 = square((1.0 - ior) / (1.0 + ior));
-	return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta);
+	//float r_0 = square((1.0 - n2) / (1.0 + n2));
+	//return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i); // https://en.wikipedia.org/wiki/Schlick%27s_approximation
+
+	float sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	float sintheta_t = sintheta_i / n2; // Use Snell's law to get sin(theta_t)
+
+	float costheta_t = sqrt(1 - sintheta_t*sintheta_t); // Get cos(theta_t)
+
+	float a2 = square(cos_theta_i - n2*costheta_t);
+	float b2 = square(cos_theta_i + n2*costheta_t);
+
+	float c2 = square(n2*cos_theta_i - costheta_t);
+	float d2 = square(costheta_t + n2*cos_theta_i);
+
+	return 0.5 * (a2*d2 + b2*c2) / (b2*d2);
 }
 
 float trowbridgeReitzPDF(float cos_theta, float alpha2)
@@ -155,11 +194,11 @@ void main()
 	}
 
 	vec4 col;
-	float alpha;
 	if((mat_data.flags & IS_HOLOGRAM_FLAG) != 0)
 	{
 		col = emission_col;
-		alpha = 0; // For completely additive blending (hologram shader), we don't multiply by alpha in the fragment shader, and set a fragment colour with alpha = 0, so dest factor = 1 - 0 = 1.
+		transmittance_out = vec4(1, 1, 1, 1);
+		av_transmittance_out = 1;
 	}
 	else
 	{
@@ -167,21 +206,78 @@ void main()
 
 		vec3 frag_to_cam = normalize(-pos_cs);
 
-		const float ior = 2.5f;
-
-		vec3 sunrefl_h = normalize(frag_to_cam + sundir_cs.xyz);
-		float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
-		float roughness = 0.3;
-		float fresnel_scale = 1.0;
-		float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
-			fresnel_scale * fresnellApprox(sunrefl_h_cos_theta, ior);
-
+		const float ior = 2.0f;
 
 		vec3 unit_normal_ws = normalize(normal_ws);
 		if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
 			unit_normal_ws = -unit_normal_ws;
 
 		vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
+
+		float roughness = 0.2;
+		float fresnel_scale = 1.0;
+
+		//----------------------- Direct lighting from interior lights ----------------------------
+		// Load indices into a local array, so we can iterate over the array in a for loop.  TODO: find a better way of doing this.
+		int indices[8];
+		indices[0] = mat_data.light_indices_0.x;
+		indices[1] = mat_data.light_indices_0.y;
+		indices[2] = mat_data.light_indices_0.z;
+		indices[3] = mat_data.light_indices_0.w;
+		indices[4] = mat_data.light_indices_1.x;
+		indices[5] = mat_data.light_indices_1.y;
+		indices[6] = mat_data.light_indices_1.z;
+		indices[7] = mat_data.light_indices_1.w;
+
+		vec4 local_light_radiance = vec4(0.f);
+		for(int i=0; i<8; ++i)
+		{
+			int light_index = indices[i];
+			if(light_index >= 0)
+			{
+				vec3 light_emitted_radiance = light_data[light_index].col.xyz;
+
+				vec3 pos_to_light = light_data[light_index].pos.xyz - pos_ws;
+				float pos_to_light_len2 = dot(pos_to_light, pos_to_light);
+				vec3 unit_pos_to_light = pos_to_light * inversesqrt(pos_to_light_len2);
+
+				float dir_factor;
+				if(light_data[light_index].light_type == 0) // Point light:
+				{
+					dir_factor = 1;
+				}
+				else
+				{
+					// light_type == 1: spotlight
+					float from_light_cos_angle = -dot(light_data[light_index].dir.xyz, unit_pos_to_light);
+					dir_factor =
+						smoothstep(0.4f, 0.9f, from_light_cos_angle) * 0.03 + // A little light outside of the main cone
+						smoothstep(light_data[light_index].cone_cos_angle_start, light_data[light_index].cone_cos_angle_end, from_light_cos_angle);
+				}
+
+				float cos_theta_term = max(0.f, dot(unit_normal_ws, unit_pos_to_light));
+
+				// Compute specular bsdf
+				vec3 h_ws = normalize(unit_pos_to_light - unit_cam_to_pos_ws);
+				float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
+				vec4 specular_fresnel = vec4(fresnelApprox(h_cos_theta, ior));
+
+				vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * fresnel_scale * specular_fresnel;
+
+				vec3 bsdf = specular.xyz;
+				vec3 reflected_radiance = bsdf * cos_theta_term * light_emitted_radiance * dir_factor / pos_to_light_len2;
+
+				local_light_radiance.xyz += reflected_radiance;
+			}
+		}
+
+
+		vec3 sunrefl_h = normalize(frag_to_cam + sundir_cs.xyz);
+		float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
+		
+		float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
+			fresnel_scale * fresnelApprox(sunrefl_h_cos_theta, ior);
+
 		// Reflect cam-to-fragment vector in ws normal
 		vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
 
@@ -198,30 +294,37 @@ void main()
 		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f;
 		vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
 
-		vec4 transmission_col = mat_data.diffuse_colour;
+		vec4 transmission_col = vec4(0.6f) + 0.4f * mat_data.diffuse_colour; // Desaturate transmission colour a bit.
 
 		float spec_refl_cos_theta = abs(dot(frag_to_cam, unit_normal_cs));
-		float spec_refl_fresnel = fresnellApprox(spec_refl_cos_theta, ior);
+		float spec_refl_fresnel = fresnelApprox(spec_refl_cos_theta, ior);
 
-		float sun_vis_factor = 1.0f;//TODO: use shadow mapping to compute this.
+		float sun_vis_factor = 1.0f; // TODO: use shadow mapping to compute this.
 		vec4 sun_light = vec4(1662102582.6479533,1499657101.1924045,1314152016.0871031, 1) * sun_vis_factor;
 
 	
-		col = transmission_col*80000000 + 
-			spec_refl_light * spec_refl_fresnel + 
+		col = spec_refl_light * spec_refl_fresnel + 
 			sun_light * sun_specular + 
+			local_light_radiance + // Reflected light from local light sources.
 			emission_col;
 
-		alpha = spec_refl_fresnel + sun_specular;
-		col.xyz *= alpha; // To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
+		float T = 1.f - spec_refl_fresnel; // transmittance
+		transmittance_out = transmission_col * T;
+
+		// For computing the average transmittance (used for order-independent transparency), don't take spec_refl_fresnel into account so much, or our glass will be too dark at grazing angles.
+		float use_T = 0.8f + T * 0.2f;
+		vec4 use_transmittance = transmission_col * use_T;
+
+		av_transmittance_out = (use_transmittance.r + use_transmittance.g + use_transmittance.b) * (1.0 / 3.0);
 	}
 
+	float alpha = 1;
 
 	col *= 0.000000003; // tone-map
 #if DO_POST_PROCESSING
-	colour_out = vec4(col.xyz, alpha);
+	accum_out = vec4(col.xyz, alpha);
 #else
-	colour_out = vec4(toNonLinear(col.xyz), alpha);
+	accum_out = vec4(toNonLinear(col.xyz), alpha);
 #endif
 
 
@@ -239,6 +342,6 @@ void main()
 	float border_w_v = max(0.01f, b * 0.5f);
 	if(fract(use_texture_coords.x) < border_w_u || fract(use_texture_coords.x) >= (1 - border_w_u) ||
 		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1 - border_w_v))
-		colour_out = vec4(0.2f, 0.8f, 0.54f, 1.f);
+		accum_out = vec4(0.2f, 0.8f, 0.54f, 1.f);
 #endif
 }

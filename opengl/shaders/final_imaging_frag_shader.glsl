@@ -1,8 +1,12 @@
 
 #if MAIN_BUFFER_MSAA_SAMPLES > 1
 uniform sampler2DMS albedo_texture; // main colour buffer
+uniform sampler2DMS transparent_accum_texture;
+uniform sampler2DMS av_transmittance_texture;
 #else
 uniform sampler2D albedo_texture; // main colour buffer
+uniform sampler2D transparent_accum_texture;
+uniform sampler2D av_transmittance_texture;
 #endif
 
 uniform sampler2D blur_tex_0;
@@ -48,6 +52,29 @@ void main()
 #else
 	vec4 col = texelFetch(albedo_texture, px_coords, /*mip level=*/0);
 #endif
+
+	// Add order-independent transparency terms:
+	// Get transparent_accum_texture colour
+#if MAIN_BUFFER_MSAA_SAMPLES > 1
+	vec4 accum_col = vec4(0.f);
+	for(int i=0; i<MAIN_BUFFER_MSAA_SAMPLES; ++i)
+		accum_col += texelFetch(transparent_accum_texture, px_coords, i);
+	accum_col *= (1.f / MAIN_BUFFER_MSAA_SAMPLES);
+#else
+	vec4 accum_col = texelFetch(transparent_accum_texture, px_coords, /*mip level=*/0);
+#endif
+
+	// Get av transmittance colour
+#if MAIN_BUFFER_MSAA_SAMPLES > 1
+	float av_transmittance = 0.f;
+	for(int i=0; i<MAIN_BUFFER_MSAA_SAMPLES; ++i)
+		av_transmittance += texelFetch(av_transmittance_texture, px_coords, i).x;
+	av_transmittance *= (1.f / MAIN_BUFFER_MSAA_SAMPLES);
+#else
+	float av_transmittance = texelFetch(av_transmittance_texture, px_coords, /*mip level=*/0).x;
+#endif
+	col += accum_col * av_transmittance;
+
 
 	if(bloom_strength > 0)
 	{

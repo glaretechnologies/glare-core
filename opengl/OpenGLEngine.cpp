@@ -938,7 +938,12 @@ struct BuildFBMNoiseTask : public glare::Task
 
 
 static const int FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX = 0;
-static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 1;
+static const int FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX = 1;
+static const int FINAL_IMAGING_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX = 2;
+static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 3;
+
+static const int DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX = 0;
+static const int DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX = 1;
 
 static const int NUM_BLUR_DOWNSIZES = 8;
 
@@ -1391,6 +1396,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 					new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
 					getAndIncrNextProgramIndex()
 				);
+
+				downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().index >= DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
+
+				downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
 			}
 
 			gaussian_blur_prog = new OpenGLProgram(
@@ -1409,6 +1421,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			);
 			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
 			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
+			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
+			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
 			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
 
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
@@ -1694,6 +1712,20 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
 		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/2);
 
+		if(light_buffer.nonNull())
+		{
+#if defined(OSX)
+			assert(0); // glShaderStorageBlockBinding is not defined on Mac. (SSBOs are not supported)
+#else
+			unsigned int light_data_index = glGetProgramResourceIndex(prog->program, GL_SHADER_STORAGE_BLOCK, "LightDataStorage");
+			glShaderStorageBlockBinding(prog->program, light_data_index, /*binding point=*/LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
+#endif
+		}
+		else
+		{
+			unsigned int light_data_index = glGetUniformBlockIndex(prog->program, "LightDataStorage");
+			glUniformBlockBinding(prog->program, light_data_index, /*binding point=*/LIGHT_DATA_UBO_BINDING_POINT_INDEX);
+		}
 
 		conPrint("Built transparent program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
@@ -3325,6 +3357,14 @@ Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
 }
 
 
+static void bindTextureUnitToSampler(OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
+{
+	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
+	glBindTexture(texture.getTextureTarget(), texture.texture_handle);
+	glUniform1i(sampler_uniform_location, texture_unit_index);
+}
+
+
 // static Planef draw_anim_shadow_clip_planes[6]; // Some stuff for debug visualisation
 // static Vec4f draw_frustum_verts_ws[8];
 // static Vec4f draw_extended_verts_ws[8];
@@ -4328,7 +4368,25 @@ void OpenGLEngine::draw()
 			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
 			main_colour_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
-				OpenGLTexture::Format_RGB_Linear_Float,
+				OpenGLTexture::Format_RGB_Linear_Half,
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				false, // has_mipmaps
+				/*MSAA_samples=*/msaa_samples
+			);
+			
+			transparent_accum_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
+				OpenGLTexture::Format_RGB_Linear_Half,
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				false, // has_mipmaps
+				/*MSAA_samples=*/msaa_samples
+			);
+
+			av_transmittance_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
+				OpenGLTexture::Format_Greyscale_Half,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 				false, // has_mipmaps
@@ -4346,6 +4404,8 @@ void OpenGLEngine::draw()
 
 			main_render_framebuffer = new FrameBuffer();
 			main_render_framebuffer->bindTextureAsTarget(*main_colour_texture, GL_COLOR_ATTACHMENT0);
+			main_render_framebuffer->bindTextureAsTarget(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
+			main_render_framebuffer->bindTextureAsTarget(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
 			main_render_framebuffer->bindTextureAsTarget(*main_depth_texture,  GL_DEPTH_ATTACHMENT);
 		}
 
@@ -4587,9 +4647,7 @@ void OpenGLEngine::draw()
 		{
 			glUniformMatrix4fv(edge_extract_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
 
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, outline_solid_tex->texture_handle);
-			glUniform1i(edge_extract_tex_location, 0);
+			bindTextureUnitToSampler(*outline_solid_tex, /*texture_unit_index=*/0, /*sampler_uniform_location=*/edge_extract_tex_location);
 
 			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
 				
@@ -4916,13 +4974,37 @@ void OpenGLEngine::draw()
 
 
 	//================= Draw triangle batches with transparent materials =================
+	
+	// Clear transparent_accum_texture buffer
+	glDrawBuffer(GL_COLOR_ATTACHMENT1);
+	glClearColor(0,0,0,0);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// Clear av_transmittance_texture buffer
+	glDrawBuffer(GL_COLOR_ATTACHMENT2);
+	glClearColor(1,1,1,1);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// Draw to all colour buffers.
+	static const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(/*num=*/3, draw_buffers);
+
 	glEnable(GL_BLEND);
 
 	// We will use source factor = 1  (source factor is the blending factor for incoming colour).
 	// To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
 	// For completely additive blending (hologram shader), we don't multiply by alpha in the fragment shader, and set a fragment colour with alpha = 0, so dest factor = 1 - 0 = 1.
 	// See https://gamedev.stackexchange.com/a/143117
-	glBlendFunc(/*source factor=*/GL_ONE, /*destination factor=*/GL_ONE_MINUS_SRC_ALPHA);
+
+	
+	// For colour buffer 0 (main_colour_texture), transparent shader writes the transmittance as the destination colour.  We multiple the existing buffer colour with that colour only.
+	glBlendFunci(/*buf=*/0, /*source factor=*/GL_ZERO, /*destination factor=*/GL_SRC_COLOR);
+	
+	// For colour buffer 1 (transparent_accum_texture), accumulate the scattered and emitted light by the material.
+	glBlendFunci(/*buf=*/1, /*source factor=*/GL_ONE, /*destination factor=*/GL_ONE);
+
+	// For colour buffer 2 (av_transmittance_texture), multiply the destination colour (av transmittance) with the existing buffer colour.
+	glBlendFunci(/*buf=*/2, /*source factor=*/GL_ZERO, /*destination factor=*/GL_SRC_COLOR);
 
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
 
@@ -4972,6 +5054,8 @@ void OpenGLEngine::draw()
 	glDisable(GL_BLEND);
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
 
 
 	//================= Draw always-visible objects =================
@@ -5182,16 +5266,16 @@ void OpenGLEngine::draw()
 				h = myMax(1, h / 2);
 
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
-				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
+				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				downsize_framebuffers[i] = new FrameBuffer();
 				downsize_framebuffers[i]->bindTextureAsTarget(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
 
-				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers_x[i] = new FrameBuffer();
 				blur_framebuffers_x[i]->bindTextureAsTarget(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
 
 				// Use bilinear, this tex is read from and accumulated into final buffer.
-				blur_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Float, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers[i] = new FrameBuffer();
 				blur_framebuffers[i]->bindTextureAsTarget(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
 			}
@@ -5233,9 +5317,13 @@ void OpenGLEngine::draw()
 				OpenGLProgram* use_downsize_prog = (i == 0) ? downsize_from_main_buf_prog.ptr() : downsize_prog.ptr();
 				use_downsize_prog->useProgram();
 
-				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(src_texture->getTextureTarget(), src_texture->texture_handle);  // Set source texture
-				glUniform1i(use_downsize_prog->albedo_texture_loc, 0);
+				bindTextureUnitToSampler(*src_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/use_downsize_prog->albedo_texture_loc);
+
+				if(i == 0)
+				{
+					bindTextureUnitToSampler(*transparent_accum_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
+					bindTextureUnitToSampler(*av_transmittance_texture,  /*texture_unit_index=*/2, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+				}
 
 				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
 				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
@@ -5250,9 +5338,7 @@ void OpenGLEngine::draw()
 
 				glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/1); // Set blur_x = 1
 
-				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(GL_TEXTURE_2D, downsize_target_textures[i]->texture_handle); // Set source texture
-				glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
+				bindTextureUnitToSampler(*downsize_target_textures[i], /*texture_unit_index=*/0, /*sampler_uniform_location=*/gaussian_blur_prog->albedo_texture_loc);
 
 				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 
@@ -5264,9 +5350,7 @@ void OpenGLEngine::draw()
 
 				glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/0); // Set blur_x = 0
 
-				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(GL_TEXTURE_2D, blur_target_textures_x[i]->texture_handle); // Set source texture
-				glUniform1i(gaussian_blur_prog->albedo_texture_loc, 0);
+				bindTextureUnitToSampler(*blur_target_textures_x[i], /*texture_unit_index=*/0, /*sampler_uniform_location=*/gaussian_blur_prog->albedo_texture_loc);
 
 				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 			}
@@ -5291,21 +5375,22 @@ void OpenGLEngine::draw()
 			bindMeshData(*unit_quad_meshdata);
 			assert(unit_quad_meshdata->batches.size() == 1);
 
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(main_colour_texture->getTextureTarget(), main_colour_texture->texture_handle);
-			glUniform1i(final_imaging_prog->albedo_texture_loc, 0);
+			// Bind main_colour_texture as albedo_texture with texture unit 0
+			bindTextureUnitToSampler(*main_colour_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/final_imaging_prog->albedo_texture_loc);
+
+			// Bind transparent_accum_texture as texture_2 with texture unit 1
+			bindTextureUnitToSampler(*transparent_accum_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
+
+			// Bind av_transmittance_texture as texture_2 with texture unit 2
+			bindTextureUnitToSampler(*av_transmittance_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+
 
 			glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
 
 			// Bind downsize_target_textures
 			// We need to bind these textures even when bloom_strength == 0, or we get runtime opengl errors.
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
-			{
-				glActiveTexture(GL_TEXTURE0 + 1 + i); // Bind after main_colour_texture above
-				glBindTexture(GL_TEXTURE_2D, blur_target_textures[i]->texture_handle);
-				assert(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc >= 0);
-				glUniform1i(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc, /*val=*/1 + i);
-			}
+				bindTextureUnitToSampler(*blur_target_textures[i], /*texture_unit_index=*/3 + i, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc);
 
 			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->index_type, (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
@@ -5834,8 +5919,8 @@ void OpenGLEngine::setUniformsForTransparentProg(const GLObject& ob, const OpenG
 		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0);
 	uniforms.roughness = opengl_mat.roughness;
 
-	//for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
-	//	uniforms.light_indices[i] = ob.light_indices[i];
+	for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+		uniforms.light_indices[i] = ob.light_indices[i];
 
 	if(!this->use_bindless_textures)
 	{

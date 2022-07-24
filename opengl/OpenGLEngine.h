@@ -497,7 +497,7 @@ struct TransparentUniforms
 	int flags;
 	float roughness;
 
-	// int light_indices[8];
+	int light_indices[8];
 };
 
 
@@ -948,6 +948,8 @@ private:
 	Reference<FrameBuffer> main_render_framebuffer;
 
 	OpenGLTextureRef main_colour_texture;
+	OpenGLTextureRef transparent_accum_texture;
+	OpenGLTextureRef av_transmittance_texture;
 	OpenGLTextureRef main_depth_texture;
 
 	//Reference<FrameBuffer> pre_water_framebuffer;

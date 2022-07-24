@@ -169,7 +169,7 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		type = GL_FLOAT;
 		break;
 	case Format_RGB_Linear_Half:
-		internal_format = GL_RGB16F; // NOTE: this right?
+		internal_format = GL_RGB16F;
 		gl_format = GL_RGB;
 		type = GL_HALF_FLOAT;
 		break;
