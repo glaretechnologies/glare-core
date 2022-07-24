@@ -114,7 +114,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 				used_block = block;
 			}
 			else
-				throw glare::Exception("Failed to allocate VBO with size " + toString(size) + " B");
+				throw glare::Exception("Failed to allocate mem block of size " + toString(size) + " B from new VBO.");
 		}
 		//-------------------------------------------------------------------------------
 
@@ -193,7 +193,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 				used_block = block;
 			}
 			else
-				throw glare::Exception("Failed to allocate index VBO with size " + toString(size) + " B");
+				throw glare::Exception("Failed to allocate mem block of size " + toString(size) + " B from new index VBO");
 		}
 		//-------------------------------------------------------------------------------
 

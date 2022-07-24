@@ -1070,17 +1070,17 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	// If the VBO size is a little too small, then multiple VBOs will be allocated and we will have to pay the driver overhead of changing VBO bindings.
 	// if the VBO size is much to big, and it can't actually fit in GPU RAM, it will be allocated in host RAM (tested on RTX 3080), which results in catastrophically bad performance)
 	// Note that the VBO size will be used individually for both vertex and index data.
-	if(this->total_available_GPU_mem_B != 0)
+	if(this->total_available_GPU_mem_B != 0) // Set by NVidia drivers
 	{
 		vert_buf_allocator->use_VBO_size_B = this->total_available_GPU_mem_B / 16;
 	}
-	else if(this->total_available_GPU_VBO_mem_B != 0)
+	else if(this->total_available_GPU_VBO_mem_B != 0) // Set by AMD drivers
 	{
 		// NOTE: what's the relation between VBO mem available and total mem available?
 		vert_buf_allocator->use_VBO_size_B = this->total_available_GPU_VBO_mem_B / 16;
 	}
 	else
-		vert_buf_allocator->use_VBO_size_B = 64 * 1024 * 1024; // A resonably small size, needs to work well for weaker GPUs
+		vert_buf_allocator->use_VBO_size_B = 64 * 1024 * 1024; // A reasonably small size, needs to work well for weaker GPUs
 
 
 	// Init TextureLoading (in particular stb_compress_dxt lib) before it's called from multiple threads
