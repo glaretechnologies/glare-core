@@ -334,7 +334,7 @@ void main()
 
 
 		// Blend in reflection of cumulus clouds.  Skip cirrus clouds as an optimisation.
-		float cumulus_cloudfrac;
+		float cumulus_cloudfrac = 0;
 		{
 			float cumulus_ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 1000);
 			if(cumulus_ray_t > 0)
