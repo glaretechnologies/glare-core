@@ -17,8 +17,8 @@ in vec3 cam_to_pos_ws;
 in flat int material_index;
 #endif
 
-uniform vec4 sundir_cs;
 uniform sampler2D specular_env_tex;
+uniform sampler2D fbm_tex;
 
 
 #define HAVE_SHADING_NORMALS_FLAG			1
@@ -67,6 +67,12 @@ uniform sampler2D emission_tex;
 #define DIFFUSE_TEX diffuse_tex
 #define EMISSION_TEX emission_tex
 #endif
+
+layout (std140) uniform MaterialCommonUniforms
+{
+	vec4 sundir_cs;
+	float time;
+};
 
 
 struct LightData
@@ -132,6 +138,12 @@ float alpha2ForRoughness(float r)
 	return pow4(r);
 }
 
+float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
+{
+	float start_to_plane_dist = raystart.z - plane_h;
+
+	return start_to_plane_dist / -ray_unitdir.z;
+}
 
 vec3 toNonLinear(vec3 x)
 {
@@ -139,19 +151,40 @@ vec3 toNonLinear(vec3 x)
 	return 0.124445006f*x*x + -0.35056138f*x + 1.2311935*sqrt(x);
 }
 
+float fbm(vec2 p)
+{
+	return (texture(fbm_tex, p).x - 0.5) * 2.f;
+}
+
+vec2 rot(vec2 p)
+{
+	float theta = 1.618034 * 3.141592653589 * 2;
+	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
+}
+
+float fbmMix(vec2 p)
+{
+	return 
+		fbm(p) +
+		fbm(rot(p * 2)) * 0.5 +
+		0;
+}
+
 
 void main()
 {
 	vec3 use_normal_cs;
+	vec3 use_normal_ws;
 	vec2 use_texture_coords = texture_coords;
 	if((mat_data.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
 	{
 		use_normal_cs = normal_cs;
+		use_normal_ws = normal_ws;
 	}
 	else
 	{
-		vec3 dp_dx = dFdx(pos_cs);    
-		vec3 dp_dy = dFdy(pos_cs);  
+		vec3 dp_dx = dFdx(pos_cs);
+		vec3 dp_dy = dFdy(pos_cs); 
 		vec3 N_g = normalize(cross(dp_dx, dp_dy)); 
 		use_normal_cs = N_g;
 
@@ -183,6 +216,11 @@ void main()
 				use_texture_coords.x = -use_texture_coords.x;
 		}
 #endif
+		// Compute world-space geometric normal.
+		dp_dx = dFdx(pos_ws);
+		dp_dy = dFdy(pos_ws);
+		N_g = cross(dp_dx, dp_dy);
+		use_normal_ws = N_g;
 	}
 
 	vec2 main_tex_coords = mat_data.texture_upper_left_matrix_col0 * use_texture_coords.x + mat_data.texture_upper_left_matrix_col1 * use_texture_coords.y + mat_data.texture_matrix_translation;
@@ -208,7 +246,7 @@ void main()
 
 		const float ior = 2.0f;
 
-		vec3 unit_normal_ws = normalize(normal_ws);
+		vec3 unit_normal_ws = normalize(use_normal_ws);
 		if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
 			unit_normal_ws = -unit_normal_ws;
 
@@ -293,6 +331,33 @@ void main()
 		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
 		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f;
 		vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
+
+
+		// Blend in reflection of cumulus clouds.  Skip cirrus clouds as an optimisation.
+		float cumulus_cloudfrac;
+		{
+			float cumulus_ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 1000);
+			if(cumulus_ray_t > 0)
+			{
+				vec3 hitpos = pos_ws + reflected_dir_ws * cumulus_ray_t;
+				vec2 p = hitpos.xy * 0.0001;
+				p.x += time * 0.002;
+
+				vec2 cumulus_coords = vec2(p.x * 2 + 2.3453, p.y * 2 + 1.4354);
+
+				float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
+
+				float dist_factor = 1.f - smoothstep(80000, 160000, cumulus_ray_t);
+
+				cumulus_cloudfrac = dist_factor * cumulus_val;
+			}
+		}
+
+		float cloudfrac = cumulus_cloudfrac;
+		float w = 2.0e8;
+		vec4 cloudcol = vec4(w, w, w, 1);
+		spec_refl_light = mix(spec_refl_light, cloudcol, max(0.f, cloudfrac));
+
 
 		vec4 transmission_col = vec4(0.6f) + 0.4f * mat_data.diffuse_colour; // Desaturate transmission colour a bit.
 

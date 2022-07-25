@@ -1262,7 +1262,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define USE_SSBOS " + (light_buffer.nonNull() ? std::string("1") : std::string("0")) + "\n";
 
-		preprocessor_defines += "#define DO_POST_PROCESSING " + (settings.use_final_image_buffer ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define DO_POST_PROCESSING " + (true/*settings.use_final_image_buffer*/ ? std::string("1") : std::string("0")) + "\n";
 
 		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES " + toString(settings.msaa_samples) + "\n";
 
@@ -1376,7 +1376,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
 		edge_extract_col_location		= edge_extract_prog->getUniformLocation("col");
 
-		if(settings.use_final_image_buffer)
+		if(true/*settings.use_final_image_buffer*/)
 		{
 			{
 				const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 0\n";
@@ -1705,6 +1705,9 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		unsigned int transparent_uniforms_index = glGetUniformBlockIndex(prog->program, "TransparentUniforms");
 		glUniformBlockBinding(prog->program, transparent_uniforms_index, /*binding point=*/TRANSPARENT_UBO_BINDING_POINT_INDEX);
+
+		unsigned int material_common_uniforms_index = glGetUniformBlockIndex(prog->program, "MaterialCommonUniforms");
+		glUniformBlockBinding(prog->program, material_common_uniforms_index, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
 		unsigned int shared_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "SharedVertUniforms");
 		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/1);
@@ -4346,7 +4349,7 @@ void OpenGLEngine::draw()
 	//------------------------------ end water ----------------------------------------
 
 	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
-	if(settings.use_final_image_buffer)
+	if(true/*settings.use_final_image_buffer*/)
 	{
 		const int xres = main_viewport_w;
 		const int yres = main_viewport_h;
@@ -4657,7 +4660,7 @@ void OpenGLEngine::draw()
 
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 
-		if(settings.use_final_image_buffer)
+		if(true/*settings.use_final_image_buffer*/)
 			main_render_framebuffer->bind(); // Restore main render framebuffer binding.
 		else
 			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
@@ -5221,7 +5224,7 @@ void OpenGLEngine::draw()
 		glDisable(GL_BLEND);
 	}
 
-	if(settings.use_final_image_buffer)
+	if(true/*settings.use_final_image_buffer*/)
 	{
 		// We have rendered to main_render_framebuffer / main_render_texture / main_depth_texture.
 
@@ -5962,8 +5965,6 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 			glUniform1i(shader_prog.uniform_locations.emission_tex_location, 11);
 		}
 
-		glUniform4fv(shader_prog.uniform_locations.sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-
 		if(this->specular_env_tex.nonNull())
 		{
 			glActiveTexture(GL_TEXTURE0 + 4);
@@ -5971,8 +5972,20 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 			glUniform1i(shader_prog.uniform_locations.specular_env_tex_location, 4);
 		}
 
+		if(this->fbm_tex.nonNull())
+		{
+			glActiveTexture(GL_TEXTURE0 + 5);
+			glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
+			glUniform1i(shader_prog.uniform_locations.fbm_tex_location, 5);
+		}
+
 		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
 		glUniform3fv(shader_prog.uniform_locations.campos_ws_location, 1, campos_ws.x);
+
+		MaterialCommonUniforms common_uniforms;
+		common_uniforms.sundir_cs = this->sun_dir_cam_space;
+		common_uniforms.time = this->current_time;
+		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 }
 

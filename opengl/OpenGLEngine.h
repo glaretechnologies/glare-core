@@ -288,13 +288,13 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), use_final_image_buffer(false), depth_fog(false), max_tex_mem_usage(1024 * 1024 * 1024ull),
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), max_tex_mem_usage(1024 * 1024 * 1024ull),
 		use_grouped_vbo_allocator(true), msaa_samples(4) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
 	bool compress_textures;
-	bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
+	//bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool depth_fog;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
 	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
