@@ -3360,7 +3360,7 @@ Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
 }
 
 
-static void bindTextureUnitToSampler(OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
+static void bindTextureUnitToSampler(const OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
 {
 	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
 	glBindTexture(texture.getTextureTarget(), texture.texture_handle);
@@ -5152,12 +5152,10 @@ void OpenGLEngine::draw()
 			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
 			glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
 			const Matrix3f identity = Matrix3f::identity();
 			glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, identity.e);
-			glUniform1i(overlay_diffuse_tex_location, 0);
+
+			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 				
 			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.index_type, (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
@@ -5203,16 +5201,14 @@ void OpenGLEngine::draw()
 
 				if(opengl_mat.albedo_texture.nonNull())
 				{
-					glActiveTexture(GL_TEXTURE0 + 0);
-					glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
 					const GLfloat tex_elems[9] = {
 						opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
 						opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
 						opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 					};
 					glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-					glUniform1i(overlay_diffuse_tex_location, 0);
+
+					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 				}
 				
 				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
@@ -5700,45 +5696,22 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	glUniform1i(locations.transmission_tex_location, 9);
 	
 	if(this->cosine_env_tex.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 3);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, this->cosine_env_tex->texture_handle);
-		glUniform1i(locations.cosine_env_tex_location, 3);
-	}
+		bindTextureUnitToSampler(*this->cosine_env_tex, /*texture_unit_index=*/3, /*sampler_uniform_location=*/locations.cosine_env_tex_location);
 			
 	if(this->specular_env_tex.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 4);
-		glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-		glUniform1i(locations.specular_env_tex_location, 4);
-	}
+		bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/locations.specular_env_tex_location);
 
 	if(this->fbm_tex.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 5);
-		glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
-		glUniform1i(locations.fbm_tex_location, 5);
-	}
+		bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/locations.fbm_tex_location);
 	
 	if(this->blue_noise_tex.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 6);
-		glBindTexture(GL_TEXTURE_2D, this->blue_noise_tex->texture_handle);
-		glUniform1i(locations.blue_noise_tex_location, 6);
-	}
-
+		bindTextureUnitToSampler(*this->blue_noise_tex, /*texture_unit_index=*/6, /*sampler_uniform_location=*/locations.blue_noise_tex_location);
 
 	// Set shadow mapping uniforms
 	if(shadow_mapping.nonNull())
 	{
-		glActiveTexture(GL_TEXTURE0 + 1);
-		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->depth_tex->texture_handle);
-
-		glActiveTexture(GL_TEXTURE0 + 2);
-		glBindTexture(GL_TEXTURE_2D, this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
-
-		glUniform1i(locations.dynamic_depth_tex_location, 1); // Texture unit 1 is for shadow maps
-		glUniform1i(locations.static_depth_tex_location, 2);
+		bindTextureUnitToSampler(*this->shadow_mapping->depth_tex, /*texture_unit_index=*/1, /*sampler_uniform_location=*/locations.dynamic_depth_tex_location);
+		bindTextureUnitToSampler(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/2, /*sampler_uniform_location=*/locations.static_depth_tex_location);
 	}
 
 	// Set blob shadows location data
@@ -5966,18 +5939,10 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		}
 
 		if(this->specular_env_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 4);
-			glBindTexture(GL_TEXTURE_2D, this->specular_env_tex->texture_handle);
-			glUniform1i(shader_prog.uniform_locations.specular_env_tex_location, 4);
-		}
+			bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/shader_prog.uniform_locations.specular_env_tex_location);
 
 		if(this->fbm_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 5);
-			glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
-			glUniform1i(shader_prog.uniform_locations.fbm_tex_location, 5);
-		}
+			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/shader_prog.uniform_locations.fbm_tex_location);
 
 		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
 		glUniform3fv(shader_prog.uniform_locations.campos_ws_location, 1, campos_ws.x);
@@ -6067,16 +6032,14 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 		if(opengl_mat.albedo_texture.nonNull())
 		{
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
 			const GLfloat tex_elems[9] = {
 				opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
 				opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
 				opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 			};
 			glUniformMatrix3fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-			glUniform1i(this->env_diffuse_tex_location, 0);
+
+			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/this->env_diffuse_tex_location);
 		}
 
 		/*if(this->noise_tex.nonNull())
@@ -6086,17 +6049,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			glUniform1i(this->env_noise_tex_location, 1);
 		}*/
 		if(this->fbm_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 2);
-			glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
-			glUniform1i(this->env_fbm_tex_location, 2);
-		}
+			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/2, /*sampler_uniform_location=*/this->env_fbm_tex_location);
+		
 		if(this->cirrus_tex.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 3);
-			glBindTexture(GL_TEXTURE_2D, this->cirrus_tex->texture_handle);
-			glUniform1i(this->env_cirrus_tex_location, 3);
-		}
+			bindTextureUnitToSampler(*this->cirrus_tex, /*texture_unit_index=*/3, /*sampler_uniform_location=*/this->env_cirrus_tex_location);
 	}
 	else if(shader_prog->is_depth_draw)
 	{
@@ -6123,11 +6079,8 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			}
 			else
 			{
-				glActiveTexture(GL_TEXTURE0 + 0);
-				glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-
 				assert(shader_prog->uniform_locations.diffuse_tex_location >= 0);
-				glUniform1i(shader_prog->uniform_locations.diffuse_tex_location, 0);
+				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->uniform_locations.diffuse_tex_location);
 			}
 
 			if(use_multi_draw_indirect)
@@ -6164,18 +6117,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		}
 
 		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-			glUniform1i(shader_prog->albedo_texture_loc, 0);
-		}
+			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->albedo_texture_loc);
 
 		if(shader_prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.texture_2->texture_handle);
-			glUniform1i(shader_prog->texture_2_loc, 1);
-		}
+			bindTextureUnitToSampler(*opengl_mat.texture_2, /*texture_unit_index=*/1, /*sampler_uniform_location=*/shader_prog->texture_2_loc);
 
 		// Set user uniforms
 		for(size_t i=0; i<shader_prog->user_uniform_info.size(); ++i)

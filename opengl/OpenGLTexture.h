@@ -126,7 +126,7 @@ public:
 
 	size_t getByteSize() const;
 
-	GLenum getTextureTarget() const; // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE.
+	GLenum getTextureTarget() const { return texture_target; } // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE.
 
 
 	/// Increment reference count
@@ -185,6 +185,7 @@ private:
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
 	int num_mipmap_levels_allocated;
 	int MSAA_samples;
+	GLenum texture_target; // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE
 public:
 	mutable int64 refcount;
 

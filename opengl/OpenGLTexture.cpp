@@ -41,7 +41,8 @@ OpenGLTexture::OpenGLTexture()
 	gl_format(GL_RGB), // Just set some defaults for getByteSize().
 	gl_type(GL_UNSIGNED_BYTE),
 	gl_internal_format(GL_RGB),
-	filtering(Filtering_Fancy)
+	filtering(Filtering_Fancy),
+	texture_target(GL_TEXTURE_2D)
 {
 }
 
@@ -60,7 +61,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	num_mipmap_levels_allocated(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
-	bindless_tex_handle(0)
+	bindless_tex_handle(0),
+	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D)
 {
 	this->format = format_;
 	this->filtering = filtering_;
@@ -89,7 +91,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	num_mipmap_levels_allocated(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
-	bindless_tex_handle(0)
+	bindless_tex_handle(0),
+	texture_target(GL_TEXTURE_2D)
 {
 	this->format = format_;
 	this->gl_internal_format = gl_internal_format_;
@@ -370,6 +373,7 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 	this->xres = tex_xres;
 	this->yres = tex_yres;
 	this->num_mipmap_levels_allocated = 1;
+	this->texture_target = GL_TEXTURE_CUBE_MAP;
 
 	if(texture_handle)
 	{
@@ -432,20 +436,19 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		assert(texture_handle != 0);
 	}
 
-	const bool is_MSAA_tex = MSAA_samples > 1;
-	const GLenum tex_target = is_MSAA_tex ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+	const bool is_MSAA_tex = this->texture_target == GL_TEXTURE_2D_MULTISAMPLE;
 	if(is_MSAA_tex)
 	{
-		glBindTexture(tex_target, texture_handle);
-		glTexImage2DMultisample(tex_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+		glBindTexture(texture_target, texture_handle);
+		glTexImage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
 	}
 	else
 	{
-		glBindTexture(tex_target, texture_handle);
+		glBindTexture(texture_target, texture_handle);
 
 		// Allocate / specify immutable storage for the texture.
 		const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureLoading::computeNumMIPLevels(xres, yres) : 1;
-		glTexStorage2D(tex_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
+		glTexStorage2D(texture_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
 		this->num_mipmap_levels_allocated = num_levels;
 	}
 
@@ -454,7 +457,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
 		{
 			glCompressedTexSubImage2D(
-				tex_target,
+				texture_target,
 				0, // LOD level
 				0, // xoffset
 				0, // yoffset
@@ -471,7 +474,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 			// NOTE: can't use glTexImage2D on immutable storage.
 			glTexSubImage2D(
-				tex_target,
+				texture_target,
 				0, // LOD level
 				0, // x offset
 				0, // y offset
@@ -488,45 +491,45 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 	{
 		if(wrapping == Wrapping_Clamp)
 		{
-			glTexParameteri(tex_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(tex_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		}
 
 
 		if(filtering == Filtering_Nearest)
 		{
-			glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		}
 		else if(filtering == Filtering_Bilinear)
 		{
-			glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		}
 		else if(filtering == Filtering_Fancy)
 		{
 			// Enable anisotropic texture filtering
-			glTexParameterf(tex_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
+			glTexParameterf(texture_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, opengl_engine->max_anisotropy);
 
 			if(tex_data.data() != NULL && use_mipmaps)
 			{
 				// conPrint("Generating mipmaps");
-				glGenerateMipmap(tex_target);
+				glGenerateMipmap(texture_target);
 			}
 
 			if(use_mipmaps)
-				glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			else
-				glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		}
 		else if(filtering == Filtering_PCF)
 		{
-			glTexParameteri(tex_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(tex_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameteri(tex_target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-			glTexParameteri(tex_target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+			glTexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(texture_target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+			glTexParameteri(texture_target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 		}
 		else
 		{
@@ -699,12 +702,6 @@ size_t OpenGLTexture::getByteSize() const
 		total_size = total_size * 1.333333; // Space for Mipmaps.
 
 	return (size_t)total_size;
-}
-
-
-GLenum OpenGLTexture::getTextureTarget() const
-{
-	return (MSAA_samples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D; // TODO: handle cube map (GL_TEXTURE_CUBE_MAP) also
 }
 
 
