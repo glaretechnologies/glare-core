@@ -112,7 +112,7 @@ void main()
 
 			cumulus_edge = smoothstep(0.0001, 0.1, cumulus_val) - smoothstep(0.2, 0.6, cumulus_val) * 0.5;
 
-			float dist_factor = 1.f - smoothstep(80000, 160000, ray_t);
+			float dist_factor = 1.f - smoothstep(20000, 40000, cumulus_ray_t);
 
 			//cumulus_col = vec4(cumulus_val, cumulus_val, cumulus_val, 1);
 			cumulus_cloudfrac = dist_factor * cumulus_val;
