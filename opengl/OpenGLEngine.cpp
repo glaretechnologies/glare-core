@@ -6157,7 +6157,11 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		if(shader_prog->time_loc >= 0)
 			glUniform1f(shader_prog->time_loc, this->current_time);
 		if(shader_prog->colour_loc >= 0)
-			glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_rgb.r);
+		{
+			const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+			const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
+			glUniform3fv(shader_prog->colour_loc, 1, col_linear.x);
+		}
 
 		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
 		{
