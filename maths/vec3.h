@@ -68,14 +68,14 @@ public:
 
 	VEC3_INLINE Real& operator[] (unsigned int index)
 	{
-		assert(index >= 0 && index < 3);
-		return ((Real*)(&x))[index];
+		assert(index < 3);
+		return (&x)[index];
 	}
 
 	VEC3_INLINE const Real& operator[] (unsigned int index) const
 	{
-		assert(index >= 0 && index < 3);
-		return ((Real*)(&x))[index];
+		assert(index < 3);
+		return (&x)[index];
 	}
 
 	VEC3_INLINE const Vec3 operator + (const Vec3& rhs) const
