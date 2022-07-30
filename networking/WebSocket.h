@@ -42,6 +42,9 @@ public:
 	virtual void waitForGracefulDisconnect();
 
 
+	virtual void startGracefulShutdown();
+
+
 	//-----------------------------------------------------------------
 	//if you use this directly you must do host->network and vice versa byte reordering yourself
 	//-----------------------------------------------------------------

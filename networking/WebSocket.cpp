@@ -264,6 +264,12 @@ void WebSocket::waitForGracefulDisconnect()
 }
 
 
+void WebSocket::startGracefulShutdown()
+{
+	underlying_socket->startGracefulShutdown();
+}
+
+
 void WebSocket::writeInt32(int32 x)
 {
 	//if(plain_socket->getUseNetworkByteOrder())

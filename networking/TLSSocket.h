@@ -95,6 +95,7 @@ public:
 	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
 	virtual void waitForGracefulDisconnect();
 
+	virtual void startGracefulShutdown();
 
 	//-----------------------------------------------------------------
 	//if you use this directly you must do host->network and vice versa byte reordering yourself

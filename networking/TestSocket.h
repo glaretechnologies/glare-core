@@ -31,6 +31,8 @@ public:
 
 	virtual void waitForGracefulDisconnect() {}
 
+	virtual void startGracefulShutdown() {}
+
 
 	virtual void setNoDelayEnabled(bool enabled) {} // NoDelay option is off by default.
 	virtual void enableTCPKeepAlive(float period) {}

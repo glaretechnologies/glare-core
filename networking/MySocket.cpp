@@ -132,15 +132,12 @@ void MySocket::init()
 {
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
-	connected = false;
 	use_network_byte_order = true;
 }
 
 
 MySocket::~MySocket()
 {
-	shutdown();
-
 	closeSocket(sockethandle);
 }
 
@@ -159,7 +156,7 @@ void MySocket::createClientSideSocket()
 		throw MySocketExcep("Could not create a socket: " + Networking::getError());
 
 	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
-	int no = 0;     
+	int no = 0;
 	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
 	{
 		assert(0);
@@ -279,8 +276,6 @@ void MySocket::connect(const IPAddress& ipaddress,
 	}
 
 	otherend_port = port;
-
-	connected = true;
 }
 
 
@@ -436,43 +431,17 @@ MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 	new_socket->otherend_ipaddr = IPAddress((const sockaddr&)client_addr);
 	new_socket->otherend_port = Networking::getPortFromSockAddr((const sockaddr&)client_addr);
 
-	new_socket->connected = true;
-
 	return new_socket;
 }
 
 
-void MySocket::shutdown()
+// Closes writing side of socket.  Tells sockets lib to send a FIN packet to the server.
+// Initiate graceful shutdown.
+// See 'Graceful Shutdown, Linger Options, and Socket Closure' - https://msdn.microsoft.com/en-us/library/ms738547
+void MySocket::startGracefulShutdown()
 {
 	if(isSockHandleValid(sockethandle))
-	{
-		if(connected)
-		{
-			// Initiate graceful shutdown. 
-			// See 'Graceful Shutdown, Linger Options, and Socket Closure' - https://msdn.microsoft.com/en-us/library/ms738547
-			::shutdown(sockethandle,  1); // Shutdown send operations.  1 == SD_SEND.
-
-			// Wait for graceful shutdown
-			while(1)
-			{
-				// conPrint("Waiting for graceful shutdown...");
-
-				char buf[1024];
-				const int numbytesread = ::recv(sockethandle, buf, sizeof(buf), 0);
-				if(numbytesread == 0)
-				{
-					// Socket has been closed gracefully
-					// conPrint("numbytesread == 0, socket closed gracefully.");
-					break;
-				}
-				else if(numbytesread == SOCKET_ERROR)
-				{
-					// conPrint("numbytesread == SOCKET_ERROR, error: " + Networking::getError());//TEMP
-					break;
-				}
-			}
-		}
-	}
+		::shutdown(sockethandle, 1); // Shutdown send operations.  (1 == SD_SEND)
 }
 
 
@@ -481,8 +450,27 @@ void MySocket::ungracefulShutdown()
 	if(isSockHandleValid(sockethandle))
 	{
 		::shutdown(sockethandle, 2); // 2 == SD_BOTH
-		closeSocket(sockethandle); // Clost the socket.  This will cause the socket to return from any blocking calls.
+		closeSocket(sockethandle); // Close the socket.  This will cause the socket to return from any blocking calls.
 		sockethandle = nullSocketHandle();
+	}
+}
+
+
+void MySocket::waitForGracefulDisconnect()
+{
+	// conPrint("---------waitForGracefulDisconnect-------");
+	while(1)
+	{
+		char buf[1024];
+		const int numbytesread = recv(sockethandle, buf, sizeof(buf), 0);
+
+		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
+			throw makeExceptionFromLastErrorCode("Read failed");
+		else if(numbytesread == 0) // Connection was closed gracefully
+		{
+			// conPrint("\tConnection was closed gracefully.");
+			return;
+		}
 	}
 }
 
@@ -559,25 +547,6 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 
 		if(frac)
 			frac->setFraction((float)(totalnumbytestoread - readlen) / (float)totalnumbytestoread);
-	}
-}
-
-
-void MySocket::waitForGracefulDisconnect()
-{
-	// conPrint("---------waitForGracefulDisconnect-------");
-	while(1)
-	{
-		char buf[1024];
-		const int numbytesread = recv(sockethandle, buf, sizeof(buf), 0);
-
-		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
-			throw makeExceptionFromLastErrorCode("Read failed");
-		else if(numbytesread == 0) // Connection was closed gracefully
-		{
-			// conPrint("\tConnection was closed gracefully.");
-			return;
-		}
 	}
 }
 
@@ -727,14 +696,13 @@ bool MySocket::readable(EventFD& event_fd)
 	return false;
 #else
 	
-	// Make an array of 2 poll_fds
 	struct pollfd poll_fds[2];
 	poll_fds[0].fd = sockethandle;
-	poll_fds[0].events = POLLIN | POLLRDHUP | POLLERR; // NOTE: Do we want POLLRDHUP here?
+	poll_fds[0].events = POLLIN | POLLRDHUP; // Listen for data to read (POLLIN) or peer clonnection close/shutdown call (POLLRDHUP).  See https://man7.org/linux/man-pages/man2/poll.2.html
 	poll_fds[0].revents = 0;
 	
 	poll_fds[1].fd = event_fd.efd;
-	poll_fds[1].events = POLLIN | POLLRDHUP | POLLERR; // NOTE: Do we want POLLRDHUP here?
+	poll_fds[1].events = POLLIN | POLLRDHUP; // NOTE: Do we want POLLRDHUP here?
 	poll_fds[1].revents = 0;
 	
 	const int num = poll(

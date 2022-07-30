@@ -105,6 +105,8 @@ public:
 	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
 	virtual void waitForGracefulDisconnect();
 
+	virtual void startGracefulShutdown();
+
 	virtual IPAddress getOtherEndIPAddress() const { return otherend_ipaddr; }
 	virtual int getOtherEndPort() const { return otherend_port; }
 
@@ -170,8 +172,6 @@ public:
 	SOCKETHANDLE_TYPE getSocketHandle() { return sockethandle; }
 	bool socketHandleValid() const { return isSockHandleValid(sockethandle); }
 
-	void shutdown();
-
 private:
 	MySocket(const MySocket& other);
 	MySocket& operator = (const MySocket& other);
@@ -189,7 +189,6 @@ private:
 	IPAddress otherend_ipaddr;
 	int otherend_port;
 
-	bool connected;
 	bool use_network_byte_order;
 };
 

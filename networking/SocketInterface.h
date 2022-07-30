@@ -29,10 +29,13 @@ public:
 	// This will cause the socket to return from any blocking calls.
 	virtual void ungracefulShutdown() = 0;
 
-	// Wait for the other end to 'gracefully disconnect'
+	// Closes writing side of socket.  Tells sockets lib to send a FIN packet to the server.
+	virtual void startGracefulShutdown() = 0;
+
+	// Wait for the other end to 'gracefully disconnect', e.g. wait for the other end to send a FIN packet.
 	// This allows the use of the 'Client Closes First' method from http://hea-www.harvard.edu/~fine/Tech/addrinuse.html
 	// This is good because it allows the server to rebind to the same port without a long 30s wait on e.g. OS X.
-	// Before this is called, the protocol should have told the other end to disconnect in some way. (e.g. a disconnect message)
+	// Therefore this is especially useful in the server code.
 	virtual void waitForGracefulDisconnect() = 0;
 
 	// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
