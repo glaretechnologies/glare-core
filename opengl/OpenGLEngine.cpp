@@ -6713,7 +6713,7 @@ glare::TaskManager& OpenGLEngine::getTaskManager()
 	Lock lock(task_manager_mutex);
 	if(!task_manager)
 	{
-		task_manager = new glare::TaskManager();
+		task_manager = new glare::TaskManager("OpenGLEngine task manager");
 		task_manager->setThreadPriorities(MyThread::Priority_Lowest);
 		// conPrint("OpenGLEngine::getTaskManager(): created task manager.");
 	}
