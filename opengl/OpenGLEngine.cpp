@@ -4451,6 +4451,10 @@ void OpenGLEngine::draw()
 
 	const float viewport_aspect_ratio = this->getViewPortAspectRatio();
 
+	// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
+	// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
+	const Matrix4f reverse_z_matrix = getReverseZMatrixOrIdentity();
+
 	if(current_scene->camera_type == OpenGLScene::CameraType_Perspective)
 	{
 		double w, h;
@@ -4473,19 +4477,7 @@ void OpenGLEngine::draw()
 		const Matrix4f raw_proj_matrix = infiniteFrustumMatrix(x_min, x_max, y_min, y_max, z_near);
 		if(use_reverse_z)
 		{
-			// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
-			// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
-			// Maps (0, 0, -n, n) to (0, 0, n, n) (e.g. z=-n to +n, or +1 after divide by w)
-			// Maps (0, 0, f, f) to (0, 0, 0, f) (e.g. z=+f to 0)
-			const Matrix4f reverse_matrix(
-				Vec4f(1, 0, 0, 0), // col 0
-				Vec4f(0, 1, 0, 0), // col 1
-				Vec4f(0, 0, -0.5f, 0), // col 2
-				Vec4f(0, 0, 0.5f, 1.f) // col 3
-			);
-
-			proj_matrix = reverse_matrix * raw_proj_matrix;
-			//conPrint(proj_matrix.toString());
+			proj_matrix = reverse_z_matrix * raw_proj_matrix;
 #ifndef NDEBUG
 			{
 				Vec4f test_v = raw_proj_matrix * Vec4f(0, 0, -(float)z_near, 1.f);
@@ -4515,62 +4507,44 @@ void OpenGLEngine::draw()
 		else
 			proj_matrix = raw_proj_matrix;
 	}
-	else if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
+	else if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic || current_scene->camera_type == OpenGLScene::CameraType_DiagonalOrthographic)
 	{
 		const double sensor_height = current_scene->sensor_width / current_scene->render_aspect_ratio;
 
+		double use_w, use_h;
 		if(viewport_aspect_ratio > current_scene->render_aspect_ratio)
 		{
 			// Match on the vertical clip planes.
-			proj_matrix = orthoMatrix(
-				-sensor_height * 0.5 * viewport_aspect_ratio, // left
-				 sensor_height * 0.5 * viewport_aspect_ratio, // right
-				-sensor_height * 0.5, // bottom
-				 sensor_height * 0.5, // top
+			use_w = sensor_height * viewport_aspect_ratio;
+			use_h = sensor_height;
+		}
+		else
+		{
+			// Match on the horizontal clip planes.
+			use_w = current_scene->sensor_width;
+			use_h = current_scene->sensor_width / viewport_aspect_ratio;
+		}
+
+		if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
+		{
+			proj_matrix = reverse_z_matrix * orthoMatrix(
+				-use_w * 0.5, // left
+				use_w * 0.5, // right
+				-use_h * 0.5, // bottom
+				use_h * 0.5, // top
 				z_near,
 				z_far
 			);
 		}
 		else
 		{
-			// Match on the horizontal clip planes.
-			proj_matrix = orthoMatrix(
-				-current_scene->sensor_width * 0.5, // left
-				 current_scene->sensor_width * 0.5, // right
-				-current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // bottom
-				 current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // top
-				z_near,
-				z_far
-			);
-		}
-	}
-	else if(current_scene->camera_type == OpenGLScene::CameraType_DiagonalOrthographic)
-	{
-		const double sensor_height = current_scene->sensor_width / current_scene->render_aspect_ratio;
-
-		const float cam_z = current_scene->cam_to_world.getColumn(3)[2];
-
-		if(viewport_aspect_ratio > current_scene->render_aspect_ratio)
-		{
-			// Match on the vertical clip planes.
-			proj_matrix = diagonalOrthoMatrix(
-				-sensor_height * 0.5 * viewport_aspect_ratio, // left
-				sensor_height * 0.5 * viewport_aspect_ratio, // right
-				-sensor_height * 0.5, // bottom
-				sensor_height * 0.5, // top
-				z_near,
-				z_far,
-				cam_z
-			);
-		}
-		else
-		{
-			// Match on the horizontal clip planes.
-			proj_matrix = diagonalOrthoMatrix(
-				-current_scene->sensor_width * 0.5, // left
-				current_scene->sensor_width * 0.5, // right
-				-current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // bottom
-				current_scene->sensor_width * 0.5 / viewport_aspect_ratio, // top
+			const float cam_z = current_scene->cam_to_world.getColumn(3)[2];
+			
+			proj_matrix = reverse_z_matrix * diagonalOrthoMatrix(
+				-use_w * 0.5, // left
+				use_w * 0.5, // right
+				-use_h * 0.5, // bottom
+				use_h * 0.5, // top
 				z_near,
 				z_far,
 				cam_z
