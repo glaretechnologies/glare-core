@@ -147,23 +147,14 @@ void UVUnwrapper::shelfPack(std::vector<BinRect>& rects)
 		if(min_leftover_height != std::numeric_limits<float>::infinity()) // If we found a shelf to store the rect on:
 		{
 			// Store the rectangle
-			float rot_rect_w, rot_rect_h; // rotated w and h
-			if(best_rotated)
-			{
-				rot_rect_w = rect.h;
-				rot_rect_h = rect.w;
-			}
-			else
-			{
-				rot_rect_w = rect.w;
-				rot_rect_h = rect.h;
-			}
+			const float rot_rect_w = best_rotated ? rect.h : rect.w; // width of possibly-rotated rectangle.
 
 			rect.pos = Vec2f(shelves[best_shelf].right_x, shelves[best_shelf].top_y);
 			rect.rotated = best_rotated;
 
 			shelves[best_shelf].right_x += rot_rect_w;
-			assert(rot_rect_h <= shelves[best_shelf].height);
+
+			assert(/*rot_rect_h=*/(best_rotated ? rect.w : rect.h) <= shelves[best_shelf].height);
 		}
 		else
 		{
