@@ -5154,8 +5154,6 @@ void OpenGLEngine::draw()
 
 		std::sort(temp_obs.begin(), temp_obs.end(), OverlayObjectZComparator());
 
-		const Matrix4f reverse_z_matrix = getReverseZMatrixOrIdentity();
-
 		for(size_t i=0; i<temp_obs.size(); ++i)
 		{
 			const OverlayObject* const ob = temp_obs[i];
