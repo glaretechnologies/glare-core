@@ -177,7 +177,7 @@ void Maths::test()
 
 	//======================================= uInt32ToUnitFloatScale() ========================================
 	{
-		const float x = 4294967295u * Maths::uInt32ToUnitFloatScale();
+		const float x = (float)4294967295u * Maths::uInt32ToUnitFloatScale();
 		// NOTE: 0.99999994f is the largest float value below 1.0f.  See http://www.h-schmidt.net/FloatConverter/IEEE754.html
 		testAssert(x == 0.99999994f);
 	}

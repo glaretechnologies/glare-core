@@ -22,7 +22,6 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/TaskManager.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/PNGDecoder.h"
-#include "../graphics/imformatdecoder.h"
 #include "../graphics/bitmap.h"
 #include "../graphics/Drawing.h"
 #include "../maths/PCG32.h"
@@ -45,20 +44,6 @@ struct Patch
 	std::vector<size_t> poly_indices;
 	Vec2f min_bound;
 	Vec2f max_bound;
-};
-
-
-struct BinRect
-{
-	float w, h; // Input width and height
-	Vec2f pos; // Output: position where rectangle was placed.
-	Vec2f scale; // Output: scaling of resulting rotated width and height.
-	int index; // Index of patch
-	bool rotated; // Output: was the rect rotated 90 degrees?
-
-	float area() const { return w * h; }
-	float rotatedWidth()  const { return rotated ? h : w; }
-	float rotatedHeight() const { return rotated ? w : h; }
 };
 
 
@@ -106,7 +91,7 @@ struct VertUVsLessThan
 };
 
 
-static void shelfPack(std::vector<BinRect>& rects)
+void UVUnwrapper::shelfPack(std::vector<BinRect>& rects)
 {
 	// Do initial sort of rectangles in descending area order.
 	std::sort(rects.begin(), rects.end(), AreaGreaterThan());
@@ -969,7 +954,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 		Vec2f patch_to_uv_offset = rect.pos;
 
-		for(int z=0; z<patch.poly_indices.size(); ++z)
+		for(size_t z=0; z<patch.poly_indices.size(); ++z)
 		{
 			const size_t poly_i = patch.poly_indices[z];
 			const UnwrapperPoly& poly = polys[poly_i];
@@ -1158,7 +1143,6 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 #include "../utils/TaskManager.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/PNGDecoder.h"
-#include "../graphics/imformatdecoder.h"
 #include "../graphics/bitmap.h"
 #include "../graphics/Drawing.h"
 #include "../graphics/BatchedMesh.h"

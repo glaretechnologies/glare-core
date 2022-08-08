@@ -29,10 +29,10 @@ public:
 	GLARE_STRONG_INLINE T& e(unsigned int x, unsigned int y, unsigned int z, unsigned int w);
 	GLARE_STRONG_INLINE const T& e(unsigned int x, unsigned int y, unsigned int z, unsigned int w) const;
 
-	GLARE_STRONG_INLINE const unsigned int dX() const { return dx; }
-	GLARE_STRONG_INLINE const unsigned int dY() const { return dy; }
-	GLARE_STRONG_INLINE const unsigned int dZ() const { return dz; }
-	GLARE_STRONG_INLINE const unsigned int dW() const { return dw; }
+	GLARE_STRONG_INLINE unsigned int dX() const { return dx; }
+	GLARE_STRONG_INLINE unsigned int dY() const { return dy; }
+	GLARE_STRONG_INLINE unsigned int dZ() const { return dz; }
+	GLARE_STRONG_INLINE unsigned int dW() const { return dw; }
 
 	std::vector<T>& getData() { return data; }
 	const std::vector<T>& getData() const { return data; }

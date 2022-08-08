@@ -432,8 +432,8 @@ void ImageMap<V, VTraits>::downsampleImage(const size_t ssf, const size_t margin
 	const ImageMap<V, VTraits>& img_in, ImageMap<V, VTraits>& img_out, glare::TaskManager& task_manager)
 {
 	assert(margin_ssf1 >= 0);							// have padding pixels
-	assert((int)img_in.getWidth()  > margin_ssf1 * 2);	// have at least one interior pixel in x
-	assert((int)img_in.getHeight() > margin_ssf1 * 2);	// have at least one interior pixel in y
+	assert(img_in.getWidth()  > margin_ssf1 * 2);	// have at least one interior pixel in x
+	assert(img_in.getHeight() > margin_ssf1 * 2);	// have at least one interior pixel in y
 	assert(img_in.getWidth()  % ssf == 0);				// padded img_in is multiple of supersampling factor
 	assert(img_in.getHeight() % ssf == 0);				// padded img_in is multiple of supersampling factor
 

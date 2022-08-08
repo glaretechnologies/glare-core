@@ -694,7 +694,7 @@ done:
 			{
 				const uint32 adj_quad_edge_i = temp_quads[t].getAdjacentQuadEdgeIndex(i);
 				uint32 new_adj_quad_edge_i;
-				if(adj_poly_i < triangles_in_size) // temp_quads[adj_poly_i].numSides() == 3) // If adjacent poly is a triangle, edges 0 and 1 swap.
+				if(adj_poly_i < (int)triangles_in_size) // temp_quads[adj_poly_i].numSides() == 3) // If adjacent poly is a triangle, edges 0 and 1 swap.
 				{
 					if(adj_quad_edge_i == 0)
 						new_adj_quad_edge_i = 1;
@@ -775,7 +775,7 @@ done:
 			{
 				const uint32 adj_quad_edge_i = temp_quads[new_quad_index].getAdjacentQuadEdgeIndex(i);
 				uint32 new_adj_quad_edge_i;
-				if(adj_poly_i < triangles_in_size) // temp_quads[adj_poly_i].numSides() == 3) // If adjacent poly is a triangle, edges 0 and 1 swap.
+				if(adj_poly_i < (int)triangles_in_size) // temp_quads[adj_poly_i].numSides() == 3) // If adjacent poly is a triangle, edges 0 and 1 swap.
 				{
 					if(adj_quad_edge_i == 0)
 						new_adj_quad_edge_i = 1;
@@ -811,13 +811,13 @@ done:
 			const int adjacent_quad_i = quad.adjacent_quad_index[v];
 			if(adjacent_quad_i != -1)
 			{
-				assert(adjacent_quad_i >= 0 && adjacent_quad_i < temp_quads.size());
+				assert(adjacent_quad_i >= 0 && adjacent_quad_i < (int)temp_quads.size());
 				const DUQuad& adj_quad = temp_quads[adjacent_quad_i];
 					
 				// Check that the adjacent quad does indeed have this quad as its adjacent quad along the given edge.
 				const int adjacent_quads_edge = quad.getAdjacentQuadEdgeIndex(v);
 				assert(adjacent_quads_edge >= 0 && adjacent_quads_edge < adj_quad.numSides());
-				assert(adj_quad.adjacent_quad_index[adjacent_quads_edge] == q);
+				assert(adj_quad.adjacent_quad_index[adjacent_quads_edge] == (int)q);
 			}
 		}
 	}
@@ -2085,7 +2085,7 @@ public:
 		Vec2f Q_sum_uvs[MAX_NUM_UV_SETS];
 		Vec2f R_sum_uvs[MAX_NUM_UV_SETS];
 
-		for(size_t q = begin; q < end; ++q) // For each quad in range of quads_in
+		for(int q = begin; q < end; ++q) // For each quad in range of quads_in
 		{
 			const DUQuad& quad_in = quads_in[q];
 
@@ -3094,13 +3094,13 @@ void DisplacementUtils::linearSubdivision(
 			const int adj_quad_i = quads_out[q].adjacent_quad_index[v];
 			if(adj_quad_i != -1)
 			{
-				assert(adj_quad_i >= 0 && adj_quad_i < quads_out.size());
+				assert(adj_quad_i >= 0 && adj_quad_i < (int)quads_out.size());
 				const DUQuad& adj_quad = quads_out[adj_quad_i];
 
 				// Check that the adjacent quad does indeed have this quad as its adjacent quad along the given edge.
 				const int adjacent_quads_edge = quads_out[q].getAdjacentQuadEdgeIndex(v);
 				assert(adjacent_quads_edge >= 0 && adjacent_quads_edge < adj_quad.numSides());
-				assert(adj_quad.adjacent_quad_index[adjacent_quads_edge] == q);
+				assert(adj_quad.adjacent_quad_index[adjacent_quads_edge] == (int)q);
 			}
 		}
 #endif
@@ -3248,7 +3248,7 @@ static void drawVertSS(Bitmap& map, const Vec2f& pos_ss, const Colour3f& col)
 	const int r = 2;
 	for(int x=px-r; x<px+r; ++x)
 	for(int y=py-r; y<py+r; ++y)
-		if(x >= 0 && y >= 0 && x < map.getWidth() && y < map.getHeight())
+		if(x >= 0 && y >= 0 && x < (int)map.getWidth() && y < (int)map.getHeight())
 		{
 			map.setPixelComp(x, y, 0, (uint8)myClamp(col.r * 255.0f, 0.f, 255.f));
 			map.setPixelComp(x, y, 1, (uint8)myClamp(col.g * 255.0f, 0.f, 255.f));

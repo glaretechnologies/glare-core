@@ -32,9 +32,9 @@ public:
 	GLARE_STRONG_INLINE       T& elem(size_t x, size_t y, size_t z)       { return e(x, y, z); }
 	GLARE_STRONG_INLINE const T& elem(size_t x, size_t y, size_t z) const { return e(x, y, z); }
 
-	GLARE_STRONG_INLINE const size_t dX() const { return dx; }
-	GLARE_STRONG_INLINE const size_t dY() const { return dy; }
-	GLARE_STRONG_INLINE const size_t dZ() const { return dz; }
+	GLARE_STRONG_INLINE size_t dX() const { return dx; }
+	GLARE_STRONG_INLINE size_t dY() const { return dy; }
+	GLARE_STRONG_INLINE size_t dZ() const { return dz; }
 
 	js::Vector<T, 16>& getData() { return data; }
 	const js::Vector<T, 16>& getData() const { return data; }

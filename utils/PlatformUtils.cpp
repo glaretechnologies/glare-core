@@ -880,21 +880,6 @@ const std::string PlatformUtils::getOSVersionString()
 }
 
 
-// See 'How to: Set a Thread Name in Native Code', https://msdn.microsoft.com/en-gb/library/xcb2z8hs.aspx
-#if defined(_WIN32)
-const DWORD MS_VC_EXCEPTION = 0x406D1388;
-#pragma pack(push,8)
-typedef struct tagTHREADNAME_INFO
-{
-    DWORD dwType; // Must be 0x1000.
-    LPCSTR szName; // Pointer to name (in user addr space).
-    DWORD dwThreadID; // Thread ID (-1=caller thread).
-    DWORD dwFlags; // Reserved for future use, must be zero.
- } THREADNAME_INFO;
-#pragma pack(pop)
-#endif
-
-
 #if defined(_WIN32)
 // The SetThreadDescription API was introduced in version 1607 of Windows 10.
 typedef HRESULT(WINAPI* SetThreadDescriptionFuncType)(HANDLE hThread, PCWSTR lpThreadDescription);

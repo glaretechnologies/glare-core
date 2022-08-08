@@ -422,7 +422,7 @@ void SBVHBuilder::build(
 	this->top_level_objects.resize(num_objects * 4);
 	this->temp_obs         .resize(num_objects * 4);
 
-	for(size_t i = 0; i < num_objects; ++i)
+	for(int i = 0; i < num_objects; ++i)
 	{
 		const SBVHTri& tri = triangles[i];
 
@@ -608,7 +608,7 @@ void SBVHBuilder::build(
 		result_nodes_out[dst_node_index].interior = src_node->interior;
 	}
 
-	assert(res_node_index == result_nodes_out.size());
+	assert(res_node_index == (int)result_nodes_out.size());
 
 	for(size_t c=0; c<result_chunks.size(); ++c)
 		delete result_chunks[c];

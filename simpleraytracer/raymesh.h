@@ -227,9 +227,9 @@ public:
 
 	////////////////////// Stuff used by the kdtree/BIH ///////////////////////
 	GLARE_STRONG_INLINE const Vec3f& triVertPos(unsigned int triindex, unsigned int vertindex_in_tri) const;
-	GLARE_STRONG_INLINE const unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
-	GLARE_STRONG_INLINE const unsigned int getNumQuads() const { return (unsigned int)quads.size(); }
-	GLARE_STRONG_INLINE const unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
+	GLARE_STRONG_INLINE unsigned int getNumTris() const { return (unsigned int)triangles.size(); }
+	GLARE_STRONG_INLINE unsigned int getNumQuads() const { return (unsigned int)quads.size(); }
+	GLARE_STRONG_INLINE unsigned int getNumVerts() const { return (unsigned int)vertices.size(); }
 	////////////////////////////////////////////////////////////////////////////
 
 	// This is the number of UV pairs per uv set (layer).
@@ -264,7 +264,7 @@ public:
 	UVVectorType& getUVs() { return uvs; }
 	const UVVectorType& getUVs() const { return uvs; }
 	
-	const unsigned int numUVSets() const { return num_uv_sets; }
+	unsigned int numUVSets() const { return num_uv_sets; }
 
 	bool isUsingShadingNormals() const { return enable_shading_normals; }
 

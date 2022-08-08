@@ -817,7 +817,7 @@ void MySocket::setNoDelayEnabled(bool enabled_)
 void MySocket::enableTCPKeepAlive(float period)
 {
 #if defined(_WIN32)
-	assert(period <= std::numeric_limits<ULONG>::max() / 1000.f); // Make sure period is representable in an ULONG.
+	assert(period <= (float)std::numeric_limits<ULONG>::max() / 1000.f); // Make sure period is representable in an ULONG.
 
 	struct tcp_keepalive keepalive;
 	keepalive.onoff = 1; // Turn on keepalive

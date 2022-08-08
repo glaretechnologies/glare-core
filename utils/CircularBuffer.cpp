@@ -397,7 +397,7 @@ void circularBufferTest()
 			testAssert(buf.begin == 0);
 			testAssert(buf.size() == i + 1);
 			testAssert(buf.front() == 0);
-			testAssert(buf.back() == i);
+			testAssert(buf.back() == (int)i);
 		}
 	}
 
@@ -552,7 +552,7 @@ void circularBufferTest()
 			buf.push_front((int)i);
 
 			testAssert(buf.size() == i + 1);
-			testAssert(buf.front() == i);
+			testAssert(buf.front() == (int)i);
 			testAssert(buf.back() == 0);
 		}
 	}
@@ -612,10 +612,10 @@ void circularBufferTest()
 
 		for(size_t i=0; i<N; ++i)
 		{
-			testAssert(buf.front() == i);
+			testAssert(buf.front() == (int)i);
 			buf.pop_front();
 		}
-
+		
 		testAssert(buf.size() == 0);
 	}
 
@@ -650,7 +650,7 @@ void circularBufferTest()
 		// Remove (0, 1, 2, ... n-2, n-1)
 		for(size_t i=0; i<N; ++i)
 		{
-			testAssert(buf.front() == i);
+			testAssert(buf.front() == (int)i);
 			buf.pop_front();
 		}
 
@@ -689,7 +689,7 @@ void circularBufferTest()
 		i = 0;
 		for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
 		{
-			testAssert((*it) == i);
+			testAssert((*it) == (int)i);
 			i++;
 		}
 		testAssert(i == N);
@@ -701,16 +701,16 @@ void circularBufferTest()
 			CircularBuffer<int> buf;
 
 			// Make a queue (n-1, n-2, ...., 2, 1, 0)
-			for(size_t i=0; i<n; ++i)
-				buf.push_front((int)i);
+			for(int i=0; i<n; ++i)
+				buf.push_front(i);
 
 			size_t i = 0;
 			for(CircularBuffer<int>::iterator it = buf.beginIt(); it != buf.endIt(); ++it)
 			{
-				testAssert((*it) == (int) n - 1 - i);
+				testAssert((*it) == n - 1 - (int)i);
 				i++;
 			}
-			testAssert(i == n);
+			testAssert((int)i == n);
 		}
 	}
 
@@ -833,7 +833,7 @@ void circularBufferTest()
 						expected_size = 0;
 					}
 
-					testAssert(expected_size == buf.size());
+					testAssert(expected_size == (int)buf.size());
 					testAssert(test_struct->getRefCount() == (int64)(1 + buf.size()));
 				}
 			}

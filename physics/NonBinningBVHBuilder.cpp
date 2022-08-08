@@ -302,7 +302,7 @@ void NonBinningBVHBuilder::build(
 
 	// Build overall AABB
 	root_aabb = aabbs[0];
-	for(size_t i = 0; i < num_objects; ++i)
+	for(int i = 0; i < num_objects; ++i)
 		root_aabb.enlargeToHoldAABBox(aabbs[i]);
 
 	if(should_cancel_callback->shouldCancel())
@@ -451,17 +451,17 @@ void NonBinningBVHBuilder::build(
 	const int num_result_chunks = (int)next_result_chunk;
 	js::Vector<int, 16> final_chunk_offset(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each chunk.
 	js::Vector<int, 16> final_chunk_offset_original(num_result_chunks); // Index (in combined/final array) of first node in chunk, for each original (pre-sorted) chunk index.
-	size_t total_num_nodes = 0;
+	int total_num_nodes = 0;
 
 	// Sort chunks by sort_key.  TODO: work out the best ordering first
 	//std::sort(result_chunks.begin(), result_chunks.begin() + num_result_chunks, ResultChunkPred());
 
-	for(size_t c=0; c<num_result_chunks; ++c)
+	for(int c=0; c<num_result_chunks; ++c)
 	{
 		//conPrint("Chunk " + toString(c) + ": sort_key=" + toString(result_chunks[c].sort_key) + ", offset=" + toString(result_chunks[c].offset) + 
 		//	", size=" + toString(result_chunks[c].size) + ", thread_index=" + toString(result_chunks[c].thread_index));
-		final_chunk_offset[c] = (int)total_num_nodes;
-		final_chunk_offset_original[result_chunks[c].original_index] = (int)total_num_nodes;
+		final_chunk_offset[c] = total_num_nodes;
+		final_chunk_offset_original[result_chunks[c].original_index] = total_num_nodes;
 		total_num_nodes += result_chunks[c].size;
 		//conPrint("-------pre-merge Chunk " + toString(c) + "--------");
 		//printResultNodes(per_thread_temp_info[result_chunks[c]->thread_index].result_buf);
@@ -470,14 +470,14 @@ void NonBinningBVHBuilder::build(
 	result_nodes_out.resizeNoCopy(total_num_nodes);
 	int write_index = 0;
 
-	for(size_t c=0; c<num_result_chunks; ++c)
+	for(int c=0; c<num_result_chunks; ++c)
 	{
 		const ResultChunk& chunk = result_chunks[c];
 		const int chunk_node_offset = final_chunk_offset[c] - chunk.offset; // delta for references internal to chunk.
 
 		const js::Vector<ResultNode, 64>& chunk_nodes = per_thread_temp_info[chunk.thread_index].result_buf; // Get the per-thread result node buffer that this chunk is in.
 
-		for(size_t i=0; i<chunk.size; ++i)
+		for(int i=0; i<chunk.size; ++i)
 		{
 			ResultNode chunk_node = chunk_nodes[chunk.offset + i];
 

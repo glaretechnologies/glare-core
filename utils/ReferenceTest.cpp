@@ -431,6 +431,8 @@ void run()
 		int x = const_vec[0]->base_x;
 		x = const_vec[0].downcast<DerivedClass>()->derived_x;
 
+		TestUtils::silentPrint(toString(x));
+
 	}
 
 

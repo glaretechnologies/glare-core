@@ -126,7 +126,7 @@ public:
 				int y_end = myMin(in_h, sy_pi + r + 1);
 
 				typename ImageType::ColourType c(0.0f);
-				float f_sum = 0;
+				//float f_sum = 0;
 				for(int sy=y_begin; sy<y_end; ++sy)
 				for(int sx=x_begin; sx<x_end; ++sx)
 				{
@@ -141,7 +141,7 @@ public:
 					//int i = (int)(scaled_d2 * mn_table_factor);
 					//float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
 					float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
-					f_sum += f;
+					//f_sum += f;
 
 					//c.r += in.getPixel(sx, sy).r * f;
 					//c.g += in.getPixel(sx, sy).g * f;
@@ -410,7 +410,7 @@ public:
 				for(int n=0; n<N; ++n)
 					sum[n] = 0;
 
-				float f_sum = 0;
+				//float f_sum = 0;
 				for(int sy=y_begin; sy<y_end; ++sy)
 				for(int sx=x_begin; sx<x_end; ++sx)
 				{
@@ -425,7 +425,7 @@ public:
 					//int i = (int)(scaled_d2 * mn_table_factor);
 					//float f = i < MN_TABLE_SIZE ? mn_table[i] : 0;
 					float f = mn.eval(std::sqrt(d2) * recip_scale); //std::sqrt(scaled_d2));
-					f_sum += f;
+					//f_sum += f;
 
 					for(int n=0; n<N; ++n)
 						sum[n] += in.getPixel(sx, sy)[n] * f;

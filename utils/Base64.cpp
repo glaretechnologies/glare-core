@@ -454,7 +454,7 @@ void test()
 	{
 		PCG32 rng(1);
 		std::vector<unsigned char> plaintext((int)1.0e6);
-		for(int i = 0; i < plaintext.size(); i++)
+		for(size_t i = 0; i < plaintext.size(); i++)
 			plaintext[i] = (unsigned char)(rng.unitRandom() * 255.9);
 
 		std::vector<unsigned char> decoded;
@@ -501,7 +501,7 @@ void test()
 		{
 			const size_t input_len = (size_t)(rng.unitRandom() * 1000);
 			std::vector<unsigned char> plaintext(input_len);
-			for(int i = 0; i < input_len; i++)
+			for(size_t i = 0; i < input_len; i++)
 				plaintext[i] = (unsigned char)(rng.unitRandom() * 255.9);
 
 			std::string encoded;
@@ -524,7 +524,7 @@ void test()
 
 			if(rng.unitRandom() < 0.75)
 			{
-				for(int i = 0; i < encoded_len; i++)
+				for(size_t i = 0; i < encoded_len; i++)
 					encoded[i] = base64_encoding_table[(int)(rng.unitRandom() * 63.99)];
 
 				while(rng.unitRandom() < 0.5)
@@ -532,7 +532,7 @@ void test()
 			}
 			else
 			{
-				for(int i = 0; i < encoded_len; i++)
+				for(size_t i = 0; i < encoded_len; i++)
 					encoded[i] = (char)(-128 + rng.unitRandom() * 255.9);
 			}
 

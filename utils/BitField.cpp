@@ -263,6 +263,7 @@ void bitFieldTests()
 			double elapsed = timer.elapsed() / N;
 			conPrint(toString((uint64)bf.to_ulong()));
 			conPrint("std::bitset elapsed per bf.test() " + toString(elapsed * 1.0e9) + " ns");
+			TestUtils::silentPrint(toString(sum));
 		}
 	} // end if do_perf_tests
 }
