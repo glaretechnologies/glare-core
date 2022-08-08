@@ -62,9 +62,13 @@ private:
 };
 
 
-inline void AtomicInt::operator = (atomic_int val_)
+inline void AtomicInt::operator = (atomic_int newval)
 {
-	val = val_;
+#if defined(_WIN32)
+	_InterlockedExchange64(&val, newval);
+#else
+	__sync_lock_test_and_set(&val, newval);
+#endif
 }
 
 
