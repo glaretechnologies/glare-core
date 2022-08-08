@@ -107,7 +107,7 @@ private:
 
 	Condition num_unfinished_tasks_cond;
 	mutable ::Mutex num_unfinished_tasks_mutex;
-	int num_unfinished_tasks;
+	int num_unfinished_tasks	GUARDED_BY(num_unfinished_tasks_mutex);
 	
 	std::string name;
 

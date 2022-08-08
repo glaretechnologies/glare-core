@@ -54,7 +54,7 @@ public:
 
 
 	mutable Mutex mutex;
-	js::Vector<BlockInfo, 16> blocks;
+	js::Vector<BlockInfo, 16> blocks	GUARDED_BY(mutex);
 	size_t ob_alloc_size, alignment;
 
 	std::set<int> free_indices;

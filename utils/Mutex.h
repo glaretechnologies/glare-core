@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <pthread.h>
 #endif
 #include "Platform.h"
+#include "ThreadSafetyAnalysis.h"
 
 
 /*=====================================================================
@@ -20,19 +21,19 @@ Mutex
 -----
 You should generally use Lock to lock mutexes.
 =====================================================================*/
-class Mutex
+class CAPABILITY("mutex") Mutex
 {
 public:
 	Mutex();
 	~Mutex();
 
-	void acquire();
-	void release();
+	void acquire() ACQUIRE();
+	void release() RELEASE();
 
 	// Non-blocking.
 	// returns true if the mutex was successfully acquired.
 	// returns false when the mutex has already been acquired by a different thread.
-	bool tryAcquire();
+	bool tryAcquire() TRY_ACQUIRE(true);
 
 //private:
 #if defined(_WIN32)

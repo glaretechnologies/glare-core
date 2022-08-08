@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
+#include "ThreadSafetyAnalysis.h"
 class Mutex;
 
 
@@ -15,12 +16,12 @@ Lock
 ----
 RAII style mutex locking/acquisition
 =====================================================================*/
-class Lock
+class SCOPED_CAPABILITY Lock
 {
 public:
-	Lock(Mutex& mutex); // blocking
+	Lock(Mutex& mutex) ACQUIRE(mutex); // blocking
 
-	~Lock();
+	~Lock() RELEASE();
 
 	// Just for debugging
 	const Mutex& getMutex() const { return mutex; }

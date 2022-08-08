@@ -53,7 +53,7 @@ public:
 	static void test();
 
 private:
-	THREAD_SET_TYPE threads;
+	THREAD_SET_TYPE threads			GUARDED_BY(mutex);
 
 	Mutex mutex; // Protects 'threads' set.
 };

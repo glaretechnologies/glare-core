@@ -23,7 +23,8 @@ static Mutex* mutexes = NULL;
 static int num_mutexes = 0;
 
 
-static void locking_callback(int mode, int type, const char* file, int line)
+// Not going to try and do thread safety analysis on this function, hence the NO_THREAD_SAFETY_ANALYSIS.
+static void locking_callback(int mode, int type, const char* file, int line)		NO_THREAD_SAFETY_ANALYSIS
 {
 	assert(type >= 0 && type < num_mutexes);
 

@@ -32,12 +32,12 @@ public:
 
 	inline void enqueueItems(const T* items, size_t num_items);
 
-	inline Mutex& getMutex();
+	inline Mutex& getMutex()					RETURN_CAPABILITY(mutex);
 
 
 	// Don't call unless queue is locked.
-	inline void unlockedDequeue(T& t_out); // Returns item via argument.
-	inline T unlockedDequeue(); // Returns item directly.
+	inline void unlockedDequeue(T& t_out)		REQUIRES(mutex); // Returns item via argument.
+	inline T unlockedDequeue()					REQUIRES(mutex); // Returns item directly.
 
 	// Blocks - suspends calling thread until queue is non-empty.
 	void dequeue(T& t_out); // Returns item via argument.
@@ -54,8 +54,8 @@ public:
 	inline void clear();
 	inline void clearAndFreeMem();
 
-	inline bool unlockedEmpty() const;
-	inline bool unlockedNonEmpty() const;
+	inline bool unlockedEmpty() const			REQUIRES(mutex);
+	inline bool unlockedNonEmpty() const		REQUIRES(mutex);
 
 	typedef typename CircularBuffer<T>::iterator iterator;
 	// Not thread-safe, caller needs to have the mutex first.
@@ -65,7 +65,7 @@ public:
 	void setAllocator(const Reference<glare::Allocator>& al) { queue.setAllocator(al); }
 	
 private:
-	CircularBuffer<T> queue;
+	CircularBuffer<T> queue			GUARDED_BY(mutex);
 
 	mutable Mutex mutex;
 

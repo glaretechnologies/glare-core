@@ -93,6 +93,8 @@ void TextureDataManager::clear()
 
 size_t TextureDataManager::getTotalMemUsage() const
 {
+	Lock lock(mutex);
+
 	size_t sum = 0;
 	for(auto it = loaded_textures.begin(); it != loaded_textures.end(); ++it)
 	{

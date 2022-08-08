@@ -80,7 +80,7 @@ public:
 
 	size_t getTotalMemUsage() const;
 private:
-	std::map<std::string, Reference<TextureData> > loaded_textures;
+	std::map<std::string, Reference<TextureData> > loaded_textures GUARDED_BY(mutex);
 	mutable Mutex mutex;
 };
 

@@ -975,7 +975,7 @@ private:
 	Reference<FrameBuffer> target_frame_buffer;
 
 	mutable Mutex task_manager_mutex;
-	glare::TaskManager* task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
+	glare::TaskManager* task_manager GUARDED_BY(task_manager_mutex); // Used for building 8-bit texture data (DXT compression, mip-map data building).  Lazily created when needed.
 public:
 	std::string opengl_vendor;
 	std::string opengl_renderer;
