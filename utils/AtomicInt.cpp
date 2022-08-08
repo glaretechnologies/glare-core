@@ -48,7 +48,7 @@ void glare::AtomicInt::test()
 
 	// Test operator = 
 	{
-		AtomicInt i = AtomicInt(3);
+		AtomicInt i(3);
 		i = 4;
 		testAssert(i == 4);
 	}

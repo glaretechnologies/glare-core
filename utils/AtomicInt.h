@@ -31,13 +31,13 @@ typedef int32 atomic_int;
 class AtomicInt
 {
 public:
-	inline AtomicInt(atomic_int val_ = 0) : val(val_) { /*assert(((uint64)this % 8) == 0);*/ }
+	explicit inline AtomicInt(atomic_int val_ = 0) : val(val_) { /*assert(((uint64)this % 8) == 0);*/ }
 	inline ~AtomicInt() {}
 
 	inline operator atomic_int() const;
 
 	inline void operator = (atomic_int val_);
-
+	
 	inline atomic_int operator++ (int); // postfix ++ operator
 	inline atomic_int operator-- (int); // postfix -- operator
 
