@@ -42,20 +42,20 @@ void glare::AtomicInt::test()
 
 	// Test constructor
 	{
-		AtomicInt i = 3;
+		AtomicInt i(3);
 		testAssert(i == 3);
 	}
 
 	// Test operator = 
 	{
-		AtomicInt i = 3;
+		AtomicInt i = AtomicInt(3);
 		i = 4;
 		testAssert(i == 4);
 	}
 
 	// Test operator++
 	{
-		AtomicInt i = 3;
+		AtomicInt i(3);
 		i++;
 		testAssert(i == 4);
 		testAssert(i++ == 4);
@@ -64,7 +64,7 @@ void glare::AtomicInt::test()
 
 	// Test operator--
 	{
-		AtomicInt i = 3;
+		AtomicInt i(3);
 		i--;
 		testAssert(i == 2);
 		testAssert(i-- == 2);
@@ -74,7 +74,7 @@ void glare::AtomicInt::test()
 
 	// Test operator+=
 	{
-		AtomicInt i = 3;
+		AtomicInt i(3);
 		i += 10;
 		testAssert(i == 13);
 		i += 20;
@@ -84,7 +84,7 @@ void glare::AtomicInt::test()
 
 	// Test operator-=
 	{
-		AtomicInt i = 30;
+		AtomicInt i(30);
 		i -= 10;
 		testAssert(i == 20);
 		i -= 40;
@@ -94,7 +94,7 @@ void glare::AtomicInt::test()
 
 	// Test increment()
 	{
-		AtomicInt i = 3;
+		AtomicInt i(3);
 		i.increment();
 		testAssert(i == 4);
 		testAssert(i.increment() == 4);
@@ -103,7 +103,7 @@ void glare::AtomicInt::test()
 
 	// Test decrement()
 	{
-		AtomicInt i = 3;
+		AtomicInt i(3);
 		i.decrement();
 		testAssert(i == 2);
 		testAssert(i.decrement() == 2);
