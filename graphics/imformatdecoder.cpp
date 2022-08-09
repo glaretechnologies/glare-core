@@ -30,6 +30,7 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 	{
 		return JPEGDecoder::decode(indigo_base_dir, path);
 	}
+#if IS_INDIGO
 	else if(hasExtension(path, "tga"))
 	{
 		return TGADecoder::decode(path);
@@ -38,29 +39,30 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 	{
 		return BMPDecoder::decode(path);
 	}
-	else if(hasExtension(path, "png"))
-	{
-		return PNGDecoder::decode(path);
-	}
 	else if(hasExtension(path, "tif") || hasExtension(path, "tiff"))
 	{
 		return TIFFDecoder::decode(path);
-	}
-	else if(hasExtension(path, "exr"))
-	{
-		return EXRDecoder::decode(path);
 	}
 	else if(hasExtension(path, "float"))
 	{
 		return FloatDecoder::decode(path);
 	}
-	else if(hasExtension(path, "gif"))
-	{
-		return GIFDecoder::decode(path);
-	}
 	else if(hasExtension(path, "hdr"))
 	{
 		return RGBEDecoder::decode(path);
+	}
+#endif
+	else if(hasExtension(path, "png"))
+	{
+		return PNGDecoder::decode(path);
+	}
+	else if(hasExtension(path, "exr"))
+	{
+		return EXRDecoder::decode(path);
+	}
+	else if(hasExtension(path, "gif"))
+	{
+		return GIFDecoder::decode(path);
 	}
 	else if(hasExtension(path, "ktx"))
 	{
