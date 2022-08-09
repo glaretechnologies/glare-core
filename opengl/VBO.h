@@ -33,8 +33,8 @@ public:
 	void bind() const;
 	void unbind();
 
-	const GLuint bufferName() const { return buffer_name; }
-	const size_t getSize() const{ return size; }
+	GLuint bufferName() const { return buffer_name; }
+	size_t getSize() const{ return size; }
 private:
 	GLARE_DISABLE_COPY(VBO)
 
