@@ -1,15 +1,15 @@
 /*===================================================================
 OpenSSL
 -------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 ====================================================================*/
 #pragma once
 
 
 namespace OpenSSL
 {
-	void init(); // Initialise OpenSSL stuff.
-	void shutdown(); // Cleans up / frees OpenSSL global state.
+	void init(); // Initialise LibreSSL stuff.
+	void shutdown(); // Cleans up / frees LibreSSL global state.
 
 	bool isInitialised();
 }
