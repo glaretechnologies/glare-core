@@ -2242,6 +2242,16 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 }
 
 
+void OpenGLEngine::addObjectAndLoadTexturesImmediately(const Reference<GLObject>& object)
+{
+	for(size_t i=0; i<object->materials.size(); ++i)
+		if(!object->materials[i].tex_path.empty())
+			object->materials[i].albedo_texture = getTexture(object->materials[i].tex_path);
+
+	addObject(object);
+}
+
+
 void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 {
 	// Check object material indices are in-bounds.

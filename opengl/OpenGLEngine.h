@@ -590,6 +590,7 @@ public:
 	Reference<GLObject> allocateObject();
 
 	void addObject(const Reference<GLObject>& object);
+	void addObjectAndLoadTexturesImmediately(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
 	bool isObjectAdded(const Reference<GLObject>& object) const;
 
