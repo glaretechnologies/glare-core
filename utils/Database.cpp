@@ -27,12 +27,11 @@ key -> record byte offset
 
 Record layout on disk
 ----------------------
-record type (0 = unoccupied, 1 = occupied)  (uint32)
 key (uint64), invalid key if record is empty
-record len (uint32)
+record len (uint32)   (len = std::numeric_limits<uint32>::max() if record has been deleted, otherwise have len <= capacity)
 record capacity (uint32)
 seq_num (uint32)
-data...  (array of capacity bytes)
+data  (array of capacity bytes)
 
 
 
@@ -50,20 +49,20 @@ else:
 	Find a new empty record with sufficient size
 	write into new record with seq_num + 1
 
-	set old record type to unoccupied
-
 
 Storing a new object:
 --------------------
+Currently writes a new record at the end of the existing records.
+
+Todo:
 Find a new empty record with sufficient size
 write new record with seq_num 0
-set record type to occupied
 
 
 Deleting an object
 --------------------
 Lookup record by key
-Set record type to unoccupied
+Set record len to std::numeric_limits<uint32>::max().
 */
 
 
@@ -201,6 +200,50 @@ void Database::finishReadingFromDisk()
 {
 	delete file_in;
 	file_in = NULL;
+}
+
+
+void Database::removeOldRecordsOnDisk(const std::string& path)
+{
+	const std::string temp_path = path + "_temp";
+	{
+		// Write compacted database to a temp file
+		FileOutStream temp_file_out(temp_path, std::ios::binary | std::ios::out);
+
+		// Write database header
+		temp_file_out.writeUInt32(DATABASE_MAGIC_NUMBER);
+		temp_file_out.writeUInt32(DATABASE_SERIALISATION_VERSION);
+
+		startReadingFromDisk(path);
+		for(auto it = getRecordMap().begin(); it != getRecordMap().end(); ++it)
+		{
+			const Database::RecordInfo& record = it->second;
+			if(record.isRecordValid())
+			{
+				const uint8* data = getInitialRecordData(record);
+				const DatabaseKey key = it->first;
+				const uint32 use_capacity = Maths::roundUpToMultipleOfPowerOf2<uint32>(record.len + 64, 4);
+				const uint32 use_seq_num = 0;
+
+				temp_buf.resizeNoCopy(sizeof(uint64) + sizeof(uint32) * 3 + use_capacity); // Resize temp_buf to make room for record header and capacity
+
+				std::memcpy(&temp_buf[0], &key.val, sizeof(uint64));
+				std::memcpy(&temp_buf[8], &record.len, sizeof(uint32)); // len
+				std::memcpy(&temp_buf[12], &use_capacity, sizeof(uint32)); // capacity
+				std::memcpy(&temp_buf[16], &use_seq_num, sizeof(uint32)); // seq_num
+
+				if(record.len > 0)
+					std::memcpy(&temp_buf[20], data, record.len);
+				std::memset(&temp_buf[20] + record.len, 0, use_capacity - record.len); // Zero out unused part of buffer.
+
+				temp_file_out.writeData(temp_buf.data(), temp_buf.size());
+			}
+		}
+		finishReadingFromDisk();
+	}
+
+	// Replace main database file with our temp file
+	FileUtils::moveFile(/*src path=*/temp_path, /* dest path=*/path);
 }
 
 

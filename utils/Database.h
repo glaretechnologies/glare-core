@@ -42,12 +42,15 @@ for(auto it = database.getRecordMap().begin(); it != database.getRecordMap().end
 	const Database::RecordInfo& record = it->second;
 	if(record.isRecordValid())
 	{
-		 const uint8* data = database.getInitialRecordData(record)
+		 const uint8* data = database.getInitialRecordData(record);
 		 // Do something with data and record.len
 	}
 }
 database.finishReadingFromDisk();
 
+
+
+Tests are in DatabaseTests.
 =====================================================================*/
 class Database
 {
@@ -60,6 +63,8 @@ public:
 	void openAndMakeOrClearDatabase(const std::string& path);
 
 	void startReadingFromDisk(const std::string& path);
+
+	void removeOldRecordsOnDisk(const std::string& path); // Removes deleted records, removes old records.  Database can't have had any updates made to it since opening. (so that file_out is NULL)
 
 	struct RecordInfo;
 

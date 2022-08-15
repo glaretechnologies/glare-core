@@ -327,6 +327,36 @@ void DatabaseTests::test()
 			}
 			db.finishReadingFromDisk();
 		}
+
+		// Try compacting DB
+		{
+			Database db;
+			db.removeOldRecordsOnDisk(db_path);
+		}
+
+		// Check database is unchanged in terms of live data.
+		{
+			Database db;
+			db.startReadingFromDisk(db_path);
+			testAssert(db.numRecords() == 2);
+			{
+				auto res = db.getRecordMap().find(DatabaseKey(123));
+				testAssert(res != db.getRecordMap().end());
+				const uint32 record_data_len = res->second.len;
+				const uint8* record_data = db.getInitialRecordData(res->second);
+				testAssert(record_data_len == 1);
+				testAssert(record_data[0] == 123);
+			}
+			{
+				auto res = db.getRecordMap().find(DatabaseKey(200));
+				testAssert(res != db.getRecordMap().end());
+				const uint32 record_data_len = res->second.len;
+				const uint8* record_data = db.getInitialRecordData(res->second);
+				testAssert(record_data_len == 1);
+				testAssert(record_data[0] == 200);
+			}
+			db.finishReadingFromDisk();
+		}
 	}
 
 
@@ -542,7 +572,101 @@ void DatabaseTests::test()
 	}
 
 
-	doRandomTests(1);
+	// Test deleting a record, then make sure after a removeOldRecordsOnDisk() call that it has been properly deleted.
+	{
+		const std::string s = "hello";
+		const std::string s2 = "there";
+		const std::string s3 = "yo";
+
+		const std::string db_path = "./test.db";
+		{
+			Database db;
+			db.openAndMakeOrClearDatabase(db_path);
+
+			testAssert(db.numRecords() == 0);
+
+			db.updateRecord(DatabaseKey(123), ArrayRef<uint8>((const uint8*)s.data(), s.size()));
+			db.updateRecord(DatabaseKey(124), ArrayRef<uint8>((const uint8*)s2.data(), s2.size()));
+			db.updateRecord(DatabaseKey(125), ArrayRef<uint8>((const uint8*)s3.data(), s3.size()));
+
+			testAssert(db.numRecords() == 3);
+
+			db.deleteRecord(DatabaseKey(123));
+			db.deleteRecord(DatabaseKey(124));
+		}
+
+		{
+			Database db;
+			db.removeOldRecordsOnDisk(db_path);
+		}
+
+		{
+			Database db;
+			db.startReadingFromDisk(db_path);
+			db.finishReadingFromDisk();
+			
+			testAssert(db.numRecords() == 1);
+		}
+
+		// Load the DB file as a raw string, search for s, s2, s3 manually.
+		{
+			const std::string db_data = FileUtils::readEntireFile(db_path);
+			testAssert(db_data.find(s)  == std::string::npos); // Shouldn't be found
+			testAssert(db_data.find(s2) == std::string::npos); // Shouldn't be found
+			testAssert(db_data.find(s3) != std::string::npos); // Should be found
+		}
+	}
+
+	// Test updating a record, with a much bigger value, which will trigger a write to a new location, then make sure after a removeOldRecordsOnDisk() call that it has been properly deleted.
+	{
+		const std::string s = "hello";
+		const std::string s2_component = "there";
+		const std::string s3 = "yo";
+
+		const std::string db_path = "./test.db";
+		{
+			Database db;
+			db.openAndMakeOrClearDatabase(db_path);
+
+			testAssert(db.numRecords() == 0);
+
+			db.updateRecord(DatabaseKey(123), ArrayRef<uint8>((const uint8*)s.data(), s.size()));
+
+			// Update record
+			std::string s2;
+			for(int i=0; i<100; ++i)
+				s2 += s2_component;
+			db.updateRecord(DatabaseKey(123), ArrayRef<uint8>((const uint8*)s2.data(), s2.size()));
+
+			db.updateRecord(DatabaseKey(125), ArrayRef<uint8>((const uint8*)s3.data(), s3.size()));
+
+			testAssert(db.numRecords() == 2);
+		}
+
+		{
+			Database db;
+			db.removeOldRecordsOnDisk(db_path);
+		}
+
+		{
+			Database db;
+			db.startReadingFromDisk(db_path);
+			db.finishReadingFromDisk();
+			testAssert(db.numRecords() == 2);
+		}
+
+		// Load the DB file as a raw string, search for s, s2, s3 manually.
+		{
+			const std::string db_data = FileUtils::readEntireFile(db_path);
+			testAssert(db_data.find(s)  == std::string::npos); // Shouldn't be found
+			testAssert(db_data.find(s2_component) != std::string::npos); // Should be found
+			testAssert(db_data.find(s3) != std::string::npos); // Should be found
+		}
+	}
+
+
+
+	doRandomTests(/*seed=*/1);
 
 	conPrint("DatabaseTests::test() done");
 }
