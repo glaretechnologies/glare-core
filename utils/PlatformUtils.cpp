@@ -891,10 +891,9 @@ uint64 PlatformUtils::getCurrentThreadID()
 #if defined(_WIN32)
 	return GetCurrentThreadId();
 #elif defined(OSX)
-	// Mac, Linux:
 	uint64_t thread_id;
 	const int res = pthread_threadid_np(NULL, &thread_id);
-	assert(res == 0);
+	assertOrDeclareUsed(res == 0);
 	return thread_id;
 #else
 	// NOTE: pid_t is actually signed.  Improve this, or use pthread_equal, see https://stackoverflow.com/a/27238113
