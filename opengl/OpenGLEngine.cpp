@@ -52,9 +52,6 @@ Copyright Glare Technologies Limited 2020 -
 #include "superluminal/PerformanceAPI.h"
 
 
-static const bool MEM_PROFILE = false;
-
-
 // https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_filter_anisotropic.txt
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT				0x84FF
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT			0x8E8F
@@ -822,6 +819,9 @@ void OpenGLEngine::setCirrusTexture(const Reference<OpenGLTexture>& tex)
 #define GL_DEBUG_OUTPUT                   0x92E0
 #endif
 
+
+#if !defined(OSX)
+
 static void 
 #ifdef _WIN32
 	// NOTE: not sure what this should be on non-windows platforms.  APIENTRY does not seem to be defined with GCC on Linux 64.
@@ -870,6 +870,7 @@ myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity
 	}
 }
 
+#endif // !defined(OSX)
 
 
 
