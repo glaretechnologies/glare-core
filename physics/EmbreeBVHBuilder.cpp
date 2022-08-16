@@ -33,7 +33,7 @@ static bool embreeMemoryMonitorFunction(void* user_ptr, ssize_t bytes, bool post
 {
 	EmbreeBVHBuilder* builder = (EmbreeBVHBuilder*)user_ptr;
 	builder->embree_mem_usage += bytes;
-	builder->embree_max_mem_usage = myMax(builder->embree_max_mem_usage, builder->embree_mem_usage);
+	builder->embree_max_mem_usage = myMax(builder->embree_max_mem_usage.getVal(), builder->embree_mem_usage.getVal());
 	return true; // Continue normally
 }
 
