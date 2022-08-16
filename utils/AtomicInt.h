@@ -36,6 +36,8 @@ public:
 
 	inline operator atomic_int() const;
 
+	inline int64 getVal() const;
+
 	inline void operator = (atomic_int val_);
 	
 	inline atomic_int operator++ (int); // postfix ++ operator
@@ -63,7 +65,12 @@ private:
 
 inline AtomicInt::operator atomic_int() const
 { 
-	//return val;
+	return val.load(std::memory_order_acquire);
+}
+
+
+inline int64 AtomicInt::getVal() const
+{ 
 	return val.load(std::memory_order_acquire);
 }
 
