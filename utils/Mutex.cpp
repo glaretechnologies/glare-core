@@ -14,14 +14,20 @@ Mutex::Mutex()
 #if defined(_WIN32)
 	InitializeCriticalSection(&mutex);
 #else
+	// Initialise mutex attributes
 	pthread_mutexattr_t mutex_attributes;
 	int result = pthread_mutexattr_init(&mutex_attributes);
-	assert(result == 0);
+	assertOrDeclareUsed(result == 0);
 	result = pthread_mutexattr_settype(&mutex_attributes, PTHREAD_MUTEX_RECURSIVE);
-	assert(result == 0);
+	assertOrDeclareUsed(result == 0);
 
+	// Initialise mutex
 	result = pthread_mutex_init(&mutex, &mutex_attributes);
-	assert(result == 0);
+	assertOrDeclareUsed(result == 0);
+	
+	// Destroy mutex attributes
+	result = pthread_mutexattr_destroy(&mutex_attributes);
+	assertOrDeclareUsed(result == 0);
 #endif
 }
 
@@ -31,7 +37,8 @@ Mutex::~Mutex()
 #if defined(_WIN32)
 	DeleteCriticalSection(&mutex);
 #else
-	pthread_mutex_destroy(&mutex);//, NULL);
+	int result = pthread_mutex_destroy(&mutex);
+	assertOrDeclareUsed(result == 0);
 #endif
 }
 
@@ -41,7 +48,8 @@ void Mutex::acquire()
 #if defined(_WIN32)
 	EnterCriticalSection(&mutex);
 #else
-	pthread_mutex_lock(&mutex);
+	int result = pthread_mutex_lock(&mutex);
+	assertOrDeclareUsed(result == 0);
 #endif
 }
 
@@ -61,6 +69,7 @@ void Mutex::release()
 #if defined(_WIN32)
 	LeaveCriticalSection(&mutex);
 #else
-	pthread_mutex_unlock(&mutex);
+	int result = pthread_mutex_unlock(&mutex);
+	assertOrDeclareUsed(result == 0);
 #endif
 }
