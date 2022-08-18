@@ -43,7 +43,7 @@ const std::string getDirectory(const std::string& pathname);
 // Gets the filename of a file from the path.
 const std::string getFilename(const std::string& pathname); // throws FileUtilsExcep
 
-// Returns only the filenames, not the full paths
+// Returns only the filenames, not the full paths.  Ignores the pseudo-files '.' and '..'.
 const std::vector<std::string> getFilesInDir(const std::string& dir_path); // throws FileUtilsExcep
 
 // Returns the full filenames.  Ignores the pseudo-files '.' and '..'.

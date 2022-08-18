@@ -172,6 +172,7 @@ const std::string getFilename(const std::string& pathname)
 }
 
 
+// Returns only the filenames, not the full paths.  Ignores the pseudo-files '.' and '..'.
 const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {
 #if defined(_WIN32)
@@ -181,33 +182,40 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 		throw FileUtilsExcep("Failed to open dir '" + dir_path + "': " + PlatformUtils::getLastErrorString());
 
 
-	std::vector<std::string> paths;
-	paths.push_back(StringUtils::PlatformToUTF8UnicodeEncoding(find_data.cFileName));
+	std::vector<std::string> filenames;
+
+	std::string filename = StringUtils::PlatformToUTF8UnicodeEncoding(find_data.cFileName);
+	if(filename != "." && filename != "..")
+		filenames.push_back(filename);
 
 	while(FindNextFile(search_handle, &find_data) != 0)
 	{
-		paths.push_back(StringUtils::PlatformToUTF8UnicodeEncoding(find_data.cFileName));
+		filename = StringUtils::PlatformToUTF8UnicodeEncoding(find_data.cFileName);
+		if(filename != "." && filename != "..")
+			filenames.push_back(filename);
 	}
 
 	FindClose(search_handle);
 
-	return paths;
+	return filenames;
 #else
 	DIR* dir = opendir(dir_path.c_str());
 	if(!dir)
 		throw FileUtilsExcep("Failed to open dir '" + dir_path + "': " + PlatformUtils::getLastErrorString());
 
-	std::vector<std::string> paths;
+	std::vector<std::string> filenames;
 
 	struct dirent* f = NULL;
 	while((f = readdir(dir)) != NULL)
 	{
-		paths.push_back(f->d_name);	
+		const std::string filename = f->d_name;
+		if(filename != "." && filename != "..")
+			filenames.push_back(filename);	
 	}
 
 	closedir(dir);
 
-	return paths;
+	return filenames;
 #endif
 }
 
@@ -220,8 +228,7 @@ const std::vector<std::string> getFilesInDirFullPaths(const std::string& dir_pat
 	fullpaths.reserve(paths.size());
 	
 	for(size_t i=0; i<paths.size(); ++i)
-		if(paths[i] != "." && paths[i] != "..")
-			fullpaths.push_back(join(dir_path, paths[i]));
+		fullpaths.push_back(join(dir_path, paths[i]));
 	
 	return fullpaths;
 }
@@ -235,7 +242,7 @@ const std::vector<std::string> getFilesInDirWithExtensionFullPaths(const std::st
 	fullpaths.reserve(paths.size());
 	
 	for(size_t i=0; i<paths.size(); ++i)
-		if(hasExtension(paths[i], extension) && paths[i] != "." && paths[i] != "..")
+		if(hasExtension(paths[i], extension))
 			fullpaths.push_back(join(dir_path, paths[i]));
 
 	if(sort_results)
@@ -253,13 +260,10 @@ static void doGetFilesInDirWithExtensionFullPathsRecursive(const std::string& di
 	{
 		const std::string full_path = join(dir_path, paths[i]);
 
-		if((paths[i] != ".") && (paths[i] != ".."))
-		{
-			if(isDirectory(full_path))
-				doGetFilesInDirWithExtensionFullPathsRecursive(full_path, extension, fullpaths_out); // Recurse
-			else if(hasExtension(paths[i], extension))
-				fullpaths_out.push_back(full_path);
-		}
+		if(isDirectory(full_path))
+			doGetFilesInDirWithExtensionFullPathsRecursive(full_path, extension, fullpaths_out); // Recurse
+		else if(hasExtension(paths[i], extension))
+			fullpaths_out.push_back(full_path);
 	}
 }
 
@@ -1838,7 +1842,7 @@ void doUnitTests()
 		writeEntireFile("TEMP_TESTING_DIR/b", std::vector<unsigned char>(0, 100));
 		
 		const std::vector<std::string> files = getFilesInDir("TEMP_TESTING_DIR");
-		testAssert(files.size() == 4);
+		testAssert(files.size() == 2);
 		bool found_a = false;
 		bool found_b = false;
 		for(size_t i=0; i<files.size(); ++i)
