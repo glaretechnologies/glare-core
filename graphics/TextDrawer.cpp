@@ -43,7 +43,7 @@ TextDrawer::TextDrawer(const std::string& font_image_path, const std::string& fo
 		std::string contents;
 		FileUtils::readEntireFile(font_widths_path, contents);
 
-		Parser parser(contents.c_str(), (unsigned int)contents.size());
+		Parser parser(contents);
 		parser.advancePastLine();
 		for(int i=0; i<256; ++i)
 		{

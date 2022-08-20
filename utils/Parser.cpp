@@ -13,17 +13,24 @@ Copyright Glare Technologies Limited 2021 -
 #include <limits>
 
 
-Parser::Parser(const char* text_, size_t textsize_)
-:	text(text_),
-	currentpos(0),
-	textsize(textsize_)
-{}
-
-
 Parser::Parser()
 :	text(NULL),
 	currentpos(0),
 	textsize(0)
+{}
+
+
+Parser::Parser(const std::string& s)
+:	text(s.c_str()),
+	currentpos(0),
+	textsize(s.size())
+{}
+
+
+Parser::Parser(const char* text_, size_t textsize_)
+:	text(text_),
+	currentpos(0),
+	textsize(textsize_)
 {}
 
 
@@ -689,7 +696,7 @@ void Parser::doUnitTests()
 			size_t sum = 0;
 			for(int i=0; i<N; ++i)
 			{
-				Parser parser(s.c_str(), s.length());
+				Parser parser(s);
 				uint32 x;
 				parser.parseUnsignedInt(x);
 				sum += x;

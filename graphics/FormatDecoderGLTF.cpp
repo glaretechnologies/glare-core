@@ -1310,7 +1310,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		// If image.uri is non-empty, it either refers to an external file, or is a data URI. (base 64 encoded data)
 		
 		// Try parsing as a data URI, e.g. "uri":"data:image/png;base64,iVBORw0KGgoAAAANSU...
-		Parser parser(image.uri.c_str(), image.uri.size());
+		Parser parser(image.uri);
 		if(parser.parseCString("data:"))  // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
 		{
 			// parse mime type

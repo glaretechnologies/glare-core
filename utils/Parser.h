@@ -22,7 +22,8 @@ class Parser
 {
 public:
 	Parser();
-	Parser(const char* text, size_t textsize);
+	Parser(const std::string& s); // Retains pointer to s contents.
+	Parser(const char* text, size_t textsize); // Retains text pointer.
 
 	void reset(const char* text, size_t textsize);
 

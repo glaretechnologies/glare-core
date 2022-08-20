@@ -16,7 +16,7 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 	URL result;
 	result.port = -1;
 
-	Parser parser(url.data(), url.size());
+	Parser parser(url);
 
 	//---------------- Parse scheme ----------------
 	const size_t scheme_terminator_pos = url.find("://");

@@ -194,7 +194,7 @@ void IPAddress::parseIPAddrOrHostnameAndOptionalPort(const std::string& s, std::
 	hostname_or_ip_out = "";
 	port_out = 0;
 
-	Parser parser(s.c_str(), (unsigned int)s.size());
+	Parser parser(s);
 
 	if(parser.currentIsChar('['))
 	{

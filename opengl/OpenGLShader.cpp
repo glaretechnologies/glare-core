@@ -34,7 +34,7 @@ static const std::string getLog(GLuint shader)
 static std::string updateLineNumber(const std::string& log, int line_adjustment)
 {
 	std::string newlog;
-	Parser parser(log.c_str(), log.size());
+	Parser parser(log);
 
 	while(parser.notEOF())
 	{
