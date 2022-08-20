@@ -26,8 +26,14 @@ Copyright Glare Technologies Limited 2021 -
 	TypeName &operator=(const TypeName &);
 
 
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#define COMPILER_MSVC 1
+#endif
+
+
 // Declare a variable as used.  This can be used to avoid the Visual Studio 'local variable is initialized but not referenced' warning.
-#ifdef _MSC_VER
+#ifdef COMPILER_MSVC
 #define GLARE_DECLARE_USED(x) (x)
 #else
 #define GLARE_DECLARE_USED(x) (void)(x);
@@ -36,7 +42,7 @@ Copyright Glare Technologies Limited 2021 -
 // This is like the usual assert() macro, except in NDEBUG mode ('release' mode) it marks the variable as used by writing the expression as a statement.
 // NOTE: Use with care as the expression may have side effects.
 #ifdef NDEBUG
-	#ifdef _MSC_VER
+	#ifdef COMPILER_MSVC
 	#define assertOrDeclareUsed(expr) (expr)
 	#else
 	#define assertOrDeclareUsed(expr) (void)(expr)
@@ -56,9 +62,7 @@ Copyright Glare Technologies Limited 2021 -
 #endif
 
 
-#if defined(_MSC_VER) && !defined(__clang__)
-#define COMPILER_MSVC 1
-#endif
+
 
 
 #ifdef COMPILER_MSVC

@@ -77,7 +77,7 @@ UDPSocket::~UDPSocket()
 		// try shutting down the socket
 		//------------------------------------------------------------------------
 		int result = shutdown(socket_handle, 1);
-		assert(result == 0);
+		assertOrDeclareUsed(result == 0);
 
 		//-----------------------------------------------------------------
 		// close socket
