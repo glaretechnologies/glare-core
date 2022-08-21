@@ -11,7 +11,6 @@ Generated at Tue Apr 27 15:25:47 +1200 2010
 #include "../maths/vec3.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
-#include "../utils/Mutex.h"
 #include "../utils/AtomicInt.h"
 #include <vector>
 namespace js { class AABBox; }

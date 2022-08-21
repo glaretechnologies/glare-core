@@ -13,7 +13,6 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Vector.h"
-#include "../utils/Mutex.h"
 #include "../utils/HashMapInsertOnly2.h"
 class Matrix4f;
 class PrintOutput;

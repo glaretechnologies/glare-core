@@ -18,7 +18,6 @@ Copyright Glare Technologies Limited 2020 -
 #endif
 
 #include "Port.h"
-#include "../utils/Mutex.h"
 #include <string>
 class IPAddress;
 class Packet;
