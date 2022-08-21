@@ -427,7 +427,7 @@ static void testTree(PCG32& rng, RayMesh& raymesh)
 		//------------------------------------------------------------------------
 		//test first hit traces
 		//------------------------------------------------------------------------
-		const Tree::Real max_t = 1.0e9;
+		//const Tree::Real max_t = 1.0e9;
 
 		const Ray ray(
 			Vec4f(0,0,0,1.0f) + Vec4f(-1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, -1.0f + rng.unitRandom()*2.0f, 0) * 1.5f,
