@@ -22,7 +22,7 @@ namespace Indigo { class Mesh; }
 BatchedMesh
 -----------
 Triangle mesh optimised for OpenGL rendering.
-Triangle vertex indices are sorted by material index, and has infomation 
+Triangle vertex indices are sorted by material index, and has information 
 about the batches of indices corresponding to triangles sharing a common material index.
 
 Tests are in BatchedMeshTests.
