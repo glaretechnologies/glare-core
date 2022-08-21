@@ -4362,8 +4362,8 @@ void OpenGLEngine::draw()
 	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
 	if(true/*settings.use_final_image_buffer*/)
 	{
-		const int xres = main_viewport_w;
-		const int yres = main_viewport_h;
+		const int xres = myMax(16, main_viewport_w);
+		const int yres = myMax(16, main_viewport_h);
 
 		// If buffer textures are too low res, free them, we wil alloc larger ones below.
 		if(main_colour_texture.nonNull() &&
@@ -5231,9 +5231,9 @@ void OpenGLEngine::draw()
 			conPrint("(Re)Allocing downsize_framebuffers etc..");
 
 			// Use main viewport w + h for this.  This is because we don't want to keep reallocating these textures for random setViewport calls.
-			assert(main_viewport_w > 0);
-			int w = main_viewport_w;
-			int h = main_viewport_h;
+			//assert(main_viewport_w > 0);
+			int w = myMax(16, main_viewport_w);
+			int h = myMax(16, main_viewport_h);
 
 			downsize_target_textures.resize(NUM_BLUR_DOWNSIZES);
 			downsize_framebuffers   .resize(NUM_BLUR_DOWNSIZES);
