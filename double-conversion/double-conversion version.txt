@@ -8,4 +8,8 @@ int digit = buffer.start_[i++] - '0'; // NICK NEWCODE to avoid asan crash
 
 strtod.cc, line 156.
 
+
+
+I also fixed a few compile warnings, see https://github.com/google/double-conversion/pull/188  (24/08/2022)
+
 --Nick
