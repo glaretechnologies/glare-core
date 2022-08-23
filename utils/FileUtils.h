@@ -49,6 +49,9 @@ const std::vector<std::string> getFilesInDir(const std::string& dir_path); // th
 // Returns the full filenames.  Ignores the pseudo-files '.' and '..'.
 const std::vector<std::string> getFilesInDirFullPaths(const std::string& dir_path); // throws FileUtilsExcep
 
+// Returns paths relative to dir_path.  Ignores the pseudo-files '.' and '..'.
+const std::vector<std::string> getFilesInDirRecursive(const std::string& dir_path); // throws FileUtilsExcep
+
 // Returns file paths in given dir, for files that have the given extension.  Returns the full filenames.  Ignores the pseudo-files '.' and '..'.
 const std::vector<std::string> getFilesInDirWithExtensionFullPaths(const std::string& dir_path, const std::string& extension, bool sort_results = false); // throws FileUtilsExcep
 const std::vector<std::string> getFilesInDirWithExtensionFullPathsRecursive(const std::string& dir_path, const std::string& extension); // throws FileUtilsExcep

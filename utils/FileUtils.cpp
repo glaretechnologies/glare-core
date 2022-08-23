@@ -234,6 +234,35 @@ const std::vector<std::string> getFilesInDirFullPaths(const std::string& dir_pat
 }
 
 
+static void doGetFilesInDirRecursive(const std::string& dir_path, const std::string& relative_prefix, std::vector<std::string>& fullpaths_out)
+{
+	const std::vector<std::string> paths = getFilesInDir(dir_path);
+
+	for(size_t i=0; i<paths.size(); ++i)
+	{
+		const std::string full_path = join(dir_path, paths[i]);
+		const std::string relative_path = join(relative_prefix, paths[i]);
+
+		if(isDirectory(full_path))
+		{
+			const std::string new_relative_prefix = join(relative_prefix, paths[i]);
+
+			doGetFilesInDirRecursive(full_path, new_relative_prefix, fullpaths_out); // Recurse
+		}
+		else
+			fullpaths_out.push_back(relative_path);
+	}
+}
+
+
+const std::vector<std::string> getFilesInDirRecursive(const std::string& dir_path) // throws FileUtilsExcep
+{
+	std::vector<std::string> paths;
+	doGetFilesInDirRecursive(dir_path, /*relative prefix=*/"", paths);
+	return paths;
+}
+
+
 const std::vector<std::string> getFilesInDirWithExtensionFullPaths(const std::string& dir_path, const std::string& extension, bool sort_results)
 {
 	const std::vector<std::string> paths = getFilesInDir(dir_path);

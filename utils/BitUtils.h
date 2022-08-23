@@ -62,6 +62,10 @@ namespace BitUtils
 	inline void setOrZeroBit(T& x, const T bitflag, bool should_set);
 
 
+	// like memcpy(), but null pointers are allowed if count is zero.
+	inline void checkedMemcpy(void* dest, const void* src, size_t count);
+
+
 	void test();
 
 
@@ -174,6 +178,13 @@ namespace BitUtils
 			setBit(x, bitflag);
 		else
 			zeroBit(x, bitflag);
+	}
+
+
+	void checkedMemcpy(void* dest, const void* src, size_t count)
+	{
+		if(count > 0)
+			::memcpy(dest, src, count);
 	}
 
 
