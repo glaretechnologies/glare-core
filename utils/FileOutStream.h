@@ -22,6 +22,8 @@ public:
 	FileOutStream(const std::string& path, std::ios_base::openmode openmode = std::ios::binary);
 	~FileOutStream();
 
+	void close(); // Manually closes stream, checks for errors.
+
 	virtual void writeInt32(int32 x);
 	virtual void writeUInt32(uint32 x);
 	void writeUInt64(uint64 x);

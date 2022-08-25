@@ -25,6 +25,14 @@ FileOutStream::~FileOutStream()
 }
 
 
+void FileOutStream::close()
+{
+	file.close();
+	if(file.fail())
+		throw glare::Exception("close failed.");
+}
+
+
 void FileOutStream::writeInt32(int32 x)
 {
 	file.write((const char*)&x, sizeof(int32));
