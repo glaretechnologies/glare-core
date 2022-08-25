@@ -53,7 +53,8 @@ public:
 	template <class SubClassT>
 	inline bool queryInterface(ComObHandle<SubClassT>& result)
 	{
-		if(ptr->QueryInterface<SubClassT>(&result.ptr) == /*S_OK=*/0)
+		// This code needs a 'template' keyword with Clang to avoid a warning: see https://stackoverflow.com/a/3786454
+		if(ptr->template QueryInterface<SubClassT>(&result.ptr) == /*S_OK=*/0)
 			return true;
 		else
 		{

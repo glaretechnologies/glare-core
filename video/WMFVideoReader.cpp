@@ -165,7 +165,7 @@ static FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 	FormatInfo format;
 
 	MFRatio par = { 0 , 0 }; // pixel aspect ratio
-	GUID subtype = { 0 };
+	//GUID subtype = { 0 };
 
 	ComObHandle<IMFMediaType> pType;
 
@@ -1193,7 +1193,7 @@ void WMFVideoReader::test()
 		conPrint("Reader construction took " + timer.elapsedString());
 		
 
-		size_t audio_sample_index = 0;
+		//size_t audio_sample_index = 0;
 		size_t frame_index = 0;
 		size_t vid_frame_index = 0;
 		double last_frame_time = 0;
@@ -1235,7 +1235,7 @@ void WMFVideoReader::test()
 							const uint32 bytes_per_sample = front_frame->bits_per_sample / 8;
 							const uint64 num_samples = front_frame->buffer_len_B / bytes_per_sample / front_frame->num_channels;
 							printVar(num_samples);
-							audio_sample_index += num_samples;
+							//audio_sample_index += num_samples;
 
 							//double audio_time = audio_sample_index / 44100.0;
 

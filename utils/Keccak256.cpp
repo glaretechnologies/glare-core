@@ -43,7 +43,8 @@ namespace Keccak256
 #define I64(x) x##LL
 #define ROTL64(qword, n) ((qword) << (n) ^ ((qword) >> (64 - (n))))
 #define le2me_64(x) (x)
-#define IS_ALIGNED_64(p) (0 == (7 & ((const char*)(p) - (const char*)0)))
+//#define IS_ALIGNED_64(p) (0 == (7 & ((const char*)(p) - (const char*)0)))
+#define IS_ALIGNED_64(p) (((uint64_t)p % 8) == 0) // Nick glare newcode, line above has warning 'warning : performing pointer subtraction with a null pointer may have undefined behavior [-Wnull-pointer-subtraction]'
 #define me64_to_le_str(to, from, length) memcpy((to), (from), (length))
 
 /* constants */

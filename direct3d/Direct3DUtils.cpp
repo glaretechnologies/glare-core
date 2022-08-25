@@ -103,7 +103,7 @@ void Direct3DUtils::saveTextureToBmp(const std::string& filename, ID3D11Texture2
 	// map the texture
 	ComObHandle<ID3D11Texture2D> mappedTexture;
 	D3D11_MAPPED_SUBRESOURCE mapInfo;
-	mapInfo.RowPitch;
+	//mapInfo.RowPitch;
 	hr = d3dContext->Map(
 		texture,
 		0,  // Subresource
