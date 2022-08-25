@@ -914,7 +914,7 @@ struct BuildFBMNoiseTask : public glare::Task
 	{
 		js::Vector<float, 16>& data_ = *data;
 		for(int y=begin_y; y<end_y; ++y)
-		for(int x=0; x<W; ++x)
+		for(int x=0; x<(int)W; ++x)
 		{
 			float px = (float)x * (4.f / W);
 			float py = (float)y * (4.f / W);
@@ -3598,11 +3598,11 @@ void OpenGLEngine::draw()
 
 								//if(index >= 0 && next_index < time_vals.size())
 								//{
-									float frac;
-									frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
+								float frac;
+								frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
 							
-									if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
-										frac = 0;
+								if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
+									frac = 0;
 									//assert(frac >= 0 && frac <= 1);
 								//}
 
@@ -3614,7 +3614,7 @@ void OpenGLEngine::draw()
 					}
 				}
 
-				for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
+				for(size_t n=0; n<anim_data.sorted_nodes.size(); ++n)
 				{
 					const int node_i = anim_data.sorted_nodes[n];
 					const AnimationNodeData& node_data = anim_data.nodes[node_i];
@@ -3761,7 +3761,7 @@ void OpenGLEngine::draw()
 					node_matrices.resizeNoCopy(num_nodes);
 					ob->anim_node_data.resize(num_nodes);
 
-					for(int n=0; n<anim_data.sorted_nodes.size(); ++n)
+					for(size_t n=0; n<anim_data.sorted_nodes.size(); ++n)
 					{
 						const int node_i = anim_data.sorted_nodes[n];
 						const AnimationNodeData& node_data = anim_data.nodes[node_i];
@@ -4367,8 +4367,8 @@ void OpenGLEngine::draw()
 
 		// If buffer textures are too low res, free them, we wil alloc larger ones below.
 		if(main_colour_texture.nonNull() &&
-			((main_colour_texture->xRes() != xres) ||
-			(main_colour_texture->yRes() != yres)))
+			(((int)main_colour_texture->xRes() != xres) ||
+			((int)main_colour_texture->yRes() != yres)))
 		{
 			main_colour_texture = NULL;
 			main_depth_texture = NULL;
@@ -5225,7 +5225,7 @@ void OpenGLEngine::draw()
 		All blurred low res buffers are then read from and added to the resulting buffer.
 		*/
 		if(downsize_target_textures.empty() ||
-			(downsize_framebuffers[0]->xRes() != (main_viewport_w/2) || downsize_framebuffers[0]->yRes() != (main_viewport_h/2))
+			((int)downsize_framebuffers[0]->xRes() != (main_viewport_w/2) || (int)downsize_framebuffers[0]->yRes() != (main_viewport_h/2))
 			)
 		{
 			conPrint("(Re)Allocing downsize_framebuffers etc..");
