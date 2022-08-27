@@ -29,6 +29,9 @@ Copyright Glare Technologies Limited 2022 -
 #ifndef PNG_INTEL_SSE
 #error PNG_INTEL_SSE should be defined in preprocessor defs.
 #endif
+#ifndef PNG_NO_SETJMP
+#error PNG_NO_SETJMP should be defined in preprocessor defs.
+#endif
 
 
 // See 'Precompute colour profile data' below.
@@ -52,20 +55,9 @@ static const uint8 sRGB_profile_data[] = { 0, 0, 2, 80, 108, 99, 109, 115, 4, 48
 // png_set_keep_unknown_chunks(png_ptr, 1, NULL, 0);
 
 
-// Gets passed to libpng, we can store error messages in here.
-struct PNGDecoderErrorStruct
-{
-	std::string message;
-};
-
-
 static void pngdecoder_error_func(png_structp png, const char* msg)
 {
-	PNGDecoderErrorStruct* error_struct = (PNGDecoderErrorStruct*)png_get_error_ptr(png);
-
-	error_struct->message = std::string(msg);
-
-	longjmp(png_jmpbuf(png), 1);
+	throw ImFormatExcep("Error while processing PNG file: " + std::string(msg));
 }
 
 
@@ -86,10 +78,7 @@ static void pngdecoder_read_data(png_structp png_ptr, png_bytep data, png_size_t
 	}
 	catch(glare::Exception& e)
 	{
-		PNGDecoderErrorStruct* error_struct = (PNGDecoderErrorStruct*)png_get_error_ptr(png_ptr);
-		error_struct->message = e.what();
-
-		longjmp(png_jmpbuf(png_ptr), 1);
+		throw ImFormatExcep("Error while processing PNG file: " + e.what());
 	}
 }
 
@@ -108,155 +97,130 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 }
 
 
-// Code with no C++ object creation or destruction, since it doesn't work properly with setjmp/longjmp.
-GLARE_NO_INLINE static int doDecodeFromBuffer(BufferViewInStream& buffer_view_in_stream, std::vector<png_bytep>& row_pointers, PNGDecoderErrorStruct& error_out, Map2D*& map_out)
+GLARE_NO_INLINE Reference<Map2D> doDecodeFromBuffer(BufferViewInStream& buffer_view_in_stream, std::vector<png_bytep>& row_pointers)
 {
-	map_out = NULL;
-
 	png_structp png_ptr = NULL;
 	png_infop info_ptr = NULL;
 
-	png_ptr = png_create_read_struct(
-		PNG_LIBPNG_VER_STRING, 
-		&error_out,
-		pngdecoder_error_func, 
-		pngdecoder_warning_func
-	);
-	if(!png_ptr)
-		return 1;
-
-
-	if(setjmp(png_jmpbuf(png_ptr)) != 0)
+	try
 	{
-		// We encountered an error in libpng, and libpng called longjump to jump here. (or we called it in pngdecoder_read_data() etc.)
-		png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-		return 1;
-	}
-
-	// Make CRC errors into warnings.
-	png_set_crc_action(png_ptr, PNG_CRC_WARN_USE, PNG_CRC_WARN_USE);
-
-	info_ptr = png_create_info_struct(png_ptr);
-	if(!info_ptr)
-	{
-		error_out.message = "Failed to create PNG info struct.";
-		png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-		return 1;
-	}
-
-	// Set the read callback function, to read from our data buffer.
-	png_set_read_fn(png_ptr, /*io ptr=*/&buffer_view_in_stream, /*read data function=*/pngdecoder_read_data);
+		png_ptr = png_create_read_struct(
+			PNG_LIBPNG_VER_STRING,
+			NULL, // error ptr &error_out,
+			pngdecoder_error_func,
+			pngdecoder_warning_func
+		);
+		if(!png_ptr)
+			throw ImFormatExcep("Failed to create PNG read struct.");
 
 
-	png_read_info(png_ptr, info_ptr);
+		// Make CRC errors into warnings.
+		png_set_crc_action(png_ptr, PNG_CRC_WARN_USE, PNG_CRC_WARN_USE);
+
+		info_ptr = png_create_info_struct(png_ptr);
+		if(!info_ptr)
+			throw ImFormatExcep("Failed to create PNG info struct.");
+
+		// Set the read callback function, to read from our data buffer.
+		png_set_read_fn(png_ptr, /*io ptr=*/&buffer_view_in_stream, /*read data function=*/pngdecoder_read_data);
 
 
-	// Work out gamma
-	double use_gamma = 2.2;
+		png_read_info(png_ptr, info_ptr);
 
-	int intent = 0;
-	if(png_get_sRGB(png_ptr, info_ptr, &intent))
-	{
-		// There is a sRGB chunk in this file, so it uses the sRGB colour space,
-		// which in turn implies a specific gamma value.
-		use_gamma = 2.2;
-	}
-	else
-	{
-		// Read gamma
-		double file_gamma = 0;
-		if(png_get_gAMA(png_ptr, info_ptr, &file_gamma))
+
+		// Work out gamma
+		double use_gamma = 2.2;
+
+		int intent = 0;
+		if(png_get_sRGB(png_ptr, info_ptr, &intent))
 		{
-			// There was gamma info in the file.
-			// File gamma is < 1, e.g. 0.45
-			use_gamma = 1.0 / file_gamma;
+			// There is a sRGB chunk in this file, so it uses the sRGB colour space,
+			// which in turn implies a specific gamma value.
+			use_gamma = 2.2;
 		}
-	}
+		else
+		{
+			// Read gamma
+			double file_gamma = 0;
+			if(png_get_gAMA(png_ptr, info_ptr, &file_gamma))
+			{
+				// There was gamma info in the file.
+				// File gamma is < 1, e.g. 0.45
+				use_gamma = 1.0 / file_gamma;
+			}
+		}
 
 
-	// Set up the transformations that we want to run.
-	png_set_palette_to_rgb(png_ptr);
-	png_set_expand_gray_1_2_4_to_8(png_ptr);
+		// Set up the transformations that we want to run.
+		png_set_palette_to_rgb(png_ptr);
+		png_set_expand_gray_1_2_4_to_8(png_ptr);
 
-	// Re-read info, which will be changed based on our transformations.
-	png_read_update_info(png_ptr, info_ptr);
+		// Re-read info, which will be changed based on our transformations.
+		png_read_update_info(png_ptr, info_ptr);
 
-	const uint32 width = png_get_image_width(png_ptr, info_ptr);
-	const uint32 height = png_get_image_height(png_ptr, info_ptr);
-	const uint32 bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-	const uint32 num_channels = png_get_channels(png_ptr, info_ptr);
+		const uint32 width = png_get_image_width(png_ptr, info_ptr);
+		const uint32 height = png_get_image_height(png_ptr, info_ptr);
+		const uint32 bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+		const uint32 num_channels = png_get_channels(png_ptr, info_ptr);
 
-	if(width >= 1000000)
-	{
-		error_out.message = "invalid width: " + toString(width);
+		if(width >= 1000000)
+			throw ImFormatExcep("invalid width: " + toString(width));
+		if(height >= 1000000)
+			throw ImFormatExcep("invalid height: " + toString(height));
+
+		const size_t max_num_pixels = 1 << 28;
+		if((size_t)width * (size_t)height > max_num_pixels)
+			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(width) + ", " + toString(height));
+
+		if(num_channels > 4)
+			throw ImFormatExcep("Invalid num channels: " + toString(num_channels));
+
+		if(bit_depth != 8 && bit_depth != 16)
+			throw ImFormatExcep("Invalid bit depth found: " + toString(bit_depth));
+
+		row_pointers.resize(height);
+
+		Map2DRef map;
+		if(bit_depth == 8)
+		{
+			Reference<ImageMapUInt8> image_map = new ImageMapUInt8(width, height, num_channels);
+			map = image_map;
+			image_map->setGamma((float)use_gamma);
+
+			for(uint32 y=0; y<height; ++y)
+				row_pointers[y] = (png_bytep)image_map->getPixel(0, y);
+
+			png_read_image(png_ptr, row_pointers.data());
+		}
+		else // if(bit_depth == 16)
+		{
+			assert(bit_depth == 16);
+
+			// Swap to little-endian (Intel) byte order, from network byte order, which is what PNG uses.
+			png_set_swap(png_ptr);
+
+			Reference<ImageMap<uint16_t, UInt16ComponentValueTraits>> image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, num_channels);
+			map = image_map;
+			image_map->setGamma((float)use_gamma);
+
+			for(uint32 y=0; y<height; ++y)
+				row_pointers[y] = (png_bytep)image_map->getPixel(0, y);
+
+			png_read_image(png_ptr, row_pointers.data());
+		}
+
+		// Free structures
 		png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-		return 1;
+
+		return map;
 	}
-	if(height >= 1000000)
+	catch(ImFormatExcep& e)
 	{
-		error_out.message = "invalid height: " + toString(height);
+		// Destroy the png read struct, and the info struct, if they have been created.
+		// LibPNG seems to be good about checking for NULL pointers and setting them to NULL after destruction in png_destroy_read_struct to avoid double-destroys.
 		png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-		return 1;
+		throw e; // rethrow
 	}
-
-	const size_t max_num_pixels = 1 << 28;
-	if((size_t)width * (size_t)height > max_num_pixels)
-	{
-		error_out.message = "invalid width and height (too many pixels): " + toString(width) + ", " + toString(height);
-		png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-		return 1;
-	}
-
-	if(num_channels > 4)
-	{
-		error_out.message = "Invalid num channels: " + toString(num_channels);
-		png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-		return 1;
-	}
-
-	if(bit_depth != 8 && bit_depth != 16)
-	{
-		error_out.message = "Invalid bit depth found: " + toString(bit_depth);
-		png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-		return 1;
-	}
-
-	row_pointers.resize(height);
-
-	if(bit_depth == 8)
-	{
-		ImageMapUInt8* image_map = new ImageMapUInt8(width, height, num_channels);
-		map_out = image_map;
-		image_map->setGamma((float)use_gamma);
-
-		for(uint32 y=0; y<height; ++y)
-			row_pointers[y] = (png_bytep)image_map->getPixel(0, y);
-
-		png_read_image(png_ptr, row_pointers.data());
-	}
-	else if(bit_depth == 16)
-	{
-		// Swap to little-endian (Intel) byte order, from network byte order, which is what PNG uses.
-		png_set_swap(png_ptr);
-
-		ImageMap<uint16_t, UInt16ComponentValueTraits>* image_map = new ImageMap<uint16_t, UInt16ComponentValueTraits>(width, height, num_channels);
-		map_out = image_map;
-		image_map->setGamma((float)use_gamma);
-
-		for(uint32 y=0; y<height; ++y)
-			row_pointers[y] = (png_bytep)image_map->getPixel(0, y);
-
-		png_read_image(png_ptr, row_pointers.data());
-	}
-	else
-	{
-		assert(0);
-	}
-
-	// Free structures
-	png_destroy_read_struct(&png_ptr, &info_ptr, /*end_info_ptr_ptr=*/NULL);
-
-	return 0;
 }
 
 
@@ -266,15 +230,7 @@ Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size, con
 
 	std::vector<png_bytep> row_pointers;
 
-	PNGDecoderErrorStruct error_struct;
-
-	Map2D* map;
-	const int res = doDecodeFromBuffer(buffer_view_in_stream, row_pointers, error_struct, map);
-	Reference<Map2D> mapref(map);
-	if(res == 0)
-		return map;
-	else
-		throw ImFormatExcep(error_struct.message);
+	return doDecodeFromBuffer(buffer_view_in_stream, row_pointers);
 }
 
 
@@ -546,7 +502,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	{
 	}
 
-	return 0;  // Non-zero return values are reserved for future use.
+	return 0; // Non-zero return values are reserved for future use.
 }
 #endif
 
