@@ -1600,9 +1600,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 	if(false)
 	{
 		// Save JSON to disk for debugging
-		//const std::string json((const char*)file_data + 20, json_header.chunk_length);
-		//conPrint(PlatformUtils::getCurrentWorkingDirPath());
-		//FileUtils::writeEntireFileTextMode(pathname + ".json", json);
+		const std::string json((const char*)file_data + 20, json_header.chunk_length);
+		conPrint(PlatformUtils::getCurrentWorkingDirPath());
+		FileUtils::writeEntireFileTextMode("extracted.json", json);
 	}
 
 	// Parse JSON chunk. (chunk length already checked above)
