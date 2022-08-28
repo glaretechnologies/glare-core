@@ -205,6 +205,9 @@ void Database::finishReadingFromDisk()
 
 void Database::removeOldRecordsOnDisk(const std::string& path)
 {
+	assert(file_in == NULL);
+	assert(file_out == NULL);
+
 	const std::string temp_path = path + "_temp";
 	{
 		// Write compacted database to a temp file
