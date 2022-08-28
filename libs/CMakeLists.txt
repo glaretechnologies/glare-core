@@ -1,7 +1,7 @@
 # indigo libs
 
 SET(LIB_ONLY_INCLUDE 1)
-include(../indigo_console/jpegturbo.cmake)
+include(../cmake/jpegturbo.cmake)
 
 set (fftsssrcdir "${fftssdir}/libfftss")
 
@@ -417,7 +417,7 @@ SOURCE_GROUP(zstandard FILES ${zstandard})
 
 
 set(IGNORE_ALL_WARNINGS 1)
-include(../indigo_console/shared_cxx_settings.cmake)
+include(../cmake/shared_cxx_settings.cmake)
 
 
 add_definitions(-DPNG_ALLOW_BENIGN_ERRORS -DPNG_INTEL_SSE -DTIXML_USE_STL)
