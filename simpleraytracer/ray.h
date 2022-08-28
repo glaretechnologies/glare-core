@@ -50,6 +50,8 @@ public:
 				parallelEq(raw_recip_dir, Vec4f(-std::numeric_limits<float>::infinity()))
 			)
 		);
+
+		assert(this->recip_unitdir_f.isFinite());
 	}
 
 	GLARE_STRONG_INLINE const Vec4f& startPos() const { return startpos_f; }
