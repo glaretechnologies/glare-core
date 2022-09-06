@@ -58,7 +58,7 @@ public:
 	};
 	
 
-	ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax); // Throws ArgumentParserExcep
+	ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax, bool allow_unnamed_arg = true); // Throws ArgumentParserExcep
 	ArgumentParser();
 
 	~ArgumentParser();

@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <assert.h>
 
 
-ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax_)
+ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::map<std::string, std::vector<ArgumentType> >& syntax_, bool allow_unnamed_arg)
 :	syntax(syntax_)
 {
 	// Parse
@@ -20,7 +20,7 @@ ArgumentParser::ArgumentParser(const std::vector<std::string>& args, const std::
 		const std::string name = args[i];
 		if(syntax.find(name) == syntax.end())
 		{
-			if(parsed_free_arg)
+			if(!allow_unnamed_arg || parsed_free_arg)
 				throw ArgumentParserExcep("Unknown option '" + name + "'");
 
 			parsed_free_arg = true;
