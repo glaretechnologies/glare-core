@@ -72,6 +72,7 @@ public:
 
 	static void downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
 								const ptrdiff_t filter_span, const float * const resize_filter,
+								const ptrdiff_t out_xres, const ptrdiff_t out_yres, 
 								const Image4f& img_in, Image4f& img_out, glare::TaskManager& task_manager);
 
 	double averageLuminance() const;

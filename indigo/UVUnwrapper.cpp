@@ -1,12 +1,11 @@
 /*=====================================================================
 UVUnwrapper.cpp
 ---------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #include "UVUnwrapper.h"
 
 
-#include "RendererSettings.h"
 #include "../dll/include/IndigoException.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
@@ -1128,7 +1127,6 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 
 
 #include "TestUtils.h"
-#include "MeshLoader.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../utils/StandardPrintOutput.h"
 #include "../utils/TaskManager.h"

@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2019 -
 
 #include "BoxFilterFunction.h"
 #include "bitmap.h"
-#include "../indigo/RendererSettings.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
@@ -532,6 +531,7 @@ public:
 // border width = margin @ ssf1
 void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_width,
 							const ptrdiff_t filter_span, const float * const resize_filter,
+							const ptrdiff_t out_xres, const ptrdiff_t out_yres,
 							const Image4f& img_in, Image4f& img_out, glare::TaskManager& task_manager)
 {
 	assert(border_width >= 0);						// have padding pixels
@@ -547,8 +547,8 @@ void Image4f::downsampleImage(const ptrdiff_t factor, const ptrdiff_t border_wid
 	const ptrdiff_t in_yres  = (ptrdiff_t)img_in.getHeight();
 	const ptrdiff_t filter_bound = filter_span / 2 - 1;
 
-	const ptrdiff_t out_xres = (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor, (int)border_width);
-	const ptrdiff_t out_yres = (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor, (int)border_width);
+	//const ptrdiff_t out_xres = (ptrdiff_t)RendererSettings::computeFinalWidth((int)img_in.getWidth(), (int)factor, (int)border_width);
+	//const ptrdiff_t out_yres = (ptrdiff_t)RendererSettings::computeFinalHeight((int)img_in.getHeight(), (int)factor, (int)border_width);
 	img_out.resizeNoCopy((size_t)out_xres, (size_t)out_yres);
 
 	DownsampleImageTaskClosure closure;
@@ -600,7 +600,6 @@ float Image4f::maxPixelComponent() const
 
 
 #include "../utils/TestUtils.h"
-#include "../indigo/RendererSettings.h"
 #include "../graphics/MitchellNetravaliFilterFunction.h"
 
 

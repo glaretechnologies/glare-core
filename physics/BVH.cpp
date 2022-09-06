@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2020 -
 
 #include "BinningBVHBuilder.h"
 #include "jscol_boundingsphere.h"
-#include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/PrintOutput.h"
 #include "../utils/Timer.h"

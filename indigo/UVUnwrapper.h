@@ -1,13 +1,13 @@
 /*=====================================================================
 UVUnwrapper.h
 -------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 
 
-#include "../dll/include/IndigoMesh.h"
 #include "SampleTypes.h"
+#include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
 #include "../maths/vec2.h"
 #include "../utils/RefCounted.h"

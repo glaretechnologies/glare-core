@@ -1,7 +1,7 @@
 /*=====================================================================
 ConPrint.h
 ----------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 

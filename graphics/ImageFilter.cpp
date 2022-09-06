@@ -2544,8 +2544,8 @@ static void plotImageProfileAlongScanline(const std::string& path, float y)
 #endif
 
 
-#include "../indigo/IndigoImage.h"
-#include "../indigo/RenderChannels.h"
+//#include "../indigo/IndigoImage.h"
+//#include "../indigo/RenderChannels.h"
 
 
 /*static float toneMap(float v)

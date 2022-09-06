@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2020 -
 
 #include "BinningBVHBuilder.h"
 #include "MollerTrumboreTri.h"
-#include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../utils/PrintOutput.h"
 #include "../utils/Timer.h"

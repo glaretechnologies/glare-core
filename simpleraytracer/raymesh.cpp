@@ -7,16 +7,16 @@ File created by ClassTemplate on Wed Nov 10 02:56:52 2004
 #include "raymesh.h"
 
 
-#include "../indigo/FullHitInfo.h"
 #include "../utils/TestUtils.h"
-#include "../indigo/material.h"
-#include "../indigo/RendererSettings.h"
-#include "../indigo/TransformPath.h"
 #include "../graphics/BatchedMesh.h"
 #include "../raytracing/hitinfo.h"
 #include "../physics/BVH.h"
 #include "../physics/SmallBVH.h"
+#if IS_INDIGO
+#include "../indigo/material.h"
 #include "../indigo/DisplacementUtils.h"
+#include "../indigo/TransformPath.h"
+#endif
 #include "../dll/include/IndigoException.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/IndigoStringUtils.h"
@@ -150,8 +150,10 @@ const js::AABBox RayMesh::getAABBox() const
 }
 
 
+
 const js::AABBox RayMesh::getTightAABBoxWS(const TransformPath& transform_path) const
 {
+#if IS_INDIGO // Only compile this in Indigo, so we don't have the dependency on TransformPath
 	if(transform_path.isDynamicPath())
 		return transform_path.worldSpaceAABB(this->getAABBox());
 	else
@@ -172,7 +174,13 @@ const js::AABBox RayMesh::getTightAABBoxWS(const TransformPath& transform_path) 
 
 		return box_ws;*/
 	}
+#else
+	assert(0);
+	conPrint("ERROR: RayMesh::getTightAABBoxWS() not enabled.");
+	return js::AABBox::emptyAABBox();
+#endif
 }
+
 
 
 // Length of returned normal vector should be set to the area of triangle.
@@ -338,6 +346,7 @@ bool RayMesh::subdivideAndDisplace(glare::TaskManager& task_manager,
 	PrintOutput& print_output, bool verbose, ShouldCancelCallback* should_cancel_callback
 	)
 {
+#if IS_INDIGO
 	if(subdivide_and_displace_done)
 	{
 		// Throw exception if we are supposed to do a view-dependent subdivision
@@ -516,6 +525,9 @@ bool RayMesh::subdivideAndDisplace(glare::TaskManager& task_manager,
 		}
 	}
 	return false;
+#else
+	throw glare::Exception("RayMesh::subdivideAndDisplace() disabled, as not Indigo build.");
+#endif
 }
 
 
