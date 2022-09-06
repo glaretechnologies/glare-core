@@ -6,10 +6,13 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
+#if IS_INDIGO
 #include "../lang/WinterEnv.h"
+#endif
 #include "../raytracing/hitinfo.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
+#include <vector>
 class Object;
 
 
@@ -36,8 +39,9 @@ public:
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
-
+#if IS_INDIGO
 	GLARE_STRONG_INLINE WinterEnv& getWinterEnv() { return winter_env; }
+#endif
 
 	// For MapEnvEmitter::getSpectralRadiance
 	std::vector<float> temp_buffer;
@@ -52,5 +56,7 @@ private:
 	ThreadContext(const ThreadContext& other);
 	ThreadContext& operator = (const ThreadContext& other);
 
+#if IS_INDIGO
 	WinterEnv winter_env;
+#endif
 };
