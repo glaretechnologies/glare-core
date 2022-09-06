@@ -1,22 +1,18 @@
 /*=====================================================================
 QtUtils.cpp
 -----------
-File created by ClassTemplate on Mon Jun 29 15:03:47 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #include "QtUtils.h"
 
 
 #include <QtWidgets/QErrorMessage>
-#include <QtWidgets/QMainWindow>
 #include <QtGui/QTextDocument> // for Qt::escape()
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QLayout>
 #include <QtCore/QUrl>
 #include "../utils/ArgumentParser.h"
 #include "../utils/PlatformUtils.h"
-#include "../utils/ConPrint.h"
-#include "../utils/StringUtils.h"
 #include <limits>
 #include <assert.h>
 #include "../dll/include/IndigoString.h"
@@ -62,6 +58,14 @@ const std::string toIndString(const QString& s)
 }
 
 
+const std::string toStdString(const QString& s)
+{
+	const QByteArray bytes = s.toUtf8();
+
+	return std::string(bytes.constData(), bytes.size());
+}
+
+
 /*
 	Convert a QT string to an Indigo::String.
 */
@@ -87,7 +91,13 @@ void showErrorMessageDialog(const std::string& error_msg, QWidget* parent)
 	QErrorMessage m(parent);
 	m.setWindowTitle(QObject::tr("Error"));
 	m.showMessage((QObject::tr("Error: ") + QtUtils::toQString(error_msg)).toHtmlEscaped());
+
+	//m.setGeometry(m.geometry().x(), m.geometry().y(), 700, 400);
+	m.resize(700, 400);
+
 	m.exec();
+
+	
 }
 
 
@@ -187,34 +197,5 @@ const std::string urlEscape(const std::string& s)
 	return QtUtils::toIndString(QUrl::toPercentEncoding(QtUtils::toQString(s)));
 }
 
-
-static void doDumpWidgetTreeDebugInfo(QObject* qt_ob, int depth)
-{
-	const std::string margin(depth*2, ' ');
-
-	conPrint(margin + qt_ob->metaObject()->className());
-	if(QWidget* widget = dynamic_cast<QWidget*>(qt_ob))
-	{
-		conPrint(margin + "  geom: (" + toString(widget->geometry().x()) + "," + toString(widget->geometry().y()) + "), " + toString(widget->geometry().width()) + "x" + toString(widget->geometry().height()));
-	}
-
-	QObjectList children = qt_ob->children();
-	for (int i = 0; i < children.size(); ++i)
-	{
-		doDumpWidgetTreeDebugInfo(children.at(i), depth + 1);
-    }
-}
-
-
-void dumpWidgetTreeDebugInfo(QObject *object)
-{
-	doDumpWidgetTreeDebugInfo(object, 0);
-}
-
-
-void unminimiseWindow(QMainWindow* window)
-{
-	window->setWindowState(window->windowState() & ~Qt::WindowMinimized); // Set Qt::WindowMinimized bit to zero.
-}
 
 }

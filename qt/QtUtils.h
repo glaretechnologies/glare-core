@@ -1,20 +1,17 @@
 /*=====================================================================
 QtUtils.h
 ---------
-File created by ClassTemplate on Mon Jun 29 15:03:47 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #ifndef __QTUTILS_H_666_
 #define __QTUTILS_H_666_
 
 
 #include <QtCore/QString>
-class QObject;
 class QWidget;
 class QCheckBox;
 class ArgumentParser;
 class QLayout;
-class QMainWindow;
 namespace Indigo { class String; }
 
 
@@ -41,6 +38,7 @@ const QString toQString(const Indigo::String& s);
 	Convert a QT string to an std::string.
 */
 const std::string toIndString(const QString& s);
+const std::string toStdString(const QString& s); // Same as toIndString()
 
 /*
 	Convert a QT string to an Indigo::String.
@@ -68,14 +66,6 @@ void RemoveLayout(QWidget* widget);
 const std::string htmlEscape(const std::string& s);
 
 const std::string urlEscape(const std::string& s);
-
-
-// Print out widget names and geometry etc.. for widget and its descendents.
-void dumpWidgetTreeDebugInfo(QObject* widget);
-
-
-// If window was minimised, restore to non-minimised state.
-void unminimiseWindow(QMainWindow* window);
 
 }
 
