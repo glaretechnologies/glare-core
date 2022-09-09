@@ -70,6 +70,7 @@ void main()
 	else
 		col = diffuse_colour;
 
+#if RENDER_SUN_AND_SKY
 	// Render sun
 	
 	float sunscale = 2.0e-3f; // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
@@ -164,6 +165,8 @@ void main()
 	float lower_hemis_factor = smoothstep(1.52, 1.6, texture_coords.y);
 	col = mix(col, lower_hemis_col, lower_hemis_factor);
 #endif
+
+#endif // RENDER_SUN_AND_SKY
 
 	col *= 0.000000003; // tone-map
 

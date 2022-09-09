@@ -719,6 +719,7 @@ void main()
 
 	// Apply cloud shadows
 	// Compute position on cumulus cloud layer
+#if RENDER_CLOUD_SHADOWS
 	if(pos_ws.z < 1000.f)
 	{
 		vec3 sundir_ws = vec3(3.6716393E-01, 6.3513672E-01, 6.7955279E-01); // TEMP HACK
@@ -733,7 +734,7 @@ void main()
 		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
 		sun_vis_factor *= cumulus_trans;
 	}
-
+#endif
 
 
 	

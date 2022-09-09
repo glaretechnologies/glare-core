@@ -248,6 +248,59 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 static const bool use_multi_draw_indirect = false;
 
 
+#if !defined(OSX)
+
+static void 
+#ifdef _WIN32
+// NOTE: not sure what this should be on non-windows platforms.  APIENTRY does not seem to be defined with GCC on Linux 64.
+APIENTRY 
+#endif
+myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* userParam) 
+{
+	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION && !StringUtils::containsString(message, "recompiled")) // Don't print out notifications by default.
+	{
+		// See https://www.opengl.org/sdk/docs/man/html/glDebugMessageControl.xhtml
+
+		std::string typestr;
+		switch(type)
+		{
+		case GL_DEBUG_TYPE_ERROR: typestr = "Error"; break;
+		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "Deprecated Behaviour"; break;
+		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "Undefined Behaviour"; break;
+		case GL_DEBUG_TYPE_PORTABILITY: typestr = "Portability"; break;
+		case GL_DEBUG_TYPE_PERFORMANCE: typestr = "Performance"; break;
+		case GL_DEBUG_TYPE_MARKER: typestr = "Marker"; break;
+		case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "Push group"; break;
+		case GL_DEBUG_TYPE_POP_GROUP: typestr = "Pop group"; break;
+		case GL_DEBUG_TYPE_OTHER: typestr = "Other"; break;
+		default: typestr = "Unknown"; break;
+		}
+
+		std::string severitystr;
+		switch(severity)
+		{
+		case GL_DEBUG_SEVERITY_LOW: severitystr = "low"; break;
+		case GL_DEBUG_SEVERITY_MEDIUM: severitystr = "medium"; break;
+		case GL_DEBUG_SEVERITY_HIGH : severitystr = "high"; break;
+		case GL_DEBUG_SEVERITY_NOTIFICATION : severitystr = "notification"; break;
+		case GL_DONT_CARE: severitystr = "Don't care"; break;
+		default: severitystr = "Unknown"; break;
+		}
+
+		conPrint("==============================================================");
+		conPrint("OpenGL msg, severity: " + severitystr + ", type: " + typestr + ":");
+		conPrint(std::string(message));
+		conPrint("==============================================================");
+
+		OpenGLEngine* engine = (OpenGLEngine*)userParam;
+		if(engine && engine->print_output)
+			engine->print_output->print("OpenGL Engine: severity: " + severitystr + ", type: " + typestr + ", message: " + message);
+	}
+}
+
+#endif // !defined(OSX)
+
+
 OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 :	init_succeeded(false),
 	settings(settings_),
@@ -331,6 +384,11 @@ OpenGLEngine::~OpenGLEngine()
 	cylinder_meshdata = NULL;
 
 	delete task_manager;
+
+	// Update the message callback userParam to be NULL, since 'this' is being destroyed.
+#if !defined(OSX)
+	glDebugMessageCallback(myMessageCallback, NULL);
+#endif
 }
 
 
@@ -820,61 +878,6 @@ void OpenGLEngine::setCirrusTexture(const Reference<OpenGLTexture>& tex)
 #endif
 
 
-#if !defined(OSX)
-
-static void 
-#ifdef _WIN32
-	// NOTE: not sure what this should be on non-windows platforms.  APIENTRY does not seem to be defined with GCC on Linux 64.
-	APIENTRY 
-#endif
-myMessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* userParam) 
-{
-	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION && !StringUtils::containsString(message, "recompiled")) // Don't print out notifications by default.
-	{
-		// See https://www.opengl.org/sdk/docs/man/html/glDebugMessageControl.xhtml
-
-		std::string typestr;
-		switch(type)
-		{
-		case GL_DEBUG_TYPE_ERROR: typestr = "Error"; break;
-		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "Deprecated Behaviour"; break;
-		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "Undefined Behaviour"; break;
-		case GL_DEBUG_TYPE_PORTABILITY: typestr = "Portability"; break;
-		case GL_DEBUG_TYPE_PERFORMANCE: typestr = "Performance"; break;
-		case GL_DEBUG_TYPE_MARKER: typestr = "Marker"; break;
-		case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "Push group"; break;
-		case GL_DEBUG_TYPE_POP_GROUP: typestr = "Pop group"; break;
-		case GL_DEBUG_TYPE_OTHER: typestr = "Other"; break;
-		default: typestr = "Unknown"; break;
-		}
-
-		std::string severitystr;
-		switch(severity)
-		{
-		case GL_DEBUG_SEVERITY_LOW: severitystr = "low"; break;
-		case GL_DEBUG_SEVERITY_MEDIUM: severitystr = "medium"; break;
-		case GL_DEBUG_SEVERITY_HIGH : severitystr = "high"; break;
-		case GL_DEBUG_SEVERITY_NOTIFICATION : severitystr = "notification"; break;
-		case GL_DONT_CARE: severitystr = "Don't care"; break;
-		default: severitystr = "Unknown"; break;
-		}
-
-		conPrint("==============================================================");
-		conPrint("OpenGL msg, severity: " + severitystr + ", type: " + typestr + ":");
-		conPrint(std::string(message));
-		conPrint("==============================================================");
-
-		OpenGLEngine* engine = (OpenGLEngine*)userParam;
-		if(engine->print_output)
-			engine->print_output->print("OpenGL Engine: severity: " + severitystr + ", type: " + typestr + ", message: " + message);
-	}
-}
-
-#endif // !defined(OSX)
-
-
-
-
 void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shadow_mapping_enabled, UniformLocations& locations_out)
 {
 	locations_out.diffuse_colour_location			= prog->getUniformLocation("diffuse_colour");
@@ -1140,6 +1143,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 		// Make FBM texture
+		if(settings.render_sun_and_clouds) // Only need for clouds
 		{
 			Timer timer;
 			const size_t W = 1024;
@@ -1251,6 +1255,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define DEPTH_TEXTURE_SCALE_MULT " + (settings.shadow_mapping ? toString(shadow_mapping->getDynamicDepthTextureScaleMultiplier()) : std::string("1.0")) + "\n";
 
 		preprocessor_defines += "#define DEPTH_FOG " + (settings.depth_fog ? std::string("1") : std::string("0")) + "\n";
+		
+		preprocessor_defines += "#define RENDER_SKY_AND_CLOUD_REFLECTIONS " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define RENDER_SUN_AND_SKY " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define RENDER_CLOUD_SHADOWS " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
 
 		// static_cascade_blending causes a white-screen error on many Intel GPUs.
 		const bool static_cascade_blending = !is_intel_vendor;

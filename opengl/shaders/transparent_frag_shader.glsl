@@ -334,6 +334,7 @@ void main()
 
 
 		// Blend in reflection of cumulus clouds.  Skip cirrus clouds as an optimisation.
+#if RENDER_SKY_AND_CLOUD_REFLECTIONS
 		float cumulus_cloudfrac = 0;
 		{
 			float cumulus_ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 1000);
@@ -357,6 +358,7 @@ void main()
 		float w = 2.0e8;
 		vec4 cloudcol = vec4(w, w, w, 1);
 		spec_refl_light = mix(spec_refl_light, cloudcol, max(0.f, cloudfrac));
+#endif // RENDER_SKY_AND_CLOUD_REFLECTIONS
 
 
 		vec4 transmission_col = vec4(0.6f) + 0.4f * mat_data.diffuse_colour; // Desaturate transmission colour a bit.
