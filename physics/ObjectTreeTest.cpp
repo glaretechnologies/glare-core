@@ -7,7 +7,7 @@ Code By Nicholas Chapman.
 #include "ObjectTreeTest.h"
 
 
-#include "../raytracing/hitinfo.h"
+#include "../indigo/hitinfo.h"
 #include "../indigo/Vec3MatParameter.h"
 #include "../simpleraytracer/raysphere.h"
 #include "../maths/PCG32.h"

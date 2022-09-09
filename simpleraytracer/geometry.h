@@ -9,7 +9,7 @@ File created by ClassTemplate on Wed Apr 14 21:19:37 2004
 
 #include "../indigo/UVCoordEvaluator.h"
 #include "../indigo/SampleTypes.h"
-#include "../raytracing/hitinfo.h"
+#include "../indigo/hitinfo.h"
 #include "../physics/jscol_aabbox.h"
 #include "../maths/vec2.h"
 #include "../maths/plane.h"

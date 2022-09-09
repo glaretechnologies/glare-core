@@ -10,7 +10,7 @@ Code By Nicholas Chapman.
 #include "BVH.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../maths/PCG32.h"
-#include "../raytracing/hitinfo.h"
+#include "../indigo/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"

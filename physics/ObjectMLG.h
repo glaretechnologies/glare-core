@@ -9,7 +9,7 @@ Generated at 2012-11-12 23:08:01 +0000
 
 #include "../utils/Vector.h"
 #include "../physics/MultiLevelGrid.h"
-#include "../raytracing/hitinfo.h"
+#include "../indigo/hitinfo.h"
 class Object;
 class PrintOutput;
 class HitInfo;

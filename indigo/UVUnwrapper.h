@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
-#include "SampleTypes.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
 #include "../maths/vec2.h"

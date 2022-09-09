@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2013 -
 #include "ray.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
-#include "../raytracing/hitinfo.h"
+#include "../indigo/hitinfo.h"
 #include "../maths/GeometrySampling.h"
 #include "../indigo/object.h"
 #include "../utils/Numeric.h"
