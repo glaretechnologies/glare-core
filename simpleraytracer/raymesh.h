@@ -1,8 +1,7 @@
 /*=====================================================================
 raymesh.h
 ---------
-Copyright Glare Technologies Limited 2018 -
-File created by ClassTemplate on Wed Nov 10 02:56:52 2004
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
 

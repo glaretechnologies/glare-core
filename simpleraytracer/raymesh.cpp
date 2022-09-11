@@ -1,15 +1,14 @@
 /*=====================================================================
 raymesh.cpp
 -----------
-Copyright Glare Technologies Limited 2018 -
-File created by ClassTemplate on Wed Nov 10 02:56:52 2004
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #include "raymesh.h"
 
 
+#include "hitinfo.h"
 #include "../utils/TestUtils.h"
 #include "../graphics/BatchedMesh.h"
-#include "../indigo/hitinfo.h"
 #include "../physics/BVH.h"
 #include "../physics/SmallBVH.h"
 #if IS_INDIGO
