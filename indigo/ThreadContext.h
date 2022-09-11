@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2022 -
 #if IS_INDIGO
 #include "../lang/WinterEnv.h"
 #endif
-#include <hitinfo.h>
+#include "../simpleraytracer/hitinfo.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
 #include <vector>

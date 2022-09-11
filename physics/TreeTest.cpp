@@ -15,7 +15,7 @@ Code By Nicholas Chapman.
 #include "jscol_boundingsphere.h"
 #include "../simpleraytracer/raymesh.h"
 #include "../maths/PCG32.h"
-#include "../indigo/hitinfo.h"
+#include "../simpleraytracer/hitinfo.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../indigo/RendererSettings.h"
