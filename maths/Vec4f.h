@@ -540,6 +540,14 @@ GLARE_STRONG_INLINE Vec4f setWToOne(const Vec4f& a)
 }
 
 
+GLARE_STRONG_INLINE Vec4f setW(const Vec4f& a, float new_w)
+{
+	const Vec4f wvec = _mm_set_ss(new_w); // [new_w, 0, 0, 0]
+	const Vec4f v1 = shuffle<2, 2, 0, 0>(a, wvec); // [z, z, new_w, new_w]
+	return shuffle<0, 1, 0, 2>(a, v1); // [x, y, z, new_w]
+}
+
+
 GLARE_STRONG_INLINE const Vec4f crossProduct(const Vec4f& a, const Vec4f& b)
 {
 	// w component of result = a.w*b.w - a.w*b.w = 0

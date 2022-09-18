@@ -38,6 +38,7 @@ public:
 
 	static inline const Quat identity() { return Quat(Vec4f(0,0,0,1)); } // Quaternion corresponding to identity (null) rotation.
 
+	static inline const Quat fromAxisAndAngle(const Vec4f& unit_axis, Real angle);
 	static inline const Quat fromAxisAndAngle(const Vec3<Real>& unit_axis, Real angle);
 
 	inline void toAxisAndAngle(Vec4f& unit_axis_out, Real& angle_out) const;
@@ -114,6 +115,16 @@ template <class Real> Quat<Real>::Quat(Real x, Real y, Real z, Real w)
 template <class Real> Quat<Real>::Quat(const Vec3<Real>& v_, Real w_)
 :	v(v_.x, v_.y, v_.z, w_)
 {}
+
+
+template <class Real> const Quat<Real> Quat<Real>::fromAxisAndAngle(const Vec4f& unit_axis, Real angle)
+{
+	assert(unit_axis.isUnitLength());
+
+	const Real omega = angle * (Real)0.5;
+
+	return Quat<Real>(setW(unit_axis * sin(omega), cos(omega)));
+}
 
 
 template <class Real> const Quat<Real> Quat<Real>::fromAxisAndAngle(const Vec3<Real>& unit_axis, Real angle)

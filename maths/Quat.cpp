@@ -209,6 +209,21 @@ void quaternionTests()
 		testAssert(epsEqual(q.v, Vec4f(axis.x * sin(angle/2), axis.y * sin(angle/2.f), axis.z * sin(angle/2.f), cos(angle/2.f))));
 	}
 
+	//================== fromAxisAndAngle(const Vec4f& unit_axis, Real angle) ====================
+	{
+		// vector part of quat is axis * sin(angle/2), scalar part is cos(angle/2)
+		Vec4f axis(1, 0, 0, 0);
+		float angle = Maths::pi<float>();
+		Quatf q = Quatf::fromAxisAndAngle(axis, angle);
+		testAssert(epsEqual(q.v, Vec4f(1,0,0,0)));
+	}
+	{
+		Vec4f axis = normalise(Vec4f(1, 0.7, 0.2, 0));
+		float angle = 0.9f;
+		Quatf q = Quatf::fromAxisAndAngle(axis, angle);
+		testAssert(epsEqual(q.v, Vec4f(axis[0] * sin(angle/2), axis[1] * sin(angle/2.f), axis[2] * sin(angle/2.f), cos(angle/2.f))));
+	}
+
 	//================== toAxisAndAngle() ====================
 
 	// Test handling of vector part = 0, scalar part = 1 case.

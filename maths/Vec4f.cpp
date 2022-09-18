@@ -244,6 +244,12 @@ void Vec4f::test()
 		testAssert(setWToOne(Vec4f(1, 2, 3, std::numeric_limits<float>::infinity())) == Vec4f(1, 2, 3, 1));
 	}
 
+	// Test setW
+	{
+		testAssert(setW(Vec4f(1, 2, 3, 4), 5) == Vec4f(1, 2, 3, 5));
+		testAssert(setW(Vec4f(1, 2, 3, 0), -10.f) == Vec4f(1, 2, 3, -10.f));
+	}
+
 	// Test dot()
 	{
 		const Vec4f a(1, 2, 3, 4);
