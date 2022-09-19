@@ -3,8 +3,7 @@ QtUtils.h
 ---------
 Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
-#ifndef __QTUTILS_H_666_
-#define __QTUTILS_H_666_
+#pragma once
 
 
 #include <QtCore/QString>
@@ -12,6 +11,7 @@ class QWidget;
 class QCheckBox;
 class ArgumentParser;
 class QLayout;
+class QMainWindow;
 namespace Indigo { class String; }
 
 
@@ -20,8 +20,6 @@ QtUtils
 -------
 
 =====================================================================*/
-
-
 namespace QtUtils
 {
 
@@ -67,11 +65,11 @@ const std::string htmlEscape(const std::string& s);
 
 const std::string urlEscape(const std::string& s);
 
-}
+
+// If window was minimised, restore to non-minimised state.
+void unminimiseWindow(QMainWindow* window);
 
 
-#endif //__QTUTILS_H_666_
-
-
+} // end namespace QtUtils
 
 

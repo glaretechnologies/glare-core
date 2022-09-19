@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include <QtWidgets/QErrorMessage>
+#include <QtWidgets/QMainWindow>
 #include <QtGui/QTextDocument> // for Qt::escape()
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QLayout>
@@ -15,7 +16,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/PlatformUtils.h"
 #include <limits>
 #include <assert.h>
-#include "../dll/include/IndigoString.h"
+#include <dll/include/IndigoString.h>
 
 
 namespace QtUtils
@@ -198,4 +199,10 @@ const std::string urlEscape(const std::string& s)
 }
 
 
+void unminimiseWindow(QMainWindow* window)
+{
+	window->setWindowState(window->windowState() & ~Qt::WindowMinimized); // Set Qt::WindowMinimized bit to zero.
 }
+
+
+} // end namespace QtUtils
