@@ -930,7 +930,7 @@ void WMFVideoReader::OnReadSample(
 							{
 								// Allocate a texture, add to used_textures.
 
-								// conPrint("Allocating new D3D texture. (used_textures: " + toString(texture_pool->used_textures.size()) + ")");
+								// conPrint("Allocating new D3D texture. (used_textures: " + toString(texture_pool->used_textures.size()) + ", free_textures: " + toString(texture_pool->free_textures.size()) + ")");
 
 								// conPrint("Creating copy of texture " + toHexString((uint64)d3d_tex.ptr) + "...");
 								D3D11_TEXTURE2D_DESC desc;
@@ -965,6 +965,9 @@ void WMFVideoReader::OnReadSample(
 								ID3D11Texture2D* tex = texture_pool->free_textures.back();
 								texture_pool->free_textures.pop_back();
 								use_tex = tex;
+
+								// Now we are using this texture, add to used_textures.
+								texture_pool->used_textures.insert(tex);
 							}
 						} // End texture pool mutex scope.
 
