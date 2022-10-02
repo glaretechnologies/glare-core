@@ -508,6 +508,7 @@ void main()
 	float final_metallic_frac = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.metallic_frac * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).b) : MAT_UNIFORM.metallic_frac;
 	float final_roughness     = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
 
+	float final_fresnel_scale = MAT_UNIFORM.fresnel_scale * (1 - square(final_roughness)); // Reduce fresnel reflection at higher roughnesses
 
 	//----------------------- Direct lighting from interior lights ----------------------------
 	// Load indices into a local array, so we can iterate over the array in a for loop.  TODO: find a better way of doing this.
@@ -556,7 +557,7 @@ void main()
 			float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
 			vec4 specular_fresnel;
 			{
-				vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * MAT_UNIFORM.fresnel_scale;
+				vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * final_fresnel_scale;
 				vec4 metal_fresnel = vec4(
 					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
 					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
@@ -577,12 +578,12 @@ void main()
 	}
 
 
-	//------------- Compute specular microfacet terms --------------
+	//------------- Compute specular microfacet terms for sun lighting --------------
 	//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
 	float h_cos_theta = abs(dot(h, unit_normal_cs));
 	vec4 specular_fresnel;
 	{
-		vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * MAT_UNIFORM.fresnel_scale;
+		vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * final_fresnel_scale;
 		vec4 metal_fresnel = vec4(
 			metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
 			metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
@@ -784,7 +785,7 @@ void main()
 
 
 	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));
-	vec4 dielectric_refl_fresnel = vec4(fresnelApprox(fresnel_cos_theta, 1.5) * MAT_UNIFORM.fresnel_scale);
+	vec4 dielectric_refl_fresnel = vec4(fresnelApprox(fresnel_cos_theta, 1.5) * final_fresnel_scale);
 	vec4 metallic_refl_fresnel = vec4(
 		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.r),
 		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.g),
