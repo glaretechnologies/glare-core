@@ -101,7 +101,7 @@ const JSONNode& JSONNode::getChildNode(const JSONParser& parser, const string_vi
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index];
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
@@ -114,7 +114,7 @@ size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view& 
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index].getUIntValue();
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
@@ -140,7 +140,7 @@ int JSONNode::getChildIntValue(const JSONParser& parser, const string_view& name
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index].getIntValue();
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
@@ -166,7 +166,7 @@ double JSONNode::getChildDoubleValue(const JSONParser& parser, const string_view
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index].getDoubleValue();
 
-	throw glare::Exception("Failed to find child node with name " + name + ".");
+	throw glare::Exception("Failed to find child node with name " + toString(name) + ".");
 }
 
 
@@ -205,7 +205,7 @@ const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const
 		if(name_val_pairs[i].name == name)
 			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
@@ -218,7 +218,7 @@ const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& 
 		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
 			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
 
-	return default_val.to_string();
+	return toString(default_val);
 }
 
 
@@ -232,11 +232,11 @@ const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_
 		{
 			const JSONNode& child = parser.nodes[name_val_pairs[i].value_node_index];
 			if(child.type != JSONNode::Type_Object)
-				throw glare::Exception("Expected child with name '" + name + "' to have type object, had type " + typeString(child.type));
+				throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + typeString(child.type));
 			return child;
 		}
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
@@ -254,7 +254,7 @@ const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_v
 			return child;
 		}
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + name + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 

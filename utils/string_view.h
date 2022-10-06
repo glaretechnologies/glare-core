@@ -1,9 +1,26 @@
 /*=====================================================================
 string_view.h
 -------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #pragma once
+
+
+#if __cplusplus >= 201703L // If c++ version is >= c++17:
+
+
+#include <string_view>
+
+using string_view = std::string_view; // Use the standard library string_view.
+
+
+inline const std::string toString(const string_view& view)
+{
+	return std::string(view);
+}
+
+
+#else // else if c++ version is < c++17:
 
 
 #include <string>
@@ -121,3 +138,12 @@ inline const std::string operator + (string_view lhs, string_view rhs)
 		res[lhs.size() + i] = rhs[i];
 	return res;
 }
+
+
+inline const std::string toString(const string_view& view)
+{
+	return std::string(view.data_, view.data_ + view.size_);
+}
+
+
+#endif // end if c++ version is < c++17

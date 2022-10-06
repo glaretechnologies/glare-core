@@ -122,7 +122,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 	string_view verb;
 	if(!parser.parseAlphaToken(verb))
 		throw WebsiteExcep("Failed to parse HTTP verb");
-	request_info.verb = verb.to_string();
+	request_info.verb = std::string(verb);
 	if(!parser.parseChar(' '))
 		throw WebsiteExcep("Parse error");
 
@@ -209,7 +209,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		{
 			try
 			{
-				content_length = stringToInt(field_value.to_string());
+				content_length = stringToInt(std::string(field_value));
 			}
 			catch(StringUtilsExcep& e)
 			{
@@ -230,12 +230,12 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				string_view key;
 				if(!cookie_parser.parseToChar('=', key))
 					throw WebsiteExcep("Parser error while parsing cookies");
-				request_info.cookies.back().key = key.to_string();
+				request_info.cookies.back().key = std::string(key);
 				cookie_parser.advance(); // Advance past '='
 				// Parse cookie value
 				string_view value;
 				cookie_parser.parseToCharOrEOF(';', value);
-				request_info.cookies.back().value = value.to_string();
+				request_info.cookies.back().value = std::string(value);
 						
 				if(cookie_parser.currentIsChar(';'))
 				{
@@ -251,7 +251,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "sec-websocket-key"))
 		{
-			websocket_key = field_value.to_string();
+			websocket_key = std::string(field_value);
 
 			const std::string magic_key = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"; // From https://tools.ietf.org/html/rfc6455, section 1.3 (page 6)
 			const std::string combined_key = websocket_key + magic_key;
@@ -263,7 +263,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "sec-websocket-protocol"))
 		{
-			websocket_protocol = field_value.to_string();
+			websocket_protocol = std::string(field_value);
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "upgrade"))
 		{
@@ -319,7 +319,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 	
 	string_view path;
 	uri_parser.parseToCharOrEOF('?', path);
-	request_info.path = path.to_string();
+	request_info.path = std::string(path);
 
 	if(uri_parser.currentIsChar('?')) // Advance past '?' if present.
 		uri_parser.advance();
@@ -333,13 +333,13 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		string_view escaped_key;
 		if(!uri_parser.parseToChar('=', escaped_key))
 			throw WebsiteExcep("Parser error while parsing URL params");
-		request_info.URL_params.back().key = Escaping::URLUnescape(escaped_key.to_string());
+		request_info.URL_params.back().key = Escaping::URLUnescape(std::string(escaped_key));
 		uri_parser.advance(); // Advance past '='
 			
 		// Parse value
 		string_view escaped_value;
 		uri_parser.parseToCharOrEOF('&', escaped_value);
-		request_info.URL_params.back().value = Escaping::URLUnescape(escaped_value.to_string());
+		request_info.URL_params.back().value = Escaping::URLUnescape(std::string(escaped_value));
 						
 		if(uri_parser.currentIsChar('&'))
 			uri_parser.advance(); // Advance past '&'
@@ -400,7 +400,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				string_view escaped_key;
 				if(!form_parser.parseToChar('=', escaped_key))
 					throw WebsiteExcep("Parser error while parsing URL params");
-				request_info.post_fields.back().key = Escaping::URLUnescape(escaped_key.to_string());
+				request_info.post_fields.back().key = Escaping::URLUnescape(std::string(escaped_key));
 
 				assert(form_parser.currentIsChar('='));
 				form_parser.advance(); // Advance past '='
@@ -408,7 +408,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				// Parse value
 				string_view escaped_value;
 				form_parser.parseToCharOrEOF('&', escaped_value);
-				request_info.post_fields.back().value = Escaping::URLUnescape(escaped_value.to_string());
+				request_info.post_fields.back().value = Escaping::URLUnescape(std::string(escaped_value));
 						
 				if(form_parser.currentIsChar('&'))
 					form_parser.advance(); // Advance past '&'

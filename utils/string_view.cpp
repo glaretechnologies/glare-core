@@ -93,21 +93,21 @@ void testStringView()
 		}
 	}
 
-	//==================================== Test to_string ====================================
+	//==================================== Test toString() ====================================
 	{
 		{
 			string_view v2("a");
-			testAssert(v2.to_string() == std::string("a"));
+			testAssert(toString(v2) == std::string("a"));
 		}
 		{
 			string_view v2("ab");
-			testAssert(v2.to_string() == std::string("ab"));
+			testAssert(toString(v2) == std::string("ab"));
 		}
 
 		// Empty string
 		{
 			string_view v2("");
-			testAssert(v2.to_string() == std::string(""));
+			testAssert(toString(v2) == std::string(""));
 		}
 	}
 

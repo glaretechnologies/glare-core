@@ -83,7 +83,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 	
 	HTTPClient::ResponseInfo file_info;
 	file_info.response_code = code;
-	file_info.response_message = response_msg.to_string();
+	file_info.response_message = toString(response_msg);
 
 	// Parse response headers:
 	uint64 content_length = 0;
@@ -122,7 +122,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		{
 			try
 			{
-				content_length = stringToUInt64(field_value.to_string());
+				content_length = stringToUInt64(toString(field_value));
 				have_content_length = true;
 			}
 			catch(StringUtilsExcep& e)
@@ -132,7 +132,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "content-type"))
 		{
-			file_info.mime_type = field_value.to_string();
+			file_info.mime_type = toString(field_value);
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "transfer-encoding"))
 		{
@@ -157,7 +157,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		if(request_type == RequestType_Get)
 		{
 			// conPrint("Redirecting to '" + location + "'...");
-			return doDownloadFile(location.to_string(), /*request_type, */num_redirects_done + 1, data_out);
+			return doDownloadFile(toString(location), /*request_type, */num_redirects_done + 1, data_out);
 		}
 		else
 			throw glare::Exception("Redirect received for POST request, not supported currently.");
@@ -199,10 +199,10 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 					if(size_parser.eof())
 					{
 						assert(size_str.size() >= 2);
-						chunk_size = ::hexStringToUInt64(string_view(size_str.data(), size_str.size() - 2).to_string()); // trim off CRLF
+						chunk_size = ::hexStringToUInt64(toString(string_view(size_str.data(), size_str.size() - 2))); // trim off CRLF
 					}
 					else
-						chunk_size = ::hexStringToUInt64(size_str.to_string());
+						chunk_size = ::hexStringToUInt64(toString(size_str));
 				}
 				catch(StringUtilsExcep& e)
 				{

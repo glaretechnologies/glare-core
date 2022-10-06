@@ -53,7 +53,7 @@ static std::string updateLineNumber(const std::string& log, int line_adjustment)
 
 		string_view rest_of_line;
 		parser.parseLine(rest_of_line);
-		newlog += rest_of_line.to_string();
+		newlog += toString(rest_of_line);
 	}
 
 	return newlog;

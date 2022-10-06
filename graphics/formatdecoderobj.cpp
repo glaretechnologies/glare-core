@@ -390,7 +390,7 @@ void FormatDecoderObj::loadModelFromBuffer(const uint8* data, size_t len, const 
 					if(parse_mtllib)
 					{
 						// NOTE: what's the best way to handle this?  Should we allow a "./" prefix?
-						const std::string safe_mtl_path = sanitiseString(mtllib_path.to_string());
+						const std::string safe_mtl_path = sanitiseString(toString(mtllib_path));
 
 						// If .mtl file does not exist, just skip trying to parse it instead of throwing an exception.
 						const std::string mtl_fullpath = FileUtils::join(FileUtils::getDirectory(filename), safe_mtl_path);
@@ -407,14 +407,14 @@ void FormatDecoderObj::loadModelFromBuffer(const uint8* data, size_t len, const 
 					parser.parseNonWSToken(material_name);
 
 					/// See if material has already been created, create it if it hasn't been ///
-					if(materials.isInserted(material_name.to_string()))
-						current_mat_index = materials.getValue(material_name.to_string());
+					if(materials.isInserted(toString(material_name)))
+						current_mat_index = materials.getValue(toString(material_name));
 					else
 					{
 						//conPrint("\tFound reference to material '" + material_name + "'.");
 						current_mat_index = (int)materials.size();
-						materials.insert(material_name.to_string(), current_mat_index);
-						handler.addMaterialUsed(toIndigoString(material_name.to_string()));
+						materials.insert(toString(material_name), current_mat_index);
+						handler.addMaterialUsed(toIndigoString(toString(material_name)));
 					}
 				}
 			}
@@ -492,7 +492,7 @@ void FormatDecoderObj::parseMTLLibFromBuffer(const uint8* data, size_t len, cons
 				parser.parseNonWSToken(material_name);
 
 				mtllib_mats_out.materials.push_back(MTLMaterial());
-				mtllib_mats_out.materials.back().name = material_name.to_string();
+				mtllib_mats_out.materials.back().name = toString(material_name);
 			}
 			else if(token == "Kd")
 			{

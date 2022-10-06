@@ -1326,7 +1326,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 			std::vector<unsigned char> decoded_data;
 			Base64::decode(data_base64, /*data out=*/decoded_data);
 
-			const std::string path = saveImageForMimeType(image.name, mime_type.to_string(), decoded_data.data(), decoded_data.size(), write_images_to_disk);
+			const std::string path = saveImageForMimeType(image.name, toString(mime_type), decoded_data.data(), decoded_data.size(), write_images_to_disk);
 			
 			image.uri = path; // Update GLTF image to use URI on disk
 		}
