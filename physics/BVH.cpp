@@ -345,8 +345,8 @@ BVH::DistType BVH::traceSphere(const Ray& ray_ws_, const Matrix4f& to_object, co
 	const js::AABBox start_aabb_ws(start_ws - Vec4f(radius_ws, radius_ws, radius_ws, 0), start_ws + Vec4f(radius_ws, radius_ws, radius_ws, 0));
 	const js::AABBox end_aabb_ws  (end_ws   - Vec4f(radius_ws, radius_ws, radius_ws, 0), end_ws   + Vec4f(radius_ws, radius_ws, radius_ws, 0));
 
-	const js::AABBox start_aabb_os = start_aabb_ws.transformedAABB(to_object);
-	const js::AABBox end_aabb_os =   end_aabb_ws  .transformedAABB(to_object);
+	const js::AABBox start_aabb_os = start_aabb_ws.transformedAABBFast(to_object);
+	const js::AABBox end_aabb_os =   end_aabb_ws  .transformedAABBFast(to_object);
 
 	const js::AABBox spherepath_aabb_os = AABBUnion(start_aabb_os, end_aabb_os);
 
@@ -582,7 +582,7 @@ void BVH::appendCollPoints(const Vec4f& sphere_pos_ws, float radius_ws, const Ma
 {
 	const float radius_ws2 = radius_ws*radius_ws;
 	const js::AABBox sphere_aabb_ws(sphere_pos_ws - Vec4f(radius_ws, radius_ws, radius_ws, 0), sphere_pos_ws + Vec4f(radius_ws, radius_ws, radius_ws, 0));
-	const js::AABBox sphere_aabb_os = sphere_aabb_ws.transformedAABB(to_object);
+	const js::AABBox sphere_aabb_os = sphere_aabb_ws.transformedAABBFast(to_object);
 
 	int stack[64];
 	int stack_top = 0;

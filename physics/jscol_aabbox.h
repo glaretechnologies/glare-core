@@ -337,28 +337,73 @@ AABBox AABBox::transformedAABB(const Matrix4f& M) const
 }
 
 
-// Faster, but with possible precision issues due to subtraction to compute 'diff'.
+/*
+Faster, but doesn't result in exactly the same AABB as computing the AABB enclosing M * corner_i for each corner, for numerical reasons.
+
+let
+a = (m_11 m_12 m_13 m_14)  (min_x) = (m_11.min_x + m_12.min_y + m_13.min_z + m_14)
+	(m_21 m_22 m_23 m_24)  (min_y)   (m_21.min_x + m_22.min_y + m_23.min_z + m_24)
+	(                   )  (min_z)   (m_31.min_x + m_32.min_y + m_33.min_z + m_34)
+	(					)  (    1)   (                                          1)
+
+b = (m_11 m_12 m_13 m_14)  (min_x) = (m_11.min_x + m_12.min_y + m_13.max_z + m_14)
+	(m_21 m_22 m_23 m_24)  (min_y)   (m_21.min_x + m_22.min_y + m_23.max_z + m_24)
+	(                   )  (max_z)   (m_31.min_x + m_32.min_y + m_33.max_z + m_34)   # Note max_z here
+	(					)  (    1)   (                                          1)
+
+c = (m_11 m_12 m_13 m_14)  (min_x) = (m_11.min_x + m_12.max_y + m_13.min_z + m_14)
+	(m_21 m_22 m_23 m_24)  (max_y)   (m_21.min_x + m_22.max_y + m_23.min_z + m_24)   # Note max_y here
+	(                   )  (min_z)   (m_31.min_x + m_32.max_y + m_33.min_z + m_34)
+	(					)  (    1)   (                                          1)
+
+...
+
+i = (m_11 m_12 m_13 m_14)  (max_x) = (m_11.max_x + m_12.max_y + m_13.max_z + m_14)
+	(m_21 m_22 m_23 m_24)  (max_y)   (m_21.max_x + m_22.max_y + m_23.max_z + m_24)
+	(                   )  (max_z)   (m_31.max_x + m_32.max_y + m_33.max_z + m_34)
+	(					)  (    1)   (                                          1)
+
+
+let min' = (min(a_x, b_x, c_x, ....., i_x) = (min((m_11.min_x + m_12.min_y + m_13.min_z + m_14), (m_11.min_x + m_12.min_y + m_13.max_z + m_14), ... , (m_11.max_x + m_12.max_y + m_13.max_z + m_14))
+		   (min(a_y, b_y, c_y, ....., i_y)   ( ... )
+		   (min(a_z, b_z, c_z, ....., i_z)   ( ... )
+		   (1)                               (1)
+
+ min' = (min(m_11.min_x, m_11.max_x) + min(m_12.min_y, m_12.max_y) + min(m_13.min_z, m_13.max_z) + m_14)
+		(min(m_21.min_x, m_21.max_x) + min(m_22.min_y, m_22.max_y) + min(m_23.min_z, m_23.max_z) + m_24)
+		(min(m_31.min_x, m_31.max_x) + min(m_32.min_y, m_32.max_y) + min(m_33.min_z, m_33.max_z) + m_34)
+		(1)
+
+		(m_11.min_x)
+		(m_21.min_x)
+		(m_31.min_x)
+		(0)
+= m_col_1.min_x
+
+so min' = component_wise_min(m_col_1.min_x, m_col_1.max_x) + component_wise_min(m_col_2.min_y, m_col_2.max_y) + component_wise_min(m_col_3.min_y, m_col_3.max_y) + col_4
+
+likewise
+
+max' = component_wise_max(m_col_1.min_x, m_col_1.max_x) + component_wise_max(m_col_2.min_y, m_col_2.max_y) + component_wise_max(m_col_3.min_y, m_col_3.max_y) + col_4
+*/
 AABBox AABBox::transformedAABBFast(const Matrix4f& M) const 
 {
-	const Vec4f M_min = M.mul3Point(min_);
-	const Vec4f diff = max_ - min_;
+	const Vec4f col_0 = M.getColumn(0);
+	const Vec4f col_1 = M.getColumn(1);
+	const Vec4f col_2 = M.getColumn(2);
+	const Vec4f col_3 = M.getColumn(3);
 
-	// Transform edge vectors by M.  Because the edge vectors are axis-aligned, they only have one non-zero component, 
-	// so they just pick out a single column of M.  
-	// Therefore we can just do a single 4-vector multiply instead of a full matrix mult.
-	const Vec4f M_e0 = mul(M.getColumn(0), copyToAll<0>(diff)); // e0 = (max_x - min_x, 0, 0)
-	const Vec4f M_e1 = mul(M.getColumn(1), copyToAll<1>(diff)); // e1 = (0, max_y - min_y, 0)
-	const Vec4f M_e2 = mul(M.getColumn(2), copyToAll<2>(diff)); // e2 = (0, 0, max_z - min_z)
+	const Vec4f col_0_min_x = col_0 * elem<0>(min_);
+	const Vec4f col_0_max_x = col_0 * elem<0>(max_);
+	const Vec4f col_1_min_y = col_1 * elem<1>(min_);
+	const Vec4f col_1_max_y = col_1 * elem<1>(max_);
+	const Vec4f col_2_min_z = col_2 * elem<2>(min_);
+	const Vec4f col_2_max_z = col_2 * elem<2>(max_);
 
-	js::AABBox M_bbox(M_min, M_min);
-	M_bbox.enlargeToHoldPoint(M_min               + M_e2);
-	M_bbox.enlargeToHoldPoint(M_min        + M_e1       );
-	M_bbox.enlargeToHoldPoint(M_min        + M_e1 + M_e2);
-	M_bbox.enlargeToHoldPoint(M_min + M_e0              );
-	M_bbox.enlargeToHoldPoint(M_min + M_e0        + M_e2);
-	M_bbox.enlargeToHoldPoint(M_min + M_e0 + M_e1       );
-	M_bbox.enlargeToHoldPoint(M_min + M_e0 + M_e1 + M_e2);
-	return M_bbox;
+	return js::AABBox(
+		min(col_0_min_x, col_0_max_x) + min(col_1_min_y, col_1_max_y) + min(col_2_min_z, col_2_max_z) + col_3,
+		max(col_0_min_x, col_0_max_x) + max(col_1_min_y, col_1_max_y) + max(col_2_min_z, col_2_max_z) + col_3
+	);
 }
 
 
