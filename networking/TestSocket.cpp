@@ -63,9 +63,6 @@ void TestSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		const size_t numbytestoread = readlen;
 		assert(numbytestoread > 0);
 
-		//------------------------------------------------------------------------
-		//do the read.  We will read
-		//------------------------------------------------------------------------
 		// Advance to next buffer we have not completely read.
 		while(1)
 		{
@@ -139,6 +136,8 @@ bool TestSocket::endOfStream()
 
 void TestSocket::writeData(const void* data, size_t num_bytes)
 {
+	std::vector<uint8> buf((const uint8*)data, (const uint8*)data + num_bytes);
+	dest_buffers.push_back(buf);
 }
 
 

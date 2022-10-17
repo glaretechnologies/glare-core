@@ -69,6 +69,8 @@ public:
 	std::list<std::vector<uint8> > buffers;
 	size_t read_i;
 
+	std::vector<std::vector<uint8> > dest_buffers; // write methods write to these buffers.
+
 private:
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
