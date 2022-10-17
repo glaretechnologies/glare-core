@@ -2033,7 +2033,7 @@ void OpenGLEngine::unloadAllData()
 
 const js::AABBox OpenGLEngine::getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world)
 {
-	return object.mesh_data->aabb_os.transformedAABB(to_world);
+	return object.mesh_data->aabb_os.transformedAABBFast(to_world);
 }
 
 
