@@ -139,6 +139,7 @@ template <class Real> const Quat<Real> Quat<Real>::fromAxisAndAngle(const Vec3<R
 template <class Real> void Quat<Real>::toAxisAndAngle(Vec4f& unit_axis_out, Real& angle_out) const
 {
 	angle_out = 2 * std::acos(v[3]);
+	assert(isFinite(angle_out));
 	const Vec4f vec = maskWToZero(v);
 	const float v_len = vec.length();
 	if(v_len == 0) // If the vector part of the quaternion was zero:
