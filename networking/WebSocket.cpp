@@ -13,18 +13,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/PlatformUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"
+#include "../utils/RuntimeCheck.h"
 #include <string.h>
-
-
-// Kinda like assert(), but checks when NDEBUG enabled, and throws glare::Exception on failure.
-static void _doRuntimeCheck(bool b, const char* message)
-{
-	assert(b);
-	if(!b)
-		throw glare::Exception(std::string(message));
-}
-
-#define doRuntimeCheck(v) _doRuntimeCheck((v), (#v))
 
 
 WebSocket::WebSocket(SocketInterfaceRef underlying_socket_)
@@ -141,7 +131,7 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 				temp_buffer.resize(header_size);
 				underlying_socket->readData(temp_buffer.data() + 2, header_size - 2);
 
-				doRuntimeCheck(temp_buffer.size() >= 4);
+				runtimeCheck(temp_buffer.size() >= 4);
 				payload_len = (temp_buffer[2] << 8) | temp_buffer[3];
 			}
 			else // "If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0) are the payload length"
@@ -151,7 +141,7 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 				temp_buffer.resize(header_size);
 				underlying_socket->readData(temp_buffer.data() + 2, header_size - 2);
 
-				doRuntimeCheck(temp_buffer.size() >= 10);
+				runtimeCheck(temp_buffer.size() >= 10);
 
 				payload_len = 0;
 				for(int i = 0; i < 8; ++i)
@@ -161,8 +151,8 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 			// Read masking key
 			if(mask != 0)
 			{
-				doRuntimeCheck(temp_buffer.size() == header_size);
-				doRuntimeCheck(header_size >= 4);
+				runtimeCheck(temp_buffer.size() == header_size);
+				runtimeCheck(header_size >= 4);
 				const size_t mask_offset = header_size - 4;
 
 				masking_key[0] = temp_buffer[mask_offset + 0];

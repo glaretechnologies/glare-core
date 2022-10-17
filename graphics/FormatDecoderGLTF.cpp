@@ -21,6 +21,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/FileOutStream.h"
 #include "../utils/FileInStream.h"
 #include "../utils/Base64.h"
+#include "../utils/RuntimeCheck.h"
 #include "../maths/Quat.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/BatchedMesh.h"
@@ -28,17 +29,6 @@ Copyright Glare Technologies Limited 2021 -
 #include <vector>
 #include <map>
 #include <fstream>
-
-
-// Kinda like assert(), but checks when NDEBUG enabled, and throws glare::Exception on failure.
-static void _doRuntimeCheck(bool b, const char* message)
-{
-	assert(b);
-	if(!b)
-		throw glare::Exception(std::string(message));
-}
-
-#define doRuntimeCheck(v) _doRuntimeCheck((v), (#v))
 
 
 // Throws an exception if b is false.
@@ -822,7 +812,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				const size_t dest_vert_stride_B = mesh_out.vertexSize();
 				const size_t dest_attr_offset_B = pos_attr.offset_B;
 
-				doRuntimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float); // We store positions in float format.
+				runtimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float); // We store positions in float format.
 
 				// POSITION must be FLOAT
 				if(pos_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
@@ -875,7 +865,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				const size_t dest_vert_stride_B = mesh_out.vertexSize();
 				const size_t dest_attr_offset_B = normals_attr.offset_B;
 
-				doRuntimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
+				runtimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
 
 				// NORMAL must be FLOAT
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
@@ -911,7 +901,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					const size_t dest_attr_offset_B = normals_attr.offset_B;
 
 					// Initialise with a default normal value
-					doRuntimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
+					runtimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
 					for(size_t z=0; z<vert_pos_count; ++z)
 					{
 						const Vec4f n_ws(0,0,1,0);
@@ -994,7 +984,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				const size_t dest_vert_stride_B = mesh_out.vertexSize();
 				const size_t dest_attr_offset_B = colour_attr.offset_B;
 
-				doRuntimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
+				runtimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
 
 				// COLOR_0 must be FLOAT, UNSIGNED_BYTE, or UNSIGNED_SHORT.
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
@@ -1030,7 +1020,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					const size_t dest_vert_stride_B = mesh_out.vertexSize();
 					const size_t dest_attr_offset_B = colour_attr.offset_B;
 
-					doRuntimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
+					runtimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
 					{
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 1.f;
@@ -1062,7 +1052,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				const size_t dest_vert_stride_B = mesh_out.vertexSize();
 				const size_t dest_attr_offset_B = texcoord_0_attr.offset_B;
 
-				doRuntimeCheck(texcoord_0_attr.component_type == BatchedMesh::ComponentType_Float); // We store texcoords in float format for now.
+				runtimeCheck(texcoord_0_attr.component_type == BatchedMesh::ComponentType_Float); // We store texcoords in float format for now.
 
 				// TEXCOORD_0 must be FLOAT, UNSIGNED_BYTE, or UNSIGNED_SHORT.
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
@@ -1089,7 +1079,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					const size_t dest_vert_stride_B = mesh_out.vertexSize();
 					const size_t dest_attr_offset_B = texcoord_0_attr.offset_B;
 
-					doRuntimeCheck(texcoord_0_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
+					runtimeCheck(texcoord_0_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
 					{
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 0.f;
@@ -1119,7 +1109,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				const size_t dest_vert_stride_B = mesh_out.vertexSize();
 				const size_t dest_attr_offset_B = joint_attr.offset_B;
 
-				doRuntimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
+				runtimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
 
 				// JOINTS_0 must be UNSIGNED_BYTE or UNSIGNED_SHORT
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
@@ -1142,7 +1132,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					const size_t dest_vert_stride_B = mesh_out.vertexSize();
 					const size_t dest_attr_offset_B = joint_attr.offset_B;
 
-					doRuntimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
+					runtimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
 						for(int c=0; c<4; ++c)
 							((uint16*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[c] = 0;
@@ -1171,7 +1161,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 				const size_t dest_vert_stride_B = mesh_out.vertexSize();
 				const size_t dest_attr_offset_B = weights_attr.offset_B;
 
-				doRuntimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store weights as floats
+				runtimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store weights as floats
 
 				// WEIGHTS_0 must be FLOAT, UNSIGNED_BYTE (normalised) or UNSIGNED_SHORT (normalised)
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
@@ -1198,7 +1188,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					const size_t dest_vert_stride_B = mesh_out.vertexSize();
 					const size_t dest_attr_offset_B = weights_attr.offset_B;
 
-					doRuntimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
+					runtimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
 						for(int c=0; c<4; ++c)
 							((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[c] = 0.f;
@@ -1571,7 +1561,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 	if(json_header.chunk_type != CHUNK_TYPE_JSON)
 		throw glare::Exception("Expected JSON chunk type");
 
-	doRuntimeCheck(stream.getReadIndex() == 20);
+	runtimeCheck(stream.getReadIndex() == 20);
 
 	// Check JSON header chunk_length is valid:
 	const size_t json_chunk_end = stream.getReadIndex() + (size_t)json_header.chunk_length;
@@ -2280,7 +2270,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		js::AABBox aabb = js::AABBox::emptyAABBox();
 		const size_t vert_size = batched_mesh->vertexSize();
 		const BatchedMesh::VertAttribute& pos_attr = batched_mesh->getAttribute(BatchedMesh::VertAttribute_Position);
-		doRuntimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float);
+		runtimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float);
 		for(size_t v=0; v<total_num_verts; ++v)
 		{
 			const Vec4f vert_pos(
