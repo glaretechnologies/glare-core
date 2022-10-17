@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <SocketInterface.h>
 #include <string>
 #include <ThreadSafeRefCounted.h>
+#include <Exception.h>
 class WorkerThread;
 class ReplyInfo;
 
@@ -48,20 +49,9 @@ public:
 	RequestHandler();
 	virtual ~RequestHandler();
 
-
 	virtual void handleRequest(const RequestInfo& request_info, ReplyInfo& reply_info) = 0;
 
-	// Returns true if the handler wants to completely handle the connection.
-	virtual bool handleWebSocketConnection(const RequestInfo& request_info, Reference<SocketInterface>& socket) { return false; }
-
-	virtual void handleWebsocketTextMessage(const std::string& msg, web::ReplyInfo& reply_info, const Reference<WorkerThread>& worker_thread) {}
-
-	virtual void handleWebsocketBinaryMessage(const uint8* data, size_t len, web::ReplyInfo& reply_info, const Reference<WorkerThread>& worker_thread) {}
-
-	virtual void websocketConnectionClosed(Reference<SocketInterface>& socket, const Reference<WorkerThread>& worker_thread) {}
-
-private:
-
+	virtual void handleWebSocketConnection(const RequestInfo& request_info, Reference<SocketInterface>& socket) { throw glare::Exception("Not handling websocket connections"); }
 };
 
 

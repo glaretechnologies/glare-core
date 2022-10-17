@@ -39,7 +39,6 @@ Webserver worker thread
 class WorkerThread : public MessageableThread
 {
 public:
-	// May throw glare::Exception from constructor if EventFD init fails.
 	WorkerThread(int thread_id, const Reference<SocketInterface>& socket, 
 		const Reference<RequestHandler>& request_handler, bool tls_connection);
 
@@ -50,12 +49,9 @@ public:
 	friend class WorkerThreadTests;
 
 
-	void enqueueDataToSend(const std::string& data); // threadsafe
-
-	
 	void doRunMainLoop();
 private:
-	bool handleWebsocketConnection(RequestInfo& request_info); // return true if connection handled by handler
+	void handleWebsocketConnection(RequestInfo& request_info);
 	
 	// Returns if should keep connection alive
 	enum HandleRequestResult
@@ -69,8 +65,6 @@ public:
 	static void parseRanges(const string_view field_value, std::vector<web::Range>& ranges_out); // Just public for testing
 private:
 
-	ThreadSafeQueue<std::string> data_to_send;
-
 	int thread_id;
 	
 	Reference<SocketInterface> socket;
@@ -78,11 +72,8 @@ private:
 	std::vector<char> socket_buffer;
 	Reference<RequestHandler> request_handler;
 	size_t request_start_index; // Start index of request that we current processing.
-	bool is_websocket_connection;
 
 	bool tls_connection;
-	
-	EventFD event_fd;
 };
 
 

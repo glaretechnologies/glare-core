@@ -23,7 +23,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 
-#if 1
+#if 0
 // Command line:
 // C:\fuzz_corpus\websocket -max_len=1000000
 

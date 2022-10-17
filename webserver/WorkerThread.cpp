@@ -43,7 +43,6 @@ WorkerThread::WorkerThread(int thread_id_, const Reference<SocketInterface>& soc
 	request_handler(request_handler_),
 	tls_connection(tls_connection_)
 {
-	if(VERBOSE) print("event_fd.efd: " + toString(event_fd.efd));
 }
 
 
@@ -303,14 +302,13 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			"\r\n";
 
 		socket->writeData(response.c_str(), response.size());
-		is_websocket_connection = true;
 
 		// Advance request_start_index to point to after end of this post body.
 		request_start_index += request_header_size; // TODO: skip over content as well (if content length > 0)?
 
-		const bool connection_handled_by_handler = handleWebsocketConnection(request_info); // May throw exception
+		handleWebsocketConnection(request_info); // May throw exception
 
-		return connection_handled_by_handler ? HandleRequestResult_ConnectionHandledElsewhere : HandleRequestResult_Finished;
+		return HandleRequestResult_ConnectionHandledElsewhere;
 	}
 
 		
@@ -377,10 +375,10 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			if(socket_buffer.size() < required_buffer_size) // If we haven't read the entire post body yet
 			{
 				// Read remaining data
-				const size_t current_amount_read = socket_buffer.size(); // NOTE: this correct?
+				const size_t current_buf_size = socket_buffer.size();
 				socket_buffer.resize(required_buffer_size);
 
-				socket->readData(&socket_buffer[current_amount_read], required_buffer_size - current_amount_read);
+				socket->readData(&socket_buffer[current_buf_size], required_buffer_size - current_buf_size);
 			}
 
 			// Read post content from socket
@@ -433,9 +431,28 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 	return keep_alive ? HandleRequestResult_KeepAlive : HandleRequestResult_Finished;
 }
 
+/*
+moveToFrontOfBuffer():
 
-// Move bytes [request_start, socket_buffer.size()) to [0, socket_buffer.size() - request_start),
-// then resize buffer to socket_buffer.size() - request_start.
+Move bytes [request_start, socket_buffer.size()) to [0, socket_buffer.size() - request_start),
+then resize buffer to socket_buffer.size() - request_start.
+
+
+
+|         req 0                    |         req 1            |                req 2
+|----------------------------------|--------------------------|--------------------------------
+															  ^               ^               ^
+										   request start index    double_crlf_scan_position   socket_buffer.size()
+
+=>
+
+
+				   |                req 2
+				   |--------------------------------
+				   ^               ^               ^
+request start index    double_crlf_scan_position   socket_buffer.size()
+
+*/
 static void moveToFrontOfBuffer(std::vector<char>& socket_buffer, size_t request_start)
 {
 	assert(request_start < socket_buffer.size());
@@ -450,201 +467,20 @@ static void moveToFrontOfBuffer(std::vector<char>& socket_buffer, size_t request
 }
 
 
-// return true if connection handled by handler
-bool WorkerThread::handleWebsocketConnection(RequestInfo& request_info)
+void WorkerThread::handleWebsocketConnection(RequestInfo& request_info)
 {
 	if(VERBOSE) print("WorkerThread: Connection upgraded to websocket connection.");
 
 	socket->setNoDelayEnabled(true); // For websocket connections, we will want to send out lots of little packets with low latency.  So disable Nagle's algorithm, e.g. send coalescing.
 	socket->enableTCPKeepAlive(30.0f); // Keep alive the connection.
 
-	// If the request handler wants to handle this websocket connection completely, let it.
-	if(this->request_handler->handleWebSocketConnection(request_info, socket))
-		return true;
-
-	ReplyInfo reply_info;
-	reply_info.socket = socket.getPointer();
-
-	while(1) // write to / read from socket loop
-	{
-		// See if we have any pending data to send in the data_to_send queue, and if so, send all pending data.
-		if(VERBOSE) print("WorkerThread: checking for pending data to send...");
-		{
-			Lock lock(data_to_send.getMutex());
-
-			while(!data_to_send.unlockedEmpty())
-			{
-				std::string data;
-				data_to_send.unlockedDequeue(data);
-
-				// Write the data to the socket
-				if(!data.empty())
-				{
-					if(VERBOSE) print("WorkerThread: calling writeWebsocketTextMessage() with data '" + data + "'...");
-					ResponseUtils::writeWebsocketTextMessage(reply_info, data);
-				}
-			}
-		}
-
-		// Process any complete frames we have in socket_buffer.
-		// Initial frame header is 2 bytes
-		bool keep_processing_frames = true;
-		while(keep_processing_frames)
-		{
-			if(VERBOSE) print("WorkerThread: Processing frame...");
-
-			keep_processing_frames = false; // Break the loop, unless we process a full frame below
-
-			const size_t socket_buf_size = socket_buffer.size();
-			if(request_start_index + 2 <= socket_buf_size) // If there are 2 bytes in the buffer:
-			{
-				const unsigned char* msg = (const unsigned char*)&socket_buffer[request_start_index];
-				
-				bool got_header = false; // Have we read the full frame header?
-							
-				const uint32 fin = msg[0] & 0x80; // Fin bit. Indicates that this is the final fragment in a message.
-				const uint32 opcode = msg[0] & 0xF; // Opcode.  4 bits
-				const uint32 mask = msg[1] & 0x80; // Mask bit.  Defines whether the "Payload data" is masked.
-				uint32 payload_len = msg[1] & 0x7F; // Payload length.  7 bits.
-				uint32 header_size = mask != 0 ? 6 : 2; // If mask is present, it adds 4 bytes to the header size.
-				uint32 cur_offset = 2;
-
-				// "If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length" - https://tools.ietf.org/html/rfc6455
-				if(payload_len == 126)
-				{
-					if(request_start_index + 4 <= socket_buf_size) // If there are 4 bytes in the buffer:
-					{
-						payload_len = (msg[2] << 8) | msg[3];
-						header_size += 2;
-						cur_offset += 2;
-						got_header = true;
-					}
-				}
-				else
-					got_header = true;
-
-				if(got_header)
-				{
-					// See if we have already read the full frame body:
-					if(request_start_index + header_size + payload_len <= socket_buf_size)
-					{
-						// Read masking key
-						unsigned char masking_key[4];
-						if(mask != 0)
-						{
-							masking_key[0] = msg[cur_offset++];
-							masking_key[1] = msg[cur_offset++];
-							masking_key[2] = msg[cur_offset++];
-							masking_key[3] = msg[cur_offset++];
-						}
-						else
-							masking_key[0] = masking_key[1] = masking_key[2] = masking_key[3] = 0;
-
-						// We should have read the entire header (including masking key) now.
-						assert(cur_offset == header_size);
-
-						if(payload_len > 0)
-						{
-							std::vector<unsigned char> unmasked_payload(payload_len);
-							for(uint32 i=0; i<payload_len; ++i)
-							{
-								assert(request_start_index + header_size + i < socket_buffer.size());
-								unmasked_payload[i] = msg[header_size + i] ^ masking_key[i % 4];
-							}
-
-							const std::string unmasked_payload_str((const char*)&unmasked_payload[0], (const char*)&unmasked_payload[0] + unmasked_payload.size());
-
-							if(opcode == 0x1 && fin != 0) // Text frame:
-							{ 
-								if(VERBOSE) print("WorkerThread: Received websocket text frame: '" + unmasked_payload_str + "'");
-								request_handler->handleWebsocketTextMessage(unmasked_payload_str, reply_info, this);
-							}
-							if(opcode == 0x2 && fin != 0) // Binary frame:
-							{ 
-								if(VERBOSE) print("WorkerThread: Received websocket binary frame: '" + unmasked_payload_str + "'");
-								request_handler->handleWebsocketBinaryMessage((const uint8*)unmasked_payload_str.data(), unmasked_payload_str.size(), reply_info, this);
-							}
-							else if(opcode == 0x8) // Close frame:
-							{
-								this->request_handler->websocketConnectionClosed(socket, this);
-								return false;
-							}
-							else if(opcode == 0x9) // Ping
-							{
-								//conPrint("PING");
-								// TODO: Send back pong frame
-								//ResponseUtils::writeWebsocketTextMessage(reply_info, unmasked_payload_str);
-							}
-							else
-							{
-								//conPrint("Got unknown websocket opcode: " + toString(opcode));
-							}
-						}
-
-						// We have finished processing the websocket frame.  Advance request_start_index
-						request_start_index = request_start_index + header_size + payload_len;
-						keep_processing_frames = true;
-
-						// Move the remaining data in the buffer to the start of the buffer, and resize the buffer down.
-						// We do this so as to not exhaust memory when a connection is open for a long time and receiving lots of frames.
-						if(request_start_index < socket_buf_size)
-						{
-							moveToFrontOfBuffer(socket_buffer, request_start_index);
-							request_start_index = 0;
-						}
-					}
-				}
-			}
-		}
-
-		if(VERBOSE) print("WorkerThread: about to call socket->readable().");
-
-		// At this point we have processed all full frames in socket_buffer.
-		// So we need to read more data until we have a full frame, or until the connection is closed.
-#if defined(_WIN32) || defined(OSX)
-		if(socket->readable(0.05)) // If socket has some data to read from it:
-#else
-		if(socket->readable(event_fd)) // Block until either the socket is readable or the event fd is signalled, which means we have data to write.
-#endif
-		{
-			if(VERBOSE) print("WorkerThread: socket readable.");
-
-			// Read up to 'read_chunk_size' bytes of data from the socket.  Note that we may read multiple frames at once.
-			const size_t old_socket_buffer_size = socket_buffer.size();
-			const size_t read_chunk_size = 2048;
-			socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
-			const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size);
-			if(num_bytes_read == 0) // if connection was closed gracefully
-			{
-				this->request_handler->websocketConnectionClosed(socket, this);
-				return false;
-			}
-			socket_buffer.resize(old_socket_buffer_size + num_bytes_read); // Trim the buffer down so it only extends to what we actually read.
-		}
-		else
-		{
-#if defined(_WIN32) || defined(OSX)
-#else
-			if(VERBOSE) print("WorkerThread: event FD was signalled.");
-
-			// The event FD was signalled, which means there is some data to send on the socket.
-			// Reset the event fd by reading from it.
-			event_fd.read();
-
-			if(VERBOSE) print("WorkerThread: event FD has been reset.");
-#endif
-		}
-	}
-
-	this->request_handler->websocketConnectionClosed(socket, this);
-	return false;
+	this->request_handler->handleWebSocketConnection(request_info, socket);
 }
 
 
 // This main loop code is in a separate function so we can easily return from it, while still excecuting the thread cleanup code in doRun().
 void WorkerThread::doRunMainLoop()
 {
-	is_websocket_connection = false;
 	request_start_index = 0; // Index in socket_buffer of the start of the current request.
 	size_t double_crlf_scan_position = 0; // Index in socket_buffer of the last place we looked for a double CRLF.
 	// Loop to handle multiple requests (HTTP persistent connection)
@@ -673,7 +509,6 @@ void WorkerThread::doRunMainLoop()
 					// Process the request:
 					const size_t request_header_size = request_header_end - request_start_index;
 					const HandleRequestResult result = handleSingleRequest(request_header_size); // Advances this->request_start_index. to index after the current request (e.g. will be at the beginning of the next request)
-					// May also set is_websocket_connection to true.
 
 					double_crlf_scan_position = request_start_index;
 
@@ -728,42 +563,10 @@ void WorkerThread::doRun()
 		print(std::string("Caught std::exception: ") + e.what());
 	}
 
-	// An exception may have been thrown from handleWebsocketConnection(), so we need to call websocketConnectionClosed in that case.
-	if(is_websocket_connection)
-		this->request_handler->websocketConnectionClosed(socket, this);
-
-
 	// Remove thread-local OpenSSL error state, to avoid leaking it.
 	// NOTE: have to destroy socket first, before calling ERR_remove_thread_state(), otherwise memory will just be reallocated.
 	socket = NULL;
 	ERR_remove_thread_state(/*thread id=*/NULL); // Set thread ID to null to use current thread.
-}
-
-
-/*
-moveToFrontOfBuffer():
-
-|         req 0                    |         req 1            |                req 2
-|----------------------------------|--------------------------|--------------------------------
-                                                              ^               ^               ^
-                                           request start index    double_crlf_scan_position   socket_buffer.size()
-
-=>
-
-
-                   |                req 2
-                   |--------------------------------
-                   ^               ^               ^
-request start index    double_crlf_scan_position   socket_buffer.size()
-
-*/
-
-
-void WorkerThread::enqueueDataToSend(const std::string& data)
-{
-	if(VERBOSE) print("WorkerThread::enqueueDataToSend(), data: '" + data + "'");
-	data_to_send.enqueue(data);
-	event_fd.notify();
 }
 
 

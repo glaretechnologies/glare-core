@@ -132,24 +132,6 @@ public:
 		num_requests_handled++;
 	}
 
-
-	virtual bool handleWebSocketConnection(const RequestInfo& request_info, Reference<SocketInterface>& socket)
-	{
-		return false;
-	}
-
-	virtual void handleWebsocketTextMessage(const std::string& msg, web::ReplyInfo& reply_info, const Reference<WorkerThread>& worker_thread)
-	{
-
-	}
-
-	virtual void handleWebsocketBinaryMessage(const uint8* data, size_t len, web::ReplyInfo& reply_info, const Reference<WorkerThread>& worker_thread)
-	{
-
-	}
-
-	virtual void websocketConnectionClosed(Reference<SocketInterface>& socket, const Reference<WorkerThread>& worker_thread) {}
-
 	int num_requests_handled;
 };
 
@@ -415,27 +397,7 @@ public:
 	TestDummyRequestHandler() {}
 
 	virtual void handleRequest(const RequestInfo& request_info, ReplyInfo& reply_info)
-	{
-		
-	}
-
-
-	virtual bool handleWebSocketConnection(const RequestInfo& request_info, Reference<SocketInterface>& socket)
-	{
-		return false;
-	}
-
-	virtual void handleWebsocketTextMessage(const std::string& msg, web::ReplyInfo& reply_info, const Reference<WorkerThread>& worker_thread)
-	{
-
-	}
-
-	virtual void handleWebsocketBinaryMessage(const uint8* data, size_t len, web::ReplyInfo& reply_info, const Reference<WorkerThread>& worker_thread)
-	{
-
-	}
-
-	virtual void websocketConnectionClosed(Reference<SocketInterface>& socket, const Reference<WorkerThread>& worker_thread) {}
+	{}
 };
 
 
