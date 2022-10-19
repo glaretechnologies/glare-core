@@ -274,9 +274,13 @@ const std::string RFC822FormatedString(time_t t)
 	tm thetime;
 	// Get calender time in UTC.  Use threadsafe versions of gmtime.
 #ifdef _WIN32
-	gmtime_s(&thetime, &t);
+	const errno_t res = gmtime_s(&thetime, &t);
+	if(res != 0)
+		throw glare::Exception("time formatting failed");
 #else
-	gmtime_r(&t, &thetime);
+	const tm* res = gmtime_r(&t, &thetime);
+	if(res == NULL)
+		throw glare::Exception("time formatting failed");
 #endif
 
 	const int day_of_week = thetime.tm_wday; // days since Sunday - [0,6]
