@@ -154,7 +154,7 @@ static void testPacketBreaksWithRequest(const std::string& request, int expected
 	conPrint("testPacketBreaksWithRequest(), request='" + request + "'");
 	PCG32 rng(1);
 	//for(int split_i=0; i<split_i; ++i)
-	for(int i=0; i<10000; ++i)
+	for(int i=0; i<100; ++i)
 	{
 		TestSocketRef test_socket = new TestSocket();
 
@@ -402,6 +402,68 @@ public:
 
 
 #if 0
+
+// Direct fuzzing of WorkerThread::handleSingleRequest()
+// Command line:
+// C:\fuzz_corpus\worker_thread_handle_single_request N:\glare-core\trunk\testfiles\fuzz_seeds\worker_thread_handle_single_request -max_len=1000000 -seed=1
+
+static void testHandleSingleRequest(const uint8_t* data, size_t size)
+{
+	try
+	{
+		Reference<TestDummyRequestHandler> request_handler = new TestDummyRequestHandler();
+		TestSocketRef test_socket = new TestSocket();
+		Reference<web::WorkerThread> worker = new web::WorkerThread(0, test_socket, request_handler, /*tls connection=*/false);
+
+		// Scan through for a double CRLF
+		size_t request_header_size = std::numeric_limits<size_t>::max();
+		for(size_t i=0; i+3<size; ++i)
+		{
+			if(data[i] == '\r' && data[i+1] == '\n' && data[i+2] == '\r' && data[i+3] == '\n')
+			{
+				request_header_size = i + 4;
+				break;
+			}
+		}
+
+		if(request_header_size == std::numeric_limits<size_t>::max()) // If double CRLF not found:
+		{
+			// Insert a double CRLF on the end manually
+			worker->socket_buffer.resize(size + 4);
+			request_header_size = size + 4;
+			std::memcpy(worker->socket_buffer.data(), data, size);
+			worker->socket_buffer[size+0] = '\r';
+			worker->socket_buffer[size+1] = '\n';
+			worker->socket_buffer[size+2] = '\r';
+			worker->socket_buffer[size+3] = '\n';
+		}
+		else
+		{
+			worker->socket_buffer.resize(size);
+			std::memcpy(worker->socket_buffer.data(), data, size);
+		}
+		
+		worker->request_start_index = 0;
+		worker->handleSingleRequest(request_header_size);
+	}
+	catch(glare::Exception&)
+	{
+	}
+}
+
+// We will use the '!' character to break apart the input buffer into different 'packets'.
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	testHandleSingleRequest(data, size);
+
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
+
+
+#if 0
+
+// Fuzzing of WorkerThread::doRunMainLoop()
 // Command line:
 // C:\fuzz_corpus\worker_thread -max_len=1000000 -seed=1
 
@@ -485,7 +547,7 @@ void WorkerThreadTests::test()
 
 	//testConnectAndRequest();
 	{
-		testPacketBreaksWithRequest("BLEH", 0);
+		testPacketBreaksWithRequest("BLEH", /*expected_num_requests=*/0);
 		testPacketBreaksWithRequest("BLEH" + CRLFCRLF, 0);
 		testPacketBreaksWithRequest("GET / HTTP/1.1" + CRLFCRLF, 1);
 		testPacketBreaksWithRequest("GET / HTTP/1.1" + CRLFCRLF + "GET / HTTP/1.1", 1); // No trailing double CRLF on second request

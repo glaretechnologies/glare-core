@@ -47,6 +47,7 @@ public:
 	virtual void doRun();
 
 	friend class WorkerThreadTests;
+	friend void testHandleSingleRequest(const uint8_t* data, size_t size);
 
 
 	void doRunMainLoop();

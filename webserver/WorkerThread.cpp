@@ -25,6 +25,7 @@ Copyright Glare Technologies Limited 2022 -
 #include <KillThreadMessage.h>
 #include <Parser.h>
 #include <MemMappedFile.h>
+#include <RuntimeCheck.h>
 #include <openssl/err.h>
 
 
@@ -106,12 +107,12 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 {
 	// conPrint(std::string(&socket_buffer[request_start_index], &socket_buffer[request_start_index] + request_header_size));
 
-	assert(request_header_size > 0);
 	bool keep_alive = true;
 
 	// Parse request
-	assert(request_start_index + request_header_size <= socket_buffer.size());
-	Parser parser(&socket_buffer[request_start_index], (unsigned int)request_header_size);
+	runtimeCheck(request_start_index <= socket_buffer.size());
+	runtimeCheck(request_start_index + request_header_size <= socket_buffer.size());
+	Parser parser(socket_buffer.data() + request_start_index, request_header_size);
 
 	// Parse HTTP verb (GET, POST etc..)
 	RequestInfo request_info;
@@ -161,7 +162,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 	/*conPrint("HTTP Verb: '" + verb + "'");
 	conPrint("URI: '" + URI + "'");
 	conPrint("HTTP version: HTTP/" + toString(major_version) + "." + toString(minor_version));
-*/
+	*/
 	
 	// Read header fields
 
@@ -184,8 +185,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		parser.advance(); // Advance past ':'
 
 		// If there is a space, consume it
-		if(parser.currentIsChar(' '))
-			parser.advance();
+		parser.parseChar(' ');
 		
 		// Parse the field value
 		string_view field_value;
@@ -201,7 +201,6 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		header.value = field_value;
 		request_info.headers.push_back(header);
 
-		//TEMP:
 		//conPrint(field_name + ": " + field_value);
 
 		if(StringUtils::equalCaseInsensitive(field_name, "content-length"))
@@ -230,7 +229,8 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				if(!cookie_parser.parseToChar('=', key))
 					throw WebsiteExcep("Parser error while parsing cookies");
 				request_info.cookies.back().key = std::string(key);
-				cookie_parser.advance(); // Advance past '='
+				cookie_parser.consume('='); // Advance past '='
+
 				// Parse cookie value
 				string_view value;
 				cookie_parser.parseToCharOrEOF(';', value);
@@ -238,9 +238,8 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 						
 				if(cookie_parser.currentIsChar(';'))
 				{
-					cookie_parser.advance(); // Advance past ';'
-					if(cookie_parser.currentIsChar(' ')) // Advance past ' ' if present.
-						cookie_parser.advance();
+					cookie_parser.consume(';'); // Advance past ';'
+					parser.parseChar(' '); // Advance past ' ' if present.
 				}
 				else
 				{
@@ -258,7 +257,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			std::vector<unsigned char> digest;
 			SHA256::SHA1Hash((const unsigned char*)combined_key.c_str(), (const unsigned char*)combined_key.c_str() + combined_key.size(), digest);
 
-			Base64::encode(&digest[0], digest.size(), encoded_websocket_reply_key);
+			Base64::encode(digest.data(), digest.size(), encoded_websocket_reply_key);
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "sec-websocket-protocol"))
 		{
@@ -274,7 +273,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "range"))
 		{
-			// Parse ranges, e.g. Range : bytes=167116800-167197941  
+			// Parse ranges, e.g. Range: bytes=167116800-167197941  
 			parseRanges(field_value, request_info.ranges);
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "connection"))
@@ -284,7 +283,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		}
 	}
 
-	parser.advance(); // Advance past \r
+	parser.consume('\r'); // Advance past \r
 	if(!parser.parseChar('\n')) // Advance past \n
 		throw WebsiteExcep("Parse error");
 
@@ -313,32 +312,31 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 
 		
 	// Get part of URI before CGI string (before ?)
-	Parser uri_parser(URI.data(), (unsigned int)URI.size());
+	Parser uri_parser(URI.data(), URI.size());
 	
 	string_view path;
 	uri_parser.parseToCharOrEOF('?', path);
 	request_info.path = std::string(path);
 
-	if(uri_parser.currentIsChar('?')) // Advance past '?' if present.
-		uri_parser.advance();
+	uri_parser.parseChar('?'); // Advance past '?' if present.
 
 	// Parse URL parameters (stuff after '?')
 	while(!uri_parser.eof())
 	{
 		request_info.URL_params.resize(request_info.URL_params.size() + 1);
-				
+
 		// Parse key
 		string_view escaped_key;
 		if(!uri_parser.parseToChar('=', escaped_key))
 			throw WebsiteExcep("Parser error while parsing URL params");
 		request_info.URL_params.back().key = Escaping::URLUnescape(std::string(escaped_key));
-		uri_parser.advance(); // Advance past '='
-			
+		uri_parser.consume('='); // Advance past '='
+
 		// Parse value
 		string_view escaped_value;
 		uri_parser.parseToCharOrEOF('&', escaped_value);
 		request_info.URL_params.back().value = Escaping::URLUnescape(std::string(escaped_value));
-						
+
 		if(uri_parser.currentIsChar('&'))
 			uri_parser.advance(); // Advance past '&'
 		else
@@ -382,13 +380,15 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			}
 
 			// Read post content from socket
-			const std::string post_content(&socket_buffer[request_start_index + request_header_size], &socket_buffer[request_start_index] + total_msg_size);
+			request_info.post_content.resize(content_length);
+			runtimeCheck((request_start_index + request_header_size + (size_t)content_length) <= socket_buffer.size());
+			std::memcpy(request_info.post_content.data(), &socket_buffer[request_start_index + request_header_size], content_length);
 
 			//conPrint("Read content:");
 			//conPrint(post_content);
 
-			// Parse form data
-			Parser form_parser(post_content.c_str(), (unsigned int)post_content.size());
+			// Parse form data.  NOTE: We don't always want to do this presumably, we're not always handling form posts.
+			Parser form_parser(request_info.post_content.c_str(), request_info.post_content.size());
 
 			while(!form_parser.eof())
 			{
@@ -400,8 +400,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 					throw WebsiteExcep("Parser error while parsing URL params");
 				request_info.post_fields.back().key = Escaping::URLUnescape(std::string(escaped_key));
 
-				assert(form_parser.currentIsChar('='));
-				form_parser.advance(); // Advance past '='
+				form_parser.consume('='); // Advance past '='
 
 				// Parse value
 				string_view escaped_value;
@@ -409,12 +408,10 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				request_info.post_fields.back().value = Escaping::URLUnescape(std::string(escaped_value));
 						
 				if(form_parser.currentIsChar('&'))
-					form_parser.advance(); // Advance past '&'
+					form_parser.consume('&'); // Advance past '&'
 				else
 					break; // Finish parsing URL params.
 			}
-
-			request_info.post_content = post_content;
 		}
 
 		request_handler->handleRequest(request_info, reply_info);
