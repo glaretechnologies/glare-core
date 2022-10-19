@@ -46,6 +46,7 @@ public:
 	inline bool parseToChar(char target, string_view& result_out);
 	inline bool parseToOneOfChars(char target_a, char target_b, string_view& result_out);
 	inline void parseToCharOrEOF(char target_a, string_view& result_out);
+	inline void parseToOneOfCharsOrEOF(char target_a, char target_b, string_view& result_out);
 	inline void parseLine(string_view& line_out);
 	
 	bool parseAlphaToken(string_view& token_out); // Parse alphabetic token
@@ -181,6 +182,21 @@ void Parser::parseToCharOrEOF(char target, string_view& result_out)
 	while(1)
 	{
 		if(eof() || current() == target)
+		{
+			result_out = string_view(text + initial_pos, currentpos - initial_pos);
+			return;
+		}
+		currentpos++;
+	}
+}
+
+
+void Parser::parseToOneOfCharsOrEOF(char target_a, char target_b, string_view& result_out)
+{
+	const size_t initial_pos = currentpos;
+	while(1)
+	{
+		if(eof() || (current() == target_a) || (current() == target_b))
 		{
 			result_out = string_view(text + initial_pos, currentpos - initial_pos);
 			return;
