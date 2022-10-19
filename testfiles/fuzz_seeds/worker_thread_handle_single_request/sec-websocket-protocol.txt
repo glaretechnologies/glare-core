@@ -1,0 +1,2 @@
+GET / HTTP/1.1
+sec-websocket-protocol:43545as435
