@@ -15,7 +15,8 @@ namespace web
 
 
 RequestInfo::RequestInfo()
-:	tls_connection(false)
+:	tls_connection(false),
+	fuzzing(false)
 {
 }
 

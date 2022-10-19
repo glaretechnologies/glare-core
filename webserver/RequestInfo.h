@@ -90,6 +90,8 @@ public:
 
 	IPAddress client_ip_address;
 	bool tls_connection;
+
+	bool fuzzing;
 };
 
 
