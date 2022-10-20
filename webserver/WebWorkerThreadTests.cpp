@@ -461,7 +461,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif
 
 
-#if 1
+#if 0
 
 // Fuzzing of WorkerThread::doRunMainLoop()
 // Command line:
