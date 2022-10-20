@@ -1,9 +1,9 @@
 /*=====================================================================
-WorkerThreadTests.cpp
----------------------
+WebWorkerThreadTests.cpp
+------------------------
 Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
-#include "WorkerThreadTests.h"
+#include "WebWorkerThreadTests.h"
 
 
 #if BUILD_TESTS
@@ -461,7 +461,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif
 
 
-#if 0
+#if 1
 
 // Fuzzing of WorkerThread::doRunMainLoop()
 // Command line:
@@ -512,7 +512,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif
 
 
-void WorkerThreadTests::test()
+void WebWorkerThreadTests::test()
 {
 	//=========================== Test range parsing ===============================
 	{

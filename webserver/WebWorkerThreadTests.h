@@ -1,6 +1,6 @@
 /*=====================================================================
-WorkerThreadTests.h
--------------------
+WebWorkerThreadTests.h
+----------------------
 Copyright Glare Technologies Limited 2021 -
 =====================================================================*/
 #pragma once
@@ -15,7 +15,7 @@ WorkerThreadTests
 -----------------
 
 =====================================================================*/
-class WorkerThreadTests
+class WebWorkerThreadTests
 {
 public:
 	
