@@ -16,7 +16,8 @@ Copyright Glare Technologies Limited 2020 -
 
 
 TestSocket::TestSocket()
-:	read_i(0)
+:	read_i(0),
+	use_network_byte_order(true)
 {}
 
 
@@ -107,7 +108,8 @@ int TestSocket::readInt32()
 {
 	uint32 i;
 	readTo(&i, sizeof(uint32));
-	i = ntohl(i);
+	if(use_network_byte_order)
+		i = ntohl(i);
 	return bitCast<int32>(i);
 }
 
@@ -116,7 +118,9 @@ uint32 TestSocket::readUInt32()
 {
 	uint32 x;
 	readTo(&x, sizeof(uint32));
-	return ntohl(x);
+	if(use_network_byte_order)
+		x = ntohl(x);
+	return x;
 }
 
 

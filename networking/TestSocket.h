@@ -49,6 +49,11 @@ public:
 	// Returns true if the socket was readable, false if the event_fd was signalled.
 
 
+	// Determines if bytes are reordered into network byte order in readInt32(), writeInt32() etc..
+	// Network byte order is enabled by default.
+	void setUseNetworkByteOrder(bool use_network_byte_order_) { use_network_byte_order = use_network_byte_order_; }
+	bool getUseNetworkByteOrder() const { return use_network_byte_order; }
+
 
 	//------------------------ InStream ---------------------------------
 	virtual int32 readInt32();
@@ -74,6 +79,8 @@ public:
 private:
 	void readTo(void* buffer, size_t numbytes);
 	void readTo(void* buffer, size_t numbytes, FractionListener* frac);
+
+	bool use_network_byte_order;
 };
 
 
