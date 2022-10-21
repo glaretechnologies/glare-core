@@ -47,7 +47,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/IncludeHalf.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Sort.h"
-#include "../utils/Check.h"
+#include "../utils/RuntimeCheck.h"
 #include <algorithm>
 #include "superluminal/PerformanceAPI.h"
 
@@ -2767,9 +2767,9 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 	{
 		GLuint vao = VAO::getBoundVAO();
 		if(current_bound_VAO == NULL)
-			doRuntimeCheck(vao == 0);
+			runtimeCheck(vao == 0);
 		else
-			doRuntimeCheck(current_bound_VAO->handle == vao);
+			runtimeCheck(current_bound_VAO->handle == vao);
 	}
 #endif
 #endif
@@ -2906,12 +2906,12 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 		{
 			if(current_bound_vertex_VBO != NULL)
 			{
-				doRuntimeCheck(current_bound_vertex_VBO->bufferName() == vao->getBoundVertexBuffer(0));
+				runtimeCheck(current_bound_vertex_VBO->bufferName() == vao->getBoundVertexBuffer(0));
 			}
 
 			if(current_bound_index_VBO != NULL)
 			{
-				doRuntimeCheck(current_bound_index_VBO->bufferName() == vao->getBoundIndexBuffer());
+				runtimeCheck(current_bound_index_VBO->bufferName() == vao->getBoundIndexBuffer());
 			}
 		}
 #endif

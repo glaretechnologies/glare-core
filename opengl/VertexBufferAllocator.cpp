@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "IncludeOpenGL.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
-#include "../utils/Check.h"
+#include "../utils/RuntimeCheck.h"
 #include "../utils/ConPrint.h"
 #include "../maths/mathstypes.h"
 
@@ -122,7 +122,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 
 		VertBufAllocationHandle handle;
 		handle.block_handle = new BlockHandle(used_block);
-		doRuntimeCheck(handle.block_handle->block->aligned_offset % vert_stride == 0);
+		runtimeCheck(handle.block_handle->block->aligned_offset % vert_stride == 0);
 		handle.vbo = used_vbo;
 		handle.per_spec_data_index = use_per_spec_data_index;
 		handle.offset = handle.block_handle->block->aligned_offset;
@@ -200,7 +200,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 
 		IndexBufAllocationHandle handle;
 		handle.block_handle = new BlockHandle(used_block);
-		doRuntimeCheck(handle.block_handle->block->aligned_offset % 4 == 0);
+		runtimeCheck(handle.block_handle->block->aligned_offset % 4 == 0);
 		handle.offset = handle.block_handle->block->aligned_offset;
 		handle.size = size;
 		handle.index_vbo = used_vbo;// indices_vbo;

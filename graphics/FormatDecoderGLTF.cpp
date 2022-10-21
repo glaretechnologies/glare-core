@@ -31,14 +31,6 @@ Copyright Glare Technologies Limited 2021 -
 #include <fstream>
 
 
-// Throws an exception if b is false.
-static void checkProperty(bool b, const char* on_false_message)
-{
-	if(!b)
-		throw glare::Exception(std::string(on_false_message));
-}
-
-
 struct GLTFBuffer : public RefCounted
 {
 	GLTFBuffer() : file(NULL), binary_data(NULL) {}

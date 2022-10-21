@@ -17,3 +17,10 @@ void _doRuntimeCheck(bool b, const char* message)
 		throw glare::Exception(std::string(message));
 	}
 }
+
+
+void checkProperty(bool b, const char* on_false_message)
+{
+	if(!b)
+		throw glare::Exception(std::string(on_false_message));
+}

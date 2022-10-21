@@ -14,3 +14,7 @@ Copyright Glare Technologies Limited 2022 -
 void _doRuntimeCheck(bool b, const char* message);
 
 #define runtimeCheck(v) _doRuntimeCheck((v), (#v))
+
+
+// Throws an exception if b is false.
+void checkProperty(bool b, const char* on_false_message);
