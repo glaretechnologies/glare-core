@@ -54,6 +54,38 @@ void TextureLoadingTests::testDownSamplingGreyTexture(unsigned int W, unsigned i
 	}
 }
 
+
+static void testBuildingTexDataForImage(unsigned int W, unsigned int H, unsigned int N)
+{
+	ImageMapUInt8Ref map = new ImageMapUInt8(W, H, N);
+	map->set(128);
+	Reference<TextureData> tex_data = TextureLoading::buildUInt8MapTextureData(map.getPointer(), /*task manager=*/NULL, /*allow compression=*/true);
+
+	// Check MIP level offsets are valid
+	for(size_t k=0; k<tex_data->level_offsets.size(); ++k)
+	{
+		const size_t offset = tex_data->level_offsets[k];
+
+		// Check offset is aligned.  Note: I'm not sure what this alignment needs to be, if anything
+		testAssert(offset % 8 == 0);
+
+		// Compute the size of the compressed data for this level
+		const size_t level_W = myMax((size_t)1, tex_data->W / ((size_t)1 << k));
+		const size_t level_H = myMax((size_t)1, tex_data->H / ((size_t)1 << k));
+		const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, tex_data->bytes_pp);
+
+		// Make sure the next offset is sufficiently far away.
+		size_t next_offset;
+		if(k + 1 < tex_data->level_offsets.size())
+			next_offset = tex_data->level_offsets[k + 1];
+		else
+			next_offset = tex_data->frames[0].compressed_data.size();
+
+		testAssert(offset + level_compressed_size <= next_offset);
+		testAssert(offset + level_compressed_size <= tex_data->frames[0].compressed_data.size());
+	}
+}
+
 #if 0
 static void testLoadingFile(const std::string& path, glare::TaskManager& task_manager)
 {
@@ -148,6 +180,36 @@ void TextureLoadingTests::test()
 	glare::TaskManager task_manager;
 
 	//testLoadingFile("resources/imposters/elm_imposters.png", task_manager);
+
+
+	testBuildingTexDataForImage(256, 256, 3);
+	testBuildingTexDataForImage(250, 250, 3);
+	testBuildingTexDataForImage(250, 7, 3);
+	testBuildingTexDataForImage(7, 250, 3);
+	testBuildingTexDataForImage(2, 2, 3);
+	testBuildingTexDataForImage(1, 1, 3);
+	try
+	{
+		testBuildingTexDataForImage(0, 0, 3);
+		failTest("Expected excep");
+	}
+	catch(glare::Exception&)
+	{}
+
+	testBuildingTexDataForImage(256, 256, 4);
+	testBuildingTexDataForImage(250, 250, 4);
+	testBuildingTexDataForImage(250, 7, 3);
+	testBuildingTexDataForImage(7, 250, 4);
+	testBuildingTexDataForImage(2, 2, 4);
+	testBuildingTexDataForImage(1, 1, 4);
+
+
+	// Test with 1 and 2 components per pixel
+	testBuildingTexDataForImage(256, 256, /*num components=*/1);
+	testBuildingTexDataForImage(256, 256, /*num components=*/2);
+
+
+
 
 	testDownSamplingGreyTexture(256, 256, 3);
 	testDownSamplingGreyTexture(250, 250, 3);

@@ -1,7 +1,7 @@
 /*=====================================================================
 TextureLoading.cpp
 ------------------
-Copyright Glare Technologies Limited 2019 -
+Copyright Glare Technologies Limited 2022 -
 =====================================================================*/
 #include "TextureLoading.h"
 
@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2019 -
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/ArrayRef.h"
+#include "../utils/RuntimeCheck.h"
 #include <vector>
 
 
@@ -40,9 +41,9 @@ Reference<TextureData> TextureDataManager::getOrBuildTextureData(const std::stri
 		return res->second;
 	else
 	{
-		Reference<TextureData> data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, opengl_engine.nonNull() ? &opengl_engine->getTaskManager() : NULL, allow_compression);
-		loaded_textures[key] = data;
-		return data;
+		Reference<TextureData> texture_data = TextureLoading::buildUInt8MapTextureData(imagemap, opengl_engine, opengl_engine.nonNull() ? &opengl_engine->getTaskManager() : NULL, allow_compression);
+		loaded_textures[key] = texture_data;
+		return texture_data;
 	}
 }
 
@@ -119,6 +120,7 @@ void TextureLoading::init()
 // Downsize previous mip level image to current mip level.
 // Just uses kinda crappy 2x2 pixel box filter.
 // alpha_coverage_out: frac of pixels with alpha >= 0.5, set if N == 4.
+// N = num components per pixel.
 void TextureLoading::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, size_t N, const uint8* prev_level_image_data, float alpha_scale, size_t level_W, size_t level_H,
 	uint8* data_out, float& alpha_coverage_out)
 {
@@ -406,11 +408,22 @@ int TextureLoading::computeNumMIPLevels(size_t W, size_t H)
 }
 
 
-// Work out number of MIP levels we need, also work out byte offsets for the compressed data for each level.
-// temp_tex_buf_offsets is the offset for each texture level in our temp uncompressed buffer.
-static void computeMipLevelOffsets(TextureData* texture_data, SmallVector<size_t, 20>& temp_tex_buf_offsets_out, size_t& total_compressed_size_out, size_t& temp_tex_buf_size_out)
+// Work out number of MIP levels we need, also work out byte offsets for the compressed data for each level, as we will store the compressed data for all MIP levels in one buffer.
+// Store the offsets in texture_data->level_offsets.
+// Also work out the sizes needed for the two temporary buffers which we will use for ping-ponging downsized data:
+//
+// level 0: use source iamge            (e.g. 512 x 512)
+// level 1: use temp_tex_buf_a          (e.g. 256 x 256)
+// level 2: use temp_tex_buf_b          (e.g. 128 x 128)
+// level 2: use temp_tex_buf_a          (e.g. 64 x 64)
+// level 3: use temp_tex_buf_b          (e.g. 32 x 32)
+//
+// So temp_tex_buf_a is used for odd levels, with max size used for level 1, and temp_tex_buf_b is used for even levels >= 2, with max size used for level 2.
+
+static void computeMipLevelOffsets(TextureData* texture_data, size_t& total_compressed_size_out, size_t& temp_tex_buf_a_size_out, size_t& temp_tex_buf_b_size_out)
 {
-	temp_tex_buf_offsets_out.resize(0);
+	temp_tex_buf_a_size_out = 0;
+	temp_tex_buf_b_size_out = 0;
 
 	const size_t W			= texture_data->W;
 	const size_t H			= texture_data->H;
@@ -418,10 +431,8 @@ static void computeMipLevelOffsets(TextureData* texture_data, SmallVector<size_t
 	
 	texture_data->level_offsets.reserve(16); // byte offset for each mipmap level
 	size_t cur_offset = 0;
-	size_t cur_temp_tex_buf_offset = 0;
 	for(size_t k=0; ; ++k)
 	{
-		temp_tex_buf_offsets_out.push_back(cur_temp_tex_buf_offset);
 		texture_data->level_offsets.push_back(cur_offset);
 
 		const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
@@ -429,17 +440,18 @@ static void computeMipLevelOffsets(TextureData* texture_data, SmallVector<size_t
 
 		const size_t level_tex_size = level_W * level_H * bytes_pp;
 
-		if(k > 0) // Don't store level 0 texture data in the temp tex buffer.
-			cur_temp_tex_buf_offset += level_tex_size;
+		if(k == 1)
+			temp_tex_buf_a_size_out = level_tex_size;
+		else if(k == 2)
+			temp_tex_buf_b_size_out = level_tex_size;
 
-		const size_t level_comp_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
-		cur_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(cur_offset + level_comp_size, 8);
+		const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
+		cur_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(cur_offset + level_compressed_size, 8);
 		if(level_W == 1 && level_H == 1)
 			break;
 	}
 
 	total_compressed_size_out = cur_offset;
-	temp_tex_buf_size_out = cur_temp_tex_buf_offset;
 }
 
 /*
@@ -461,7 +473,11 @@ static float computeAlphaCoverage(const uint8* level_image_data, size_t level_W,
 }
 
 
-void TextureLoading::compressImageFrame(size_t total_compressed_size, js::Vector<uint8, 16>& temp_tex_buf, const SmallVector<size_t, 20>& temp_tex_buf_offsets, 
+// Compute DXT compressed image data for all MIP levels.  Does downsizing to produce the successive MIP levels.
+// Stores the DXT compressed image data in texture_data->frames[cur_frame_i].compressed_data.
+// Uses task_manager for multi-threading if non-null.
+// Called by buildUInt8MapTextureData() and buildUInt8MapSequenceTextureData() to do the actual downsizing and compression work.
+void TextureLoading::compressImageFrame(size_t total_compressed_size, js::Vector<uint8, 16>& temp_tex_buf_a, js::Vector<uint8, 16>& temp_tex_buf_b, 
 	DXTCompression::TempData& compress_temp_data, TextureData* texture_data, size_t cur_frame_i, const ImageMapUInt8* source_image, glare::TaskManager* task_manager)
 {
 	const size_t W			= texture_data->W;
@@ -494,8 +510,33 @@ void TextureLoading::compressImageFrame(size_t total_compressed_size, js::Vector
 			// Downsize previous mip level image to current mip level
 			const size_t prev_level_W = myMax((size_t)1, W / ((size_t)1 << (k-1)));
 			const size_t prev_level_H = myMax((size_t)1, H / ((size_t)1 << (k-1)));
-			const uint8* prev_level_uncompressed_data = (k == 1) ? source_image->getData() : &temp_tex_buf[temp_tex_buf_offsets[k-1]];
-			level_uncompressed_data = &temp_tex_buf[temp_tex_buf_offsets[k]];
+			const uint8* prev_level_uncompressed_data;
+			if(k == 1)
+				prev_level_uncompressed_data = source_image->getData(); // Special case for prev k == 0, read from source image
+			else
+			{
+				if((k % 2) == 0) // Read from buffer a if k-1 is odd, so if k is even.
+				{
+					prev_level_uncompressed_data = temp_tex_buf_a.data();
+					runtimeCheck(prev_level_W * prev_level_H * bytes_pp <= temp_tex_buf_a.size());
+				}
+				else
+				{
+					prev_level_uncompressed_data = temp_tex_buf_b.data();
+					runtimeCheck(prev_level_W * prev_level_H * bytes_pp <= temp_tex_buf_b.size());
+				}
+			}
+			if((k % 2) == 1) // Write to buffer a if k is odd, buffer b if even.
+			{
+				level_uncompressed_data = temp_tex_buf_a.data();
+				runtimeCheck(level_W * level_H * bytes_pp <= temp_tex_buf_a.size());
+			}
+			else
+			{
+				level_uncompressed_data = temp_tex_buf_b.data();
+				runtimeCheck(level_W * level_H * bytes_pp <= temp_tex_buf_b.size());
+			}
+
 
 			// Increase alpha scale until we get the same alpha coverage as the base LOD level. (See comment above)
 			float alpha_scale = 1.f;
@@ -524,7 +565,7 @@ void TextureLoading::compressImageFrame(size_t total_compressed_size, js::Vector
 
 		const size_t level_compressed_offset = texture_data->level_offsets[k];
 		const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
-		assert(level_compressed_offset + level_compressed_size <= frame_data.compressed_data.size());
+		runtimeCheck(level_compressed_offset + level_compressed_size <= frame_data.compressed_data.size());
 			
 		DXTCompression::compress(task_manager, compress_temp_data, level_W, level_H, bytes_pp, /*src data=*/level_uncompressed_data,
 			/*dst data=*/&frame_data.compressed_data[level_compressed_offset], level_compressed_size);
@@ -545,6 +586,9 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 
 Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::TaskManager* task_manager, bool allow_compression)
 {
+	if(imagemap->getWidth() == 0 || imagemap->getHeight() == 0)
+		throw glare::Exception("zero sized image not allowed.");
+
 	// conPrint("Creating new OpenGL texture.");
 	Reference<TextureData> texture_data = new TextureData();
 	texture_data->frames.resize(1);
@@ -599,17 +643,15 @@ Reference<TextureData> TextureLoading::buildUInt8MapTextureData(const ImageMapUI
 	texture_data->bytes_pp = bytes_pp;
 	if(allow_compression && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
 	{
-		// We will store the resized, uncompressed texture data, for all levels, in temp_tex_buf.
-		// We will store the offset to the data for each layer in temp_tex_buf_offsets.
+		size_t total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size;
+		computeMipLevelOffsets(texture_data.ptr(), total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size);
 
-		SmallVector<size_t, 20> temp_tex_buf_offsets; 
-		size_t total_compressed_size, temp_tex_buf_size;
-		computeMipLevelOffsets(texture_data.ptr(), temp_tex_buf_offsets, total_compressed_size, temp_tex_buf_size);
-
-		js::Vector<uint8, 16> temp_tex_buf(temp_tex_buf_size);
+		js::Vector<uint8, 16> temp_tex_buf_a(temp_tex_buf_a_size);
+		js::Vector<uint8, 16> temp_tex_buf_b(temp_tex_buf_b_size);
 		DXTCompression::TempData compress_temp_data;
 
-		compressImageFrame(total_compressed_size, temp_tex_buf, temp_tex_buf_offsets, compress_temp_data, texture_data.ptr(), /*cur frame i=*/0, /*source image=*/converted_image.ptr(), task_manager);
+		// Stores DXT compressed image data in texture_data->frames[cur_frame_i].compressed_data.
+		compressImageFrame(total_compressed_size, temp_tex_buf_a, temp_tex_buf_b, compress_temp_data, texture_data.ptr(), /*cur frame i=*/0, /*source image=*/converted_image.ptr(), task_manager);
 	}
 	else // Else if not using a compressed texture format:
 	{
@@ -628,6 +670,9 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 	if(seq->images.empty())
 		throw glare::Exception("empty image sequence");
 
+	if(seq->images[0]->getWidth() == 0 || seq->images[0]->getHeight() == 0)
+		throw glare::Exception("zero sized image not allowed.");
+
 	Reference<TextureData> texture_data = new TextureData();
 	texture_data->frames.resize(seq->images.size());
 
@@ -643,11 +688,11 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 	texture_data->H = H;
 	texture_data->bytes_pp = bytes_pp;
 
-	SmallVector<size_t, 20> temp_tex_buf_offsets;
-	size_t total_compressed_size, temp_tex_buf_size;
-	computeMipLevelOffsets(texture_data.ptr(), temp_tex_buf_offsets, total_compressed_size, temp_tex_buf_size);
+	size_t total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size;
+	computeMipLevelOffsets(texture_data.ptr(), total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size);
 
-	js::Vector<uint8, 16> temp_tex_buf(temp_tex_buf_size);
+	js::Vector<uint8, 16> temp_tex_buf_a(temp_tex_buf_a_size);
+	js::Vector<uint8, 16> temp_tex_buf_b(temp_tex_buf_b_size);
 	DXTCompression::TempData compress_temp_data;
 
 	for(size_t frame_i = 0; frame_i != texture_data->frames.size(); ++frame_i)
@@ -656,7 +701,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 
 		if(compress_textures_enabled && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
 		{
-			compressImageFrame(total_compressed_size, temp_tex_buf, temp_tex_buf_offsets, compress_temp_data, texture_data.ptr(), /*cur frame i=*/frame_i, /*source image=*/imagemap, task_manager);
+			compressImageFrame(total_compressed_size, temp_tex_buf_a, temp_tex_buf_b, compress_temp_data, texture_data.ptr(), /*cur frame i=*/frame_i, /*source image=*/imagemap, task_manager);
 		}
 		else // Else if not using a compressed texture format:
 		{
@@ -676,7 +721,7 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 
 	texture_data->last_frame_end_time = texture_data->frame_end_times.back();
 	texture_data->num_frames = texture_data->frame_end_times.size();
-	assert(texture_data->num_frames == texture_data->frames.size());
+	runtimeCheck(texture_data->num_frames == texture_data->frames.size());
 
 	// See if the frame durations are equal
 	texture_data->frame_durations_equal = false;
@@ -707,19 +752,15 @@ Reference<TextureData> TextureLoading::buildUInt8MapSequenceTextureData(const Im
 }
 
 
+// Load the built texture data into OpenGL.
 Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
 	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB)
 {
-	// conPrint("Creating new OpenGL texture.");
 	const int frame_i = 0;
-
-	// Try and load as a DXT texture compression
-	const bool DXT_support = opengl_engine->GL_EXT_texture_compression_s3tc_support;
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
 	const size_t bytes_pp = texture_data.bytes_pp;
-	const bool is_one_dim_col_lookup_tex = (W == 1) || (H == 1); //  // Special case for palette textures: don't compress, since we can lose colours that way.
-	if(!texture_data.frames[0].compressed_data.empty() && opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
+	if(!texture_data.frames[0].compressed_data.empty()) // If the texture data is using a compressed texture format:
 	{
 		//Timer timer;
 
@@ -737,9 +778,7 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
 
-			assert(texture_data.level_offsets[k] + level_compressed_size <= texture_data.frames[frame_i].compressed_data.size());
-			if(texture_data.level_offsets[k] + level_compressed_size > texture_data.frames[frame_i].compressed_data.size())
-				throw glare::Exception("TextureLoading::loadTextureIntoOpenGL(): Internal error A");
+			runtimeCheck(texture_data.level_offsets[k] + level_compressed_size <= texture_data.frames[frame_i].compressed_data.size());
 
 			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].compressed_data[texture_data.level_offsets[k]], level_compressed_size));
 		}
@@ -750,6 +789,8 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 	}
 	else // Else if not using a compressed texture format:
 	{
+		runtimeCheck(texture_data.frames[frame_i].converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
+
 		OpenGLTexture::Format format;
 		if(texture_data.bytes_pp == 3)
 			format = (opengl_engine->are_8bit_textures_sRGB && use_sRGB) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_RGB_Linear_Uint8;
@@ -767,16 +808,13 @@ Reference<OpenGLTexture> TextureLoading::loadTextureIntoOpenGL(const TextureData
 }
 
 
-// Load into an existing texture
-void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i, const Reference<OpenGLEngine>& opengl_engine)
+// Load the texture data for frame_i into an existing OpenGL texture.  Used for animated images.
+void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i)
 {
-	// Try and load as a DXT texture compression
-	const bool DXT_support = opengl_engine->GL_EXT_texture_compression_s3tc_support;
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
 	const size_t bytes_pp = texture_data.bytes_pp;
-	const bool is_one_dim_col_lookup_tex = (W == 1) || (H == 1); // Special case for palette textures: don't compress, since we can lose colours that way.
-	if(opengl_engine->settings.compress_textures && DXT_support && (bytes_pp == 3 || bytes_pp == 4) && !is_one_dim_col_lookup_tex)
+	if(!texture_data.frames[frame_i].compressed_data.empty()) // If the texture data is using a compressed texture format:
 	{
 		opengl_tex->bind();
 
@@ -793,6 +831,8 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 	}
 	else // Else if not using a compressed texture format:
 	{
+		runtimeCheck(texture_data.frames[frame_i].converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
+
 		opengl_tex->loadIntoExistingTexture(W, H, 
 			W * texture_data.frames[frame_i].converted_image->getBytesPerPixel(), // row stride (B)
 			ArrayRef<uint8>(texture_data.frames[frame_i].converted_image->getData(), texture_data.frames[frame_i].converted_image->getDataSize()));
