@@ -184,7 +184,7 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 				size_t offset = 0;
 				while(offset < payload_len_to_read)
 				{
-					const size_t chunk_size = myMin(2048ull, payload_len_to_read - offset);
+					const size_t chunk_size = myMin<size_t>(2048ull, payload_len_to_read - offset);
 					temp_buffer.resizeNoCopy(chunk_size);
 					underlying_socket->readData(temp_buffer.data(), chunk_size);
 
