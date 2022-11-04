@@ -293,6 +293,10 @@ void MySocket::bindAndListen(int port, bool reuse_address)
 	hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
 	hints.ai_protocol = 0;
 	hints.ai_flags = AI_PASSIVE; // "Setting the AI_PASSIVE flag indicates the caller intends to use the returned socket address structure in a call to the bind function": https://msdn.microsoft.com/en-gb/library/windows/desktop/ms738520(v=vs.85).aspx
+#if !defined(_WIN32) 
+	hints.ai_flags |= AI_ADDRCONFIG; // On Linux, some users were having issues with getaddrinfo returning IPv6 addresses which were not valid (IPv6 support was disabled).
+	// AI_ADDRCONFIG will hopefully prevent invalid IPv6 addresses being returned by getaddrinfo.
+#endif
 
 	struct addrinfo* results = NULL;
 
