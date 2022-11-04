@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2022 -
 
 #include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
+#include <cstring>
 
 
 RecordingSocket::RecordingSocket(Reference<SocketInterface> underlying_socket_)
