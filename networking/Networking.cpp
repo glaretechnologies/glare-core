@@ -118,8 +118,12 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 	hints.ai_family = AF_UNSPEC; // don't care IPv4 or IPv6
 	hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
 	hints.ai_protocol = IPPROTO_TCP;
+#if !defined(_WIN32) 
+	hints.ai_flags |= AI_ADDRCONFIG; // On Linux, some users were having issues with getaddrinfo returning IPv6 addresses which were not valid (IPv6 support was disabled).
+	// AI_ADDRCONFIG will hopefully prevent invalid IPv6 addresses being returned by getaddrinfo.
+#endif
 
-	addrinfo *result = NULL;
+	addrinfo* result = NULL;
 
 	const int ret = ::getaddrinfo(
 		hostname.c_str(), // node name
