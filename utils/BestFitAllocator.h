@@ -45,6 +45,8 @@ public:
 
 	size_t getNumAllocatedBlocks() const;
 	size_t getNumFreeBlocks() const { return size_to_free_blocks.size(); }
+	size_t getAllocatedSpace() const;
+	size_t getFreeSpace() const;
 
 	static void test();
 

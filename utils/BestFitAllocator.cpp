@@ -92,6 +92,34 @@ size_t BestFitAllocator::getNumAllocatedBlocks() const
 }
 
 
+size_t BestFitAllocator::getAllocatedSpace() const
+{
+	size_t space = 0;
+	BlockInfo* cur = first;
+	while(cur != NULL)
+	{
+		if(cur->allocated)
+			space += cur->size;
+		cur = cur->next; // Walk to next block
+	}
+	return space;
+}
+
+
+size_t BestFitAllocator::getFreeSpace() const
+{
+	size_t space = 0;
+	BlockInfo* cur = first;
+	while(cur != NULL)
+	{
+		if(!cur->allocated)
+			space += cur->size;
+		cur = cur->next; // Walk to next block
+	}
+	return space;
+}
+
+
 BestFitAllocator::BlockInfo* BestFitAllocator::alloc(size_t size_, size_t requested_alignment)
 {
 	assert(requested_alignment > 0);
@@ -186,14 +214,9 @@ BestFitAllocator::BlockInfo* BestFitAllocator::alloc(size_t size_, size_t reques
 	return block;
 }
 
-static int testi = 0;
+
 void BestFitAllocator::free(BlockInfo* block)
 {
-	testi++;
-	//if(name == "index VBO allocator" && testi >= 34)
-	//	int b = 9;
-
-
 	BlockInfo* prev = block->prev;
 	BlockInfo* next = block->next;
 
