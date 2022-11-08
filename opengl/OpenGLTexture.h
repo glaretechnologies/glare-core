@@ -8,13 +8,18 @@ Copyright Glare Technologies Limited 2022 -
 
 #include "BasicOpenGLTypes.h"
 #include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"
+#include "../utils/AllocatorVector.h"
 #include <vector>
 #include <string>
 
 
 class OpenGLEngine;
+class OpenGLTexture;
+class TextureData;
+class Map2D;
 
 
 struct OpenGLTextureKey
@@ -35,6 +40,38 @@ struct OpenGLTextureKeyHash
 		std::hash<std::string> h;
 		return h(key.path);
 	}
+};
+
+
+class TextureFrameData
+{
+public:
+	glare::AllocatorVector<uint8, 16> compressed_data; // Compressed data for all mip-map levels.
+	Reference<const Map2D> converted_image;
+};
+
+
+class TextureData : public ThreadSafeRefCounted
+{
+public:
+	TextureData() : frame_durations_equal(false), /*have_mipmap_data(false)*/num_mip_levels(1) {}
+
+	size_t compressedSizeBytes() const;
+
+	size_t W, H, bytes_pp;
+
+	size_t num_mip_levels;
+
+	std::vector<size_t> level_offsets;
+
+	std::vector<TextureFrameData> frames; // will have 1 element for non-animated images, more than 1 for animated gifs etc..
+
+	std::vector<double> frame_end_times;
+
+	bool frame_durations_equal;
+	double recip_frame_duration; // Set if frame_durations_equal is true.
+	double last_frame_end_time;
+	size_t num_frames; // == frames.size() == frame_end_times.size()
 };
 
 
@@ -103,12 +140,12 @@ public:
 
 
 	//--------------------------------------------- Updating existing texture ---------------------------------------------
-	void setMipMapLevelData(int mipmap_level, size_t level_W, size_t level_H, ArrayRef<uint8> tex_data); // Texture should be bound beforehand
+	void setMipMapLevelData(int mipmap_level, size_t level_W, size_t level_H, ArrayRef<uint8> tex_data, bool bind_needed);
 	
 	// Load into a texture that has already had its format, filtering and wrapping modes set.
-	void loadIntoExistingTexture(size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data);
+	void loadIntoExistingTexture(int mipmap_level, size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed);
 
-	void loadRegionIntoExistingTexture(size_t x, size_t y, size_t w, size_t h, size_t row_stride_B, ArrayRef<uint8> tex_data);
+	void loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed);
 
 	void setTWrappingEnabled(bool wrapping_enabled);
 	//---------------------------------------------------------------------------------------------------------------------
@@ -193,6 +230,8 @@ public:
 	OpenGLTextureKey key;
 
 	uint64 bindless_tex_handle;
+
+	Reference<TextureData> texture_data; // Just stored here for animated textures, so we can upload data for other frames to the GPU texture.
 };
 
 

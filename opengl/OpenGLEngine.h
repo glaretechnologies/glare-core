@@ -42,6 +42,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/PrintOutput.h"
 #include "../utils/ManagerWithCache.h"
 #include "../utils/PoolAllocator.h"
+#include "../utils/GeneralMemAllocator.h"
 #include "../physics/HashedGrid2.h"
 #include <assert.h>
 #include <unordered_set>
@@ -645,27 +646,23 @@ public:
 
 	//---------------------------- Texture loading -------------------------------------------
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
-	// Throws glare::Exception
+	// Throws glare::Exception if texture could not be loaded.
 	Reference<OpenGLTexture> getTexture(const std::string& tex_path, bool allow_compression = true);
 
-	// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
-	// If the texture is not loaded or not processed yet, return a null reference.
+	// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
+	// If the texture is not loaded, return a null reference.
 	// Throws glare::Exception
 	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps = true);
-
-	// Notify the OpenGL engine that a texture has been loaded - i.e. either inserted into texture_server or inserted into texture_data_manager.
-	void textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps);
 
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
 
-	Reference<OpenGLTexture> loadOpenGLTextureFromTexData(const OpenGLTextureKey& key, Reference<TextureData> texture_data,
-		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB);
-
-	Reference<OpenGLTexture> getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
+	// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
+	// Otherwise load the texure from map2d into OpenGL immediately.
+	Reference<OpenGLTexture> getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true, bool use_mipmaps = true);
 
-	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex);
+	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex); // Adds to opengl_textures.
 
 	void removeOpenGLTexture(const OpenGLTextureKey& key); // Erases from opengl_textures.
 
@@ -739,8 +736,8 @@ public:
 
 	static Reference<OpenGLMeshRenderData> buildMeshRenderData(VertexBufferAllocator& allocator, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 
-	static void initialiseLoadingProgress(OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress);
-	static void partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress);
+	static void initialiseMeshDataLoadingProgress(OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress);
+	static void partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress, size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes);
 
 	static void loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data);
 	//---------------------------- End mesh functions ----------------------------------------
@@ -835,6 +832,7 @@ private:
 	void submitBufferedDrawCommands();
 	void sortBatchDrawInfos();
 	void getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
+	void assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture);
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -926,8 +924,6 @@ private:
 	Timer draw_timer;
 
 	ManagerWithCache<OpenGLTextureKey, Reference<OpenGLTexture>, OpenGLTextureKeyHash> opengl_textures;
-public:
-	Reference<TextureDataManager> texture_data_manager;
 private:
 	size_t outline_tex_w, outline_tex_h;
 	Reference<FrameBuffer> outline_solid_framebuffer;
@@ -1072,6 +1068,8 @@ public:
 
 	uint64 total_available_GPU_mem_B; // Set by NVidia drivers
 	uint64 total_available_GPU_VBO_mem_B; // Set by AMD drivers
+
+	glare::GeneralMemAllocator general_mem_allocator;
 
 private:
 	glare::PoolAllocator object_pool_allocator;

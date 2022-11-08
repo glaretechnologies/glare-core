@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "IncludeOpenGL.h"
+#include "graphics/Map2D.h"
 
 
 FrameBuffer::FrameBuffer()

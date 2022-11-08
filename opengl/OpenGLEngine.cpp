@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "OpenGLProgram.h"
 #include "OpenGLShader.h"
 #include "ShadowMapping.h"
-#include "TextureLoading.h"
+#include "TextureProcessing.h"
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
@@ -331,8 +331,11 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	next_program_index(0),
 	use_bindless_textures(false),
 	use_reverse_z(true),
-	object_pool_allocator(sizeof(GLObject), 16)
+	object_pool_allocator(sizeof(GLObject), 16),
+	general_mem_allocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull)
 {
+	general_mem_allocator.incRefCount(); // Manually incr ref count as will be passed around via a reference.
+
 	current_index_type = 0;
 	current_bound_prog = NULL;
 	current_bound_VAO = NULL;
@@ -350,8 +353,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
 
-	texture_data_manager = new TextureDataManager();
-	
 	max_tex_mem_usage = settings.max_tex_mem_usage;
 
 	vert_buf_allocator = new VertexBufferAllocator(settings.use_grouped_vbo_allocator);
@@ -389,6 +390,8 @@ OpenGLEngine::~OpenGLEngine()
 #if !defined(OSX)
 	glDebugMessageCallback(myMessageCallback, NULL);
 #endif
+
+	general_mem_allocator.decRefCount();
 }
 
 
@@ -1087,8 +1090,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		vert_buf_allocator->use_VBO_size_B = 64 * 1024 * 1024; // A reasonably small size, needs to work well for weaker GPUs
 
 
-	// Init TextureLoading (in particular stb_compress_dxt lib) before it's called from multiple threads
-	TextureLoading::init();
+	// Init TextureProcessing (in particular stb_compress_dxt lib) before it's called from multiple threads
+	TextureProcessing::init();
 
 	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
 
@@ -1192,13 +1195,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			if(!specular_env.isType<ImageMapFloat>())
 				throw glare::Exception("specular env map Must be ImageMapFloat");
 
-			this->specular_env_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
+			this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
 		}
 
 		// Load blue noise texture
 		{
 			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", gl_data_dir + "/LDR_LLL1_0.png");
-			this->blue_noise_tex = getOrLoadOpenGLTexture(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, OpenGLTexture::Filtering_Nearest, 
+			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, OpenGLTexture::Filtering_Nearest, 
 				OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false, /*use_sRGB=*/false);
 		}
 
@@ -2025,7 +2028,6 @@ void OpenGLEngine::unloadAllData()
 	for(auto it = opengl_textures.begin(); it != opengl_textures.end(); ++it)
 		it->second.value->m_opengl_engine = NULL;
 	opengl_textures.clear();
-	texture_data_manager->clear();
 
 	tex_mem_usage = 0;
 }
@@ -2379,50 +2381,8 @@ void OpenGLEngine::setLightPos(GLLightRef light, const Vec4f& new_pos)
 }
 
 
-// Notify the OpenGL engine that a texture has been loaded - i.e. either inserted into texture_server or inserted into texture_data_manager.
-void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps)
+void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture)
 {
-	// conPrint("textureLoaded(): path: " + path);
-
-	// Load the texture into OpenGL.
-	// Note that at this point there may actually be no OpenGL objects inserted that use the texture yet!
-	Reference<OpenGLTexture> opengl_texture;
-
-	// If the OpenGL texture for this path has already been created, return it.
-	auto res = this->opengl_textures.find(key);
-	if(res != this->opengl_textures.end())
-	{
-		// conPrint("\tFound in opengl_textures.");
-		opengl_texture = res->second.value;
-	}
-	else
-	{
-		// See if we have 8-bit texture data loaded for this texture
-		Reference<TextureData> tex_data = this->texture_data_manager->getTextureData(key.path); // returns null ref if not present.
-		if(tex_data.nonNull())
-		{
-			// Avoid using trilinear filtering with animated textures, if we haven't computed the mipmap levels ourselves (while doing compression).
-			// Otherwise the opengl driver will have to repeatedly generate mipmaps as the texture is updated to the current frame.
-			const bool animated = tex_data->frames.size() > 1;
-			const bool compressed = !tex_data->frames[0].compressed_data.empty();
-			const OpenGLTexture::Filtering filtering = (animated && !compressed) ? OpenGLTexture::Filtering_Bilinear : OpenGLTexture::Filtering_Fancy;
-
-			opengl_texture = this->loadOpenGLTextureFromTexData(key, tex_data, filtering, OpenGLTexture::Wrapping_Repeat, use_sRGB);
-			assert(opengl_texture.nonNull());
-			// conPrint("\tLoaded from tex data.");
-		}
-		else
-		{
-			Reference<Map2D> map = texture_server->getTexForRawNameIfLoaded(key.path);
-			if(map.nonNull())
-			{
-				opengl_texture = this->getOrLoadOpenGLTexture(key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow compression=*/true, use_sRGB, use_mipmaps);
-				assert(opengl_texture.nonNull());
-				// conPrint("\tLoaded from map.");
-			}
-		}
-	}
-
 	assert(opengl_texture.nonNull());
 	
 	for(auto z = scenes.begin(); z != scenes.end(); ++z)
@@ -2455,7 +2415,7 @@ void OpenGLEngine::textureLoaded(const std::string& path, const OpenGLTextureKey
 
 				if((object->materials[i].lightmap_path == path) && (mat.lightmap_texture != opengl_texture)) // If this lightmap texture should be assigned to this material, and it is not already assigned:
 				{
-					// conPrint("\tOpenGLEngine::textureLoaded(): Found object using lightmap '" + path + "'.");
+					// conPrint("\tOpenGLEngine::assignLoadedTextureToObMaterials(): Found object using lightmap '" + path + "'.");
 
 					mat.lightmap_texture = opengl_texture;
 
@@ -2566,7 +2526,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, b
 		// TEMP HACK: need to set base dir here
 		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
 
-		return this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, allow_compression);
+		return this->getOrLoadOpenGLTextureForMap2D(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, allow_compression);
 	}
 	catch(TextureServerExcep& e)
 	{
@@ -2575,58 +2535,20 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, b
 }
 
 
-// If the texture identified by tex_path has been loaded and processed, load into OpenGL if needed, then return the OpenGL texture.
-// If the texture is not loaded or not processed yet, return a null reference.
+// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
+// If the texture is not loaded, return a null reference.
 // Throws glare::Exception
 Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key, bool use_sRGB, bool use_mipmaps)
 {
-	// conPrint("getTextureIfLoaded(), tex_path: " + tex_path);
-	try
+	auto res = this->opengl_textures.find(texture_key);
+	if(res != this->opengl_textures.end())
 	{
-		// If the OpenGL texture for this path has already been created, return it.
-		auto res = this->opengl_textures.find(texture_key);
-		if(res != this->opengl_textures.end())
-		{
-			// conPrint("\tFound in opengl_textures.");
-			if(res->second.value->getRefCount() == 1)
-				this->textureBecameUsed(res->second.value.ptr());
-			return res->second.value;
-		}
-
-		// If we have processed texture data for this texture, load it
-		Reference<TextureData> tex_data = this->texture_data_manager->getTextureData(texture_key.path);
-		if(tex_data.nonNull())
-		{
-			// conPrint("\tFound in tex_data.");
-			Reference<OpenGLTexture> gl_tex = this->loadOpenGLTextureFromTexData(texture_key, tex_data, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, use_sRGB); // Load into OpenGL and return it.
-			assert(gl_tex.nonNull());
-			return gl_tex;
-		}
-
-		Reference<Map2D> map = texture_server->getTexForRawNameIfLoaded(texture_key.path);
-		if(map.nonNull()) // If the texture has been loaded from disk already:
-		{
-			if(dynamic_cast<const ImageMapUInt8*>(map.ptr())) // If UInt8 map, which needs processing:
-				return Reference<OpenGLTexture>(); // Consider this texture not loaded yet.  (Needs to be processed first)
-			else
-			{
-				// Not an UInt8 map so doesn't need processing, so load it.
-				// conPrint("\tloading from map.");
-				Reference<OpenGLTexture> gl_tex = this->getOrLoadOpenGLTexture(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, /*allow_compression=*/true, use_sRGB, use_mipmaps); 
-				assert(gl_tex.nonNull());
-				return gl_tex;
-			}
-		}
-		else
-		{
-			// conPrint("\tNot found.");
-			return Reference<OpenGLTexture>();
-		}
+		if(res->second.value->getRefCount() == 1)
+			this->textureBecameUsed(res->second.value.ptr());
+		return res->second.value;
 	}
-	catch(TextureServerExcep& e)
-	{
-		throw glare::Exception(e.what());
-	}
+	else
+		return Reference<OpenGLTexture>();
 }
 
 
@@ -5509,7 +5431,7 @@ std::string MeshDataLoadingProgress::summaryString() const
 }
 
 
-void OpenGLEngine::initialiseLoadingProgress(OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress)
+void OpenGLEngine::initialiseMeshDataLoadingProgress(OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress)
 {
 	loading_progress.vert_next_i = 0;
 	loading_progress.index_next_i = 0;
@@ -5536,11 +5458,11 @@ void OpenGLEngine::initialiseLoadingProgress(OpenGLMeshRenderData& data, MeshDat
 }
 
 
-void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress)
+void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress, size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes)
 {
 	assert(!loading_progress.done());
 
-	const size_t max_chunk_size = 512 * 1024;
+	const size_t max_chunk_size = max_total_upload_bytes;
 
 	if(!data.vbo_handle.valid())
 		data.vbo_handle = allocator.allocate(data.vertex_spec, /*data=*/NULL, loading_progress.vert_total_size_B); // Just allocate the buffer, don't upload
@@ -5565,6 +5487,7 @@ void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& al
 			data.vbo_handle.vbo->updateData(/*offset=*/data.vbo_handle.offset + loading_progress.vert_next_i, /*data=*/data.batched_mesh->vertex_data.data() + loading_progress.vert_next_i, 
 				/*data_size=*/chunk_size);
 			loading_progress.vert_next_i += chunk_size;
+			total_bytes_uploaded_in_out += chunk_size;
 		}
 		else
 		{
@@ -5575,6 +5498,7 @@ void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& al
 				data.indices_vbo_handle.index_vbo->updateData(/*offset=*/data.indices_vbo_handle.offset + loading_progress.index_next_i, /*data=*/data.batched_mesh->index_data.data() + loading_progress.index_next_i, 
 					/*data_size=*/chunk_size);
 				loading_progress.index_next_i += chunk_size;
+				total_bytes_uploaded_in_out += chunk_size;
 			}
 		}
 	}
@@ -5609,6 +5533,7 @@ void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& al
 				const size_t chunk_size = myMin(max_chunk_size, loading_progress.index_total_size_B - loading_progress.index_next_i);
 				data.indices_vbo_handle.index_vbo->updateData(/*offset=*/data.indices_vbo_handle.offset + loading_progress.index_next_i, src_data + loading_progress.index_next_i, chunk_size);
 				loading_progress.index_next_i += chunk_size;
+				total_bytes_uploaded_in_out += chunk_size;
 			}
 		}
 	}
@@ -6333,295 +6258,55 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 }
 
 
-
-Reference<OpenGLTexture> OpenGLEngine::loadOpenGLTextureFromTexData(const OpenGLTextureKey& key, Reference<TextureData> texture_data,
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB)
+// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
+// Otherwise load the texure from map2d into OpenGL immediately.
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
+	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression, bool use_sRGB, bool use_mipmaps)
 {
 	auto res = this->opengl_textures.find(key);
-	if(res == this->opengl_textures.end())
-	{
-		// Load into OpenGL
-		Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping, use_sRGB);
-
-		this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-		// Now that the data has been loaded into OpenGL, we can erase the texture data.  Don't remove data with more than 1 frame, as we will need it for animated textures.
-		if(texture_data->frames.size() == 1)
-			this->texture_data_manager->removeTextureData(key.path);
-
-		opengl_tex->key = key;
-		opengl_tex->m_opengl_engine = this;
-		this->textureBecameUsed(opengl_tex.ptr());
-		this->tex_mem_usage += opengl_tex->getByteSize();
-
-		return opengl_tex;
-	}
-	else // Else if this map has already been loaded into an OpenGL Texture:
+	if(res != this->opengl_textures.end())// if this map has already been loaded into an OpenGL Texture:
 	{
 		if(res->second.value->getRefCount() == 1)
 			this->textureBecameUsed(res->second.value.ptr());
-
-		// conPrint("\tTexture already loaded.");
 		return res->second.value;
 	}
+
+
+	// Process texture data
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this, &this->getTaskManager(), allow_compression);
+
+	OpenGLTextureLoadingProgress loading_progress;
+	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, use_sRGB, /*use_mipmaps, */texture_data, loading_progress);
+
+	const int MAX_ITERS = 1000;
+	int i = 0;
+	for(; i<MAX_ITERS; ++i)
+	{
+		testAssert(loading_progress.loadingInProgress());
+		const size_t MAX_UPLOAD_SIZE = 1000000000ull;
+		size_t total_bytes_uploaded = 0;
+		TextureLoading::partialLoadTextureIntoOpenGL(this, loading_progress, total_bytes_uploaded, MAX_UPLOAD_SIZE);
+		if(loading_progress.done())
+			break;
+	}
+	runtimeCheck(i < MAX_ITERS);
+
+	assert(this->opengl_textures.find(key) != this->opengl_textures.end()); // partialLoadTextureIntoOpenGL() should have added to opengl_textures.
+	return loading_progress.opengl_tex;
 }
 
 
-static Reference<ImageMapUInt8> convertToUInt8ImageMap(const ImageMap<uint16, UInt16ComponentValueTraits>& map)
+void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& opengl_tex)
 {
-	Reference<ImageMapUInt8> new_map = new ImageMapUInt8(map.getWidth(), map.getHeight(), map.getN());
-	for(size_t i=0; i<map.getDataSize(); ++i)
-		new_map->getData()[i] = (uint8)(map.getData()[i] / 256);
-	return new_map;
-}
+	opengl_tex->key = key;
+	opengl_tex->m_opengl_engine = this;
+	this->opengl_textures.set(key, opengl_tex);
 
+	this->tex_mem_usage += opengl_tex->getByteSize();
 
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTexture(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression, bool use_sRGB, bool use_mipmaps)
-{
-	if(dynamic_cast<const ImageMap<uint16, UInt16ComponentValueTraits>*>(&map2d))
-	{
-		// Convert to 8-bit, then recurse.
-		Reference<ImageMapUInt8> im_map_uint8 = convertToUInt8ImageMap(static_cast<const ImageMap<uint16, UInt16ComponentValueTraits>&>(map2d));
+	textureBecameUsed(opengl_tex.ptr());
 
-		return getOrLoadOpenGLTexture(key, *im_map_uint8, filtering, wrapping, allow_compression, use_sRGB);
-	}
-	else if(dynamic_cast<const ImageMapUInt8*>(&map2d))
-	{
-		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(&map2d);
-
-		//conPrint("key: " + key.path);
-		//conPrint("&map2d: " + toString((uint64)&map2d));
-		auto res = this->opengl_textures.find(key);
-		if(res == this->opengl_textures.end())
-		{
-			// Get processed texture data
-			Reference<TextureData> texture_data = this->texture_data_manager->getOrBuildTextureData(key.path, imagemap, this/*, state*/, allow_compression);
-
-			// Load into OpenGL
-			Reference<OpenGLTexture> opengl_tex = TextureLoading::loadTextureIntoOpenGL(*texture_data, this, filtering, wrapping, use_sRGB);
-
-			// Now that the data has been loaded into OpenGL, we can erase the texture data.
-			this->texture_data_manager->removeTextureData(key.path);
-
-			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-			opengl_tex->key = key;
-			opengl_tex->m_opengl_engine = this;
-			this->textureBecameUsed(opengl_tex.ptr());
-			this->tex_mem_usage += opengl_tex->getByteSize();
-
-			return opengl_tex;
-		}
-		else // Else if this map has already been loaded into an OpenGL Texture:
-		{
-			if(res->second.value->getRefCount() == 1)
-				this->textureBecameUsed(res->second.value.ptr());
-
-			// conPrint("\tTexture already loaded.");
-			return res->second.value;
-		}
-	}
-	else if(dynamic_cast<const ImageMapFloat*>(&map2d))
-	{
-		const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(&map2d);
-
-		auto res = this->opengl_textures.find(key);
-		if(res == this->opengl_textures.end())
-		{
-			// Load texture
-			if(imagemap->getN() == 1)
-			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
-					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
-					OpenGLTexture::Format_Greyscale_Float,
-					filtering, wrapping, use_mipmaps
-				);
-
-				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-				opengl_tex->key = key;
-				opengl_tex->m_opengl_engine = this;
-				this->textureBecameUsed(opengl_tex.ptr());
-				this->tex_mem_usage += opengl_tex->getByteSize();
-
-				return opengl_tex;
-			}
-			else if(imagemap->getN() == 3)
-			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
-					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
-					OpenGLTexture::Format_RGB_Linear_Float,
-					filtering, wrapping, use_mipmaps
-				);
-
-				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-				opengl_tex->key = key;
-				opengl_tex->m_opengl_engine = this;
-				this->textureBecameUsed(opengl_tex.ptr());
-				this->tex_mem_usage += opengl_tex->getByteSize();
-
-				return opengl_tex;
-			}
-			else
-				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
-
-		}
-		else // Else if this map has already been loaded into an OpenGL Texture:
-		{
-			if(res->second.value->getRefCount() == 1)
-				this->textureBecameUsed(res->second.value.ptr());
-
-			return res->second.value;
-		}
-	}
-	else if(dynamic_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d))
-	{
-		const ImageMap<half, HalfComponentValueTraits>* imagemap = static_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d);
-
-		auto res = this->opengl_textures.find(key);
-		if(res == this->opengl_textures.end())
-		{
-			// Load texture
-			if(imagemap->getN() == 1)
-			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
-					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
-					OpenGLTexture::Format_Greyscale_Half,
-					filtering, wrapping,
-					use_mipmaps
-				);
-
-				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-				opengl_tex->key = key;
-				opengl_tex->m_opengl_engine = this;
-				this->textureBecameUsed(opengl_tex.ptr());
-				this->tex_mem_usage += opengl_tex->getByteSize();
-
-				return opengl_tex;
-			}
-			else if(imagemap->getN() == 3)
-			{
-				Reference<OpenGLTexture> opengl_tex = new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), this,
-					ArrayRef<uint8>((uint8*)imagemap->getData(), imagemap->getDataSize()), 
-					OpenGLTexture::Format_RGB_Linear_Half,
-					filtering, wrapping,
-					use_mipmaps
-				);
-
-				this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-				opengl_tex->key = key;
-				opengl_tex->m_opengl_engine = this;
-				this->textureBecameUsed(opengl_tex.ptr());
-				this->tex_mem_usage += opengl_tex->getByteSize();
-
-				return opengl_tex;
-			}
-			else
-				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
-
-		}
-		else // Else if this map has already been loaded into an OpenGL Texture:
-		{
-			if(res->second.value->getRefCount() == 1)
-				this->textureBecameUsed(res->second.value.ptr());
-
-			return res->second.value;
-		}
-	}
-	else if(dynamic_cast<const CompressedImage*>(&map2d))
-	{
-		const CompressedImage* compressed_image = static_cast<const CompressedImage*>(&map2d);
-
-		auto res = this->opengl_textures.find(key);
-		if(res == this->opengl_textures.end())
-		{
-			// Load texture
-			//printVar(compressed_image->gl_internal_format);
-			//printVar(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT);
-
-			Reference<OpenGLTexture> opengl_tex;
-
-			const bool has_mipmaps = compressed_image->mipmap_level_data.size() > 1;
-
-			size_t bytes_per_block;
-			if(compressed_image->gl_base_internal_format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
-			{
-				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
-					ArrayRef<uint8>(NULL, 0),
-					OpenGLTexture::Format_Compressed_BC6, 
-					filtering, wrapping, has_mipmaps); // Binds texture
-
-				bytes_per_block = 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
-			}
-			else if(compressed_image->gl_base_internal_format == GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT)
-			{
-				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
-					ArrayRef<uint8>(NULL, 0), 
-					GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8,
-					filtering, wrapping, has_mipmaps); // Binds texture
-				bytes_per_block = 8;
-			}
-			else if(compressed_image->gl_base_internal_format == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
-			{
-				opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), this,
-					ArrayRef<uint8>(NULL, 0), 
-					GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8,
-					filtering, wrapping, has_mipmaps); // Binds texture
-				bytes_per_block = 16;
-			}
-			else
-				throw glare::Exception("Unhandled internal format for compressed image.");
-
-			for(size_t i=0; i<compressed_image->mipmap_level_data.size(); ++i)
-			{
-				const size_t level_w = myMax((size_t)1, compressed_image->getMapWidth()  >> i);
-				const size_t level_h = myMax((size_t)1, compressed_image->getMapHeight() >> i);
-
-				// Check mipmap_level_data is the correct size for this mipmap level.
-				const size_t num_xblocks = Maths::roundedUpDivide(level_w, (size_t)4);
-				const size_t num_yblocks = Maths::roundedUpDivide(level_h, (size_t)4);
-				const size_t expected_size_B = num_xblocks * num_yblocks * bytes_per_block;
-				if(expected_size_B != compressed_image->mipmap_level_data[i].size())
-					throw glare::Exception("Compressed image data was wrong size.");
-
-				opengl_tex->setMipMapLevelData((int)i, level_w, level_h, ArrayRef<uint8>(compressed_image->mipmap_level_data[i].data(), compressed_image->mipmap_level_data[i].size()));
-			}
-
-			this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
-
-			opengl_tex->key = key;
-			opengl_tex->m_opengl_engine = this;
-			this->textureBecameUsed(opengl_tex.ptr());
-			this->tex_mem_usage += opengl_tex->getByteSize();
-
-			return opengl_tex;
-		}
-		else // Else if this map has already been loaded into an OpenGL Texture:
-		{
-			if(res->second.value->getRefCount() == 1)
-				this->textureBecameUsed(res->second.value.ptr());
-
-			return res->second.value;
-		}
-	}
-	else
-	{
-		throw glare::Exception("Unhandled texture type for texture '" + key.path + "': (B/pixel: " + toString(map2d.getBytesPerPixel()) + ", numChannels: " + toString(map2d.numChannels()) + ")");
-	}
-}
-
-
-void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex)
-{
-	tex->key = key;
-	tex->m_opengl_engine = this;
-	this->opengl_textures.set(key, tex);
-
-	this->tex_mem_usage += tex->getByteSize();
+	assignLoadedTextureToObMaterials(key.path, opengl_tex);
 
 	trimTextureUsage();
 }
@@ -6798,15 +6483,15 @@ GLMemUsage OpenGLEngine::getTotalMemUsage() const
 		sum += scene->getTotalMemUsage();
 	}
 
-	//----------- texture_data_manager  ----------
-	const size_t tex_cpu_usage = texture_data_manager->getTotalMemUsage();
-	sum.texture_cpu_usage += tex_cpu_usage;
-
 	//----------- opengl_textures  ----------
 	for(auto i = opengl_textures.begin(); i != opengl_textures.end(); ++i)
 	{
-		const size_t tex_gpu_usage = i->second.value->getByteSize();
+		const OpenGLTexture* tex = i->second.value.ptr();
+		const size_t tex_gpu_usage = tex->getByteSize();
 		sum.texture_gpu_usage += tex_gpu_usage;
+
+		if(tex->texture_data.nonNull())
+			sum.texture_cpu_usage += tex->texture_data->compressedSizeBytes();
 	}
 
 	// Get sum memory usage of unused (cached) textures.
@@ -6868,6 +6553,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "SSBO support: " + boolToString(GL_ARB_shader_storage_buffer_object_support) + "\n";
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
 	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
+
+	s += general_mem_allocator.getDiagnostics();
 
 	s += vert_buf_allocator->getDiagnostics();
 
