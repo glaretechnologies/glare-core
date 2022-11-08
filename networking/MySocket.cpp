@@ -148,12 +148,25 @@ void MySocket::createClientSideSocket()
 
 	// Create socket
 	sockethandle = socket(
-		PF_INET6, SOCK_STREAM,
+		AF_INET6, SOCK_STREAM,
 		0 // protocol - default
 	);
 
 	if(!isSockHandleValid(sockethandle))
+	{
+#if !defined(_WIN32)
+		// Try falling back to creating an IPv4 socket.  May help when IPv6 is not supported.
+		// Don't do this on Windows - "Applications are encouraged to use AF_INET6 for the af parameter and create a dual-mode socket that can be used with both IPv4 and IPv6." (https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-socket)
+		sockethandle = socket(
+			AF_INET, SOCK_STREAM,
+			0 // protocol - default
+		);
+		if(!isSockHandleValid(sockethandle))
+			throw MySocketExcep("Could not create a socket: " + Networking::getError());
+#else
 		throw MySocketExcep("Could not create a socket: " + Networking::getError());
+#endif
+	}
 
 	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
 	int no = 0;
