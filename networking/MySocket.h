@@ -190,6 +190,7 @@ private:
 	int otherend_port;
 
 	bool use_network_byte_order;
+	bool use_IPv4_only;
 };
 
 

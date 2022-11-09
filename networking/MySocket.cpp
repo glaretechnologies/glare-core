@@ -133,6 +133,7 @@ void MySocket::init()
 	otherend_port = -1;
 	sockethandle = nullSocketHandle();
 	use_network_byte_order = true;
+	use_IPv4_only = false;
 }
 
 
@@ -163,17 +164,22 @@ void MySocket::createClientSideSocket()
 		);
 		if(!isSockHandleValid(sockethandle))
 			throw MySocketExcep("Could not create a socket: " + Networking::getError());
+
+		this->use_IPv4_only = true; // When falling back to an IPv4 socket, don't use any IPv6 stuff afterwards.
 #else
 		throw MySocketExcep("Could not create a socket: " + Networking::getError());
 #endif
 	}
 
-	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
-	int no = 0;
-	if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.  Only do this if we have an IPv6 socket.
+	if(!use_IPv4_only)
 	{
-		assert(0);
-		//conPrint("Warning: setsockopt failed.");
+		int no = 0;
+		if(setsockopt(sockethandle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+		{
+			assert(0);
+			//conPrint("Warning: setsockopt failed.");
+		}
 	}
 }
 
@@ -267,12 +273,15 @@ void MySocket::connect(const IPAddress& ipaddress,
 	//Fill out server address structure
 	//-----------------------------------------------------------------
 	sockaddr_storage server_address;
-	ipaddress.fillOutIPV6SockAddr(server_address, port);
+	if(use_IPv4_only)
+		ipaddress.fillOutSockAddr(server_address, port);
+	else
+		ipaddress.fillOutIPV6SockAddr(server_address, port);
 
 	//-----------------------------------------------------------------
 	//Connect to server
 	//-----------------------------------------------------------------
-	if(::connect(sockethandle, (sockaddr*)&server_address, sizeof(sockaddr_in6)) != 0)
+	if(::connect(sockethandle, (sockaddr*)&server_address, sizeof(server_address)) != 0)
 	{
 #if defined(_WIN32)
 		if(WSAGetLastError() != WSAEWOULDBLOCK)
