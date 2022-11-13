@@ -109,6 +109,12 @@ void testStringView()
 			string_view v2("");
 			testAssert(toString(v2) == std::string(""));
 		}
+
+		// Empty string view (with null ptr)
+		{
+			string_view v2;
+			testAssert(toString(v2) == std::string(""));
+		}
 	}
 
 	//==================================== Test substr ====================================

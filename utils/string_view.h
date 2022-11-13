@@ -98,7 +98,7 @@ char string_view::operator [] (size_t index) const
 
 string_view string_view::substr(size_t pos, size_t n) const
 {
-	assert(pos < size_);
+	assert(pos <= size_);
 	const size_t remaining = size_ - pos;
 	return string_view(data() + pos, (n < remaining) ? n : remaining/*std::min(n, size() - pos)*/); // Avoid including algorithm or mathstypes just for min().
 }
@@ -142,7 +142,7 @@ inline const std::string operator + (string_view lhs, string_view rhs)
 
 inline const std::string toString(const string_view& view)
 {
-	return std::string(view.data_, view.data_ + view.size_);
+	return std::string(view.data_, view.size_);
 }
 
 
