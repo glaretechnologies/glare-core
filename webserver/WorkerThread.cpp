@@ -382,7 +382,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			// Read post content from socket
 			request_info.post_content.resize(content_length);
 			runtimeCheck((request_start_index + request_header_size + (size_t)content_length) <= socket_buffer.size());
-			std::memcpy(request_info.post_content.data(), &socket_buffer[request_start_index + request_header_size], content_length);
+			std::memcpy(&request_info.post_content[0], &socket_buffer[request_start_index + request_header_size], content_length);
 
 			//conPrint("Read content:");
 			//conPrint(post_content);
