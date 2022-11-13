@@ -59,7 +59,7 @@ void writeHTTPOKHeaderAndData(ReplyInfo& reply_info, const void* data, size_t da
 {
 	const std::string response = 
 		"HTTP/1.1 200 OK\r\n"
-		"Content-Type: " + std::string(content_type) + "\r\n"
+		"Content-Type: " + toString(content_type) + "\r\n"
 		"Connection: Keep-Alive\r\n"
 		"Content-Length: " + toString(datalen) + "\r\n"
 		"\r\n";
@@ -80,7 +80,7 @@ void writeHTTPOKHeaderAndDataWithCacheMaxAge(ReplyInfo& reply_info, const void* 
 	const std::string response = 
 		"HTTP/1.1 200 OK\r\n"
 		"Cache-Control: max-age=" + toString(max_age_s) + "\r\n"
-		"Content-Type: " + std::string(content_type) + "\r\n"
+		"Content-Type: " + toString(content_type) + "\r\n"
 		"Connection: Keep-Alive\r\n"
 		"Content-Length: " + toString(datalen) + "\r\n"
 		"\r\n";
@@ -95,7 +95,7 @@ void writeHTTPOKHeaderAndDeflatedDataWithCacheMaxAge(ReplyInfo& reply_info, cons
 	const std::string response = 
 		"HTTP/1.1 200 OK\r\n"
 		"Cache-Control: max-age=" + toString(max_age_s) + "\r\n"
-		"Content-Type: " + std::string(content_type) + "\r\n"
+		"Content-Type: " + toString(content_type) + "\r\n"
 		"Connection: Keep-Alive\r\n"
 		"Content-Encoding: deflate\r\n"
 		"Content-Length: " + toString(datalen) + "\r\n"
