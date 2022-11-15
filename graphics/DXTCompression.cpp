@@ -31,13 +31,6 @@ namespace DXTCompression
 {
 
 
-void init()
-{
-	// NOTE: This call has to go in the same translation unit as all stb_compress_dxt_block calls because it's initing static data in a header file.
-	stb__InitDXT();
-}
-
-
 class DXTCompressTask : public glare::Task
 {
 public:
@@ -221,8 +214,6 @@ namespace DXTCompression
 
 void test()
 {
-	init();
-
 	{
 		const uint8 rgba_block[64] ={ 8u, 4u, 1u, 0u, 8u, 4u, 1u, 0u, 9u, 4u, 1u, 0u, 9u, 4u, 1u, 0u, 8u, 4u, 1u, 0u, 8u, 4u, 1u, 0u, 9u, 4u, 1u, 0u, 9u, 4u, 1u, 0u, 8u, 4u, 1u, 0u, 8u, 4u, 1u, 0u, 9u, 4u, 1u, 0u, 10u, 5u, 2u, 0u, 7u, 3u, 0u, 0u, 7u, 3u, 0u, 0u, 8u, 3u, 0u, 0u, 8u, 3u, 0u, 0u };
 		uint8 compressed_data[8];

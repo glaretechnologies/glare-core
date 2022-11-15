@@ -1090,9 +1090,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		vert_buf_allocator->use_VBO_size_B = 64 * 1024 * 1024; // A reasonably small size, needs to work well for weaker GPUs
 
 
-	// Init TextureProcessing (in particular stb_compress_dxt lib) before it's called from multiple threads
-	TextureProcessing::init();
-
 	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
 
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering

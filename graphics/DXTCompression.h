@@ -13,8 +13,6 @@ namespace glare { class TaskManager; }
 
 namespace DXTCompression
 {
-	void init();
-
 	size_t getCompressedSizeBytes(size_t w, size_t h, size_t bytes_pp);
 
 	struct TempData

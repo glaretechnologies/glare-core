@@ -34,9 +34,6 @@ class TextureProcessing
 public:
 	friend class TextureProcessingTests;
 
-	// Init stb_compress_dxt lib.
-	static void init();
-
 	static int computeNumMIPLevels(size_t width, size_t height);
 
 	// Builds compressed, mip-map level data, if applicable.

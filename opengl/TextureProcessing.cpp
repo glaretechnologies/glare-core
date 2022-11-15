@@ -23,12 +23,6 @@ Copyright Glare Technologies Limited 2022 -
 #include <graphics/CompressedImage.h>
 
 
-void TextureProcessing::init()
-{
-	DXTCompression::init();
-}
-
-
 // Downsize previous mip level image to current mip level.
 // Just uses kinda crappy 2x2 pixel box filter.
 // alpha_coverage_out: frac of pixels with alpha >= 0.5, set if N == 4.

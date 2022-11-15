@@ -177,8 +177,6 @@ void TextureProcessingTests::test()
 {
 	conPrint("TextureLoading::test()");
 
-	TextureProcessing::init();
-
 	glare::TaskManager task_manager;
 
 	glare::GeneralMemAllocator allocator(/*arena_size_B=*/10000000);
