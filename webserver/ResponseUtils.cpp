@@ -243,6 +243,8 @@ std::string getContentTypeForPath(const std::string& path)
 		return "text/css";
 	else if(::hasExtensionStringView(path, "js"))
 		return "text/javascript";
+	else if(::hasExtensionStringView(path, "wasm"))
+		return "application/wasm";
 	else if(::hasExtensionStringView(path, "html"))
 		return "text/html; charset=UTF-8";
 	else
