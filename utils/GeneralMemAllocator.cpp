@@ -26,7 +26,10 @@ GeneralMemAllocator::GeneralMemAllocator(size_t arena_size_B_)
 GeneralMemAllocator::~GeneralMemAllocator()
 {
 	for(size_t i=0; i<arenas.size(); ++i)
+	{
 		MemAlloc::alignedFree(arenas[i]->data);
+		delete arenas[i];
+	}
 }
 
 
