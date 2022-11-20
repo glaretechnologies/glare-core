@@ -10,12 +10,12 @@ Copyright Glare Technologies Limited 2020 -
 #include "OpenGLProgram.h"
 #include "OpenGLShader.h"
 #include "ShadowMapping.h"
-#include "TextureProcessing.h"
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
 //#include "TerrainSystem.h"
 #include "../dll/include/IndigoMesh.h"
+#include "../graphics/TextureProcessing.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/BatchedMesh.h"
@@ -6270,7 +6270,8 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 
 
 	// Process texture data
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this, &this->getTaskManager(), allow_compression);
+	const bool use_compression = allow_compression && this->textureCompressionSupportedAndEnabled();
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, &this->general_mem_allocator, &this->getTaskManager(), use_compression);
 
 	OpenGLTextureLoadingProgress loading_progress;
 	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, use_sRGB, /*use_mipmaps, */texture_data, loading_progress);

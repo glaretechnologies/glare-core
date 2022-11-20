@@ -669,6 +669,8 @@ public:
 	bool isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) const;
 
 	TextureServer* getTextureServer() { return texture_server; }
+
+	bool textureCompressionSupportedAndEnabled() const { return GL_EXT_texture_compression_s3tc_support && settings.compress_textures; }
 	//------------------------------- End texture loading ------------------------------------
 
 

@@ -7,7 +7,6 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "OpenGLEngine.h"
-#include "OpenGLTexture.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/DXTCompression.h"
 #include "../maths/mathstypes.h"
@@ -492,26 +491,26 @@ static Reference<ImageMapUInt8> convertUInt16ToUInt8ImageMap(const ImageMap<uint
 }
 
 
-Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager, bool allow_compression)
+Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(map))
 	{
 		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(map);
 
-		return TextureProcessing::buildUInt8MapTextureData(imagemap, opengl_engine, &opengl_engine->getTaskManager(), allow_compression);
+		return buildUInt8MapTextureData(imagemap, general_mem_allocator, task_manager, allow_compression);
 	}
 	else if(dynamic_cast<const ImageMapSequenceUInt8*>(map))
 	{
 		const ImageMapSequenceUInt8* imagemapseq = static_cast<const ImageMapSequenceUInt8*>(map);
 
-		return TextureProcessing::buildUInt8MapSequenceTextureData(imagemapseq, opengl_engine, &opengl_engine->getTaskManager());
+		return buildUInt8MapSequenceTextureData(imagemapseq, general_mem_allocator, task_manager, allow_compression);
 	}
 	else if(dynamic_cast<const ImageMap<uint16, UInt16ComponentValueTraits>*>(map))
 	{
 		// Convert to 8-bit
 		Reference<ImageMapUInt8> im_map_uint8 = convertUInt16ToUInt8ImageMap(static_cast<const ImageMap<uint16, UInt16ComponentValueTraits>&>(*map));
 
-		return TextureProcessing::buildUInt8MapTextureData(im_map_uint8.ptr(), opengl_engine, &opengl_engine->getTaskManager());
+		return buildUInt8MapTextureData(im_map_uint8.ptr(), general_mem_allocator, task_manager, allow_compression);
 	}
 	else if(dynamic_cast<const CompressedImage*>(map))
 	{
@@ -556,14 +555,8 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, con
 }
 
 
-Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager, bool allow_compression)
-{
-	const bool DXT_support = opengl_engine->GL_EXT_texture_compression_s3tc_support;
-	return buildUInt8MapTextureData(imagemap, &opengl_engine->general_mem_allocator, task_manager, allow_compression && DXT_support && opengl_engine->settings.compress_textures);
-}
-
-
-Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression)
+Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::GeneralMemAllocator* general_mem_allocator, 
+	glare::TaskManager* task_manager, bool allow_compression)
 {
 	if(imagemap->getWidth() == 0 || imagemap->getHeight() == 0 || imagemap->getN() == 0)
 		throw glare::Exception("zero sized image not allowed.");
@@ -648,7 +641,8 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 }
 
 
-Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* seq, const Reference<OpenGLEngine>& opengl_engine, glare::TaskManager* task_manager)
+Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* seq, 
+	glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression)
 {
 	if(seq->images.empty())
 		throw glare::Exception("empty image sequence");
@@ -659,13 +653,11 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 	Reference<TextureData> texture_data = new TextureData();
 	texture_data->frames.resize(seq->images.size());
 	for(size_t i=0; i<texture_data->frames.size(); ++i)
-		texture_data->frames[i].compressed_data.setAllocator(&opengl_engine->general_mem_allocator);
+		texture_data->frames[i].compressed_data.setAllocator(general_mem_allocator);
 
 	const ImageMapUInt8* imagemap_0 = seq->images[0].ptr();
 
 	// Try and load as a DXT texture compression
-	const bool DXT_support = opengl_engine.isNull() || opengl_engine->GL_EXT_texture_compression_s3tc_support;
-	const bool compress_textures_enabled = opengl_engine.isNull() || opengl_engine->settings.compress_textures;
 	const size_t W = imagemap_0->getWidth();
 	const size_t H = imagemap_0->getHeight();
 	const size_t bytes_pp = imagemap_0->getBytesPerPixel();
@@ -684,7 +676,7 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 	{
 		const ImageMapUInt8* imagemap = seq->images[frame_i].ptr();
 
-		if(compress_textures_enabled && DXT_support && (bytes_pp == 3 || bytes_pp == 4))
+		if(allow_compression && (bytes_pp == 3 || bytes_pp == 4))
 		{
 			compressImageFrame(total_compressed_size, temp_tex_buf_a, temp_tex_buf_b, compress_temp_data, texture_data.ptr(), /*cur frame i=*/frame_i, /*source image=*/imagemap, task_manager);
 			texture_data->num_mip_levels = texture_data->level_offsets.size();

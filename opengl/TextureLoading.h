@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLTexture.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/ImageMapSequence.h"
+#include "../graphics/TextureData.h"
 #include "../utils/RefCounted.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"

@@ -18,5 +18,5 @@ public:
 private:
 	static void testDownSamplingGreyTexture(unsigned int W, unsigned int H, unsigned int N);
 	static void testBuildingTexDataForImage(glare::GeneralMemAllocator* allocator, unsigned int W, unsigned int H, unsigned int N);
-	static void testLoadingAnimatedFile(const std::string& path, glare::TaskManager& task_manager);
+	static void testLoadingAnimatedFile(const std::string& path, glare::GeneralMemAllocator* allocator, glare::TaskManager& task_manager);
 };

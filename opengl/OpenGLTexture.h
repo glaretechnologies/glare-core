@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "BasicOpenGLTypes.h"
+#include "../graphics/TextureData.h"
 #include "../utils/RefCounted.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
@@ -40,38 +41,6 @@ struct OpenGLTextureKeyHash
 		std::hash<std::string> h;
 		return h(key.path);
 	}
-};
-
-
-class TextureFrameData
-{
-public:
-	glare::AllocatorVector<uint8, 16> compressed_data; // Compressed data for all mip-map levels.
-	Reference<const Map2D> converted_image;
-};
-
-
-class TextureData : public ThreadSafeRefCounted
-{
-public:
-	TextureData() : frame_durations_equal(false), /*have_mipmap_data(false)*/num_mip_levels(1) {}
-
-	size_t compressedSizeBytes() const;
-
-	size_t W, H, bytes_pp;
-
-	size_t num_mip_levels;
-
-	std::vector<size_t> level_offsets;
-
-	std::vector<TextureFrameData> frames; // will have 1 element for non-animated images, more than 1 for animated gifs etc..
-
-	std::vector<double> frame_end_times;
-
-	bool frame_durations_equal;
-	double recip_frame_duration; // Set if frame_durations_equal is true.
-	double last_frame_end_time;
-	size_t num_frames; // == frames.size() == frame_end_times.size()
 };
 
 

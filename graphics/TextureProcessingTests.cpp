@@ -9,14 +9,13 @@ Copyright Glare Technologies Limited 2022 -
 #if BUILD_TESTS
 
 
+#include "PNGDecoder.h"
+#include "jpegdecoder.h"
+#include "GifDecoder.h"
+#include "DXTCompression.h"
 #include "TextureProcessing.h"
-#include "OpenGLEngine.h"
-#include "../graphics/ImageMap.h"
+#include "ImageMap.h"
 #include "../maths/mathstypes.h"
-#include "../graphics/PNGDecoder.h"
-#include "../graphics/jpegdecoder.h"
-#include "../graphics/GifDecoder.h"
-#include "../graphics/DXTCompression.h"
 #include "../utils/TestUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/Task.h"
@@ -58,7 +57,6 @@ void TextureProcessingTests::testDownSamplingGreyTexture(unsigned int W, unsigne
 
 void TextureProcessingTests::testBuildingTexDataForImage(glare::GeneralMemAllocator* allocator, unsigned int W, unsigned int H, unsigned int N)
 {
-
 	ImageMapUInt8Ref map = new ImageMapUInt8(W, H, N);
 	map->set(128);
 	Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map.getPointer(), allocator, /*task manager=*/NULL, /*allow compression=*/true);
@@ -137,7 +135,7 @@ static void testLoadingFile(const std::string& path, glare::TaskManager& task_ma
 #endif
 
 
-void TextureProcessingTests::testLoadingAnimatedFile(const std::string& path, glare::TaskManager& task_manager)
+void TextureProcessingTests::testLoadingAnimatedFile(const std::string& path, glare::GeneralMemAllocator* allocator, glare::TaskManager& task_manager)
 {
 	try
 	{
@@ -155,7 +153,8 @@ void TextureProcessingTests::testLoadingAnimatedFile(const std::string& path, gl
 		//	testAssert(seq->images[i]->getBytesPerPixel() == 3);
 		//}
 
-		Reference<TextureData> texdata = TextureProcessing::buildUInt8MapSequenceTextureData(seq, /*opengl engine=*/NULL, &task_manager);
+		Reference<TextureData> texdata = TextureProcessing::buildUInt8MapSequenceTextureData(seq, allocator, &task_manager,
+			/*allow compresstion=*/true);
 
 		testAssert(texdata->W == seq->images[0]->getMapWidth());
 		testAssert(texdata->H == seq->images[0]->getMapHeight());
@@ -179,36 +178,36 @@ void TextureProcessingTests::test()
 
 	glare::TaskManager task_manager;
 
-	glare::GeneralMemAllocator allocator(/*arena_size_B=*/10000000);
+	Reference<glare::GeneralMemAllocator> allocator = new glare::GeneralMemAllocator(/*arena_size_B=*/10000000);
 
 	//testLoadingFile("resources/imposters/elm_imposters.png", task_manager);
 
 
-	testBuildingTexDataForImage(&allocator, 256, 256, 3);
-	testBuildingTexDataForImage(&allocator, 250, 250, 3);
-	testBuildingTexDataForImage(&allocator, 250, 7, 3);
-	testBuildingTexDataForImage(&allocator, 7, 250, 3);
-	testBuildingTexDataForImage(&allocator, 2, 2, 3);
-	testBuildingTexDataForImage(&allocator, 1, 1, 3);
+	testBuildingTexDataForImage(allocator.ptr(), 256, 256, 3);
+	testBuildingTexDataForImage(allocator.ptr(), 250, 250, 3);
+	testBuildingTexDataForImage(allocator.ptr(), 250, 7, 3);
+	testBuildingTexDataForImage(allocator.ptr(), 7, 250, 3);
+	testBuildingTexDataForImage(allocator.ptr(), 2, 2, 3);
+	testBuildingTexDataForImage(allocator.ptr(), 1, 1, 3);
 	try
 	{
-		testBuildingTexDataForImage(&allocator, 0, 0, 3);
+		testBuildingTexDataForImage(allocator.ptr(), 0, 0, 3);
 		failTest("Expected excep");
 	}
 	catch(glare::Exception&)
 	{}
 
-	testBuildingTexDataForImage(&allocator, 256, 256, 4);
-	testBuildingTexDataForImage(&allocator, 250, 250, 4);
-	testBuildingTexDataForImage(&allocator, 250, 7, 3);
-	testBuildingTexDataForImage(&allocator, 7, 250, 4);
-	testBuildingTexDataForImage(&allocator, 2, 2, 4);
-	testBuildingTexDataForImage(&allocator, 1, 1, 4);
+	testBuildingTexDataForImage(allocator.ptr(), 256, 256, 4);
+	testBuildingTexDataForImage(allocator.ptr(), 250, 250, 4);
+	testBuildingTexDataForImage(allocator.ptr(), 250, 7, 3);
+	testBuildingTexDataForImage(allocator.ptr(), 7, 250, 4);
+	testBuildingTexDataForImage(allocator.ptr(), 2, 2, 4);
+	testBuildingTexDataForImage(allocator.ptr(), 1, 1, 4);
 
 
 	// Test with 1 and 2 components per pixel
-	testBuildingTexDataForImage(&allocator, 256, 256, /*num components=*/1);
-	testBuildingTexDataForImage(&allocator, 256, 256, /*num components=*/2);
+	testBuildingTexDataForImage(allocator.ptr(), 256, 256, /*num components=*/1);
+	testBuildingTexDataForImage(allocator.ptr(), 256, 256, /*num components=*/2);
 
 
 
@@ -228,9 +227,9 @@ void TextureProcessingTests::test()
 	
 
 	// Test loading animated gifs
-	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/fire.gif", task_manager);
-	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif", task_manager);
-	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif", task_manager);
+	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/fire.gif", allocator.ptr(), task_manager);
+	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif", allocator.ptr(), task_manager);
+	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif", allocator.ptr(), task_manager);
 
 	{
 		//Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", "C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\GLB_image_7509840974915305048_jpg_7509840974915305048.jpg");
@@ -241,15 +240,14 @@ void TextureProcessingTests::test()
 		const ImageMapUInt8* map_imagemapuint8 = mip_level_image.downcastToPtr<ImageMapUInt8>();
 
 		Timer timer;
-		//Reference<TextureData> tex_data = TextureProcessingTests::buildUInt8MapTextureData(map_imagemapuint8, &task_manager, /*allow compression=*/true);
-		Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, &allocator, NULL, /*allow compression=*/true);
+		Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), /*task manager=*/NULL, /*allow compression=*/true);
 
 		conPrint("single-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringNSigFigs(3));
 
 		timer.reset();
 
 		//for(int i=0; i<1000; ++i)
-			tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, &allocator, &task_manager, /*allow compression=*/true);
+			tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), &task_manager, /*allow compression=*/true);
 
 		conPrint("multi-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringNSigFigs(3));
 	}

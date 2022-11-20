@@ -7,9 +7,9 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "IncludeOpenGL.h"
-#include "TextureProcessing.h"
 #include "OpenGLEngine.h"
 #include "OpenGLMeshRenderData.h"
+#include "graphics/TextureProcessing.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 
@@ -27,15 +27,6 @@ Copyright Glare Technologies Limited 2022 -
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT							0x84FE
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
-
-
-size_t TextureData::compressedSizeBytes() const
-{
-	size_t sum = 0;
-	for(size_t i=0; i<frames.size(); ++i)
-		sum += frames[i].compressed_data.dataSizeBytes();
-	return sum;
-}
 
 
 OpenGLTexture::OpenGLTexture()

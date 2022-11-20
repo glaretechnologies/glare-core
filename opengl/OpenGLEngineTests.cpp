@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "OpenGLEngine.h"
 #include "GLMeshBuilding.h"
-#include "TextureProcessing.h"
+#include "../graphics/TextureProcessing.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/bitmap.h"
@@ -123,7 +123,8 @@ static void doTextureChunkedLoadingTestForMap2D(OpenGLEngine& engine, const std:
 
 	const std::string key = engine.getTextureServer()->keyForPath(tex_path); // Get canonical path.  May throw TextureServerExcep
 
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(map.ptr(), Reference<OpenGLEngine>(&engine), &opengl_engine->getTaskManager());
+	const bool use_compression = opengl_engine->textureCompressionSupportedAndEnabled();
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(map.ptr(), &engine.general_mem_allocator, &engine.getTaskManager(), use_compression);
 
 	const bool use_sRGB = true;
 	OpenGLTextureLoadingProgress loading_progress;
