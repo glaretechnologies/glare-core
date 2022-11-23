@@ -235,6 +235,9 @@ void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, c
 }
 
 
+// See https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
+// In general xoffset and yoffset need to be a multiple of 4.
+// region_h needs to be a multiple of 4, *unless* it's the last vertical region before we get to the end of the image.
 static void doPartialUploadOfLevel(OpenGLTextureLoadingProgress& loading_progress, Reference<OpenGLTexture> opengl_tex, 
 	size_t level, size_t level_W, size_t level_H, size_t block_size, ArrayRef<uint8> level_data, size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes)
 {

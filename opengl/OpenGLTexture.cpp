@@ -455,12 +455,15 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 	{
 		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
 		{
+			// NOTE: xres and yres don't have to be a multiple of 4, as long as we are setting the whole MIP level: See https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
+			// "CompressedTexSubImage2D will result in an INVALID_OPERATION error only if one of the following conditions occurs:
+			// * <width> is not a multiple of four, and <width> plus <xoffset> is not equal to TEXTURE_WIDTH;"
 			glCompressedTexSubImage2D(
-				texture_target,
+				texture_target, // target
 				0, // LOD level
 				0, // xoffset
 				0, // yoffset
-				(GLsizei)xres, (GLsizei)yres,
+				(GLsizei)xres, (GLsizei)yres, // width, height
 				gl_internal_format, // internal format
 				(GLsizei)tex_data.size(),
 				tex_data.data()
