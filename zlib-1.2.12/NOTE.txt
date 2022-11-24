@@ -1,4 +1,0 @@
-The stuff in this folder is from the standard Zlib source download, from github.
-I've deleted all the files we don't use.
-
---Nick C.
