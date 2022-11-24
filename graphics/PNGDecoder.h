@@ -28,7 +28,7 @@ public:
 
 	static Reference<Map2D> decode(const std::string& path);
 
-	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, const std::string& path);
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size);
 	
 	static void write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& path);
 	static void write(const Bitmap& bitmap, const std::string& path); // Write with no metadata

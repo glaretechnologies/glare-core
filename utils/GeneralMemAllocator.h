@@ -29,8 +29,8 @@ public:
 
 	static void test();
 private:
-	void allocNewArena();
-	void* tryAllocFromArena(size_t size, size_t alignment, size_t start_arena_index);
+	void allocNewArena()																REQUIRES(mutex);
+	void* tryAllocFromArena(size_t size, size_t alignment, size_t start_arena_index)	REQUIRES(mutex);
 
 	class Arena
 	{

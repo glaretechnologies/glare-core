@@ -88,7 +88,7 @@ Reference<Map2D> PNGDecoder::decode(const std::string& path)
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize(), path);
+		return decodeFromBuffer(file.fileData(), file.fileSize());
 	}
 	catch(glare::Exception& e)
 	{
@@ -224,7 +224,7 @@ GLARE_NO_INLINE Reference<Map2D> doDecodeFromBuffer(BufferViewInStream& buffer_v
 }
 
 
-Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& path)
+Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size)
 {
 	BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)data, size));
 

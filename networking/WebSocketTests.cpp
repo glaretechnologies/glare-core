@@ -143,7 +143,7 @@ static WebSocketRef makeWebSocketWithFramesWithPayloadLenN(size_t n, bool maskin
 	// Add payload
 	const size_t sz = query.size();
 	query.resize(query.size() + n);
-	for(int i = 0; i < n; ++i)
+	for(size_t i = 0; i < n; ++i)
 		query[sz + i] = (uint8)(i % fill_pattern_modulus);
 
 	std::vector<uint8> total_query;
@@ -390,7 +390,7 @@ void WebSocketTests::test()
 				testAssert(header_buf.size() == header_size);
 
 				const std::vector<uint8>& payload_buf = test_socket->dest_buffers[1];
-				testAssert(payload_buf.size() == n);
+				testAssert((int)payload_buf.size() == n);
 				for(int i=0; i<n; ++i)
 					testAssert(payload_buf[i] == i % fill_pattern_modulus);
 			}
