@@ -60,8 +60,8 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBu
 			normals[i*2 + 1] = normal;
 			verts[i*2 + 0] = bottom_pos;
 			verts[i*2 + 1] = top_pos;
-			uvs[i*2 + 0] = Vec2f(0.f);
-			uvs[i*2 + 1] = Vec2f(0.f);
+			uvs[i*2 + 0] = Vec2f((float)i / res, 0);
+			uvs[i*2 + 1] = Vec2f((float)i / res, 1);
 
 			//v[2*r + i] is top of side edge, facing upwards
 			normals[2*res + i] = dir;
@@ -95,12 +95,12 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBu
 		indices[i*12 + 4] = (i*2 + 2) % (2*res); // bottom on next edge
 		indices[i*12 + 5] = (i*2 + 3) % (2*res); // top on next edge
 
-												 // top triangle
+		// top triangle
 		indices[i*12 + 6] = res*2 + i + 0;
 		indices[i*12 + 7] = res*2 + (i + 1) % res;
 		indices[i*12 + 8] = res*4; // top centre vert
 
-								   // bottom triangle
+		// bottom triangle
 		indices[i*12 + 9]  = res*3 + (i + 1) % res;
 		indices[i*12 + 10] = res*3 + i + 0;
 		indices[i*12 + 11] = res*4 + 1; // bottom centre vert
