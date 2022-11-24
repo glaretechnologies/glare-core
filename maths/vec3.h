@@ -607,6 +607,13 @@ VEC3_INLINE Real angleBetweenNormalized(const Vec3<Real>& v1, const Vec3<Real>& 
 	return std::acos(dotProduct(v1, v2));
 }
 
+template <class Real>
+VEC3_INLINE const Vec3<Real> removeComponentInDir(const Vec3<Real>& v, const Vec3<Real>& unit_dir)
+{
+	assert(unit_dir.isUnitLength());
+	return v - unit_dir * dot(v, unit_dir);
+}
+
 
 /*inline bool epsEqual(const Vec3& v1, const Vec3& v2)
 {
