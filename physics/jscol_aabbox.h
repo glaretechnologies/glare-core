@@ -243,6 +243,7 @@ unsigned int AABBox::longestAxis() const
 
 float AABBox::longestLength() const
 {
+	assert(max_[0] >= min_[0] && max_[1] >= min_[1] && max_[2] >= min_[2]);
 	return horizontalMax((max_ - min_).v);
 }
 
