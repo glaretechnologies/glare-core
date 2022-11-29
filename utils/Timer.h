@@ -23,6 +23,7 @@ public:
 	const std::string elapsedString() const; // e.g "30.4 s"
 	const std::string elapsedStringNPlaces(int n) const; // Print with n decimal places.
 	const std::string elapsedStringNSigFigs(int n) const; // Print with n significant figures.
+	const std::string elapsedStringMSWIthNSigFigs(int n) const; // Print number of milliseconds elapsed, e.g. "1.34 ms"
 
 	inline void reset();
 

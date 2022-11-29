@@ -27,6 +27,12 @@ const std::string Timer::elapsedStringNSigFigs(int n) const // Print with n deci
 }
 
 
+const std::string Timer::elapsedStringMSWIthNSigFigs(int n) const
+{
+	return ::doubleToStringNSigFigs(this->elapsed() * 1000, n) + " ms";
+}
+
+
 #if BUILD_TESTS
 
 
