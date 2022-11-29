@@ -247,6 +247,8 @@ std::string getContentTypeForPath(const std::string& path)
 		return "application/wasm";
 	else if(::hasExtensionStringView(path, "html"))
 		return "text/html; charset=UTF-8";
+	else if(::hasExtensionStringView(path, "exr"))
+		return "image/x-exr";
 	else
 		return "text/plain"; // Unknown, just return as text.
 
