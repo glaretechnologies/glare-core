@@ -591,6 +591,7 @@ public:
 
 	Reference<GLObject> allocateObject();
 
+	// Add object to world.  Doesn't load textures for object.
 	void addObject(const Reference<GLObject>& object);
 	void addObjectAndLoadTexturesImmediately(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
@@ -662,7 +663,7 @@ public:
 	Reference<OpenGLTexture> getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
 		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true, bool use_mipmaps = true);
 
-	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex); // Adds to opengl_textures.
+	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex); // Adds to opengl_textures.  Assigns texture to all inserted objects that are using it according to opengl_mat.tex_path.
 
 	void removeOpenGLTexture(const OpenGLTextureKey& key); // Erases from opengl_textures.
 
