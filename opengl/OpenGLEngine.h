@@ -169,6 +169,7 @@ struct GLObjectAnimNodeData
 struct GlInstanceInfo
 {
 	Matrix4f to_world; // For imposters, this will not have rotation baked in.
+	js::AABBox aabb_ws;
 };
 
 struct GLObject
