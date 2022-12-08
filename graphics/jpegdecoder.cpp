@@ -123,7 +123,11 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 		//------------------------------------------------------------------------
 		jpeg_create_decompress(&cinfo);
 
-		cinfo.mem->max_memory_to_use = 256 * 1024 * 1024;
+#if !IS_INDIGO
+		cinfo.mem->max_memory_to_use = 256 * 1024 * 1024; // Note that if the decoding process exceeds this mem usage, we will get a 'Backing store not supported' callback error from libjpeg-turbo.
+		// Was hitting this with a 256 MB limit for a 8000x8000 JPEG, see https://bugs.glaretechnologies.com/issues/1066.
+		// Don't limit the memory in Indigo, allow loading very large images.
+#endif
 
 		if(size > (size_t)std::numeric_limits<unsigned long>::max())
 			throw glare::Exception("Buffer size too large");
