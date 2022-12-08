@@ -272,8 +272,6 @@ void DXTImageMapTests::test()
 
 	try
 	{
-		DXTCompression::init();
-
 		/*
 		=================== Check fast division by 3 ===================
 		The code below is equivalent to a divide by 3 that is accurate for integers in [0, 765].

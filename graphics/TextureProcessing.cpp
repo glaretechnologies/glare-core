@@ -564,7 +564,8 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 	// conPrint("Creating new OpenGL texture.");
 	Reference<TextureData> texture_data = new TextureData();
 	texture_data->frames.resize(1);
-	texture_data->frames[0].compressed_data.setAllocator(general_mem_allocator);
+	if(general_mem_allocator) 
+		texture_data->frames[0].compressed_data.setAllocator(general_mem_allocator);
 
 	// If we have a 1 or 2 bytes per pixel texture, convert to 3 or 4.
 	// Handling such textures without converting them here would have to be done in the shaders, which we don't do currently.
@@ -652,8 +653,9 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 
 	Reference<TextureData> texture_data = new TextureData();
 	texture_data->frames.resize(seq->images.size());
-	for(size_t i=0; i<texture_data->frames.size(); ++i)
-		texture_data->frames[i].compressed_data.setAllocator(general_mem_allocator);
+	if(general_mem_allocator)
+		for(size_t i=0; i<texture_data->frames.size(); ++i)
+			texture_data->frames[i].compressed_data.setAllocator(general_mem_allocator);
 
 	const ImageMapUInt8* imagemap_0 = seq->images[0].ptr();
 
