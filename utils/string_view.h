@@ -10,6 +10,8 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include <string_view>
+#include <string>
+
 
 using string_view = std::string_view; // Use the standard library string_view.
 
