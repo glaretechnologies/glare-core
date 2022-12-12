@@ -24,6 +24,12 @@ const std::string Vec4f::toStringNSigFigs(int n) const
 }
 
 
+const std::string Vec4f::toStringMaxNDecimalPlaces(int n) const
+{
+	return "(" + ::doubleToStringMaxNDecimalPlaces(x[0], n) + ", " + ::doubleToStringMaxNDecimalPlaces(x[1], n) + ", " + ::doubleToStringMaxNDecimalPlaces(x[2], n) + ", " + ::doubleToStringMaxNDecimalPlaces(x[3], n) + ")";
+}
+
+
 #if BUILD_TESTS
 
 

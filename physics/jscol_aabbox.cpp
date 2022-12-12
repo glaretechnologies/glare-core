@@ -28,6 +28,12 @@ const std::string AABBox::toStringNSigFigs(int n) const
 }
 
 
+const std::string AABBox::toStringMaxNDecimalPlaces(int n) const
+{
+	return "min=" + min_.toStringMaxNDecimalPlaces(n) + ", max=" + max_.toStringMaxNDecimalPlaces(n);
+}
+
+
 } // End namespace namespace js
 
 

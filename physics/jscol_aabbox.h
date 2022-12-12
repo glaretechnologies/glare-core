@@ -72,6 +72,7 @@ public:
 
 	const std::string toString() const;
 	const std::string toStringNSigFigs(int n) const;
+	const std::string toStringMaxNDecimalPlaces(int n) const;
 
 	bool invariant() const;
 	static void test();
