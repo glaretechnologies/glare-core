@@ -278,7 +278,7 @@ void BinningBVHBuilder::build(
 
 
 	
-	per_thread_temp_info.resize(task_manager->getNumThreads());
+	per_thread_temp_info.resize(myMax<size_t>(1, task_manager->getNumThreads()));
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
 	{
 		per_thread_temp_info[i].result_chunk = NULL;
