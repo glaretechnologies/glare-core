@@ -55,7 +55,7 @@ void TextureProcessingTests::testDownSamplingGreyTexture(unsigned int W, unsigne
 }
 
 
-void TextureProcessingTests::testBuildingTexDataForImage(glare::GeneralMemAllocator* allocator, unsigned int W, unsigned int H, unsigned int N)
+void TextureProcessingTests::testBuildingTexDataForImage(glare::Allocator* allocator, unsigned int W, unsigned int H, unsigned int N)
 {
 	ImageMapUInt8Ref map = new ImageMapUInt8(W, H, N);
 	map->set(128);
@@ -135,7 +135,7 @@ static void testLoadingFile(const std::string& path, glare::TaskManager& task_ma
 #endif
 
 
-void TextureProcessingTests::testLoadingAnimatedFile(const std::string& path, glare::GeneralMemAllocator* allocator, glare::TaskManager& task_manager)
+void TextureProcessingTests::testLoadingAnimatedFile(const std::string& path, glare::Allocator* allocator, glare::TaskManager& task_manager)
 {
 	try
 	{

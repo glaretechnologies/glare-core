@@ -291,7 +291,7 @@ class OpenGLEngineSettings
 {
 public:
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), max_tex_mem_usage(1024 * 1024 * 1024ull),
-		use_grouped_vbo_allocator(true), msaa_samples(4) {}
+		use_grouped_vbo_allocator(true), use_general_arena_mem_allocator(true), msaa_samples(4) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -300,6 +300,7 @@ public:
 	bool depth_fog;
 	bool render_sun_and_clouds;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
+	bool use_general_arena_mem_allocator; // Use GeneralMemAllocator with a 2GB arena for general CPU size mem allocations.
 	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
 
 	uint64 max_tex_mem_usage; // Default: 1GB
@@ -1073,7 +1074,7 @@ public:
 	uint64 total_available_GPU_mem_B; // Set by NVidia drivers
 	uint64 total_available_GPU_VBO_mem_B; // Set by AMD drivers
 
-	glare::GeneralMemAllocator general_mem_allocator;
+	Reference<glare::Allocator> mem_allocator;
 
 private:
 	glare::PoolAllocator object_pool_allocator;

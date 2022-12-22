@@ -19,7 +19,7 @@ Copyright Glare Technologies Limited 2022 -
 
 namespace DXTCompression { struct TempData; }
 namespace glare { class TaskManager; }
-namespace glare { class GeneralMemAllocator; }
+namespace glare { class Allocator; }
 
 
 /*=====================================================================
@@ -38,13 +38,13 @@ public:
 	// Builds compressed, mip-map level data, if applicable.
 	// Uses task_manager for multi-threading if non-null.
 	// May return a reference to imagemap in the returned TextureData.
-	static Reference<TextureData> buildTextureData(const Map2D* map2d, glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression = true);
+	static Reference<TextureData> buildTextureData(const Map2D* map2d, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression = true);
 
 private:
-	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression);
+	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression);
 
 	// Builds compressed, mip-map level data for a sequence of images (e.g. animated gif)
-	static Reference<TextureData> buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* imagemap, glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression);
+	static Reference<TextureData> buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* imagemap, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression);
 
 	static void downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, size_t N, const uint8* prev_level_image_data, float alpha_scale, size_t level_W, size_t level_H, uint8* data_out, float& alpha_coverage_out);
 

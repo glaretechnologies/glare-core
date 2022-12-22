@@ -491,7 +491,7 @@ static Reference<ImageMapUInt8> convertUInt16ToUInt8ImageMap(const ImageMap<uint
 }
 
 
-Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression)
+Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(map))
 	{
@@ -555,7 +555,7 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 }
 
 
-Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::GeneralMemAllocator* general_mem_allocator, 
+Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::Allocator* general_mem_allocator, 
 	glare::TaskManager* task_manager, bool allow_compression)
 {
 	if(imagemap->getWidth() == 0 || imagemap->getHeight() == 0 || imagemap->getN() == 0)
@@ -643,7 +643,7 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 
 
 Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const ImageMapSequenceUInt8* seq, 
-	glare::GeneralMemAllocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression)
+	glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression)
 {
 	if(seq->images.empty())
 		throw glare::Exception("empty image sequence");

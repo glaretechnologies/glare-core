@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2018 -
 
 
 #include "ThreadSafeRefCounted.h"
+#include "MemAlloc.h"
 #include <cstring> // for size_t
 
 
@@ -20,6 +21,20 @@ public:
 	virtual ~Allocator() {}
 	virtual void* alloc(size_t size, size_t alignment) = 0;
 	virtual void free(void* ptr) = 0;
+};
+
+
+class MallocAllocator : public glare::Allocator
+{
+	virtual void* alloc(size_t size, size_t alignment)
+	{
+		return MemAlloc::alignedMalloc(size, alignment);
+	}
+
+	virtual void free(void* ptr)
+	{
+		MemAlloc::alignedFree(ptr);
+	}
 };
 
 

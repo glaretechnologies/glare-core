@@ -331,10 +331,12 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	next_program_index(0),
 	use_bindless_textures(false),
 	use_reverse_z(true),
-	object_pool_allocator(sizeof(GLObject), 16),
-	general_mem_allocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull)
+	object_pool_allocator(sizeof(GLObject), 16)
 {
-	general_mem_allocator.incRefCount(); // Manually incr ref count as will be passed around via a reference.
+	if(settings.use_general_arena_mem_allocator)
+		mem_allocator = new glare::GeneralMemAllocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull);
+	else
+		mem_allocator = new glare::MallocAllocator();
 
 	current_index_type = 0;
 	current_bound_prog = NULL;
@@ -390,8 +392,6 @@ OpenGLEngine::~OpenGLEngine()
 #if !defined(OSX)
 	glDebugMessageCallback(myMessageCallback, NULL);
 #endif
-
-	general_mem_allocator.decRefCount();
 }
 
 
@@ -6301,7 +6301,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 
 	// Process texture data
 	const bool use_compression = allow_compression && this->textureCompressionSupportedAndEnabled();
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, &this->general_mem_allocator, &this->getTaskManager(), use_compression);
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), &this->getTaskManager(), use_compression);
 
 	OpenGLTextureLoadingProgress loading_progress;
 	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, use_sRGB, /*use_mipmaps, */texture_data, loading_progress);
@@ -6582,7 +6582,10 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
 	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
 
-	s += general_mem_allocator.getDiagnostics();
+	if(dynamic_cast<glare::GeneralMemAllocator*>(mem_allocator.ptr()))
+	{
+		s += dynamic_cast<glare::GeneralMemAllocator*>(mem_allocator.ptr())->getDiagnostics();
+	}
 
 	s += vert_buf_allocator->getDiagnostics();
 
