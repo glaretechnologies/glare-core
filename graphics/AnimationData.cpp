@@ -483,29 +483,31 @@ int AnimationData::getNodeIndex(const std::string& name) // Returns -1 if not fo
 }
 
 
+// Load animation data from a GLB file from the stream.
+// Take the animation data, retarget it (adjust bone lengths etc.) and store in the current object.
 void AnimationData::loadAndRetargetAnim(InStream& stream)
 {
 	const bool VERBOSE = false;
 
 	const char* VRM_to_RPM_name_data[] = {
 		// From vroidhub_avatarsample_A.vrm or testguy.vrm
-		"J_Bip_L_Index3_end", "LeftHandIndex4",
-		"J_Bip_L_Little3_end", "LeftHandPinky4",
-		"J_Bip_L_Middle3_end", "LeftHandMiddle4",
-		"J_Bip_L_Ring3_end", "LeftHandRing4",
+		"J_Bip_L_Index3_end",	"LeftHandIndex4",
+		"J_Bip_L_Little3_end",	"LeftHandPinky4",
+		"J_Bip_L_Middle3_end",	"LeftHandMiddle4",
+		"J_Bip_L_Ring3_end",	"LeftHandRing4",
 
-		"J_Bip_R_Index3_end",  "RightHandIndex4",
-		"J_Bip_R_Little3_end", "RightHandPinky4",
-		"J_Bip_R_Middle3_end", "RightHandMiddle4",
-		"J_Bip_R_Ring3_end",   "RightHandRing4",
+		"J_Bip_R_Index3_end",	"RightHandIndex4",
+		"J_Bip_R_Little3_end",	"RightHandPinky4",
+		"J_Bip_R_Middle3_end",	"RightHandMiddle4",
+		"J_Bip_R_Ring3_end",	"RightHandRing4",
 
-		"J_Bip_L_Little2", "LeftHandPinky2",
-		"J_Bip_L_Thumb3_end", "LeftHandThumb4",
-		"J_Bip_L_Thumb1", "LeftHandThumb1",
+		"J_Bip_L_Little2",		"LeftHandPinky2",
+		"J_Bip_L_Thumb3_end",	"LeftHandThumb4",
+		"J_Bip_L_Thumb1",		"LeftHandThumb1",
 
-		"J_Bip_R_Little2", "RightHandPinky2",
-		"J_Bip_R_Thumb3_end", "RightHandThumb4",
-		"J_Bip_R_Thumb1", "RightHandThumb1",
+		"J_Bip_R_Little2",		"RightHandPinky2",
+		"J_Bip_R_Thumb3_end",	"RightHandThumb4",
+		"J_Bip_R_Thumb1",		"RightHandThumb1",
 
 		// From PolygonApe_97.vrm
 		"LittleFinger1_L",		"LeftHandPinky1",
@@ -528,10 +530,10 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		"IndexFinger3_L",		"LeftHandIndex3",
 		"IndexFinger3_L_end",	"LeftHandIndex4",
 
-		"Thumb0_R",		"LeftHandThumb1", // NOTE: these mappings correct?
-		"Thumb1_R",		"LeftHandThumb2",
-		"Thumb2_R",		"LeftHandThumb3",
-		"Thumb2_R_end",	"LeftHandThumb4",
+		"Thumb0_R",				"LeftHandThumb1", // NOTE: these mappings correct?
+		"Thumb1_R",				"LeftHandThumb2",
+		"Thumb2_R",				"LeftHandThumb3",
+		"Thumb2_R_end",			"LeftHandThumb4",
 
 		"LittleFinger1_R",		"RightHandPinky1",
 		"LittleFinger2_R",		"RightHandPinky2",
@@ -553,10 +555,10 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		"IndexFinger3_R",		"RightHandIndex3",
 		"IndexFinger3_R_end",	"RightHandIndex4",
 
-		"Thumb0_R",		"RightHandThumb1", // NOTE: these mappings correct?
-		"Thumb1_R",		"RightHandThumb2",
-		"Thumb2_R",		"RightHandThumb3",
-		"Thumb2_R_end",	"RightHandThumb4",
+		"Thumb0_R",				"RightHandThumb1", // NOTE: these mappings correct?
+		"Thumb1_R",				"RightHandThumb2",
+		"Thumb2_R",				"RightHandThumb3",
+		"Thumb2_R_end",			"RightHandThumb4",
 
 		"J_Bip_L_ToeBase_end",	"LeftToe_End",
 		"J_Bip_R_ToeBase_end",	"RightToe_End",
@@ -606,7 +608,9 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		VRM_to_RPM_names.insert(std::make_pair("Mixamorig_" + right_hand_name, right_hand_name));
 	}
 
-
+	// Ready Player Me (RPM) bone names.
+	// These seem to be from the Mixamo rig, but with the "mixamorig:" prefix removed.
+	// These are the bone names our animation data uses.
 	const char* RPM_bone_names[] = {
 		"Hips",
 		"Spine",
@@ -677,6 +681,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		"RightToe_End"
 	};
 
+	// VRM bone names, corresponding to the RPM bone names above.
 	const char* VRM_bone_names[] = {
 		"hips",
 		"spine",
@@ -749,11 +754,9 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 	static_assert(staticArrayNumElems(RPM_bone_names) == staticArrayNumElems(VRM_bone_names), "staticArrayNumElems(RPM_bone_names) == staticArrayNumElems(VRM_bone_names)");
 
-
-	// Make map from RPM_bone_name to index
-	std::map<std::string, int> RPM_bone_name_to_index;
+	std::map<std::string, std::string> RPM_to_VRM_bone_name;
 	for(size_t z=0; z<staticArrayNumElems(RPM_bone_names); ++z)
-		RPM_bone_name_to_index.insert(std::make_pair(RPM_bone_names[z], (int)z));
+		RPM_to_VRM_bone_name[RPM_bone_names[z]] = VRM_bone_names[z];
 	
 
 	const std::vector<AnimationNodeData> old_nodes = nodes; // Copy old node data
@@ -762,7 +765,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 	GLTFVRMExtensionRef old_vrm_data = vrm_data;
 
-	this->readFromStream(stream);
+	this->readFromStream(stream); // Read in animation data.  The old nodes have the correct sizing, the new nodes are associated with the correct animation data.
 
 	printVar(old_joint_nodes == joint_nodes);
 	printVar(old_sorted_nodes == sorted_nodes);
@@ -787,15 +790,15 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		AnimationNodeData& new_node = nodes[i];
 
 		int old_node_index = -1;
-		if(old_vrm_data.nonNull())
+		if(old_vrm_data.nonNull()) // If we had VRM metadata:
 		{
 			// We have the new node name (RPM name).
 			// Find corresponding VRM bone name.
-			// Then look up in map from VRM bone name to bone index.
-			auto res = RPM_bone_name_to_index.find(new_node.name); // Get index of this bone name in list of RPM bone names
-			if(res != RPM_bone_name_to_index.end())
+			// Then look up in VRM metadata to get the node index from the bone name.
+			auto res = RPM_to_VRM_bone_name.find(new_node.name);
+			if(res != RPM_to_VRM_bone_name.end())
 			{
-				const std::string VRM_name = VRM_bone_names[res->second]; // Get corresponding VRM bone name
+				const std::string VRM_name = res->second;
 
 				// Lookup in our VRM metadata to get the node index for that bone name.
 				auto res2 = old_vrm_data->human_bones.find(VRM_name);
@@ -809,32 +812,22 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 					old_node_index = bone_index;
 				}
 			}
-
-			if(old_node_index == -1) // If no mapping found yet:
-			{
-				auto res2 = old_node_names_to_index.find(new_node.name);
-				if(res2 != old_node_names_to_index.end())
-				{
-					old_node_index = res2->second;
-				}
-			}
 		}
-		else
+
+		if(old_node_index == -1) // If no mapping found yet:
 		{
+			// See if there is an old node with the same name as the new node
 			auto res = old_node_names_to_index.find(new_node.name);
 			if(res != old_node_names_to_index.end())
-			{
 				old_node_index = res->second;
-			}
+		}
 
-			if(old_node_index == -1) // If no mapping found yet:
-			{
-				res = old_node_names_to_index.find("mixamorig:" + new_node.name); // Try matching with a "mixamorig:" prefix.
-				if(res != old_node_names_to_index.end())
-				{
-					old_node_index = res->second;
-				}
-			}
+		if(old_node_index == -1) // If no mapping found yet:
+		{
+			// Try finding an old node with the same name, but with a "mixamorig:" prefix.  This should match files rigged with Mixamo bone names.
+			auto res = old_node_names_to_index.find("mixamorig:" + new_node.name); 
+			if(res != old_node_names_to_index.end())
+				old_node_index = res->second;
 		}
 
 		if(old_node_index != -1)
