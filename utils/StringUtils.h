@@ -241,6 +241,7 @@ const std::string byteArrayToString(const std::vector<unsigned char>& bytes);
 
 
 const std::string replaceFirst(const std::string& s, const std::string& target, const std::string& replacement);
+void replaceFirstInPlace(std::string& s, const std::string& target, const std::string& replacement);
 
 const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement);
 

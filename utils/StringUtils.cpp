@@ -1310,6 +1310,14 @@ const std::string replaceFirst(const std::string& s, const std::string& target, 
 }
 
 
+void replaceFirstInPlace(std::string& s, const std::string& target, const std::string& replacement)
+{
+	const size_t pos = s.find(target);
+	if(pos != std::string::npos)
+		s.replace(pos, target.length(), replacement);
+}
+
+
 const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement)
 {
 	assert(!target.empty()); // Target must not be the empty string or the loop below will loop forever.
@@ -2131,6 +2139,16 @@ void StringUtils::test()
 	testAssert(replaceFirst("", "ef", "0123456") == "");
 	testAssert(replaceFirst("abcd", "ef", "0123456") == "abcd");
 	testAssert(replaceFirst("abcd", "abcde", "0123456") == "abcd");
+
+	//===================================== test replaceFirstInPlace() =======================================
+	{
+		std::string s = "abcdef";
+		replaceFirstInPlace(s, "DDD", "EEE");
+		testAssert(s == "abcdef");
+
+		replaceFirstInPlace(s, "cd", "CD");
+		testAssert(s == "abCDef");
+	}
 
 	//===================================== test replaceAll() =======================================
 	// const std::string replaceAll(const std::string& s, const std::string& target, const std::string& replacement);
