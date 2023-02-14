@@ -20,7 +20,12 @@ class GLUITextRendererCallback;
 /*=====================================================================
 GLUI
 ----
+UI coords are x increasing to right, y increasing up the window.
+x=-1 = left of window, x = +1 = right of window.
 
+For a square window, y=-1 = bottom of window, y =+1 = top of window.
+For a non-square window, y will be ~= 1 at top of window, rather
+y = window height / window width (unlike OpenGL coords).
 =====================================================================*/
 class GLUI : public RefCounted
 {
