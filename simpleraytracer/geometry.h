@@ -120,6 +120,7 @@ public:
 		ShouldCancelCallback* should_cancel_callback
 		) = 0; // throws glare::Exception
 
+#ifndef GEOMETRY_NO_TREE_BUILD_SUPPORT
 	struct BuildOptions
 	{
 		BuildOptions() : build_small_bvh(false), compute_is_planar(true), embree_device(NULL) {}
@@ -128,6 +129,7 @@ public:
 		RTCDeviceTy* embree_device; // Used in EmbreeAccel::build()
 	};
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager) = 0; // throws glare::Exception
+#endif
 
 	// Gets the built embree scene
 	virtual RTCSceneTy* getEmbreeScene() { return NULL; }

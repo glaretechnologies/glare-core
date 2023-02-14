@@ -829,6 +829,7 @@ bool RayMesh::isPlanar(Vec4f& normal_out) const
 }
 
 
+#ifndef GEOMETRY_NO_TREE_BUILD_SUPPORT
 void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager)
 {
 	Timer timer;
@@ -916,6 +917,7 @@ void RayMesh::build(const BuildOptions& options, ShouldCancelCallback& should_ca
 
 	if(verbose) print_output.print("Done Building Mesh. (Time taken: " + timer.elapsedStringNPlaces(3) + ")");
 }
+#endif // GEOMETRY_NO_TREE_BUILD_SUPPORT
 
 
 RTCSceneTy* RayMesh::getEmbreeScene()

@@ -187,7 +187,9 @@ public:
 		const std::vector<Planef>& camera_clip_planes, const std::vector<Planef>& section_planes_os, const WorldParams& world_params,
 		PrintOutput& print_output, bool verbose, ShouldCancelCallback* should_cancel_callback);
 
+#ifndef GEOMETRY_NO_TREE_BUILD_SUPPORT
 	virtual void build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager);
+#endif
 	virtual RTCSceneTy* getEmbreeScene();
 	virtual const std::string getName() const;
 	virtual float meanCurvature(const HitInfo& hitinfo) const;
