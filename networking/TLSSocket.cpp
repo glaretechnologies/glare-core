@@ -114,10 +114,6 @@ std::string getTLSConfigErrorString(struct tls_config* tls_config_)
 
 TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, const std::string& servername)
 {
-	assert(OpenSSL::isInitialised());
-	if(!OpenSSL::isInitialised())
-		throw MySocketExcep("!OpenSSL::isInitialised()"); // This should be initialised or we will get race conditions due to no mutexes being used.
-	
 	plain_socket = plain_socket_;
 
 	tls_context = tls_client();
@@ -143,10 +139,6 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, c
 
 TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
 {
-	assert(OpenSSL::isInitialised());
-	if(!OpenSSL::isInitialised())
-		throw MySocketExcep("!OpenSSL::isInitialised()"); // This should be initialised or we will get race conditions due to no mutexes being used.
-
 	plain_socket = plain_socket_;
 
 	tls_context = tls_context_;

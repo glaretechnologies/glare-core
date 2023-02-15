@@ -8,8 +8,7 @@ Copyright Glare Technologies Limited 2022 -
 
 namespace OpenSSL
 {
-	void init(); // Initialise LibreSSL stuff.
-	void shutdown(); // Cleans up / frees LibreSSL global state.
+	// init() is no longer needed and has been removed.
 
-	bool isInitialised();
+	void shutdown(); // Cleans up / frees LibreSSL global state.
 }
