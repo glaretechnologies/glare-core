@@ -1,8 +1,7 @@
 /*=====================================================================
 geometry.h
 ----------
-Copyright Glare Technologies Limited 2015 -
-File created by ClassTemplate on Wed Apr 14 21:19:37 2004
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
