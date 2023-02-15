@@ -29,6 +29,9 @@ static double init_time = 0;
 void init()
 {
 #if defined(_WIN32)
+	// Query performance counter frequency once, and cache.  From the docs: (https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency)
+	// "The frequency of the performance counter is fixed at system boot and is consistent across all processors. 
+	// Therefore, the frequency need only be queried upon application initialization, and the result can be cached."
 	LARGE_INTEGER freq;
 	const BOOL b = QueryPerformanceFrequency(&freq);
 	assertOrDeclareUsed(b);
