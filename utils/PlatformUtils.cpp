@@ -86,20 +86,21 @@ unsigned int PlatformUtils::getNumLogicalProcessors()
 {
 #if defined(_WIN32) || defined(_WIN64)
 
-	DWORD processorCount = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
-
-	if(processorCount == 0)
-		return 1;//throw PlatformUtilsExcep("GetActiveProcessorCount failed: error code: " + toString((unsigned int)GetLastError()));
-
-	return processorCount;
-
-	/*SYSTEM_INFO system_info;
-	GetSystemInfo(&system_info);
-	return system_info.dwNumberOfProcessors;*/
+	const DWORD processorCount = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+	if(processorCount == 0) // Error case:
+	{
+		assert(0);
+		return 1;
+	}
+	else
+		return processorCount;
 #else
 	const long res = sysconf(_SC_NPROCESSORS_CONF);
-	if(res == -1)
-		return 1; // Error case
+	if(res == -1) // Error case:
+	{
+		assert(0);
+		return 1;
+	}
 	else
 		return (unsigned int)res;
 #endif
