@@ -17,7 +17,7 @@ Copyright Glare Technologies Limited 2022 -
 TextureData
 -----------
 Processed texture data, produced by TextureProcessing.
-Contants Mipmap data, that is possibly compressed.
+Contains Mipmap data, that is possibly compressed.
 =====================================================================*/
 
 
