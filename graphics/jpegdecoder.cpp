@@ -184,9 +184,12 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 		if(cinfo.output_height > 1000000)
 			throw ImFormatExcep("Invalid height: " + toString(cinfo.output_height));
 
+#if !IS_INDIGO
+		// Don't limit the memory in Indigo, allow loading very large images.
 		const size_t max_num_pixels = 1 << 27;
 		if((size_t)cinfo.output_width * (size_t)cinfo.output_height > max_num_pixels)
 			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(cinfo.output_width) + ", " + toString(cinfo.output_height));
+#endif
 
 		ImageMapUInt8Ref texture = new ImageMapUInt8(cinfo.output_width, cinfo.output_height, final_num_components);
 
