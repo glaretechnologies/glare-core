@@ -358,7 +358,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests)
 	Timer timer;
 	std::vector<std::string> files = FileUtils::getSortedFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir(), "igmesh");
 
-	const size_t num_to_test = comprehensive_tests ? files.size() : 100;
+	const size_t num_to_test = comprehensive_tests ? files.size() : myMin(files.size(), (size_t)1000);
 	for(size_t i=0; i<num_to_test; ++i)
 	{
 		try

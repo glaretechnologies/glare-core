@@ -1151,7 +1151,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 	std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir(), "igmesh");
 	std::sort(files.begin(), files.end());
 
-	const size_t num_to_test = comprehensive_tests ? files.size() : 100;
+	const size_t num_to_test = comprehensive_tests ? files.size() : myMin(files.size(), (size_t)1000);
 	for(size_t i=0; i<num_to_test; ++i)
 	{
 		Indigo::Mesh mesh;
