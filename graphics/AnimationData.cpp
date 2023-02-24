@@ -927,7 +927,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 												v
 					
 					We want trans applied in new parent space to have the same effect (in model space) as trans in old parent space.
-					So do this, first apply trans in new old parent space, then transform to model space with old_parent_to_model, then 
+					So do this, first apply trans in old parent space, then transform to model space with old_parent_to_model, then 
 					to new parent space with new_parent_to_child (e.g. new_parent.inverse_bind_matrix)
 					*/
 
@@ -966,6 +966,27 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 	}
 
 
+	js::Vector<Matrix4f, 16> old_node_hier_to_world_matrices(old_sorted_nodes.size());
+
+	for(size_t n=0; n<old_sorted_nodes.size(); ++n)
+	{
+		const int node_i = old_sorted_nodes[n];
+		const AnimationNodeData& node_data = old_nodes[node_i];
+
+		const Matrix4f rot_mat = node_data.rot.toMatrix();
+
+		const Matrix4f TRS(
+			rot_mat.getColumn(0) * copyToAll<0>(node_data.scale),
+			rot_mat.getColumn(1) * copyToAll<1>(node_data.scale),
+			rot_mat.getColumn(2) * copyToAll<2>(node_data.scale),
+			setWToOne(node_data.trans));
+
+		const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (old_node_hier_to_world_matrices[node_data.parent_index] * TRS);
+
+		old_node_hier_to_world_matrices[node_i] = node_transform;
+	}
+
+
 	for(size_t i=0; i<nodes.size(); ++i)
 	{
 		AnimationNodeData& new_node = nodes[i];
@@ -997,7 +1018,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 					// Get bone->world transform for the parent of the new node.
 					Matrix4f new_parent_to_world;
-					new_parent.inverse_bind_matrix.getInverseForAffine3Matrix(new_parent_to_world); // bind matrix = bone space to model/world space.  So inverse bind matrix = world to bone space.
+					new_parent.inverse_bind_matrix.getInverseForAffine3Matrix(new_parent_to_world); // bind matrix = bone space to model/object/world space.  So inverse bind matrix = world to bone space.
 					
 					// Compute the translation for the new node in model space.
 					Vec4f new_translation_model_space = new_parent_to_world * new_translation_bs;
@@ -1035,13 +1056,16 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 						}
 					}
 
-					Matrix4f old_parent_to_world;
-					old_parent.inverse_bind_matrix.getInverseForAffine3Matrix(old_parent_to_world);
+					//Matrix4f old_parent_to_world;
+					//old_parent.inverse_bind_matrix.getInverseForAffine3Matrix(old_parent_to_world);
 
-					// Compute the translation of the old node in model space.  Note that we rotate the VRM data around the y-axis to match the RPM data.
-					const Vec4f old_translation_model_space = /*Matrix4f::rotationAroundYAxis(Maths::pi<float>()) **/ old_parent_to_world * old_translation_bs;
+					// NOTE: using old_node_hier_to_world_matrices instead of the bind matrix works better for Ready player me models that have a pose node transform that takes the mesh data in A-pose to T_pose.
+					Matrix4f old_parent_to_world = old_node_hier_to_world_matrices[old_node.parent_index];
 
-					// The retargetting vector (in model space) is now the extra translation to to make the new translation the same as the old translation
+					// Compute the translation of the old node in model space.
+					const Vec4f old_translation_model_space = old_parent_to_world * old_translation_bs;
+
+					// The retargetting vector (in model space) is now the extra translation to make the new translation the same as the old translation
 					Vec4f retarget_trans_model_space = old_translation_model_space - new_translation_model_space;
 
 					// Transform translation back into the space of the new parent node.
@@ -1093,8 +1117,10 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 			// It will transform into a basis with origin at the old bone position, but with orientation given by the new bone.
 			// To find this transform, we will find the desired bind matrix (bone to model transform), then invert it.
 			// This will result in an inverse bind matrix, that when concatenated with the relevant joint matrices (animated joint to model space transforms), 
-			// Will transform a vertex from a point on the old mesh (VRM mesh), to bone space, and then finally to model space.
+			// will transform a vertex from a point on the old mesh (VRM mesh), to bone space, and then finally to model space.
 			// Note that the joint matrices expect a certain orientation of the mesh data in bone space, which is why we use the new bone orientations.
+			//
+			// See inverse_bind_matrices.svg
 
 			// Take position of old node (VRM node).
 			// Use orientation of new matrix
@@ -1112,7 +1138,17 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 			Matrix4f desired_inverse_bind_matrix;
 			bind_matrix.getInverseForAffine3Matrix(desired_inverse_bind_matrix);
 
-			new_node.inverse_bind_matrix = desired_inverse_bind_matrix;
+
+			// Translate so that bone root is at origin,
+			// do to-T-pose rotation, (note: works in object space), then translate back to mesh space
+			// See using_pose_transform.svg
+			Matrix4f mesh_to_pose_rot_matrix = old_node_hier_to_world_matrices[old_joint_node_i] * old_node.inverse_bind_matrix;
+			mesh_to_pose_rot_matrix.setColumn(3, Vec4f(0,0,0,1)); // Remove translation part of matrix.
+
+			const Matrix4f mesh_to_bone_origin = Matrix4f::translationMatrix(-old_node_pos);
+			const Matrix4f bone_origin_to_mesh = Matrix4f::translationMatrix(old_node_pos);
+
+			new_node.inverse_bind_matrix = desired_inverse_bind_matrix * (bone_origin_to_mesh * mesh_to_pose_rot_matrix * mesh_to_bone_origin);
 		}
 		else
 		{
