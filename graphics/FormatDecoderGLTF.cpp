@@ -149,7 +149,7 @@ struct GLTFMaterial : public RefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false), pbrMetallicRoughness_present(false) {}
+	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false) {}
 
 	std::string name;
 	std::string alphaMode;
@@ -164,7 +164,6 @@ struct GLTFMaterial : public RefCounted
 	//----------- End from KHR_materials_pbrSpecularGlossiness extension:------------
 
 	//----------- From pbrMetallicRoughness:------------
-	bool pbrMetallicRoughness_present;
 	Colour4f baseColorFactor;
 	GLTFTextureObject baseColorTexture;
 	GLTFTextureObject metallicRoughnessTexture;
@@ -1318,26 +1317,23 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 
 static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string& gltf_folder, GLTFResultMaterial& mat_out)
 {
-	if(mat.pbrMetallicRoughness_present)
+	mat_out.diffuse = Colour3f(mat.baseColorFactor.x[0], mat.baseColorFactor.x[1], mat.baseColorFactor.x[2]);
+	mat_out.alpha = mat.baseColorFactor[3];
+	if(mat.baseColorTexture.valid())
 	{
-		mat_out.diffuse = Colour3f(mat.baseColorFactor.x[0], mat.baseColorFactor.x[1], mat.baseColorFactor.x[2]);
-		mat_out.alpha = mat.baseColorFactor[3];
-		if(mat.baseColorTexture.valid())
-		{
-			GLTFTexture& texture = getTexture(data, mat.baseColorTexture.index);
-			GLTFImage& image = getImage(data, texture.source);
-			const std::string path = FileUtils::join(gltf_folder, image.uri);
-			mat_out.diffuse_map.path = path;
-		}
-		mat_out.roughness = mat.roughnessFactor;
-		mat_out.metallic = mat.metallicFactor;
-		if(mat.metallicRoughnessTexture.valid())
-		{
-			GLTFTexture& texture = getTexture(data, mat.metallicRoughnessTexture.index);
-			GLTFImage& image = getImage(data, texture.source);
-			const std::string path = FileUtils::join(gltf_folder, image.uri);
-			mat_out.metallic_roughness_map.path = path;
-		}
+		GLTFTexture& texture = getTexture(data, mat.baseColorTexture.index);
+		GLTFImage& image = getImage(data, texture.source);
+		const std::string path = FileUtils::join(gltf_folder, image.uri);
+		mat_out.diffuse_map.path = path;
+	}
+	mat_out.roughness = mat.roughnessFactor;
+	mat_out.metallic = mat.metallicFactor;
+	if(mat.metallicRoughnessTexture.valid())
+	{
+		GLTFTexture& texture = getTexture(data, mat.metallicRoughnessTexture.index);
+		GLTFImage& image = getImage(data, texture.source);
+		const std::string path = FileUtils::join(gltf_folder, image.uri);
+		mat_out.metallic_roughness_map.path = path;
 	}
 
 	if(mat.KHR_materials_pbrSpecularGlossiness_present)
@@ -1781,7 +1777,6 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				{
 					const JSONNode& pbr_node = mat_node.getChildObject(parser, "pbrMetallicRoughness");
 
-					mat->pbrMetallicRoughness_present = true;
 					mat->baseColorTexture = parseTextureIfPresent(parser, pbr_node, "baseColorTexture");
 					mat->baseColorFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "baseColorFactor", Colour4f(1, 1, 1, 1));
 					mat->roughnessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "roughnessFactor", 1.0);
@@ -1790,9 +1785,10 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				}
 				else
 				{
-					mat->pbrMetallicRoughness_present = false;
-					mat->roughnessFactor = 0.5;
-					mat->metallicFactor = 0.0;
+					// "When undefined [pbrMetallicRoughness element], all the default values of pbrMetallicRoughness MUST apply."
+					mat->baseColorFactor = Colour4f(1, 1, 1, 1);
+					mat->roughnessFactor = 1;
+					mat->metallicFactor = 1;
 				}
 
 				mat->emissiveTexture = parseTextureIfPresent(parser, mat_node, "emissiveTexture");
@@ -1850,7 +1846,6 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		GLTFMaterialRef mat = new GLTFMaterial();
 		mat->name = "default";
 		mat->KHR_materials_pbrSpecularGlossiness_present = false;
-		mat->pbrMetallicRoughness_present = true;
 		mat->baseColorFactor = Colour4f(0.5f, 0.5f, 0.5f, 1);
 		mat->metallicFactor = 0.0; 
 		mat->roughnessFactor = 0.5;
