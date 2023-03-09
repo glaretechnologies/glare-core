@@ -29,7 +29,8 @@ MTLTexMap::MTLTexMap()
 
 
 MTLMaterial::MTLMaterial()
-:	Kd(0.5f), // Set some reasonable defaults.
+:	Ka(0.f), // Set some reasonable defaults.
+	Kd(0.8f), 
 	Ks(0.33333f),
 	Tf(1.0f),
 	Ns_exponent(500.f),
@@ -493,6 +494,13 @@ void FormatDecoderObj::parseMTLLibFromBuffer(const uint8* data, size_t len, cons
 
 				mtllib_mats_out.materials.push_back(MTLMaterial());
 				mtllib_mats_out.materials.back().name = toString(material_name);
+			}
+			else if(token == "Ka")
+			{
+				if(mtllib_mats_out.materials.empty())
+					throw glare::Exception("No material specified yet. (line " + toString(linenum) + ")");
+
+				mtllib_mats_out.materials.back().Ka = parseCol3(parser, linenum);
 			}
 			else if(token == "Kd")
 			{

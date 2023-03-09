@@ -29,6 +29,7 @@ struct MTLMaterial
 	MTLMaterial();
 
 	std::string name;
+	Colour3f Ka; // ambient col
 	Colour3f Kd; // diffuse col
 	Colour3f Ks; // specular col
 	Colour3f Tf; // transmission col
