@@ -79,9 +79,9 @@ public:
 	OpenGLMaterial()
 	:	transparent(false),
 		hologram(false),
-		albedo_rgb(0.85f, 0.85f, 0.85f),
+		albedo_linear_rgb(0.7f, 0.7f, 0.7f),
 		alpha(1.f),
-		emission_rgb(0.85f, 0.85f, 0.85f),
+		emission_linear_rgb(0.7f, 0.7f, 0.7f),
 		emission_scale(0.f),
 		roughness(0.5f),
 		tex_matrix(1,0,0,1),
@@ -100,9 +100,9 @@ public:
 		end_fade_out_distance(120.f)
 	{}
 
-	Colour3f albedo_rgb; // First approximation to material colour.  Non-linear sRGB.
+	Colour3f albedo_linear_rgb; // First approximation to material colour.  Linear sRGB.
 	float alpha; // Used for transparent mats.
-	Colour3f emission_rgb; // Non-linear sRGB in [0, 1]
+	Colour3f emission_linear_rgb; // Linear sRGB in [0, 1]
 	float emission_scale; // [0, inf)
 
 	bool imposter; // Use imposter shader?
@@ -183,7 +183,7 @@ struct GLObject
 #if __cplusplus >= 201703L
 		void* operator new  (size_t size, std::align_val_t alignment, void* ptr) { return ptr; }
 #else
-		void* operator new  (size_t size, void* ptr) { return ptr; }
+		void* operator new  (size_t /*size*/, void* ptr) { return ptr; }
 #endif
 
 	void enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size); // Enables instancing attributes, and builds vert_vao.

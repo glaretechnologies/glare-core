@@ -1317,7 +1317,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 
 static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string& gltf_folder, GLTFResultMaterial& mat_out)
 {
-	mat_out.diffuse = Colour3f(mat.baseColorFactor.x[0], mat.baseColorFactor.x[1], mat.baseColorFactor.x[2]);
+	mat_out.colour_factor = Colour3f(mat.baseColorFactor.x[0], mat.baseColorFactor.x[1], mat.baseColorFactor.x[2]);
 	mat_out.alpha = mat.baseColorFactor[3];
 	if(mat.baseColorTexture.valid())
 	{
@@ -1338,7 +1338,7 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 
 	if(mat.KHR_materials_pbrSpecularGlossiness_present)
 	{
-		mat_out.diffuse = Colour3f(mat.diffuseFactor.x[0], mat.diffuseFactor.x[1], mat.diffuseFactor.x[2]);
+		mat_out.colour_factor = Colour3f(mat.diffuseFactor.x[0], mat.diffuseFactor.x[1], mat.diffuseFactor.x[2]);
 		mat_out.alpha = mat.diffuseFactor.x[3];
 		if(mat.diffuseTexture.valid())
 		{

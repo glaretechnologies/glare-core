@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "GLUI.h"
+#include "../graphics/SRGBUtils.h"
 #include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
@@ -30,7 +31,7 @@ GLUITextView::~GLUITextView()
 
 // For non-toggleable buttons:
 static const Colour3f default_widget_colour(1.f);
-static const Colour3f default_mouseover_widget_colour(0.9f);
+static const Colour3f default_mouseover_widget_colour = toLinearSRGB(Colour3f(0.9f));
 
 
 void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft, const Vec2f& dims,
@@ -46,7 +47,7 @@ void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, c
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
-	overlay_ob->material.albedo_rgb = widget_colour;
+	overlay_ob->material.albedo_linear_rgb = widget_colour;
 	overlay_ob->material.albedo_texture = glui.text_renderer->makeToolTipTexture(text);
 
 
@@ -98,7 +99,7 @@ void GLUITextView::setColour(const Colour3f& col)
 
 	if(overlay_ob.nonNull())
 	{
-		overlay_ob->material.albedo_rgb = widget_colour;
+		overlay_ob->material.albedo_linear_rgb = widget_colour;
 	}
 }
 
@@ -127,13 +128,13 @@ bool GLUITextView::doHandleMouseMoved(const Vec2f& coords)
 	{
 		if(rect.inOpenRectangle(coords)) // If mouse over widget:
 		{
-			overlay_ob->material.albedo_rgb = mouseover_widget_colour;
+			overlay_ob->material.albedo_linear_rgb = mouseover_widget_colour;
 
 			return true;
 		}
 		else
 		{
-			overlay_ob->material.albedo_rgb = widget_colour;
+			overlay_ob->material.albedo_linear_rgb = widget_colour;
 		}
 	}
 	return false;

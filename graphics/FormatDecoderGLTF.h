@@ -30,7 +30,7 @@ struct GLTFResultMaterial
 {
 	GLTFResultMaterial() : roughness(0.5f), metallic(0.f), alpha(1.f) {}
 
-	Colour3f diffuse; // diffuse col.
+	Colour3f colour_factor; // colour factor.  Linear multiplier.
 	float alpha;
 	GLTFResultMap diffuse_map;
 	GLTFResultMap metallic_roughness_map;

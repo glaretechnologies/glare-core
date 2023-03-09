@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLMeshRenderData.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/DXTCompression.h"
+#include "../graphics/SRGBUtils.h"
 #include "../maths/mathstypes.h"
 #include "../maths/GeometrySampling.h"
 #include "../utils/Timer.h"
@@ -806,7 +807,7 @@ GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(VertexBufferAllocator& al
 	ob->ob_to_world_matrix = Matrix4f::identity();
 	ob->mesh_data = mesh_data;
 	ob->materials.resize(1);
-	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
+	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
 	ob->materials[0].alpha = col[3];
 	ob->materials[0].transparent = col[3] < 1.f;
 

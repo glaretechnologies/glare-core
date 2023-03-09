@@ -6,21 +6,19 @@ Copyright Glare Technologies Limited 2018 -
 #pragma once
 
 
+#include "colour3.h"
 #include "Colour4f.h"
 
 
 /*=====================================================================
 SRGBUtils
 ---------
-// See https://en.wikipedia.org/wiki/SRGB for sRGB conversion stuff.
+// See https://en.wikipedia.org/wiki/SRGB for sRGB conversion stuff, also https://www.color.org/srgb.pdf
 =====================================================================*/
 
-void testSRGBUtils();
+Colour3f toLinearSRGB(const Colour3f& c);
 
-
-float referenceSRGBToLinearSRGB(float c);
-float referenceLinearSRGBToNonLinearSRGB(float c);
-
+Colour3f toNonLinearSRGB(const Colour3f& c);
 
 
 // See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
@@ -53,3 +51,10 @@ inline Colour4f fastApproxLinearSRGBToNonLinearSRGB(const Colour4f& c)
 
 	return select(linear, nonlinear, Colour4f(_mm_cmple_ps(c.v, Colour4f(0.0031308f).v)));
 }
+
+
+void testSRGBUtils();
+
+
+float referenceSRGBToLinearSRGB(float c);
+float referenceLinearSRGBToNonLinearSRGB(float c);

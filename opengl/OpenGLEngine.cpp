@@ -220,7 +220,7 @@ size_t OpenGLMeshRenderData::getNumTris() const
 
 OverlayObject::OverlayObject()
 {
-	material.albedo_rgb = Colour3f(1.f);
+	material.albedo_linear_rgb = Colour3f(1.f);
 }
 
 
@@ -529,7 +529,12 @@ void OpenGLScene::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* ve
 	const Vec4f up_ws = cam_to_world * UP_OS;
 	const Vec4f right_ws = cam_to_world * RIGHT_OS;
 
-	if(camera_type == OpenGLScene::CameraType_Perspective)
+	if(camera_type == OpenGLScene::CameraType_Identity)
+	{
+
+
+	}
+	else if(camera_type == OpenGLScene::CameraType_Perspective)
 	{
 		// Calculate frustum verts
 		const float shift_up_d    = lens_shift_up_distance    / lens_sensor_dist; // distance verts at far end of frustum are shifted up
@@ -1457,7 +1462,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			{
 				clear_buf_overlay_ob =  new OverlayObject();
 				clear_buf_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, -0.9999f);
-				clear_buf_overlay_ob->material.albedo_rgb = Colour3f(1.f, 0.2f, 0.2f);
+				clear_buf_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f, 0.2f, 0.2f);
 				clear_buf_overlay_ob->material.shader_prog = this->clear_prog;
 				clear_buf_overlay_ob->mesh_data = this->unit_quad_meshdata;
 			}
@@ -1471,7 +1476,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 					tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::uniformScaleMatrix(0.95f) * Matrix4f::translationMatrix(-1, 0, 0);
 
-					tex_preview_overlay_ob->material.albedo_rgb = Colour3f(1.f);
+					tex_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
 					tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
 
 					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex; // static_depth_tex[0];
@@ -1485,7 +1490,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 					tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::uniformScaleMatrix(0.95f) * Matrix4f::translationMatrix(0, 0, 0);
 
-					tex_preview_overlay_ob->material.albedo_rgb = Colour3f(1.f);
+					tex_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
 					tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
 
 					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->static_depth_tex[1];
@@ -1504,7 +1509,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	
 			outline_solid_mat.shader_prog = outline_prog;
 
-			outline_edge_mat.albedo_rgb = Colour3f(0.9f, 0.2f, 0.2f);
+			outline_edge_mat.albedo_linear_rgb = toLinearSRGB(Colour3f(0.9f, 0.2f, 0.2f));
 			outline_edge_mat.shader_prog = this->overlay_prog;
 
 			outline_quad_meshdata = this->unit_quad_meshdata;
@@ -2253,8 +2258,16 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 void OpenGLEngine::addObjectAndLoadTexturesImmediately(const Reference<GLObject>& object)
 {
 	for(size_t i=0; i<object->materials.size(); ++i)
+	{
 		if(!object->materials[i].tex_path.empty())
 			object->materials[i].albedo_texture = getTexture(object->materials[i].tex_path);
+	
+		if(!object->materials[i].metallic_roughness_tex_path.empty())
+			object->materials[i].metallic_roughness_texture = getTexture(object->materials[i].metallic_roughness_tex_path);
+
+		if(!object->materials[i].emission_tex_path.empty())
+			object->materials[i].emission_texture = getTexture(object->materials[i].emission_tex_path);
+	}
 
 	addObject(object);
 }
@@ -2991,7 +3004,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 
 	// Draw a quad on the plane
 	{
-		outline_edge_mat.albedo_rgb = Colour3f(0.8f, 0.2f, 0.2f);
+		outline_edge_mat.albedo_linear_rgb = Colour3f(0.8f, 0.2f, 0.2f);
 		outline_edge_mat.alpha = 0.5f;
 		outline_edge_mat.shader_prog = this->fallback_transparent_prog;
 
@@ -3021,7 +3034,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 			arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(*vert_buf_allocator); // tip lies at (1,0,0).
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
-		debug_arrow_ob->materials[0].albedo_rgb = Colour3f(0.5f, 0.9f, 0.3f);
+		debug_arrow_ob->materials[0].albedo_linear_rgb = Colour3f(0.5f, 0.9f, 0.3f);
 		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
 			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false));
 	}
@@ -3049,7 +3062,7 @@ void OpenGLEngine::drawDebugSphere(const Vec4f& point, float radius, const Matri
 		debug_sphere_ob = new GLObject();
 		debug_sphere_ob->mesh_data = sphere_meshdata;
 		debug_sphere_ob->materials.resize(1);
-		debug_sphere_ob->materials[0].albedo_rgb = Colour3f(0.1f, 0.4f, 0.9f);
+		debug_sphere_ob->materials[0].albedo_linear_rgb = Colour3f(0.1f, 0.4f, 0.9f);
 		debug_sphere_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
 			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false));
 	}
@@ -3439,9 +3452,9 @@ void OpenGLEngine::draw()
 						debug_joint_obs[i] = new GLObject();
 						debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(*vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
 						debug_joint_obs[i]->materials.resize(3);
-						debug_joint_obs[i]->materials[0].albedo_rgb = Colour3f(0.9f, 0.5f, 0.3f);
-						debug_joint_obs[i]->materials[1].albedo_rgb = Colour3f(0.5f, 0.9f, 0.5f);
-						debug_joint_obs[i]->materials[2].albedo_rgb = Colour3f(0.3f, 0.5f, 0.9f);
+						debug_joint_obs[i]->materials[0].albedo_linear_rgb = Colour3f(0.9f, 0.5f, 0.3f);
+						debug_joint_obs[i]->materials[1].albedo_linear_rgb = Colour3f(0.5f, 0.9f, 0.5f);
+						debug_joint_obs[i]->materials[2].albedo_linear_rgb = Colour3f(0.3f, 0.5f, 0.9f);
 						//debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
 						//	/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
 						debug_joint_obs[i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
@@ -3683,10 +3696,10 @@ void OpenGLEngine::draw()
 					const Matrix4f rot_mat = rot.toMatrix();
 
 					const Matrix4f TRS(
-							rot_mat.getColumn(0) * copyToAll<0>(scale),
-							rot_mat.getColumn(1) * copyToAll<1>(scale),
-							rot_mat.getColumn(2) * copyToAll<2>(scale),
-							setWToOne(trans));
+								rot_mat.getColumn(0) * copyToAll<0>(scale),
+								rot_mat.getColumn(1) * copyToAll<1>(scale),
+								rot_mat.getColumn(2) * copyToAll<2>(scale),
+								setWToOne(trans));
 
 					const Matrix4f last_pre_proc_to_object = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * node_data.retarget_adjustment * TRS); // Transform without procedural_transform applied
 					const Matrix4f node_transform = last_pre_proc_to_object * ob->anim_node_data[node_i].procedural_transform;
@@ -3769,8 +3782,8 @@ void OpenGLEngine::draw()
 					ob->joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob->anim_node_data[node_i].node_hierarchical_to_object * 
 						anim_data.nodes[node_i].inverse_bind_matrix;
 
-					//conPrint("matrices[" + toString(i) + "]:");
-					//conPrint(temp_joint_matrices[i].toString());
+					//conPrint("joint_matrices[" + toString(i) + "]:");
+					//conPrint(ob->joint_matrices[i].toString());
 				}
 			}
 		} // end if(process)
@@ -5135,7 +5148,7 @@ void OpenGLEngine::draw()
 
 				checkUseProgram(opengl_mat.shader_prog.ptr());
 
-				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, opengl_mat.alpha);
+				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
 				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, (reverse_z_matrix * ob->ob_to_world_matrix).e);
 				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 
@@ -5421,7 +5434,7 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 		arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(*vert_buf_allocator);
 	ob->mesh_data = arrow_meshdata;
 	ob->materials.resize(1);
-	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
+	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
 	return ob;
 }
 
@@ -5439,7 +5452,7 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 
 	ob->mesh_data = cube_meshdata;
 	ob->materials.resize(1);
-	ob->materials[0].albedo_rgb = Colour3f(col[0], col[1], col[2]);
+	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
 	ob->materials[0].alpha = col[3];
 	ob->materials[0].transparent = col[3] < 1.f;
 	return ob;
@@ -5678,15 +5691,9 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 
 void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
-	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
-
-	const Colour4f emission_col_nonlinear(opengl_mat.emission_rgb.r, opengl_mat.emission_rgb.g, opengl_mat.emission_rgb.b, 1.f);
-	const Colour4f emission_col_linear = fastApproxSRGBToLinearSRGB(emission_col_nonlinear) * opengl_mat.emission_scale;
-
 	PhongUniforms uniforms;
-	uniforms.diffuse_colour = col_linear;
-	uniforms.emission_colour = emission_col_linear;
+	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r,   opengl_mat.albedo_linear_rgb.g,   opengl_mat.albedo_linear_rgb.b,   1.f);
+	uniforms.emission_colour = Colour4f(opengl_mat.emission_linear_rgb.r, opengl_mat.emission_linear_rgb.g, opengl_mat.emission_linear_rgb.b, 1.f) * opengl_mat.emission_scale;
 
 	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
 	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
@@ -5801,20 +5808,14 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 
 void OpenGLEngine::setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations)
 {
-	const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-	const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
-
-	const Colour4f emission_col_nonlinear(opengl_mat.emission_rgb.r, opengl_mat.emission_rgb.g, opengl_mat.emission_rgb.b, 1.f);
-	const Colour4f unscaled_emission_col_linear = fastApproxSRGBToLinearSRGB(emission_col_nonlinear);
-	const Colour4f scaled_emission_col_linear = Colour4f(
-		unscaled_emission_col_linear[0] * opengl_mat.emission_scale, 
-		unscaled_emission_col_linear[1] * opengl_mat.emission_scale, 
-		unscaled_emission_col_linear[2] * opengl_mat.emission_scale, 
-		unscaled_emission_col_linear[3]); // Don't multiply alpha by emission_scale
-
 	TransparentUniforms uniforms;
-	uniforms.diffuse_colour = col_linear;
-	uniforms.emission_colour = scaled_emission_col_linear;
+	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, 1.f);
+	uniforms.emission_colour = Colour4f(
+		opengl_mat.emission_linear_rgb.r * opengl_mat.emission_scale, 
+		opengl_mat.emission_linear_rgb.g * opengl_mat.emission_scale, 
+		opengl_mat.emission_linear_rgb.b * opengl_mat.emission_scale, 
+		1.f // Don't multiply alpha by emission_scale
+	);
 
 	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
 	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
@@ -5966,7 +5967,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	else if(shader_prog == this->env_prog.getPointer())
 	{
 		glUniform4fv(this->env_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-		glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
+		glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, 1.f);
 		glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
 		glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
@@ -6054,9 +6055,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			glUniform1f(shader_prog->time_loc, this->current_time);
 		if(shader_prog->colour_loc >= 0)
 		{
-			const Colour4f col_nonlinear(opengl_mat.albedo_rgb.r, opengl_mat.albedo_rgb.g, opengl_mat.albedo_rgb.b, 1.f);
-			const Colour4f col_linear = fastApproxSRGBToLinearSRGB(col_nonlinear);
-			glUniform3fv(shader_prog->colour_loc, 1, col_linear.x);
+			glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
 		}
 
 		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
@@ -6447,20 +6446,17 @@ void OpenGLEngine::textureBecameUsed(const OpenGLTexture* tex)
 
 void OpenGLEngine::trimTextureUsage()
 {
-	if(tex_mem_usage > max_tex_mem_usage)
+	// Remove textures from unused texture list until we are using <= max_tex_mem_usage
+	while((tex_mem_usage > max_tex_mem_usage) && (opengl_textures.numUnusedItems() > 0))
 	{
-		// Remove textures from unused texture list until we are using <= max_tex_mem_usage
-		while((tex_mem_usage > max_tex_mem_usage) && (opengl_textures.numUnusedItems() > 0))
+		OpenGLTextureKey removed_key;
+		OpenGLTextureRef removed_tex;
+		const bool removed = opengl_textures.removeLRUUnusedItem(removed_key, removed_tex);
+		assert(removed);
+		if(removed)
 		{
-			OpenGLTextureKey removed_key;
-			OpenGLTextureRef removed_tex;
-			const bool removed = opengl_textures.removeLRUUnusedItem(removed_key, removed_tex);
-			assert(removed);
-			if(removed)
-			{
-				assert(this->tex_mem_usage >= removed_tex->getByteSize());
-				this->tex_mem_usage -= removed_tex->getByteSize();
-			}
+			assert(this->tex_mem_usage >= removed_tex->getByteSize());
+			this->tex_mem_usage -= removed_tex->getByteSize();
 		}
 	}
 }

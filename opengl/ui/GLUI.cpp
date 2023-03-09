@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "GLUI.h"
 
 
+#include <graphics/SRGBUtils.h>
 #include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
@@ -32,7 +33,7 @@ void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, GLUITextRendererCallb
 
 	tooltip_overlay_ob = new OverlayObject();
 	tooltip_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
-	tooltip_overlay_ob->material.albedo_rgb = Colour3f(0.95f);
+	tooltip_overlay_ob->material.albedo_linear_rgb = toLinearSRGB(Colour3f(0.95f));
 	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0);
 
 	opengl_engine->addOverlayObject(tooltip_overlay_ob);
