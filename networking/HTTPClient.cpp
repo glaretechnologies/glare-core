@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Base64.h"
 #include "../utils/Clock.h"
 #include <tls.h>
+#include <cstring>
 
 
 HTTPClient::HTTPClient()

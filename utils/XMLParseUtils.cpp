@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2019 -
 #include <Exception.h>
 #include <Parser.h>
 #include <sstream>
+#include <cstring>
 
 
 int32 XMLParseUtils::parseIntDirectly(pugi::xml_node elem)

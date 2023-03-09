@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2022 -
 #include <set>
 #include <vector>
 #include <assert.h>
+#include <string.h>
 
 
 /*=====================================================================
