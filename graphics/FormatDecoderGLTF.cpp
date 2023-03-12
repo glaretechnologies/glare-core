@@ -1489,7 +1489,10 @@ static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string&
 	// OLD: Skeleton is "The index of the node used as a skeleton root", so we want to use the transform of that node.  NOTE: Actually we don't need this.
 	// "Although the skeleton property is not needed for computing skinning transforms, it may be used to provide a specific “pivot point” for the skinned geometry." (https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#skins-overview)
 	if(skin.skeleton != -1)
+	{
+		checkProperty(skin.skeleton < (int)data.nodes.size(), "skin.skeleton was invalid");
 		anim_data.skeleton_root_transform = data.nodes[skin.skeleton]->node_transform;
+	}
 	else
 		anim_data.skeleton_root_transform = Matrix4f::identity();
 
