@@ -182,7 +182,8 @@ void AnimationData::writeToStream(OutStream& stream) const
 {
 	stream.writeUInt32(ANIMATION_DATA_VERSION);
 
-	stream.writeData(skeleton_root_transform.e, sizeof(float)*16);
+	const Matrix4f old_skeleton_root_transform = Matrix4f::identity();
+	stream.writeData(old_skeleton_root_transform.e, sizeof(float)*16);
 
 	// Write nodes
 	stream.writeUInt32((uint32)nodes.size());
@@ -241,6 +242,7 @@ void AnimationData::readFromStream(InStream& stream)
 	if(version > ANIMATION_DATA_VERSION)
 		throw glare::Exception("Invalid animation data version: " + toString(version));
 
+	Matrix4f skeleton_root_transform; // unused
 	stream.readData(skeleton_root_transform.e, sizeof(float)*16);
 
 	// Read nodes

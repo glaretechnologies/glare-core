@@ -110,18 +110,17 @@ struct GLTFNode : public RefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLTFNode() : mesh(std::numeric_limits<size_t>::max()) {}
+	GLTFNode() : mesh(std::numeric_limits<size_t>::max()), skin(std::numeric_limits<size_t>::max()) {}
 
 	std::vector<size_t> children;
 	std::string name;
 	
 	Matrix4f matrix;
 	Quatf rotation;
-	size_t mesh;
+	size_t mesh; // Index of mesh if specified, std::numeric_limits<size_t>::max() otherwise.
+	size_t skin; // Index of skin if specified, std::numeric_limits<size_t>::max() otherwise.
 	Vec3f scale;
 	Vec3f translation;
-
-	Matrix4f node_transform; // Computed matrix
 };
 typedef Reference<GLTFNode> GLTFNodeRef;
 
@@ -687,7 +686,7 @@ static void checkAccessorBounds(const size_t vert_byte_stride, const size_t offs
 
 // uint32_indices_out should have sufficient capacity for all indices, but does need to be resized for new indices.
 // mesh_out.vertex_data should have sufficient size for all vertex data (has already been resized)
-static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_transform, BatchedMesh& mesh_out, js::Vector<uint32, 16>& uint32_indices_out, size_t& vert_write_i)
+static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const Matrix4f& parent_transform, BatchedMesh& mesh_out, js::Vector<uint32, 16>& uint32_indices_out, size_t& vert_write_i)
 {
 	const bool statically_apply_transform = data.skins.empty();
 
@@ -695,8 +694,6 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 	const Matrix4f rot = node.rotation.toMatrix();
 	const Matrix4f scale = Matrix4f::scaleMatrix(node.scale.x, node.scale.y, node.scale.z);
 	const Matrix4f node_transform = parent_transform * node.matrix * trans * rot * scale; // Matrix and T,R,S transforms should be mutually exclusive in GLTF files.  Just multiply them together however.
-
-	node.node_transform = node_transform;
 
 	// Process mesh
 	if(node.mesh != std::numeric_limits<size_t>::max())
@@ -709,6 +706,15 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 
 			if(!shouldLoadPrimitive(primitive))
 				continue;
+
+
+			uint16 use_joint_index = 0;
+			if(!data.skins.empty() && (node.skin == std::numeric_limits<size_t>::max())) // If we have a skin, and if this is a mesh node that doesn't use a skin, then this node uses rigid-body animation.
+			{
+				// Use the skin-based animation system for it - add this node to the list of joints.
+				use_joint_index = (uint16)data.skins[0]->joints.size();
+				data.skins[0]->joints.push_back((int)node_index);
+			}
 
 			
 			const GLTFAccessor& pos_accessor = getAccessorForAttribute(data, primitive, "POSITION");
@@ -1126,7 +1132,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 					runtimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
 						for(int c=0; c<4; ++c)
-							((uint16*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[c] = 0;
+							((uint16*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[c] = use_joint_index;
 				}
 			}
 
@@ -1181,8 +1187,12 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 
 					runtimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
-						for(int c=0; c<4; ++c)
-							((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[c] = 0.f;
+					{
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 1.f;
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[1] = 0.f;
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[2] = 0.f;
+						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[3] = 0.f;
+					}
 				}
 			}
 
@@ -1200,7 +1210,7 @@ static void processNode(GLTFData& data, GLTFNode& node, const Matrix4f& parent_t
 
 		GLTFNode& child = *data.nodes[node.children[i]];
 
-		processNode(data, child, node_transform, mesh_out, uint32_indices_out, vert_write_i);
+		processNode(data, child, node.children[i], node_transform, mesh_out, uint32_indices_out, vert_write_i);
 	}
 }
 
@@ -1444,7 +1454,7 @@ static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string&
 	// conPrint("Processing skin " + skin.name + "...");
 
 	// "Each skin is defined by the inverseBindMatrices property (which points to an accessor with IBM data), used to bring coordinates being skinned into the same space as each joint"
-	js::Vector<Matrix4f, 16> ibms(skin.joints.size());
+	js::Vector<Matrix4f, 16> ibms(skin.joints.size(), Matrix4f::identity());
 
 	// Read inverse bind matrices
 	if(skin.inverse_bind_matrices >= 0) // inverseBindMatrices are optional, default is identity matrix.
@@ -1463,15 +1473,12 @@ static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string&
 
 		checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer);
 
-		checkProperty(accessor.count == ibms.size(), "accessor.count had invalid size"); // skin.joints: "The array length must be the same as the count property of the inverseBindMatrices accessor (when defined)."
+		// skin.joints: "The array length must be the same as the count property of the inverseBindMatrices accessor (when defined)."
+		// Since we may have added new joints for rigid-body animated meshes, just check <= instead of ==.
+		checkProperty(accessor.count <= ibms.size(), "accessor.count had invalid size"); 
 
 		for(size_t i=0; i<accessor.count; ++i)
 			std::memcpy(&ibms[i].e, offset_base + byte_stride * i, sizeof(float) * 16);
-	}
-	else
-	{
-		for(size_t i=0; i<ibms.size(); ++i)
-			ibms[i] = Matrix4f::identity();
 	}
 
 	// Assign bind matrices to nodes
@@ -1485,16 +1492,6 @@ static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string&
 	}
 
 	anim_data.joint_nodes = skin.joints;
-
-	// OLD: Skeleton is "The index of the node used as a skeleton root", so we want to use the transform of that node.  NOTE: Actually we don't need this.
-	// "Although the skeleton property is not needed for computing skinning transforms, it may be used to provide a specific “pivot point” for the skinned geometry." (https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#skins-overview)
-	if(skin.skeleton != -1)
-	{
-		checkProperty(skin.skeleton < (int)data.nodes.size(), "skin.skeleton was invalid");
-		anim_data.skeleton_root_transform = data.nodes[skin.skeleton]->node_transform;
-	}
-	else
-		anim_data.skeleton_root_transform = Matrix4f::identity();
 
 	// conPrint("done.");
 }
@@ -1874,6 +1871,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				GLTFNodeRef node = new GLTFNode();
 				if(node_node.hasChild("name")) node->name = node_node.getChildStringValue(parser, "name");
 				if(node_node.hasChild("mesh")) node->mesh = node_node.getChildUIntValue(parser, "mesh");
+				if(node_node.hasChild("skin")) node->skin = node_node.getChildUIntValue(parser, "skin");
 
 				// parse children array
 				if(node_node.hasChild("children"))
@@ -2198,6 +2196,27 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	}*/
 
 
+	// If there is an animation, but no skinning information, then add a skin.
+	// We do this so we can use the skin-based animation system for rigid-body animations.
+	if(!data.animations.empty() && data.skins.empty())
+	{
+		GLTFSkinRef skin = new GLTFSkin();
+		skin->name = "Anim skin";
+		skin->inverse_bind_matrices = -1;
+		skin->skeleton = -1;
+		data.skins.push_back(skin);
+	}
+
+
+	// If there is animation data, we will handle rigid body animations using skinning system, so we want joint and weight vertex attributes.
+	// If there is a skin that is not just empty (e.g. it has some joints), then we want joint and weight vertex attributes.
+	if(!data.animations.empty() || (!data.skins.empty() && !data.skins[0]->joints.empty()))
+	{
+		data.attr_present.joints_present = true;
+		data.attr_present.weights_present = true;
+	}
+
+
 	// Process meshes referenced by nodes to get the total number of vertices and triangles, so we can reserve space for them.
 	size_t total_num_indices = 0;
 	size_t total_num_verts = 0;
@@ -2234,11 +2253,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 	batched_mesh->vertex_data.resize(batched_mesh->vertexSize() * total_num_verts);
 
-
 	js::Vector<uint32, 16> uint32_indices;
 	uint32_indices.reserve(total_num_indices);
 	size_t vert_write_i = 0;
-
 
 	for(size_t i=0; i<scene_node.nodes.size(); ++i)
 	{
@@ -2248,7 +2265,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 		Matrix4f current_transform = Matrix4f::identity();
 
-		processNode(data, root_node, current_transform, *batched_mesh, uint32_indices, vert_write_i);
+		processNode(data, root_node, scene_node.nodes[i], current_transform, *batched_mesh, uint32_indices, vert_write_i);
 	}
 
 	assert(uint32_indices.size() == total_num_indices);
@@ -2304,7 +2321,6 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		anim_data_out.nodes[i].trans = data.nodes[i]->translation.toVec4fVector();
 		anim_data_out.nodes[i].rot   = data.nodes[i]->rotation;
 		anim_data_out.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
-		//anim_data_out.nodes[i].default_node_hierarchical_to_world = data.nodes[i]->node_transform;
 
 		anim_data_out.nodes[i].name         = data.nodes[i]->name;
 	}

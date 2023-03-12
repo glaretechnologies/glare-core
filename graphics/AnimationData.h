@@ -123,8 +123,6 @@ struct AnimationData
 
 	Vec4f getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment);
 	
-	Matrix4f skeleton_root_transform; // to-world transform of the skeleton root node.
-
 	std::vector<AnimationNodeData> nodes;
 	std::vector<int> sorted_nodes; // Indices of nodes, sorted such that children always come after parents.
 
