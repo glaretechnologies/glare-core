@@ -28,7 +28,7 @@ public:
 
 	// Calling code should be currently holding (have locked) the mutex.
 	// Calling thread is suspended until condition is met.
-	// The mutex will be released while the thread is waiting and reaquired before the function returns.
+	// The mutex will be released while the thread is waiting and reacquired before the function returns.
 	// Returns true if condition was signalled, or false if a timeout occurred.
 	bool waitWithTimeout(Mutex& mutex, double wait_time_seconds);
 
