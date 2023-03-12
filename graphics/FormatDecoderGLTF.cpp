@@ -3459,6 +3459,23 @@ void FormatDecoderGLTF::test()
 		}
 
 
+		// This file has a rigid-body animation.  We should have converted it to use a skinned animation (joints, weights etc.)
+		{
+			conPrint("---------------------------------BoxAnimated.glb-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/BoxAnimated.glb", data);
+
+			testAssert(mesh->animation_data.animations.size() == 1);
+			testAssert(mesh->animation_data.nodes.size() == 4);
+			testAssert(mesh->animation_data.joint_nodes.size() == 2); // Aka num bones.  Only the 2 mesh nodes are converted to joints.
+
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_Joints) != NULL);
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_Weights) != NULL);
+
+			testWriting(mesh, data);
+		}
+
+
 		// Test a mesh with a joint hierarchy, that originally had no vertex joints indices or weights.
 		// We should have added vertex joints indices ands weights for animation.
 		{
