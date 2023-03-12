@@ -298,14 +298,6 @@ void Vector<T, alignment>::reserveNoCopy(size_t n)
 	if(n > capacity_) // If need to expand capacity
 	{
 #if JS_VECTOR_VERBOSE
-		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
-#endif
-		// Allocate new memory
-		T* new_e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * n, alignment));
-		
-		// Since we are not copying existing elements to new_e, just leave them uninitialised.
-
-#if JS_VECTOR_VERBOSE
 		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
 #endif
 		// Destroy old objects
@@ -314,7 +306,12 @@ void Vector<T, alignment>::reserveNoCopy(size_t n)
 
 		MemAlloc::alignedFree(e); // Free old buffer.
 
-		e = new_e;
+#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
+#endif
+		// Allocate new memory
+		// Since we are not copying existing elements, just leave them uninitialised.
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * n, alignment));
 		capacity_ = n;
 	}
 
