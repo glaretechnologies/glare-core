@@ -3423,7 +3423,7 @@ void OpenGLEngine::draw()
 	{
 		GLObject* const ob = it->getPointer();
 
-		AnimationData& anim_data = ob->mesh_data->animation_data;
+		const AnimationData& anim_data = ob->mesh_data->animation_data;
 
 		bool visible_and_large_enough = AABBIntersectsFrustum(anim_shadow_clip_planes, 6, anim_shadow_vol_aabb, ob->aabb_ws);
 		if(visible_and_large_enough)
@@ -3435,7 +3435,7 @@ void OpenGLEngine::draw()
 			visible_and_large_enough = proj_len > 0.01f;
 		}
 
-		const bool process = visible_and_large_enough || ob->joint_matrices.empty(); // If the joint matrices are empty we need to compute them at least once.
+		const bool process = visible_and_large_enough || ob->joint_matrices.empty(); // If the joint matrices are empty we need to compute them at least once, so they don't contain garbage data that is read from.
 		if(process)
 		{
 			num_animated_obs_processed++;
@@ -3470,119 +3470,242 @@ void OpenGLEngine::draw()
 				ob->anim_node_data.resize(anim_data.nodes.size());
 
 				const float DEBUG_SPEED_FACTOR = 1;
-				//const float use_time = current_time * DEBUG_SPEED_FACTOR;
 			
 				const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
 			
 				const int use_next_anim_i = (ob->next_anim_i == -1) ? ob->current_anim_i : ob->next_anim_i;
 				const AnimationDatum& anim_datum_b = *anim_data.animations[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
 
-				const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, current_time/*use_time*/);
+				const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, current_time);
 			
-				const float use_in_anim_time = (current_time + (float)ob->use_time_offset) * DEBUG_SPEED_FACTOR;
+				const float unwrapped_use_in_anim_time = (current_time + (float)ob->use_time_offset) * DEBUG_SPEED_FACTOR;
 
-				/*
-				For each node,
-				if node translation is animated
-				get keyframe i_0, i_1 and frac for input time values for sampler input accessor index.  (this computaton should be shared.)
-				read translation values from output accessor
-				interpolate values based on sample interpolation type
-				*/
-				const size_t num_nodes = anim_data.sorted_nodes.size();
-				// assert(num_nodes <= 256); 
-				// We only support 256 joint matrices for now.  Currently we just don't upload more than 256 matrices.
-				node_matrices.resizeNoCopy(num_nodes);
+				assert(anim_datum_a.anim_len > 0);
+				assert(anim_datum_b.anim_len > 0);
+				const float use_in_anim_time_a = Maths::floatMod(unwrapped_use_in_anim_time, anim_datum_a.anim_len);
+				const float use_in_anim_time_b = Maths::floatMod(unwrapped_use_in_anim_time, anim_datum_b.anim_len);
 
-				// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
 
-				// Iterate over each array of keyframe times.  (each array corresponds to an input accessor)
-				// For each array, find the current and next keyframe, and interpolation fraction, based on the current time.
+				// For each input accessor that the animation uses, we have an array of keyframe times.
+				// For each such array, find the current and next keyframe, and interpolation fraction, based on the current time.
+				// Store in a AnimationKeyFrameLocation in key_frame_locs.
+				//
+				// We are doing 2 important optimisations here:
+				// The first is that many nodes in a skeleton may use the same input accessor.  We don't want to search the keyframe times for the correct keyframe every time
+				// the input accessor is used by a node, so we do the search once for the input accessor, and store the results in key_frame_locs.
+				//
+				// The second optimisation is that a particular animation may only use 1 or a few input accessors.
+				// For example the avatar idle animation only uses input accessor 9, and there are 33 input accessors in total.
+				// So for the idle animation we only need to do the keyframe search for input accessor 9, not the 32 other accessors.
 
-				// TODO: not all of these input accessors will be used, only compute data for used ones.
-				key_frame_locs.resize(anim_data.keyframe_times.size());
-				for(int z=0; z<(int)anim_data.keyframe_times.size(); ++z) // For each input accessor:
+				const size_t keyframe_times_size = anim_data.keyframe_times.size();
+				key_frame_locs.resizeNoCopy(keyframe_times_size * 2); // keyframe times for animation a are first, then keyframe times for animation b.
+
+				//------------------------ Compute keyframe times for animation a -------------------------
+				if(transition_frac < 1.f) // At transition_frac = 1, result is fully animation b, a is used if transition_frac < 1
 				{
-					const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[z];
-					// If keyframe times are equally spaced, we can skip the binary search stuff, and just compute the keyframes we are between directly.
-					if(keyframe_time_info.equally_spaced)
+					for(size_t q=0; q<anim_datum_a.used_input_accessor_indices.size(); ++q)
 					{
-						const float wrapped_t_minus_t_0 = Maths::floatMod(use_in_anim_time, keyframe_time_info.t_back_minus_t_0);
+						const int input_accessor_i = anim_datum_a.used_input_accessor_indices[q];
+				
+						const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[input_accessor_i];
+						assert(keyframe_time_info.times_size == keyframe_time_info.times.size());
 
-						int index = (int)(wrapped_t_minus_t_0 * keyframe_time_info.recip_spacing);
+						const float in_anim_time = use_in_anim_time_a;
+						AnimationKeyFrameLocation& key_frame_loc = key_frame_locs[input_accessor_i];
 
-						const float frac = (wrapped_t_minus_t_0 - (float)index * keyframe_time_info.spacing) * keyframe_time_info.recip_spacing; // Fraction of way through frame
-						assert(frac >= -0.001f && frac < 1.001f);
-
-						if(index >= keyframe_time_info.times_size)
-							index = 0;
-
-						int next_index = index + 1;
-						if(next_index >= keyframe_time_info.times_size)
-							next_index = 0;
-
-						key_frame_locs[z].i_0 = index;
-						key_frame_locs[z].i_1 = next_index;
-						key_frame_locs[z].frac = frac;
-					}
-					else
-					{
-						const std::vector<float>& time_vals = keyframe_time_info.times;
-
-						if(!time_vals.empty())
+						// If keyframe times are equally spaced, we can skip the binary search stuff, and just compute the keyframes we are between directly.
+						if(keyframe_time_info.equally_spaced && (keyframe_time_info.t_back == anim_datum_a.anim_len))
 						{
-							if(time_vals.size() == 1)
+							if(use_in_anim_time_a < keyframe_time_info.t_0)
 							{
-								key_frame_locs[z].i_0 = 0;
-								key_frame_locs[z].i_1 = 0;
-								key_frame_locs[z].frac = 0;
+								key_frame_loc.i_0 = 0;
+								key_frame_loc.i_1 = 0;
+								key_frame_loc.frac = 0;
 							}
 							else
 							{
-								// TODO: use incremental search based on the position last frame, instead of using upper_bound.  (or combine)
+								const float t_minus_t_0 = use_in_anim_time_a - keyframe_time_info.t_0;
+								assert(t_minus_t_0 >= 0);
+						
+								int index = (int)(t_minus_t_0 * keyframe_time_info.recip_spacing);
 
-								/*
-								frame 0                     frame 1                        frame 2                      frame 3
-								|----------------------------|-----------------------------|-----------------------------|-------------------------> time
-								^                                         ^
-								cur_frame_i                             in_anim_time
-								*/
+								const float frac = (t_minus_t_0 - (float)index * keyframe_time_info.spacing) * keyframe_time_info.recip_spacing; // Fraction of way through frame
+								assert(frac >= -0.001f && frac < 1.001f);
 
-								assert(time_vals.size() >= 2);
-								const float in_anim_time = time_vals[0] + Maths::floatMod(use_in_anim_time, time_vals.back() - time_vals[0]);
+								if(index >= keyframe_time_info.times_size)
+									index = 0;
 
-								// Find current frame
-								auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
-								int next_index = (int)(res - time_vals.begin());
-								int index = next_index - 1;
+								int next_index = index + 1;
+								if(next_index >= keyframe_time_info.times_size)
+									next_index = 0;
 
-								next_index = myMin(next_index, (int)time_vals.size() - 1);
+								key_frame_loc.i_0 = index;
+								key_frame_loc.i_1 = next_index;
+								key_frame_loc.frac = frac;
+							}
+						}
+						else
+						{
+							const std::vector<float>& time_vals = keyframe_time_info.times;
 
-								float index_time;
-								if(index < 0)
+							if(keyframe_time_info.times_size != 0)
+							{
+								if(keyframe_time_info.times_size == 1)
 								{
-									index = (int)time_vals.size() - 1; // Use last keyframe value
-									index_time = 0;
+									key_frame_loc.i_0 = 0;
+									key_frame_loc.i_1 = 0;
+									key_frame_loc.frac = 0;
 								}
 								else
-									index_time = time_vals[index];
+								{
+									assert(time_vals.size() >= 2);
 
-								//if(index >= 0 && next_index < time_vals.size())
-								//{
-								float frac;
-								frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
+									// TODO: use incremental search based on the position last frame, instead of using upper_bound.  (or combine)
+
+									/*
+									frame 0                     frame 1                        frame 2                      frame 3
+									|----------------------------|-----------------------------|-----------------------------|-------------------------> time
+									^                            ^            ^                ^
+									cur_frame_i                             in_anim_time
+																index                        next_index
+									*/
+
+									// Find current frame
+									auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
+									int next_index = (int)(res - time_vals.begin());
+									assert(next_index >= 0 && next_index <= (int)time_vals.size());
+									int index = next_index - 1;
+									assert(index >= -1 && index < (int)time_vals.size());
+
+									next_index = myMin(next_index, keyframe_time_info.times_size - 1);
+									assert(next_index >= 0 && next_index < (int)time_vals.size());
+
+									if(index < 0) // This is the case when use_in_anim_time_a < t_0.  In this case we want to clamp the output values to the keyframe 0 values.
+									{
+										key_frame_loc.i_0 = 0;
+										key_frame_loc.i_1 = 0;
+										key_frame_loc.frac = 0;
+									}
+									else
+									{
+										const float index_time = time_vals[index];
+
+										float frac;
+										frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
 							
-								if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
-									frac = 0;
-									//assert(frac >= 0 && frac <= 1);
-								//}
-
-								key_frame_locs[z].i_0 = index;
-								key_frame_locs[z].i_1 = next_index;
-								key_frame_locs[z].frac = frac;
+										if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
+											frac = 0;
+								
+										key_frame_loc.i_0 = index;
+										key_frame_loc.i_1 = next_index;
+										key_frame_loc.frac = frac;
+									}
+								}
 							}
 						}
 					}
 				}
+
+				//------------------------ Compute keyframe times for animation b -------------------------
+				if(transition_frac > 0.f) // At transition_frac = 0, result is fully animation a, b is used if transition_frac > 0
+				{
+					for(size_t q=0; q<anim_datum_b.used_input_accessor_indices.size(); ++q)
+					{
+						const int input_accessor_i = anim_datum_b.used_input_accessor_indices[q];
+
+						const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[input_accessor_i];
+						assert(keyframe_time_info.times_size == keyframe_time_info.times.size());
+
+						const float in_anim_time = use_in_anim_time_b;
+						AnimationKeyFrameLocation& key_frame_loc = key_frame_locs[keyframe_times_size + input_accessor_i]; // The keyframe_times_size offset is to get keyframe locations for animation b.
+
+						// If keyframe times are equally spaced, we can skip the binary search stuff, and just compute the keyframes we are between directly.
+						if(keyframe_time_info.equally_spaced && (keyframe_time_info.t_back == anim_datum_b.anim_len))
+						{
+							if(in_anim_time < keyframe_time_info.t_0)
+							{
+								key_frame_loc.i_0 = 0;
+								key_frame_loc.i_1 = 0;
+								key_frame_loc.frac = 0;
+							}
+							else
+							{
+								const float t_minus_t_0 = in_anim_time - keyframe_time_info.t_0;
+								assert(t_minus_t_0 >= 0);
+
+								int index = (int)(t_minus_t_0 * keyframe_time_info.recip_spacing);
+
+								const float frac = (t_minus_t_0 - (float)index * keyframe_time_info.spacing) * keyframe_time_info.recip_spacing; // Fraction of way through frame
+								assert(frac >= -0.001f && frac < 1.001f);
+
+								if(index >= keyframe_time_info.times_size)
+									index = 0;
+
+								int next_index = index + 1;
+								if(next_index >= keyframe_time_info.times_size)
+									next_index = 0;
+
+								key_frame_loc.i_0 = index;
+								key_frame_loc.i_1 = next_index;
+								key_frame_loc.frac = frac;
+							}
+						}
+						else
+						{
+							const std::vector<float>& time_vals = keyframe_time_info.times;
+
+							if(keyframe_time_info.times_size != 0)
+							{
+								if(keyframe_time_info.times_size == 1)
+								{
+									key_frame_loc.i_0 = 0;
+									key_frame_loc.i_1 = 0;
+									key_frame_loc.frac = 0;
+								}
+								else
+								{
+									assert(time_vals.size() >= 2);
+
+									// Find current frame
+									auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
+									int next_index = (int)(res - time_vals.begin());
+									assert(next_index >= 0 && next_index <= time_vals.size());
+									int index = next_index - 1;
+									assert(index >= -1 && index < (int)time_vals.size());
+
+									next_index = myMin(next_index, keyframe_time_info.times_size - 1);
+									assert(next_index >= 0 && next_index < time_vals.size());
+
+									if(index < 0) // This is the case when use_in_anim_time_b < t_0.  In this case we want to clamp the output values to the keyframe 0 values.
+									{
+										key_frame_loc.i_0 = 0;
+										key_frame_loc.i_1 = 0;
+										key_frame_loc.frac = 0;
+									}
+									else
+									{
+										const float index_time = time_vals[index];
+
+										float frac;
+										frac = (in_anim_time - index_time) / (time_vals[next_index] - index_time);
+
+										if(!(frac >= 0 && frac <= 1)) // TEMP: handle NaNs
+											frac = 0;
+
+										key_frame_loc.i_0 = index;
+										key_frame_loc.i_1 = next_index;
+										key_frame_loc.frac = frac;
+									}
+								}
+							}
+						}
+					}
+				}
+
+				// We only support 256 joint matrices for now.  Currently we just don't upload more than 256 matrices.
+				
+				node_matrices.resizeNoCopy(anim_data.sorted_nodes.size()); // A temp buffer to store node transforms that we can look up parent node transforms in.
 
 				for(size_t n=0; n<anim_data.sorted_nodes.size(); ++n)
 				{
@@ -3591,107 +3714,96 @@ void OpenGLEngine::draw()
 					const PerAnimationNodeData& node_a = anim_datum_a.per_anim_node_data[node_i];
 					const PerAnimationNodeData& node_b = anim_datum_b.per_anim_node_data[node_i];
 
-					Vec4f trans_a;
-					if(node_a.translation_input_accessor >= 0)
+					Vec4f trans_a = node_data.trans;
+					Vec4f trans_b = node_data.trans;
+					Quatf rot_a   = node_data.rot;
+					Quatf rot_b   = node_data.rot;
+					Vec4f scale_a = node_data.scale;
+					Vec4f scale_b = node_data.scale;
+
+					if(transition_frac < 1.f) // At transition_frac = 1, result is fully animation b, a is used if transition_frac < 1
 					{
-						//conPrint("anim_datum_a: " + anim_datum_a.name + "," + toString(anim_data.keyframe_times[node_a.translation_input_accessor].back()));
+						if(node_a.translation_input_accessor >= 0)
+						{
+							//conPrint("anim_datum_a: " + anim_datum_a.name + "," + toString(anim_data.keyframe_times[node_a.translation_input_accessor].back()));
 
-						const int i_0    = key_frame_locs[node_a.translation_input_accessor].i_0;
-						const int i_1    = key_frame_locs[node_a.translation_input_accessor].i_1;
-						const float frac = key_frame_locs[node_a.translation_input_accessor].frac;
+							const int i_0    = key_frame_locs[node_a.translation_input_accessor].i_0;
+							const int i_1    = key_frame_locs[node_a.translation_input_accessor].i_1;
+							const float frac = key_frame_locs[node_a.translation_input_accessor].frac;
 
-						// read translation values from output accessor.
-						const Vec4f trans_0 = (anim_data.output_data[node_a.translation_output_accessor])[i_0];
-						const Vec4f trans_1 = (anim_data.output_data[node_a.translation_output_accessor])[i_1];
-						trans_a = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+							// read translation values from output accessor.
+							const Vec4f trans_0 = (anim_data.output_data[node_a.translation_output_accessor])[i_0];
+							const Vec4f trans_1 = (anim_data.output_data[node_a.translation_output_accessor])[i_1];
+							trans_a = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+						}
+
+						if(node_a.rotation_input_accessor >= 0)
+						{
+							const int i_0    = key_frame_locs[node_a.rotation_input_accessor].i_0;
+							const int i_1    = key_frame_locs[node_a.rotation_input_accessor].i_1;
+							const float frac = key_frame_locs[node_a.rotation_input_accessor].frac;
+
+							// read rotation values from output accessor
+							const Quatf rot_0 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_0]);
+							const Quatf rot_1 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_1]);
+							rot_a = Quatf::nlerp(rot_0, rot_1, frac);
+						}
+
+						if(node_a.scale_input_accessor >= 0)
+						{
+							const int i_0    = key_frame_locs[node_a.scale_input_accessor].i_0;
+							const int i_1    = key_frame_locs[node_a.scale_input_accessor].i_1;
+							const float frac = key_frame_locs[node_a.scale_input_accessor].frac;
+
+							// read scale values from output accessor
+							const Vec4f scale_0 = (anim_data.output_data[node_a.scale_output_accessor])[i_0];
+							const Vec4f scale_1 = (anim_data.output_data[node_a.scale_output_accessor])[i_1];
+							scale_a = Maths::lerp(scale_0, scale_1, frac);
+						}
 					}
-					else
-						trans_a = node_data.trans;
-
-					Vec4f trans_b;
-					if(node_b.translation_input_accessor >= 0)
+					
+					if(transition_frac > 0.f) // At transition_frac = 0, result is fully animation a, b is used if transition_frac > 0
 					{
-						const int i_0    = key_frame_locs[node_b.translation_input_accessor].i_0;
-						const int i_1    = key_frame_locs[node_b.translation_input_accessor].i_1;
-						const float frac = key_frame_locs[node_b.translation_input_accessor].frac;
+						if(node_b.translation_input_accessor >= 0)
+						{
+							const int i_0    = key_frame_locs[keyframe_times_size + node_b.translation_input_accessor].i_0; // The keyframe_times_size offset is to get keyframe locations for animation b.
+							const int i_1    = key_frame_locs[keyframe_times_size + node_b.translation_input_accessor].i_1;
+							const float frac = key_frame_locs[keyframe_times_size + node_b.translation_input_accessor].frac;
 
-						// read translation values from output accessor.
-						const Vec4f trans_0 = (anim_data.output_data[node_b.translation_output_accessor])[i_0];
-						const Vec4f trans_1 = (anim_data.output_data[node_b.translation_output_accessor])[i_1];
-						trans_b = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+							// read translation values from output accessor.
+							const Vec4f trans_0 = (anim_data.output_data[node_b.translation_output_accessor])[i_0];
+							const Vec4f trans_1 = (anim_data.output_data[node_b.translation_output_accessor])[i_1];
+							trans_b = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
+						}
+
+						if(node_b.rotation_input_accessor >= 0)
+						{
+							const int i_0    = key_frame_locs[keyframe_times_size + node_b.rotation_input_accessor].i_0;
+							const int i_1    = key_frame_locs[keyframe_times_size + node_b.rotation_input_accessor].i_1;
+							const float frac = key_frame_locs[keyframe_times_size + node_b.rotation_input_accessor].frac;
+
+							// read rotation values from output accessor
+							const Quatf rot_0 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_0]);
+							const Quatf rot_1 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_1]);
+							rot_b = Quatf::nlerp(rot_0, rot_1, frac);
+						}
+
+						if(node_b.scale_input_accessor >= 0)
+						{
+							const int i_0    = key_frame_locs[keyframe_times_size + node_b.scale_input_accessor].i_0;
+							const int i_1    = key_frame_locs[keyframe_times_size + node_b.scale_input_accessor].i_1;
+							const float frac = key_frame_locs[keyframe_times_size + node_b.scale_input_accessor].frac;
+
+							// read scale values from output accessor
+							const Vec4f scale_0 = (anim_data.output_data[node_b.scale_output_accessor])[i_0];
+							const Vec4f scale_1 = (anim_data.output_data[node_b.scale_output_accessor])[i_1];
+							scale_b = Maths::lerp(scale_0, scale_1, frac);
+						}
 					}
-					else
-						trans_b = node_data.trans;
 
 					const Vec4f trans = Maths::lerp(trans_a, trans_b, transition_frac);
-
-
-
-					Quatf rot_a;
-					if(node_a.rotation_input_accessor >= 0)
-					{
-						const int i_0    = key_frame_locs[node_a.rotation_input_accessor].i_0;
-						const int i_1    = key_frame_locs[node_a.rotation_input_accessor].i_1;
-						const float frac = key_frame_locs[node_a.rotation_input_accessor].frac;
-
-						// read rotation values from output accessor
-						const Quatf rot_0 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_0]);
-						const Quatf rot_1 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_1]);
-						rot_a = Quatf::nlerp(rot_0, rot_1, frac);
-					}
-					else
-						rot_a = node_data.rot;
-
-					Quatf rot_b;
-					if(node_b.rotation_input_accessor >= 0)
-					{
-						const int i_0    = key_frame_locs[node_b.rotation_input_accessor].i_0;
-						const int i_1    = key_frame_locs[node_b.rotation_input_accessor].i_1;
-						const float frac = key_frame_locs[node_b.rotation_input_accessor].frac;
-
-						// read rotation values from output accessor
-						const Quatf rot_0 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_0]);
-						const Quatf rot_1 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_1]);
-						rot_b = Quatf::nlerp(rot_0, rot_1, frac);
-					}
-					else
-						rot_b = node_data.rot;
-
-					const Quatf rot = Quatf::nlerp(rot_a, rot_b, transition_frac);
-
-					Vec4f scale_a;
-					if(node_a.scale_input_accessor >= 0)
-					{
-						const int i_0    = key_frame_locs[node_a.scale_input_accessor].i_0;
-						const int i_1    = key_frame_locs[node_a.scale_input_accessor].i_1;
-						const float frac = key_frame_locs[node_a.scale_input_accessor].frac;
-
-						// read scale values from output accessor
-						const Vec4f scale_0 = (anim_data.output_data[node_a.scale_output_accessor])[i_0];
-						const Vec4f scale_1 = (anim_data.output_data[node_a.scale_output_accessor])[i_1];
-						scale_a = Maths::lerp(scale_0, scale_1, frac);
-					}
-					else
-						scale_a = node_data.scale;
-
-					Vec4f scale_b;
-					if(node_b.scale_input_accessor >= 0)
-					{
-						const int i_0    = key_frame_locs[node_b.scale_input_accessor].i_0;
-						const int i_1    = key_frame_locs[node_b.scale_input_accessor].i_1;
-						const float frac = key_frame_locs[node_b.scale_input_accessor].frac;
-
-						// read scale values from output accessor
-						const Vec4f scale_0 = (anim_data.output_data[node_b.scale_output_accessor])[i_0];
-						const Vec4f scale_1 = (anim_data.output_data[node_b.scale_output_accessor])[i_1];
-						scale_b = Maths::lerp(scale_0, scale_1, frac);
-					}
-					else
-						scale_b = node_data.scale;
-
+					const Quatf rot   = Quatf::nlerp(rot_a, rot_b, transition_frac);
 					const Vec4f scale = Maths::lerp(scale_a, scale_b, transition_frac);
-
-
 
 					const Matrix4f rot_mat = rot.toMatrix();
 
@@ -3711,6 +3823,7 @@ void OpenGLEngine::draw()
 					ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
 
 					// Set location of debug joint visualisation objects
+					// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
 					//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
 					if(false)
 					if(!debug_joint_obs.empty())

@@ -1042,7 +1042,7 @@ private:
 
 	// Some temporary vectors:
 	js::Vector<Matrix4f, 16> node_matrices;
-	std::vector<AnimationKeyFrameLocation> key_frame_locs;
+	js::Vector<AnimationKeyFrameLocation, 16> key_frame_locs;
 
 	js::Vector<Matrix4f, 16> temp_matrices;
 

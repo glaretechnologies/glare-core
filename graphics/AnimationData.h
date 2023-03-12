@@ -64,7 +64,7 @@ struct KeyFrameTimeInfo
 	bool equally_spaced;
 	int times_size;
 	float t_0;
-	float t_back_minus_t_0;
+	float t_back;
 	float spacing;
 	float recip_spacing;
 };
@@ -72,6 +72,8 @@ struct KeyFrameTimeInfo
 
 struct AnimationDatum : public RefCounted
 {
+	AnimationDatum() : anim_len(-1) {}
+
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(uint32 file_version, InStream& stream, std::vector<KeyFrameTimeInfo>& old_keyframe_times_out, std::vector<js::Vector<Vec4f, 16> >& old_output_data);
 
@@ -80,6 +82,10 @@ struct AnimationDatum : public RefCounted
 	std::string name;
 
 	std::vector<PerAnimationNodeData> per_anim_node_data;
+
+	std::vector<int> used_input_accessor_indices;
+
+	float anim_len;
 };
 
 
@@ -102,13 +108,13 @@ struct AnimationData
 {
 	AnimationData() : retarget_adjustments_set(false) {}
 
+	void build(); // Builds keyframe_times data, computes animation length.
+
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(InStream& stream);
 
 	const AnimationDatum* findAnimation(const std::string& name);
 	int getAnimationIndex(const std::string& name);
-
-	float getAnimationLength(const AnimationDatum& anim) const;
 
 	AnimationNodeData* findNode(const std::string& name); // Returns NULL if not found
 	int getNodeIndex(const std::string& name); // Returns -1 if not found
@@ -124,7 +130,7 @@ struct AnimationData
 
 	std::vector<int> joint_nodes; // Indices into nodes array.  Joint vertex values index into this array, or rather index into matrices with the same ordering.  Skin data.
 
-	std::vector<KeyFrameTimeInfo> keyframe_times; // For each input accessor index, a vector of input keyframe times.
+	std::vector<KeyFrameTimeInfo> keyframe_times; // For each input accessor index, a vector of input keyframe times, and some precomputed info about the times.
 
 	std::vector<js::Vector<Vec4f, 16> > output_data; // For each output accessor index, a vector of translations, rotations or scales.
 

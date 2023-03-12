@@ -2299,7 +2299,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		anim_data_out.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
 		//anim_data_out.nodes[i].default_node_hierarchical_to_world = data.nodes[i]->node_transform;
 
-		anim_data_out.nodes[i].name = data.nodes[i]->name;
+		anim_data_out.nodes[i].name         = data.nodes[i]->name;
 	}
 
 	// Set parent indices in data_out.nodes
@@ -2342,6 +2342,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 
 	// Process animations
+	// Remap input and output accessor indices to avoid gaps in keyframe time and value arrays.
+	// 
 	// Do a pass to get that largest input and output accessor indices.
 	int largest_input_accessor = -1;
 	int largest_output_accessor = -1;
@@ -2399,7 +2401,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		const int new_i = new_input_index[z];
 		if(new_i != -1) // If used:
 		{
-			// Read keyframe time values from the input accessor
+			// Read keyframe time values from the input accessor, write to time_vals vector.
 			std::vector<float>& time_vals = anim_data_out.keyframe_times[new_i].times;
 			const GLTFAccessor& input_accessor = getAccessor(data, old_accessor_i);
 
@@ -2476,6 +2478,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	{
 		processSkin(data, *data.skins[i], gltf_base_dir, anim_data_out);
 	}
+
+	anim_data_out.build();
 
 	batched_mesh->animation_data.vrm_data = data.vrm_data;
 

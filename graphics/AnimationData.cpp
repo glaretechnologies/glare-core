@@ -13,6 +13,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/ConPrint.h"
 #include "../utils/ContainerUtils.h"
 #include <unordered_map>
+#include <algorithm>
+#include <set>
 
 
 // Throws an exception if b is false.
@@ -390,12 +392,53 @@ void AnimationData::readFromStream(InStream& stream)
 	//for(size_t i=0; i<sorted_nodes.size(); ++i)
 	//	conPrint("sorted_nodes[ " + toString(i) + "]: " + toString(sorted_nodes[i]) + " (" + nodes[sorted_nodes[i]].name + ")");
 
+	build();
+}
+
+
+void AnimationData::build() // Builds keyframe_times data, computes animation length.
+{
+	// For each animation, compute length of animation - largest input timestamp, as well as used input accessor indices.
+	
+	for(size_t anim_i=0; anim_i<animations.size(); ++anim_i)
+	{
+		AnimationDatum* anim = animations[anim_i].ptr();
+
+		std::set<int> used_input_accessor_indices;
+		float max_len = 0.f;
+		for(size_t z=0; z<anim->per_anim_node_data.size(); ++z)
+		{
+			PerAnimationNodeData& data = anim->per_anim_node_data[z];
+			if(data.translation_input_accessor != -1)	max_len = myMax(max_len, keyframe_times[data.translation_input_accessor].times.back());
+			if(data.rotation_input_accessor != -1)		max_len = myMax(max_len, keyframe_times[data.rotation_input_accessor].times.back());
+			if(data.scale_input_accessor != -1)			max_len = myMax(max_len, keyframe_times[data.scale_input_accessor].times.back());
+
+			if(data.translation_input_accessor != -1)	used_input_accessor_indices.insert(data.translation_input_accessor);
+			if(data.rotation_input_accessor != -1)		used_input_accessor_indices.insert(data.rotation_input_accessor);
+			if(data.scale_input_accessor != -1)			used_input_accessor_indices.insert(data.scale_input_accessor);
+		}
+		anim->anim_len = max_len;
+
+		// Build used_input_accessor_indices vector for this animation.
+		// This is used so we only need to process input keyframes actually used for a particular animation.
+		anim->used_input_accessor_indices.reserve(used_input_accessor_indices.size());
+		for(auto it = used_input_accessor_indices.begin(); it != used_input_accessor_indices.end(); ++it)
+			anim->used_input_accessor_indices.push_back(*it);
+		
+		assert(std::is_sorted(anim->used_input_accessor_indices.begin(), anim->used_input_accessor_indices.end()));
+	}
 
 	// Check if keyframe_times are equally spaced.  If they are, store some info that will allow fast finding of the current frame given the time in the animation.
 	for(size_t i=0; i<keyframe_times.size(); ++i)
 	{
 		const std::vector<float>& vec = keyframe_times[i].times;
 
+		keyframe_times[i].times_size = (int)vec.size();
+		if(vec.size() >= 1)
+		{
+			keyframe_times[i].t_0 = vec[0];
+			keyframe_times[i].t_back = vec.back();
+		}
 		if(vec.size() >= 2)
 		{
 			bool is_equally_spaced = true;
@@ -419,11 +462,8 @@ void AnimationData::readFromStream(InStream& stream)
 			keyframe_times[i].equally_spaced = is_equally_spaced;
 			if(is_equally_spaced)
 			{
-				keyframe_times[i].times_size = (int)vec.size();
 				keyframe_times[i].spacing = equal_gap;
 				keyframe_times[i].recip_spacing = (float)(vec.size() - 1) / (t_back - t_0);
-				keyframe_times[i].t_0 = vec[0];
-				keyframe_times[i].t_back_minus_t_0 = t_back - t_0;
 			}
 		}
 		else
@@ -447,21 +487,6 @@ int AnimationData::getAnimationIndex(const std::string& name)
 		if(animations[i]->name == name)
 			return (int)i;
 	return -1;
-}
-
-
-float AnimationData::getAnimationLength(const AnimationDatum& anim) const
-{
-	float max_len = 0;
-	for(size_t i=0; i<anim.per_anim_node_data.size(); ++i)
-	{
-		if(anim.per_anim_node_data[i].rotation_input_accessor >= 0)
-		{
-			max_len = myMax(max_len, this->keyframe_times[anim.per_anim_node_data[i].rotation_input_accessor].times.back());
-		}
-	}
-
-	return max_len;
 }
 
 
@@ -1027,6 +1052,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 					// Handle the case where the parents are not the same, but the parent of the old node is the grandparent of the new node.
 					// For now we will only try and handle this for specific nodes, such as the Spine2 case below.
 					if(old_to_new_node_index[old_node.parent_index] != new_node.parent_index)
+					//if((old_to_new_node_index.count(old_node.parent_index) > 0) && (old_to_new_node_index[old_node.parent_index] != new_node.parent_index))
 					{
 						/*
 						spine       spine1      spine2      neck         GLB (new anim data)
@@ -1110,8 +1136,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 			AnimationNodeData& new_node = nodes[joint_nodes[i]];
 
-			const std::string new_joint_node_name = new_node.name;
-			if(VERBOSE) conPrint("new_joint_node_name: " + new_joint_node_name);
+			if(VERBOSE) conPrint("new_joint_node_name: " + new_node.name);
 
 			// Our inverse bind matrix will take a point on the old mesh (VRM mesh)
 			// It will transform into a basis with origin at the old bone position, but with orientation given by the new bone.
