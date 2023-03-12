@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Helps Visual Studio display useful debugging info for our types -->
+
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+	<Type Name="Vec4f">
+		<DisplayString>x={x[0]}, y={x[1]}, z={x[2]}, w={x[3]}</DisplayString>
+	</Type>
+
+	<Type Name="Reference&lt;*&gt;">
+		<SmartPointer Usage="Minimal">ob</SmartPointer>
+	</Type>
+
+	<Type Name="js::Vector&lt;*&gt;">
+		<Expand>
+			<Item Name="size">size_</Item>
+			<Item Name="capacity">capacity_</Item>
+			<ArrayItems>
+				<Size>size_</Size>
+				<ValuePointer>e</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+
+</AutoVisualizer>
