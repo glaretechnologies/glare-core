@@ -3458,6 +3458,24 @@ void FormatDecoderGLTF::test()
 			testWriting(mesh, data);
 		}
 
+
+		// Test a mesh with a joint hierarchy, that originally had no vertex joints indices or weights.
+		// We should have added vertex joints indices ands weights for animation.
+		{
+
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MisfitPixels606.glb", data);
+
+			testAssert(mesh->animation_data.nodes.size() == 39);
+			testAssert(mesh->animation_data.joint_nodes.size() == 38); // Aka num bones.
+			testAssert(mesh->animation_data.animations.size() == 0);
+
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_Joints) != NULL);
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_Weights) != NULL);
+
+			testWriting(mesh, data);
+		}
+
 	}
 	catch(glare::Exception& e)
 	{
