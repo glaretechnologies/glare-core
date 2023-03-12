@@ -1579,8 +1579,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 	{
 		// Save JSON to disk for debugging
 		const std::string json((const char*)file_data + 20, json_header.chunk_length);
-		conPrint(PlatformUtils::getCurrentWorkingDirPath());
-		FileUtils::writeEntireFileTextMode("extracted.json", json);
+		FileUtils::writeEntireFileTextMode(gltf_base_dir + "/extracted.json", json);
 	}
 
 	// Parse JSON chunk. (chunk length already checked above)
@@ -1628,11 +1627,16 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 					if(hasPrefix(buffer->uri, "data:")) // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
 					{
-						const std::string expected_prefix = "data:application/octet-stream;base64,";
-						if(!hasPrefix(buffer->uri, expected_prefix))
-							throw glare::Exception("Expected prefix " + expected_prefix + " in URI");
+						const std::string expected_prefix_1 = "data:application/octet-stream;base64,";
+						const std::string expected_prefix_2 = "data:application/gltf-buffer;base64,";
 
-						const std::string data_base64 = buffer->uri.substr(expected_prefix.size());
+						std::string data_base64;
+						if(hasPrefix(buffer->uri, expected_prefix_1))
+							data_base64 = buffer->uri.substr(expected_prefix_1.size());
+						else if(hasPrefix(buffer->uri, expected_prefix_2))
+							data_base64 = buffer->uri.substr(expected_prefix_2.size());
+						else
+							throw glare::Exception("Expected prefix " + expected_prefix_1 + " or " + expected_prefix_2 + " in URI");
 
 						Base64::decode(data_base64, /*data out=*/buffer->decoded_base64_data);
 
