@@ -3859,7 +3859,8 @@ void OpenGLEngine::draw()
 							rot_mat.getColumn(2) * copyToAll<2>(scale),
 							setWToOne(trans));
 
-						const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * TRS);
+						const Matrix4f last_pre_proc_to_object = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * TRS);
+						const Matrix4f node_transform = last_pre_proc_to_object * ob->anim_node_data[node_i].procedural_transform;
 
 						node_matrices[node_i] = node_transform;
 
@@ -5523,6 +5524,8 @@ Matrix4f OpenGLEngine::arrowObjectTransform(const Vec4f& startpos, const Vec4f& 
 {
 	// We want to map the vector (1,0,0) to endpos-startpos.
 	// We want to map the point (0,0,0) to startpos.
+	assert(startpos[3] == 1.f);
+	assert(endpos[3] == 1.f);
 
 	const Vec4f dir = endpos - startpos;
 	const Vec4f col1 = normalise(std::fabs(normalise(dir)[2]) > 0.5f ? crossProduct(dir, Vec4f(1,0,0,0)) : crossProduct(dir, Vec4f(0,0,1,0))) * radius_scale;
@@ -5552,18 +5555,57 @@ GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& en
 }
 
 
+Matrix4f OpenGLEngine::AABBObjectTransform(const Vec4f& min_os, const Vec4f& max_os)
+{
+	const Vec4f span = max_os - min_os;
+
+	Matrix4f m;
+	m.setColumn(0, Vec4f(span[0], 0, 0, 0));
+	m.setColumn(1, Vec4f(0, span[1], 0, 0));
+	m.setColumn(2, Vec4f(0, 0, span[2], 0));
+	m.setColumn(3, min_os); // set origin
+
+	return m;
+}
+
+
 GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col)
 {
 	GLObjectRef ob = allocateObject();
 
-	const Vec4f span = max_ - min_;
-
-	ob->ob_to_world_matrix.setColumn(0, Vec4f(span[0], 0, 0, 0));
-	ob->ob_to_world_matrix.setColumn(1, Vec4f(0, span[1], 0, 0));
-	ob->ob_to_world_matrix.setColumn(2, Vec4f(0, 0, span[2], 0));
-	ob->ob_to_world_matrix.setColumn(3, min_); // set origin
+	ob->ob_to_world_matrix = AABBObjectTransform(min_, max_);
 
 	ob->mesh_data = cube_meshdata;
+	ob->materials.resize(1);
+	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
+	ob->materials[0].alpha = col[3];
+	ob->materials[0].transparent = col[3] < 1.f;
+	return ob;
+}
+
+
+GLObjectRef OpenGLEngine::makeSphereObject(float radius, const Colour4f& col)
+{
+	GLObjectRef ob = allocateObject();
+
+	ob->ob_to_world_matrix = Matrix4f::uniformScaleMatrix(radius);
+
+	ob->mesh_data = sphere_meshdata;
+	ob->materials.resize(1);
+	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
+	ob->materials[0].alpha = col[3];
+	ob->materials[0].transparent = col[3] < 1.f;
+	return ob;
+}
+
+
+GLObjectRef OpenGLEngine::makeCylinderObject(float radius, const Colour4f& col)
+{
+	GLObjectRef ob = allocateObject();
+
+	ob->ob_to_world_matrix = Matrix4f::uniformScaleMatrix(radius);
+
+	ob->mesh_data = getCylinderMesh();
 	ob->materials.resize(1);
 	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
 	ob->materials[0].alpha = col[3];

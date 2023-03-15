@@ -735,9 +735,14 @@ public:
 	Reference<OpenGLMeshRenderData> getUnitQuadMeshData(); // A quad from (0, 0, 0) to (1, 1, 0)
 	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 
-	static Matrix4f arrowObjectTransform(const Vec4f& startpos, const Vec4f& endpos, float radius_scale);
-	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
 	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
+	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
+	GLObjectRef makeSphereObject(float radius, const Colour4f& col);
+	GLObjectRef makeCylinderObject(float radius, const Colour4f& col); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
+
+	static Matrix4f AABBObjectTransform(const Vec4f& min_os, const Vec4f& max_os);
+	static Matrix4f arrowObjectTransform(const Vec4f& startpos, const Vec4f& endpos, float radius_scale);
+	
 
 	static Reference<OpenGLMeshRenderData> buildMeshRenderData(VertexBufferAllocator& allocator, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec3f, 16>& normals, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices);
 
