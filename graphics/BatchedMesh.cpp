@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/IncludeHalf.h"
 #include "../utils/HashMapInsertOnly2.h"
 #include "../utils/BufferViewInStream.h"
+#include "../utils/RuntimeCheck.h"
 #include <limits>
 #include <zstd.h>
 
@@ -1284,6 +1285,20 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 
 	js::Vector<uint8, 16>& vert_data = mesh.vertex_data;
 	const size_t vert_size_B = mesh.vertexSize();
+
+
+	// Check vertex attributes are in bounds.  This is checked implicitly in readFromFile() with the way the attribute offset_B is calculated etc., but check again explictly anyway.
+	for(size_t i=0; i<vert_attributes.size(); ++i)
+	{
+		const VertAttribute& attr = vert_attributes[i];
+		if(num_verts > 0)
+		{
+			checkProperty((num_verts - 1) * vert_size_B + attr.offset_B + vertAttributeSize(attr) <= mesh.vertex_data.size(), "vertex attribute is out of bounds");
+		}
+	}
+
+
+
 	const size_t num_joints = mesh.animation_data.joint_nodes.size();
 
 	// Check joint indices are valid for all vertices

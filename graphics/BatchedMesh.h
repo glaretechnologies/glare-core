@@ -118,7 +118,7 @@ public:
 		bool operator == (const IndicesBatch& other) const { return indices_start == other.indices_start && num_indices == other.num_indices && material_index == other.material_index; }
 	};
 
-	inline static size_t componentTypeSize(ComponentType t);
+	inline static size_t componentTypeSize(ComponentType t); // In bytes.
 	inline static size_t vertAttributeTypeNumComponents(VertAttributeType t);
 	inline static size_t vertAttributeSize(const VertAttribute& attr); // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
