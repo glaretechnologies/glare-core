@@ -42,6 +42,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	is_transparent(false),
 	is_depth_draw(false),
 	is_depth_draw_with_alpha_test(false),
+	is_outline(false),
 	uses_vert_uniform_buf_obs(false),
 	program_index(program_index_)
 {

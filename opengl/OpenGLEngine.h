@@ -906,7 +906,8 @@ private:
 
 	Reference<OpenGLProgram> clear_prog;
 
-	Reference<OpenGLProgram> outline_prog; // Used for drawing constant flat shaded pixels currently.
+	Reference<OpenGLProgram> outline_prog_no_skinning; // Used for drawing constant flat shaded pixels currently.
+	Reference<OpenGLProgram> outline_prog_with_skinning; // Used for drawing constant flat shaded pixels currently.
 
 	Reference<OpenGLProgram> edge_extract_prog;
 	int edge_extract_tex_location;

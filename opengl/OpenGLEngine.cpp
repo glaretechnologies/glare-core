@@ -1374,12 +1374,27 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			getAndIncrNextProgramIndex()
 		);
 		
-		outline_prog = new OpenGLProgram(
-			"outline",
-			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
-		);
+		{
+			const std::string use_preprocessor_defines = preprocessor_defines + "#define SKINNING 0\n";
+			outline_prog_no_skinning = new OpenGLProgram(
+				"outline_prog_no_skinning",
+				new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+				getAndIncrNextProgramIndex()
+			);
+			outline_prog_no_skinning->is_outline = true;
+		}
+
+		{
+			const std::string use_preprocessor_defines = preprocessor_defines + "#define SKINNING 1\n";
+			outline_prog_with_skinning = new OpenGLProgram(
+				"outline_prog_with_skinning",
+				new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+				getAndIncrNextProgramIndex()
+			);
+			outline_prog_no_skinning->is_outline = true;
+		}
 
 		edge_extract_prog = new OpenGLProgram(
 			"edge_extract",
@@ -1507,8 +1522,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			outline_solid_framebuffer = new FrameBuffer();
 			outline_edge_framebuffer  = new FrameBuffer();
 	
-			outline_solid_mat.shader_prog = outline_prog;
-
 			outline_edge_mat.albedo_linear_rgb = toLinearSRGB(Colour3f(0.9f, 0.2f, 0.2f));
 			outline_edge_mat.shader_prog = this->overlay_prog;
 
@@ -4692,12 +4705,15 @@ void OpenGLEngine::draw()
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-				const bool program_changed = checkUseProgram(outline_solid_mat.shader_prog.ptr());
+
+				const OpenGLProgram* use_prog = mesh_data.usesSkinning() ? outline_prog_with_skinning.ptr() : outline_prog_no_skinning.ptr();
+
+				const bool program_changed = checkUseProgram(use_prog);
 				if(program_changed)
-					setSharedUniformsForProg(*outline_solid_mat.shader_prog, view_matrix, proj_matrix);
+					setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
 				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, outline_solid_mat, *outline_solid_mat.shader_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
+					drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
 			}
 		}
 
@@ -5007,11 +5023,6 @@ void OpenGLEngine::draw()
 	{
 		// Use outline shaders for now as they just generate white fragments, which is what we want.
 		OpenGLMaterial wire_mat;
-		wire_mat.shader_prog = outline_prog;
-
-		const bool program_changed = checkUseProgram(outline_prog.ptr());
-		if(program_changed)
-			setSharedUniformsForProg(*outline_prog, view_matrix, proj_matrix);
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
@@ -5025,9 +5036,15 @@ void OpenGLEngine::draw()
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
 				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+				const OpenGLProgram* use_prog = mesh_data.usesSkinning() ? outline_prog_with_skinning.ptr() : outline_prog_no_skinning.ptr();
+
+				const bool program_changed = checkUseProgram(use_prog);
+				if(program_changed)
+					setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
+
 				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, wire_mat, *wire_mat.shader_prog, mesh_data, mesh_data.batches[z]);
+					drawBatch(*ob, wire_mat, *use_prog, mesh_data, mesh_data.batches[z]);
 			}
 		}
 
@@ -6100,7 +6117,9 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			if(use_multi_draw_indirect)
 				submitBufferedDrawCommands();
 
-			const size_t num_joint_matrices_to_upload = myMin<size_t>(256, ob.joint_matrices.size()); // The joint_matrix uniform array has 256 elems, don't upload more than that.
+			// The joint_matrix uniform array has 256 elems, don't upload more than that. (apart from outline prog which has 128)
+			const size_t max_num_joint_matrices = shader_prog->is_outline ? 128 : 256;
+			const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices, ob.joint_matrices.size()); 
 			glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)num_joint_matrices_to_upload, /*transpose=*/false, ob.joint_matrices[0].e);
 		}
 
@@ -6195,7 +6214,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
 		}
 	}
-	else if(shader_prog == this->outline_prog.getPointer())
+	else if(shader_prog->is_outline)
 	{
 
 	}
