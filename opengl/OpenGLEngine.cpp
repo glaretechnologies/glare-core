@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
+#include "ShaderFileWatcherThread.h"
 //#include "TerrainSystem.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/TextureProcessing.h"
@@ -1539,6 +1540,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		if(settings.msaa_samples <= 1)
 			glDisable(GL_MULTISAMPLE); // The initial value for GL_MULTISAMPLE is GL_TRUE.
+
+
+#ifndef NDEBUG
+		thread_manager.addThread(new ShaderFileWatcherThread(data_dir, this));
+#endif
+
 
 		init_succeeded = true;
 	}
@@ -3371,6 +3378,29 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+
+	// If the ShaderFileWatcherThread has detected that a shader file has changed, reload all shaders.
+#ifndef NDEBUG
+	if(shader_file_changed)
+	{
+		progs.clear(); // Clear built-program cache
+
+		// Reload shaders on all objects
+		for(auto z = scenes.begin(); z != scenes.end(); ++z)
+		{
+			OpenGLScene* scene = z->ptr();
+			for(auto it = scene->objects.begin(); it != scene->objects.end(); ++it)
+			{
+				GLObject* const object = it->ptr();
+				for(size_t i=0; i<object->materials.size(); ++i)
+					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+			}
+		}
+
+		shader_file_changed = 0;
+	}
+#endif
+
 	//PerformanceAPI_BeginEvent("draw", NULL, PERFORMANCEAPI_DEFAULT_COLOR);
 
 	// Some other code (e.g. Qt) may have bound some other buffer since the last draw() call.  So reset all this stuff.
@@ -3909,7 +3939,7 @@ void OpenGLEngine::draw()
 					ob->joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob->anim_node_data[node_i].node_hierarchical_to_object * 
 						anim_data.nodes[node_i].inverse_bind_matrix;
 
-					//conPrint("joint_matrices[" + toString(i) + "]:");
+					//conPrint("joint_matrices[" + toString(i) + "]: (joint node: " + toString(node_i) + ", '" + anim_data.nodes[node_i].name + "')");
 					//conPrint(ob->joint_matrices[i].toString());
 				}
 			}
@@ -6668,6 +6698,12 @@ void OpenGLEngine::setCurrentScene(const Reference<OpenGLScene>& scene)
 bool OpenGLEngine::openglDriverVendorIsIntel() const
 {
 	return StringUtils::containsString(::toLowerCase(opengl_vendor), "intel");
+}
+
+
+void OpenGLEngine::shaderFileChanged() // Called by ShaderFileWatcherThread, from another thread.
+{
+	shader_file_changed = 1;
 }
 
 

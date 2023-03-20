@@ -43,6 +43,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/ManagerWithCache.h"
 #include "../utils/PoolAllocator.h"
 #include "../utils/GeneralMemAllocator.h"
+#include "../utils/ThreadManager.h"
 #include "../physics/HashedGrid2.h"
 #include <assert.h>
 #include <unordered_set>
@@ -791,6 +792,7 @@ public:
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	//----------------------------------------------------------------------------------------
 
+	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignLightsToObject(GLObject& ob);
@@ -876,7 +878,7 @@ private:
 	std::string preprocessor_defines;
 	std::string version_directive;
 
-	// Map from preprocessor defs to phong program.
+	// Map from preprocessor defs to built program.
 	std::map<ProgramKey, OpenGLProgramRef> progs;
 	OpenGLProgramRef fallback_phong_prog;
 	OpenGLProgramRef fallback_transparent_prog;
@@ -1089,6 +1091,10 @@ private:
 	UniformBufObRef light_ubo; // UBO for Mac.
 
 	std::set<int> light_free_indices;
+
+	glare::AtomicInt shader_file_changed;
+
+	ThreadManager thread_manager; // For ShaderFileWatcherThread
 
 };
 
