@@ -265,13 +265,6 @@ struct GLTFData
 };
 
 
-static void checkNodeType(const JSONNode& node, JSONNode::Type type)
-{
-	if(node.type != type)
-		throw glare::Exception("Expected type " + JSONNode::typeString(type) + ", got type " + JSONNode::typeString(node.type) + ".");
-}
-
-
 static GLTFAccessor& getAccessor(GLTFData& data, size_t accessor_index)
 {
 	if(accessor_index >= data.accessors.size())

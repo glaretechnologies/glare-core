@@ -278,6 +278,13 @@ void JSONNode::parseDoubleArrayValues(const JSONParser& parser, size_t expected_
 }
 
 
+void checkNodeType(const JSONNode& node, JSONNode::Type type)
+{
+	if(node.type != type)
+		throw glare::Exception("Expected type " + JSONNode::typeString(type) + ", got type " + JSONNode::typeString(node.type) + ".");
+}
+
+
 JSONParser::JSONParser()
 {}
 

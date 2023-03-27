@@ -82,6 +82,9 @@ struct JSONNode
 	std::vector<JSONNameValuePair> name_val_pairs; // For Type_Object
 };
 
+void checkNodeType(const JSONNode& node, JSONNode::Type type); // Throws exception if node does not have type 'type'.
+
+
 
 /*=====================================================================
 JSONParser
