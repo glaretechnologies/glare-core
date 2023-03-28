@@ -3,6 +3,60 @@
 #
 # Copyright Glare Technologies Limited 2023 -
 #
+#
+# Requirements
+# ------------
+# You need to have ruby installed.
+#
+# GLARE_CORE_LIBS environment variable should be defined, to something like c:\programming.
+# This is the directory the LibreSSL directory will be made in.
+#
+# On Windows: You need to have 7-zip installed, with 7z.exe on your path.
+#
+#
+#
+# Manual LibreSSL build instructions
+# ----------------------------------
+# If you can't get this script to work for whatever reason, you can build manually using these instructions.
+# These are for Windows, but should be similar (and easier) on Mac and Linux.
+#
+# Define GLARE_CORE_LIBS environment variable, to something like "C:\programming"
+# 
+# 	cd $env:GLARE_CORE_LIBS
+# 	mkdir LibreSSL
+# 
+# Download https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.5.2.tar.gz, extract in LibreSSL dir, so that
+# the directory $env:GLARE_CORE_LIBS/LibreSSL/libressl-3.5.2 exists and has ChangeLog etc. in it.
+# 
+# 
+# 	cd $env:GLARE_CORE_LIBS/LibreSSL
+# 	
+# Building on Windows: patch the source code by replacing some LibreSSL files: (NOTE: you will need to substitute in the directory of your checked out glare-core source code here) 
+# 	cp n:/glare-core/trunk/libressl_patches/3.5.2/posix_win.c  libressl-3.5.2/crypto/compat/posix_win.c
+# 	cp n:/glare-core/trunk/libressl_patches/3.5.2/tls_config.c libressl-3.5.2/tls/tls_config.c
+#
+#
+# 	mkdir libressl-3.5.2-x64-vs2022-build
+# 	cd libressl-3.5.2-x64-vs2022-build
+# 	cmake ../libressl-3.5.2 -DCMAKE_INSTALL_PREFIX:STRING="../libressl-3.5.2-x64-vs2022-install"
+# 	
+# Open .\LibreSSL.sln in Visual Studio
+# Changed to Release config
+# build with F7
+# build INSTALL project (which is not built by default)
+# close Visual Studio
+# 
+# cd ..
+# mkdir libressl-3.5.2-x64-vs2022-build-debug
+# cd libressl-3.5.2-x64-vs2022-build-debug
+# cmake ../libressl-3.5.2 -DCMAKE_INSTALL_PREFIX:STRING="../libressl-3.5.2-x64-vs2022-install-debug"
+# 
+# Open .\LibreSSL.sln in Visual Studio
+# Leave in Debug config
+# build with F7
+# build INSTALL project (which is not built by default)
+# close Visual Studio
+#
 
 require 'fileutils'
 require 'net/http'
