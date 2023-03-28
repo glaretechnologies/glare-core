@@ -97,8 +97,12 @@ public:
 		imposterable(false),
 		use_wind_vert_shader(false),
 		double_sided(false),
+		materialise_effect(false),
 		begin_fade_out_distance(100.f),
-		end_fade_out_distance(120.f)
+		end_fade_out_distance(120.f),
+		materialise_lower_z(0),
+		materialise_upper_z(1),
+		materialise_start_time(-20000)
 	{}
 
 	Colour3f albedo_linear_rgb; // First approximation to material colour.  Linear sRGB.
@@ -115,6 +119,7 @@ public:
 	bool convert_albedo_from_srgb;
 	bool use_wind_vert_shader;
 	bool double_sided;
+	bool materialise_effect;
 
 	Reference<OpenGLTexture> albedo_texture;
 	Reference<OpenGLTexture> metallic_roughness_texture;
@@ -135,6 +140,10 @@ public:
 	float metallic_frac;
 	float begin_fade_out_distance; // Used when imposterable is true
 	float end_fade_out_distance; // Used when imposterable is true
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
 	
 	uint64 userdata;
 	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
@@ -395,6 +404,7 @@ public:
 	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	std::set<Reference<OverlayObject>> overlay_objects; // UI overlays
 	std::set<Reference<GLObject>> objects_with_imposters;
+	std::set<Reference<GLObject>> materialise_objects; // Objects currently playing materialise effect
 	
 	GLObjectRef env_ob;
 
@@ -483,6 +493,10 @@ struct PhongUniforms
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
 
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
+
 	int light_indices[8];
 };
 
@@ -520,6 +534,10 @@ public:
 	float texture_matrix[12];
 
 	uint64 diffuse_tex; // Bindless texture handle
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
 };
 
 
@@ -623,7 +641,7 @@ public:
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
 	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
-	void objectMaterialsUpdated(const Reference<GLObject>& object);
+	void objectMaterialsUpdated(GLObject& object);
 	//----------------------------------------------------------------------------------------
 
 

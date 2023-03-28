@@ -91,6 +91,10 @@ struct MaterialData
 	float metallic_frac;
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
 };
 
 
@@ -138,6 +142,10 @@ layout (std140) uniform PhongUniforms
 	float metallic_frac;
 	float begin_fade_out_distance;
 	float end_fade_out_distance; // 9
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
 
 	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
 	ivec4 light_indices_1;
@@ -196,6 +204,9 @@ float square(float x) { return x*x; }
 float pow4(float x) { return (x*x)*(x*x); }
 float pow5(float x) { return x*x*x*x*x; }
 float pow6(float x) { return x*x*x*x*x*x; }
+
+
+float length2(vec2 v) { return dot(v, v); }
 
 float alpha2ForRoughness(float r)
 {
@@ -329,6 +340,60 @@ vec3 toLinearSRGB(vec3 c)
 	vec3 c2 = c * c;
 	return c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
 }
+
+
+#if MATERIALISE_EFFECT
+
+// https://www.shadertoy.com/view/MdcfDj
+#define M1 1597334677U     //1719413*929
+#define M2 3812015801U     //140473*2467*11
+float hash( uvec2 q )
+{
+	q *= uvec2(M1, M2); 
+
+	uint n = (q.x ^ q.y) * M1;
+
+	return float(n) * (1.0/float(0xffffffffU));
+}
+
+// https://iquilezles.org/articles/functions/
+float cubicPulse( float c, float w, float x )
+{
+	x = abs(x - c);
+	if( x>w ) return 0.0;
+	x /= w;
+	return 1.0 - x*x*(3.0-2.0*x);
+}
+
+// https://www.shadertoy.com/view/cscSW8
+#define SQRT_3 1.7320508
+
+vec2 closestHexCentre(vec2 p)
+{
+	vec2 grid_p = vec2(p.x, p.y * (1.0 / SQRT_3));
+
+	// Alternating rows of hexagon centres form their own rectanglular lattices.
+	// Find closest hexagon centre on each lattice.
+	vec2 p_1 = (floor((grid_p + vec2(1,1)) * 0.5) * 2.0            ) * vec2(1, SQRT_3);
+	vec2 p_2 = (floor( grid_p              * 0.5) * 2.0 + vec2(1,1)) * vec2(1, SQRT_3);
+
+	// Now return the closest centre from the two lattices.
+	float d_1 = length2(p - p_1);
+	float d_2 = length2(p - p_2);
+	return d_1 < d_2 ? p_1 : p_2;
+}
+
+
+// Fraction along line from hexagon centre at (0,0) through p to hexagon edge.
+// Also 1 - distance from boundary (I think)
+float hexFracToEdge(in vec2 p)
+{
+	p = abs(p);
+	float right_frac = p.x;
+	float upper_right_frac = dot(p, vec2(0.5, 0.5*SQRT_3));
+	return max(right_frac, upper_right_frac);
+}
+#endif // MATERIALISE_EFFECT
 
 
 void main()
@@ -801,6 +866,56 @@ void main()
 	{
 		emission_col *= texture(EMISSION_TEX, main_tex_coords);
 	}
+
+	
+#if MATERIALISE_EFFECT
+	// box mapping
+	vec2 materialise_coords;
+	if(abs(normal_ws.x) > abs(normal_ws.y))
+	{
+		if(abs(normal_ws.x) > abs(normal_ws.z)) // |x| > |z| && |x| > |y|
+			materialise_coords = pos_ws.yz;
+		else // |z| >= |x| > |y|:
+			materialise_coords = pos_ws.xy;
+	}
+	else // else |y| >= |x|:
+	{
+		if(abs(normal_ws.y) > abs(normal_ws.z))
+			materialise_coords = pos_ws.xz;
+		else // |z| >= |y| >= |x|
+			materialise_coords = pos_ws.xy;
+	}
+
+	float sweep_speed_factor = 1.0;
+	float sweep_frac = (pos_ws.z - MAT_UNIFORM.materialise_lower_z) / (MAT_UNIFORM.materialise_upper_z - MAT_UNIFORM.materialise_lower_z);
+	float materialise_stage = fbmMix(materialise_coords * 0.2) * 0.4 + sweep_frac;
+	float use_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor - materialise_stage - 0.3;
+
+	float band_1_centre = 0.1;
+	float band_2_centre = 0.8;
+	float band_1 = cubicPulse(/*centre*/band_1_centre, /*width=*/0.06, use_frac);
+	float band_2 = cubicPulse(/*centre*/band_2_centre, /*width=*/0.06, use_frac);
+
+	if(use_frac < band_1_centre)
+		discard;
+	if(use_frac >= band_1_centre + 0.05 && use_frac < band_2_centre)
+	{
+		vec2 hex_centre = closestHexCentre(materialise_coords * 40.0);
+		float hex_frac = hexFracToEdge(hex_centre - materialise_coords * 40.0);
+
+		float materialise_pixel_hash = hash(uvec2(hex_centre + vec2(100000.0,100000.0)));
+
+		float hex_interior_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor;// - materialise_stage - 0.3;
+		if(hex_interior_frac < materialise_pixel_hash + /*fill-in delay=*/0.7 + sweep_frac)
+			discard;
+
+		emission_col =  vec4(0.0,0.2,0.5, 0) * //vec4(MAT_UNIFORM.materialise_r, MAT_UNIFORM.materialise_g, MAT_UNIFORM.materialise_b, 0.0) * 
+			smoothstep(0.8, 0.9, hex_frac) * 2.0e9;
+	}
+
+	emission_col += (band_1 * vec4(1,1,1.0,0)  + band_2 * vec4(0.0,1,0.5,0)) * 5.0e9;
+#endif // MATERIALISE_EFFECT
+
 
 	vec4 col =
 		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky

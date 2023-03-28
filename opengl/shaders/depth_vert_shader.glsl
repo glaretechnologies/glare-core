@@ -17,6 +17,8 @@ in vec4 weight;
 #endif
 
 out vec2 texture_coords;
+out vec3 pos_ws;
+out vec3 normal_ws;
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 out flat int material_index;
@@ -108,13 +110,16 @@ void main()
 #if INSTANCE_MATRICES // -----------------
 
 #if USE_WIND_VERT_SHADER
-	vec3 pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
+	vec3 pos_ws    = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
 	vec3 normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
 
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #else // USE_WIND_VERT_SHADER
-	gl_Position = proj_matrix * (view_matrix * (instance_matrix_in * vec4(position_in, 1.0)));
+	pos_ws =    (instance_matrix_in * vec4(position_in, 1.0)).xyz;
+	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
+
+	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #endif
 
 #else // else if !INSTANCE_MATRICES: -----------------
@@ -133,7 +138,8 @@ void main()
 	vec3 normal_ws = (model_skin_matrix * vec4(normal_in, 0.0)).xyz;
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 #else
-	vec3 pos_ws = (model_skin_matrix * vec4(position_in, 1.0)).xyz;
+	pos_ws    = (model_skin_matrix * vec4(position_in, 1.0)).xyz;
+	normal_ws = (model_skin_matrix * vec4(normal_in, 0.0)).xyz;
 #endif
 
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
@@ -146,7 +152,11 @@ void main()
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #else
-	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
+
+	pos_ws =    (model_matrix  * vec4(position_in, 1.0)).xyz;
+	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
+
+	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #endif // USE_WIND_VERT_SHADER
 	
 #endif // endif !SKINNING

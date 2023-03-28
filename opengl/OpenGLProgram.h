@@ -66,16 +66,17 @@ struct UserUniformInfo
 struct ProgramKey
 {
 	ProgramKey(const std::string& program_name_, bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_, bool gen_planar_uvs_, bool draw_planar_uv_grid_, bool convert_albedo_from_srgb_, bool skinning_,
-		bool imposterable_, bool use_wind_vert_shader_, bool double_sided_) :
+		bool imposterable_, bool use_wind_vert_shader_, bool double_sided_, bool materialise_effect_) :
 		program_name(program_name_), alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_), gen_planar_uvs(gen_planar_uvs_), draw_planar_uv_grid(draw_planar_uv_grid_), 
-		convert_albedo_from_srgb(convert_albedo_from_srgb_), skinning(skinning_), imposterable(imposterable_), use_wind_vert_shader(use_wind_vert_shader_), double_sided(double_sided_) {}
+		convert_albedo_from_srgb(convert_albedo_from_srgb_), skinning(skinning_), imposterable(imposterable_), use_wind_vert_shader(use_wind_vert_shader_), double_sided(double_sided_), materialise_effect(materialise_effect_) {}
 
 	const std::string description() const { return "alpha_test: " + toString(alpha_test) + ", vert_colours: " + toString(vert_colours) + ", instance_matrices: " + toString(instance_matrices) + 
 		", lightmapping: " + toString(lightmapping) + ", gen_planar_uvs: " + toString(gen_planar_uvs) + ", draw_planar_uv_grid_: " + toString(draw_planar_uv_grid) + 
-		", convert_albedo_from_srgb: " + toString(convert_albedo_from_srgb) + ", skinning: " + toString(skinning) + ", imposterable: " + toString(imposterable) + ", " + toString(use_wind_vert_shader) + ", double_sided: " + toString(double_sided); }
+		", convert_albedo_from_srgb: " + toString(convert_albedo_from_srgb) + ", skinning: " + toString(skinning) + ", imposterable: " + toString(imposterable) + ", " + toString(use_wind_vert_shader) + 
+		", double_sided: " + toString(double_sided) + ", materialise_effect: " + toString(materialise_effect); }
 
 	std::string program_name;
-	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided;
+	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect;
 	// convert_albedo_from_srgb is unfortunately needed for GPU-decoded video frame textures, which are sRGB but not marked as sRGB.
 
 	inline bool operator < (const ProgramKey& b) const
@@ -84,8 +85,8 @@ struct ProgramKey
 			return true;
 		else if(program_name > b.program_name)
 			return false;
-		const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0) | (  skinning ? 128 : 0) | (  imposterable ? 256 : 0) | (  use_wind_vert_shader ? 512 : 0) | (  double_sided ? 1024 : 0);
-		const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0) | (b.gen_planar_uvs ? 16 : 0) | (b.draw_planar_uv_grid ? 32 : 0) | (b.convert_albedo_from_srgb ? 64 : 0) | (b.skinning ? 128 : 0) | (b.imposterable ? 256 : 0) | (b.use_wind_vert_shader ? 512 : 0) | (b.double_sided ? 1024 : 0);
+		const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0) | (  skinning ? 128 : 0) | (  imposterable ? 256 : 0) | (  use_wind_vert_shader ? 512 : 0) | (  double_sided ? 1024 : 0) | (  materialise_effect ? 2048 : 0);
+		const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0) | (b.gen_planar_uvs ? 16 : 0) | (b.draw_planar_uv_grid ? 32 : 0) | (b.convert_albedo_from_srgb ? 64 : 0) | (b.skinning ? 128 : 0) | (b.imposterable ? 256 : 0) | (b.use_wind_vert_shader ? 512 : 0) | (b.double_sided ? 1024 : 0) | (b.materialise_effect ? 2048 : 0);
 		return val < bval;
 	}
 };

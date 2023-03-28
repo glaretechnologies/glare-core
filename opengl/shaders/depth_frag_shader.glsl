@@ -4,11 +4,22 @@
 #endif
 
 in vec2 texture_coords;
-
+in vec3 normal_ws;
+in vec3 pos_ws;
 
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
 #endif
+
+uniform sampler2D fbm_tex;
+
+
+layout (std140) uniform MaterialCommonUniforms
+{
+	vec4 sundir_cs;
+	float time;
+};
+
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
@@ -41,9 +52,16 @@ layout (std140) uniform DepthUniforms
 	int padding0;
 	int padding1;
 #endif
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
+
 } mat_data;
 
 #endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+
+#define MAT_UNIFORM mat_data
 
 
 #if USE_BINDLESS_TEXTURES
@@ -52,6 +70,60 @@ layout (std140) uniform DepthUniforms
 #define DIFFUSE_TEX diffuse_tex
 #endif
 
+
+#if MATERIALISE_EFFECT
+float length2(vec2 v) { return dot(v, v); }
+
+float fbm(vec2 p)
+{
+	return (texture(fbm_tex, p).x - 0.5) * 2.f;
+}
+
+vec2 rot(vec2 p)
+{
+	float theta = 1.618034 * 3.141592653589 * 2;
+	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
+}
+
+float fbmMix(vec2 p)
+{
+	return 
+		fbm(p) +
+		fbm(rot(p * 2)) * 0.5 +
+		0;
+}
+
+// https://www.shadertoy.com/view/MdcfDj
+#define M1 1597334677U     //1719413*929
+#define M2 3812015801U     //140473*2467*11
+
+float hash( uvec2 q )
+{
+	q *= uvec2(M1, M2); 
+
+	uint n = (q.x ^ q.y) * M1;
+
+	return float(n) * (1.0/float(0xffffffffU));
+}
+
+// https://www.shadertoy.com/view/cscSW8
+#define SQRT_3 1.7320508
+
+vec2 closestHexCentre(vec2 p)
+{
+	vec2 grid_p = vec2(p.x, p.y * (1.0 / SQRT_3));
+
+	// Alternating rows of hexagon centres form their own rectanglular lattices.
+	// Find closest hexagon centre on each lattice.
+	vec2 p_1 = (floor((grid_p + vec2(1,1)) * 0.5) * 2.0            ) * vec2(1, SQRT_3);
+	vec2 p_2 = (floor( grid_p              * 0.5) * 2.0 + vec2(1,1)) * vec2(1, SQRT_3);
+
+	// Now return the closest centre from the two lattices.
+	float d_1 = length2(p - p_1);
+	float d_2 = length2(p - p_2);
+	return d_1 < d_2 ? p_1 : p_2;
+}
+#endif // MATERIALISE_EFFECT
 
 void main()
 {
@@ -64,4 +136,44 @@ void main()
 	if(col.a < 0.5f)
 		discard;
 #endif
+
+#if MATERIALISE_EFFECT
+	// box mapping
+	vec2 materialise_coords;
+	if(abs(normal_ws.x) > abs(normal_ws.y))
+	{
+		if(abs(normal_ws.x) > abs(normal_ws.z)) // |x| > |z| && |x| > |y|
+			materialise_coords = pos_ws.yz;
+		else // |z| >= |x| > |y|:
+			materialise_coords = pos_ws.xy;
+	}
+	else // else |y| >= |x|:
+	{
+		if(abs(normal_ws.y) > abs(normal_ws.z))
+			materialise_coords = pos_ws.xz;
+		else // z >= y >= x
+			materialise_coords = pos_ws.xy;
+	}
+
+	float sweep_speed_factor = 1.0;
+	float sweep_frac = (pos_ws.z - MAT_UNIFORM.materialise_lower_z) / (MAT_UNIFORM.materialise_upper_z - MAT_UNIFORM.materialise_lower_z);
+	float materialise_stage = fbmMix(materialise_coords * 0.2) * 0.4 + sweep_frac;
+	float use_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor - materialise_stage - 0.3;
+
+	float band_1_centre = 0.1;
+	float band_2_centre = 0.8;
+
+	if(use_frac < band_1_centre)
+		discard;
+	if(use_frac >= band_1_centre /*+ 0.05*/ && use_frac < band_2_centre)
+	{
+		vec2 hex_centre = closestHexCentre(materialise_coords * 40.0);
+
+		float materialise_pixel_hash = hash(uvec2(hex_centre + vec2(100000.0,100000.0)));
+
+		float hex_interior_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor;// - materialise_stage - 0.3;
+		if(hex_interior_frac < materialise_pixel_hash + /*fill-in delay=*/0.7 + sweep_frac)
+			discard;
+	}
+#endif // MATERIALISE_EFFECT
 }

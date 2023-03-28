@@ -1332,11 +1332,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 		// Will be used if we hit a shader compilation error later
-		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false));
-		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false, false, false));
+		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false, false));
+		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false, false, false, false));
 
 		if(settings.shadow_mapping)
-			fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       false, false, false, false, false, false, false, false, false, false, false));
+			fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       false, false, false, false, false, false, false, false, false, false, false, false));
 
 
 		env_prog = new OpenGLProgram(
@@ -1572,6 +1572,7 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
 		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
 		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n" + 
+		"#define MATERIALISE_EFFECT " + toString(key.materialise_effect) + "\n" + 
 		"#define BLOB_SHADOWS " + toString(1) + "\n"; // TEMP
 }
 
@@ -1890,6 +1891,8 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		assert(shared_vert_uniforms_index != GL_INVALID_INDEX);
 		glUniformBlockBinding(prog->program, shared_vert_uniforms_index, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
+		unsigned int material_common_uniforms_index = glGetUniformBlockIndex(prog->program, "MaterialCommonUniforms");
+		glUniformBlockBinding(prog->program, material_common_uniforms_index, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
 		unsigned int per_object_vert_uniforms_index = glGetUniformBlockIndex(prog->program, "PerObjectVertUniforms");
 		glUniformBlockBinding(prog->program, per_object_vert_uniforms_index, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
@@ -2200,14 +2203,14 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support;// && material.albedo_texture.nonNull();
 
 	const ProgramKey key(material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"), /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided);
+		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided, material.materialise_effect);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 
 	if(settings.shadow_mapping)
 	{
 		const ProgramKey depth_key("depth", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-			material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided);
+			material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided, material.materialise_effect);
 
 		material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
 	}
@@ -2253,15 +2256,20 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	//	this->buildMesh(object->mesh);
 
 	// Build materials
-	bool have_transparent_mat = false;
+	bool have_transparent_mat    = false;
+	bool have_materialise_effect = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
 		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
-		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
+		have_transparent_mat    = have_transparent_mat    || object->materials[i].transparent;
+		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
 	}
 
 	if(have_transparent_mat)
 		current_scene->transparent_objects.insert(object);
+
+	if(have_materialise_effect)
+		current_scene->materialise_objects.insert(object);
 
 	if(object->always_visible)
 		current_scene->always_visible_objects.insert(object);
@@ -2491,6 +2499,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
 	current_scene->objects.erase(object);
 	current_scene->transparent_objects.erase(object);
+	current_scene->materialise_objects.erase(object);
 	current_scene->always_visible_objects.erase(object);
 	if(object->is_instanced_ob_with_imposters)
 		current_scene->objects_with_imposters.erase(object);
@@ -2515,21 +2524,28 @@ void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, b
 }
 
 
-void OpenGLEngine::objectMaterialsUpdated(const Reference<GLObject>& object)
+void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 {
 	// Add this object to transparent_objects list if it has a transparent material and is not already in the list.
 
 	bool have_transparent_mat = false;
-	for(size_t i=0; i<object->materials.size(); ++i)
+	bool have_materialise_effect = false;
+	for(size_t i=0; i<object.materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
-		have_transparent_mat = have_transparent_mat || object->materials[i].transparent;
+		assignShaderProgToMaterial(object.materials[i], object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning());
+		have_transparent_mat = have_transparent_mat || object.materials[i].transparent;
+		have_materialise_effect = have_materialise_effect || object.materials[i].materialise_effect;
 	}
 
 	if(have_transparent_mat)
-		current_scene->transparent_objects.insert(object);
+		current_scene->transparent_objects.insert(&object);
 	else
-		current_scene->transparent_objects.erase(object); // Remove from transparent material list if it is currently in there.
+		current_scene->transparent_objects.erase(&object); // Remove from transparent material list if it is currently in there.
+
+	if(have_materialise_effect)
+		current_scene->materialise_objects.insert(&object);
+	else
+		current_scene->materialise_objects.erase(&object);// Remove from materialise effect object list if it is currently in there.
 }
 
 
@@ -3056,7 +3072,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_linear_rgb = Colour3f(0.5f, 0.9f, 0.3f);
 		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false));
+			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false, false));
 	}
 	
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -3084,7 +3100,7 @@ void OpenGLEngine::drawDebugSphere(const Vec4f& point, float radius, const Matri
 		debug_sphere_ob->materials.resize(1);
 		debug_sphere_ob->materials[0].albedo_linear_rgb = Colour3f(0.1f, 0.4f, 0.9f);
 		debug_sphere_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false));
+			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false, false));
 	}
 
 	const Matrix4f sphere_to_world = Matrix4f::translationMatrix(point) * Matrix4f::uniformScaleMatrix(radius);
@@ -3385,6 +3401,8 @@ void OpenGLEngine::draw()
 	{
 		progs.clear(); // Clear built-program cache
 
+		conPrint("------------------------------------------- Reloading shaders -------------------------------------------");
+
 		// Reload shaders on all objects
 		for(auto z = scenes.begin(); z != scenes.end(); ++z)
 		{
@@ -3425,6 +3443,38 @@ void OpenGLEngine::draw()
 
 	// Unload unused textures if we have exceeded our texture mem usage budget.
 	trimTextureUsage();
+
+
+	//=============== Process materialise_objects - objects showing materialise effect ===============
+	// Update materialise_lower_z and materialise_upper_z for the object.
+	// Also remove any objects whose materialise effect has finished from the materialise_objects set.
+	for(auto it = current_scene->materialise_objects.begin(); it != current_scene->materialise_objects.end(); )
+	{
+		GLObject* ob = it->ptr();
+		bool materialise_still_active = false;
+		for(size_t z=0; z<ob->materials.size(); ++z)
+		{
+			OpenGLMaterial& mat = ob->materials[z];
+			if(mat.materialise_effect)
+			{
+				mat.materialise_lower_z = ob->aabb_ws.min_[2];
+				mat.materialise_upper_z = ob->aabb_ws.max_[2];
+				if(current_time - mat.materialise_start_time > 3.0)
+				{
+					// Materialise effect has finished
+					mat.materialise_effect = false;
+					assignShaderProgToMaterial(mat, ob->mesh_data->has_vert_colours, /*uses instancing=*/ob->instance_matrix_vbo.nonNull(), ob->mesh_data->usesSkinning());
+				}
+				else
+					materialise_still_active = true;
+			}
+		}
+		if(!materialise_still_active)
+			it = current_scene->materialise_objects.erase(it); // Erase object from set and advance iterator to next elem in set (or end if none)
+		else
+			++it;
+	}
+
 
 	//=============== Set animated objects state (update bone matrices etc.)===========
 
@@ -3552,7 +3602,7 @@ void OpenGLEngine::draw()
 						const int input_accessor_i = anim_datum_a.used_input_accessor_indices[q];
 				
 						const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[input_accessor_i];
-						assert(keyframe_time_info.times_size == keyframe_time_info.times.size());
+						assert(keyframe_time_info.times_size == (int)keyframe_time_info.times.size());
 
 						const float in_anim_time = use_in_anim_time_a;
 						AnimationKeyFrameLocation& key_frame_loc = key_frame_locs[input_accessor_i];
@@ -3658,7 +3708,7 @@ void OpenGLEngine::draw()
 						const int input_accessor_i = anim_datum_b.used_input_accessor_indices[q];
 
 						const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[input_accessor_i];
-						assert(keyframe_time_info.times_size == keyframe_time_info.times.size());
+						assert(keyframe_time_info.times_size == (int)keyframe_time_info.times.size());
 
 						const float in_anim_time = use_in_anim_time_b;
 						AnimationKeyFrameLocation& key_frame_loc = key_frame_locs[keyframe_times_size + input_accessor_i]; // The keyframe_times_size offset is to get keyframe locations for animation b.
@@ -3713,12 +3763,12 @@ void OpenGLEngine::draw()
 									// Find current frame
 									auto res = std::upper_bound(time_vals.begin(), time_vals.end(), in_anim_time); // "Finds the position of the first element in an ordered range that has a value that is greater than a specified value"
 									int next_index = (int)(res - time_vals.begin());
-									assert(next_index >= 0 && next_index <= time_vals.size());
+									assert(next_index >= 0 && next_index <= (int)time_vals.size());
 									int index = next_index - 1;
 									assert(index >= -1 && index < (int)time_vals.size());
 
 									next_index = myMin(next_index, keyframe_time_info.times_size - 1);
-									assert(next_index >= 0 && next_index < time_vals.size());
+									assert(next_index >= 0 && next_index < (int)time_vals.size());
 
 									if(index < 0) // This is the case when use_in_anim_time_b < t_0.  In this case we want to clamp the output values to the keyframe 0 values.
 									{
@@ -5923,11 +5973,14 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
 		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0) |
 		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0);
-	uniforms.roughness = opengl_mat.roughness;
-	uniforms.fresnel_scale = opengl_mat.fresnel_scale;
-	uniforms.metallic_frac = opengl_mat.metallic_frac;
-	uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
-	uniforms.end_fade_out_distance = opengl_mat.end_fade_out_distance;
+	uniforms.roughness					= opengl_mat.roughness;
+	uniforms.fresnel_scale				= opengl_mat.fresnel_scale;
+	uniforms.metallic_frac				= opengl_mat.metallic_frac;
+	uniforms.begin_fade_out_distance	= opengl_mat.begin_fade_out_distance;
+	uniforms.end_fade_out_distance		= opengl_mat.end_fade_out_distance;
+	uniforms.materialise_lower_z		= opengl_mat.materialise_lower_z;
+	uniforms.materialise_upper_z		= opengl_mat.materialise_upper_z;
+	uniforms.materialise_start_time		= opengl_mat.materialise_start_time;
 
 	for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 		uniforms.light_indices[i] = ob.light_indices[i];
@@ -6098,6 +6151,16 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		common_uniforms.time = this->current_time;
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
+	else if(shader_prog.is_depth_draw)
+	{
+		if(this->fbm_tex.nonNull())
+			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/shader_prog.uniform_locations.fbm_tex_location);
+
+		MaterialCommonUniforms common_uniforms;
+		common_uniforms.sundir_cs = this->sun_dir_cam_space;
+		common_uniforms.time = this->current_time;
+		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
+	}
 }
 
 
@@ -6231,6 +6294,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->uniform_locations.diffuse_tex_location);
 			}
 
+			uniforms.materialise_lower_z	= opengl_mat.materialise_lower_z;
+			uniforms.materialise_upper_z	= opengl_mat.materialise_upper_z;
+			uniforms.materialise_start_time	= opengl_mat.materialise_start_time;
+
 			if(use_multi_draw_indirect)
 			{
 				// Copy to MDI_depth_uniforms host buffer
@@ -6242,6 +6309,16 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			}
 			else
 				this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
+		}
+		else
+		{
+			DepthUniforms uniforms;
+
+			uniforms.materialise_lower_z	= opengl_mat.materialise_lower_z;
+			uniforms.materialise_upper_z	= opengl_mat.materialise_upper_z;
+			uniforms.materialise_start_time	= opengl_mat.materialise_start_time;
+
+			this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
 		}
 	}
 	else if(shader_prog->is_outline)
