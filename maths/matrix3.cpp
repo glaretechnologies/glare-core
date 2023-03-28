@@ -66,16 +66,28 @@ void Matrix3<Real>::rotationMatrixToAxisAngle(Vec3<Real>& unit_axis_out, Real& a
 	{
 		const Real s = std::sqrt(tr + 1);
 
-		unit_axis_out = normalise(Vec3<Real>( // NOTE: we could eliminate these normalises with some work.  Using a sin() call might not be a perf win however.
-			(elem(2, 1) - elem(1, 2)), // recip_2s applied to all vector elements is not needed due to normalise.
+		// NOTE: we could eliminate these normalises with some work.  Using a sin() call might not be a perf win however.
+		// recip_2s applied to all vector elements is not needed due to normalise.
+		const Vec3<Real> v(
+			(elem(2, 1) - elem(1, 2)), 
 			(elem(0, 2) - elem(2, 0)),
 			(elem(1, 0) - elem(0, 1))
-		));
+		);
+		const float v_len2 = v.length2();
+		if(v_len2 < 1.0e-10f)
+		{
+			unit_axis_out = Vec3<Real>(1,0,0);
+			angle_out = 0;
+		}
+		else
+		{
+			unit_axis_out = v * (1 / std::sqrt(v_len2)); //normalise(v);
 
-		// quaternion w = s/2 = cos(angle/2)
-		// acos(s/2) = angle/2
-		// angle = 2 acos(s/2)
-		angle_out = 2 * std::acos(s * (Real)0.5);
+			// quaternion w = s/2 = cos(angle/2)
+			// acos(s/2) = angle/2
+			// angle = 2 acos(s/2)
+			angle_out = 2 * std::acos(s * (Real)0.5);
+		}
 	}
 	else if(m00 > m11 && m00 > m22)
 	{
@@ -281,6 +293,13 @@ void Matrix3<float>::test()
 
 
 	//=================== rotationMatrixToAxisAngle() ======================
+	{
+		Vec3f axis;
+		float angle;
+		Matrix3f::identity().rotationMatrixToAxisAngle(axis, angle);
+		testAssert(axis.isUnitLength());
+		testAssert(angle >= 0 && angle < Maths::get2Pi<float>());
+	}
 	{
 		Vec3f axis(0,0,1);
 		float angle = 0.5f;
