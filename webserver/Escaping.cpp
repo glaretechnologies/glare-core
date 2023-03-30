@@ -6,8 +6,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "Escaping.h"
 
 
-#include "TestUtils.h"
-#include <StringUtils.h>
+#include "../utils/TestUtils.h"
+#include "../utils/StringUtils.h"
 
 
 namespace web
