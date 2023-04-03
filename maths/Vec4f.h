@@ -160,6 +160,15 @@ GLARE_STRONG_INLINE const Vec4f removeComponentInDir(const Vec4f& v, const Vec4f
 }
 
 
+// Compute the vector projection of v onto dir.
+// v_proj = dot(v, d/||d||) * d/||d|| = dot(v, d) * d / (||d||^2)
+GLARE_STRONG_INLINE const Vec4f projectOntoDir(const Vec4f& v, const Vec4f& dir)
+{
+	assert(dir.length2() > 0);
+	return dir * (dot(v, dir) / dir.length2());
+}
+
+
 // Unary -
 GLARE_STRONG_INLINE const Vec4f operator - (const Vec4f& v)
 {
