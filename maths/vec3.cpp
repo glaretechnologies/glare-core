@@ -16,13 +16,14 @@ Copyright Glare Technologies Limited 2018 -
 
 
 // Do explicit template instantiation
-template const std::string Vec3<float >::toString() const;
 template const std::string Vec3<float >::toStringFullPrecision() const;
 template const std::string Vec3<float >::toStringMaxNDecimalPlaces(int n) const;
 
-template const std::string Vec3<double>::toString() const;
 template const std::string Vec3<double>::toStringFullPrecision() const;
 template const std::string Vec3<double>::toStringMaxNDecimalPlaces(int n) const;
+
+
+// template specialisations:
 
 template <>
 const std::string Vec3<float>::toString() const
