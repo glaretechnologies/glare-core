@@ -328,6 +328,10 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_batches_bound(0),
 	last_num_vao_binds(0),
 	last_num_vbo_binds(0),
+	depth_draw_last_num_prog_changes(0),
+	depth_draw_last_num_batches_bound(0),
+	depth_draw_last_num_vao_binds(0),
+	depth_draw_last_num_vbo_binds(0),
 	last_num_animated_obs_processed(0),
 	next_program_index(0),
 	use_bindless_textures(false),
@@ -4030,6 +4034,11 @@ void OpenGLEngine::draw()
 
 		const int per_map_h = shadow_mapping->dynamic_h / shadow_mapping->numDynamicDepthTextures();
 
+		num_prog_changes = 0;
+		num_batches_bound = 0;
+		num_vao_binds = 0;
+		num_vbo_binds = 0;
+
 		for(int ti=0; ti<shadow_mapping->numDynamicDepthTextures(); ++ti)
 		{
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
@@ -4199,6 +4208,7 @@ void OpenGLEngine::draw()
 				if(program_changed)
 					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 				bindMeshData(*info.ob);
+				num_batches_bound++;
 				
 				drawBatch(*info.ob, mat, *prog, *info.ob->mesh_data, batch);
 			}
@@ -4464,6 +4474,7 @@ void OpenGLEngine::draw()
 					if(program_changed)
 						setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 					bindMeshData(*info.ob);
+					num_batches_bound++;
 					
 					drawBatch(*info.ob, mat, *prog, *info.ob->mesh_data, batch);
 				}
@@ -4481,6 +4492,12 @@ void OpenGLEngine::draw()
 				shadow_mapping->setCurStaticDepthTex((shadow_mapping->cur_static_depth_tex + 1) % 2); // Swap cur and other
 		}
 		//-------------------- End draw static depth textures ----------------
+
+		depth_draw_last_num_prog_changes = num_prog_changes;
+		depth_draw_last_num_batches_bound = num_batches_bound;
+		depth_draw_last_num_vao_binds = num_vao_binds;
+		depth_draw_last_num_vbo_binds = num_vbo_binds;
+
 
 		if(this->target_frame_buffer.nonNull())
 			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer->buffer_name);
@@ -6830,10 +6847,17 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Lights: " + toString(current_scene->lights.size()) + "\n";
 
 	s += "Num obs in view frustum: " + toString(last_num_obs_in_frustum) + "\n";
+	s += "\n";
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
 	s += "Num VAO binds: " + toString(last_num_vao_binds) + "\n";
 	s += "Num VBO binds: " + toString(last_num_vbo_binds) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
+	s += "\n";
+	s += "depth draw num prog changes: " + toString(depth_draw_last_num_prog_changes) + "\n";
+	s += "depth draw num VAO binds: " + toString(depth_draw_last_num_vao_binds) + "\n";
+	s += "depth draw num VBO binds: " + toString(depth_draw_last_num_vbo_binds) + "\n";
+	s += "depth draw num batches bound: " + toString(depth_draw_last_num_batches_bound) + "\n";
+	s += "\n";
 
 	s += "FPS: " + doubleToStringNDecimalPlaces(last_fps, 1) + "\n";
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";

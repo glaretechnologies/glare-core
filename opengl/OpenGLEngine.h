@@ -1037,13 +1037,20 @@ private:
 
 	js::Vector<BatchDrawInfo, 16> batch_draw_info;
 	uint32 num_prog_changes;
-	uint32 last_num_prog_changes;
 	uint32 num_batches_bound;
-	uint32 last_num_batches_bound;
 	uint32 num_vao_binds;
-	uint32 last_num_vao_binds;
 	uint32 num_vbo_binds;
+	
+	uint32 last_num_prog_changes;
+	uint32 last_num_batches_bound;
+	uint32 last_num_vao_binds;
 	uint32 last_num_vbo_binds;
+
+	uint32 depth_draw_last_num_prog_changes;
+	uint32 depth_draw_last_num_batches_bound;
+	uint32 depth_draw_last_num_vao_binds;
+	uint32 depth_draw_last_num_vbo_binds;
+
 	uint32 last_num_animated_obs_processed;
 
 	Timer fps_display_timer;
