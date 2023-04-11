@@ -322,6 +322,7 @@ public:
 	void print() const;
 	const std::string toString() const;
 	const std::string toStringFullPrecision() const;
+	const std::string toStringMaxNDecimalPlaces(int n) const;
 
 //	const static Vec3 zerovector;	//(0,0,0)
 //	const static Vec3 i;			//(1,0,0)
