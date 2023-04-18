@@ -37,7 +37,7 @@ void main()
 	float use_val = 0;
 	if(inside)
 	{
-		use_val = (coverage < 0.5) ? 1.0 : 0.0;
+		use_val = 0.0; // (coverage < 0.5) ? 1.0 : 0.0;
 	}
 	else
 	{
