@@ -311,6 +311,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	task_manager(NULL),
 	texture_server(NULL),
 	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
+	outline_width_px(3.0f),
 	are_8bit_textures_sRGB(true),
 	outline_tex_w(0),
 	outline_tex_h(0),
@@ -1407,8 +1408,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
-		edge_extract_tex_location		= edge_extract_prog->getUniformLocation("tex");
-		edge_extract_col_location		= edge_extract_prog->getUniformLocation("col");
+		edge_extract_tex_location			= edge_extract_prog->getUniformLocation("tex");
+		edge_extract_col_location			= edge_extract_prog->getUniformLocation("col");
+		edge_extract_line_width_location	= edge_extract_prog->getUniformLocation("line_width");
+
 
 		if(true/*settings.use_final_image_buffer*/)
 		{
@@ -1432,10 +1435,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				);
 
 				downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
-				assert(downsize_from_main_buf_prog->user_uniform_info.back().index >= DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
 				assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
 
 				downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX);
 				assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
 			}
 
@@ -2484,6 +2488,14 @@ void OpenGLEngine::selectObject(const Reference<GLObject>& object)
 void OpenGLEngine::setSelectionOutlineColour(const Colour4f& col)
 {
 	outline_colour = col;
+}
+
+
+void OpenGLEngine::setSelectionOutlineWidth(float line_width_px)
+{
+	assert(line_width_px >= 0);
+
+	outline_width_px = line_width_px;
 }
 
 
@@ -4825,16 +4837,17 @@ void OpenGLEngine::draw()
 		checkUseProgram(edge_extract_prog.ptr());
 
 		// Position quad to cover viewport
-		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, 0, 0));
+		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5f, -0.5f, 0, 0));
 
-		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
-		for(uint32 z = 0; z < outline_quad_meshdata->batches.size(); ++z)
+		bindMeshData(*outline_quad_meshdata);
+		assert(outline_quad_meshdata->batches.size() == 1);
+
 		{
-			glUniformMatrix4fv(edge_extract_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
-
 			bindTextureUnitToSampler(*outline_solid_tex, /*texture_unit_index=*/0, /*sampler_uniform_location=*/edge_extract_tex_location);
 
+			glUniformMatrix4fv(edge_extract_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
 			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
+			glUniform1f(edge_extract_line_width_location, this->outline_width_px);
 				
 			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset;
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->index_type, (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);

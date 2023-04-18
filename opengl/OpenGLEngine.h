@@ -650,6 +650,7 @@ public:
 	void deselectObject(const Reference<GLObject>& object);
 	void deselectAllObjects();
 	void setSelectionOutlineColour(const Colour4f& col);
+	void setSelectionOutlineWidth(float line_width_px);
 	//----------------------------------------------------------------------------------------
 
 
@@ -932,7 +933,10 @@ private:
 	Reference<OpenGLProgram> edge_extract_prog;
 	int edge_extract_tex_location;
 	int edge_extract_col_location;
+	int edge_extract_line_width_location;
+
 	Colour4f outline_colour;
+	float outline_width_px;
 
 	Reference<OpenGLProgram> downsize_prog;
 	Reference<OpenGLProgram> downsize_from_main_buf_prog;
