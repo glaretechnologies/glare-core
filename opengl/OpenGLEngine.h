@@ -1125,6 +1125,7 @@ private:
 
 	ThreadManager thread_manager; // For ShaderFileWatcherThread
 
+	bool running_in_renderdoc;
 };
 
 

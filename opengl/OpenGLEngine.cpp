@@ -337,7 +337,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	next_program_index(0),
 	use_bindless_textures(false),
 	use_reverse_z(true),
-	object_pool_allocator(sizeof(GLObject), 16)
+	object_pool_allocator(sizeof(GLObject), 16),
+	running_in_renderdoc(false)
 {
 	if(settings.use_general_arena_mem_allocator)
 		mem_allocator = new glare::GeneralMemAllocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull);
@@ -1101,6 +1102,17 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		vert_buf_allocator->use_VBO_size_B = 64 * 1024 * 1024; // A reasonably small size, needs to work well for weaker GPUs
 
 
+	// Work out if we are running in RenderDoc.  See https://renderdoc.org/docs/in_application_api.html
+	// We do this so we can force the shader version directive when running in RenderDoc.
+#if defined(_WIN32)
+	if(GetModuleHandleA("renderdoc.dll") != NULL)
+	{
+		conPrint("Running in renderdoc!");
+		running_in_renderdoc = true;
+	}
+#endif
+
+
 	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
 
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
@@ -1287,7 +1299,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES " + toString(settings.msaa_samples) + "\n";
 
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
-		this->version_directive = use_bindless_textures ? "#version 430 core" : "#version 330 core"; // NOTE: 430 for SSBO
+		this->version_directive = (use_bindless_textures || running_in_renderdoc) ? "#version 430 core" : "#version 330 core"; // NOTE: 430 for SSBO
 		// NOTE: use_bindless_textures is false when running under RenderDoc for some reason, need to force version to 430 when running under RenderDoc.
 
 		if(use_multi_draw_indirect)
