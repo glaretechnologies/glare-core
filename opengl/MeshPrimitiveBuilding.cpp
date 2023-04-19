@@ -501,8 +501,8 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeLineMesh(VertexBuffer
 
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSphereMesh(VertexBufferAllocator& allocator)
 {
-	const int phi_res = 100;
-	const int theta_res = 50;
+	const int phi_res = 32;
+	const int theta_res = 16;
 
 	js::Vector<Vec3f, 16> verts;
 	verts.resize(phi_res * theta_res * 4);
