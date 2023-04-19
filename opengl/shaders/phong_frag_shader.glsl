@@ -929,7 +929,7 @@ void main()
 
 #if DEPTH_FOG
 	// Blend with background/fog colour
-	float dist_ = -pos_cs.z;
+	float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
 	float fog_factor = 1.0f - exp(dist_ * -0.00015);
 	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 2.0e7; // Bluish grey
 	col = mix(col, sky_col, fog_factor);
