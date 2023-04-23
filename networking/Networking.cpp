@@ -1,7 +1,7 @@
 /*=====================================================================
 Networking.cpp
 --------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "Networking.h"
 
@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/PlatformUtils.h"
 #include "../utils/ConPrint.h"
 #include <cstring>
+#include <cassert>
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -22,34 +23,49 @@ Copyright Glare Technologies Limited 2020 -
 #endif
 
 
-Networking::Networking()
+static bool initialised = false;
+
+
+void Networking::init()
 {
+	assert(!initialised);
+
 	//-----------------------------------------------------------------
-	//do windows sockets startup
+	// Do windows sockets startup
 	//-----------------------------------------------------------------
 #if defined(_WIN32)
 	WSADATA wsaData;
 	if(WSAStartup(
-		0x0101, // version requested - program requires Winsock V1.1
+		MAKEWORD(2, 2), // version requested - Use 2.2
 		&wsaData) != 0)
 	{
-		WSACleanup();
-		
-		throw NetworkingExcep("unable to start WinSock");
+		throw NetworkingExcep("Unable to start WinSock");
 	}
 #endif
+
+	initialised = true;
 }
 
 
-Networking::~Networking()
+void Networking::shutdown()
 {
+	assert(initialised);
+
 	//-----------------------------------------------------------------
-	//close down windows sockets
+	// Close down windows sockets
 	//-----------------------------------------------------------------
 #if defined(_WIN32)
 	const int result = WSACleanup();
 	assertOrDeclareUsed(result == 0);
 #endif
+
+	initialised = false;
+}
+
+
+bool Networking::isInitialised()
+{
+	return initialised;
 }
 
 
@@ -62,52 +78,19 @@ int Networking::getPortFromSockAddr(const sockaddr& sock_addr)
 }
 
 
+int Networking::getPortFromSockAddr(const sockaddr_storage& sock_addr)
+{
+	if(((struct sockaddr_in*)&sock_addr)->sin_family == AF_INET)
+		return ntohs(((struct sockaddr_in*)&sock_addr)->sin_port);
+	else
+		return ntohs(((struct sockaddr_in6*)&sock_addr)->sin6_port);
+}
+
+
 const std::string Networking::getError()
 {
 	// Note that in practice, WSAGetLastError seems to be just an alias for GetLastError: http://stackoverflow.com/questions/15586224/is-wsagetlasterror-just-an-alias-for-getlasterror
 	return PlatformUtils::getLastErrorString();
-
-	/*
-	if(errno == EADDRINUSE)
-		return "Address in use";
-	else if(errno == EADDRNOTAVAIL)
-		return "Address not available";
-	else if(errno == EAGAIN)
-		return "Resource unavailable, try again";
-	else if(errno == EALREADY)
-		return "Connection already in progress.";
-	else if(errno == ECANCELED)
-		return "Operation canceled.";
-	else if(errno == ECONNABORTED)
-		return "Connection aborted.";
-	else if(errno == ECONNREFUSED)
-		return "Connection refused.";
-	else if(errno == ECONNRESET)
-		return "Connection reset.";
-	else if(errno == EHOSTUNREACH)
-		return "Host is unreachable.";
-	else if(errno == EINPROGRESS)
-		return "Operation in progress.";
-	else if(errno == EINVAL)
-		return "Invalid argument.";
-	else if(errno == EISCONN)
-		return "Socket is connected.";
-	else if(errno == ENETRESET)
-		return "Connection aborted by network.";
-	else if(errno == ENETUNREACH)
-		return "Network unreachable.";
-	else if(errno == ENOTCONN)
-		return "The socket is not connected.";
-	else if(errno == EOPNOTSUPP)
-		return "Operation not supported on socket.";
-	else if(errno == ETIME)
-		return "Stream timeout.";
-	else if(errno == ETIMEDOUT)
-		return "Connection timed out.";
-	else if(errno == EWOULDBLOCK)
-		return "Operation would block";
-	else
-		return "[unknown: errno=" + ::toString(errno) + "]";*/
 }
 
 
@@ -145,6 +128,9 @@ const std::vector<IPAddress> Networking::doDNSLookup(const std::string& hostname
 		host_ip_list.push_back(IPAddress(*info->ai_addr));
 
 	freeaddrinfo(result); // free the linked list
+
+	if(host_ip_list.empty())
+		throw NetworkingExcep("Failed to resolve hostname '" + hostname + "'");
 
 	return host_ip_list;
 }

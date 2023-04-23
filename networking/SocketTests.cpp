@@ -484,7 +484,7 @@ void SocketTests::test()
 {
 	conPrint("SocketTests::test()");
 
-	testAssert(Networking::isNonNull());
+	testAssert(Networking::isInitialised());
 
 	const int port = 5000;
 

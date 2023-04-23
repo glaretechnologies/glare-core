@@ -194,4 +194,7 @@ private:
 };
 
 
+MySocketExcep makeMySocketExcepFromLastErrorCode(const std::string& msg);
+
+
 typedef Reference<MySocket> MySocketRef;

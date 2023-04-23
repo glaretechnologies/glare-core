@@ -25,10 +25,35 @@ Copyright Glare Technologies Limited 2020 -
 
 IPAddress::IPAddress(const sockaddr& sock_addr)
 {
+	std::memset(address, 0, sizeof(address));
+
 	if(sock_addr.sa_family == AF_INET)
 	{
 		// IPv4
 		const sockaddr_in *ipv4 = (const sockaddr_in *)&sock_addr;
+
+		this->version = IPAddress::Version_4;
+		std::memcpy(address, &ipv4->sin_addr, sizeof(uint32));
+	}
+	else
+	{
+		// IPv6
+		const sockaddr_in6 *ipv6 = (const sockaddr_in6 *)&sock_addr;
+
+		this->version = IPAddress::Version_6;
+		std::memcpy(address, &ipv6->sin6_addr, 16);
+	}
+}
+
+
+IPAddress::IPAddress(const sockaddr_storage& sock_addr)
+{
+	std::memset(address, 0, sizeof(address));
+
+	if(((const sockaddr_in*)&sock_addr)->sin_family == AF_INET)
+	{
+		// IPv4
+		const sockaddr_in *ipv4 = (const sockaddr_in*)&sock_addr;
 
 		this->version = IPAddress::Version_4;
 		std::memcpy(address, &ipv4->sin_addr, sizeof(uint32));
@@ -91,6 +116,8 @@ void IPAddress::fillOutIPV6SockAddr(sockaddr_storage& sock_addr, int port) const
 
 IPAddress::IPAddress(const std::string& addr_string)
 {
+	std::memset(address, 0, sizeof(address));
+
 	// If the string contains at least one ':', assume it is an IPv6 address.
 	this->version = (addr_string.find(':') == std::string::npos) ? Version_4 : Version_6;
 
@@ -157,6 +184,12 @@ const std::string IPAddress::toString() const
 	else
 		throw NetworkingExcep("inet_ntop failed: " + PlatformUtils::getLastErrorString());
 #endif
+}
+
+
+bool IPAddress::operator == (const IPAddress& other) const
+{
+	return (version == other.version) && (std::memcmp(address, other.address, sizeof(address)) == 0);
 }
 
 

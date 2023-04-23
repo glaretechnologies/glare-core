@@ -272,7 +272,7 @@ void TLSSocketTests::test()
 {
 	conPrint("TLSSocketTests::test()");
 
-	testAssert(Networking::isNonNull());
+	testAssert(Networking::isInitialised());
 
 	// doMemLeakTest(); // doesn't terminate
 

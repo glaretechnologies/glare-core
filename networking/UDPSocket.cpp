@@ -1,7 +1,7 @@
 /*=====================================================================
 UDPSocket.cpp
 -------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "UDPSocket.h"
 
@@ -9,60 +9,56 @@ Copyright Glare Technologies Limited 2020 -
 #include "Networking.h"
 #include "IPAddress.h"
 #include "Packet.h"
+#include "MySocket.h" // for MySocketExcep
 #include <assert.h>
 #include "../utils/Lock.h"
 #include "../utils/StringUtils.h"
 #include <string.h> // for memset()
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <Mstcpip.h>
+#else
+#include <netdb.h> // getaddrinfo
 #include <netinet/in.h>
 #include <unistd.h> // for close()
 #include <sys/time.h> // fdset
 #include <sys/types.h> // fdset
 #include <sys/select.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <fcntl.h>
 #include <errno.h>
+//#include <poll.h>
 #endif
-
-
-#if defined(_WIN32) || defined(_WIN64)
-static bool isSocketError(int result)
-{
-	return result == SOCKET_ERROR;
-}
-#else
-static bool isSocketError(ssize_t result)
-{
-	return result == -1;
-}
-#endif
+#include <RuntimeCheck.h>
 
 
 #if defined(_WIN32) || defined(_WIN64)
 typedef int SOCKLEN_TYPE;
 #else
 typedef socklen_t SOCKLEN_TYPE;
+
+static const int SOCKET_ERROR = -1;
 #endif
 
 
 UDPSocket::UDPSocket() // create outgoing socket
 {
-	thisend_port = 0;
 	socket_handle = 0;
 
-	assert(Networking::isInited());
-	if(!Networking::isInited())
-		throw UDPSocketExcep("Networking not inited or destroyed.");
+	assert(Networking::isInitialised());
+	if(!Networking::isInitialised())
+		throw MySocketExcep("Networking not inited or destroyed.");
+}
 
-	//-----------------------------------------------------------------
-	// create a UDP socket
-	//-----------------------------------------------------------------
-	const int DEFAULT_PROTOCOL = 0; // use default protocol
 
-	socket_handle = socket(PF_INET, SOCK_DGRAM, DEFAULT_PROTOCOL);
-
-	if(!isSockHandleValid(socket_handle))
-		throw UDPSocketExcep("could not create a socket");
+static int doCloseSocket(UDPSocket::SOCKETHANDLE_TYPE sockethandle)
+{
+#if defined(_WIN32)
+	return closesocket(sockethandle);
+#else
+	return ::close(sockethandle);
+#endif
 }
 
 
@@ -82,35 +78,125 @@ UDPSocket::~UDPSocket()
 		//-----------------------------------------------------------------
 		// close socket
 		//-----------------------------------------------------------------
-#if defined(_WIN32) || defined(_WIN64)
-		result = closesocket(socket_handle);
-#else
-		result = ::close(socket_handle);
-#endif	
+		result = doCloseSocket(socket_handle);
 		assert(result == 0);
 	}
 }
 
 
-// listen to/send from a particular port
-void UDPSocket::bindToPort(const Port& port) 
+void UDPSocket::createClientSocket(bool use_IPv6)
 {
 	//-----------------------------------------------------------------
-	// bind the socket to a specific port
+	// create a UDP socket
 	//-----------------------------------------------------------------
-	struct sockaddr_in my_addr; // my address information
+	const int DEFAULT_PROTOCOL = 0; // use default protocol
 
-	my_addr.sin_family = AF_INET;
-	my_addr.sin_port = htons(port.getPort());
-	my_addr.sin_addr.s_addr = INADDR_ANY; // accept on any network interface
-	memset(&(my_addr.sin_zero), '\0', 8); // zero the rest of the struct
+	socket_handle = socket(use_IPv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, DEFAULT_PROTOCOL);
 
-	if(bind(socket_handle, (struct sockaddr*)&my_addr, sizeof(my_addr)) != 0) 
+	if(!isSockHandleValid(socket_handle))
+		throw MySocketExcep("could not create a socket: " + Networking::getError());
+
+	if(use_IPv6)
 	{
-		throw UDPSocketExcep("Error binding socket to port " + port.toString() + ": " + Networking::getInstance().getError());
+		int no = 0;
+		if(setsockopt(socket_handle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+		{
+			assert(0);
+			//conPrint("Warning: setsockopt failed.");
+		}
+	}
+}
+
+
+void UDPSocket::closeSocket()
+{
+	if(socket_handle)
+	{
+		doCloseSocket(socket_handle);
+		socket_handle = NULL;
+	}
+}
+
+
+// listen to/send from a particular port
+void UDPSocket::bindToPort(int port, bool reuse_address) 
+{
+	// Get the local IP address on which to listen.  This should allow supporting both IPv4 only and IPv4+IPv6 systems.
+	// See http://www.microhowto.info/howto/listen_for_and_accept_tcp_connections_in_c.html
+	addrinfo hints;
+	std::memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC; // don't care IPv4 or IPv6
+	hints.ai_socktype = SOCK_DGRAM; // UDP
+	hints.ai_protocol = 0;
+	hints.ai_flags = AI_PASSIVE; // "Setting the AI_PASSIVE flag indicates the caller intends to use the returned socket address structure in a call to the bind function": https://msdn.microsoft.com/en-gb/library/windows/desktop/ms738520(v=vs.85).aspx
+#if !defined(_WIN32) 
+	hints.ai_flags |= AI_ADDRCONFIG; // On Linux, some users were having issues with getaddrinfo returning IPv6 addresses which were not valid (IPv6 support was disabled).
+	// AI_ADDRCONFIG will hopefully prevent invalid IPv6 addresses being returned by getaddrinfo.
+#endif
+
+	struct addrinfo* results = NULL;
+
+	const char* nodename = NULL;
+	const std::string portname = toString(port);
+	const int errval = getaddrinfo(nodename, portname.c_str(), &hints, &results);
+	if(errval != 0)
+		throw MySocketExcep("getaddrinfo failed: " + Networking::getError());
+
+	if(!results)
+		throw MySocketExcep("getaddrinfo did not return a result.");
+
+	// We want to use the first IPv6 address, if there is one, otherwise the first address overall.
+	struct addrinfo* first_ipv6_addr = NULL;
+	for(struct addrinfo* cur = results; cur != NULL ; cur = cur->ai_next)
+	{
+		// conPrint("address: " + IPAddress(*cur->ai_addr).toString() + "...");
+		if(cur->ai_family == AF_INET6 && first_ipv6_addr == NULL)
+			first_ipv6_addr = cur;
 	}
 
-	thisend_port = port;
+	struct addrinfo* addr_to_use = (first_ipv6_addr != NULL) ? first_ipv6_addr : results;
+
+	// Create socket, now that we know the correct address family to use.
+	if(isSockHandleValid(socket_handle))
+		doCloseSocket(socket_handle);
+
+	socket_handle = socket(addr_to_use->ai_family, addr_to_use->ai_socktype, addr_to_use->ai_protocol);
+	if(!isSockHandleValid(socket_handle))
+		throw MySocketExcep("Could not create a socket: " + Networking::getError());
+
+	// Turn off IPV6_V6ONLY so that we can receive IPv4 connections as well.
+	int no = 0;     
+	if(setsockopt(socket_handle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&no, sizeof(no)) != 0)
+	{
+		assert(0);
+		//conPrint("!!!!!!!!!!!! Warning: setsockopt IPV6_V6ONLY failed.");
+	}
+
+	if(reuse_address)
+		this->setAddressReuseEnabled(true);
+
+	// conPrint("binding to " + IPAddress(*addr_to_use->ai_addr).toString() + "...");
+
+	if(::bind(socket_handle, addr_to_use->ai_addr, (int)addr_to_use->ai_addrlen) == SOCKET_ERROR)
+	{
+		const std::string msg = "Failed to bind to address " + IPAddress(*addr_to_use->ai_addr).toString() + ", port " + toString(port) + ": " + Networking::getError();
+		freeaddrinfo(results); // free the linked list
+		throw MySocketExcep(msg);
+	}
+
+	freeaddrinfo(results); // free the linked list
+}
+
+
+const int UDPSocket::getThisEndPort() const
+{
+	struct sockaddr_storage sock_addr;
+	int namelen = sizeof(sock_addr);
+	const int res = getsockname(socket_handle, (sockaddr*)&sock_addr, &namelen);
+	if(res != 0)
+		throw MySocketExcep("getsockname failed: " + Networking::getError());
+
+	return Networking::getPortFromSockAddr(sock_addr);
 }
 
 
@@ -129,106 +215,59 @@ void UDPSocket::enableBroadcast()
 }
 
 
-void UDPSocket::sendPacket(const Packet& packet, const IPAddress& dest_ip, const Port& destport)
+void UDPSocket::sendPacket(const Packet& packet, const IPAddress& dest_ip, int destport)
 {
-	sendPacket(packet.getData(), packet.getPacketSize(), dest_ip, destport);
+	sendPacket((const unsigned char*)packet.getData(), packet.getPacketSize(), dest_ip, destport);
 }
 
 
-void UDPSocket::sendPacket(const char* data, int datalen, const IPAddress& dest_ip, const Port& destport)
+void UDPSocket::sendPacket(const void* data, size_t datalen, const IPAddress& dest_ip, int destport)
 {
+	assert(isSockHandleValid(socket_handle));
+
 	//-----------------------------------------------------------------
 	// create the destination address structure
 	//-----------------------------------------------------------------
 	sockaddr_storage dest_address;
-	dest_ip.fillOutSockAddr(dest_address, destport.getPort());
+	dest_ip.fillOutSockAddr(dest_address, destport);
 
 	//-----------------------------------------------------------------
 	// send it!
 	//-----------------------------------------------------------------
-	const int numbytessent = ::sendto(socket_handle, data, datalen, 0, 
-							(struct sockaddr*)&dest_address, sizeof(sockaddr));
+	const int numbytessent = ::sendto(socket_handle, (const char*)data, (int)datalen, 0, 
+							(struct sockaddr*)&dest_address, sizeof(sockaddr_storage));
 	
-	if(isSocketError(numbytessent))
-	{
-		throw UDPSocketExcep("error while sending bytes over socket: " + Networking::getError());
-	}
+	if(numbytessent == SOCKET_ERROR)
+		throw makeMySocketExcepFromLastErrorCode("error while writing to UDP socket");
 
-	if(numbytessent < datalen)
+	if(numbytessent < (int)datalen)
 	{
 		// NOTE: FIXME this really an error?
-		throw UDPSocketExcep("error: could not get all bytes in one packet.");
+		throw MySocketExcep("error: could not get all bytes in one packet.");
 	}
 }
 
 
 // Returns num bytes read.  If the socket has been set to non-blocking mode, returns 0 if there are no packets to read.
-int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out, Port& senderport_out)
+size_t UDPSocket::readPacket(unsigned char* buf, size_t buflen, IPAddress& sender_ip_out, int& senderport_out)
 {
-	struct sockaddr from_address; // senders's address information
-	SOCKLEN_TYPE from_add_size = sizeof(from_address);
+	struct sockaddr_storage from_address; // senders's address information
+	SOCKLEN_TYPE from_add_size = (SOCKLEN_TYPE)sizeof(from_address);
 
-	//-----------------------------------------------------------------
-	// get one packet.
-	//-----------------------------------------------------------------
-	const int numbytesrcvd = ::recvfrom(socket_handle, buf, buflen, /*flags=*/0, &from_address, &from_add_size);
+	const int numbytesrcvd = ::recvfrom(socket_handle, (char*)buf, (int)buflen, /*flags=*/0, (sockaddr*)&from_address, &from_add_size);
 
-	if(isSocketError(numbytesrcvd))
+	if(numbytesrcvd == SOCKET_ERROR)
 	{
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 		if(WSAGetLastError() == WSAEWOULDBLOCK) // The socket is marked as nonblocking and the recvfrom operation would block.  (In other words there is no incoming data available)
-		{
 			return 0;
-		}
 		else
-		{
-			const std::string errorstring = Networking::getError();
-			if(errorstring == "WSAECONNRESET")
-			{
-				// socket is dead thanks to stupid xp... so reopen it
-				// recommended solution is to just use a different socket for sending UDP datagrams.
-
-				closesocket(socket_handle);
-
-				//-----------------------------------------------------------------
-				//open socket
-				//-----------------------------------------------------------------
-				const int DEFAULT_PROTOCOL = 0;			// use default protocol
-
-				socket_handle = socket(PF_INET, SOCK_DGRAM, DEFAULT_PROTOCOL);
-
-				if(socket_handle == INVALID_SOCKET)
-				{
-					throw UDPSocketExcep("could not RE-create a socket after WSAECONNRESET");
-				}
-
-				//-----------------------------------------------------------------
-				//bind to port it was on before
-				//-----------------------------------------------------------------
-				assert(thisend_port.getPort() != 0);
-
-				struct sockaddr_in my_addr;    // my address information
-
-				my_addr.sin_family = AF_INET;         
-				my_addr.sin_port = htons(thisend_port.getPort());     
-				my_addr.sin_addr.s_addr = INADDR_ANY; // accept on any network interface
-				memset(&(my_addr.sin_zero), '\0', 8); // zero the rest of the struct
-
-				if(bind(socket_handle, (struct sockaddr*)&my_addr, sizeof(struct sockaddr)) == -1) 
-				{
- 					throw UDPSocketExcep("error RE-binding socket to port " + thisend_port.toString() + " after WSAECONNRESET");
-				}
-				
-				// now just throw an excep and ignore the current packet, UDP is unreliable anyway..
-			}
-
-			throw UDPSocketExcep("error while reading from socket: error code == " + errorstring);
-		}
+			throw makeMySocketExcepFromLastErrorCode("error while reading from UDP socket");
 #else
 		if(errno == EAGAIN || errno == EWOULDBLOCK)
 			return 0; // Then socket was marked as non-blocking and there was no data to be read.
 		
-		throw UDPSocketExcep("error while reading from socket.  Error code == " + Networking::getError());
+		throw MySocketExcep("error while reading from socket.  Error code == " + Networking::getError());
 #endif
 	}
 
@@ -236,7 +275,9 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out, Port&
 	// get the sender IP and port
 	//-----------------------------------------------------------------
 	sender_ip_out = IPAddress(from_address);
-	senderport_out = (unsigned short)Networking::getPortFromSockAddr(from_address);
+	senderport_out = Networking::getPortFromSockAddr(from_address);
+
+	runtimeCheck(numbytesrcvd >= 0);
 
 	return numbytesrcvd;
 }
@@ -244,7 +285,7 @@ int UDPSocket::readPacket(char* buf, int buflen, IPAddress& sender_ip_out, Port&
 
 void UDPSocket::setBlocking(bool blocking)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 
 	unsigned long b = blocking ? 0 : 1;
 
@@ -262,14 +303,28 @@ void UDPSocket::setBlocking(bool blocking)
 	const int result = fcntl(socket_handle, F_SETFL, new_flags);
 	assert(result != -1);
 #endif
-	if(isSocketError(result))
-		throw UDPSocketExcep("setBlocking() failed. Error code: " + Networking::getError());
+	if(result == SOCKET_ERROR)
+		throw MySocketExcep("setBlocking() failed. Error code: " + Networking::getError());
+}
+
+
+// Enables SO_REUSEADDR - allows a socket to bind to an address/port that is in the wait state.
+void UDPSocket::setAddressReuseEnabled(bool enabled_)
+{
+	const int enabled = enabled_ ? 1 : 0;
+	if(::setsockopt(socket_handle, // socket handle
+		SOL_SOCKET, // level
+		SO_REUSEADDR, // option name
+		(const char*)&enabled, // value
+		sizeof(enabled) // size of value buffer
+	) != 0)
+		throw MySocketExcep("setsockopt failed to set SO_REUSEADDR, error: " + Networking::getError());
 }
 
 
 bool UDPSocket::isSockHandleValid(SOCKETHANDLE_TYPE handle)
 {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	return handle != INVALID_SOCKET;
 #else
 	return handle >= 0;

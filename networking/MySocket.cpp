@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/EventFD.h"
 #include "../utils/ConPrint.h"
 #include "../utils/BitUtils.h"
+#include "../utils/RuntimeCheck.h"
 #include <vector>
 #include <string.h>
 #include <algorithm>
@@ -62,8 +63,8 @@ static int closeSocket(MySocket::SOCKETHANDLE_TYPE sockethandle)
 
 MySocket::MySocket(const std::string& hostname, int port)
 {
-	assert(Networking::isInited());
-	if(!Networking::isInited())
+	assert(Networking::isInitialised());
+	if(!Networking::isInitialised())
 		throw MySocketExcep("Networking not inited or destroyed.");
 
 	init();
@@ -89,7 +90,7 @@ MySocket::MySocket(const std::string& hostname, int port)
 
 MySocket::MySocket(const IPAddress& ipaddress, int port)
 {
-	assert(Networking::isInited());
+	assert(Networking::isInitialised());
 
 	init();
 
@@ -114,7 +115,7 @@ MySocket::MySocket(const IPAddress& ipaddress, int port)
 
 MySocket::MySocket(SOCKETHANDLE_TYPE sockethandle_)
 {
-	assert(Networking::isInited());
+	assert(Networking::isInitialised());
 
 	init();
 
@@ -241,10 +242,8 @@ void MySocket::connect(const std::string& hostname,
 		//-----------------------------------------------------------------
 		//Do DNS lookup to get server host IP
 		//-----------------------------------------------------------------
-		const std::vector<IPAddress> serverips = Networking::getInstance().doDNSLookup(hostname);
-		assert(!serverips.empty());
-		if(serverips.empty())
-			throw MySocketExcep("could not lookup host IP with DNS");
+		const std::vector<IPAddress> serverips = Networking::doDNSLookup(hostname);
+		runtimeCheck(!serverips.empty());
 
 		//-----------------------------------------------------------------
 		//Do the connect using the first looked-up IP address
@@ -305,7 +304,7 @@ void MySocket::bindAndListen(int port, bool reuse_address)
 {
 	Timer timer;
 
-	assert(Networking::isInited());
+	assert(Networking::isInitialised());
 
 	// Get the local IP address on which to listen.  This should allow supporting both IPv4 only and IPv4+IPv6 systems.
 	// See http://www.microhowto.info/howto/listen_for_and_accept_tcp_connections_in_c.html
@@ -408,7 +407,7 @@ void MySocket::bindAndListen(int port, bool reuse_address)
 }
 
 
-static MySocketExcep makeExceptionFromLastErrorCode(const std::string& msg)
+MySocketExcep makeMySocketExcepFromLastErrorCode(const std::string& msg)
 {
 	// Get error code, depending on platform:
 	// Note that in practice, WSAGetLastError seems to be just an alias for GetLastError: http://stackoverflow.com/questions/15586224/is-wsagetlasterror-just-an-alias-for-getlasterror
@@ -436,7 +435,7 @@ static MySocketExcep makeExceptionFromLastErrorCode(const std::string& msg)
 
 MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 {
-	assert(Networking::isInited());
+	assert(Networking::isInitialised());
 
 	sockaddr_storage client_addr; // Data struct to get the client IP
 	SOCKLEN_TYPE length = sizeof(client_addr);
@@ -444,7 +443,7 @@ MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 	SOCKETHANDLE_TYPE newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
 
 	if(!isSockHandleValid(newsockethandle))
-		throw makeExceptionFromLastErrorCode("accept failed");
+		throw makeMySocketExcepFromLastErrorCode("accept failed");
 
 	//-----------------------------------------------------------------
 	//copy data over to new socket that will do actual communicating
@@ -491,7 +490,7 @@ void MySocket::waitForGracefulDisconnect()
 		const int numbytesread = recv(sockethandle, buf, sizeof(buf), 0);
 
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
-			throw makeExceptionFromLastErrorCode("Read failed");
+			throw makeMySocketExcepFromLastErrorCode("Read failed");
 		else if(numbytesread == 0) // Connection was closed gracefully
 		{
 			// conPrint("\tConnection was closed gracefully.");
@@ -519,7 +518,7 @@ void MySocket::write(const void* data, size_t datalen, FractionListener* frac)
 		const int numbyteswritten = send(sockethandle, (const char*)data, numbytestowrite, 0);
 
 		if(numbyteswritten == SOCKET_ERROR)
-			throw makeExceptionFromLastErrorCode("write failed");
+			throw makeMySocketExcepFromLastErrorCode("write failed");
 
 		datalen -= numbyteswritten;
 		data = (void*)((char*)data + numbyteswritten); // Advance data pointer
@@ -537,7 +536,7 @@ size_t MySocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 	const int numbytesread = recv(sockethandle, (char*)buffer, (int)max_num_bytes, 0);
 
 	if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
-		throw makeExceptionFromLastErrorCode("Read failed");
+		throw makeMySocketExcepFromLastErrorCode("Read failed");
 
 	return (size_t)numbytesread;
 }
@@ -564,7 +563,7 @@ void MySocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		const int numbytesread = recv(sockethandle, (char*)buffer, numbytestoread, 0);
 
 		if(numbytesread == SOCKET_ERROR) // Connection was reset/broken
-			throw makeExceptionFromLastErrorCode("Read failed");
+			throw makeMySocketExcepFromLastErrorCode("Read failed");
 		else if(numbytesread == 0) // Connection was closed gracefully
 			throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 

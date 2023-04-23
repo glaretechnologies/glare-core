@@ -31,6 +31,8 @@ public:
 	// Construct from a sockets API address
 	explicit IPAddress(const sockaddr& sock_addr);
 
+	explicit IPAddress(const sockaddr_storage& sock_addr);
+
 	// Construct from a string
 	// Can be an IPv4 string like "127.0.0.1", or an IPv6 string like "::1".
 	explicit IPAddress(const std::string& address); // throws NetworkingExcep on failure
@@ -47,6 +49,8 @@ public:
 	// Return as a string like "127.0.0.1" or "::1".
 	const std::string toString() const;
 
+	bool operator == (const IPAddress& other) const;
+
 
 	// For IPv6, returns a string like [1fff:0:a88:85a3::ac1f]:8001  (see http://stackoverflow.com/questions/186829/ipv6-and-ports)
 	// For IPv4, returns a string like 192.168.1.1:8001
@@ -61,6 +65,7 @@ public:
 
 	// Append the port to he IP Address or hostname string, if a port is not already present.
 	static const std::string appendPortToAddrOrHostname(const std::string& s, int port);
+
 
 	static void test();
 private:
