@@ -28,6 +28,7 @@ Copyright Glare Technologies Limited 2023 -
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <fcntl.h>
 //#include <poll.h>
 #endif
 #include <RuntimeCheck.h>
@@ -191,7 +192,7 @@ void UDPSocket::bindToPort(int port, bool reuse_address)
 const int UDPSocket::getThisEndPort() const
 {
 	struct sockaddr_storage sock_addr;
-	int namelen = sizeof(sock_addr);
+	SOCKLEN_TYPE namelen = sizeof(sock_addr);
 	const int res = getsockname(socket_handle, (sockaddr*)&sock_addr, &namelen);
 	if(res != 0)
 		throw MySocketExcep("getsockname failed: " + Networking::getError());
