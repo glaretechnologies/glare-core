@@ -40,9 +40,9 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #if defined(_WIN32)
-typedef int SOCKLEN_TYPE;
+typedef int SockLenType;
 #else
-typedef socklen_t SOCKLEN_TYPE;
+typedef socklen_t SockLenType;
 
 static const int SOCKET_ERROR = -1;
 #endif
@@ -438,7 +438,7 @@ MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 	assert(Networking::isInitialised());
 
 	sockaddr_storage client_addr; // Data struct to get the client IP
-	SOCKLEN_TYPE length = sizeof(client_addr);
+	SockLenType length = sizeof(client_addr);
 	memset(&client_addr, 0, length);
 	SOCKETHANDLE_TYPE newsockethandle = ::accept(sockethandle, (sockaddr*)&client_addr, &length);
 

@@ -35,9 +35,9 @@ Copyright Glare Technologies Limited 2023 -
 
 
 #if defined(_WIN32) || defined(_WIN64)
-typedef int SOCKLEN_TYPE;
+typedef int SockLenType;
 #else
-typedef socklen_t SOCKLEN_TYPE;
+typedef socklen_t SockLenType;
 
 static const int SOCKET_ERROR = -1;
 #endif
@@ -68,7 +68,7 @@ UDPSocket::~UDPSocket()
 	//-----------------------------------------------------------------
 	// close socket
 	//-----------------------------------------------------------------
-	if(socket_handle)
+	if(isSockHandleValid(socket_handle))
 	{
 		//------------------------------------------------------------------------
 		// try shutting down the socket
@@ -106,12 +106,23 @@ void UDPSocket::createClientSocket(bool use_IPv6)
 			//conPrint("Warning: setsockopt failed.");
 		}
 	}
+
+	// Work around connection reset issue on Windows: https://stackoverflow.com/questions/34242622/windows-udp-sockets-recvfrom-fails-with-error-10054
+#if defined(_WIN32)
+	#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+
+	BOOL new_behaviour = FALSE;
+	DWORD bytes_returned = 0;
+	const int res = WSAIoctl(socket_handle, SIO_UDP_CONNRESET, &new_behaviour, sizeof(new_behaviour), NULL, 0, &bytes_returned, NULL, NULL);
+	if(res == SOCKET_ERROR)
+		throw makeMySocketExcepFromLastErrorCode("Error setting SIO_UDP_CONNRESET");
+#endif
 }
 
 
 void UDPSocket::closeSocket()
 {
-	if(socket_handle)
+	if(isSockHandleValid(socket_handle))
 	{
 		doCloseSocket(socket_handle);
 		socket_handle = nullSocketHandle();
@@ -192,7 +203,7 @@ void UDPSocket::bindToPort(int port, bool reuse_address)
 const int UDPSocket::getThisEndPort() const
 {
 	struct sockaddr_storage sock_addr;
-	SOCKLEN_TYPE namelen = sizeof(sock_addr);
+	SockLenType namelen = sizeof(sock_addr);
 	const int res = getsockname(socket_handle, (sockaddr*)&sock_addr, &namelen);
 	if(res != 0)
 		throw MySocketExcep("getsockname failed: " + Networking::getError());
@@ -224,7 +235,7 @@ void UDPSocket::sendPacket(const Packet& packet, const IPAddress& dest_ip, int d
 
 void UDPSocket::sendPacket(const void* data, size_t datalen, const IPAddress& dest_ip, int destport)
 {
-	assert(isSockHandleValid(socket_handle));
+//	assert(isSockHandleValid(socket_handle));
 
 	//-----------------------------------------------------------------
 	// create the destination address structure
@@ -253,7 +264,7 @@ void UDPSocket::sendPacket(const void* data, size_t datalen, const IPAddress& de
 size_t UDPSocket::readPacket(unsigned char* buf, size_t buflen, IPAddress& sender_ip_out, int& senderport_out)
 {
 	struct sockaddr_storage from_address; // senders's address information
-	SOCKLEN_TYPE from_add_size = (SOCKLEN_TYPE)sizeof(from_address);
+	SockLenType from_add_size = sizeof(from_address);
 
 	const int numbytesrcvd = ::recvfrom(socket_handle, (char*)buf, (int)buflen, /*flags=*/0, (sockaddr*)&from_address, &from_add_size);
 
