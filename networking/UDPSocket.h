@@ -16,7 +16,7 @@ Copyright Glare Technologies Limited 2023 -
 #endif
 #include <winsock2.h>
 #endif
-
+#include <stddef.h> // for size_t
 
 #include "../utils/ThreadSafeRefCounted.h"
 class IPAddress;
@@ -63,6 +63,7 @@ public:
 #endif
 private:
 	void setAddressReuseEnabled(bool enabled);
+	SOCKETHANDLE_TYPE nullSocketHandle();
 	bool isSockHandleValid(SOCKETHANDLE_TYPE handle);
 
 	SOCKETHANDLE_TYPE socket_handle;

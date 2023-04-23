@@ -113,7 +113,7 @@ void UDPSocket::closeSocket()
 	if(socket_handle)
 	{
 		doCloseSocket(socket_handle);
-		socket_handle = NULL;
+		socket_handle = nullSocketHandle();
 	}
 }
 
@@ -319,6 +319,16 @@ void UDPSocket::setAddressReuseEnabled(bool enabled_)
 		sizeof(enabled) // size of value buffer
 	) != 0)
 		throw MySocketExcep("setsockopt failed to set SO_REUSEADDR, error: " + Networking::getError());
+}
+
+
+UDPSocket::SOCKETHANDLE_TYPE UDPSocket::nullSocketHandle()
+{
+#if defined(_WIN32)
+	return INVALID_SOCKET;
+#else
+	return -1;
+#endif
 }
 
 
