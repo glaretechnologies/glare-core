@@ -45,7 +45,7 @@ static const int SOCKET_ERROR = -1;
 
 UDPSocket::UDPSocket() // create outgoing socket
 {
-	socket_handle = 0;
+	socket_handle = nullSocketHandle();
 
 	assert(Networking::isInitialised());
 	if(!Networking::isInitialised())
