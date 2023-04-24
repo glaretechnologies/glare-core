@@ -57,9 +57,9 @@ public:
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 	
-private:
 	inline bool storingOnHeap() const { return e != reinterpret_cast<const T*>(direct.buf); }
-
+private:
+	inline void resizeSmaller(size_t new_size);
 	T* e;
 	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
 	// We can't just use an array of T here as then the T objects will need to be constructed.  Instead we just want space for N T objects.
@@ -185,40 +185,94 @@ SmallArray<T, N>& SmallArray<T, N>::operator=(const SmallArray& other)
 
 
 template <class T, int N>
-void SmallArray<T, N>::resize(size_t new_size)
+void SmallArray<T, N>::resizeSmaller(size_t new_size)
 {
-	if(new_size <= size_)
+	assert(new_size < size_);
+
+	if(new_size <= N)
 	{
+		if(storingOnHeap()) // If we are currently storing on heap:
+		{
+			T* new_e = reinterpret_cast<T*>(direct.buf);
+
+			// Copy-construct new objects from existing objects.
+			// e[0] to e[new_size-1] will now be proper initialised objects.
+			std::uninitialized_copy(e, e + new_size, new_e);
+
+			// Destroy old objects in heap buffer.
+			for(size_t i=0; i<size_; ++i)
+				e[i].~T();
+
+			MemAlloc::alignedFree(e); // Free old buffer.
+			e = new_e;
+		}
+		else
+		{
+			// Destroy elements e[new_size] to e[size-1]
+			for(size_t i=new_size; i<size_; ++i)
+				(e + i)->~T();
+		}
+	}
+	else // else new_size > N (so can't store directly, must use heap), but also new_size <= size_, so we are already using heap.
+	{
+		assert(storingOnHeap());
+
 		// Destroy elements e[new_size] to e[size-1]
 		for(size_t i=new_size; i<size_; ++i)
 			(e + i)->~T();
 	}
-	else
-	{
-		// Allocate new memory
-		T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
 
-		// Copy-construct new objects from existing objects.
-		// e[0] to e[size_-1] will now be proper initialised objects.
-		std::uninitialized_copy(e, e + size_, new_e);
-
-		// Initialise elements e[size_] to e[new_size-1]
-		// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
-		// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
-		for(T* elem=e + size_; elem<e + new_size; ++elem)
-			::new (elem) T;
-		
-		// Destroy old objects
-		for(size_t i=0; i<size_; ++i)
-			e[i].~T();
-
-		if(storingOnHeap())
-			MemAlloc::alignedFree(e); // Free old buffer.
-
-		e = new_e;
-	}
-	
 	size_ = new_size;
+}
+
+
+template <class T, int N>
+void SmallArray<T, N>::resize(size_t new_size)
+{
+	if(new_size <= size_)
+	{
+		if(new_size < size_)
+			resizeSmaller(new_size);
+	}
+	else // Else if new_size > size_:
+	{
+		if(new_size <= N) // If we can fit in small non-heap storage:
+		{ 
+			assert(!storingOnHeap()); // size_ < new_size <= N, so size_ < N.
+
+			// Initialise elements e[size_] to e[new_size-1]
+			// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
+			// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
+			for(T* elem=e + size_; elem<e + new_size; ++elem)
+				::new (elem) T;
+		}
+		else // else new_size > N, so we need to allocate heap storage:
+		{
+			// Allocate new memory
+			T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
+
+			// Copy-construct new objects from existing objects.
+			// e[0] to e[size_-1] will now be proper initialised objects.
+			std::uninitialized_copy(e, e + size_, new_e);
+
+			// Initialise elements e[size_] to e[new_size-1]
+			// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
+			// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
+			for(T* elem=e + size_; elem<e + new_size; ++elem)
+				::new (elem) T;
+
+			// Destroy old objects
+			for(size_t i=0; i<size_; ++i)
+				e[i].~T();
+
+			if(storingOnHeap())
+				MemAlloc::alignedFree(e); // Free old buffer.
+
+			e = new_e;
+		}
+
+		size_ = new_size;
+	}
 }
 
 
@@ -227,34 +281,43 @@ void SmallArray<T, N>::resize(size_t new_size, const T& val)
 {
 	if(new_size <= size_)
 	{
-		// Destroy elements e[new_size] to e[size-1]
-		for(size_t i=new_size; i<size_; ++i)
-			(e + i)->~T();
+		if(new_size < size_)
+			resizeSmaller(new_size);
 	}
-	else
+	else // Else if new_size > size_:
 	{
-		// Allocate new memory
-		T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
+		if(new_size <= N) // If we can fit in small non-heap storage:
+		{
+			assert(!storingOnHeap()); // size_ < new_size <= N, so size_ < N.
 
-		// Copy-construct new objects from existing objects.
-		// e[0] to e[size_-1] will now be proper initialised objects.
-		std::uninitialized_copy(e, e + size_, new_e);
+			// Initialise elements e[size_] to e[new_size-1]
+			std::uninitialized_fill(e + size_, e + new_size, val);
+		}
+		else
+		{
+			// Allocate new memory
+			T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
 
-		// Construct any new elems
-		assert(new_size > size_);
-		std::uninitialized_fill(new_e + size_, new_e + new_size, val);
+			// Copy-construct new objects from existing objects.
+			// e[0] to e[size_-1] will now be proper initialised objects.
+			std::uninitialized_copy(e, e + size_, new_e);
+
+			// Construct any new elems
+			assert(new_size > size_);
+			std::uninitialized_fill(new_e + size_, new_e + new_size, val);
 		
-		// Destroy old objects
-		for(size_t i=0; i<size_; ++i)
-			e[i].~T();
+			// Destroy old objects
+			for(size_t i=0; i<size_; ++i)
+				e[i].~T();
 
-		if(storingOnHeap())
-			MemAlloc::alignedFree(e); // Free old buffer.
+			if(storingOnHeap())
+				MemAlloc::alignedFree(e); // Free old buffer.
 
-		e = new_e;
+			e = new_e;
+		}
+
+		size_ = new_size;
 	}
-	
-	size_ = new_size;
 }
 
 

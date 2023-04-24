@@ -118,6 +118,7 @@ void test()
 				i, // count
 				123 // val
 			);
+			testAssert(!v.storingOnHeap());
 			testAssert(v.size() == i);
 			for(size_t q=0; q<v.size(); ++q)
 				testAssert(v[q] == 123);
@@ -130,6 +131,7 @@ void test()
 			10, // count
 			123 // val
 		);
+		testAssert(v.storingOnHeap());
 		testAssert(v.size() == 10);
 		for(size_t i=0; i<v.size(); ++i)
 			testAssert(v[i] == 123);
@@ -140,6 +142,7 @@ void test()
 		const SmallArray<TestClass, 4> v(
 			10 // count
 		);
+		testAssert(v.storingOnHeap());
 		testAssert(v.size() == 10);
 	}
 
@@ -154,6 +157,7 @@ void test()
 				10, // count
 				dummy
 			);
+			testAssert(v.storingOnHeap());
 			testAssert(v.size() == 10);
 			testAssert(ob_count == 11);
 		}
@@ -173,6 +177,8 @@ void test()
 				count, // count
 				123 // val
 			);
+
+			testAssert(v.storingOnHeap() == (count > 4));
 
 			// Copy construct v2 from v
 			const SmallArray<int, 4> v2(v);
@@ -322,6 +328,137 @@ void test()
 		SmallArray<int, 4> v;
 		v.resize(0);
 		testAssert(v.size() == 0);
+		testAssert(!v.storingOnHeap());
+	}
+
+	{
+		SmallArray<int, 1> v;
+		v.resize(1);
+		testAssert(v.size() == 1);
+		testAssert(!v.storingOnHeap());
+	}
+
+	{
+		SmallArray<int, 4> v;
+		v.resize(1);
+		testAssert(v.size() == 1);
+		testAssert(!v.storingOnHeap());
+
+		v.resize(2);
+		testAssert(v.size() == 2);
+		testAssert(!v.storingOnHeap());
+
+		v.resize(4);
+		testAssert(v.size() == 4);
+		testAssert(!v.storingOnHeap());
+
+		v.resize(10);
+		testAssert(v.size() == 10);
+		testAssert(v.storingOnHeap());
+	}
+
+	// Resize over N, then back under N, then over N again.
+	{
+		SmallArray<int, 4> v;
+		testAssert(!v.storingOnHeap());
+		testAssert(v.size() == 0);
+
+		v.resize(8);
+		testAssert(v.size() == 8);
+		testAssert(v.storingOnHeap());
+
+		v.resize(4);
+		testAssert(v.size() == 4);
+		testAssert(!v.storingOnHeap());
+
+		v.resize(12);
+		testAssert(v.size() == 12);
+		testAssert(v.storingOnHeap());
+
+		v.resize(11);
+		testAssert(v.size() == 11);
+		testAssert(v.storingOnHeap());
+
+		v.resize(0);
+		testAssert(v.size() == 0);
+		testAssert(!v.storingOnHeap());
+
+		v.resize(1);
+		testAssert(v.size() == 1);
+		testAssert(!v.storingOnHeap());
+	}
+
+	// Resize over N, then back under N, then over N again.
+	{
+		int ob_count = 0;
+		TestCounterClass counter(ob_count);
+		testAssert(ob_count == 1);
+
+		SmallArray<TestCounterClass, 4> v;
+		testAssert(!v.storingOnHeap());
+		testAssert(v.size() == 0);
+
+		v.resize(8, counter);
+		testAssert(v.size() == 8);
+		testAssert(v.storingOnHeap());
+		testAssert(ob_count == 9);
+
+		v.resize(4, counter);
+		testAssert(v.size() == 4);
+		testAssert(ob_count == 5);
+		testAssert(!v.storingOnHeap());
+
+		v.resize(12, counter);
+		testAssert(v.size() == 12);
+		testAssert(ob_count == 13);
+		testAssert(v.storingOnHeap());
+
+		v.resize(11, counter);
+		testAssert(v.size() == 11);
+		testAssert(ob_count == 12);
+		testAssert(v.storingOnHeap());
+
+		v.resize(0, counter);
+		testAssert(v.size() == 0);
+		testAssert(ob_count == 1);
+		testAssert(!v.storingOnHeap());
+
+		v.resize(1, counter);
+		testAssert(v.size() == 1);
+		testAssert(ob_count == 2);
+		testAssert(!v.storingOnHeap());
+	}
+
+	// With int type and val arg
+	{
+		SmallArray<int, 4> v;
+		v.resize(1, 123);
+		testAssert(v.size() == 1);
+		testAssert(!v.storingOnHeap());
+
+		for(size_t i=0; i<v.size(); ++i)
+			testAssert(v[i] == 123);
+
+		v.resize(2, 123);
+		testAssert(v.size() == 2);
+		testAssert(!v.storingOnHeap());
+
+		for(size_t i=0; i<v.size(); ++i)
+			testAssert(v[i] == 123);
+
+		v.resize(4, 123);
+		testAssert(v.size() == 4);
+		testAssert(!v.storingOnHeap());
+
+		for(size_t i=0; i<v.size(); ++i)
+			testAssert(v[i] == 123);
+
+		v.resize(10, 123);
+		testAssert(v.size() == 10);
+		testAssert(v.storingOnHeap());
+
+		for(size_t i=0; i<v.size(); ++i)
+			testAssert(v[i] == 123);
 	}
 
 
