@@ -442,7 +442,7 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 
 	Planef planes_cs[5]; // Clipping planes in camera space
 
-	// We won't bother with a culling plane at the near clip plane, since it near draw distance is so close to zero, so it's unlikely to cull any objects.
+	// We won't bother with a culling plane at the near clip plane, since the near draw distance is so close to zero, so it's unlikely to cull any objects.
 
 	planes_cs[0] = Planef(
 		Vec4f(0,0,0,1) + FORWARDS_OS * this->max_draw_dist, // pos.
@@ -2232,7 +2232,10 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 		const ProgramKey depth_key("depth", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
 			material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided, material.materialise_effect);
 
-		material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
+		if(material.transparent)
+			material.depth_draw_shader_prog = NULL; // We don't currently draw shadows from transparent materials.
+		else
+			material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
 	}
 }
 
@@ -2284,6 +2287,70 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 		have_transparent_mat    = have_transparent_mat    || object->materials[i].transparent;
 		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
 	}
+
+	// Compute shadow mapping depth-draw batches.  We can merge multiple index batches into one if they share the same depth-draw material.
+	// This greatly reduces the number of batches (and hence draw calls) in many cases.
+	if(settings.shadow_mapping)
+	{
+		// Do a pass to get number of batches required
+		OpenGLProgram* current_depth_prog = NULL;
+		size_t num_batches_required = 0;
+		for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
+		{
+			const uint32 mat_index = object->mesh_data->batches[i].material_index;
+			if((object->materials[mat_index].depth_draw_shader_prog.ptr() != current_depth_prog))
+			{
+				if(current_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
+					num_batches_required++;
+				current_depth_prog = object->materials[mat_index].depth_draw_shader_prog.ptr();
+			}
+		}
+		// Finish last batch
+		if(current_depth_prog)
+			num_batches_required++;
+
+		object->depth_draw_batches.resize(num_batches_required);
+
+		size_t dest_batch_i = 0;
+		current_depth_prog = NULL;
+		OpenGLBatch current_batch;
+		current_batch.material_index = 0;
+		current_batch.prim_start_offset = 0;
+		current_batch.num_indices = 0;
+		for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
+		{
+			const uint32 mat_index = object->mesh_data->batches[i].material_index;
+			if((object->materials[mat_index].depth_draw_shader_prog.ptr() != current_depth_prog))
+			{
+				// The depth-draw material changed.  So finish the batch.
+				if(current_depth_prog) // Will be NULL for transparent materials and when i = 0.
+					object->depth_draw_batches[dest_batch_i++] = current_batch;
+
+				// Start new batch
+				current_batch.material_index = mat_index;
+				current_batch.prim_start_offset = object->mesh_data->batches[i].prim_start_offset;
+				current_batch.num_indices = 0;
+
+				current_depth_prog = object->materials[mat_index].depth_draw_shader_prog.ptr();
+			}
+
+			current_batch.num_indices += object->mesh_data->batches[i].num_indices;
+		}
+
+		// Finish last batch
+		if(current_depth_prog)
+			object->depth_draw_batches[dest_batch_i++] = current_batch;
+		assert(dest_batch_i == num_batches_required);
+
+
+		// Check batches we made.
+		for(size_t i=0; i<object->depth_draw_batches.size(); ++i)
+		{
+			assert(object->depth_draw_batches[i].material_index < 10000);
+			assert(object->materials[object->depth_draw_batches[i].material_index].depth_draw_shader_prog.nonNull());
+		}
+	}
+
 
 	if(have_transparent_mat)
 		current_scene->transparent_objects.insert(object);
@@ -3389,7 +3456,7 @@ Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
 	if(use_reverse_z)
 	{
 		// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
-		// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
+		// Use a 'z-reversal matrix', to change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
 		// Maps (0, 0, -n, n) to (0, 0, n, n) (e.g. z=-n to +n, or +1 after divide by w)
 		// Maps (0, 0, f, f) to (0, 0, 0, f) (e.g. z=+f to 0)
 		const Matrix4f reverse_matrix(
@@ -4201,17 +4268,15 @@ void OpenGLEngine::draw()
 						continue;
 
 					const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-					for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+					for(size_t z=0; z<ob->depth_draw_batches.size(); ++z)
 					{
-						const OpenGLMaterial& mat = ob->materials[mesh_data.batches[z].material_index];
-						if(!mat.transparent) // Don't draw shadows from transparent obs
-						{
-							BatchDrawInfo info(
-								mat.depth_draw_shader_prog->program_index, // program index
-								(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
-								ob, (uint32)z);
-							batch_draw_info.push_back(info);
-						}
+						const OpenGLMaterial& mat = ob->materials[ob->depth_draw_batches/*mesh_data.batches*/[z].material_index];
+						assert(!mat.transparent); // We don't currently draw shadows from transparent materials
+						BatchDrawInfo info(
+							mat.depth_draw_shader_prog->program_index, // program index
+							(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+							ob, (uint32)z);
+						batch_draw_info.push_back(info);
 					}
 				}
 				else
@@ -4224,7 +4289,7 @@ void OpenGLEngine::draw()
 			for(size_t z = 0; z < batch_draw_info.size(); ++z)
 			{
 				const BatchDrawInfo& info = batch_draw_info[z];
-				const OpenGLBatch& batch = info.ob->mesh_data->batches[info.batch_i];
+				const OpenGLBatch& batch = info.ob->depth_draw_batches[info.batch_i];
 				const OpenGLMaterial& mat = info.ob->materials[batch.material_index];
 				const OpenGLProgram* prog = mat.depth_draw_shader_prog.ptr();
 
@@ -4466,17 +4531,15 @@ void OpenGLEngine::draw()
 								continue;
 
 							const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-							for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+							for(size_t z = 0; z < ob->depth_draw_batches.size(); ++z)
 							{
-								const OpenGLMaterial& mat = ob->materials[mesh_data.batches[z].material_index];
-								if(!mat.transparent) // Don't draw shadows from transparent obs
-								{
-									BatchDrawInfo info(
-										mat.depth_draw_shader_prog->program_index, // program index
-										(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
-										ob, (uint32)z);
-									batch_draw_info.push_back(info);
-								}
+								const OpenGLMaterial& mat = ob->materials[ob->depth_draw_batches[z].material_index];
+								assert(!mat.transparent); // We don't currently draw shadows from transparent materials
+								BatchDrawInfo info(
+									mat.depth_draw_shader_prog->program_index, // program index
+									(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+									ob, (uint32)z);
+								batch_draw_info.push_back(info);
 							}
 						}
 						else
@@ -4490,7 +4553,7 @@ void OpenGLEngine::draw()
 				for(size_t z = 0; z < batch_draw_info.size(); ++z)
 				{
 					const BatchDrawInfo& info = batch_draw_info[z];
-					const OpenGLBatch& batch = info.ob->mesh_data->batches[info.batch_i];
+					const OpenGLBatch& batch  = info.ob->depth_draw_batches[info.batch_i];
 					const OpenGLMaterial& mat = info.ob->materials[batch.material_index];
 					const OpenGLProgram* prog = mat.depth_draw_shader_prog.ptr();
 

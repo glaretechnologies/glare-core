@@ -44,6 +44,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/PoolAllocator.h"
 #include "../utils/GeneralMemAllocator.h"
 #include "../utils/ThreadManager.h"
+#include "../utils/SmallArray.h"
 #include "../physics/HashedGrid2.h"
 #include <assert.h>
 #include <unordered_set>
@@ -219,6 +220,9 @@ struct GLObject
 	js::Vector<GlInstanceInfo, 16> instance_info; // Used for updating instance + imposter matrices.
 	
 	std::vector<OpenGLMaterial> materials;
+
+	SmallArray<OpenGLBatch, 1> depth_draw_batches; // Index batches, use for depth buffer drawing for shadow mapping.  
+	// We will use a SmallArray for this with N = 1, since the most likely number of batches is 1.
 
 	int object_type; // 0 = tri mesh
 	float line_width;
