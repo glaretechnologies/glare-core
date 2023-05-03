@@ -56,8 +56,11 @@ void SSBO::allocate(size_t size_B)
 void SSBO::allocateForMapping(size_t size_B)
 {
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
-
+#ifdef OSX
+	assert(0);
+#else
 	glBufferStorage(GL_SHADER_STORAGE_BUFFER, size_B, NULL, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_DYNAMIC_STORAGE_BIT);
+#endif
 
 	this->allocated_size = size_B;
 }

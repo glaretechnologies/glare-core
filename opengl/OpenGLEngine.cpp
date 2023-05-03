@@ -989,10 +989,7 @@ static const int TRANSPARENT_UBO_BINDING_POINT_INDEX = 6;
 
 static const int OB_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX = 7;
 
-#if !defined(OSX)
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
-#endif
-
 static const int PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX = 1;
 static const int PHONG_DATA_SSBO_BINDING_POINT_INDEX = 2;
 static const int OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX = 3;
@@ -1731,7 +1728,7 @@ void OpenGLEngine::expandPhongBuffer()
 void OpenGLEngine::expandJointMatricesBuffer(size_t min_extra_needed)
 {
 	const size_t cur_num_items = joint_matrices_ssbo->byteSize() / sizeof(Matrix4f);
-	const size_t new_num_items = myMax(Maths::roundToNextHighestPowerOf2(cur_num_items + min_extra_needed), cur_num_items * 2);
+	const size_t new_num_items = myMax<size_t>(Maths::roundToNextHighestPowerOf2(cur_num_items + min_extra_needed), cur_num_items * 2);
 
 	SSBORef old_buf = joint_matrices_ssbo;
 	joint_matrices_ssbo = new SSBO();
