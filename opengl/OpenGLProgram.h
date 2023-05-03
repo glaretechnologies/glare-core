@@ -16,9 +16,6 @@ class OpenGLShader;
 
 struct UniformLocations
 {
-	int diffuse_colour_location;
-	int have_shading_normals_location;
-	int have_texture_location;
 	int diffuse_tex_location;
 	int metallic_roughness_tex_location;
 	int emission_tex_location;
@@ -29,8 +26,6 @@ struct UniformLocations
 	int lightmap_tex_location;
 	int fbm_tex_location;
 	int blue_noise_tex_location;
-	int texture_matrix_location;
-	int sundir_cs_location;
 	int campos_ws_location;
 
 	int dynamic_depth_tex_location;

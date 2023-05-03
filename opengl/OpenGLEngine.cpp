@@ -908,9 +908,6 @@ void OpenGLEngine::setCirrusTexture(const Reference<OpenGLTexture>& tex)
 
 void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shadow_mapping_enabled, UniformLocations& locations_out)
 {
-	locations_out.diffuse_colour_location			= prog->getUniformLocation("diffuse_colour");
-	locations_out.have_shading_normals_location		= prog->getUniformLocation("have_shading_normals");
-	locations_out.have_texture_location				= prog->getUniformLocation("have_texture");
 	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
 	locations_out.metallic_roughness_tex_location	= prog->getUniformLocation("metallic_roughness_tex");
 	locations_out.emission_tex_location				= prog->getUniformLocation("emission_tex");
@@ -921,8 +918,6 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
 	locations_out.fbm_tex_location					= prog->getUniformLocation("fbm_tex");
 	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
-	locations_out.texture_matrix_location			= prog->getUniformLocation("texture_matrix");
-	locations_out.sundir_cs_location				= prog->getUniformLocation("sundir_cs");
 	locations_out.campos_ws_location				= prog->getUniformLocation("campos_ws");
 	
 	if(shadow_mapping_enabled)
