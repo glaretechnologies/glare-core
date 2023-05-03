@@ -31,7 +31,7 @@ public:
 
 	void updateData(size_t dest_offset, const void* src_data, size_t src_size);
 
-	size_t byteSize() const { return allocated_size;  }
+	size_t byteSize() const { return allocated_size; }
 
 	GLuint handle;
 

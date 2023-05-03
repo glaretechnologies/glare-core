@@ -13,9 +13,6 @@ in vec3 pos_ws;
 in vec2 texture_coords;
 in vec3 cam_to_pos_ws;
 
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
-in flat int material_index;
-#endif
 
 uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
@@ -26,6 +23,71 @@ uniform sampler2D fbm_tex;
 #define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
 #define HAVE_EMISSION_TEX_FLAG				8
 #define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
+
+
+//----------------------------------------------------------------------------------------------------------------------------
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+
+in flat int material_index;
+
+struct MaterialData
+{
+	vec4 diffuse_colour;
+	vec4 emission_colour;
+	vec2 texture_upper_left_matrix_col0;
+	vec2 texture_upper_left_matrix_col1;
+	vec2 texture_matrix_translation;
+
+#if USE_BINDLESS_TEXTURES
+	sampler2D diffuse_tex;
+	sampler2D metallic_roughness_tex;
+	sampler2D lightmap_tex;
+	sampler2D emission_tex;
+	sampler2D backface_albedo_tex;
+	sampler2D transmission_tex;
+#else
+	float padding0;
+	float padding1;
+	float padding2;
+	float padding3;
+	float padding4;
+	float padding5;
+	float padding6;
+	float padding7;
+	float padding8;
+	float padding9;
+	float padding10;
+	float padding11;
+#endif
+
+	int flags;
+	float roughness;
+	float fresnel_scale;
+	float metallic_frac;
+	float begin_fade_out_distance;
+	float end_fade_out_distance;
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
+
+	ivec4 light_indices_0;
+	ivec4 light_indices_1;
+};
+
+
+layout(std430) buffer PhongUniforms
+{
+	MaterialData material_data[];
+};
+
+#define MAT_UNIFORM					material_data[material_index]
+
+#define DIFFUSE_TEX					MAT_UNIFORM.diffuse_tex
+#define EMISSION_TEX				MAT_UNIFORM.emission_tex
+
+//----------------------------------------------------------------------------------------------------------------------------
+#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
 
 layout (std140) uniform TransparentUniforms
@@ -54,6 +116,9 @@ layout (std140) uniform TransparentUniforms
 } mat_data;
 
 
+#define MAT_UNIFORM mat_data
+
+
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
 uniform sampler2D emission_tex;
@@ -67,6 +132,9 @@ uniform sampler2D emission_tex;
 #define DIFFUSE_TEX diffuse_tex
 #define EMISSION_TEX emission_tex
 #endif
+
+#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+//----------------------------------------------------------------------------------------------------------------------------
 
 layout (std140) uniform MaterialCommonUniforms
 {
@@ -176,7 +244,7 @@ void main()
 	vec3 use_normal_cs;
 	vec3 use_normal_ws;
 	vec2 use_texture_coords = texture_coords;
-	if((mat_data.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
+	if((MAT_UNIFORM.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
 	{
 		use_normal_cs = normal_cs;
 		use_normal_ws = normal_ws;
@@ -223,16 +291,16 @@ void main()
 		use_normal_ws = N_g;
 	}
 
-	vec2 main_tex_coords = mat_data.texture_upper_left_matrix_col0 * use_texture_coords.x + mat_data.texture_upper_left_matrix_col1 * use_texture_coords.y + mat_data.texture_matrix_translation;
+	vec2 main_tex_coords = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
 
-	vec4 emission_col = mat_data.emission_colour;
-	if((mat_data.flags & HAVE_EMISSION_TEX_FLAG) != 0)
+	vec4 emission_col = MAT_UNIFORM.emission_colour;
+	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
 	{
 		emission_col *= texture(EMISSION_TEX, main_tex_coords);
 	}
 
 	vec4 col;
-	if((mat_data.flags & IS_HOLOGRAM_FLAG) != 0)
+	if((MAT_UNIFORM.flags & IS_HOLOGRAM_FLAG) != 0)
 	{
 		col = emission_col;
 		transmittance_out = vec4(1, 1, 1, 1);
@@ -258,14 +326,14 @@ void main()
 		//----------------------- Direct lighting from interior lights ----------------------------
 		// Load indices into a local array, so we can iterate over the array in a for loop.  TODO: find a better way of doing this.
 		int indices[8];
-		indices[0] = mat_data.light_indices_0.x;
-		indices[1] = mat_data.light_indices_0.y;
-		indices[2] = mat_data.light_indices_0.z;
-		indices[3] = mat_data.light_indices_0.w;
-		indices[4] = mat_data.light_indices_1.x;
-		indices[5] = mat_data.light_indices_1.y;
-		indices[6] = mat_data.light_indices_1.z;
-		indices[7] = mat_data.light_indices_1.w;
+		indices[0] = MAT_UNIFORM.light_indices_0.x;
+		indices[1] = MAT_UNIFORM.light_indices_0.y;
+		indices[2] = MAT_UNIFORM.light_indices_0.z;
+		indices[3] = MAT_UNIFORM.light_indices_0.w;
+		indices[4] = MAT_UNIFORM.light_indices_1.x;
+		indices[5] = MAT_UNIFORM.light_indices_1.y;
+		indices[6] = MAT_UNIFORM.light_indices_1.z;
+		indices[7] = MAT_UNIFORM.light_indices_1.w;
 
 		vec4 local_light_radiance = vec4(0.f);
 		for(int i=0; i<8; ++i)
@@ -361,7 +429,7 @@ void main()
 #endif // RENDER_SKY_AND_CLOUD_REFLECTIONS
 
 
-		vec4 transmission_col = vec4(0.6f) + 0.4f * mat_data.diffuse_colour; // Desaturate transmission colour a bit.
+		vec4 transmission_col = vec4(0.6f) + 0.4f * MAT_UNIFORM.diffuse_colour; // Desaturate transmission colour a bit.
 
 		float spec_refl_cos_theta = abs(dot(frag_to_cam, unit_normal_cs));
 		float spec_refl_fresnel = fresnelApprox(spec_refl_cos_theta, ior);

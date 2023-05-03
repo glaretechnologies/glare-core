@@ -62,6 +62,90 @@ BestFitAllocator::~BestFitAllocator()
 }
 
 
+// Increase arena size.  Keep the existing allocations, but add a new free block at the end of the old arena, or extend last free block.
+void BestFitAllocator::expand(size_t new_arena_size) 
+{
+	assert(new_arena_size > arena_size);
+
+	/*
+	Case A: last block was allocated:
+
+	|-------block A-----|------------last------------------|
+	----------------------------------------------------------------------------------------------------------------
+
+	|-------block A-----|----------old last----------------|                  new block                            |
+	----------------------------------------------------------------------------------------------------------------
+	*/
+	if(last->allocated) // If last block was allocated:
+	{
+		BlockInfo* old_last = last;
+
+		// Add a single new unallocated block
+		BlockInfo* block = new BlockInfo();
+		block->offset = arena_size;
+		block->size = new_arena_size - arena_size;
+		block->prev = old_last;
+		block->next = NULL;
+		block->allocated = false;
+
+		size_to_free_blocks.insert(std::make_pair(block->size, block));
+
+		old_last->next = block;
+		last = block;
+	}
+	/*
+	Case B (1): last block was free:, last != first:
+
+	|-------block A-----|             last                 |
+	----------------------------------------------------------------------------------------------------------------
+
+	|-------block A-----|                                  new free block                                          |
+	----------------------------------------------------------------------------------------------------------------
+
+
+	Case B (2): last block was free:, last == first:
+
+	|                     first=last                      |
+	----------------------------------------------------------------------------------------------------------------
+
+	|                                                      new free block                                          |
+	----------------------------------------------------------------------------------------------------------------
+	*/
+	else // Else if last block was free:
+	{
+		// Remove last block, add new merged free block:
+		BlockInfo* old_last = last;
+
+		removeBlockFromFreeMap(old_last);
+
+		BlockInfo* block = new BlockInfo();
+		block->offset = old_last->offset;
+		block->size = new_arena_size - old_last->offset;
+		block->prev = old_last->prev;
+		block->next = NULL;
+		block->allocated = false;
+
+		size_to_free_blocks.insert(std::make_pair(block->size, block));
+
+		if(old_last->prev)
+			old_last->prev->next = block;
+		else
+		{
+			assert(old_last == first);
+			first = block;
+		}
+
+		last = block;
+		delete old_last;
+	}
+
+
+	arena_size = new_arena_size;
+
+	checkInvariants();
+}
+
+
 void BestFitAllocator::removeBlockFromFreeMap(BlockInfo* block)
 {
 	// Remove next block
@@ -1003,6 +1087,48 @@ void glare::BestFitAllocator::test()
 		BestFitAllocatorRef allocator = new BestFitAllocator(1024);
 		BlockInfo* block0 = allocator->alloc(2000, 4);
 		testAssert(block0 == NULL);
+	}
+
+
+	//=========== Test expand on unallocated mem ===============
+	{
+		BestFitAllocatorRef allocator = new BestFitAllocator(1024);
+		allocator->expand(2048);
+
+		BlockInfo* block0 = allocator->alloc(100, 4);
+		testAssert(block0->offset == 0);
+		testAssert(block0->size >= 100);
+	}
+
+	//=========== Test expand with a free block at end of mem ===============
+	{
+		BestFitAllocatorRef allocator = new BestFitAllocator(1024);
+		BlockInfo* block0 = allocator->alloc(100, 4);
+		testAssert(block0->offset == 0);
+		testAssert(block0->size >= 100);
+
+		allocator->expand(2048);
+
+		BlockInfo* block1 = allocator->alloc(100, 4);
+		testAssert(block1);
+		testAssert(block1->offset >= 100);
+		testAssert(block1->size >= 100);
+	}
+
+	//=========== Test expand with an allocated block at end of mem ===============
+	{
+		BestFitAllocatorRef allocator = new BestFitAllocator(1024);
+		BlockInfo* block0 = allocator->alloc(1020, 4);
+		testAssert(block0);
+		testAssert(block0->offset == 0);
+		testAssert(block0->size == 1024);
+
+		allocator->expand(2048);
+
+		BlockInfo* block1 = allocator->alloc(100, 4);
+		testAssert(block1);
+		testAssert(block1->offset >= 1024);
+		testAssert(block1->size >= 100);
 	}
 }
 

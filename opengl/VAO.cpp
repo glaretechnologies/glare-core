@@ -11,7 +11,9 @@ Copyright Glare Technologies Limited 2016 -
 
 
 VAO::VAO(const VertexSpec& vertex_spec_)
-:	handle(0)
+:	handle(0),
+	current_bound_vert_vbo(NULL),
+	current_bound_index_VBO(NULL)
 {
 #ifdef OSX
 	assert(0);
@@ -61,7 +63,9 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 
 // Constructor that uses old-style glVertexAttribPointer().  Just kept around for Mac.
 VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec_)
-:	handle(0)
+:	handle(0),
+	current_bound_vert_vbo(NULL),
+	current_bound_index_VBO(NULL)
 {
 	assert(vertex_data.nonNull());
 	assert(vert_indices_buf.nonNull());

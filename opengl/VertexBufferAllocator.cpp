@@ -52,7 +52,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 
 		PerSpecData new_data;
 		new_data.vao = new VAO(vertex_spec);
-		new_data.next_offset = 0;
+		//new_data.next_offset = 0;
 		per_spec_data.push_back(new_data);
 
 		per_spec_data_index.insert(std::make_pair(vertex_spec, (int)use_per_spec_data_index));

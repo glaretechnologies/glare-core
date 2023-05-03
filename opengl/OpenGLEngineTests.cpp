@@ -64,7 +64,7 @@ static void doTest(const std::string& indigo_base_dir, const std::string& mesh_p
 			{
 				const size_t expected_num_indices = mesh->triangles.size() * 3 + mesh->quads.size() * 6;
 
-				const size_t index_type_size = (mesh_renderdata->index_type == GL_UNSIGNED_BYTE) ? 1 : ((mesh_renderdata->index_type == GL_UNSIGNED_SHORT) ? 2 : 4);
+				const size_t index_type_size = (mesh_renderdata->getIndexType() == GL_UNSIGNED_BYTE) ? 1 : ((mesh_renderdata->getIndexType() == GL_UNSIGNED_SHORT) ? 2 : 4);
 
 				size_t num_indices = 0;
 				size_t expected_cur_offset = 0;

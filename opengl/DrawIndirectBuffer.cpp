@@ -39,11 +39,15 @@ void DrawIndirectBuffer::allocate(size_t size_B)
 {
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, handle);
 
-	glBufferData(GL_DRAW_INDIRECT_BUFFER, size_B, NULL, GL_DYNAMIC_DRAW); // allocate mem
+//	glBufferData(GL_DRAW_INDIRECT_BUFFER, size_B, NULL, GL_DYNAMIC_DRAW); // allocate mem
+
+	glBufferStorage(GL_DRAW_INDIRECT_BUFFER, size_B, NULL, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_DYNAMIC_STORAGE_BIT);
 
 	//glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
 	this->allocated_size = size_B;
+
+	unbind();
 }
 
 
@@ -56,4 +60,6 @@ void DrawIndirectBuffer::updateData(size_t dest_offset, const void* src_data, si
 	glBufferSubData(GL_DRAW_INDIRECT_BUFFER, (GLintptr)dest_offset, (GLsizeiptr)src_size, src_data);
 	
 	//glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+
+	unbind();
 }

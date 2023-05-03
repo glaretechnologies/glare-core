@@ -40,6 +40,8 @@ public:
 	BestFitAllocator(size_t arena_size);
 	~BestFitAllocator();
 
+	void expand(size_t new_arena_size); // Increase arena size.  Keep the existing allocations, but add a new free block at the end of the old arena, or extend last free block.
+
 	BlockInfo* alloc(size_t size, size_t alignment);
 	void free(BlockInfo* block);
 

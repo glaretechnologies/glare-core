@@ -119,6 +119,9 @@ private:
 public:
 	GLuint handle;
 	VertexSpec vertex_spec;
+
+	const VBO* current_bound_vert_vbo;
+	const VBO* current_bound_index_VBO;
 };
 
 

@@ -102,7 +102,7 @@ public:
 	struct PerSpecData
 	{
 		VAORef vao;
-		size_t next_offset;
+		//size_t next_offset;
 	};
 
 

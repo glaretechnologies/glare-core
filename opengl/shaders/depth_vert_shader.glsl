@@ -38,6 +38,7 @@ layout(std140) uniform SharedVertUniforms
 };
 
 
+//----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 struct PerObjectVertUniformsStruct
@@ -47,11 +48,24 @@ struct PerObjectVertUniformsStruct
 };
 
 
-layout(std140) uniform PerObjectVertUniforms
+layout(std430) buffer PerObjectVertUniforms
 {
-	PerObjectVertUniformsStruct per_object_data[256];
+	PerObjectVertUniformsStruct per_object_data[];
 };
 
+layout (std430) buffer ObAndMatIndicesStorage
+{
+	int ob_and_mat_indices[];
+};
+
+//#if SKINNING
+layout (std430) buffer JointMatricesStorage
+{
+	mat4 joint_matrix[];
+};
+//#endif
+
+//----------------------------------------------------------------------------------------------------------------------------
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
 layout (std140) uniform PerObjectVertUniforms
@@ -60,12 +74,15 @@ layout (std140) uniform PerObjectVertUniforms
 	mat4 normal_matrix; // per-object
 };
 
-#endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
-
-
 #if SKINNING
 uniform mat4 joint_matrix[256];
 #endif
+
+#endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
+//----------------------------------------------------------------------------------------------------------------------------
+
+
+
 
 
 float square(float x) { return x * x; }
@@ -102,9 +119,13 @@ vec3 newPosGivenWind(vec3 pos_ws, vec3 normal_ws)
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-	material_index = gl_DrawID;
-	mat4 model_matrix  = per_object_data[material_index].model_matrix;
-	mat4 normal_matrix = per_object_data[material_index].normal_matrix;
+	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
+	int joints_base_index = ob_and_mat_indices[gl_DrawID * 4 + 1];
+	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
+	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
+	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
+#else
+	int joints_base_index = 0;
 #endif
 
 #if INSTANCE_MATRICES // -----------------
@@ -126,10 +147,10 @@ void main()
 
 #if SKINNING
 	mat4 skin_matrix =
-		weight.x * joint_matrix[int(joint.x)] +
-		weight.y * joint_matrix[int(joint.y)] +
-		weight.z * joint_matrix[int(joint.z)] +
-		weight.w * joint_matrix[int(joint.w)];
+		weight.x * joint_matrix[joints_base_index + int(joint.x)] +
+		weight.y * joint_matrix[joints_base_index + int(joint.y)] +
+		weight.z * joint_matrix[joints_base_index + int(joint.z)] +
+		weight.w * joint_matrix[joints_base_index + int(joint.w)];
 
 	mat4 model_skin_matrix = model_matrix * skin_matrix;
 

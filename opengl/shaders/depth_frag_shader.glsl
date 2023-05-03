@@ -21,31 +21,80 @@ layout (std140) uniform MaterialCommonUniforms
 };
 
 
+//----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 in flat int material_index;
 
-struct DepthUniformsStruct
+struct MaterialData
 {
-	mat3 texture_matrix;
+	vec4 diffuse_colour;
+	vec4 emission_colour;
+	vec2 texture_upper_left_matrix_col0;
+	vec2 texture_upper_left_matrix_col1;
+	vec2 texture_matrix_translation;
+
 #if USE_BINDLESS_TEXTURES
 	sampler2D diffuse_tex;
+	sampler2D metallic_roughness_tex;
+	sampler2D lightmap_tex;
+	sampler2D emission_tex;
+	sampler2D backface_albedo_tex;
+	sampler2D transmission_tex;
 #else
-	int padding0;
-	int padding1;
+	float padding0;
+	float padding1;
+	float padding2;
+	float padding3;
+	float padding4;
+	float padding5;
+	float padding6;
+	float padding7;
+	float padding8;
+	float padding9;
+	float padding10;
+	float padding11;
 #endif
+
+	int flags;
+	float roughness;
+	float fresnel_scale;
+	float metallic_frac;
+	float begin_fade_out_distance;
+	float end_fade_out_distance;
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
+
+	ivec4 light_indices_0;
+	ivec4 light_indices_1;
 };
 
-layout(std140) uniform DepthUniforms // MaterialDataUBO
-{
-	DepthUniformsStruct material_data[256];
-} mat_data;
 
+layout(std430) buffer PhongUniforms
+{
+	MaterialData material_data[];
+};
+
+
+#define MAT_UNIFORM					material_data[material_index]
+
+#define DIFFUSE_TEX					MAT_UNIFORM.diffuse_tex
+#define METALLIC_ROUGHNESS_TEX		MAT_UNIFORM.metallic_roughness_tex
+#define LIGHTMAP_TEX				MAT_UNIFORM.lightmap_tex
+#define EMISSION_TEX				MAT_UNIFORM.emission_tex
+
+
+//----------------------------------------------------------------------------------------------------------------------------
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
 layout (std140) uniform DepthUniforms
 {
-	mat3 texture_matrix;
+	vec2 texture_upper_left_matrix_col0;
+	vec2 texture_upper_left_matrix_col1;
+	vec2 texture_matrix_translation;
+
 #if USE_BINDLESS_TEXTURES
 	sampler2D diffuse_tex;
 #else
@@ -59,16 +108,18 @@ layout (std140) uniform DepthUniforms
 
 } mat_data;
 
-#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
-
 #define MAT_UNIFORM mat_data
-
 
 #if USE_BINDLESS_TEXTURES
 #define DIFFUSE_TEX mat_data.diffuse_tex
 #else
 #define DIFFUSE_TEX diffuse_tex
 #endif
+
+#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+//----------------------------------------------------------------------------------------------------------------------------
+
+
 
 
 #if MATERIALISE_EFFECT
@@ -125,14 +176,13 @@ vec2 closestHexCentre(vec2 p)
 }
 #endif // MATERIALISE_EFFECT
 
+
 void main()
 {
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
-	DepthUniformsStruct mat_data = material_data[material_index];
-#endif
-
 #if ALPHA_TEST
-	vec4 col = texture(DIFFUSE_TEX, (mat_data.texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
+	vec2 use_texture_coords = texture_coords; // TODO: Add GENERATE_PLANAR_UVS support
+	vec2 main_tex_coords = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
+	vec4 col = texture(DIFFUSE_TEX, main_tex_coords);
 	if(col.a < 0.5f)
 		discard;
 #endif

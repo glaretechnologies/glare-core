@@ -33,6 +33,7 @@ layout(std140) uniform SharedVertUniforms
 };
 
 
+//----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 struct PerObjectVertUniformsStruct
@@ -41,11 +42,17 @@ struct PerObjectVertUniformsStruct
 	mat4 normal_matrix; // per-object
 };
 
-layout(std140) uniform PerObjectVertUniforms
+layout(std430) buffer PerObjectVertUniforms
 {
-	PerObjectVertUniformsStruct per_object_data[256];
+	PerObjectVertUniformsStruct per_object_data[];
 };
 
+layout (std430) buffer ObAndMatIndicesStorage
+{
+	int ob_and_mat_indices[];
+};
+
+//----------------------------------------------------------------------------------------------------------------------------
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
 layout (std140) uniform PerObjectVertUniforms
@@ -55,14 +62,16 @@ layout (std140) uniform PerObjectVertUniforms
 };
 
 #endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
+//----------------------------------------------------------------------------------------------------------------------------
 
 
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-	material_index = gl_DrawID;
-	mat4 model_matrix  = per_object_data[material_index].model_matrix;
-	mat4 normal_matrix = per_object_data[material_index].normal_matrix;
+	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
+	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
+	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
+	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
 #endif
 
 #if INSTANCE_MATRICES //-------------------------

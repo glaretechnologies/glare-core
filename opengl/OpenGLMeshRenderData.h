@@ -32,7 +32,7 @@ public:
 class OpenGLMeshRenderData // : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false), num_materials_referenced(0), refcount(0) {}
+	OpenGLMeshRenderData() : has_vert_colours(false), num_materials_referenced(0), refcount(0), index_type_bits(0) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -44,6 +44,11 @@ public:
 	size_t getNumTris() const; // Just for testing/debugging.
 
 	bool usesSkinning() const { return !animation_data.joint_nodes.empty(); } // TEMP HACK
+
+	void setIndexType(GLenum the_index_type) { index_type = the_index_type; updateIndexTypeBits(); }
+	GLenum getIndexType() const { return index_type; }
+	uint32 computeIndexTypeBits(GLenum the_index_type) const { return (the_index_type == /*GL_UNSIGNED_BYTE=*/0x1401) ? 0 : ((the_index_type == /*GL_UNSIGNED_SHORT=*/0x1403) ? 1 : 2); }
+	void updateIndexTypeBits() { index_type_bits = computeIndexTypeBits(index_type); }
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 
@@ -63,7 +68,10 @@ public:
 	bool has_uvs;
 	bool has_shading_normals;
 	bool has_vert_colours;
+private:
 	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
+public:
+	uint32 index_type_bits; // GL_UNSIGNED_BYTE = 0, GL_UNSIGNED_SHORT = 1, GL_UNSIGNED_INT = 2
 
 	VertexSpec vertex_spec;
 

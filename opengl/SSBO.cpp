@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "IncludeOpenGL.h"
+#include <ConPrint.h>
 
 
 // Just for Mac
@@ -46,17 +47,40 @@ void SSBO::allocate(size_t size_B)
 	// "DYNAMIC: The data store contents will be modified repeatedly and used many times." (https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBufferData.xhtml)
 	// "DRAW": The data store contents are modified by the application, and used as the source for GL drawing and image specification commands.
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, size_B, /*data=*/NULL, GL_DYNAMIC_DRAW); // allocate mem
+	glBufferData(GL_SHADER_STORAGE_BUFFER, size_B, /*data=*/NULL, GL_STATIC_DRAW/*GL_DYNAMIC_DRAW*/); // allocate mem
 
 	this->allocated_size = size_B;
 }
 
 
-void SSBO::updateData(size_t dest_offset, const void* src_data, size_t src_size)
+void SSBO::allocateForMapping(size_t size_B)
+{
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
+
+	glBufferStorage(GL_SHADER_STORAGE_BUFFER, size_B, NULL, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_DYNAMIC_STORAGE_BIT);
+
+	this->allocated_size = size_B;
+}
+
+
+void SSBO::updateData(size_t dest_offset, const void* src_data, size_t src_size, bool bind_needed)
 {
 	assert((dest_offset + src_size) <= this->allocated_size);
+	if(!((dest_offset + src_size) <= this->allocated_size))
+		conPrint("ERROR: SSBO::updateData !((dest_offset + src_size) <= this->allocated_size)");
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
+	if(bind_needed)
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
 	
 	glBufferSubData(GL_SHADER_STORAGE_BUFFER, (GLintptr)dest_offset, (GLsizeiptr)src_size, src_data);
+}
+
+
+void SSBO::readData(size_t src_offset, void* dst_data, size_t size)
+{
+	assert((src_offset + size) <= this->allocated_size);
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
+
+	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, src_offset, size, dst_data);
 }

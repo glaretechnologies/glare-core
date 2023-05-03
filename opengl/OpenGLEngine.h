@@ -19,6 +19,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "VBO.h"
 #include "VAO.h"
 #include "SSBO.h"
+#include "OpenGLCircularBuffer.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/AnimationData.h"
@@ -55,6 +56,7 @@ class Map2D;
 class TextureServer;
 class UInt8ComponentValueTraits;
 class TerrainSystem;
+namespace glare { class BestFitAllocator; }
 template <class V, class VTraits> class ImageMap;
 
 
@@ -103,7 +105,8 @@ public:
 		end_fade_out_distance(120.f),
 		materialise_lower_z(0),
 		materialise_upper_z(1),
-		materialise_start_time(-20000)
+		materialise_start_time(-20000),
+		material_data_index(-1)
 	{}
 
 	Colour3f albedo_linear_rgb; // First approximation to material colour.  Linear sRGB.
@@ -155,6 +158,7 @@ public:
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 
 	// UniformBufObRef uniform_ubo;
+	int material_data_index;
 };
 
 
@@ -244,6 +248,9 @@ struct GLObject
 	//glare::PoolAllocator* allocator;
 	//int allocation_index;
 
+	int per_ob_vert_data_index;
+	int joint_matrices_base_index;
+	glare::BestFitAllocator::BlockInfo* joint_matrices_block;
 
 	// From ThreadSafeRefCounted.  Manually define this stuff here, so refcount can be defined not at the start of the structure, which wastes space due to alignment issues.
 	inline glare::atomic_int decRefCount() const { return refcount.decrement(); }
@@ -450,14 +457,17 @@ struct FrameBufTextures
 struct BatchDrawInfo
 {
 	BatchDrawInfo() {}
-	BatchDrawInfo(uint32 program_index, uint32 vao_id, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key((program_index << 16) | vao_id),
+	BatchDrawInfo(uint32 program_index, uint32 vao_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key((program_index << 18) | (vao_id << 2) | index_type_bits),
 		batch_i(batch_i_), ob(ob_)
 	{
+		assert(index_type_bits <= 2);
 		// Assume program index and VAO index is < 2^16, so we can pack them together into one 32 bit uint.
-		assert(program_index < (1 << 16));
+		assert(program_index < (1 << 14));
 		assert(vao_id < (1 << 16));
 	}
+	std::string keyDescription() const;
+
 	uint32 prog_vao_key;
 	uint32 batch_i;
 	const GLObject* ob;
@@ -489,6 +499,8 @@ struct PhongUniforms
 	uint64 metallic_roughness_tex; // Bindless texture handle
 	uint64 lightmap_tex; // Bindless texture handle
 	uint64 emission_tex; // Bindless texture handle
+	uint64 backface_albedo_tex; // Bindless texture handle
+	uint64 transmission_tex; // Bindless texture handle
 
 	int flags;
 	float roughness;
@@ -535,7 +547,9 @@ struct MaterialCommonUniforms
 SSE_CLASS_ALIGN DepthUniforms
 {
 public:
-	float texture_matrix[12];
+	Vec2f texture_upper_left_matrix_col0;
+	Vec2f texture_upper_left_matrix_col1;
+	Vec2f texture_matrix_translation;
 
 	uint64 diffuse_tex; // Bindless texture handle
 
@@ -642,10 +656,12 @@ public:
 
 	//---------------------------- Updating objects ------------------------------------------
 	void updateObjectTransformData(GLObject& object);
+	void objectTransformDataChanged(GLObject& object); // Update object data on GPU
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
 	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
 	void objectMaterialsUpdated(GLObject& object);
+	void materialTextureChanged(GLObject& object, OpenGLMaterial& mat);  // Update material data on GPU
 	//----------------------------------------------------------------------------------------
 
 
@@ -817,6 +833,7 @@ public:
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
+	void updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index);
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
 	void assignLightsToObject(GLObject& ob);
 	void assignLightsToAllObjects();
@@ -836,8 +853,8 @@ public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
-	void setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
-	void setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, const UniformLocations& locations);
+	void setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms);
+	void setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;
 
@@ -868,6 +885,10 @@ private:
 	void sortBatchDrawInfos();
 	void getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
 	void assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture);
+	void expandPerObVertDataBuffer();
+	void expandPhongBuffer();
+	void expandJointMatricesBuffer(size_t min_extra_needed);
+	void checkMDIGPUDataCorrect();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -1026,6 +1047,7 @@ public:
 	bool GL_ARB_shader_storage_buffer_object_support;
 	float max_anisotropy;
 	bool use_bindless_textures;
+	bool use_multi_draw_indirect;
 	bool use_reverse_z;
 
 	OpenGLEngineSettings settings;
@@ -1048,11 +1070,13 @@ private:
 	uint32 num_batches_bound;
 	uint32 num_vao_binds;
 	uint32 num_vbo_binds;
+	uint32 num_index_buf_binds;
 	
 	uint32 last_num_prog_changes;
 	uint32 last_num_batches_bound;
 	uint32 last_num_vao_binds;
 	uint32 last_num_vbo_binds;
+	uint32 last_num_index_buf_binds;
 
 	uint32 depth_draw_last_num_prog_changes;
 	uint32 depth_draw_last_num_batches_bound;
@@ -1060,6 +1084,8 @@ private:
 	uint32 depth_draw_last_num_vbo_binds;
 
 	uint32 last_num_animated_obs_processed;
+
+	uint32 num_multi_draw_indirect_calls;
 
 	Timer fps_display_timer;
 	int num_frames_since_fps_timer_reset;
@@ -1087,20 +1113,21 @@ private:
 
 	js::Vector<Matrix4f, 16> temp_matrices;
 
+
+	// For MDI:
+	js::Vector<uint32, 16> ob_and_mat_indices_buffer;
+	SSBORef ob_and_mat_indices_ssbo;
+	OpenGLCircularBuffer ob_and_mat_indices_circ_buf;
+
 	DrawIndirectBufferRef draw_indirect_buffer;
+	OpenGLCircularBuffer draw_indirect_circ_buf;
 
 	js::Vector<DrawElementsIndirectCommand, 16> draw_commands;
 	
 	GLenum current_index_type;
 	const OpenGLProgram* current_bound_prog;
 	const VAO* current_bound_VAO;
-	const VBO* current_bound_vertex_VBO; // Currently bound vertex data buffer, for the current VAO
-	const VBO* current_bound_index_VBO; // Currently bound index buffer, for the current VAO
 	const GLObject* current_uniforms_ob; // Last object for which we uploaded joint matrices, and set the per_object_vert_uniform_buf_ob.  Used to stop uploading the same uniforms repeatedly for the same object.
-
-	js::Vector<PerObjectVertUniforms, 16> MDI_per_object_vert_uniforms;
-	js::Vector<PhongUniforms, 16> MDI_phong_uniforms;
-	js::Vector<DepthUniforms, 16> MDI_depth_uniforms;
 
 	
 public:
@@ -1124,6 +1151,15 @@ private:
 	UniformBufObRef light_ubo; // UBO for Mac.
 
 	std::set<int> light_free_indices;
+
+	std::set<int> per_ob_vert_data_free_indices;
+	SSBORef per_ob_vert_data_buffer; // SSBO
+
+	std::set<int> phong_buffer_free_indices;
+	SSBORef phong_buffer; // SSBO
+
+	SSBORef joint_matrices_ssbo;
+	Reference<glare::BestFitAllocator> joint_matrices_allocator;
 
 	glare::AtomicInt shader_file_changed;
 

@@ -26,12 +26,15 @@ in vec2 lightmap_coords;
 uniform sampler2D diffuse_tex;
 uniform sampler2D metallic_roughness_tex;
 uniform sampler2D emission_tex;
-#endif
 
 #if DOUBLE_SIDED
-uniform sampler2D backface_diffuse_tex;
+uniform sampler2D backface_albedo_tex;
 uniform sampler2D transmission_tex;
 #endif
+
+#endif
+
+
 
 uniform sampler2DShadow dynamic_depth_tex;
 uniform sampler2DShadow static_depth_tex;
@@ -57,6 +60,7 @@ layout (std140) uniform MaterialCommonUniforms
 #define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
 #define HAVE_EMISSION_TEX_FLAG				8
 
+//----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 in flat int material_index;
@@ -74,6 +78,8 @@ struct MaterialData
 	sampler2D metallic_roughness_tex;
 	sampler2D lightmap_tex;
 	sampler2D emission_tex;
+	sampler2D backface_albedo_tex;
+	sampler2D transmission_tex;
 #else
 	float padding0;
 	float padding1;
@@ -82,7 +88,11 @@ struct MaterialData
 	float padding4;
 	float padding5;
 	float padding6;
-	float padding7;	
+	float padding7;
+	float padding8;
+	float padding9;
+	float padding10;
+	float padding11;
 #endif
 
 	int flags;
@@ -95,21 +105,28 @@ struct MaterialData
 	float materialise_lower_z;
 	float materialise_upper_z;
 	float materialise_start_time;
+
+	ivec4 light_indices_0;
+	ivec4 light_indices_1;
 };
 
 
-layout(std140) uniform PhongUniforms // MaterialDataUBO
+layout(std430) buffer PhongUniforms
 {
-	MaterialData material_data[256];
+	MaterialData material_data[];
 };
 
-#define MAT_UNIFORM mat_data
+//#define MAT_UNIFORM mat_data
+#define MAT_UNIFORM					material_data[material_index]
 
-#define DIFFUSE_TEX mat_data.diffuse_tex
-#define METALLIC_ROUGHNESS_TEX mat_data.metallic_roughness_tex
-#define LIGHTMAP_TEX mat_data.lightmap_tex
-#define EMISSION_TEX mat_data.emission_tex
+#define DIFFUSE_TEX					MAT_UNIFORM.diffuse_tex
+#define METALLIC_ROUGHNESS_TEX		MAT_UNIFORM.metallic_roughness_tex
+#define LIGHTMAP_TEX				MAT_UNIFORM.lightmap_tex
+#define EMISSION_TEX				MAT_UNIFORM.emission_tex
+#define BACKFACE_ALBEDO_TEX			MAT_UNIFORM.backface_albedo_tex
+#define TRANSMISSION_TEX			MAT_UNIFORM.transmission_tex
 
+//----------------------------------------------------------------------------------------------------------------------------
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
 layout (std140) uniform PhongUniforms
@@ -125,15 +142,21 @@ layout (std140) uniform PhongUniforms
 	sampler2D metallic_roughness_tex;
 	sampler2D lightmap_tex;
 	sampler2D emission_tex;
+	sampler2D backface_albedo_tex;
+	sampler2D transmission_tex;
 #else
 	float padding0;
 	float padding1;
 	float padding2;
 	float padding3;
 	float padding4;
-	float padding5;				// 6
+	float padding5;
 	float padding6;
-	float padding7;	
+	float padding7;
+	float padding8;
+	float padding9;
+	float padding10;
+	float padding11;
 #endif
 
 	int flags;
@@ -154,19 +177,24 @@ layout (std140) uniform PhongUniforms
 #define MAT_UNIFORM mat_data
 
 #if USE_BINDLESS_TEXTURES
-#define DIFFUSE_TEX mat_data.diffuse_tex
-#define METALLIC_ROUGHNESS_TEX mat_data.metallic_roughness_tex
-#define LIGHTMAP_TEX mat_data.lightmap_tex
-#define EMISSION_TEX mat_data.emission_tex
+#define DIFFUSE_TEX					mat_data.diffuse_tex
+#define METALLIC_ROUGHNESS_TEX		mat_data.metallic_roughness_tex
+#define LIGHTMAP_TEX				mat_data.lightmap_tex
+#define EMISSION_TEX				mat_data.emission_tex
+#define BACKFACE_ALBEDO_TEX			mat_data.backface_albedo_tex
+#define TRANSMISSION_TEX			mat_data.transmission_tex
+
 #else
-#define DIFFUSE_TEX diffuse_tex
-#define METALLIC_ROUGHNESS_TEX metallic_roughness_tex
-#define LIGHTMAP_TEX lightmap_tex
-#define EMISSION_TEX emission_tex
+#define DIFFUSE_TEX					diffuse_tex
+#define METALLIC_ROUGHNESS_TEX		metallic_roughness_tex
+#define LIGHTMAP_TEX				lightmap_tex
+#define EMISSION_TEX				emission_tex
+#define BACKFACE_ALBEDO_TEX			backface_albedo_tex
+#define TRANSMISSION_TEX			transmission_tex
 #endif
 
 #endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
-
+//----------------------------------------------------------------------------------------------------------------------------
 
 #if BLOB_SHADOWS
 uniform int num_blob_positions;
@@ -399,7 +427,7 @@ float hexFracToEdge(in vec2 p)
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-	MaterialData mat_data = material_data[material_index];
+	//MaterialData mat_data = material_data[material_index];
 #endif
 
 	vec3 use_normal_cs;
@@ -482,7 +510,7 @@ void main()
 		float frag_to_cam_dot_normal = dot(frag_to_cam, unit_normal_cs);
 		if(frag_to_cam_dot_normal < 0.f)
 		{
-			refl_texture_diffuse_col = texture(backface_diffuse_tex, main_tex_coords); // backface
+			refl_texture_diffuse_col = texture(BACKFACE_ALBEDO_TEX, main_tex_coords); // backface
 			//refl_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
 		}
 		else
@@ -491,7 +519,7 @@ void main()
 
 		if(frag_to_cam_dot_normal * light_cos_theta <= 0.f) // If frag_to_cam and sundir_cs in different geometric hemispheres:
 		{
-			sun_texture_diffuse_col = texture(transmission_tex, main_tex_coords);
+			sun_texture_diffuse_col = texture(TRANSMISSION_TEX, main_tex_coords);
 			//sun_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
 		}
 		else
@@ -932,6 +960,7 @@ void main()
 	float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
 	float fog_factor = 1.0f - exp(dist_ * -0.00015);
 	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 2.0e7; // Bluish grey
+	//vec4 sky_col = vec4(0.498 / 0.000000003, 0.555 / 0.000000003, 0.621 / 0.000000003, 1); // Bluish grey
 	col = mix(col, sky_col, fog_factor);
 #endif
 

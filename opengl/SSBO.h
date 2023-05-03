@@ -29,7 +29,13 @@ public:
 
 	void allocate(size_t size_B);
 
-	void updateData(size_t dest_offset, const void* src_data, size_t src_size);
+	void allocateForMapping(size_t size_B);
+
+	void updateData(size_t dest_offset, const void* src_data, size_t src_size, bool bind_needed = true);
+
+	void readData(size_t src_offset, void* dst_data, size_t size);
+
+	size_t byteSize() const { return allocated_size; }
 
 	GLuint handle;
 

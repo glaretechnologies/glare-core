@@ -59,7 +59,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 		meshdata.aabb_os.enlargeToHoldPoint(Vec4f(vertices[i].x, vertices[i].y, vertices[i].z, 1.f));
 	}
 
-	meshdata.index_type = GL_UNSIGNED_INT;
+	meshdata.setIndexType(GL_UNSIGNED_INT);
 
 	meshdata.indices_vbo_handle = allocator.allocateIndexData(indices.data(), indices.dataSizeBytes());
 
@@ -949,7 +949,8 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 		if(!skip_opengl_calls)
 			opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(index_buf.data(), index_buf.dataSizeBytes());
 
-		opengl_render_data->index_type = GL_UNSIGNED_BYTE;
+		opengl_render_data->setIndexType(GL_UNSIGNED_BYTE);
+
 		// Go through the batches and adjust the start offset to take into account we're using uint8s.
 		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
 			opengl_render_data->batches[i].prim_start_offset /= 4;
@@ -966,7 +967,8 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 		if(!skip_opengl_calls)
 			opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(index_buf.data(), index_buf.dataSizeBytes());
 
-		opengl_render_data->index_type = GL_UNSIGNED_SHORT;
+		opengl_render_data->setIndexType(GL_UNSIGNED_SHORT);
+
 		// Go through the batches and adjust the start offset to take into account we're using uint16s.
 		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
 			opengl_render_data->batches[i].prim_start_offset /= 2;
@@ -975,7 +977,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 	{
 		if(!skip_opengl_calls)
 			opengl_render_data->indices_vbo_handle = allocator->allocateIndexData(vert_index_buffer.data(), vert_index_buffer.dataSizeBytes());
-		opengl_render_data->index_type = GL_UNSIGNED_INT;
+		opengl_render_data->setIndexType(GL_UNSIGNED_INT);
 	}
 
 #ifndef NDEBUG
@@ -1055,7 +1057,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		mesh->index_type == BatchedMesh::ComponentType_UInt16 ||
 		mesh->index_type == BatchedMesh::ComponentType_UInt32)
 	{
-		opengl_render_data->index_type = componentTypeGLEnum(mesh->index_type);
+		opengl_render_data->setIndexType(componentTypeGLEnum(mesh->index_type));
 	}
 	else
 		throw glare::Exception("OpenGLEngine::buildBatchedMesh(): Invalid index type.");

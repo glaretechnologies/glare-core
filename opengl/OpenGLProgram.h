@@ -141,6 +141,7 @@ public:
 	bool is_depth_draw;
 	bool is_depth_draw_with_alpha_test;
 	bool is_outline;
+	bool supports_MDI;
 	bool uses_vert_uniform_buf_obs;
 
 
