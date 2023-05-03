@@ -34,6 +34,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 	// This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
 	VertBufAllocationHandle handle;
 	handle.vbo = new VBO(vbo_data, size);
+	handle.vbo_id = 0;
 	handle.per_spec_data_index = 0;
 	handle.offset = 0;
 	handle.size = size;
@@ -65,6 +66,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		// Not using best-fit allocator, just allocate a new VBO for each individual vertex data buffer:
 		VertBufAllocationHandle handle;
 		handle.vbo = new VBO(vbo_data, size);
+		handle.vbo_id = 0;
 		handle.per_spec_data_index = use_per_spec_data_index;
 		handle.offset = 0;
 		handle.size = size;
@@ -82,6 +84,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		//----------------------------- Allocate from VBO -------------------------------
 		// Iterate over existing VBOs to see if we can allocate in that VBO
 		VBORef used_vbo;
+		size_t used_vbo_id = 0;
 		glare::BestFitAllocator::BlockInfo* used_block = NULL;
 		for(size_t i=0; i<vert_vbos.size(); ++i)
 		{
@@ -89,6 +92,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 			if(block)
 			{
 				used_vbo = vert_vbos[i].vbo;
+				used_vbo_id = i;
 				used_block = block;
 				break;
 			}
@@ -111,6 +115,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 			if(block)
 			{
 				used_vbo = vbo_and_alloc.vbo;
+				used_vbo_id = vert_vbos.size() - 1;
 				used_block = block;
 			}
 			else
@@ -124,6 +129,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		handle.block_handle = new BlockHandle(used_block);
 		runtimeCheck(handle.block_handle->block->aligned_offset % vert_stride == 0);
 		handle.vbo = used_vbo;
+		handle.vbo_id = used_vbo_id;
 		handle.per_spec_data_index = use_per_spec_data_index;
 		handle.offset = handle.block_handle->block->aligned_offset;
 		handle.size = size;
@@ -143,6 +149,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 
 	IndexBufAllocationHandle handle;
 	handle.index_vbo = new VBO(data, size, GL_ELEMENT_ARRAY_BUFFER);
+	handle.vbo_id = 0;
 	handle.offset = 0;
 	handle.size = size;
 	return handle;
@@ -155,6 +162,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 		handle.offset = 0;
 		handle.size = size;
 		handle.index_vbo = new VBO(data, size, GL_ELEMENT_ARRAY_BUFFER);
+		handle.vbo_id = 0;
 		return handle;
 	}
 	else
@@ -162,6 +170,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 		//----------------------------- Allocate from VBO -------------------------------
 		// Iterate over existing VBOs to see if we can allocate in that VBO
 		VBORef used_vbo;
+		size_t used_vbo_id = 0;
 		glare::BestFitAllocator::BlockInfo* used_block = NULL;
 		for(size_t i=0; i<index_vbos.size(); ++i)
 		{
@@ -169,6 +178,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 			if(block)
 			{
 				used_vbo = index_vbos[i].vbo;
+				used_vbo_id = i;
 				used_block = block;
 				break;
 			}
@@ -190,6 +200,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 			if(block)
 			{
 				used_vbo = vbo_and_alloc.vbo;
+				used_vbo_id = index_vbos.size() - 1;
 				used_block = block;
 			}
 			else
@@ -204,6 +215,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 		handle.offset = handle.block_handle->block->aligned_offset;
 		handle.size = size;
 		handle.index_vbo = used_vbo;// indices_vbo;
+		handle.vbo_id = used_vbo_id;
 
 		used_vbo->updateData(handle.block_handle->block->aligned_offset, data, size);
 
@@ -216,6 +228,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 std::string VertexBufferAllocator::getDiagnostics() const
 {
 	std::string s;
+	s += "VAOs: " + toString(per_spec_data.size()) + "\n";
 	s += "use_VBO_size: " + getNiceByteSize(use_VBO_size_B) + "\n";
 	s += "Vert VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";
 	s += "Index VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";

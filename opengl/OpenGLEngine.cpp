@@ -1107,7 +1107,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	// Work out a good size to use for VBOs.
 	// If the VBO size is much too small (like 8MB), some allocations won't fit in an empty VBO.
 	// If the VBO size is a little too small, then multiple VBOs will be allocated and we will have to pay the driver overhead of changing VBO bindings.
-	// if the VBO size is much to big, and it can't actually fit in GPU RAM, it will be allocated in host RAM (tested on RTX 3080), which results in catastrophically bad performance)
+	// if the VBO size is much to big, and it can't actually fit in GPU RAM, it will be allocated in host RAM (tested on RTX 3080), which results in catastrophically bad performance.
 	// Note that the VBO size will be used individually for both vertex and index data.
 	if(this->total_available_GPU_mem_B != 0) // Set by NVidia drivers
 	{
@@ -3215,6 +3215,10 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 
 	if(vao->current_bound_vert_vbo != vert_data_vbo) // If the VAO is bound to the wrong vertex buffer:
 	{
+		// Submit draw commands using old vertex buffer, before we bind a new one.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
 		// Bind vertex data VBO to the VAO
 		glBindVertexBuffer(
 			0, // binding point index
@@ -3229,6 +3233,10 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 
 	if(vao->current_bound_index_VBO != index_vbo) // If the VAO is bound to the wrong index buffer:
 	{
+		// Submit draw commands using old index buffer, before we bind a new one.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
 		// Bind index VBO to the VAO
 		index_vbo->bind();
 
@@ -3316,6 +3324,10 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 	if(vao->current_bound_vert_vbo != vert_data_vbo) // If the VAO is bound to the wrong vertex buffer:
 	{
+		// Submit draw commands using old vertex buffer, before we bind a new one.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
 		// Bind vertex data VBO to the VAO
 		glBindVertexBuffer(
 			0, // binding point index
@@ -3330,6 +3342,10 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 	if(vao->current_bound_index_VBO != index_vbo) // If the VAO is bound to the wrong index buffer:
 	{
+		// Submit draw commands using old index buffer, before we bind a new one.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
 		// Bind index VBO to the VAO
 		index_vbo->bind();
 
@@ -3826,8 +3842,7 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
-
-	// checkMDIGPUDataCorrect();
+	//if(frame_num % 100 == 0)	checkMDIGPUDataCorrect();
 
 
 	// If the ShaderFileWatcherThread has detected that a shader file has changed, reload all shaders.
@@ -4630,6 +4645,8 @@ void OpenGLEngine::draw()
 						BatchDrawInfo info(
 							mat.depth_draw_shader_prog->program_index, // program index
 							(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+							(uint32)mesh_data.vbo_handle.vbo_id,
+							(uint32)mesh_data.indices_vbo_handle.vbo_id,
 							mesh_data.index_type_bits,
 							ob, (uint32)z);
 						batch_draw_info.push_back(info);
@@ -4894,6 +4911,8 @@ void OpenGLEngine::draw()
 								BatchDrawInfo info(
 									mat.depth_draw_shader_prog->program_index, // program index
 									(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+									(uint32)mesh_data.vbo_handle.vbo_id,
+									(uint32)mesh_data.indices_vbo_handle.vbo_id,
 									mesh_data.index_type_bits,
 									ob, (uint32)z);
 								batch_draw_info.push_back(info);
@@ -5515,7 +5534,9 @@ void OpenGLEngine::draw()
 				{
 					BatchDrawInfo info(
 						mat.shader_prog->program_index, // program index
-						(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
+						(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+						(uint32)mesh_data.vbo_handle.vbo_id,
+						(uint32)mesh_data.indices_vbo_handle.vbo_id,
 						mesh_data.index_type_bits,
 						ob, (uint32)z);
 					batch_draw_info.push_back(info);
@@ -5661,7 +5682,9 @@ void OpenGLEngine::draw()
 				{
 					BatchDrawInfo info(
 						mat.shader_prog->program_index, // program index
-						(uint32)ob->mesh_data->vbo_handle.per_spec_data_index, // VAO id
+						(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+						(uint32)mesh_data.vbo_handle.vbo_id,
+						(uint32)mesh_data.indices_vbo_handle.vbo_id,
 						mesh_data.index_type_bits,
 						ob, (uint32)z);
 					batch_draw_info.push_back(info);
@@ -7413,6 +7436,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	{
 		s += dynamic_cast<glare::GeneralMemAllocator*>(mem_allocator.ptr())->getDiagnostics();
 	}
+
+	s += "Programs: " + toString(next_program_index) + "\n";
 
 	s += vert_buf_allocator->getDiagnostics();
 

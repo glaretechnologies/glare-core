@@ -454,17 +454,26 @@ struct FrameBufTextures
 };
 
 
+/*
+We will allocate a certain number of bits to each type of ID.
+The more expensive the state change, the more significant bit position we allocate the IDs.
+index type is in here so we can group together more calls for multi-draw-indirect.
+If the actual ID exceeds this number of bits, rendering will still be correct, we just will do more state changes than strictly needed.
+
+program_index:   8 bits
+VAO id:	        10 bits
+vert VBO id:     6 bits
+index VBO id:    6 bits
+index type bits: 2 bits
+*/
 struct BatchDrawInfo
 {
 	BatchDrawInfo() {}
-	BatchDrawInfo(uint32 program_index, uint32 vao_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key((program_index << 18) | (vao_id << 2) | index_type_bits),
+	BatchDrawInfo(uint32 program_index, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key(((program_index & 255u) << 24) | ((vao_id & 1023u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits),
 		batch_i(batch_i_), ob(ob_)
 	{
 		assert(index_type_bits <= 2);
-		// Assume program index and VAO index is < 2^16, so we can pack them together into one 32 bit uint.
-		assert(program_index < (1 << 14));
-		assert(vao_id < (1 << 16));
 	}
 	std::string keyDescription() const;
 

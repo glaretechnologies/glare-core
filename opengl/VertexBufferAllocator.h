@@ -20,7 +20,7 @@ Copyright Glare Technologies Limited 2022 -
 class VertexBufferAllocator;
 
 
-// A reference-counted stucture, than call call allocator->free() when all references to it are destroyed.
+// A reference-counted stucture, that calls allocator->free() when all references to it are destroyed.
 // Not the most efficient way of doing ref-counting on vertex blocks, but should be fine for our purposes.
 struct BlockHandle : public RefCounted
 {
@@ -42,6 +42,7 @@ struct VertBufAllocationHandle
 	VertBufAllocationHandle() {}
 
 	VBORef vbo;
+	size_t vbo_id; // Used for sorting batch draws by VBO used.
 	size_t per_spec_data_index;
 	size_t offset; // offset in VBO, in bytes
 	size_t size; // size of allocation
@@ -58,6 +59,7 @@ struct IndexBufAllocationHandle
 	IndexBufAllocationHandle() : offset(std::numeric_limits<size_t>::max()) {}
 
 	VBORef index_vbo;
+	size_t vbo_id; // Used for sorting batch draws by VBO used.
 	//size_t per_spec_data_index;
 	size_t offset; // offset in VBO
 	size_t size; // size of allocation
@@ -99,6 +101,7 @@ private:
 	GLARE_DISABLE_COPY(VertexBufferAllocator)
 public:
 	
+	// Data per vertex specification
 	struct PerSpecData
 	{
 		VAORef vao;
