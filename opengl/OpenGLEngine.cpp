@@ -71,6 +71,11 @@ Copyright Glare Technologies Limited 2020 -
 #define VBO_FREE_MEMORY_ATI								0x87FB
 #define TEXTURE_FREE_MEMORY_ATI							0x87FC
 
+// Just for Mac
+#ifndef GL_SHADER_STORAGE_BUFFER
+#define GL_SHADER_STORAGE_BUFFER						0x90D2
+#endif
+
 
 // Use circular buffers for feeding draw commands and object indices to multi-draw-indirect?
 // Currently this has terrible performance, so don't use, but should in theory be better.
@@ -1392,11 +1397,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		
 		if(light_buffer.nonNull())
 		{
-#if defined(OSX)
-			assert(0); // GL_SHADER_STORAGE_BUFFER is not defined on Mac. (SSBOs are not supported)
-#else
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/LIGHT_DATA_SSBO_BINDING_POINT_INDEX, this->light_buffer->handle);
-#endif
 		}
 		else
 		{
