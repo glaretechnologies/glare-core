@@ -39,9 +39,9 @@ void DrawIndirectBuffer::allocate(size_t size_B)
 {
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, handle);
 
-//	glBufferData(GL_DRAW_INDIRECT_BUFFER, size_B, NULL, GL_DYNAMIC_DRAW); // allocate mem
+	glBufferData(GL_DRAW_INDIRECT_BUFFER, size_B, NULL, GL_DYNAMIC_DRAW); // allocate mem
 
-	glBufferStorage(GL_DRAW_INDIRECT_BUFFER, size_B, NULL, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_DYNAMIC_STORAGE_BIT);
+//	glBufferStorage(GL_DRAW_INDIRECT_BUFFER, size_B, NULL, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_DYNAMIC_STORAGE_BIT);
 
 	//glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 

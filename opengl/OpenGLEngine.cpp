@@ -1416,9 +1416,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/PHONG_DATA_SSBO_BINDING_POINT_INDEX, this->phong_buffer->handle);
 
 
-			draw_indirect_buffer = new DrawIndirectBuffer();
-			draw_indirect_buffer->allocate(sizeof(DrawElementsIndirectCommand) * MAX_BUFFERED_DRAW_COMMANDS/* * 3*/); // For circular buffer use, allocate an extra factor of space (3) in the buffer.
-			draw_indirect_buffer->unbind();
+			// draw_indirect_buffer = new DrawIndirectBuffer();
+			// draw_indirect_buffer->allocate(sizeof(DrawElementsIndirectCommand) * MAX_BUFFERED_DRAW_COMMANDS/* * 3*/); // For circular buffer use, allocate an extra factor of space (3) in the buffer.
+			// draw_indirect_buffer->unbind();
 
 #if USE_CIRCULAR_BUFFERS_FOR_MDI
 			draw_indirect_buffer->bind();
