@@ -1406,4 +1406,89 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 }
 
 
+void BatchedMesh::optimise()
+{
+	// Timer timer;
+
+	if(batches.size() == 1)
+		return;
+
+	// Reorder vertex index batches so that batches sharing the same material are grouped together.
+	// We want the indices_start of the new batches to be in ascending order. (for later depth-draw optimisations that merge batches together)
+
+	std::vector<IndicesBatch> new_batches;
+	js::Vector<uint8, 16> new_index_data(index_data.size());
+
+	const size_t index_type_size_B = componentTypeSize(index_type);
+
+	// Compute num materials (= max mat index + 1)
+	uint32 max_mat_idx = 0;
+	for(size_t i=0; i<batches.size(); ++i)
+		max_mat_idx = myMax(max_mat_idx, batches[i].material_index);
+	const size_t num_mats = max_mat_idx + 1;
+
+	std::vector<uint32> indices_per_mat(num_mats);
+
+	// Do a pass to count total number of indices per material
+	for(size_t i=0; i<batches.size(); ++i)
+		indices_per_mat[batches[i].material_index] += batches[i].num_indices;
+
+	std::vector<int> mat_to_new_batch_map(num_mats, -1); // Map from material index to index of new batch in new_batches for that material
+
+	// Create new batches, build batch_write_indices.
+	std::vector<int> batch_write_indices(num_mats);
+	uint32 write_index = 0;
+	for(size_t i=0; i<batches.size(); ++i)
+	{
+		const IndicesBatch& batch = batches[i];
+		if(mat_to_new_batch_map[batch.material_index] == -1) // If no batch made for this mat yet:
+		{
+			const int new_batch_index = (int)new_batches.size();
+			const uint32 batch_indices_start = write_index;
+			batch_write_indices[new_batch_index] = batch_indices_start;
+			write_index += indices_per_mat[batch.material_index];
+
+			IndicesBatch new_batch;
+			new_batch.indices_start = batch_indices_start;
+			new_batch.material_index = batch.material_index;
+			new_batch.num_indices = indices_per_mat[batch.material_index];
+
+			mat_to_new_batch_map[batch.material_index] = new_batch_index;
+			new_batches.push_back(new_batch);
+		}
+	}
+
+	// Copy index data for each old batch to new location
+	for(size_t i=0; i<batches.size(); ++i)
+	{
+		const IndicesBatch& batch = batches[i];
+		const int new_batch_index = mat_to_new_batch_map[batch.material_index];
+		assert(new_batch_index >= 0);
+
+		const uint32 cur_mat_write_idx = batch_write_indices[new_batch_index]; // Get current write index for the new batch
+		if(batch.num_indices > 0)
+			std::memcpy(&new_index_data[cur_mat_write_idx * index_type_size_B], &index_data[batch.indices_start * index_type_size_B], batch.num_indices * index_type_size_B);
+
+		batch_write_indices[new_batch_index] += batch.num_indices; // Advance write index for this material / new batch
+	}
+
+	// Sanity check
+#ifndef NDEBUG
+	size_t sum_num_indices = 0;
+	for(size_t i=0; i<new_batches.size(); ++i)
+	{
+		sum_num_indices += new_batches[i].num_indices;
+		const uint32 expected_batch_indices_end = ((i + 1) < new_batches.size()) ? new_batches[i + 1].indices_start : index_data.size() / index_type_size_B;
+		assert(new_batches[i].indices_start + new_batches[i].num_indices == expected_batch_indices_end);
+	}
+	assert(sum_num_indices == index_data.size() / index_type_size_B);
+#endif
+
+	batches.swap(new_batches);
+	index_data.swapWith(new_index_data);
+
+	// conPrint("BatchedMesh::optimise took " + timer.elapsedString());
+}
+
+
 // Tests are in BatchedMeshTests

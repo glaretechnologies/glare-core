@@ -60,6 +60,9 @@ public:
 	// May also change vertex joint weights so they sum to 1.
 	void checkValidAndSanitiseMesh();
 
+	// Reorders vertex index batches so that batches sharing the same material are grouped together, then merges them.
+	void optimise();
+
 	// Builds a BatchedMesh from an Indigo::Mesh.
 	// Any quads are converted to triangles.
 	// Merges any vertices with the same position and UVs.
