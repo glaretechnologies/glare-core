@@ -39,6 +39,14 @@ Some ray-mesh acceleration structures etc.
 
 Some ray tracing geometry classes etc.
 
+## video
+
+Code for writing out high-definition video files on Windows and Mac, using OS APIs.
+
+## webserver
+
+Code for running a HTTP server, using the networking classes in networking.  Supports HTTP 1.1 and TLS.
+
 ## utils
 
 Lots of different utility classes.  Some highlights:
