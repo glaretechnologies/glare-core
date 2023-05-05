@@ -150,8 +150,7 @@ public:
 		return *ob;
 	}
 
-	
-	inline const T& operator * () const
+	inline T& operator * () const
 	{
 		assert(ob);
 		return *ob;

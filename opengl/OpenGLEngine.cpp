@@ -2494,78 +2494,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
 	}
 
-	// Compute shadow mapping depth-draw batches.  We can merge multiple index batches into one if they share the same depth-draw material, and are contiguous.
-	// This greatly reduces the number of batches (and hence draw calls) in many cases.
-	if(settings.shadow_mapping)
-	{
-		const uint32 index_type_size_B = (object->mesh_data->getIndexType() == GL_UNSIGNED_INT) ? 4 : ((object->mesh_data->getIndexType() == GL_UNSIGNED_SHORT) ? 2 : 1);
-
-		// Do a pass to get number of batches required
-		OpenGLProgram* current_depth_prog = NULL;
-		size_t num_batches_required = 0;
-		uint32 next_contiguous_offset = 0;
-		for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
-		{
-			const uint32 mat_index = object->mesh_data->batches[i].material_index;
-			if((object->materials[mat_index].depth_draw_shader_prog.ptr() != current_depth_prog) || // If batch depth-draw prog differs:
-				(object->mesh_data->batches[i].prim_start_offset != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
-			{
-				if(current_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
-					num_batches_required++;
-				current_depth_prog = object->materials[mat_index].depth_draw_shader_prog.ptr();
-			}
-			next_contiguous_offset = object->mesh_data->batches[i].prim_start_offset + object->mesh_data->batches[i].num_indices * index_type_size_B;
-		}
-		// Finish last batch
-		if(current_depth_prog)
-			num_batches_required++;
-
-		object->depth_draw_batches.resize(num_batches_required);
-
-		size_t dest_batch_i = 0;
-		current_depth_prog = NULL;
-		next_contiguous_offset = 0;
-		OpenGLBatch current_batch;
-		current_batch.material_index = 0;
-		current_batch.prim_start_offset = 0;
-		current_batch.num_indices = 0;
-		for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
-		{
-			const uint32 mat_index = object->mesh_data->batches[i].material_index;
-			if((object->materials[mat_index].depth_draw_shader_prog.ptr() != current_depth_prog) || // If batch depth-draw prog differs:
-				(object->mesh_data->batches[i].prim_start_offset != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
-			{
-				// The depth-draw material changed.  So finish the batch.
-				if(current_depth_prog) // Will be NULL for transparent materials and when i = 0.
-					object->depth_draw_batches[dest_batch_i++] = current_batch;
-
-				// Start new batch
-				current_batch.material_index = mat_index;
-				current_batch.prim_start_offset = object->mesh_data->batches[i].prim_start_offset;
-				current_batch.num_indices = 0;
-
-				current_depth_prog = object->materials[mat_index].depth_draw_shader_prog.ptr();
-			}
-			next_contiguous_offset = object->mesh_data->batches[i].prim_start_offset + object->mesh_data->batches[i].num_indices * index_type_size_B;
-
-			current_batch.num_indices += object->mesh_data->batches[i].num_indices;
-		}
-
-		// Finish last batch
-		if(current_depth_prog)
-			object->depth_draw_batches[dest_batch_i++] = current_batch;
-		assert(dest_batch_i == num_batches_required);
-
-
-		// Check batches we made.
-		for(size_t i=0; i<object->depth_draw_batches.size(); ++i)
-		{
-			assert(object->depth_draw_batches[i].material_index < 10000);
-			assert(object->materials[object->depth_draw_batches[i].material_index].depth_draw_shader_prog.nonNull());
-		}
-
-		// conPrint("Collapsed " + toString(object->mesh_data->batches.size()) + " batches to " + toString(object->depth_draw_batches.size()) + " depth-draw batches");
-	}
+	rebuildObjectDepthDrawBatches(*object);
 
 
 	if(have_transparent_mat)
@@ -2639,6 +2568,83 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 				object->joint_matrices_block = block;
 			}
 		}
+	}
+}
+
+
+void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
+{
+	// Compute shadow mapping depth-draw batches.  We can merge multiple index batches into one if they share the same depth-draw material, and are contiguous.
+	// This greatly reduces the number of batches (and hence draw calls) in many cases.
+	if(settings.shadow_mapping)
+	{
+		const uint32 index_type_size_B = (object.mesh_data->getIndexType() == GL_UNSIGNED_INT) ? 4 : ((object.mesh_data->getIndexType() == GL_UNSIGNED_SHORT) ? 2 : 1);
+
+		// Do a pass to get number of batches required
+		OpenGLProgram* current_depth_prog = NULL;
+		size_t num_batches_required = 0;
+		uint32 next_contiguous_offset = 0;
+		for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
+		{
+			const uint32 mat_index = object.mesh_data->batches[i].material_index;
+			if((object.materials[mat_index].depth_draw_shader_prog.ptr() != current_depth_prog) || // If batch depth-draw prog differs:
+				(object.mesh_data->batches[i].prim_start_offset != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
+			{
+				if(current_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
+					num_batches_required++;
+				current_depth_prog = object.materials[mat_index].depth_draw_shader_prog.ptr();
+			}
+			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset + object.mesh_data->batches[i].num_indices * index_type_size_B;
+		}
+		// Finish last batch
+		if(current_depth_prog)
+			num_batches_required++;
+
+		object.depth_draw_batches.resize(num_batches_required);
+
+		size_t dest_batch_i = 0;
+		current_depth_prog = NULL;
+		next_contiguous_offset = 0;
+		OpenGLBatch current_batch;
+		current_batch.material_index = 0;
+		current_batch.prim_start_offset = 0;
+		current_batch.num_indices = 0;
+		for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
+		{
+			const uint32 mat_index = object.mesh_data->batches[i].material_index;
+			if((object.materials[mat_index].depth_draw_shader_prog.ptr() != current_depth_prog) || // If batch depth-draw prog differs:
+				(object.mesh_data->batches[i].prim_start_offset != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
+			{
+				// The depth-draw material changed.  So finish the batch.
+				if(current_depth_prog) // Will be NULL for transparent materials and when i = 0.
+					object.depth_draw_batches[dest_batch_i++] = current_batch;
+
+				// Start new batch
+				current_batch.material_index = mat_index;
+				current_batch.prim_start_offset = object.mesh_data->batches[i].prim_start_offset;
+				current_batch.num_indices = 0;
+
+				current_depth_prog = object.materials[mat_index].depth_draw_shader_prog.ptr();
+			}
+			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset + object.mesh_data->batches[i].num_indices * index_type_size_B;
+
+			current_batch.num_indices += object.mesh_data->batches[i].num_indices;
+		}
+
+		// Finish last batch
+		if(current_depth_prog)
+			object.depth_draw_batches[dest_batch_i++] = current_batch;
+		assert(dest_batch_i == num_batches_required);
+
+
+		// Check batches we made.
+		for(size_t i=0; i<object.depth_draw_batches.size(); ++i)
+		{
+			assert(object.depth_draw_batches[i].material_index < 10000);
+			assert(object.materials[object.depth_draw_batches[i].material_index].depth_draw_shader_prog.nonNull());
+		}
+
+		// conPrint("Collapsed " + toString(object.mesh_data->batches.size()) + " batches to " + toStringobject.depth_draw_batches.size()) + " depth-draw batches");
 	}
 }
 
@@ -2975,6 +2981,8 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 		for(size_t i=0; i<object.materials.size(); ++i)
 			updateMaterialDataOnGPU(object, i);
 	}
+
+	rebuildObjectDepthDrawBatches(object); // Since material alpha may have changed, need to recompute depth-draw batches
 }
 
 
@@ -4652,14 +4660,17 @@ void OpenGLEngine::draw()
 
 						const OpenGLMaterial& mat = ob->materials[ob->depth_draw_batches/*mesh_data.batches*/[z].material_index];
 						assert(!mat.transparent); // We don't currently draw shadows from transparent materials
-						BatchDrawInfo info(
-							mat.depth_draw_shader_prog->program_index, // program index
-							(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
-							(uint32)mesh_data.vbo_handle.vbo_id,
-							(uint32)mesh_data.indices_vbo_handle.vbo_id,
-							mesh_data.index_type_bits,
-							ob, (uint32)z);
-						batch_draw_info.push_back(info);
+						if(!mat.transparent) // Avoid crash if transparent is false for some reason. (user forgot to call objectMaterialsUpdated() for example)
+						{
+							BatchDrawInfo info(
+								mat.depth_draw_shader_prog->program_index, // program index
+								(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+								(uint32)mesh_data.vbo_handle.vbo_id,
+								(uint32)mesh_data.indices_vbo_handle.vbo_id,
+								mesh_data.index_type_bits,
+								ob, (uint32)z);
+							batch_draw_info.push_back(info);
+						}
 					}
 				}
 				else
@@ -4918,14 +4929,17 @@ void OpenGLEngine::draw()
 							{
 								const OpenGLMaterial& mat = ob->materials[ob->depth_draw_batches[z].material_index];
 								assert(!mat.transparent); // We don't currently draw shadows from transparent materials
-								BatchDrawInfo info(
-									mat.depth_draw_shader_prog->program_index, // program index
-									(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
-									(uint32)mesh_data.vbo_handle.vbo_id,
-									(uint32)mesh_data.indices_vbo_handle.vbo_id,
-									mesh_data.index_type_bits,
-									ob, (uint32)z);
-								batch_draw_info.push_back(info);
+								if(!mat.transparent) // Avoid crash if transparent is false for some reason. (user forgot to call objectMaterialsUpdated() for example)
+								{
+									BatchDrawInfo info(
+										mat.depth_draw_shader_prog->program_index, // program index
+										(uint32)mesh_data.vbo_handle.per_spec_data_index, // VAO id
+										(uint32)mesh_data.vbo_handle.vbo_id,
+										(uint32)mesh_data.indices_vbo_handle.vbo_id,
+										mesh_data.index_type_bits,
+										ob, (uint32)z);
+									batch_draw_info.push_back(info);
+								}
 							}
 						}
 						else
@@ -5770,6 +5784,9 @@ void OpenGLEngine::draw()
 			}
 		}
 
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
 		glDisable(GL_CULL_FACE);
 
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
@@ -5795,6 +5812,9 @@ void OpenGLEngine::draw()
 				}
 			}
 		}
+
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
 	}
 
 	//================= Draw outlines around selected objects =================
