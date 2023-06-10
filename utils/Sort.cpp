@@ -1,8 +1,7 @@
 /*=====================================================================
 Sort.cpp
--------------------
-Copyright Glare Technologies Limited 2015 -
-Generated at Sat May 15 15:39:54 +1200 2010
+--------
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "Sort.h"
 
@@ -175,6 +174,30 @@ static void checkSorted(const std::vector<Item>& original, const std::vector<Ite
 	}
 
 	for(std::map<Item, int, ItemPredicate>::iterator i = item_count.begin(); i != item_count.end(); ++i)
+		testAssert(i->second == 0);
+}
+
+
+template <class T>
+static void checkSortedTemplate(const std::vector<T>& original, const std::vector<T>& sorted)
+{
+	// Check the results actually are sorted.
+	for(size_t i=1; i<sorted.size(); ++i)
+		testAssert(sorted[i] >= sorted[i-1]);
+
+	// Check it's a permutation
+	std::map<T, int> item_count;
+	for(size_t i=0; i<original.size(); ++i)
+		item_count[original[i]]++;
+
+	for(size_t i=0; i<sorted.size(); ++i)
+	{
+		T item = sorted[i];
+		testAssert(item_count[item] >= 1);
+		item_count[item]--;
+	}
+
+	for(auto i = item_count.begin(); i != item_count.end(); ++i)
 		testAssert(i->second == 0);
 }
 
@@ -401,13 +424,74 @@ static double stableNWayPartitionPerfTest(size_t N, size_t num_threads)
 }
 
 
+struct UInt32GetKey
+{
+	inline uint32 operator () (const uint32 x) const { return x; }
+};
+
+static double testRadixSort32BitKeyForNumItems(size_t N)
+{
+	conPrint("testRadixSort32BitKeyForNumItems, n=" + toString(N));
+
+	PCG32 rng(1);
+
+	std::vector<uint32> data(N);
+	for(size_t i=0; i<N; ++i)
+		data[i] = rng.genrand_int32();
+
+	std::vector<uint32> original_data = data;
+	std::vector<uint32> working_space(N);
+
+	std::vector<uint32> temp_counts(6144);
+
+	Timer timer;
+
+	radixSort32BitKey(data.data(), working_space.data(), N, UInt32GetKey(), temp_counts.data(), temp_counts.size());
+	//std::sort(data.begin(), data.end());
+
+	const double elapsed = timer.elapsed();
+	conPrint("radixSort32BitKey:            " + doubleToStringNSigFigs(elapsed, 4)    + " s (" + doubleToStringNSigFigs(1.0e-6 * N / elapsed, 4) + " M keys/s)");
+
+	checkSortedTemplate(original_data, data);
+
+	return elapsed;
+}
+
+
+static void testRadixSort32BitKey()
+{
+	testRadixSort32BitKeyForNumItems(0);
+	testRadixSort32BitKeyForNumItems(100);
+
+	for(size_t n=1; n<(1 << 20); n *= 2)
+	{
+		testRadixSort32BitKeyForNumItems(n);
+	}
+
+	{
+		const int N = 1 << 16;
+		double min_time = 1.0e10;
+		for(int t=0; t<100; ++t)
+		{
+			const double elapsed = testRadixSort32BitKeyForNumItems(N);
+			min_time = myMin(elapsed, min_time);
+		}
+
+		conPrint("radixSort32BitKey min time:            " + doubleToStringNSigFigs(min_time, 4)    + " s (" + doubleToStringNSigFigs(1.0e-6 * N / min_time, 4) + " M keys/s)");
+	}
+}
+
 
 void test()
 {
+	conPrint("Sort::test()");
+
 	PCG32 rng(1);
 	glare::TaskManager task_manager(8);
 	Timer timer;
-	
+
+
+	testRadixSort32BitKey();
 	
 	//const uint32 N = 5000000;
 
@@ -566,6 +650,8 @@ void test()
 		datasets,
 		plot_options
 	);*/
+
+	conPrint("Sort::test() done.");	
 }
 
 

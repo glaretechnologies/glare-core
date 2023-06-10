@@ -61,6 +61,9 @@ namespace BitUtils
 	template <class T> 
 	inline void setOrZeroBit(T& x, const T bitflag, bool should_set);
 
+	template <class T>
+	inline T getLowestNBits(T x, int num_bits);
+
 
 	// like memcpy(), but null pointers are allowed if count is zero.
 	inline void checkedMemcpy(void* dest, const void* src, size_t count);
@@ -181,11 +184,17 @@ namespace BitUtils
 	}
 
 
+	template <class T>
+	T getLowestNBits(T x, int num_bits)
+	{
+		return x & ((1 << num_bits) - 1);
+	}
+
+
 	void checkedMemcpy(void* dest, const void* src, size_t count)
 	{
 		if(count > 0)
 			::memcpy(dest, src, count);
 	}
-
 
 } // end namespace BitUtils

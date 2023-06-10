@@ -1,8 +1,7 @@
 /*=====================================================================
 Sort.h
--------------------
-Copyright Glare Technologies Limited 2015 -
-Generated at Sat May 15 15:39:54 +1200 2010
+------
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -21,12 +20,12 @@ Generated at Sat May 15 15:39:54 +1200 2010
 
 /*=====================================================================
 Sort
--------------------
-Serial radix sort derived from http://www.stereopsis.com/radix.html
+----
+
 =====================================================================*/
 namespace Sort
 {
-
+	// Serial radix sort derived from http://www.stereopsis.com/radix.html
 	template <class T, class LessThanPredicate, class Key>
 	inline void floatKeyAscendingSort(T* data, size_t num_elements, LessThanPredicate pred, Key key, T* working_space = NULL, bool put_result_in_working_space = false);
 
@@ -37,6 +36,13 @@ namespace Sort
 	template <class T, class Key>
 	inline void radixSort16(T* data, uint32 num_elements, Key key);
 
+
+	/*
+	temp_counts should be a pointer to an array of 6144 uint32s  (6144 = 2**11 * 3).  temp_counts_size should be >= 6144.
+	GetKey operator () should return a uint32 (or wider) integer.
+	*/
+	template<class T, class GetKey>
+	inline void radixSort32BitKey(T* __restrict data, T* __restrict working_space, size_t num_items, GetKey getKey, uint32* temp_counts, size_t temp_counts_size);
 
 	/*
 	Counting sorts.  Efficient for when the total number of different buckets/keys is relatively small.
@@ -868,6 +874,67 @@ namespace Sort
 
 
 		//conPrint("place pass: " + timer.elapsedStringNSigFigs(5));
+	}
+
+
+	template<class T, class GetKey>
+	inline void countingSortPass(T* __restrict in_data, T* __restrict out_data, size_t num_items, GetKey getKey, uint32* temp_counts, int shift_amount)
+	{
+		// Put items in final position
+		for(size_t i=0; i<num_items; ++i)
+		{
+			const T val = in_data[i];
+			out_data[temp_counts[BitUtils::getLowestNBits(getKey(val) >> shift_amount, 11)]++] = val;
+		}
+	}
+
+	template<class T, class GetKey>
+	inline void radixSort32BitKey(T* __restrict data, T* __restrict working_space, size_t num_items, GetKey getKey, uint32* temp_counts, size_t temp_counts_size)
+	{
+		assert(num_items <= std::numeric_limits<uint32>::max());
+
+		const int num_buckets = 1 << 11;
+		assert(temp_counts_size >= num_buckets * 3);
+
+		for(size_t i=0; i<num_buckets * 3; ++i)
+			temp_counts[i] = 0;
+
+		for(size_t i=0; i<num_items; ++i)
+		{
+			const uint32 v = getKey(data[i]);
+			const uint32 v0 = BitUtils::getLowestNBits(v  >> 0, 11);
+			const uint32 v1 = BitUtils::getLowestNBits(v >> 11, 11);
+			const uint32 v2 = BitUtils::getLowestNBits(v >> 22, 11);
+			temp_counts[                v0]++;
+			temp_counts[num_buckets   + v1]++;
+			temp_counts[num_buckets*2 + v2]++;
+		}
+
+		size_t sum0 = 0;
+		size_t sum1 = 0;
+		size_t sum2 = 0;
+		for(size_t i=0; i<num_buckets; ++i)
+		{
+			size_t count_i = temp_counts[i];
+			temp_counts[i] = (uint32)sum0;
+			sum0 += count_i;
+
+			count_i = temp_counts[num_buckets + i];
+			temp_counts[num_buckets + i] = (uint32)sum1;
+			sum1 += count_i;
+
+			count_i = temp_counts[num_buckets*2 + i];
+			temp_counts[num_buckets*2 + i] = (uint32)sum2;
+			sum2 += count_i;
+		}
+
+		countingSortPass(data, working_space, num_items, getKey, temp_counts                , 0);
+		countingSortPass(working_space, data, num_items, getKey, temp_counts + num_buckets  , 11);
+		countingSortPass(data, working_space, num_items, getKey, temp_counts + num_buckets*2, 22);
+
+		// Copy back to data
+		for(size_t i=0; i<num_items; ++i)
+			data[i] = working_space[i];
 	}
 
 } // end namespace Sort

@@ -3741,9 +3741,21 @@ void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool f
 }
 
 
-void OpenGLEngine::sortBatchDrawInfos()
+
+struct BatchDrawInfoGetKey
 {
-	std::sort(batch_draw_info.begin(), batch_draw_info.end());
+	inline uint32 operator () (const BatchDrawInfo& info) const { return info.prog_vao_key; }
+};
+
+
+void OpenGLEngine::sortBatchDrawInfos() 
+{
+	temp_batch_draw_info.resizeNoCopy(batch_draw_info.size());
+
+	const int num_buckets = 6144;
+	temp_counts.resize(num_buckets);
+	
+	Sort::radixSort32BitKey(batch_draw_info.data(), temp_batch_draw_info.data(), temp_batch_draw_info.size(), BatchDrawInfoGetKey(), temp_counts.data(), temp_counts.size());
 }
 
 

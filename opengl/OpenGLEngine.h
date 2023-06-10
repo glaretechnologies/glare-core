@@ -1076,6 +1076,8 @@ private:
 	uint64 last_num_obs_in_frustum;
 
 	js::Vector<BatchDrawInfo, 16> batch_draw_info;
+	js::Vector<BatchDrawInfo, 16> temp_batch_draw_info;
+	std::vector<uint32> temp_counts;
 	uint32 num_prog_changes;
 	uint32 num_batches_bound;
 	uint32 num_vao_binds;
