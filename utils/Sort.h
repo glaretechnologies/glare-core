@@ -896,9 +896,11 @@ namespace Sort
 		const int num_buckets = 1 << 11;
 		assert(temp_counts_size >= num_buckets * 3);
 
+		// We will combine counts for all radixes (11-bit slices) into one array.
 		for(size_t i=0; i<num_buckets * 3; ++i)
 			temp_counts[i] = 0;
 
+		// Count num items in each bucket
 		for(size_t i=0; i<num_items; ++i)
 		{
 			const uint32 v = getKey(data[i]);
@@ -910,27 +912,29 @@ namespace Sort
 			temp_counts[num_buckets*2 + v2]++;
 		}
 
-		size_t sum0 = 0;
-		size_t sum1 = 0;
-		size_t sum2 = 0;
+		// Compute sum in all buckets before the given bucket. (exclusive prefix sum)
+		uint32 sum0 = 0;
+		uint32 sum1 = 0;
+		uint32 sum2 = 0;
 		for(size_t i=0; i<num_buckets; ++i)
 		{
-			size_t count_i = temp_counts[i];
-			temp_counts[i] = (uint32)sum0;
+			uint32 count_i = temp_counts[i];
+			temp_counts[i] = sum0;
 			sum0 += count_i;
 
 			count_i = temp_counts[num_buckets + i];
-			temp_counts[num_buckets + i] = (uint32)sum1;
+			temp_counts[num_buckets + i] = sum1;
 			sum1 += count_i;
 
 			count_i = temp_counts[num_buckets*2 + i];
-			temp_counts[num_buckets*2 + i] = (uint32)sum2;
+			temp_counts[num_buckets*2 + i] = sum2;
 			sum2 += count_i;
 		}
 
-		countingSortPass(data, working_space, num_items, getKey, temp_counts                , 0);
-		countingSortPass(working_space, data, num_items, getKey, temp_counts + num_buckets  , 11);
-		countingSortPass(data, working_space, num_items, getKey, temp_counts + num_buckets*2, 22);
+		// Sort by least significant 11 bits, then middle 11 bits, then most signficant 10 bits.
+		countingSortPass(data, working_space, num_items, getKey, temp_counts                , /*shift_amount=*/0);
+		countingSortPass(working_space, data, num_items, getKey, temp_counts + num_buckets  , /*shift_amount=*/11);
+		countingSortPass(data, working_space, num_items, getKey, temp_counts + num_buckets*2, /*shift_amount=*/22);
 
 		// Copy back to data
 		for(size_t i=0; i<num_items; ++i)
