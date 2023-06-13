@@ -17,11 +17,16 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Exception.h"
 #include "../utils/Base64.h"
 #include "../utils/Clock.h"
+#include "../maths/CheckedMaths.h"
 #include <tls.h>
 #include <cstring>
+#include <limits>
+
 
 
 HTTPClient::HTTPClient()
+:	max_data_size(std::numeric_limits<size_t>::max()),
+	max_socket_buffer_size(std::numeric_limits<size_t>::max())
 {}
 
 
@@ -39,7 +44,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 
 	// Parse request
 	assert(response_header_size <= socket_buffer.size());
-	Parser parser(&socket_buffer[0], (unsigned int)response_header_size);
+	Parser parser(socket_buffer.data(), response_header_size);
 
 
 	//------------- Parse HTTP version ---------------
@@ -158,7 +163,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		if(request_type == RequestType_Get)
 		{
 			// conPrint("Redirecting to '" + location + "'...");
-			return doDownloadFile(toString(location), /*request_type, */num_redirects_done + 1, data_out);
+			return doDownloadFile(toString(location), num_redirects_done + 1, data_out);
 		}
 		else
 			throw glare::Exception("Redirect received for POST request, not supported currently.");
@@ -166,6 +171,9 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 
 	if(have_content_length) // If the server sent a valid content-length:
 	{
+		if(content_length > max_data_size)
+			throw glare::Exception("Content length (" + toString(content_length) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
+
 		data_out.resize(content_length);
 
 		// Copy any body data we have from socket_buffer to data_out.
@@ -214,9 +222,12 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				if(chunk_size > 0)
 				{
 					const size_t chunk_and_crlf_size = chunk_size + 2;
-					const size_t required_buffer_size = chunk_line_end_index + chunk_and_crlf_size;
+					const size_t required_buffer_size = CheckedMaths::addUnsignedInts(chunk_line_end_index, chunk_and_crlf_size);
 					if(socket_buffer.size() < required_buffer_size) // If we haven't read enough data yet:
 					{
+						if(required_buffer_size > max_socket_buffer_size)
+							throw glare::Exception("Exceeded max_socket_buffer_size (" + toString(max_socket_buffer_size) + " B)");
+
 						// Read remaining data
 						const size_t current_amount_read = socket_buffer.size();
 						socket_buffer.resize(required_buffer_size);
@@ -225,7 +236,12 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 
 					// Copy chunk to data_out
 					const size_t data_out_write_i = data_out.size();
-					data_out.resize(data_out_write_i + chunk_size);
+
+					const size_t new_size = data_out_write_i + chunk_size;
+					if(new_size > max_data_size)
+						throw glare::Exception("Chunked content length (" + toString(content_length) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
+
+					data_out.resize(new_size);
 					std::memcpy(&data_out[data_out_write_i], &socket_buffer[chunk_line_end_index], chunk_size);
 
 					chunk_line_start_index = chunk_line_end_index + chunk_and_crlf_size; // Advance past chunk line + chunk data.
@@ -243,6 +259,8 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 			
 			// Copy any body data we have from socket_buffer to data_out.
 			const size_t body_data_read = socket_buffer.size() - response_header_size;
+			if(body_data_read > max_data_size)
+				throw glare::Exception("Body length (" + toString(body_data_read) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 			data_out.resize(body_data_read);
 			if(body_data_read > 0)
 				std::memcpy(&data_out[0], &socket_buffer[response_header_size], body_data_read);
@@ -255,6 +273,9 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				data_out.resize(write_pos + READ_SIZE);
 				const size_t amount_read = socket->readSomeBytes(&data_out[write_pos], READ_SIZE);
 				data_out.resize(write_pos + amount_read); // Trim down based on amount actually read.
+
+				if(data_out.size() > max_data_size)
+					throw glare::Exception("Body length (" + toString(data_out.size()) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 
 				if(amount_read == 0) // Connection was gracefully closed
 					break;
@@ -283,6 +304,10 @@ size_t HTTPClient::readUntilCRLF(size_t scan_start_index)
 		// Read up to 'read_chunk_size' bytes of data from the socket.
 		const size_t old_socket_buffer_size = socket_buffer.size();
 		const size_t read_chunk_size = 2048;
+
+		if((old_socket_buffer_size + read_chunk_size) > max_socket_buffer_size)
+			throw glare::Exception("Exceeded max_socket_buffer_size (" + toString(max_socket_buffer_size) + " B)");
+
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
 		const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size); // Read up to 'read_chunk_size' bytes.
 		if(num_bytes_read == 0) // if connection was closed gracefully:
@@ -306,6 +331,10 @@ size_t HTTPClient::readUntilCRLFCRLF(size_t scan_start_index)
 		// Read up to 'read_chunk_size' bytes of data from the socket.
 		const size_t old_socket_buffer_size = socket_buffer.size();
 		const size_t read_chunk_size = 2048;
+
+		if((old_socket_buffer_size + read_chunk_size) > max_socket_buffer_size)
+			throw glare::Exception("Exceeded max_socket_buffer_size (" + toString(max_socket_buffer_size) + " B)");
+
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
 		const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size); // Read up to 'read_chunk_size' bytes.
 		if(num_bytes_read == 0) // if connection was closed gracefully:
