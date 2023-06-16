@@ -26,6 +26,18 @@ void append(std::vector<T>& v1, const std::vector<T>& v2)
 }
 
 
+// Append 'size' elements at data to the back of vec.
+// Note that this procedure modifies vec.
+template <typename T>
+void append(std::vector<T>& vec, const T* data, const size_t size)
+{
+	const size_t write_i = vec.size();
+	vec.resize(write_i + size);
+	for(size_t i=0; i<size; ++i)
+		vec[write_i + i] = data[i];
+}
+
+
 // Does vector 'v' contain element 'target'?
 template <typename T>
 bool contains(const std::vector<T>& v, T target)
@@ -80,6 +92,22 @@ bool removeFirst(std::vector<T>& v, const T& target)
 		}
 	return false;
 }
+
+
+// Remove first n items from vector, copy remaining data to front of buffer
+template <class T>
+static void removeNItemsFromFront(std::vector<T>& vec, size_t n)
+{
+	assert(n <= vec.size());
+
+	const size_t vec_size = vec.size();
+
+	for(size_t i=n; i<vec_size; ++i)
+		vec[i - n] = vec[i];
+
+	vec.resize(vec_size - n);
+}
+
 
 //template <typename T, typename Compare, typename Alloc>
 //std::vector<T> setToVector(const std::set<T, Compare, Alloc>& s)
