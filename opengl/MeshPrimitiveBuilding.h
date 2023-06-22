@@ -33,4 +33,5 @@ public:
 	static Reference<OpenGLMeshRenderData> make3DArrowMesh(VertexBufferAllocator& allocator);
 	static Reference<OpenGLMeshRenderData> make3DBasisArrowMesh(VertexBufferAllocator& allocator);
 	static Reference<GLObject> makeDebugHexahedron(VertexBufferAllocator& allocator, const Vec4f* verts_ws, const Colour4f& col);
+	static Reference<OpenGLMeshRenderData> makeRoundedCornerRect(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j, float w, float h, float corner_radius, int tris_per_corner);
 };

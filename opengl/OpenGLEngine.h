@@ -101,6 +101,8 @@ public:
 		use_wind_vert_shader(false),
 		double_sided(false),
 		materialise_effect(false),
+		cast_shadows(true),
+		draw_into_depth_buffer(false),
 		begin_fade_out_distance(100.f),
 		end_fade_out_distance(120.f),
 		materialise_lower_z(0),
@@ -124,6 +126,9 @@ public:
 	bool use_wind_vert_shader;
 	bool double_sided;
 	bool materialise_effect;
+	bool cast_shadows;
+
+	bool draw_into_depth_buffer; // Internal
 
 	Reference<OpenGLTexture> albedo_texture;
 	Reference<OpenGLTexture> metallic_roughness_texture;

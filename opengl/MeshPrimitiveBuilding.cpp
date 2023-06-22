@@ -904,3 +904,146 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(VertexBuffer
 
 	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
+
+
+// See docs/rounded_rect_geometry.jpg
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeRoundedCornerRect(VertexBufferAllocator& allocator, const Vec4f& i_, const Vec4f& j_, float w, float h, float corner_radius, int tris_per_corner)
+{
+	const int N = tris_per_corner; // Num tris in each rounded corner
+
+	js::Vector<Vec3f, 16> verts;
+	verts.resize(12 + N * 4); // 12 verts for centre 3 quads (6 tris), plus N for each rounded corner.
+	js::Vector<Vec3f, 16> normals;
+	normals.resize(verts.size());
+	js::Vector<Vec2f, 16> uvs;
+	uvs.resize(verts.size());
+	js::Vector<uint32, 16> indices;
+	const int num_tris = 6 + N * 4;
+	indices.resize(num_tris * 3);
+
+	indices[0] = 0;
+	indices[1] = 1;
+	indices[2] = 2;
+	indices[3] = 0;
+	indices[4] = 2;
+	indices[5] = 3;
+
+	indices[6] = 4;
+	indices[7] = 5;
+	indices[8] = 6;
+	indices[9] = 4;
+	indices[10] = 6;
+	indices[11] = 7;
+
+	indices[12] = 8;
+	indices[13] = 9;
+	indices[14] = 10;
+	indices[15] = 8;
+	indices[16] = 10;
+	indices[17] = 11;
+
+	const Vec3f i = toVec3f(i_);
+	const Vec3f j = toVec3f(j_);
+
+	const float r = corner_radius;
+
+	verts[0] = i * r; // bottom left
+	verts[1] = i * (w - r); // bottom right
+	verts[2] = i * (w - r) + j * h; // top right
+	verts[3] = i * r + j * h; // top left
+
+	verts[4] = j * r; // bottom left
+	verts[5] = i * r + j * r; // bottom right
+	verts[6] = i * r + j * (h - r); // top right
+	verts[7] = j * (h - r); // top left
+
+	verts[8] = i * (w - r) + j * r; // bottom left
+	verts[9] = i * w + j * r; // bottom right
+	verts[10] = i * w + j * (h - r); // top right
+	verts[11] = i * (w - r) + j * (h - r); // top left
+
+	// Bottom right triangle fan
+	{
+		const int indices_start = 18;
+		const int verts_start = 12;
+		for(int z=0; z<N; ++z)
+		{
+			float theta = Maths::pi_2<float>() * (z + 1.f) / N;
+			verts[verts_start + z] = verts[8] + i * std::sin(theta) * r - j * std::cos(theta) * r;
+
+			indices[indices_start + z*3 + 0] = 8;
+			if(z == 0)
+				indices[indices_start + z*3 + 1] = 1;
+			else
+				indices[indices_start + z*3 + 1] = verts_start + z - 1;
+
+			indices[indices_start + z*3 + 2] = verts_start + z;
+		}
+	}
+
+	// top right triangle fan
+	{
+		const int indices_start = 18 + N * 3;
+		const int verts_start = 12 + N;
+		for(int z=0; z<N; ++z)
+		{
+			float theta = Maths::pi_2<float>() * (z + 1.f) / N;
+			verts[verts_start + z] = verts[11] + i * std::cos(theta) * r + j * std::sin(theta) * r;
+
+			indices[indices_start + z*3 + 0] = 11;
+			if(z == 0)
+				indices[indices_start + z*3 + 1] = 10;
+			else
+				indices[indices_start + z*3 + 1] = verts_start + z - 1;
+
+			indices[indices_start + z*3 + 2] = verts_start + z;
+		}
+	}
+
+	// bot left triangle fan
+	{
+		const int indices_start = 18 + (N * 3) * 2;
+		const int verts_start = 12 + N*2;
+		for(int z=0; z<N; ++z)
+		{
+			float theta = Maths::pi_2<float>() * (z + 1.f) / N;
+			verts[verts_start + z] = verts[5] - i * std::cos(theta) * r - j * std::sin(theta) * r;
+
+			indices[indices_start + z*3 + 0] = 5;
+			if(z == 0)
+				indices[indices_start + z*3 + 1] = 4;
+			else
+				indices[indices_start + z*3 + 1] = verts_start + z - 1;
+
+			indices[indices_start + z*3 + 2] = verts_start + z;
+		}
+	}
+
+	// top left triangle fan
+	{
+		const int indices_start = 18 + (N * 3) * 3;
+		const int verts_start = 12 + N*3;
+		for(int z=0; z<N; ++z)
+		{
+			float theta = Maths::pi_2<float>() * (z + 1.f) / N;
+			verts[verts_start + z] = verts[6] - i * std::sin(theta) * r + j * std::cos(theta) * r;
+
+			indices[indices_start + z*3 + 0] = 6;
+			if(z == 0)
+				indices[indices_start + z*3 + 1] = 3;
+			else
+				indices[indices_start + z*3 + 1] = verts_start + z - 1;
+
+			indices[indices_start + z*3 + 2] = verts_start + z;
+		}
+	}
+
+	const Vec3f n = crossProduct(i, j);
+	for(size_t z=0; z<normals.size(); ++z)
+		normals[z] = n;
+
+	for(size_t z=0; z<uvs.size(); ++z)
+		uvs[z] = Vec2f(dot(verts[z], i) / w, dot(verts[z], j) / h);
+
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
+}
