@@ -247,7 +247,9 @@ void UDPSocket::sendPacket(const void* data, size_t datalen, const IPAddress& de
 	// send it!
 	//-----------------------------------------------------------------
 	const int numbytessent = ::sendto(socket_handle, (const char*)data, (int)datalen, 0, 
-							(struct sockaddr*)&dest_address, sizeof(sockaddr_storage));
+		(struct sockaddr*)&dest_address, 
+		(dest_ip.getVersion() == IPAddress::Version_4) ? sizeof(struct sockaddr) : sizeof(sockaddr_storage) // We need to use sizeof(struct sockaddr) for IPv4 address on Mac or we get an 'invalid argument' error.
+	);
 	
 	if(numbytessent == SOCKET_ERROR)
 		throw makeMySocketExcepFromLastErrorCode("error while writing to UDP socket");
