@@ -5060,7 +5060,8 @@ void OpenGLEngine::draw()
 		const int xres = myMax(16, main_viewport_w);
 		const int yres = myMax(16, main_viewport_h);
 
-		// If buffer textures are too low res, free them, we wil alloc larger ones below.
+		// If buffer textures are the incorrect res, free them, we wil alloc larger ones below.
+		// Free any allocated textures first, to reduce max mem usage.
 		if(main_colour_texture.nonNull() &&
 			(((int)main_colour_texture->xRes() != xres) ||
 			((int)main_colour_texture->yRes() != yres)))
@@ -5068,6 +5069,8 @@ void OpenGLEngine::draw()
 			main_colour_texture = NULL;
 			main_depth_texture = NULL;
 			main_render_framebuffer = NULL;
+			transparent_accum_texture = NULL;
+			av_transmittance_texture = NULL;
 		}
 
 		if(main_colour_texture.isNull())
@@ -5962,6 +5965,18 @@ void OpenGLEngine::draw()
 			blur_framebuffers_x     .resize(NUM_BLUR_DOWNSIZES);
 			blur_target_textures    .resize(NUM_BLUR_DOWNSIZES);
 			blur_framebuffers       .resize(NUM_BLUR_DOWNSIZES);
+
+			// Free any allocated textures first, to reduce max mem usage.
+			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+			{
+				downsize_target_textures[i] = NULL;
+				blur_target_textures_x[i] = NULL;
+				blur_target_textures[i] = NULL;
+
+				downsize_framebuffers[i] = NULL;
+				blur_framebuffers_x[i] = NULL;
+				blur_framebuffers[i] = NULL;
+			}
 
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 			{
