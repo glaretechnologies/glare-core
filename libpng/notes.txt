@@ -1,0 +1,3 @@
+This is just the libpng 1.6.40 distribution, downloaded from http://www.libpng.org/pub/png/libpng.html, with some unneeded files deleted.
+scripts/pnglibconf.h.prebuilt was copied to pnglibconf.h.
+--nick
