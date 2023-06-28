@@ -1,13 +1,15 @@
 /*=====================================================================
 SSE.h
 -----
-Copyright Glare Technologies Limited 2017 -
-File created by ClassTemplate on Sat Jun 25 08:01:25 2005
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
 
 #include "../utils/Platform.h"
+
+#if defined(_M_X64) || defined(__x86_64__)
+
 #include <xmmintrin.h> // SSE header file
 #include <emmintrin.h> // SSE 2 header file
 #ifdef __SSE3__
@@ -19,6 +21,14 @@ File created by ClassTemplate on Sat Jun 25 08:01:25 2005
 
 #ifdef __SSE4_1__
 #define COMPILE_SSE4_CODE 1
+#endif
+
+#else // Else if not x64, assume ARM64.
+
+#include "../libs/sse2neon.h" // Use SSE2Neon to convert SSE intrinsics to Neon intrinsics.
+
+#define COMPILE_SSE4_CODE 1
+
 #endif
 
 #include <assert.h>
