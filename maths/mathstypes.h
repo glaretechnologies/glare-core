@@ -8,8 +8,12 @@ Copyright Glare Technologies Limited 2020 -
 
 #include "../utils/Platform.h"
 #include "../utils/BitUtils.h"
+#if defined(_M_X64) || defined(__x86_64__)
 #include <xmmintrin.h> // SSE header file
 #include <emmintrin.h> // SSE 2 header file
+#else // Else if not x64, assume ARM64.
+#include "../libs/sse2neon.h" // Use SSE2Neon to convert SSE intrinsics to Neon intrinsics.
+#endif
 #include <cstring> // For std::memcpy()
 #include <cmath>
 #include <cassert>
