@@ -37,7 +37,9 @@ Copyright Glare Technologies Limited 2021 -
 	#include <sys/ioctl.h>
 	#include <netinet/in.h>
 	#include <net/if.h>
-	#include <cpuid.h>
+	#if defined(__x86_64__) || defined(_M_X64)
+		#include <cpuid.h>
+	#endif
 #endif
 
 #include <cassert>
@@ -187,6 +189,7 @@ unsigned int PlatformUtils::getNumThreadsInCurrentProcess()
 }
 
 
+#if defined(__x86_64__) || defined(_M_X64)
 static void doCPUID(unsigned int infotype, unsigned int* out)
 {
 #if defined(_WIN32)
@@ -195,10 +198,12 @@ static void doCPUID(unsigned int infotype, unsigned int* out)
 	__get_cpuid(infotype, out, out + 1, out + 2, out + 3);
 #endif
 }
+#endif
 
 
 void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 {
+#if defined(__x86_64__) || defined(_M_X64)
 	const int MMX_FLAG = 1 << 23;
 	const int SSE_FLAG = 1 << 25;
 	const int SSE2_FLAG = 1 << 26;
@@ -255,6 +260,9 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 	memcpy(info_out.proc_brand + 32, cpu_info, 16);
 
 	info_out.proc_brand[48] = 0; // Force string null termination.
+#else
+	throw PlatformUtilsExcep("CPUID only supported on x64 CPUs.");
+#endif
 }
 
 
@@ -984,6 +992,7 @@ void PlatformUtils::testPlatformUtils()
 
 	try
 	{
+#if defined(__x86_64__) || defined(_M_X64)
 		//----------------------- Test getCPUInfo ------------------------------
 		{
 			conPrint("Testing CPUID:");
@@ -1001,7 +1010,7 @@ void PlatformUtils::testPlatformUtils()
 			conPrint("sse4_1:     " + boolToString(info.sse4_1));
 			conPrint("sse4_2:     " + boolToString(info.sse4_2));
 		}
-
+#endif
 
 
 

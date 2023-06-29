@@ -52,7 +52,7 @@ public:
 	char proc_brand[49]; // Includes an extra char to force null termination.
 };
 
-void getCPUInfo(CPUInfo& info_out); // throws PlatformUtilsExcep
+void getCPUInfo(CPUInfo& info_out); // throws PlatformUtilsExcep.  Only supported on x64 CPUs
 
 /*
 This is something like "C:\Documents and Settings\username\Application Data" on XP, and "C:\Users\Nicolas Chapman\AppData\Roaming" on Vista.
