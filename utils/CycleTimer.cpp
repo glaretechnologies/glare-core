@@ -1,17 +1,18 @@
 /*=====================================================================
 CycleTimer.cpp
 --------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "CycleTimer.h"
 
 
-#include <assert.h>
 #include "../maths/mathstypes.h"
+#include <assert.h>
 
 
 CycleTimer::CycleTimer()
 {
+#if CYCLETIMER_SUPPORTED
 	static_assert(sizeof(CYCLETIME_TYPE) == 8, "sizeof(CYCLETIME_TYPE) == 8");
 	
 	rdtsc_time = std::numeric_limits<CYCLETIME_TYPE>::max();
@@ -30,6 +31,9 @@ CycleTimer::CycleTimer()
 	CYCLETIME_TYPE cpuid_time_3 = getRawCyclesElapsed();
 
 	 = myMin(cpuid_time_1, cpuid_time_2, cpuid_time_3);*/
+#else
+	assert(0);
+#endif
 }
 
 

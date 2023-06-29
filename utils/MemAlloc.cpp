@@ -78,7 +78,6 @@ void alignedFree(void* addr)
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include "Timer.h"
-#include "CycleTimer.h"
 
 
 void MemAlloc::test()

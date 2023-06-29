@@ -430,6 +430,7 @@ void Vec4f::test()
 	}
 
 
+#if CYCLETIMER_SUPPORTED
 	conPrint("================ Perf test ================");
 	{
 		CycleTimer cycle_timer;
@@ -544,6 +545,7 @@ void Vec4f::test()
 		conPrint("horizontalAdd(): " + ::toString((float)cycles / N) + " cycles");
 		TestUtils::silentPrint(::toString(sum));
 	}
+#endif // CYCLETIMER_SUPPORTED
 }
 
 

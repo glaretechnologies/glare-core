@@ -11,7 +11,6 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
-#include "../utils/CycleTimer.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
 #include <bitset>

@@ -372,6 +372,7 @@ void js::AABBox::test()
 	}
 
 	// Performance test
+#if CYCLETIMER_SUPPORTED
 	conPrint("rayAABBTrace() [float]");
 	{
 		
@@ -404,6 +405,7 @@ void js::AABBox::test()
 		conPrint("\tcycles: " + ::toString(cycles));
 		conPrint("\tsum: " + ::toString(sum));
 	}
+#endif
 }
 
 

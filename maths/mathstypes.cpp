@@ -863,7 +863,7 @@ void Maths::test()
 
 	// Compute clock speed
 	
-#if !defined(OSX)
+#if CYCLETIMER_SUPPORTED && !defined(OSX)
 	// Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
 	{
 	const int N = 1000000;
@@ -1623,7 +1623,7 @@ void Maths::test()
 		}
 	}
 	
-#endif // !defined(OSX)
+#endif // CYCLETIMER_SUPPORTED && !defined(OSX)
 
 }
 

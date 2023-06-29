@@ -1,7 +1,7 @@
 /*=====================================================================
 CycleTimer.h
 ------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -9,14 +9,17 @@ Copyright Glare Technologies Limited 2021 -
 #include "Platform.h"
 
 
-#if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
-#include <intrin.h>
-#pragma intrinsic(__rdtsc)
+// CycleTimer is only supported on x64 chips.
+#if defined(__x86_64__) || defined(_M_X64)
+#define CYCLETIMER_SUPPORTED 1
+#else
+#define CYCLETIMER_SUPPORTED 0
 #endif
 
-// We want to make sure that either __x86_64__ or __i386__ is defined when building on non windows platforms.
-#if !defined(_WIN32) && (!defined(__x86_64__) && !defined(__i386__))
-#error Either __x86_64__ or __i386_ need to be defined!
+
+#if defined(_WIN32) && CYCLETIMER_SUPPORTED
+#include <intrin.h>
+#pragma intrinsic(__rdtsc)
 #endif
 
 
@@ -34,7 +37,7 @@ class CycleTimer
 public:
 	CycleTimer();
 
-	typedef int64_t CYCLETIME_TYPE;
+	typedef int64 CYCLETIME_TYPE;
 
 	GLARE_STRONG_INLINE void reset();
 
@@ -83,6 +86,8 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCyclesElapsed() const
 
 CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 {
+#if CYCLETIMER_SUPPORTED
+
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
 	return (CYCLETIME_TYPE)__rdtsc();
 #else
@@ -103,5 +108,10 @@ CycleTimer::CYCLETIME_TYPE CycleTimer::getCounter() const
 	return (CYCLETIME_TYPE)ret;
 #endif
 
+#endif
+
+#else // else if !CYCLETIMER_SUPPORTED:
+	assert(0);
+	return 0;
 #endif
 }
