@@ -7,7 +7,6 @@ Copyright Glare Technologies Limited 2023 -
 
 
 #include "../maths/mathstypes.h"
-#include <assert.h>
 
 
 CycleTimer::CycleTimer()

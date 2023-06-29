@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2023 -
 
 
 #include "Platform.h"
+#include <assert.h>
 
 
 // CycleTimer is only supported on x64 chips.
