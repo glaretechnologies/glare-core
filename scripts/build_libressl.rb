@@ -192,7 +192,7 @@ end
 
 
 def getOutputDirName(configuration, dir_type, vs_version = -1)
-	config_suffix = CMakeBuild.config_opts[configuration][1]
+	config_suffix = CMakeBuild.config_opts[configuration][1] # Will add a suffix like "-debug" for some configurations
 	
 	if OS.windows?
 		if vs_version == -1
@@ -226,7 +226,7 @@ def buildLibreSSL(configurations, vs_version)
 			"#{$libs_libressl_dir}/#{getBuildDir(configuration, vs_version)}",
 			"#{$libs_libressl_dir}/#{getInstallDir(configuration, vs_version)}")
 		
-		cmake_build.configure(configuration, vs_version)
+		cmake_build.configure(configuration, vs_version, "", false, OS.arm64?)
 		cmake_build.build()
 		cmake_build.install($build_epoch)
 	end

@@ -121,8 +121,8 @@ end
 
 def scp_upload(host, username, local_path, remote_path, port=22, winAllowSCP=true)
 	local_filename = File.basename(local_path)
-	puts "Uploading: #{local_filename}"
-
+	puts "Uploading: '#{local_filename}' to '#{remote_path}' on host '#{host}'"
+	
 	start = Time.now
 
 	#Check if openssh scp is available
@@ -312,6 +312,10 @@ module OS
 		(/darwin/ =~ RUBY_PLATFORM) != nil
 	end
 
+	def OS.arm64?
+		(/arm64/ =~ RUBY_PLATFORM) != nil
+	end
+
 	def OS.unix?
 		!OS.windows?
 	end
@@ -442,7 +446,7 @@ def copyAllFilesInDir(dir_from, dir_to)
 	end
 
 	Dir.foreach(dir_from) do |f|
-		FileUtils.cp(dir_from + "/" + f, dir_to, :verbose => true) if f != ".." && f != "."
+		FileUtils.cp(dir_from + "/" + f, dir_to, verbose: true) if f != ".." && f != "."
 	end
 end
 
