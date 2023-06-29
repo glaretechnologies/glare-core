@@ -73,14 +73,12 @@ UDPSocket::~UDPSocket()
 		//------------------------------------------------------------------------
 		// try shutting down the socket
 		//------------------------------------------------------------------------
-		int result = shutdown(socket_handle, 1);
-		assertOrDeclareUsed(result == 0);
+		/*int result =*/ shutdown(socket_handle, 1);
 
 		//-----------------------------------------------------------------
 		// close socket
 		//-----------------------------------------------------------------
-		result = doCloseSocket(socket_handle);
-		assert(result == 0);
+		/*result =*/ doCloseSocket(socket_handle);
 	}
 }
 
