@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2021 -
 #ifdef _WIN32
 #include <IncludeWindows.h>
 #include <wincrypt.h>
-#elif defined(OSX)
+#elif defined(__APPLE__)
 #include <Security/Security.h>
 #else // Linux:
 #include <sys/random.h>
@@ -50,7 +50,7 @@ void getRandomBytes(uint8* buf, size_t buflen)
 	if(!CryptReleaseContext(provider, /*flags=*/0))
 		throw glare::Exception("CryptReleaseContext failed: " + PlatformUtils::getLastErrorString());
 
-#elif defined(OSX)
+#elif defined(__APPLE__)
 
 	// See https://stackoverflow.com/a/32770362
 	const int res = SecRandomCopyBytes(kSecRandomDefault, buflen, buf);

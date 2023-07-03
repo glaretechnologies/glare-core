@@ -116,7 +116,7 @@ MemMappedFile::~MemMappedFile()
 }
 
 
-#else // if defined LINUX or OSX
+#else // if defined LINUX or __APPLE__
 
 
 MemMappedFile::MemMappedFile(const std::string& path)

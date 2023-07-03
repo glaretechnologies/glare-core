@@ -23,7 +23,7 @@ Copyright Glare Technologies Limited 2020 -
 #if BUILD_TESTS
 
 
-#if !defined(OSX) // Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
+#if !defined(__APPLE__) // Don't run these speed tests on Mac, as CycleTimer crashes on Mac.
 
 
 inline static float fastPosFract(float x)
@@ -68,7 +68,7 @@ static GLARE_STRONG_INLINE float sqrtSSE(float x)
 }
 
 
-#endif // !defined(OSX)
+#endif // !defined(__APPLE__)
 
 
 template <class T>
@@ -863,7 +863,7 @@ void Maths::test()
 
 	// Compute clock speed
 	
-#if CYCLETIMER_SUPPORTED && !defined(OSX)
+#if CYCLETIMER_SUPPORTED && !defined(__APPLE__)
 	// Don't run these speed tests on OSX, as CycleTimer crashes on OSX.
 	{
 	const int N = 1000000;
@@ -1623,7 +1623,7 @@ void Maths::test()
 		}
 	}
 	
-#endif // CYCLETIMER_SUPPORTED && !defined(OSX)
+#endif // CYCLETIMER_SUPPORTED && !defined(__APPLE__)
 
 }
 

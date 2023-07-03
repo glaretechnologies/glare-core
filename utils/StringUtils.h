@@ -107,11 +107,6 @@ inline const std::string toString(size_t x)
 {
 	return uInt64ToString(x);
 }
-
-inline const std::string toString(int x)
-{
-	return int32ToString(x);
-}
 #endif
 
 //====================== End Number -> String conversion ======================

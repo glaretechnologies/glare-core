@@ -1122,7 +1122,7 @@ const std::string getActualOSPathWithDirScanning(const std::string& path_)
 {
 	const std::string path = toPlatformSlashes(path_);
 
-#if defined(_WIN32) || defined(OSX) // If we are on a case-insensitive filesystem:
+#if defined(_WIN32) || defined(__APPLE__) // If we are on a case-insensitive filesystem:
 	return getCanonicalPath(path);
 #else
 	if(FileUtils::fileExists(path))
@@ -1352,7 +1352,7 @@ void doUnitTests()
 		conPrint("canonical_path: '" + canonical_path + "'");
 		testAssert(FileUtils::fileExists(canonical_path));
 
-#if defined(_WIN32) || defined(OSX) // If we are on a case-insensitive filesystem:
+#if defined(_WIN32) || defined(__APPLE__) // If we are on a case-insensitive filesystem:
 		testAssert(canonical_path == getCanonicalPath(TestUtils::getTestReposDir() + "/testfiles/Sphere.obj"));
 		testAssert(canonical_path == getCanonicalPath(TestUtils::getTestReposDir() + "/TESTFILES/Sphere.OBJ"));
 #endif
@@ -1655,7 +1655,7 @@ void doUnitTests()
 		testAssert(getFilename(canonical_path) == "sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/sphere.obj") == canonical_path);
 		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/SpHerE.ObJ") == canonical_path);
-#elif defined(OSX)
+#elif defined(__APPLE__)
 		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/sphere.obj") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "/testfiles/SpHerE.ObJ") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");
 		testAssert(getActualOSPath(TestUtils::getTestReposDir() + "\\testfiles/SpHerE.ObJ") == TestUtils::getTestReposDir() + "/testfiles/sphere.obj");

@@ -56,7 +56,7 @@ void SSETest()
 	}*/
 
 
-#if !defined(OSX)
+#if !defined(__APPLE__)
 
 	/*conPrint("\n==================== myAlignedMalloc vs _mm_malloc speed test ===============");
 	{
@@ -146,7 +146,7 @@ void SSETest()
 	//	printVar((float)cycles / N);
 	//	printVar(sum);
 	//}
-#endif // !defined(OSX)
+#endif // !defined(__APPLE__)
 
 	{
 		SSE_ALIGN float x[4] = { 1.f, 2.f, 3.f, 4.f };

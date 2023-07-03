@@ -716,7 +716,7 @@ bool MySocket::readable(double timeout_s)
 // Returns true if the socket was readable, false if the event_fd was signalled.
 bool MySocket::readable(EventFD& event_fd)  
 {	
-#if defined(_WIN32) || defined(OSX)
+#if defined(_WIN32) || defined(__APPLE__)
 	assert(0);
 	return false;
 #else
@@ -876,7 +876,7 @@ void MySocket::enableTCPKeepAlive(float period)
 		) != 0)
 		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
 
-#if defined(OSX)
+#if defined(__APPLE__)
 	// OS X has TCP_KEEPALIVE instead of TCP_KEEPIDLE.
 	// Set TCP_KEEPALIVE - the amount of time, in seconds, thatthe connection must be idle before keepalive probes (if enabled) are sent.  
 	// (See https://developer.apple.com/library/mac/DOCUMENTATION/Darwin/Reference/ManPages/man4/tcp.4.html)

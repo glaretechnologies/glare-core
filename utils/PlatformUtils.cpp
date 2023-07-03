@@ -26,7 +26,7 @@ Copyright Glare Technologies Limited 2021 -
 	#include <unistd.h>
 	#include <string.h> // for strncpy
 
-	#ifndef OSX
+	#ifndef __APPLE__
 		#include <sys/sysinfo.h>
 		#include <sys/utsname.h>
 		#include <sys/syscall.h>
@@ -48,7 +48,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <cstdlib>
 #include <algorithm>
 
-#if defined(OSX)
+#if defined(__APPLE__)
 	#include <CoreServices/CoreServices.h>
 	#include <sys/types.h>
 	#include <sys/socket.h>
@@ -119,7 +119,7 @@ uint64 PlatformUtils::getPhysicalRAMSize() // Number of bytes of physical RAM
 	GlobalMemoryStatusEx(&mem_state);
 	
 	return mem_state.ullTotalPhys;
-#elif defined(OSX)
+#elif defined(__APPLE__)
 	int mib[2];
 	uint64_t memsize;
 	size_t len;
@@ -266,7 +266,7 @@ void PlatformUtils::getCPUInfo(CPUInfo& info_out)
 }
 
 
-#if defined(OSX)
+#if defined(__APPLE__)
 std::string GetPathFromCFURLRef(CFURLRef urlRef)
 {
 	char buffer[2048];
@@ -294,7 +294,7 @@ const std::string PlatformUtils::getUserAppDataDirPath() // throws PlatformUtils
 		throw PlatformUtilsExcep("SHGetFolderPath() failed, Error code: " + toString((int)res));
 
 	return StringUtils::PlatformToUTF8UnicodeEncoding(path);
-#elif defined(OSX)
+#elif defined(__APPLE__)
 	// Supressing warnings about deprecation of FSFindFile (10.8) and CFURLCreateFromFSRef (10.9). There is no suitable replacement for C++ and
 	// apparently is not going to be removed any time soon.
 # pragma clang diagnostic push
@@ -364,7 +364,7 @@ const std::string PlatformUtils::getTempDirPath() // throws PlatformUtilsExcep
 
 	const std::string p = StringUtils::PlatformToUTF8UnicodeEncoding(path);
 	return ::eatSuffix(p, "\\"); // Remove trailing backslash.
-#elif defined(OSX)
+#elif defined(__APPLE__)
 	return "/tmp";
 #else
 	// Linux
@@ -404,7 +404,7 @@ const std::string PlatformUtils::getCurrentWorkingDirPath() // throws PlatformUt
 
 const std::string PlatformUtils::getAppDataDirectory(const std::string& app_name)
 {
-#if defined(_WIN32) || defined(_WIN64) || defined(OSX)
+#if defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
 	// e.g. C:\Users\Nicholas Chapman\AppData\Roaming
 	const std::string appdatapath_base = PlatformUtils::getUserAppDataDirPath();
 
@@ -445,7 +445,7 @@ const std::string PlatformUtils::getResourceDirectoryPath() // throws PlatformUt
 {
 #if defined(_WIN32) || defined(_WIN64)
 	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
-#elif defined(OSX)
+#elif defined(__APPLE__)
 	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable()) + "/../Resources";
 #else // else on Linux:
 	return FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
@@ -468,7 +468,7 @@ const std::string PlatformUtils::getFullPathToCurrentExecutable() // throws Plat
 		throw PlatformUtilsExcep("GetModuleFileName failed.");
 	else
 		return StringUtils::PlatformToUTF8UnicodeEncoding(buf);
-#elif defined(OSX)
+#elif defined(__APPLE__)
 	char path[8192];
 	uint32_t size = sizeof(path);
 	if (_NSGetExecutablePath(path, &size) != 0)
@@ -537,7 +537,7 @@ void PlatformUtils::openFileBrowserWindowAtLocation(const std::string& select_pa
 	CloseHandle(procInfo.hProcess);
 	CloseHandle(procInfo.hThread);
 
-#elif defined(OSX)
+#elif defined(__APPLE__)
 
 	// Uses applescript
 	std::string command = "osascript -e 'tell application \"Finder\" to activate' -e 'tell application \"Finder\" to reveal POSIX file \"" + select_path + "\"'";
@@ -606,7 +606,7 @@ const std::string PlatformUtils::COMErrorString(/*HRESULT=*/long hresult)
 // OS X and Linux implementation of getErrorStringForCode()
 const std::string PlatformUtils::getErrorStringForCode(int error_code)
 {
-#if defined(OSX)
+#if defined(__APPLE__)
 	
 	char buf[4096];
 	if(strerror_r(error_code, buf, sizeof(buf)) == 0) // returns 0 upon success: https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man3/strerror.3.html
@@ -862,7 +862,7 @@ const std::string PlatformUtils::getOSVersionString()
 		return "Windows 8 +";
 	else
 		return "Unknown Windows version";*/
-#elif OSX
+#elif __APPLE__
 	SInt32 majorVersion, minorVersion, bugFixVersion;
 	
 	// Stop Clang complaining about Gestalt being deprecated, since it is the only half-decent way of getting the OS version.
@@ -899,7 +899,7 @@ uint64 PlatformUtils::getCurrentThreadID()
 {
 #if defined(_WIN32)
 	return GetCurrentThreadId();
-#elif defined(OSX)
+#elif defined(__APPLE__)
 	uint64_t thread_id;
 	const int res = pthread_threadid_np(NULL, &thread_id);
 	assertOrDeclareUsed(res == 0);
@@ -924,7 +924,7 @@ void PlatformUtils::setCurrentThreadName(const std::string& name)
 			set_thread_description_func(::GetCurrentThread(), StringUtils::UTF8ToWString(name).c_str());
 	}
 
-#elif defined(OSX)
+#elif defined(__APPLE__)
 	pthread_setname_np(name.c_str());
 #else
 	pthread_setname_np(pthread_self(), name.c_str());
