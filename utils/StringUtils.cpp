@@ -667,14 +667,6 @@ const std::string int64ToString(int64 i)
 }
 
 
-#ifdef OSX
-const std::string toString(size_t x)
-{
-	return toString((uint64)x);
-}
-#endif
-
-
 const std::string boolToString(bool b)
 {
 	return b ? "true" : "false";
