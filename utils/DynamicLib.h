@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2021 -
 #if defined(_WIN32)
 #include "IncludeWindows.h"
 #include <delayimp.h>
-#elif defined(__linux__) || defined(OSX)
+#elif defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
 #endif
 
