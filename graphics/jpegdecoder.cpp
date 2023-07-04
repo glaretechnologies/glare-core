@@ -27,8 +27,8 @@ File created by ClassTemplate on Sat Apr 27 16:22:59 2002
 
 
 // We use libjpeg-turbo for loading and saving JPEGs.
-// Libjpeg-turbo should be version 2.1.4.  See building_indigo.txt and scripts/build_jpegturbo.rb.
-static_assert(LIBJPEG_TURBO_VERSION_NUMBER == 2001004, "LIBJPEG_TURBO_VERSION_NUMBER == 2001004");
+// Libjpeg-turbo should be version 3.0.0.  See building.txt and scripts/build_jpegturbo.rb.
+static_assert(LIBJPEG_TURBO_VERSION_NUMBER == 3000000, "LIBJPEG_TURBO_VERSION_NUMBER == 3000000");
 
 
 // See 'Precompute colour profile data' code in PNGDecoder.cpp.
