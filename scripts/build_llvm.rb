@@ -184,8 +184,8 @@ def buildLLVM(llvm_src_dir, vs_version = -1)
 			cmake_args += " -DLLVM_BUILD_LLVM_DYLIB=TRUE"
 		end
 		
-		cmake_args += " -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON"
-		# -DLLVM_INCLUDE_BENCHMARKS=OFF
+		cmake_args += " -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON -DLLVM_INCLUDE_BENCHMARKS=OFF"
+                    + "-DLLVM_ENABLE_EH" # Enable exception handling, as we currently throw exceptions through LLVM code.
 		if OS.arm64?
 			cmake_args += " -DLLVM_TARGETS_TO_BUILD=\"AArch64\""
 		else
