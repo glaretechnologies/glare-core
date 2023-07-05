@@ -11,7 +11,6 @@
 require 'fileutils'
 require 'net/http'
 require './script_utils.rb'
-#require './config-lib.rb'
 require './cmake.rb'
 
 
@@ -23,7 +22,7 @@ LLVM build
 
 # Set up defaults
 $vs_version = 2022 # Visual Studio version
-$llvm_version = "6.0.0"
+$llvm_version = "15.0.7"
 $configurations = [ :release, :debug ]
 # todo: use CMakeBuild.config_opts
 $config_opts = {
@@ -31,7 +30,7 @@ $config_opts = {
 	:release => ["Release", ""]
 }
 $forcerebuild = false
-$build_epoch = 0
+$build_epoch = 1
 
 
 def printUsage()
@@ -80,7 +79,7 @@ arg_parser.options.each do |opt|
 		end
 	elsif opt[0] == "--vsversion" || opt[0] == "-v"
 		$vs_version = opt[1].to_i
-		if not [2012, 2013, 2015, 2017, 2019, 2022].include?($vs_version)
+		if not [2015, 2017, 2019, 2022].include?($vs_version)
 			puts "Unsupported VS version: #{opt[1]}. Skipping."
 			exit 0
 		end
@@ -167,26 +166,31 @@ def buildLLVM(llvm_src_dir, vs_version = -1)
 		
 		if OS.windows?
 			cmake_args += " -DCMAKE_CXX_FLAGS:STRING=\"-D_SECURE_SCL=0\"" if configuration == :release
-			cmake_args += " -DLLVM_INCLUDE_TOOLS=OFF"
 			
 			if Gem::Version.new($llvm_version) >= Gem::Version.new('8.0.0')
 				cmake_args += " -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON "
 			end
 		end
 		
-		# Unix specific arguments (OSX and linux)
-		if !OS.windows?
-			# Note: When building with GCC, inheriting from an LLVM class requires LLVM to be built with RTTI. (as long as indigo uses RTTI, which it does)
-			# And WinterMemoryManager in VirtualMachine.cpp in Winter trunk inherits from an LLVM class.
-			cmake_args += " -DLLVM_REQUIRES_RTTI=TRUE"
-		end
 		
 		if OS.linux?
+			# Required to avoid clashing with system LLVM (used e.g. in Mesa OpenGL drivers)
 			cmake_args += " -DLLVM_BUILD_LLVM_DYLIB=TRUE"
 		end
 		
-		cmake_args += " -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON -DLLVM_INCLUDE_BENCHMARKS=OFF"
-                    + "-DLLVM_ENABLE_EH" # Enable exception handling, as we currently throw exceptions through LLVM code.
+		cmake_args += " -DLLVM_OPTIMIZED_TABLEGEN=ON"
+		
+		# Disable a bunch of stuff we don't need, to speed up build
+		cmake_args += " -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_TOOLS=OFF"
+		
+		# Enable exception handling, as we currently throw exceptions through LLVM code.  
+		cmake_args += " -DLLVM_ENABLE_EH=ON"
+		
+		# Note: When building with GCC, inheriting from an LLVM class requires LLVM to be built with RTTI. (as long as indigo uses RTTI, which it does)
+		# And WinterMemoryManager in VirtualMachine.cpp in Winter trunk inherits from an LLVM class.
+		# Also RTTI is required when DLLVM_ENABLE_EH=ON.
+		cmake_args += " -DLLVM_ENABLE_RTTI=ON"
+		
 		if OS.arm64?
 			cmake_args += " -DLLVM_TARGETS_TO_BUILD=\"AArch64\""
 		else
