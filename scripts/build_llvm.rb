@@ -22,6 +22,7 @@ LLVM build
 
 
 # Set up defaults
+$vs_version = 2022 # Visual Studio version
 $llvm_version = "6.0.0"
 $configurations = [ :release, :debug ]
 # todo: use CMakeBuild.config_opts
