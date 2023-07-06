@@ -75,6 +75,9 @@ struct OpenGLUniformVal // variant class
 };
 
 
+#define UNIFORM_BUF_PER_MAT_SUPPORT 0 // This is slower on Windows + Nvidia GPU when enabled.
+
+
 class OpenGLMaterial
 {
 public:
@@ -162,8 +165,11 @@ public:
 
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 
-	// UniformBufObRef uniform_ubo;
 	int material_data_index;
+
+#if UNIFORM_BUF_PER_MAT_SUPPORT
+	UniformBufObRef uniform_buf_ob;
+#endif
 };
 
 
@@ -869,6 +875,7 @@ public:
 private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
 	void setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms);
+	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat);
 	void setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;

@@ -2427,6 +2427,18 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 			material.draw_into_depth_buffer = true;
 		}
 	}
+
+	// Alloc buffer for material
+#if UNIFORM_BUF_PER_MAT_SUPPORT
+	if(material.shader_prog->uses_phong_uniforms)
+	{
+		if(material.uniform_buf_ob.isNull())
+		{
+			material.uniform_buf_ob = new UniformBufOb();
+			material.uniform_buf_ob->allocate(sizeof(PhongUniforms));
+		}
+	}
+#endif
 }
 
 
@@ -2575,6 +2587,20 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 			}
 		}
 	}
+	else
+	{
+#if UNIFORM_BUF_PER_MAT_SUPPORT
+		for(size_t i=0; i<object->materials.size(); ++i)
+		{
+			if(object->materials[i].uniform_buf_ob.nonNull())
+			{
+				PhongUniforms uniforms;
+				setUniformsForPhongProg(*object, object->materials[i], *object->mesh_data, uniforms);
+				object->materials[i].uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
+			}
+		}
+#endif
+	}
 }
 
 
@@ -2659,15 +2685,30 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 void OpenGLEngine::updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index)
 {
-	assert(use_multi_draw_indirect);
-
-	PhongUniforms uniforms;
-	setUniformsForPhongProg(ob, ob.materials[mat_index], *ob.mesh_data, uniforms);
-
-	assert(ob.materials[mat_index].material_data_index >= 0);
-	if(ob.materials[mat_index].material_data_index >= 0)
+	//assert(use_multi_draw_indirect);
+	if(use_multi_draw_indirect)
 	{
-		phong_buffer->updateData(/*dest offset=*/ob.materials[mat_index].material_data_index * sizeof(PhongUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PhongUniforms));
+		PhongUniforms uniforms;
+		setUniformsForPhongProg(ob, ob.materials[mat_index], *ob.mesh_data, uniforms);
+
+		assert(ob.materials[mat_index].material_data_index >= 0);
+		if(ob.materials[mat_index].material_data_index >= 0)
+		{
+			phong_buffer->updateData(/*dest offset=*/ob.materials[mat_index].material_data_index * sizeof(PhongUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PhongUniforms));
+		}
+	}
+	else
+	{
+#if UNIFORM_BUF_PER_MAT_SUPPORT
+
+		if(ob.materials[mat_index].uniform_buf_ob.nonNull())
+		{
+			PhongUniforms uniforms;
+			setUniformsForPhongProg(ob, ob.materials[mat_index], *ob.mesh_data, uniforms);
+			ob.materials[mat_index].uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
+		}
+	}
+#endif
 	}
 }
 
@@ -2833,7 +2874,7 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 
-					if(use_multi_draw_indirect) 
+					//if(use_multi_draw_indirect) 
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
 
@@ -2842,7 +2883,7 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 				{
 					mat.metallic_roughness_texture = opengl_texture;
 
-					if(use_multi_draw_indirect) 
+					//if(use_multi_draw_indirect) 
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
 
@@ -2855,7 +2896,7 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					// Now that we have a lightmap, assign a different shader.
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 
-					if(use_multi_draw_indirect) 
+					//if(use_multi_draw_indirect) 
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
 
@@ -2863,7 +2904,7 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 				{
 					mat.emission_texture = opengl_texture;
 
-					if(use_multi_draw_indirect) 
+					//if(use_multi_draw_indirect) 
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
 			}
@@ -2984,7 +3025,7 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 
 
 	// Update material data on GPU
-	if(use_multi_draw_indirect)
+	//if(use_multi_draw_indirect)
 	{
 		for(size_t i=0; i<object.materials.size(); ++i)
 			updateMaterialDataOnGPU(object, i);
@@ -3718,7 +3759,7 @@ void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool f
 			}
 
 			ob.materials[0].tex_matrix = Matrix2f(0.25f, 0, 0, -1.f); // Adjust texture matrix to pick just one of the texture sprites
-			if(use_multi_draw_indirect)
+			//if(use_multi_draw_indirect)
 				updateMaterialDataOnGPU(ob, /*mat index=*/0);
 		}
 
@@ -3765,7 +3806,7 @@ void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool f
 			}
 
 			ob.materials[0].tex_matrix = Matrix2f(1.f, 0, 0, -1.f); // Restore texture matrix
-			if(use_multi_draw_indirect)
+			//if(use_multi_draw_indirect)
 				updateMaterialDataOnGPU(ob, /*mat index=*/0);
 		}
 
@@ -6582,45 +6623,47 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 
 	for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 		uniforms.light_indices[i] = ob.light_indices[i];
+}
 
 
-	if(!this->use_bindless_textures)
+void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat)
+{
+	assert(!this->use_bindless_textures);
+
+	if(opengl_mat.albedo_texture.nonNull())
 	{
-		if(opengl_mat.albedo_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-		}
+		glActiveTexture(GL_TEXTURE0 + 0);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
+	}
 
-		if(opengl_mat.lightmap_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 7);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
-		}
+	if(opengl_mat.lightmap_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 7);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
+	}
 
-		if(opengl_mat.backface_albedo_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 8);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.backface_albedo_texture->texture_handle);
-		}
+	if(opengl_mat.backface_albedo_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 8);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.backface_albedo_texture->texture_handle);
+	}
 
-		if(opengl_mat.transmission_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 9);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.transmission_texture->texture_handle);
-		}
+	if(opengl_mat.transmission_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 9);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.transmission_texture->texture_handle);
+	}
 
-		if(opengl_mat.metallic_roughness_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 10);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
-		}
+	if(opengl_mat.metallic_roughness_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 10);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
+	}
 
-		if(opengl_mat.emission_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 11);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.emission_texture->texture_handle);
-		}
+	if(opengl_mat.emission_texture.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 11);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.emission_texture->texture_handle);
 	}
 }
 
@@ -6791,9 +6834,19 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	}
 	else if(shader_prog->uses_phong_uniforms)
 	{
+#if UNIFORM_BUF_PER_MAT_SUPPORT
+	
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, opengl_mat.uniform_buf_ob->handle);
+
+#else
+
 		PhongUniforms uniforms;
 		setUniformsForPhongProg(ob, opengl_mat, mesh_data, uniforms);
 		this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+
+#endif
+		if(!use_bindless_textures)
+			bindTexturesForPhongProg(opengl_mat);
 	}
 	else if(shader_prog->is_transparent)
 	{
