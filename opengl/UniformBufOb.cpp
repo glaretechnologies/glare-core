@@ -55,8 +55,20 @@ void UniformBufOb::updateData(size_t dest_offset, const void* src_data, size_t s
 
 	glBindBuffer(GL_UNIFORM_BUFFER, handle);
 	
+#ifdef __APPLE__
+	if(src_size == this->allocated_size) // If we are updating the whole buffer:
+	{
+		assert(dest_offset == 0);
+		// Use buffer orphaning, a common way to improve streaming perf. See http://www.opengl.org/wiki/Buffer_Object_Streaming for details.
+		// This seems to be essential on Mac, otherwise we get stalls when reusing buffers for different materials,
+		// resulting in extremely slow rendering.
+		glBufferData(GL_UNIFORM_BUFFER, (GLsizeiptr)src_size, NULL, GL_STREAM_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, (GLsizeiptr)src_size, src_data, GL_STREAM_DRAW);
+	}
+	else
+		glBufferSubData(GL_UNIFORM_BUFFER, (GLintptr)dest_offset, (GLsizeiptr)src_size, src_data);
+#else
 	glBufferSubData(GL_UNIFORM_BUFFER, (GLintptr)dest_offset, (GLsizeiptr)src_size, src_data);
+#endif
 	
-	//glBufferData(GL_UNIFORM_BUFFER, (GLsizeiptr)src_size, NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See http://www.opengl.org/wiki/Buffer_Object_Streaming for details.
-	//glBufferData(GL_UNIFORM_BUFFER, (GLsizeiptr)src_size, src_data, GL_STREAM_DRAW); // allocate mem
 }
