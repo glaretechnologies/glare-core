@@ -3190,7 +3190,6 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 
 	// Check current_bound_VAO is correct
 #ifndef NDEBUG
-#if !DO_INDIVIDUAL_VAO_ALLOC
 	{
 		GLuint vao = VAO::getBoundVAO();
 		if(current_bound_VAO == NULL)
@@ -3199,10 +3198,19 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 			runtimeCheck(current_bound_VAO->handle == vao);
 	}
 #endif
-#endif
 
 #if DO_INDIVIDUAL_VAO_ALLOC
-	mesh_data.individual_vao->bindVertexArray();
+	VAO* vao = mesh_data.individual_vao.ptr();
+
+	// Bind new VAO (if changed)
+	if(current_bound_VAO != vao)
+	{
+		// conPrint("Binding to VAO " + toString(vao->handle));
+
+		vao->bindVertexArray();
+		current_bound_VAO = vao;
+		num_vao_binds++;
+	}
 
 	// Check the correct buffers are still bound
 	assert(mesh_data.individual_vao->getBoundVertexBuffer(0) == mesh_data.vbo_handle.vbo->bufferName());
@@ -3280,7 +3288,17 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 	{
 		// Instancing case:
 
-		ob.vert_vao->bindVertexArray();
+		VAO* vao = ob.vert_vao.ptr();
+
+		// Bind new VAO (if changed)
+		if(current_bound_VAO != vao)
+		{
+			// conPrint("Binding to VAO " + toString(vao->handle));
+
+			vao->bindVertexArray();
+			current_bound_VAO = vao;
+			num_vao_binds++;
+		}
 
 		// Check the correct buffers are still bound
 		assert(ob.vert_vao->getBoundVertexBuffer(0) == ob.mesh_data->vbo_handle.vbo->bufferName());
@@ -3288,7 +3306,17 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 	}
 	else
 	{
-		ob.mesh_data->individual_vao->bindVertexArray();
+		VAO* vao = ob.mesh_data->individual_vao.ptr();
+
+		// Bind new VAO (if changed)
+		if(current_bound_VAO != vao)
+		{
+			// conPrint("Binding to VAO " + toString(vao->handle));
+
+			vao->bindVertexArray();
+			current_bound_VAO = vao;
+			num_vao_binds++;
+		}
 
 		// Check the correct buffers are still bound
 		assert(ob.mesh_data->individual_vao->getBoundVertexBuffer(0) == ob.mesh_data->vbo_handle.vbo->bufferName());
