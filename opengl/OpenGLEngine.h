@@ -75,7 +75,16 @@ struct OpenGLUniformVal // variant class
 };
 
 
-#define UNIFORM_BUF_PER_MAT_SUPPORT 0 // This is slower on Windows + Nvidia GPU when enabled.
+// If UNIFORM_BUF_PER_MAT_SUPPORT is 1, we allocate a uniform buffer per material.
+// This runs faster on Mac since updating a single uniform buffer each draw call is quite slow on Mac.
+// Mac M1: 42 fps with UNIFORM_BUF_PER_MAT_SUPPORT, 36 fps without, standing in middle of Substrata world.
+// This is only relevant if use_multi_draw_indirect is false, e.g. on old OpenGL implementations (Macs).
+// UNIFORM_BUF_PER_MAT_SUPPORT is slower on Windows + RTX 3080: 60.2 fps with, 68 fps without.
+#ifdef __APPLE__
+#define UNIFORM_BUF_PER_MAT_SUPPORT 1 // This is slower on Windows + Nvidia GPU when enabled.
+#else
+#define UNIFORM_BUF_PER_MAT_SUPPORT 0
+#endif
 
 
 class OpenGLMaterial

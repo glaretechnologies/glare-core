@@ -2700,14 +2700,12 @@ void OpenGLEngine::updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index)
 	else
 	{
 #if UNIFORM_BUF_PER_MAT_SUPPORT
-
 		if(ob.materials[mat_index].uniform_buf_ob.nonNull())
 		{
 			PhongUniforms uniforms;
 			setUniformsForPhongProg(ob, ob.materials[mat_index], *ob.mesh_data, uniforms);
 			ob.materials[mat_index].uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
 		}
-	}
 #endif
 	}
 }
