@@ -149,10 +149,13 @@ def buildLLVM(llvm_src_dir, vs_version = -1)
 	$configurations.each do |configuration|
 		cmake_build = CMakeBuild.new
 		
+		build_dir   = "#{$llvm_dir}/#{getBuildDir(configuration, vs_version)}"
+		install_dir = "#{$llvm_dir}/#{getInstallDir(configuration, vs_version)}"
+
 		cmake_build.init("LLVM",
 			"#{$llvm_dir}/#{llvm_src_dir}",
-			"#{$llvm_dir}/#{getBuildDir(configuration, vs_version)}",
-			"#{$llvm_dir}/#{getInstallDir(configuration, vs_version)}")
+			build_dir,
+			install_dir)
 			
 		cmake_args = ""
 		
@@ -181,7 +184,7 @@ def buildLLVM(llvm_src_dir, vs_version = -1)
 		cmake_args += " -DLLVM_OPTIMIZED_TABLEGEN=ON"
 		
 		# Disable a bunch of stuff we don't need, to speed up build
-		cmake_args += " -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_TOOLS=OFF"
+		cmake_args += " -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_BUILD_TOOLS=OFF"
 		
 		# Enable exception handling, as we currently throw exceptions through LLVM code.  
 		cmake_args += " -DLLVM_ENABLE_EH=ON"
@@ -197,9 +200,13 @@ def buildLLVM(llvm_src_dir, vs_version = -1)
 			cmake_args += " -DLLVM_TARGETS_TO_BUILD=\"X86\""
 		end
 		
-		cmake_build.configure(configuration, vs_version, cmake_args, false, OS.arm64?)
-		cmake_build.build()
+		allow_reconfig = false # can set to true to avoid deleting build dir before build
+		cmake_build.configure(configuration, vs_version, cmake_args, allow_reconfig, OS.arm64?)
+		cmake_build.build(["llvm-config"])
 		cmake_build.install($build_epoch)
+
+		# Install llvm-config ourselves
+		FileUtils.cp(build_dir + "/bin/llvm-config", install_dir + "/bin/llvm-config")
 	end
 end
 
