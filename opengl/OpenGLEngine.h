@@ -515,7 +515,8 @@ struct BatchDrawInfo
 };
 
 
-// Matches that defined in phong_frag_shader.glsl.
+// Matches that defined in phong_frag_shader.glsl and transparent_frag_shader.glsl.
+// Used for transparent mats also.
 struct PhongUniforms
 {
 	Colour4f diffuse_colour; // linear sRGB
@@ -541,25 +542,6 @@ struct PhongUniforms
 	float materialise_lower_z;
 	float materialise_upper_z;
 	float materialise_start_time;
-
-	int light_indices[8];
-};
-
-
-// Matches that defined in transparent_frag_shader.glsl.
-struct TransparentUniforms
-{
-	Colour4f diffuse_colour; // linear sRGB
-	Colour4f emission_colour; // linear sRGB
-	Vec2f texture_upper_left_matrix_col0;
-	Vec2f texture_upper_left_matrix_col1;
-	Vec2f texture_matrix_translation;
-
-	uint64 diffuse_tex; // Bindless texture handle
-	uint64 emission_tex; // Bindless texture handle
-
-	int flags;
-	float roughness;
 
 	int light_indices[8];
 };
@@ -885,7 +867,6 @@ private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
 	void setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms);
 	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat);
-	void setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;
 
@@ -1133,8 +1114,7 @@ private:
 	bool query_profiling_enabled;
 
 
-	UniformBufObRef phong_uniform_buf_ob;
-	UniformBufObRef transparent_uniform_buf_ob;
+	UniformBufObRef phong_uniform_buf_ob; // Used for transparent mats also.
 	UniformBufObRef material_common_uniform_buf_ob;
 	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;

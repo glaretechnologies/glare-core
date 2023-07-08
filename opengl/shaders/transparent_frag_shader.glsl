@@ -90,7 +90,7 @@ layout(std430) buffer PhongUniforms
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
 
 
-layout (std140) uniform TransparentUniforms
+layout (std140) uniform PhongUniforms
 {
 	vec4 diffuse_colour;		// 4
 	vec4 emission_colour;
@@ -100,21 +100,40 @@ layout (std140) uniform TransparentUniforms
 
 #if USE_BINDLESS_TEXTURES
 	sampler2D diffuse_tex;
+	sampler2D metallic_roughness_tex;
+	sampler2D lightmap_tex;
 	sampler2D emission_tex;
+	sampler2D backface_albedo_tex;
+	sampler2D transmission_tex;
 #else
 	float padding0;
 	float padding1;
 	float padding2;
 	float padding3;
+	float padding4;
+	float padding5;
+	float padding6;
+	float padding7;
+	float padding8;
+	float padding9;
+	float padding10;
+	float padding11;
 #endif
 
 	int flags;
 	float roughness;
+	float fresnel_scale;
+	float metallic_frac;
+	float begin_fade_out_distance;
+	float end_fade_out_distance; // 9
+
+	float materialise_lower_z;
+	float materialise_upper_z;
+	float materialise_start_time;
 
 	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
 	ivec4 light_indices_1;
 } mat_data;
-
 
 #define MAT_UNIFORM mat_data
 

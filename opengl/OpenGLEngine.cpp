@@ -985,7 +985,6 @@ static const int PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX = 2;
 static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
 static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
-static const int TRANSPARENT_UBO_BINDING_POINT_INDEX = 6;
 
 static const int OB_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX = 7;
 
@@ -1370,9 +1369,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		phong_uniform_buf_ob = new UniformBufOb();
 		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms));
 	
-		transparent_uniform_buf_ob = new UniformBufOb();
-		transparent_uniform_buf_ob->allocate(sizeof(TransparentUniforms));
-
 		material_common_uniform_buf_ob = new UniformBufOb();
 		material_common_uniform_buf_ob->allocate(sizeof(MaterialCommonUniforms));
 
@@ -1386,7 +1382,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		depth_uniform_buf_ob->allocate(sizeof(DepthUniforms));
 
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_ob->handle);
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/TRANSPARENT_UBO_BINDING_POINT_INDEX, this->transparent_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX, this->shared_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX, this->per_object_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
@@ -1866,7 +1861,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		progs[key] = phong_prog;
 
-		getUniformLocations(phong_prog, settings.shadow_mapping, phong_prog->uniform_locations);
+		getUniformLocations(phong_prog, settings.shadow_mapping, /*locations out=*/phong_prog->uniform_locations);
 
 		if(!use_multi_draw_indirect)
 		{
@@ -1923,20 +1918,21 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 			getAndIncrNextProgramIndex()
 		);
 		prog->is_transparent = true;
+		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_MDI = true;
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		getUniformLocations(prog, settings.shadow_mapping, /*locations out=*/prog->uniform_locations);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
 		if(!use_multi_draw_indirect)
 		{
-			checkUniformBlockSize(prog, "TransparentUniforms",	 sizeof(TransparentUniforms));
+			checkUniformBlockSize(prog, "PhongUniforms",				sizeof(PhongUniforms));
 			checkUniformBlockSize(prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
 
-			bindUniformBlockToProgram(prog, "TransparentUniforms",		TRANSPARENT_UBO_BINDING_POINT_INDEX);
+			bindUniformBlockToProgram(prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
 			bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 		}
 		else
@@ -6565,6 +6561,7 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 {
 	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r,   opengl_mat.albedo_linear_rgb.g,   opengl_mat.albedo_linear_rgb.b,   1.f);
 	uniforms.emission_colour = Colour4f(opengl_mat.emission_linear_rgb.r, opengl_mat.emission_linear_rgb.g, opengl_mat.emission_linear_rgb.b, 1.f) * opengl_mat.emission_scale;
+	//setWToOne(uniforms.emission_colour); // Don't multiply alpha by emission_scale
 
 	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
 	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
@@ -6609,7 +6606,9 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
 		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
 		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0) |
-		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0);
+		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0) |
+		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0);
+
 	uniforms.roughness					= opengl_mat.roughness;
 	uniforms.fresnel_scale				= opengl_mat.fresnel_scale;
 	uniforms.metallic_frac				= opengl_mat.metallic_frac;
@@ -6666,62 +6665,6 @@ void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat)
 }
 
 
-void OpenGLEngine::setUniformsForTransparentProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data)
-{
-	TransparentUniforms uniforms;
-	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, 1.f);
-	uniforms.emission_colour = Colour4f(
-		opengl_mat.emission_linear_rgb.r * opengl_mat.emission_scale, 
-		opengl_mat.emission_linear_rgb.g * opengl_mat.emission_scale, 
-		opengl_mat.emission_linear_rgb.b * opengl_mat.emission_scale, 
-		1.f // Don't multiply alpha by emission_scale
-	);
-
-	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
-	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
-	uniforms.texture_upper_left_matrix_col1.x = opengl_mat.tex_matrix.e[1];
-	uniforms.texture_upper_left_matrix_col1.y = opengl_mat.tex_matrix.e[3];
-	uniforms.texture_matrix_translation = opengl_mat.tex_translation;
-
-	if(this->use_bindless_textures)
-	{
-		if(opengl_mat.albedo_texture.nonNull())
-			uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
-
-		if(opengl_mat.emission_texture.nonNull())
-			uniforms.emission_tex = opengl_mat.emission_texture->getBindlessTextureHandle();
-	}
-
-	uniforms.flags =
-		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
-		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
-		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0) |
-		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0);
-	uniforms.roughness = opengl_mat.roughness;
-
-	for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
-		uniforms.light_indices[i] = ob.light_indices[i];
-
-	if(!this->use_bindless_textures)
-	{
-		if(opengl_mat.albedo_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 0);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-		}
-
-		if(opengl_mat.emission_texture.nonNull())
-		{
-			glActiveTexture(GL_TEXTURE0 + 11);
-			glBindTexture(GL_TEXTURE_2D, opengl_mat.emission_texture->texture_handle);
-		}
-	}
-
-	this->transparent_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(TransparentUniforms));
-}
-
-
-
 #define doCheck(v) assert(v)
 // Something like assert() that we can use in non-debug mode when needed.
 /*#define doCheck(v) _doCheck((v), (#v))
@@ -6745,28 +6688,6 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	if(shader_prog.uses_phong_uniforms)
 	{
 		doPhongProgramBindingsForProgramChange(shader_prog.uniform_locations);
-	}
-	else if(shader_prog.is_transparent)
-	{
-		if(!use_bindless_textures)
-		{
-			glUniform1i(shader_prog.uniform_locations.diffuse_tex_location, 0);
-			glUniform1i(shader_prog.uniform_locations.emission_tex_location, 11);
-		}
-
-		if(this->specular_env_tex.nonNull())
-			bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/shader_prog.uniform_locations.specular_env_tex_location);
-
-		if(this->fbm_tex.nonNull())
-			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/shader_prog.uniform_locations.fbm_tex_location);
-
-		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-		glUniform3fv(shader_prog.uniform_locations.campos_ws_location, 1, campos_ws.x);
-
-		MaterialCommonUniforms common_uniforms;
-		common_uniforms.sundir_cs = this->sun_dir_cam_space;
-		common_uniforms.time = this->current_time;
-		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 	else if(shader_prog.is_depth_draw)
 	{
@@ -6845,11 +6766,6 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 #endif
 		if(!use_bindless_textures)
 			bindTexturesForPhongProg(opengl_mat);
-	}
-	else if(shader_prog->is_transparent)
-	{
-		assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, transparent mats would be handled in (.. && shader_prog->supports_MDI) branch above.
-		setUniformsForTransparentProg(ob, opengl_mat, mesh_data);
 	}
 	else if(shader_prog == this->env_prog.getPointer())
 	{
