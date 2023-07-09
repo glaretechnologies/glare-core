@@ -2980,7 +2980,9 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 
 bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 {
-	return current_scene->objects.find(object) != current_scene->objects.end();
+	return 
+		(current_scene->objects.find(object)                != current_scene->objects.end()) || 
+		(current_scene->always_visible_objects.find(object) != current_scene->always_visible_objects.end()); // Always-visible objects aren't in objects set.
 }
 
 
