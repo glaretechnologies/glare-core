@@ -2276,6 +2276,10 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 		if(object.per_ob_vert_data_index >= 0)
 			per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PerObjectVertUniforms));
 	}
+
+	// Update material data on GPU.  This is needed because light indices, which are recomputed in assignLightsToObject() above, are stored in material data.
+	for(size_t i=0; i<object.materials.size(); ++i)
+		updateMaterialDataOnGPU(object, /*mat index=*/i);
 }
 
 
@@ -2292,6 +2296,8 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 		if(object.per_ob_vert_data_index >= 0)
 			per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PerObjectVertUniforms));
 	}
+
+	// TODO: call assignLightsToObject and updateMaterialDataOnGPU as well here.  Investigate perf tho because this is called by evalObjectScript().
 }
 
 
