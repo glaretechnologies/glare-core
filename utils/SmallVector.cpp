@@ -414,6 +414,37 @@ void test()
 		testAssert(ob_count == 1);
 	}
 
+	// With std::string and no string val passed to resize:
+	{
+		SmallVector<std::string, 4> v(
+			10
+		);
+		testAssert(v.size() == 10);
+
+		// Resize a lot larger to cause capacity expansion
+		v.resize(100);
+
+		testAssert(v.size() == 100);
+
+		// Resize just a little bit larger to avoid capacity expansion
+		v.resize(101);
+
+		testAssert(v.size() == 101);
+		v.resize(20);
+
+		testAssert(v.size() == 20);
+
+		// Try resizing to same size
+		v.resize(20);
+
+		testAssert(v.size() == 20);
+
+		// Try resizing to zero.
+		v.resize(0);
+
+		testAssert(v.size() == 0);
+	}
+
 	// With TestCounterClass
 	{
 		for(size_t start_size=0; start_size<10; ++start_size)

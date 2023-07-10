@@ -252,13 +252,13 @@ void SmallArray<T, N>::resize(size_t new_size)
 			T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
 
 			// Copy-construct new objects from existing objects.
-			// e[0] to e[size_-1] will now be proper initialised objects.
-			std::uninitialized_copy(e, e + size_, new_e);
+			// new_e[0] to new_e[size_-1] will now be proper initialised objects.
+			std::uninitialized_copy(e, e + size_, /*dest=*/new_e);
 
-			// Initialise elements e[size_] to e[new_size-1]
+			// Initialise elements new_e[size_] to new_e[new_size-1]
 			// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
 			// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
-			for(T* elem=e + size_; elem<e + new_size; ++elem)
+			for(T* elem=new_e + size_; elem<new_e + new_size; ++elem)
 				::new (elem) T;
 
 			// Destroy old objects
@@ -299,8 +299,8 @@ void SmallArray<T, N>::resize(size_t new_size, const T& val)
 			T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
 
 			// Copy-construct new objects from existing objects.
-			// e[0] to e[size_-1] will now be proper initialised objects.
-			std::uninitialized_copy(e, e + size_, new_e);
+			// new_e[0] to new_e[size_-1] will now be proper initialised objects.
+			std::uninitialized_copy(e, e + size_, /*dest=*/new_e);
 
 			// Construct any new elems
 			assert(new_size > size_);
