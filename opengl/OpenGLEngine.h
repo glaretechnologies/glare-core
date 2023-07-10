@@ -207,6 +207,21 @@ struct GlInstanceInfo
 	js::AABBox aabb_ws;
 };
 
+
+#define PROG_SUPPORTS_MDI_BITFLAG			(1u << 31)
+#define MATERIAL_TRANSPARENT_BITFLAG		(1u << 30)
+
+struct GLObjectBatchDrawInfo
+{
+	uint32 program_index_and_flags;
+	uint32 material_data_index;
+	uint32 prim_start_offset;
+	uint32 num_indices;
+
+	inline uint32 getProgramIndex() const { return program_index_and_flags & 0x3FFFFFFF; }
+};
+
+
 struct GLObject
 {
 	GLObject() noexcept;
@@ -223,10 +238,28 @@ struct GLObject
 
 	void enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size); // Enables instancing attributes, and builds vert_vao.
 
+	void setSingleMaterial(const OpenGLMaterial& mat) { materials.resize(1); materials[0] = mat; }
+
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
 
 	js::AABBox aabb_ws;
+
+	SmallArray<GLObjectBatchDrawInfo, 4> batch_draw_info;
+
+	uint32 vao_and_vbo_key;
+
+	// Denormalised data
+	VAO* vao;
+	VBO* vert_vbo;
+	VBO* index_vbo;
+	GLenum index_type;
+	GLuint instance_matrix_vbo_name;
+	uint32 indices_vbo_handle_offset;
+	uint32 vbo_handle_base_vertex;
+	
+	SmallArray<GLObjectBatchDrawInfo, 1> depth_draw_batches; // Index batches, use for depth buffer drawing for shadow mapping.  
+	// We will use a SmallArray for this with N = 1, since the most likely number of batches is 1.
 
 	Reference<OpenGLMeshRenderData> mesh_data;
 
@@ -245,8 +278,7 @@ struct GLObject
 	
 	std::vector<OpenGLMaterial> materials;
 
-	SmallArray<OpenGLBatch, 1> depth_draw_batches; // Index batches, use for depth buffer drawing for shadow mapping.  
-	// We will use a SmallArray for this with N = 1, since the most likely number of batches is 1.
+	SmallArray<uint32, 1> depth_draw_batch_material_indices; // For the slow path where we need to get the material used by the depth draw batch
 
 	int object_type; // 0 = tri mesh
 	float line_width;
@@ -446,7 +478,7 @@ public:
 private:
 	float max_draw_dist;
 	float near_draw_dist;
-
+public:
 	Planef frustum_clip_planes[6];
 	int num_frustum_clip_planes;
 	Vec4f frustum_verts[8];
@@ -486,11 +518,22 @@ vert VBO id:     6 bits
 index VBO id:    6 bits
 index type bits: 2 bits
 */
+
+inline uint32 makeVAOAndVBOKey(uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits)
+{
+	return ((vao_id & 1023u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits;
+}
+
 struct BatchDrawInfo
 {
 	BatchDrawInfo() {}
+	BatchDrawInfo(uint32 program_index, uint32 vao_and_vbo_key, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key(((program_index & 255u) << 24) | vao_and_vbo_key),
+		batch_i(batch_i_), ob(ob_)
+	{}
+
 	BatchDrawInfo(uint32 program_index, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((program_index & 255u) << 24) | ((vao_id & 1023u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits),
+	:	prog_vao_key(((program_index & 255u) << 24) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)), // prog_vao_key(((program_index & 255u) << 24) | ((vao_id & 1023u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits),
 		batch_i(batch_i_), ob(ob_)
 	{
 		assert(index_type_bits <= 2);
@@ -844,6 +887,7 @@ public:
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
+	void rebuildDenormalisedDrawData(GLObject& ob);
 	void rebuildObjectDepthDrawBatches(GLObject& ob);
 	void updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index);
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
@@ -855,6 +899,7 @@ private:
 	// Set uniforms that are the same for every batch for the duration of this frame.
 	void setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat);
 	void drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
+	void drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index);
 	void buildOutlineTextures();
 private:
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
@@ -882,6 +927,7 @@ private:
 public:
 	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }
+	void addProgram(OpenGLProgramRef);
 
 	glare::TaskManager& getTaskManager();
 
@@ -893,6 +939,7 @@ private:
 	void bindMeshData(const OpenGLMeshRenderData& mesh_data);
 	void bindMeshData(const GLObject& ob);
 	bool checkUseProgram(const OpenGLProgram* prog);
+	bool checkUseProgram(uint32 prog_index);
 	void submitBufferedDrawCommands();
 	void sortBatchDrawInfos();
 	void getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
@@ -936,6 +983,7 @@ private:
 
 	// Map from preprocessor defs to built program.
 	std::map<ProgramKey, OpenGLProgramRef> progs;
+	std::vector<OpenGLProgramRef> prog_vector; // prog_vector[i]->program_index == i.
 	OpenGLProgramRef fallback_phong_prog;
 	OpenGLProgramRef fallback_transparent_prog;
 	OpenGLProgramRef fallback_depth_prog;
@@ -1121,9 +1169,6 @@ private:
 	UniformBufObRef per_object_vert_uniform_buf_ob;
 
 	// Some temporary vectors:
-	js::Vector<Matrix4f, 16> node_matrices;
-	js::Vector<AnimationKeyFrameLocation, 16> key_frame_locs;
-
 	js::Vector<Matrix4f, 16> temp_matrices;
 
 
@@ -1139,6 +1184,7 @@ private:
 	
 	GLenum current_index_type;
 	const OpenGLProgram* current_bound_prog;
+	uint32 current_bound_prog_index;
 	const VAO* current_bound_VAO;
 	const GLObject* current_uniforms_ob; // Last object for which we uploaded joint matrices, and set the per_object_vert_uniform_buf_ob.  Used to stop uploading the same uniforms repeatedly for the same object.
 
@@ -1179,6 +1225,9 @@ private:
 	ThreadManager thread_manager; // For ShaderFileWatcherThread
 
 	bool running_in_renderdoc;
+
+	js::Vector<GLObject*, 16> animated_obs_to_process;
+	std::vector<glare::TaskRef> animated_objects_tasks;
 };
 
 
