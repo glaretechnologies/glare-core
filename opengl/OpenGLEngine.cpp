@@ -4979,9 +4979,11 @@ void OpenGLEngine::draw()
 					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
 						continue;
 
-					for(size_t z=0; z<ob->depth_draw_batches.size(); ++z)
+					const size_t ob_depth_draw_batches_size                  = ob->depth_draw_batches.size();
+					const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
+					for(size_t z=0; z<ob_depth_draw_batches_size; ++z)
 					{
-						const uint32 prog_index = ob->depth_draw_batches[z].getProgramIndex();
+						const uint32 prog_index = ob_depth_draw_batches[z].getProgramIndex();
 
 						BatchDrawInfo info(
 							prog_index, // program index
@@ -5244,9 +5246,11 @@ void OpenGLEngine::draw()
 							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
 								continue;
 
-							for(size_t z = 0; z < ob->depth_draw_batches.size(); ++z)
+							const size_t ob_depth_draw_batches_size                  = ob->depth_draw_batches.size();
+							const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
+							for(size_t z = 0; z < ob_depth_draw_batches_size; ++z)
 							{
-								const uint32 prog_index = ob->depth_draw_batches[z].getProgramIndex();
+								const uint32 prog_index = ob_depth_draw_batches[z].getProgramIndex();
 
 								BatchDrawInfo info(
 									prog_index, // program index
@@ -5254,7 +5258,6 @@ void OpenGLEngine::draw()
 									ob, // object ptr
 									(uint32)z // batch index
 								);
-
 								batch_draw_info.push_back(info);
 							}
 						}
@@ -5883,9 +5886,11 @@ void OpenGLEngine::draw()
 				const GLObject* const ob = it->getPointer();
 				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 				{
-					for(uint32 z = 0; z < ob->batch_draw_info.size(); ++z)
+					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 					{
-						const uint32 prog_index_and_flags = ob->batch_draw_info[z].program_index_and_flags;
+						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
 						const uint32 prog_index = prog_index_and_flags & 0x3FFFFFFF;
 
 						assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
@@ -5926,8 +5931,6 @@ void OpenGLEngine::draw()
 		num_vao_binds = 0;
 		num_vbo_binds = 0;
 		num_index_buf_binds = 0;
-
-		//conPrint("=================================== Drawing ================================");
 
 		//Timer timer3;
 		for(size_t i=0; i<batch_draw_info.size(); ++i)
@@ -6058,9 +6061,11 @@ void OpenGLEngine::draw()
 			const GLObject* const ob = it->getPointer();
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
-				for(uint32 z = 0; z < ob->batch_draw_info.size(); ++z)
+				const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 				{
-					const uint32 prog_index_and_flags = ob->batch_draw_info[z].program_index_and_flags;
+					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
 					const uint32 prog_index = prog_index_and_flags & 0x3FFFFFFF;
 
 					assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
