@@ -2681,9 +2681,12 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 		object.batch_draw_info[i].num_indices = object.mesh_data->batches[i].num_indices;
 	}
 
+#if DO_INDIVIDUAL_VAO_ALLOC
+	object.vao = object.vert_vao.nonNull() ? object.vert_vao.ptr() : object.mesh_data->individual_vao.ptr();
+#else
 	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator->per_spec_data[object.mesh_data->vbo_handle.per_spec_data_index];
 	object.vao = object.vert_vao.nonNull() ? object.vert_vao.ptr() : per_spec_data.vao.ptr();
-
+#endif
 	object.vert_vbo  = object.mesh_data->vbo_handle.vbo.ptr();
 	object.index_vbo = object.mesh_data->indices_vbo_handle.index_vbo.ptr();
 	object.index_type = object.mesh_data->getIndexType();
@@ -3475,51 +3478,53 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 
 void OpenGLEngine::bindMeshData(const GLObject& ob)
 {
+	VAO* vao = ob.vao;
+
 #if DO_INDIVIDUAL_VAO_ALLOC
+
+	assert(vao == (ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : ob.mesh_data->individual_vao.ptr()));
+
+	// Bind new VAO (if changed)
+	if(current_bound_VAO != vao)
+	{
+		// conPrint("Binding to VAO " + toString(vao->handle));
+
+		// A buffer or index type has changed.  submit queued draw commands, start queueing new commands.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
+		vao->bindVertexArray();
+		current_bound_VAO = vao;
+		num_vao_binds++;
+	}
+
+	// Check the correct buffers are still bound
+#ifndef NDEBUG
 	if(ob.vert_vao.nonNull())
 	{
-		// Instancing case:
-
-		VAO* vao = ob.vert_vao.ptr();
-
-		// Bind new VAO (if changed)
-		if(current_bound_VAO != vao)
-		{
-			// conPrint("Binding to VAO " + toString(vao->handle));
-
-			vao->bindVertexArray();
-			current_bound_VAO = vao;
-			num_vao_binds++;
-		}
-
-		// Check the correct buffers are still bound
 		assert(ob.vert_vao->getBoundVertexBuffer(0) == ob.mesh_data->vbo_handle.vbo->bufferName());
 		assert(ob.vert_vao->getBoundIndexBuffer()   == ob.mesh_data->indices_vbo_handle.index_vbo->bufferName());
 	}
 	else
 	{
-		VAO* vao = ob.mesh_data->individual_vao.ptr();
-
-		// Bind new VAO (if changed)
-		if(current_bound_VAO != vao)
-		{
-			// conPrint("Binding to VAO " + toString(vao->handle));
-
-			vao->bindVertexArray();
-			current_bound_VAO = vao;
-			num_vao_binds++;
-		}
-
-		// Check the correct buffers are still bound
 		assert(ob.mesh_data->individual_vao->getBoundVertexBuffer(0) == ob.mesh_data->vbo_handle.vbo->bufferName());
 		assert(ob.mesh_data->individual_vao->getBoundIndexBuffer()   == ob.mesh_data->indices_vbo_handle.index_vbo->bufferName());
 	}
+#endif
 
+	const GLenum index_type = ob.index_type;
+	if(index_type != current_index_type)
+	{
+		// A buffer or index type has changed.  submit queued draw commands, start queueing new commands.
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
+		current_index_type = index_type;
+	}
 #else
 
 	// Check to see if we should use the object's VAO that has the instance matrix stuff
 
-	VAO* vao = ob.vao;
 	assert(vao == (ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : vert_buf_allocator->per_spec_data[ob.mesh_data->vbo_handle.per_spec_data_index].vao.ptr()));
 
 	// Get the buffers we want to use for this batch.
@@ -7466,8 +7471,8 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		doCheck((ob.per_ob_vert_data_index >= 0) && (ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
 		doCheck((batch.material_data_index >= 0) && (batch.material_data_index < this->phong_buffer->byteSize() / sizeof(PhongUniforms)));
 #ifndef NDEBUG
-		const OpenGLMaterial& opengl_mat = ob.materials[is_depth_draw ? ob.depth_draw_batch_material_indices[batch_index] : ob.mesh_data->batches[batch_index].material_index];
-		assert(batch.material_data_index == opengl_mat.material_data_index);
+		//const OpenGLMaterial& opengl_mat = ob.materials[is_depth_draw ? ob.depth_draw_batch_material_indices[batch_index] : ob.mesh_data->batches[batch_index].material_index];
+		//assert(batch.material_data_index == opengl_mat.material_data_index);
 
 		if(ob.mesh_data->usesSkinning())
 			doCheck(ob.joint_matrices_base_index >= 0 && ob.joint_matrices_base_index < this->joint_matrices_ssbo->byteSize() / sizeof(Matrix4f));
