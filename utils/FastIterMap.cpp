@@ -37,7 +37,7 @@ void glare::testFastIterMap()
 	conPrint("glare::testFastIterMap()");
 
 	{
-		FastIterMap<int, int, std::hash<int>> map;
+		FastIterMap<int, int, std::hash<int>> map(/*empty key=*/-1);
 
 		testAssert(map.insert(10, 20));
 
@@ -93,7 +93,7 @@ void glare::testFastIterMap()
 	}
 
 	{
-		FastIterMap<int, int, std::hash<int>> map;
+		FastIterMap<int, int, std::hash<int>> map(/*empty key=*/-1);
 		for(int i=0; i<10000; ++i)
 			map.insert(i, i);
 
@@ -129,7 +129,7 @@ void glare::testFastIterMap()
 
 	// Try erasing objects in reverse order from addition
 	{
-		FastIterMap<int, int, std::hash<int>> map;
+		FastIterMap<int, int, std::hash<int>> map(/*empty key=*/-1);
 		for(int i=0; i<10000; ++i)
 			map.insert(i, i);
 
@@ -169,7 +169,7 @@ void glare::testFastIterMap()
 	{
 		Reference<FastIterMapTestClass> ref = new FastIterMapTestClass();
 
-		FastIterMap<int, Reference<FastIterMapTestClass>, std::hash<int>> map;
+		FastIterMap<int, Reference<FastIterMapTestClass>, std::hash<int>> map(/*empty key=*/-1);
 		for(int i=0; i<10; ++i)
 			map.insert(i, ref);
 
@@ -185,7 +185,7 @@ void glare::testFastIterMap()
 	{
 		Reference<FastIterMapTestClass> ref = new FastIterMapTestClass();
 		{
-			FastIterMap<int, Reference<FastIterMapTestClass>, std::hash<int>> map;
+			FastIterMap<int, Reference<FastIterMapTestClass>, std::hash<int>> map(/*empty key=*/-1);
 			for(int i=0; i<10; ++i)
 				map.insert(i, ref);
 

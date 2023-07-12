@@ -371,8 +371,9 @@ void glare::testPoolMap()
 	}*/
 
 	// Test speed of iteration with FastIterMap
+#if 0
 	{
-		FastIterMap<uint64, PoolMapTestLargeClass*, std::hash<uint64>> map;
+		FastIterMap<uint64, PoolMapTestLargeClass*, std::hash<uint64>> map(std::numeric_limits<uint64>::max());
 
 		
 		for(int i=0; i<num_objs; ++i)
@@ -427,6 +428,7 @@ void glare::testPoolMap()
 		conPrint("PoolMap2: Iteration over " + toString(num_objs) + " objects with ob access took " + doubleToStringNSigFigs(least_time, 4) + " s (" + doubleToStringNSigFigs(per_ob_iter_time_ns, 4) + " ns per object)");
 
 	}
+#endif
 /*
 
 	// Test speed of iteration with std::unordered_map
