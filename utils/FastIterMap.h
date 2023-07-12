@@ -16,7 +16,9 @@ FastIterMap
 -----------
 A map with fast iteration over values provided by a vector.
 
-To iterate over values, use valuesBegin() and valuesEnd()
+To iterate over values, use valuesBegin() and valuesEnd().
+
+Similar to LinearIterSet.
 =====================================================================*/
 namespace glare
 {
