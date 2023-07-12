@@ -46,6 +46,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/GeneralMemAllocator.h"
 #include "../utils/ThreadManager.h"
 #include "../utils/SmallArray.h"
+#include "../utils/LinearIterSet.h"
 #include "../physics/HashedGrid2.h"
 #include <assert.h>
 #include <unordered_set>
@@ -248,6 +249,7 @@ struct GLObject
 	SmallArray<GLObjectBatchDrawInfo, 4> batch_draw_info;
 
 	uint32 vao_and_vbo_key;
+	uint32 random_num;
 
 	// Denormalised data
 	VAO* vao;
@@ -282,7 +284,6 @@ struct GLObject
 
 	int object_type; // 0 = tri mesh
 	float line_width;
-	uint32 random_num;
 
 	// Current animation state:
 	int current_anim_i; // Index into animations.
@@ -460,10 +461,9 @@ private:
 	Matrix4f world_to_camera_space_matrix;
 	Matrix4f cam_to_world;
 public:
-	// NOTE: Use std::set instead of unordered_set, so that iteration over objects is in memory order.
-	std::set<Reference<GLObject>> objects;
-	std::set<Reference<GLObject>> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
-	std::set<Reference<GLObject>> transparent_objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> transparent_objects;
 	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	std::set<Reference<OverlayObject>> overlay_objects; // UI overlays
 	std::set<Reference<GLObject>> objects_with_imposters;

@@ -249,7 +249,10 @@ OverlayObject::OverlayObject()
 
 
 OpenGLScene::OpenGLScene(OpenGLEngine& engine)
-:	light_grid(64.0, /*num buckets=*/1024, /*expected_num_items_per_bucket=*/4, /*empty key=*/NULL)
+:	light_grid(64.0, /*num buckets=*/1024, /*expected_num_items_per_bucket=*/4, /*empty key=*/NULL),
+	objects(NULL),
+	animated_objects(NULL),
+	transparent_objects(NULL)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -3106,7 +3109,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 {
 	return 
-		(current_scene->objects.find(object)                != current_scene->objects.end()) || 
+		current_scene->objects.contains(object) || 
 		(current_scene->always_visible_objects.find(object) != current_scene->always_visible_objects.end()); // Always-visible objects aren't in objects set.
 }
 
@@ -4971,9 +4974,18 @@ void OpenGLEngine::draw()
 			batch_draw_info.resize(0);
 
 			uint64 num_frustum_culled = 0;
-			for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+			const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+			const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+			for(size_t q=0; q<current_scene_obs_size; ++q)
 			{
-				const GLObject* const ob = it->getPointer();
+				// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+				if(q + 16 < current_scene_obs_size)
+				{	
+					_mm_prefetch((const char*)(&current_scene_obs[q + 16]->aabb_ws), _MM_HINT_T0);
+					_mm_prefetch((const char*)(&current_scene_obs[q + 16]->aabb_ws) + 64, _MM_HINT_T0);
+				}
+
+				const GLObject* const ob = current_scene_obs[q].ptr();
 				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
 				{
 					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
@@ -5236,9 +5248,18 @@ void OpenGLEngine::draw()
 				batch_draw_info.resize(0);
 
 				uint64 num_frustum_culled = 0;
-				for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+				const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+				const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+				for(size_t q=0; q<current_scene_obs_size; ++q)
 				{
-					const GLObject* const ob = it->getPointer();
+					// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+					if(q + 16 < current_scene_obs_size)
+					{	
+						_mm_prefetch((const char*)(&current_scene_obs[q + 16]->aabb_ws), _MM_HINT_T0);
+						_mm_prefetch((const char*)(&current_scene_obs[q + 16]->aabb_ws) + 64, _MM_HINT_T0);
+					}
+
+					const GLObject* const ob = current_scene_obs[q].ptr();
 					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
 					{
 						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
@@ -5881,9 +5902,18 @@ void OpenGLEngine::draw()
 			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
 			const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
 			const js::AABBox frustum_aabb = current_scene->frustum_aabb;
-			for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
+			const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+			const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+			for(size_t i=0; i<current_scene_obs_size; ++i)
 			{
-				const GLObject* const ob = it->getPointer();
+				// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+				if(i + 16 < current_scene_obs_size)
+				{	
+					_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+					_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+				}
+
+				const GLObject* const ob = current_scene_obs[i].ptr();
 				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 				{
 					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
@@ -6056,9 +6086,18 @@ void OpenGLEngine::draw()
 
 		batch_draw_info.resize(0);
 
-		for(auto it = current_scene->transparent_objects.begin(); it != current_scene->transparent_objects.end(); ++it)
+		const GLObjectRef* const current_scene_trans_obs = current_scene->transparent_objects.vector.data();
+		const size_t current_scene_trans_obs_size        = current_scene->transparent_objects.vector.size();
+		for(size_t q=0; q<current_scene_trans_obs_size; ++q)
 		{
-			const GLObject* const ob = it->getPointer();
+			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+			if(q + 16 < current_scene_trans_obs_size)
+			{	
+				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws) + 64, _MM_HINT_T0);
+			}
+
+			const GLObject* const ob = current_scene_trans_obs[q].ptr();
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
 				const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
