@@ -627,10 +627,10 @@ static void copyData(size_t accessor_count, const uint8* const offset_base, cons
 {
 	// Bounds check destination addresses (should be done already, but check again)
 	if(dest_attr_offset_B + sizeof(DestType) * N > dest_vert_stride_B)
-		throw glare::Exception("Internal error: desination buffer overflow");
+		throw glare::Exception("Internal error: destination buffer overflow");
 
 	if((vert_write_i + accessor_count) * dest_vert_stride_B > vertex_data.size())
-		throw glare::Exception("Internal error: desination buffer overflow");
+		throw glare::Exception("Internal error: destination buffer overflow");
 
 	uint8* const offset_dest = vertex_data.data() + vert_write_i * dest_vert_stride_B + dest_attr_offset_B;
 
