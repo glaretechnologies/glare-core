@@ -668,7 +668,7 @@ void PNGDecoder::test()
 
 	try
 	{
-		PNGDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/basn0g08_badcrc.png");
+		PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/pngs/basn0g08_badcrc.png");
 
 		PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/pngs/pino.png");
 		PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/pngs/Fencing_Iron.png");
