@@ -111,6 +111,31 @@ def getLLVMSourceDownloadAndExtract()
 	puts "src_file: #{src_file}"
 	puts "src_folder: #{src_folder}"
 	extractArchiveIfNotExtraced(src_file, src_folder)
+
+	# Revent LLVM builds also need a Cmake archive extracted and renamed, see https://github.com/llvm/llvm-project/issues/53281
+	if(Gem::Version.new($llvm_version) >= Gem::Version.new('15.0'))
+		cmake_src_file   = "cmake-#{$llvm_version}.src.tar.xz"
+		cmake_src_folder = "cmake-#{$llvm_version}.src"
+		downloadFileHTTPSIfNotOnDisk(cmake_src_file, "https://github.com/llvm/llvm-project/releases/download/llvmorg-#{$llvm_version}/#{cmake_src_file}")
+	
+		extractArchiveIfNotExtraced(
+			cmake_src_file, # archive
+			cmake_src_folder # target dir
+		)
+		
+		FileUtils.rm_r("cmake") if Dir.exists?("cmake")
+		FileUtils.mv(cmake_src_folder, "cmake", :verbose=>true)
+	end
+
+	# Get benchmark src, which seems to be required, even though we build without benchmark support.
+	if !(Dir.exists?("third-party") && Dir.exists?("third-party/benchmark"))
+		
+		FileUtils.mkdir("third-party") if !Dir.exists?("third-party")
+
+		Dir.chdir("third-party") do 
+			print_and_exec_command("git clone https://github.com/google/benchmark.git")
+		end
+	end
 	
 	return src_folder
 end
@@ -202,11 +227,13 @@ def buildLLVM(llvm_src_dir, vs_version = -1)
 		
 		allow_reconfig = false # can set to true to avoid deleting build dir before build
 		cmake_build.configure(configuration, vs_version, cmake_args, allow_reconfig, OS.arm64?)
-		cmake_build.build(["llvm-config"])
+
+		targets = OS.windows? ? [] : ["llvm-config"]
+		cmake_build.build(targets)
 		cmake_build.install($build_epoch)
 
 		# Install llvm-config ourselves
-		FileUtils.cp(build_dir + "/bin/llvm-config", install_dir + "/bin/llvm-config")
+		FileUtils.cp(build_dir + "/bin/llvm-config", install_dir + "/bin/llvm-config") if !OS.windows?
 	end
 end
 
