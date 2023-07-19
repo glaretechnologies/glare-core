@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include <string>
+#include <map>
 
 
 /*=====================================================================
@@ -18,6 +19,9 @@ class URL
 {
 public:
 	static URL parseURL(const std::string& url); // Parse a URL string.  Throws glare::Exception on failure.
+
+	// Parses query string, also unescapes keys and values.
+	static std::map<std::string, std::string> parseQuery(const std::string& query);
 
 	static void test();
 

@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "URL.h"
 
 
+#include "../webserver/Escaping.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Parser.h"
 #include "../utils/Exception.h"
@@ -79,14 +80,108 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 }
 
 
+// Parse query string, assuming is of the form
+// a=b
+// or
+// a=b&c=d&e=f etc.
+std::map<std::string, std::string> URL::parseQuery(const std::string& query)
+{
+	std::map<std::string, std::string> result_map;
+
+	Parser parser(query);
+
+	while(parser.notEOF())
+	{
+		string_view key, value;
+		parser.parseToCharOrEOF('=', key);
+		
+		if(parser.parseChar('='))
+		{
+			parser.parseToCharOrEOF('&', value);
+
+			if(!key.empty())
+				result_map[web::Escaping::URLUnescape(std::string(key))] = web::Escaping::URLUnescape(std::string(value));
+
+			parser.parseChar('&');
+		}
+	}
+	return result_map;
+}
+
+
 #if BUILD_TESTS
 
 
 #include "../utils/TestUtils.h"
 
+#define testAssert2(expr) (TestUtils::doTestAssert((expr), (#expr), (__LINE__), (__FILE__)))
+
+
+static void testQuery(const std::string& query, const std::map<std::string, std::string>& expected_map)
+{
+	try
+	{
+		const std::map<std::string, std::string> result_map = URL::parseQuery(query);
+		testAssert2(result_map == expected_map);
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
+
 
 void URL::test()
 {
+	//================== Test parseQuery ===================
+	testQuery(
+		"",
+		std::map<std::string, std::string>({})
+	);
+
+	testQuery(
+		"a=b",
+		std::map<std::string, std::string>({{"a", "b"}})
+	);
+
+	testQuery(
+		"a=b&c=d",
+		std::map<std::string, std::string>({{"a", "b"}, {"c", "d"}})
+	);
+
+	testQuery(
+		"a=b&c=d&",
+		std::map<std::string, std::string>({{"a", "b"}, {"c", "d"}})
+	);
+
+	testQuery(
+		"a=b&c=d&e",
+		std::map<std::string, std::string>({{"a", "b"}, {"c", "d"}})
+	);
+
+	testQuery(
+		"a=b&c=d&e=",
+		std::map<std::string, std::string>({{"a", "b"}, {"c", "d"}, {"e", ""}})
+	);
+
+	testQuery(
+		"a=b&c=d&e=f",
+		std::map<std::string, std::string>({{"a", "b"}, {"c", "d"}, {"e", "f"}})
+	);
+
+	// Test with unescaping
+	testQuery(
+		"a=b+c",
+		std::map<std::string, std::string>({{"a", "b c"}})
+	);
+
+	testQuery(
+		"a%20b=c%20d", // %20 is a space char
+		std::map<std::string, std::string>({{"a b", "c d"}})
+	);
+
+
+
 	// Test URL with all components
 	{
 		URL url = parseURL("schemez://a.b.c:80/d/e/f?g=h&i=k#lmn");

@@ -1,7 +1,7 @@
 /*=====================================================================
 Escaping.h
 ----------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 
 /*=====================================================================
 Escaping
--------------------
+--------
 
 =====================================================================*/
 namespace web
@@ -27,7 +27,7 @@ public:
 	//inline static const std::string URLEscape(const UnsafeString& s) { return URLEscape(s.str()); }
 
 
-	static const std::string URLUnescape(const std::string& s);
+	static const std::string URLUnescape(const std::string& s); // Throws glare::Exception on parse failure.
 
 	/*
 	Replace "<" with "&lt;" etc..
