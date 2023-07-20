@@ -94,7 +94,7 @@ void main()
 	float av = (texcol.x + texcol.y + texcol.z) * (1.0 / 3.0);
 
 #if DOWNSIZE_FROM_MAIN_BUF
-	// Check for NaNs, also only use pixels that are suffuciently bright, to avoid blooming the whole image.
+	// Check for NaNs, also only use pixels that are sufficiently bright, to avoid blooming the whole image.
 	if(av < 1.0 || isnan(av))
 		texcol = vec4(0.0);
 #endif
