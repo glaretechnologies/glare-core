@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
-#include "InStream.h"
+#include "RandomAccessInStream.h"
 #include "Vector.h"
 #include "ArrayRef.h"
 #include <vector>
@@ -17,10 +17,11 @@ BufferInStream
 --------------
 Input stream that reads from a buffer
 =====================================================================*/
-class BufferInStream : public InStream
+class BufferInStream : public RandomAccessInStream
 {
 public:
 	BufferInStream();
+	BufferInStream(const std::string& s);
 	BufferInStream(const std::vector<unsigned char>& buf);
 	BufferInStream(const ArrayRef<unsigned char>& data);
 	virtual ~BufferInStream();
@@ -32,15 +33,15 @@ public:
 	virtual void readData(void* buf, size_t num_bytes);
 	virtual bool endOfStream();
 
-	bool canReadNBytes(size_t N) const;
-	void setReadIndex(size_t i);
-	void advanceReadIndex(size_t n);
-	size_t getReadIndex() const { return read_index; }
+	virtual bool canReadNBytes(size_t N) const;
+	virtual void setReadIndex(size_t i);
+	virtual void advanceReadIndex(size_t n);
+	virtual size_t getReadIndex() const { return read_index; }
 
-	size_t size() const { return buf.size(); }
+	virtual size_t size() const { return buf.size(); }
 
-	      void* currentReadPtr()       { return buf.data() + read_index; }
-	const void* currentReadPtr() const { return buf.data() + read_index; }
+	              void* currentReadPtr()       { return buf.data() + read_index; }
+	virtual const void* currentReadPtr() const { return buf.data() + read_index; }
 
 	js::Vector<unsigned char, 16> buf;
 	size_t read_index;

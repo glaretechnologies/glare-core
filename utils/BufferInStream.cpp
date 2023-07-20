@@ -15,6 +15,16 @@ BufferInStream::BufferInStream()
 {}
 
 
+BufferInStream::BufferInStream(const std::string& s)
+:	read_index(0)
+{
+	buf.resizeNoCopy(s.size());
+
+	if(!s.empty())
+		std::memcpy(buf.data(), s.data(), s.size());
+}
+
+
 BufferInStream::BufferInStream(const std::vector<unsigned char>& buf_)
 :	read_index(0)
 {
