@@ -20,7 +20,7 @@ Copyright Glare Technologies Limited 2017 -
 #include "../maths/GeometrySampling.h"
 #include "../indigo/SobolSequence.h"
 #include "../indigo/SobolData.h"
-#include "../raytracing/MatUtils.h"
+#include "../indigo/matutils.h"
 
 
 namespace EnvMapProcessing
@@ -68,7 +68,7 @@ void run(const std::string& indigo_base_dir)
 
 	try
 	{
-		Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "C:\\programming\\indigo\\output\\vs2019\\indigo_x64\\RelWithDebInfo\\sky_no_sun.exr");
+		Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "C:\\programming\\indigo\\output\\vs2022\\indigo_x64\\RelWithDebInfo\\sky_no_sun.exr");
 		//Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "N:\\new_cyberspace\\trunk\\assets\\sky_no_sun.exr");
 		//Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "N:\\indigo\\trunk\\testscenes\\uffizi-large.exr");
 
