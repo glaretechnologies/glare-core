@@ -10,6 +10,12 @@ Copyright Glare Technologies Limited 2018 -
 
 
 template <>
+const std::string Vec2<int>::toString() const
+{
+	return "(" + ::toString(x) + "," + ::toString(y) + ")";
+}
+
+template <>
 const std::string Vec2<float>::toString() const
 {
 	return "(" + floatToString(x) + "," + floatToString(y) + ")";
