@@ -100,7 +100,7 @@ std::map<std::string, std::string> URL::parseQuery(const std::string& query)
 			parser.parseToCharOrEOF('&', value);
 
 			if(!key.empty())
-				result_map[web::Escaping::URLUnescape(std::string(key))] = web::Escaping::URLUnescape(std::string(value));
+				result_map[web::Escaping::URLUnescape(toString(key))] = web::Escaping::URLUnescape(toString(value));
 
 			parser.parseChar('&');
 		}
