@@ -1,7 +1,7 @@
 /*=====================================================================
 MeshPrimitiveBuilding.cpp
 -------------------------
-Copyright Glare Technologies Limited 2022 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "MeshPrimitiveBuilding.h"
 
@@ -9,72 +9,86 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLEngine.h"
 #include "GLMeshBuilding.h"
 #include "OpenGLMeshRenderData.h"
-#include "../graphics/ImageMap.h"
-#include "../graphics/DXTCompression.h"
 #include "../graphics/SRGBUtils.h"
 #include "../maths/mathstypes.h"
 #include "../maths/GeometrySampling.h"
-#include "../utils/Timer.h"
-#include "../utils/Task.h"
-#include "../utils/TaskManager.h"
 #include "../utils/StringUtils.h"
-#include "../utils/ConPrint.h"
-#include "../utils/ArrayRef.h"
-#include <vector>
 
 
 // Make a cylinder from (0,0,0), to (0,0,1) with radius 1.
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBufferAllocator& allocator)
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBufferAllocator& allocator, bool end_caps)
 {
+	const int res = 16; // Number of quad faces around cylinder
+
+	const int num_verts = end_caps ? (res * 4 + 2) : (res * 2);
+	js::Vector<Vec3f, 16> verts(num_verts);
+	js::Vector<Vec3f, 16> normals(num_verts);
+	js::Vector<Vec2f, 16> uvs(num_verts);
+
+	const int indices_per_face = end_caps ? 12 : 6; // with caps, 4 tris * res, or without caps, 2 tris * res
+
+	js::Vector<uint32, 16> indices(res * indices_per_face);
+
 	const Vec3f endpoint_a(0, 0, 0);
 	const Vec3f endpoint_b(0, 0, 1);
-
-	const int res = 16;
-
-	js::Vector<Vec3f, 16> verts;
-	verts.resize(res * 4 + 2);
-	js::Vector<Vec3f, 16> normals;
-	normals.resize(res * 4 + 2);
-	js::Vector<Vec2f, 16> uvs;
-	uvs.resize(res * 4 + 2);
-	js::Vector<uint32, 16> indices;
-	indices.resize(res * 12); // 4 tris * res
-
 	const Vec3f dir(0, 0, 1);
 	const Vec3f basis_i(1, 0, 0);
 	const Vec3f basis_j(0, 1, 0);
 
-	// Make cylinder sides
 	for(int i=0; i<res; ++i)
 	{
 		const float angle = i * Maths::get2Pi<float>() / res;
 
-		// Set verts
+		// vert[i*2 + 0] is top of side edge, normal facing outwards.
+		// vert[i*2 + 1] is bottom of side edge, normal facing outwards.
+		const Vec3f normal = basis_i * cos(angle) + basis_j * sin(angle);
+		const Vec3f bottom_pos = endpoint_a + normal;
+		const Vec3f top_pos    = endpoint_b + normal;
+
+		normals[i*2 + 0] = normal;
+		normals[i*2 + 1] = normal;
+		verts[i*2 + 0] = bottom_pos;
+		verts[i*2 + 1] = top_pos;
+		uvs[i*2 + 0] = Vec2f((float)i / res, 0);
+		uvs[i*2 + 1] = Vec2f((float)i / res, 1);
+
+		if(end_caps)
 		{
-			//v[i*2 + 0] is top of side edge, facing outwards.
-			//v[i*2 + 1] is bottom of side edge, facing outwards.
-			const Vec3f normal = basis_i * cos(angle) + basis_j * sin(angle);
-			const Vec3f bottom_pos = endpoint_a + normal;
-			const Vec3f top_pos    = endpoint_b + normal;
-
-			normals[i*2 + 0] = normal;
-			normals[i*2 + 1] = normal;
-			verts[i*2 + 0] = bottom_pos;
-			verts[i*2 + 1] = top_pos;
-			uvs[i*2 + 0] = Vec2f((float)i / res, 0);
-			uvs[i*2 + 1] = Vec2f((float)i / res, 1);
-
-			//v[2*r + i] is top of side edge, facing upwards
+			// vert[2*r + i] is top of side edge, normal facing upwards
 			normals[2*res + i] = dir;
 			verts[2*res + i] = top_pos;
 			uvs[2*res + i] = Vec2f(0.f);
 
-			//v[3*r + i] is bottom of side edge, facing down
+			// vert[3*r + i] is bottom of side edge, normal facing down
 			normals[3*res + i] = -dir;
 			verts[3*res + i] = bottom_pos;
 			uvs[3*res + i] = Vec2f(0.f);
 		}
 
+		// Side face triangles
+		indices[i*indices_per_face + 0] = i*2 + 1; // top
+		indices[i*indices_per_face + 1] = i*2 + 0; // bottom 
+		indices[i*indices_per_face + 2] = (i*2 + 2) % (2*res); // bottom on next edge
+		indices[i*indices_per_face + 3] = i*2 + 1; // top
+		indices[i*indices_per_face + 4] = (i*2 + 2) % (2*res); // bottom on next edge
+		indices[i*indices_per_face + 5] = (i*2 + 3) % (2*res); // top on next edge
+
+		if(end_caps)
+		{
+			// top triangle
+			indices[i*indices_per_face + 6] = res*2 + i + 0;
+			indices[i*indices_per_face + 7] = res*2 + (i + 1) % res;
+			indices[i*indices_per_face + 8] = res*4; // top centre vert
+
+			// bottom triangle
+			indices[i*indices_per_face + 9]  = res*3 + (i + 1) % res;
+			indices[i*indices_per_face + 10] = res*3 + i + 0;
+			indices[i*indices_per_face + 11] = res*4 + 1; // bottom centre vert
+		}
+	}
+
+	if(end_caps)
+	{
 		// top centre vert
 		normals[4*res + 0] = dir;
 		verts[4*res + 0] = endpoint_b;
@@ -84,27 +98,6 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBu
 		normals[4*res + 1] = -dir;
 		verts[4*res + 1] = endpoint_a;
 		uvs[4*res + 1] = Vec2f(0.f);
-
-
-		// Set tris
-
-		// Side face triangles
-		indices[i*12 + 0] = i*2 + 1; // top
-		indices[i*12 + 1] = i*2 + 0; // bottom 
-		indices[i*12 + 2] = (i*2 + 2) % (2*res); // bottom on next edge
-		indices[i*12 + 3] = i*2 + 1; // top
-		indices[i*12 + 4] = (i*2 + 2) % (2*res); // bottom on next edge
-		indices[i*12 + 5] = (i*2 + 3) % (2*res); // top on next edge
-
-		// top triangle
-		indices[i*12 + 6] = res*2 + i + 0;
-		indices[i*12 + 7] = res*2 + (i + 1) % res;
-		indices[i*12 + 8] = res*4; // top centre vert
-
-		// bottom triangle
-		indices[i*12 + 9]  = res*3 + (i + 1) % res;
-		indices[i*12 + 10] = res*3 + i + 0;
-		indices[i*12 + 11] = res*4 + 1; // bottom centre vert
 	}
 
 	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
