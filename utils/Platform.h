@@ -52,7 +52,7 @@ Copyright Glare Technologies Limited 2021 -
 #endif
 
 
-#define staticArrayNumElems(a) sizeof((a)) / sizeof((a[0]))
+#define staticArrayNumElems(a) (sizeof((a)) / sizeof((a[0])))
 
 
 #ifdef _WIN32
