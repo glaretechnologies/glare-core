@@ -56,6 +56,9 @@ public:
 
 	//==================== FBM for various basis functions ======================
 
+	// lacunarity is scale factor between levels, is 2 for standard FBM.
+	// H controls the reduction in height between levels, 1 is for standard FBM
+
 	template <class Real>
 	static Real FBM2(const Vec4f& p, Real H, Real lacunarity, Real octaves);
 
