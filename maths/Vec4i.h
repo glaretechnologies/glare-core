@@ -105,6 +105,7 @@ GLARE_STRONG_INLINE const Vec4i operator << (const Vec4i& a, const int32 bits) {
 GLARE_STRONG_INLINE const Vec4i operator >> (const Vec4i& a, const int32 bits) { return _mm_srli_epi32(a.v, bits); } // SSE 2 // Shift right while shifting in zeros
 
 GLARE_STRONG_INLINE Vec4i operator < (const Vec4i& a, const Vec4i& b) { return Vec4i(_mm_cmplt_epi32(a.v, b.v)); } // SSE 2
+GLARE_STRONG_INLINE Vec4i operator > (const Vec4i& a, const Vec4i& b) { return Vec4i(_mm_cmpgt_epi32(a.v, b.v)); } // SSE 2
 
 
 
