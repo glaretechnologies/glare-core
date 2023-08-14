@@ -623,6 +623,13 @@ Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, size_t /*channel*
 }
 
 
+Image::Value Image::sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const
+{
+	assert(0);
+	return sampleSingleChannelTiled(x, y, channel); // TEMP HACK
+}
+
+
 Image::Value Image::getDerivs(Coord /*s*/, Coord /*t*/, Value& dv_ds_out, Value& dv_dt_out) const
 {
 	// Since most image format decoding functions return ImageMap<>s now, this shouldn't be called.

@@ -112,6 +112,8 @@ public:
 
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 
+	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const;
+
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
 	virtual bool takesOnlyUnitIntervalValues() const { return false; }

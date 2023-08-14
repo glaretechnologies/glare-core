@@ -700,6 +700,14 @@ Map2D::Value DXTImageMap::sampleSingleChannelTiled(Coord u, Coord v, size_t chan
 }
 
 
+DXTImageMap::Value DXTImageMap::sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const
+{
+	// TODO: implement instead of falling back to low quality sample
+	assert(0);
+	return sampleSingleChannelTiled(x, y, channel);
+}
+
+
 // s and t are normalised image coordinates.
 // Returns texture value (v) at (s, t)
 // Also returns dv/ds and dv/dt.

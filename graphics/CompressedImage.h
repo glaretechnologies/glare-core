@@ -39,6 +39,9 @@ public:
 	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 
+	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const;
+
+
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
 	virtual size_t getMapWidth() const { return width; }
@@ -89,7 +92,6 @@ public:
 	uint32 gl_type_size;
 	uint32 gl_internal_format;
 	uint32 gl_format;
-	uint32 gl_base_internal_format;
 };
 
 

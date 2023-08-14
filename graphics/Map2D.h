@@ -43,7 +43,7 @@ public:
 	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const = 0;
 
-	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const { assert(0); return 0; }
+	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const = 0;
 
 
 	// s and t are normalised image coordinates.

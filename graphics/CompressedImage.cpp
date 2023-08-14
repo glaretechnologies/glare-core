@@ -18,8 +18,7 @@ CompressedImage::CompressedImage(size_t width_, size_t height_, size_t N_)
 	gl_type(0),
 	gl_type_size(0),
 	gl_internal_format(0),
-	gl_format(0),
-	gl_base_internal_format(0)
+	gl_format(0)
 {
 	assert(N == 3 || N == 4);
 }
@@ -47,6 +46,13 @@ const Colour4f CompressedImage::vec3SampleTiled(Coord u, Coord v) const
 
 // Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
 Map2D::Value CompressedImage::sampleSingleChannelTiled(Coord u, Coord v, size_t channel) const
+{
+	assert(0);
+	return 0.f;
+}
+
+
+Map2D::Value CompressedImage::sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const
 {
 	assert(0);
 	return 0.f;

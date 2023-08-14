@@ -53,6 +53,8 @@ public:
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 	//inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
+	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const;
+
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 
 
