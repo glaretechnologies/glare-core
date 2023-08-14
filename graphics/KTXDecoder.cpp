@@ -1,7 +1,7 @@
 /*=====================================================================
 KTXDecoder.cpp
 --------------
-Copyright Glare Technologies Limited 2022 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "KTXDecoder.h"
 
@@ -88,7 +88,7 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size)
 		const uint32 glTypeSize = readUInt32(file, swap_endianness);
 		const uint32 glFormat = readUInt32(file, swap_endianness);
 		const uint32 glInternalFormat = readUInt32(file, swap_endianness);
-		const uint32 glBaseInternalFormat = readUInt32(file, swap_endianness);
+		/*const uint32 glBaseInternalFormat =*/ readUInt32(file, swap_endianness);
 		const uint32 pixelWidth = readUInt32(file, swap_endianness);
 		const uint32 pixelHeight = readUInt32(file, swap_endianness);
 		const uint32 pixelDepth = readUInt32(file, swap_endianness);
@@ -116,7 +116,6 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size)
 		image->gl_type_size = glTypeSize;
 		image->gl_internal_format = glInternalFormat;
 		image->gl_format = glFormat;
-		image->gl_base_internal_format = glBaseInternalFormat;
 
 		const uint32 use_num_mipmap_levels = myMax(1u, numberOfMipmapLevels);
 		if(use_num_mipmap_levels > 32)
@@ -239,23 +238,20 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size)
 			image->gl_type_size = 0; // not sure
 			image->gl_internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
 			image->gl_format = GL_RGB;
-			image->gl_base_internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT; // Correct?
 		}
 		else if(vkFormat == VK_FORMAT_BC1_RGB_UNORM_BLOCK) // Aka DXT1 (DXT without alpha)
 		{
 			image->gl_type = GL_UNSIGNED_BYTE; // correct?
 			image->gl_type_size = 0; // not sure
-			image->gl_internal_format = GL_RGB8;
+			image->gl_internal_format = GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT;
 			image->gl_format = GL_RGB;
-			image->gl_base_internal_format = GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT; // Correct?
 		}
 		else if(vkFormat == VK_FORMAT_BC3_UNORM_BLOCK) // Aka DXT5 (DXT with alpha)
 		{
 			image->gl_type = GL_UNSIGNED_BYTE; // correct?
 			image->gl_type_size = 0; // not sure
-			image->gl_internal_format = GL_RGBA8;
+			image->gl_internal_format = GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 			image->gl_format = GL_RGBA;
-			image->gl_base_internal_format = GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT; // Correct?
 		}
 		else
 			throw glare::Exception("Unhandled vkFormat " + toString(vkFormat) + ".");
@@ -315,6 +311,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size)
 }
 
 
+// Only handles VK_FORMAT_BC6H_UFLOAT_BLOCK format currently.
 void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::string& path_out)
 {
 	CompressedImageRef image;
@@ -394,12 +391,22 @@ void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::st
 }
 
 
-void KTXDecoder::writeSupercompressKTX2File(int w, int h, const std::vector<std::vector<uint8> >& level_image_data, const std::string& path_out)
+void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int h, const std::vector<std::vector<uint8> >& level_image_data, const std::string& path_out)
 {
 	FileOutStream file(path_out);
 	file.writeData(ktx2_file_id, 12);
 
-	file.writeUInt32(VK_FORMAT_BC6H_UFLOAT_BLOCK); // vkFormat
+	uint32 vk_format;
+	switch(format)
+	{
+		case Format_BC1:  vk_format = VK_FORMAT_BC1_RGB_UNORM_BLOCK; break;
+		case Format_BC3:  vk_format = VK_FORMAT_BC3_UNORM_BLOCK;     break;
+		case Format_BC6H: vk_format = VK_FORMAT_BC6H_UFLOAT_BLOCK;   break;
+		default: throw glare::Exception("Invalid format");
+	}
+
+
+	file.writeUInt32(vk_format); // vkFormat
 	file.writeUInt32(1); // glTypeSize: For formats whose Vulkan names have the suffix _BLOCK it must equal 1
 	file.writeUInt32((uint32)w); // pixelWidth: The size of the texture image for level 0, in pixels.
 	file.writeUInt32((uint32)h); // pixelHeight
@@ -407,7 +414,7 @@ void KTXDecoder::writeSupercompressKTX2File(int w, int h, const std::vector<std:
 	file.writeUInt32(0); // layerCount: layerCount specifies the number of array elements. If the texture is not an array texture, layerCount must equal 0.
 	file.writeUInt32(1); // faceCount specifies the number of cubemap faces: For non cubemaps this must be 1
 	file.writeUInt32((uint32)level_image_data.size()); // levelCount: levelCount specifies the number of levels in the Mip Level Array
-	file.writeUInt32(2); // supercompressionScheme: Use 2 = zstd
+	file.writeUInt32(supercompression ? 2 : 0); // supercompressionScheme (2 = zstd)
 
 	file.writeUInt32(0); // dfdByteOffset
 	file.writeUInt32(0); // dfdByteLength
@@ -426,36 +433,55 @@ void KTXDecoder::writeSupercompressKTX2File(int w, int h, const std::vector<std:
 		uint64 uncompressedByteLength; // levels[p].uncompressedByteLength is the number of bytes of pixel data in LOD levelp after reflation from supercompression.
 	};
 
-	std::vector<LevelData> level_data(1);
+	std::vector<LevelData> level_data(level_image_data.size());
 
 	const size_t mip_level_byte_start = file.getWriteIndex() + level_data.size() * sizeof(LevelData);
 	size_t level_byte_write_i = mip_level_byte_start;
 
 	js::Vector<uint8, 16> compressed_data;
+
 	for(int i=(int)level_image_data.size() - 1; i>=0; --i)
 	{
 		const std::vector<uint8>& level_i_data = level_image_data[i];
 
-		// Compress the buffer with zstandard
-		const size_t compressed_bound = ZSTD_compressBound(level_i_data.size());
+		if(supercompression)
+		{
+			// Compress the buffer with zstandard
+			const size_t compressed_bound = ZSTD_compressBound(level_i_data.size());
 
-		const size_t compressed_data_write_i = compressed_data.size();
-		compressed_data.resize(compressed_data.size() + compressed_bound); // Resize to be large enough to hold compressed_bound additional bytes.
+			const size_t compressed_data_write_i = compressed_data.size();
+			compressed_data.resize(compressed_data.size() + compressed_bound); // Resize to be large enough to hold compressed_bound additional bytes.
 		
-		const size_t compressed_size = ZSTD_compress(/*dest=*/compressed_data.data() + compressed_data_write_i, /*dst capacity=*/compressed_bound, level_i_data.data(), level_i_data.size(),
-			ZSTD_CLEVEL_DEFAULT // compression level
-		);
-		if(ZSTD_isError(compressed_size))
-			throw glare::Exception("Compression failed: " + toString(compressed_size));
+			const size_t compressed_size = ZSTD_compress(/*dest=*/compressed_data.data() + compressed_data_write_i, /*dst capacity=*/compressed_bound, level_i_data.data(), level_i_data.size(),
+				ZSTD_CLEVEL_DEFAULT // compression level
+			);
+			if(ZSTD_isError(compressed_size))
+				throw glare::Exception("Compression failed: " + toString(compressed_size));
 
-		// Trim compressed_data
-		compressed_data.resize(compressed_data_write_i + compressed_size);
+			// Trim compressed_data
+			compressed_data.resize(compressed_data_write_i + compressed_size);
 
-		level_data[i].byteOffset = level_byte_write_i;
-		level_data[i].byteLength = compressed_size;
-		level_data[i].uncompressedByteLength = level_i_data.size();
+			level_data[i].byteOffset = level_byte_write_i;
+			level_data[i].byteLength = compressed_size;
+			level_data[i].uncompressedByteLength = level_i_data.size();
 
-		level_byte_write_i += compressed_size;
+			level_byte_write_i += compressed_size;
+		}
+		else
+		{
+			const size_t compressed_data_write_i = compressed_data.size();
+			compressed_data.resize(compressed_data.size() + level_i_data.size());
+			std::memcpy(&compressed_data[compressed_data_write_i], level_i_data.data(), level_i_data.size());
+
+			level_data[i].byteOffset = level_byte_write_i;
+			level_data[i].byteLength = level_i_data.size();
+			level_data[i].uncompressedByteLength = level_i_data.size();
+
+			level_byte_write_i += level_i_data.size();
+		}
+
+		// Because we only handle writing block formats with block sizes that are multiples of 4 bytes, we shouldn't need any padding between mip levels.
+		// See https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html#_mippadding
 	}
 
 	// Write level index
