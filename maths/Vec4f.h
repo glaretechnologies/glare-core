@@ -441,6 +441,12 @@ GLARE_STRONG_INLINE Vec4f parallelLessEqual(const Vec4f& a, const Vec4f& b)
 }
 
 
+GLARE_STRONG_INLINE Vec4f parallelLessThan(const Vec4f& a, const Vec4f& b)
+{
+	return _mm_cmplt_ps(a.v, b.v);
+}
+
+
 GLARE_STRONG_INLINE Vec4f parallelGreaterEqual(const Vec4f& a, const Vec4f& b)
 {
 	return _mm_cmpge_ps(a.v, b.v);
