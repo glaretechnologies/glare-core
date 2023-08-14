@@ -1,8 +1,7 @@
 /*=====================================================================
 ImageMapTests.cpp
--------------------
-Copyright Glare Technologies Limited 2014 -
-Generated at 2011-05-22 19:51:52 +0100
+-----------------
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "ImageMapTests.h"
 
@@ -16,6 +15,7 @@ Generated at 2011-05-22 19:51:52 +0100
 #include "jpegdecoder.h"
 #include "imformatdecoder.h"
 #include "Colour4f.h"
+#include "../maths/PCG32.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../indigo/globals.h"
@@ -678,6 +678,124 @@ void ImageMapTests::test()
 		datasets
 		);
 */
+
+	//======================================== Test sampleSingleChannelTiledHighQual() =======================================
+	// Test float map with single channel
+	{
+		const int W = 10;
+		ImageMapFloat map(W, W, 1);
+		map.set(0.f);
+		testAssert(map.sampleSingleChannelTiledHighQual(0.f, 0.f, 0) == 0.0f);
+		testAssert(map.sampleSingleChannelTiledHighQual(0.5f, 0.5f, 0) == 0.0f);
+
+		map.set(1.f);
+		testEpsEqual(map.sampleSingleChannelTiledHighQual(0.f, 0.f, 0), 1.0f);
+		testEpsEqual(map.sampleSingleChannelTiledHighQual(0.5f, 0.5f, 0), 1.0f);
+
+		for(int i=0; i<300; ++i)
+			testEpsEqual(map.sampleSingleChannelTiledHighQual((float)i / 300, 0.f, 0), 1.0f);
+	}
+
+
+	// Test sampleSingleChannelTiledHighQual by upsampling an image
+	if(false)
+	{
+		Map2DRef map = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+
+		ImageMapUInt8Ref imagemap = map.downcast<ImageMapUInt8>();
+
+		{
+			ImageMapUInt8 upscaled(imagemap->getMapWidth() * 2, imagemap->getMapHeight() * 2, imagemap->getN());
+		
+			for(int y=0; y<upscaled.getMapHeight(); ++y)
+			for(int x=0; x<upscaled.getMapWidth(); ++x)
+			{
+				float src_px = 0.45f + 0.03f * (float)x / upscaled.getMapWidth();
+				float src_py = 0.45f + 0.03f * (float)y / upscaled.getMapHeight();
+
+				for(int n=0; n<upscaled.getN(); ++n)
+				{
+					const float v = imagemap->sampleSingleChannelTiledHighQual(src_px, src_py, n);
+					upscaled.getPixel(x, y)[n] = (uint8)myClamp((int)(v * 255), 0, 255);
+				}
+			}
+
+			PNGDecoder::write(upscaled, "upscaled.png");
+
+
+			// Check we don't read out of bounds
+			float sum =0;
+			for(int x=-3000; x<3000; ++x)
+				sum += imagemap->sampleSingleChannelTiledHighQual((float)x / imagemap->getMapWidth(), 0, 0);
+			for(int y=-3000; y<3000; ++y)
+				sum += imagemap->sampleSingleChannelTiledHighQual(0, (float)y / imagemap->getMapHeight(), 0);
+			TestUtils::silentPrint(toString(sum));
+		}
+
+		// Test sampleSingleChannelTiled for reference, upsampling the same image.
+		{
+			ImageMapUInt8 upscaled(imagemap->getMapWidth() * 2, imagemap->getMapHeight() * 2, imagemap->getN());
+
+			for(int y=0; y<upscaled.getMapHeight(); ++y)
+				for(int x=0; x<upscaled.getMapWidth(); ++x)
+				{
+					float src_px = 0.45f + 0.03f * (float)x / upscaled.getMapWidth();
+					float src_py = 0.45f + 0.03f * (float)y / upscaled.getMapHeight();
+
+					for(int n=0; n<upscaled.getN(); ++n)
+					{
+						const float v = imagemap->sampleSingleChannelTiled(src_px, src_py, n);
+						upscaled.getPixel(x, y)[n] = (uint8)myClamp((int)(v * 255), 0, 255);
+					}
+				}
+
+			PNGDecoder::write(upscaled, "upscaled_low_qual.png");
+		}
+	}
+
+	// Do performance test for sampleSingleChannelTiledHighQual
+	if(false)
+	{
+		Map2DRef map = PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/antialias_test3.png");
+
+		ImageMapUInt8Ref imagemap = map.downcast<ImageMapUInt8>();
+
+		const int W = (int)imagemap->getMapWidth();
+		const int H = (int)imagemap->getMapHeight();
+
+		imagemap->sampleSingleChannelTiledHighQual(0.345435f, 0.245353f, 0);
+
+		PCG32 rng(1);
+
+		const int num_trials = 100;
+		double min_elapsed = 1.0e10;
+
+		for(int i=0; i<num_trials; ++i)
+		{
+			Timer timer;
+			float sum = 0;
+			for(int y=0; y<H; ++y)
+				for(int x=0; x<W; ++x)
+				{
+					//float src_px = rng.unitRandom();//(float)x / W;
+					//float src_py = rng.unitRandom();//(float)y / H;
+					float src_px = (float)x / W;
+					float src_py = (float)y / H;
+					const float v = imagemap->sampleSingleChannelTiledHighQual(src_px, src_py, 0);
+					sum += v;
+				}
+			const double elapsed = timer.elapsed();
+			min_elapsed = myMin(elapsed, min_elapsed);
+			//TestUtils::silentPrint(toString(sum));
+			conPrint(toString(sum));
+
+			conPrint("Elapsed: " + doubleToStringNDecimalPlaces(elapsed, 4) + " s");
+		}
+
+		conPrint("min Elapsed: " + doubleToStringNDecimalPlaces(min_elapsed, 4) + " s");
+		const double time_per_sample = min_elapsed / (W * H);
+		conPrint("time_per_sample: " + doubleToStringNDecimalPlaces(time_per_sample * 1.0e9, 4) + " ns");
+	}
 }
 
 

@@ -1,8 +1,7 @@
 /*=====================================================================
 ImageMap.h
--------------------
-Copyright Glare Technologies Limited 2017 -
-Generated at Fri Mar 11 13:14:38 +0000 2011
+----------
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -11,6 +10,7 @@ Generated at Fri Mar 11 13:14:38 +0000 2011
 #include "Colour4f.h"
 #include "image.h"
 #include "GaussianImageFilter.h"
+#include "MitchellNetravali.h"
 #include "../utils/AllocatorVector.h"
 #include "../utils/Exception.h"
 #include <vector>
@@ -108,6 +108,8 @@ public:
 	// X and Y are normalised image coordinates.
 	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 	inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
+
+	inline virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const;
 
 	inline void sampleAllChannels(Coord x, Coord y, Value* res_out) const;
 
@@ -423,6 +425,209 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiled(Coord u, Coord v, si
 	const Value d = ufrac * vfrac; // Bottom right pixel weight
 
 	return VTraits::scaleValue(a * top_left_pixel[0] + b * top_right_pixel[0] + c * bot_left_pixel[0] + d * bot_right_pixel[0]);
+}
+
+
+// See MitchellNetravali.h
+inline Vec4f mitchellNetravaliEval(const Vec4f& x)
+{
+	Vec4f B(0.5f);
+	Vec4f C(0.25f);
+
+	Vec4f region_0_a = (Vec4f(12)  - B*9  - C*6) * (1.f/6);
+	Vec4f region_0_b = (Vec4f(-18) + B*12 + C*6) * (1.f/6);
+	Vec4f region_0_d = (Vec4f(6)   - B*2       ) * (1.f/6);
+
+	Vec4f region_1_a = (-B - C*6)                * (1.f/6);
+	Vec4f region_1_b = (B*6 + C*30)              * (1.f/6);
+	Vec4f region_1_c = (B*-12 - C*48)            * (1.f/6);
+	Vec4f region_1_d = (B*8 + C*24)              * (1.f/6);
+
+	Vec4f region_0_f = region_0_a * (x*x*x) + region_0_b * (x*x) + region_0_d;
+	Vec4f region_1_f = region_1_a * (x*x*x) + region_1_b * (x*x) + region_1_c * x + region_1_d;
+	Vec4f region_01_f = select(region_0_f, region_1_f, parallelLessThan(x, Vec4f(1.f)));
+
+	return select(region_01_f, Vec4f(0.f), parallelLessThan(x, Vec4f(2.f)));
+}
+
+
+/*
+sampleSingleChannelTiledHighQual
+--------------------------------
+We will use a Mitchell-Netravali cubic, radially symmetric filter.
+
+Only handling magnification (without aliasing) currently, because we don't increase the filter size past a radius of 2.
+
+We will also normalise the weight sum to avoid slight variations from a weight sum of 1 between integer sample locations.
+
+Mitchell-Netravali has a support radius of 2 pixels, so we will read from these samples:
+
+               ^ y
+               |
+   floor(py)+2 |  *            *            *              *
+               |
+               |
+               |
+               |
+   floor(py)+1 |  *            *            *              *
+               |
+               |                  +
+               |                (px, py)
+               |
+   floor(py)   |  *            *            *              *
+               |
+               |
+               |
+               |
+   floor(py)-1 |  *            *            *              *    
+               |
+               |------------------------------------------------>x 
+                  |            |            |              |
+                floor(px)-1    floor(px)    floor(px)+1     floor(px)+2
+*/
+template <class V, class VTraits>
+Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiledHighQual(Coord u, Coord v, size_t channel) const
+{
+	assert(channel < N);
+
+	// Get fractional normalised image coordinates
+	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
+
+	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
+	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
+
+	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
+
+	// We max with 0 here because otherwise Inf or NaN texture coordinates can result in out of bounds reads.
+	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels));
+	Vec4i i_pixels = min(i_pixels_clamped, dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	
+	Vec4i i_pixels_1 = i_pixels_clamped + Vec4i(1); // pixels + 1, not wrapped yet.
+	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
+	
+	Vec4i i_pixels_2 = i_pixels_clamped + Vec4i(2); // pixels + 2, not wrapped yet.
+	Vec4i wrapped_i_pixels_2 = select(i_pixels_2, i_pixels_2 - dims, /*mask=*/i_pixels_2 < dims); // wrapped_i_pixels_2 = (pixels + 2) <= width ? (pixels + 2) : pixels + 2 - width
+	
+	Vec4i i_pixels_minus_1 = i_pixels_clamped - Vec4i(1); // pixels - 1, not wrapped yet.
+	Vec4i wrapped_i_pixels_minus_1 = select(i_pixels_minus_1, dims_minus_1, /*mask=*/i_pixels_clamped > Vec4i(0)); // wrapped_i_pixels_minus_1 = pixels > 0 ? (pixels - 1) : width - 1
+
+	int ut = i_pixels[0];
+	int vt = i_pixels[1];
+	int ut_1 = wrapped_i_pixels_1[0];
+	int vt_1 = wrapped_i_pixels_1[1];
+	int ut_2 = wrapped_i_pixels_2[0];
+	int vt_2 = wrapped_i_pixels_2[1];
+	int ut_minus_1 = wrapped_i_pixels_minus_1[0];
+	int vt_minus_1 = wrapped_i_pixels_minus_1[1];
+	// Check all indices are in bounds:
+	assert(ut         >= 0 && ut         < (int)width && vt         >= 0 && vt         < (int)height);
+	assert(ut_1       >= 0 && ut_1       < (int)width && vt_1       >= 0 && vt_1       < (int)height);
+	assert(ut_2       >= 0 && ut_2       < (int)width && vt_2       >= 0 && vt_2       < (int)height);
+	assert(ut_minus_1 >= 0 && ut_minus_1 < (int)width && vt_minus_1 >= 0 && vt_minus_1 < (int)height);
+
+	// Start reading data before we compute weights.  Not sure this has any actual advantage to reading later.
+	const V* const use_data = data.data();
+
+	const V  v0 = use_data[(ut_minus_1   + width * vt_minus_1  ) * N + channel];
+	const V  v1 = use_data[(ut           + width * vt_minus_1  ) * N + channel];
+	const V  v2 = use_data[(ut_1         + width * vt_minus_1  ) * N + channel];
+	const V  v3 = use_data[(ut_2         + width * vt_minus_1  ) * N + channel];
+			 
+	const V  v4 = use_data[(ut_minus_1   + width * vt          ) * N + channel];
+	const V  v5 = use_data[(ut           + width * vt          ) * N + channel];
+	const V  v6 = use_data[(ut_1         + width * vt          ) * N + channel];
+	const V  v7 = use_data[(ut_2         + width * vt          ) * N + channel];
+			 
+	const V  v8 = use_data[(ut_minus_1   + width * vt_1        ) * N + channel];
+	const V  v9 = use_data[(ut           + width * vt_1        ) * N + channel];
+	const V v10 = use_data[(ut_1         + width * vt_1        ) * N + channel];
+	const V v11 = use_data[(ut_2         + width * vt_1        ) * N + channel];
+
+	const V v12 = use_data[(ut_minus_1   + width * vt_2        ) * N + channel];
+	const V v13 = use_data[(ut           + width * vt_2        ) * N + channel];
+	const V v14 = use_data[(ut_1         + width * vt_2        ) * N + channel];
+	const V v15 = use_data[(ut_2         + width * vt_2        ) * N + channel];
+
+
+	
+	// Compute sample weights:
+	Vec4f p_x = copyToAll<0>(f_pixels);
+	Vec4f p_y = copyToAll<1>(f_pixels);
+
+	// dx = [p_x - (floor(p_x) - 1), p_x - (floor(p_x)), p_x - (floor(p_x) + 1), p_x - (floor(p_x) + 2)] = 
+	//    = [p_x - floor(p_x) + 1, p_x - floor(p_x), p_x - floor(p_x) - 1, p_x - floor(p_x) - 2] = 
+
+	// Note that we will use (float)(int)p_x instead of floor(px), for consistency with generating integer coordinates above.
+	Vec4f dx = p_x - toVec4f(toVec4i(p_x)) + Vec4f(1, 0, -1, -2);
+
+	assert(epsEqual(dx[0], f_pixels[0] - (floor(f_pixels[0]) - 1)));
+	assert(epsEqual(dx[1], f_pixels[0] - (floor(f_pixels[0]) + 0)));
+	assert(epsEqual(dx[2], f_pixels[0] - (floor(f_pixels[0]) + 1)));
+	assert(epsEqual(dx[3], f_pixels[0] - (floor(f_pixels[0]) + 2)));
+
+	Vec4f dx2 = dx*dx;
+
+	Vec4f dy = p_y - toVec4f(toVec4i(p_y)) + Vec4f(1, 0, -1, -2);  // [p_y - (floor(p_y)-1), p_y - floor(p_y), p_y - (floor(p_y) + 1), p_y - (floor(p_y) + 2)]
+	Vec4f dy2 = dy*dy;
+
+	assert(epsEqual(dy[0], f_pixels[1] - (floor(f_pixels[1]) - 1)));
+	assert(epsEqual(dy[1], f_pixels[1] - (floor(f_pixels[1]) + 0)));
+	assert(epsEqual(dy[2], f_pixels[1] - (floor(f_pixels[1]) + 1)));
+	assert(epsEqual(dy[3], f_pixels[1] - (floor(f_pixels[1]) + 2)));
+
+	Vec4f d;
+	
+	d = sqrt(dx2 + copyToAll<0>(dy2)); // [sqrt((p_x-(floor(p_x)-1))^2 + (p_y-(floor(p_y)-1))^2, sqrt((p_x-(floor(p_x)+0))^2 + (p_y-floor(p_y)-1)^2, sqrt((p_x-(floor(p_x)+1))^2 + (p_y-(floor(p_y)-1))^2, ...]
+	Vec4f w0_3 = mitchellNetravaliEval(d);
+
+#ifndef NDEBUG
+	MitchellNetravali<float> mn(0.5f, 0.25f);
+
+	for(int z=0; z<4; ++z)
+		assert(epsEqual(mn.eval(d[z]), w0_3[z]));
+#endif
+
+	d = sqrt(dx2 + copyToAll<1>(dy2));
+	Vec4f w4_7 = mitchellNetravaliEval(d);
+
+#ifndef NDEBUG
+	for(int z=0; z<4; ++z)
+		assert(epsEqual(mn.eval(d[z]), w4_7[z]));
+#endif
+
+	d = sqrt(dx2 + copyToAll<2>(dy2));
+	Vec4f w8_11 = mitchellNetravaliEval(d);
+
+	d = sqrt(dx2 + copyToAll<3>(dy2));
+	Vec4f w12_15 = mitchellNetravaliEval(d);
+
+	Vec4f filter_sum_v = (w0_3 + w4_7) + (w8_11 + w12_15);
+	const float filter_sum = horizontalSum(filter_sum_v);
+
+	
+	const Value sum = 
+		(((v0  * w0_3[0] +
+		   v1  * w0_3[1]) +
+		  (v2  * w0_3[2] +
+		   v3  * w0_3[3])) +
+
+  		 ((v4  * w4_7[0] +
+		   v5  * w4_7[1]) +
+		  (v6  * w4_7[2] +
+		   v7  * w4_7[3]))) +
+
+		(((v8  * w8_11[0] +
+		   v9  * w8_11[1]) +
+		  (v10 * w8_11[2] +
+		   v11 * w8_11[3])) +
+
+		 ((v12 * w12_15[0] +
+		   v13 * w12_15[1]) +
+		  (v14 * w12_15[2] +
+		   v15 * w12_15[3])));
+
+	return VTraits::scaleValue(sum / filter_sum);
 }
 
 
