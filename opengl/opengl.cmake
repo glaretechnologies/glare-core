@@ -9,7 +9,7 @@
 # Requires: GLARE_CORE_TRUNK_DIR_ENV variable should be set (Path to Glare-Core repo on disk)
 
 
-set(opengl 
+set(opengl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/gl3w.c 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.h
@@ -53,3 +53,51 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/UniformBufOb.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/WGL.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/WGL.h
 )
+
+
+set(opengl_ui
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIButton.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIButton.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUI.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUI.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIImage.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIImage.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUITextView.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUITextView.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWidget.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWidget.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICallbackHandler.h
+)
+
+
+set(opengl_shaders
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/clear_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/clear_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/depth_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/depth_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/downsize_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/downsize_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/edge_extract_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/edge_extract_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/env_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/env_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/final_imaging_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/final_imaging_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_blur_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_blur_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/outline_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/outline_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/overlay_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/overlay_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/phong_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/phong_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/transparent_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/transparent_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/water_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/water_vert_shader.glsl
+)
+
+
+SOURCE_GROUP(opengl FILES ${opengl})
+SOURCE_GROUP(opengl/shaders FILES ${opengl_shaders})
+SOURCE_GROUP(opengl/ui FILES ${opengl_ui})
