@@ -25,7 +25,7 @@ public:
 	static Reference<OpenGLMeshRenderData> makeLineMesh(VertexBufferAllocator& allocator);
 	static Reference<OpenGLMeshRenderData> makeSphereMesh(VertexBufferAllocator& allocator);
 	static Reference<OpenGLMeshRenderData> makeCubeMesh(VertexBufferAllocator& allocator);
-	static Reference<OpenGLMeshRenderData> makeQuadMesh(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j);
+	static Reference<OpenGLMeshRenderData> makeQuadMesh(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j, int vert_res); // Has vert_res^2 vertices.  Require vert_res >= 2.
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(VertexBufferAllocator& allocator); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	static Reference<OpenGLMeshRenderData> makeCapsuleMesh(VertexBufferAllocator& allocator, const Vec3f& bottom_spans, const Vec3f& top_spans);
 	static Reference<OpenGLMeshRenderData> makeCylinderMesh(VertexBufferAllocator& allocator, bool end_caps); // Make a cylinder from (0,0,0), to (0,0,1) with radius 1;

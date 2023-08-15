@@ -808,94 +808,85 @@ GLObjectRef MeshPrimitiveBuilding::makeDebugHexahedron(VertexBufferAllocator& al
 }
 
 
-// Makes a quad with xspan = 1, yspan = 1, lying on the z = 0 plane.
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeUnitQuadMesh(VertexBufferAllocator& allocator)
+/*
+makeQuadMesh
+------------
+For res = 4:
+
+^ j
+|
+|     -----------------------------------------------
+|     |v12        /  |v13        /   |v14        /   |v15
+|     |         /    |         /     |         /     |
+|     |   t13 /      |   t15 /       |   t17  /      |
+|     |     /   t12  |     /         |     /         |
+|     |   /          |   /       t14 |   /       t16 |
+|     | /            | /             | /             |
+|     -----------------------------------------------
+|     |v8         /  |v9         /   |v10        /   |v11
+|     |         /    |         /     |         /     |
+|     |   t7  /      |   t9  /       |   t11  /      |
+|     |     /   t6   |     /         |     /         |
+|     |   /          |   /       t8  |   /       t10 |
+|     | /            | /             | /             |
+|     -----------------------------------------------
+|     |v4         /  |v5         /   |v5         /   |v7
+|     |         /    |         /     |         /     |
+|     |   t1  /      |   t3  /       |   t5  /       |
+|     |     /   t0   |     /         |     /         |
+|     |   /          |   /       t2  |   /       t4  |
+|     | /            | /             | /             |
+|     -----------------------------------------------
+|     v0            v1              v2             v3
+|     
+---------------------------------------------------------> i
+*/
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j, int res)
 {
-	js::Vector<Vec3f, 16> verts;
-	verts.resize(4);
-	js::Vector<Vec3f, 16> normals;
-	normals.resize(4);
-	js::Vector<Vec2f, 16> uvs;
-	uvs.resize(4);
-	js::Vector<uint32, 16> indices;
-	indices.resize(6); // two tris per face
+	assert(res >= 2);
 
-	indices[0] = 0; 
-	indices[1] = 1; 
-	indices[2] = 2; 
-	indices[3] = 0;
-	indices[4] = 2;
-	indices[5] = 3;
+	const int num_verts = Maths::square(res);
+	const Vec3f normal = toVec3f(normalise(crossProduct(i, j)));
 
-	Vec3f v0(0, 0, 0); // bottom left
-	Vec3f v1(1, 0, 0); // bottom right
-	Vec3f v2(1, 1, 0); // top right
-	Vec3f v3(0, 1, 0); // top left
+	js::Vector<Vec3f, 16> verts(num_verts);
+	js::Vector<Vec3f, 16> normals(num_verts, normal); // NOTE: could use geometric normals instead.
+	js::Vector<Vec2f, 16> uvs(num_verts);
+	js::Vector<uint32, 16> indices(Maths::square(res - 1) * 6); // two tris * 3 verts/tri per quad
 
-	verts[0] = v0;
-	verts[1] = v1;
-	verts[2] = v2;
-	verts[3] = v3;
+	for(int y=0; y<res; ++y)
+	{
+		const float v = (float)y / (res - 1);
+		for(int x=0; x<res; ++x)
+		{
+			const float u = (float)x / (res - 1);
 
-	Vec2f uv0(0, 0);
-	Vec2f uv1(1, 0);
-	Vec2f uv2(1, 1);
-	Vec2f uv3(0, 1);
+			verts[y*res + x] = toVec3f(i * u + j * v);
 
-	uvs[0] = uv0;
-	uvs[1] = uv1;
-	uvs[2] = uv2;
-	uvs[3] = uv3;
+			uvs[y*res + x] = Vec2f(u, v);
+		}
+	}
 
-	for(int i=0; i<4; ++i)
-		normals[i] = Vec3f(0, 0, 1);
+	for(int y=0; y<res-1; ++y)
+	{
+		for(int x=0; x<res-1; ++x)
+		{
+			indices[(y*(res-1) + x) * 6 + 0] = y    *res + x + 0; // bot left
+			indices[(y*(res-1) + x) * 6 + 1] = y    *res + x + 1; // bot right
+			indices[(y*(res-1) + x) * 6 + 2] = (y+1)*res + x + 1; // top right
+			indices[(y*(res-1) + x) * 6 + 3] = y    *res + x + 0; // bot left
+			indices[(y*(res-1) + x) * 6 + 4] = (y+1)*res + x + 1; // top right
+			indices[(y*(res-1) + x) * 6 + 5] = (y+1)*res + x + 0; // top left
+		}
+	}
 
 	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
 }
 
 
-Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeQuadMesh(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j)
+// Makes a quad from (0, 0, 0) to (1, 1, 0)
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeUnitQuadMesh(VertexBufferAllocator& allocator)
 {
-	js::Vector<Vec3f, 16> verts;
-	verts.resize(4);
-	js::Vector<Vec3f, 16> normals;
-	normals.resize(4);
-	js::Vector<Vec2f, 16> uvs;
-	uvs.resize(4);
-	js::Vector<uint32, 16> indices;
-	indices.resize(6); // two tris per face
-
-	indices[0] = 0;
-	indices[1] = 1;
-	indices[2] = 2;
-	indices[3] = 0;
-	indices[4] = 2;
-	indices[5] = 3;
-
-	Vec3f v0(0.f); // bottom left
-	Vec3f v1 = toVec3f(i); // bottom right
-	Vec3f v2 = toVec3f(i) + toVec3f(j); // top right
-	Vec3f v3 = toVec3f(j); // top left
-
-	verts[0] = v0;
-	verts[1] = v1;
-	verts[2] = v2;
-	verts[3] = v3;
-
-	Vec2f uv0(0, 0);
-	Vec2f uv1(1, 0);
-	Vec2f uv2(1, 1);
-	Vec2f uv3(0, 1);
-
-	uvs[0] = uv0;
-	uvs[1] = uv1;
-	uvs[2] = uv2;
-	uvs[3] = uv3;
-
-	for(int z=0; z<4; ++z)
-		normals[z] = toVec3f(crossProduct(i, j));// Vec3f(0, 0, -1);
-
-	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
+	return makeQuadMesh(allocator, Vec4f(1,0,0,0), Vec4f(0,1,0,0), /*res=*/2);
 }
 
 
