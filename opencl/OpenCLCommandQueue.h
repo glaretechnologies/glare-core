@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenCLCommandQueue.h
 --------------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -31,6 +31,7 @@ public:
 	OpenCLCommandQueue(OpenCLContextRef& context, cl_device_id device_id, bool enable_profiling);
 	~OpenCLCommandQueue();
 
+	void finish(); // Blocks until all previously queued OpenCL commands in this command-queue have completed.
 
 	cl_command_queue getCommandQueue() { return command_queue; }
 	cl_device_id getDeviceID() { return device_id; }

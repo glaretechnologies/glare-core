@@ -1,8 +1,7 @@
 /*=====================================================================
-OpenCL.cpp
-----------
-File created by ClassTemplate on Mon Nov 02 17:13:50 2009
-Code By Nicholas Chapman.
+OpenCLCommandQueue.cpp
+----------------------
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "OpenCLCommandQueue.h"
 
@@ -39,3 +38,10 @@ OpenCLCommandQueue::~OpenCLCommandQueue()
 	}
 }
 
+
+void OpenCLCommandQueue::finish()
+{
+	const cl_int res = ::getGlobalOpenCL()->clFinish(this->command_queue);
+	if(res != CL_SUCCESS)
+		throw glare::Exception("clFinish failed: " + OpenCL::errorString(res));
+}
