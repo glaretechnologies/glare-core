@@ -1,8 +1,7 @@
 /*=====================================================================
 OpenCL.h
 --------
-File created by ClassTemplate on Mon Nov 02 17:13:50 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -17,7 +16,7 @@ Code By Nicholas Chapman.
 #include <vector>
 
 
-#define OPENCL_OPENGL_INTEROP 0
+#define OPENCL_OPENGL_INTEROP 1
 
 
 #ifdef OSX
@@ -92,6 +91,7 @@ typedef void * (CL_API_CALL *clGetExtensionFunctionAddress_TYPE) (const char *fu
 typedef cl_int (CL_API_CALL *clGetGLContextInfoKHR_TYPE) (cl_context_properties *properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 typedef cl_mem (CL_API_CALL *clCreateFromGLTexture_TYPE) (cl_context context, cl_mem_flags flags, cl_GLenum target, cl_GLint miplevel, cl_GLuint texture, cl_int *errcode_ret);
 typedef cl_mem (CL_API_CALL *clCreateFromGLTexture2D_TYPE) (cl_context context, cl_mem_flags flags, cl_GLenum target, cl_GLint miplevel, cl_GLuint texture, cl_int *errcode_ret);
+typedef cl_mem (CL_API_CALL *clCreateFromGLBuffer_TYPE) (cl_context context, cl_mem_flags flags, /*GLuint*/unsigned int bufobj, cl_int * errcode_ret);
 typedef cl_int (CL_API_CALL *clEnqueueAcquireGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (CL_API_CALL *clEnqueueReleaseGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 #endif
@@ -179,8 +179,12 @@ public:
 	clGetGLContextInfoKHR_TYPE clGetGLContextInfoKHR;
 	clCreateFromGLTexture_TYPE clCreateFromGLTexture;
 	clCreateFromGLTexture2D_TYPE clCreateFromGLTexture2D;
+	clCreateFromGLBuffer_TYPE clCreateFromGLBuffer;
 	clEnqueueAcquireGLObjects_TYPE clEnqueueAcquireGLObjects;
 	clEnqueueReleaseGLObjects_TYPE clEnqueueReleaseGLObjects;
+
+	cl_context_properties current_gl_context;
+	cl_context_properties current_DC;
 #endif
 
 private:

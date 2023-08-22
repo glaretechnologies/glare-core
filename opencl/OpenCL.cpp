@@ -1,8 +1,7 @@
 /*=====================================================================
 OpenCL.cpp
 ----------
-File created by ClassTemplate on Mon Nov 02 17:13:50 2009
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "OpenCL.h"
 
@@ -118,12 +117,8 @@ void OpenCL::libraryInit()
 			clEnqueueFillBuffer = opencl_lib.tryGetFuncPointer<clEnqueueFillBuffer_TYPE>("clEnqueueFillBuffer");
 
 #if OPENCL_OPENGL_INTEROP
-			clGetExtensionFunctionAddress = opencl_lib.getFuncPointer<clGetExtensionFunctionAddress_TYPE>("clGetExtensionFunctionAddress");
-			clGetGLContextInfoKHR = (clGetGLContextInfoKHR_TYPE)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
-			clCreateFromGLTexture = (clCreateFromGLTexture_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture");
-			clCreateFromGLTexture2D = (clCreateFromGLTexture2D_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture2D");
-			clEnqueueAcquireGLObjects = (clEnqueueAcquireGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueAcquireGLObjects");
-			clEnqueueReleaseGLObjects = (clEnqueueReleaseGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueReleaseGLObjects");
+			// OpenCL 2.1 function:
+			clGetExtensionFunctionAddress = opencl_lib.tryGetFuncPointer<clGetExtensionFunctionAddress_TYPE>("clGetExtensionFunctionAddress");
 #endif
 		}
 		catch(glare::Exception& e)
@@ -179,9 +174,28 @@ void OpenCL::libraryInit()
 
 	// OpenCL 1.2 function:
 	this->clEnqueueFillBuffer = ::clEnqueueFillBuffer;
-	
+
+#if OPENCL_OPENGL_INTEROP
+	this->clGetExtensionFunctionAddress = ::clGetExtensionFunctionAddress;
+#endif
+
 	if(this->clGetPlatformIDs == NULL)
 		throw glare::Exception("OpenCL is not available in this version of OSX.");
+#endif
+
+#if OPENCL_OPENGL_INTEROP
+	// Get interop functions using clGetExtensionFunctionAddress
+	if(clGetExtensionFunctionAddress != NULL)
+	{
+		clGetGLContextInfoKHR = (clGetGLContextInfoKHR_TYPE)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
+		clCreateFromGLTexture = (clCreateFromGLTexture_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture");
+		clCreateFromGLTexture2D = (clCreateFromGLTexture2D_TYPE)clGetExtensionFunctionAddress("clCreateFromGLTexture2D");
+		clCreateFromGLBuffer = (clCreateFromGLBuffer_TYPE)clGetExtensionFunctionAddress("clCreateFromGLBuffer");
+		clEnqueueAcquireGLObjects = (clEnqueueAcquireGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueAcquireGLObjects");
+		clEnqueueReleaseGLObjects = (clEnqueueReleaseGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueReleaseGLObjects");
+	}
+	current_gl_context = 0;
+	current_DC = 0;
 #endif
 
 	initialised = true;
@@ -209,12 +223,12 @@ void OpenCL::queryDevices()
 
 #if OPENCL_OPENGL_INTEROP
 #if defined(_WIN32)
-	const cl_context_properties current_context = (cl_context_properties)wglGetCurrentContext();
-	const cl_context_properties current_DC = (cl_context_properties)wglGetCurrentDC();
+	current_gl_context = (cl_context_properties)wglGetCurrentContext();
+	current_DC = (cl_context_properties)wglGetCurrentDC();
 #else
 	// TODO mac and linux
-	const cl_context_properties current_context = 0;
-	const cl_context_properties current_DC = 0;
+	current_gl_context = 0;
+	current_DC = 0;
 #endif
 #endif
 
@@ -270,7 +284,7 @@ void OpenCL::queryDevices()
 			// Create CL context properties, add WGL context & handle to DC
 			cl_context_properties properties[] =
 			{
-				CL_GL_CONTEXT_KHR, current_context, // WGL Context
+				CL_GL_CONTEXT_KHR, current_gl_context, // WGL Context
 				CL_WGL_HDC_KHR, current_DC, // WGL HDC
 				CL_CONTEXT_PLATFORM, (cl_context_properties)platform_ids[i], // OpenCL platform
 				0
@@ -279,7 +293,7 @@ void OpenCL::queryDevices()
 			// Find CL capable devices in the current GL context
 			size_t devices_size;
 			if(clGetGLContextInfoKHR(properties, CL_DEVICES_FOR_GL_CONTEXT_KHR, 32 * sizeof(cl_device_id), platform_GL_devices, &devices_size) == CL_SUCCESS)
-			platform_num_GL_devices = (int)(devices_size / sizeof(cl_device_id));
+				platform_num_GL_devices = (int)(devices_size / sizeof(cl_device_id));
 		}
 #endif
 

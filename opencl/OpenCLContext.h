@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenCLContext.h
 ---------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -27,8 +27,8 @@ An OpenCL context
 class OpenCLContext : public ThreadSafeRefCounted
 {
 public:
-	OpenCLContext(cl_platform_id platform_id);
-	OpenCLContext(OpenCLDeviceRef& opencl_device);
+	OpenCLContext(cl_platform_id platform_id, bool enable_opengl_interop = false);
+	OpenCLContext(OpenCLDeviceRef& opencl_device, bool enable_opengl_interop = false);
 	~OpenCLContext();
 
 	cl_context getContext() { return context; }
