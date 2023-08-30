@@ -43,7 +43,7 @@ struct VertBufAllocationHandle
 
 	VBORef vbo;
 	size_t vbo_id; // Used for sorting batch draws by VBO used.
-	size_t per_spec_data_index;
+	size_t per_spec_data_index; // Index into VertexBufferAllocator::per_spec_data
 	size_t offset; // offset in VBO, in bytes
 	size_t size; // size of allocation
 	int base_vertex;
