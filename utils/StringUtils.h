@@ -47,6 +47,8 @@ const std::string int64ToString(int64 i);
 const std::string uInt32ToString(uint32 x);
 const std::string uInt64ToString(uint64 x);
 
+const std::string uInt32ToStringCommaSeparated(uint32 x);
+
 // These functions write the shortest string such that they can be re-read to get the original number.
 const std::string floatToString(float f);
 const std::string doubleToString(double d);
