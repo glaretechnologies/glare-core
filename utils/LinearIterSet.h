@@ -85,7 +85,7 @@ public:
 	typename js::Vector<T, 16>::iterator end() { return vector.end(); }
 
 	typename js::Vector<T, 16>::const_iterator begin() const { return vector.begin(); }
-	typename js::Vector<T, 16>::const_iterator end() const { return vector.begin(); }
+	typename js::Vector<T, 16>::const_iterator end() const { return vector.end(); }
 
 	size_t size() const { return map.size(); }
 
