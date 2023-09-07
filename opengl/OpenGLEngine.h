@@ -115,7 +115,10 @@ public:
 		double_sided(false),
 		materialise_effect(false),
 		cast_shadows(true),
+		geomorphing(false),
+		water(false),
 		draw_into_depth_buffer(false),
+		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
 		end_fade_out_distance(120.f),
 		materialise_lower_z(0),
@@ -140,6 +143,10 @@ public:
 	bool double_sided;
 	bool materialise_effect;
 	bool cast_shadows;
+	bool geomorphing;
+	bool water;
+
+	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.
 
 	bool draw_into_depth_buffer; // Internal
 
@@ -211,6 +218,10 @@ struct GlInstanceInfo
 
 #define PROG_SUPPORTS_MDI_BITFLAG			(1u << 31)
 #define MATERIAL_TRANSPARENT_BITFLAG		(1u << 30)
+#define MATERIAL_WATER_BITFLAG				(1u << 29)
+
+#define ISOLATE_PROG_INDEX_MASK				0x1FFFFFFF // Zero out top 3 bits
+
 
 struct GLObjectBatchDrawInfo
 {
@@ -219,7 +230,7 @@ struct GLObjectBatchDrawInfo
 	uint32 prim_start_offset;
 	uint32 num_indices;
 
-	inline uint32 getProgramIndex() const { return program_index_and_flags & 0x3FFFFFFF; }
+	inline uint32 getProgramIndex() const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }
 };
 
 
@@ -291,6 +302,9 @@ struct GLObject
 	double transition_start_time;
 	double transition_end_time;
 	double use_time_offset;
+
+	float morph_start_dist; // Distance from camera at which we start morphing to the next lower LOD level, for geomorphing objects (terrain).
+	float morph_end_dist;
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 	js::Vector<Matrix4f, 16> joint_matrices;
@@ -441,7 +455,6 @@ public:
 private:
 	float use_sensor_width;
 	float use_sensor_height;
-	float sensor_width;
 	
 	float lens_sensor_dist;
 	float render_aspect_ratio;
@@ -458,12 +471,13 @@ private:
 
 	CameraType camera_type;
 
-	Matrix4f world_to_camera_space_matrix;
+	Matrix4f world_to_camera_space_matrix; // Maps world space to a camera space where (1,0,0) is right, (0,1,0) is forwards and (0,0,1) is up.
 	Matrix4f cam_to_world;
 public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> transparent_objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> water_objects;
 	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	std::set<Reference<OverlayObject>> overlay_objects; // UI overlays
 	std::set<Reference<GLObject>> objects_with_imposters;
@@ -593,7 +607,11 @@ struct PhongUniforms
 struct MaterialCommonUniforms
 {
 	Vec4f sundir_cs;
+	Vec4f sundir_ws;
+	float near_clip_dist;
 	float time;
+	float l_over_w;
+	float l_over_h;
 };
 
 
@@ -667,6 +685,7 @@ public:
 	~OpenGLEngine();
 
 	friend class TextureLoading;
+	friend class TerrainSystem;
 
 	//---------------------------- Initialisation/deinitialisation --------------------------
 	void initialise(const std::string& data_dir, TextureServer* texture_server, PrintOutput* print_output); // data_dir should have 'shaders' and 'gl_data' in it.
@@ -887,6 +906,7 @@ public:
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
+	void buildObjectData(const Reference<GLObject>& object);
 	void rebuildDenormalisedDrawData(GLObject& ob);
 	void rebuildObjectDepthDrawBatches(GLObject& ob);
 	void updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index);
@@ -948,6 +968,7 @@ private:
 	void expandPhongBuffer();
 	void expandJointMatricesBuffer(size_t min_extra_needed);
 	void checkMDIGPUDataCorrect();
+	int allocPerObVertDataBufferSpot();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -974,9 +995,9 @@ private:
 	GLuint timer_query_id;
 #endif
 
-	uint64 num_face_groups_submitted;
-	uint64 num_indices_submitted;
-	uint64 num_aabbs_submitted;
+	//uint64 num_face_groups_submitted;
+	uint32 num_indices_submitted;
+	//uint64 num_aabbs_submitted;
 
 	std::string preprocessor_defines;
 	std::string version_directive;
@@ -1000,9 +1021,12 @@ private:
 	int env_cirrus_tex_location;
 
 	Reference<OpenGLTexture> fbm_tex;
+	Reference<OpenGLTexture> detail_tex;
 	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;
 	Reference<OpenGLTexture> cirrus_tex;
+
+	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
 
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;
@@ -1035,9 +1059,9 @@ private:
 	std::string data_dir;
 
 	Reference<ShadowMapping> shadow_mapping;
-
-	// Reference<TerrainSystem> terrain_system;
-
+public:
+	//Reference<TerrainSystem> terrain_system;
+private:
 	OverlayObjectRef clear_buf_overlay_ob;
 
 	double draw_time;
@@ -1064,11 +1088,19 @@ private:
 	std::vector<Reference<OpenGLTexture> > blur_target_textures;
 
 	Reference<FrameBuffer> main_render_framebuffer;
+	Reference<FrameBuffer> main_render_copy_framebuffer;
 
 	OpenGLTextureRef main_colour_texture;
+	//OpenGLTextureRef water_colour_texture; // Water shader reads from main_colour texture and writes to this texture.
 	OpenGLTextureRef transparent_accum_texture;
 	OpenGLTextureRef av_transmittance_texture;
 	OpenGLTextureRef main_depth_texture;
+	OpenGLTextureRef main_normal_texture;
+	//OpenGLTextureRef water_depth_texture;
+
+	OpenGLTextureRef main_colour_copy_texture;
+	OpenGLTextureRef main_depth_copy_texture;
+	OpenGLTextureRef main_normal_copy_texture;
 
 	//Reference<FrameBuffer> pre_water_framebuffer;
 	//OpenGLTextureRef pre_water_colour_tex;
@@ -1139,11 +1171,13 @@ private:
 	uint32 last_num_vao_binds;
 	uint32 last_num_vbo_binds;
 	uint32 last_num_index_buf_binds;
+	uint32 last_num_indices_drawn;
 
 	uint32 depth_draw_last_num_prog_changes;
 	uint32 depth_draw_last_num_batches_bound;
 	uint32 depth_draw_last_num_vao_binds;
 	uint32 depth_draw_last_num_vbo_binds;
+	uint32 depth_draw_last_num_indices_drawn;
 
 	uint32 last_num_animated_obs_processed;
 

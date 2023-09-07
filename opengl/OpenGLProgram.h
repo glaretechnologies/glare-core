@@ -16,6 +16,8 @@ class OpenGLShader;
 
 struct UniformLocations
 {
+	UniformLocations() : caustic_tex_a_location(-1), caustic_tex_b_location(-1) {}
+
 	int diffuse_tex_location;
 	int metallic_roughness_tex_location;
 	int emission_tex_location;
@@ -25,7 +27,15 @@ struct UniformLocations
 	int specular_env_tex_location;
 	int lightmap_tex_location;
 	int fbm_tex_location;
+	int cirrus_tex_location; // Just for water reflection of cirrus
+	int detail_tex_location;
 	int blue_noise_tex_location;
+	int main_colour_texture_location;
+	int main_normal_texture_location;
+	int main_depth_texture_location;
+	int caustic_tex_a_location;
+	int caustic_tex_b_location;
+	int water_colour_texture_location;
 	int campos_ws_location;
 
 	int dynamic_depth_tex_location;
@@ -57,13 +67,38 @@ struct UserUniformInfo
 };
 
 
+struct ProgramKeyArgs
+{
+	ProgramKeyArgs() : alpha_test(false), vert_colours(false), instance_matrices(false), lightmapping(false), gen_planar_uvs(false), draw_planar_uv_grid(false), convert_albedo_from_srgb(false), skinning(false),
+		imposterable(false), use_wind_vert_shader(false), double_sided(false), materialise_effect(false), geomorphing(false)
+	{}
+
+	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect, geomorphing;
+};
+
 
 struct ProgramKey
 {
-	ProgramKey(const std::string& program_name_, bool alpha_test_, bool vert_colours_, bool instance_matrices_, bool lightmapping_, bool gen_planar_uvs_, bool draw_planar_uv_grid_, bool convert_albedo_from_srgb_, bool skinning_,
-		bool imposterable_, bool use_wind_vert_shader_, bool double_sided_, bool materialise_effect_) :
-		program_name(program_name_), alpha_test(alpha_test_), vert_colours(vert_colours_), instance_matrices(instance_matrices_), lightmapping(lightmapping_), gen_planar_uvs(gen_planar_uvs_), draw_planar_uv_grid(draw_planar_uv_grid_), 
-		convert_albedo_from_srgb(convert_albedo_from_srgb_), skinning(skinning_), imposterable(imposterable_), use_wind_vert_shader(use_wind_vert_shader_), double_sided(double_sided_), materialise_effect(materialise_effect_) {}
+	ProgramKey(const std::string& program_name_, const ProgramKeyArgs& args)
+	:	program_name(program_name_)
+	{
+		alpha_test					= args.alpha_test;
+		vert_colours				= args.vert_colours;
+		instance_matrices			= args.instance_matrices;
+		lightmapping				= args.lightmapping;
+		gen_planar_uvs				= args.gen_planar_uvs;
+		draw_planar_uv_grid			= args.draw_planar_uv_grid;
+		convert_albedo_from_srgb	= args.convert_albedo_from_srgb;
+		skinning					= args.skinning;
+		imposterable				= args.imposterable;
+		use_wind_vert_shader		= args.use_wind_vert_shader;
+		double_sided				= args.double_sided;
+		materialise_effect			= args.materialise_effect;
+		geomorphing					= args.geomorphing;
+
+		keyval = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0) | 
+			(  skinning ? 128 : 0) | (  imposterable ? 256 : 0) | (  use_wind_vert_shader ? 512 : 0) | (  double_sided ? 1024 : 0) | (  materialise_effect ? 2048 : 0) | (  geomorphing ? 4096 : 0);
+	}
 
 	const std::string description() const { return "alpha_test: " + toString(alpha_test) + ", vert_colours: " + toString(vert_colours) + ", instance_matrices: " + toString(instance_matrices) + 
 		", lightmapping: " + toString(lightmapping) + ", gen_planar_uvs: " + toString(gen_planar_uvs) + ", draw_planar_uv_grid_: " + toString(draw_planar_uv_grid) + 
@@ -71,8 +106,9 @@ struct ProgramKey
 		", double_sided: " + toString(double_sided) + ", materialise_effect: " + toString(materialise_effect); }
 
 	std::string program_name;
-	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect;
+	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect, geomorphing;
 	// convert_albedo_from_srgb is unfortunately needed for GPU-decoded video frame textures, which are sRGB but not marked as sRGB.
+	uint32 keyval;
 
 	inline bool operator < (const ProgramKey& b) const
 	{
@@ -80,9 +116,7 @@ struct ProgramKey
 			return true;
 		else if(program_name > b.program_name)
 			return false;
-		const int  val = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0) | (  skinning ? 128 : 0) | (  imposterable ? 256 : 0) | (  use_wind_vert_shader ? 512 : 0) | (  double_sided ? 1024 : 0) | (  materialise_effect ? 2048 : 0);
-		const int bval = (b.alpha_test ? 1 : 0) | (b.vert_colours ? 2 : 0) | (b.instance_matrices ? 4 : 0) | (b.lightmapping ? 8 : 0) | (b.gen_planar_uvs ? 16 : 0) | (b.draw_planar_uv_grid ? 32 : 0) | (b.convert_albedo_from_srgb ? 64 : 0) | (b.skinning ? 128 : 0) | (b.imposterable ? 256 : 0) | (b.use_wind_vert_shader ? 512 : 0) | (b.double_sided ? 1024 : 0) | (b.materialise_effect ? 2048 : 0);
-		return val < bval;
+		return keyval < b.keyval;
 	}
 };
 
@@ -138,6 +172,7 @@ public:
 	bool is_outline;
 	bool supports_MDI;
 	bool uses_vert_uniform_buf_obs;
+	bool uses_colour_and_depth_buf_textures;
 
 
 	UniformLocations uniform_locations;

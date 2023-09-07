@@ -42,6 +42,11 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
+uniform sampler2D detail_tex;
+
+uniform sampler2D caustic_tex_a;
+uniform sampler2D caustic_tex_b;
+
 #if LIGHTMAPPING
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D lightmap_tex;
@@ -52,7 +57,11 @@ uniform sampler2D lightmap_tex;
 layout (std140) uniform MaterialCommonUniforms
 {
 	vec4 sundir_cs;
+	vec4 sundir_ws;
+	float near_clip_dist;
 	float time;
+	float l_over_w;
+	float l_over_h;
 };
 
 #define HAVE_SHADING_NORMALS_FLAG			1
@@ -225,7 +234,8 @@ layout (std140) uniform LightDataStorage
 #endif
 
 
-out vec4 colour_out;
+layout(location = 0) out vec4 colour_out;
+layout(location = 1) out vec3 normal_out;
 
 
 float square(float x) { return x*x; }
@@ -422,6 +432,36 @@ float hexFracToEdge(in vec2 p)
 	return max(right_frac, upper_right_frac);
 }
 #endif // MATERIALISE_EFFECT
+
+
+
+// Converts a unit vector to a point in octahedral representation ('oct').
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1.
+
+// Returns ±1
+vec2 signNotZero(vec2 v) {
+	return vec2((v.x >= 0.0) ? +1.0 : -1.0, (v.y >= 0.0) ? +1.0 : -1.0);
+}
+// Assume normalized input. Output is on [-1, 1] for each component.
+vec2 float32x3_to_oct(in vec3 v) {
+	// Project the sphere onto the octahedron, and then onto the xy plane
+	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
+	// Reflect the folds of the lower hemisphere over the diagonals
+	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * signNotZero(p)) : p;
+}
+
+
+
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
+vec3 snorm12x2_to_unorm8x3(vec2 f) {
+	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047 + 2047));
+	float t = floor(u.y / 256.0);
+	// If storing to GL_RGB8UI, omit the final division
+	return floor(vec3(u.x / 16.0,
+		fract(u.x / 16.0) * 256.0 + t,
+		u.y - t * 256.0)) / 255.0;
+}
+
 
 
 void main()
@@ -958,11 +998,74 @@ void main()
 #if DEPTH_FOG
 	// Blend with background/fog colour
 	float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
-	float fog_factor = 1.0f - exp(dist_ * -0.00015);
-	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 2.0e7; // Bluish grey
+	float fog_factor = 1.0f - exp(dist_ * -0.00006); // 0.00015
+	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 3.0e7; // Bluish grey
 	//vec4 sky_col = vec4(0.498 / 0.000000003, 0.555 / 0.000000003, 0.621 / 0.000000003, 1); // Bluish grey
 	col = mix(col, sky_col, fog_factor);
 #endif
+
+	//------------------------------- Apply underwater effects ---------------------------
+#if 1 // UNDERWATER_CAUSTICS
+	// campos_ws + cam_to_pos_ws = pos_ws
+	// campos_ws = pos_ws - cam_to_pos_ws;
+
+	float campos_z = pos_ws.z - cam_to_pos_ws.z;
+	if(/*(campos_z < -3.8) && */pos_ws.z < -3.9)
+	{
+		vec3 extinction = vec3(1.0, 0.10, 0.1) * 2;
+		vec3 scattering = vec3(0.4, 0.4, 0.1);
+
+		vec3 src_col = col.xyz; // texture2D(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
+
+		//vec3 src_normal_encoded = texture2D(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
+		//vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
+
+		//--------------- Apply caustic texture ---------------
+		// Caustics are projected onto a plane normal to the direction to the sun.
+		vec3 sun_right = normalize(cross(sundir_ws.xyz, vec3(0,0,1)));
+		vec3 sun_up = cross(sundir_ws.xyz, sun_right);
+		vec2 hitpos_sunbasis = vec2(dot(pos_ws, sun_right), dot(pos_ws, sun_up));
+
+		float sun_lambert_factor = max(0.0, dot(normal_ws, sundir_ws.xyz));
+
+		// Distance from water surface to ground, along the sun direction.  Used for computing the caustic effect envelope.
+		float water_to_ground_sun_d = max(0.0, (-4.0 - pos_ws.z) / sundir_ws.z); // TEMP HACK Assuming water surface height
+
+		float cam_to_pos_dist = length(cam_to_pos_ws);
+
+		float total_path_dist = water_to_ground_sun_d + cam_to_pos_dist;
+
+		float caustic_depth_factor = 0.03 + 0.9 * (smoothstep(0.1, 2.0, water_to_ground_sun_d) - 0.8 *smoothstep(2.0, 8.0, water_to_ground_sun_d)); // Caustics should not be visible just under the surface.
+		float caustic_frac = fract(time * 24.0); // Get fraction through frame, assuming 24 fps.
+		float scale_factor = 1.0; // Controls width of caustic pattern in world space.
+		// Interpolate between caustic animation frames
+		vec3 caustic_val = mix(texture2D(caustic_tex_a, hitpos_sunbasis * scale_factor),  texture2D(caustic_tex_b, hitpos_sunbasis * scale_factor), caustic_frac).xyz;
+
+		// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
+		src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
+
+		if(campos_z > -4.0)
+		{
+			// If camera is above water:
+			// Don't apply absorption on the edge between object and camera, we will do that in water shader.
+
+			col = vec4(src_col, 1.0);
+		}
+		else // Else if camera is underwater:
+		{
+			vec3 inscatter_radiance_sigma_s_over_sigma_t = vec3(1000000.0, 10000000.0, 30000000.0);
+			vec3 exp_optical_depth = exp(extinction * -cam_to_pos_dist);
+			vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
+
+	
+			vec3 attentuated_col = src_col * exp_optical_depth;
+
+			col = vec4(attentuated_col + inscattering, 1.0);
+		}
+	}
+#endif // UNDERWATER_CAUSTICS
+	//------------------------------- End apply underwater effects ---------------------------
+
 
 	col *= 0.000000003; // tone-map
 	
@@ -971,4 +1074,6 @@ void main()
 #else
 	colour_out = vec4(toNonLinear(col.xyz), 1);
 #endif
+
+	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal_ws));
 }

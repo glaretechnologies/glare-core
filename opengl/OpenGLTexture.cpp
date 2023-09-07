@@ -623,6 +623,9 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 		{
 			const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
 
+			assert(region_w * pixel_size_B <= row_stride_B);
+			assert(tex_data.size() >= row_stride_B * region_h);
+
 			// Set row stride if needed (not tightly packed)
 			if(row_stride_B != region_w * pixel_size_B) // If not tightly packed:
 				glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
@@ -652,6 +655,13 @@ void OpenGLTexture::setTWrappingEnabled(bool wrapping_enabled)
 {
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapping_enabled ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+}
+
+
+void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
+{
+	bind();
+	glGetTexImage(GL_TEXTURE_2D, mipmap_level, gl_format, gl_type, (void*)buffer.data());
 }
 
 

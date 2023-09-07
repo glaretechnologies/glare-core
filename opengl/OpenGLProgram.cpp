@@ -45,7 +45,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	is_outline(false),
 	uses_vert_uniform_buf_obs(false),
 	program_index(program_index_),
-	supports_MDI(false)
+	supports_MDI(false),
+	uses_colour_and_depth_buf_textures(false)
 {
 	// conPrint("Creating OpenGLProgram " + prog_name_ + "...");
 	vert_shader = vert_shader_;

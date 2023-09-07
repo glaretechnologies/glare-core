@@ -87,7 +87,7 @@ Copyright Glare Technologies Limited 2020 -
 
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
-	num_instances_to_draw(0), always_visible(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1)
+	num_instances_to_draw(0), always_visible(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0)
 {
 	for(int i=0; i<MAX_NUM_LIGHT_INDICES; ++i)
 		light_indices[i] = -1;
@@ -252,7 +252,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 :	light_grid(64.0, /*num buckets=*/1024, /*expected_num_items_per_bucket=*/4, /*empty key=*/NULL),
 	objects(NULL),
 	animated_objects(NULL),
-	transparent_objects(NULL)
+	transparent_objects(NULL),
+	water_objects(NULL)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -362,11 +363,13 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_vao_binds(0),
 	last_num_vbo_binds(0),
 	last_num_index_buf_binds(0),
+	last_num_indices_drawn(0),
 	num_index_buf_binds(0),
 	depth_draw_last_num_prog_changes(0),
 	depth_draw_last_num_batches_bound(0),
 	depth_draw_last_num_vao_binds(0),
 	depth_draw_last_num_vbo_binds(0),
+	depth_draw_last_num_indices_drawn(0),
 	last_num_animated_obs_processed(0),
 	next_program_index(0),
 	use_bindless_textures(false),
@@ -446,7 +449,6 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 {
 	camera_type = OpenGLScene::CameraType_Perspective;
 
-	this->sensor_width = sensor_width_;
 	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
 	this->lens_sensor_dist = lens_sensor_dist_;
 	this->render_aspect_ratio = render_aspect_ratio_;
@@ -455,13 +457,13 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 
 	if(viewport_aspect_ratio > render_aspect_ratio) // if viewport has a wider aspect ratio than the render:
 	{
-		use_sensor_height = sensor_width / render_aspect_ratio; // Keep vertical field of view the same
+		use_sensor_height = sensor_width_ / render_aspect_ratio; // Keep vertical field of view the same
 		use_sensor_width = use_sensor_height * viewport_aspect_ratio; // enlarge horizontal field of view as needed
 	}
 	else
 	{
-		use_sensor_width = sensor_width; // Keep horizontal field of view the same
-		use_sensor_height = sensor_width / viewport_aspect_ratio; // Enlarge vertical field of view as needed
+		use_sensor_width = sensor_width_; // Keep horizontal field of view the same
+		use_sensor_height = sensor_width_ / viewport_aspect_ratio; // Enlarge vertical field of view as needed
 	}
 
 
@@ -630,7 +632,6 @@ void OpenGLScene::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_
 {
 	camera_type = CameraType_Orthographic;
 
-	this->sensor_width = sensor_width_;
 	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
 	this->render_aspect_ratio = render_aspect_ratio_;
 	this->lens_shift_up_distance = lens_shift_up_distance_;
@@ -638,13 +639,13 @@ void OpenGLScene::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_
 
 	if(viewport_aspect_ratio > render_aspect_ratio) // if viewport has a wider aspect ratio than the render:
 	{
-		use_sensor_height = sensor_width / render_aspect_ratio; // Keep vertical field of view the same
+		use_sensor_height = sensor_width_ / render_aspect_ratio; // Keep vertical field of view the same
 		use_sensor_width = use_sensor_height * viewport_aspect_ratio; // enlarge horizontal field of view as needed
 	}
 	else
 	{
-		use_sensor_width = sensor_width; // Keep horizontal field of view the same
-		use_sensor_height = sensor_width / viewport_aspect_ratio; // Enlarge vertical field of view as needed
+		use_sensor_width = sensor_width_; // Keep horizontal field of view the same
+		use_sensor_height = sensor_width_ / viewport_aspect_ratio; // Enlarge vertical field of view as needed
 	}
 
 
@@ -733,7 +734,6 @@ void OpenGLScene::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camer
 {
 	camera_type = CameraType_DiagonalOrthographic;
 
-	this->sensor_width = sensor_width_;
 	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
 	this->render_aspect_ratio = render_aspect_ratio_;
 	this->lens_shift_up_distance = 0;
@@ -741,13 +741,13 @@ void OpenGLScene::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camer
 
 	if(viewport_aspect_ratio > render_aspect_ratio) // if viewport has a wider aspect ratio than the render:
 	{
-		use_sensor_height = sensor_width / render_aspect_ratio; // Keep vertical field of view the same
+		use_sensor_height = sensor_width_ / render_aspect_ratio; // Keep vertical field of view the same
 		use_sensor_width = use_sensor_height * viewport_aspect_ratio; // enlarge horizontal field of view as needed
 	}
 	else
 	{
-		use_sensor_width = sensor_width; // Keep horizontal field of view the same
-		use_sensor_height = sensor_width / viewport_aspect_ratio; // Enlarge vertical field of view as needed
+		use_sensor_width = sensor_width_; // Keep horizontal field of view the same
+		use_sensor_height = sensor_width_ / viewport_aspect_ratio; // Enlarge vertical field of view as needed
 	}
 
 	//TEMP HACK: These camera clipping planes are completely wrong for diagonal ortho.
@@ -885,7 +885,7 @@ const Vec4f OpenGLEngine::getSunDir() const
 void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 {
 	this->current_scene->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));
-	this->current_scene->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(this->current_scene->env_ob->ob_to_world_inv_transpose_matrix);
+	this->current_scene->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(/*inverse trans out=*/this->current_scene->env_ob->ob_to_world_inv_transpose_matrix);
 }
 
 
@@ -940,6 +940,13 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.specular_env_tex_location			= prog->getUniformLocation("specular_env_tex");
 	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
 	locations_out.fbm_tex_location					= prog->getUniformLocation("fbm_tex");
+	locations_out.cirrus_tex_location				= prog->getUniformLocation("cirrus_tex");
+	locations_out.main_colour_texture_location		= prog->getUniformLocation("main_colour_texture");
+	locations_out.main_normal_texture_location		= prog->getUniformLocation("main_normal_texture");
+	locations_out.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
+	locations_out.caustic_tex_a_location			= prog->getUniformLocation("caustic_tex_a");
+	locations_out.caustic_tex_b_location			= prog->getUniformLocation("caustic_tex_b");
+	locations_out.detail_tex_location				= prog->getUniformLocation("detail_tex");
 	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	locations_out.campos_ws_location				= prog->getUniformLocation("campos_ws");
 	
@@ -1230,6 +1237,16 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
+
+		// Load water caustic textures
+		{
+			Timer timer;
+			for(int i=0; i<32; ++i)
+				water_caustics_textures.push_back(getTexture(gl_data_dir + "/caustics/save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2"));
+
+			conPrint("Load caustics took " + timer.elapsedString());
+		}
+
 		// Load diffuse irradiance maps
 		{
 			std::vector<Map2DRef> face_maps(6);
@@ -1332,7 +1349,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define USE_BINDLESS_TEXTURES " + (use_bindless_textures ? std::string("1") : std::string("0")) + "\n";
 		
-
 		preprocessor_defines += "#define USE_MULTIDRAW_ELEMENTS_INDIRECT " + (use_multi_draw_indirect ? std::string("1") : std::string("0")) + "\n";
 
 		preprocessor_defines += "#define USE_SSBOS " + (light_buffer.nonNull() ? std::string("1") : std::string("0")) + "\n";
@@ -1340,6 +1356,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define DO_POST_PROCESSING " + (true/*settings.use_final_image_buffer*/ ? std::string("1") : std::string("0")) + "\n";
 
 		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES " + toString(settings.msaa_samples) + "\n";
+
+		preprocessor_defines += "#define USE_REVERSE_Z " + (use_reverse_z ? std::string("1") : std::string("0")) + "\n";
+
 
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
 		this->version_directive = (use_bindless_textures || running_in_renderdoc) ? "#version 430 core" : "#version 330 core"; // NOTE: 430 for SSBO
@@ -1460,11 +1479,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 
 		// Will be used if we hit a shader compilation error later
-		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       false, false, false, false, false, false, false, false, false, false, false, false));
-		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", false, false, false, false, false, false, false, false, false, false, false, false));
+		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       ProgramKeyArgs()));
+		fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", ProgramKeyArgs()));
 
 		if(settings.shadow_mapping)
-			fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       false, false, false, false, false, false, false, false, false, false, false, false));
+			fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       ProgramKeyArgs()));
 
 
 		env_prog = new OpenGLProgram(
@@ -1611,7 +1630,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 
 		//terrain_system = new TerrainSystem();
-		//terrain_system->init(*this, Vec3d(0,0,2));
+		//terrain_system->init(*this, /*campos=*/Vec3d(0,0,2));
 
 		if(settings.shadow_mapping)
 		{
@@ -1673,7 +1692,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 
-		// Change clips space z range from [-1, 1] to [0, 1], in order to improve z-buffer precision.
+		// Change clip space z range from [-1, 1] to [0, 1], in order to improve z-buffer precision.
 		// See https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 		// and https://developer.nvidia.com/content/depth-precision-visualized
 #if !defined(OSX)
@@ -1685,7 +1704,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			glDisable(GL_MULTISAMPLE); // The initial value for GL_MULTISAMPLE is GL_TRUE.
 
 
-#ifndef NDEBUG
+#if BUILD_TESTS
 		thread_manager.addThread(new ShaderFileWatcherThread(data_dir, this));
 #endif
 
@@ -2018,17 +2037,45 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(prog);
-		prog->is_transparent = true;
+		//prog->is_transparent = true;
+		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
+		prog->supports_MDI = true;
+
+		if(shader_name_prefix == "water")
+			prog->uses_colour_and_depth_buf_textures = true;
 
 		progs[key] = prog;
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
 
-		bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
-		bindUniformBlockToProgram(prog, "PerObjectVertUniforms",		PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+		// Check we got the size of our uniform blocks on the CPU side correct.
+		if(!use_multi_draw_indirect)
+		{
+			checkUniformBlockSize(prog, "PhongUniforms",				sizeof(PhongUniforms));
+			checkUniformBlockSize(prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
 
-		conPrint("Built transparent program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+			bindUniformBlockToProgram(prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
+			bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+		}
+		else
+		{
+			bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
+			//bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
+			bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
+			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+		}
+
+		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+		if(light_buffer.nonNull())
+			bindShaderStorageBlockToProgram(prog, "LightDataStorage", LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
+		else
+			bindUniformBlockToProgram(prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
+
+
+		conPrint("Built '" + shader_name_prefix + "' program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
 
 	return progs[key];
@@ -2145,6 +2192,8 @@ OpenGLProgramRef OpenGLEngine::getProgramWithFallbackOnError(const ProgramKey& k
 			return getTransparentProgram(key);
 		else if(key.program_name == "imposter")
 			return getImposterProgram(key);
+		else if(key.program_name == "water")
+			return buildProgram("water", key);
 		else if(key.program_name == "depth")
 			return getDepthDrawProgram(key);
 		else
@@ -2435,10 +2484,12 @@ void OpenGLEngine::assignLightsToAllObjects()
 void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning)
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
-	if(material.shader_prog.nonNull() && 
-		!(material.shader_prog->is_transparent || material.shader_prog->uses_phong_uniforms)
-		)
-		return;
+	if(!material.auto_assign_shader)
+	{
+		assert(material.shader_prog.nonNull());
+		if(material.shader_prog.nonNull())
+			return;
+	}
 
 	const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
 
@@ -2454,22 +2505,35 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	// we only want to do this when we have a texture.
 	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support;// && material.albedo_texture.nonNull();
 
-	const ProgramKey key(material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"), /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-		material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided, material.materialise_effect);
+	ProgramKeyArgs key_args;
+	key_args.alpha_test = alpha_test;
+	key_args.vert_colours = use_vert_colours;
+	key_args.instance_matrices = uses_instancing;
+	key_args.lightmapping = uses_lightmapping;
+	key_args.gen_planar_uvs = material.gen_planar_uvs;
+	key_args.draw_planar_uv_grid = material.draw_planar_uv_grid;
+	key_args.convert_albedo_from_srgb = material.convert_albedo_from_srgb || need_convert_albedo_from_srgb;
+	key_args.skinning = uses_skinning;
+	key_args.imposterable = material.imposterable;
+	key_args.use_wind_vert_shader = material.use_wind_vert_shader;
+	key_args.double_sided = material.double_sided;
+	key_args.materialise_effect = material.materialise_effect;
+
+	const ProgramKey key(material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong")), key_args);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 
 	if(settings.shadow_mapping)
 	{
-		if(material.transparent || !material.cast_shadows)
+		if(material.transparent || material.water || !material.cast_shadows)
 		{
 			material.depth_draw_shader_prog = this->fallback_depth_prog; // Just use the default depth-draw program so we don't crash if we accidentally draw with it.
 			material.draw_into_depth_buffer = false;
 		}
 		else
 		{
-			const ProgramKey depth_key("depth", /*alpha_test=*/alpha_test, /*vert_colours=*/use_vert_colours, /*instance_matrices=*/uses_instancing, uses_lightmapping,
-				material.gen_planar_uvs, material.draw_planar_uv_grid, material.convert_albedo_from_srgb || need_convert_albedo_from_srgb, uses_skinning, material.imposterable, material.use_wind_vert_shader, material.double_sided, material.materialise_effect);
+			// TODO: can set some of these key values that don't affect depth drawing to false to avoid having too many depth programs.
+			const ProgramKey depth_key("depth", key_args);
 
 			material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
 			material.draw_into_depth_buffer = true;
@@ -2504,7 +2568,31 @@ Reference<GLObject> OpenGLEngine::allocateObject()
 }
 
 
-void OpenGLEngine::addObject(const Reference<GLObject>& object)
+int OpenGLEngine::allocPerObVertDataBufferSpot()
+{
+	assert(use_multi_draw_indirect);
+
+	if(per_ob_vert_data_free_indices.empty()) // If no free indices remain:
+		expandPerObVertDataBuffer();
+	assert(!per_ob_vert_data_free_indices.empty());
+
+	auto it = per_ob_vert_data_free_indices.begin();
+	if(it == per_ob_vert_data_free_indices.end())
+	{
+		assert(0); // Out of free spaces, and expansion failed somehow.
+		return -1;
+	}
+	else
+	{
+		const int free_index = *it;
+		per_ob_vert_data_free_indices.erase(it);
+
+		return free_index;
+	}
+}
+
+
+void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 {
 	assert(object->mesh_data.nonNull());
 	assert(!object->mesh_data->vertex_spec.attributes.empty());
@@ -2518,64 +2606,16 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 	// Alloc spot in uniform buffer.  Note that we need to do this before updateObjectTransformData() which uses object->per_ob_vert_data_index.
 	if(use_multi_draw_indirect)
-	{
-		if(per_ob_vert_data_free_indices.empty())
-			expandPerObVertDataBuffer();
-		assert(!per_ob_vert_data_free_indices.empty());
-
-		auto it = per_ob_vert_data_free_indices.begin();
-		if(it == per_ob_vert_data_free_indices.end())
-		{
-			assert(0); // Out of free spaces, and expansion failed somehow.
-		}
-		else
-		{
-			const int free_index = *it;
-			per_ob_vert_data_free_indices.erase(it);
-
-			object->per_ob_vert_data_index = free_index;
-		}
-	}
-
-	
-	
-	// Don't add always_visible objects to objects set, we will draw them a special way.
-	if(!object->always_visible)
-		current_scene->objects.insert(object);
+		object->per_ob_vert_data_index = allocPerObVertDataBufferSpot();
 
 	object->random_num = rng.nextUInt();
 
-	// Build the mesh used by the object if it's not built already.
-	//if(mesh_render_data.find(object->mesh) == mesh_render_data.end())
-	//	this->buildMesh(object->mesh);
-
 	// Build materials
-	bool have_transparent_mat    = false;
-	bool have_materialise_effect = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
-	{
 		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
-		have_transparent_mat    = have_transparent_mat    || object->materials[i].transparent;
-		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
-	}
 
-	
-	if(have_transparent_mat)
-		current_scene->transparent_objects.insert(object);
-
-	if(have_materialise_effect)
-		current_scene->materialise_objects.insert(object);
-
-	if(object->always_visible)
-		current_scene->always_visible_objects.insert(object);
-
-	if(object->is_instanced_ob_with_imposters)
-		current_scene->objects_with_imposters.insert(object);
 
 	const AnimationData& anim_data = object->mesh_data->animation_data;
-	if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
-		current_scene->animated_objects.insert(object);
-
 
 	// Upload material data to GPU
 	if(use_multi_draw_indirect)
@@ -2656,6 +2696,45 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 }
 
 
+void OpenGLEngine::addObject(const Reference<GLObject>& object)
+{
+	buildObjectData(object);
+
+	// Don't add always_visible objects to objects set, we will draw them a special way.
+	if(!object->always_visible)
+		current_scene->objects.insert(object);
+
+	bool have_transparent_mat    = false;
+	bool have_materialise_effect = false;
+	bool have_water_mat = false;
+	for(size_t i=0; i<object->materials.size(); ++i)
+	{
+		have_transparent_mat    = have_transparent_mat    || object->materials[i].transparent;
+		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
+		have_water_mat          = have_water_mat          || object->materials[i].water;
+	}
+
+	if(have_transparent_mat)
+		current_scene->transparent_objects.insert(object);
+
+	if(have_materialise_effect)
+		current_scene->materialise_objects.insert(object);
+
+	if(have_water_mat)
+		current_scene->water_objects.insert(object);
+
+	if(object->always_visible)
+		current_scene->always_visible_objects.insert(object);
+
+	if(object->is_instanced_ob_with_imposters)
+		current_scene->objects_with_imposters.insert(object);
+
+	const AnimationData& anim_data = object->mesh_data->animation_data;
+	if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+		current_scene->animated_objects.insert(object);
+}
+
+
 void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 {
 	// Build misc draw info.
@@ -2675,7 +2754,8 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
 			(mat.shader_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG    : 0) |
-			(mat.transparent               ? MATERIAL_TRANSPARENT_BITFLAG : 0);
+			(mat.transparent               ? MATERIAL_TRANSPARENT_BITFLAG : 0) |
+			(mat.water                     ? MATERIAL_WATER_BITFLAG       : 0);
 
 		//assert(mat.material_data_index != -1);
 		object.batch_draw_info[i].material_data_index = mat.material_data_index;
@@ -3646,9 +3726,8 @@ static const Matrix4f frustumMatrix(GLdouble left,
 		0, (float)(2*zNear / (top - bottom)), (float)B, 0,
 		0, 0, (float)C, (float)D,
 		0, 0, -1.f, 0 };
-	Matrix4f t;
-	Matrix4f(e).getTranspose(t);
-	return t;
+
+	return Matrix4f::fromRowMajorData(e);
 }
 
 
@@ -3670,9 +3749,8 @@ static const Matrix4f infiniteFrustumMatrix(GLdouble left,
 		0, (float)(2*zNear / (top - bottom)), (float)B, 0,
 		0, 0, (float)C, (float)D,
 		0, 0, -1.f, 0 };
-	Matrix4f t;
-	Matrix4f(e).getTranspose(t);
-	return t;
+
+	return Matrix4f::fromRowMajorData(e);
 }
 
 
@@ -3693,9 +3771,8 @@ static const Matrix4f orthoMatrix(GLdouble left,
 		0, (float)(2 / (top - bottom)),  0, t_y,
 		0, 0, (float)(-2 / (zFar - zNear)), t_z,
 		0, 0, 0, 1 };
-	Matrix4f t;
-	Matrix4f(e).getTranspose(t);
-	return t;
+	
+	return Matrix4f::fromRowMajorData(e);
 }
 
 
@@ -3728,7 +3805,8 @@ static const Matrix4f diagonalOrthoMatrix(GLdouble left,
 		0, (float)(2 / (top - bottom)),  (float)slope, (float)t_y,
 		0, 0, (float)(-2 / (zFar - zNear)), (float)t_z,
 		0, 0, 0, 1 };
-	return Matrix4f(e).getTranspose();
+
+	return Matrix4f::fromRowMajorData(e);
 }
 
 
@@ -3775,8 +3853,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 		debug_arrow_ob->mesh_data = arrow_meshdata;
 		debug_arrow_ob->materials.resize(1);
 		debug_arrow_ob->materials[0].albedo_linear_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false, false));
+		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", ProgramKeyArgs()));
 	}
 	
 	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
@@ -3803,8 +3880,7 @@ void OpenGLEngine::drawDebugSphere(const Vec4f& point, float radius, const Matri
 		debug_sphere_ob->mesh_data = sphere_meshdata;
 		debug_sphere_ob->materials.resize(1);
 		debug_sphere_ob->materials[0].albedo_linear_rgb = Colour3f(0.1f, 0.4f, 0.9f);
-		debug_sphere_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-			/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false, false, false, false, false));
+		debug_sphere_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", ProgramKeyArgs()));
 	}
 
 	const Matrix4f sphere_to_world = Matrix4f::translationMatrix(point) * Matrix4f::uniformScaleMatrix(radius);
@@ -4083,9 +4159,11 @@ Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
 	if(use_reverse_z)
 	{
 		// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
-		// Use a 'z-reversal matrix', to change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
-		// Maps (0, 0, -n, n) to (0, 0, n, n) (e.g. z=-n to +n, or +1 after divide by w)
-		// Maps (0, 0, f, f) to (0, 0, 0, f) (e.g. z=+f to 0)
+		// (Fragments on the near plane get mapped to -1, fragments on the far plane get mapped to +1).
+		// Use a 'z-reversal matrix', to change this mapping to [0, 1] while reversing values.  (e.g. near plane gets mapped to +1, far plane gets mapped to 0).
+		// See https://dev.theomader.com/depth-precision/ for details.
+		// Maps (0, 0, -n, n) to (0, 0, n, n) (e.g. z=-n to +n, or +1 after divide by w) .  z=-n is near plane, (0, 0, -n, n) is result of proj_matrix * (0,0,-n,1)
+		// Maps (0, 0, f, f) to (0, 0, 0, f) (e.g. z=+f to 0).  z=-f is far plane, (0, 0, f, f) is result of proj_matrix * (0,0,-f,1)
 		const Matrix4f reverse_matrix(
 			Vec4f(1, 0, 0, 0), // col 0
 			Vec4f(0, 1, 0, 0), // col 1
@@ -4097,6 +4175,108 @@ Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
 	else
 		return Matrix4f::identity();
 }
+
+/*
+Calculations for recovering depth values from depth buffer
+----------------------------------------------------------
+
+raw_proj_matrix = 
+(2n(r-l)    0         A       0)
+(0          2n(t-b)   B       0)
+(0          0         -1     -2n)
+(0          0         -1      0)
+
+and
+v' = raw_proj_matrix v
+
+Then
+z' = -z -2nw   = -z - 2n
+w' = -z
+
+
+Case where we are using a reverse-z depth buffer:
+-------------------------------------------------
+
+let 
+reverse_z_matrix = 
+(1        0         0       0)
+(0        1         0       0)
+(0        0       -1/2      1/2)
+(0        0         0       1)
+
+and v'' = reverse_z_matrix v'
+
+Then
+z'' = -1/2 z' + 1/2 w'
+    = -1/2 (-z - 2n) + 1/2 (-z)
+	= 1/2 z + n - 1/2 z = n
+w'' = w'
+   = -z
+
+z_ndc = z'' / w'' = n / -z = -n / z
+
+solving for z:
+
+z = -n / z_ndc
+
+z_01 = z_ndc            (Assuming glClipControl GL_ZERO_TO_ONE)
+so
+
+*************
+depth = -z = -(-n / z_ndc) = n / z_ndc = n / z_01
+*************
+
+Examples:
+Suppose z = -n             (near plane)
+Then z_ndc = -n / (-n) = 1
+z_01 = 1
+
+Suppose z = -inf           (far plane)
+Then z_ndc = -n / (-inf) = 0
+z_01 = 0
+
+
+Case where we are not using a reverse-z depth buffer:
+-----------------------------------------------------
+
+Let reverse_z_matrix = I
+Then
+z'' = z', w'' = w'.
+z_ndc = z'' / w'' = z' / w' 
+      = (-z - 2n) / -z 
+      = (z + 2n) / z 
+z_ndc = 1 + 2n/z
+
+solving for z:
+2n/z = z_ndc - 1
+z = 2n / (z_ndc - 1)
+
+
+if z_01 = (z_ndc + 1)/2        (Assuming glClipControl GL_NEGATIVE_ONE_TO_ONE, e.g. z_ndc e [-1. 1], and taking into account that the values read from depth buffer will be in [0, 1].)
+
+
+z_01 = ((1 + 2n/z) + 1)/2
+
+z_01 = (1 + 2n/z)/2 + 1/2
+z_01 = 1/2 + n/z + 1/2 = 1 + n/z
+
+solving for z:
+n/z = z_01 - 1
+z = n / (z_01 - 1)
+
+*************
+depth = -z = -n / (z_01 - 1)
+*************
+
+Examples:
+Suppose z = -n             (near plane)
+Then z_ndc = 1 + 2n/(-n) = 1 - 2 = -1
+z_01 = (z_ndc + 1)/2 = (-1 + 1) / 2 = 0
+
+Suppose z = -inf           (far plane)
+Then z_ndc = 1 + 2n/(-inf) = 1 + 0 = 1
+z_01 = (1 + 1)/2 = 1
+*/
 
 
 static void bindTextureUnitToSampler(const OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
@@ -4615,7 +4795,7 @@ void OpenGLEngine::draw()
 
 
 	// If the ShaderFileWatcherThread has detected that a shader file has changed, reload all shaders.
-#ifndef NDEBUG
+#if BUILD_TESTS
 	if(shader_file_changed)
 	{
 		progs.clear(); // Clear built-program cache
@@ -4631,6 +4811,8 @@ void OpenGLEngine::draw()
 				GLObject* const object = it->ptr();
 				for(size_t i=0; i<object->materials.size(); ++i)
 					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+
+				rebuildDenormalisedDrawData(*object);
 			}
 		}
 
@@ -4650,8 +4832,8 @@ void OpenGLEngine::draw()
 	// checkForOpenGLErrors(); // Just for Mac
 
 	this->num_indices_submitted = 0;
-	this->num_face_groups_submitted = 0;
-	this->num_aabbs_submitted = 0;
+	//this->num_face_groups_submitted = 0;
+	//this->num_aabbs_submitted = 0;
 	Timer profile_timer;
 
 	this->draw_time = draw_timer.elapsed();
@@ -5325,6 +5507,8 @@ void OpenGLEngine::draw()
 		depth_draw_last_num_batches_bound = num_batches_bound;
 		depth_draw_last_num_vao_binds = num_vao_binds;
 		depth_draw_last_num_vbo_binds = num_vbo_binds;
+		depth_draw_last_num_indices_drawn = num_indices_submitted;
+		this->num_indices_submitted = 0;
 
 
 		if(this->target_frame_buffer.nonNull())
@@ -5394,10 +5578,16 @@ void OpenGLEngine::draw()
 			((int)main_colour_texture->yRes() != yres)))
 		{
 			main_colour_texture = NULL;
+			main_colour_copy_texture = NULL;
+			main_normal_texture = NULL;
+			main_normal_copy_texture = NULL;
 			main_depth_texture = NULL;
-			main_render_framebuffer = NULL;
+			main_depth_copy_texture = NULL;
 			transparent_accum_texture = NULL;
 			av_transmittance_texture = NULL;
+
+			main_render_framebuffer = NULL;
+			main_render_copy_framebuffer = NULL;
 		}
 
 		if(main_colour_texture.isNull())
@@ -5414,11 +5604,39 @@ void OpenGLEngine::draw()
 				/*MSAA_samples=*/msaa_samples
 			);
 			
+			main_colour_copy_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
+				OpenGLTexture::Format_RGB_Linear_Half,
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp,
+				false, // has_mipmaps
+				/*MSAA_samples=*/1
+			);
+
+			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
+			main_normal_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
+				OpenGLTexture::Format_RGB_Linear_Uint8,
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp,
+				false, // has_mipmaps
+				/*MSAA_samples=*/msaa_samples
+			);
+
+			main_normal_copy_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
+				OpenGLTexture::Format_RGB_Linear_Uint8,
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp,
+				false, // has_mipmaps
+				/*MSAA_samples=*/1
+			);
+
 			transparent_accum_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
 				OpenGLTexture::Format_RGB_Linear_Half,
 				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				OpenGLTexture::Wrapping_Clamp,
 				false, // has_mipmaps
 				/*MSAA_samples=*/msaa_samples
 			);
@@ -5427,7 +5645,7 @@ void OpenGLEngine::draw()
 				ArrayRef<uint8>(NULL, 0), // data
 				OpenGLTexture::Format_Greyscale_Half,
 				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				OpenGLTexture::Wrapping_Clamp,
 				false, // has_mipmaps
 				/*MSAA_samples=*/msaa_samples
 			);
@@ -5436,16 +5654,29 @@ void OpenGLEngine::draw()
 				ArrayRef<uint8>(NULL, 0), // data
 				OpenGLTexture::Format_Depth_Float,
 				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
+				OpenGLTexture::Wrapping_Clamp,
 				false, // has_mipmaps
 				/*MSAA_samples=*/msaa_samples
 			);
 
+			main_depth_copy_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(NULL, 0), // data
+				OpenGLTexture::Format_Depth_Float,
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp,
+				false, // has_mipmaps
+				/*MSAA_samples=*/1
+			);
+
+		
 			main_render_framebuffer = new FrameBuffer();
 			main_render_framebuffer->bindTextureAsTarget(*main_colour_texture, GL_COLOR_ATTACHMENT0);
-			main_render_framebuffer->bindTextureAsTarget(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
-			main_render_framebuffer->bindTextureAsTarget(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
 			main_render_framebuffer->bindTextureAsTarget(*main_depth_texture,  GL_DEPTH_ATTACHMENT);
+
+			main_render_copy_framebuffer = new FrameBuffer();
+			main_render_copy_framebuffer->bindTextureAsTarget(*main_colour_copy_texture, GL_COLOR_ATTACHMENT0);
+			main_render_copy_framebuffer->bindTextureAsTarget(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1);
+			main_render_copy_framebuffer->bindTextureAsTarget(*main_depth_copy_texture, GL_DEPTH_ATTACHMENT);
 		}
 
 		main_render_framebuffer->bind();
@@ -5466,6 +5697,15 @@ void OpenGLEngine::draw()
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
+
+	// Bind normal texture as the second colour target
+	main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
+
+	// Draw to all colour buffers.
+	static const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(/*num=*/2, draw_buffers);
+
+
 	// NOTE: We want to clear here first, even if the scene node is null.
 	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
 	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
@@ -5485,25 +5725,14 @@ void OpenGLEngine::draw()
 	const double z_far  = current_scene->max_draw_dist;
 	const double z_near = current_scene->near_draw_dist;
 
-	const float viewport_aspect_ratio = this->getViewPortAspectRatio();
-
 	// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
 	// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
 	const Matrix4f reverse_z_matrix = getReverseZMatrixOrIdentity();
 
 	if(current_scene->camera_type == OpenGLScene::CameraType_Perspective)
 	{
-		double w, h;
-		if(viewport_aspect_ratio > current_scene->render_aspect_ratio)
-		{
-			h = 0.5 * (current_scene->sensor_width / current_scene->lens_sensor_dist) / current_scene->render_aspect_ratio;
-			w = h * viewport_aspect_ratio;
-		}
-		else
-		{
-			w = 0.5 * current_scene->sensor_width / current_scene->lens_sensor_dist;
-			h = w / viewport_aspect_ratio;
-		}
+		const double w = 0.5 * current_scene->use_sensor_width  / current_scene->lens_sensor_dist; // Half width of camera view frustum at distance 1 from camera.
+		const double h = 0.5 * current_scene->use_sensor_height / current_scene->lens_sensor_dist;
 
 		const double x_min = z_near * (-w + unit_shift_right);
 		const double x_max = z_near * ( w + unit_shift_right);
@@ -5545,29 +5774,16 @@ void OpenGLEngine::draw()
 	}
 	else if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic || current_scene->camera_type == OpenGLScene::CameraType_DiagonalOrthographic)
 	{
-		const double sensor_height = current_scene->sensor_width / current_scene->render_aspect_ratio;
-
-		double use_w, use_h;
-		if(viewport_aspect_ratio > current_scene->render_aspect_ratio)
-		{
-			// Match on the vertical clip planes.
-			use_w = sensor_height * viewport_aspect_ratio;
-			use_h = sensor_height;
-		}
-		else
-		{
-			// Match on the horizontal clip planes.
-			use_w = current_scene->sensor_width;
-			use_h = current_scene->sensor_width / viewport_aspect_ratio;
-		}
+		const double w = 0.5 * current_scene->use_sensor_width  / current_scene->lens_sensor_dist; // Half width of camera view frustum at distance 1 from camera.
+		const double h = 0.5 * current_scene->use_sensor_height / current_scene->lens_sensor_dist;
 
 		if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
 		{
 			proj_matrix = reverse_z_matrix * orthoMatrix(
-				-use_w * 0.5, // left
-				use_w * 0.5, // right
-				-use_h * 0.5, // bottom
-				use_h * 0.5, // top
+				-w, // left
+				w, // right
+				-h, // bottom
+				h, // top
 				z_near,
 				z_far
 			);
@@ -5577,10 +5793,10 @@ void OpenGLEngine::draw()
 			const float cam_z = current_scene->cam_to_world.getColumn(3)[2];
 			
 			proj_matrix = reverse_z_matrix * diagonalOrthoMatrix(
-				-use_w * 0.5, // left
-				use_w * 0.5, // right
-				-use_h * 0.5, // bottom
-				use_h * 0.5, // top
+				-w, // left
+				w, // right
+				-h, // bottom
+				h, // top
 				z_near,
 				z_far,
 				cam_z
@@ -5714,7 +5930,7 @@ void OpenGLEngine::draw()
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
 	
-	//================= Draw non-transparent batches from objects =================
+	//================= Draw non-transparent (opaque) batches from objects =================
 
 	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	//glEnable(GL_BLEND);
@@ -5763,131 +5979,6 @@ void OpenGLEngine::draw()
 		}
 	}
 
-
-#if 0
-	if(terrain_system.nonNull())
-	{
-		//terrain_system->render(*this);
-
-		for(auto it = terrain_system->chunks.begin(); it != terrain_system->chunks.end(); ++it)
-		{
-			TerrainChunk& chunk = it->second;
-
-			//------------------------------ Draw terrain ------------------------------
-			{
-				OpenGLMeshRenderData* meshdata = chunk.mesh_data_LODs[0].ptr();
-				bindMeshData(*meshdata);
-
-				const OpenGLProgram* shader_prog = terrain_system->mat.shader_prog.ptr();
-				shader_prog->useProgram();
-
-				// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
-
-				// Set per-object vert uniforms
-				if(shader_prog->uses_vert_uniform_buf_obs)
-				{
-					Matrix4f ob_to_world_matrix = Matrix4f::identity();
-					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
-
-					PerObjectVertUniforms uniforms;
-					uniforms.model_matrix = ob_to_world_matrix;
-					uniforms.normal_matrix = ob_to_world_inv_transpose_matrix;
-
-					this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
-				}
-				else
-				{
-					Matrix4f ob_to_world_matrix = Matrix4f::identity();
-					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
-					glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
-					glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
-
-					glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_matrix.e);
-					glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_matrix.e);
-				}
-
-				//if(shader_prog->is_phong)
-				{
-					setUniformsForPhongProg(terrain_system->mat, *meshdata, shader_prog->uniform_locations, /*prog_changed=*/true);
-				}
-			
-				GLenum draw_mode = GL_TRIANGLES;
-
-				glDrawElements(draw_mode, (GLsizei)meshdata->batches[0].num_indices, meshdata->index_type, (void*)(uint64)meshdata->batches[0].prim_start_offset);
-
-				this->num_indices_submitted += meshdata->batches[0].num_indices;
-				this->num_face_groups_submitted++;
-			}
-
-			//------------------------------ Draw water ------------------------------
-			{
-				OpenGLMeshRenderData* meshdata = chunk.water_mesh_data_LODs[0].ptr();
-				bindMeshData(*meshdata);
-
-				const OpenGLProgram* shader_prog = terrain_system->water_mat.shader_prog.ptr();
-				shader_prog->useProgram();
-
-
-				// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
-
-				// Set per-object vert uniforms
-				if(shader_prog->uses_vert_uniform_buf_obs)
-				{
-					Matrix4f ob_to_world_matrix = Matrix4f::identity();
-					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
-
-					PerObjectVertUniforms uniforms;
-					uniforms.model_matrix = ob_to_world_matrix;
-					uniforms.normal_matrix = ob_to_world_inv_transpose_matrix;
-
-					this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
-				}
-				else
-				{
-					Matrix4f ob_to_world_matrix = Matrix4f::identity();
-					Matrix4f ob_to_world_inv_transpose_matrix = Matrix4f::identity();
-					glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
-					glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
-
-					glUniformMatrix4fv(shader_prog->view_matrix_loc, 1, false, view_matrix.e);
-					glUniformMatrix4fv(shader_prog->proj_matrix_loc, 1, false, proj_matrix.e);
-				}
-
-				if(this->fbm_tex.nonNull())
-				{
-					glActiveTexture(GL_TEXTURE0 + 2);
-					glBindTexture(GL_TEXTURE_2D, this->fbm_tex->texture_handle);
-					glUniform1i(terrain_system->water_fbm_tex_location, 2);
-				}
-				if(this->cirrus_tex.nonNull())
-				{
-					glActiveTexture(GL_TEXTURE0 + 3);
-					glBindTexture(GL_TEXTURE_2D, this->cirrus_tex->texture_handle);
-					glUniform1i(terrain_system->water_cirrus_tex_location, 3);
-				}
-
-				if(shader_prog->time_loc >= 0)
-					glUniform1f(shader_prog->time_loc, this->current_time);
-
-				glUniform4fv(terrain_system->water_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
-
-				//if(shader_prog->is_phong)
-				{
-					setUniformsForPhongProg(terrain_system->mat, *meshdata, shader_prog->uniform_locations, /*prog_changed=*/true);
-				}
-
-				GLenum draw_mode = GL_TRIANGLES;
-
-				glDrawElements(draw_mode, (GLsizei)meshdata->batches[0].num_indices, meshdata->index_type, (void*)(uint64)meshdata->batches[0].prim_start_offset);
-
-				this->num_indices_submitted += meshdata->batches[0].num_indices;
-				this->num_face_groups_submitted++;
-
-			}
-		}
-	}
-#endif
-
 	{
 		ZoneScopedN("Draw opaque obs"); // Tracy profiler
 
@@ -5921,7 +6012,7 @@ void OpenGLEngine::draw()
 					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 					{
 						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-						const uint32 prog_index = prog_index_and_flags & 0x3FFFFFFF;
+						const uint32 prog_index = prog_index_and_flags & ISOLATE_PROG_INDEX_MASK;
 
 						assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
 						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
@@ -5934,7 +6025,7 @@ void OpenGLEngine::draw()
 						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 						// Draw primitives for the given material
-						if(!BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG)) // If transparent bit is not set:
+						if(!(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) || BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG))) // If transparent bit is not set:
 						{
 							BatchDrawInfo info(
 								prog_index, // program index
@@ -5948,8 +6039,9 @@ void OpenGLEngine::draw()
 				}
 				else
 					num_frustum_culled++;
-				this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
-			}
+			} // End for each object in scene
+
+			this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 		}
 		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
 
@@ -5961,6 +6053,9 @@ void OpenGLEngine::draw()
 		num_vao_binds = 0;
 		num_vbo_binds = 0;
 		num_index_buf_binds = 0;
+
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 		//Timer timer3;
 		for(size_t i=0; i<batch_draw_info.size(); ++i)
@@ -5996,15 +6091,177 @@ void OpenGLEngine::draw()
 		last_num_vao_binds = num_vao_binds;
 		last_num_vbo_binds = num_vbo_binds;
 		last_num_index_buf_binds = num_index_buf_binds;
+		last_num_indices_drawn = this->num_indices_submitted;
+		this->num_indices_submitted = 0;
 
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
 
+
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+
 		//conPrint("Draw opaque batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 	}
 
+
+	
+
+
+
+	//========================================== Draw water objects ======================================
+	{
+		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
+		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
+		//
+		// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
+		// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
+		// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
+		// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
+		//
+		// 
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
+
+		// Copy colour buffer (attachment 0) and depth buffer.
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		// Copy normal buffer.  Do this just to resolve the MSAA samples.
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		glDrawBuffer(GL_COLOR_ATTACHMENT1);
+	
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+
+		// Restore main render buffer binding
+		
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name); 
+		glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
+
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
+
+		ZoneScopedN("Draw water obs"); // Tracy profiler
+
+		//Timer timer;
+		batch_draw_info.reserve(current_scene->objects.size());
+		batch_draw_info.resize(0);
+
+		{
+			ZoneScopedN("frustum culling"); // Tracy profiler
+
+			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+			const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+			const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+			const GLObjectRef* const water_obs = current_scene->water_objects.vector.data();
+			const size_t water_obs_size        = current_scene->water_objects.vector.size();
+			for(size_t i=0; i<water_obs_size; ++i)
+			{
+				if(i + 16 < water_obs_size)
+				{	
+					_mm_prefetch((const char*)(&water_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+					_mm_prefetch((const char*)(&water_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+				}
+
+				const GLObject* const ob = water_obs[i].ptr();
+				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+				{
+					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+					{
+						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+						const uint32 prog_index = prog_index_and_flags & ISOLATE_PROG_INDEX_MASK;
+
+						assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
+						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
+#ifndef NDEBUG
+						// Check the denormalised vao_and_vbo_key is correct
+						uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+						const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+						const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+#endif
+						// Draw primitives for the given material
+						if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG)) // If water bit is set:
+						{
+							BatchDrawInfo info(
+								prog_index, // program index
+								ob->vao_and_vbo_key,
+								ob, // object ptr
+								(uint32)z // batch_i
+							);
+							batch_draw_info.push_back(info);
+						}
+					}
+				}
+			} // End for each object in scene
+		}
+		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+		sortBatchDrawInfos();
+
+		// Draw sorted batches
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+		//Timer timer3;
+		for(size_t i=0; i<batch_draw_info.size(); ++i)
+		{
+			const BatchDrawInfo& info = batch_draw_info[i];
+			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
+			if(prog_index != current_bound_prog_index)
+			{
+				ZoneScopedN("changing prog"); // Tracy profiler
+
+				if(use_multi_draw_indirect)
+					submitBufferedDrawCommands(); // Flush existing draw commands
+
+				// conPrint("---- Changed to program " + prog->prog_name + " ----");
+				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+				prog->useProgram();
+				current_bound_prog = prog;
+				current_bound_prog_index = prog_index;
+				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+				num_prog_changes++;
+			}
+
+			bindMeshData(*info.ob);
+
+			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+		}
+
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+
+		glDepthMask(GL_TRUE); // Restore writing to depth buffer.
+
+		//conPrint("Draw water objects batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+	}
+	//========================================== End draw water objects ======================================
+
+
+
 	//================= Draw wireframes if required =================
-	if(draw_wireframes)
+	if(false) // draw_wireframes)
 	{
 		// Use outline shaders for now as they just generate white fragments, which is what we want.
 		OpenGLMaterial wire_mat;
@@ -6051,6 +6308,9 @@ void OpenGLEngine::draw()
 	{
 		ZoneScopedN("Draw transparent obs"); // Tracy profiler
 
+		main_render_framebuffer->bindTextureAsTarget(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
+		main_render_framebuffer->bindTextureAsTarget(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
+
 		// Clear transparent_accum_texture buffer
 		glDrawBuffer(GL_COLOR_ATTACHMENT1);
 		glClearColor(0,0,0,0);
@@ -6062,8 +6322,8 @@ void OpenGLEngine::draw()
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// Draw to all colour buffers.
-		static const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-		glDrawBuffers(/*num=*/3, draw_buffers);
+		static const GLenum trans_draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+		glDrawBuffers(/*num=*/3, trans_draw_buffers);
 
 		glEnable(GL_BLEND);
 
@@ -6105,7 +6365,7 @@ void OpenGLEngine::draw()
 				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 				{
 					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-					const uint32 prog_index = prog_index_and_flags & 0x3FFFFFFF;
+					const uint32 prog_index = prog_index_and_flags & ISOLATE_PROG_INDEX_MASK;
 
 					assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
@@ -6494,6 +6754,9 @@ void OpenGLEngine::draw()
 
 			// Bind av_transmittance_texture as texture_2 with texture unit 2
 			bindTextureUnitToSampler(*av_transmittance_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+			
+			// Bind water_colour_texture with texture unit 3
+		//	bindTextureUnitToSampler(*water_colour_texture, /*texture_unit_index=*/3, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_WATER_COLOUR_TEX_UNIFORM_INDEX].loc);
 
 
 			glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
@@ -6501,7 +6764,7 @@ void OpenGLEngine::draw()
 			// Bind downsize_target_textures
 			// We need to bind these textures even when bloom_strength == 0, or we get runtime opengl errors.
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
-				bindTextureUnitToSampler(*blur_target_textures[i], /*texture_unit_index=*/3 + i, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc);
+				bindTextureUnitToSampler(*blur_target_textures[i], /*texture_unit_index=*/4 + i, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc);
 
 			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
@@ -6561,7 +6824,7 @@ Reference<OpenGLMeshRenderData> OpenGLEngine::getUnitQuadMeshData() { return uni
 Reference<OpenGLMeshRenderData> OpenGLEngine::getCylinderMesh() // A cylinder from (0,0,0), to (0,0,1) with radius 1;
 {
 	if(cylinder_meshdata.isNull())
-		cylinder_meshdata = MeshPrimitiveBuilding::makeCylinderMesh(*vert_buf_allocator);
+		cylinder_meshdata = MeshPrimitiveBuilding::makeCylinderMesh(*vert_buf_allocator, /*end caps=*/true);
 	return cylinder_meshdata;
 }
 
@@ -6856,11 +7119,14 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	if(this->specular_env_tex.nonNull())
 		bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/locations.specular_env_tex_location);
 
-	if(this->fbm_tex.nonNull())
-		bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/locations.fbm_tex_location);
+	if(this->detail_tex.nonNull())
+		bindTextureUnitToSampler(*this->detail_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/locations.detail_tex_location);
 	
 	if(this->blue_noise_tex.nonNull())
 		bindTextureUnitToSampler(*this->blue_noise_tex, /*texture_unit_index=*/6, /*sampler_uniform_location=*/locations.blue_noise_tex_location);
+
+	if(this->fbm_tex.nonNull())
+		bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/7, /*sampler_uniform_location=*/locations.fbm_tex_location);
 
 	// Set shadow mapping uniforms
 	if(shadow_mapping.nonNull())
@@ -6876,7 +7142,11 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 
 	MaterialCommonUniforms common_uniforms;
 	common_uniforms.sundir_cs = this->sun_dir_cam_space;
+	common_uniforms.sundir_ws = this->sun_dir;
+	common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
 	common_uniforms.time = this->current_time;
+	common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
+	common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 }
 
@@ -7012,6 +7282,29 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 {
 	ZoneScoped; // Tracy profiler
 
+	//TEMP NEW:
+	if(shader_prog.uses_colour_and_depth_buf_textures)
+	{
+		bindTextureUnitToSampler(*main_colour_copy_texture, /*texture_unit_index=*/12, /*sampler_uniform_location=*/shader_prog.uniform_locations.main_colour_texture_location);
+
+		bindTextureUnitToSampler(*main_normal_copy_texture, /*texture_unit_index=*/13, /*sampler_uniform_location=*/shader_prog.uniform_locations.main_normal_texture_location);
+
+		bindTextureUnitToSampler(*main_depth_copy_texture, /*texture_unit_index=*/14, /*sampler_uniform_location=*/shader_prog.uniform_locations.main_depth_texture_location);
+	}
+
+	if(shader_prog.uses_colour_and_depth_buf_textures && this->cirrus_tex.nonNull() && (shader_prog.uniform_locations.cirrus_tex_location >= 0)) // TEMP HACK
+		bindTextureUnitToSampler(*this->cirrus_tex, /*texture_unit_index=*/15, /*sampler_uniform_location=*/shader_prog.uniform_locations.cirrus_tex_location);
+
+	//if(shader_prog.uses_colour_and_depth_buf_textures || shader_prog.uses_phong_uniforms) // TEMP
+	if(shader_prog.uniform_locations.caustic_tex_a_location >= 0)
+	{
+		const int current_caustic_index   = Maths::intMod((int)(this->current_time * 24.0f)    , (int)water_caustics_textures.size());
+		const int current_caustic_index_1 = Maths::intMod((int)(this->current_time * 24.0f) + 1, (int)water_caustics_textures.size());
+
+		bindTextureUnitToSampler(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/16, /*sampler_uniform_location=*/shader_prog.uniform_locations.caustic_tex_a_location);
+		bindTextureUnitToSampler(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/17, /*sampler_uniform_location=*/shader_prog.uniform_locations.caustic_tex_b_location);
+	}
+
 	if(shader_prog.view_matrix_loc >= 0)
 	{
 		glUniformMatrix4fv(shader_prog.view_matrix_loc, 1, false, view_mat.e);
@@ -7029,7 +7322,11 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 
 		MaterialCommonUniforms common_uniforms;
 		common_uniforms.sundir_cs = this->sun_dir_cam_space;
+		common_uniforms.sundir_ws = this->sun_dir;
+		common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
 		common_uniforms.time = this->current_time;
+		common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
+		common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 }
@@ -7275,7 +7572,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	}
 
 	this->num_indices_submitted += num_indices;
-	this->num_face_groups_submitted++;
+	//this->num_face_groups_submitted++;
 }
 
 
@@ -7558,7 +7855,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 	}
 
 	this->num_indices_submitted += num_indices;
-	this->num_face_groups_submitted++;
+	//this->num_face_groups_submitted++;
 }
 
 
@@ -8013,6 +8310,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num VBO binds: " + toString(last_num_vbo_binds) + "\n";
 	s += "Num index buf binds: " + toString(last_num_index_buf_binds) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
+	s += "tris drawn: " + uInt32ToStringCommaSeparated(last_num_indices_drawn / 3) + "\n";
 	s += "\n";
 	s += "Num multi-draw-indirect calls: " + toString(num_multi_draw_indirect_calls) + "\n";
 	s += "\n";
@@ -8020,8 +8318,9 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "depth draw num VAO binds: " + toString(depth_draw_last_num_vao_binds) + "\n";
 	s += "depth draw num VBO binds: " + toString(depth_draw_last_num_vbo_binds) + "\n";
 	s += "depth draw num batches bound: " + toString(depth_draw_last_num_batches_bound) + "\n";
+	s += "depth draw tris drawn: " + uInt32ToStringCommaSeparated(depth_draw_last_num_indices_drawn / 3) + "\n";
 	s += "\n";
-	s += "tris drawn: " + toString(num_indices_submitted) + "\n";
+	
 
 	s += "FPS: " + doubleToStringNDecimalPlaces(last_fps, 1) + "\n";
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";

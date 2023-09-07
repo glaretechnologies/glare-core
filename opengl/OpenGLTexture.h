@@ -118,6 +118,8 @@ public:
 
 	void setTWrappingEnabled(bool wrapping_enabled);
 	//---------------------------------------------------------------------------------------------------------------------
+
+	void readBackTexture(int mipmap_level, ArrayRef<uint8> buffer);
 	
 	void bind();
 	void unbind();

@@ -193,18 +193,20 @@ void main()
 	normal_skin_matrix = normal_matrix;
 #endif
 
-	
-	normal_ws = (normal_skin_matrix * vec4(normal_in, 0.0)).xyz;
-	normal_cs = (view_matrix * (normal_skin_matrix * vec4(normal_in, 0.0))).xyz;
+	vec3 final_pos_os = position_in;
+	vec3 final_normal_in = normal_in;
 
-	pos_ws = (model_skin_matrix  * vec4(position_in, 1.0)).xyz;
+	pos_ws = (model_skin_matrix  * vec4(final_pos_os, 1.0)).xyz;
+
+	normal_ws = (normal_skin_matrix * vec4(final_normal_in, 0.0)).xyz;
+	normal_cs = (view_matrix * (normal_skin_matrix * vec4(final_normal_in, 0.0))).xyz;
 
 #if USE_WIND_VERT_SHADER
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 #endif // end if USE_WIND_VERT_SHADER
 
 #if GENERATE_PLANAR_UVS
-	pos_os = position_in;
+	pos_os = final_pos_os;
 #endif
 
 	cam_to_pos_ws = pos_ws - campos_ws.xyz;
