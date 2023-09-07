@@ -1,0 +1,15 @@
+Original textures by Jos Stam
+https://www.dgp.toronto.edu/public_user/stam/reality/Research/PeriodicCaustics/index.html
+Converted to ktx2 format something like:
+
+
+Code to convert caustic textures
+---------------------------------
+In TiffDecoder.cpp (in indigo):
+
+for(int i=0; i<32; ++i)
+{
+	Reference<Map2D> im = decode("C:\\Users\\nick\\Downloads\\caus3 (1)\\save." + ::leftPad(toString(1 + i), '0', 2) + ".tif");
+
+	PNGDecoder::write(*im.downcast<ImageMapUInt8>(), "C:\\Users\\nick\\Downloads\\caus3 (1)\\save." + ::leftPad(toString(1 + i), '0', 2) + ".png");
+}
