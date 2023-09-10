@@ -73,8 +73,8 @@ void Matrix3<Real>::rotationMatrixToAxisAngle(Vec3<Real>& unit_axis_out, Real& a
 			(elem(0, 2) - elem(2, 0)),
 			(elem(1, 0) - elem(0, 1))
 		);
-		const float v_len2 = v.length2();
-		if(v_len2 < 1.0e-10f)
+		const Real v_len2 = v.length2();
+		if(v_len2 < (Real)1.0e-10)
 		{
 			unit_axis_out = Vec3<Real>(1,0,0);
 			angle_out = 0;
