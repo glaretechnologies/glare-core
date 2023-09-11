@@ -16,6 +16,7 @@ static std::vector<cl_context_properties> makePropertyList(cl_platform_id platfo
 	props.push_back(CL_CONTEXT_PLATFORM);
 	props.push_back((cl_context_properties)platform_id);
 
+#if OPENCL_OPENGL_INTEROP
 	if(enable_opengl_interop)
 	{
 		if(getGlobalOpenCL()->current_gl_context == 0)
@@ -29,6 +30,7 @@ static std::vector<cl_context_properties> makePropertyList(cl_platform_id platfo
 		props.push_back(CL_WGL_HDC_KHR);
 		props.push_back(getGlobalOpenCL()->current_DC);
 	}
+#endif
 
 	props.push_back(0); // Terminating property
 

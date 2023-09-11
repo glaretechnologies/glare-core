@@ -16,9 +16,6 @@ Copyright Glare Technologies Limited 2023 -
 #include <vector>
 
 
-#define OPENCL_OPENGL_INTEROP 1
-
-
 #ifdef OSX
 #include <OpenCL/cl.h>
 #include <OpenCL/cl_platform.h>
