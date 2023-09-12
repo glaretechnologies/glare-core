@@ -30,6 +30,10 @@ ThreadContext
 -------------
 Contains per-thread data structures used for stuff like tree traversal and
 shader evaluation.
+
+Before rendering, each render thread must set a thread-local context like this:
+
+ThreadContext::setThreadLocalContext(new ThreadContext());
 =====================================================================*/
 class ThreadContext
 {
