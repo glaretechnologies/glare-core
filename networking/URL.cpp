@@ -80,6 +80,40 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 }
 
 
+// NOTE: copied from Escaping::URLUnescape
+static const std::string URLUnescape(const std::string& s)
+{
+	std::string result;
+	result.reserve(s.size());
+
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		if(s[i] == '+')
+		{
+			result.push_back(' ');
+		}
+		else if(s[i] == '%')
+		{
+			if((i + 2) < s.size())
+			{
+				const unsigned int nibble_a = hexCharToUInt(s[i+1]);
+				const unsigned int nibble_b = hexCharToUInt(s[i+2]);
+				// TODO: handle char out of range
+				result.push_back((char)((nibble_a << 4) + nibble_b));
+				i += 2;
+			}
+			else
+				throw glare::Exception("End of string while parsing escape sequence");
+		}
+		else
+		{
+			result.push_back(s[i]);
+		}
+	}
+	return result;
+}
+
+
 // Parse query string, assuming is of the form
 // a=b
 // or
@@ -100,7 +134,7 @@ std::map<std::string, std::string> URL::parseQuery(const std::string& query)
 			parser.parseToCharOrEOF('&', value);
 
 			if(!key.empty())
-				result_map[web::Escaping::URLUnescape(toString(key))] = web::Escaping::URLUnescape(toString(value));
+				result_map[URLUnescape(toString(key))] = URLUnescape(toString(value));
 
 			parser.parseChar('&');
 		}

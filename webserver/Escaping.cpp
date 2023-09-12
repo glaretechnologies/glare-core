@@ -67,6 +67,7 @@ const std::string Escaping::URLEscape(const std::string& s)
 }
 
 
+// NOTE: duplicated in URL.cpp
 const std::string Escaping::URLUnescape(const std::string& s)
 {
 	std::string result;
