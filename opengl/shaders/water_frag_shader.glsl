@@ -169,6 +169,9 @@ layout (std140) uniform MaterialCommonUniforms
 {
 	vec4 sundir_cs;
 	vec4 sundir_ws;
+	vec4 sun_spec_rad_times_solid_angle;
+	vec4 sun_and_sky_av_spec_rad;
+	vec4 air_scattering_coeffs;
 	float near_clip_dist;
 	float time;
 	float l_over_w; // lens-sensor distance / sensor width.  (tan(theta) = w/(2l) where theta is the half angle of view)
@@ -364,7 +367,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
 //	src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
 
-	vec3 inscatter_radiance_sigma_s_over_sigma_t = vec3(1000000.0, 10000000.0, 30000000.0);
+	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * 0.05; // vec3(1000000.0, 10000000.0, 30000000.0); // TEMP TODO: compute properly
 	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d);
 	vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
 
@@ -739,7 +742,8 @@ void main()
 			float d = dot(sundir_ws.xyz, reflected_dir_ws);
 
 			float sunscale = 2.0e-3f; // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
-			vec3 suncol = vec3(2.45126E+13 * sunscale, 2.21169E+13 * sunscale, 1.93810E+13 * sunscale); // From Indigo SkyModel2Generator.cpp::makeSkyEnvMap().
+			const float sun_solid_angle = 0.00006780608; // See SkyModel2Generator::makeSkyEnvMap();
+			vec3 suncol = sun_spec_rad_times_solid_angle.xyz * (1.0 / sun_solid_angle) * sunscale;
 			//vec4 suncol = vec4(9.38083E+12 * sunscale, 4.99901E+12 * sunscale, 1.25408E+12 * sunscale, 1); // From Indigo SkyModel2Generator.cpp::makeSkyEnvMap().
 			//float d = dot(sundir_cs.xyz, normalize(pos_cs));
 			//col = mix(col, suncol, smoothstep(0.9999, 0.9999892083461507, d));
@@ -793,11 +797,9 @@ void main()
 			}
 
 			float cloudfrac = max(cirrus_cloudfrac, cumulus_cloudfrac);
-			float w = 2.0e8;
-			vec3 cloudcol = vec3(w, w, w);
+			vec3 cloudcol = sun_and_sky_av_spec_rad.xyz;
 			spec_refl_light = mix(spec_refl_light, cloudcol, max(0.f, cloudfrac));
-			float sunw = w * 2.5;
-			vec3 suncloudcol = vec3(sunw, sunw, sunw);
+			vec3 suncloudcol = cloudcol * 2.5;
 			float blend = max(0.f, cumulus_edge) * max(0, pow(d, 32));// smoothstep(0.9, 0.9999892083461507, d);
 			spec_refl_light = mix(spec_refl_light, suncloudcol, blend);
 		}
@@ -964,10 +966,10 @@ void main()
 #if DEPTH_FOG
 	// Blend with background/fog colour
 	float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
-	float fog_factor = 1.0f - exp(dist_ * -0.00006); // 0.00015
-	vec3 sky_col = vec3(1.8, 4.7, 8.0) * 3.0e7; // Bluish grey
-	//vec4 sky_col = vec4(0.498 / 0.000000003, 0.555 / 0.000000003, 0.621 / 0.000000003, 1); // Bluish grey
-	col = mix(col, sky_col, fog_factor);
+	vec3 transmission = exp(air_scattering_coeffs.xyz * -dist_);
+
+	col.xyz *= transmission;
+	col.xyz += sun_and_sky_av_spec_rad.xyz * (1 - transmission);
 #endif
 
 	col += spec_refl_light_already_fogged                  * spec_refl_fresnel;

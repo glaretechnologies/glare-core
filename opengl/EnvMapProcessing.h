@@ -1,7 +1,7 @@
 /*=====================================================================
 EnvMapProcessing.h
 ------------------
-Copyright Glare Technologies Limited 2017 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 

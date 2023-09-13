@@ -18,6 +18,9 @@ layout (std140) uniform MaterialCommonUniforms
 {
 	vec4 sundir_cs;
 	vec4 sundir_ws;
+	vec4 sun_spec_rad_times_solid_angle;
+	vec4 sun_and_sky_av_spec_rad;
+	vec4 air_scattering_coeffs;
 	float near_clip_dist;
 	float time;
 	float l_over_w;

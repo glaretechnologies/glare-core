@@ -376,7 +376,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	use_multi_draw_indirect(false),
 	use_reverse_z(true),
 	object_pool_allocator(sizeof(GLObject), 16),
-	running_in_renderdoc(false)
+	running_in_renderdoc(false),
+	loaded_maps_for_sun_dir(false)
 {
 	if(settings.use_general_arena_mem_allocator)
 		mem_allocator = new glare::GeneralMemAllocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull);
@@ -398,6 +399,9 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	main_viewport_h = 0;
 
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
+
+	// From AtmosphereMedium::AtmosphereMedium() (air_scattering_coeff_spectrum) in Indigo source.
+	air_scattering_coeffs = Vec4f(0.000008057856f, 0.000011481005f, 0.000026190464f, 0);
 
 	max_tex_mem_usage = settings.max_tex_mem_usage;
 
@@ -532,7 +536,7 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 	// Calculate frustum verts
 	Vec4f verts_cs[5];
 	const float shift_up_d    = lens_shift_up_distance    * (max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
-	const float shift_right_d = lens_shift_right_distance * (max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted up
+	const float shift_right_d = lens_shift_right_distance * (max_draw_dist / lens_sensor_dist); // distance verts at far end of frustum are shifted right
 
 	const float d_w = use_sensor_width  * max_draw_dist / (2 * lens_sensor_dist);
 	const float d_h = use_sensor_height * max_draw_dist / (2 * lens_sensor_dist);
@@ -870,9 +874,336 @@ void OpenGLEngine::setCurrentTime(float time)
 }
 
 
+// Average spectral radiances, weighted for RGB curves, from the sky model (without sun) for the sky model thetas.
+// Generated with SkyModel2Generator::generateAvSpectralRadianceData().
+static const float sky_av_spec_rad_data[] = {
+	80390680.f, 94338770.f, 123985290.f,
+	80350860.f, 94294856.f, 123960400.f,
+	80267480.f, 94205390.f, 123823580.f,
+	80104290.f, 94045090.f, 123622810.f,
+	79887096.f, 93813600.f, 123400760.f,
+	79616410.f, 93523640.f, 123037770.f,
+	79258620.f, 93190240.f, 122592040.f,
+	78833360.f, 92762000.f, 122113380.f,
+	78354010.f, 92312370.f, 121596140.f,
+	77829896.f, 91752820.f, 120949040.f,
+	77246710.f, 91144590.f, 120235960.f,
+	76578950.f, 90485210.f, 119479270.f,
+	75857330.f, 89768070.f, 118648420.f,
+	75077640.f, 88977384.f, 117687470.f,
+	74245830.f, 88129960.f, 116680660.f,
+	73363530.f, 87222650.f, 115627920.f,
+	72426870.f, 86214810.f, 114485430.f,
+	71445340.f, 85194260.f, 113205864.f,
+	70361520.f, 84089250.f, 111879920.f,
+	69241580.f, 82959656.f, 110501000.f,
+	68086740.f, 81756320.f, 109074610.f,
+	66894920.f, 80488070.f, 107520510.f,
+	65632212.f, 79194050.f, 105884040.f,
+	64315956.f, 77815230.f, 104123650.f,
+	62934050.f, 76377390.f, 102340960.f,
+	61535456.f, 74886840.f, 100538410.f,
+	60089868.f, 73376260.f, 98601550.f,
+	58590548.f, 71790060.f, 96594240.f,
+	57049190.f, 70142230.f, 94508710.f,
+	55487044.f, 68420440.f, 92284904.f,
+	53873670.f, 66650984.f, 90028900.f,
+	52198100.f, 64844760.f, 87613680.f,
+	50513476.f, 62969190.f, 85109410.f,
+	48839156.f, 61013020.f, 82662750.f,
+	47071212.f, 59053516.f, 80012970.f,
+	45283940.f, 57025424.f, 77295336.f,
+	43452856.f, 54910596.f, 74373940.f,
+	41583256.f, 52734564.f, 71245440.f,
+	39692264.f, 50458010.f, 67917040.f,
+	37726204.f, 48062380.f, 64467476.f,
+	35671490.f, 45602970.f, 60808050.f,
+	33583564.f, 42963250.f, 56828772.f,
+	31324304.f, 40228810.f, 52637376.f,
+	29017694.f, 37201428.f, 48032696.f,
+	26489964.f, 33911652.f, 42943376.f,
+	23825512.f, 30221838.f, 37419844.f,
+	20817200.f, 26030846.f, 31207578.f,
+	17286222.f, 21221540.f, 24417692.f,
+	13440836.f, 15749220.f, 17195166.f,
+	9031804.f, 9884696.f, 10332520.f,
+	4487572.f, 4588253.f, 4924291.5f,
+	1310750.5f, 1406245.9f, 1685797.4f,
+	239037.28f, 272702.06f, 363127.75f,
+	33752.348f, 39623.457f, 57423.773f,
+	5899.076f, 5526.149f, 7572.385f,
+	1061.1992f, 1251.5305f, 1259.0583f,
+	124.07373f, 163.35097f, 37.012947f,
+	4.4110293f, 7.385951f, -0.69128233f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+	0.f, 0.f, 0.f,
+};
+static_assert(staticArrayNumElems(sky_av_spec_rad_data) == 100 * 3, "staticArrayNumElems(sky_av_spec_rad_data) == 100 * 3");
+
+
+// Sun spectral radiances, weighted for RGB curves, at the sky model thetas.
+// Generated in SkyModel2Generator::makeSkyEnvMap().
+static const float sun_spec_rad_data[] = {
+25492523000000.f, 23473718000000.f, 21528905000000.f,
+25484510000000.f, 23463434000000.f, 21513223000000.f,
+25488857000000.f, 23467928000000.f, 21519642000000.f,
+25482435000000.f, 23457843000000.f, 21502976000000.f,
+25486932000000.f, 23460960000000.f, 21505201000000.f,
+25474910000000.f, 23445945000000.f, 21483332000000.f,
+25446587000000.f, 23409730000000.f, 21422810000000.f,
+25431210000000.f, 23388410000000.f, 21389252000000.f,
+25424497000000.f, 23374439000000.f, 21360275000000.f,
+25392140000000.f, 23330290000000.f, 21289838000000.f,
+25388827000000.f, 23318032000000.f, 21266644000000.f,
+25357160000000.f, 23278417000000.f, 21200967000000.f,
+25323524000000.f, 23234672000000.f, 21140316000000.f,
+25280536000000.f, 23167687000000.f, 21038197000000.f,
+25256480000000.f, 23139105000000.f, 20984816000000.f,
+25217758000000.f, 23081188000000.f, 20892529000000.f,
+25162515000000.f, 23006726000000.f, 20772838000000.f,
+25112485000000.f, 22940842000000.f, 20664575000000.f,
+25060755000000.f, 22871622000000.f, 20557643000000.f,
+25002406000000.f, 22791116000000.f, 20433378000000.f,
+24931025000000.f, 22695912000000.f, 20284527000000.f,
+24876585000000.f, 22621301000000.f, 20153410000000.f,
+24782260000000.f, 22494744000000.f, 19959032000000.f,
+24694321000000.f, 22382234000000.f, 19786510000000.f,
+24602540000000.f, 22250296000000.f, 19586070000000.f,
+24512582000000.f, 22116854000000.f, 19381034000000.f,
+24413481000000.f, 21982748000000.f, 19172665000000.f,
+24299618000000.f, 21831292000000.f, 18946491000000.f,
+24149353000000.f, 21641214000000.f, 18645537000000.f,
+24029377000000.f, 21473413000000.f, 18391694000000.f,
+23850178000000.f, 21235962000000.f, 18036703000000.f,
+23668099000000.f, 20996325000000.f, 17675118000000.f,
+23470748000000.f, 20737016000000.f, 17293417000000.f,
+23286970000000.f, 20483899000000.f, 16923487000000.f,
+23025980000000.f, 20133993000000.f, 16411908000000.f,
+22751048000000.f, 19781250000000.f, 15897520000000.f,
+22445254000000.f, 19384412000000.f, 15341277000000.f,
+22104976000000.f, 18952097000000.f, 14734328000000.f,
+21693184000000.f, 18421777000000.f, 14025746000000.f,
+21231707000000.f, 17827850000000.f, 13240120000000.f,
+20697156000000.f, 17151068000000.f, 12357455000000.f,
+20014470000000.f, 16306796000000.f, 11298580000000.f,
+19299125000000.f, 15396689000000.f, 10202650000000.f,
+18352590000000.f, 14267156000000.f, 8910706000000.f,
+17201104000000.f, 12932040000000.f, 7463626000000.f,
+15779721000000.f, 11295045000000.f, 5838189600000.f,
+13982450000000.f, 9347944000000.f, 4110298000000.f,
+11685808000000.f, 7024187300000.f, 2373650200000.f,
+8597981000000.f, 4311201000000.f, 873850140000.f,
+4729751500000.f, 1680080600000.f, 55019454000.f,
+793660100000.f, 137287600000.f, -22923274000.f,
+315350.47f, 397667.25f, 515803.75f,
+47948.36f, 65660.93f, 94096.984f,
+4548.414f, 8537.616f, 10819.586f,
+810.40015f, 746.2641f, 2220.2847f,
+-194.83438f, 358.22525f, 527.6283f,
+172.58765f, 58.606438f, -10.461005f,
+-0.06289596f, 3.2585173f, 0.47782722f,
+-0.067020684f, 0.57397836f, -0.07009879f,
+-0.00016825758f, 0.0014409595f, -0.00017598132f,
+-6.4087885e-10f, 5.4884928e-9f, -6.7029793e-10f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f,
+0.f, 0.f, 0.f
+};
+static_assert(staticArrayNumElems(sun_spec_rad_data) == 100 * 3, "staticArrayNumElems(sun_spec_rad_data) == 100 * 3");
+
+
+// Load two EXR maps from path_0 and path_1 and blend them together, using weights w0 and w1.
+// Return blended map.
+static Map2DRef loadAndBlendMaps(const std::string& path_0, const std::string& path_1, float w0, float w1)
+{
+	Map2DRef map_0 = EXRDecoder::decode(path_0);
+	Map2DRef map_1 = EXRDecoder::decode(path_1);
+
+	runtimeCheck(map_0.isType<ImageMapFloat>());
+	runtimeCheck(map_1.isType<ImageMapFloat>());
+
+	// Blend, store final result in map0
+	ImageMapFloat* map_float_0 = map_0.downcastToPtr<ImageMapFloat>();
+	ImageMapFloat* map_float_1 = map_1.downcastToPtr<ImageMapFloat>();
+	runtimeCheck(map_float_0->getDataSize() == map_float_1->getDataSize());
+
+	const size_t data_size = map_float_0->getDataSize();
+	      float* const map0_data = map_float_0->getData();
+	const float* const map1_data = map_float_1->getData();
+	for(size_t z=0; z<data_size; ++z)
+	{
+		map0_data[z] = map0_data[z] * w0 + map1_data[z] * w1;
+	}
+
+	return map_0;
+}
+
+
+// Load maps for sun direction
+void OpenGLEngine::loadMapsForSunDir()
+{
+	Timer timer;
+
+	const float sun_theta = GeometrySampling::sphericalCoordsForDir(this->sun_dir).y;
+
+	// const float sun_theta = NICKMATHS_PIf * (float)z / (float)SkyModel2::numThetaSteps();
+	// z = sun_theta / pi * numThetaSteps
+	// z = sun_theta / pi * 100
+	const float z_f = sun_theta / NICKMATHS_PIf * 100;
+	const int MAX_INDEX = 60; // Only include up to index 60, since images past there are just all black and so are not included.
+	const int z_0 = myClamp((int)z_f, 0, MAX_INDEX);
+	const int z_1 = myClamp(z_0 + 1, 0, MAX_INDEX);
+	const float frac = z_f - z_0;
+	const float w0 = 1 - frac;
+	const float w1 = frac;
+
+
+	const Vec3f sun_spec_rad_0(sun_spec_rad_data[z_0 * 3 + 0], sun_spec_rad_data[z_0 * 3 + 1], sun_spec_rad_data[z_0 * 3 + 2]);
+	const Vec3f sun_spec_rad_1(sun_spec_rad_data[z_1 * 3 + 0], sun_spec_rad_data[z_1 * 3 + 1], sun_spec_rad_data[z_1 * 3 + 2]);
+	const Vec3f sun_spec_rad = sun_spec_rad_0 * w0 + sun_spec_rad_1 * w1;
+
+	const float sun_solid_angle = 0.00006780608f; // See SkyModel2Generator::makeSkyEnvMap()
+	this->sun_spec_rad_times_solid_angle = sun_spec_rad.toVec4fVector() * sun_solid_angle;
+
+	const Vec3f sky_av_spec_rad_0(sky_av_spec_rad_data[z_0 * 3 + 0], sky_av_spec_rad_data[z_0 * 3 + 1], sky_av_spec_rad_data[z_0 * 3 + 2]);
+	const Vec3f sky_av_spec_rad_1(sky_av_spec_rad_data[z_1 * 3 + 0], sky_av_spec_rad_data[z_1 * 3 + 1], sky_av_spec_rad_data[z_1 * 3 + 2]);
+	const Vec3f sky_av_spec_rad = sky_av_spec_rad_0 * w0 + sky_av_spec_rad_1 * w1;
+
+	this->sun_and_sky_av_spec_rad = sky_av_spec_rad.toVec4fVector() + this->sun_spec_rad_times_solid_angle / Maths::get4Pi<float>();
+
+
+	const std::string sky_gl_data_dir = data_dir + "/gl_data/sky";
+
+	// Load diffuse irradiance cube maps (face maps are in diffuse_sky_no_sun_x_y.exr)
+	// These textures are generated by the code in glare-core\trunk\opengl\EnvMapProcessing.cpp
+	{
+		std::vector<Map2DRef> face_maps(6);
+		for(int i=0; i<6; ++i) // For each cube face:
+		{
+			face_maps[i] = loadAndBlendMaps(
+				sky_gl_data_dir + "/diffuse_sky_no_sun_" + toString(z_0) + "_" + toString(i) + ".exr",
+				sky_gl_data_dir + "/diffuse_sky_no_sun_" + toString(z_1) + "_" + toString(i) + ".exr",
+				w0, w1
+			);
+		}
+
+		this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
+	}
+
+	// Load specular reflection map (specular_refl_sky_no_sun_combined_x.exr)
+	// These textures are generated by the code in glare-core\trunk\opengl\EnvMapProcessing.cpp
+	{
+		Map2DRef specular_refl_map = loadAndBlendMaps(
+			sky_gl_data_dir + "/specular_refl_sky_no_sun_combined_" + toString(z_0) + ".exr",
+			sky_gl_data_dir + "/specular_refl_sky_no_sun_combined_" + toString(z_1) + ".exr",
+			w0, w1
+		);
+
+		this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("specular reflection map" + toString(sun_theta)), *specular_refl_map, /*state, */OpenGLTexture::Filtering_Bilinear);
+	}
+
+
+	// Load hi-res env map (sky_no_sun_x.exr)
+	// These textures are generated in N:\indigo\trunk\indigo\SkyModel2Generator.cpp, SkyModel2Generator::makeSkyEnvMap().
+	{
+		Map2DRef env_map = loadAndBlendMaps(
+			sky_gl_data_dir + "/sky_no_sun_" + toString(z_0) + ".exr",
+			sky_gl_data_dir + "/sky_no_sun_" + toString(z_1) + ".exr",
+			w0, w1
+		);
+
+		this->current_scene->env_ob->materials[0].albedo_texture = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("hi res env map" + toString(sun_theta)), *env_map, /*state, */OpenGLTexture::Filtering_Bilinear, 
+			OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false);
+		this->current_scene->env_ob->materials[0].albedo_texture->setTWrappingEnabled(false); // Disable wrapping in vertical direction to avoid grey dot straight up.
+	}
+
+	this->loaded_maps_for_sun_dir = true;
+
+	conPrint("OpenGLEngine::loadMapsForSunDir took " + timer.elapsedStringNSigFigs(5));
+}
+
+
 void OpenGLEngine::setSunDir(const Vec4f& d)
 {
 	this->sun_dir = d;
+
+	this->loaded_maps_for_sun_dir = false; // reload maps
 }
 
 
@@ -902,6 +1233,16 @@ void OpenGLEngine::setEnvMat(const OpenGLMaterial& env_mat_)
 void OpenGLEngine::setCirrusTexture(const Reference<OpenGLTexture>& tex)
 {
 	this->cirrus_tex = tex;
+}
+
+
+void OpenGLEngine::setDetailTexture(int index, const Reference<OpenGLTexture>& tex)
+{
+	assert(index >= 0 && index < 4);
+	if(index >= 0 && index < 4)
+		this->detail_tex[index] = tex;
+	else
+		throw glare::Exception("invalid detail texture index: " + toString(index));
 }
 
 
@@ -946,7 +1287,10 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
 	locations_out.caustic_tex_a_location			= prog->getUniformLocation("caustic_tex_a");
 	locations_out.caustic_tex_b_location			= prog->getUniformLocation("caustic_tex_b");
-	locations_out.detail_tex_location				= prog->getUniformLocation("detail_tex");
+	locations_out.detail_tex_0_location				= prog->getUniformLocation("detail_tex_0");
+	locations_out.detail_tex_1_location				= prog->getUniformLocation("detail_tex_1");
+	locations_out.detail_tex_2_location				= prog->getUniformLocation("detail_tex_2");
+	locations_out.detail_tex_3_location				= prog->getUniformLocation("detail_tex_3");
 	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	locations_out.campos_ws_location				= prog->getUniformLocation("campos_ws");
 	
@@ -992,6 +1336,84 @@ struct BuildFBMNoiseTask : public glare::Task
 	int begin_y, end_y;
 };
 
+
+// See https://www.khronos.org/opengl/wiki/Program_Introspection#Uniforms_and_blocks
+static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
+{
+	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
+	if(block_index == GL_INVALID_INDEX)
+		throw glare::Exception("getSizeOfUniformBlockInOpenGL(): No such named uniform block '" + std::string(block_name) + "'");
+	GLint size = 0;
+	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
+	return size;
+}
+
+
+static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
+{
+	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
+	if(block_index == GL_INVALID_INDEX)
+		throw glare::Exception("printFieldOffsets(): No such named uniform block '" + std::string(block_name));
+
+	GLint num_fields = 0;
+	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS, &num_fields); // Get 'number of active uniforms within this block'.
+
+	std::map<int, std::string> offset_to_name;
+	for(int i=0; i<num_fields; ++i)
+	{
+		char buf[2048];
+		GLsizei string_len = 0;
+		glGetActiveUniformName(prog->program, i, sizeof(buf), &string_len, buf);
+		std::string name(buf, buf + string_len);
+		//conPrint(name);
+
+		// Get offset:
+		GLuint index = i;
+		GLint offset = 0;
+		glGetActiveUniformsiv(prog->program, /*uniformCount=*/1, /*indices=*/&index, GL_UNIFORM_OFFSET, &offset);
+		//printVar(offset);
+
+		offset_to_name[offset] = name;
+	}
+	for(auto it = offset_to_name.begin(); it != offset_to_name.end(); ++it)
+	{
+		conPrint("Offset " + toString(it->first) + ": " + it->second);
+	}
+	conPrint("Struct size: " + toString(getSizeOfUniformBlockInOpenGL(prog, block_name)));
+}
+
+
+static void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size)
+{
+	const size_t block_size = getSizeOfUniformBlockInOpenGL(prog, block_name);
+	if(block_size != target_size)
+	{
+		conPrint("Uniform block had size " + toString(block_size) + " B, expected " + toString(target_size) + " B.");
+		printFieldOffsets(prog, block_name);
+		assert(0);
+	}
+}
+
+
+static void bindUniformBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index)
+{
+	unsigned int block_index = glGetUniformBlockIndex(prog->program, name);
+	assert(block_index != GL_INVALID_INDEX);
+	glUniformBlockBinding(prog->program, block_index, /*binding point=*/binding_point_index);
+}
+
+
+// See https://registry.khronos.org/OpenGL-Refpages/gl4/html/glShaderStorageBlockBinding.xhtml
+static void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index)
+{
+#if defined(OSX)
+	assert(0); // glShaderStorageBlockBinding is not defined on Mac. (SSBOs are not supported)
+#else
+	unsigned int resource_index = glGetProgramResourceIndex(prog->program, GL_SHADER_STORAGE_BLOCK, name);
+	assert(resource_index != GL_INVALID_INDEX);
+	glShaderStorageBlockBinding(prog->program, resource_index, /*binding point=*/binding_point_index);
+#endif
+}
 
 
 static const int FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX = 0;
@@ -1239,37 +1661,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 
 		// Load water caustic textures
+		if(settings.render_water_caustics)
 		{
 			Timer timer;
 			for(int i=0; i<32; ++i)
 				water_caustics_textures.push_back(getTexture(gl_data_dir + "/caustics/save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2"));
 
 			conPrint("Load caustics took " + timer.elapsedString());
-		}
-
-		// Load diffuse irradiance maps
-		{
-			std::vector<Map2DRef> face_maps(6);
-			for(int i=0; i<6; ++i)
-			{
-				face_maps[i] = EXRDecoder::decode(gl_data_dir + "/diffuse_sky_no_sun_" + toString(i) + ".exr");
-
-				if(!face_maps[i].isType<ImageMapFloat>())
-					throw glare::Exception("cosine env map Must be ImageMapFloat");
-			}
-
-			this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
-		}
-
-		// Load specular-reflection env tex
-		{
-			const std::string path = gl_data_dir + "/specular_refl_sky_no_sun_combined.exr";
-			Map2DRef specular_env = EXRDecoder::decode(path);
-
-			if(!specular_env.isType<ImageMapFloat>())
-				throw glare::Exception("specular env map Must be ImageMapFloat");
-
-			this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(path), *specular_env, /*state, */OpenGLTexture::Filtering_Bilinear);
 		}
 
 		// Load blue noise texture
@@ -1498,10 +1896,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		env_have_texture_location		= env_prog->getUniformLocation("have_texture");
 		env_diffuse_tex_location		= env_prog->getUniformLocation("diffuse_tex");
 		env_texture_matrix_location		= env_prog->getUniformLocation("texture_matrix");
-		env_sundir_cs_location			= env_prog->getUniformLocation("sundir_cs");
 		//env_noise_tex_location			= env_prog->getUniformLocation("noise_tex");
 		env_fbm_tex_location			= env_prog->getUniformLocation("fbm_tex");
 		env_cirrus_tex_location			= env_prog->getUniformLocation("cirrus_tex");
+
+		bindUniformBlockToProgram(env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
 		
 
@@ -1808,86 +2207,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
 		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n" + 
 		"#define MATERIALISE_EFFECT " + toString(key.materialise_effect) + "\n" + 
-		"#define BLOB_SHADOWS " + toString(1) + "\n"; // TEMP
-}
-
-
-// See https://www.khronos.org/opengl/wiki/Program_Introspection#Uniforms_and_blocks
-static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
-{
-	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
-	if(block_index == GL_INVALID_INDEX)
-		throw glare::Exception("getSizeOfUniformBlockInOpenGL(): No such named uniform block '" + std::string(block_name) + "'");
-	GLint size = 0;
-	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
-	return size;
-}
-
-
-static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
-{
-	const GLuint block_index = glGetUniformBlockIndex(prog->program, block_name);
-	if(block_index == GL_INVALID_INDEX)
-		throw glare::Exception("printFieldOffsets(): No such named uniform block '" + std::string(block_name));
-
-	GLint num_fields = 0;
-	glGetActiveUniformBlockiv(prog->program, block_index, GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS, &num_fields); // Get 'number of active uniforms within this block'.
-
-	std::map<int, std::string> offset_to_name;
-	for(int i=0; i<num_fields; ++i)
-	{
-		char buf[2048];
-		GLsizei string_len = 0;
-		glGetActiveUniformName(prog->program, i, sizeof(buf), &string_len, buf);
-		std::string name(buf, buf + string_len);
-		//conPrint(name);
-
-		// Get offset:
-		GLuint index = i;
-		GLint offset = 0;
-		glGetActiveUniformsiv(prog->program, /*uniformCount=*/1, /*indices=*/&index, GL_UNIFORM_OFFSET, &offset);
-		//printVar(offset);
-
-		offset_to_name[offset] = name;
-	}
-	for(auto it = offset_to_name.begin(); it != offset_to_name.end(); ++it)
-	{
-		conPrint("Offset " + toString(it->first) + ": " + it->second);
-	}
-	conPrint("Struct size: " + toString(getSizeOfUniformBlockInOpenGL(prog, block_name)));
-}
-
-
-static void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size)
-{
-	const size_t block_size = getSizeOfUniformBlockInOpenGL(prog, block_name);
-	if(block_size != target_size)
-	{
-		conPrint("Uniform block had size " + toString(block_size) + " B, expected " + toString(target_size) + " B.");
-		printFieldOffsets(prog, block_name);
-		assert(0);
-	}
-}
-
-
-static void bindUniformBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index)
-{
-	unsigned int block_index = glGetUniformBlockIndex(prog->program, name);
-	assert(block_index != GL_INVALID_INDEX);
-	glUniformBlockBinding(prog->program, block_index, /*binding point=*/binding_point_index);
-}
-
-
-// See https://registry.khronos.org/OpenGL-Refpages/gl4/html/glShaderStorageBlockBinding.xhtml
-static void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index)
-{
-#if defined(OSX)
-	assert(0); // glShaderStorageBlockBinding is not defined on Mac. (SSBOs are not supported)
-#else
-	unsigned int resource_index = glGetProgramResourceIndex(prog->program, GL_SHADER_STORAGE_BLOCK, name);
-	assert(resource_index != GL_INVALID_INDEX);
-	glShaderStorageBlockBinding(prog->program, resource_index, /*binding point=*/binding_point_index);
-#endif
+		"#define BLOB_SHADOWS " + toString(1) + "\n" +
+		"#define TERRAIN " + toString(key.terrain) + "\n";
 }
 
 
@@ -2518,6 +2839,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.use_wind_vert_shader = material.use_wind_vert_shader;
 	key_args.double_sided = material.double_sided;
 	key_args.materialise_effect = material.materialise_effect;
+	key_args.terrain = material.terrain;
 
 	const ProgramKey key(material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong")), key_args);
 
@@ -3332,7 +3654,7 @@ static bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int num_fru
 			//	return false;
 			refdist = dist;
 		}
-		const float refD = frustum_clip_planes[z].getD();
+	//	const float refD = frustum_clip_planes[z].getD();
 #endif
 		
 		const Vec4f normal = frustum_clip_planes[z].getNormal();
@@ -3353,7 +3675,7 @@ static bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int num_fru
 		const Vec4f dist = min(dot1, dot2); // smallest distances
 		const Vec4f greaterv = _mm_cmpge_ps(dist.v, Vec4f(frustum_clip_planes[z].getD()).v); // distances >= plane.D ?
 		const int greater = _mm_movemask_ps(greaterv.v);
-		assert((refdist >= refD) == (greater == 15));
+	//	assert((refdist >= refD) == (greater == 15));
 		if(greater == 15) // if all distances >= plane.D:
 			return false;
 	}
@@ -4072,7 +4394,7 @@ void OpenGLEngine::sortBatchDrawInfos()
 
 	temp_batch_draw_info.resizeNoCopy(batch_draw_info.size());
 
-	const int num_buckets = 6144;
+	const int num_buckets = 6144; // As required by radixSort32BitKey().
 	temp_counts.resize(num_buckets);
 	
 	Sort::radixSort32BitKey(batch_draw_info.data(), temp_batch_draw_info.data(), temp_batch_draw_info.size(), BatchDrawInfoGetKey(), temp_counts.data(), temp_counts.size());
@@ -4793,6 +5115,10 @@ void OpenGLEngine::draw()
 
 	//if(frame_num % 100 == 0)	checkMDIGPUDataCorrect();
 
+	if(!loaded_maps_for_sun_dir)
+		loadMapsForSunDir();
+	assert(loaded_maps_for_sun_dir);
+
 
 	// If the ShaderFileWatcherThread has detected that a shader file has changed, reload all shaders.
 #if BUILD_TESTS
@@ -4983,6 +5309,20 @@ void OpenGLEngine::draw()
 
 	this->last_num_animated_obs_processed = num_animated_obs_processed;
 	anim_update_duration = anim_profile_timer.elapsed();
+
+
+	// Update MaterialCommonUniforms, these values are constant for all materials for this frame.
+	MaterialCommonUniforms common_uniforms;
+	common_uniforms.sundir_cs = this->sun_dir_cam_space;
+	common_uniforms.sundir_ws = this->sun_dir;
+	common_uniforms.sun_spec_rad_times_solid_angle = this->sun_spec_rad_times_solid_angle;
+	common_uniforms.sun_and_sky_av_spec_rad = this->sun_and_sky_av_spec_rad;
+	common_uniforms.air_scattering_coeffs = this->air_scattering_coeffs;
+	common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
+	common_uniforms.time = this->current_time;
+	common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
+	common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
+	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 
 	num_multi_draw_indirect_calls = 0;
@@ -5813,7 +6153,7 @@ void OpenGLEngine::draw()
 
 	const Matrix4f view_matrix = indigo_to_opengl_cam_matrix * current_scene->world_to_camera_space_matrix;
 
-	this->sun_dir_cam_space = indigo_to_opengl_cam_matrix * (current_scene->world_to_camera_space_matrix * sun_dir);
+	this->sun_dir_cam_space = view_matrix * sun_dir;
 
 	// Draw solid polygons
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -7119,9 +7459,15 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	if(this->specular_env_tex.nonNull())
 		bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/locations.specular_env_tex_location);
 
-	if(this->detail_tex.nonNull())
-		bindTextureUnitToSampler(*this->detail_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/locations.detail_tex_location);
-	
+	if(this->detail_tex[0].nonNull())
+		bindTextureUnitToSampler(*this->detail_tex[0], /*texture_unit_index=*/18, /*sampler_uniform_location=*/locations.detail_tex_0_location);
+	if(this->detail_tex[1].nonNull())
+		bindTextureUnitToSampler(*this->detail_tex[1], /*texture_unit_index=*/19, /*sampler_uniform_location=*/locations.detail_tex_1_location);
+	if(this->detail_tex[2].nonNull())
+		bindTextureUnitToSampler(*this->detail_tex[2], /*texture_unit_index=*/20, /*sampler_uniform_location=*/locations.detail_tex_2_location);
+	if(this->detail_tex[3].nonNull())
+		bindTextureUnitToSampler(*this->detail_tex[3], /*texture_unit_index=*/21, /*sampler_uniform_location=*/locations.detail_tex_3_location);
+
 	if(this->blue_noise_tex.nonNull())
 		bindTextureUnitToSampler(*this->blue_noise_tex, /*texture_unit_index=*/6, /*sampler_uniform_location=*/locations.blue_noise_tex_location);
 
@@ -7138,16 +7484,6 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	// Set blob shadows location data
 	glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
 	glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
-
-
-	MaterialCommonUniforms common_uniforms;
-	common_uniforms.sundir_cs = this->sun_dir_cam_space;
-	common_uniforms.sundir_ws = this->sun_dir;
-	common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
-	common_uniforms.time = this->current_time;
-	common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
-	common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
-	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 }
 
 
@@ -7296,7 +7632,7 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		bindTextureUnitToSampler(*this->cirrus_tex, /*texture_unit_index=*/15, /*sampler_uniform_location=*/shader_prog.uniform_locations.cirrus_tex_location);
 
 	//if(shader_prog.uses_colour_and_depth_buf_textures || shader_prog.uses_phong_uniforms) // TEMP
-	if(shader_prog.uniform_locations.caustic_tex_a_location >= 0)
+	if(settings.render_water_caustics && (shader_prog.uniform_locations.caustic_tex_a_location >= 0))
 	{
 		const int current_caustic_index   = Maths::intMod((int)(this->current_time * 24.0f)    , (int)water_caustics_textures.size());
 		const int current_caustic_index_1 = Maths::intMod((int)(this->current_time * 24.0f) + 1, (int)water_caustics_textures.size());
@@ -7319,15 +7655,6 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	{
 		if(this->fbm_tex.nonNull())
 			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/shader_prog.uniform_locations.fbm_tex_location);
-
-		MaterialCommonUniforms common_uniforms;
-		common_uniforms.sundir_cs = this->sun_dir_cam_space;
-		common_uniforms.sundir_ws = this->sun_dir;
-		common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
-		common_uniforms.time = this->current_time;
-		common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
-		common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
-		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 }
 
@@ -7399,7 +7726,6 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	}
 	else if(shader_prog == this->env_prog.getPointer())
 	{
-		glUniform4fv(this->env_sundir_cs_location, /*count=*/1, this->sun_dir_cam_space.x);
 		glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, 1.f);
 		glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
@@ -8073,6 +8399,8 @@ bool OpenGLEngine::isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) co
 
 float OpenGLEngine::getPixelDepth(int pixel_x, int pixel_y)
 {
+	// TODO: update with new infinite perspective projection matrix code.
+
 	float depth;
 	glReadPixels(pixel_x, pixel_y, 
 		1, 1,  // width, height

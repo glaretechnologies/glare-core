@@ -42,7 +42,10 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
-uniform sampler2D detail_tex;
+uniform sampler2D detail_tex_0; // beach
+uniform sampler2D detail_tex_1; // sediment
+uniform sampler2D detail_tex_2; // rock
+uniform sampler2D detail_tex_3; // vegetation
 
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
@@ -58,6 +61,9 @@ layout (std140) uniform MaterialCommonUniforms
 {
 	vec4 sundir_cs;
 	vec4 sundir_ws;
+	vec4 sun_spec_rad_times_solid_angle;
+	vec4 sun_and_sky_av_spec_rad;
+	vec4 air_scattering_coeffs;
 	float near_clip_dist;
 	float time;
 	float l_over_w;
@@ -591,6 +597,13 @@ void main()
 	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * MAT_UNIFORM.diffuse_colour; // diffuse_colour is linear sRGB already.
 	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
 
+#if TERRAIN
+	//vec2 detail_uvs = pos_ws.xy * (1 / 3.f);
+	//detail_uvs.y *= -1.0;
+	//sun_diffuse_col.xyz  *= texture(detail_tex_0, detail_uvs).xyz;
+	//refl_diffuse_col.xyz *= texture(detail_tex_0, detail_uvs).xyz;
+#endif
+
 	// Apply vertex colour, if enabled.
 #if VERT_COLOURS
 	vec3 linear_vert_col = toLinearSRGB(vert_colour);
@@ -856,8 +869,7 @@ void main()
 #if RENDER_CLOUD_SHADOWS
 	if(pos_ws.z < 1000.f)
 	{
-		vec3 sundir_ws = vec3(3.6716393E-01, 6.3513672E-01, 6.7955279E-01); // TEMP HACK
-		vec3 cum_layer_pos = pos_ws + sundir_ws * (1000.f - pos_ws.z) / sundir_ws.z;
+		vec3 cum_layer_pos = pos_ws + sundir_ws.xyz * (1000.f - pos_ws.z) / sundir_ws.z;
 
 		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
 		cum_tex_coords.x += time * 0.002;
@@ -927,7 +939,7 @@ void main()
 
 	vec4 refl_fresnel = metallic_refl_fresnel * final_metallic_frac + dielectric_refl_fresnel * (1.0f - final_metallic_frac);
 
-	vec4 sun_light = vec4(1662102582.6479533,1499657101.1924045,1314152016.0871031, 1) * sun_vis_factor; // Sun spectral radiance multiplied by solid angle, see SkyModel2Generator::makeSkyEnvMap().
+	vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor; // sun_spec_rad_times_solid_angle is Sun spectral radiance multiplied by solid angle
 
 	vec4 emission_col = MAT_UNIFORM.emission_colour;
 	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
@@ -998,10 +1010,10 @@ void main()
 #if DEPTH_FOG
 	// Blend with background/fog colour
 	float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
-	float fog_factor = 1.0f - exp(dist_ * -0.00006); // 0.00015
-	vec4 sky_col = vec4(1.8, 4.7, 8.0, 1) * 3.0e7; // Bluish grey
-	//vec4 sky_col = vec4(0.498 / 0.000000003, 0.555 / 0.000000003, 0.621 / 0.000000003, 1); // Bluish grey
-	col = mix(col, sky_col, fog_factor);
+	vec3 transmission = exp(air_scattering_coeffs.xyz * -dist_);
+
+	col.xyz *= transmission;
+	col.xyz += sun_and_sky_av_spec_rad.xyz * (1 - transmission); // Add in-scattered sky+sunlight
 #endif
 
 	//------------------------------- Apply underwater effects ---------------------------
@@ -1009,8 +1021,10 @@ void main()
 	// campos_ws + cam_to_pos_ws = pos_ws
 	// campos_ws = pos_ws - cam_to_pos_ws;
 
+	float water_level_z = 10.f; // TEMP HACK
+	
 	float campos_z = pos_ws.z - cam_to_pos_ws.z;
-	if(/*(campos_z < -3.8) && */pos_ws.z < -3.9)
+	if(/*(campos_z < -3.8) && */pos_ws.z < water_level_z)
 	{
 		vec3 extinction = vec3(1.0, 0.10, 0.1) * 2;
 		vec3 scattering = vec3(0.4, 0.4, 0.1);
@@ -1029,7 +1043,7 @@ void main()
 		float sun_lambert_factor = max(0.0, dot(normal_ws, sundir_ws.xyz));
 
 		// Distance from water surface to ground, along the sun direction.  Used for computing the caustic effect envelope.
-		float water_to_ground_sun_d = max(0.0, (-4.0 - pos_ws.z) / sundir_ws.z); // TEMP HACK Assuming water surface height
+		float water_to_ground_sun_d = max(0.0, (water_level_z - pos_ws.z) / sundir_ws.z); // TEMP HACK Assuming water surface height
 
 		float cam_to_pos_dist = length(cam_to_pos_ws);
 
@@ -1044,7 +1058,7 @@ void main()
 		// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
 		src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
 
-		if(campos_z > -4.0)
+		if(campos_z > water_level_z)
 		{
 			// If camera is above water:
 			// Don't apply absorption on the edge between object and camera, we will do that in water shader.

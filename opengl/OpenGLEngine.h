@@ -117,6 +117,7 @@ public:
 		cast_shadows(true),
 		geomorphing(false),
 		water(false),
+		terrain(false),
 		draw_into_depth_buffer(false),
 		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
@@ -145,6 +146,7 @@ public:
 	bool cast_shadows;
 	bool geomorphing;
 	bool water;
+	bool terrain;
 
 	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.
 
@@ -378,7 +380,7 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), max_tex_mem_usage(1024 * 1024 * 1024ull),
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), max_tex_mem_usage(1024 * 1024 * 1024ull),
 		use_grouped_vbo_allocator(true), use_general_arena_mem_allocator(true), msaa_samples(4) {}
 
 	bool enable_debug_output;
@@ -387,6 +389,7 @@ public:
 	//bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool depth_fog;
 	bool render_sun_and_clouds;
+	bool render_water_caustics;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
 	bool use_general_arena_mem_allocator; // Use GeneralMemAllocator with a 2GB arena for general CPU size mem allocations.
 	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
@@ -608,6 +611,9 @@ struct MaterialCommonUniforms
 {
 	Vec4f sundir_cs;
 	Vec4f sundir_ws;
+	Vec4f sun_spec_rad_times_solid_angle;
+	Vec4f sun_and_sky_av_spec_rad;
+	Vec4f air_scattering_coeffs;
 	float near_clip_dist;
 	float time;
 	float l_over_w;
@@ -818,6 +824,10 @@ public:
 	void setCirrusTexture(const Reference<OpenGLTexture>& tex);
 	//----------------------------------------------------------------------------------------
 
+	//------------------------------- Terrain --------------------
+	void setDetailTexture(int index, const Reference<OpenGLTexture>& tex);
+	//----------------------------------------------------------------------------------------
+
 
 	//--------------------------------------- Drawing ----------------------------------------
 	void setDrawWireFrames(bool draw_wireframes_) { draw_wireframes = draw_wireframes_; }
@@ -906,6 +916,7 @@ public:
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
+	void loadMapsForSunDir();
 	void buildObjectData(const Reference<GLObject>& object);
 	void rebuildDenormalisedDrawData(GLObject& ob);
 	void rebuildObjectDepthDrawBatches(GLObject& ob);
@@ -975,6 +986,11 @@ private:
 	
 	Vec4f sun_dir; // Dir to sun.
 	Vec4f sun_dir_cam_space;
+	Vec4f sun_spec_rad_times_solid_angle;
+	Vec4f sun_and_sky_av_spec_rad;
+	Vec4f air_scattering_coeffs;
+
+	bool loaded_maps_for_sun_dir;
 
 	Reference<OpenGLMeshRenderData> line_meshdata;
 	Reference<OpenGLMeshRenderData> sphere_meshdata;
@@ -1015,13 +1031,12 @@ private:
 	int env_have_texture_location;
 	int env_diffuse_tex_location;
 	int env_texture_matrix_location;
-	int env_sundir_cs_location;
 	int env_noise_tex_location;
 	int env_fbm_tex_location;
 	int env_cirrus_tex_location;
 
 	Reference<OpenGLTexture> fbm_tex;
-	Reference<OpenGLTexture> detail_tex;
+	Reference<OpenGLTexture> detail_tex[4];
 	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;
 	Reference<OpenGLTexture> cirrus_tex;

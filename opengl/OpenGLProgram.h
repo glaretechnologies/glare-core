@@ -28,7 +28,10 @@ struct UniformLocations
 	int lightmap_tex_location;
 	int fbm_tex_location;
 	int cirrus_tex_location; // Just for water reflection of cirrus
-	int detail_tex_location;
+	int detail_tex_0_location;
+	int detail_tex_1_location;
+	int detail_tex_2_location;
+	int detail_tex_3_location;
 	int blue_noise_tex_location;
 	int main_colour_texture_location;
 	int main_normal_texture_location;
@@ -70,10 +73,10 @@ struct UserUniformInfo
 struct ProgramKeyArgs
 {
 	ProgramKeyArgs() : alpha_test(false), vert_colours(false), instance_matrices(false), lightmapping(false), gen_planar_uvs(false), draw_planar_uv_grid(false), convert_albedo_from_srgb(false), skinning(false),
-		imposterable(false), use_wind_vert_shader(false), double_sided(false), materialise_effect(false), geomorphing(false)
+		imposterable(false), use_wind_vert_shader(false), double_sided(false), materialise_effect(false), geomorphing(false), terrain(false)
 	{}
 
-	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect, geomorphing;
+	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect, geomorphing, terrain;
 };
 
 
@@ -95,9 +98,10 @@ struct ProgramKey
 		double_sided				= args.double_sided;
 		materialise_effect			= args.materialise_effect;
 		geomorphing					= args.geomorphing;
+		terrain						= args.terrain;
 
 		keyval = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0) | 
-			(  skinning ? 128 : 0) | (  imposterable ? 256 : 0) | (  use_wind_vert_shader ? 512 : 0) | (  double_sided ? 1024 : 0) | (  materialise_effect ? 2048 : 0) | (  geomorphing ? 4096 : 0);
+			(  skinning ? 128 : 0) | (  imposterable ? 256 : 0) | (  use_wind_vert_shader ? 512 : 0) | (  double_sided ? 1024 : 0) | (  materialise_effect ? 2048 : 0) | (  geomorphing ? 4096 : 0) | (terrain ? 8192 : 0);
 	}
 
 	const std::string description() const { return "alpha_test: " + toString(alpha_test) + ", vert_colours: " + toString(vert_colours) + ", instance_matrices: " + toString(instance_matrices) + 
@@ -106,7 +110,7 @@ struct ProgramKey
 		", double_sided: " + toString(double_sided) + ", materialise_effect: " + toString(materialise_effect); }
 
 	std::string program_name;
-	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect, geomorphing;
+	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposterable, use_wind_vert_shader, double_sided, materialise_effect, geomorphing, terrain;
 	// convert_albedo_from_srgb is unfortunately needed for GPU-decoded video frame textures, which are sRGB but not marked as sRGB.
 	uint32 keyval;
 

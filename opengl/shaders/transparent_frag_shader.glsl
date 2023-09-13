@@ -159,6 +159,9 @@ layout (std140) uniform MaterialCommonUniforms
 {
 	vec4 sundir_cs;
 	vec4 sundir_ws;
+	vec4 sun_spec_rad_times_solid_angle;
+	vec4 sun_and_sky_av_spec_rad;
+	vec4 air_scattering_coeffs;
 	float near_clip_dist;
 	float time;
 	float l_over_w;
@@ -458,7 +461,7 @@ void main()
 		float spec_refl_fresnel = fresnelApprox(spec_refl_cos_theta, ior);
 
 		float sun_vis_factor = 1.0f; // TODO: use shadow mapping to compute this.
-		vec4 sun_light = vec4(1662102582.6479533,1499657101.1924045,1314152016.0871031, 1) * sun_vis_factor;
+		vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor;
 
 	
 		col = spec_refl_light * spec_refl_fresnel + 

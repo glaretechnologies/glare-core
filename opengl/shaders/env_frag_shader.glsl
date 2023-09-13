@@ -3,7 +3,6 @@ in vec3 pos_cs;
 in vec2 texture_coords;
 in vec3 dir_ws;
 
-uniform vec4 sundir_cs;
 uniform vec4 diffuse_colour;
 uniform int have_texture;
 uniform sampler2D diffuse_tex;
@@ -12,7 +11,21 @@ uniform sampler2D fbm_tex;
 uniform sampler2D cirrus_tex;
 uniform mat3 texture_matrix;
 uniform vec3 campos_ws;
-uniform float time;
+
+
+layout (std140) uniform MaterialCommonUniforms
+{
+	vec4 sundir_cs;
+	vec4 sundir_ws;
+	vec4 sun_spec_rad_times_solid_angle;
+	vec4 sun_and_sky_av_spec_rad;
+	vec4 air_scattering_coeffs;
+	float near_clip_dist;
+	float time;
+	float l_over_w;
+	float l_over_h;
+};
+
 
 out vec4 colour_out;
 
@@ -74,7 +87,8 @@ void main()
 	// Render sun
 	
 	float sunscale = 2.0e-3f; // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
-	vec4 suncol = vec4(2.45126E+13 * sunscale, 2.21169E+13 * sunscale, 1.93810E+13 * sunscale, 1); // From Indigo SkyModel2Generator.cpp::makeSkyEnvMap().
+	const float sun_solid_angle = 0.00006780608; // See SkyModel2Generator::makeSkyEnvMap();
+	vec4 suncol = sun_spec_rad_times_solid_angle * (1.0 / sun_solid_angle) * sunscale;
 	float d = dot(sundir_cs.xyz, normalize(pos_cs));
 	//col = mix(col, suncol, smoothstep(0.9999, 0.9999892083461507, d));
 	col = mix(col, suncol, smoothstep(0.99997, 0.9999892083461507, d));
@@ -121,11 +135,9 @@ void main()
 	}
 
 	float cloudfrac = max(cirrus_cloudfrac, cumulus_cloudfrac);
-	float w = 2.0e8;
-	vec4 cloudcol = vec4(w, w, w, 1);
+	vec4 cloudcol = sun_and_sky_av_spec_rad;
 	col = mix(col, cloudcol, max(0.f, cloudfrac));
-	float sunw = w * 2.5;
-	vec4 suncloudcol = vec4(sunw, sunw, sunw, 1);
+	vec4 suncloudcol = cloudcol * 2.5;
 	float blend = max(0.f, cumulus_edge) * max(0, pow(d, 32));// smoothstep(0.9, 0.9999892083461507, d);
 	col = mix(col, suncloudcol, blend);
 
@@ -134,8 +146,7 @@ void main()
 
 #if DEPTH_FOG
 	// Blend lower hemisphere into a colour that matches fogged ground quad in Substrata
-	// Chosen by hand to match the fogged phong colour at ~2km (edge of ground quad)
-	vec4 lower_hemis_col = vec4(pow(8.63, 2.2), pow(8.94, 2.2), pow(9.37, 2.2), 1.0) * 1.6e6;
+	vec4 lower_hemis_col = sun_and_sky_av_spec_rad * 0.9;
 
 	// Cloud shadows on lower half of hemisphere, to match shadows on ground plane
 	if(texture_coords.y > 1.58)
@@ -143,8 +154,7 @@ void main()
 		float ground_ray_t = campos_ws.z / -dir_ws.z;
 		vec3 ground_pos = campos_ws + dir_ws * ground_ray_t;
 
-		vec3 sundir_ws = vec3(3.6716393E-01, 6.3513672E-01, 6.7955279E-01); // TEMP HACK
-		vec3 cum_layer_pos = ground_pos + sundir_ws * (1000.f) * (1.f / sundir_ws.z);
+		vec3 cum_layer_pos = ground_pos + sundir_ws.xyz * (1000.f) * (1.f / sundir_ws.z);
 
 		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
 		cum_tex_coords.x += time * 0.002;
