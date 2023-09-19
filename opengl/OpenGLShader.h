@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenGLShader.h
 --------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
