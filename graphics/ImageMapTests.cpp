@@ -113,7 +113,7 @@ static void testResizeMidQualityNonSpectral(int new_w, int new_h)
 
 	glare::TaskManager task_manager;
 
-	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, task_manager);
+	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, &task_manager);
 
 	testAssert(resized_map->getMapWidth() == (unsigned int)new_w && resized_map->getMapHeight() == (unsigned int)new_h);
 	testAssert(resized_map.isType<ImageMapFloat>());
@@ -145,7 +145,7 @@ static void testResizeMidQualitySpectral(int new_w, int new_h)
 
 	glare::TaskManager task_manager;
 
-	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, task_manager);
+	const Map2DRef resized_map = map.resizeMidQuality(new_w, new_h, &task_manager);
 
 	testAssert(resized_map->getMapWidth() == (unsigned int)new_w && resized_map->getMapHeight() == (unsigned int)new_h);
 	testAssert(resized_map.isType<ImageMapFloat>());

@@ -64,7 +64,7 @@ public:
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const;
 
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
 
 	virtual size_t getBytesPerPixel() const;
 

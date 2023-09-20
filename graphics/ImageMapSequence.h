@@ -70,7 +70,7 @@ public:
 	// Return a new, resized version of this image.
 	// Scaling is assumed to be mostly the same in each dimension.
 	// Resizing is medium quality, as it needs to be fast for large images (env maps)
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const { assert(0); return NULL; }
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const { assert(0); return NULL; }
 #endif
 
 	virtual size_t getBytesPerPixel() const { assert(0); return 1; }; // Get the uncompressed number of bytes per pixel.

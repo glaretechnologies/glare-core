@@ -118,7 +118,7 @@ Reference<ImageMap<float, FloatComponentValueTraits> > CompressedImage::resizeTo
 }
 
 
-Reference<Map2D> CompressedImage::resizeMidQuality(const int /*new_width*/, const int /*new_height*/, glare::TaskManager& /*task_manager*/) const
+Reference<Map2D> CompressedImage::resizeMidQuality(const int /*new_width*/, const int /*new_height*/, glare::TaskManager* /*task_manager*/) const
 { 
 	assert(0); 
 	return Reference<Map2D>();

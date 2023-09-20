@@ -23,11 +23,11 @@ template void readFromStream(InStream& stream, ImageMap<float, FloatComponentVal
 
 #if MAP2D_FILTERING_SUPPORT
 #if OPENEXR_SUPPORT
-template Reference<Map2D> ImageMap<half,   HalfComponentValueTraits>  ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
+template Reference<Map2D> ImageMap<half,   HalfComponentValueTraits>  ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
 #endif
-template Reference<Map2D> ImageMap<float,  FloatComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
-template Reference<Map2D> ImageMap<uint8,  UInt8ComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
-template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const;
+template Reference<Map2D> ImageMap<float,  FloatComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
+template Reference<Map2D> ImageMap<uint8,  UInt8ComponentValueTraits> ::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
+template Reference<Map2D> ImageMap<uint16, UInt16ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
 
 template void ImageMap<float, FloatComponentValueTraits>::downsampleImage(const size_t factor, const size_t border_width, const size_t filter_span,
 	const float * const resize_filter, const float pre_clamp, const ImageMap<float, FloatComponentValueTraits>& img_in, 
@@ -309,7 +309,7 @@ public:
 
 
 template <class V, class VTraits>
-Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const
+Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const
 {
 	ImageMap<V, VTraits>* new_image = new ImageMap<V, VTraits>(new_width, new_height, this->getN());
 
@@ -319,19 +319,31 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 
 	new_image->channel_names = this->channel_names;
 
-	const int num_tasks = myClamp<int>((int)task_manager.getNumThreads(), 1, new_height); // We want at least one task, but no more than the number of rows in the new image.
-	const int y_step = Maths::roundedUpDivide(new_height, num_tasks);
-	for(int z=0, begin_y=0; z<(int)task_manager.getNumThreads(); ++z, begin_y += y_step)
+	if(task_manager)
 	{
-		Reference<ResizeMidQualityTask<V, VTraits> > task = new ResizeMidQualityTask<V, VTraits>();
-		task->begin_y = myMin(begin_y,          new_height);
-		task->end_y   = myMin(begin_y + y_step, new_height);
-		task->image_in = this;
-		task->image_out = new_image;
-		task_manager.addTask(task);
-	}
+		const int num_tasks = myClamp<int>((int)task_manager->getNumThreads(), 1, new_height); // We want at least one task, but no more than the number of rows in the new image.
+		const int y_step = Maths::roundedUpDivide(new_height, num_tasks);
+		for(int z=0, begin_y=0; z<(int)task_manager->getNumThreads(); ++z, begin_y += y_step)
+		{
+			Reference<ResizeMidQualityTask<V, VTraits> > task = new ResizeMidQualityTask<V, VTraits>();
+			task->begin_y = myMin(begin_y,          new_height);
+			task->end_y   = myMin(begin_y + y_step, new_height);
+			task->image_in = this;
+			task->image_out = new_image;
+			task_manager->addTask(task);
+		}
 
-	task_manager.waitForTasksToComplete();
+		task_manager->waitForTasksToComplete();
+	}
+	else
+	{
+		ResizeMidQualityTask<V, VTraits> task;
+		task.begin_y = 0;
+		task.end_y   = new_height;
+		task.image_in = this;
+		task.image_out = new_image;
+		task.run(0);
+	}
 
 	return Reference<ImageMap<V, VTraits> >(new_image);
 }

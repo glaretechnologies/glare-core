@@ -727,7 +727,7 @@ Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is
 }
 
 
-Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager& task_manager) const
+Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const
 {
 	assert(0);
 	return NULL;
