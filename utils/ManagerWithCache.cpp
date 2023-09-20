@@ -239,6 +239,33 @@ void testManagerWithCache()
 		testAssert(removed_item->key == 0);
 	}
 
+	// Test clear() method with a refcounted class
+	{
+		ManagerWithCache<int, Reference<ManagerTestItem> > manager;
+
+		Reference<ManagerTestItem> item_0 = new ManagerTestItem(0, &manager);
+
+		manager.insert(0, item_0);
+
+		testAssert(item_0->getRefCount() == 2); // Manager should hold one ref, one is in this scope.
+		testAssert(manager.numUsedItems() == 1);
+
+		manager.clear();
+	}
+
+	// Test destroying ManagerWithCache with items in it
+	{
+		ManagerWithCache<int, Reference<ManagerTestItem> > manager;
+
+		Reference<ManagerTestItem> item_0 = new ManagerTestItem(0, &manager);
+
+		manager.insert(0, item_0);
+
+		testAssert(item_0->getRefCount() == 2); // Manager should hold one ref, one is in this scope.
+		testAssert(manager.numUsedItems() == 1);
+	}
+
+
 	// Test with a larger number of items
 	{
 		Timer timer;

@@ -33,6 +33,9 @@ template <typename Key, typename Value, typename Hash = std::hash<Key>>
 class ManagerWithCache
 {
 public:
+	ManagerWithCache();
+	~ManagerWithCache();
+
 	inline void insert(const Key& key, const Value& value);
 	inline void insert(const std::pair<Key, Value>& key_value_pair);
 
@@ -69,10 +72,26 @@ public:
 
 	std::unordered_map<Key, ManagerWithCacheItem<Key, Value>, Hash> items; // All items, both used and unused
 	std::list<Key> unused_items; // A list of unused items.  Most recently used at front, least recently used at back.
+private:
+	bool add_to_unused_items; // Should we add items to unused_items in itemBecameUnused().
 };
 
 
 void testManagerWithCache();
+
+
+template <typename Key, typename Value, typename Hash>
+ManagerWithCache<Key, Value, Hash>::ManagerWithCache()
+:	add_to_unused_items(true)
+{
+}
+
+
+template <typename Key, typename Value, typename Hash>
+ManagerWithCache<Key, Value, Hash>::~ManagerWithCache()
+{
+	clear();
+}
 
 
 template <typename Key, typename Value, typename Hash>
@@ -131,14 +150,17 @@ void ManagerWithCache<Key, Value, Hash>::itemBecameUsed(const Key& key)
 template <typename Key, typename Value, typename Hash>
 void ManagerWithCache<Key, Value, Hash>::itemBecameUnused(const Key& key)
 {
-	// Insert item at front of unused_items list
-	auto res = items.find(key);
-	if(res != items.end())
+	if(add_to_unused_items)
 	{
-		if(res->second.unused_items_it == unused_items.end()) // If this item is not already marked as unused:
+		// Insert item at front of unused_items list
+		auto res = items.find(key);
+		if(res != items.end())
 		{
-			unused_items.push_front(key); // Insert at front of unused_items list
-			res->second.unused_items_it = unused_items.begin(); // Store iterator (pointer) to front unused_items list item. 
+			if(res->second.unused_items_it == unused_items.end()) // If this item is not already marked as unused:
+			{
+				unused_items.push_front(key); // Insert at front of unused_items list
+				res->second.unused_items_it = unused_items.begin(); // Store iterator (pointer) to front unused_items list item. 
+			}
 		}
 	}
 }
@@ -188,6 +210,12 @@ bool ManagerWithCache<Key, Value, Hash>::removeLRUUnusedItem(Key& removed_key_ou
 template <typename Key, typename Value, typename Hash>
 void ManagerWithCache<Key, Value, Hash>::clear()
 {
+	// Disable adding items to unused_items during clear(), because it's invalid to add items to unused_items while it is being cleared,
+	// which can happen if an item becomes unused (ref count drops to one) as it is removed from unused_items.
+	add_to_unused_items = false;
+
 	items.clear();
 	unused_items.clear();
+
+	add_to_unused_items = true;
 }
