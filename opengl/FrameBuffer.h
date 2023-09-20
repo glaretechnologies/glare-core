@@ -11,6 +11,10 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 class OpenGLShader;
+class QGLContext;
+
+
+// #define CHECK_GL_CONTEXT 1
 
 
 /*=====================================================================
@@ -41,6 +45,10 @@ public:
 	GLuint buffer_name;
 	size_t xres, yres; // Will be set after bindTextureAsTarget() is called, and 0 beforehand.
 	bool own_buffer; // If true, will call glDeleteFramebuffers on destruction.
+
+#if CHECK_GL_CONTEXT
+	const QGLContext* context;
+#endif
 };
 
 

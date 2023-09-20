@@ -8,6 +8,9 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "IncludeOpenGL.h"
 #include "graphics/Map2D.h"
+#if CHECK_GL_CONTEXT
+#include <QtOpenGL/QGLWidget>
+#endif
 
 
 FrameBuffer::FrameBuffer()
@@ -16,6 +19,10 @@ FrameBuffer::FrameBuffer()
 	yres(0),
 	own_buffer(true)
 {
+#if CHECK_GL_CONTEXT
+	context = QGLContext::currentContext();
+#endif
+
 	// Create new frame buffer
 	glGenFramebuffers(1, &buffer_name);
 }
@@ -27,11 +34,19 @@ FrameBuffer::FrameBuffer(GLuint buffer_name_)
 	yres(0),
 	own_buffer(false)
 {
+#if CHECK_GL_CONTEXT
+	context = NULL;
+#endif
 }
 
 
 FrameBuffer::~FrameBuffer()
 {
+#if CHECK_GL_CONTEXT
+	//conPrint("~FrameBuffer() currentContext(): " + toHexString((uint64)QGLContext::currentContext()));
+	assert(QGLContext::currentContext() == context);
+#endif
+
 	if(own_buffer)
 		glDeleteFramebuffers(1, &buffer_name);
 }
@@ -39,6 +54,10 @@ FrameBuffer::~FrameBuffer()
 
 void FrameBuffer::bind()
 {
+#if CHECK_GL_CONTEXT
+	assert(QGLContext::currentContext() == context);
+#endif
+
 	// Make buffer active
 	glBindFramebuffer(GL_FRAMEBUFFER, buffer_name);
 }
@@ -53,6 +72,10 @@ void FrameBuffer::unbind()
 
 void FrameBuffer::bindTextureAsTarget(OpenGLTexture& tex, GLenum attachment_point)
 {
+#if CHECK_GL_CONTEXT
+	assert(QGLContext::currentContext() == context);
+#endif
+
 	xres = tex.xRes();
 	yres = tex.yRes();
 
