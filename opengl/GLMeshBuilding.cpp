@@ -41,6 +41,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 	meshdata.batches[0].prim_start_offset = 0;
 
 	meshdata.aabb_os = js::AABBox::emptyAABBox();
+	meshdata.num_materials_referenced = 1;
 
 	const size_t vertices_size = vertices.size();
 
@@ -1083,11 +1084,14 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 
 	// Make OpenGL batches
 	opengl_render_data->batches.resize(mesh->batches.size());
+	uint32 largest_material_index = 0;
 	for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
 	{
 		opengl_render_data->batches[i].material_index    = mesh->batches[i].material_index;
 		opengl_render_data->batches[i].prim_start_offset = (uint32)(mesh->batches[i].indices_start * BatchedMesh::componentTypeSize(mesh->index_type));
 		opengl_render_data->batches[i].num_indices       = mesh->batches[i].num_indices;
+
+		largest_material_index = myMax(largest_material_index, mesh->batches[i].material_index);
 	}
 
 
@@ -1237,6 +1241,8 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	opengl_render_data->has_vert_colours	= colour_attr != NULL;
 
 	opengl_render_data->aabb_os = mesh->aabb_os;
+
+	opengl_render_data->num_materials_referenced = largest_material_index + 1;
 
 	return opengl_render_data;
 }
