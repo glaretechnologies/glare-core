@@ -87,6 +87,10 @@ Copyright Glare Technologies Limited 2020 -
 // Currently this has terrible performance, so don't use, but should in theory be better.
 // #define USE_CIRCULAR_BUFFERS_FOR_MDI	1
 
+// If Using a core OpenGL profile, data has to come from a GPU buffer, not a client buffer.
+// See https://github.com/KhronosGroup/OpenGL-API/issues/65
+#define USE_DRAW_INDIRECT_BUFFER_FOR_MDI 1
+
 
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
@@ -1211,6 +1215,8 @@ void OpenGLEngine::loadMapsForSunDir()
 		this->current_scene->env_ob->materials[0].albedo_texture = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("hi res env map" + toString(sun_theta)), *env_map, /*state, */OpenGLTexture::Filtering_Bilinear, 
 			OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false);
 		this->current_scene->env_ob->materials[0].albedo_texture->setTWrappingEnabled(false); // Disable wrapping in vertical direction to avoid grey dot straight up.
+
+		this->current_scene->env_ob->materials[0].tex_matrix = Matrix2f(-1 / Maths::get2Pi<float>(), 0, 0, 1 / Maths::pi<float>());
 	}
 
 	this->loaded_maps_for_sun_dir = true;
@@ -1716,6 +1722,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 
 		const bool is_intel_vendor = openglDriverVendorIsIntel();
+		const bool is_ati_vendor   = openglDriverVendorIsATI();
 
 		// Build light data buffer.  We will use a SSBO on non-mac, and a UBO on mac, since it doesn't support OpenGL 4.3 for SSBOs.
 		// Intel drivers seem to choke on std430 layouts, see https://github.com/RPCS3/rpcs3/issues/12285
@@ -1748,7 +1755,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			settings.shadow_mapping = false; // Shadow mapping with Intel drivers on Mac just seems to cause crashes, so disable shadow mapping.
 
 		// Don't use bindless textures with Intel drivers/GPUs, they don't seem to work properly.  (Deadstock was having issues with textures being seemingly randomly assigned)
-		use_bindless_textures = GL_ARB_bindless_texture_support && !is_intel_vendor;
+		// On ATI/AMD, allocating and making a sufficient number of bindless textures resident causes a crash, somewhere around 2800 bindless textures.
+		// Avoid this crash by just not using them.
+		use_bindless_textures = GL_ARB_bindless_texture_support && !is_intel_vendor && !is_ati_vendor;
 
 		use_reverse_z = GL_ARB_clip_control_support;
 
@@ -1883,10 +1892,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			// Bind phong data SSBO
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/PHONG_DATA_SSBO_BINDING_POINT_INDEX, this->phong_buffer->handle);
 
-
-			// draw_indirect_buffer = new DrawIndirectBuffer();
-			// draw_indirect_buffer->allocate(sizeof(DrawElementsIndirectCommand) * MAX_BUFFERED_DRAW_COMMANDS/* * 3*/); // For circular buffer use, allocate an extra factor of space (3) in the buffer.
-			// draw_indirect_buffer->unbind();
+#if USE_DRAW_INDIRECT_BUFFER_FOR_MDI
+			draw_indirect_buffer = new DrawIndirectBuffer();
+			draw_indirect_buffer->allocate(sizeof(DrawElementsIndirectCommand) * MAX_BUFFERED_DRAW_COMMANDS/* * 3*/); // For circular buffer use, allocate an extra factor of space (3) in the buffer.
+			draw_indirect_buffer->unbind();
+#endif
 
 #if USE_CIRCULAR_BUFFERS_FOR_MDI
 			draw_indirect_buffer->bind();
@@ -8351,8 +8361,6 @@ void OpenGLEngine::submitBufferedDrawCommands()
 		glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
 #else
 
-		// draw_indirect_buffer->updateData(/*offset=*/0, this->draw_commands.data(), this->draw_commands.dataSizeBytes());
-		
 		// Upload mat_and_ob_indices_buffer to GPU
 		doCheck(ob_and_mat_indices_buffer.dataSizeBytes() <= ob_and_mat_indices_ssbo->byteSize());
 		
@@ -8362,13 +8370,21 @@ void OpenGLEngine::submitBufferedDrawCommands()
 
 		ob_and_mat_indices_ssbo->updateData(/*dest offset=*/0, ob_and_mat_indices_buffer.data(), ob_and_mat_indices_buffer.dataSizeBytes(), /*bind needed=*/false);
 
+
+#if USE_DRAW_INDIRECT_BUFFER_FOR_MDI
+		draw_indirect_buffer->invalidateBufferData();
+		draw_indirect_buffer->updateData(/*offset=*/0, this->draw_commands.data(), this->draw_commands.dataSizeBytes());
+#endif
+
 #endif
 		
 #ifndef OSX
 		glMultiDrawElementsIndirect(
 			GL_TRIANGLES,
 			this->current_index_type, // index type
-#if USE_CIRCULAR_BUFFERS_FOR_MDI
+#if USE_DRAW_INDIRECT_BUFFER_FOR_MDI
+			0, // indirect - bytes into the GL_DRAW_INDIRECT_BUFFER.
+#elif USE_CIRCULAR_BUFFERS_FOR_MDI
 			(void*)((uint8*)draw_cmd_write_ptr - (uint8*)draw_indirect_circ_buf.buffer), // indirect - bytes into the GL_DRAW_INDIRECT_BUFFER.
 #else
 			this->draw_commands.data(), // Read draw command structures from CPU memory
@@ -8376,7 +8392,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 			(GLsizei)this->draw_commands.size(), // drawcount
 			0 // stride - use 0 to mean tightly packed.
 		);
-#endif
+#endif // end ifndef OSX
 
 #if USE_CIRCULAR_BUFFERS_FOR_MDI
 		ob_and_mat_indices_circ_buf.finishedCPUWriting(ob_and_mat_ind_write_ptr, ob_and_mat_indices_buffer.dataSizeBytes());
@@ -8716,6 +8732,12 @@ void OpenGLEngine::setCurrentScene(const Reference<OpenGLScene>& scene)
 bool OpenGLEngine::openglDriverVendorIsIntel() const
 {
 	return StringUtils::containsString(::toLowerCase(opengl_vendor), "intel");
+}
+
+
+bool OpenGLEngine::openglDriverVendorIsATI() const
+{
+	return StringUtils::containsString(opengl_vendor, "ATI");
 }
 
 

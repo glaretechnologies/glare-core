@@ -126,7 +126,7 @@ OpenGLTexture::~OpenGLTexture()
 	if(allocated_tex_view_info.texture_handle != 0)
 	{
 		// If this is a texture view:
-		m_opengl_engine->freeTextureView(allocated_tex_view_info);
+		m_opengl_engine->getTextureAllocator().freeTextureView(allocated_tex_view_info);
 	}
 	else
 #endif // USE_TEXTURE_VIEWS
@@ -505,16 +505,16 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 	const bool using_mipmaps = (filtering == Filtering_Fancy) && use_mipmaps;
 	bool mipmapping_valid = (gl_internal_format == GL_RGB16F) ? !using_mipmaps : using_mipmaps; // TEMP
-	const int num_levels = using_mipmaps ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
+	const int num_levels_ = using_mipmaps ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
 
-	if(false) // (texture_handle == 0) && (opengl_engine != NULL) && res_is_valid_for_tex_view && internal_format_valid_for_tex_view && mipmapping_valid)
+	if((texture_handle == 0) && (opengl_engine != NULL) && res_is_valid_for_tex_view && internal_format_valid_for_tex_view && mipmapping_valid)
 	{
-		this->allocated_tex_view_info = ((OpenGLEngine*)opengl_engine)->allocTextureView(gl_internal_format, (int)xres, (int)yres, num_levels);
+		this->allocated_tex_view_info = ((OpenGLEngine*)opengl_engine)->getTextureAllocator().allocTextureView(gl_internal_format, (int)xres, (int)yres, num_levels_);
 		this->texture_handle = this->allocated_tex_view_info.texture_handle;
 		glBindTexture(texture_target, texture_handle);
 
 		num_texture_views_created++;
-		printVar(num_texture_views_created);
+		//printVar(num_texture_views_created);
 	}
 	else
 #endif // USE_TEXTURE_VIEWS

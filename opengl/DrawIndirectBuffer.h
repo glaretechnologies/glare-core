@@ -33,6 +33,9 @@ public:
 
 	size_t byteSize() const { return allocated_size; }
 
+	// Invalidate the content of a buffer object's data store.
+	void invalidateBufferData();
+
 	GLuint handle;
 
 private:

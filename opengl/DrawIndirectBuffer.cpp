@@ -58,8 +58,13 @@ void DrawIndirectBuffer::updateData(size_t dest_offset, const void* src_data, si
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, handle);
 	
 	glBufferSubData(GL_DRAW_INDIRECT_BUFFER, (GLintptr)dest_offset, (GLsizeiptr)src_size, src_data);
-	
-	//glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+}
 
-	unbind();
+
+// Invalidate the content of a buffer object's data store.
+void DrawIndirectBuffer::invalidateBufferData()
+{
+	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, handle);
+
+	glInvalidateBufferData(handle);
 }

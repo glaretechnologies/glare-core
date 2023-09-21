@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "VAO.h"
 #include "SSBO.h"
 #include "OpenGLCircularBuffer.h"
+#include "TextureAllocator.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/AnimationData.h"
@@ -806,6 +807,8 @@ public:
 	TextureServer* getTextureServer() { return texture_server; }
 
 	bool textureCompressionSupportedAndEnabled() const { return GL_EXT_texture_compression_s3tc_support && settings.compress_textures; }
+
+	TextureAllocator& getTextureAllocator() { return texture_allocator; }
 	//------------------------------- End texture loading ------------------------------------
 
 
@@ -925,6 +928,7 @@ public:
 	//void setMSAAEnabled(bool enabled);
 
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
+	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
 	//----------------------------------------------------------------------------------------
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
@@ -1300,6 +1304,8 @@ private:
 	js::Vector<uint8, 16> data_updates_buffer;
 	SSBORef data_updates_ssbo;
 	OpenGLProgramRef scatter_data_prog;
+
+	TextureAllocator texture_allocator;
 };
 
 

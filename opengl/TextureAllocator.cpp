@@ -122,8 +122,6 @@ AllocatedTexViewInfo TextureAllocator::allocTextureView(GLint gl_internal_format
 
 void TextureAllocator::freeTextureView(AllocatedTexViewInfo& info)
 {
-	conPrint("Freeing texture view");
-
 	assert(texture_arrays_map.count(info.array_key) > 0);
 
 	std::vector<TextureViewTexArray*>& texture_arrays = texture_arrays_map[info.array_key];
