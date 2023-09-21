@@ -88,7 +88,7 @@ int main(int, char**)
 		// Create OpenGL engine
 		OpenGLEngineSettings settings;
 		settings.compress_textures = true;
-		settings.shadow_mapping = true;
+		settings.shadow_mapping = false;
 		settings.depth_fog = true;
 		settings.render_water_caustics = false;
 		Reference<OpenGLEngine> opengl_engine = new OpenGLEngine(settings);
@@ -130,6 +130,15 @@ int main(int, char**)
 
 		opengl_engine->setCirrusTexture(opengl_engine->getTexture(base_dir + "/resources/cirrus.exr"));
 
+		//---------------------- Add light -------------------
+		{
+			GLLightRef light = new GLLight();
+			light->gpu_data.pos = Vec4f(0, 8, 4, 1);
+			light->gpu_data.dir = normalise(Vec4f(0, 1, -1, 0));
+			light->gpu_data.col = Colour4f(0, 3.0e10f, 3.0e10f, 0);
+
+			opengl_engine->addLight(light);
+		}
 
 		//----------------------- Make ground plane -----------------------
 		{
@@ -150,10 +159,12 @@ int main(int, char**)
 		//OpenGLMeshRenderDataRef test_mesh_data = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
 		OpenGLMeshRenderDataRef test_mesh_data = MeshPrimitiveBuilding::makeCubeMesh(*opengl_engine->vert_buf_allocator);
 		
+		PCG32 rng(1);
+
 		std::vector<GLObjectRef> obs;
 
 		const float cube_w = 0.2f;
-		for(int i=0; i<64*64; ++i)
+		for(int i=0; i<100; ++i) // 1000 hangs
 		{
 			GLObjectRef ob = new GLObject();
 			ob->mesh_data = test_mesh_data;
@@ -162,6 +173,18 @@ int main(int, char**)
 			ob->materials.resize(test_mesh_data->num_materials_referenced);
 			//ob->materials[0].albedo_texture = opengl_engine->getTexture(base_dir + "/resources/obstacle.png");
 			//ob->materials[0].tex_matrix = Matrix2f(10.f, 0, 0, 10.f);
+
+			//uint8 r, g, b;
+		//	uint8 col[3] = { (uint8)rng.nextUInt(256), (uint8)rng.nextUInt(256), (uint8)rng.nextUInt(256) };
+		//	ImageMapUInt8Ref map = new ImageMapUInt8(16, 16, 3);
+		//	for(size_t z=0; z<map->numPixels(); ++z)
+		//	{
+		//		map->getData()[z * 3 + 0] = col[0];
+		//		map->getData()[z * 3 + 1] = col[1];
+		//		map->getData()[z * 3 + 2] = (uint8)rng.nextUInt(256);
+		//	}
+
+			//ob->materials[0].albedo_texture = opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("tex " + toString(i)), *map);
 
 			opengl_engine->addObject(ob);
 
@@ -172,7 +195,7 @@ int main(int, char**)
 		Timer timer;
 
 		float cam_phi = 0.0;
-		float cam_theta = 1.f;
+		float cam_theta = 1.8f;
 		Vec4f cam_pos(0,-10,5,1);
 
 		Timer time_since_last_frame;
@@ -182,11 +205,12 @@ int main(int, char**)
 		bool reset = false;
 		double fps = 0;
 
-		PCG32 rng(1);
+
 
 		bool quit = false;
 		while(!quit)
 		{
+			//printVar(num_frames);
 			//const double cur_time = timer.elapsed();
 			const float cur_time = (float)timer.elapsed();
 
@@ -196,23 +220,23 @@ int main(int, char**)
 				std::cout << "SDL_GL_MakeCurrent failed." << std::endl;
 			}
 
-			/*for(size_t i=0; i<obs.size(); ++i)
-			{
-				if(i % 8 == 0)
-				{
-					obs[i]->ob_to_world_matrix = Matrix4f::translationMatrix((float)(i / 64), (float)(i % 64), cube_w/2) * Matrix4f::rotationAroundZAxis(cur_time) * 
-						Matrix4f::uniformScaleMatrix(cube_w) * Matrix4f::translationMatrix(Vec4f(-0.5f));
-					opengl_engine->updateObjectTransformData(*obs[i]);
-				}
-			}*/
-			for(int i=0; i<1024; ++i)
+		//	for(size_t i=0; i<obs.size(); ++i)
+		//	{
+		//		if(i % 4 == 0)
+		//		{
+		//			obs[i]->ob_to_world_matrix = Matrix4f::translationMatrix((float)(i / 64), (float)(i % 64), cube_w/2) * Matrix4f::rotationAroundZAxis(cur_time) * 
+		//				Matrix4f::uniformScaleMatrix(cube_w) * Matrix4f::translationMatrix(Vec4f(-0.5f));
+		//			opengl_engine->updateObjectTransformData(*obs[i]);
+		//		}
+		//	}
+			/*for(int i=0; i<1024; ++i)
 			{
 				int ob_i = rng.nextUInt((uint32)obs.size());
 
 				obs[ob_i]->ob_to_world_matrix = Matrix4f::translationMatrix((float)(ob_i / 64), (float)(ob_i % 64), cube_w/2) * Matrix4f::rotationAroundZAxis(cur_time) * 
 					Matrix4f::uniformScaleMatrix(cube_w) * Matrix4f::translationMatrix(Vec4f(-0.5f));
 				opengl_engine->updateObjectTransformData(*obs[ob_i]);
-			}
+			}*/
 
 			if(stats_timer.elapsed() > 1.0)
 			{
@@ -221,12 +245,11 @@ int main(int, char**)
 				fps = num_frames / stats_timer.elapsed();
 				stats_timer.reset();
 				num_frames = 0;
-
 			}
 
 
 			const Matrix4f z_rot = Matrix4f::rotationAroundZAxis(cam_phi);
-			const Matrix4f x_rot = Matrix4f::rotationAroundXAxis(-(cam_theta - Maths::pi_2<float>()));
+			const Matrix4f x_rot = Matrix4f::rotationAroundXAxis(cam_theta - Maths::pi_2<float>());
 			const Matrix4f rot = x_rot * z_rot;
 
 			const Matrix4f world_to_camera_space_matrix = rot * Matrix4f::translationMatrix(-cam_pos);
@@ -238,53 +261,57 @@ int main(int, char**)
 
 			int gl_w, gl_h;
 			SDL_GL_GetDrawableSize(win, &gl_w, &gl_h);
+			if(gl_w > 0 && gl_h > 0)
+			{
 
-			opengl_engine->setViewport(gl_w, gl_h);
-			opengl_engine->setMainViewport(gl_w, gl_h);
-			opengl_engine->setMaxDrawDistance(1000000.f);
-			opengl_engine->setPerspectiveCameraTransform(world_to_camera_space_matrix, sensor_width, lens_sensor_dist, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);
-			opengl_engine->setCurrentTime((float)timer.elapsed());
-			opengl_engine->draw();
+				opengl_engine->setViewport(gl_w, gl_h);
+				opengl_engine->setMainViewport(gl_w, gl_h);
+				opengl_engine->setMaxDrawDistance(1000000.f);
+				opengl_engine->setPerspectiveCameraTransform(world_to_camera_space_matrix, sensor_width, lens_sensor_dist, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);
+				opengl_engine->setCurrentTime((float)timer.elapsed());
+				opengl_engine->draw();
+			}
 
 
 			ImGuiIO& imgui_io = ImGui::GetIO();
-
+		
 			// Draw ImGUI GUI controls
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplSDL2_NewFrame(win);
 			ImGui::NewFrame();
-
+		
 			//ImGui::ShowDemoWindow();
-
-			ImGui::SetNextWindowSize(ImVec2(600, 900));
+		
+			ImGui::SetNextWindowSize(ImVec2(600, 200));
 			ImGui::Begin("Testbed");
-
+		
 			//ImGui::TextColored(ImVec4(1,1,0,1), "Simulation parameters");
-
+		
 			bool sundir_changed = false;
 			sundir_changed = sundir_changed || ImGui::SliderFloat("sun_theta", &sun_theta, 0.01f, Maths::pi<float>(), "%1.2f", 1.f);
 			sundir_changed = sundir_changed || ImGui::SliderFloat("sun_phi", &sun_phi, 0, Maths::get2Pi<float>(), "%1.2f", 1.f);
-
+		
 			if(sundir_changed)
 			{
 				opengl_engine->setSunDir(normalise(Vec4f(std::cos(sun_phi) * sin(sun_theta), std::sin(sun_phi) * sin(sun_theta), cos(sun_theta), 0)));
 				opengl_engine->setEnvMapTransform(Matrix3f::rotationMatrix(Vec3f(0,0,1), sun_phi));
 			}
-
+		
 			ImGui::Checkbox("use_scatter_shader", &opengl_engine->use_scatter_shader);
-
-
+		
+		
 			ImGui::TextColored(ImVec4(1,1,0,1), "Stats");
 			ImGui::Text(("FPS: " + doubleToStringNDecimalPlaces(fps, 1)).c_str());
-
+			ImGui::Text(("cam_theta: " + doubleToStringNDecimalPlaces(cam_theta, 1)).c_str());
+		
 			if(ImGui::CollapsingHeader("Diagnostics"))
 			{
 				ImGui::Text(last_diagnostics.c_str());
 			}
 			
-
+		
 			ImGui::End(); 
-
+		
 			
 			ImGui::Render();
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -295,7 +322,7 @@ int main(int, char**)
 			const float dt = (float)time_since_last_frame.elapsed();
 			time_since_last_frame.reset();
 
-			const Vec4f forwards = GeometrySampling::dirForSphericalCoords(-cam_phi + Maths::pi_2<float>(), Maths::pi<float>() - cam_theta);
+			const Vec4f forwards = GeometrySampling::dirForSphericalCoords(-cam_phi + Maths::pi_2<float>(), cam_theta);
 			const Vec4f right = normalise(crossProduct(forwards, Vec4f(0,0,1,0)));
 			const Vec4f up = crossProduct(right, forwards);
 
@@ -335,7 +362,7 @@ int main(int, char**)
 					{
 						const float move_scale = 0.005f;
 						cam_phi += e.motion.xrel * move_scale;
-						cam_theta = myClamp<float>(cam_theta - (float)e.motion.yrel * move_scale, 0.01f, Maths::pi<float>() - 0.01f);
+						cam_theta = myClamp<float>(cam_theta + (float)e.motion.yrel * move_scale, 0.01f, Maths::pi<float>() - 0.01f);
 					}
 				}
 				else if(e.type == SDL_MOUSEWHEEL)
