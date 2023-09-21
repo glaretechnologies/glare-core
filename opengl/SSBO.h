@@ -27,13 +27,20 @@ public:
 	void bind();
 	void unbind();
 
-	void allocate(size_t size_B);
+	void allocate(size_t size_B, bool map_memory);
 
 	void allocateForMapping(size_t size_B);
 
 	void updateData(size_t dest_offset, const void* src_data, size_t src_size, bool bind_needed = true);
 
 	void readData(size_t src_offset, void* dst_data, size_t size);
+
+	void* map();
+
+	void flushRange(size_t offset, size_t size);
+
+	// Invalidate the content of a buffer object's data store.
+	void invalidateBufferData();
 
 	size_t byteSize() const { return allocated_size; }
 
@@ -43,6 +50,8 @@ private:
 	GLARE_DISABLE_COPY(SSBO)
 
 	size_t allocated_size;
+
+	void* mapped_buffer;
 };
 
 

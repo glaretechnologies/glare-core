@@ -12,7 +12,8 @@ in vec3 pos_os;
 in vec3 pos_ws;
 in vec2 texture_coords;
 in vec3 cam_to_pos_ws;
-
+in flat ivec4 light_indices_0;
+in flat ivec4 light_indices_1;
 
 uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
@@ -29,51 +30,6 @@ uniform sampler2D fbm_tex;
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 in flat int material_index;
-
-struct MaterialData
-{
-	vec4 diffuse_colour;
-	vec4 emission_colour;
-	vec2 texture_upper_left_matrix_col0;
-	vec2 texture_upper_left_matrix_col1;
-	vec2 texture_matrix_translation;
-
-#if USE_BINDLESS_TEXTURES
-	sampler2D diffuse_tex;
-	sampler2D metallic_roughness_tex;
-	sampler2D lightmap_tex;
-	sampler2D emission_tex;
-	sampler2D backface_albedo_tex;
-	sampler2D transmission_tex;
-#else
-	float padding0;
-	float padding1;
-	float padding2;
-	float padding3;
-	float padding4;
-	float padding5;
-	float padding6;
-	float padding7;
-	float padding8;
-	float padding9;
-	float padding10;
-	float padding11;
-#endif
-
-	int flags;
-	float roughness;
-	float fresnel_scale;
-	float metallic_frac;
-	float begin_fade_out_distance;
-	float end_fade_out_distance;
-
-	float materialise_lower_z;
-	float materialise_upper_z;
-	float materialise_start_time;
-
-	ivec4 light_indices_0;
-	ivec4 light_indices_1;
-};
 
 
 layout(std430) buffer PhongUniforms
@@ -92,50 +48,11 @@ layout(std430) buffer PhongUniforms
 
 layout (std140) uniform PhongUniforms
 {
-	vec4 diffuse_colour;		// 4
-	vec4 emission_colour;
-	vec2 texture_upper_left_matrix_col0;
-	vec2 texture_upper_left_matrix_col1;
-	vec2 texture_matrix_translation;
+	MaterialData matdata;
 
-#if USE_BINDLESS_TEXTURES
-	sampler2D diffuse_tex;
-	sampler2D metallic_roughness_tex;
-	sampler2D lightmap_tex;
-	sampler2D emission_tex;
-	sampler2D backface_albedo_tex;
-	sampler2D transmission_tex;
-#else
-	float padding0;
-	float padding1;
-	float padding2;
-	float padding3;
-	float padding4;
-	float padding5;
-	float padding6;
-	float padding7;
-	float padding8;
-	float padding9;
-	float padding10;
-	float padding11;
-#endif
-
-	int flags;
-	float roughness;
-	float fresnel_scale;
-	float metallic_frac;
-	float begin_fade_out_distance;
-	float end_fade_out_distance; // 9
-
-	float materialise_lower_z;
-	float materialise_upper_z;
-	float materialise_start_time;
-
-	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
-	ivec4 light_indices_1;
 } mat_data;
 
-#define MAT_UNIFORM mat_data
+#define MAT_UNIFORM mat_data.matdata
 
 
 #if !USE_BINDLESS_TEXTURES
@@ -154,30 +71,6 @@ uniform sampler2D emission_tex;
 
 #endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
 //----------------------------------------------------------------------------------------------------------------------------
-
-layout (std140) uniform MaterialCommonUniforms
-{
-	vec4 sundir_cs;
-	vec4 sundir_ws;
-	vec4 sun_spec_rad_times_solid_angle;
-	vec4 sun_and_sky_av_spec_rad;
-	vec4 air_scattering_coeffs;
-	float near_clip_dist;
-	float time;
-	float l_over_w;
-	float l_over_h;
-};
-
-
-struct LightData
-{
-	vec4 pos;
-	vec4 dir;
-	vec4 col;
-	int light_type; // 0 = point light, 1 = spotlight
-	float cone_cos_angle_start;
-	float cone_cos_angle_end;
-};
 
 #if USE_SSBOS
 layout (std430) buffer LightDataStorage
@@ -352,14 +245,14 @@ void main()
 		//----------------------- Direct lighting from interior lights ----------------------------
 		// Load indices into a local array, so we can iterate over the array in a for loop.  TODO: find a better way of doing this.
 		int indices[8];
-		indices[0] = MAT_UNIFORM.light_indices_0.x;
-		indices[1] = MAT_UNIFORM.light_indices_0.y;
-		indices[2] = MAT_UNIFORM.light_indices_0.z;
-		indices[3] = MAT_UNIFORM.light_indices_0.w;
-		indices[4] = MAT_UNIFORM.light_indices_1.x;
-		indices[5] = MAT_UNIFORM.light_indices_1.y;
-		indices[6] = MAT_UNIFORM.light_indices_1.z;
-		indices[7] = MAT_UNIFORM.light_indices_1.w;
+		indices[0] = light_indices_0.x;
+		indices[1] = light_indices_0.y;
+		indices[2] = light_indices_0.z;
+		indices[3] = light_indices_0.w;
+		indices[4] = light_indices_1.x;
+		indices[5] = light_indices_1.y;
+		indices[6] = light_indices_1.z;
+		indices[7] = light_indices_1.w;
 
 		vec4 local_light_radiance = vec4(0.f);
 		for(int i=0; i<8; ++i)

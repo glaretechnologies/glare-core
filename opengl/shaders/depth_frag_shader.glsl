@@ -14,70 +14,10 @@ uniform sampler2D diffuse_tex;
 uniform sampler2D fbm_tex;
 
 
-layout (std140) uniform MaterialCommonUniforms
-{
-	vec4 sundir_cs;
-	vec4 sundir_ws;
-	vec4 sun_spec_rad_times_solid_angle;
-	vec4 sun_and_sky_av_spec_rad;
-	vec4 air_scattering_coeffs;
-	float near_clip_dist;
-	float time;
-	float l_over_w;
-	float l_over_h;
-};
-
-
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 in flat int material_index;
-
-struct MaterialData
-{
-	vec4 diffuse_colour;
-	vec4 emission_colour;
-	vec2 texture_upper_left_matrix_col0;
-	vec2 texture_upper_left_matrix_col1;
-	vec2 texture_matrix_translation;
-
-#if USE_BINDLESS_TEXTURES
-	sampler2D diffuse_tex;
-	sampler2D metallic_roughness_tex;
-	sampler2D lightmap_tex;
-	sampler2D emission_tex;
-	sampler2D backface_albedo_tex;
-	sampler2D transmission_tex;
-#else
-	float padding0;
-	float padding1;
-	float padding2;
-	float padding3;
-	float padding4;
-	float padding5;
-	float padding6;
-	float padding7;
-	float padding8;
-	float padding9;
-	float padding10;
-	float padding11;
-#endif
-
-	int flags;
-	float roughness;
-	float fresnel_scale;
-	float metallic_frac;
-	float begin_fade_out_distance;
-	float end_fade_out_distance;
-
-	float materialise_lower_z;
-	float materialise_upper_z;
-	float materialise_start_time;
-
-	ivec4 light_indices_0;
-	ivec4 light_indices_1;
-};
-
 
 layout(std430) buffer PhongUniforms
 {
@@ -112,6 +52,8 @@ layout (std140) uniform DepthUniforms
 	float materialise_lower_z;
 	float materialise_upper_z;
 	float materialise_start_time;
+
+	float padding;
 
 } mat_data;
 

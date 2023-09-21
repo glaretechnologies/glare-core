@@ -39,12 +39,14 @@ OpenGLTexture::OpenGLTexture()
 	refcount(0),
 	m_opengl_engine(NULL),
 	bindless_tex_handle(0),
+	is_bindless_tex_resident(false),
 	gl_format(GL_RGB), // Just set some defaults for getByteSize().
 	gl_type(GL_UNSIGNED_BYTE),
 	gl_internal_format(GL_RGB),
 	filtering(Filtering_Fancy),
 	texture_target(GL_TEXTURE_2D)
 {
+	this->allocated_tex_view_info.texture_handle = 0;
 }
 
 
@@ -63,8 +65,11 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	refcount(0),
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0),
+	is_bindless_tex_resident(false),
 	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D)
 {
+	this->allocated_tex_view_info.texture_handle = 0;
+
 	this->format = format_;
 	this->filtering = filtering_;
 	this->xres = tex_xres;
@@ -93,8 +98,11 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	refcount(0),
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0),
+	is_bindless_tex_resident(false),
 	texture_target(GL_TEXTURE_2D)
 {
+	this->allocated_tex_view_info.texture_handle = 0;
+
 	this->format = format_;
 	this->gl_internal_format = gl_internal_format_;
 	this->gl_format = gl_format_;
@@ -114,8 +122,18 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 
 OpenGLTexture::~OpenGLTexture()
 {
-	glDeleteTextures(1, &texture_handle);
-	texture_handle = 0;
+#if USE_TEXTURE_VIEWS
+	if(allocated_tex_view_info.texture_handle != 0)
+	{
+		// If this is a texture view:
+		m_opengl_engine->freeTextureView(allocated_tex_view_info);
+	}
+	else
+#endif // USE_TEXTURE_VIEWS
+	{
+		glDeleteTextures(1, &texture_handle);
+		texture_handle = 0;
+	}
 }
 
 
@@ -279,6 +297,32 @@ static double getInternalPixelSizeB(GLint internal_format)
 }
 
 
+std::string getStringForGLInternalFormat(GLint internal_format)
+{
+	switch(internal_format)
+	{
+		case GL_RGB: return "GL_RGB";
+		case GL_R32F: return "GL_R32F";
+		case GL_R16F: return  "GL_R16F";
+		case GL_SRGB8: return  "GL_SRGB8";
+		case GL_SRGB8_ALPHA8: return "GL_SRGB8_ALPHA8";
+		case GL_RGB8: return "GL_RGB8";
+		case GL_RGBA8: return "GL_RGBA8";
+		case GL_RGB32F: return "GL_RGB32F";
+		case GL_RGBA32F: return "GL_RGBA32F";
+		case GL_RGB16F: return "GL_RGB16F";
+		case GL_DEPTH_COMPONENT32: return "GL_DEPTH_COMPONENT32";
+		case GL_DEPTH_COMPONENT16: return "GL_DEPTH_COMPONENT16";
+		case GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT: return "GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT";
+		case GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT: return "GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT";
+		case GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT: return "GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT";
+		case GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: return "GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT";
+		case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT: return "GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT";
+		default: return "[Unknown]";
+	};
+}
+
+
 static size_t getAlignment(size_t data)
 {
 	if(data % 8 == 0)
@@ -412,6 +456,9 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
+static int num_textures_created = 0;
+static int num_texture_views_created = 0;
+static int num_non_tex_views_created = 0;
 
 // Create texture, given that xres, yres, gl_internal_format etc. have been set.
 void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data, 
@@ -420,6 +467,9 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		bool use_mipmaps
 	)
 {
+	num_textures_created++;
+	//printVar(num_textures_created);
+	//conPrint("doCreateTexture(): xres: " + toString(xres) + ", yres: " + toString(yres));
 	// xres, yres, gl_internal_format etc. should all have been set.
 	assert(xres > 0);
 	assert(yres > 0);
@@ -429,26 +479,75 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		throw glare::Exception("Don't support BC6 texture format on Mac");
 #endif
 
-	if(texture_handle == 0)
-	{
-		glGenTextures(1, &texture_handle);
-		assert(texture_handle != 0);
-	}
-
 	const bool is_MSAA_tex = this->texture_target == GL_TEXTURE_2D_MULTISAMPLE;
-	if(is_MSAA_tex)
+
+#if USE_TEXTURE_VIEWS
+	//const bool res_is_valid_for_tex_view = (xres == yres) && Maths::isPowerOfTwo(xres) && (xres >= 4) && (xres <= 1024);
+	bool res_is_valid_for_tex_view;
+	if(gl_internal_format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
 	{
-		glBindTexture(texture_target, texture_handle);
-		glTexImage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+		res_is_valid_for_tex_view = (xres <= 1024);
 	}
 	else
 	{
+		res_is_valid_for_tex_view = (xres == yres) && Maths::isPowerOfTwo(xres) && (xres >= 4) && (xres <= 1024);
+	}
+
+	const bool internal_format_valid_for_tex_view = 
+		gl_internal_format == GL_RGB16F ||
+		gl_internal_format == GL_SRGB8 ||
+		gl_internal_format == GL_SRGB8_ALPHA8 ||
+		gl_internal_format == GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT ||
+		gl_internal_format == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT ||
+		gl_internal_format == GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT ||
+		gl_internal_format == GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT ||
+		gl_internal_format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+
+	const bool using_mipmaps = (filtering == Filtering_Fancy) && use_mipmaps;
+	bool mipmapping_valid = (gl_internal_format == GL_RGB16F) ? !using_mipmaps : using_mipmaps; // TEMP
+	const int num_levels = using_mipmaps ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
+
+	if(false) // (texture_handle == 0) && (opengl_engine != NULL) && res_is_valid_for_tex_view && internal_format_valid_for_tex_view && mipmapping_valid)
+	{
+		this->allocated_tex_view_info = ((OpenGLEngine*)opengl_engine)->allocTextureView(gl_internal_format, (int)xres, (int)yres, num_levels);
+		this->texture_handle = this->allocated_tex_view_info.texture_handle;
 		glBindTexture(texture_target, texture_handle);
 
-		// Allocate / specify immutable storage for the texture.
-		const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
-		glTexStorage2D(texture_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
-		this->num_mipmap_levels_allocated = num_levels;
+		num_texture_views_created++;
+		printVar(num_texture_views_created);
+	}
+	else
+#endif // USE_TEXTURE_VIEWS
+	{
+		num_non_tex_views_created++;
+		// printVar(num_non_tex_views_created);
+		// conPrint("===============Not using tex view================");
+		// printVar(res_is_valid_for_tex_view);
+		// printVar(internal_format_valid_for_tex_view);
+		// conPrint("internal format: " + getStringForGLInternalFormat(gl_internal_format));
+		// printVar(mipmapping_valid);
+
+		if(texture_handle == 0)
+		{
+			glGenTextures(1, &texture_handle);
+			assert(texture_handle != 0);
+			
+		}
+		
+		if(is_MSAA_tex)
+		{
+			glBindTexture(texture_target, texture_handle);
+			glTexImage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+		}
+		else
+		{
+			glBindTexture(texture_target, texture_handle);
+
+			// Allocate / specify immutable storage for the texture.
+			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
+			glTexStorage2D(texture_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
+			this->num_mipmap_levels_allocated = num_levels;
+		}
 	}
 
 	if(tex_data.data() != NULL)
@@ -722,16 +821,38 @@ size_t OpenGLTexture::getByteSize() const
 }
 
 
-void OpenGLTexture::textureRefCountDecreasedToOne() const
+static size_t num_resident_textures = 0;
+
+
+size_t OpenGLTexture::getNumResidentTextures()
+{
+	return num_resident_textures;
+}
+
+
+void OpenGLTexture::textureRefCountDecreasedToOne()
 {
 	// If m_opengl_engine is set, that means this texture was inserted into the opengl_texture ManagerWithCache.
 	// The ref count dropping to one means that the only reference held is by the opengl_texture ManagerWithCache.
 	// Therefore the texture is not used.
 	if(m_opengl_engine)
+	{
 		m_opengl_engine->textureBecameUnused(this);
+
+		// Since this texture is not being used, we can make it non-resident.
+		if((bindless_tex_handle != 0) && is_bindless_tex_resident)
+		{
+			glMakeTextureHandleNonResidentARB(bindless_tex_handle);
+			is_bindless_tex_resident = false;
+
+			num_resident_textures--;
+			//conPrint("!!!!!!!!texture became unused, made non resident (num_resident_textures: " + toString(num_resident_textures) + ")");
+		}
+	}
 }
 
 
+// Get bindless texture handle, and make texture resident if not already.
 uint64 OpenGLTexture::getBindlessTextureHandle()
 {
 #if defined(OSX)
@@ -742,10 +863,19 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 	{
 		bindless_tex_handle = glGetTextureHandleARB(this->texture_handle);
 
-		assert(bindless_tex_handle != 0);
-
-		glMakeTextureHandleResidentARB(bindless_tex_handle);
+		if(bindless_tex_handle == 0)
+			conPrint("glGetTextureHandleARB() failed");
 	}
+
+	if(bindless_tex_handle && !is_bindless_tex_resident)
+	{
+		glMakeTextureHandleResidentARB(bindless_tex_handle);
+		is_bindless_tex_resident = true;
+
+		num_resident_textures++;
+		//conPrint("Made texture resident (num_resident_textures: " + toString(num_resident_textures) + ")");
+	}
+
 	return bindless_tex_handle;
 #endif
 }

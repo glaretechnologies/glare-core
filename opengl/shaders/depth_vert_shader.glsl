@@ -25,28 +25,8 @@ out flat int material_index;
 #endif
 
 
-layout(std140) uniform SharedVertUniforms
-{
-	mat4 proj_matrix; // same for all objects
-	mat4 view_matrix; // same for all objects
-//#if NUM_DEPTH_TEXTURES > 0
-	mat4 shadow_texture_matrix[5]; // same for all objects
-//#endif
-	vec4 campos_ws; // same for all objects
-	float vert_uniforms_time;
-	float wind_strength;
-};
-
-
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-
-struct PerObjectVertUniformsStruct
-{
-	mat4 model_matrix; // per-object
-	mat4 normal_matrix; // per-object
-};
-
 
 layout(std430) buffer PerObjectVertUniforms
 {
@@ -70,8 +50,7 @@ layout (std430) buffer JointMatricesStorage
 
 layout (std140) uniform PerObjectVertUniforms
 {
-	mat4 model_matrix; // per-object
-	mat4 normal_matrix; // per-object
+	PerObjectVertUniformsStruct per_object_data;
 };
 
 #if SKINNING
@@ -126,6 +105,8 @@ void main()
 	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
 #else
 	int joints_base_index = 0;
+	mat4 model_matrix  = per_object_data.model_matrix;
+	mat4 normal_matrix = per_object_data.normal_matrix;
 #endif
 
 #if INSTANCE_MATRICES // -----------------

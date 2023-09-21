@@ -33,7 +33,6 @@ static const std::string getLog(GLuint program)
 OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_, uint32 program_index_)
 :	program(0),
 	prog_name(prog_name_),
-	campos_ws_loc(-1),
 	time_loc(-1),
 	colour_loc(-1),
 	albedo_texture_loc(-1),
@@ -89,7 +88,6 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	normal_matrix_loc  = glGetUniformLocation(program, "normal_matrix");
 	joint_matrix_loc   = glGetUniformLocation(program, "joint_matrix");
 					   
-	campos_ws_loc      = glGetUniformLocation(program, "campos_ws");
 	time_loc           = glGetUniformLocation(program, "time");
 	colour_loc         = glGetUniformLocation(program, "colour");
 	albedo_texture_loc = glGetUniformLocation(program, "albedo_texture");

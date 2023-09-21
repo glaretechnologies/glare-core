@@ -20,27 +20,12 @@ out vec3 cam_to_pos_ws;
 out flat int material_index;
 #endif
 
-
-layout(std140) uniform SharedVertUniforms
-{
-	mat4 proj_matrix; // same for all objects
-	mat4 view_matrix; // same for all objects
-//#if NUM_DEPTH_TEXTURES > 0
-	mat4 shadow_texture_matrix[5]; // same for all objects
-//#endif
-	vec3 campos_ws; // same for all objects
-	float vert_uniforms_time;
-};
-
+out flat ivec4 light_indices_0;
+out flat ivec4 light_indices_1;
 
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
-struct PerObjectVertUniformsStruct
-{
-	mat4 model_matrix; // per-object
-	mat4 normal_matrix; // per-object
-};
 
 layout(std430) buffer PerObjectVertUniforms
 {
@@ -57,8 +42,7 @@ layout (std430) buffer ObAndMatIndicesStorage
 
 layout (std140) uniform PerObjectVertUniforms
 {
-	mat4 model_matrix; // per-object
-	mat4 normal_matrix; // per-object
+	PerObjectVertUniformsStruct per_object_data;
 };
 
 #endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -72,6 +56,9 @@ void main()
 	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
 	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
 	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
+#else
+	mat4 model_matrix  = per_object_data.model_matrix;
+	mat4 normal_matrix = per_object_data.normal_matrix;
 #endif
 
 #if INSTANCE_MATRICES //-------------------------
@@ -82,7 +69,7 @@ void main()
 #endif
 
 	pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
-	cam_to_pos_ws = pos_ws - campos_ws;
+	cam_to_pos_ws = pos_ws - campos_ws.xyz;
 	pos_cs = (view_matrix * (instance_matrix_in * vec4(position_in, 1.0))).xyz;
 
 	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
@@ -95,7 +82,7 @@ void main()
 #endif
 
 	pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
-	cam_to_pos_ws = pos_ws - campos_ws;
+	cam_to_pos_ws = pos_ws - campos_ws.xyz;
 	pos_cs = (view_matrix * (model_matrix  * vec4(position_in, 1.0))).xyz;
  
 	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
@@ -104,4 +91,12 @@ void main()
 	//texture_coords = texture_coords_0_in;
 
 	texture_coords = texture_coords_0_in;
+
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+	light_indices_0 = per_object_data[per_ob_data_index].light_indices_0;
+	light_indices_1 = per_object_data[per_ob_data_index].light_indices_1;
+#else
+	light_indices_0 = per_object_data.light_indices_0;
+	light_indices_1 = per_object_data.light_indices_1;
+#endif
 }

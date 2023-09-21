@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "BasicOpenGLTypes.h"
+#include "TextureAllocator.h"
 #include "../graphics/TextureData.h"
 #include "../utils/RefCounted.h"
 #include "../utils/ThreadSafeRefCounted.h"
@@ -42,6 +43,9 @@ struct OpenGLTextureKeyHash
 		return h(key.path);
 	}
 };
+
+
+std::string getStringForGLInternalFormat(GLint internal_format);
 
 
 // Instead of inheriting from RefCounted, will implement custom decRefCount() etc.. that calls textureBecameUnused().
@@ -145,7 +149,7 @@ public:
 	}
 
 	/// Returns previous reference count
-	inline int64 decRefCount() const
+	inline int64 decRefCount()
 	{ 
 		const int64 prev_ref_count = refcount;
 		refcount--;
@@ -163,11 +167,12 @@ public:
 		return refcount; 
 	}
 
-	void textureRefCountDecreasedToOne() const;
+	void textureRefCountDecreasedToOne();
 
 
-	uint64 getBindlessTextureHandle();
+	uint64 getBindlessTextureHandle(); // Get bindless texture handle, and make texture resident if not already.
 
+	static size_t getNumResidentTextures();
 
 	GLuint texture_handle;
 
@@ -201,8 +206,11 @@ public:
 	OpenGLTextureKey key;
 
 	uint64 bindless_tex_handle;
+	bool is_bindless_tex_resident;
 
 	Reference<TextureData> texture_data; // Just stored here for animated textures, so we can upload data for other frames to the GPU texture.
+
+	AllocatedTexViewInfo allocated_tex_view_info;
 };
 
 

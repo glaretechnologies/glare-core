@@ -40,52 +40,6 @@ uniform sampler2D main_depth_texture;
 
 in flat int material_index;
 
-struct MaterialData
-{
-	vec4 diffuse_colour;
-	vec4 emission_colour;
-	vec2 texture_upper_left_matrix_col0;
-	vec2 texture_upper_left_matrix_col1;
-	vec2 texture_matrix_translation;
-
-#if USE_BINDLESS_TEXTURES
-	sampler2D diffuse_tex;
-	sampler2D metallic_roughness_tex;
-	sampler2D lightmap_tex;
-	sampler2D emission_tex;
-	sampler2D backface_albedo_tex;
-	sampler2D transmission_tex;
-#else
-	float padding0;
-	float padding1;
-	float padding2;
-	float padding3;
-	float padding4;
-	float padding5;
-	float padding6;
-	float padding7;
-	float padding8;
-	float padding9;
-	float padding10;
-	float padding11;
-#endif
-
-	int flags;
-	float roughness;
-	float fresnel_scale;
-	float metallic_frac;
-	float begin_fade_out_distance;
-	float end_fade_out_distance;
-
-	float materialise_lower_z;
-	float materialise_upper_z;
-	float materialise_start_time;
-
-	ivec4 light_indices_0;
-	ivec4 light_indices_1;
-};
-
-
 layout(std430) buffer PhongUniforms
 {
 	MaterialData material_data[];
@@ -102,50 +56,11 @@ layout(std430) buffer PhongUniforms
 
 layout (std140) uniform PhongUniforms
 {
-	vec4 diffuse_colour;		// 4
-	vec4 emission_colour;
-	vec2 texture_upper_left_matrix_col0;
-	vec2 texture_upper_left_matrix_col1;
-	vec2 texture_matrix_translation;
+	MaterialData matdata;
 
-#if USE_BINDLESS_TEXTURES
-	sampler2D diffuse_tex;
-	sampler2D metallic_roughness_tex;
-	sampler2D lightmap_tex;
-	sampler2D emission_tex;
-	sampler2D backface_albedo_tex;
-	sampler2D transmission_tex;
-#else
-	float padding0;
-	float padding1;
-	float padding2;
-	float padding3;
-	float padding4;
-	float padding5;
-	float padding6;
-	float padding7;
-	float padding8;
-	float padding9;
-	float padding10;
-	float padding11;
-#endif
-
-	int flags;
-	float roughness;
-	float fresnel_scale;
-	float metallic_frac;
-	float begin_fade_out_distance;
-	float end_fade_out_distance; // 9
-
-	float materialise_lower_z;
-	float materialise_upper_z;
-	float materialise_start_time;
-
-	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
-	ivec4 light_indices_1;
 } mat_data;
 
-#define MAT_UNIFORM mat_data
+#define MAT_UNIFORM mat_data.matdata
 
 
 #if !USE_BINDLESS_TEXTURES
@@ -165,44 +80,6 @@ uniform sampler2D emission_tex;
 #endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
 //----------------------------------------------------------------------------------------------------------------------------
 
-layout (std140) uniform MaterialCommonUniforms
-{
-	vec4 sundir_cs;
-	vec4 sundir_ws;
-	vec4 sun_spec_rad_times_solid_angle;
-	vec4 sun_and_sky_av_spec_rad;
-	vec4 air_scattering_coeffs;
-	float near_clip_dist;
-	float time;
-	float l_over_w; // lens-sensor distance / sensor width.  (tan(theta) = w/(2l) where theta is the half angle of view)
-	float l_over_h; // (lens-sensor distance / sensor height)
-};
-
-
-layout (std140) uniform SharedVertUniforms
-{
-	mat4 proj_matrix; // same for all objects
-	mat4 view_matrix; // same for all objects
-	//#if NUM_DEPTH_TEXTURES > 0
-	mat4 shadow_texture_matrix[5]; // same for all objects
-	//#endif
-	vec4 campos_ws; // same for all objects
-	float vert_uniforms_time;
-	float wind_strength;
-};
-
-
-
-
-struct LightData
-{
-	vec4 pos;
-	vec4 dir;
-	vec4 col;
-	int light_type; // 0 = point light, 1 = spotlight
-	float cone_cos_angle_start;
-	float cone_cos_angle_end;
-};
 
 #if USE_SSBOS
 layout (std430) buffer LightDataStorage

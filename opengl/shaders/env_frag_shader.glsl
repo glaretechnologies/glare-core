@@ -10,21 +10,7 @@ uniform sampler2D diffuse_tex;
 uniform sampler2D fbm_tex;
 uniform sampler2D cirrus_tex;
 uniform mat3 texture_matrix;
-uniform vec3 campos_ws;
-
-
-layout (std140) uniform MaterialCommonUniforms
-{
-	vec4 sundir_cs;
-	vec4 sundir_ws;
-	vec4 sun_spec_rad_times_solid_angle;
-	vec4 sun_and_sky_av_spec_rad;
-	vec4 air_scattering_coeffs;
-	float near_clip_dist;
-	float time;
-	float l_over_w;
-	float l_over_h;
-};
+uniform vec3 env_campos_ws;
 
 
 out vec4 colour_out;
@@ -96,13 +82,13 @@ void main()
 	// Get position ray hits cloud plane
 	float cirrus_cloudfrac = 0;
 	float cumulus_cloudfrac = 0;
-	float ray_t = rayPlaneIntersect(campos_ws, dir_ws, 6000);
+	float ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 6000);
 	//vec4 cumulus_col = vec4(0,0,0,0);
 	//float cumulus_alpha = 0;
 	float cumulus_edge = 0;
 	if(ray_t > 0)
 	{
-		vec3 hitpos = campos_ws + dir_ws * ray_t;
+		vec3 hitpos = env_campos_ws + dir_ws * ray_t;
 		vec2 p = hitpos.xy * 0.0001;
 		p.x += time * 0.002;
 	
@@ -113,10 +99,10 @@ void main()
 	}
 		
 	{
-		float cumulus_ray_t = rayPlaneIntersect(campos_ws, dir_ws, 1000);
+		float cumulus_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 1000);
 		if(cumulus_ray_t > 0)
 		{
-			vec3 hitpos = campos_ws + dir_ws * cumulus_ray_t;
+			vec3 hitpos = env_campos_ws + dir_ws * cumulus_ray_t;
 			vec2 p = hitpos.xy * 0.0001;
 			p.x += time * 0.002;
 
@@ -151,8 +137,8 @@ void main()
 	// Cloud shadows on lower half of hemisphere, to match shadows on ground plane
 	if(texture_coords.y > 1.58)
 	{
-		float ground_ray_t = campos_ws.z / -dir_ws.z;
-		vec3 ground_pos = campos_ws + dir_ws * ground_ray_t;
+		float ground_ray_t = env_campos_ws.z / -dir_ws.z;
+		vec3 ground_pos = env_campos_ws + dir_ws * ground_ray_t;
 
 		vec3 cum_layer_pos = ground_pos + sundir_ws.xyz * (1000.f) * (1.f / sundir_ws.z);
 
@@ -168,8 +154,9 @@ void main()
 		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
 		float sun_vis_factor = cumulus_trans;
 
-		vec4 shadowed_col = vec4(pow(4.5, 2.2), pow(5.4, 2.2), pow(6.4, 2.2), 1.0) * 2.0e6;
-		lower_hemis_col = mix(shadowed_col, lower_hemis_col, sun_vis_factor);
+		//vec4 shadowed_col = vec4(pow(14.5, 2.2), pow(5.4, 2.2), pow(6.4, 2.2), 1.0) * 2.0e6;
+		vec4 shadowed_col = max(vec4(0.0), lower_hemis_col - sun_spec_rad_times_solid_angle * sundir_ws.z);
+	//	lower_hemis_col = mix(shadowed_col, lower_hemis_col, sun_vis_factor);
 	}
 
 	float lower_hemis_factor = smoothstep(1.52, 1.6, texture_coords.y);

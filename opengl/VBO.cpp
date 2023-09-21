@@ -41,18 +41,20 @@ void VBO::updateData(const void* data, size_t data_size)
 	if(data_size == 0)
 		return;
 
-	// From http://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/
-	// Update the buffers that OpenGL uses for rendering.
-	// There are much more sophisticated means to stream data from the CPU to the GPU,
-	// but this is outside the scope of this tutorial.
-	// http://www.opengl.org/wiki/Buffer_Object_Streaming
-
 	glBindBuffer(buffer_type, buffer_name);
 
-	// NOTE: buffer orphaning seems slower.
-	//glBufferData(buffer_type, size, NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
-	
+#if 0 // If do buffer orphaning:
+	// Buffer orphaning, a common way to improve streaming perf. See http://www.opengl.org/wiki/Buffer_Object_Streaming for details.
+	if(data_size == this->size) // If we are updating the whole buffer:
+	{
+		glBufferData(buffer_type, size, NULL, GL_DYNAMIC_DRAW); 
+		glBufferData(buffer_type, size, data, GL_DYNAMIC_DRAW);
+	}
+	else
+		glBufferSubData(buffer_type, /*offset=*/0, data_size, data);
+#else
 	glBufferSubData(buffer_type, /*offset=*/0, data_size, data);
+#endif
 }
 
 

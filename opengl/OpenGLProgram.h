@@ -39,8 +39,7 @@ struct UniformLocations
 	int caustic_tex_a_location;
 	int caustic_tex_b_location;
 	int water_colour_texture_location;
-	int campos_ws_location;
-
+	
 	int dynamic_depth_tex_location;
 	int static_depth_tex_location;
 	int shadow_texture_matrix_location;
@@ -157,7 +156,6 @@ public:
 	int normal_matrix_loc;
 	int joint_matrix_loc;
 
-	int campos_ws_loc;
 	int time_loc;
 	int colour_loc;
 	int albedo_texture_loc;
@@ -169,13 +167,13 @@ public:
 
 	std::string prog_name;
 
-	bool uses_phong_uniforms;
+	bool uses_phong_uniforms; // Does fragment shader use a PhongUniforms uniform block?
 	bool is_transparent; // bit of a hack
 	bool is_depth_draw;
 	bool is_depth_draw_with_alpha_test;
 	bool is_outline;
-	bool supports_MDI;
-	bool uses_vert_uniform_buf_obs;
+	bool supports_MDI; // Should batches with this program be drawn with glMultiDrawElementsIndirect, if supported?
+	bool uses_vert_uniform_buf_obs; // Does the vertex shader use a PerObjectVertUniforms uniform block?
 	bool uses_colour_and_depth_buf_textures;
 
 

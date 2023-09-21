@@ -398,7 +398,7 @@ public:
 };
 
 
-// Should match LightData struct in phong_frag_shader.glsl etc.
+// Should match LightData struct in common_frag_structures.glsl etc.
 struct LightGPUData
 {
 	LightGPUData() : light_type(0), cone_cos_angle_start(0.8f), cone_cos_angle_end(0.85f) {}
@@ -603,10 +603,11 @@ struct PhongUniforms
 	float materialise_upper_z;
 	float materialise_start_time;
 
-	int light_indices[8];
+	float padding_b0;
 };
 
 
+// Should be the same layout as in common_frag_structures.glsl
 struct MaterialCommonUniforms
 {
 	Vec4f sundir_cs;
@@ -618,6 +619,11 @@ struct MaterialCommonUniforms
 	float time;
 	float l_over_w;
 	float l_over_h;
+	float env_phi;
+
+	float padding_0;
+	float padding_1;
+	float padding_2;
 };
 
 
@@ -634,9 +640,12 @@ public:
 	float materialise_lower_z;
 	float materialise_upper_z;
 	float materialise_start_time;
+	
+	float padding;
 };
 
 
+// Should be the same layout as in common_vert_structures.glsl
 struct SharedVertUniforms
 {
 	Matrix4f proj_matrix; // same for all objects
@@ -647,6 +656,8 @@ struct SharedVertUniforms
 	Vec4f campos_ws; // same for all objects
 	float vert_uniforms_time;
 	float wind_strength;
+	float padding_0; // AMD drivers have different opinions on if structures are padded than Nvidia drivers, so explicitly pad.
+	float padding_1;
 };
 
 
@@ -654,6 +665,8 @@ struct PerObjectVertUniforms
 {
 	Matrix4f model_matrix; // per-object
 	Matrix4f normal_matrix; // per-object
+
+	int light_indices[8];
 };
 
 
@@ -734,8 +747,8 @@ public:
 	//----------------------------------------------------------------------------------------
 
 	//---------------------------- Updating objects ------------------------------------------
-	void updateObjectTransformData(GLObject& object);
-	void objectTransformDataChanged(GLObject& object); // Update object data on GPU
+	void updateObjectTransformData(GLObject& object); // Updates object ob_to_world_inv_transpose_matrix and aabb_ws, then updates object data on GPU.
+	void objectTransformDataChanged(GLObject& object); // Just update object data on GPU.
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
 	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
@@ -989,6 +1002,7 @@ private:
 	Vec4f sun_spec_rad_times_solid_angle;
 	Vec4f sun_and_sky_av_spec_rad;
 	Vec4f air_scattering_coeffs;
+	float sun_phi;
 
 	bool loaded_maps_for_sun_dir;
 
@@ -1016,6 +1030,8 @@ private:
 	//uint64 num_aabbs_submitted;
 
 	std::string preprocessor_defines;
+	std::string preprocessor_defines_with_common_vert_structs;
+	std::string preprocessor_defines_with_common_frag_structs;
 	std::string version_directive;
 
 	// Map from preprocessor defs to built program.
@@ -1034,6 +1050,7 @@ private:
 	int env_noise_tex_location;
 	int env_fbm_tex_location;
 	int env_cirrus_tex_location;
+	int env_campos_ws_location;
 
 	Reference<OpenGLTexture> fbm_tex;
 	Reference<OpenGLTexture> detail_tex[4];
@@ -1156,6 +1173,7 @@ public:
 	bool use_bindless_textures;
 	bool use_multi_draw_indirect;
 	bool use_reverse_z;
+	bool use_scatter_shader; // Use scatter shader for data updates
 
 	OpenGLEngineSettings settings;
 
@@ -1277,6 +1295,11 @@ private:
 
 	js::Vector<GLObject*, 16> animated_obs_to_process;
 	std::vector<glare::TaskRef> animated_objects_tasks;
+
+
+	js::Vector<uint8, 16> data_updates_buffer;
+	SSBORef data_updates_ssbo;
+	OpenGLProgramRef scatter_data_prog;
 };
 
 

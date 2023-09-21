@@ -375,6 +375,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	use_bindless_textures(false),
 	use_multi_draw_indirect(false),
 	use_reverse_z(true),
+	use_scatter_shader(false),
 	object_pool_allocator(sizeof(GLObject), 16),
 	running_in_renderdoc(false),
 	loaded_maps_for_sun_dir(false)
@@ -399,6 +400,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	main_viewport_h = 0;
 
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
+	sun_phi = std::atan2(sun_dir[1], sun_dir[0]);
 
 	// From AtmosphereMedium::AtmosphereMedium() (air_scattering_coeff_spectrum) in Indigo source.
 	air_scattering_coeffs = Vec4f(0.000008057856f, 0.000011481005f, 0.000026190464f, 0);
@@ -411,9 +413,24 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 
 OpenGLEngine::~OpenGLEngine()
 {
+	// Destroy textures now, since they may use texture views
+	fbm_tex = NULL;
+	for(int i=0; i<staticArrayNumElems(detail_tex); ++i)
+		detail_tex[i] = NULL;
+	blue_noise_tex = NULL;
+	noise_tex = NULL;
+	cirrus_tex = NULL;
+
+	water_caustics_textures.clear();
+
+
 	// The textures may outlast the OpenGLEngine, so null out the pointer to the opengl engine.
 	for(auto it = opengl_textures.begin(); it != opengl_textures.end(); ++it)
-		it->second.value->m_opengl_engine = NULL;
+	{
+		OpenGLTexture* tex = it->second.value.ptr();
+		if(tex->allocated_tex_view_info.texture_handle == 0) // Don't null out m_opengl_engine if we allocated a texture view from the opengl engine, is needed for freeing texture view
+			it->second.value->m_opengl_engine = NULL;
+	}
 	opengl_textures.clear();
 
 	// Free mesh data before we free the vertex allocator.
@@ -1203,6 +1220,11 @@ void OpenGLEngine::setSunDir(const Vec4f& d)
 {
 	this->sun_dir = d;
 
+	if(myMax(std::fabs(d[0]), std::fabs(d[1])) < 1.0e-5f)
+		this->sun_phi = 0;
+	else
+		this->sun_phi = std::atan2(d[1], d[0]);
+
 	this->loaded_maps_for_sun_dir = false; // reload maps
 }
 
@@ -1292,7 +1314,6 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.detail_tex_2_location				= prog->getUniformLocation("detail_tex_2");
 	locations_out.detail_tex_3_location				= prog->getUniformLocation("detail_tex_3");
 	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
-	locations_out.campos_ws_location				= prog->getUniformLocation("campos_ws");
 	
 	if(shadow_mapping_enabled)
 	{
@@ -1388,7 +1409,7 @@ static void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name,
 	const size_t block_size = getSizeOfUniformBlockInOpenGL(prog, block_name);
 	if(block_size != target_size)
 	{
-		conPrint("Uniform block had size " + toString(block_size) + " B, expected " + toString(target_size) + " B.");
+		conPrint("Uniform block '" + std::string(block_name) + "' had size " + toString(block_size) + " B, expected " + toString(target_size) + " B.");
 		printFieldOffsets(prog, block_name);
 		assert(0);
 	}
@@ -1409,9 +1430,9 @@ static void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* n
 #if defined(OSX)
 	assert(0); // glShaderStorageBlockBinding is not defined on Mac. (SSBOs are not supported)
 #else
-	unsigned int resource_index = glGetProgramResourceIndex(prog->program, GL_SHADER_STORAGE_BLOCK, name);
-	assert(resource_index != GL_INVALID_INDEX);
-	glShaderStorageBlockBinding(prog->program, resource_index, /*binding point=*/binding_point_index);
+	unsigned int storage_block_index = glGetProgramResourceIndex(prog->program, GL_SHADER_STORAGE_BLOCK, name);
+	assert(storage_block_index != GL_INVALID_INDEX);
+	glShaderStorageBlockBinding(prog->program, storage_block_index, /*binding point=*/binding_point_index);
 #endif
 }
 
@@ -1440,9 +1461,22 @@ static const int PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX = 1;
 static const int PHONG_DATA_SSBO_BINDING_POINT_INDEX = 2;
 static const int OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX = 3;
 static const int JOINT_MATRICES_SSBO_BINDING_POINT_INDEX = 4;
+static const int DATA_UPDATES_SSBO_BINDING_POINT_INDEX = 5;
 
 
 static const size_t MAX_BUFFERED_DRAW_COMMANDS = 16384;
+
+
+struct DataUpdateStruct
+{
+	PerObjectVertUniforms data;
+
+	uint32 write_index; // location to write data to
+
+	uint32 padding_0;
+	uint32 padding_1;
+	uint32 padding_2;
+};
 
 
 void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_, PrintOutput* print_output_)
@@ -1687,7 +1721,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		{
 			light_buffer = new SSBO();
 			const size_t light_buf_items = 1 << 14;
-			light_buffer->allocate(sizeof(LightGPUData) * light_buf_items);
+			light_buffer->allocate(sizeof(LightGPUData) * light_buf_items, /*map_memory=*/false);
 
 			for(size_t i=0; i<light_buf_items; ++i)
 				light_free_indices.insert((int)i);
@@ -1758,14 +1792,17 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define USE_REVERSE_Z " + (use_reverse_z ? std::string("1") : std::string("0")) + "\n";
 
 
+		int use_glsl_version = 330;
+#if !defined(OSX)
+		if(gl3wIsSupported(4, 3))
+			use_glsl_version = 430; // 4.30 is required for SSBO
 		// Not entirely sure which GLSL version the GL_ARB_bindless_texture extension requires, it seems to be 4.0.0 though. (https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_bindless_texture.txt)
-		this->version_directive = (use_bindless_textures || running_in_renderdoc) ? "#version 430 core" : "#version 330 core"; // NOTE: 430 for SSBO
-		// NOTE: use_bindless_textures is false when running under RenderDoc for some reason (GL_ARB_bindless_texture isn't supported), need to force version to 430 when running under RenderDoc.
 
 		// gl_DrawID requires GLSL 4.60 or ARB_shader_draw_parameters (https://www.khronos.org/opengl/wiki/Built-in_Variable_(GLSL))
 		if(use_multi_draw_indirect)
-			this->version_directive = "#version 460 core";
-
+			use_glsl_version = 460;
+#endif
+		this->version_directive = "#version " + toString(use_glsl_version) + " core";
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
@@ -1775,7 +1812,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			{
 				per_ob_vert_data_buffer = new SSBO();
 				const size_t num_items = 1 << 14;
-				per_ob_vert_data_buffer->allocate(sizeof(PerObjectVertUniforms) * num_items);
+				per_ob_vert_data_buffer->allocate(sizeof(PerObjectVertUniforms) * num_items, /*map_memory=*/false);
 
 				for(size_t i=0; i<num_items; ++i)
 					per_ob_vert_data_free_indices.insert((int)i);
@@ -1785,7 +1822,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			{
 				phong_buffer = new SSBO();
 				const size_t num_items = 1 << 16;
-				phong_buffer->allocate(sizeof(PhongUniforms) * num_items);
+				phong_buffer->allocate(sizeof(PhongUniforms) * num_items, /*map_memory=*/false);
 
 				for(size_t i=0; i<num_items; ++i)
 					phong_buffer_free_indices.insert((int)i);
@@ -1795,7 +1832,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			{
 				joint_matrices_ssbo = new SSBO();
 				const size_t num_items = 1 << 14;
-				joint_matrices_ssbo->allocate(sizeof(Matrix4f) * num_items);
+				joint_matrices_ssbo->allocate(sizeof(Matrix4f) * num_items, /*map_memory=*/false);
 				joint_matrices_allocator = new glare::BestFitAllocator(num_items);
 			}
 		}
@@ -1858,7 +1895,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 #endif
 
 			ob_and_mat_indices_ssbo = new SSBO();
-			ob_and_mat_indices_ssbo->allocate((sizeof(int) * 4) * MAX_BUFFERED_DRAW_COMMANDS/* * 3*/);
+			ob_and_mat_indices_ssbo->allocate((sizeof(int) * 4) * MAX_BUFFERED_DRAW_COMMANDS/* * 3*/, /*map_memory=*/false);
 			//ob_and_mat_indices_ssbo->allocateForMapping((sizeof(int) * 4) * MAX_BUFFERED_DRAW_COMMANDS * 3);
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX, this->ob_and_mat_indices_ssbo->handle);
 
@@ -1875,6 +1912,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 #endif
 		}
 
+		this->preprocessor_defines_with_common_vert_structs = preprocessor_defines;
+		preprocessor_defines_with_common_vert_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_vert_structures.glsl");
+		this->preprocessor_defines_with_common_frag_structs = preprocessor_defines;
+		preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_frag_structures.glsl");
+
 
 		// Will be used if we hit a shader compilation error later
 		fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       ProgramKeyArgs()));
@@ -1887,7 +1929,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		env_prog = new OpenGLProgram(
 			"env",
 			new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(env_prog);
@@ -1899,6 +1941,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		//env_noise_tex_location			= env_prog->getUniformLocation("noise_tex");
 		env_fbm_tex_location			= env_prog->getUniformLocation("fbm_tex");
 		env_cirrus_tex_location			= env_prog->getUniformLocation("cirrus_tex");
+		env_campos_ws_location			= env_prog->getUniformLocation("env_campos_ws");
 
 		bindUniformBlockToProgram(env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
@@ -1907,8 +1950,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		overlay_prog = new OpenGLProgram(
 			"overlay",
-			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(overlay_prog);
@@ -1920,8 +1963,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		clear_prog = new OpenGLProgram(
 			"clear",
-			new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(clear_prog);
@@ -1939,11 +1982,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 		{
-			const std::string use_preprocessor_defines = preprocessor_defines + "#define SKINNING 1\n";
+			const std::string use_preprocessor_defines_vert =/* preprocessor_defines_with_common_vert_structs +*/ "#define SKINNING 1\n";
+			const std::string use_preprocessor_defines_frag = preprocessor_defines_with_common_frag_structs + "#define SKINNING 1\n";
 			outline_prog_with_skinning = new OpenGLProgram(
 				"outline_prog_with_skinning",
-				new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+				new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines_vert, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines_frag, GL_FRAGMENT_SHADER),
 				getAndIncrNextProgramIndex()
 			);
 			addProgram(outline_prog_with_skinning);
@@ -1952,8 +1996,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		edge_extract_prog = new OpenGLProgram(
 			"edge_extract",
-			new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(edge_extract_prog);
@@ -2025,6 +2069,21 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 				final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "blur_tex_" + toString(i));
 				assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i);
 			}
+		}
+
+		if(use_scatter_shader)
+		{
+			data_updates_ssbo = new SSBO();
+			data_updates_ssbo->allocate(sizeof(DataUpdateStruct) * 64 * 1024, /*map memory=*/false);
+
+
+			OpenGLShaderRef scatter_data_compute_shader = new OpenGLShader(use_shader_dir + "/scatter_data_compute_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_COMPUTE_SHADER);
+			scatter_data_prog = new OpenGLProgram("scatter data", scatter_data_compute_shader, NULL, getAndIncrNextProgramIndex());
+
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/DATA_UPDATES_SSBO_BINDING_POINT_INDEX, this->data_updates_ssbo->handle);
+
+			bindShaderStorageBlockToProgram(scatter_data_prog, "DataUpdate", DATA_UPDATES_SSBO_BINDING_POINT_INDEX);
+			bindShaderStorageBlockToProgram(scatter_data_prog, "PerObjectVertUniforms", PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
 		}
 
 
@@ -2129,7 +2188,7 @@ void OpenGLEngine::expandPerObVertDataBuffer()
 	
 	SSBORef old_buf = per_ob_vert_data_buffer;
 	per_ob_vert_data_buffer = new SSBO();
-	per_ob_vert_data_buffer->allocate(sizeof(PerObjectVertUniforms) * new_num_items);
+	per_ob_vert_data_buffer->allocate(sizeof(PerObjectVertUniforms) * new_num_items, /*map_memory=*/false);
 
 	// conPrint("Expanded per_ob_vert_data_buffer size to: " + toString(new_num_items) + " items (" + toString(per_ob_vert_data_buffer->byteSize()) + " B)");
 
@@ -2153,7 +2212,7 @@ void OpenGLEngine::expandPhongBuffer()
 	
 	SSBORef old_buf = phong_buffer;
 	phong_buffer = new SSBO();
-	phong_buffer->allocate(sizeof(PhongUniforms) * new_num_items);
+	phong_buffer->allocate(sizeof(PhongUniforms) * new_num_items, /*map_memory=*/false);
 
 	// conPrint("Expanded phong_buffer size to: " + toString(new_num_items) + " items (" + toString(phong_buffer->byteSize()) + " B)");
 
@@ -2177,7 +2236,7 @@ void OpenGLEngine::expandJointMatricesBuffer(size_t min_extra_needed)
 
 	SSBORef old_buf = joint_matrices_ssbo;
 	joint_matrices_ssbo = new SSBO();
-	joint_matrices_ssbo->allocate(sizeof(Matrix4f) * new_num_items);
+	joint_matrices_ssbo->allocate(sizeof(Matrix4f) * new_num_items, /*map_memory=*/false);
 
 	// conPrint("Expanded joint_matrices_ssbo size to: " + toString(new_num_items) + " items (" + toString(joint_matrices_ssbo->byteSize()) + " B)");
 
@@ -2218,13 +2277,14 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 	{
 		//Timer timer;
 
-		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
+		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
 			"phong",
-			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(phong_prog);
@@ -2255,8 +2315,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 			bindShaderStorageBlockToProgram(phong_prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
 		}
 
-		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "MaterialCommonUniforms") == sizeof(MaterialCommonUniforms));
-		assert(getSizeOfUniformBlockInOpenGL(phong_prog, "SharedVertUniforms") == sizeof(SharedVertUniforms));
+		checkUniformBlockSize(phong_prog, "MaterialCommonUniforms",	sizeof(MaterialCommonUniforms));
+		checkUniformBlockSize(phong_prog, "SharedVertUniforms",		sizeof(SharedVertUniforms));
 
 		bindUniformBlockToProgram(phong_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 		bindUniformBlockToProgram(phong_prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
@@ -2264,6 +2324,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		if(light_buffer.nonNull())
 			bindShaderStorageBlockToProgram(phong_prog, "LightDataStorage", LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
 		else
+			// Bind "LightDataStorage" uniform block in the shader to the binding point with index LIGHT_DATA_UBO_BINDING_POINT_INDEX.
 			bindUniformBlockToProgram(phong_prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
 		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
@@ -2281,13 +2342,14 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 	{
 		Timer timer;
 
-		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
+		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"transparent",
-			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(prog);
@@ -2348,13 +2410,14 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 	{
 		Timer timer;
 
-		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
+		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			shader_name_prefix,
-			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(prog);
@@ -2409,17 +2472,18 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 	{
 		//Timer timer;
 
-		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
+		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"imposter",
-			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(prog);
-		prog->uses_phong_uniforms = true; // Just set to true to use PhongUniforms block
+		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 
 		progs[key] = prog;
@@ -2459,13 +2523,14 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	{
 		Timer timer;
 
-		const std::string use_defs = preprocessor_defines + preprocessorDefsForKey(key);
+		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
+		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"depth",
-			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", version_directive, use_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(prog);
@@ -2483,7 +2548,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 		if(!use_multi_draw_indirect)
 		{
-			assert(getSizeOfUniformBlockInOpenGL(prog, "DepthUniforms") == sizeof(DepthUniforms)); // Check we got the size of our uniform blocks on the CPU side correct.
+			checkUniformBlockSize(prog, "DepthUniforms",				sizeof(DepthUniforms)); // Check we got the size of our uniform blocks on the CPU side correct.
 
 			bindUniformBlockToProgram(prog, "DepthUniforms",			DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX);
 			bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
@@ -2687,15 +2752,34 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 		PerObjectVertUniforms uniforms;
 		uniforms.model_matrix = object.ob_to_world_matrix;
 		uniforms.normal_matrix = object.ob_to_world_inv_transpose_matrix;
+		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+			uniforms.light_indices[i] = object.light_indices[i];
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
-			per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PerObjectVertUniforms));
-	}
+		{
+			// Add update to back of data_updates_buffer, if we are using a scatter shader for updating per_ob_vert_data_buffer.
+			if(use_scatter_shader)
+			{
+				DataUpdateStruct data_update;
+				data_update.data = uniforms;
+				data_update.write_index = object.per_ob_vert_data_index;
 
-	// Update material data on GPU.  This is needed because light indices, which are recomputed in assignLightsToObject() above, are stored in material data.
-	for(size_t i=0; i<object.materials.size(); ++i)
-		updateMaterialDataOnGPU(object, /*mat index=*/i);
+				const size_t write_i = data_updates_buffer.size();
+				if(write_i < data_updates_ssbo->byteSize())
+				{
+					data_updates_buffer.resize(write_i + sizeof(DataUpdateStruct));
+					std::memcpy(&data_updates_buffer[write_i], &data_update, sizeof(DataUpdateStruct));
+				}
+				else
+					conPrint("Can't add data update to data_updates_buffer, is full");
+			}
+			else
+			{
+				per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PerObjectVertUniforms));
+			}
+		}
+	}
 }
 
 
@@ -2707,13 +2791,36 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 		PerObjectVertUniforms uniforms;
 		uniforms.model_matrix = object.ob_to_world_matrix;
 		uniforms.normal_matrix = object.ob_to_world_inv_transpose_matrix;
+		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+			uniforms.light_indices[i] = object.light_indices[i];
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
-			per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PerObjectVertUniforms));
+		{
+			// Add update to back of data_updates_buffer, if we are using a scatter shader for updating per_ob_vert_data_buffer.
+			if(use_scatter_shader)
+			{
+				DataUpdateStruct data_update;
+				data_update.data = uniforms;
+				data_update.write_index = object.per_ob_vert_data_index;
+
+				const size_t write_i = data_updates_buffer.size();
+				if(write_i < data_updates_ssbo->byteSize())
+				{
+					data_updates_buffer.resize(write_i + sizeof(DataUpdateStruct));
+					std::memcpy(&data_updates_buffer[write_i], &data_update, sizeof(DataUpdateStruct));
+				}
+				else
+					conPrint("Can't add data update to data_updates_buffer, is full");
+			}
+			else
+			{
+				per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PerObjectVertUniforms));
+			}
+		}
 	}
 
-	// TODO: call assignLightsToObject and updateMaterialDataOnGPU as well here.  Investigate perf tho because this is called by evalObjectScript().
+	// TODO: call assignLightsToObject as well here.  Investigate perf tho because this is called by evalObjectScript().
 }
 
 
@@ -5113,6 +5220,30 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+
+	// Run scatter compute shader to update data on GPU
+	if(data_updates_buffer.nonEmpty())
+	{
+		assert(data_updates_buffer.dataSizeBytes() <= data_updates_ssbo->byteSize());
+
+		glInvalidateBufferData(data_updates_ssbo->handle);
+
+		data_updates_ssbo->updateData(/*dest offset=*/0, data_updates_buffer.data(), data_updates_buffer.dataSizeBytes());
+
+		// Execute compute shader
+		const size_t num_updates = data_updates_buffer.dataSizeBytes() / sizeof(DataUpdateStruct);
+
+		scatter_data_prog->useProgram();
+		glDispatchCompute(/*num groups x=*/(GLuint)num_updates, 1, 1);
+		OpenGLProgram::useNoPrograms();
+
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT); // Make sure all writes to per_object_data have finished.
+
+
+		data_updates_buffer.clear();
+	}
+
+
 	//if(frame_num % 100 == 0)	checkMDIGPUDataCorrect();
 
 	if(!loaded_maps_for_sun_dir)
@@ -5194,6 +5325,7 @@ void OpenGLEngine::draw()
 						assignShaderProgToMaterial(mat, ob->mesh_data->has_vert_colours, /*uses instancing=*/ob->instance_matrix_vbo.nonNull(), ob->mesh_data->usesSkinning());
 
 						rebuildDenormalisedDrawData(*ob);
+						rebuildObjectDepthDrawBatches(*ob);
 					}
 					else
 						materialise_still_active = true;
@@ -5311,6 +5443,15 @@ void OpenGLEngine::draw()
 	anim_update_duration = anim_profile_timer.elapsed();
 
 
+	// Indigo/Substrata camera convention is z=up, y=forwards, x=right.
+	// OpenGL is y=up, x=right, -z=forwards.
+	const float e[16] = { 1, 0, 0, 0,	0, 0, -1, 0,	0, 1, 0, 0,		0, 0, 0, 1 };
+	const Matrix4f indigo_to_opengl_cam_matrix = current_scene->use_z_up ? Matrix4f(e) : Matrix4f::identity();
+
+	const Matrix4f main_view_matrix = indigo_to_opengl_cam_matrix * current_scene->world_to_camera_space_matrix;
+
+	this->sun_dir_cam_space = main_view_matrix * sun_dir;
+
 	// Update MaterialCommonUniforms, these values are constant for all materials for this frame.
 	MaterialCommonUniforms common_uniforms;
 	common_uniforms.sundir_cs = this->sun_dir_cam_space;
@@ -5322,6 +5463,7 @@ void OpenGLEngine::draw()
 	common_uniforms.time = this->current_time;
 	common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
 	common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
+	common_uniforms.env_phi = this->sun_phi;
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 
@@ -6148,12 +6290,7 @@ void OpenGLEngine::draw()
 		proj_matrix = Matrix4f::identity();
 	}
 
-	const float e[16] = { 1, 0, 0, 0,	0, 0, -1, 0,	0, 1, 0, 0,		0, 0, 0, 1 };
-	const Matrix4f indigo_to_opengl_cam_matrix = current_scene->use_z_up ? Matrix4f(e) : Matrix4f::identity();
-
-	const Matrix4f view_matrix = indigo_to_opengl_cam_matrix * current_scene->world_to_camera_space_matrix;
-
-	this->sun_dir_cam_space = view_matrix * sun_dir;
+	const Matrix4f view_matrix = main_view_matrix;
 
 	// Draw solid polygons
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -7019,7 +7156,7 @@ void OpenGLEngine::draw()
 				//-------------------------------- Execute downsize shader --------------------------------
 				// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
 
-				OpenGLTextureRef src_texture = (i == 0) ? main_colour_texture : downsize_target_textures[i - 1];
+				OpenGLTexture* src_texture = (i == 0) ? main_colour_texture.ptr() : downsize_target_textures[i - 1].ptr();
 
 				downsize_framebuffers[i]->bind(); // Target downsize_framebuffers[i]
 		
@@ -7444,7 +7581,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 {
 	if(!use_bindless_textures)
 	{
-		assert(locations.diffuse_tex_location >= 0);
+//		assert(locations.diffuse_tex_location >= 0);
 		glUniform1i(locations.diffuse_tex_location, 0);
 		glUniform1i(locations.lightmap_tex_location, 7);
 		glUniform1i(locations.metallic_roughness_tex_location, 10);
@@ -7554,9 +7691,6 @@ void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMater
 	uniforms.materialise_lower_z		= opengl_mat.materialise_lower_z;
 	uniforms.materialise_upper_z		= opengl_mat.materialise_upper_z;
 	uniforms.materialise_start_time		= opengl_mat.materialise_start_time;
-
-	for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
-		uniforms.light_indices[i] = ob.light_indices[i];
 }
 
 
@@ -7684,6 +7818,8 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				PerObjectVertUniforms uniforms;
 				uniforms.model_matrix = ob.ob_to_world_matrix;
 				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
+				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+					uniforms.light_indices[i] = ob.light_indices[i];
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else
@@ -7729,7 +7865,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, 1.f);
 		glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-		glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
+		glUniform3fv(this->env_campos_ws_location, 1, campos_ws.x);
 		if(shader_prog->time_loc >= 0)
 			glUniform1f(shader_prog->time_loc, this->current_time);
 
@@ -7767,11 +7903,6 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	}
 	else // Else shader created by user code:
 	{
-		if(shader_prog->campos_ws_loc >= 0)
-		{
-			const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-			glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
-		}
 		if(shader_prog->time_loc >= 0)
 			glUniform1f(shader_prog->time_loc, this->current_time);
 		if(shader_prog->colour_loc >= 0)
@@ -7928,6 +8059,8 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				PerObjectVertUniforms uniforms;
 				uniforms.model_matrix = ob.ob_to_world_matrix;
 				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
+				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+					uniforms.light_indices[i] = ob.light_indices[i];
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else
@@ -8035,11 +8168,6 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		const OpenGLMaterial& opengl_mat = ob.materials[ob.mesh_data->batches[batch_index].material_index];
 		const OpenGLProgram* shader_prog = this->prog_vector[batch.getProgramIndex()].ptr();
 
-		if(shader_prog->campos_ws_loc >= 0)
-		{
-			const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-			glUniform3fv(shader_prog->campos_ws_loc, 1, campos_ws.x);
-		}
 		if(shader_prog->time_loc >= 0)
 			glUniform1f(shader_prog->time_loc, this->current_time);
 		if(shader_prog->colour_loc >= 0)
@@ -8222,7 +8350,13 @@ void OpenGLEngine::submitBufferedDrawCommands()
 		
 		// Upload mat_and_ob_indices_buffer to GPU
 		doCheck(ob_and_mat_indices_buffer.dataSizeBytes() <= ob_and_mat_indices_ssbo->byteSize());
-		ob_and_mat_indices_ssbo->updateData(/*dest offset=*/0, ob_and_mat_indices_buffer.data(), ob_and_mat_indices_buffer.dataSizeBytes(), /*bind needed=*/true);
+		
+		// Invalidate ob_and_mat_indices SSBO, as we will probably just be updating and using part of the buffer below.
+		// This hopefully allows the driver some leeway in discarding the rest of the buffer, thereby increasing efficiency.
+		ob_and_mat_indices_ssbo->invalidateBufferData(); // Binds and then invalidates
+
+		ob_and_mat_indices_ssbo->updateData(/*dest offset=*/0, ob_and_mat_indices_buffer.data(), ob_and_mat_indices_buffer.dataSizeBytes(), /*bind needed=*/false);
+
 #endif
 		
 #ifndef OSX
@@ -8668,6 +8802,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "textures GPU cached: " + toString(opengl_textures.numUnusedItems()) + " (" + getNiceByteSize(mem_usage.sum_unused_tex_gpu_usage) + ")\n";
 	//s += "textures: " + toString(opengl_textures.numUsedItems()) + " used (getNiceByteSize" + , " + toString(opengl_textures.numUnusedItems()) + " unused\n";
 	s += "num textures: " + toString(opengl_textures.size()) + "\n";
+	s += "num bindless resident: " + toString(OpenGLTexture::getNumResidentTextures()) + "\n";
 	
 	if(per_ob_vert_data_buffer.nonNull())
 		s += "per-ob vert buf size: " + toString(per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)) + " (" + getNiceByteSize(per_ob_vert_data_buffer->byteSize()) + ")\n";

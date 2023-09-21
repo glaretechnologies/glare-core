@@ -44,6 +44,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShadowMapping.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShadowMapping.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSBO.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSBO.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TextureAllocator.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TextureAllocator.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TextureLoading.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TextureLoading.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TextureLoadingTests.cpp 
@@ -71,8 +73,11 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICallbackHandler.h
 
 
 set(opengl_shaders
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/scatter_data_compute_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/clear_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/clear_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/common_vert_structures.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/common_frag_structures.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/depth_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/depth_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/downsize_frag_shader.glsl
@@ -85,6 +90,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/final_imaging_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/final_imaging_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_blur_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_blur_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/imposter_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/imposter_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/outline_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/outline_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/overlay_frag_shader.glsl

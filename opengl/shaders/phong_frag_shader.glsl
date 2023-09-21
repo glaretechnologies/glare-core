@@ -22,6 +22,9 @@ in vec3 vert_colour;
 in vec2 lightmap_coords;
 #endif
 
+in flat ivec4 light_indices_0;
+in flat ivec4 light_indices_1;
+
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
 uniform sampler2D metallic_roughness_tex;
@@ -57,19 +60,6 @@ uniform sampler2D lightmap_tex;
 #endif
 
 
-layout (std140) uniform MaterialCommonUniforms
-{
-	vec4 sundir_cs;
-	vec4 sundir_ws;
-	vec4 sun_spec_rad_times_solid_angle;
-	vec4 sun_and_sky_av_spec_rad;
-	vec4 air_scattering_coeffs;
-	float near_clip_dist;
-	float time;
-	float l_over_w;
-	float l_over_h;
-};
-
 #define HAVE_SHADING_NORMALS_FLAG			1
 #define HAVE_TEXTURE_FLAG					2
 #define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
@@ -79,51 +69,6 @@ layout (std140) uniform MaterialCommonUniforms
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
 in flat int material_index;
-
-struct MaterialData
-{
-	vec4 diffuse_colour;
-	vec4 emission_colour;
-	vec2 texture_upper_left_matrix_col0;
-	vec2 texture_upper_left_matrix_col1;
-	vec2 texture_matrix_translation;
-
-#if USE_BINDLESS_TEXTURES
-	sampler2D diffuse_tex;
-	sampler2D metallic_roughness_tex;
-	sampler2D lightmap_tex;
-	sampler2D emission_tex;
-	sampler2D backface_albedo_tex;
-	sampler2D transmission_tex;
-#else
-	float padding0;
-	float padding1;
-	float padding2;
-	float padding3;
-	float padding4;
-	float padding5;
-	float padding6;
-	float padding7;
-	float padding8;
-	float padding9;
-	float padding10;
-	float padding11;
-#endif
-
-	int flags;
-	float roughness;
-	float fresnel_scale;
-	float metallic_frac;
-	float begin_fade_out_distance;
-	float end_fade_out_distance;
-
-	float materialise_lower_z;
-	float materialise_upper_z;
-	float materialise_start_time;
-
-	ivec4 light_indices_0;
-	ivec4 light_indices_1;
-};
 
 
 layout(std430) buffer PhongUniforms
@@ -146,50 +91,11 @@ layout(std430) buffer PhongUniforms
 
 layout (std140) uniform PhongUniforms
 {
-	vec4 diffuse_colour;		// 4
-	vec4 emission_colour;
-	vec2 texture_upper_left_matrix_col0;
-	vec2 texture_upper_left_matrix_col1;
-	vec2 texture_matrix_translation;
+	MaterialData matdata;
 
-#if USE_BINDLESS_TEXTURES
-	sampler2D diffuse_tex;
-	sampler2D metallic_roughness_tex;
-	sampler2D lightmap_tex;
-	sampler2D emission_tex;
-	sampler2D backface_albedo_tex;
-	sampler2D transmission_tex;
-#else
-	float padding0;
-	float padding1;
-	float padding2;
-	float padding3;
-	float padding4;
-	float padding5;
-	float padding6;
-	float padding7;
-	float padding8;
-	float padding9;
-	float padding10;
-	float padding11;
-#endif
-
-	int flags;
-	float roughness;
-	float fresnel_scale;
-	float metallic_frac;
-	float begin_fade_out_distance;
-	float end_fade_out_distance; // 9
-
-	float materialise_lower_z;
-	float materialise_upper_z;
-	float materialise_start_time;
-
-	ivec4 light_indices_0; // Can't use light_indices[8] here because of std140's retarded array layout rules.
-	ivec4 light_indices_1;
 } mat_data;
 
-#define MAT_UNIFORM mat_data
+#define MAT_UNIFORM mat_data.matdata
 
 #if USE_BINDLESS_TEXTURES
 #define DIFFUSE_TEX					mat_data.diffuse_tex
@@ -216,16 +122,6 @@ uniform int num_blob_positions;
 uniform vec4 blob_positions[8];
 #endif
 
-
-struct LightData
-{
-	vec4 pos;
-	vec4 dir;
-	vec4 col;
-	int light_type; // 0 = point light, 1 = spotlight
-	float cone_cos_angle_start;
-	float cone_cos_angle_end;
-};
 
 #if USE_SSBOS
 layout (std430) buffer LightDataStorage
@@ -659,14 +555,14 @@ void main()
 	//----------------------- Direct lighting from interior lights ----------------------------
 	// Load indices into a local array, so we can iterate over the array in a for loop.  TODO: find a better way of doing this.
 	int indices[8];
-	indices[0] = MAT_UNIFORM.light_indices_0.x;
-	indices[1] = MAT_UNIFORM.light_indices_0.y;
-	indices[2] = MAT_UNIFORM.light_indices_0.z;
-	indices[3] = MAT_UNIFORM.light_indices_0.w;
-	indices[4] = MAT_UNIFORM.light_indices_1.x;
-	indices[5] = MAT_UNIFORM.light_indices_1.y;
-	indices[6] = MAT_UNIFORM.light_indices_1.z;
-	indices[7] = MAT_UNIFORM.light_indices_1.w;
+	indices[0] = light_indices_0.x;
+	indices[1] = light_indices_0.y;
+	indices[2] = light_indices_0.z;
+	indices[3] = light_indices_0.w;
+	indices[4] = light_indices_1.x;
+	indices[5] = light_indices_1.y;
+	indices[6] = light_indices_1.z;
+	indices[7] = light_indices_1.w;
 
 	vec4 local_light_radiance = vec4(0.f);
 	for(int i=0; i<8; ++i)
@@ -921,7 +817,7 @@ void main()
 	float map_t = final_roughness * 6.9999 - float(map_lower);
 
 	float refl_theta = acos(reflected_dir_ws.z);
-	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - 1.f; // -1.f is to rotate reflection so it aligns with env rotation.
+	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
 	vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64, 1 - 1.0 / 64)); // Clamp to avoid texture coord wrapping artifacts.
 
 	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
@@ -1017,7 +913,7 @@ void main()
 #endif
 
 	//------------------------------- Apply underwater effects ---------------------------
-#if 1 // UNDERWATER_CAUSTICS
+#if UNDERWATER_CAUSTICS
 	// campos_ws + cam_to_pos_ws = pos_ws
 	// campos_ws = pos_ws - cam_to_pos_ws;
 
