@@ -14,6 +14,9 @@ Copyright Glare Technologies Limited 2022 -
 #ifndef GL_SHADER_STORAGE_BUFFER
 #define GL_SHADER_STORAGE_BUFFER          0x90D2
 #endif
+#ifndef GL_MAP_PERSISTENT_BIT
+#define GL_MAP_PERSISTENT_BIT             0x0040
+#endif
 
 
 SSBO::SSBO()
