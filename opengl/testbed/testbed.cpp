@@ -30,7 +30,6 @@ Copyright Glare Technologies Limited 2023 -
 #include <string>
 
 
-
 void setGLAttribute(SDL_GLattr attr, int value)
 {
 	const int result = SDL_GL_SetAttribute(attr, value);
@@ -49,33 +48,32 @@ int main(int, char**)
 	try
 	{
 		//=========================== Init SDL and OpenGL ================================
-		int primary_W = 1280;
-		int primary_H = 720;
-		uint32 window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+		if(SDL_Init(SDL_INIT_VIDEO) != 0)
+			throw glare::Exception("SDL_Init Error: " + std::string(SDL_GetError()));
 
-		conPrint("Using primary window resolution   " + toString(primary_W) + " x " + toString(primary_H));
 
-		SDL_Window* win = SDL_CreateWindow("TerrainGen", 100, 100, 1920, 1080, window_flags | SDL_WINDOW_RESIZABLE);
+		// Set GL attributes, needs to be done before window creation.
+		setGLAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); // We need to request a specific version for a core profile.
+		setGLAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+		setGLAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		
+		setGLAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+
+
+		int primary_W = 1920;
+		int primary_H = 1080;
+
+		SDL_Window* win = SDL_CreateWindow("TerrainGen", 100, 100, primary_W, primary_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 		if(win == nullptr)
 			throw glare::Exception("SDL_CreateWindow Error: " + std::string(SDL_GetError()));
 
-		//setGLAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-		//setGLAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-		setGLAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-		setGLAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
 		SDL_GLContext gl_context = SDL_GL_CreateContext(win);
 		if(!gl_context)
 			throw glare::Exception("OpenGL context could not be created! SDL Error: " + std::string(SDL_GetError()));
 
-		if(SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1) != 0)
-			throw glare::Exception("SDL_GL_SetAttribute Error: " + std::string(SDL_GetError()));
-
 
 		gl3wInit();
-
-
 
 
 		// Initialise ImGUI
@@ -107,27 +105,16 @@ int main(int, char**)
 
 		const std::string base_dir = ".";
 
-		std::cout << "Finished compiling and linking program." << std::endl;
-
-
 		float sun_phi = 1.f;
 		float sun_theta = Maths::pi<float>() / 4;
 		opengl_engine->setSunDir(normalise(Vec4f(std::cos(sun_phi) * sin(sun_theta), std::sin(sun_phi) * sin(sun_theta), cos(sun_theta), 0)));
 		opengl_engine->setEnvMapTransform(Matrix3f::rotationMatrix(Vec3f(0,0,1), sun_phi));
 
-		/*
-		Set env material
-		*/
+		//---------------------- Set env material -------------------
 		{
 			OpenGLMaterial env_mat;
-			env_mat.albedo_texture = opengl_engine->getTexture(base_dir + "/resources/sky_no_sun.exr");
-			env_mat.albedo_texture->setTWrappingEnabled(false); // Disable wrapping in vertical direction to avoid grey dot straight up.
-			
-			env_mat.tex_matrix = Matrix2f(-1 / Maths::get2Pi<float>(), 0, 0, 1 / Maths::pi<float>());
-
 			opengl_engine->setEnvMat(env_mat);
 		}
-
 		opengl_engine->setCirrusTexture(opengl_engine->getTexture(base_dir + "/resources/cirrus.exr"));
 
 		//---------------------- Add light -------------------
@@ -164,7 +151,7 @@ int main(int, char**)
 		std::vector<GLObjectRef> obs;
 
 		const float cube_w = 0.2f;
-		for(int i=0; i<100; ++i) // 1000 hangs
+		for(int i=0; i<10000; ++i) // 1000 hangs
 		{
 			GLObjectRef ob = new GLObject();
 			ob->mesh_data = test_mesh_data;
@@ -175,16 +162,16 @@ int main(int, char**)
 			//ob->materials[0].tex_matrix = Matrix2f(10.f, 0, 0, 10.f);
 
 			//uint8 r, g, b;
-		//	uint8 col[3] = { (uint8)rng.nextUInt(256), (uint8)rng.nextUInt(256), (uint8)rng.nextUInt(256) };
-		//	ImageMapUInt8Ref map = new ImageMapUInt8(16, 16, 3);
-		//	for(size_t z=0; z<map->numPixels(); ++z)
-		//	{
-		//		map->getData()[z * 3 + 0] = col[0];
-		//		map->getData()[z * 3 + 1] = col[1];
-		//		map->getData()[z * 3 + 2] = (uint8)rng.nextUInt(256);
-		//	}
+			uint8 col[3] = { (uint8)rng.nextUInt(256), (uint8)rng.nextUInt(256), (uint8)rng.nextUInt(256) };
+			ImageMapUInt8Ref map = new ImageMapUInt8(16, 16, 3);
+			for(size_t z=0; z<map->numPixels(); ++z)
+			{
+				map->getData()[z * 3 + 0] = col[0];
+				map->getData()[z * 3 + 1] = col[1];
+				map->getData()[z * 3 + 2] = (uint8)rng.nextUInt(256);
+			}
 
-			//ob->materials[0].albedo_texture = opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("tex " + toString(i)), *map);
+			ob->materials[0].albedo_texture = opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("tex " + toString(i)), *map);
 
 			opengl_engine->addObject(ob);
 
@@ -214,11 +201,8 @@ int main(int, char**)
 			//const double cur_time = timer.elapsed();
 			const float cur_time = (float)timer.elapsed();
 
-			//TEMP:
 			if(SDL_GL_MakeCurrent(win, gl_context) != 0)
-			{
-				std::cout << "SDL_GL_MakeCurrent failed." << std::endl;
-			}
+				conPrint("SDL_GL_MakeCurrent failed.");
 
 		//	for(size_t i=0; i<obs.size(); ++i)
 		//	{
@@ -229,14 +213,16 @@ int main(int, char**)
 		//			opengl_engine->updateObjectTransformData(*obs[i]);
 		//		}
 		//	}
-			/*for(int i=0; i<1024; ++i)
+
+			// Update some objects in random order
+			for(int i=0; i<1024; ++i)
 			{
 				int ob_i = rng.nextUInt((uint32)obs.size());
 
 				obs[ob_i]->ob_to_world_matrix = Matrix4f::translationMatrix((float)(ob_i / 64), (float)(ob_i % 64), cube_w/2) * Matrix4f::rotationAroundZAxis(cur_time) * 
 					Matrix4f::uniformScaleMatrix(cube_w) * Matrix4f::translationMatrix(Vec4f(-0.5f));
 				opengl_engine->updateObjectTransformData(*obs[ob_i]);
-			}*/
+			}
 
 			if(stats_timer.elapsed() > 1.0)
 			{
@@ -263,7 +249,6 @@ int main(int, char**)
 			SDL_GL_GetDrawableSize(win, &gl_w, &gl_h);
 			if(gl_w > 0 && gl_h > 0)
 			{
-
 				opengl_engine->setViewport(gl_w, gl_h);
 				opengl_engine->setMainViewport(gl_w, gl_h);
 				opengl_engine->setMaxDrawDistance(1000000.f);
@@ -282,7 +267,7 @@ int main(int, char**)
 		
 			//ImGui::ShowDemoWindow();
 		
-			ImGui::SetNextWindowSize(ImVec2(600, 200));
+			ImGui::SetNextWindowSize(ImVec2(600, 900));
 			ImGui::Begin("Testbed");
 		
 			//ImGui::TextColored(ImVec4(1,1,0,1), "Simulation parameters");
@@ -302,7 +287,6 @@ int main(int, char**)
 		
 			ImGui::TextColored(ImVec4(1,1,0,1), "Stats");
 			ImGui::Text(("FPS: " + doubleToStringNDecimalPlaces(fps, 1)).c_str());
-			ImGui::Text(("cam_theta: " + doubleToStringNDecimalPlaces(cam_theta, 1)).c_str());
 		
 			if(ImGui::CollapsingHeader("Diagnostics"))
 			{
