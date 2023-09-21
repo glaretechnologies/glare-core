@@ -78,6 +78,9 @@ Copyright Glare Technologies Limited 2020 -
 #ifndef GL_SHADER_STORAGE_BUFFER
 #define GL_SHADER_STORAGE_BUFFER						0x90D2
 #endif
+#ifndef GL_COMPUTE_SHADER
+#define GL_COMPUTE_SHADER								0x91B9
+#endif
 
 
 // Use circular buffers for feeding draw commands and object indices to multi-draw-indirect?
@@ -5224,9 +5227,10 @@ void OpenGLEngine::draw()
 	// Run scatter compute shader to update data on GPU
 	if(data_updates_buffer.nonEmpty())
 	{
+#if !defined(OSX)
 		assert(data_updates_buffer.dataSizeBytes() <= data_updates_ssbo->byteSize());
 
-		glInvalidateBufferData(data_updates_ssbo->handle);
+		data_updates_ssbo->invalidateBufferData();
 
 		data_updates_ssbo->updateData(/*dest offset=*/0, data_updates_buffer.data(), data_updates_buffer.dataSizeBytes());
 
@@ -5241,6 +5245,7 @@ void OpenGLEngine::draw()
 
 
 		data_updates_buffer.clear();
+#endif
 	}
 
 

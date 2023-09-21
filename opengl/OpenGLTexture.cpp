@@ -839,6 +839,7 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 	{
 		m_opengl_engine->textureBecameUnused(this);
 
+#if !defined(OSX)
 		// Since this texture is not being used, we can make it non-resident.
 		if((bindless_tex_handle != 0) && is_bindless_tex_resident)
 		{
@@ -848,6 +849,7 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 			num_resident_textures--;
 			//conPrint("!!!!!!!!texture became unused, made non resident (num_resident_textures: " + toString(num_resident_textures) + ")");
 		}
+#endif
 	}
 }
 
