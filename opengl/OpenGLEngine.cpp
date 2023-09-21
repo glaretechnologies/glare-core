@@ -1803,6 +1803,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define USE_REVERSE_Z " + (use_reverse_z ? std::string("1") : std::string("0")) + "\n";
 
+		if(use_bindless_textures)
+			preprocessor_defines += "#extension GL_ARB_bindless_texture : require\n";
+
 
 		int use_glsl_version = 330;
 #if !defined(OSX)

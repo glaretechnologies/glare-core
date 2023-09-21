@@ -1,8 +1,4 @@
 
-#if USE_BINDLESS_TEXTURES
-#extension GL_ARB_bindless_texture : require
-#endif
-
 in vec3 normal_cs;
 in vec3 normal_ws;
 in vec3 pos_cs;
