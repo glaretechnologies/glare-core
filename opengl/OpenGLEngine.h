@@ -787,7 +787,6 @@ public:
 
 	// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
 	// If the texture is not loaded, return a null reference.
-	// Throws glare::Exception
 	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps = true);
 
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,

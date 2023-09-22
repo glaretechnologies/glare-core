@@ -2291,7 +2291,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 {
 	if(progs[key] == NULL)
 	{
-		//Timer timer;
+		Timer timer;
 
 		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
 		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
@@ -2343,7 +2343,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 			// Bind "LightDataStorage" uniform block in the shader to the binding point with index LIGHT_DATA_UBO_BINDING_POINT_INDEX.
 			bindUniformBlockToProgram(phong_prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
-		//conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
 
 	return progs[key];
@@ -2534,6 +2534,10 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	key.imposterable = false; // for now
 	// relevant: use_wind_vert_shader
 	key.double_sided = false; // for now
+	key.terrain = false;
+
+	key.rebuildKeyVal();
+
 
 	if(progs[key] == NULL)
 	{
@@ -2977,7 +2981,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 		}
 		else
 		{
-			// TODO: can set some of these key values that don't affect depth drawing to false to avoid having too many depth programs.
+			// Note that some of the depth_key values are set to false in getDepthDrawProgram() to avoid having too many depth programs.
 			const ProgramKey depth_key("depth", key_args);
 
 			material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
@@ -3734,7 +3738,6 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, b
 
 // If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
 // If the texture is not loaded, return a null reference.
-// Throws glare::Exception
 Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key, bool use_sRGB, bool use_mipmaps)
 {
 	auto res = this->opengl_textures.find(texture_key);
