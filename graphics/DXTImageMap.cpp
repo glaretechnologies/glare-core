@@ -938,7 +938,7 @@ Reference<ImageMap<float, FloatComponentValueTraits> > DXTImageMap::resizeToImag
 }
 
 
-Reference<Map2D> DXTImageMap::resizeMidQuality(const int /*new_width*/, const int /*new_height*/, glare::TaskManager& /*task_manager*/) const
+Reference<Map2D> DXTImageMap::resizeMidQuality(const int /*new_width*/, const int /*new_height*/, glare::TaskManager* /*task_manager*/) const
 { 
 	assert(0); 
 	return Reference<Map2D>();
