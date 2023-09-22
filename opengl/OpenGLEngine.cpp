@@ -128,7 +128,7 @@ void doDestroyGLOb(GLObject* ob)
 }
 
 
-void GLObject::enableInstancing(VertexBufferAllocator& vert_allocator, const void* instance_matrix_data, size_t instance_matrix_data_size)
+void GLObject::enableInstancing(VertexBufferAllocator& /*vert_allocator*/, const void* instance_matrix_data, size_t instance_matrix_data_size)
 {
 	VBORef new_instance_matrix_vbo = new VBO(instance_matrix_data, instance_matrix_data_size, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
@@ -3068,7 +3068,7 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 		for(size_t i=0; i<object->materials.size(); ++i)
 		{
 			PhongUniforms uniforms;
-			setUniformsForPhongProg(*object, object->materials[i], *object->mesh_data, uniforms);
+			setUniformsForPhongProg(object->materials[i], *object->mesh_data, uniforms);
 
 			if(phong_buffer_free_indices.empty())
 				expandPhongBuffer();
@@ -3334,7 +3334,7 @@ void OpenGLEngine::updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index)
 	if(use_multi_draw_indirect)
 	{
 		PhongUniforms uniforms;
-		setUniformsForPhongProg(ob, ob.materials[mat_index], *ob.mesh_data, uniforms);
+		setUniformsForPhongProg(ob.materials[mat_index], *ob.mesh_data, uniforms);
 
 		assert(ob.materials[mat_index].material_data_index >= 0);
 		if(ob.materials[mat_index].material_data_index >= 0)
@@ -3693,7 +3693,7 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 		assert(use_multi_draw_indirect);
 
 		PhongUniforms uniforms;
-		setUniformsForPhongProg(ob, mat, *ob.mesh_data, uniforms);
+		setUniformsForPhongProg(mat, *ob.mesh_data, uniforms);
 
 		phong_buffer->updateData(/*dest offset=*/mat.material_data_index * sizeof(PhongUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PhongUniforms));
 	}
@@ -4735,7 +4735,7 @@ static void bindTextureUnitToSampler(const OpenGLTexture& texture, int texture_u
 class ComputeAnimatedObJointMatricesTask : public glare::Task
 {
 public:
-	virtual void run(size_t thread_index)
+	virtual void run(size_t /*thread_index*/)
 	{
 		while(1)
 		{
@@ -7649,7 +7649,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 #define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
 
 
-void OpenGLEngine::setUniformsForPhongProg(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms)
+void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms)
 {
 	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r,   opengl_mat.albedo_linear_rgb.g,   opengl_mat.albedo_linear_rgb.b,   1.f);
 	uniforms.emission_colour = Colour4f(opengl_mat.emission_linear_rgb.r, opengl_mat.emission_linear_rgb.g, opengl_mat.emission_linear_rgb.b, 1.f) * opengl_mat.emission_scale;
@@ -7871,7 +7871,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 #else
 
 		PhongUniforms uniforms;
-		setUniformsForPhongProg(ob, opengl_mat, mesh_data, uniforms);
+		setUniformsForPhongProg(opengl_mat, mesh_data, uniforms);
 		this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 
 #endif
@@ -8115,7 +8115,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 #else
 
 		PhongUniforms uniforms;
-		setUniformsForPhongProg(ob, opengl_mat, *ob.mesh_data, uniforms);
+		setUniformsForPhongProg(opengl_mat, *ob.mesh_data, uniforms);
 		this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 
 #endif
@@ -8650,7 +8650,7 @@ void OpenGLEngine::checkMDIGPUDataCorrect()
 					phong_buffer->readData(ob->materials[i].material_data_index * sizeof(PhongUniforms), &phong_uniforms, sizeof(PhongUniforms));
 
 					PhongUniforms ref_phong_uniforms;
-					setUniformsForPhongProg(*ob, ob->materials[i], *ob->mesh_data, ref_phong_uniforms);
+					setUniformsForPhongProg(ob->materials[i], *ob->mesh_data, ref_phong_uniforms);
 
 					doCheck(phong_uniforms.diffuse_tex				== ref_phong_uniforms.diffuse_tex);
 					doCheck(phong_uniforms.metallic_roughness_tex	== ref_phong_uniforms.metallic_roughness_tex);
