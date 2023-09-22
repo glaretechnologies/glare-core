@@ -3129,7 +3129,7 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 			if(object->materials[i].uniform_buf_ob.nonNull())
 			{
 				PhongUniforms uniforms;
-				setUniformsForPhongProg(*object, object->materials[i], *object->mesh_data, uniforms);
+				setUniformsForPhongProg(object->materials[i], *object->mesh_data, uniforms);
 				object->materials[i].uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
 			}
 		}
@@ -3352,7 +3352,7 @@ void OpenGLEngine::updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index)
 		if(ob.materials[mat_index].uniform_buf_ob.nonNull())
 		{
 			PhongUniforms uniforms;
-			setUniformsForPhongProg(ob, ob.materials[mat_index], *ob.mesh_data, uniforms);
+			setUniformsForPhongProg(ob.materials[mat_index], *ob.mesh_data, uniforms);
 			ob.materials[mat_index].uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
 		}
 #endif
