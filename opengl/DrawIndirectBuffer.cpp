@@ -64,7 +64,11 @@ void DrawIndirectBuffer::updateData(size_t dest_offset, const void* src_data, si
 // Invalidate the content of a buffer object's data store.
 void DrawIndirectBuffer::invalidateBufferData()
 {
+#ifdef OSX
+	assert(0); // glInvalidateBufferData is OpenGL 4.3+
+#else
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, handle);
 
 	glInvalidateBufferData(handle);
+#endif
 }

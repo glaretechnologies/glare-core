@@ -140,7 +140,11 @@ void SSBO::flushRange(size_t offset, size_t size)
 // Invalidate the content of a buffer object's data store.
 void SSBO::invalidateBufferData()
 {
-	bind();
+#ifdef OSX
+	assert(0); // glInvalidateBufferData is OpenGL 4.3+
+#else
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
 
 	glInvalidateBufferData(handle);
+#endif
 }
