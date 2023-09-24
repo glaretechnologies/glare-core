@@ -338,8 +338,7 @@ void main()
 		}
 
 		float cloudfrac = cumulus_cloudfrac;
-		float w = 2.0e8;
-		vec4 cloudcol = vec4(w, w, w, 1);
+		vec4 cloudcol = sun_and_sky_av_spec_rad;
 		spec_refl_light = mix(spec_refl_light, cloudcol, max(0.f, cloudfrac));
 #endif // RENDER_SKY_AND_CLOUD_REFLECTIONS
 
