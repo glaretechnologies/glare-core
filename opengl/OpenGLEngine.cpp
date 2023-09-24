@@ -1235,6 +1235,8 @@ void OpenGLEngine::setSunDir(const Vec4f& d)
 		this->sun_phi = std::atan2(d[1], d[0]);
 
 	this->loaded_maps_for_sun_dir = false; // reload maps
+
+	setEnvMapTransform(Matrix3f::rotationAroundZAxis(sun_phi));
 }
 
 
