@@ -196,6 +196,15 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 		//const uint32_t num_planes = wuffs_base__pixel_config__pixel_format(&image_config.pixcfg).num_planes();
 		const uint32_t bpp = wuffs_base__pixel_config__pixel_format(&image_config.pixcfg).bits_per_pixel();
 
+		if(w >= 1000000)
+			throw ImFormatExcep("invalid width: " + toString(w));
+		if(h >= 1000000)
+			throw ImFormatExcep("invalid height: " + toString(h));
+
+		const size_t max_num_pixels = 1 << 28;
+		if((size_t)w * (size_t)h > max_num_pixels)
+			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(w) + ", " + toString(h));
+
 		// See https://github.com/google/wuffs/blob/main/doc/note/pixel-formats.md
 		const uint32 channel_0_bits = decodeWuffsBitDepth((pixel_format.repr >>  0) & 15); // Bits 0 ..= 3 encodes the number of bits (depth) in the 0th channel.
 		//const uint32 channel_1_bits = decodeWuffsBitDepth((pixel_format.repr >>  4) & 15); // Bits 4 ..=  7 encodes the number of bits (depth) in the 1st channel.
