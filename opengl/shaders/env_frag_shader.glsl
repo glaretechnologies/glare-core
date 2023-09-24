@@ -72,7 +72,7 @@ void main()
 #if RENDER_SUN_AND_SKY
 	// Render sun
 	
-	float sunscale = 2.0e-3f; // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
+	float sunscale = mix(2.0e-2f, 2.0e-3f, sundir_ws.z); // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
 	const float sun_solid_angle = 0.00006780608; // See SkyModel2Generator::makeSkyEnvMap();
 	vec4 suncol = sun_spec_rad_times_solid_angle * (1.0 / sun_solid_angle) * sunscale;
 	float d = dot(sundir_cs.xyz, normalize(pos_cs));
@@ -156,7 +156,7 @@ void main()
 
 		//vec4 shadowed_col = vec4(pow(14.5, 2.2), pow(5.4, 2.2), pow(6.4, 2.2), 1.0) * 2.0e6;
 		vec4 shadowed_col = max(vec4(0.0), lower_hemis_col - sun_spec_rad_times_solid_angle * sundir_ws.z);
-	//	lower_hemis_col = mix(shadowed_col, lower_hemis_col, sun_vis_factor);
+		lower_hemis_col = mix(shadowed_col, lower_hemis_col, sun_vis_factor);
 	}
 
 	float lower_hemis_factor = smoothstep(1.52, 1.6, texture_coords.y);
