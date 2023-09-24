@@ -17,11 +17,11 @@ out vec2 texture_coords;
 out vec3 cam_to_pos_ws;
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-out flat int material_index;
+flat out int material_index;
 #endif
 
-out flat ivec4 light_indices_0;
-out flat ivec4 light_indices_1;
+flat out ivec4 light_indices_0;
+flat out ivec4 light_indices_1;
 
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT

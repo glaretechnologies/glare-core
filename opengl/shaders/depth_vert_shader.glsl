@@ -21,7 +21,7 @@ out vec3 pos_ws;
 out vec3 normal_ws;
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-out flat int material_index;
+flat out int material_index;
 #endif
 
 

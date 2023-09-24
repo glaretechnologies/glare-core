@@ -909,7 +909,7 @@ void main()
 #endif
 
 	//------------------------------- Apply underwater effects ---------------------------
-#if UNDERWATER_CAUSTICS
+#if 0 // UNDERWATER_CAUSTICS
 	// campos_ws + cam_to_pos_ws = pos_ws
 	// campos_ws = pos_ws - cam_to_pos_ws;
 

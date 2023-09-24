@@ -17,7 +17,7 @@ out vec2 texture_coords;
 out vec3 cam_to_pos_ws;
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-out flat int material_index;
+flat out int material_index;
 #endif
 
 
