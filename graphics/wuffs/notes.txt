@@ -1,0 +1,1 @@
+Downloaded from https://github.com/google/wuffs/tree/main/release/c on 24/09/2023
