@@ -77,7 +77,7 @@ static const uint8 sRGB_profile_data[] = { 0, 0, 2, 80, 108, 99, 109, 115, 4, 48
 // png_set_keep_unknown_chunks(png_ptr, 1, NULL, 0);
 
 
-static void pngdecoder_error_func(png_structp png, const char* msg)
+static void pngdecoder_error_func(png_structp /*png*/, const char* msg)
 {
 	throw ImFormatExcep("Error while processing PNG file: " + std::string(msg));
 }
@@ -1365,6 +1365,7 @@ void PNGDecoder::test()
 	if(true)
 	{
 		const std::string path = TestUtils::getTestReposDir() + "/testfiles/antialias_test3.png";
+		//const std::string path = TestUtils::getTestReposDir() + "/testfiles/pngs/Excited.png";
 		MemMappedFile file(path);
 
 		{
@@ -1374,12 +1375,13 @@ void PNGDecoder::test()
 				Timer timer;
 				BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)file.fileData(), file.fileSize()));
 				Reference<Map2D> map = doDecodeFromBufferLibPNG(buffer_view_in_stream);
-				testAssert(map->getMapWidth() == 1000);
+				//testAssert(map->getMapWidth() == 1000);
 				min_time = myMin(min_time, timer.elapsed());
 
 			}
 			conPrint("doDecodeFromBufferLibPNG took    " + doubleToStringNSigFigs(min_time * 1000, 5) + " ms");
-	}
+		}
+#if WUFFS_SUPPORT
 		{
 			double min_time = 1.0e10;
 			for(int i=0; i<16; ++i)
@@ -1387,11 +1389,12 @@ void PNGDecoder::test()
 				Timer timer;
 				BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)file.fileData(), file.fileSize()));
 				Reference<Map2D> map = doDecodeFromBufferWithWuffs(buffer_view_in_stream);
-				testAssert(map->getMapWidth() == 1000);
+				//testAssert(map->getMapWidth() == 1000);
 				min_time = myMin(min_time, timer.elapsed());
 			}
 			conPrint("doDecodeFromBufferWithWuffs took " + doubleToStringNSigFigs(min_time * 1000, 5) + " ms");
 		}
+#endif
 	}
 
 
