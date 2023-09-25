@@ -8,8 +8,8 @@ in vec3 pos_os;
 in vec3 pos_ws;
 in vec2 texture_coords;
 in vec3 cam_to_pos_ws;
-in flat ivec4 light_indices_0;
-in flat ivec4 light_indices_1;
+flat in ivec4 light_indices_0;
+flat in ivec4 light_indices_1;
 
 uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
@@ -25,7 +25,7 @@ uniform sampler2D fbm_tex;
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
-in flat int material_index;
+flat in int material_index;
 
 
 layout(std430) buffer PhongUniforms

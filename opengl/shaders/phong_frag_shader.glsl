@@ -18,8 +18,8 @@ in vec3 vert_colour;
 in vec2 lightmap_coords;
 #endif
 
-in flat ivec4 light_indices_0;
-in flat ivec4 light_indices_1;
+flat in ivec4 light_indices_0;
+flat in ivec4 light_indices_1;
 
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
@@ -64,7 +64,7 @@ uniform sampler2D lightmap_tex;
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
-in flat int material_index;
+flat in int material_index;
 
 
 layout(std430) buffer PhongUniforms

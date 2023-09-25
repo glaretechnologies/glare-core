@@ -34,7 +34,7 @@ uniform sampler2D main_depth_texture;
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
-in flat int material_index;
+flat in int material_index;
 
 layout(std430) buffer PhongUniforms
 {
