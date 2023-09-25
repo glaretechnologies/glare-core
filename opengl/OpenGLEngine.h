@@ -611,6 +611,7 @@ struct PhongUniforms
 // Should be the same layout as in common_frag_structures.glsl
 struct MaterialCommonUniforms
 {
+	Matrix4f view_matrix;
 	Vec4f sundir_cs;
 	Vec4f sundir_ws;
 	Vec4f sun_spec_rad_times_solid_angle;

@@ -338,7 +338,7 @@ void main()
 				vec3 cur_pos_ws = pos_ws + reflected_dir_ws * cur_d; // Current step position = fragment position + refraction vector * dist along refraction vector
 
 				// Transform current step position into cam space.
-				vec3 projected_cur_pos_cs = (view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
+				vec3 projected_cur_pos_cs = (frag_view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
 
 				// get depth texture coords for the current step position
 				float cur_px = projected_cur_pos_cs.x / -projected_cur_pos_cs.z * l_over_w + 0.5;
@@ -365,7 +365,7 @@ void main()
 						cur_pos_ws = pos_ws + reflected_dir_ws * intersect_d; // Current step position = fragment position + refraction vector * dist along refraction vecgor
 
 						// Transform current step position into cam space.
-						projected_cur_pos_cs = (view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
+						projected_cur_pos_cs = (frag_view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
 
 						// get depth texture coords for the current step position
 						refracted_px = projected_cur_pos_cs.x / -projected_cur_pos_cs.z * l_over_w + 0.5;
@@ -407,7 +407,7 @@ void main()
 		{
 			vec3 refracted_dir_ws = eta * I - (eta * dot(N, I) + sqrt(k)) * N;
 
-			vec3 refracted_dir_cs =  (view_matrix * vec4(refracted_dir_ws, 0.0)).xyz;
+			vec3 refracted_dir_cs =  (frag_view_matrix * vec4(refracted_dir_ws, 0.0)).xyz;
 
 			float px = refracted_dir_cs.x / -refracted_dir_cs.z * l_over_w + 0.5;
 			float py = refracted_dir_cs.y / -refracted_dir_cs.z * l_over_h + 0.5;
@@ -483,7 +483,7 @@ void main()
 			vec2 o_ss = cameraToScreenSpace(pos_cs); // Get current fragment screen space position
 			
 			// Get a point some distance along the reflected dir, in world space, and transform to camera space.
-			vec3 dir_cs = (view_matrix * vec4(reflected_dir_ws, 0.0)).xyz; // view matrix shouldn't change lengths so don't need to normalise
+			vec3 dir_cs = (frag_view_matrix * vec4(reflected_dir_ws, 0.0)).xyz; // view matrix shouldn't change lengths so don't need to normalise
 			vec3 advanced_pos_cs = pos_cs + dir_cs;
 			vec2 advanced_p_ss = cameraToScreenSpace(advanced_pos_cs);
 
@@ -604,7 +604,7 @@ void main()
 			float map_t = roughness * 6.9999 - float(map_lower);
 
 			float refl_theta = acos(reflected_dir_ws.z);
-			float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - 1.f; // -1.f is to rotate reflection so it aligns with env rotation.
+			float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // -1.f is to rotate reflection so it aligns with env rotation.
 			vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64, 1 - 1.0 / 64)); // Clamp to avoid texture coord wrapping artifacts.
 
 			vec3 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))).xyz * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
@@ -614,7 +614,7 @@ void main()
 			//-------------- sun ---------------------
 			float d = dot(sundir_ws.xyz, reflected_dir_ws);
 
-			float sunscale = 2.0e-3f; // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
+			float sunscale = mix(2.0e-2f, 2.0e-3f, sundir_ws.z); // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
 			const float sun_solid_angle = 0.00006780608; // See SkyModel2Generator::makeSkyEnvMap();
 			vec3 suncol = sun_spec_rad_times_solid_angle.xyz * (1.0 / sun_solid_angle) * sunscale;
 			//vec4 suncol = vec4(9.38083E+12 * sunscale, 4.99901E+12 * sunscale, 1.25408E+12 * sunscale, 1); // From Indigo SkyModel2Generator.cpp::makeSkyEnvMap().
@@ -722,7 +722,7 @@ void main()
 			vec3 cur_pos_ws = pos_ws + refracted_dir_ws * cur_d; // Current step position = fragment position + refraction vector * dist along refraction vecgor
 		
 			// Transform current step position into cam space.
-			vec3 projected_cur_pos_cs = (view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
+			vec3 projected_cur_pos_cs = (frag_view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
 
 			// get depth texture coords for the current step position
 			float cur_px = projected_cur_pos_cs.x / -projected_cur_pos_cs.z * l_over_w + 0.5;
@@ -749,7 +749,7 @@ void main()
 					cur_pos_ws = pos_ws + refracted_dir_ws * intersect_d; // Current step position = fragment position + refraction vector * dist along refraction vecgor
 			
 					// Transform current step position into cam space.
-					projected_cur_pos_cs = (view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
+					projected_cur_pos_cs = (frag_view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
 			
 					// get depth texture coords for the current step position
 					refracted_px = projected_cur_pos_cs.x / -projected_cur_pos_cs.z * l_over_w + 0.5;

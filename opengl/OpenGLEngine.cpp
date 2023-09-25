@@ -3607,6 +3607,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 	if(object->is_instanced_ob_with_imposters)
 		current_scene->objects_with_imposters.erase(object);
 	current_scene->animated_objects.erase(object);
+	current_scene->water_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 
 	if(use_multi_draw_indirect)
@@ -5477,6 +5478,7 @@ void OpenGLEngine::draw()
 
 	// Update MaterialCommonUniforms, these values are constant for all materials for this frame.
 	MaterialCommonUniforms common_uniforms;
+	common_uniforms.view_matrix = main_view_matrix;
 	common_uniforms.sundir_cs = this->sun_dir_cam_space;
 	common_uniforms.sundir_ws = this->sun_dir;
 	common_uniforms.sun_spec_rad_times_solid_angle = this->sun_spec_rad_times_solid_angle;

@@ -2,6 +2,7 @@
 // Should be the same layout as in OpenGLEngine.h
 layout (std140) uniform MaterialCommonUniforms
 {
+	mat4 frag_view_matrix;
 	vec4 sundir_cs;
 	vec4 sundir_ws;
 	vec4 sun_spec_rad_times_solid_angle;
