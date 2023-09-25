@@ -573,7 +573,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
 			setPixelStoreAlignment(xres, gl_format, gl_type);
 
-			// NOTE: can't use glTexImage2D on immutable storage.
+			// NOTE: can't use glTexImage2D on immutable storage, have to use glTexSubImage2D instead.
 			glTexSubImage2D(
 				texture_target,
 				0, // LOD level

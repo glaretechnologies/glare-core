@@ -35,12 +35,10 @@ void ShadowMapping::init()
 	for(int i=0; i<2; ++i)
 		static_frame_buffer[i] = new FrameBuffer();
 
-	js::Vector<uint8, 16> buf(dynamic_w * dynamic_h * sizeof(float), 0);
-
 	// Create depth tex
 	// We will use a 16-bit depth format as I haven't seen any noticable issues with it so far, compared to a 32-bit format.
 	depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, /*opengl_engine=*/NULL,
-		buf,
+		ArrayRef<uint8>(NULL, 0),
 		OpenGLTexture::Format_Depth_Uint16, // Uint16,
 		OpenGLTexture::Filtering_PCF
 	);
@@ -49,11 +47,9 @@ void ShadowMapping::init()
 
 	cur_static_depth_tex = 0;
 
-	buf.resize(static_w * static_h * sizeof(float), 0);
-
 	for(int i=0; i<2; ++i)
 		static_depth_tex[i] = new OpenGLTexture(static_w, static_h, /*opengl_engine=*/NULL,
-			buf,
+			ArrayRef<uint8>(NULL, 0), // 
 			OpenGLTexture::Format_Depth_Uint16,
 			OpenGLTexture::Filtering_PCF // nearest filtering
 		);
@@ -101,6 +97,11 @@ void ShadowMapping::init()
 			//conPrint("Error: static framebuffer is not complete.");
 			//assert(0);
 		}
+
+		// Because the static depth textures will take a few frames to be fully filled, and will be used for rendering for a few frames first, clear them so as not to show garbage.
+		// Clear texture while it is bound to a framebuffer
+		glClearDepth(1.f);
+		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
 
 		FrameBuffer::unbind();
 	}
