@@ -40,7 +40,11 @@ void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
 	overlay_ob->material.albedo_linear_rgb = button_colour;
 	if(!tex_path.empty())
-		overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, /*allow_compression=*/false);
+	{
+		TextureParams tex_params;
+		tex_params.allow_compression = false;
+		overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
+	}
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
 
 

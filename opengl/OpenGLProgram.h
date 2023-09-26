@@ -28,6 +28,7 @@ struct UniformLocations
 	int lightmap_tex_location;
 	int fbm_tex_location;
 	int cirrus_tex_location; // Just for water reflection of cirrus
+	int terrain_mask_tex_location;
 	int detail_tex_0_location;
 	int detail_tex_1_location;
 	int detail_tex_2_location;

@@ -784,19 +784,17 @@ public:
 	//---------------------------- Texture loading -------------------------------------------
 	// Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
 	// Throws glare::Exception if texture could not be loaded.
-	Reference<OpenGLTexture> getTexture(const std::string& tex_path, bool allow_compression = true);
+	Reference<OpenGLTexture> getTexture(const std::string& tex_path, const TextureParams& params = TextureParams());
 
 	// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
 	// If the texture is not loaded, return a null reference.
-	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key, bool use_sRGB, bool use_mipmaps = true);
+	Reference<OpenGLTexture> getTextureIfLoaded(const OpenGLTextureKey& key);
 
-	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
-		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat);
+	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps, const TextureParams& params = TextureParams());
 
 	// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
 	// Otherwise load the texure from map2d into OpenGL immediately.
-	Reference<OpenGLTexture> getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-		OpenGLTexture::Filtering filtering = OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping wrapping = OpenGLTexture::Wrapping_Repeat, bool allow_compression = true, bool use_sRGB = true, bool use_mipmaps = true);
+	Reference<OpenGLTexture> getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, const TextureParams& params = TextureParams());
 
 	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex); // Adds to opengl_textures.  Assigns texture to all inserted objects that are using it according to opengl_mat.tex_path.
 
@@ -841,7 +839,8 @@ public:
 	//----------------------------------------------------------------------------------------
 
 	//------------------------------- Terrain --------------------
-	void setDetailTexture(int index, const Reference<OpenGLTexture>& tex);
+	void setTerrainMaskTexture(const OpenGLTextureRef& mask_tex);
+	void setDetailTexture(int index, const OpenGLTextureRef& tex);
 	//----------------------------------------------------------------------------------------
 
 
@@ -1056,7 +1055,9 @@ private:
 	int env_cirrus_tex_location;
 	int env_campos_ws_location;
 
+	ImageMapFloatRef fbm_imagemap;
 	Reference<OpenGLTexture> fbm_tex;
+	Reference<OpenGLTexture> terrain_mask_tex;
 	Reference<OpenGLTexture> detail_tex[4];
 	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;

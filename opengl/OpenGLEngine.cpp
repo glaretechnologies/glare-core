@@ -422,6 +422,7 @@ OpenGLEngine::~OpenGLEngine()
 {
 	// Destroy textures now, since they may use texture views
 	fbm_tex = NULL;
+	terrain_mask_tex = NULL;
 	for(int i=0; i<staticArrayNumElems(detail_tex); ++i)
 		detail_tex[i] = NULL;
 	blue_noise_tex = NULL;
@@ -1187,7 +1188,9 @@ void OpenGLEngine::loadMapsForSunDir()
 			);
 		}
 
-		this->cosine_env_tex = loadCubeMap(face_maps, OpenGLTexture::Filtering_Bilinear);
+		TextureParams tex_params;
+		tex_params.filtering = OpenGLTexture::Filtering_Bilinear;
+		this->cosine_env_tex = loadCubeMap(face_maps, tex_params);
 	}
 
 	// Load specular reflection map (specular_refl_sky_no_sun_combined_x.exr)
@@ -1199,7 +1202,9 @@ void OpenGLEngine::loadMapsForSunDir()
 			w0, w1
 		);
 
-		this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("specular reflection map" + toString(sun_theta)), *specular_refl_map, /*state, */OpenGLTexture::Filtering_Bilinear);
+		TextureParams params;
+		params.filtering = OpenGLTexture::Filtering_Bilinear;
+		this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("specular reflection map" + toString(sun_theta)), *specular_refl_map, params);
 	}
 
 
@@ -1212,8 +1217,11 @@ void OpenGLEngine::loadMapsForSunDir()
 			w0, w1
 		);
 
-		this->current_scene->env_ob->materials[0].albedo_texture = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("hi res env map" + toString(sun_theta)), *env_map, /*state, */OpenGLTexture::Filtering_Bilinear, 
-			OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false);
+		TextureParams params;
+		params.filtering = OpenGLTexture::Filtering_Bilinear;
+		params.wrapping = OpenGLTexture::Wrapping_Repeat;
+		params.allow_compression = false;
+		this->current_scene->env_ob->materials[0].albedo_texture = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("hi res env map" + toString(sun_theta)), *env_map, params);
 		this->current_scene->env_ob->materials[0].albedo_texture->setTWrappingEnabled(false); // Disable wrapping in vertical direction to avoid grey dot straight up.
 
 		this->current_scene->env_ob->materials[0].tex_matrix = Matrix2f(-1 / Maths::get2Pi<float>(), 0, 0, 1 / Maths::pi<float>());
@@ -1269,6 +1277,12 @@ void OpenGLEngine::setCirrusTexture(const Reference<OpenGLTexture>& tex)
 }
 
 
+void OpenGLEngine::setTerrainMaskTexture(const OpenGLTextureRef& mask_tex)
+{
+	this->terrain_mask_tex = mask_tex;
+}
+
+
 void OpenGLEngine::setDetailTexture(int index, const Reference<OpenGLTexture>& tex)
 {
 	assert(index >= 0 && index < 4);
@@ -1320,6 +1334,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
 	locations_out.caustic_tex_a_location			= prog->getUniformLocation("caustic_tex_a");
 	locations_out.caustic_tex_b_location			= prog->getUniformLocation("caustic_tex_b");
+	locations_out.terrain_mask_tex_location			= prog->getUniformLocation("terrain_mask_tex");
 	locations_out.detail_tex_0_location				= prog->getUniformLocation("detail_tex_0");
 	locations_out.detail_tex_1_location				= prog->getUniformLocation("detail_tex_1");
 	locations_out.detail_tex_2_location				= prog->getUniformLocation("detail_tex_2");
@@ -1344,7 +1359,7 @@ struct BuildFBMNoiseTask : public glare::Task
 {
 	virtual void run(size_t /*thread_index*/)
 	{
-		js::Vector<float, 16>& data_ = *data;
+		float* const data_ = imagemap->getData();
 		for(int y=begin_y; y<end_y; ++y)
 		for(int x=0; x<(int)W; ++x)
 		{
@@ -1363,7 +1378,7 @@ struct BuildFBMNoiseTask : public glare::Task
 		}
 	}
 
-	js::Vector<float, 16>* data;
+	ImageMapFloatRef imagemap;
 	size_t W;
 	int begin_y, end_y;
 };
@@ -1681,7 +1696,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		{
 			Timer timer;
 			const size_t W = 1024;
-			js::Vector<float, 16> data(W * W);
+			fbm_imagemap = new ImageMapFloat(W, W, 1);
 
 			glare::TaskManager& manager = getTaskManager();
 			const size_t num_tasks = myMax<size_t>(1, manager.getNumThreads());
@@ -1689,7 +1704,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			for(size_t t=0; t<num_tasks; ++t)
 			{
 				BuildFBMNoiseTask* task = new BuildFBMNoiseTask();
-				task->data = &data;
+				task->imagemap = fbm_imagemap;
 				task->W = W;
 				task->begin_y = (int)myMin(t       * num_rows_per_task, W);
 				task->end_y   = (int)myMin((t + 1) * num_rows_per_task, W);
@@ -1699,7 +1714,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
-			fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)),
+			fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)fbm_imagemap->getData(), fbm_imagemap->numPixels() * sizeof(float)),
 				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
@@ -1718,8 +1733,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Load blue noise texture
 		{
 			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", gl_data_dir + "/LDR_LLL1_0.png");
-			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, OpenGLTexture::Filtering_Nearest, 
-				OpenGLTexture::Wrapping_Repeat, /*allow compression=*/false, /*use_sRGB=*/false);
+
+			TextureParams params;
+			params.filtering = OpenGLTexture::Filtering_Nearest;
+			params.wrapping = OpenGLTexture::Wrapping_Repeat;
+			params.allow_compression = false;
+			params.use_sRGB = false;
+			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, params);
 		}
 
 
@@ -3709,7 +3729,7 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 
 // Return an OpenGL texture based on tex_path.  Loads it from disk if needed.  Blocking.
 // Throws glare::Exception
-Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, bool allow_compression)
+Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, const TextureParams& params)
 {
 	try
 	{
@@ -3730,7 +3750,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, b
 		// TEMP HACK: need to set base dir here
 		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
 
-		return this->getOrLoadOpenGLTextureForMap2D(texture_key, *map, OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, allow_compression);
+		return this->getOrLoadOpenGLTextureForMap2D(texture_key, *map, params);
 	}
 	catch(TextureServerExcep& e)
 	{
@@ -3741,7 +3761,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, b
 
 // If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
 // If the texture is not loaded, return a null reference.
-Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key, bool use_sRGB, bool use_mipmaps)
+Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey& texture_key)
 {
 	auto res = this->opengl_textures.find(texture_key);
 	if(res != this->opengl_textures.end())
@@ -7621,6 +7641,8 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	if(this->specular_env_tex.nonNull())
 		bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/locations.specular_env_tex_location);
 
+	if(this->terrain_mask_tex.nonNull())
+		bindTextureUnitToSampler(*this->terrain_mask_tex, /*texture_unit_index=*/22, /*sampler_uniform_location=*/locations.terrain_mask_tex_location);
 	if(this->detail_tex[0].nonNull())
 		bindTextureUnitToSampler(*this->detail_tex[0], /*texture_unit_index=*/18, /*sampler_uniform_location=*/locations.detail_tex_0_location);
 	if(this->detail_tex[1].nonNull())
@@ -8418,8 +8440,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 }
 
 
-Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps,
-	OpenGLTexture::Filtering /*filtering*/, OpenGLTexture::Wrapping /*wrapping*/)
+Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps, const TextureParams& params)
 {
 
 	if(dynamic_cast<const ImageMapFloat*>(face_maps[0].getPointer()))
@@ -8487,8 +8508,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 // If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
 // Otherwise load the texure from map2d into OpenGL immediately.
-Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, /*BuildUInt8MapTextureDataScratchState& state,*/
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool allow_compression, bool use_sRGB, bool use_mipmaps)
+Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, const TextureParams& params)
 {
 	auto res = this->opengl_textures.find(key);
 	if(res != this->opengl_textures.end())// if this map has already been loaded into an OpenGL Texture:
@@ -8500,11 +8520,11 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 
 
 	// Process texture data
-	const bool use_compression = allow_compression && this->textureCompressionSupportedAndEnabled();
+	const bool use_compression = params.allow_compression && this->textureCompressionSupportedAndEnabled();
 	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), &this->getTaskManager(), use_compression);
 
 	OpenGLTextureLoadingProgress loading_progress;
-	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, use_sRGB, /*use_mipmaps, */texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params.use_sRGB, /*use_mipmaps, */texture_data, loading_progress);
 
 	const int MAX_ITERS = 1000;
 	int i = 0;

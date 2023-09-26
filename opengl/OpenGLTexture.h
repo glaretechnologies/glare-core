@@ -214,4 +214,16 @@ public:
 };
 
 
+struct TextureParams
+{
+	TextureParams() : allow_compression(true), use_sRGB(true), use_mipmaps(true), filtering(OpenGLTexture::Filtering_Fancy), wrapping(OpenGLTexture::Wrapping_Repeat) {}
+
+	bool allow_compression;
+	bool use_sRGB;
+	bool use_mipmaps;
+	OpenGLTexture::Filtering filtering;
+	OpenGLTexture::Wrapping wrapping;
+};
+
+
 typedef Reference<OpenGLTexture> OpenGLTextureRef;
