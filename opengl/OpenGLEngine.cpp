@@ -1808,6 +1808,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		preprocessor_defines += "#define RENDER_SKY_AND_CLOUD_REFLECTIONS " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
 		preprocessor_defines += "#define RENDER_SUN_AND_SKY " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
 		preprocessor_defines += "#define RENDER_CLOUD_SHADOWS " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define UNDERWATER_CAUSTICS " + (settings.render_water_caustics ? std::string("1") : std::string("0")) + "\n";
 
 		// static_cascade_blending causes a white-screen error on many Intel GPUs.
 		const bool static_cascade_blending = !is_intel_vendor;
