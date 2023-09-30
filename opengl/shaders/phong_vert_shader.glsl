@@ -210,7 +210,11 @@ void main()
 
 #endif // end if !INSTANCE_MATRICES
 
+#if TERRAIN
+	texture_coords = pos_ws.xy;
+#else
 	texture_coords = texture_coords_0_in;
+#endif
 
 #if VERT_COLOURS
 	vert_colour = vert_colours_in;

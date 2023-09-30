@@ -41,6 +41,7 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
+uniform sampler2D terrain_mask_tex;
 uniform sampler2D detail_tex_0; // beach
 uniform sampler2D detail_tex_1; // sediment
 uniform sampler2D detail_tex_2; // rock
@@ -490,10 +491,52 @@ void main()
 	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
 
 #if TERRAIN
-	//vec2 detail_uvs = pos_ws.xy * (1 / 3.f);
-	//detail_uvs.y *= -1.0;
-	//sun_diffuse_col.xyz  *= texture(detail_tex_0, detail_uvs).xyz;
-	//refl_diffuse_col.xyz *= texture(detail_tex_0, detail_uvs).xyz;
+	vec4 mask = texture(terrain_mask_tex, main_tex_coords + vec2(0.5 / 1024, 0.5 / 1024));
+	
+	vec2 detail_map_0_uvs = main_tex_coords * (8.0 * 1024 / 8.0);
+	vec2 detail_map_1_uvs = main_tex_coords * (8.0 * 1024 / 4.0);
+	vec2 detail_map_2_uvs = main_tex_coords * (8.0 * 1024 / 4.0);
+
+	vec4 detail_0_texval = vec4(0.f);
+	vec4 detail_1_texval = vec4(0.f);
+	vec4 detail_2_texval = vec4(0.f);
+	//if(mask.x > 0.0)
+		detail_0_texval =  texture(detail_tex_0, detail_map_0_uvs);
+	//if(mask.y > 0.0)
+		detail_1_texval =  texture(detail_tex_1, detail_map_1_uvs);
+	//if(mask.z > 0.0)
+		detail_2_texval =  texture(detail_tex_2, detail_map_2_uvs);
+
+
+	float non_beach_factor = smoothstep(12.0, 13.0, pos_ws.z);
+	float beach_factor = 1.0 - non_beach_factor;
+
+	float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2).x * 0.2);
+	float rock_height = sqrt(detail_0_texval.w) * rock_weight_env;
+	float rock_weight = (rock_height > 0.2 /*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
+
+	//float veg_frac = mask.z > texture(fbm_tex, detail_map_2_uvs).x ? 1.0 : 0.0;
+	// Vegetation as a fraction of (vegetation + sediment)
+	float veg_frac = ((mask.z > fbmMix(detail_map_2_uvs * 0.2).x * 0.3 + 0.5 + beach_factor) ? 1.0 : 0.0);
+
+	float sed_weight = (1 - rock_weight) * (1.0 - veg_frac); // (mask.y / (mask.y + mask.z));
+	float veg_weight = (1 - rock_weight) * veg_frac; // (mask.z / (mask.y + mask.z));
+
+	float col_variation_amt = 0.1;
+	vec4 colour_variation_factor = vec4(
+		1.0 + fbmMix(detail_map_2_uvs * 0.026546).x * col_variation_amt, 
+		1.0 + fbmMix(detail_map_2_uvs * 0.016546).x * col_variation_amt, 
+		1.0,
+		1.0);
+
+	vec4 texcol = vec4(0.f);
+	texcol += detail_0_texval * rock_weight;
+	texcol += detail_1_texval * sed_weight;
+	texcol += detail_2_texval * colour_variation_factor * veg_weight * 0.5;
+	texcol.w = 1.0;
+
+	sun_diffuse_col  = texcol;
+	refl_diffuse_col = texcol;
 #endif
 
 	// Apply vertex colour, if enabled.
