@@ -1190,6 +1190,8 @@ void OpenGLEngine::loadMapsForSunDir()
 
 		TextureParams tex_params;
 		tex_params.filtering = OpenGLTexture::Filtering_Bilinear;
+		tex_params.use_mipmaps = false;
+		tex_params.allow_compression = false;
 		this->cosine_env_tex = loadCubeMap(face_maps, tex_params);
 	}
 
@@ -1202,9 +1204,11 @@ void OpenGLEngine::loadMapsForSunDir()
 			w0, w1
 		);
 
-		TextureParams params;
-		params.filtering = OpenGLTexture::Filtering_Bilinear;
-		this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("specular reflection map" + toString(sun_theta)), *specular_refl_map, params);
+		TextureParams tex_params;
+		tex_params.filtering = OpenGLTexture::Filtering_Bilinear;
+		tex_params.use_mipmaps = false;
+		tex_params.allow_compression = false;
+		this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("specular reflection map" + toString(sun_theta)), *specular_refl_map, tex_params);
 	}
 
 
@@ -1217,11 +1221,12 @@ void OpenGLEngine::loadMapsForSunDir()
 			w0, w1
 		);
 
-		TextureParams params;
-		params.filtering = OpenGLTexture::Filtering_Bilinear;
-		params.wrapping = OpenGLTexture::Wrapping_Repeat;
-		params.allow_compression = false;
-		this->current_scene->env_ob->materials[0].albedo_texture = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("hi res env map" + toString(sun_theta)), *env_map, params);
+		TextureParams tex_params;
+		tex_params.filtering = OpenGLTexture::Filtering_Bilinear;
+		tex_params.wrapping = OpenGLTexture::Wrapping_Repeat;
+		tex_params.allow_compression = false;
+		tex_params.use_mipmaps = false;
+		this->current_scene->env_ob->materials[0].albedo_texture = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("hi res env map" + toString(sun_theta)), *env_map, tex_params);
 		this->current_scene->env_ob->materials[0].albedo_texture->setTWrappingEnabled(false); // Disable wrapping in vertical direction to avoid grey dot straight up.
 
 		this->current_scene->env_ob->materials[0].tex_matrix = Matrix2f(-1 / Maths::get2Pi<float>(), 0, 0, 1 / Maths::pi<float>());
@@ -1739,6 +1744,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			params.wrapping = OpenGLTexture::Wrapping_Repeat;
 			params.allow_compression = false;
 			params.use_sRGB = false;
+			params.use_mipmaps = false;
 			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, params);
 		}
 
@@ -8519,13 +8525,22 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 		return res->second.value;
 	}
 
+	if(params.allow_compression)
+	{
+		assert(params.use_mipmaps);
+	}
+
+	if(params.filtering != OpenGLTexture::Filtering_Fancy)
+	{
+		assert(params.use_mipmaps == false);
+	}
 
 	// Process texture data
-	const bool use_compression = params.allow_compression && this->textureCompressionSupportedAndEnabled();
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), &this->getTaskManager(), use_compression);
+	const bool use_compression = params.allow_compression && this->textureCompressionSupportedAndEnabled() && params.use_mipmaps; // The non mip-mapping code-path doesn't allow compression
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), &this->getTaskManager(), use_compression, params.use_mipmaps);
 
 	OpenGLTextureLoadingProgress loading_progress;
-	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params.use_sRGB, /*use_mipmaps, */texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params.use_sRGB, params.filtering, texture_data, loading_progress);
 
 	const int MAX_ITERS = 1000;
 	int i = 0;

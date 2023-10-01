@@ -124,12 +124,12 @@ static void doTextureChunkedLoadingTestForMap2D(OpenGLEngine& engine, const std:
 	const std::string key = engine.getTextureServer()->keyForPath(tex_path); // Get canonical path.  May throw TextureServerExcep
 
 	const bool use_compression = opengl_engine->textureCompressionSupportedAndEnabled();
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(map.ptr(), engine.mem_allocator.ptr(), &engine.getTaskManager(), use_compression);
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(map.ptr(), engine.mem_allocator.ptr(), &engine.getTaskManager(), use_compression, /*build mipmaps=*/true);
 
 	const bool use_sRGB = true;
 	OpenGLTextureLoadingProgress loading_progress;
 	testAssert(!loading_progress.loadingInProgress());
-	TextureLoading::initialiseTextureLoadingProgress(tex_path, Reference<OpenGLEngine>(&engine), OpenGLTextureKey(key), use_sRGB, texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(tex_path, Reference<OpenGLEngine>(&engine), OpenGLTextureKey(key), use_sRGB,  OpenGLTexture::Filtering_Fancy, texture_data, loading_progress);
 	testAssert(loading_progress.loadingInProgress());
 
 	const int MAX_ITERS = 100000;

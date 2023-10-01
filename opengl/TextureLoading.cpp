@@ -36,17 +36,21 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const 
 {
 	const int frame_i = 0;
 	
-	if(!texture_data.frames[0].compressed_data.empty()) // If the texture data is compressed data we compressed ourselves:
+	if(!texture_data.frames[0].mipmap_data.empty()) // If the texture data is processed data we processed ourselves:
 	{
 		const size_t W = texture_data.W;
 		const size_t H = texture_data.H;
 		const size_t bytes_pp = texture_data.bytes_pp;
 
-		const OpenGLTexture::Format format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
+		OpenGLTexture::Format format;
+		if(texture_data.data_is_compressed)
+			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
+		else
+			format = (bytes_pp == 3) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_SRGBA_Uint8;
 
 		return new OpenGLTexture(W, H, opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0), /*format=*/format, filtering, wrapping);
 	}
-	else // Else if we don't have data we compressed ourselves, image will not have been processed and is just stored in converted_image.
+	else // Else if we don't have data we processed ourselves, image will not have been processed and is just stored in converted_image.
 	{
 		runtimeCheck(texture_data.frames[frame_i].converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
 
@@ -82,18 +86,20 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 	{
 		const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(&map2d);
 
+		const bool use_mipmaps = filtering == OpenGLTexture::Filtering_Fancy;
+
 		if(imagemap->getN() == 1)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_Greyscale_Float, 
-				filtering, wrapping,  /*use_mipmaps=*/false
+				filtering, wrapping,  /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else if(imagemap->getN() == 3)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_RGB_Linear_Float,
-				filtering, wrapping,  /*use_mipmaps=*/false
+				filtering, wrapping,  /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else
@@ -103,18 +109,20 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 	{
 		const ImageMap<half, HalfComponentValueTraits>* imagemap = static_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d);
 
+		const bool use_mipmaps = filtering == OpenGLTexture::Filtering_Fancy;
+
 		if(imagemap->getN() == 1)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_Greyscale_Half,
-				filtering, wrapping, /*use_mipmaps=*/false
+				filtering, wrapping, /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else if(imagemap->getN() == 3)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_RGB_Linear_Half,
-				filtering, wrapping, /*use_mipmaps=*/false
+				filtering, wrapping, /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else
@@ -182,16 +190,16 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
-	const size_t bytes_pp = texture_data.bytes_pp;
-	if(!texture_data.frames[frame_i].compressed_data.empty()) // If the texture data is using a compressed texture format:
+	if(!texture_data.frames[frame_i].mipmap_data.empty()) // If the texture data has been processed into mip levels:
 	{
 		for(size_t k=0; k<texture_data.level_offsets.size(); ++k) // For each mipmap level:
 		{
 			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-			const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp);
+			const size_t level_offset = texture_data.level_offsets[k].offset;
+			const size_t level_size   = texture_data.level_offsets[k].level_size;
 
-			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].compressed_data[texture_data.level_offsets[k]], level_compressed_size), /*bind_needed=*/false);
+			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].mipmap_data[level_offset], level_size), /*bind_needed=*/false);
 		}
 
 		//opengl_tex->unbind();
@@ -215,12 +223,10 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 }
 
 
-void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, bool use_sRGB,
+void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, bool use_sRGB, OpenGLTexture::Filtering filtering,
 	const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress)
 {
 	assert(tex_data.nonNull());
-
-	const OpenGLTexture::Filtering filtering = (tex_data->num_mip_levels > 1) ? OpenGLTexture::Filtering_Fancy : OpenGLTexture::Filtering_Bilinear;
 
 	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), filtering, OpenGLTexture::Wrapping_Repeat, use_sRGB);
 	opengl_tex->key = key;
@@ -238,50 +244,87 @@ void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, c
 // See https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
 // In general xoffset and yoffset need to be a multiple of 4.
 // region_h needs to be a multiple of 4, *unless* it's the last vertical region before we get to the end of the image.
-static void doPartialUploadOfLevel(OpenGLTextureLoadingProgress& loading_progress, Reference<OpenGLTexture> opengl_tex, 
+static void doPartialUploadOfLevel(OpenGLTextureLoadingProgress& loading_progress, Reference<OpenGLTexture> opengl_tex, bool data_is_compressed,
 	size_t level, size_t level_W, size_t level_H, size_t block_size, ArrayRef<uint8> level_data, size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes)
 {
 	assert(total_bytes_uploaded_in_out < max_total_upload_bytes);
-
-	const size_t rounded_up_H = Maths::roundUpToMultipleOfPowerOf2(level_H, block_size);
-	runtimeCheck(rounded_up_H > 0);
-	const size_t compressed_bytes_per_row = level_data.size() / rounded_up_H;
-	assert(level_data.size() % compressed_bytes_per_row == 0);
-
 	const size_t max_num_bytes = max_total_upload_bytes - total_bytes_uploaded_in_out; // Maximum number of bytes before we hit max_num_upload_bytes
 
-	// Compute max_num_rows: max number of rows we can upload before we hit MAX_UPLOAD_SIZE, approximately.  
-	runtimeCheck(compressed_bytes_per_row > 0);
-	const size_t raw_num_rows = Maths::roundedUpDivide(max_num_bytes, compressed_bytes_per_row); // Round up so we always upload at least 1 row.
-	const size_t max_num_rows = Maths::roundUpToMultipleOfPowerOf2(raw_num_rows, block_size); // Round up to a multiple of the block size if we are using a block-based compression format, 
-	// since opengl requires the region height to be a multiple of the format's block height.
-	runtimeCheck(max_num_rows > 0);
-	
-	const size_t cur_y = loading_progress.level_next_y;
-	assert(cur_y < level_H);
-	const size_t rows_remaining = level_H - cur_y;
-	const size_t rows_to_upload = myMin(rows_remaining, max_num_rows);
-	runtimeCheck(rows_to_upload > 0);
-	//if(rows_to_upload == 0)
-	//	return rows_to_upload;
-
-	const size_t src_offset = cur_y * compressed_bytes_per_row;
-	const size_t rows_to_upload_size_B = Maths::roundUpToMultipleOfPowerOf2(rows_to_upload, block_size) * compressed_bytes_per_row; // Rounding to account for compression block size.
-	runtimeCheck(src_offset + rows_to_upload_size_B <= level_data.size());
-
-	// conPrint("Uploading mip level " + toString(k) + ", rows [" + toString(cur_y) + ", " + toString(cur_y + rows_to_upload) + ") (" + toString(rows_to_upload) + " rows) of tex " + opengl_tex->key.path);
-
-	opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/cur_y, /*region_w=*/level_W, /*region_h=*/rows_to_upload, /*row stride (B) (not used for compressed textures)=*/compressed_bytes_per_row, 
-		ArrayRef<uint8>(level_data.data() + src_offset/*&level_data[src_offset]*/, rows_to_upload_size_B), // tex data
-		/*bind_needed=*/false
-	);
-
-	total_bytes_uploaded_in_out += rows_to_upload_size_B;
-	loading_progress.level_next_y = cur_y + rows_to_upload;
-	if(loading_progress.level_next_y >= level_H) // If we have uploaded all rows for this MIP level:
+	if(data_is_compressed)
 	{
-		loading_progress.next_mip_level++; // Advance to row 0 of next MIP level.
-		loading_progress.level_next_y = 0;
+		const size_t rounded_up_H = Maths::roundUpToMultipleOfPowerOf2(level_H, block_size);
+		runtimeCheck(rounded_up_H > 0);
+		const size_t compressed_bytes_per_row = level_data.size() / rounded_up_H;
+		assert(level_data.size() % compressed_bytes_per_row == 0);
+
+		// Compute max_num_rows: max number of rows we can upload before we hit MAX_UPLOAD_SIZE, approximately.  
+		runtimeCheck(compressed_bytes_per_row > 0);
+		const size_t raw_num_rows = Maths::roundedUpDivide(max_num_bytes, compressed_bytes_per_row); // Round up so we always upload at least 1 row.
+		const size_t max_num_rows = Maths::roundUpToMultipleOfPowerOf2(raw_num_rows, block_size); // Round up to a multiple of the block size if we are using a block-based compression format, 
+		// since opengl requires the region height to be a multiple of the format's block height.
+		runtimeCheck(max_num_rows > 0);
+	
+		const size_t cur_y = loading_progress.level_next_y;
+		assert(cur_y < level_H);
+		const size_t rows_remaining = level_H - cur_y;
+		const size_t rows_to_upload = myMin(rows_remaining, max_num_rows);
+		runtimeCheck(rows_to_upload > 0);
+		//if(rows_to_upload == 0)
+		//	return rows_to_upload;
+
+		const size_t src_offset = cur_y * compressed_bytes_per_row;
+		const size_t rows_to_upload_size_B = Maths::roundUpToMultipleOfPowerOf2(rows_to_upload, block_size) * compressed_bytes_per_row; // Rounding to account for compression block size.
+		runtimeCheck(src_offset + rows_to_upload_size_B <= level_data.size());
+
+		// conPrint("Uploading mip level " + toString(k) + ", rows [" + toString(cur_y) + ", " + toString(cur_y + rows_to_upload) + ") (" + toString(rows_to_upload) + " rows) of tex " + opengl_tex->key.path);
+
+		opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/cur_y, /*region_w=*/level_W, /*region_h=*/rows_to_upload, /*row stride (B) (not used for compressed textures)=*/compressed_bytes_per_row, 
+			ArrayRef<uint8>(level_data.data() + src_offset/*&level_data[src_offset]*/, rows_to_upload_size_B), // tex data
+			/*bind_needed=*/false
+		);
+
+		total_bytes_uploaded_in_out += rows_to_upload_size_B;
+		loading_progress.level_next_y = cur_y + rows_to_upload;
+		if(loading_progress.level_next_y >= level_H) // If we have uploaded all rows for this MIP level:
+		{
+			loading_progress.next_mip_level++; // Advance to row 0 of next MIP level.
+			loading_progress.level_next_y = 0;
+		}
+	}
+	else
+	{
+		const size_t bytes_per_row = level_data.size() / level_H;
+		assert(level_data.size() % bytes_per_row == 0);
+
+		// Compute max_num_rows: max number of rows we can upload before we hit MAX_UPLOAD_SIZE, approximately.  
+		runtimeCheck(bytes_per_row > 0);
+		const size_t max_num_rows = Maths::roundedUpDivide(max_num_bytes, bytes_per_row); // Round up so we always upload at least 1 row.
+		runtimeCheck(max_num_rows > 0);
+
+		const size_t cur_y = loading_progress.level_next_y;
+		assert(cur_y < level_H);
+		const size_t rows_remaining = level_H - cur_y;
+		const size_t rows_to_upload = myMin(rows_remaining, max_num_rows);
+		runtimeCheck(rows_to_upload > 0);
+
+		const size_t src_offset = cur_y * bytes_per_row;
+		const size_t rows_to_upload_size_B = rows_to_upload * bytes_per_row;
+		runtimeCheck(src_offset + rows_to_upload_size_B <= level_data.size());
+
+		// conPrint("Uploading mip level " + toString(k) + ", rows [" + toString(cur_y) + ", " + toString(cur_y + rows_to_upload) + ") (" + toString(rows_to_upload) + " rows) of tex " + opengl_tex->key.path);
+
+		opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/cur_y, /*region_w=*/level_W, /*region_h=*/rows_to_upload, /*row stride (B)=*/bytes_per_row, 
+			ArrayRef<uint8>(level_data.data() + src_offset, rows_to_upload_size_B), // tex data
+			/*bind_needed=*/false
+		);
+
+		total_bytes_uploaded_in_out += rows_to_upload_size_B;
+		loading_progress.level_next_y = cur_y + rows_to_upload;
+		if(loading_progress.level_next_y >= level_H) // If we have uploaded all rows for this MIP level:
+		{
+			loading_progress.next_mip_level++; // Advance to row 0 of next MIP level.
+			loading_progress.level_next_y = 0;
+		}
 	}
 }
 
@@ -299,7 +342,7 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 	opengl_tex->bind();
 
 	const size_t frame_i = 0;
-	if(!texture_data->frames[frame_i].compressed_data.empty()) // If the texture data has data we compressed in TextureProcessing
+	if(!texture_data->frames[frame_i].mipmap_data.empty()) // If the texture data has data we compressed in TextureProcessing
 	{
 		while((loading_progress.next_mip_level < loading_progress.num_mip_levels) && (total_bytes_uploaded_in_out < max_total_upload_bytes))
 		{
@@ -311,13 +354,15 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 
 			runtimeCheck(k < texture_data->level_offsets.size());
-			runtimeCheck(texture_data->level_offsets[k] < texture_data->frames[frame_i].compressed_data.size());
 
-			const size_t level_data_end = ((k + 1) < texture_data->level_offsets.size()) ? texture_data->level_offsets[k + 1] : texture_data->frames[frame_i].compressed_data.size();
-			const size_t level_data_size = level_data_end - texture_data->level_offsets[k];
+			const size_t level_offset = texture_data->level_offsets[k].offset;
+			const size_t level_size   = texture_data->level_offsets[k].level_size;
+			
+			runtimeCheck(level_offset < texture_data->frames[frame_i].mipmap_data.size());
+			runtimeCheck(level_offset + level_size <= texture_data->frames[frame_i].mipmap_data.size());
 
-			doPartialUploadOfLevel(loading_progress, opengl_tex, k, level_W, level_H, /*block size=*/4, 
-				ArrayRef<uint8>(texture_data->frames[frame_i].compressed_data.data() + texture_data->level_offsets[k], level_data_size), total_bytes_uploaded_in_out, max_total_upload_bytes);
+			doPartialUploadOfLevel(loading_progress, opengl_tex, texture_data->data_is_compressed, k, level_W, level_H, /*block size=*/4, 
+				ArrayRef<uint8>(texture_data->frames[frame_i].mipmap_data.data() + level_offset, level_size), total_bytes_uploaded_in_out, max_total_upload_bytes);
 		}
 	}
 	else
@@ -343,7 +388,7 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 				const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
 				const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
 
-				doPartialUploadOfLevel(loading_progress, opengl_tex, k, level_W, level_H, /*block size=*/4, ArrayRef<uint8>(level_data.data(), level_data.size()), total_bytes_uploaded_in_out, max_total_upload_bytes);
+				doPartialUploadOfLevel(loading_progress, opengl_tex, /*data_is_compressed=*/true, k, level_W, level_H, /*block size=*/4, ArrayRef<uint8>(level_data.data(), level_data.size()), total_bytes_uploaded_in_out, max_total_upload_bytes);
 			}
 		}
 		else // else if src_map is not a CompressedImage:
@@ -382,13 +427,18 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 					runtimeCheck(0);
 				}
 
-				doPartialUploadOfLevel(loading_progress, opengl_tex, k, level_W, level_H, /*block size=*/1, ArrayRef<uint8>((const uint8*)src_data, src_data_size), total_bytes_uploaded_in_out, max_total_upload_bytes);
+				doPartialUploadOfLevel(loading_progress, opengl_tex, /*data_is_compressed=*/false, k, level_W, level_H, /*block size=*/1, ArrayRef<uint8>((const uint8*)src_data, src_data_size), total_bytes_uploaded_in_out, max_total_upload_bytes);
 			}
 		}
 	}
 
 	if(loading_progress.done())
 	{
+		// Now that we have loaded all the texture data into OpenGL, if we didn't compute all mipmap level data ourselves, and we need it for trilinear filtering, then get the driver to do it.
+		if(texture_data->num_mip_levels == 1 && opengl_tex->getFiltering() == OpenGLTexture::Filtering_Fancy)
+			opengl_tex->buildMipMaps();
+
+
 		if(texture_data->frames.size() > 1)
 		{
 			// If this is texture data for an animated texture (Gif), then keep it around.

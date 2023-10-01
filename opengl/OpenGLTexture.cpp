@@ -731,7 +731,6 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 
 			setPixelStoreAlignment(tex_data.data(), row_stride_B);
 
-			// NOTE: can't use glTexImage2D on immutable storage.
 			glTexSubImage2D(
 				GL_TEXTURE_2D,
 				mipmap_level, // LOD level
@@ -754,6 +753,13 @@ void OpenGLTexture::setTWrappingEnabled(bool wrapping_enabled)
 {
 	glBindTexture(GL_TEXTURE_2D, texture_handle);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapping_enabled ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+}
+
+
+void OpenGLTexture::buildMipMaps()
+{
+	glBindTexture(GL_TEXTURE_2D, texture_handle);
+	glGenerateMipmap(texture_target);
 }
 
 
@@ -803,8 +809,16 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t 
 	}
 	else
 	{
-		// NOTE: currently we don't hit this code path, because we only explictly set mipmap level data for compressed images.
-		assert(0);
+		glTexSubImage2D(
+			GL_TEXTURE_2D,
+			mipmap_level, // LOD level
+			0, // xoffset
+			0, // yoffset
+			(GLsizei)level_W, (GLsizei)level_H,
+			gl_internal_format,
+			(GLsizei)tex_data.size(),
+			tex_data.data()
+		);
 	}
 }
 

@@ -51,7 +51,9 @@ void GLUIButton::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, con
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
 	overlay_ob->material.albedo_linear_rgb = button_colour;
-	overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path); // NOTE: currently we don't support mip-maps for uncompressed textures, which we need.  Turn compression off once this is supported.
+	TextureParams tex_params;
+	tex_params.allow_compression = false;
+	overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
 
 

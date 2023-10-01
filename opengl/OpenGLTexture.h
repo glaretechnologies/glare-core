@@ -121,6 +121,8 @@ public:
 	void loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed);
 
 	void setTWrappingEnabled(bool wrapping_enabled);
+
+	void buildMipMaps();
 	//---------------------------------------------------------------------------------------------------------------------
 
 	void readBackTexture(int mipmap_level, ArrayRef<uint8> buffer);
@@ -139,6 +141,8 @@ public:
 	size_t getByteSize() const;
 
 	GLenum getTextureTarget() const { return texture_target; } // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE.
+
+	Filtering getFiltering() const { return filtering; }
 
 
 	/// Increment reference count

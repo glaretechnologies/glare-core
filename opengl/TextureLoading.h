@@ -64,8 +64,9 @@ public:
 	static void loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i);
 
 
-	static void initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, bool use_sRGB, /*bool use_mipmaps,*/ 
+	static void initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, bool use_sRGB, OpenGLTexture::Filtering filtering,
 		const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress);
+
 	static void partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>& opengl_engine, OpenGLTextureLoadingProgress& loading_progress, 
 		size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes);
 

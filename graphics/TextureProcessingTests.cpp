@@ -57,32 +57,41 @@ void TextureProcessingTests::testDownSamplingGreyTexture(unsigned int W, unsigne
 
 void TextureProcessingTests::testBuildingTexDataForImage(glare::Allocator* allocator, unsigned int W, unsigned int H, unsigned int N)
 {
-	ImageMapUInt8Ref map = new ImageMapUInt8(W, H, N);
-	map->set(128);
-	Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map.getPointer(), allocator, /*task manager=*/NULL, /*allow compression=*/true);
-
-	// Check MIP level offsets are valid
-	for(size_t k=0; k<tex_data->level_offsets.size(); ++k)
+	for(int i=0; i<2; ++i)
 	{
-		const size_t offset = tex_data->level_offsets[k];
+		const bool allow_compression = i > 0;
 
-		// Check offset is aligned.  Note: I'm not sure what this alignment needs to be, if anything
-		testAssert(offset % 8 == 0);
+		const bool result_should_be_compressed = allow_compression && (W > 1) && (H > 1);
 
-		// Compute the size of the compressed data for this level
-		const size_t level_W = myMax((size_t)1, tex_data->W / ((size_t)1 << k));
-		const size_t level_H = myMax((size_t)1, tex_data->H / ((size_t)1 << k));
-		const size_t level_compressed_size = DXTCompression::getCompressedSizeBytes(level_W, level_H, tex_data->bytes_pp);
+		ImageMapUInt8Ref map = new ImageMapUInt8(W, H, N);
+		map->set(128);
+		Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map.getPointer(), allocator, /*task manager=*/NULL, /*allow compression=*/allow_compression, /*build mipmaps=*/true);
 
-		// Make sure the next offset is sufficiently far away.
-		size_t next_offset;
-		if(k + 1 < tex_data->level_offsets.size())
-			next_offset = tex_data->level_offsets[k + 1];
-		else
-			next_offset = tex_data->frames[0].compressed_data.size();
+		// Check MIP level offsets are valid
+		for(size_t k=0; k<tex_data->level_offsets.size(); ++k)
+		{
+			const size_t offset = tex_data->level_offsets[k].offset;
 
-		testAssert(offset + level_compressed_size <= next_offset);
-		testAssert(offset + level_compressed_size <= tex_data->frames[0].compressed_data.size());
+			// Check offset is aligned.  Note: I'm not sure what this alignment needs to be, if anything
+			testAssert(offset % 8 == 0);
+
+			// Compute the size of the compressed data for this level
+			const size_t level_W = myMax((size_t)1, tex_data->W / ((size_t)1 << k));
+			const size_t level_H = myMax((size_t)1, tex_data->H / ((size_t)1 << k));
+			const size_t level_size = result_should_be_compressed ? DXTCompression::getCompressedSizeBytes(level_W, level_H, tex_data->bytes_pp) : (level_W * level_H * tex_data->bytes_pp);
+
+			testAssert(tex_data->level_offsets[k].level_size == level_size);
+
+			// Make sure the next offset is sufficiently far away.
+			size_t next_offset;
+			if(k + 1 < tex_data->level_offsets.size())
+				next_offset = tex_data->level_offsets[k + 1].offset;
+			else
+				next_offset = tex_data->frames[0].mipmap_data.size();
+
+			testAssert(offset + level_size <= next_offset);
+			testAssert(offset + level_size <= tex_data->frames[0].mipmap_data.size());
+		}
 	}
 }
 
@@ -137,37 +146,40 @@ static void testLoadingFile(const std::string& path, glare::TaskManager& task_ma
 
 void TextureProcessingTests::testLoadingAnimatedFile(const std::string& path, glare::Allocator* allocator, glare::TaskManager& task_manager)
 {
-	try
+	for(int z=0; z<2; ++z)
 	{
-		Reference<Map2D> mip_level_image = GIFDecoder::decodeImageSequence(path);
-
-		testAssert(mip_level_image.isType<ImageMapSequenceUInt8>());
-
-		const ImageMapSequenceUInt8* seq = mip_level_image.downcastToPtr<ImageMapSequenceUInt8>();
-
-		testAssert(seq->images.size() > 1);
-		//for(size_t i=0; i<seq->images.size(); ++i)
-		//{
-		//	testAssert(seq->images[i]->getMapWidth() == 30);
-		//	testAssert(seq->images[i]->getMapHeight() == 60);
-		//	testAssert(seq->images[i]->getBytesPerPixel() == 3);
-		//}
-
-		Reference<TextureData> texdata = TextureProcessing::buildUInt8MapSequenceTextureData(seq, allocator, &task_manager,
-			/*allow compresstion=*/true);
-
-		testAssert(texdata->W == seq->images[0]->getMapWidth());
-		testAssert(texdata->H == seq->images[0]->getMapHeight());
-
-		testAssert(texdata->frames.size() == seq->images.size());
-		for(size_t i=0; i<texdata->frames.size(); ++i)
+		const bool allow_compression = z > 0;
+		try
 		{
-			testAssert(texdata->frames[i].compressed_data.size() > 0);
+			Reference<Map2D> mip_level_image = GIFDecoder::decodeImageSequence(path);
+
+			testAssert(mip_level_image.isType<ImageMapSequenceUInt8>());
+
+			const ImageMapSequenceUInt8* seq = mip_level_image.downcastToPtr<ImageMapSequenceUInt8>();
+
+			testAssert(seq->images.size() > 1);
+			//for(size_t i=0; i<seq->images.size(); ++i)
+			//{
+			//	testAssert(seq->images[i]->getMapWidth() == 30);
+			//	testAssert(seq->images[i]->getMapHeight() == 60);
+			//	testAssert(seq->images[i]->getBytesPerPixel() == 3);
+			//}
+
+			Reference<TextureData> texdata = TextureProcessing::buildUInt8MapSequenceTextureData(seq, allocator, &task_manager, allow_compression, /*build_mipmaps=*/true);
+
+			testAssert(texdata->W == seq->images[0]->getMapWidth());
+			testAssert(texdata->H == seq->images[0]->getMapHeight());
+
+			testAssert(texdata->frames.size() == seq->images.size());
+			for(size_t i=0; i<texdata->frames.size(); ++i)
+			{
+				testAssert(texdata->frames[i].mipmap_data.size() > 0);
+			}
 		}
-	}
-	catch(glare::Exception& e)
-	{
-		failTest(e.what());
+		catch(glare::Exception& e)
+		{
+			failTest(e.what());
+		}
 	}
 }
 
@@ -240,14 +252,14 @@ void TextureProcessingTests::test()
 		const ImageMapUInt8* map_imagemapuint8 = mip_level_image.downcastToPtr<ImageMapUInt8>();
 
 		Timer timer;
-		Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), /*task manager=*/NULL, /*allow compression=*/true);
+		Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), /*task manager=*/NULL, /*allow compression=*/true, /*build mipmaps=*/true);
 
 		conPrint("single-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringNSigFigs(3));
 
 		timer.reset();
 
 		//for(int i=0; i<1000; ++i)
-			tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), &task_manager, /*allow compression=*/true);
+			tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), &task_manager, /*allow compression=*/true, /*build mipmaps=*/true);
 
 		conPrint("multi-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringNSigFigs(3));
 	}
