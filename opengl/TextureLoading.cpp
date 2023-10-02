@@ -224,11 +224,11 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 
 
 void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, bool use_sRGB, OpenGLTexture::Filtering filtering,
-	const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress)
+	OpenGLTexture::Wrapping wrapping, const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress)
 {
 	assert(tex_data.nonNull());
 
-	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), filtering, OpenGLTexture::Wrapping_Repeat, use_sRGB);
+	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), filtering, wrapping, use_sRGB);
 	opengl_tex->key = key;
 
 	loading_progress.path = path;

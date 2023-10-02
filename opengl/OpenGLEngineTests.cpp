@@ -129,7 +129,7 @@ static void doTextureChunkedLoadingTestForMap2D(OpenGLEngine& engine, const std:
 	const bool use_sRGB = true;
 	OpenGLTextureLoadingProgress loading_progress;
 	testAssert(!loading_progress.loadingInProgress());
-	TextureLoading::initialiseTextureLoadingProgress(tex_path, Reference<OpenGLEngine>(&engine), OpenGLTextureKey(key), use_sRGB,  OpenGLTexture::Filtering_Fancy, texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(tex_path, Reference<OpenGLEngine>(&engine), OpenGLTextureKey(key), use_sRGB,  OpenGLTexture::Filtering_Fancy, OpenGLTexture::Wrapping_Repeat, texture_data, loading_progress);
 	testAssert(loading_progress.loadingInProgress());
 
 	const int MAX_ITERS = 100000;

@@ -8540,7 +8540,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), &this->getTaskManager(), use_compression, params.use_mipmaps);
 
 	OpenGLTextureLoadingProgress loading_progress;
-	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params.use_sRGB, params.filtering, texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params.use_sRGB, params.filtering, params.wrapping, texture_data, loading_progress);
 
 	const int MAX_ITERS = 1000;
 	int i = 0;
