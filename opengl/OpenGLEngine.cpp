@@ -272,6 +272,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	use_z_up = true;
 	bloom_strength = 0;
 	wind_strength = 1.f;
+	water_level_z = 0.f;
 
 	env_ob = engine.allocateObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
@@ -5516,6 +5517,7 @@ void OpenGLEngine::draw()
 	common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
 	common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
 	common_uniforms.env_phi = this->sun_phi;
+	common_uniforms.water_level_z = this->current_scene->water_level_z;
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 

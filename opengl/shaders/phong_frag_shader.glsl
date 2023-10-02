@@ -956,8 +956,6 @@ void main()
 	// campos_ws + cam_to_pos_ws = pos_ws
 	// campos_ws = pos_ws - cam_to_pos_ws;
 
-	float water_level_z = 10.f; // TEMP HACK
-	
 	float campos_z = pos_ws.z - cam_to_pos_ws.z;
 	if(/*(campos_z < -3.8) && */pos_ws.z < water_level_z)
 	{

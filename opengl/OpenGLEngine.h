@@ -455,6 +455,8 @@ public:
 
 	float wind_strength; // Default = 1.
 
+	float water_level_z; // Default = 0.  Controls drawing of underwater caustics.
+
 	js::Vector<Vec4f, 16> blob_shadow_locations;
 private:
 	float use_sensor_width;
@@ -622,10 +624,10 @@ struct MaterialCommonUniforms
 	float l_over_w;
 	float l_over_h;
 	float env_phi;
+	float water_level_z;
 
-	float padding_0;
+	float padding_0; // Padding to get to a multiple of 4 32-bit members.
 	float padding_1;
-	float padding_2;
 };
 
 

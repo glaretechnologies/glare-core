@@ -13,10 +13,10 @@ layout (std140) uniform MaterialCommonUniforms
 	float l_over_w;
 	float l_over_h;
 	float env_phi;
+	float water_level_z;
 
-	float padding_a0;
+	float padding_a0; // Padding to get to a multiple of 4 32-bit members.
 	float padding_a1;
-	float padding_a2;
 };
 
 
