@@ -35,6 +35,9 @@ SET(GLARE_CORE_LIBS $ENV{GLARE_CORE_LIBS})
 set(SDL_DIR "${GLARE_CORE_LIBS}/SDL/SDL-release-2.26.2" CACHE FILEPATH "SDL source directory")
 set(SDL_BUILD_DIR "${GLARE_CORE_LIBS}/SDL/sdl_build_vs2022" CACHE FILEPATH "SDL build directory")
 
+MESSAGE("SDL_DIR: ${SDL_DIR}")
+MESSAGE("SDL_BUILD_DIR: ${SDL_BUILD_DIR}")
+
 add_definitions(-DBASE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
 set(jpegdir		"${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-3.0.0-vs${TESTBED_VS_VER}-install")

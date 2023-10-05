@@ -63,7 +63,7 @@ int main(int, char**)
 		int primary_W = 1920;
 		int primary_H = 1080;
 
-		SDL_Window* win = SDL_CreateWindow("TerrainGen", 100, 100, primary_W, primary_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+		SDL_Window* win = SDL_CreateWindow("Testbed", 100, 100, primary_W, primary_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 		if(win == nullptr)
 			throw glare::Exception("SDL_CreateWindow Error: " + std::string(SDL_GetError()));
 
