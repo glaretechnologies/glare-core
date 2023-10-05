@@ -66,10 +66,10 @@ static void my_error_exit(j_common_ptr cinfo)
 }
 
 
-static void my_emit_message(j_common_ptr cinfo, int msg_level)
+static void my_emit_message(j_common_ptr /*cinfo*/, int /*msg_level*/)
 {}
 
-static void my_output_message(j_common_ptr cinfo)
+static void my_output_message(j_common_ptr /*cinfo*/)
 {}
 
 
