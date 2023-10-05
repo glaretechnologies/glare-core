@@ -508,7 +508,7 @@ void main()
 		detail_2_texval =  texture(detail_tex_2, detail_map_2_uvs);
 
 
-	float non_beach_factor = smoothstep(12.0, 13.0, pos_ws.z);
+	float non_beach_factor = smoothstep(water_level_z + 2.0, water_level_z + 3.0, pos_ws.z);
 	float beach_factor = 1.0 - non_beach_factor;
 
 	float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2).x * 0.2);
