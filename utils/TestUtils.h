@@ -99,7 +99,7 @@ void doTestEpsEqualWithEps(const T& a, const T& b, float eps, const char* a_str,
 	if(!epsEqual(a, b, eps))
 	{
 		printMessageAndFail("Test epsEqual failed: " + std::string(file) + ", line " + toString((int)line) + ":\n" + 
-			a_str + "=" + toString(a) + " was not equal to " + b_str + "=" + toString(b) + " with eps=" + toString(eps));
+			a_str + "=" + toString(a) + " was not equal to " + b_str + "=" + toString(b) + " with eps=" + std::string(eps_str));
 	}
 }
 
