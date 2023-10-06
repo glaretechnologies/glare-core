@@ -610,6 +610,15 @@ inline T smoothStep(T a, T b, T x)
 }
 
 
+template <class T>
+inline T smoothPulse(T a, T b, T c, T d, T x)
+{
+	static_assert(!std::numeric_limits<T>::is_integer, "Template param can't be an integer");
+
+	return smoothStep(a, b, x) - smoothStep(c, d, x);
+}
+
+
 // Code for a fast, approximate, pow() function: fastPow()
 // Runs in about 46 cycles on an Intel Core i5 as opposed to about 96 cycles for pow().
 // NOTE: could be SIMD'd
