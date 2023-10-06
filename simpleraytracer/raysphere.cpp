@@ -7,11 +7,13 @@ Copyright Glare Technologies Limited 2013 -
 
 
 #include "ray.h"
+#include "world.h"
 #include "../indigo/FullHitInfo.h"
 #include "../indigo/DistanceHitInfo.h"
 #include "../simpleraytracer/hitinfo.h"
 #include "../maths/GeometrySampling.h"
 #include "../indigo/object.h"
+#include "../physics/EmbreeDeviceHandle.h"
 #include "../utils/Numeric.h"
 
 
@@ -195,7 +197,55 @@ bool RaySphere::subdivideAndDisplace(glare::TaskManager& task_manager, const Arr
 }
 
 
-void RaySphere::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager) {}
+void RaySphere::build(const BuildOptions& options, ShouldCancelCallback& should_cancel_callback, PrintOutput& print_output, bool verbose, glare::TaskManager& task_manager)
+{
+	if(!options.embree_device)
+		throw glare::Exception("embree_device was null.");
+
+	this->embree_scene = rtcNewScene(options.embree_device);
+
+	this->embree_geometry = rtcNewGeometry(options.embree_device, RTC_GEOMETRY_TYPE_SPHERE_POINT);
+
+	//const float buffer[4] = { centre[0], centre[1], centre[2], radius };
+	buffer[0] = centre[0];
+	buffer[1] = centre[1];
+	buffer[2] = centre[2];
+	buffer[3] = radius;
+
+	// Set vertex position buffer
+	rtcSetSharedGeometryBuffer(this->embree_geometry,
+		RTC_BUFFER_TYPE_VERTEX, // type
+		0, // slot CORRECT?
+		RTC_FORMAT_FLOAT4, // format
+		buffer, // ptr
+		0, // byte offset
+		sizeof(float)*4, // byte stride
+		1 // count
+	);
+
+	// rtcSetGeometryUserData(this->embree_geometry, world);
+
+	// TEMP HACK: Always enable intersect callbacks for now:
+	//if(!all_opaque)
+	{
+		rtcSetGeometryIntersectFilterFunction(this->embree_geometry, embreeIntersectFilterFunctionCallback);
+
+		rtcSetGeometryOccludedFilterFunction(this->embree_geometry, embreeOccludedFilterFunctionCallback);
+	}
+
+
+	rtcCommitGeometry(this->embree_geometry);
+
+	rtcAttachGeometry(this->embree_scene, this->embree_geometry);
+
+
+	rtcSetSceneBuildQuality(this->embree_scene, RTC_BUILD_QUALITY_HIGH);
+
+	rtcCommitScene(this->embree_scene);
+
+
+	assert(rtcGetDeviceError(options.embree_device) == RTC_ERROR_NONE);
+}
 
 
 unsigned int RaySphere::getMaterialIndexForTri(unsigned int tri_index) const { return 0; }
@@ -207,6 +257,13 @@ unsigned int RaySphere::getNumUVCoordSets() const { return 1; }
 RaySphere::Real RaySphere::meanCurvature(const HitInfo& hitinfo) const
 {
 	return -recip_radius; // Mean curvature for a sphere is just the negative reciprocal radius of the sphere.
+}
+
+
+// Gets the built embree scene
+RTCSceneTy* RaySphere::getEmbreeScene()
+{
+	return this->embree_scene;
 }
 
 

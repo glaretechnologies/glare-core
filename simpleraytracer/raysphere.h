@@ -10,6 +10,13 @@ Copyright Glare Technologies Limited 2013 -
 #include "../maths/vec3.h"
 #include "../physics/jscol_aabbox.h"
 
+namespace EmbreeGlare {
+	struct RTCGeometryTy;
+	struct RTCSceneTy;
+	struct RTCSceneTy;
+	struct RTCDeviceTy;
+}
+
 
 class RaySphere : public Geometry
 {
@@ -43,13 +50,16 @@ public:
 	virtual const std::string getName() const;
 	virtual Real meanCurvature(const HitInfo& hitinfo) const;
 	virtual bool isPlanar(Vec4f& normal_out) const { return false; }
+
+	// Gets the built embree scene
+	virtual RTCSceneTy* getEmbreeScene();
 	//////////////////////////////////////////////////////////
 
 	static Real rayMinT(Real radius) { return 0.0001f/*0.0003f*//*0.00005f*/ * radius; }
 
 	static void test();
 
-private:
+//private:
 	js::AABBox aabbox;
 	Vec4f centre;
 	Real radius;
@@ -57,4 +67,9 @@ private:
 	Real radius_squared;
 	Real recip_radius;
 	Real area; // sampling prob. density - 1 / area = 1 / (4*pi*r^2)
+
+	float buffer[4];
+
+	RTCGeometryTy* embree_geometry;
+	RTCSceneTy* embree_scene;
 };
