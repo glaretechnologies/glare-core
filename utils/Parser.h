@@ -76,8 +76,8 @@ public:
 
 	inline char prev() const { assert(currentpos >= 1); return text[currentpos - 1]; }
 
-	// Check the current character is c, then advance past it.
-	inline void consume(char c) { assert(currentIsChar(c)); advance(); }
+	// Assert the current character is c, then advance past it.
+	inline void consume(char c);
 
 	inline const char* getText() const { return text; }
 	inline size_t getTextSize() const { return textsize; }
@@ -236,4 +236,13 @@ bool Parser::notEOF() const
 void Parser::advance()
 {
 	currentpos++;
+}
+
+
+void Parser::consume(char c)
+{
+	GLARE_DECLARE_USED(c);
+	assert(currentIsChar(c));
+	
+	advance();
 }

@@ -470,7 +470,7 @@ class DownsampleImageTask : public glare::Task
 public:
 	DownsampleImageTask(const DownsampleImageTaskClosure& closure_, size_t begin_, size_t end_) : closure(closure_), begin((int)begin_), end((int)end_) {}
 
-	virtual void run(size_t thread_index)
+	virtual void run(size_t /*thread_index*/)
 	{
 		// Copy to local variables for performance reasons.
 		Image4f::ColourType const * const in_buffer  = closure.in_buffer;

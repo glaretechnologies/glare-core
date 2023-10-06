@@ -1478,7 +1478,7 @@ void BatchedMesh::optimise()
 	for(size_t i=0; i<new_batches.size(); ++i)
 	{
 		sum_num_indices += new_batches[i].num_indices;
-		const uint32 expected_batch_indices_end = ((i + 1) < new_batches.size()) ? new_batches[i + 1].indices_start : index_data.size() / index_type_size_B;
+		const uint32 expected_batch_indices_end = ((i + 1) < new_batches.size()) ? new_batches[i + 1].indices_start : (uint32)(index_data.size() / index_type_size_B);
 		assert(new_batches[i].indices_start + new_batches[i].num_indices == expected_batch_indices_end);
 	}
 	assert(sum_num_indices == index_data.size() / index_type_size_B);

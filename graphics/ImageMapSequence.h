@@ -24,23 +24,23 @@ public:
 
 
 	// Although this returns an SSE 4-vector, only the first three RGB components will be set.
-	virtual const Colour4f pixelColour(size_t x, size_t y) const { assert(0); return Colour4f(0.f); }
+	virtual const Colour4f pixelColour(size_t /*x*/, size_t /*y*/) const { assert(0); return Colour4f(0.f); }
 
 	// X and Y are normalised image coordinates.
 	// (X, Y) = (0, 0) is at the bottom left of the image.
 	// Although this returns an SSE 4-vector, only the first three RGB components will be set.
-	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const { assert(0); return Colour4f(0.f); }
+	virtual const Colour4f vec3SampleTiled(Coord /*x*/, Coord /*y*/) const { assert(0); return Colour4f(0.f); }
 
 	// X and Y are normalised image coordinates.
 	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
-	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const { assert(0); return 0.f; }
+	virtual Value sampleSingleChannelTiled(Coord /*x*/, Coord /*y*/, size_t /*channel*/) const { assert(0); return 0.f; }
 
-	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const { assert(0); return 0.f; }
+	virtual Value sampleSingleChannelTiledHighQual(Coord /*x*/, Coord /*y*/, size_t /*channel*/) const { assert(0); return 0.f; }
 
 	// s and t are normalised image coordinates.
 	// Returns texture value (v) at (s, t)
 	// Also returns dv/ds and dv/dt.
-	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const { assert(0); return 0.f; }
+	virtual Value getDerivs(Coord /*s*/, Coord /*t*/, Value& /*dv_ds_out*/, Value& /*dv_dt_out*/) const { assert(0); return 0.f; }
 
 
 	virtual size_t getMapWidth() const { assert(0); return 1; }

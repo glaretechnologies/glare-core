@@ -27,7 +27,7 @@ CompressedImage::CompressedImage(size_t width_, size_t height_, size_t N_)
 CompressedImage::~CompressedImage() {}
 
 
-const Colour4f CompressedImage::pixelColour(size_t x, size_t y) const
+const Colour4f CompressedImage::pixelColour(size_t /*x*/, size_t /*y*/) const
 {
 	assert(0);
 	return Colour4f(0.f);
@@ -37,7 +37,7 @@ const Colour4f CompressedImage::pixelColour(size_t x, size_t y) const
 // X and Y are normalised image coordinates.
 // (X, Y) = (0, 0) is at the bottom left of the image.
 // Although this returns an SSE 4-vector, only the first three RGB components will be set.
-const Colour4f CompressedImage::vec3SampleTiled(Coord u, Coord v) const
+const Colour4f CompressedImage::vec3SampleTiled(Coord /*u*/, Coord /*v*/) const
 {
 	assert(0);
 	return Colour4f(0.f);
@@ -45,14 +45,14 @@ const Colour4f CompressedImage::vec3SampleTiled(Coord u, Coord v) const
 
 
 // Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
-Map2D::Value CompressedImage::sampleSingleChannelTiled(Coord u, Coord v, size_t channel) const
+Map2D::Value CompressedImage::sampleSingleChannelTiled(Coord /*u*/, Coord /*v*/, size_t /*channel*/) const
 {
 	assert(0);
 	return 0.f;
 }
 
 
-Map2D::Value CompressedImage::sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const
+Map2D::Value CompressedImage::sampleSingleChannelTiledHighQual(Coord /*x*/, Coord /*y*/, size_t /*channel*/) const
 {
 	assert(0);
 	return 0.f;
@@ -62,7 +62,7 @@ Map2D::Value CompressedImage::sampleSingleChannelTiledHighQual(Coord x, Coord y,
 // s and t are normalised image coordinates.
 // Returns texture value (v) at (s, t)
 // Also returns dv/ds and dv/dt.
-Map2D::Value CompressedImage::getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const
+Map2D::Value CompressedImage::getDerivs(Coord /*s*/, Coord /*t*/, Value& dv_ds_out, Value& dv_dt_out) const
 {
 	dv_ds_out = dv_dt_out = 0;
 	assert(0);
@@ -104,16 +104,17 @@ Reference<Image> CompressedImage::convertToImage() const
 }
 
 
-Reference<Map2D> CompressedImage::getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const
+Reference<Map2D> CompressedImage::getBlurredLinearGreyScaleImage(glare::TaskManager& /*task_manager*/) const
 {
 	assert(0);
 	return Reference<Map2D>();
 }
 
 
-Reference<ImageMap<float, FloatComponentValueTraits> > CompressedImage::resizeToImageMapFloat(const int target_width, bool& is_linear_out) const
+Reference<ImageMap<float, FloatComponentValueTraits> > CompressedImage::resizeToImageMapFloat(const int /*target_width*/, bool& is_linear_out) const
 {
 	assert(0);
+	is_linear_out = false;
 	return Reference<ImageMapFloat>();
 }
 

@@ -32,7 +32,7 @@ namespace OpenGLEngineTests
 #if BUILD_TESTS
 
 
-static void doTest(const std::string& indigo_base_dir, const std::string& mesh_path)
+static void doTest(const std::string& /*indigo_base_dir*/, const std::string& mesh_path)
 {
 	//--------------------- Do perf and functionality tests ----------------------------
 	try
@@ -439,7 +439,7 @@ void buildData()
 
 		for(int i = 0; i < 16; ++i)
 		{
-			Vec2f sample = ((samples[i] * 0.001) - Vec2f(0.5, 0.5)) * (4.0 / 2048.0);
+			Vec2f sample = ((samples[i] * 0.001f) - Vec2f(0.5f, 0.5f)) * (4.0f / 2048.0);
 			conPrint("vec2(" + floatToStringNSigFigs(sample.x, 5) + ", " + floatToStringNSigFigs(sample.y, 5) + "),");
 		}
 	}
