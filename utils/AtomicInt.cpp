@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/StringUtils.h"
 #include "../utils/Task.h"
 #include "../utils/TaskManager.h"
+#include "../utils/Mutex.h"
 
 
 class IncrementTask : public glare::Task
@@ -23,7 +24,7 @@ public:
 
 	void run(size_t thread_index)
 	{
-		const int num_iters = 100000;
+		const int num_iters = 1000000;
 		for(int i=0; i<num_iters; ++i)
 			atomic_i->increment();
 	}
@@ -32,8 +33,31 @@ public:
 };
 
 
+class IncrementWIthMutexTask : public glare::Task
+{
+public:
+	IncrementWIthMutexTask(Mutex* mutex_, int* i_ptr_) : mutex(mutex_), i_ptr(i_ptr_) {}
+
+	void run(size_t thread_index)
+	{
+		const int num_iters = 1000000;
+		for(int i=0; i<num_iters; ++i)
+		{
+			Lock lock(*mutex);
+			(*i_ptr)++;
+		}
+	}
+
+	Mutex* mutex;
+	int* i_ptr;
+};
+
+
+
 void glare::AtomicInt::test()
 {
+	conPrint("glare::AtomicInt::test()");
+
 	// Test default constructor
 	{
 		AtomicInt i;
@@ -118,8 +142,47 @@ void glare::AtomicInt::test()
 			m.addTask(new IncrementTask(&atomic_i));
 		m.waitForTasksToComplete();
 
-		testAssert(atomic_i == 8 * 100000);
+		testAssert(atomic_i == 8 * 1000000);
 	}
+
+	// Do a performance test: Atomics vs mutexes.
+	if(false)
+	{
+		const int num_threads = 8;
+		{
+			AtomicInt atomic_i;
+			glare::TaskManager m(num_threads);
+
+			Timer timer;
+			for(int i=0; i<num_threads; ++i)
+				m.addTask(new IncrementTask(&atomic_i));
+			m.waitForTasksToComplete();
+
+			const double elapsed = timer.elapsed();
+			conPrint("incrementing using atomics took " + doubleToStringNSigFigs(elapsed, 4) + " s (" + doubleToStringNSigFigs(1.0e9 * elapsed / (8 * 1000000), 4) + " ns / increment)");
+
+
+			testAssert(atomic_i == num_threads * 1000000);
+		}
+	
+		{
+			Mutex mutex;
+			int shared_i = 0;
+			glare::TaskManager m(num_threads);
+
+			Timer timer;
+			for(int i=0; i<num_threads; ++i)
+				m.addTask(new IncrementWIthMutexTask(&mutex, &shared_i));
+			m.waitForTasksToComplete();
+
+			const double elapsed = timer.elapsed();
+			conPrint("incrementing using mutex took " + doubleToStringNSigFigs(elapsed, 4) + " s (" + doubleToStringNSigFigs(1.0e9 * elapsed / (8 * 1000000), 4) + " ns / increment)");
+
+			testAssert(shared_i == num_threads * 1000000);
+		}
+	}
+
+	conPrint("glare::AtomicInt::test() done.");
 }
 
 
