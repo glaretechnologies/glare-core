@@ -41,7 +41,6 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
-uniform sampler2D terrain_mask_tex;
 uniform sampler2D detail_tex_0; // beach
 uniform sampler2D detail_tex_1; // sediment
 uniform sampler2D detail_tex_2; // rock
@@ -491,7 +490,8 @@ void main()
 	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
 
 #if TERRAIN
-	vec4 mask = texture(terrain_mask_tex, main_tex_coords + vec2(0.5 / 1024, 0.5 / 1024));
+	vec2 mask_coords = main_tex_coords + vec2(0.5 + 0.5 / 1024, 0.5 + 0.5 / 1024);
+	vec4 mask = texture(DIFFUSE_TEX, mask_coords);
 	
 	vec2 detail_map_0_uvs = main_tex_coords * (8.0 * 1024 / 8.0);
 	vec2 detail_map_1_uvs = main_tex_coords * (8.0 * 1024 / 4.0);

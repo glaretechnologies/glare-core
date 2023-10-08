@@ -841,7 +841,6 @@ public:
 	//----------------------------------------------------------------------------------------
 
 	//------------------------------- Terrain --------------------
-	void setTerrainMaskTexture(const OpenGLTextureRef& mask_tex);
 	void setDetailTexture(int index, const OpenGLTextureRef& tex);
 	//----------------------------------------------------------------------------------------
 
@@ -1059,7 +1058,6 @@ private:
 
 	ImageMapFloatRef fbm_imagemap;
 	Reference<OpenGLTexture> fbm_tex;
-	Reference<OpenGLTexture> terrain_mask_tex;
 	Reference<OpenGLTexture> detail_tex[4];
 	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;

@@ -423,7 +423,6 @@ OpenGLEngine::~OpenGLEngine()
 {
 	// Destroy textures now, since they may use texture views
 	fbm_tex = NULL;
-	terrain_mask_tex = NULL;
 	for(int i=0; i<staticArrayNumElems(detail_tex); ++i)
 		detail_tex[i] = NULL;
 	blue_noise_tex = NULL;
@@ -1283,12 +1282,6 @@ void OpenGLEngine::setCirrusTexture(const Reference<OpenGLTexture>& tex)
 }
 
 
-void OpenGLEngine::setTerrainMaskTexture(const OpenGLTextureRef& mask_tex)
-{
-	this->terrain_mask_tex = mask_tex;
-}
-
-
 void OpenGLEngine::setDetailTexture(int index, const Reference<OpenGLTexture>& tex)
 {
 	assert(index >= 0 && index < 4);
@@ -1340,7 +1333,6 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
 	locations_out.caustic_tex_a_location			= prog->getUniformLocation("caustic_tex_a");
 	locations_out.caustic_tex_b_location			= prog->getUniformLocation("caustic_tex_b");
-	locations_out.terrain_mask_tex_location			= prog->getUniformLocation("terrain_mask_tex");
 	locations_out.detail_tex_0_location				= prog->getUniformLocation("detail_tex_0");
 	locations_out.detail_tex_1_location				= prog->getUniformLocation("detail_tex_1");
 	locations_out.detail_tex_2_location				= prog->getUniformLocation("detail_tex_2");
@@ -7650,8 +7642,6 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	if(this->specular_env_tex.nonNull())
 		bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/locations.specular_env_tex_location);
 
-	if(this->terrain_mask_tex.nonNull())
-		bindTextureUnitToSampler(*this->terrain_mask_tex, /*texture_unit_index=*/22, /*sampler_uniform_location=*/locations.terrain_mask_tex_location);
 	if(this->detail_tex[0].nonNull())
 		bindTextureUnitToSampler(*this->detail_tex[0], /*texture_unit_index=*/18, /*sampler_uniform_location=*/locations.detail_tex_0_location);
 	if(this->detail_tex[1].nonNull())
