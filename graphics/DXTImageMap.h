@@ -46,14 +46,14 @@ public:
 	virtual const Colour4f pixelColour(size_t x, size_t y) const;
 
 	// X and Y are normalised image coordinates.
-	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;
+	virtual const Colour4f vec3Sample(Coord x, Coord y, bool wrap) const override;
 
 	// X and Y are normalised image coordinates.
 	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 	//inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
-	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const;
+	virtual Value sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const override;
 
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
 

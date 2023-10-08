@@ -37,7 +37,7 @@ const Colour4f CompressedImage::pixelColour(size_t /*x*/, size_t /*y*/) const
 // X and Y are normalised image coordinates.
 // (X, Y) = (0, 0) is at the bottom left of the image.
 // Although this returns an SSE 4-vector, only the first three RGB components will be set.
-const Colour4f CompressedImage::vec3SampleTiled(Coord /*u*/, Coord /*v*/) const
+const Colour4f CompressedImage::vec3Sample(Coord /*u*/, Coord /*v*/, bool /*wrap*/) const
 {
 	assert(0);
 	return Colour4f(0.f);
@@ -52,7 +52,7 @@ Map2D::Value CompressedImage::sampleSingleChannelTiled(Coord /*u*/, Coord /*v*/,
 }
 
 
-Map2D::Value CompressedImage::sampleSingleChannelTiledHighQual(Coord /*x*/, Coord /*y*/, size_t /*channel*/) const
+Map2D::Value CompressedImage::sampleSingleChannelHighQual(Coord /*x*/, Coord /*y*/, size_t /*channel*/, bool /*wrap*/) const
 {
 	assert(0);
 	return 0.f;

@@ -1,7 +1,7 @@
 /*=====================================================================
 Map2D.h
 -------
-Copyright Glare Technologies Limited 2019 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -18,7 +18,7 @@ namespace glare { class TaskManager; }
 /*=====================================================================
 Map2D
 -----
-Base class for two-dimensional textures.
+Base class for two-dimensional image maps.
 Since both core threads and UI threads might be accessing a map concurrently, 
 make ThreadSafeRefCounted.
 =====================================================================*/
@@ -37,13 +37,13 @@ public:
 	// X and Y are normalised image coordinates.
 	// (X, Y) = (0, 0) is at the bottom left of the image.
 	// Although this returns an SSE 4-vector, only the first three RGB components will be set.
-	virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const = 0;
+	virtual const Colour4f vec3Sample(Coord x, Coord y, bool wrap = true) const = 0;
 
 	// X and Y are normalised image coordinates.
 	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
 	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const = 0;
 
-	virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const = 0;
+	virtual Value sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const = 0;
 
 
 	// s and t are normalised image coordinates.

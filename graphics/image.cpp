@@ -540,7 +540,7 @@ float Image::maxPixelComponent() const
 }
 
 
-const Colour4f Image::vec3SampleTiled(Coord u, Coord v) const
+const Colour4f Image::vec3Sample(Coord u, Coord v, bool wrap) const
 {
 	//return sampleTiled((float)x, (float)y).toColour3d();
 
@@ -618,12 +618,12 @@ const Colour4f Image::vec3SampleTiled(Coord u, Coord v) const
 
 Image::Value Image::sampleSingleChannelTiled(Coord x, Coord y, size_t /*channel*/) const
 {
-	const Colour4f col = vec3SampleTiled(x, y);
+	const Colour4f col = vec3Sample(x, y, /*wrap=*/true);
 	return (col[0] + col[1] + col[2]) * static_cast<Image::Value>(1.0 / 3.0);
 }
 
 
-Image::Value Image::sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const
+Image::Value Image::sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const
 {
 	assert(0);
 	return sampleSingleChannelTiled(x, y, channel); // TEMP HACK
@@ -716,7 +716,7 @@ Reference<ImageMapFloat> Image::resizeToImageMapFloat(const int target, bool& is
 	for(size_t y = 0; y < tex_yres; ++y)
 	for(size_t x = 0; x < tex_xres; ++x)
 	{
-		const Colour4f texel = this->vec3SampleTiled(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres);
+		const Colour4f texel = this->vec3Sample(x * inv_tex_xres, (tex_yres - y - 1) * inv_tex_yres, /*wrap=*/false);
 
 		image->getPixel(x, y)[0] = texel[0];
 		image->getPixel(x, y)[1] = texel[1];

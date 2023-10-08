@@ -103,13 +103,13 @@ public:
 	inline virtual const Colour4f pixelColour(size_t x, size_t y) const;
 
 	// X and Y are normalised image coordinates.
-	inline virtual const Colour4f vec3SampleTiled(Coord x, Coord y) const;
+	inline virtual const Colour4f vec3Sample(Coord x, Coord y, bool wrap) const override;
 
 	// X and Y are normalised image coordinates.
 	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
 	inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
-	inline virtual Value sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const;
+	inline virtual Value sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const override;
 
 	inline void sampleAllChannels(Coord x, Coord y, Value* res_out) const;
 
@@ -310,7 +310,7 @@ const Colour4f ImageMap<V, VTraits>::pixelColour(size_t x, size_t y) const
 
 
 template <class V, class VTraits>
-const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
+const Colour4f ImageMap<V, VTraits>::vec3Sample(Coord u, Coord v, bool wrap) const
 {
 	Colour4f colour_out;
 
@@ -324,10 +324,14 @@ const Colour4f ImageMap<V, VTraits>::vec3SampleTiled(Coord u, Coord v) const
 	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
 	
 	// We max with 0 here because otherwise Inf or NaN texture coordinates can result in out of bounds reads.
-	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels));
-	Vec4i i_pixels   = min(i_pixels_clamped, dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels));  // truncate pixel coords to integers and clamp to >= 0.
+	Vec4i i_pixels   = min(i_pixels_clamped, dims_minus_1); //clamp to (width-1, height-1).
 	Vec4i i_pixels_1 = i_pixels_clamped + Vec4i(1); // pixels + 1, not wrapped yet.
-	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
+	Vec4i wrapped_i_pixels_1;
+	if(wrap)
+		wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
+	else // else clamp:
+		wrapped_i_pixels_1 = min(i_pixels_1, dims_minus_1);
 
 	// Fractional coords in the pixel:
 	Vec4f frac = f_pixels - toVec4f(i_pixels); 
@@ -453,8 +457,8 @@ inline Vec4f mitchellNetravaliEval(const Vec4f& x)
 
 
 /*
-sampleSingleChannelTiledHighQual
---------------------------------
+sampleSingleChannelHighQual
+---------------------------
 We will use a Mitchell-Netravali cubic, radially symmetric filter.
 
 Only handling magnification (without aliasing) currently, because we don't increase the filter size past a radius of 2.
@@ -487,7 +491,7 @@ Mitchell-Netravali has a support radius of 2 pixels, so we will read from these 
                 floor(px)-1    floor(px)    floor(px)+1     floor(px)+2
 */
 template <class V, class VTraits>
-Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiledHighQual(Coord u, Coord v, size_t channel) const
+Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelHighQual(Coord u, Coord v, size_t channel, bool wrap) const
 {
 	assert(channel < N);
 
@@ -501,17 +505,28 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelTiledHighQual(Coord u, Coo
 	Vec4f f_pixels = mul(normed_frac_part, toVec4f(dims)); // unnormalised floating point pixel coordinates (pixel_x, pixel_y), in [0, width] x [0, height]  [float]
 
 	// We max with 0 here because otherwise Inf or NaN texture coordinates can result in out of bounds reads.
-	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels));
-	Vec4i i_pixels = min(i_pixels_clamped, dims_minus_1); // truncate pixel coords to integers and clamp to (width-1, height-1).
+	Vec4i i_pixels_clamped = max(Vec4i(0), toVec4i(f_pixels)); // truncate pixel coords to integers and clamp to >= 0.
+	Vec4i i_pixels = min(i_pixels_clamped, dims_minus_1); // clamp to <= (width-1, height-1).
+
+	Vec4i wrapped_i_pixels_1, wrapped_i_pixels_2, wrapped_i_pixels_minus_1;
+	if(wrap)
+	{
+		Vec4i i_pixels_1 = i_pixels_clamped + Vec4i(1); // pixels + 1, not wrapped yet.
+		wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
+
+		Vec4i i_pixels_2 = i_pixels_clamped + Vec4i(2); // pixels + 2, not wrapped yet.
+		wrapped_i_pixels_2 = select(i_pixels_2, i_pixels_2 - dims, /*mask=*/i_pixels_2 < dims); // wrapped_i_pixels_2 = (pixels + 2) <= width ? (pixels + 2) : pixels + 2 - width
+
+		Vec4i i_pixels_minus_1 = i_pixels_clamped - Vec4i(1); // pixels - 1, not wrapped yet.
+		wrapped_i_pixels_minus_1 = select(i_pixels_minus_1, dims_minus_1, /*mask=*/i_pixels_clamped > Vec4i(0)); // wrapped_i_pixels_minus_1 = pixels > 0 ? (pixels - 1) : width - 1
+	}
+	else // else if clamp mode:
+	{
+		wrapped_i_pixels_1 = min(i_pixels_clamped + Vec4i(1), dims_minus_1);
+		wrapped_i_pixels_2 = min(i_pixels_clamped + Vec4i(2), dims_minus_1);
+		wrapped_i_pixels_minus_1 = max(i_pixels_clamped - Vec4i(1), Vec4i(0));
+	}
 	
-	Vec4i i_pixels_1 = i_pixels_clamped + Vec4i(1); // pixels + 1, not wrapped yet.
-	Vec4i wrapped_i_pixels_1 = select(i_pixels_1, Vec4i(0), /*mask=*/i_pixels_1 < dims); // wrapped_i_pixels_1 = (pixels + 1) <= width ? (pixels + 1) : 0
-	
-	Vec4i i_pixels_2 = i_pixels_clamped + Vec4i(2); // pixels + 2, not wrapped yet.
-	Vec4i wrapped_i_pixels_2 = select(i_pixels_2, i_pixels_2 - dims, /*mask=*/i_pixels_2 < dims); // wrapped_i_pixels_2 = (pixels + 2) <= width ? (pixels + 2) : pixels + 2 - width
-	
-	Vec4i i_pixels_minus_1 = i_pixels_clamped - Vec4i(1); // pixels - 1, not wrapped yet.
-	Vec4i wrapped_i_pixels_minus_1 = select(i_pixels_minus_1, dims_minus_1, /*mask=*/i_pixels_clamped > Vec4i(0)); // wrapped_i_pixels_minus_1 = pixels > 0 ? (pixels - 1) : width - 1
 
 	int ut = i_pixels[0];
 	int vt = i_pixels[1];

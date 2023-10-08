@@ -2096,7 +2096,7 @@ Reference<Image> ImageFilter::convertDebevecMappingToLatLong(const Reference<Ima
 			float s = (im_u + 1) * 0.5f;
 			float t = (im_v + 1) * 0.5f;
 
-			Colour4f col = in->vec3SampleTiled(s, t);
+			Colour4f col = in->vec3Sample(s, t, /*wrap=*/true);
 			out->setPixel(x, y, Colour3f(col[0], col[1], col[2]));
 		}
 

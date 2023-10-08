@@ -72,7 +72,7 @@ static void testTexture(int res, double& elapsed_out)
 		float y = (float)(-67878 + ((i * 5354) % 45445)) * 0.007345f;
 
 		//conPrint(toString(x) + " " + toString(y));
-		Colour4f c = m.vec3SampleTiled(x, y);
+		Colour4f c = m.vec3Sample(x, y);
 		//float dv_ds, dv_dt;
 		//Colour3f c(m.getDerivs(x, y, dv_ds, dv_dt));
 		sum += c;
@@ -184,15 +184,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.9999f, 0.9999f) == 0.0f);
 		testAssert(map.scalarSampleTiled(1.0001f, 1.00001) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(0,0,0,0));
 
 		map.set(255);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,1));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,1));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(1,1,1,1));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(1,1,1,1));
 
 		float dv_ds, dv_dt;
 		testAssert(map.getDerivs(0.5f, 0.5f, dv_ds, dv_dt) == 1.0f);
@@ -205,11 +205,11 @@ void ImageMapTests::test()
 		testAssert(isNAN(map.scalarSampleTiled( std::numeric_limits<float>::quiet_NaN(),  std::numeric_limits<float>::quiet_NaN())));
 		testAssert(isNAN(map.scalarSampleTiled(-std::numeric_limits<float>::quiet_NaN(), -std::numeric_limits<float>::quiet_NaN())));
 
-		// Test reads with non-finite texture coordinates.  Make sure we don't crash.  vec3SampleTiled will probably return a NaN colour.
-		testAssert(map.vec3SampleTiled( std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity()) != Colour4f(1, 2, 3, 4));
-		testAssert(map.vec3SampleTiled(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity()) != Colour4f(1, 2, 3, 4));
-		testAssert(map.vec3SampleTiled( std::numeric_limits<float>::quiet_NaN(),  std::numeric_limits<float>::quiet_NaN()) != Colour4f(1, 2, 3, 4));
-		testAssert(map.vec3SampleTiled(-std::numeric_limits<float>::quiet_NaN(), -std::numeric_limits<float>::quiet_NaN()) != Colour4f(1, 2, 3, 4));
+		// Test reads with non-finite texture coordinates.  Make sure we don't crash.  vec3Sample will probably return a NaN colour.
+		testAssert(map.vec3Sample( std::numeric_limits<float>::infinity(),  std::numeric_limits<float>::infinity(), /*wrap=*/true) != Colour4f(1, 2, 3, 4));
+		testAssert(map.vec3Sample(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(), /*wrap=*/true) != Colour4f(1, 2, 3, 4));
+		testAssert(map.vec3Sample( std::numeric_limits<float>::quiet_NaN(),  std::numeric_limits<float>::quiet_NaN(), /*wrap=*/true) != Colour4f(1, 2, 3, 4));
+		testAssert(map.vec3Sample(-std::numeric_limits<float>::quiet_NaN(), -std::numeric_limits<float>::quiet_NaN(), /*wrap=*/true) != Colour4f(1, 2, 3, 4));
 	}
 		
 	// Test UInt8 map with 3 channels
@@ -222,15 +222,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.9999f, 0.9999f) == 0.0f);
 		testAssert(map.scalarSampleTiled(1.0001f, 1.00001) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(0,0,0,0));
 
 		map.set(255);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,0));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(1,1,1,0));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(1,1,1,0));
 	}
 
 	// Test float map with single channel
@@ -241,15 +241,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(0,0,0,0));
 
 		map.set(1.f);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,1));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,1));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(1,1,1,1));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(1,1,1,1));
 	}
 		
 	// Test float map with 3 channels
@@ -260,15 +260,15 @@ void ImageMapTests::test()
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 0.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 0.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(0,0,0,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(0,0,0,0));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(0,0,0,0));
 
 		map.set(1.f);
 		testAssert(map.scalarSampleTiled(0.f, 0.f) == 1.0f);
 		testAssert(map.scalarSampleTiled(0.5f, 0.5f) == 1.0f);
 
-		testAssert(map.vec3SampleTiled(0.0f, 0.f) == Colour4f(1,1,1,0));
-		testAssert(map.vec3SampleTiled(0.5f, 0.5f) == Colour4f(1,1,1,0));
+		testAssert(map.vec3Sample(0.0f, 0.f, /*wrap=*/true) == Colour4f(1,1,1,0));
+		testAssert(map.vec3Sample(0.5f, 0.5f, /*wrap=*/true) == Colour4f(1,1,1,0));
 	}
 
 	// Test a 1x1 pixel image.  This can expose bugs with wrapping.
@@ -685,15 +685,15 @@ void ImageMapTests::test()
 		const int W = 10;
 		ImageMapFloat map(W, W, 1);
 		map.set(0.f);
-		testAssert(map.sampleSingleChannelTiledHighQual(0.f, 0.f, 0) == 0.0f);
-		testAssert(map.sampleSingleChannelTiledHighQual(0.5f, 0.5f, 0) == 0.0f);
+		testAssert(map.sampleSingleChannelHighQual(0.f, 0.f, 0, /*wrap=*/true) == 0.0f);
+		testAssert(map.sampleSingleChannelHighQual(0.5f, 0.5f, 0, /*wrap=*/true) == 0.0f);
 
 		map.set(1.f);
-		testEpsEqual(map.sampleSingleChannelTiledHighQual(0.f, 0.f, 0), 1.0f);
-		testEpsEqual(map.sampleSingleChannelTiledHighQual(0.5f, 0.5f, 0), 1.0f);
+		testEpsEqual(map.sampleSingleChannelHighQual(0.f, 0.f, 0, /*wrap=*/true), 1.0f);
+		testEpsEqual(map.sampleSingleChannelHighQual(0.5f, 0.5f, 0, /*wrap=*/true), 1.0f);
 
 		for(int i=0; i<300; ++i)
-			testEpsEqual(map.sampleSingleChannelTiledHighQual((float)i / 300, 0.f, 0), 1.0f);
+			testEpsEqual(map.sampleSingleChannelHighQual((float)i / 300, 0.f, 0, /*wrap=*/true), 1.0f);
 	}
 
 
@@ -715,7 +715,7 @@ void ImageMapTests::test()
 
 				for(int n=0; n<upscaled.getN(); ++n)
 				{
-					const float v = imagemap->sampleSingleChannelTiledHighQual(src_px, src_py, n);
+					const float v = imagemap->sampleSingleChannelHighQual(src_px, src_py, n, /*wrap=*/true);
 					upscaled.getPixel(x, y)[n] = (uint8)myClamp((int)(v * 255), 0, 255);
 				}
 			}
@@ -726,9 +726,9 @@ void ImageMapTests::test()
 			// Check we don't read out of bounds
 			float sum =0;
 			for(int x=-3000; x<3000; ++x)
-				sum += imagemap->sampleSingleChannelTiledHighQual((float)x / imagemap->getMapWidth(), 0, 0);
+				sum += imagemap->sampleSingleChannelHighQual((float)x / imagemap->getMapWidth(), 0, 0, /*wrap=*/true);
 			for(int y=-3000; y<3000; ++y)
-				sum += imagemap->sampleSingleChannelTiledHighQual(0, (float)y / imagemap->getMapHeight(), 0);
+				sum += imagemap->sampleSingleChannelHighQual(0, (float)y / imagemap->getMapHeight(), 0, /*wrap=*/true);
 			TestUtils::silentPrint(toString(sum));
 		}
 
@@ -753,7 +753,7 @@ void ImageMapTests::test()
 		}
 	}
 
-	// Do performance test for sampleSingleChannelTiledHighQual
+	// Do performance test for sampleSingleChannelHighQual
 	if(false)
 	{
 		Map2DRef map = PNGDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/antialias_test3.png");
@@ -763,7 +763,7 @@ void ImageMapTests::test()
 		const int W = (int)imagemap->getMapWidth();
 		const int H = (int)imagemap->getMapHeight();
 
-		imagemap->sampleSingleChannelTiledHighQual(0.345435f, 0.245353f, 0);
+		imagemap->sampleSingleChannelHighQual(0.345435f, 0.245353f, 0, /*wrap=*/true);
 
 		PCG32 rng(1);
 
@@ -781,7 +781,7 @@ void ImageMapTests::test()
 					//float src_py = rng.unitRandom();//(float)y / H;
 					float src_px = (float)x / W;
 					float src_py = (float)y / H;
-					const float v = imagemap->sampleSingleChannelTiledHighQual(src_px, src_py, 0);
+					const float v = imagemap->sampleSingleChannelHighQual(src_px, src_py, 0, /*wrap=*/true);
 					sum += v;
 				}
 			const double elapsed = timer.elapsed();
