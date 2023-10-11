@@ -1,7 +1,7 @@
 /*=====================================================================
 Vector.h
 --------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -13,14 +13,14 @@ Copyright Glare Technologies Limited 2020 -
 #include <new>
 
 
-// If this is defined, prints out messages on allocing and deallocing in reserve()
+// If this is defined, prints out messages on allocing and deallocing
 //#define JS_VECTOR_VERBOSE 1
 
 
 #if JS_VECTOR_VERBOSE
 #include "ConPrint.h"
 #include "StringUtils.h"
-#include <typeinfo.h>
+#include <typeinfo>
 #endif
 
 
@@ -108,7 +108,7 @@ Vector<T, alignment>::Vector()
 
 template <class T, size_t alignment>
 Vector<T, alignment>::Vector(size_t count)
-:	e(0),
+:	e(NULL),
 	size_(count),
 	capacity_(count)
 {
@@ -116,6 +116,10 @@ Vector<T, alignment>::Vector(size_t count)
 
 	if(count > 0)
 	{
+		#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::Vector: allocing " + toString(count) + " items (" + toString(count*sizeof(T)) + " bytes)");
+		#endif
+
 		// Allocate new memory
 		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * count, alignment));
 
@@ -133,7 +137,7 @@ Vector<T, alignment>::Vector(size_t count)
 
 template <class T, size_t alignment>
 Vector<T, alignment>::Vector(size_t count, const T& val)
-:	e(0),
+:	e(NULL),
 	size_(count),
 	capacity_(count)
 {
@@ -141,6 +145,10 @@ Vector<T, alignment>::Vector(size_t count, const T& val)
 
 	if(count > 0)
 	{
+		#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::Vector: allocing " + toString(count) + " items (" + toString(count*sizeof(T)) + " bytes)");
+		#endif
+
 		// Allocate new memory
 		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * count, alignment));
 		
@@ -158,24 +166,42 @@ template <class T, size_t alignment>
 Vector<T, alignment>::Vector(const T* begin_, const T* end_) // Range constructor
 :	size_(end_ - begin_), capacity_(end_ - begin_)
 {
-	// Allocate new memory
-	e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * size_, alignment));
+	if(size_ > 0) // Avoid calling alignedMalloc if size is zero.
+	{
+		#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::Vector: allocing " + toString(size_) + " items (" + toString(size_*sizeof(T)) + " bytes)");
+		#endif
 
-	// Copy-construct new objects from existing objects in [begin_, end_)
-	std::uninitialized_copy(begin_, end_, /*dest=*/e);
+		// Allocate new memory
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * size_, alignment));
+
+		// Copy-construct new objects from existing objects in [begin_, end_)
+		std::uninitialized_copy(begin_, end_, /*dest=*/e);
+	}
+	else
+		e = NULL;
 }
 
 
 template <class T, size_t alignment>
 Vector<T, alignment>::Vector(const Vector<T, alignment>& other)
 {
-	// Allocate new memory
-	e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * other.size_, alignment));
+	if(other.size_ > 0) // Avoid calling alignedMalloc if size is zero.
+	{
+		#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::Vector: allocing " + toString(other.size_) + " items (" + toString(other.size_*sizeof(T)) + " bytes)");
+		#endif
 
-	// Copy-construct new objects from existing objects in 'other'.
-	std::uninitialized_copy(other.e, other.e + other.size_, 
-		e // dest
-	);
+		// Allocate new memory
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * other.size_, alignment));
+
+		// Copy-construct new objects from existing objects in 'other'.
+		std::uninitialized_copy(other.e, other.e + other.size_, 
+			e // dest
+		);
+	}
+	else
+		e = NULL;
 		
 	size_ = other.size_;
 	capacity_ = other.size_;
@@ -187,6 +213,11 @@ Vector<T, alignment>::~Vector()
 {
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
+
+	#if JS_VECTOR_VERBOSE
+	if(capacity_ > 0)
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::~Vector: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+	#endif
 
 	// Destroy objects
 	for(size_t i=0; i<size_; ++i)
@@ -228,10 +259,20 @@ Vector<T, alignment>& Vector<T, alignment>::operator=(const Vector& other)
 		for(size_t i=0; i<size_; ++i)
 			e[i].~T();
 
+		#if JS_VECTOR_VERBOSE
+		if(capacity_ > 0)
+			conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::operator=: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+		#endif
+
 		// Free existing mem
 		MemAlloc::alignedFree(e);
 
+		#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::operator=: allocing " + toString(other.size_) + " items (" + toString(other.size_*sizeof(T)) + " bytes)");
+		#endif
+
 		// Allocate new memory
+		assert(other.size_ > 0);
 		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * other.size_, alignment));
 
 		// Copy elements over from other
@@ -281,6 +322,7 @@ void Vector<T, alignment>::reserve(size_t n)
 		#endif
 		
 		// Allocate new memory
+		assert(n > 0);
 		T* new_e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * n, alignment));
 
 		// Copy-construct new objects from existing objects.
@@ -290,7 +332,8 @@ void Vector<T, alignment>::reserve(size_t n)
 		if(e)
 		{
 			#if JS_VECTOR_VERBOSE
-			conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+			if(capacity_ > 0)
+				conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
 			#endif
 
 			// Destroy old objects
@@ -315,20 +358,24 @@ void Vector<T, alignment>::reserveNoCopy(size_t n)
 
 	if(n > capacity_) // If need to expand capacity
 	{
-#if JS_VECTOR_VERBOSE
-		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
-#endif
+		#if JS_VECTOR_VERBOSE
+		if(capacity_ > 0)
+			conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserveNoCopy: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+		#endif
+
 		// Destroy old objects
 		for(size_t i=0; i<size_; ++i)
 			e[i].~T();
 
 		MemAlloc::alignedFree(e); // Free old buffer.
 
-#if JS_VECTOR_VERBOSE
-		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserve: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
-#endif
+		#if JS_VECTOR_VERBOSE
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::reserveNoCopy: allocing " + toString(n) + " items (" + toString(n*sizeof(T)) + " bytes)");
+		#endif
+
 		// Allocate new memory
 		// Since we are not copying existing elements, just leave them uninitialised.
+		assert(n > 0);
 		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * n, alignment));
 		capacity_ = n;
 	}
@@ -480,6 +527,11 @@ void Vector<T, alignment>::clearAndFreeMem() // Set size to zero, but also frees
 	// Destroy objects
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
+
+	#if JS_VECTOR_VERBOSE
+	if(capacity_ > 0)
+		conPrint("Vector<" + std::string(typeid(T).name()) + ", " + toString(alignment) + ">::clearAndFreeMem: freeing " + toString(capacity_) + " items (" + toString(capacity_*sizeof(T)) + " bytes)");
+	#endif
 
 	MemAlloc::alignedFree(e); // Free old buffer.
 	e = NULL;
