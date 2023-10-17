@@ -239,7 +239,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				if(cookie_parser.currentIsChar(';'))
 				{
 					cookie_parser.consume(';'); // Advance past ';'
-					parser.parseChar(' '); // Advance past ' ' if present.
+					cookie_parser.parseWhiteSpace();
 				}
 				else
 				{
