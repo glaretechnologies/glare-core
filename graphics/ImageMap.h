@@ -169,6 +169,8 @@ public:
 
 	void blendImage(const ImageMap<V, ComponentValueTraits>& img, const int destx, const int desty, const Colour4f& colour);
 
+	void floodFillFromOpaquePixels(V src_alpha_threshold, V update_alpha_threshold, int iterations);
+
 	// Get num components per pixel.
 	inline size_t getN() const { return N; }
 
@@ -197,6 +199,9 @@ typedef Reference<ImageMapFloat> ImageMapFloatRef;
 
 typedef ImageMap<uint8, UInt8ComponentValueTraits> ImageMapUInt8;
 typedef Reference<ImageMapUInt8> ImageMapUInt8Ref;
+
+typedef ImageMap<uint16, UInt16ComponentValueTraits> ImageMapUInt16;
+typedef Reference<ImageMapUInt16> ImageMapUInt16Ref;
 
 
 template <class V, class VTraits>

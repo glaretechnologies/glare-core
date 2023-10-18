@@ -39,6 +39,8 @@ template double ImageMap<float, FloatComponentValueTraits>::averageLuminance() c
 
 template void ImageMap<float, FloatComponentValueTraits>::blendImage(const ImageMap<float, FloatComponentValueTraits>& img, const int destx, const int desty, const Colour4f& colour);
 
+template void ImageMap<uint8,  UInt8ComponentValueTraits>::floodFillFromOpaquePixels(uint8 src_alpha_threshold, uint8 update_alpha_threshold, int iterations);
+
 
 
 static const uint32 IMAGEMAP_SERIALISATION_VERSION = 1;
@@ -521,3 +523,58 @@ void ImageMap<V, VTraits>::blendImage(const ImageMap<V, VTraits>& img, const int
 		}
 }
 
+
+template <class V, class VTraits>
+void ImageMap<V, VTraits>::floodFillFromOpaquePixels(V src_alpha_threshold, V update_alpha_threshold, int iterations)
+{
+	const int xres = (int)getWidth();
+	const int yres = (int)getHeight();
+
+	glare::AllocatorVector<V, 16> data_copy = data;
+
+	const int alpha_channel = (int)N - 1;
+	for(int i=0; i<iterations; ++i) // The number of iterations gives the effective distance/radius of the flood fill.  More leaves fewer gaps but is slower to compute.
+	{
+		for(int y=0; y<yres; ++y)
+		for(int x=0; x<xres; ++x)
+		{
+			// Pixels with an alpha value < this threshold will have their colour values set to the nearest pixel (in the search area) with alpha over this threshold.
+			const V alpha = getPixel(x, y)[alpha_channel];
+			if(alpha < update_alpha_threshold)
+			{
+				// Find a nearby pixel that has some colour values in it (alpha > alpha_threshold).
+				const int r = 3; // search radius in pixels.
+				float closest_d2 = std::numeric_limits<float>::max();
+				int closest_x = 0;
+				int closest_y = 0;
+				for(int sy=myMax(0, y - r); sy<myMin<int>(yres, y + r + 1); ++sy)
+				for(int sx=myMax(0, x - r); sx<myMin<int>(xres, x + r + 1); ++sx) // For example when r=2, we want to read from: x-2, x-1, x, x+1, x+2
+				{
+					const V src_alpha = getPixel(sx, sy)[alpha_channel];
+					if(src_alpha >= src_alpha_threshold)
+					{
+						const float d2 = (float)(Maths::square(x - sx) + Maths::square(y - sy));
+						if(d2 < closest_d2)
+						{
+							closest_d2 = d2;
+							closest_x = sx;
+							closest_y = sy;
+						}
+					}
+				}
+				if(closest_d2 < std::numeric_limits<float>::max()) // If found a source pixel to copy colour from:
+				{
+					for(int c=0; c<N; ++c)
+						getPixel(x, y)[c] = getPixel(closest_x, closest_y)[c];
+				}
+			}
+		}
+	}
+
+	// Set alpha channel back to original
+	for(int y=0; y<yres; ++y)
+	for(int x=0; x<xres; ++x)
+	{
+		getPixel(x, y)[alpha_channel] = data_copy[(x + xres * y) * N + alpha_channel];
+	}
+}
