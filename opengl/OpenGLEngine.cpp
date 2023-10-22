@@ -284,6 +284,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 
 std::string BatchDrawInfo::keyDescription() const
 {
+	// NOTE: out of date
 	return "prog: " + toString(prog_vao_key >> 18) + 
 		", vao: " + toString((prog_vao_key >> 2) & 0xFFFF) + 
 		", index_type_bits: " + toString((prog_vao_key >> 0) & 0x3)
@@ -373,6 +374,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_vbo_binds(0),
 	last_num_index_buf_binds(0),
 	last_num_indices_drawn(0),
+	last_num_backface_culling_changes(0),
 	num_index_buf_binds(0),
 	depth_draw_last_num_prog_changes(0),
 	depth_draw_last_num_batches_bound(0),
@@ -3228,10 +3230,12 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 	{
 		const OpenGLMaterial& mat = object.materials[object.mesh_data->batches[i].material_index];
 
+		const bool backface_culling = !mat.double_sided;
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
 			(mat.shader_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG    : 0) |
 			(mat.transparent               ? MATERIAL_TRANSPARENT_BITFLAG : 0) |
-			(mat.water                     ? MATERIAL_WATER_BITFLAG       : 0);
+			(mat.water                     ? MATERIAL_WATER_BITFLAG       : 0) |
+			(backface_culling              ? BACKFACE_CULLING_BITFLAG     : 0);
 
 		//assert(mat.material_data_index != -1);
 		object.batch_draw_info[i].material_data_index = mat.material_data_index;
@@ -5565,7 +5569,7 @@ void OpenGLEngine::draw()
 		const int per_map_h = shadow_mapping->dynamic_h / shadow_mapping->numDynamicDepthTextures();
 
 		num_prog_changes = 0;
-		num_batches_bound = 0;
+		uint32 num_batches_bound = 0;
 		num_vao_binds = 0;
 		num_vbo_binds = 0;
 
@@ -5721,10 +5725,10 @@ void OpenGLEngine::draw()
 					const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
 					for(size_t z=0; z<ob_depth_draw_batches_size; ++z)
 					{
-						const uint32 prog_index = ob_depth_draw_batches[z].getProgramIndex();
+						const uint32 prog_index_and_backface_culling = ob_depth_draw_batches[z].getProgramIndexAndBackfaceCulling();
 
 						BatchDrawInfo info(
-							prog_index, // program index
+							prog_index_and_backface_culling,
 							ob->vao_and_vbo_key,
 							ob, // object ptr
 							(uint32)z // batch index
@@ -5999,10 +6003,10 @@ void OpenGLEngine::draw()
 							const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
 							for(size_t z = 0; z < ob_depth_draw_batches_size; ++z)
 							{
-								const uint32 prog_index = ob_depth_draw_batches[z].getProgramIndex();
+								const uint32 prog_index_and_backface_culling = ob_depth_draw_batches[z].getProgramIndexAndBackfaceCulling();
 
 								BatchDrawInfo info(
-									prog_index, // program index
+									prog_index_and_backface_culling,
 									ob->vao_and_vbo_key,
 									ob, // object ptr
 									(uint32)z // batch index
@@ -6554,11 +6558,13 @@ void OpenGLEngine::draw()
 					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 					{
 						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-						const uint32 prog_index = prog_index_and_flags & ISOLATE_PROG_INDEX_MASK;
+						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
-						assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
-						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
 #ifndef NDEBUG
+						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
+
 						// Check the denormalised vao_and_vbo_key is correct
 						uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
 						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
@@ -6567,10 +6573,10 @@ void OpenGLEngine::draw()
 						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 						// Draw primitives for the given material
-						if(!(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) || BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG))) // If transparent bit is not set:
+						if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // If transparent bit is not set, and water bit is not set:
 						{
 							BatchDrawInfo info(
-								prog_index, // program index
+								prog_index_and_backface_culling_flag,
 								ob->vao_and_vbo_key,
 								ob, // object ptr
 								(uint32)z // batch_i
@@ -6591,10 +6597,14 @@ void OpenGLEngine::draw()
 
 		// Draw sorted batches
 		num_prog_changes = 0;
-		num_batches_bound = 0;
+		uint32 num_batches_bound = 0;
 		num_vao_binds = 0;
 		num_vbo_binds = 0;
 		num_index_buf_binds = 0;
+		uint32 num_backface_culling_changes = 0;
+
+		uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
+		glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
 
 		if(draw_wireframes)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -6603,15 +6613,28 @@ void OpenGLEngine::draw()
 		for(size_t i=0; i<batch_draw_info.size(); ++i)
 		{
 			const BatchDrawInfo& info = batch_draw_info[i];
-			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
-			if(prog_index != current_bound_prog_index)
+			const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
+			if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
 			{
 				ZoneScopedN("changing prog"); // Tracy profiler
 
 				if(use_multi_draw_indirect)
 					submitBufferedDrawCommands(); // Flush existing draw commands
 
+				const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
+				const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
+				if(backface_culling != prev_backface_culling)
+				{
+					if(backface_culling)
+						glEnable(GL_CULL_FACE);
+					else
+						glDisable(GL_CULL_FACE);
+					num_backface_culling_changes++;
+				}
+
+
 				// conPrint("---- Changed to program " + prog->prog_name + " ----");
+				const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
 				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
 
 				prog->useProgram();
@@ -6620,6 +6643,8 @@ void OpenGLEngine::draw()
 				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
 				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 				num_prog_changes++;
+
+				current_prog_index_and_backface_culling = prog_index_and_backface_culling;
 			}
 
 			bindMeshData(*info.ob);
@@ -6634,11 +6659,13 @@ void OpenGLEngine::draw()
 		last_num_vbo_binds = num_vbo_binds;
 		last_num_index_buf_binds = num_index_buf_binds;
 		last_num_indices_drawn = this->num_indices_submitted;
+		last_num_backface_culling_changes = num_backface_culling_changes;
 		this->num_indices_submitted = 0;
 
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
 
+		glDisable(GL_CULL_FACE); // Restore
 
 		if(draw_wireframes)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
@@ -6725,11 +6752,13 @@ void OpenGLEngine::draw()
 					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 					{
 						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-						const uint32 prog_index = prog_index_and_flags & ISOLATE_PROG_INDEX_MASK;
+						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
-						assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
-						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
 #ifndef NDEBUG
+						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
+
 						// Check the denormalised vao_and_vbo_key is correct
 						uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
 						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
@@ -6741,7 +6770,7 @@ void OpenGLEngine::draw()
 						if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG)) // If water bit is set:
 						{
 							BatchDrawInfo info(
-								prog_index, // program index
+								prog_index_and_backface_culling_flag,
 								ob->vao_and_vbo_key,
 								ob, // object ptr
 								(uint32)z // batch_i
@@ -6907,15 +6936,17 @@ void OpenGLEngine::draw()
 				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 				{
 					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-					const uint32 prog_index = prog_index_and_flags & ISOLATE_PROG_INDEX_MASK;
+					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
-					assert(prog_index == ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index);
+#ifndef NDEBUG
+					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
-
+#endif
 					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG)) // If transparent bit is set:
 					{
 						BatchDrawInfo info(
-							prog_index, // program index
+							prog_index_and_backface_culling_flag,
 							ob->vao_and_vbo_key,
 							ob, // object ptr
 							(uint32)z // batch_i
@@ -8875,6 +8906,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
 	s += "Num VAO binds: " + toString(last_num_vao_binds) + "\n";
 	s += "Num VBO binds: " + toString(last_num_vbo_binds) + "\n";
+	s += "Num backface culling changes: " + toString(last_num_backface_culling_changes) + "\n";
 	s += "Num index buf binds: " + toString(last_num_index_buf_binds) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
 	s += "tris drawn: " + uInt32ToStringCommaSeparated(last_num_indices_drawn / 3) + "\n";

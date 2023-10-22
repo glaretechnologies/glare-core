@@ -222,11 +222,13 @@ struct GlInstanceInfo
 };
 
 
-#define PROG_SUPPORTS_MDI_BITFLAG			(1u << 31)
-#define MATERIAL_TRANSPARENT_BITFLAG		(1u << 30)
-#define MATERIAL_WATER_BITFLAG				(1u << 29)
+#define PROG_SUPPORTS_MDI_BITFLAG						(1u << 31)
+#define MATERIAL_TRANSPARENT_BITFLAG					(1u << 30)
+#define MATERIAL_WATER_BITFLAG							(1u << 29)
+#define BACKFACE_CULLING_BITFLAG						(1u << 28)
 
-#define ISOLATE_PROG_INDEX_MASK				0x1FFFFFFF // Zero out top 3 bits
+#define ISOLATE_PROG_INDEX_MASK							0x0FFFFFFF // Zero out top 4 bits
+#define ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK	0x1FFFFFFF // Zero out top 3 bits
 
 
 struct GLObjectBatchDrawInfo
@@ -236,7 +238,8 @@ struct GLObjectBatchDrawInfo
 	uint32 prim_start_offset;
 	uint32 num_indices;
 
-	inline uint32 getProgramIndex() const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }
+	inline uint32 getProgramIndex()                   const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }
+	inline uint32 getProgramIndexAndBackfaceCulling() const { return program_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK; }
 };
 
 
@@ -532,33 +535,36 @@ struct FrameBufTextures
 
 
 /*
+We will pack various IDs for each batch to draw together into a 32-bit uint, then radix sort the uints.
 We will allocate a certain number of bits to each type of ID.
 The more expensive the state change, the more significant bit position we allocate the IDs.
-index type is in here so we can group together more calls for multi-draw-indirect.
-If the actual ID exceeds this number of bits, rendering will still be correct, we just will do more state changes than strictly needed.
+Index type is in here so we can group together more calls for multi-draw-indirect.
+If the actual ID exceeds the allocated number of bits, rendering will still be correct, we just will do more state changes than strictly needed.
 
-program_index:   8 bits
-VAO id:	        10 bits
-vert VBO id:     6 bits
-index VBO id:    6 bits
-index type bits: 2 bits
+             bits allocated    bit index (0 = least significant bit)
+program_index:     8 bits      24
+backface_cull:     1 bit       23
+VAO id:	           9 bits      14
+vert VBO id:       6 bits      8
+index VBO id:      6 bits      2
+index type bits:   2 bits      0
 */
 
 inline uint32 makeVAOAndVBOKey(uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits)
 {
-	return ((vao_id & 1023u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits;
+	return ((vao_id & 511u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits;
 }
 
 struct BatchDrawInfo
 {
 	BatchDrawInfo() {}
-	BatchDrawInfo(uint32 program_index, uint32 vao_and_vbo_key, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((program_index & 255u) << 24) | vao_and_vbo_key),
+	BatchDrawInfo(uint32 prog_index_and_backface_culling_flag, uint32 vao_and_vbo_key, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key(((prog_index_and_backface_culling_flag & 511u) << 23) | vao_and_vbo_key),
 		batch_i(batch_i_), ob(ob_)
 	{}
 
-	BatchDrawInfo(uint32 program_index, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((program_index & 255u) << 24) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)), // prog_vao_key(((program_index & 255u) << 24) | ((vao_id & 1023u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits),
+	BatchDrawInfo(uint32 prog_index_and_backface_culling_flag, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key(((prog_index_and_backface_culling_flag & 511u) << 23) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)),
 		batch_i(batch_i_), ob(ob_)
 	{
 		assert(index_type_bits <= 2);
@@ -569,8 +575,6 @@ struct BatchDrawInfo
 	uint32 batch_i;
 	const GLObject* ob;
 	
-	//uint32 flags; // 1 = use shading normals
-
 	bool operator < (const BatchDrawInfo& other) const
 	{
 		if(prog_vao_key < other.prog_vao_key)
@@ -1223,7 +1227,6 @@ private:
 	js::Vector<BatchDrawInfo, 16> temp_batch_draw_info;
 	std::vector<uint32> temp_counts;
 	uint32 num_prog_changes;
-	uint32 num_batches_bound;
 	uint32 num_vao_binds;
 	uint32 num_vbo_binds;
 	uint32 num_index_buf_binds;
@@ -1234,6 +1237,7 @@ private:
 	uint32 last_num_vbo_binds;
 	uint32 last_num_index_buf_binds;
 	uint32 last_num_indices_drawn;
+	uint32 last_num_backface_culling_changes;
 
 	uint32 depth_draw_last_num_prog_changes;
 	uint32 depth_draw_last_num_batches_bound;
