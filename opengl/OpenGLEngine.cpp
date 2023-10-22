@@ -5743,9 +5743,11 @@ void OpenGLEngine::draw()
 			sortBatchDrawInfos();
 
 			// Draw sorted batches
-			for(size_t z = 0; z < batch_draw_info.size(); ++z)
+			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+			const size_t batch_draw_info_size = batch_draw_info.size();
+			for(size_t z=0; z<batch_draw_info_size; ++z)
 			{
-				const BatchDrawInfo& info = batch_draw_info[z];
+				const BatchDrawInfo& info = batch_draw_info_data[z];
 				const uint32 prog_index = info.ob->depth_draw_batches[info.batch_i].getProgramIndex();
 
 				const bool program_changed = checkUseProgram(prog_index);
@@ -6022,9 +6024,11 @@ void OpenGLEngine::draw()
 				sortBatchDrawInfos();
 
 				// Draw sorted batches
-				for(size_t z = 0; z < batch_draw_info.size(); ++z)
+				const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+				const size_t batch_draw_info_size = batch_draw_info.size();
+				for(size_t z=0; z<batch_draw_info_size; ++z)
 				{
-					const BatchDrawInfo& info = batch_draw_info[z];
+					const BatchDrawInfo& info = batch_draw_info_data[z];
 					const uint32 prog_index = info.ob->depth_draw_batches[info.batch_i].getProgramIndex();
 
 					const bool program_changed = checkUseProgram(prog_index);
@@ -6610,9 +6614,11 @@ void OpenGLEngine::draw()
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 		//Timer timer3;
-		for(size_t i=0; i<batch_draw_info.size(); ++i)
+		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+		const size_t batch_draw_info_size = batch_draw_info.size();
+		for(size_t i=0; i<batch_draw_info_size; ++i)
 		{
-			const BatchDrawInfo& info = batch_draw_info[i];
+			const BatchDrawInfo& info = batch_draw_info_data[i];
 			const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
 			if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
 			{
@@ -6790,9 +6796,11 @@ void OpenGLEngine::draw()
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 		//Timer timer3;
-		for(size_t i=0; i<batch_draw_info.size(); ++i)
+		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+		const size_t batch_draw_info_size = batch_draw_info.size();
+		for(size_t i=0; i<batch_draw_info_size; ++i)
 		{
-			const BatchDrawInfo& info = batch_draw_info[i];
+			const BatchDrawInfo& info = batch_draw_info_data[i];
 			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
 			if(prog_index != current_bound_prog_index)
 			{
@@ -6960,9 +6968,11 @@ void OpenGLEngine::draw()
 		sortBatchDrawInfos();
 
 		// Draw sorted batches
-		for(size_t i=0; i<batch_draw_info.size(); ++i)
+		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+		const size_t batch_draw_info_size = batch_draw_info.size();
+		for(size_t i=0; i<batch_draw_info_size; ++i)
 		{
-			const BatchDrawInfo& info = batch_draw_info[i];
+			const BatchDrawInfo& info = batch_draw_info_data[i];
 			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
 			const bool program_changed = checkUseProgram(prog_index);
 			if(program_changed)
