@@ -529,7 +529,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 	const size_t uv_offset          = normal_offset   + (mesh_has_shading_normals ? packed_normal_size : 0);
 	const size_t vert_col_offset    = uv_offset       + (mesh_has_uvs ? packed_uv_size : 0);
 	const size_t num_bytes_per_vert = vert_col_offset + (mesh_has_vert_cols ? sizeof(float)*3 : 0);
-	js::Vector<uint8, 16>& vert_data = opengl_render_data->vert_data;
+	glare::AllocatorVector<uint8, 16>& vert_data = opengl_render_data->vert_data;
 	vert_data.reserve(mesh->vert_positions.size() * num_bytes_per_vert);
 	
 

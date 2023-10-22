@@ -8,7 +8,7 @@ uniform sampler2D diffuse_tex;
 #endif
 
 uniform sampler2D fbm_tex;
-
+uniform sampler2D blue_noise_tex;
 
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -126,11 +126,40 @@ void main()
 {
 #if ALPHA_TEST
 	vec2 use_texture_coords = texture_coords; // TODO: Add GENERATE_PLANAR_UVS support
+	
+	#if IMPOSTER
+	if((MAT_UNIFORM.flags & IMPOSTER_TEX_HAS_MULTIPLE_ANGLES) != 0)
+		use_texture_coords.x *= 0.25; // Pick one of the sprites from the sprite-sheet
+	#endif
+
 	vec2 main_tex_coords = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
 	vec4 col = texture(DIFFUSE_TEX, main_tex_coords);
 	if(col.a < 0.5f)
 		discard;
+#endif // ALPHA_TEST
+
+
+#if IMPOSTER || IMPOSTERABLE
+	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
+	float depth = -pos_cs.z;
+	
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
+
+#if IMPOSTER
+	float begin_fade_in_distance  = MAT_UNIFORM.materialise_lower_z;
+	float end_fade_in_distance    = MAT_UNIFORM.materialise_upper_z;
+	float dist_alpha_factor = (smoothstep(begin_fade_in_distance, end_fade_in_distance, depth) - smoothstep(MAT_UNIFORM.begin_fade_out_distance, MAT_UNIFORM.end_fade_out_distance, depth)) * 1.001; 
+	if(dist_alpha_factor <= pixel_hash) // Draw imposter only when dist_alpha_factor > pixel_hash, draw real object when dist_alpha_factor <= pixel_hash
+		discard;
 #endif
+#if IMPOSTERABLE
+	float dist_alpha_factor = smoothstep(MAT_UNIFORM.begin_fade_out_distance, MAT_UNIFORM.end_fade_out_distance, depth);
+	if(dist_alpha_factor > pixel_hash)
+		discard;
+#endif
+
+#endif // endif IMPOSTER || IMPOSTERABLE
+
 
 #if MATERIALISE_EFFECT
 	// box mapping

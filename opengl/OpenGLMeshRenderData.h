@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/MemAlloc.h"
 #include "../utils/Vector.h"
+#include "../utils/AllocatorVector.h"
 #include <stdlib.h>
 class BatchedMesh;
 
@@ -52,7 +53,7 @@ public:
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 
-	js::Vector<uint8, 16> vert_data;
+	glare::AllocatorVector<uint8, 16> vert_data;
 
 	VertBufAllocationHandle vbo_handle;
 

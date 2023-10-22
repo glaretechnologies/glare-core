@@ -73,6 +73,7 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICallbackHandler.h
 
 
 set(opengl_shaders
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/build_imposters_compute_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/scatter_data_compute_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/clear_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/clear_vert_shader.glsl

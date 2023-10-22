@@ -56,11 +56,6 @@ uniform sampler2D lightmap_tex;
 #endif
 
 
-#define HAVE_SHADING_NORMALS_FLAG			1
-#define HAVE_TEXTURE_FLAG					2
-#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
-#define HAVE_EMISSION_TEX_FLAG				8
-
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 
@@ -532,7 +527,7 @@ void main()
 	vec4 texcol = vec4(0.f);
 	texcol += detail_0_texval * rock_weight;
 	texcol += detail_1_texval * sed_weight;
-	texcol += detail_2_texval * colour_variation_factor * veg_weight * 0.5;
+	texcol += detail_2_texval * colour_variation_factor * veg_weight * vec4(0.4, 0.5, 0.4, 1.0);
 	texcol.w = 1.0;
 
 	sun_diffuse_col  = texcol;

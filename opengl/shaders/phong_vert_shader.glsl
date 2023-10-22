@@ -91,6 +91,10 @@ uniform mat4 joint_matrix[256];
 
 float square(float x) { return x * x; }
 
+// vert_colours_in.x: branch bend amount
+// vert_colours_in.y: phase
+// vert_colours_in.z: tree bend amount
+
 #if USE_WIND_VERT_SHADER
 vec3 newPosGivenWind(vec3 pos_ws, vec3 normal_ws)
 {

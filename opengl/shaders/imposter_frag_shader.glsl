@@ -4,6 +4,7 @@ in vec3 normal_ws;
 in vec3 pos_cs;
 in vec3 pos_ws;
 in vec2 texture_coords;
+in float imposter_rot;
 #if NUM_DEPTH_TEXTURES > 0
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
@@ -11,6 +12,7 @@ in vec3 cam_to_pos_ws;
 
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
+uniform sampler2D normal_map;
 #endif
 uniform sampler2DShadow dynamic_depth_tex;
 uniform sampler2DShadow static_depth_tex;
@@ -18,10 +20,6 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
 
-
-#define HAVE_SHADING_NORMALS_FLAG			1
-#define HAVE_TEXTURE_FLAG					2
-#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
 
 layout (std140) uniform PhongUniforms
 {
@@ -31,9 +29,11 @@ layout (std140) uniform PhongUniforms
 
 #if USE_BINDLESS_TEXTURES
 #define DIFFUSE_TEX					matdata.diffuse_tex
+#define NORMAL_MAP					matdata.normal_map
 
 #else
 #define DIFFUSE_TEX					diffuse_tex
+#define NORMAL_MAP					normal_map
 #endif
 
 
@@ -108,43 +108,96 @@ float sampleStaticDepthMap(mat2 R, vec3 shadow_coords)
 	return sum * (1.f / 16);
 }
 
+float square(float x) { return x*x; }
+float pow4(float x) { return (x*x)*(x*x); }
+float pow5(float x) { return x*x*x*x*x; }
+float pow6(float x) { return x*x*x*x*x*x; }
+
+float fresnelApprox(float cos_theta_i, float n2)
+{
+	float r_0 = square((1.0 - n2) / (1.0 + n2));
+	return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i); // https://en.wikipedia.org/wiki/Schlick%27s_approximation
+
+	//float sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	//float sintheta_t = sintheta_i / n2; // Use Snell's law to get sin(theta_t)
+	//
+	//float costheta_t = sqrt(1 - sintheta_t*sintheta_t); // Get cos(theta_t)
+	//
+	//float a2 = square(cos_theta_i - n2*costheta_t);
+	//float b2 = square(cos_theta_i + n2*costheta_t);
+	//
+	//float c2 = square(n2*cos_theta_i - costheta_t);
+	//float d2 = square(costheta_t + n2*cos_theta_i);
+	//
+	//return 0.5 * (a2*d2 + b2*c2) / (b2*d2);
+}
+
+
+
+float alpha2ForRoughness(float r)
+{
+	return pow4(r);
+}
+
+float trowbridgeReitzPDF(float cos_theta, float alpha2)
+{
+	return cos_theta * alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
+}
 
 void main()
 {
-	vec3 use_normal_cs;
 	vec3 use_normal_ws;
 	vec2 use_texture_coords = texture_coords;
 	if((matdata.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
 	{
-		use_normal_cs = normal_cs;
 		use_normal_ws = normal_ws;
 	}
 	else
 	{
-		// Compute camera-space geometric normal.
-		vec3 dp_dx = dFdx(pos_cs);
-		vec3 dp_dy = dFdy(pos_cs);
-		vec3 N_g = cross(dp_dx, dp_dy);
-		use_normal_cs = N_g;
-
 		// Compute world-space geometric normal.
-		dp_dx = dFdx(pos_ws);
-		dp_dy = dFdy(pos_ws);
-		N_g = cross(dp_dx, dp_dy);
+		vec3 dp_dx = dFdx(pos_ws);
+		vec3 dp_dy = dFdy(pos_ws);
+		vec3 N_g = cross(dp_dx, dp_dy);
 		use_normal_ws = N_g;
 	}
-	vec3 unit_normal_cs = normalize(use_normal_cs);
 
-	float light_cos_theta = max(dot(unit_normal_cs, sundir_cs.xyz), 0.0);
+	// TEMP: get normals from normal map
+	if((matdata.flags & HAVE_NORMAL_MAP_FLAG) != 0)
+		use_normal_ws = texture(NORMAL_MAP,  matdata.texture_upper_left_matrix_col0 * use_texture_coords.x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation).xyz * 2.0 - 
+			vec3(1,1,1);
 
-	vec3 frag_to_cam = normalize(pos_cs * -1.0);
+	// Rotate normals vector around z-axis:
+	float phi = imposter_rot;
 
-	vec3 h = normalize(frag_to_cam + sundir_cs.xyz);
+	float new_x = cos(phi) * use_normal_ws.x - sin(phi) * use_normal_ws.y;
+	float new_y = sin(phi) * use_normal_ws.x + cos(phi) * use_normal_ws.y;
+	use_normal_ws.xy = vec2(new_x, new_y);
+
+	use_normal_ws = normalize(use_normal_ws);
+
+	float sun_light_cos_theta_factor = 1;
+
+	vec4 specular = vec4(0.0);
+	if((matdata.flags & HAVE_NORMAL_MAP_FLAG) != 0) // If grass (and so if have normal map with decent normals):
+	{
+		float final_fresnel_scale = 0.6;
+		float grass_IOR = 1.33;
+		float final_roughness = 0.4;
+
+		vec3 frag_to_cam = normalize(-cam_to_pos_ws);
+		vec3 h_ws = normalize(frag_to_cam + sundir_ws.xyz);
+		float h_cos_theta = abs(dot(h_ws, use_normal_ws));
+		vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, grass_IOR)) * final_fresnel_scale;
+		specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * dielectric_fresnel;
+
+
+		sun_light_cos_theta_factor = abs(dot(use_normal_ws, sundir_ws.xyz));
+	}
 
 	// Work out which imposter sprite to use
-	vec3 to_frag_proj = normalize(vec3(pos_cs.x, 0.f, pos_cs.z)); // Projected onto ground plane
-	vec3 to_sun_proj = normalize(vec3(sundir_cs.x, 0.f, sundir_cs.z)); // Projected onto ground plane
-	vec3 right_cs = cross(to_frag_proj, vec3(0,1,0)); // to fragment, projeted onto groundf plane
+	vec3 to_frag_proj = normalize(vec3(pos_cs.x, 0.f, pos_cs.z)); // camera to fragment vector, projected onto ground plane
+	vec3 to_sun_proj = normalize(vec3(sundir_cs.x, 0.f, sundir_cs.z)); // fragment to sun vector, projected onto ground plane
+	vec3 right_cs = cross(to_frag_proj, vec3(0,1,0)); // right vector, projected onto ground plane
 
 	float r = dot(right_cs, to_sun_proj);
 
@@ -191,12 +244,17 @@ void main()
 	vec4 texture_diffuse_col;
 	if((matdata.flags & HAVE_TEXTURE_FLAG) != 0) //if(have_texture != 0)
 	{
-		vec2 tex_coords_a = matdata.texture_upper_left_matrix_col0 * sprite_a_x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation;
-		vec2 tex_coords_b = matdata.texture_upper_left_matrix_col0 * sprite_b_x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation;
-		vec4 col_a = texture(DIFFUSE_TEX, tex_coords_a);
-		vec4 col_b = texture(DIFFUSE_TEX, tex_coords_b);
+		if((matdata.flags & IMPOSTER_TEX_HAS_MULTIPLE_ANGLES) != 0)
+		{
+			vec2 tex_coords_a = matdata.texture_upper_left_matrix_col0 * sprite_a_x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation;
+			vec2 tex_coords_b = matdata.texture_upper_left_matrix_col0 * sprite_b_x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation;
+			vec4 col_a = texture(DIFFUSE_TEX, tex_coords_a);
+			vec4 col_b = texture(DIFFUSE_TEX, tex_coords_b);
 
-		texture_diffuse_col = mix(col_a, col_b, sprite_blend_frac);
+			texture_diffuse_col = mix(col_a, col_b, sprite_blend_frac);
+		}
+		else
+			texture_diffuse_col = texture(DIFFUSE_TEX, matdata.texture_upper_left_matrix_col0 * use_texture_coords.x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation);
 
 #if CONVERT_ALBEDO_FROM_SRGB
 		// Texture value is in non-linear sRGB, convert to linear sRGB.
@@ -212,10 +270,32 @@ void main()
 	vec4 diffuse_col = texture_diffuse_col * matdata.diffuse_colour; // diffuse_colour is linear sRGB already.
 	diffuse_col.xyz *= 0.8f; // Just a hack scale to make the brightnesses look similar
 
+	vec4 refl_diffuse_col = diffuse_col;
+	if((matdata.flags & IMPOSTER_TEX_HAS_MULTIPLE_ANGLES) == 0) // TEMP HACK If grass:
+	{
+		vec3 frag_to_cam_vec_ws = -cam_to_pos_ws;
+		vec3 frag_to_sun_vec_ws = sundir_ws.xyz;
+
+		if(dot(use_normal_ws, frag_to_cam_vec_ws) * dot(use_normal_ws, frag_to_sun_vec_ws) < 0)//dot(pos_cs, sundir_cs.xyz) > 0) // Backlighting
+		{
+			diffuse_col.xyz = vec3(0.21756086,0.35085827,0.0013999827); // grass_trans_linear_actual
+		}
+		else // Else frontlighting
+		{
+			diffuse_col.xyz = vec3(0.04895491,0.10686976,0.010306382); // grass_refl_linear_actual
+		}
+
+		refl_diffuse_col = vec4(0.04895491,0.10686976,0.010306382, 0.0);
+	}
+
 	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
-	float dist_alpha_factor = smoothstep(100.f, 120.f,  /*dist=*/-pos_cs.z) * 1.001; // Make sure is > 1 when far away.
-	if(dist_alpha_factor <= pixel_hash) // Draw imposter only when dist_alpha_factor > pixel_hash, draw real object when dist_alpha_factor <= pixel_hash
-		discard;
+
+	float begin_fade_in_distance  = matdata.materialise_lower_z;
+	float end_fade_in_distance    = matdata.materialise_upper_z;
+	// 1.001 factor is to make sure is > 1 when should be visible.
+	float dist_alpha_factor = (smoothstep(begin_fade_in_distance, end_fade_in_distance, /*dist=*/-pos_cs.z) - smoothstep(matdata.begin_fade_out_distance, matdata.end_fade_out_distance, /*dist=*/-pos_cs.z)) * 1.001; 
+	if(pixel_hash > dist_alpha_factor)
+	 	discard;
 
 #if ALPHA_TEST
 	if(diffuse_col.a < 0.5f)
@@ -364,8 +444,9 @@ void main()
 	vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor; // Sun spectral radiance multiplied by solid angle, see SkyModel2Generator::makeSkyEnvMap().
 
 	vec4 col =
-		sky_irradiance * diffuse_col * (1.0 / 3.141592653589793) +  // Diffuse substrate part of BRDF * incoming radiance from sky
-		sun_light * diffuse_col * (1.0 / 3.141592653589793); //  Diffuse substrate part of BRDF * sun light
+		sky_irradiance * refl_diffuse_col * (1.0 / 3.141592653589793) +  // Diffuse substrate part of BRDF * incoming radiance from sky
+		sun_light * diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * sun light
+		sun_light * specular; // sun light * specular microfacet terms
 
 #if DEPTH_FOG
 	// Blend with background/fog colour

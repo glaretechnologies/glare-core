@@ -135,7 +135,8 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		handle.size = size;
 		handle.base_vertex = (int)(handle.block_handle->block->aligned_offset / vert_stride);
 
-		used_vbo->updateData(handle.block_handle->block->aligned_offset, vbo_data, size);
+		if(vbo_data)
+			used_vbo->updateData(handle.block_handle->block->aligned_offset, vbo_data, size);
 
 		return handle;
 	}

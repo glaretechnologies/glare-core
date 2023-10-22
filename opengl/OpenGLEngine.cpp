@@ -94,7 +94,8 @@ Copyright Glare Technologies Limited 2020 -
 
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
-	num_instances_to_draw(0), always_visible(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0)
+	num_instances_to_draw(0), always_visible(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
+	depth_draw_depth_bias(0)
 {
 	for(int i=0; i<MAX_NUM_LIGHT_INDICES; ++i)
 		light_indices[i] = -1;
@@ -1323,6 +1324,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.emission_tex_location				= prog->getUniformLocation("emission_tex");
 	locations_out.backface_diffuse_tex_location		= prog->getUniformLocation("backface_diffuse_tex");
 	locations_out.transmission_tex_location			= prog->getUniformLocation("transmission_tex");
+	locations_out.normal_map_location				= prog->getUniformLocation("normal_map");
 	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
 	locations_out.specular_env_tex_location			= prog->getUniformLocation("specular_env_tex");
 	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
@@ -1428,7 +1430,7 @@ static void printFieldOffsets(OpenGLProgramRef& prog, const char* block_name)
 }
 
 
-static void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size)
+void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size)
 {
 	const size_t block_size = getSizeOfUniformBlockInOpenGL(prog, block_name);
 	if(block_size != target_size)
@@ -1449,7 +1451,7 @@ static void bindUniformBlockToProgram(OpenGLProgramRef prog, const char* name, i
 
 
 // See https://registry.khronos.org/OpenGL-Refpages/gl4/html/glShaderStorageBlockBinding.xhtml
-static void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index)
+void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index)
 {
 #if defined(OSX)
 	assert(0); // glShaderStorageBlockBinding is not defined on Mac. (SSBOs are not supported)
@@ -2300,6 +2302,7 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
 		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" +
 		"#define SKINNING " + toString(key.skinning) + "\n" +
+		"#define IMPOSTER " + toString(key.imposter) + "\n" +
 		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
 		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
 		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n" + 
@@ -2365,7 +2368,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 			// Bind "LightDataStorage" uniform block in the shader to the binding point with index LIGHT_DATA_UBO_BINDING_POINT_INDEX.
 			bindUniformBlockToProgram(phong_prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
-		conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		// conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
 
 	return progs[key];
@@ -2553,7 +2556,6 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	key.draw_planar_uv_grid = false;
 	key.convert_albedo_from_srgb = false;
 	// relevant: key.skinning
-	key.imposterable = false; // for now
 	// relevant: use_wind_vert_shader
 	key.double_sided = false; // for now
 	key.terrain = false;
@@ -2603,7 +2605,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
 		}
 
-		conPrint("Built depth draw program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		// conPrint("Built depth draw program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
 	}
 
 	return progs[key];
@@ -2796,6 +2798,7 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 		uniforms.normal_matrix = object.ob_to_world_inv_transpose_matrix;
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 			uniforms.light_indices[i] = object.light_indices[i];
+		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
@@ -2835,6 +2838,7 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 		uniforms.normal_matrix = object.ob_to_world_inv_transpose_matrix;
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 			uniforms.light_indices[i] = object.light_indices[i];
+		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
@@ -2984,6 +2988,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.draw_planar_uv_grid = material.draw_planar_uv_grid;
 	key_args.convert_albedo_from_srgb = material.convert_albedo_from_srgb || need_convert_albedo_from_srgb;
 	key_args.skinning = uses_skinning;
+	key_args.imposter = material.imposter;
 	key_args.imposterable = material.imposterable;
 	key_args.use_wind_vert_shader = material.use_wind_vert_shader;
 	key_args.double_sided = material.double_sided;
@@ -3724,6 +3729,14 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 
 		phong_buffer->updateData(/*dest offset=*/mat.material_data_index * sizeof(PhongUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PhongUniforms));
 	}
+}
+
+
+void OpenGLEngine::objectBatchDataChanged(GLObject& object)
+{
+	rebuildObjectDepthDrawBatches(object);
+
+	rebuildDenormalisedDrawData(object);
 }
 
 
@@ -5314,6 +5327,7 @@ void OpenGLEngine::draw()
 					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
 
 				rebuildDenormalisedDrawData(*object);
+				rebuildObjectDepthDrawBatches(*object);
 			}
 		}
 
@@ -5498,7 +5512,7 @@ void OpenGLEngine::draw()
 
 	// Update MaterialCommonUniforms, these values are constant for all materials for this frame.
 	MaterialCommonUniforms common_uniforms;
-	common_uniforms.view_matrix = main_view_matrix;
+	common_uniforms.frag_view_matrix = main_view_matrix;
 	common_uniforms.sundir_cs = this->sun_dir_cam_space;
 	common_uniforms.sundir_ws = this->sun_dir;
 	common_uniforms.sun_spec_rad_times_solid_angle = this->sun_spec_rad_times_solid_angle;
@@ -5670,6 +5684,8 @@ void OpenGLEngine::draw()
 				std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
 				uniforms.proj_matrix = proj_matrix;
 				uniforms.view_matrix = view_matrix;
+				uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
+				uniforms.vert_sundir_ws = this->sun_dir;
 				uniforms.vert_uniforms_time = current_time;
 				uniforms.wind_strength = current_scene->wind_strength;
 				this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
@@ -5948,6 +5964,8 @@ void OpenGLEngine::draw()
 					std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
 					uniforms.proj_matrix = proj_matrix;
 					uniforms.view_matrix = view_matrix;
+					uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
+					uniforms.vert_sundir_ws = this->sun_dir;
 					uniforms.vert_uniforms_time = current_time;
 					uniforms.wind_strength = current_scene->wind_strength;
 					this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
@@ -6485,6 +6503,7 @@ void OpenGLEngine::draw()
 			uniforms.shadow_texture_matrix[i] = tex_matrices[i];
 
 		uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
+		uniforms.vert_sundir_ws = this->sun_dir;
 		uniforms.vert_uniforms_time = current_time;
 		uniforms.wind_strength = current_scene->wind_strength;
 
@@ -7634,6 +7653,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 		glUniform1i(locations.emission_tex_location, 11);
 		glUniform1i(locations.backface_diffuse_tex_location, 8);
 		glUniform1i(locations.transmission_tex_location, 9);
+		glUniform1i(locations.normal_map_location, 12);
 	}
 
 	if(this->cosine_env_tex.nonNull())
@@ -7675,6 +7695,8 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 #define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
 #define HAVE_EMISSION_TEX_FLAG				8
 #define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
+#define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
+#define HAVE_NORMAL_MAP_FLAG				64
 
 
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms)
@@ -7720,6 +7742,11 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			uniforms.transmission_tex = opengl_mat.transmission_texture->getBindlessTextureHandle();
 		else
 			uniforms.transmission_tex = 0;
+
+		if(opengl_mat.normal_map.nonNull())
+			uniforms.normal_map = opengl_mat.normal_map->getBindlessTextureHandle();
+		else
+			uniforms.normal_map = 0;
 	}
 
 	uniforms.flags =
@@ -7727,7 +7754,9 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
 		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0) |
 		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0) |
-		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0);
+		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0) |
+		(opengl_mat.imposter_tex_has_multiple_angles		? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	: 0) |
+		(opengl_mat.normal_map.nonNull()					? HAVE_NORMAL_MAP_FLAG				: 0);
 
 	uniforms.roughness					= opengl_mat.roughness;
 	uniforms.fresnel_scale				= opengl_mat.fresnel_scale;
@@ -7778,6 +7807,12 @@ void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat)
 	{
 		glActiveTexture(GL_TEXTURE0 + 11);
 		glBindTexture(GL_TEXTURE_2D, opengl_mat.emission_texture->texture_handle);
+	}
+
+	if(opengl_mat.normal_map.nonNull())
+	{
+		glActiveTexture(GL_TEXTURE0 + 12);
+		glBindTexture(GL_TEXTURE_2D, opengl_mat.normal_map->texture_handle);
 	}
 }
 
@@ -7833,6 +7868,9 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	}
 	else if(shader_prog.is_depth_draw)
 	{
+		if(this->blue_noise_tex.nonNull())
+			bindTextureUnitToSampler(*this->blue_noise_tex, /*texture_unit_index=*/6, /*sampler_uniform_location=*/shader_prog.uniform_locations.blue_noise_tex_location);
+
 		if(this->fbm_tex.nonNull())
 			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/shader_prog.uniform_locations.fbm_tex_location);
 	}
@@ -7866,6 +7904,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
 				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 					uniforms.light_indices[i] = ob.light_indices[i];
+				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else
@@ -8107,6 +8146,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
 				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 					uniforms.light_indices[i] = ob.light_indices[i];
+				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else

@@ -62,8 +62,10 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	// This corresponds to the order we supply vertex attributes in our mesh VAOs.
 	glBindAttribLocation(program, 0, "position_in");
 	glBindAttribLocation(program, 1, "normal_in");
+	glBindAttribLocation(program, 1, "imposter_width_in");
 	glBindAttribLocation(program, 2, "texture_coords_0_in");
 	glBindAttribLocation(program, 3, "vert_colours_in");
+	glBindAttribLocation(program, 3, "imposter_rot_in");
 	glBindAttribLocation(program, 4, "lightmap_coords_in");
 	glBindAttribLocation(program, 5, "instance_matrix_in"); // uses attribute indices 5, 6, 7, 8
 	//glBindAttribLocation(program, 9, "instance_colour_in");

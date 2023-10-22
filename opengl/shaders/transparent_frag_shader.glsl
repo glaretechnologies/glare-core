@@ -15,13 +15,6 @@ uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
 
 
-#define HAVE_SHADING_NORMALS_FLAG			1
-#define HAVE_TEXTURE_FLAG					2
-#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
-#define HAVE_EMISSION_TEX_FLAG				8
-#define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
-
-
 //----------------------------------------------------------------------------------------------------------------------------
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 

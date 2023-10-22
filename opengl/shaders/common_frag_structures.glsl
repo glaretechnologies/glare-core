@@ -20,6 +20,15 @@ layout (std140) uniform MaterialCommonUniforms
 };
 
 
+#define HAVE_SHADING_NORMALS_FLAG			1
+#define HAVE_TEXTURE_FLAG					2
+#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
+#define HAVE_EMISSION_TEX_FLAG				8
+#define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
+#define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
+#define HAVE_NORMAL_MAP_FLAG				64
+
+
 struct MaterialData
 {
 	vec4 diffuse_colour;
@@ -35,6 +44,7 @@ struct MaterialData
 	sampler2D emission_tex;
 	sampler2D backface_albedo_tex;
 	sampler2D transmission_tex;
+	sampler2D normal_map;
 #else
 	float padding0;
 	float padding1;
@@ -48,6 +58,8 @@ struct MaterialData
 	float padding9;
 	float padding10;
 	float padding11;
+	float padding12;
+	float padding13;
 #endif
 
 	int flags;
@@ -57,8 +69,8 @@ struct MaterialData
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
 
-	float materialise_lower_z;
-	float materialise_upper_z;
+	float materialise_lower_z; // For imposters: begin_fade_in_distance
+	float materialise_upper_z; // For imposters: end_fade_in_distance
 	float materialise_start_time;
 
 	float padding_b0;

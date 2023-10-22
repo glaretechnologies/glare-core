@@ -119,6 +119,7 @@ public:
 		geomorphing(false),
 		water(false),
 		terrain(false),
+		imposter_tex_has_multiple_angles(false),
 		draw_into_depth_buffer(false),
 		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
@@ -148,6 +149,7 @@ public:
 	bool geomorphing;
 	bool water;
 	bool terrain;
+	bool imposter_tex_has_multiple_angles;
 
 	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.
 
@@ -160,6 +162,7 @@ public:
 	Reference<OpenGLTexture> backface_albedo_texture;
 	Reference<OpenGLTexture> transmission_texture;
 	Reference<OpenGLTexture> emission_texture;
+	Reference<OpenGLTexture> normal_map;
 
 	Reference<OpenGLProgram> shader_prog;
 	Reference<OpenGLProgram> depth_draw_shader_prog;
@@ -308,6 +311,8 @@ struct GLObject
 
 	float morph_start_dist; // Distance from camera at which we start morphing to the next lower LOD level, for geomorphing objects (terrain).
 	float morph_end_dist;
+
+	float depth_draw_depth_bias; // Distance to move fragment position towards sun when drawing to depth buffer.
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 	js::Vector<Matrix4f, 16> joint_matrices;
@@ -594,6 +599,7 @@ struct PhongUniforms
 	uint64 emission_tex; // Bindless texture handle
 	uint64 backface_albedo_tex; // Bindless texture handle
 	uint64 transmission_tex; // Bindless texture handle
+	uint64 normal_map; // Bindless texture handle
 
 	int flags;
 	float roughness;
@@ -613,7 +619,7 @@ struct PhongUniforms
 // Should be the same layout as in common_frag_structures.glsl
 struct MaterialCommonUniforms
 {
-	Matrix4f view_matrix;
+	Matrix4f frag_view_matrix;
 	Vec4f sundir_cs;
 	Vec4f sundir_ws;
 	Vec4f sun_spec_rad_times_solid_angle;
@@ -658,8 +664,10 @@ struct SharedVertUniforms
 	Matrix4f shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES]; // same for all objects
 	//#endif
 	Vec4f campos_ws; // same for all objects
+	Vec4f vert_sundir_ws;
 	float vert_uniforms_time;
 	float wind_strength;
+
 	float padding_0; // AMD drivers have different opinions on if structures are padded than Nvidia drivers, so explicitly pad.
 	float padding_1;
 };
@@ -667,10 +675,16 @@ struct SharedVertUniforms
 
 struct PerObjectVertUniforms
 {
-	Matrix4f model_matrix; // per-object
-	Matrix4f normal_matrix; // per-object
+	Matrix4f model_matrix;
+	Matrix4f normal_matrix;
 
 	int light_indices[8];
+
+	float depth_draw_depth_bias;
+
+	float padding_po1;
+	float padding_po2;
+	float padding_po3;
 };
 
 
@@ -717,8 +731,12 @@ public:
 
 	void unloadAllData();
 
-	const std::string getPreprocessorDefines() const { return preprocessor_defines; } // for compiling shader programs
-	const std::string getVersionDirective() const { return version_directive; } // for compiling shader programs
+	const std::string& getPreprocessorDefines() const { return preprocessor_defines; } // for compiling shader programs
+	const std::string& getPreprocessorDefinesWithCommonVertStructs() const { return preprocessor_defines_with_common_vert_structs; } // for compiling shader programs
+	const std::string& getPreprocessorDefinesWithCommonFragStructs() const { return preprocessor_defines_with_common_frag_structs; } // for compiling shader programs
+	const std::string& getVersionDirective() const { return version_directive; } // for compiling shader programs
+
+	const std::string& getDataDir() const { return data_dir; }
 	//----------------------------------------------------------------------------------------
 
 
@@ -758,6 +776,8 @@ public:
 	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
 	void objectMaterialsUpdated(GLObject& object);
 	void materialTextureChanged(GLObject& object, OpenGLMaterial& mat);  // Update material data on GPU
+
+	void objectBatchDataChanged(GLObject& object);
 	//----------------------------------------------------------------------------------------
 
 
@@ -810,6 +830,10 @@ public:
 
 	TextureAllocator& getTextureAllocator() { return texture_allocator; }
 	//------------------------------- End texture loading ------------------------------------
+
+	//---------------------------- Built-in texture access -------------------------------------------
+	OpenGLTexture& getFBMTex() const { return *fbm_tex; }
+	//----------------------------------------------------------------------------------------
 
 
 	//------------------------------- Camera management --------------------------------------
@@ -1316,5 +1340,6 @@ private:
 
 
 void checkForOpenGLErrors();
-
+void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size);
+void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index);
 
