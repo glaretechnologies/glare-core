@@ -466,6 +466,7 @@ public:
 	float water_level_z; // Default = 0.  Controls drawing of underwater caustics.
 
 	js::Vector<Vec4f, 16> blob_shadow_locations;
+	Vec4f grass_pusher_sphere_pos;
 private:
 	float use_sensor_width;
 	float use_sensor_height;
@@ -669,6 +670,8 @@ struct SharedVertUniforms
 	//#endif
 	Vec4f campos_ws; // same for all objects
 	Vec4f vert_sundir_ws;
+	Vec4f grass_pusher_sphere_pos;
+
 	float vert_uniforms_time;
 	float wind_strength;
 

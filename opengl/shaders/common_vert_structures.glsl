@@ -9,6 +9,9 @@ layout (std140) uniform SharedVertUniforms
 	//#endif
 	vec4 campos_ws; // same for all objects
 	vec4 vert_sundir_ws;
+
+	vec4 grass_pusher_sphere_pos;
+
 	float vert_uniforms_time;
 	float wind_strength;
 

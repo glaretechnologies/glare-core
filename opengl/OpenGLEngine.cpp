@@ -274,6 +274,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	bloom_strength = 0;
 	wind_strength = 1.f;
 	water_level_z = 0.f;
+	grass_pusher_sphere_pos = Vec4f(-1.0e10, -1.0e10, -1.0e10, 1);
 
 	env_ob = engine.allocateObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
@@ -6512,6 +6513,7 @@ void OpenGLEngine::draw()
 
 		uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
 		uniforms.vert_sundir_ws = this->sun_dir;
+		uniforms.grass_pusher_sphere_pos = current_scene->grass_pusher_sphere_pos;
 		uniforms.vert_uniforms_time = current_time;
 		uniforms.wind_strength = current_scene->wind_strength;
 
