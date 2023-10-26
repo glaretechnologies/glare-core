@@ -41,10 +41,12 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
-uniform sampler2D detail_tex_0; // beach
+uniform sampler2D detail_tex_0; // rock
 uniform sampler2D detail_tex_1; // sediment
-uniform sampler2D detail_tex_2; // rock
-uniform sampler2D detail_tex_3; // vegetation
+uniform sampler2D detail_tex_2; // vegetation
+uniform sampler2D detail_tex_3;
+
+uniform sampler2D detail_heightmap_0; // rock
 
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
@@ -502,13 +504,14 @@ void main()
 	//if(mask.z > 0.0)
 		detail_2_texval =  texture(detail_tex_2, detail_map_2_uvs);
 
+	float rock_heightmap_val = texture(detail_heightmap_0, detail_map_0_uvs).x;
 
 	float non_beach_factor = smoothstep(water_level_z + 2.0, water_level_z + 3.0, pos_ws.z);
 	float beach_factor = 1.0 - non_beach_factor;
 
 	float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2).x * 0.2);
-	float rock_height = sqrt(detail_0_texval.w) * rock_weight_env;
-	float rock_weight = (rock_height > 0.2 /*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
+	float rock_height = rock_heightmap_val * rock_weight_env;
+	float rock_weight = (rock_height > 0.1/*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
 
 	//float veg_frac = mask.z > texture(fbm_tex, detail_map_2_uvs).x ? 1.0 : 0.0;
 	// Vegetation as a fraction of (vegetation + sediment)

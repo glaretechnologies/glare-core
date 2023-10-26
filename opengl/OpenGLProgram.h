@@ -33,6 +33,7 @@ struct UniformLocations
 	int detail_tex_1_location;
 	int detail_tex_2_location;
 	int detail_tex_3_location;
+	int detail_heightmap_0_location;
 	int blue_noise_tex_location;
 	int main_colour_texture_location;
 	int main_normal_texture_location;

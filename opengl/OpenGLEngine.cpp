@@ -429,6 +429,8 @@ OpenGLEngine::~OpenGLEngine()
 	fbm_tex = NULL;
 	for(int i=0; i<staticArrayNumElems(detail_tex); ++i)
 		detail_tex[i] = NULL;
+	for(int i=0; i<staticArrayNumElems(detail_heightmap); ++i)
+		detail_heightmap[i] = NULL;
 	blue_noise_tex = NULL;
 	noise_tex = NULL;
 	cirrus_tex = NULL;
@@ -1296,6 +1298,16 @@ void OpenGLEngine::setDetailTexture(int index, const Reference<OpenGLTexture>& t
 }
 
 
+void OpenGLEngine::setDetailHeightmap(int index, const OpenGLTextureRef& tex)
+{
+	assert(index >= 0 && index < 4);
+	if(index >= 0 && index < 4)
+		this->detail_heightmap[index] = tex;
+	else
+		throw glare::Exception("invalid detail heightmap index: " + toString(index));
+}
+
+
 // Define some constants not defined on Mac for some reason.
 // From https://www.khronos.org/registry/OpenGL/api/GL/glext.h
 #ifndef GL_DEBUG_TYPE_ERROR
@@ -1342,6 +1354,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.detail_tex_1_location				= prog->getUniformLocation("detail_tex_1");
 	locations_out.detail_tex_2_location				= prog->getUniformLocation("detail_tex_2");
 	locations_out.detail_tex_3_location				= prog->getUniformLocation("detail_tex_3");
+	locations_out.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
 	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	
 	if(shadow_mapping_enabled)
@@ -7713,6 +7726,10 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 		bindTextureUnitToSampler(*this->detail_tex[2], /*texture_unit_index=*/20, /*sampler_uniform_location=*/locations.detail_tex_2_location);
 	if(this->detail_tex[3].nonNull())
 		bindTextureUnitToSampler(*this->detail_tex[3], /*texture_unit_index=*/21, /*sampler_uniform_location=*/locations.detail_tex_3_location);
+	
+	// NOTE: for now we will only use 1 detail heightmap (rock) in shader
+	if(this->detail_heightmap[0].nonNull())
+		bindTextureUnitToSampler(*this->detail_heightmap[0], /*texture_unit_index=*/22, /*sampler_uniform_location=*/locations.detail_heightmap_0_location);
 
 	if(this->blue_noise_tex.nonNull())
 		bindTextureUnitToSampler(*this->blue_noise_tex, /*texture_unit_index=*/6, /*sampler_uniform_location=*/locations.blue_noise_tex_location);
