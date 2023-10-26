@@ -46,7 +46,12 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const 
 		if(texture_data.data_is_compressed)
 			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
 		else
-			format = (bytes_pp == 3) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_SRGBA_Uint8;
+		{
+			if(use_sRGB)
+				format = (bytes_pp == 3) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_SRGBA_Uint8;
+			else
+				format = (bytes_pp == 3) ? OpenGLTexture::Format_RGB_Linear_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
+		}
 
 		return new OpenGLTexture(W, H, opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0), /*format=*/format, filtering, wrapping);
 	}
