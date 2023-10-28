@@ -26,6 +26,8 @@ If a requested allocation size does not fit in the remaining free memory,
 MemAlloc::alignedMalloc will be used.
 
 Use BumpAllocation RAII wrapper defined below for making allocations.
+
+Not thread-safe, designed to be used only by a single thread.
 =====================================================================*/
 class BumpAllocator
 {
