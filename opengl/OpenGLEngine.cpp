@@ -427,9 +427,9 @@ OpenGLEngine::~OpenGLEngine()
 {
 	// Destroy textures now, since they may use texture views
 	fbm_tex = NULL;
-	for(int i=0; i<staticArrayNumElems(detail_tex); ++i)
+	for(size_t i=0; i<staticArrayNumElems(detail_tex); ++i)
 		detail_tex[i] = NULL;
-	for(int i=0; i<staticArrayNumElems(detail_heightmap); ++i)
+	for(size_t i=0; i<staticArrayNumElems(detail_heightmap); ++i)
 		detail_heightmap[i] = NULL;
 	blue_noise_tex = NULL;
 	noise_tex = NULL;
@@ -1495,8 +1495,6 @@ static const int PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX = 2;
 static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
 static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
-
-static const int OB_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX = 7;
 
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
 static const int PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX = 1;
@@ -5717,7 +5715,7 @@ void OpenGLEngine::draw()
 			batch_draw_info.reserve(current_scene->objects.size());
 			batch_draw_info.resize(0);
 
-			uint64 num_frustum_culled = 0;
+			//uint64 num_frustum_culled = 0;
 			const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
 			const size_t current_scene_obs_size        = current_scene->objects.vector.size();
 			for(size_t q=0; q<current_scene_obs_size; ++q)
@@ -5750,8 +5748,8 @@ void OpenGLEngine::draw()
 						batch_draw_info.push_back(info);
 					}
 				}
-				else
-					num_frustum_culled++;
+				//else
+				//	num_frustum_culled++;
 			}
 
 			sortBatchDrawInfos();
@@ -5995,7 +5993,7 @@ void OpenGLEngine::draw()
 				batch_draw_info.reserve(current_scene->objects.size());
 				batch_draw_info.resize(0);
 
-				uint64 num_frustum_culled = 0;
+				//uint64 num_frustum_culled = 0;
 				const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
 				const size_t current_scene_obs_size        = current_scene->objects.vector.size();
 				for(size_t q=0; q<current_scene_obs_size; ++q)
@@ -6030,8 +6028,8 @@ void OpenGLEngine::draw()
 								batch_draw_info.push_back(info);
 							}
 						}
-						else
-							num_frustum_culled++;
+						//else
+						//	num_frustum_culled++;
 					}
 				}
 
@@ -8136,10 +8134,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		this->draw_commands.push_back(command);
 
 		// Push back per-ob-vert-data and material indices to mat_and_ob_indices_buffer.
-		doCheck((ob.per_ob_vert_data_index >= 0) && (ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
-		doCheck((opengl_mat.material_data_index >= 0) && (opengl_mat.material_data_index < this->phong_buffer->byteSize() / sizeof(PhongUniforms)));
+		doCheck((ob.per_ob_vert_data_index >= 0) && ((size_t)ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
+		doCheck((opengl_mat.material_data_index >= 0) && ((size_t)opengl_mat.material_data_index < this->phong_buffer->byteSize() / sizeof(PhongUniforms)));
 		if(ob.mesh_data->usesSkinning())
-			doCheck(ob.joint_matrices_base_index >= 0 && ob.joint_matrices_base_index < this->joint_matrices_ssbo->byteSize() / sizeof(Matrix4f));
+			doCheck(ob.joint_matrices_base_index >= 0 && (size_t)ob.joint_matrices_base_index < this->joint_matrices_ssbo->byteSize() / sizeof(Matrix4f));
 
 
 		const size_t write_i = ob_and_mat_indices_buffer.size();
@@ -8409,14 +8407,14 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		this->draw_commands.push_back(command);
 
 		// Push back per-ob-vert-data and material indices to mat_and_ob_indices_buffer.
-		doCheck((ob.per_ob_vert_data_index >= 0) && (ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
-		doCheck((batch.material_data_index >= 0) && (batch.material_data_index < this->phong_buffer->byteSize() / sizeof(PhongUniforms)));
+		doCheck((ob.per_ob_vert_data_index >= 0) && ((size_t)ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
+		doCheck((batch.material_data_index >= 0) && ((size_t)batch.material_data_index < this->phong_buffer->byteSize() / sizeof(PhongUniforms)));
 #ifndef NDEBUG
 		//const OpenGLMaterial& opengl_mat = ob.materials[is_depth_draw ? ob.depth_draw_batch_material_indices[batch_index] : ob.mesh_data->batches[batch_index].material_index];
 		//assert(batch.material_data_index == opengl_mat.material_data_index);
 
 		if(ob.mesh_data->usesSkinning())
-			doCheck(ob.joint_matrices_base_index >= 0 && ob.joint_matrices_base_index < this->joint_matrices_ssbo->byteSize() / sizeof(Matrix4f));
+			doCheck(ob.joint_matrices_base_index >= 0 && (size_t)ob.joint_matrices_base_index < this->joint_matrices_ssbo->byteSize() / sizeof(Matrix4f));
 #endif
 
 

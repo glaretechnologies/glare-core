@@ -564,7 +564,7 @@ void ImageMap<V, VTraits>::floodFillFromOpaquePixels(V src_alpha_threshold, V up
 				}
 				if(closest_d2 < std::numeric_limits<float>::max()) // If found a source pixel to copy colour from:
 				{
-					for(int c=0; c<N; ++c)
+					for(size_t c=0; c<N; ++c)
 						getPixel(x, y)[c] = getPixel(closest_x, closest_y)[c];
 				}
 			}

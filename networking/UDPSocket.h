@@ -42,7 +42,7 @@ public:
 
 	void bindToPort(int port, bool reuse_address = false); // listen to/send from a particular port.  Creates the socket.
 
-	const int getThisEndPort() const;
+	int getThisEndPort() const;
 
 	// createClientSocket() should be called first()
 	void sendPacket(const Packet& packet, const IPAddress& dest_ip, int destport);

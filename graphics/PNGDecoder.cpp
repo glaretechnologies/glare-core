@@ -853,9 +853,9 @@ void testSavingAndLoadingRoundtrip(int W, int H, int N)
 
 		// Read it and compare with the original
 		Reference<Map2D> read_image = PNGDecoder::decode(path);
-		testAssert(read_image->getMapWidth() == W);
-		testAssert(read_image->getMapHeight() == H);
-		testAssert(read_image->numChannels() == N);
+		testAssert((int)read_image->getMapWidth() == W);
+		testAssert((int)read_image->getMapHeight() == H);
+		testAssert((int)read_image->numChannels() == N);
 
 		if(read_image.isType<ImageMapUInt8>())
 		{

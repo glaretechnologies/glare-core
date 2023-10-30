@@ -203,13 +203,13 @@ void test()
 					dummy
 				);
 				testAssert(v.size() == count);
-				testAssert(ob_count == count + 1);
+				testAssert(ob_count == (int)count + 1);
 			
 				// Copy construct v2 from v
 				const SmallArray<TestCounterClass, 4> v2(v);
 
 				testAssert(v2.size() == v.size());
-				testAssert(ob_count == 2*count + 1);
+				testAssert(ob_count == 2*(int)count + 1);
 			}
 
 			testAssert(ob_count == 1);
@@ -576,14 +576,14 @@ void test()
 					dummy
 				);
 				testAssert(v.size() == start_size);
-				testAssert(ob_count == start_size + 1);
+				testAssert(ob_count == (int)start_size + 1);
 			
 				// Resize to end_size
 				v.resize(end_size, dummy);
 
 				testAssert(v.size() == end_size);
 				//testAssert(v.capacity() >= 100);
-				testAssert(ob_count == end_size + 1);
+				testAssert(ob_count == (int)end_size + 1);
 
 			}
 
@@ -607,7 +607,7 @@ void test()
 		testAssert(v.size() == N);
 		//testAssert(v.capacity() >= N);
 
-		for(int i=0; i<N; ++i)
+		for(size_t i=0; i<N; ++i)
 			testAssert(v[i] == (int)i);
 	}
 
@@ -628,7 +628,7 @@ void test()
 		testAssert(v.size() == N);
 		//testAssert(v.capacity() >= N);
 
-		for(int i=0; i<N; ++i)
+		for(size_t i=0; i<N; ++i)
 			testAssert(v[i] == (int)i);
 	}
 }

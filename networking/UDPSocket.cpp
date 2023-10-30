@@ -198,7 +198,7 @@ void UDPSocket::bindToPort(int port, bool reuse_address)
 }
 
 
-const int UDPSocket::getThisEndPort() const
+int UDPSocket::getThisEndPort() const
 {
 	struct sockaddr_storage sock_addr;
 	SockLenType namelen = sizeof(sock_addr);

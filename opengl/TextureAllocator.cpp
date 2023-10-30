@@ -126,7 +126,7 @@ void TextureAllocator::freeTextureView(AllocatedTexViewInfo& info)
 
 	std::vector<TextureViewTexArray*>& texture_arrays = texture_arrays_map[info.array_key];
 
-	assert(info.array_index < texture_arrays.size());
+	assert(info.array_index < (int)texture_arrays.size());
 
 	texture_arrays[info.array_index]->free_indices.push_back(info.index);
 
