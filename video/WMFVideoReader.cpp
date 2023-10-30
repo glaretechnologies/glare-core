@@ -1198,7 +1198,7 @@ void WMFVideoReader::test()
 
 		//size_t audio_sample_index = 0;
 		size_t frame_index = 0;
-		size_t vid_frame_index = 0;
+		//size_t vid_frame_index = 0;
 		double last_frame_time = 0;
 		Timer play_timer;
 		int num_seeks_to_start = 0;
@@ -1285,7 +1285,7 @@ void WMFVideoReader::test()
 
 
 
-							vid_frame_index++;
+							//vid_frame_index++;
 						}
 
 						frame_index++;
