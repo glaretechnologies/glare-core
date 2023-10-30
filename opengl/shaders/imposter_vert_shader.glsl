@@ -61,15 +61,53 @@ void main()
 	vec3 desired_right_ws = normalize(cross(cam_to_orig_pos_ws, vec3(0, 0, 1.0)));
 	pos_ws = orig_pos_ws + imposter_width_in * vert_uv_right * desired_right_ws;
 
-#if USE_WIND_VERT_SHADER
-	float ob_phase = pos_ws.x * 0.9f + imposter_rot_in * 0.3;
-	float wind_gust_str = (sin(vert_uniforms_time * 3.8654f + ob_phase) + sin(vert_uniforms_time * 2.343243f + ob_phase) + 2.5f) * 0.2f * wind_strength; // Should be in [0, 1]
+	vec3 unit_cam_to_pos = normalize(cam_to_orig_pos_ws);
+
 	
-	//const float wind_influence = max(texture_coords_0_in.y - 0.9, 0.0) * 4;//texture_coords_0_in.y * texture_coords_0_in.y * texture_coords_0_in.y * texture_coords_0_in.y * texture_coords_0_in.y * texture_coords_0_in.y * texture_coords_0_in.y * texture_coords_0_in.y;
-	const float wind_influence = texture_coords_0_in.y * (0.75 + imposter_rot_in * (1.0 / 6.28318) * 0.5); // (texture_coords_0_in.y > 0.99) ? 1 : 0;
-	pos_ws.x += wind_influence * wind_gust_str * 0.2;
+#if USE_WIND_VERT_SHADER
+	float positon_phase_term =  pos_ws.x * -0.2f;
+	float ob_phase_term = imposter_rot_in * 0.3;
+
+	float wind_gust_str = max(0.0, 
+		1.0 * sin(vert_uniforms_time*2.0 + positon_phase_term + ob_phase_term) + 
+		abs(1 + sin(pos_ws.x * 0.3f + pos_ws.y * 1.3f + vert_uniforms_time*0.5)) + 
+		4.0) *
+		0.3 * wind_strength;
+	float bend_amount = wind_gust_str*wind_gust_str;
+
+
+	// Start fluttering (high frequency oscillation) when wind is strong enough.
+	float flutter_env = bend_amount * 0.02;
+
+	float flutter_ang_freq = 20.0 + imposter_rot_in*3;
+	float flutter = sin(vert_uniforms_time * flutter_ang_freq + imposter_rot_in * (1.0 / 6.28318)) * flutter_env;
+	bend_amount = min(bend_amount, 5.0);
+
+	pos_ws.x += texture_coords_0_in.y * bend_amount * 0.06 + texture_coords_0_in.y * flutter * 0.03; // Bend top sideways in wind direction
+	pos_ws.z -= texture_coords_0_in.y * bend_amount * 0.06 + texture_coords_0_in.y * flutter * 0.03; // Bend top down as well.
 #endif
 
+	// If camera is looking nearly straight down, tilt imposters backwards so they are less obviously flat billboards.
+	// bend_factor = 1 when z = -1, 0 when z >= -0.7
+	// bend_factor = -(unit_cam_to_pos.z - -0.7) = -(unit_cam_to_pos.z + 0.7) = -unit_cam_to_pos.z - 0.7
+	float bend_factor = max(0.0, -unit_cam_to_pos.z - 0.7);
+	pos_ws += texture_coords_0_in.y * cross(desired_right_ws, unit_cam_to_pos) * bend_factor;
+
+	// Bend grass away from pusher sphere/cylinder (around avatar)
+	float pusher_cylinder_rad = 0.3;
+	float dist_to_cylinder_orig_xy = length(grass_pusher_sphere_pos.xy - pos_ws.xy);
+	if(dist_to_cylinder_orig_xy < pusher_cylinder_rad)
+	{
+		if(pos_ws.z > grass_pusher_sphere_pos.z)
+		{
+			vec3 push_vector = normalize(vec3((orig_pos_ws.xy - grass_pusher_sphere_pos.xy), 0.0));
+			float push_amount = pusher_cylinder_rad - dist_to_cylinder_orig_xy;
+			pos_ws += push_vector * texture_coords_0_in.y * push_amount;
+		}
+		
+	}
+
+	
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 
 	cam_to_pos_ws = pos_ws - campos_ws.xyz;

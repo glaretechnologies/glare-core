@@ -9,6 +9,11 @@ in vec3 normal_in;
 #endif
 
 in vec2 texture_coords_0_in;
+
+#if IMPOSTER
+in float imposter_rot_in;
+#endif
+
 #if VERT_COLOURS
 in vec3 vert_colours_in;
 #endif
@@ -180,13 +185,28 @@ void main()
 		// once it is rotated towards the camera
 
 	// Apply wind movement to grass imposters:
-	#if USE_WIND_VERT_SHADER
-	float ob_phase = pos_ws.x * 0.9f;
-	float wind_gust_str = (sin(vert_uniforms_time * 3.8654f + ob_phase) + sin(vert_uniforms_time * 2.343243f + ob_phase) + 2.5f) * 0.2f * wind_strength; // Should be in [0, 1]
-	
-	const float wind_influence = texture_coords_0_in.y * texture_coords_0_in.y;
-	pos_ws.x += wind_influence * wind_gust_str * 0.3;
-	#endif // USE_WIND_VERT_SHADER
+#if USE_WIND_VERT_SHADER
+	float positon_phase_term =  pos_ws.x * -0.2f;
+	float ob_phase_term = imposter_rot_in * 0.3;
+
+	float wind_gust_str = max(0.0, 
+		1.0 * sin(vert_uniforms_time*2.0 + positon_phase_term + ob_phase_term) + 
+		abs(1 + sin(pos_ws.x * 0.3f + pos_ws.y * 1.3f + vert_uniforms_time*0.5)) + 
+		4.0) *
+		0.3 * wind_strength;
+	float bend_amount = wind_gust_str*wind_gust_str;
+
+
+	// Start fluttering (high frequency oscillation) when wind is strong enough.
+	float flutter_env = bend_amount * 0.02;
+
+	float flutter_ang_freq = 20.0 + imposter_rot_in*3;
+	float flutter = sin(vert_uniforms_time * flutter_ang_freq + imposter_rot_in * (1.0 / 6.28318)) * flutter_env;
+	bend_amount = min(bend_amount, 5.0);
+
+	pos_ws.x += texture_coords_0_in.y * bend_amount * 0.06 + texture_coords_0_in.y * flutter * 0.03; // Bend top sideways in wind direction
+	pos_ws.z -= texture_coords_0_in.y * bend_amount * 0.06 + texture_coords_0_in.y * flutter * 0.03; // Bend top down as well.
+#endif
 
 	normal_ws = vec3(1,0,0); // TEMP
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
