@@ -35,7 +35,7 @@ public:
 	void resize(size_t width_, size_t height_, size_t N_); // throws glare::Exception
 	void resizeNoCopy(size_t width_, size_t height_, size_t N_); // throws glare::Exception
 
-	virtual float getGamma() const { return gamma; }
+	virtual float getGamma() const override { return gamma; }
 	void setGamma(float g) { gamma = g; }
 
 	// Just for DXTImageMap:
@@ -43,51 +43,51 @@ public:
 	uint32 decodePixelRed(size_t x, size_t y) const;
 	uint32 decodePixelAlpha(size_t x, size_t y) const;
 
-	virtual const Colour4f pixelColour(size_t x, size_t y) const;
+	virtual const Colour4f pixelColour(size_t x, size_t y) const override;
 
 	// X and Y are normalised image coordinates.
 	virtual const Colour4f vec3Sample(Coord x, Coord y, bool wrap) const override;
 
 	// X and Y are normalised image coordinates.
 	// Used by TextureDisplaceMatParameter<>::eval(), for displacement and blend factor evaluation (channel 0) and alpha evaluation (channel N-1)
-	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
+	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const override;
 	//inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
 	virtual Value sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const override;
 
-	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
+	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const override;
 
 
 	inline size_t getWidth() const { return width; }
 	inline size_t getHeight() const { return height; }
 
-	virtual size_t getMapWidth() const { return width; }
-	virtual size_t getMapHeight() const { return height; }
-	virtual size_t numChannels() const { return N; }
+	virtual size_t getMapWidth() const override { return width; }
+	virtual size_t getMapHeight() const override { return height; }
+	virtual size_t numChannels() const override { return N; }
 
-	virtual bool takesOnlyUnitIntervalValues() const { return true; }
+	virtual bool takesOnlyUnitIntervalValues() const override { return true; }
 
-	virtual bool hasAlphaChannel() const { return N == 4; }
-	virtual Reference<Map2D> extractAlphaChannel() const;
-	virtual bool isAlphaChannelAllWhite() const;
+	virtual bool hasAlphaChannel() const override { return N == 4; }
+	virtual Reference<Map2D> extractAlphaChannel() const override;
+	virtual bool isAlphaChannelAllWhite() const override;
 
-	virtual Reference<Image> convertToImage() const;
+	virtual Reference<Image> convertToImage() const override;
 
-	virtual Reference<Map2D> extractChannelZero() const;
+	virtual Reference<Map2D> extractChannelZero() const override;
 
-	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const override;
 
-	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const;
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const override;
 
-	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const;
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const override;
 
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override;
 
-	virtual size_t getBytesPerPixel() const;
+	virtual size_t getBytesPerPixel() const override;
 
-	virtual size_t getByteSize() const;
+	virtual size_t getByteSize() const override;
 
-	virtual bool isDXTImageMap() const { return true; }
+	virtual bool isDXTImageMap() const override { return true; }
 
 	// Get num components per pixel.
 	inline size_t getN() const { return N; }

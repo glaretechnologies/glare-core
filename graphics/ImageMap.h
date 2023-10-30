@@ -97,55 +97,55 @@ public:
 	void resize(size_t width_, size_t height_, size_t N_); // throws glare::Exception
 	void resizeNoCopy(size_t width_, size_t height_, size_t N_); // throws glare::Exception
 
-	virtual float getGamma() const { return gamma; }
+	virtual float getGamma() const override { return gamma; }
 	void setGamma(float g) { gamma = g; }
 
-	inline virtual const Colour4f pixelColour(size_t x, size_t y) const;
+	inline virtual const Colour4f pixelColour(size_t x, size_t y) const override;
 
 	// X and Y are normalised image coordinates.
 	inline virtual const Colour4f vec3Sample(Coord x, Coord y, bool wrap) const override;
 
 	// X and Y are normalised image coordinates.
-	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
+	inline virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const override;
 	inline Value scalarSampleTiled(Coord x, Coord y) const { return sampleSingleChannelTiled(x, y, 0); }
 
 	inline virtual Value sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const override;
 
 	inline void sampleAllChannels(Coord x, Coord y, Value* res_out) const;
 
-	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
+	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const override;
 
 
 	inline size_t getWidth() const { return width; }
 	inline size_t getHeight() const { return height; }
 
-	inline virtual size_t getMapWidth() const { return width; }
-	inline virtual size_t getMapHeight() const { return height; }
-	inline virtual size_t numChannels() const { return N; }
+	inline virtual size_t getMapWidth() const override { return width; }
+	inline virtual size_t getMapHeight() const override { return height; }
+	inline virtual size_t numChannels() const override { return N; }
 
-	inline virtual bool takesOnlyUnitIntervalValues() const { return !ComponentValueTraits::isFloatingPoint(); }
+	inline virtual bool takesOnlyUnitIntervalValues() const override { return !ComponentValueTraits::isFloatingPoint(); }
 
-	inline virtual bool hasAlphaChannel() const { return N == 2 || N == 4; }
-	inline virtual Reference<Map2D> extractAlphaChannel() const;
-	inline virtual bool isAlphaChannelAllWhite() const;
+	inline virtual bool hasAlphaChannel() const override { return N == 2 || N == 4; }
+	inline virtual Reference<Map2D> extractAlphaChannel() const override;
+	inline virtual bool isAlphaChannelAllWhite() const override;
 
-	inline virtual Reference<Image> convertToImage() const;
+	inline virtual Reference<Image> convertToImage() const override;
 
-	inline virtual Reference<Map2D> extractChannelZero() const;
+	inline virtual Reference<Map2D> extractChannelZero() const override;
 	
 
-	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const override;
 #if MAP2D_FILTERING_SUPPORT
-	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const;
+	inline virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const override;
 
-	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const;
+	inline virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int target_width, bool& is_linear) const override;
 
 	// task_manager may be NULL
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override;
 #endif
-	inline virtual size_t getBytesPerPixel() const;
+	inline virtual size_t getBytesPerPixel() const override;
 
-	inline virtual size_t getByteSize() const;
+	inline virtual size_t getByteSize() const override;
 
 	// This image must have >= 3 channels.
 	inline Reference<ImageMap<V, ComponentValueTraits> > extract3ChannelImage() const;

@@ -183,7 +183,7 @@ void Image::resizeNoCopy(size_t newwidth, size_t newheight)
 
 const Colour4f Image::pixelColour(size_t x, size_t y) const
 {
-	const Colour3f c = pixels.elem(x, y);
+	const Colour3f& c = pixels.elem(x, y);
 	return Colour4f(c.r, c.g, c.b, 0);
 }
 
@@ -208,7 +208,7 @@ void Image::gammaCorrect(float exponent)
 	const size_t num = numPixels();
 	for(size_t i = 0; i < num; ++i)
 	{
-		const ColourType colour = getPixel(i);
+		const ColourType& colour = getPixel(i);
 		ColourType newcolour(
 			std::pow(colour.r, exponent),
 			std::pow(colour.g, exponent),

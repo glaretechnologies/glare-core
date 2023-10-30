@@ -102,41 +102,41 @@ public:
 	Reference<glare::Allocator>& getAllocator() { return pixels.getAllocator(); }
 
 	////// Map2D interface //////////
-	virtual size_t getMapWidth() const { return getWidth(); }
-	virtual size_t getMapHeight() const { return getHeight(); }
-	virtual size_t numChannels() const { return 3; }
+	virtual size_t getMapWidth() const override { return getWidth(); }
+	virtual size_t getMapHeight() const override { return getHeight(); }
+	virtual size_t numChannels() const override { return 3; }
 
-	virtual const Colour4f pixelColour(size_t x, size_t y) const;
+	virtual const Colour4f pixelColour(size_t x, size_t y) const override;
 
 	virtual const Colour4f vec3Sample(Coord x, Coord y, bool wrap) const override;
 
-	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const;
+	virtual Value sampleSingleChannelTiled(Coord x, Coord y, size_t channel) const override;
 
 	virtual Value sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const override;
 
-	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const;
+	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const override;
 
-	virtual bool takesOnlyUnitIntervalValues() const { return false; }
+	virtual bool takesOnlyUnitIntervalValues() const override { return false; }
 
-	virtual Reference<Map2D> extractChannelZero() const;
+	virtual Reference<Map2D> extractChannelZero() const override;
 
-	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const;
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const override;
 
-	virtual Reference<Image> convertToImage() const;
+	virtual Reference<Image> convertToImage() const override;
 
 #if MAP2D_FILTERING_SUPPORT
-	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const;
+	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const override;
 
-	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const;
+	virtual Reference<ImageMap<float, FloatComponentValueTraits> > resizeToImageMapFloat(const int width, bool& is_linear) const override;
 
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const;
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override;
 #endif
 
-	virtual size_t getBytesPerPixel() const;
+	virtual size_t getBytesPerPixel() const override;
 
-	virtual size_t getByteSize() const;
+	virtual size_t getByteSize() const override;
 
-	virtual float getGamma() const { return 1.0f; }
+	virtual float getGamma() const override { return 1.0f; }
 	/////////////////////////////////
 
 	static void test();
