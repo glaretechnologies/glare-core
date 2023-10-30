@@ -66,13 +66,6 @@ public:
 		return *this;
 	}
 
-	inline Vec2& operator = (const Vec2& rhs)
-	{	
-		x = rhs.x;
-		y = rhs.y;
-		return *this;
-	}
-
 	inline bool operator == (const Vec2& rhs) const
 	{
 		return (x == rhs.x) && (y == rhs.y);

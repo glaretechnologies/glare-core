@@ -30,7 +30,6 @@ public:
 	GLARE_STRONG_INLINE AABBox();
 	GLARE_STRONG_INLINE AABBox(const Vec4f& _min, const Vec4f& _max);
 
-	GLARE_STRONG_INLINE AABBox& operator = (const AABBox& rhs) { min_ = rhs.min_; max_ = rhs.max_; return *this; }
 	inline bool operator == (const AABBox& rhs) const;
 	inline bool operator != (const AABBox& rhs) const;
 

@@ -31,6 +31,7 @@ public:
 	GLARE_STRONG_INLINE explicit Colour4f(float x_, float y_, float z_, float w_) : v(_mm_set_ps(w_, z_, y_, x_)) {}
 	GLARE_STRONG_INLINE explicit Colour4f(__m128 v_) : v(v_) {}
 	GLARE_STRONG_INLINE explicit Colour4f(float f) : v(_mm_set1_ps(f)) {}
+	GLARE_STRONG_INLINE Colour4f(const Colour4f& other) : v(other.v) {}
 
 	GLARE_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { v = _mm_set_ps(w_, z_, y_, x_); }
 

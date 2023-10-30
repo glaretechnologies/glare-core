@@ -110,14 +110,6 @@ public:
 		return *this;
 	}
 
-	VEC3_INLINE Vec3& operator = (const Vec3& rhs)
-	{
-		x = rhs.x;
-		y = rhs.y;
-		z = rhs.z;
-		return *this;
-	}
-
 	VEC3_INLINE bool operator == (const Vec3& rhs) const
 	{
 		return (x == rhs.x) && (y == rhs.y) && (z == rhs.z);

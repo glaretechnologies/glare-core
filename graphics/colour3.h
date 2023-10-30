@@ -79,13 +79,6 @@ public:
 		return Colour3(r - rhs.r, g - rhs.g, b - rhs.b);
 	}
 
-	inline void operator = (const Colour3& rhs)
-	{
-		r = rhs.r;
-		g = rhs.g;
-		b = rhs.b;
-	}
-
 	inline bool operator == (const Colour3& rhs) const
 	{
 		return r == rhs.r && g == rhs.g && b == rhs.b;

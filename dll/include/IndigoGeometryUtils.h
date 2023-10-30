@@ -65,7 +65,6 @@ public:
 	Vec2() : x(0), y(0) { }
 	explicit Vec2(T v) : x(v), y(v) { }
 	Vec2(T x_, T y_) : x(x_), y(y_) { }
-	Vec2(const Vec2<T>& v) : x(v.x), y(v.y) { }
 	inline void set(T v) { x = v; y = v; }
 	inline void set(T x_, T y_) { x = x_; y = y_; }
 	inline void set(const Vec2<T>& v) { x = v.x; y = v.y; }
@@ -154,7 +153,6 @@ public:
 	Vec3() : x(0), y(0), z(0) { }
 	explicit Vec3(T v) : x(v), y(v), z(v) { }
 	Vec3(T x_, T y_, T z_) : x(x_), y(y_), z(z_) { }
-	Vec3(const Vec3<T>& v) : x(v.x), y(v.y), z(v.z) { }
 
 	inline void set(T v) { x = v; y = v; z = v; }
 	inline void set(T x_, T y_, T z_) { x = x_; y = y_; z = z_; }
