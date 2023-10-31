@@ -530,7 +530,7 @@ void main()
 	vec4 texcol = vec4(0.f);
 	texcol += detail_0_texval * rock_weight;
 	texcol += detail_1_texval * sed_weight;
-	texcol += detail_2_texval * colour_variation_factor * veg_weight * vec4(0.4, 0.5, 0.4, 1.0);
+	texcol += detail_2_texval * colour_variation_factor * veg_weight;
 	texcol.w = 1.0;
 
 	sun_diffuse_col  = texcol;
