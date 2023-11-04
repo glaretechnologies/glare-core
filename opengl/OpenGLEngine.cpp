@@ -3799,8 +3799,8 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey
 }
 
 
-// http://iquilezles.org/www/articles/frustumcorrect/frustumcorrect.htm
-static bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int num_frustum_clip_planes, const js::AABBox& frustum_aabb, const js::AABBox& aabb_ws)
+// Initially based on http://iquilezles.org/www/articles/frustumcorrect/frustumcorrect.htm, but improved.
+static inline bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int num_frustum_clip_planes, const js::AABBox& frustum_aabb, const js::AABBox& aabb_ws)
 {
 	const Vec4f min_ws = aabb_ws.min_;
 	const Vec4f max_ws = aabb_ws.max_;
@@ -8829,7 +8829,7 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 		}
 
 		const GLObject* const ob = current_scene_obs[q].ptr();
-		if(ob->draw_to_mask_map)// && AABBIntersectsFrustum(clip_planes, staticArrayNumElems(clip_planes), frustum_aabb, ob->aabb_ws))
+		if(ob->draw_to_mask_map && AABBIntersectsFrustum(clip_planes, staticArrayNumElems(clip_planes), frustum_aabb, ob->aabb_ws))
 		{
 			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
 
