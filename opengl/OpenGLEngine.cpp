@@ -93,7 +93,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 GLObject::GLObject() noexcept
-	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
+	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), 
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
 	depth_draw_depth_bias(0)
 {
@@ -3216,9 +3216,6 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	if(object->always_visible)
 		current_scene->always_visible_objects.insert(object);
 
-	if(object->is_instanced_ob_with_imposters)
-		current_scene->objects_with_imposters.insert(object);
-
 	const AnimationData& anim_data = object->mesh_data->animation_data;
 	if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
 		current_scene->animated_objects.insert(object);
@@ -3645,8 +3642,6 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 	current_scene->transparent_objects.erase(object);
 	current_scene->materialise_objects.erase(object);
 	current_scene->always_visible_objects.erase(object);
-	if(object->is_instanced_ob_with_imposters)
-		current_scene->objects_with_imposters.erase(object);
 	current_scene->animated_objects.erase(object);
 	current_scene->water_objects.erase(object);
 	selected_objects.erase(object.getPointer());
@@ -4434,131 +4429,6 @@ struct OverlayObjectZComparator
 		return a->ob_to_world_matrix.e[14] < b->ob_to_world_matrix.e[14];
 	}
 };
-
-
-// This code needs to be reasonably fast as it is executed twice per frame.
-#if 0
-void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping)
-{
-	const GlInstanceInfo* const instance_info = ob.instance_info.data();
-	const size_t instance_info_size = ob.instance_info.size();
-
-	temp_matrices.resize(0);
-	temp_matrices.reserve(ob.instance_info.size());
-
-	const Vec4f campos = this->current_scene->cam_to_world.getColumn(3);
-	const Vec4f cam_forwards = this->current_scene->cam_to_world * FORWARDS_OS;
-
-	const float IMPOSTER_FADE_DIST_START = 100.f; // Note this is distance along forwards axis (z coord distance)
-	const float IMPOSTER_FADE_DIST_END   = 120.f;
-
-	if(for_shadow_mapping)
-	{
-		// Timer timer;
-
-		if(!ob.is_imposter) // If not imposter:
-		{
-			// Generate clip planes for the volume for which we want our objects (trees) to cast shadows
-			Planef use_shadow_clip_planes[6];
-			js::AABBox use_shadow_vol_aabb;
-			{
-				const float near_dist = 0.f;
-				const float far_dist = 200.f;
-				const float max_shadowing_dist = 30.f;
-				getCameraShadowMappingPlanesAndAABB(near_dist, far_dist, max_shadowing_dist, use_shadow_clip_planes, use_shadow_vol_aabb);
-			}
-
-			// For each object, add transform to list of instance matrices to draw, if the object is close enough.
-			for(size_t i=0; i<instance_info_size; ++i)
-			{
-				const Vec4f pos = instance_info[i].to_world.getColumn(3);
-				const float dist = dot(pos - campos, cam_forwards);
-				if(dist > -20.f && dist < IMPOSTER_FADE_DIST_START + 5.f) // a little crossover with shadows
-				{
-					// Frustum test - do this for actual objects (such as trees) which can be expensive to draw.
-					if(AABBIntersectsFrustum(use_shadow_clip_planes, /*num_frustum_clip_planes=*/6, use_shadow_vol_aabb, instance_info[i].aabb_ws))
-						temp_matrices.push_back(instance_info[i].to_world);
-				}
-			}
-		}
-		else // else if is imposter:
-		{
-			// We want to rotate the quad towards the sun.
-			const Vec4f axis_k = Vec4f(0, 0, 1, 0);
-			const Vec4f axis_i = -normalise(crossProduct(axis_k, sun_dir)); // Negate, as only backfaces cast shadows currently.
-			const Vec4f axis_j = crossProduct(axis_k, axis_i);
-			Matrix4f rot(axis_i, axis_j, axis_k, Vec4f(0,0,0,1));
-
-			for(size_t i=0; i<instance_info_size; ++i)
-			{
-				// We won't do frustum culling here - the assumption is the GPU can draw the imposter quads faster than the frustum testing time.
-
-				const Vec4f pos = instance_info[i].to_world.getColumn(3);
-				const float dist = dot(pos - campos, cam_forwards);
-				if(dist < -20.f || dist > IMPOSTER_FADE_DIST_START)
-					temp_matrices.push_back(leftTranslateAffine3(sun_dir * -2.f, instance_info[i].to_world * rot)); // Nudge the shadow casting quad away from the old position, to avoid self-shadowing of the imposter quad
-				// once it is rotated towards the camera
-			}
-
-			ob.materials[0].tex_matrix = Matrix2f(0.25f, 0, 0, -1.f); // Adjust texture matrix to pick just one of the texture sprites
-			//if(use_multi_draw_indirect)
-				updateMaterialDataOnGPU(ob, /*mat index=*/0);
-		}
-
-		// conPrint("Drawing for shadow maps " + toString(temp_matrices.size()) + " instanced " + (ob.is_imposter ? "imposters" : "objects") + " (Compute time: " + timer.elapsedStringMSWIthNSigFigs(3) + ")");
-	}
-	else
-	{
-		// Timer timer;
-
-		if(!ob.is_imposter) // If not imposter:
-		{
-			for(size_t i=0; i<instance_info_size; ++i)
-			{
-				const Vec4f pos = instance_info[i].to_world.getColumn(3);
-				const float dist = dot(pos - campos, cam_forwards);
-				if(dist < IMPOSTER_FADE_DIST_END)
-				{
-					// Frustum test - do this for actual objects (such as trees) which can be expensive to draw.
-					if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, instance_info[i].aabb_ws))
-						temp_matrices.push_back(instance_info[i].to_world);
-				}
-			}
-		}
-		else // else if is imposter:
-		{
-			for(size_t i=0; i<instance_info_size; ++i)
-			{
-				const Vec4f pos = instance_info[i].to_world.getColumn(3);
-				const Vec4f cam_to_pos = pos - campos;
-				const float dist = dot(cam_to_pos, cam_forwards);
-				if(dist > IMPOSTER_FADE_DIST_START)
-				{
-					// We won't do frustum culling here - the assumption is the GPU can draw the imposter quads faster than the frustum testing time.
-					// 
-					// We want to rotate the imposter towards the camera.
-					const Vec4f axis_k = Vec4f(0, 0, 1, 0);
-					const Vec4f axis_i = -normalise(crossProduct(axis_k, cam_to_pos)); // TEMP NEGATING, needed for some reason or leftlit looks like rightlit
-					const Vec4f axis_j = crossProduct(axis_k, axis_i);
-
-					Matrix4f rot(axis_i, axis_j, axis_k, Vec4f(0,0,0,1));
-
-					temp_matrices.push_back(instance_info[i].to_world * rot);
-				}
-			}
-
-			ob.materials[0].tex_matrix = Matrix2f(1.f, 0, 0, -1.f); // Restore texture matrix
-			//if(use_multi_draw_indirect)
-				updateMaterialDataOnGPU(ob, /*mat index=*/0);
-		}
-
-		// conPrint("Drawing " + toString(temp_matrices.size()) + " instanced " + (ob.is_imposter ? "imposters" : "objects") + " (Compute time: " + timer.elapsedStringMSWIthNSigFigs(3) + ")");
-	}
-
-	ob.num_instances_to_draw = (int)temp_matrices.size();
-	ob.instance_matrix_vbo->updateData(temp_matrices.data(), temp_matrices.dataSizeBytes());
-}
-#endif
 
 
 struct BatchDrawInfoGetKey
@@ -5554,13 +5424,6 @@ void OpenGLEngine::draw()
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
 
-		// Set instance matrices for imposters.
-		//for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
-		//{
-		//	GLObject* const ob = it->getPointer();
-		//	updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/true);
-		//}
-
 #if !defined(OSX)
 		if(query_profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
 #endif
@@ -6530,17 +6393,6 @@ void OpenGLEngine::draw()
 		uniforms.wind_strength = current_scene->wind_strength;
 
 		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
-	}
-
-	// Set instance matrices for imposters.
-	{
-		ZoneScopedN("Set imposter instance matrices"); // Tracy profiler
-		//for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
-		//{
-		//	GLObject* const ob = it->getPointer();
-		//	if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
-		//		updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/false);
-		//}
 	}
 
 	{

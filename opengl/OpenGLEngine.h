@@ -294,7 +294,6 @@ struct GLObject
 	bool always_visible; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	bool draw_to_mask_map; // Draw to terrain mask map?
 	bool is_imposter;
-	bool is_instanced_ob_with_imposters; // E.g. is a tree object or a tree imposter.
 	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
 	js::Vector<GlInstanceInfo, 16> instance_info; // Used for updating instance + imposter matrices.
 	
@@ -495,7 +494,6 @@ public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> water_objects;
 	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	std::set<Reference<OverlayObject>> overlay_objects; // UI overlays
-	std::set<Reference<GLObject>> objects_with_imposters;
 	std::set<Reference<GLObject>> materialise_objects; // Objects currently playing materialise effect
 	
 	GLObjectRef env_ob;
@@ -1019,7 +1017,6 @@ public:
 	void textureBecameUsed(const OpenGLTexture* tex);
 private:
 	void trimTextureUsage();
-	//void updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping);
 	void bindMeshData(const OpenGLMeshRenderData& mesh_data);
 	void bindMeshData(const GLObject& ob);
 	bool checkUseProgram(const OpenGLProgram* prog);
