@@ -3,6 +3,9 @@
 uniform sampler2D terrain_height_map;
 uniform sampler2D terrain_mask_tex;
 uniform sampler2D fbm_tex;
+uniform sampler2D detail_mask_tex;
+
+#define DETAIL_MASK_MAP_WIDTH_M		256.0
 
 
 // Needs to be same as PrecomputedPoint in TerrainScattering.h
@@ -268,6 +271,8 @@ void main()
 	vec2 detail_map_2_uvs = main_tex_coords * (8.0 * 1024 / 4.0);
 	float beach_factor = 0;
 	float veg_frac = ((mask_val.z > fbmMix(detail_map_2_uvs * 0.2).x * 0.3 + 0.5 + beach_factor) ? 1.0 : 0.0);
+
+	veg_frac = max(veg_frac, texture(detail_mask_tex, vec2(pos_x / DETAIL_MASK_MAP_WIDTH_M, pos_y / DETAIL_MASK_MAP_WIDTH_M)).x); // Apply detail mask texture
 
 	float terrain_h = heightmap_terrain_z;
 
