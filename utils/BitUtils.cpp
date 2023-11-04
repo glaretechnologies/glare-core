@@ -78,17 +78,17 @@ void test()
 		testAssert(highestSetBitIndex((uint32)1 << (uint32)z) == z);
 
 	// 64-bit highestSetBitIndex
-	testAssert(highestSetBitIndex(1ull) == 0); // 1
-	testAssert(highestSetBitIndex(2ull) == 1); // 10
-	testAssert(highestSetBitIndex(3ull) == 1); // 11
-	testAssert(highestSetBitIndex(4ull) == 2); // 100
-	testAssert(highestSetBitIndex(5ull) == 2); // 101
-	testAssert(highestSetBitIndex(6ull) == 2); // 110
-	testAssert(highestSetBitIndex(7ull) == 2); // 111
-	testAssert(highestSetBitIndex(8ull) == 3); // 1000
+	testAssert(highestSetBitIndex((uint64)1ull) == 0); // 1
+	testAssert(highestSetBitIndex((uint64)2ull) == 1); // 10
+	testAssert(highestSetBitIndex((uint64)3ull) == 1); // 11
+	testAssert(highestSetBitIndex((uint64)4ull) == 2); // 100
+	testAssert(highestSetBitIndex((uint64)5ull) == 2); // 101
+	testAssert(highestSetBitIndex((uint64)6ull) == 2); // 110
+	testAssert(highestSetBitIndex((uint64)7ull) == 2); // 111
+	testAssert(highestSetBitIndex((uint64)8ull) == 3); // 1000
 
-	testAssert(highestSetBitIndex(0xFFFFFFFFull) == 31);
-	testAssert(highestSetBitIndex(0xFFFFFFFFFFFFFFFFull) == 63); // All bits set
+	testAssert(highestSetBitIndex((uint64)0xFFFFFFFFull) == 31);
+	testAssert(highestSetBitIndex((uint64)0xFFFFFFFFFFFFFFFFull) == 63); // All bits set
 
 	for(uint32 z=0; z<63; ++z)
 		testAssert(highestSetBitIndex((uint64)1 << (uint64)z) == z);
