@@ -582,20 +582,20 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelHighQual(Coord u, Coord v,
 	// Note that we will use (float)(int)p_x instead of floor(px), for consistency with generating integer coordinates above.
 	Vec4f dx = p_x - toVec4f(toVec4i(p_x)) + Vec4f(1, 0, -1, -2);
 
-	assert(epsEqual(dx[0], f_pixels[0] - (floor(f_pixels[0]) - 1)));
-	assert(epsEqual(dx[1], f_pixels[0] - (floor(f_pixels[0]) + 0)));
-	assert(epsEqual(dx[2], f_pixels[0] - (floor(f_pixels[0]) + 1)));
-	assert(epsEqual(dx[3], f_pixels[0] - (floor(f_pixels[0]) + 2)));
+	assert(epsEqual(dx[0], f_pixels[0] - (std::floor(f_pixels[0]) - 1)));
+	assert(epsEqual(dx[1], f_pixels[0] - (std::floor(f_pixels[0]) + 0)));
+	assert(epsEqual(dx[2], f_pixels[0] - (std::floor(f_pixels[0]) + 1)));
+	assert(epsEqual(dx[3], f_pixels[0] - (std::floor(f_pixels[0]) + 2)));
 
 	Vec4f dx2 = dx*dx;
 
 	Vec4f dy = p_y - toVec4f(toVec4i(p_y)) + Vec4f(1, 0, -1, -2);  // [p_y - (floor(p_y)-1), p_y - floor(p_y), p_y - (floor(p_y) + 1), p_y - (floor(p_y) + 2)]
 	Vec4f dy2 = dy*dy;
 
-	assert(epsEqual(dy[0], f_pixels[1] - (floor(f_pixels[1]) - 1)));
-	assert(epsEqual(dy[1], f_pixels[1] - (floor(f_pixels[1]) + 0)));
-	assert(epsEqual(dy[2], f_pixels[1] - (floor(f_pixels[1]) + 1)));
-	assert(epsEqual(dy[3], f_pixels[1] - (floor(f_pixels[1]) + 2)));
+	assert(epsEqual(dy[0], f_pixels[1] - (std::floor(f_pixels[1]) - 1)));
+	assert(epsEqual(dy[1], f_pixels[1] - (std::floor(f_pixels[1]) + 0)));
+	assert(epsEqual(dy[2], f_pixels[1] - (std::floor(f_pixels[1]) + 1)));
+	assert(epsEqual(dy[3], f_pixels[1] - (std::floor(f_pixels[1]) + 2)));
 
 	Vec4f d;
 	
