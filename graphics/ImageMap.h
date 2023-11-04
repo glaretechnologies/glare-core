@@ -169,7 +169,7 @@ public:
 
 	void blendImage(const ImageMap<V, ComponentValueTraits>& img, const int destx, const int desty, const Colour4f& colour);
 
-	void floodFillFromOpaquePixels(V src_alpha_threshold, V update_alpha_threshold, int iterations);
+	void floodFillFromOpaquePixels(V src_alpha_threshold, V update_alpha_threshold, int iterations); // NOTE: very slow!
 
 	// Get num components per pixel.
 	inline size_t getN() const { return N; }

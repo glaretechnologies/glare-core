@@ -535,6 +535,8 @@ void ImageMap<V, VTraits>::floodFillFromOpaquePixels(V src_alpha_threshold, V up
 	const int alpha_channel = (int)N - 1;
 	for(int i=0; i<iterations; ++i) // The number of iterations gives the effective distance/radius of the flood fill.  More leaves fewer gaps but is slower to compute.
 	{
+		glare::AllocatorVector<V, 16> updated_data = data;
+
 		for(int y=0; y<yres; ++y)
 		for(int x=0; x<xres; ++x)
 		{
@@ -565,10 +567,12 @@ void ImageMap<V, VTraits>::floodFillFromOpaquePixels(V src_alpha_threshold, V up
 				if(closest_d2 < std::numeric_limits<float>::max()) // If found a source pixel to copy colour from:
 				{
 					for(size_t c=0; c<N; ++c)
-						getPixel(x, y)[c] = getPixel(closest_x, closest_y)[c];
+						updated_data[(x + xres * y) * N + c] = getPixel(closest_x, closest_y)[c];
 				}
 			}
 		}
+
+		data = updated_data;
 	}
 
 	// Set alpha channel back to original
