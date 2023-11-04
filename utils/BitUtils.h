@@ -35,10 +35,12 @@ namespace BitUtils
 {
 
 	// Return the zero-based index of the least-significant bit in x that is set to 1.  If no bits are set to 1 (e.g. if x=0), then returns 0.
+	// Index is from right (least significant bit)
 	inline uint32 lowestSetBitIndex(uint32 x);
 	inline uint32 lowestSetBitIndex(uint64 x);
 
 	// Return the zero-based index of the least-significant bit in x that is set to 0.  If no bits are set to 0 (e.g. if x=2^32-1), then returns 0.
+	// Index is from right (least significant bit)
 	inline uint32 lowestZeroBitIndex(uint32 x);
 	inline uint32 lowestZeroBitIndex(uint64 x);
 
@@ -106,7 +108,7 @@ namespace BitUtils
 		return pos;
 #else
 		// __builtin_ctz: Returns the number of trailing 0-bits in x, starting at the least significant bit position. If x is 0, the result is undefined.  (http://gcc.gnu.org/onlinedocs/gcc-4.4.5/gcc/Other-Builtins.html)
-		return __builtin_ctz(x);
+		return __builtin_ctzl(x);
 #endif
 	}
 
@@ -133,7 +135,7 @@ namespace BitUtils
 		_BitScanReverse(&pos, x);
 		return pos;
 #else
-		return 31 - __builtin_clzl(x); // Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
+		return 31 - __builtin_clz(x); // Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
 #endif
 	}
 

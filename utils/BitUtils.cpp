@@ -30,7 +30,7 @@ void test()
 	testAssert(bitCast<uint32>(5) == 5u);
 	testAssert(bitCast<uint32>(-1) == 0xFFFFFFFFu); // This assumes the signed integer representation is two's complement of course.
 
-	//===================================== lowestSetBitIndex =====================================
+	//===================================== lowestSetBitIndex(uint32) =====================================
 	testAssert(lowestSetBitIndex(0u) == 0); // 0
 	testAssert(lowestSetBitIndex(1u) == 0); // 1
 	testAssert(lowestSetBitIndex(2u) == 1); // 10
@@ -41,11 +41,29 @@ void test()
 	testAssert(lowestSetBitIndex(7u) == 0); // 111
 	testAssert(lowestSetBitIndex(8u) == 3); // 1000
 
-
 	testAssert(lowestSetBitIndex(0x80000000u) == 31); // MSB bit set only
 	testAssert(lowestSetBitIndex(0xFFFFFFFFu) == 0); // All bits set
 
-	//===================================== lowestZeroBitIndex =====================================
+	//===================================== lowestSetBitIndex(uint64) =====================================
+	testAssert(lowestSetBitIndex((uint64)0u) == 0); // 0
+	testAssert(lowestSetBitIndex((uint64)1u) == 0); // 1
+	testAssert(lowestSetBitIndex((uint64)2u) == 1); // 10
+	testAssert(lowestSetBitIndex((uint64)3u) == 0); // 11
+	testAssert(lowestSetBitIndex((uint64)4u) == 2); // 100
+	testAssert(lowestSetBitIndex((uint64)5u) == 0); // 101
+	testAssert(lowestSetBitIndex((uint64)6u) == 1); // 110
+	testAssert(lowestSetBitIndex((uint64)7u) == 0); // 111
+	testAssert(lowestSetBitIndex((uint64)8u) == 3); // 1000
+
+	testAssert(lowestSetBitIndex((uint64)1 << 30) == 30);
+	testAssert(lowestSetBitIndex((uint64)1 << 40) == 40);
+	testAssert(lowestSetBitIndex((uint64)1 << 50) == 50);
+	testAssert(lowestSetBitIndex((uint64)1 << 60) == 60);
+
+	testAssert(lowestSetBitIndex((uint64)0x8000000000000000ull) == 63); // MSB bit set only
+	testAssert(lowestSetBitIndex((uint64)0xFFFFFFFFFFFFFFFFull) == 0); // All 64 bits set
+
+	//===================================== lowestZeroBitIndex(uint32) =====================================
 	testAssert(lowestZeroBitIndex(0u) == 0); // 0
 	testAssert(lowestZeroBitIndex(1u) == 1); // 1
 	testAssert(lowestZeroBitIndex(2u) == 0); // 10
@@ -56,10 +74,34 @@ void test()
 	testAssert(lowestZeroBitIndex(7u) == 3); // 111
 	testAssert(lowestZeroBitIndex(8u) == 0); // 1000
 
+	testAssert(lowestZeroBitIndex(0xFu) == 4); // 1111
+	testAssert(lowestZeroBitIndex(0xFFu) == 8); // 11111111
+	testAssert(lowestZeroBitIndex(0xFFFFu) == 16);
 
 	testAssert(lowestZeroBitIndex(0x80000000u) == 0); // Most significant bit set only.
 	testAssert(lowestZeroBitIndex(0x7FFFFFFFu) == 31); // Only most significant bit set set to zero.
 	testAssert(lowestZeroBitIndex(0xFFFFFFFFu) == 0); // All bits set
+
+	//===================================== lowestZeroBitIndex(uint64) =====================================
+	testAssert(lowestZeroBitIndex((uint64)0u) == 0); // 0
+	testAssert(lowestZeroBitIndex((uint64)1u) == 1); // 1
+	testAssert(lowestZeroBitIndex((uint64)2u) == 0); // 10
+	testAssert(lowestZeroBitIndex((uint64)3u) == 2); // 11
+	testAssert(lowestZeroBitIndex((uint64)4u) == 0); // 100
+	testAssert(lowestZeroBitIndex((uint64)5u) == 1); // 101
+	testAssert(lowestZeroBitIndex((uint64)6u) == 0); // 110
+	testAssert(lowestZeroBitIndex((uint64)7u) == 3); // 111
+	testAssert(lowestZeroBitIndex((uint64)8u) == 0); // 1000
+
+	testAssert(lowestZeroBitIndex((uint64)0xFull) == 4); // 1111
+	testAssert(lowestZeroBitIndex((uint64)0xFFull) == 8); // 11111111
+	testAssert(lowestZeroBitIndex((uint64)0xFFFFull) == 16);
+	testAssert(lowestZeroBitIndex((uint64)0xFFFFFFFFull) == 32);
+	testAssert(lowestZeroBitIndex((uint64)0xFFFFFFFFFFFFull) == 48);
+
+	testAssert(lowestZeroBitIndex((uint64)0x8000000000000000ull) == 0); // Most significant bit set only.
+	testAssert(lowestZeroBitIndex((uint64)0x7FFFFFFFFFFFFFFFull) == 63); // Only most significant bit set set to zero.
+	testAssert(lowestZeroBitIndex((uint64)0xFFFFFFFFFFFFFFFFull) == 0); // All bits set
 
 	//===================================== HighestSetBitIndex =====================================
 	// 32-bit highestSetBitIndex
