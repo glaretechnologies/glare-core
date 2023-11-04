@@ -1,7 +1,7 @@
 /*=====================================================================
 mathstypes.h
 ------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -184,16 +184,7 @@ template <class Real>
 GLARE_STRONG_INLINE Real logBase2(Real x)
 {
 	static_assert(!std::numeric_limits<Real>::is_integer, "Template param can't be an integer"); // Bad things happen if Real is an integer - 1.44.. gets cast to 1.
-	return log(x) * (Real)1.4426950408889634073599246810019;
-	// 1.4426950408889634073599246810019 = 1 / ln(2)
-}
-
-
-// Undefined if x == 0
-GLARE_STRONG_INLINE uint32 intLogBase2(uint64 x)
-{
-	assert(x != 0);
-	return BitUtils::highestSetBitIndex(x);
+	return std::log2(x);
 }
 
 
@@ -616,6 +607,42 @@ inline T smoothPulse(T a, T b, T c, T d, T x)
 	static_assert(!std::numeric_limits<T>::is_integer, "Template param can't be an integer");
 
 	return smoothStep(a, b, x) - smoothStep(c, d, x);
+}
+
+
+// Returns floor(log_2(x)) as an integer
+// x must be >= 1
+GLARE_STRONG_INLINE uint32 intLogBase2(uint32 x)
+{
+	assert(x >= 1);
+	return BitUtils::highestSetBitIndex(x);
+}
+
+
+// Returns floor(log_2(x)) as an integer
+// x must be >= 1
+GLARE_STRONG_INLINE uint32 intLogBase2(uint64 x)
+{
+	assert(x >= 1);
+	return BitUtils::highestSetBitIndex(x);
+}
+
+
+// Returns 2 to the power of x
+// x must be <= 31
+GLARE_STRONG_INLINE uint32 intExp2(uint32 x)
+{
+	assert(x <= 31);
+	return 1u << x;
+}
+
+
+// Returns 2 to the power of x
+// x must be <= 63
+GLARE_STRONG_INLINE uint64 intExp2(uint64 x)
+{
+	assert(x <= 63);
+	return 1ull << x;
 }
 
 
