@@ -649,83 +649,83 @@ void Maths::test()
 
 	//======================================= intExp2(uint32) ==============================================
 	{
-		testAssert(intExp2(0u) == 1);
-		testAssert(intExp2(1u) == 2);
-		testAssert(intExp2(2u) == 4);
-		testAssert(intExp2(3u) == 8);
-		testAssert(intExp2(4u) == 16);
-		testAssert(intExp2(5u) == 32);
+		testAssert(intExp2((uint32)0u) == 1);
+		testAssert(intExp2((uint32)1u) == 2);
+		testAssert(intExp2((uint32)2u) == 4);
+		testAssert(intExp2((uint32)3u) == 8);
+		testAssert(intExp2((uint32)4u) == 16);
+		testAssert(intExp2((uint32)5u) == 32);
 
-		testAssert(intExp2(31u) == 2147483648u);
+		testAssert(intExp2((uint32)31u) == 2147483648u);
 	}
 
 
 	//======================================= intExp2(uint64) ==============================================
 	{
-		testAssert(intExp2(0ull) == 1);
-		testAssert(intExp2(1ull) == 2);
-		testAssert(intExp2(2ull) == 4);
-		testAssert(intExp2(3ull) == 8);
-		testAssert(intExp2(4ull) == 16);
-		testAssert(intExp2(5ull) == 32);
+		testAssert(intExp2((uint64)0ull) == 1);
+		testAssert(intExp2((uint64)1ull) == 2);
+		testAssert(intExp2((uint64)2ull) == 4);
+		testAssert(intExp2((uint64)3ull) == 8);
+		testAssert(intExp2((uint64)4ull) == 16);
+		testAssert(intExp2((uint64)5ull) == 32);
 
-		testAssert(intExp2(31ull) == 2147483648u);
-		testAssert(intExp2(32ull) == 4294967296u);
+		testAssert(intExp2((uint64)31ull) == 2147483648u);
+		testAssert(intExp2((uint64)32ull) == 4294967296u);
 
-		testAssert(intExp2(63ull) == 9223372036854775808ull);
+		testAssert(intExp2((uint64)63ull) == 9223372036854775808ull);
 	}
 
 
 	//======================================= intLogBase2(uint32) ==============================================
 	{
-		testAssert(intLogBase2(1u) == 0);
-		testAssert(intLogBase2(2u) == 1);
-		testAssert(intLogBase2(3u) == 1);
-		testAssert(intLogBase2(4u) == 2);
-		testAssert(intLogBase2(5u) == 2);
-		testAssert(intLogBase2(6u) == 2);
-		testAssert(intLogBase2(7u) == 2);
-		testAssert(intLogBase2(8u) == 3);
-		testAssert(intLogBase2(intExp2(20u) - 1) == 19);
-		testAssert(intLogBase2(intExp2(20u)    ) == 20);
-		testAssert(intLogBase2(intExp2(20u) + 1) == 20);
+		testAssert(intLogBase2((uint32)1u) == 0);
+		testAssert(intLogBase2((uint32)2u) == 1);
+		testAssert(intLogBase2((uint32)3u) == 1);
+		testAssert(intLogBase2((uint32)4u) == 2);
+		testAssert(intLogBase2((uint32)5u) == 2);
+		testAssert(intLogBase2((uint32)6u) == 2);
+		testAssert(intLogBase2((uint32)7u) == 2);
+		testAssert(intLogBase2((uint32)8u) == 3);
+		testAssert(intLogBase2(intExp2((uint32)20u) - 1) == 19);
+		testAssert(intLogBase2(intExp2((uint32)20u)    ) == 20);
+		testAssert(intLogBase2(intExp2((uint32)20u) + 1) == 20);
 
-		testAssert(intLogBase2(intExp2(31u) - 1) == 30);
-		testAssert(intLogBase2(intExp2(31u)    ) == 31);
-		testAssert(intLogBase2(intExp2(31u) + 1) == 31);
-		testAssert(intLogBase2(4294967295u) == 31);
+		testAssert(intLogBase2(intExp2((uint32)31u) - 1) == 30);
+		testAssert(intLogBase2(intExp2((uint32)31u)    ) == 31);
+		testAssert(intLogBase2(intExp2((uint32)31u) + 1) == 31);
+		testAssert(intLogBase2((uint32)4294967295u) == 31);
 
 		for(uint32 i=0; i<31; ++i)
-			testAssert(intLogBase2(1u << i) == i);
+			testAssert(intLogBase2((uint32)1u << i) == i);
 	}
 
 
 	//======================================= intLogBase2(uint64) ==============================================
 	{
-		testAssert(intLogBase2(1ull) == 0);
-		testAssert(intLogBase2(2ull) == 1);
-		testAssert(intLogBase2(3ull) == 1);
-		testAssert(intLogBase2(4ull) == 2);
-		testAssert(intLogBase2(5ull) == 2);
-		testAssert(intLogBase2(6ull) == 2);
-		testAssert(intLogBase2(7ull) == 2);
-		testAssert(intLogBase2(8ull) == 3);
-		testAssert(intLogBase2(intExp2(20ull) - 1) == 19);
-		testAssert(intLogBase2(intExp2(20ull)    ) == 20);
-		testAssert(intLogBase2(intExp2(20ull) + 1) == 20);
+		testAssert(intLogBase2((uint64)1ull) == 0);
+		testAssert(intLogBase2((uint64)2ull) == 1);
+		testAssert(intLogBase2((uint64)3ull) == 1);
+		testAssert(intLogBase2((uint64)4ull) == 2);
+		testAssert(intLogBase2((uint64)5ull) == 2);
+		testAssert(intLogBase2((uint64)6ull) == 2);
+		testAssert(intLogBase2((uint64)7ull) == 2);
+		testAssert(intLogBase2((uint64)8ull) == 3);
+		testAssert(intLogBase2(intExp2((uint64)20ull) - 1) == 19);
+		testAssert(intLogBase2(intExp2((uint64)20ull)    ) == 20);
+		testAssert(intLogBase2(intExp2((uint64)20ull) + 1) == 20);
 
-		testAssert(intLogBase2(intExp2(31ull) - 1) == 30);
-		testAssert(intLogBase2(intExp2(31ull)    ) == 31);
-		testAssert(intLogBase2(intExp2(31ull) + 1) == 31);
-		testAssert(intLogBase2(4294967295ull) == 31);
+		testAssert(intLogBase2(intExp2((uint64)31ull) - 1) == 30);
+		testAssert(intLogBase2(intExp2((uint64)31ull)    ) == 31);
+		testAssert(intLogBase2(intExp2((uint64)31ull) + 1) == 31);
+		testAssert(intLogBase2((uint64)4294967295ull) == 31);
 
-		testAssert(intLogBase2(intExp2(63ull) - 1) == 62);
-		testAssert(intLogBase2(intExp2(63ull)    ) == 63);
-		testAssert(intLogBase2(intExp2(63ull) + 1) == 63);
+		testAssert(intLogBase2(intExp2((uint64)63ull) - 1) == 62);
+		testAssert(intLogBase2(intExp2((uint64)63ull)    ) == 63);
+		testAssert(intLogBase2(intExp2((uint64)63ull) + 1) == 63);
 		testAssert(intLogBase2(std::numeric_limits<uint64>::max()) == 63);
 
 		for(uint32 i=0; i<63; ++i)
-			testAssert(intLogBase2(1ull << i) == i);
+			testAssert(intLogBase2((uint64)1ull << i) == i);
 	}
 
 
