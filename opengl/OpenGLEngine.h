@@ -292,7 +292,7 @@ struct GLObject
 	VBORef instance_colour_vbo;
 	
 	bool always_visible; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
-
+	bool draw_to_mask_map; // Draw to terrain mask map?
 	bool is_imposter;
 	bool is_instanced_ob_with_imposters; // E.g. is a tree object or a tree imposter.
 	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
@@ -963,6 +963,10 @@ public:
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
 	//----------------------------------------------------------------------------------------
 
+
+	void renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& botleft_pos, float world_capture_width);
+
+
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
 	void loadMapsForSunDir();
@@ -1015,7 +1019,7 @@ public:
 	void textureBecameUsed(const OpenGLTexture* tex);
 private:
 	void trimTextureUsage();
-	void updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping);
+	//void updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping);
 	void bindMeshData(const OpenGLMeshRenderData& mesh_data);
 	void bindMeshData(const GLObject& ob);
 	bool checkUseProgram(const OpenGLProgram* prog);
@@ -1340,6 +1344,8 @@ private:
 	OpenGLProgramRef scatter_data_prog;
 
 	TextureAllocator texture_allocator;
+
+	Reference<FrameBuffer> mask_map_frame_buffer;
 };
 
 

@@ -94,7 +94,7 @@ Copyright Glare Technologies Limited 2020 -
 
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), is_instanced_ob_with_imposters(false),
-	num_instances_to_draw(0), always_visible(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
+	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
 	depth_draw_depth_bias(0)
 {
 	for(int i=0; i<MAX_NUM_LIGHT_INDICES; ++i)
@@ -2159,7 +2159,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 			if(false)
 			{
-				// Add overlay quads to preview depth maps.  NOTE: doesn't really work with PCF texture types.
+				// Add overlay quads to preview depth maps, for debugging.  NOTE: doesn't really work with PCF texture types.
 
 				{
 					OverlayObjectRef tex_preview_overlay_ob =  new OverlayObject();
@@ -4437,6 +4437,7 @@ struct OverlayObjectZComparator
 
 
 // This code needs to be reasonably fast as it is executed twice per frame.
+#if 0
 void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool for_shadow_mapping)
 {
 	const GlInstanceInfo* const instance_info = ob.instance_info.data();
@@ -4557,7 +4558,7 @@ void OpenGLEngine::updateInstanceMatricesForObWithImposters(GLObject& ob, bool f
 	ob.num_instances_to_draw = (int)temp_matrices.size();
 	ob.instance_matrix_vbo->updateData(temp_matrices.data(), temp_matrices.dataSizeBytes());
 }
-
+#endif
 
 
 struct BatchDrawInfoGetKey
@@ -5554,11 +5555,11 @@ void OpenGLEngine::draw()
 			submitBufferedDrawCommands();
 
 		// Set instance matrices for imposters.
-		for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
-		{
-			GLObject* const ob = it->getPointer();
-			updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/true);
-		}
+		//for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
+		//{
+		//	GLObject* const ob = it->getPointer();
+		//	updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/true);
+		//}
 
 #if !defined(OSX)
 		if(query_profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
@@ -6534,12 +6535,12 @@ void OpenGLEngine::draw()
 	// Set instance matrices for imposters.
 	{
 		ZoneScopedN("Set imposter instance matrices"); // Tracy profiler
-		for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
-		{
-			GLObject* const ob = it->getPointer();
-			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
-				updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/false);
-		}
+		//for(auto it = current_scene->objects_with_imposters.begin(); it != current_scene->objects_with_imposters.end(); ++it)
+		//{
+		//	GLObject* const ob = it->getPointer();
+		//	if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+		//		updateInstanceMatricesForObWithImposters(*ob, /*for_shadow_mapping=*/false);
+		//}
 	}
 
 	{
@@ -8880,6 +8881,124 @@ bool OpenGLEngine::openglDriverVendorIsATI() const
 void OpenGLEngine::shaderFileChanged() // Called by ShaderFileWatcherThread, from another thread.
 {
 	shader_file_changed = 1;
+}
+
+
+// Render objects with ob->draw_to_mask_map set, with a top-down camera view.
+// botleft_pos is the coordinates of the bottom left of the view, and the view has width world_capture_width.
+// mask_map_texture must be valid for binding to a framebuffer.
+// We will render without depth testing or writing.
+// This is used for rendering a vegetation map.
+void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& botleft_pos, float world_capture_width)
+{
+	OpenGLProgram::useNoPrograms(); // Unbind any programs before we start changing framebuffer and z-buffer options.
+
+	// Some other code (e.g. Qt) may have bound some other buffer since the last draw() call.  So reset all this stuff.
+	current_index_type = 0;
+	current_bound_prog = NULL;
+	current_bound_prog_index = std::numeric_limits<uint32>::max();
+	current_bound_VAO = NULL;
+	current_uniforms_ob = NULL;
+
+	if(mask_map_frame_buffer.isNull())
+	{
+		mask_map_frame_buffer = new FrameBuffer();
+		mask_map_frame_buffer->bindTextureAsTarget(mask_map_texture, GL_COLOR_ATTACHMENT0);
+
+		GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+		{
+			conPrint("Error: renderMaskMap(): framebuffer is not complete.");
+			assert(0);
+		}
+
+		// Add overlay quad showing texture, for debugging
+		/*{
+			OverlayObjectRef tex_preview_overlay_ob =  new OverlayObject();
+			tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::uniformScaleMatrix(0.95f) * Matrix4f::translationMatrix(-1, 0, 0);
+			tex_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+			tex_preview_overlay_ob->material.albedo_texture = mask_map_tex;
+			tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+			addOverlayObject(tex_preview_overlay_ob);
+		}*/
+	}
+
+	mask_map_frame_buffer->bindTextureAsTarget(mask_map_texture, GL_COLOR_ATTACHMENT0);
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE); // Disable backface culling
+	glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+	
+	const Matrix4f reverse_z_matrix = getReverseZMatrixOrIdentity(); // Needed to avoid clipping
+	Matrix4f proj_matrix = reverse_z_matrix * orthoMatrix(
+		botleft_pos.x, // left
+		botleft_pos.x + world_capture_width, // right
+		botleft_pos.y, // bottom
+		botleft_pos.y + world_capture_width, // top
+		-100000.0, // z_near,
+		 100000.0  // z_far
+	);
+
+	Matrix4f view_matrix;
+	view_matrix.setRow(0, Vec4f(1,0,0,0)); // cam right
+	view_matrix.setRow(1, Vec4f(0,1,0,0)); // cam up
+	view_matrix.setRow(2, Vec4f(0,0,1,0)); // cam dir
+	view_matrix.setRow(3, Vec4f(0,0,0,1));
+
+
+	const js::AABBox frustum_aabb(
+		Vec4f(botleft_pos.x, botleft_pos.y, -100000.0, 1),
+		Vec4f(botleft_pos.x + world_capture_width, botleft_pos.y + world_capture_width, 100000.0, 1));
+
+	const Planef clip_planes[4] = { // in world space
+		Planef(Vec4f(-1,0,0,0), -botleft_pos.x), // left plane.  Note that dist is along vector (with negative component).
+		Planef(Vec4f( 1,0,0,0), botleft_pos.x + world_capture_width), // right
+		Planef(Vec4f(0,-1,0,0), -botleft_pos.y), // bottom plane..  Note that dist is along vector (with negative component).
+		Planef(Vec4f(0, 1,0,0), botleft_pos.y + world_capture_width) // top
+	};
+
+	// Use outline shader (the shader that draws the flat colour for the object, before edge detection)
+	glViewport(0, 0, (int)mask_map_texture.xRes(), (int)mask_map_texture.yRes()); // Make viewport same size as texture.
+
+	const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+	const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+	for(size_t q=0; q<current_scene_obs_size; ++q)
+	{
+		// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+		if(q + 16 < current_scene_obs_size)
+		{	
+			_mm_prefetch((const char*)(&current_scene_obs[q + 16]->aabb_ws), _MM_HINT_T0);
+			_mm_prefetch((const char*)(&current_scene_obs[q + 16]->aabb_ws) + 64, _MM_HINT_T0);
+		}
+
+		const GLObject* const ob = current_scene_obs[q].ptr();
+		if(ob->draw_to_mask_map)// && AABBIntersectsFrustum(clip_planes, staticArrayNumElems(clip_planes), frustum_aabb, ob->aabb_ws))
+		{
+			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+
+			const OpenGLProgram* use_prog = mesh_data.usesSkinning() ? outline_prog_with_skinning.ptr() : outline_prog_no_skinning.ptr();
+
+			const bool program_changed = checkUseProgram(use_prog);
+			if(program_changed)
+				setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
+			bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
+			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+				drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
+		}
+	}
+
+
+	VAO::unbind(); // Unbind any bound VAO, so that it's vertex and index buffers don't get accidentally overridden.
+	OpenGLProgram::useNoPrograms();
+
+	glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+	glEnable(GL_DEPTH_TEST); // Restore
+	glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
 }
 
 
