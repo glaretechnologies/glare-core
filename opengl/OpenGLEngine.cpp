@@ -8849,12 +8849,8 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 		 100000.0  // z_far
 	);
 
-	Matrix4f view_matrix;
-	view_matrix.setRow(0, Vec4f(1,0,0,0)); // cam right
-	view_matrix.setRow(1, Vec4f(0,1,0,0)); // cam up
-	view_matrix.setRow(2, Vec4f(0,0,1,0)); // cam dir
-	view_matrix.setRow(3, Vec4f(0,0,0,1));
-
+	// Because we are rendering from a top-down view, world space coords match view/camera space (ground plane is the x-y plane)
+	const Matrix4f view_matrix = Matrix4f::identity();
 
 	const js::AABBox frustum_aabb(
 		Vec4f(botleft_pos.x, botleft_pos.y, -100000.0, 1),
