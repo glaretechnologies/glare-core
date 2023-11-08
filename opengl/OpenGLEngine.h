@@ -984,9 +984,13 @@ private:
 	void drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index);
 	void buildOutlineTextures();
 private:
+	void addDebugSphere(const Vec4f& centre, float radius, const Colour4f& col);
+	void addDebugLine(const Vec4f& start_point, const Vec4f& end_point, float radius, const Colour4f& col);
+	void addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane_normal, float plane_draw_width, const Colour4f& col);
 	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
 		float plane_draw_half_width);
 	void drawDebugSphere(const Vec4f& point, float radius, const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const Vec4f& t, float line_rad, const Colour4f& line_col);
 
 public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
@@ -1030,6 +1034,7 @@ private:
 	void expandJointMatricesBuffer(size_t min_extra_needed);
 	void checkMDIGPUDataCorrect();
 	int allocPerObVertDataBufferSpot();
+	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18]);
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -1055,7 +1060,6 @@ private:
 
 	int viewport_w, viewport_h;
 	
-	Planef shadow_clip_planes[6];
 	std::vector<OverlayObject*> temp_obs;
 
 #if !defined(OSX)
@@ -1186,6 +1190,8 @@ private:
 
 	std::vector<GLObjectRef> debug_joint_obs;
 
+	std::vector<GLObjectRef> debug_draw_obs;
+
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
 
@@ -1221,6 +1227,7 @@ public:
 	bool are_8bit_textures_sRGB; // If true, load textures as sRGB, otherwise treat them as in an 8-bit colour space.  Defaults to true.
 	// Currently compressed textures are always treated as sRGB.
 
+	bool add_debug_obs;
 private:
 	std::unordered_set<Reference<OpenGLScene>, OpenGLSceneHash> scenes;
 	Reference<OpenGLScene> current_scene;

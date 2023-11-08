@@ -390,7 +390,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	use_scatter_shader(false),
 	object_pool_allocator(sizeof(GLObject), 16),
 	running_in_renderdoc(false),
-	loaded_maps_for_sun_dir(false)
+	loaded_maps_for_sun_dir(false),
+	add_debug_obs(false)
 {
 	if(settings.use_general_arena_mem_allocator)
 		mem_allocator = new glare::GeneralMemAllocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull);
@@ -436,6 +437,10 @@ OpenGLEngine::~OpenGLEngine()
 	cirrus_tex = NULL;
 
 	water_caustics_textures.clear();
+
+	for(size_t i=0; i<debug_draw_obs.size(); ++i)
+		removeObject(debug_draw_obs[i]);
+	debug_draw_obs.clear();
 
 
 	// The textures may outlast the OpenGLEngine, so null out the pointer to the opengl engine.
@@ -3802,6 +3807,11 @@ Reference<OpenGLTexture> OpenGLEngine::getTextureIfLoaded(const OpenGLTextureKey
 // Initially based on http://iquilezles.org/www/articles/frustumcorrect/frustumcorrect.htm, but improved.
 static inline bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int num_frustum_clip_planes, const js::AABBox& frustum_aabb, const js::AABBox& aabb_ws)
 {
+	if(frustum_aabb.disjoint(aabb_ws) != 0) // If the frustum AABB is disjoint from the object AABB:
+		return false;
+	// Do this test first since we can cull a lot of objects cheaply (about 8 cycles for disjoint()) with this test.
+
+
 	const Vec4f min_ws = aabb_ws.min_;
 	const Vec4f max_ws = aabb_ws.max_;
 
@@ -3852,9 +3862,6 @@ static inline bool AABBIntersectsFrustum(const Planef* frustum_clip_planes, int 
 		if(greater == 15) // if all distances >= plane.D:
 			return false;
 	}
-
-	if(frustum_aabb.disjoint(aabb_ws) != 0) // If the frustum AABB is disjoint from the object AABB:
-		return false;
 
 	return true;
 }
@@ -4302,6 +4309,50 @@ static const Matrix4f diagonalOrthoMatrix(GLdouble left,
 		0, 0, 0, 1 };
 
 	return Matrix4f::fromRowMajorData(e);
+}
+
+
+void OpenGLEngine::addDebugSphere(const Vec4f& centre, float radius, const Colour4f& col)
+{
+	GLObjectRef ob = makeSphereObject(radius, col);
+	ob->ob_to_world_matrix = Matrix4f::translationMatrix(centre) * Matrix4f::uniformScaleMatrix(radius);
+	debug_draw_obs.push_back(ob);
+	addObject(ob);
+}
+
+
+void OpenGLEngine::addDebugLine(const Vec4f& start_point, const Vec4f& end_point, float radius, const Colour4f& col)
+{
+	GLObjectRef ob = makeCylinderObject(radius, col);
+	Matrix4f m;
+	m.constructFromVector(normalise(end_point - start_point));
+	ob->ob_to_world_matrix = Matrix4f::translationMatrix(start_point) * m * Matrix4f::scaleMatrix(radius, radius, start_point.getDist(end_point));
+	debug_draw_obs.push_back(ob);
+	addObject(ob);
+}
+
+
+void OpenGLEngine::addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane_normal, float plane_draw_width, const Colour4f& col)
+{
+	// Add arrow
+	debug_draw_obs.push_back(makeArrowObject(point_on_plane, point_on_plane + plane_normal * plane_draw_width * 0.2f, 
+		Colour4f(col[0], col[1], col[2], 1), /*radius scale=*/plane_draw_width * 0.2f));
+	addObject(debug_draw_obs.back());
+
+	// Add plane quad
+	GLObjectRef ob = new GLObject();
+	ob->mesh_data = getUnitQuadMeshData(); // A quad from (0, 0, 0) to (1, 1, 0)
+	ob->materials.resize(1);
+	ob->materials[0].albedo_linear_rgb = Colour3f(col[0], col[1], col[2]);
+	ob->materials[0].alpha = col[3];
+	ob->materials[0].transparent = col[3] < 1.f;
+	ob->materials[0].double_sided = true;
+	Matrix4f m;
+	m.constructFromVector(plane_normal);
+	ob->ob_to_world_matrix = Matrix4f::translationMatrix(point_on_plane) * m * 
+		Matrix4f::uniformScaleMatrix(plane_draw_width) * Matrix4f::translationMatrix(-0.5f, -0.5f, 0);
+	debug_draw_obs.push_back(ob);
+	addObject(ob);
 }
 
 
@@ -5146,6 +5197,124 @@ public:
 };
 
 
+void OpenGLEngine::addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const Vec4f& t, float line_rad, const Colour4f& line_col)
+{
+	addDebugLine(frustum_verts_ws[0] + t, frustum_verts_ws[1] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[1] + t, frustum_verts_ws[2] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[2] + t, frustum_verts_ws[3] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[3] + t, frustum_verts_ws[0] + t, line_rad, line_col);
+
+	addDebugLine(frustum_verts_ws[4] + t, frustum_verts_ws[5] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[5] + t, frustum_verts_ws[6] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[6] + t, frustum_verts_ws[7] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[7] + t, frustum_verts_ws[4] + t, line_rad, line_col);
+
+	addDebugLine(frustum_verts_ws[0] + t, frustum_verts_ws[4] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[1] + t, frustum_verts_ws[5] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[2] + t, frustum_verts_ws[6] + t, line_rad, line_col);
+	addDebugLine(frustum_verts_ws[3] + t, frustum_verts_ws[7] + t, line_rad, line_col);
+}
+
+
+// Returns num_clip_planes_used
+static int computeShadowFrustumClipPlanes(const Vec4f frustum_verts_ws[8], const Vec4f& sun_dir, float max_shadowing_dist, Planef clip_planes_out[18])
+{
+	Vec4f center_p(0); // Compute point at centre of frustum
+	for(int q=0; q<8; ++q)
+		center_p += frustum_verts_ws[q];
+	center_p *= (1 / 8.0f);
+
+	// Compute normals of planes on each side of the view frustum
+	const Vec4f top_n    = normalise(crossProduct(frustum_verts_ws[6] - frustum_verts_ws[2], frustum_verts_ws[3] - frustum_verts_ws[2]));
+	const Vec4f bottom_n = normalise(crossProduct(frustum_verts_ws[0] - frustum_verts_ws[1], frustum_verts_ws[5] - frustum_verts_ws[1]));
+	const Vec4f left_n   = normalise(crossProduct(frustum_verts_ws[7] - frustum_verts_ws[3], frustum_verts_ws[0] - frustum_verts_ws[3]));
+	const Vec4f right_n  = normalise(crossProduct(frustum_verts_ws[5] - frustum_verts_ws[1], frustum_verts_ws[2] - frustum_verts_ws[1]));
+	const Vec4f near_n   = normalise(crossProduct(frustum_verts_ws[2] - frustum_verts_ws[1], frustum_verts_ws[0] - frustum_verts_ws[1]));
+	const Vec4f far_n    = normalise(crossProduct(frustum_verts_ws[4] - frustum_verts_ws[5], frustum_verts_ws[6] - frustum_verts_ws[5]));
+
+	// Info about frustum edges
+	const Vec4f edges[] = 
+	{
+		// normal of first adjacent plane, normal of second adjacent plane, vert on edge
+		top_n,    left_n,   frustum_verts_ws[3], 
+		left_n,   bottom_n, frustum_verts_ws[0],
+		bottom_n, right_n,  frustum_verts_ws[1],
+		right_n,  top_n,    frustum_verts_ws[2],
+		near_n,   bottom_n, frustum_verts_ws[0],
+		near_n,   right_n,  frustum_verts_ws[1],
+		near_n,   top_n,    frustum_verts_ws[2],
+		near_n,   left_n,   frustum_verts_ws[3],
+		far_n,    bottom_n, frustum_verts_ws[4],
+		far_n,    right_n,  frustum_verts_ws[5],
+		far_n,    top_n,    frustum_verts_ws[6],
+		far_n,    left_n,   frustum_verts_ws[7]
+	};
+
+	// Get clip planes on the faces of the frustum facing away from the sun, and from the faces facing the sun, which will be 
+	// translated towards the sun by max_shadowing_dist.
+	clip_planes_out[0] = Planef((dot(near_n,   sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], near_n);
+	clip_planes_out[1] = Planef((dot(far_n,    sun_dir) > 0) ? (frustum_verts_ws[4] + sun_dir * max_shadowing_dist) : frustum_verts_ws[4], far_n);
+	clip_planes_out[2] = Planef((dot(left_n,   sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], left_n);
+	clip_planes_out[3] = Planef((dot(right_n,  sun_dir) > 0) ? (frustum_verts_ws[1] + sun_dir * max_shadowing_dist) : frustum_verts_ws[1], right_n);
+	clip_planes_out[4] = Planef((dot(bottom_n, sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], bottom_n);
+	clip_planes_out[5] = Planef((dot(top_n,    sun_dir) > 0) ? (frustum_verts_ws[3] + sun_dir * max_shadowing_dist) : frustum_verts_ws[3], top_n);
+
+	// Get clip planes that lie on the 'extruded' edges that form the frustum silhouette as seen from the sun.
+	int num_clip_planes_used = 6;
+	for(int ei=0; ei<12; ++ei) // For each edge:
+	{
+		const Vec4f n_a = edges[ei*3 + 0]; // Normal of first face adjacent to edge
+		const Vec4f n_b = edges[ei*3 + 1]; // Normal of second face adjacent to edge
+		const Vec4f v   = edges[ei*3 + 2]; // Position of a vertex on edge.
+
+		if(dot(n_a, sun_dir) * dot(n_b, sun_dir) < 0) // If edge is a silhouette edge:
+		{
+			const Vec4f edge_v = crossProduct(n_a, n_b); // Compute edge vector
+			Vec4f plane_n = normalise(crossProduct(sun_dir, edge_v)); // Compute plane normal
+			if(dot(plane_n, v - center_p) < 0) // If it's pointing inwards to the interior of the frustum, negate it.
+				plane_n = -plane_n;
+
+			clip_planes_out[num_clip_planes_used++] = Planef(v, plane_n);
+		}
+	}
+	return num_clip_planes_used;
+}
+
+
+void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18])
+{
+#if BUILD_TESTS
+	// Draw frustum with spheres at vertices and lines/cylinders along edges.
+	// We will also draw a translated frustum along the sun direction by max_shadowing_dist.
+	const float line_rad = frustum_verts_ws[0].getDist(frustum_verts_ws[4]) * 0.004f;
+	const Colour4f line_col(1,0,0,1);
+	addDebugLinesForFrustum(frustum_verts_ws, /*translation=*/Vec4f(0.f),                   line_rad, line_col);
+	addDebugLinesForFrustum(frustum_verts_ws, /*translation=*/sun_dir * max_shadowing_dist, line_rad, line_col);
+
+	const Colour4f extension_line_col(1,0,0,0.5f);
+	for(int q=0; q<8; ++q)
+		addDebugLine(frustum_verts_ws[q], frustum_verts_ws[q] + sun_dir * max_shadowing_dist, line_rad, extension_line_col);
+
+	for(int q=0; q<8; ++q)
+		addDebugSphere(frustum_verts_ws[q], /*radius*/0.1f, Colour4f(1,0,0,1));
+
+
+	// Draw clip planes
+	Vec4f center_p(0); // Compute point at centre of frustum
+	for(int q=0; q<8; ++q)
+		center_p += frustum_verts_ws[q];
+	center_p *= (1 / 8.0f);
+
+	for(int q=0; q<6/*num_clip_planes_used*/; ++q)
+	{
+		addDebugPlane(clip_planes[q].closestPointOnPlane(center_p), clip_planes[q].getNormal(), 
+			/*plane draw width=*/frustum_verts_ws[0].getDist(frustum_verts_ws[4]) * 1.5f,
+			(q < 6) ? Colour4f(0.3, 0.8, 0.3, 0.3) : Colour4f(0.3, 0.3, 0.8, 0.3));
+	}
+#endif
+}
+
+
 // static Planef draw_anim_shadow_clip_planes[6]; // Some stuff for debug visualisation
 // static Vec4f draw_frustum_verts_ws[8];
 // static Vec4f draw_extended_verts_ws[8];
@@ -5451,6 +5620,8 @@ void OpenGLEngine::draw()
 
 		for(int ti=0; ti<shadow_mapping->numDynamicDepthTextures(); ++ti)
 		{
+			// Timer timer;
+
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
 
 			// Compute the 8 points making up the corner vertices of this slice of the view frustum
@@ -5466,7 +5637,7 @@ void OpenGLEngine::draw()
 
 			// Get a basis for our distance map, where k is the direction to the sun.
 			const Vec4f up(0, 0, 1, 0);
-			const Vec4f k = sun_dir;
+			const Vec4f k = sun_dir; // dir to sun
 			const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
 			const Vec4f j = crossProduct(k, i); // up
 
@@ -5507,36 +5678,17 @@ void OpenGLEngine::draw()
 				near_signed_dist, far_signed_dist // near, far
 			);
 
-			
-			// TEMP: compute verts of shadow volume
-			Vec4f shadow_vol_verts[8];
-			shadow_vol_verts[0] = Vec4f(0,0,0,1) + i*min_i + j*max_j + k*use_max_k;
-			shadow_vol_verts[1] = Vec4f(0,0,0,1) + i*max_i + j*max_j + k*use_max_k;
-			shadow_vol_verts[2] = Vec4f(0,0,0,1) + i*max_i + j*min_j + k*use_max_k;
-			shadow_vol_verts[3] = Vec4f(0,0,0,1) + i*min_i + j*min_j + k*use_max_k;
-			shadow_vol_verts[4] = Vec4f(0,0,0,1) + i*min_i + j*max_j + k*min_k;
-			shadow_vol_verts[5] = Vec4f(0,0,0,1) + i*max_i + j*max_j + k*min_k;
-			shadow_vol_verts[6] = Vec4f(0,0,0,1) + i*max_i + j*min_j + k*min_k;
-			shadow_vol_verts[7] = Vec4f(0,0,0,1) + i*min_i + j*min_j + k*min_k;
+			const Matrix4f view_matrix = Matrix4f::fromRows(i, j, k, Vec4f(0, 0, 0, 1));
 
-			Matrix4f view_matrix;
-			view_matrix.setRow(0, i);
-			view_matrix.setRow(1, j);
-			view_matrix.setRow(2, k);
-			view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
-
-			// Compute clipping planes for shadow mapping
-			shadow_clip_planes[0] = Planef( i, max_i);
-			shadow_clip_planes[1] = Planef(-i, -min_i);
-			shadow_clip_planes[2] = Planef( j, max_j);
-			shadow_clip_planes[3] = Planef(-j, -min_j);
-			shadow_clip_planes[4] = Planef( k, use_max_k);
-			shadow_clip_planes[5] = Planef(-k, -min_k);
+			Planef clip_planes[18]; // Usually there should be <= 12 clip planes, 18 is the max possible based on the code flow in computeShadowFrustumClipPlanes.
+			const int num_clip_planes_used = computeShadowFrustumClipPlanes(frustum_verts_ws, sun_dir, max_shadowing_dist, clip_planes);
 
 			js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
 			for(int z=0; z<8; ++z)
-				shadow_vol_aabb.enlargeToHoldPoint(shadow_vol_verts[z]);
-
+			{
+				shadow_vol_aabb.enlargeToHoldPoint(frustum_verts_ws[z]);
+				shadow_vol_aabb.enlargeToHoldPoint(frustum_verts_ws[z] + sun_dir * max_shadowing_dist);
+			}
 			
 			// We need to use a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
 			const Matrix4f texcoord_bias(
@@ -5592,7 +5744,7 @@ void OpenGLEngine::draw()
 				}
 
 				const GLObject* const ob = current_scene_obs[q].ptr();
-				if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
+				if(AABBIntersectsFrustum(clip_planes, num_clip_planes_used, shadow_vol_aabb, ob->aabb_ws))
 				{
 					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
 						continue;
@@ -5611,6 +5763,7 @@ void OpenGLEngine::draw()
 						);
 						batch_draw_info.push_back(info);
 					}
+					//num_drawn++;
 				}
 				//else
 				//	num_frustum_culled++;
@@ -5640,7 +5793,8 @@ void OpenGLEngine::draw()
 			if(use_multi_draw_indirect)
 				submitBufferedDrawCommands();
 
-			//conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn.");
+			// conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene_obs_size) + " obs drawn, " + toString(num_frustum_culled) + 
+			//		" frustum culled (CPU time: " + timer.elapsedStringMSWIthNSigFigs(4) + ")");
 		}
 
 		shadow_mapping->unbindFrameBuffer();
@@ -5685,8 +5839,6 @@ void OpenGLEngine::draw()
 				const int static_per_map_h = shadow_mapping->static_h / shadow_mapping->numStaticDepthTextures();
 				glViewport(/*x=*/0, /*y=*/ti*static_per_map_h, /*width=*/shadow_mapping->static_w, /*height=*/static_per_map_h);
 
-				// Code before here works
-#if 1
 				if(ob_set == 0)
 				{
 					glDisable(GL_CULL_FACE);
@@ -5738,10 +5890,14 @@ void OpenGLEngine::draw()
 
 
 				Vec4f frustum_verts_ws[8];
-				js::getAABBCornerVerts(js::AABBox(
-					vol_centre - Vec4f(w, w, h, 0),
-					vol_centre + Vec4f(w, w, h, 0)
-				), frustum_verts_ws);
+				frustum_verts_ws[0] = vol_centre + Vec4f(-w,-w,-h,0);
+				frustum_verts_ws[1] = vol_centre + Vec4f( w,-w,-h,0);
+				frustum_verts_ws[2] = vol_centre + Vec4f( w,-w, h,0);
+				frustum_verts_ws[3] = vol_centre + Vec4f(-w,-w, h,0);
+				frustum_verts_ws[4] = vol_centre + Vec4f(-w, w,-h,0);
+				frustum_verts_ws[5] = vol_centre + Vec4f( w, w,-h,0);
+				frustum_verts_ws[6] = vol_centre + Vec4f( w, w, h,0);
+				frustum_verts_ws[7] = vol_centre + Vec4f(-w, w, h,0);
 
 				const Vec4f up(0, 0, 1, 0);
 				const Vec4f k = sun_dir;
@@ -5784,37 +5940,19 @@ void OpenGLEngine::draw()
 					near_signed_dist, far_signed_dist // near, far
 				);
 
+				const Matrix4f view_matrix = Matrix4f::fromRows(i, j, k, Vec4f(0, 0, 0, 1));
 
-				// TEMP: compute verts of shadow volume
-				Vec4f shadow_vol_verts[8];
-				shadow_vol_verts[0] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*use_max_k;
-				shadow_vol_verts[1] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*use_max_k;
-				shadow_vol_verts[2] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*use_max_k;
-				shadow_vol_verts[3] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*use_max_k;
-				shadow_vol_verts[4] = Vec4f(0, 0, 0, 1) + i*min_i + j*max_j + k*min_k;
-				shadow_vol_verts[5] = Vec4f(0, 0, 0, 1) + i*max_i + j*max_j + k*min_k;
-				shadow_vol_verts[6] = Vec4f(0, 0, 0, 1) + i*max_i + j*min_j + k*min_k;
-				shadow_vol_verts[7] = Vec4f(0, 0, 0, 1) + i*min_i + j*min_j + k*min_k;
-
-				Matrix4f view_matrix;
-				view_matrix.setRow(0, i);
-				view_matrix.setRow(1, j);
-				view_matrix.setRow(2, k);
-				view_matrix.setRow(3, Vec4f(0, 0, 0, 1));
-
-				// Compute clipping planes for shadow mapping
-				shadow_clip_planes[0] = Planef( i, max_i);
-				shadow_clip_planes[1] = Planef(-i, -min_i);
-				shadow_clip_planes[2] = Planef( j, max_j);
-				shadow_clip_planes[3] = Planef(-j, -min_j);
-				shadow_clip_planes[4] = Planef( k, use_max_k);
-				shadow_clip_planes[5] = Planef(-k, -min_k);
+				Planef clip_planes[18]; // Usually there should be <= 12 clip planes, 18 is the max possible based on the code flow in computeShadowFrustumClipPlanes.
+				const int num_clip_planes_used = computeShadowFrustumClipPlanes(frustum_verts_ws, sun_dir, max_shadowing_dist, clip_planes);
 
 				js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
 				for(int z=0; z<8; ++z)
-					shadow_vol_aabb.enlargeToHoldPoint(shadow_vol_verts[z]);
+				{
+					shadow_vol_aabb.enlargeToHoldPoint(frustum_verts_ws[z]);
+					shadow_vol_aabb.enlargeToHoldPoint(frustum_verts_ws[z] + sun_dir * max_shadowing_dist);
+				}
 
-				// We need to a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
+				// We need to use a texcoord bias matrix to go from [-1, 1] to [0, 1] coord range.
 				const Matrix4f texcoord_bias(
 					Vec4f(0.5f, 0, 0, 0), // col 0
 					Vec4f(0, 0.5f, 0, 0), // col 1
@@ -5872,7 +6010,7 @@ void OpenGLEngine::draw()
 					const GLObject* const ob = current_scene_obs[q].ptr();
 					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
 					{
-						if(AABBIntersectsFrustum(shadow_clip_planes, /*num clip planes=*/6, shadow_vol_aabb, ob->aabb_ws))
+						if(AABBIntersectsFrustum(clip_planes, num_clip_planes_used, shadow_vol_aabb, ob->aabb_ws))
 						{
 							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
 								continue;
@@ -5891,6 +6029,7 @@ void OpenGLEngine::draw()
 								);
 								batch_draw_info.push_back(info);
 							}
+							//num_drawn++;
 						}
 						//else
 						//	num_frustum_culled++;
@@ -5922,8 +6061,6 @@ void OpenGLEngine::draw()
 					submitBufferedDrawCommands();
 
 				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
-#endif
-// Code after here works
 			}
 
 			shadow_mapping->unbindFrameBuffer();
@@ -7256,6 +7393,8 @@ void OpenGLEngine::draw()
 		num_frames_since_fps_timer_reset = 0;
 		fps_display_timer.reset();
 	}
+
+	add_debug_obs = false;
 
 	frame_num++;
 
