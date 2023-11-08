@@ -4354,93 +4354,6 @@ void OpenGLEngine::addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane
 }
 
 
-void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, 
-	const Matrix4f& view_matrix, const Matrix4f& proj_matrix, float plane_draw_half_width)
-{
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
-
-	const Matrix4f rot = Matrix4f::constructFromVectorStatic(plane_normal.toVec4fVector());
-
-	// Draw a quad on the plane
-	{
-		outline_edge_mat.albedo_linear_rgb = Colour3f(0.8f, 0.2f, 0.2f);
-		outline_edge_mat.alpha = 0.5f;
-		outline_edge_mat.shader_prog = this->fallback_transparent_prog;
-
-		Matrix4f quad_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
-			Matrix4f::uniformScaleMatrix(2*plane_draw_half_width) * Matrix4f::translationMatrix(Vec4f(-0.5f, -0.5f, 0.f, 1.f));
-
-		GLObject ob;
-		ob.ob_to_world_matrix = quad_to_world;
-		quad_to_world.getUpperLeftInverseTranspose(ob.ob_to_world_inv_transpose_matrix);
-
-		const bool program_changed = checkUseProgram(outline_edge_mat.shader_prog.ptr());
-		if(program_changed)
-			setSharedUniformsForProg(*outline_edge_mat.shader_prog, view_matrix, proj_matrix);
-		bindMeshData(*outline_quad_meshdata); // Bind the mesh data, which is the same for all batches.
-		this->current_uniforms_ob = NULL;
-		drawBatch(ob, outline_edge_mat, *outline_edge_mat.shader_prog, *outline_quad_meshdata, outline_quad_meshdata->batches[0]);
-	}
-
-	 glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
-	 glDisable(GL_BLEND);
-	
-	// Draw an arrow to show the plane normal
-	if(debug_arrow_ob.isNull())
-	{
-		debug_arrow_ob = new GLObject();
-		if(arrow_meshdata.isNull())
-			arrow_meshdata = MeshPrimitiveBuilding::make3DArrowMesh(*vert_buf_allocator); // tip lies at (1,0,0).
-		debug_arrow_ob->mesh_data = arrow_meshdata;
-		debug_arrow_ob->materials.resize(1);
-		debug_arrow_ob->materials[0].albedo_linear_rgb = Colour3f(0.5f, 0.9f, 0.3f);
-		debug_arrow_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", ProgramKeyArgs()));
-	}
-	
-	Matrix4f arrow_to_world = Matrix4f::translationMatrix(point_on_plane.toVec4fPoint()) * rot *
-		Matrix4f::uniformScaleMatrix(10.f) * Matrix4f::rotationMatrix(Vec4f(0,1,0,0), -Maths::pi_2<float>()); // rot x axis to z axis
-	
-	debug_arrow_ob->ob_to_world_matrix = arrow_to_world;
-	arrow_to_world.getUpperLeftInverseTranspose(debug_arrow_ob->ob_to_world_inv_transpose_matrix);
-
-	const bool program_changed = checkUseProgram(debug_arrow_ob->materials[0].shader_prog.ptr());
-	if(program_changed)
-		setSharedUniformsForProg(*debug_arrow_ob->materials[0].shader_prog, view_matrix, proj_matrix);
-	
-	bindMeshData(*debug_arrow_ob); // Bind the mesh data, which is the same for all batches.
-	this->current_uniforms_ob = NULL;
-	drawBatch(*debug_arrow_ob, debug_arrow_ob->materials[0], *debug_arrow_ob->materials[0].shader_prog, *debug_arrow_ob->mesh_data, debug_arrow_ob->mesh_data->batches[0]);
-}
-
-
-void OpenGLEngine::drawDebugSphere(const Vec4f& point, float radius, const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
-{
-	if(debug_sphere_ob.isNull())
-	{
-		debug_sphere_ob = new GLObject();
-		debug_sphere_ob->mesh_data = sphere_meshdata;
-		debug_sphere_ob->materials.resize(1);
-		debug_sphere_ob->materials[0].albedo_linear_rgb = Colour3f(0.1f, 0.4f, 0.9f);
-		debug_sphere_ob->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", ProgramKeyArgs()));
-	}
-
-	const Matrix4f sphere_to_world = Matrix4f::translationMatrix(point) * Matrix4f::uniformScaleMatrix(radius);
-
-	debug_sphere_ob->ob_to_world_matrix = sphere_to_world;
-	sphere_to_world.getUpperLeftInverseTranspose(debug_sphere_ob->ob_to_world_inv_transpose_matrix);
-
-	const bool program_changed = checkUseProgram(debug_sphere_ob->materials[0].shader_prog.ptr());
-	if(program_changed)
-		setSharedUniformsForProg(*debug_sphere_ob->materials[0].shader_prog, view_matrix, proj_matrix);
-
-	bindMeshData(*debug_sphere_ob); // Bind the mesh data, which is the same for all batches.
-	this->current_uniforms_ob = NULL;
-	drawBatch(*debug_sphere_ob, debug_sphere_ob->materials[0], *debug_sphere_ob->materials[0].shader_prog, *debug_sphere_ob->mesh_data, debug_sphere_ob->mesh_data->batches[0]);
-}
-
-
 static inline float largestDim(const js::AABBox& aabb)
 {
 	return horizontalMax((aabb.max_ - aabb.min_).v);
@@ -6872,15 +6785,6 @@ void OpenGLEngine::draw()
 		glDisable(GL_POLYGON_OFFSET_LINE);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
-
-
-	// Visualise clip planes and view frustum
-	/*for(int i=0; i<6; ++i)
-		drawDebugPlane(Vec3f(draw_anim_shadow_clip_planes[i].getPointOnPlane()), Vec3f(draw_anim_shadow_clip_planes[i].getNormal()), view_matrix, proj_matrix, 200);
-	for(int i=0; i<8; ++i)
-		drawDebugSphere(draw_frustum_verts_ws[i], 1.f, view_matrix, proj_matrix);
-	for(int i=0; i<8; ++i)
-		drawDebugSphere(draw_extended_verts_ws[i], 1.f, view_matrix, proj_matrix);*/
 
 
 	//================= Draw triangle batches with transparent materials =================

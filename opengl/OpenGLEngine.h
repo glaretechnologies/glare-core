@@ -987,9 +987,6 @@ private:
 	void addDebugSphere(const Vec4f& centre, float radius, const Colour4f& col);
 	void addDebugLine(const Vec4f& start_point, const Vec4f& end_point, float radius, const Colour4f& col);
 	void addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane_normal, float plane_draw_width, const Colour4f& col);
-	void drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plane_normal, const Matrix4f& view_matrix, const Matrix4f& proj_matrix,
-		float plane_draw_half_width);
-	void drawDebugSphere(const Vec4f& point, float radius, const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const Vec4f& t, float line_rad, const Colour4f& line_col);
 
 public:
@@ -1000,8 +997,6 @@ private:
 	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;
-
-	void addDebugHexahedron(const Vec4f* verts_ws, const Colour4f& col);
 
 	OpenGLProgramRef getProgramWithFallbackOnError(const ProgramKey& key);
 
