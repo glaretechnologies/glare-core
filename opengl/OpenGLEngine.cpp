@@ -4324,9 +4324,9 @@ void OpenGLEngine::addDebugSphere(const Vec4f& centre, float radius, const Colou
 void OpenGLEngine::addDebugLine(const Vec4f& start_point, const Vec4f& end_point, float radius, const Colour4f& col)
 {
 	GLObjectRef ob = makeCylinderObject(radius, col);
-	Matrix4f m;
-	m.constructFromVector(normalise(end_point - start_point));
-	ob->ob_to_world_matrix = Matrix4f::translationMatrix(start_point) * m * Matrix4f::scaleMatrix(radius, radius, start_point.getDist(end_point));
+	ob->ob_to_world_matrix = Matrix4f::translationMatrix(start_point) * 
+		Matrix4f::constructFromVectorStatic(normalise(end_point - start_point)) *
+		Matrix4f::scaleMatrix(radius, radius, start_point.getDist(end_point));
 	debug_draw_obs.push_back(ob);
 	addObject(ob);
 }
@@ -4347,9 +4347,7 @@ void OpenGLEngine::addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane
 	ob->materials[0].alpha = col[3];
 	ob->materials[0].transparent = col[3] < 1.f;
 	ob->materials[0].double_sided = true;
-	Matrix4f m;
-	m.constructFromVector(plane_normal);
-	ob->ob_to_world_matrix = Matrix4f::translationMatrix(point_on_plane) * m * 
+	ob->ob_to_world_matrix = Matrix4f::translationMatrix(point_on_plane) * Matrix4f::constructFromVectorStatic(plane_normal) * 
 		Matrix4f::uniformScaleMatrix(plane_draw_width) * Matrix4f::translationMatrix(-0.5f, -0.5f, 0);
 	debug_draw_obs.push_back(ob);
 	addObject(ob);
@@ -4363,8 +4361,7 @@ void OpenGLEngine::drawDebugPlane(const Vec3f& point_on_plane, const Vec3f& plan
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer.
 
-	Matrix4f rot;
-	rot.constructFromVector(plane_normal.toVec4fVector());
+	const Matrix4f rot = Matrix4f::constructFromVectorStatic(plane_normal.toVec4fVector());
 
 	// Draw a quad on the plane
 	{

@@ -66,7 +66,8 @@ public:
 	inline void getTranspose(Matrix4f& transpose_out) const;
 	inline Matrix4f getTranspose() const;
 
-	inline void constructFromVector(const Vec4f& vec);
+	inline void constructFromVector(const Vec4f& vec); // Updates in-place
+	static inline Matrix4f constructFromVectorStatic(const Vec4f& vec);
 	static inline const Vec4f constructFromVectorAndMul(const Vec4f& vec, const Vec4f& other_v);
 
 	inline bool operator == (const Matrix4f& a) const;
@@ -485,6 +486,14 @@ void Matrix4f::constructFromVector(const Vec4f& vec)
 
 	// elems 12...15 = (0,0,0,1)
 	_mm_store_ps(e + 12, Vec4f(0,0,0,1).v);
+}
+
+
+Matrix4f Matrix4f::constructFromVectorStatic(const Vec4f& vec)
+{
+	Matrix4f res;
+	res.constructFromVector(vec);
+	return res;
 }
 
 
