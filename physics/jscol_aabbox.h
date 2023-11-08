@@ -39,7 +39,7 @@ public:
 	GLARE_STRONG_INLINE void enlargeToHoldAABBox(const AABBox& aabb);
 	inline bool containsAABBox(const AABBox& aabb) const;
 
-	inline int disjoint(const AABBox& other) const; // Returns a non-zero value if AABBs are disjoint.
+	GLARE_STRONG_INLINE int disjoint(const AABBox& other) const; // Returns a non-zero value if AABBs are disjoint.
 	inline bool intersectsAABB(const AABBox& other) const;
 
 	GLARE_STRONG_INLINE int isEmpty() const; // Returns non-zero if this AABB is empty (e.g. if it has an upper bound < lower bound)
@@ -126,10 +126,10 @@ bool AABBox::containsAABBox(const AABBox& other) const
 int AABBox::disjoint(const AABBox& other) const // Returns a non-zero value if AABBs are disjoint.
 {
 	// Compare the AABB bounds along each axis in parallel.
-	__m128 lower_separation = _mm_cmplt_ps(max_.v, other.min_.v); // [max.x < other.min.x, max.y < other.min.y, ...]
-	__m128 upper_separation = _mm_cmplt_ps(other.max_.v, min_.v) ;// [other.max.x < min.x, other.max.y < min.y, ...]
-	__m128 either = _mm_or_ps(lower_separation, upper_separation); // Will have a bit set if there is a separation on any axis
-	return _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits
+	__m128 lower_separation = _mm_cmplt_ps(max_.v, other.min_.v); // [max.x < other.min.x, max.y < other.min.y, ...]      (latency 4 cycles)
+	__m128 upper_separation = _mm_cmplt_ps(other.max_.v, min_.v) ;// [other.max.x < min.x, other.max.y < min.y, ...]      (latency 4 cycles)
+	__m128 either = _mm_or_ps(lower_separation, upper_separation); // Will have a bit set if there is a separation on any axis      (latency 1 cycle)
+	return _mm_movemask_ps(either); // Creates a 4-bit mask from the most significant bits       (latency 2 to 3 cycles)
 }
 
 
