@@ -595,6 +595,20 @@ void Matrix4f::test()
 		testAssert(m == m2);
 	}
 
+	//-------------------------- Test fromRows ----------------------------
+	{
+		const Matrix4f m = Matrix4f::fromRows(
+			Vec4f(0,1,2,3),
+			Vec4f(4,5,6,7),
+			Vec4f(8,9,10,11),
+			Vec4f(12,13,14,15)
+		);
+		testAssert(m.getColumn(0) == Vec4f(0,4,8,12));
+		testAssert(m.getColumn(1) == Vec4f(1,5,9,13));
+		testAssert(m.getColumn(2) == Vec4f(2,6,10,14));
+		testAssert(m.getColumn(3) == Vec4f(3,7,11,15));
+	}
+
 	//-------------------------- Test operator + ----------------------------
 	{
 		float ea[16];

@@ -336,14 +336,14 @@ GLARE_STRONG_INLINE Vec4f unpackhi(const Vec4f& a, const Vec4f& b) { return _mm_
 
 GLARE_STRONG_INLINE void transpose(const Vec4f& r0, const Vec4f& r1, const Vec4f& r2, const Vec4f& r3, Vec4f& c0, Vec4f& c1, Vec4f& c2, Vec4f& c3)
 {
-	Vec4f l02 = unpacklo(r0,r2); // (r0x, r2x, r0y, r2y)
-	Vec4f h02 = unpackhi(r0,r2); // (r0z, r2z, r0w, r2w)
-	Vec4f l13 = unpacklo(r1,r3); // (r1x, r3x, r1y, r3y)
-	Vec4f h13 = unpackhi(r1,r3); // (r1z, r3z, r1w, r3w)
-	c0 = unpacklo(l02,l13); // (l02.x, l13.x, l02.y, l13.y) = (r0x, r1x, r2x, r3x)
-	c1 = unpackhi(l02,l13);
-	c2 = unpacklo(h02,h13);
-	c3 = unpackhi(h02,h13);
+	const Vec4f rows02_low  = unpacklo(r0, r2); // (r0.x, r2.x, r0.y, r2.y)
+	const Vec4f rows02_high = unpackhi(r0, r2); // (r0.z, r2.z, r0.w, r2.w)
+	const Vec4f rows13_low  = unpacklo(r1, r3); // (r1.x, r3.x, r1.y, r3.y)
+	const Vec4f rows13_high = unpackhi(r1, r3); // (r1.z, r3.z, r1.w, r3.w)
+	c0 = unpacklo(rows02_low, rows13_low);   // (rows02_low.x,  rows13_low.x,  rows02_low.y,  rows13_low.y)  = (r0.x, r1.x, r2.x, r3.x)
+	c1 = unpackhi(rows02_low, rows13_low);   // (rows02_low.z,  rows13_low.z,  rows02_low.w,  rows13_low.w)  = (r0.y, r1.y, r2.y, r3.y)
+	c2 = unpacklo(rows02_high, rows13_high); // (rows02_high.x, rows13_high.x, rows02_high.y, rows13_high.y) = (r0.z, r1.z, r2.z, r3.z)
+	c3 = unpackhi(rows02_high, rows13_high); // (rows02_high.z, rows13_high.z, rows02_high.w, rows13_high.w) = (r0.w, r1.w, r2.w, r3.w)
 }
 
 

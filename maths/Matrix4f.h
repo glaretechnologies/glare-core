@@ -32,6 +32,7 @@ public:
 	Matrix4f(const Matrix3<float>& upper_left_mat, const Vec3<float>& translation);
 	inline Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, const Vec4f& col3);
 
+	inline static Matrix4f fromRows(const Vec4f& row0, const Vec4f& row1, const Vec4f& row2, const Vec4f& row3);
 	inline static Matrix4f fromRowMajorData(const float* e);
 
 	inline Matrix4f& operator = (const Matrix4f& other);
@@ -159,6 +160,15 @@ Matrix4f::Matrix4f(const Vec4f& col0, const Vec4f& col1, const Vec4f& col2, cons
 	_mm_store_ps(e + 4,  col1.v);
 	_mm_store_ps(e + 8,  col2.v);
 	_mm_store_ps(e + 12, col3.v);
+}
+
+
+Matrix4f Matrix4f::fromRows(const Vec4f& row0, const Vec4f& row1, const Vec4f& row2, const Vec4f& row3)
+{
+	Vec4f col0, col1, col2, col3;
+	transpose(row0, row1, row2, row3, col0, col1, col2, col3);
+	
+	return Matrix4f(col0, col1, col2, col3);
 }
 
 
