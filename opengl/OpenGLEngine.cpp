@@ -5635,13 +5635,15 @@ void OpenGLEngine::draw()
 
 
 			// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
-			//uint64 num_drawn = 0;
-			//uint64 num_in_frustum = 0;
 
 			batch_draw_info.reserve(current_scene->objects.size());
 			batch_draw_info.resize(0);
 
+			const Vec4f size_threshold_v = Vec4f((max_i - min_i) * 0.002f);
+
+			//uint64 num_drawn = 0;
 			//uint64 num_frustum_culled = 0;
+			//uint64 num_too_small = 0;
 			const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
 			const size_t current_scene_obs_size        = current_scene->objects.vector.size();
 			for(size_t q=0; q<current_scene_obs_size; ++q)
@@ -5654,11 +5656,15 @@ void OpenGLEngine::draw()
 				}
 
 				const GLObject* const ob = current_scene_obs[q].ptr();
-				if(AABBIntersectsFrustum(clip_planes, num_clip_planes_used, shadow_vol_aabb, ob->aabb_ws))
+				const js::AABBox ob_aabb_ws = ob->aabb_ws;
+				if(AABBIntersectsFrustum(clip_planes, num_clip_planes_used, shadow_vol_aabb, ob_aabb_ws))
 				{
-					if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.002f)
+					if(allTrue(parallelLessThan(ob_aabb_ws.max_ - ob_aabb_ws.min_, size_threshold_v)))
+					{
+						//num_too_small++;
 						continue;
-
+					}
+					
 					const size_t ob_depth_draw_batches_size                  = ob->depth_draw_batches.size();
 					const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
 					for(size_t z=0; z<ob_depth_draw_batches_size; ++z)
@@ -5703,7 +5709,7 @@ void OpenGLEngine::draw()
 			if(use_multi_draw_indirect)
 				submitBufferedDrawCommands();
 
-			// conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene_obs_size) + " obs drawn, " + toString(num_frustum_culled) + 
+			// conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene_obs_size) + " obs drawn, " + toString(num_too_small) + " too small, " + toString(num_frustum_culled) + 
 			//		" frustum culled (CPU time: " + timer.elapsedStringMSWIthNSigFigs(4) + ")");
 		}
 
@@ -5885,9 +5891,7 @@ void OpenGLEngine::draw()
 
 				// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
 				Timer timer3;
-				//uint64 num_drawn = 0;
-				//uint64 num_in_frustum = 0;
-
+				
 				// Update shared uniforms
 				{
 					SharedVertUniforms uniforms;
@@ -5905,7 +5909,11 @@ void OpenGLEngine::draw()
 				batch_draw_info.reserve(current_scene->objects.size());
 				batch_draw_info.resize(0);
 
+				const Vec4f size_threshold_v = Vec4f((max_i - min_i) * 0.001f);
+				
+				//uint64 num_drawn = 0;
 				//uint64 num_frustum_culled = 0;
+				//uint64 num_too_small = 0;
 				const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
 				const size_t current_scene_obs_size        = current_scene->objects.vector.size();
 				for(size_t q=0; q<current_scene_obs_size; ++q)
@@ -5920,10 +5928,14 @@ void OpenGLEngine::draw()
 					const GLObject* const ob = current_scene_obs[q].ptr();
 					if((ob->random_num & 0x3) == ob_set) // Only draw objects in ob_set (check by comparing lowest 2 bits with ob_set)
 					{
-						if(AABBIntersectsFrustum(clip_planes, num_clip_planes_used, shadow_vol_aabb, ob->aabb_ws))
+						const js::AABBox ob_aabb_ws = ob->aabb_ws;
+						if(AABBIntersectsFrustum(clip_planes, num_clip_planes_used, shadow_vol_aabb, ob_aabb_ws))
 						{
-							if(largestDim(ob->aabb_ws) < (max_i - min_i) * 0.001f)
+							if(allTrue(parallelLessThan(ob_aabb_ws.max_ - ob_aabb_ws.min_, size_threshold_v)))
+							{
+								//num_too_small++;
 								continue;
+							}
 
 							const size_t ob_depth_draw_batches_size                  = ob->depth_draw_batches.size();
 							const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
@@ -5970,7 +5982,8 @@ void OpenGLEngine::draw()
 				if(use_multi_draw_indirect)
 					submitBufferedDrawCommands();
 
-				//conPrint("Static shadow map Level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()/*num_in_frustum*/) + " drawn. (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
+				//conPrint("Static shadow map level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()) + " drawn. " + 
+				//	"num_frustum_culled: " + toString(num_frustum_culled) + ", num_too_small: " + toString(num_too_small ) + " (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
 			}
 
 			shadow_mapping->unbindFrameBuffer();

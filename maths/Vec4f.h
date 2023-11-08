@@ -460,6 +460,12 @@ GLARE_STRONG_INLINE bool allTrue(const Vec4f& vec)
 }
 
 
+GLARE_STRONG_INLINE bool anyTrue(const Vec4f& vec)
+{
+	return _mm_movemask_ps(vec.v) != 0x0;
+}
+
+
 GLARE_STRONG_INLINE float horizontalSum(const Vec4f& a)
 {
 	// suppose a = (a3, a2, a1, a0)
