@@ -5483,42 +5483,24 @@ void OpenGLEngine::draw()
 
 			assert(k.isUnitLength());
 
-			// Get bounds of the view frustum slice along i, j, k vectors
-			float min_i = std::numeric_limits<float>::max();
-			float min_j = std::numeric_limits<float>::max();
-			float min_k = std::numeric_limits<float>::max();
-			float max_i = -std::numeric_limits<float>::max();
-			float max_j = -std::numeric_limits<float>::max();
-			float max_k = -std::numeric_limits<float>::max();
-			
+			const Matrix4f view_matrix = Matrix4f::fromRows(i, j, k, Vec4f(0, 0, 0, 1)); // world to sun space
+
+			js::AABBox sun_space_bounds = js::AABBox::emptyAABBox();
 			for(int z=0; z<8; ++z)
-			{
-				assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
-				const float dot_i = dot(i, frustum_verts_ws[z]);
-				const float dot_j = dot(j, frustum_verts_ws[z]);
-				const float dot_k = dot(k, frustum_verts_ws[z]);
-				min_i = myMin(min_i, dot_i);
-				min_j = myMin(min_j, dot_j);
-				min_k = myMin(min_k, dot_k);
-				max_i = myMax(max_i, dot_i);
-				max_j = myMax(max_j, dot_j);
-				max_k = myMax(max_k, dot_k);
-			}
+				sun_space_bounds.enlargeToHoldPoint(view_matrix * frustum_verts_ws[z]);
 
 			// We want objects some distance outside of the view frustum to be able to cast shadows as well
 			const float max_shadowing_dist = 250.f;
-			const float use_max_k = max_k + max_shadowing_dist; // extend k bound to encompass max_shadowing_dist from max_k.
+			const float use_max_k = sun_space_bounds.max_[2] + max_shadowing_dist; // extend k bound to encompass max_shadowing_dist from max_k.
 
 			const float near_signed_dist = -use_max_k; // k is towards sun so negate
-			const float far_signed_dist = -min_k;
+			const float far_signed_dist  = -sun_space_bounds.min_[2]; // k is towards sun so negate
 
 			const Matrix4f proj_matrix = orthoMatrix(
-				min_i, max_i, // left, right
-				min_j, max_j, // bottom, top
+				sun_space_bounds.min_[0], sun_space_bounds.max_[0], // left, right
+				sun_space_bounds.min_[1], sun_space_bounds.max_[1], // bottom, top
 				near_signed_dist, far_signed_dist // near, far
 			);
-
-			const Matrix4f view_matrix = Matrix4f::fromRows(i, j, k, Vec4f(0, 0, 0, 1));
 
 			Planef clip_planes[18]; // Usually there should be <= 12 clip planes, 18 is the max possible based on the code flow in computeShadowFrustumClipPlanes.
 			const int num_clip_planes_used = computeShadowFrustumClipPlanes(frustum_verts_ws, sun_dir, max_shadowing_dist, clip_planes);
@@ -5569,7 +5551,7 @@ void OpenGLEngine::draw()
 			batch_draw_info.reserve(current_scene->objects.size());
 			batch_draw_info.resize(0);
 
-			const Vec4f size_threshold_v = Vec4f((max_i - min_i) * 0.002f);
+			const Vec4f size_threshold_v = Vec4f((sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) * 0.002f);
 
 			//uint64 num_drawn = 0;
 			//uint64 num_frustum_culled = 0;
@@ -5752,41 +5734,25 @@ void OpenGLEngine::draw()
 
 				assert(k.isUnitLength());
 
-				// Get bounds along i, j, k vectors
-				float min_i = std::numeric_limits<float>::max();
-				float min_j = std::numeric_limits<float>::max();
-				float min_k = std::numeric_limits<float>::max();
-				float max_i = -std::numeric_limits<float>::max();
-				float max_j = -std::numeric_limits<float>::max();
-				float max_k = -std::numeric_limits<float>::max();
+				const Matrix4f view_matrix = Matrix4f::fromRows(i, j, k, Vec4f(0, 0, 0, 1));
 
+				js::AABBox sun_space_bounds = js::AABBox::emptyAABBox();
 				for(int z=0; z<8; ++z)
-				{
-					assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
-					const float dot_i = dot(i, frustum_verts_ws[z]);
-					const float dot_j = dot(j, frustum_verts_ws[z]);
-					const float dot_k = dot(k, frustum_verts_ws[z]);
-					min_i = myMin(min_i, dot_i);
-					min_j = myMin(min_j, dot_j);
-					min_k = myMin(min_k, dot_k);
-					max_i = myMax(max_i, dot_i);
-					max_j = myMax(max_j, dot_j);
-					max_k = myMax(max_k, dot_k);
-				}
+					sun_space_bounds.enlargeToHoldPoint(view_matrix * frustum_verts_ws[z]);
+
 
 				const float max_shadowing_dist = 250.0f;
-				const float use_max_k = max_k + max_shadowing_dist; // extend k bound to encompass max_shadowing_dist from max_k.
+				const float use_max_k = sun_space_bounds.max_[2] + max_shadowing_dist; // extend k bound to encompass max_shadowing_dist from max_k.
 
-				const float near_signed_dist = -use_max_k;
-				const float far_signed_dist = -min_k;
+				const float near_signed_dist = -use_max_k; // k is towards sun so negate
+				const float far_signed_dist  = -sun_space_bounds.min_[2]; // k is towards sun so negate
 
 				const Matrix4f proj_matrix = orthoMatrix(
-					min_i, max_i, // left, right
-					min_j, max_j, // bottom, top
+					sun_space_bounds.min_[0], sun_space_bounds.max_[0], // left, right
+					sun_space_bounds.min_[1], sun_space_bounds.max_[1], // bottom, top
 					near_signed_dist, far_signed_dist // near, far
 				);
 
-				const Matrix4f view_matrix = Matrix4f::fromRows(i, j, k, Vec4f(0, 0, 0, 1));
 
 				Planef clip_planes[18]; // Usually there should be <= 12 clip planes, 18 is the max possible based on the code flow in computeShadowFrustumClipPlanes.
 				const int num_clip_planes_used = computeShadowFrustumClipPlanes(frustum_verts_ws, sun_dir, max_shadowing_dist, clip_planes);
@@ -5839,7 +5805,7 @@ void OpenGLEngine::draw()
 				batch_draw_info.reserve(current_scene->objects.size());
 				batch_draw_info.resize(0);
 
-				const Vec4f size_threshold_v = Vec4f((max_i - min_i) * 0.001f);
+				const Vec4f size_threshold_v = Vec4f((sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) * 0.001f);
 				
 				//uint64 num_drawn = 0;
 				//uint64 num_frustum_culled = 0;
