@@ -658,140 +658,146 @@ void main()
 
 
 	//------------- Compute specular microfacet terms for sun lighting --------------
-	//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
-	float h_cos_theta = abs(dot(h, unit_normal_cs));
-	vec4 specular_fresnel;
+	vec4 specular = vec4(0.0);
+	if(light_cos_theta > -0.3)
 	{
-		vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * final_fresnel_scale;
-		vec4 metal_fresnel = vec4(
-			metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
-			metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
-			metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b),
-			1);
+		float shadow_factor = smoothstep(-0.3, 0.0, light_cos_theta);
+		//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
+		float h_cos_theta = abs(dot(h, unit_normal_cs));
+		vec4 specular_fresnel;
+		{
+			vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * final_fresnel_scale;
+			vec4 metal_fresnel = vec4(
+				metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
+				metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
+				metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b),
+				1);
 
-		// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
-		specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
+			// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
+			specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
+		}
+
+		specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * specular_fresnel * shadow_factor;
 	}
 
-	vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * specular_fresnel;
-
-	float shadow_factor = smoothstep(-0.3, 0.0, dot(sundir_cs.xyz, unit_normal_cs));
-	specular *= shadow_factor;
 
 	// Shadow mapping
-	float sun_vis_factor;
+	float sun_vis_factor = 0.0;
 #if SHADOW_MAPPING
 
 #define VISUALISE_CASCADES 0
 
-	float samples_scale = 1.f;
-
-	float pattern_theta = pixel_hash * 6.283185307179586f;
-	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
-
-	sun_vis_factor = 0.0;
-
-	float depth_map_0_bias = 8.0e-5f;
-	float depth_map_1_bias = 4.0e-4f;
-	float static_depth_map_bias = 2.2e-3f;
-
-	float dist = -pos_cs.z;
-	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
+	if(sun_light_cos_theta_factor != 0.0) // Avoid doing shadow map lookups for faces facing away from sun.
 	{
-		if(dist < DEPTH_TEXTURE_SCALE_MULT) // if dynamic_depth_tex_index == 0:
+		float samples_scale = 1.f;
+
+		float pattern_theta = pixel_hash * 6.283185307179586f;
+		mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
+
+		sun_vis_factor = 0.0;
+
+		float depth_map_0_bias = 8.0e-5f;
+		float depth_map_1_bias = 4.0e-4f;
+		float static_depth_map_bias = 2.2e-3f;
+
+		float dist = -pos_cs.z;
+		if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
 		{
-			float tex_0_vis = sampleDynamicDepthMap(R, shadow_tex_coords[0], /*bias=*/depth_map_0_bias);
-
-			float edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT;
-			if(dist > edge_dist)
+			if(dist < DEPTH_TEXTURE_SCALE_MULT) // if dynamic_depth_tex_index == 0:
 			{
-				float tex_1_vis = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
+				float tex_0_vis = sampleDynamicDepthMap(R, shadow_tex_coords[0], /*bias=*/depth_map_0_bias);
 
-				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT, dist);
-				sun_vis_factor = mix(tex_0_vis, tex_1_vis, blend_factor);
-			}
-			else
-				sun_vis_factor = tex_0_vis;
+				float edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT;
+				if(dist > edge_dist)
+				{
+					float tex_1_vis = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
+
+					float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT, dist);
+					sun_vis_factor = mix(tex_0_vis, tex_1_vis, blend_factor);
+				}
+				else
+					sun_vis_factor = tex_0_vis;
 
 #if VISUALISE_CASCADES
-			refl_diffuse_col.yz *= 0.5f;
+				refl_diffuse_col.yz *= 0.5f;
 #endif
+			}
+			else
+			{
+				sun_vis_factor = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
+
+				float edge_dist = 0.6f * (DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT);
+
+				// Blending with static shadow map 0
+				if(dist > edge_dist)
+				{
+					vec3 static_shadow_cds = shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
+
+					float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds, static_depth_map_bias); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
+
+					float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
+					sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
+				}
+
+#if VISUALISE_CASCADES
+				refl_diffuse_col.yz *= 0.75f;
+#endif
+			}
 		}
 		else
 		{
-			sun_vis_factor = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
-
-			float edge_dist = 0.6f * (DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT);
-
-			// Blending with static shadow map 0
-			if(dist > edge_dist)
-			{
-				vec3 static_shadow_cds = shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
-
-				float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds, static_depth_map_bias); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
-
-				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
-				sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
-			}
-
-#if VISUALISE_CASCADES
-			refl_diffuse_col.yz *= 0.75f;
-#endif
-		}
-	}
-	else
-	{
-		float l1dist = dist;
+			float l1dist = dist;
 	
-		if(l1dist < 1024)
-		{
-			int static_depth_tex_index;
-			float cascade_end_dist;
-			if(l1dist < 64)
+			if(l1dist < 1024)
 			{
-				static_depth_tex_index = 0;
-				cascade_end_dist = 64;
-			}
-			else if(l1dist < 256)
-			{
-				static_depth_tex_index = 1;
-				cascade_end_dist = 256;
-			}
-			else
-			{
-				static_depth_tex_index = 2;
-				cascade_end_dist = 1024;
-			}
+				int static_depth_tex_index;
+				float cascade_end_dist;
+				if(l1dist < 64)
+				{
+					static_depth_tex_index = 0;
+					cascade_end_dist = 64;
+				}
+				else if(l1dist < 256)
+				{
+					static_depth_tex_index = 1;
+					cascade_end_dist = 256;
+				}
+				else
+				{
+					static_depth_tex_index = 2;
+					cascade_end_dist = 1024;
+				}
 
-			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
-			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds, static_depth_map_bias); // NOTE: had cap and bias
+				vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
+				sun_vis_factor = sampleStaticDepthMap(R, shadow_cds, static_depth_map_bias); // NOTE: had cap and bias
 
 #if DO_STATIC_SHADOW_MAP_CASCADE_BLENDING
-			if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
-			{
-				float edge_dist = 0.7f * cascade_end_dist;
-
-				// Blending with static shadow map static_depth_tex_index + 1
-				if(l1dist > edge_dist)
+				if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
 				{
-					int next_tex_index = static_depth_tex_index + 1;
-					vec3 next_shadow_cds = shadow_tex_coords[next_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
+					float edge_dist = 0.7f * cascade_end_dist;
 
-					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds, static_depth_map_bias); // NOTE: had cap and bias
+					// Blending with static shadow map static_depth_tex_index + 1
+					if(l1dist > edge_dist)
+					{
+						int next_tex_index = static_depth_tex_index + 1;
+						vec3 next_shadow_cds = shadow_tex_coords[next_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
 
-					float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
-					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
+						float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds, static_depth_map_bias); // NOTE: had cap and bias
+
+						float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
+						sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
+					}
 				}
-			}
 #endif
 
 #if VISUALISE_CASCADES
-			refl_diffuse_col.xz *= float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES;
+				refl_diffuse_col.xz *= float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES;
 #endif
+			}
+			else
+				sun_vis_factor = 1.0;
 		}
-		else
-			sun_vis_factor = 1.0;
-	}
+	} // end if sun_light_cos_theta_factor != 0
 
 #else // else if !SHADOW_MAPPING:
 	sun_vis_factor = 1.0;
@@ -800,7 +806,7 @@ void main()
 	// Apply cloud shadows
 	// Compute position on cumulus cloud layer
 #if RENDER_CLOUD_SHADOWS
-	if(pos_ws.z < 1000.f)
+	if(pos_ws.z < 1000.f && sun_vis_factor != 0.0) // If below cloud layer, and sunlight factor is not already zero:
 	{
 		vec3 cum_layer_pos = pos_ws + sundir_ws.xyz * (1000.f - pos_ws.z) / sundir_ws.z;
 
@@ -847,8 +853,9 @@ void main()
 	// Reflect cam-to-fragment vector in ws normal
 	vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
 
-	//========================= Look up env map for reflected dir ============================
+	//========================= Do specular reflection of environment, weighted by fresnel factor ============================
 	
+	// Look up env map for reflected dir
 	int map_lower = int(final_roughness * 6.9999);
 	int map_higher = map_lower + 1;
 	float map_t = final_roughness * 6.9999 - float(map_lower);
@@ -872,13 +879,16 @@ void main()
 
 	vec4 refl_fresnel = metallic_refl_fresnel * final_metallic_frac + dielectric_refl_fresnel * (1.0f - final_metallic_frac);
 
-	vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor; // sun_spec_rad_times_solid_angle is Sun spectral radiance multiplied by solid angle
-
+	//========================= Emission ============================
 	vec4 emission_col = MAT_UNIFORM.emission_colour;
 	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
 	{
 		emission_col *= texture(EMISSION_TEX, main_tex_coords);
 	}
+
+
+
+	vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor; // sun_spec_rad_times_solid_angle is Sun spectral radiance multiplied by solid angle
 
 	
 #if MATERIALISE_EFFECT
