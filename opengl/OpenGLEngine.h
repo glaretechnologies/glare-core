@@ -1022,14 +1022,14 @@ private:
 	bool checkUseProgram(uint32 prog_index);
 	void submitBufferedDrawCommands();
 	void sortBatchDrawInfos();
-	void getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
+	int getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
 	void assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture);
 	void expandPerObVertDataBuffer();
 	void expandPhongBuffer();
 	void expandJointMatricesBuffer(size_t min_extra_needed);
 	void checkMDIGPUDataCorrect();
 	int allocPerObVertDataBufferSpot();
-	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18]);
+	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used);
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;

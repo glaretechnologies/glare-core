@@ -4411,78 +4411,95 @@ void OpenGLEngine::sortBatchDrawInfos()
 }
 
 
-void OpenGLEngine::getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out)
+// Returns num_clip_planes_used
+// Because we are using a cross product to get near plane normals, we can't have multiple vertices at the same point.
+static int computeShadowFrustumClipPlanes(const Vec4f frustum_verts_ws[8], const Vec4f& sun_dir, float max_shadowing_dist, Planef clip_planes_out[18])
 {
+	Vec4f center_p(0); // Compute point at centre of frustum
+	for(int q=0; q<8; ++q)
+		center_p += frustum_verts_ws[q];
+	center_p *= (1 / 8.0f);
+
+	// Compute normals of planes on each side of the view frustum
+	const Vec4f top_n    = normalise(crossProduct(frustum_verts_ws[6] - frustum_verts_ws[2], frustum_verts_ws[3] - frustum_verts_ws[2]));
+	const Vec4f bottom_n = normalise(crossProduct(frustum_verts_ws[0] - frustum_verts_ws[1], frustum_verts_ws[5] - frustum_verts_ws[1]));
+	const Vec4f left_n   = normalise(crossProduct(frustum_verts_ws[7] - frustum_verts_ws[3], frustum_verts_ws[0] - frustum_verts_ws[3]));
+	const Vec4f right_n  = normalise(crossProduct(frustum_verts_ws[5] - frustum_verts_ws[1], frustum_verts_ws[2] - frustum_verts_ws[1]));
+	const Vec4f near_n   = normalise(crossProduct(frustum_verts_ws[2] - frustum_verts_ws[1], frustum_verts_ws[0] - frustum_verts_ws[1]));
+	const Vec4f far_n    = normalise(crossProduct(frustum_verts_ws[4] - frustum_verts_ws[5], frustum_verts_ws[6] - frustum_verts_ws[5]));
+
+	// Info about frustum edges
+	const Vec4f edges[] = 
+	{
+		// normal of first adjacent plane, normal of second adjacent plane, vert on edge
+		top_n,    left_n,   frustum_verts_ws[3], 
+		left_n,   bottom_n, frustum_verts_ws[0],
+		bottom_n, right_n,  frustum_verts_ws[1],
+		right_n,  top_n,    frustum_verts_ws[2],
+		near_n,   bottom_n, frustum_verts_ws[0],
+		near_n,   right_n,  frustum_verts_ws[1],
+		near_n,   top_n,    frustum_verts_ws[2],
+		near_n,   left_n,   frustum_verts_ws[3],
+		far_n,    bottom_n, frustum_verts_ws[4],
+		far_n,    right_n,  frustum_verts_ws[5],
+		far_n,    top_n,    frustum_verts_ws[6],
+		far_n,    left_n,   frustum_verts_ws[7]
+	};
+
+	// Get clip planes on the faces of the frustum facing away from the sun, and from the faces facing the sun, which will be 
+	// translated towards the sun by max_shadowing_dist.
+	clip_planes_out[0] = Planef((dot(near_n,   sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], near_n);
+	clip_planes_out[1] = Planef((dot(far_n,    sun_dir) > 0) ? (frustum_verts_ws[4] + sun_dir * max_shadowing_dist) : frustum_verts_ws[4], far_n);
+	clip_planes_out[2] = Planef((dot(left_n,   sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], left_n);
+	clip_planes_out[3] = Planef((dot(right_n,  sun_dir) > 0) ? (frustum_verts_ws[1] + sun_dir * max_shadowing_dist) : frustum_verts_ws[1], right_n);
+	clip_planes_out[4] = Planef((dot(bottom_n, sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], bottom_n);
+	clip_planes_out[5] = Planef((dot(top_n,    sun_dir) > 0) ? (frustum_verts_ws[3] + sun_dir * max_shadowing_dist) : frustum_verts_ws[3], top_n);
+
+	// Get clip planes that lie on the 'extruded' edges that form the frustum silhouette as seen from the sun.
+	int num_clip_planes_used = 6;
+	for(int ei=0; ei<12; ++ei) // For each edge:
+	{
+		const Vec4f n_a = edges[ei*3 + 0]; // Normal of first face adjacent to edge
+		const Vec4f n_b = edges[ei*3 + 1]; // Normal of second face adjacent to edge
+		const Vec4f v   = edges[ei*3 + 2]; // Position of a vertex on edge.
+
+		if(dot(n_a, sun_dir) * dot(n_b, sun_dir) < 0) // If edge is a silhouette edge:
+		{
+			const Vec4f edge_v = crossProduct(n_a, n_b); // Compute edge vector
+			Vec4f plane_n = normalise(crossProduct(sun_dir, edge_v)); // Compute plane normal
+			if(dot(plane_n, v - center_p) < 0) // If it's pointing inwards to the interior of the frustum, negate it.
+				plane_n = -plane_n;
+
+			clip_planes_out[num_clip_planes_used++] = Planef(v, plane_n);
+		}
+	}
+	return num_clip_planes_used;
+}
+
+
+// Returns num_clip_planes_used
+int OpenGLEngine::getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out)
+{
+	assert(near_dist > 0);
+
 	// Compute the 8 points making up the corner vertices of this slice of the view frustum
 	Vec4f frustum_verts_ws[8];
 	calcCamFrustumVerts(near_dist, far_dist, frustum_verts_ws);
 
-	Vec4f extended_verts_ws[8]; // Get vertices, moved along the sun vector towards the sun by max shadowing distance.
-	for(int z=0; z<8; ++z)
-		extended_verts_ws[z] = frustum_verts_ws[z] + sun_dir * max_shadowing_dist;
+	const int num_clip_planes_used = computeShadowFrustumClipPlanes(frustum_verts_ws, sun_dir, max_shadowing_dist, shadow_clip_planes_out);
 
 	js::AABBox shadow_vol_aabb = js::AABBox::emptyAABBox(); // AABB of shadow rendering volume.
 	for(int z=0; z<8; ++z)
 	{
 		shadow_vol_aabb.enlargeToHoldPoint(frustum_verts_ws[z]);
-		shadow_vol_aabb.enlargeToHoldPoint(extended_verts_ws[z]);
+		shadow_vol_aabb.enlargeToHoldPoint(frustum_verts_ws[z] + sun_dir * max_shadowing_dist);
 	}
-
-	// Get a basis for our distance map, where k is the direction to the sun.
-	const Vec4f up(0, 0, 1, 0);
-	const Vec4f k = sun_dir;
-	const Vec4f i = normalise(crossProduct(up, sun_dir)); // right 
-	const Vec4f j = crossProduct(k, i); // up
-
-	//const Matrix4f to_sun_basis = Matrix4f(k, j, k , Vec4f(0,0,0,1)).getTranspose();
-
-	assert(k.isUnitLength());
-
-	// Get bounds of the view frustum slice along i, j, k vectors
-	float min_i = std::numeric_limits<float>::max();
-	float min_j = std::numeric_limits<float>::max();
-	float min_k = std::numeric_limits<float>::max();
-	float max_i = -std::numeric_limits<float>::max();
-	float max_j = -std::numeric_limits<float>::max();
-	float max_k = -std::numeric_limits<float>::max();
-
-	for(int z=0; z<8; ++z)
-	{
-		assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
-		const float dot_i = dot(i, frustum_verts_ws[z]);
-		const float dot_j = dot(j, frustum_verts_ws[z]);
-		const float dot_k = dot(k, frustum_verts_ws[z]);
-		min_i = myMin(min_i, dot_i);
-		min_j = myMin(min_j, dot_j);
-		min_k = myMin(min_k, dot_k);
-		max_i = myMax(max_i, dot_i);
-		max_j = myMax(max_j, dot_j);
-		max_k = myMax(max_k, dot_k);
-	}
-
-	for(int z=0; z<8; ++z)
-	{
-		assert(i[3] == 0 && j[3] == 0 && k[3] == 0);
-		const float dot_i = dot(i, extended_verts_ws[z]);
-		const float dot_j = dot(j, extended_verts_ws[z]);
-		const float dot_k = dot(k, extended_verts_ws[z]);
-		min_i = myMin(min_i, dot_i);
-		min_j = myMin(min_j, dot_j);
-		min_k = myMin(min_k, dot_k);
-		max_i = myMax(max_i, dot_i);
-		max_j = myMax(max_j, dot_j);
-		max_k = myMax(max_k, dot_k);
-	}
-
-	// Compute clipping planes for shadow mapping.  These are clipping planes that surround the sun-extended view frustum.  NOTE: not optimal.
-	shadow_clip_planes_out[0] = Planef( i,  max_i);
-	shadow_clip_planes_out[1] = Planef(-i, -min_i);
-	shadow_clip_planes_out[2] = Planef( j,  max_j);
-	shadow_clip_planes_out[3] = Planef(-j, -min_j);
-	shadow_clip_planes_out[4] = Planef( k,  max_k);
-	shadow_clip_planes_out[5] = Planef(-k, -min_k);
-
 	shadow_vol_aabb_out = shadow_vol_aabb;
+
+	//if(add_debug_obs)
+	//	addDebugVisForShadowFrustum(frustum_verts_ws, max_shadowing_dist, shadow_clip_planes_out, num_clip_planes_used);
+
+	return num_clip_planes_used;
 }
 
 
@@ -5126,72 +5143,8 @@ void OpenGLEngine::addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const 
 }
 
 
-// Returns num_clip_planes_used
-static int computeShadowFrustumClipPlanes(const Vec4f frustum_verts_ws[8], const Vec4f& sun_dir, float max_shadowing_dist, Planef clip_planes_out[18])
-{
-	Vec4f center_p(0); // Compute point at centre of frustum
-	for(int q=0; q<8; ++q)
-		center_p += frustum_verts_ws[q];
-	center_p *= (1 / 8.0f);
 
-	// Compute normals of planes on each side of the view frustum
-	const Vec4f top_n    = normalise(crossProduct(frustum_verts_ws[6] - frustum_verts_ws[2], frustum_verts_ws[3] - frustum_verts_ws[2]));
-	const Vec4f bottom_n = normalise(crossProduct(frustum_verts_ws[0] - frustum_verts_ws[1], frustum_verts_ws[5] - frustum_verts_ws[1]));
-	const Vec4f left_n   = normalise(crossProduct(frustum_verts_ws[7] - frustum_verts_ws[3], frustum_verts_ws[0] - frustum_verts_ws[3]));
-	const Vec4f right_n  = normalise(crossProduct(frustum_verts_ws[5] - frustum_verts_ws[1], frustum_verts_ws[2] - frustum_verts_ws[1]));
-	const Vec4f near_n   = normalise(crossProduct(frustum_verts_ws[2] - frustum_verts_ws[1], frustum_verts_ws[0] - frustum_verts_ws[1]));
-	const Vec4f far_n    = normalise(crossProduct(frustum_verts_ws[4] - frustum_verts_ws[5], frustum_verts_ws[6] - frustum_verts_ws[5]));
-
-	// Info about frustum edges
-	const Vec4f edges[] = 
-	{
-		// normal of first adjacent plane, normal of second adjacent plane, vert on edge
-		top_n,    left_n,   frustum_verts_ws[3], 
-		left_n,   bottom_n, frustum_verts_ws[0],
-		bottom_n, right_n,  frustum_verts_ws[1],
-		right_n,  top_n,    frustum_verts_ws[2],
-		near_n,   bottom_n, frustum_verts_ws[0],
-		near_n,   right_n,  frustum_verts_ws[1],
-		near_n,   top_n,    frustum_verts_ws[2],
-		near_n,   left_n,   frustum_verts_ws[3],
-		far_n,    bottom_n, frustum_verts_ws[4],
-		far_n,    right_n,  frustum_verts_ws[5],
-		far_n,    top_n,    frustum_verts_ws[6],
-		far_n,    left_n,   frustum_verts_ws[7]
-	};
-
-	// Get clip planes on the faces of the frustum facing away from the sun, and from the faces facing the sun, which will be 
-	// translated towards the sun by max_shadowing_dist.
-	clip_planes_out[0] = Planef((dot(near_n,   sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], near_n);
-	clip_planes_out[1] = Planef((dot(far_n,    sun_dir) > 0) ? (frustum_verts_ws[4] + sun_dir * max_shadowing_dist) : frustum_verts_ws[4], far_n);
-	clip_planes_out[2] = Planef((dot(left_n,   sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], left_n);
-	clip_planes_out[3] = Planef((dot(right_n,  sun_dir) > 0) ? (frustum_verts_ws[1] + sun_dir * max_shadowing_dist) : frustum_verts_ws[1], right_n);
-	clip_planes_out[4] = Planef((dot(bottom_n, sun_dir) > 0) ? (frustum_verts_ws[0] + sun_dir * max_shadowing_dist) : frustum_verts_ws[0], bottom_n);
-	clip_planes_out[5] = Planef((dot(top_n,    sun_dir) > 0) ? (frustum_verts_ws[3] + sun_dir * max_shadowing_dist) : frustum_verts_ws[3], top_n);
-
-	// Get clip planes that lie on the 'extruded' edges that form the frustum silhouette as seen from the sun.
-	int num_clip_planes_used = 6;
-	for(int ei=0; ei<12; ++ei) // For each edge:
-	{
-		const Vec4f n_a = edges[ei*3 + 0]; // Normal of first face adjacent to edge
-		const Vec4f n_b = edges[ei*3 + 1]; // Normal of second face adjacent to edge
-		const Vec4f v   = edges[ei*3 + 2]; // Position of a vertex on edge.
-
-		if(dot(n_a, sun_dir) * dot(n_b, sun_dir) < 0) // If edge is a silhouette edge:
-		{
-			const Vec4f edge_v = crossProduct(n_a, n_b); // Compute edge vector
-			Vec4f plane_n = normalise(crossProduct(sun_dir, edge_v)); // Compute plane normal
-			if(dot(plane_n, v - center_p) < 0) // If it's pointing inwards to the interior of the frustum, negate it.
-				plane_n = -plane_n;
-
-			clip_planes_out[num_clip_planes_used++] = Planef(v, plane_n);
-		}
-	}
-	return num_clip_planes_used;
-}
-
-
-void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18])
+void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used)
 {
 #if BUILD_TESTS
 	// Draw frustum with spheres at vertices and lines/cylinders along edges.
@@ -5224,10 +5177,6 @@ void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], 
 #endif
 }
 
-
-// static Planef draw_anim_shadow_clip_planes[6]; // Some stuff for debug visualisation
-// static Vec4f draw_frustum_verts_ws[8];
-// static Vec4f draw_extended_verts_ws[8];
 
 void OpenGLEngine::draw()
 {
@@ -5367,33 +5316,14 @@ void OpenGLEngine::draw()
 
 	// We will only compute updated animation data for objects (current joint matrices), if the object is in a view frustum that extends some distance from the camera,
 	// or may cast a shadow into that frustum a little distance.
-	Planef anim_shadow_clip_planes[6];
+	Planef anim_shadow_clip_planes[18];
+	int num_anim_shadow_clip_planes_used;
 	js::AABBox anim_shadow_vol_aabb;
 	{
-		const float near_dist = 0.f;
+		const float near_dist = 0.2f; // Needs to be > 0 for computeShadowFrustumClipPlanes() to work properly.
 		const float far_dist = 200.f;
 		const float max_shadowing_dist = 30.f;
-		getCameraShadowMappingPlanesAndAABB(near_dist, far_dist, max_shadowing_dist, anim_shadow_clip_planes, anim_shadow_vol_aabb);
-
-		/*if(frame_num == 0)
-		{
-			// Set debug visualisation data
-			
-			Vec4f frustum_verts_ws[8];
-			calcCamFrustumVerts(near_dist, far_dist, frustum_verts_ws); // Compute the 8 points making up the corner vertices of this slice of the view frustum
-
-			Vec4f extended_verts_ws[8]; // Get vertices, moved along the sun vector towards the sun by max shadowing distance.
-			for(int z=0; z<8; ++z)
-				extended_verts_ws[z] = frustum_verts_ws[z] + sun_dir * max_shadowing_dist;
-
-			for(int z=0; z<8; ++z)
-			{
-				draw_frustum_verts_ws[z] = frustum_verts_ws[z];
-				draw_extended_verts_ws[z] = extended_verts_ws[z];
-			}
-			for(int i=0; i<6; ++i)
-				draw_anim_shadow_clip_planes[i] = anim_shadow_clip_planes[i];
-		}*/
+		num_anim_shadow_clip_planes_used = getCameraShadowMappingPlanesAndAABB(near_dist, far_dist, max_shadowing_dist, /*shadow_clip_planes_out=*/anim_shadow_clip_planes, /*shadow_vol_aabb_out=*/anim_shadow_vol_aabb);
 	}
 
 	const Vec4f campos_ws = this->getCameraPositionWS();
@@ -5408,7 +5338,7 @@ void OpenGLEngine::draw()
 		{
 			GLObject* const ob = it->getPointer();
 
-			bool visible_and_large_enough = AABBIntersectsFrustum(anim_shadow_clip_planes, 6, anim_shadow_vol_aabb, ob->aabb_ws);
+			bool visible_and_large_enough = AABBIntersectsFrustum(anim_shadow_clip_planes, num_anim_shadow_clip_planes_used, anim_shadow_vol_aabb, ob->aabb_ws);
 			if(visible_and_large_enough)
 			{
 				// Don't update anim data for object if it is too small as seen from the camera.
