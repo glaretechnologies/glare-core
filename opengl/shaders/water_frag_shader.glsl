@@ -84,7 +84,8 @@ layout (std140) uniform LightDataStorage
 
 
 
-out vec4 colour_out;
+layout(location = 0) out vec4 colour_out;
+layout(location = 1) out vec3 normal_out;
 
 
 
@@ -184,6 +185,31 @@ vec2 unorm8x3_to_snorm12x2(vec3 u) {
 }
 
 
+
+// Converts a unit vector to a point in octahedral representation ('oct').
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1.
+
+// Assume normalized input. Output is on [-1, 1] for each component.
+vec2 float32x3_to_oct(in vec3 v) {
+	// Project the sphere onto the octahedron, and then onto the xy plane
+	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
+	// Reflect the folds of the lower hemisphere over the diagonals
+	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * signNotZero(p)) : p;
+}
+
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
+vec3 snorm12x2_to_unorm8x3(vec2 f) {
+	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047 + 2047));
+	float t = floor(u.y / 256.0);
+	// If storing to GL_RGB8UI, omit the final division
+	return floor(vec3(u.x / 16.0,
+		fract(u.x / 16.0) * 256.0 + t,
+		u.y - t * 256.0)) / 255.0;
+}
+
+
+
+
 // See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
 float getDepthFromDepthTexture(float px, float py)
 {
@@ -233,7 +259,8 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
 //	src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
 
-	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * 0.05; // vec3(1000000.0, 10000000.0, 30000000.0); // TEMP TODO: compute properly
+	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * 0.05; // TEMP TODO: compute properly
+	//vec3 inscatter_radiance_sigma_s_over_sigma_t =  vec3(1000000.0, 19000000.0, 30000000.0) * 0.2; // TEMP TODO: compute properly
 	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d);
 	vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
 
@@ -853,4 +880,6 @@ void main()
 #else
 	colour_out = vec4(toNonLinear(col), 1.f);
 #endif
+
+	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal_ws));
 }

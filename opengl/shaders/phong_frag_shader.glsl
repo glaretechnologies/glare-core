@@ -21,6 +21,15 @@ in vec2 lightmap_coords;
 flat in ivec4 light_indices_0;
 flat in ivec4 light_indices_1;
 
+#if DECAL
+in mat4 world_to_ob;
+
+uniform sampler2D main_colour_texture; // source texture
+uniform sampler2D main_normal_texture;
+uniform sampler2D main_depth_texture;
+
+#endif
+
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
 uniform sampler2D metallic_roughness_tex;
@@ -358,6 +367,34 @@ vec3 snorm12x2_to_unorm8x3(vec2 f) {
 }
 
 
+#if DECAL
+
+vec3 oct_to_float32x3(vec2 e) {
+	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+	if (v.z < 0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
+	return normalize(v);
+}
+
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
+vec2 unorm8x3_to_snorm12x2(vec3 u) {
+	u *= 255.0;
+	u.y *= (1.0 / 16.0);
+	vec2 s = vec2(u.x * 16.0 + floor(u.y),
+		fract(u.y) * (16.0 * 256.0) + u.z);
+	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
+}
+
+// See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
+float getDepthFromDepthTexture(float px, float py)
+{
+#if USE_REVERSE_Z
+	return near_clip_dist / texture2D(main_depth_texture, vec2(px, py)).x;
+#else
+	return -near_clip_dist / (texture2D(main_depth_texture, vec2(px, py)).x - 1.0);
+#endif
+}
+#endif
+
 
 void main()
 {
@@ -365,22 +402,15 @@ void main()
 	//MaterialData mat_data = material_data[material_index];
 #endif
 
-	vec3 use_normal_cs;
 	vec3 use_normal_ws;
 	vec2 use_texture_coords = texture_coords;
 	if((MAT_UNIFORM.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
 	{
-		use_normal_cs = normal_cs;
 		use_normal_ws = normal_ws;
 	}
 	else
 	{
-		// Compute camera-space geometric normal.
-		vec3 dp_dx = dFdx(pos_cs);
-		vec3 dp_dy = dFdy(pos_cs);
-		vec3 N_g = cross(dp_dx, dp_dy);
-		use_normal_cs = N_g;
-
+		vec3 dp_dx, dp_dy, N_g;
 #if GENERATE_PLANAR_UVS
 		// For voxels: Compute texture coords based on object-space geometric normal.
 		dp_dx = dFdx(pos_os);
@@ -416,9 +446,47 @@ void main()
 		N_g = cross(dp_dx, dp_dy);
 		use_normal_ws = N_g;
 	}
-	vec3 unit_normal_cs = normalize(use_normal_cs);
 
-	float light_cos_theta = dot(unit_normal_cs, sundir_cs.xyz);
+
+#if DECAL
+	vec4 decal_col;
+	{
+		// Compute world-space position and normal of existing fragment based on normal and depth buffer.
+
+		// image coordinates of this fragment
+		float px = pos_cs.x / -pos_cs.z * l_over_w + 0.5;
+		float py = pos_cs.y / -pos_cs.z * l_over_h + 0.5;
+
+		const float dir_dot_forwards = -normalize(pos_cs).z;
+
+		vec3 src_normal_encoded = texture2D(main_normal_texture, vec2(px, py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
+		vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
+
+		// cam_to_pos_ws = pos_ws - campos_ws
+		// campos_ws = pos_ws - cam_to_pos_ws
+		vec3 campos_ws = pos_ws - cam_to_pos_ws; // camera position to decal fragment position
+		float depth = getDepthFromDepthTexture(px, py); // Get depth from depth buffer for existing fragment
+		vec3 src_pos_ws = campos_ws + normalize(cam_to_pos_ws) / dir_dot_forwards * depth; // position in world space of existing fragment TODO: take into acount cos(theta)?
+
+		vec3 pos_os = (world_to_ob * vec4(src_pos_ws, 1.0)).xyz; // Transform src position in world space into position in decal object space.
+
+		use_texture_coords.x = pos_os.x;
+		use_texture_coords.y = pos_os.y;
+		if(pos_os.x < 0 || pos_os.x > 1 || pos_os.y < 0 || pos_os.y > 1 || pos_os.z < 0 || pos_os.z > 1)
+			discard;
+
+		vec3 src_normal_decal_space = normalize((world_to_ob * vec4(src_normal_ws, 0.0)).xyz);
+		if(src_normal_decal_space.z < 0.1)
+			discard;
+
+		use_normal_ws = src_normal_ws;
+	}
+#endif
+
+
+	vec3 unit_normal_ws = normalize(use_normal_ws);
+
+	float light_cos_theta = dot(unit_normal_ws, sundir_ws.xyz);
 
 #if DOUBLE_SIDED
 	float sun_light_cos_theta_factor = abs(light_cos_theta);
@@ -426,9 +494,7 @@ void main()
 	float sun_light_cos_theta_factor = max(0.f, light_cos_theta);
 #endif
 
-	vec3 frag_to_cam = normalize(pos_cs * -1.0);
-
-	vec3 h = normalize(frag_to_cam + sundir_cs.xyz);
+	vec3 frag_to_cam_ws = normalize(-cam_to_pos_ws);
 
 	// We will get two diffuse colours - one for the sun contribution, and one for reflected light from the same hemisphere the camera is in.
 	// The sun contribution diffuse colour may use the transmission texture.  The reflected light colour may be the front or backface albedo texture.
@@ -442,7 +508,7 @@ void main()
 	{
 #if DOUBLE_SIDED
 		// Work out if we are seeing the front or back face of the material
-		float frag_to_cam_dot_normal = dot(frag_to_cam, unit_normal_cs);
+		float frag_to_cam_dot_normal = dot(frag_to_cam_ws, unit_normal_ws);
 		if(frag_to_cam_dot_normal < 0.f)
 		{
 			refl_texture_diffuse_col = texture(BACKFACE_ALBEDO_TEX, main_tex_coords); // backface
@@ -452,7 +518,7 @@ void main()
 			refl_texture_diffuse_col = texture(DIFFUSE_TEX,          main_tex_coords); // frontface
 
 
-		if(frag_to_cam_dot_normal * light_cos_theta <= 0.f) // If frag_to_cam and sundir_cs in different geometric hemispheres:
+		if(frag_to_cam_dot_normal * light_cos_theta <= 0.f) // If frag_to_cam_ws and sundir_ws are in different geometric hemispheres:
 		{
 			sun_texture_diffuse_col = texture(TRANSMISSION_TEX, main_tex_coords);
 			//sun_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
@@ -552,7 +618,7 @@ void main()
 		discard;
 #endif
 
-#if ALPHA_TEST
+#if ALPHA_TEST && !DECAL // For decals we will use alpha blending instead of discarding.
 	if(refl_diffuse_col.a < 0.5f)
 		discard;
 #endif
@@ -580,7 +646,6 @@ void main()
 	vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
 
 	// Flip normal into hemisphere camera is in.
-	vec3 unit_normal_ws = normalize(use_normal_ws);
 	if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
 		unit_normal_ws = -unit_normal_ws;
 
@@ -658,12 +723,14 @@ void main()
 
 
 	//------------- Compute specular microfacet terms for sun lighting --------------
+	vec3 h_ws = normalize(frag_to_cam_ws + sundir_ws.xyz);
+
 	vec4 specular = vec4(0.0);
 	if(light_cos_theta > -0.3)
 	{
 		float shadow_factor = smoothstep(-0.3, 0.0, light_cos_theta);
 		//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
-		float h_cos_theta = abs(dot(h, unit_normal_cs));
+		float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
 		vec4 specular_fresnel;
 		{
 			vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * final_fresnel_scale;
@@ -1028,6 +1095,10 @@ void main()
 	colour_out = vec4(col.xyz, 1); // toNonLinear will be done after adding blurs etc.
 #else
 	colour_out = vec4(toNonLinear(col.xyz), 1);
+#endif
+
+#if DECAL
+	colour_out.w = refl_diffuse_col.w;
 #endif
 
 	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal_ws));

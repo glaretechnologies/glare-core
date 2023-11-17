@@ -93,7 +93,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 GLObject::GLObject() noexcept
-	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), 
+	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), decal(false),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
 	depth_draw_depth_bias(0)
 {
@@ -261,7 +261,9 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	objects(NULL),
 	animated_objects(NULL),
 	transparent_objects(NULL),
-	water_objects(NULL)
+	participating_media_objects(NULL),
+	water_objects(NULL),
+	decal_objects(NULL)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -469,6 +471,7 @@ OpenGLEngine::~OpenGLEngine()
 	cube_meshdata = NULL;
 	unit_quad_meshdata = NULL;
 	cylinder_meshdata = NULL;
+	sprite_quad_meshdata = NULL;
 
 	delete task_manager;
 
@@ -1672,6 +1675,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(*vert_buf_allocator);
 	this->cube_meshdata = MeshPrimitiveBuilding::makeCubeMesh(*vert_buf_allocator);
 	this->unit_quad_meshdata = MeshPrimitiveBuilding::makeUnitQuadMesh(*vert_buf_allocator);
+	this->sprite_quad_meshdata = MeshPrimitiveBuilding::makeSpriteQuad(*vert_buf_allocator);
 
 	this->current_scene->env_ob->mesh_data = sphere_meshdata;
 
@@ -2327,7 +2331,9 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n" + 
 		"#define MATERIALISE_EFFECT " + toString(key.materialise_effect) + "\n" + 
 		"#define BLOB_SHADOWS " + toString(1) + "\n" +
-		"#define TERRAIN " + toString(key.terrain) + "\n";
+		"#define TERRAIN " + toString(key.terrain) + "\n" + 
+		"#define DECAL " + toString(key.decal) + "\n" +
+		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n";
 }
 
 
@@ -2351,6 +2357,9 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		phong_prog->uses_phong_uniforms = true;
 		phong_prog->uses_vert_uniform_buf_obs = true;
 		phong_prog->supports_MDI = true;
+
+		if(key.decal)
+			phong_prog->uses_colour_and_depth_buf_textures = true;
 
 		progs[key] = phong_prog;
 
@@ -2486,7 +2495,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_MDI = true;
 
-		if(shader_name_prefix == "water")
+		if(shader_name_prefix == "water" || key.decal)
 			prog->uses_colour_and_depth_buf_textures = true;
 
 		progs[key] = prog;
@@ -2643,6 +2652,8 @@ OpenGLProgramRef OpenGLEngine::getProgramWithFallbackOnError(const ProgramKey& k
 			return getImposterProgram(key);
 		else if(key.program_name == "water")
 			return buildProgram("water", key);
+		else if(key.program_name == "participating_media")
+			return buildProgram("participating_media", key);
 		else if(key.program_name == "depth")
 			return getDepthDrawProgram(key);
 		else
@@ -2741,6 +2752,8 @@ void OpenGLScene::unloadAllData()
 {
 	this->objects.clear();
 	this->transparent_objects.clear();
+	this->participating_media_objects.clear();
+	this->decal_objects.clear();
 
 	this->env_ob->materials[0] = OpenGLMaterial();
 }
@@ -3013,14 +3026,16 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.double_sided = material.double_sided;
 	key_args.materialise_effect = material.materialise_effect;
 	key_args.terrain = material.terrain;
+	key_args.decal = material.decal;
+	key_args.participating_media = material.participating_media;
 
-	const ProgramKey key(material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong")), key_args);
+	const ProgramKey key(material.participating_media ? "participating_media" : (material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"))), key_args);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 
 	if(settings.shadow_mapping)
 	{
-		if(material.transparent || material.water || !material.cast_shadows)
+		if(material.transparent || material.water || material.decal || material.participating_media || !material.cast_shadows) // If this material shouldn't cast shadows:
 		{
 			material.depth_draw_shader_prog = this->fallback_depth_prog; // Just use the default depth-draw program so we don't crash if we accidentally draw with it.
 			material.draw_into_depth_buffer = false;
@@ -3202,11 +3217,13 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_transparent_mat    = false;
 	bool have_materialise_effect = false;
 	bool have_water_mat = false;
+	bool have_partic_media_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
 		have_transparent_mat    = have_transparent_mat    || object->materials[i].transparent;
 		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
 		have_water_mat          = have_water_mat          || object->materials[i].water;
+		have_partic_media_mat   = have_partic_media_mat   || object->materials[i].participating_media;
 	}
 
 	if(have_transparent_mat)
@@ -3218,8 +3235,14 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	if(have_water_mat)
 		current_scene->water_objects.insert(object);
 
+	if(have_partic_media_mat)
+		current_scene->participating_media_objects.insert(object);
+
 	if(object->always_visible)
 		current_scene->always_visible_objects.insert(object);
+
+	if(object->decal)
+		current_scene->decal_objects.insert(object);
 
 	const AnimationData& anim_data = object->mesh_data->animation_data;
 	if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
@@ -3246,10 +3269,12 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 
 		const bool backface_culling = !mat.double_sided;
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
-			(mat.shader_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG    : 0) |
-			(mat.transparent               ? MATERIAL_TRANSPARENT_BITFLAG : 0) |
-			(mat.water                     ? MATERIAL_WATER_BITFLAG       : 0) |
-			(backface_culling              ? BACKFACE_CULLING_BITFLAG     : 0);
+			(mat.shader_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG     : 0) |
+			(mat.transparent               ? MATERIAL_TRANSPARENT_BITFLAG  : 0) |
+			(mat.water                     ? MATERIAL_WATER_BITFLAG        : 0) |
+			(mat.decal                     ? MATERIAL_DECAL_BITFLAG        : 0) |
+			(mat.participating_media       ? MATERIAL_PARTIC_MEDIA_BITFLAG : 0) |
+			(backface_culling              ? BACKFACE_CULLING_BITFLAG      : 0);
 
 		//assert(mat.material_data_index != -1);
 		object.batch_draw_info[i].material_data_index = mat.material_data_index;
@@ -3645,10 +3670,12 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
 	current_scene->objects.erase(object);
 	current_scene->transparent_objects.erase(object);
+	current_scene->participating_media_objects.erase(object);
 	current_scene->materialise_objects.erase(object);
 	current_scene->always_visible_objects.erase(object);
 	current_scene->animated_objects.erase(object);
 	current_scene->water_objects.erase(object);
+	current_scene->decal_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 
 	if(use_multi_draw_indirect)
@@ -3731,6 +3758,13 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 	rebuildObjectDepthDrawBatches(object); // Since material alpha may have changed, need to recompute depth-draw batches
 
 	rebuildDenormalisedDrawData(object);
+}
+
+
+void OpenGLEngine::updateAllMaterialDataOnGPU(GLObject& object) // Don't reassign shaders, just upload material data to GPU for each material
+{
+	for(size_t i=0; i<object.materials.size(); ++i)
+		updateMaterialDataOnGPU(object, i);
 }
 
 
@@ -6084,12 +6118,14 @@ void OpenGLEngine::draw()
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
 
-	// Bind normal texture as the second colour target
+	// Bind normal texture as the second colour target.  Need to do this here as transparent object render pass changes this binding.
 	main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
 
-	// Draw to all colour buffers.
-	static const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-	glDrawBuffers(/*num=*/2, draw_buffers);
+	// Draw to all colour buffers: colour and normal buffer.
+	{
+		const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(/*num=*/2, draw_buffers);
+	}
 
 
 	// NOTE: We want to clear here first, even if the scene node is null.
@@ -6399,7 +6435,7 @@ void OpenGLEngine::draw()
 						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 						// Draw primitives for the given material
-						if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // If transparent bit is not set, and water bit is not set:
+						if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_PARTIC_MEDIA_BITFLAG)) == 0) // If transparent bit is not set, and water bit is not set, and decal bit is not set:
 						{
 							BatchDrawInfo info(
 								prog_index_and_backface_culling_flag,
@@ -6546,9 +6582,19 @@ void OpenGLEngine::draw()
 		// Restore main render buffer binding
 		
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name); 
-		glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
+		
+		//glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
+		
+		// Bind normal texture as the second colour target
+		//main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
 
-		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
+		// Draw to all colour buffers: colour and normal buffer.
+		{
+			const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+			glDrawBuffers(/*num=*/2, draw_buffers);
+		}
+
+		glDepthMask(GL_TRUE);
 
 		ZoneScopedN("Draw water obs"); // Tracy profiler
 
@@ -6653,12 +6699,186 @@ void OpenGLEngine::draw()
 		if(draw_wireframes)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
 
-		glDepthMask(GL_TRUE); // Restore writing to depth buffer.
+		//glDepthMask(GL_TRUE); // Restore writing to depth buffer.
 
 		//conPrint("Draw water objects batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 	}
 	//========================================== End draw water objects ======================================
 
+
+	//================= Draw decals =================
+	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
+	if(!current_scene->decal_objects.empty()) // Only do buffer copying if we have some decals to draw.
+	{
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
+
+		// Copy colour buffer (attachment 0) and depth buffer.
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_DEPTH_BUFFER_BIT, // GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		// Copy normal buffer.  Do this just to resolve the MSAA samples.
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		glDrawBuffer(GL_COLOR_ATTACHMENT1);
+	
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+
+		// Restore main render buffer binding
+		
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name); 
+		glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for decal shader (don't write to normal buffer).
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer, or nearby decals will occlude each other.
+
+		{
+			ZoneScopedN("Draw decal obs"); // Tracy profiler
+
+			//Timer timer;
+			batch_draw_info.reserve(current_scene->objects.size());
+			batch_draw_info.resize(0);
+
+			uint64 num_frustum_culled = 0;
+			{
+				const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+				const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+				const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+				const GLObjectRef* const current_decal_obs = current_scene->decal_objects.vector.data();
+				const size_t current_decal_obs_size        = current_scene->decal_objects.vector.size();
+				for(size_t i=0; i<current_decal_obs_size; ++i)
+				{
+					// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+					if(i + 16 < current_decal_obs_size)
+					{	
+						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+					}
+
+					const GLObject* const ob = current_decal_obs[i].ptr();
+					if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+					{
+						const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+						const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+						for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+						{
+							const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+							const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+
+#ifndef NDEBUG
+							const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+							assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
+
+							// Check the denormalised vao_and_vbo_key is correct
+							uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+							const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+							const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+							const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+							assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+#endif
+							// Draw primitives for the given material
+							//if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // NOTE: check for decal bitflag? or just assume all decal object materials are decals.
+							{
+								BatchDrawInfo info(
+									prog_index_and_backface_culling_flag,
+									ob->vao_and_vbo_key,
+									ob, // object ptr
+									(uint32)z // batch_i
+								);
+								batch_draw_info.push_back(info);
+							}
+						}
+					}
+					else
+						num_frustum_culled++;
+				} // End for each object in scene
+
+				this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
+			}
+			//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+			sortBatchDrawInfos();
+
+			// Draw sorted batches
+			uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
+			glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+
+			if(draw_wireframes)
+				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+			//Timer timer3;
+			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+			const size_t batch_draw_info_size = batch_draw_info.size();
+			for(size_t i=0; i<batch_draw_info_size; ++i)
+			{
+				const BatchDrawInfo& info = batch_draw_info_data[i];
+				const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
+				if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
+				{
+					ZoneScopedN("changing prog"); // Tracy profiler
+
+					if(use_multi_draw_indirect)
+						submitBufferedDrawCommands(); // Flush existing draw commands
+
+					const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
+					const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
+					if(backface_culling != prev_backface_culling)
+					{
+						if(backface_culling)
+							glEnable(GL_CULL_FACE);
+						else
+							glDisable(GL_CULL_FACE);
+					}
+
+
+					// conPrint("---- Changed to program " + prog->prog_name + " ----");
+					const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
+					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+					prog->useProgram();
+					current_bound_prog = prog;
+					current_bound_prog_index = prog_index;
+					current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+					num_prog_changes++;
+
+					current_prog_index_and_backface_culling = prog_index_and_backface_culling;
+				}
+
+				bindMeshData(*info.ob);
+
+				drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+			}
+
+			if(use_multi_draw_indirect)
+				submitBufferedDrawCommands();
+
+			glDisable(GL_CULL_FACE); // Restore
+			glDisable(GL_BLEND); // Restore
+
+			glDepthMask(GL_TRUE); // Restore writing to depth buffer.
+
+			if(draw_wireframes)
+				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+
+			//conPrint("Draw decal batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+		}
+	}
 
 
 	//================= Draw wireframes if required =================
@@ -6694,6 +6914,89 @@ void OpenGLEngine::draw()
 		glDisable(GL_POLYGON_OFFSET_LINE);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
+
+
+	//================= Draw triangle batches with participating media materials =================
+	{
+		ZoneScopedN("Draw participating media obs"); // Tracy profiler
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
+
+		batch_draw_info.resize(0);
+
+		const GLObjectRef* const current_scene_trans_obs = current_scene->participating_media_objects.vector.data();
+		const size_t current_scene_trans_obs_size        = current_scene->participating_media_objects.vector.size();
+		for(size_t q=0; q<current_scene_trans_obs_size; ++q)
+		{
+			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+			if(q + 16 < current_scene_trans_obs_size)
+			{	
+				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws) + 64, _MM_HINT_T0);
+			}
+
+			const GLObject* const ob = current_scene_trans_obs[q].ptr();
+			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			{
+				const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+				{
+					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+
+#ifndef NDEBUG
+					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media);
+#endif
+					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG))
+					{
+						BatchDrawInfo info(
+							prog_index_and_backface_culling_flag,
+							ob->vao_and_vbo_key,
+							ob, // object ptr
+							(uint32)z // batch_i
+						);
+						batch_draw_info.push_back(info);
+					}
+				}
+			}
+		}
+
+		sortBatchDrawInfos();
+
+		// Draw sorted batches
+		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+		const size_t batch_draw_info_size = batch_draw_info.size();
+		for(size_t i=0; i<batch_draw_info_size; ++i)
+		{
+			const BatchDrawInfo& info = batch_draw_info_data[i];
+			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
+			const bool program_changed = checkUseProgram(prog_index);
+			if(program_changed)
+			{
+				const OpenGLProgram* prog = prog_vector[prog_index].ptr();
+				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+			}
+
+			bindMeshData(*info.ob);
+			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+		}
+
+		if(use_multi_draw_indirect)
+			submitBufferedDrawCommands();
+
+		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+		glDisable(GL_BLEND);
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+		glDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
+	}
+
 
 
 	//================= Draw triangle batches with transparent materials =================
@@ -7561,7 +7864,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms)
 {
-	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r,   opengl_mat.albedo_linear_rgb.g,   opengl_mat.albedo_linear_rgb.b,   1.f);
+	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r,   opengl_mat.albedo_linear_rgb.g,   opengl_mat.albedo_linear_rgb.b,   opengl_mat.alpha);
 	uniforms.emission_colour = Colour4f(opengl_mat.emission_linear_rgb.r, opengl_mat.emission_linear_rgb.g, opengl_mat.emission_linear_rgb.b, 1.f) * opengl_mat.emission_scale;
 	//setWToOne(uniforms.emission_colour); // Don't multiply alpha by emission_scale
 

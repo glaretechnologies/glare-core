@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLEngine.h"
 #include "GLMeshBuilding.h"
 #include "OpenGLMeshRenderData.h"
+#include "IncludeOpenGL.h"
 #include "../graphics/SRGBUtils.h"
 #include "../maths/mathstypes.h"
 #include "../maths/GeometrySampling.h"
@@ -1030,4 +1031,176 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeRoundedCornerRect(Ver
 		uvs[z] = Vec2f(dot(verts[z], i) / w, dot(verts[z], j) / h);
 
 	return GLMeshBuilding::buildMeshRenderData(allocator, verts, normals, uvs, indices);
+}
+
+
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSpriteQuad(VertexBufferAllocator& allocator)
+{
+	OpenGLMeshRenderDataRef mesh_data = new OpenGLMeshRenderData();
+	OpenGLMeshRenderData& meshdata = *mesh_data;
+
+	meshdata.setIndexType(GL_UNSIGNED_SHORT);
+
+	const int N = 1;
+
+	meshdata.has_uvs = true;
+	meshdata.has_shading_normals = true;
+	meshdata.batches.resize(1);
+	meshdata.batches[0].material_index = 0;
+	meshdata.batches[0].num_indices = N * 6; // 2 tris / imposter * 3 indices / tri
+	meshdata.batches[0].prim_start_offset = 0;
+
+	meshdata.num_materials_referenced = 1;
+
+
+	const size_t vert_size_B = sizeof(float) * 6; // position, width, uv
+
+	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
+	size_t in_vert_offset_B = 0;
+	VertexAttrib pos_attrib;
+	pos_attrib.enabled = true;
+	pos_attrib.num_comps = 3;
+	pos_attrib.type = GL_FLOAT;
+	pos_attrib.normalised = false;
+	pos_attrib.stride = (uint32)vert_size_B;
+	pos_attrib.offset = (uint32)in_vert_offset_B;
+	meshdata.vertex_spec.attributes.push_back(pos_attrib);
+	in_vert_offset_B += sizeof(float) * 3;
+
+	const size_t width_offset_B = in_vert_offset_B;
+	VertexAttrib imposter_width_attrib;
+	imposter_width_attrib.enabled = true;
+	imposter_width_attrib.num_comps = 1;
+	imposter_width_attrib.type = GL_FLOAT;
+	imposter_width_attrib.normalised = false;
+	imposter_width_attrib.stride = (uint32)vert_size_B;
+	imposter_width_attrib.offset = (uint32)in_vert_offset_B;
+	meshdata.vertex_spec.attributes.push_back(imposter_width_attrib);
+	in_vert_offset_B += sizeof(float);
+
+	const size_t uv_offset_B = in_vert_offset_B;
+	VertexAttrib uv_attrib;
+	uv_attrib.enabled = true;
+	uv_attrib.num_comps = 2;
+	uv_attrib.type = GL_FLOAT;
+	uv_attrib.normalised = false;
+	uv_attrib.stride = (uint32)vert_size_B;
+	uv_attrib.offset = (uint32)in_vert_offset_B;
+	meshdata.vertex_spec.attributes.push_back(uv_attrib);
+	in_vert_offset_B += sizeof(float) * 2;
+
+	//const size_t imposter_rot_offset_B = in_vert_offset_B;
+	//VertexAttrib imposter_rot_attrib;
+	//imposter_rot_attrib.enabled = true;
+	//imposter_rot_attrib.num_comps = 1;
+	//imposter_rot_attrib.type = GL_FLOAT;
+	//imposter_rot_attrib.normalised = false;
+	//imposter_rot_attrib.stride = (uint32)vert_size_B;
+	//imposter_rot_attrib.offset = (uint32)in_vert_offset_B;
+	//meshdata.vertex_spec.attributes.push_back(imposter_rot_attrib);
+	//in_vert_offset_B += sizeof(float);
+
+	assert(in_vert_offset_B == vert_size_B);
+
+
+	//glare::BumpAllocation temp_vert_data(N * 4 * vert_size_B, /*alignment=*/8, bump_allocator);
+	std::vector<uint8> temp_vert_data(N * 4 * vert_size_B);
+	uint8* const vert_data = (uint8*)temp_vert_data.data();
+
+	js::AABBox aabb_os = js::AABBox::emptyAABBox();
+
+	const Vec2f uv0(0,0);
+	const Vec2f uv1(1,0);
+	const Vec2f uv2(1,1);
+	const Vec2f uv3(0,1);
+	
+	const float imposter_width = 1;
+
+	// Build vertex data
+	//const VegetationLocationInfo* const veg_locations = locations.data();
+	for(int i=0; i<N; ++i)
+	{
+		//const float master_scale = 4.5f;
+		//const float imposter_height = veg_locations[i].scale * master_scale;
+		//const float imposter_width = imposter_height * imposter_width_over_height;
+		//const float imposter_rot = 0; // TEMP
+		
+
+		// Store lower 2 vertices
+		const Vec4f lower_pos(0,0,0,1);// = veg_locations[i].pos;
+		
+		const Vec4f v0pos = lower_pos;// - Vec4f(0.1f, 0,0,0); // TEMP
+		const Vec4f v1pos = lower_pos;// + Vec4f(0.1f, 0,0,0);
+		
+		// Vertex 0
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 0), &v0pos, sizeof(float)*3); // Store x,y,z pos coords.
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 0) + width_offset_B , &imposter_width, sizeof(float));
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 0) + uv_offset_B , &uv0, sizeof(float)*2);
+		//std::memcpy(vert_data + vert_size_B * (i * 4 + 0) + imposter_rot_offset_B , &imposter_rot, sizeof(float));
+
+		// Vertex 1
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 1), &v1pos, sizeof(float)*3); // Store x,y,z pos coords.
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 1) + width_offset_B , &imposter_width, sizeof(float));
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 1) + uv_offset_B , &uv1, sizeof(float)*2);
+		//std::memcpy(vert_data + vert_size_B * (i * 4 + 1) + imposter_rot_offset_B , &imposter_rot, sizeof(float));
+
+		// Store upper 2 vertices
+		const Vec4f upper_pos(0,0,0,1);// = veg_locations[i].pos + Vec4f(0,0,imposter_height, 0);
+		
+		const Vec4f v2pos = upper_pos;// + Vec4f(0.1f, 0,0,0); //TEMP
+		const Vec4f v3pos = upper_pos;// - Vec4f(0.1f, 0,0,0);
+
+		// Vertex 2
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 2), &v2pos, sizeof(float)*3); // Store x,y,z pos coords.
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 2) + width_offset_B , &imposter_width, sizeof(float));
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 2) + uv_offset_B , &uv2, sizeof(float)*2);
+		//std::memcpy(vert_data + vert_size_B * (i * 4 + 2) + imposter_rot_offset_B , &imposter_rot, sizeof(float));
+
+		// Vertex 3
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 3), &v3pos, sizeof(float)*3); // Store x,y,z pos coords.
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 3) + width_offset_B , &imposter_width, sizeof(float));
+		std::memcpy(vert_data + vert_size_B * (i * 4 + 3) + uv_offset_B , &uv3, sizeof(float)*2);
+		//std::memcpy(vert_data + vert_size_B * (i * 4 + 3) + imposter_rot_offset_B , &imposter_rot, sizeof(float));
+
+		aabb_os.enlargeToHoldPoint(lower_pos);
+	}
+
+	// Enlarge aabb_os to take into account imposter size
+	aabb_os.min_ -= Vec4f(imposter_width, imposter_width, imposter_width, 0);
+	aabb_os.max_ += Vec4f(imposter_width, imposter_width, imposter_width, 0);
+
+	mesh_data->vbo_handle = allocator.allocate(mesh_data->vertex_spec, temp_vert_data.data(), temp_vert_data.size());
+
+	// Build index data
+	//glare::BumpAllocation temp_index_data(sizeof(uint16) * N * 6, /*alignment=*/8, bump_allocator);
+	std::vector<uint16> temp_index_data(N * 6);
+	uint16* const indices = (uint16*)temp_index_data.data();
+
+	for(int i=0; i<N; ++i)
+	{
+		// v3   v2
+		// |----|
+		// |   /|
+		// |  / |
+		// | /  |
+		// |----|--> x
+		// v0   v1
+
+		// bot right tri
+		const int offset = i * 6;
+		indices[offset + 0] = (uint16)(i * 4 + 0); // bot left
+		indices[offset + 1] = (uint16)(i * 4 + 1); // bot right
+		indices[offset + 2] = (uint16)(i * 4 + 2); // top right
+
+		// top left tri
+		indices[offset + 3] = (uint16)(i * 4 + 0); // bot left
+		indices[offset + 4] = (uint16)(i * 4 + 2); // top right
+		indices[offset + 5] = (uint16)(i * 4 + 3); // top left
+	}
+
+	meshdata.indices_vbo_handle = allocator.allocateIndexData(indices, temp_index_data.size() * sizeof(uint16));
+
+	meshdata.aabb_os = aabb_os;
+
+	return mesh_data;
 }

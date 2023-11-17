@@ -42,6 +42,10 @@ out vec2 lightmap_coords;
 flat out int material_index;
 #endif
 
+#if DECAL
+out mat4 world_to_ob;
+#endif
+
 flat out ivec4 light_indices_0;
 flat out ivec4 light_indices_1;
 
@@ -239,5 +243,25 @@ void main()
 #else
 	light_indices_0 = per_object_data.light_indices_0;
 	light_indices_1 = per_object_data.light_indices_1;
+#endif
+
+#if DECAL
+	/*
+	We need to compute the world-to-object matrix for decals.
+	ob_to_world = T R S
+	world_to_ob = S^-1 R^-1 T^-1
+
+	normal_ob_to_world = (R S)^-1^T
+	= (S^-1 R^-1)^T
+
+	normal_ob_to_world^T = (S^-1 R^-1)^T^T = S^-1 R^-1
+	world_to_ob = normal_ob_to_world^T T^-1
+	*/
+	mat4 inverse_translation;
+	inverse_translation[0] = vec4(1,0,0,0);
+	inverse_translation[1] = vec4(0,1,0,0);
+	inverse_translation[2] = vec4(0,0,1,0);
+	inverse_translation[3] = vec4(-model_skin_matrix[3].xyz, 1.0); // set col 3
+	world_to_ob = transpose(normal_skin_matrix) * inverse_translation;
 #endif
 }

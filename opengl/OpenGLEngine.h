@@ -120,6 +120,8 @@ public:
 		water(false),
 		terrain(false),
 		imposter_tex_has_multiple_angles(false),
+		decal(false),
+		participating_media(false),
 		draw_into_depth_buffer(false),
 		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
@@ -150,6 +152,8 @@ public:
 	bool water;
 	bool terrain;
 	bool imposter_tex_has_multiple_angles;
+	bool decal;
+	bool participating_media;
 
 	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.
 
@@ -222,13 +226,23 @@ struct GlInstanceInfo
 };
 
 
+// program_index_and_flags:
+// Bit 31: program supports MDI
+// Bit 30: material is transparent
+// Bit 29: material is water
+// Bit 28: material is a decal
+// Bit 27: material is participating media
+// Bit 26: material has backface culling
+// Bits 0-25: program index
 #define PROG_SUPPORTS_MDI_BITFLAG						(1u << 31)
 #define MATERIAL_TRANSPARENT_BITFLAG					(1u << 30)
 #define MATERIAL_WATER_BITFLAG							(1u << 29)
-#define BACKFACE_CULLING_BITFLAG						(1u << 28)
+#define MATERIAL_DECAL_BITFLAG							(1u << 28)
+#define MATERIAL_PARTIC_MEDIA_BITFLAG					(1u << 27)
+#define BACKFACE_CULLING_BITFLAG						(1u << 26)
 
-#define ISOLATE_PROG_INDEX_MASK							0x0FFFFFFF // Zero out top 4 bits
-#define ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK	0x1FFFFFFF // Zero out top 3 bits
+#define ISOLATE_PROG_INDEX_MASK							0x03FFFFFF // Zero out top 6 bits
+#define ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK	0x07FFFFFF // Zero out top 5 bits
 
 
 struct GLObjectBatchDrawInfo
@@ -294,6 +308,7 @@ struct GLObject
 	bool always_visible; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	bool draw_to_mask_map; // Draw to terrain mask map?
 	bool is_imposter;
+	bool decal;
 	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
 	js::Vector<GlInstanceInfo, 16> instance_info; // Used for updating instance + imposter matrices.
 	
@@ -491,7 +506,9 @@ public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> transparent_objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> participating_media_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> water_objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> decal_objects;
 	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	std::set<Reference<OverlayObject>> overlay_objects; // UI overlays
 	std::set<Reference<GLObject>> materialise_objects; // Objects currently playing materialise effect
@@ -780,6 +797,7 @@ public:
 
 	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
 	void objectMaterialsUpdated(GLObject& object);
+	void updateAllMaterialDataOnGPU(GLObject& object); // Don't reassign shaders, just upload material data to GPU for each material
 	void materialTextureChanged(GLObject& object, OpenGLMaterial& mat);  // Update material data on GPU
 
 	void objectBatchDataChanged(GLObject& object);
@@ -900,9 +918,10 @@ public:
 	//----------------------------------- Mesh functions -------------------------------------
 	Reference<OpenGLMeshRenderData> getLineMeshData(); // A line from (0, 0, 0) to (1, 0, 0)
 	Reference<OpenGLMeshRenderData> getSphereMeshData();
-	Reference<OpenGLMeshRenderData> getCubeMeshData();
+	Reference<OpenGLMeshRenderData> getCubeMeshData(); // Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
 	Reference<OpenGLMeshRenderData> getUnitQuadMeshData(); // A quad from (0, 0, 0) to (1, 1, 0)
 	Reference<OpenGLMeshRenderData> getCylinderMesh(); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
+	Reference<OpenGLMeshRenderData> getSpriteQuadMeshData() { return sprite_quad_meshdata; }
 
 	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
 	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
@@ -1049,6 +1068,7 @@ private:
 	Reference<OpenGLMeshRenderData> cube_meshdata;
 	Reference<OpenGLMeshRenderData> unit_quad_meshdata;
 	Reference<OpenGLMeshRenderData> cylinder_meshdata;
+	Reference<OpenGLMeshRenderData> sprite_quad_meshdata;
 
 
 	int main_viewport_w, main_viewport_h;

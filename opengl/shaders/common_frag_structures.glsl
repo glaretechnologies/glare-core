@@ -3,8 +3,8 @@
 layout (std140) uniform MaterialCommonUniforms
 {
 	mat4 frag_view_matrix;
-	vec4 sundir_cs;
-	vec4 sundir_ws;
+	vec4 sundir_cs; // Dir to sun.
+	vec4 sundir_ws; // Dir to sun.
 	vec4 sun_spec_rad_times_solid_angle;
 	vec4 sun_and_sky_av_spec_rad;
 	vec4 air_scattering_coeffs;
