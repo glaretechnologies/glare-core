@@ -107,7 +107,7 @@ static void vec3SampleTiledSpeedTest(DXTImageMap& map)
 			x = Maths::fract(x + xstep);
 			y = Maths::fract(y + ystep);
 			//conPrint(toString(x) + " " + toString(y));
-			sum += map.vec3SampleTiled(x, y);
+			sum += map.vec3Sample(x, y, /*wrap=*/true);
 		}
 		min_elapsed = myMin(min_elapsed, timer.elapsed());
 	}
@@ -135,7 +135,7 @@ static void vec3SampleTiledSpeedTestReference(ImageMapUInt8& map)
 		{
 			x = Maths::fract(x + xstep);
 			y = Maths::fract(y + ystep);
-			sum += map.vec3SampleTiled(x, y);
+			sum += map.vec3Sample(x, y, /*wrap=*/true);
 		}
 		min_elapsed = myMin(min_elapsed, timer.elapsed());
 	}
@@ -219,8 +219,8 @@ static void checkCompressionOnImage(glare::TaskManager& task_manager, const Imag
 
 			if(x < last_pixel_x && y < last_pixel_y) // Allow bottom right border pixels to differ
 			{
-				const Colour4f dxt_col = dxt_image->vec3SampleTiled(x, y);
-				const Colour4f ref_col = image_map.vec3SampleTiled(x, y);
+				const Colour4f dxt_col = dxt_image->vec3Sample(x, y, /*wrap=*/true);
+				const Colour4f ref_col = image_map.vec3Sample(x, y, /*wrap=*/true);
 
 				const float allowed_err_f = allowed_error / 255.f;
 				for(int c=0; c<3; ++c)

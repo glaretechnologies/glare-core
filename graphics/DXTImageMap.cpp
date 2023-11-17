@@ -279,7 +279,7 @@ const Colour4f DXTImageMap::pixelColour(size_t x, size_t y) const
 // X and Y are normalised image coordinates.
 // (X, Y) = (0, 0) is at the bottom left of the image.
 // Although this returns an SSE 4-vector, only the first three RGB components will be set.
-const Colour4f DXTImageMap::vec3SampleTiled(Coord u, Coord v) const
+const Colour4f DXTImageMap::vec3Sample(Coord u, Coord v, bool wrap) const
 {
 	Colour4f colour_out;
 
@@ -700,7 +700,7 @@ Map2D::Value DXTImageMap::sampleSingleChannelTiled(Coord u, Coord v, size_t chan
 }
 
 
-DXTImageMap::Value DXTImageMap::sampleSingleChannelTiledHighQual(Coord x, Coord y, size_t channel) const
+DXTImageMap::Value DXTImageMap::sampleSingleChannelHighQual(Coord x, Coord y, size_t channel, bool wrap) const
 {
 	// TODO: implement instead of falling back to low quality sample
 	assert(0);
