@@ -1,7 +1,7 @@
 /*=====================================================================
 Matrix4f.h
 ----------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
@@ -135,6 +135,9 @@ inline bool approxEq(const Matrix4f& a, const Matrix4f& b, float eps = NICKMATHS
 inline void mul(const Matrix4f& b, const Matrix4f& c, Matrix4f& result_out);
 inline Matrix4f rightTranslate(const Matrix4f& mat, const Vec4f& translation_vec);
 inline Matrix4f leftTranslateAffine3(const Vec4f& translation_vec, const Matrix4f& mat);
+inline Matrix4f scaleMulTranslationMatrix(float scale_x, float scale_y, float scale_z, const Vec4f& translation);
+inline Matrix4f translationMulScaleMatrix(const Vec4f& translation, float scale_x, float scale_y, float scale_z);
+inline Matrix4f translationMulUniformScaleMatrix(const Vec4f& translation, float scale);
 
 
 Matrix4f::Matrix4f(const float* data)
@@ -830,4 +833,61 @@ inline Matrix4f leftTranslateAffine3(const Vec4f& translation_vec, const Matrix4
 		mat.getColumn(2),
 		mat.getColumn(3) + translation_vec
 	);
+}
+
+
+// Returns the matrix M = S T
+// Equivalent to scaleMatrix(scale_x, scale_y, scale_z) * translationMatrix(translation)
+inline Matrix4f scaleMulTranslationMatrix(float scale_x, float scale_y, float scale_z, const Vec4f& translation)
+{
+	/*
+	s_x  0    0	   0   *      1  0  0  t_x   =   s_x  0    0    s_x.t_x
+	0    s_y  0    0          0  1  0  t_y       0    s_y  0    s_y.t_y
+	0    0    s_z  0          0  0  1  t_z       0    0    s_z  s_z.t_z
+	0    0    0    1          0  0  0  1         0    0    0    1
+	*/
+	Matrix4f m;
+	m.setColumn(0, Vec4f(scale_x,0,0,0));
+	m.setColumn(1, Vec4f(0,scale_y,0,0));
+	m.setColumn(2, Vec4f(0,0,scale_z,0));
+	m.setColumn(3, setWToOne(mul(Vec4f(scale_x, scale_y, scale_z, 0), translation)));
+	return m;
+}
+
+
+// Returns the matrix M = T S
+// Equivalent to translationMatrix(translation) * scaleMatrix(scale_x, scale_y, scale_z)
+inline Matrix4f translationMulScaleMatrix(const Vec4f& translation, float scale_x, float scale_y, float scale_z)
+{
+	/*
+	1  0  0  t_x    *   s_x  0    0    0   =      s_x  0    0    t_x
+	0  1  0  t_y        0    s_y  0    0          0    s_y  0    t_y
+	0  0  1  t_z        0    0    s_z  0          0    0    s_z  t_z
+	0  0  0  1          0    0    0    1          0    0    0    1
+	*/
+	Matrix4f m;
+	m.setColumn(0, Vec4f(scale_x,0,0,0));
+	m.setColumn(1, Vec4f(0,scale_y,0,0));
+	m.setColumn(2, Vec4f(0,0,scale_z,0));
+	m.setColumn(3, setWToOne(translation));
+	return m;
+}
+
+
+// Returns the matrix M = T S
+// Equivalent to translationMatrix(translation) * uniformScaleMatrix(scale)
+inline Matrix4f translationMulUniformScaleMatrix(const Vec4f& translation, float scale)
+{
+	/*
+	1  0  0  t_x    *   s    0    0    0   =      s    0    0    t_x
+	0  1  0  t_y        0    s    0    0          0    s    0    t_y
+	0  0  1  t_z        0    0    s    0          0    0    s    t_z
+	0  0  0  1          0    0    0    1          0    0    0    1
+	*/
+	Matrix4f m;
+	m.setColumn(0, Vec4f(scale,0,0,0));
+	m.setColumn(1, Vec4f(0,scale,0,0));
+	m.setColumn(2, Vec4f(0,0,scale,0));
+	m.setColumn(3, setWToOne(translation));
+	return m;
 }

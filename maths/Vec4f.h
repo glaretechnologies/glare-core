@@ -400,6 +400,7 @@ GLARE_STRONG_INLINE void storeVec4fUnaligned(const Vec4f& v, float* const mem)
 }
 
 
+// Component-wise multiplication
 GLARE_STRONG_INLINE const Vec4f mul(const Vec4f& a, const Vec4f& b)
 {
 	return Vec4f(_mm_mul_ps(a.v, b.v));

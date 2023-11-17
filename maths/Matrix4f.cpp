@@ -1178,6 +1178,43 @@ void Matrix4f::test()
 		testAssert(res == Matrix4f::translationMatrix(translation) * m);
 	}
 
+	//---------------------------------- Test scaleMulTranslationMatrix() ---------------------
+	{
+		const Matrix4f res = scaleMulTranslationMatrix(1, 2, 3, /*translation=*/Vec4f(4, 5, 6, 0));
+		testAssert(res == Matrix4f::scaleMatrix(1, 2, 3) * Matrix4f::translationMatrix(4, 5, 6));
+	}
+
+	// Test with w component = 1 for translation vector:
+	{
+		const Matrix4f res = scaleMulTranslationMatrix(1, 2, 3, /*translation=*/Vec4f(4, 5, 6, 1));
+		testAssert(res == Matrix4f::scaleMatrix(1, 2, 3) * Matrix4f::translationMatrix(4, 5, 6));
+	}
+	
+	//---------------------------------- Test translationMulScaleMatrix() ---------------------
+	{
+		const Matrix4f res = translationMulScaleMatrix(/*translation=*/Vec4f(4, 5, 6, 0), 1, 2, 3);
+		testAssert(res == Matrix4f::translationMatrix(4, 5, 6) * Matrix4f::scaleMatrix(1, 2, 3));
+	}
+
+	// Test with w component = 1 for translation vector:
+	{
+		const Matrix4f res = translationMulScaleMatrix(/*translation=*/Vec4f(4, 5, 6, 1), 1, 2, 3);
+		testAssert(res == Matrix4f::translationMatrix(4, 5, 6) * Matrix4f::scaleMatrix(1, 2, 3));
+	}
+
+	//---------------------------------- Test translationMulUniformScaleMatrix() ---------------------
+	{
+		const Matrix4f res = translationMulUniformScaleMatrix(/*translation=*/Vec4f(4, 5, 6, 0), 7.0f);
+		testAssert(res == Matrix4f::translationMatrix(4, 5, 6) * Matrix4f::uniformScaleMatrix(7.0f));
+	}
+
+	// Test with w component = 1 for translation vector:
+	{
+		const Matrix4f res = translationMulUniformScaleMatrix(/*translation=*/Vec4f(4, 5, 6, 1), 7.0f);
+		testAssert(res == Matrix4f::translationMatrix(4, 5, 6) * Matrix4f::uniformScaleMatrix(7.0f));
+	}
+
+
 	//---------------------------------- Test getUpperLeftMatrix() ---------------------
 	{
 		const Matrix3f upper_left_mat(Vec3f(1.f, 0.2f, 0.1f), Vec3f(-0.2f, 2.0f, 0.35f), Vec3f(0.6f, 0.1f, 3.1f));
