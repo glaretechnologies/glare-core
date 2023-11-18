@@ -47,12 +47,12 @@ void main()
 
 #else // else if !INSTANCE_MATRICES:
 
-	mat4 model_skin_matrix;
-	mat4 normal_skin_matrix;
-	model_skin_matrix = per_object_data.model_matrix;
-	normal_skin_matrix = per_object_data.normal_matrix;
+	mat4 model_matrix;
+	mat4 normal_matrix;
+	model_matrix  = per_object_data.model_matrix;
+	normal_matrix = per_object_data.normal_matrix;
 
-	vec3 orig_pos_ws = (model_skin_matrix  * vec4(position_in, 1.0)).xyz;
+	vec3 orig_pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
 	vec3 cam_to_orig_pos_ws = orig_pos_ws - campos_ws.xyz;
 	
 
@@ -111,7 +111,7 @@ void main()
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 
 	cam_to_pos_ws = pos_ws - campos_ws.xyz;
-	pos_cs = (view_matrix * (model_skin_matrix  * vec4(pos_ws, 1.0))).xyz;
+	pos_cs = (view_matrix * vec4(pos_ws, 1.0)).xyz;
 
 	normal_ws = vec3(-cam_to_orig_pos_ws.xy, 0.0);
 	normal_cs = (view_matrix * vec4(normal_ws, 0.0)).xyz;
@@ -120,7 +120,7 @@ void main()
 
 #if NUM_DEPTH_TEXTURES > 0
 	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
-		shadow_tex_coords[i] = (shadow_texture_matrix[i] * (model_skin_matrix * vec4(pos_ws, 1.0))).xyz;
+		shadow_tex_coords[i] = (shadow_texture_matrix[i] * vec4(pos_ws, 1.0)).xyz;
 #endif
 
 #endif // end if !INSTANCE_MATRICES

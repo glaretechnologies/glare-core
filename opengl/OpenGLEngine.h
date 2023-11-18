@@ -697,8 +697,8 @@ struct SharedVertUniforms
 
 struct PerObjectVertUniforms
 {
-	Matrix4f model_matrix;
-	Matrix4f normal_matrix;
+	Matrix4f model_matrix; // ob_to_world_matrix
+	Matrix4f normal_matrix; // ob_to_world_inv_transpose_matrix
 
 	int light_indices[8];
 

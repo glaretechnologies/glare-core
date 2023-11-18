@@ -23,8 +23,8 @@ layout (std140) uniform SharedVertUniforms
 // Should be the same as PerObjectVertUniforms in OpenGLEngine.h
 struct PerObjectVertUniformsStruct
 {
-	mat4 model_matrix;
-	mat4 normal_matrix;
+	mat4 model_matrix; // ob_to_world_matrix
+	mat4 normal_matrix; // ob_to_world_inv_transpose_matrix
 
 	ivec4 light_indices_0;
 	ivec4 light_indices_1;
