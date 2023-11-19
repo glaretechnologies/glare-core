@@ -371,8 +371,12 @@ void main()
 	vec4 rear_tex_col  = texture(BACKFACE_ALBEDO_TEX, main_tex_coords);
 	vec4 front_tex_col = texture(TRANSMISSION_TEX, main_tex_coords);
 
+	// materialise_start_time = particle spawn time
+	// materialise_upper_z = dopacity/dt
+	float life_time = time - MAT_UNIFORM.materialise_start_time;
+	float overall_alpha_factor = max(0.0, min(1.0, MAT_UNIFORM.diffuse_colour.w + life_time * MAT_UNIFORM.materialise_upper_z));
 
-	float alpha = up_tex_col.a * MAT_UNIFORM.diffuse_colour.w;
+	float alpha = up_tex_col.a * overall_alpha_factor;
 
 	vec3 col =
 		(up_tex_col  .xyz * up_factor + 

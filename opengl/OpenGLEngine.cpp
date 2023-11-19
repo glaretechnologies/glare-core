@@ -4445,6 +4445,36 @@ void OpenGLEngine::sortBatchDrawInfos()
 }
 
 
+struct BatchDrawInfoWithDistGetDistanceKey
+{
+	inline uint32 operator () (const BatchDrawInfoWithDist& info) const{ return info.dist; }
+};
+
+
+struct BatchDrawInfoWithDistGetKey
+{
+	inline uint32 operator () (const BatchDrawInfoWithDist& info) const { return info.prog_vao_key; }
+};
+
+
+void OpenGLEngine::sortBatchDrawInfoWithDists() 
+{
+	ZoneScopedN("sortBatchDrawInfoWithDists"); // Tracy profiler
+
+	temp_batch_draw_info_dist.resizeNoCopy(batch_draw_info_dist.size());
+
+	const int num_buckets = 6144; // As required by radixSort32BitKey().
+	temp_counts.resize(num_buckets);
+
+	// Sort first by distance
+	Sort::radixSort32BitKey(/*data=*/batch_draw_info_dist.data(), /*working space=*/temp_batch_draw_info_dist.data(), /*num items=*/temp_batch_draw_info_dist.size(), 
+		/*get key=*/BatchDrawInfoWithDistGetDistanceKey(), /*temp counts=*/temp_counts.data(), temp_counts.size());
+	
+	// Now sort by program etc.  NOTE: don't bother with this for now as currently we always use the same program
+	// Sort::radixSort32BitKey(batch_draw_info_dist.data(), temp_batch_draw_info_dist.data(), temp_batch_draw_info_dist.size(), BatchDrawInfoWithDistGetKey(), temp_counts.data(), temp_counts.size());
+}
+
+
 // Returns num_clip_planes_used
 // Because we are using a cross product to get near plane normals, we can't have multiple vertices at the same point.
 static int computeShadowFrustumClipPlanes(const Vec4f frustum_verts_ws[8], const Vec4f& sun_dir, float max_shadowing_dist, Planef clip_planes_out[18])
@@ -6916,7 +6946,7 @@ void OpenGLEngine::draw()
 	}
 
 
-	//================= Draw triangle batches with participating media materials =================
+	//================= Draw triangle batches with participating media materials (i.e. particles) =================
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
 
@@ -6924,7 +6954,7 @@ void OpenGLEngine::draw()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
 
-		batch_draw_info.resize(0);
+		batch_draw_info_dist.resize(0);
 
 		const GLObjectRef* const current_scene_trans_obs = current_scene->participating_media_objects.vector.data();
 		const size_t current_scene_trans_obs_size        = current_scene->participating_media_objects.vector.size();
@@ -6940,9 +6970,10 @@ void OpenGLEngine::draw()
 			const GLObject* const ob = current_scene_trans_obs[q].ptr();
 			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
-				const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+				const uint32 z = 0; // Just assume we always have one triangle batch (e.g. one material)
+				assert(ob->batch_draw_info.size() == 1);
+
 				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
-				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 				{
 					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
 					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
@@ -6954,27 +6985,34 @@ void OpenGLEngine::draw()
 #endif
 					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG))
 					{
-						BatchDrawInfo info(
+						// We want to sort into descending depth order, because we want to draw far objects first.
+						// We also want to convert to a uint32.  So convert to uint32 first then negate.
+						const float dist_f = campos_ws.getDist2(ob->aabb_ws.centroid());
+						const uint32 dist_i = bitCast<uint32>(dist_f);
+						const uint32 distval = std::numeric_limits<uint32>::max() - dist_i;
+						BatchDrawInfoWithDist info(
 							prog_index_and_backface_culling_flag,
 							ob->vao_and_vbo_key,
-							ob, // object ptr
-							(uint32)z // batch_i
+							distval,
+							ob // object ptr
+							//(uint32)z // batch_i
 						);
-						batch_draw_info.push_back(info);
+						batch_draw_info_dist.push_back(info);
 					}
 				}
 			}
 		}
 
-		sortBatchDrawInfos();
+		sortBatchDrawInfoWithDists();
 
 		// Draw sorted batches
-		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-		const size_t batch_draw_info_size = batch_draw_info.size();
+		const BatchDrawInfoWithDist* const batch_draw_info_data = batch_draw_info_dist.data();
+		const size_t batch_draw_info_size = batch_draw_info_dist.size();
 		for(size_t i=0; i<batch_draw_info_size; ++i)
 		{
-			const BatchDrawInfo& info = batch_draw_info_data[i];
-			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
+			const BatchDrawInfoWithDist& info = batch_draw_info_data[i];
+			const uint32 batch_i = 0;
+			const uint32 prog_index = info.ob->batch_draw_info[batch_i].getProgramIndex();
 			const bool program_changed = checkUseProgram(prog_index);
 			if(program_changed)
 			{
@@ -6983,7 +7021,7 @@ void OpenGLEngine::draw()
 			}
 
 			bindMeshData(*info.ob);
-			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[batch_i], batch_i);
 		}
 
 		if(use_multi_draw_indirect)

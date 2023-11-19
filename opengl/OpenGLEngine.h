@@ -602,6 +602,23 @@ struct BatchDrawInfo
 	}
 };
 
+// Similar to BatchDrawInfo, but with a distance field, so we can sort from far to near.
+// Also has no batch_i as we will assume we are always drawing batch 0.
+struct BatchDrawInfoWithDist
+{
+	BatchDrawInfoWithDist() {}
+	BatchDrawInfoWithDist(uint32 prog_index_and_backface_culling_flag, uint32 vao_and_vbo_key, uint32 dist_, const GLObject* ob_)
+	:	prog_vao_key(((prog_index_and_backface_culling_flag & 511u) << 23) | vao_and_vbo_key),
+		dist(dist_),
+		ob(ob_)
+	{}
+
+	uint32 prog_vao_key;
+	uint32 dist;
+	const GLObject* ob;
+};
+
+
 
 // Matches that defined in phong_frag_shader.glsl and transparent_frag_shader.glsl.
 // Used for transparent mats also.
@@ -898,6 +915,7 @@ public:
 	void setMaxDrawDistance(float d) { current_scene->max_draw_dist = d; } // Set far draw distance
 	void setNearDrawDistance(float d) { current_scene->near_draw_dist = d; } // Set near draw distance
 	void setCurrentTime(float time);
+	float getCurrentTime() const { return current_time; }
 
 	void draw();
 	//----------------------------------------------------------------------------------------
@@ -1041,6 +1059,7 @@ private:
 	bool checkUseProgram(uint32 prog_index);
 	void submitBufferedDrawCommands();
 	void sortBatchDrawInfos();
+	void sortBatchDrawInfoWithDists();
 	int getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
 	void assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture);
 	void expandPerObVertDataBuffer();
@@ -1253,6 +1272,8 @@ private:
 
 	js::Vector<BatchDrawInfo, 16> batch_draw_info;
 	js::Vector<BatchDrawInfo, 16> temp_batch_draw_info;
+	js::Vector<BatchDrawInfoWithDist, 16> batch_draw_info_dist;
+	js::Vector<BatchDrawInfoWithDist, 16> temp_batch_draw_info_dist;
 	std::vector<uint32> temp_counts;
 	uint32 num_prog_changes;
 	uint32 num_vao_binds;

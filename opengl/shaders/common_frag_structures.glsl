@@ -69,9 +69,9 @@ struct MaterialData
 	float begin_fade_out_distance;
 	float end_fade_out_distance;
 
-	float materialise_lower_z; // For imposters: begin_fade_in_distance
-	float materialise_upper_z; // For imposters: end_fade_in_distance
-	float materialise_start_time;
+	float materialise_lower_z; // For imposters: begin_fade_in_distance.
+	float materialise_upper_z; // For imposters: end_fade_in_distance.     For participating media and decals: dopacity/dt
+	float materialise_start_time; // For participating media and decals: spawn time
 
 	float padding_b0;
 };

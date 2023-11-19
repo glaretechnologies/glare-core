@@ -1098,7 +1098,12 @@ void main()
 #endif
 
 #if DECAL
-	colour_out.w = refl_diffuse_col.w;
+	// materialise_start_time = particle spawn time
+	// materialise_upper_z = dopacity/dt
+	float life_time = time - MAT_UNIFORM.materialise_start_time;
+	float overall_alpha_factor = max(0.0, min(1.0, refl_diffuse_col.w + life_time * MAT_UNIFORM.materialise_upper_z));
+
+	colour_out.w = overall_alpha_factor;
 #endif
 
 	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal_ws));
