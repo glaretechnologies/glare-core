@@ -1,8 +1,7 @@
 
 in vec3 position_in; // object-space position
-in float imposter_width_in;
+in float imposter_width_in; // not used
 in vec2 texture_coords_0_in;
-//in float imposter_rot_in;
 #if INSTANCE_MATRICES
 in mat4 instance_matrix_in;
 #endif
@@ -47,6 +46,12 @@ layout (std140) uniform PerObjectVertUniforms
 //----------------------------------------------------------------------------------------------------------------------------
 
 
+vec2 rot(vec2 p, float theta)
+{
+	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
+}
+
+
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -76,13 +81,19 @@ void main()
 	vec3 orig_pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz; // Original position in world space (before offsetting to make non-zero sized sprite)
 	vec3 cam_to_orig_pos_ws = orig_pos_ws - campos_ws.xyz;
 	
+	// Since object-space vert positions are just (0,0,0) for particle geometry, we can store info in the model matrix.
+	float use_width = model_matrix[0].x;
+	float rot_theta = model_matrix[0].y; // Rotation around vector from particle to camera
 
 	float vert_uv_right = texture_coords_0_in.x - 0.5;
 	float vert_uv_up    = texture_coords_0_in.y - 0.5;
 
 	vec3 desired_right_ws = normalize(cross(cam_to_orig_pos_ws, vec3(0, 0, 1.0)));
 	vec3 desired_up_ws    = normalize(cross(desired_right_ws, cam_to_orig_pos_ws));
-	pos_ws = orig_pos_ws + imposter_width_in * (vert_uv_right * desired_right_ws + vert_uv_up * desired_up_ws);
+
+	vec2 offset_xy = rot(vec2(vert_uv_right, vert_uv_up), rot_theta);
+
+	pos_ws = orig_pos_ws + use_width * (offset_xy.x * desired_right_ws + offset_xy.y * desired_up_ws);
 
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 
