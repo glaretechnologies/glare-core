@@ -462,7 +462,7 @@ public:
 	void setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float render_aspect_ratio_, float viewport_aspect_ratio);
 	void setIdentityCameraTransform();
 
-	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
+	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const;
 
 	void unloadAllData();
 
@@ -742,7 +742,7 @@ struct MeshDataLoadingProgress
 {
 	MeshDataLoadingProgress() : vert_total_size_B(0), vert_next_i(0), index_total_size_B(0), index_next_i(0) {}
 
-	bool done() { return vert_next_i >= vert_total_size_B && index_next_i >= index_total_size_B; }
+	bool done() const { return vert_next_i >= vert_total_size_B && index_next_i >= index_total_size_B; }
 
 	std::string summaryString() const;
 
@@ -1009,7 +1009,7 @@ private:
 	void rebuildDenormalisedDrawData(GLObject& ob);
 	void rebuildObjectDepthDrawBatches(GLObject& ob);
 	void updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index);
-	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out);
+	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const;
 	void assignLightsToObject(GLObject& ob);
 	void assignLightsToAllObjects();
 public:
@@ -1030,7 +1030,7 @@ public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
-	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms);
+	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;
 	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;

@@ -606,7 +606,7 @@ void OpenGLEngine::setPerspectiveCameraTransform(const Matrix4f& world_to_camera
 
 
 // Calculate the corner vertices of a slice of the view frustum, where the slice is defined by near and far distances from the camera.
-void OpenGLScene::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out)
+void OpenGLScene::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const
 {
 	const Vec4f lens_center_cs(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
 	const Vec4f lens_center_ws = cam_to_world * lens_center_cs;
@@ -664,7 +664,7 @@ void OpenGLScene::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* ve
 }
 
 
-void OpenGLEngine::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out)
+void OpenGLEngine::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const
 {
 	current_scene->calcCamFrustumVerts(near_dist, far_dist, verts_out);
 }
@@ -7898,7 +7898,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 #define HAVE_NORMAL_MAP_FLAG				64
 
 
-void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms)
+void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const
 {
 	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r,   opengl_mat.albedo_linear_rgb.g,   opengl_mat.albedo_linear_rgb.b,   opengl_mat.alpha);
 	uniforms.emission_colour = Colour4f(opengl_mat.emission_linear_rgb.r, opengl_mat.emission_linear_rgb.g, opengl_mat.emission_linear_rgb.b, 1.f) * opengl_mat.emission_scale;
