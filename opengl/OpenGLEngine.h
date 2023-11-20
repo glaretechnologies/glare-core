@@ -1068,6 +1068,12 @@ private:
 	void checkMDIGPUDataCorrect();
 	int allocPerObVertDataBufferSpot();
 	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used);
+	void renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_elapsed_ns);
+	void drawUIOverlayObjects(const Matrix4f& reverse_z_matrix);
+	void drawOutlinesAroundSelectedObjects();
+	void drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void buildPrograms(const std::string& use_shader_dir);
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
@@ -1210,10 +1216,6 @@ private:
 	OpenGLTextureRef main_colour_copy_texture;
 	OpenGLTextureRef main_depth_copy_texture;
 	OpenGLTextureRef main_normal_copy_texture;
-
-	//Reference<FrameBuffer> pre_water_framebuffer;
-	//OpenGLTextureRef pre_water_colour_tex;
-	//OpenGLTextureRef pre_water_depth_tex;
 
 	std::unordered_set<GLObject*> selected_objects;
 
