@@ -13,6 +13,8 @@ out vec2 texture_coords;
 out vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
 out vec3 cam_to_pos_ws;
+out vec3 rotated_right_ws;
+out vec3 rotated_up_ws;
 
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -91,9 +93,11 @@ void main()
 	vec3 desired_right_ws = normalize(cross(cam_to_orig_pos_ws, vec3(0, 0, 1.0)));
 	vec3 desired_up_ws    = normalize(cross(desired_right_ws, cam_to_orig_pos_ws));
 
-	vec2 offset_xy = rot(vec2(vert_uv_right, vert_uv_up), rot_theta);
+	// Rotate right and up vectors around vector to camera
+	rotated_right_ws = desired_right_ws *  cos(rot_theta) + desired_up_ws * sin(rot_theta);
+	rotated_up_ws    = desired_right_ws * -sin(rot_theta) + desired_up_ws * cos(rot_theta);
 
-	pos_ws = orig_pos_ws + use_width * (offset_xy.x * desired_right_ws + offset_xy.y * desired_up_ws);
+	pos_ws = orig_pos_ws + use_width * (rotated_right_ws * vert_uv_right + rotated_up_ws * vert_uv_up);
 
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 

@@ -1345,7 +1345,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
 	locations_out.metallic_roughness_tex_location	= prog->getUniformLocation("metallic_roughness_tex");
 	locations_out.emission_tex_location				= prog->getUniformLocation("emission_tex");
-	locations_out.backface_diffuse_tex_location		= prog->getUniformLocation("backface_diffuse_tex");
+	locations_out.backface_albedo_tex_location		= prog->getUniformLocation("backface_albedo_tex");
 	locations_out.transmission_tex_location			= prog->getUniformLocation("transmission_tex");
 	locations_out.normal_map_location				= prog->getUniformLocation("normal_map");
 	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
@@ -7846,7 +7846,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 		glUniform1i(locations.lightmap_tex_location, 7);
 		glUniform1i(locations.metallic_roughness_tex_location, 10);
 		glUniform1i(locations.emission_tex_location, 11);
-		glUniform1i(locations.backface_diffuse_tex_location, 8);
+		glUniform1i(locations.backface_albedo_tex_location, 8);
 		glUniform1i(locations.transmission_tex_location, 9);
 		glUniform1i(locations.normal_map_location, 12);
 	}
@@ -7968,7 +7968,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 }
 
 
-void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat)
+void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) const
 {
 	assert(!this->use_bindless_textures);
 
@@ -8426,9 +8426,14 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->uniform_locations.diffuse_tex_location);
 			}
 
-			uniforms.materialise_lower_z	= opengl_mat.materialise_lower_z;
-			uniforms.materialise_upper_z	= opengl_mat.materialise_upper_z;
-			uniforms.materialise_start_time	= opengl_mat.materialise_start_time;
+			// Just set IMPOSTER_TEX_HAS_MULTIPLE_ANGLES flag which is the only one used in depth_frag_shader.glsl
+			uniforms.flags                   = opengl_mat.imposter_tex_has_multiple_angles ? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES : 0;
+			
+			uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
+			uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
+			uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
+			uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
+			uniforms.materialise_start_time  = opengl_mat.materialise_start_time;
 
 			this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
 		}
@@ -8436,9 +8441,12 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		{
 			DepthUniforms uniforms;
 
-			uniforms.materialise_lower_z	= opengl_mat.materialise_lower_z;
-			uniforms.materialise_upper_z	= opengl_mat.materialise_upper_z;
-			uniforms.materialise_start_time	= opengl_mat.materialise_start_time;
+			uniforms.flags                   = 0;
+			uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
+			uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
+			uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
+			uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
+			uniforms.materialise_start_time	 = opengl_mat.materialise_start_time;
 
 			this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
 		}

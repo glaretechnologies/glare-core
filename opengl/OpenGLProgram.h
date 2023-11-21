@@ -21,7 +21,7 @@ struct UniformLocations
 	int diffuse_tex_location;
 	int metallic_roughness_tex_location;
 	int emission_tex_location;
-	int backface_diffuse_tex_location;
+	int backface_albedo_tex_location;
 	int transmission_tex_location;
 	int normal_map_location;
 	int cosine_env_tex_location;

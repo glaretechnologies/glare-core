@@ -6,10 +6,16 @@ in vec2 texture_coords;
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
 in vec3 cam_to_pos_ws; // Camera to fragment position vector
+in vec3 rotated_right_ws;
+in vec3 rotated_up_ws;
 
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
-uniform sampler2D normal_map;
+uniform sampler2D metallic_roughness_tex;
+uniform sampler2D lightmap_tex;
+uniform sampler2D emission_tex;
+uniform sampler2D backface_albedo_tex;
+uniform sampler2D transmission_tex;
 #endif
 uniform sampler2DShadow dynamic_depth_tex;
 uniform sampler2DShadow static_depth_tex;
@@ -49,16 +55,6 @@ layout (std140) uniform PhongUniforms
 } mat_data;
 
 #define MAT_UNIFORM mat_data.matdata
-
-
-#if !USE_BINDLESS_TEXTURES
-uniform sampler2D diffuse_tex;
-uniform sampler2D metallic_roughness_tex;
-uniform sampler2D lightmap_tex;
-uniform sampler2D emission_tex;
-uniform sampler2D backface_albedo_tex;
-uniform sampler2D transmission_tex;
-#endif
 
 
 #if USE_BINDLESS_TEXTURES
@@ -178,9 +174,10 @@ void main()
 	vec2 main_tex_coords = texture_coords;
 	main_tex_coords.y = 1.0 - main_tex_coords.y; // TODO: use tex matrix?
 
-	vec3 forw_ws  = normalize(cam_to_pos_ws);
-	vec3 right_ws = normalize(cross(cam_to_pos_ws, vec3(0, 0, 1.0)));
-	vec3 up_ws    = cross(right_ws, forw_ws);
+	// rotated_right_ws, rotated_up_ws may not be unit length and orthogonal now due to interpolation.
+	vec3 right_ws = normalize(rotated_right_ws);
+	vec3 up_ws    = normalize(rotated_up_ws);
+	vec3 forw_ws  = normalize(cross(up_ws, right_ws));
 	
 
 	float sun_up_factor    = max(0.0, dot(sundir_ws.xyz,  up_ws));

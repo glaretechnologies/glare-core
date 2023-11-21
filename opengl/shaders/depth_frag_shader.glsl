@@ -45,11 +45,16 @@ layout (std140) uniform DepthUniforms
 	int padding1;
 #endif
 
+	int flags;
+	float begin_fade_out_distance;
+	float end_fade_out_distance;
+
 	float materialise_lower_z;
 	float materialise_upper_z;
 	float materialise_start_time;
 
-	float padding;
+	float padding_d0;
+	float padding_d1;
 
 } mat_data;
 

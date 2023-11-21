@@ -684,11 +684,16 @@ public:
 
 	uint64 diffuse_tex; // Bindless texture handle
 
+	int flags;
+	float begin_fade_out_distance;
+	float end_fade_out_distance;
+
 	float materialise_lower_z;
 	float materialise_upper_z;
 	float materialise_start_time;
 	
-	float padding;
+	float padding_d0;
+	float padding_d1;
 };
 
 
@@ -712,6 +717,7 @@ struct SharedVertUniforms
 };
 
 
+// Should be the same layout as PerObjectVertUniformsStruct in common_vert_structures.glsl
 struct PerObjectVertUniforms
 {
 	Matrix4f model_matrix; // ob_to_world_matrix
@@ -1031,7 +1037,7 @@ public:
 private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;
-	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat);
+	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) const;
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;
 
