@@ -133,32 +133,7 @@ void main()
 #if DEPTH_FOG
 	// Blend lower hemisphere into a colour that matches fogged ground quad in Substrata
 	vec4 lower_hemis_col = sun_and_sky_av_spec_rad * 0.9;
-
-	// Cloud shadows on lower half of hemisphere, to match shadows on ground plane
-	if(texture_coords.y > 1.58)
-	{
-		float ground_ray_t = env_campos_ws.z / -dir_ws.z;
-		vec3 ground_pos = env_campos_ws + dir_ws * ground_ray_t;
-
-		vec3 cum_layer_pos = ground_pos + sundir_ws.xyz * (1000.f) * (1.f / sundir_ws.z);
-
-		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
-		cum_tex_coords.x += time * 0.002;
-
-		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2 + 2.3453, cum_tex_coords.y * 2 + 1.4354);
-		float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
-
-		float dist_factor = 1.f - smoothstep(10000, 20000, ground_ray_t);
-		cumulus_val *= dist_factor;
-
-		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
-		float sun_vis_factor = cumulus_trans;
-
-		//vec4 shadowed_col = vec4(pow(14.5, 2.2), pow(5.4, 2.2), pow(6.4, 2.2), 1.0) * 2.0e6;
-		vec4 shadowed_col = max(vec4(0.0), lower_hemis_col - sun_spec_rad_times_solid_angle * sundir_ws.z);
-		lower_hemis_col = mix(shadowed_col, lower_hemis_col, sun_vis_factor);
-	}
-
+	
 	float lower_hemis_factor = smoothstep(1.52, 1.6, texture_coords.y);
 	col = mix(col, lower_hemis_col, lower_hemis_factor);
 #endif
