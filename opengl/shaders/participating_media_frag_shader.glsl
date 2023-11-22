@@ -234,10 +234,6 @@ void main()
 			}
 			else
 				sun_vis_factor = tex_0_vis;
-
-#if VISUALISE_CASCADES
-			diffuse_col.yz *= 0.5f;
-#endif
 		}
 		else
 		{
@@ -255,10 +251,6 @@ void main()
 				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
 				sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
 			}
-
-#if VISUALISE_CASCADES
-			diffuse_col.yz *= 0.75f;
-#endif
 		}
 	}
 	else
@@ -305,10 +297,6 @@ void main()
 					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
 				}
 			}
-#endif
-
-#if VISUALISE_CASCADES
-			diffuse_col.xz *= float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES;
 #endif
 		}
 		else

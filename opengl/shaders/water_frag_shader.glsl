@@ -288,7 +288,7 @@ void main()
 	// waves
 	vec3 unit_normal_ws = normalize(normal_ws);
 
-	const float deriv = length(dFdx(pos_ws));
+	float deriv = length(dFdx(pos_ws));
 	float sin_window = 1.0 - smoothstep(0.0, 0.01, deriv);
 
 	float fbm_window = 1.0 - smoothstep(0.0, 0.2, deriv);

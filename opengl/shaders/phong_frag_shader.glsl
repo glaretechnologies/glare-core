@@ -456,7 +456,7 @@ void main()
 		float px = pos_cs.x / -pos_cs.z * l_over_w + 0.5;
 		float py = pos_cs.y / -pos_cs.z * l_over_h + 0.5;
 
-		const float dir_dot_forwards = -normalize(pos_cs).z;
+		float dir_dot_forwards = -normalize(pos_cs).z;
 
 		vec3 src_normal_encoded = texture(main_normal_texture, vec2(px, py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
 		vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
