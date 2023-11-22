@@ -50,6 +50,7 @@ public:
 	const std::string toString() const;
 	const std::string toStringNSigFigs(int n) const;
 
+	// Get element in row i and column j
 	inline T& elem(unsigned int i, unsigned int j);
 	inline T elem(unsigned int i, unsigned int j) const;
 
