@@ -388,9 +388,9 @@ vec2 unorm8x3_to_snorm12x2(vec3 u) {
 float getDepthFromDepthTexture(float px, float py)
 {
 #if USE_REVERSE_Z
-	return near_clip_dist / texture2D(main_depth_texture, vec2(px, py)).x;
+	return near_clip_dist / texture(main_depth_texture, vec2(px, py)).x;
 #else
-	return -near_clip_dist / (texture2D(main_depth_texture, vec2(px, py)).x - 1.0);
+	return -near_clip_dist / (texture(main_depth_texture, vec2(px, py)).x - 1.0);
 #endif
 }
 #endif
@@ -459,7 +459,7 @@ void main()
 
 		const float dir_dot_forwards = -normalize(pos_cs).z;
 
-		vec3 src_normal_encoded = texture2D(main_normal_texture, vec2(px, py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
+		vec3 src_normal_encoded = texture(main_normal_texture, vec2(px, py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
 		vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
 
 		// cam_to_pos_ws = pos_ws - campos_ws
@@ -1037,9 +1037,9 @@ void main()
 		vec3 extinction = vec3(1.0, 0.10, 0.1) * 2;
 		vec3 scattering = vec3(0.4, 0.4, 0.1);
 
-		vec3 src_col = col.xyz; // texture2D(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
+		vec3 src_col = col.xyz; // texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
 
-		//vec3 src_normal_encoded = texture2D(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
+		//vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
 		//vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
 
 		//--------------- Apply caustic texture ---------------
@@ -1061,7 +1061,7 @@ void main()
 		float caustic_frac = fract(time * 24.0); // Get fraction through frame, assuming 24 fps.
 		float scale_factor = 1.0; // Controls width of caustic pattern in world space.
 		// Interpolate between caustic animation frames
-		vec3 caustic_val = mix(texture2D(caustic_tex_a, hitpos_sunbasis * scale_factor),  texture2D(caustic_tex_b, hitpos_sunbasis * scale_factor), caustic_frac).xyz;
+		vec3 caustic_val = mix(texture(caustic_tex_a, hitpos_sunbasis * scale_factor),  texture(caustic_tex_b, hitpos_sunbasis * scale_factor), caustic_frac).xyz;
 
 		// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
 		src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
