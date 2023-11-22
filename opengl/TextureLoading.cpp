@@ -44,7 +44,12 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const 
 
 		OpenGLTexture::Format format;
 		if(texture_data.data_is_compressed)
-			format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
+		{
+			if(use_sRGB)
+				format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
+			else
+				format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_RGB_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8;
+		}
 		else
 		{
 			if(use_sRGB)
