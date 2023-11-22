@@ -1,5 +1,4 @@
 
-in vec3 normal_cs;
 in vec3 normal_ws;
 in vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
@@ -575,21 +574,21 @@ void main()
 	float non_beach_factor = smoothstep(water_level_z + 2.0, water_level_z + 3.0, pos_ws.z);
 	float beach_factor = 1.0 - non_beach_factor;
 
-	float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2).x * 0.2);
+	float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2) * 0.2);
 	float rock_height = rock_heightmap_val * rock_weight_env;
 	float rock_weight = (rock_height > 0.1/*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
 
 	//float veg_frac = mask.z > texture(fbm_tex, detail_map_2_uvs).x ? 1.0 : 0.0;
 	// Vegetation as a fraction of (vegetation + sediment)
-	float veg_frac = ((mask.z > fbmMix(detail_map_2_uvs * 0.2).x * 0.3 + 0.5 + beach_factor) ? 1.0 : 0.0);
+	float veg_frac = ((mask.z > fbmMix(detail_map_2_uvs * 0.2) * 0.3 + 0.5 + beach_factor) ? 1.0 : 0.0);
 
 	float sed_weight = (1 - rock_weight) * (1.0 - veg_frac); // (mask.y / (mask.y + mask.z));
 	float veg_weight = (1 - rock_weight) * veg_frac; // (mask.z / (mask.y + mask.z));
 
 	float col_variation_amt = 0.1;
 	vec4 colour_variation_factor = vec4(
-		1.0 + fbmMix(detail_map_2_uvs * 0.026546).x * col_variation_amt, 
-		1.0 + fbmMix(detail_map_2_uvs * 0.016546).x * col_variation_amt, 
+		1.0 + fbmMix(detail_map_2_uvs * 0.026546) * col_variation_amt, 
+		1.0 + fbmMix(detail_map_2_uvs * 0.016546) * col_variation_amt, 
 		1.0,
 		1.0);
 

@@ -1,12 +1,11 @@
 
-in vec3 normal_cs;
 in vec3 normal_ws;
 in vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
 in vec3 pos_os;
 #endif
 in vec3 pos_ws;
-in vec2 texture_coords;
+//in vec2 texture_coords;
 in vec3 cam_to_pos_ws;
 
 
@@ -272,14 +271,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 
 void main()
 {
-	//vec3 use_normal_cs;
 	vec2 use_texture_coords = vec2(0, 0);
-
-	//use_normal_cs = normal_cs;
-
-	
-	
-	//vec3 unit_normal_cs = normalize(use_normal_cs);
 
 	vec3 frag_to_cam = normalize(-pos_cs);
 
@@ -443,8 +435,6 @@ void main()
 		// Reflect cam-to-fragment vector in ws normal
 		float unit_cam_to_pos_ws_dot_normal_ws = dot(unit_normal_ws, unit_cam_to_pos_ws);
 		vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * unit_cam_to_pos_ws_dot_normal_ws);
-
-		//vec3 reflected_dir_cs = -frag_to_cam - use_normal_cs * (2.0 * dot(use_normal_cs, -frag_to_cam));
 
 
 		vec3 refracted_dir_ws = refract(unit_cam_to_pos_ws, unit_normal_ws, 1.0 / 1.33);
@@ -701,7 +691,6 @@ void main()
 
 		//vec4 transmission_col = vec4(0.05, 0.2, 0.7, 1.0); //  MAT_UNIFORM.diffuse_colour;
 
-		//float spec_refl_cos_theta = abs(dot(frag_to_cam, unit_normal_cs));
 		float spec_refl_cos_theta = max(0.0, -unit_cam_to_pos_ws_dot_normal_ws);
 		spec_refl_fresnel = fresnelApprox(spec_refl_cos_theta, ior);
 

@@ -12,7 +12,7 @@ out vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
 out vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
-out vec3 cam_to_pos_ws;
+//out vec3 cam_to_pos_ws;
 out vec3 rotated_right_ws;
 out vec3 rotated_up_ws;
 
@@ -70,7 +70,7 @@ void main()
 
 	// TODO: offsetting to make non-zero sized sprite
 	pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
-	cam_to_pos_ws = pos_ws - campos_ws.xyz;
+	//cam_to_pos_ws = pos_ws - campos_ws.xyz;
 	pos_cs = (view_matrix * (instance_matrix_in * vec4(position_in, 1.0))).xyz;
 
 #if NUM_DEPTH_TEXTURES > 0
@@ -101,7 +101,7 @@ void main()
 
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 
-	cam_to_pos_ws = pos_ws - campos_ws.xyz;
+	//cam_to_pos_ws = pos_ws - campos_ws.xyz;
 	pos_cs = (view_matrix * vec4(pos_ws, 1.0)).xyz;
 
 #if NUM_DEPTH_TEXTURES > 0

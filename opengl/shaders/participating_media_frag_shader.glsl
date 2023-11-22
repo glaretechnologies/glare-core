@@ -5,7 +5,7 @@ in vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
-in vec3 cam_to_pos_ws; // Camera to fragment position vector
+//in vec3 cam_to_pos_ws; // Camera to fragment position vector
 in vec3 rotated_right_ws;
 in vec3 rotated_up_ws;
 

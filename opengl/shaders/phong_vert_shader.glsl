@@ -17,7 +17,6 @@ in vec4 joint;
 in vec4 weight;
 #endif
 
-out vec3 normal_cs; // cam (view) space
 out vec3 normal_ws; // world space
 out vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
@@ -149,7 +148,6 @@ void main()
 #endif
 
 	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
-	normal_cs = (view_matrix * vec4(normal_ws, 0.0)).xyz;
 
 	pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
 
@@ -194,7 +192,6 @@ void main()
 	pos_ws = (model_skin_matrix  * vec4(final_pos_os, 1.0)).xyz;
 
 	normal_ws = (normal_skin_matrix * vec4(final_normal_in, 0.0)).xyz;
-	normal_cs = (view_matrix * (normal_skin_matrix * vec4(final_normal_in, 0.0))).xyz;
 
 #if USE_WIND_VERT_SHADER
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
