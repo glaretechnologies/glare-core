@@ -1200,6 +1200,10 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSpriteQuad(VertexBuff
 
 	meshdata.indices_vbo_handle = allocator.allocateIndexData(indices, temp_index_data.size() * sizeof(uint16));
 
+#if DO_INDIVIDUAL_VAO_ALLOC
+	meshdata.individual_vao = new VAO(meshdata.vbo_handle.vbo, meshdata.indices_vbo_handle.index_vbo, meshdata.vertex_spec);
+#endif
+
 	meshdata.aabb_os = aabb_os;
 
 	return mesh_data;
