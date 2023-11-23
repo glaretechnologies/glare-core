@@ -864,6 +864,8 @@ Reference<Image> DXTImageMap::convertToImage() const
 }
 
 
+#if MAP2D_FILTERING_SUPPORT
+
 Reference<Map2D> DXTImageMap::getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const
 {
 	assert(0);
@@ -943,6 +945,8 @@ Reference<Map2D> DXTImageMap::resizeMidQuality(const int /*new_width*/, const in
 	assert(0); 
 	return Reference<Map2D>();
 }
+
+#endif // MAP2D_FILTERING_SUPPORT
 
 
 size_t DXTImageMap::getBytesPerPixel() const

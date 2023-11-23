@@ -104,6 +104,7 @@ Reference<Image> CompressedImage::convertToImage() const
 }
 
 
+#if MAP2D_FILTERING_SUPPORT
 Reference<Map2D> CompressedImage::getBlurredLinearGreyScaleImage(glare::TaskManager& /*task_manager*/) const
 {
 	assert(0);
@@ -124,6 +125,7 @@ Reference<Map2D> CompressedImage::resizeMidQuality(const int /*new_width*/, cons
 	assert(0); 
 	return Reference<Map2D>();
 }
+#endif
 
 
 size_t CompressedImage::getBytesPerPixel() const
