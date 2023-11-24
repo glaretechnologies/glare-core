@@ -71,6 +71,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	//glBindAttribLocation(program, 9, "instance_colour_in");
 	glBindAttribLocation(program, 9, "joint");
 	glBindAttribLocation(program, 10, "weight");
+	glBindAttribLocation(program, 11, "tangent_in");
 
 	glLinkProgram(program);
 

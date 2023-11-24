@@ -185,10 +185,13 @@ public:
 	float materialise_start_time;
 	
 	uint64 userdata;
-	std::string tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
-	std::string metallic_roughness_tex_path;      // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
-	std::string lightmap_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
-	std::string emission_tex_path; // Kind-of user-data.  Only used in textureLoaded currently, which should be removed/refactored.
+
+	// Kind-of user-data.  Only used in OpenGLEngine::addOpenGLTexture() and OpenGLEngine::assignLoadedTextureToObMaterials() currently, which should be removed/refactored:
+	std::string tex_path;
+	std::string metallic_roughness_tex_path;
+	std::string lightmap_path;
+	std::string emission_tex_path;
+	std::string normal_map_path;
 
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 
@@ -818,7 +821,7 @@ public:
 	void objectTransformDataChanged(GLObject& object); // Just update object data on GPU.
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
-	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
+	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
 	void objectMaterialsUpdated(GLObject& object);
 	void updateAllMaterialDataOnGPU(GLObject& object); // Don't reassign shaders, just upload material data to GPU for each material
 	void materialTextureChanged(GLObject& object, OpenGLMaterial& mat);  // Update material data on GPU
@@ -1019,7 +1022,7 @@ private:
 	void assignLightsToObject(GLObject& ob);
 	void assignLightsToAllObjects();
 public:
-	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning);
+	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
 private:
 	// Set uniforms that are the same for every batch for the duration of this frame.
 	void setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat);

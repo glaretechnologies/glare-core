@@ -17,6 +17,10 @@ in vec4 joint;
 in vec4 weight;
 #endif
 
+#if VERT_TANGENTS
+in vec4 tangent_in;
+#endif
+
 out vec3 normal_ws; // world space
 out vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
@@ -43,6 +47,11 @@ flat out int material_index;
 
 #if DECAL
 out mat4 world_to_ob;
+#endif
+
+#if VERT_TANGENTS
+out vec3 tangent_ws;
+out vec3 bitangent_ws;
 #endif
 
 flat out ivec4 light_indices_0;
@@ -166,6 +175,11 @@ void main()
 		shadow_tex_coords[i] = (shadow_texture_matrix[i] * vec4(pos_ws, 1.0)).xyz;
 #endif
 
+#if VERT_TANGENTS
+	tangent_ws = (instance_matrix_in * vec4(tangent_in.xyz, 0.0)).xyz;
+	bitangent_ws = cross(normal_ws.xyz, tangent_ws.xyz) * tangent_in.w; // Following GLTF spec
+#endif
+
 #else // else if !INSTANCE_MATRICES:
 
 	mat4 model_skin_matrix;
@@ -192,6 +206,12 @@ void main()
 	pos_ws = (model_skin_matrix  * vec4(final_pos_os, 1.0)).xyz;
 
 	normal_ws = (normal_skin_matrix * vec4(final_normal_in, 0.0)).xyz;
+
+#if VERT_TANGENTS
+	tangent_ws = (normal_skin_matrix * vec4(tangent_in.xyz, 0.0)).xyz;
+	bitangent_ws = cross(normal_ws.xyz, tangent_ws.xyz) * tangent_in.w; // Following GLTF spec
+#endif
+
 
 #if USE_WIND_VERT_SHADER
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);

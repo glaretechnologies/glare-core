@@ -2339,7 +2339,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define BLOB_SHADOWS " + toString(1) + "\n" +
 		"#define TERRAIN " + toString(key.terrain) + "\n" + 
 		"#define DECAL " + toString(key.decal) + "\n" +
-		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n";
+		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n" +
+		"#define VERT_TANGENTS " + toString(key.vert_tangents) + "\n";
 }
 
 
@@ -2585,6 +2586,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	
 	if(!key_.use_wind_vert_shader)
 		key.vert_colours = false; // Vert colours will only be used for wind
+	key.vert_tangents = false;
 	key.lightmapping = false;
 	key.gen_planar_uvs = false; // relevant?
 	key.draw_planar_uv_grid = false;
@@ -2993,7 +2995,7 @@ void OpenGLEngine::assignLightsToAllObjects()
 }
 
 
-void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning)
+void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents)
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
 	if(!material.auto_assign_shader)
@@ -3020,6 +3022,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	ProgramKeyArgs key_args;
 	key_args.alpha_test = alpha_test;
 	key_args.vert_colours = use_vert_colours;
+	key_args.vert_tangents = use_vert_tangents;
 	key_args.instance_matrices = uses_instancing;
 	key_args.lightmapping = uses_lightmapping;
 	key_args.gen_planar_uvs = material.gen_planar_uvs;
@@ -3128,7 +3131,7 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 
 	// Build materials
 	for(size_t i=0; i<object->materials.size(); ++i)
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
 
 
 	const AnimationData& anim_data = object->mesh_data->animation_data;
@@ -3595,7 +3598,7 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					mat.albedo_texture = opengl_texture;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
 
 					rebuildDenormalisedDrawData(*object);
 
@@ -3619,7 +3622,7 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					mat.lightmap_texture = opengl_texture;
 
 					// Now that we have a lightmap, assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
 
 					rebuildDenormalisedDrawData(*object);
 
@@ -3720,12 +3723,13 @@ bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 }
 
 
-void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning)
+void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents)
 {
 	assignShaderProgToMaterial(mat,
 		use_vert_colours,
 		uses_instancing,
-		uses_skinning
+		uses_skinning,
+		use_vert_tangents
 	);
 }
 
@@ -3738,7 +3742,7 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 	bool have_materialise_effect = false;
 	for(size_t i=0; i<object.materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object.materials[i], object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning());
+		assignShaderProgToMaterial(object.materials[i], object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning(), object.mesh_data->has_vert_tangents);
 		have_transparent_mat = have_transparent_mat || object.materials[i].transparent;
 		have_materialise_effect = have_materialise_effect || object.materials[i].materialise_effect;
 	}
@@ -5304,7 +5308,7 @@ void OpenGLEngine::draw()
 			{
 				GLObject* const object = it->ptr();
 				for(size_t i=0; i<object->materials.size(); ++i)
-					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning());
+					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
 
 				rebuildDenormalisedDrawData(*object);
 				rebuildObjectDepthDrawBatches(*object);
@@ -5360,7 +5364,7 @@ void OpenGLEngine::draw()
 					{
 						// Materialise effect has finished
 						mat.materialise_effect = false;
-						assignShaderProgToMaterial(mat, ob->mesh_data->has_vert_colours, /*uses instancing=*/ob->instance_matrix_vbo.nonNull(), ob->mesh_data->usesSkinning());
+						assignShaderProgToMaterial(mat, ob->mesh_data->has_vert_colours, /*uses instancing=*/ob->instance_matrix_vbo.nonNull(), ob->mesh_data->usesSkinning(), ob->mesh_data->has_vert_tangents);
 
 						rebuildDenormalisedDrawData(*ob);
 						rebuildObjectDepthDrawBatches(*ob);

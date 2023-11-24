@@ -1071,6 +1071,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour);
 	const BatchedMesh::VertAttribute* joints_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Joints);
 	const BatchedMesh::VertAttribute* weights_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Weights);
+	const BatchedMesh::VertAttribute* tangent_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Tangent);
 
 	if(!pos_attr)
 		throw glare::Exception("Pos attribute not present.");
@@ -1177,6 +1178,16 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	weights_attrib.stride = num_bytes_per_vert;
 	weights_attrib.offset = (uint32)(weights_attr ? weights_attr->offset_B : 0);
 	opengl_render_data->vertex_spec.attributes.push_back(weights_attrib);
+
+	// tangent_attr
+	VertexAttrib tangent_attrib;
+	tangent_attrib.enabled = tangent_attr != NULL;
+	tangent_attrib.num_comps = 4;
+	tangent_attrib.type = tangent_attr ? componentTypeGLEnum(tangent_attr->component_type) : GL_FLOAT;
+	tangent_attrib.normalised = tangent_attr ? (tangent_attr->component_type != BatchedMesh::ComponentType_Float) : false;
+	tangent_attrib.stride = num_bytes_per_vert;
+	tangent_attrib.offset = (uint32)(tangent_attr ? tangent_attr->offset_B : 0);
+	opengl_render_data->vertex_spec.attributes.push_back(tangent_attrib);
 	
 
 
@@ -1200,9 +1211,10 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	}
 
 
-	opengl_render_data->has_uvs				= uv0_attr != NULL;
-	opengl_render_data->has_shading_normals = normal_attr != NULL;
-	opengl_render_data->has_vert_colours	= colour_attr != NULL;
+	opengl_render_data->has_uvs				= uv0_attr     != NULL;
+	opengl_render_data->has_shading_normals = normal_attr  != NULL;
+	opengl_render_data->has_vert_colours	= colour_attr  != NULL;
+	opengl_render_data->has_vert_tangents   = tangent_attr != NULL;
 
 	opengl_render_data->aabb_os = mesh->aabb_os;
 

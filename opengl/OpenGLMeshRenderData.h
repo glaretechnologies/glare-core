@@ -33,7 +33,7 @@ public:
 class OpenGLMeshRenderData // : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false), num_materials_referenced(0), refcount(0), index_type_bits(0) {}
+	OpenGLMeshRenderData() : has_vert_colours(false), has_vert_tangents(false), num_materials_referenced(0), refcount(0), index_type_bits(0) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -69,6 +69,7 @@ public:
 	bool has_uvs;
 	bool has_shading_normals;
 	bool has_vert_colours;
+	bool has_vert_tangents;
 private:
 	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
 public:

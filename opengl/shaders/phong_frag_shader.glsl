@@ -17,6 +17,11 @@ in vec3 vert_colour;
 in vec2 lightmap_coords;
 #endif
 
+#if VERT_TANGENTS
+in vec3 tangent_ws;
+in vec3 bitangent_ws;
+#endif
+
 flat in ivec4 light_indices_0;
 flat in ivec4 light_indices_1;
 
@@ -86,6 +91,7 @@ layout(std430) buffer PhongUniforms
 #define EMISSION_TEX				MAT_UNIFORM.emission_tex
 #define BACKFACE_ALBEDO_TEX			MAT_UNIFORM.backface_albedo_tex
 #define TRANSMISSION_TEX			MAT_UNIFORM.transmission_tex
+#define NORMAL_MAP					MAT_UNIFORM.normal_map
 
 //----------------------------------------------------------------------------------------------------------------------------
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
@@ -394,6 +400,11 @@ float getDepthFromDepthTexture(float px, float py)
 }
 #endif
 
+vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
+{
+	return v - unit_dir * dot(v, unit_dir);
+}
+
 
 void main()
 {
@@ -444,6 +455,49 @@ void main()
 		dp_dy = dFdy(pos_ws);
 		N_g = cross(dp_dx, dp_dy);
 		use_normal_ws = N_g;
+	}
+
+	// Get normal from normal map if we have one
+	if((MAT_UNIFORM.flags & HAVE_NORMAL_MAP_FLAG) != 0)
+	{
+		vec2 st = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
+		vec3 norm_map_v = texture(NORMAL_MAP, st).xyz;
+		norm_map_v = norm_map_v * 2.0 - vec3(1.0);
+#if VERT_TANGENTS
+		use_normal_ws = normalize(
+			tangent_ws    * norm_map_v.x + 
+			bitangent_ws  * norm_map_v.y + 
+			use_normal_ws * norm_map_v.z
+		);
+#else
+		vec3 dp_dx = dFdx(pos_ws);
+		vec3 dp_dy = dFdy(pos_ws);
+
+		// ( ds/dx  ds/dy )
+		// ( dt/dx  dt/dy )
+		mat2 dst_dxy;
+		dst_dxy[0] = dFdx(st);
+		dst_dxy[1] = dFdy(st);
+
+		// ( dx/ds  dx/dt )
+		// ( dy/ds  dy/dt )
+		mat2 dxy_dst = inverse(dst_dxy);
+
+		// Compute dp/ds and dp/dt
+		// dp/ds = dp/dx dx/ds + dp/dy dy/ds
+		// dp/dt = dp/dx dx/dt + dp/dy dy/dt
+		vec3 dp_ds = dp_dx * dxy_dst[0].x + dp_dy * dxy_dst[0].y;
+		vec3 dp_dt = dp_dx * dxy_dst[1].x + dp_dy * dxy_dst[1].y;
+
+		dp_ds = normalize(removeComponentInDir(dp_ds, use_normal_ws));
+		dp_dt = normalize(removeComponentInDir(dp_dt, use_normal_ws));
+
+		use_normal_ws = normalize(
+			 dp_ds * norm_map_v.x +
+			-dp_dt * norm_map_v.y +
+			use_normal_ws * norm_map_v.z
+		);
+#endif
 	}
 
 
