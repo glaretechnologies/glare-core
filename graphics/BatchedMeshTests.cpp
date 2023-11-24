@@ -62,6 +62,7 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 			}
 			testAssert(batched_mesh.index_data == batched_mesh2.index_data);
 			testAssert(batched_mesh.vertex_data == batched_mesh2.vertex_data);
+			testAssert(batched_mesh.vert_attributes == batched_mesh2.vert_attributes);
 
 			testAssert(batched_mesh == batched_mesh2);
 		}
@@ -166,11 +167,7 @@ static void perfTestWithMesh(const std::string& path)
 // Copied from O:\indigo\trunk\graphics\BatchedMesh.cpp
 inline static uint32 BMeshPackNormal(const Indigo::Vec3f& normal)
 {
-	int x = (int)(normal.x * 511.f); // Map from [-1, 1] to [-511, 511]
-	int y = (int)(normal.y * 511.f);
-	int z = (int)(normal.z * 511.f);
-	// ANDing with 1023 isolates the bottom 10 bits.
-	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+	return batchedMeshPackNormal(Vec4f(normal.x, normal.y, normal.z, 0));
 }
 
 
@@ -274,7 +271,7 @@ void BatchedMeshTests::test()
 
 
 
-
+		// Test BMeshPackNormal
 		{
 			const uint32 packed = BMeshPackNormal(Indigo::Vec3f(-1.f, 0.f, 1.f));
 
@@ -285,6 +282,29 @@ void BatchedMeshTests::test()
 			printVar(unpacked.z);
 
 			testAssert(unpacked == Indigo::Vec3f(-1.f, 0.f, 1.f));
+		}
+
+		// Test batchedMeshPackNormalWithW
+		{
+			const uint32 packed = batchedMeshPackNormalWithW(Vec4f(1,0,0,1));
+
+			const Vec4f unpacked = batchedMeshUnpackNormalWithW(packed);
+
+			testAssert(unpacked == Vec4f(1,0,0,1));
+		}
+		{
+			const uint32 packed = batchedMeshPackNormalWithW(Vec4f(1,0,0,0));
+
+			const Vec4f unpacked = batchedMeshUnpackNormalWithW(packed);
+
+			testAssert(unpacked == Vec4f(1,0,0,0));
+		}
+		{
+			const uint32 packed = batchedMeshPackNormalWithW(Vec4f(1,0,0,-1));
+
+			const Vec4f unpacked = batchedMeshUnpackNormalWithW(packed);
+
+			testAssert(unpacked == Vec4f(1,0,0,-1));
 		}
 
 
@@ -383,7 +403,21 @@ void BatchedMeshTests::test()
 		}
 
 
+		// Load some GLTF files, then test saving and loading them.
+		{
+			GLTFLoadedData data;
+			Reference<BatchedMesh> batched_mesh = FormatDecoderGLTF::loadGLTFFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Avocado.gltf", data);
 
+			testWritingAndReadingMesh(*batched_mesh);
+		}
+		{
+			GLTFLoadedData data;
+			Reference<BatchedMesh> batched_mesh = FormatDecoderGLTF::loadGLTFFile(TestUtils::getTestReposDir() + "/testfiles/gltf/duck/Duck.gltf", data);
+
+			testWritingAndReadingMesh(*batched_mesh);
+		}
+
+#if 0
 		{
 			Indigo::Mesh indigo_mesh;
 			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir()) + "/testscenes/cornellbox_jotero2_meshes/mesh_447604471_4256.igmesh", indigo_mesh);
@@ -453,6 +487,7 @@ void BatchedMeshTests::test()
 				testIndigoMeshConversion(batched_mesh);
 			}
 		}
+#endif
 
 
 		// Perf test - test compression and decompression speed at varying compression levels

@@ -38,6 +38,8 @@ struct GLTFResultMaterial
 	Colour3f emissive_factor; // sRGB, usually in [0, 1].
 	GLTFResultMap emissive_map;
 
+	GLTFResultMap normal_map;
+
 	float roughness;
 	float metallic;
 };

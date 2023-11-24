@@ -96,9 +96,10 @@ public:
 		VertAttribute_UV_0		= 3,
 		VertAttribute_UV_1		= 4,
 		VertAttribute_Joints	= 5, // Indices of joint nodes for skinning
-		VertAttribute_Weights	= 6 // weights for skinning
+		VertAttribute_Weights	= 6, // weights for skinning
+		VertAttribute_Tangent	= 7
 	};
-	static const uint32 MAX_VERT_ATTRIBUTE_TYPE_VALUE = 6;
+	static const uint32 MAX_VERT_ATTRIBUTE_TYPE_VALUE = 7;
 
 	struct VertAttribute
 	{
@@ -107,7 +108,7 @@ public:
 
 		VertAttributeType type;
 		ComponentType component_type;
-		size_t offset_B; // Offset of attribute in vertex data, in bytes.
+		size_t offset_B; // Offset of attribute in vertex data, in bytes.  Not serialised.
 
 		bool operator == (const VertAttribute& other) const { return type == other.type && component_type == other.component_type && offset_B == other.offset_B; }
 	};
@@ -193,6 +194,7 @@ size_t BatchedMesh::vertAttributeTypeNumComponents(VertAttributeType t)
 	case VertAttribute_UV_1:     return 2;
 	case VertAttribute_Joints:   return 4; // 4 joints per vert, following GLTF
 	case VertAttribute_Weights:  return 4; // 4 weights per vert, following GLTF
+	case VertAttribute_Tangent:  return 4; // x,y,z,w
 	};
 	assert(0);
 	return 1;
@@ -253,6 +255,7 @@ uint32 BatchedMesh::getIndexAsUInt32(size_t i) const
 }
 
 
+// See Section 10.3.8 'Packed Vertex Data Formats' from https://registry.khronos.org/OpenGL/specs/gl/glspec45.core.pdf
 inline static uint32 batchedMeshPackNormal(const Vec4f& normal)
 {
 	const Vec4f scaled_n = normal * 511.f; // Map from [-1, 1] to [-511, 511]
@@ -261,6 +264,18 @@ inline static uint32 batchedMeshPackNormal(const Vec4f& normal)
 	int z = (int)scaled_n[2];
 	// ANDing with 1023 isolates the bottom 10 bits.
 	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20);
+}
+
+
+inline static uint32 batchedMeshPackNormalWithW(const Vec4f& normal)
+{
+	const Vec4f scaled_n = normal * 511.f; // Map from [-1, 1] to [-511, 511]
+	int x = (int)scaled_n[0]; 
+	int y = (int)scaled_n[1];
+	int z = (int)scaled_n[2];
+	int w = (int)normal[3];
+	// ANDing with 1023 isolates the bottom 10 bits.
+	return (x & 1023) | ((y & 1023) << 10) | ((z & 1023) << 20) | (w << 30);
 }
 
 
@@ -294,4 +309,22 @@ inline static const Vec4f batchedMeshUnpackNormal(const uint32 packed_normal)
 	const int z = convertToSigned(z_bits);
 
 	return Vec4f((float)x, (float)y, (float)z, 0) * (1.f / 511.f);
+}
+
+
+inline static const Vec4f batchedMeshUnpackNormalWithW(const uint32 packed_normal)
+{
+	const uint32 x_bits = (packed_normal >> 0 ) & 1023;
+	const uint32 y_bits = (packed_normal >> 10) & 1023;
+	const uint32 z_bits = (packed_normal >> 20) & 1023;
+	const uint32 w_bits = (packed_normal >> 30) & 3;
+
+	const int x = convertToSigned(x_bits);
+	const int y = convertToSigned(y_bits);
+	const int z = convertToSigned(z_bits);
+	const int w = (w_bits == 3) ? -1 : (int)w_bits; // If sign bit was set, the value is -1, otherwise it is just the value of bit 30, e.g. 0 or 1.
+
+	Vec4f v = Vec4f((float)x, (float)y, (float)z, 0) * (1.f / 511.f);
+	v[3] = (float)w;
+	return v;
 }

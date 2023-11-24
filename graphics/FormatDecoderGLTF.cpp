@@ -29,6 +29,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <vector>
 #include <map>
 #include <fstream>
+#include <Timer.h>
 
 
 struct GLTFBuffer : public RefCounted
@@ -172,6 +173,8 @@ struct GLTFMaterial : public RefCounted
 
 	GLTFTextureObject emissiveTexture;
 	Colour3f emissiveFactor;
+
+	GLTFTextureObject normalTexture;
 };
 typedef Reference<GLTFMaterial> GLTFMaterialRef;
 
@@ -179,13 +182,14 @@ typedef Reference<GLTFMaterial> GLTFMaterialRef;
 // Attributes present on any of the meshes.
 struct AttributesPresent
 {
-	AttributesPresent() : normal_present(false), vert_col_present(false), texcoord_0_present(false), joints_present(false), weights_present(false) {}
+	AttributesPresent() : normal_present(false), vert_col_present(false), texcoord_0_present(false), joints_present(false), weights_present(false), tangent_present(false) {}
 
 	bool normal_present;
 	bool vert_col_present;
 	bool texcoord_0_present;
 	bool joints_present;
 	bool weights_present;
+	bool tangent_present;
 };
 
 
@@ -632,7 +636,12 @@ static void copyData(size_t accessor_count, const uint8* const offset_base, cons
 	if((vert_write_i + accessor_count) * dest_vert_stride_B > vertex_data.size())
 		throw glare::Exception("Internal error: destination buffer overflow");
 
+	static_assert(sizeof(DestType) <= 4, "sizeof(DestType) <= 4");
+	runtimeCheck(dest_vert_stride_B % 4 == 0); // Check alignment
+	
 	uint8* const offset_dest = vertex_data.data() + vert_write_i * dest_vert_stride_B + dest_attr_offset_B;
+
+	runtimeCheck((uint64)offset_dest % 4 == 0); // Check alignment
 
 	for(size_t z=0; z<accessor_count; ++z)
 	{
@@ -785,6 +794,7 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 			}
 
 			//--------------------------------------- Process vertex positions ---------------------------------------
+			//Timer timer;
 			const BatchedMesh::VertAttribute& pos_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Position);
 			{
 				const Matrix4f transform = statically_apply_transform ? node_transform : Matrix4f::identity();
@@ -804,12 +814,19 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 
 				runtimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float); // We store positions in float format.
 
+				// Check alignment before we start reading and writing floats
+				// The source alignments should be valid for valid GLTF files.
+				runtimeCheck((uint64)(offset_base) % 4 == 0);
+				runtimeCheck(byte_stride % 4 == 0);
+				// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
+				runtimeCheck(dest_vert_stride_B % 4 == 0);
+				runtimeCheck(dest_attr_offset_B % 4 == 0);
+
 				// POSITION must be FLOAT
 				if(pos_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 				{
 					for(size_t z=0; z<pos_accessor.count; ++z)
 					{
-						// NOTE: alignment is dodgy here, assuming offset_base is 4-byte aligned.
 						const Vec4f p_os(
 							((const float*)(offset_base + byte_stride * z))[0],
 							((const float*)(offset_base + byte_stride * z))[1],
@@ -827,6 +844,7 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 				else
 					throw glare::Exception("Invalid POSITION component type");
 			}
+			//conPrint("Process vertex positions: " + timer.elapsedString());
 
 			//--------------------------------------- Process vertex normals ---------------------------------------
 			if(primitive.attributes.count("NORMAL"))
@@ -857,12 +875,19 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 
 				runtimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
 
+				// Check alignment before we start reading and writing floats
+				// The source alignments should be valid for valid GLTF files.
+				runtimeCheck((uint64)(offset_base) % 4 == 0);
+				runtimeCheck(byte_stride % 4 == 0);
+				// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
+				runtimeCheck(dest_vert_stride_B % 4 == 0);
+				runtimeCheck(dest_attr_offset_B % 4 == 0);
+
 				// NORMAL must be FLOAT
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 				{
 					for(size_t z=0; z<accessor.count; ++z)
 					{
-						// NOTE: alignment is dodgy here, assuming offset_base is 4-byte aligned.
 						const Vec4f n_os(
 							((const float*)(offset_base + byte_stride * z))[0],
 							((const float*)(offset_base + byte_stride * z))[1],
@@ -889,6 +914,12 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 					const BatchedMesh::VertAttribute& normals_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Normal);
 					const size_t dest_vert_stride_B = mesh_out.vertexSize();
 					const size_t dest_attr_offset_B = normals_attr.offset_B;
+
+					// Check alignment before we start reading and writing
+					// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
+					runtimeCheck(dest_vert_stride_B % 4 == 0);
+					runtimeCheck(dest_attr_offset_B % 4 == 0);
+					runtimeCheck(pos_attr.offset_B % 4 == 0);
 
 					// Initialise with a default normal value
 					runtimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
@@ -945,6 +976,90 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 						*(uint32*)(&mesh_out.vertex_data[v1i * dest_vert_stride_B + dest_attr_offset_B]) = packed;
 						*(uint32*)(&mesh_out.vertex_data[v2i * dest_vert_stride_B + dest_attr_offset_B]) = packed;
 					}
+				}
+			}
+
+			//--------------------------------------- Process vertex tangents ---------------------------------------
+			if(primitive.attributes.count("TANGENT"))
+			{
+				Matrix4f normal_transform;
+				if(statically_apply_transform)
+					node_transform.getUpperLeftInverseTranspose(normal_transform);
+				else
+					normal_transform = Matrix4f::identity();
+
+				const BatchedMesh::VertAttribute& tangents_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Tangent);
+
+				const GLTFAccessor& accessor = getAccessorForAttribute(data, primitive, "TANGENT");
+				const GLTFBufferView& buf_view = getBufferView(data, accessor.buffer_view);
+				const GLTFBuffer& buffer = getBuffer(data, buf_view.buffer);
+
+				const size_t offset_B = accessor.byte_offset + buf_view.byte_offset; // Offset in bytes from start of buffer to the data we are accessing.
+				const uint8* offset_base = buffer.binary_data + offset_B;
+				const size_t value_size_B = componentTypeByteSize(accessor.component_type) * typeNumComponents(accessor.type);
+				const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
+
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, accessor, buffer, /*expected_num_components=*/4);
+
+				if(accessor.count != vert_pos_count) throw glare::Exception("invalid accessor.count");
+
+				const size_t dest_vert_stride_B = mesh_out.vertexSize();
+				const size_t dest_attr_offset_B = tangents_attr.offset_B;
+
+				runtimeCheck(tangents_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
+
+				// Check alignment before we start reading and writing floats
+				// The source alignments should be valid for valid GLTF files.
+				runtimeCheck((uint64)(offset_base) % 4 == 0);
+				runtimeCheck(byte_stride % 4 == 0);
+				// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
+				runtimeCheck(dest_vert_stride_B % 4 == 0);
+				runtimeCheck(dest_attr_offset_B % 4 == 0);
+
+				// TANGENT must be FLOAT
+				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				{
+					for(size_t z=0; z<accessor.count; ++z)
+					{
+						const Vec4f tangent_os(
+							((const float*)(offset_base + byte_stride * z))[0],
+							((const float*)(offset_base + byte_stride * z))[1],
+							((const float*)(offset_base + byte_stride * z))[2],
+							((const float*)(offset_base + byte_stride * z))[3]
+						);
+
+						Vec4f tangent_ws = normalise(normal_transform * maskWToZero(tangent_os));
+						
+						tangent_ws[3] = tangent_os[3]; // Copy w component (sign)
+
+						const uint32 packed_tangent = batchedMeshPackNormalWithW(tangent_ws);
+						
+						*(uint32*)(&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B]) = packed_tangent;
+					}
+				}
+				else
+					throw glare::Exception("Invalid TANGENT component type");
+			}
+			else
+			{
+				if(data.attr_present.tangent_present)
+				{
+					// Pad with tangents.  This is a hack, needed because we only have one vertex layout per mesh.
+
+					const BatchedMesh::VertAttribute& tangents_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Tangent);
+					const size_t dest_vert_stride_B = mesh_out.vertexSize();
+					const size_t dest_attr_offset_B = tangents_attr.offset_B;
+
+					// Initialise with a default tangent value
+					runtimeCheck(tangents_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store tangents in packed format.
+					for(size_t z=0; z<vert_pos_count; ++z)
+					{
+						const Vec4f tangent_ws(0,0,1,1);
+						const uint32 packed_tangent = batchedMeshPackNormalWithW(tangent_ws);
+						std::memcpy(&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B], &packed_tangent, sizeof(uint32));
+					}
+
+					// TODO: compute proper tangents
 				}
 			}
 
@@ -1011,6 +1126,11 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 					const size_t dest_attr_offset_B = colour_attr.offset_B;
 
 					runtimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
+					// Check alignment before we start reading and writing floats
+					// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
+					runtimeCheck(dest_vert_stride_B % 4 == 0);
+					runtimeCheck(dest_attr_offset_B % 4 == 0);
+
 					for(size_t z=0; z<vert_pos_count; ++z)
 					{
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 1.f;
@@ -1070,6 +1190,11 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 					const size_t dest_attr_offset_B = texcoord_0_attr.offset_B;
 
 					runtimeCheck(texcoord_0_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
+					// Check alignment before we start reading and writing floats
+					// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
+					runtimeCheck(dest_vert_stride_B % 4 == 0);
+					runtimeCheck(dest_attr_offset_B % 4 == 0);
+
 					for(size_t z=0; z<vert_pos_count; ++z)
 					{
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 0.f;
@@ -1121,6 +1246,10 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 					const BatchedMesh::VertAttribute& joint_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Joints);
 					const size_t dest_vert_stride_B = mesh_out.vertexSize();
 					const size_t dest_attr_offset_B = joint_attr.offset_B;
+
+					// Check alignment
+					runtimeCheck(dest_vert_stride_B % 2 == 0);
+					runtimeCheck(dest_attr_offset_B % 2 == 0);
 
 					runtimeCheck(joint_attr.component_type == BatchedMesh::ComponentType_UInt16); // We will always store uint16 joint indices for now.
 					for(size_t z=0; z<vert_pos_count; ++z)
@@ -1179,6 +1308,10 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 					const size_t dest_attr_offset_B = weights_attr.offset_B;
 
 					runtimeCheck(weights_attr.component_type == BatchedMesh::ComponentType_Float); // We store uvs in float format for now.
+					// Check alignment
+					runtimeCheck(dest_vert_stride_B % 4 == 0);
+					runtimeCheck(dest_attr_offset_B % 4 == 0);
+
 					for(size_t z=0; z<vert_pos_count; ++z)
 					{
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 1.f;
@@ -1369,6 +1502,14 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 		GLTFImage& image = getImage(data, texture.source);
 		const std::string path = FileUtils::join(gltf_folder, image.uri);
 		mat_out.emissive_map.path = path;
+	}
+
+	if(mat.normalTexture.valid())
+	{
+		GLTFTexture& texture = getTexture(data, mat.normalTexture.index);
+		GLTFImage& image = getImage(data, texture.source);
+		const std::string path = FileUtils::join(gltf_folder, image.uri);
+		mat_out.normal_map.path = path;
 	}
 	
 	if(mat.alphaMode == "OPAQUE")
@@ -1791,6 +1932,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				mat->emissiveTexture = parseTextureIfPresent(parser, mat_node, "emissiveTexture");
 				mat->emissiveFactor = parseColour3ChildArrayWithDefault(parser, mat_node, "emissiveFactor", Colour3f(0, 0, 0));
 
+				mat->normalTexture = parseTextureIfPresent(parser, mat_node, "normalTexture");
+
 				data.materials.push_back(mat);
 			}
 		}
@@ -2164,9 +2307,12 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				data.attr_present.joints_present = true;
 			if(data.meshes[i]->primitives[z]->attributes.count("WEIGHTS_0"))
 				data.attr_present.weights_present = true;
+			if(data.meshes[i]->primitives[z]->attributes.count("TANGENT"))
+				data.attr_present.tangent_present = true;
 		}
 	}
 
+	//data.attr_present.tangent_present = true; // TEMP HACK
 
 
 	// Process scene nodes
@@ -2226,10 +2372,14 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	Reference<BatchedMesh> batched_mesh = new BatchedMesh();
 
 	// Build mesh attributes
+	// Note that the batched_mesh->vertexSize() calls below calculate the total size of the vertex given all the attributes previously added, which gives the correct offset.
 	batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Position, BatchedMesh::ComponentType_Float, /*offset_B=*/0));
 
 	if(data.attr_present.normal_present)
 		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Normal, BatchedMesh::ComponentType_PackedNormal, /*offset_B=*/batched_mesh->vertexSize()));
+
+	if(data.attr_present.tangent_present)
+		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Tangent, BatchedMesh::ComponentType_PackedNormal, /*offset_B=*/batched_mesh->vertexSize()));
 
 	if(data.attr_present.vert_col_present)
 		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Colour, BatchedMesh::ComponentType_Float, /*offset_B=*/batched_mesh->vertexSize()));
@@ -2242,6 +2392,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 	if(data.attr_present.weights_present)
 		batched_mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Weights, BatchedMesh::ComponentType_Float, /*offset_B=*/batched_mesh->vertexSize()));
+
+	assert(batched_mesh->vertexSize() % 4 == 0); // All attributes we choose above currently have a length of a multiple of 4 bytes.
 
 
 	batched_mesh->vertex_data.resize(batched_mesh->vertexSize() * total_num_verts);
@@ -2272,15 +2424,18 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	// We could also read the bounds from the GLTF file, but they may be incorrect.
 	{
 		js::AABBox aabb = js::AABBox::emptyAABBox();
-		const size_t vert_size = batched_mesh->vertexSize();
+		const size_t vert_size_B = batched_mesh->vertexSize();
 		const BatchedMesh::VertAttribute& pos_attr = batched_mesh->getAttribute(BatchedMesh::VertAttribute_Position);
 		runtimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float);
+		runtimeCheck(vert_size_B % 4 == 0); // Check alignment
+		runtimeCheck(pos_attr.offset_B % 4 == 0); // Check alignment
+
 		for(size_t v=0; v<total_num_verts; ++v)
 		{
 			const Vec4f vert_pos(
-				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[0],
-				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[1],
-				((float*)&batched_mesh->vertex_data[v * vert_size + pos_attr.offset_B])[2],
+				((float*)&batched_mesh->vertex_data[v * vert_size_B + pos_attr.offset_B])[0],
+				((float*)&batched_mesh->vertex_data[v * vert_size_B + pos_attr.offset_B])[1],
+				((float*)&batched_mesh->vertex_data[v * vert_size_B + pos_attr.offset_B])[2],
 				1);
 			aabb.enlargeToHoldPoint(vert_pos);
 		}
@@ -3421,7 +3576,20 @@ void FormatDecoderGLTF::test()
 
 			testWriting(mesh, data);
 		}
-	
+
+		// Test loading Avocado.gltf, has tangents
+		{
+			conPrint("---------------------------------Avocado.gltf-----------------------------------");
+			GLTFLoadedData data;
+			Reference<BatchedMesh> mesh = loadGLTFFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Avocado.gltf", data);
+
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_Tangent) != NULL);
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_Position) != NULL);
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_UV_0) != NULL);
+			testAssert(mesh->findAttribute(BatchedMesh::VertAttribute_Normal) != NULL);
+		}
+
+		
 		{
 			GLTFLoadedData data;
 			Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/MetalRoughSpheresNoTextures.glb", data);
