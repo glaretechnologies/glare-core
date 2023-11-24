@@ -798,7 +798,7 @@ void Image::test()
 		writeToStream(im, buf);
 
 		// Read back from stream
-		BufferInStream in_stream(buf.buf);
+		BufferInStream in_stream(ArrayRef<unsigned char>(buf.buf.data(), buf.buf.size()));
 
 		Image image2;
 		readFromStream(in_stream, image2);

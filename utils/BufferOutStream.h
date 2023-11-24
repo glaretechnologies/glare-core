@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "OutStream.h"
-#include <vector>
+#include "AllocatorVector.h"
 
 
 /*=====================================================================
@@ -27,5 +27,5 @@ public:
 
 	void clear() { buf.resize(0); }
 
-	std::vector<unsigned char> buf;
+	glare::AllocatorVector<unsigned char, 16> buf;
 };
