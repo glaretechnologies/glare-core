@@ -3449,6 +3449,9 @@ void OpenGLEngine::addObjectAndLoadTexturesImmediately(const Reference<GLObject>
 		if(!object->materials[i].metallic_roughness_tex_path.empty())
 			object->materials[i].metallic_roughness_texture = getTexture(object->materials[i].metallic_roughness_tex_path);
 
+		if(!object->materials[i].normal_map_path.empty())
+			object->materials[i].normal_map = getTexture(object->materials[i].normal_map_path);
+
 		if(!object->materials[i].emission_tex_path.empty())
 			object->materials[i].emission_texture = getTexture(object->materials[i].emission_tex_path);
 	}
@@ -3606,13 +3609,19 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
 
-
 				if(object->materials[i].metallic_roughness_tex_path == path)
 				{
 					mat.metallic_roughness_texture = opengl_texture;
 
 					//if(use_multi_draw_indirect) 
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
+				}
+
+				if(object->materials[i].normal_map_path == path)
+				{
+					mat.normal_map = opengl_texture;
+
+					updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
 
 				if((object->materials[i].lightmap_path == path) && (mat.lightmap_texture != opengl_texture)) // If this lightmap texture should be assigned to this material, and it is not already assigned:
