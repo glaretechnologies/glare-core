@@ -2534,6 +2534,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			checkProperty(channel.sampler >= 0 && channel.sampler < (int)anim->samplers.size(), "invalid sampler index");
 			const GLTFSampler& sampler = anim->samplers[channel.sampler];
 
+			checkProperty(sampler.input  >= 0 && sampler.input  < (int)data.accessors.size(), "invalid anim sampler accessor index");
+			checkProperty(sampler.output >= 0 && sampler.output < (int)data.accessors.size(), "invalid anim sampler accessor index");
+
 			largest_input_accessor  = myMax(largest_input_accessor,  sampler.input);
 			largest_output_accessor = myMax(largest_output_accessor, sampler.output);
 		}
@@ -3275,7 +3278,7 @@ static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData
 
 #if FUZZING
 // Command line:
-// C:\fuzz_corpus\glb -max_len=1000000
+// C:\fuzz_corpus\glb N:\glare-core\trunk\testfiles\gltf -max_len=1000000
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
@@ -3359,6 +3362,17 @@ void FormatDecoderGLTF::test()
 	{
 		GLTFLoadedData data;
 		Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/oom-bc3108a7c4460f210c7cbec3e5e968735adf493e.glb", data);
+
+		failTest("Expected exception");
+	}
+	catch(glare::Exception&)
+	{}
+
+	// Invalid animation accessor index
+	try
+	{
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/crash-77909764a05558469c0dd179087495ec05ddf0d2.glb", data);
 
 		failTest("Expected exception");
 	}
