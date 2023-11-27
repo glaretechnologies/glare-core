@@ -22,6 +22,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/FileInStream.h"
 #include "../utils/Base64.h"
 #include "../utils/RuntimeCheck.h"
+#include "../utils/Timer.h"
 #include "../maths/Quat.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/BatchedMesh.h"
@@ -29,7 +30,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <vector>
 #include <map>
 #include <fstream>
-#include <Timer.h>
+#include <set>
 
 
 struct GLTFBuffer : public RefCounted
@@ -752,8 +753,7 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 				const size_t value_size_B = componentTypeByteSize(index_accessor.component_type);
 				const size_t byte_stride = (index_buf_view.byte_stride != 0) ? index_buf_view.byte_stride : value_size_B;
 
-				if(offset_B + index_accessor.count * value_size_B > buffer.data_size)
-					throw glare::Exception("Out of bounds while trying to read indices");
+				checkAccessorBounds(byte_stride, offset_B, value_size_B, index_accessor, buffer, /*expected_num_components=*/1);
 
 				BatchedMesh::IndicesBatch batch;
 				batch.indices_start = (uint32)indices_write_i;
@@ -814,35 +814,32 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 
 				runtimeCheck(pos_attr.component_type == BatchedMesh::ComponentType_Float); // We store positions in float format.
 
+				// POSITION attribute must have FLOAT component types (https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+				checkProperty(pos_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT, "Invalid POSITION component type");
+				
 				// Check alignment before we start reading and writing floats
 				// The source alignments should be valid for valid GLTF files.
-				runtimeCheck((uint64)(offset_base) % 4 == 0);
-				runtimeCheck(byte_stride % 4 == 0);
+				checkProperty((uint64)(offset_base) % 4 == 0, "source offset_base not multiple of 4");
+				checkProperty(byte_stride % 4 == 0, "source byte stride not multiple of 4");
 				// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
 				runtimeCheck(dest_vert_stride_B % 4 == 0);
 				runtimeCheck(dest_attr_offset_B % 4 == 0);
 
-				// POSITION must be FLOAT
-				if(pos_accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				for(size_t z=0; z<pos_accessor.count; ++z)
 				{
-					for(size_t z=0; z<pos_accessor.count; ++z)
-					{
-						const Vec4f p_os(
-							((const float*)(offset_base + byte_stride * z))[0],
-							((const float*)(offset_base + byte_stride * z))[1],
-							((const float*)(offset_base + byte_stride * z))[2],
-							1
-						);
+					const Vec4f p_os(
+						((const float*)(offset_base + byte_stride * z))[0],
+						((const float*)(offset_base + byte_stride * z))[1],
+						((const float*)(offset_base + byte_stride * z))[2],
+						1
+					);
 
-						const Vec4f p_ws = transform * p_os;
+					const Vec4f p_ws = transform * p_os;
 
-						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = p_ws[0];
-						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[1] = p_ws[1];
-						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[2] = p_ws[2];
-					}
+					((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = p_ws[0];
+					((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[1] = p_ws[1];
+					((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[2] = p_ws[2];
 				}
-				else
-					throw glare::Exception("Invalid POSITION component type");
 			}
 			//conPrint("Process vertex positions: " + timer.elapsedString());
 
@@ -875,35 +872,32 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 
 				runtimeCheck(normals_attr.component_type == BatchedMesh::ComponentType_PackedNormal); // We store normals in packed format.
 
+				// NORMAL attribute must have FLOAT component types (https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+				checkProperty(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT, "Invalid POSITION component type");
+
 				// Check alignment before we start reading and writing floats
 				// The source alignments should be valid for valid GLTF files.
-				runtimeCheck((uint64)(offset_base) % 4 == 0);
-				runtimeCheck(byte_stride % 4 == 0);
+				checkProperty((uint64)(offset_base) % 4 == 0, "source offset_base not multiple of 4");
+				checkProperty(byte_stride % 4 == 0, "source byte stride not multiple of 4");
 				// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
 				runtimeCheck(dest_vert_stride_B % 4 == 0);
 				runtimeCheck(dest_attr_offset_B % 4 == 0);
 
-				// NORMAL must be FLOAT
-				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
+				for(size_t z=0; z<accessor.count; ++z)
 				{
-					for(size_t z=0; z<accessor.count; ++z)
-					{
-						const Vec4f n_os(
-							((const float*)(offset_base + byte_stride * z))[0],
-							((const float*)(offset_base + byte_stride * z))[1],
-							((const float*)(offset_base + byte_stride * z))[2],
-							0
-						);
+					const Vec4f n_os(
+						((const float*)(offset_base + byte_stride * z))[0],
+						((const float*)(offset_base + byte_stride * z))[1],
+						((const float*)(offset_base + byte_stride * z))[2],
+						0
+					);
 
-						const Vec4f n_ws = normalise(normal_transform * n_os);
+					const Vec4f n_ws = normalise(normal_transform * n_os);
 
-						const uint32 packed = batchedMeshPackNormal(n_ws);
+					const uint32 packed = batchedMeshPackNormal(n_ws);
 
-						*(uint32*)(&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B]) = packed;
-					}
+					*(uint32*)(&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B]) = packed;
 				}
-				else
-					throw glare::Exception("Invalid NORMAL component type");
 			}
 			else
 			{
@@ -1010,8 +1004,8 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 
 				// Check alignment before we start reading and writing floats
 				// The source alignments should be valid for valid GLTF files.
-				runtimeCheck((uint64)(offset_base) % 4 == 0);
-				runtimeCheck(byte_stride % 4 == 0);
+				checkProperty((uint64)(offset_base) % 4 == 0, "source offset_base not multiple of 4");
+				checkProperty(byte_stride % 4 == 0, "source byte stride not multiple of 4");
 				// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
 				runtimeCheck(dest_vert_stride_B % 4 == 0);
 				runtimeCheck(dest_attr_offset_B % 4 == 0);
@@ -1086,6 +1080,8 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 				if(!((num_components == 3) || (num_components == 4)))
 					throw glare::Exception("Invalid num components (type) for accessor.");
 
+				// Currently BatchedMesh only supports 3-vector colours, so just copy first 3 components in the RGBA attribute case.
+
 				const size_t dest_vert_stride_B = mesh_out.vertexSize();
 				const size_t dest_attr_offset_B = colour_attr.offset_B;
 
@@ -1094,24 +1090,15 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 				// COLOR_0 must be FLOAT, UNSIGNED_BYTE, or UNSIGNED_SHORT.
 				if(accessor.component_type == GLTF_COMPONENT_TYPE_FLOAT)
 				{
-					if(num_components == 3)
-						copyData<float, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f);
-					else
-						copyData<float, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f);
+					copyData<float, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f);
 				}
 				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
 				{
-					if(num_components == 3)
-						copyData<uint8, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 255);
-					else
-						copyData<uint8, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 255);
+					copyData<uint8, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 255);
 				}
 				else if(accessor.component_type == GLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 				{
-					if(num_components == 3)
-						copyData<uint16, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 65535);
-					else
-						copyData<uint16, float, 4>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 65535);
+					copyData<uint16, float, 3>(accessor.count, offset_base, byte_stride, mesh_out.vertex_data, vert_write_i, dest_vert_stride_B, dest_attr_offset_B, /*scale=*/1.f / 65535);
 				}
 				else
 					throw glare::Exception("Invalid COLOR_0 component type");
@@ -1126,6 +1113,9 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 					const size_t dest_attr_offset_B = colour_attr.offset_B;
 
 					runtimeCheck(colour_attr.component_type == BatchedMesh::ComponentType_Float); // We store colours in float format for now.
+
+					runtimeCheck((vert_write_i + (vert_pos_count - 1)) * dest_vert_stride_B + dest_attr_offset_B + sizeof(float)*3 <= mesh_out.vertex_data.size());
+
 					// Check alignment before we start reading and writing floats
 					// Destination alignments should be valid since dest_vert_stride_B should be a multiple of 4 due to the attribute types we choose, and vertex_data is 16-byte aligned.
 					runtimeCheck(dest_vert_stride_B % 4 == 0);
@@ -1136,7 +1126,6 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[0] = 1.f;
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[1] = 1.f;
 						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[2] = 1.f;
-						((float*)&mesh_out.vertex_data[(vert_write_i + z) * dest_vert_stride_B + dest_attr_offset_B])[3] = 1.f;
 					}
 				}
 			}
@@ -1726,12 +1715,20 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 
 Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFile(const std::string& pathname, GLTFLoadedData& data_out)
 {
-	JSONParser parser;
-	parser.parseFile(pathname);
+	MemMappedFile file(pathname);
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, /*write_images_to_disk=*/true, data_out);
+	return loadGLTFFileFromData(file.fileData(), file.fileSize(), gltf_base_dir, /*write_images_to_disk=*/true, data_out);
+}
+
+
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, GLTFLoadedData& data_out)
+{
+	JSONParser parser;
+	parser.parseBuffer((const char*)data, datalen);
+
+	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, write_images_to_disk, data_out);
 }
 
 
@@ -2495,10 +2492,17 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		if(anim_data_out.nodes[i].parent_index == -1)
 			node_stack.push_back(i);
 
+	std::set<int> sorted_nodes_set;
+
 	while(!node_stack.empty())
 	{
 		const int node_i = (int)node_stack.back();
 		node_stack.pop_back();
+
+		// Check if we have already processed this node, to avoid getting stuck in cycles.
+		if(sorted_nodes_set.count(node_i) != 0) // Found node twice in depth-first traversal
+			throw glare::Exception("Nodes are not a strict tree");
+		sorted_nodes_set.insert(node_i);
 
 		anim_data_out.sorted_nodes.push_back(node_i);
 
@@ -3269,9 +3273,17 @@ static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData
 }*/
 
 
-#if 0
+#if FUZZING
+// Command line:
+// C:\fuzz_corpus\glb -max_len=1000000
 
-//static int iter = 0;
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	Clock::init();
+	return 0;
+}
+
+static int iter = 0;
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
@@ -3292,7 +3304,27 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	}
 	return 0;  // Non-zero return values are reserved for future use.
 }
+
+#if 0
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		GLTFLoadedData loaded_data;
+		FormatDecoderGLTF::loadGLTFFileFromData(data, size, "dummy_path", /*write_images_to_disk=*/false, loaded_data);
+	
+		conPrint("parsed ok");
+	}
+	catch(glare::Exception& e)
+	{
+		//conPrint("excep");
+		conPrint("excep: " + e.what());
+	}
+	return 0;  // Non-zero return values are reserved for future use.
+}
 #endif
+
+#endif // FUZZING
 
 
 void FormatDecoderGLTF::test()
@@ -3316,6 +3348,17 @@ void FormatDecoderGLTF::test()
 	{
 		GLTFLoadedData data;
 		Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/crash-357f6ffbac1bf40494ac432acafd26c3af217e21.glb", data);
+
+		failTest("Expected exception");
+	}
+	catch(glare::Exception&)
+	{}
+	
+	// Cycle in node children
+	try
+	{
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/oom-bc3108a7c4460f210c7cbec3e5e968735adf493e.glb", data);
 
 		failTest("Expected exception");
 	}
