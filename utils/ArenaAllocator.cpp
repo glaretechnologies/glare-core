@@ -36,7 +36,7 @@ void* ArenaAllocator::alloc(size_t size, size_t alignment)
 
 	const size_t new_offset = new_start + size;
 	if(new_offset > arena_size_B)
-		throw glare::Exception("ArenaAllocator: Allocation of " + toString(size) + " B failed.");
+		throw glare::Exception("ArenaAllocator: Allocation of " + toString(size) + " B with alignment " + toString(alignment) + " failed.  (Arena size: " + toString(arena_size_B) + ")");
 
 	current_offset = new_offset;
 	return (void*)((uint8*)data + new_start);
