@@ -407,7 +407,7 @@ class OpenGLEngineSettings
 {
 public:
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), max_tex_mem_usage(1024 * 1024 * 1024ull),
-		use_grouped_vbo_allocator(true), use_general_arena_mem_allocator(true), msaa_samples(4) {}
+		use_grouped_vbo_allocator(true), use_general_arena_mem_allocator(true), msaa_samples(4), allow_bindless_textures(true), allow_multi_draw_indirect(true) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -419,6 +419,9 @@ public:
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
 	bool use_general_arena_mem_allocator; // Use GeneralMemAllocator with a 2GB arena for general CPU size mem allocations.
 	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
+
+	bool allow_bindless_textures; // Allow use of bindless textures, if supported by the OpenGL implementation?   True by default.
+	bool allow_multi_draw_indirect; // Allow multi-draw indirect drawing, if supported by the OpenGL implementation?   True by default.
 
 	uint64 max_tex_mem_usage; // Default: 1GB
 };
@@ -1136,11 +1139,7 @@ private:
 	Reference<OpenGLProgram> env_prog;
 	int env_diffuse_colour_location;
 	int env_have_texture_location;
-	int env_diffuse_tex_location;
 	int env_texture_matrix_location;
-	int env_noise_tex_location;
-	int env_fbm_tex_location;
-	int env_cirrus_tex_location;
 	int env_campos_ws_location;
 
 	ImageMapFloatRef fbm_imagemap;
@@ -1149,7 +1148,7 @@ private:
 	Reference<OpenGLTexture> detail_heightmap[4];
 	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;
-	Reference<OpenGLTexture> cirrus_tex;
+	Reference<OpenGLTexture> cirrus_tex; // May be NULL, set by setCirrusTexture().
 
 	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
 

@@ -1715,7 +1715,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		}
 
 		// Make FBM texture
-		if(settings.render_sun_and_clouds) // Only need for clouds
 		{
 			Timer timer;
 			const size_t W = 1024;
@@ -1746,16 +1745,16 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Load water caustic textures
 		if(settings.render_water_caustics)
 		{
-			Timer timer;
+			//Timer timer;
 			for(int i=0; i<32; ++i)
 				water_caustics_textures.push_back(getTexture(gl_data_dir + "/caustics/save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2"));
-
-			conPrint("Load caustics took " + timer.elapsedString());
+			//conPrint("Load caustics took " + timer.elapsedString());
 		}
 
 		// Load blue noise texture
 		{
-			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", gl_data_dir + "/LDR_LLL1_0.png");
+			const std::string blue_noise_map_path = gl_data_dir + "/LDR_LLL1_0.png";
+			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", blue_noise_map_path);
 
 			TextureParams params;
 			params.filtering = OpenGLTexture::Filtering_Nearest;
@@ -1763,7 +1762,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 			params.allow_compression = false;
 			params.use_sRGB = false;
 			params.use_mipmaps = false;
-			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(gl_data_dir + "/LDR_LLL1_0.png"), *blue_noise_map, params);
+			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(blue_noise_map_path), *blue_noise_map, params);
 		}
 
 
@@ -1803,13 +1802,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Don't use bindless textures with Intel drivers/GPUs, they don't seem to work properly.  (Deadstock was having issues with textures being seemingly randomly assigned)
 		// On ATI/AMD, allocating and making a sufficient number of bindless textures resident causes a crash, somewhere around 2800 bindless textures.
 		// Avoid this crash by just not using them.
-		use_bindless_textures = GL_ARB_bindless_texture_support && !is_intel_vendor && !is_ati_vendor;
+		use_bindless_textures = settings.allow_bindless_textures && GL_ARB_bindless_texture_support && !is_intel_vendor && !is_ati_vendor;
 
 		use_reverse_z = GL_ARB_clip_control_support;
 
 		use_multi_draw_indirect = false;
 #if !defined(OSX)
-		if(gl3wIsSupported(4, 6) && use_bindless_textures)
+		if(settings.allow_multi_draw_indirect && gl3wIsSupported(4, 6) && use_bindless_textures)
 			use_multi_draw_indirect = true; // Our multi-draw-indirect code uses bindless textures and gl_DrawID, which requires GLSL 4.60 (or ARB_shader_draw_parameters)
 #endif
 
@@ -2095,13 +2094,12 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	);
 	addProgram(env_prog);
 
+	getUniformLocations(env_prog, settings.shadow_mapping, /*locations out=*/env_prog->uniform_locations);
+	setStandardTextureUnitUniformsForProgram(*env_prog);
+
 	env_diffuse_colour_location		= env_prog->getUniformLocation("diffuse_colour");
 	env_have_texture_location		= env_prog->getUniformLocation("have_texture");
-	env_diffuse_tex_location		= env_prog->getUniformLocation("diffuse_tex");
 	env_texture_matrix_location		= env_prog->getUniformLocation("texture_matrix");
-	//env_noise_tex_location			= env_prog->getUniformLocation("noise_tex");
-	env_fbm_tex_location			= env_prog->getUniformLocation("fbm_tex");
-	env_cirrus_tex_location			= env_prog->getUniformLocation("cirrus_tex");
 	env_campos_ws_location			= env_prog->getUniformLocation("env_campos_ws");
 
 	bindUniformBlockToProgram(env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
@@ -5309,9 +5307,23 @@ void OpenGLEngine::draw()
 	//if(frame_num % 100 == 0)	checkMDIGPUDataCorrect();
 
 	if(!loaded_maps_for_sun_dir)
-		loadMapsForSunDir();
-	assert(loaded_maps_for_sun_dir);
+	{
+		try
+		{
+			loadMapsForSunDir();
+			assert(loaded_maps_for_sun_dir);
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error: " + e.what());
+			if(print_output)
+				print_output->print("ERROR: " + e.what());
+			this->cosine_env_tex = this->fbm_tex; // Avoid crash with null cosine_env_tex
+			this->specular_env_tex = this->fbm_tex;
 
+			loaded_maps_for_sun_dir = true; // Don't try and repeatedly load the maps
+		}
+	}
 
 	// If the ShaderFileWatcherThread has detected that a shader file has changed, reload all shaders.
 #if BUILD_TESTS
@@ -7938,10 +7950,10 @@ void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& progr
 
 void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations& locations)
 {
-	bindTextureToTextureUnit(*this->cosine_env_tex, /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
-	bindTextureToTextureUnit(*this->specular_env_tex, /*texture_unit_index=*/SPECULAR_ENV_TEXTURE_UNIT_INDEX);
-	bindTextureToTextureUnit(*this->blue_noise_tex, /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
-	bindTextureToTextureUnit(*this->fbm_tex, /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->cosine_env_tex,    /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->specular_env_tex,  /*texture_unit_index=*/SPECULAR_ENV_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->blue_noise_tex,    /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->fbm_tex,           /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
 
 	if(this->detail_tex[0].nonNull())
 		bindTextureToTextureUnit(*this->detail_tex[0], /*texture_unit_index=*/DETAIL_0_TEXTURE_UNIT_INDEX);
@@ -7959,7 +7971,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	// Set shadow mapping uniforms
 	if(shadow_mapping.nonNull())
 	{
-		bindTextureToTextureUnit(*this->shadow_mapping->depth_tex, /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*this->shadow_mapping->depth_tex,                                                    /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
 	}
 
@@ -8216,20 +8228,12 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			};
 			glUniformMatrix3fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 
-			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/this->env_diffuse_tex_location);
+			bindTextureToTextureUnit(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
 		}
 
-		/*if(this->noise_tex.nonNull())
-		{
-		glActiveTexture(GL_TEXTURE0 + 1);
-		glBindTexture(GL_TEXTURE_2D, this->noise_tex->texture_handle);
-		glUniform1i(this->env_noise_tex_location, 1);
-		}*/
-		if(this->fbm_tex.nonNull())
-			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/2, /*sampler_uniform_location=*/this->env_fbm_tex_location);
-
+		bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
 		if(this->cirrus_tex.nonNull())
-			bindTextureUnitToSampler(*this->cirrus_tex, /*texture_unit_index=*/3, /*sampler_uniform_location=*/this->env_cirrus_tex_location);
+			bindTextureToTextureUnit(*this->cirrus_tex, CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 	}
 	else if(shader_prog->is_depth_draw)
 	{
