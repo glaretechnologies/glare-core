@@ -809,6 +809,9 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t 
 	}
 	else
 	{
+		assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
+		setPixelStoreAlignment(level_W, gl_format, gl_type);
+
 		glTexSubImage2D(
 			GL_TEXTURE_2D,
 			mipmap_level, // LOD level
