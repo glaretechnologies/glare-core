@@ -1072,6 +1072,7 @@ private:
 	bool checkUseProgram(uint32 prog_index);
 	void submitBufferedDrawCommands();
 	void sortBatchDrawInfos();
+	void flushDrawCommandsAndUnbindPrograms();
 	void sortBatchDrawInfoWithDists();
 	int getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
 	void assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture);

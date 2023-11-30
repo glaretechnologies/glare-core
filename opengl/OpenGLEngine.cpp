@@ -4467,6 +4467,16 @@ void OpenGLEngine::sortBatchDrawInfos()
 }
 
 
+void OpenGLEngine::flushDrawCommandsAndUnbindPrograms()
+{
+	if(use_multi_draw_indirect)
+		submitBufferedDrawCommands();
+	OpenGLProgram::useNoPrograms();
+	this->current_bound_prog = NULL;
+	this->current_bound_prog_index = 0;
+}
+
+
 struct BatchDrawInfoWithDistGetDistanceKey
 {
 	inline uint32 operator () (const BatchDrawInfoWithDist& info) const{ return info.dist; }
@@ -4726,6 +4736,24 @@ static inline void bindTextureUnitToSampler(const OpenGLTexture& texture, int te
 	bindTextureToTextureUnit(texture, texture_unit_index);
 
 	glUniform1i(sampler_uniform_location, texture_unit_index);
+}
+
+
+static int getIntUniformVal(OpenGLProgram& prog, GLint location)
+{
+	assert(location >= 0);
+
+	GLint params = 0;
+	glGetUniformiv(prog.program, location, &params);
+	return params;
+}
+
+
+static int getCurrentProgram()
+{
+	GLint program = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+	return program;
 }
 
 
@@ -5279,6 +5307,8 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	assert(getCurrentProgram() == 0);
+
 	// Run scatter compute shader to update data on GPU
 	if(data_updates_buffer.nonEmpty())
 	{
@@ -5797,6 +5827,7 @@ void OpenGLEngine::draw()
 	//================= Generate outline texture =================
 	if(!selected_objects.empty())
 	{
+		assert(getCurrentProgram() == 0);
 		// Make outline textures if they have not been created, or are the wrong size.
 		if(outline_tex_w != myMax<size_t>(16, viewport_w) || outline_tex_h != myMax<size_t>(16, viewport_h))
 		{
@@ -5856,6 +5887,8 @@ void OpenGLEngine::draw()
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->getIndexType(), (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);
 		}
 
+		OpenGLProgram::useNoPrograms();
+
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 
 		if(true/*settings.use_final_image_buffer*/)
@@ -5871,6 +5904,7 @@ void OpenGLEngine::draw()
 	if((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
 	{
 		ZoneScopedN("Draw env"); // Tracy profiler
+		assert(getCurrentProgram() == 0);
 
 		Matrix4f world_to_camera_space_no_translation = view_matrix;
 		world_to_camera_space_no_translation.e[12] = 0;
@@ -5895,11 +5929,14 @@ void OpenGLEngine::draw()
 		bindMeshData(*current_scene->env_ob);
 		drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
 			
+		flushDrawCommandsAndUnbindPrograms();
+
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
 	
 	//================= Draw non-transparent (opaque) batches from objects =================
 
+	assert(getCurrentProgram() == 0);
 	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -6016,6 +6053,8 @@ void OpenGLEngine::draw()
 		num_index_buf_binds = 0;
 		uint32 num_backface_culling_changes = 0;
 
+		assert(getCurrentProgram() == 0);
+
 		uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
 		glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
 
@@ -6040,7 +6079,7 @@ void OpenGLEngine::draw()
 				const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
 				if(backface_culling != prev_backface_culling)
 				{
-					if(backface_culling)
+					if(backface_culling != 0)
 						glEnable(GL_CULL_FACE);
 					else
 						glDisable(GL_CULL_FACE);
@@ -6077,8 +6116,7 @@ void OpenGLEngine::draw()
 		last_num_backface_culling_changes = num_backface_culling_changes;
 		this->num_indices_submitted = 0;
 
-		if(use_multi_draw_indirect)
-			submitBufferedDrawCommands();
+		flushDrawCommandsAndUnbindPrograms();
 
 		glDisable(GL_CULL_FACE); // Restore
 
@@ -6240,8 +6278,7 @@ void OpenGLEngine::draw()
 			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
 		}
 
-		if(use_multi_draw_indirect)
-			submitBufferedDrawCommands();
+		flushDrawCommandsAndUnbindPrograms();
 
 		if(draw_wireframes)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
@@ -6257,6 +6294,8 @@ void OpenGLEngine::draw()
 	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
 	if(!current_scene->decal_objects.empty()) // Only do buffer copying if we have some decals to draw.
 	{
+		assert(getCurrentProgram() == 0);
+
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
 
@@ -6386,7 +6425,7 @@ void OpenGLEngine::draw()
 					const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
 					if(backface_culling != prev_backface_culling)
 					{
-						if(backface_culling)
+						if(backface_culling != 0)
 							glEnable(GL_CULL_FACE);
 						else
 							glDisable(GL_CULL_FACE);
@@ -6412,8 +6451,7 @@ void OpenGLEngine::draw()
 				drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
 			}
 
-			if(use_multi_draw_indirect)
-				submitBufferedDrawCommands();
+			flushDrawCommandsAndUnbindPrograms();
 
 			glDisable(GL_CULL_FACE); // Restore
 			glDisable(GL_BLEND); // Restore
@@ -6458,6 +6496,7 @@ void OpenGLEngine::draw()
 			}
 		}
 
+		OpenGLProgram::useNoPrograms();
 		glDisable(GL_POLYGON_OFFSET_LINE);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
@@ -6466,6 +6505,7 @@ void OpenGLEngine::draw()
 	//================= Draw triangle batches with participating media materials (i.e. particles) =================
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
+		assert(getCurrentProgram() == 0);
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -6541,8 +6581,7 @@ void OpenGLEngine::draw()
 			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[batch_i], batch_i);
 		}
 
-		if(use_multi_draw_indirect)
-			submitBufferedDrawCommands();
+		flushDrawCommandsAndUnbindPrograms();
 
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 		glDisable(GL_BLEND);
@@ -6714,6 +6753,7 @@ void OpenGLEngine::draw()
 				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 			}
 
+			OpenGLProgram::useNoPrograms();
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 			glEnable(GL_DEPTH_TEST);
 	
@@ -6756,6 +6796,8 @@ void OpenGLEngine::draw()
 
 			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
+
+			OpenGLProgram::useNoPrograms();
 
 			glEnable(GL_DEPTH_TEST);
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
@@ -6807,12 +6849,11 @@ void OpenGLEngine::draw()
 
 void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_elapsed_ns_out)
 {
+	assert(getCurrentProgram() == 0);
+
 	if(shadow_mapping.nonNull())
 	{
 		ZoneScopedN("Shadow depth draw"); // Tracy profiler
-
-		if(use_multi_draw_indirect)
-			submitBufferedDrawCommands();
 
 #if !defined(OSX)
 		if(query_profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
@@ -6999,8 +7040,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 				
 				drawBatchWithDenormalisedData(*info.ob, info.ob->depth_draw_batches[info.batch_i], info.batch_i);
 			}
-			if(use_multi_draw_indirect)
-				submitBufferedDrawCommands();
+			
+			flushDrawCommandsAndUnbindPrograms();
 
 			// conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene_obs_size) + " obs drawn, " + toString(num_too_small) + " too small, " + toString(num_frustum_culled) + 
 			//		" frustum culled (CPU time: " + timer.elapsedStringMSWIthNSigFigs(4) + ")");
@@ -7257,8 +7298,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 					
 					drawBatchWithDenormalisedData(*info.ob, info.ob->depth_draw_batches[info.batch_i], info.batch_i);
 				}
-				if(use_multi_draw_indirect)
-					submitBufferedDrawCommands();
+
+				flushDrawCommandsAndUnbindPrograms();
 
 				//conPrint("Static shadow map level " + toString(ti) + ": ob set: " + toString(ob_set) + " " + toString(num_drawn) + " / " + toString(current_scene->objects.size()) + " drawn. " + 
 				//	"num_frustum_culled: " + toString(num_frustum_culled) + ", num_too_small: " + toString(num_too_small ) + " (CPU time: " + timer3.elapsedStringNSigFigs(3) + ")");
@@ -7307,6 +7348,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	ZoneScopedN("Draw transparent obs"); // Tracy profiler
+	assert(getCurrentProgram() == 0);
 
 	main_render_framebuffer->bindTextureAsTarget(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
 	main_render_framebuffer->bindTextureAsTarget(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
@@ -7406,8 +7448,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 		drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
 	}
 
-	if(use_multi_draw_indirect)
-		submitBufferedDrawCommands();
+	flushDrawCommandsAndUnbindPrograms();
 
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	glDisable(GL_BLEND);
@@ -7424,6 +7465,8 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 	// The drawing strategy for these will be:
 	// Draw once without depth testing, and without depth writes, but with blending, so they are always partially visible.
 	// Then draw again with depth testing, so they look proper when not occluded by another object.
+
+	assert(getCurrentProgram() == 0);
 
 	if(!current_scene->always_visible_objects.empty())
 	{
@@ -7458,8 +7501,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 			}
 		}
 
-		if(use_multi_draw_indirect)
-			submitBufferedDrawCommands();
+		flushDrawCommandsAndUnbindPrograms();
 
 		glDisable(GL_CULL_FACE);
 
@@ -7487,8 +7529,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 			}
 		}
 
-		if(use_multi_draw_indirect)
-			submitBufferedDrawCommands();
+		flushDrawCommandsAndUnbindPrograms();
 	}
 }
 
@@ -7497,6 +7538,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 	// At this stage the outline texture has been generated in outline_edge_tex.  So we will just blend it over the current frame.
 	if(!selected_objects.empty())
 	{
+		assert(getCurrentProgram() == 0);
+
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer
@@ -7529,6 +7572,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 		}
 
+		flushDrawCommandsAndUnbindPrograms();
+
 		glEnable(GL_DEPTH_TEST); // Restore depth testing
 		glDepthMask(GL_TRUE); // Restore
 		glDisable(GL_BLEND);
@@ -7538,6 +7583,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 
 void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 {
+	assert(getCurrentProgram() == 0);
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE); // Don't write to z-buffer
@@ -7583,6 +7630,8 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 		}
 	}
+
+	flushDrawCommandsAndUnbindPrograms();
 
 	glDepthMask(GL_TRUE); // Restore
 	glDisable(GL_BLEND);
@@ -8230,6 +8279,11 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 			bindTextureToTextureUnit(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
 		}
+
+		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.diffuse_tex_location) == DIFFUSE_TEXTURE_UNIT_INDEX);
+		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
+		if(this->cirrus_tex.nonNull())
+			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
 		bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
 		if(this->cirrus_tex.nonNull())
