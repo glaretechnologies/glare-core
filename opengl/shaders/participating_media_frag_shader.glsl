@@ -58,12 +58,12 @@ layout (std140) uniform PhongUniforms
 
 
 #if USE_BINDLESS_TEXTURES
-#define DIFFUSE_TEX					mat_data.diffuse_tex
-#define METALLIC_ROUGHNESS_TEX		mat_data.metallic_roughness_tex
-#define LIGHTMAP_TEX				mat_data.lightmap_tex
-#define EMISSION_TEX				mat_data.emission_tex
-#define BACKFACE_ALBEDO_TEX			mat_data.backface_albedo_tex
-#define TRANSMISSION_TEX			mat_data.transmission_tex
+#define DIFFUSE_TEX					MAT_UNIFORM.diffuse_tex
+#define METALLIC_ROUGHNESS_TEX		MAT_UNIFORM.metallic_roughness_tex
+#define LIGHTMAP_TEX				MAT_UNIFORM.lightmap_tex
+#define EMISSION_TEX				MAT_UNIFORM.emission_tex
+#define BACKFACE_ALBEDO_TEX			MAT_UNIFORM.backface_albedo_tex
+#define TRANSMISSION_TEX			MAT_UNIFORM.transmission_tex
 
 #else
 #define DIFFUSE_TEX					diffuse_tex

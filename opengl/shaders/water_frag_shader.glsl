@@ -58,10 +58,10 @@ uniform sampler2D emission_tex;
 
 
 #if USE_BINDLESS_TEXTURES
-#define DIFFUSE_TEX mat_data.diffuse_tex
-#define EMISSION_TEX mat_data.emission_tex
+#define DIFFUSE_TEX  MAT_UNIFORM.diffuse_tex
+#define EMISSION_TEX MAT_UNIFORM.emission_tex
 #else
-#define DIFFUSE_TEX diffuse_tex
+#define DIFFUSE_TEX  diffuse_tex
 #define EMISSION_TEX emission_tex
 #endif
 
