@@ -2371,6 +2371,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		progs[key] = phong_prog;
 
 		getUniformLocations(phong_prog, settings.shadow_mapping, /*locations out=*/phong_prog->uniform_locations);
+		setStandardTextureUnitUniformsForProgram(*phong_prog);
 
 		if(!use_multi_draw_indirect)
 		{
@@ -2437,6 +2438,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		progs[key] = prog;
 
 		getUniformLocations(prog, settings.shadow_mapping, /*locations out=*/prog->uniform_locations);
+		setStandardTextureUnitUniformsForProgram(*prog);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
 		if(!use_multi_draw_indirect)
@@ -2508,6 +2510,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 		progs[key] = prog;
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		setStandardTextureUnitUniformsForProgram(*prog);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
 		if(!use_multi_draw_indirect)
@@ -2565,6 +2568,7 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 		progs[key] = prog;
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		setStandardTextureUnitUniformsForProgram(*prog);
 
 		bindUniformBlockToProgram(prog, "PhongUniforms",				PHONG_UBO_BINDING_POINT_INDEX);
 
@@ -2622,6 +2626,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		progs[key] = prog;
 
 		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		setStandardTextureUnitUniformsForProgram(*prog);
 
 		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 		bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
@@ -4711,10 +4716,17 @@ z_01 = (1 + 1)/2 = 1
 */
 
 
-static void bindTextureUnitToSampler(const OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
+static inline void bindTextureToTextureUnit(const OpenGLTexture& texture, int texture_unit_index)
 {
 	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
 	glBindTexture(texture.getTextureTarget(), texture.texture_handle);
+}
+
+
+static inline void bindTextureUnitToSampler(const OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
+{
+	bindTextureToTextureUnit(texture, texture_unit_index);
+
 	glUniform1i(sampler_uniform_location, texture_unit_index);
 }
 
@@ -7850,50 +7862,105 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator
 }
 
 
+static const int DIFFUSE_TEXTURE_UNIT_INDEX            = 0;
+
+static const int DEPTH_TEX_TEXTURE_UNIT_INDEX          = 1;
+static const int STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX   = 2;
+
+static const int COSINE_ENV_TEXTURE_UNIT_INDEX         = 3;
+static const int SPECULAR_ENV_TEXTURE_UNIT_INDEX       = 4;
+static const int BLUE_NOISE_TEXTURE_UNIT_INDEX         = 5;
+static const int FBM_TEXTURE_UNIT_INDEX                = 6;
+
+static const int LIGHTMAP_TEXTURE_UNIT_INDEX           = 7;
+static const int BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX    = 8;
+static const int TRANSMISSION_TEXTURE_UNIT_INDEX       = 9;
+static const int METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX = 10;
+static const int EMISSION_TEXTURE_UNIT_INDEX           = 11;
+static const int NORMAL_MAP_TEXTURE_UNIT_INDEX         = 12;
+
+static const int MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX   = 13;
+static const int MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX   = 14;
+static const int MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX    = 15;
+
+static const int CIRRUS_TEX_TEXTURE_UNIT_INDEX         = 16;
+static const int CAUSTIC_A_TEXTURE_UNIT_INDEX          = 17;
+static const int CAUSTIC_B_TEXTURE_UNIT_INDEX          = 18;
+
+static const int DETAIL_0_TEXTURE_UNIT_INDEX           = 19;
+static const int DETAIL_1_TEXTURE_UNIT_INDEX           = 20;
+static const int DETAIL_2_TEXTURE_UNIT_INDEX           = 21;
+static const int DETAIL_3_TEXTURE_UNIT_INDEX           = 22;
+static const int DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX   = 23;
+
+
+void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& program)
+{
+	program.useProgram(); // Bind program
+
+	glUniform1i(program.uniform_locations.diffuse_tex_location, DIFFUSE_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.dynamic_depth_tex_location, DEPTH_TEX_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.static_depth_tex_location, STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.cosine_env_tex_location, COSINE_ENV_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.specular_env_tex_location, SPECULAR_ENV_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.blue_noise_tex_location, BLUE_NOISE_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.fbm_tex_location, FBM_TEXTURE_UNIT_INDEX);
+
+
+	glUniform1i(program.uniform_locations.lightmap_tex_location, LIGHTMAP_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.metallic_roughness_tex_location, METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.emission_tex_location, EMISSION_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.backface_albedo_tex_location, BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.transmission_tex_location, TRANSMISSION_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.normal_map_location, NORMAL_MAP_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.main_colour_texture_location, MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.main_normal_texture_location, MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.main_depth_texture_location, MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.cirrus_tex_location, CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.caustic_tex_a_location, CAUSTIC_A_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.caustic_tex_b_location, CAUSTIC_B_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.detail_tex_0_location, DETAIL_0_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.detail_tex_1_location, DETAIL_1_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.detail_tex_2_location, DETAIL_2_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.detail_tex_3_location, DETAIL_3_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.detail_heightmap_0_location, DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
+
+	OpenGLProgram::useNoPrograms();
+}
+
+
 void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations& locations)
 {
-	if(!use_bindless_textures)
-	{
-//		assert(locations.diffuse_tex_location >= 0);
-		glUniform1i(locations.diffuse_tex_location, 0);
-		glUniform1i(locations.lightmap_tex_location, 7);
-		glUniform1i(locations.metallic_roughness_tex_location, 10);
-		glUniform1i(locations.emission_tex_location, 11);
-		glUniform1i(locations.backface_albedo_tex_location, 8);
-		glUniform1i(locations.transmission_tex_location, 9);
-		glUniform1i(locations.normal_map_location, 12);
-	}
-
-	if(this->cosine_env_tex.nonNull())
-		bindTextureUnitToSampler(*this->cosine_env_tex, /*texture_unit_index=*/3, /*sampler_uniform_location=*/locations.cosine_env_tex_location);
-			
-	if(this->specular_env_tex.nonNull())
-		bindTextureUnitToSampler(*this->specular_env_tex, /*texture_unit_index=*/4, /*sampler_uniform_location=*/locations.specular_env_tex_location);
+	bindTextureToTextureUnit(*this->cosine_env_tex, /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->specular_env_tex, /*texture_unit_index=*/SPECULAR_ENV_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->blue_noise_tex, /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->fbm_tex, /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
 
 	if(this->detail_tex[0].nonNull())
-		bindTextureUnitToSampler(*this->detail_tex[0], /*texture_unit_index=*/18, /*sampler_uniform_location=*/locations.detail_tex_0_location);
+		bindTextureToTextureUnit(*this->detail_tex[0], /*texture_unit_index=*/DETAIL_0_TEXTURE_UNIT_INDEX);
 	if(this->detail_tex[1].nonNull())
-		bindTextureUnitToSampler(*this->detail_tex[1], /*texture_unit_index=*/19, /*sampler_uniform_location=*/locations.detail_tex_1_location);
+		bindTextureToTextureUnit(*this->detail_tex[1], /*texture_unit_index=*/DETAIL_1_TEXTURE_UNIT_INDEX);
 	if(this->detail_tex[2].nonNull())
-		bindTextureUnitToSampler(*this->detail_tex[2], /*texture_unit_index=*/20, /*sampler_uniform_location=*/locations.detail_tex_2_location);
+		bindTextureToTextureUnit(*this->detail_tex[2], /*texture_unit_index=*/DETAIL_2_TEXTURE_UNIT_INDEX);
 	if(this->detail_tex[3].nonNull())
-		bindTextureUnitToSampler(*this->detail_tex[3], /*texture_unit_index=*/21, /*sampler_uniform_location=*/locations.detail_tex_3_location);
+		bindTextureToTextureUnit(*this->detail_tex[3], /*texture_unit_index=*/DETAIL_3_TEXTURE_UNIT_INDEX);
 	
 	// NOTE: for now we will only use 1 detail heightmap (rock) in shader
 	if(this->detail_heightmap[0].nonNull())
-		bindTextureUnitToSampler(*this->detail_heightmap[0], /*texture_unit_index=*/22, /*sampler_uniform_location=*/locations.detail_heightmap_0_location);
-
-	if(this->blue_noise_tex.nonNull())
-		bindTextureUnitToSampler(*this->blue_noise_tex, /*texture_unit_index=*/6, /*sampler_uniform_location=*/locations.blue_noise_tex_location);
-
-	if(this->fbm_tex.nonNull())
-		bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/7, /*sampler_uniform_location=*/locations.fbm_tex_location);
+		bindTextureToTextureUnit(*this->detail_heightmap[0], /*texture_unit_index=*/DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
 
 	// Set shadow mapping uniforms
 	if(shadow_mapping.nonNull())
 	{
-		bindTextureUnitToSampler(*this->shadow_mapping->depth_tex, /*texture_unit_index=*/1, /*sampler_uniform_location=*/locations.dynamic_depth_tex_location);
-		bindTextureUnitToSampler(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/2, /*sampler_uniform_location=*/locations.static_depth_tex_location);
+		bindTextureToTextureUnit(*this->shadow_mapping->depth_tex, /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
 	}
 
 	// Set blob shadows location data
@@ -7986,46 +8053,25 @@ void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) co
 	assert(!this->use_bindless_textures);
 
 	if(opengl_mat.albedo_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 0);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.albedo_texture->texture_handle);
-	}
+		bindTextureToTextureUnit(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.lightmap_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 7);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.lightmap_texture->texture_handle);
-	}
+		bindTextureToTextureUnit(*opengl_mat.lightmap_texture, LIGHTMAP_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.backface_albedo_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 8);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.backface_albedo_texture->texture_handle);
-	}
+		bindTextureToTextureUnit(*opengl_mat.backface_albedo_texture, BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.transmission_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 9);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.transmission_texture->texture_handle);
-	}
+		bindTextureToTextureUnit(*opengl_mat.transmission_texture, TRANSMISSION_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.metallic_roughness_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 10);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.metallic_roughness_texture->texture_handle);
-	}
+		bindTextureToTextureUnit(*opengl_mat.metallic_roughness_texture, METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.emission_texture.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 11);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.emission_texture->texture_handle);
-	}
+		bindTextureToTextureUnit(*opengl_mat.emission_texture, EMISSION_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.normal_map.nonNull())
-	{
-		glActiveTexture(GL_TEXTURE0 + 12);
-		glBindTexture(GL_TEXTURE_2D, opengl_mat.normal_map->texture_handle);
-	}
+		bindTextureToTextureUnit(*opengl_mat.normal_map, NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
 
 
@@ -8048,15 +8094,13 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	//TEMP NEW:
 	if(shader_prog.uses_colour_and_depth_buf_textures)
 	{
-		bindTextureUnitToSampler(*main_colour_copy_texture, /*texture_unit_index=*/12, /*sampler_uniform_location=*/shader_prog.uniform_locations.main_colour_texture_location);
-
-		bindTextureUnitToSampler(*main_normal_copy_texture, /*texture_unit_index=*/13, /*sampler_uniform_location=*/shader_prog.uniform_locations.main_normal_texture_location);
-
-		bindTextureUnitToSampler(*main_depth_copy_texture, /*texture_unit_index=*/14, /*sampler_uniform_location=*/shader_prog.uniform_locations.main_depth_texture_location);
+		bindTextureToTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*main_normal_copy_texture, /*texture_unit_index=*/MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*main_depth_copy_texture,  /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
 	}
 
 	if(shader_prog.uses_colour_and_depth_buf_textures && this->cirrus_tex.nonNull() && (shader_prog.uniform_locations.cirrus_tex_location >= 0)) // TEMP HACK
-		bindTextureUnitToSampler(*this->cirrus_tex, /*texture_unit_index=*/15, /*sampler_uniform_location=*/shader_prog.uniform_locations.cirrus_tex_location);
+		bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
 	//if(shader_prog.uses_colour_and_depth_buf_textures || shader_prog.uses_phong_uniforms) // TEMP
 	if(settings.render_water_caustics && (shader_prog.uniform_locations.caustic_tex_a_location >= 0))
@@ -8064,8 +8108,8 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		const int current_caustic_index   = Maths::intMod((int)(this->current_time * 24.0f)    , (int)water_caustics_textures.size());
 		const int current_caustic_index_1 = Maths::intMod((int)(this->current_time * 24.0f) + 1, (int)water_caustics_textures.size());
 
-		bindTextureUnitToSampler(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/16, /*sampler_uniform_location=*/shader_prog.uniform_locations.caustic_tex_a_location);
-		bindTextureUnitToSampler(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/17, /*sampler_uniform_location=*/shader_prog.uniform_locations.caustic_tex_b_location);
+		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/CAUSTIC_A_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/CAUSTIC_B_TEXTURE_UNIT_INDEX);
 	}
 
 	if(shader_prog.view_matrix_loc >= 0)
@@ -8080,11 +8124,8 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	}
 	else if(shader_prog.is_depth_draw)
 	{
-		if(this->blue_noise_tex.nonNull())
-			bindTextureUnitToSampler(*this->blue_noise_tex, /*texture_unit_index=*/6, /*sampler_uniform_location=*/shader_prog.uniform_locations.blue_noise_tex_location);
-
-		if(this->fbm_tex.nonNull())
-			bindTextureUnitToSampler(*this->fbm_tex, /*texture_unit_index=*/5, /*sampler_uniform_location=*/shader_prog.uniform_locations.fbm_tex_location);
+		bindTextureToTextureUnit(*this->blue_noise_tex, /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*this->fbm_tex, /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
 	}
 }
 
@@ -8383,130 +8424,133 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 	{
 		// Nothing to do here
 	}
-	else if(this->prog_vector[batch.getProgramIndex()]->uses_phong_uniforms)
+	else
 	{
 		// Slow, non-MDI path:
-		const OpenGLMaterial& opengl_mat = ob.materials[ob.mesh_data->batches[batch_index].material_index];
+
+		const OpenGLProgram* const prog = this->prog_vector[batch.getProgramIndex()].ptr();
+		if(prog->uses_phong_uniforms)
+		{
+			const OpenGLMaterial& opengl_mat = ob.materials[ob.mesh_data->batches[batch_index].material_index];
 
 #if UNIFORM_BUF_PER_MAT_SUPPORT
 	
-		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, opengl_mat.uniform_buf_ob->handle);
+			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, opengl_mat.uniform_buf_ob->handle);
 
 #else
 
-		PhongUniforms uniforms;
-		setUniformsForPhongProg(opengl_mat, *ob.mesh_data, uniforms);
-		this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+			PhongUniforms uniforms;
+			setUniformsForPhongProg(opengl_mat, *ob.mesh_data, uniforms);
+			this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 
 #endif
-		if(!use_bindless_textures)
-			bindTexturesForPhongProg(opengl_mat);
-	}
-	else if(this->prog_vector[batch.getProgramIndex()] == this->env_prog.getPointer())
-	{
-		assert(false); // env_prog drawing is done in drawBatch()
-	}
-	else if(this->prog_vector[batch.getProgramIndex()]->is_depth_draw)
-	{
-		assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, depth-draw mats would be handled in (.. && shader_prog->supports_MDI) branch above.
-
-		// Slow, non-MDI path:
-		const OpenGLMaterial& opengl_mat = ob.materials[ob.depth_draw_batch_material_indices[batch_index]];
-		const OpenGLProgram* shader_prog = this->prog_vector[batch.getProgramIndex()].ptr();
-
-		//const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
-		//glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
-		if(shader_prog->is_depth_draw_with_alpha_test)
+			if(!use_bindless_textures)
+				bindTexturesForPhongProg(opengl_mat);
+		}
+		else if(prog == this->env_prog.getPointer())
 		{
-			assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
+			assert(false); // env_prog drawing is done in drawBatch()
+		}
+		else if(prog->is_depth_draw)
+		{
+			assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, depth-draw mats would be handled in (use_MDI_and_prog_supports_MDI) branch above.
 
-			DepthUniforms uniforms;
+			// Slow, non-MDI path:
+			const OpenGLMaterial& opengl_mat = ob.materials[ob.depth_draw_batch_material_indices[batch_index]];
 
-			uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
-			uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
-			uniforms.texture_upper_left_matrix_col1.x = opengl_mat.tex_matrix.e[1];
-			uniforms.texture_upper_left_matrix_col1.y = opengl_mat.tex_matrix.e[3];
-			uniforms.texture_matrix_translation = opengl_mat.tex_translation;
-
-			if(this->use_bindless_textures)
+			//const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
+			//glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
+			if(prog->is_depth_draw_with_alpha_test)
 			{
-				if(opengl_mat.albedo_texture.nonNull())
-					uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
+				assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
+
+				DepthUniforms uniforms;
+
+				uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
+				uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
+				uniforms.texture_upper_left_matrix_col1.x = opengl_mat.tex_matrix.e[1];
+				uniforms.texture_upper_left_matrix_col1.y = opengl_mat.tex_matrix.e[3];
+				uniforms.texture_matrix_translation = opengl_mat.tex_translation;
+
+				if(this->use_bindless_textures)
+				{
+					if(opengl_mat.albedo_texture.nonNull())
+						uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
+				}
+				else
+				{
+					assert(prog->uniform_locations.diffuse_tex_location >= 0);
+					bindTextureToTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX);
+				}
+
+				// Just set IMPOSTER_TEX_HAS_MULTIPLE_ANGLES flag which is the only one used in depth_frag_shader.glsl
+				uniforms.flags                   = opengl_mat.imposter_tex_has_multiple_angles ? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES : 0;
+			
+				uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
+				uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
+				uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
+				uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
+				uniforms.materialise_start_time  = opengl_mat.materialise_start_time;
+
+				this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
 			}
 			else
 			{
-				assert(shader_prog->uniform_locations.diffuse_tex_location >= 0);
-				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->uniform_locations.diffuse_tex_location);
+				DepthUniforms uniforms;
+
+				uniforms.flags                   = 0;
+				uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
+				uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
+				uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
+				uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
+				uniforms.materialise_start_time	 = opengl_mat.materialise_start_time;
+
+				this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
+			}
+		}
+		else if(prog->is_outline)
+		{
+
+		}
+		else // Else shader created by user code:
+		{
+			// Slow path:
+			const OpenGLMaterial& opengl_mat = ob.materials[ob.mesh_data->batches[batch_index].material_index];
+
+			if(prog->time_loc >= 0)
+				glUniform1f(prog->time_loc, this->current_time);
+			if(prog->colour_loc >= 0)
+			{
+				glUniform3fv(prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
 			}
 
-			// Just set IMPOSTER_TEX_HAS_MULTIPLE_ANGLES flag which is the only one used in depth_frag_shader.glsl
-			uniforms.flags                   = opengl_mat.imposter_tex_has_multiple_angles ? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES : 0;
-			
-			uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
-			uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
-			uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
-			uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
-			uniforms.materialise_start_time  = opengl_mat.materialise_start_time;
+			if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
+				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/prog->albedo_texture_loc);
 
-			this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
-		}
-		else
-		{
-			DepthUniforms uniforms;
+			if(prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
+				bindTextureUnitToSampler(*opengl_mat.texture_2, /*texture_unit_index=*/1, /*sampler_uniform_location=*/prog->texture_2_loc);
 
-			uniforms.flags                   = 0;
-			uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
-			uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
-			uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
-			uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
-			uniforms.materialise_start_time	 = opengl_mat.materialise_start_time;
-
-			this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
-		}
-	}
-	else if(this->prog_vector[batch.getProgramIndex()]->is_outline)
-	{
-
-	}
-	else // Else shader created by user code:
-	{
-		// Slow path:
-		const OpenGLMaterial& opengl_mat = ob.materials[ob.mesh_data->batches[batch_index].material_index];
-		const OpenGLProgram* shader_prog = this->prog_vector[batch.getProgramIndex()].ptr();
-
-		if(shader_prog->time_loc >= 0)
-			glUniform1f(shader_prog->time_loc, this->current_time);
-		if(shader_prog->colour_loc >= 0)
-		{
-			glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
-		}
-
-		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
-			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->albedo_texture_loc);
-
-		if(shader_prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
-			bindTextureUnitToSampler(*opengl_mat.texture_2, /*texture_unit_index=*/1, /*sampler_uniform_location=*/shader_prog->texture_2_loc);
-
-		// Set user uniforms
-		for(size_t i=0; i<shader_prog->user_uniform_info.size(); ++i)
-		{
-			switch(shader_prog->user_uniform_info[i].uniform_type)
+			// Set user uniforms
+			for(size_t i=0; i<prog->user_uniform_info.size(); ++i)
 			{
-			case UserUniformInfo::UniformType_Vec2:
-				glUniform2fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec2);
-				break;
-			case UserUniformInfo::UniformType_Vec3:
-				glUniform3fv(shader_prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec3);
-				break;
-			case UserUniformInfo::UniformType_Int:
-				glUniform1i(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].intval);
-				break;
-			case UserUniformInfo::UniformType_Float:
-				glUniform1f(shader_prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].floatval);
-				break;
-			case UserUniformInfo::UniformType_Sampler2D:
-				assert(0); // TODO
-				break;
+				switch(prog->user_uniform_info[i].uniform_type)
+				{
+				case UserUniformInfo::UniformType_Vec2:
+					glUniform2fv(prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec2);
+					break;
+				case UserUniformInfo::UniformType_Vec3:
+					glUniform3fv(prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec3);
+					break;
+				case UserUniformInfo::UniformType_Int:
+					glUniform1i(prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].intval);
+					break;
+				case UserUniformInfo::UniformType_Float:
+					glUniform1f(prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].floatval);
+					break;
+				case UserUniformInfo::UniformType_Sampler2D:
+					assert(0); // TODO
+					break;
+				}
 			}
 		}
 	}

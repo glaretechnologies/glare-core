@@ -1039,6 +1039,7 @@ public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
 	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
+	static void setStandardTextureUnitUniformsForProgram(OpenGLProgram& program);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;
 	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) const;
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
