@@ -17,17 +17,30 @@ namespace glare
 
 ArenaAllocator::ArenaAllocator(size_t arena_size_B_)
 :	arena_size_B(arena_size_B_),
-	current_offset(0)
+	current_offset(0),
+	high_water_mark(0),
+	data(NULL),
+	own_data(true)
 {
 	data = MemAlloc::alignedMalloc(arena_size_B, 64);
 }
 
 
-ArenaAllocator::~ArenaAllocator()
+ArenaAllocator::ArenaAllocator(void* data_, size_t arena_size_B_)
+:	arena_size_B(arena_size_B_),
+	current_offset(0),
+	high_water_mark(0),
+	data(data_),
+	own_data(false)
 {
-	MemAlloc::alignedFree(data);
 }
 
+
+ArenaAllocator::~ArenaAllocator()
+{
+	if(own_data)
+		MemAlloc::alignedFree(data);
+}
 
 
 void* ArenaAllocator::alloc(size_t size, size_t alignment)
@@ -39,6 +52,7 @@ void* ArenaAllocator::alloc(size_t size, size_t alignment)
 		throw glare::Exception("ArenaAllocator: Allocation of " + toString(size) + " B with alignment " + toString(alignment) + " failed.  (Arena size: " + toString(arena_size_B) + ")");
 
 	current_offset = new_offset;
+	high_water_mark = myMax(high_water_mark, current_offset);
 	return (void*)((uint8*)data + new_start);
 }
 
@@ -57,6 +71,7 @@ void ArenaAllocator::free(void* ptr)
 
 #include "TestUtils.h"
 #include "ConPrint.h"
+#include "Reference.h"
 #include "../maths/PCG32.h"
 #include <set>
 
@@ -115,6 +130,42 @@ void glare::ArenaAllocator::test()
 		}
 		catch(glare::Exception&)
 		{}
+	}
+
+	//---------------------- Test getFreeAreaArenaAllocator ----------------------
+	{
+		glare::ArenaAllocator allocator(/*arena_size=*/256);
+
+		void* data = allocator.alloc(100, 8);
+		std::memset(data, 0, 100);
+
+
+		{
+			glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
+
+			testAssert(suballocator.arenaSizeB() == 156);
+			testAssert(suballocator.currentOffset() == 0);
+
+			void* data2 = suballocator.alloc(156, 8);
+			std::memset(data2, /*val=*/1, 156);
+		}
+
+		// Check we didn't overwrite first allocation
+		for(int i=0; i<100; ++i)
+			testAssert(((const uint8*)data)[i] == 0);
+
+
+		// Test handling of references.
+		{
+			glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
+
+			suballocator.incRefCount(); // Need to manually call this when suballocator is on stack.
+			{
+				Reference<glare::ArenaAllocator> ref(&suballocator);
+			}
+			suballocator.decRefCount();
+			testAssert(suballocator.getRefCount() == 0);
+		}
 	}
 }
 
