@@ -5264,7 +5264,7 @@ void OpenGLEngine::addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const 
 }
 
 
-void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used)
+void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int /*num_clip_planes_used*/)
 {
 #if BUILD_TESTS
 	// Draw frustum with spheres at vertices and lines/cylinders along edges.
@@ -5292,7 +5292,7 @@ void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], 
 	{
 		addDebugPlane(clip_planes[q].closestPointOnPlane(center_p), clip_planes[q].getNormal(), 
 			/*plane draw width=*/frustum_verts_ws[0].getDist(frustum_verts_ws[4]) * 1.5f,
-			(q < 6) ? Colour4f(0.3, 0.8, 0.3, 0.3) : Colour4f(0.3, 0.3, 0.8, 0.3));
+			(q < 6) ? Colour4f(0.3f, 0.8f, 0.3f, 0.3f) : Colour4f(0.3f, 0.3f, 0.8f, 0.3f));
 	}
 #endif
 }
@@ -8803,7 +8803,6 @@ void OpenGLEngine::submitBufferedDrawCommands()
 
 Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps, const TextureParams& params)
 {
-
 	if(dynamic_cast<const ImageMapFloat*>(face_maps[0].getPointer()))
 	{
 		std::vector<const void*> tex_data(6);
