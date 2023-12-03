@@ -41,6 +41,8 @@ public:
 
 	void setToggled(bool toggled_);
 
+	void setVisible(bool visible);
+
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 

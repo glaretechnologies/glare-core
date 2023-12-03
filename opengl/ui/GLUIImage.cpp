@@ -96,3 +96,10 @@ void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z)
 	//const float z = -0.9f;
 	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 }
+
+
+void GLUIImage::setVisible(bool visible)
+{
+	if(overlay_ob.nonNull())
+		overlay_ob->draw = visible;
+}

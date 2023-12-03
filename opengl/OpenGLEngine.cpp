@@ -253,6 +253,7 @@ size_t OpenGLMeshRenderData::getNumTris() const
 OverlayObject::OverlayObject()
 {
 	material.albedo_linear_rgb = Colour3f(1.f);
+	draw = true;
 }
 
 
@@ -7602,34 +7603,37 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	for(size_t i=0; i<temp_obs.size(); ++i)
 	{
 		const OverlayObject* const ob = temp_obs[i];
-		const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-		bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-		for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+		if(ob->draw)
 		{
-			const OpenGLMaterial& opengl_mat = ob->material;
-
-			assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
-
-			checkUseProgram(opengl_mat.shader_prog.ptr());
-
-			glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
-			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, (reverse_z_matrix * ob->ob_to_world_matrix).e);
-			glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
-
-			if(opengl_mat.albedo_texture.nonNull())
+			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 			{
-				const GLfloat tex_elems[9] = {
-					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
-					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
-					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
-				};
-				glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+				const OpenGLMaterial& opengl_mat = ob->material;
 
-				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
-			}
+				assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
+
+				checkUseProgram(opengl_mat.shader_prog.ptr());
+
+				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
+				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, (reverse_z_matrix * ob->ob_to_world_matrix).e);
+				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+
+				if(opengl_mat.albedo_texture.nonNull())
+				{
+					const GLfloat tex_elems[9] = {
+						opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+						opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+						opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
+					};
+					glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+
+					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
+				}
 				
-			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
-			glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
+				glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+			}
 		}
 	}
 

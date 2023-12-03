@@ -36,6 +36,8 @@ public:
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z = -0.9f);
 
+	void setVisible(bool visible);
+
 	virtual bool doHandleMouseMoved(const Vec2f& coords) override;
 
 	Reference<OpenGLEngine> opengl_engine;

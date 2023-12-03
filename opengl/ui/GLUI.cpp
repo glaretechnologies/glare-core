@@ -26,9 +26,10 @@ GLUI::~GLUI()
 }
 
 
-void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, GLUITextRendererCallback* text_renderer_)
+void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, GLUITextRendererCallback* text_renderer_)
 {
 	opengl_engine = opengl_engine_;
+	device_pixel_ratio = device_pixel_ratio_;
 	text_renderer = text_renderer_;
 
 	tooltip_overlay_ob = new OverlayObject();
@@ -137,4 +138,12 @@ float GLUI::getViewportMinMaxY(Reference<OpenGLEngine>& opengl_engine)
 {
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 	return 1 / y_scale;
+}
+
+
+float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
+{
+	// 2 factor is because something spanning the full viewport ranges from y=-1 to 1.
+
+	return 2 * device_pixel_ratio * pixel_w / (float)opengl_engine->getViewPortWidth();
 }

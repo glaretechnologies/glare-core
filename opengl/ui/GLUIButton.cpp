@@ -166,3 +166,10 @@ void GLUIButton::setToggled(bool toggled_)
 	else
 		overlay_ob->material.albedo_linear_rgb = button_colour;
 }
+
+
+void GLUIButton::setVisible(bool visible)
+{
+	if(overlay_ob.nonNull())
+		overlay_ob->draw = visible;
+}

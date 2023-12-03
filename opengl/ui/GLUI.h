@@ -33,7 +33,8 @@ public:
 	GLUI();
 	~GLUI();
 
-	void create(Reference<OpenGLEngine>& opengl_engine, GLUITextRendererCallback* text_renderer);
+	// device_pixel_ratio is basically a scale factor for sizes in pixels.
+	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, GLUITextRendererCallback* text_renderer);
 
 	void destroy();
 
@@ -49,6 +50,8 @@ public:
 
 	static float getViewportMinMaxY(Reference<OpenGLEngine>& opengl_engine);
 
+	float getUIWidthForDevIndepPixelWidth(float pixel_w);
+
 
 	Reference<OpenGLEngine> opengl_engine;
 	GLUITextRendererCallback* text_renderer;
@@ -61,6 +64,8 @@ private:
 	OverlayObjectRef tooltip_overlay_ob;
 
 	std::map<std::string, OpenGLTextureRef> tooltip_textures;
+
+	float device_pixel_ratio;
 };
 
 

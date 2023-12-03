@@ -390,6 +390,8 @@ struct OverlayObject : public ThreadSafeRefCounted
 	Reference<OpenGLMeshRenderData> mesh_data;
 	
 	OpenGLMaterial material;
+
+	bool draw; // Should this object be drawn (or should it be skipped?).  True by default.
 };
 typedef Reference<OverlayObject> OverlayObjectRef;
 
@@ -939,7 +941,7 @@ public:
 
 
 	void setViewport(int viewport_w_, int viewport_h_);
-	int getViewPortWidth()  const { return viewport_w; }
+	int getViewPortWidth()  const { return viewport_w; } // Return viewport width, in pixels.
 	int getViewPortHeight() const { return viewport_h; }
 	float getViewPortAspectRatio() const { return (float)getViewPortWidth() / (float)(getViewPortHeight()); } // Viewport width / viewport height.
 	//----------------------------------------------------------------------------------------
