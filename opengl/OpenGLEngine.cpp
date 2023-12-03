@@ -4739,6 +4739,7 @@ static inline void bindTextureUnitToSampler(const OpenGLTexture& texture, int te
 }
 
 
+#ifndef NDEBUG
 static int getIntUniformVal(OpenGLProgram& prog, GLint location)
 {
 	assert(location >= 0);
@@ -4755,6 +4756,7 @@ static int getCurrentProgram()
 	glGetIntegerv(GL_CURRENT_PROGRAM, &program);
 	return program;
 }
+#endif
 
 
 class ComputeAnimatedObJointMatricesTask : public glare::Task
