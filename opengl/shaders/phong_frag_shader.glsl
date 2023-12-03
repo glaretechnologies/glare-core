@@ -706,7 +706,8 @@ void main()
 		unit_normal_ws = -unit_normal_ws;
 
 	float final_metallic_frac = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.metallic_frac * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).b) : MAT_UNIFORM.metallic_frac;
-	float final_roughness     = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
+	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
+	float final_roughness = max(0.04, unclamped_roughness); // Avoid too small roughness values resulting in glare/bloom artifacts
 
 	float final_fresnel_scale = MAT_UNIFORM.fresnel_scale * (1 - square(final_roughness)); // Reduce fresnel reflection at higher roughnesses
 
@@ -768,7 +769,7 @@ void main()
 				specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
 			}
 
-			vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * specular_fresnel;
+			vec4 specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(final_roughness)) * specular_fresnel;
 
 			vec3 bsdf = diffuse_bsdf + specular.xyz;
 			vec3 reflected_radiance = bsdf * cos_theta_term * light_emitted_radiance * dir_factor / pos_to_light_len2;
@@ -800,7 +801,7 @@ void main()
 			specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
 		}
 
-		specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * specular_fresnel * shadow_factor;
+		specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(final_roughness)) * specular_fresnel * shadow_factor;
 	}
 
 

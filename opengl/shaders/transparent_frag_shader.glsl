@@ -276,7 +276,7 @@ void main()
 				float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
 				vec4 specular_fresnel = vec4(fresnelApprox(h_cos_theta, ior));
 
-				vec4 specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * fresnel_scale * specular_fresnel;
+				vec4 specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(roughness)) * fresnel_scale * specular_fresnel;
 
 				vec3 bsdf = specular.xyz;
 				vec3 reflected_radiance = bsdf * cos_theta_term * light_emitted_radiance * dir_factor / pos_to_light_len2;
@@ -289,7 +289,7 @@ void main()
 		vec3 sunrefl_h = normalize(frag_to_cam + sundir_cs.xyz);
 		float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
 		
-		float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, max(1.0e-8f, alpha2ForRoughness(roughness))) * 
+		float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, alpha2ForRoughness(roughness)) * 
 			fresnel_scale * fresnelApprox(sunrefl_h_cos_theta, ior);
 
 		// Reflect cam-to-fragment vector in ws normal
