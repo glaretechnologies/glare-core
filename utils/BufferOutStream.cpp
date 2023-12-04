@@ -1,7 +1,7 @@
 /*=====================================================================
 BufferOutStream.cpp
 -------------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "BufferOutStream.h"
 
@@ -65,4 +65,12 @@ void BufferOutStream::writeData(const void* data, size_t num_bytes)
 			throw glare::Exception("Memory alloc failure while writing to buffer.");
 		}
 	}
+}
+
+
+void* BufferOutStream::getWritePtrAtIndex(size_t i)
+{
+	if(i >= buf.size())
+		throw glare::Exception("getWritePtrAtIndex called with an index past end of buffer.");
+	return &buf[i];
 }

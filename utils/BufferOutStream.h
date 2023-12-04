@@ -1,12 +1,12 @@
 /*=====================================================================
 BufferOutStream.h
 ------------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #pragma once
 
 
-#include "OutStream.h"
+#include "RandomAccessOutStream.h"
 #include "AllocatorVector.h"
 
 
@@ -15,15 +15,19 @@ BufferOutStream
 ---------------
 Output stream that writes to a buffer.
 =====================================================================*/
-class BufferOutStream : public OutStream
+class BufferOutStream : public RandomAccessOutStream
 {
 public:
 	BufferOutStream();
 	virtual ~BufferOutStream();
 
-	virtual void writeInt32(int32 x);
-	virtual void writeUInt32(uint32 x);
-	virtual void writeData(const void* data, size_t num_bytes);
+	virtual void writeInt32(int32 x) override;
+	virtual void writeUInt32(uint32 x) override;
+	virtual void writeData(const void* data, size_t num_bytes) override;
+
+
+	virtual size_t getWriteIndex() const override { return buf.size(); }
+	virtual void* getWritePtrAtIndex(size_t i) override;
 
 	void clear() { buf.resize(0); }
 

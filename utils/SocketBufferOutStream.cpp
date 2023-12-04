@@ -109,3 +109,11 @@ void SocketBufferOutStream::writeUInt64(uint64 x)
 		std::memcpy(&buf[pos], &x, sizeof(uint64)); // Copy x to buffer.
 	}
 }
+
+
+void* SocketBufferOutStream::getWritePtrAtIndex(size_t i)
+{
+	if(i >= buf.size())
+		throw glare::Exception("getWritePtrAtIndex called with an index past end of buffer.");
+	return &buf[i];
+}
