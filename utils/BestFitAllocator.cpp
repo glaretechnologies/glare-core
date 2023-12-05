@@ -632,7 +632,7 @@ void glare::BestFitAllocator::test()
 			testAssert(block0->size >= 1020);
 			//block0->allocator->free(block0);
 		}
-		
+		delete block0; // The BestFitAllocator won't free it since it was still in use, so manually delete.
 	}
 
 
@@ -716,6 +716,10 @@ void glare::BestFitAllocator::test()
 
 		//testAssert(block4->offset == 16);
 		testAssert(block4->size >= 32);
+
+		allocator->free(block);
+		allocator->free(block3);
+		allocator->free(block4);
 	}
 
 
@@ -754,6 +758,10 @@ void glare::BestFitAllocator::test()
 		testAssert(allocator->getNumAllocatedBlocks() == 3);
 		testAssert(allocator->getNumFreeBlocks() == 2);
 		//|--block3---|          |--------block1--------|--------block2--------|              free                  
+
+		allocator->free(block3);
+		allocator->free(block1);
+		allocator->free(block2);
 	}
 
 	//=========== Test allocation with no adjacent free blocks, and with remaining size > 0 ===============
@@ -781,6 +789,10 @@ void glare::BestFitAllocator::test()
 		testAssert(block3->offset == 0);
 		testAssert(block3->size >= 60);
 		//|--block3---|          |--------block1--------|--------block2--------|              free                  
+
+		allocator->free(block3);
+		allocator->free(block1);
+		allocator->free(block2);
 	}
 
 
@@ -841,6 +853,10 @@ void glare::BestFitAllocator::test()
 		testAssert(block3->offset == 0);
 		testAssert(block3->size >= 200);
 		//|----------block3-----------------------------|--------block2--------|              free                  
+
+
+		allocator->free(block3);
+		allocator->free(block2);
 	}
 
 	//=========== Test freeing a block with a free block adjacent to the left, when the block is the last block ===============
@@ -870,6 +886,8 @@ void glare::BestFitAllocator::test()
 		testAssert(block3->offset == 0);
 		testAssert(block3->size >= 200);
 		//|----------block3-----------------------------|
+
+		allocator->free(block3);
 	}
 
 	//=========== Test freeing a block with a free block adjacent to the left, when the adjacent free block is not the first block ===============
@@ -904,6 +922,10 @@ void glare::BestFitAllocator::test()
 		testAssert(block4->offset >= 100 && block4->offset <= 300);
 		testAssert(block4->size >= 200);
 		//|--------block0--------|--------------------block4-------------------|--------block3--------|              free                  
+
+		allocator->free(block0);
+		allocator->free(block4);
+		allocator->free(block3);
 	}
 
 	//=========== Test freeing a block with a free block adjacent to the right ===============
@@ -934,6 +956,9 @@ void glare::BestFitAllocator::test()
 		testAssert(block3->offset == 0);
 		testAssert(block3->size >= 200);
 		//|----------block3-----------------------------|--------block2--------|              free                  
+
+		allocator->free(block3);
+		allocator->free(block2);
 	}
 
 	//=========== Test freeing a block with a free block adjacent to the right, and the left block existing. ===============
@@ -968,6 +993,10 @@ void glare::BestFitAllocator::test()
 		testAssert(block4->offset >= 100 && block4->offset <= 200);
 		testAssert(block4->size >= 200);
 		//|--------block0--------|--------------------block4-------------------|--------block3--------|              free                  
+
+		allocator->free(block4);
+		allocator->free(block0);
+		allocator->free(block3);
 	}
 
 	//=========== Test freeing a block with a free block on both sides ===============
@@ -1005,6 +1034,9 @@ void glare::BestFitAllocator::test()
 		testAssert(block4->offset == 0);
 		testAssert(block4->size >= 300);
 		//|--------------------------------block4------------------------------|--------block3--------|              free                  
+
+		allocator->free(block3);
+		allocator->free(block4);
 	}
 
 	//=========== Test freeing a block with a free block on both sides, where the free block on the right is the last block ===============
@@ -1039,6 +1071,8 @@ void glare::BestFitAllocator::test()
 		testAssert(block4->offset == 0);
 		testAssert(block4->size >= 300);
 		//|--------------------------------block4------------------------------|
+
+		allocator->free(block4);
 	}
 
 	//=========== Test freeing a block with a free block on both sides, and the free block on the left not being the first block ===============
@@ -1080,6 +1114,11 @@ void glare::BestFitAllocator::test()
 		testAssert(block5->offset >= 100 && block5->offset <= 200);
 		testAssert(block5->size >= 300);
 		//|--------block0--------|-------------------------------block5-------------------------------|--------block4--------|              free                  
+
+
+		allocator->free(block5);
+		allocator->free(block4);
+		allocator->free(block0);
 	}
 
 	//=========== Test an allocation that won't fit ===============
@@ -1098,6 +1137,8 @@ void glare::BestFitAllocator::test()
 		BlockInfo* block0 = allocator->alloc(100, 4);
 		testAssert(block0->offset == 0);
 		testAssert(block0->size >= 100);
+
+		allocator->free(block0);
 	}
 
 	//=========== Test expand with a free block at end of mem ===============
@@ -1113,6 +1154,9 @@ void glare::BestFitAllocator::test()
 		testAssert(block1);
 		testAssert(block1->offset >= 100);
 		testAssert(block1->size >= 100);
+
+		allocator->free(block0);
+		allocator->free(block1);
 	}
 
 	//=========== Test expand with an allocated block at end of mem ===============
@@ -1129,6 +1173,9 @@ void glare::BestFitAllocator::test()
 		testAssert(block1);
 		testAssert(block1->offset >= 1024);
 		testAssert(block1->size >= 100);
+
+		allocator->free(block0);
+		allocator->free(block1);
 	}
 }
 
