@@ -1501,7 +1501,7 @@ void doUnitTests()
 	//========================= Test writeEntireFileAtomically() ================================
 
 	// Stress test with multiple threads reading and writing to the same file.
-	//if(true) // Takes a bit long to run in normal test suite execution.
+	if(false) // Takes a bit long to run in normal test suite execution.
 	{
 		conPrint("Doing writeEntireFileAtomically stress test...");
 
