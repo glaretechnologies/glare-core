@@ -38,6 +38,8 @@ public:
 
 	void destroy();
 
+	Vec2f UICoordsForWindowPixelCoords(const Vec2f& pixel_coords);
+	Vec2f UICoordsForOpenGLCoords(const Vec2f& gl_coords);
 
 	bool handleMouseClick(const Vec2f& gl_coords); // Returns true if event accepted (e.g. should not be passed on)
 	bool handleMouseMoved(const Vec2f& gl_coords);

@@ -26,8 +26,8 @@ GLUIImage::~GLUIImage()
 }
 
 
-static const Colour3f button_colour(1.f);
-static const Colour3f mouseover_button_colour = toLinearSRGB(Colour3f(0.9f));
+static const Colour3f default_colour(1.f);
+static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
 void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
@@ -36,9 +36,12 @@ void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 	opengl_engine = opengl_engine_;
 	tooltip = tooltip_;
 
+	colour = default_colour;
+	mouseover_colour = default_mouseover_colour;
+
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
-	overlay_ob->material.albedo_linear_rgb = button_colour;
+	overlay_ob->material.albedo_linear_rgb = colour;
 	if(!tex_path.empty())
 	{
 		TextureParams tex_params;
@@ -60,6 +63,20 @@ void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 }
 
 
+void GLUIImage::setColour(Colour3f colour_)
+{
+	colour = colour_;
+	if(overlay_ob.nonNull())
+		overlay_ob->material.albedo_linear_rgb = colour_;
+}
+
+
+void GLUIImage::setMouseOverColour(Colour3f colour_)
+{
+	mouseover_colour = colour_;
+}
+
+
 void GLUIImage::destroy()
 {
 	if(overlay_ob.nonNull())
@@ -75,12 +92,12 @@ bool GLUIImage::doHandleMouseMoved(const Vec2f& coords)
 	{
 		if(rect.inOpenRectangle(coords)) // If mouse over widget:
 		{
-			overlay_ob->material.albedo_linear_rgb = mouseover_button_colour;
+			overlay_ob->material.albedo_linear_rgb = mouseover_colour;
 			return true;
 		}
 		else
 		{
-			overlay_ob->material.albedo_linear_rgb = button_colour;
+			overlay_ob->material.albedo_linear_rgb = colour;
 		}
 	}
 	return false;

@@ -51,6 +51,24 @@ void GLUI::destroy()
 }
 
 
+Vec2f GLUI::UICoordsForWindowPixelCoords(const Vec2f& pixel_coords)
+{
+	const Vec2f gl_coords(
+		-1.f + 2 * pixel_coords.x / (float)opengl_engine->getViewPortWidth(),
+		 1.f - 2 * pixel_coords.y / (float)opengl_engine->getViewPortHeight()
+	);
+
+	return UICoordsForOpenGLCoords(gl_coords);
+}
+
+
+Vec2f GLUI::UICoordsForOpenGLCoords(const Vec2f& gl_coords)
+{
+	// Convert from gl_coords to UI x/y coords
+	return Vec2f(gl_coords.x, gl_coords.y / opengl_engine->getViewPortAspectRatio());
+}
+
+
 bool GLUI::handleMouseClick(const Vec2f& gl_coords)
 {
 	// Convert from gl_coords to UI x/y coords
