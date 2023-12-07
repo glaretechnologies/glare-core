@@ -115,6 +115,19 @@ void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z)
 }
 
 
+void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z)
+{
+	rect = Rect2f(botleft, botleft + dims); // NOTE: rectangle-based mouse-over detection will be wrong for non-zero rotation.
+
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+
+	//const float z = -0.9f;
+	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * 
+		Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1) * Matrix4f::translationMatrix(0.5f, 0.5f, 0) * Matrix4f::rotationAroundZAxis(rotation) * 
+		Matrix4f::translationMatrix(-0.5f, -0.5f, 0); // Transform so that rotation rotates around centre of object.
+}
+
+
 void GLUIImage::setVisible(bool visible)
 {
 	if(overlay_ob.nonNull())

@@ -38,6 +38,7 @@ public:
 	void destroy();
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z = -0.9f);
+	void setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z = -0.9f);
 
 	void setVisible(bool visible);
 
