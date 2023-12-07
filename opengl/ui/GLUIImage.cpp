@@ -30,12 +30,13 @@ static const Colour3f default_colour(1.f);
 static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
+void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
 	const std::string& tooltip_)
 {
 	opengl_engine = opengl_engine_;
 	tooltip = tooltip_;
 
+	pos = botleft_;
 	colour = default_colour;
 	mouseover_colour = default_mouseover_colour;
 
@@ -51,13 +52,13 @@ void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
 
 
-	rect = Rect2f(botleft, botleft + dims);
+	rect = Rect2f(pos, pos + dims);
 
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	const float z = -0.999f;
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+	z = -0.999f;
+	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos.x, pos.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 
 	opengl_engine->addOverlayObject(overlay_ob);
 }
@@ -104,24 +105,35 @@ bool GLUIImage::doHandleMouseMoved(const Vec2f& coords)
 }
 
 
-void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z)
+void GLUIImage::setDims(const Vec2f& dims)
 {
+	rect = Rect2f(pos, pos + dims);
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+
+	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos.x, pos.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+}
+
+
+void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z_)
+{
+	pos = botleft;
+	z = z_;
 	rect = Rect2f(botleft, botleft + dims);
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	//const float z = -0.9f;
 	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 }
 
 
-void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z)
+void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z_)
 {
+	pos = botleft;
+	z = z_;
 	rect = Rect2f(botleft, botleft + dims); // NOTE: rectangle-based mouse-over detection will be wrong for non-zero rotation.
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	//const float z = -0.9f;
 	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * 
 		Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1) * Matrix4f::translationMatrix(0.5f, 0.5f, 0) * Matrix4f::rotationAroundZAxis(rotation) * 
 		Matrix4f::translationMatrix(-0.5f, -0.5f, 0); // Transform so that rotation rotates around centre of object.

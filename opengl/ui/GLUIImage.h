@@ -37,6 +37,9 @@ public:
 
 	void destroy();
 
+	const Vec2f& getPos() const { return pos; }
+
+	void setDims(const Vec2f& dims);
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z = -0.9f);
 	void setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z = -0.9f);
 
@@ -44,15 +47,17 @@ public:
 
 	virtual bool doHandleMouseMoved(const Vec2f& coords) override;
 
+
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 
-	Colour3f colour;
-	Colour3f mouseover_colour;
 private:
 	GLARE_DISABLE_COPY(GLUIImage);
-
 	
+	Colour3f colour;
+	Colour3f mouseover_colour;
+	Vec2f pos; // Position of bottom left of image
+	float z;
 };
 
 
