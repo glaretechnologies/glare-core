@@ -56,7 +56,8 @@ public:
 			return false;
 	}
 
-	void erase(const T& elem)
+	// Returns num elements removed (1 if removed, 0 otherwise)
+	size_t erase(const T& elem)
 	{
 		auto res = map.find(elem);
 		if(res != map.end())
@@ -76,9 +77,14 @@ public:
 
 			map.erase(elem);
 			vector.pop_back();
+			invariant();
+			return 1;
 		}
-
-		invariant();
+		else
+		{
+			invariant();
+			return 0;
+		}
 	}
 
 	typename js::Vector<T, 16>::iterator begin() { return vector.begin(); }
