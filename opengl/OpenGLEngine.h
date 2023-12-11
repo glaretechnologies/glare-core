@@ -155,7 +155,7 @@ public:
 	bool decal;
 	bool participating_media;
 
-	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.
+	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.  True by default.
 
 	bool draw_into_depth_buffer; // Internal
 
@@ -451,7 +451,7 @@ struct GLLight : public ThreadSafeRefCounted
 typedef Reference<GLLight> GLLightRef;
 
 
-// The OpenGLEngine contains one or more OpenGLScene.
+// The OpenGLEngine contains one or more OpenGLScenes.
 // An OpenGLScene is a set of objects, plus a camera transform, and associated information.
 // The current scene being rendered by the OpenGLEngine can be set with OpenGLEngine::setCurrentScene().
 class OpenGLScene : public ThreadSafeRefCounted
@@ -480,6 +480,10 @@ public:
 
 	bool use_z_up; // Should the +z axis be up (for cameras, sun lighting etc..).  True by default.  If false, y is up.
 	// NOTE: Use only with CameraType_Identity currently, clip planes won't be computed properly otherwise.
+
+	bool shadow_mapping; // True by default
+	bool draw_water; // True by default
+	bool use_main_render_framebuffer; // True by default
 
 	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
 
@@ -511,6 +515,8 @@ private:
 	Matrix4f world_to_camera_space_matrix; // Maps world space to a camera space where (1,0,0) is right, (0,1,0) is forwards and (0,0,1) is up.
 	Matrix4f cam_to_world;
 public:
+	Matrix4f overlay_world_to_camera_space_matrix; // Identity by default
+
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> transparent_objects;
@@ -532,8 +538,7 @@ private:
 	float near_draw_dist;
 public:
 	Planef frustum_clip_planes[6];
-	int num_frustum_clip_planes;
-	Vec4f frustum_verts[8];
+	int num_frustum_clip_planes; // <= 6
 	js::AABBox frustum_aabb;
 };
 
@@ -937,10 +942,12 @@ public:
 
 	//--------------------------------------- Viewport ----------------------------------------
 	// This will be the resolution at which the main render framebuffer is allocated, for which res bloom textures are allocated etc..
-	void setMainViewport(int main_viewport_w_, int main_viewport_h_);
+	void setMainViewportDims(int main_viewport_w_, int main_viewport_h_);
 
 
-	void setViewport(int viewport_w_, int viewport_h_);
+	void setViewportDims(int viewport_w_, int viewport_h_);
+	void setViewportDims(const Vec2i& viewport_dims) { setViewportDims(viewport_dims.x, viewport_dims.y); }
+	Vec2i getViewportDims() const { return Vec2i(viewport_w, viewport_h); }
 	int getViewPortWidth()  const { return viewport_w; } // Return viewport width, in pixels.
 	int getViewPortHeight() const { return viewport_h; }
 	float getViewPortAspectRatio() const { return (float)getViewPortWidth() / (float)(getViewPortHeight()); } // Viewport width / viewport height.
@@ -1270,7 +1277,7 @@ public:
 
 	OpenGLEngineSettings settings;
 
-	uint64 frame_num;
+	uint64 shadow_mapping_frame_num;
 
 	bool are_8bit_textures_sRGB; // If true, load textures as sRGB, otherwise treat them as in an 8-bit colour space.  Defaults to true.
 	// Currently compressed textures are always treated as sRGB.

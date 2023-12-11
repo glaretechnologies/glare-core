@@ -264,7 +264,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	transparent_objects(NULL),
 	participating_media_objects(NULL),
 	water_objects(NULL),
-	decal_objects(NULL)
+	decal_objects(NULL),
+	overlay_world_to_camera_space_matrix(Matrix4f::identity())
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -278,6 +279,9 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	wind_strength = 1.f;
 	water_level_z = 0.f;
 	grass_pusher_sphere_pos = Vec4f(-1.0e10, -1.0e10, -1.0e10, 1);
+	shadow_mapping = true;
+	draw_water = true;
+	use_main_render_framebuffer = true;
 
 	env_ob = engine.allocateObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
@@ -353,7 +357,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 :	init_succeeded(false),
 	settings(settings_),
 	draw_wireframes(false),
-	frame_num(0),
+	shadow_mapping_frame_num(0),
 	current_time(0.f),
 	task_manager(NULL),
 	texture_server(NULL),
@@ -483,9 +487,14 @@ OpenGLEngine::~OpenGLEngine()
 }
 
 
-static const Vec4f FORWARDS_OS(0.0f, 1.0f, 0.0f, 0.0f); // Forwards in local camera (object) space.
-static const Vec4f UP_OS(0.0f, 0.0f, 1.0f, 0.0f);
-static const Vec4f RIGHT_OS(1.0f, 0.0f, 0.0f, 0.0f);
+static const Vec4f FORWARDS_OS_Z_UP(0, 1, 0, 0); // Forwards in local camera (object) space.
+static const Vec4f UP_OS_Z_UP(0, 0, 1, 0);
+static const Vec4f RIGHT_OS_Z_UP(1, 0, 0, 0);
+
+
+static const Vec4f FORWARDS_OS_Y_UP(0, 0, -1, 0); // Forwards in local camera (object) space.
+static const Vec4f UP_OS_Y_UP(0, 1, 0, 0);
+static const Vec4f RIGHT_OS_Y_UP(1, 0, 0, 0);
 
 
 void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_space_matrix_, float sensor_width_, float lens_sensor_dist_, float render_aspect_ratio_, float lens_shift_up_distance_,
@@ -515,39 +524,43 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 	const Vec4f lens_center(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
 	const Vec4f sensor_center(0, -lens_sensor_dist, 0, 1);
 
-	const Vec4f sensor_bottom = (sensor_center - UP_OS    * (use_sensor_height * 0.5f));
-	const Vec4f sensor_top    = (sensor_center + UP_OS    * (use_sensor_height * 0.5f));
-	const Vec4f sensor_left   = (sensor_center - RIGHT_OS * (use_sensor_width  * 0.5f));
-	const Vec4f sensor_right  = (sensor_center + RIGHT_OS * (use_sensor_width  * 0.5f));
+	const Vec4f forwards_os    = this->use_z_up ? FORWARDS_OS_Z_UP : FORWARDS_OS_Y_UP;
+	const Vec4f up_os          = this->use_z_up ? UP_OS_Z_UP : UP_OS_Y_UP;
+	const Vec4f right_os       = this->use_z_up ? RIGHT_OS_Z_UP : RIGHT_OS_Y_UP;
+
+	const Vec4f sensor_bottom = (sensor_center - up_os    * (use_sensor_height * 0.5f));
+	const Vec4f sensor_top    = (sensor_center + up_os    * (use_sensor_height * 0.5f));
+	const Vec4f sensor_left   = (sensor_center - right_os * (use_sensor_width  * 0.5f));
+	const Vec4f sensor_right  = (sensor_center + right_os * (use_sensor_width  * 0.5f));
 
 	Planef planes_cs[5]; // Clipping planes in camera space
 
 	// We won't bother with a culling plane at the near clip plane, since the near draw distance is so close to zero, so it's unlikely to cull any objects.
 
 	planes_cs[0] = Planef(
-		Vec4f(0,0,0,1) + FORWARDS_OS * this->max_draw_dist, // pos.
-		FORWARDS_OS // normal
+		Vec4f(0,0,0,1) + forwards_os * this->max_draw_dist, // pos.
+		forwards_os // normal
 	); // far clip plane of frustum
 
-	const Vec4f left_normal = normalise(crossProduct(UP_OS, lens_center - sensor_right));
+	const Vec4f left_normal = normalise(crossProduct(up_os, lens_center - sensor_right));
 	planes_cs[1] = Planef(
 		lens_center,
 		left_normal
 	); // left
 
-	const Vec4f right_normal = normalise(crossProduct(lens_center - sensor_left, UP_OS));
+	const Vec4f right_normal = normalise(crossProduct(lens_center - sensor_left, up_os));
 	planes_cs[2] = Planef(
 		lens_center,
 		right_normal
 	); // right
 
-	const Vec4f bottom_normal = normalise(crossProduct(lens_center - sensor_top, RIGHT_OS));
+	const Vec4f bottom_normal = normalise(crossProduct(lens_center - sensor_top, right_os));
 	planes_cs[3] = Planef(
 		lens_center,
 		bottom_normal
 	); // bottom
 
-	const Vec4f top_normal = normalise(crossProduct(RIGHT_OS, lens_center - sensor_bottom));
+	const Vec4f top_normal = normalise(crossProduct(right_os, lens_center - sensor_bottom));
 	planes_cs[4] = Planef(
 		lens_center,
 		top_normal
@@ -582,16 +595,15 @@ void OpenGLScene::setPerspectiveCameraTransform(const Matrix4f& world_to_camera_
 	const float d_h = use_sensor_height * max_draw_dist / (2 * lens_sensor_dist);
 
 	verts_cs[0] = lens_center;
-	verts_cs[1] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * (-d_w + shift_right_d) + UP_OS * (-d_h + shift_up_d); // bottom left
-	verts_cs[2] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * ( d_w + shift_right_d) + UP_OS * (-d_h + shift_up_d); // bottom right
-	verts_cs[3] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * ( d_w + shift_right_d) + UP_OS * ( d_h + shift_up_d); // top right
-	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * (-d_w + shift_right_d) + UP_OS * ( d_h + shift_up_d); // top left
+	verts_cs[1] = lens_center + forwards_os * max_draw_dist + right_os * (-d_w + shift_right_d) + up_os * (-d_h + shift_up_d); // bottom left
+	verts_cs[2] = lens_center + forwards_os * max_draw_dist + right_os * ( d_w + shift_right_d) + up_os * (-d_h + shift_up_d); // bottom right
+	verts_cs[3] = lens_center + forwards_os * max_draw_dist + right_os * ( d_w + shift_right_d) + up_os * ( d_h + shift_up_d); // top right
+	verts_cs[4] = lens_center + forwards_os * max_draw_dist + right_os * (-d_w + shift_right_d) + up_os * ( d_h + shift_up_d); // top left
 
 	frustum_aabb = js::AABBox::emptyAABBox();
 	for(int i=0; i<5; ++i)
 	{
 		assert(verts_cs[i][3] == 1.f);
-		frustum_verts[i] = cam_to_world * verts_cs[i];
 		const Vec4f frustum_vert_ws = cam_to_world * verts_cs[i];
 		//conPrint("frustum_verts " + toString(i) + ": " + frustum_verts[i].toString());
 		frustum_aabb.enlargeToHoldPoint(frustum_vert_ws);
@@ -612,9 +624,13 @@ void OpenGLScene::calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* ve
 	const Vec4f lens_center_cs(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
 	const Vec4f lens_center_ws = cam_to_world * lens_center_cs;
 
-	const Vec4f forwards_ws = cam_to_world * FORWARDS_OS;
-	const Vec4f up_ws = cam_to_world * UP_OS;
-	const Vec4f right_ws = cam_to_world * RIGHT_OS;
+	const Vec4f forwards_os    = this->use_z_up ? FORWARDS_OS_Z_UP : FORWARDS_OS_Y_UP;
+	const Vec4f up_os          = this->use_z_up ? UP_OS_Z_UP : UP_OS_Y_UP;
+	const Vec4f right_os       = this->use_z_up ? RIGHT_OS_Z_UP : RIGHT_OS_Y_UP;
+
+	const Vec4f forwards_ws = cam_to_world * forwards_os;
+	const Vec4f up_ws = cam_to_world * up_os;
+	const Vec4f right_ws = cam_to_world * right_os;
 
 	if(camera_type == OpenGLScene::CameraType_Identity)
 	{
@@ -677,6 +693,7 @@ void OpenGLScene::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_
 	camera_type = CameraType_Orthographic;
 
 	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
+	this->lens_sensor_dist = 1.f;
 	this->render_aspect_ratio = render_aspect_ratio_;
 	this->lens_shift_up_distance = lens_shift_up_distance_;
 	this->lens_shift_right_distance = lens_shift_right_distance_;
@@ -698,35 +715,39 @@ void OpenGLScene::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_
 
 	Planef planes_cs[6]; // Clipping planes in camera space
 
+	const Vec4f forwards_os    = this->use_z_up ? FORWARDS_OS_Z_UP : FORWARDS_OS_Y_UP;
+	const Vec4f up_os          = this->use_z_up ? UP_OS_Z_UP : UP_OS_Y_UP;
+	const Vec4f right_os       = this->use_z_up ? RIGHT_OS_Z_UP : RIGHT_OS_Y_UP;
+
 	planes_cs[0] = Planef(
 		Vec4f(0,0,0,1), // pos.
-		-FORWARDS_OS // normal
+		-forwards_os // normal
 	); // near clip plane of frustum
 
 	planes_cs[1] = Planef(
-		Vec4f(0, 0, 0, 1) + FORWARDS_OS * this->max_draw_dist, // pos.
-		FORWARDS_OS // normal
+		Vec4f(0, 0, 0, 1) + forwards_os * this->max_draw_dist, // pos.
+		forwards_os // normal
 	); // far clip plane of frustum
 
-	const Vec4f left_normal = -RIGHT_OS;
+	const Vec4f left_normal = -right_os;
 	planes_cs[2] = Planef(
 		lens_center + left_normal * use_sensor_width/2,
 		left_normal
 	); // left
 
-	const Vec4f right_normal = RIGHT_OS;
+	const Vec4f right_normal = right_os;
 	planes_cs[3] = Planef(
 		lens_center + right_normal * use_sensor_width/2,
 		right_normal
 	); // right
 
-	const Vec4f bottom_normal = -UP_OS;
+	const Vec4f bottom_normal = -up_os;
 	planes_cs[4] = Planef(
 		lens_center + bottom_normal * use_sensor_height/2,
 		bottom_normal
 	); // bottom
 
-	const Vec4f top_normal = UP_OS;
+	const Vec4f top_normal = up_os;
 	planes_cs[5] = Planef(
 		lens_center + top_normal * use_sensor_height/2,
 		top_normal
@@ -753,20 +774,19 @@ void OpenGLScene::setOrthoCameraTransform(const Matrix4f& world_to_camera_space_
 
 	// Calculate frustum verts
 	Vec4f verts_cs[8];
-	verts_cs[0] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
-	verts_cs[1] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
-	verts_cs[2] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
-	verts_cs[3] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
-	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
-	verts_cs[5] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
-	verts_cs[6] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
-	verts_cs[7] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
+	verts_cs[0] = lens_center                               + right_os * -use_sensor_width + up_os * -use_sensor_height; // bottom left
+	verts_cs[1] = lens_center                               + right_os *  use_sensor_width + up_os * -use_sensor_height; // bottom right
+	verts_cs[2] = lens_center                               + right_os *  use_sensor_width + up_os *  use_sensor_height; // top right
+	verts_cs[3] = lens_center                               + right_os * -use_sensor_width + up_os *  use_sensor_height; // top left
+	verts_cs[4] = lens_center + forwards_os * max_draw_dist + right_os * -use_sensor_width + up_os * -use_sensor_height; // bottom left
+	verts_cs[5] = lens_center + forwards_os * max_draw_dist + right_os *  use_sensor_width + up_os * -use_sensor_height; // bottom right
+	verts_cs[6] = lens_center + forwards_os * max_draw_dist + right_os *  use_sensor_width + up_os *  use_sensor_height; // top right
+	verts_cs[7] = lens_center + forwards_os * max_draw_dist + right_os * -use_sensor_width + up_os *  use_sensor_height; // top left
 
 	frustum_aabb = js::AABBox::emptyAABBox();
 	for(int i=0; i<8; ++i)
 	{
 		assert(verts_cs[i][3] == 1.f);
-		frustum_verts[i] = cam_to_world * verts_cs[i];
 		const Vec4f frustum_vert_ws = cam_to_world * verts_cs[i];
 		//conPrint("frustum_verts " + toString(i) + ": " + frustum_verts[i].toString());
 		frustum_aabb.enlargeToHoldPoint(frustum_vert_ws);
@@ -779,6 +799,7 @@ void OpenGLScene::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camer
 	camera_type = CameraType_DiagonalOrthographic;
 
 	this->world_to_camera_space_matrix = world_to_camera_space_matrix_;
+	this->lens_sensor_dist = 1.f;
 	this->render_aspect_ratio = render_aspect_ratio_;
 	this->lens_shift_up_distance = 0;
 	this->lens_shift_right_distance = 0;
@@ -794,46 +815,51 @@ void OpenGLScene::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camer
 		use_sensor_height = sensor_width_ / viewport_aspect_ratio; // Enlarge vertical field of view as needed
 	}
 
-	//TEMP HACK: These camera clipping planes are completely wrong for diagonal ortho.
-	use_sensor_width *= 2;
-	use_sensor_height *= 2;
+	//TEMP HACK: These camera clipping planes are completely wrong for diagonal ortho.  use larger values to compensate
+	const float clip_sensor_width  = use_sensor_width * 2;
+	const float clip_sensor_height = use_sensor_height * 2;
 
 	// Make camera view volume clipping planes
 	const Vec4f lens_center(lens_shift_right_distance, 0, lens_shift_up_distance, 1);
 
 	Planef planes_cs[6]; // Clipping planes in camera space
 
+	const Vec4f forwards_os    = this->use_z_up ? FORWARDS_OS_Z_UP : FORWARDS_OS_Y_UP;
+	const Vec4f up_os          = this->use_z_up ? UP_OS_Z_UP : UP_OS_Y_UP;
+	const Vec4f right_os       = this->use_z_up ? RIGHT_OS_Z_UP : RIGHT_OS_Y_UP;
+
+
 	planes_cs[0] = Planef(
 		Vec4f(0,0,0,1), // pos.
-		-FORWARDS_OS // normal
+		-forwards_os // normal
 	); // near clip plane of frustum
 
 	planes_cs[1] = Planef(
-		Vec4f(0, 0, 0, 1) + FORWARDS_OS * this->max_draw_dist, // pos.
-		FORWARDS_OS // normal
+		Vec4f(0, 0, 0, 1) + forwards_os * this->max_draw_dist, // pos.
+		forwards_os // normal
 	); // far clip plane of frustum
 
-	const Vec4f left_normal = -RIGHT_OS;
+	const Vec4f left_normal = -right_os;
 	planes_cs[2] = Planef(
-		lens_center + left_normal * use_sensor_width/2,
+		lens_center + left_normal * clip_sensor_width/2,
 		left_normal
 	); // left
 
-	const Vec4f right_normal = RIGHT_OS;
+	const Vec4f right_normal = right_os;
 	planes_cs[3] = Planef(
-		lens_center + right_normal * use_sensor_width/2,
+		lens_center + right_normal * clip_sensor_width/2,
 		right_normal
 	); // right
 
-	const Vec4f bottom_normal = -UP_OS;
+	const Vec4f bottom_normal = -up_os;
 	planes_cs[4] = Planef(
-		lens_center + bottom_normal * use_sensor_height/2,
+		lens_center + bottom_normal * clip_sensor_height/2,
 		bottom_normal
 	); // bottom
 
-	const Vec4f top_normal = UP_OS;
+	const Vec4f top_normal = up_os;
 	planes_cs[5] = Planef(
-		lens_center + top_normal * use_sensor_height/2,
+		lens_center + top_normal * clip_sensor_height/2,
 		top_normal
 	); // top
 
@@ -858,20 +884,19 @@ void OpenGLScene::setDiagonalOrthoCameraTransform(const Matrix4f& world_to_camer
 
 	// Calculate frustum verts
 	Vec4f verts_cs[8];
-	verts_cs[0] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
-	verts_cs[1] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
-	verts_cs[2] = lens_center                               + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
-	verts_cs[3] = lens_center                               + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
-	verts_cs[4] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS * -use_sensor_height; // bottom left
-	verts_cs[5] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS * -use_sensor_height; // bottom right
-	verts_cs[6] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS *  use_sensor_width + UP_OS *  use_sensor_height; // top right
-	verts_cs[7] = lens_center + FORWARDS_OS * max_draw_dist + RIGHT_OS * -use_sensor_width + UP_OS *  use_sensor_height; // top left
+	verts_cs[0] = lens_center                               + right_os * -clip_sensor_width + up_os * -clip_sensor_height; // bottom left
+	verts_cs[1] = lens_center                               + right_os *  clip_sensor_width + up_os * -clip_sensor_height; // bottom right
+	verts_cs[2] = lens_center                               + right_os *  clip_sensor_width + up_os *  clip_sensor_height; // top right
+	verts_cs[3] = lens_center                               + right_os * -clip_sensor_width + up_os *  clip_sensor_height; // top left
+	verts_cs[4] = lens_center + forwards_os * max_draw_dist + right_os * -clip_sensor_width + up_os * -clip_sensor_height; // bottom left
+	verts_cs[5] = lens_center + forwards_os * max_draw_dist + right_os *  clip_sensor_width + up_os * -clip_sensor_height; // bottom right
+	verts_cs[6] = lens_center + forwards_os * max_draw_dist + right_os *  clip_sensor_width + up_os *  clip_sensor_height; // top right
+	verts_cs[7] = lens_center + forwards_os * max_draw_dist + right_os * -clip_sensor_width + up_os *  clip_sensor_height; // top left
 
 	frustum_aabb = js::AABBox::emptyAABBox();
 	for(int i=0; i<8; ++i)
 	{
 		assert(verts_cs[i][3] == 1.f);
-		frustum_verts[i] = cam_to_world * verts_cs[i];
 		const Vec4f frustum_vert_ws = cam_to_world * verts_cs[i];
 		//conPrint("frustum_verts " + toString(i) + ": " + frustum_verts[i].toString());
 		frustum_aabb.enlargeToHoldPoint(frustum_vert_ws);
@@ -2744,19 +2769,17 @@ void OpenGLEngine::buildOutlineTextures()
 }
 
 
-void OpenGLEngine::setMainViewport(int main_viewport_w_, int main_viewport_h_)
+void OpenGLEngine::setMainViewportDims(int main_viewport_w_, int main_viewport_h_)
 {
 	main_viewport_w = main_viewport_w_;
 	main_viewport_h = main_viewport_h_;
 }
 
 
-void OpenGLEngine::setViewport(int viewport_w_, int viewport_h_)
+void OpenGLEngine::setViewportDims(int viewport_w_, int viewport_h_)
 {
 	viewport_w = viewport_w_;
 	viewport_h = viewport_h_;
-
-	glViewport(0, 0, viewport_w, viewport_h);
 }
 
 
@@ -3478,7 +3501,12 @@ void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 
 void OpenGLEngine::removeOverlayObject(const Reference<OverlayObject>& object)
 {
-	current_scene->overlay_objects.erase(object);
+	const size_t num_removed = current_scene->overlay_objects.erase(object);
+	if(num_removed == 0)
+	{
+		conPrint("OpenGLEngine::removeOverlayObject(): Warning: no such object in scene, did not remove anything");
+		assert(0);
+	}
 }
 
 
@@ -3652,6 +3680,19 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 				}
 			}
 		}
+
+		// Assign to overlay objects
+		for(auto it = scene->overlay_objects.begin(); it != scene->overlay_objects.end(); ++it)
+		{
+			OverlayObject* const object = it->ptr();
+
+			if(object->material.tex_path == path)
+			{
+				// conPrint("Assigning texture '" + path + "' to overlay object");
+
+				object->material.albedo_texture = opengl_texture;
+			}
+		}
 	}
 }
 
@@ -3690,11 +3731,11 @@ void OpenGLEngine::deselectAllObjects()
 
 void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
-	current_scene->objects.erase(object);
+	size_t num_removed = current_scene->objects.erase(object);
 	current_scene->transparent_objects.erase(object);
 	current_scene->participating_media_objects.erase(object);
 	current_scene->materialise_objects.erase(object);
-	current_scene->always_visible_objects.erase(object);
+	num_removed += current_scene->always_visible_objects.erase(object); // Object will either be in objects or always_visible_objects.
 	current_scene->animated_objects.erase(object);
 	current_scene->water_objects.erase(object);
 	current_scene->decal_objects.erase(object);
@@ -3724,6 +3765,12 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 			object->joint_matrices_block = NULL;
 			object->joint_matrices_base_index = -1;
 		}
+	}
+
+	if(num_removed == 0)
+	{
+		conPrint("OpenGLEngine::removeObject(): Warning: no such object in scene, did not remove anything");
+		//assert(0);
 	}
 }
 
@@ -5339,7 +5386,7 @@ void OpenGLEngine::draw()
 
 	//if(frame_num % 100 == 0)	checkMDIGPUDataCorrect();
 
-	if(!loaded_maps_for_sun_dir)
+	if(!loaded_maps_for_sun_dir && current_scene->env_ob.nonNull())
 	{
 		try
 		{
@@ -5561,7 +5608,8 @@ void OpenGLEngine::draw()
 	num_multi_draw_indirect_calls = 0;
 
 	//=============== Render to shadow map depth buffer if needed ===========
-	renderToShadowMapDepthBuffer(shadow_depth_drawing_elapsed_ns);
+	if(current_scene->shadow_mapping)
+		renderToShadowMapDepthBuffer(shadow_depth_drawing_elapsed_ns);
 
 
 #if !defined(OSX)
@@ -5570,7 +5618,7 @@ void OpenGLEngine::draw()
 
 
 	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
-	if(true/*settings.use_final_image_buffer*/)
+	if(current_scene->use_main_render_framebuffer)
 	{
 		const int xres = myMax(16, main_viewport_w);
 		const int yres = myMax(16, main_viewport_h);
@@ -5701,14 +5749,16 @@ void OpenGLEngine::draw()
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
-
-	// Bind normal texture as the second colour target.  Need to do this here as transparent object render pass changes this binding.
-	main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
-
-	// Draw to all colour buffers: colour and normal buffer.
+	if(current_scene->use_main_render_framebuffer)
 	{
-		const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-		glDrawBuffers(/*num=*/2, draw_buffers);
+		// Bind normal texture as the second colour target.  Need to do this here as transparent object render pass changes this binding.
+		main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
+
+		// Draw to all colour buffers: colour and normal buffer.
+		{
+			const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+			glDrawBuffers(/*num=*/2, draw_buffers);
+		}
 	}
 
 
@@ -5722,10 +5772,7 @@ void OpenGLEngine::draw()
 	
 	glLineWidth(1);
 
-	const double unit_shift_up    = this->current_scene->lens_shift_up_distance    / this->current_scene->lens_sensor_dist;
-	const double unit_shift_right = this->current_scene->lens_shift_right_distance / this->current_scene->lens_sensor_dist;
-
-	Matrix4f proj_matrix;
+	
 	
 	// Initialise projection matrix from Indigo camera settings
 	const double z_far  = current_scene->max_draw_dist;
@@ -5735,10 +5782,14 @@ void OpenGLEngine::draw()
 	// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
 	const Matrix4f reverse_z_matrix = getReverseZMatrixOrIdentity();
 
+	Matrix4f proj_matrix;
 	if(current_scene->camera_type == OpenGLScene::CameraType_Perspective)
 	{
 		const double w = 0.5 * current_scene->use_sensor_width  / current_scene->lens_sensor_dist; // Half width of camera view frustum at distance 1 from camera.
 		const double h = 0.5 * current_scene->use_sensor_height / current_scene->lens_sensor_dist;
+
+		const double unit_shift_up    = this->current_scene->lens_shift_up_distance    / this->current_scene->lens_sensor_dist;
+		const double unit_shift_right = this->current_scene->lens_shift_right_distance / this->current_scene->lens_sensor_dist;
 
 		const double x_min = z_near * (-w + unit_shift_right);
 		const double x_max = z_near * ( w + unit_shift_right);
@@ -5780,8 +5831,8 @@ void OpenGLEngine::draw()
 	}
 	else if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic || current_scene->camera_type == OpenGLScene::CameraType_DiagonalOrthographic)
 	{
-		const double w = 0.5 * current_scene->use_sensor_width  / current_scene->lens_sensor_dist; // Half width of camera view frustum at distance 1 from camera.
-		const double h = 0.5 * current_scene->use_sensor_height / current_scene->lens_sensor_dist;
+		const double w = 0.5 * current_scene->use_sensor_width; // Half width of camera view frustum at distance 1 from camera.
+		const double h = 0.5 * current_scene->use_sensor_height;
 
 		if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
 		{
@@ -5894,7 +5945,7 @@ void OpenGLEngine::draw()
 
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 
-		if(true/*settings.use_final_image_buffer*/)
+		if(current_scene->use_main_render_framebuffer)
 			main_render_framebuffer->bind(); // Restore main render framebuffer binding.
 		else
 			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
@@ -5904,7 +5955,8 @@ void OpenGLEngine::draw()
 
 	//================= Draw background env map =================
 	// Draw background env map if there is one. (or if we are using a non-standard env shader)
-	if((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
+	if(this->current_scene->env_ob.nonNull() && 
+		((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull()))
 	{
 		ZoneScopedN("Draw env"); // Tracy profiler
 		assert(getCurrentProgram() == 0);
@@ -6131,7 +6183,10 @@ void OpenGLEngine::draw()
 
 
 	//========================================== Draw water objects ======================================
+	if(current_scene->draw_water)
 	{
+		assert(current_scene->use_main_render_framebuffer);
+
 		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
 		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
 		//
@@ -6298,6 +6353,7 @@ void OpenGLEngine::draw()
 	if(!current_scene->decal_objects.empty()) // Only do buffer copying if we have some decals to draw.
 	{
 		assert(getCurrentProgram() == 0);
+		assert(current_scene->use_main_render_framebuffer);
 
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
@@ -6608,7 +6664,7 @@ void OpenGLEngine::draw()
 	drawUIOverlayObjects(reverse_z_matrix);
 	
 
-	if(true/*settings.use_final_image_buffer*/)
+	if(current_scene->use_main_render_framebuffer)
 	{
 		ZoneScopedN("Post process"); // Tracy profiler
 
@@ -6842,8 +6898,6 @@ void OpenGLEngine::draw()
 	}
 
 	add_debug_obs = false;
-
-	frame_num++;
 
 	//PerformanceAPI_EndEvent();
 	FrameMark; // Tracy profiler
@@ -7083,11 +7137,11 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 
 			shadow_mapping->bindStaticDepthTexFrameBufferAsTarget(other_index);
 
-			const uint32 ti = (frame_num % 12) / 4; // Texture index, in [0, numStaticDepthTextures)
-			const uint32 ob_set = frame_num % 4;    // Object set, in [0, 4)
+			const uint32 ti = (shadow_mapping_frame_num % 12) / 4; // Texture index, in [0, numStaticDepthTextures)
+			const uint32 ob_set = shadow_mapping_frame_num % 4;    // Object set, in [0, 4)
 
 			{
-				//conPrint("At frame " + toString(frame_num) + ", drawing static cascade " + toString(ti));
+				//conPrint("At frame " + toString(shadow_mapping_frame_num) + ", drawing static cascade " + toString(ti));
 
 				const int static_per_map_h = shadow_mapping->static_h / shadow_mapping->numStaticDepthTextures();
 				glViewport(/*x=*/0, /*y=*/ti*static_per_map_h, /*width=*/shadow_mapping->static_w, /*height=*/static_per_map_h);
@@ -7310,7 +7364,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 
 			shadow_mapping->unbindFrameBuffer();
 
-			if(frame_num % 12 == 11) // If we just finished drawing to our 'other' depth map, swap cur and other
+			if(shadow_mapping_frame_num % 12 == 11) // If we just finished drawing to our 'other' depth map, swap cur and other
 				shadow_mapping->setCurStaticDepthTex((shadow_mapping->cur_static_depth_tex + 1) % 2); // Swap cur and other
 		}
 		//-------------------- End draw static depth textures ----------------
@@ -7344,6 +7398,9 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 			glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &shadow_depth_drawing_elapsed_ns_out); // Blocks
 		}
 #endif
+
+		shadow_mapping_frame_num++;
+
 	} // End if(shadow_mapping.nonNull())
 }
 
@@ -7352,6 +7409,9 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 {
 	ZoneScopedN("Draw transparent obs"); // Tracy profiler
 	assert(getCurrentProgram() == 0);
+
+	if(!current_scene->use_main_render_framebuffer)
+		return;
 
 	main_render_framebuffer->bindTextureAsTarget(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
 	main_render_framebuffer->bindTextureAsTarget(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
@@ -7616,7 +7676,10 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 				checkUseProgram(opengl_mat.shader_prog.ptr());
 
 				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
-				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, (reverse_z_matrix * ob->ob_to_world_matrix).e);
+
+				const Matrix4f ob_to_cam = reverse_z_matrix * current_scene->overlay_world_to_camera_space_matrix * ob->ob_to_world_matrix;
+
+				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob_to_cam.e);
 				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 
 				if(opengl_mat.albedo_texture.nonNull())
@@ -8005,8 +8068,11 @@ void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& progr
 
 void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations& locations)
 {
-	bindTextureToTextureUnit(*this->cosine_env_tex,    /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
-	bindTextureToTextureUnit(*this->specular_env_tex,  /*texture_unit_index=*/SPECULAR_ENV_TEXTURE_UNIT_INDEX);
+	if(cosine_env_tex.nonNull())
+	{
+		bindTextureToTextureUnit(*this->cosine_env_tex,    /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*this->specular_env_tex,  /*texture_unit_index=*/SPECULAR_ENV_TEXTURE_UNIT_INDEX);
+	}
 	bindTextureToTextureUnit(*this->blue_noise_tex,    /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
 	bindTextureToTextureUnit(*this->fbm_tex,           /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
 
@@ -9005,7 +9071,7 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRendered
 void OpenGLEngine::setTargetFrameBufferAndViewport(const Reference<FrameBuffer> frame_buffer)
 { 
 	target_frame_buffer = frame_buffer;
-	setViewport((int)frame_buffer->xRes(), (int)frame_buffer->yRes());
+	setViewportDims((int)frame_buffer->xRes(), (int)frame_buffer->yRes());
 }
 
 
@@ -9109,7 +9175,8 @@ void OpenGLEngine::addScene(const Reference<OpenGLScene>& scene)
 {
 	scenes.insert(scene);
 
-	scene->env_ob->mesh_data = sphere_meshdata;
+	if(scene->env_ob.nonNull())
+		scene->env_ob->mesh_data = sphere_meshdata;
 }
 
 
