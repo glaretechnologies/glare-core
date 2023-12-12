@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 class GLUITextRendererCallback;
+class GLUIMouseWheelEvent;
 
 
 /*=====================================================================
@@ -42,6 +43,7 @@ public:
 	Vec2f UICoordsForOpenGLCoords(const Vec2f& gl_coords);
 
 	bool handleMouseClick(const Vec2f& gl_coords); // Returns true if event accepted (e.g. should not be passed on)
+	bool handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEvent& event);
 	bool handleMouseMoved(const Vec2f& gl_coords);
 	void viewportResized(int w, int h);
 
@@ -80,4 +82,11 @@ public:
 	virtual ~GLUITextRendererCallback() {}
 
 	virtual OpenGLTextureRef makeToolTipTexture(const std::string& text) = 0;
+};
+
+
+class GLUIMouseWheelEvent
+{
+public:
+	int angle_delta_y;
 };

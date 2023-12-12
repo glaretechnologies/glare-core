@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2023 -
 
 
 GLUIImage::GLUIImage()
+:	handler(NULL)
 {
 }
 
@@ -99,6 +100,24 @@ bool GLUIImage::doHandleMouseMoved(const Vec2f& coords)
 		else
 		{
 			overlay_ob->material.albedo_linear_rgb = colour;
+		}
+	}
+	return false;
+}
+
+
+bool GLUIImage::doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& wheel_event)
+{
+	if(rect.inOpenRectangle(coords))
+	{
+		if(handler)
+		{
+			GLUICallbackMouseWheelEvent event;
+			event.widget = this;
+			event.wheel_event = &wheel_event;
+			handler->mouseWheelEventOccurred(event);
+			if(event.accepted)
+				return true;
 		}
 	}
 	return false;

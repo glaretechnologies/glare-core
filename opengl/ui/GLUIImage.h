@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 class GLUI;
+class GLUIMouseWheelEvent;
 
 
 /*=====================================================================
@@ -46,11 +47,13 @@ public:
 	void setVisible(bool visible);
 
 	virtual bool doHandleMouseMoved(const Vec2f& coords) override;
+	virtual bool doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event) override;
 
 
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 
+	GLUICallbackHandler* handler;
 private:
 	GLARE_DISABLE_COPY(GLUIImage);
 	

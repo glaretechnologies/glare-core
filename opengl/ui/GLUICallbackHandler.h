@@ -11,6 +11,9 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Reference.h"
 
 
+class GLUIMouseWheelEvent;
+
+
 class GLUICallbackEvent
 {
 public:
@@ -20,12 +23,24 @@ public:
 };
 
 
+class GLUICallbackMouseWheelEvent : public GLUICallbackEvent
+{
+public:
+	GLUICallbackMouseWheelEvent() {}
+
+	const GLUIMouseWheelEvent* wheel_event;
+};
+
+
+
 class GLUICallbackHandler// : public RefCounted
 {
 public:
 	virtual ~GLUICallbackHandler() {}
 
 	virtual void eventOccurred(GLUICallbackEvent& event) = 0;
+
+	virtual void mouseWheelEventOccurred(GLUICallbackMouseWheelEvent& event) {}
 };
 
 

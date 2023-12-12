@@ -71,9 +71,7 @@ Vec2f GLUI::UICoordsForOpenGLCoords(const Vec2f& gl_coords)
 
 bool GLUI::handleMouseClick(const Vec2f& gl_coords)
 {
-	// Convert from gl_coords to UI x/y coords
-	const float y_scale = 1 / opengl_engine->getViewPortAspectRatio();
-	const Vec2f coords(gl_coords.x, gl_coords.y * y_scale);
+	const Vec2f coords = UICoordsForOpenGLCoords(gl_coords);
 
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
@@ -86,6 +84,22 @@ bool GLUI::handleMouseClick(const Vec2f& gl_coords)
 		//{
 		//	return true;
 		//}
+	}
+
+	return false;
+}
+
+
+bool GLUI::handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEvent& event)
+{
+	const Vec2f coords = UICoordsForOpenGLCoords(gl_coords);
+
+	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	{
+		GLUIWidget* widget = it->ptr();
+		const bool accepted = widget->handleMouseWheelEvent(coords, event);
+		if(accepted)
+			return true;
 	}
 
 	return false;

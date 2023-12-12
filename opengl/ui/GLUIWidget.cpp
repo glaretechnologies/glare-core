@@ -26,3 +26,9 @@ bool GLUIWidget::handleMouseMoved(const Vec2f& coords)
 {
 	return doHandleMouseMoved(coords);
 }
+
+
+bool GLUIWidget::handleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event)
+{
+	return doHandleMouseWheelEvent(coords, event);
+}
