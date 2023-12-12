@@ -4492,12 +4492,12 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 }
 
 
-// Sorts objects into ascending z order based on object-to-world z translation component.
+// Sorts objects into descending z order based on object-to-world z translation component.
 struct OverlayObjectZComparator
 {
 	inline bool operator() (OverlayObject* a, OverlayObject* b) const
 	{
-		return a->ob_to_world_matrix.e[14] < b->ob_to_world_matrix.e[14];
+		return a->ob_to_world_matrix.e[14] > b->ob_to_world_matrix.e[14];
 	}
 };
 
@@ -7656,9 +7656,12 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDepthMask(GL_FALSE); // Don't write to z-buffer
 
-	// Sort overlay objects into ascending z order, then we draw from back to front (ascending z order).
+	// NOTE: we can get away without clearing the z-buffer, as long as all the overlay z values are near -1 (e.g. near the near clip plane)
+	// glClearDepth(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+	// glClear(GL_DEPTH_BUFFER_BIT);
+
+	// Sort overlay objects into descending z order, then we draw from back to front (descending z order).
 	temp_obs.resize(current_scene->overlay_objects.size());
 	size_t q = 0;
 	for(auto it = current_scene->overlay_objects.begin(); it != current_scene->overlay_objects.end(); ++it)

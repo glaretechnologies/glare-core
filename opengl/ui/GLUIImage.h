@@ -31,7 +31,7 @@ public:
 	~GLUIImage();
 
 	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
-		const std::string& tooltip);
+		const std::string& tooltip, float z = -0.9f);
 
 	void setColour(Colour3f colour_);
 	void setMouseOverColour(Colour3f colour_);

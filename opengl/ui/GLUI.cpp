@@ -14,6 +14,9 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/StringUtils.h"
 
 
+static const float TOOLTIP_Z = -0.999f; // -1 is near clip plane
+
+
 GLUI::GLUI()
 :	text_renderer(NULL)
 {
@@ -151,7 +154,7 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 				if(pos_x + scale_x > 1.f) // If tooltip would go off right of screen:
 					pos_x = gl_coords.x - scale_x;
 
-				tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_x, pos_y, -0.8f) * Matrix4f::scaleMatrix(scale_x, scale_y, 1);
+				tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_x, pos_y, TOOLTIP_Z) * Matrix4f::scaleMatrix(scale_x, scale_y, 1);
 			}
 		}
 	}

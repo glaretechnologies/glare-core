@@ -32,12 +32,13 @@ static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
 void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
-	const std::string& tooltip_)
+	const std::string& tooltip_, float z_)
 {
 	opengl_engine = opengl_engine_;
 	tooltip = tooltip_;
 
 	pos = botleft_;
+	z = z_;
 	colour = default_colour;
 	mouseover_colour = default_mouseover_colour;
 
@@ -58,7 +59,6 @@ void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	z = -0.999f;
 	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos.x, pos.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 
 	opengl_engine->addOverlayObject(overlay_ob);

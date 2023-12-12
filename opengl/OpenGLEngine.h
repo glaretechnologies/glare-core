@@ -808,10 +808,11 @@ public:
 	void removeObject(const Reference<GLObject>& object);
 	bool isObjectAdded(const Reference<GLObject>& object) const;
 
-	// Overlay objects are considered to be in OpenGL clip-space coordinates.
-	// The x axis is to the right, y up, and negative z away from the camera into the scene.
+	// Overlay objects are considered to be in default (z -1 to 1) OpenGL clip-space coordinates.  (See https://www.songho.ca/opengl/gl_projectionmatrix.html)
+	// The x axis is to the right, y up, and positive z away from the camera into the scene.
 	// x=-1 is the left edge of the viewport, x=+1 is the right edge.
 	// y=-1 is the bottom edge of the viewport, y=+1 is the top edge.
+	// z=-1 is the near clip plane, z=1 is the far clip plane
 	//
 	// Overlay objects are drawn back-to-front, without z-testing, using the overlay shaders.
 	void addOverlayObject(const Reference<OverlayObject>& object);
