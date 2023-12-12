@@ -31,8 +31,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 // Load the built texture data into OpenGL.
-Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB)
+Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params)
 {
 	const int frame_i = 0;
 	
@@ -45,46 +44,45 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const 
 		OpenGLTexture::Format format;
 		if(texture_data.data_is_compressed)
 		{
-			if(use_sRGB)
+			if(texture_params.use_sRGB)
 				format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_SRGBA_Uint8;
 			else
 				format = (bytes_pp == 3) ? OpenGLTexture::Format_Compressed_RGB_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8;
 		}
 		else
 		{
-			if(use_sRGB)
+			if(texture_params.use_sRGB)
 				format = (bytes_pp == 3) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_SRGBA_Uint8;
 			else
 				format = (bytes_pp == 3) ? OpenGLTexture::Format_RGB_Linear_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
 		}
 
-		return new OpenGLTexture(W, H, opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0), /*format=*/format, filtering, wrapping);
+		return new OpenGLTexture(W, H, opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0), /*format=*/format, texture_params.filtering, texture_params.wrapping);
 	}
 	else // Else if we don't have data we processed ourselves, image will not have been processed and is just stored in converted_image.
 	{
 		runtimeCheck(texture_data.frames[frame_i].converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
 
-		return createUninitialisedTextureForMap2D(*texture_data.frames[frame_i].converted_image, opengl_engine, filtering, wrapping, use_sRGB);
+		return createUninitialisedTextureForMap2D(*texture_data.frames[frame_i].converted_image, opengl_engine, texture_params);
 	}
 }
 
 
 // If an 8-bit map is passed to this function, it should not use compressed formats.
-Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(const Map2D& map2d, const Reference<OpenGLEngine>& opengl_engine, 
-	OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB)
+Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(const Map2D& map2d, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
 		OpenGLTexture::Format format;
 		if(map2d.numChannels() <= 3)
-			format = (opengl_engine->are_8bit_textures_sRGB && use_sRGB) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_RGB_Linear_Uint8;
+			format = (opengl_engine->are_8bit_textures_sRGB && texture_params.use_sRGB) ? OpenGLTexture::Format_SRGB_Uint8 : OpenGLTexture::Format_RGB_Linear_Uint8;
 		else if(map2d.numChannels() == 4)
-			format = (opengl_engine->are_8bit_textures_sRGB && use_sRGB) ? OpenGLTexture::Format_SRGBA_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
+			format = (opengl_engine->are_8bit_textures_sRGB && texture_params.use_sRGB) ? OpenGLTexture::Format_SRGBA_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
 		else
 			throw glare::Exception("Texture has unhandled number of components: " + toString(map2d.numChannels()));
 
 		return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
-			format, filtering, wrapping, /*use_mipmaps=*/false
+			format, texture_params.filtering, texture_params.wrapping, /*use_mipmaps=*/false
 		);
 	}
 	else if(dynamic_cast<const ImageMap<uint16, UInt16ComponentValueTraits>*>(&map2d))
@@ -96,20 +94,20 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 	{
 		const ImageMapFloat* imagemap = static_cast<const ImageMapFloat*>(&map2d);
 
-		const bool use_mipmaps = filtering == OpenGLTexture::Filtering_Fancy;
+		const bool use_mipmaps = texture_params.filtering == OpenGLTexture::Filtering_Fancy;
 
 		if(imagemap->getN() == 1)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_Greyscale_Float, 
-				filtering, wrapping,  /*use_mipmaps=*/use_mipmaps
+				texture_params.filtering, texture_params.wrapping,  /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else if(imagemap->getN() == 3)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_RGB_Linear_Float,
-				filtering, wrapping,  /*use_mipmaps=*/use_mipmaps
+				texture_params.filtering, texture_params.wrapping,  /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else
@@ -119,20 +117,20 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 	{
 		const ImageMap<half, HalfComponentValueTraits>* imagemap = static_cast<const ImageMap<half, HalfComponentValueTraits>*>(&map2d);
 
-		const bool use_mipmaps = filtering == OpenGLTexture::Filtering_Fancy;
+		const bool use_mipmaps = texture_params.filtering == OpenGLTexture::Filtering_Fancy;
 
 		if(imagemap->getN() == 1)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_Greyscale_Half,
-				filtering, wrapping, /*use_mipmaps=*/use_mipmaps
+				texture_params.filtering, texture_params.wrapping, /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else if(imagemap->getN() == 3)
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_RGB_Linear_Half,
-				filtering, wrapping, /*use_mipmaps=*/use_mipmaps
+				texture_params.filtering, texture_params.wrapping, /*use_mipmaps=*/use_mipmaps
 			);
 		}
 		else
@@ -150,7 +148,7 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 		{
 			opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTexture::Format_Compressed_BC6, 
-				filtering, wrapping, has_mipmaps);
+				texture_params.filtering, texture_params.wrapping, has_mipmaps);
 
 			bytes_per_block = 16; // "Both formats use 4x4 pixel blocks, and each block in both compression format is 128-bits in size" - See https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
 		}
@@ -158,14 +156,14 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 		{
 			opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				opengl_engine->GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8,
-				filtering, wrapping, has_mipmaps);
+				texture_params.filtering, texture_params.wrapping, has_mipmaps);
 			bytes_per_block = 8;
 		}
 		else if(compressed_image->gl_internal_format == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
 		{
 			opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				opengl_engine->GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8,
-				filtering, wrapping, has_mipmaps);
+				texture_params.filtering, texture_params.wrapping, has_mipmaps);
 			bytes_per_block = 16;
 		}
 		else
@@ -233,19 +231,19 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 }
 
 
-void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, bool use_sRGB, OpenGLTexture::Filtering filtering,
-	OpenGLTexture::Wrapping wrapping, const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress)
+void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
+	const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress)
 {
 	assert(tex_data.nonNull());
 
-	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), filtering, wrapping, use_sRGB);
+	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), texture_params);
 	opengl_tex->key = key;
 
 	loading_progress.path = path;
 	loading_progress.tex_data = tex_data;
 	loading_progress.opengl_tex = opengl_tex;
 	
-	loading_progress.num_mip_levels = tex_data->num_mip_levels;
+	loading_progress.num_mip_levels = myMin((size_t)opengl_tex->getNumMipMapLevelsAllocated(), tex_data->num_mip_levels);
 	loading_progress.next_mip_level = 0;
 	loading_progress.level_next_y = 0;
 }
@@ -445,8 +443,11 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 	if(loading_progress.done())
 	{
 		// Now that we have loaded all the texture data into OpenGL, if we didn't compute all mipmap level data ourselves, and we need it for trilinear filtering, then get the driver to do it.
-		if(texture_data->num_mip_levels == 1 && opengl_tex->getFiltering() == OpenGLTexture::Filtering_Fancy)
+		if((texture_data->W > 1 || texture_data->H > 1) && texture_data->num_mip_levels == 1 && opengl_tex->getFiltering() == OpenGLTexture::Filtering_Fancy)
+		{
+			conPrint("INFO: Getting driver to build MipMaps for texture '" + loading_progress.path + "'...");
 			opengl_tex->buildMipMaps();
+		}
 
 
 		if(texture_data->frames.size() > 1)

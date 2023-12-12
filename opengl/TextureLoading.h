@@ -33,7 +33,7 @@ struct OpenGLTextureLoadingProgress
 	Reference<TextureData> tex_data;
 	Reference<OpenGLTexture> opengl_tex;
 
-	size_t num_mip_levels;
+	size_t num_mip_levels; // Num MIP levels to load into the texture
 	size_t next_mip_level;
 	size_t level_next_y;
 };
@@ -64,16 +64,14 @@ public:
 	static void loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i);
 
 
-	static void initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, bool use_sRGB, OpenGLTexture::Filtering filtering,
-		OpenGLTexture::Wrapping wrapping, const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress);
+	static void initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
+		const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress);
 
 	static void partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>& opengl_engine, OpenGLTextureLoadingProgress& loading_progress, 
 		size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes);
 
 private:
-	static Reference<OpenGLTexture> createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine,
-		OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, bool use_sRGB = true);
+	static Reference<OpenGLTexture> createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params);
 
-	static Reference<OpenGLTexture> createUninitialisedTextureForMap2D(const Map2D& map2d, const Reference<OpenGLEngine>& opengl_engine, OpenGLTexture::Filtering filtering, OpenGLTexture::Wrapping wrapping, 
-		bool use_sRGB);
+	static Reference<OpenGLTexture> createUninitialisedTextureForMap2D(const Map2D& map2d, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params);
 };

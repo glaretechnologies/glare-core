@@ -144,6 +144,8 @@ public:
 
 	Filtering getFiltering() const { return filtering; }
 
+	int getNumMipMapLevelsAllocated() const { return num_mipmap_levels_allocated; }
+
 
 	/// Increment reference count
 	inline void incRefCount() const

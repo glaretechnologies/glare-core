@@ -538,6 +538,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		{
 			glBindTexture(texture_target, texture_handle);
 			glTexImage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+			this->num_mipmap_levels_allocated = 1;
 		}
 		else
 		{
@@ -699,6 +700,8 @@ void OpenGLTexture::loadIntoExistingTexture(int mipmap_level, size_t tex_xres, s
 
 void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed)
 {
+	assert(mipmap_level < num_mipmap_levels_allocated);
+
 	if(bind_needed)
 		glBindTexture(GL_TEXTURE_2D, texture_handle);
 
