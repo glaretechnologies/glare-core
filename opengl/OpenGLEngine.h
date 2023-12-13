@@ -1124,7 +1124,7 @@ private:
 
 	int viewport_w, viewport_h;
 	
-	std::vector<OverlayObject*> temp_obs;
+	js::Vector<OverlayObject*, 16> temp_obs;
 
 #if !defined(OSX)
 	GLuint timer_query_id;

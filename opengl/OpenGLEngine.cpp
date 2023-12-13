@@ -7657,12 +7657,13 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// NOTE: we can get away without clearing the z-buffer, as long as all the overlay z values are near -1 (e.g. near the near clip plane)
-	// glClearDepth(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-	// glClear(GL_DEPTH_BUFFER_BIT);
+	// Instead of using the depth buffer, use the Painter's algorithm - draw objects from far to near.
+	glDisable(GL_DEPTH_TEST); // Disable depth testing
+	glDepthMask(GL_FALSE); // Don't write to depth buffer
 
 	// Sort overlay objects into descending z order, then we draw from back to front (descending z order).
-	temp_obs.resize(current_scene->overlay_objects.size());
+	// Note that z=-1 is the near clip plane, z=1 is the far clip plane
+	temp_obs.resizeNoCopy(current_scene->overlay_objects.size());
 	size_t q = 0;
 	for(auto it = current_scene->overlay_objects.begin(); it != current_scene->overlay_objects.end(); ++it)
 		temp_obs[q++] = it->ptr();
@@ -7711,7 +7712,8 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 	flushDrawCommandsAndUnbindPrograms();
 
-	glDepthMask(GL_TRUE); // Restore
+	glEnable(GL_DEPTH_TEST); // Restore depth testing
+	glDepthMask(GL_TRUE); // Restore depth buffer writes
 	glDisable(GL_BLEND);
 }
 
