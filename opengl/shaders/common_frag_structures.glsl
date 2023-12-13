@@ -9,14 +9,13 @@ layout (std140) uniform MaterialCommonUniforms
 	vec4 sun_and_sky_av_spec_rad;
 	vec4 air_scattering_coeffs;
 	float near_clip_dist;
+	float far_clip_dist;
 	float time;
-	float l_over_w;
-	float l_over_h;
+	float l_over_w; // lens_sensor_dist / sensor width
+	float l_over_h; // lens_sensor_dist / sensor height
 	float env_phi;
 	float water_level_z;
-
-	float padding_a0; // Padding to get to a multiple of 4 32-bit members.
-	float padding_a1;
+	int camera_type; // OpenGLScene::CameraType
 };
 
 
@@ -27,6 +26,12 @@ layout (std140) uniform MaterialCommonUniforms
 #define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
 #define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
 #define HAVE_NORMAL_MAP_FLAG				64
+
+
+#define CameraType_Identity					0
+#define CameraType_Perspective				1
+#define CameraType_Orthographic				2
+#define CameraType_DiagonalOrthographic		3
 
 
 struct MaterialData

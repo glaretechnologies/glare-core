@@ -502,12 +502,13 @@ private:
 	float lens_shift_up_distance;
 	float lens_shift_right_distance;
 
+	// These enum values should match the defines in common_frag_structures.glsl
 	enum CameraType
 	{
-		CameraType_Identity, // Identity camera transform.
-		CameraType_Perspective,
-		CameraType_Orthographic,
-		CameraType_DiagonalOrthographic
+		CameraType_Identity = 0, // Identity camera transform.
+		CameraType_Perspective = 1,
+		CameraType_Orthographic = 2,
+		CameraType_DiagonalOrthographic = 3
 	};
 
 	CameraType camera_type;
@@ -676,14 +677,13 @@ struct MaterialCommonUniforms
 	Vec4f sun_and_sky_av_spec_rad;
 	Vec4f air_scattering_coeffs;
 	float near_clip_dist;
+	float far_clip_dist;
 	float time;
-	float l_over_w;
-	float l_over_h;
+	float l_over_w; // lens_sensor_dist / sensor width
+	float l_over_h; // lens_sensor_dist / sensor height
 	float env_phi;
 	float water_level_z;
-
-	float padding_0; // Padding to get to a multiple of 4 32-bit members.
-	float padding_1;
+	int camera_type; // OpenGLScene::CameraType
 };
 
 

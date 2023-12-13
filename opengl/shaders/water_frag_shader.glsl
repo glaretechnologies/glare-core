@@ -210,6 +210,18 @@ vec3 snorm12x2_to_unorm8x3(vec2 f) {
 
 
 // See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
+float getDepthFromDepthTextureOrthographic(float px, float py)
+{
+	float z_01 = texture(main_depth_texture, vec2(px, py)).x;
+
+	float n = near_clip_dist;
+	float f = far_clip_dist;
+	return (0.5 - z_01)*(f-n) + 0.5*(f+n);
+
+	// TODO: Handle non-USE_REVERSE_Z case
+}
+
+
 float getDepthFromDepthTexture(float px, float py)
 {
 #if USE_REVERSE_Z
@@ -702,15 +714,23 @@ void main()
 
 	
 
+		float px, py; // image coordinates of this fragment
+		float ground_dist;
+		if(camera_type == CameraType_Perspective)
+		{
+			px = pos_cs.x / -pos_cs.z * l_over_w + 0.5;
+			py = pos_cs.y / -pos_cs.z * l_over_h + 0.5;
+			ground_dist = getDepthFromDepthTexture(px, py); // Get depth from depth buffer.
+		}
+		else // else if camera_type == CameraType_Orthographic || camera_type == CameraType_DiagonalOrthographic:
+		{
+			px = pos_cs.x * l_over_w + 0.5; // l is just set to 1 for ortho camera, so l_over_w = 1/w
+			py = pos_cs.y * l_over_h + 0.5;
+			ground_dist = getDepthFromDepthTextureOrthographic(px, py); // Get depth from depth buffer.
+		}
 		
 
-		// image coordinates of this fragment
-		float px = pos_cs.x / -pos_cs.z * l_over_w + 0.5;
-		float py = pos_cs.y / -pos_cs.z * l_over_h + 0.5;
-
 		float water_dist = -pos_cs.z;
-		float ground_dist = getDepthFromDepthTexture(px, py); // Get depth from depth buffer.
-
 		float depth = max(0.0, ground_dist - water_dist);
 
 
@@ -838,6 +858,15 @@ void main()
 	//	col = //attentuated_col + inscattering;
 	//		(attentuated_col + inscattering) * (1.0 - spec_refl_fresnel) +
 	//		spec_refl_light                  * spec_refl_fresnel;
+
+		// Handle water depth calculations (in hacky way) for ortho camera types.
+		if(camera_type == CameraType_Orthographic || camera_type == CameraType_DiagonalOrthographic)
+		{
+			final_refracted_water_ground_d = depth;
+			water_to_ground_sun_d = depth;
+			refracted_px = px;
+			refracted_py = py;
+		}
 
 		col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, final_refracted_water_ground_d, water_to_ground_sun_d) * (1.0 - spec_refl_fresnel) +
 			spec_refl_light * spec_refl_fresnel;

@@ -4322,11 +4322,11 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 // http://www.manpagez.com/man/3/glFrustum/
 static const Matrix4f frustumMatrix(GLdouble left,
-                       GLdouble right,
-                       GLdouble bottom,
-                       GLdouble top,
-                       GLdouble zNear,
-                       GLdouble zFar)
+	GLdouble right,
+	GLdouble bottom,
+	GLdouble top,
+	GLdouble zNear,
+	GLdouble zFar)
 {
 	double A = (right + left) / (right - left);
 	double B = (top + bottom) / (top - bottom);
@@ -4349,7 +4349,7 @@ static const Matrix4f infiniteFrustumMatrix(GLdouble left,
 	GLdouble right,
 	GLdouble bottom,
 	GLdouble top,
-	GLdouble zNear)
+	GLdouble zNear) // Distance to near clipping plane (positive)
 {
 	double A = (right + left) / (right - left);
 	double B = (top + bottom) / (top - bottom);
@@ -4368,21 +4368,22 @@ static const Matrix4f infiniteFrustumMatrix(GLdouble left,
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/dd373965(v=vs.85).aspx
 static const Matrix4f orthoMatrix(GLdouble left,
-                       GLdouble right,
-                       GLdouble bottom,
-                       GLdouble top,
-                       GLdouble zNear,
-                       GLdouble zFar)
+	GLdouble right,
+	GLdouble bottom,
+	GLdouble top,
+	GLdouble zNear,
+	GLdouble zFar)
 {
 	const float t_x = (float)(-(right + left) / (right - left));
 	const float t_y = (float)(-(top + bottom) / (top - bottom));
 	const float t_z = (float)(-(zFar + zNear) / (zFar - zNear));
 
 	float e[16] = {
-		(float)(2 / (right - left)),  0, 0, t_x,
-		0, (float)(2 / (top - bottom)),  0, t_y,
-		0, 0, (float)(-2 / (zFar - zNear)), t_z,
-		0, 0, 0, 1 };
+		(float)(2 / (right - left)), 0,                           0,                            t_x,
+		0,                           (float)(2 / (top - bottom)), 0,                            t_y,
+		0,                           0,                           (float)(-2 / (zFar - zNear)), t_z,
+		0,                           0,                           0,                            1 
+	};
 	
 	return Matrix4f::fromRowMajorData(e);
 }
@@ -4407,16 +4408,17 @@ static const Matrix4f diagonalOrthoMatrix(GLdouble left,
 	// 0 = (0 - (-cam_z)) / (right - left) + t_x
 	// 0 = cam_z / (right - left) + t_x
 	// t_x = -cam_z / (right - left)
-	const double t_x = -cam_z / (right - left);
-	const double t_y =  cam_z / (top - bottom);
+	const float t_x = (float)(-cam_z / (right - left));
+	const float t_y = (float)( cam_z / (top - bottom));
 
-	const double slope = 1.0 / (right - left);
+	const float slope = (float)(1.0 / (right - left));
 
 	const float e[16] = {
-		(float)(2 / (right - left)),  0, -(float)slope, (float)t_x,
-		0, (float)(2 / (top - bottom)),  (float)slope, (float)t_y,
-		0, 0, (float)(-2 / (zFar - zNear)), (float)t_z,
-		0, 0, 0, 1 };
+		(float)(2 / (right - left)),  0,                           -slope,                        t_x,
+		0,                            (float)(2 / (top - bottom)),  slope,                        t_y,
+		0,                            0,                            (float)(-2 / (zFar - zNear)), t_z,
+		0,                            0,                            0,                            1
+	};
 
 	return Matrix4f::fromRowMajorData(e);
 }
@@ -4775,6 +4777,82 @@ z_01 = (z_ndc + 1)/2 = (-1 + 1) / 2 = 0
 Suppose z = -inf           (far plane)
 Then z_ndc = 1 + 2n/(-inf) = 1 + 0 = 1
 z_01 = (1 + 1)/2 = 1
+
+
+Orthographic matrix case
+=====================================================
+raw_proj_matrix = 
+(2(r-l)     0         A          -(r+l/(r-l))
+(0          2(t-b)    B          (t-b))
+(0          0         -2/(f-n)   -(f+n)/(f-n))
+(0          0         0          1)
+
+and
+v' = raw_proj_matrix v
+
+Then
+z' = -2z/(f-n) - (f+n)/(f-n)*w    =    -2z(f-n) - (f+n)/(f-n)
+w' = w = 1
+
+
+Case where we are using a reverse-z depth buffer:
+-------------------------------------------------
+
+let 
+reverse_z_matrix = 
+(1        0         0       0)
+(0        1         0       0)
+(0        0       -1/2      1/2)
+(0        0         0       1)
+
+and v'' = reverse_z_matrix v'
+
+Then
+z'' = -1/2 z' + 1/2 w'
+    = -1/2 (-2z/(f-n) - (f+n)/(f-n)) + 1/2 (1)
+	= z/(f-n) + (1/2)(f+n)/(f-n) + 1/2
+w'' = w'
+   = 1
+
+z_ndc = z'' / w'' = z/(f-n) + (1/2)(f+n)/(f-n) + 1/2
+z_ndc = (z + (f+n)/2)/(f-n) + 1/2
+let Q := (1/2)(f+n)/(f-n) + 1/2
+then 
+z_ndc = z/(f-n) + Q
+
+solving for z:
+
+z_ndc - Q = z/(f-n)
+z = (z_ndc - Q)(f-n)
+
+
+z_01 = z_ndc            (Assuming glClipControl GL_ZERO_TO_ONE)
+so
+
+depth = -z = -(z_ndc - Q)(f-n)
+depth = -(z_01 - Q)(f-n)
+depth = -(z_01 - [(1/2)(f+n)/(f-n) + 1/2])(f-n)
+depth = -(z_01 - (1/2)(f+n)/(f-n) - 1/2)(f-n)
+depth = -(z_01(f-n) - (1/2)(f+n) - (f-n)/2)
+depth = -((z_01 - 1/2)(f-n) - (1/2)(f+n))
+
+*************
+depth = (1/2 - z_01)(f-n) + (f+n)/2
+*************
+
+Examples:
+Suppose z = -n             (near plane)
+#Then z_ndc = (f-n)*(-n) + (1/2)(f+n)/(f-n) + 1/2
+z_ndc = (-n)/(f-n) + Q = (-n)/(f-n) + (1/2)(f+n)/(f-n) + 1/2
+z_ndc = (-n + (1/2)(f + n))(f-n) + 1/2
+z_ndc = (f/2 - n/2)(f-n) + 1/2 = ((f-n)/2)/(f-n) + 1/2 = 1
+
+
+Suppose z = -f           (far plane)
+z_ndc = (-f)/(f-n) + Q = (-f)/(f-n) + (1/2)(f+n)/(f-n) + 1/2
+z_ndc = (-f + (1/2)(f + n))(f-n) + 1/2
+z_ndc = (-f/2 + n/2)(f-n) + 1/2 = (-(f-n)/2)/(f-n) + 1/2 = 1
+z_ndc = (-(f/2 - n/2))(f-n) + 1/2 = (-(f-n)/2)/(f-n) + 1/2 = -1/2 + 1/2 = 0
 */
 
 
@@ -5603,11 +5681,13 @@ void OpenGLEngine::draw()
 	common_uniforms.sun_and_sky_av_spec_rad = this->sun_and_sky_av_spec_rad;
 	common_uniforms.air_scattering_coeffs = this->air_scattering_coeffs;
 	common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
+	common_uniforms.far_clip_dist = this->current_scene->max_draw_dist;
 	common_uniforms.time = this->current_time;
 	common_uniforms.l_over_w = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_width;
 	common_uniforms.l_over_h = this->current_scene->lens_sensor_dist / this->current_scene->use_sensor_height;
 	common_uniforms.env_phi = this->sun_phi;
 	common_uniforms.water_level_z = this->current_scene->water_level_z;
+	common_uniforms.camera_type = (int)this->current_scene->camera_type;
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 
