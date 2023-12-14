@@ -647,6 +647,22 @@ void Maths::test()
 	testAssert(roundUpToMultipleOfPowerOf2(129, 128) == 256);
 
 
+	//=============================== divideByTwoRoundedDown() =========================================
+	testAssert(divideByTwoRoundedDown(-6) == -3);
+	testAssert(divideByTwoRoundedDown(-5) == -3);
+	testAssert(divideByTwoRoundedDown(-4) == -2);
+	testAssert(divideByTwoRoundedDown(-3) == -2);
+	testAssert(divideByTwoRoundedDown(-2) == -1);
+	testAssert(divideByTwoRoundedDown(-1) == -1);
+	testAssert(divideByTwoRoundedDown(0) == 0);
+	testAssert(divideByTwoRoundedDown(1) == 0);
+	testAssert(divideByTwoRoundedDown(2) == 1);
+	testAssert(divideByTwoRoundedDown(3) == 1);
+	testAssert(divideByTwoRoundedDown(4) == 2);
+	testAssert(divideByTwoRoundedDown(5) == 2);
+	testAssert(divideByTwoRoundedDown(6) == 3);
+
+
 	//======================================= intExp2(uint32) ==============================================
 	{
 		testAssert(intExp2((uint32)0u) == 1);

@@ -564,6 +564,18 @@ inline uint64 roundToNextHighestPowerOf2(uint64 v)
 }
 
 
+// Divide by 2, then round down, handling negative numbers as well
+template <class T>
+GLARE_STRONG_INLINE T divideByTwoRoundedDown(T x)
+{
+	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
+
+	// Right-shifting a negative number is apparently implementation-defined, but in practice with two's complement integers, does sign extension which is what we want.
+	// see https://stackoverflow.com/questions/15729765/sign-extension-with-bitwise-shift-operation
+	return x >> 1;
+}
+
+
 template <class T, class Real>
 GLARE_STRONG_INLINE const T lerp(const T& a, const T& b, Real t)
 {
