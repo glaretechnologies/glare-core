@@ -542,6 +542,9 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 		Reference<TextureData> texture_data = new TextureData();
 		texture_data->frames.resize(1);
 		texture_data->frames[0].converted_image = map;
+		texture_data->W = compressed_image->getMapWidth();
+		texture_data->H = compressed_image->getMapHeight();
+		texture_data->bytes_pp = 1; // Shouldn't be used
 		texture_data->num_mip_levels = compressed_image->mipmap_level_data.size();
 		texture_data->data_is_compressed = true;
 		return texture_data;
@@ -570,6 +573,11 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 		Reference<TextureData> texture_data = new TextureData();
 		texture_data->frames.resize(1);
 		texture_data->frames[0].converted_image = final_map;
+		texture_data->W = final_map->getMapWidth();
+		texture_data->H = final_map->getMapHeight();
+		texture_data->bytes_pp = 2 * final_map->numChannels();
+		texture_data->num_mip_levels = 1;
+		texture_data->data_is_compressed = false;
 		return texture_data;
 	}
 }

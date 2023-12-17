@@ -38,7 +38,8 @@ public:
 
 	size_t W, H, bytes_pp;
 
-	size_t num_mip_levels; // Generally equal to level_offsets.size(), apart from when converted_image points to a compressed image, 
+	size_t num_mip_levels; // Number of mip levels present in texture data.
+	// Generally equal to level_offsets.size(), apart from when converted_image points to a compressed image, 
 	// in which case is equal to converted_image->mipmap_level_data.size().
 
 	bool data_is_compressed;
