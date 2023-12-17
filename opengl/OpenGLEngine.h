@@ -1065,6 +1065,7 @@ private:
 	OpenGLProgramRef getImposterProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
+	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
 public:
 	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }

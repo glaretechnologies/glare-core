@@ -2117,26 +2117,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	if(settings.shadow_mapping)
 		fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       ProgramKeyArgs()));
 
-
-	env_prog = new OpenGLProgram(
-		"env",
-		new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex()
-	);
-	addProgram(env_prog);
-
-	getUniformLocations(env_prog, settings.shadow_mapping, /*locations out=*/env_prog->uniform_locations);
-	setStandardTextureUnitUniformsForProgram(*env_prog);
-
-	env_diffuse_colour_location		= env_prog->getUniformLocation("diffuse_colour");
-	env_have_texture_location		= env_prog->getUniformLocation("have_texture");
-	env_texture_matrix_location		= env_prog->getUniformLocation("texture_matrix");
-	env_campos_ws_location			= env_prog->getUniformLocation("env_campos_ws");
-
-	bindUniformBlockToProgram(env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
-
-		
+	
+	this->env_prog = buildEnvProgram(use_shader_dir);
 
 
 	overlay_prog = new OpenGLProgram(
@@ -5398,6 +5380,30 @@ void OpenGLEngine::addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const 
 }
 
 
+OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir)
+{
+	OpenGLProgramRef new_env_prog = new OpenGLProgram(
+		"env",
+		new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex()
+	);
+	addProgram(new_env_prog);
+
+	getUniformLocations(new_env_prog, settings.shadow_mapping, /*locations out=*/new_env_prog->uniform_locations);
+	setStandardTextureUnitUniformsForProgram(*new_env_prog);
+
+	env_diffuse_colour_location		= new_env_prog->getUniformLocation("diffuse_colour");
+	env_have_texture_location		= new_env_prog->getUniformLocation("have_texture");
+	env_texture_matrix_location		= new_env_prog->getUniformLocation("texture_matrix");
+	env_campos_ws_location			= new_env_prog->getUniformLocation("env_campos_ws");
+
+	bindUniformBlockToProgram(new_env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+
+	return new_env_prog;
+}
+
+
 void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int /*num_clip_planes_used*/)
 {
 #if BUILD_TESTS
@@ -5510,6 +5516,21 @@ void OpenGLEngine::draw()
 				rebuildDenormalisedDrawData(*object);
 				rebuildObjectDepthDrawBatches(*object);
 			}
+		}
+
+		// Reload env shader
+		try
+		{
+			const std::string use_shader_dir = data_dir + "/shaders";
+			OpenGLProgramRef new_env_prog = buildEnvProgram(use_shader_dir);
+
+			// If built successfully, assign to env ob
+			current_scene->env_ob->materials[0].shader_prog = new_env_prog;
+			env_prog = new_env_prog;
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading env prog: " + e.what());
 		}
 
 		shader_file_changed = 0;
