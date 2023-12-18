@@ -47,6 +47,8 @@ public:
 	//A matrix which will rotate a vector counterclockwise
 	inline static const Matrix2 rotationMatrix(T angle_rad);
 
+	inline static const Matrix2 uniformScaleMatrix(T scale_factor);
+
 	const std::string toString() const;
 	const std::string toStringNSigFigs(int n) const;
 
@@ -152,6 +154,13 @@ inline const Matrix2<T> Matrix2<T>::rotationMatrix(T theta_rad)
 	const T sin_theta = sin(theta_rad);
 
 	return Matrix2(cos_theta, -sin_theta, sin_theta, cos_theta);
+}
+
+
+template <class T>
+inline const Matrix2<T> Matrix2<T>::uniformScaleMatrix(T scale_factor)
+{
+	return Matrix2(scale_factor, 0, 0, scale_factor);
 }
 
 
