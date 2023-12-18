@@ -92,6 +92,10 @@ Copyright Glare Technologies Limited 2020 -
 #define USE_DRAW_INDIRECT_BUFFER_FOR_MDI 1
 
 
+// mat_common_flags values
+#define CLOUD_SHADOWS_FLAG					1
+
+
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), decal(false),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
@@ -282,6 +286,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	shadow_mapping = true;
 	draw_water = true;
 	use_main_render_framebuffer = true;
+	cloud_shadows = true;
 
 	env_ob = engine.allocateObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
@@ -5709,6 +5714,8 @@ void OpenGLEngine::draw()
 	common_uniforms.env_phi = this->sun_phi;
 	common_uniforms.water_level_z = this->current_scene->water_level_z;
 	common_uniforms.camera_type = (int)this->current_scene->camera_type;
+	common_uniforms.mat_common_flags = this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0;
+	common_uniforms.padding_a0 = common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 
@@ -8214,6 +8221,7 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 }
 
 
+// MaterialData flag values
 #define HAVE_SHADING_NORMALS_FLAG			1
 #define HAVE_TEXTURE_FLAG					2
 #define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4

@@ -308,9 +308,10 @@ void main()
 #endif
 
 	// Apply cloud shadows
-	// Compute position on cumulus cloud layer
-	if(pos_ws.z < 1000.f)
+#if RENDER_CLOUD_SHADOWS
+	if(((mat_common_flags & CLOUD_SHADOWS_FLAG) != 0) && (pos_ws.z < 1000.f))
 	{
+		// Compute position on cumulus cloud layer
 		vec3 cum_layer_pos = pos_ws + sundir_ws.xyz * (1000.f - pos_ws.z) / sundir_ws.z;
 
 		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
@@ -322,6 +323,7 @@ void main()
 		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
 		sun_vis_factor *= cumulus_trans;
 	}
+#endif
 
 
 	vec3 sun_light = sun_spec_rad_times_solid_angle.xyz * sun_vis_factor;

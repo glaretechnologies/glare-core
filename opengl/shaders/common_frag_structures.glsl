@@ -16,9 +16,19 @@ layout (std140) uniform MaterialCommonUniforms
 	float env_phi;
 	float water_level_z;
 	int camera_type; // OpenGLScene::CameraType
+
+	int mat_common_flags;
+	float padding_a0;
+	float padding_a1;
+	float padding_a2;
 };
 
 
+// mat_common_flags values
+#define CLOUD_SHADOWS_FLAG					1
+
+
+// MaterialData flag values
 #define HAVE_SHADING_NORMALS_FLAG			1
 #define HAVE_TEXTURE_FLAG					2
 #define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4

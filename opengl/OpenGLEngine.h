@@ -485,6 +485,8 @@ public:
 	bool draw_water; // True by default
 	bool use_main_render_framebuffer; // True by default
 
+	bool cloud_shadows; // True by default
+
 	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
 
 	float wind_strength; // Default = 1.
@@ -684,6 +686,11 @@ struct MaterialCommonUniforms
 	float env_phi;
 	float water_level_z;
 	int camera_type; // OpenGLScene::CameraType
+
+	int mat_common_flags;
+	float padding_a0;
+	float padding_a1;
+	float padding_a2;
 };
 
 
