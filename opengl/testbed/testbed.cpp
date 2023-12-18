@@ -86,7 +86,7 @@ int main(int, char**)
 		// Create OpenGL engine
 		OpenGLEngineSettings settings;
 		settings.compress_textures = true;
-		settings.shadow_mapping = false;
+		settings.shadow_mapping = true;
 		settings.depth_fog = true;
 		settings.render_water_caustics = false;
 		Reference<OpenGLEngine> opengl_engine = new OpenGLEngine(settings);
@@ -100,8 +100,8 @@ int main(int, char**)
 		opengl_engine->initialise(data_dir, texture_server, &print_output);
 		if(!opengl_engine->initSucceeded())
 			throw glare::Exception("OpenGL init failed: " + opengl_engine->getInitialisationErrorMsg());
-		opengl_engine->setViewport(primary_W, primary_H);
-		opengl_engine->setMainViewport(primary_W, primary_H);
+		opengl_engine->setViewportDims(primary_W, primary_H);
+		opengl_engine->setMainViewportDims(primary_W, primary_H);
 
 		const std::string base_dir = ".";
 
@@ -124,7 +124,7 @@ int main(int, char**)
 			light->gpu_data.dir = normalise(Vec4f(0, 1, -1, 0));
 			light->gpu_data.col = Colour4f(0, 3.0e10f, 3.0e10f, 0);
 
-			opengl_engine->addLight(light);
+			//opengl_engine->addLight(light);
 		}
 
 		//----------------------- Make ground plane -----------------------
@@ -141,15 +141,50 @@ int main(int, char**)
 		}
 
 		//--------------------------- Load model -------------------------------
-		//GLTFLoadedData gltf_data;
-		//BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLBFile("D:\\models\\peugot_closed.glb", gltf_data);
-		//OpenGLMeshRenderDataRef test_mesh_data = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
-		OpenGLMeshRenderDataRef test_mesh_data = MeshPrimitiveBuilding::makeCubeMesh(*opengl_engine->vert_buf_allocator);
+		GLTFLoadedData gltf_data;
+		Timer timer2;
+		//BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile("C:\\Users\\nick\\Downloads\\SciFiHelmet.gltf", gltf_data);
+		BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile("C:\\Users\\nick\\Downloads\\DamagedHelmet.gltf", gltf_data);
+		conPrint("loadGLTFFile time: " + timer2.elapsedString());
+		OpenGLMeshRenderDataRef test_mesh_data = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
+		//OpenGLMeshRenderDataRef test_mesh_data = MeshPrimitiveBuilding::makeCubeMesh(*opengl_engine->vert_buf_allocator);
 		
 		PCG32 rng(1);
 
-		std::vector<GLObjectRef> obs;
+		GLObjectRef main_test_ob;
+		{
+			GLObjectRef ob = new GLObject();
+			main_test_ob = ob;
+			ob->mesh_data = test_mesh_data;
+			ob->ob_to_world_matrix = Matrix4f::translationMatrix(1, 0, 3) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>()) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
+				Matrix4f::uniformScaleMatrix(1);
+			ob->materials.resize(test_mesh_data->num_materials_referenced);
 
+			{
+				TextureParams params;
+				params.use_sRGB = false;
+				params.allow_compression = false;
+				ob->materials[0].normal_map = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\SciFiHelmet_Normal.png", params);
+				ob->materials[0].normal_map = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_normal.jpg", params);
+			}
+			ob->materials[0].albedo_texture = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_albedo.jpg");
+			
+			{
+				TextureParams params;
+				params.use_sRGB = false;
+				ob->materials[0].metallic_roughness_texture = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_metalRoughness.jpg", params);
+				ob->materials[0].metallic_frac = 1;
+				ob->materials[0].roughness = 1;
+			}
+			
+			ob->materials[0].emission_texture = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_emissive.jpg");
+			ob->materials[0].emission_scale = 3.0e9f;
+			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
+		}
+
+
+		std::vector<GLObjectRef> obs;
+#if 0
 		const float cube_w = 0.2f;
 		for(int i=0; i<10000; ++i) // 1000 hangs
 		{
@@ -177,13 +212,13 @@ int main(int, char**)
 
 			obs.push_back(ob);
 		}
-
+#endif
 
 		Timer timer;
 
 		float cam_phi = 0.0;
 		float cam_theta = 1.8f;
-		Vec4f cam_pos(0,-10,5,1);
+		Vec4f cam_pos(0,-5,2,1);
 
 		Timer time_since_last_frame;
 		Timer stats_timer;
@@ -191,7 +226,7 @@ int main(int, char**)
 		std::string last_diagnostics;
 		bool reset = false;
 		double fps = 0;
-
+		bool wireframes = false;
 
 
 		bool quit = false;
@@ -215,14 +250,14 @@ int main(int, char**)
 		//	}
 
 			// Update some objects in random order
-			for(int i=0; i<1024; ++i)
+			/*for(int i=0; i<1024; ++i)
 			{
 				int ob_i = rng.nextUInt((uint32)obs.size());
 
 				obs[ob_i]->ob_to_world_matrix = Matrix4f::translationMatrix((float)(ob_i / 64), (float)(ob_i % 64), cube_w/2) * Matrix4f::rotationAroundZAxis(cur_time) * 
 					Matrix4f::uniformScaleMatrix(cube_w) * Matrix4f::translationMatrix(Vec4f(-0.5f));
 				opengl_engine->updateObjectTransformData(*obs[ob_i]);
-			}
+			}*/
 
 			if(stats_timer.elapsed() > 1.0)
 			{
@@ -231,6 +266,14 @@ int main(int, char**)
 				fps = num_frames / stats_timer.elapsed();
 				stats_timer.reset();
 				num_frames = 0;
+			}
+
+
+			// Rotate ob
+			{
+				main_test_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 1) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>() + (float)timer.elapsed() * 0.4f) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
+					Matrix4f::uniformScaleMatrix(1);
+				opengl_engine->updateObjectTransformData(*main_test_ob);
 			}
 
 
@@ -249,8 +292,8 @@ int main(int, char**)
 			SDL_GL_GetDrawableSize(win, &gl_w, &gl_h);
 			if(gl_w > 0 && gl_h > 0)
 			{
-				opengl_engine->setViewport(gl_w, gl_h);
-				opengl_engine->setMainViewport(gl_w, gl_h);
+				opengl_engine->setViewportDims(gl_w, gl_h);
+				opengl_engine->setMainViewportDims(gl_w, gl_h);
 				opengl_engine->setMaxDrawDistance(1000000.f);
 				opengl_engine->setPerspectiveCameraTransform(world_to_camera_space_matrix, sensor_width, lens_sensor_dist, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);
 				opengl_engine->setCurrentTime((float)timer.elapsed());
@@ -283,6 +326,9 @@ int main(int, char**)
 			}
 		
 			ImGui::Checkbox("use_scatter_shader", &opengl_engine->use_scatter_shader);
+
+			if(ImGui::Checkbox("wireframe", &wireframes))
+				opengl_engine->setDrawWireFrames(wireframes);
 		
 		
 			ImGui::TextColored(ImVec4(1,1,0,1), "Stats");
@@ -331,8 +377,8 @@ int main(int, char**)
 						int w, h;
 						SDL_GL_GetDrawableSize(win, &w, &h);
 						
-						opengl_engine->setViewport(w, h);
-						opengl_engine->setMainViewport(w, h);
+						opengl_engine->setViewportDims(w, h);
+						opengl_engine->setMainViewportDims(w, h);
 					}
 				}
 				else if(e.type == SDL_KEYDOWN)
