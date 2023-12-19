@@ -66,8 +66,8 @@ public:
 	// Builds a BatchedMesh from an Indigo::Mesh.
 	// Any quads are converted to triangles.
 	// Merges any vertices with the same position and UVs.
-	void buildFromIndigoMesh(const Indigo::Mesh& mesh);
-
+	[[nodiscard]] static Reference<BatchedMesh> buildFromIndigoMesh(const Indigo::Mesh& mesh);
+	
 	// Build an Indigo::Mesh from this BatchedMesh.
 	void buildIndigoMesh(Indigo::Mesh& mesh_out) const;
 

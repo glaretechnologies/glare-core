@@ -102,8 +102,10 @@ inline static void copyUInt32s(void* const dest, const void* const src, size_t s
 
 
 // Adapted from OpenGLEngine::buildIndigoMesh().
-void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
+Reference<BatchedMesh> BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 {
+	Reference<BatchedMesh> batched_mesh = new BatchedMesh();
+
 	const Indigo::Mesh* const mesh				= &mesh_;
 	const Indigo::Triangle* const tris			= mesh->triangles.data();
 	const size_t num_tris						= mesh->triangles.size();
@@ -144,7 +146,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 	const size_t uv1_offset         = uv0_offset      + (mesh_has_uvs ? packed_uv_size : 0);
 	const size_t vert_col_offset    = uv1_offset      + (mesh_has_uv1 ? packed_uv_size : 0);
 	const size_t num_bytes_per_vert = vert_col_offset + (mesh_has_vert_cols ? sizeof(float)*3 : 0);
-	js::Vector<uint8, 16>& vert_data = this->vertex_data;
+	js::Vector<uint8, 16>& vert_data = batched_mesh->vertex_data;
 	vert_data.reserve(mesh->vert_positions.size() * num_bytes_per_vert);
 
 	js::Vector<uint32, 16> uint32_indices(mesh->triangles.size() * 3 + mesh->quads.size() * 6);
@@ -185,7 +187,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 					batch.material_index = current_mat_index;
 					batch.indices_start = (uint32)(last_pass_start_index);
 					batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
-					this->batches.push_back(batch);
+					batched_mesh->batches.push_back(batch);
 				}
 				last_pass_start_index = vert_index_buffer_i;
 				current_mat_index = tri_indices[t].first;
@@ -293,7 +295,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 					batch.material_index = current_mat_index;
 					batch.indices_start = (uint32)(last_pass_start_index);
 					batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
-					this->batches.push_back(batch);
+					batched_mesh->batches.push_back(batch);
 				}
 				last_pass_start_index = vert_index_buffer_i;
 				current_mat_index = quad_indices[q].first;
@@ -395,20 +397,20 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 	batch.material_index = current_mat_index;
 	batch.indices_start = (uint32)(last_pass_start_index);
 	batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
-	this->batches.push_back(batch);
+	batched_mesh->batches.push_back(batch);
 
 	const size_t num_merged_verts = next_merged_vert_i;
 
 	
 	// Build index data
-	setIndexDataFromIndices(uint32_indices, num_merged_verts);
+	batched_mesh->setIndexDataFromIndices(uint32_indices, num_merged_verts);
 
 
 	VertAttribute pos_attrib;
 	pos_attrib.type = VertAttribute_Position;
 	pos_attrib.component_type = ComponentType_Float;
 	pos_attrib.offset_B = 0;
-	vert_attributes.push_back(pos_attrib);
+	batched_mesh->vert_attributes.push_back(pos_attrib);
 
 	if(mesh_has_shading_normals)
 	{
@@ -416,7 +418,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 		normal_attrib.type = VertAttribute_Normal;
 		normal_attrib.component_type = ComponentType_PackedNormal;
 		normal_attrib.offset_B = normal_offset;
-		vert_attributes.push_back(normal_attrib);
+		batched_mesh->vert_attributes.push_back(normal_attrib);
 	}
 
 	if(num_uv_sets >= 1)
@@ -425,7 +427,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 		uv_attrib.type = VertAttribute_UV_0;
 		uv_attrib.component_type = ComponentType_Float;
 		uv_attrib.offset_B = uv0_offset;
-		vert_attributes.push_back(uv_attrib);
+		batched_mesh->vert_attributes.push_back(uv_attrib);
 	}
 	if(num_uv_sets >= 2)
 	{
@@ -433,7 +435,7 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 		uv_attrib.type = VertAttribute_UV_1;
 		uv_attrib.component_type = ComponentType_Float;
 		uv_attrib.offset_B = uv1_offset;
-		vert_attributes.push_back(uv_attrib);
+		batched_mesh->vert_attributes.push_back(uv_attrib);
 	}
 
 	if(mesh_has_vert_cols)
@@ -442,11 +444,13 @@ void BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh_)
 		colour_attrib.type = VertAttribute_Colour;
 		colour_attrib.component_type = ComponentType_Float;
 		colour_attrib.offset_B = vert_col_offset;
-		vert_attributes.push_back(colour_attrib);
+		batched_mesh->vert_attributes.push_back(colour_attrib);
 	}
 
-	aabb_os.min_ = Vec4f(mesh->aabb_os.bound[0].x, mesh->aabb_os.bound[0].y, mesh->aabb_os.bound[0].z, 1.f);
-	aabb_os.max_ = Vec4f(mesh->aabb_os.bound[1].x, mesh->aabb_os.bound[1].y, mesh->aabb_os.bound[1].z, 1.f);
+	batched_mesh->aabb_os.min_ = Vec4f(mesh->aabb_os.bound[0].x, mesh->aabb_os.bound[0].y, mesh->aabb_os.bound[0].z, 1.f);
+	batched_mesh->aabb_os.max_ = Vec4f(mesh->aabb_os.bound[1].x, mesh->aabb_os.bound[1].y, mesh->aabb_os.bound[1].z, 1.f);
+
+	return batched_mesh;
 }
 
 

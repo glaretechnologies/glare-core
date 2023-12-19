@@ -85,8 +85,7 @@ static void testIndigoMeshConversion(const BatchedMesh& batched_mesh)
 		testEqual(indigo_mesh.triangles.size(), batched_mesh.numIndices() / 3);
 
 		// Convert Indigo mesh back to batched mesh
-		BatchedMesh batched_mesh2;
-		batched_mesh2.buildFromIndigoMesh(indigo_mesh);
+		BatchedMeshRef batched_mesh2 = BatchedMesh::buildFromIndigoMesh(indigo_mesh);
 
 		bool has_NaN = false;
 		for(size_t i=0; i<indigo_mesh.uv_pairs.size(); ++i)
@@ -95,9 +94,9 @@ static void testIndigoMeshConversion(const BatchedMesh& batched_mesh)
 
 		if(!has_NaN)
 		{
-			testEqual(batched_mesh2.vertexSize(), batched_mesh.vertexSize());
-			testAssert(batched_mesh2.numVerts() <= batched_mesh.numVerts()); // Sometimes num verts are smaller for some reason.
-			testEqual(batched_mesh2.numIndices(), batched_mesh.numIndices());
+			testEqual(batched_mesh2->vertexSize(), batched_mesh.vertexSize());
+			testAssert(batched_mesh2->numVerts() <= batched_mesh.numVerts()); // Sometimes num verts are smaller for some reason.
+			testEqual(batched_mesh2->numIndices(), batched_mesh.numIndices());
 		}
 		else
 			conPrint("Mesh has NaN UVs!");
@@ -131,8 +130,7 @@ static void perfTestWithMesh(const std::string& path)
 		Indigo::Mesh indigo_mesh;
 		Indigo::Mesh::readFromFile(toIndigoString(path), indigo_mesh);
 
-		batched_mesh = new BatchedMesh();
-		batched_mesh->buildFromIndigoMesh(indigo_mesh);
+		batched_mesh = BatchedMesh::buildFromIndigoMesh(indigo_mesh);
 	}
 
 
@@ -240,11 +238,10 @@ void BatchedMeshTests::test()
 			Indigo::Mesh indigo_mesh;
 			Indigo::Mesh::readFromFile(toIndigoString(TestUtils::getTestReposDir() + "/testfiles/igmesh/unwrapped_mesh.igmesh"), indigo_mesh);
 
-			BatchedMesh batched_mesh;
-			batched_mesh.buildFromIndigoMesh(indigo_mesh);
+			BatchedMeshRef batched_mesh = BatchedMesh::buildFromIndigoMesh(indigo_mesh);
 
-			testAssert(batched_mesh.numVerts() == 4 * 6); // Check that vertices are merged for faces.
-			testAssert(batched_mesh.numIndices() == 6 * 6);
+			testAssert(batched_mesh->numVerts() == 4 * 6); // Check that vertices are merged for faces.
+			testAssert(batched_mesh->numIndices() == 6 * 6);
 
 			//testWritingAndReadingMesh(batched_mesh);
 			//testIndigoMeshConversion(batched_mesh);
@@ -342,21 +339,20 @@ void BatchedMeshTests::test()
 			m.endOfModel();
 
 
-			BatchedMesh batched_mesh;
-			batched_mesh.buildFromIndigoMesh(m);
+			BatchedMeshRef batched_mesh = BatchedMesh::buildFromIndigoMesh(m);
 
-			testWritingAndReadingMesh(batched_mesh);
+			testWritingAndReadingMesh(*batched_mesh);
 
 			// Test conversion back to Indigo mesh
 			Indigo::Mesh indigo_mesh2;
-			batched_mesh.buildIndigoMesh(indigo_mesh2);
+			batched_mesh->buildIndigoMesh(indigo_mesh2);
 			testAssert(indigo_mesh2.vert_positions.size() == m.vert_positions.size());
 			testAssert(indigo_mesh2.vert_normals.size() == m.vert_normals.size());
 			testAssert(indigo_mesh2.uv_pairs.size() == 8); // Will get expanded to one per vert.
 			testAssert(indigo_mesh2.triangles.size() == 6); // Quads will get converted to tris.
 			testAssert(indigo_mesh2.triangles[0].vertex_indices[0] == 0 && indigo_mesh2.triangles[0].vertex_indices[1] == 1 && indigo_mesh2.triangles[0].vertex_indices[2] == 2);
 
-			testIndigoMeshConversion(batched_mesh);
+			testIndigoMeshConversion(*batched_mesh);
 		}
 
 		// Check that vertex merging gets done properly in buildFromIndigoMesh().
@@ -387,13 +383,12 @@ void BatchedMeshTests::test()
 			m.endOfModel();
 
 
-			BatchedMesh batched_mesh;
-			batched_mesh.buildFromIndigoMesh(m);
+			BatchedMeshRef batched_mesh = BatchedMesh::buildFromIndigoMesh(m);
 
-			testEqual(batched_mesh.numVerts(), (size_t)3);
+			testEqual(batched_mesh->numVerts(), (size_t)3);
 
-			testWritingAndReadingMesh(batched_mesh);
-			testIndigoMeshConversion(batched_mesh);
+			testWritingAndReadingMesh(*batched_mesh);
+			testIndigoMeshConversion(*batched_mesh);
 		}
 
 
