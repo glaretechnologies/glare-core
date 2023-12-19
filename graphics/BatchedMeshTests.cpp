@@ -35,10 +35,9 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 			write_options.use_compression = false;
 			batched_mesh.writeToFile(temp_path, write_options);
 
-			BatchedMesh batched_mesh2;
-			BatchedMesh::readFromFile(temp_path, batched_mesh2);
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path);
 
-			testAssert(batched_mesh == batched_mesh2);
+			testAssert(batched_mesh == *batched_mesh2);
 		}
 
 		// Write with compression, read back from disk, and check unchanged in round trip.
@@ -47,24 +46,23 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 			write_options.use_compression = true;
 			batched_mesh.writeToFile(temp_path, write_options);
 
-			BatchedMesh batched_mesh2;
-			BatchedMesh::readFromFile(temp_path, batched_mesh2);
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path);
 
-			testAssert(batched_mesh.index_data.size() == batched_mesh2.index_data.size());
-			if(batched_mesh.index_data != batched_mesh2.index_data)
+			testAssert(batched_mesh.index_data.size() == batched_mesh2->index_data.size());
+			if(batched_mesh.index_data != batched_mesh2->index_data)
 			{
 				for(size_t i=0; i<batched_mesh.index_data.size(); ++i)
 				{
 					conPrint("");
 					conPrint("batched_mesh .index_data[" + toString(i) + "]: " + toString(batched_mesh.index_data[i]));
-					conPrint("batched_mesh2.index_data[" + toString(i) + "]: " + toString(batched_mesh2.index_data[i]));
+					conPrint("batched_mesh2.index_data[" + toString(i) + "]: " + toString(batched_mesh2->index_data[i]));
 				}
 			}
-			testAssert(batched_mesh.index_data == batched_mesh2.index_data);
-			testAssert(batched_mesh.vertex_data == batched_mesh2.vertex_data);
-			testAssert(batched_mesh.vert_attributes == batched_mesh2.vert_attributes);
+			testAssert(batched_mesh.index_data == batched_mesh2->index_data);
+			testAssert(batched_mesh.vertex_data == batched_mesh2->vertex_data);
+			testAssert(batched_mesh.vert_attributes == batched_mesh2->vert_attributes);
 
-			testAssert(batched_mesh == batched_mesh2);
+			testAssert(batched_mesh == *batched_mesh2);
 		}
 	}
 	catch(glare::Exception& e)
@@ -156,8 +154,7 @@ static void perfTestWithMesh(const std::string& path)
 		// Load from disk to get decompression speed.
 		{
 			Timer timer;
-			BatchedMesh batched_mesh2;
-			BatchedMesh::readFromFile(temp_path, batched_mesh2);
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path);
 			conPrint("readFromFile() time: " + timer.elapsedStringNSigFigs(4));
 		}
 	}
@@ -221,8 +218,7 @@ void BatchedMeshTests::test()
 	// channel.target_node out of bounds
 	try
 	{
-		BatchedMesh batched_mesh;
-		BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/crash-1397c795a85df6b9a878fb195366bb98bbb8c701", batched_mesh);
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/crash-1397c795a85df6b9a878fb195366bb98bbb8c701");
 
 		failTest("Expected exception");
 	}
@@ -235,8 +231,7 @@ void BatchedMeshTests::test()
 	{
 		// Test loading a batched mesh with old version (1) animation data.
 		{
-			BatchedMesh batched_mesh;
-			BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh", batched_mesh);
+			BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh");
 		}
 
 
@@ -258,11 +253,10 @@ void BatchedMeshTests::test()
 
 		// Test loading a mesh with version 3 animation data (contains VRM data)
 		{
-			BatchedMesh mesh;
-			BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/meebit_09842_t_solid_vrm.bmesh", mesh);
+			BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/meebit_09842_t_solid_vrm.bmesh");
 
-			testAssert(mesh.numVerts() == 5258); // Check that vertices are merged for faces.
-			testAssert(mesh.numIndices() == 9348 * 3);
+			testAssert(mesh->numVerts() == 5258); // Check that vertices are merged for faces.
+			testAssert(mesh->numIndices() == 9348 * 3);
 		}
 
 

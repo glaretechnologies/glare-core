@@ -51,9 +51,9 @@ public:
 	/// @param src_path			Path on disk to read from.
 	/// @param mesh_out			Mesh object to read to.
 	/// @throws glare::Exception on failure.
-	static void readFromFile(const std::string& src_path, BatchedMesh& mesh_out);
+	static Reference<BatchedMesh> readFromFile(const std::string& src_path);
 
-	static void readFromData(const void* data, size_t data_len, BatchedMesh& mesh_out);
+	static Reference<BatchedMesh> readFromData(const void* data, size_t data_len);
 
 	// Check vertex, joint indices are in bounds etc.
 	// Throws glare::Exception on invalid mesh.

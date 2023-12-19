@@ -1227,8 +1227,7 @@ static UVUnwrapper::Results testUnwrappingWithMesh(const std::string& path)
 		}
 		else if(hasExtension(path, "bmesh"))
 		{
-			BatchedMeshRef batched_mesh = new BatchedMesh();
-			BatchedMesh::readFromFile(path, *batched_mesh);
+			BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(path);
 
 			batched_mesh->buildIndigoMesh(*indigo_mesh);
 		}

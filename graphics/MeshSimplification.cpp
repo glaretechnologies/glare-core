@@ -97,7 +97,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		*/
 
 		// Copy vertices used by the simplified indices to new_vertex_data, if they are not in there already.
-		// Updated simplified_indices to use the new indices as we do this.
+		// Update simplified_indices to use the new indices as we do this.
 		for(size_t i=0; i<res_num_indices; ++i)
 		{
 			const uint32 v_i = simplified_indices[i];
@@ -193,10 +193,9 @@ void testOnBMesh(const std::string& src_path)
 {
 	try
 	{
-		BatchedMesh batched_mesh;
-		BatchedMesh::readFromFile(src_path, batched_mesh);
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(src_path);
 
-		BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(batched_mesh, 10.f, 0.02f, /*sloppy=*/false);
+		BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, 10.f, 0.02f, /*sloppy=*/false);
 
 		const std::string dest_path = eatExtension(FileUtils::getFilename(src_path)) + "_lod1.bmesh";
 
@@ -221,12 +220,11 @@ void buildLODVersions(const std::string& src_path)
 	{
 		conPrint("===========================================");
 		conPrint("Creating LOD models for " + src_path + "...");
-		BatchedMesh batched_mesh;
-		BatchedMesh::readFromFile(src_path, batched_mesh);
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(src_path);
 
 		// Create lod1
 		{
-			BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(batched_mesh, /*target_reduction_ratio=*/10.f, /*target_error=*/0.02f, /*sloppy=*/false);
+			BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target_reduction_ratio=*/10.f, /*target_error=*/0.02f, /*sloppy=*/false);
 
 			const std::string dest_path = removeDotAndExtension(src_path) + "_lod1.bmesh";
 
@@ -241,7 +239,7 @@ void buildLODVersions(const std::string& src_path)
 
 		// Create lod2
 		{
-			BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(batched_mesh, /*target_reduction_ratio=*/100.f, /*target_error=*/0.08f, /*sloppy=*/true);
+			BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target_reduction_ratio=*/100.f, /*target_error=*/0.08f, /*sloppy=*/true);
 
 			const std::string dest_path = removeDotAndExtension(src_path) + "_lod2.bmesh";
 

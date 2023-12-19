@@ -931,15 +931,15 @@ static const uint32 MAX_NUM_VERT_ATTRIBUTES = 100;
 static const uint32 MAX_NUM_BATCHES = 1000000;
 
 
-void BatchedMesh::readFromFile(const std::string& src_path, BatchedMesh& mesh_out)
+Reference<BatchedMesh> BatchedMesh::readFromFile(const std::string& src_path)
 {
 	FileInStream file(src_path);
 
-	readFromData(file.fileData(), file.fileSize(), mesh_out);
+	return readFromData(file.fileData(), file.fileSize());
 }
 
 
-void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& mesh_out)
+Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_len)
 {
 	try
 	{
@@ -968,6 +968,8 @@ void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& m
 		if(header.num_vert_attributes > MAX_NUM_VERT_ATTRIBUTES)
 			throw glare::Exception("Too many vert attributes.");
 		
+		Reference<BatchedMesh> batched_mesh = new BatchedMesh();
+		BatchedMesh& mesh_out = *batched_mesh;
 		mesh_out.vert_attributes.resize(header.num_vert_attributes);
 		size_t cur_offset = 0;
 		for(size_t i=0; i<mesh_out.vert_attributes.size(); ++i)
@@ -1168,6 +1170,8 @@ void BatchedMesh::readFromData(const void* data, size_t data_len, BatchedMesh& m
 		}
 
 		//assert(file.getReadIndex() == file.size());
+
+		return batched_mesh;
 	}
 	catch(std::bad_alloc&)
 	{
@@ -1406,39 +1410,70 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 }
 
 
+// Reorder vertex index batches so that batches sharing the same material are grouped together.
+// We want the indices_start of the new batches to be in ascending order. (for later depth-draw optimisations that merge batches together)
 void BatchedMesh::optimise()
 {
 	// Timer timer;
-
-	if(batches.size() == 1)
+	const size_t batches_size = batches.size();
+	if(batches_size == 1)
 		return;
-
-	// Reorder vertex index batches so that batches sharing the same material are grouped together.
-	// We want the indices_start of the new batches to be in ascending order. (for later depth-draw optimisations that merge batches together)
-
-	std::vector<IndicesBatch> new_batches;
-	js::Vector<uint8, 16> new_index_data(index_data.size());
-
-	const size_t index_type_size_B = componentTypeSize(index_type);
 
 	// Compute num materials (= max mat index + 1)
 	uint32 max_mat_idx = 0;
-	for(size_t i=0; i<batches.size(); ++i)
+	for(size_t i=0; i<batches_size; ++i)
 		max_mat_idx = myMax(max_mat_idx, batches[i].material_index);
 	const size_t num_mats = max_mat_idx + 1;
 
 	std::vector<uint32> indices_per_mat(num_mats);
 
+	// See if we have a case of more than 1 batch using the same material, or if any of the batches are out of order.  If not, skip optimisation.
+	
+	// Use indices_per_mat as a count, per material, of the number of batches using that material.
+	bool multiple_batches_using_same_mat = false;
+	for(size_t i=0; i<batches_size; ++i)
+	{
+		if(indices_per_mat[batches[i].material_index] > 0) // If we have counted some other batch using this material already:
+			multiple_batches_using_same_mat = true;
+		indices_per_mat[batches[i].material_index]++;
+	}
+
+	if(!multiple_batches_using_same_mat)
+	{
+		// See if batches are in order
+		bool batches_in_order = true;
+		for(size_t i=1; i<batches_size; ++i)
+			if(!(batches[i-1].indices_start < batches[i].indices_start))
+				batches_in_order = false;
+
+		// If batches are in order, and all batches use different materials, then the optimisation won't do anything, so early out.
+		if(batches_in_order)
+			return;
+	}
+
 	// Do a pass to count total number of indices per material
-	for(size_t i=0; i<batches.size(); ++i)
+
+	// Reset indices_per_mat to zeroes
+	for(size_t i=0; i<num_mats; ++i)
+		indices_per_mat[i] = 0;
+
+	for(size_t i=0; i<batches_size; ++i)
 		indices_per_mat[batches[i].material_index] += batches[i].num_indices;
 
+	
 	std::vector<int> mat_to_new_batch_map(num_mats, -1); // Map from material index to index of new batch in new_batches for that material
 
+	js::Vector<uint8, 16> new_index_data(index_data.size());
+
+	const size_t index_type_size_B = componentTypeSize(index_type);
+
+
 	// Create new batches, build batch_write_indices.
+	std::vector<IndicesBatch> new_batches;
+	
 	std::vector<int> batch_write_indices(num_mats);
 	uint32 write_index = 0;
-	for(size_t i=0; i<batches.size(); ++i)
+	for(size_t i=0; i<batches_size; ++i)
 	{
 		const IndicesBatch& batch = batches[i];
 		if(mat_to_new_batch_map[batch.material_index] == -1) // If no batch made for this mat yet:
@@ -1459,7 +1494,7 @@ void BatchedMesh::optimise()
 	}
 
 	// Copy index data for each old batch to new location
-	for(size_t i=0; i<batches.size(); ++i)
+	for(size_t i=0; i<batches_size; ++i)
 	{
 		const IndicesBatch& batch = batches[i];
 		const int new_batch_index = mat_to_new_batch_map[batch.material_index];
@@ -1487,7 +1522,7 @@ void BatchedMesh::optimise()
 	batches.swap(new_batches);
 	index_data.swapWith(new_index_data);
 
-	// conPrint("BatchedMesh::optimise took " + timer.elapsedString());
+	// conPrint("BatchedMesh::optimise took " + timer.elapsedStringMSWIthNSigFigs(5));
 }
 
 
