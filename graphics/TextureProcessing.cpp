@@ -508,11 +508,6 @@ static Reference<ImageMapUInt8> convertUInt16ToUInt8ImageMap(const ImageMap<uint
 
 Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression, bool build_mipmaps)
 {
-	if(!build_mipmaps)
-	{
-		assert(!allow_compression);
-	}
-
 	if(dynamic_cast<const ImageMapUInt8*>(map))
 	{
 		const ImageMapUInt8* imagemap = static_cast<const ImageMapUInt8*>(map);
