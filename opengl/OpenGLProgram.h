@@ -16,7 +16,7 @@ class OpenGLShader;
 
 struct UniformLocations
 {
-	UniformLocations() : caustic_tex_a_location(-1), caustic_tex_b_location(-1) {}
+	UniformLocations() : caustic_tex_a_location(-1), caustic_tex_b_location(-1), snow_ice_normal_map_location(-1) {}
 
 	int diffuse_tex_location;
 	int metallic_roughness_tex_location;
@@ -29,6 +29,7 @@ struct UniformLocations
 	int lightmap_tex_location;
 	int fbm_tex_location;
 	int cirrus_tex_location; // Just for water reflection of cirrus
+	int aurora_tex_location;
 	int detail_tex_0_location;
 	int detail_tex_1_location;
 	int detail_tex_2_location;
@@ -41,6 +42,7 @@ struct UniformLocations
 	int caustic_tex_a_location;
 	int caustic_tex_b_location;
 	int water_colour_texture_location;
+	int snow_ice_normal_map_location;
 	
 	int dynamic_depth_tex_location;
 	int static_depth_tex_location;

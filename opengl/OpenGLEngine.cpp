@@ -96,6 +96,43 @@ Copyright Glare Technologies Limited 2020 -
 #define CLOUD_SHADOWS_FLAG					1
 
 
+
+
+static const int DIFFUSE_TEXTURE_UNIT_INDEX            = 0;
+
+static const int DEPTH_TEX_TEXTURE_UNIT_INDEX          = 1;
+static const int STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX   = 2;
+
+static const int COSINE_ENV_TEXTURE_UNIT_INDEX         = 3;
+static const int SPECULAR_ENV_TEXTURE_UNIT_INDEX       = 4;
+static const int BLUE_NOISE_TEXTURE_UNIT_INDEX         = 5;
+static const int FBM_TEXTURE_UNIT_INDEX                = 6;
+
+static const int LIGHTMAP_TEXTURE_UNIT_INDEX           = 7;
+static const int BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX    = 8;
+static const int TRANSMISSION_TEXTURE_UNIT_INDEX       = 9;
+static const int METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX = 10;
+static const int EMISSION_TEXTURE_UNIT_INDEX           = 11;
+static const int NORMAL_MAP_TEXTURE_UNIT_INDEX         = 12;
+
+static const int MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX   = 13;
+static const int MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX   = 14;
+static const int MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX    = 15;
+
+static const int CIRRUS_TEX_TEXTURE_UNIT_INDEX         = 16;
+static const int CAUSTIC_A_TEXTURE_UNIT_INDEX          = 17;
+static const int CAUSTIC_B_TEXTURE_UNIT_INDEX          = 18;
+
+static const int DETAIL_0_TEXTURE_UNIT_INDEX           = 19;
+static const int DETAIL_1_TEXTURE_UNIT_INDEX           = 20;
+static const int DETAIL_2_TEXTURE_UNIT_INDEX           = 21;
+static const int DETAIL_3_TEXTURE_UNIT_INDEX           = 22;
+static const int DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX   = 23;
+
+static const int AURORA_TEXTURE_UNIT_INDEX             = 24;
+static const int SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX = 25;
+
+
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), decal(false),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
@@ -447,6 +484,8 @@ OpenGLEngine::~OpenGLEngine()
 	blue_noise_tex = NULL;
 	noise_tex = NULL;
 	cirrus_tex = NULL;
+	aurora_tex = NULL;
+	snow_ice_normal_map = NULL;
 
 	water_caustics_textures.clear();
 
@@ -1401,7 +1440,9 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.detail_tex_3_location				= prog->getUniformLocation("detail_tex_3");
 	locations_out.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
 	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
-	
+	locations_out.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
+	locations_out.snow_ice_normal_map_location		= prog->getUniformLocation("snow_ice_normal_map");
+
 	if(shadow_mapping_enabled)
 	{
 		locations_out.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
@@ -2263,6 +2304,9 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		bindShaderStorageBlockToProgram(scatter_data_prog, "DataUpdate", DATA_UPDATES_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(scatter_data_prog, "PerObjectVertUniforms", PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
 	}
+
+	// Build draw_aurora_tex_prog
+	draw_aurora_tex_prog = buildAuroraProgram(use_shader_dir);
 }
 
 
@@ -5409,6 +5453,25 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 }
 
 
+OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_dir)
+{
+	OpenGLProgramRef prog = new OpenGLProgram(
+			"draw_aurora_tex",
+			new OpenGLShader(use_shader_dir + "/draw_aurora_tex_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/draw_aurora_tex_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex()
+	);
+	addProgram(prog);
+
+	getUniformLocations(prog, settings.shadow_mapping, /*locations out=*/prog->uniform_locations);
+	setStandardTextureUnitUniformsForProgram(*prog);
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+
+	return prog;
+}
+
+
 void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int /*num_clip_planes_used*/)
 {
 #if BUILD_TESTS
@@ -5508,6 +5571,30 @@ void OpenGLEngine::draw()
 
 		conPrint("------------------------------------------- Reloading shaders -------------------------------------------");
 
+		const std::string use_shader_dir = data_dir + "/shaders";
+
+		// Try and reload env shader
+		OpenGLProgramRef new_env_prog;
+		try
+		{
+			new_env_prog = buildEnvProgram(use_shader_dir);
+			env_prog = new_env_prog;
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading env prog: " + e.what());
+		}
+		
+		// Try and reload draw-aurora shader
+		try
+		{
+			this->draw_aurora_tex_prog = buildAuroraProgram(use_shader_dir);
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading aurora prog: " + e.what());
+		}
+
 		// Reload shaders on all objects
 		for(auto z = scenes.begin(); z != scenes.end(); ++z)
 		{
@@ -5521,21 +5608,10 @@ void OpenGLEngine::draw()
 				rebuildDenormalisedDrawData(*object);
 				rebuildObjectDepthDrawBatches(*object);
 			}
-		}
-
-		// Reload env shader
-		try
-		{
-			const std::string use_shader_dir = data_dir + "/shaders";
-			OpenGLProgramRef new_env_prog = buildEnvProgram(use_shader_dir);
 
 			// If built successfully, assign to env ob
-			current_scene->env_ob->materials[0].shader_prog = new_env_prog;
-			env_prog = new_env_prog;
-		}
-		catch(glare::Exception& e)
-		{
-			conPrint("Error while reloading env prog: " + e.what());
+			if(scene->env_ob.nonNull() && new_env_prog.nonNull())
+				scene->env_ob->materials[0].shader_prog = new_env_prog;
 		}
 
 		shader_file_changed = 0;
@@ -5565,6 +5641,9 @@ void OpenGLEngine::draw()
 
 	// Unload unused textures if we have exceeded our texture mem usage budget.
 	trimTextureUsage();
+
+	if(current_scene->use_main_render_framebuffer)
+		drawAuroraTex();
 
 
 	//=============== Process materialise_objects - objects showing materialise effect ===============
@@ -7826,6 +7905,70 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 }
 
 
+void OpenGLEngine::drawAuroraTex()
+{
+	OpenGLProgram::useNoPrograms(); // Unbind any programs before we start changing framebuffer and z-buffer options.
+
+	const int AURORA_TEX_W = 512;
+	if(aurora_tex.isNull())
+	{
+		aurora_tex = new OpenGLTexture(AURORA_TEX_W, AURORA_TEX_W, /*opengl_engine=*/this,
+			ArrayRef<uint8>(NULL, 0),
+			OpenGLTexture::Format_RGB_Linear_Uint8,
+			OpenGLTexture::Filtering_Bilinear
+		);
+	}
+
+	if(aurora_tex_frame_buffer.isNull())
+	{
+		aurora_tex_frame_buffer = new FrameBuffer();
+		aurora_tex_frame_buffer->bindTextureAsTarget(*aurora_tex, GL_COLOR_ATTACHMENT0);
+
+		GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+		{
+			conPrint("Error: renderMaskMap(): framebuffer is not complete.");
+			assert(0);
+		}
+
+		// Add overlay quad showing texture, for debugging
+		if(false)
+		{
+			OverlayObjectRef tex_preview_overlay_ob =  new OverlayObject();
+			tex_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1, -1, -0.999f) * Matrix4f::scaleMatrix(0.5f, 0.5f, 1);
+			tex_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+			tex_preview_overlay_ob->material.albedo_texture = aurora_tex;
+			tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+			addOverlayObject(tex_preview_overlay_ob);
+		}
+	}
+
+	glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+	glDisable(GL_DEPTH_TEST); // Don't depth test
+
+	bindMeshData(*unit_quad_meshdata);
+	assert(unit_quad_meshdata->batches.size() == 1);
+
+	aurora_tex_frame_buffer->bind();
+		
+	glViewport(0, 0, AURORA_TEX_W, AURORA_TEX_W); // Set viewport to target texture size
+
+	draw_aurora_tex_prog->useProgram();
+
+	assert(getIntUniformVal(*draw_aurora_tex_prog, this->draw_aurora_tex_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
+
+	const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
+	glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
+
+
+	OpenGLProgram::useNoPrograms();
+
+	glEnable(GL_DEPTH_TEST); // Restore depth testing
+	glDepthMask(GL_TRUE); // Restore depth buffer writes
+}
+
+
 Reference<OpenGLMeshRenderData> OpenGLEngine::getLineMeshData() { return line_meshdata; } // A line from (0, 0, 0) to (1, 0, 0)
 Reference<OpenGLMeshRenderData> OpenGLEngine::getSphereMeshData() { return sphere_meshdata; }
 Reference<OpenGLMeshRenderData> OpenGLEngine::getCubeMeshData() { return cube_meshdata; }
@@ -8111,38 +8254,6 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator
 }
 
 
-static const int DIFFUSE_TEXTURE_UNIT_INDEX            = 0;
-
-static const int DEPTH_TEX_TEXTURE_UNIT_INDEX          = 1;
-static const int STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX   = 2;
-
-static const int COSINE_ENV_TEXTURE_UNIT_INDEX         = 3;
-static const int SPECULAR_ENV_TEXTURE_UNIT_INDEX       = 4;
-static const int BLUE_NOISE_TEXTURE_UNIT_INDEX         = 5;
-static const int FBM_TEXTURE_UNIT_INDEX                = 6;
-
-static const int LIGHTMAP_TEXTURE_UNIT_INDEX           = 7;
-static const int BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX    = 8;
-static const int TRANSMISSION_TEXTURE_UNIT_INDEX       = 9;
-static const int METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX = 10;
-static const int EMISSION_TEXTURE_UNIT_INDEX           = 11;
-static const int NORMAL_MAP_TEXTURE_UNIT_INDEX         = 12;
-
-static const int MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX   = 13;
-static const int MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX   = 14;
-static const int MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX    = 15;
-
-static const int CIRRUS_TEX_TEXTURE_UNIT_INDEX         = 16;
-static const int CAUSTIC_A_TEXTURE_UNIT_INDEX          = 17;
-static const int CAUSTIC_B_TEXTURE_UNIT_INDEX          = 18;
-
-static const int DETAIL_0_TEXTURE_UNIT_INDEX           = 19;
-static const int DETAIL_1_TEXTURE_UNIT_INDEX           = 20;
-static const int DETAIL_2_TEXTURE_UNIT_INDEX           = 21;
-static const int DETAIL_3_TEXTURE_UNIT_INDEX           = 22;
-static const int DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX   = 23;
-
-
 void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& program)
 {
 	program.useProgram(); // Bind program
@@ -8180,6 +8291,10 @@ void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& progr
 	glUniform1i(program.uniform_locations.detail_tex_3_location, DETAIL_3_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.detail_heightmap_0_location, DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
+	
+	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
+	
+	glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 
 	OpenGLProgram::useNoPrograms();
 }
@@ -8207,6 +8322,9 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	// NOTE: for now we will only use 1 detail heightmap (rock) in shader
 	if(this->detail_heightmap[0].nonNull())
 		bindTextureToTextureUnit(*this->detail_heightmap[0], /*texture_unit_index=*/DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
+
+	if(snow_ice_normal_map.nonNull())
+		bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 
 	// Set shadow mapping uniforms
 	if(shadow_mapping.nonNull())
@@ -8365,6 +8483,10 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/CAUSTIC_B_TEXTURE_UNIT_INDEX);
 	}
 
+	if(this->aurora_tex.nonNull())
+		bindTextureToTextureUnit(*this->aurora_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
+
+
 	if(shader_prog.view_matrix_loc >= 0)
 	{
 		glUniformMatrix4fv(shader_prog.view_matrix_loc, 1, false, view_mat.e);
@@ -8472,14 +8594,18 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			bindTextureToTextureUnit(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
 		}
 
+		//assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.blue_noise_tex_location) == BLUE_NOISE_TEXTURE_UNIT_INDEX);
 		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.diffuse_tex_location) == DIFFUSE_TEXTURE_UNIT_INDEX);
 		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
 		if(this->cirrus_tex.nonNull())
 			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
+		bindTextureToTextureUnit(*this->blue_noise_tex, BLUE_NOISE_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
 		if(this->cirrus_tex.nonNull())
 			bindTextureToTextureUnit(*this->cirrus_tex, CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+		if(this->aurora_tex.nonNull())
+			bindTextureToTextureUnit(*this->aurora_tex, AURORA_TEXTURE_UNIT_INDEX);
 	}
 	else if(shader_prog->is_depth_draw)
 	{

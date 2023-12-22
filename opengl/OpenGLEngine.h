@@ -929,6 +929,8 @@ public:
 	const OpenGLMaterial& getEnvMat() const { return current_scene->env_ob->materials[0]; }
 
 	void setCirrusTexture(const Reference<OpenGLTexture>& tex);
+
+	void setSnowIceTexture(const Reference<OpenGLTexture>& tex) { this->snow_ice_normal_map = tex; }
 	//----------------------------------------------------------------------------------------
 
 	//------------------------------- Terrain --------------------
@@ -1073,6 +1075,7 @@ private:
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
+	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
 public:
 	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }
@@ -1105,6 +1108,7 @@ private:
 	void drawOutlinesAroundSelectedObjects();
 	void drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawAuroraTex();
 	void buildPrograms(const std::string& use_shader_dir);
 
 	bool init_succeeded;
@@ -1168,6 +1172,8 @@ private:
 	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;
 	Reference<OpenGLTexture> cirrus_tex; // May be NULL, set by setCirrusTexture().
+	Reference<OpenGLTexture> aurora_tex;
+	Reference<OpenGLTexture> snow_ice_normal_map;
 
 	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
 
@@ -1195,6 +1201,8 @@ private:
 	Reference<OpenGLProgram> gaussian_blur_prog;
 
 	Reference<OpenGLProgram> final_imaging_prog; // Adds bloom, tonemaps
+
+	Reference<OpenGLProgram> draw_aurora_tex_prog;
 
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
@@ -1416,6 +1424,8 @@ private:
 	TextureAllocator texture_allocator;
 
 	Reference<FrameBuffer> mask_map_frame_buffer;
+
+	Reference<FrameBuffer> aurora_tex_frame_buffer;
 };
 
 
