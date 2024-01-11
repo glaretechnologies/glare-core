@@ -18,7 +18,7 @@ class FileInStream;
 class FileOutStream;
 
 
-// Hash function for Vert
+// Hash function for DatabaseKey
 class DatabaseKeyHash
 {
 public:
