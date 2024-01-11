@@ -30,6 +30,11 @@ static const std::string getLog(GLuint program)
 }
 
 
+UniformLocations::UniformLocations() 
+:	caustic_tex_a_location(-1), caustic_tex_b_location(-1), snow_ice_normal_map_location(-1)
+{}
+
+
 OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_, uint32 program_index_)
 :	program(0),
 	prog_name(prog_name_),

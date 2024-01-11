@@ -16,7 +16,7 @@ class OpenGLShader;
 
 struct UniformLocations
 {
-	UniformLocations() : caustic_tex_a_location(-1), caustic_tex_b_location(-1), snow_ice_normal_map_location(-1) {}
+	UniformLocations();
 
 	int diffuse_tex_location;
 	int metallic_roughness_tex_location;

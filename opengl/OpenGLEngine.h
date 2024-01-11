@@ -1057,7 +1057,7 @@ private:
 	void addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const Vec4f& t, float line_rad, const Colour4f& line_col);
 
 public:
-	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
+	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, UniformLocations& phong_locations_out);
 private:
 	static void setStandardTextureUnitUniformsForProgram(OpenGLProgram& program);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;

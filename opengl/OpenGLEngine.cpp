@@ -1419,7 +1419,7 @@ void OpenGLEngine::setDetailHeightmap(int index, const OpenGLTextureRef& tex)
 #endif
 
 
-void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shadow_mapping_enabled, UniformLocations& locations_out)
+void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, UniformLocations& locations_out)
 {
 	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
 	locations_out.metallic_roughness_tex_location	= prog->getUniformLocation("metallic_roughness_tex");
@@ -1446,12 +1446,9 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, bool shad
 	locations_out.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
 	locations_out.snow_ice_normal_map_location		= prog->getUniformLocation("snow_ice_normal_map");
 
-	if(shadow_mapping_enabled)
-	{
-		locations_out.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
-		locations_out.static_depth_tex_location			= prog->getUniformLocation("static_depth_tex");
-		locations_out.shadow_texture_matrix_location	= prog->getUniformLocation("shadow_texture_matrix");
-	}
+	locations_out.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
+	locations_out.static_depth_tex_location			= prog->getUniformLocation("static_depth_tex");
+	locations_out.shadow_texture_matrix_location	= prog->getUniformLocation("shadow_texture_matrix");
 
 	//locations_out.proj_view_model_matrix_location	= prog->getUniformLocation("proj_view_model_matrix");
 
@@ -2434,7 +2431,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		progs[key] = phong_prog;
 
-		getUniformLocations(phong_prog, settings.shadow_mapping, /*locations out=*/phong_prog->uniform_locations);
+		getUniformLocations(phong_prog, /*locations out=*/phong_prog->uniform_locations);
 		setStandardTextureUnitUniformsForProgram(*phong_prog);
 
 		if(!use_multi_draw_indirect)
@@ -2501,7 +2498,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, settings.shadow_mapping, /*locations out=*/prog->uniform_locations);
+		getUniformLocations(prog, /*locations out=*/prog->uniform_locations);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
@@ -2573,7 +2570,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		getUniformLocations(prog, prog->uniform_locations);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
@@ -2631,7 +2628,7 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		getUniformLocations(prog, prog->uniform_locations);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		bindUniformBlockToProgram(prog, "PhongUniforms",				PHONG_UBO_BINDING_POINT_INDEX);
@@ -2689,7 +2686,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, settings.shadow_mapping, prog->uniform_locations);
+		getUniformLocations(prog, prog->uniform_locations);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
@@ -5456,7 +5453,7 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 	);
 	addProgram(new_env_prog);
 
-	getUniformLocations(new_env_prog, settings.shadow_mapping, /*locations out=*/new_env_prog->uniform_locations);
+	getUniformLocations(new_env_prog, /*locations out=*/new_env_prog->uniform_locations);
 	setStandardTextureUnitUniformsForProgram(*new_env_prog);
 
 	env_diffuse_colour_location		= new_env_prog->getUniformLocation("diffuse_colour");
@@ -5480,7 +5477,7 @@ OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_
 	);
 	addProgram(prog);
 
-	getUniformLocations(prog, settings.shadow_mapping, /*locations out=*/prog->uniform_locations);
+	getUniformLocations(prog, /*locations out=*/prog->uniform_locations);
 	setStandardTextureUnitUniformsForProgram(*prog);
 
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
