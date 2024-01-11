@@ -96,41 +96,44 @@ Copyright Glare Technologies Limited 2020 -
 #define CLOUD_SHADOWS_FLAG					1
 
 
+// 'Standard' textures will be bound to standard texture units, for example FBM texture will always be bound to texture unit 6.
+// We won't use texture unit index 0, that will be a scratch index which will get overwritten when creating new textures (which calls glBindTexture()) etc.
+enum TextureUnitIndices
+{
+	DEPTH_TEX_TEXTURE_UNIT_INDEX = 1,
+	STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX,
 
+	COSINE_ENV_TEXTURE_UNIT_INDEX,
+	SPECULAR_ENV_TEXTURE_UNIT_INDEX,
+	BLUE_NOISE_TEXTURE_UNIT_INDEX,
+	FBM_TEXTURE_UNIT_INDEX,
 
-static const int DIFFUSE_TEXTURE_UNIT_INDEX            = 0;
+	DIFFUSE_TEXTURE_UNIT_INDEX,
+	LIGHTMAP_TEXTURE_UNIT_INDEX,
+	BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX,
+	TRANSMISSION_TEXTURE_UNIT_INDEX,
+	METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX,
+	EMISSION_TEXTURE_UNIT_INDEX,
+	NORMAL_MAP_TEXTURE_UNIT_INDEX,
 
-static const int DEPTH_TEX_TEXTURE_UNIT_INDEX          = 1;
-static const int STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX   = 2;
+	MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX,
+	MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX,
+	MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX,
 
-static const int COSINE_ENV_TEXTURE_UNIT_INDEX         = 3;
-static const int SPECULAR_ENV_TEXTURE_UNIT_INDEX       = 4;
-static const int BLUE_NOISE_TEXTURE_UNIT_INDEX         = 5;
-static const int FBM_TEXTURE_UNIT_INDEX                = 6;
+	CIRRUS_TEX_TEXTURE_UNIT_INDEX,
+	CAUSTIC_A_TEXTURE_UNIT_INDEX,
+	CAUSTIC_B_TEXTURE_UNIT_INDEX,
 
-static const int LIGHTMAP_TEXTURE_UNIT_INDEX           = 7;
-static const int BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX    = 8;
-static const int TRANSMISSION_TEXTURE_UNIT_INDEX       = 9;
-static const int METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX = 10;
-static const int EMISSION_TEXTURE_UNIT_INDEX           = 11;
-static const int NORMAL_MAP_TEXTURE_UNIT_INDEX         = 12;
+	DETAIL_0_TEXTURE_UNIT_INDEX,
+	DETAIL_1_TEXTURE_UNIT_INDEX,
+	DETAIL_2_TEXTURE_UNIT_INDEX,
+	DETAIL_3_TEXTURE_UNIT_INDEX,
+	DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX,
 
-static const int MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX   = 13;
-static const int MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX   = 14;
-static const int MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX    = 15;
+	AURORA_TEXTURE_UNIT_INDEX,
+	SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
+};
 
-static const int CIRRUS_TEX_TEXTURE_UNIT_INDEX         = 16;
-static const int CAUSTIC_A_TEXTURE_UNIT_INDEX          = 17;
-static const int CAUSTIC_B_TEXTURE_UNIT_INDEX          = 18;
-
-static const int DETAIL_0_TEXTURE_UNIT_INDEX           = 19;
-static const int DETAIL_1_TEXTURE_UNIT_INDEX           = 20;
-static const int DETAIL_2_TEXTURE_UNIT_INDEX           = 21;
-static const int DETAIL_3_TEXTURE_UNIT_INDEX           = 22;
-static const int DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX   = 23;
-
-static const int AURORA_TEXTURE_UNIT_INDEX             = 24;
-static const int SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX = 25;
 
 
 GLObject::GLObject() noexcept
@@ -4891,9 +4894,11 @@ static inline void bindTextureToTextureUnit(const OpenGLTexture& texture, int te
 {
 	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
 	glBindTexture(texture.getTextureTarget(), texture.texture_handle);
+	glActiveTexture(GL_TEXTURE0); // Change the active texture unit index back to zero, so we don't accidentally change the binding when creating new textures etc.
 }
 
 
+// Bind texture to texture unit, bind texture unit to sampler.
 static inline void bindTextureUnitToSampler(const OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
 {
 	bindTextureToTextureUnit(texture, texture_unit_index);
@@ -4918,6 +4923,18 @@ static int getCurrentProgram()
 	GLint program = 0;
 	glGetIntegerv(GL_CURRENT_PROGRAM, &program);
 	return program;
+}
+
+
+static GLuint getBoundTexture2D(int texture_unit_index)
+{
+	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
+
+	GLint tex_handle = 0;
+	glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex_handle);
+
+	glActiveTexture(GL_TEXTURE0);
+	return tex_handle;
 }
 #endif
 
@@ -5798,11 +5815,18 @@ void OpenGLEngine::draw()
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 
+
+	bindStandardTexturesToTextureUnits();
+
+
 	num_multi_draw_indirect_calls = 0;
 
 	//=============== Render to shadow map depth buffer if needed ===========
 	if(current_scene->shadow_mapping)
 		renderToShadowMapDepthBuffer(shadow_depth_drawing_elapsed_ns);
+
+
+	bindStandardShadowMappingDepthTextures(); // Rebind now that the shadow maps have been redrawn, and hence cur_static_depth_tex has changed.
 
 
 #if !defined(OSX)
@@ -5922,6 +5946,8 @@ void OpenGLEngine::draw()
 			main_render_copy_framebuffer->bindTextureAsTarget(*main_colour_copy_texture, GL_COLOR_ATTACHMENT0);
 			main_render_copy_framebuffer->bindTextureAsTarget(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1);
 			main_render_copy_framebuffer->bindTextureAsTarget(*main_depth_copy_texture, GL_DEPTH_ATTACHMENT);
+
+			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
 		}
 
 		main_render_framebuffer->bind();
@@ -8300,8 +8326,20 @@ void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& progr
 }
 
 
-void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations& locations)
+void OpenGLEngine::bindStandardShadowMappingDepthTextures()
 {
+	if(shadow_mapping.nonNull())
+	{
+		bindTextureToTextureUnit(*this->shadow_mapping->depth_tex,                                                    /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
+	}
+}
+
+
+void OpenGLEngine::bindStandardTexturesToTextureUnits()
+{
+	bindStandardShadowMappingDepthTextures();
+
 	if(cosine_env_tex.nonNull())
 	{
 		bindTextureToTextureUnit(*this->cosine_env_tex,    /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
@@ -8309,6 +8347,26 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	}
 	bindTextureToTextureUnit(*this->blue_noise_tex,    /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
 	bindTextureToTextureUnit(*this->fbm_tex,           /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
+
+
+	if(main_colour_copy_texture.nonNull())
+	{
+		bindTextureToTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*main_normal_copy_texture, /*texture_unit_index=*/MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*main_depth_copy_texture,  /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+	}
+
+	bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+
+	if(settings.render_water_caustics)
+	{
+		const int current_caustic_index   = Maths::intMod((int)(this->current_time * 24.0f)    , (int)water_caustics_textures.size());
+		const int current_caustic_index_1 = Maths::intMod((int)(this->current_time * 24.0f) + 1, (int)water_caustics_textures.size());
+
+		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/CAUSTIC_A_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/CAUSTIC_B_TEXTURE_UNIT_INDEX);
+	}
+
 
 	if(this->detail_tex[0].nonNull())
 		bindTextureToTextureUnit(*this->detail_tex[0], /*texture_unit_index=*/DETAIL_0_TEXTURE_UNIT_INDEX);
@@ -8323,19 +8381,11 @@ void OpenGLEngine::doPhongProgramBindingsForProgramChange(const UniformLocations
 	if(this->detail_heightmap[0].nonNull())
 		bindTextureToTextureUnit(*this->detail_heightmap[0], /*texture_unit_index=*/DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
 
+	if(this->aurora_tex.nonNull())
+		bindTextureToTextureUnit(*this->aurora_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
+
 	if(snow_ice_normal_map.nonNull())
 		bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
-
-	// Set shadow mapping uniforms
-	if(shadow_mapping.nonNull())
-	{
-		bindTextureToTextureUnit(*this->shadow_mapping->depth_tex,                                                    /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
-		bindTextureToTextureUnit(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
-	}
-
-	// Set blob shadows location data
-	glUniform1i(locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
-	glUniform4fv(locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
 }
 
 
@@ -8457,35 +8507,10 @@ static void _doCheck(bool b, const char* message)
 }*/
 
 
-// Set uniforms that are the same for every batch for the duration of this frame.
+// Set uniforms that are the same for every triangle batch this frame.
 void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat)
 {
 	ZoneScoped; // Tracy profiler
-
-	//TEMP NEW:
-	if(shader_prog.uses_colour_and_depth_buf_textures)
-	{
-		bindTextureToTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
-		bindTextureToTextureUnit(*main_normal_copy_texture, /*texture_unit_index=*/MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX);
-		bindTextureToTextureUnit(*main_depth_copy_texture,  /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
-	}
-
-	if(shader_prog.uses_colour_and_depth_buf_textures && this->cirrus_tex.nonNull() && (shader_prog.uniform_locations.cirrus_tex_location >= 0)) // TEMP HACK
-		bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
-
-	//if(shader_prog.uses_colour_and_depth_buf_textures || shader_prog.uses_phong_uniforms) // TEMP
-	if(settings.render_water_caustics && (shader_prog.uniform_locations.caustic_tex_a_location >= 0))
-	{
-		const int current_caustic_index   = Maths::intMod((int)(this->current_time * 24.0f)    , (int)water_caustics_textures.size());
-		const int current_caustic_index_1 = Maths::intMod((int)(this->current_time * 24.0f) + 1, (int)water_caustics_textures.size());
-
-		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/CAUSTIC_A_TEXTURE_UNIT_INDEX);
-		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/CAUSTIC_B_TEXTURE_UNIT_INDEX);
-	}
-
-	if(this->aurora_tex.nonNull())
-		bindTextureToTextureUnit(*this->aurora_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
-
 
 	if(shader_prog.view_matrix_loc >= 0)
 	{
@@ -8495,13 +8520,30 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 
 	if(shader_prog.uses_phong_uniforms)
 	{
-		doPhongProgramBindingsForProgramChange(shader_prog.uniform_locations);
+		// Set blob shadows location data
+		glUniform1i(shader_prog.uniform_locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
+		glUniform4fv(shader_prog.uniform_locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
 	}
-	else if(shader_prog.is_depth_draw)
+
+
+	// Check standard textures are correctly bound to standard texture units
+	if(shadow_mapping.nonNull())
 	{
-		bindTextureToTextureUnit(*this->blue_noise_tex, /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
-		bindTextureToTextureUnit(*this->fbm_tex, /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
+		assert(getBoundTexture2D(DEPTH_TEX_TEXTURE_UNIT_INDEX)        == this->shadow_mapping->depth_tex->texture_handle);
+		assert(getBoundTexture2D(STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX) == this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
 	}
+
+	if(main_colour_copy_texture.nonNull())
+	{
+		assert(getBoundTexture2D(MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX) == main_colour_copy_texture->texture_handle);
+		assert(getBoundTexture2D(MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX) == main_normal_copy_texture->texture_handle);
+		assert(getBoundTexture2D(MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX)  == main_depth_copy_texture->texture_handle);
+	}
+
+	assert(getBoundTexture2D(CIRRUS_TEX_TEXTURE_UNIT_INDEX) == cirrus_tex->texture_handle);
+	assert(getBoundTexture2D(AURORA_TEXTURE_UNIT_INDEX)     == aurora_tex->texture_handle);
+	assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
+	assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX)        == fbm_tex->texture_handle);
 }
 
 
@@ -8600,12 +8642,13 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		if(this->cirrus_tex.nonNull())
 			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
-		bindTextureToTextureUnit(*this->blue_noise_tex, BLUE_NOISE_TEXTURE_UNIT_INDEX);
-		bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
+		assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
+		assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX) == fbm_tex->texture_handle);
+
 		if(this->cirrus_tex.nonNull())
-			bindTextureToTextureUnit(*this->cirrus_tex, CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+			assert(getBoundTexture2D(CIRRUS_TEX_TEXTURE_UNIT_INDEX) == cirrus_tex->texture_handle);
 		if(this->aurora_tex.nonNull())
-			bindTextureToTextureUnit(*this->aurora_tex, AURORA_TEXTURE_UNIT_INDEX);
+			assert(getBoundTexture2D(AURORA_TEXTURE_UNIT_INDEX) == aurora_tex->texture_handle);
 	}
 	else if(shader_prog->is_depth_draw)
 	{
@@ -8626,9 +8669,6 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
 			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->albedo_texture_loc);
-
-		if(shader_prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
-			bindTextureUnitToSampler(*opengl_mat.texture_2, /*texture_unit_index=*/1, /*sampler_uniform_location=*/shader_prog->texture_2_loc);
 
 		// Set user uniforms
 		for(size_t i=0; i<shader_prog->user_uniform_info.size(); ++i)
@@ -8902,9 +8942,6 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 			if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
 				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/prog->albedo_texture_loc);
-
-			if(prog->texture_2_loc >= 0 && opengl_mat.texture_2.nonNull())
-				bindTextureUnitToSampler(*opengl_mat.texture_2, /*texture_unit_index=*/1, /*sampler_uniform_location=*/prog->texture_2_loc);
 
 			// Set user uniforms
 			for(size_t i=0; i<prog->user_uniform_info.size(); ++i)
@@ -9480,6 +9517,8 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 	current_bound_prog_index = std::numeric_limits<uint32>::max();
 	current_bound_VAO = NULL;
 	current_uniforms_ob = NULL;
+
+	bindStandardTexturesToTextureUnits();
 
 	if(mask_map_frame_buffer.isNull())
 	{

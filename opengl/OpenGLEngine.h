@@ -162,7 +162,6 @@ public:
 	Reference<OpenGLTexture> albedo_texture;
 	Reference<OpenGLTexture> metallic_roughness_texture;
 	Reference<OpenGLTexture> lightmap_texture;
-	Reference<OpenGLTexture> texture_2;
 	Reference<OpenGLTexture> backface_albedo_texture;
 	Reference<OpenGLTexture> transmission_texture;
 	Reference<OpenGLTexture> emission_texture;
@@ -1060,7 +1059,6 @@ private:
 public:
 	static void getUniformLocations(Reference<OpenGLProgram>& phong_prog, bool shadow_mapping_enabled, UniformLocations& phong_locations_out);
 private:
-	void doPhongProgramBindingsForProgramChange(const UniformLocations& locations);
 	static void setStandardTextureUnitUniformsForProgram(OpenGLProgram& program);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;
 	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) const;
@@ -1110,6 +1108,8 @@ private:
 	void drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAuroraTex();
 	void buildPrograms(const std::string& use_shader_dir);
+	void bindStandardTexturesToTextureUnits();
+	void bindStandardShadowMappingDepthTextures();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;
