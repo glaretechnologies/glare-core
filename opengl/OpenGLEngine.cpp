@@ -1419,41 +1419,41 @@ void OpenGLEngine::setDetailHeightmap(int index, const OpenGLTextureRef& tex)
 #endif
 
 
-void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog, UniformLocations& locations_out)
+void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 {
-	locations_out.diffuse_tex_location				= prog->getUniformLocation("diffuse_tex");
-	locations_out.metallic_roughness_tex_location	= prog->getUniformLocation("metallic_roughness_tex");
-	locations_out.emission_tex_location				= prog->getUniformLocation("emission_tex");
-	locations_out.backface_albedo_tex_location		= prog->getUniformLocation("backface_albedo_tex");
-	locations_out.transmission_tex_location			= prog->getUniformLocation("transmission_tex");
-	locations_out.normal_map_location				= prog->getUniformLocation("normal_map");
-	locations_out.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
-	locations_out.specular_env_tex_location			= prog->getUniformLocation("specular_env_tex");
-	locations_out.lightmap_tex_location				= prog->getUniformLocation("lightmap_tex");
-	locations_out.fbm_tex_location					= prog->getUniformLocation("fbm_tex");
-	locations_out.cirrus_tex_location				= prog->getUniformLocation("cirrus_tex");
-	locations_out.main_colour_texture_location		= prog->getUniformLocation("main_colour_texture");
-	locations_out.main_normal_texture_location		= prog->getUniformLocation("main_normal_texture");
-	locations_out.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
-	locations_out.caustic_tex_a_location			= prog->getUniformLocation("caustic_tex_a");
-	locations_out.caustic_tex_b_location			= prog->getUniformLocation("caustic_tex_b");
-	locations_out.detail_tex_0_location				= prog->getUniformLocation("detail_tex_0");
-	locations_out.detail_tex_1_location				= prog->getUniformLocation("detail_tex_1");
-	locations_out.detail_tex_2_location				= prog->getUniformLocation("detail_tex_2");
-	locations_out.detail_tex_3_location				= prog->getUniformLocation("detail_tex_3");
-	locations_out.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
-	locations_out.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
-	locations_out.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
-	locations_out.snow_ice_normal_map_location		= prog->getUniformLocation("snow_ice_normal_map");
+	prog->uniform_locations.diffuse_tex_location			= prog->getUniformLocation("diffuse_tex");
+	prog->uniform_locations.metallic_roughness_tex_location	= prog->getUniformLocation("metallic_roughness_tex");
+	prog->uniform_locations.emission_tex_location			= prog->getUniformLocation("emission_tex");
+	prog->uniform_locations.backface_albedo_tex_location	= prog->getUniformLocation("backface_albedo_tex");
+	prog->uniform_locations.transmission_tex_location		= prog->getUniformLocation("transmission_tex");
+	prog->uniform_locations.normal_map_location				= prog->getUniformLocation("normal_map");
+	prog->uniform_locations.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
+	prog->uniform_locations.specular_env_tex_location		= prog->getUniformLocation("specular_env_tex");
+	prog->uniform_locations.lightmap_tex_location			= prog->getUniformLocation("lightmap_tex");
+	prog->uniform_locations.fbm_tex_location				= prog->getUniformLocation("fbm_tex");
+	prog->uniform_locations.cirrus_tex_location				= prog->getUniformLocation("cirrus_tex");
+	prog->uniform_locations.main_colour_texture_location	= prog->getUniformLocation("main_colour_texture");
+	prog->uniform_locations.main_normal_texture_location	= prog->getUniformLocation("main_normal_texture");
+	prog->uniform_locations.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
+	prog->uniform_locations.caustic_tex_a_location			= prog->getUniformLocation("caustic_tex_a");
+	prog->uniform_locations.caustic_tex_b_location			= prog->getUniformLocation("caustic_tex_b");
+	prog->uniform_locations.detail_tex_0_location			= prog->getUniformLocation("detail_tex_0");
+	prog->uniform_locations.detail_tex_1_location			= prog->getUniformLocation("detail_tex_1");
+	prog->uniform_locations.detail_tex_2_location			= prog->getUniformLocation("detail_tex_2");
+	prog->uniform_locations.detail_tex_3_location			= prog->getUniformLocation("detail_tex_3");
+	prog->uniform_locations.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
+	prog->uniform_locations.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
+	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
+	prog->uniform_locations.snow_ice_normal_map_location	= prog->getUniformLocation("snow_ice_normal_map");
 
-	locations_out.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
-	locations_out.static_depth_tex_location			= prog->getUniformLocation("static_depth_tex");
-	locations_out.shadow_texture_matrix_location	= prog->getUniformLocation("shadow_texture_matrix");
+	prog->uniform_locations.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
+	prog->uniform_locations.static_depth_tex_location		= prog->getUniformLocation("static_depth_tex");
+	prog->uniform_locations.shadow_texture_matrix_location	= prog->getUniformLocation("shadow_texture_matrix");
 
-	//locations_out.proj_view_model_matrix_location	= prog->getUniformLocation("proj_view_model_matrix");
+	//prog->uniform_locations.proj_view_model_matrix_location	= prog->getUniformLocation("proj_view_model_matrix");
 
-	locations_out.num_blob_positions_location		= prog->getUniformLocation("num_blob_positions");
-	locations_out.blob_positions_location			= prog->getUniformLocation("blob_positions");
+	prog->uniform_locations.num_blob_positions_location		= prog->getUniformLocation("num_blob_positions");
+	prog->uniform_locations.blob_positions_location			= prog->getUniformLocation("blob_positions");
 }
 
 
@@ -2431,7 +2431,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		progs[key] = phong_prog;
 
-		getUniformLocations(phong_prog, /*locations out=*/phong_prog->uniform_locations);
+		getUniformLocations(phong_prog);
 		setStandardTextureUnitUniformsForProgram(*phong_prog);
 
 		if(!use_multi_draw_indirect)
@@ -2498,7 +2498,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, /*locations out=*/prog->uniform_locations);
+		getUniformLocations(prog);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
@@ -2570,7 +2570,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, prog->uniform_locations);
+		getUniformLocations(prog);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
@@ -2628,7 +2628,7 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, prog->uniform_locations);
+		getUniformLocations(prog);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		bindUniformBlockToProgram(prog, "PhongUniforms",				PHONG_UBO_BINDING_POINT_INDEX);
@@ -2686,7 +2686,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 		progs[key] = prog;
 
-		getUniformLocations(prog, prog->uniform_locations);
+		getUniformLocations(prog);
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
@@ -5453,7 +5453,7 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 	);
 	addProgram(new_env_prog);
 
-	getUniformLocations(new_env_prog, /*locations out=*/new_env_prog->uniform_locations);
+	getUniformLocations(new_env_prog);
 	setStandardTextureUnitUniformsForProgram(*new_env_prog);
 
 	env_diffuse_colour_location		= new_env_prog->getUniformLocation("diffuse_colour");
@@ -5477,7 +5477,7 @@ OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_
 	);
 	addProgram(prog);
 
-	getUniformLocations(prog, /*locations out=*/prog->uniform_locations);
+	getUniformLocations(prog);
 	setStandardTextureUnitUniformsForProgram(*prog);
 
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
