@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenGLProgram.cpp
 ----------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "OpenGLProgram.h"
 
@@ -41,16 +41,13 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	time_loc(-1),
 	colour_loc(-1),
 	albedo_texture_loc(-1),
-	lightmap_tex_loc(-1),
 	uses_phong_uniforms(false),
-	is_transparent(false),
 	is_depth_draw(false),
 	is_depth_draw_with_alpha_test(false),
 	is_outline(false),
 	uses_vert_uniform_buf_obs(false),
 	program_index(program_index_),
-	supports_MDI(false),
-	uses_colour_and_depth_buf_textures(false)
+	supports_MDI(false)
 {
 	// conPrint("Creating OpenGLProgram " + prog_name_ + "...");
 	vert_shader = vert_shader_;
@@ -99,8 +96,6 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	time_loc           = glGetUniformLocation(program, "time");
 	colour_loc         = glGetUniformLocation(program, "colour");
 	albedo_texture_loc = glGetUniformLocation(program, "albedo_texture");
-	lightmap_tex_loc   = glGetUniformLocation(program, "lightmap_tex");
-	texture_2_loc      = glGetUniformLocation(program, "texture_2");
 }
 
 

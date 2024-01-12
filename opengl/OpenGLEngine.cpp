@@ -2412,9 +2412,6 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		phong_prog->uses_vert_uniform_buf_obs = true;
 		phong_prog->supports_MDI = true;
 
-		if(key.decal)
-			phong_prog->uses_colour_and_depth_buf_textures = true;
-
 		progs[key] = phong_prog;
 
 		getUniformLocations(phong_prog);
@@ -2477,7 +2474,6 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(prog);
-		prog->is_transparent = true;
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_MDI = true;
@@ -2546,13 +2542,9 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(prog);
-		//prog->is_transparent = true;
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_MDI = true;
-
-		if(shader_name_prefix == "water" || key.decal)
-			prog->uses_colour_and_depth_buf_textures = true;
 
 		progs[key] = prog;
 
