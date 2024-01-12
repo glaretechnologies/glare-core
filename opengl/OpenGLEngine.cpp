@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenGLEngine.cpp
 ----------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2023 -
 =====================================================================*/
 #include "OpenGLEngine.h"
 
@@ -14,7 +14,6 @@ Copyright Glare Technologies Limited 2020 -
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
 #include "ShaderFileWatcherThread.h"
-//#include "TerrainSystem.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../graphics/TextureProcessing.h"
 #include "../graphics/ImageMap.h"
@@ -1395,30 +1394,6 @@ void OpenGLEngine::setDetailHeightmap(int index, const OpenGLTextureRef& tex)
 }
 
 
-// Define some constants not defined on Mac for some reason.
-// From https://www.khronos.org/registry/OpenGL/api/GL/glext.h
-#ifndef GL_DEBUG_TYPE_ERROR
-#define GL_DEBUG_TYPE_ERROR               0x824C
-#define GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR 0x824D
-#define GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR  0x824E
-#define GL_DEBUG_TYPE_PORTABILITY         0x824F
-#define GL_DEBUG_TYPE_PERFORMANCE         0x8250
-#define GL_DEBUG_TYPE_OTHER               0x8251
-#define GL_MAX_DEBUG_MESSAGE_LENGTH       0x9143
-#define GL_MAX_DEBUG_LOGGED_MESSAGES      0x9144
-#define GL_DEBUG_LOGGED_MESSAGES          0x9145
-#define GL_DEBUG_SEVERITY_HIGH            0x9146
-#define GL_DEBUG_SEVERITY_MEDIUM          0x9147
-#define GL_DEBUG_SEVERITY_LOW             0x9148
-#define GL_DEBUG_TYPE_MARKER              0x8268
-#define GL_DEBUG_TYPE_PUSH_GROUP          0x8269
-#define GL_DEBUG_TYPE_POP_GROUP           0x826A
-#define GL_DEBUG_SEVERITY_NOTIFICATION    0x826B
-
-#define GL_DEBUG_OUTPUT                   0x92E0
-#endif
-
-
 void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 {
 	prog->uniform_locations.diffuse_tex_location			= prog->getUniformLocation("diffuse_tex");
@@ -2156,17 +2131,19 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	this->preprocessor_defines_with_common_frag_structs = preprocessor_defines;
 	preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_frag_structures.glsl");
 
+	//------------------------------------------- Build fallback progs -------------------------------------------
 	// Will be used if we hit a shader compilation error later
 	fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       ProgramKeyArgs()));
 	fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", ProgramKeyArgs()));
 
+	//------------------------------------------- Build depth-draw prog -------------------------------------------
 	if(settings.shadow_mapping)
 		fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       ProgramKeyArgs()));
 
-	
+	//------------------------------------------- Build env prog -------------------------------------------
 	this->env_prog = buildEnvProgram(use_shader_dir);
 
-
+	//------------------------------------------- Build overlay prog -------------------------------------------
 	overlay_prog = new OpenGLProgram(
 		"overlay",
 		new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
@@ -2180,6 +2157,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
 	overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
 
+	//------------------------------------------- Build clear prog -------------------------------------------
 	clear_prog = new OpenGLProgram(
 		"clear",
 		new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
@@ -2188,6 +2166,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	);
 	addProgram(clear_prog);
 		
+	//------------------------------------------- Build outline (no skinning) prog -------------------------------------------
 	{
 		const std::string use_preprocessor_defines = preprocessor_defines + "#define SKINNING 0\n";
 		outline_prog_no_skinning = new OpenGLProgram(
@@ -2200,6 +2179,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		outline_prog_no_skinning->is_outline = true;
 	}
 
+	//------------------------------------------- Build outline (with skinning) prog -------------------------------------------
 	{
 		const std::string use_preprocessor_defines_vert =/* preprocessor_defines_with_common_vert_structs +*/ "#define SKINNING 1\n";
 		const std::string use_preprocessor_defines_frag = preprocessor_defines_with_common_frag_structs + "#define SKINNING 1\n";
@@ -2213,6 +2193,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		outline_prog_no_skinning->is_outline = true;
 	}
 
+	//------------------------------------------- Build edge extract prog -------------------------------------------
 	edge_extract_prog = new OpenGLProgram(
 		"edge_extract",
 		new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
@@ -2227,6 +2208,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 	if(true/*settings.use_final_image_buffer*/)
 	{
+		//------------------------------------------- Build downsize prog -------------------------------------------
 		{
 			const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 0\n";
 			downsize_prog = new OpenGLProgram(
@@ -2238,6 +2220,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			addProgram(downsize_prog);
 		}
 			
+		//------------------------------------------- Build downsize_from_main_buf_prog -------------------------------------------
 		{
 			const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 1\n";
 			downsize_from_main_buf_prog = new OpenGLProgram(
@@ -2257,6 +2240,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
 		}
 
+		//------------------------------------------- Build gaussian_blur_prog -------------------------------------------
 		gaussian_blur_prog = new OpenGLProgram(
 			"gaussian_blur",
 			new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
@@ -2266,6 +2250,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		addProgram(gaussian_blur_prog);
 		gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
 		
+		//------------------------------------------- Build final_imaging_prog -------------------------------------------
 		final_imaging_prog = new OpenGLProgram(
 			"final_imaging",
 			new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
@@ -2290,6 +2275,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		}
 	}
 
+	//------------------------------------------- Build scatter prog for updating data on GPU -------------------------------------------
 	if(use_scatter_shader)
 	{
 		data_updates_ssbo = new SSBO();
@@ -2305,7 +2291,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		bindShaderStorageBlockToProgram(scatter_data_prog, "PerObjectVertUniforms", PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
 	}
 
-	// Build draw_aurora_tex_prog
+	//------------------------------------------- Build draw_aurora_tex_prog -------------------------------------------
 	draw_aurora_tex_prog = buildAuroraProgram(use_shader_dir);
 }
 
