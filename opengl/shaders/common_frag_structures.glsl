@@ -89,6 +89,8 @@ struct MaterialData
 	float materialise_start_time; // For participating media and decals: spawn time
 
 	float padding_b0;
+	float padding_b1;
+	float padding_b2;
 };
 
 

@@ -17,13 +17,13 @@ void main()
 	float delta_x = 1.0 / float(tex_size.x);
 	float delta_y = 1.0 / float(tex_size.y);
 	int W = int(ceil(use_line_width));
-	float coverage = 0;
+	float coverage = 0.0;
 	float min_dist = 1.0e10;
 	bool inside = false;
 	for (int y = -W;  y <= W;  ++y)
 	for (int x = -W;  x <= W;  ++x)
 	{
-		float val = texture(tex, vec2(texture_coords.x + x*delta_x, texture_coords.y + y*delta_y)).x;
+		float val = texture(tex, vec2(texture_coords.x + float(x)*delta_x, texture_coords.y + float(y)*delta_y)).x;
 		if(x == 0 && y == 0)
 			inside = val > 0.5;
 		coverage += val;
@@ -34,7 +34,7 @@ void main()
 		}
 	}
 	coverage /= float((W*2 + 1)*(W*2 + 1));
-	float use_val = 0;
+	float use_val = 0.0;
 	if(inside)
 	{
 		use_val = 0.0; // (coverage < 0.5) ? 1.0 : 0.0;

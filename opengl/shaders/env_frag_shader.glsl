@@ -35,7 +35,7 @@ float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
 
 vec2 rot(vec2 p)
 {
-	float theta = 1.618034 * 3.141592653589 * 2;
+	float theta = 1.618034 * 3.141592653589 * 2.0;
 	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
 }
 
@@ -53,8 +53,7 @@ float fbmMix(vec2 p)
 {
 	return 
 		fbm(p) +
-		fbm(rot(p * 2)) * 0.5 +
-		0;
+		fbm(rot(p * 2.0)) * 0.5;
 }
 
 float length2(vec2 v)
@@ -92,7 +91,7 @@ void main()
 
 	int num_steps = 32;
 	float t_step = min(600.0, (aurora_end_ray_t - aurora_start_ray_t) / float(num_steps));
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 128.f)).x;
 	float t_offset = pixel_hash * t_step;
 
 	vec3 aurora_up = normalize(vec3(0.3, 0.0, 1.0));
@@ -105,7 +104,7 @@ void main()
 
 	for(int i=0; i<num_steps; ++i)
 	{
-		float ray_t = aurora_start_ray_t + t_offset + t_step * i;
+		float ray_t = aurora_start_ray_t + t_offset + t_step * float(i);
 		vec3 p = env_campos_ws + dir_ws * ray_t;
 
 		vec3 p_as = vec3(500.0 + dot(p, aurora_right), dot(p, aurora_forw), dot(p, aurora_up));
@@ -119,7 +118,7 @@ void main()
 			if(p_as.z >= aurora_start_z)
 			{
 				// Smoothly start aurora above aurora_start_z
-				float z_factor = smoothstep(aurora_start_z, aurora_start_z + 600, p_as.z);
+				float z_factor = smoothstep(aurora_start_z, aurora_start_z + 600.0, p_as.z);
 				
 				// Smoothly decrease intensity as z increases
 				float z_ramp_intensity_factor = exp(-(p_as.z - 1200.0) * 0.001);
@@ -136,13 +135,13 @@ void main()
 
 
 	// Get position ray hits cloud plane
-	float cirrus_cloudfrac = 0;
-	float cumulus_cloudfrac = 0;
-	float ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 6000);
+	float cirrus_cloudfrac = 0.0;
+	float cumulus_cloudfrac = 0.0;
+	float ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 6000.0);
 	//vec4 cumulus_col = vec4(0,0,0,0);
 	//float cumulus_alpha = 0;
-	float cumulus_edge = 0;
-	if(ray_t > 0)
+	float cumulus_edge = 0.0;
+	if(ray_t > 0.0)
 	{
 		vec3 hitpos = env_campos_ws + dir_ws * ray_t;
 		vec2 p = hitpos.xy * 0.0001;
@@ -155,21 +154,21 @@ void main()
 	}
 		
 	{
-		float cumulus_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 1000);
-		if(cumulus_ray_t > 0)
+		float cumulus_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 1000.0);
+		if(cumulus_ray_t > 0.0)
 		{
 			vec3 hitpos = env_campos_ws + dir_ws * cumulus_ray_t;
 			vec2 p = hitpos.xy * 0.0001;
 			p.x += time * 0.002;
 
-			vec2 cumulus_coords = vec2(p.x * 2 + 2.3453, p.y * 2 + 1.4354);
+			vec2 cumulus_coords = vec2(p.x * 2.0 + 2.3453, p.y * 2.0 + 1.4354);
 			
 			float cumulus_val = max(0.f, min(1.0, fbmMix(cumulus_coords) * 1.6 - 0.3f));
 			//cumulus_alpha = max(0.f, cumulus_val - 0.7f);
 
 			cumulus_edge = smoothstep(0.0001, 0.1, cumulus_val) - smoothstep(0.2, 0.6, cumulus_val) * 0.5;
 
-			float dist_factor = 1.f - smoothstep(20000, 40000, cumulus_ray_t);
+			float dist_factor = 1.f - smoothstep(20000.0, 40000.0, cumulus_ray_t);
 
 			//cumulus_col = vec4(cumulus_val, cumulus_val, cumulus_val, 1);
 			cumulus_cloudfrac = dist_factor * cumulus_val;
@@ -180,7 +179,7 @@ void main()
 	vec4 cloudcol = sun_and_sky_av_spec_rad;
 	col = mix(col, cloudcol, max(0.f, cloudfrac));
 	vec4 suncloudcol = cloudcol * 2.5;
-	float blend = max(0.f, cumulus_edge) * max(0, pow(d, 32));// smoothstep(0.9, 0.9999892083461507, d);
+	float blend = max(0.f, cumulus_edge) * pow(max(0.0, d), 32.0);// smoothstep(0.9, 0.9999892083461507, d);
 	col = mix(col, suncloudcol, blend);
 
 	//col = mix(col, cumulus_col, cumulus_alpha);

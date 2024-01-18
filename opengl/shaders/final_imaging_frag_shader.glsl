@@ -42,7 +42,7 @@ void main()
 	ivec2 tex_res = textureSize(albedo_texture, /*mip level*/0);
 #endif
 
-	ivec2 px_coords = ivec2(int(tex_res.x * pos.x), int(tex_res.y * pos.y));
+	ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x), int(float(tex_res.y) * pos.y));
 
 #if MAIN_BUFFER_MSAA_SAMPLES > 1
 	vec4 col = vec4(0.f);
@@ -76,7 +76,7 @@ void main()
 	col += accum_col * av_transmittance;
 
 
-	if(bloom_strength > 0)
+	if(bloom_strength > 0.0)
 	{
 		vec4 blur_col_0 = texture(blur_tex_0, pos);
 		vec4 blur_col_1 = texture(blur_tex_1, pos);

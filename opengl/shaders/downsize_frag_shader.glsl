@@ -67,7 +67,7 @@ void main()
 	ivec2 tex_res = textureSize(albedo_texture, /*mip level*/0);
 #endif
 
-	ivec2 px_coords = ivec2(int(tex_res.x * pos.x - 0.5), int(tex_res.y * pos.y - 0.5));
+	ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x - 0.5), int(float(tex_res.y) * pos.y - 0.5));
 
 	vec4 texcol_0 =	resolveTextureSample(px_coords + ivec2(0, 0));
 	vec4 texcol_1 =	resolveTextureSample(px_coords + ivec2(1, 0));

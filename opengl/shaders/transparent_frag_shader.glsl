@@ -90,10 +90,10 @@ float fresnelApprox(float cos_theta_i, float n2)
 	//float r_0 = square((1.0 - n2) / (1.0 + n2));
 	//return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i); // https://en.wikipedia.org/wiki/Schlick%27s_approximation
 
-	float sintheta_i = sqrt(1 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
+	float sintheta_i = sqrt(1.0 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
 	float sintheta_t = sintheta_i / n2; // Use Snell's law to get sin(theta_t)
 
-	float costheta_t = sqrt(1 - sintheta_t*sintheta_t); // Get cos(theta_t)
+	float costheta_t = sqrt(1.0 - sintheta_t*sintheta_t); // Get cos(theta_t)
 
 	float a2 = square(cos_theta_i - n2*costheta_t);
 	float b2 = square(cos_theta_i + n2*costheta_t);
@@ -134,7 +134,7 @@ float fbm(vec2 p)
 
 vec2 rot(vec2 p)
 {
-	float theta = 1.618034 * 3.141592653589 * 2;
+	float theta = 1.618034 * 3.141592653589 * 2.0;
 	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
 }
 
@@ -142,8 +142,7 @@ float fbmMix(vec2 p)
 {
 	return 
 		fbm(p) +
-		fbm(rot(p * 2)) * 0.5 +
-		0;
+		fbm(rot(p * 2.0)) * 0.5;
 }
 
 
@@ -212,7 +211,7 @@ void main()
 	{
 		col = emission_col;
 		transmittance_out = vec4(1, 1, 1, 1);
-		av_transmittance_out = 1;
+		av_transmittance_out = 1.0;
 	}
 	else
 	{
@@ -223,7 +222,7 @@ void main()
 		const float ior = 2.0f;
 
 		vec3 unit_normal_ws = normalize(use_normal_ws);
-		if(dot(unit_normal_ws, cam_to_pos_ws) > 0)
+		if(dot(unit_normal_ws, cam_to_pos_ws) > 0.0)
 			unit_normal_ws = -unit_normal_ws;
 
 		vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
@@ -258,7 +257,7 @@ void main()
 				float dir_factor;
 				if(light_data[light_index].light_type == 0) // Point light:
 				{
-					dir_factor = 1;
+					dir_factor = 1.0;
 				}
 				else
 				{
@@ -302,29 +301,29 @@ void main()
 
 		float refl_theta = acos(reflected_dir_ws.z);
 		float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - 1.f; // -1.f is to rotate reflection so it aligns with env rotation.
-		vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64, 1 - 1.0 / 64)); // Clamp to avoid texture coord wrapping artifacts.
+		vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
-		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, map_lower  * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, map_higher * (1.0/8) + refl_map_coords.y * (1.0/8))) * 1.0e9f;
+		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))) * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))) * 1.0e9f;
 		vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
 
 
 		// Blend in reflection of cumulus clouds.  Skip cirrus clouds as an optimisation.
 #if RENDER_SKY_AND_CLOUD_REFLECTIONS
-		float cumulus_cloudfrac = 0;
+		float cumulus_cloudfrac = 0.0;
 		{
-			float cumulus_ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 1000);
-			if(cumulus_ray_t > 0)
+			float cumulus_ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 1000.0);
+			if(cumulus_ray_t > 0.0)
 			{
 				vec3 hitpos = pos_ws + reflected_dir_ws * cumulus_ray_t;
 				vec2 p = hitpos.xy * 0.0001;
 				p.x += time * 0.002;
 
-				vec2 cumulus_coords = vec2(p.x * 2 + 2.3453, p.y * 2 + 1.4354);
+				vec2 cumulus_coords = vec2(p.x * 2.0 + 2.3453, p.y * 2.0 + 1.4354);
 
 				float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
 
-				float dist_factor = 1.f - smoothstep(80000, 160000, cumulus_ray_t);
+				float dist_factor = 1.f - smoothstep(80000.0, 160000.0, cumulus_ray_t);
 
 				cumulus_cloudfrac = dist_factor * cumulus_val;
 			}
@@ -360,7 +359,7 @@ void main()
 		av_transmittance_out = (use_transmittance.r + use_transmittance.g + use_transmittance.b) * (1.0 / 3.0);
 	}
 
-	float alpha = 1;
+	float alpha = 1.0;
 
 	col *= 0.000000003; // tone-map
 #if DO_POST_PROCESSING
