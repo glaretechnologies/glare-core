@@ -65,7 +65,7 @@ uniform sampler2D detail_heightmap_0; // rock
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
 
-uniform sampler2D snow_ice_normal_map;
+// uniform sampler2D snow_ice_normal_map;
 
 #if LIGHTMAPPING
 #if !USE_BINDLESS_TEXTURES
@@ -504,12 +504,12 @@ void main()
 #endif
 	}
 
-	float snow_frac = smoothstep(0.56, 0.6, normalize(use_normal_ws).z);
-	if(pos_ws.z < water_level_z - 3.0)
-		snow_frac = 0.0;
+	// float snow_frac = smoothstep(0.56, 0.6, normalize(use_normal_ws).z);
+	// if(pos_ws.z < water_level_z - 3.0)
+	// 	snow_frac = 0.0;
 
 #if DECAL
-	snow_frac = 0;
+	// snow_frac = 0;
 #endif
 
 
@@ -668,10 +668,10 @@ void main()
 	refl_diffuse_col = texcol;
 #endif
 
-	float snow_tex = 0.5 + texture(snow_ice_normal_map, pos_ws.xy * 0.25).x;
-	vec4 snow_albedo = vec4(snow_tex, snow_tex, snow_tex, 1);
-	sun_diffuse_col  = mix(sun_diffuse_col,  snow_albedo, snow_frac);
-	refl_diffuse_col = mix(refl_diffuse_col, snow_albedo, snow_frac);
+	// float snow_tex = 0.5 + texture(snow_ice_normal_map, pos_ws.xy * 0.25).x;
+	// vec4 snow_albedo = vec4(snow_tex, snow_tex, snow_tex, 1);
+	// sun_diffuse_col  = mix(sun_diffuse_col,  snow_albedo, snow_frac);
+	// refl_diffuse_col = mix(refl_diffuse_col, snow_albedo, snow_frac);
 
 	// Apply vertex colour, if enabled.
 #if VERT_COLOURS
@@ -721,12 +721,12 @@ void main()
 
 	float final_metallic_frac = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.metallic_frac * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).b) : MAT_UNIFORM.metallic_frac;
 
-	final_metallic_frac *= (1.f - snow_frac);
+	// final_metallic_frac *= (1.f - snow_frac);
 
 	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
 	float final_roughness = max(0.04, unclamped_roughness); // Avoid too small roughness values resulting in glare/bloom artifacts
 
-	final_roughness = mix(final_roughness, 0.6f, snow_frac);
+	// final_roughness = mix(final_roughness, 0.6f, snow_frac);
 
 	float final_fresnel_scale = MAT_UNIFORM.fresnel_scale * (1.0 - square(final_roughness)); // Reduce fresnel reflection at higher roughnesses
 

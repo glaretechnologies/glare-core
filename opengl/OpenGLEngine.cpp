@@ -129,8 +129,8 @@ enum TextureUnitIndices
 	DETAIL_3_TEXTURE_UNIT_INDEX,
 	DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX,
 
-	AURORA_TEXTURE_UNIT_INDEX,
-	SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
+	AURORA_TEXTURE_UNIT_INDEX
+	//SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
 };
 
 
@@ -487,7 +487,7 @@ OpenGLEngine::~OpenGLEngine()
 	noise_tex = NULL;
 	cirrus_tex = NULL;
 	aurora_tex = NULL;
-	snow_ice_normal_map = NULL;
+	//snow_ice_normal_map = NULL;
 
 	water_caustics_textures.clear();
 
@@ -1419,7 +1419,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
 	prog->uniform_locations.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
-	prog->uniform_locations.snow_ice_normal_map_location	= prog->getUniformLocation("snow_ice_normal_map");
+	//prog->uniform_locations.snow_ice_normal_map_location	= prog->getUniformLocation("snow_ice_normal_map");
 
 	prog->uniform_locations.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
 	prog->uniform_locations.static_depth_tex_location		= prog->getUniformLocation("static_depth_tex");
@@ -8417,7 +8417,7 @@ void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& progr
 	
 	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
 	
-	glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
+	//glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 
 	OpenGLProgram::useNoPrograms();
 }
@@ -8481,8 +8481,8 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	if(this->aurora_tex.nonNull())
 		bindTextureToTextureUnit(*this->aurora_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
 
-	if(snow_ice_normal_map.nonNull())
-		bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
+	//if(snow_ice_normal_map.nonNull())
+	//	bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
 
 

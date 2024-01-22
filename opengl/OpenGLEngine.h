@@ -931,7 +931,7 @@ public:
 
 	void setCirrusTexture(const Reference<OpenGLTexture>& tex);
 
-	void setSnowIceTexture(const Reference<OpenGLTexture>& tex) { this->snow_ice_normal_map = tex; }
+	//void setSnowIceTexture(const Reference<OpenGLTexture>& tex) { this->snow_ice_normal_map = tex; }
 	//----------------------------------------------------------------------------------------
 
 	//------------------------------- Terrain --------------------
@@ -1175,7 +1175,7 @@ private:
 	Reference<OpenGLTexture> noise_tex;
 	Reference<OpenGLTexture> cirrus_tex; // May be NULL, set by setCirrusTexture().
 	Reference<OpenGLTexture> aurora_tex;
-	Reference<OpenGLTexture> snow_ice_normal_map;
+	//Reference<OpenGLTexture> snow_ice_normal_map;
 
 	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
 
