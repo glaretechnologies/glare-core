@@ -14,11 +14,11 @@
 
 
 // GCC and Visual Studio SSE2 compiler flags
-#if defined __SSE2__ || (_MSC_VER >= 1300 && (_M_IX86 || _M_X64))
+#if (defined __SSE2__ || (_MSC_VER >= 1300 && (_M_IX86 || _M_X64))) && !defined(EMSCRIPTEN) // TEMP HACK GLARE NEW
     #define IMF_HAVE_SSE2 1
 #endif
 
-#if defined __SSE4_1__
+#if (defined __SSE4_1__) && !defined(EMSCRIPTEN) // TEMP HACK GLARE NEW
     #define IMF_HAVE_SSE4_1 1
 #endif
 

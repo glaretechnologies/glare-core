@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2021 -
 
 void WGL::init()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(EMSCRIPTEN)
 	if(wglGetCurrentContext() == NULL)
 		throw glare::Exception("WGL::init(): current opengl context is null.");
 

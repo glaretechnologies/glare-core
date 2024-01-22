@@ -28,6 +28,12 @@ Copyright Glare Technologies Limited 2022 -
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
 
+// For emscripten
+#define GL_DEPTH_COMPONENT32F             0x8CAC
+#define GL_DEPTH_COMPONENT32              0x81A7
+#define GL_TEXTURE_2D_MULTISAMPLE         0x9100
+#define GL_BGRA                           0x80E1
+
 
 OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
@@ -203,7 +209,7 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 	case Format_Depth_Uint16:
 		internal_format = GL_DEPTH_COMPONENT16;
 		gl_format = GL_DEPTH_COMPONENT;
-		type = GL_FLOAT;
+		type = GL_UNSIGNED_SHORT;
 		break;
 	case Format_Compressed_RGB_Uint8:
 		internal_format = GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT;
@@ -536,9 +542,14 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		
 		if(is_MSAA_tex)
 		{
+#if defined(EMSCRIPTEN)
+			// glTexStorage2DMultisample is OpenGL ES 3.1+: https://registry.khronos.org/OpenGL-Refpages/es3.1/html/glTexStorage2DMultisample.xhtml
+			assert(0);
+#else
 			glBindTexture(texture_target, texture_handle);
-			glTexImage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+			glTexStorage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
 			this->num_mipmap_levels_allocated = 1;
+#endif
 		}
 		else
 		{
@@ -769,7 +780,11 @@ void OpenGLTexture::buildMipMaps()
 void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
 {
 	bind();
+#if defined(EMSCRIPTEN)
+	assert(0); // glGetTexImage isn't supported in OpenGL ES, try glReadPixels?
+#else
 	glGetTexImage(GL_TEXTURE_2D, mipmap_level, gl_format, gl_type, (void*)buffer.data());
+#endif
 }
 
 
@@ -859,7 +874,7 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 	{
 		m_opengl_engine->textureBecameUnused(this);
 
-#if !defined(OSX)
+#if !defined(OSX) && !defined(EMSCRIPTEN)
 		// Since this texture is not being used, we can make it non-resident.
 		if((bindless_tex_handle != 0) && is_bindless_tex_resident)
 		{
@@ -877,8 +892,8 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 // Get bindless texture handle, and make texture resident if not already.
 uint64 OpenGLTexture::getBindlessTextureHandle()
 {
-#if defined(OSX)
-	assert(0);
+#if defined(OSX) || defined(EMSCRIPTEN)
+	assert(0); // Bindless textures aren't supported in OpenGL ES.
 	return 0;
 #else
 	if(bindless_tex_handle == 0)

@@ -71,7 +71,7 @@ struct IndexBufAllocationHandle
 
 
 // This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
-#ifdef OSX
+#if defined(OSX) || defined(EMSCRIPTEN)
 #define DO_INDIVIDUAL_VAO_ALLOC 1
 #else
 #define DO_INDIVIDUAL_VAO_ALLOC 0

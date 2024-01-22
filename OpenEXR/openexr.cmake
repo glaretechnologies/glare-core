@@ -22,8 +22,12 @@ include_directories("${openexrdir}/src/lib/IlmThread")
 include_directories("${openexrdir}/src/lib/OpenEXR")
 include_directories("${openexrdir}/src/lib/OpenEXRUtil")
 
+
 # OpenEXR per-platform config files:
-if(WIN32)
+if(EMSCRIPTEN)
+	include_directories("${imathdir}/config_emscripten")
+	include_directories("${openexrdir}/config_emscripten")
+elseif(WIN32)
 	include_directories("${imathdir}/config_windows")
 	include_directories("${openexrdir}/config_windows")
 elseif(APPLE)
@@ -125,6 +129,10 @@ elseif(APPLE)
 	SET(ilmthread
 	${ilmthread}
 	${openexrdir}/src/lib/IlmThread/IlmThreadSemaphoreOSX.cpp)
+elseif(EMSCRIPTEN)
+	SET(ilmthread
+	${ilmthread}
+	${openexrdir}/src/lib/IlmThread/IlmThreadSemaphoreWin32.cpp)
 endif()
 
 SET(openexr

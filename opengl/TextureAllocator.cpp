@@ -25,7 +25,7 @@ Copyright Glare Technologies Limited 2023 -
 #define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT		0x8C4F
 
 
-#if !defined(OSX) // glTextureView etc. is not defined on Mac
+#if !defined(OSX) && !defined(EMSCRIPTEN) // glTextureView etc. is not defined on Mac
 
 static AllocatedTexViewInfo tryAllocFromArray(TextureViewTexArray* tex_array, int array_index, GLint gl_internal_format, int num_mipmap_levels, TextureViewTexArrayKey& key)
 {

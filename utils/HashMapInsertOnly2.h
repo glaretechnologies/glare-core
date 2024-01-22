@@ -26,7 +26,6 @@ Copyright Glare Technologies Limited 2021 -
 //
 static inline size_t hashBytes(const uint8* data, size_t len)
 {
-	static_assert(sizeof(size_t) == 8, "sizeof(size_t) == 8");
 	uint64 hash = 14695981039346656037ULL;
 	for(size_t i=0; i<len; ++i)
 		hash = (hash ^ data[i]) * 1099511628211ULL;

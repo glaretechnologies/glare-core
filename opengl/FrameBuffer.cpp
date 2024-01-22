@@ -81,9 +81,10 @@ void FrameBuffer::bindTextureAsTarget(OpenGLTexture& tex, GLenum attachment_poin
 
 	bind(); // Bind this frame buffer
 
-	// Bind the texture
-	glFramebufferTexture(GL_FRAMEBUFFER, // target
+	// Bind the texture.  glFramebufferTexture is only in OpenGL ES 3.2+, so use glFramebufferTexture2D.
+	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
 		attachment_point,
+		tex.getTextureTarget(),
 		tex.texture_handle, // texture
 		0); // mipmap level
 }

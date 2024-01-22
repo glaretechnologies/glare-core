@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2023 -
 
 #include <maths/GeometrySampling.h>
 #include <graphics/FormatDecoderGLTF.h>
+#include <graphics/MeshSimplification.h>
 #include <opengl/OpenGLEngine.h>
 #include <opengl/GLMeshBuilding.h>
 #include <indigo/TextureServer.h>
@@ -26,11 +27,22 @@ Copyright Glare Technologies Limited 2023 -
 #include <imgui.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <backends/imgui_impl_sdl.h>
-#include <iostream>
 #include <string>
+#if EMSCRIPTEN
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
 
 
-void setGLAttribute(SDL_GLattr attr, int value)
+#if !defined(EMSCRIPTEN)
+#define EM_BOOL bool
+#endif
+
+//static EM_BOOL doOneMainLoopIter(double time, void *userData);
+static void doOneMainLoopIter();
+
+
+static void setGLAttribute(SDL_GLattr attr, int value)
 {
 	const int result = SDL_GL_SetAttribute(attr, value);
 	if(result != 0)
@@ -41,39 +53,87 @@ void setGLAttribute(SDL_GLattr attr, int value)
 }
 
 
+Reference<OpenGLEngine> opengl_engine;
+GLObjectRef main_test_ob;
+
+
+float cam_phi = 0.0;
+float cam_theta = 1.8f;
+Vec4f cam_pos(0,-5,2,1);
+
+Timer* timer;
+Timer* time_since_last_frame;
+Timer* stats_timer;
+int num_frames = 0;
+std::string last_diagnostics;
+bool reset = false;
+double fps = 0;
+bool wireframes = false;
+
+SDL_Window* win;
+SDL_GLContext gl_context;
+
+float sun_phi = 1.f;
+float sun_theta = Maths::pi<float>() / 4;
+
+StandardPrintOutput print_output;
+bool quit = false;
+
+
 int main(int, char**)
 {
-	Clock::init();
-
 	try
 	{
+		Clock::init();
+
+
+		timer = new Timer();
+		time_since_last_frame = new Timer();
+		stats_timer = new Timer();
+	
 		//=========================== Init SDL and OpenGL ================================
 		if(SDL_Init(SDL_INIT_VIDEO) != 0)
 			throw glare::Exception("SDL_Init Error: " + std::string(SDL_GetError()));
 
 
 		// Set GL attributes, needs to be done before window creation.
+
+
+#if EMSCRIPTEN
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		setGLAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
 		setGLAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); // We need to request a specific version for a core profile.
 		setGLAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
 		setGLAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		
+
 		setGLAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+#endif
 
+		int primary_W = 1600;
+		int primary_H = 1000;
+#if EMSCRIPTEN
+		//int width, height;
+		//emscripten_get_canvas_element_size("canvas", &width, &height);
+		//primary_W = (int)width;
+		//primary_H = (int)height;
+#endif
+		
 
-		int primary_W = 1920;
-		int primary_H = 1080;
-
-		SDL_Window* win = SDL_CreateWindow("Testbed", 100, 100, primary_W, primary_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+		win = SDL_CreateWindow("Testbed", 100, 100, primary_W, primary_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 		if(win == nullptr)
 			throw glare::Exception("SDL_CreateWindow Error: " + std::string(SDL_GetError()));
 
 
-		SDL_GLContext gl_context = SDL_GL_CreateContext(win);
+		gl_context = SDL_GL_CreateContext(win);
 		if(!gl_context)
 			throw glare::Exception("OpenGL context could not be created! SDL Error: " + std::string(SDL_GetError()));
 
 
+#if !defined(EMSCRIPTEN)
 		gl3wInit();
+#endif
 
 
 		// Initialise ImGUI
@@ -89,24 +149,36 @@ int main(int, char**)
 		settings.shadow_mapping = true;
 		settings.depth_fog = true;
 		settings.render_water_caustics = false;
-		Reference<OpenGLEngine> opengl_engine = new OpenGLEngine(settings);
+		settings.allow_multi_draw_indirect = false; // TEMP
+		settings.allow_bindless_textures = false; // TEMP
+#if defined(EMSCRIPTEN)
+		settings.use_general_arena_mem_allocator = false;
+#endif
+		opengl_engine = new OpenGLEngine(settings);
 
 		TextureServer* texture_server = new TextureServer(/*use_canonical_path_keys=*/false);
 
 		const std::string base_src_dir(BASE_SOURCE_DIR);
 
+#if defined(EMSCRIPTEN)
+		const std::string data_dir = "/data";
+#else
 		const std::string data_dir = PlatformUtils::getEnvironmentVariable("GLARE_CORE_TRUNK_DIR") + "/opengl";
-		StandardPrintOutput print_output;
+#endif
+		
 		opengl_engine->initialise(data_dir, texture_server, &print_output);
 		if(!opengl_engine->initSucceeded())
 			throw glare::Exception("OpenGL init failed: " + opengl_engine->getInitialisationErrorMsg());
 		opengl_engine->setViewportDims(primary_W, primary_H);
 		opengl_engine->setMainViewportDims(primary_W, primary_H);
 
+#if defined(EMSCRIPTEN)
+		const std::string base_dir = "/data";
+#else
 		const std::string base_dir = ".";
-
-		float sun_phi = 1.f;
-		float sun_theta = Maths::pi<float>() / 4;
+#endif
+		sun_phi = 1.f;
+		sun_theta = Maths::pi<float>() / 4;
 		opengl_engine->setSunDir(normalise(Vec4f(std::cos(sun_phi) * sin(sun_theta), std::sin(sun_phi) * sin(sun_theta), cos(sun_theta), 0)));
 		opengl_engine->setEnvMapTransform(Matrix3f::rotationMatrix(Vec3f(0,0,1), sun_phi));
 
@@ -141,17 +213,30 @@ int main(int, char**)
 		}
 
 		//--------------------------- Load model -------------------------------
+#if defined(EMSCRIPTEN)
+		const std::string model_dir = "/data";
+#else
+		const std::string model_dir = "C:\\Users\\nick\\Downloads";
+#endif
+
 		GLTFLoadedData gltf_data;
 		Timer timer2;
 		//BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile("C:\\Users\\nick\\Downloads\\SciFiHelmet.gltf", gltf_data);
-		BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile("C:\\Users\\nick\\Downloads\\DamagedHelmet.gltf", gltf_data);
+		BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile(model_dir + "/DamagedHelmet.gltf", gltf_data);
+		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\files\\Saeule_6row_obj_4065354431801582820.bmesh");
+		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\room2_WindowsFLAT_glb_13600392068904710101.bmesh");
+		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\Station_Cleaned__OMPTIMIZED__CENTRAL_FLIPPED__noBin_glb_13427799269604943069.bmesh");
 		conPrint("loadGLTFFile time: " + timer2.elapsedString());
+
+		// Simplify mesh
+		//batched_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target reduction ratio=*/10.0f, /*target error=*/1.0f, /*sloppy=*/false);
+
+
 		OpenGLMeshRenderDataRef test_mesh_data = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
 		//OpenGLMeshRenderDataRef test_mesh_data = MeshPrimitiveBuilding::makeCubeMesh(*opengl_engine->vert_buf_allocator);
 		
 		PCG32 rng(1);
 
-		GLObjectRef main_test_ob;
 		{
 			GLObjectRef ob = new GLObject();
 			main_test_ob = ob;
@@ -164,20 +249,20 @@ int main(int, char**)
 				TextureParams params;
 				params.use_sRGB = false;
 				params.allow_compression = false;
-				ob->materials[0].normal_map = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\SciFiHelmet_Normal.png", params);
-				ob->materials[0].normal_map = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_normal.jpg", params);
+				//ob->materials[0].normal_map = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\SciFiHelmet_Normal.png", params);
+				ob->materials[0].normal_map = opengl_engine->getTexture(model_dir + "/Default_normal.jpg", params);
 			}
-			ob->materials[0].albedo_texture = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_albedo.jpg");
+			ob->materials[0].albedo_texture = opengl_engine->getTexture(model_dir + "/Default_albedo.jpg");
 			
 			{
 				TextureParams params;
 				params.use_sRGB = false;
-				ob->materials[0].metallic_roughness_texture = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_metalRoughness.jpg", params);
+				ob->materials[0].metallic_roughness_texture = opengl_engine->getTexture(model_dir + "/Default_metalRoughness.jpg", params);
 				ob->materials[0].metallic_frac = 1;
 				ob->materials[0].roughness = 1;
 			}
 			
-			ob->materials[0].emission_texture = opengl_engine->getTexture("C:\\Users\\nick\\Downloads\\Default_emissive.jpg");
+			ob->materials[0].emission_texture = opengl_engine->getTexture(model_dir + "/Default_emissive.jpg");
 			ob->materials[0].emission_scale = 3.0e9f;
 			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
 		}
@@ -214,30 +299,49 @@ int main(int, char**)
 		}
 #endif
 
-		Timer timer;
+		
+		conPrint("Starting main loop...");
+#if EMSCRIPTEN
+		//emscripten_request_animation_frame_loop(doOneMainLoopIter, 0);
 
-		float cam_phi = 0.0;
-		float cam_theta = 1.8f;
-		Vec4f cam_pos(0,-5,2,1);
-
-		Timer time_since_last_frame;
-		Timer stats_timer;
-		int num_frames = 0;
-		std::string last_diagnostics;
-		bool reset = false;
-		double fps = 0;
-		bool wireframes = false;
-
-
-		bool quit = false;
+		emscripten_set_main_loop(doOneMainLoopIter, /*fps=*/0, /*simulate_infinite_loop=*/true);
+#else
+		//bool quit = false;
 		while(!quit)
 		{
-			//printVar(num_frames);
-			//const double cur_time = timer.elapsed();
-			const float cur_time = (float)timer.elapsed();
+			doOneMainLoopIter();
+		}
 
-			if(SDL_GL_MakeCurrent(win, gl_context) != 0)
-				conPrint("SDL_GL_MakeCurrent failed.");
+		SDL_Quit();
+
+		test_mesh_data = NULL;
+		main_test_ob = NULL;
+		opengl_engine = NULL;
+#endif
+
+		
+		conPrint("main finished...");
+		return 0;
+	}
+	catch(glare::Exception& e)
+	{
+		stdErrPrint(e.what());
+		return 1;
+	}
+}
+
+
+static void doOneMainLoopIter(/*double time, void *userData*/)
+{
+	//conPrint("doOneMainLoopIter");
+	//conPrint("doOneMainLoopIter, time: " + ::toString(time));
+
+	//printVar(num_frames);
+			//const double cur_time = timer.elapsed();
+			//const float cur_time = (float)timer.elapsed();
+
+		if(SDL_GL_MakeCurrent(win, gl_context) != 0)
+			conPrint("SDL_GL_MakeCurrent failed.");
 
 		//	for(size_t i=0; i<obs.size(); ++i)
 		//	{
@@ -259,19 +363,19 @@ int main(int, char**)
 				opengl_engine->updateObjectTransformData(*obs[ob_i]);
 			}*/
 
-			if(stats_timer.elapsed() > 1.0)
+			if(stats_timer->elapsed() > 1.0)
 			{
 				last_diagnostics = opengl_engine->getDiagnostics();
 				// Update statistics
-				fps = num_frames / stats_timer.elapsed();
-				stats_timer.reset();
+				fps = num_frames / stats_timer->elapsed();
+				stats_timer->reset();
 				num_frames = 0;
 			}
 
 
 			// Rotate ob
 			{
-				main_test_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 1) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>() + (float)timer.elapsed() * 0.4f) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
+				main_test_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 1) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>() + (float)timer->elapsed() * 0.4f) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
 					Matrix4f::uniformScaleMatrix(1);
 				opengl_engine->updateObjectTransformData(*main_test_ob);
 			}
@@ -296,7 +400,7 @@ int main(int, char**)
 				opengl_engine->setMainViewportDims(gl_w, gl_h);
 				opengl_engine->setMaxDrawDistance(1000000.f);
 				opengl_engine->setPerspectiveCameraTransform(world_to_camera_space_matrix, sensor_width, lens_sensor_dist, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);
-				opengl_engine->setCurrentTime((float)timer.elapsed());
+				opengl_engine->setCurrentTime((float)timer->elapsed());
 				opengl_engine->draw();
 			}
 
@@ -349,8 +453,8 @@ int main(int, char**)
 			// Display
 			SDL_GL_SwapWindow(win);
 
-			const float dt = (float)time_since_last_frame.elapsed();
-			time_since_last_frame.reset();
+			const float dt = (float)time_since_last_frame->elapsed();
+			time_since_last_frame->reset();
 
 			const Vec4f forwards = GeometrySampling::dirForSphericalCoords(-cam_phi + Maths::pi_2<float>(), cam_theta);
 			const Vec4f right = normalise(crossProduct(forwards, Vec4f(0,0,1,0)));
@@ -367,11 +471,15 @@ int main(int, char**)
 				}
 
 				if(e.type == SDL_QUIT) // "An SDL_QUIT event is generated when the user clicks on the close button of the last existing window" - https://wiki.libsdl.org/SDL_EventType#Remarks
+				{
 					quit = true;
+				}
 				else if(e.type == SDL_WINDOWEVENT) // If user closes the window:
 				{
 					if(e.window.event == SDL_WINDOWEVENT_CLOSE)
+					{
 						quit = true;
+					}
 					else if(e.window.event == SDL_WINDOWEVENT_RESIZED || e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 					{
 						int w, h;
@@ -421,13 +529,4 @@ int main(int, char**)
 				cam_pos += right * dt * move_speed;
 
 			num_frames++;
-		}
-		SDL_Quit();
-		return 0;
-	}
-	catch(glare::Exception& e)
-	{
-		std::cout << e.what() << std::endl;
-		return 1;
-	}
 }

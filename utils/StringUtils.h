@@ -103,7 +103,7 @@ inline const std::string toString(uint64 x)
 	return uInt64ToString(x);
 }
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(EMSCRIPTEN)
 // On Mac, size_t, despite being 64-bit and unsigned, is not the same type as uint64.  So need to define this to avoid an error about ambigious function calls.
 inline const std::string toString(size_t x)
 {

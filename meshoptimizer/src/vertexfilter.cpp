@@ -29,7 +29,7 @@
 
 // When targeting Wasm SIMD we can't use runtime cpuid checks so we unconditionally enable SIMD
 #if defined(__wasm_simd128__)
-#define SIMD_WASM
+//#define SIMD_WASM
 #endif
 
 #endif // !MESHOPTIMIZER_NO_SIMD

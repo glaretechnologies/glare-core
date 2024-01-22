@@ -67,13 +67,10 @@ void ShadowMapping::init()
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_tex->texture_handle, /*mipmap level=*/0);
 
-	glDrawBuffer(GL_NONE); // No colour buffer is drawn to.
-	glReadBuffer(GL_NONE); // No colour buffer is read from.
-
 	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if(is_complete != GL_FRAMEBUFFER_COMPLETE)
 	{
-		throw glare::Exception("Error: framebuffer is not complete.");
+		throw glare::Exception("Error: ShadowMapping framebuffer is not complete: " + toHexString(is_complete));
 		//conPrint("Error: framebuffer is not complete.");
 		//assert(0);
 	}
@@ -87,20 +84,17 @@ void ShadowMapping::init()
 
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_depth_tex[i]->texture_handle, /*mipmap level=*/0);
 
-		glDrawBuffer(GL_NONE); // No colour buffer is drawn to.
-		glReadBuffer(GL_NONE); // No colour buffer is read from.
-
 		is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
 		{
-			throw glare::Exception("Error: static framebuffer is not complete.");
+			throw glare::Exception("Error: static ShadowMapping framebuffer is not complete.");
 			//conPrint("Error: static framebuffer is not complete.");
 			//assert(0);
 		}
 
 		// Because the static depth textures will take a few frames to be fully filled, and will be used for rendering for a few frames first, clear them so as not to show garbage.
 		// Clear texture while it is bound to a framebuffer
-		glClearDepth(1.f);
+		glClearDepthf(1.f);
 		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
 
 		FrameBuffer::unbind();

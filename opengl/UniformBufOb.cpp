@@ -9,6 +9,12 @@ Copyright Glare Technologies Limited 2021 -
 #include "IncludeOpenGL.h"
 
 
+// For emscripten
+#ifndef GL_UNIFORM_BUFFER
+#define GL_UNIFORM_BUFFER                 0x8A11
+#endif
+
+
 UniformBufOb::UniformBufOb()
 :	handle(0),
 	allocated_size(0)
@@ -55,7 +61,7 @@ void UniformBufOb::updateData(size_t dest_offset, const void* src_data, size_t s
 
 	glBindBuffer(GL_UNIFORM_BUFFER, handle);
 	
-#ifdef __APPLE__
+#ifdef __APPLE__// || defined(EMSCRIPTEN)
 	if(src_size == this->allocated_size) // If we are updating the whole buffer:
 	{
 		assert(dest_offset == 0);

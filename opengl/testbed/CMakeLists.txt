@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.0)
 
 project(testbed)
 
-add_definitions(/MP) # Enable multi-processor compilation.
-add_definitions(/W4)
+if(NOT EMSCRIPTEN)
+	add_definitions(/MP) # Enable multi-processor compilation.
+	add_definitions(/W4)
+endif()
+
 add_definitions(-DUNICODE -D_UNICODE)
 add_definitions(-D__SSE3__ -D__SSSE3__ -D__SSE4_1__)
 
@@ -12,6 +15,22 @@ add_definitions(-DPNG_INTEL_SSE=1)
 add_definitions(-DPNG_NO_SETJMP=1)
 
 add_definitions(-DBUILD_TESTS=1)
+
+add_definitions(-DCMS_NO_REGISTER_KEYWORD=1)
+
+if(EMSCRIPTEN)
+
+	add_definitions(-fwasm-exceptions)
+	add_definitions(-pthread)
+
+	add_definitions(-DEMSCRIPTEN=1)
+	
+	add_definitions(-msimd128)
+	add_definitions(-msse4.1)	
+
+	include_directories("C:/programming/emsdk/upstream/emscripten/cache/sysroot/include")
+endif()
+
 
 
 if(WIN32)
@@ -40,7 +59,10 @@ MESSAGE("SDL_BUILD_DIR: ${SDL_BUILD_DIR}")
 
 add_definitions(-DBASE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
-set(jpegdir		"${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-3.0.0-vs${TESTBED_VS_VER}-install")
+
+
+
+
 
 # These libraries are checked into the glare-core repo to make setting up builds easier.
 set(zlibdir		"${GLARE_CORE_TRUNK}/zlib")
@@ -49,10 +71,23 @@ set(pngdir		"${GLARE_CORE_TRUNK}/libpng")
 set(zstddir		"${GLARE_CORE_TRUNK}/zstd")
 
 set(imguidir 	"${GLARE_CORE_LIBS}/imgui")
-set(libjpegturbodir "${GLARE_CORE_LIBS}/libjpeg-turbo-builds")
+
 
 if(WIN32)
+	set(jpegdir		"${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-3.0.0-vs${TESTBED_VS_VER}-install")
+elseif(EMSCRIPTEN)
+	set(jpegdir		"${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-3.0.0-vs2022-install")
+else()
+	set(jpegdir 	"${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-${SUBSTRATA_JPEGTURBO_VERSION}-install")
+endif()
+
+MESSAGE("jpegdir: ${jpegdir}")
+
+set(libjpegturbodir "${GLARE_CORE_LIBS}/libjpeg-turbo-builds")
+if(WIN32)
 	set(libjpegturbodir "${libjpegturbodir}/vs_${TESTBED_VS_VER}_64") # Append dir suffix for VS version and bitness.
+elseif(EMSCRIPTEN)
+	set(libjpegturbodir "${libjpegturbodir}/vs_2022_64") # Append dir suffix for VS version and bitness.
 endif()
 
 include_directories("./")
@@ -239,6 +274,8 @@ ${GLARE_CORE_TRUNK}/graphics/FilterFunction.cpp
 ${GLARE_CORE_TRUNK}/graphics/FilterFunction.h
 ${GLARE_CORE_TRUNK}/graphics/FormatDecoderGLTF.cpp
 ${GLARE_CORE_TRUNK}/graphics/FormatDecoderGLTF.h
+${GLARE_CORE_TRUNK}/graphics/MeshSimplification.cpp
+${GLARE_CORE_TRUNK}/graphics/MeshSimplification.h
 )
 
 include(${GLARE_CORE_TRUNK}/opengl/opengl.cmake)
@@ -260,8 +297,8 @@ ${GLARE_CORE_TRUNK}/utils/Mutex.cpp
 ${GLARE_CORE_TRUNK}/utils/Mutex.h
 ${GLARE_CORE_TRUNK}/utils/Lock.cpp
 ${GLARE_CORE_TRUNK}/utils/Lock.h
-${GLARE_CORE_TRUNK}/utils/DynamicLib.cpp
-${GLARE_CORE_TRUNK}/utils/DynamicLib.h
+#${GLARE_CORE_TRUNK}/utils/DynamicLib.cpp
+#${GLARE_CORE_TRUNK}/utils/DynamicLib.h
 ${GLARE_CORE_TRUNK}/utils/StandardPrintOutput.cpp
 ${GLARE_CORE_TRUNK}/utils/StandardPrintOutput.h
 ${GLARE_CORE_TRUNK}/utils/FileUtils.cpp
@@ -337,6 +374,103 @@ ${GLARE_CORE_TRUNK}/maths/Matrix4f.h
 FILE(GLOB double_conversion "${GLARE_CORE_TRUNK}/double-conversion/*.cc" "${GLARE_CORE_TRUNK}/double-conversion/*.h")
 
 
+set(MESHOPTIMIZER_DIR "${GLARE_CORE_TRUNK}/meshoptimizer/src")
+
+set(meshoptimizer
+${MESHOPTIMIZER_DIR}/allocator.cpp
+${MESHOPTIMIZER_DIR}/meshoptimizer.h
+${MESHOPTIMIZER_DIR}/allocator.cpp
+${MESHOPTIMIZER_DIR}/clusterizer.cpp
+${MESHOPTIMIZER_DIR}/indexcodec.cpp
+${MESHOPTIMIZER_DIR}/indexgenerator.cpp
+${MESHOPTIMIZER_DIR}/overdrawanalyzer.cpp
+${MESHOPTIMIZER_DIR}/overdrawoptimizer.cpp
+${MESHOPTIMIZER_DIR}/simplifier.cpp
+${MESHOPTIMIZER_DIR}/spatialorder.cpp
+${MESHOPTIMIZER_DIR}/stripifier.cpp
+${MESHOPTIMIZER_DIR}/vcacheanalyzer.cpp
+${MESHOPTIMIZER_DIR}/vcacheoptimizer.cpp
+${MESHOPTIMIZER_DIR}/vertexcodec.cpp
+${MESHOPTIMIZER_DIR}/vertexfilter.cpp
+${MESHOPTIMIZER_DIR}/vfetchanalyzer.cpp
+${MESHOPTIMIZER_DIR}/vfetchoptimizer.cpp   
+)
+
+set(jpegsrcdir		"${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-3.0.0")
+
+if(0) # EMSCRIPTEN)
+	set(jpeg_src
+	${jpegsrcdir}/jaricom.c
+	${jpegsrcdir}/jcapimin.c
+	${jpegsrcdir}/jcapistd.c
+	${jpegsrcdir}/jcarith.c
+	${jpegsrcdir}/jccoefct.c
+	${jpegsrcdir}/jccolext.c
+	${jpegsrcdir}/jccolor.c
+	${jpegsrcdir}/jcdctmgr.c
+	${jpegsrcdir}/jcdiffct.c
+	${jpegsrcdir}/jchuff.c
+	${jpegsrcdir}/jcicc.c
+	${jpegsrcdir}/jcinit.c
+	${jpegsrcdir}/jclhuff.c
+	${jpegsrcdir}/jclossls.c
+	${jpegsrcdir}/jcmainct.c
+	${jpegsrcdir}/jcmarker.c
+	${jpegsrcdir}/jcmaster.c
+	${jpegsrcdir}/jcomapi.c
+	${jpegsrcdir}/jcparam.c
+	${jpegsrcdir}/jcphuff.c
+	${jpegsrcdir}/jcprepct.c
+	${jpegsrcdir}/jcsample.c
+	${jpegsrcdir}/jcstest.c
+	${jpegsrcdir}/jctrans.c
+	${jpegsrcdir}/jdapimin.c
+	${jpegsrcdir}/jdapistd.c
+	${jpegsrcdir}/jdarith.c
+	${jpegsrcdir}/jdatadst-tj.c
+	${jpegsrcdir}/jdatadst.c
+	${jpegsrcdir}/jdatasrc-tj.c
+	${jpegsrcdir}/jdatasrc.c
+	${jpegsrcdir}/jdcoefct.c
+	${jpegsrcdir}/jdcol565.c
+	${jpegsrcdir}/jdcolext.c
+	${jpegsrcdir}/jdcolor.c
+	${jpegsrcdir}/jddctmgr.c
+	${jpegsrcdir}/jddiffct.c
+	${jpegsrcdir}/jdhuff.c
+	${jpegsrcdir}/jdicc.c
+	${jpegsrcdir}/jdinput.c
+	${jpegsrcdir}/jdlhuff.c
+	${jpegsrcdir}/jdlossls.c
+	${jpegsrcdir}/jdmainct.c
+	${jpegsrcdir}/jdmarker.c
+	${jpegsrcdir}/jdmaster.c
+	${jpegsrcdir}/jdmerge.c
+	${jpegsrcdir}/jdmrg565.c
+	${jpegsrcdir}/jdmrgext.c
+	${jpegsrcdir}/jdphuff.c
+	${jpegsrcdir}/jdpostct.c
+	${jpegsrcdir}/jdsample.c
+	${jpegsrcdir}/jdtrans.c
+	${jpegsrcdir}/jerror.c
+	${jpegsrcdir}/jfdctflt.c
+	${jpegsrcdir}/jfdctfst.c
+	${jpegsrcdir}/jfdctint.c
+	${jpegsrcdir}/jidctflt.c
+	${jpegsrcdir}/jidctfst.c
+	${jpegsrcdir}/jidctint.c
+	${jpegsrcdir}/jidctred.c
+	${jpegsrcdir}/jmemmgr.c
+	${jpegsrcdir}/jmemnobs.c
+	${jpegsrcdir}/jpegtran.c
+	${jpegsrcdir}/jquant1.c
+	${jpegsrcdir}/jquant2.c
+	${jpegsrcdir}/jstdhuff.c
+	${jpegsrcdir}/jutils.c
+	)
+endif()
+
+
 SOURCE_GROUP(indigo FILES ${indigo})
 SOURCE_GROUP(graphics FILES ${graphics})
 SOURCE_GROUP(opengl FILES ${opengl})
@@ -344,6 +478,9 @@ SOURCE_GROUP(utils FILES ${utils})
 SOURCE_GROUP(maths FILES ${maths})
 SOURCE_GROUP(double-conversion FILES ${double_conversion})
 SOURCE_GROUP(imgui FILES ${imgui})
+SOURCE_GROUP(meshoptimizer FILES ${meshoptimizer})
+SOURCE_GROUP(jpeg-turbo FILES ${jpeg_src})
+
 
 
 add_executable(testbed
@@ -365,6 +502,8 @@ ${little_cms}
 ${zstandard}
 ${imgui}
 ${tracy_files}
+${meshoptimizer}
+${jpeg_src}
 )
 
 
@@ -375,12 +514,44 @@ ${tracy_files}
 #endif()
 
 
-target_link_libraries(testbed
-debug "${SDL_BUILD_DIR}/Debug/SDL2d.lib" 
-debug "${SDL_BUILD_DIR}/Debug/SDL2maind.lib" 
-optimized "${SDL_BUILD_DIR}/RelWithDebInfo/SDL2.lib" 
-optimized "${SDL_BUILD_DIR}/RelWithDebInfo/SDL2main.lib" 
-Opengl32.lib
-debug     "${jpegdir}/lib/turbojpeg-static.lib" 
-optimized "${jpegdir}/lib/turbojpeg-static.lib" 
-)
+if(NOT EMSCRIPTEN)
+	target_link_libraries(testbed
+		debug "${SDL_BUILD_DIR}/Debug/SDL2d.lib" 
+		debug "${SDL_BUILD_DIR}/Debug/SDL2maind.lib" 
+		optimized "${SDL_BUILD_DIR}/RelWithDebInfo/SDL2.lib" 
+		optimized "${SDL_BUILD_DIR}/RelWithDebInfo/SDL2main.lib" 
+		Opengl32.lib
+		debug     "${jpegdir}/lib/turbojpeg-static.lib" 
+		optimized "${jpegdir}/lib/turbojpeg-static.lib" 
+
+		#Advapi32.lib # For regristry funcs
+	)
+endif()
+
+if(EMSCRIPTEN)
+	target_link_libraries(testbed
+		${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-emscripten-build/libjpeg.a
+		${GLARE_CORE_LIBS}/SDL/sdl_build_emscripten/libSDL2.a
+	)
+	
+	set(CMAKE_EXECUTABLE_SUFFIX ".html") # Make emscripten spit out an HTML file for testing
+	
+	target_link_options(testbed PRIVATE 
+		"-s USE_WEBGL=1"
+		"-sMIN_WEBGL_VERSION=2"
+		"-sMAX_WEBGL_VERSION=2"
+		"-sGL_ENABLE_GET_PROC_ADDRESS"
+#		"-sNO_DISABLE_EXCEPTION_CATCHING"
+		"--emrun"
+		"-gsource-map"
+		"-fwasm-exceptions"
+		"-sALLOW_MEMORY_GROWTH"
+		"-pthread"
+		"-s USE_SDL=2"
+		"-sPTHREAD_POOL_SIZE=200"
+		--preload-file data
+	)
+	
+	set_target_properties(testbed PROPERTIES LINK_DEPENDS "data")
+endif()
+

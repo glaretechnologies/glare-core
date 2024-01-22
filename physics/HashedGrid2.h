@@ -132,12 +132,14 @@ public:
 
 	inline unsigned int computeHash(const Vec4i& p_i) const
 	{
-		// NOTE: technically possible undefined behaviour here (signed overflow)
+		return ((p_i[0] * 73856093) ^ (p_i[1] * 19349663) ^ (p_i[2] * 83492791)) & hash_mask; // NOTE: technically possible undefined behaviour here (signed overflow)
 
 		//unsigned int u[4];
 		//storeVec4i(p_i, u);
 
-		return ((p_i[0] * 73856093) ^ (p_i[1] * 19349663) ^ (p_i[2] * 83492791)) & hash_mask;
+		//return (((uint32)(p_i[0] + 1000000) * 73856093) ^ 
+		//		((uint32)(p_i[1] + 1000000) * 19349663) ^ 
+		//		((uint32)(p_i[2] + 1000000) * 83492791)) & hash_mask;
 	}
 
 	inline unsigned int computeHash(int x, int y, int z) const
@@ -145,6 +147,10 @@ public:
 		// NOTE: technically possible undefined behaviour here (signed overflow)
 
 		return ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & hash_mask;
+
+		//return (((uint32)(x + 1000000) * 73856093) ^ 
+		//		((uint32)(y + 1000000) * 19349663) ^ 
+		//		((uint32)(z + 1000000) * 83492791)) & hash_mask;
 	}
 
 

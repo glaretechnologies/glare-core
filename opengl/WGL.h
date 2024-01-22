@@ -19,7 +19,7 @@ class WGL
 public:
 
 	void init(); // NOTE: should only call when an OpenGL context is current.
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(EMSCRIPTEN)
 	// See wglew.h
 	typedef HANDLE (WINAPI * PFNWGLDXOPENDEVICENVPROC) (void* dxDevice);
 	typedef BOOL (WINAPI * PFNWGLDXCLOSEDEVICENVPROC) (HANDLE hDevice);

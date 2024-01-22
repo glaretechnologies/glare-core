@@ -74,7 +74,7 @@ void VBO::updateData(size_t offset, const void* data, size_t data_size)
 void VBO::bind() const
 {
 	// Make buffer active
-#ifdef OSX // OSX doesn't define GL_SHADER_STORAGE_BUFFER
+#if defined(OSX) || defined(EMSCRIPTEN) // OSX doesn't define GL_SHADER_STORAGE_BUFFER
 	const GLenum use_buffer_type = buffer_type;
 #else
 	const GLenum use_buffer_type = (buffer_type == GL_SHADER_STORAGE_BUFFER) ? GL_ARRAY_BUFFER : buffer_type;

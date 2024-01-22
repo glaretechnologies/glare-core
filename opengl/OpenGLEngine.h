@@ -635,7 +635,7 @@ struct BatchDrawInfoWithDist
 
 
 
-// Matches that defined in phong_frag_shader.glsl and transparent_frag_shader.glsl.
+// Matches MaterialData defined in common_frag_structures.glsl
 // Used for transparent mats also.
 struct PhongUniforms
 {
@@ -665,6 +665,8 @@ struct PhongUniforms
 	float materialise_start_time;
 
 	float padding_b0;
+	float padding_b1;
+	float padding_b2;
 };
 
 

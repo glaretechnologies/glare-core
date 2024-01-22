@@ -618,7 +618,7 @@ const std::string PlatformUtils::getErrorStringForCode(int error_code)
 
 	// Linux:
 	char buf[4096];
-#if (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && ! _GNU_SOURCE
+#if (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && ! _GNU_SOURCE || defined(EMSCRIPTEN)
 	// XSI-compliant version of strerror_r(), returns zero on success.  See http://linux.die.net/man/3/strerror_r
 	if(strerror_r(error_code, buf, sizeof(buf)) == 0)
 		return std::string(buf);
@@ -786,7 +786,7 @@ void PlatformUtils::setEnvironmentVariable(const std::string& varname, const std
 }
 
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(EMSCRIPTEN)
 std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &regkey_, const std::string &regvalue_)
 {
 	HKEY hKey;
@@ -904,6 +904,9 @@ uint64 PlatformUtils::getCurrentThreadID()
 	const int res = pthread_threadid_np(NULL, &thread_id);
 	assertOrDeclareUsed(res == 0);
 	return thread_id;
+#elif defined(EMSCRIPTEN)
+	assert(0);
+	return 0;
 #else
 	// NOTE: pid_t is actually signed.  Improve this, or use pthread_equal, see https://stackoverflow.com/a/27238113
 	const pid_t tid = syscall(SYS_gettid);
@@ -926,6 +929,8 @@ void PlatformUtils::setCurrentThreadName(const std::string& name)
 
 #elif defined(__APPLE__)
 	pthread_setname_np(name.c_str());
+#elif defined(EMSCRIPTEN)
+
 #else
 	pthread_setname_np(pthread_self(), name.c_str());
 #endif

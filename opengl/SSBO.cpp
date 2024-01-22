@@ -11,13 +11,10 @@ Copyright Glare Technologies Limited 2022 -
 #include <cstring> // For memcpy
 
 
-// Just for Mac
-#ifndef GL_SHADER_STORAGE_BUFFER
+// To compile for Mac / Emscripten
 #define GL_SHADER_STORAGE_BUFFER          0x90D2
-#endif
-#ifndef GL_MAP_PERSISTENT_BIT
 #define GL_MAP_PERSISTENT_BIT             0x0040
-#endif
+#define GL_DYNAMIC_STORAGE_BIT            0x0100
 
 
 SSBO::SSBO()
@@ -70,7 +67,7 @@ void SSBO::allocate(size_t size_B, bool map_memory)
 void SSBO::allocateForMapping(size_t size_B)
 {
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
-#ifdef OSX
+#if defined(OSX) || defined(EMSCRIPTEN)
 	assert(0);
 #else
 	glBufferStorage(GL_SHADER_STORAGE_BUFFER, size_B, NULL, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_DYNAMIC_STORAGE_BIT);
@@ -88,12 +85,16 @@ void SSBO::updateData(size_t dest_offset, const void* src_data, size_t src_size,
 
 	if(mapped_buffer)
 	{
+#if defined(OSX) || defined(EMSCRIPTEN)
+		assert(0);
+#else
 		std::memcpy((uint8*)mapped_buffer + dest_offset, src_data, src_size);
 
 		if(bind_needed)
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
 
 		glFlushMappedBufferRange(GL_SHADER_STORAGE_BUFFER, /*offset=*/dest_offset, src_size);
+#endif
 	}
 	else
 	{
@@ -107,16 +108,23 @@ void SSBO::updateData(size_t dest_offset, const void* src_data, size_t src_size,
 
 void SSBO::readData(size_t src_offset, void* dst_data, size_t size)
 {
+#if defined(OSX) || defined(EMSCRIPTEN)
+	assert(0);
+#else
 	assert((src_offset + size) <= this->allocated_size);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
 
 	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, src_offset, size, dst_data);
+#endif
 }
 
 
 void* SSBO::map()
 {
+#if defined(OSX) || defined(EMSCRIPTEN)
+	assert(0);
+#else
 	bind();
 
 	this->mapped_buffer = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, /*offset=*/0, /*length=*/this->allocated_size, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT); // NOTE GL_MAP_FLUSH_EXPLICIT_BIT is new
@@ -127,21 +135,26 @@ void* SSBO::map()
 	return mapped_buffer;
 
 	//TODO: add unmapping
+#endif
 }
 
 
 void SSBO::flushRange(size_t offset, size_t size)
 {
+#if defined(OSX) || defined(EMSCRIPTEN)
+	assert(0);
+#else
 	bind();
 
 	glFlushMappedBufferRange(GL_SHADER_STORAGE_BUFFER, /*offset=*/offset, size);
+#endif
 }
 
 
 // Invalidate the content of a buffer object's data store.
 void SSBO::invalidateBufferData()
 {
-#ifdef OSX
+#if defined(OSX) || defined(EMSCRIPTEN)
 	assert(0); // glInvalidateBufferData is OpenGL 4.3+
 #else
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);

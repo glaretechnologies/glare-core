@@ -9,8 +9,12 @@
 # Requires: GLARE_CORE_TRUNK_DIR_ENV variable should be set (Path to Glare-Core repo on disk)
 
 
+if(NOT EMSCRIPTEN)
+	set(gl3w  ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/gl3w.c)
+endif()
+
 set(opengl
-${GLARE_CORE_TRUNK_DIR_ENV}/opengl/gl3w.c 
+${gl3w}
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/FrameBuffer.cpp 

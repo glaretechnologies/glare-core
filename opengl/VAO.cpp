@@ -15,7 +15,7 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 	current_bound_vert_vbo(NULL),
 	current_bound_index_VBO(NULL)
 {
-#ifdef OSX
+#if defined(OSX) || defined(EMSCRIPTEN)
 	assert(0);
 #else
 	vertex_spec = vertex_spec_;

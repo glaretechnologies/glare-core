@@ -9,6 +9,10 @@ Copyright Glare Technologies Limited 2022 -
 #include "IncludeOpenGL.h"
 
 
+// To compile for emscripten
+#define GL_DRAW_INDIRECT_BUFFER           0x8F3F
+
+
 DrawIndirectBuffer::DrawIndirectBuffer()
 :	handle(0),
 	allocated_size(0)
@@ -64,7 +68,7 @@ void DrawIndirectBuffer::updateData(size_t dest_offset, const void* src_data, si
 // Invalidate the content of a buffer object's data store.
 void DrawIndirectBuffer::invalidateBufferData()
 {
-#ifdef OSX
+#if defined(OSX) || defined(EMSCRIPTEN)
 	assert(0); // glInvalidateBufferData is OpenGL 4.3+
 #else
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, handle);

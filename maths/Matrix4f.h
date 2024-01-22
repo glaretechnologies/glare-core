@@ -343,8 +343,10 @@ const Matrix4f Matrix4f::operator + (const Matrix4f& other) const
 
 GLARE_STRONG_INLINE const Vec4f operator * (const Matrix4f& m, const Vec4f& v)
 {
+#if !defined(EMSCRIPTEN)
 	assert(SSE::isSSEAligned(&m));
 	assert(SSE::isSSEAligned(&v));
+#endif
 
 	const __m128 vx = indigoCopyToAll(v.v, 0);
 	const __m128 vy = indigoCopyToAll(v.v, 1);

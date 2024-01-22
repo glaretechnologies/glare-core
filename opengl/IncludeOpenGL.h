@@ -5,6 +5,11 @@
 #define GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
 #include <OpenGL/gl3.h>
 #include <OpenGL/gl3ext.h>
+
+#elif defined(EMSCRIPTEN)
+
+#include <GLES3/gl3.h>
+
 #else
 
 // Stop windows.h from defining the min() and max() macros
@@ -15,4 +20,5 @@
 #undef GL_VERSION_1_1 // This seems to be needed to get the compile to work for some reason.
 
 #include <GL/gl3w.h>
+
 #endif
