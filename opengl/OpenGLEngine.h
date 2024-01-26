@@ -418,7 +418,7 @@ public:
 	bool render_sun_and_clouds;
 	bool render_water_caustics;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
-	bool use_general_arena_mem_allocator; // Use GeneralMemAllocator with a 2GB arena for general CPU size mem allocations.
+	bool use_general_arena_mem_allocator; // Use GeneralMemAllocator with a 2GB arena for general CPU-side mem allocations.
 	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
 
 	bool allow_bindless_textures; // Allow use of bindless textures, if supported by the OpenGL implementation?   True by default.
@@ -954,7 +954,8 @@ public:
 	//--------------------------------------- Viewport ----------------------------------------
 	// This will be the resolution at which the main render framebuffer is allocated, for which res bloom textures are allocated etc..
 	void setMainViewportDims(int main_viewport_w_, int main_viewport_h_);
-
+	int getMainViewPortWidth()  const { return main_viewport_w; } // Return viewport width, in pixels.
+	int getMainViewPortHeight() const { return main_viewport_h; }
 
 	void setViewportDims(int viewport_w_, int viewport_h_);
 	void setViewportDims(const Vec2i& viewport_dims) { setViewportDims(viewport_dims.x, viewport_dims.y); }

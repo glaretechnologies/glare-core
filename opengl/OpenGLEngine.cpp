@@ -5578,6 +5578,8 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	glUseProgram(0);
+	VAO::unbind();
 	assertCurrentProgramIsZero();
 
 	// Run scatter compute shader to update data on GPU
@@ -8453,7 +8455,8 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 		bindTextureToTextureUnit(*main_depth_copy_texture,  /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
 	}
 
-	bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+	if(cirrus_tex.nonNull())
+		bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
 	if(settings.render_water_caustics)
 	{
@@ -8637,7 +8640,8 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		assert(getBoundTexture2D(MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX)  == main_depth_copy_texture->texture_handle);
 	}
 
-	assert(getBoundTexture2D(CIRRUS_TEX_TEXTURE_UNIT_INDEX) == cirrus_tex->texture_handle);
+	if(cirrus_tex.nonNull())
+		assert(getBoundTexture2D(CIRRUS_TEX_TEXTURE_UNIT_INDEX) == cirrus_tex->texture_handle);
 	assert(getBoundTexture2D(AURORA_TEXTURE_UNIT_INDEX)     == aurora_tex->texture_handle);
 	assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
 	assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX)        == fbm_tex->texture_handle);
@@ -8735,7 +8739,8 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 		//assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.blue_noise_tex_location) == BLUE_NOISE_TEXTURE_UNIT_INDEX);
 		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.diffuse_tex_location) == DIFFUSE_TEXTURE_UNIT_INDEX);
-		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
+		if(settings.render_sun_and_clouds)
+			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
 		if(this->cirrus_tex.nonNull())
 			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
