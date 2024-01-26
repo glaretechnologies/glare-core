@@ -156,16 +156,16 @@ void glare::ArenaAllocator::test()
 
 
 		// Test handling of references.
-		{
-			glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
-
-			suballocator.incRefCount(); // Need to manually call this when suballocator is on stack.
-			{
-				Reference<glare::ArenaAllocator> ref(&suballocator);
-			}
-			suballocator.decRefCount();
-			testAssert(suballocator.getRefCount() == 0);
-		}
+		//{
+		//	glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
+		//
+		//	suballocator.incRefCount(); // Need to manually call this when suballocator is on stack.
+		//	{
+		//		Reference<glare::ArenaAllocator> ref(&suballocator);
+		//	}
+		//	suballocator.decRefCount();
+		//	testAssert(suballocator.getRefCount() == 0);
+		//}
 	}
 }
 

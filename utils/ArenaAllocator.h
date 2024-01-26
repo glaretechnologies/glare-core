@@ -23,15 +23,15 @@ All allocations are freed at once with the clear() method.  free() does nothing.
 
 Not thread-safe, designed to be used only by a single thread.
 =====================================================================*/
-class ArenaAllocator : public glare::Allocator
+class ArenaAllocator// : public glare::Allocator
 {
 public:
 	ArenaAllocator(size_t arena_size_B);
 	ArenaAllocator(void* data, size_t arena_size_B); // Doesn't own data, doesn't delete it in destructor
 	~ArenaAllocator();
 
-	virtual void* alloc(size_t size, size_t alignment) override;
-	virtual void free(void* ptr) override; // Does nothing
+	virtual void* alloc(size_t size, size_t alignment);
+	virtual void free(void* ptr); // Does nothing
 
 	void clear() { current_offset = 0; } // Reset arena, freeing all allocated memory
 
