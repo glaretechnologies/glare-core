@@ -6168,7 +6168,7 @@ void OpenGLEngine::draw()
 	// * Draw another quad using the edge texture, blending a green colour into the final frame buffer on the edge.
 
 	//================= Generate outline texture =================
-	if(!selected_objects.empty())
+	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer) // Only do when use_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
 	{
 		assertCurrentProgramIsZero();
 		
@@ -7915,7 +7915,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 {
 	// At this stage the outline texture has been generated in outline_edge_tex.  So we will just blend it over the current frame.
-	if(!selected_objects.empty())
+	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer)
 	{
 		assertCurrentProgramIsZero();
 
