@@ -545,11 +545,17 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 #if defined(EMSCRIPTEN)
 			// glTexStorage2DMultisample is OpenGL ES 3.1+: https://registry.khronos.org/OpenGL-Refpages/es3.1/html/glTexStorage2DMultisample.xhtml
 			assert(0);
-#else
+#else // else if !EMSCRIPTEN:
 			glBindTexture(texture_target, texture_handle);
+
+#if defined(OSX) // glTexStorage2DMultisample isn't defined on Mac.
+			glTexImage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
+#else
 			glTexStorage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
-			this->num_mipmap_levels_allocated = 1;
 #endif
+
+			this->num_mipmap_levels_allocated = 1;
+#endif // end if !EMSCRIPTEN
 		}
 		else
 		{
