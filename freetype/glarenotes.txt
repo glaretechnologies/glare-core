@@ -1,0 +1,11 @@
+Some files from FreeType version 2.13.2, Downloaded 29 Jan 2024.
+
+
+include\freetype\config\ftmodule.h has been modified to disable some modules we don't need. (We don't need to load bitmap fonts etc.)
+We just want to support OTF and TTF formats.
+
+include\freetype\config\ftoption.h has been modified to define FT_CONFIG_OPTION_ERROR_STRINGS
+
+Also undefined FT_CONFIG_OPTION_MAC_FONTS.
+
+Defined FT_CONFIG_OPTION_SYSTEM_ZLIB to use the existing zlib.
