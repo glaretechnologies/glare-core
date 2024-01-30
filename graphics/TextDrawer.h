@@ -1,11 +1,9 @@
 /*=====================================================================
 TextDrawer.h
 ------------
-File created by ClassTemplate on Tue Apr 29 21:08:21 2008
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
-#ifndef __TEXTDRAWER_H_666_
-#define __TEXTDRAWER_H_666_
+#pragma once
 
 
 #include <string>
@@ -32,7 +30,7 @@ private:
 /*=====================================================================
 TextDrawer
 ----------
-
+Draws using a fixed width font
 =====================================================================*/
 class TextDrawer : public RefCounted
 {
@@ -61,6 +59,3 @@ private:
 
 
 typedef Reference<TextDrawer> TextDrawerRef;
-
-
-#endif //__TEXTDRAWER_H_666_

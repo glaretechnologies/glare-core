@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "Platform.h"
 #include <string>
+#include "string_view.h"
 
 
 /*=====================================================================
@@ -25,11 +26,11 @@ namespace UTF8Utils
 	// Codepoint must be <= 0x10FFFF
 	const std::string encodeCodePoint(uint32 codepoint);
 
-	// Convert a single unicode character, encoded in UTF-8 and store in a uint32, to the Unicode code point value.
+	// Convert a single unicode character, encoded in UTF-8 and stored in a uint32, to the Unicode code point value.
 	uint32 codePointForUTF8Char(uint32 utf8_char);
 
-	// Convert a single unicode character, encoded in UTF-8 and store in a std::string, to the Unicode code point value.
-	uint32 codePointForUTF8CharString(const std::string& s);
+	// Convert a single unicode character, encoded in UTF-8 and stored in a std::string, to the Unicode code point value.
+	uint32 codePointForUTF8CharString(string_view s);
 
 
 	size_t numCodePointsInString(const std::string& s);
@@ -39,7 +40,7 @@ namespace UTF8Utils
 
 	size_t numBytesForChar(uint8 first_byte);
 
-	// Convert from a single Unicode char, encoded in UTF-8 and store in a uint32, to one stored in a std::string.
+	// Convert from a single Unicode char, encoded in UTF-8 and stored in a uint32, to one stored in a std::string.
 	const std::string charString(uint32 utf8_char);
 
 	// Returns the byte index of the given character

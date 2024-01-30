@@ -95,11 +95,11 @@ uint32 codePointForUTF8Char(uint32 utf8_char)
 
 
 // Convert a single unicode character, encoded in UTF-8 and store in a std::string, to the Unicode code point value.
-uint32 codePointForUTF8CharString(const std::string& s)
+uint32 codePointForUTF8CharString(string_view s)
 {
 	if(s.empty())
 		throw glare::Exception("Invalid Unicode character");
-	const uint8* const data = (const uint8*)s.c_str();
+	const uint8* const data = (const uint8*)s.data();
 
 	if(data[0] <= 0x7F) // (data[0] & 0x80) == 0) // If left bit of byte 0 is 0:
 	{

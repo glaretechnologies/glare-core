@@ -1,10 +1,10 @@
 /*=====================================================================
 TextDrawer.cpp
 --------------
-File created by ClassTemplate on Tue Apr 29 21:08:21 2008
-Code By Nicholas Chapman.
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "TextDrawer.h"
+
 
 #include "bitmap.h"
 #include "image.h"
