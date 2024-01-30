@@ -48,8 +48,9 @@ void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, c
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
 	overlay_ob->material.albedo_linear_rgb = widget_colour;
-	overlay_ob->material.albedo_texture = glui.text_renderer->makeToolTipTexture(text);
-
+	overlay_ob->material.albedo_texture = glui.makeToolTipTexture(text);
+	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
+	overlay_ob->material.tex_translation = Vec2f(0, 1);
 
 	rect = Rect2f(botleft, botleft + dims);
 
@@ -78,7 +79,7 @@ void GLUITextView::setText(GLUI& glui, const std::string& new_text)
 	{
 		text = new_text;
 
-		overlay_ob->material.albedo_texture = glui.text_renderer->makeToolTipTexture(text);
+		overlay_ob->material.albedo_texture = glui.makeToolTipTexture(text);
 	}
 }
 

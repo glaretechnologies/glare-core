@@ -8,13 +8,13 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "GLUIWidget.h"
 #include "../OpenGLEngine.h"
+#include "../graphics/TextRenderer.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include <string>
 #include <set>
 
 
-class GLUITextRendererCallback;
 class GLUIMouseWheelEvent;
 
 
@@ -35,7 +35,7 @@ public:
 	~GLUI();
 
 	// device_pixel_ratio is basically a scale factor for sizes in pixels.
-	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, GLUITextRendererCallback* text_renderer);
+	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, TextRendererFontFaceRef text_renderer_font);
 
 	void destroy();
 
@@ -56,9 +56,11 @@ public:
 
 	float getUIWidthForDevIndepPixelWidth(float pixel_w);
 
+	OpenGLTextureRef makeToolTipTexture(const std::string& text);
+
 
 	Reference<OpenGLEngine> opengl_engine;
-	GLUITextRendererCallback* text_renderer;
+	TextRendererFontFaceRef text_renderer_font;
 
 private:
 	GLARE_DISABLE_COPY(GLUI);
@@ -74,15 +76,6 @@ private:
 
 
 typedef Reference<GLUI> GLUIRef;
-
-
-class GLUITextRendererCallback
-{
-public:
-	virtual ~GLUITextRendererCallback() {}
-
-	virtual OpenGLTextureRef makeToolTipTexture(const std::string& text) = 0;
-};
 
 
 class GLUIMouseWheelEvent

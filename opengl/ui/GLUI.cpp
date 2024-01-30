@@ -18,7 +18,6 @@ static const float TOOLTIP_Z = -0.999f; // -1 is near clip plane
 
 
 GLUI::GLUI()
-:	text_renderer(NULL)
 {
 }
 
@@ -29,11 +28,11 @@ GLUI::~GLUI()
 }
 
 
-void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, GLUITextRendererCallback* text_renderer_)
+void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, TextRendererFontFaceRef text_renderer_font_)
 {
 	opengl_engine = opengl_engine_;
 	device_pixel_ratio = device_pixel_ratio_;
-	text_renderer = text_renderer_;
+	text_renderer_font = text_renderer_font_;
 
 	tooltip_overlay_ob = new OverlayObject();
 	tooltip_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -132,16 +131,21 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 				auto res = tooltip_textures.find(widget->tooltip);
 				if(res == tooltip_textures.end())
 				{
-					tex = text_renderer->makeToolTipTexture(widget->tooltip);
+					tex = makeToolTipTexture(widget->tooltip);
 					tooltip_textures[widget->tooltip] = tex;
 				}
 				else
 					tex = res->second;
 
 				tooltip_overlay_ob->material.albedo_texture = tex;
+				tooltip_overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1); // Compensate for OpenGL loading textures upside down (row 0 in OpenGL is considered to be at the bottom of texture)
+				tooltip_overlay_ob->material.tex_translation = Vec2f(0, 1);
 
-				const float scale_x = 1.f * (float)tex->xRes() / opengl_engine->getViewPortWidth();
-				const float scale_y = 1.f * (float)tex->yRes() / opengl_engine->getViewPortWidth() / y_scale;
+				const float scale_y = 70.0f / opengl_engine->getViewPortWidth() / y_scale; // ~50 px high
+				const float scale_x = 70.0f / opengl_engine->getViewPortWidth() * ((float)tex->xRes() / (float)tex->yRes());
+					
+				//const float scale_x = 0.5f * (float)tex->xRes() / opengl_engine->getViewPortWidth();
+				//const float scale_y = 0.5f * (float)tex->yRes() / opengl_engine->getViewPortWidth() / y_scale;
 
 				const float mouse_pointer_h_gl = 40.f / opengl_engine->getViewPortHeight();
 
@@ -181,4 +185,26 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 	// 2 factor is because something spanning the full viewport ranges from y=-1 to 1.
 
 	return 2 * device_pixel_ratio * pixel_w / (float)opengl_engine->getViewPortWidth();
+}
+
+
+OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
+{
+	const TextRendererFontFace::SizeInfo size_info = text_renderer_font->getTextSize(tooltip_text);
+
+	const int use_font_height = size_info.max_bounds.y; //text_renderer_font->getFontSizePixels();
+	const int padding_x = (int)(use_font_height * 0.6f);
+	const int padding_y = (int)(use_font_height * 0.6f);
+	
+
+	ImageMapUInt8Ref map = new ImageMapUInt8(size_info.size.x + padding_x * 2, use_font_height + padding_y * 2, 3);
+	map->set(240); // Set to light grey colour
+
+	text_renderer_font->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f));
+
+
+	TextureParams tex_params;
+	tex_params.wrapping = OpenGLTexture::Wrapping_Clamp;
+	tex_params.allow_compression = false;
+	return opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("tooltip_" + tooltip_text), *map, tex_params);
 }
