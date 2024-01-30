@@ -65,6 +65,9 @@ const std::string getUserAppDataDirPath(); // throws PlatformUtilsExcep
 // Only works on Windows, returns CSIDL_COMMON_DOCUMENTS, e.g. 'C:\Users\Public\Documents'.
 const std::string getCommonDocumentsDirPath(); // throws PlatformUtilsExcep
 
+// Only works on Windows, returns CSIDL_FONTS, e.g. 'C:\Windows\Fonts'.
+const std::string getFontsDirPath(); // throws PlatformUtilsExcep
+
 const std::string getTempDirPath(); // throws PlatformUtilsExcep
 
 const std::string getCurrentWorkingDirPath(); // throws PlatformUtilsExcep
