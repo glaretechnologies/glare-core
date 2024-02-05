@@ -102,7 +102,7 @@ void WebListenerThread::doRun()
 					use_socket = worker_tls_socket;
 				}
 
-				//print("Client connected from " + IPAddress::formatIPAddressAndPort(workersock->getOtherEndIPAddress(), workersock->getOtherEndPort()));
+				//print("WebListenerThread: Client connected from " + IPAddress::formatIPAddressAndPort(use_socket->getOtherEndIPAddress(), use_socket->getOtherEndPort()));
 
 				Reference<RequestHandler> request_handler = this->shared_request_handler->getOrMakeRequestHandler();
 
