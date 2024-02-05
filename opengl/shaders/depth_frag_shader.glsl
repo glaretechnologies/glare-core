@@ -82,7 +82,7 @@ float fbm(vec2 p)
 
 vec2 rot(vec2 p)
 {
-	float theta = 1.618034 * 3.141592653589 * 2;
+	float theta = 1.618034 * 3.141592653589 * 2.0;
 	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
 }
 
@@ -90,8 +90,7 @@ float fbmMix(vec2 p)
 {
 	return 
 		fbm(p) +
-		fbm(rot(p * 2)) * 0.5 +
-		0;
+		fbm(rot(p * 2.0)) * 0.5;
 }
 
 // https://www.shadertoy.com/view/MdcfDj
@@ -148,7 +147,7 @@ void main()
 	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
 	float depth = -pos_cs.z;
 	
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 128.f)).x;
 
 #if IMPOSTER
 	float begin_fade_in_distance  = MAT_UNIFORM.materialise_lower_z;

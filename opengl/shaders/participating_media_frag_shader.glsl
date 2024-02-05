@@ -127,7 +127,7 @@ float fbm(vec2 p)
 
 vec2 rot(vec2 p)
 {
-	float theta = 1.618034 * 3.141592653589 * 2;
+	float theta = 1.618034 * 3.141592653589 * 2.0;
 	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
 }
 
@@ -135,31 +135,30 @@ float fbmMix(vec2 p)
 {
 	return 
 		fbm(p) +
-		fbm(rot(p * 2)) * 0.5 +
-		0;
+		fbm(rot(p * 2.0)) * 0.5;
 }
 
 float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords)
 {
-	float sum = 0;
+	float sum = 0.0;
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
 		sum += texture(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z));
 	}
-	return sum * (1.f / 16);
+	return sum * (1.f / 16.0);
 }
 
 
 float sampleStaticDepthMap(mat2 R, vec3 shadow_coords)
 {
-	float sum = 0;
+	float sum = 0.0;
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
 		sum += texture(static_depth_tex, vec3(st.x, st.y, shadow_coords.z));
 	}
-	return sum * (1.f / 16);
+	return sum * (1.f / 16.0);
 }
 
 float square(float x) { return x*x; }
@@ -210,7 +209,7 @@ void main()
 
 	float samples_scale = 1.f;
 
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1 / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 128.f)).x;
 
 	float pattern_theta = pixel_hash * 6.283185307179586;
 	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
@@ -257,24 +256,24 @@ void main()
 	{
 		float l1dist = dist;
 
-		if(l1dist < 1024)
+		if(l1dist < 1024.0)
 		{
 			int static_depth_tex_index;
 			float cascade_end_dist;
-			if(l1dist < 64)
+			if(l1dist < 64.0)
 			{
 				static_depth_tex_index = 0;
-				cascade_end_dist = 64;
+				cascade_end_dist = 64.0;
 			}
-			else if(l1dist < 256)
+			else if(l1dist < 256.0)
 			{
 				static_depth_tex_index = 1;
-				cascade_end_dist = 256;
+				cascade_end_dist = 256.0;
 			}
 			else
 			{
 				static_depth_tex_index = 2;
-				cascade_end_dist = 1024;
+				cascade_end_dist = 1024.0;
 			}
 
 			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
@@ -317,7 +316,7 @@ void main()
 		vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
 		cum_tex_coords.x += time * 0.002;
 
-		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2 + 2.3453, cum_tex_coords.y * 2 + 1.4354);
+		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2.0 + 2.3453, cum_tex_coords.y * 2.0 + 1.4354);
 		float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
 
 		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
@@ -379,7 +378,7 @@ void main()
 	vec3 transmission = exp(air_scattering_coeffs.xyz * -dist_);
 
 	col.xyz *= transmission;
-	col.xyz += sun_and_sky_av_spec_rad.xyz * (1 - transmission);
+	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission);
 #endif
 
 	col *= 0.000000003; // tone-map

@@ -380,7 +380,7 @@ vec3 snorm12x2_to_unorm8x3(vec2 f) {
 
 vec3 oct_to_float32x3(vec2 e) {
 	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
-	if (v.z < 0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
+	if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
 	return normalize(v);
 }
 
@@ -435,21 +435,21 @@ void main()
 		{
 			use_texture_coords.x = pos_os.y;
 			use_texture_coords.y = pos_os.z;
-			if(N_g_os.x < 0)
+			if(N_g_os.x < 0.0)
 				use_texture_coords.x = -use_texture_coords.x;
 		}
 		else if(abs(N_g_os.y) > abs(N_g_os.x) && abs(N_g_os.y) > abs(N_g_os.z))
 		{
 			use_texture_coords.x = pos_os.x;
 			use_texture_coords.y = pos_os.z;
-			if(N_g_os.y > 0)
+			if(N_g_os.y > 0.0)
 				use_texture_coords.x = -use_texture_coords.x;
 		}
 		else
 		{
 			use_texture_coords.x = pos_os.x;
 			use_texture_coords.y = pos_os.y;
-			if(N_g_os.z < 0)
+			if(N_g_os.z < 0.0)
 				use_texture_coords.x = -use_texture_coords.x;
 		}
 #endif
@@ -537,7 +537,7 @@ void main()
 
 		use_texture_coords.x = pos_os.x;
 		use_texture_coords.y = pos_os.y;
-		if(pos_os.x < 0 || pos_os.x > 1 || pos_os.y < 0 || pos_os.y > 1 || pos_os.z < 0 || pos_os.z > 1)
+		if(pos_os.x < 0.0 || pos_os.x > 1.0 || pos_os.y < 0.0 || pos_os.y > 1.0 || pos_os.z < 0.0 || pos_os.z > 1.0)
 			discard;
 
 		vec3 src_normal_decal_space = normalize((world_to_ob * vec4(src_normal_ws, 0.0)).xyz);
@@ -618,12 +618,12 @@ void main()
 	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
 
 #if TERRAIN
-	vec2 mask_coords = main_tex_coords + vec2(0.5 + 0.5 / 1024, 0.5 + 0.5 / 1024);
+	vec2 mask_coords = main_tex_coords + vec2(0.5 + 0.5 / 1024.0, 0.5 + 0.5 / 1024.0);
 	vec4 mask = texture(DIFFUSE_TEX, mask_coords);
 	
-	vec2 detail_map_0_uvs = main_tex_coords * (8.0 * 1024 / 8.0);
-	vec2 detail_map_1_uvs = main_tex_coords * (8.0 * 1024 / 4.0);
-	vec2 detail_map_2_uvs = main_tex_coords * (8.0 * 1024 / 4.0);
+	vec2 detail_map_0_uvs = main_tex_coords * (8.0 * 1024.0 / 8.0);
+	vec2 detail_map_1_uvs = main_tex_coords * (8.0 * 1024.0 / 4.0);
+	vec2 detail_map_2_uvs = main_tex_coords * (8.0 * 1024.0 / 4.0);
 
 	vec4 detail_0_texval = vec4(0.f);
 	vec4 detail_1_texval = vec4(0.f);
@@ -648,8 +648,8 @@ void main()
 	// Vegetation as a fraction of (vegetation + sediment)
 	float veg_frac = ((mask.z > fbmMix(detail_map_2_uvs * 0.2) * 0.3 + 0.5 + beach_factor) ? 1.0 : 0.0);
 
-	float sed_weight = (1 - rock_weight) * (1.0 - veg_frac); // (mask.y / (mask.y + mask.z));
-	float veg_weight = (1 - rock_weight) * veg_frac; // (mask.z / (mask.y + mask.z));
+	float sed_weight = (1.0 - rock_weight) * (1.0 - veg_frac); // (mask.y / (mask.y + mask.z));
+	float veg_weight = (1.0 - rock_weight) * veg_frac; // (mask.z / (mask.y + mask.z));
 
 	float col_variation_amt = 0.1;
 	vec4 colour_variation_factor = vec4(
@@ -1110,7 +1110,7 @@ void main()
 	float campos_z = pos_ws.z - cam_to_pos_ws.z;
 	if(/*(campos_z < -3.8) && */pos_ws.z < water_level_z)
 	{
-		vec3 extinction = vec3(1.0, 0.10, 0.1) * 2;
+		vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
 		vec3 scattering = vec3(0.4, 0.4, 0.1);
 
 		vec3 src_col = col.xyz; // texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
@@ -1120,7 +1120,7 @@ void main()
 
 		//--------------- Apply caustic texture ---------------
 		// Caustics are projected onto a plane normal to the direction to the sun.
-		vec3 sun_right = normalize(cross(sundir_ws.xyz, vec3(0,0,1)));
+		vec3 sun_right = normalize(cross(sundir_ws.xyz, vec3(0.0,0.0,1.0)));
 		vec3 sun_up = cross(sundir_ws.xyz, sun_right);
 		vec2 hitpos_sunbasis = vec2(dot(pos_ws, sun_right), dot(pos_ws, sun_up));
 
