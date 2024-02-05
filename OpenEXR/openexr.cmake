@@ -118,21 +118,24 @@ ${openexrdir}/src/lib/IlmThread/IlmThreadPool.h
 #$openexrdirr}src/lib//IlmThread/IlmThreadPosix.cpp     	# Effectively empty
 #$openexrdirr}src/lib//IlmThread/IlmThreadSemaphore.cpp		# Effectively empty
 ${openexrdir}/src/lib/IlmThread/IlmThreadSemaphore.h
-${openexrdir}/src/lib/IlmThread/IlmThreadSemaphorePosix.cpp
-${openexrdir}/src/lib/IlmThread/IlmThreadSemaphorePosixCompat.cpp
 )
 if(WIN32)
 	SET(ilmthread
-	${ilmthread}
-	${openexrdir}/src/lib/IlmThread/IlmThreadSemaphoreWin32.cpp)
+		${ilmthread}
+		${openexrdir}/src/lib/IlmThread/IlmThreadSemaphoreWin32.cpp)
 elseif(APPLE)
 	SET(ilmthread
-	${ilmthread}
-	${openexrdir}/src/lib/IlmThread/IlmThreadSemaphoreOSX.cpp)
+		${ilmthread}
+		${openexrdir}/src/lib/IlmThread/IlmThreadSemaphoreOSX.cpp)
 elseif(EMSCRIPTEN)
 	SET(ilmthread
-	${ilmthread}
-	${openexrdir}/src/lib/IlmThread/IlmThreadSemaphoreWin32.cpp)
+		${ilmthread}
+		#${openexrdir}/src/lib/IlmThread/IlmThreadSemaphorePosix.cpp)
+		${openexrdir}/src/lib/IlmThread/IlmThreadSemaphorePosixCompat.cpp)
+else() # Else linux:
+	SET(ilmthread
+		${ilmthread}
+		${openexrdir}/src/lib/IlmThread/IlmThreadSemaphorePosix.cpp)
 endif()
 
 SET(openexr
