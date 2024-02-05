@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "ConPrint.h"
 
 
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(EMSCRIPTEN)
 #else
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -22,7 +22,7 @@ Copyright Glare Technologies Limited 2021 -
 
 EventFD::EventFD()
 {
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(EMSCRIPTEN)
 #else
 	efd = eventfd(
 		0, // initial value
@@ -38,7 +38,7 @@ EventFD::EventFD()
 
 EventFD::~EventFD()
 {
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(EMSCRIPTEN)
 #else
 	close(efd);
 #endif
@@ -47,7 +47,7 @@ EventFD::~EventFD()
 
 void EventFD::notify()
 {
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(EMSCRIPTEN)
 #else
 	uint64 val = 1;
 	write(efd, &val, 8);
@@ -57,7 +57,7 @@ void EventFD::notify()
 
 uint64 EventFD::read()
 {
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(EMSCRIPTEN)
 #else
 	uint64 val;
 	const ssize_t res = ::read(efd, &val, 8); // Note that this returns the number of bytes read, or an error code.
