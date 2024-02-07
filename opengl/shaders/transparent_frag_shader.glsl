@@ -173,21 +173,21 @@ void main()
 		{
 			use_texture_coords.x = pos_os.y;
 			use_texture_coords.y = pos_os.z;
-			if(N_g_os.x < 0)
+			if(N_g_os.x < 0.0)
 				use_texture_coords.x = -use_texture_coords.x;
 		}
 		else if(abs(N_g_os.y) > abs(N_g_os.x) && abs(N_g_os.y) > abs(N_g_os.z))
 		{
 			use_texture_coords.x = pos_os.x;
 			use_texture_coords.y = pos_os.z;
-			if(N_g_os.y > 0)
+			if(N_g_os.y > 0.0)
 				use_texture_coords.x = -use_texture_coords.x;
 		}
 		else
 		{
 			use_texture_coords.x = pos_os.x;
 			use_texture_coords.y = pos_os.y;
-			if(N_g_os.z < 0)
+			if(N_g_os.z < 0.0)
 				use_texture_coords.x = -use_texture_coords.x;
 		}
 #endif
