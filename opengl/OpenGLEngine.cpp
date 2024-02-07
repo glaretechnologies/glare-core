@@ -7034,6 +7034,14 @@ void OpenGLEngine::draw()
 				blur_framebuffers[i] = NULL;
 			}
 
+#if EMSCRIPTEN
+			// Suppress 'drawElementsInstanced: Tex image TEXTURE_2D level 0 is incurring lazy initialization.' WebGL warning by passing some initial texture data.
+			js::Vector<uint8, 16> temp_data((w / 2) * (h / 2) * /*num components=*/3 * /*sizeof half float=*/2);
+			ArrayRef<uint8> initial_data_ref(temp_data);
+#else
+			ArrayRef<uint8> initial_data_ref(NULL, 0);
+#endif
+
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 			{
 				w = myMax(1, w / 2);
@@ -7049,7 +7057,7 @@ void OpenGLEngine::draw()
 				blur_framebuffers_x[i]->bindTextureAsTarget(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
 
 				// Use bilinear, this tex is read from and accumulated into final buffer.
-				blur_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures[i] = new OpenGLTexture(w, h, this, initial_data_ref, OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers[i] = new FrameBuffer();
 				blur_framebuffers[i]->bindTextureAsTarget(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
 			}
