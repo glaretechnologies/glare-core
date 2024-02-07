@@ -8,6 +8,8 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "IncludeOpenGL.h"
 #include "VBO.h"
+#include "../utils/StringUtils.h"
+#include "../utils/ConPrint.h"
 
 
 VAO::VAO(const VertexSpec& vertex_spec_)
@@ -61,7 +63,7 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 }
 
 
-// Constructor that uses old-style glVertexAttribPointer().  Just kept around for Mac.
+// Constructor that uses old-style glVertexAttribPointer().  Just kept around for Mac and WebGL / Emscripten.
 VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec_)
 :	handle(0),
 	current_bound_vert_vbo(NULL),
@@ -84,6 +86,7 @@ VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, co
 	if(vertex_data.nonNull())
 		vertex_data->bind(); // Use vertex_data by default.  This binding is stored by the glVertexAttribPointer() call. See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribPointer.xhtml
 
+	//conPrint("---------------------");
 	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
 	{
 		if(vertex_spec.attributes[i].vbo.nonNull()) // If this attribute uses its own vertex buffer, bind it
@@ -92,6 +95,9 @@ VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, co
 				vertex_data->unbind();
 			vertex_spec.attributes[i].vbo->bind();
 		}
+
+		//conPrint("attribute " + toString(i) + ", num_comps: " + toString(vertex_spec.attributes[i].num_comps) + ", type: " + toHexString(vertex_spec.attributes[i].type) + ", stride: " + toString(vertex_spec.attributes[i].stride) + ", offset: " + 
+		//	toString((uint64)vertex_spec.attributes[i].offset) + ", enabled: " + boolToString(vertex_spec.attributes[i].enabled));
 
 		glVertexAttribPointer(
 			(uint32)i, // index

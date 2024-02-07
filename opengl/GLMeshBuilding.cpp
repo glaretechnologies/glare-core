@@ -1060,21 +1060,34 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 
 
 	// Make OpenGL vertex attributes.
-	// NOTE: we need to make the opengl attributes in this particular order, with all present.
+	// NOTE: we need to make the opengl attributes in this particular order, with all present up to and including any attribute that is enabled.
+	// The index order must bt the same as for the glBindAttribLocation calls in OpenGLProgram::OpenGLProgram().
 
 	const uint32 num_bytes_per_vert = (uint32)mesh->vertexSize();
 
-	const BatchedMesh::VertAttribute* pos_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Position);
-	const BatchedMesh::VertAttribute* normal_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Normal);
-	const BatchedMesh::VertAttribute* uv0_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_0);
-	const BatchedMesh::VertAttribute* uv1_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_1);
-	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour);
-	const BatchedMesh::VertAttribute* joints_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Joints);
-	const BatchedMesh::VertAttribute* weights_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Weights);
-	const BatchedMesh::VertAttribute* tangent_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Tangent);
+	const BatchedMesh::VertAttribute* pos_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Position); // vertex attribute index = 0
+	const BatchedMesh::VertAttribute* normal_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Normal); // 1
+	const BatchedMesh::VertAttribute* uv0_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_0); // 2
+	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour); // 3
+	const BatchedMesh::VertAttribute* uv1_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_1); // 4
+	// 5, 6, 7, 8 - instancing
+	const BatchedMesh::VertAttribute* joints_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Joints); // 9
+	const BatchedMesh::VertAttribute* weights_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Weights); // 10
+	const BatchedMesh::VertAttribute* tangent_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Tangent); // 11
 
 	if(!pos_attr)
 		throw glare::Exception("Pos attribute not present.");
+
+	// Work out the max vertex attribute index used, then only specifiy attributes up to that index.
+	int max_attribute_index = 0;
+	if(normal_attr)							max_attribute_index = 1;
+	if(uv0_attr)							max_attribute_index = 2;
+	if(colour_attr)							max_attribute_index = 3;
+	if(uv1_attr)							max_attribute_index = 4;
+	if(instancing_matrix_data.nonNull())	max_attribute_index = 8;
+	if(joints_attr)							max_attribute_index = 9;
+	if(weights_attr)						max_attribute_index = 10;
+	if(tangent_attr)						max_attribute_index = 11;
 
 	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
 
@@ -1087,109 +1100,130 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	pos_attrib.offset = (uint32)pos_attr->offset_B;
 	opengl_render_data->vertex_spec.attributes.push_back(pos_attrib);
 
-	VertexAttrib normal_attrib;
-	normal_attrib.enabled = normal_attr != NULL;
-	normal_attrib.num_comps = 3;
-	normal_attrib.type = GL_FLOAT;
-	normal_attrib.normalised = false;
-	if(normal_attr)
+	if(max_attribute_index >= 1)
 	{
-		if(normal_attr->component_type == BatchedMesh::ComponentType_Float)
+		VertexAttrib normal_attrib;
+		normal_attrib.enabled = normal_attr != NULL;
+		normal_attrib.num_comps = 3;
+		normal_attrib.type = GL_FLOAT;
+		normal_attrib.normalised = false;
+		if(normal_attr)
 		{
-			normal_attrib.num_comps = 3;
-			normal_attrib.type = GL_FLOAT;
-			normal_attrib.normalised = false;
+			if(normal_attr->component_type == BatchedMesh::ComponentType_Float)
+			{
+				normal_attrib.num_comps = 3;
+				normal_attrib.type = GL_FLOAT;
+				normal_attrib.normalised = false;
+			}
+			else if(normal_attr->component_type == BatchedMesh::ComponentType_PackedNormal)
+			{
+				normal_attrib.num_comps = 4;
+				normal_attrib.type = GL_INT_2_10_10_10_REV;
+				normal_attrib.normalised = true;
+			}
+			else
+				throw glare::Exception("Unhandled normal attr component type.");
 		}
-		else if(normal_attr->component_type == BatchedMesh::ComponentType_PackedNormal)
-		{
-			normal_attrib.num_comps = 4;
-			normal_attrib.type = GL_INT_2_10_10_10_REV;
-			normal_attrib.normalised = true;
-		}
-		else
-			throw glare::Exception("Unhandled normal attr component type.");
-	}
 	
-	normal_attrib.stride = num_bytes_per_vert;
-	normal_attrib.offset = (uint32)(normal_attr ? normal_attr->offset_B : 0);
-	opengl_render_data->vertex_spec.attributes.push_back(normal_attrib);
-
-	VertexAttrib uv_attrib;
-	uv_attrib.enabled = uv0_attr != NULL;
-	uv_attrib.num_comps = 2;
-	uv_attrib.type = uv0_attr ? componentTypeGLEnum(uv0_attr->component_type) : GL_FLOAT;
-	uv_attrib.normalised = false;
-	uv_attrib.stride = num_bytes_per_vert;
-	uv_attrib.offset = (uint32)(uv0_attr ? uv0_attr->offset_B : 0);
-	opengl_render_data->vertex_spec.attributes.push_back(uv_attrib);
-
-	VertexAttrib colour_attrib;
-	colour_attrib.enabled = colour_attr != NULL;
-	colour_attrib.num_comps = 3;
-	colour_attrib.type = colour_attr ? componentTypeGLEnum(colour_attr->component_type) : GL_FLOAT;
-	colour_attrib.normalised = false;
-	colour_attrib.stride = num_bytes_per_vert;
-	colour_attrib.offset = (uint32)(colour_attr ? colour_attr->offset_B : 0);
-	opengl_render_data->vertex_spec.attributes.push_back(colour_attrib);
-
-	VertexAttrib lightmap_uv_attrib;
-	lightmap_uv_attrib.enabled = uv1_attr != NULL;
-	lightmap_uv_attrib.num_comps = 2;
-	lightmap_uv_attrib.type = uv1_attr ? componentTypeGLEnum(uv1_attr->component_type) : GL_FLOAT;
-	lightmap_uv_attrib.normalised = false;
-	lightmap_uv_attrib.stride = num_bytes_per_vert;
-	lightmap_uv_attrib.offset = (uint32)(uv1_attr ? uv1_attr->offset_B : 0);
-	opengl_render_data->vertex_spec.attributes.push_back(lightmap_uv_attrib);
-
-
-	// Add instancing matrix vert attributes, one for each vec4f comprising matrices
-	for(int i = 0; i < 4; ++i)
-	{
-		VertexAttrib vec4_attrib;
-		vec4_attrib.enabled = instancing_matrix_data.nonNull();
-		vec4_attrib.num_comps = 4;
-		vec4_attrib.type = GL_FLOAT;
-		vec4_attrib.normalised = false;
-		vec4_attrib.stride = 16 * sizeof(float); // This stride and offset is in the instancing_matrix_data VBO.
-		vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
-		vec4_attrib.instancing = true;
-
-		//vec4_attrib.vbo = instancing_matrix_data;
-
-		opengl_render_data->vertex_spec.attributes.push_back(vec4_attrib);
+		normal_attrib.stride = num_bytes_per_vert;
+		normal_attrib.offset = (uint32)(normal_attr ? normal_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(normal_attrib);
 	}
 
-	// joints_attr
-	VertexAttrib joints_attrib;
-	joints_attrib.enabled = joints_attr != NULL;
-	joints_attrib.num_comps = 4;
-	joints_attrib.type = joints_attr ? componentTypeGLEnum(joints_attr->component_type) : GL_FLOAT;
-	joints_attrib.normalised = false;
-	joints_attrib.stride = num_bytes_per_vert;
-	joints_attrib.offset = (uint32)(joints_attr ? joints_attr->offset_B : 0);
-	opengl_render_data->vertex_spec.attributes.push_back(joints_attrib);
+	if(max_attribute_index >= 2)
+	{
+		VertexAttrib uv_attrib;
+		uv_attrib.enabled = uv0_attr != NULL;
+		uv_attrib.num_comps = 2;
+		uv_attrib.type = uv0_attr ? componentTypeGLEnum(uv0_attr->component_type) : GL_FLOAT;
+		uv_attrib.normalised = false;
+		uv_attrib.stride = num_bytes_per_vert;
+		uv_attrib.offset = (uint32)(uv0_attr ? uv0_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(uv_attrib);
+	}
 
-	// weights_attr
-	VertexAttrib weights_attrib;
-	weights_attrib.enabled = weights_attr != NULL;
-	weights_attrib.num_comps = 4;
-	weights_attrib.type = weights_attr ? componentTypeGLEnum(weights_attr->component_type) : GL_FLOAT;
-	weights_attrib.normalised = weights_attr ? (weights_attr->component_type != BatchedMesh::ComponentType_Float) : false;
-	weights_attrib.stride = num_bytes_per_vert;
-	weights_attrib.offset = (uint32)(weights_attr ? weights_attr->offset_B : 0);
-	opengl_render_data->vertex_spec.attributes.push_back(weights_attrib);
+	if(max_attribute_index >= 3)
+	{
+		VertexAttrib colour_attrib;
+		colour_attrib.enabled = colour_attr != NULL;
+		colour_attrib.num_comps = 3;
+		colour_attrib.type = colour_attr ? componentTypeGLEnum(colour_attr->component_type) : GL_FLOAT;
+		colour_attrib.normalised = false;
+		colour_attrib.stride = num_bytes_per_vert;
+		colour_attrib.offset = (uint32)(colour_attr ? colour_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(colour_attrib);
+	}
 
-	// tangent_attr
-	VertexAttrib tangent_attrib;
-	tangent_attrib.enabled = tangent_attr != NULL;
-	tangent_attrib.num_comps = 4;
-	tangent_attrib.type = tangent_attr ? componentTypeGLEnum(tangent_attr->component_type) : GL_FLOAT;
-	tangent_attrib.normalised = tangent_attr ? (tangent_attr->component_type != BatchedMesh::ComponentType_Float) : false;
-	tangent_attrib.stride = num_bytes_per_vert;
-	tangent_attrib.offset = (uint32)(tangent_attr ? tangent_attr->offset_B : 0);
-	opengl_render_data->vertex_spec.attributes.push_back(tangent_attrib);
-	
+	if(max_attribute_index >= 4)
+	{
+		VertexAttrib lightmap_uv_attrib;
+		lightmap_uv_attrib.enabled = uv1_attr != NULL;
+		lightmap_uv_attrib.num_comps = 2;
+		lightmap_uv_attrib.type = uv1_attr ? componentTypeGLEnum(uv1_attr->component_type) : GL_FLOAT;
+		lightmap_uv_attrib.normalised = false;
+		lightmap_uv_attrib.stride = num_bytes_per_vert;
+		lightmap_uv_attrib.offset = (uint32)(uv1_attr ? uv1_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(lightmap_uv_attrib);
+	}
 
+	if(max_attribute_index >= 5)
+	{
+		// Add instancing matrix vert attributes, one for each vec4f comprising matrices
+		for(int i = 0; i < 4; ++i)
+		{
+			VertexAttrib vec4_attrib;
+			vec4_attrib.enabled = instancing_matrix_data.nonNull();
+			vec4_attrib.num_comps = 4;
+			vec4_attrib.type = GL_FLOAT;
+			vec4_attrib.normalised = false;
+			vec4_attrib.stride = 16 * sizeof(float); // This stride and offset is in the instancing_matrix_data VBO.
+			vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
+			vec4_attrib.instancing = true;
+
+			//vec4_attrib.vbo = instancing_matrix_data;
+
+			opengl_render_data->vertex_spec.attributes.push_back(vec4_attrib);
+		}
+	}
+
+	if(max_attribute_index >= 9)
+	{
+		// joints_attr
+		VertexAttrib joints_attrib;
+		joints_attrib.enabled = joints_attr != NULL;
+		joints_attrib.num_comps = 4;
+		joints_attrib.type = joints_attr ? componentTypeGLEnum(joints_attr->component_type) : GL_FLOAT;
+		joints_attrib.normalised = false;
+		joints_attrib.stride = num_bytes_per_vert;
+		joints_attrib.offset = (uint32)(joints_attr ? joints_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(joints_attrib);
+	}
+
+	if(max_attribute_index >= 10)
+	{
+		// weights_attr
+		VertexAttrib weights_attrib;
+		weights_attrib.enabled = weights_attr != NULL;
+		weights_attrib.num_comps = 4;
+		weights_attrib.type = weights_attr ? componentTypeGLEnum(weights_attr->component_type) : GL_FLOAT;
+		weights_attrib.normalised = weights_attr ? (weights_attr->component_type != BatchedMesh::ComponentType_Float) : false;
+		weights_attrib.stride = num_bytes_per_vert;
+		weights_attrib.offset = (uint32)(weights_attr ? weights_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(weights_attrib);
+	}
+
+	if(max_attribute_index >= 11)
+	{
+		// tangent_attr
+		VertexAttrib tangent_attrib;
+		tangent_attrib.enabled = tangent_attr != NULL;
+		tangent_attrib.num_comps = 4;
+		tangent_attrib.type = tangent_attr ? componentTypeGLEnum(tangent_attr->component_type) : GL_FLOAT;
+		tangent_attrib.normalised = tangent_attr ? (tangent_attr->component_type != BatchedMesh::ComponentType_Float) : false;
+		tangent_attrib.stride = num_bytes_per_vert;
+		tangent_attrib.offset = (uint32)(tangent_attr ? tangent_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(tangent_attrib);
+	}
 
 	if(skip_opengl_calls)
 	{
