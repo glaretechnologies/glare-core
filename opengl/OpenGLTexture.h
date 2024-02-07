@@ -180,6 +180,8 @@ public:
 
 	static size_t getNumResidentTextures();
 
+	static bool areTextureDimensionsValidForCompression(const Map2D& map);
+
 	GLuint texture_handle;
 
 private:

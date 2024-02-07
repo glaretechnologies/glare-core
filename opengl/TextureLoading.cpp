@@ -155,14 +155,14 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 		else if(compressed_image->gl_internal_format == GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT)
 		{
 			opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
-				opengl_engine->GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8,
+				opengl_engine->texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGB_Uint8 : OpenGLTexture::Format_Compressed_RGB_Uint8,
 				texture_params.filtering, texture_params.wrapping, has_mipmaps);
 			bytes_per_block = 8;
 		}
 		else if(compressed_image->gl_internal_format == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
 		{
 			opengl_tex = new OpenGLTexture(compressed_image->getMapWidth(), compressed_image->getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
-				opengl_engine->GL_EXT_texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8,
+				opengl_engine->texture_sRGB_support ? OpenGLTexture::Format_Compressed_SRGBA_Uint8 : OpenGLTexture::Format_Compressed_RGBA_Uint8,
 				texture_params.filtering, texture_params.wrapping, has_mipmaps);
 			bytes_per_block = 16;
 		}

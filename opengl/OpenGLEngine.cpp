@@ -1634,8 +1634,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_anisotropy);
 	}
 
-	this->GL_EXT_texture_sRGB_support = false;
-	this->GL_EXT_texture_compression_s3tc_support = false;
+	this->texture_sRGB_support = false;
+	this->texture_compression_s3tc_support = false;
 	this->GL_ARB_bindless_texture_support = false;
 	this->GL_ARB_clip_control_support = false;
 	this->GL_ARB_shader_storage_buffer_object_support = false;
@@ -1646,13 +1646,21 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 	for(GLint i = 0; i < n; i++)
 	{
 		const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
-		if(stringEqual(ext, "GL_EXT_texture_sRGB")) this->GL_EXT_texture_sRGB_support = true;
-		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->GL_EXT_texture_compression_s3tc_support = true;
-		// if(stringEqual(ext, "GL_ARB_texture_compression_bptc")) conPrint("GL_ARB_texture_compression_bptc supported");
+		// conPrint("Extension " + toString(i) + ": " + std::string(ext));
+		if(stringEqual(ext, "GL_EXT_texture_sRGB")) this->texture_sRGB_support = true;
+		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->texture_compression_s3tc_support = true;
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
 		if(stringEqual(ext, "GL_ARB_clip_control")) this->GL_ARB_clip_control_support = true;
 		if(stringEqual(ext, "GL_ARB_shader_storage_buffer_object")) this->GL_ARB_shader_storage_buffer_object_support = true;
+
+#if EMSCRIPTEN
+		if(stringEqual(ext, "GL_WEBGL_compressed_texture_s3tc")) this->texture_compression_s3tc_support = true;
+#endif
 	}
+
+#if EMSCRIPTEN
+	this->texture_sRGB_support = true; // Available in WebGL 2 by default: https://developer.mozilla.org/en-US/docs/Web/API/EXT_sRGB
+#endif
 
 #if defined(OSX)
 	// Am pretty sure there is no bindless texture support on Mac (bindless texture support is opengl 4.0), set it to false anyway to make sure OpenGLTexture::getBindlessTextureHandle() is not called.
@@ -3076,7 +3084,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 
 	// If we do not support converting textures from sRGB to linear in opengl, then we need to do it in the shader.
 	// we only want to do this when we have a texture.
-	const bool need_convert_albedo_from_srgb = !this->GL_EXT_texture_sRGB_support;// && material.albedo_texture.nonNull();
+	const bool need_convert_albedo_from_srgb = !this->texture_sRGB_support;// && material.albedo_texture.nonNull();
 
 	ProgramKeyArgs key_args;
 	key_args.alpha_test = alpha_test;
@@ -9346,7 +9354,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 	}
 
 	// Process texture data
-	const bool use_compression = params.allow_compression && this->textureCompressionSupportedAndEnabled() && params.use_mipmaps; // The non mip-mapping code-path doesn't allow compression
+	const bool use_compression = params.allow_compression && this->textureCompressionSupportedAndEnabled() && params.use_mipmaps && OpenGLTexture::areTextureDimensionsValidForCompression(map2d); // The non mip-mapping code-path doesn't allow compression
 	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), &this->getTaskManager(), use_compression, params.use_mipmaps);
 
 	OpenGLTextureLoadingProgress loading_progress;
@@ -9816,8 +9824,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "OpenGL renderer: " + opengl_renderer + "\n";
 	s += "OpenGL version: " + opengl_version + "\n";
 	s += "GLSL version: " + glsl_version + "\n";
-	s += "texture sRGB support: " + boolToString(GL_EXT_texture_sRGB_support) + "\n";
-	s += "texture s3tc support: " + boolToString(GL_EXT_texture_compression_s3tc_support) + "\n";
+	s += "texture sRGB support: " + boolToString(texture_sRGB_support) + "\n";
+	s += "texture s3tc support: " + boolToString(texture_compression_s3tc_support) + "\n";
 	s += "using bindless textures: " + boolToString(use_bindless_textures) + "\n";
 	s += "using multi-draw-indirect: " + boolToString(use_multi_draw_indirect) + "\n";
 	s += "using reverse z: " + boolToString(use_reverse_z) + "\n";

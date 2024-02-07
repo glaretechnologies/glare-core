@@ -862,6 +862,33 @@ size_t OpenGLTexture::getByteSize() const
 }
 
 
+bool OpenGLTexture::areTextureDimensionsValidForCompression(const Map2D& map)
+{
+#if EMSCRIPTEN
+	// For WebGL, compressed texture dimensions must be multiples of 4: https://github.com/KhronosGroup/WebGL/issues/3621
+
+	if(dynamic_cast<const ImageMapSequenceUInt8*>(&map)) // Handle ImageMapSequenceUInt8 explicitly since it doesn't necessarily have a single width and height.
+	{
+		const ImageMapSequenceUInt8& seq = static_cast<const ImageMapSequenceUInt8&>(map);
+
+		for(size_t i=0; i<seq.images.size(); ++i)
+		{
+			const bool dimensions_ok = ((seq.images[i]->getMapWidth() % 4) == 0) && ((seq.images[i]->getMapHeight() % 4) == 0);
+			if(!dimensions_ok)
+				return false;
+		}
+		return true;
+	}
+	else
+	{
+		return ((map.getMapWidth() % 4) == 0) && ((map.getMapHeight() % 4) == 0);
+	}
+#else
+	return true;
+#endif
+}
+
+
 static size_t num_resident_textures = 0;
 
 
