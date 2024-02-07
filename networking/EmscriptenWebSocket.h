@@ -14,8 +14,6 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Platform.h"
 #include "../utils/Mutex.h"
 #include "../utils/Condition.h"
-//#include <C:\programming\emsdk\upstream\emscripten\system\include/emscripten/emscripten.h>
-//#include <C:\programming\emsdk\upstream\emscripten\system\include/emscripten/websocket.h>
 #include <emscripten/emscripten.h>
 #include <emscripten/websocket.h>
 
@@ -23,7 +21,7 @@ Copyright Glare Technologies Limited 2024 -
 /*=====================================================================
 EmscriptenWebSocket
 -------------------
-
+For use in a program compiled by Emscripten.
 =====================================================================*/
 class EmscriptenWebSocket : public SocketInterface
 {
