@@ -588,6 +588,8 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		}
 		else
 		{
+			assert(tex_data.size() >= (size_t)getInternalPixelSizeB(gl_internal_format) * xres * yres);
+
 			assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
 			setPixelStoreAlignment(xres, gl_format, gl_type);
 
