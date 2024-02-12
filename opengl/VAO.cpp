@@ -25,7 +25,7 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 	// Create new VAO
 	glGenVertexArrays(1, &handle);
 
-	// Make buffer active
+	// Make VAO active
 	glBindVertexArray(handle);
 
 	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
@@ -143,14 +143,14 @@ VAO::~VAO()
 
 void VAO::bindVertexArray() const
 {
-	// Make buffer active
+	// Make VAO active
 	glBindVertexArray(handle);
 }
 
 
 void VAO::unbind()
 {
-	// Unbind buffer
+	// Unbind VAO
 	glBindVertexArray(0);
 }
 
