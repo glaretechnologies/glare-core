@@ -52,14 +52,25 @@ FrameBuffer::~FrameBuffer()
 }
 
 
-void FrameBuffer::bind()
+void FrameBuffer::bindForReading()
 {
 #if CHECK_GL_CONTEXT
 	assert(QGLContext::currentContext() == context);
 #endif
 
 	// Make buffer active
-	glBindFramebuffer(GL_FRAMEBUFFER, buffer_name);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, buffer_name);
+}
+
+
+void FrameBuffer::bindForDrawing()
+{
+#if CHECK_GL_CONTEXT
+	assert(QGLContext::currentContext() == context);
+#endif
+
+	// Make buffer active
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, buffer_name);
 }
 
 
@@ -70,7 +81,7 @@ void FrameBuffer::unbind()
 }
 
 
-void FrameBuffer::bindTextureAsTarget(OpenGLTexture& tex, GLenum attachment_point)
+void FrameBuffer::attachTexture(OpenGLTexture& tex, GLenum attachment_point)
 {
 #if CHECK_GL_CONTEXT
 	assert(QGLContext::currentContext() == context);
@@ -79,9 +90,9 @@ void FrameBuffer::bindTextureAsTarget(OpenGLTexture& tex, GLenum attachment_poin
 	xres = tex.xRes();
 	yres = tex.yRes();
 
-	bind(); // Bind this frame buffer
+	bindForDrawing(); // Bind this frame buffer
 
-	// Bind the texture.  glFramebufferTexture is only in OpenGL ES 3.2+, so use glFramebufferTexture2D.
+	// Attach the texture.  glFramebufferTexture is only in OpenGL ES 3.2+, so use glFramebufferTexture2D.
 	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
 		attachment_point,
 		tex.getTextureTarget(),

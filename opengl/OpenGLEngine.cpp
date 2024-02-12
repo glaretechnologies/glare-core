@@ -2318,6 +2318,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 	//------------------------------------------- Build draw_aurora_tex_prog -------------------------------------------
 	draw_aurora_tex_prog = buildAuroraProgram(use_shader_dir);
+
+	OpenGLProgram::useNoPrograms();
 }
 
 
@@ -2768,7 +2770,7 @@ void OpenGLEngine::buildOutlineTextures()
 	outline_tex_w = myMax(16, viewport_w);
 	outline_tex_h = myMax(16, viewport_h);
 
-	// conPrint("buildOutlineTextures(), size: " + toString(outline_tex_w) + " x " + toString(outline_tex_h));
+	 // conPrint("buildOutlineTextures(), size: " + toString(outline_tex_w) + " x " + toString(outline_tex_h));
 
 	js::Vector<uint8, 16> buf(outline_tex_w * outline_tex_h * 4, 0); // large enough for RGBA below
 
@@ -4926,6 +4928,14 @@ static inline void bindTextureToTextureUnit(const OpenGLTexture& texture, int te
 }
 
 
+static inline void unbindTextureFromTextureUnit(const OpenGLTexture& texture, int texture_unit_index)
+{
+	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
+	glBindTexture(texture.getTextureTarget(), 0);
+	glActiveTexture(GL_TEXTURE0);
+}
+
+
 // Bind texture to texture unit, bind texture unit to sampler.
 static inline void bindTextureUnitToSampler(const OpenGLTexture& texture, int texture_unit_index, GLint sampler_uniform_location)
 {
@@ -5992,11 +6002,7 @@ void OpenGLEngine::draw()
 			);
 
 			OpenGLTexture::Format depth_format;
-#if defined(EMSCRIPTEN)
-			depth_format = OpenGLTexture::Format_Depth_Uint16;
-#else
 			depth_format = OpenGLTexture::Format_Depth_Float;
-#endif
 
 			main_depth_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -6018,24 +6024,24 @@ void OpenGLEngine::draw()
 
 		
 			main_render_framebuffer = new FrameBuffer();
-			main_render_framebuffer->bindTextureAsTarget(*main_colour_texture, GL_COLOR_ATTACHMENT0);
+			main_render_framebuffer->attachTexture(*main_colour_texture, GL_COLOR_ATTACHMENT0);
 			// main_normal_texture will be attached as GL_COLOR_ATTACHMENT1 below
-			main_render_framebuffer->bindTextureAsTarget(*main_depth_texture,  GL_DEPTH_ATTACHMENT);
+			main_render_framebuffer->attachTexture(*main_depth_texture,  GL_DEPTH_ATTACHMENT);
 
 			main_render_copy_framebuffer = new FrameBuffer();
-			main_render_copy_framebuffer->bindTextureAsTarget(*main_colour_copy_texture, GL_COLOR_ATTACHMENT0);
-			main_render_copy_framebuffer->bindTextureAsTarget(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1);
-			main_render_copy_framebuffer->bindTextureAsTarget(*main_depth_copy_texture, GL_DEPTH_ATTACHMENT);
+			main_render_copy_framebuffer->attachTexture(*main_colour_copy_texture, GL_COLOR_ATTACHMENT0);
+			main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1);
+			main_render_copy_framebuffer->attachTexture(*main_depth_copy_texture, GL_DEPTH_ATTACHMENT);
 
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
 		}
 
-		main_render_framebuffer->bind();
+		main_render_framebuffer->bindForDrawing();
 	}
 	else
 	{
 		// Bind requested target frame buffer as output buffer
-		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 	}
 
 
@@ -6051,7 +6057,7 @@ void OpenGLEngine::draw()
 	if(current_scene->use_main_render_framebuffer)
 	{
 		// Bind normal texture as the second colour target.  Need to do this here as transparent object render pass changes this binding.
-		main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
+		main_render_framebuffer->attachTexture(*main_normal_texture, GL_COLOR_ATTACHMENT1);
 
 		// Draw to all colour buffers: colour and normal buffer.
 		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
@@ -6187,7 +6193,7 @@ void OpenGLEngine::draw()
 		}
 
 		// -------------------------- Stage 1: draw flat selected objects. --------------------
-		outline_solid_framebuffer->bindTextureAsTarget(*outline_solid_tex, GL_COLOR_ATTACHMENT0);
+		outline_solid_framebuffer->attachTexture(*outline_solid_tex, GL_COLOR_ATTACHMENT0);
 		glViewport(0, 0, (GLsizei)outline_tex_w, (GLsizei)outline_tex_h); // Make viewport same size as texture.
 		glClearColor(0.f, 0.f, 0.f, 1.f);
 		glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
@@ -6216,7 +6222,7 @@ void OpenGLEngine::draw()
 		// ------------------- Stage 2: Extract edges with Sobel filter---------------------
 		// Shader reads from outline_solid_tex, writes to outline_edge_tex.
 	
-		outline_edge_framebuffer->bindTextureAsTarget(*outline_edge_tex, GL_COLOR_ATTACHMENT0);
+		outline_edge_framebuffer->attachTexture(*outline_edge_tex, GL_COLOR_ATTACHMENT0);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 
 		checkUseProgram(edge_extract_prog.ptr());
@@ -6243,9 +6249,9 @@ void OpenGLEngine::draw()
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 
 		if(current_scene->use_main_render_framebuffer)
-			main_render_framebuffer->bind(); // Restore main render framebuffer binding.
+			main_render_framebuffer->bindForDrawing(); // Restore main render framebuffer binding.
 		else
-			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 
 		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
 	}
@@ -6288,14 +6294,7 @@ void OpenGLEngine::draw()
 		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	}
 	
-	// Draw to all colour buffers: colour and normal buffer.
-	setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
-
-	//================= Draw non-transparent (opaque) batches from objects =================
-	assertCurrentProgramIsZero();
-	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-	//glEnable(GL_BLEND);
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	
 
 	// Update shared phong uniforms
 	{
@@ -6331,8 +6330,18 @@ void OpenGLEngine::draw()
 		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 	}
 
+	//================= Draw non-transparent (opaque) batches from objects =================
 	{
 		ZoneScopedN("Draw opaque obs"); // Tracy profiler
+
+		//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+		//glEnable(GL_BLEND);
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		assertCurrentProgramIsZero();
+
+		// Draw to all colour buffers: colour and normal buffer.
+		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
 
 		//Timer timer;
 		batch_draw_info.reserve(current_scene->objects.size());
@@ -6526,6 +6535,7 @@ void OpenGLEngine::draw()
 			GL_NEAREST
 		);
 
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
 
 		// Restore main render buffer binding
 		
@@ -6656,7 +6666,11 @@ void OpenGLEngine::draw()
 
 	//================= Draw decals =================
 	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
+#if EMSCRIPTEN // Crashing chrome currently.
+	if(0)
+#else
 	if(!current_scene->decal_objects.empty()) // Only do buffer copying if we have some decals to draw.
+#endif
 	{
 		assertCurrentProgramIsZero();
 		assert(current_scene->use_main_render_framebuffer);
@@ -6686,6 +6700,7 @@ void OpenGLEngine::draw()
 			GL_NEAREST
 		);
 
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
 
 		// Restore main render buffer binding
 		
@@ -6877,9 +6892,12 @@ void OpenGLEngine::draw()
 
 
 	//================= Draw triangle batches with participating media materials (i.e. particles) =================
+	if(!current_scene->participating_media_objects.empty())
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
 		assertCurrentProgramIsZero();
+
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -7050,16 +7068,16 @@ void OpenGLEngine::draw()
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				downsize_framebuffers[i] = new FrameBuffer();
-				downsize_framebuffers[i]->bindTextureAsTarget(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
+				downsize_framebuffers[i]->attachTexture(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
 
 				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers_x[i] = new FrameBuffer();
-				blur_framebuffers_x[i]->bindTextureAsTarget(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
+				blur_framebuffers_x[i]->attachTexture(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
 
 				// Use bilinear, this tex is read from and accumulated into final buffer.
 				blur_target_textures[i] = new OpenGLTexture(w, h, this, initial_data_ref, OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers[i] = new FrameBuffer();
-				blur_framebuffers[i]->bindTextureAsTarget(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
+				blur_framebuffers[i]->attachTexture(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
 			}
 		}
 
@@ -7092,7 +7110,7 @@ void OpenGLEngine::draw()
 
 				OpenGLTexture* src_texture = (i == 0) ? main_colour_texture.ptr() : downsize_target_textures[i - 1].ptr();
 
-				downsize_framebuffers[i]->bind(); // Target downsize_framebuffers[i]
+				downsize_framebuffers[i]->bindForDrawing(); // Target downsize_framebuffers[i]
 		
 				glViewport(0, 0, (int)downsize_framebuffers[i]->xRes(), (int)downsize_framebuffers[i]->yRes()); // Set viewport to target texture size
 
@@ -7114,7 +7132,7 @@ void OpenGLEngine::draw()
 				//-------------------------------- Execute blur shader in x direction --------------------------------
 				// Reads from downsize_target_textures[i], writes to blur_framebuffers_x[i]/blur_target_textures_x[i].
 
-				blur_framebuffers_x[i]->bind(); // Target blur_framebuffers_x[i]
+				blur_framebuffers_x[i]->bindForDrawing(); // Target blur_framebuffers_x[i]
 
 				gaussian_blur_prog->useProgram();
 
@@ -7128,7 +7146,7 @@ void OpenGLEngine::draw()
 				//-------------------------------- Execute blur shader in y direction --------------------------------
 				// Reads from blur_target_textures_x[i], writes to blur_framebuffers[i]/blur_target_textures[i].
 
-				blur_framebuffers[i]->bind(); // Target blur_framebuffers[i]
+				blur_framebuffers[i]->bindForDrawing(); // Target blur_framebuffers[i]
 
 				glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/0); // Set blur_x = 0
 
@@ -7147,7 +7165,7 @@ void OpenGLEngine::draw()
 		// Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer
 
 		// Bind requested target frame buffer as output buffer
-		glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 
 		{
 			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
@@ -7185,6 +7203,14 @@ void OpenGLEngine::draw()
 
 			glEnable(GL_DEPTH_TEST);
 			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+
+
+			// Unbind textures from texture units.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
+			unbindTextureFromTextureUnit(*main_colour_texture, /*texture_unit_index=*/0);
+			unbindTextureFromTextureUnit(*transparent_accum_texture, /*texture_unit_index=*/1);
+			unbindTextureFromTextureUnit(*av_transmittance_texture, /*texture_unit_index=*/2);
+			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+				unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
 		}
 	} // End if(settings.use_final_image_buffer)
 
@@ -7707,7 +7733,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 
 
 		if(this->target_frame_buffer.nonNull())
-			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer->buffer_name);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer->buffer_name);
 
 		glDisable(GL_CULL_FACE);
 
@@ -7742,8 +7768,8 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	if(!current_scene->use_main_render_framebuffer)
 		return;
 
-	main_render_framebuffer->bindTextureAsTarget(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
-	main_render_framebuffer->bindTextureAsTarget(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
+	main_render_framebuffer->attachTexture(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
+	main_render_framebuffer->attachTexture(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
 
 	// Draw to all colour buffers.
 	static const GLenum trans_draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
@@ -7935,6 +7961,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 	{
 		assertCurrentProgramIsZero();
 
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDepthMask(GL_FALSE); // Don't write to z-buffer
@@ -7979,6 +8007,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 {
 	assertCurrentProgramIsZero();
+
+	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -8063,7 +8093,7 @@ void OpenGLEngine::drawAuroraTex()
 	if(aurora_tex_frame_buffer.isNull())
 	{
 		aurora_tex_frame_buffer = new FrameBuffer();
-		aurora_tex_frame_buffer->bindTextureAsTarget(*aurora_tex, GL_COLOR_ATTACHMENT0);
+		aurora_tex_frame_buffer->attachTexture(*aurora_tex, GL_COLOR_ATTACHMENT0);
 
 		GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
@@ -8090,13 +8120,16 @@ void OpenGLEngine::drawAuroraTex()
 	bindMeshData(*unit_quad_meshdata);
 	assert(unit_quad_meshdata->batches.size() == 1);
 
-	aurora_tex_frame_buffer->bind();
+	aurora_tex_frame_buffer->bindForDrawing();
 		
 	glViewport(0, 0, AURORA_TEX_W, AURORA_TEX_W); // Set viewport to target texture size
 
 	draw_aurora_tex_prog->useProgram();
 
-	assert(getIntUniformVal(*draw_aurora_tex_prog, this->draw_aurora_tex_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
+#if EMSCRIPTEN
+	// There seems to be an Emscripten bug where sometimes the uniform value gets changed.  Just set it every frame as a workaround.
+	glUniform1i(draw_aurora_tex_prog->uniform_locations.fbm_tex_location, FBM_TEXTURE_UNIT_INDEX);
+#endif
 	bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
 
 	const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
@@ -8395,10 +8428,19 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator
 }
 
 
-void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& program)
+void OpenGLEngine::setStandardTextureUnitUniformsForProgram(const OpenGLProgram& program)
 {
 	program.useProgram(); // Bind program
 
+	doSetStandardTextureUnitUniformsForBoundProgram(program);
+
+	OpenGLProgram::useNoPrograms();
+}
+
+
+// Assumes program is bound.
+void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLProgram& program)
+{
 	glUniform1i(program.uniform_locations.diffuse_tex_location, DIFFUSE_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.dynamic_depth_tex_location, DEPTH_TEX_TEXTURE_UNIT_INDEX);
@@ -8436,8 +8478,6 @@ void OpenGLEngine::setStandardTextureUnitUniformsForProgram(OpenGLProgram& progr
 	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
 	
 	//glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
-
-	OpenGLProgram::useNoPrograms();
 }
 
 
@@ -8641,6 +8681,10 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		glUniform4fv(shader_prog.uniform_locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
 	}
 
+	// There seems to be an Emscripten bug where sometimes the uniform values gets changed.  Just set it every frame as a workaround.
+#if EMSCRIPTEN
+	doSetStandardTextureUnitUniformsForBoundProgram(shader_prog);
+#endif
 
 	// Check standard textures are correctly bound to standard texture units
 	if(shadow_mapping.nonNull())
@@ -8752,6 +8796,11 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 			bindTextureToTextureUnit(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
 		}
+
+		// There seems to be an Emscripten bug where sometimes the uniform values gets changed.  Just set it every frame as a workaround.
+#if EMSCRIPTEN
+		doSetStandardTextureUnitUniformsForBoundProgram(*this->env_prog);
+#endif
 
 		//assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.blue_noise_tex_location) == BLUE_NOISE_TEXTURE_UNIT_INDEX);
 		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.diffuse_tex_location) == DIFFUSE_TEXTURE_UNIT_INDEX);
@@ -9373,9 +9422,9 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 	for(; i<MAX_ITERS; ++i)
 	{
 		testAssert(loading_progress.loadingInProgress());
-		const size_t MAX_UPLOAD_SIZE = 1000000000ull;
+		const size_t MAX_UPLOAD_SIZE_B = 1000000000ull;
 		size_t total_bytes_uploaded = 0;
-		TextureLoading::partialLoadTextureIntoOpenGL(this, loading_progress, total_bytes_uploaded, MAX_UPLOAD_SIZE);
+		TextureLoading::partialLoadTextureIntoOpenGL(this, loading_progress, total_bytes_uploaded, MAX_UPLOAD_SIZE_B);
 		if(loading_progress.done())
 			break;
 	}
@@ -9641,7 +9690,7 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 	if(mask_map_frame_buffer.isNull())
 	{
 		mask_map_frame_buffer = new FrameBuffer();
-		mask_map_frame_buffer->bindTextureAsTarget(mask_map_texture, GL_COLOR_ATTACHMENT0);
+		mask_map_frame_buffer->attachTexture(mask_map_texture, GL_COLOR_ATTACHMENT0);
 
 		GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
@@ -9661,7 +9710,7 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 		}*/
 	}
 
-	mask_map_frame_buffer->bindTextureAsTarget(mask_map_texture, GL_COLOR_ATTACHMENT0);
+	mask_map_frame_buffer->attachTexture(mask_map_texture, GL_COLOR_ATTACHMENT0);
 
 	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 

@@ -29,11 +29,13 @@ public:
 	explicit FrameBuffer(GLuint buffer_name); // Does not take ownership of framebuffer.
 	~FrameBuffer();
 
-	void bind();
+	void bindForReading();
+	void bindForDrawing();
+
 	static void unbind();
 
 	// attachment_point is GL_DEPTH_ATTACHMENT, GL_COLOR_ATTACHMENT0 etc..
-	void bindTextureAsTarget(OpenGLTexture& tex, GLenum attachment_point);
+	void attachTexture(OpenGLTexture& tex, GLenum attachment_point);
 
 	// Will return 0 if texture has not been bound yet.
 	size_t xRes() const { return xres; }

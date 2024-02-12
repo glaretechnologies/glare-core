@@ -251,7 +251,7 @@ struct GLObjectBatchDrawInfo
 {
 	uint32 program_index_and_flags;
 	uint32 material_data_index;
-	uint32 prim_start_offset;
+	uint32 prim_start_offset; // Offset in bytes from the start of the index buffer.
 	uint32 num_indices;
 
 	inline uint32 getProgramIndex()                   const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }
@@ -1062,7 +1062,8 @@ private:
 public:
 	static void getUniformLocations(Reference<OpenGLProgram>& prog);
 private:
-	static void setStandardTextureUnitUniformsForProgram(OpenGLProgram& program);
+	static void setStandardTextureUnitUniformsForProgram(const OpenGLProgram& program);
+	static void doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLProgram& program);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;
 	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) const;
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);

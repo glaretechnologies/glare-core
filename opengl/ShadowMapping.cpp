@@ -63,7 +63,7 @@ void ShadowMapping::init()
 	//);
 
 	// Attach depth texture to frame buffer
-	frame_buffer->bind();
+	frame_buffer->bindForDrawing();
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_tex->texture_handle, /*mipmap level=*/0);
 
@@ -80,7 +80,7 @@ void ShadowMapping::init()
 	// Attach static depth textures to static frame buffers
 	for(int i=0; i<2; ++i)
 	{
-		static_frame_buffer[i]->bind();
+		static_frame_buffer[i]->bindForDrawing();
 
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_depth_tex[i]->texture_handle, /*mipmap level=*/0);
 
@@ -104,7 +104,7 @@ void ShadowMapping::init()
 
 void ShadowMapping::bindDepthTexFrameBufferAsTarget()
 {
-	frame_buffer->bind();
+	frame_buffer->bindForDrawing();
 }
 
 
@@ -112,7 +112,7 @@ void ShadowMapping::bindStaticDepthTexFrameBufferAsTarget(int index)
 {
 	assert(index >= 0 && index < 2);
 
-	static_frame_buffer[index]->bind();
+	static_frame_buffer[index]->bindForDrawing();
 }
 
 
