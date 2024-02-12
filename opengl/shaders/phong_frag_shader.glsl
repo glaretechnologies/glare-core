@@ -617,11 +617,15 @@ void main()
 	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * MAT_UNIFORM.diffuse_colour; // diffuse_colour is linear sRGB already.
 	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
 
+
 #if TERRAIN
+	// NOTE: Simplified a bit to stop crashing Chrome's GPU process.
+	// Removed rock (wasn't visible anyway) and vegetation colour variation.
+
 	vec2 mask_coords = main_tex_coords + vec2(0.5 + 0.5 / 1024.0, 0.5 + 0.5 / 1024.0);
 	vec4 mask = texture(DIFFUSE_TEX, mask_coords);
 	
-	vec2 detail_map_0_uvs = main_tex_coords * (8.0 * 1024.0 / 8.0);
+	//vec2 detail_map_0_uvs = main_tex_coords * (8.0 * 1024.0 / 8.0);
 	vec2 detail_map_1_uvs = main_tex_coords * (8.0 * 1024.0 / 4.0);
 	vec2 detail_map_2_uvs = main_tex_coords * (8.0 * 1024.0 / 4.0);
 
@@ -629,20 +633,21 @@ void main()
 	vec4 detail_1_texval = vec4(0.f);
 	vec4 detail_2_texval = vec4(0.f);
 	//if(mask.x > 0.0)
-		detail_0_texval =  texture(detail_tex_0, detail_map_0_uvs);
+		// detail_0_texval =  texture(detail_tex_0, detail_map_0_uvs); // Rock
 	//if(mask.y > 0.0)
-		detail_1_texval =  texture(detail_tex_1, detail_map_1_uvs);
+		detail_1_texval =  texture(detail_tex_1, detail_map_1_uvs); // Sediment
 	//if(mask.z > 0.0)
-		detail_2_texval =  texture(detail_tex_2, detail_map_2_uvs);
+		detail_2_texval =  texture(detail_tex_2, detail_map_2_uvs);  // CRASH!!!!  detail_tex_2 crashes!   // vegetation
 
-	float rock_heightmap_val = texture(detail_heightmap_0, detail_map_0_uvs).x;
+	//float rock_heightmap_val = texture(detail_heightmap_0, detail_map_0_uvs).x;
 
 	float non_beach_factor = smoothstep(water_level_z + 2.0, water_level_z + 3.0, pos_ws.z);
 	float beach_factor = 1.0 - non_beach_factor;
 
-	float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2) * 0.2);
-	float rock_height = rock_heightmap_val * rock_weight_env;
-	float rock_weight = (rock_height > 0.1/*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
+	float rock_weight = 0.0; // Disable any rock for now.
+	//float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2) * 0.2);
+	//float rock_height = rock_heightmap_val * rock_weight_env;
+	//float rock_weight = (rock_height > 0.1/*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
 
 	//float veg_frac = mask.z > texture(fbm_tex, detail_map_2_uvs).x ? 1.0 : 0.0;
 	// Vegetation as a fraction of (vegetation + sediment)
@@ -651,17 +656,17 @@ void main()
 	float sed_weight = (1.0 - rock_weight) * (1.0 - veg_frac); // (mask.y / (mask.y + mask.z));
 	float veg_weight = (1.0 - rock_weight) * veg_frac; // (mask.z / (mask.y + mask.z));
 
-	float col_variation_amt = 0.1;
-	vec4 colour_variation_factor = vec4(
-		1.0 + fbmMix(detail_map_2_uvs * 0.026546) * col_variation_amt, 
-		1.0 + fbmMix(detail_map_2_uvs * 0.016546) * col_variation_amt, 
-		1.0,
-		1.0);
+	//float col_variation_amt = 0.1;
+	//vec4 colour_variation_factor = vec4(
+	//	1.0 + fbmMix(detail_map_2_uvs * 0.026546) * col_variation_amt, 
+	//	1.0 + fbmMix(detail_map_2_uvs * 0.016546) * col_variation_amt, 
+	//	1.0,
+	//	1.0);
 
 	vec4 texcol = vec4(0.f);
-	texcol += detail_0_texval * rock_weight;
+	//texcol += detail_0_texval * rock_weight;
 	texcol += detail_1_texval * sed_weight;
-	texcol += detail_2_texval * colour_variation_factor * veg_weight;
+	texcol += detail_2_texval * veg_weight; // TEMP disabled colour variation.    * colour_variation_factor * veg_weight;
 	texcol.w = 1.0;
 
 	sun_diffuse_col  = texcol;
