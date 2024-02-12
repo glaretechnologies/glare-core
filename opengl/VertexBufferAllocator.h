@@ -61,7 +61,7 @@ struct IndexBufAllocationHandle
 	VBORef index_vbo;
 	size_t vbo_id; // Used for sorting batch draws by VBO used.
 	//size_t per_spec_data_index;
-	size_t offset; // offset in VBO
+	size_t offset; // offset in VBO, in bytes
 	size_t size; // size of allocation
 
 	Reference<BlockHandle> block_handle;
