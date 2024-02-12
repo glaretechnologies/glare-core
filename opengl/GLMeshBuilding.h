@@ -30,7 +30,6 @@ public:
 		const js::Vector<uint32, 16>& indices);
 
 	// Build OpenGLMeshRenderData from an Indigo::Mesh.
-	// Throws glare::Exception on failure.
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(VertexBufferAllocator* allocator, const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
 
 	// Build OpenGLMeshRenderData from a BatchedMesh.

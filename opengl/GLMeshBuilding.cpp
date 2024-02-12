@@ -9,8 +9,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
 #include "OpenGLMeshRenderData.h"
+#include "../dll/include/IndigoMesh.h"
 #include "../graphics/ImageMap.h"
-#include "../graphics/DXTCompression.h"
 #include "../maths/mathstypes.h"
 #include "../utils/Timer.h"
 #include "../utils/Task.h"
@@ -19,7 +19,6 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/ConPrint.h"
 #include "../utils/Sort.h"
 #include "../utils/ArrayRef.h"
-#include "../dll/include/IndigoMesh.h"
 #include "../utils/IncludeHalf.h"
 #include <vector>
 
@@ -111,55 +110,8 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 	uv_attrib.type = GL_FLOAT;
 	uv_attrib.normalised = false;
 	uv_attrib.stride = vert_stride;
-	uv_attrib.offset = (uint32)(sizeof(float) * 3 + sizeof(float) * 3); // after position and possibly normal.
+	uv_attrib.offset = (uint32)(sizeof(float) * 6); // after position and normal.
 	spec.attributes.push_back(uv_attrib);
-
-	VertexAttrib colour_attrib;
-	colour_attrib.enabled = false;
-	colour_attrib.num_comps = 3;
-	colour_attrib.type = GL_FLOAT;
-	colour_attrib.normalised = false;
-	colour_attrib.stride = (uint32)vert_stride;
-	colour_attrib.offset = (uint32)0;
-	spec.attributes.push_back(colour_attrib);
-
-	VertexAttrib lightmap_uv_attrib;
-	lightmap_uv_attrib.enabled = false;
-	lightmap_uv_attrib.num_comps = 2;
-	lightmap_uv_attrib.type = /*uv1_attr ? componentTypeGLEnum(uv1_attr->component_type) :*/ GL_FLOAT;
-	lightmap_uv_attrib.normalised = false;
-	lightmap_uv_attrib.stride = vert_stride;// num_bytes_per_vert;
-	lightmap_uv_attrib.offset = 0; // TEMP (uint32)(uv1_attr ? uv1_attr->offset_B : 0);
-	spec.attributes.push_back(lightmap_uv_attrib);
-
-
-	// Add instancing matrix vert attributes, one for each vec4f comprising matrices
-	for(int i=0; i<4; ++i)
-	{
-		VertexAttrib vec4_attrib;
-		vec4_attrib.enabled = false;
-		vec4_attrib.num_comps = 4;
-		vec4_attrib.type = GL_FLOAT;
-		vec4_attrib.normalised = false;
-		vec4_attrib.stride = 16 * sizeof(float); // stride of instance matrix buffer
-		vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i); // offset into instance matrix
-		vec4_attrib.instancing = true;
-
-		spec.attributes.push_back(vec4_attrib);
-	}
-
-	{
-		VertexAttrib vec4_attrib;
-		vec4_attrib.enabled = false;
-		vec4_attrib.num_comps = 4;
-		vec4_attrib.type = GL_FLOAT;
-		vec4_attrib.normalised = false;
-		vec4_attrib.stride = 4 * sizeof(float);
-		vec4_attrib.offset = 0;
-		vec4_attrib.instancing = true;
-
-		spec.attributes.push_back(vec4_attrib);
-	}
 
 	meshdata.vbo_handle = allocator.allocate(spec, combined_vert_data.data(), combined_vert_data.dataSizeBytes());
 
