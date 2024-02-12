@@ -37,8 +37,8 @@ layout (std140) uniform PhongUniforms
 #endif
 
 
-out vec4 colour_out;
-
+layout(location = 0) out vec4 colour_out;
+layout(location = 1) out vec3 normal_out;
 
 vec2 samples[16] = vec2[](
 	vec2(-0.00033789, -0.00072656),
@@ -466,4 +466,6 @@ void main()
 	colour_out = vec4(toNonLinear(col.xyz), 1.0);
 #endif
 	colour_out.w = diffuse_col.a;
+
+	normal_out = vec3(0.0, 0.0, 0.0); // TODO: use normal_ws and snorm12x2_to_unorm8x3 etc.
 }
