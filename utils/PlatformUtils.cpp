@@ -67,6 +67,10 @@ Copyright Glare Technologies Limited 2021 -
 	#include <signal.h>
 #endif
 
+#if EMSCRIPTEN
+#include <emscripten/threading.h>
+#endif
+
 
 // Make current thread sleep for x milliseconds
 void PlatformUtils::Sleep(int x)
@@ -952,7 +956,7 @@ void PlatformUtils::setCurrentThreadName(const std::string& name)
 #elif defined(__APPLE__)
 	pthread_setname_np(name.c_str());
 #elif defined(EMSCRIPTEN)
-
+	emscripten_set_thread_name(pthread_self(), name.c_str());
 #else
 	pthread_setname_np(pthread_self(), name.c_str());
 #endif
