@@ -2418,6 +2418,9 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 }
 
 
+static const bool PRINT_PROG_BUILD_TIMES = false;
+
+
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(progs[key] == NULL)
@@ -2475,7 +2478,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 			// Bind "LightDataStorage" uniform block in the shader to the binding point with index LIGHT_DATA_UBO_BINDING_POINT_INDEX.
 			bindUniformBlockToProgram(phong_prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
-		// conPrint("Built phong program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		if(PRINT_PROG_BUILD_TIMES) conPrint("Built phong program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
@@ -2535,7 +2538,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		else
 			bindUniformBlockToProgram(prog, "LightDataStorage",			LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
-		conPrint("Built transparent program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		if(PRINT_PROG_BUILD_TIMES) conPrint("Built transparent program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
@@ -2551,7 +2554,7 @@ void OpenGLEngine::addProgram(OpenGLProgramRef prog)
 }
 
 
-// shader_name_prefix should be something like "water" or "transparent"
+// shader_name_prefix should be something like "water" or "participating_media"
 OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefix, const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(progs[key] == NULL)
@@ -2598,13 +2601,12 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 		bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
-		if(light_buffer.nonNull())
-			bindShaderStorageBlockToProgram(prog, "LightDataStorage", LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
-		else
-			bindUniformBlockToProgram(prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
+		//if(light_buffer.nonNull())
+		//	bindShaderStorageBlockToProgram(prog, "LightDataStorage", LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
+		//else
+		//	bindUniformBlockToProgram(prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
-
-		conPrint("Built '" + shader_name_prefix + "' program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		if(PRINT_PROG_BUILD_TIMES) conPrint("Built '" + shader_name_prefix + "' program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
@@ -2615,7 +2617,7 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 {
 	if(progs[key] == NULL)
 	{
-		//Timer timer;
+		Timer timer;
 
 		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
 		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
@@ -2642,7 +2644,7 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 		bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
 		bindUniformBlockToProgram(prog, "PerObjectVertUniforms",		PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 
-		//conPrint("Built imposter program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		if(PRINT_PROG_BUILD_TIMES) conPrint("Built imposter program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
@@ -2712,7 +2714,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
 		}
 
-		// conPrint("Built depth draw program for key " + key.description() + ", Elapsed: " + timer.elapsedStringNSigFigs(3));
+		if(PRINT_PROG_BUILD_TIMES) conPrint("Built depth-draw program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];

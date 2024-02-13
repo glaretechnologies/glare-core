@@ -71,17 +71,17 @@ uniform sampler2D emission_tex;
 //----------------------------------------------------------------------------------------------------------------------------
 
 
-#if USE_SSBOS
-layout (std430) buffer LightDataStorage
-{
-	LightData light_data[];
-};
-#else
-layout (std140) uniform LightDataStorage
-{
-	LightData light_data[256];
-};
-#endif
+//#if USE_SSBOS
+//layout (std430) buffer LightDataStorage
+//{
+//	LightData light_data[];
+//};
+//#else
+//layout (std140) uniform LightDataStorage
+//{
+//	LightData light_data[256];
+//};
+//#endif
 
 
 

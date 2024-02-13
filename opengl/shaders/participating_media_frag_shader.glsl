@@ -78,17 +78,17 @@ layout (std140) uniform PhongUniforms
 //----------------------------------------------------------------------------------------------------------------------------
 
 
-#if USE_SSBOS
-layout (std430) buffer LightDataStorage
-{
-	LightData light_data[];
-};
-#else
-layout (std140) uniform LightDataStorage
-{
-	LightData light_data[256];
-};
-#endif
+//#if USE_SSBOS
+//layout (std430) buffer LightDataStorage
+//{
+//	LightData light_data[];
+//};
+//#else
+//layout (std140) uniform LightDataStorage
+//{
+//	LightData light_data[256];
+//};
+//#endif
 
 
 out vec4 colour_out;
@@ -260,23 +260,29 @@ void main()
 		{
 			int static_depth_tex_index;
 			float cascade_end_dist;
+			vec3 shadow_cds, next_shadow_cds;
 			if(l1dist < 64.0)
 			{
 				static_depth_tex_index = 0;
 				cascade_end_dist = 64.0;
+				shadow_cds      = shadow_tex_coords[0 + NUM_DYNAMIC_DEPTH_TEXTURES];
+				next_shadow_cds = shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
 			}
 			else if(l1dist < 256.0)
 			{
 				static_depth_tex_index = 1;
 				cascade_end_dist = 256.0;
+				shadow_cds      = shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
+				next_shadow_cds = shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
 			}
 			else
 			{
 				static_depth_tex_index = 2;
 				cascade_end_dist = 1024.0;
+				shadow_cds = shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
+				next_shadow_cds = vec3(0.0); // Suppress warning about being possibly uninitialised.
 			}
 
-			vec3 shadow_cds = shadow_tex_coords[static_depth_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
 			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds); // NOTE: had cap and bias
 
 #if DO_STATIC_SHADOW_MAP_CASCADE_BLENDING
@@ -287,9 +293,6 @@ void main()
 				// Blending with static shadow map static_depth_tex_index + 1
 				if(l1dist > edge_dist)
 				{
-					int next_tex_index = static_depth_tex_index + 1;
-					vec3 next_shadow_cds = shadow_tex_coords[next_tex_index + NUM_DYNAMIC_DEPTH_TEXTURES];
-
 					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds); // NOTE: had cap and bias
 
 					float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
