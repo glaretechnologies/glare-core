@@ -1107,9 +1107,15 @@ private:
 	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used);
 	void renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_elapsed_ns);
 	void drawUIOverlayObjects(const Matrix4f& reverse_z_matrix);
+	void generateOutlineTexture(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawOutlinesAroundSelectedObjects();
 	void drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawParticipatingMediaObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAuroraTex();
 	void buildPrograms(const std::string& use_shader_dir);
 	void bindStandardTexturesToTextureUnits();

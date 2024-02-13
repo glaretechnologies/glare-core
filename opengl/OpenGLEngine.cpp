@@ -5600,7 +5600,7 @@ void OpenGLEngine::draw()
 	VAO::unbind();
 	assertCurrentProgramIsZero();
 
-	// Run scatter compute shader to update data on GPU
+	//================= Run scatter compute shader to update data on GPU (not used currently) =================
 	if(data_updates_buffer.nonEmpty())
 	{
 #if !defined(OSX) && !defined(EMSCRIPTEN)
@@ -5646,7 +5646,7 @@ void OpenGLEngine::draw()
 		}
 	}
 
-	// If the ShaderFileWatcherThread has detected that a shader file has changed, reload all shaders.
+	//================= If the ShaderFileWatcherThread has detected that a shader file has changed, reload all shaders. =================
 #if BUILD_TESTS
 	if(shader_file_changed)
 	{
@@ -5847,7 +5847,7 @@ void OpenGLEngine::draw()
 	this->last_num_animated_obs_processed = num_animated_obs_processed;
 	anim_update_duration = anim_profile_timer.elapsed();
 
-
+	//================= Compute view (world space to camera space) matrix =================
 	// Indigo/Substrata camera convention is z=up, y=forwards, x=right.
 	// OpenGL is y=up, x=right, -z=forwards.
 	const float e[16] = { 1, 0, 0, 0,	0, 0, -1, 0,	0, 1, 0, 0,		0, 0, 0, 1 };
@@ -5857,7 +5857,7 @@ void OpenGLEngine::draw()
 
 	this->sun_dir_cam_space = main_view_matrix * sun_dir;
 
-	// Update MaterialCommonUniforms, these values are constant for all materials for this frame.
+	//================= Update MaterialCommonUniforms, these values are constant for all materials for this frame. =================
 	MaterialCommonUniforms common_uniforms;
 	common_uniforms.frag_view_matrix = main_view_matrix;
 	common_uniforms.sundir_cs = this->sun_dir_cam_space;
@@ -5888,7 +5888,7 @@ void OpenGLEngine::draw()
 
 	num_multi_draw_indirect_calls = 0;
 
-	//=============== Render to shadow map depth buffer if needed ===========
+	//=============== Render to shadow map depth buffer if needed ===============
 	if(current_scene->shadow_mapping)
 		renderToShadowMapDepthBuffer(shadow_depth_drawing_elapsed_ns);
 
@@ -5901,7 +5901,8 @@ void OpenGLEngine::draw()
 #endif
 
 
-	// We will render to main_render_framebuffer / main_render_texture / main_depth_texture
+	//=============== Allocate or reallocate buffers for drawing to ===============
+	// We will render to main_render_framebuffer / main_colour_texture / main_depth_texture etc.
 	if(current_scene->use_main_render_framebuffer)
 	{
 		const int xres = myMax(16, main_viewport_w);
@@ -6076,7 +6077,7 @@ void OpenGLEngine::draw()
 
 	
 	
-	// Initialise projection matrix from Indigo camera settings
+	//================= Compute projection matrix from camera settings =================
 	const double z_far  = current_scene->max_draw_dist;
 	const double z_near = current_scene->near_draw_dist;
 
@@ -6175,128 +6176,7 @@ void OpenGLEngine::draw()
 #endif
 
 	
-	// Draw outlines around selected object(s).
-	// * Draw object with flat uniform shading to a render frame buffer.
-	// * Make render buffer a texture
-	// * Draw a quad over the main viewport, using a shader that does a Sobel filter, to detect the edges.  write to another frame buffer.
-	// * Draw another quad using the edge texture, blending a green colour into the final frame buffer on the edge.
-
-	//================= Generate outline texture =================
-	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer) // Only do when use_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
-	{
-		assertCurrentProgramIsZero();
-		
-		// Make outline textures if they have not been created, or are the wrong size.
-		if(outline_tex_w != myMax<size_t>(16, viewport_w) || outline_tex_h != myMax<size_t>(16, viewport_h))
-		{
-			buildOutlineTextures();
-		}
-
-		// -------------------------- Stage 1: draw flat selected objects. --------------------
-		outline_solid_framebuffer->attachTexture(*outline_solid_tex, GL_COLOR_ATTACHMENT0);
-		glViewport(0, 0, (GLsizei)outline_tex_w, (GLsizei)outline_tex_h); // Make viewport same size as texture.
-		glClearColor(0.f, 0.f, 0.f, 1.f);
-		glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		for(auto i = selected_objects.begin(); i != selected_objects.end(); ++i)
-		{
-			const GLObject* const ob = *i;
-			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
-			{
-				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-
-				const OpenGLProgram* use_prog = mesh_data.usesSkinning() ? outline_prog_with_skinning.ptr() : outline_prog_no_skinning.ptr();
-
-				const bool program_changed = checkUseProgram(use_prog);
-				if(program_changed)
-					setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
-				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
-			}
-		}
-
-		outline_solid_framebuffer->unbind();
-	
-		// ------------------- Stage 2: Extract edges with Sobel filter---------------------
-		// Shader reads from outline_solid_tex, writes to outline_edge_tex.
-	
-		outline_edge_framebuffer->attachTexture(*outline_edge_tex, GL_COLOR_ATTACHMENT0);
-		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
-
-		checkUseProgram(edge_extract_prog.ptr());
-
-		// Position quad to cover viewport
-		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5f, -0.5f, 0, 0));
-
-		bindMeshData(*outline_quad_meshdata);
-		assert(outline_quad_meshdata->batches.size() == 1);
-
-		{
-			bindTextureUnitToSampler(*outline_solid_tex, /*texture_unit_index=*/0, /*sampler_uniform_location=*/edge_extract_tex_location);
-
-			glUniformMatrix4fv(edge_extract_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
-			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
-			glUniform1f(edge_extract_line_width_location, this->outline_width_px);
-				
-			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset;
-			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->getIndexType(), (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);
-		}
-
-		OpenGLProgram::useNoPrograms();
-
-		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
-
-		if(current_scene->use_main_render_framebuffer)
-			main_render_framebuffer->bindForDrawing(); // Restore main render framebuffer binding.
-		else
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-
-		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
-	}
-
-	//================= Draw background env map =================
-	// Draw background env map if there is one. (or if we are using a non-standard env shader)
-	if(this->current_scene->env_ob.nonNull() && 
-		((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull()))
-	{
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
-		
-		ZoneScopedN("Draw env"); // Tracy profiler
-		assertCurrentProgramIsZero();
-
-		Matrix4f world_to_camera_space_no_translation = view_matrix;
-		world_to_camera_space_no_translation.e[12] = 0;
-		world_to_camera_space_no_translation.e[13] = 0;
-		world_to_camera_space_no_translation.e[14] = 0;
-
-		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
-
-		Matrix4f use_proj_mat;
-		if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
-		{
-			// Use a perpective transformation for rendering the env sphere, with a narrow field of view, to provide just a hint of texture detail.
-			const float w = 0.01f;
-			use_proj_mat = frustumMatrix(-w, w, -w, w, 0.5, 100);
-		}
-		else
-			use_proj_mat = proj_matrix;
-
-		const bool program_changed = checkUseProgram(current_scene->env_ob->materials[0].shader_prog.ptr());
-		if(program_changed)
-			setSharedUniformsForProg(*current_scene->env_ob->materials[0].shader_prog, world_to_camera_space_no_translation, use_proj_mat);
-		bindMeshData(*current_scene->env_ob);
-		drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
-			
-		flushDrawCommandsAndUnbindPrograms();
-
-		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
-	}
-	
-	
-
-	// Update shared phong uniforms
+	//================= Update shared vert uniforms buffer =================
 	{
 		SharedVertUniforms uniforms;
 		uniforms.proj_matrix = proj_matrix;
@@ -6330,662 +6210,32 @@ void OpenGLEngine::draw()
 		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
 	}
 
-	//================= Draw non-transparent (opaque) batches from objects =================
-	{
-		ZoneScopedN("Draw opaque obs"); // Tracy profiler
 
-		//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-		//glEnable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	// Draw outlines around selected object(s).
+	// * Draw object with flat uniform shading to a render frame buffer.
+	// * Make render buffer a texture
+	// * Draw a quad over the main viewport, using a shader that does a Sobel filter, to detect the edges.  write to another frame buffer.
+	// * Draw another quad using the edge texture, blending a green colour into the final frame buffer on the edge.
 
-		assertCurrentProgramIsZero();
-
-		// Draw to all colour buffers: colour and normal buffer.
-		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
-
-		//Timer timer;
-		batch_draw_info.reserve(current_scene->objects.size());
-		batch_draw_info.resize(0);
-
-		uint64 num_frustum_culled = 0;
-		{
-			ZoneScopedN("frustum culling"); // Tracy profiler
-
-			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
-			const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
-			const js::AABBox frustum_aabb = current_scene->frustum_aabb;
-			const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
-			const size_t current_scene_obs_size        = current_scene->objects.vector.size();
-			for(size_t i=0; i<current_scene_obs_size; ++i)
-			{
-				// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
-				if(i + 16 < current_scene_obs_size)
-				{	
-					_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws), _MM_HINT_T0);
-					_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
-				}
-
-				const GLObject* const ob = current_scene_obs[i].ptr();
-				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
-				{
-					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
-					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
-					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
-					{
-						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
-
-#ifndef NDEBUG
-						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
-						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
-
-						// Check the denormalised vao_and_vbo_key is correct
-						uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
-						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
-						const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-						const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
-						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
-#endif
-						// Draw primitives for the given material
-						if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_PARTIC_MEDIA_BITFLAG)) == 0) // If transparent bit is not set, and water bit is not set, and decal bit is not set:
-						{
-							BatchDrawInfo info(
-								prog_index_and_backface_culling_flag,
-								ob->vao_and_vbo_key,
-								ob, // object ptr
-								(uint32)z // batch_i
-							);
-							batch_draw_info.push_back(info);
-						}
-					}
-				}
-				else
-					num_frustum_culled++;
-			} // End for each object in scene
-
-			this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
-		}
-		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
-
-		sortBatchDrawInfos();
-
-		// Draw sorted batches
-		num_prog_changes = 0;
-		uint32 num_batches_bound = 0;
-		num_vao_binds = 0;
-		num_vbo_binds = 0;
-		num_index_buf_binds = 0;
-		uint32 num_backface_culling_changes = 0;
-
-		assertCurrentProgramIsZero();
-
-		uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
-		glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
-
-#if !defined(EMSCRIPTEN)
-		if(draw_wireframes)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-#endif
-
-		//Timer timer3;
-		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-		const size_t batch_draw_info_size = batch_draw_info.size();
-		for(size_t i=0; i<batch_draw_info_size; ++i)
-		{
-			const BatchDrawInfo& info = batch_draw_info_data[i];
-			const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
-			if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
-			{
-				ZoneScopedN("changing prog"); // Tracy profiler
-
-				if(use_multi_draw_indirect)
-					submitBufferedDrawCommands(); // Flush existing draw commands
-
-				const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
-				const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
-				if(backface_culling != prev_backface_culling)
-				{
-					if(backface_culling != 0)
-						glEnable(GL_CULL_FACE);
-					else
-						glDisable(GL_CULL_FACE);
-					num_backface_culling_changes++;
-				}
-
-
-				// conPrint("---- Changed to program " + prog->prog_name + " ----");
-				const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
-				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
-
-				prog->useProgram();
-				current_bound_prog = prog;
-				current_bound_prog_index = prog_index;
-				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-				num_prog_changes++;
-
-				current_prog_index_and_backface_culling = prog_index_and_backface_culling;
-			}
-
-			bindMeshData(*info.ob);
-			num_batches_bound++;
-
-			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
-		}
-
-		last_num_prog_changes = num_prog_changes;
-		last_num_batches_bound = num_batches_bound;
-		last_num_vao_binds = num_vao_binds;
-		last_num_vbo_binds = num_vbo_binds;
-		last_num_index_buf_binds = num_index_buf_binds;
-		last_num_indices_drawn = this->num_indices_submitted;
-		last_num_backface_culling_changes = num_backface_culling_changes;
-		this->num_indices_submitted = 0;
-
-		flushDrawCommandsAndUnbindPrograms();
-
-		glDisable(GL_CULL_FACE); // Restore
-
-#if !defined(EMSCRIPTEN)
-		if(draw_wireframes)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
-#endif
-
-		//conPrint("Draw opaque batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
-	}
-
-
-	//========================================== Draw water objects ======================================
-	if(current_scene->draw_water)
-	{
-		assert(current_scene->use_main_render_framebuffer);
-
-		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
-		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
-		//
-		// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
-		// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
-		// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
-		// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
-		//
-		// 
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
-
-		// Copy colour buffer (attachment 0) and depth buffer.
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
-			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-		// Copy normal buffer.  Do this just to resolve the MSAA samples.
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	//================= Generate outline texture =================
+	generateOutlineTexture(view_matrix, proj_matrix);
 	
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
+	//================= Draw background env map =================
+	// Draw background env map if there is one. (or if we are using a non-standard env shader)
+	drawBackgroundEnvMap(view_matrix, proj_matrix);
 
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+	//================= Draw non-transparent (opaque) batches from objects =================
+	drawNonTransparentMaterialBatches(view_matrix, proj_matrix);
 
-		// Restore main render buffer binding
-		
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name);
-		
-		//glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
-		
-		// Bind normal texture as the second colour target
-		//main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
-
-		// Draw to all colour buffers: colour and normal buffer.
-		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
-
-		glDepthMask(GL_TRUE);
-
-		ZoneScopedN("Draw water obs"); // Tracy profiler
-
-		//Timer timer;
-		batch_draw_info.reserve(current_scene->objects.size());
-		batch_draw_info.resize(0);
-
-		{
-			ZoneScopedN("frustum culling"); // Tracy profiler
-
-			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
-			const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
-			const js::AABBox frustum_aabb = current_scene->frustum_aabb;
-			const GLObjectRef* const water_obs = current_scene->water_objects.vector.data();
-			const size_t water_obs_size        = current_scene->water_objects.vector.size();
-			for(size_t i=0; i<water_obs_size; ++i)
-			{
-				if(i + 16 < water_obs_size)
-				{	
-					_mm_prefetch((const char*)(&water_obs[i + 16]->aabb_ws), _MM_HINT_T0);
-					_mm_prefetch((const char*)(&water_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
-				}
-
-				const GLObject* const ob = water_obs[i].ptr();
-				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
-				{
-					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
-					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
-					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
-					{
-						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
-
-#ifndef NDEBUG
-						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
-						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
-
-						// Check the denormalised vao_and_vbo_key is correct
-						uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
-						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
-						const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-						const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
-						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
-#endif
-						// Draw primitives for the given material
-						if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG)) // If water bit is set:
-						{
-							BatchDrawInfo info(
-								prog_index_and_backface_culling_flag,
-								ob->vao_and_vbo_key,
-								ob, // object ptr
-								(uint32)z // batch_i
-							);
-							batch_draw_info.push_back(info);
-						}
-					}
-				}
-			} // End for each object in scene
-		}
-		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
-
-		sortBatchDrawInfos();
-
-		// Draw sorted batches
-#if !defined(EMSCRIPTEN)
-		if(draw_wireframes)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-#endif
-
-		//Timer timer3;
-		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-		const size_t batch_draw_info_size = batch_draw_info.size();
-		for(size_t i=0; i<batch_draw_info_size; ++i)
-		{
-			const BatchDrawInfo& info = batch_draw_info_data[i];
-			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
-			if(prog_index != current_bound_prog_index)
-			{
-				ZoneScopedN("changing prog"); // Tracy profiler
-
-				if(use_multi_draw_indirect)
-					submitBufferedDrawCommands(); // Flush existing draw commands
-
-				// conPrint("---- Changed to program " + prog->prog_name + " ----");
-				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
-
-				prog->useProgram();
-				current_bound_prog = prog;
-				current_bound_prog_index = prog_index;
-				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-				num_prog_changes++;
-			}
-
-			bindMeshData(*info.ob);
-
-			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
-		}
-
-		flushDrawCommandsAndUnbindPrograms();
-
-#if !defined(EMSCRIPTEN)
-		if(draw_wireframes)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
-#endif
-
-		//glDepthMask(GL_TRUE); // Restore writing to depth buffer.
-
-		//conPrint("Draw water objects batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
-	}
-	//========================================== End draw water objects ======================================
-
+	//================= Draw water objects =================
+	drawWaterObjects(view_matrix, proj_matrix);
 
 	//================= Draw decals =================
-	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
-#if EMSCRIPTEN // Crashing chrome currently.
-	if(0)
-#else
-	if(!current_scene->decal_objects.empty()) // Only do buffer copying if we have some decals to draw.
-#endif
-	{
-		assertCurrentProgramIsZero();
-		assert(current_scene->use_main_render_framebuffer);
-
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
-
-		// Copy colour buffer (attachment 0) and depth buffer.
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
-			GL_DEPTH_BUFFER_BIT, // GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-		// Copy normal buffer.  Do this just to resolve the MSAA samples.
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-	
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
-
-		// Restore main render buffer binding
-		
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name); 
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for decal shader (don't write to normal buffer).
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		glDepthMask(GL_FALSE); // Disable writing to depth buffer, or nearby decals will occlude each other.
-
-		{
-			ZoneScopedN("Draw decal obs"); // Tracy profiler
-
-			//Timer timer;
-			batch_draw_info.reserve(current_scene->objects.size());
-			batch_draw_info.resize(0);
-
-			uint64 num_frustum_culled = 0;
-			{
-				const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
-				const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
-				const js::AABBox frustum_aabb = current_scene->frustum_aabb;
-				const GLObjectRef* const current_decal_obs = current_scene->decal_objects.vector.data();
-				const size_t current_decal_obs_size        = current_scene->decal_objects.vector.size();
-				for(size_t i=0; i<current_decal_obs_size; ++i)
-				{
-					// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
-					if(i + 16 < current_decal_obs_size)
-					{	
-						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws), _MM_HINT_T0);
-						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
-					}
-
-					const GLObject* const ob = current_decal_obs[i].ptr();
-					if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
-					{
-						const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
-						const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
-						for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
-						{
-							const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-							const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
-
-#ifndef NDEBUG
-							const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
-							assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
-
-							// Check the denormalised vao_and_vbo_key is correct
-							uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
-							const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
-							const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-							const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
-							assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
-#endif
-							// Draw primitives for the given material
-							//if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // NOTE: check for decal bitflag? or just assume all decal object materials are decals.
-							{
-								BatchDrawInfo info(
-									prog_index_and_backface_culling_flag,
-									ob->vao_and_vbo_key,
-									ob, // object ptr
-									(uint32)z // batch_i
-								);
-								batch_draw_info.push_back(info);
-							}
-						}
-					}
-					else
-						num_frustum_culled++;
-				} // End for each object in scene
-
-				this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
-			}
-			//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
-
-			sortBatchDrawInfos();
-
-			// Draw sorted batches
-			uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
-			glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
-
-#if !defined(EMSCRIPTEN)
-			if(draw_wireframes)
-				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-#endif
-
-			//Timer timer3;
-			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-			const size_t batch_draw_info_size = batch_draw_info.size();
-			for(size_t i=0; i<batch_draw_info_size; ++i)
-			{
-				const BatchDrawInfo& info = batch_draw_info_data[i];
-				const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
-				if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
-				{
-					ZoneScopedN("changing prog"); // Tracy profiler
-
-					if(use_multi_draw_indirect)
-						submitBufferedDrawCommands(); // Flush existing draw commands
-
-					const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
-					const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
-					if(backface_culling != prev_backface_culling)
-					{
-						if(backface_culling != 0)
-							glEnable(GL_CULL_FACE);
-						else
-							glDisable(GL_CULL_FACE);
-					}
-
-
-					// conPrint("---- Changed to program " + prog->prog_name + " ----");
-					const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
-					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
-
-					prog->useProgram();
-					current_bound_prog = prog;
-					current_bound_prog_index = prog_index;
-					current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-					num_prog_changes++;
-
-					current_prog_index_and_backface_culling = prog_index_and_backface_culling;
-				}
-
-				bindMeshData(*info.ob);
-
-				drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
-			}
-
-			flushDrawCommandsAndUnbindPrograms();
-
-			glDisable(GL_CULL_FACE); // Restore
-			glDisable(GL_BLEND); // Restore
-
-			glDepthMask(GL_TRUE); // Restore writing to depth buffer.
-
-#if !defined(EMSCRIPTEN)
-			if(draw_wireframes)
-				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
-#endif
-
-			//conPrint("Draw decal batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
-		}
-	}
-
-
-	//================= Draw wireframes if required =================
-	if(false) // draw_wireframes)
-	{
-		// Use outline shaders for now as they just generate white fragments, which is what we want.
-		OpenGLMaterial wire_mat;
-
-#if !defined(EMSCRIPTEN)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		
-		// Offset the lines so they draw in front of the filled polygons.
-		glEnable(GL_POLYGON_OFFSET_LINE);
-		glPolygonOffset(0.f, -1.0f);
-#endif
-
-		for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
-		{
-			const GLObject* const ob = it->getPointer();
-			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
-			{
-				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-				const OpenGLProgram* use_prog = mesh_data.usesSkinning() ? outline_prog_with_skinning.ptr() : outline_prog_no_skinning.ptr();
-
-				const bool program_changed = checkUseProgram(use_prog);
-				if(program_changed)
-					setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
-
-				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
-				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, wire_mat, *use_prog, mesh_data, mesh_data.batches[z]);
-			}
-		}
-
-		OpenGLProgram::useNoPrograms();
-
-#if !defined(EMSCRIPTEN)
-		glDisable(GL_POLYGON_OFFSET_LINE);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-#endif
-	}
-
+	drawDecals(view_matrix, proj_matrix);
 
 	//================= Draw triangle batches with participating media materials (i.e. particles) =================
-	if(!current_scene->participating_media_objects.empty())
-	{
-		ZoneScopedN("Draw participating media obs"); // Tracy profiler
-		assertCurrentProgramIsZero();
-
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
-
-		batch_draw_info_dist.resize(0);
-
-		const GLObjectRef* const current_scene_trans_obs = current_scene->participating_media_objects.vector.data();
-		const size_t current_scene_trans_obs_size        = current_scene->participating_media_objects.vector.size();
-		for(size_t q=0; q<current_scene_trans_obs_size; ++q)
-		{
-			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
-			if(q + 16 < current_scene_trans_obs_size)
-			{	
-				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws), _MM_HINT_T0);
-				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws) + 64, _MM_HINT_T0);
-			}
-
-			const GLObject* const ob = current_scene_trans_obs[q].ptr();
-			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
-			{
-				const uint32 z = 0; // Just assume we always have one triangle batch (e.g. one material)
-				assert(ob->batch_draw_info.size() == 1);
-
-				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
-				{
-					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
-
-#ifndef NDEBUG
-					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
-					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media);
-#endif
-					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG))
-					{
-						// We want to sort into descending depth order, because we want to draw far objects first.
-						// We also want to convert to a uint32.  So convert to uint32 first then negate.
-						const float dist_f = campos_ws.getDist2(ob->aabb_ws.centroid());
-						const uint32 dist_i = bitCast<uint32>(dist_f);
-						const uint32 distval = std::numeric_limits<uint32>::max() - dist_i;
-						BatchDrawInfoWithDist info(
-							prog_index_and_backface_culling_flag,
-							ob->vao_and_vbo_key,
-							distval,
-							ob // object ptr
-							//(uint32)z // batch_i
-						);
-						batch_draw_info_dist.push_back(info);
-					}
-				}
-			}
-		}
-
-		sortBatchDrawInfoWithDists();
-
-		// Draw sorted batches
-		const BatchDrawInfoWithDist* const batch_draw_info_data = batch_draw_info_dist.data();
-		const size_t batch_draw_info_size = batch_draw_info_dist.size();
-		for(size_t i=0; i<batch_draw_info_size; ++i)
-		{
-			const BatchDrawInfoWithDist& info = batch_draw_info_data[i];
-			const uint32 batch_i = 0;
-			const uint32 prog_index = info.ob->batch_draw_info[batch_i].getProgramIndex();
-			const bool program_changed = checkUseProgram(prog_index);
-			if(program_changed)
-			{
-				const OpenGLProgram* prog = prog_vector[prog_index].ptr();
-				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-			}
-
-			bindMeshData(*info.ob);
-			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[batch_i], batch_i);
-		}
-
-		flushDrawCommandsAndUnbindPrograms();
-
-		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
-		glDisable(GL_BLEND);
-
-#if !defined(EMSCRIPTEN)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-#endif
-
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
-	}
-
-
+	drawParticipatingMediaObjects(view_matrix, proj_matrix);
+	
 	//================= Draw triangle batches with transparent materials =================
 	drawTransparentMaterialBatches(view_matrix, proj_matrix);
 
@@ -7760,6 +7010,671 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 }
 
 
+// Draw background env map if there is one. (or if we are using a non-standard env shader)
+void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	if(this->current_scene->env_ob.nonNull() && 
+		((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull()))
+	{
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
+		
+		ZoneScopedN("Draw env"); // Tracy profiler
+		assertCurrentProgramIsZero();
+
+		Matrix4f world_to_camera_space_no_translation = view_matrix;
+		world_to_camera_space_no_translation.e[12] = 0;
+		world_to_camera_space_no_translation.e[13] = 0;
+		world_to_camera_space_no_translation.e[14] = 0;
+
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
+
+		Matrix4f use_proj_mat;
+		if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
+		{
+			// Use a perpective transformation for rendering the env sphere, with a narrow field of view, to provide just a hint of texture detail.
+			const float w = 0.01f;
+			use_proj_mat = frustumMatrix(-w, w, -w, w, 0.5, 100);
+		}
+		else
+			use_proj_mat = proj_matrix;
+
+		const bool program_changed = checkUseProgram(current_scene->env_ob->materials[0].shader_prog.ptr());
+		if(program_changed)
+			setSharedUniformsForProg(*current_scene->env_ob->materials[0].shader_prog, world_to_camera_space_no_translation, use_proj_mat);
+		bindMeshData(*current_scene->env_ob);
+		drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
+			
+		flushDrawCommandsAndUnbindPrograms();
+
+		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+	}
+}
+
+
+// Draw triangle batches with participating media materials (i.e. particles)
+void OpenGLEngine::drawParticipatingMediaObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	if(!current_scene->participating_media_objects.empty())
+	{
+		ZoneScopedN("Draw participating media obs"); // Tracy profiler
+		assertCurrentProgramIsZero();
+
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
+
+		const Vec4f campos_ws = this->getCameraPositionWS();
+
+		batch_draw_info_dist.resize(0);
+
+		const GLObjectRef* const current_scene_trans_obs = current_scene->participating_media_objects.vector.data();
+		const size_t current_scene_trans_obs_size        = current_scene->participating_media_objects.vector.size();
+		for(size_t q=0; q<current_scene_trans_obs_size; ++q)
+		{
+			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+			if(q + 16 < current_scene_trans_obs_size)
+			{	
+				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&current_scene_trans_obs[q + 16]->aabb_ws) + 64, _MM_HINT_T0);
+			}
+
+			const GLObject* const ob = current_scene_trans_obs[q].ptr();
+			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			{
+				const uint32 z = 0; // Just assume we always have one triangle batch (e.g. one material)
+				assert(ob->batch_draw_info.size() == 1);
+
+				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+				{
+					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+
+#ifndef NDEBUG
+					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media);
+#endif
+					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG))
+					{
+						// We want to sort into descending depth order, because we want to draw far objects first.
+						// We also want to convert to a uint32.  So convert to uint32 first then negate.
+						const float dist_f = campos_ws.getDist2(ob->aabb_ws.centroid());
+						const uint32 dist_i = bitCast<uint32>(dist_f);
+						const uint32 distval = std::numeric_limits<uint32>::max() - dist_i;
+						BatchDrawInfoWithDist info(
+							prog_index_and_backface_culling_flag,
+							ob->vao_and_vbo_key,
+							distval,
+							ob // object ptr
+							//(uint32)z // batch_i
+						);
+						batch_draw_info_dist.push_back(info);
+					}
+				}
+			}
+		}
+
+		sortBatchDrawInfoWithDists();
+
+		// Draw sorted batches
+		const BatchDrawInfoWithDist* const batch_draw_info_data = batch_draw_info_dist.data();
+		const size_t batch_draw_info_size = batch_draw_info_dist.size();
+		for(size_t i=0; i<batch_draw_info_size; ++i)
+		{
+			const BatchDrawInfoWithDist& info = batch_draw_info_data[i];
+			const uint32 batch_i = 0;
+			const uint32 prog_index = info.ob->batch_draw_info[batch_i].getProgramIndex();
+			const bool program_changed = checkUseProgram(prog_index);
+			if(program_changed)
+			{
+				const OpenGLProgram* prog = prog_vector[prog_index].ptr();
+				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+			}
+
+			bindMeshData(*info.ob);
+			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[batch_i], batch_i);
+		}
+
+		flushDrawCommandsAndUnbindPrograms();
+
+		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+		glDisable(GL_BLEND);
+
+#if !defined(EMSCRIPTEN)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
+
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
+	}
+}
+
+
+void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
+#if EMSCRIPTEN // Crashing chrome currently.
+	if(0)
+#else
+	if(!current_scene->decal_objects.empty()) // Only do buffer copying if we have some decals to draw.
+#endif
+	{
+		assertCurrentProgramIsZero();
+		assert(current_scene->use_main_render_framebuffer);
+
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
+
+		// Copy colour buffer (attachment 0) and depth buffer.
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_DEPTH_BUFFER_BIT, // GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		// Copy normal buffer.  Do this just to resolve the MSAA samples.
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+
+		// Restore main render buffer binding
+		
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name); 
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for decal shader (don't write to normal buffer).
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glDepthMask(GL_FALSE); // Disable writing to depth buffer, or nearby decals will occlude each other.
+
+		{
+			ZoneScopedN("Draw decal obs"); // Tracy profiler
+
+			//Timer timer;
+			batch_draw_info.reserve(current_scene->objects.size());
+			batch_draw_info.resize(0);
+
+			uint64 num_frustum_culled = 0;
+			{
+				const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+				const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+				const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+				const GLObjectRef* const current_decal_obs = current_scene->decal_objects.vector.data();
+				const size_t current_decal_obs_size        = current_scene->decal_objects.vector.size();
+				for(size_t i=0; i<current_decal_obs_size; ++i)
+				{
+					// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+					if(i + 16 < current_decal_obs_size)
+					{	
+						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+					}
+
+					const GLObject* const ob = current_decal_obs[i].ptr();
+					if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+					{
+						const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+						const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+						for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+						{
+							const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+							const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+
+#ifndef NDEBUG
+							const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+							assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
+
+							// Check the denormalised vao_and_vbo_key is correct
+							uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+							const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+							const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+							const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+							assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+#endif
+							// Draw primitives for the given material
+							//if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // NOTE: check for decal bitflag? or just assume all decal object materials are decals.
+							{
+								BatchDrawInfo info(
+									prog_index_and_backface_culling_flag,
+									ob->vao_and_vbo_key,
+									ob, // object ptr
+									(uint32)z // batch_i
+								);
+								batch_draw_info.push_back(info);
+							}
+						}
+					}
+					else
+						num_frustum_culled++;
+				} // End for each object in scene
+
+				this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
+			}
+			//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+			sortBatchDrawInfos();
+
+			// Draw sorted batches
+			uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
+			glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+
+#if !defined(EMSCRIPTEN)
+			if(draw_wireframes)
+				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
+
+			//Timer timer3;
+			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+			const size_t batch_draw_info_size = batch_draw_info.size();
+			for(size_t i=0; i<batch_draw_info_size; ++i)
+			{
+				const BatchDrawInfo& info = batch_draw_info_data[i];
+				const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
+				if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
+				{
+					ZoneScopedN("changing prog"); // Tracy profiler
+
+					if(use_multi_draw_indirect)
+						submitBufferedDrawCommands(); // Flush existing draw commands
+
+					const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
+					const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
+					if(backface_culling != prev_backface_culling)
+					{
+						if(backface_culling != 0)
+							glEnable(GL_CULL_FACE);
+						else
+							glDisable(GL_CULL_FACE);
+					}
+
+
+					// conPrint("---- Changed to program " + prog->prog_name + " ----");
+					const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
+					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+					prog->useProgram();
+					current_bound_prog = prog;
+					current_bound_prog_index = prog_index;
+					current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+					num_prog_changes++;
+
+					current_prog_index_and_backface_culling = prog_index_and_backface_culling;
+				}
+
+				bindMeshData(*info.ob);
+
+				drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+			}
+
+			flushDrawCommandsAndUnbindPrograms();
+
+			glDisable(GL_CULL_FACE); // Restore
+			glDisable(GL_BLEND); // Restore
+
+			glDepthMask(GL_TRUE); // Restore writing to depth buffer.
+
+#if !defined(EMSCRIPTEN)
+			if(draw_wireframes)
+				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+#endif
+
+			//conPrint("Draw decal batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+		}
+	}
+}
+
+
+void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	if(current_scene->draw_water)
+	{
+		assert(current_scene->use_main_render_framebuffer);
+
+		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
+		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
+		//
+		// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
+		// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
+		// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
+		// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
+		//
+		// 
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
+
+		// Copy colour buffer (attachment 0) and depth buffer.
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		// Copy normal buffer.  Do this just to resolve the MSAA samples.
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+
+		// Restore main render buffer binding
+		
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name);
+		
+		//glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
+		
+		// Bind normal texture as the second colour target
+		//main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
+
+		// Draw to all colour buffers: colour and normal buffer.
+		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+
+		glDepthMask(GL_TRUE);
+
+		ZoneScopedN("Draw water obs"); // Tracy profiler
+
+		//Timer timer;
+		batch_draw_info.reserve(current_scene->objects.size());
+		batch_draw_info.resize(0);
+
+		{
+			ZoneScopedN("frustum culling"); // Tracy profiler
+
+			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+			const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+			const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+			const GLObjectRef* const water_obs = current_scene->water_objects.vector.data();
+			const size_t water_obs_size        = current_scene->water_objects.vector.size();
+			for(size_t i=0; i<water_obs_size; ++i)
+			{
+				if(i + 16 < water_obs_size)
+				{	
+					_mm_prefetch((const char*)(&water_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+					_mm_prefetch((const char*)(&water_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+				}
+
+				const GLObject* const ob = water_obs[i].ptr();
+				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+				{
+					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+					{
+						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+
+#ifndef NDEBUG
+						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
+
+						// Check the denormalised vao_and_vbo_key is correct
+						uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+						const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+						const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+#endif
+						// Draw primitives for the given material
+						if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG)) // If water bit is set:
+						{
+							BatchDrawInfo info(
+								prog_index_and_backface_culling_flag,
+								ob->vao_and_vbo_key,
+								ob, // object ptr
+								(uint32)z // batch_i
+							);
+							batch_draw_info.push_back(info);
+						}
+					}
+				}
+			} // End for each object in scene
+		}
+		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+		sortBatchDrawInfos();
+
+		// Draw sorted batches
+#if !defined(EMSCRIPTEN)
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
+
+		//Timer timer3;
+		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+		const size_t batch_draw_info_size = batch_draw_info.size();
+		for(size_t i=0; i<batch_draw_info_size; ++i)
+		{
+			const BatchDrawInfo& info = batch_draw_info_data[i];
+			const uint32 prog_index = info.ob->batch_draw_info[info.batch_i].getProgramIndex();
+			if(prog_index != current_bound_prog_index)
+			{
+				ZoneScopedN("changing prog"); // Tracy profiler
+
+				if(use_multi_draw_indirect)
+					submitBufferedDrawCommands(); // Flush existing draw commands
+
+				// conPrint("---- Changed to program " + prog->prog_name + " ----");
+				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+				prog->useProgram();
+				current_bound_prog = prog;
+				current_bound_prog_index = prog_index;
+				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+				num_prog_changes++;
+			}
+
+			bindMeshData(*info.ob);
+
+			drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+		}
+
+		flushDrawCommandsAndUnbindPrograms();
+
+#if !defined(EMSCRIPTEN)
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+#endif
+
+		//glDepthMask(GL_TRUE); // Restore writing to depth buffer.
+
+		//conPrint("Draw water objects batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+	}
+}
+
+
+// Draw non-transparent (opaque) batches from objects
+void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	ZoneScopedN("Draw opaque obs"); // Tracy profiler
+
+	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	assertCurrentProgramIsZero();
+
+	// Draw to all colour buffers: colour and normal buffer.
+	setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+
+	//Timer timer;
+	batch_draw_info.reserve(current_scene->objects.size());
+	batch_draw_info.resize(0);
+
+	uint64 num_frustum_culled = 0;
+	{
+		ZoneScopedN("frustum culling"); // Tracy profiler
+
+		const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+		const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+		const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+		const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+		const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+		for(size_t i=0; i<current_scene_obs_size; ++i)
+		{
+			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+			if(i + 16 < current_scene_obs_size)
+			{	
+				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+			}
+
+			const GLObject* const ob = current_scene_obs[i].ptr();
+			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+			{
+				const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+				{
+					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+
+#ifndef NDEBUG
+					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
+
+					// Check the denormalised vao_and_vbo_key is correct
+					uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+					const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+					const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+					const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+					assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+#endif
+					// Draw primitives for the given material
+					if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_PARTIC_MEDIA_BITFLAG)) == 0) // If transparent bit is not set, and water bit is not set, and decal bit is not set:
+					{
+						BatchDrawInfo info(
+							prog_index_and_backface_culling_flag,
+							ob->vao_and_vbo_key,
+							ob, // object ptr
+							(uint32)z // batch_i
+						);
+						batch_draw_info.push_back(info);
+					}
+				}
+			}
+			else
+				num_frustum_culled++;
+		} // End for each object in scene
+
+		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
+	}
+	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+	sortBatchDrawInfos();
+
+	// Draw sorted batches
+	num_prog_changes = 0;
+	uint32 num_batches_bound = 0;
+	num_vao_binds = 0;
+	num_vbo_binds = 0;
+	num_index_buf_binds = 0;
+	uint32 num_backface_culling_changes = 0;
+
+	assertCurrentProgramIsZero();
+
+	uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
+	glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+
+#if !defined(EMSCRIPTEN)
+	if(draw_wireframes)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
+
+	//Timer timer3;
+	const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+	const size_t batch_draw_info_size = batch_draw_info.size();
+	for(size_t i=0; i<batch_draw_info_size; ++i)
+	{
+		const BatchDrawInfo& info = batch_draw_info_data[i];
+		const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
+		if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
+		{
+			ZoneScopedN("changing prog"); // Tracy profiler
+
+			if(use_multi_draw_indirect)
+				submitBufferedDrawCommands(); // Flush existing draw commands
+
+			const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
+			const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
+			if(backface_culling != prev_backface_culling)
+			{
+				if(backface_culling != 0)
+					glEnable(GL_CULL_FACE);
+				else
+					glDisable(GL_CULL_FACE);
+				num_backface_culling_changes++;
+			}
+
+
+			// conPrint("---- Changed to program " + prog->prog_name + " ----");
+			const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
+			const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+			prog->useProgram();
+			current_bound_prog = prog;
+			current_bound_prog_index = prog_index;
+			current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+			setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+			num_prog_changes++;
+
+			current_prog_index_and_backface_culling = prog_index_and_backface_culling;
+		}
+
+		bindMeshData(*info.ob);
+		num_batches_bound++;
+
+		drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+	}
+
+	last_num_prog_changes = num_prog_changes;
+	last_num_batches_bound = num_batches_bound;
+	last_num_vao_binds = num_vao_binds;
+	last_num_vbo_binds = num_vbo_binds;
+	last_num_index_buf_binds = num_index_buf_binds;
+	last_num_indices_drawn = this->num_indices_submitted;
+	last_num_backface_culling_changes = num_backface_culling_changes;
+	this->num_indices_submitted = 0;
+
+	flushDrawCommandsAndUnbindPrograms();
+
+	glDisable(GL_CULL_FACE); // Restore
+
+#if !defined(EMSCRIPTEN)
+	if(draw_wireframes)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+#endif
+
+	//conPrint("Draw opaque batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+}
+
+
 void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	ZoneScopedN("Draw transparent obs"); // Tracy profiler
@@ -7953,6 +7868,85 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 		flushDrawCommandsAndUnbindPrograms();
 	}
 }
+
+
+void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer) // Only do when use_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
+	{
+		assertCurrentProgramIsZero();
+		
+		// Make outline textures if they have not been created, or are the wrong size.
+		if(outline_tex_w != myMax<size_t>(16, viewport_w) || outline_tex_h != myMax<size_t>(16, viewport_h))
+		{
+			buildOutlineTextures();
+		}
+
+		// -------------------------- Stage 1: draw flat selected objects. --------------------
+		outline_solid_framebuffer->attachTexture(*outline_solid_tex, GL_COLOR_ATTACHMENT0);
+		glViewport(0, 0, (GLsizei)outline_tex_w, (GLsizei)outline_tex_h); // Make viewport same size as texture.
+		glClearColor(0.f, 0.f, 0.f, 1.f);
+		glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		for(auto i = selected_objects.begin(); i != selected_objects.end(); ++i)
+		{
+			const GLObject* const ob = *i;
+			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			{
+				const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+
+				const OpenGLProgram* use_prog = mesh_data.usesSkinning() ? outline_prog_with_skinning.ptr() : outline_prog_no_skinning.ptr();
+
+				const bool program_changed = checkUseProgram(use_prog);
+				if(program_changed)
+					setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
+				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
+				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+					drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
+			}
+		}
+
+		outline_solid_framebuffer->unbind();
+	
+		// ------------------- Stage 2: Extract edges with Sobel filter---------------------
+		// Shader reads from outline_solid_tex, writes to outline_edge_tex.
+	
+		outline_edge_framebuffer->attachTexture(*outline_edge_tex, GL_COLOR_ATTACHMENT0);
+		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+
+		checkUseProgram(edge_extract_prog.ptr());
+
+		// Position quad to cover viewport
+		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5f, -0.5f, 0, 0));
+
+		bindMeshData(*outline_quad_meshdata);
+		assert(outline_quad_meshdata->batches.size() == 1);
+
+		{
+			bindTextureUnitToSampler(*outline_solid_tex, /*texture_unit_index=*/0, /*sampler_uniform_location=*/edge_extract_tex_location);
+
+			glUniformMatrix4fv(edge_extract_prog->model_matrix_loc, 1, false, ob_to_world_matrix.e);
+			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
+			glUniform1f(edge_extract_line_width_location, this->outline_width_px);
+				
+			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset;
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->getIndexType(), (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);
+		}
+
+		OpenGLProgram::useNoPrograms();
+
+		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+
+		if(current_scene->use_main_render_framebuffer)
+			main_render_framebuffer->bindForDrawing(); // Restore main render framebuffer binding.
+		else
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+
+		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
+	}
+}
+
 
 void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 {
