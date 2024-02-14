@@ -10,15 +10,11 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLEngine.h"
 #include "OpenGLMeshRenderData.h"
 #include "../dll/include/IndigoMesh.h"
-#include "../graphics/ImageMap.h"
 #include "../maths/mathstypes.h"
 #include "../utils/Timer.h"
-#include "../utils/Task.h"
-#include "../utils/TaskManager.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Sort.h"
-#include "../utils/ArrayRef.h"
 #include "../utils/IncludeHalf.h"
 #include <vector>
 

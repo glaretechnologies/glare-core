@@ -1,14 +1,13 @@
 /*=====================================================================
 FrameBuffer.cpp
 ---------------
-Copyright Glare Technologies Limited 2016 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "FrameBuffer.h"
 
 
 #include "IncludeOpenGL.h"
 #include "RenderBuffer.h"
-#include "graphics/Map2D.h"
 #if CHECK_GL_CONTEXT
 #include <QtOpenGL/QGLWidget>
 #endif

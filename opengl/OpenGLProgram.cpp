@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2023 -
 
 #include "IncludeOpenGL.h"
 #include "OpenGLShader.h"
-#include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
