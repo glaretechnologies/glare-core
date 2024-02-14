@@ -9,29 +9,23 @@ Copyright Glare Technologies Limited 2023 -
 #include "IncludeOpenGL.h"
 #include "OpenGLProgram.h"
 #include "OpenGLShader.h"
+#include "RenderBuffer.h"
 #include "ShadowMapping.h"
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
 #include "ShaderFileWatcherThread.h"
-#include "../dll/include/IndigoMesh.h"
 #include "../graphics/TextureProcessing.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/SRGBUtils.h"
-#include "../graphics/BatchedMesh.h"
-#include "../graphics/CompressedImage.h"
 #include "../graphics/PerlinNoise.h"
-#include "../graphics/Voronoi.h"
 #include "../graphics/EXRDecoder.h"
-#include "../indigo/globals.h"
 #include "../indigo/TextureServer.h"
 #include "../utils/TestUtils.h"
 #include "../maths/vec3.h"
 #include "../maths/GeometrySampling.h"
 #include "../maths/matrix3.h"
 #include "../utils/Lock.h"
-#include "../utils/Mutex.h"
-#include "../utils/Clock.h"
 #include "../utils/Timer.h"
 #include "../utils/Platform.h"
 #include "../utils/FileUtils.h"
@@ -41,10 +35,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/BitUtils.h"
 #include "../utils/Vector.h"
 #include "../utils/Task.h"
-#include "../utils/IncludeXXHash.h"
 #include "../utils/ArrayRef.h"
-#include "../utils/HashMapInsertOnly2.h"
-#include "../utils/IncludeHalf.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Sort.h"
 #include "../utils/RuntimeCheck.h"
@@ -1908,11 +1899,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 
 		preprocessor_defines += "#define DO_POST_PROCESSING " + (true/*settings.use_final_image_buffer*/ ? std::string("1") : std::string("0")) + "\n";
 
-#if defined(EMSCRIPTEN)
-		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES " + toString(1) + "\n"; // MSAA buffers are not supported
-#else
-		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES " + toString(settings.msaa_samples) + "\n";
-#endif
+		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES 1\n"; // Since we are using render buffers currently, we will resolve them down to a non-MSAA texture using blitBuffer.  So 
+		// So the shaders can just consider the main buffer source textures to not have MSAA.
 
 		preprocessor_defines += "#define USE_REVERSE_Z " + (use_reverse_z ? std::string("1") : std::string("0")) + "\n";
 
@@ -5589,6 +5577,13 @@ inline static void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1)
 }
 
 
+inline static void setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum buffer_2)
+{
+	const GLenum draw_buffers[] = { buffer_0, buffer_1, buffer_2 };
+	glDrawBuffers(/*num=*/3, draw_buffers);
+}
+
+
 void OpenGLEngine::draw()
 {
 	ZoneScoped; // Tracy profiler
@@ -5904,7 +5899,12 @@ void OpenGLEngine::draw()
 
 
 	//=============== Allocate or reallocate buffers for drawing to ===============
-	// We will render to main_render_framebuffer / main_colour_texture / main_depth_texture etc.
+	// We will render to renderbuffers (main_colour_renderbuffer, main_normal_copy_texture) etc. attached to main_render_framebuffer.
+	// We use renderbuffers as opposed to textures, as OpenGL ES 3.0 doesn't support multisample textures, whereas it does support multisample renderbuffers.
+	// Also renderbuffers offer a bit more flexibility to the OpenGL implementation which could help with performance.
+	//
+	// To read the renderbuffers as textures, we will blit them to textures (main_colour_copy_texture etc..) using glBlitFramebuffer.
+	// We will resolve the MSAA samples while doing this, so main_colour_copy_texture etc. are not MSAA textures.
 	if(current_scene->use_main_render_framebuffer)
 	{
 		const int xres = myMax(16, main_viewport_w);
@@ -5912,32 +5912,32 @@ void OpenGLEngine::draw()
 
 		// If buffer textures are the incorrect resolution, free them, we will allocate larger ones below.
 		// Free any allocated textures first, to reduce max mem usage.
-		if(main_colour_texture.nonNull() &&
-			(((int)main_colour_texture->xRes() != xres) ||
-			((int)main_colour_texture->yRes() != yres)))
+		if(main_colour_copy_texture.nonNull() &&
+			(((int)main_colour_copy_texture->xRes() != xres) ||
+			((int)main_colour_copy_texture->yRes() != yres)))
 		{
-			main_colour_texture = NULL;
+			// Free textures and render buffers before the framebuffers that they may be attached to.
 			main_colour_copy_texture = NULL;
-			main_normal_texture = NULL;
 			main_normal_copy_texture = NULL;
-			main_depth_texture = NULL;
 			main_depth_copy_texture = NULL;
-			transparent_accum_texture = NULL;
-			av_transmittance_texture = NULL;
+			transparent_accum_copy_texture = NULL;
+			av_transmittance_copy_texture = NULL;
+
+			main_colour_renderbuffer = NULL;
+			main_normal_renderbuffer = NULL;
+			main_depth_renderbuffer = NULL;
+			transparent_accum_renderbuffer = NULL;
+			av_transmittance_renderbuffer = NULL;
 
 			main_render_framebuffer = NULL;
 			main_render_copy_framebuffer = NULL;
 		}
 
-		if(main_colour_texture.isNull())
+		if(main_colour_copy_texture.isNull())
 		{
-			conPrint("Allocing main_render_texture with width " + toString(xres) + " and height " + toString(yres));
+			conPrint("Allocing main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
 
-#if defined(EMSCRIPTEN)
-			const int msaa_samples = 1; // GL_TEXTURE_2D_MULTISAMPLE is not supported in WebGL.
-#else
 			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
-#endif
 
 #if defined(EMSCRIPTEN)
 			const OpenGLTexture::Format col_buffer_format = OpenGLTexture::Format_RGBA_Linear_Uint8;
@@ -5945,15 +5945,6 @@ void OpenGLEngine::draw()
 			const OpenGLTexture::Format col_buffer_format = OpenGLTexture::Format_RGB_Linear_Half;
 #endif
 
-			main_colour_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
-				col_buffer_format,
-				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp, // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
-				false, // has_mipmaps
-				/*MSAA_samples=*/msaa_samples
-			);
-			
 			main_colour_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
 				col_buffer_format,
@@ -5964,57 +5955,45 @@ void OpenGLEngine::draw()
 			);
 
 			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
-			main_normal_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
-				OpenGLTexture::Format_RGB_Linear_Uint8,
-				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp,
-				false, // has_mipmaps
-				/*MSAA_samples=*/msaa_samples
-			);
+			const OpenGLTexture::Format normal_buffer_format =OpenGLTexture::Format_RGB_Linear_Uint8;
 
 			main_normal_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
-				OpenGLTexture::Format_RGB_Linear_Uint8,
+				normal_buffer_format,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp,
 				false, // has_mipmaps
 				/*MSAA_samples=*/1
 			);
 
-			transparent_accum_texture = new OpenGLTexture(xres, yres, this,
+
+			const OpenGLTexture::Format transparent_accum_format = col_buffer_format;
+
+			transparent_accum_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
-				col_buffer_format,
+				transparent_accum_format,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp,
 				false, // has_mipmaps
-				/*MSAA_samples=*/msaa_samples
+				/*MSAA_samples=*/1
 			);
 
-			av_transmittance_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
 #if defined(EMSCRIPTEN)
-				OpenGLTexture::Format_RGBA_Linear_Uint8,
+			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_RGBA_Linear_Uint8;
 #else
-				OpenGLTexture::Format_Greyscale_Half,
+			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_Greyscale_Half;
 #endif
-				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp,
-				false, // has_mipmaps
-				/*MSAA_samples=*/msaa_samples
-			);
-
-			OpenGLTexture::Format depth_format;
-			depth_format = OpenGLTexture::Format_Depth_Float;
-
-			main_depth_texture = new OpenGLTexture(xres, yres, this,
+			av_transmittance_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
-				depth_format,
+				av_transmittance_format,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp,
 				false, // has_mipmaps
-				/*MSAA_samples=*/msaa_samples
+				/*MSAA_samples=*/1
 			);
+
+
+			const OpenGLTexture::Format depth_format = OpenGLTexture::Format_Depth_Float;
 
 			main_depth_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -6026,15 +6005,24 @@ void OpenGLEngine::draw()
 			);
 
 		
+			// Allocate renderbuffers.  Note that these must have the same format as the textures, otherwise the glBlitFramebuffer copies will fail in WebGL.
+			main_colour_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, col_buffer_format);
+			main_normal_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, normal_buffer_format);
+			main_depth_renderbuffer  = new RenderBuffer(xres, yres, msaa_samples, depth_format);
+			transparent_accum_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, transparent_accum_format);
+			av_transmittance_renderbuffer  = new RenderBuffer(xres, yres, msaa_samples, av_transmittance_format);
+
 			main_render_framebuffer = new FrameBuffer();
-			main_render_framebuffer->attachTexture(*main_colour_texture, GL_COLOR_ATTACHMENT0);
-			// main_normal_texture will be attached as GL_COLOR_ATTACHMENT1 below
-			main_render_framebuffer->attachTexture(*main_depth_texture,  GL_DEPTH_ATTACHMENT);
+			main_render_framebuffer->attachRenderBuffer(*main_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
+			main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
+			main_render_framebuffer->attachRenderBuffer(*main_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+
 
 			main_render_copy_framebuffer = new FrameBuffer();
 			main_render_copy_framebuffer->attachTexture(*main_colour_copy_texture, GL_COLOR_ATTACHMENT0);
 			main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1);
 			main_render_copy_framebuffer->attachTexture(*main_depth_copy_texture, GL_DEPTH_ATTACHMENT);
+
 
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
 		}
@@ -6060,7 +6048,8 @@ void OpenGLEngine::draw()
 	if(current_scene->use_main_render_framebuffer)
 	{
 		// Bind normal texture as the second colour target.  Need to do this here as transparent object render pass changes this binding.
-		main_render_framebuffer->attachTexture(*main_normal_texture, GL_COLOR_ATTACHMENT1);
+		main_render_framebuffer->attachRenderBuffer(*main_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
+		main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
 
 		// Draw to all colour buffers: colour and normal buffer.
 		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
@@ -6255,7 +6244,7 @@ void OpenGLEngine::draw()
 	{
 		ZoneScopedN("Post process"); // Tracy profiler
 
-		// We have rendered to main_render_framebuffer / main_render_texture / main_depth_texture.
+		// We have rendered to main_render_framebuffer / main_colour_texture / main_normal_texture / main_depth_texture.
 
 		//================================= Do post processes: bloom effect =================================
 
@@ -6333,6 +6322,24 @@ void OpenGLEngine::draw()
 			}
 		}
 
+
+		//=============== Copy from renderbuffer to our framebuffer copy with textures bound, so we can access main buffer as a colour texture ============
+		main_render_framebuffer->bindForReading();
+		main_render_copy_framebuffer->bindForDrawing();
+
+		// Copy colour buffer (attachment 0)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		
+
 		//------------------- Do postprocess bloom ---------------------
 	
 		// // Code to Compute gaussian blur weights:
@@ -6360,7 +6367,7 @@ void OpenGLEngine::draw()
 				//-------------------------------- Execute downsize shader --------------------------------
 				// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
 
-				OpenGLTexture* src_texture = (i == 0) ? main_colour_texture.ptr() : downsize_target_textures[i - 1].ptr();
+				OpenGLTexture* src_texture = (i == 0) ? main_colour_copy_texture.ptr() : downsize_target_textures[i - 1].ptr();
 
 				downsize_framebuffers[i]->bindForDrawing(); // Target downsize_framebuffers[i]
 		
@@ -6373,8 +6380,8 @@ void OpenGLEngine::draw()
 
 				if(i == 0)
 				{
-					bindTextureUnitToSampler(*transparent_accum_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
-					bindTextureUnitToSampler(*av_transmittance_texture,  /*texture_unit_index=*/2, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+					bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
+					bindTextureUnitToSampler(*av_transmittance_copy_texture,  /*texture_unit_index=*/2, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
 				}
 
 				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
@@ -6429,13 +6436,13 @@ void OpenGLEngine::draw()
 			assert(unit_quad_meshdata->batches.size() == 1);
 
 			// Bind main_colour_texture as albedo_texture with texture unit 0
-			bindTextureUnitToSampler(*main_colour_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/final_imaging_prog->albedo_texture_loc);
+			bindTextureUnitToSampler(*main_colour_copy_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/final_imaging_prog->albedo_texture_loc);
 
 			// Bind transparent_accum_texture as texture_2 with texture unit 1
-			bindTextureUnitToSampler(*transparent_accum_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
+			bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
 
 			// Bind av_transmittance_texture as texture_2 with texture unit 2
-			bindTextureUnitToSampler(*av_transmittance_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+			bindTextureUnitToSampler(*av_transmittance_copy_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
 			
 			// Bind water_colour_texture with texture unit 3
 		//	bindTextureUnitToSampler(*water_colour_texture, /*texture_unit_index=*/3, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_WATER_COLOUR_TEX_UNIFORM_INDEX].loc);
@@ -6458,9 +6465,9 @@ void OpenGLEngine::draw()
 
 
 			// Unbind textures from texture units.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
-			unbindTextureFromTextureUnit(*main_colour_texture, /*texture_unit_index=*/0);
-			unbindTextureFromTextureUnit(*transparent_accum_texture, /*texture_unit_index=*/1);
-			unbindTextureFromTextureUnit(*av_transmittance_texture, /*texture_unit_index=*/2);
+			unbindTextureFromTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/0);
+			unbindTextureFromTextureUnit(*transparent_accum_copy_texture, /*texture_unit_index=*/1);
+			unbindTextureFromTextureUnit(*av_transmittance_copy_texture, /*texture_unit_index=*/2);
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 				unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
 		}
@@ -7018,6 +7025,8 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 	if(this->current_scene->env_ob.nonNull() && 
 		((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull()))
 	{
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
 		
 		ZoneScopedN("Draw env"); // Tracy profiler
@@ -7060,6 +7069,8 @@ void OpenGLEngine::drawParticipatingMediaObjects(const Matrix4f& view_matrix, co
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
 		assertCurrentProgramIsZero();
+
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
 
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 
@@ -7165,27 +7176,33 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		assertCurrentProgramIsZero();
 		assert(current_scene->use_main_render_framebuffer);
 
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
+		main_render_framebuffer->bindForReading();
+		main_render_copy_framebuffer->bindForDrawing();
 
-		// Copy colour buffer (attachment 0) and depth buffer.
+		// Copy depth renderbuffer to depth texture
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == this->main_depth_renderbuffer->buffer_name);
+		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT) == this->main_depth_copy_texture->texture_handle);
+
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
 		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
 			GL_DEPTH_BUFFER_BIT, // GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
 			GL_NEAREST
 		);
 
 		// Copy normal buffer.  Do this just to resolve the MSAA samples.
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
+		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
+
 		glReadBuffer(GL_COLOR_ATTACHMENT1);
 		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
 	
 		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
 			GL_COLOR_BUFFER_BIT,
 			GL_NEAREST
 		);
@@ -7356,27 +7373,34 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 		// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
 		//
 		// 
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, main_render_framebuffer->buffer_name);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_copy_framebuffer->buffer_name);
+		main_render_framebuffer->bindForReading();
 
-		// Copy colour buffer (attachment 0) and depth buffer.
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
+
+		main_render_copy_framebuffer->bindForDrawing();
+
+		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT0) == this->main_colour_copy_texture->texture_handle);
+		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
+
+		//--------------- Copy colour buffer (attachment 0) and depth buffer. ---------------
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
 		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
 			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
 			GL_NEAREST
 		);
 
-		// Copy normal buffer.  Do this just to resolve the MSAA samples.
+		//--------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ---------------
 		glReadBuffer(GL_COLOR_ATTACHMENT1);
 		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
 	
 		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_colour_texture->xRes(), /*srcY1=*/(int)main_colour_texture->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_colour_texture->xRes(), /*dstY1=*/(int)main_colour_texture->yRes(), 
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
 			GL_COLOR_BUFFER_BIT,
 			GL_NEAREST
 		);
@@ -7399,7 +7423,6 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 
 		ZoneScopedN("Draw water obs"); // Tracy profiler
 
-		//Timer timer;
 		batch_draw_info.reserve(current_scene->objects.size());
 		batch_draw_info.resize(0);
 
@@ -7456,7 +7479,6 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 				}
 			} // End for each object in scene
 		}
-		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
 
 		sortBatchDrawInfos();
 
@@ -7521,7 +7543,11 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	assertCurrentProgramIsZero();
 
-	// Draw to all colour buffers: colour and normal buffer.
+
+	assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+	assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == main_normal_renderbuffer->buffer_name); // Check main normal renderbuffer is attached at GL_COLOR_ATTACHMENT1.
+
+	// Draw to colour and normal buffers.
 	setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
 
 	//Timer timer;
@@ -7685,12 +7711,11 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	if(!current_scene->use_main_render_framebuffer)
 		return;
 
-	main_render_framebuffer->attachTexture(*transparent_accum_texture, GL_COLOR_ATTACHMENT1);
-	main_render_framebuffer->attachTexture(*av_transmittance_texture, GL_COLOR_ATTACHMENT2);
+	main_render_framebuffer->attachRenderBuffer(*transparent_accum_renderbuffer, GL_COLOR_ATTACHMENT1); // Replaces normal buffer as GL_COLOR_ATTACHMENT1
+	main_render_framebuffer->attachRenderBuffer(*av_transmittance_renderbuffer, GL_COLOR_ATTACHMENT2);
 
-	// Draw to all colour buffers.
-	static const GLenum trans_draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-	glDrawBuffers(/*num=*/3, trans_draw_buffers);
+	// Draw to three colour buffers: colour, transparent_accum, av_transmittance.
+	setThreeDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2);
 
 	
 	// Clear transparent_accum_texture buffer (GL_COLOR_ATTACHMENT1)
@@ -7793,7 +7818,45 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 #if !defined(EMSCRIPTEN)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
-	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
+	
+
+
+
+	//----------------------- Copy transparent_accum render buffer to transparent_accum_copy_texture -----------------------
+	main_render_framebuffer->bindForReading(); // Set copy source framebuffer
+	main_render_copy_framebuffer->bindForDrawing(); // Set copy destination framebuffer
+	main_render_copy_framebuffer->attachTexture(*transparent_accum_copy_texture, GL_COLOR_ATTACHMENT1);
+	main_render_copy_framebuffer->attachTexture(*av_transmittance_copy_texture,  GL_COLOR_ATTACHMENT2);
+
+	glReadBuffer(GL_COLOR_ATTACHMENT1);
+	setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	
+	glBlitFramebuffer(
+		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+		GL_COLOR_BUFFER_BIT,
+		GL_NEAREST
+	);
+
+	//----------------------- Copy av_transmittance_renderbuffer to av_transmittance_copy_texture -----------------------
+	glReadBuffer(GL_COLOR_ATTACHMENT2);
+	setThreeDrawBuffers(GL_NONE, GL_NONE, GL_COLOR_ATTACHMENT2); // In OpenGL ES, GL_COLOR_ATTACHMENT2 must be specified as buffer 2 (can't be buffer 0 or 1), so use glDrawBuffers with GL_NONE as buffer 0.
+
+	glBlitFramebuffer(
+		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+		GL_COLOR_BUFFER_BIT,
+		GL_NEAREST
+	);
+
+
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Restore to no framebuffers bound for reading.
+	main_render_framebuffer->bindForDrawing(); // Restore
+	//setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
+	main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1); // Restore normal buffer binding
+
+	main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1); // Restore normal texture binding
 }
 
 
@@ -7809,6 +7872,9 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 	if(!current_scene->always_visible_objects.empty())
 	{
 		ZoneScopedN("Draw always visible"); // Tracy profiler
+
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just write to colour buffer
+
 
 		glDisable(GL_DEPTH_TEST); // Turn off depth testing
 		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
@@ -7877,7 +7943,11 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer) // Only do when use_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
 	{
 		assertCurrentProgramIsZero();
+
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 		
+
 		// Make outline textures if they have not been created, or are the wrong size.
 		if(outline_tex_w != myMax<size_t>(16, viewport_w) || outline_tex_h != myMax<size_t>(16, viewport_h))
 		{

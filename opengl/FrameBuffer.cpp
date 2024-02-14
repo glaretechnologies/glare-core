@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "IncludeOpenGL.h"
+#include "RenderBuffer.h"
 #include "graphics/Map2D.h"
 #if CHECK_GL_CONTEXT
 #include <QtOpenGL/QGLWidget>
@@ -98,4 +99,46 @@ void FrameBuffer::attachTexture(OpenGLTexture& tex, GLenum attachment_point)
 		tex.getTextureTarget(),
 		tex.texture_handle, // texture
 		0); // mipmap level
+}
+
+
+void FrameBuffer::attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachment_point)
+{
+	xres = render_buffer.xRes();
+	yres = render_buffer.yRes();
+
+	bindForDrawing(); // Bind this frame buffer
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target (NOTE: could be just GL_READ_FRAMEBUFFER or GL_DRAW_FRAMEBUFFER)
+		attachment_point,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer.buffer_name
+	);
+}
+
+
+GLuint FrameBuffer::getAttachedRenderBufferName(GLenum attachment_point)
+{
+	// Check a renderbuffer is bound, as opposed to a texture.
+	GLint ob_type = 0;
+	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &ob_type);
+	assert(ob_type == GL_RENDERBUFFER);
+
+	GLint name = 0;
+	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
+	return (GLuint)name;
+}
+
+
+GLuint FrameBuffer::getAttachedTextureName(GLenum attachment_point)
+{
+	// Check a texture is bound, as opposed to a renderbuffer.
+	GLint ob_type = 0;
+	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &ob_type);
+	assert(ob_type == GL_TEXTURE);
+
+	GLint name = 0;
+	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
+	return (GLuint)name;
 }

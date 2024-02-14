@@ -58,6 +58,7 @@ class Map2D;
 class TextureServer;
 class UInt8ComponentValueTraits;
 class TerrainSystem;
+class RenderBuffer;
 namespace glare { class BestFitAllocator; }
 template <class V, class VTraits> class ImageMap;
 
@@ -1251,17 +1252,17 @@ private:
 	Reference<FrameBuffer> main_render_framebuffer;
 	Reference<FrameBuffer> main_render_copy_framebuffer;
 
-	OpenGLTextureRef main_colour_texture;
-	//OpenGLTextureRef water_colour_texture; // Water shader reads from main_colour texture and writes to this texture.
-	OpenGLTextureRef transparent_accum_texture;
-	OpenGLTextureRef av_transmittance_texture;
-	OpenGLTextureRef main_depth_texture;
-	OpenGLTextureRef main_normal_texture;
-	//OpenGLTextureRef water_depth_texture;
+	Reference<RenderBuffer> main_colour_renderbuffer;
+	Reference<RenderBuffer> main_normal_renderbuffer;
+	Reference<RenderBuffer> main_depth_renderbuffer;
+	Reference<RenderBuffer> transparent_accum_renderbuffer;
+	Reference<RenderBuffer> av_transmittance_renderbuffer;
 
 	OpenGLTextureRef main_colour_copy_texture;
 	OpenGLTextureRef main_depth_copy_texture;
 	OpenGLTextureRef main_normal_copy_texture;
+	OpenGLTextureRef transparent_accum_copy_texture;
+	OpenGLTextureRef av_transmittance_copy_texture;
 
 	std::unordered_set<GLObject*> selected_objects;
 

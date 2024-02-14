@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Reference.h"
 class OpenGLShader;
 class QGLContext;
+class RenderBuffer;
 
 
 // #define CHECK_GL_CONTEXT 1
@@ -36,6 +37,15 @@ public:
 
 	// attachment_point is GL_DEPTH_ATTACHMENT, GL_COLOR_ATTACHMENT0 etc..
 	void attachTexture(OpenGLTexture& tex, GLenum attachment_point);
+
+	void attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachment_point);
+
+	// NOTE: Framebuffer must be bound before calling this.
+	GLuint getAttachedRenderBufferName(GLenum attachment_point);
+
+	// NOTE: Framebuffer must be bound before calling this.
+	GLuint getAttachedTextureName(GLenum attachment_point);
+
 
 	// Will return 0 if texture has not been bound yet.
 	size_t xRes() const { return xres; }

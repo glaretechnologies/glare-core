@@ -19,6 +19,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/FrameBuffer.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/FrameBuffer.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderBuffer.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderBuffer.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GLMeshBuilding.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GLMeshBuilding.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/MeshPrimitiveBuilding.cpp 

@@ -9,11 +9,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "BasicOpenGLTypes.h"
 #include "TextureAllocator.h"
 #include "../graphics/TextureData.h"
-#include "../utils/RefCounted.h"
-#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"
-#include "../utils/AllocatorVector.h"
 #include <vector>
 #include <string>
 
@@ -184,6 +181,7 @@ public:
 
 	GLuint texture_handle;
 
+	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 private:
 	GLARE_DISABLE_COPY(OpenGLTexture);
 
@@ -193,8 +191,6 @@ private:
 		Wrapping wrapping,
 		bool has_mipmaps
 	);
-
-	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 
 	Format format;
 	GLint gl_internal_format; // sized GL internal format (num channels)
