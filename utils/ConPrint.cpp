@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "../utils/Lock.h"
 #include "../utils/Mutex.h"
-#include "../utils/StringUtils.h"
 #include <iostream>
 #include <stdlib.h>
 
