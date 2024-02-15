@@ -7177,12 +7177,16 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		assert(current_scene->use_main_render_framebuffer);
 
 		main_render_framebuffer->bindForReading();
+
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == this->main_depth_renderbuffer->buffer_name);
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
+		
 		main_render_copy_framebuffer->bindForDrawing();
 
-		// Copy depth renderbuffer to depth texture
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == this->main_depth_renderbuffer->buffer_name);
 		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT) == this->main_depth_copy_texture->texture_handle);
+		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
 
+		//---------------------- Copy depth renderbuffer to depth texture ----------------------
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
@@ -7193,10 +7197,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			GL_NEAREST
 		);
 
-		// Copy normal buffer.  Do this just to resolve the MSAA samples.
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
-		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
-
+		//---------------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ----------------------
 		glReadBuffer(GL_COLOR_ATTACHMENT1);
 		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
 	
