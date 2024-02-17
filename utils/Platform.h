@@ -20,10 +20,10 @@ Copyright Glare Technologies Limited 2021 -
 #endif
 
 
-// To disallow copy-construction and assignment operators, put this in the private part of a class:
+// To disallow copy-construction and assignment operators, put this in the class:
 #define GLARE_DISABLE_COPY(TypeName) \
-	TypeName(const TypeName &); \
-	TypeName &operator=(const TypeName &);
+	TypeName(const TypeName &) = delete; \
+	TypeName &operator=(const TypeName &) = delete;
 
 
 
