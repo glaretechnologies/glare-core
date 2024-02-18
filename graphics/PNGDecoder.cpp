@@ -17,7 +17,11 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/Timer.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/BufferViewInStream.h"
+
+#define LIBPNG_SUPPORT 1 // TEMP
+#if LIBPNG_SUPPORT
 #include <png.h>
+#endif
 #if !defined NO_LCMS_SUPPORT
 #include <lcms2.h>
 #endif
@@ -76,7 +80,7 @@ static const uint8 sRGB_profile_data[] = { 0, 0, 2, 80, 108, 99, 109, 115, 4, 48
 // or
 // png_set_keep_unknown_chunks(png_ptr, 1, NULL, 0);
 
-
+#if LIBPNG_SUPPORT
 static void pngdecoder_error_func(png_structp /*png*/, const char* msg)
 {
 	throw ImFormatExcep("Error while processing PNG file: " + std::string(msg));
@@ -103,6 +107,7 @@ static void pngdecoder_read_data(png_structp png_ptr, png_bytep data, png_size_t
 		throw ImFormatExcep("Error while processing PNG file: " + e.what());
 	}
 }
+#endif // LIBPNG_SUPPORT
 
 
 Reference<Map2D> PNGDecoder::decode(const std::string& path)
@@ -398,6 +403,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 #endif // WUFFS_SUPPORT
 
 
+#if LIBPNG_SUPPORT
 static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStream& buffer_view_in_stream)
 {
 	std::vector<png_bytep> row_pointers;
@@ -524,6 +530,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStr
 		throw e; // rethrow
 	}
 }
+#endif // LIBPNG_SUPPORT
 
 
 Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size)
@@ -532,12 +539,15 @@ Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size)
 
 #if WUFFS_SUPPORT
 	return doDecodeFromBufferWithWuffs(buffer_view_in_stream);
-#else
+#elif LIBPNG_SUPPORT
 	return doDecodeFromBufferLibPNG(buffer_view_in_stream);
+#else
+#error Either WUFFS_SUPPORT or LIBPNG_SUPPORT must be defined.
 #endif
 }
 
 
+#if LIBPNG_SUPPORT
 const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::string& image_path)
 {
 	try
@@ -606,6 +616,7 @@ const std::map<std::string, std::string> PNGDecoder::getMetaData(const std::stri
 		throw ImFormatExcep("Failed to open file '" + image_path + "' for reading.");
 	}
 }
+#endif
 
 
 void PNGDecoder::write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& pathname)
@@ -643,6 +654,7 @@ void PNGDecoder::write(const void* data, unsigned int W, unsigned int H, unsigne
 // Write with metadata
 void PNGDecoder::write(const void* data, unsigned int W, unsigned int H, unsigned int N, unsigned int bits_per_channel, const std::map<std::string, std::string>& metadata, const std::string& pathname)
 {
+#if LIBPNG_SUPPORT
 	png_struct* png = NULL;
 	png_info* info = NULL;
 
@@ -699,48 +711,47 @@ void PNGDecoder::write(const void* data, unsigned int W, unsigned int H, unsigne
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
 		//
 		// Checking embedded ICC profiles can be done with this online tool: 'Jeffrey's Image Metadata Viewer': http://exif.regex.info/exif.cgi
-#if !defined NO_LCMS_SUPPORT
 		if(N > 1) // It's not allowed to have a colour profile in a greyscale image.
 		{
-#define SAVE_PRECOMPUTED_SRGB_PROFILE 1
-#if SAVE_PRECOMPUTED_SRGB_PROFILE
-				// Use precomputed sRGB profile.
-#if PNG_LIBPNG_VER >= 10634
-				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)sRGB_profile_data, sRGB_profile_data_size);
-#else
-				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)sRGB_profile_data, sRGB_profile_data_size);
-#endif
+#if 1 // if SAVE_PRECOMPUTED_SRGB_PROFILE:
+	
+	#if PNG_LIBPNG_VER >= 10634
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)sRGB_profile_data, sRGB_profile_data_size);
+	#else
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)sRGB_profile_data, sRGB_profile_data_size);
+	#endif
 
 #else // else if !SAVE_PRECOMPUTED_SRGB_PROFILE:
 
-				// Else get Little CMS to spit out a fresh profile.
-				cmsHPROFILE profile = cmsCreate_sRGBProfile();
-				if(profile == NULL)
-					throw ImFormatExcep("Failed to create colour profile.");
+	#if !defined NO_LCMS_SUPPORT
+			// Else get Little CMS to spit out a fresh profile.
+			cmsHPROFILE profile = cmsCreate_sRGBProfile();
+			if(profile == NULL)
+				throw ImFormatExcep("Failed to create colour profile.");
 
-				// Get num bytes needed to store the encoded profile.
-				cmsUInt32Number profile_size = 0;
-				if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
-					throw ImFormatExcep("Failed to save colour profile.");
+			// Get num bytes needed to store the encoded profile.
+			cmsUInt32Number profile_size = 0;
+			if(cmsSaveProfileToMem(profile, NULL, &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
 
-				std::vector<uint8> buf(profile_size);
+			std::vector<uint8> buf(profile_size);
 
-				// Now write the actual profile.
-				if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == FALSE)
-					throw ImFormatExcep("Failed to save colour profile.");
+			// Now write the actual profile.
+			if(cmsSaveProfileToMem(profile, &buf[0], &profile_size) == FALSE)
+				throw ImFormatExcep("Failed to save colour profile.");
 
-				cmsCloseProfile(profile);
+			cmsCloseProfile(profile);
 
-#if PNG_LIBPNG_VER >= 10634
-				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
-#else
-				png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
-#endif
+		#if PNG_LIBPNG_VER >= 10634
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_const_bytep)&buf[0], profile_size);
+		#else
+			png_set_iCCP(png, info, (png_charp)"Embedded Profile", 0, (png_charp)&buf[0], profile_size);
+		#endif
 
-#endif // SAVE_PRECOMPUTED_SRGB_PROFILE
+	#endif // end if!!defined NO_LCMS_SUPPORT
 
+#endif // end if !SAVE_PRECOMPUTED_SRGB_PROFILE
 		}
-#endif
 
 		//------------------------------------------------------------------------
 		// Write metadata pairs if present
@@ -804,6 +815,10 @@ void PNGDecoder::write(const void* data, unsigned int W, unsigned int H, unsigne
 			png_destroy_write_struct(&png, &info);
 		throw ImFormatExcep("Failed to open '" + pathname + "' for writing.");
 	}
+
+#else // else if !LIBPNG_SUPPORT:
+	throw ImFormatExcep("LIBPNG_SUPPORT needs to be enabled for PNGDecoder::write()");
+#endif
 }
 
 
@@ -1368,6 +1383,7 @@ void PNGDecoder::test()
 		//const std::string path = TestUtils::getTestReposDir() + "/testfiles/pngs/Excited.png";
 		MemMappedFile file(path);
 
+#if LIBPNG_SUPPORT
 		{
 			double min_time = 1.0e10;
 			for(int i=0; i<16; ++i)
@@ -1381,6 +1397,7 @@ void PNGDecoder::test()
 			}
 			conPrint("doDecodeFromBufferLibPNG took    " + doubleToStringNSigFigs(min_time * 1000, 5) + " ms");
 		}
+#endif
 #if WUFFS_SUPPORT
 		{
 			double min_time = 1.0e10;
