@@ -124,6 +124,7 @@ void* SSBO::map()
 {
 #if defined(OSX) || defined(EMSCRIPTEN)
 	assert(0);
+	return NULL;
 #else
 	bind();
 
