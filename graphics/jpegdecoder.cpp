@@ -1,8 +1,7 @@
 /*=====================================================================
 jpegdecoder.cpp
 ---------------
-Copyright Glare Technologies Limited 2014 -
-File created by ClassTemplate on Sat Apr 27 16:22:59 2002
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "jpegdecoder.h"
 
@@ -19,7 +18,9 @@ File created by ClassTemplate on Sat Apr 27 16:22:59 2002
 #include "../utils/MemMappedFile.h"
 #include "../utils/Timer.h"
 #include <jpeglib.h>
+#if !defined NO_LCMS_SUPPORT
 #include <lcms2.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -168,8 +169,10 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 			conPrint("JCS_YCCK");*/
 
 		// If the JPEG colour space is JCS_YCCK (Used by Photoshop for CMYK files), then get libjpeg to convert it to CMYK.  It can't convert to RGB, we have to do that ourselves.
+#if !defined(NO_LCMS_SUPPORT)
 		if(cinfo.jpeg_color_space == JCS_YCCK)
 			cinfo.out_color_space = JCS_CMYK;
+#endif
 
 		jpeg_start_decompress(&cinfo);
 
@@ -198,9 +201,7 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 		//const float gamma = cinfo.output_gamma;
 		//conPrint("JPEG output gamma: " + toString(gamma));
 
-		//------------------------------------------------------------------------
-		//alloc row buffer
-		//------------------------------------------------------------------------
+#if !defined(NO_LCMS_SUPPORT) // If we are compiling with Little CMS support:
 		const unsigned int row_stride = cinfo.output_width * cinfo.output_components;
 		const int final_W_pixels = cinfo.output_width;
 
@@ -259,7 +260,14 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 			cmsDeleteTransform(hTransform); 
 		}
 		else
+#endif // end #if !defined(NO_LCMS_SUPPORT)
 		{
+
+#if defined(NO_LCMS_SUPPORT)
+			if(cinfo.out_color_space == JCS_CMYK)
+				throw ImFormatExcep("JPEGDecoder: CMYK colour space not supported. (Little CMS support disabled)");
+#endif
+
 			if(cinfo.num_components == 4)
 				throw ImFormatExcep("Invalid num components " + toString(cinfo.num_components) + " for non-CMYK colour space");
 
@@ -275,10 +283,6 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 			{
 				jpeg_read_scanlines(&cinfo, &scanline_ptrs[cinfo.output_scanline], (JDIMENSION)H - cinfo.output_scanline);
 			}
-
-#if IMAGE_MAP_TILED
-#error TODO
-#endif
 		}
 
 		jpeg_finish_decompress(&cinfo);
@@ -457,7 +461,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 	try
 	{
 		// Perf test
-		if(true)
+		if(false)
 		{
 			{
 				Timer timer;
@@ -493,9 +497,9 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 1");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.jpg");
-			testAssert(im->getMapWidth() == 1080);
-			testAssert(im->getMapHeight() == 768);
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+			testAssert(im->getMapWidth() == 750);
+			testAssert(im->getMapHeight() == 1152);
 			testAssert(im->getBytesPerPixel() == 3);
 
 			// Try saving it.
@@ -505,8 +509,8 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 			// Load it again to check it is valid.
 			im = JPEGDecoder::decode(indigo_base_dir, save_path);
-			testAssert(im->getMapWidth() == 1080);
-			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getMapWidth() == 750);
+			testAssert(im->getMapHeight() == 1152);
 			testAssert(im->getBytesPerPixel() == 3);
 		}
 		catch(ImFormatExcep& e)
@@ -517,11 +521,21 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 		// Try loading a JPEG using the CMYK colour space
 		conPrint("test 2");
+#if defined(NO_LCMS_SUPPORT)
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_CMYK.jpg");
-			testAssert(im->getMapWidth() == 1080);
-			testAssert(im->getMapHeight() == 768);
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/Channel_digital_image_CMYK_color.jpg");
+			failTest("Exception expected.");
+		}
+		catch(ImFormatExcep& )
+		{
+		}
+#else
+		try
+		{
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/Channel_digital_image_CMYK_color.jpg");
+			testAssert(im->getMapWidth() == 500);
+			testAssert(im->getMapHeight() == 333);
 			testAssert(im->getBytesPerPixel() == 3);
 
 			// Try saving it.
@@ -530,22 +544,23 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 			// Load it again to check it is valid.
 			im = JPEGDecoder::decode(indigo_base_dir, save_path);
-			testAssert(im->getMapWidth() == 1080);
-			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getMapWidth() == 500);
+			testAssert(im->getMapHeight() == 333);
 			testAssert(im->getBytesPerPixel() == 3);
 		}
 		catch(ImFormatExcep& e)
 		{
 			failTest(e.what());
 		}
+#endif
 
 		// Try loading a greyscale JPEG
 		conPrint("test 3");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.jpg");
-			testAssert(im->getMapWidth() == 1080);
-			testAssert(im->getMapHeight() == 768);
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/italy_bolsena_flag_flowers_stairs_01_greyscale.jpg");
+			testAssert(im->getMapWidth() == 375);
+			testAssert(im->getMapHeight() == 576);
 			testAssert(im->getBytesPerPixel() == 1);
 
 			// Try saving it.
@@ -554,8 +569,8 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 
 			// Load it again to check it is valid.
 			im = JPEGDecoder::decode(indigo_base_dir, save_path);
-			testAssert(im->getMapWidth() == 1080);
-			testAssert(im->getMapHeight() == 768);
+			testAssert(im->getMapWidth() == 375);
+			testAssert(im->getMapHeight() == 576);
 			testAssert(im->getBytesPerPixel() == 1);
 		}
 		catch(ImFormatExcep& e)
@@ -567,7 +582,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 4");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.bmp");
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/BMPs/top_to_bottom.BMP");
 			failTest("Shouldn't get here.");
 		}
 		catch(ImFormatExcep&)
@@ -577,7 +592,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 5");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/not a file.bmp");
+			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/notafile.jpg");
 			failTest("Shouldn't get here.");
 		}
 		catch(ImFormatExcep&)

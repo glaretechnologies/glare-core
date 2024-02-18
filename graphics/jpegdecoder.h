@@ -1,18 +1,15 @@
 /*=====================================================================
 jpegdecoder.h
 -------------
-Copyright Glare Technologies Limited 2014 -
-File created by ClassTemplate on Sat Apr 27 16:22:59 2002
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
 
 #include "ImageMap.h"
 #include "../utils/Reference.h"
-#include <vector>
 #include <string>
 class Map2D;
-class Bitmap;
 
 
 /*=====================================================================
