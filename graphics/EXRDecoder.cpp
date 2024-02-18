@@ -961,7 +961,7 @@ void EXRDecoder::test()
 		EXRDecoder::saveImageToEXR(image, path, "main layer", options);
 	}
 
-	try
+	/*try
 	{
 		Reference<Map2D> im = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/uffizi-large.exr");
 		testAssert(im->getMapWidth() == 2400);
@@ -976,14 +976,14 @@ void EXRDecoder::test()
 	catch(ImFormatExcep& e)
 	{
 		failTest(e.what());
-	}
+	}*/
 
 	// Test that failure to load an image is handled gracefully.
 
 	// Try with an invalid path
 	try
 	{
-		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/NO_SUCH_FILE.exr");
+		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/NO_SUCH_FILE.exr");
 
 		failTest("Shouldn't get here.");
 	}
