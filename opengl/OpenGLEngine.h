@@ -795,7 +795,7 @@ public:
 	friend class TerrainSystem;
 
 	//---------------------------- Initialisation/deinitialisation --------------------------
-	void initialise(const std::string& data_dir, TextureServer* texture_server, PrintOutput* print_output); // data_dir should have 'shaders' and 'gl_data' in it.
+	void initialise(const std::string& data_dir, Reference<TextureServer> texture_server, PrintOutput* print_output); // data_dir should have 'shaders' and 'gl_data' in it.  texture_server can be NULL.
 	bool initSucceeded() const { return init_succeeded; }
 	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
 
@@ -896,7 +896,7 @@ public:
 
 	bool isOpenGLTextureInsertedForKey(const OpenGLTextureKey& key) const;
 
-	TextureServer* getTextureServer() { return texture_server; }
+	Reference<TextureServer>& getTextureServer() { return texture_server; } // May be NULL
 
 	bool textureCompressionSupportedAndEnabled() const { return texture_compression_s3tc_support && settings.compress_textures; }
 
@@ -1283,7 +1283,7 @@ private:
 
 	float current_time;
 
-	TextureServer* texture_server;
+	Reference<TextureServer> texture_server;
 
 	Reference<FrameBuffer> target_frame_buffer;
 

@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/Reference.h"
 #include "../utils/Mutex.h"
 #include "../utils/Exception.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include <string>
 #include <unordered_set>
 class Map2D;
@@ -42,7 +43,7 @@ We do this canonicalisation if use_canonical_path_keys arg to the constructor is
 Since the TextureServer object may be accessed concurrently from different threads - the UI thread(s) and
 the core thread(s), this class needs to be thread-safe.
 =====================================================================*/
-class TextureServer
+class TextureServer : public ThreadSafeRefCounted
 {
 public:
 	TextureServer(bool use_canonical_path_keys);

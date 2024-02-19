@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/PerlinNoise.h"
 #include "../graphics/EXRDecoder.h"
+#include "../graphics/ImFormatDecoder.h"
 #include "../indigo/TextureServer.h"
 #include "../utils/TestUtils.h"
 #include "../maths/vec3.h"
@@ -1573,7 +1574,7 @@ struct DataUpdateStruct
 };
 
 
-void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* texture_server_, PrintOutput* print_output_)
+void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureServer> texture_server_, PrintOutput* print_output_)
 {
 	data_dir = data_dir_;
 	texture_server = texture_server_;
@@ -1808,7 +1809,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, TextureServer* textu
 		// Load blue noise texture
 		{
 			const std::string blue_noise_map_path = gl_data_dir + "/LDR_LLL1_0.png";
-			Reference<Map2D> blue_noise_map = texture_server->getTexForPath(".", blue_noise_map_path);
+			Reference<Map2D> blue_noise_map = ImFormatDecoder::decodeImage(".", blue_noise_map_path);
 
 			TextureParams params;
 			params.filtering = OpenGLTexture::Filtering_Nearest;
@@ -3901,7 +3902,7 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, c
 {
 	try
 	{
-		const std::string tex_key = this->texture_server->keyForPath(tex_path);
+		const std::string tex_key = this->texture_server.nonNull() ? this->texture_server->keyForPath(tex_path) : tex_path;
 
 		const OpenGLTextureKey texture_key(tex_key);
 
@@ -3916,14 +3917,17 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, c
 		}
 
 		
-		// If the texture was not in texture_server before we tried to load it, remove it otherwise.  TODO: just remove use of textureserver?
-		const bool tex_was_present = texture_server->isTextureLoadedForPath(tex_path);
-		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);// TEMP HACK: need to set base dir here
+		Reference<Map2D> map;
+		if(texture_server.nonNull())
+		{
+			map = texture_server->getTexForPath(".", tex_path);// TEMP HACK: need to set base dir here
+		}
+		else
+		{
+			map = ImFormatDecoder::decodeImage(".", tex_path);
+		}
 
 		Reference<OpenGLTexture> opengl_tex = this->getOrLoadOpenGLTextureForMap2D(texture_key, *map, params);
-
-		if(!tex_was_present)
-			texture_server->removeTextureForPath(tex_path);
 
 		return opengl_tex;
 	}
