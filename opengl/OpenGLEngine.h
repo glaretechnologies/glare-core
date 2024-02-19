@@ -483,6 +483,9 @@ public:
 
 	bool shadow_mapping; // True by default
 	bool draw_water; // True by default
+
+	// If true, the scene is rendered to an offscreen and internally allocated framebuffer.  This allows for bloom effects etc.
+	// If false, the scene is rendered directly to the framebuffer set by setTargetFrameBuffer().  Only some object types can be draw in this case (not transparent objects etc.)
 	bool use_main_render_framebuffer; // True by default
 
 	bool cloud_shadows; // True by default
@@ -1001,7 +1004,7 @@ public:
 
 
 	//----------------------------------- Target framebuffer ---------------------------------
-	// Set the primary render target frame buffer.
+	// Set the primary render target frame buffer.  Can be NULL in which case framebuffer 0 is drawn to.
 	void setTargetFrameBuffer(const Reference<FrameBuffer> frame_buffer) { target_frame_buffer = frame_buffer; }
 	void setTargetFrameBufferAndViewport(const Reference<FrameBuffer> frame_buffer); // Set target framebuffer, also set viewport to the whole framebuffer.
 

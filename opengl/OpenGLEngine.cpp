@@ -2779,6 +2779,9 @@ void OpenGLEngine::buildOutlineTextures()
 
 	outline_edge_mat.albedo_texture = outline_edge_tex;
 
+	outline_solid_framebuffer->attachTexture(*outline_solid_tex, GL_COLOR_ATTACHMENT0);
+	outline_edge_framebuffer->attachTexture(*outline_edge_tex, GL_COLOR_ATTACHMENT0);
+
 	if(false)
 	{
 		current_scene->overlay_objects.clear();
@@ -3912,10 +3915,17 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, c
 			return res->second.value;
 		}
 
-		// TEMP HACK: need to set base dir here
-		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);
+		
+		// If the texture was not in texture_server before we tried to load it, remove it otherwise.  TODO: just remove use of textureserver?
+		const bool tex_was_present = texture_server->isTextureLoadedForPath(tex_path);
+		Reference<Map2D> map = texture_server->getTexForPath(".", tex_path);// TEMP HACK: need to set base dir here
 
-		return this->getOrLoadOpenGLTextureForMap2D(texture_key, *map, params);
+		Reference<OpenGLTexture> opengl_tex = this->getOrLoadOpenGLTextureForMap2D(texture_key, *map, params);
+
+		if(!tex_was_present)
+			texture_server->removeTextureForPath(tex_path);
+
+		return opengl_tex;
 	}
 	catch(TextureServerExcep& e)
 	{
@@ -5760,7 +5770,7 @@ void OpenGLEngine::draw()
 	}
 
 
-	//=============== Set animated objects state (update bone matrices etc.)===========
+	//=============== Set animated objects state (update bone matrices etc.) ===========
 
 	// We will only compute updated animation data for objects (current joint matrices), if the object is in a view frustum that extends some distance from the camera,
 	// or may cast a shadow into that frustum a little distance.
@@ -6202,12 +6212,12 @@ void OpenGLEngine::draw()
 	}
 
 
-	// Draw outlines around selected object(s).
-	// * Draw object with flat uniform shading to a render frame buffer.
-	// * Make render buffer a texture
-	// * Draw a quad over the main viewport, using a shader that does a Sobel filter, to detect the edges.  write to another frame buffer.
-	// * Draw another quad using the edge texture, blending a green colour into the final frame buffer on the edge.
-
+	// Each pass:
+	// * binds the framebuffer the pass will draw to.
+	// * Sets the buffers it will draw to, with e.g. setSingleDrawBuffer or setTwoDrawBuffers.
+	// * Preserves the standard render buffer attachment bindings for main_render_framebuffer: 0 = colour, 1 = normal, also the depth attachment binding.
+	// * Preserves the standard texture attachment bindings for main_render_copy_framebuffer: 0 = colour, 1 = normal, also the depth attachment binding.
+	// * preserves viewport as (0, 0, viewport_w, viewport_h)
 	//================= Generate outline texture =================
 	generateOutlineTexture(view_matrix, proj_matrix);
 	
@@ -7022,9 +7032,13 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 // Draw background env map if there is one. (or if we are using a non-standard env shader)
 void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
+	if(!current_scene->use_main_render_framebuffer)
+		return;
+
 	if(this->current_scene->env_ob.nonNull() && 
 		((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull()))
 	{
+		main_render_framebuffer->bindForDrawing();
 		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
 
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
@@ -7065,13 +7079,13 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 // Draw triangle batches with participating media materials (i.e. particles)
 void OpenGLEngine::drawParticipatingMediaObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	if(!current_scene->participating_media_objects.empty())
+	if(!current_scene->participating_media_objects.empty() && current_scene->use_main_render_framebuffer)
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
 		assertCurrentProgramIsZero();
 
+		main_render_framebuffer->bindForDrawing();
 		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 
 		glEnable(GL_BLEND);
@@ -7158,8 +7172,6 @@ void OpenGLEngine::drawParticipatingMediaObjects(const Matrix4f& view_matrix, co
 #if !defined(EMSCRIPTEN)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
-
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
 	}
 }
 
@@ -7170,11 +7182,10 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 #if EMSCRIPTEN // Crashing chrome currently.
 	if(0)
 #else
-	if(!current_scene->decal_objects.empty()) // Only do buffer copying if we have some decals to draw.
+	if(!current_scene->decal_objects.empty() && current_scene->use_main_render_framebuffer) // Only do buffer copying if we have some decals to draw.
 #endif
 	{
 		assertCurrentProgramIsZero();
-		assert(current_scene->use_main_render_framebuffer);
 
 		main_render_framebuffer->bindForReading();
 
@@ -7211,8 +7222,8 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
 
 		// Restore main render buffer binding
-		
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name); 
+		main_render_framebuffer->bindForDrawing();
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for decal shader (don't write to normal buffer).
 
 		glEnable(GL_BLEND);
@@ -7361,10 +7372,8 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 
 void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	if(current_scene->draw_water)
+	if(current_scene->draw_water && current_scene->use_main_render_framebuffer)
 	{
-		assert(current_scene->use_main_render_framebuffer);
-
 		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
 		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
 		//
@@ -7408,9 +7417,10 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
 
-		// Restore main render buffer binding
-		
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_render_framebuffer->buffer_name);
+		// Restore main render buffer binding for drawing
+		main_render_framebuffer->bindForDrawing();
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
 		
 		//glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
 		
@@ -7544,12 +7554,20 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	assertCurrentProgramIsZero();
 
+	if(current_scene->use_main_render_framebuffer)
+	{
+		main_render_framebuffer->bindForDrawing();
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == main_normal_renderbuffer->buffer_name); // Check main normal renderbuffer is attached at GL_COLOR_ATTACHMENT1.
+		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffers.
+	}
+	else
+	{
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+	}
 
-	assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-	assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == main_normal_renderbuffer->buffer_name); // Check main normal renderbuffer is attached at GL_COLOR_ATTACHMENT1.
-
-	// Draw to colour and normal buffers.
-	setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+	
 
 	//Timer timer;
 	batch_draw_info.reserve(current_scene->objects.size());
@@ -7712,6 +7730,8 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	if(!current_scene->use_main_render_framebuffer)
 		return;
 
+	main_render_framebuffer->bindForDrawing();
+	assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
 	main_render_framebuffer->attachRenderBuffer(*transparent_accum_renderbuffer, GL_COLOR_ATTACHMENT1); // Replaces normal buffer as GL_COLOR_ATTACHMENT1
 	main_render_framebuffer->attachRenderBuffer(*av_transmittance_renderbuffer, GL_COLOR_ATTACHMENT2);
 
@@ -7853,10 +7873,8 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 
 
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Restore to no framebuffers bound for reading.
-	main_render_framebuffer->bindForDrawing(); // Restore
-	//setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Restore to just writing to col buf 0.
-	main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1); // Restore normal buffer binding
 
+	main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1); // Restore normal buffer binding
 	main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1); // Restore normal texture binding
 }
 
@@ -7870,10 +7888,12 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 
 	assertCurrentProgramIsZero();
 
-	if(!current_scene->always_visible_objects.empty())
+	if(!current_scene->always_visible_objects.empty() && current_scene->use_main_render_framebuffer)
 	{
 		ZoneScopedN("Draw always visible"); // Tracy profiler
 
+		main_render_framebuffer->bindForDrawing();
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just write to colour buffer
 
 
@@ -7939,24 +7959,27 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 }
 
 
+// To Draw outlines around selected object(s):
+// * Draw object with flat uniform shading to a render frame buffer.
+// * Make render buffer a texture
+// * Draw a quad over the main viewport, using a shader that does a Sobel filter, to detect the edges.  write to another frame buffer.
+// * Draw another quad using the edge texture, blending a green colour into the final frame buffer on the edge.
 void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer) // Only do when use_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
 	{
 		assertCurrentProgramIsZero();
-
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
-		
-
+	
 		// Make outline textures if they have not been created, or are the wrong size.
 		if(outline_tex_w != myMax<size_t>(16, viewport_w) || outline_tex_h != myMax<size_t>(16, viewport_h))
 		{
 			buildOutlineTextures();
 		}
 
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+
 		// -------------------------- Stage 1: draw flat selected objects. --------------------
-		outline_solid_framebuffer->attachTexture(*outline_solid_tex, GL_COLOR_ATTACHMENT0);
+		outline_solid_framebuffer->bindForDrawing();
 		glViewport(0, 0, (GLsizei)outline_tex_w, (GLsizei)outline_tex_h); // Make viewport same size as texture.
 		glClearColor(0.f, 0.f, 0.f, 1.f);
 		glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
@@ -7980,12 +8003,9 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 			}
 		}
 
-		outline_solid_framebuffer->unbind();
-	
 		// ------------------- Stage 2: Extract edges with Sobel filter---------------------
 		// Shader reads from outline_solid_tex, writes to outline_edge_tex.
-	
-		outline_edge_framebuffer->attachTexture(*outline_edge_tex, GL_COLOR_ATTACHMENT0);
+		outline_edge_framebuffer->bindForDrawing();
 		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 
 		checkUseProgram(edge_extract_prog.ptr());
@@ -8011,11 +8031,6 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 
-		if(current_scene->use_main_render_framebuffer)
-			main_render_framebuffer->bindForDrawing(); // Restore main render framebuffer binding.
-		else
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-
 		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
 	}
 }
@@ -8028,6 +8043,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 	{
 		assertCurrentProgramIsZero();
 
+		main_render_framebuffer->bindForDrawing();
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
 		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 
 		glEnable(GL_BLEND);
@@ -8075,7 +8092,17 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 {
 	assertCurrentProgramIsZero();
 
+	if(current_scene->use_main_render_framebuffer)
+	{
+		main_render_framebuffer->bindForDrawing();
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
+	}
+	else
+	{
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+	}
 	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
