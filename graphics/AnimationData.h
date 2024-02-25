@@ -79,6 +79,8 @@ struct AnimationDatum : public RefCounted
 
 	void checkData(const std::vector<KeyFrameTimeInfo>& keyframe_times, const std::vector<js::Vector<Vec4f, 16> >& output_data) const;
 
+	size_t getTotalMemUsage() const;
+
 	std::string name;
 
 	std::vector<PerAnimationNodeData> per_anim_node_data;
@@ -122,6 +124,8 @@ struct AnimationData
 	void loadAndRetargetAnim(InStream& stream);
 
 	Vec4f getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment);
+
+	size_t getTotalMemUsage() const;
 	
 	std::vector<AnimationNodeData> nodes;
 	std::vector<int> sorted_nodes; // Indices of nodes, sorted such that children always come after parents.

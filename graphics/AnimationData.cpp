@@ -174,6 +174,16 @@ void AnimationDatum::checkData(const std::vector<KeyFrameTimeInfo>& keyframe_tim
 }
 
 
+size_t AnimationDatum::getTotalMemUsage() const
+{
+	return 
+		name.capacity() + 
+		per_anim_node_data.capacity() * sizeof(PerAnimationNodeData) + 
+		used_input_accessor_indices.capacity() * sizeof(int) + 
+		sizeof(anim_len);
+}
+
+
 static const uint32 ANIMATION_DATA_VERSION = 3;
 // Version 3: added serialisation of vrm_data if present
 
@@ -1216,4 +1226,23 @@ Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use
 	}
 
 	return Vec4f(0,0,0,1);
+}
+
+
+size_t AnimationData::getTotalMemUsage() const
+{
+	size_t sum =
+		nodes.capacity() * sizeof(AnimationNodeData) + 
+		sorted_nodes.capacity() * sizeof(int) +
+		joint_nodes.capacity() * sizeof(int) +
+		keyframe_times.capacity() * sizeof(KeyFrameTimeInfo);
+
+	for(size_t i=0; i<output_data.size(); ++i)
+		sum += output_data[i].capacitySizeBytes();
+
+	for(size_t i=0; i<animations.size(); ++i)
+		sum += animations[i]->getTotalMemUsage();
+
+	// Skip vrm_data
+	return sum;
 }

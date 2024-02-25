@@ -90,6 +90,8 @@ public:
 	inline void incRefCount() const { refcount.increment(); }
 	inline glare::atomic_int getRefCount() const { return refcount; }
 	mutable glare::AtomicInt refcount;
+
+	bool processed_in_mem_count;
 };
 
 typedef Reference<OpenGLMeshRenderData> OpenGLMeshRenderDataRef;

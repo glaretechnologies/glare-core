@@ -34,7 +34,7 @@ class TextureData : public ThreadSafeRefCounted
 public:
 	TextureData() : frame_durations_equal(false), num_mip_levels(1), data_is_compressed(false) {}
 
-	inline size_t compressedSizeBytes() const;
+	inline size_t totalCPUMemUsage() const;
 
 	size_t W, H, bytes_pp;
 
@@ -65,10 +65,14 @@ public:
 };
 
 
-size_t TextureData::compressedSizeBytes() const
+size_t TextureData::totalCPUMemUsage() const
 {
 	size_t sum = 0;
+
 	for(size_t i=0; i<frames.size(); ++i)
 		sum += frames[i].mipmap_data.dataSizeBytes();
+
+	sum += frame_end_times.capacity() * sizeof(double);
+
 	return sum;
 }

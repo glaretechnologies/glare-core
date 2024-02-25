@@ -38,6 +38,9 @@ public:
 	inline void* alloc(size_t size, size_t alignment);
 	inline void free(void* ptr);
 
+	inline size_t size() const { return data.size(); }
+	inline size_t highWaterMark() const { return high_water_mark; }
+
 	static void test();
 private:
 	js::Vector<uint8, 16> data;

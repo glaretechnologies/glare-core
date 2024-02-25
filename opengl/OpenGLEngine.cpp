@@ -20,7 +20,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/PerlinNoise.h"
 #include "../graphics/EXRDecoder.h"
-#include "../graphics/ImFormatDecoder.h"
+#include "../graphics/imformatdecoder.h"
 #include "../indigo/TextureServer.h"
 #include "../utils/TestUtils.h"
 #include "../maths/vec3.h"
@@ -223,7 +223,8 @@ GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
 		vert_index_buffer.capacitySizeBytes() +
 		vert_index_buffer_uint16.capacitySizeBytes() +
 		vert_index_buffer_uint8.capacitySizeBytes() +
-		(batched_mesh.nonNull() ? batched_mesh->getTotalMemUsage() : 0);
+		(batched_mesh.nonNull() ? batched_mesh->getTotalMemUsage() : 0) + 
+		animation_data.getTotalMemUsage();
 
 	usage.geom_gpu_usage =
 		(this->vbo_handle.valid() ? this->vbo_handle.size : 0) +
@@ -2833,9 +2834,23 @@ void OpenGLScene::unloadAllData()
 GLMemUsage OpenGLScene::getTotalMemUsage() const
 {
 	GLMemUsage sum;
+	
+	// Multiple objects can share the same mesh data.
+	// To avoid double-counting the mesh data, set processed_in_mem_count flag on it when it has been counted.
+	// We could also use a local set while counting, setting a flag should be faster though.
+
+	// Clear flag
+	for(auto i = objects.begin(); i != objects.end(); ++i)
+		(*i)->mesh_data->processed_in_mem_count = false;
+
 	for(auto i = objects.begin(); i != objects.end(); ++i)
 	{
-		sum += (*i)->mesh_data->getTotalMemUsage();
+		OpenGLMeshRenderData* mesh_data = (*i)->mesh_data.ptr();
+		if(!mesh_data->processed_in_mem_count)
+		{
+			sum += mesh_data->getTotalMemUsage();
+			mesh_data->processed_in_mem_count = true;
+		}
 	}
 	return sum;
 }
@@ -3805,7 +3820,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 
 	if(num_removed == 0)
 	{
-		conPrint("OpenGLEngine::removeObject(): Warning: no such object in scene, did not remove anything");
+		//conPrint("OpenGLEngine::removeObject(): Warning: no such object in scene, did not remove anything");
 		//assert(0);
 	}
 }
@@ -9628,7 +9643,11 @@ glare::TaskManager& OpenGLEngine::getTaskManager()
 	Lock lock(task_manager_mutex);
 	if(!task_manager)
 	{
+#if EMSCRIPTEN
+		task_manager = new glare::TaskManager("OpenGLEngine task manager", /*num threads=*/2);
+#else
 		task_manager = new glare::TaskManager("OpenGLEngine task manager");
+#endif
 		task_manager->setThreadPriorities(MyThread::Priority_Lowest);
 		// conPrint("OpenGLEngine::getTaskManager(): created task manager.");
 	}
@@ -9897,27 +9916,39 @@ GLMemUsage OpenGLEngine::getTotalMemUsage() const
 	for(auto i = opengl_textures.begin(); i != opengl_textures.end(); ++i)
 	{
 		const OpenGLTexture* tex = i->second.value.ptr();
-		const size_t tex_gpu_usage = tex->getByteSize();
-		sum.texture_gpu_usage += tex_gpu_usage;
+		
+		sum.texture_gpu_usage += tex->getByteSize();
 
 		if(tex->texture_data.nonNull())
-			sum.texture_cpu_usage += tex->texture_data->compressedSizeBytes();
+			sum.texture_cpu_usage += tex->texture_data->totalCPUMemUsage();
 	}
 
 	// Get sum memory usage of unused (cached) textures.
-	// NOTE: this could be a bit slow with the map lookups.
 	sum.sum_unused_tex_gpu_usage = 0;
-	for(auto i = opengl_textures.unused_items.begin(); i != opengl_textures.unused_items.end(); ++i)
+	sum.sum_unused_tex_cpu_usage = 0;
+	for(auto i = opengl_textures.begin(); i != opengl_textures.end(); ++i) // For all items (used and unused):
 	{
-		const auto res = opengl_textures.find(*i);
-		if(res != opengl_textures.end())
+		if(!opengl_textures.isItemUsed(i->second)) // If item is not used:
 		{
-			const size_t tex_gpu_usage = res->second.value->getByteSize();
+			const OpenGLTexture* tex = i->second.value.ptr();
+
+			const size_t tex_gpu_usage = tex->getByteSize();
 			sum.sum_unused_tex_gpu_usage += tex_gpu_usage;
+
+			if(tex->texture_data.nonNull())
+				sum.sum_unused_tex_cpu_usage += tex->texture_data->totalCPUMemUsage();
 		}
 	}
 
 	return sum;
+}
+
+
+static std::string getMBSizeString(size_t x)
+{
+	const float mbsize = (float)x / 1048576.0f;
+
+	return floatToStringNDecimalPlaces(mbsize, 2) + " MB";
 }
 
 
@@ -9958,14 +9989,14 @@ std::string OpenGLEngine::getDiagnostics() const
 	const GLMemUsage mem_usage = this->getTotalMemUsage();
 	s += "geometry CPU mem usage: " + getNiceByteSize(mem_usage.geom_cpu_usage) + "\n";
 	s += "geometry GPU mem usage: " + getNiceByteSize(mem_usage.geom_gpu_usage) + "\n";
-	s += "texture CPU mem usage: " + getNiceByteSize(mem_usage.texture_cpu_usage) + "\n";
-	s += "texture GPU mem usage total: " + getNiceByteSize(tex_mem_usage) + "\n";
-	//s += "texture GPU mem usage (sum)    : " + getNiceByteSize(mem_usage.texture_gpu_usage) + "\n";
-	const size_t tex_usage_used = mem_usage.texture_gpu_usage - mem_usage.sum_unused_tex_gpu_usage;
-	s += "textures GPU active: " + toString(opengl_textures.numUsedItems()) + " (" + getNiceByteSize(tex_usage_used) + ")\n";
-	s += "textures GPU cached: " + toString(opengl_textures.numUnusedItems()) + " (" + getNiceByteSize(mem_usage.sum_unused_tex_gpu_usage) + ")\n";
-	//s += "textures: " + toString(opengl_textures.numUsedItems()) + " used (getNiceByteSize" + , " + toString(opengl_textures.numUnusedItems()) + " unused\n";
-	s += "num textures: " + toString(opengl_textures.size()) + "\n";
+
+	const size_t tex_usage_GPU_active = mem_usage.texture_gpu_usage - mem_usage.sum_unused_tex_gpu_usage;
+	const size_t tex_usage_CPU_active = mem_usage.texture_cpu_usage - mem_usage.sum_unused_tex_cpu_usage;
+
+	s += "Textures: " + toString(opengl_textures.numUsedItems()) + " / " + toString(opengl_textures.numUnusedItems()) + " / " + toString(opengl_textures.size()) + " (active / cached / total)\n";
+	s += "Textures CPU mem: " + getMBSizeString(tex_usage_CPU_active) + " / " + getMBSizeString(mem_usage.sum_unused_tex_cpu_usage) + " / " + getMBSizeString(mem_usage.texture_cpu_usage) + " (active / cached / total)\n";
+	s += "Textures GPU mem: " + getMBSizeString(tex_usage_GPU_active) + " / " + getMBSizeString(mem_usage.sum_unused_tex_gpu_usage) + " / " + getMBSizeString(mem_usage.texture_gpu_usage) + " (active / cached / total)\n";
+	
 	s += "num bindless resident: " + toString(OpenGLTexture::getNumResidentTextures()) + "\n";
 	
 	if(per_ob_vert_data_buffer.nonNull())
