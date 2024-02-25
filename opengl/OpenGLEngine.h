@@ -941,6 +941,8 @@ public:
 	//------------------------------- Terrain --------------------
 	void setDetailTexture(int index, const OpenGLTextureRef& tex);
 	void setDetailHeightmap(int index, const OpenGLTextureRef& tex);
+	OpenGLTextureRef getDetailTexture(int index) const;
+	OpenGLTextureRef getDetailHeightmap(int index) const;
 	//----------------------------------------------------------------------------------------
 
 

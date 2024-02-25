@@ -1387,6 +1387,24 @@ void OpenGLEngine::setDetailHeightmap(int index, const OpenGLTextureRef& tex)
 }
 
 
+OpenGLTextureRef OpenGLEngine::getDetailTexture(int index) const
+{
+	if(index >= 0 && index < 4)
+		return detail_tex[index];
+	else
+		return NULL;
+}
+
+
+OpenGLTextureRef OpenGLEngine::getDetailHeightmap(int index) const
+{
+	if(index >= 0 && index < 4)
+		return detail_heightmap[index];
+	else
+		return NULL;
+}
+
+
 void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 {
 	prog->uniform_locations.diffuse_tex_location			= prog->getUniformLocation("diffuse_tex");

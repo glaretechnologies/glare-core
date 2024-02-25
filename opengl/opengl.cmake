@@ -23,6 +23,7 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderBuffer.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderBuffer.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GLMeshBuilding.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GLMeshBuilding.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GLMemUsage.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/MeshPrimitiveBuilding.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/MeshPrimitiveBuilding.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/VAO.cpp 
