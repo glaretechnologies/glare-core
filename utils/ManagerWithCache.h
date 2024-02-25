@@ -59,11 +59,14 @@ public:
 	inline size_t numUnusedItems() const { return unused_items.size(); } // std::list::size() is constant time in c++11 +
 	inline size_t numUsedItems() const { assert(items.size() >= unused_items.size()); return items.size() - unused_items.size(); }
 
+	inline bool isItemUsed(const ManagerWithCacheItem<Key, Value>& item) const { return item.unused_items_it == unused_items.end(); }
+
 	inline void clear();
 
 	inline typename std::unordered_map<Key, ManagerWithCacheItem<Key, Value>, Hash>::iterator       find(const Key& key)       { return items.find(key); }
 	inline typename std::unordered_map<Key, ManagerWithCacheItem<Key, Value>, Hash>::const_iterator find(const Key& key) const { return items.find(key); }
 
+	// Iterates over all items, both used and unused.
 	inline typename std::unordered_map<Key, ManagerWithCacheItem<Key, Value>, Hash>::iterator       begin()       { return items.begin(); }
 	inline typename std::unordered_map<Key, ManagerWithCacheItem<Key, Value>, Hash>::const_iterator begin() const { return items.begin(); }
 

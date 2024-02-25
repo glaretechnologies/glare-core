@@ -152,6 +152,26 @@ void testManagerWithCache()
 		testAssert(manager.numUnusedItems() == 1);
 	}
 
+	// Test isItemUsed
+	{
+		ManagerWithCache<std::string, int> manager;
+		manager.insert("a", 1);
+		manager.insert("b", 2);
+
+		testAssert(manager.isItemUsed(manager.find("a")->second));
+		testAssert(manager.isItemUsed(manager.find("b")->second));
+
+		manager.itemBecameUnused("a");
+		manager.itemBecameUnused("b");
+
+		testAssert(!manager.isItemUsed(manager.find("a")->second));
+		testAssert(!manager.isItemUsed(manager.find("b")->second));
+
+		manager.itemBecameUsed("b");
+		testAssert(!manager.isItemUsed(manager.find("a")->second));
+		testAssert( manager.isItemUsed(manager.find("b")->second));
+	}
+
 	// Test duplicate insert (second insert has no effect, like std::map)
 	{
 		ManagerWithCache<std::string, int> manager;
