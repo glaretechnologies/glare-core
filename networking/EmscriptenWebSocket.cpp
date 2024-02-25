@@ -65,9 +65,9 @@ static EM_BOOL onMessageCallback(int event_type, const EmscriptenWebSocketMessag
 
 void EmscriptenWebSocket::connect(const std::string& hostname, int port)
 {
-	conPrint("EmscriptenWebSocket::connect()...");
-
 	const std::string URL = "ws://" + hostname + ":" + toString(80/*port*/);
+
+	conPrint("EmscriptenWebSocket::connect(), URL: " + URL);
 
 	EmscriptenWebSocketCreateAttributes attr;
 	emscripten_websocket_init_create_attributes(&attr);
