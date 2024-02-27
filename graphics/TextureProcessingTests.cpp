@@ -237,7 +237,7 @@ void TextureProcessingTests::test()
 	testDownSamplingGreyTexture(2, 2, 4);
 
 	
-
+#if !defined(EMSCRIPTEN)
 	// Test loading animated gifs
 	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/fire.gif", allocator.ptr(), task_manager);
 	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif", allocator.ptr(), task_manager);
@@ -291,6 +291,7 @@ void TextureProcessingTests::test()
 				break;
 		}
 	}
+#endif // end if !defined(EMSCRIPTEN)
 
 	conPrint("TextureLoading::test() done.");
 }
