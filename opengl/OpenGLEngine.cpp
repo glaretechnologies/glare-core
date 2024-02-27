@@ -42,6 +42,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/RuntimeCheck.h"
 #include "../utils/BestFitAllocator.h"
 #include "../utils/BitUtils.h"
+#include "../utils/PlatformUtils.h"
 #include <algorithm>
 #include "superluminal/PerformanceAPI.h"
 #include <tracy/Tracy.hpp>
@@ -9662,7 +9663,7 @@ glare::TaskManager& OpenGLEngine::getTaskManager()
 	if(!task_manager)
 	{
 #if EMSCRIPTEN
-		task_manager = new glare::TaskManager("OpenGLEngine task manager", /*num threads=*/2);
+		task_manager = new glare::TaskManager("OpenGLEngine task manager", /*num threads=*/myMin<uint32>(16, PlatformUtils::getNumLogicalProcessors()));
 #else
 		task_manager = new glare::TaskManager("OpenGLEngine task manager");
 #endif
