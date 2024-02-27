@@ -9962,14 +9962,6 @@ GLMemUsage OpenGLEngine::getTotalMemUsage() const
 }
 
 
-static std::string getMBSizeString(size_t x)
-{
-	const float mbsize = (float)x / 1048576.0f;
-
-	return floatToStringNDecimalPlaces(mbsize, 2) + " MB";
-}
-
-
 std::string OpenGLEngine::getDiagnostics() const
 {
 	std::string s;
