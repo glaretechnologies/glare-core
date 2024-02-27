@@ -1011,7 +1011,7 @@ const std::string forceCopyString(const std::string& s)
 }
 
 
-const std::string getNiceByteSize(uint64 x)
+std::string getNiceByteSize(uint64 x)
 {
 	assert(x >= 0);
 	if(x < 1024)
@@ -1034,6 +1034,15 @@ const std::string getNiceByteSize(uint64 x)
 
 		return floatToStringNDecimalPlaces(gbsize, 3) + " GB";
 	}
+}
+
+
+// Note this is technically the size in Mebibytes, not Megabytes.
+std::string getMBSizeString(size_t x)
+{
+	const float mbsize = (float)x / 1048576.0f;
+
+	return floatToStringNDecimalPlaces(mbsize, 2) + " MB";
 }
 
 
