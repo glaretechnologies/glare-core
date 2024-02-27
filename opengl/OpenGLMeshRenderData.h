@@ -63,7 +63,9 @@ public:
 
 	IndexBufAllocationHandle indices_vbo_handle;
 
-	VAORef individual_vao; // Just for Mac
+#if DO_INDIVIDUAL_VAO_ALLOC
+	VAORef individual_vao; // Used when DO_INDIVIDUAL_VAO_ALLOC is defined, e.g. on Mac and Emscripten/WebGL.
+#endif
 
 	std::vector<OpenGLBatch> batches;
 	bool has_uvs;
