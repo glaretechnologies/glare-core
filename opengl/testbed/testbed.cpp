@@ -64,6 +64,7 @@ Vec4f cam_pos(0,-5,2,1);
 Timer* timer;
 Timer* time_since_last_frame;
 Timer* stats_timer;
+Timer* diagnostics_timer;
 int num_frames = 0;
 std::string last_diagnostics;
 bool reset = false;
@@ -90,7 +91,9 @@ int main(int, char**)
 		timer = new Timer();
 		time_since_last_frame = new Timer();
 		stats_timer = new Timer();
-	
+		diagnostics_timer = new Timer();
+
+
 		//=========================== Init SDL and OpenGL ================================
 		if(SDL_Init(SDL_INIT_VIDEO) != 0)
 			throw glare::Exception("SDL_Init Error: " + std::string(SDL_GetError()));
@@ -151,12 +154,11 @@ int main(int, char**)
 		settings.render_water_caustics = false;
 		settings.allow_multi_draw_indirect = false; // TEMP
 		settings.allow_bindless_textures = false; // TEMP
+		settings.enable_debug_output = true;
 #if defined(EMSCRIPTEN)
 		settings.use_general_arena_mem_allocator = false;
 #endif
 		opengl_engine = new OpenGLEngine(settings);
-
-		TextureServer* texture_server = new TextureServer(/*use_canonical_path_keys=*/false);
 
 		const std::string base_src_dir(BASE_SOURCE_DIR);
 
@@ -166,7 +168,7 @@ int main(int, char**)
 		const std::string data_dir = PlatformUtils::getEnvironmentVariable("GLARE_CORE_TRUNK_DIR") + "/opengl";
 #endif
 		
-		opengl_engine->initialise(data_dir, texture_server, &print_output);
+		opengl_engine->initialise(data_dir, NULL, &print_output);
 		if(!opengl_engine->initSucceeded())
 			throw glare::Exception("OpenGL init failed: " + opengl_engine->getInitialisationErrorMsg());
 		opengl_engine->setViewportDims(primary_W, primary_H);
@@ -237,6 +239,7 @@ int main(int, char**)
 		
 		PCG32 rng(1);
 
+		if(false)
 		{
 			GLObjectRef ob = new GLObject();
 			main_test_ob = ob;
@@ -267,9 +270,118 @@ int main(int, char**)
 			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
 		}
 
+		// Add imposter
+		{
+			GLObjectRef ob = new GLObject();
+			main_test_ob = ob;
+			ob->mesh_data = test_mesh_data;
+			ob->ob_to_world_matrix = Matrix4f::translationMatrix(1, 0, 3) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>()) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
+				Matrix4f::uniformScaleMatrix(1);
+			ob->materials.resize(1);
 
-		std::vector<GLObjectRef> obs;
+			ob->materials[0].albedo_texture = opengl_engine->getTexture(model_dir + "/Default_albedo.jpg");
+			ob->materials[0].imposter = true;
+			ob->materials[0].begin_fade_out_distance = 1000;
+			ob->materials[0].end_fade_out_distance = 2000;
+			
+			
+			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
+		}
+
+		// Add water object
+		{
+			GLObjectRef ob = new GLObject();
+			ob->mesh_data = test_mesh_data;
+			ob->ob_to_world_matrix = Matrix4f::translationMatrix(30, 0, 3) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>()) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
+				Matrix4f::uniformScaleMatrix(10);
+			ob->materials.resize(1);
+
+			ob->materials[0].albedo_texture = opengl_engine->getTexture(model_dir + "/Default_albedo.jpg");
+			//ob->materials[0].imposter = true;
+			ob->materials[0].begin_fade_out_distance = 1000;
+			ob->materials[0].end_fade_out_distance = 2000;
+
+			ob->materials[0].water = true;
+			
+			
+			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
+		}
+
+		// Add overlay object
+		{
+			OverlayObjectRef overlay_ob = new OverlayObject();
+			overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
+			//overlay_ob->material.albedo_linear_rgb = button_colour;
+			TextureParams tex_params;
+			tex_params.allow_compression = false;
+			overlay_ob->material.albedo_texture = opengl_engine->getTexture(model_dir + "/Default_albedo.jpg", tex_params);
+			overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
+
+
+			const float y_scale = 1.f;// opengl_engine->getViewPortAspectRatio();
+
+			Vec2f botleft(0.65f, 0.65f);
+			Vec2f dims(0.3f);
+			const float z = -0.999f;
+			overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+
+			opengl_engine->addOverlayObject(overlay_ob);
+		}
+
+		// Add terrain object
+		{
+			GLObjectRef ob = new GLObject();
+			ob->mesh_data = opengl_engine->getCubeMeshData();
+			ob->ob_to_world_matrix = Matrix4f::translationMatrix(-30, 0, 3) * Matrix4f::uniformScaleMatrix(10);
+			ob->materials.resize(1);
+
+			ob->materials[0].terrain = true;
+			
+			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
+		}
+
+		// Add transparent object
+		{
+			GLObjectRef ob = new GLObject();
+			ob->mesh_data = opengl_engine->getCubeMeshData();
+			ob->ob_to_world_matrix = Matrix4f::translationMatrix(-30, 0, 15) * Matrix4f::uniformScaleMatrix(10);
+			ob->materials.resize(1);
+
+			ob->materials[0].transparent = true;
+			ob->materials[0].alpha = 0.5;
+			
+			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
+		}
+
+		// Add decal object
+		{
+			GLObjectRef ob = new GLObject();
+			ob->mesh_data = opengl_engine->getCubeMeshData();
+			ob->ob_to_world_matrix = Matrix4f::translationMatrix(-40, 0, 0.5) * Matrix4f::uniformScaleMatrix(5);
+			ob->materials.resize(1);
+
+			ob->materials[0].decal = true;
+			ob->materials[0].albedo_texture = opengl_engine->getTexture(model_dir + "/Default_albedo.jpg");
+			
+			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
+		}
+
+		// Add participating media object
+		{
+			GLObjectRef ob = new GLObject();
+			ob->mesh_data = opengl_engine->getSpriteQuadMeshData();
+			ob->ob_to_world_matrix = Matrix4f::translationMatrix(-50, 0, 5) * Matrix4f::uniformScaleMatrix(5);
+			ob->materials.resize(1);
+
+			ob->materials[0].participating_media = true;
+			ob->materials[0].albedo_texture = opengl_engine->getTexture(model_dir + "/Default_albedo.jpg");
+
+			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
+		}
+
+
 #if 0
+		std::vector<GLObjectRef> obs;
 		const float cube_w = 0.2f;
 		for(int i=0; i<10000; ++i) // 1000 hangs
 		{
@@ -374,9 +486,10 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 
 
 			// Rotate ob
+			if(main_test_ob.nonNull())
 			{
 				main_test_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 1) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>() + (float)timer->elapsed() * 0.4f) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
-					Matrix4f::uniformScaleMatrix(1);
+					Matrix4f::uniformScaleMatrix(10);
 				opengl_engine->updateObjectTransformData(*main_test_ob);
 			}
 
@@ -398,7 +511,7 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 			{
 				opengl_engine->setViewportDims(gl_w, gl_h);
 				opengl_engine->setMainViewportDims(gl_w, gl_h);
-				opengl_engine->setMaxDrawDistance(1000000.f);
+				opengl_engine->setMaxDrawDistance(10000.f);
 				opengl_engine->setPerspectiveCameraTransform(world_to_camera_space_matrix, sensor_width, lens_sensor_dist, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);
 				opengl_engine->setCurrentTime((float)timer->elapsed());
 				opengl_engine->draw();
@@ -407,48 +520,55 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 
 			ImGuiIO& imgui_io = ImGui::GetIO();
 		
-			// Draw ImGUI GUI controls
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplSDL2_NewFrame(win);
-			ImGui::NewFrame();
-		
-			//ImGui::ShowDemoWindow();
-		
-			ImGui::SetNextWindowSize(ImVec2(600, 900));
-			ImGui::Begin("Testbed");
-		
-			//ImGui::TextColored(ImVec4(1,1,0,1), "Simulation parameters");
-		
-			bool sundir_changed = false;
-			sundir_changed = sundir_changed || ImGui::SliderFloat("sun_theta", &sun_theta, 0.01f, Maths::pi<float>(), "%1.2f", 1.f);
-			sundir_changed = sundir_changed || ImGui::SliderFloat("sun_phi", &sun_phi, 0, Maths::get2Pi<float>(), "%1.2f", 1.f);
-		
-			if(sundir_changed)
+#if 1
 			{
-				opengl_engine->setSunDir(normalise(Vec4f(std::cos(sun_phi) * sin(sun_theta), std::sin(sun_phi) * sin(sun_theta), cos(sun_theta), 0)));
-				opengl_engine->setEnvMapTransform(Matrix3f::rotationMatrix(Vec3f(0,0,1), sun_phi));
-			}
+				// Draw ImGUI GUI controls
+				ImGui_ImplOpenGL3_NewFrame();
+				ImGui_ImplSDL2_NewFrame(win);
+				ImGui::NewFrame();
 		
-			ImGui::Checkbox("use_scatter_shader", &opengl_engine->use_scatter_shader);
+				//ImGui::ShowDemoWindow();
+		
+				ImGui::SetNextWindowSize(ImVec2(600, 900));
+				ImGui::Begin("Testbed");
+		
+				bool sundir_changed = false;
+				sundir_changed = sundir_changed || ImGui::SliderFloat("sun_theta", &sun_theta, 0.01f, Maths::pi<float>(), "%1.2f", 1.f);
+				sundir_changed = sundir_changed || ImGui::SliderFloat("sun_phi", &sun_phi, 0, Maths::get2Pi<float>(), "%1.2f", 1.f);
+				if(sundir_changed)
+				{
+					opengl_engine->setSunDir(normalise(Vec4f(std::cos(sun_phi) * sin(sun_theta), std::sin(sun_phi) * sin(sun_theta), cos(sun_theta), 0)));
+					opengl_engine->setEnvMapTransform(Matrix3f::rotationMatrix(Vec3f(0,0,1), sun_phi));
+				}
+		
+				ImGui::Checkbox("use_scatter_shader", &opengl_engine->use_scatter_shader);
 
-			if(ImGui::Checkbox("wireframe", &wireframes))
-				opengl_engine->setDrawWireFrames(wireframes);
+				if(ImGui::Checkbox("wireframe", &wireframes))
+					opengl_engine->setDrawWireFrames(wireframes);
 		
 		
-			ImGui::TextColored(ImVec4(1,1,0,1), "Stats");
-			ImGui::Text(("FPS: " + doubleToStringNDecimalPlaces(fps, 1)).c_str());
+				ImGui::TextColored(ImVec4(1,1,0,1), "Stats");
+				ImGui::TextUnformatted(("FPS: " + doubleToStringNDecimalPlaces(fps, 1)).c_str());
 		
-			if(ImGui::CollapsingHeader("Diagnostics"))
-			{
-				ImGui::Text(last_diagnostics.c_str());
+				if(ImGui::CollapsingHeader("Diagnostics"))
+				{
+					if(diagnostics_timer->elapsed() > 1.0)
+					{
+						last_diagnostics = opengl_engine->getDiagnostics();
+						diagnostics_timer->reset();
+					}
+
+					ImGui::TextUnformatted(last_diagnostics.c_str());
+				}
+			
+		
+				ImGui::End(); 
+		
+			
+				ImGui::Render();
+				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 			}
-			
-		
-			ImGui::End(); 
-		
-			
-			ImGui::Render();
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+#endif
 
 			// Display
 			SDL_GL_SwapWindow(win);
