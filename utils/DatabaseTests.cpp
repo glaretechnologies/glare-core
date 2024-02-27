@@ -38,7 +38,7 @@ static void doRandomTests(uint64 seed)
 	const int N = 5000;
 	for(int i=0; i<N; ++i)
 	{
-		if(i % 1000)
+		if((i % 100) == 0)
 			conPrint("Iter " + toString(i) + "/" + toString(N));
 
 		float ur = rng.unitRandom();
@@ -85,7 +85,7 @@ static void doRandomTests(uint64 seed)
 		}
 		else// if(ur < 0.7)
 		{
-			conPrint("reopening DB, cur size: " + toString(ref_map.size()));
+			// conPrint("reopening DB, cur size: " + toString(ref_map.size()));
 
 			// close and re-open DB
 			delete db;
