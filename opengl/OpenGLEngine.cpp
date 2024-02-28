@@ -397,7 +397,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	draw_wireframes(false),
 	shadow_mapping_frame_num(0),
 	current_time(0.f),
-	task_manager(NULL),
 	texture_server(NULL),
 	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
 	outline_width_px(3.0f),
@@ -517,8 +516,6 @@ OpenGLEngine::~OpenGLEngine()
 	unit_quad_meshdata = NULL;
 	cylinder_meshdata = NULL;
 	sprite_quad_meshdata = NULL;
-
-	delete task_manager;
 
 	// Update the message callback userParam to be NULL, since 'this' is being destroyed.
 #if !defined(OSX) && !defined(EMSCRIPTEN)
@@ -1594,11 +1591,13 @@ struct DataUpdateStruct
 };
 
 
-void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureServer> texture_server_, PrintOutput* print_output_)
+void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureServer> texture_server_, PrintOutput* print_output_, glare::TaskManager* main_task_manager_, glare::TaskManager* high_priority_task_manager_)
 {
 	data_dir = data_dir_;
 	texture_server = texture_server_;
 	print_output = print_output_;
+	main_task_manager = main_task_manager_;
+	high_priority_task_manager = high_priority_task_manager_;
 
 #if !defined(OSX) && !defined(EMSCRIPTEN)
 	if(gl3wInit() != 0)
@@ -1795,7 +1794,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			const size_t W = 1024;
 			fbm_imagemap = new ImageMapFloat(W, W, 1);
 
-			glare::TaskManager& manager = getTaskManager();
+			glare::TaskManager& manager = *this->main_task_manager;
 			const size_t num_tasks = myMax<size_t>(1, manager.getNumThreads());
 			const size_t num_rows_per_task = Maths::roundedUpDivide(W, num_tasks);
 			for(size_t t=0; t<num_tasks; ++t)
@@ -2140,7 +2139,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			glDisable(GL_MULTISAMPLE); // The initial value for GL_MULTISAMPLE is GL_TRUE.
 #endif
 
-#if BUILD_TESTS
+#if BUILD_TESTS && !defined(EMSCRIPTEN)
 		thread_manager.addThread(new ShaderFileWatcherThread(data_dir, this));
 #endif
 
@@ -5853,7 +5852,7 @@ void OpenGLEngine::draw()
 
 		if(!animated_obs_to_process.empty())
 		{
-			const size_t num_animated_ob_tasks = myClamp(animated_obs_to_process.size(), (size_t)1, getTaskManager().getNumThreads()/2);
+			const size_t num_animated_ob_tasks = myClamp(animated_obs_to_process.size(), (size_t)1, high_priority_task_manager->getNumThreads());
 
 			while(animated_objects_tasks.size() < num_animated_ob_tasks)
 				animated_objects_tasks.push_back(new ComputeAnimatedObJointMatricesTask());
@@ -5863,13 +5862,13 @@ void OpenGLEngine::draw()
 			for(size_t t=0; t<num_animated_ob_tasks; ++t)
 			{
 				ComputeAnimatedObJointMatricesTask* task = animated_objects_tasks[t].downcastToPtr<ComputeAnimatedObJointMatricesTask>();
-
+				//task->processed = 0;
 				task->current_time = this->current_time;
 				task->next_ob_i = &next_ob_i;
 				task->animated_obs_to_process = &animated_obs_to_process;
 			}
 
-			getTaskManager().runTasks(ArrayRef<glare::TaskRef>(animated_objects_tasks.data(), num_animated_ob_tasks));
+			high_priority_task_manager->runTasks(ArrayRef<glare::TaskRef>(animated_objects_tasks.data(), num_animated_ob_tasks));
 		}
 
 
@@ -9544,7 +9543,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 
 	// Process texture data
 	const bool use_compression = params.allow_compression && this->textureCompressionSupportedAndEnabled() && params.use_mipmaps && OpenGLTexture::areTextureDimensionsValidForCompression(map2d); // The non mip-mapping code-path doesn't allow compression
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), &this->getTaskManager(), use_compression, params.use_mipmaps);
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), this->main_task_manager, use_compression, params.use_mipmaps);
 
 	OpenGLTextureLoadingProgress loading_progress;
 	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params, texture_data, loading_progress);
@@ -9654,23 +9653,6 @@ void OpenGLEngine::setTargetFrameBufferAndViewport(const Reference<FrameBuffer> 
 { 
 	target_frame_buffer = frame_buffer;
 	setViewportDims((int)frame_buffer->xRes(), (int)frame_buffer->yRes());
-}
-
-
-glare::TaskManager& OpenGLEngine::getTaskManager()
-{
-	Lock lock(task_manager_mutex);
-	if(!task_manager)
-	{
-#if EMSCRIPTEN
-		task_manager = new glare::TaskManager("OpenGLEngine task manager", /*num threads=*/myMin<uint32>(16, PlatformUtils::getNumLogicalProcessors()));
-#else
-		task_manager = new glare::TaskManager("OpenGLEngine task manager");
-#endif
-		task_manager->setThreadPriorities(MyThread::Priority_Lowest);
-		// conPrint("OpenGLEngine::getTaskManager(): created task manager.");
-	}
-	return *task_manager;
 }
 
 

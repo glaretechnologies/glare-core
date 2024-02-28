@@ -180,6 +180,20 @@ void glare::AtomicInt::test()
 
 			testAssert(shared_i == num_threads * 1000000);
 		}
+
+		/*
+		With 32 threads:
+		incrementing using atomics took 0.4556 s (56.95 ns / increment)
+		incrementing using mutex took 2.501 s (312.6 ns / increment)
+
+		With 8 threads:
+		incrementing using atomics took 0.1073 s (13.42 ns / increment)
+		incrementing using mutex took 1.927 s (240.9 ns / increment)
+		
+		With 1 thread:
+		incrementing using atomics took 0.001734 s (0.2168 ns / increment)
+		incrementing using mutex took 0.005396 s (0.6745 ns / increment)
+		*/
 	}
 
 	conPrint("glare::AtomicInt::test() done.");

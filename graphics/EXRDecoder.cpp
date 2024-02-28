@@ -20,6 +20,7 @@ File created by ClassTemplate on Fri Jul 11 02:36:44 2008
 #include "../utils/BufferInStream.h"
 #include "../utils/BufferViewInStream.h"
 #include "../utils/MemMappedFile.h"
+#include "../utils/ConPrint.h"
 #include <ImathBox.h>
 #include <fstream>
 #include <ImfStdIO.h>
@@ -68,11 +69,81 @@ EXRDecoder::~EXRDecoder()
 }
 
 
-void EXRDecoder::setEXRThreadPoolSize()
+class EXRThreadTask : public glare::Task
 {
-	// Make sure there are enough threads in the ILMBase thread-pool object.
-	// This greatly speeds up loading of large, compressed EXRs.
-	IlmThread::ThreadPool::globalThreadPool().setNumThreads(PlatformUtils::getNumLogicalProcessors());
+public:
+	virtual void run(size_t thread_index)
+	{
+		task->execute();
+		task->group()->finishOneTask();
+		delete task;
+	}
+	
+	IlmThread::Task* task;
+};
+
+
+class EXRDecoderThreadPoolProvider : public IlmThread::ThreadPoolProvider
+{
+public:
+	EXRDecoderThreadPoolProvider(glare::TaskManager* task_manager_)
+	:	task_manager(task_manager_)
+	{}
+
+	virtual ~EXRDecoderThreadPoolProvider()
+	{}
+
+	virtual int numThreads() const override
+	{
+		return (int)task_manager->getNumThreads();
+	}
+
+	virtual void setNumThreads(int count) override
+	{
+		// Do nothing
+	}
+
+	virtual void addTask(IlmThread::Task* exr_task) override
+	{
+		EXRThreadTask* task = new EXRThreadTask();
+		task->task = exr_task;
+		task_manager->addTask(task);
+	}
+
+	// Ensure that all tasks in this set are finished and threads shutdown
+	virtual void finish() override
+	{
+		task_manager->waitForTasksToComplete();
+	}
+
+	glare::TaskManager* task_manager;
+};
+
+
+class MyNullThreadPoolProvider : public IlmThread::ThreadPoolProvider
+{
+public:
+	virtual ~MyNullThreadPoolProvider() {}
+
+	virtual int numThreads() const { return 0; }
+	virtual void setNumThreads(int count) {}
+	virtual void addTask(IlmThread::Task *t) {}
+	virtual void finish() {}
+}; 
+
+
+void EXRDecoder::init(glare::TaskManager* task_manager)
+{
+	EXRDecoderThreadPoolProvider* thread_pool_provider = new EXRDecoderThreadPoolProvider(task_manager);
+
+	IlmThread::ThreadPool::globalThreadPool().setThreadProvider(thread_pool_provider); // IlmThread will delete thread_pool_provider when we replace it in EXRDecoder::shutdown() below.
+}
+
+
+void EXRDecoder::shutdown()
+{
+	// Replace the EXRDecoderThreadPoolProvider with a null thread pool provider, so there are no references to the glare TaskManager.
+	IlmThread::ThreadPool::globalThreadPool().setThreadProvider(new MyNullThreadPoolProvider()); // IlmThread deletes the pool provider passed in when global thread pool is destroyed.
 }
 
 
@@ -191,8 +262,6 @@ Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, con
 {
 	try
 	{
-		setEXRThreadPoolSize();
-
 		EXRDecoderInputStream in_stream(ArrayRef<uint8>((const uint8*)data, size), pathname);
 
 		Imf::InputFile file(in_stream);
@@ -422,8 +491,6 @@ void EXRDecoder::saveImageToEXR(const float* pixel_data, size_t width, size_t he
 {
 	if(num_channels == 0)
 		throw glare::Exception("Invalid num channels for EXR saving.");
-
-	setEXRThreadPoolSize();
 
 	// See 'Reading and writing image files.pdf', section 3.1: Writing an Image File
 	try

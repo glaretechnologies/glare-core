@@ -28,6 +28,11 @@ public:
 	EXRDecoder();
 	~EXRDecoder();
 
+	// Uses task_manager as the thread pool for EXR tasks.
+	static void init(glare::TaskManager* task_manager);
+
+	static void shutdown();
+
 
 	// throws ImFormatExcep
 	static Reference<Map2D> decode(const std::string& path);
@@ -77,7 +82,6 @@ public:
 	
 
 	static Imf::Compression EXRCompressionMethod(EXRDecoder::CompressionMethod m);
-	static void setEXRThreadPoolSize();
 
 	static void test();
 };

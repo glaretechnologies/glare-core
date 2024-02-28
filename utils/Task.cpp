@@ -11,6 +11,7 @@ namespace glare
 
 
 Task::Task()
+:	/*task_group(NULL), */allocator(NULL)
 {}
 
 
