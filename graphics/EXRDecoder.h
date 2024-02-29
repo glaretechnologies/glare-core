@@ -29,9 +29,9 @@ public:
 	~EXRDecoder();
 
 	// Uses task_manager as the thread pool for EXR tasks.
-	static void init(glare::TaskManager* task_manager);
+	static void setTaskManager(glare::TaskManager* task_manager);
 
-	static void shutdown();
+	static void clearTaskManager();
 
 
 	// throws ImFormatExcep

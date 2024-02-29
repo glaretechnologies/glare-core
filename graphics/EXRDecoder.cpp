@@ -120,6 +120,7 @@ public:
 };
 
 
+// Based on NullThreadPoolProvider in OpenEXR\src\lib\IlmThread\IlmThreadPool.cpp
 class MyNullThreadPoolProvider : public IlmThread::ThreadPoolProvider
 {
 public:
@@ -127,12 +128,17 @@ public:
 
 	virtual int numThreads() const { return 0; }
 	virtual void setNumThreads(int count) {}
-	virtual void addTask(IlmThread::Task *t) {}
+	virtual void addTask(IlmThread::Task *t)
+	{
+		t->execute();
+		t->group()->finishOneTask();
+		delete t;
+	}
 	virtual void finish() {}
 }; 
 
 
-void EXRDecoder::init(glare::TaskManager* task_manager)
+void EXRDecoder::setTaskManager(glare::TaskManager* task_manager)
 {
 	EXRDecoderThreadPoolProvider* thread_pool_provider = new EXRDecoderThreadPoolProvider(task_manager);
 
@@ -140,7 +146,7 @@ void EXRDecoder::init(glare::TaskManager* task_manager)
 }
 
 
-void EXRDecoder::shutdown()
+void EXRDecoder::clearTaskManager()
 {
 	// Replace the EXRDecoderThreadPoolProvider with a null thread pool provider, so there are no references to the glare TaskManager.
 	IlmThread::ThreadPool::globalThreadPool().setThreadProvider(new MyNullThreadPoolProvider()); // IlmThread deletes the pool provider passed in when global thread pool is destroyed.
@@ -845,11 +851,44 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 }
 
 
-void EXRDecoder::test()
+static void doMainEXRTests()
 {
-	conPrint("EXRDecoder::test()");
+	Timer timer;
 
+	try
+	{
+		Map2DRef map = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/uffizi_small_16bit_1channel.exr");
+		testAssert(map->getBytesPerPixel() == 2);
+		testAssert(map->numChannels() == 1);
+		testAssert(map->getMapWidth() == 600);
+		testAssert(map->getMapHeight() == 300);
+	}
+	catch(ImFormatExcep& )
+	{
+	}
 	
+	try
+	{
+		Timer timer2;
+		Map2DRef map = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/cirrus.exr");
+		testAssert(map->getMapWidth() == 1024);
+		testAssert(map->getMapHeight() == 1024);
+		conPrint("Loading cirrus tex took " + timer2.elapsedStringMSWIthNSigFigs(4));
+	}
+	catch(ImFormatExcep& )
+	{
+	}
+	
+	try
+	{
+		Timer timer2;
+		Map2DRef map = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/heightfield_with_deposited_sed_0_0.exr");
+		conPrint("Loading heightfield_with_deposited_sed_0_0.exr took " + timer2.elapsedStringMSWIthNSigFigs(4));
+	}
+	catch(ImFormatExcep& )
+	{
+	}
+
 	try
 	{
 		EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/slow-unit-119922327e38b857c65f237b0ad0cedab8761fcd");
@@ -894,14 +933,14 @@ void EXRDecoder::test()
 		const auto paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/Chromaticities", "exr");
 		for(size_t i=0; i<paths.size(); ++i)
 		{
-			conPrint("Testing '" + paths[i] + "'...");
+			//conPrint("Testing '" + paths[i] + "'...");
 			try
 			{
 				EXRDecoder::decode(paths[i]);
 			}
-			catch(ImFormatExcep& e)
+			catch(ImFormatExcep& /*e*/)
 			{
-				conPrint("Caught excep: " + e.what());
+				//conPrint("Caught excep: " + e.what());
 			}
 		}
 	}
@@ -916,14 +955,14 @@ void EXRDecoder::test()
 		const auto paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/DisplayWindow", "exr");
 		for(size_t i=0; i<paths.size(); ++i)
 		{
-			conPrint("Testing '" + paths[i] + "'...");
+			//conPrint("Testing '" + paths[i] + "'...");
 			try
 			{
 				EXRDecoder::decode(paths[i]);
 			}
-			catch(ImFormatExcep& e)
+			catch(ImFormatExcep& /*e*/)
 			{
-				conPrint("Caught excep: " + e.what());
+				//conPrint("Caught excep: " + e.what());
 			}
 		}
 	}
@@ -938,14 +977,14 @@ void EXRDecoder::test()
 		const auto paths = FileUtils::getFilesInDirFullPaths(TestUtils::getTestReposDir() + "/testfiles/EXRs/openexr-images-master/Damaged");
 		for(size_t i=0; i<paths.size(); ++i)
 		{
-			conPrint("Testing file " + toString(i) + " / " + toString(paths.size()) + ": '" + paths[i] + "'...");
+			// conPrint("Testing file " + toString(i) + " / " + toString(paths.size()) + ": '" + paths[i] + "'...");
 			try
 			{
 				EXRDecoder::decode(paths[i]);
 			}
-			catch(ImFormatExcep& e)
+			catch(ImFormatExcep& /*e*/)
 			{
-				conPrint("Caught expected excep: " + e.what());
+				// conPrint("Caught expected excep: " + e.what());
 			}
 		}
 	}
@@ -1014,7 +1053,7 @@ void EXRDecoder::test()
 				for(int c=0; c<N; ++c)
 					image.getPixel(x, y)[c] = (c == 2) ? 100.0f : 0.f;
 
-		SaveOptions options;
+		EXRDecoder::SaveOptions options;
 		for(int c=0; c<N; ++c)
 		{
 			const float bucket_w = 300.f / N;
@@ -1108,8 +1147,45 @@ void EXRDecoder::test()
 		failTest(e.what());
 	}*/
 
-	// Destroy OpenEXR worker threads to avoid memory leaks.
-	//IlmThread::ThreadPool::globalThreadPool().setNumThreads(0);
+	conPrint("doMainEXRTests took " + timer.elapsedStringNSigFigs(3));
+}
+
+
+void EXRDecoder::test()
+{
+	conPrint("EXRDecoder::test()");
+
+	// Test setTaskManager and clearTaskManager
+	{
+		glare::TaskManager task_manager;
+		EXRDecoder::setTaskManager(&task_manager);
+		EXRDecoder::clearTaskManager();
+	}
+
+	// Make sure we don't crash while clearing task manager after using it.
+	{
+		glare::TaskManager task_manager;
+		EXRDecoder::setTaskManager(&task_manager);
+
+		Map2DRef map = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/uffizi_small_16bit_1channel.exr");
+
+		EXRDecoder::clearTaskManager();
+	}
+
+
+	// We will run the main EXR tests twice, once without a thread pool, and once with.
+	conPrint("---------------------------- doMainEXRTests single threaded ----------------------------");
+	doMainEXRTests();
+
+	{
+		glare::TaskManager task_manager;
+		EXRDecoder::setTaskManager(&task_manager);
+		
+		conPrint("---------------------------- doMainEXRTests multi threaded ----------------------------");
+		doMainEXRTests();
+
+		EXRDecoder::clearTaskManager();
+	}
 
 	conPrint("EXRDecoder::test() done");
 }
