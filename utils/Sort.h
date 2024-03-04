@@ -512,6 +512,9 @@ namespace Sort
 		*/
 
 		const int num_tasks = (int)task_manager.getNumThreads();
+		glare::TaskGroupRef group = new glare::TaskGroup();
+		group->tasks.resize(num_tasks);
+
 		for(int i=0; i<num_tasks; ++i)
 		{
 			Reference<SortBucketTask<T, LessThanPredicate, Key>> task = new SortBucketTask<T, LessThanPredicate, Key>(b0, in, working_space, pred, key);
@@ -519,10 +522,10 @@ namespace Sort
 			task->task_end   = (elements / num_tasks) * (i + 1);
 			if(i == num_tasks - 1)
 				task->task_end = elements;
-			task_manager.addTask(task);
+			group->tasks[i] = task;
 		}
 
-		task_manager.waitForTasksToComplete();
+		task_manager.runTaskGroup(group);
 	}
 
 
@@ -617,16 +620,21 @@ namespace Sort
 		const size_t num_per_task = Maths::roundedUpDivide(num, num_tasks);
 
 		// Do a pass over the data to get the number of items going to the left and to the right. (for each task range)
-		Reference<PartitionCountTask<T, Pred> > tasks[max_num_tasks];
+		glare::TaskGroupRef group = new glare::TaskGroup();
+		group->tasks.resize(num_tasks);
 		for(size_t i=0; i<num_tasks; ++i)
 		{
-			tasks[i] = new PartitionCountTask<T, Pred>();
+			PartitionCountTask<T, Pred>* task =  new PartitionCountTask<T, Pred>();
 			const size_t begin_i = num_per_task * i;
-			tasks[i]->pred = pred;
-			tasks[i]->in_ = in + begin_i;
-			tasks[i]->num_ = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
+			task->pred = pred;
+			task->in_ = in + begin_i;
+			task->num_ = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
+
+			group->tasks[i] = task;
 		}
-		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)tasks, num_tasks));
+		task_manager.runTaskGroup(group);
+
+		//const PartitionCountTask<T, Pred>* tasks = static_cast<PartitionCountTask<T, Pred>*>(group->tasks[0].ptr());
 
 		// Compute prefix sum for the tasks.
 		size_t num_left_before[max_num_tasks];
@@ -637,24 +645,25 @@ namespace Sort
 		{
 			num_left_before[i]  = sum_left_before;
 			num_right_before[i] = sum_right_before;
-			sum_left_before  += tasks[i]->left_count_;
-			sum_right_before += tasks[i]->num_ - tasks[i]->left_count_;
+			sum_left_before  += static_cast<PartitionCountTask<T, Pred>*>(group->tasks[i].ptr())->left_count_;
+			sum_right_before += static_cast<PartitionCountTask<T, Pred>*>(group->tasks[i].ptr())->num_ - static_cast<PartitionCountTask<T, Pred>*>(group->tasks[i].ptr())->left_count_;
 		}
 
 		// Do a pass over the data to put it in the correct location.
-		Reference<PartitionPlaceTask<T, Pred> > place_tasks[max_num_tasks];
 		for(size_t i=0; i<num_tasks; ++i)
 		{
-			place_tasks[i] = new PartitionPlaceTask<T, Pred>();
+			PartitionPlaceTask<T, Pred>* task = new PartitionPlaceTask<T, Pred>();
 			const size_t begin_i = num_per_task * i;
-			place_tasks[i]->in_  = in + begin_i;
-			place_tasks[i]->out_ = out;
-			place_tasks[i]->pred = pred;
-			place_tasks[i]->num_ = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
-			place_tasks[i]->left_write_i  = num_left_before[i];
-			place_tasks[i]->right_write_i = sum_left_before + num_right_before[i];
+			task->in_  = in + begin_i;
+			task->out_ = out;
+			task->pred = pred;
+			task->num_ = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
+			task->left_write_i  = num_left_before[i];
+			task->right_write_i = sum_left_before + num_right_before[i];
+
+			group->tasks[i] = task;
 		}
-		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)place_tasks, num_tasks));
+		task_manager.runTaskGroup(group);
 
 		return sum_left_before;
 	}
@@ -805,7 +814,6 @@ namespace Sort
 	template <class T, class BucketChooser>
 	void parallelStableNWayPartition(glare::TaskManager& task_manager, const T* in, T* out, size_t num, size_t num_buckets, BucketChooser bucket_chooser)
 	{
-		const size_t max_num_tasks = 32;
 		const size_t num_tasks = 32;//myMin(max_num_tasks, task_manager.getNumThreads());
 		const size_t num_per_task = Maths::roundedUpDivide(num, num_tasks);
 
@@ -816,18 +824,22 @@ namespace Sort
 
 		//Timer timer;
 		// Do a pass over the data to get the number of items going to the left and to the right. (for each task range)
-		Reference<NWayPartitionCountTask<T, BucketChooser> > tasks[max_num_tasks];
+		glare::TaskGroupRef group = new glare::TaskGroup();
+		group->tasks.resize(num_tasks);
+
 		for(size_t i=0; i<num_tasks; ++i)
 		{
-			tasks[i] = new NWayPartitionCountTask<T, BucketChooser>();
+			NWayPartitionCountTask<T, BucketChooser>* task = new NWayPartitionCountTask<T, BucketChooser>();
 			const size_t begin_i = num_per_task * i;
-			tasks[i]->bucket_chooser = bucket_chooser;
-			tasks[i]->in = in + begin_i;
-			tasks[i]->num = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
-			tasks[i]->counts = &counts[i * stride];
+			task->bucket_chooser = bucket_chooser;
+			task->in = in + begin_i;
+			task->num = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
+			task->counts = &counts[i * stride];
+
+			group->tasks[i] = task;
 		}
 
-		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)tasks, num_tasks));
+		task_manager.runTaskGroup(group);
 
 		//conPrint("count pass: " + timer.elapsedStringNSigFigs(5));
 		//timer.reset();
@@ -849,8 +861,9 @@ namespace Sort
 		for(size_t b=0; b<num_buckets; ++b)
 			for(size_t t=0; t<num_tasks; ++t)
 			{
-				const size_t bucket_count = tasks[t]->counts[b];
-				tasks[t]->counts[b] = sum;
+				NWayPartitionCountTask<T, BucketChooser>* task = static_cast<NWayPartitionCountTask<T, BucketChooser>*>(group->tasks[t].ptr());
+				const size_t bucket_count = task->counts[b];
+				task->counts[b] = sum;
 				sum += bucket_count;
 			}
 
@@ -858,19 +871,20 @@ namespace Sort
 		//timer.reset();
 
 		// Do a pass over the data to put it in the correct location.
-		Reference<NWayPartitionPlaceTask<T, BucketChooser> > place_tasks[max_num_tasks];
 		for(size_t i=0; i<num_tasks; ++i)
 		{
-			place_tasks[i] = new NWayPartitionPlaceTask<T, BucketChooser>();
+			NWayPartitionPlaceTask<T, BucketChooser>* task = new NWayPartitionPlaceTask<T, BucketChooser>();
 			const size_t begin_i = num_per_task * i;
-			place_tasks[i]->bucket_write_i = &counts[i * stride];
-			place_tasks[i]->in  = in + begin_i;
-			place_tasks[i]->out = out;
-			place_tasks[i]->bucket_chooser = bucket_chooser;
-			place_tasks[i]->num = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
+			task->bucket_write_i = &counts[i * stride];
+			task->in  = in + begin_i;
+			task->out = out;
+			task->bucket_chooser = bucket_chooser;
+			task->num = begin_i >= num ? 0 : myMin<size_t>(num_per_task, num - begin_i);
+
+			group->tasks[i] = task;
 		}
 
-		task_manager.runTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)place_tasks, num_tasks));
+		task_manager.runTaskGroup(group);
 
 
 		//conPrint("place pass: " + timer.elapsedStringNSigFigs(5));

@@ -1,7 +1,7 @@
 /*=====================================================================
 Task.h
 ------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
@@ -46,8 +46,14 @@ public:
 
 	TaskAllocator* allocator; // If non-null, Reference calls destroyAndFreeOb which calls allocator->destroyAndFree to destroy this object.
 	
-	//TaskGroup* task_group;
-	//glare::AtomicInt processed;
+	TaskGroup* task_group; // Task group that this task is part of, if non-null.
+
+	// Task manager task queue linked list pointers:
+	Task* prev;		// guarded by task manager queue mutex.
+	Task* next;		// guarded by task manager queue mutex.
+	bool in_queue;	// guarded by task manager queue mutex.
+
+	bool is_quit_runner_task;
 private:
 };
 

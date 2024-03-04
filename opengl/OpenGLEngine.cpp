@@ -465,6 +465,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	max_tex_mem_usage = settings.max_tex_mem_usage;
 
 	vert_buf_allocator = new VertexBufferAllocator(settings.use_grouped_vbo_allocator);
+
+	animated_objects_task_group = new glare::TaskGroup();
 }
 
 
@@ -1797,6 +1799,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			glare::TaskManager& manager = *this->main_task_manager;
 			const size_t num_tasks = myMax<size_t>(1, manager.getNumThreads());
 			const size_t num_rows_per_task = Maths::roundedUpDivide(W, num_tasks);
+
+			glare::TaskGroupRef group = new glare::TaskGroup();
+			group->tasks.resize(num_tasks);
+
 			for(size_t t=0; t<num_tasks; ++t)
 			{
 				BuildFBMNoiseTask* task = new BuildFBMNoiseTask();
@@ -1804,9 +1810,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 				task->W = W;
 				task->begin_y = (int)myMin(t       * num_rows_per_task, W);
 				task->end_y   = (int)myMin((t + 1) * num_rows_per_task, W);
-				manager.addTask(task);
+				group->tasks[t] = task;
 			}
-			manager.waitForTasksToComplete();
+			manager.runTaskGroup(group);
 
 			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
@@ -5857,6 +5863,8 @@ void OpenGLEngine::draw()
 			while(animated_objects_tasks.size() < num_animated_ob_tasks)
 				animated_objects_tasks.push_back(new ComputeAnimatedObJointMatricesTask());
 
+			animated_objects_task_group->tasks.resize(num_animated_ob_tasks);
+
 			glare::AtomicInt next_ob_i(0);
 
 			for(size_t t=0; t<num_animated_ob_tasks; ++t)
@@ -5866,9 +5874,11 @@ void OpenGLEngine::draw()
 				task->current_time = this->current_time;
 				task->next_ob_i = &next_ob_i;
 				task->animated_obs_to_process = &animated_obs_to_process;
+
+				animated_objects_task_group->tasks[t] = task;
 			}
 
-			high_priority_task_manager->runTasks(ArrayRef<glare::TaskRef>(animated_objects_tasks.data(), num_animated_ob_tasks));
+			high_priority_task_manager->runTaskGroup(animated_objects_task_group);
 		}
 
 

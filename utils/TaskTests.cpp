@@ -228,7 +228,7 @@ void testForLoopTaskRun(TaskManager& task_manager, size_t N)
 	}
 
 	// Test runParallelForTasks() that takes an array
-	{
+	/*{
 		testAssert(task_manager.areAllTasksComplete());
 
 		std::vector<int> touch_count(N, 0);
@@ -250,7 +250,7 @@ void testForLoopTaskRun(TaskManager& task_manager, size_t N)
 
 		for(size_t i=0; i<N; ++i)
 			testAssert(touch_count[i] == 2);
-	}
+	}*/
 }
 
 
@@ -416,17 +416,17 @@ void TaskTests::test()
 	}
 
 	// Test runTasks()
-	{
-		TaskManager m; // auto-pick num threads
-		AtomicInt exec_counter(0);
+	//{
+	//	TaskManager m; // auto-pick num threads
+	//	AtomicInt exec_counter(0);
 
-		std::vector<Reference<glare::Task> > tasks;
-		for(int i=0; i<10; ++i)
-			tasks.push_back(new TestTask(exec_counter));
+	//	std::vector<Reference<glare::Task> > tasks;
+	//	for(int i=0; i<10; ++i)
+	//		tasks.push_back(new TestTask(exec_counter));
 
-		m.runTasks(tasks);
-		testAssert(exec_counter == 10);
-	}
+	//	m.runTasks(tasks);
+	//	testAssert(exec_counter == 10);
+	//}
 	
 	// Test addTasks()
 	{
@@ -486,6 +486,27 @@ void TaskTests::test()
 		m.cancelAndWaitForTasksToComplete();
 		conPrint("Cancelling task test: num completed sub-tasks: " + toString(sub_exec_counter) + " / " + toString(NUM_TASKS));
 		testAssert(sub_exec_counter >= 0 && sub_exec_counter <= (int64)NUM_TASKS * CancellableTestTask::numSubTasks());
+	}
+
+	// Test task group
+	{
+		TaskManager m;
+
+		AtomicInt exec_counter(0);
+
+		Timer timer;
+		TaskGroupRef group = new TaskGroup();
+		conPrint("Constructing task group took " + timer.elapsedStringNSWIthNSigFigs(4));
+
+		const int N = 10;
+		for(int i=0; i<N; ++i)
+			group->tasks.push_back(new TestTask(exec_counter));
+
+		m.runTaskGroup(group);
+
+		testAssert(group->num_unfinished_tasks == 0);
+		testAssert(m.getNumUnfinishedTasks() == 0);
+		testAssert(exec_counter == N);
 	}
 
 

@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Task.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Mutex.h"
+#include "../utils/Lock.h"
 
 
 class IncrementTask : public glare::Task
@@ -138,9 +139,13 @@ void glare::AtomicInt::test()
 	{
 		AtomicInt atomic_i;
 		glare::TaskManager m;
+
+		TaskGroupRef group = new TaskGroup();
 		for(int i=0; i<8; ++i)
-			m.addTask(new IncrementTask(&atomic_i));
-		m.waitForTasksToComplete();
+		{
+			group->tasks.push_back(new IncrementTask(&atomic_i));
+		}
+		m.runTaskGroup(group);
 
 		testAssert(atomic_i == 8 * 1000000);
 	}
@@ -153,10 +158,11 @@ void glare::AtomicInt::test()
 			AtomicInt atomic_i;
 			glare::TaskManager m(num_threads);
 
+			glare::TaskGroupRef group = new glare::TaskGroup();
 			Timer timer;
 			for(int i=0; i<num_threads; ++i)
-				m.addTask(new IncrementTask(&atomic_i));
-			m.waitForTasksToComplete();
+				group->tasks.push_back(new IncrementTask(&atomic_i));
+			m.runTaskGroup(group);
 
 			const double elapsed = timer.elapsed();
 			conPrint("incrementing using atomics took " + doubleToStringNSigFigs(elapsed, 4) + " s (" + doubleToStringNSigFigs(1.0e9 * elapsed / (8 * 1000000), 4) + " ns / increment)");
@@ -170,10 +176,11 @@ void glare::AtomicInt::test()
 			int shared_i = 0;
 			glare::TaskManager m(num_threads);
 
+			glare::TaskGroupRef group = new glare::TaskGroup();
 			Timer timer;
 			for(int i=0; i<num_threads; ++i)
-				m.addTask(new IncrementWIthMutexTask(&mutex, &shared_i));
-			m.waitForTasksToComplete();
+				group->tasks.push_back(new IncrementWIthMutexTask(&mutex, &shared_i));
+			m.runTaskGroup(group);
 
 			const double elapsed = timer.elapsed();
 			conPrint("incrementing using mutex took " + doubleToStringNSigFigs(elapsed, 4) + " s (" + doubleToStringNSigFigs(1.0e9 * elapsed / (8 * 1000000), 4) + " ns / increment)");

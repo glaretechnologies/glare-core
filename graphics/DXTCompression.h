@@ -18,6 +18,7 @@ namespace DXTCompression
 	struct TempData
 	{
 		std::vector<Reference<glare::Task> > compress_tasks;
+		glare::TaskGroupRef task_group;
 	};
 
 	// Multi-thread if task_manager is non-null

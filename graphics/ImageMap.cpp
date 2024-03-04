@@ -324,6 +324,10 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 	if(task_manager)
 	{
 		const int num_tasks = myClamp<int>((int)task_manager->getNumThreads(), 1, new_height); // We want at least one task, but no more than the number of rows in the new image.
+
+		glare::TaskGroupRef group = new glare::TaskGroup();
+		group->tasks.resize(num_tasks);
+
 		const int y_step = Maths::roundedUpDivide(new_height, num_tasks);
 		for(int z=0, begin_y=0; z<(int)task_manager->getNumThreads(); ++z, begin_y += y_step)
 		{
@@ -332,10 +336,10 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 			task->end_y   = myMin(begin_y + y_step, new_height);
 			task->image_in = this;
 			task->image_out = new_image;
-			task_manager->addTask(task);
+			group->tasks[z] = task;
 		}
 
-		task_manager->waitForTasksToComplete();
+		task_manager->runTaskGroup(group);
 	}
 	else
 	{

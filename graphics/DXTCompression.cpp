@@ -169,21 +169,40 @@ void compress(glare::TaskManager* task_manager, TempData& temp_data, size_t src_
 	}
 	else
 	{
+		if(temp_data.task_group.isNull())
+			temp_data.task_group = new glare::TaskGroup();
+
+		// Create temp_data compress_tasks if not already created.
+		// Note that even if we decide to use fewer tasks than this, we will not destroy these tasks here.
 		std::vector<Reference<glare::Task> >& compress_tasks = temp_data.compress_tasks;
-		compress_tasks.resize(myMax<size_t>(1, task_manager->getNumThreads()));
+		compress_tasks.resize(myMax<size_t>(1, task_manager->getConcurrency()));
 
 		for(size_t z=0; z<compress_tasks.size(); ++z)
 			if(compress_tasks[z].isNull())
 				compress_tasks[z] = new DXTCompressTask();
 
-		for(size_t z=0; z<compress_tasks.size(); ++z)
+
+		// Avoid creating tasks with too small an amount of work.
+		const size_t min_blocks_per_task = 1024; // min_blocks_per_task = num_blocks_x * min_y_blocks_per_task
+		const size_t min_y_blocks_per_task = myMax<size_t>(1, min_blocks_per_task / num_blocks_x);
+
+		const size_t even_divided_blocks_per_task = Maths::roundedUpDivide((size_t)num_blocks_y, compress_tasks.size());
+		const size_t y_blocks_per_task = myMax(min_y_blocks_per_task, even_divided_blocks_per_task);
+		//printVar(y_blocks_per_task * num_blocks_x);
+
+		const size_t use_num_tasks = Maths::roundedUpDivide(num_blocks_y, y_blocks_per_task);
+		//printVar(use_num_tasks);
+		assert(y_blocks_per_task * use_num_tasks >= num_blocks_y);
+
+		temp_data.task_group->tasks.resize(use_num_tasks);
+
+		for(size_t z=0; z<use_num_tasks; ++z)
 		{
-			const size_t y_blocks_per_task = Maths::roundedUpDivide((size_t)num_blocks_y, compress_tasks.size());
-			assert(y_blocks_per_task * compress_tasks.size() >= num_blocks_y);
+			temp_data.task_group->tasks[z] = compress_tasks[z];
 
 			// Set compress_tasks fields
 			assert(dynamic_cast<DXTCompressTask*>(compress_tasks[z].ptr()));
-			DXTCompressTask* task = (DXTCompressTask*)compress_tasks[z].ptr();
+			DXTCompressTask* task = static_cast<DXTCompressTask*>(compress_tasks[z].ptr());
 			task->compressed = compressed_data_out;
 			task->src_W = src_W;
 			task->src_H = src_H;
@@ -193,7 +212,7 @@ void compress(glare::TaskManager* task_manager, TempData& temp_data, size_t src_
 			task->end_y   = (size_t)myMin((size_t)H, ((z + 1) * y_blocks_per_task) * 4);
 			assert(task->begin_y >= 0 && task->begin_y <= H && task->end_y >= 0 && task->end_y <= H);
 		}
-		task_manager->runTasks(compress_tasks);
+		task_manager->runTaskGroup(temp_data.task_group);
 	}
 	// conPrint("DXT compression took " + timer.elapsedString());
 }

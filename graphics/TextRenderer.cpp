@@ -350,10 +350,12 @@ void TextRenderer::test()
 
 		glare::TaskManager task_manager;
 
-		for(int i=0; i<16; ++i)
-			task_manager.addTask(new DrawTextTestTask(font));
+		glare::TaskGroupRef group = new glare::TaskGroup();
 
-		task_manager.waitForTasksToComplete();
+		for(int i=0; i<16; ++i)
+			group->tasks.push_back(new DrawTextTestTask(font));
+
+		task_manager.runTaskGroup(group);
 	}
 
 	conPrint("TextRenderer::test() done");

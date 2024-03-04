@@ -1431,6 +1431,7 @@ private:
 
 	js::Vector<GLObject*, 16> animated_obs_to_process;
 	std::vector<glare::TaskRef> animated_objects_tasks;
+	glare::TaskGroupRef animated_objects_task_group;
 
 
 	js::Vector<uint8, 16> data_updates_buffer;

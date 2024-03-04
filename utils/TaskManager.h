@@ -1,13 +1,12 @@
 /*=====================================================================
 TaskManager.h
 -------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
 
 #include "Task.h"
-#include "ThreadSafeQueue.h"
 #include "Mutex.h"
 #include "Reference.h"
 #include "Condition.h"
@@ -41,6 +40,8 @@ public:
 
 	~TaskManager();
 
+	const std::string& getName();
+
 	// Only works on Windows.  Does nothing if called on a non-windows system.
 	void setThreadPriorities(MyThread::Priority priority);
 
@@ -50,27 +51,27 @@ public:
 	// Add, and start executing multiple tasks.
 	void addTasks(ArrayRef<TaskRef> tasks);
 	
-	// Add tasks, then wait for tasks to complete.
-	void runTasks(ArrayRef<TaskRef> tasks);
+	// Blocks until all tasks in task group have finished being executed.
+	void runTaskGroup(TaskGroupRef task_group);
 
 	size_t getNumUnfinishedTasks() const;
 
 	bool areAllTasksComplete() const;
 
-	/*
-	Removes all tasks from the task queue.  Will not remove any tasks that have already been grabbed by a TaskRunnerThread.
-	Warning: be careful with this method, as some code may be waiting with waitForTasksToComplete(), and may expect the removed
-	tasks to have been completed.
-	*/
+	// Removes all tasks from the task queue.  Will not remove any tasks that have already been grabbed by a TaskRunnerThread.
+	// Warning: be careful with this method, as some code may be waiting with waitForTasksToComplete(), and may expect the removed
+	// tasks to have been completed.
 	void removeQueuedTasks();
 
 	// Blocks until all tasks have finished being executed.
+	// NOTE: Prefer to use runTaskGroup, as waitForTasksToComplete waits for all tasks, from any (logical) task group.
 	void waitForTasksToComplete();
 
 	// Removes queued tasks, calls cancelTask() on all tasks being currently executed in TaskRunnerThreads, then blocks until all tasks have completed.
 	void cancelAndWaitForTasksToComplete();
 
 	size_t getNumThreads() const { return threads.size(); }
+	size_t getConcurrency() const { return threads.size() + 1; } // Number of tasks to make in order to use all threads (including calling thread).
 
 	bool areAllThreadsBusy();
 
@@ -85,8 +86,8 @@ public:
 	Task type must implement 
 	set(const TaskClosure* closure, size_t begin, size_t end)
 	*/
-	template <class Task, class TaskClosure>
-	void runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks);
+	//template <class Task, class TaskClosure>
+	//void runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks);
 
 	/*
 	In this method, each task has a particular offset and stride, where stride = num tasks.
@@ -96,14 +97,13 @@ public:
 	void runParallelForTasksInterleaved(const TaskClosure& closure, size_t begin, size_t end);
 
 
-	ThreadSafeQueue<TaskRef>& getTaskQueue() { return tasks; }
-	const ThreadSafeQueue<TaskRef>& getTaskQueue() const { return tasks; }
-
 	TaskRef dequeueTask(); // called by TaskRunnerThread
 	void taskFinished(); // called by TaskRunnerThread
-	const std::string& getName(); // called by TaskRunnerThread
 private:
 	void init(size_t num_threads);
+	void enqueueTaskInternal(Task* task);
+	void enqueueTasksInternal(const TaskRef* tasks, size_t num_tasks);
+	TaskRef dequeueTaskInternal();
 
 	Condition num_unfinished_tasks_cond;
 	mutable ::Mutex num_unfinished_tasks_mutex;
@@ -111,7 +111,10 @@ private:
 	
 	std::string name;
 
-	ThreadSafeQueue<TaskRef> tasks;
+	mutable Mutex queue_mutex;
+	Task* task_queue_head;		GUARDED_BY(queue_mutex);
+	Task* task_queue_tail;		GUARDED_BY(queue_mutex);
+	Condition queue_nonempty;
 
 	std::vector<Reference<TaskRunnerThread> > threads;
 };
@@ -127,6 +130,9 @@ void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, 
 	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
 	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
 
+	glare::TaskGroupRef group = new glare::TaskGroup();
+	group->tasks.reserve(num_tasks);
+
 	for(size_t t=0; t<num_tasks; ++t)
 	{
 		const size_t task_begin = myMin(begin + t       * num_indices_per_task, end);
@@ -136,38 +142,45 @@ void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, 
 		if(task_begin < task_end)
 		{
 			TaskType* task = new TaskType(closure, task_begin, task_end);
-			addTask(task);
+			group->tasks.push_back(task);
 		}
 	}
 
-	waitForTasksToComplete(); // The tasks should be running.  Wait for them to complete.  This blocks.
+	runTaskGroup(group);
 }
 
 
-template <class TaskType, class TaskClosure>
-void TaskManager::runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks)
-{
-	if(begin >= end)
-		return;
+// TEMP disabled with taskgroup refactor:
 
-	const size_t num_indices = end - begin;
-	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
-	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
-
-	tasks.resize(num_tasks);
-
-	for(size_t t=0; t<num_tasks; ++t)
-	{
-		if(tasks[t].isNull())
-			tasks[t] = new TaskType();
-		const size_t task_begin = myMin(begin + t       * num_indices_per_task, end);
-		const size_t task_end   = myMin(begin + (t + 1) * num_indices_per_task, end);
-		assert(task_begin >= begin && task_end <= end);
-		tasks[t].downcastToPtr<TaskType>()->set(closure, task_begin, task_end);
-	}
-
-	runTasks(tasks); // Blocks
-}
+//template <class TaskType, class TaskClosure>
+//void TaskManager::runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks)
+//{
+//	if(begin >= end)
+//		return;
+//
+//	const size_t num_indices = end - begin;
+//	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
+//	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
+//
+//	glare::TaskGroupRef group = new glare::TaskGroup();
+//	group->tasks.resize(num_tasks);
+//
+//	//tasks.resize(num_tasks);
+//
+//	for(size_t t=0; t<num_tasks; ++t)
+//	{
+//		if(tasks[t].isNull())
+//			tasks[t] = new TaskType();
+//		const size_t task_begin = myMin(begin + t       * num_indices_per_task, end);
+//		const size_t task_end   = myMin(begin + (t + 1) * num_indices_per_task, end);
+//		assert(task_begin >= begin && task_end <= end);
+//		tasks[t].downcastToPtr<TaskType>()->set(closure, task_begin, task_end);
+//
+//		//tasks[t]->processed = 0;
+//	}
+//
+//	runTasks(tasks); // Blocks
+//}
 
 
 template <class TaskType, class TaskClosure> 
@@ -179,6 +192,9 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 	const size_t num_indices = end - begin;
 	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
 	
+	glare::TaskGroupRef group = new glare::TaskGroup();
+	group->tasks.reserve(num_tasks);
+
 	for(size_t t=0; t<num_tasks; ++t)
 	{
 		const size_t task_begin = begin + t;
@@ -189,11 +205,11 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 
 		TaskType* task = new TaskType(closure, task_begin, end, stride);
 
-		addTask(task);
+		group->tasks.push_back(task);
 	}
 
-	// The tasks should be running.  Wait for them to complete.  This blocks.
-	waitForTasksToComplete();
+	// Wait for them to complete.  This blocks.
+	runTaskGroup(group);
 }
 
 

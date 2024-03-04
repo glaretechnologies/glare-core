@@ -304,14 +304,14 @@ void testPageLoadsWithNThreads(int listen_port, int num_threads)
 	// Try with 1 thread
 	Timer timer;
 
-	std::vector<Reference<PageLoadTask> > tasks(num_threads);
+	glare::TaskGroupRef group = new glare::TaskGroup();
+	group->tasks.resize(num_threads);
 	for(int i=0; i<num_threads; ++i)
 	{
-		tasks[i] = new PageLoadTask(listen_port, N / num_threads);
-		task_manager.addTask(tasks[i]);
+		group->tasks[i] = new PageLoadTask(listen_port, N / num_threads);
 	}
 
-	task_manager.waitForTasksToComplete();
+	task_manager.runTaskGroup(group);
 
 	const double period = timer.elapsed() / N;
 	const double freq = 1 / period;

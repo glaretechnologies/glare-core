@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "Timer.h"
 #include "Clock.h"
 #include "PlatformUtils.h"
+#include "Lock.h"
 
 
 //#define TASK_STATS 1
@@ -62,9 +63,11 @@ void TaskRunnerThread::run()
 	while(1)
 	{
 		Reference<Task> task = manager->dequeueTask();
-		this->current_task = task;
-		if(task.isNull())
+		
+		if(task->is_quit_runner_task)
 			break; // All tasks are finished, terminate thread by returning from run().
+
+		this->current_task = task;
 
 #if TASK_STATS
 		task_times->push_back(TaskTimes());
@@ -73,6 +76,19 @@ void TaskRunnerThread::run()
 		
 		// Execute the task
 		task->run(thread_index);
+
+		if(task->task_group)
+		{
+			int new_num_unfinished_group_tasks;
+			{
+				Lock lock(task->task_group->num_unfinished_tasks_mutex);
+				task->task_group->num_unfinished_tasks--;
+				new_num_unfinished_group_tasks = task->task_group->num_unfinished_tasks;
+			}
+			
+			if(new_num_unfinished_group_tasks == 0)
+				task->task_group->num_unfinished_tasks_cond.notify();
+		}
 
 		TASK_STATS_DO(task_times->back().finish_time = Clock::getCurTimeRealSec());
 
