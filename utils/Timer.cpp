@@ -33,6 +33,12 @@ const std::string Timer::elapsedStringMSWIthNSigFigs(int n) const
 }
 
 
+const std::string Timer::elapsedStringNSWIthNSigFigs(int n) const
+{
+	return ::doubleToStringNSigFigs(this->elapsed() * 1.0e9, n) + " ns";
+}
+
+
 #if BUILD_TESTS
 
 
