@@ -2252,6 +2252,24 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			}
 		}
 
+	// Load extensionsRequired, throw exception if we encounter an extension we don't support.
+	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
+		if(root.name_val_pairs[i].name == "extensionsRequired")
+		{
+			const JSONNode& extensions_node = parser.nodes[root.name_val_pairs[i].value_node_index];
+			checkNodeType(extensions_node, JSONNode::Type_Array);
+
+			for(size_t z=0; z<extensions_node.child_indices.size(); ++z)
+			{
+				const std::string& extension = parser.nodes[extensions_node.child_indices[z]].getStringValue();
+
+				if(extension == "KHR_materials_pbrSpecularGlossiness")
+				{}
+				else
+					throw glare::Exception("Unsupported extension that file requires: '" + extension + "'");
+			}
+		}
+
 
 
 	//======================== Process GLTF data ================================
