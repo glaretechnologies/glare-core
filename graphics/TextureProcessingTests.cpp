@@ -243,9 +243,10 @@ void TextureProcessingTests::test()
 	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47ppTMXv7gqwCDm_47giphy.gif", allocator.ptr(), task_manager);
 	testLoadingAnimatedFile(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif", allocator.ptr(), task_manager);
 
+	// Perf test:
 	{
 		//Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", "C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\GLB_image_7509840974915305048_jpg_7509840974915305048.jpg");
-		Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", "N:\\indigo\\trunk\\testfiles\\textures\\parquet-diffuse.jpg");
+		Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", "N:\\indigo\\trunk\\testfiles\\textures\\parquet-diffuse.jpg"); // 2000x2000 px image.
 
 		testAssert(mip_level_image.isType<ImageMapUInt8>());
 	
@@ -254,14 +255,14 @@ void TextureProcessingTests::test()
 		Timer timer;
 		Reference<TextureData> tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), /*task manager=*/NULL, /*allow compression=*/true, /*build mipmaps=*/true);
 
-		conPrint("single-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringNSigFigs(3));
+		conPrint("single-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringMSWIthNSigFigs(4));
 
 		timer.reset();
 
 		//for(int i=0; i<1000; ++i)
 			tex_data = TextureProcessing::buildUInt8MapTextureData(map_imagemapuint8, allocator.ptr(), &task_manager, /*allow compression=*/true, /*build mipmaps=*/true);
 
-		conPrint("multi-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringNSigFigs(3));
+		conPrint("multi-threaded buildUInt8MapTextureData() for 'parquet-diffuse.jpg' took " + timer.elapsedStringMSWIthNSigFigs(4));
 	}
 
 	if(false)
