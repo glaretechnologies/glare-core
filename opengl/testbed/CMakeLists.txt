@@ -26,7 +26,9 @@ if(EMSCRIPTEN)
 	add_definitions(-DEMSCRIPTEN=1)
 	
 	add_definitions(-msimd128)
-	add_definitions(-msse4.1)	
+	add_definitions(-msse4.1)
+	
+	add_definitions(-O2)
 
 	include_directories("C:/programming/emsdk/upstream/emscripten/cache/sysroot/include")
 endif()
@@ -548,7 +550,8 @@ if(EMSCRIPTEN)
 		"-sALLOW_MEMORY_GROWTH"
 		"-pthread"
 		"-s USE_SDL=2"
-		"-sPTHREAD_POOL_SIZE=200"
+		"-sPTHREAD_POOL_SIZE=40"
+		"-O2"
 		--preload-file data
 	)
 	
