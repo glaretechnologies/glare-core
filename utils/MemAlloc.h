@@ -1,7 +1,7 @@
 /*=====================================================================
 MemAlloc.h
 ----------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
@@ -13,10 +13,24 @@ Copyright Glare Technologies Limited 2021 -
 /*=====================================================================
 MemAlloc
 ----------
-Functions for aligned memory allocation and freeing.
+Functions for memory allocation and freeing.
 =====================================================================*/
 namespace MemAlloc
 {
+
+// Enable this define to track the total size of all memory allocations
+// #define TRACE_ALLOCATIONS 1
+
+
+// If TRACE_ALLOCATIONS is 1, all malloc and free calling code should ideally call these instead, so that total memory an be tracked.
+void* traceMalloc(size_t n);
+void traceFree(void* ptr);
+
+
+size_t getTotalAllocatedB();
+size_t getNumAllocations();
+size_t getNumActiveAllocations();
+size_t getHighWaterMarkB();
 
 
 template <class T>

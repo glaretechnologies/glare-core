@@ -1,13 +1,101 @@
 /*=====================================================================
 MemAlloc.cpp
 ------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "MemAlloc.h"
 
 
 #include "../maths/mathstypes.h"
+#include "ConPrint.h"
+#include "StringUtils.h"
+#include "AtomicInt.h"
+#include <tracy/Tracy.hpp>
 #include <new>
+
+
+static glare::AtomicInt total_allocated_B(0); // total size of active allocations
+static glare::AtomicInt num_allocations(0);
+static glare::AtomicInt num_active_allocations(0);  // num active allocations that have not been freed
+static glare::AtomicInt high_water_mark_B(0);
+
+
+size_t MemAlloc::getTotalAllocatedB()
+{
+	return (size_t)total_allocated_B;
+}
+
+size_t MemAlloc::getNumAllocations()
+{
+	return (size_t)num_allocations;
+}
+
+size_t MemAlloc::getNumActiveAllocations()
+{
+	return (size_t)num_active_allocations;
+}
+
+size_t MemAlloc::getHighWaterMarkB()
+{
+	return (size_t)high_water_mark_B;
+}
+
+
+#if TRACE_ALLOCATIONS
+
+void* MemAlloc::traceMalloc(size_t n)
+{
+	// Allocate the requested allocation size, plus room for a uint64, in which we will store the size of the allocation.
+	void* data = malloc(n + sizeof(uint64));
+	((uint64*)data)[0] = n; // Store requested allocation size
+
+
+	total_allocated_B += n;
+	high_water_mark_B = myMax(high_water_mark_B.getVal(), total_allocated_B.getVal());
+	num_allocations++;
+	num_active_allocations++;
+
+	return (uint64*)data + 1; // return a pointer just past the stored requested allocation size
+}
+
+
+void MemAlloc::traceFree(void* ptr)
+{
+	uint64* original_ptr = ((uint64*)ptr) - 1; // Recover original ptr
+	const uint64 size = *original_ptr;
+
+	assert(total_allocated_B >= (int64)size);
+	total_allocated_B -= size;
+	num_active_allocations--;
+
+	free(original_ptr);
+}
+
+
+// According to https://en.cppreference.com/w/cpp/memory/new/operator_new,
+// we can handle all allocations by just replacing these two 'new' functions:
+// "Thus, replacing the throwing single object allocation functions is sufficient to handle all allocations."
+
+// If both operator new with and without alignment are freed with the same delete,
+// we need to use alignedMalloc for both of them.
+void* operator new(std::size_t count)
+{
+	return MemAlloc::alignedMalloc(count, 8);
+	//return MemAlloc::traceMalloc(count); // This crashes for some reason.
+}
+
+void* operator new(std::size_t count, std::align_val_t al)
+{
+	return MemAlloc::alignedMalloc(count, (size_t)al);
+}
+
+void operator delete(void* p)
+{
+	MemAlloc::alignedFree(p);
+	//MemAlloc::traceFree(p);
+}
+
+#endif // end if TRACE_ALLOCATIONS
 
 
 namespace MemAlloc
@@ -34,7 +122,11 @@ void* alignedMalloc(size_t amount, size_t alignment)
 
 	alignment = myMax(sizeof(unsigned int), alignment);
 
+#if TRACE_ALLOCATIONS
+	void* original_addr = traceMalloc(amount + alignment);
+#else
 	void* original_addr = malloc(amount + alignment);
+#endif
 	if(!original_addr)
 		throw std::bad_alloc();
 	assert((uintptr_t)original_addr % 4 == 0);
@@ -51,6 +143,8 @@ void* alignedMalloc(size_t amount, size_t alignment)
 
 	*(((unsigned int*)returned_addr) - 1) = (unsigned int)((uintptr_t)returned_addr - (uintptr_t)original_addr); // Store offset from original address to returned address
 
+	TracyAllocS(original_addr, amount + alignment, /*call stack capture depth=*/10);
+
 	return returned_addr;
 }
 
@@ -64,7 +158,13 @@ void alignedFree(void* addr)
 
 	void* original_addr = (void*)((uintptr_t)addr - (uintptr_t)original_addr_offset);
 
+	TracyFreeS(original_addr, /*call stack capture depth=*/10);
+
+#if TRACE_ALLOCATIONS
+	traceFree(original_addr);
+#else
 	free(original_addr);
+#endif
 }
 
 
@@ -78,10 +178,68 @@ void alignedFree(void* addr)
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include "Timer.h"
+#include "MyThread.h"
+#include "PlatformUtils.h"
+#include "../maths/PCG32.h"
+
+
+class MemAllocTestThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		PCG32 rng(1);
+
+		float q = 0;
+		for(int i=0; i<10000; ++i)
+		{
+			//void* data = malloc(rng.nextUInt(4096));
+			void* data = MemAlloc::alignedMalloc(rng.nextUInt(4096), 16);
+
+			//PlatformUtils::Sleep(1);
+		//	float x = 0;
+		//	for(int z=0; z<100000; ++z)
+		//		x += pow((float)z, 1.23434f);
+		//	q += x;
+
+			//free(data);
+			MemAlloc::alignedFree(data);
+
+			if((i % 100) == 0)
+				conPrint(toString(i));
+		}
+
+		conPrint("Sleeping...");
+		PlatformUtils::Sleep(10000);
+
+		conPrint(toString(q));
+	}
+
+	double elapsed_per_op;
+};
 
 
 void MemAlloc::test()
 {
+	conPrint("MemAlloc::test()");
+
+
+	if(false)
+	{
+		std::vector<Reference<MemAllocTestThread> > threads;
+		for(size_t i=0; i<100; ++i)
+		{
+			Reference<MemAllocTestThread> t1 = new MemAllocTestThread(); 
+			threads.push_back(t1);
+			t1->launch();
+		}
+
+		for(size_t i=0; i<threads.size(); ++i)
+			threads[i]->join();
+	}
+
+
+
 	// Test myAlignedMalloc, myAlignedFree
 	for(int i=0; i<1000; ++i) // allocation length
 	{
@@ -204,6 +362,8 @@ void MemAlloc::test()
 	options.x_axis_log = true;
 	Plotter::plot("aligned_malloc_perf.png", "Aligned mem allocation perf, alignment = 8", "allocation size (B)", "elapsed (ns)", datasets, options);
 #endif
+
+	conPrint("MemAlloc::test() done.");
 }
 
 
