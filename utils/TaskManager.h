@@ -111,9 +111,9 @@ private:
 	
 	std::string name;
 
-	mutable Mutex queue_mutex;
-	Task* task_queue_head;		GUARDED_BY(queue_mutex);
-	Task* task_queue_tail;		GUARDED_BY(queue_mutex);
+	mutable ::Mutex queue_mutex;
+	Task* task_queue_head		GUARDED_BY(queue_mutex);
+	Task* task_queue_tail		GUARDED_BY(queue_mutex);
 	Condition queue_nonempty;
 
 	std::vector<Reference<TaskRunnerThread> > threads;
