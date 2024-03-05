@@ -33,6 +33,17 @@ size_t getNumActiveAllocations();
 size_t getHighWaterMarkB();
 
 
+
+
+
+void* alignedMalloc(size_t size, size_t alignment); // throws std::bad_alloc on allocation failure.
+void alignedFree(void* mem);
+
+inline void* alignedSSEMalloc(size_t size)
+{
+	return alignedMalloc(size, 16);
+}
+
 template <class T>
 inline bool isAlignedTo(T* ptr, uintptr_t alignment)
 {
@@ -46,46 +57,6 @@ inline bool isSSEAligned(T* ptr)
 }
 
 
-void* alignedMalloc(size_t size, size_t alignment); // throws std::bad_alloc on allocation failure.
-void alignedFree(void* mem);
-
-
-inline void* alignedSSEMalloc(size_t size)
-{
-	return alignedMalloc(size, 16);
-}
-
-template <class T>
-inline void alignedSSEFree(T* t)
-{
-	alignedFree((void*)t);
-}
-
-template <class T>
-inline void alignedSSEArrayMalloc(size_t numelems, T*& t_out)
-{
-	const size_t memsize = sizeof(T) * numelems;
-	t_out = static_cast<T*>(alignedSSEMalloc(memsize));
-}
-
-template <class T>
-inline void alignedArrayMalloc(size_t numelems, size_t alignment, T*& t_out)
-{
-	const size_t memsize = sizeof(T) * numelems;
-	t_out = static_cast<T*>(alignedMalloc(memsize, alignment));
-}
-
-template <class T>
-inline void alignedSSEArrayFree(T* t)
-{
-	alignedSSEFree(t);
-}
-
-template <class T>
-inline void alignedArrayFree(T* t)
-{
-	alignedFree(t);
-}
 
 void test();
 

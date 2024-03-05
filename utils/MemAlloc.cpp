@@ -84,10 +84,12 @@ void* operator new(std::size_t count)
 	//return MemAlloc::traceMalloc(count); // This crashes for some reason.
 }
 
+#if __cplusplus >= 201703L // If c++ version is >= c++17:
 void* operator new(std::size_t count, std::align_val_t al)
 {
 	return MemAlloc::alignedMalloc(count, (size_t)al);
 }
+#endif
 
 void operator delete(void* p)
 {
