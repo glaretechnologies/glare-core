@@ -72,11 +72,16 @@ EXRDecoder::~EXRDecoder()
 class EXRThreadTask : public glare::Task
 {
 public:
+	EXRThreadTask(IlmThread::Task* task_) : task(task_) {}
+
 	virtual void run(size_t thread_index)
 	{
 		task->execute();
-		task->group()->finishOneTask();
-		delete task;
+
+		IlmThread::TaskGroup* group = task->group();
+		delete task; // LineBufferTask destructor accesses a shared semaphore (_lineBuffer->_sem), so make sure to destroy the task before we tell the group the task is done.
+		// Otherwise execution will continue and the shared semaphore will be destroyed before being accessed.
+		group->finishOneTask();
 	}
 	
 	IlmThread::Task* task;
@@ -105,8 +110,7 @@ public:
 
 	virtual void addTask(IlmThread::Task* exr_task) override
 	{
-		EXRThreadTask* task = new EXRThreadTask();
-		task->task = exr_task;
+		Reference<EXRThreadTask> task = new EXRThreadTask(exr_task);
 		task_manager->addTask(task);
 	}
 
@@ -1151,6 +1155,19 @@ static void doMainEXRTests()
 }
 
 
+class EXRDecoderTestTask : public glare::Task
+{
+	virtual void run(size_t thread_index)
+	{
+		for(int i=0; i<10000000; ++i)
+		{
+			//conPrint("decoding exr...");
+			EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/cirrus.exr");
+		}
+	}
+};
+
+
 void EXRDecoder::test()
 {
 	conPrint("EXRDecoder::test()");
@@ -1185,6 +1202,26 @@ void EXRDecoder::test()
 		doMainEXRTests();
 
 		EXRDecoder::clearTaskManager();
+	}
+
+
+	// Stress-test task manager running EXR tasks.
+	if(false)
+	{
+		conPrint("Stress testing...");
+		{
+			glare::TaskManager worker_task_manager;
+			EXRDecoder::setTaskManager(&worker_task_manager);
+
+			glare::TaskManager task_manager;
+			glare::TaskGroupRef group = new glare::TaskGroup();
+			for(int i=0; i<8; ++i)
+				group->tasks.push_back(new EXRDecoderTestTask());
+
+			task_manager.runTaskGroup(group);
+
+			EXRDecoder::clearTaskManager();
+		}
 	}
 
 	conPrint("EXRDecoder::test() done");
