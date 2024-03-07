@@ -28,7 +28,8 @@ class EmscriptenWebSocket : public SocketInterface
 public:
 	EmscriptenWebSocket();
 
-	void connect(const std::string& hostname, int port);
+	// protocol should be "ws" or "wss"
+	void connect(const std::string& protocol, const std::string& hostname, int port);
 
 	// Read 1 or more bytes from the socket, up to a maximum of max_num_bytes.  Returns number of bytes read.
 	// Returns zero if connection was closed gracefully
