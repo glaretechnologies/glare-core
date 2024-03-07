@@ -92,7 +92,7 @@ void writeHTTPOKHeaderAndDataWithCacheMaxAge(ReplyInfo& reply_info, const void* 
 }
 
 
-void writeHTTPOKHeaderAndDeflatedDataWithCacheMaxAge(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, int max_age_s)
+void writeHTTPOKHeaderWithCacheMaxAgeAndContentEncoding(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view content_encoding, int max_age_s)
 {
 	const std::string response = 
 		"HTTP/1.1 200 OK\r\n"
@@ -101,7 +101,7 @@ void writeHTTPOKHeaderAndDeflatedDataWithCacheMaxAge(ReplyInfo& reply_info, cons
 		"Cross-Origin-Opener-Policy: same-origin\r\n" // To enable SharedArrayBuffer in js, see https://web.dev/articles/cross-origin-isolation-guide.  For webclient.
 		"Cross-Origin-Embedder-Policy: require-corp\r\n"
 		"Connection: Keep-Alive\r\n"
-		"Content-Encoding: deflate\r\n"
+		"Content-Encoding: " + toString(content_encoding) + "\r\n"
 		"Content-Length: " + toString(datalen) + "\r\n"
 		"\r\n";
 
@@ -253,6 +253,8 @@ std::string getContentTypeForPath(const std::string& path)
 		return "text/html; charset=UTF-8";
 	else if(::hasExtensionStringView(path, "exr"))
 		return "image/x-exr";
+	else if(::hasExtensionStringView(path, "data"))
+		return "application/octet-stream";
 	else
 		return "text/plain"; // Unknown, just return as text.
 

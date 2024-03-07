@@ -16,7 +16,9 @@ namespace web
 
 RequestInfo::RequestInfo()
 :	tls_connection(false),
-	fuzzing(false)
+	fuzzing(false),
+	deflate_accept_encoding(false),
+	zstd_accept_encoding(false)
 {
 }
 

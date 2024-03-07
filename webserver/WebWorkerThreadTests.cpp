@@ -391,6 +391,16 @@ static void testRangeParsing(const std::string& field_value, const std::vector<w
 }
 
 
+static void testAcceptEncodingParsing(const std::string& field_value, bool expected_deflate_accept_encoding, bool expected_zstd_accept_encoding)
+{
+	bool deflate_accept_encoding, zstd_accept_encoding;
+	WorkerThread::parseAcceptEncodings(field_value, deflate_accept_encoding, zstd_accept_encoding);
+	testAssert(deflate_accept_encoding == expected_deflate_accept_encoding);
+	testAssert(zstd_accept_encoding == expected_zstd_accept_encoding);
+}
+
+
+
 class TestDummyRequestHandler : public RequestHandler
 {
 public:
@@ -401,11 +411,11 @@ public:
 };
 
 
-#if 0
+#if FUZZING
 
 // Direct fuzzing of WorkerThread::handleSingleRequest()
 // Command line:
-// C:\fuzz_corpus\worker_thread_handle_single_request N:\glare-core\trunk\testfiles\fuzz_seeds\worker_thread_handle_single_request -max_len=1000000 -seed=1
+// C:\fuzz_corpus\worker_thread_handle_single_request c:\code\glare-core\testfiles\fuzz_seeds\worker_thread_handle_single_request -max_len=1000000 -seed=1
 
 static void testHandleSingleRequest(const uint8_t* data, size_t size)
 {
@@ -451,7 +461,6 @@ static void testHandleSingleRequest(const uint8_t* data, size_t size)
 	}
 }
 
-// We will use the '!' character to break apart the input buffer into different 'packets'.
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	testHandleSingleRequest(data, size);
@@ -514,6 +523,27 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 void WebWorkerThreadTests::test()
 {
+	//=========================== Test accept-encoding parsing ===============================
+	{
+		testAcceptEncodingParsing("", /*expected_deflate_accept_encoding=*/false, /*expected_zstd_accept_encoding=*/false);
+		testAcceptEncodingParsing("deflate", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/false);
+		testAcceptEncodingParsing("zstd", /*expected_deflate_accept_encoding=*/false, /*expected_zstd_accept_encoding=*/true);
+		testAcceptEncodingParsing("deflate,zstd", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/true);
+		testAcceptEncodingParsing("deflate, zstd", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/true);
+		testAcceptEncodingParsing("deflate,  zstd", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/true);
+		testAcceptEncodingParsing("deflate ,  zstd", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/true);
+		testAcceptEncodingParsing("deflate ,zstd", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/true);
+
+		// Test quality stuff (see https://www.rfc-editor.org/rfc/rfc9110#field.accept-encoding)
+		testAcceptEncodingParsing("deflate;q=1.0", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/false);
+		testAcceptEncodingParsing("deflate;q=1.0, zstd;q=0", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/true);
+
+		testAcceptEncodingParsing("abc", /*expected_deflate_accept_encoding=*/false, /*expected_zstd_accept_encoding=*/false);
+		testAcceptEncodingParsing("abc, zstd", /*expected_deflate_accept_encoding=*/false, /*expected_zstd_accept_encoding=*/true);
+		testAcceptEncodingParsing("abc, deflate", /*expected_deflate_accept_encoding=*/true, /*expected_zstd_accept_encoding=*/false);
+	}
+
+
 	//=========================== Test range parsing ===============================
 	{
 		// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range

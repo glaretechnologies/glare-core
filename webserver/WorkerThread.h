@@ -64,6 +64,7 @@ private:
 	HandleRequestResult handleSingleRequest(size_t request_header_size);
 public:
 	static void parseRanges(const string_view field_value, std::vector<web::Range>& ranges_out); // Just public for testing
+	static void parseAcceptEncodings(const string_view field_value, bool& deflate_accept_encoding_out, bool& zstd_accept_encoding_out); // Just public for testing
 private:
 
 	int thread_id;

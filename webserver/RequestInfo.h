@@ -88,6 +88,10 @@ public:
 
 	std::vector<Range> ranges;
 
+	// Accept-encodings specified in header: (just the ones we are interested in)
+	bool deflate_accept_encoding;
+	bool zstd_accept_encoding;
+
 	IPAddress client_ip_address;
 	bool tls_connection;
 

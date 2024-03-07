@@ -99,6 +99,51 @@ void WorkerThread::parseRanges(const string_view field_value, std::vector<web::R
 }
 
 
+void WorkerThread::parseAcceptEncodings(const string_view field_value, bool& deflate_accept_encoding_out, bool& zstd_accept_encoding_out)
+{
+	deflate_accept_encoding_out = false;
+	zstd_accept_encoding_out = false;
+
+	// Parse accept-encodings (compression methods browser can handle)
+	// Has some quality value/weight junk that we want to ignore: https://www.rfc-editor.org/rfc/rfc9110#field.accept-encoding
+	
+	// e.g. Accept-Encoding: gzip, deflate, br, zstd
+	
+	Parser parser(field_value.data(), field_value.size());
+
+	while(1)
+	{
+		string_view value;
+		if(parser.parseAlphaToken(value))
+		{
+			if(value == "deflate")
+				deflate_accept_encoding_out = true;
+			else if(value == "zstd")
+				zstd_accept_encoding_out = true;
+
+			// Advance past next ',' or return if EOF
+			while(1)
+			{
+				if(parser.eof())
+					return;
+				else if(parser.currentIsChar(','))
+				{
+					parser.consume(','); // Advance past ','
+					break;
+				}
+				else
+					parser.advance();
+			}
+
+			// Consume any trailing whitespace after comma
+			parser.parseWhiteSpace();
+		}
+		else
+			return;
+	}
+}
+
+
 // Handle a single HTTP request.
 // The request header is in [socket_buffer[request_start_index], socket_buffer[request_start_index + request_header_size])
 // Returns if should keep connection alive.
@@ -213,6 +258,10 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			{
 				throw WebsiteExcep("Failed to parse content length: " + e.what());
 			}
+		}
+		else if(StringUtils::equalCaseInsensitive(field_name, "accept-encoding"))
+		{
+			parseAcceptEncodings(field_value, request_info.deflate_accept_encoding, request_info.zstd_accept_encoding);
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "cookie"))
 		{

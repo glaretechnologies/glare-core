@@ -3294,7 +3294,7 @@ static void testWriting(const Reference<BatchedMesh>& mesh, const GLTFLoadedData
 }*/
 
 
-#if FUZZING
+#if 0 // FUZZING
 // Command line:
 // C:\fuzz_corpus\glb N:\glare-core\trunk\testfiles\gltf -max_len=1000000
 
