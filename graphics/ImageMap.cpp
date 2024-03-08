@@ -329,7 +329,7 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 		group->tasks.resize(num_tasks);
 
 		const int y_step = Maths::roundedUpDivide(new_height, num_tasks);
-		for(int z=0, begin_y=0; z<(int)task_manager->getNumThreads(); ++z, begin_y += y_step)
+		for(int z=0, begin_y=0; z<num_tasks; ++z, begin_y += y_step)
 		{
 			Reference<ResizeMidQualityTask<V, VTraits> > task = new ResizeMidQualityTask<V, VTraits>();
 			task->begin_y = myMin(begin_y,          new_height);

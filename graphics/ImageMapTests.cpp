@@ -564,6 +564,9 @@ void ImageMapTests::test()
 		// Test upsize in 1 dim, downsize in another
 		testResizeMidQuality(90, 110);
 		testResizeMidQuality(110, 90);
+
+		// Test on a small image (num rows < num threads)
+		testResizeMidQuality(4, 4);
 	}
 
 	// Test resizing of an image loaded from disk
