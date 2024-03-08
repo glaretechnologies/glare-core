@@ -246,7 +246,7 @@ void TextureProcessingTests::test()
 	// Perf test:
 	{
 		//Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", "C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\GLB_image_7509840974915305048_jpg_7509840974915305048.jpg");
-		Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", "N:\\indigo\\trunk\\testfiles\\textures\\parquet-diffuse.jpg"); // 2000x2000 px image.
+		Reference<Map2D> mip_level_image = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/textures/parquet-diffuse.jpg"); // 2000x2000 px image.
 
 		testAssert(mip_level_image.isType<ImageMapUInt8>());
 	
