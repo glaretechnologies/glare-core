@@ -1,21 +1,21 @@
 /*=====================================================================
-BumpAllocator.cpp
------------------
-Copyright Glare Technologies Limited 2023 -
+StackAllocator.cpp
+------------------
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
-#include "BumpAllocator.h"
+#include "StackAllocator.h"
 
 
 #include "TestUtils.h"
 #include "ConPrint.h"
 
 
-void glare::BumpAllocator::test()
+void glare::StackAllocator::test()
 {
-	conPrint("glare::BumpAllocator::test()");
+	conPrint("glare::StackAllocator::test()");
 
 	{
-		BumpAllocator allocator(1024);
+		StackAllocator allocator(1024);
 		void* ptr = allocator.alloc(/*size=*/1, /*alignment=*/16);
 		testAssert((uint64)ptr % 16 == 0);
 		testAssert(allocator.offsets.size() == 1);
@@ -40,7 +40,7 @@ void glare::BumpAllocator::test()
 	
 	// Test an allocation exactly the size of the allocator
 	{
-		BumpAllocator allocator(1024);
+		StackAllocator allocator(1024);
 		void* ptr = allocator.alloc(/*size=*/1024, /*alignment=*/16);
 		testAssert((uint64)ptr % 16 == 0);
 		testAssert(allocator.offsets.size() == 1);
@@ -51,7 +51,7 @@ void glare::BumpAllocator::test()
 
 	// Test with an allocation too big for the bump allocator
 	{
-		BumpAllocator allocator(1024);
+		StackAllocator allocator(1024);
 		void* ptr = allocator.alloc(/*size=*/2048, /*alignment=*/16);
 		testAssert((uint64)ptr % 16 == 0);
 		testAssert(allocator.offsets.size() == 1);
@@ -62,7 +62,7 @@ void glare::BumpAllocator::test()
 
 	// Test with several allocations over the bump allocator limit
 	{
-		BumpAllocator allocator(1024);
+		StackAllocator allocator(1024);
 		std::vector<void*> ptrs;
 		for(int i=0; i<16; ++i)
 			ptrs.push_back(allocator.alloc(/*size=*/100, /*alignment=*/16));
@@ -76,5 +76,5 @@ void glare::BumpAllocator::test()
 		testAssert(allocator.offsets.size() == 0);
 	}
 
-	conPrint("glare::BumpAllocator::test() done");
+	conPrint("glare::StackAllocator::test() done");
 }

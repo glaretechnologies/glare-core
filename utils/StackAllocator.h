@@ -1,7 +1,7 @@
 /*=====================================================================
-BumpAllocator.h
----------------
-Copyright Glare Technologies Limited 2023 -
+StackAllocator.h
+----------------
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
@@ -17,8 +17,8 @@ namespace glare
 
 
 /*=====================================================================
-BumpAllocator
--------------
+StackAllocator
+--------------
 A fast memory allocator for temporary allocations.
 Frees must be done in reverse order from allocs, in a stack-like (LIFO) fashion.
 
@@ -29,11 +29,11 @@ Use BumpAllocation RAII wrapper defined below for making allocations.
 
 Not thread-safe, designed to be used only by a single thread.
 =====================================================================*/
-class BumpAllocator
+class StackAllocator
 {
 public:
-	inline BumpAllocator(size_t size);
-	inline ~BumpAllocator();
+	inline StackAllocator(size_t size);
+	inline ~StackAllocator();
 
 	inline void* alloc(size_t size, size_t alignment);
 	inline void free(void* ptr);
@@ -49,17 +49,17 @@ private:
 };
 
 
-BumpAllocator::BumpAllocator(size_t size) : data(size), high_water_mark(0) {}
-BumpAllocator::~BumpAllocator() {}
+StackAllocator::StackAllocator(size_t size) : data(size), high_water_mark(0) {}
+StackAllocator::~StackAllocator() {}
 
 
-void* BumpAllocator::alloc(size_t size, size_t alignment)
+void* StackAllocator::alloc(size_t size, size_t alignment)
 {
 	const size_t current_offset = offsets.empty() ? 0 : offsets.back();
 	if(current_offset == std::numeric_limits<size_t>::max())
 	{
 		// If we already ran out of room and used malloc already:
-		conPrint("BumpAllocator::alloc(): warning: Not enough room.  Falling back to malloc.");
+		conPrint("StackAllocator::alloc(): warning: Not enough room.  Falling back to malloc.");
 		offsets.push_back(std::numeric_limits<size_t>::max()); // Record that we used malloc
 		return MemAlloc::alignedMalloc(size, alignment);
 	}
@@ -70,7 +70,7 @@ void* BumpAllocator::alloc(size_t size, size_t alignment)
 	if(new_offset > data.size())
 	{
 		// Not enough room.  Fall back to malloc
-		conPrint("BumpAllocator::alloc(): warning: Not enough room.  Falling back to malloc.");
+		conPrint("StackAllocator::alloc(): warning: Not enough room.  Falling back to malloc.");
 
 		offsets.push_back(std::numeric_limits<size_t>::max()); // Record that we used malloc
 		return MemAlloc::alignedMalloc(size, alignment);
@@ -84,11 +84,11 @@ void* BumpAllocator::alloc(size_t size, size_t alignment)
 }
 
 
-void BumpAllocator::free(void* ptr)
+void StackAllocator::free(void* ptr)
 {
 	if(offsets.empty())
 	{
-		conPrint("BumpAllocator error, called free with no allocations on offset stack remaining.");
+		conPrint("StackAllocator error, called free with no allocations on offset stack remaining.");
 		assert(0);
 		return;
 	}
@@ -103,22 +103,22 @@ void BumpAllocator::free(void* ptr)
 
 
 // RAII wrapper for a single allocation
-class BumpAllocation
+class StackAllocation
 {
 public:
-	BumpAllocation(size_t size_, size_t alignment, BumpAllocator& bump_allocator_)
+	StackAllocation(size_t size_, size_t alignment, StackAllocator& bump_allocator_)
 	:	bump_allocator(bump_allocator_),
 		size(size_)
 	{
 		ptr = bump_allocator.alloc(size_, alignment);
 	}
 
-	~BumpAllocation()
+	~StackAllocation()
 	{
 		bump_allocator.free(ptr);
 	}
 
-	BumpAllocator& bump_allocator;
+	StackAllocator& bump_allocator;
 	size_t size;
 	void* ptr;
 };
