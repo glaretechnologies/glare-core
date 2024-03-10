@@ -844,8 +844,8 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t 
 			0, // xoffset
 			0, // yoffset
 			(GLsizei)level_W, (GLsizei)level_H,
-			gl_internal_format,
-			(GLsizei)tex_data.size(),
+			gl_format,
+			gl_type,
 			tex_data.data()
 		);
 	}
