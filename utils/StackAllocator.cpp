@@ -49,7 +49,7 @@ void glare::StackAllocator::test()
 		testAssert(allocator.offsets.size() == 0);
 	}
 
-	// Test with an allocation too big for the bump allocator
+	// Test with an allocation too big for the stack allocator
 	{
 		StackAllocator allocator(1024);
 		void* ptr = allocator.alloc(/*size=*/2048, /*alignment=*/16);
@@ -60,7 +60,7 @@ void glare::StackAllocator::test()
 		testAssert(allocator.offsets.size() == 0);
 	}
 
-	// Test with several allocations over the bump allocator limit
+	// Test with several allocations over the stack allocator limit
 	{
 		StackAllocator allocator(1024);
 		std::vector<void*> ptrs;

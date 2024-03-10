@@ -25,7 +25,7 @@ Frees must be done in reverse order from allocs, in a stack-like (LIFO) fashion.
 If a requested allocation size does not fit in the remaining free memory, 
 MemAlloc::alignedMalloc will be used.
 
-Use BumpAllocation RAII wrapper defined below for making allocations.
+Use StackAllocation RAII wrapper defined below for making allocations.
 
 Not thread-safe, designed to be used only by a single thread.
 =====================================================================*/
@@ -106,19 +106,19 @@ void StackAllocator::free(void* ptr)
 class StackAllocation
 {
 public:
-	StackAllocation(size_t size_, size_t alignment, StackAllocator& bump_allocator_)
-	:	bump_allocator(bump_allocator_),
+	StackAllocation(size_t size_, size_t alignment, StackAllocator& stack_allocator_)
+	:	stack_allocator(stack_allocator_),
 		size(size_)
 	{
-		ptr = bump_allocator.alloc(size_, alignment);
+		ptr = stack_allocator.alloc(size_, alignment);
 	}
 
 	~StackAllocation()
 	{
-		bump_allocator.free(ptr);
+		stack_allocator.free(ptr);
 	}
 
-	StackAllocator& bump_allocator;
+	StackAllocator& stack_allocator;
 	size_t size;
 	void* ptr;
 };
