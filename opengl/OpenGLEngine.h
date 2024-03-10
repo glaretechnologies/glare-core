@@ -1451,7 +1451,11 @@ private:
 #endif
 
 
+#define checkForOpenGLErrorsAtLocation() (doCheckForOpenGLErrorsAtLocation((__LINE__), (__FILE__)))
+
+
 void checkForOpenGLErrors();
+void doCheckForOpenGLErrorsAtLocation(long line, const char* file);
 void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size);
 void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index);
 

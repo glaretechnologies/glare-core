@@ -2215,6 +2215,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(outline_prog_no_skinning);
+		getUniformLocations(outline_prog_no_skinning); // Make sure any unused uniforms have their locations set to -1.
 		outline_prog_no_skinning->is_outline = true;
 	}
 
@@ -2229,7 +2230,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			getAndIncrNextProgramIndex()
 		);
 		addProgram(outline_prog_with_skinning);
-		outline_prog_no_skinning->is_outline = true;
+		getUniformLocations(outline_prog_with_skinning); // Make sure any unused uniforms have their locations set to -1.
+		outline_prog_with_skinning->is_outline = true;
 	}
 
 	//------------------------------------------- Build edge extract prog -------------------------------------------
@@ -2240,6 +2242,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		getAndIncrNextProgramIndex()
 	);
 	addProgram(edge_extract_prog);
+	getUniformLocations(edge_extract_prog); // Make sure any unused uniforms have their locations set to -1.
 	edge_extract_tex_location			= edge_extract_prog->getUniformLocation("tex");
 	edge_extract_col_location			= edge_extract_prog->getUniformLocation("col");
 	edge_extract_line_width_location	= edge_extract_prog->getUniformLocation("line_width");
@@ -10052,7 +10055,17 @@ static std::string errorCodeString(GLenum code)
 	}
 }
 
-		
+
+void doCheckForOpenGLErrorsAtLocation(long line, const char* file)
+{
+	GLenum code = glGetError();
+	if(code != GL_NO_ERROR)
+	{
+		conPrint("OpenGL error detected at " + std::string(file) + ", line " + toString((int)line) + ": " + errorCodeString(code));
+		assert(0);
+	}
+}
+
 
 void checkForOpenGLErrors()
 {
