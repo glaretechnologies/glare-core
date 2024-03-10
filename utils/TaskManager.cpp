@@ -189,8 +189,8 @@ void TaskManager::addTask(const TaskRef& t)
 void TaskManager::addTasks(ArrayRef<TaskRef> new_tasks)
 {
 	{
-		num_unfinished_tasks += (int)new_tasks.size();
 		Lock lock(num_unfinished_tasks_mutex);
+		num_unfinished_tasks += (int)new_tasks.size();
 	}
 
 	enqueueTasksInternal(new_tasks.data(), new_tasks.size());
@@ -333,6 +333,7 @@ void TaskManager::waitForTasksToComplete()
 			TaskRef task = dequeueTaskInternal();
 			task->run(0);
 			num_unfinished_tasks--;
+			assert(num_unfinished_tasks >= 0);
 		}
 	}
 	else
@@ -367,6 +368,7 @@ void TaskManager::taskFinished() // called by TaskRunnerThread
 	{
 		Lock lock(num_unfinished_tasks_mutex);
 		num_unfinished_tasks--;
+		assert(num_unfinished_tasks >= 0);
 		new_num_unfinished_tasks = num_unfinished_tasks;
 	}
 	
