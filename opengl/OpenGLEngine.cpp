@@ -405,7 +405,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	outline_tex_h(0),
 	last_num_obs_in_frustum(0),
 	print_output(NULL),
-	tex_mem_usage(0),
+	tex_CPU_mem_usage(0),
+	tex_GPU_mem_usage(0),
 	last_anim_update_duration(0),
 	last_depth_map_gen_GPU_time(0),
 	last_render_GPU_time(0),
@@ -462,7 +463,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	// From AtmosphereMedium::AtmosphereMedium() (air_scattering_coeff_spectrum) in Indigo source.
 	air_scattering_coeffs = Vec4f(0.000008057856f, 0.000011481005f, 0.000026190464f, 0);
 
-	max_tex_mem_usage = settings.max_tex_mem_usage;
+	max_tex_CPU_mem_usage = settings.max_tex_CPU_mem_usage;
+	max_tex_GPU_mem_usage = settings.max_tex_GPU_mem_usage;
 
 	vert_buf_allocator = new VertexBufferAllocator(settings.use_grouped_vbo_allocator);
 
@@ -2895,7 +2897,8 @@ void OpenGLEngine::unloadAllData()
 		it->second.value->m_opengl_engine = NULL;
 	opengl_textures.clear();
 
-	tex_mem_usage = 0;
+	tex_CPU_mem_usage = 0;
+	tex_GPU_mem_usage = 0;
 }
 
 
@@ -9585,7 +9588,10 @@ void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference
 	opengl_tex->m_opengl_engine = this;
 	this->opengl_textures.set(key, opengl_tex);
 
-	this->tex_mem_usage += opengl_tex->getByteSize();
+	if(opengl_tex->texture_data.nonNull())
+		this->tex_CPU_mem_usage += opengl_tex->texture_data->totalCPUMemUsage();
+
+	this->tex_GPU_mem_usage += opengl_tex->getByteSize();
 
 	textureBecameUsed(opengl_tex.ptr());
 
@@ -9603,8 +9609,14 @@ void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 	{
 		OpenGLTexture* tex = it->second.value.ptr();
 
+		if(tex->texture_data.nonNull())
+		{
+			assert(this->tex_CPU_mem_usage >= tex->texture_data->totalCPUMemUsage());
+			this->tex_CPU_mem_usage -= tex->texture_data->totalCPUMemUsage();
+		}
+
 		assert(this->tex_mem_usage >= tex->getByteSize());
-		this->tex_mem_usage -= tex->getByteSize();
+		this->tex_GPU_mem_usage -= tex->getByteSize();
 
 		this->opengl_textures.erase(it);
 	}
@@ -9737,7 +9749,7 @@ void OpenGLEngine::trimTextureUsage()
 	ZoneScoped; // Tracy profiler
 
 	// Remove textures from unused texture list until we are using <= max_tex_mem_usage
-	while((tex_mem_usage > max_tex_mem_usage) && (opengl_textures.numUnusedItems() > 0))
+	while(((tex_CPU_mem_usage > max_tex_CPU_mem_usage) || (tex_GPU_mem_usage > max_tex_GPU_mem_usage)) && (opengl_textures.numUnusedItems() > 0))
 	{
 		OpenGLTextureKey removed_key;
 		OpenGLTextureRef removed_tex;
@@ -9745,8 +9757,14 @@ void OpenGLEngine::trimTextureUsage()
 		assert(removed);
 		if(removed)
 		{
-			assert(this->tex_mem_usage >= removed_tex->getByteSize());
-			this->tex_mem_usage -= removed_tex->getByteSize();
+			if(removed_tex->texture_data.nonNull())
+			{
+				assert(this->tex_CPU_mem_usage >= removed_tex->texture_data->totalCPUMemUsage());
+				this->tex_CPU_mem_usage -= removed_tex->texture_data->totalCPUMemUsage();
+			}
+
+			assert(this->tex_GPU_mem_usage >= removed_tex->getByteSize());
+			this->tex_GPU_mem_usage -= removed_tex->getByteSize();
 		}
 	}
 }

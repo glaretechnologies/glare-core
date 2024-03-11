@@ -408,8 +408,9 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), max_tex_mem_usage(1024 * 1024 * 1024ull),
-		use_grouped_vbo_allocator(true), use_general_arena_mem_allocator(true), msaa_samples(4), allow_bindless_textures(true), allow_multi_draw_indirect(true) {}
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
+		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), use_general_arena_mem_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
+		allow_multi_draw_indirect(true) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -425,7 +426,8 @@ public:
 	bool allow_bindless_textures; // Allow use of bindless textures, if supported by the OpenGL implementation?   True by default.
 	bool allow_multi_draw_indirect; // Allow multi-draw indirect drawing, if supported by the OpenGL implementation?   True by default.
 
-	uint64 max_tex_mem_usage; // Default: 1GB
+	uint64 max_tex_CPU_mem_usage; // If total CPU RAM usage of used and cached textures exceeds this value, textures will be removed from cache.  Default: 1GB
+	uint64 max_tex_GPU_mem_usage; // If total GPU RAM usage of used and cached textures exceeds this value, textures will be removed from cache.  Default: 1GB
 };
 
 
@@ -1395,9 +1397,11 @@ private:
 public:
 	PrintOutput* print_output; // May be NULL
 
-	uint64 tex_mem_usage; // Running sum of GPU RAM used by inserted textures.
+	uint64 tex_CPU_mem_usage; // Running sum of CPU RAM used by inserted textures.
+	uint64 tex_GPU_mem_usage; // Running sum of GPU RAM used by inserted textures.
 
-	uint64 max_tex_mem_usage;
+	uint64 max_tex_CPU_mem_usage;
+	uint64 max_tex_GPU_mem_usage;
 
 	VertexBufferAllocatorRef vert_buf_allocator;
 

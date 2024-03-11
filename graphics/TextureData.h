@@ -71,6 +71,7 @@ size_t TextureData::totalCPUMemUsage() const
 
 	for(size_t i=0; i<frames.size(); ++i)
 		sum += frames[i].mipmap_data.dataSizeBytes();
+	// TODO: include frames[i].converted_image as well?
 
 	sum += frame_end_times.capacity() * sizeof(double);
 
