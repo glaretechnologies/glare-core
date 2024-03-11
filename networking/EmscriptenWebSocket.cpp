@@ -123,13 +123,46 @@ size_t EmscriptenWebSocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 }
 
 
+void EmscriptenWebSocket::ungracefulShutdown()
+{
+	closing = 1;
+
+	emscripten_websocket_delete(socket);
+
+	new_data_condition.notify(); // Wake up any threads suspended in readTo()
+}
+
+
+void EmscriptenWebSocket::waitForGracefulDisconnect()
+{
+
+}
+
+
+void EmscriptenWebSocket::startGracefulShutdown()
+{
+	closing = 1;
+
+	emscripten_websocket_close(socket,
+		1000, // close code: 1001 = "endpoint going away", such as "browser having navigated away from a page". (https://datatracker.ietf.org/doc/html/rfc6455#section-7.4)
+		// However get an error using code 1001 so just use code 1000.
+		"" // close reason
+	);
+
+	new_data_condition.notify(); // Wake up any threads suspended in readTo()
+}
+
+
 void EmscriptenWebSocket::readTo(void* buffer, size_t readlen)
 {
 	Lock lock(mutex); // Lock read-buffer
 
-	// Suspend thread until read-buffer is large enough.
-	while(read_buffer.size() < readlen)
+	// Suspend thread until read-buffer is large enough.  Don't suspend if we are trying to close the socket connection though.
+	while((read_buffer.size() < readlen) && (closing == 0))
 		new_data_condition.wait(mutex); 
+
+	if(closing)
+		throw glare::Exception("Socket is closing");
 
 	read_buffer.popFrontNItems(/*dest=*/(uint8*)buffer, readlen);
 }

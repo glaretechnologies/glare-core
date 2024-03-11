@@ -35,11 +35,11 @@ public:
 	// Returns zero if connection was closed gracefully
 	size_t readSomeBytes(void* buffer, size_t max_num_bytes) override;
 
-	virtual void ungracefulShutdown() override {}
+	virtual void ungracefulShutdown() override;
 
-	virtual void waitForGracefulDisconnect() override {}
+	virtual void waitForGracefulDisconnect() override;
 
-	virtual void startGracefulShutdown() override {}
+	virtual void startGracefulShutdown() override;
 
 
 	virtual void setNoDelayEnabled(bool enabled) override {} // NoDelay option is off by default.
@@ -79,6 +79,7 @@ public:
 	Condition new_data_condition;
 private:
 	EMSCRIPTEN_WEBSOCKET_T socket;
+	glare::AtomicInt closing;
 };
 
 
