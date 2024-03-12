@@ -9615,7 +9615,7 @@ void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 			this->tex_CPU_mem_usage -= tex->texture_data->totalCPUMemUsage();
 		}
 
-		assert(this->tex_mem_usage >= tex->getByteSize());
+		assert(this->tex_GPU_mem_usage >= tex->getByteSize());
 		this->tex_GPU_mem_usage -= tex->getByteSize();
 
 		this->opengl_textures.erase(it);
