@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2018 -
 
 #include "ThreadSafeRefCounted.h"
 #include "MemAlloc.h"
+#include <string>
 #include <cstring> // for size_t
 
 
@@ -21,6 +22,8 @@ public:
 	virtual ~Allocator() {}
 	virtual void* alloc(size_t size, size_t alignment) = 0;
 	virtual void free(void* ptr) = 0;
+
+	virtual std::string getDiagnostics() const { return std::string(); }
 };
 
 

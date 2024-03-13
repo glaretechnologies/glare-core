@@ -35,7 +35,7 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 			write_options.use_compression = false;
 			batched_mesh.writeToFile(temp_path, write_options);
 
-			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path);
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
 
 			testAssert(batched_mesh == *batched_mesh2);
 		}
@@ -46,7 +46,7 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 			write_options.use_compression = true;
 			batched_mesh.writeToFile(temp_path, write_options);
 
-			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path);
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
 
 			testAssert(batched_mesh.index_data.size() == batched_mesh2->index_data.size());
 			if(batched_mesh.index_data != batched_mesh2->index_data)
@@ -152,7 +152,7 @@ static void perfTestWithMesh(const std::string& path)
 		// Load from disk to get decompression speed.
 		{
 			Timer timer;
-			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path);
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
 			conPrint("readFromFile() time: " + timer.elapsedStringNSigFigs(4));
 		}
 	}
@@ -216,7 +216,7 @@ void BatchedMeshTests::test()
 	// channel.target_node out of bounds
 	try
 	{
-		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/crash-1397c795a85df6b9a878fb195366bb98bbb8c701");
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/crash-1397c795a85df6b9a878fb195366bb98bbb8c701", /*mem allocator=*/NULL);
 
 		failTest("Expected exception");
 	}
@@ -229,7 +229,7 @@ void BatchedMeshTests::test()
 	{
 		// Test loading a batched mesh with old version (1) animation data.
 		{
-			BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh");
+			BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh", /*mem allocator=*/NULL);
 		}
 
 
@@ -250,7 +250,7 @@ void BatchedMeshTests::test()
 
 		// Test loading a mesh with version 3 animation data (contains VRM data)
 		{
-			BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/meebit_09842_t_solid_vrm.bmesh");
+			BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/meebit_09842_t_solid_vrm.bmesh", /*mem allocator=*/NULL);
 
 			testAssert(mesh->numVerts() == 5258); // Check that vertices are merged for faces.
 			testAssert(mesh->numIndices() == 9348 * 3);

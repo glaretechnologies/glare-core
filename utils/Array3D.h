@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2020 -
 
 
 #include "Platform.h"
-#include "Vector.h"
+#include "AllocatorVector.h"
 #include <cassert>
 
 
@@ -22,7 +22,12 @@ class Array3D
 public:
 	Array3D() : dx(0), dx_times_dy(0), dy(0), dz(0) {}
 	Array3D(size_t d0, size_t d1, size_t d2) : dx(d0), dx_times_dy(d0 * d1), dy(d1), dz(d2), data(d0 * d1 * d2) {}
-	Array3D(size_t d0, size_t d1, size_t d2, const T& val) : dx(d0), dx_times_dy(d0 * d1), dy(d1), dz(d2), data(d0 * d1 * d2, val) {}
+	Array3D(size_t d0, size_t d1, size_t d2, const T& val, glare::Allocator* allocator = NULL) : dx(d0), dx_times_dy(d0 * d1), dy(d1), dz(d2)
+	{
+		if(allocator)
+			data.setAllocator(allocator);
+		data.resize(d0 * d1 * d2, val);
+	}
 
 	inline void resizeNoCopy(uint32 d0, uint32 d1, uint32 d2) { dx = d0; dx_times_dy = d0 * d1; dy = d1; dz = d2; data.resizeNoCopy(d0 * d1 * d2); }
 
@@ -36,10 +41,10 @@ public:
 	GLARE_STRONG_INLINE size_t dY() const { return dy; }
 	GLARE_STRONG_INLINE size_t dZ() const { return dz; }
 
-	js::Vector<T, 16>& getData() { return data; }
-	const js::Vector<T, 16>& getData() const { return data; }
+	glare::AllocatorVector<T, 16>& getData() { return data; }
+	const glare::AllocatorVector<T, 16>& getData() const { return data; }
 private:
-	js::Vector<T, 16> data;
+	glare::AllocatorVector<T, 16> data;
 	size_t dx, dx_times_dy, dy, dz;
 };
 

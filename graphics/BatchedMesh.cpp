@@ -146,7 +146,7 @@ Reference<BatchedMesh> BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh
 	const size_t uv1_offset         = uv0_offset      + (mesh_has_uvs ? packed_uv_size : 0);
 	const size_t vert_col_offset    = uv1_offset      + (mesh_has_uv1 ? packed_uv_size : 0);
 	const size_t num_bytes_per_vert = vert_col_offset + (mesh_has_vert_cols ? sizeof(float)*3 : 0);
-	js::Vector<uint8, 16>& vert_data = batched_mesh->vertex_data;
+	glare::AllocatorVector<uint8, 16>& vert_data = batched_mesh->vertex_data;
 	vert_data.reserve(mesh->vert_positions.size() * num_bytes_per_vert);
 
 	js::Vector<uint32, 16> uint32_indices(mesh->triangles.size() * 3 + mesh->quads.size() * 6);
@@ -935,15 +935,15 @@ static const uint32 MAX_NUM_VERT_ATTRIBUTES = 100;
 static const uint32 MAX_NUM_BATCHES = 1000000;
 
 
-Reference<BatchedMesh> BatchedMesh::readFromFile(const std::string& src_path)
+Reference<BatchedMesh> BatchedMesh::readFromFile(const std::string& src_path, glare::Allocator* mem_allocator)
 {
 	FileInStream file(src_path);
 
-	return readFromData(file.fileData(), file.fileSize());
+	return readFromData(file.fileData(), file.fileSize(), mem_allocator);
 }
 
 
-Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_len)
+Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_len, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -973,6 +973,12 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 			throw glare::Exception("Too many vert attributes.");
 		
 		Reference<BatchedMesh> batched_mesh = new BatchedMesh();
+		if(mem_allocator)
+		{
+			batched_mesh->vertex_data.setAllocator(mem_allocator);
+			batched_mesh->index_data.setAllocator(mem_allocator);
+		}
+
 		BatchedMesh& mesh_out = *batched_mesh;
 		mesh_out.vert_attributes.resize(header.num_vert_attributes);
 		size_t cur_offset = 0;
@@ -1036,7 +1042,9 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 		const bool compression = (header.flags & FLAG_USE_COMPRESSION) != 0;
 		if(compression)
 		{
-			js::Vector<uint8, 16> plaintext(myMax(header.index_data_size_B, header.vertex_data_size_B)); // Make sure large enough so we don't need to resize later.
+			glare::AllocatorVector<uint8, 16> plaintext;
+			plaintext.setAllocator(mem_allocator);
+			plaintext.resizeNoCopy(myMax(header.index_data_size_B, header.vertex_data_size_B)); // Make sure large enough so we don't need to resize later.
 
 			Timer timer;
 			timer.pause();
@@ -1291,7 +1299,7 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 				throw glare::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[v]) + ", num verts: " + toString(num_verts) + ")");
 	}
 
-	js::Vector<uint8, 16>& vert_data = mesh.vertex_data;
+	glare::AllocatorVector<uint8, 16>& vert_data = mesh.vertex_data;
 	const size_t vert_size_B = mesh.vertexSize();
 
 
@@ -1467,7 +1475,10 @@ void BatchedMesh::optimise()
 	
 	std::vector<int> mat_to_new_batch_map(num_mats, -1); // Map from material index to index of new batch in new_batches for that material
 
-	js::Vector<uint8, 16> new_index_data(index_data.size());
+	glare::AllocatorVector<uint8, 16> new_index_data;
+	if(index_data.getAllocator().nonNull())
+		new_index_data.setAllocator(index_data.getAllocator());
+	new_index_data.resizeNoCopy(index_data.size());
 
 	const size_t index_type_size_B = componentTypeSize(index_type);
 
@@ -1524,7 +1535,7 @@ void BatchedMesh::optimise()
 #endif
 
 	batches.swap(new_batches);
-	index_data.swapWith(new_index_data);
+	index_data.swapWith(new_index_data); // TODO: have to be carefull with allocators here.
 
 	// conPrint("BatchedMesh::optimise took " + timer.elapsedStringMSWIthNSigFigs(5));
 }

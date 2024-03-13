@@ -438,11 +438,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	loaded_maps_for_sun_dir(false),
 	add_debug_obs(false)
 {
-	if(settings.use_general_arena_mem_allocator)
-		mem_allocator = new glare::GeneralMemAllocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull);
-	else
-		mem_allocator = new glare::MallocAllocator();
-
 	current_index_type = 0;
 	current_bound_prog = NULL;
 	current_bound_prog_index = std::numeric_limits<uint32>::max();
@@ -1595,13 +1590,15 @@ struct DataUpdateStruct
 };
 
 
-void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureServer> texture_server_, PrintOutput* print_output_, glare::TaskManager* main_task_manager_, glare::TaskManager* high_priority_task_manager_)
+void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureServer> texture_server_, PrintOutput* print_output_, glare::TaskManager* main_task_manager_, glare::TaskManager* high_priority_task_manager_,
+	Reference<glare::Allocator> mem_allocator_)
 {
 	data_dir = data_dir_;
 	texture_server = texture_server_;
 	print_output = print_output_;
 	main_task_manager = main_task_manager_;
 	high_priority_task_manager = high_priority_task_manager_;
+	mem_allocator = mem_allocator_;
 
 #if !defined(OSX) && !defined(EMSCRIPTEN)
 	if(gl3wInit() != 0)
@@ -10042,13 +10039,6 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "SSBO support: " + boolToString(GL_ARB_shader_storage_buffer_object_support) + "\n";
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
 	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
-
-#if !defined(EMSCRIPTEN) // Failed in emscripten
-	if(dynamic_cast<glare::GeneralMemAllocator*>(mem_allocator.ptr()))
-	{
-		s += dynamic_cast<glare::GeneralMemAllocator*>(mem_allocator.ptr())->getDiagnostics();
-	}
-#endif
 
 	s += "Programs: " + toString(next_program_index) + "\n";
 

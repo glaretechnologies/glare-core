@@ -47,12 +47,12 @@ static const std::string errorString(int error_code)
 
 
 // throws ImFormatExcep on failure
-Reference<Map2D> GIFDecoder::decode(const std::string& path)
+Reference<Map2D> GIFDecoder::decode(const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize());
+		return decodeFromBuffer(file.fileData(), file.fileSize(), mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -227,7 +227,7 @@ static const int max_image_height = 100000;
 static const size_t max_image_num_pixels = 1 << 27;
 static const size_t max_total_image_size = 1 << 28; // 268,435,456 B
 
-Reference<Map2D> GIFDecoder::decodeFromBuffer(const void* data, size_t size)
+Reference<Map2D> GIFDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
 {
 	BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)data, size));
 
@@ -265,7 +265,7 @@ Reference<Map2D> GIFDecoder::decodeFromBuffer(const void* data, size_t size)
 		const size_t w = (size_t)image_0->ImageDesc.Width;
 		const size_t h = (size_t)image_0->ImageDesc.Height;
 
-		ImageMapUInt8Ref image_map = new ImageMapUInt8(w, h, 3);
+		ImageMapUInt8Ref image_map = new ImageMapUInt8(w, h, 3, mem_allocator);
 		image_map->setGamma((float)2.2f);
 
 		// Make an array that has 256 entries on the stack.
@@ -309,12 +309,12 @@ Reference<Map2D> GIFDecoder::decodeFromBuffer(const void* data, size_t size)
 }
 
 
-Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
+Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeImageSequenceFromBuffer(file.fileData(), file.fileSize());
+		return decodeImageSequenceFromBuffer(file.fileData(), file.fileSize(), mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -323,7 +323,7 @@ Reference<Map2D> GIFDecoder::decodeImageSequence(const std::string& path)
 }
 
 
-Reference<Map2D> GIFDecoder::decodeImageSequenceFromBuffer(const void* data, size_t size)
+Reference<Map2D> GIFDecoder::decodeImageSequenceFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
 {
 	BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)data, size));
 
@@ -401,7 +401,7 @@ Reference<Map2D> GIFDecoder::decodeImageSequenceFromBuffer(const void* data, siz
 				im_0_w = w;
 				im_0_h = h;
 			}
-			ImageMapUInt8Ref image_map = new ImageMapUInt8(im_0_w, im_0_h, 3);
+			ImageMapUInt8Ref image_map = new ImageMapUInt8(im_0_w, im_0_h, 3, mem_allocator);
 			image_map->setGamma((float)2.2f);
 			sequence->images[im_i] = image_map;
 

@@ -31,7 +31,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	 
 	js::Vector<uint32, 16> new_indices;
 	new_indices.reserve(mesh.numIndices());
-	js::Vector<uint8, 16> new_vertex_data(mesh.vertex_data.size());
+	glare::AllocatorVector<uint8, 16> new_vertex_data(mesh.vertex_data.size());
 	uint32 new_vertex_data_write_i = 0;
 	std::vector<BatchedMesh::IndicesBatch> new_batches;
 
@@ -193,7 +193,7 @@ void testOnBMesh(const std::string& src_path)
 {
 	try
 	{
-		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(src_path);
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(src_path, /*mem allocator=*/NULL);
 
 		BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, 10.f, 0.02f, /*sloppy=*/false);
 
@@ -220,7 +220,7 @@ void buildLODVersions(const std::string& src_path)
 	{
 		conPrint("===========================================");
 		conPrint("Creating LOD models for " + src_path + "...");
-		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(src_path);
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(src_path, /*mem allocator=*/NULL);
 
 		// Create lod1
 		{

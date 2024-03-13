@@ -25,7 +25,7 @@ public:
 	virtual void* alloc(size_t size, size_t alignment) override;
 	virtual void free(void* ptr) override;
 
-	std::string getDiagnostics() const;
+	virtual std::string getDiagnostics() const override;
 
 	static void test();
 private:

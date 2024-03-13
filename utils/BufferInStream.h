@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2022 -
 
 #include "RandomAccessInStream.h"
 #include "Vector.h"
+#include "AllocatorVector.h"
 #include "ArrayRef.h"
 #include <vector>
 
@@ -43,6 +44,6 @@ public:
 	              void* currentReadPtr()       { return buf.data() + read_index; }
 	virtual const void* currentReadPtr() const { return buf.data() + read_index; }
 
-	js::Vector<unsigned char, 16> buf;
+	glare::AllocatorVector<unsigned char, 16> buf;
 	size_t read_index;
 };

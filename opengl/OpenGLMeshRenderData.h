@@ -57,9 +57,9 @@ public:
 
 	VertBufAllocationHandle vbo_handle;
 
-	js::Vector<uint32, 16> vert_index_buffer;
-	js::Vector<uint16, 16> vert_index_buffer_uint16;
-	js::Vector<uint8, 16> vert_index_buffer_uint8;
+	glare::AllocatorVector<uint32, 16> vert_index_buffer;
+	glare::AllocatorVector<uint16, 16> vert_index_buffer_uint16;
+	glare::AllocatorVector<uint8, 16> vert_index_buffer_uint8;
 
 	IndexBufAllocationHandle indices_vbo_handle;
 

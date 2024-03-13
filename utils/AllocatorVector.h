@@ -37,6 +37,7 @@ public:
 	inline ~AllocatorVector();
 
 	inline AllocatorVector& operator=(const AllocatorVector& other);
+	inline void swapWith(AllocatorVector& other); // Important note: other should have the same allocator set.
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
 	inline void reserveNoCopy(size_t N); // Make sure capacity is at least N.  Don't copy existing objects.
@@ -74,7 +75,7 @@ public:
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 
-	void erase(size_t index);
+	inline void erase(iterator index);
 
 	void setAllocator(const Reference<glare::Allocator>& al) { allocator = al; }
 	Reference<glare::Allocator>& getAllocator() { return allocator; }
@@ -249,6 +250,25 @@ AllocatorVector<T, alignment>& AllocatorVector<T, alignment>::operator=(const Al
 
 
 template <class T, size_t alignment>
+void AllocatorVector<T, alignment>::swapWith(AllocatorVector& other)
+{
+	assert(other.getAllocator() == getAllocator());
+
+	assert(capacity_ >= size_);
+
+	if(this == &other)
+		return;
+
+	mySwap(e, other.e);
+	mySwap(size_, other.size_);
+	mySwap(capacity_, other.capacity_);
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
 void AllocatorVector<T, alignment>::reserve(size_t n)
 {
 	assert(capacity_ >= size_);
@@ -295,7 +315,8 @@ void AllocatorVector<T, alignment>::reserveNoCopy(size_t n)
 		for(size_t i=0; i<size_; ++i)
 			e[i].~T();
 
-		free(e); // Free old buffer.
+		if(e)
+			free(e); // Free old buffer.
 
 		e = new_e;
 		capacity_ = n;
@@ -629,8 +650,9 @@ typename AllocatorVector<T, alignment>::const_iterator AllocatorVector<T, alignm
 
 
 template <class T, size_t alignment>
-void AllocatorVector<T, alignment>::erase(size_t index)
+void AllocatorVector<T, alignment>::erase(iterator position)
 {
+	const size_t index = position - begin();
 	const size_t curr_size = size();
 	if(curr_size == 0)
 		return;

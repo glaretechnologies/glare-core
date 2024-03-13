@@ -35,9 +35,9 @@ public:
 
 
 	// throws ImFormatExcep
-	static Reference<Map2D> decode(const std::string& path);
+	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL);
 
-	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, const std::string& path);
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, const std::string& path, glare::Allocator* mem_allocator = NULL);
 
 
 	// Options for saving

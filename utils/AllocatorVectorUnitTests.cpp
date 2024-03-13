@@ -702,22 +702,22 @@ void AllocatorVectorUnitTests::test()
 		for(int i = 0; i < 4; ++i)
 			v[i] = i + 1;
 
-		v.erase(3); // Erase from the back, result is (1, 2, 3)
+		v.erase(v.begin() + 3); // Erase from the back, result is (1, 2, 3)
 		testAssert(v.size() == 3);
 		testAssert(v.back() == 3);
 
-		v.erase(1); // Erase from the middle, result is (1, 3)
+		v.erase(v.begin() + 1); // Erase from the middle, result is (1, 3)
 		testAssert(v.size() == 2);
 		testAssert(v[1] == 3);
 
-		v.erase(0); // Erase from the beginning, result is (3)
+		v.erase(v.begin() + 0); // Erase from the beginning, result is (3)
 		testAssert(v.size() == 1);
 		testAssert(v[0] == 3);
 
-		v.erase(0); // Erase from the beginning, result is ()
+		v.erase(v.begin() + 0); // Erase from the beginning, result is ()
 		testAssert(v.size() == 0);
 
-		v.erase(0); // Erase from the beginning, does nothing (empty Vector erase is a null op)
+		v.erase(v.begin() + 0); // Erase from the beginning, does nothing (empty Vector erase is a null op)
 		testAssert(v.size() == 0);
 	}
 

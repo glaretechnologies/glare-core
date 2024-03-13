@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"
 #include <string>
+namespace glare { class Allocator; }
 class Map2D;
 
 
@@ -25,13 +26,13 @@ class KTXDecoder
 {
 public:
 	// throws ImFormatExcep on failure
-	static Reference<Map2D> decode(const std::string& path);
+	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL);
 
-	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size);
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL);
 
-	static Reference<Map2D> decodeKTX2(const std::string& path);
+	static Reference<Map2D> decodeKTX2(const std::string& path, glare::Allocator* mem_allocator = NULL);
 
-	static Reference<Map2D> decodeKTX2FromBuffer(const void* data, size_t size);
+	static Reference<Map2D> decodeKTX2FromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL);
 
 
 

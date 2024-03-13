@@ -87,7 +87,7 @@ class ImageMap : public Map2D
 {
 public:
 	inline ImageMap();
-	inline ImageMap(size_t width, size_t height, size_t N); // throws glare::Exception
+	inline ImageMap(size_t width, size_t height, size_t N, glare::Allocator* mem_allocator = NULL); // throws glare::Exception
 	inline virtual ~ImageMap();
 
 	inline ImageMap& operator = (const ImageMap& other);
@@ -218,9 +218,12 @@ ImageMap<V, VTraits>::ImageMap()
 
 
 template <class V, class VTraits>
-ImageMap<V, VTraits>::ImageMap(size_t width_, size_t height_, size_t N_)
+ImageMap<V, VTraits>::ImageMap(size_t width_, size_t height_, size_t N_, glare::Allocator* mem_allocator_)
 :	width(width_), height(height_), N(N_), gamma(2.2f), ds_over_2(0.5f / width_), dt_over_2(0.5f / height_)
 {
+	if(mem_allocator_)
+		data.setAllocator(mem_allocator_);
+
 	try
 	{
 		data.resizeNoCopy(width * height * N);

@@ -481,7 +481,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 	vert_data.reserve(mesh->vert_positions.size() * num_bytes_per_vert);
 	
 
-	js::Vector<uint32, 16>& vert_index_buffer = opengl_render_data->vert_index_buffer;
+	glare::AllocatorVector<uint32, 16>& vert_index_buffer = opengl_render_data->vert_index_buffer;
 	vert_index_buffer.resizeNoCopy(mesh->triangles.size()*3 + mesh->quads.size()*6); // Quads are rendered as two tris.
 	
 
@@ -870,7 +870,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 
 	if(num_merged_verts < 256)
 	{
-		js::Vector<uint8, 16>& index_buf = opengl_render_data->vert_index_buffer_uint8;
+		glare::AllocatorVector<uint8, 16>& index_buf = opengl_render_data->vert_index_buffer_uint8;
 		index_buf.resize(vert_index_buffer_size);
 		for(size_t i=0; i<vert_index_buffer_size; ++i)
 		{
@@ -888,7 +888,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 	}
 	else if(num_merged_verts < 65536)
 	{
-		js::Vector<uint16, 16>& index_buf = opengl_render_data->vert_index_buffer_uint16;
+		glare::AllocatorVector<uint16, 16>& index_buf = opengl_render_data->vert_index_buffer_uint16;
 		index_buf.resize(vert_index_buffer_size);
 		for(size_t i=0; i<vert_index_buffer_size; ++i)
 		{

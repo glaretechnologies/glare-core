@@ -409,7 +409,7 @@ class OpenGLEngineSettings
 {
 public:
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
-		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), use_general_arena_mem_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
+		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
 		allow_multi_draw_indirect(true) {}
 
 	bool enable_debug_output;
@@ -420,7 +420,6 @@ public:
 	bool render_sun_and_clouds;
 	bool render_water_caustics;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
-	bool use_general_arena_mem_allocator; // Use GeneralMemAllocator with a 2GB arena for general CPU-side mem allocations.
 	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
 
 	bool allow_bindless_textures; // Allow use of bindless textures, if supported by the OpenGL implementation?   True by default.
@@ -797,7 +796,8 @@ public:
 	friend class TerrainSystem;
 
 	//---------------------------- Initialisation/deinitialisation --------------------------
-	void initialise(const std::string& data_dir, Reference<TextureServer> texture_server, PrintOutput* print_output, glare::TaskManager* main_task_manager, glare::TaskManager* high_priority_task_manager); // data_dir should have 'shaders' and 'gl_data' in it.  texture_server can be NULL.
+	void initialise(const std::string& data_dir, Reference<TextureServer> texture_server, PrintOutput* print_output, glare::TaskManager* main_task_manager, glare::TaskManager* high_priority_task_manager,
+		Reference<glare::Allocator> mem_allocator); // data_dir should have 'shaders' and 'gl_data' in it.  texture_server can be NULL.
 	bool initSucceeded() const { return init_succeeded; }
 	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
 

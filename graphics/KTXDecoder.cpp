@@ -50,12 +50,12 @@ static uint8 ktx2_file_id[12] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB
 
 
 // throws ImFormatExcep on failure
-Reference<Map2D> KTXDecoder::decode(const std::string& path)
+Reference<Map2D> KTXDecoder::decode(const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize());
+		return decodeFromBuffer(file.fileData(), file.fileSize(), mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -64,7 +64,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path)
 }
 
 
-Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size)
+Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -133,6 +133,7 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size)
 
 			// Assume there are no array elements (this is not an array texture)
 			glare::AllocatorVector<uint8, 16>& cur_level_data = image->mipmap_level_data[lvl];
+			cur_level_data.setAllocator(mem_allocator);
 			cur_level_data.resize(image_size);
 
 			file.readData(cur_level_data.data(), image_size);
@@ -156,12 +157,12 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size)
 
 
 // See http://github.khronos.org/KTX-Specification/
-Reference<Map2D> KTXDecoder::decodeKTX2(const std::string& path)
+Reference<Map2D> KTXDecoder::decodeKTX2(const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeKTX2FromBuffer(file.fileData(), file.fileSize());
+		return decodeKTX2FromBuffer(file.fileData(), file.fileSize(), mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -170,7 +171,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2(const std::string& path)
 }
 
 
-Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size)
+Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -266,6 +267,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size)
 			
 			// Assume there are no array elements (this is not an array texture)
 			glare::AllocatorVector<uint8, 16>& cur_level_data = image->mipmap_level_data[lvl];
+			cur_level_data.setAllocator(mem_allocator);
 
 			if(level_data[lvl].uncompressedByteLength > 100000000) // Fail on excessively large files.
 				throw glare::Exception("uncompressedByteLength is too large: " + toString(level_data[lvl].uncompressedByteLength));

@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2020
 #include <Platform.h>
 #include <Reference.h>
 #include <Vector.h>
+#include <AllocatorVector.h>
 #include <vector>
 #include <string>
 
@@ -51,9 +52,9 @@ public:
 	/// @param src_path			Path on disk to read from.
 	/// @param mesh_out			Mesh object to read to.
 	/// @throws glare::Exception on failure.
-	static Reference<BatchedMesh> readFromFile(const std::string& src_path);
+	static Reference<BatchedMesh> readFromFile(const std::string& src_path, glare::Allocator* mem_allocator);
 
-	static Reference<BatchedMesh> readFromData(const void* data, size_t data_len);
+	static Reference<BatchedMesh> readFromData(const void* data, size_t data_len, glare::Allocator* mem_allocator);
 
 	// Check vertex, joint indices are in bounds etc.
 	// Throws glare::Exception on invalid mesh.
@@ -154,9 +155,9 @@ public:
 	ComponentType index_type; // Must be one of ComponentType_UInt8, ComponentType_UInt16, ComponentType_UInt32.
 	// If ComponentType_UInt8, index values must be < 128.  This is so the difference between any two indices is in the range [-127, 127], which means the difference can be stored in a signed 8-bit value.
 	// Likewise for ComponentType_UInt16, index values must be < 32768.
-	js::Vector<uint8, 16> index_data;
+	glare::AllocatorVector<uint8, 16> index_data;
 
-	js::Vector<uint8, 16> vertex_data;
+	glare::AllocatorVector<uint8, 16> vertex_data;
 
 	js::AABBox aabb_os; // An AABB that contains the vertex positions.
 

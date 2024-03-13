@@ -110,12 +110,12 @@ static void pngdecoder_read_data(png_structp png_ptr, png_bytep data, png_size_t
 #endif // LIBPNG_SUPPORT
 
 
-Reference<Map2D> PNGDecoder::decode(const std::string& path)
+Reference<Map2D> PNGDecoder::decode(const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize());
+		return decodeFromBuffer(file.fileData(), file.fileSize(), mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -172,7 +172,7 @@ For example it will load a 3x16 bit rgb color PNG file as a 4x16 bit format.
 As such we won't make it the default way to load PNGs for now, but will continue to use LibPNG as the default.  
 Define WUFFS_SUPPORT to make Wuffs the default way to load PNGs.
 */
-static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewInStream& buffer_view_in_stream)
+static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewInStream& buffer_view_in_stream, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -238,7 +238,10 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 			throw ImFormatExcep("main: image is too large (to configure work buffer)");
 
 
-		js::Vector<uint8, 16> workbuf_array(workbuf_len); // NOTE: does not zero memory
+		glare::AllocatorVector<uint8, 16> workbuf_array;
+		if(mem_allocator)
+			workbuf_array.setAllocator(mem_allocator);
+		workbuf_array.resizeNoCopy(workbuf_len); // NOTE: does not zero memory
 		const wuffs_base__slice_u8 workbuf_slice = wuffs_base__make_slice_u8(workbuf_array.data(), workbuf_len);
 
 
@@ -299,7 +302,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 
 		if(channel_0_bits == 8)
 		{
-			ImageMapUInt8Ref imagemap = new ImageMapUInt8(w, h, N);
+			ImageMapUInt8Ref imagemap = new ImageMapUInt8(w, h, N, mem_allocator);
 
 			wuffs_base__slice_u8 pixbuf_slice = wuffs_base__make_slice_u8(imagemap->getData(), imagemap->getDataSize());
 
@@ -347,7 +350,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 		}
 		else if(channel_0_bits == 16)
 		{
-			Reference<ImageMap<uint16_t, UInt16ComponentValueTraits> > imagemap = new ImageMap<uint16_t, UInt16ComponentValueTraits>(w, h, N);
+			Reference<ImageMap<uint16_t, UInt16ComponentValueTraits> > imagemap = new ImageMap<uint16_t, UInt16ComponentValueTraits>(w, h, N, mem_allocator);
 
 			wuffs_base__slice_u8 pixbuf_slice = wuffs_base__make_slice_u8((uint8*)imagemap->getData(), imagemap->getDataSize() * sizeof(uint16));
 
@@ -533,12 +536,12 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStr
 #endif // LIBPNG_SUPPORT
 
 
-Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size)
+Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
 {
 	BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)data, size));
 
 #if WUFFS_SUPPORT
-	return doDecodeFromBufferWithWuffs(buffer_view_in_stream);
+	return doDecodeFromBufferWithWuffs(buffer_view_in_stream, mem_allocator);
 #elif LIBPNG_SUPPORT
 	return doDecodeFromBufferLibPNG(buffer_view_in_stream);
 #else
@@ -1405,7 +1408,7 @@ void PNGDecoder::test()
 			{
 				Timer timer;
 				BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)file.fileData(), file.fileSize()));
-				Reference<Map2D> map = doDecodeFromBufferWithWuffs(buffer_view_in_stream);
+				Reference<Map2D> map = doDecodeFromBufferWithWuffs(buffer_view_in_stream, NULL);
 				//testAssert(map->getMapWidth() == 1000);
 				min_time = myMin(min_time, timer.elapsed());
 			}

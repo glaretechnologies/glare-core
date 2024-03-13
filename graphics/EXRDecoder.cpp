@@ -254,12 +254,12 @@ public:
 };
 
 
-Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
+Reference<Map2D> EXRDecoder::decode(const std::string& pathname, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(pathname);
-		return decodeFromBuffer(file.fileData(), file.fileSize(), pathname);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), pathname, mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -268,7 +268,7 @@ Reference<Map2D> EXRDecoder::decode(const std::string& pathname)
 }
 
 
-Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& pathname)
+Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& pathname, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -404,7 +404,7 @@ Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, con
 
 		if(use_pixel_type == Imf::FLOAT)
 		{
-			Reference<ImageMap<float, FloatComponentValueTraits> > new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, result_num_channels);
+			Reference<ImageMap<float, FloatComponentValueTraits> > new_image = new ImageMap<float, FloatComponentValueTraits>(width, height, result_num_channels, mem_allocator);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 			new_image->channel_names = channels_to_load_names;
 
@@ -432,7 +432,7 @@ Reference<Map2D> EXRDecoder::decodeFromBuffer(const void* data, size_t size, con
 		}
 		else if(use_pixel_type == Imf::HALF)
 		{
-			Reference<ImageMap<half, HalfComponentValueTraits> > new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, result_num_channels);
+			Reference<ImageMap<half, HalfComponentValueTraits> > new_image = new ImageMap<half, HalfComponentValueTraits>(width, height, result_num_channels, mem_allocator);
 			new_image->setGamma(1); // HDR images should have gamma 1.
 
 			const size_t x_stride = sizeof(half) * result_num_channels;

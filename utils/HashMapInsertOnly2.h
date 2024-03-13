@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "HashMapInsertOnly2Iterators.h"
 #include "Vector.h"
+#include "GlareAllocator.h"
 #include <functional>
 #include <type_traits>
 
@@ -52,7 +53,7 @@ public:
 
 
 	HashMapInsertOnly2(Key empty_key_)
-	:	buckets((std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * 32, 64)), buckets_size(32), num_items(0), hash_mask(31), empty_key(empty_key_)
+	:	buckets((std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * 32, 64)), buckets_size(32), num_items(0), hash_mask(31), empty_key(empty_key_), allocator(NULL)
 	{
 		// Initialise elements
 		std::pair<Key, Value> empty_key_val(empty_key, Value());
@@ -61,12 +62,15 @@ public:
 	}
 
 
-	HashMapInsertOnly2(Key empty_key_, size_t expected_num_items)
-	:	num_items(0), empty_key(empty_key_)
+	HashMapInsertOnly2(Key empty_key_, size_t expected_num_items, glare::Allocator* allocator_ = NULL)
+	:	num_items(0), empty_key(empty_key_), allocator(allocator_)
 	{
 		buckets_size = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
 		
-		buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * buckets_size, 64);
+		if(allocator)
+			buckets = (std::pair<Key, Value>*)allocator->alloc       (sizeof(std::pair<Key, Value>) * buckets_size, 64);
+		else
+			buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * buckets_size, 64);
 
 		// Initialise elements
 		if(std::is_pod<Key>::value && std::is_pod<Value>::value)
@@ -91,7 +95,10 @@ public:
 		for(size_t i=0; i<buckets_size; ++i)
 			(buckets + i)->~KeyValuePair();
 
-		MemAlloc::alignedFree(buckets);
+		if(allocator)
+			allocator->free(buckets);
+		else
+			MemAlloc::alignedFree(buckets);
 	}
 
 
@@ -273,7 +280,10 @@ private:
 
 		// Allocate new buckets
 		this->buckets_size = old_buckets_size * 2;
-		this->buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * this->buckets_size, 64);
+		if(allocator)
+			this->buckets = (std::pair<Key, Value>*)allocator->alloc       (sizeof(std::pair<Key, Value>) * this->buckets_size, 64);
+		else
+			this->buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * this->buckets_size, 64);
 		
 		// Initialise elements
 		if(std::is_pod<Key>::value && std::is_pod<Value>::value)
@@ -320,7 +330,11 @@ private:
 		// Destroy old bucket data
 		for(size_t i=0; i<old_buckets_size; ++i)
 			(old_buckets + i)->~KeyValuePair();
-		MemAlloc::alignedFree((std::pair<Key, Value>*)old_buckets);
+
+		if(allocator)
+			allocator->free((void*)old_buckets);
+		else
+			MemAlloc::alignedFree((std::pair<Key, Value>*)old_buckets);
 	}
 				
 public:
@@ -328,6 +342,7 @@ public:
 	size_t buckets_size;
 	HashFunc hash_func;
 	Key empty_key;
+	glare::Allocator* allocator;
 private:
 	size_t num_items;
 	size_t hash_mask;

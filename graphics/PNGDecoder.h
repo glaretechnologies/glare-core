@@ -14,6 +14,7 @@ class Map2D;
 class Bitmap;
 class UInt8ComponentValueTraits;
 class UInt16ComponentValueTraits;
+namespace glare { class Allocator; }
 template <class V, class VTraits> class ImageMap;
 
 
@@ -27,9 +28,9 @@ class PNGDecoder
 public:
 	// All methods throw ImFormatExcep on failure.
 
-	static Reference<Map2D> decode(const std::string& path);
+	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL);
 
-	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size);
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL);
 	
 	static void write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& path);
 	static void write(const Bitmap& bitmap, const std::string& path); // Write with no metadata

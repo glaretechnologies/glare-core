@@ -627,7 +627,7 @@ static void processNodeToGetBufferViewInfo(GLTFData& data, GLTFNode& node, std::
 // Copy some data from a buffer via an accessor, to a destination vertex_data buffer.
 // Converts types and applies a scale as well.
 template <typename SrcType, typename DestType, int N>
-static void copyData(size_t accessor_count, const uint8* const offset_base, const size_t byte_stride, js::Vector<uint8, 16>& vertex_data, const size_t vert_write_i, 
+static void copyData(size_t accessor_count, const uint8* const offset_base, const size_t byte_stride, glare::AllocatorVector<uint8, 16>& vertex_data, const size_t vert_write_i, 
 	const size_t dest_vert_stride_B, const size_t dest_attr_offset_B, const DestType scale)
 {
 	// Bounds check destination addresses (should be done already, but check again)

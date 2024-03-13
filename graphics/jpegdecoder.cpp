@@ -85,12 +85,12 @@ public:
 };
 
 
-Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const std::string& path)
+Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize(), indigo_base_dir);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), indigo_base_dir, mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -99,7 +99,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 }
 
 
-Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& indigo_base_dir)
+Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& indigo_base_dir, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -194,7 +194,7 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(cinfo.output_width) + ", " + toString(cinfo.output_height));
 #endif
 
-		ImageMapUInt8Ref texture = new ImageMapUInt8(cinfo.output_width, cinfo.output_height, final_num_components);
+		ImageMapUInt8Ref texture = new ImageMapUInt8(cinfo.output_width, cinfo.output_height, final_num_components, mem_allocator);
 
 		// Read gamma.  NOTE: this seems to just always be 1.
 		// We need to extract the ICC profile.
