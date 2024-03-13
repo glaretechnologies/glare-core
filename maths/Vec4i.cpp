@@ -159,8 +159,20 @@ void Vec4i::test()
 	//======================== operator < ==========================
 	{
 		testAssert((Vec4i(1, 2, 3, 4) < Vec4i(5, -6, 7, -8)) == Vec4i(0xFFFFFFFF, 0, 0xFFFFFFFF, 0));
-	}
+	}	
+	
+	//======================== Test shiftRightWithSignExtension ==========================
+	{
+		testEqual(shiftRightWithSignExtension(Vec4i(0, 1, 2, 3), /*shift_amount_b=*/0), Vec4i(0, 1, 2, 3));
+		testEqual(shiftRightWithSignExtension(Vec4i(0, 1, 2, 3), /*shift_amount_b=*/1), Vec4i(0, 0, 1, 1));
+		testEqual(shiftRightWithSignExtension(Vec4i(0, 1, 2, 3), /*shift_amount_b=*/2), Vec4i(0, 0, 0, 0));
+		testEqual(shiftRightWithSignExtension(Vec4i(256, 512, 1024, 2048), /*shift_amount_b=*/8), Vec4i(1, 2, 4, 8));
 
+		testEqual(shiftRightWithSignExtension(Vec4i(0, -1, -2, -3), /*shift_amount_b=*/0), Vec4i(0, -1, -2, -3));
+		testEqual(shiftRightWithSignExtension(Vec4i(0, -1, -2, -3), /*shift_amount_b=*/1), Vec4i(0, -1, -1, -2)); // effectively divides by 2, rounding down
+		testEqual(shiftRightWithSignExtension(Vec4i(0, -1, -2, -3), /*shift_amount_b=*/2), Vec4i(0, -1, -1, -1)); // effectively divides by 4, rounding down
+		testEqual(shiftRightWithSignExtension(Vec4i(-4, -5, -6, -7), /*shift_amount_b=*/2), Vec4i(-1, -2, -2, -2)); // effectively divides by 4, rounding down
+	}
 }
 
 
