@@ -25,7 +25,7 @@ class TextureFrameData
 {
 public:
 	glare::AllocatorVector<uint8, 16> mipmap_data; // Data for all mip-map levels, possibly compressed.
-	Reference<const Map2D> converted_image;
+	Reference<const Map2D> converted_image; // May reference an image directly if we are not computing mipmaps for it, or a CompressedImage.
 };
 
 
@@ -70,8 +70,12 @@ size_t TextureData::totalCPUMemUsage() const
 	size_t sum = 0;
 
 	for(size_t i=0; i<frames.size(); ++i)
+	{
 		sum += frames[i].mipmap_data.dataSizeBytes();
-	// TODO: include frames[i].converted_image as well?
+		
+		if(frames[i].converted_image.nonNull())
+			sum += frames[i].converted_image->getByteSize();
+	}
 
 	sum += frame_end_times.capacity() * sizeof(double);
 
