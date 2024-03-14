@@ -39,7 +39,7 @@ class MallocAllocator : public glare::Allocator
 		MemAlloc::alignedFree(ptr);
 	}
 
-	virtual std::string getDiagnostics() const { return "MallocAllocator [no info]"; }
+	virtual std::string getDiagnostics() const { return "MallocAllocator [no info]\n"; }
 };
 
 
