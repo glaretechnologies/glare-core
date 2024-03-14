@@ -936,6 +936,8 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 		//conPrint("vert_index_buffer: " + rightPad(toString(vert_index_buffer.size()), ' ', pad_w) + "(" + getNiceByteSize(opengl_render_data->vert_indices_buf->getSize()) + ")");
 	}
 
+	spec.checkValid();
+
 	// If we did the OpenGL calls, then the data has been uploaded to VBOs etc.. so we can free it.
 	if(!skip_opengl_calls)
 	{
@@ -1172,6 +1174,8 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		tangent_attrib.offset = (uint32)(tangent_attr ? tangent_attr->offset_B : 0);
 		opengl_render_data->vertex_spec.attributes.push_back(tangent_attrib);
 	}
+
+	opengl_render_data->vertex_spec.checkValid();
 
 	if(skip_opengl_calls)
 	{

@@ -30,6 +30,8 @@ VertexBufferAllocator::~VertexBufferAllocator()
 
 VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex_spec, const void* vbo_data, size_t size)
 {
+	vertex_spec.checkValid();
+
 #if DO_INDIVIDUAL_VAO_ALLOC
 	// This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
 	VertBufAllocationHandle handle;

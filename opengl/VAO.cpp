@@ -183,6 +183,45 @@ GLuint VAO::getBoundIndexBuffer() const
 }
 
 
+void VertexSpec::checkValid() const
+{
+	// Check vertex spec: check data is aligned properly.
+	// This is a requirement for WebGL (see https://github.com/KhronosGroup/WebGL/issues/914) and may be for Desktop OpenGL as well.
+#ifndef NDEBUG
+	for(size_t i=0; i<attributes.size(); ++i)
+	{
+		const VertexAttrib& attr = attributes[i];
+		size_t data_type_size;
+		if(attr.type == GL_FLOAT)
+			data_type_size = 4;
+		else if(attr.type == GL_INT_2_10_10_10_REV)
+			data_type_size = 4;
+		else if(attr.type == GL_HALF_FLOAT)
+			data_type_size = 2;
+		else if(attr.type == GL_BYTE)
+			data_type_size = 1;
+		else if(attr.type == GL_SHORT)
+			data_type_size = 2;
+		else if(attr.type == GL_UNSIGNED_SHORT)
+			data_type_size = 2;
+		else
+		{
+			assert(0);
+			data_type_size = 4;
+		}
+
+		assert((attr.offset % data_type_size) == 0);
+		if((attr.offset % data_type_size) != 0)
+			conPrint("======================== ERROR: attribute offset unaligned");
+
+		assert((attr.stride % data_type_size) == 0);
+		if((attr.stride % data_type_size) != 0)
+			conPrint("======================== ERROR: attribute stride not a multiple of datatype size");
+	}
+#endif
+}
+
+
 #if BUILD_TESTS
 
 

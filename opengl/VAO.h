@@ -88,6 +88,8 @@ struct VertexSpec
 
 		return false;
 	}
+
+	void checkValid() const;
 };
 
 
