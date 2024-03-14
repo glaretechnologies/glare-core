@@ -53,28 +53,29 @@ void main()
 	vec4 col = texelFetch(albedo_texture, px_coords, /*mip level=*/0);
 #endif
 
-	// Add order-independent transparency terms:
-	// Get transparent_accum_texture colour
-#if MAIN_BUFFER_MSAA_SAMPLES > 1
-	vec4 accum_col = vec4(0.f);
-	for(int i=0; i<MAIN_BUFFER_MSAA_SAMPLES; ++i)
-		accum_col += texelFetch(transparent_accum_texture, px_coords, i);
-	accum_col *= (1.f / MAIN_BUFFER_MSAA_SAMPLES);
-#else
-	vec4 accum_col = texelFetch(transparent_accum_texture, px_coords, /*mip level=*/0);
-#endif
+#if ORDER_INDEPENDENT_TRANSPARENCY
+		// Add order-independent transparency terms:
+		// Get transparent_accum_texture colour
+	#if MAIN_BUFFER_MSAA_SAMPLES > 1
+		vec4 accum_col = vec4(0.f);
+		for(int i=0; i<MAIN_BUFFER_MSAA_SAMPLES; ++i)
+			accum_col += texelFetch(transparent_accum_texture, px_coords, i);
+		accum_col *= (1.f / MAIN_BUFFER_MSAA_SAMPLES);
+	#else
+		vec4 accum_col = texelFetch(transparent_accum_texture, px_coords, /*mip level=*/0);
+	#endif
 
-	// Get av transmittance colour
-#if MAIN_BUFFER_MSAA_SAMPLES > 1
-	float av_transmittance = 0.f;
-	for(int i=0; i<MAIN_BUFFER_MSAA_SAMPLES; ++i)
-		av_transmittance += texelFetch(av_transmittance_texture, px_coords, i).x;
-	av_transmittance *= (1.f / MAIN_BUFFER_MSAA_SAMPLES);
-#else
-	float av_transmittance = texelFetch(av_transmittance_texture, px_coords, /*mip level=*/0).x;
+		// Get av transmittance colour
+	#if MAIN_BUFFER_MSAA_SAMPLES > 1
+		float av_transmittance = 0.f;
+		for(int i=0; i<MAIN_BUFFER_MSAA_SAMPLES; ++i)
+			av_transmittance += texelFetch(av_transmittance_texture, px_coords, i).x;
+		av_transmittance *= (1.f / MAIN_BUFFER_MSAA_SAMPLES);
+	#else
+		float av_transmittance = texelFetch(av_transmittance_texture, px_coords, /*mip level=*/0).x;
+	#endif
+		col += accum_col * av_transmittance;
 #endif
-	col += accum_col * av_transmittance;
-
 
 	if(bloom_strength > 0.0)
 	{

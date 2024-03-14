@@ -1309,6 +1309,7 @@ public:
 	bool use_multi_draw_indirect;
 	bool use_reverse_z;
 	bool use_scatter_shader; // Use scatter shader for data updates
+	bool use_order_indep_transparency;
 
 	OpenGLEngineSettings settings;
 

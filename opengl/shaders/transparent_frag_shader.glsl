@@ -74,10 +74,14 @@ layout (std140) uniform LightDataStorage
 #endif
 
 
+#if ORDER_INDEPENDENT_TRANSPARENCY
 // Various outputs for order-independent transparency.
 layout(location = 0) out vec4 transmittance_out;
 layout(location = 1) out vec4 accum_out;
 layout(location = 2) out float av_transmittance_out;
+#else
+layout(location = 0) out vec4 colour_out;
+#endif
 
 
 float square(float x) { return x*x; }
@@ -207,11 +211,18 @@ void main()
 	}
 
 	vec4 col;
+#if !ORDER_INDEPENDENT_TRANSPARENCY
+	float alpha;
+#endif
 	if((MAT_UNIFORM.flags & IS_HOLOGRAM_FLAG) != 0)
 	{
 		col = emission_col;
+#if ORDER_INDEPENDENT_TRANSPARENCY
 		transmittance_out = vec4(1, 1, 1, 1);
 		av_transmittance_out = 1.0;
+#else
+		alpha = 0.0; // For completely additive blending (hologram shader), we don't multiply by alpha in the fragment shader, and set a fragment colour with alpha = 0, so dest factor = 1 - 0 = 1.
+#endif
 	}
 	else
 	{
@@ -334,8 +345,11 @@ void main()
 		spec_refl_light = mix(spec_refl_light, cloudcol, max(0.f, cloudfrac));
 #endif // RENDER_SKY_AND_CLOUD_REFLECTIONS
 
-
+#if ORDER_INDEPENDENT_TRANSPARENCY
 		vec4 transmission_col = vec4(0.6f) + 0.4f * MAT_UNIFORM.diffuse_colour; // Desaturate transmission colour a bit.
+#else
+		vec4 transmission_col = MAT_UNIFORM.diffuse_colour;
+#endif		
 
 		float spec_refl_cos_theta = abs(dot(frag_to_cam, unit_normal_cs));
 		float spec_refl_fresnel = fresnelApprox(spec_refl_cos_theta, ior);
@@ -349,6 +363,7 @@ void main()
 			local_light_radiance + // Reflected light from local light sources.
 			emission_col;
 
+#if ORDER_INDEPENDENT_TRANSPARENCY
 		float T = 1.f - spec_refl_fresnel; // transmittance
 		transmittance_out = transmission_col * T;
 
@@ -357,15 +372,30 @@ void main()
 		vec4 use_transmittance = transmission_col * use_T;
 
 		av_transmittance_out = (use_transmittance.r + use_transmittance.g + use_transmittance.b) * (1.0 / 3.0);
+#else
+		col += transmission_col * 80000000.0;
+
+		alpha = spec_refl_fresnel + sun_specular;
+		col.xyz *= alpha; // To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
+#endif
 	}
 
-	float alpha = 1.0;
-
 	col *= 0.000000003; // tone-map
-#if DO_POST_PROCESSING
-	accum_out = vec4(col.xyz, alpha);
-#else
-	accum_out = vec4(toNonLinear(col.xyz), alpha);
+
+#if ORDER_INDEPENDENT_TRANSPARENCY
+	
+	#if DO_POST_PROCESSING
+	accum_out = vec4(col.xyz, 1.0);
+	#else
+	accum_out = vec4(toNonLinear(col.xyz), 1.0);
+	#endif
+#else // else if !ORDER_INDEPENDENT_TRANSPARENCY:
+
+	#if DO_POST_PROCESSING
+	colour_out = vec4(col.xyz, alpha);
+	#else
+	colour_out = vec4(toNonLinear(col.xyz), alpha);
+	#endif
 #endif
 
 

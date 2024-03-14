@@ -1679,6 +1679,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->GL_ARB_bindless_texture_support = false;
 #endif
 
+#if EMSCRIPTEN
+	// WebGL doesn't support glBlendFunci which we need for order-independent transparency, so don't use on Web.
+	this->use_order_indep_transparency = false;
+#else
+	this->use_order_indep_transparency = true;
+#endif
+
 	// Query amount of GPU RAM available.  See https://stackoverflow.com/questions/4552372/determining-available-video-memory
 	this->total_available_GPU_mem_B = 0;
 	this->total_available_GPU_VBO_mem_B = 0;
@@ -1928,6 +1935,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		// So the shaders can just consider the main buffer source textures to not have MSAA.
 
 		preprocessor_defines += "#define USE_REVERSE_Z " + (use_reverse_z ? std::string("1") : std::string("0")) + "\n";
+
+		preprocessor_defines += "#define ORDER_INDEPENDENT_TRANSPARENCY " + (use_order_indep_transparency ? std::string("1") : std::string("0")) + "\n";
 
 		if(use_bindless_textures)
 			preprocessor_defines += "#extension GL_ARB_bindless_texture : require\n";
@@ -2272,13 +2281,16 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			);
 			addProgram(downsize_from_main_buf_prog);
 
-			downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
-			assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
-			assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
+			if(use_order_indep_transparency)
+			{
+				downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
 
-			downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
-			assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX);
-			assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
+				downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX);
+				assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
+			}
 		}
 
 		//------------------------------------------- Build gaussian_blur_prog -------------------------------------------
@@ -2303,11 +2315,14 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
 		assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
 
-		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
-		assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+		if(use_order_indep_transparency)
+		{
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
+			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
 
-		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
-		assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
+			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+		}
 
 		for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 		{
@@ -6026,31 +6041,33 @@ void OpenGLEngine::draw()
 				/*MSAA_samples=*/1
 			);
 
-
 			const OpenGLTexture::Format transparent_accum_format = col_buffer_format;
-
-			transparent_accum_copy_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
-				transparent_accum_format,
-				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp,
-				false, // has_mipmaps
-				/*MSAA_samples=*/1
-			);
-
 #if defined(EMSCRIPTEN)
 			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_RGBA_Linear_Uint8;
 #else
 			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_Greyscale_Half;
 #endif
-			av_transmittance_copy_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
-				av_transmittance_format,
-				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp,
-				false, // has_mipmaps
-				/*MSAA_samples=*/1
-			);
+
+			if(use_order_indep_transparency)
+			{
+				transparent_accum_copy_texture = new OpenGLTexture(xres, yres, this,
+					ArrayRef<uint8>(NULL, 0), // data
+					transparent_accum_format,
+					OpenGLTexture::Filtering_Nearest,
+					OpenGLTexture::Wrapping_Clamp,
+					false, // has_mipmaps
+					/*MSAA_samples=*/1
+				);
+
+				av_transmittance_copy_texture = new OpenGLTexture(xres, yres, this,
+					ArrayRef<uint8>(NULL, 0), // data
+					av_transmittance_format,
+					OpenGLTexture::Filtering_Nearest,
+					OpenGLTexture::Wrapping_Clamp,
+					false, // has_mipmaps
+					/*MSAA_samples=*/1
+				);
+			}
 
 
 			const OpenGLTexture::Format depth_format = OpenGLTexture::Format_Depth_Float;
@@ -6069,8 +6086,11 @@ void OpenGLEngine::draw()
 			main_colour_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, col_buffer_format);
 			main_normal_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, normal_buffer_format);
 			main_depth_renderbuffer  = new RenderBuffer(xres, yres, msaa_samples, depth_format);
-			transparent_accum_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, transparent_accum_format);
-			av_transmittance_renderbuffer  = new RenderBuffer(xres, yres, msaa_samples, av_transmittance_format);
+			if(use_order_indep_transparency)
+			{
+				transparent_accum_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, transparent_accum_format);
+				av_transmittance_renderbuffer  = new RenderBuffer(xres, yres, msaa_samples, av_transmittance_format);
+			}
 
 			main_render_framebuffer = new FrameBuffer();
 			main_render_framebuffer->attachRenderBuffer(*main_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
@@ -6438,7 +6458,7 @@ void OpenGLEngine::draw()
 
 				bindTextureUnitToSampler(*src_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/use_downsize_prog->albedo_texture_loc);
 
-				if(i == 0)
+				if((i == 0) && use_order_indep_transparency)
 				{
 					bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
 					bindTextureUnitToSampler(*av_transmittance_copy_texture,  /*texture_unit_index=*/2, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
@@ -6498,11 +6518,14 @@ void OpenGLEngine::draw()
 			// Bind main_colour_texture as albedo_texture with texture unit 0
 			bindTextureUnitToSampler(*main_colour_copy_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/final_imaging_prog->albedo_texture_loc);
 
-			// Bind transparent_accum_texture as texture_2 with texture unit 1
-			bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
+			if(use_order_indep_transparency)
+			{
+				// Bind transparent_accum_texture as texture_2 with texture unit 1
+				bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
 
-			// Bind av_transmittance_texture as texture_2 with texture unit 2
-			bindTextureUnitToSampler(*av_transmittance_copy_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+				// Bind av_transmittance_texture as texture_2 with texture unit 2
+				bindTextureUnitToSampler(*av_transmittance_copy_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+			}
 			
 			// Bind water_colour_texture with texture unit 3
 		//	bindTextureUnitToSampler(*water_colour_texture, /*texture_unit_index=*/3, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_WATER_COLOUR_TEX_UNIFORM_INDEX].loc);
@@ -6526,8 +6549,11 @@ void OpenGLEngine::draw()
 
 			// Unbind textures from texture units.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
 			unbindTextureFromTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/0);
-			unbindTextureFromTextureUnit(*transparent_accum_copy_texture, /*texture_unit_index=*/1);
-			unbindTextureFromTextureUnit(*av_transmittance_copy_texture, /*texture_unit_index=*/2);
+			if(use_order_indep_transparency)
+			{
+				unbindTextureFromTextureUnit(*transparent_accum_copy_texture, /*texture_unit_index=*/1);
+				unbindTextureFromTextureUnit(*av_transmittance_copy_texture, /*texture_unit_index=*/2);
+			}
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 				unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
 		}
@@ -7782,21 +7808,29 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 
 	main_render_framebuffer->bindForDrawing();
 	assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-	main_render_framebuffer->attachRenderBuffer(*transparent_accum_renderbuffer, GL_COLOR_ATTACHMENT1); // Replaces normal buffer as GL_COLOR_ATTACHMENT1
-	main_render_framebuffer->attachRenderBuffer(*av_transmittance_renderbuffer, GL_COLOR_ATTACHMENT2);
+	if(use_order_indep_transparency)
+	{
+		main_render_framebuffer->attachRenderBuffer(*transparent_accum_renderbuffer, GL_COLOR_ATTACHMENT1); // Replaces normal buffer as GL_COLOR_ATTACHMENT1
+		main_render_framebuffer->attachRenderBuffer(*av_transmittance_renderbuffer, GL_COLOR_ATTACHMENT2);
+	}
 
 	// Draw to three colour buffers: colour, transparent_accum, av_transmittance.
-	setThreeDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2);
+	if(use_order_indep_transparency)
+		setThreeDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2);
+	else
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
-	
-	// Clear transparent_accum_texture buffer (GL_COLOR_ATTACHMENT1)
-	// NOTE that glClearBufferfv uses draw buffer indices, so glDrawBuffers() needs to be called first.
-	const float col[4] = { 0, 0, 0, 0 };
-	glClearBufferfv(GL_COLOR, /*drawBuffer=*/1, col);
+	if(use_order_indep_transparency)
+	{
+		// Clear transparent_accum_texture buffer (GL_COLOR_ATTACHMENT1)
+		// NOTE that glClearBufferfv uses draw buffer indices, so glDrawBuffers() needs to be called first.
+		const float col[4] = { 0, 0, 0, 0 };
+		glClearBufferfv(GL_COLOR, /*drawBuffer=*/1, col);
 
-	// Clear av_transmittance_texture (GL_COLOR_ATTACHMENT2).
-	const float col2[4] = { 1, 1, 1, 1 };
-	glClearBufferfv(GL_COLOR, /*drawBuffer=*/2, col2);
+		// Clear av_transmittance_texture (GL_COLOR_ATTACHMENT2).
+		const float col2[4] = { 1, 1, 1, 1 };
+		glClearBufferfv(GL_COLOR, /*drawBuffer=*/2, col2);
+	}
 
 
 	glEnable(GL_BLEND);
@@ -7805,17 +7839,27 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	// To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
 	// For completely additive blending (hologram shader), we don't multiply by alpha in the fragment shader, and set a fragment colour with alpha = 0, so dest factor = 1 - 0 = 1.
 	// See https://gamedev.stackexchange.com/a/143117
-
-#if !defined(EMSCRIPTEN) // https://stackoverflow.com/a/50763719  TEMP HACK TODO FIX
-	// For colour buffer 0 (main_colour_texture), transparent shader writes the transmittance as the destination colour.  We multiply the existing buffer colour with that colour only.
-	glBlendFunci(/*buf=*/0, /*source factor=*/GL_ZERO, /*destination factor=*/GL_SRC_COLOR);
+	if(use_order_indep_transparency)
+	{
+		// glBlendFunci is only in OpenGL ES 3.2+ so we can't use it in Emscripten.
+#if defined(EMSCRIPTEN)
+		assert(0); // Shouldn't be using order_indep_transparency in Emscripten.
+#else
+		// For colour buffer 0 (main_colour_texture), transparent shader writes the transmittance as the destination colour.  We multiply the existing buffer colour with that colour only.
+		glBlendFunci(/*buf=*/0, /*source factor=*/GL_ZERO, /*destination factor=*/GL_SRC_COLOR);
 	
-	// For colour buffer 1 (transparent_accum_texture), accumulate the scattered and emitted light by the material.
-	glBlendFunci(/*buf=*/1, /*source factor=*/GL_ONE, /*destination factor=*/GL_ONE);
+		// For colour buffer 1 (transparent_accum_texture), accumulate the scattered and emitted light by the material.
+		glBlendFunci(/*buf=*/1, /*source factor=*/GL_ONE, /*destination factor=*/GL_ONE);
 
-	// For colour buffer 2 (av_transmittance_texture), multiply the destination colour (av transmittance) with the existing buffer colour.
-	glBlendFunci(/*buf=*/2, /*source factor=*/GL_ZERO, /*destination factor=*/GL_SRC_COLOR);
+		// For colour buffer 2 (av_transmittance_texture), multiply the destination colour (av transmittance) with the existing buffer colour.
+		glBlendFunci(/*buf=*/2, /*source factor=*/GL_ZERO, /*destination factor=*/GL_SRC_COLOR);
 #endif
+	}
+	else
+	{
+		glBlendFunc(/*source factor=*/GL_ONE, /*destination factor=*/GL_ONE_MINUS_SRC_ALPHA);
+	}
+
 
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
 
@@ -7892,40 +7936,42 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	
 
 
+	if(use_order_indep_transparency)
+	{
+		//----------------------- Copy transparent_accum render buffer to transparent_accum_copy_texture -----------------------
+		main_render_framebuffer->bindForReading(); // Set copy source framebuffer
+		main_render_copy_framebuffer->bindForDrawing(); // Set copy destination framebuffer
+		main_render_copy_framebuffer->attachTexture(*transparent_accum_copy_texture, GL_COLOR_ATTACHMENT1);
+		main_render_copy_framebuffer->attachTexture(*av_transmittance_copy_texture,  GL_COLOR_ATTACHMENT2);
 
-	//----------------------- Copy transparent_accum render buffer to transparent_accum_copy_texture -----------------------
-	main_render_framebuffer->bindForReading(); // Set copy source framebuffer
-	main_render_copy_framebuffer->bindForDrawing(); // Set copy destination framebuffer
-	main_render_copy_framebuffer->attachTexture(*transparent_accum_copy_texture, GL_COLOR_ATTACHMENT1);
-	main_render_copy_framebuffer->attachTexture(*av_transmittance_copy_texture,  GL_COLOR_ATTACHMENT2);
-
-	glReadBuffer(GL_COLOR_ATTACHMENT1);
-	setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
 	
-	glBlitFramebuffer(
-		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-		GL_COLOR_BUFFER_BIT,
-		GL_NEAREST
-	);
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
 
-	//----------------------- Copy av_transmittance_renderbuffer to av_transmittance_copy_texture -----------------------
-	glReadBuffer(GL_COLOR_ATTACHMENT2);
-	setThreeDrawBuffers(GL_NONE, GL_NONE, GL_COLOR_ATTACHMENT2); // In OpenGL ES, GL_COLOR_ATTACHMENT2 must be specified as buffer 2 (can't be buffer 0 or 1), so use glDrawBuffers with GL_NONE as buffer 0.
+		//----------------------- Copy av_transmittance_renderbuffer to av_transmittance_copy_texture -----------------------
+		glReadBuffer(GL_COLOR_ATTACHMENT2);
+		setThreeDrawBuffers(GL_NONE, GL_NONE, GL_COLOR_ATTACHMENT2); // In OpenGL ES, GL_COLOR_ATTACHMENT2 must be specified as buffer 2 (can't be buffer 0 or 1), so use glDrawBuffers with GL_NONE as buffer 0.
 
-	glBlitFramebuffer(
-		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-		GL_COLOR_BUFFER_BIT,
-		GL_NEAREST
-	);
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
 
 
 
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Restore to no framebuffers bound for reading.
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Restore to no framebuffers bound for reading.
 
-	main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1); // Restore normal buffer binding
-	main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1); // Restore normal texture binding
+		main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1); // Restore normal buffer binding
+		main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1); // Restore normal texture binding
+	}
 }
 
 
