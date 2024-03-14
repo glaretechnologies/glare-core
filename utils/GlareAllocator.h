@@ -23,7 +23,7 @@ public:
 	virtual void* alloc(size_t size, size_t alignment) = 0;
 	virtual void free(void* ptr) = 0;
 
-	virtual std::string getDiagnostics() const { return std::string(); }
+	virtual std::string getDiagnostics() const = 0;
 };
 
 
@@ -38,6 +38,8 @@ class MallocAllocator : public glare::Allocator
 	{
 		MemAlloc::alignedFree(ptr);
 	}
+
+	virtual std::string getDiagnostics() const { return "MallocAllocator [no info]"; }
 };
 
 

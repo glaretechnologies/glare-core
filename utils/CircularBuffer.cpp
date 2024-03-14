@@ -43,6 +43,8 @@ public:
 		}
 	}
 
+	virtual std::string getDiagnostics() const { return std::string(); }
+
 	int* i;
 };
 
