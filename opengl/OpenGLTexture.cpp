@@ -480,6 +480,12 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 	assert(xres > 0);
 	assert(yres > 0);
 
+#if EMSCRIPTEN
+	if(format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8 || format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_BC6) // if a compressed format:
+		if((xres % 4 != 0) || (yres % 4 != 0))
+			throw glare::Exception("Compressed texture dimensions must be multiples of 4 in WebGL");
+#endif
+
 #ifdef OSX
 	if(this->format == Format_Compressed_BC6)
 		throw glare::Exception("Don't support BC6 texture format on Mac");
