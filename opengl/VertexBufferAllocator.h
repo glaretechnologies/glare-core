@@ -81,7 +81,16 @@ struct IndexBufAllocationHandle
 /*=====================================================================
 VertexBufferAllocator
 ---------------------
+In charge of allocating memory for vertex and index data on the GPU.
+if DO_INDIVIDUAL_VAO_ALLOC is 1, then just allocates individual VBOs for each mesh's vertex data.
 
+For more modern OpenGL implementations that have glVertexAttribFormat, glVertexAttribBinding and glBindVertexBuffer,
+multiple different mesh vertex datas can share the same VAO, with the buffer the VAO is bound to changed for rendering each 
+batch with glBindVertexBuffer.  This is much more efficient because changing the current VAO is slow.
+
+Allocates space for vertex data, out of one or more large shared buffers.
+
+Also allocates space for index data, out of one or more large shared buffers.
 =====================================================================*/
 class VertexBufferAllocator : public RefCounted
 {
