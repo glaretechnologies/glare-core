@@ -61,7 +61,7 @@ void UniformBufOb::updateData(size_t dest_offset, const void* src_data, size_t s
 
 	glBindBuffer(GL_UNIFORM_BUFFER, handle);
 	
-#ifdef __APPLE__// || defined(EMSCRIPTEN)
+#if defined(__APPLE__)// || defined(EMSCRIPTEN)
 	if(src_size == this->allocated_size) // If we are updating the whole buffer:
 	{
 		assert(dest_offset == 0);
