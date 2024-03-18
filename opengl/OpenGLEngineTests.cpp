@@ -70,7 +70,7 @@ static void doTest(const std::string& /*indigo_base_dir*/, const std::string& me
 				size_t expected_cur_offset = 0;
 				for(size_t i=0; i<mesh_renderdata->batches.size(); ++i)
 				{
-					testAssert(expected_cur_offset == mesh_renderdata->batches[i].prim_start_offset);
+					testAssert(expected_cur_offset == mesh_renderdata->batches[i].prim_start_offset_B);
 
 					if(i > 0)
 						testAssert(mesh_renderdata->batches[i].material_index != mesh_renderdata->batches[i - 1].material_index);

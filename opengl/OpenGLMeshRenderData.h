@@ -24,7 +24,7 @@ class OpenGLBatch
 {
 public:
 	uint32 material_index;
-	uint32 prim_start_offset; // Offset in bytes from the start of the index buffer.
+	uint32 prim_start_offset_B; // Offset in bytes from the start of the index buffer.
 	uint32 num_indices; // Number of vertex indices (= num triangles/3).
 };
 

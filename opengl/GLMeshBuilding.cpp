@@ -33,7 +33,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 	meshdata.batches.resize(1);
 	meshdata.batches[0].material_index = 0;
 	meshdata.batches[0].num_indices = (uint32)indices.size();
-	meshdata.batches[0].prim_start_offset = 0;
+	meshdata.batches[0].prim_start_offset_B = 0;
 
 	meshdata.aabb_os = js::AABBox::emptyAABBox();
 	meshdata.num_materials_referenced = 1;
@@ -303,7 +303,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 			opengl_render_data->batches.push_back(OpenGLBatch());
 			OpenGLBatch& batch = opengl_render_data->batches.back();
 			batch.material_index = mesh->chunks[i].mat_index;
-			batch.prim_start_offset = mesh->chunks[i].indices_start * sizeof(uint32);
+			batch.prim_start_offset_B = mesh->chunks[i].indices_start * sizeof(uint32);
 			batch.num_indices = mesh->chunks[i].num_indices;
 			
 			// If subsequent batches use the same material, combine them
@@ -374,7 +374,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 			opengl_render_data->index_type = GL_UNSIGNED_BYTE;
 			// Go through the batches and adjust the start offset to take into account we're using uint8s.
 			for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
-				opengl_render_data->batches[i].prim_start_offset /= 4;
+				opengl_render_data->batches[i].prim_start_offset_B /= 4;
 		}
 		else if(mesh->vert_positions.size() < 65536)
 		{
@@ -388,7 +388,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 			opengl_render_data->index_type = GL_UNSIGNED_SHORT;
 			// Go through the batches and adjust the start offset to take into account we're using uint16s.
 			for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
-				opengl_render_data->batches[i].prim_start_offset /= 2;
+				opengl_render_data->batches[i].prim_start_offset_B /= 2;
 		}
 		else
 		{
@@ -402,9 +402,9 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 			const OpenGLBatch& batch = opengl_render_data->batches[i];
 			assert(batch.material_index < mesh->num_materials_referenced);
 			assert(batch.num_indices > 0);
-			assert(batch.prim_start_offset < opengl_render_data->vert_indices_buf->getSize());
+			assert(batch.prim_start_offset_B < opengl_render_data->vert_indices_buf->getSize());
 			const uint32 bytes_per_index = opengl_render_data->index_type == GL_UNSIGNED_INT ? 4 : (opengl_render_data->index_type == GL_UNSIGNED_SHORT ? 2 : 1);
-			assert(batch.prim_start_offset + batch.num_indices*bytes_per_index <= opengl_render_data->vert_indices_buf->getSize());
+			assert(batch.prim_start_offset_B + batch.num_indices*bytes_per_index <= opengl_render_data->vert_indices_buf->getSize());
 		}
 #endif
 
@@ -510,7 +510,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 				{
 					OpenGLBatch batch;
 					batch.material_index = last_mat_index;
-					batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+					batch.prim_start_offset_B = (uint32)(last_pass_start_index * sizeof(uint32));
 					batch.num_indices = (uint32)(write_i - last_pass_start_index);
 					opengl_render_data->batches.push_back(batch);
 				}
@@ -536,7 +536,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 				{
 					OpenGLBatch batch;
 					batch.material_index = last_mat_index;
-					batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+					batch.prim_start_offset_B = (uint32)(last_pass_start_index * sizeof(uint32));
 					batch.num_indices = (uint32)(write_i - last_pass_start_index);
 					opengl_render_data->batches.push_back(batch);
 				}
@@ -550,7 +550,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 		{
 			OpenGLBatch batch;
 			batch.material_index = last_mat_index;
-			batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32)); // Offset in bytes
+			batch.prim_start_offset_B = (uint32)(last_pass_start_index * sizeof(uint32)); // Offset in bytes
 			batch.num_indices = (uint32)(write_i - last_pass_start_index);
 			opengl_render_data->batches.push_back(batch);
 		}
@@ -624,7 +624,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 					{
 						OpenGLBatch batch;
 						batch.material_index = current_mat_index;
-						batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+						batch.prim_start_offset_B = (uint32)(last_pass_start_index * sizeof(uint32));
 						batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
 						opengl_render_data->batches.push_back(batch);
 					}
@@ -716,7 +716,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 					{
 						OpenGLBatch batch;
 						batch.material_index = current_mat_index;
-						batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+						batch.prim_start_offset_B = (uint32)(last_pass_start_index * sizeof(uint32));
 						batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
 						opengl_render_data->batches.push_back(batch);
 					}
@@ -801,7 +801,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 		// Build last pass data that won't have been built yet.
 		OpenGLBatch batch;
 		batch.material_index = current_mat_index;
-		batch.prim_start_offset = (uint32)(last_pass_start_index * sizeof(uint32));
+		batch.prim_start_offset_B = (uint32)(last_pass_start_index * sizeof(uint32));
 		batch.num_indices = (uint32)(vert_index_buffer_i - last_pass_start_index);
 		opengl_render_data->batches.push_back(batch);
 
@@ -884,7 +884,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 
 		// Go through the batches and adjust the start offset to take into account we're using uint8s.
 		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
-			opengl_render_data->batches[i].prim_start_offset /= 4;
+			opengl_render_data->batches[i].prim_start_offset_B /= 4;
 	}
 	else if(num_merged_verts < 65536)
 	{
@@ -902,7 +902,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 
 		// Go through the batches and adjust the start offset to take into account we're using uint16s.
 		for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
-			opengl_render_data->batches[i].prim_start_offset /= 2;
+			opengl_render_data->batches[i].prim_start_offset_B /= 2;
 	}
 	else
 	{
@@ -1002,7 +1002,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	for(size_t i=0; i<opengl_render_data->batches.size(); ++i)
 	{
 		opengl_render_data->batches[i].material_index    = mesh->batches[i].material_index;
-		opengl_render_data->batches[i].prim_start_offset = (uint32)(mesh->batches[i].indices_start * BatchedMesh::componentTypeSize(mesh->index_type));
+		opengl_render_data->batches[i].prim_start_offset_B = (uint32)(mesh->batches[i].indices_start * BatchedMesh::componentTypeSize(mesh->index_type));
 		opengl_render_data->batches[i].num_indices       = mesh->batches[i].num_indices;
 
 		largest_material_index = myMax(largest_material_index, mesh->batches[i].material_index);

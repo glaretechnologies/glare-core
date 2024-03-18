@@ -252,7 +252,7 @@ struct GLObjectBatchDrawInfo
 {
 	uint32 program_index_and_flags;
 	uint32 material_data_index;
-	uint32 prim_start_offset; // Offset in bytes from the start of the index buffer.
+	uint32 prim_start_offset_B; // Offset in bytes from the start of the index buffer.
 	uint32 num_indices;
 
 	inline uint32 getProgramIndex()                   const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }

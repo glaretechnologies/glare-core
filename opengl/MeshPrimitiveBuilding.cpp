@@ -331,7 +331,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh(Vert
 	{
 		mesh_data->batches[z].material_index = z;
 		mesh_data->batches[z].num_indices = (uint32)res * 6 * 2;
-		mesh_data->batches[z].prim_start_offset = sizeof(uint32) * res * 6 * 2 * z;
+		mesh_data->batches[z].prim_start_offset_B = sizeof(uint32) * res * 6 * 2 * z;
 	}
 
 	return mesh_data;
@@ -1048,7 +1048,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSpriteQuad(VertexBuff
 	meshdata.batches.resize(1);
 	meshdata.batches[0].material_index = 0;
 	meshdata.batches[0].num_indices = N * 6; // 2 tris / imposter * 3 indices / tri
-	meshdata.batches[0].prim_start_offset = 0;
+	meshdata.batches[0].prim_start_offset_B = 0;
 
 	meshdata.num_materials_referenced = 1;
 

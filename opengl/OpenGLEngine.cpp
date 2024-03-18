@@ -3408,7 +3408,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 		//assert(mat.material_data_index != -1);
 		object.batch_draw_info[i].material_data_index = mat.material_data_index;
 	
-		object.batch_draw_info[i].prim_start_offset = object.mesh_data->batches[i].prim_start_offset;
+		object.batch_draw_info[i].prim_start_offset_B = object.mesh_data->batches[i].prim_start_offset_B;
 		object.batch_draw_info[i].num_indices = object.mesh_data->batches[i].num_indices;
 	}
 
@@ -3444,13 +3444,13 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 			const uint32 mat_index = object.mesh_data->batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = object.materials[mat_index].draw_into_depth_buffer ? object.materials[mat_index].depth_draw_shader_prog.ptr() : NULL;
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
-				(object.mesh_data->batches[i].prim_start_offset != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
+				(object.mesh_data->batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
 					num_batches_required++;
 				prev_depth_prog = cur_depth_prog;
 			}
-			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset + object.mesh_data->batches[i].num_indices * index_type_size_B;
+			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset_B + object.mesh_data->batches[i].num_indices * index_type_size_B;
 		}
 		// Finish last batch
 		if(prev_depth_prog)
@@ -3464,14 +3464,14 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		next_contiguous_offset = 0;
 		OpenGLBatch current_batch;
 		current_batch.material_index = 0;
-		current_batch.prim_start_offset = 0;
+		current_batch.prim_start_offset_B = 0;
 		current_batch.num_indices = 0;
 		for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
 		{
 			const uint32 mat_index = object.mesh_data->batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = object.materials[mat_index].draw_into_depth_buffer ? object.materials[mat_index].depth_draw_shader_prog.ptr() : NULL;
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
-				(object.mesh_data->batches[i].prim_start_offset != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
+				(object.mesh_data->batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				// The depth-draw material changed.  So finish the batch.
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.
@@ -3481,22 +3481,22 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
 					object.depth_draw_batches[dest_batch_i].material_data_index = object.materials[current_batch.material_index].material_data_index;
-					object.depth_draw_batches[dest_batch_i].prim_start_offset = current_batch.prim_start_offset;
-					object.depth_draw_batches[dest_batch_i].num_indices       = current_batch.num_indices;
+					object.depth_draw_batches[dest_batch_i].prim_start_offset_B = current_batch.prim_start_offset_B;
+					object.depth_draw_batches[dest_batch_i].num_indices         = current_batch.num_indices;
 
-					object.depth_draw_batch_material_indices[dest_batch_i]    = current_batch.material_index;
+					object.depth_draw_batch_material_indices[dest_batch_i]      = current_batch.material_index;
 
 					dest_batch_i++;
 				}
 
 				// Start new batch
 				current_batch.material_index = mat_index;
-				current_batch.prim_start_offset = object.mesh_data->batches[i].prim_start_offset;
+				current_batch.prim_start_offset_B = object.mesh_data->batches[i].prim_start_offset_B;
 				current_batch.num_indices = 0;
 
 				prev_depth_prog = cur_depth_prog;
 			}
-			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset + object.mesh_data->batches[i].num_indices * index_type_size_B;
+			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset_B + object.mesh_data->batches[i].num_indices * index_type_size_B;
 
 			current_batch.num_indices += object.mesh_data->batches[i].num_indices;
 		}
@@ -3509,10 +3509,10 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
 			object.depth_draw_batches[dest_batch_i].material_data_index = object.materials[current_batch.material_index].material_data_index;
-			object.depth_draw_batches[dest_batch_i].prim_start_offset = current_batch.prim_start_offset;
-			object.depth_draw_batches[dest_batch_i].num_indices       = current_batch.num_indices;
+			object.depth_draw_batches[dest_batch_i].prim_start_offset_B = current_batch.prim_start_offset_B;
+			object.depth_draw_batches[dest_batch_i].num_indices         = current_batch.num_indices;
 
-			object.depth_draw_batch_material_indices[dest_batch_i]    = current_batch.material_index;
+			object.depth_draw_batch_material_indices[dest_batch_i]      = current_batch.material_index;
 			
 			dest_batch_i++;
 		}
@@ -4613,7 +4613,7 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 	
 	glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, clear_buf_overlay_ob->ob_to_world_matrix.e);
 
-	const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
+	const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
 
 	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 }
@@ -6464,7 +6464,7 @@ void OpenGLEngine::draw()
 					bindTextureUnitToSampler(*av_transmittance_copy_texture,  /*texture_unit_index=*/2, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_AV_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
 				}
 
-				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
+				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 
 
@@ -6538,7 +6538,7 @@ void OpenGLEngine::draw()
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 				bindTextureUnitToSampler(*blur_target_textures[i], /*texture_unit_index=*/4 + i, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc);
 
-			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
+			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
 			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
 
 			OpenGLProgram::useNoPrograms();
@@ -8119,7 +8119,7 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
 			glUniform1f(edge_extract_line_width_location, this->outline_width_px);
 				
-			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset;
+			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset_B;
 			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->getIndexType(), (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);
 		}
 
@@ -8171,7 +8171,7 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 
 			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 				
-			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
+			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
 			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 		}
 
@@ -8250,7 +8250,7 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 				}
 				
-				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset;
+				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 			}
 		}
@@ -8322,7 +8322,7 @@ void OpenGLEngine::drawAuroraTex()
 #endif
 	bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
 
-	const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset;
+	const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
 	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 
 
@@ -8900,7 +8900,7 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 
 void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
 {
-	const uint32 prim_start_offset = batch.prim_start_offset;
+	const uint32 prim_start_offset_B = batch.prim_start_offset_B;
 	const uint32 num_indices = batch.num_indices;
 
 	if(num_indices == 0)
@@ -9089,7 +9089,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 		const size_t instance_count = ob.instance_matrix_vbo.nonNull() ? ob.num_instances_to_draw : 1;
 
-		const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset;
+		const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset_B;
 		assert(total_buffer_offset % index_type_size_B == 0);
 
 		DrawElementsIndirectCommand command;
@@ -9129,12 +9129,12 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	{
 		if(ob.instance_matrix_vbo.nonNull() && ob.num_instances_to_draw > 0)
 		{
-			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset;
+			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset_B;
 			drawElementsInstancedBaseVertex(draw_mode, (GLsizei)num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, (uint32)ob.num_instances_to_draw, mesh_data.vbo_handle.base_vertex);
 		}
 		else
 		{
-			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset;
+			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset_B;
 			drawElementsBaseVertex(draw_mode, (GLsizei)num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
 		}
 	}
@@ -9146,7 +9146,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index)
 {
-	const uint32 prim_start_offset = batch.prim_start_offset;
+	const uint32 prim_start_offset = batch.prim_start_offset_B;
 	const uint32 num_indices = batch.num_indices;
 
 	if(num_indices == 0)
