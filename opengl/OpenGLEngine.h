@@ -1444,9 +1444,9 @@ private:
 	OpenGLProgramRef scatter_data_prog;
 
 	TextureAllocator texture_allocator;
-
+public:
 	Reference<FrameBuffer> mask_map_frame_buffer;
-
+private:
 	Reference<FrameBuffer> aurora_tex_frame_buffer;
 };
 
