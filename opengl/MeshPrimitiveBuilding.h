@@ -24,7 +24,7 @@ class MeshPrimitiveBuilding
 public:
 	static Reference<OpenGLMeshRenderData> makeLineMesh(VertexBufferAllocator& allocator);
 	static Reference<OpenGLMeshRenderData> makeSphereMesh(VertexBufferAllocator& allocator);
-	static Reference<OpenGLMeshRenderData> makeCubeMesh(VertexBufferAllocator& allocator);
+	static Reference<OpenGLMeshRenderData> makeCubeMesh(VertexBufferAllocator& allocator); // Bottom left corner will be at origin, opposite corner will lie at (1, 1, 1)
 	static Reference<OpenGLMeshRenderData> makeQuadMesh(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j, int vert_res); // Has vert_res^2 vertices.  Require vert_res >= 2.
 	static Reference<OpenGLMeshRenderData> makeUnitQuadMesh(VertexBufferAllocator& allocator); // Makes a quad from (0, 0, 0) to (1, 1, 0)
 	static Reference<OpenGLMeshRenderData> makeCapsuleMesh(VertexBufferAllocator& allocator, const Vec3f& bottom_spans, const Vec3f& top_spans);
