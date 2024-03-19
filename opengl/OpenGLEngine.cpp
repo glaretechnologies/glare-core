@@ -2315,12 +2315,16 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
 		assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
 
+		// Note that even if use_order_indep_transparency is false, we still need to create these user uniforms, because FINAL_IMAGING_BLUR_TEX_UNIFORM_START is hard-coded and refers to user uniforms past these.
+		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
 		if(use_order_indep_transparency)
 		{
-			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
 			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+		}
 
-			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
+		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "av_transmittance_texture");
+		if(use_order_indep_transparency)
+		{
 			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
 		}
 
