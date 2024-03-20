@@ -8872,7 +8872,9 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	{
 		// Set blob shadows location data
 		glUniform1i(shader_prog.uniform_locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
-		glUniform4fv(shader_prog.uniform_locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
+
+		if(current_scene->blob_shadow_locations.size() > 0) // Avoid call with count=0.  (this causes an error in Emscripten, and is unneeded)
+			glUniform4fv(shader_prog.uniform_locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
 	}
 
 	// There seems to be an Emscripten bug where sometimes the uniform values gets changed.  Just set it every frame as a workaround.
