@@ -88,7 +88,8 @@ TextRendererFontFace::TextRendererFontFace(TextRendererRef renderer_, const std:
 
 	FT_Error error = FT_New_Face(renderer->library, font_file_path.c_str(), /*face index=*/0, &face); // Create face object
 	if(error != FT_Err_Ok)
-		throw glare::Exception("TextRendererFontFace: FT_New_Face failed: " + getFreeTypeErrorString(error));
+		throw glare::Exception("TextRendererFontFace: FT_New_Face failed for font '" + 
+			font_file_path + "': " + getFreeTypeErrorString(error));
 
 	error = FT_Set_Pixel_Sizes(face, /*char width=*/font_size_pixels, /*char height=*/0);
 	if(error != FT_Err_Ok)
