@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "VAO.h"
 #include "SSBO.h"
 #include "OpenGLCircularBuffer.h"
+#include "AsyncTextureLoader.h"
 #include "TextureAllocator.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
@@ -784,7 +785,7 @@ struct MeshDataLoadingProgress
 	size_t index_next_i;
 };
 
-class OpenGLEngine : public ThreadSafeRefCounted
+class OpenGLEngine : public ThreadSafeRefCounted, public AsyncTextureLoadedHandler
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
@@ -796,10 +797,14 @@ public:
 	friend class TerrainSystem;
 
 	//---------------------------- Initialisation/deinitialisation --------------------------
+	// data_dir should contain 'gl_data' and 'shaders' dirs.
 	void initialise(const std::string& data_dir, Reference<TextureServer> texture_server, PrintOutput* print_output, glare::TaskManager* main_task_manager, glare::TaskManager* high_priority_task_manager,
 		Reference<glare::Allocator> mem_allocator); // data_dir should have 'shaders' and 'gl_data' in it.  texture_server can be NULL.
 	bool initSucceeded() const { return init_succeeded; }
 	std::string getInitialisationErrorMsg() const { return initialisation_error_msg; }
+
+	void startAsyncLoadingData(AsyncTextureLoader* async_texture_loader);
+	virtual void textureLoaded(Reference<OpenGLTexture> texture, const std::string& local_filename) override;
 
 	void unloadAllData();
 
@@ -1448,6 +1453,8 @@ public:
 	Reference<FrameBuffer> mask_map_frame_buffer;
 private:
 	Reference<FrameBuffer> aurora_tex_frame_buffer;
+
+	AsyncTextureLoader* async_texture_loader;
 };
 
 

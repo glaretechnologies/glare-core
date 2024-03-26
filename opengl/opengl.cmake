@@ -15,6 +15,8 @@ endif()
 
 set(opengl
 ${gl3w}
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncTextureLoader.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncTextureLoader.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/DrawIndirectBuffer.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/FrameBuffer.cpp 

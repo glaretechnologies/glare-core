@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
 #include "ShaderFileWatcherThread.h"
+#include "AsyncTextureLoader.h"
 #include "../graphics/TextureProcessing.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/SRGBUtils.h"
@@ -1827,16 +1828,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
-
-		// Load water caustic textures
-		if(settings.render_water_caustics)
-		{
-			//Timer timer;
-			for(int i=0; i<32; ++i)
-				water_caustics_textures.push_back(getTexture(gl_data_dir + "/caustics/save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2"));
-			//conPrint("Load caustics took " + timer.elapsedString());
-		}
-
 		// Load blue noise texture
 		{
 			const std::string blue_noise_map_path = gl_data_dir + "/LDR_LLL1_0.png";
@@ -2168,6 +2159,51 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	}
 
 	TracyGpuContext
+}
+
+
+void OpenGLEngine::startAsyncLoadingData(AsyncTextureLoader* async_texture_loader_)
+{
+	// Load water caustic textures
+	if(settings.render_water_caustics)
+	{
+		//Timer timer;
+		
+		water_caustics_textures.resize(32);
+		for(int i=0; i<32; ++i)
+		{
+			const std::string filename = "save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2";
+			async_texture_loader_->startLoadingTexture(/*local path=*/"/gl_data/caustics/" + filename, /*handler=*/this);
+		}
+		
+		//conPrint("Load caustics took " + timer.elapsedString());
+	}
+}
+
+
+void OpenGLEngine::textureLoaded(Reference<OpenGLTexture> texture, const std::string& local_filename)
+{
+	// conPrint("OpenGLEngine::textureLoaded: " + local_filename);
+
+	if(hasPrefix(local_filename, "/gl_data/caustics/save."))
+	{
+		const std::string index_str = local_filename.substr(std::string("/gl_data/caustics/save.").size(), 2); // TOOD: do without alloc
+		try
+		{
+			const int index = stringToInt(index_str) - 1; // parse, convert to 0-based index
+			runtimeCheck(index >= 0 && index < (int)water_caustics_textures.size());
+			water_caustics_textures[index] = texture;
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error parsing caustic tex index: " + e.what());
+		}
+	}
+	else
+	{
+		assert(0);
+		conPrint("OpenGLEngine::textureLoaded(): Unknown texture: " + local_filename);
+	}
 }
 
 
@@ -8708,13 +8744,15 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	if(cirrus_tex.nonNull())
 		bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
-	if(settings.render_water_caustics)
+	if(settings.render_water_caustics && !water_caustics_textures.empty())
 	{
 		const int current_caustic_index   = Maths::intMod((int)(this->current_time * 24.0f)    , (int)water_caustics_textures.size());
 		const int current_caustic_index_1 = Maths::intMod((int)(this->current_time * 24.0f) + 1, (int)water_caustics_textures.size());
 
-		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/CAUSTIC_A_TEXTURE_UNIT_INDEX);
-		bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/CAUSTIC_B_TEXTURE_UNIT_INDEX);
+		if(water_caustics_textures[current_caustic_index  ].nonNull())
+			bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/CAUSTIC_A_TEXTURE_UNIT_INDEX);
+		if(water_caustics_textures[current_caustic_index_1  ].nonNull())
+			bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/CAUSTIC_B_TEXTURE_UNIT_INDEX);
 	}
 
 
