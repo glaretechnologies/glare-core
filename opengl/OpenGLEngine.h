@@ -785,7 +785,7 @@ struct MeshDataLoadingProgress
 	size_t index_next_i;
 };
 
-class OpenGLEngine : public ThreadSafeRefCounted, public AsyncTextureLoadedHandler
+class OpenGLEngine final : public ThreadSafeRefCounted, public AsyncTextureLoadedHandler
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE
