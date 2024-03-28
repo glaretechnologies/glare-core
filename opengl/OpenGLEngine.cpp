@@ -89,6 +89,9 @@ Copyright Glare Technologies Limited 2023 -
 #define CLOUD_SHADOWS_FLAG					1
 
 
+static const size_t max_num_joint_matrices_per_ob = 256; // Max num joint matrices per object.
+
+
 // 'Standard' textures will be bound to standard texture units, for example FBM texture will always be bound to texture unit 6.
 // We won't use texture unit index 0, that will be a scratch index which will get overwritten when creating new textures (which calls glBindTexture()) etc.
 enum TextureUnitIndices
@@ -1567,6 +1570,7 @@ static const int PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX = 2;
 static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
 static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
+static const int JOINT_MATRICES_UBO_BINDING_POINT_INDEX = 6;
 
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
 static const int PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX = 1;
@@ -2004,11 +2008,16 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		depth_uniform_buf_ob = new UniformBufOb();
 		depth_uniform_buf_ob->allocate(sizeof(DepthUniforms));
 
+		joint_matrices_buf_ob = new UniformBufOb();
+		joint_matrices_buf_ob->allocate(sizeof(Matrix4f) * max_num_joint_matrices_per_ob);
+
+
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX, this->shared_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX, this->per_object_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX, this->material_common_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/JOINT_MATRICES_UBO_BINDING_POINT_INDEX, this->joint_matrices_buf_ob->handle);
 		
 		if(light_buffer.nonNull())
 		{
@@ -2275,6 +2284,9 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		);
 		addProgram(outline_prog_with_skinning);
 		getUniformLocations(outline_prog_with_skinning); // Make sure any unused uniforms have their locations set to -1.
+
+		bindUniformBlockToProgram(outline_prog_with_skinning, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
+
 		outline_prog_with_skinning->is_outline = true;
 	}
 
@@ -2527,6 +2539,9 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 			bindUniformBlockToProgram(phong_prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
 			bindUniformBlockToProgram(phong_prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+
+			if(key.skinning)
+				bindUniformBlockToProgram(phong_prog, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
 		}
 		else
 		{
@@ -2776,6 +2791,9 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 			bindUniformBlockToProgram(prog, "DepthUniforms",			DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX);
 			bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+
+			if(key.skinning)
+				bindUniformBlockToProgram(prog, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
 		}
 		else
 		{
@@ -8980,10 +8998,9 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 			if(mesh_data.usesSkinning())
 			{
-				// The joint_matrix uniform array has 256 elems, don't upload more than that. (apart from outline prog which has 128)
-				const size_t max_num_joint_matrices = shader_prog->is_outline ? 128 : 256;
-				const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices, ob.joint_matrices.size()); 
-				glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)num_joint_matrices_to_upload, /*transpose=*/false, ob.joint_matrices[0].e);
+				// The joint_matrix uniform array has 256 elems, don't upload more than that.
+				const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices_per_ob, ob.joint_matrices.size()); 
+				this->joint_matrices_buf_ob->updateData(/*dest offset=*/0, /*src data=*/ob.joint_matrices[0].e, /*src size=*/num_joint_matrices_to_upload * sizeof(Matrix4f));
 			}
 		}
 
@@ -9227,10 +9244,9 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 			if(ob.mesh_data->usesSkinning())
 			{
-				// The joint_matrix uniform array has 256 elems, don't upload more than that. (apart from outline prog which has 128)
-				const size_t max_num_joint_matrices = shader_prog->is_outline ? 128 : 256;
-				const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices, ob.joint_matrices.size()); 
-				glUniformMatrix4fv(shader_prog->joint_matrix_loc, (GLsizei)num_joint_matrices_to_upload, /*transpose=*/false, ob.joint_matrices[0].e);
+				// The joint_matrix uniform array has 256 elems, don't upload more than that.
+				const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices_per_ob, ob.joint_matrices.size()); 
+				this->joint_matrices_buf_ob->updateData(/*dest offset=*/0, /*src data=*/ob.joint_matrices[0].e, /*src size=*/num_joint_matrices_to_upload * sizeof(Matrix4f));
 			}
 
 			current_uniforms_ob = &ob;

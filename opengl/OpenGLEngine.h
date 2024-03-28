@@ -1378,6 +1378,7 @@ private:
 	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;
 	UniformBufObRef per_object_vert_uniform_buf_ob;
+	UniformBufObRef joint_matrices_buf_ob;
 
 	// Some temporary vectors:
 	js::Vector<Matrix4f, 16> temp_matrices;

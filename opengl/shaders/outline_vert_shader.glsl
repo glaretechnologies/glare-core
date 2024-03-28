@@ -12,7 +12,10 @@ uniform mat4 model_matrix;
 uniform mat4 view_matrix;
 
 #if SKINNING
-uniform mat4 joint_matrix[128]; // Nvidia drivers are giving internal errors with 256 elements (march 2023)
+layout (std140) uniform JointMatrixUniforms
+{
+	mat4 joint_matrix[256];
+};
 #endif
 
 

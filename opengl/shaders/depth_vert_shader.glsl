@@ -64,7 +64,10 @@ layout (std140) uniform PerObjectVertUniforms
 };
 
 #if SKINNING
-uniform mat4 joint_matrix[256];
+layout (std140) uniform JointMatrixUniforms
+{
+	mat4 joint_matrix[256];
+};
 #endif
 
 #endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
