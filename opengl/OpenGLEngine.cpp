@@ -440,7 +440,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	object_pool_allocator(sizeof(GLObject), 16),
 	running_in_renderdoc(false),
 	loaded_maps_for_sun_dir(false),
-	add_debug_obs(false)
+	add_debug_obs(false),
+	async_texture_loader(NULL)
 {
 	current_index_type = 0;
 	current_bound_prog = NULL;
@@ -473,6 +474,12 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 
 OpenGLEngine::~OpenGLEngine()
 {
+	if(async_texture_loader)
+	{
+		for(size_t i=0; i<loading_handles.size(); ++i)
+			async_texture_loader->cancelLoadingTexture(loading_handles[i]);
+	}
+
 	// Destroy textures now, since they may use texture views
 	fbm_tex = NULL;
 	for(size_t i=0; i<staticArrayNumElems(detail_tex); ++i)
@@ -2173,6 +2180,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 void OpenGLEngine::startAsyncLoadingData(AsyncTextureLoader* async_texture_loader_)
 {
+	async_texture_loader = async_texture_loader_;
+
 	// Load water caustic textures
 	if(settings.render_water_caustics)
 	{
@@ -2182,7 +2191,7 @@ void OpenGLEngine::startAsyncLoadingData(AsyncTextureLoader* async_texture_loade
 		for(int i=0; i<32; ++i)
 		{
 			const std::string filename = "save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2";
-			async_texture_loader_->startLoadingTexture(/*local path=*/"/gl_data/caustics/" + filename, /*handler=*/this);
+			loading_handles.push_back(async_texture_loader->startLoadingTexture(/*local path=*/"/gl_data/caustics/" + filename, /*handler=*/this)); // TODO: hold onto result loading handle and cancel
 		}
 		
 		//conPrint("Load caustics took " + timer.elapsedString());

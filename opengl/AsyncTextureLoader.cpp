@@ -14,9 +14,10 @@ Copyright Glare Technologies Limited 2024 -
 
 #if EMSCRIPTEN
 
-static void onTextureDataLoad(unsigned int firstarg, void* userdata_arg, const char* path)
+// Assuming first argument is emscripten handle, it's not documented.
+static void onTextureDataLoad(unsigned int em_handle, void* userdata_arg, const char* path)
 {
-	// conPrint("AsyncTextureLoader: onTextureDataLoad: '" + std::string(path) + "', firstarg: " + toString(firstarg));
+	// conPrint("AsyncTextureLoader: onTextureDataLoad: '" + std::string(path) + "', em_handle: " + toString(em_handle));
 
 	AsyncTextureLoader* loader = (AsyncTextureLoader*)userdata_arg;
 
@@ -24,7 +25,7 @@ static void onTextureDataLoad(unsigned int firstarg, void* userdata_arg, const c
 	{
 		OpenGLTextureRef texture = loader->opengl_engine->getTexture(path); // Load the texture from disk into OpenGL
 
-		auto res = loader->tex_info.find(std::string(path));
+		auto res = loader->tex_info.find(em_handle);
 		assert(res != loader->tex_info.end());
 		if(res != loader->tex_info.end())
 		{
@@ -65,6 +66,7 @@ AsyncTextureLoader::AsyncTextureLoader(const std::string& local_path_prefix_, Op
 {
 }
 
+
 AsyncTextureLoader::~AsyncTextureLoader()
 {
 #if EMSCRIPTEN
@@ -82,22 +84,26 @@ AsyncTextureLoader::~AsyncTextureLoader()
 
 // local_path should be a path relative to the 'data' directory, for example "resources/foam_windowed.ktx2"
 // Returns request handle
-void AsyncTextureLoader::startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler)
+AsyncTextureLoadingHandle AsyncTextureLoader::startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler)
 {
 #if EMSCRIPTEN
 	const bool use_TLS = server_hostname != "localhost"; // Don't use TLS on localhost for now, for testing.
 	const std::string protocol = use_TLS ? "https" : "http";
 
-	const int handle = emscripten_async_wget2(
+	const int em_handle = emscripten_async_wget2(
 		(protocol + "://" + server_hostname + url_path_prefix + local_path).c_str(), local_path.c_str(),  
 		/*requesttype =*/"GET", /*POST params=*/"", /*userdata arg=*/this, 
 		onTextureDataLoad, onTextureDataError, onTextureDataProgress
 	);
 
 	Reference<LoadingTexInfo> loading_tex_info = new LoadingTexInfo();
-	loading_tex_info->emscripten_handle = handle;
+	loading_tex_info->emscripten_handle = em_handle;
 	loading_tex_info->handler = handler;
-	tex_info[local_path] = loading_tex_info;
+	tex_info[em_handle] = loading_tex_info;
+
+	AsyncTextureLoadingHandle handle;
+	handle.emscripten_handle = em_handle;
+	return handle;
 #else
 	// Load it immediately
 	const std::string full_local_path = local_path_prefix + local_path;
@@ -111,18 +117,21 @@ void AsyncTextureLoader::startLoadingTexture(const std::string& local_path, Asyn
 	{
 		conPrint("AsyncTextureLoader: onTextureDataLoad: error while loading texture '" + std::string(full_local_path) + "': " + e.what());
 	}
+
+	return AsyncTextureLoadingHandle();
 #endif
 }
 
 
-void AsyncTextureLoader::cancelLoadingTexture(const std::string& local_path)
+void AsyncTextureLoader::cancelLoadingTexture(AsyncTextureLoadingHandle loading_handle)
 {
 #if EMSCRIPTEN
-	auto res = tex_info.find(local_path);
+	auto res = tex_info.find(loading_handle.emscripten_handle);
 	if(res != tex_info.end())
 	{
 		AsyncTextureLoader::LoadingTexInfo* loading_tex_info = res->second.ptr();
 
+		assert(loading_handle.emscripten_handle == loading_tex_info->emscripten_handle);
 		emscripten_async_wget2_abort(loading_tex_info->emscripten_handle);
 
 		tex_info.erase(res);

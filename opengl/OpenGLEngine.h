@@ -1456,6 +1456,7 @@ private:
 	Reference<FrameBuffer> aurora_tex_frame_buffer;
 
 	AsyncTextureLoader* async_texture_loader;
+	std::vector<AsyncTextureLoadingHandle> loading_handles;
 };
 
 
