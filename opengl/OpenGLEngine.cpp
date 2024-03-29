@@ -4009,6 +4009,15 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 
 		phong_buffer->updateData(/*dest offset=*/mat.material_data_index * sizeof(PhongUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PhongUniforms));
 	}
+
+#if UNIFORM_BUF_PER_MAT_SUPPORT
+	if(mat.uniform_buf_ob.nonNull())
+	{
+		PhongUniforms uniforms;
+		setUniformsForPhongProg(mat, *ob.mesh_data, uniforms);
+		mat.uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
+	}
+#endif
 }
 
 

@@ -84,11 +84,12 @@ struct OpenGLUniformVal // variant class
 // Mac M1: 42 fps with UNIFORM_BUF_PER_MAT_SUPPORT, 36 fps without, standing in middle of Substrata world.
 // This is only relevant if use_multi_draw_indirect is false, e.g. on old OpenGL implementations (Macs).
 // UNIFORM_BUF_PER_MAT_SUPPORT is slower on Windows + RTX 3080: 60.2 fps with, 68 fps without.
-#ifdef __APPLE__
-#define UNIFORM_BUF_PER_MAT_SUPPORT 1 // This is slower on Windows + Nvidia GPU when enabled.
-#else
-#define UNIFORM_BUF_PER_MAT_SUPPORT 0
-#endif
+//#ifdef __APPLE__
+//#define UNIFORM_BUF_PER_MAT_SUPPORT 1 // This is slower on Windows + Nvidia GPU when enabled.
+//#else
+//#define UNIFORM_BUF_PER_MAT_SUPPORT 0
+//#endif
+#define UNIFORM_BUF_PER_MAT_SUPPORT 0 // Disabled for now, was getting rendering errors (imposters having incorrect colour and no texture), not worth trying to find issue.
 
 
 class OpenGLMaterial
