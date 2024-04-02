@@ -2297,6 +2297,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		bindUniformBlockToProgram(outline_prog_with_skinning, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
 
 		outline_prog_with_skinning->is_outline = true;
+		outline_prog_with_skinning->uses_skinning = true;
 	}
 
 	//------------------------------------------- Build edge extract prog -------------------------------------------
@@ -2533,6 +2534,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		phong_prog->uses_phong_uniforms = true;
 		phong_prog->uses_vert_uniform_buf_obs = true;
 		phong_prog->supports_MDI = true;
+		phong_prog->uses_skinning = key.skinning;
 
 		progs[key] = phong_prog;
 
@@ -2785,6 +2787,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		prog->is_depth_draw_with_alpha_test = key.alpha_test;
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_MDI = true;
+		prog->uses_skinning = key.skinning;
 
 		progs[key] = prog;
 
@@ -7187,43 +7190,45 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 	if(!current_scene->use_main_render_framebuffer)
 		return;
 
-	if(this->current_scene->env_ob.nonNull() && 
-		((this->current_scene->env_ob->materials[0].shader_prog.nonNull() && (this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr())) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull()))
+	if(this->current_scene->env_ob.nonNull() && this->current_scene->env_ob->materials[0].shader_prog.nonNull())
 	{
-		main_render_framebuffer->bindForDrawing();
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
-		
-		ZoneScopedN("Draw env"); // Tracy profiler
-		assertCurrentProgramIsZero();
-
-		Matrix4f world_to_camera_space_no_translation = view_matrix;
-		world_to_camera_space_no_translation.e[12] = 0;
-		world_to_camera_space_no_translation.e[13] = 0;
-		world_to_camera_space_no_translation.e[14] = 0;
-
-		glDepthMask(GL_FALSE); // Disable writing to depth buffer.
-
-		Matrix4f use_proj_mat;
-		if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
+		if((this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr()) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
 		{
-			// Use a perpective transformation for rendering the env sphere, with a narrow field of view, to provide just a hint of texture detail.
-			const float w = 0.01f;
-			use_proj_mat = frustumMatrix(-w, w, -w, w, 0.5, 100);
-		}
-		else
-			use_proj_mat = proj_matrix;
+			main_render_framebuffer->bindForDrawing();
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
 
-		const bool program_changed = checkUseProgram(current_scene->env_ob->materials[0].shader_prog.ptr());
-		if(program_changed)
-			setSharedUniformsForProg(*current_scene->env_ob->materials[0].shader_prog, world_to_camera_space_no_translation, use_proj_mat);
-		bindMeshData(*current_scene->env_ob);
-		drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
+		
+			ZoneScopedN("Draw env"); // Tracy profiler
+			assertCurrentProgramIsZero();
+
+			Matrix4f world_to_camera_space_no_translation = view_matrix;
+			world_to_camera_space_no_translation.e[12] = 0;
+			world_to_camera_space_no_translation.e[13] = 0;
+			world_to_camera_space_no_translation.e[14] = 0;
+
+			glDepthMask(GL_FALSE); // Disable writing to depth buffer.
+
+			Matrix4f use_proj_mat;
+			if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
+			{
+				// Use a perpective transformation for rendering the env sphere, with a narrow field of view, to provide just a hint of texture detail.
+				const float w = 0.01f;
+				use_proj_mat = frustumMatrix(-w, w, -w, w, 0.5, 100);
+			}
+			else
+				use_proj_mat = proj_matrix;
+
+			const bool program_changed = checkUseProgram(current_scene->env_ob->materials[0].shader_prog.ptr());
+			if(program_changed)
+				setSharedUniformsForProg(*current_scene->env_ob->materials[0].shader_prog, world_to_camera_space_no_translation, use_proj_mat);
+			bindMeshData(*current_scene->env_ob->mesh_data);
+			drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
 			
-		flushDrawCommandsAndUnbindPrograms();
+			flushDrawCommandsAndUnbindPrograms();
 
-		glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+			glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+		}
 	}
 }
 
@@ -9014,8 +9019,11 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
 			}
 
-			if(mesh_data.usesSkinning())
+			if(shader_prog->uses_skinning)
 			{
+				assert(mesh_data.usesSkinning());
+				assert(ob.joint_matrices.size() > 0);
+
 				// The joint_matrix uniform array has 256 elems, don't upload more than that.
 				const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices_per_ob, ob.joint_matrices.size()); 
 				this->joint_matrices_buf_ob->updateData(/*dest offset=*/0, /*src data=*/ob.joint_matrices[0].e, /*src size=*/num_joint_matrices_to_upload * sizeof(Matrix4f));
@@ -9260,8 +9268,11 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
 			}
 
-			if(ob.mesh_data->usesSkinning())
+			if(shader_prog->uses_skinning)
 			{
+				assert(ob.mesh_data->usesSkinning());
+				assert(ob.joint_matrices.size() > 0);
+
 				// The joint_matrix uniform array has 256 elems, don't upload more than that.
 				const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices_per_ob, ob.joint_matrices.size()); 
 				this->joint_matrices_buf_ob->updateData(/*dest offset=*/0, /*src data=*/ob.joint_matrices[0].e, /*src size=*/num_joint_matrices_to_upload * sizeof(Matrix4f));

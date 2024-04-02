@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include "../utils/Timer.h"
 
 
 static const std::string getLog(GLuint program)
@@ -46,12 +47,14 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	is_outline(false),
 	uses_vert_uniform_buf_obs(false),
 	program_index(program_index_),
-	supports_MDI(false)
+	supports_MDI(false),
+	uses_skinning(false)
 {
 	// conPrint("Creating OpenGLProgram " + prog_name_ + "...");
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
 
+	// Timer timer;
 	program = glCreateProgram();
 	if(program == 0)
 		throw glare::Exception("Failed to create OpenGL program '" + prog_name + "'.");
@@ -85,6 +88,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glGetProgramiv(program, GL_LINK_STATUS, &program_ok);
 	if(!program_ok)
 		throw glare::Exception("Failed to link shader program '" + prog_name + "': " + log);
+
+	// conPrint("================== Building OpenGL program '" + prog_name + "' took " + timer.elapsedStringNPlaces(4) + "==================");
 
 	model_matrix_loc   = glGetUniformLocation(program, "model_matrix");
 	view_matrix_loc    = glGetUniformLocation(program, "view_matrix");

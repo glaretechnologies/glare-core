@@ -191,6 +191,7 @@ public:
 	bool is_outline;
 	bool supports_MDI; // Should batches with this program be drawn with glMultiDrawElementsIndirect, if supported?
 	bool uses_vert_uniform_buf_obs; // Does the vertex shader use a PerObjectVertUniforms uniform block?
+	bool uses_skinning;
 
 	UniformLocations uniform_locations;
 
