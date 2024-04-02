@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "ConPrint.h"
 #include "StringUtils.h"
 #include "AtomicInt.h"
-#include <tracy/Tracy.hpp>
+//#include <tracy/Tracy.hpp>
 #include <new>
 
 
@@ -145,7 +145,7 @@ void* alignedMalloc(size_t amount, size_t alignment)
 
 	*(((unsigned int*)returned_addr) - 1) = (unsigned int)((uintptr_t)returned_addr - (uintptr_t)original_addr); // Store offset from original address to returned address
 
-	TracyAllocS(original_addr, amount + alignment, /*call stack capture depth=*/10);
+//	TracyAllocS(original_addr, amount + alignment, /*call stack capture depth=*/10);
 
 	return returned_addr;
 }
@@ -160,7 +160,7 @@ void alignedFree(void* addr)
 
 	void* original_addr = (void*)((uintptr_t)addr - (uintptr_t)original_addr_offset);
 
-	TracyFreeS(original_addr, /*call stack capture depth=*/10);
+//	TracyFreeS(original_addr, /*call stack capture depth=*/10);
 
 #if TRACE_ALLOCATIONS
 	traceFree(original_addr);
