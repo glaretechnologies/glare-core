@@ -24,13 +24,13 @@ RenderBuffer::RenderBuffer(size_t tex_xres, size_t tex_yres, int MSAA_samples, O
 
 	bind();
 
-	if(MSAA_samples == 1)
+	if(MSAA_samples <= 1)
 	{
-		glRenderbufferStorage(GL_RENDERBUFFER, /*internal format=*/gl_internal_format, xres, yres);
+		glRenderbufferStorage(GL_RENDERBUFFER, /*internal format=*/gl_internal_format, (GLsizei)xres, (GLsizei)yres);
 	}
 	else
 	{
-		glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_samples, /*internal format=*/gl_internal_format, xres, yres);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_samples, /*internal format=*/gl_internal_format, (GLsizei)xres, (GLsizei)yres);
 	}
 
 	unbind();
