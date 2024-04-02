@@ -7,21 +7,23 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "mathstypes.h"
-#include "../utils/RuntimeCheck.h"
+#include "../utils/Exception.h"
 
 
 namespace CheckedMaths
 {
 
 
-// Triggers assert and throws glare::Exception if the result would overflow.
+// Throws glare::Exception if the result would overflow.
 template <class T> 
 T addUnsignedInts(T x, T y)
 {
 	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
 	static_assert(!std::numeric_limits<T>::is_signed, "Template param must not be signed");
 
-	runtimeCheck(!Maths::unsignedIntAdditionWraps(x, y));
+	if(Maths::unsignedIntAdditionWraps(x, y))
+		throw glare::Exception("Unsigned integer addition overflow");
+
 	return x + y;
 }
 

@@ -28,11 +28,11 @@ void CheckedMaths::test()
 		failTest(e.what());
 	}
 
+	// Check additions that should overflow / wrap
 	try
 	{
-		// This triggers an assert (intentionally):
-		//testAssert(addUnsignedInts(1u << 31, (1u << 31)) == 4294967295);
-		//failTest("Expected excep");
+		testAssert(addUnsignedInts(1u << 31, (1u << 31)) == 4294967295);
+		failTest("Expected excep");
 	}
 	catch(glare::Exception&)
 	{
