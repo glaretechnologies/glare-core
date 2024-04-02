@@ -531,6 +531,9 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 	{
 		const CompressedImage* compressed_image = static_cast<const CompressedImage*>(map);
 
+		if(!allow_compression)
+			throw glare::Exception("Can't handle compressed image, allow_compression is false.");
+
 		//return getOrLoadOpenGLTexture(key, *im_map_uint8, filtering, wrapping, allow_compression, use_sRGB);
 		//return TextureLoading::buildUInt8MapTextureData(im_map_uint8.ptr(), opengl_engine, &opengl_engine->getTaskManager());
 
