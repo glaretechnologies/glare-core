@@ -127,7 +127,6 @@ void DatabaseTests::test()
 
 	{
 		// Create DB
-		conPrint(PlatformUtils::getCurrentWorkingDirPath());
 		const std::string db_path = "./test.db";
 		Database::makeOrClearDatabase(db_path);
 
