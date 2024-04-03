@@ -92,6 +92,8 @@ Copyright Glare Technologies Limited 2023 -
 static const size_t max_num_joint_matrices_per_ob = 256; // Max num joint matrices per object.
 
 
+static const bool draw_aurora = true;
+
 // 'Standard' textures will be bound to standard texture units, for example FBM texture will always be bound to texture unit 6.
 // We won't use texture unit index 0, that will be a scratch index which will get overwritten when creating new textures (which calls glBindTexture()) etc.
 enum TextureUnitIndices
@@ -1920,6 +1922,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		preprocessor_defines += "#define RENDER_SUN_AND_SKY " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
 		preprocessor_defines += "#define RENDER_CLOUD_SHADOWS " + (settings.render_sun_and_clouds ? std::string("1") : std::string("0")) + "\n";
 		preprocessor_defines += "#define UNDERWATER_CAUSTICS " + (settings.render_water_caustics ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define DRAW_AURORA " + (draw_aurora ? std::string("1") : std::string("0")) + "\n";
 
 		// static_cascade_blending causes a white-screen error on many Intel GPUs.
 		const bool static_cascade_blending = !is_intel_vendor;
@@ -6033,7 +6036,7 @@ void OpenGLEngine::draw()
 	bindStandardTexturesToTextureUnits();
 
 
-	if(current_scene->use_main_render_framebuffer)
+	if(draw_aurora && current_scene->use_main_render_framebuffer)
 		drawAuroraTex();
 
 
@@ -6109,7 +6112,7 @@ void OpenGLEngine::draw()
 			);
 
 			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
-			const OpenGLTexture::Format normal_buffer_format =OpenGLTexture::Format_RGB_Linear_Uint8;
+			const OpenGLTexture::Format normal_buffer_format = OpenGLTexture::Format_RGB_Linear_Uint8;
 
 			main_normal_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -6122,7 +6125,7 @@ void OpenGLEngine::draw()
 
 			const OpenGLTexture::Format transparent_accum_format = col_buffer_format;
 #if defined(EMSCRIPTEN)
-			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_RGBA_Linear_Uint8;
+			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_RGBA_Linear_Uint8; // Shouldn't be used.
 #else
 			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_Greyscale_Half;
 #endif
@@ -6639,7 +6642,7 @@ void OpenGLEngine::draw()
 	} // End if(settings.use_final_image_buffer)
 
 
-	VAO::unbind(); // Unbind any bound VAO, so that it's vertex and index buffers don't get accidentally overridden.
+	VAO::unbind(); // Unbind any bound VAO, so that its vertex and index buffers don't get accidentally overridden.
 	
 
 	if(query_profiling_enabled)
@@ -7155,9 +7158,6 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 		depth_draw_last_num_indices_drawn = num_indices_submitted;
 		this->num_indices_submitted = 0;
 
-
-		if(this->target_frame_buffer.nonNull())
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer->buffer_name);
 
 		glDisable(GL_CULL_FACE);
 
@@ -8977,7 +8977,8 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 
 	if(cirrus_tex.nonNull())
 		assert(getBoundTexture2D(CIRRUS_TEX_TEXTURE_UNIT_INDEX) == cirrus_tex->texture_handle);
-	assert(getBoundTexture2D(AURORA_TEXTURE_UNIT_INDEX)     == aurora_tex->texture_handle);
+	if(aurora_tex.nonNull())
+		assert(getBoundTexture2D(AURORA_TEXTURE_UNIT_INDEX)     == aurora_tex->texture_handle);
 	assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
 	assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX)        == fbm_tex->texture_handle);
 }

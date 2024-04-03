@@ -82,8 +82,8 @@ void main()
 
 
 
-	
-#if 1 // AURORA
+
+#if DRAW_AURORA
 	float min_aurora_z = 1000.0;
 	float max_aurora_z = 8000.0;
 	float aurora_start_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, min_aurora_z);
