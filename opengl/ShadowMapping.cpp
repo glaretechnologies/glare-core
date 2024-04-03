@@ -21,14 +21,36 @@ ShadowMapping::~ShadowMapping()
 }
 
 
-void ShadowMapping::init()
+void ShadowMapping::init(OpenGLEngine* opengl_engine)
 {
-	const int base_res = 2048;
-	dynamic_w = base_res;
-	dynamic_h = base_res * numDynamicDepthTextures();
+	const int initial_base_res = 2048;
+	dynamic_w = initial_base_res;
+	dynamic_h = initial_base_res * numDynamicDepthTextures();
 
-	static_w = base_res;
-	static_h = base_res * numStaticDepthTextures();
+	// Halve texture size until its dimensions are <= max_texture_size
+	for(int i=0; i<10; ++i)
+	{
+		if(dynamic_h > opengl_engine->max_texture_size)
+		{
+			dynamic_w /= 2;
+			dynamic_h /= 2;
+		}
+	}
+
+	static_w = initial_base_res;
+	static_h = initial_base_res * numStaticDepthTextures();
+
+	for(int i=0; i<10; ++i)
+	{
+		if(static_h > opengl_engine->max_texture_size)
+		{
+			static_w /= 2;
+			static_h /= 2;
+		}
+	}
+
+	conPrint("Shadow map res: dynamic: " + toString(dynamic_w) + " x " + toString(dynamic_h) + ", static: " + toString(static_w) + " x " + toString(static_h));
+
 
 	// Create frame buffer
 	frame_buffer = new FrameBuffer();

@@ -1684,6 +1684,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 #endif
 	}
 
+	// Get max texture size
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &this->max_texture_size);
+
 #if EMSCRIPTEN
 	this->texture_sRGB_support = true; // Available in WebGL 2 by default: https://developer.mozilla.org/en-US/docs/Web/API/EXT_sRGB
 #endif
@@ -2093,7 +2096,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(settings.shadow_mapping)
 		{
 			shadow_mapping = new ShadowMapping();
-			shadow_mapping->init();
+			shadow_mapping->init(this);
 
 			{
 				clear_buf_overlay_ob =  new OverlayObject();
@@ -10169,6 +10172,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "GLSL version: " + glsl_version + "\n";
 	s += "texture sRGB support: " + boolToString(texture_sRGB_support) + "\n";
 	s += "texture s3tc support: " + boolToString(texture_compression_s3tc_support) + "\n";
+	s += "max_texture_size: " + toString(max_texture_size) + "\n";
 	s += "using bindless textures: " + boolToString(use_bindless_textures) + "\n";
 	s += "using multi-draw-indirect: " + boolToString(use_multi_draw_indirect) + "\n";
 	s += "using reverse z: " + boolToString(use_reverse_z) + "\n";

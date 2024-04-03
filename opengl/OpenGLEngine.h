@@ -1311,6 +1311,7 @@ public:
 	bool GL_ARB_clip_control_support;
 	bool GL_ARB_shader_storage_buffer_object_support;
 	float max_anisotropy;
+	int max_texture_size;
 	bool use_bindless_textures;
 	bool use_multi_draw_indirect;
 	bool use_reverse_z;

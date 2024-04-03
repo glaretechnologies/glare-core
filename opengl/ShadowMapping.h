@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Reference.h"
 #include "../maths/Matrix4f.h"
 class OpenGLShader;
+class OpenGLEngine;
 
 
 /*=====================================================================
@@ -36,7 +37,7 @@ public:
 	ShadowMapping();
 	~ShadowMapping();
 
-	void init();
+	void init(OpenGLEngine* opengl_engine);
 
 	static const int NUM_DYNAMIC_DEPTH_TEXTURES = 2;
 	static int numDynamicDepthTextures() { return NUM_DYNAMIC_DEPTH_TEXTURES; }
