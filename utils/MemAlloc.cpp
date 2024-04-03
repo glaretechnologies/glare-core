@@ -47,6 +47,9 @@ void* MemAlloc::traceMalloc(size_t n)
 {
 	// Allocate the requested allocation size, plus room for a uint64, in which we will store the size of the allocation.
 	void* data = malloc(n + sizeof(uint64));
+	if(!data)
+		throw std::bad_alloc();
+
 	((uint64*)data)[0] = n; // Store requested allocation size
 
 
