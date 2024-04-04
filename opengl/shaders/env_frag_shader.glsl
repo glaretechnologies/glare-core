@@ -64,11 +64,12 @@ float length2(vec2 v)
 
 void main()
 {
+	// Col = spectral radiance * 1.0e-9
 	vec4 col;
 	if(have_texture != 0)
-		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy) * 1.0e9f;
+		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
 	else
-		col = diffuse_colour;
+		col = diffuse_colour * 1.0e-9f;
 
 #if RENDER_SUN_AND_SKY
 	// Render sun
@@ -195,7 +196,7 @@ void main()
 
 #endif // RENDER_SUN_AND_SKY
 
-	col *= 0.000000003; // tone-map
+	col *= 3.0; // tone-map
 
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, 1);

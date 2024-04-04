@@ -442,7 +442,7 @@ void main()
 		unit_normal_ws = -unit_normal_ws;
 
 	vec4 sky_irradiance;
-	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz) * 1.0e9f; // integral over hemisphere of cosine * incoming radiance from sky.
+	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9.
 
 
 	vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor; // Sun spectral radiance multiplied by solid angle, see SkyModel2Generator::makeSkyEnvMap().
@@ -461,7 +461,7 @@ void main()
 	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission);
 #endif
 
-	col *= 0.000000003; // tone-map
+	col *= 3.0; // tone-map
 
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, 1.0);

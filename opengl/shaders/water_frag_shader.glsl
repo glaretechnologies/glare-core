@@ -250,7 +250,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
 	vec3 scattering = vec3(0.4, 0.4, 0.1);
 
-	vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
+	vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 3.0); // Get colour value at refracted ground position, undo tonemapping.
 //return src_col;
 	vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
 	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
@@ -272,8 +272,9 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
 //	src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
 
-	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * 0.05; // TEMP TODO: compute properly
-	//vec3 inscatter_radiance_sigma_s_over_sigma_t =  vec3(1000000.0, 19000000.0, 30000000.0) * 0.2; // TEMP TODO: compute properly
+	// TODO: compute inscatter_radiance better.
+	// It should depend on the sun+sky colour, but also take into account attenuation through water giving a blue tint.
+	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
 	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d);
 	vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
 
@@ -323,9 +324,9 @@ void main()
 	//ivec2 tex_res = textureSize(main_colour_texture, 0);
 	//float width_over_height = float(tex_res.x) / float(tex_res.y);
 
-	vec3 col = vec3(0.0);
-	vec3 spec_refl_light_already_fogged = vec3(0.0);
-	vec3 spec_refl_light = vec3(0.0);
+	vec3 col = vec3(0.0); // spectral radiance * 1.0e-9
+	vec3 spec_refl_light_already_fogged = vec3(0.0); // spectral radiance * 1.0e-9
+	vec3 spec_refl_light = vec3(0.0); // spectral radiance * 1.0e-9
 	float spec_refl_fresnel = 0.0;
 	bool hit_point_under_water = false;
 	if(unit_cam_to_pos_ws.z > 0.0) // If the camera is under the water (TEMP: assuming water is flat horizontal plane)
@@ -438,7 +439,7 @@ void main()
 			float px = refracted_dir_cs.x / -refracted_dir_cs.z * l_over_w + 0.5;
 			float py = refracted_dir_cs.y / -refracted_dir_cs.z * l_over_h + 0.5;
 
-			vec3 src_col = texture(main_colour_texture, vec2(px, py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
+			vec3 src_col = texture(main_colour_texture, vec2(px, py)).xyz * (1.0 / 3.0); // Get colour value at refracted ground position, undo tonemapping.
 
 			col = src_col;
 		}
@@ -612,7 +613,7 @@ void main()
 				// Take the final point as the midpoint (in screen space) of the interval in which the intersection lies
 				t = (lower_t + upper_t) * 0.5f;
 				vec2 cur_ss = o_ss + dir_ss * t;
-				spec_refl_light_already_fogged = texture(main_colour_texture, cur_ss).xyz * (1.0 / 0.000000003);
+				spec_refl_light_already_fogged = texture(main_colour_texture, cur_ss).xyz * (1.0 / 3.0); // Undo tonemapping
 
 				//spec_refl_light_already_fogged = vec3(100000000.0);//TEMP HACK
 			}
@@ -631,9 +632,9 @@ void main()
 			float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // -1.f is to rotate reflection so it aligns with env rotation.
 			vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
-			vec3 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-			vec3 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz * 1.0e9f;
-			spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
+			vec3 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+			vec3 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz;
+			spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
 
 			//-------------- sun ---------------------
 			float d = dot(sundir_ws.xyz, reflected_dir_ws);
@@ -647,7 +648,7 @@ void main()
 			spec_refl_light = mix(spec_refl_light, suncol, smoothstep(0.99997, 0.9999892083461507, d));
 
 
-#if 1 // AURORA
+#if DRAW_AURORA
 			vec3 dir_ws = reflected_dir_ws;
 			vec3 env_campos_ws = pos_ws;
 
@@ -926,7 +927,7 @@ void main()
 		col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, final_refracted_water_ground_d, water_to_ground_sun_d) * (1.0 - spec_refl_fresnel) +
 			spec_refl_light * spec_refl_fresnel;
 		
-	}
+	} // End if cam is above water surface
 
 
 #if DEPTH_FOG
@@ -942,7 +943,7 @@ void main()
 
 
 
-	col *= 0.000000003; // tone-map
+	col *= 3.0; // tone-map
 
 	//TEMP
 	//vec2 o_ss = cameraToScreenSpace(pos_cs); // Get current fragment screen space position
