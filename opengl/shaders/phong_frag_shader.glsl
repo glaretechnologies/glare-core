@@ -1084,10 +1084,10 @@ void main()
 			discard;
 
 		emission_col =  vec4(0.0,0.2,0.5, 0) * //vec4(MAT_UNIFORM.materialise_r, MAT_UNIFORM.materialise_g, MAT_UNIFORM.materialise_b, 0.0) * 
-			smoothstep(0.8, 0.9, hex_frac) * 2.0e9;
+			smoothstep(0.8, 0.9, hex_frac) * 4.0;
 	}
 
-	emission_col += (band_1 * vec4(1,1,1.0,0)  + band_2 * vec4(0.0,1,0.5,0)) * 5.0e9;
+	emission_col += (band_1 * vec4(1,1,1.0,0)  + band_2 * vec4(0.0,1,0.5,0)) * 10.0;
 #endif // MATERIALISE_EFFECT
 
 

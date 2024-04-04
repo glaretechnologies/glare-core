@@ -649,6 +649,7 @@ void main()
 
 
 #if DRAW_AURORA
+			// NOTE: code duplicated in env_frag_shader
 			vec3 dir_ws = reflected_dir_ws;
 			vec3 env_campos_ws = pos_ws;
 
@@ -694,7 +695,7 @@ void main()
 				
 						vec4 col_for_height = mix(green_col, blue_col, min(1.0, (p_as.z - aurora_start_z) * (1.0 / 2000.0)));
 				
-						spec_refl_light += (1000000.0 * t_step * col_for_height * aurora_val.r * z_ramp_intensity_factor * high_freq_intensity_factor * z_factor).xyz;
+						spec_refl_light += (0.001 * t_step * col_for_height * aurora_val.r * z_ramp_intensity_factor * high_freq_intensity_factor * z_factor).xyz;
 					}
 				}
 			}
