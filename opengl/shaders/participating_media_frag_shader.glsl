@@ -338,12 +338,12 @@ void main()
 	vec3 front_factor = sun_front_factor * sun_light;
 
 
-	vec3 up_sky_irradiance    = texture(cosine_env_tex, up_ws).xyz     * 1.0e9f; // integral over hemisphere of cosine * incoming radiance from sky.
-	vec3 down_sky_irradiance  = texture(cosine_env_tex, -up_ws).xyz    * 1.0e9f;
-	vec3 left_sky_irradiance  = texture(cosine_env_tex, -right_ws).xyz * 1.0e9f;
-	vec3 right_sky_irradiance = texture(cosine_env_tex, right_ws).xyz  * 1.0e9f;
-	vec3 rear_sky_irradiance  = texture(cosine_env_tex, forw_ws).xyz   * 1.0e9f;
-	vec3 front_sky_irradiance = texture(cosine_env_tex, -forw_ws).xyz  * 1.0e9f;
+	vec3 up_sky_irradiance    = texture(cosine_env_tex, up_ws).xyz    ; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9.
+	vec3 down_sky_irradiance  = texture(cosine_env_tex, -up_ws).xyz   ;
+	vec3 left_sky_irradiance  = texture(cosine_env_tex, -right_ws).xyz;
+	vec3 right_sky_irradiance = texture(cosine_env_tex, right_ws).xyz ;
+	vec3 rear_sky_irradiance  = texture(cosine_env_tex, forw_ws).xyz  ;
+	vec3 front_sky_irradiance = texture(cosine_env_tex, -forw_ws).xyz ;
 
 	up_factor    += up_sky_irradiance    * (1.0 / 3.141592653589793) * (1.0 / 6.0); // Is 1/6 the correct factor here?
 	bot_factor   += down_sky_irradiance  * (1.0 / 3.141592653589793) * (1.0 / 6.0);
@@ -384,7 +384,7 @@ void main()
 	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission);
 #endif
 
-	col *= 0.000000003; // tone-map
+	col *= 3.0; // tone-map
 
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, alpha);

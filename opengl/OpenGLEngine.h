@@ -138,7 +138,7 @@ public:
 	Colour3f albedo_linear_rgb; // First approximation to material colour.  Linear sRGB.
 	float alpha; // Used for transparent mats.
 	Colour3f emission_linear_rgb; // Linear sRGB in [0, 1]
-	float emission_scale; // [0, inf)
+	float emission_scale; // [0, inf).  Spectral radiance * 1.0e-9
 
 	bool imposter; // Use imposter shader?
 	bool imposterable; // Fade out with distance
@@ -647,7 +647,7 @@ struct BatchDrawInfoWithDist
 struct PhongUniforms
 {
 	Colour4f diffuse_colour; // linear sRGB
-	Colour4f emission_colour; // linear sRGB
+	Colour4f emission_colour; // linear sRGB, spectral radiance * 1.0e-9
 	Vec2f texture_upper_left_matrix_col0;
 	Vec2f texture_upper_left_matrix_col1;
 	Vec2f texture_matrix_translation;
@@ -683,8 +683,8 @@ struct MaterialCommonUniforms
 	Matrix4f frag_view_matrix;
 	Vec4f sundir_cs;
 	Vec4f sundir_ws;
-	Vec4f sun_spec_rad_times_solid_angle;
-	Vec4f sun_and_sky_av_spec_rad;
+	Vec4f sun_spec_rad_times_solid_angle; // spectral rad * 1.0e-9 * solid angle
+	Vec4f sun_and_sky_av_spec_rad; // spectral rad * 1.0e-9
 	Vec4f air_scattering_coeffs;
 	float near_clip_dist;
 	float far_clip_dist;

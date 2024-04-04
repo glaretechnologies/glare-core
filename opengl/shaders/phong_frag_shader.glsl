@@ -978,9 +978,9 @@ void main()
 	vec4 sky_irradiance;
 #if LIGHTMAPPING
 	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
-	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y)) * 1.0e9f;
+	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y));
 #else
-	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz) * 1.0e9f; // integral over hemisphere of cosine * incoming radiance from sky.
+	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
 #endif
 
 #if BLOB_SHADOWS
@@ -1015,9 +1015,9 @@ void main()
 	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
 	vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
-	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))) * 1.0e9f; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))) * 1.0e9f;
-	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t;
+	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
+	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
 
 
 	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));
@@ -1084,10 +1084,10 @@ void main()
 			discard;
 
 		emission_col =  vec4(0.0,0.2,0.5, 0) * //vec4(MAT_UNIFORM.materialise_r, MAT_UNIFORM.materialise_g, MAT_UNIFORM.materialise_b, 0.0) * 
-			smoothstep(0.8, 0.9, hex_frac) * 2.0e9;
+			smoothstep(0.8, 0.9, hex_frac) * 4.0;
 	}
 
-	emission_col += (band_1 * vec4(1,1,1.0,0)  + band_2 * vec4(0.0,1,0.5,0)) * 5.0e9;
+	emission_col += (band_1 * vec4(1,1,1.0,0)  + band_2 * vec4(0.0,1,0.5,0)) * 10.0;
 #endif // MATERIALISE_EFFECT
 
 
@@ -1159,7 +1159,8 @@ void main()
 		}
 		else // Else if camera is underwater:
 		{
-			vec3 inscatter_radiance_sigma_s_over_sigma_t = vec3(1000000.0, 10000000.0, 30000000.0);
+			// NOTE: this calculation is also in colourForUnderwaterPoint() in water_frag_shader.glsl and should be kept in sync.
+			vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
 			vec3 exp_optical_depth = exp(extinction * -cam_to_pos_dist);
 			vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
 
@@ -1173,7 +1174,7 @@ void main()
 	//------------------------------- End apply underwater effects ---------------------------
 
 
-	col *= 0.000000003; // tone-map
+	col *= 3.0; // tone-map
 	
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, 1); // toNonLinear will be done after adding blurs etc.

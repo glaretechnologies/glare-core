@@ -6021,8 +6021,8 @@ void OpenGLEngine::draw()
 	common_uniforms.frag_view_matrix = main_view_matrix;
 	common_uniforms.sundir_cs = this->sun_dir_cam_space;
 	common_uniforms.sundir_ws = this->sun_dir;
-	common_uniforms.sun_spec_rad_times_solid_angle = this->sun_spec_rad_times_solid_angle;
-	common_uniforms.sun_and_sky_av_spec_rad = this->sun_and_sky_av_spec_rad;
+	common_uniforms.sun_spec_rad_times_solid_angle = this->sun_spec_rad_times_solid_angle * 1.0e-9f;
+	common_uniforms.sun_and_sky_av_spec_rad = this->sun_and_sky_av_spec_rad * 1.0e-9f;
 	common_uniforms.air_scattering_coeffs = this->air_scattering_coeffs;
 	common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
 	common_uniforms.far_clip_dist = this->current_scene->max_draw_dist;

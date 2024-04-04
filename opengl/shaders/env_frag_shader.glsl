@@ -64,11 +64,12 @@ float length2(vec2 v)
 
 void main()
 {
+	// Col = spectral radiance * 1.0e-9
 	vec4 col;
 	if(have_texture != 0)
-		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy) * 1.0e9f;
+		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
 	else
-		col = diffuse_colour;
+		col = diffuse_colour * 1.0e-9f;
 
 #if RENDER_SUN_AND_SKY
 	// Render sun
@@ -84,6 +85,7 @@ void main()
 
 
 #if DRAW_AURORA
+	// NOTE: code duplicated in water_frag_shader
 	float min_aurora_z = 1000.0;
 	float max_aurora_z = 8000.0;
 	float aurora_start_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, min_aurora_z);
@@ -127,7 +129,7 @@ void main()
 				
 				vec4 col_for_height = mix(green_col, blue_col, min(1.0, (p_as.z - aurora_start_z) * (1.0 / 2000.0)));
 				
-				col += 1000000.0 * t_step * col_for_height * aurora_val.r * z_ramp_intensity_factor * high_freq_intensity_factor * z_factor;
+				col += 0.001 * t_step * col_for_height * aurora_val.r * z_ramp_intensity_factor * high_freq_intensity_factor * z_factor;
 			}
 		}
 	}
@@ -195,7 +197,7 @@ void main()
 
 #endif // RENDER_SUN_AND_SKY
 
-	col *= 0.000000003; // tone-map
+	col *= 3.0; // tone-map
 
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, 1);
