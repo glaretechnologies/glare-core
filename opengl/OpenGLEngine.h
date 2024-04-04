@@ -1310,6 +1310,7 @@ public:
 	bool GL_ARB_bindless_texture_support;
 	bool GL_ARB_clip_control_support;
 	bool GL_ARB_shader_storage_buffer_object_support;
+	bool parallel_shader_compile_support;
 	float max_anisotropy;
 	int max_texture_size;
 	bool use_bindless_textures;

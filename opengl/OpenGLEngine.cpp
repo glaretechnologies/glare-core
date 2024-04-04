@@ -1665,6 +1665,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->GL_ARB_bindless_texture_support = false;
 	this->GL_ARB_clip_control_support = false;
 	this->GL_ARB_shader_storage_buffer_object_support = false;
+	this->parallel_shader_compile_support = false;
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -1678,6 +1679,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
 		if(stringEqual(ext, "GL_ARB_clip_control")) this->GL_ARB_clip_control_support = true;
 		if(stringEqual(ext, "GL_ARB_shader_storage_buffer_object")) this->GL_ARB_shader_storage_buffer_object_support = true;
+		if(stringEqual(ext, "GL_KHR_parallel_shader_compile")) parallel_shader_compile_support = true;
 
 #if EMSCRIPTEN
 		if(stringEqual(ext, "GL_WEBGL_compressed_texture_s3tc")) this->texture_compression_s3tc_support = true;
