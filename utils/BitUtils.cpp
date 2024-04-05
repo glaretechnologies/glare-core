@@ -143,6 +143,36 @@ void test()
 		testAssert(!isBitSet(2, 1 << 3));
 	}
 
+	//===================================== areBitsSet =====================================
+	{
+		const uint32 bit0_flag = 1 << 0;
+		const uint32 bit1_flag = 1 << 1;
+		const uint32 bit2_flag = 1 << 2;
+
+		// 0000
+		testAssert(!areBitsSet(0u, bit0_flag));
+		testAssert(!areBitsSet(0u, bit0_flag | bit1_flag));
+		testAssert(!areBitsSet(0u, bit0_flag | bit1_flag | bit2_flag));
+
+		// 0001
+		testAssert(areBitsSet(1u, bit0_flag));
+		testAssert(!areBitsSet(1u, bit0_flag | bit1_flag));
+		testAssert(!areBitsSet(1u, bit1_flag));
+
+		// 0010
+		testAssert(!areBitsSet(2u, bit0_flag));
+		testAssert(!areBitsSet(2u, bit0_flag | bit1_flag));
+		testAssert(areBitsSet(2u, bit1_flag));
+
+		// 0011
+		testAssert(areBitsSet(3u, bit0_flag));
+		testAssert(areBitsSet(3u, bit0_flag | bit1_flag));
+		testAssert(!areBitsSet(3u, bit0_flag | bit1_flag | bit2_flag));
+		testAssert(!areBitsSet(3u, bit1_flag | bit2_flag));
+
+		testAssert(areBitsSet(1u << 31, 1u << 31));
+	}
+
 	//===================================== setBit =====================================
 	{
 		uint32 x = 0;

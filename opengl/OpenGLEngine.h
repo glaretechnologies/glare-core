@@ -232,22 +232,25 @@ struct GlInstanceInfo
 
 
 // program_index_and_flags:
-// Bit 31: program supports MDI
-// Bit 30: material is transparent
-// Bit 29: material is water
-// Bit 28: material is a decal
-// Bit 27: material is participating media
-// Bit 26: material has backface culling
-// Bits 0-25: program index
-#define PROG_SUPPORTS_MDI_BITFLAG						(1u << 31)
-#define MATERIAL_TRANSPARENT_BITFLAG					(1u << 30)
-#define MATERIAL_WATER_BITFLAG							(1u << 29)
-#define MATERIAL_DECAL_BITFLAG							(1u << 28)
-#define MATERIAL_PARTIC_MEDIA_BITFLAG					(1u << 27)
-#define BACKFACE_CULLING_BITFLAG						(1u << 26)
+// Bit 31: program has finished building (async linking has completed etc.)
+// Bit 30: program supports MDI
+// Bit 29: material is transparent
+// Bit 28: material is water
+// Bit 27: material is a decal
+// Bit 26: material is participating media
+// Bit 25: material has backface culling.  (has to go last)
+// Bits 0-24: program index
+#define PROGRAM_FINISHED_BUILDING_BITFLAG				(1u << 31)
+#define PROG_SUPPORTS_MDI_BITFLAG						(1u << 30)
+#define MATERIAL_TRANSPARENT_BITFLAG					(1u << 29)
+#define MATERIAL_WATER_BITFLAG							(1u << 28)
+#define MATERIAL_DECAL_BITFLAG							(1u << 27)
+#define MATERIAL_PARTIC_MEDIA_BITFLAG					(1u << 26)
+#define BACKFACE_CULLING_BITFLAG						(1u << 25)
 
-#define ISOLATE_PROG_INDEX_MASK							0x03FFFFFF // Zero out top 6 bits
-#define ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK	0x07FFFFFF // Zero out top 5 bits
+
+#define ISOLATE_PROG_INDEX_MASK							0x01FFFFFF // Zero out top 7 bits
+#define ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK	0x03FFFFFF // Zero out top 6 bits
 
 
 struct GLObjectBatchDrawInfo
@@ -1086,9 +1089,12 @@ private:
 	OpenGLProgramRef getProgramWithFallbackOnError(const ProgramKey& key);
 
 	OpenGLProgramRef getPhongProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	void doPostBuildForPhongProgram(OpenGLProgramRef phong_prog);
 	OpenGLProgramRef getTransparentProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	void doPostBuildForTransparentProgram(OpenGLProgramRef prog);
 	OpenGLProgramRef getImposterProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	void doPostBuildForDepthDrawProgram(OpenGLProgramRef prog);
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
 	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
@@ -1132,6 +1138,7 @@ private:
 	void drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAuroraTex();
 	void buildPrograms(const std::string& use_shader_dir);
+	void finishBuildingProg(OpenGLProgram* prog);
 	void bindStandardTexturesToTextureUnits();
 	void bindStandardShadowMappingDepthTextures();
 
@@ -1182,6 +1189,7 @@ private:
 	OpenGLProgramRef fallback_transparent_prog;
 	OpenGLProgramRef fallback_depth_prog;
 	uint32 next_program_index;
+	std::vector<OpenGLProgram*> building_progs;
 
 	Reference<OpenGLProgram> env_prog;
 	int env_diffuse_colour_location;

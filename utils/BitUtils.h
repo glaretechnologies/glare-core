@@ -52,6 +52,10 @@ namespace BitUtils
 	template <class T> 
 	inline bool isBitSet(const T x, const T bitflag);
 
+	template <class T> 
+	inline bool areBitsSet(const T x, const T bitflags); // 'bitflags' is one or more bitflags OR'd together.
+
+
 	// Sets the bit to 1, in place.
 	template <class T> 
 	inline void setBit(T& x, const T bitflag);
@@ -159,6 +163,13 @@ namespace BitUtils
 	bool isBitSet(const T x, const T bitflag)
 	{
 		return (x & bitflag) != 0;
+	}
+
+
+	template <class T>
+	bool areBitsSet(const T x, const T bitflags)
+	{
+		return (x & bitflags) == bitflags;
 	}
 
 

@@ -2257,7 +2257,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		"overlay",
 		new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 		new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex()
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
 	);
 	addProgram(overlay_prog);
 
@@ -2271,7 +2272,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		"clear",
 		new OpenGLShader(use_shader_dir + "/clear_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 		new OpenGLShader(use_shader_dir + "/clear_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex()
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
 	);
 	addProgram(clear_prog);
 		
@@ -2282,7 +2284,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			"outline_prog_no_skinning",
 			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
 		);
 		addProgram(outline_prog_no_skinning);
 		getUniformLocations(outline_prog_no_skinning); // Make sure any unused uniforms have their locations set to -1.
@@ -2297,7 +2300,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			"outline_prog_with_skinning",
 			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines_vert, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines_frag, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
 		);
 		addProgram(outline_prog_with_skinning);
 		getUniformLocations(outline_prog_with_skinning); // Make sure any unused uniforms have their locations set to -1.
@@ -2313,7 +2317,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		"edge_extract",
 		new OpenGLShader(use_shader_dir + "/edge_extract_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 		new OpenGLShader(use_shader_dir + "/edge_extract_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex()
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
 	);
 	addProgram(edge_extract_prog);
 	getUniformLocations(edge_extract_prog); // Make sure any unused uniforms have their locations set to -1.
@@ -2331,7 +2336,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 				"downsize",
 				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines  , GL_VERTEX_SHADER),
 				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
-				getAndIncrNextProgramIndex()
+				getAndIncrNextProgramIndex(),
+				/*wait for build to complete=*/true
 			);
 			addProgram(downsize_prog);
 		}
@@ -2343,7 +2349,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 				"downsize_from_main_buf",
 				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
 				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
-				getAndIncrNextProgramIndex()
+				getAndIncrNextProgramIndex(),
+				/*wait for build to complete=*/true
 			);
 			addProgram(downsize_from_main_buf_prog);
 
@@ -2364,7 +2371,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			"gaussian_blur",
 			new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
 		);
 		addProgram(gaussian_blur_prog);
 		gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
@@ -2374,7 +2382,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			"final_imaging",
 			new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
 		);
 		addProgram(final_imaging_prog);
 		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
@@ -2409,7 +2418,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 
 		OpenGLShaderRef scatter_data_compute_shader = new OpenGLShader(use_shader_dir + "/scatter_data_compute_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_COMPUTE_SHADER);
-		scatter_data_prog = new OpenGLProgram("scatter data", scatter_data_compute_shader, NULL, getAndIncrNextProgramIndex());
+		scatter_data_prog = new OpenGLProgram("scatter data", scatter_data_compute_shader, NULL, getAndIncrNextProgramIndex(), /*wait for build to complete=*/true);
 
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/DATA_UPDATES_SSBO_BINDING_POINT_INDEX, this->data_updates_ssbo->handle);
 
@@ -2522,6 +2531,60 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 static const bool PRINT_PROG_BUILD_TIMES = false;
 
 
+// Called when a program that has been asynchronously compiling+linking has finished.
+void OpenGLEngine::finishBuildingProg(OpenGLProgram* prog)
+{
+	// conPrint("================== Async building OpenGL program '" + prog->prog_name + "' took " + doubleToStringNDecimalPlaces(Clock::getCurTimeRealSec() - prog->build_start_time, 4) + " s ==================");
+
+	prog->forceFinishLinkAndDoPostLinkCode();
+
+	if(prog->prog_name == "phong")
+		doPostBuildForPhongProgram(prog);
+	else if(prog->prog_name == "transparent")
+		doPostBuildForTransparentProgram(prog);
+	else if(prog->prog_name == "depth")
+		doPostBuildForDepthDrawProgram(prog);
+	else
+	{
+		assert(0);
+	}
+
+
+	// Iterate over all objects, if they are using this program, update their program flags, in particular PROGRAM_FINISHED_BUILDING_BITFLAG
+	for(auto si = scenes.begin(); si != scenes.end(); ++si)
+	{
+		const OpenGLScene* scene = si->ptr();
+
+		const GLObjectRef* const scene_obs = scene->objects.vector.data();
+		const size_t scene_obs_size        = scene->objects.vector.size();
+		for(size_t i=0; i<scene_obs_size; ++i)
+		{
+			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+			if(i + 16 < scene_obs_size)
+				_mm_prefetch((const char*)(&scene_obs[i + 16]->materials), _MM_HINT_T0);
+
+			GLObject* const ob = scene_obs[i].ptr();
+			bool need_ob_rebuild = false;
+
+			const size_t ob_materials_size           = ob->materials.size();
+			const OpenGLMaterial* const ob_materials = ob->materials.data();
+			for(uint32 z = 0; z < ob_materials_size; ++z)
+				if(ob_materials[z].shader_prog.ptr() == prog || ob_materials[z].depth_draw_shader_prog.ptr() == prog)
+				{
+					need_ob_rebuild = true;
+					break;
+				}
+
+			if(need_ob_rebuild)
+			{
+				rebuildObjectDepthDrawBatches(*ob);
+				rebuildDenormalisedDrawData(*ob);
+			}
+		}
+	}
+}
+
+
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(progs[key] == NULL)
@@ -2536,7 +2599,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 			"phong",
 			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
 		addProgram(phong_prog);
 		phong_prog->uses_phong_uniforms = true;
@@ -2546,47 +2610,59 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		progs[key] = phong_prog;
 
-		getUniformLocations(phong_prog);
-		setStandardTextureUnitUniformsForProgram(*phong_prog);
-
-		if(!use_multi_draw_indirect)
-		{
-			// Check we got the size of our uniform blocks on the CPU side correct.
-			// printFieldOffsets(phong_prog, "PhongUniforms");
-			checkUniformBlockSize(phong_prog, "PhongUniforms",				sizeof(PhongUniforms));
-			checkUniformBlockSize(phong_prog, "PerObjectVertUniforms",		sizeof(PerObjectVertUniforms));
-
-			bindUniformBlockToProgram(phong_prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
-			bindUniformBlockToProgram(phong_prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
-
-			if(key.skinning)
-				bindUniformBlockToProgram(phong_prog, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
-		}
+		if(parallel_shader_compile_support)
+			building_progs.push_back(phong_prog.ptr());
 		else
 		{
-			// Bind multi-draw-indirect SSBOs to program
-			bindShaderStorageBlockToProgram(phong_prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(phong_prog, "JointMatricesStorage",		JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(phong_prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(phong_prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+			phong_prog->forceFinishLinkAndDoPostLinkCode();
+			doPostBuildForPhongProgram(phong_prog);
 		}
-
-		checkUniformBlockSize(phong_prog, "MaterialCommonUniforms",	sizeof(MaterialCommonUniforms));
-		checkUniformBlockSize(phong_prog, "SharedVertUniforms",		sizeof(SharedVertUniforms));
-
-		bindUniformBlockToProgram(phong_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
-		bindUniformBlockToProgram(phong_prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
-		
-		if(light_buffer.nonNull())
-			bindShaderStorageBlockToProgram(phong_prog, "LightDataStorage", LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
-		else
-			// Bind "LightDataStorage" uniform block in the shader to the binding point with index LIGHT_DATA_UBO_BINDING_POINT_INDEX.
-			bindUniformBlockToProgram(phong_prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
 		if(PRINT_PROG_BUILD_TIMES) conPrint("Built phong program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
+}
+
+
+void OpenGLEngine::doPostBuildForPhongProgram(OpenGLProgramRef phong_prog)
+{
+	getUniformLocations(phong_prog);
+	setStandardTextureUnitUniformsForProgram(*phong_prog);
+
+	if(!use_multi_draw_indirect)
+	{
+		// Check we got the size of our uniform blocks on the CPU side correct.
+		// printFieldOffsets(phong_prog, "PhongUniforms");
+		checkUniformBlockSize(phong_prog, "PhongUniforms",				sizeof(PhongUniforms));
+		checkUniformBlockSize(phong_prog, "PerObjectVertUniforms",		sizeof(PerObjectVertUniforms));
+
+		bindUniformBlockToProgram(phong_prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(phong_prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+
+		if(phong_prog->uses_skinning)
+			bindUniformBlockToProgram(phong_prog, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
+	}
+	else
+	{
+		// Bind multi-draw-indirect SSBOs to program
+		bindShaderStorageBlockToProgram(phong_prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(phong_prog, "JointMatricesStorage",		JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(phong_prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(phong_prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+	}
+
+	checkUniformBlockSize(phong_prog, "MaterialCommonUniforms",	sizeof(MaterialCommonUniforms));
+	checkUniformBlockSize(phong_prog, "SharedVertUniforms",		sizeof(SharedVertUniforms));
+
+	bindUniformBlockToProgram(phong_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(phong_prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+		
+	if(light_buffer.nonNull())
+		bindShaderStorageBlockToProgram(phong_prog, "LightDataStorage", LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
+	else
+		// Bind "LightDataStorage" uniform block in the shader to the binding point with index LIGHT_DATA_UBO_BINDING_POINT_INDEX.
+		bindUniformBlockToProgram(phong_prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 }
 
 
@@ -2606,7 +2682,8 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 			"transparent",
 			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
 		addProgram(prog);
 		prog->uses_phong_uniforms = true;
@@ -2615,38 +2692,50 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		progs[key] = prog;
 
-		getUniformLocations(prog);
-		setStandardTextureUnitUniformsForProgram(*prog);
-
-		// Check we got the size of our uniform blocks on the CPU side correct.
-		if(!use_multi_draw_indirect)
-		{
-			checkUniformBlockSize(prog, "PhongUniforms",				sizeof(PhongUniforms));
-			checkUniformBlockSize(prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
-
-			bindUniformBlockToProgram(prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
-			bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
-		}
+		if(parallel_shader_compile_support)
+			building_progs.push_back(prog.ptr());
 		else
 		{
-			bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
-			//bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+			prog->forceFinishLinkAndDoPostLinkCode();
+			doPostBuildForTransparentProgram(prog);
 		}
-
-		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
-		bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
-
-		if(light_buffer.nonNull())
-			bindShaderStorageBlockToProgram(prog, "LightDataStorage",	LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
-		else
-			bindUniformBlockToProgram(prog, "LightDataStorage",			LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
 		if(PRINT_PROG_BUILD_TIMES) conPrint("Built transparent program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
+}
+
+
+void OpenGLEngine::doPostBuildForTransparentProgram(OpenGLProgramRef prog)
+{
+	getUniformLocations(prog);
+	setStandardTextureUnitUniformsForProgram(*prog);
+
+	// Check we got the size of our uniform blocks on the CPU side correct.
+	if(!use_multi_draw_indirect)
+	{
+		checkUniformBlockSize(prog, "PhongUniforms",				sizeof(PhongUniforms));
+		checkUniformBlockSize(prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
+
+		bindUniformBlockToProgram(prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+	}
+	else
+	{
+		bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
+		//bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+	}
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+	if(light_buffer.nonNull())
+		bindShaderStorageBlockToProgram(prog, "LightDataStorage",	LIGHT_DATA_SSBO_BINDING_POINT_INDEX);
+	else
+		bindUniformBlockToProgram(prog, "LightDataStorage",			LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 }
 
 
@@ -2674,7 +2763,8 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 			shader_name_prefix,
 			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
 		);
 		addProgram(prog);
 		prog->uses_phong_uniforms = true;
@@ -2732,7 +2822,8 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 			"imposter",
 			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
 		);
 		addProgram(prog);
 		prog->uses_phong_uniforms = true;
@@ -2788,7 +2879,8 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 			"depth",
 			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
 		addProgram(prog);
 		prog->is_depth_draw = true;
@@ -2799,34 +2891,46 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 		progs[key] = prog;
 
-		getUniformLocations(prog);
-		setStandardTextureUnitUniformsForProgram(*prog);
-
-		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
-		bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
-
-		if(!use_multi_draw_indirect)
-		{
-			checkUniformBlockSize(prog, "DepthUniforms",				sizeof(DepthUniforms)); // Check we got the size of our uniform blocks on the CPU side correct.
-
-			bindUniformBlockToProgram(prog, "DepthUniforms",			DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX);
-			bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
-
-			if(key.skinning)
-				bindUniformBlockToProgram(prog, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
-		}
+		if(parallel_shader_compile_support)
+			building_progs.push_back(prog.ptr());
 		else
 		{
-			bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+			prog->forceFinishLinkAndDoPostLinkCode();
+			doPostBuildForDepthDrawProgram(prog);
 		}
 
 		if(PRINT_PROG_BUILD_TIMES) conPrint("Built depth-draw program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
+}
+
+
+void OpenGLEngine::doPostBuildForDepthDrawProgram(OpenGLProgramRef prog)
+{
+	getUniformLocations(prog);
+	setStandardTextureUnitUniformsForProgram(*prog);
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+	if(!use_multi_draw_indirect)
+	{
+		checkUniformBlockSize(prog, "DepthUniforms",				sizeof(DepthUniforms)); // Check we got the size of our uniform blocks on the CPU side correct.
+
+		bindUniformBlockToProgram(prog, "DepthUniforms",			DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+
+		if(prog->uses_skinning)
+			bindUniformBlockToProgram(prog, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
+	}
+	else
+	{
+		bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+	}
 }
 
 
@@ -3476,12 +3580,13 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 
 		const bool backface_culling = !mat.double_sided;
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
-			(mat.shader_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG     : 0) |
-			(mat.transparent               ? MATERIAL_TRANSPARENT_BITFLAG  : 0) |
-			(mat.water                     ? MATERIAL_WATER_BITFLAG        : 0) |
-			(mat.decal                     ? MATERIAL_DECAL_BITFLAG        : 0) |
-			(mat.participating_media       ? MATERIAL_PARTIC_MEDIA_BITFLAG : 0) |
-			(backface_culling              ? BACKFACE_CULLING_BITFLAG      : 0);
+			(mat.shader_prog->supports_MDI  ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
+			(mat.transparent                ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
+			(mat.water                      ? MATERIAL_WATER_BITFLAG            : 0) |
+			(mat.decal                      ? MATERIAL_DECAL_BITFLAG            : 0) |
+			(mat.participating_media        ? MATERIAL_PARTIC_MEDIA_BITFLAG     : 0) |
+			(backface_culling               ? BACKFACE_CULLING_BITFLAG          : 0) |
+			(mat.shader_prog->isBuilt()     ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 		//assert(mat.material_data_index != -1);
 		object.batch_draw_info[i].material_data_index = mat.material_data_index;
@@ -3505,6 +3610,16 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 }
 
 
+// If the material should draw into depth buffer (is not transparent etc.), and the shader program for it has finished building, return a pointer to the program, otherwise NULL
+static inline OpenGLProgram* getBuiltDepthDrawProgForMat(OpenGLMaterial& mat)
+{
+	if(mat.draw_into_depth_buffer && mat.depth_draw_shader_prog.nonNull() && mat.depth_draw_shader_prog->isBuilt())
+		return mat.depth_draw_shader_prog.ptr();
+	else
+		return NULL;
+}
+
+
 void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 {
 	// Compute shadow mapping depth-draw batches.  We can merge multiple index batches into one if they share the same depth-draw material, and are contiguous.
@@ -3520,7 +3635,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
 		{
 			const uint32 mat_index = object.mesh_data->batches[i].material_index;
-			OpenGLProgram* cur_depth_prog = object.materials[mat_index].draw_into_depth_buffer ? object.materials[mat_index].depth_draw_shader_prog.ptr() : NULL;
+			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
 				(object.mesh_data->batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
@@ -3547,7 +3662,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
 		{
 			const uint32 mat_index = object.mesh_data->batches[i].material_index;
-			OpenGLProgram* cur_depth_prog = object.materials[mat_index].draw_into_depth_buffer ? object.materials[mat_index].depth_draw_shader_prog.ptr() : NULL;
+			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
 				(object.mesh_data->batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
@@ -3555,7 +3670,8 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.
 				{
 					object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
-						(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG : 0);
+						(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG : 0) |
+						(prev_depth_prog->isBuilt() ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
 					object.depth_draw_batches[dest_batch_i].material_data_index = object.materials[current_batch.material_index].material_data_index;
@@ -3583,7 +3699,8 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		if(prev_depth_prog)
 		{
 			object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
-				(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG : 0);
+				(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG : 0) |
+				(prev_depth_prog->isBuilt() ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
 			object.depth_draw_batches[dest_batch_i].material_data_index = object.materials[current_batch.material_index].material_data_index;
@@ -4241,6 +4358,8 @@ bool OpenGLEngine::checkUseProgram(uint32 prog_index)
 
 		// conPrint("---- Changed to program " + prog->prog_name + " ----");
 		const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+		assert(prog->isBuilt());
 
 		prog->useProgram();
 		current_bound_prog = prog;
@@ -5646,7 +5765,8 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 		"env",
 		new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 		new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex()
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
 	);
 	addProgram(new_env_prog);
 
@@ -5667,10 +5787,11 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_dir)
 {
 	OpenGLProgramRef prog = new OpenGLProgram(
-			"draw_aurora_tex",
-			new OpenGLShader(use_shader_dir + "/draw_aurora_tex_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/draw_aurora_tex_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex()
+		"draw_aurora_tex",
+		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
 	);
 	addProgram(prog);
 
@@ -5755,6 +5876,29 @@ void OpenGLEngine::draw()
 	VAO::unbind();
 	assertCurrentProgramIsZero();
 
+
+	//================= Check if any building programs are done. =================
+	for(auto it = building_progs.begin(); it != building_progs.end(); )
+	{
+		OpenGLProgram* prog = *it;
+		if(prog->checkLinkingDone())
+		{
+			it = building_progs.erase(it);
+
+			try
+			{
+				finishBuildingProg(prog);
+			}
+			catch(glare::Exception& e)
+			{
+				conPrint("Error building program: " + e.what());
+			}
+		}
+		else
+			++it;
+	}
+
+
 	//================= Run scatter compute shader to update data on GPU (not used currently) =================
 	if(data_updates_buffer.nonEmpty())
 	{
@@ -5808,6 +5952,7 @@ void OpenGLEngine::draw()
 		conPrint("------------------------------------------- Reloading shaders -------------------------------------------");
 
 		progs.clear(); // Clear built-program cache
+		building_progs.clear();
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
@@ -7776,7 +7921,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 					assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 					// Draw primitives for the given material
-					if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_PARTIC_MEDIA_BITFLAG)) == 0) // If transparent bit is not set, and water bit is not set, and decal bit is not set:
+					// If transparent bit is not set, and water bit is not set, and decal bit is not set, and the program has finished building:
+					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_PARTIC_MEDIA_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
 					{
 						BatchDrawInfo info(
 							prog_index_and_backface_culling_flag,
@@ -7977,7 +8123,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 				assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 				assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
 #endif
-				if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG)) // If transparent bit is set:
+				if(BitUtils::areBitsSet(prog_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG)) // If transparent bit is set, and program has finished building:
 				{
 					BatchDrawInfo info(
 						prog_index_and_backface_culling_flag,

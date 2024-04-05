@@ -14,6 +14,9 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/Timer.h"
 
 
+#define GL_COMPLETION_STATUS_KHR			0x91B1
+
+
 static const std::string getLog(GLuint program)
 {
 	// Get log length including null terminator
@@ -35,9 +38,14 @@ UniformLocations::UniformLocations()
 {}
 
 
-OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_, uint32 program_index_)
+OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_, uint32 program_index_, bool wait_for_build_to_complete)
 :	program(0),
 	prog_name(prog_name_),
+	model_matrix_loc(-1),
+	view_matrix_loc(-1),
+	proj_matrix_loc(-1),
+	normal_matrix_loc(-1),
+	joint_matrix_loc(-1),
 	time_loc(-1),
 	colour_loc(-1),
 	albedo_texture_loc(-1),
@@ -48,22 +56,25 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	uses_vert_uniform_buf_obs(false),
 	program_index(program_index_),
 	supports_MDI(false),
-	uses_skinning(false)
+	uses_skinning(false),
+	built_successfully(false)
 {
 	// conPrint("Creating OpenGLProgram " + prog_name_ + "...");
+	build_start_time = Clock::getCurTimeRealSec();
+
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
 
-	// Timer timer;
 	program = glCreateProgram();
 	if(program == 0)
 		throw glare::Exception("Failed to create OpenGL program '" + prog_name + "'.");
 
-	glAttachShader(program, vert_shader->shader);
+	if(vert_shader.nonNull()) glAttachShader(program, vert_shader->shader);
 	if(frag_shader.nonNull()) glAttachShader(program, frag_shader->shader);
 
 	// Bind shader input variables.
 	// This corresponds to the order we supply vertex attributes in our mesh VAOs.
+	// This needs to go before glLinkProgram()
 	glBindAttribLocation(program, 0, "position_in");
 	glBindAttribLocation(program, 1, "normal_in");
 	glBindAttribLocation(program, 1, "imposter_width_in");
@@ -79,17 +90,41 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 
 	glLinkProgram(program);
 
+	// conPrint("Start of OpenGL program '" + prog_name + "' build took " + doubleToStringNDecimalPlaces(Clock::getCurTimeRealSec() - build_start_time, 4) + " s");
+
+	if(wait_for_build_to_complete)
+	{
+		forceFinishLinkAndDoPostLinkCode();
+
+		// conPrint("================== Blocking build of OpenGL program '" + prog_name + "' took " + doubleToStringNDecimalPlaces(Clock::getCurTimeRealSec() - build_start_time, 4) + " s ==================");
+		
+		built_successfully = true;
+	}
+}
+
+
+OpenGLProgram::~OpenGLProgram()
+{
+	glDeleteProgram(program);
+}
+
+
+void OpenGLProgram::forceFinishLinkAndDoPostLinkCode()
+{
+	if(built_successfully) // If already done, don't do again
+		return;
+
+	// Get link status.  This should force the compilation and linking to complete, if it hasn't already.
+	GLint program_ok;
+	glGetProgramiv(program, GL_LINK_STATUS, &program_ok);
+
 	const std::string log = getLog(program);
 
 	if(!isAllWhitespace(log))
 		conPrint("shader program '" + prog_name + "' log:\n" + log);
 
-	GLint program_ok;
-	glGetProgramiv(program, GL_LINK_STATUS, &program_ok);
 	if(!program_ok)
 		throw glare::Exception("Failed to link shader program '" + prog_name + "': " + log);
-
-	// conPrint("================== Building OpenGL program '" + prog_name + "' took " + timer.elapsedStringNPlaces(4) + "==================");
 
 	model_matrix_loc   = glGetUniformLocation(program, "model_matrix");
 	view_matrix_loc    = glGetUniformLocation(program, "view_matrix");
@@ -100,12 +135,18 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	time_loc           = glGetUniformLocation(program, "time");
 	colour_loc         = glGetUniformLocation(program, "colour");
 	albedo_texture_loc = glGetUniformLocation(program, "albedo_texture");
+
+	built_successfully = true;
 }
 
 
-OpenGLProgram::~OpenGLProgram()
+bool OpenGLProgram::checkLinkingDone()
 {
-	glDeleteProgram(program);
+	//if((Clock::getCurTimeRealSec() - build_start_time) < 10.0) return; // TEMP DEBUG simulate long build time
+
+	GLint linking_done_val = 0;
+	glGetProgramiv(program, GL_COMPLETION_STATUS_KHR, &linking_done_val);
+	return linking_done_val != 0;
 }
 
 

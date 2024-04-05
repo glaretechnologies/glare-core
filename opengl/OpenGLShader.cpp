@@ -13,22 +13,6 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/StringUtils.h"
 
 
-static const std::string getLog(GLuint shader)
-{
-	// Get log length including null terminator
-	GLint log_length = 0;
-	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-		
-	std::string log;
-	if(log_length > 0)
-	{
-		log.resize(log_length - 1);
-		glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
-	}
-	return log;
-}
-
-
 OpenGLShader::OpenGLShader(const std::string& path, const std::string& version_directive, const std::string& preprocessor_defines, GLenum shader_type)
 :	shader(0)
 {
@@ -61,22 +45,14 @@ OpenGLShader::OpenGLShader(const std::string& path, const std::string& version_d
 			}
 		}
 
-		glShaderSource(shader, (GLsizei)strings.size(), &strings[0], &lengths[0]);
-
-		glCompileShader(shader);
-
-		const std::string log = getLog(shader);
-
-		if(!isAllWhitespace(log))
-			conPrint("shader log for " + FileUtils::getFilename(path) + ":\n" + log);
-
 		// TEMP: dump full shader to disk
 		// FileUtils::writeEntireFileTextMode(FileUtils::getFilename(path), processed_src);
 
-		GLint shader_ok;
-		glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
-		if(!shader_ok)
-			throw glare::Exception("Failed to compile shader " + FileUtils::getFilename(path) + ": " + log);
+		glShaderSource(shader, (GLsizei)strings.size(), strings.data(), lengths.data());
+
+		glCompileShader(shader);
+
+		// Don't request compilation log here or check compile status, in order to allow parallel compilation to take place first.
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{

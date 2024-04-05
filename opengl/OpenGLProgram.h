@@ -151,8 +151,16 @@ OpenGLProgram
 class OpenGLProgram : public RefCounted
 {
 public:
-	OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader, uint32 program_index);
+	OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader, uint32 program_index, bool wait_for_build_to_complete);
 	~OpenGLProgram();
+
+	bool checkLinkingDone(); // Returns true if compilation and linking is done.
+
+	void forceFinishLinkAndDoPostLinkCode(); // May throw if build failed.  If doesn't throw, isBuilt() is true afterwards.
+
+	bool isBuilt() const { return built_successfully; }
+
+
 
 	void useProgram() const;
 
@@ -185,6 +193,7 @@ public:
 
 	std::string prog_name;
 
+	bool built_successfully;
 	bool uses_phong_uniforms; // Does fragment shader use a PhongUniforms uniform block?
 	bool is_depth_draw;
 	bool is_depth_draw_with_alpha_test;
@@ -198,6 +207,8 @@ public:
 	std::vector<UserUniformInfo> user_uniform_info;
 
 	uint32 program_index;
+
+	double build_start_time;
 };
 
 
