@@ -201,6 +201,11 @@ void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& 
 		gl_format = GL_RGB;
 		type = GL_HALF_FLOAT;
 		break;
+	case Format_RGBA_Linear_Half:
+		internal_format = GL_RGBA16F;
+		gl_format = GL_RGBA;
+		type = GL_HALF_FLOAT;
+		break;
 	case Format_Depth_Float:
 		internal_format = GL_DEPTH_COMPONENT32F;
 		gl_format = GL_DEPTH_COMPONENT;

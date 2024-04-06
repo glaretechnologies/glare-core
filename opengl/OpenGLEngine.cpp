@@ -1666,6 +1666,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->GL_ARB_clip_control_support = false;
 	this->GL_ARB_shader_storage_buffer_object_support = false;
 	this->parallel_shader_compile_support = false;
+	this->EXT_color_buffer_float_support = false;
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -1682,7 +1683,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(stringEqual(ext, "GL_KHR_parallel_shader_compile")) parallel_shader_compile_support = true;
 
 #if EMSCRIPTEN
-		if(stringEqual(ext, "GL_WEBGL_compressed_texture_s3tc")) this->texture_compression_s3tc_support = true;
+		if(stringEqual(ext, "WEBGL_compressed_texture_s3tc")) this->texture_compression_s3tc_support = true;
+		if(stringEqual(ext, "EXT_color_buffer_float")) this->EXT_color_buffer_float_support = true;
 #endif
 	}
 
@@ -6247,7 +6249,7 @@ void OpenGLEngine::draw()
 			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
 
 #if defined(EMSCRIPTEN)
-			const OpenGLTexture::Format col_buffer_format = OpenGLTexture::Format_RGBA_Linear_Uint8;
+			const OpenGLTexture::Format col_buffer_format = EXT_color_buffer_float_support ? OpenGLTexture::Format_RGBA_Linear_Half : OpenGLTexture::Format_RGBA_Linear_Uint8;
 #else
 			const OpenGLTexture::Format col_buffer_format = OpenGLTexture::Format_RGB_Linear_Half;
 #endif
@@ -10320,6 +10322,10 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "GLSL version: " + glsl_version + "\n";
 	s += "texture sRGB support: " + boolToString(texture_sRGB_support) + "\n";
 	s += "texture s3tc support: " + boolToString(texture_compression_s3tc_support) + "\n";
+	s += "GL_KHR_parallel_shader_compile: " + boolToString(parallel_shader_compile_support) + "\n";
+#if EMSCRIPTEN
+	s += "EXT_color_buffer_float_support: " + boolToString(EXT_color_buffer_float_support) + "\n";
+#endif
 	s += "max_texture_size: " + toString(max_texture_size) + "\n";
 	s += "using bindless textures: " + boolToString(use_bindless_textures) + "\n";
 	s += "using multi-draw-indirect: " + boolToString(use_multi_draw_indirect) + "\n";
