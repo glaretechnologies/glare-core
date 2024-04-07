@@ -37,7 +37,9 @@ namespace ResponseUtils
 	void writeHTTPOKHeaderAndData(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type);
 	void writeHTTPOKHeaderAndData(ReplyInfo& reply_info, const std::string& s);
 	void writeHTTPOKHeaderAndDataWithCacheMaxAge(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, int max_age_s);
+	void writeHTTPOKHeaderAndDataWithCacheControl(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view cache_control);
 	void writeHTTPOKHeaderWithCacheMaxAgeAndContentEncoding(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view content_encoding, int max_age_s);
+	void writeHTTPOKHeaderWithCacheControlAndContentEncoding(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view cache_control, const string_view content_encoding);
 
 	void writeHTTPNotFoundHeaderAndData(ReplyInfo& reply_info, const std::string& s);
 

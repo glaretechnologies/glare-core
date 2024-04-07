@@ -92,11 +92,46 @@ void writeHTTPOKHeaderAndDataWithCacheMaxAge(ReplyInfo& reply_info, const void* 
 }
 
 
+void writeHTTPOKHeaderAndDataWithCacheControl(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view cache_control)
+{
+	const std::string response = 
+		"HTTP/1.1 200 OK\r\n"
+		"Cache-Control: " + toString(cache_control) + "\r\n"
+		"Content-Type: " + toString(content_type) + "\r\n"
+		"Cross-Origin-Opener-Policy: same-origin\r\n" // To enable SharedArrayBuffer in js, see https://web.dev/articles/cross-origin-isolation-guide.  For webclient.
+		"Cross-Origin-Embedder-Policy: require-corp\r\n"
+		"Connection: Keep-Alive\r\n"
+		"Content-Length: " + toString(datalen) + "\r\n"
+		"\r\n";
+
+	writeRawString(reply_info, response);
+	writeData(reply_info, data, datalen);
+}
+
+
 void writeHTTPOKHeaderWithCacheMaxAgeAndContentEncoding(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view content_encoding, int max_age_s)
 {
 	const std::string response = 
 		"HTTP/1.1 200 OK\r\n"
 		"Cache-Control: max-age=" + toString(max_age_s) + "\r\n"
+		"Content-Type: " + toString(content_type) + "\r\n"
+		"Cross-Origin-Opener-Policy: same-origin\r\n" // To enable SharedArrayBuffer in js, see https://web.dev/articles/cross-origin-isolation-guide.  For webclient.
+		"Cross-Origin-Embedder-Policy: require-corp\r\n"
+		"Connection: Keep-Alive\r\n"
+		"Content-Encoding: " + toString(content_encoding) + "\r\n"
+		"Content-Length: " + toString(datalen) + "\r\n"
+		"\r\n";
+
+	writeRawString(reply_info, response);
+	writeData(reply_info, data, datalen);
+}
+
+
+void writeHTTPOKHeaderWithCacheControlAndContentEncoding(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view cache_control, const string_view content_encoding)
+{
+	const std::string response = 
+		"HTTP/1.1 200 OK\r\n"
+		"Cache-Control: " + toString(cache_control) + "\r\n"
 		"Content-Type: " + toString(content_type) + "\r\n"
 		"Cross-Origin-Opener-Policy: same-origin\r\n" // To enable SharedArrayBuffer in js, see https://web.dev/articles/cross-origin-isolation-guide.  For webclient.
 		"Cross-Origin-Embedder-Policy: require-corp\r\n"
