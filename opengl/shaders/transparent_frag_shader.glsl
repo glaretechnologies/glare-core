@@ -373,7 +373,7 @@ void main()
 
 		av_transmittance_out = (use_transmittance.r + use_transmittance.g + use_transmittance.b) * (1.0 / 3.0);
 #else
-		col += transmission_col * 0.08;
+		col += transmission_col * 0.5 * sun_and_sky_av_spec_rad;
 
 		alpha = spec_refl_fresnel + sun_specular;
 		col.xyz *= alpha; // To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
