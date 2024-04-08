@@ -1022,6 +1022,8 @@ public:
 	void setTargetFrameBufferAndViewport(const Reference<FrameBuffer> frame_buffer); // Set target framebuffer, also set viewport to the whole framebuffer.
 
 	Reference<FrameBuffer> getTargetFrameBuffer() const { return target_frame_buffer; }
+
+	void setReadFrameBufferToDefault();
 	//----------------------------------------------------------------------------------------
 	
 

@@ -9967,6 +9967,12 @@ void OpenGLEngine::setTargetFrameBufferAndViewport(const Reference<FrameBuffer> 
 }
 
 
+void OpenGLEngine::setReadFrameBufferToDefault()
+{
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Restore read framebuffer back to default framebuffer
+}
+
+
 // Copies material and per-object vert data (matrices) on the GPU back to CPU mem, checks that it is the same as the current CPU state.
 // For debugging.
 void OpenGLEngine::checkMDIGPUDataCorrect()
