@@ -907,9 +907,35 @@ void testSavingAndLoadingRoundtrip(int W, int H, int N)
 }
 
 
-void PNGDecoder::test()
+void PNGDecoder::test(const std::string& base_dir_path)
 {
 	conPrint("PNGDecoder::test()");
+
+#if EMSCRIPTEN
+
+	// Do Performance test
+	if(false)
+	{
+		const int num_iters = 10;
+		double min_time = 1.0e10;
+		for(int z=0; z<num_iters; ++z)
+		{
+			Timer timer;
+			const std::string path = base_dir_path + "/data/resources/elm_leaf_backface.png";
+			const int num_repititions = 10;
+			for(int q=0; q<num_repititions; ++q)
+			{
+				Reference<Map2D> im = decode(path);
+				testAssert(im->getMapWidth() == 512);
+			}
+			const double time_per_load = timer.elapsed() / num_repititions;
+			min_time = myMin(time_per_load, timer.elapsed());
+		}
+		
+		conPrint("Time to load elm_leaf_backface.png: " + doubleToStringNSigFigs(min_time * 1.0e3, 4) + " ms.");
+	}
+
+#else // else if !EMSCRIPTEN:
 
 	testSavingAndLoadingRoundtrip<uint8, UInt8ComponentValueTraits>(20, 10, /*N=*/1);
 	testSavingAndLoadingRoundtrip<uint8, UInt8ComponentValueTraits>(20, 10, /*N=*/3);
@@ -1416,6 +1442,8 @@ void PNGDecoder::test()
 		}
 #endif
 	}
+
+#endif // end if !EMSCRIPTEN
 
 
 	conPrint("PNGDecoder::test() done.");

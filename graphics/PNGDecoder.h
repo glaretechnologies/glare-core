@@ -45,5 +45,5 @@ public:
 
 	static const std::map<std::string, std::string> getMetaData(const std::string& image_path);
 
-	static void test();
+	static void test(const std::string& base_dir_path);
 };

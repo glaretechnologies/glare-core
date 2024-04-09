@@ -10,7 +10,6 @@ Copyright Glare Technologies Limited 2024 -
 #include "image.h"
 #include "bitmap.h"
 #include "imformatdecoder.h"
-#include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
@@ -85,12 +84,12 @@ public:
 };
 
 
-Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const std::string& path, glare::Allocator* mem_allocator)
+Reference<Map2D> JPEGDecoder::decode(const std::string& base_dir_path, const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize(), indigo_base_dir, mem_allocator);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), base_dir_path, mem_allocator);
 	}
 	catch(glare::Exception& e)
 	{
@@ -99,7 +98,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& indigo_base_dir, const s
 }
 
 
-Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& indigo_base_dir, glare::Allocator* mem_allocator)
+Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& base_dir_path, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -214,12 +213,12 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 			std::vector<uint8_t> modified_buffer(row_stride); // Used for storing inverted CMYK colours.
 
 			// Make a little CMS transform
-			MemMappedFile in_profile_file(indigo_base_dir + "/data/ICC_profiles/USWebCoatedSWOP.icc");
+			MemMappedFile in_profile_file(base_dir_path + "/data/ICC_profiles/USWebCoatedSWOP.icc");
 			cmsHPROFILE hInProfile = cmsOpenProfileFromMem(in_profile_file.fileData(), (cmsUInt32Number)in_profile_file.fileSize());
 			if(!hInProfile)
 				throw ImFormatExcep("Failed to create in-profile");
 
-			MemMappedFile out_profile_file(indigo_base_dir + "/data/ICC_profiles/sRGB_v4_ICC_preference.icc");
+			MemMappedFile out_profile_file(base_dir_path + "/data/ICC_profiles/sRGB_v4_ICC_preference.icc");
 			cmsHPROFILE hOutProfile = cmsOpenProfileFromMem(out_profile_file.fileData(), (cmsUInt32Number)out_profile_file.fileSize());
 			if(!hOutProfile)
 				throw ImFormatExcep("Failed to create out-profile");
@@ -438,8 +437,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
 	{
-		const std::string indigo_base_dir_path = FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
-		JPEGDecoder::decodeFromBuffer(data, size, indigo_base_dir_path);
+		const std::string base_dir_path = FileUtils::getDirectory(PlatformUtils::getFullPathToCurrentExecutable());
+		JPEGDecoder::decodeFromBuffer(data, size, base_dir_path);
 	}
 	catch(glare::Exception&)
 	{
@@ -454,30 +453,57 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #include "../utils/PlatformUtils.h"
 
 
-void JPEGDecoder::test(const std::string& indigo_base_dir)
+void JPEGDecoder::test(const std::string& base_dir_path)
 {
 	conPrint("JPEGDecoder::test()");
 
 	try
 	{
+#if EMSCRIPTEN
+		// Do Performance test
+		if(false)
+		{
+			const int num_iters = 10;
+			double min_time = 1.0e10;
+			for(int z=0; z<num_iters; ++z)
+			{
+				Timer timer;
+				const std::string path = base_dir_path + "/data/resources/anewSquares_JPG_17115529236124618104.JPG";
+				const int num_repititions = 30;
+				for(int q=0; q<num_repititions; ++q)
+				{
+					Reference<Map2D> im = decode(base_dir_path, path);
+					testAssert(im->getMapWidth() == 859);
+				}
+				const double time_per_load = timer.elapsed() / num_repititions;
+				min_time = myMin(time_per_load, timer.elapsed());
+			}
+		
+			conPrint("Time to load anewSquares_JPG_17115529236124618104.JPG: " + doubleToStringNSigFigs(min_time * 1.0e3, 4) + " ms.");
+		}
+
+
+
+#else // else if !EMSCRIPTEN:
+
 		// Perf test
 		if(false)
 		{
 			{
 				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/world.200401.3x5400x2700.jpg");
+				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/world.200401.3x5400x2700.jpg");
 				testAssert(im->getMapWidth() == 5400 && im->getMapHeight() == 2700);
 				conPrint("Elapsed time for 'world.200401.3x5400x2700.jpg': " + timer.elapsedStringNSigFigs(5));
 			}
 			{
 				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/brickwork_normal-map.jpg");
+				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/brickwork_normal-map.jpg");
 				testAssert(im->getMapWidth() == 512 && im->getMapHeight() == 512);
 				conPrint("Elapsed time for 'brickwork_normal-map.jpg':   " + timer.elapsedStringNSigFigs(5));
 			}
 			{
 				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/preview_squaretile.jpg");
+				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/preview_squaretile.jpg");
 				testAssert(im->getMapWidth() == 400 && im->getMapHeight() == 400);
 				conPrint("Elapsed time for 'preview_squaretile.jpg':     " + timer.elapsedStringNSigFigs(5));
 			}
@@ -497,7 +523,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 1");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
 			testAssert(im->getMapWidth() == 750);
 			testAssert(im->getMapHeight() == 1152);
 			testAssert(im->getBytesPerPixel() == 3);
@@ -508,7 +534,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			// Load it again to check it is valid.
-			im = JPEGDecoder::decode(indigo_base_dir, save_path);
+			im = JPEGDecoder::decode(base_dir_path, save_path);
 			testAssert(im->getMapWidth() == 750);
 			testAssert(im->getMapHeight() == 1152);
 			testAssert(im->getBytesPerPixel() == 3);
@@ -524,7 +550,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 #if defined(NO_LCMS_SUPPORT)
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/Channel_digital_image_CMYK_color.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/jpegs/Channel_digital_image_CMYK_color.jpg");
 			failTest("Exception expected.");
 		}
 		catch(ImFormatExcep& )
@@ -533,7 +559,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 #else
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/Channel_digital_image_CMYK_color.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/jpegs/Channel_digital_image_CMYK_color.jpg");
 			testAssert(im->getMapWidth() == 500);
 			testAssert(im->getMapHeight() == 333);
 			testAssert(im->getBytesPerPixel() == 3);
@@ -543,7 +569,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			// Load it again to check it is valid.
-			im = JPEGDecoder::decode(indigo_base_dir, save_path);
+			im = JPEGDecoder::decode(base_dir_path, save_path);
 			testAssert(im->getMapWidth() == 500);
 			testAssert(im->getMapHeight() == 333);
 			testAssert(im->getBytesPerPixel() == 3);
@@ -558,7 +584,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 3");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/italy_bolsena_flag_flowers_stairs_01_greyscale.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/jpegs/italy_bolsena_flag_flowers_stairs_01_greyscale.jpg");
 			testAssert(im->getMapWidth() == 375);
 			testAssert(im->getMapHeight() == 576);
 			testAssert(im->getBytesPerPixel() == 1);
@@ -568,7 +594,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			// Load it again to check it is valid.
-			im = JPEGDecoder::decode(indigo_base_dir, save_path);
+			im = JPEGDecoder::decode(base_dir_path, save_path);
 			testAssert(im->getMapWidth() == 375);
 			testAssert(im->getMapHeight() == 576);
 			testAssert(im->getBytesPerPixel() == 1);
@@ -582,7 +608,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 4");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/BMPs/top_to_bottom.BMP");
+			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/BMPs/top_to_bottom.BMP");
 			failTest("Shouldn't get here.");
 		}
 		catch(ImFormatExcep&)
@@ -592,7 +618,7 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		conPrint("test 5");
 		try
 		{
-			Reference<Map2D> im = JPEGDecoder::decode(indigo_base_dir, TestUtils::getTestReposDir() + "/testfiles/jpegs/notafile.jpg");
+			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/jpegs/notafile.jpg");
 			failTest("Shouldn't get here.");
 		}
 		catch(ImFormatExcep&)
@@ -630,11 +656,15 @@ void JPEGDecoder::test(const std::string& indigo_base_dir)
 		{
 		}
 
+#endif // end if !EMSCRIPTEN
+
 	}
 	catch(FileUtils::FileUtilsExcep& e)
 	{
 		failTest(e.what());
 	}
+
+	conPrint("JPEGDecoder::test() done.");
 }
 
 
