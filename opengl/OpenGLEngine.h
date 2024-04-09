@@ -1315,7 +1315,6 @@ public:
 	std::string opengl_version;
 	std::string glsl_version;
 
-	bool texture_sRGB_support;
 	bool texture_compression_s3tc_support;
 	bool GL_ARB_bindless_texture_support;
 	bool GL_ARB_clip_control_support;

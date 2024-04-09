@@ -1660,7 +1660,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_anisotropy);
 	}
 
-	this->texture_sRGB_support = false;
 	this->texture_compression_s3tc_support = false;
 	this->GL_ARB_bindless_texture_support = false;
 	this->GL_ARB_clip_control_support = false;
@@ -1675,7 +1674,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	{
 		const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
 		// conPrint("Extension " + toString(i) + ": " + std::string(ext));
-		if(stringEqual(ext, "GL_EXT_texture_sRGB")) this->texture_sRGB_support = true;
 		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->texture_compression_s3tc_support = true;
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
 		if(stringEqual(ext, "GL_ARB_clip_control")) this->GL_ARB_clip_control_support = true;
@@ -1690,10 +1688,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 	// Get max texture size
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &this->max_texture_size);
-
-#if EMSCRIPTEN
-	this->texture_sRGB_support = true; // Available in WebGL 2 by default: https://developer.mozilla.org/en-US/docs/Web/API/EXT_sRGB
-#endif
 
 #if defined(OSX)
 	// Am pretty sure there is no bindless texture support on Mac (bindless texture support is opengl 4.0), set it to false anyway to make sure OpenGLTexture::getBindlessTextureHandle() is not called.
@@ -3319,10 +3313,6 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	const bool uses_lightmapping = material.lightmap_texture.nonNull();
 #endif
 
-	// If we do not support converting textures from sRGB to linear in opengl, then we need to do it in the shader.
-	// we only want to do this when we have a texture.
-	const bool need_convert_albedo_from_srgb = !this->texture_sRGB_support;// && material.albedo_texture.nonNull();
-
 	ProgramKeyArgs key_args;
 	key_args.alpha_test = alpha_test;
 	key_args.vert_colours = use_vert_colours;
@@ -3331,7 +3321,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.lightmapping = uses_lightmapping;
 	key_args.gen_planar_uvs = material.gen_planar_uvs;
 	key_args.draw_planar_uv_grid = material.draw_planar_uv_grid;
-	key_args.convert_albedo_from_srgb = material.convert_albedo_from_srgb || need_convert_albedo_from_srgb;
+	key_args.convert_albedo_from_srgb = material.convert_albedo_from_srgb;
 	key_args.skinning = uses_skinning;
 	key_args.imposter = material.imposter;
 	key_args.imposterable = material.imposterable;
@@ -10326,7 +10316,6 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "OpenGL renderer: " + opengl_renderer + "\n";
 	s += "OpenGL version: " + opengl_version + "\n";
 	s += "GLSL version: " + glsl_version + "\n";
-	s += "texture sRGB support: " + boolToString(texture_sRGB_support) + "\n";
 	s += "texture s3tc support: " + boolToString(texture_compression_s3tc_support) + "\n";
 	s += "GL_KHR_parallel_shader_compile: " + boolToString(parallel_shader_compile_support) + "\n";
 #if EMSCRIPTEN
