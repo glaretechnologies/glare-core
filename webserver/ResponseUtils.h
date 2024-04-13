@@ -52,5 +52,9 @@ namespace ResponseUtils
 	void writeWebsocketPongMessage(ReplyInfo& reply_info, const std::string& s);
 
 	std::string getContentTypeForPath(const std::string& path);
+
+	std::string getPrefixWithStrippedTags(const std::string& s, size_t max_len);
+
+	void test();
 }
 }

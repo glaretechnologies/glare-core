@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <PlatformUtils.h>
 #include "RequestInfo.h"
 #include "Escaping.h"
+#include "../maths/mathstypes.h"
 #include <cstring>
 
 
@@ -296,5 +297,64 @@ std::string getContentTypeForPath(const std::string& path)
 }
 
 
+std::string getPrefixWithStrippedTags(const std::string& s, size_t max_len)
+{
+	const size_t s_size = s.size();
+	std::string res;
+	res.reserve(myMin(s_size, max_len));
+	size_t res_len = 0;
+
+	bool in_tag = false;
+	for(size_t i=0; (i < s_size) && (res_len < max_len); ++i)
+	{
+		const char s_i = s[i];
+		if(s_i == '<')
+			in_tag = true;
+		else if(s_i == '>')
+			in_tag = false;
+		else
+		{
+			if(!in_tag)
+			{
+				res.push_back(s_i);
+				res_len++;
+			}
+		}
+	}
+	return res;
+}
+
+
 } // end namespace ResponseUtils
 } // end namespace web
+
+
+#if BUILD_TESTS
+
+
+#include "../utils/TestUtils.h"
+
+
+void web::ResponseUtils::test()
+{
+	testAssert(getPrefixWithStrippedTags("", /*max len=*/0) == "");
+	testAssert(getPrefixWithStrippedTags("", /*max len=*/100) == "");
+
+	testAssert(getPrefixWithStrippedTags("abc", /*max len=*/0) == "");
+	testAssert(getPrefixWithStrippedTags("abc", /*max len=*/100) == "abc");
+
+	testAssert(getPrefixWithStrippedTags("<a>", /*max len=*/0) == "");
+	testAssert(getPrefixWithStrippedTags("<a>", /*max len=*/100) == "");
+	
+	testAssert(getPrefixWithStrippedTags("<a>bc", /*max len=*/0) == "");
+	testAssert(getPrefixWithStrippedTags("<a>bc", /*max len=*/100) == "bc");
+	testAssert(getPrefixWithStrippedTags("<a>bc", /*max len=*/1) == "b");
+
+	testAssert(getPrefixWithStrippedTags("hello<a>bc<a>there", /*max len=*/0) == "");
+	testAssert(getPrefixWithStrippedTags("hello<a>bc<a>there", /*max len=*/100) == "hellobcthere");
+	
+	testAssert(getPrefixWithStrippedTags("hello<a there", /*max len=*/100) == "hello");
+}
+
+
+#endif
