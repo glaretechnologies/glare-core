@@ -54,6 +54,15 @@ int RequestInfo::getPostIntField(const std::string& key) const // Throws Website
 }
 
 
+bool RequestInfo::isURLParamPresent(const std::string& key) const
+{
+	for(size_t i=0; i<URL_params.size(); ++i)
+		if(URL_params[i].key == key)
+			return true;
+	return false;
+}
+
+
 UnsafeString RequestInfo::getURLParam(const std::string& key) const
 {
 	for(size_t i=0; i<URL_params.size(); ++i)
