@@ -119,6 +119,101 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 }
 
 
+// No normals version
+Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, 
+	const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
+{
+	Reference<OpenGLMeshRenderData> meshdata_ref = new OpenGLMeshRenderData();
+	OpenGLMeshRenderData& meshdata = *meshdata_ref;
+
+	meshdata.has_uvs = !uvs.empty();
+	meshdata.has_shading_normals = false;
+	meshdata.batches.resize(1);
+	meshdata.batches[0].material_index = 0;
+	meshdata.batches[0].num_indices = (uint32)indices.size();
+	meshdata.batches[0].prim_start_offset_B = 0;
+
+	meshdata.aabb_os = js::AABBox::emptyAABBox();
+	meshdata.num_materials_referenced = 1;
+
+	const size_t vertices_size = vertices.size();
+
+	const int NUM_COMPONENTS = 5;
+	js::Vector<float, 16> combined_vert_data(NUM_COMPONENTS * vertices_size);
+	for(size_t i=0; i<vertices_size; ++i)
+	{
+		combined_vert_data[i*NUM_COMPONENTS + 0] = vertices[i].x;
+		combined_vert_data[i*NUM_COMPONENTS + 1] = vertices[i].y;
+		combined_vert_data[i*NUM_COMPONENTS + 2] = vertices[i].z;
+		combined_vert_data[i*NUM_COMPONENTS + 3] = uvs[i].x;
+		combined_vert_data[i*NUM_COMPONENTS + 4] = uvs[i].y;
+
+		meshdata.aabb_os.enlargeToHoldPoint(Vec4f(vertices[i].x, vertices[i].y, vertices[i].z, 1.f));
+	}
+
+
+	if(vertices_size < 65536)
+	{
+		meshdata.setIndexType(GL_UNSIGNED_SHORT);
+
+		const size_t indices_size = indices.size();
+		js::Vector<uint16, 16> index_buf(indices_size); // Build array of uint16 indices.
+		for(size_t i=0; i<indices_size; ++i)
+		{
+			assert(indices[i] < 65536);
+			index_buf[i] = (uint16)indices[i];
+		}
+		meshdata.indices_vbo_handle = allocator.allocateIndexData(index_buf.data(), index_buf.dataSizeBytes());
+	}
+	else
+	{
+		meshdata.setIndexType(GL_UNSIGNED_INT);
+
+		meshdata.indices_vbo_handle = allocator.allocateIndexData(indices.data(), indices.dataSizeBytes());
+	}
+
+	VertexSpec& spec = meshdata.vertex_spec;
+
+	const uint32 vert_stride = (uint32)(sizeof(float) * NUM_COMPONENTS); // also vertex size.
+
+	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
+	VertexAttrib pos_attrib;
+	pos_attrib.enabled = true;
+	pos_attrib.num_comps = 3;
+	pos_attrib.type = GL_FLOAT;
+	pos_attrib.normalised = false;
+	pos_attrib.stride = vert_stride;
+	pos_attrib.offset = 0;
+	spec.attributes.push_back(pos_attrib);
+
+	VertexAttrib normal_attrib;
+	normal_attrib.enabled = false;
+	normal_attrib.num_comps = 3;
+	normal_attrib.type = GL_FLOAT;
+	normal_attrib.normalised = false;
+	normal_attrib.stride = vert_stride;
+	normal_attrib.offset = 0;
+	spec.attributes.push_back(normal_attrib);
+
+	VertexAttrib uv_attrib;
+	uv_attrib.enabled = true;
+	uv_attrib.num_comps = 2;
+	uv_attrib.type = GL_FLOAT;
+	uv_attrib.normalised = false;
+	uv_attrib.stride = vert_stride;
+	uv_attrib.offset = (uint32)(sizeof(float) * 3); // after position.
+	spec.attributes.push_back(uv_attrib);
+
+	meshdata.vbo_handle = allocator.allocate(spec, combined_vert_data.data(), combined_vert_data.dataSizeBytes());
+
+#if DO_INDIVIDUAL_VAO_ALLOC
+	meshdata.individual_vao = new VAO(meshdata.vbo_handle.vbo, meshdata.indices_vbo_handle.index_vbo, spec);
+#endif
+
+	return meshdata_ref;
+}
+
+
 /*
 When the triangle and quad vertex_indices and uv_indices are the same,
 and the triangles and quads are (mostly) sorted by material, we can 

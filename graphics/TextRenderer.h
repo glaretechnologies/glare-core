@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Mutex.h"
+#include "../utils/string_view.h"
 #include <string>
 
 
@@ -51,16 +52,17 @@ public:
 
 	// Draw text at (x, y).
 	// The y coordinate give the position of the text baseline.
-	void drawText(ImageMapUInt8& map, const std::string& text, int x, int y, const Colour3f& col);
+	void drawText(ImageMapUInt8& map, const string_view text, int x, int y, const Colour3f& col);
 
 	struct SizeInfo
 	{
-		Vec2i size;
-		Vec2i min_bounds; // With x increasing to right, y increasing up.
+		Vec2i size; // max_bounds - min_bounds
+		Vec2i min_bounds; // With x increasing to right, y increasing up.  min_bounds.y may be < 0 for characters with descenders such as 'g'
 		Vec2i max_bounds;
+		float hori_advance; // Number of pixels to advance drawing location after drawing string.  See https://freetype.org/freetype2/docs/tutorial/step2.html
 	};
 
-	SizeInfo getTextSize(const std::string& text);
+	SizeInfo getTextSize(const string_view text);
 
 	int getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest ‘character’ coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
 	// NOTE: doesn't seem to take font size into account.

@@ -38,9 +38,9 @@ class GLUICallbackHandler// : public RefCounted
 public:
 	virtual ~GLUICallbackHandler() {}
 
-	virtual void eventOccurred(GLUICallbackEvent& event) = 0;
+	virtual void eventOccurred(GLUICallbackEvent& /*event*/) = 0;
 
-	virtual void mouseWheelEventOccurred(GLUICallbackMouseWheelEvent& event) {}
+	virtual void mouseWheelEventOccurred(GLUICallbackMouseWheelEvent& /*event*/) {}
 };
 
 

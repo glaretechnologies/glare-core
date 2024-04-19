@@ -28,11 +28,12 @@ GLUI::~GLUI()
 }
 
 
-void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, TextRendererFontFaceRef text_renderer_font_)
+void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, const std::vector<TextRendererFontFaceRef>& fonts_, const std::vector<TextRendererFontFaceRef>& emoji_fonts_)
 {
 	opengl_engine = opengl_engine_;
 	device_pixel_ratio = device_pixel_ratio_;
-	text_renderer_font = text_renderer_font_;
+	fonts = fonts_;
+	emoji_fonts = emoji_fonts_;
 
 	tooltip_overlay_ob = new OverlayObject();
 	tooltip_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -40,6 +41,8 @@ void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ra
 	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0);
 
 	opengl_engine->addOverlayObject(tooltip_overlay_ob);
+
+	font_char_text_cache = new FontCharTexCache();
 }
 
 
@@ -169,7 +172,11 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 
 void GLUI::viewportResized(int w, int h)
 {
-
+	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	{
+		GLUIWidget* widget = it->ptr();
+		widget->updateGLTransform(*this);
+	}
 }
 
 
@@ -190,7 +197,8 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 
 OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 {
-	const TextRendererFontFace::SizeInfo size_info = text_renderer_font->getTextSize(tooltip_text);
+	TextRendererFontFaceRef font = fonts[myMin(1, (int)fonts.size() - 1)];
+	const TextRendererFontFace::SizeInfo size_info = font->getTextSize(tooltip_text);
 
 	const int use_font_height = size_info.max_bounds.y; //text_renderer_font->getFontSizePixels();
 	const int padding_x = (int)(use_font_height * 0.6f);
@@ -200,7 +208,7 @@ OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 	ImageMapUInt8Ref map = new ImageMapUInt8(size_info.size.x + padding_x * 2, use_font_height + padding_y * 2, 3);
 	map->set(240); // Set to light grey colour
 
-	text_renderer_font->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f));
+	font->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f));
 
 
 	TextureParams tex_params;

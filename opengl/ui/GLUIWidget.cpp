@@ -32,3 +32,8 @@ bool GLUIWidget::handleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheel
 {
 	return doHandleMouseWheelEvent(coords, event);
 }
+
+
+void GLUIWidget::updateGLTransform(GLUI& /*glui*/)
+{
+}

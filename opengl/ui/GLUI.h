@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "GLUIWidget.h"
+#include "FontCharTexCache.h"
 #include "../OpenGLEngine.h"
 #include "../graphics/TextRenderer.h"
 #include "../utils/RefCounted.h"
@@ -35,7 +36,7 @@ public:
 	~GLUI();
 
 	// device_pixel_ratio is basically a scale factor for sizes in pixels.
-	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, TextRendererFontFaceRef text_renderer_font);
+	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, const std::vector<TextRendererFontFaceRef>& fonts, const std::vector<TextRendererFontFaceRef>& emoji_fonts);
 
 	void destroy();
 
@@ -60,7 +61,10 @@ public:
 
 
 	Reference<OpenGLEngine> opengl_engine;
-	TextRendererFontFaceRef text_renderer_font;
+	std::vector<TextRendererFontFaceRef> fonts; // Should be in ascending font size order
+	std::vector<TextRendererFontFaceRef> emoji_fonts; // Should be in ascending font size order
+
+	FontCharTexCacheRef font_char_text_cache;
 
 private:
 	GLARE_DISABLE_COPY(GLUI);

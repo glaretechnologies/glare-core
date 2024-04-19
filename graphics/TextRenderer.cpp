@@ -55,17 +55,27 @@ static void drawCharToBitmap(ImageMapUInt8& map,
 
 			uint8* pixel = map.getPixel(destx, desty);
 
-			const Colour3f src_col(
-				pixel[0] * (1.f / 255.f),
-				pixel[1] * (1.f / 255.f),
-				pixel[2] * (1.f / 255.f)
-			);
+			if(map.getN() == 3)
+			{
+				const Colour3f src_col(
+					pixel[0] * (1.f / 255.f),
+					pixel[1] * (1.f / 255.f),
+					pixel[2] * (1.f / 255.f)
+				);
 
-			const Colour3f new_col = Maths::lerp(src_col, col, (float)v * (1.0f / 255.f));
+				const Colour3f new_col = Maths::lerp(src_col, col, (float)v * (1.0f / 255.f));
 			
-			pixel[0] = (uint8)(new_col.r * 255.01f);
-			pixel[1] = (uint8)(new_col.g * 255.01f);
-			pixel[2] = (uint8)(new_col.b * 255.01f);
+				pixel[0] = (uint8)(new_col.r * 255.01f);
+				pixel[1] = (uint8)(new_col.g * 255.01f);
+				pixel[2] = (uint8)(new_col.b * 255.01f);
+			}
+			else
+			{
+				pixel[0] = 255;
+				pixel[1] = 255;
+				pixel[2] = 255;
+				pixel[3] = v;
+			}
 		}
 	}
 }
@@ -103,7 +113,7 @@ TextRendererFontFace::~TextRendererFontFace()
 }
 
 
-void TextRendererFontFace::drawText(ImageMapUInt8& map, const std::string& text, int draw_x, int draw_y, const Colour3f& col)
+void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, int draw_x, int draw_y, const Colour3f& col)
 {
 	Lock lock(renderer->mutex);
 
@@ -155,7 +165,7 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const std::string& text,
 }
 
 
-TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const std::string& text)
+TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_view text)
 {
 	FT_GlyphSlot slot = face->glyph;
 
@@ -208,6 +218,7 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const std::stri
 	size_info.size = max_bounds - min_bounds;
 	size_info.min_bounds = min_bounds;
 	size_info.max_bounds = max_bounds;
+	size_info.hori_advance = pen.x / 64.f;
 	return size_info;
 }
 

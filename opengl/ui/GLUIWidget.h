@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <string>
 
 
+class GLUI;
 class GLUIMouseWheelEvent;
 
 
@@ -31,9 +32,12 @@ public:
 	bool handleMouseMoved(const Vec2f& coords);
 	bool handleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event);
 
-	virtual bool doHandleMouseClick(const Vec2f& coords) { return false; } // Returns true if event accepted (e.g. should not be passed on)
-	virtual bool doHandleMouseMoved(const Vec2f& coords) { return false; } // Returns true if event accepted (e.g. should not be passed on)
-	virtual bool doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event) { return false; } // Returns true if event accepted (e.g. should not be passed on)
+	virtual bool doHandleMouseClick(const Vec2f& /*coords*/) { return false; } // Returns true if event accepted (e.g. should not be passed on)
+	virtual bool doHandleMouseMoved(const Vec2f& /*coords*/) { return false; } // Returns true if event accepted (e.g. should not be passed on)
+	virtual bool doHandleMouseWheelEvent(const Vec2f& /*coords*/, const GLUIMouseWheelEvent& /*event*/) { return false; } // Returns true if event accepted (e.g. should not be passed on)
+
+	// Called when e.g. the viewport changes size
+	virtual void updateGLTransform(GLUI& glui);
 
 	std::string client_data;
 

@@ -1,13 +1,14 @@
 /*=====================================================================
 GLUITextView.h
 -------------
-Copyright Glare Technologies Limited 2022 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
 
 #include "GLUIWidget.h"
 #include "GLUICallbackHandler.h"
+#include "GLUIText.h"
 #include "../OpenGLEngine.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
@@ -30,33 +31,47 @@ public:
 	GLUITextView();
 	~GLUITextView();
 
-	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const Vec2f& dims,
-		const std::string& tooltip);
+	struct GLUITextViewCreateArgs
+	{
+		GLUITextViewCreateArgs();
+		std::string tooltip;
+		Colour3f background_colour;
+		float background_alpha;
+		Colour3f text_colour;
+		float text_alpha;
+		int padding_px;
+		int font_size_px;
+	};
+	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextViewCreateArgs& args);
 
 	void destroy();
 
 	void setText(GLUI& glui, const std::string& new_text);
-	Vec2f getTextureDimensions() const;
 
 	void setColour(const Colour3f& col);
 
-	virtual bool doHandleMouseClick(const Vec2f& coords) override;
-	virtual bool doHandleMouseMoved(const Vec2f& coords) override;
+	void setPos(GLUI& glui, const Vec2f& botleft);
 
-	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
+	void setVisible(bool visible);
 
+	const Vec2f getDims() const;
+
+	// Called when e.g. the viewport changes size
+	virtual void updateGLTransform(GLUI& glui) override;
 
 	Reference<OpenGLEngine> opengl_engine;
-	OverlayObjectRef overlay_ob;
+	OverlayObjectRef background_overlay_ob;
+	GLUITextRef glui_text;
 
-	GLUICallbackHandler* handler;
 private:
 	GLARE_DISABLE_COPY(GLUITextView);
 
+	void updateBackgroundOverlayObTransform(GLUI& glui);
+
+	GLUITextViewCreateArgs args;
 	std::string text;
 
-	Colour3f widget_colour;
-	Colour3f mouseover_widget_colour;
+	Vec2f botleft; // in GL UI coords
 };
 
 

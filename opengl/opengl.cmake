@@ -78,6 +78,10 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUITextView.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWidget.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWidget.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICallbackHandler.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIText.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIText.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/FontCharTexCache.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/FontCharTexCache.h
 )
 
 
