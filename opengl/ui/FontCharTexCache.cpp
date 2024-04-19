@@ -27,7 +27,7 @@ CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engi
 	TextRendererFontFace* use_font = is_emoji ? emoji_font : font;
 
 	FontCharKey key;
-	key.charstring = charstring.to_string();
+	key.charstring = toString(charstring);
 	key.font = use_font;
 
 	auto res = char_to_tex_info_map.find(key);
