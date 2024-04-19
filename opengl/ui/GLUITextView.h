@@ -35,12 +35,12 @@ public:
 	{
 		GLUITextViewCreateArgs();
 		std::string tooltip;
-		Colour3f background_colour;
+		Colour3f background_colour; // Linear
 		float background_alpha;
-		Colour3f text_colour;
+		Colour3f text_colour; // Linear
 		float text_alpha;
 		int padding_px;
-		int font_size_px;
+		int font_size_px; // default = 20
 	};
 	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextViewCreateArgs& args);
 

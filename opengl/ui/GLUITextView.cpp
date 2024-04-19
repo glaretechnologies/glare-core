@@ -42,6 +42,7 @@ void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, c
 	background_overlay_ob->material.alpha = args.background_alpha;
 
 	GLUIText::GLUITextCreateArgs text_create_args;
+	text_create_args.colour = args.text_colour;
 	text_create_args.font_size_px = args.font_size_px;
 	text_create_args.alpha = args.text_alpha;
 	glui_text = new GLUIText(glui, opengl_engine_, text, botleft, text_create_args);
