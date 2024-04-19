@@ -216,3 +216,38 @@ OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 	tex_params.allow_compression = false;
 	return opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("tooltip_" + tooltip_text), *map, tex_params);
 }
+
+
+// Get the best matching font for font size.  Use last font before the next font is too big.
+// E.g. with font sizes 18, 24, 36, 48, 60, 72,
+// If requested font_size_px = 20, then return font with size 18.
+TextRendererFontFace* GLUI::getBestMatchingFont(int font_size_px, bool emoji)
+{
+	assert(fonts.size() > 0);
+	assert(emoji_fonts.size() > 0);
+
+	if(emoji)
+	{
+		for(int i=0; i<(int)emoji_fonts.size(); ++i)
+		{
+			if(emoji_fonts[i]->font_size_pixels > font_size_px)
+			{
+				const int best_i = myMax(0, i-1);
+				return emoji_fonts[best_i].ptr();
+			}
+		}
+		return emoji_fonts.back().ptr();
+	}
+	else
+	{
+		for(int i=0; i<(int)fonts.size(); ++i)
+		{
+			if(fonts[i]->font_size_pixels > font_size_px)
+			{
+				const int best_i = myMax(0, i-1);
+				return fonts[best_i].ptr();
+			}
+		}
+		return fonts.back().ptr();
+	}
+}

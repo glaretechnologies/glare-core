@@ -32,23 +32,8 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 
 
 	// Get the best matching font for font size.  Use last font before the next font is too big.
-	TextRendererFontFace* font = NULL;
-	TextRendererFontFace* emoji_font = NULL;
-
-	for(int i=0; i<glui.fonts.size(); ++i)
-	{
-		if(glui.fonts[i]->font_size_pixels > args.font_size_px)
-		{
-			const int best_i = myMax(0, i-1);
-			runtimeCheck(best_i >= 0 && (size_t)best_i < glui.fonts.size());
-			font = glui.fonts[best_i].ptr();
-
-			const int emoji_best_i = myMin(best_i, (int)glui.emoji_fonts.size() - 1);
-			runtimeCheck(emoji_best_i >= 0 && (size_t)emoji_best_i < glui.emoji_fonts.size());
-			emoji_font = glui.emoji_fonts[emoji_best_i].ptr();
-			break;
-		}
-	}
+	TextRendererFontFace* font       = glui.getBestMatchingFont(args.font_size_px, /*emoji=*/false);
+	TextRendererFontFace* emoji_font = glui.getBestMatchingFont(args.font_size_px, /*emoji=*/true);
 
 	// Make mesh data
 	const size_t num_codepoints = UTF8Utils::numCodePointsInString(text);

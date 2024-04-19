@@ -60,6 +60,8 @@ public:
 	OpenGLTextureRef makeToolTipTexture(const std::string& text);
 
 
+	TextRendererFontFace* getBestMatchingFont(int font_size_px, bool emoji);
+
 	Reference<OpenGLEngine> opengl_engine;
 	std::vector<TextRendererFontFaceRef> fonts; // Should be in ascending font size order
 	std::vector<TextRendererFontFaceRef> emoji_fonts; // Should be in ascending font size order
