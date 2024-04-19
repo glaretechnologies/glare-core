@@ -7,6 +7,8 @@ Copyright Glare Technologies Limited 2023 -
 // For testing the OpenGL Engine
 
 
+#include <opengl/ui/GLUITextView.h>
+#include <opengl/ui/GLUI.h>
 #include <maths/GeometrySampling.h>
 #include <graphics/FormatDecoderGLTF.h>
 #include <graphics/MeshSimplification.h>
@@ -18,6 +20,7 @@ Copyright Glare Technologies Limited 2023 -
 #include <utils/StandardPrintOutput.h>
 #include <utils/IncludeWindows.h>
 #include <utils/PlatformUtils.h>
+#include <utils/UTF8Utils.h>
 #include <utils/FileUtils.h>
 #include <utils/ConPrint.h>
 #include <utils/StringUtils.h>
@@ -26,7 +29,7 @@ Copyright Glare Technologies Limited 2023 -
 #include <SDL.h>
 #include <imgui.h>
 #include <backends/imgui_impl_opengl3.h>
-#include <backends/imgui_impl_sdl.h>
+#include <backends/imgui_impl_sdl2.h>
 #include <string>
 #if EMSCRIPTEN
 #include <emscripten.h>
@@ -55,7 +58,7 @@ static void setGLAttribute(SDL_GLattr attr, int value)
 
 Reference<OpenGLEngine> opengl_engine;
 GLObjectRef main_test_ob;
-
+GLUIRef gl_ui;
 
 float cam_phi = 0.0;
 float cam_theta = 1.8f;
@@ -168,7 +171,34 @@ int main(int, char**)
 		const std::string data_dir = PlatformUtils::getEnvironmentVariable("GLARE_CORE_TRUNK_DIR") + "/opengl";
 #endif
 		
-		opengl_engine->initialise(data_dir, NULL, &print_output);
+		// Create main task manager.
+		// This is for doing work like texture compression and EXR loading, that will be created by LoadTextureTasks etc.
+		// Alloc these on the heap as Emscripten may have issues with stack-allocated objects before the emscripten_set_main_loop() call.
+#if defined(EMSCRIPTEN)
+		const size_t main_task_manager_num_threads = myClamp<size_t>(PlatformUtils::getNumLogicalProcessors(), 1, 8);
+#else
+		const size_t main_task_manager_num_threads = myClamp<size_t>(PlatformUtils::getNumLogicalProcessors(), 1, 512);
+#endif
+		glare::TaskManager* main_task_manager = new glare::TaskManager("main task manager", main_task_manager_num_threads);
+		main_task_manager->setThreadPriorities(MyThread::Priority_Lowest);
+
+
+		// Create high-priority task manager.
+		// For short, processor intensive tasks that the main thread depends on, such as computing animation data for the current frame, or executing Jolt physics tasks.
+#if defined(EMSCRIPTEN)
+		const size_t high_priority_task_manager_num_threads = myClamp<size_t>(PlatformUtils::getNumLogicalProcessors(), 1, 8);
+#else
+		const size_t high_priority_task_manager_num_threads = myClamp<size_t>(PlatformUtils::getNumLogicalProcessors(), 1, 512);
+#endif
+		glare::TaskManager* high_priority_task_manager = new glare::TaskManager("high_priority_task_manager", high_priority_task_manager_num_threads);
+
+
+		//Reference<glare::Allocator> mem_allocator = new glare::GeneralMemAllocator(/*arena_size_B=*/2 * 1024 * 1024 * 1024ull);
+		//Reference<glare::Allocator> mem_allocator = new glare::LimitedAllocator(/*max_size_B=*/1536 * 1024 * 1024ull);
+		Reference<glare::Allocator> mem_allocator = new glare::MallocAllocator();
+
+
+		opengl_engine->initialise(data_dir, NULL, &print_output, main_task_manager, high_priority_task_manager, mem_allocator);
 		if(!opengl_engine->initSucceeded())
 			throw glare::Exception("OpenGL init failed: " + opengl_engine->getInitialisationErrorMsg());
 		opengl_engine->setViewportDims(primary_W, primary_H);
@@ -179,6 +209,170 @@ int main(int, char**)
 #else
 		const std::string base_dir = ".";
 #endif
+
+
+		// NOTE: this code is also in MainWindow.cpp
+#if defined(_WIN32)
+		const std::string font_path       = PlatformUtils::getFontsDirPath() + "/Segoeui.ttf"; // SegoeUI is shipped with Windows 7 onwards: https://learn.microsoft.com/en-us/typography/fonts/windows_7_font_list
+		const std::string emoji_font_path = PlatformUtils::getFontsDirPath() + "/Seguiemj.ttf";
+#elif defined(__APPLE__)
+		const std::string font_path       = "/System/Library/Fonts/SFNS.ttf";
+		const std::string emoji_font_path = "/System/Library/Fonts/SFNS.ttf";
+#else
+		// Linux:
+		const std::string font_path       = base_dir + "/data/resources/TruenoLight-E2pg.otf";
+		const std::string emoji_font_path = base_dir + "/data/resources/TruenoLight-E2pg.otf"; 
+#endif
+
+
+		TextRendererRef text_renderer = new TextRenderer();
+		//TextRendererFontFaceRef font       = new TextRendererFontFace(text_renderer, font_path, 30);
+		//TextRendererFontFaceRef emoji_font = new TextRendererFontFace(text_renderer, emoji_font_path, 30);
+
+		Timer timer;
+		std::vector<TextRendererFontFaceRef> fonts;
+		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 18));
+		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 24));
+		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 36));
+		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 48));
+		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 60));
+		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 72));
+
+		std::vector<TextRendererFontFaceRef> emoji_fonts;
+		emoji_fonts.push_back(new TextRendererFontFace(text_renderer, emoji_font_path, 18));
+		conPrint("loading fonts took " + timer.elapsedString());
+
+		gl_ui = new GLUI();
+		gl_ui->create(opengl_engine, /*device pixel ratio=*/1.f, fonts, emoji_fonts);
+		
+		
+
+		// Add some text
+		// https://unicode.org/emoji/charts/full-emoji-list.html#1f600, https://unicode.org/emoji/charts/full-emoji-list.html#1f60e, https://unicode.org/emoji/charts/full-emoji-list.html#1f4af
+		std::vector<GLUITextRef> texts;
+		{
+			GLUIText::GLUITextCreateArgs text_create_args;
+
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "A B C D", /*botleft=*/Vec2f(-1.0f, -0.1f), text_create_args);
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+		{
+			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x2639), /*botleft=*/Vec2f(-1.0, -0.6), Colour3f(1,1,1)); // https://unicodelookup.com/#face/1
+			GLUIText::GLUITextCreateArgs text_create_args;
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, 
+				UTF8Utils::encodeCodePoint(0x1F600) + 
+				UTF8Utils::encodeCodePoint(0x1F60E) + 
+				UTF8Utils::encodeCodePoint(0x1f4af), 
+				/*botleft=*/Vec2f(-1.0f, -0.6f), text_create_args); 
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+		{
+			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x393), /*botleft=*/Vec2f(-1.0, -0.4), Colour3f(1,1,1)); // "U+1F600"
+			GLUIText::GLUITextCreateArgs text_create_args;
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x3B1) + UTF8Utils::encodeCodePoint(0x3B2) + UTF8Utils::encodeCodePoint(0x3B3), /*botleft=*/Vec2f(-1.0f, -0.4f), text_create_args); // alpha  beta gamma
+			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x1F600), /*botleft=*/Vec2f(-1.0, -0.4), Colour3f(1,1,1)); // "U+1F600"
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+		{
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ghA", /*botleft=*/Vec2f(-1.0f, -0.2f), GLUIText::GLUITextCreateArgs());
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+		{
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "abcdefghijklmnopqrstuvwxyz", /*botleft=*/Vec2f(-1.0f, 0.0f), GLUIText::GLUITextCreateArgs());
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+		{
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", /*botleft=*/Vec2f(-1.0f, 0.2f), GLUIText::GLUITextCreateArgs());
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+		{
+			GLUIText::GLUITextCreateArgs args;
+			args.font_size_px = 48;
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", /*botleft=*/Vec2f(-1.0f, 0.1f), args);
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+
+		{
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "0123456789!@#$%^&*()", /*botleft=*/Vec2f(-1.0f, 0.4f), GLUIText::GLUITextCreateArgs());
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
+
+		// Add text-view widget
+		{
+			GLUITextViewRef text_view = new GLUITextView();
+			GLUITextView::GLUITextViewCreateArgs create_args;
+			text_view->create(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.0f), create_args);
+			
+			gl_ui->addWidget(text_view);
+		}
+
+		// Add text-view widget
+		{
+			GLUITextViewRef text_view = new GLUITextView();
+			GLUITextView::GLUITextViewCreateArgs create_args;
+			create_args.font_size_px = 60;
+			text_view->create(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
+			
+			gl_ui->addWidget(text_view);
+		}
+
+
+
+		//for(int i=0; i<10000; ++i)
+		//{
+		//	GLUITextRef text = new GLUIText();
+		//	text->create(*gl_ui, opengl_engine, "0123456789!@#$%^&*()", /*botleft=*/Vec2f(-1.0f, 0.4f), Colour3f(1,1,1));
+		//}
+
+		if(false)
+		{
+			std::string text = FileUtils::readEntireFileTextMode("d:/files/neuromancer.txt");
+
+			const std::vector<std::string> lines = ::split(text, '\n');
+
+			PCG32 rng(1);
+			Vec2f pos(-1,1);
+			for(size_t i=0; i<lines.size(); ++i)
+			{
+				pos.y -= 0.002f;
+				if(pos.y < -1.f)
+				{
+					pos.x += 0.25f;
+					pos.y = 1;
+				}
+				GLUIText::GLUITextCreateArgs create_args;
+				create_args.colour = Colour3f(rng.unitRandom(), rng.unitRandom(),rng.unitRandom());
+				GLUITextRef linetext = new GLUIText(*gl_ui, opengl_engine, lines[i], /*botleft=*/pos, create_args);
+				texts.push_back(linetext);
+			}
+		}
+
+
+
+
+
+
+
+
+
+
+
+
 		sun_phi = 1.f;
 		sun_theta = Maths::pi<float>() / 4;
 		opengl_engine->setSunDir(normalise(Vec4f(std::cos(sun_phi) * sin(sun_theta), std::sin(sun_phi) * sin(sun_theta), cos(sun_theta), 0)));
@@ -269,7 +463,7 @@ int main(int, char**)
 			ob->materials[0].emission_scale = 3.0e9f;
 			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
 		}
-
+#if 0
 		// Add imposter
 		{
 			GLObjectRef ob = new GLObject();
@@ -378,6 +572,7 @@ int main(int, char**)
 
 			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
 		}
+#endif
 
 
 #if 0
@@ -524,7 +719,7 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 			{
 				// Draw ImGUI GUI controls
 				ImGui_ImplOpenGL3_NewFrame();
-				ImGui_ImplSDL2_NewFrame(win);
+				ImGui_ImplSDL2_NewFrame();
 				ImGui::NewFrame();
 		
 				//ImGui::ShowDemoWindow();
@@ -533,8 +728,8 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 				ImGui::Begin("Testbed");
 		
 				bool sundir_changed = false;
-				sundir_changed = sundir_changed || ImGui::SliderFloat("sun_theta", &sun_theta, 0.01f, Maths::pi<float>(), "%1.2f", 1.f);
-				sundir_changed = sundir_changed || ImGui::SliderFloat("sun_phi", &sun_phi, 0, Maths::get2Pi<float>(), "%1.2f", 1.f);
+				sundir_changed = sundir_changed || ImGui::SliderFloat("sun_theta", &sun_theta, 0.01f, Maths::pi<float>(), "%1.2f", 0);
+				sundir_changed = sundir_changed || ImGui::SliderFloat("sun_phi", &sun_phi, 0, Maths::get2Pi<float>(), "%1.2f", 0);
 				if(sundir_changed)
 				{
 					opengl_engine->setSunDir(normalise(Vec4f(std::cos(sun_phi) * sin(sun_theta), std::sin(sun_phi) * sin(sun_theta), cos(sun_theta), 0)));
@@ -607,6 +802,8 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 						
 						opengl_engine->setViewportDims(w, h);
 						opengl_engine->setMainViewportDims(w, h);
+
+						gl_ui->viewportResized(w, h);
 					}
 				}
 				else if(e.type == SDL_KEYDOWN)

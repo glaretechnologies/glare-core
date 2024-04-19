@@ -71,8 +71,7 @@ set(zlibdir		"${GLARE_CORE_TRUNK}/zlib")
 set(pugixmldir	"${GLARE_CORE_TRUNK}/pugixml/src")
 set(pngdir		"${GLARE_CORE_TRUNK}/libpng")
 set(zstddir		"${GLARE_CORE_TRUNK}/zstd")
-
-set(imguidir 	"${GLARE_CORE_LIBS}/imgui")
+set(imguidir 	"${GLARE_CORE_TRUNK}/imgui")
 
 
 if(WIN32)
@@ -131,8 +130,8 @@ ${imguidir}/imgui_tables.cpp
 ${imguidir}/imstb_rectpack.h
 ${imguidir}/imstb_textedit.h
 ${imguidir}/imstb_truetype.h
-${imguidir}/backends/imgui_impl_sdl.cpp
-${imguidir}/backends/imgui_impl_sdl.h
+${imguidir}/backends/imgui_impl_sdl2.cpp
+${imguidir}/backends/imgui_impl_sdl2.h
 ${imguidir}/backends/imgui_impl_opengl3.cpp
 ${imguidir}/backends/imgui_impl_opengl3.h
 )
@@ -278,9 +277,29 @@ ${GLARE_CORE_TRUNK}/graphics/FormatDecoderGLTF.cpp
 ${GLARE_CORE_TRUNK}/graphics/FormatDecoderGLTF.h
 ${GLARE_CORE_TRUNK}/graphics/MeshSimplification.cpp
 ${GLARE_CORE_TRUNK}/graphics/MeshSimplification.h
+${GLARE_CORE_TRUNK}/graphics/TextRenderer.cpp
+${GLARE_CORE_TRUNK}/graphics/TextRenderer.h
 )
 
 include(${GLARE_CORE_TRUNK}/opengl/opengl.cmake)
+
+set(glui
+${GLARE_CORE_TRUNK}/opengl/ui/FontCharTexCache.cpp
+${GLARE_CORE_TRUNK}/opengl/ui/FontCharTexCache.h
+${GLARE_CORE_TRUNK}/opengl/ui/GLUI.cpp
+${GLARE_CORE_TRUNK}/opengl/ui/GLUI.h
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIButton.cpp
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIButton.h
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIImage.cpp
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIImage.h
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIText.cpp
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIText.h
+${GLARE_CORE_TRUNK}/opengl/ui/GLUITextView.cpp
+${GLARE_CORE_TRUNK}/opengl/ui/GLUITextView.h
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIWidget.cpp
+${GLARE_CORE_TRUNK}/opengl/ui/GLUIWidget.h
+)
+
 
 set(utils
 ${GLARE_CORE_TRUNK}/utils/BestFitAllocator.cpp
@@ -473,6 +492,82 @@ if(0) # EMSCRIPTEN)
 endif()
 
 
+#================ FreeType =============
+set(freetypedir "${GLARE_CORE_TRUNK_DIR_ENV}/freetype")
+
+include_directories("${freetypedir}/include")
+include_directories("${freetypedir}/include/freetype/internal")
+add_definitions("-DFT2_BUILD_LIBRARY") # NOTE: not sure if needed
+
+file(GLOB freetype_PUBLIC_HEADERS "${freetypedir}/include/ft2build.h" "${freetypedir}/include/freetype/*.h")
+file(GLOB freetype_PUBLIC_CONFIG_HEADERS "${freetypedir}/include/freetype/config/*.h")
+file(GLOB freetype_PRIVATE_HEADERS "${freetypedir}/include/freetype/internal/*.h")
+
+set(freetype
+${freetype_PUBLIC_HEADERS}
+${freetype_PUBLIC_CONFIG_HEADERS}
+${freetype_PRIVATE_HEADERS}
+${freetypedir}/src/autofit/autofit.c
+${freetypedir}/src/base/ftbase.c
+${freetypedir}/src/base/ftbbox.c
+${freetypedir}/src/base/ftbdf.c
+${freetypedir}/src/base/ftbitmap.c
+${freetypedir}/src/base/ftcid.c
+${freetypedir}/src/base/ftfstype.c
+${freetypedir}/src/base/ftgasp.c
+${freetypedir}/src/base/ftglyph.c
+${freetypedir}/src/base/ftgxval.c
+${freetypedir}/src/base/ftinit.c
+${freetypedir}/src/base/ftmm.c
+${freetypedir}/src/base/ftotval.c
+${freetypedir}/src/base/ftpatent.c
+${freetypedir}/src/base/ftpfr.c
+${freetypedir}/src/base/ftstroke.c
+${freetypedir}/src/base/ftsynth.c
+${freetypedir}/src/base/fttype1.c
+${freetypedir}/src/base/ftwinfnt.c
+#${freetypedir}/src/bdf/bdf.c
+${freetypedir}/src/bzip2/ftbzip2.c
+${freetypedir}/src/cache/ftcache.c
+${freetypedir}/src/cff/cff.c # OpenType (.otf) driver component
+#${freetypedir}/src/cid/type1cid.c
+${freetypedir}/src/gzip/ftgzip.c
+${freetypedir}/src/lzw/ftlzw.c
+#${freetypedir}/src/pcf/pcf.c
+#${freetypedir}/src/pfr/pfr.c
+${freetypedir}/src/psaux/psaux.c
+${freetypedir}/src/pshinter/pshinter.c
+${freetypedir}/src/psnames/psnames.c
+${freetypedir}/src/raster/raster.c
+#${freetypedir}/src/sdf/sdf.c
+${freetypedir}/src/sfnt/sfnt.c
+${freetypedir}/src/smooth/smooth.c
+${freetypedir}/src/svg/svg.c
+${freetypedir}/src/truetype/truetype.c
+#${freetypedir}/src/type1/type1.c
+#${freetypedir}/src/type42/type42.c
+#${freetypedir}/src/winfonts/winfnt.c
+)
+
+if(UNIX)
+	set(freetype ${freetype} "${freetypedir}/builds/unix/ftsystem.c")
+elseif(WIN32)
+	set(freetype ${freetype} "${freetypedir}/builds/windows/ftsystem.c")
+else()
+	set(freetype ${freetype} "${freetypedir}/src/base/ftsystem.c")
+endif ()
+
+if (WIN32)
+	#enable_language(RC)
+	#list(APPEND BASE_SRCS builds/windows/ftdebug.c
+	#                      src/base/ftver.rc)
+
+	set(freetype ${freetype} "${freetypedir}/builds/windows/ftdebug.c")
+else ()
+	set(freetype ${freetype} "${freetypedir}/src/base/ftdebug.c")
+endif ()
+
+
 SOURCE_GROUP(indigo FILES ${indigo})
 SOURCE_GROUP(graphics FILES ${graphics})
 SOURCE_GROUP(opengl FILES ${opengl})
@@ -482,7 +577,8 @@ SOURCE_GROUP(double-conversion FILES ${double_conversion})
 SOURCE_GROUP(imgui FILES ${imgui})
 SOURCE_GROUP(meshoptimizer FILES ${meshoptimizer})
 SOURCE_GROUP(jpeg-turbo FILES ${jpeg_src})
-
+SOURCE_GROUP(glui FILES ${glui})
+SOURCE_GROUP(freetype FILES ${freetype})
 
 
 add_executable(testbed
@@ -506,6 +602,8 @@ ${imgui}
 ${tracy_files}
 ${meshoptimizer}
 ${jpeg_src}
+${glui}
+${freetype}
 )
 
 
