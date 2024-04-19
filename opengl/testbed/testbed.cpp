@@ -91,6 +91,10 @@ int main(int, char**)
 		Clock::init();
 
 
+	//	TextRenderer::test();
+	//	return 0;//TEMP
+
+
 		timer = new Timer();
 		time_since_last_frame = new Timer();
 		stats_timer = new Timer();
@@ -239,7 +243,7 @@ int main(int, char**)
 		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 72));
 
 		std::vector<TextRendererFontFaceRef> emoji_fonts;
-		emoji_fonts.push_back(new TextRendererFontFace(text_renderer, emoji_font_path, 18));
+		emoji_fonts.push_back(new TextRendererFontFace(text_renderer, emoji_font_path, 100));
 		conPrint("loading fonts took " + timer.elapsedString());
 
 		gl_ui = new GLUI();
@@ -248,7 +252,6 @@ int main(int, char**)
 		
 
 		// Add some text
-		// https://unicode.org/emoji/charts/full-emoji-list.html#1f600, https://unicode.org/emoji/charts/full-emoji-list.html#1f60e, https://unicode.org/emoji/charts/full-emoji-list.html#1f4af
 		std::vector<GLUITextRef> texts;
 		{
 			GLUIText::GLUITextCreateArgs text_create_args;
@@ -258,17 +261,22 @@ int main(int, char**)
 			//gl_ui->addWidget(text);
 			texts.push_back(text);
 		}
+
+		// Create some Emoji text
 		{
 			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x2639), /*botleft=*/Vec2f(-1.0, -0.6), Colour3f(1,1,1)); // https://unicodelookup.com/#face/1
 			GLUIText::GLUITextCreateArgs text_create_args;
+
+			// https://unicode.org/emoji/charts/full-emoji-list.html#1f600, https://unicode.org/emoji/charts/full-emoji-list.html#1f60e, https://unicode.org/emoji/charts/full-emoji-list.html#1f4af
 			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, 
 				UTF8Utils::encodeCodePoint(0x1F600) + 
 				UTF8Utils::encodeCodePoint(0x1F60E) + 
 				UTF8Utils::encodeCodePoint(0x1f4af), 
-				/*botleft=*/Vec2f(-1.0f, -0.6f), text_create_args); 
+				/*botleft=*/Vec2f(0, -0.2f), text_create_args); 
 			//gl_ui->addWidget(text);
 			texts.push_back(text);
 		}
+
 		{
 			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x393), /*botleft=*/Vec2f(-1.0, -0.4), Colour3f(1,1,1)); // "U+1F600"
 			GLUIText::GLUITextCreateArgs text_create_args;

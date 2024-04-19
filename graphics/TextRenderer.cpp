@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Lock.h"
 #include "../utils/UTF8Utils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/RuntimeCheck.h"
 #include <freetype/freetype.h>
 
 
@@ -40,43 +41,99 @@ static void drawCharToBitmap(ImageMapUInt8& map,
 	const int h = (int)map.getHeight();
 	assert(map.getN() >= 3);
 
-	// For simplicity, we assume that `bitmap->pixel_mode' is `FT_PIXEL_MODE_GRAY' (i.e., not a bitmap font)
-	assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY);
+	runtimeCheck(bitmap->pitch >= 0); // Pitch can apparently be negative sometimes
 
-	for(int destx = start_dest_x, srcx = 0; destx < end_dest_x; destx++, srcx++ )
+	if(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY)
 	{
-		for(int desty = start_dest_y, srcy = 0; desty < end_dest_y; desty++, srcy++ )
+		for(int destx = start_dest_x, srcx = 0; destx < end_dest_x; destx++, srcx++ )
 		{
-			if( destx < 0  || desty < 0 ||
-				destx >= w || desty >= h )
-				continue;
-
-			const uint8 v = bitmap->buffer[srcy * bitmap->width + srcx];
-
-			uint8* pixel = map.getPixel(destx, desty);
-
-			if(map.getN() == 3)
+			for(int desty = start_dest_y, srcy = 0; desty < end_dest_y; desty++, srcy++ )
 			{
-				const Colour3f src_col(
-					pixel[0] * (1.f / 255.f),
-					pixel[1] * (1.f / 255.f),
-					pixel[2] * (1.f / 255.f)
-				);
+				if( destx < 0  || desty < 0 ||
+					destx >= w || desty >= h )
+					continue;
 
-				const Colour3f new_col = Maths::lerp(src_col, col, (float)v * (1.0f / 255.f));
+				const uint8 v = bitmap->buffer[srcy * bitmap->pitch + srcx];
+
+				uint8* pixel = map.getPixel(destx, desty);
+
+				if(map.getN() == 3)
+				{
+					// Get blended result of existing colour and 'col', where blend factor = font greyscale value.
+					const Colour3f src_col(
+						pixel[0] * (1.f / 255.f),
+						pixel[1] * (1.f / 255.f),
+						pixel[2] * (1.f / 255.f)
+					);
+
+					const Colour3f new_col = Maths::lerp(src_col, col, (float)v * (1.0f / 255.f));
 			
-				pixel[0] = (uint8)(new_col.r * 255.01f);
-				pixel[1] = (uint8)(new_col.g * 255.01f);
-				pixel[2] = (uint8)(new_col.b * 255.01f);
-			}
-			else
-			{
-				pixel[0] = 255;
-				pixel[1] = 255;
-				pixel[2] = 255;
-				pixel[3] = v;
+					pixel[0] = (uint8)(new_col.r * 255.01f);
+					pixel[1] = (uint8)(new_col.g * 255.01f);
+					pixel[2] = (uint8)(new_col.b * 255.01f);
+				}
+				else
+				{
+					// For an imagemap with alpha, just assume we making a font cache, in which case the colour can just be white and we can ignore the existing map colour
+					pixel[0] = 255;
+					pixel[1] = 255;
+					pixel[2] = 255;
+					pixel[3] = v;
+				}
 			}
 		}
+	}
+	else if(bitmap->pixel_mode == FT_PIXEL_MODE_BGRA)
+	{
+		for(int destx = start_dest_x, srcx = 0; destx < end_dest_x; destx++, srcx++ )
+		{
+			for(int desty = start_dest_y, srcy = 0; desty < end_dest_y; desty++, srcy++ )
+			{
+				if( destx < 0  || desty < 0 ||
+					destx >= w || desty >= h )
+					continue;
+
+				const uint8* src = &bitmap->buffer[srcy * bitmap->pitch + srcx * 4];
+
+				uint8* pixel = map.getPixel(destx, desty);
+
+				if(map.getN() == 3)
+				{
+					// Get blended result of existing colour and colour from font, where blend factor = font alpha.
+					const Colour3f src_col(
+						pixel[0] * (1.f / 255.f),
+						pixel[1] * (1.f / 255.f),
+						pixel[2] * (1.f / 255.f)
+					);
+
+					const Colour3f font_rgb_col(
+						src[2] * (1.f / 255.f), // Convert from BGRA
+						src[1] * (1.f / 255.f),
+						src[0] * (1.f / 255.f)
+					);
+
+					const float font_alpha_f = (float)src[3] * (1.0f / 255.f);
+					const Colour3f new_col = Maths::lerp(src_col, font_rgb_col, font_alpha_f);
+			
+					pixel[0] = (uint8)(new_col.r * 255.01f);
+					pixel[1] = (uint8)(new_col.g * 255.01f);
+					pixel[2] = (uint8)(new_col.b * 255.01f);
+				}
+				else
+				{
+					// For an imagemap with alpha, just assume we making a font cache, in which case we can ignore the existing map colour
+					pixel[0] = src[2];
+					pixel[1] = src[1];
+					pixel[2] = src[0];
+					pixel[3] = src[3];
+				}
+			}
+		}
+	}
+	else
+	{
+		// Unhandled bitmap pixel mode
+		assert(0);
 	}
 }
 
@@ -143,7 +200,7 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 
 		FT_Set_Transform(face, &matrix, &pen); // set transformation
 
-		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER); // load glyph image into the slot (erase previous one)
+		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
 		if(error == 0) // If no errors:
 		{
 			// now, draw to our target surface (convert position)
@@ -215,7 +272,6 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 	}
 
 	SizeInfo size_info;
-	size_info.size = max_bounds - min_bounds;
 	size_info.min_bounds = min_bounds;
 	size_info.max_bounds = max_bounds;
 	size_info.hori_advance = pen.x / 64.f;
@@ -241,6 +297,7 @@ int TextRendererFontFace::getFaceAscender()
 #include <utils/TaskManager.h>
 #include <utils/StringUtils.h>
 #include <utils/TestUtils.h>
+#include <PlatformUtils.h>
 
 
 class DrawTextTestTask : public glare::Task
@@ -248,7 +305,7 @@ class DrawTextTestTask : public glare::Task
 public:
 	DrawTextTestTask(TextRendererFontFaceRef font_) : font(font_) {}
 
-	virtual void run(size_t thread_index)
+	virtual void run(size_t /*thread_index*/)
 	{
 		conPrint("DrawTextTestTask running...");
 
@@ -277,6 +334,34 @@ void TextRenderer::test()
 	conPrint("TextRenderer::test()");
 
 	const bool WRITE_IMAGES = false;
+
+	//-------------------------------------- Test rendering Emoji --------------------------------------
+#ifdef _WIN32
+	try
+	{
+		ImageMapUInt8Ref map = new ImageMapUInt8(500, 500, 3);
+		map->zero();
+
+		TextRendererRef text_renderer = new TextRenderer();
+		TextRendererFontFaceRef font = new TextRendererFontFace(text_renderer, PlatformUtils::getFontsDirPath() + "/Seguiemj.ttf", 50); // Use the Windows Emoji version of Segoe UI.
+
+		// https://unicode.org/emoji/charts/full-emoji-list.html#1f600, https://unicode.org/emoji/charts/full-emoji-list.html#1f60e, https://unicode.org/emoji/charts/full-emoji-list.html#1f4af
+		const std::string text = UTF8Utils::encodeCodePoint(0x1F600) + 
+				UTF8Utils::encodeCodePoint(0x1F60E) + 
+				UTF8Utils::encodeCodePoint(0x1f4af);
+
+		TextRendererFontFace::SizeInfo size_info = font->getTextSize(text);
+
+		font->drawText(*map, text, 10, 250, Colour3f(1,1,1));
+
+		if(WRITE_IMAGES)
+			PNGDecoder::write(*map, "emoji.png");
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+#endif
 
 	//-------------------------------------- Test Unicode rendering with a TTF file --------------------------------------
 	try

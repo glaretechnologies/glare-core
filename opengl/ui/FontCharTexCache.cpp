@@ -83,8 +83,8 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 	//PNGDecoder::write(*atlas->imagemap, "d:/files/atlas.png");
 
 	// Update OpenGL texture
-	const size_t region_w = size_info.size.x + margin_px*2;
-	const size_t region_h = size_info.size.y + margin_px*2;
+	const size_t region_w = size_info.getSize().x + margin_px*2;
+	const size_t region_h = size_info.getSize().y + margin_px*2;
 	atlas->tex->loadRegionIntoExistingTexture(/*mipmap level=*/0, topleft.x, topleft.y, /*region w=*/region_w, /*region h=*/region_h, 
 		atlas->imagemap->getWidth() * atlas->imagemap->getN(), // row stride (B)
 		ArrayRef<uint8>(atlas->imagemap->getPixel(topleft.x, topleft.y), /*len=*/region_h * atlas->imagemap->getWidth() * atlas->imagemap->getN()), /*bind needed=*/true);
@@ -96,12 +96,12 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 	CharTexInfo res;
 	res.size_info = size_info;
 	res.tex = atlas->tex;
-	res.atlas_min_texcoords = Vec2f(topleft_plus_margin.x                      / (float)atlas->imagemap->getWidth(), topleft_plus_margin.y                      / (float)atlas->imagemap->getHeight());
-	res.atlas_max_texcoords = Vec2f((topleft_plus_margin.x + size_info.size.x) / (float)atlas->imagemap->getWidth(), (topleft_plus_margin.y + size_info.size.y) / (float)atlas->imagemap->getHeight());
+	res.atlas_min_texcoords = Vec2f(topleft_plus_margin.x                           / (float)atlas->imagemap->getWidth(), topleft_plus_margin.y                           / (float)atlas->imagemap->getHeight());
+	res.atlas_max_texcoords = Vec2f((topleft_plus_margin.x + size_info.getSize().x) / (float)atlas->imagemap->getWidth(), (topleft_plus_margin.y + size_info.getSize().y) / (float)atlas->imagemap->getHeight());
 
 	// Advance row next_topleft_coords x past the character
-	row->next_topleft_coords.x += size_info.size.x + margin_px*2;
-	row->max_y = myMax(row->max_y, row->next_topleft_coords.y + size_info.size.y + margin_px*2);
+	row->next_topleft_coords.x += size_info.getSize().x + margin_px*2;
+	row->max_y = myMax(row->max_y, row->next_topleft_coords.y + size_info.getSize().y + margin_px*2);
 	
 	return res;
 }
@@ -128,7 +128,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 			for(size_t r=0; r<atlas->rows.size(); ++r)
 			{
 				AtlasRowInfo& row = atlas->rows[r];
-				Vec2i botright = row.next_topleft_coords + size_info.size + Vec2i(margin_px*2);
+				Vec2i botright = row.next_topleft_coords + size_info.getSize() + Vec2i(margin_px*2);
 				if(botright.x >= atlas->imagemap->getWidth() || botright.y >= atlas->imagemap->getHeight())
 				{
 					// Not enough room in row.
@@ -145,7 +145,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 
 			// See if we could make a new row where it would fit.
 			const Vec2i next_row_start_i(0, atlas->rows.empty() ? 0 : atlas->rows.back().max_y);
-			const Vec2i next_row_botright = next_row_start_i + size_info.size;
+			const Vec2i next_row_botright = next_row_start_i + size_info.getSize();
 			if(next_row_botright.x < atlas->imagemap->getWidth() && next_row_botright.y < atlas->imagemap->getHeight())
 			{
 				// Should fit in next row.
@@ -164,7 +164,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 		//if(atlas_created) // if we have already created an atlas for this char, error
 		if(atlases.size() >= 1) // For now, just have max 1 atlas texture.
 		{
-			conPrint("Error trying to fit char!!!");
+			conPrint("Error trying to fit char in atlas!!!");
 
 			// Just return some dummy data
 			CharTexInfo res;

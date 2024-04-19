@@ -52,11 +52,13 @@ public:
 
 	// Draw text at (x, y).
 	// The y coordinate give the position of the text baseline.
+	// Col is used if the font is greyscale.  If the font is a colour font (e.g. Emoji), the font colour is used.
 	void drawText(ImageMapUInt8& map, const string_view text, int x, int y, const Colour3f& col);
 
 	struct SizeInfo
 	{
-		Vec2i size; // max_bounds - min_bounds
+		Vec2i getSize() const { return max_bounds - min_bounds; }
+
 		Vec2i min_bounds; // With x increasing to right, y increasing up.  min_bounds.y may be < 0 for characters with descenders such as 'g'
 		Vec2i max_bounds;
 		float hori_advance; // Number of pixels to advance drawing location after drawing string.  See https://freetype.org/freetype2/docs/tutorial/step2.html
