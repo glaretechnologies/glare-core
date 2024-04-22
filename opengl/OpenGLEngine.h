@@ -297,7 +297,7 @@ struct GLObject
 	VAO* vao;
 	VBO* vert_vbo;
 	VBO* index_vbo;
-	GLenum index_type;
+	uint32 index_type_and_size; // Lower 16 bits are GLenum index_type, upper 16 bits are size of index type in bytes (e.g. 1, 2, or 4)
 	GLuint instance_matrix_vbo_name;
 	uint32 indices_vbo_handle_offset;
 	uint32 vbo_handle_base_vertex;

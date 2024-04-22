@@ -133,6 +133,19 @@ enum TextureUnitIndices
 };
 
 
+static inline uint32 indexTypeSizeBytes(GLenum index_type)
+{
+	if(index_type == GL_UNSIGNED_INT)
+		return 4;
+	else if(index_type == GL_UNSIGNED_SHORT)
+		return 2;
+	else
+	{
+		assert(index_type == GL_UNSIGNED_BYTE);
+		return 1;
+	}
+}
+
 
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), decal(false),
@@ -146,7 +159,7 @@ GLObject::GLObject() noexcept
 	vao = NULL;
 	vert_vbo = NULL;
 	index_vbo = NULL;
-	index_type = 0;
+	index_type_and_size = 0;
 	instance_matrix_vbo_name = 0;
 	indices_vbo_handle_offset = 0;
 	vbo_handle_base_vertex = 0;
@@ -285,8 +298,8 @@ size_t OpenGLMeshRenderData::getNumTris() const
 		return vert_index_buffer_uint8.size() / 3;
 	else if(indices_vbo_handle.valid())
 	{
-		const size_t index_type_size = index_type == GL_UNSIGNED_INT ? 4 : (index_type == GL_UNSIGNED_SHORT ? 2 : 1);
-		return indices_vbo_handle.size / index_type_size / 3;
+		const size_t index_type_size_B = indexTypeSizeBytes(index_type);
+		return indices_vbo_handle.size / index_type_size_B / 3;
 	}
 	else
 		return 0;
@@ -3595,7 +3608,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 #endif
 	object.vert_vbo  = object.mesh_data->vbo_handle.vbo.ptr();
 	object.index_vbo = object.mesh_data->indices_vbo_handle.index_vbo.ptr();
-	object.index_type = object.mesh_data->getIndexType();
+	object.index_type_and_size = (uint32)object.mesh_data->getIndexType() | (indexTypeSizeBytes(object.mesh_data->getIndexType()) << 16);
 	object.instance_matrix_vbo_name = object.instance_matrix_vbo.nonNull() ? object.instance_matrix_vbo->bufferName() : 0;
 	object.indices_vbo_handle_offset = (uint32)object.mesh_data->indices_vbo_handle.offset;
 	object.vbo_handle_base_vertex = (uint32)object.mesh_data->vbo_handle.base_vertex;
@@ -3618,7 +3631,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 	// This greatly reduces the number of batches (and hence draw calls) in many cases.
 	if(settings.shadow_mapping)
 	{
-		const uint32 index_type_size_B = (object.mesh_data->getIndexType() == GL_UNSIGNED_INT) ? 4 : ((object.mesh_data->getIndexType() == GL_UNSIGNED_SHORT) ? 2 : 1);
+		const uint32 index_type_size_B = indexTypeSizeBytes(object.mesh_data->getIndexType());
 
 		// Do a pass to get number of batches required
 		OpenGLProgram* prev_depth_prog = NULL;
@@ -4502,7 +4515,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 	}
 #endif
 
-	const GLenum index_type = ob.index_type;
+	const GLenum index_type = ob.index_type_and_size & 0xFFFF;
 	if(index_type != current_index_type)
 	{
 		// A buffer or index type has changed.  submit queued draw commands, start queueing new commands.
@@ -4518,7 +4531,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 	assert(vao == (ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : vert_buf_allocator->vao_data[ob.mesh_data->vao_data_index].vao.ptr()));
 
 	// Get the buffers we want to use for this batch.
-	const GLenum index_type = ob.index_type;
+	const GLenum index_type = (GLenum)(ob.index_type_and_size & 0xFFFF);
 	const VBO* vert_data_vbo = ob.vert_vbo;
 	const VBO* index_vbo = ob.index_vbo;
 
@@ -9386,11 +9399,19 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 	const bool use_MDI_and_prog_supports_MDI = use_multi_draw_indirect && prog_supports_MDI;
 
-	// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
+	const GLenum draw_mode = GL_TRIANGLES;
 
-	// Set per-object vert uniforms.  Only do this if the current object has changed.
+	const GLenum index_type = (GLenum)(ob.index_type_and_size & 0xFFFF);
+	const uint32 index_type_size_B = ob.index_type_and_size >> 16;
+	assert(index_type == ob.mesh_data->getIndexType());
+	assert(index_type_size_B == indexTypeSizeBytes(index_type));
+
+	
 	if(!use_MDI_and_prog_supports_MDI)
 	{
+		// Slow, non-MDI path:
+		
+		// Set per-object vert uniforms.  Only do this if the current object has changed.
 		if(&ob != current_uniforms_ob)
 		{
 			const OpenGLProgram* shader_prog = this->prog_vector[batch.getProgramIndex()].ptr();
@@ -9422,16 +9443,9 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 			current_uniforms_ob = &ob;
 		}
-	}
 
-	if(use_MDI_and_prog_supports_MDI)
-	{
-		// Nothing to do here
-	}
-	else
-	{
-		// Slow, non-MDI path:
-
+		
+		// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
 		const OpenGLProgram* const prog = this->prog_vector[batch.getProgramIndex()].ptr();
 		if(prog->uses_phong_uniforms)
 		{
@@ -9554,31 +9568,23 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				}
 			}
 		}
-	}
-		
-	/*GLenum draw_mode;
-	if(ob.object_type == 0)
-		draw_mode = GL_TRIANGLES;
-	else
-	{
-		draw_mode = GL_LINES;
-		glLineWidth(ob.line_width);
-	}*/
-	const GLenum draw_mode = GL_TRIANGLES;
 
-	const GLenum index_type = ob.index_type;
-	assert(index_type == ob.mesh_data->getIndexType());
+		assert(ob.indices_vbo_handle_offset == ob.mesh_data->indices_vbo_handle.offset);
+		assert(ob.vbo_handle_base_vertex == (uint32)ob.mesh_data->vbo_handle.base_vertex);
 
-	if(use_MDI_and_prog_supports_MDI)
-	{
-		int index_type_size_B;
-		if(index_type == GL_UNSIGNED_BYTE)
-			index_type_size_B = 1;
-		else if(index_type == GL_UNSIGNED_SHORT)
-			index_type_size_B = 2;
+		if(ob.instance_matrix_vbo.nonNull() && ob.num_instances_to_draw > 0)
+		{
+			const size_t total_buffer_offset = ob.indices_vbo_handle_offset + prim_start_offset;
+			drawElementsInstancedBaseVertex(draw_mode, (GLsizei)num_indices, index_type, (void*)total_buffer_offset, (uint32)ob.num_instances_to_draw, ob.vbo_handle_base_vertex);
+		}
 		else
-			index_type_size_B = 4;
-
+		{
+			const size_t total_buffer_offset = ob.indices_vbo_handle_offset + prim_start_offset;
+			drawElementsBaseVertex(draw_mode, (GLsizei)num_indices, index_type, (void*)total_buffer_offset, ob.vbo_handle_base_vertex);
+		}
+	}
+	else // else if use_MDI_and_prog_supports_MDI:
+	{
 		// A mesh might have indices 0, 1, 2.  
 		/*
 		indices
@@ -9596,18 +9602,18 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		This is the baseVertex argument.
 		*/
 
-		const size_t instance_count = (ob.instance_matrix_vbo_name != 0) ? ob.num_instances_to_draw : 1;
+		const uint32 instance_count = (ob.instance_matrix_vbo_name != 0) ? (uint32)ob.num_instances_to_draw : (uint32)1;
 
 		assert(ob.indices_vbo_handle_offset == ob.mesh_data->indices_vbo_handle.offset);
-		const size_t total_buffer_offset = ob.indices_vbo_handle_offset + prim_start_offset;
+		const uint32 total_buffer_offset = ob.indices_vbo_handle_offset + prim_start_offset;
 		assert(total_buffer_offset % index_type_size_B == 0);
 
 		assert(ob.vbo_handle_base_vertex == (uint32)ob.mesh_data->vbo_handle.base_vertex);
 
 		DrawElementsIndirectCommand command;
-		command.count = (GLsizei)num_indices;
-		command.instanceCount = (uint32)instance_count;
-		command.firstIndex = (uint32)(total_buffer_offset / index_type_size_B); // First index is not a byte offset, but a number-of-indices offset.
+		command.count = num_indices;
+		command.instanceCount = instance_count;
+		command.firstIndex = total_buffer_offset / index_type_size_B; // First index is not a byte offset, but a number-of-indices offset.
 		command.baseVertex = ob.vbo_handle_base_vertex; // "Specifies a constant that should be added to each element of indices when chosing elements from the enabled vertex arrays."
 		command.baseInstance = 0;
 
@@ -9641,22 +9647,6 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 		if((draw_commands.size() >= MAX_BUFFERED_DRAW_COMMANDS) /*(draw_commands.size() >= max_contiguous_draws_remaining_b)*/ || (instance_count > 1))
 			submitBufferedDrawCommands();
-	}
-	else // else if not using multi-draw-indirect for this shader:
-	{
-		assert(ob.indices_vbo_handle_offset == ob.mesh_data->indices_vbo_handle.offset);
-		assert(ob.vbo_handle_base_vertex == (uint32)ob.mesh_data->vbo_handle.base_vertex);
-
-		if(ob.instance_matrix_vbo.nonNull() && ob.num_instances_to_draw > 0)
-		{
-			const size_t total_buffer_offset = ob.indices_vbo_handle_offset + prim_start_offset;
-			drawElementsInstancedBaseVertex(draw_mode, (GLsizei)num_indices, index_type, (void*)total_buffer_offset, (uint32)ob.num_instances_to_draw, ob.vbo_handle_base_vertex);
-		}
-		else
-		{
-			const size_t total_buffer_offset = ob.indices_vbo_handle_offset + prim_start_offset;
-			drawElementsBaseVertex(draw_mode, (GLsizei)num_indices, index_type, (void*)total_buffer_offset, ob.vbo_handle_base_vertex);
-		}
 	}
 
 	this->num_indices_submitted += num_indices;
