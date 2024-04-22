@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2016 -
 
 #include "IncludeOpenGL.h"
 #include "VBO.h"
+#include "VertexBufferAllocator.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 
@@ -64,13 +65,15 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 
 
 // Constructor that uses old-style glVertexAttribPointer().  Just kept around for Mac and WebGL / Emscripten.
-VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec_)
+VAO::VAO(const Reference<VBO>& vertex_data, const Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec_)
 :	handle(0),
 	current_bound_vert_vbo(NULL),
 	current_bound_index_VBO(NULL)
 {
 	assert(vertex_data.nonNull());
+#if DO_INDIVIDUAL_VAO_ALLOC
 	assert(vert_indices_buf.nonNull());
+#endif
 
 	vertex_spec = vertex_spec_;
 
@@ -83,8 +86,12 @@ VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, co
 	if(vert_indices_buf.nonNull())
 		vert_indices_buf->bind(); // Bind the vertex indices buffer to this VAO.
 
+	this->current_bound_index_VBO = vert_indices_buf.ptr();
+
 	if(vertex_data.nonNull())
 		vertex_data->bind(); // Use vertex_data by default.  This binding is stored by the glVertexAttribPointer() call. See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribPointer.xhtml
+
+	this->current_bound_vert_vbo = vertex_data.ptr();
 
 	//conPrint("---------------------");
 	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
@@ -129,7 +136,8 @@ VAO::VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, co
 		vertex_data->unbind();
 
 	assert(getBoundVertexBuffer(0) == vertex_data->bufferName());
-	assert(getBoundIndexBuffer() == vert_indices_buf->bufferName());
+	if(vert_indices_buf.nonNull())
+		assert(getBoundIndexBuffer() == vert_indices_buf->bufferName());
 	
 	glBindVertexArray(0);
 } 

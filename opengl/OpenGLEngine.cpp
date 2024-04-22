@@ -3557,7 +3557,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 {
 	// Build misc draw info.
 	object.vao_and_vbo_key = makeVAOAndVBOKey(
-		(uint32)object.mesh_data->vbo_handle.per_spec_data_index,
+		object.mesh_data->vao_data_index,
 		(uint32)object.mesh_data->vbo_handle.vbo_id,
 		(uint32)object.mesh_data->indices_vbo_handle.vbo_id,
 		object.mesh_data->index_type_bits
@@ -3590,8 +3590,8 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 #if DO_INDIVIDUAL_VAO_ALLOC
 	object.vao = object.vert_vao.nonNull() ? object.vert_vao.ptr() : object.mesh_data->individual_vao.ptr();
 #else
-	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator->per_spec_data[object.mesh_data->vbo_handle.per_spec_data_index];
-	object.vao = object.vert_vao.nonNull() ? object.vert_vao.ptr() : per_spec_data.vao.ptr();
+	VertexBufferAllocator::VAOData& vao_data = vert_buf_allocator->vao_data[object.mesh_data->vao_data_index];
+	object.vao = object.vert_vao.nonNull() ? object.vert_vao.ptr() : vao_data.vao.ptr();
 #endif
 	object.vert_vbo  = object.mesh_data->vbo_handle.vbo.ptr();
 	object.index_vbo = object.mesh_data->indices_vbo_handle.index_vbo.ptr();
@@ -4402,11 +4402,11 @@ void OpenGLEngine::bindMeshData(const OpenGLMeshRenderData& mesh_data)
 	assert(mesh_data.individual_vao->getBoundIndexBuffer() == mesh_data.indices_vbo_handle.index_vbo->bufferName());
 #else
 
-	VertexBufferAllocator::PerSpecData& per_spec_data = vert_buf_allocator->per_spec_data[mesh_data.vbo_handle.per_spec_data_index];
+	VertexBufferAllocator::VAOData& vao_data = vert_buf_allocator->vao_data[mesh_data.vao_data_index];
 
 	// Get the buffers we want to use for this batch.
 	const GLenum index_type = mesh_data.getIndexType();
-	      VAO* vao = per_spec_data.vao.ptr();
+	      VAO* vao = vao_data.vao.ptr();
 	const VBO* vert_data_vbo = mesh_data.vbo_handle.vbo.ptr();
 	const VBO* index_vbo = mesh_data.indices_vbo_handle.index_vbo.ptr();
 
@@ -4515,7 +4515,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 	// Check to see if we should use the object's VAO that has the instance matrix stuff
 
-	assert(vao == (ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : vert_buf_allocator->per_spec_data[ob.mesh_data->vbo_handle.per_spec_data_index].vao.ptr()));
+	assert(vao == (ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : vert_buf_allocator->vao_data[ob.mesh_data->vao_data_index].vao.ptr()));
 
 	// Get the buffers we want to use for this batch.
 	const GLenum index_type = ob.index_type;
@@ -7569,10 +7569,10 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
 
 							// Check the denormalised vao_and_vbo_key is correct
-							uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+							const uint32 vao_id = ob->mesh_data->vao_data_index;
 							const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
 							const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-							const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+							const uint32 index_type_bits = ob->mesh_data->index_type_bits;
 							assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 							// Draw primitives for the given material
@@ -7768,10 +7768,10 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
 
 						// Check the denormalised vao_and_vbo_key is correct
-						uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+						const uint32 vao_id = ob->mesh_data->vao_data_index;
 						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
 						const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-						const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+						const uint32 index_type_bits = ob->mesh_data->index_type_bits;
 						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 						// Draw primitives for the given material
@@ -7906,10 +7906,10 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
 
 					// Check the denormalised vao_and_vbo_key is correct
-					uint32 vao_id = (uint32)ob->mesh_data->vbo_handle.per_spec_data_index;
+					const uint32 vao_id = ob->mesh_data->vao_data_index;
 					const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
 					const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-					const uint32 index_type_bits = (uint32)ob->mesh_data->index_type_bits;
+					const uint32 index_type_bits = ob->mesh_data->index_type_bits;
 					assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 					// Draw primitives for the given material
@@ -8711,15 +8711,15 @@ void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& al
 	const size_t max_chunk_size = max_total_upload_bytes;
 
 	if(!data.vbo_handle.valid())
-		data.vbo_handle = allocator.allocate(data.vertex_spec, /*data=*/NULL, loading_progress.vert_total_size_B); // Just allocate the buffer, don't upload
+		data.vbo_handle = allocator.allocateVertexDataSpace(data.vertex_spec.vertStride(), /*data=*/NULL, loading_progress.vert_total_size_B); // Just allocate the buffer, don't upload
 
 	if(!data.indices_vbo_handle.valid()) // loading_progress.index_next_i == 0)
-		data.indices_vbo_handle = allocator.allocateIndexData(/*data=*/NULL, loading_progress.index_total_size_B); // Just allocate the buffer, don't upload
+	{
+		data.indices_vbo_handle = allocator.allocateIndexDataSpace(/*data=*/NULL, loading_progress.index_total_size_B); // Just allocate the buffer, don't upload
 
-#if DO_INDIVIDUAL_VAO_ALLOC
-	if(data.individual_vao.isNull())
-		data.individual_vao = new VAO(data.vbo_handle.vbo, data.indices_vbo_handle.index_vbo, data.vertex_spec);
-#endif
+		allocator.getOrCreateAndAssignVAOForMesh(data, data.vertex_spec);
+	}
+		
 
 	if(data.batched_mesh.nonNull())
 	{
@@ -8802,34 +8802,32 @@ void OpenGLEngine::loadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator
 	// If we have a ref to a BatchedMesh, upload directly from it:
 	if(data.batched_mesh.nonNull())
 	{
-		data.vbo_handle = allocator.allocate(data.vertex_spec, data.batched_mesh->vertex_data.data(), data.batched_mesh->vertex_data.dataSizeBytes());
+		data.vbo_handle = allocator.allocateVertexDataSpace(data.vertex_spec.vertStride(), data.batched_mesh->vertex_data.data(), data.batched_mesh->vertex_data.dataSizeBytes());
 
-		data.indices_vbo_handle = allocator.allocateIndexData(data.batched_mesh->index_data.data(), data.batched_mesh->index_data.dataSizeBytes());
+		data.indices_vbo_handle = allocator.allocateIndexDataSpace(data.batched_mesh->index_data.data(), data.batched_mesh->index_data.dataSizeBytes());
 	}
 	else
 	{
-		data.vbo_handle = allocator.allocate(data.vertex_spec, data.vert_data.data(), data.vert_data.dataSizeBytes());
+		data.vbo_handle = allocator.allocateVertexDataSpace(data.vertex_spec.vertStride(), data.vert_data.data(), data.vert_data.dataSizeBytes());
 
 		if(!data.vert_index_buffer_uint8.empty())
 		{
-			data.indices_vbo_handle = allocator.allocateIndexData(data.vert_index_buffer_uint8.data(), data.vert_index_buffer_uint8.dataSizeBytes());
+			data.indices_vbo_handle = allocator.allocateIndexDataSpace(data.vert_index_buffer_uint8.data(), data.vert_index_buffer_uint8.dataSizeBytes());
 			assert(data.getIndexType() == GL_UNSIGNED_BYTE);
 		}
 		else if(!data.vert_index_buffer_uint16.empty())
 		{
-			data.indices_vbo_handle = allocator.allocateIndexData(data.vert_index_buffer_uint16.data(), data.vert_index_buffer_uint16.dataSizeBytes());
+			data.indices_vbo_handle = allocator.allocateIndexDataSpace(data.vert_index_buffer_uint16.data(), data.vert_index_buffer_uint16.dataSizeBytes());
 			assert(data.getIndexType() == GL_UNSIGNED_SHORT);
 		}
 		else
 		{
-			data.indices_vbo_handle = allocator.allocateIndexData(data.vert_index_buffer.data(), data.vert_index_buffer.dataSizeBytes());
+			data.indices_vbo_handle = allocator.allocateIndexDataSpace(data.vert_index_buffer.data(), data.vert_index_buffer.dataSizeBytes());
 			assert(data.getIndexType() == GL_UNSIGNED_INT);
 		}
 	}
 
-#if DO_INDIVIDUAL_VAO_ALLOC
-	data.individual_vao = new VAO(data.vbo_handle.vbo, data.indices_vbo_handle.index_vbo, data.vertex_spec);
-#endif
+	allocator.getOrCreateAndAssignVAOForMesh(data, data.vertex_spec);
 
 
 	// Now that data has been uploaded, free the buffers.

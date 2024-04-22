@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 class VertexBufferAllocator;
+class OpenGLMeshRenderData;
 
 
 // A reference-counted stucture, that calls allocator->free() when all references to it are destroyed.
@@ -39,14 +40,13 @@ struct BlockHandle : public RefCounted
 
 struct VertBufAllocationHandle
 {
-	VertBufAllocationHandle() {}
+	VertBufAllocationHandle() : base_vertex(-1) {}
 
 	VBORef vbo;
 	size_t vbo_id; // Used for sorting batch draws by VBO used.
-	size_t per_spec_data_index; // Index into VertexBufferAllocator::per_spec_data
 	size_t offset; // offset in VBO, in bytes
 	size_t size; // size of allocation
-	int base_vertex;
+	int base_vertex; // offset to be added to indices when getting vertex data
 
 	Reference<BlockHandle> block_handle;
 
@@ -60,7 +60,6 @@ struct IndexBufAllocationHandle
 
 	VBORef index_vbo;
 	size_t vbo_id; // Used for sorting batch draws by VBO used.
-	//size_t per_spec_data_index;
 	size_t offset; // offset in VBO, in bytes
 	size_t size; // size of allocation
 
@@ -70,7 +69,10 @@ struct IndexBufAllocationHandle
 };
 
 
-// This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
+// This is for the Mac, that can't easily do VAO sharing among multiple meshes due to having to use glVertexAttribPointer().
+// In this case we allocate, for each mesh, a unique VBO for vertex data, a unique VBO for index data, and a unique VAO.
+//
+// Also tried having a unique VAO per mesh, using shared VBOs (multiple mesh data in a single VBO), but was hitting severe slowdowns in WebGL on Chrome and Firefox.
 #if defined(OSX) || defined(EMSCRIPTEN)
 #define DO_INDIVIDUAL_VAO_ALLOC 1
 #else
@@ -99,10 +101,17 @@ public:
 	VertexBufferAllocator(bool use_grouped_vbo_allocator);
 	~VertexBufferAllocator();
 
+	VertBufAllocationHandle allocateVertexDataSpace(size_t vert_stride, const void* vert_data, size_t vert_data_size_B);
 
-	VertBufAllocationHandle allocate(const VertexSpec& vertex_spec, const void* data, size_t size);
+	IndexBufAllocationHandle allocateIndexDataSpace(const void* index_data, size_t index_data_size_B);
 
-	IndexBufAllocationHandle allocateIndexData(const void* data, size_t size);
+	// Sets mesh_data_in_out.vao_data_index or mesh_data_in_out.individual_vao
+	void getOrCreateAndAssignVAOForMesh(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec);
+
+	// Combines allocateVertexDataSpace(), allocateIndexDataSpace() and getOrCreateAndAssignVAOForMesh() calls.
+	void allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec, const void* vert_data, size_t vert_data_size_B,
+		const void* index_data, size_t index_data_size_B);
+
 
 	std::string getDiagnostics() const;
 
@@ -111,10 +120,9 @@ private:
 public:
 	
 	// Data per vertex specification
-	struct PerSpecData
+	struct VAOData
 	{
 		VAORef vao;
-		//size_t next_offset;
 	};
 
 
@@ -124,8 +132,19 @@ public:
 		Reference<glare::BestFitAllocator> allocator;
 	};
 
-	std::map<VertexSpec, int> per_spec_data_index; // Map from vertex spec to index into per_spec_data
-	std::vector<PerSpecData> per_spec_data;
+	struct VAOKey
+	{
+		VertexSpec vertex_spec;
+
+		bool operator < (const VAOKey& b) const
+		{
+			return vertex_spec < b.vertex_spec;
+		}
+	};
+
+	std::map<VAOKey, int> vao_map; // Map from VAOKey to index into vao_data;
+
+	std::vector<VAOData> vao_data;
 
 	std::vector<VBOAndAllocator> vert_vbos;
 

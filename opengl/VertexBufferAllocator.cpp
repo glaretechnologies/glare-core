@@ -7,11 +7,14 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "IncludeOpenGL.h"
+#include "OpenGLMeshRenderData.h"
+#include "../graphics/BatchedMesh.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
 #include "../utils/RuntimeCheck.h"
 #include "../utils/ConPrint.h"
 #include "../maths/mathstypes.h"
+#include <Vector.h>
 
 
 VertexBufferAllocator::VertexBufferAllocator(bool use_grouped_vbo_allocator_)
@@ -28,40 +31,64 @@ VertexBufferAllocator::~VertexBufferAllocator()
 }
 
 
-VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex_spec, const void* vbo_data, size_t size)
+void VertexBufferAllocator::allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec, const void* vert_data, size_t vert_data_size_B, 
+	const void* index_data, size_t index_data_size_B)
+{
+	mesh_data_in_out.vbo_handle = allocateVertexDataSpace(vertex_spec.vertStride(), vert_data, vert_data_size_B);
+
+	mesh_data_in_out.indices_vbo_handle = allocateIndexDataSpace(index_data, index_data_size_B);
+
+	getOrCreateAndAssignVAOForMesh(mesh_data_in_out, vertex_spec);
+}
+
+
+void VertexBufferAllocator::getOrCreateAndAssignVAOForMesh(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec)
 {
 	vertex_spec.checkValid();
 
+#if DO_INDIVIDUAL_VAO_ALLOC
+	mesh_data_in_out.individual_vao = new VAO(mesh_data_in_out.vbo_handle.vbo, mesh_data_in_out.indices_vbo_handle.index_vbo, vertex_spec);
+#else
+
+	VAOKey key;
+	key.vertex_spec = vertex_spec;
+
+	auto res = vao_map.find(key);
+	size_t use_vao_data_index;
+	if(res == vao_map.end())
+	{
+		// This is a new vertex specification we don't have a VAO for.
+
+		use_vao_data_index = vao_data.size();
+
+		VAOData new_data;
+		new_data.vao = new VAO(vertex_spec); // Allocate new VAO
+		vao_data.push_back(new_data);
+
+		vao_map.insert(std::make_pair(key, (int)use_vao_data_index));
+	}
+	else
+		use_vao_data_index = res->second;
+
+	mesh_data_in_out.vao_data_index = (uint32)use_vao_data_index;
+
+#endif // end if !DO_INDIVIDUAL_VAO_ALLOC
+}
+
+
+VertBufAllocationHandle VertexBufferAllocator::allocateVertexDataSpace(size_t vert_stride, const void* vbo_data, size_t size)
+{
 #if DO_INDIVIDUAL_VAO_ALLOC
 	// This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
 	VertBufAllocationHandle handle;
 	handle.vbo = new VBO(vbo_data, size);
 	handle.vbo_id = 0;
-	handle.per_spec_data_index = 0;
 	handle.offset = 0;
 	handle.size = size;
 	handle.base_vertex = 0;
 	return handle;
 
-#else
-
-	auto res = per_spec_data_index.find(vertex_spec);
-	size_t use_per_spec_data_index;
-	if(res == per_spec_data_index.end())
-	{
-		// This is a new vertex specification we don't have a VAO for.
-
-		use_per_spec_data_index = per_spec_data.size();
-
-		PerSpecData new_data;
-		new_data.vao = new VAO(vertex_spec);
-		//new_data.next_offset = 0;
-		per_spec_data.push_back(new_data);
-
-		per_spec_data_index.insert(std::make_pair(vertex_spec, (int)use_per_spec_data_index));
-	}
-	else
-		use_per_spec_data_index = res->second;
+#else // else if !DO_INDIVIDUAL_VAO_ALLOC:
 
 	if(!use_grouped_vbo_allocator)
 	{
@@ -69,7 +96,6 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		VertBufAllocationHandle handle;
 		handle.vbo = new VBO(vbo_data, size);
 		handle.vbo_id = 0;
-		handle.per_spec_data_index = use_per_spec_data_index;
 		handle.offset = 0;
 		handle.size = size;
 		handle.base_vertex = 0;
@@ -77,12 +103,6 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 	}
 	else
 	{
-		PerSpecData& data = per_spec_data[use_per_spec_data_index];
-
-		const size_t vert_stride = data.vao->vertex_spec.attributes[0].stride;
-		
-
-
 		//----------------------------- Allocate from VBO -------------------------------
 		// Iterate over existing VBOs to see if we can allocate in that VBO
 		VBORef used_vbo;
@@ -126,27 +146,28 @@ VertBufAllocationHandle VertexBufferAllocator::allocate(const VertexSpec& vertex
 		//-------------------------------------------------------------------------------
 
 
+		if(vbo_data)
+			used_vbo->updateData(used_block->aligned_offset, vbo_data, size);
+
+
+		const int base_vertex = (int)(used_block->aligned_offset / vert_stride);
 
 		VertBufAllocationHandle handle;
 		handle.block_handle = new BlockHandle(used_block);
 		runtimeCheck(handle.block_handle->block->aligned_offset % vert_stride == 0);
 		handle.vbo = used_vbo;
 		handle.vbo_id = used_vbo_id;
-		handle.per_spec_data_index = use_per_spec_data_index;
 		handle.offset = handle.block_handle->block->aligned_offset;
 		handle.size = size;
-		handle.base_vertex = (int)(handle.block_handle->block->aligned_offset / vert_stride);
-
-		if(vbo_data)
-			used_vbo->updateData(handle.block_handle->block->aligned_offset, vbo_data, size);
+		handle.base_vertex = base_vertex;
 
 		return handle;
 	}
-#endif
+#endif // end if !DO_INDIVIDUAL_VAO_ALLOC
 }
 
 
-IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* data, size_t size)
+IndexBufAllocationHandle VertexBufferAllocator::allocateIndexDataSpace(const void* data, size_t size)
 {
 #if DO_INDIVIDUAL_VAO_ALLOC
 
@@ -220,7 +241,8 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 		handle.index_vbo = used_vbo;// indices_vbo;
 		handle.vbo_id = used_vbo_id;
 
-		used_vbo->updateData(handle.block_handle->block->aligned_offset, data, size);
+		if(data != NULL)
+			used_vbo->updateData(handle.block_handle->block->aligned_offset, data, size);
 
 		return handle;
 	}
@@ -231,7 +253,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexData(const void* da
 std::string VertexBufferAllocator::getDiagnostics() const
 {
 	std::string s;
-	s += "VAOs: " + toString(per_spec_data.size()) + "\n";
+	s += "VAOs: " + toString(vao_data.size()) + "\n";
 	s += "use_VBO_size: " + getNiceByteSize(use_VBO_size_B) + "\n";
 	s += "Vert VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";
 	s += "Index VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";

@@ -89,6 +89,7 @@ struct VertexSpec
 		return false;
 	}
 
+	size_t vertStride() const { return attributes.empty() ? 0 : attributes[0].stride; }
 	void checkValid() const;
 };
 
@@ -102,7 +103,7 @@ class VAO : public RefCounted
 {
 public:
 	VAO(const VertexSpec& vertex_spec);
-	VAO(const Reference<VBO>& vertex_data, Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec);
+	VAO(const Reference<VBO>& vertex_data, const Reference<VBO>& vert_indices_buf, const VertexSpec& vertex_spec);
 	~VAO();
 
 	void bindVertexArray() const;

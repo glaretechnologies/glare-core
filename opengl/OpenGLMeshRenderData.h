@@ -57,6 +57,8 @@ public:
 
 	VertBufAllocationHandle vbo_handle;
 
+	uint32 vao_data_index; // Index into VertexBufferAllocator::vao_data
+
 	glare::AllocatorVector<uint32, 16> vert_index_buffer;
 	glare::AllocatorVector<uint16, 16> vert_index_buffer_uint16;
 	glare::AllocatorVector<uint8, 16> vert_index_buffer_uint8;

@@ -1169,7 +1169,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSpriteQuad(VertexBuff
 	aabb_os.min_ -= Vec4f(imposter_width, imposter_width, imposter_width, 0);
 	aabb_os.max_ += Vec4f(imposter_width, imposter_width, imposter_width, 0);
 
-	mesh_data->vbo_handle = allocator.allocate(mesh_data->vertex_spec, temp_vert_data.data(), temp_vert_data.size());
+	mesh_data->vbo_handle = allocator.allocateVertexDataSpace(mesh_data->vertex_spec.vertStride(), temp_vert_data.data(), temp_vert_data.size());
 
 	// Build index data
 	//glare::BumpAllocation temp_index_data(sizeof(uint16) * N * 6, /*alignment=*/8, bump_allocator);
@@ -1198,11 +1198,9 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSpriteQuad(VertexBuff
 		indices[offset + 5] = (uint16)(i * 4 + 3); // top left
 	}
 
-	meshdata.indices_vbo_handle = allocator.allocateIndexData(indices, temp_index_data.size() * sizeof(uint16));
+	meshdata.indices_vbo_handle = allocator.allocateIndexDataSpace(indices, temp_index_data.size() * sizeof(uint16));
 
-#if DO_INDIVIDUAL_VAO_ALLOC
-	meshdata.individual_vao = new VAO(meshdata.vbo_handle.vbo, meshdata.indices_vbo_handle.index_vbo, meshdata.vertex_spec);
-#endif
+	allocator.getOrCreateAndAssignVAOForMesh(meshdata, mesh_data->vertex_spec);
 
 	meshdata.aabb_os = aabb_os;
 
