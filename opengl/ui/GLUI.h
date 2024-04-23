@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <string>
 #include <set>
 
+#include "C:/programming\substrata\trunk\gui_client\UIEvents.h" // TEMP
 
 class GLUIMouseWheelEvent;
 
@@ -46,6 +47,8 @@ public:
 	bool handleMouseClick(const Vec2f& gl_coords); // Returns true if event accepted (e.g. should not be passed on)
 	bool handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEvent& event);
 	bool handleMouseMoved(const Vec2f& gl_coords);
+	void handleKeyPressedEvent(const KeyEvent& key_event);
+
 	void viewportResized(int w, int h);
 
 	// To get click events:
@@ -62,6 +65,8 @@ public:
 
 	TextRendererFontFace* getBestMatchingFont(int font_size_px, bool emoji);
 
+	void setKeyboardFocusWidget(GLUIWidgetRef widget) { key_focus_widget = widget; }
+
 	Reference<OpenGLEngine> opengl_engine;
 	std::vector<TextRendererFontFaceRef> fonts; // Should be in ascending font size order
 	std::vector<TextRendererFontFaceRef> emoji_fonts; // Should be in ascending font size order
@@ -72,6 +77,8 @@ private:
 	GLARE_DISABLE_COPY(GLUI);
 
 	std::set<GLUIWidgetRef> widgets;
+
+	GLUIWidgetRef key_focus_widget;
 
 	OverlayObjectRef tooltip_overlay_ob;
 

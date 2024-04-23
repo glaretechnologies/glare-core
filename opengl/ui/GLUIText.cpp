@@ -28,7 +28,7 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 
 	botleft = botleft_;
 	text = text_;
-	z = -0.999f;
+	z = args.z;
 
 
 	// Get the best matching font for font size.  Use last font before the next font is too big.

@@ -102,7 +102,7 @@ void GLUITextView::updateBackgroundOverlayObTransform(GLUI& glui)
 		const Vec2f lower_left_pos = text_lower_left_pos - Vec2f(margin_x, margin_y);
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-		const float z = -0.998f;
+		const float z = 0.1f;
 		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(lower_left_pos.x, lower_left_pos.y * y_scale, z) * Matrix4f::scaleMatrix(background_w, background_h * y_scale, 1);
 	}
 }

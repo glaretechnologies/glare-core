@@ -35,6 +35,7 @@ Copyright Glare Technologies Limited 2023 -
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #endif
+#include <ui/GLUILineEdit.h>
 
 
 #if !defined(EMSCRIPTEN)
@@ -339,6 +340,17 @@ int main(int, char**)
 			gl_ui->addWidget(text_view);
 		}
 
+		// Add a line edit box
+		{
+			GLUILineEditRef line_edit = new GLUILineEdit();
+			GLUILineEdit::GLUILineEditCreateArgs create_args;
+			create_args.font_size_px = 24;
+			line_edit->create(*gl_ui, opengl_engine, /*botleft=*/Vec2f(0.0f, -0.1f), create_args);
+
+			gl_ui->addWidget(line_edit);
+		}
+
+
 
 
 		//for(int i=0; i<10000; ++i)
@@ -426,7 +438,7 @@ int main(int, char**)
 		GLTFLoadedData gltf_data;
 		Timer timer2;
 		//BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile("C:\\Users\\nick\\Downloads\\SciFiHelmet.gltf", gltf_data);
-		BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile(model_dir + "/DamagedHelmet.gltf", gltf_data);
+		BatchedMeshRef batched_mesh;// = FormatDecoderGLTF::loadGLTFFile(model_dir + "/DamagedHelmet.gltf", gltf_data);
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\files\\Saeule_6row_obj_4065354431801582820.bmesh");
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\room2_WindowsFLAT_glb_13600392068904710101.bmesh");
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\Station_Cleaned__OMPTIMIZED__CENTRAL_FLIPPED__noBin_glb_13427799269604943069.bmesh");
@@ -436,7 +448,7 @@ int main(int, char**)
 		//batched_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target reduction ratio=*/10.0f, /*target error=*/1.0f, /*sloppy=*/false);
 
 
-		OpenGLMeshRenderDataRef test_mesh_data = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
+		OpenGLMeshRenderDataRef test_mesh_data;// = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
 		//OpenGLMeshRenderDataRef test_mesh_data = MeshPrimitiveBuilding::makeCubeMesh(*opengl_engine->vert_buf_allocator);
 		
 		PCG32 rng(1);
@@ -646,6 +658,86 @@ int main(int, char**)
 }
 
 
+static inline Key getKeyForSDLKey(SDL_Keycode sym)
+{
+	switch(sym)
+	{
+	case SDLK_ESCAPE: return Key_Escape;
+	case SDLK_BACKSPACE: return Key_Backspace;
+	case SDLK_DELETE: return Key_Delete;
+	case SDLK_SPACE: return Key_Space;
+	case SDLK_LEFTBRACKET: return Key_LeftBracket;
+	case SDLK_RIGHTBRACKET: return Key_RightBracket;
+	case SDLK_PAGEUP: return Key_PageUp;
+	case SDLK_PAGEDOWN: return Key_PageDown;
+	case SDLK_EQUALS: return Key_Equals;
+	case SDLK_PLUS: return Key_Plus;
+	case SDLK_MINUS: return Key_Minus;
+	case SDLK_LEFT: return Key_Left;
+	case SDLK_RIGHT: return Key_Right;
+	case SDLK_UP: return Key_Up;
+	case SDLK_DOWN: return Key_Down;
+	default: break;
+	};
+
+	if(sym >= SDLK_a && sym <= SDLK_z)
+		return (Key)(Key_A + (sym - SDLK_a));
+
+	if(sym >= SDLK_0 && sym <= SDLK_9)
+		return (Key)(Key_0 + (sym - SDLK_0));
+
+	if(sym >= SDLK_F1 && sym <= SDLK_F12)
+		return (Key)(Key_F1 + (sym - SDLK_F1));
+
+	return Key_None;
+}
+
+
+static uint32 convertSDLModifiers(SDL_Keymod sdl_keymod)
+{
+	uint32 modifiers = 0;
+	if((sdl_keymod & SDL_Keymod::KMOD_ALT) != 0)
+		modifiers |= Modifiers::Alt;
+	if((sdl_keymod & SDL_Keymod::KMOD_CTRL) != 0)
+		modifiers |= Modifiers::Ctrl;
+	if((sdl_keymod & SDL_Keymod::KMOD_SHIFT) != 0)
+		modifiers |= Modifiers::Shift;
+	return modifiers;
+}
+
+
+static void convertFromSDKKeyEvent(SDL_Event ev, KeyEvent& key_event)
+{
+	key_event.key = getKeyForSDLKey(ev.key.keysym.sym);
+	key_event.native_virtual_key = 0; // TODO
+	// TODO: set key_event.text
+
+	if(key_event.key >= Key_A && key_event.key <= Key_Z)
+		key_event.text = std::string(1, 'a' + (key_event.key - Key_A));
+
+	key_event.modifiers = convertSDLModifiers((SDL_Keymod)ev.key.keysym.mod);
+}
+
+
+static Vec2f GLCoordsForGLWidgetPos(OpenGLEngine& gl_engine, const Vec2f widget_pos)
+{
+	const int vp_width  = gl_engine.getViewPortWidth();
+	const int vp_height = gl_engine.getViewPortHeight();
+
+
+	const int device_pixel_ratio = 1; // TEMP main_window->ui->glWidget->devicePixelRatio(); // For retina screens this is 2, meaning the gl viewport width is in physical pixels, of which have twice the density of qt pixel coordinates.
+	const int use_vp_width  = vp_width  / device_pixel_ratio;
+	const int use_vp_height = vp_height / device_pixel_ratio;
+
+
+	return Vec2f(
+		(widget_pos.x - use_vp_width /2) / (use_vp_width /2),
+		-(widget_pos.y - use_vp_height/2) / (use_vp_height/2)
+	);
+}
+
+
+
 static void doOneMainLoopIter(/*double time, void *userData*/)
 {
 	//conPrint("doOneMainLoopIter");
@@ -783,6 +875,8 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 			const Vec4f right = normalise(crossProduct(forwards, Vec4f(0,0,1,0)));
 			const Vec4f up = crossProduct(right, forwards);
 
+			bool imgui_captures_mouse_ev = false;
+
 			// Handle any events
 			SDL_Event e;
 			while(SDL_PollEvent(&e))
@@ -818,6 +912,11 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 				{
 					if(e.key.keysym.sym == SDLK_r)
 						reset = true;
+
+					KeyEvent key_event;
+					convertFromSDKKeyEvent(e, key_event);
+
+					gl_ui->handleKeyPressedEvent(key_event);
 				}
 				else if(e.type == SDL_MOUSEMOTION)
 				{
@@ -832,6 +931,51 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 				{
 					const float move_speed = 3.f;
 					cam_pos += forwards * (float)e.wheel.y * move_speed;
+				}
+				else if(e.type == SDL_MOUSEBUTTONDOWN)
+				{
+					if(!imgui_captures_mouse_ev)
+					{
+						// conPrint("SDL_MOUSEBUTTONDOWN, pos: " + Vec2i(e.button.x, e.button.y).toString() + ", clicks: " + toString(e.button.clicks));
+
+						//SDL_GetMouseState(&mouse_move_origin.x, &mouse_move_origin.y);
+
+						MouseEvent mouse_event;
+						mouse_event.cursor_pos = Vec2i(e.button.x, e.button.y);
+						mouse_event.gl_coords = GLCoordsForGLWidgetPos(*opengl_engine, Vec2f((float)e.button.x, (float)e.button.y));
+						//mouse_event.button = convertSDLMouseButton(e.button.button);
+						//mouse_event.modifiers = convertSDLModifiers(SDL_GetModState());
+
+						gl_ui->handleMouseClick(mouse_event.gl_coords);
+
+						if(e.button.clicks == 1) // Single click:
+						{
+							//SDL_SetRelativeMouseMode(SDL_TRUE);
+						}
+						else if(e.button.clicks == 2) // Double click:
+						{
+							//gui_client->doObjectSelectionTraceForMouseEvent(mouse_event);
+						}
+					}
+				}
+				else if(e.type == SDL_MOUSEBUTTONUP)
+				{
+					if(!imgui_captures_mouse_ev)
+					{
+						// conPrint("SDL_MOUSEBUTTONUP, pos: " + Vec2i(e.button.x, e.button.y).toString() + ", clicks: " + toString(e.button.clicks));
+
+						if(e.button.clicks == 1) // Single click:
+						{
+							SDL_SetRelativeMouseMode(SDL_FALSE);
+
+							MouseEvent mouse_event;
+							mouse_event.cursor_pos = Vec2i(e.button.x, e.button.y);
+							mouse_event.gl_coords = GLCoordsForGLWidgetPos(*opengl_engine, Vec2f((float)e.button.x, (float)e.button.y));
+							//mouse_event.button = convertSDLMouseButton(e.button.button);
+							///mouse_event.modifiers = convertSDLModifiers(SDL_GetModState());
+							//gui_client->mouseClicked(mouse_event);
+						}
+					}
 				}
 			}
 

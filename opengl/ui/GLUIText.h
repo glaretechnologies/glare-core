@@ -30,10 +30,11 @@ public:
 	// botleft is in GL UI coords (see GLUI.h)
 	struct GLUITextCreateArgs
 	{
-		GLUITextCreateArgs() : colour(1.f), alpha(1.f), font_size_px(20) {}
+		GLUITextCreateArgs() : colour(1.f), alpha(1.f), font_size_px(20), z(0) {}
 
 		Colour3f colour;
 		float alpha;
+		float z; // -1 = near clip plane, 1 = far clip plane
 		int font_size_px;
 	};
 

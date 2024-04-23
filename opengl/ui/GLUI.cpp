@@ -170,6 +170,16 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 }
 
 
+void GLUI::handleKeyPressedEvent(const KeyEvent& key_event)
+{
+	// Pass event on to the widget with keyboard focus, if any
+	if(key_focus_widget.nonNull())
+	{
+		key_focus_widget->handleKeyPressedEvent(key_event);
+	}
+}
+
+
 void GLUI::viewportResized(int /*w*/, int /*h*/)
 {
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
