@@ -66,7 +66,7 @@ public:
 
 	SizeInfo getTextSize(const string_view text);
 
-	int getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest ‘character’ coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
+	float getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest ‘character’ coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
 	// NOTE: doesn't seem to take font size into account.
 
 	int getFontSizePixels() const { return font_size_pixels; }

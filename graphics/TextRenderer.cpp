@@ -158,7 +158,18 @@ TextRendererFontFace::TextRendererFontFace(TextRendererRef renderer_, const std:
 		throw glare::Exception("TextRendererFontFace: FT_New_Face failed for font '" + 
 			font_file_path + "': " + getFreeTypeErrorString(error));
 
-	error = FT_Set_Pixel_Sizes(face, /*char width=*/font_size_pixels, /*char height=*/0);
+	// FT_Set_Pixel_Sizes doesn't give accurate sizes, something to do with FreeType getting confused with resolutions.  See https://stackoverflow.com/questions/60061441/freetype-correct-size-rendering
+	//error = FT_Set_Pixel_Sizes(face, /*char width=*/font_size_pixels, /*char height=*/0);
+
+	// Use FT_Set_Char_Size with resolution = 96 ppi which seems to give correct results.
+	error = FT_Set_Char_Size(
+		face, // handle to face object
+		0,    // char_width in 1/64th of points
+		font_size_pixels * 64,   // char_height in 1/64th of points
+		96, // horizontal device resolution
+		96  // vertical device resolution
+	);
+
 	if(error != FT_Err_Ok)
 		throw glare::Exception("FT_Set_Char_Size failed: " + getFreeTypeErrorString(error));
 }
@@ -279,9 +290,9 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 }
 
 
-int TextRendererFontFace::getFaceAscender()
+float TextRendererFontFace::getFaceAscender()
 {
-	return face->ascender / 64;
+	return font_size_pixels * (float)face->ascender / (float)face->units_per_EM;
 }
 
 
