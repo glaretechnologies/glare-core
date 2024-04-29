@@ -82,6 +82,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIText.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIText.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/FontCharTexCache.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/FontCharTexCache.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUILineEdit.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUILineEdit.h
 )
 
 

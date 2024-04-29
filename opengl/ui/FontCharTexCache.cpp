@@ -20,22 +20,28 @@ FontCharTexCache::~FontCharTexCache()
 }
 
 
-CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFace* font, TextRendererFontFace* emoji_font, const string_view charstring)
+static inline bool codePointIsEmoji(uint32 code_point)
+{
+	return code_point >= 0x1F32; // TODO: improve this.  Emojis are not one continuous block, see https://en.wikipedia.org/wiki/Emoji#In_Unicode
+}
+
+
+CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const string_view charstring, int font_size_px)
 {
 	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(charstring);
-	const bool is_emoji = code_point >= 0x1F32; // TODO: improve this.  Emojis are not one continuous block, see https://en.wikipedia.org/wiki/Emoji#In_Unicode
-	TextRendererFontFace* use_font = is_emoji ? emoji_font : font;
+	const bool is_emoji = codePointIsEmoji(code_point);
 
 	FontCharKey key;
 	key.charstring = toString(charstring);
-	key.font = use_font;
+	key.is_emoji_font = is_emoji;
+	key.font_size_px = font_size_px;
 
 	auto res = char_to_tex_info_map.find(key);
 	if(res != char_to_tex_info_map.end())
 		return res->second;
 	else
 	{
-		CharTexInfo tex_info = makeCharTexture(opengl_engine, font, emoji_font, charstring);
+		CharTexInfo tex_info = makeCharTexture(opengl_engine, fonts, emoji_fonts, charstring, font_size_px);
 		char_to_tex_info_map[key] = tex_info;
 		return tex_info;
 	}
@@ -85,13 +91,19 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 	// Update OpenGL texture
 	const size_t region_w = size_info.getSize().x + margin_px*2;
 	const size_t region_h = size_info.getSize().y + margin_px*2;
-	atlas->tex->loadRegionIntoExistingTexture(/*mipmap level=*/0, topleft.x, topleft.y, /*region w=*/region_w, /*region h=*/region_h, 
-		atlas->imagemap->getWidth() * atlas->imagemap->getN(), // row stride (B)
-		ArrayRef<uint8>(atlas->imagemap->getPixel(topleft.x, topleft.y), /*len=*/region_h * atlas->imagemap->getWidth() * atlas->imagemap->getN()), /*bind needed=*/true);
 
+	const size_t row_stride_B = atlas->imagemap->getWidth() * atlas->imagemap->getN();
+
+#if !defined(EMSCRIPTEN)
+	// NOTE: On web/emscripten this gives the error 'WebGL: INVALID_OPERATION: texSubImage2D: ArrayBufferView not big enough for request' on web, work out what is happening.
+	// I can't see any errors on my side.
+	atlas->tex->loadRegionIntoExistingTexture(/*mipmap level=*/0, topleft.x, topleft.y, /*region w=*/region_w, /*region h=*/region_h, 
+		row_stride_B, ArrayRef<uint8>(atlas->imagemap->getPixel(topleft.x, topleft.y), /*len=*/region_h * atlas->imagemap->getWidth() * atlas->imagemap->getN()), /*bind needed=*/true);
+#else
 	// TEMP: update whole texture (for debugging)
-	//atlas->tex->loadIntoExistingTexture(/*mipmap level=*/0, atlas->imagemap->getWidth(), atlas->imagemap->getHeight(), /*row stride (B)=*/atlas->imagemap->getHeight() * atlas->imagemap->getN(), 
-	//	ArrayRef<uint8>(atlas->imagemap->getData(), atlas->imagemap->getDataSize()), /*bind needed=*/true);
+	atlas->tex->loadIntoExistingTexture(/*mipmap level=*/0, atlas->imagemap->getWidth(), atlas->imagemap->getHeight(), /*row stride (B)=*/atlas->imagemap->getHeight() * atlas->imagemap->getN(), 
+		ArrayRef<uint8>(atlas->imagemap->getData(), atlas->imagemap->getDataSize()), /*bind needed=*/true);
+#endif
 
 	CharTexInfo res;
 	res.size_info = size_info;
@@ -107,11 +119,14 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 }
 
 
-CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFace* text_renderer_font_, TextRendererFontFace* text_renderer_emoji_font_, const string_view charstring)
+CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts_, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts_, 
+	const string_view charstring, int font_size_px)
 {
 	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(charstring);
-	const bool is_emoji = code_point >= 0x1F32; // TODO: improve this.  Emojis are not one continuous block, see https://en.wikipedia.org/wiki/Emoji#In_Unicode
-	TextRendererFontFace* use_font = is_emoji ? text_renderer_emoji_font_ : text_renderer_font_;
+	const bool is_emoji = codePointIsEmoji(code_point);
+	TextRendererFontFaceSizeSet* use_font_set = is_emoji ? text_renderer_emoji_fonts_ : text_renderer_fonts_;
+
+	TextRendererFontFaceRef use_font = use_font_set->getFontFaceForSize(font_size_px);
 
 	const TextRendererFontFace::SizeInfo size_info = use_font->getTextSize(charstring);
 
@@ -137,7 +152,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 				{
 					// Enough room for char
 					// Draw character onto image map
-					return drawIntoRowPosition(atlas, &row, row.next_topleft_coords, opengl_engine, use_font, charstring, size_info);
+					return drawIntoRowPosition(atlas, &row, row.next_topleft_coords, opengl_engine, use_font.ptr(), charstring, size_info);
 				}
 			}
 
@@ -154,7 +169,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 				new_row_info.max_y = next_row_start_i.y;
 				atlas->rows.push_back(new_row_info);
 
-				return drawIntoRowPosition(atlas, &atlas->rows.back(), next_row_start_i, opengl_engine, use_font, charstring, size_info);
+				return drawIntoRowPosition(atlas, &atlas->rows.back(), next_row_start_i, opengl_engine, use_font.ptr(), charstring, size_info);
 			}
 
 		}

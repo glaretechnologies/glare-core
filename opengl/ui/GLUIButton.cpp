@@ -42,7 +42,7 @@ static const Colour3f button_colour(1.f);
 static const Colour3f mouseover_button_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-void GLUIButton::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
+void GLUIButton::create(GLUI& /*glui*/, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
 	const std::string& tooltip_)
 {
 	opengl_engine = opengl_engine_;

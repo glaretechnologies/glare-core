@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Mutex.h"
 #include "../utils/string_view.h"
 #include <string>
+#include <map>
 
 
 struct FT_LibraryRec_;
@@ -53,6 +54,7 @@ public:
 	// Draw text at (x, y).
 	// The y coordinate give the position of the text baseline.
 	// Col is used if the font is greyscale.  If the font is a colour font (e.g. Emoji), the font colour is used.
+	// Throws glare::Exception on failure, for example on invalid UTF-8 string.
 	void drawText(ImageMapUInt8& map, const string_view text, int x, int y, const Colour3f& col);
 
 	struct SizeInfo
@@ -64,10 +66,10 @@ public:
 		float hori_advance; // Number of pixels to advance drawing location after drawing string.  See https://freetype.org/freetype2/docs/tutorial/step2.html
 	};
 
+	// Throws glare::Exception on failure, for example on invalid UTF-8 string.
 	SizeInfo getTextSize(const string_view text);
 
 	float getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest ‘character’ coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
-	// NOTE: doesn't seem to take font size into account.
 
 	int getFontSizePixels() const { return font_size_pixels; }
 	
@@ -79,3 +81,20 @@ public:
 
 
 typedef Reference<TextRendererFontFace> TextRendererFontFaceRef;
+
+
+
+class TextRendererFontFaceSizeSet : public ThreadSafeRefCounted
+{
+public:
+	TextRendererFontFaceSizeSet(TextRendererRef renderer, const std::string& font_file_path);
+
+	TextRendererFontFaceRef getFontFaceForSize(int font_size_pixels);
+
+	std::string font_file_path;
+	std::map<int, TextRendererFontFaceRef> fonts_for_size;
+	TextRendererRef renderer;
+};
+
+typedef Reference<TextRendererFontFaceSizeSet> TextRendererFontFaceSizeSetRef;
+

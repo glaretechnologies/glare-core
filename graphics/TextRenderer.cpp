@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/UTF8Utils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/RuntimeCheck.h"
+#include "../utils/Timer.h"
 #include <freetype/freetype.h>
 
 
@@ -25,6 +26,33 @@ TextRenderer::~TextRenderer()
 {
 	FT_Done_FreeType(library);
 }
+
+
+
+TextRendererFontFaceSizeSet::TextRendererFontFaceSizeSet(TextRendererRef renderer_, const std::string& font_file_path_)
+{
+	renderer = renderer_;
+	font_file_path = font_file_path_;
+}
+
+
+TextRendererFontFaceRef TextRendererFontFaceSizeSet::getFontFaceForSize(int font_size_pixels)
+{
+	Lock lock(renderer->mutex);
+
+	auto res = fonts_for_size.find(font_size_pixels);
+	if(res == fonts_for_size.end())
+	{
+		//Timer timer;
+		TextRendererFontFaceRef font = new TextRendererFontFace(renderer, font_file_path, font_size_pixels);
+		//conPrint("Creating font took " + timer.elapsedStringMSWIthNSigFigs(4));
+		fonts_for_size[font_size_pixels] = font;
+		return font;
+	}
+	else
+		return res->second;
+}
+
 
 
 static void drawCharToBitmap(ImageMapUInt8& map,
@@ -187,13 +215,13 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 
 	FT_GlyphSlot slot = face->glyph;
 
-	// The pen position in 26.6 cartesian space coordinates
+	// The pen position in 26.6 fixed-point cartesian space coordinates
 	FT_Vector pen;
 	pen.x = 0;
 	pen.y = 0;
 
 	FT_Matrix matrix;
-	matrix.xx = (FT_Fixed)(1.0 * 0x10000L);
+	matrix.xx = (FT_Fixed)(1.0 * 0x10000L); // Coords are in 16.16 fixed point
 	matrix.xy = (FT_Fixed)(0.0 * 0x10000L);
 	matrix.yx = (FT_Fixed)(0.0 * 0x10000L);
 	matrix.yy = (FT_Fixed)(1.0 * 0x10000L);
@@ -285,7 +313,7 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 	SizeInfo size_info;
 	size_info.min_bounds = min_bounds;
 	size_info.max_bounds = max_bounds;
-	size_info.hori_advance = pen.x / 64.f;
+	size_info.hori_advance = pen.x / 64.f; // Pen coords are in 26.6 fixed point coords, so divide by 64 to convert to float.
 	return size_info;
 }
 

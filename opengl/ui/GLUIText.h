@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../maths/Rect2.h"
 #include "../graphics/colour3.h"
 #include <string>
+#include <vector>
 
 
 class GLUI;
@@ -30,7 +31,7 @@ public:
 	// botleft is in GL UI coords (see GLUI.h)
 	struct GLUITextCreateArgs
 	{
-		GLUITextCreateArgs() : colour(1.f), alpha(1.f), font_size_px(20), z(0) {}
+		GLUITextCreateArgs() : colour(1.f), alpha(1.f), font_size_px(14), z(0) {}
 
 		Colour3f colour;
 		float alpha;
@@ -50,6 +51,15 @@ public:
 	// Call when e.g. viewport has changed
 	void updateGLTransform();
 
+	Vec2f getCharPos(GLUI& glui, int char_index) const; // Get position to lower left of unicode character with given index.
+
+	struct CharPositionInfo
+	{
+		Vec2f pos;
+		float hori_advance;
+	};
+	std::vector<CharPositionInfo> getCharPositions(GLUI& glui) const; // Get position to lower left of each unicode character.
+
 	Rect2f getRect() const { return rect; }
 
 	const Vec2f getDims() const { return rect.getMax() - rect.getMin(); } // In GL UI coords
@@ -62,6 +72,7 @@ private:
 
 	std::string text;
 	Colour3f text_colour;
+	int font_size_px;
 
 	Vec2f botleft; // In GL UI coords
 	float z;

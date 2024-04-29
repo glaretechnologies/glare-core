@@ -33,9 +33,16 @@ bool GLUIWidget::handleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheel
 	return doHandleMouseWheelEvent(coords, event);
 }
 
-void GLUIWidget::handleKeyPressedEvent(const KeyEvent& key_event)
+
+void GLUIWidget::handleKeyPressedEvent(KeyEvent& key_event)
 {
-	dohandleKeyPressedEvent(key_event);
+	doHandleKeyPressedEvent(key_event);
+}
+
+
+void GLUIWidget::handleTextInputEvent(TextInputEvent& text_input_event)
+{
+	doHandleTextInputEvent(text_input_event);
 }
 
 

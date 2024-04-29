@@ -31,7 +31,7 @@ static const Colour3f default_colour(1.f);
 static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-void GLUIImage::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
+void GLUIImage::create(GLUI& /*glui*/, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
 	const std::string& tooltip_, float z_)
 {
 	opengl_engine = opengl_engine_;

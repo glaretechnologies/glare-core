@@ -18,6 +18,8 @@ static const float TOOLTIP_Z = -0.999f; // -1 is near clip plane
 
 
 GLUI::GLUI()
+:	callbacks(NULL),
+	mouse_over_text_input_widget(false)
 {
 }
 
@@ -28,7 +30,7 @@ GLUI::~GLUI()
 }
 
 
-void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, const std::vector<TextRendererFontFaceRef>& fonts_, const std::vector<TextRendererFontFaceRef>& emoji_fonts_)
+void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, const TextRendererFontFaceSizeSetRef& fonts_, const TextRendererFontFaceSizeSetRef& emoji_fonts_)
 {
 	opengl_engine = opengl_engine_;
 	device_pixel_ratio = device_pixel_ratio_;
@@ -56,6 +58,16 @@ void GLUI::destroy()
 }
 
 
+void GLUI::think()
+{
+	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	{
+		GLUIWidget* widget = it->ptr();
+		widget->think(*this);
+	}
+}
+
+
 Vec2f GLUI::UICoordsForWindowPixelCoords(const Vec2f& pixel_coords)
 {
 	const Vec2f gl_coords(
@@ -74,6 +86,18 @@ Vec2f GLUI::UICoordsForOpenGLCoords(const Vec2f& gl_coords)
 }
 
 
+Vec2f GLUI::OpenGLCoordsForUICoords(const Vec2f& ui_coords)
+{
+	return Vec2f(ui_coords.x, ui_coords.y * opengl_engine->getViewPortAspectRatio());
+}
+
+
+float GLUI::OpenGLYScaleForUIYScale(float y_scale)
+{
+	return y_scale * opengl_engine->getViewPortAspectRatio();
+}
+
+
 bool GLUI::handleMouseClick(const Vec2f& gl_coords)
 {
 	const Vec2f coords = UICoordsForOpenGLCoords(gl_coords);
@@ -83,13 +107,21 @@ bool GLUI::handleMouseClick(const Vec2f& gl_coords)
 		GLUIWidget* widget = it->ptr();
 		const bool accepted = widget->handleMouseClick(coords);
 		if(accepted)
+		{
+			if(widget != key_focus_widget.ptr())
+				setKeyboardFocusWidget(NULL); // A widget that wasn't the one with keyboard focus accepted the click.  Remove keyboard focus from any widgets that had it.
+
 			return true;
+		}
 
 		//if(widget->rect.inOpenRectangle(coords)) // If the mouse is over the widget:
 		//{
 		//	return true;
 		//}
 	}
+
+	// No widget accepted the click event.  Remove keyboard focus from any widgets that had it.
+	setKeyboardFocusWidget(NULL);
 
 	return false;
 }
@@ -115,10 +147,11 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 {
 	// Convert from gl_coords to UI x/y coords
 	const float y_scale = 1 / opengl_engine->getViewPortAspectRatio();
-	const Vec2f coords(gl_coords.x, gl_coords.y * y_scale);
+	const Vec2f coords = UICoordsForOpenGLCoords(gl_coords);
 
 	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0); // Move offscreen by defualt.
 
+	bool new_mouse_over_text_input_widget = false;
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
@@ -163,19 +196,41 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 
 				tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_x, pos_y, TOOLTIP_Z) * Matrix4f::scaleMatrix(scale_x, scale_y, 1);
 			}
+
+			if(widget->acceptsTextInput())
+				new_mouse_over_text_input_widget = true;
 		}
+	}
+
+	// Update mouse_over_text_input_widget
+	if(new_mouse_over_text_input_widget != mouse_over_text_input_widget)
+	{
+		if(callbacks)
+			callbacks->setMouseCursor(new_mouse_over_text_input_widget ? GLUICallbacks::MouseCursor_IBeam : GLUICallbacks::MouseCursor_Arrow);
+
+		mouse_over_text_input_widget = new_mouse_over_text_input_widget;
 	}
 
 	return false;
 }
 
 
-void GLUI::handleKeyPressedEvent(const KeyEvent& key_event)
+void GLUI::handleKeyPressedEvent(KeyEvent& key_event)
 {
 	// Pass event on to the widget with keyboard focus, if any
 	if(key_focus_widget.nonNull())
 	{
 		key_focus_widget->handleKeyPressedEvent(key_event);
+	}
+}
+
+
+void GLUI::handleTextInputEvent(TextInputEvent& text_input_event)
+{
+	// Pass event on to the widget with keyboard focus, if any
+	if(key_focus_widget.nonNull())
+	{
+		key_focus_widget->handleTextInputEvent(text_input_event);
 	}
 }
 
@@ -190,7 +245,7 @@ void GLUI::viewportResized(int /*w*/, int /*h*/)
 }
 
 
-float GLUI::getViewportMinMaxY(Reference<OpenGLEngine>& opengl_engine)
+float GLUI::getViewportMinMaxY()
 {
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 	return 1 / y_scale;
@@ -207,7 +262,8 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 
 OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 {
-	TextRendererFontFaceRef font = fonts[myMin(1, (int)fonts.size() - 1)];
+	TextRendererFontFaceRef font = fonts->getFontFaceForSize(18);
+
 	const TextRendererFontFace::SizeInfo size_info = font->getTextSize(tooltip_text);
 
 	const int use_font_height = size_info.max_bounds.y; //text_renderer_font->getFontSizePixels();
@@ -228,36 +284,24 @@ OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 }
 
 
-// Get the best matching font for font size.  Use last font before the next font is too big.
-// E.g. with font sizes 18, 24, 36, 48, 60, 72,
-// If requested font_size_px = 20, then return font with size 18.
-TextRendererFontFace* GLUI::getBestMatchingFont(int font_size_px, bool emoji)
+TextRendererFontFace* GLUI::getFont(int font_size_px, bool emoji)
 {
-	assert(fonts.size() > 0);
-	assert(emoji_fonts.size() > 0);
-
 	if(emoji)
-	{
-		for(int i=0; i<(int)emoji_fonts.size(); ++i)
-		{
-			if(emoji_fonts[i]->font_size_pixels > font_size_px)
-			{
-				const int best_i = myMax(0, i-1);
-				return emoji_fonts[best_i].ptr();
-			}
-		}
-		return emoji_fonts.back().ptr();
-	}
+		return emoji_fonts->getFontFaceForSize(font_size_px).ptr();
 	else
+		return fonts->getFontFaceForSize(font_size_px).ptr();
+}
+
+
+void GLUI::setKeyboardFocusWidget(GLUIWidgetRef widget)
+{
+	key_focus_widget = widget;
+
+	if(callbacks)
 	{
-		for(int i=0; i<(int)fonts.size(); ++i)
-		{
-			if(fonts[i]->font_size_pixels > font_size_px)
-			{
-				const int best_i = myMax(0, i-1);
-				return fonts[best_i].ptr();
-			}
-		}
-		return fonts.back().ptr();
+		if(widget.nonNull())
+			callbacks->startTextInput();
+		else
+			callbacks->stopTextInput();
 	}
 }

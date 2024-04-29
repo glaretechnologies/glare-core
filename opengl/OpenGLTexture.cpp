@@ -728,14 +728,14 @@ void OpenGLTexture::loadIntoExistingTexture(int mipmap_level, size_t tex_xres, s
 }
 
 
-void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed)
+void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t src_row_stride_B, ArrayRef<uint8> src_tex_data, bool bind_needed)
 {
 	assert(mipmap_level < num_mipmap_levels_allocated);
 
 	if(bind_needed)
 		glBindTexture(GL_TEXTURE_2D, texture_handle);
 
-	if(tex_data.data() != NULL)
+	if(src_tex_data.data() != NULL)
 	{
 		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8 ||
 			format == Format_Compressed_BC6)
@@ -747,22 +747,22 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 				(GLsizei)y, // y offset
 				(GLsizei)region_w, (GLsizei)region_h, // width, height
 				gl_internal_format, // internal format
-				(GLsizei)tex_data.size(),
-				tex_data.data()
+				(GLsizei)src_tex_data.size(),
+				src_tex_data.data()
 			);
 		}
 		else
 		{
 			const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
 
-			assert(region_w * pixel_size_B <= row_stride_B);
-			assert(tex_data.size() >= row_stride_B * region_h);
+			assert(region_w * pixel_size_B <= src_row_stride_B);
+			assert(src_tex_data.size() >= src_row_stride_B * region_h);
+
+			setPixelStoreAlignment(src_tex_data.data(), src_row_stride_B);
 
 			// Set row stride if needed (not tightly packed)
-			if(row_stride_B != region_w * pixel_size_B) // If not tightly packed:
-				glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
-
-			setPixelStoreAlignment(tex_data.data(), row_stride_B);
+			if(src_row_stride_B != region_w * pixel_size_B) // If not tightly packed or region w != src image w:
+				glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(src_row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
 
 			glTexSubImage2D(
 				GL_TEXTURE_2D,
@@ -772,10 +772,10 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 				(GLsizei)region_w, (GLsizei)region_h,
 				gl_format,
 				gl_type,
-				tex_data.data()
+				src_tex_data.data()
 			);
 
-			if(row_stride_B != region_w * pixel_size_B)
+			if(src_row_stride_B != region_w * pixel_size_B)
 				glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
 		}
 	}

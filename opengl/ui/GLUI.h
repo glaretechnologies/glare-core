@@ -9,15 +9,16 @@ Copyright Glare Technologies Limited 2021 -
 #include "GLUIWidget.h"
 #include "FontCharTexCache.h"
 #include "../OpenGLEngine.h"
-#include "../graphics/TextRenderer.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
+#include "graphics/TextRenderer.h"
+#include "utils/RefCounted.h"
+#include "utils/Reference.h"
+#include "ui/UIEvents.h"
 #include <string>
 #include <set>
 
-#include "C:/programming\substrata\trunk\gui_client\UIEvents.h" // TEMP
 
 class GLUIMouseWheelEvent;
+class GLUICallbacks;
 
 
 /*=====================================================================
@@ -37,17 +38,22 @@ public:
 	~GLUI();
 
 	// device_pixel_ratio is basically a scale factor for sizes in pixels.
-	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, const std::vector<TextRendererFontFaceRef>& fonts, const std::vector<TextRendererFontFaceRef>& emoji_fonts);
+	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, const TextRendererFontFaceSizeSetRef& fonts, const TextRendererFontFaceSizeSetRef& emoji_fonts);
 
 	void destroy();
 
+	void think();
+
 	Vec2f UICoordsForWindowPixelCoords(const Vec2f& pixel_coords);
 	Vec2f UICoordsForOpenGLCoords(const Vec2f& gl_coords);
+	Vec2f OpenGLCoordsForUICoords(const Vec2f& ui_coords);
+	float OpenGLYScaleForUIYScale(float y_scale);
 
 	bool handleMouseClick(const Vec2f& gl_coords); // Returns true if event accepted (e.g. should not be passed on)
 	bool handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEvent& event);
 	bool handleMouseMoved(const Vec2f& gl_coords);
-	void handleKeyPressedEvent(const KeyEvent& key_event);
+	void handleKeyPressedEvent(KeyEvent& key_event);
+	void handleTextInputEvent(TextInputEvent& text_input_event);
 
 	void viewportResized(int w, int h);
 
@@ -56,25 +62,34 @@ public:
 	void removeWidget(const GLUIWidgetRef& widget) { widgets.erase(widget); }
 
 
-	static float getViewportMinMaxY(Reference<OpenGLEngine>& opengl_engine);
+	float getViewportMinMaxY();
 
 	float getUIWidthForDevIndepPixelWidth(float pixel_w);
 
 	OpenGLTextureRef makeToolTipTexture(const std::string& text);
 
 
-	TextRendererFontFace* getBestMatchingFont(int font_size_px, bool emoji);
+	TextRendererFontFace* getFont(int font_size_px, bool emoji);
 
-	void setKeyboardFocusWidget(GLUIWidgetRef widget) { key_focus_widget = widget; }
+	TextRendererFontFaceSizeSet* getFonts() { return fonts.ptr(); }
+	TextRendererFontFaceSizeSet* getEmojiFonts() { return emoji_fonts.ptr(); }
+
+	GLUIWidgetRef getKeyboardFocusWidget() const { return key_focus_widget; }
+	void setKeyboardFocusWidget(GLUIWidgetRef widget);
+
 
 	Reference<OpenGLEngine> opengl_engine;
-	std::vector<TextRendererFontFaceRef> fonts; // Should be in ascending font size order
-	std::vector<TextRendererFontFaceRef> emoji_fonts; // Should be in ascending font size order
+	
+
+	GLUICallbacks* callbacks;
 
 	FontCharTexCacheRef font_char_text_cache;
 
 private:
 	GLARE_DISABLE_COPY(GLUI);
+
+	TextRendererFontFaceSizeSetRef fonts;
+	TextRendererFontFaceSizeSetRef emoji_fonts;
 
 	std::set<GLUIWidgetRef> widgets;
 
@@ -85,6 +100,8 @@ private:
 	std::map<std::string, OpenGLTextureRef> tooltip_textures;
 
 	float device_pixel_ratio;
+
+	bool mouse_over_text_input_widget;
 };
 
 
@@ -95,4 +112,19 @@ class GLUIMouseWheelEvent
 {
 public:
 	int angle_delta_y;
+};
+
+
+class GLUICallbacks
+{
+public:
+	virtual void startTextInput() = 0;
+	virtual void stopTextInput() = 0;
+
+	enum MouseCursor
+	{
+		MouseCursor_Arrow,
+		MouseCursor_IBeam
+	};
+	virtual void setMouseCursor(MouseCursor cursor) = 0;
 };

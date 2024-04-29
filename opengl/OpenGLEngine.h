@@ -35,6 +35,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../maths/Matrix4f.h"
 #include "../maths/PCG32.h"
 #include "../maths/Quat.h"
+#include "../maths/Rect2.h"
 #include "../utils/Timer.h"
 #include "../utils/Vector.h"
 #include "../utils/Reference.h"
@@ -395,6 +396,8 @@ struct OverlayObject : public ThreadSafeRefCounted
 	Reference<OpenGLMeshRenderData> mesh_data;
 	
 	OpenGLMaterial material;
+
+	Rect2f clip_region; // Region that is not clipped away
 
 	bool draw; // Should this object be drawn (or should it be skipped?).  True by default.
 };
@@ -1216,6 +1219,8 @@ private:
 	int overlay_have_texture_location;
 	int overlay_diffuse_tex_location;
 	int overlay_texture_matrix_location;
+	int overlay_clip_min_coords_location;
+	int overlay_clip_max_coords_location;
 
 	Reference<OpenGLProgram> clear_prog;
 

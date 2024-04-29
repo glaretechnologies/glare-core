@@ -45,11 +45,11 @@ namespace UTF8Utils
 
 	// Returns the byte index of the given character
 	// Throws an glare::Exception if char_index is out of bounds.
-	size_t byteIndex(const uint8* data, size_t num_bytes, size_t char_index);
+	size_t byteIndex(const uint8* data, size_t data_num_bytes, size_t char_index);
 
 	// Returns the character, still in UTF-8 encoding, in a uint32.
 	// Throws an glare::Exception if char_index is out of bounds.
-	uint32 charAt(const uint8* data, size_t num_bytes, size_t char_index);
+	uint32 charAt(const uint8* data, size_t data_num_bytes, size_t char_index);
 
 
 	void test();

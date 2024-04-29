@@ -40,7 +40,7 @@ public:
 		Colour3f text_colour; // Linear
 		float text_alpha;
 		int padding_px;
-		int font_size_px; // default = 20
+		int font_size_px; // default = 14
 	};
 	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextViewCreateArgs& args);
 

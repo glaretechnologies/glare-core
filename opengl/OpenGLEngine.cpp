@@ -309,6 +309,7 @@ size_t OpenGLMeshRenderData::getNumTris() const
 OverlayObject::OverlayObject()
 {
 	material.albedo_linear_rgb = Colour3f(1.f);
+	clip_region = Rect2f(Vec2f(-100.f), Vec2f(100.f));
 	draw = true;
 }
 
@@ -2275,6 +2276,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
 	overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
 	overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
+	overlay_clip_min_coords_location	= overlay_prog->getUniformLocation("clip_min_coords");
+	overlay_clip_max_coords_location	= overlay_prog->getUniformLocation("clip_max_coords");
 
 	//------------------------------------------- Build clear prog -------------------------------------------
 	clear_prog = new OpenGLProgram(
@@ -8474,6 +8477,9 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob_to_cam.e);
 				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+
+				glUniform2f(overlay_clip_min_coords_location, ob->clip_region.getMin().x, ob->clip_region.getMin().y);
+				glUniform2f(overlay_clip_max_coords_location, ob->clip_region.getMax().x, ob->clip_region.getMax().y);
 
 				if(opengl_mat.albedo_texture.nonNull())
 				{

@@ -116,7 +116,7 @@ public:
 	// Load into a texture that has already had its format, filtering and wrapping modes set.
 	void loadIntoExistingTexture(int mipmap_level, size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed);
 
-	void loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed);
+	void loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t src_row_stride_B, ArrayRef<uint8> src_tex_data, bool bind_needed);
 
 	void setTWrappingEnabled(bool wrapping_enabled);
 

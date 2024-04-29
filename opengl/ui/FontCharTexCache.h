@@ -55,26 +55,32 @@ public:
 	virtual ~FontCharTexCache();
 
 	// Get info about a character drawn onto the atlast texture.  Adds it to atlas if not already on there.
-	CharTexInfo getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFace* text_renderer_font, TextRendererFontFace* text_renderer_emoji_font, const string_view charstring);
+	CharTexInfo getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts, const string_view charstring, int font_size_px);
 
-	CharTexInfo makeCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFace* text_renderer_font, TextRendererFontFace* text_renderer_emoji_font, const string_view charstring);
+
+private:
+	CharTexInfo makeCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts, const string_view charstring, int font_size_px);
 
 
 	std::vector<Reference<AtlasTexInfo>> atlases;
 
 	struct FontCharKey
 	{
-		TextRendererFontFace* font;
+		bool is_emoji_font;
+		int font_size_px;
 		std::string charstring;
 
 		bool operator < (const FontCharKey& b) const
 		{
-			if(font < b.font)
+			if(is_emoji_font < b.is_emoji_font)
 				return true;
-			else if(font > b.font)
+			if(is_emoji_font > b.is_emoji_font)
 				return false;
-			else
-				return charstring < b.charstring;
+			if(font_size_px < b.font_size_px)
+				return true;
+			if(font_size_px > b.font_size_px)
+				return false;
+			return charstring < b.charstring;
 		}
 	};
 	std::map<FontCharKey, CharTexInfo> char_to_tex_info_map;

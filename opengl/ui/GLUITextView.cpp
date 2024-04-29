@@ -168,5 +168,5 @@ GLUITextView::GLUITextViewCreateArgs::GLUITextViewCreateArgs():
 	text_colour(1.f),
 	text_alpha(1.f),
 	padding_px(10),
-	font_size_px(20)
+	font_size_px(14)
 {}
