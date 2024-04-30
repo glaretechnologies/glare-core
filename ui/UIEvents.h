@@ -51,6 +51,9 @@ enum Key
 	Key_PageUp,
 	Key_PageDown,
 
+	Key_Home,
+	Key_End,
+
 	Key_Equals,
 	Key_Plus,
 	Key_Minus,

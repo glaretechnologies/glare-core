@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "GLUI.h"
+#include "TextEditingUtils.h"
 #include "../OpenGLMeshRenderData.h"
 #include "../MeshPrimitiveBuilding.h"
 #include "../../graphics/SRGBUtils.h"
@@ -286,19 +287,6 @@ bool GLUILineEdit::doHandleMouseMoved(const Vec2f& coords)
 }
 
 
-static size_t getCursorByteIndex(const std::string& text, int cursor_pos)
-{
-	if(cursor_pos == UTF8Utils::numCodePointsInString(text)) // If cursor is at end of text:
-	{
-		return text.size();
-	}
-	else
-	{
-		return UTF8Utils::byteIndex((const uint8*)text.data(), text.size(), (size_t)cursor_pos);
-	}
-}
-
-
 void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 {
 	if(key_event.key == Key::Key_Backspace)
@@ -307,9 +295,14 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 		{
 			try
 			{
-				const size_t old_cursor_byte_index = getCursorByteIndex(text, cursor_pos);
-				cursor_pos--;
-				const size_t new_cursor_byte_index = getCursorByteIndex(text, cursor_pos);
+				const size_t old_cursor_byte_index = TextEditingUtils::getCursorByteIndex(text, cursor_pos);
+
+				if(BitUtils::isBitSet(key_event.modifiers, (uint32)Modifiers::Ctrl))
+					cursor_pos = TextEditingUtils::getPrevStartOfNonWhitespaceCursorPos(text, cursor_pos);
+				else
+					cursor_pos--;
+
+				const size_t new_cursor_byte_index = TextEditingUtils::getCursorByteIndex(text, cursor_pos);
 
 				// Remove bytes from string
 				text.erase(/*offset=*/new_cursor_byte_index, /*count=*/old_cursor_byte_index - new_cursor_byte_index);
@@ -321,13 +314,21 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 				conPrint("excep: " + e.what());
 			}
 		}
+		key_event.accepted = true;
 	}
 	if(key_event.key == Key::Key_Delete)
 	{
 		try
 		{
-			const size_t old_cursor_byte_index  = getCursorByteIndex(text, cursor_pos);
-			const size_t next_cursor_byte_index = getCursorByteIndex(text, cursor_pos + 1);
+			const size_t old_cursor_byte_index = TextEditingUtils::getCursorByteIndex(text, cursor_pos);
+
+			int end_cursor_pos = cursor_pos;
+			if(BitUtils::isBitSet(key_event.modifiers, (uint32)Modifiers::Ctrl))
+				end_cursor_pos = TextEditingUtils::getNextStartOfNonWhitespaceCursorPos(text, cursor_pos);
+			else
+				end_cursor_pos++;
+
+			const size_t next_cursor_byte_index = TextEditingUtils::getCursorByteIndex(text, end_cursor_pos);
 
 			// Remove bytes from string
 			text.erase(/*offset=*/old_cursor_byte_index, /*count=*/next_cursor_byte_index - old_cursor_byte_index);
@@ -336,29 +337,64 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 		{
 			conPrint("excep: " + e.what());
 		}
+		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Left)
 	{
 		if(cursor_pos > 0)
-			cursor_pos--;
+		{
+			if(BitUtils::isBitSet(key_event.modifiers, (uint32)Modifiers::Ctrl))
+				cursor_pos = TextEditingUtils::getPrevStartOfNonWhitespaceCursorPos(text, cursor_pos);
+			else
+				cursor_pos--;
+		}
 
 		this->last_cursor_update_time = Clock::getCurTimeRealSec();
+
+		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Right)
 	{
 		if(cursor_pos < (int)UTF8Utils::numCodePointsInString(text))
-			cursor_pos++;
+		{
+			if(BitUtils::isBitSet(key_event.modifiers, (uint32)Modifiers::Ctrl))
+				cursor_pos = TextEditingUtils::getNextStartOfNonWhitespaceCursorPos(text, cursor_pos);
+			else
+				cursor_pos++;
+		}
 
 		this->last_cursor_update_time = Clock::getCurTimeRealSec();
+
+		key_event.accepted = true;
+	}
+	else if(key_event.key == Key::Key_Home)
+	{
+		cursor_pos = 0;
+
+		this->last_cursor_update_time = Clock::getCurTimeRealSec();
+
+		key_event.accepted = true;
+	}
+	else if(key_event.key == Key::Key_End)
+	{
+		cursor_pos = (int)UTF8Utils::numCodePointsInString(text);
+
+		this->last_cursor_update_time = Clock::getCurTimeRealSec();
+
+		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Return || key_event.key == Key::Key_Enter)
 	{
 		if(on_enter_pressed)
 			on_enter_pressed();
+
+		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Escape)
 	{
 		glui->setKeyboardFocusWidget(NULL); // Remove keyboard focus from this widget
+
+		key_event.accepted = true;
 	}
 	else
 	{
@@ -367,7 +403,7 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 	recreateTextWidget(); // Re-create glui_text to show new text
 	updateOverlayObTransforms();
 
-	key_event.accepted = true;
+	//key_event.accepted = true;
 }
 
 
@@ -375,7 +411,7 @@ void GLUILineEdit::doHandleTextInputEvent(TextInputEvent& text_input_event)
 {
 	{
 		// Insert text at cursor position
-		const size_t old_cursor_byte_index = getCursorByteIndex(text, cursor_pos);
+		const size_t old_cursor_byte_index = TextEditingUtils::getCursorByteIndex(text, cursor_pos);
 
 		text.insert(old_cursor_byte_index, text_input_event.text);
 

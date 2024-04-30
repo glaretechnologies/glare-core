@@ -34,6 +34,8 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 
 	try
 	{
+		rect_os = Rect2f(Vec2(0.f), Vec2(0.f));
+
 		//TextRendererFontFace* font       = glui.getFont(args.font_size_px, /*emoji=*/false);
 		//TextRendererFontFace* emoji_font = glui.getFont(args.font_size_px, /*emoji=*/true);
 
