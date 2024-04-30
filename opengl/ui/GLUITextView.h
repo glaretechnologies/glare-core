@@ -28,9 +28,6 @@ A widget that displays some text
 class GLUITextView : public GLUIWidget
 {
 public:
-	GLUITextView();
-	~GLUITextView();
-
 	struct GLUITextViewCreateArgs
 	{
 		GLUITextViewCreateArgs();
@@ -42,9 +39,11 @@ public:
 		int padding_px;
 		int font_size_px; // default = 14
 	};
-	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextViewCreateArgs& args);
 
-	void destroy();
+	GLUITextView(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextViewCreateArgs& args);
+	~GLUITextView();
+
+	void destroy(); // Called by destructor
 
 	void setText(GLUI& glui, const std::string& new_text);
 

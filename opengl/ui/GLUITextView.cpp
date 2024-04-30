@@ -15,19 +15,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/StringUtils.h"
 
 
-GLUITextView::GLUITextView()
-{
-
-}
-
-
-GLUITextView::~GLUITextView()
-{
-	destroy();
-}
-
-
-void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const GLUITextViewCreateArgs& args_)
+GLUITextView::GLUITextView(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const GLUITextViewCreateArgs& args_)
 {
 	args = args_;
 	opengl_engine = opengl_engine_;
@@ -52,6 +40,12 @@ void GLUITextView::create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, c
 	updateBackgroundOverlayObTransform(glui);
 
 	opengl_engine->addOverlayObject(background_overlay_ob);
+}
+
+
+GLUITextView::~GLUITextView()
+{
+	destroy();
 }
 
 

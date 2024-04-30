@@ -28,9 +28,6 @@ A single-line text edit field.
 class GLUILineEdit : public GLUIWidget
 {
 public:
-	GLUILineEdit();
-	~GLUILineEdit();
-
 	struct GLUILineEditCreateArgs
 	{
 		GLUILineEditCreateArgs();
@@ -46,9 +43,11 @@ public:
 
 		float width; // In GL UI coords
 	};
-	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const Vec2f& botleft, const GLUILineEditCreateArgs& args);
 
-	void destroy();
+	GLUILineEdit(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const Vec2f& botleft, const GLUILineEditCreateArgs& args);
+	~GLUILineEdit();
+
+	void destroy(); // Called by destructor
 
 	virtual void think(GLUI& glui) override;
 

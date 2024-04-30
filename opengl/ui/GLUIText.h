@@ -42,7 +42,7 @@ public:
 	GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextCreateArgs& args);
 	~GLUIText();
 
-	void destroy();
+	void destroy(); // Called by destructor
 
 	void setColour(const Colour3f& col);
 

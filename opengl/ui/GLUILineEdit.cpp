@@ -17,18 +17,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../../utils/UTF8Utils.h"
 
 
-GLUILineEdit::GLUILineEdit()
-{
-}
-
-
-GLUILineEdit::~GLUILineEdit()
-{
-	destroy();
-}
-
-
-void GLUILineEdit::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const Vec2f& botleft_, 
+GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const Vec2f& botleft_, 
 	const GLUILineEditCreateArgs& args_)
 {
 	glui = &glui_;
@@ -64,6 +53,12 @@ void GLUILineEdit::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, 
 	opengl_engine->addOverlayObject(cursor_overlay_ob);
 
 	updateOverlayObTransforms();
+}
+
+
+GLUILineEdit::~GLUILineEdit()
+{
+	destroy();
 }
 
 
