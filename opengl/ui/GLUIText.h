@@ -29,9 +29,9 @@ class GLUIText : public RefCounted
 {
 public:
 	// botleft is in GL UI coords (see GLUI.h)
-	struct GLUITextCreateArgs
+	struct CreateArgs
 	{
-		GLUITextCreateArgs() : colour(1.f), alpha(1.f), font_size_px(14), z(0) {}
+		CreateArgs() : colour(1.f), alpha(1.f), font_size_px(14), z(0) {}
 
 		Colour3f colour;
 		float alpha;
@@ -39,7 +39,7 @@ public:
 		int font_size_px;
 	};
 
-	GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextCreateArgs& args);
+	GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUIText();
 
 	void destroy(); // Called by destructor

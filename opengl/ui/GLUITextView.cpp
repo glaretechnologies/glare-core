@@ -17,7 +17,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/UTF8Utils.h"
 
 
-GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const GLUITextViewCreateArgs& args_)
+GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args_)
 {
 	glui = &glui_;
 	args = args_;
@@ -46,7 +46,7 @@ GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 
 	opengl_engine->addOverlayObject(selection_overlay_ob);
 
-	GLUIText::GLUITextCreateArgs text_create_args;
+	GLUIText::CreateArgs text_create_args;
 	text_create_args.colour = args.text_colour;
 	text_create_args.font_size_px = args.font_size_px;
 	text_create_args.alpha = args.text_alpha;
@@ -92,7 +92,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 		if(glui_text.nonNull())
 			glui_text->destroy();
 
-		GLUIText::GLUITextCreateArgs text_create_args;
+		GLUIText::CreateArgs text_create_args;
 		text_create_args.font_size_px = args.font_size_px;
 		text_create_args.alpha = args.text_alpha;
 		glui_text = new GLUIText(glui_, opengl_engine, text, botleft, text_create_args);
@@ -304,7 +304,7 @@ void GLUITextView::handleLosingKeyboardFocus()
 }
 
 
-GLUITextView::GLUITextViewCreateArgs::GLUITextViewCreateArgs():
+GLUITextView::CreateArgs::CreateArgs():
 	background_colour(0.f),
 	background_alpha(1),
 	text_colour(1.f),

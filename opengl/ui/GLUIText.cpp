@@ -22,7 +22,7 @@ static inline Vec2f toVec2f(const Vec3f& v)
 }
 
 
-GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const GLUITextCreateArgs& args)
+GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args)
 {
 	opengl_engine = opengl_engine_;
 

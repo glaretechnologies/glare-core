@@ -17,8 +17,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../../utils/UTF8Utils.h"
 
 
-GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const Vec2f& botleft_, 
-	const GLUILineEditCreateArgs& args_)
+GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const Vec2f& botleft_, const CreateArgs& args_)
 {
 	glui = &glui_;
 
@@ -235,7 +234,7 @@ void GLUILineEdit::recreateTextWidget()
 		glui_text->destroy();
 	glui_text = NULL;
 
-	GLUIText::GLUITextCreateArgs text_create_args;
+	GLUIText::CreateArgs text_create_args;
 	text_create_args.colour = args.text_colour;
 	text_create_args.font_size_px = args.font_size_px;
 	text_create_args.alpha = args.text_alpha;
@@ -582,7 +581,7 @@ void GLUILineEdit::setPos(const Vec2f& botleft_)
 }
 
 
-GLUILineEdit::GLUILineEditCreateArgs::GLUILineEditCreateArgs():
+GLUILineEdit::CreateArgs::CreateArgs():
 	background_colour(0.f),
 	mouseover_background_colour(0.1f),
 	background_alpha(1),

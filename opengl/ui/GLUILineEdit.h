@@ -28,9 +28,9 @@ A single-line text edit field.
 class GLUILineEdit : public GLUIWidget
 {
 public:
-	struct GLUILineEditCreateArgs
+	struct CreateArgs
 	{
-		GLUILineEditCreateArgs();
+		CreateArgs();
 		std::string tooltip;
 		Colour3f background_colour; // Linear
 		Colour3f mouseover_background_colour;
@@ -44,7 +44,7 @@ public:
 		float width; // In GL UI coords
 	};
 
-	GLUILineEdit(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const Vec2f& botleft, const GLUILineEditCreateArgs& args);
+	GLUILineEdit(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const Vec2f& botleft, const CreateArgs& args);
 	~GLUILineEdit();
 
 	void destroy(); // Called by destructor
@@ -100,7 +100,7 @@ private:
 
 	GLUITextRef glui_text;
 
-	GLUILineEditCreateArgs args;
+	CreateArgs args;
 	std::string text;
 	int cursor_pos; // Index of unicode character/code point that cursor is to the left of.
 

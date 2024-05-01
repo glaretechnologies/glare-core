@@ -28,9 +28,9 @@ A widget that displays some text
 class GLUITextView : public GLUIWidget
 {
 public:
-	struct GLUITextViewCreateArgs
+	struct CreateArgs
 	{
-		GLUITextViewCreateArgs();
+		CreateArgs();
 		std::string tooltip;
 		Colour3f background_colour; // Linear
 		float background_alpha;
@@ -40,7 +40,7 @@ public:
 		int font_size_px; // default = 14
 	};
 
-	GLUITextView(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const GLUITextViewCreateArgs& args);
+	GLUITextView(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUITextView();
 
 	void destroy(); // Called by destructor
@@ -81,7 +81,7 @@ private:
 
 	int selection_start, selection_end;
 
-	GLUITextViewCreateArgs args;
+	CreateArgs args;
 	std::string text;
 
 	Vec2f botleft; // in GL UI coords
