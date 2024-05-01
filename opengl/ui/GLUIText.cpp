@@ -34,10 +34,7 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 
 	try
 	{
-		rect_os = Rect2f(Vec2(0.f), Vec2(0.f));
-
-		//TextRendererFontFace* font       = glui.getFont(args.font_size_px, /*emoji=*/false);
-		//TextRendererFontFace* emoji_font = glui.getFont(args.font_size_px, /*emoji=*/true);
+		rect_os = Rect2f(Vec2f(0.f), Vec2f(0.f));
 
 		// Make mesh data
 		const size_t num_codepoints = UTF8Utils::numCodePointsInString(text);
@@ -247,4 +244,40 @@ std::vector<GLUIText::CharPositionInfo> GLUIText::getCharPositions(GLUI& glui) c
 		conPrint("Warning: exception in GLUIText::getCharPositions(): " + e.what());
 		return std::vector<GLUIText::CharPositionInfo>();
 	}
+}
+
+
+int GLUIText::cursorPosForUICoords(GLUI& glui, const Vec2f& coords)
+{
+	const std::vector<GLUIText::CharPositionInfo> char_positions = getCharPositions(glui);
+
+	int best_cursor_pos = 0;
+	float closest_dist = 1000000;
+	for(size_t i=0; i<char_positions.size(); ++i)
+	{
+		const float char_left_x = char_positions[i].pos.x;
+		const float dist = fabs(char_left_x - coords.x);
+		if(dist < closest_dist)
+		{
+			best_cursor_pos = (int)i;
+			closest_dist = dist;
+		}
+
+		if(char_positions[i].pos.x < coords.x) // If character i left coord is to the left of the mouse click position
+			best_cursor_pos = (int)i;
+	}
+
+	if(!char_positions.empty())
+	{
+		const float last_char_right_x = char_positions.back().pos.x + char_positions.back().hori_advance;
+		const float dist = fabs(last_char_right_x - coords.x);
+		if(dist < closest_dist)
+		{
+			best_cursor_pos = (int)char_positions.size();
+			assert(best_cursor_pos == UTF8Utils::numCodePointsInString(text));
+			closest_dist = dist;
+		}
+	}
+
+	return best_cursor_pos;
 }

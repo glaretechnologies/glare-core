@@ -19,6 +19,8 @@ class TextEditingUtils
 public:
 	static size_t getCursorByteIndex(const std::string& text, int cursor_pos);
 
+	static int getNextEndOfNonWhitespaceCursorPos(const std::string& text, int cursor_pos);
+
 	static int getNextStartOfNonWhitespaceCursorPos(const std::string& text, int cursor_pos);
 
 	static int getPrevStartOfNonWhitespaceCursorPos(const std::string& text, int cursor_pos);

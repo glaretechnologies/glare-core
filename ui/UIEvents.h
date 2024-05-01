@@ -127,12 +127,13 @@ enum Modifiers
 class MouseEvent
 {
 public:
-	MouseEvent() : cursor_pos(0, 0), gl_coords(0, 0), accepted(false), modifiers(0), button(MouseButton::None) {}
+	MouseEvent() : cursor_pos(0, 0), gl_coords(0, 0), accepted(false), modifiers(0), button(MouseButton::None), button_state(0) {}
 
 	Vec2i cursor_pos;
 	Vec2f gl_coords;
 	uint32 modifiers;
 	MouseButton button;
+	uint32 button_state;
 
 	bool accepted;
 };

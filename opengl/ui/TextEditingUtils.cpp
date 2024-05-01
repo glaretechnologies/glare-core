@@ -27,6 +27,25 @@ size_t TextEditingUtils::getCursorByteIndex(const std::string& text, int cursor_
 
 
 // aaaaaaaaaa bbbbbbbb cccccccc
+//   ^       ^
+// start     new
+int TextEditingUtils::getNextEndOfNonWhitespaceCursorPos(const std::string& text, int cursor_pos)
+{
+	size_t cur_byte_index = getCursorByteIndex(text, cursor_pos);
+	int cur_cursor_pos = cursor_pos;
+
+	// Advance until we get to whitespace
+	while(cur_byte_index < text.size() && !isWhitespace(text[cur_byte_index]))
+	{
+		cur_byte_index += UTF8Utils::numBytesForChar(text[cur_byte_index]);
+		cur_cursor_pos++;
+	}
+
+	return cur_cursor_pos;
+}
+
+
+// aaaaaaaaaa bbbbbbbb cccccccc
 //   ^        ^
 // start     new
 int TextEditingUtils::getNextStartOfNonWhitespaceCursorPos(const std::string& text, int cursor_pos)

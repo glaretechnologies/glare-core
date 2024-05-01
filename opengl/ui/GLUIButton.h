@@ -34,8 +34,8 @@ public:
 
 	void destroy();
 
-	virtual bool doHandleMouseClick(const Vec2f& coords) override;
-	virtual bool doHandleMouseMoved(const Vec2f& coords) override;
+	virtual void handleMousePress(MouseEvent& event) override;
+	virtual void doHandleMouseMoved(MouseEvent& event) override;
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 
@@ -43,6 +43,7 @@ public:
 
 	void setVisible(bool visible);
 
+	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 

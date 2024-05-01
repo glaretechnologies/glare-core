@@ -46,10 +46,11 @@ public:
 
 	void setVisible(bool visible);
 
-	virtual bool doHandleMouseMoved(const Vec2f& coords) override;
+	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual bool doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event) override;
 
 
+	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 

@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "GLUIButton.h"
 
 
+#include "GLUI.h"
 #include <graphics/SRGBUtils.h>
 #include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
@@ -42,9 +43,10 @@ static const Colour3f button_colour(1.f);
 static const Colour3f mouseover_button_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-void GLUIButton::create(GLUI& /*glui*/, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
+void GLUIButton::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
 	const std::string& tooltip_)
 {
+	glui = &glui_;
 	opengl_engine = opengl_engine_;
 	tooltip = tooltip_;
 
@@ -78,8 +80,9 @@ void GLUIButton::destroy()
 }
 
 
-bool GLUIButton::doHandleMouseClick(const Vec2f& coords)
+void GLUIButton::handleMousePress(MouseEvent& event)
 {
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inOpenRectangle(coords))
 	{
 		if(toggleable)
@@ -94,20 +97,20 @@ bool GLUIButton::doHandleMouseClick(const Vec2f& coords)
 
 		if(handler)
 		{
-			GLUICallbackEvent event;
-			event.widget = this;
-			handler->eventOccurred(event);
-			if(event.accepted)
-				return true;
+			GLUICallbackEvent callback_event;
+			callback_event.widget = this;
+			handler->eventOccurred(callback_event);
+			if(callback_event.accepted)
+				event.accepted = true;
 		}
 	}
-
-	return false;
 }
 
 
-bool GLUIButton::doHandleMouseMoved(const Vec2f& coords)
+void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 {
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
+
 	if(overlay_ob.nonNull())
 	{
 		if(rect.inOpenRectangle(coords)) // If mouse over widget:
@@ -122,7 +125,7 @@ bool GLUIButton::doHandleMouseMoved(const Vec2f& coords)
 			else
 				overlay_ob->material.albedo_linear_rgb = mouseover_button_colour;
 
-			return true;
+			mouse_event.accepted = true;
 		}
 		else
 		{
@@ -137,7 +140,6 @@ bool GLUIButton::doHandleMouseMoved(const Vec2f& coords)
 				overlay_ob->material.albedo_linear_rgb = button_colour;
 		}
 	}
-	return false;
 }
 
 

@@ -31,6 +31,9 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	cursor_pos = 0;
 	last_cursor_update_time = 0;
 
+	selection_start = -1;
+	selection_end = -1;
+
 	this->height_px = (float)args.font_size_px + (float)args.padding_px*2;
 	
 	// Create background quad to go behind text
@@ -51,6 +54,16 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	cursor_overlay_ob->material.alpha = 1;
 
 	opengl_engine->addOverlayObject(cursor_overlay_ob);
+
+
+	selection_overlay_ob = new OverlayObject();
+	selection_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
+	selection_overlay_ob->material.albedo_linear_rgb = Colour3f(1,1,1);
+	selection_overlay_ob->material.alpha = 0.5f;
+	selection_overlay_ob->draw = false;
+
+	opengl_engine->addOverlayObject(selection_overlay_ob);
+
 
 	updateOverlayObTransforms();
 }
@@ -75,6 +88,10 @@ void GLUILineEdit::destroy()
 	if(cursor_overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(cursor_overlay_ob);
 	cursor_overlay_ob = NULL;
+	
+	if(selection_overlay_ob.nonNull())
+		opengl_engine->removeOverlayObject(selection_overlay_ob);
+	selection_overlay_ob = NULL;
 
 	opengl_engine = NULL;
 }
@@ -135,7 +152,7 @@ void GLUILineEdit::updateOverlayObTransforms()
 		if(this->last_viewport_dims != opengl_engine->getViewportDims())
 		{
 			// Viewport has changed, recreate rounded-corner rect.
-			conPrint("GLUILineEdit: Viewport has changed, recreate rounded-corner rect.");
+			//conPrint("GLUILineEdit: Viewport has changed, recreate rounded-corner rect.");
 			
 			background_overlay_ob->mesh_data = MeshPrimitiveBuilding::makeRoundedCornerRect(*opengl_engine->vert_buf_allocator, /*i=*/Vec4f(1,0,0,0), /*j=*/Vec4f(0,1,0,0), /*w=*/background_w, /*h=*/background_h, 
 				/*corner radius=*/glui->getUIWidthForDevIndepPixelWidth(args.rounded_corner_radius_px), /*tris_per_corner=*/8);
@@ -170,6 +187,42 @@ void GLUILineEdit::updateOverlayObTransforms()
 		{
 			conPrint("Excep: " + e.what());
 		}
+	}
+
+	// Update selection ob
+	if(selection_overlay_ob.nonNull())
+	{
+		const float extra_half_h_factor = 0.2f; // Make the cursor a bit bigger than the font size
+		const float h = (float)glui->getUIWidthForDevIndepPixelWidth((float)args.font_size_px * (1 + extra_half_h_factor*2));
+
+		if(selection_start != -1 && selection_end != -1)
+		{
+			Vec2f selection_lower_left_pos  = glui_text->getCharPos(*glui, selection_start);
+			Vec2f selection_upper_right_pos = glui_text->getCharPos(*glui, selection_end) + Vec2f(0, h);
+
+			if(selection_lower_left_pos.x > selection_upper_right_pos.x)
+				mySwap(selection_lower_left_pos, selection_upper_right_pos);
+
+			selection_lower_left_pos.y  = myMin(selection_lower_left_pos.y, selection_upper_right_pos.y);
+			selection_upper_right_pos.y = myMax(selection_lower_left_pos.y, selection_upper_right_pos.y);
+
+			const float w = std::fabs(selection_upper_right_pos.x - selection_lower_left_pos.x);
+
+			try
+			{
+				const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
+				const float z = -0.1f;
+				selection_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(selection_lower_left_pos.x, (selection_lower_left_pos.y - h * extra_half_h_factor) * y_scale, z) * Matrix4f::scaleMatrix(w, h * y_scale, 1);
+
+				selection_overlay_ob->draw = true;
+			}
+			catch(glare::Exception& e)
+			{
+				conPrint("Excep: " + e.what());
+			}
+		}
+		else
+			selection_overlay_ob->draw = false;
 	}
 }
 
@@ -212,73 +265,94 @@ void GLUILineEdit::updateTextTransform()
 }
 
 
-bool GLUILineEdit::doHandleMouseClick(const Vec2f& coords)
+void GLUILineEdit::handleMousePress(MouseEvent& event)
 {
-	//conPrint("GLUILineEdit::doHandleMouseClick, coords: " + coords.toString());
-
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 	{
 		//conPrint("GLUILineEdit taking keyboard focus");
 		glui->setKeyboardFocusWidget(this);
 
-		// Find where cursor should go
-		{
-			const std::vector<GLUIText::CharPositionInfo> char_positions = glui_text->getCharPositions(*glui);
+		this->cursor_pos = glui_text->cursorPosForUICoords(*glui, coords);
+		this->last_cursor_update_time = Clock::getCurTimeRealSec();
 
-			cursor_pos = 0;
-			float closest_dist = 1000000;
-			for(size_t i=0; i<char_positions.size(); ++i)
-			{
-				const float char_left_x = char_positions[i].pos.x;
-				const float dist = fabs(char_left_x - coords.x);
-				if(dist < closest_dist)
-				{
-					cursor_pos = (int)i;
-					closest_dist = dist;
-				}
+		this->selection_start = this->cursor_pos;
+		this->selection_end = -1;
 
-				if(char_positions[i].pos.x < coords.x) // If character i left coord is to the left of the mouse click position
-					cursor_pos = (int)i;
-			}
+		updateOverlayObTransforms(); // Redraw since cursor visible will have changed
 
-			if(!char_positions.empty())
-			{
-				const float last_char_right_x = char_positions.back().pos.x + char_positions.back().hori_advance;
-				const float dist = fabs(last_char_right_x - coords.x);
-				if(dist < closest_dist)
-				{
-					cursor_pos = (int)char_positions.size();
-					assert(cursor_pos == UTF8Utils::numCodePointsInString(text));
-					closest_dist = dist;
-				}
-			}
-
-			this->last_cursor_update_time = Clock::getCurTimeRealSec();
-
-			updateOverlayObTransforms(); // Redraw since cursor visible will have changed
-		}
-
-		return true;
+		event.accepted = true;
 	}
-	return false;
 }
 
 
-bool GLUILineEdit::doHandleMouseMoved(const Vec2f& coords)
+void GLUILineEdit::handleMouseRelease(MouseEvent& /*event*/)
 {
+}
+
+
+void GLUILineEdit::handleMouseDoubleClick(MouseEvent& event)
+{
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
+	if(rect.inClosedRectangle(coords))
+	{
+		const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, coords);
+
+		this->selection_start = TextEditingUtils::getPrevStartOfNonWhitespaceCursorPos(text, click_cursor_pos);
+
+		this->selection_end = TextEditingUtils::getNextEndOfNonWhitespaceCursorPos(text, click_cursor_pos);
+
+		updateOverlayObTransforms(); // Redraw since selection region has changed.
+	}
+}
+
+
+void GLUILineEdit::doHandleMouseMoved(MouseEvent& mouse_event)
+{
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
+
 	if(background_overlay_ob.nonNull())
 	{
 		if(rect.inOpenRectangle(coords)) // If mouse over widget:
-		{
 			background_overlay_ob->material.albedo_linear_rgb = args.mouseover_background_colour;
-		}
 		else
-		{
 			background_overlay_ob->material.albedo_linear_rgb = args.background_colour;
+
+		// If left mouse button is down, update selection region
+		if((mouse_event.button_state & (uint32)MouseButton::Left) != 0)
+		{
+			this->selection_end = glui_text->cursorPosForUICoords(*glui, coords);
+
+			updateOverlayObTransforms(); // Redraw since selection region may have changed.
 		}
 	}
+}
 
-	return false;
+
+void GLUILineEdit::deleteSelectedTextAndClearSelection()
+{
+	try
+	{
+		if(selection_start != -1 && selection_end != -1)
+		{
+			if(selection_start > selection_end)
+				mySwap(selection_start, selection_end);
+
+			const size_t start_byte_index = TextEditingUtils::getCursorByteIndex(text, selection_start);
+			const size_t end_byte_index   = TextEditingUtils::getCursorByteIndex(text, selection_end);
+			text.erase(/*offset=*/start_byte_index, /*count=*/end_byte_index - start_byte_index);
+
+			// Move cursor left if was to right of deleted text
+			if(cursor_pos >= selection_end)
+				cursor_pos -= (selection_end - selection_start);
+		}
+
+		selection_start = selection_end = -1;
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint("excep: " + e.what());
+	}
 }
 
 
@@ -286,6 +360,8 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 {
 	if(key_event.key == Key::Key_Backspace)
 	{
+		deleteSelectedTextAndClearSelection();
+
 		if(cursor_pos > 0)
 		{
 			try
@@ -309,10 +385,11 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 				conPrint("excep: " + e.what());
 			}
 		}
-		key_event.accepted = true;
 	}
 	if(key_event.key == Key::Key_Delete)
 	{
+		deleteSelectedTextAndClearSelection();
+
 		try
 		{
 			const size_t old_cursor_byte_index = TextEditingUtils::getCursorByteIndex(text, cursor_pos);
@@ -332,7 +409,6 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 		{
 			conPrint("excep: " + e.what());
 		}
-		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Left)
 	{
@@ -345,8 +421,6 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 		}
 
 		this->last_cursor_update_time = Clock::getCurTimeRealSec();
-
-		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Right)
 	{
@@ -359,37 +433,29 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 		}
 
 		this->last_cursor_update_time = Clock::getCurTimeRealSec();
-
-		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Home)
 	{
 		cursor_pos = 0;
 
 		this->last_cursor_update_time = Clock::getCurTimeRealSec();
-
-		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_End)
 	{
 		cursor_pos = (int)UTF8Utils::numCodePointsInString(text);
 
 		this->last_cursor_update_time = Clock::getCurTimeRealSec();
-
-		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Return || key_event.key == Key::Key_Enter)
 	{
 		if(on_enter_pressed)
 			on_enter_pressed();
-
-		key_event.accepted = true;
 	}
 	else if(key_event.key == Key::Key_Escape)
 	{
 		glui->setKeyboardFocusWidget(NULL); // Remove keyboard focus from this widget
 
-		key_event.accepted = true;
+		this->selection_start = this->selection_end = -1;
 	}
 	else
 	{
@@ -398,12 +464,14 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 	recreateTextWidget(); // Re-create glui_text to show new text
 	updateOverlayObTransforms();
 
-	//key_event.accepted = true;
+	key_event.accepted = true;
 }
 
 
 void GLUILineEdit::doHandleTextInputEvent(TextInputEvent& text_input_event)
 {
+	deleteSelectedTextAndClearSelection();
+
 	{
 		// Insert text at cursor position
 		const size_t old_cursor_byte_index = TextEditingUtils::getCursorByteIndex(text, cursor_pos);
@@ -418,6 +486,58 @@ void GLUILineEdit::doHandleTextInputEvent(TextInputEvent& text_input_event)
 	updateOverlayObTransforms();
 
 	text_input_event.accepted = true;
+}
+
+
+void GLUILineEdit::handleLosingKeyboardFocus()
+{
+	// Clear selection
+	this->selection_start = this->selection_end = -1;
+	updateOverlayObTransforms(); // Redraw
+}
+
+
+void GLUILineEdit::handleCutEvent(std::string& clipboard_contents_out)
+{
+	if(selection_start != -1 && selection_end != -1)
+	{
+		if(selection_start > selection_end)
+			mySwap(selection_start, selection_end);
+
+		const size_t start_byte_index = TextEditingUtils::getCursorByteIndex(text, selection_start);
+		const size_t end_byte_index   = TextEditingUtils::getCursorByteIndex(text, selection_end);
+		
+		clipboard_contents_out = text.substr(start_byte_index, end_byte_index - start_byte_index);
+
+		text.erase(start_byte_index, selection_end - selection_start);
+
+		// Move cursor left if was to right of deleted text
+		if(cursor_pos >= selection_end)
+			cursor_pos -= (selection_end - selection_start);
+
+		// Clear selection
+		selection_start = selection_end = -1;
+
+		recreateTextWidget(); // Re-create glui_text to show new text
+		updateOverlayObTransforms(); // Redraw
+	}
+}
+
+
+void GLUILineEdit::handleCopyEvent(std::string& clipboard_contents_out)
+{
+	if(selection_start != -1 && selection_end != -1)
+	{
+		if(selection_start > selection_end)
+			mySwap(selection_start, selection_end);
+
+		const size_t start_byte_index = TextEditingUtils::getCursorByteIndex(text, selection_start);
+		const size_t end_byte_index   = TextEditingUtils::getCursorByteIndex(text, selection_end);
+		
+		clipboard_contents_out = text.substr(start_byte_index, end_byte_index - start_byte_index);
+
+		updateOverlayObTransforms(); // Redraw
+	}
 }
 
 

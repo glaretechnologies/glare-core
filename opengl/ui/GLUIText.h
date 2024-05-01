@@ -60,6 +60,8 @@ public:
 	};
 	std::vector<CharPositionInfo> getCharPositions(GLUI& glui) const; // Get position to lower left of each unicode character.
 
+	int cursorPosForUICoords(GLUI& glui, const Vec2f& coords);
+
 	Rect2f getRect() const { return rect; }
 
 	const Vec2f getDims() const { return rect.getMax() - rect.getMin(); } // In GL UI coords

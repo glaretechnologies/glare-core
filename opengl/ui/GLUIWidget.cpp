@@ -16,15 +16,9 @@ GLUIWidget::~GLUIWidget()
 }
 
 
-bool GLUIWidget::handleMouseClick(const Vec2f& coords)
+void GLUIWidget::handleMouseMoved(MouseEvent& mouse_event)
 {
-	return doHandleMouseClick(coords);
-}
-
-
-bool GLUIWidget::handleMouseMoved(const Vec2f& coords)
-{
-	return doHandleMouseMoved(coords);
+	return doHandleMouseMoved(mouse_event);
 }
 
 

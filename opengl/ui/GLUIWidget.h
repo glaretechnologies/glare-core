@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2021 -
 class GLUI;
 class GLUIMouseWheelEvent;
 class KeyEvent;
+class MouseEvent;
 class TextInputEvent;
 
 
@@ -30,14 +31,19 @@ public:
 	GLUIWidget();
 	virtual ~GLUIWidget();
 
-	bool handleMouseClick(const Vec2f& coords);
-	bool handleMouseMoved(const Vec2f& coords);
+	void handleMouseMoved(MouseEvent& mouse_event);
+	virtual void handleMousePress(MouseEvent& /*event*/) {}
+	virtual void handleMouseRelease(MouseEvent& /*event*/) {}
+	virtual void handleMouseDoubleClick(MouseEvent& /*event*/) {}
 	bool handleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event);
 	void handleKeyPressedEvent(KeyEvent& key_event);
 	void handleTextInputEvent(TextInputEvent& text_input_event);
+	virtual void handleLosingKeyboardFocus() {}
 
-	virtual bool doHandleMouseClick(const Vec2f& /*coords*/) { return false; } // Returns true if event accepted (e.g. should not be passed on)
-	virtual bool doHandleMouseMoved(const Vec2f& /*coords*/) { return false; } // Returns true if event accepted (e.g. should not be passed on)
+	virtual void handleCutEvent(std::string& /*clipboard_contents_out*/) {}
+	virtual void handleCopyEvent(std::string& /*clipboard_contents_out*/) {}
+
+	virtual void doHandleMouseMoved(MouseEvent& /*mouse_event*/) {}
 	virtual bool doHandleMouseWheelEvent(const Vec2f& /*coords*/, const GLUIMouseWheelEvent& /*event*/) { return false; } // Returns true if event accepted (e.g. should not be passed on)
 	virtual void doHandleKeyPressedEvent(KeyEvent& /*key_event*/) {}
 	virtual void doHandleTextInputEvent(TextInputEvent& /*text_input_event*/) {}

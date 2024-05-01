@@ -82,7 +82,52 @@ float sun_phi = 1.f;
 float sun_theta = Maths::pi<float>() / 4;
 
 StandardPrintOutput print_output;
-bool quit = false;
+static bool quit = false;
+
+static bool doing_cam_rotate_mouse_drag = false;
+
+
+class TestBedGLUICallbacks : public GLUICallbacks
+{
+public:
+	TestBedGLUICallbacks() : sys_cursor_arrow(NULL), sys_cursor_Ibeam(NULL) {}
+
+	virtual void startTextInput()
+	{
+		conPrint("startTextInput");
+		SDL_StartTextInput();
+	}
+
+	virtual void stopTextInput()
+	{
+		conPrint("stopTextInput");
+		SDL_StopTextInput();
+	}
+
+	virtual void setMouseCursor(MouseCursor cursor)
+	{
+		conPrint("setMouseCursor");
+		if(cursor == MouseCursor_Arrow)
+		{
+			if(!sys_cursor_arrow)
+				sys_cursor_arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+			SDL_SetCursor(sys_cursor_arrow);
+		}
+		else if(cursor == MouseCursor_IBeam)
+		{
+			if(!sys_cursor_Ibeam)
+				sys_cursor_Ibeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+			SDL_SetCursor(sys_cursor_Ibeam);
+		}
+		else
+			assert(0);
+	}
+
+	SDL_Cursor* sys_cursor_arrow;
+	SDL_Cursor* sys_cursor_Ibeam;
+};
+
+
 
 
 int main(int, char**)
@@ -231,29 +276,21 @@ int main(int, char**)
 
 
 		TextRendererRef text_renderer = new TextRenderer();
-		//TextRendererFontFaceRef font       = new TextRendererFontFace(text_renderer, font_path, 30);
-		//TextRendererFontFaceRef emoji_font = new TextRendererFontFace(text_renderer, emoji_font_path, 30);
-
-		Timer timer;
-		std::vector<TextRendererFontFaceRef> fonts;
-		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 18));
-		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 24));
-		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 36));
-		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 48));
-		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 60));
-		fonts.push_back(new TextRendererFontFace(text_renderer, font_path, 72));
-
-		std::vector<TextRendererFontFaceRef> emoji_fonts;
-		emoji_fonts.push_back(new TextRendererFontFace(text_renderer, emoji_font_path, 100));
-		conPrint("loading fonts took " + timer.elapsedString());
+		
+		TextRendererFontFaceSizeSetRef fonts       = new TextRendererFontFaceSizeSet(text_renderer, font_path);
+		TextRendererFontFaceSizeSetRef emoji_fonts = new TextRendererFontFaceSizeSet(text_renderer, emoji_font_path);
 
 		gl_ui = new GLUI();
+
+		gl_ui->callbacks = new TestBedGLUICallbacks();
+
 		gl_ui->create(opengl_engine, /*device pixel ratio=*/1.f, fonts, emoji_fonts);
 		
 		
-
-		// Add some text
 		std::vector<GLUITextRef> texts;
+#if 0
+		// Add some text
+		
 		{
 			GLUIText::GLUITextCreateArgs text_create_args;
 
@@ -339,19 +376,54 @@ int main(int, char**)
 			
 			gl_ui->addWidget(text_view);
 		}
+#endif
+		// Add text-view widget
+		{
+			GLUITextView::GLUITextViewCreateArgs create_args;
+			create_args.font_size_px = 30;
+			GLUITextViewRef text_view = new GLUITextView(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
+			
+			gl_ui->addWidget(text_view);
+		}
+
+		for(int i=8; i<40; ++i)
+		{
+			GLUIText::GLUITextCreateArgs args;
+			args.font_size_px = i;
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "aaAAbbBB", /*botleft=*/Vec2f(-1.0f, gl_ui->getViewportMinMaxY() - (i - 8) * 0.05f), args);
+			
+			//gl_ui->addWidget(text);
+			texts.push_back(text);
+		}
 
 		// Add a line edit box
 		{
-			GLUILineEditRef line_edit = new GLUILineEdit();
 			GLUILineEdit::GLUILineEditCreateArgs create_args;
-			create_args.font_size_px = 24;
-			line_edit->create(*gl_ui, opengl_engine, /*botleft=*/Vec2f(0.0f, -0.1f), create_args);
+			create_args.width = 0.8f;
+			create_args.background_colour = Colour3f(0.0f);
+			create_args.background_alpha = 0.8f;
+			create_args.font_size_px = 14;
+			GLUILineEditRef line_edit = new GLUILineEdit(*gl_ui, opengl_engine, /*botleft=*/Vec2f(0.0f, -0.1f), create_args);
+
+			GLUILineEdit* line_edit_ptr = line_edit.ptr();
+			line_edit->on_enter_pressed = [line_edit_ptr](){ conPrint("Enter pressed on line edit 1"); line_edit_ptr->clear(); };
 
 			gl_ui->addWidget(line_edit);
 		}
 
+		// Add another line edit box
+		{
+			GLUILineEdit::GLUILineEditCreateArgs create_args;
+			create_args.width = 0.8f;
+			create_args.background_colour = Colour3f(0.0f);
+			create_args.background_alpha = 0.8f;
+			create_args.font_size_px = 18;
+			GLUILineEditRef line_edit = new GLUILineEdit(*gl_ui, opengl_engine, /*botleft=*/Vec2f(0.0f, -0.3f), create_args);
 
+			line_edit->on_enter_pressed = [](){ conPrint("Enter pressed on line edit 2"); };
 
+			gl_ui->addWidget(line_edit);
+		}
 
 		//for(int i=0; i<10000; ++i)
 		//{
@@ -438,7 +510,7 @@ int main(int, char**)
 		GLTFLoadedData gltf_data;
 		Timer timer2;
 		//BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile("C:\\Users\\nick\\Downloads\\SciFiHelmet.gltf", gltf_data);
-		BatchedMeshRef batched_mesh;// = FormatDecoderGLTF::loadGLTFFile(model_dir + "/DamagedHelmet.gltf", gltf_data);
+		BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile(model_dir + "/DamagedHelmet.gltf", gltf_data);
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\files\\Saeule_6row_obj_4065354431801582820.bmesh");
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\room2_WindowsFLAT_glb_13600392068904710101.bmesh");
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\Station_Cleaned__OMPTIMIZED__CENTRAL_FLIPPED__noBin_glb_13427799269604943069.bmesh");
@@ -448,18 +520,40 @@ int main(int, char**)
 		//batched_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target reduction ratio=*/10.0f, /*target error=*/1.0f, /*sloppy=*/false);
 
 
-		OpenGLMeshRenderDataRef test_mesh_data;// = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
+		OpenGLMeshRenderDataRef test_mesh_data = GLMeshBuilding::buildBatchedMesh(opengl_engine->vert_buf_allocator.ptr(), batched_mesh, /*skip opengl calls=*/false, NULL);
 		//OpenGLMeshRenderDataRef test_mesh_data = MeshPrimitiveBuilding::makeCubeMesh(*opengl_engine->vert_buf_allocator);
 		
 		PCG32 rng(1);
 
-		if(false)
+		// Add cube
+		GLObjectRef cube_ob;
+		{
+			cube_ob = new GLObject();
+			cube_ob->mesh_data = opengl_engine->getCubeMeshData();;
+			cube_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 3);
+			cube_ob->materials.resize(1);
+			cube_ob->materials[0].albedo_linear_rgb = Colour3f(1,0,0);
+			opengl_engine->addObject(cube_ob);
+		}
+
+		// Add sphere
+		GLObjectRef sphere_ob;
+		{
+			sphere_ob = new GLObject();
+			sphere_ob->mesh_data = opengl_engine->getSphereMeshData();;
+			sphere_ob->ob_to_world_matrix = Matrix4f::translationMatrix(3, 0, 3);
+			sphere_ob->materials.resize(1);
+			sphere_ob->materials[0].albedo_linear_rgb = Colour3f(0,1,0);
+			opengl_engine->addObject(sphere_ob);
+		}
+
+		if(true)
 		{
 			GLObjectRef ob = new GLObject();
 			main_test_ob = ob;
 			ob->mesh_data = test_mesh_data;
 			ob->ob_to_world_matrix = Matrix4f::translationMatrix(1, 0, 3) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>()) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
-				Matrix4f::uniformScaleMatrix(1);
+				Matrix4f::uniformScaleMatrix(0.02f);
 			ob->materials.resize(test_mesh_data->num_materials_referenced);
 
 			{
@@ -480,7 +574,7 @@ int main(int, char**)
 			}
 			
 			ob->materials[0].emission_texture = opengl_engine->getTexture(model_dir + "/Default_emissive.jpg");
-			ob->materials[0].emission_scale = 3.0e9f;
+			ob->materials[0].emission_scale = 3.0f; // 3.0e9f;
 			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
 		}
 #if 0
@@ -666,10 +760,13 @@ static inline Key getKeyForSDLKey(SDL_Keycode sym)
 	case SDLK_BACKSPACE: return Key_Backspace;
 	case SDLK_DELETE: return Key_Delete;
 	case SDLK_SPACE: return Key_Space;
+	case SDLK_RETURN: return Key_Return;
 	case SDLK_LEFTBRACKET: return Key_LeftBracket;
 	case SDLK_RIGHTBRACKET: return Key_RightBracket;
 	case SDLK_PAGEUP: return Key_PageUp;
 	case SDLK_PAGEDOWN: return Key_PageDown;
+	case SDLK_HOME: return Key_Home;
+	case SDLK_END: return Key_End;
 	case SDLK_EQUALS: return Key_Equals;
 	case SDLK_PLUS: return Key_Plus;
 	case SDLK_MINUS: return Key_Minus;
@@ -706,16 +803,33 @@ static uint32 convertSDLModifiers(SDL_Keymod sdl_keymod)
 }
 
 
-static void convertFromSDKKeyEvent(SDL_Event ev, KeyEvent& key_event)
+static uint32 convertSDLMouseButtonState(uint32 sdl_state)
+{
+	uint32 res = 0;
+	if(sdl_state & SDL_BUTTON_LMASK) res |= (uint32)MouseButton::Left;
+	if(sdl_state & SDL_BUTTON_MMASK) res |= (uint32)MouseButton::Middle;
+	if(sdl_state & SDL_BUTTON_RMASK) res |= (uint32)MouseButton::Right;
+	return res;
+}
+
+
+static void convertFromSDLKeyEvent(SDL_Event ev, KeyEvent& key_event)
 {
 	key_event.key = getKeyForSDLKey(ev.key.keysym.sym);
 	key_event.native_virtual_key = 0; // TODO
 	// TODO: set key_event.text
 
-	if(key_event.key >= Key_A && key_event.key <= Key_Z)
-		key_event.text = std::string(1, 'a' + (key_event.key - Key_A));
-
 	key_event.modifiers = convertSDLModifiers((SDL_Keymod)ev.key.keysym.mod);
+
+	/*if(key_event.key >= Key_A && key_event.key <= Key_Z)
+		if(key_event.modifiers & Modifiers::Shift)
+		key_event.text = std::string(1, (char)('a' + (key_event.key - Key_A)));*/
+}
+
+
+static void convertFromSDLTextInputEvent(SDL_Event ev, TextInputEvent& text_input_event)
+{
+	text_input_event.text = std::string(ev.text.text);
 }
 
 
@@ -784,9 +898,11 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 			if(main_test_ob.nonNull())
 			{
 				main_test_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 1) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>() + (float)timer->elapsed() * 0.4f) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
-					Matrix4f::uniformScaleMatrix(10);
+					Matrix4f::uniformScaleMatrix(0.7f);
 				opengl_engine->updateObjectTransformData(*main_test_ob);
 			}
+
+			gl_ui->think();
 
 
 			const Matrix4f z_rot = Matrix4f::rotationAroundZAxis(cam_phi);
@@ -914,18 +1030,57 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 						reset = true;
 
 					KeyEvent key_event;
-					convertFromSDKKeyEvent(e, key_event);
+					convertFromSDLKeyEvent(e, key_event);
 
-					gl_ui->handleKeyPressedEvent(key_event);
+					if(key_event.key == Key_X && (key_event.modifiers & (uint32)Modifiers::Ctrl)) // Check for cut command
+					{
+						std::string new_clipboard_contents;
+						gl_ui->handleCutEvent(new_clipboard_contents);
+						SDL_SetClipboardText(new_clipboard_contents.c_str());
+					}
+					else if(key_event.key == Key_C && (key_event.modifiers & (uint32)Modifiers::Ctrl)) // Check for copy command
+					{
+						std::string new_clipboard_contents;
+						gl_ui->handleCopyEvent(new_clipboard_contents);
+						SDL_SetClipboardText(new_clipboard_contents.c_str());
+					}
+					else if(key_event.key == Key_V && (key_event.modifiers & (uint32)Modifiers::Ctrl)) // Check for paste command
+					{
+						TextInputEvent text_input_event;
+						char* keyboard_text = SDL_GetClipboardText(); // Caller must call SDL_free() on the returned pointer when done with it
+						text_input_event.text = std::string(keyboard_text);
+						SDL_free(keyboard_text);
+
+						gl_ui->handleTextInputEvent(text_input_event);
+					}
+					else
+					{
+						gl_ui->handleKeyPressedEvent(key_event);
+					}
+				}
+				else if(e.type == SDL_TEXTINPUT)
+				{
+					TextInputEvent text_input_event;
+					convertFromSDLTextInputEvent(e, text_input_event);
+
+					gl_ui->handleTextInputEvent(text_input_event);
 				}
 				else if(e.type == SDL_MOUSEMOTION)
 				{
-					if(e.motion.state & SDL_BUTTON_LMASK)
+					if(doing_cam_rotate_mouse_drag && (e.motion.state & SDL_BUTTON_LMASK))
 					{
 						const float move_scale = 0.005f;
 						cam_phi += e.motion.xrel * move_scale;
 						cam_theta = myClamp<float>(cam_theta + (float)e.motion.yrel * move_scale, 0.01f, Maths::pi<float>() - 0.01f);
 					}
+
+					MouseEvent move_event;
+					move_event.cursor_pos = Vec2i(e.motion.x, e.motion.y);
+					move_event.gl_coords = GLCoordsForGLWidgetPos(*opengl_engine, Vec2f((float)e.motion.x, (float)e.motion.y));
+					move_event.modifiers = convertSDLModifiers(SDL_GetModState());
+					move_event.button_state = convertSDLMouseButtonState(e.motion.state);
+
+					gl_ui->handleMouseMoved(move_event);
 				}
 				else if(e.type == SDL_MOUSEWHEEL)
 				{
@@ -936,7 +1091,7 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 				{
 					if(!imgui_captures_mouse_ev)
 					{
-						// conPrint("SDL_MOUSEBUTTONDOWN, pos: " + Vec2i(e.button.x, e.button.y).toString() + ", clicks: " + toString(e.button.clicks));
+						conPrint("SDL_MOUSEBUTTONDOWN, pos: " + Vec2i(e.button.x, e.button.y).toString() + ", clicks: " + toString(e.button.clicks));
 
 						//SDL_GetMouseState(&mouse_move_origin.x, &mouse_move_origin.y);
 
@@ -946,16 +1101,25 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 						//mouse_event.button = convertSDLMouseButton(e.button.button);
 						//mouse_event.modifiers = convertSDLModifiers(SDL_GetModState());
 
-						gl_ui->handleMouseClick(mouse_event.gl_coords);
-
+						
+						
 						if(e.button.clicks == 1) // Single click:
 						{
+							gl_ui->handleMousePress(mouse_event);
 							//SDL_SetRelativeMouseMode(SDL_TRUE);
+
+							if(!mouse_event.accepted)
+								doing_cam_rotate_mouse_drag = true;
 						}
 						else if(e.button.clicks == 2) // Double click:
 						{
+							conPrint("Double click");
+							gl_ui->handleMouseDoubleClick(mouse_event);
+
 							//gui_client->doObjectSelectionTraceForMouseEvent(mouse_event);
 						}
+
+						
 					}
 				}
 				else if(e.type == SDL_MOUSEBUTTONUP)
@@ -973,29 +1137,35 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 							mouse_event.gl_coords = GLCoordsForGLWidgetPos(*opengl_engine, Vec2f((float)e.button.x, (float)e.button.y));
 							//mouse_event.button = convertSDLMouseButton(e.button.button);
 							///mouse_event.modifiers = convertSDLModifiers(SDL_GetModState());
-							//gui_client->mouseClicked(mouse_event);
+							gl_ui->handleMouseRelease(mouse_event);
+
+							doing_cam_rotate_mouse_drag = false;
 						}
 					}
 				}
 			}
 
 			SDL_PumpEvents();
-			const uint8* keystate = SDL_GetKeyboardState(NULL);
-			const float shift_factor = (keystate[SDL_SCANCODE_LSHIFT] != 0) ? 3.f : 1.f;
-			if(keystate[SDL_SCANCODE_LEFT])
-				cam_phi -= dt * 0.25f * shift_factor;
-			if(keystate[SDL_SCANCODE_RIGHT])
-				cam_phi += dt * 0.25f * shift_factor;
 
-			const float move_speed = 14.f * shift_factor;
-			if(keystate[SDL_SCANCODE_W])
-				cam_pos += forwards * dt * move_speed;
-			if(keystate[SDL_SCANCODE_S])
-				cam_pos -= forwards * dt * move_speed;
-			if(keystate[SDL_SCANCODE_A])
-				cam_pos -= right * dt * move_speed;
-			if(keystate[SDL_SCANCODE_D])
-				cam_pos += right * dt * move_speed;
+			if(gl_ui->getKeyboardFocusWidget().isNull())
+			{
+				const uint8* keystate = SDL_GetKeyboardState(NULL);
+				const float shift_factor = (keystate[SDL_SCANCODE_LSHIFT] != 0) ? 3.f : 1.f;
+				if(keystate[SDL_SCANCODE_LEFT])
+					cam_phi -= dt * 0.25f * shift_factor;
+				if(keystate[SDL_SCANCODE_RIGHT])
+					cam_phi += dt * 0.25f * shift_factor;
+
+				const float move_speed = 14.f * shift_factor;
+				if(keystate[SDL_SCANCODE_W])
+					cam_pos += forwards * dt * move_speed;
+				if(keystate[SDL_SCANCODE_S])
+					cam_pos -= forwards * dt * move_speed;
+				if(keystate[SDL_SCANCODE_A])
+					cam_pos -= right * dt * move_speed;
+				if(keystate[SDL_SCANCODE_D])
+					cam_pos += right * dt * move_speed;
+			}
 
 			num_frames++;
 }

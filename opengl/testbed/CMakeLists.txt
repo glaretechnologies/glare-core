@@ -283,23 +283,6 @@ ${GLARE_CORE_TRUNK}/graphics/TextRenderer.h
 
 include(${GLARE_CORE_TRUNK}/opengl/opengl.cmake)
 
-set(glui
-${GLARE_CORE_TRUNK}/opengl/ui/FontCharTexCache.cpp
-${GLARE_CORE_TRUNK}/opengl/ui/FontCharTexCache.h
-${GLARE_CORE_TRUNK}/opengl/ui/GLUI.cpp
-${GLARE_CORE_TRUNK}/opengl/ui/GLUI.h
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIButton.cpp
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIButton.h
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIImage.cpp
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIImage.h
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIText.cpp
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIText.h
-${GLARE_CORE_TRUNK}/opengl/ui/GLUITextView.cpp
-${GLARE_CORE_TRUNK}/opengl/ui/GLUITextView.h
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIWidget.cpp
-${GLARE_CORE_TRUNK}/opengl/ui/GLUIWidget.h
-)
-
 
 set(utils
 ${GLARE_CORE_TRUNK}/utils/BestFitAllocator.cpp
@@ -385,6 +368,8 @@ ${GLARE_CORE_TRUNK}/utils/UTF8Utils.h
 set(maths
 ${GLARE_CORE_TRUNK}/maths/SSE.cpp
 ${GLARE_CORE_TRUNK}/maths/SSE.h
+${GLARE_CORE_TRUNK}/maths/vec2.cpp
+${GLARE_CORE_TRUNK}/maths/vec2.h
 ${GLARE_CORE_TRUNK}/maths/Vec4f.cpp
 ${GLARE_CORE_TRUNK}/maths/Vec4f.h
 ${GLARE_CORE_TRUNK}/maths/Matrix4f.cpp
@@ -577,7 +562,7 @@ SOURCE_GROUP(double-conversion FILES ${double_conversion})
 SOURCE_GROUP(imgui FILES ${imgui})
 SOURCE_GROUP(meshoptimizer FILES ${meshoptimizer})
 SOURCE_GROUP(jpeg-turbo FILES ${jpeg_src})
-SOURCE_GROUP(glui FILES ${glui})
+SOURCE_GROUP(opengl_ui FILES ${opengl_ui})
 SOURCE_GROUP(freetype FILES ${freetype})
 
 
@@ -602,7 +587,7 @@ ${imgui}
 ${tracy_files}
 ${meshoptimizer}
 ${jpeg_src}
-${glui}
+${opengl_ui}
 ${freetype}
 )
 

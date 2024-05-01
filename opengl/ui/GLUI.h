@@ -49,11 +49,16 @@ public:
 	Vec2f OpenGLCoordsForUICoords(const Vec2f& ui_coords);
 	float OpenGLYScaleForUIYScale(float y_scale);
 
-	bool handleMouseClick(const Vec2f& gl_coords); // Returns true if event accepted (e.g. should not be passed on)
+	void handleMousePress(MouseEvent& event);
+	void handleMouseRelease(MouseEvent& event);
+	void handleMouseDoubleClick(MouseEvent& event);
 	bool handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEvent& event);
-	bool handleMouseMoved(const Vec2f& gl_coords);
+	bool handleMouseMoved(MouseEvent& mouse_event);
 	void handleKeyPressedEvent(KeyEvent& key_event);
 	void handleTextInputEvent(TextInputEvent& text_input_event);
+
+	void handleCutEvent(std::string& clipboard_contents_out);
+	void handleCopyEvent(std::string& clipboard_contents_out);
 
 	void viewportResized(int w, int h);
 

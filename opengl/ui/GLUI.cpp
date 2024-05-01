@@ -98,32 +98,49 @@ float GLUI::OpenGLYScaleForUIYScale(float y_scale)
 }
 
 
-bool GLUI::handleMouseClick(const Vec2f& gl_coords)
+void GLUI::handleMousePress(MouseEvent& event)
 {
-	const Vec2f coords = UICoordsForOpenGLCoords(gl_coords);
-
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		const bool accepted = widget->handleMouseClick(coords);
-		if(accepted)
+		widget->handleMousePress(event);
+		if(event.accepted)
 		{
 			if(widget != key_focus_widget.ptr())
 				setKeyboardFocusWidget(NULL); // A widget that wasn't the one with keyboard focus accepted the click.  Remove keyboard focus from any widgets that had it.
 
-			return true;
+			return;
 		}
-
-		//if(widget->rect.inOpenRectangle(coords)) // If the mouse is over the widget:
-		//{
-		//	return true;
-		//}
 	}
 
 	// No widget accepted the click event.  Remove keyboard focus from any widgets that had it.
 	setKeyboardFocusWidget(NULL);
+}
 
-	return false;
+
+void GLUI::handleMouseRelease(MouseEvent& event)
+{
+	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	{
+		GLUIWidget* widget = it->ptr();
+		widget->handleMouseRelease(event);
+		if(event.accepted)
+			return;
+	}
+}
+
+
+void GLUI::handleMouseDoubleClick(MouseEvent& event)
+{
+	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	{
+		GLUIWidget* widget = it->ptr();
+		widget->handleMouseDoubleClick(event);
+		if(event.accepted)
+		{
+			return;
+		}
+	}
 }
 
 
@@ -143,11 +160,11 @@ bool GLUI::handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEve
 }
 
 
-bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
+bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 {
 	// Convert from gl_coords to UI x/y coords
 	const float y_scale = 1 / opengl_engine->getViewPortAspectRatio();
-	const Vec2f coords = UICoordsForOpenGLCoords(gl_coords);
+	const Vec2f coords = UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
 	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0); // Move offscreen by defualt.
 
@@ -155,7 +172,7 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		widget->handleMouseMoved(coords);
+		widget->handleMouseMoved(mouse_event);
 
 		// Show tooltip over the widget if the mouse is over it, and it has a tooltip:
 		if(widget->rect.inOpenRectangle(coords)) // If the mouse is over the widget:
@@ -185,14 +202,14 @@ bool GLUI::handleMouseMoved(const Vec2f& gl_coords)
 
 				const float mouse_pointer_h_gl = 40.f / opengl_engine->getViewPortHeight();
 
-				float pos_x = gl_coords.x;
-				float pos_y = gl_coords.y - scale_y - mouse_pointer_h_gl;
+				float pos_x = mouse_event.gl_coords.x;
+				float pos_y = mouse_event.gl_coords.y - scale_y - mouse_pointer_h_gl;
 				
 				if(pos_y < -1.f) // If tooltip would go off bottom of screen:
-					pos_y = gl_coords.y;
+					pos_y = mouse_event.gl_coords.y;
 
 				if(pos_x + scale_x > 1.f) // If tooltip would go off right of screen:
-					pos_x = gl_coords.x - scale_x;
+					pos_x = mouse_event.gl_coords.x - scale_x;
 
 				tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_x, pos_y, TOOLTIP_Z) * Matrix4f::scaleMatrix(scale_x, scale_y, 1);
 			}
@@ -231,6 +248,28 @@ void GLUI::handleTextInputEvent(TextInputEvent& text_input_event)
 	if(key_focus_widget.nonNull())
 	{
 		key_focus_widget->handleTextInputEvent(text_input_event);
+	}
+}
+
+
+void GLUI::handleCutEvent(std::string& clipboard_contents_out)
+{
+	clipboard_contents_out.clear();
+
+	if(key_focus_widget.nonNull())
+	{
+		key_focus_widget->handleCutEvent(clipboard_contents_out);
+	}
+}
+
+
+void GLUI::handleCopyEvent(std::string& clipboard_contents_out)
+{
+	clipboard_contents_out.clear();
+
+	if(key_focus_widget.nonNull())
+	{
+		key_focus_widget->handleCopyEvent(clipboard_contents_out);
 	}
 }
 
@@ -295,13 +334,19 @@ TextRendererFontFace* GLUI::getFont(int font_size_px, bool emoji)
 
 void GLUI::setKeyboardFocusWidget(GLUIWidgetRef widget)
 {
-	key_focus_widget = widget;
-
-	if(callbacks)
+	if(widget != key_focus_widget) // If changed:
 	{
-		if(widget.nonNull())
-			callbacks->startTextInput();
-		else
-			callbacks->stopTextInput();
+		if(key_focus_widget.nonNull())
+			key_focus_widget->handleLosingKeyboardFocus();
+
+		key_focus_widget = widget;
+
+		if(callbacks)
+		{
+			if(widget.nonNull())
+				callbacks->startTextInput();
+			else
+				callbacks->stopTextInput();
+		}
 	}
 }

@@ -55,9 +55,17 @@ public:
 
 	const Vec2f getDims() const;
 
-	// Called when e.g. the viewport changes size
-	virtual void updateGLTransform(GLUI& glui) override;
+	virtual void handleMousePress(MouseEvent& event) override;
+	virtual void handleMouseRelease(MouseEvent& event) override;
+	virtual void handleMouseDoubleClick(MouseEvent& event) override;
+	virtual void doHandleMouseMoved(MouseEvent& event) override;
+	virtual void handleLosingKeyboardFocus() override;
+	virtual void updateGLTransform(GLUI& glui) override; // Called when e.g. the viewport changes size
 
+	virtual void handleCutEvent(std::string& clipboard_contents_out) override;
+	virtual void handleCopyEvent(std::string& clipboard_contents_out) override;
+
+	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef background_overlay_ob;
 	GLUITextRef glui_text;
@@ -65,7 +73,11 @@ public:
 private:
 	GLARE_DISABLE_COPY(GLUITextView);
 
-	void updateBackgroundOverlayObTransform(GLUI& glui);
+	void updateOverlayObTransforms();
+
+	OverlayObjectRef selection_overlay_ob;
+
+	int selection_start, selection_end;
 
 	GLUITextViewCreateArgs args;
 	std::string text;

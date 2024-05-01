@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "GLUIImage.h"
 
 
+#include "GLUI.h"
 #include <graphics/SRGBUtils.h>
 #include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
@@ -31,9 +32,10 @@ static const Colour3f default_colour(1.f);
 static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-void GLUIImage::create(GLUI& /*glui*/, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
+void GLUIImage::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
 	const std::string& tooltip_, float z_)
 {
+	glui = &glui_;
 	opengl_engine = opengl_engine_;
 	tooltip = tooltip_;
 
@@ -88,21 +90,21 @@ void GLUIImage::destroy()
 }
 
 
-bool GLUIImage::doHandleMouseMoved(const Vec2f& coords)
+void GLUIImage::doHandleMouseMoved(MouseEvent& mouse_event)
 {
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
 	if(overlay_ob.nonNull())
 	{
 		if(rect.inOpenRectangle(coords)) // If mouse over widget:
 		{
 			overlay_ob->material.albedo_linear_rgb = mouseover_colour;
-			return true;
+			mouse_event.accepted = true;
 		}
 		else
 		{
 			overlay_ob->material.albedo_linear_rgb = colour;
 		}
 	}
-	return false;
 }
 
 
