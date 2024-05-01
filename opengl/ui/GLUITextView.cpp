@@ -28,10 +28,15 @@ GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	text = text_;
 	botleft = botleft_;
 
-	background_overlay_ob = new OverlayObject();
-	background_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
-	background_overlay_ob->material.albedo_linear_rgb = args.background_colour;
-	background_overlay_ob->material.alpha = args.background_alpha;
+	if(args.background_alpha != 0)
+	{
+		background_overlay_ob = new OverlayObject();
+		background_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
+		background_overlay_ob->material.albedo_linear_rgb = args.background_colour;
+		background_overlay_ob->material.alpha = args.background_alpha;
+
+		opengl_engine->addOverlayObject(background_overlay_ob);
+	}
 
 	selection_overlay_ob = new OverlayObject();
 	selection_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -50,8 +55,6 @@ GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	rect = glui_text->getRect();
 
 	updateOverlayObTransforms();
-
-	opengl_engine->addOverlayObject(background_overlay_ob);
 }
 
 
@@ -200,6 +203,8 @@ void GLUITextView::setPos(GLUI& /*glui_*/, const Vec2f& new_botleft)
 	if(glui_text.nonNull())
 		glui_text->setPos(botleft);
 
+	rect = glui_text->getRect();
+
 	updateOverlayObTransforms();
 }
 
@@ -226,6 +231,15 @@ const Vec2f GLUITextView::getDims() const
 		return glui_text->getDims();
 	else
 		return Vec2f(0.f);
+}
+
+
+const Rect2f GLUITextView::getRect() const
+{
+	if(glui_text.nonNull())
+		return glui_text->getRect();
+	else
+		return Rect2f(Vec2f(0.f), Vec2f(0.f));
 }
 
 
@@ -270,11 +284,11 @@ void GLUITextView::handleMouseDoubleClick(MouseEvent& event)
 
 void GLUITextView::doHandleMouseMoved(MouseEvent& mouse_event)
 {
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
-
 	// If left mouse button is down, update selection region
-	if((mouse_event.button_state & (uint32)MouseButton::Left) != 0)
+	if((this->selection_start != -1) && (mouse_event.button_state & (uint32)MouseButton::Left) != 0)
 	{
+		const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
+
 		this->selection_end = glui_text->cursorPosForUICoords(*glui, coords);
 
 		updateOverlayObTransforms(); // Redraw since selection region may have changed.

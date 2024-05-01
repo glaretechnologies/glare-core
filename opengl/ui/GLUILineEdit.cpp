@@ -319,7 +319,7 @@ void GLUILineEdit::doHandleMouseMoved(MouseEvent& mouse_event)
 			background_overlay_ob->material.albedo_linear_rgb = args.background_colour;
 
 		// If left mouse button is down, update selection region
-		if((mouse_event.button_state & (uint32)MouseButton::Left) != 0)
+		if((this->selection_start != -1) && (mouse_event.button_state & (uint32)MouseButton::Left) != 0)
 		{
 			this->selection_end = glui_text->cursorPosForUICoords(*glui, coords);
 

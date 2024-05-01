@@ -55,6 +55,8 @@ public:
 
 	const Vec2f getDims() const;
 
+	const Rect2f getRect() const;
+
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void handleMouseDoubleClick(MouseEvent& event) override;
