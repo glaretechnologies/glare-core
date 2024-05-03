@@ -418,7 +418,7 @@ class OpenGLEngineSettings
 public:
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
 		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
-		allow_multi_draw_indirect(true) {}
+		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -435,6 +435,9 @@ public:
 
 	uint64 max_tex_CPU_mem_usage; // If total CPU RAM usage of used and cached textures exceeds this value, textures will be removed from cache.  Default: 1GB
 	uint64 max_tex_GPU_mem_usage; // If total GPU RAM usage of used and cached textures exceeds this value, textures will be removed from cache.  Default: 1GB
+
+	// For working around a bug on Mac with changing the phong uniform buffer between rendering batches (see https://issues.chromium.org/issues/338348430)
+	bool use_multiple_phong_uniform_bufs;
 };
 
 
@@ -1072,7 +1075,7 @@ public:
 private:
 	// Set uniforms that are the same for every batch for the duration of this frame.
 	void setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat);
-	void drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch);
+	void drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch, uint32 batch_index);
 	void drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index);
 	void buildOutlineTextures();
 private:
@@ -1390,8 +1393,17 @@ private:
 
 	bool query_profiling_enabled;
 
+#if defined(EMSCRIPTEN) || defined(__APPLE__)
+	// For working around a bug on Mac with changing the phong uniform buffer between rendering batches (see https://issues.chromium.org/issues/338348430)
+	#define MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT 1
+#endif
 
+	uint32 current_bound_phong_uniform_buf_ob_index;
+#if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
+	UniformBufObRef phong_uniform_buf_obs[64];
+#else
 	UniformBufObRef phong_uniform_buf_ob; // Used for transparent mats also.
+#endif
 	UniformBufObRef material_common_uniform_buf_ob;
 	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;

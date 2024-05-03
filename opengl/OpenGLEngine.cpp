@@ -457,7 +457,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	running_in_renderdoc(false),
 	loaded_maps_for_sun_dir(false),
 	add_debug_obs(false),
-	async_texture_loader(NULL)
+	async_texture_loader(NULL),
+	current_bound_phong_uniform_buf_ob_index(0)
 {
 	current_index_type = 0;
 	current_bound_prog = NULL;
@@ -2018,9 +2019,18 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		}
 
 
+#if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
+		const size_t num_phong_uniform_buf_obs = settings.use_multiple_phong_uniform_bufs ? 64 : 1;
+		for(size_t i=0; i<num_phong_uniform_buf_obs; ++i)
+		{
+			phong_uniform_buf_obs[i] = new UniformBufOb();
+			phong_uniform_buf_obs[i]->allocate(sizeof(PhongUniforms));
+		}
+#else
 		phong_uniform_buf_ob = new UniformBufOb();
 		phong_uniform_buf_ob->allocate(sizeof(PhongUniforms));
-	
+#endif
+
 		material_common_uniform_buf_ob = new UniformBufOb();
 		material_common_uniform_buf_ob->allocate(sizeof(MaterialCommonUniforms));
 
@@ -2037,7 +2047,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		joint_matrices_buf_ob->allocate(sizeof(Matrix4f) * max_num_joint_matrices_per_ob);
 
 
+#if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_obs[0]->handle);
+		this->current_bound_phong_uniform_buf_ob_index = 0;
+#else
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_ob->handle);
+#endif
+
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/SHARED_VERT_UBO_BINDING_POINT_INDEX, this->shared_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX, this->per_object_vert_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
@@ -7381,7 +7397,7 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 			if(program_changed)
 				setSharedUniformsForProg(*current_scene->env_ob->materials[0].shader_prog, world_to_camera_space_no_translation, use_proj_mat);
 			bindMeshData(*current_scene->env_ob->mesh_data);
-			drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0]);
+			drawBatch(*current_scene->env_ob, current_scene->env_ob->materials[0], *current_scene->env_ob->materials[0].shader_prog, *current_scene->env_ob->mesh_data, current_scene->env_ob->mesh_data->batches[0], /*batch_index=*/0);
 			
 			flushDrawCommandsAndUnbindPrograms();
 
@@ -8257,7 +8273,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 					const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
 					if(program_changed)
 						setSharedUniformsForProg(*ob->materials[mat_index].shader_prog, view_matrix, proj_matrix);
-					drawBatch(*ob, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
+					drawBatch(*ob, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], /*batch_index=*/z); // Draw primitives for the given material
 				}
 			}
 		}
@@ -8285,7 +8301,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 					const bool program_changed = checkUseProgram(ob->materials[mat_index].shader_prog.ptr()); // TODO: use sorting for these draws
 					if(program_changed)
 						setSharedUniformsForProg(*ob->materials[mat_index].shader_prog, view_matrix, proj_matrix);
-					drawBatch(*ob, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z]); // Draw primitives for the given material
+					drawBatch(*ob, ob->materials[mat_index], *ob->materials[mat_index].shader_prog, mesh_data, mesh_data.batches[z], /*batch_index=*/z); // Draw primitives for the given material
 				}
 			}
 		}
@@ -8335,7 +8351,7 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 					setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
 				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 				for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-					drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
+					drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z], /*batch_index=*/z); // Draw object with outline_mat.
 			}
 		}
 
@@ -9144,7 +9160,7 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 }
 
 
-void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch)
+void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog_, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch, uint32 batch_index)
 {
 	const uint32 prim_start_offset_B = batch.prim_start_offset_B;
 	const uint32 num_indices = batch.num_indices;
@@ -9208,7 +9224,20 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 		PhongUniforms uniforms;
 		setUniformsForPhongProg(opengl_mat, mesh_data, uniforms);
+
+	#if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
+		const uint32 use_batch_index = settings.use_multiple_phong_uniform_bufs ? myMin(batch_index, 63u) : 0;
+
+		this->phong_uniform_buf_obs[use_batch_index]->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+
+		if(use_batch_index != current_bound_phong_uniform_buf_ob_index)
+		{
+			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_obs[use_batch_index]->handle);
+			current_bound_phong_uniform_buf_ob_index = use_batch_index;
+		}
+	#else
 		this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+	#endif
 
 #endif
 		if(!use_bindless_textures)
@@ -9465,7 +9494,20 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 			PhongUniforms uniforms;
 			setUniformsForPhongProg(opengl_mat, *ob.mesh_data, uniforms);
+			
+		#if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
+			const uint32 use_batch_index = settings.use_multiple_phong_uniform_bufs ? myMin(batch_index, 63u) : 0;
+
+			this->phong_uniform_buf_obs[use_batch_index]->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+
+			if(use_batch_index != current_bound_phong_uniform_buf_ob_index)
+			{
+				glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_obs[use_batch_index]->handle);
+				current_bound_phong_uniform_buf_ob_index = use_batch_index;
+			}
+		#else
 			this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+		#endif
 
 #endif
 			if(!use_bindless_textures)
@@ -10196,7 +10238,7 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 				setSharedUniformsForProg(*use_prog, view_matrix, proj_matrix);
 			bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
 			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
-				drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z]); // Draw object with outline_mat.
+				drawBatch(*ob, outline_solid_mat, *use_prog, mesh_data, mesh_data.batches[z], /*batch_index=*/z); // Draw object with outline_mat.
 		}
 	}
 
