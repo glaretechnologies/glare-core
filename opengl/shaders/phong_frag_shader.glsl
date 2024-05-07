@@ -40,7 +40,7 @@ uniform sampler2D metallic_roughness_tex;
 uniform sampler2D emission_tex;
 uniform sampler2D normal_map;
 
-#if DOUBLE_SIDED
+#if FANCY_DOUBLE_SIDED
 uniform sampler2D backface_albedo_tex;
 uniform sampler2D transmission_tex;
 #endif
@@ -553,7 +553,7 @@ void main()
 
 	float light_cos_theta = dot(unit_normal_ws, sundir_ws.xyz);
 
-#if DOUBLE_SIDED
+#if SIMPLE_DOUBLE_SIDED || FANCY_DOUBLE_SIDED
 	float sun_light_cos_theta_factor = abs(light_cos_theta);
 #else
 	float sun_light_cos_theta_factor = max(0.f, light_cos_theta);
@@ -571,7 +571,7 @@ void main()
 	vec4 refl_texture_diffuse_col;
 	if((MAT_UNIFORM.flags & HAVE_TEXTURE_FLAG) != 0)
 	{
-#if DOUBLE_SIDED
+#if FANCY_DOUBLE_SIDED
 		// Work out if we are seeing the front or back face of the material
 		float frag_to_cam_dot_normal = dot(frag_to_cam_ws, unit_normal_ws);
 		if(frag_to_cam_dot_normal < 0.f)

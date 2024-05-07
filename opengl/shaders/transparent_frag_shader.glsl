@@ -207,7 +207,14 @@ void main()
 	vec4 emission_col = MAT_UNIFORM.emission_colour;
 	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
 	{
+#if SDF_TEXT
+		float half_w = (fwidth(main_tex_coords.x) + fwidth(main_tex_coords.y)) * 30.0f;
+		vec4 emission_tex_col = texture(EMISSION_TEX, main_tex_coords);
+		float alpha = smoothstep(0.5f - half_w, 0.5f + half_w, emission_tex_col.w);
+		emission_col *= emission_tex_col * alpha;
+#else
 		emission_col *= texture(EMISSION_TEX, main_tex_coords);
+#endif
 	}
 
 	vec4 col;

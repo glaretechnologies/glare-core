@@ -117,7 +117,8 @@ public:
 		imposter(false),
 		imposterable(false),
 		use_wind_vert_shader(false),
-		double_sided(false),
+		simple_double_sided(false),
+		fancy_double_sided(false),
 		materialise_effect(false),
 		cast_shadows(true),
 		geomorphing(false),
@@ -151,7 +152,8 @@ public:
 	bool draw_planar_uv_grid;
 	bool convert_albedo_from_srgb;
 	bool use_wind_vert_shader;
-	bool double_sided; // If false, backface culling is done on this material
+	bool simple_double_sided; // If false, back-face culling is done on this material.  If true, back face is rendered like front face.
+	bool fancy_double_sided; // Are we using BACKFACE_ALBEDO_TEX and TRANSMISSION_TEX?  For leaves etc.
 	bool materialise_effect;
 	bool cast_shadows;
 	bool geomorphing;

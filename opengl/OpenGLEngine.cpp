@@ -2546,7 +2546,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define IMPOSTER " + toString(key.imposter) + "\n" +
 		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
 		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
-		"#define DOUBLE_SIDED " + toString(key.double_sided) + "\n" + 
+		"#define SIMPLE_DOUBLE_SIDED " + toString(key.simple_double_sided) + "\n" + 
+		"#define FANCY_DOUBLE_SIDED " + toString(key.fancy_double_sided) + "\n" + 
 		"#define MATERIALISE_EFFECT " + toString(key.materialise_effect) + "\n" + 
 		"#define BLOB_SHADOWS " + toString(1) + "\n" +
 		"#define TERRAIN " + toString(key.terrain) + "\n" + 
@@ -2890,7 +2891,8 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	key.convert_albedo_from_srgb = false;
 	// relevant: key.skinning
 	// relevant: use_wind_vert_shader
-	key.double_sided = false; // for now
+	key.simple_double_sided = false; // for now
+	key.fancy_double_sided = false; // for now
 	key.terrain = false;
 
 	key.rebuildKeyVal();
@@ -3359,7 +3361,8 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.imposter = material.imposter;
 	key_args.imposterable = material.imposterable;
 	key_args.use_wind_vert_shader = material.use_wind_vert_shader;
-	key_args.double_sided = material.double_sided;
+	key_args.simple_double_sided = material.simple_double_sided;
+	key_args.fancy_double_sided = material.fancy_double_sided;
 	key_args.materialise_effect = material.materialise_effect;
 	key_args.terrain = material.terrain;
 	key_args.decal = material.decal;
@@ -3606,7 +3609,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 	{
 		const OpenGLMaterial& mat = object.materials[object.mesh_data->batches[i].material_index];
 
-		const bool backface_culling = !mat.double_sided;
+		const bool backface_culling = !mat.simple_double_sided && !mat.fancy_double_sided;
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
 			(mat.shader_prog->supports_MDI  ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
 			(mat.transparent                ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
@@ -4790,7 +4793,7 @@ void OpenGLEngine::addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane
 	ob->materials[0].albedo_linear_rgb = Colour3f(col[0], col[1], col[2]);
 	ob->materials[0].alpha = col[3];
 	ob->materials[0].transparent = col[3] < 1.f;
-	ob->materials[0].double_sided = true;
+	ob->materials[0].simple_double_sided = true;
 	ob->ob_to_world_matrix = Matrix4f::translationMatrix(point_on_plane) * Matrix4f::constructFromVectorStatic(plane_normal) * 
 		Matrix4f::uniformScaleMatrix(plane_draw_width) * Matrix4f::translationMatrix(-0.5f, -0.5f, 0);
 	debug_draw_obs.push_back(ob);
@@ -7456,7 +7459,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
 					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media || ob->materials[ob->mesh_data->batches[z].material_index].alpha_blend);
 #endif
@@ -7603,7 +7606,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 							const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-							const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+							const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
 							assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
 
@@ -7802,7 +7805,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
 						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
 
@@ -7940,7 +7943,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
 					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
 
@@ -8150,7 +8153,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 				const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-				const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
+				const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
 				assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 				assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
 #endif

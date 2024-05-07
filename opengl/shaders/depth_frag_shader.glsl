@@ -142,6 +142,13 @@ void main()
 		discard;
 #endif // ALPHA_TEST
 
+#if SDF_TEXT
+	// For rendering SDF text, don't bother with alpha-blending, just use alpha testing.
+	vec4 col = texture(DIFFUSE_TEX, texture_coords);
+	if(col.a < 0.5f)
+		discard;
+#endif
+
 
 #if IMPOSTER || IMPOSTERABLE
 	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
