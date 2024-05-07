@@ -18,6 +18,8 @@ Copyright Glare Technologies Limited 2024 -
 
 
 class GLUI;
+class FontCharTexCache;
+class TextRendererFontFaceSizeSet;
 
 
 /*=====================================================================
@@ -44,6 +46,18 @@ public:
 
 	void destroy(); // Called by destructor
 
+
+	struct CharPositionInfo
+	{
+		Vec2f pos;
+		float hori_advance;
+	};
+
+	static Reference<OpenGLMeshRenderData> makeMeshDataForText(Reference<OpenGLEngine>& opengl_engine, FontCharTexCache* font_char_text_cache, 
+		TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float vert_pos_scale, bool render_SDF, 
+		Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out);
+
+
 	void setColour(const Colour3f& col);
 
 	void setPos(const Vec2f& botleft);
@@ -51,14 +65,8 @@ public:
 	// Call when e.g. viewport has changed
 	void updateGLTransform();
 
-	Vec2f getCharPos(GLUI& glui, int char_index) const; // Get position to lower left of unicode character with given index.
-
-	struct CharPositionInfo
-	{
-		Vec2f pos;
-		float hori_advance;
-	};
-	std::vector<CharPositionInfo> getCharPositions(GLUI& glui) const; // Get position to lower left of each unicode character.
+	// Get position to lower left of unicode character with given index.  char_index is allowed to be == text.size(), in which case get position past last character.
+	Vec2f getCharPos(GLUI& glui, int char_index) const; 
 
 	int cursorPosForUICoords(GLUI& glui, const Vec2f& coords);
 
@@ -80,6 +88,8 @@ private:
 	float z;
 	Rect2f rect; // In GL UI coords
 	Rect2f rect_os; // In font pixel coords
+
+	std::vector<CharPositionInfo> char_positions_fc; // char positions in font coordinates
 };
 
 

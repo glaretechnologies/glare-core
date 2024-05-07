@@ -693,7 +693,7 @@ void main()
 		discard;
 #endif
 
-#if ALPHA_TEST && !DECAL // For decals we will use alpha blending instead of discarding.
+#if ALPHA_TEST
 	if(refl_diffuse_col.a < 0.5f)
 		discard;
 #endif
@@ -1175,11 +1175,18 @@ void main()
 
 
 	col *= 3.0; // tone-map
+
+#if SDF_TEXT
+	float half_w = (fwidth(use_texture_coords.x) + fwidth(use_texture_coords.y)) * 30.0f;
+	float alpha = smoothstep(0.5f - half_w, 0.5f + half_w, refl_diffuse_col.w);
+#else
+	float alpha = 1.f;
+#endif
 	
 #if DO_POST_PROCESSING
-	colour_out = vec4(col.xyz, 1); // toNonLinear will be done after adding blurs etc.
+	colour_out = vec4(col.xyz, alpha); // toNonLinear will be done after adding blurs etc.
 #else
-	colour_out = vec4(toNonLinear(col.xyz), 1);
+	colour_out = vec4(toNonLinear(col.xyz), alpha);
 #endif
 
 #if DECAL

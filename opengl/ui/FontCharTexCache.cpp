@@ -26,7 +26,7 @@ static inline bool codePointIsEmoji(uint32 code_point)
 }
 
 
-CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const string_view charstring, int font_size_px)
+CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const string_view charstring, int font_size_px, bool render_SDF)
 {
 	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(charstring);
 	const bool is_emoji = codePointIsEmoji(code_point);
@@ -34,6 +34,7 @@ CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engi
 	FontCharKey key;
 	key.charstring = toString(charstring);
 	key.is_emoji_font = is_emoji;
+	key.sdf = render_SDF;
 	key.font_size_px = font_size_px;
 
 	auto res = char_to_tex_info_map.find(key);
@@ -41,9 +42,18 @@ CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engi
 		return res->second;
 	else
 	{
-		CharTexInfo tex_info = makeCharTexture(opengl_engine, fonts, emoji_fonts, charstring, font_size_px);
+		CharTexInfo tex_info = makeCharTexture(opengl_engine, fonts, emoji_fonts, charstring, font_size_px, render_SDF);
 		char_to_tex_info_map[key] = tex_info;
 		return tex_info;
+	}
+}
+
+
+void FontCharTexCache::writeAtlasToDiskDebug(const std::string& path)
+{
+	if(!atlases.empty())
+	{
+		PNGDecoder::write(*atlases[0]->imagemap, path);
 	}
 }
 
@@ -78,12 +88,12 @@ static const int margin_px = 1;
 
 // Draws into image map, updates gl texture, updates row info
 static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, const Vec2i& topleft, 
-	Reference<OpenGLEngine> opengl_engine, TextRendererFontFace* font, const string_view charstring, const TextRendererFontFace::SizeInfo size_info)
+	Reference<OpenGLEngine> opengl_engine, TextRendererFontFace* font, const string_view charstring, const TextRendererFontFace::SizeInfo size_info, bool render_SDF)
 {
 	const Vec2i topleft_plus_margin = topleft + Vec2i(margin_px);
 
 	// Draw character onto image map
-	font->drawText(*atlas->imagemap, charstring, topleft_plus_margin.x - size_info.min_bounds.x, /*baseline y=*/topleft_plus_margin.y + size_info.max_bounds.y, Colour3f(1.f));
+	font->drawText(*atlas->imagemap, charstring, topleft_plus_margin.x - size_info.min_bounds.x, /*baseline y=*/topleft_plus_margin.y + size_info.max_bounds.y, Colour3f(1.f), render_SDF);
 
 	//TEMP: dump atlas image to disk for debugging
 	//PNGDecoder::write(*atlas->imagemap, "d:/files/atlas.png");
@@ -105,6 +115,8 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 		ArrayRef<uint8>(atlas->imagemap->getData(), atlas->imagemap->getDataSize()), /*bind needed=*/true);
 #endif
 
+	atlas->tex->buildMipMaps(); // NOTE: could be pretty slow if it rebuilds mipmaps for the entire image.  Could do ourselves.
+
 	CharTexInfo res;
 	res.size_info = size_info;
 	res.tex = atlas->tex;
@@ -120,12 +132,11 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 
 
 CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts_, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts_, 
-	const string_view charstring, int font_size_px)
+	const string_view charstring, int font_size_px, bool render_SDF)
 {
 	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(charstring);
 	const bool is_emoji = codePointIsEmoji(code_point);
 	TextRendererFontFaceSizeSet* use_font_set = is_emoji ? text_renderer_emoji_fonts_ : text_renderer_fonts_;
-
 	TextRendererFontFaceRef use_font = use_font_set->getFontFaceForSize(font_size_px);
 
 	const TextRendererFontFace::SizeInfo size_info = use_font->getTextSize(charstring);
@@ -144,15 +155,18 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 			{
 				AtlasRowInfo& row = atlas->rows[r];
 				Vec2i botright = row.next_topleft_coords + size_info.getSize() + Vec2i(margin_px*2);
-				if(botright.x >= atlas->imagemap->getWidth() || botright.y >= atlas->imagemap->getHeight())
+
+				const int next_row_or_end_y = ((r + 1) < atlas->rows.size()) ? atlas->rows[r + 1].next_topleft_coords.y : (int)atlas->imagemap->getHeight();
+
+				if(botright.x >= atlas->imagemap->getWidth() || botright.y >= next_row_or_end_y)
 				{
-					// Not enough room in row.
+					// Not enough room in row, continue search to next row
 				}
 				else
 				{
 					// Enough room for char
 					// Draw character onto image map
-					return drawIntoRowPosition(atlas, &row, row.next_topleft_coords, opengl_engine, use_font.ptr(), charstring, size_info);
+					return drawIntoRowPosition(atlas, &row, row.next_topleft_coords, opengl_engine, use_font.ptr(), charstring, size_info, render_SDF);
 				}
 			}
 
@@ -169,7 +183,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 				new_row_info.max_y = next_row_start_i.y;
 				atlas->rows.push_back(new_row_info);
 
-				return drawIntoRowPosition(atlas, &atlas->rows.back(), next_row_start_i, opengl_engine, use_font.ptr(), charstring, size_info);
+				return drawIntoRowPosition(atlas, &atlas->rows.back(), next_row_start_i, opengl_engine, use_font.ptr(), charstring, size_info, render_SDF);
 			}
 
 		}
@@ -192,13 +206,16 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 
 		// Create a new atlas
 		Reference<AtlasTexInfo> atlas = new AtlasTexInfo();
-		atlas->imagemap = new ImageMapUInt8(512, 512, 4, NULL);
-		atlas->imagemap->zero();
+		atlas->imagemap = new ImageMapUInt8(1024, 1024, 4, NULL);
+		const uint8 vals[] = {255, 255, 255, 0 };
+		atlas->imagemap->setFromComponentValues(vals);
+
 
 		TextureParams tex_params;
 		tex_params.wrapping = OpenGLTexture::Wrapping_Clamp;
 		tex_params.allow_compression = false;
-		tex_params.use_mipmaps = false; // We will be setting only the base mipmap
+		tex_params.use_mipmaps = true;
+		//tex_params.use_sRGB = false; // For SDF
 		atlas->tex = opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("atlas_" + toString(atlases.size())), *atlas->imagemap, tex_params);
 		atlases.push_back(atlas);
 

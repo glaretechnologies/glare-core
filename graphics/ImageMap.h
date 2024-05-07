@@ -152,6 +152,7 @@ public:
 
 	inline void zero(); // Set all pixels to zero.
 	inline void set(V value); // Set all pixel components to value.
+	inline void setFromComponentValues(const V* component_values); // Set all pixels to values in component_values.  component_values must have size >= N.
 
 	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int dest_start_x, int dest_start_y) const;
 	inline void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, ImageMap<V, ComponentValueTraits>& dest, int dest_start_x, int dest_start_y) const;
@@ -1112,6 +1113,18 @@ inline void ImageMap<V, VTraits>::set(V value) // Set all pixel components to va
 {
 	for(size_t i=0; i<data.size(); ++i)
 		data[i] = value;
+}
+
+
+template<class V, class ComponentValueTraits>
+inline void ImageMap<V, ComponentValueTraits>::setFromComponentValues(const V* component_values)
+{
+	const size_t num_pixels = numPixels();
+	const size_t num_comp = N;
+	V* const data_ = data.data();
+	for(size_t i=0; i<num_pixels; ++i)
+		for(size_t c=0; c<num_comp; ++c)
+			data_[i*num_comp + c] = component_values[c];
 }
 
 

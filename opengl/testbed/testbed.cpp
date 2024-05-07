@@ -106,7 +106,7 @@ public:
 
 	virtual void setMouseCursor(MouseCursor cursor)
 	{
-		conPrint("setMouseCursor");
+		//conPrint("setMouseCursor");
 		if(cursor == MouseCursor_Arrow)
 		{
 			if(!sys_cursor_arrow)
@@ -377,9 +377,12 @@ int main(int, char**)
 			gl_ui->addWidget(text_view);
 		}
 #endif
+
+
+#if 0
 		// Add text-view widget
 		{
-			GLUITextView::GLUITextViewCreateArgs create_args;
+			GLUITextView::CreateArgs create_args;
 			create_args.font_size_px = 30;
 			GLUITextViewRef text_view = new GLUITextView(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
 			
@@ -388,7 +391,7 @@ int main(int, char**)
 
 		for(int i=8; i<40; ++i)
 		{
-			GLUIText::GLUITextCreateArgs args;
+			GLUIText::CreateArgs args;
 			args.font_size_px = i;
 			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "aaAAbbBB", /*botleft=*/Vec2f(-1.0f, gl_ui->getViewportMinMaxY() - (i - 8) * 0.05f), args);
 			
@@ -396,9 +399,17 @@ int main(int, char**)
 			texts.push_back(text);
 		}
 
+		{
+			GLUIText::CreateArgs args;
+			args.font_size_px = 72;
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "aaAAbbBB", /*botleft=*/Vec2f(0, 0.3f), args);
+			//text->overlay_ob->ob_to_world_matrix = 
+			texts.push_back(text);
+		}
+
 		// Add a line edit box
 		{
-			GLUILineEdit::GLUILineEditCreateArgs create_args;
+			GLUILineEdit::CreateArgs create_args;
 			create_args.width = 0.8f;
 			create_args.background_colour = Colour3f(0.0f);
 			create_args.background_alpha = 0.8f;
@@ -413,7 +424,7 @@ int main(int, char**)
 
 		// Add another line edit box
 		{
-			GLUILineEdit::GLUILineEditCreateArgs create_args;
+			GLUILineEdit::CreateArgs create_args;
 			create_args.width = 0.8f;
 			create_args.background_colour = Colour3f(0.0f);
 			create_args.background_alpha = 0.8f;
@@ -424,6 +435,72 @@ int main(int, char**)
 
 			gl_ui->addWidget(line_edit);
 		}
+#endif
+
+
+
+		// Create a 3d in-world text object with SDF
+		if(false)
+		{
+			{
+				int i = 0;
+				const int font_size_px = 42;
+				const std::string use_text = "Emoji: " + UTF8Utils::encodeCodePoint(0x1F600) + UTF8Utils::encodeCodePoint(0x1F60E) + UTF8Utils::encodeCodePoint(0x1f4af);
+
+				Rect2f rect_os;
+				for(int z=0; z<1; ++z)
+				{
+					OpenGLTextureRef atlas_texture;
+					std::vector<GLUIText::CharPositionInfo> char_positions_font_coords;
+					Reference<OpenGLMeshRenderData> meshdata = GLUIText::makeMeshDataForText(opengl_engine, gl_ui->font_char_text_cache.ptr(), gl_ui->getFonts(), gl_ui->getEmojiFonts(), use_text, 
+						/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, rect_os, atlas_texture, char_positions_font_coords);
+
+					GLObjectRef opengl_ob = opengl_engine->allocateObject();
+					opengl_ob->mesh_data = meshdata;
+					opengl_ob->materials.resize(1);
+					//opengl_ob->materials[0].albedo_linear_rgb = Colour3f(1,0.5f, 0);
+					opengl_ob->materials[0].albedo_texture = atlas_texture;
+					opengl_ob->materials[0].alpha_blend = true; // Make use alpha blending
+					opengl_ob->materials[0].sdf_text = true;
+					opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-2, z * 5, 4 + i) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>());
+
+					opengl_engine->addObject(opengl_ob);
+				}
+			}
+
+
+
+			//for(int i=8; i<=72; i += 5)
+			{
+				int i = 0;
+				const int font_size_px = 42;
+				const std::string use_text = "size " + toString(font_size_px) + ": The quick brown fox jumps over the lazy dog";
+
+				Rect2f rect_os;
+				for(int z=0; z<1; ++z)
+				{
+					OpenGLTextureRef atlas_texture;
+					std::vector<GLUIText::CharPositionInfo> char_positions_font_coords;
+					Reference<OpenGLMeshRenderData> meshdata = GLUIText::makeMeshDataForText(opengl_engine, gl_ui->font_char_text_cache.ptr(), gl_ui->getFonts(), gl_ui->getEmojiFonts(), use_text, 
+						/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, rect_os, atlas_texture, char_positions_font_coords);
+
+					GLObjectRef opengl_ob = opengl_engine->allocateObject();
+					opengl_ob->mesh_data = meshdata;
+					opengl_ob->materials.resize(1);
+					opengl_ob->materials[0].albedo_linear_rgb = Colour3f(1,0.5f, 0);
+					opengl_ob->materials[0].albedo_texture = atlas_texture;
+					opengl_ob->materials[0].alpha_blend = true; // Make use alpha blending
+					opengl_ob->materials[0].sdf_text = true;
+					opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, z * 5, 2 + i) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>());
+
+					opengl_engine->addObject(opengl_ob);
+				}
+			}
+		}
+
+		gl_ui->font_char_text_cache->writeAtlasToDiskDebug("d:/files/atlas.png");
+		
+
 
 		//for(int i=0; i<10000; ++i)
 		//{
@@ -431,7 +508,7 @@ int main(int, char**)
 		//	text->create(*gl_ui, opengl_engine, "0123456789!@#$%^&*()", /*botleft=*/Vec2f(-1.0f, 0.4f), Colour3f(1,1,1));
 		//}
 
-		if(false)
+		if(true)
 		{
 			std::string text = FileUtils::readEntireFileTextMode("d:/files/neuromancer.txt");
 
@@ -447,10 +524,29 @@ int main(int, char**)
 					pos.x += 0.25f;
 					pos.y = 1;
 				}
-				GLUIText::GLUITextCreateArgs create_args;
-				create_args.colour = Colour3f(rng.unitRandom(), rng.unitRandom(),rng.unitRandom());
-				GLUITextRef linetext = new GLUIText(*gl_ui, opengl_engine, lines[i], /*botleft=*/pos, create_args);
-				texts.push_back(linetext);
+				//GLUIText::CreateArgs create_args;
+				//create_args.colour = Colour3f(rng.unitRandom(), rng.unitRandom(),rng.unitRandom());
+				//GLUITextRef linetext = new GLUIText(*gl_ui, opengl_engine, lines[i], /*botleft=*/pos, create_args);
+				//texts.push_back(linetext);
+
+				const int font_size_px= 42;
+
+				Rect2f rect_os;
+				OpenGLTextureRef atlas_texture;
+				std::vector<GLUIText::CharPositionInfo> char_positions_font_coords;
+				Reference<OpenGLMeshRenderData> meshdata = GLUIText::makeMeshDataForText(opengl_engine, gl_ui->font_char_text_cache.ptr(), gl_ui->getFonts(), gl_ui->getEmojiFonts(), lines[i], 
+					/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, rect_os, atlas_texture, char_positions_font_coords);
+
+				GLObjectRef opengl_ob = opengl_engine->allocateObject();
+				opengl_ob->mesh_data = meshdata;
+				opengl_ob->materials.resize(1);
+				opengl_ob->materials[0].albedo_linear_rgb = Colour3f(0.2f);
+				opengl_ob->materials[0].albedo_texture = atlas_texture;
+				opengl_ob->materials[0].alpha_blend = true; // Make use alpha blending
+				opengl_ob->materials[0].sdf_text = true;
+				opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, i, 2) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) * Matrix4f::uniformScaleMatrix(0.2f);
+
+				opengl_engine->addObject(opengl_ob);
 			}
 		}
 
@@ -526,26 +622,26 @@ int main(int, char**)
 		PCG32 rng(1);
 
 		// Add cube
-		GLObjectRef cube_ob;
-		{
-			cube_ob = new GLObject();
-			cube_ob->mesh_data = opengl_engine->getCubeMeshData();;
-			cube_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 3);
-			cube_ob->materials.resize(1);
-			cube_ob->materials[0].albedo_linear_rgb = Colour3f(1,0,0);
-			opengl_engine->addObject(cube_ob);
-		}
+		//GLObjectRef cube_ob;
+		//{
+		//	cube_ob = new GLObject();
+		//	cube_ob->mesh_data = opengl_engine->getCubeMeshData();;
+		//	cube_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 3);
+		//	cube_ob->materials.resize(1);
+		//	cube_ob->materials[0].albedo_linear_rgb = Colour3f(1,0,0);
+		//	opengl_engine->addObject(cube_ob);
+		//}
 
-		// Add sphere
-		GLObjectRef sphere_ob;
-		{
-			sphere_ob = new GLObject();
-			sphere_ob->mesh_data = opengl_engine->getSphereMeshData();;
-			sphere_ob->ob_to_world_matrix = Matrix4f::translationMatrix(3, 0, 3);
-			sphere_ob->materials.resize(1);
-			sphere_ob->materials[0].albedo_linear_rgb = Colour3f(0,1,0);
-			opengl_engine->addObject(sphere_ob);
-		}
+		//// Add sphere
+		//GLObjectRef sphere_ob;
+		//{
+		//	sphere_ob = new GLObject();
+		//	sphere_ob->mesh_data = opengl_engine->getSphereMeshData();;
+		//	sphere_ob->ob_to_world_matrix = Matrix4f::translationMatrix(3, 0, 3);
+		//	sphere_ob->materials.resize(1);
+		//	sphere_ob->materials[0].albedo_linear_rgb = Colour3f(0,1,0);
+		//	opengl_engine->addObject(sphere_ob);
+		//}
 
 		if(true)
 		{

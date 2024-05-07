@@ -313,7 +313,7 @@ OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 	ImageMapUInt8Ref map = new ImageMapUInt8(size_info.getSize().x + padding_x * 2, use_font_height + padding_y * 2, 3);
 	map->set(240); // Set to light grey colour
 
-	font->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f));
+	font->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f), /*render SDF=*/false);
 
 
 	TextureParams tex_params;

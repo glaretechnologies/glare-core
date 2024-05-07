@@ -319,7 +319,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	objects(NULL),
 	animated_objects(NULL),
 	transparent_objects(NULL),
-	participating_media_objects(NULL),
+	alpha_blended_objects(NULL),
 	water_objects(NULL),
 	decal_objects(NULL),
 	overlay_world_to_camera_space_matrix(Matrix4f::identity())
@@ -2552,7 +2552,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define TERRAIN " + toString(key.terrain) + "\n" + 
 		"#define DECAL " + toString(key.decal) + "\n" +
 		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n" +
-		"#define VERT_TANGENTS " + toString(key.vert_tangents) + "\n";
+		"#define VERT_TANGENTS " + toString(key.vert_tangents) + "\n" + 
+		"#define SDF_TEXT " + toString(key.sdf_text) + "\n";
 }
 
 
@@ -3075,8 +3076,8 @@ void OpenGLScene::unloadAllData()
 {
 	this->objects.clear();
 	this->transparent_objects.clear();
-	this->participating_media_objects.clear();
 	this->decal_objects.clear();
+	this->alpha_blended_objects.clear();
 
 	this->env_ob->materials[0] = OpenGLMaterial();
 }
@@ -3335,7 +3336,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 			return;
 	}
 
-	const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha();
+	const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha() && !material.decal && !material.alpha_blend;
 
 	// Lightmapping doesn't work properly on Mac currently, because lightmaps use the BC6H format, which isn't supported on mac.
 	// This results in lightmaps rendering black, so it's better to just not use lightmaps for now.
@@ -3363,6 +3364,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.terrain = material.terrain;
 	key_args.decal = material.decal;
 	key_args.participating_media = material.participating_media;
+	key_args.sdf_text = material.sdf_text;
 
 	const ProgramKey key(material.participating_media ? "participating_media" : (material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"))), key_args);
 
@@ -3553,12 +3555,14 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_materialise_effect = false;
 	bool have_water_mat = false;
 	bool have_partic_media_mat = false;
+	bool have_alpha_blend_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
 		have_transparent_mat    = have_transparent_mat    || object->materials[i].transparent;
 		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
 		have_water_mat          = have_water_mat          || object->materials[i].water;
 		have_partic_media_mat   = have_partic_media_mat   || object->materials[i].participating_media;
+		have_alpha_blend_mat    = have_alpha_blend_mat    || object->materials[i].alpha_blend;
 	}
 
 	if(have_transparent_mat)
@@ -3570,8 +3574,8 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	if(have_water_mat)
 		current_scene->water_objects.insert(object);
 
-	if(have_partic_media_mat)
-		current_scene->participating_media_objects.insert(object);
+	if(have_partic_media_mat || have_alpha_blend_mat)
+		current_scene->alpha_blended_objects.insert(object);
 
 	if(object->always_visible)
 		current_scene->always_visible_objects.insert(object);
@@ -3608,7 +3612,8 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 			(mat.transparent                ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
 			(mat.water                      ? MATERIAL_WATER_BITFLAG            : 0) |
 			(mat.decal                      ? MATERIAL_DECAL_BITFLAG            : 0) |
-			(mat.participating_media        ? MATERIAL_PARTIC_MEDIA_BITFLAG     : 0) |
+			(mat.participating_media        ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
+			(mat.alpha_blend                ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
 			(backface_culling               ? BACKFACE_CULLING_BITFLAG          : 0) |
 			(mat.shader_prog->isBuilt()     ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
@@ -4045,12 +4050,12 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 {
 	size_t num_removed = current_scene->objects.erase(object);
 	current_scene->transparent_objects.erase(object);
-	current_scene->participating_media_objects.erase(object);
 	current_scene->materialise_objects.erase(object);
 	num_removed += current_scene->always_visible_objects.erase(object); // Object will either be in objects or always_visible_objects.
 	current_scene->animated_objects.erase(object);
 	current_scene->water_objects.erase(object);
 	current_scene->decal_objects.erase(object);
+	current_scene->alpha_blended_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 
 	if(use_multi_draw_indirect)
@@ -6561,7 +6566,7 @@ void OpenGLEngine::draw()
 	drawDecals(view_matrix, proj_matrix);
 
 	//================= Draw triangle batches with participating media materials (i.e. particles) =================
-	drawParticipatingMediaObjects(view_matrix, proj_matrix);
+	drawAlphaBlendedObjects(view_matrix, proj_matrix);
 	
 	//================= Draw triangle batches with transparent materials =================
 	drawTransparentMaterialBatches(view_matrix, proj_matrix);
@@ -7407,10 +7412,11 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 }
 
 
-// Draw triangle batches with participating media materials (i.e. particles)
-void OpenGLEngine::drawParticipatingMediaObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+// Draw triangle batches with alpha-blended materials, such as participating media materials (i.e. particles), and fonts.
+// These batches will be sorted by distance from camera and drawn in far to near order.
+void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	if(!current_scene->participating_media_objects.empty() && current_scene->use_main_render_framebuffer)
+	if(!current_scene->alpha_blended_objects.empty() && current_scene->use_main_render_framebuffer)
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
 		assertCurrentProgramIsZero();
@@ -7427,8 +7433,8 @@ void OpenGLEngine::drawParticipatingMediaObjects(const Matrix4f& view_matrix, co
 
 		batch_draw_info_dist.resize(0);
 
-		const GLObjectRef* const current_scene_trans_obs = current_scene->participating_media_objects.vector.data();
-		const size_t current_scene_trans_obs_size        = current_scene->participating_media_objects.vector.size();
+		const GLObjectRef* const current_scene_trans_obs = current_scene->alpha_blended_objects.vector.data();
+		const size_t current_scene_trans_obs_size        = current_scene->alpha_blended_objects.vector.size();
 		for(size_t q=0; q<current_scene_trans_obs_size; ++q)
 		{
 			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
@@ -7452,13 +7458,14 @@ void OpenGLEngine::drawParticipatingMediaObjects(const Matrix4f& view_matrix, co
 #ifndef NDEBUG
 					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].double_sided;
 					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media);
+					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media || ob->materials[ob->mesh_data->batches[z].material_index].alpha_blend);
 #endif
-					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_PARTIC_MEDIA_BITFLAG))
+					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG))
 					{
 						// We want to sort into descending depth order, because we want to draw far objects first.
 						// We also want to convert to a uint32.  So convert to uint32 first then negate.
-						const float dist_f = campos_ws.getDist2(ob->aabb_ws.centroid());
+						//const float dist_f = campos_ws.getDist2(ob->aabb_ws.centroid());
+						const float dist_f = ob->aabb_ws.distanceToPoint(campos_ws); // This works better for long, thin AABBs like text AABBs
 						const uint32 dist_i = bitCast<uint32>(dist_f);
 						const uint32 distval = std::numeric_limits<uint32>::max() - dist_i;
 						BatchDrawInfoWithDist info(
@@ -7946,7 +7953,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 #endif
 					// Draw primitives for the given material
 					// If transparent bit is not set, and water bit is not set, and decal bit is not set, and the program has finished building:
-					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_PARTIC_MEDIA_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
+					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_ALPHA_BLEND_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
 					{
 						BatchDrawInfo info(
 							prog_index_and_backface_culling_flag,
@@ -9236,6 +9243,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			current_bound_phong_uniform_buf_ob_index = use_batch_index;
 		}
 	#else
+		GLARE_DECLARE_USED(batch_index); // Suppress warning about unused var
 		this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
 	#endif
 

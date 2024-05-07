@@ -126,6 +126,8 @@ public:
 		imposter_tex_has_multiple_angles(false),
 		decal(false),
 		participating_media(false),
+		alpha_blend(false),
+		sdf_text(false),
 		draw_into_depth_buffer(false),
 		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
@@ -143,13 +145,13 @@ public:
 
 	bool imposter; // Use imposter shader?
 	bool imposterable; // Fade out with distance
-	bool transparent;
+	bool transparent; // Material is transparent (e.g. glass).  Should use transparent shader.
 	bool hologram; // E.g. just emission, no light scattering.
-	bool gen_planar_uvs;
+	bool gen_planar_uvs; // Generate planar UVs.  Useful for voxels.
 	bool draw_planar_uv_grid;
 	bool convert_albedo_from_srgb;
 	bool use_wind_vert_shader;
-	bool double_sided;
+	bool double_sided; // If false, backface culling is done on this material
 	bool materialise_effect;
 	bool cast_shadows;
 	bool geomorphing;
@@ -158,6 +160,8 @@ public:
 	bool imposter_tex_has_multiple_angles;
 	bool decal;
 	bool participating_media;
+	bool alpha_blend;
+	bool sdf_text;
 
 	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.  True by default.
 
@@ -238,7 +242,7 @@ struct GlInstanceInfo
 // Bit 29: material is transparent
 // Bit 28: material is water
 // Bit 27: material is a decal
-// Bit 26: material is participating media
+// Bit 26: material is alpha blended
 // Bit 25: material has backface culling.  (has to go last)
 // Bits 0-24: program index
 #define PROGRAM_FINISHED_BUILDING_BITFLAG				(1u << 31)
@@ -246,7 +250,7 @@ struct GlInstanceInfo
 #define MATERIAL_TRANSPARENT_BITFLAG					(1u << 29)
 #define MATERIAL_WATER_BITFLAG							(1u << 28)
 #define MATERIAL_DECAL_BITFLAG							(1u << 27)
-#define MATERIAL_PARTIC_MEDIA_BITFLAG					(1u << 26)
+#define MATERIAL_ALPHA_BLEND_BITFLAG					(1u << 26)
 #define BACKFACE_CULLING_BITFLAG						(1u << 25)
 
 
@@ -538,7 +542,7 @@ public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> transparent_objects;
-	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> participating_media_objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> alpha_blended_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> water_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> decal_objects;
 	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
@@ -1142,7 +1146,7 @@ private:
 	void drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
-	void drawParticipatingMediaObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAuroraTex();
 	void buildPrograms(const std::string& use_shader_dir);
