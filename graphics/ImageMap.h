@@ -184,6 +184,9 @@ public:
 	inline size_t getDataSize() const { return data.size(); }
 	inline size_t numPixels() const { return width * height; }
 
+	inline void setPixel(size_t x, size_t y, const V* new_pixel_data);
+	inline void setPixelIfInBounds(int x, int y, const V* new_pixel_data);
+
 	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
 	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
 
@@ -843,6 +846,22 @@ inline const V* ImageMap<V, VTraits>::getPixel(size_t i) const
 	assert(i < width * height);
 
 	return &data[i * N];
+}
+
+
+template<class V, class VTraits>
+inline void ImageMap<V, VTraits>::setPixel(size_t x, size_t y, const V* new_pixel_data)
+{
+	V* pixel = getPixel(x, y);
+	for(size_t c=0; c<N; ++c)
+		pixel[c] = new_pixel_data[c];
+}
+
+template<class V, class ComponentValueTraits>
+inline void ImageMap<V, ComponentValueTraits>::setPixelIfInBounds(int x, int y, const V* new_pixel_data)
+{
+	if(x >= 0 && y >= 0 && (size_t)x < width && (size_t)y < height)
+		setPixel((size_t)x, (size_t)y, new_pixel_data);
 }
 
 

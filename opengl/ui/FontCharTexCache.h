@@ -22,8 +22,8 @@ struct CharTexInfo
 {
 	Reference<OpenGLTexture> tex;
 	TextRendererFontFace::SizeInfo size_info;
-	Vec2f atlas_min_texcoords; // top left
-	Vec2f atlas_max_texcoords; // bottom right
+	Vec2f atlas_glyph_min_texcoords; // top left tex coordinates, corresponding to corner of glyph rectange (not bitmap)
+	Vec2f atlas_glyph_max_texcoords; // bottom right tex coordinates, corresponding to corner of glyph rectange (not bitmap)
 };
 
 
@@ -58,6 +58,8 @@ public:
 	CharTexInfo getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts, const string_view charstring, int font_size_px, bool render_SDF);
 
 	void writeAtlasToDiskDebug(const std::string& path);
+
+	static void test();
 private:
 	CharTexInfo makeCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts, const string_view charstring, int font_size_px, bool render_SDF);
 

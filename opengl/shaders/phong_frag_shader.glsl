@@ -42,6 +42,9 @@ uniform sampler2D normal_map;
 
 #if FANCY_DOUBLE_SIDED
 uniform sampler2D backface_albedo_tex;
+#endif
+
+#if FANCY_DOUBLE_SIDED || SDF_TEXT
 uniform sampler2D transmission_tex;
 #endif
 
@@ -1178,7 +1181,8 @@ void main()
 
 #if SDF_TEXT
 	float half_w = (fwidth(use_texture_coords.x) + fwidth(use_texture_coords.y)) * 30.0f;
-	float alpha = smoothstep(0.5f - half_w, 0.5f + half_w, refl_diffuse_col.w);
+	float dist_field_tex_val = texture(TRANSMISSION_TEX, use_texture_coords).w;
+	float alpha = smoothstep(0.5f - half_w, 0.5f + half_w, dist_field_tex_val);
 #else
 	float alpha = 1.f;
 #endif

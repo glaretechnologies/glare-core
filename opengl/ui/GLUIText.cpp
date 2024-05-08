@@ -48,10 +48,10 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(Reference<OpenGLEn
 		
 
 		// NOTE: min and max y texcoords are interchanged with increasing y downwards, due to texture effectively being flipped vertically when loaded into OpenGL.
-		uvs[i*4 + 0] = Vec2f(info.atlas_min_texcoords.x, info.atlas_max_texcoords.y); // bot left vertex
-		uvs[i*4 + 1] = Vec2f(info.atlas_min_texcoords.x, info.atlas_min_texcoords.y); // top left vertex
-		uvs[i*4 + 2] = Vec2f(info.atlas_max_texcoords.x, info.atlas_min_texcoords.y); // top right vertex
-		uvs[i*4 + 3] = Vec2f(info.atlas_max_texcoords.x, info.atlas_max_texcoords.y); // bot right vertex
+		uvs[i*4 + 0] = Vec2f(info.atlas_glyph_min_texcoords.x, info.atlas_glyph_max_texcoords.y); // bot left vertex
+		uvs[i*4 + 1] = Vec2f(info.atlas_glyph_min_texcoords.x, info.atlas_glyph_min_texcoords.y); // top left vertex
+		uvs[i*4 + 2] = Vec2f(info.atlas_glyph_max_texcoords.x, info.atlas_glyph_min_texcoords.y); // top right vertex
+		uvs[i*4 + 3] = Vec2f(info.atlas_glyph_max_texcoords.x, info.atlas_glyph_max_texcoords.y); // bot right vertex
 
 
 		const Vec3f min_pos = (cur_char_pos + Vec3f((float)info.size_info.min_bounds.x, (float)info.size_info.min_bounds.y, 0)) * vert_pos_scale;

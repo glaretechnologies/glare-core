@@ -65,15 +65,15 @@ Example of a letter like 'g' with a descender, in which case size_info.min_bound
                                                 ^ 
                                                 |
                             |-------------------|-----------------------------------> map x
-                            |                   |
-                 topleft.y--|                 x |
+                            |                   |    size_info.max_bounds.x
+                 topleft.y--|                 x |      |
      topleft_plus_margin.y--|           topleft |   _          --- size_info.max_bounds.y
                             |                   | /   \
                             |                   ||  O  |
                             |                   | \    |
                             |                   |____|_|__________> font x
                             |                      / /
-                            |                     --
+                            |                     --          --- size_info.min_bounds.y
                             |                 | |
                             |                 | topleft_plus_margin.x
                             |               topleft.x
@@ -86,46 +86,89 @@ Example of a letter like 'g' with a descender, in which case size_info.min_bound
 
 static const int margin_px = 1;
 
+
+static void drawBorderAroundGlyph(ImageMapUInt8& map, const Vec2i& topleft, const TextRendererFontFace::SizeInfo size_info, const uint8* border_col)
+{
+	for(int x=topleft.x; x<topleft.x + size_info.bitmap_width + margin_px*2; ++x)
+	{
+		map.setPixelIfInBounds(x, topleft.y, border_col); // Top row
+		map.setPixelIfInBounds(x, topleft.y + margin_px + size_info.bitmap_height, border_col); // bottom row
+	}
+
+	for(int y=topleft.y; y<topleft.y + size_info.bitmap_height + margin_px*2; ++y)
+	{
+		map.setPixelIfInBounds(topleft.x, y, border_col); // left column
+		map.setPixelIfInBounds(topleft.x + margin_px + size_info.bitmap_width, y, border_col); // right column
+	}
+}
+
+
 // Draws into image map, updates gl texture, updates row info
 static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, const Vec2i& topleft, 
-	Reference<OpenGLEngine> opengl_engine, TextRendererFontFace* font, const string_view charstring, const TextRendererFontFace::SizeInfo size_info, bool render_SDF)
+	TextRendererFontFace* font, const string_view charstring, const TextRendererFontFace::SizeInfo size_info, bool render_SDF, bool is_emoji)
 {
 	const Vec2i topleft_plus_margin = topleft + Vec2i(margin_px);
 
-	// Draw character onto image map
-	font->drawText(*atlas->imagemap, charstring, topleft_plus_margin.x - size_info.min_bounds.x, /*baseline y=*/topleft_plus_margin.y + size_info.max_bounds.y, Colour3f(1.f), render_SDF);
+	// Draw character glyph onto image map
+	font->drawText(*atlas->imagemap, charstring, topleft_plus_margin.x - size_info.bitmap_left, /*baseline y=*/topleft_plus_margin.y + size_info.bitmap_top, Colour3f(1.f), render_SDF);
+
+	// Draw border around glyph
+	if(is_emoji)
+	{
+		// For Emojis, which seem to have black backgrounds (all of them?), use colour black with alpha 0.
+		const uint8 border_col[4] = { 0, 0, 0, 0 };
+		drawBorderAroundGlyph(*atlas->imagemap, topleft, size_info, border_col);
+	}
+	else
+	{
+		// For non-emoji glyphs, use white colour with alpha 0.  This prevents black edges on fonts due to filtering of colour values.
+		const uint8 border_col[4] = { 255, 255, 255, 0 };
+		drawBorderAroundGlyph(*atlas->imagemap, topleft, size_info, border_col);
+	}
+
 
 	//TEMP: dump atlas image to disk for debugging
 	//PNGDecoder::write(*atlas->imagemap, "d:/files/atlas.png");
 
 	// Update OpenGL texture
-	const size_t region_w = size_info.getSize().x + margin_px*2;
-	const size_t region_h = size_info.getSize().y + margin_px*2;
+	const int region_w = size_info.bitmap_width  + margin_px*2;
+	const int region_h = size_info.bitmap_height + margin_px*2;
 
 	const size_t row_stride_B = atlas->imagemap->getWidth() * atlas->imagemap->getN();
 
+	if(atlas->tex.nonNull())
+	{
 #if !defined(EMSCRIPTEN)
-	// NOTE: On web/emscripten this gives the error 'WebGL: INVALID_OPERATION: texSubImage2D: ArrayBufferView not big enough for request' on web, work out what is happening.
-	// I can't see any errors on my side.
-	atlas->tex->loadRegionIntoExistingTexture(/*mipmap level=*/0, topleft.x, topleft.y, /*region w=*/region_w, /*region h=*/region_h, 
-		row_stride_B, ArrayRef<uint8>(atlas->imagemap->getPixel(topleft.x, topleft.y), /*len=*/region_h * atlas->imagemap->getWidth() * atlas->imagemap->getN()), /*bind needed=*/true);
+		// NOTE: On web/emscripten this gives the error 'WebGL: INVALID_OPERATION: texSubImage2D: ArrayBufferView not big enough for request' on web, work out what is happening.
+		// I can't see any errors on my side.
+		atlas->tex->loadRegionIntoExistingTexture(/*mipmap level=*/0, topleft.x, topleft.y, /*region w=*/(size_t)region_w, /*region h=*/(size_t)region_h, 
+			row_stride_B, ArrayRef<uint8>(atlas->imagemap->getPixel(topleft.x, topleft.y), /*len=*/region_h * atlas->imagemap->getWidth() * atlas->imagemap->getN()), /*bind needed=*/true);
 #else
-	// TEMP: update whole texture (for debugging)
-	atlas->tex->loadIntoExistingTexture(/*mipmap level=*/0, atlas->imagemap->getWidth(), atlas->imagemap->getHeight(), /*row stride (B)=*/atlas->imagemap->getHeight() * atlas->imagemap->getN(), 
-		ArrayRef<uint8>(atlas->imagemap->getData(), atlas->imagemap->getDataSize()), /*bind needed=*/true);
+		// TEMP: update whole texture (for debugging)
+		atlas->tex->loadIntoExistingTexture(/*mipmap level=*/0, atlas->imagemap->getWidth(), atlas->imagemap->getHeight(), /*row stride (B)=*/atlas->imagemap->getHeight() * atlas->imagemap->getN(), 
+			ArrayRef<uint8>(atlas->imagemap->getData(), atlas->imagemap->getDataSize()), /*bind needed=*/true);
 #endif
 
-	atlas->tex->buildMipMaps(); // NOTE: could be pretty slow if it rebuilds mipmaps for the entire image.  Could do ourselves.
+		atlas->tex->buildMipMaps(); // NOTE: could be pretty slow if it rebuilds mipmaps for the entire image.  Could do ourselves.
+	}
 
 	CharTexInfo res;
 	res.size_info = size_info;
 	res.tex = atlas->tex;
-	res.atlas_min_texcoords = Vec2f(topleft_plus_margin.x                           / (float)atlas->imagemap->getWidth(), topleft_plus_margin.y                           / (float)atlas->imagemap->getHeight());
-	res.atlas_max_texcoords = Vec2f((topleft_plus_margin.x + size_info.getSize().x) / (float)atlas->imagemap->getWidth(), (topleft_plus_margin.y + size_info.getSize().y) / (float)atlas->imagemap->getHeight());
+
+	// Get pixel bounds of glyph rectangle.
+	const int top_left_x_px  = topleft_plus_margin.x - size_info.bitmap_left + size_info.min_bounds.x;
+	const int bot_right_x_px = topleft_plus_margin.x - size_info.bitmap_left + size_info.max_bounds.x;
+
+	const int top_left_y_px  = topleft_plus_margin.y + size_info.bitmap_top - size_info.max_bounds.y;
+	const int bot_right_y_px = topleft_plus_margin.y + size_info.bitmap_top - size_info.min_bounds.y;
+
+	res.atlas_glyph_min_texcoords = Vec2f(top_left_x_px  / (float)atlas->imagemap->getWidth(), top_left_y_px  / (float)atlas->imagemap->getHeight());
+	res.atlas_glyph_max_texcoords = Vec2f(bot_right_x_px / (float)atlas->imagemap->getWidth(), bot_right_y_px / (float)atlas->imagemap->getHeight());
 
 	// Advance row next_topleft_coords x past the character
-	row->next_topleft_coords.x += size_info.getSize().x + margin_px*2;
-	row->max_y = myMax(row->max_y, row->next_topleft_coords.y + size_info.getSize().y + margin_px*2);
+	row->next_topleft_coords.x += region_w;
+	row->max_y = myMax(row->max_y, row->next_topleft_coords.y + region_h);
 	
 	return res;
 }
@@ -139,7 +182,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 	TextRendererFontFaceSizeSet* use_font_set = is_emoji ? text_renderer_emoji_fonts_ : text_renderer_fonts_;
 	TextRendererFontFaceRef use_font = use_font_set->getFontFaceForSize(font_size_px);
 
-	const TextRendererFontFace::SizeInfo size_info = use_font->getTextSize(charstring);
+	const TextRendererFontFace::SizeInfo size_info = use_font->getGlyphSize(charstring, render_SDF);
 
 	//bool atlas_created = false;
 	while(1)
@@ -154,7 +197,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 			for(size_t r=0; r<atlas->rows.size(); ++r)
 			{
 				AtlasRowInfo& row = atlas->rows[r];
-				Vec2i botright = row.next_topleft_coords + size_info.getSize() + Vec2i(margin_px*2);
+				Vec2i botright = row.next_topleft_coords + size_info.bitmapSize() + Vec2i(margin_px*2);
 
 				const int next_row_or_end_y = ((r + 1) < atlas->rows.size()) ? atlas->rows[r + 1].next_topleft_coords.y : (int)atlas->imagemap->getHeight();
 
@@ -166,7 +209,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 				{
 					// Enough room for char
 					// Draw character onto image map
-					return drawIntoRowPosition(atlas, &row, row.next_topleft_coords, opengl_engine, use_font.ptr(), charstring, size_info, render_SDF);
+					return drawIntoRowPosition(atlas, &row, row.next_topleft_coords, use_font.ptr(), charstring, size_info, render_SDF, is_emoji);
 				}
 			}
 
@@ -174,7 +217,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 
 			// See if we could make a new row where it would fit.
 			const Vec2i next_row_start_i(0, atlas->rows.empty() ? 0 : atlas->rows.back().max_y);
-			const Vec2i next_row_botright = next_row_start_i + size_info.getSize();
+			const Vec2i next_row_botright = next_row_start_i + size_info.bitmapSize();
 			if(next_row_botright.x < atlas->imagemap->getWidth() && next_row_botright.y < atlas->imagemap->getHeight())
 			{
 				// Should fit in next row.
@@ -183,7 +226,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 				new_row_info.max_y = next_row_start_i.y;
 				atlas->rows.push_back(new_row_info);
 
-				return drawIntoRowPosition(atlas, &atlas->rows.back(), next_row_start_i, opengl_engine, use_font.ptr(), charstring, size_info, render_SDF);
+				return drawIntoRowPosition(atlas, &atlas->rows.back(), next_row_start_i, use_font.ptr(), charstring, size_info, render_SDF, is_emoji);
 			}
 
 		}
@@ -199,16 +242,15 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 			CharTexInfo res;
 			res.size_info = size_info;
 			res.tex = atlases[0]->tex;
-			res.atlas_min_texcoords = Vec2f(0, 0);
-			res.atlas_max_texcoords = Vec2f(0.001f, 0.001f);
+			res.atlas_glyph_min_texcoords = Vec2f(0, 0);
+			res.atlas_glyph_max_texcoords = Vec2f(0.001f, 0.001f);
 			return res;
 		}
 
 		// Create a new atlas
 		Reference<AtlasTexInfo> atlas = new AtlasTexInfo();
 		atlas->imagemap = new ImageMapUInt8(1024, 1024, 4, NULL);
-		const uint8 vals[] = {255, 255, 255, 0 };
-		atlas->imagemap->setFromComponentValues(vals);
+		atlas->imagemap->zero();
 
 
 		TextureParams tex_params;
@@ -216,9 +258,59 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 		tex_params.allow_compression = false;
 		tex_params.use_mipmaps = true;
 		//tex_params.use_sRGB = false; // For SDF
-		atlas->tex = opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("atlas_" + toString(atlases.size())), *atlas->imagemap, tex_params);
+		if(opengl_engine.nonNull())
+			atlas->tex = opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("atlas_" + toString(atlases.size())), *atlas->imagemap, tex_params);
 		atlases.push_back(atlas);
 
 		//atlas_created = true;
 	}
 }
+
+
+
+
+
+#if BUILD_TESTS
+
+
+#include <graphics/PNGDecoder.h>
+#include <utils/TaskManager.h>
+#include <utils/StringUtils.h>
+#include <utils/TestUtils.h>
+#include <PlatformUtils.h>
+
+
+void FontCharTexCache::test()
+{
+	conPrint("FontCharTexCache::test()");
+
+	//const bool WRITE_IMAGES = true;
+
+	TextRendererRef text_renderer = new TextRenderer();
+
+	TextRendererFontFaceSizeSetRef fonts       = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Segoeui.ttf");
+	TextRendererFontFaceSizeSetRef emoji_fonts = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Seguiemj.ttf");
+
+	FontCharTexCacheRef cache = new FontCharTexCache();
+
+	CharTexInfo info;
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "A", 42, /*render SDF=*/true);
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "B", 42, /*render SDF=*/true);
+
+	const std::string grinning_face = UTF8Utils::encodeCodePoint(0x1F600);
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), grinning_face, 42, /*render SDF=*/true);
+
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "C", 42, /*render SDF=*/true);
+
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "H", 42, /*render SDF=*/false);
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "E", 42, /*render SDF=*/false);
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "L", 42, /*render SDF=*/false);
+	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "O", 42, /*render SDF=*/false);
+
+	cache->writeAtlasToDiskDebug("test_font_atlas.png");
+
+	conPrint("FontCharTexCache::test() done");
+}
+
+
+#endif // BUILD_TESTS

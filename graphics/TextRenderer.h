@@ -59,16 +59,29 @@ public:
 
 	struct SizeInfo
 	{
-		Vec2i getSize() const { return max_bounds - min_bounds; }
+		Vec2i glyphSize() const { return max_bounds - min_bounds; }
+		Vec2i bitmapSize() const { return Vec2i(bitmap_width, bitmap_height); }
 
-		Vec2i min_bounds; // With x increasing to right, y increasing up.  min_bounds.y may be < 0 for characters with descenders such as 'g'
-		Vec2i max_bounds;
+		Vec2i min_bounds; // Minimum pixel coordinates of glyph rectangle, with x increasing to right, y increasing up.  min_bounds.y will be < 0 for characters with descenders such as 'g'
+		Vec2i max_bounds; // Maximum pixel coordinates of glyph rectangle.
 		float hori_advance; // Number of pixels to advance drawing location after drawing string.  See https://freetype.org/freetype2/docs/tutorial/step2.html
+
+		int bitmap_left; // "horizontal distance from the glyph origin (0,0) to the leftmost pixel of the glyph bitmap."  Will be negative if bitmap starts left of origin.
+		int bitmap_top; // "vertical distance from the glyph origin (0,0) to the topmost pixel of the glyph bitmap (more precise, to the pixel just above the bitmap)"
+		int bitmap_width;
+		int bitmap_height;
 	};
 
-	// NOTE: probably just about as slow as drawText().
+	// Get size info for a single character glyph
+	// Throws glare::Exception on failure, for example on invalid UTF-8 string.
+	SizeInfo getGlyphSize(const string_view text, bool render_SDF);
+
+	// Get size info for a string that may have multiple characters.
+	// NOTE: just about as slow as drawText().
+	// Assumes not doing SDF rendering
 	// Throws glare::Exception on failure, for example on invalid UTF-8 string.
 	SizeInfo getTextSize(const string_view text);
+
 
 	float getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest ‘character’ coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
 

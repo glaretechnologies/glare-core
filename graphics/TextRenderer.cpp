@@ -271,17 +271,64 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 }
 
 
+TextRendererFontFace::SizeInfo TextRendererFontFace::getGlyphSize(const string_view text, bool render_SDF)
+{
+	FT_GlyphSlot slot = face->glyph;
+
+	if(text.empty())
+		throw glare::Exception("Empty string.");
+
+	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(text);
+
+	const FT_UInt glyph_index = FT_Get_Char_Index(face, code_point);
+
+	// NOTE: could try FT_LOAD_BITMAP_METRICS_ONLY or similar to just get glyph metrics without doing actual rendering.  Don't think it will work for SDF rendering though.
+	FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
+	if(error != 0)
+		throw glare::Exception("Error calling FT_Load_Glyph: " + getFreeTypeErrorString(error));
+
+	error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
+	if(error != 0)
+		throw glare::Exception("Error calling FT_Render_Glyph: " + getFreeTypeErrorString(error));
+
+	// See https://freetype.org/freetype2/docs/tutorial/step2.html
+	const Vec2i char_min_bounds(
+		face->glyph->metrics.horiBearingX                                 / 64,
+		(face->glyph->metrics.horiBearingY - face->glyph->metrics.height) / 64
+	);
+	const Vec2i char_max_bounds(
+		(face->glyph->metrics.horiBearingX + face->glyph->metrics.width) / 64,
+		face->glyph->metrics.horiBearingY                                / 64
+	);
+
+	SizeInfo size_info;
+	size_info.min_bounds = char_min_bounds;
+	size_info.max_bounds = char_max_bounds;
+	size_info.hori_advance = slot->advance.x / 64.f; // Pen coords are in 26.6 fixed point coords, so divide by 64 to convert to float.
+		
+	size_info.bitmap_left = face->glyph->bitmap_left;
+	size_info.bitmap_top  = face->glyph->bitmap_top;
+	size_info.bitmap_width  = face->glyph->bitmap.width;
+	size_info.bitmap_height = face->glyph->bitmap.rows;
+
+	return size_info;
+}
+
+
+// Assumes not doing SDF rendering
 TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_view text)
 {
 	FT_GlyphSlot slot = face->glyph;
 
-	// the pen position in 26.6 cartesian space coordinates
+	// The pen position in 26.6 cartesian space coordinates
 	FT_Vector pen;
 	pen.x = 0;
 	pen.y = 0;
 
 	Vec2i min_bounds(0, 0);
 	Vec2i max_bounds(0, 0);
+	int min_bitmap_left = 0;
+	int max_bitmap_top = 0;
 
 	for(size_t i=0; i<text.size();)
 	{
@@ -312,6 +359,9 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 			max_bounds.x = myMax(max_bounds.x, char_max_bounds.x);
 			max_bounds.y = myMax(max_bounds.y, char_max_bounds.y);
 
+			min_bitmap_left = myMin(min_bitmap_left, face->glyph->bitmap_left);
+			max_bitmap_top = myMax(max_bitmap_top, face->glyph->bitmap_top);
+
 			// increment pen position
 			pen.x += slot->advance.x;
 			pen.y += slot->advance.y;
@@ -324,6 +374,8 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 	size_info.min_bounds = min_bounds;
 	size_info.max_bounds = max_bounds;
 	size_info.hori_advance = pen.x / 64.f; // Pen coords are in 26.6 fixed point coords, so divide by 64 to convert to float.
+	size_info.bitmap_left = min_bitmap_left;
+	size_info.bitmap_top = max_bitmap_top;
 	return size_info;
 }
 
@@ -385,6 +437,29 @@ void TextRenderer::test()
 	conPrint("TextRenderer::test()");
 
 	const bool WRITE_IMAGES = false;
+
+	//-------------------------------------- Test rendering with a TTF file and SDF rendering --------------------------------------
+#ifdef _WIN32
+	try
+	{
+		ImageMapUInt8Ref map = new ImageMapUInt8(1000, 500, 4);
+		map->set(255);
+
+		TextRendererRef text_renderer = new TextRenderer();
+		TextRendererFontFaceRef font = new TextRendererFontFace(text_renderer, PlatformUtils::getFontsDirPath() + "/Segoeui.ttf", 30);
+
+		const std::string text = "W";
+		TextRendererFontFace::SizeInfo size_info = font->getGlyphSize(text, /*render_SDF=*/true);
+		font->drawText(*map, text, -size_info.bitmap_left, size_info.bitmap_top, Colour3f(1,1,1), /*render_SDF=*/true);
+
+		if(WRITE_IMAGES)
+			PNGDecoder::write(*map, "text_ttf_W_SDF.png");
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+#endif
 
 	//-------------------------------------- Test rendering Emoji --------------------------------------
 #ifdef _WIN32
