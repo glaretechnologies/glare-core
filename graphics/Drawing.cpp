@@ -129,6 +129,22 @@ void drawLine(Bitmap& bitmap, const Colour3f& colour, const Vec2f& start_, const
 }
 
 
+void drawRect(ImageMapUInt8& map, int x0, int y0, int width, int height, const uint8* border_col)
+{
+	for(int x=x0; x<x0 + width; ++x)
+	{
+		map.setPixelIfInBounds(x, y0         , border_col); // Top row
+		map.setPixelIfInBounds(x, y0 + height, border_col); // bottom row
+	}
+
+	for(int y=y0; y<y0 + height; ++y)
+	{
+		map.setPixelIfInBounds(x0        , y, border_col); // left column
+		map.setPixelIfInBounds(x0 + width, y, border_col); // right column
+	}
+}
+
+
 } // end namespace Drawing
 
 
