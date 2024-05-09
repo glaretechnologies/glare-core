@@ -222,6 +222,12 @@ void GLUITextView::setVisible(bool visible)
 		if(background_overlay_ob->draw != visible) // Avoid write if hasn't changed
 			background_overlay_ob->draw = visible;
 	}
+	
+	if(selection_overlay_ob.nonNull())
+	{
+		if(selection_overlay_ob->draw != visible) // Avoid write if hasn't changed
+			selection_overlay_ob->draw = visible;
+	}
 }
 
 
