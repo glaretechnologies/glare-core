@@ -26,11 +26,26 @@ GLUIButton
 class GLUIButton : public GLUIWidget
 {
 public:
-	GLUIButton();
-	~GLUIButton();
+	struct CreateArgs
+	{
+		CreateArgs();
 
-	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
-		const std::string& tooltip);
+		std::string tooltip;
+
+		// For toggleable buttons:
+		Colour3f toggled_colour;
+		Colour3f untoggled_colour;
+
+		Colour3f mouseover_toggled_colour;
+		Colour3f mouseover_untoggled_colour;
+
+		// For non-toggleable buttons:
+		Colour3f button_colour;
+		Colour3f mouseover_button_colour;
+	};
+
+	GLUIButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args);
+	~GLUIButton();
 
 	void destroy();
 
@@ -43,6 +58,8 @@ public:
 
 	void setVisible(bool visible);
 
+	virtual bool isVisible() override;
+
 	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
@@ -54,7 +71,7 @@ public:
 private:
 	GLARE_DISABLE_COPY(GLUIButton);
 
-	
+	CreateArgs args;
 };
 
 

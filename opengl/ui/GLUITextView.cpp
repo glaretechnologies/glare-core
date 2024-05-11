@@ -231,6 +231,12 @@ void GLUITextView::setVisible(bool visible)
 }
 
 
+bool GLUITextView::isVisible()
+{
+	return glui_text->overlay_ob->draw;
+}
+
+
 const Vec2f GLUITextView::getDims() const
 {
 	if(glui_text.nonNull())

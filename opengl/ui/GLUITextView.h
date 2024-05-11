@@ -53,6 +53,8 @@ public:
 
 	void setVisible(bool visible);
 
+	virtual bool isVisible() override;
+
 	const Vec2f getDims() const;
 
 	const Rect2f getRect() const;

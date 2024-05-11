@@ -15,44 +15,33 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/StringUtils.h"
 
 
+GLUIButton::CreateArgs::CreateArgs()
+{
+	toggled_colour = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
+	untoggled_colour = Colour3f(1.f);
 
-GLUIButton::GLUIButton()
+	mouseover_toggled_colour = toLinearSRGB(Colour3f(0.8f, 0.9f, 1.f));
+	mouseover_untoggled_colour = toLinearSRGB(Colour3f(0.9f));
+
+	// For non-toggleable buttons:
+	button_colour = Colour3f(1.f);
+	mouseover_button_colour = toLinearSRGB(Colour3f(0.9f));
+}
+
+
+GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args_)
 :	handler(NULL),
 	toggleable(false),
 	toggled(false)
 {
-
-}
-
-
-GLUIButton::~GLUIButton()
-{
-	destroy();
-}
-
-
-// For toggleable buttons:
-static const Colour3f toggled_colour = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
-static const Colour3f untoggled_colour(1.f);
-
-static const Colour3f mouseover_toggled_colour = toLinearSRGB(Colour3f(0.8f, 0.9f, 1.f));
-static const Colour3f mouseover_untoggled_colour = toLinearSRGB(Colour3f(0.9f));
-
-// For non-toggleable buttons:
-static const Colour3f button_colour(1.f);
-static const Colour3f mouseover_button_colour = toLinearSRGB(Colour3f(0.9f));
-
-
-void GLUIButton::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
-	const std::string& tooltip_)
-{
 	glui = &glui_;
 	opengl_engine = opengl_engine_;
-	tooltip = tooltip_;
+	tooltip = args_.tooltip;
+	args = args_;
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
-	overlay_ob->material.albedo_linear_rgb = button_colour;
+	overlay_ob->material.albedo_linear_rgb = args.button_colour;
 	TextureParams tex_params;
 	tex_params.allow_compression = false;
 	overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
@@ -71,6 +60,12 @@ void GLUIButton::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, co
 }
 
 
+GLUIButton::~GLUIButton()
+{
+	destroy();
+}
+
+
 void GLUIButton::destroy()
 {
 	if(overlay_ob.nonNull())
@@ -82,6 +77,9 @@ void GLUIButton::destroy()
 
 void GLUIButton::handleMousePress(MouseEvent& event)
 {
+	if(!overlay_ob->draw) // If not visible:
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inOpenRectangle(coords))
 	{
@@ -90,9 +88,9 @@ void GLUIButton::handleMousePress(MouseEvent& event)
 			toggled = !toggled;
 
 			if(toggled)
-				overlay_ob->material.albedo_linear_rgb = toggled_colour;
+				overlay_ob->material.albedo_linear_rgb = args.toggled_colour;
 			else
-				overlay_ob->material.albedo_linear_rgb = untoggled_colour;
+				overlay_ob->material.albedo_linear_rgb = args.untoggled_colour;
 		}
 
 		if(handler)
@@ -109,6 +107,9 @@ void GLUIButton::handleMousePress(MouseEvent& event)
 
 void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 {
+	if(!overlay_ob->draw) // If not visible:
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
 	if(overlay_ob.nonNull())
@@ -118,12 +119,12 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 			if(toggleable)
 			{
 				if(toggled)
-					overlay_ob->material.albedo_linear_rgb = mouseover_toggled_colour;
+					overlay_ob->material.albedo_linear_rgb = args.mouseover_toggled_colour;
 				else
-					overlay_ob->material.albedo_linear_rgb = mouseover_untoggled_colour;
+					overlay_ob->material.albedo_linear_rgb = args.mouseover_untoggled_colour;
 			}
 			else
-				overlay_ob->material.albedo_linear_rgb = mouseover_button_colour;
+				overlay_ob->material.albedo_linear_rgb = args.mouseover_button_colour;
 
 			mouse_event.accepted = true;
 		}
@@ -132,12 +133,12 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 			if(toggleable)
 			{
 				if(toggled)
-					overlay_ob->material.albedo_linear_rgb = toggled_colour;
+					overlay_ob->material.albedo_linear_rgb = args.toggled_colour;
 				else
-					overlay_ob->material.albedo_linear_rgb = untoggled_colour;
+					overlay_ob->material.albedo_linear_rgb = args.untoggled_colour;
 			}
 			else
-				overlay_ob->material.albedo_linear_rgb = button_colour;
+				overlay_ob->material.albedo_linear_rgb = args.button_colour;
 		}
 	}
 }
@@ -161,12 +162,12 @@ void GLUIButton::setToggled(bool toggled_)
 	if(toggleable)
 	{
 		if(toggled)
-			overlay_ob->material.albedo_linear_rgb = toggled_colour;
+			overlay_ob->material.albedo_linear_rgb = args.toggled_colour;
 		else
-			overlay_ob->material.albedo_linear_rgb = untoggled_colour;
+			overlay_ob->material.albedo_linear_rgb = args.untoggled_colour;
 	}
 	else
-		overlay_ob->material.albedo_linear_rgb = button_colour;
+		overlay_ob->material.albedo_linear_rgb = args.button_colour;
 }
 
 
@@ -174,4 +175,10 @@ void GLUIButton::setVisible(bool visible)
 {
 	if(overlay_ob.nonNull())
 		overlay_ob->draw = visible;
+}
+
+
+bool GLUIButton::isVisible()
+{
+	return overlay_ob->draw;
 }

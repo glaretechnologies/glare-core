@@ -166,3 +166,9 @@ void GLUIImage::setVisible(bool visible)
 	if(overlay_ob.nonNull())
 		overlay_ob->draw = visible;
 }
+
+
+bool GLUIImage::isVisible()
+{
+	return overlay_ob->draw;
+}

@@ -266,6 +266,9 @@ void GLUILineEdit::updateTextTransform()
 
 void GLUILineEdit::handleMousePress(MouseEvent& event)
 {
+	if(!background_overlay_ob->draw) // If not visible:
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 	{
@@ -292,6 +295,9 @@ void GLUILineEdit::handleMouseRelease(MouseEvent& /*event*/)
 
 void GLUILineEdit::handleMouseDoubleClick(MouseEvent& event)
 {
+	if(!background_overlay_ob->draw) // If not visible:
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 	{
@@ -308,6 +314,9 @@ void GLUILineEdit::handleMouseDoubleClick(MouseEvent& event)
 
 void GLUILineEdit::doHandleMouseMoved(MouseEvent& mouse_event)
 {
+	if(!background_overlay_ob->draw) // If not visible:
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
 	if(background_overlay_ob.nonNull())
@@ -357,6 +366,9 @@ void GLUILineEdit::deleteSelectedTextAndClearSelection()
 
 void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 {
+	if(!background_overlay_ob->draw) // If not visible:
+		return;
+
 	if(key_event.key == Key::Key_Backspace)
 	{
 		deleteSelectedTextAndClearSelection();
@@ -560,6 +572,11 @@ void GLUILineEdit::setVisible(bool visible)
 		if(background_overlay_ob->draw != visible) // Avoid write if hasn't changed
 			background_overlay_ob->draw = visible;
 	}
+}
+
+bool GLUILineEdit::isVisible()
+{
+	return background_overlay_ob->draw;
 }
 
 

@@ -45,6 +45,7 @@ public:
 	void setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z = -0.9f);
 
 	void setVisible(bool visible);
+	virtual bool isVisible() override;
 
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual bool doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event) override;

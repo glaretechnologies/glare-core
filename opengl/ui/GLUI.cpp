@@ -175,7 +175,7 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 		widget->handleMouseMoved(mouse_event);
 
 		// Show tooltip over the widget if the mouse is over it, and it has a tooltip:
-		if(widget->rect.inOpenRectangle(coords)) // If the mouse is over the widget:
+		if(widget->rect.inOpenRectangle(coords) && widget->isVisible()) // If the mouse is over the widget:
 		{
 			if(!widget->tooltip.empty()) // And the widget has a tooltip:
 			{

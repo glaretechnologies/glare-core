@@ -48,6 +48,8 @@ public:
 	virtual void doHandleKeyPressedEvent(KeyEvent& /*key_event*/) {}
 	virtual void doHandleTextInputEvent(TextInputEvent& /*text_input_event*/) {}
 
+	virtual bool isVisible() = 0;
+
 	// Called when e.g. the viewport changes size
 	virtual void updateGLTransform(GLUI& glui);
 
