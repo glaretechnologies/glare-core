@@ -155,7 +155,8 @@ enum RegHKey
 	RegHKey_LocalMachine,
 };
 
-std::string getStringRegKey(RegHKey key, const std::string &regkey_, const std::string &regvalue_);
+std::string getStringRegKey(RegHKey key, const std::string &subkey, const std::string& valuename);
+uint32 getDWordRegKey(RegHKey key, const std::string& subkey, const std::string& valuename);
 #endif
 
 
