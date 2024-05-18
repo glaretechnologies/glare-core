@@ -813,84 +813,119 @@ void PlatformUtils::setEnvironmentVariable(const std::string& varname, const std
 
 
 #if defined(_WIN32) && !defined(EMSCRIPTEN)
-std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &regkey_, const std::string &regvalue_)
-{
-	HKEY hKey;
-	const std::wstring regkey = StringUtils::UTF8ToPlatformUnicodeEncoding(regkey_);
-	const std::wstring regvalue = StringUtils::UTF8ToPlatformUnicodeEncoding(regvalue_);
 
+static HKEY convertRegKey(PlatformUtils::RegHKey key)
+{
 	switch(key)
 	{
 	default:
-	case RegHKey_CurrentUser:
-		hKey = HKEY_CURRENT_USER;
-		break;
-
-	case RegHKey_LocalMachine:
-		hKey = HKEY_LOCAL_MACHINE;
-		break;
+	case PlatformUtils::RegHKey_CurrentUser:
+		return HKEY_CURRENT_USER;
+	case PlatformUtils::RegHKey_LocalMachine:
+		return HKEY_LOCAL_MACHINE;
 	}
+}
+
+
+bool PlatformUtils::doesRegKeyAndValueExist(RegHKey key, const std::string &subkey_, const std::string &valuename_)
+{
+	const HKEY hKey = convertRegKey(key);
+	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
+	
+	HKEY reg_key_handle;
+	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_QUERY_VALUE, &reg_key_handle);
+	if(result != ERROR_SUCCESS)
+		return false;
+
+	// Query the actual value
+	WCHAR lszValue[1024];
+	DWORD dwType = 0;
+	DWORD dwSize = 1024;
+
+	result = RegQueryValueExW(reg_key_handle, valuename.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
+	const bool value_exists = result == ERROR_SUCCESS;
+
+	result = RegCloseKey(reg_key_handle);
+	assert(result == ERROR_SUCCESS);
+
+	return value_exists;
+}
+
+
+std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &subkey_, const std::string &valuename_)
+{
+	const HKEY hKey = convertRegKey(key);
+	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
+	
+	HKEY reg_key_handle;
+	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_QUERY_VALUE, &reg_key_handle);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to open registry key: error code " + getErrorStringForCode(result));
 
 	WCHAR lszValue[1024];
-	LONG returnStatus;
 	DWORD dwType = REG_SZ;
 	DWORD dwSize = 1024;
-	HKEY rKey;
 
-	returnStatus = RegOpenKeyExW(hKey, regkey.c_str(), NULL, KEY_QUERY_VALUE, &rKey);
-	if(returnStatus != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to open registry key: error code " + getErrorStringForCode(returnStatus));
-
-	returnStatus = RegQueryValueExW(rKey, regvalue.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
+	result = RegQueryValueExW(reg_key_handle, valuename.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to query registry key: error code " + getErrorStringForCode(result));
 
 	// Close key.
-	RegCloseKey(rKey);
-
-	if(returnStatus != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to query registry key: error code " + getErrorStringForCode(returnStatus));
+	result = RegCloseKey(reg_key_handle);
+	assert(result == ERROR_SUCCESS);
 
 	return StringUtils::PlatformToUTF8UnicodeEncoding(lszValue);
 }
 
 
-uint32 PlatformUtils::getDWordRegKey(RegHKey key, const std::string &regkey_, const std::string &regvalue_)
+void PlatformUtils::setStringRegKey(RegHKey key, const std::string& subkey_, const std::string& valuename_, const std::string& new_valuedata_)
 {
-	HKEY hKey;
-	const std::wstring regkey = StringUtils::UTF8ToPlatformUnicodeEncoding(regkey_);
-	const std::wstring regvalue = StringUtils::UTF8ToPlatformUnicodeEncoding(regvalue_);
+	const HKEY hKey = convertRegKey(key);
+	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
+	const std::wstring new_valuedata = StringUtils::UTF8ToPlatformUnicodeEncoding(new_valuedata_);
 
-	switch(key)
-	{
-	default:
-	case RegHKey_CurrentUser:
-		hKey = HKEY_CURRENT_USER;
-		break;
+	HKEY reg_key_handle;
+	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_SET_VALUE, &reg_key_handle);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to open registry key: " + getErrorStringForCode(result));
 
-	case RegHKey_LocalMachine:
-		hKey = HKEY_LOCAL_MACHINE;
-		break;
-	}
+	result = RegSetValueExW(reg_key_handle, valuename.c_str(), /*reserved=*/0, REG_SZ, (const BYTE*)new_valuedata.c_str(), /*size in bytes, including null terminator=*/(DWORD)((new_valuedata.size() + 1) * 2));
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to set registry key: " + getErrorStringForCode(result));
+
+	// Close key.
+	result = RegCloseKey(reg_key_handle);
+	assert(result == ERROR_SUCCESS);
+}
+
+
+uint32 PlatformUtils::getDWordRegKey(RegHKey key, const std::string &subkey_, const std::string &valuename_)
+{
+	const HKEY hKey = convertRegKey(key);
+	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
+
+	HKEY reg_key_handle;
+	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_QUERY_VALUE, &reg_key_handle);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to open registry key: error code " + getErrorStringForCode(result));
 
 	WCHAR lszValue[1024];
-	LONG returnStatus;
 	DWORD dwType = 0;
 	DWORD dwSize = 1024;
-	HKEY rKey;
 
-	returnStatus = RegOpenKeyExW(hKey, regkey.c_str(), NULL, KEY_QUERY_VALUE, &rKey);
-	if(returnStatus != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to open registry key: error code " + getErrorStringForCode(returnStatus));
-
-	returnStatus = RegQueryValueExW(rKey, regvalue.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
-
+	result = RegQueryValueExW(reg_key_handle, valuename.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to query registry key: error code " + getErrorStringForCode(result));
 	if(dwType != REG_DWORD)
 		throw glare::Exception("Unexpected registry key type: " + toString((uint32)dwType));
 
 	// Close key.
-	RegCloseKey(rKey);
-
-	if(returnStatus != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to query registry key: error code " + getErrorStringForCode(returnStatus));
+	result = RegCloseKey(reg_key_handle);
+	assert(result == ERROR_SUCCESS);
 
 	uint32 res;
 	std::memcpy(&res, lszValue, sizeof(uint32));
@@ -898,7 +933,7 @@ uint32 PlatformUtils::getDWordRegKey(RegHKey key, const std::string &regkey_, co
 	return res;
 }
 
-#endif
+#endif // end if defined(_WIN32) && !defined(EMSCRIPTEN)
 
 
 const std::string PlatformUtils::getOSVersionString()

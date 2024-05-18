@@ -155,8 +155,12 @@ enum RegHKey
 	RegHKey_LocalMachine,
 };
 
+bool doesRegKeyAndValueExist(RegHKey key, const std::string &subkey, const std::string& valuename);
+
 std::string getStringRegKey(RegHKey key, const std::string &subkey, const std::string& valuename);
 uint32 getDWordRegKey(RegHKey key, const std::string& subkey, const std::string& valuename);
+
+void setStringRegKey(RegHKey key, const std::string& subkey, const std::string& valuename, const std::string& new_valuedata);
 #endif
 
 
