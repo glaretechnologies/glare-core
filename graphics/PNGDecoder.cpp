@@ -181,7 +181,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 		throwOnError(status);
 
 		// We will ignore PNG checksums.
-		wuffs_base__image_decoder__set_quirk_enabled(png_decoder.upcast_as__wuffs_base__image_decoder(), WUFFS_BASE__QUIRK_IGNORE_CHECKSUM, true);
+		wuffs_png__decoder__set_quirk_enabled(&png_decoder, WUFFS_BASE__QUIRK_IGNORE_CHECKSUM, true);
 
 		const size_t effective_buf_size = buffer_view_in_stream.size() - buffer_view_in_stream.getReadIndex();
 		wuffs_base__io_buffer src_io_buffer = wuffs_base__make_io_buffer(
