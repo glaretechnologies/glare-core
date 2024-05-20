@@ -288,11 +288,11 @@ int main(int, char**)
 		
 		
 		std::vector<GLUITextRef> texts;
-#if 0
+#if 1
 		// Add some text
 		
 		{
-			GLUIText::GLUITextCreateArgs text_create_args;
+			GLUIText::CreateArgs text_create_args;
 
 			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "A B C D", /*botleft=*/Vec2f(-1.0f, -0.1f), text_create_args);
 			
@@ -303,7 +303,7 @@ int main(int, char**)
 		// Create some Emoji text
 		{
 			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x2639), /*botleft=*/Vec2f(-1.0, -0.6), Colour3f(1,1,1)); // https://unicodelookup.com/#face/1
-			GLUIText::GLUITextCreateArgs text_create_args;
+			GLUIText::CreateArgs text_create_args;
 
 			// https://unicode.org/emoji/charts/full-emoji-list.html#1f600, https://unicode.org/emoji/charts/full-emoji-list.html#1f60e, https://unicode.org/emoji/charts/full-emoji-list.html#1f4af
 			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, 
@@ -317,7 +317,7 @@ int main(int, char**)
 
 		{
 			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x393), /*botleft=*/Vec2f(-1.0, -0.4), Colour3f(1,1,1)); // "U+1F600"
-			GLUIText::GLUITextCreateArgs text_create_args;
+			GLUIText::CreateArgs text_create_args;
 			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x3B1) + UTF8Utils::encodeCodePoint(0x3B2) + UTF8Utils::encodeCodePoint(0x3B3), /*botleft=*/Vec2f(-1.0f, -0.4f), text_create_args); // alpha  beta gamma
 			//text->create(*gl_ui, opengl_engine, UTF8Utils::encodeCodePoint(0x1F600), /*botleft=*/Vec2f(-1.0, -0.4), Colour3f(1,1,1)); // "U+1F600"
 			
@@ -325,26 +325,26 @@ int main(int, char**)
 			texts.push_back(text);
 		}
 		{
-			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ghA", /*botleft=*/Vec2f(-1.0f, -0.2f), GLUIText::GLUITextCreateArgs());
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ghA", /*botleft=*/Vec2f(-1.0f, -0.2f), GLUIText::CreateArgs());
 			
 			//gl_ui->addWidget(text);
 			texts.push_back(text);
 		}
 		{
-			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "abcdefghijklmnopqrstuvwxyz", /*botleft=*/Vec2f(-1.0f, 0.0f), GLUIText::GLUITextCreateArgs());
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "abcdefghijklmnopqrstuvwxyz", /*botleft=*/Vec2f(-1.0f, 0.0f), GLUIText::CreateArgs());
 			
 			//gl_ui->addWidget(text);
 			texts.push_back(text);
 		}
 		{
-			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", /*botleft=*/Vec2f(-1.0f, 0.2f), GLUIText::GLUITextCreateArgs());
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", /*botleft=*/Vec2f(-1.0f, 0.2f), GLUIText::CreateArgs());
 			
 			//gl_ui->addWidget(text);
 			texts.push_back(text);
 		}
 		{
-			GLUIText::GLUITextCreateArgs args;
-			args.font_size_px = 48;
+			GLUIText::CreateArgs args;
+			args.font_size_px = 18;
 			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", /*botleft=*/Vec2f(-1.0f, 0.1f), args);
 			
 			//gl_ui->addWidget(text);
@@ -352,27 +352,34 @@ int main(int, char**)
 		}
 
 		{
-			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "0123456789!@#$%^&*()", /*botleft=*/Vec2f(-1.0f, 0.4f), GLUIText::GLUITextCreateArgs());
+			GLUITextRef text = new GLUIText(*gl_ui, opengl_engine, "0123456789!@#$%^&*()", /*botleft=*/Vec2f(-1.0f, 0.4f), GLUIText::CreateArgs());
 			
 			//gl_ui->addWidget(text);
 			texts.push_back(text);
 		}
 
 		// Add text-view widget
-		{
-			GLUITextViewRef text_view = new GLUITextView();
-			GLUITextView::GLUITextViewCreateArgs create_args;
-			text_view->create(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.0f), create_args);
-			
-			gl_ui->addWidget(text_view);
-		}
+		//{
+		//	GLUITextView::CreateArgs create_args;
+		//	GLUITextViewRef text_view = new GLUITextView(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.0f), create_args);
+		//	
+		//	gl_ui->addWidget(text_view);
+		//}
 
+		//// Add text-view widget
+		//{
+		//	GLUITextView::CreateArgs create_args;
+		//	GLUITextViewRef text_view = new GLUITextView(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
+		//	create_args.font_size_px = 60;
+		//	
+		//	gl_ui->addWidget(text_view);
+		//}
 		// Add text-view widget
 		{
-			GLUITextViewRef text_view = new GLUITextView();
-			GLUITextView::GLUITextViewCreateArgs create_args;
+			GLUITextView::CreateArgs create_args;
+			create_args.max_width = gl_ui->getUIWidthForDevIndepPixelWidth(100);
+			GLUITextViewRef text_view = new GLUITextView(*gl_ui, opengl_engine, "abcdefghijklmnopqrstuvwxyz", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
 			create_args.font_size_px = 60;
-			text_view->create(*gl_ui, opengl_engine, "abc ABC 0123456789 !@#$%^&*()", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
 			
 			gl_ui->addWidget(text_view);
 		}
@@ -508,7 +515,7 @@ int main(int, char**)
 		//	text->create(*gl_ui, opengl_engine, "0123456789!@#$%^&*()", /*botleft=*/Vec2f(-1.0f, 0.4f), Colour3f(1,1,1));
 		//}
 
-		if(true)
+		if(false)
 		{
 			std::string text = FileUtils::readEntireFileTextMode("d:/files/neuromancer.txt");
 

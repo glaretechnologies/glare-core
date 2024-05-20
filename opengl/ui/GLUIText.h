@@ -59,6 +59,7 @@ public:
 
 
 	void setColour(const Colour3f& col);
+	void setAlpha(float alpha);
 
 	void setPos(const Vec2f& botleft);
 
@@ -73,6 +74,8 @@ public:
 	Rect2f getRect() const { return rect; }
 
 	const Vec2f getDims() const { return rect.getMax() - rect.getMin(); } // In GL UI coords
+
+	const std::string& getText() const { return text; }
 
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;

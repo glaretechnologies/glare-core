@@ -42,6 +42,8 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(Reference<OpenGLEn
 	{
 		runtimeCheck(cur_string_byte_i < text.size());
 		const size_t char_num_bytes = UTF8Utils::numBytesForChar(text[cur_string_byte_i]);
+		if(cur_string_byte_i + char_num_bytes > text.size())
+			throw glare::Exception("Invalid UTF-8 string.");
 		const string_view substring(text.data() + cur_string_byte_i, char_num_bytes);
 		const CharTexInfo info = font_char_text_cache->getCharTexture(opengl_engine, fonts, emoji_fonts, substring, font_size_px, render_SDF);
 		atlas_texture_out = info.tex;
@@ -155,6 +157,13 @@ void GLUIText::setColour(const Colour3f& col)
 {
 	if(overlay_ob.nonNull())
 		overlay_ob->material.albedo_linear_rgb = col;
+}
+
+
+void GLUIText::setAlpha(float alpha)
+{
+	if(overlay_ob.nonNull())
+		overlay_ob->material.alpha = alpha;
 }
 
 

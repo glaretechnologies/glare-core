@@ -39,6 +39,7 @@ public:
 	inline Real area() const { return (max.x - min.x) * (max.y - min.y); }
 
 	inline void enlargeToHoldPoint(const Vec2<Real>& p);
+	inline void enlargeToHoldRect(const Rect2<Real>& p);
 
 	// TODO: tests for these
 	inline bool disjoint(const Rect2<Real>& other) const;
@@ -89,6 +90,16 @@ void Rect2<Real>::enlargeToHoldPoint(const Vec2<Real>& p)
 	min.y = myMin(min.y, p.y);
 	max.x = myMax(max.x, p.x);
 	max.y = myMax(max.y, p.y);
+}
+
+
+template<class Real>
+inline void Rect2<Real>::enlargeToHoldRect(const Rect2<Real>& other)
+{
+	min.x = myMin(min.x, other.min.x);
+	min.y = myMin(min.y, other.min.y);
+	max.x = myMax(max.x, other.max.x);
+	max.y = myMax(max.y, other.max.y);
 }
 
 

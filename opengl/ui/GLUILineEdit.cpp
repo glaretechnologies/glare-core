@@ -562,17 +562,15 @@ void GLUILineEdit::updateGLTransform(GLUI& /*glui*/)
 void GLUILineEdit::setVisible(bool visible)
 {
 	if(glui_text.nonNull() && glui_text->overlay_ob.nonNull())
-	{
-		if(glui_text->overlay_ob->draw != visible) // Avoid write if hasn't changed
-			glui_text->overlay_ob->draw = visible;
-	}
+		glui_text->overlay_ob->draw = visible;
 
 	if(background_overlay_ob.nonNull())
-	{
-		if(background_overlay_ob->draw != visible) // Avoid write if hasn't changed
-			background_overlay_ob->draw = visible;
-	}
+		background_overlay_ob->draw = visible;
+
+	cursor_overlay_ob->draw = visible;
+	selection_overlay_ob->draw = visible && (selection_start != -1 && selection_end != -1);
 }
+
 
 bool GLUILineEdit::isVisible()
 {
@@ -580,13 +578,13 @@ bool GLUILineEdit::isVisible()
 }
 
 
-const Vec2f GLUILineEdit::getDims() const
-{
-	if(glui_text.nonNull())
-		return glui_text->getDims();
-	else
-		return Vec2f(0.f);
-}
+//const Vec2f GLUILineEdit::getDims() const
+//{
+//	if(glui_text.nonNull())
+//		return glui_text->getDims();
+//	else
+//		return Vec2f(0.f);
+//}
 
 
 void GLUILineEdit::setPos(const Vec2f& botleft_)
