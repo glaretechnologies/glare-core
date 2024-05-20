@@ -227,6 +227,58 @@ uint32 charAt(const uint8* data, size_t num_bytes, size_t char_index)
 }
 
 
+static inline bool isContinuationByte(uint8 b)
+{
+	return (b & 0xC0) == 0x80; // Left two bits should be 10, see https://en.wikipedia.org/wiki/UTF-8
+}
+
+
+bool isValidUTF8String(string_view s)
+{
+	const uint8* const str = (const uint8*)s.data();
+	const size_t s_size = s.size();
+	for(size_t i=0; i<s_size; )
+	{
+		const uint8 first_byte = str[i++];
+
+		if((first_byte & 0x80) == 0) // If left bit of byte 0 is 0:
+		{
+			// No continuation bytes
+		}
+		else if((first_byte & 0xE0) == 0xC0) // If left 3 bits of byte 0 are 110:
+		{
+			// 1 continuation byte follows
+			if(i >= s_size || !isContinuationByte(str[i]))
+				return false;
+			i++;
+		}
+		else if((first_byte & 0xF0) == 0xE0) // If left 4 bits of byte 0 are 1110:
+		{
+			// 2 continuation bytes follow
+			for(int z=0; z<2; ++z)
+			{
+				if(i >= s_size || !isContinuationByte(str[i]))
+					return false;
+				i++;
+			}
+		}
+		else if((first_byte & 0xF8) == 0xF0) // If left 5 bits of byte 0 are 11110:
+		{
+			// 3 continuation bytes follow
+			for(int z=0; z<3; ++z)
+			{
+				if(i >= s_size || !isContinuationByte(str[i]))
+					return false;
+				i++;
+			}
+		}
+		else
+			return false;
+	}
+	return true;
+}
+
+
 } // end namespace UTF8Utils
 
 
@@ -419,6 +471,34 @@ void test()
 		testAssert(charString(charAt((const uint8*)s.data(), s.size(), 3)) == "b");
 		testCharAtThrowsExcep((const uint8*)s.data(), s.size(), 4);
 	}
+
+	//============================== isValidUTF8String ==============================
+	testAssert(isValidUTF8String(""));
+	testAssert(isValidUTF8String("a"));
+	testAssert(isValidUTF8String(gamma));
+	testAssert(isValidUTF8String(euro));
+	testAssert(isValidUTF8String(cui));
+	testAssert(isValidUTF8String("a" + gamma + euro + cui));
+
+
+	testAssert(!isValidUTF8String("\x80")); // 0b1000000: invalid first byte
+
+	testAssert(!isValidUTF8String("\xC0z")); // 2-byte sequence with invalid continuation byte
+	testAssert(!isValidUTF8String("\xC0\xC0")); // 2-byte sequence with invalid continuation byte
+	testAssert(!isValidUTF8String("\xC0\xFF")); // 2-byte sequence with invalid continuation byte
+	testAssert(!isValidUTF8String("\xC0")); // 2-byte sequence truncated
+
+	testAssert(!isValidUTF8String("\xE0\x80\xFF")); // 3-byte sequence with invalid continuation byte (0xFF)
+	testAssert(!isValidUTF8String("\xE0\xFF\x80")); // 3-byte sequence with invalid continuation byte
+	testAssert(!isValidUTF8String("\xE0\xFF")); // 3-byte sequence truncated
+	testAssert(!isValidUTF8String("\xE0")); // 3-byte sequence truncated
+
+	testAssert(!isValidUTF8String("\xF0\x80\x80\xFF")); // 4-byte sequence with invalid continuation byte (0xFF)
+	testAssert(!isValidUTF8String("\xF0\x80\xFF\x80")); // 4-byte sequence with invalid continuation byte
+	testAssert(!isValidUTF8String("\xF0\xFF\x80\x80")); // 4-byte sequence with invalid continuation byte
+	testAssert(!isValidUTF8String("\xF0\xFF\x80")); // 4-byte sequence truncated
+	testAssert(!isValidUTF8String("\xF0\xFF")); // 4-byte sequence truncated
+	testAssert(!isValidUTF8String("\xF0")); // 4-byte sequence truncated
 
 }
 

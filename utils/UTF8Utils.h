@@ -52,5 +52,8 @@ namespace UTF8Utils
 	uint32 charAt(const uint8* data, size_t data_num_bytes, size_t char_index);
 
 
+	bool isValidUTF8String(string_view s);
+
+
 	void test();
 } // end namespace UTF8Utils
