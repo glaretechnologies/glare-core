@@ -50,6 +50,12 @@ void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ra
 
 void GLUI::destroy()
 {
+	if(!widgets.empty())
+	{
+		conPrint("Warning: " + toString(widgets.size()) + " widgets still in GLUI upon destruction.");
+		assert(0);
+	}
+
 	if(tooltip_overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(tooltip_overlay_ob);
 	tooltip_overlay_ob = NULL;
