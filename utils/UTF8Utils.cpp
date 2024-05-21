@@ -140,6 +140,12 @@ uint32 codePointForUTF8CharString(string_view s)
 }
 
 
+static inline bool isContinuationByte(uint8 b)
+{
+	return (b & 0xC0) == 0x80; // Left two bits should be 10, see https://en.wikipedia.org/wiki/UTF-8
+}
+
+
 size_t numCodePointsInString(const std::string& s)
 {
 	const uint8* data = (const uint8*)s.c_str();
@@ -147,7 +153,7 @@ size_t numCodePointsInString(const std::string& s)
 	size_t num_chars = 0;
 	// "Every byte that does not start 10xxxxxx is the start of a UCS character sequence." - http://www.cl.cam.ac.uk/~mgk25/ucs/utf-8-history.txt
 	for(size_t i=0; i<s.size(); ++i)
-		if((data[i] & 0xC0) != 0x80) // If leftmost two bits are != 10:
+		if(!isContinuationByte(data[i])) // If leftmost two bits are != 10:
 			num_chars++;
 	return num_chars;
 }
@@ -160,7 +166,7 @@ size_t numCodePointsInString(const char* data_, size_t num_bytes)
 	size_t num_chars = 0;
 	// "Every byte that does not start 10xxxxxx is the start of a UCS character sequence." - http://www.cl.cam.ac.uk/~mgk25/ucs/utf-8-history.txt
 	for(size_t i=0; i<num_bytes; ++i)
-		if((data[i] & 0xC0) != 0x80) // If leftmost two bits are != 10:
+		if(!isContinuationByte(data[i])) // If leftmost two bits are != 10:
 			num_chars++;
 	return num_chars;
 }
@@ -224,12 +230,6 @@ uint32 charAt(const uint8* data, size_t num_bytes, size_t char_index)
 	uint32 res = 0;
 	std::memcpy(&res, data + byte_i, bytes_for_char);
 	return res;
-}
-
-
-static inline bool isContinuationByte(uint8 b)
-{
-	return (b & 0xC0) == 0x80; // Left two bits should be 10, see https://en.wikipedia.org/wiki/UTF-8
 }
 
 
