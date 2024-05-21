@@ -133,7 +133,7 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 	catch(glare::Exception& e)
 	{
 		assert(0);
-		conPrint("Warning: exception in GLUIText: " + e.what());
+		conPrint("Warning: exception in GLUIText::GLUIText: " + e.what());
 	}
 }
 

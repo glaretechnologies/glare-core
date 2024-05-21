@@ -54,6 +54,10 @@ namespace UTF8Utils
 
 	bool isValidUTF8String(string_view s);
 
+	// Replace any invalid UTF-8 byte sequences with the Unicode replacement character.
+	// (Currently will replace other bytes as well if the high bit is set)
+	// The resulting string will return true when passed into isValidUTF8String.
+	std::string sanitiseUTF8String(const std::string& s);
 
 	void test();
 } // end namespace UTF8Utils

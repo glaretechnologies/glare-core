@@ -279,6 +279,27 @@ bool isValidUTF8String(string_view s)
 }
 
 
+// The resulting string will return true when passed into isValidUTF8String.
+std::string sanitiseUTF8String(const std::string& s)
+{
+	if(isValidUTF8String(s))
+		return s;
+
+	std::string updated_string;
+
+	const uint8* const str_uint8 = (const uint8*)s.data();
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		if((str_uint8[i] & 0x80) != 0) // If high bit was set:
+			updated_string += "\xEF\xBF\xBD"; // Insert Unicode replacement character: https://www.compart.com/en/unicode/U+FFFD
+		else
+			updated_string.push_back(s[i]);
+	}
+
+	return updated_string;
+}
+
+
 } // end namespace UTF8Utils
 
 
@@ -317,7 +338,6 @@ void testCharAtThrowsExcep(const uint8* data, size_t num_bytes, size_t char_inde
 	catch(glare::Exception&)
 	{}
 }
-
 
 
 void test()
@@ -499,6 +519,37 @@ void test()
 	testAssert(!isValidUTF8String("\xF0\xFF\x80")); // 4-byte sequence truncated
 	testAssert(!isValidUTF8String("\xF0\xFF")); // 4-byte sequence truncated
 	testAssert(!isValidUTF8String("\xF0")); // 4-byte sequence truncated
+
+
+	//============================== sanitiseUTF8String ==============================
+	testAssert(sanitiseUTF8String("") == "");
+	testAssert(sanitiseUTF8String("a") == "a");
+	testAssert(sanitiseUTF8String(gamma) == gamma);
+	testAssert(sanitiseUTF8String(euro) == euro);
+	testAssert(sanitiseUTF8String(cui) == cui);
+	testAssert(sanitiseUTF8String("a" + gamma + euro + cui) == "a" + gamma + euro + cui);
+
+
+	testAssert(sanitiseUTF8String("\x80") == "\xEF\xBF\xBD"); // 0b1000000: invalid first byte.  Should be replaced with unicode replacement char
+
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xC0z"))); // 2-byte sequence with invalid continuation byte
+	testAssert(sanitiseUTF8String("\xC0z") == "\xEF\xBF\xBDz"); // 2-byte sequence with invalid continuation byte
+
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xC0\xC0"))); // 2-byte sequence with invalid continuation byte
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xC0\xFF"))); // 2-byte sequence with invalid continuation byte
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xC0"))); // 2-byte sequence truncated
+
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xE0\x80\xFF"))); // 3-byte sequence with invalid continuation byte (0xFF)
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xE0\xFF\x80"))); // 3-byte sequence with invalid continuation byte
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xE0\xFF"))); // 3-byte sequence truncated
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xE0"))); // 3-byte sequence truncated
+
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xF0\x80\x80\xFF"))); // 4-byte sequence with invalid continuation byte (0xFF)
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xF0\x80\xFF\x80"))); // 4-byte sequence with invalid continuation byte
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xF0\xFF\x80\x80"))); // 4-byte sequence with invalid continuation byte
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xF0\xFF\x80"))); // 4-byte sequence truncated
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xF0\xFF"))); // 4-byte sequence truncated
+	testAssert(isValidUTF8String(sanitiseUTF8String("\xF0"))); // 4-byte sequence truncated
 
 }
 
