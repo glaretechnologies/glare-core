@@ -15,25 +15,13 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/StringUtils.h"
 
 
-
-GLUIImage::GLUIImage()
-:	handler(NULL)
-{
-}
-
-
-GLUIImage::~GLUIImage()
-{
-	destroy();
-}
-
-
 static const Colour3f default_colour(1.f);
 static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-void GLUIImage::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
+GLUIImage::GLUIImage(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
 	const std::string& tooltip_, float z_)
+:	handler(NULL)
 {
 	glui = &glui_;
 	opengl_engine = opengl_engine_;
@@ -67,6 +55,13 @@ void GLUIImage::create(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 }
 
 
+GLUIImage::~GLUIImage()
+{
+	if(overlay_ob.nonNull())
+		opengl_engine->removeOverlayObject(overlay_ob);
+}
+
+
 void GLUIImage::setColour(Colour3f colour_)
 {
 	colour = colour_;
@@ -78,15 +73,6 @@ void GLUIImage::setColour(Colour3f colour_)
 void GLUIImage::setMouseOverColour(Colour3f colour_)
 {
 	mouseover_colour = colour_;
-}
-
-
-void GLUIImage::destroy()
-{
-	if(overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(overlay_ob);
-	overlay_ob = NULL;
-	opengl_engine = NULL;
 }
 
 

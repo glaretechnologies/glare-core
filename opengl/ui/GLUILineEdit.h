@@ -45,9 +45,7 @@ public:
 	};
 
 	GLUILineEdit(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const Vec2f& botleft, const CreateArgs& args);
-	~GLUILineEdit();
-
-	void destroy(); // Called by destructor
+	~GLUILineEdit(); // Removed overlay objects from opengl engine.
 
 	virtual void think(GLUI& glui) override;
 
@@ -60,7 +58,7 @@ public:
 
 	virtual bool isVisible() override;
 
-	const Vec2f getDims() const;
+	//const Vec2f getDims() const;
 
 	void setPos(const Vec2f& botleft);
 

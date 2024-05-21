@@ -62,16 +62,8 @@ GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 
 GLUIButton::~GLUIButton()
 {
-	destroy();
-}
-
-
-void GLUIButton::destroy()
-{
 	if(overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(overlay_ob);
-	overlay_ob = NULL;
-	opengl_engine = NULL;
 }
 
 

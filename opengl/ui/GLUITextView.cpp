@@ -56,23 +56,11 @@ GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 
 GLUITextView::~GLUITextView()
 {
-	destroy();
-}
-
-
-void GLUITextView::destroy()
-{
-	glui_texts.clear();
-
 	if(background_overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(background_overlay_ob);
-	background_overlay_ob = NULL;
 
 	if(selection_overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(selection_overlay_ob);
-	selection_overlay_ob = NULL;
-
-	opengl_engine = NULL;
 }
 
 
@@ -242,7 +230,7 @@ void GLUITextView::setColour(const Colour3f& col)
 	args.text_colour = col;
 	
 	for(size_t i=0; i<glui_texts.size(); ++i)
-		glui_texts[i]->overlay_ob->material.albedo_linear_rgb = col;
+		glui_texts[i]->setColour(col);
 }
 
 
@@ -318,7 +306,7 @@ void GLUITextView::setPos(GLUI& /*glui_*/, const Vec2f& new_botleft)
 void GLUITextView::setClipRegion(const Rect2f& clip_rect)
 {
 	for(size_t i=0; i<glui_texts.size(); ++i)
-		glui_texts[i]->overlay_ob->clip_region = clip_rect;
+		glui_texts[i]->setClipRegion(clip_rect);
 
 	if(selection_overlay_ob.nonNull())
 		selection_overlay_ob->clip_region = clip_rect;
@@ -330,7 +318,7 @@ void GLUITextView::setVisible(bool visible_)
 	visible = visible_;
 
 	for(size_t i=0; i<glui_texts.size(); ++i)
-		glui_texts[i]->overlay_ob->draw = visible;
+		glui_texts[i]->setVisible(visible);
 
 	if(background_overlay_ob.nonNull())
 		background_overlay_ob->draw = visible;

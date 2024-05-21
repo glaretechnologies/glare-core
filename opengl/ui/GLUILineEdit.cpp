@@ -70,29 +70,14 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 
 GLUILineEdit::~GLUILineEdit()
 {
-	destroy();
-}
-
-
-void GLUILineEdit::destroy()
-{
-	if(glui_text.nonNull())
-		glui_text->destroy();
-	glui_text = NULL;
-
 	if(background_overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(background_overlay_ob);
-	background_overlay_ob = NULL;
 	
 	if(cursor_overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(cursor_overlay_ob);
-	cursor_overlay_ob = NULL;
 	
 	if(selection_overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(selection_overlay_ob);
-	selection_overlay_ob = NULL;
-
-	opengl_engine = NULL;
 }
 
 
@@ -230,8 +215,6 @@ void GLUILineEdit::updateOverlayObTransforms()
 void GLUILineEdit::recreateTextWidget()
 {
 	// Destroy existing text, if any
-	if(glui_text.nonNull())
-		glui_text->destroy();
 	glui_text = NULL;
 
 	GLUIText::CreateArgs text_create_args;
@@ -241,7 +224,7 @@ void GLUILineEdit::recreateTextWidget()
 	glui_text = new GLUIText(*glui, opengl_engine, text, /*botleft=*/Vec2f(0.f), text_create_args);
 
 	// Set clip region so text doesn't draw outside of line edit.
-	glui_text->overlay_ob->clip_region = Rect2f(glui->OpenGLCoordsForUICoords(botleft), glui->OpenGLCoordsForUICoords(botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px))));
+	glui_text->setClipRegion(Rect2f(glui->OpenGLCoordsForUICoords(botleft), glui->OpenGLCoordsForUICoords(botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px)))));
 
 	updateTextTransform();
 }
@@ -259,7 +242,7 @@ void GLUILineEdit::updateTextTransform()
 		glui_text->setPos(text_botleft);
 
 		// Set clip region so text doesn't draw outside of line edit.
-		glui_text->overlay_ob->clip_region = Rect2f(glui->OpenGLCoordsForUICoords(botleft), glui->OpenGLCoordsForUICoords(botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px))));
+		glui_text->setClipRegion(Rect2f(glui->OpenGLCoordsForUICoords(botleft), glui->OpenGLCoordsForUICoords(botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px)))));
 	}
 }
 
@@ -561,8 +544,8 @@ void GLUILineEdit::updateGLTransform(GLUI& /*glui*/)
 
 void GLUILineEdit::setVisible(bool visible)
 {
-	if(glui_text.nonNull() && glui_text->overlay_ob.nonNull())
-		glui_text->overlay_ob->draw = visible;
+	if(glui_text.nonNull())
+		glui_text->setVisible(visible);
 
 	if(background_overlay_ob.nonNull())
 		background_overlay_ob->draw = visible;

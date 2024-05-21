@@ -478,6 +478,7 @@ public:
 	GLARE_ALIGNED_16_NEW_DELETE
 
 	OpenGLScene(OpenGLEngine& engine);
+	~OpenGLScene();
 
 	friend class OpenGLEngine;
 

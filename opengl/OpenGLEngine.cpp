@@ -348,6 +348,16 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 }
 
 
+OpenGLScene::~OpenGLScene()
+{
+	if(!overlay_objects.empty())
+	{
+		conPrint("Warning: " + toString(overlay_objects.size()) + " overlay objects still in OpenGLScene upon scene destruction.");
+		assert(0);
+	}
+}
+
+
 std::string BatchDrawInfo::keyDescription() const
 {
 	// NOTE: out of date

@@ -42,9 +42,7 @@ public:
 	};
 
 	GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
-	~GLUIText();
-
-	void destroy(); // Called by destructor
+	~GLUIText(); // Removes overlay_ob from opengl engine.
 
 
 	struct CharPositionInfo
@@ -77,11 +75,15 @@ public:
 
 	const std::string& getText() const { return text; }
 
-	Reference<OpenGLEngine> opengl_engine;
-	OverlayObjectRef overlay_ob;
+	void setClipRegion(const Rect2f& clip_region_rect);
+
+	void setVisible(bool visible);
 
 private:
 	GLARE_DISABLE_COPY(GLUIText);
+
+	Reference<OpenGLEngine> opengl_engine;
+	OverlayObjectRef overlay_ob;
 
 	std::string text;
 	Colour3f text_colour;

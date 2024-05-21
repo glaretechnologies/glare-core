@@ -140,16 +140,8 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 
 GLUIText::~GLUIText()
 {
-	destroy();
-}
-
-
-void GLUIText::destroy()
-{
 	if(overlay_ob.nonNull())
 		opengl_engine->removeOverlayObject(overlay_ob);
-	overlay_ob = NULL;
-	opengl_engine = NULL;
 }
 
 
@@ -246,4 +238,18 @@ int GLUIText::cursorPosForUICoords(GLUI& /*glui*/, const Vec2f& coords)
 	}
 
 	return best_cursor_pos;
+}
+
+
+void GLUIText::setClipRegion(const Rect2f& clip_region_rect)
+{
+	if(overlay_ob.nonNull())
+		overlay_ob->clip_region = clip_region_rect;
+}
+
+
+void GLUIText::setVisible(bool visible)
+{
+	if(overlay_ob.nonNull())
+		overlay_ob->draw = visible;
 }

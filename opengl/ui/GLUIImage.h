@@ -27,16 +27,12 @@ GLUIImage
 class GLUIImage : public GLUIWidget
 {
 public:
-	GLUIImage();
-	~GLUIImage();
-
-	void create(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
+	GLUIImage(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims,
 		const std::string& tooltip, float z = -0.9f);
+	~GLUIImage();
 
 	void setColour(Colour3f colour_);
 	void setMouseOverColour(Colour3f colour_);
-
-	void destroy();
 
 	const Vec2f& getPos() const { return pos; }
 
@@ -50,15 +46,15 @@ public:
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual bool doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event) override;
 
-
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 
 	GLUICallbackHandler* handler;
 private:
 	GLARE_DISABLE_COPY(GLUIImage);
 	
+	GLUI* glui;
+	Reference<OpenGLEngine> opengl_engine;
+
 	Colour3f colour;
 	Colour3f mouseover_colour;
 	Vec2f pos; // Position of bottom left of image

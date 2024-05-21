@@ -45,7 +45,6 @@ public:
 
 	GLUITextView(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUITextView();
-
 	
 
 	void setText(GLUI& glui, const std::string& new_text);
@@ -78,16 +77,15 @@ public:
 	virtual void handleCutEvent(std::string& clipboard_contents_out) override;
 	virtual void handleCopyEvent(std::string& clipboard_contents_out) override;
 
+private:
+	GLARE_DISABLE_COPY(GLUITextView);
+
+	void updateOverlayObTransforms();
+
 	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef background_overlay_ob;
 	std::vector<GLUITextRef> glui_texts;
-
-private:
-	void destroy(); // Called by destructor
-	GLARE_DISABLE_COPY(GLUITextView);
-
-	void updateOverlayObTransforms();
 
 	OverlayObjectRef selection_overlay_ob;
 

@@ -47,8 +47,6 @@ public:
 	GLUIButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args);
 	~GLUIButton();
 
-	void destroy();
-
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 
@@ -60,16 +58,17 @@ public:
 
 	virtual bool isVisible() override;
 
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
-	OverlayObjectRef overlay_ob;
+	GLUICallbackHandler* handler;
 
 	bool toggleable;
 	bool toggled;
 
-	GLUICallbackHandler* handler;
 private:
 	GLARE_DISABLE_COPY(GLUIButton);
+
+	GLUI* glui;
+	Reference<OpenGLEngine> opengl_engine;
+	OverlayObjectRef overlay_ob;
 
 	CreateArgs args;
 };
