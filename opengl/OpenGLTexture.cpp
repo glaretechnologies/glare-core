@@ -292,6 +292,7 @@ static double getInternalPixelSizeB(GLint internal_format)
 		case GL_RGB32F: return 12;
 		case GL_RGBA32F: return 16;
 		case GL_RGB16F: return 6;
+		case GL_RGBA16F: return 8;
 		case GL_DEPTH_COMPONENT32: return 4;
 		case GL_DEPTH_COMPONENT16: return 2;
 		case GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT: return 0.5; // 8 bytes per 4*4 pixel block
@@ -322,6 +323,7 @@ std::string getStringForGLInternalFormat(GLint internal_format)
 		case GL_RGB32F: return "GL_RGB32F";
 		case GL_RGBA32F: return "GL_RGBA32F";
 		case GL_RGB16F: return "GL_RGB16F";
+		case GL_RGBA16F: return "GL_RGBA16F";
 		case GL_DEPTH_COMPONENT32: return "GL_DEPTH_COMPONENT32";
 		case GL_DEPTH_COMPONENT16: return "GL_DEPTH_COMPONENT16";
 		case GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT: return "GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT";

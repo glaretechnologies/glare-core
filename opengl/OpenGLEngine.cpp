@@ -6247,6 +6247,14 @@ void OpenGLEngine::draw()
 #endif
 
 
+#if defined(EMSCRIPTEN)
+	const OpenGLTexture::Format col_buffer_format = EXT_color_buffer_float_support ? OpenGLTexture::Format_RGBA_Linear_Half : OpenGLTexture::Format_RGBA_Linear_Uint8;
+	const bool col_buf_is_floating_point = EXT_color_buffer_float_support;
+#else
+	const OpenGLTexture::Format col_buffer_format = OpenGLTexture::Format_RGB_Linear_Half;
+	const bool col_buf_is_floating_point = true;
+#endif
+
 	//=============== Allocate or reallocate buffers for drawing to ===============
 	// We will render to renderbuffers (main_colour_renderbuffer, main_normal_copy_texture) etc. attached to main_render_framebuffer.
 	// We use renderbuffers as opposed to textures, as OpenGL ES 3.0 doesn't support multisample textures, whereas it does support multisample renderbuffers.
@@ -6288,11 +6296,7 @@ void OpenGLEngine::draw()
 
 			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
 
-#if defined(EMSCRIPTEN)
-			const OpenGLTexture::Format col_buffer_format = EXT_color_buffer_float_support ? OpenGLTexture::Format_RGBA_Linear_Half : OpenGLTexture::Format_RGBA_Linear_Uint8;
-#else
-			const OpenGLTexture::Format col_buffer_format = OpenGLTexture::Format_RGB_Linear_Half;
-#endif
+
 
 			main_colour_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -6578,7 +6582,7 @@ void OpenGLEngine::draw()
 	//================= Draw decals =================
 	drawDecals(view_matrix, proj_matrix);
 
-	//================= Draw triangle batches with participating media materials (i.e. particles) =================
+	//================= Draw triangle batches with that use alpha-blending (e.g. participating media materials / particles, text objects) =================
 	drawAlphaBlendedObjects(view_matrix, proj_matrix);
 	
 	//================= Draw triangle batches with transparent materials =================
@@ -6649,7 +6653,7 @@ void OpenGLEngine::draw()
 
 #if EMSCRIPTEN
 			// Suppress 'drawElementsInstanced: Tex image TEXTURE_2D level 0 is incurring lazy initialization.' WebGL warning by passing some initial texture data.
-			js::Vector<uint8, 16> temp_data((w / 2) * (h / 2) * /*num components=*/3 * /*sizeof half float=*/2);
+			js::Vector<uint8, 16> temp_data((w / 2) * (h / 2) * /*num components=*/4 * /*sizeof half float=*/2);
 			ArrayRef<uint8> initial_data_ref(temp_data);
 #else
 			ArrayRef<uint8> initial_data_ref(NULL, 0);
@@ -6661,16 +6665,24 @@ void OpenGLEngine::draw()
 				h = myMax(1, h / 2);
 
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
-				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
+				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				downsize_framebuffers[i] = new FrameBuffer();
 				downsize_framebuffers[i]->attachTexture(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
 
-				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
+				GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+				if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+				{
+					conPrint("Error: downsize_framebuffers: framebuffer is not complete.");
+					assert(0);
+				}
+
+
+				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers_x[i] = new FrameBuffer();
 				blur_framebuffers_x[i]->attachTexture(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
 
 				// Use bilinear, this tex is read from and accumulated into final buffer.
-				blur_target_textures[i] = new OpenGLTexture(w, h, this, initial_data_ref, OpenGLTexture::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures[i] = new OpenGLTexture(w, h, this, initial_data_ref, col_buffer_format, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers[i] = new FrameBuffer();
 				blur_framebuffers[i]->attachTexture(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
 			}
@@ -6708,7 +6720,8 @@ void OpenGLEngine::draw()
 		// 	conPrintStr(" " + toString(normed_weight));
 		// }
 
-		if(current_scene->bloom_strength > 0)
+		// Don't bother doing bloom if we don't have a floating-point colour buffer (may happen in some web browsers), doesn't seem to be visible anyway.
+		if((current_scene->bloom_strength > 0) && col_buf_is_floating_point)
 		{
 			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 			glDisable(GL_DEPTH_TEST); // Don't depth test
