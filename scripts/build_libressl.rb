@@ -253,6 +253,8 @@ Dir.chdir($libs_libressl_dir)
 
 
 # If force rebuild isn't set, skip the builds if the output exists.
+$do_build = true
+
 if !$forcerebuild
 	all_output_exists = true
 	$configurations.each do |configuration|
@@ -262,18 +264,19 @@ if !$forcerebuild
 	
 	if all_output_exists
 		puts "LibreSSL: Builds are already in place, use --forcerebuild to rebuild."
-		exit(0)
+		$do_build = false
 	end
 end
 
+if $do_build
+	Timer.time {
 
-Timer.time {
+	# Download the source.
+	getLibreSSLSource()
 
-# Download the source.
-getLibreSSLSource()
+	buildLibreSSL($configurations, $vs_version)
 
-buildLibreSSL($configurations, $vs_version)
+	}
 
-}
-
-puts "Total build time: #{Timer.elapsedTime} s"
+	puts "Total build time: #{Timer.elapsedTime} s"
+end
