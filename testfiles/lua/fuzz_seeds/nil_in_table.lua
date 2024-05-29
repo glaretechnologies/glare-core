@@ -1,0 +1,1 @@
+print(table.getn{10,2,nil})

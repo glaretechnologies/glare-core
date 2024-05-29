@@ -114,6 +114,35 @@ static void setNumberField(lua_State* state, const char* key, double value)
 }
 
 
+//========================== Fuzzing ==========================
+#if 0
+// Command line:
+// C:\fuzz_corpus\lua C:\code\glare-core\testfiles\lua\fuzz_seeds
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		LuaVM vm;
+		vm.max_total_mem_allowed = 1024 * 1024;
+		
+		LuaScriptOptions options;
+		options.max_num_interrupts = 64000;
+
+		const std::string src((const char*)data, size);
+		LuaScript script(&vm, LuaScriptOptions(), src);
+	}
+	catch(glare::Exception& e)
+	{
+		//conPrint("Excep: " + e.what());
+	}
+
+	return 0; // Non-zero return values are reserved for future use.
+}
+#endif
+//========================== End fuzzing ==========================
+
+
 void LuaTests::test()
 {
 	conPrint("LuaTests::test()");
