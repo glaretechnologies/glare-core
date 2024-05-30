@@ -130,7 +130,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 		options.max_num_interrupts = 64000;
 
 		const std::string src((const char*)data, size);
-		LuaScript script(&vm, LuaScriptOptions(), src);
+		LuaScript script(&vm, options, src);
 	}
 	catch(glare::Exception& e)
 	{
@@ -291,6 +291,23 @@ void LuaTests::test()
 			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
 
 			const std::string src = "local z = testFunc(1.0, 2.0)  \n    print(string.format('testFunc result: %i', z))   \n   assert(z == 3.0, 'z == 3.0')";
+			LuaScript script(&vm, options, src);
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+		//========================== Test stack overflow in compiler ==========================
+		try
+		{
+			LuaVM vm;
+			vm.max_total_mem_allowed = 500000;
+
+			LuaScriptOptions options;
+			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
+
+			const std::string src(2000, '(');
 			LuaScript script(&vm, options, src);
 		}
 		catch(glare::Exception& e)
