@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/StringUtils.h"
 #include "../maths/mathstypes.h"
 #include <lualib.h>
+#include <luau/Common.h>
 #include <limits>
 
 
@@ -74,6 +75,15 @@ LuaVM::LuaVM()
 	total_allocated_high_water_mark(0),
 	max_total_mem_allowed(std::numeric_limits<int64>::max())
 {
+	// Set LuauRecursionLimit to 256.  The default value of 1000 is too high - get a stack overflow in some cases.  See https://github.com/luau-lang/luau/issues/1277
+	Luau::FValue<int>* cur = Luau::FValue<int>::list;
+	while(cur)
+	{
+		if(stringEqual(cur->name, "LuauRecursionLimit"))
+			cur->value = 256;
+		cur = cur->next;
+	}
+
 	try
 	{
 		state = lua_newstate(glareLuaAlloc, /*userdata=*/this);

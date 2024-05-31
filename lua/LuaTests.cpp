@@ -299,6 +299,7 @@ void LuaTests::test()
 		}
 
 		//========================== Test stack overflow in compiler ==========================
+		// See https://github.com/luau-lang/luau/issues/1277, should be fixed now with setting LuauRecursionLimit workaround.
 		try
 		{
 			LuaVM vm;
@@ -309,10 +310,12 @@ void LuaTests::test()
 
 			const std::string src(2000, '(');
 			LuaScript script(&vm, options, src);
+
+			failTest("Expected excep.");
 		}
 		catch(glare::Exception& e)
 		{
-			failTest("Failed:" + e.what());
+			conPrint("Got expected excep: " + e.what()); // Expected
 		}
 
 
