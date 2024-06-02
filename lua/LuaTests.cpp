@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/ConPrint.h"
 #include "../utils/FileUtils.h"
 #include "../utils/PlatformUtils.h"
+#include "../utils/Timer.h"
 #include <lualib.h>
 #include <luacode.h>
 
@@ -114,6 +115,44 @@ static void setNumberField(lua_State* state, const char* key, double value)
 }
 
 
+// C++ implemenetation of __index.  Used when a table field is read from.
+static int glareLuaIndexMetaMethod(lua_State* state)
+{
+	// Assuming arg 1 is table, get uid field from it
+	lua_rawgetfield(state, 1, "uid"); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+
+	int isnum;
+	const double uid = lua_tonumberx(state, -1, &isnum);
+	lua_pop(state, 1); // Pop uid from stack
+
+	size_t stringlen = 0;
+	const char* key_str = lua_tolstring(state, /*index=*/2, &stringlen); // May return NULL if not a string
+
+	return 0; // Count of returned values
+}
+
+
+// C++ implemenetation of __newindex.  Used when a value is assigned to a table field.
+static int glareLuaNewIndexMetaMethod(lua_State* state)
+{
+	// Assuming arg 1 is table, get uid field from it
+	lua_rawgetfield(state, 1, "uid"); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+
+	int isnum;
+	const double uid = lua_tonumberx(state, -1, &isnum);
+	lua_pop(state, 1); // Pop uid from stack
+
+	// Read key
+	size_t stringlen = 0;
+	const char* key_str = lua_tolstring(state, /*index=*/2, &stringlen); // May return NULL if not a string
+
+	// Read newly assigned value.
+	const double value = lua_tonumberx(state, 3, &isnum);
+
+	return 0; // Count of returned values
+}
+
+
 //========================== Fuzzing ==========================
 #if 0
 // Command line:
@@ -141,6 +180,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 }
 #endif
 //========================== End fuzzing ==========================
+
+
+class TestLuaScriptOutputHandler : public LuaScriptOutputHandler
+{
+public:
+	virtual void print(const char* s, size_t len) override
+	{
+		buf += std::string(s, len);
+	}
+
+	std::string buf;
+};
 
 
 void LuaTests::test()
@@ -280,7 +331,45 @@ void LuaTests::test()
 		{
 			conPrint("Got expected excep: " + e.what()); // Expected
 		}
+
+		//========================== Test error() ==========================
+		try
+		{
+			LuaVM vm;
+
+			const std::string src = "error('error called woop woop')";
+			LuaScript script(&vm, LuaScriptOptions(), src);
+
+			failTest("Expected excep.");
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Got expected excep: " + e.what()); // Expected
+		}
 		
+		//========================== Test LuaScriptOutputHandler ==========================
+		try
+		{
+			LuaVM vm;
+			vm.max_total_mem_allowed = 500000;
+
+			LuaScriptOptions options;
+			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
+
+			TestLuaScriptOutputHandler handler;
+			options.script_output_handler = &handler;
+
+			const std::string src = "print('test123')";
+			LuaScript script(&vm, options, src);
+
+			testAssert(handler.buf == "test123\n");
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+
 		//========================== Test calling back into a C function ==========================
 		try
 		{
@@ -316,6 +405,66 @@ void LuaTests::test()
 		catch(glare::Exception& e)
 		{
 			conPrint("Got expected excep: " + e.what()); // Expected
+		}
+
+
+
+		//========================== Test creating a table with a metatable and __index and __newindex metamethod ==========================
+		try
+		{
+			LuaVM vm;
+			vm.max_total_mem_allowed = 500000;
+
+			LuaScriptOptions options;
+			//options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
+
+			TestLuaScriptOutputHandler handler;
+			options.script_output_handler = &handler;
+
+			const std::string src = 
+				"function testFuncTakingTable(t)    \n"
+				"   t.somefield = 456.0             \n"
+				"   return t.hello                  \n"
+				"end";
+			LuaScript script(&vm, options, src);
+
+
+			Timer timer;
+
+			const int num_iters = 1000;
+			for(int i=0; i<num_iters; ++i)
+			{
+				lua_getglobal(script.thread_state, "testFuncTakingTable");  // Push function to be called onto stack
+
+				// Create a table ('test_table')
+				lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/1); // Create table
+
+				// Set table UID field
+				lua_pushnumber(script.thread_state, 123.0);
+				lua_rawsetfield(script.thread_state, /*table index=*/-2, "uid"); // pops value (123.0) from stack
+
+				lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/2); // Create metatable
+			
+				// Set glareLuaIndexMetaMethod as __index metamethod
+				lua_pushcfunction(script.thread_state, glareLuaIndexMetaMethod, /*debugname=*/"glareLuaIndexMetaMethod");
+				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__index"); // pops value (glareLuaIndexMetaMethod) from stack
+
+				// Set glareLuaNewIndexMetaMethod as __newindex metamethod
+				lua_pushcfunction(script.thread_state, glareLuaNewIndexMetaMethod, /*debugname=*/"glareLuaNewIndexMetaMethod");
+				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__newindex"); // pops value (glareLuaNewIndexMetaMethod) from stack
+
+				// Assign metatable to test_table
+				lua_setmetatable(script.thread_state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
+
+				// Call function
+				lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/0);
+			}
+
+			conPrint("testFuncTakingTable call took " + doubleToStringNSigFigs(timer.elapsed() / num_iters * 1.0e9, 4) + " ns");
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
 		}
 
 

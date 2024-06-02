@@ -69,6 +69,30 @@ static void glareLuaInterrupt(lua_State* state, int gc)
 }
 
 
+// Adapted from luaB_print in C:\programming\luau\0.627\VM\src\lbaselib.cpp
+// We will supply our own implementation so print() calls don't output to stdout.
+static int glareLuaPrint(lua_State* L)
+{
+	LuaScript* script = (LuaScript*)lua_getthreaddata(L);
+	int n = lua_gettop(L); // number of arguments
+	LuaScriptOutputHandler* handler = script->script_output_handler;
+	if(handler != NULL)
+	{
+		for (int i = 1; i <= n; i++)
+		{
+			size_t l;
+			const char* s = luaL_tolstring(L, i, &l); // convert to string using __tostring et al
+			if (i > 1)
+				handler->print("\t", 1);
+			handler->print(s, l);
+			lua_pop(L, 1); // pop result
+		}
+		handler->print("\n", 1);
+	}
+	return 0; // Return number of results left on stack
+}
+
+
 LuaVM::LuaVM()
 :	state(NULL),
 	total_allocated(0),
@@ -91,6 +115,10 @@ LuaVM::LuaVM()
 			throw glare::Exception("lua_newstate failed.");
 
 		luaL_openlibs(state);
+
+		// Override print.  We will supply our own implementation so print() calls don't output to stdout.
+		lua_pushcfunction(state, glareLuaPrint, /*debugname=*/"glareLuaPrint");
+		lua_setglobal(state, "print");
 
 		lua_callbacks(state)->interrupt = glareLuaInterrupt;
 

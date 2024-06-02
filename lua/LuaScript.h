@@ -22,13 +22,23 @@ struct LuaCFunction
 	std::string func_name;
 };
 
+class LuaScriptOutputHandler
+{
+public:
+	virtual void print(const char* s, size_t len) {}
+};
+
+
+
 struct LuaScriptOptions
 {
-	LuaScriptOptions() : max_num_interrupts(std::numeric_limits<size_t>::max()) {}
+	LuaScriptOptions() : max_num_interrupts(std::numeric_limits<size_t>::max()), script_output_handler(NULL) {}
 
 	size_t max_num_interrupts;
 
 	std::vector<LuaCFunction> c_funcs;
+
+	LuaScriptOutputHandler* script_output_handler;
 };
 
 
@@ -50,4 +60,6 @@ public:
 
 	size_t num_interrupts;
 	LuaScriptOptions options;
+
+	LuaScriptOutputHandler* script_output_handler;
 };

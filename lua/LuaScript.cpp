@@ -17,7 +17,8 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 :	lua_vm(lua_vm_),
 	thread_state(NULL),
 	options(options_),
-	num_interrupts(0)
+	num_interrupts(0),
+	script_output_handler(options_.script_output_handler)
 {
 	try
 	{
