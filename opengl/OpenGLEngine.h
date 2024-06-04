@@ -434,7 +434,7 @@ public:
 	bool render_sun_and_clouds;
 	bool render_water_caustics;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
-	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.
+	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.  This setting has no effect on Emscripten/Web platform.
 
 	bool allow_bindless_textures; // Allow use of bindless textures, if supported by the OpenGL implementation?   True by default.
 	bool allow_multi_draw_indirect; // Allow multi-draw indirect drawing, if supported by the OpenGL implementation?   True by default.
