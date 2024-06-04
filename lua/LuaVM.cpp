@@ -12,7 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/StringUtils.h"
 #include "../maths/mathstypes.h"
 #include <lualib.h>
-#include <luau/Common.h>
+#include <Luau/Common.h>
 #include <limits>
 
 
