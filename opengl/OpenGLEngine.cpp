@@ -338,7 +338,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	grass_pusher_sphere_pos = Vec4f(-1.0e10, -1.0e10, -1.0e10, 1);
 	shadow_mapping = true;
 	draw_water = true;
-	use_main_render_framebuffer = true;
+	draw_aurora = false;
+	render_to_main_render_framebuffer = engine.settings.render_to_offscreen_renderbuffers;
 	cloud_shadows = true;
 
 	env_ob = engine.allocateObject();
@@ -1723,7 +1724,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	// WebGL doesn't support glBlendFunci which we need for order-independent transparency, so don't use on Web.
 	this->use_order_indep_transparency = false;
 #else
-	this->use_order_indep_transparency = true;
+	this->use_order_indep_transparency = settings.render_to_offscreen_renderbuffers;
 #endif
 
 	// Query amount of GPU RAM available.  See https://stackoverflow.com/questions/4552372/determining-available-video-memory
@@ -1960,7 +1961,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		preprocessor_defines += "#define USE_SSBOS " + (light_buffer.nonNull() ? std::string("1") : std::string("0")) + "\n";
 
-		preprocessor_defines += "#define DO_POST_PROCESSING " + (true/*settings.use_final_image_buffer*/ ? std::string("1") : std::string("0")) + "\n";
+		preprocessor_defines += "#define DO_POST_PROCESSING " + (settings.render_to_offscreen_renderbuffers ? std::string("1") : std::string("0")) + "\n";
+		const bool do_screenspace_refl_and_refr = settings.screenspace_refl_and_refr && settings.render_to_offscreen_renderbuffers; // Screenspace reflections require rendering to offscreen buffers.
+		preprocessor_defines += "#define WATER_DO_SCREENSPACE_REFL_AND_REFR " + (do_screenspace_refl_and_refr ? std::string("1") : std::string("0")) + "\n";
 
 		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES 1\n"; // Since we are using render buffers currently, we will resolve them down to a non-MSAA texture using blitBuffer.  So 
 		// So the shaders can just consider the main buffer source textures to not have MSAA.
@@ -2365,7 +2368,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	edge_extract_line_width_location	= edge_extract_prog->getUniformLocation("line_width");
 
 
-	if(true/*settings.use_final_image_buffer*/)
+	if(settings.render_to_offscreen_renderbuffers)
 	{
 		//------------------------------------------- Build downsize prog -------------------------------------------
 		{
@@ -6228,7 +6231,7 @@ void OpenGLEngine::draw()
 	bindStandardTexturesToTextureUnits();
 
 
-	if(draw_aurora && current_scene->use_main_render_framebuffer)
+	if(draw_aurora && current_scene->draw_aurora)
 		drawAuroraTex();
 
 
@@ -6262,7 +6265,7 @@ void OpenGLEngine::draw()
 	//
 	// To read the renderbuffers as textures, we will blit them to textures (main_colour_copy_texture etc..) using glBlitFramebuffer.
 	// We will resolve the MSAA samples while doing this, so main_colour_copy_texture etc. are not MSAA textures.
-	if(current_scene->use_main_render_framebuffer)
+	if(current_scene->render_to_main_render_framebuffer)
 	{
 		const int xres = myMax(16, main_viewport_w);
 		const int yres = myMax(16, main_viewport_h);
@@ -6403,7 +6406,7 @@ void OpenGLEngine::draw()
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
-	if(current_scene->use_main_render_framebuffer)
+	if(current_scene->render_to_main_render_framebuffer)
 	{
 		// Bind normal texture as the second colour target.  Need to do this here as transparent object render pass changes this binding.
 		main_render_framebuffer->attachRenderBuffer(*main_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
@@ -6598,7 +6601,7 @@ void OpenGLEngine::draw()
 	drawUIOverlayObjects(reverse_z_matrix);
 	
 
-	if(current_scene->use_main_render_framebuffer)
+	if(current_scene->render_to_main_render_framebuffer)
 	{
 		ZoneScopedN("Post process"); // Tracy profiler
 
@@ -6844,7 +6847,7 @@ void OpenGLEngine::draw()
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 				unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
 		}
-	} // End if(settings.use_final_image_buffer)
+	} // End if(current_scene->render_to_main_render_framebuffer)
 
 
 	VAO::unbind(); // Unbind any bound VAO, so that its vertex and index buffers don't get accidentally overridden.
@@ -7392,17 +7395,22 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 // Draw background env map if there is one. (or if we are using a non-standard env shader)
 void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	if(!current_scene->use_main_render_framebuffer)
-		return;
-
 	if(this->current_scene->env_ob.nonNull() && this->current_scene->env_ob->materials[0].shader_prog.nonNull())
 	{
 		if((this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr()) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
 		{
-			main_render_framebuffer->bindForDrawing();
-			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-
-			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
+			if(current_scene->render_to_main_render_framebuffer)
+			{
+				main_render_framebuffer->bindForDrawing();
+				assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+				setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer
+			}
+			else
+			{
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+				setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+			}
+			
 		
 			ZoneScopedN("Draw env"); // Tracy profiler
 			assertCurrentProgramIsZero();
@@ -7442,14 +7450,23 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 // These batches will be sorted by distance from camera and drawn in far to near order.
 void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	if(!current_scene->alpha_blended_objects.empty() && current_scene->use_main_render_framebuffer)
+	if(!current_scene->alpha_blended_objects.empty())
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
 		assertCurrentProgramIsZero();
 
-		main_render_framebuffer->bindForDrawing();
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+		if(current_scene->render_to_main_render_framebuffer)
+		{
+			main_render_framebuffer->bindForDrawing();
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+		}
+		else
+		{
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+			setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+		}
+		
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -7486,7 +7503,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media || ob->materials[ob->mesh_data->batches[z].material_index].alpha_blend);
 #endif
-					if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG))
+					if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If alpha-blend bit is set, and program has finished building:
 					{
 						// We want to sort into descending depth order, because we want to draw far objects first.
 						// We also want to convert to a uint32.  So convert to uint32 first then negate.
@@ -7546,7 +7563,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 #if EMSCRIPTEN // Crashing chrome currently.
 	if(0)
 #else
-	if(!current_scene->decal_objects.empty() && current_scene->use_main_render_framebuffer) // Only do buffer copying if we have some decals to draw.
+	if(!current_scene->decal_objects.empty() && current_scene->render_to_main_render_framebuffer) // Only do buffer copying if we have some decals to draw.
 #endif
 	{
 		assertCurrentProgramIsZero();
@@ -7642,6 +7659,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 #endif
 							// Draw primitives for the given material
 							//if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // NOTE: check for decal bitflag? or just assume all decal object materials are decals.
+							if(BitUtils::isBitSet(prog_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG))
 							{
 								BatchDrawInfo info(
 									prog_index_and_backface_culling_flag,
@@ -7736,63 +7754,71 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 
 void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	if(current_scene->draw_water && current_scene->use_main_render_framebuffer)
+	if(current_scene->draw_water)
 	{
-		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
-		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
-		//
-		// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
-		// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
-		// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
-		// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
-		//
-		// 
-		main_render_framebuffer->bindForReading();
+		if(current_scene->render_to_main_render_framebuffer)
+		{
+			// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
+			// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
+			//
+			// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
+			// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
+			// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
+			// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
+			//
+			// 
+			main_render_framebuffer->bindForReading();
 
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
 
-		main_render_copy_framebuffer->bindForDrawing();
+			main_render_copy_framebuffer->bindForDrawing();
 
-		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT0) == this->main_colour_copy_texture->texture_handle);
-		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
+			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT0) == this->main_colour_copy_texture->texture_handle);
+			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
 
-		//--------------- Copy colour buffer (attachment 0) and depth buffer. ---------------
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+			//--------------- Copy colour buffer (attachment 0) and depth buffer. ---------------
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
-			GL_NEAREST
-		);
+			glBlitFramebuffer(
+				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+				GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+				GL_NEAREST
+			);
 
-		//--------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ---------------
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+			//--------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ---------------
+			glReadBuffer(GL_COLOR_ATTACHMENT1);
+			setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
 	
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
+			glBlitFramebuffer(
+				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+				GL_COLOR_BUFFER_BIT,
+				GL_NEAREST
+			);
 
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
 
-		// Restore main render buffer binding for drawing
-		main_render_framebuffer->bindForDrawing();
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
+			// Restore main render buffer binding for drawing
+			main_render_framebuffer->bindForDrawing();
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
 		
-		//glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
+			//glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
 		
-		// Bind normal texture as the second colour target
-		//main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
+			// Bind normal texture as the second colour target
+			//main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
 
-		// Draw to all colour buffers: colour and normal buffer.
-		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+			// Draw to all colour buffers: colour and normal buffer.
+			setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+		}
+		else
+		{
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+			setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+		}
 
 		glDepthMask(GL_TRUE);
 
@@ -7840,7 +7866,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
 						// Draw primitives for the given material
-						if(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG)) // If water bit is set:
+						if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If water bit is set and program is finished building:
 						{
 							BatchDrawInfo info(
 								prog_index_and_backface_culling_flag,
@@ -7918,7 +7944,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	assertCurrentProgramIsZero();
 
-	if(current_scene->use_main_render_framebuffer)
+	if(current_scene->render_to_main_render_framebuffer)
 	{
 		main_render_framebuffer->bindForDrawing();
 		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
@@ -7928,9 +7954,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	else
 	{
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
 	}
-
 	
 
 	//Timer timer;
@@ -8092,24 +8117,29 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	ZoneScopedN("Draw transparent obs"); // Tracy profiler
 	assertCurrentProgramIsZero();
 
-	if(!current_scene->use_main_render_framebuffer)
-		return;
-
-	main_render_framebuffer->bindForDrawing();
-	assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-	if(use_order_indep_transparency)
+	if(current_scene->render_to_main_render_framebuffer)
 	{
-		main_render_framebuffer->attachRenderBuffer(*transparent_accum_renderbuffer, GL_COLOR_ATTACHMENT1); // Replaces normal buffer as GL_COLOR_ATTACHMENT1
-		main_render_framebuffer->attachRenderBuffer(*av_transmittance_renderbuffer, GL_COLOR_ATTACHMENT2);
+		main_render_framebuffer->bindForDrawing();
+		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+		if(use_order_indep_transparency)
+		{
+			main_render_framebuffer->attachRenderBuffer(*transparent_accum_renderbuffer, GL_COLOR_ATTACHMENT1); // Replaces normal buffer as GL_COLOR_ATTACHMENT1
+			main_render_framebuffer->attachRenderBuffer(*av_transmittance_renderbuffer, GL_COLOR_ATTACHMENT2);
+		}
+
+		// Draw to three colour buffers: colour, transparent_accum, av_transmittance.
+		if(use_order_indep_transparency)
+			setThreeDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2);
+		else
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+	}
+	else
+	{
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
 	}
 
-	// Draw to three colour buffers: colour, transparent_accum, av_transmittance.
-	if(use_order_indep_transparency)
-		setThreeDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2);
-	else
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-	if(use_order_indep_transparency)
+	if(use_order_indep_transparency && current_scene->render_to_main_render_framebuffer)
 	{
 		// Clear transparent_accum_texture buffer (GL_COLOR_ATTACHMENT1)
 		// NOTE that glClearBufferfv uses draw buffer indices, so glDrawBuffers() needs to be called first.
@@ -8128,7 +8158,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	// To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
 	// For completely additive blending (hologram shader), we don't multiply by alpha in the fragment shader, and set a fragment colour with alpha = 0, so dest factor = 1 - 0 = 1.
 	// See https://gamedev.stackexchange.com/a/143117
-	if(use_order_indep_transparency)
+	if(use_order_indep_transparency && current_scene->render_to_main_render_framebuffer)
 	{
 		// glBlendFunci is only in OpenGL ES 3.2+ so we can't use it in Emscripten.
 #if defined(EMSCRIPTEN)
@@ -8225,7 +8255,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	
 
 
-	if(use_order_indep_transparency)
+	if(use_order_indep_transparency && current_scene->render_to_main_render_framebuffer)
 	{
 		//----------------------- Copy transparent_accum render buffer to transparent_accum_copy_texture -----------------------
 		main_render_framebuffer->bindForReading(); // Set copy source framebuffer
@@ -8273,13 +8303,21 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 
 	assertCurrentProgramIsZero();
 
-	if(!current_scene->always_visible_objects.empty() && current_scene->use_main_render_framebuffer)
+	if(!current_scene->always_visible_objects.empty())
 	{
 		ZoneScopedN("Draw always visible"); // Tracy profiler
 
-		main_render_framebuffer->bindForDrawing();
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just write to colour buffer
+		if(current_scene->render_to_main_render_framebuffer)
+		{
+			main_render_framebuffer->bindForDrawing();
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.			
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just write to colour buffer
+		}
+		else
+		{
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+			setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+		}
 
 
 		glDisable(GL_DEPTH_TEST); // Turn off depth testing
@@ -8351,7 +8389,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 // * Draw another quad using the edge texture, blending a green colour into the final frame buffer on the edge.
 void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer) // Only do when use_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
+	if(!selected_objects.empty() && current_scene->render_to_main_render_framebuffer) // Only do when render_to_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
 	{
 		assertCurrentProgramIsZero();
 	
@@ -8424,7 +8462,7 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 {
 	// At this stage the outline texture has been generated in outline_edge_tex.  So we will just blend it over the current frame.
-	if(!selected_objects.empty() && current_scene->use_main_render_framebuffer)
+	if(!selected_objects.empty() && current_scene->render_to_main_render_framebuffer)
 	{
 		assertCurrentProgramIsZero();
 
@@ -8477,16 +8515,17 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 {
 	assertCurrentProgramIsZero();
 
-	if(current_scene->use_main_render_framebuffer)
+	if(current_scene->render_to_main_render_framebuffer)
 	{
 		main_render_framebuffer->bindForDrawing();
 		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 	}
 	else
 	{
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
 	}
-	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
 
 
 	glEnable(GL_BLEND);
@@ -10398,6 +10437,11 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "SSBO support: " + boolToString(GL_ARB_shader_storage_buffer_object_support) + "\n";
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
 	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
+
+	if(main_colour_renderbuffer.nonNull())
+		s += "main_colour_renderbuffer (offscreen): " + toString(main_colour_renderbuffer->xRes()) + " x " + toString(main_colour_renderbuffer->yRes()) + ", MSAA samples: " + toString(main_colour_renderbuffer->MSAASamples()) + "\n";
+	else
+		s += "main_colour_renderbuffer (offscreen): Not used\n";
 
 	s += "Programs: " + toString(next_program_index) + "\n";
 

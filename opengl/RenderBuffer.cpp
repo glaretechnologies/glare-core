@@ -9,10 +9,11 @@ Copyright Glare Technologies Limited 2024 -
 #include "IncludeOpenGL.h"
 
 
-RenderBuffer::RenderBuffer(size_t tex_xres, size_t tex_yres, int MSAA_samples, OpenGLTexture::Format format)
+RenderBuffer::RenderBuffer(size_t tex_xres, size_t tex_yres, int MSAA_samples_, OpenGLTexture::Format format)
 :	buffer_name(0),
 	xres(tex_xres),
-	yres(tex_yres)
+	yres(tex_yres),
+	MSAA_samples(MSAA_samples_)
 {
 
 	// Create new render buffer

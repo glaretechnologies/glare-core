@@ -30,12 +30,14 @@ public:
 	
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }
+	int MSAASamples() const { return MSAA_samples; }
 private:
 	GLARE_DISABLE_COPY(RenderBuffer);
 public:
 	
 	GLuint buffer_name;
 	size_t xres, yres;
+	int MSAA_samples;
 };
 
 

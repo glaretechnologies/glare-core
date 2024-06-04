@@ -422,7 +422,7 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), /*use_final_image_buffer(false),*/ depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), render_to_offscreen_renderbuffers(true), screenspace_refl_and_refr(true), depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
 		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
 		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false) {}
 
@@ -430,11 +430,13 @@ public:
 	bool shadow_mapping;
 	bool compress_textures;
 	//bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
+	bool render_to_offscreen_renderbuffers;  // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing and screen-space reflections.
+	bool screenspace_refl_and_refr; // Do screenspace reflections and refractions?  Only used for water shader currently.  Requires render_to_offscreen_renderbuffers to be true.
 	bool depth_fog;
 	bool render_sun_and_clouds;
 	bool render_water_caustics;
 	bool use_grouped_vbo_allocator; // Use the best-fit allocator to group multiple vertex buffers into one VBO.  Faster rendering but uses more GPU RAM due to unused space in the VBOs.
-	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.  This setting has no effect on Emscripten/Web platform.
+	int msaa_samples; // MSAA samples, used if use_final_image_buffer is true.  <= 1 to disable MSAA.  This setting may have no effect on Emscripten/Web platform.
 
 	bool allow_bindless_textures; // Allow use of bindless textures, if supported by the OpenGL implementation?   True by default.
 	bool allow_multi_draw_indirect; // Allow multi-draw indirect drawing, if supported by the OpenGL implementation?   True by default.
@@ -502,10 +504,11 @@ public:
 
 	bool shadow_mapping; // True by default
 	bool draw_water; // True by default
+	bool draw_aurora; // False by default
 
 	// If true, the scene is rendered to an offscreen and internally allocated framebuffer.  This allows for bloom effects etc.
-	// If false, the scene is rendered directly to the framebuffer set by setTargetFrameBuffer().  Only some object types can be draw in this case (not transparent objects etc.)
-	bool use_main_render_framebuffer; // True by default
+	// If false, the scene is rendered directly to the framebuffer set by setTargetFrameBuffer().
+	bool render_to_main_render_framebuffer; // True by default
 
 	bool cloud_shadows; // True by default
 

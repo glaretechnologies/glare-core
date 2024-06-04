@@ -464,6 +464,7 @@ void main()
 		//========================= Do screen space reflection trace =============================
 		
 		bool hit_something = false;
+#if WATER_DO_SCREENSPACE_REFL_AND_REFR
 		{
 			// First get dir in screen space.
 			/*
@@ -618,8 +619,7 @@ void main()
 				//spec_refl_light_already_fogged = vec3(100000000.0);//TEMP HACK
 			}
 		}
-
-		
+#endif // end if WATER_DO_SCREENSPACE_REFL_AND_REFR
 
 		//========================= Look up env map for reflected dir ============================
 		if(!hit_something) // If we didn't hit anything with the screen-space trace:
@@ -769,7 +769,7 @@ void main()
 		//vec4 col = transmission_col*80000000 + spec_refl_light * spec_refl_fresnel + sun_light * sun_specular;
 		//spec_refl_light += sun_light * sun_specular;
 
-	
+#if WATER_DO_SCREENSPACE_REFL_AND_REFR
 
 		float px, py; // image coordinates of this fragment
 		float ground_dist;
@@ -925,7 +925,13 @@ void main()
 			refracted_py = py;
 		}
 
-		col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, final_refracted_water_ground_d, water_to_ground_sun_d) * (1.0 - spec_refl_fresnel) +
+
+		vec3 underwater_col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, final_refracted_water_ground_d, water_to_ground_sun_d);
+#else // else if !WATER_DO_SCREENSPACE_REFL_AND_REFR:
+		vec3 underwater_col = vec3(0.004, 0.015, 0.03);
+#endif
+
+		col = underwater_col * (1.0 - spec_refl_fresnel) +
 			spec_refl_light * spec_refl_fresnel;
 		
 	} // End if cam is above water surface
