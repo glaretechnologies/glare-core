@@ -10442,6 +10442,7 @@ std::string OpenGLEngine::getDiagnostics() const
 		s += "main_colour_renderbuffer (offscreen): " + toString(main_colour_renderbuffer->xRes()) + " x " + toString(main_colour_renderbuffer->yRes()) + ", MSAA samples: " + toString(main_colour_renderbuffer->MSAASamples()) + "\n";
 	else
 		s += "main_colour_renderbuffer (offscreen): Not used\n";
+	s += "main viewport dims: " + toString(main_viewport_w) + " x " + toString(main_viewport_h) + ", MSAA samples: " + toString(settings.msaa_samples) + "\n";
 
 	s += "Programs: " + toString(next_program_index) + "\n";
 
