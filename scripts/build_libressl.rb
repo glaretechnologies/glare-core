@@ -246,7 +246,7 @@ end
 
 $libs_libressl_dir = "#{$libs_dir}/LibreSSL"
 
-FileUtils.mkdir($libs_libressl_dir, :verbose=>true) if !Dir.exists?($libs_libressl_dir)
+FileUtils.mkdir($libs_libressl_dir, :verbose=>true) if !Dir.exist?($libs_libressl_dir)
 puts "Changing dir to \"#{$libs_libressl_dir}\"."
 Dir.chdir($libs_libressl_dir)
 
