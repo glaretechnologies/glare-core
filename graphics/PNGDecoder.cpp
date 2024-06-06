@@ -184,10 +184,8 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 		png_decoder.set_quirk_enabled(WUFFS_BASE__QUIRK_IGNORE_CHECKSUM, true);
 
 		const size_t effective_buf_size = buffer_view_in_stream.size() - buffer_view_in_stream.getReadIndex();
-		wuffs_base__io_buffer src_io_buffer = wuffs_base__make_io_buffer(
-			wuffs_base__make_slice_u8((uint8*)buffer_view_in_stream.currentReadPtr(), effective_buf_size),
-			wuffs_base__make_io_buffer_meta(/*write index=*/effective_buf_size, /*read index=*/0, /*pos=*/effective_buf_size, /*closed=*/true)
-		);
+
+		wuffs_base__io_buffer src_io_buffer = wuffs_base__ptr_u8__reader(/*ptr=*/(uint8*)buffer_view_in_stream.currentReadPtr(), /*len=*/effective_buf_size, /*closed=*/true);
 
 
 		wuffs_base__image_config image_config;
