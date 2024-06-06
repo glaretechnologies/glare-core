@@ -223,7 +223,7 @@ end
 
 def downloadFileHTTPSIfNotOnDisk(disk_path, uri_string)
 
-	if File.exists?(disk_path)
+	if File.exist?(disk_path)
 		puts "Already present on disk at '#{disk_path}', skipping download of '#{uri_string}'."
 		return
 	end
@@ -259,7 +259,7 @@ def extractArchive(archive, silent = false)
 				exec_command("\"#{sevenz_path}\" x #{tar_archive} -y#{silent_flag}")
 				puts "Done."
 
-				if File.exists?(tar_archive)
+				if File.exist?(tar_archive)
 					FileUtils.rm_r(tar_archive)
 				end
 			elsif archive.include?(".zip")
@@ -291,8 +291,8 @@ def extractArchiveIfNotExtraced(archive, target_dir, silent = false)
 	
 	temp_extract_dir = "temp_#{target_dir}"
 	
-	FileUtils.rm_r(target_dir) if Dir.exists?(target_dir)
-	FileUtils.rm_r(temp_extract_dir) if Dir.exists?(temp_extract_dir)
+	FileUtils.rm_r(target_dir) if Dir.exist?(target_dir)
+	FileUtils.rm_r(temp_extract_dir) if Dir.exist?(temp_extract_dir)
 	
 	FileUtils.mkdir(temp_extract_dir)
 	
@@ -300,7 +300,7 @@ def extractArchiveIfNotExtraced(archive, target_dir, silent = false)
 		extractArchive("../" + archive, silent)
 	end
 	
-	if Dir.exists?(temp_extract_dir + "/" + target_dir)
+	if Dir.exist?(temp_extract_dir + "/" + target_dir)
 		FileUtils.touch("#{temp_extract_dir}/#{target_dir}/glare-extract.success")
 		FileUtils.mv(temp_extract_dir + "/" + target_dir, ".")
 		FileUtils.rm_r(temp_extract_dir)

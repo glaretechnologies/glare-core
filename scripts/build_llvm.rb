@@ -123,14 +123,14 @@ def getLLVMSourceDownloadAndExtract()
 			cmake_src_folder # target dir
 		)
 		
-		FileUtils.rm_r("cmake") if Dir.exists?("cmake")
+		FileUtils.rm_r("cmake") if Dir.exist?("cmake")
 		FileUtils.mv(cmake_src_folder, "cmake", :verbose=>true)
 	end
 
 	# Get benchmark src, which seems to be required, even though we build without benchmark support.
-	if !(Dir.exists?("third-party") && Dir.exists?("third-party/benchmark"))
+	if !(Dir.exist?("third-party") && Dir.exist?("third-party/benchmark"))
 		
-		FileUtils.mkdir("third-party") if !Dir.exists?("third-party")
+		FileUtils.mkdir("third-party") if !Dir.exist?("third-party")
 
 		Dir.chdir("third-party") do 
 			print_and_exec_command("git clone https://github.com/google/benchmark.git")
@@ -250,7 +250,7 @@ $glare_core_libs_dir = $glare_core_libs_dir.gsub("\\", "/")
 
 $llvm_dir = "#{$glare_core_libs_dir}/llvm"
 
-FileUtils.mkdir($llvm_dir, :verbose=>true) if !Dir.exists?($llvm_dir)
+FileUtils.mkdir($llvm_dir, :verbose=>true) if !Dir.exist?($llvm_dir)
 puts "Chdir to \"#{$llvm_dir}\"."
 Dir.chdir($llvm_dir)
 
