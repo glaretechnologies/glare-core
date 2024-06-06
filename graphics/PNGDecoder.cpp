@@ -177,11 +177,11 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 	try
 	{
 		wuffs_png__decoder png_decoder;
-		wuffs_base__status status = wuffs_png__decoder__initialize(&png_decoder, sizeof(png_decoder), WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+		wuffs_base__status status = png_decoder.initialize(sizeof(png_decoder), WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
 		throwOnError(status);
 
 		// We will ignore PNG checksums.
-		wuffs_png__decoder__set_quirk_enabled(&png_decoder, WUFFS_BASE__QUIRK_IGNORE_CHECKSUM, true);
+		png_decoder.set_quirk_enabled(WUFFS_BASE__QUIRK_IGNORE_CHECKSUM, true);
 
 		const size_t effective_buf_size = buffer_view_in_stream.size() - buffer_view_in_stream.getReadIndex();
 		wuffs_base__io_buffer src_io_buffer = wuffs_base__make_io_buffer(
@@ -191,15 +191,15 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 
 
 		wuffs_base__image_config image_config;
-		status = wuffs_png__decoder__decode_image_config(&png_decoder, &image_config, &src_io_buffer);
+		status = png_decoder.decode_image_config(&image_config, &src_io_buffer);
 		throwOnError(status);
 
-		const wuffs_base__pixel_format pixel_format = wuffs_base__pixel_config__pixel_format(&image_config.pixcfg);
+		const wuffs_base__pixel_format pixel_format = image_config.pixcfg.pixel_format();
 
-		const uint32_t w = wuffs_base__pixel_config__width(&image_config.pixcfg);
-		const uint32_t h = wuffs_base__pixel_config__height(&image_config.pixcfg);
-		//const uint32_t num_planes = wuffs_base__pixel_config__pixel_format(&image_config.pixcfg).num_planes();
-		const uint32_t bpp = wuffs_base__pixel_config__pixel_format(&image_config.pixcfg).bits_per_pixel();
+		const uint32_t w = image_config.pixcfg.width();
+		const uint32_t h = image_config.pixcfg.height();
+		//const uint32_t num_planes = image_config.pixcfg.pixel_format().num_planes();
+		const uint32_t bpp = image_config.pixcfg.pixel_format().bits_per_pixel();
 
 		if(w >= 1000000)
 			throw ImFormatExcep("invalid width: " + toString(w));
@@ -232,7 +232,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 			throw ImFormatExcep("channel 0 had 0 bit depth");
 
 		// Configure the work buffer.
-		const uint64 workbuf_len = wuffs_png__decoder__workbuf_len(&png_decoder).max_incl;
+		const uint64 workbuf_len = png_decoder.workbuf_len().max_incl;
 		const uint64 MAX_WORKBUF_ARRAY_SIZE = 256 * 1024 * 1024;
 		if(workbuf_len > MAX_WORKBUF_ARRAY_SIZE)
 			throw ImFormatExcep("main: image is too large (to configure work buffer)");
@@ -293,7 +293,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 
 
 		wuffs_base__pixel_config destination_pixcfg;
-		wuffs_base__pixel_config__set(&destination_pixcfg,
+		destination_pixcfg.set(
 			use_pixelformat,
 			WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, 
 			w, h
@@ -308,10 +308,10 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 
 			// Configure the wuffs_base__pixel_buffer struct.
 			wuffs_base__pixel_buffer dest_pixel_buffer;
-			status = wuffs_base__pixel_buffer__set_from_slice(&dest_pixel_buffer, &destination_pixcfg, pixbuf_slice);
+			status = dest_pixel_buffer.set_from_slice(&destination_pixcfg, pixbuf_slice);
 			throwOnError(status);
 
-			status = wuffs_png__decoder__decode_frame(&png_decoder, &dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &options);
+			status = png_decoder.decode_frame(&dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &options);
 			throwOnError(status);
 
 			
@@ -356,10 +356,10 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 
 			// Configure the wuffs_base__pixel_buffer struct.
 			wuffs_base__pixel_buffer dest_pixel_buffer;
-			status = wuffs_base__pixel_buffer__set_from_slice(&dest_pixel_buffer, &destination_pixcfg, pixbuf_slice);
+			status = dest_pixel_buffer.set_from_slice(&destination_pixcfg, pixbuf_slice);
 			throwOnError(status);
 
-			status = wuffs_png__decoder__decode_frame(&png_decoder, &dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &options);
+			status = png_decoder.decode_frame(&dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &options);
 			throwOnError(status);
 
 			const size_t num_pixels = (size_t)w * (size_t)h;
