@@ -63,9 +63,12 @@ static void glareLuaInterrupt(lua_State* state, int gc)
 {
 	LuaScript* script = (LuaScript*)lua_getthreaddata(state);
 
-	script->num_interrupts++;
-	if(script->num_interrupts >= script->options.max_num_interrupts)
-		throw glare::Exception("Max num interrupts reached, aborting script");
+	if(script) // script can be null if we get an interrupt callback setting up the shared Lua VM or in lua_newthread, before lua_setthreaddata is called.
+	{
+		script->num_interrupts++;
+		if(script->num_interrupts >= script->options.max_num_interrupts)
+			throw glare::Exception("Max num interrupts reached, aborting script");
+	}
 }
 
 
@@ -83,11 +86,11 @@ static int glareLuaPrint(lua_State* L)
 			size_t l;
 			const char* s = luaL_tolstring(L, i, &l); // convert to string using __tostring et al
 			if (i > 1)
-				handler->print("\t", 1);
-			handler->print(s, l);
+				handler->printFromLuaScript(script, "\t", 1);
+			handler->printFromLuaScript(script, s, l);
 			lua_pop(L, 1); // pop result
 		}
-		handler->print("\n", 1);
+		handler->printFromLuaScript(script, "\n", 1);
 	}
 	return 0; // Return number of results left on stack
 }
@@ -97,7 +100,8 @@ LuaVM::LuaVM()
 :	state(NULL),
 	total_allocated(0),
 	total_allocated_high_water_mark(0),
-	max_total_mem_allowed(std::numeric_limits<int64>::max())
+	max_total_mem_allowed(std::numeric_limits<int64>::max()),
+	init_finished(false)
 {
 	// Set LuauRecursionLimit to 256.  The default value of 1000 is too high - get a stack overflow in some cases.  See https://github.com/luau-lang/luau/issues/1277
 	Luau::FValue<int>* cur = Luau::FValue<int>::list;
@@ -121,8 +125,6 @@ LuaVM::LuaVM()
 		lua_setglobal(state, "print");
 
 		lua_callbacks(state)->interrupt = glareLuaInterrupt;
-
-		luaL_sandbox(state);
 	}
 	catch(std::exception& e)
 	{
@@ -135,4 +137,25 @@ LuaVM::~LuaVM()
 {
 	if(state)
 		lua_close(state);
+}
+
+
+void LuaVM::finishInitAndSandbox()
+{
+	try
+	{
+		luaL_sandbox(state);
+		init_finished = true;
+	}
+	catch(std::exception& e)
+	{
+		throw glare::Exception(e.what());
+	}
+}
+
+
+void LuaVM::setCFunctionAsTableField(lua_CFunction fn, const char* debugname, int table_index, const char* field_key)
+{
+	lua_pushcfunction(state, fn, debugname);
+	lua_rawsetfield(state, table_index, field_key); // pops value (function) from stack
 }

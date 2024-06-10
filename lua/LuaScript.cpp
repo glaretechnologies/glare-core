@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "LuaVM.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
+#include "../utils/StringUtils.h"
 #include <lualib.h>
 #include <luacode.h>
 
@@ -18,15 +19,23 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 	thread_state(NULL),
 	options(options_),
 	num_interrupts(0),
-	script_output_handler(options_.script_output_handler)
+	script_output_handler(options_.script_output_handler),
+	thread_ref(LUA_NOREF)
 {
 	try
 	{
-		thread_state = lua_newthread(lua_vm->state);
+		if(!lua_vm->init_finished)
+			lua_vm->finishInitAndSandbox();
+
+		// conPrint("---------LuaScript::LuaScript()------------");
+		thread_state = lua_newthread(lua_vm->state); // Creates a new thread, pushes it on the stack, and returns a pointer to a lua_State that represents this new thread
 		if(!thread_state)
 			throw glare::Exception("lua_newthread failed");
 
 		thread_ref = lua_ref(lua_vm->state, /*stack index=*/-1); // Get reference to thread to prevent it being garbage collected, see https://github.com/luau-lang/luau/discussions/774 and https://github.com/luau-lang/luau/issues/247
+		// lua_ref in Luau doesn't pop item from stack (see https://github.com/luau-lang/luau/issues/247#issuecomment-983042025)
+
+		lua_pop(lua_vm->state, 1); // Pop thread from shared lua_vm stack.
 
 		lua_setthreaddata(thread_state, this);
 
@@ -77,8 +86,20 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 		// Execute script main code
 		lua_call(thread_state, /*nargs=*/0, LUA_MULTRET);
 	}
+	catch(glare::Exception& e)
+	{
+		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
+		if(thread_ref != LUA_NOREF)
+			lua_unref(lua_vm->state, thread_ref);
+
+		throw e; // Re-throw
+	}
 	catch(std::exception& e)
 	{
+		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
+		if(thread_ref != LUA_NOREF)
+			lua_unref(lua_vm->state, thread_ref);
+
 		throw glare::Exception(e.what());
 	}
 }
@@ -86,6 +107,6 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 
 LuaScript::~LuaScript()
 {
-	if(thread_state)
+	if(thread_ref != LUA_NOREF)
 		lua_unref(lua_vm->state, thread_ref);
 }

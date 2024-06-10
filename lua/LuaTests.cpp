@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "LuaVM.h"
 #include "LuaScript.h"
+#include "LuaUtils.h"
 #include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/FileUtils.h"
@@ -17,80 +18,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <luacode.h>
 
 
-static void printTable(lua_State* state, int table_index, int spaces = 4)
-{
-	assert(table_index >= 1);
 
-	lua_pushnil(state); // Push first key onto stack
-	while(1)
-	{
-		int notdone = lua_next(state, table_index); // pops a key from the stack, and pushes a key-value pair from the table at the given index
-		if(notdone == 0)
-			break;
-
-		const int key_type   = lua_type(state, -2);
-		const int value_type = lua_type(state, -1);
-		if(key_type == LUA_TSTRING)
-			conPrint(std::string(spaces, ' ') + "\"" + std::string(lua_tostring(state, -2)) + "\" : " + std::string(lua_typename(state, value_type)));
-		else
-			conPrint(std::string(spaces, ' ') + "[non-string key] : " + std::string(lua_typename(state, value_type)));
-		//conPrint("  " + std::string(lua_typename(state, lua_type(state, -2))) + ": " + std::string(lua_typename(state, lua_type(state, -1))));
-
-		lua_pop(state, 1); // Remove value, keep key on stack for next lua_next call
-	}
-
-	const int have_metatable = lua_getmetatable(state, table_index); // Pushes onto stack if there.
-	if(have_metatable)
-	{
-		conPrint(std::string(spaces, ' ') + "metatable:");
-		printTable(state, lua_gettop(state), spaces + 4);
-
-		lua_pop(state, 1); // pop metatable off stack
-	}
-}
-
-
-// Adapted from https://www.lua.org/pil/24.2.3.html
-static void printStack(lua_State *L)
-{
-	conPrint("---------------- Lua stack ----------------");
-	int i;
-	int top = lua_gettop(L);
-	for (i = 1; i <= top; i++) {  /* repeat for each level */
-		conPrintStr(toString(i) + ": ");
-		int t = lua_type(L, i);
-		switch (t) {
-    
-		case LUA_TSTRING:
-			conPrint("string: " + std::string(lua_tostring(L, i)));
-			break;
-    
-		case LUA_TBOOLEAN:
-			conPrint(lua_toboolean(L, i) ? "true" : "false");
-			break;
-    
-		case LUA_TNUMBER:
-			conPrint(doubleToString(lua_tonumber(L, i)));
-			break;
-
-		case LUA_TTABLE:
-			conPrint("Table");
-			printTable(L, i);
-			break;
-
-		case LUA_TFUNCTION:
-			conPrint("Function");
-			break;
-    
-		default:  /* other values */
-			conPrint("other type: " + std::string(lua_typename(L, t)));
-			break;
-		}
-		//conPrintStr("  ");  /* put a separator */
-	}
-	//conPrint("");  /* end the listing */
-	conPrint("-------------------------------------------");
-}
 
 
 // Adds two numbers together
@@ -109,7 +37,7 @@ static int testFunc(lua_State* state)
 static int createObjectLuaFunc(lua_State* state)
 {
 	conPrint("----createObjectLuaFunc()----");
-	printStack(state);
+	LuaUtils::printStack(state);
 
 	int val_type = lua_getfield(state, /*index=*/1, /*field key=*/"name");
 	if(val_type == LUA_TSTRING)
@@ -118,7 +46,7 @@ static int createObjectLuaFunc(lua_State* state)
 		//const char* str = luaL_checklstring(state, /*index=*/-1, &stringlen);
 		const char* str = lua_tolstring(state, /*index=*/-1, &stringlen); // May return NULL if not a string
 
-		printStack(state);
+		LuaUtils::printStack(state);
 		if(str)
 		{
 			//size_t stringlen = 0;
@@ -128,7 +56,7 @@ static int createObjectLuaFunc(lua_State* state)
 		}
 	}
 	lua_pop(state, 1); // Pop the string off the stack
-	printStack(state);
+	LuaUtils::printStack(state);
 
 	val_type = lua_getfield(state, /*index=*/1, /*field key=*/"mass");
 	if(val_type == LUA_TNUMBER)
@@ -138,19 +66,19 @@ static int createObjectLuaFunc(lua_State* state)
 	}
 	lua_pop(state, 1); // Pop mass value off stack
 
-	printStack(state);
+	LuaUtils::printStack(state);
 
 	return 0;
 }
 
 
 // Assume that table is at the top of stack.  From https://www.lua.org/pil/25.1.html
-static void setNumberField(lua_State* state, const char* key, double value)
-{
-	lua_pushstring(state, key);
-	lua_pushnumber(state, value);
-	lua_settable(state, /*table index=*/-3);
-}
+//static void setNumberField(lua_State* state, const char* key, double value)
+//{
+//	lua_pushstring(state, key);
+//	lua_pushnumber(state, value);
+//	lua_settable(state, /*table index=*/-3);
+//}
 
 
 static int testMethod(lua_State* state)
@@ -162,7 +90,7 @@ static int testMethod(lua_State* state)
 	testAssert(lua_isnumber(state, 2));
 
 	const double x = lua_tonumber(state, 2); // Second argument
-	const int result = x * 2;
+	const double result = x * 2;
 
 	lua_pushnumber(state, result);
 
@@ -178,8 +106,8 @@ static int glareLuaIndexMetaMethod(lua_State* state)
 	// Assuming arg 1 is table, get uid field from it
 	lua_rawgetfield(state, 1, "uid"); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
 
-	int isnum;
-	const double uid = lua_tonumberx(state, -1, &isnum);
+	//int isnum;
+	//const double uid = lua_tonumberx(state, -1, &isnum);
 	lua_pop(state, 1); // Pop uid from stack
 
 	size_t stringlen = 0;
@@ -210,16 +138,16 @@ static int glareLuaNewIndexMetaMethod(lua_State* state)
 	// Assuming arg 1 is table, get uid field from it
 	lua_rawgetfield(state, 1, "uid"); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
 
-	int isnum;
-	const double uid = lua_tonumberx(state, -1, &isnum);
+	//int isnum;
+	//const double uid = lua_tonumberx(state, -1, &isnum);
 	lua_pop(state, 1); // Pop uid from stack
 
 	// Read key
 	size_t stringlen = 0;
-	const char* key_str = lua_tolstring(state, /*index=*/2, &stringlen); // May return NULL if not a string
+	/*const char* key_str =*/ lua_tolstring(state, /*index=*/2, &stringlen); // May return NULL if not a string
 
 	// Read newly assigned value.
-	const double value = lua_tonumberx(state, 3, &isnum);
+	//const double value = lua_tonumberx(state, 3, &isnum);
 
 	return 0; // Count of returned values
 }
@@ -257,7 +185,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 class TestLuaScriptOutputHandler : public LuaScriptOutputHandler
 {
 public:
-	virtual void print(const char* s, size_t len) override
+	virtual void printFromLuaScript(LuaScript* lua_script, const char* s, size_t len) override
 	{
 		buf += std::string(s, len);
 	}
@@ -480,6 +408,53 @@ void LuaTests::test()
 		}
 
 
+		//========================== Test repeated LuaScript creation ==========================
+		// Tests issue where thread remained on Lua stack after creation, resulting in stack overflow.
+		try
+		{
+			LuaVM vm;
+			vm.max_total_mem_allowed = 500000;
+
+			for(int i=0; i<1000; ++i)
+			{
+				LuaScriptOptions options;
+				const std::string src = "x = 1.0";
+				LuaScript script(&vm, options, src);
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+
+		//========================== Test repeated LuaScript creation with a compile error ==========================
+		// This will cause an exception to be thrown from the LuaScript constructor; make sure we are not leaking anything.
+		try
+		{
+			LuaVM vm;
+			vm.max_total_mem_allowed = 500000;
+
+			for(int i=0; i<1000; ++i)
+			{
+				try
+				{
+					LuaScriptOptions options;
+					const std::string src = "function x";
+					LuaScript script(&vm, options, src);
+					failTest("Exception expected");
+				}
+				catch(glare::Exception& )
+				{
+					// Expected
+				}
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
 
 		//========================== Test creating a table with a metatable and __index and __newindex metamethod ==========================
 		try
@@ -511,13 +486,13 @@ void LuaTests::test()
 				// Create a table ('test_table')
 				lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/1); // Create table
 
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				// Set table UID field
 				lua_pushnumber(script.thread_state, 123.0);
 				lua_rawsetfield(script.thread_state, /*table index=*/-2, "uid"); // pops value (123.0) from stack
 
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/2); // Create metatable
 			
@@ -525,18 +500,18 @@ void LuaTests::test()
 				lua_pushcfunction(script.thread_state, glareLuaIndexMetaMethod, /*debugname=*/"glareLuaIndexMetaMethod");
 				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__index"); // pops value (glareLuaIndexMetaMethod) from stack
 
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				// Set glareLuaNewIndexMetaMethod as __newindex metamethod
 				lua_pushcfunction(script.thread_state, glareLuaNewIndexMetaMethod, /*debugname=*/"glareLuaNewIndexMetaMethod");
 				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__newindex"); // pops value (glareLuaNewIndexMetaMethod) from stack
 
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				// Assign metatable to test_table
 				lua_setmetatable(script.thread_state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
 
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				// Call function
 				lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/0);
@@ -591,7 +566,10 @@ void LuaTests::test()
 				// Set method table as __index value in metatable.
 				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__index"); // pops value (method table) from stack
 
-				lua_setglobal(script.thread_state, "TestClassMetaTable"); // Pops a value from the stack and sets it as the new value of global name
+				//lua_setglobal(script.thread_state, "TestClassMetaTable"); // Pops a value from the stack and sets it as the new value of global name
+				
+				const int TestClassMetaTable_ref = lua_ref(script.thread_state, -1); // Get reference to metatable (does not pop)
+				lua_pop(script.thread_state, 1); // Pop metatable from stack
 
 				Timer timer;
 
@@ -604,7 +582,9 @@ void LuaTests::test()
 					lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/1); // Create table
 
 					// Assign metatable to test_table
-					lua_getglobal(script.thread_state, "TestClassMetaTable"); // Pushes onto the stack the value of the global name
+					//lua_getglobal(script.thread_state, "TestClassMetaTable"); // Pushes onto the stack the value of the global name
+					
+					lua_getref(script.thread_state, TestClassMetaTable_ref); // Pushes TestClassMetaTable_ref onto the stack.
 					lua_setmetatable(script.thread_state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
 
 					// Call function
@@ -696,11 +676,11 @@ void LuaTests::test()
 			{
 				/* push functions and arguments */
 				lua_getglobal(script.thread_state, "f");  /* function to be called */
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				lua_pushnumber(script.thread_state, 1.0);   /* push 1st argument */
 				lua_pushnumber(script.thread_state, 2.0);   /* push 2nd argument */
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				int result = lua_pcall(script.thread_state, /*num args=*/2, /*num results1*/1, /*errfunc=*/0);
 				if(result != LUA_OK)
@@ -717,11 +697,11 @@ void LuaTests::test()
 			{
 				/* push functions and arguments */
 				lua_getglobal(script2.thread_state, "f");  /* function to be called */
-				printStack(script2.thread_state);
+				LuaUtils::printStack(script2.thread_state);
 		
 				lua_pushnumber(script2.thread_state, 1.0);   /* push 1st argument */
 				lua_pushnumber(script2.thread_state, 2.0);   /* push 2nd argument */
-				printStack(script2.thread_state);
+				LuaUtils::printStack(script2.thread_state);
 		
 				int result = lua_pcall(script2.thread_state, /*num args=*/2, /*num results1*/1, /*errfunc=*/0);
 				if(result != LUA_OK)
@@ -738,11 +718,11 @@ void LuaTests::test()
 			{
 				/* push functions and arguments */
 				lua_getglobal(script.thread_state, "f");  /* function to be called */
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				lua_pushnumber(script.thread_state, 1.0);   /* push 1st argument */
 				lua_pushnumber(script.thread_state, 2.0);   /* push 2nd argument */
-				printStack(script.thread_state);
+				LuaUtils::printStack(script.thread_state);
 
 				int result = lua_pcall(script.thread_state, /*num args=*/2, /*num results1*/1, /*errfunc=*/0);
 				if(result != LUA_OK)

@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <vector>
 #include <limits>
 class LuaVM;
+class LuaScript;
 struct lua_State;
 typedef int (*lua_CFunction)(lua_State* L);
 
@@ -25,7 +26,7 @@ struct LuaCFunction
 class LuaScriptOutputHandler
 {
 public:
-	virtual void print(const char* s, size_t len) {}
+	virtual void printFromLuaScript(LuaScript* script, const char* s, size_t len) {}
 };
 
 
