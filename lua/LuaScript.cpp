@@ -11,7 +11,9 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include <lualib.h>
-#include <luacode.h>
+#include <Luau/Compiler.h>
+#include "Luau/BytecodeBuilder.h"
+#include "Luau/ParseResult.h"
 
 
 LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std::string& script_src)
@@ -20,7 +22,8 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 	options(options_),
 	num_interrupts(0),
 	script_output_handler(options_.script_output_handler),
-	thread_ref(LUA_NOREF)
+	thread_ref(LUA_NOREF),
+	userdata(options_.userdata)
 {
 	try
 	{
@@ -41,7 +44,7 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 
 		luaL_sandboxthread(thread_state);
 
-		lua_CompileOptions compile_options;
+		Luau::CompileOptions compile_options;
 		compile_options.optimizationLevel = 1;
 		compile_options.debugLevel = 1;
 		compile_options.typeInfoLevel = 0;
@@ -51,27 +54,23 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 		compile_options.vectorType = NULL;
 		compile_options.mutableGlobals = NULL;
 
-		size_t result_size = 0;
-		char* bytecode_or_err_msg = luau_compile(script_src.c_str(), script_src.size(), &compile_options, &result_size);
+		// Use C++ compilation API instead of C API so we can get error locations via the Luau::ParseError/Luau::ParseErrors exceptions.
+		Luau::ParseOptions parse_options;
+		Luau::BytecodeBuilder bytecode_builder(/*encoder*/NULL);
 
-		//conPrint("Result: ");
-		//conPrint(std::string(bytecode, result_size));
+		Luau::compileOrThrow(bytecode_builder, script_src, compile_options, parse_options);
+
+		const std::string bytecode = bytecode_builder.getBytecode();
 
 		const std::string chunkname = "script";
-		int result = luau_load(thread_state, chunkname.c_str(), bytecode_or_err_msg, result_size, /*env=*/0);
-
-		free(bytecode_or_err_msg);
-
+		const int result = luau_load(thread_state, chunkname.c_str(), bytecode.c_str(), bytecode.size(), /*env=*/0);
 		if(result != 0)
 		{
 			// Try and get error from top of stack where luau_load puts it.
 			size_t stringlen = 0;
 			const char* str = lua_tolstring(thread_state, /*index=*/-1, &stringlen); // May return NULL if not a string
 			if(str)
-			{
-				std::string error_string(str, stringlen);
-				throw glare::Exception("luau_load failed: " + error_string);
-			}
+				throw glare::Exception("luau_load failed: " + std::string(str, stringlen));
 			else
 				throw glare::Exception("luau_load failed.");
 		}
@@ -85,6 +84,29 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 
 		// Execute script main code
 		lua_call(thread_state, /*nargs=*/0, LUA_MULTRET);
+	}
+	catch(Luau::ParseErrors& e)
+	{
+		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
+		if(thread_ref != LUA_NOREF)
+			lua_unref(lua_vm->state, thread_ref);
+
+		LuaScriptExcepWithLocation loc_excep(e.what());
+		for(size_t i=0; i<e.getErrors().size(); ++i)
+			loc_excep.errors.push_back(LuaScriptParseError(e.getErrors()[i].getMessage(), e.getErrors()[i].getLocation()));
+
+		throw loc_excep;
+	}
+	catch(Luau::ParseError& e)
+	{
+		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
+		if(thread_ref != LUA_NOREF)
+			lua_unref(lua_vm->state, thread_ref);
+
+		LuaScriptExcepWithLocation loc_excep(e.what());
+		loc_excep.errors.push_back(LuaScriptParseError(e.getMessage(), e.getLocation()));
+
+		throw loc_excep;
 	}
 	catch(glare::Exception& e)
 	{

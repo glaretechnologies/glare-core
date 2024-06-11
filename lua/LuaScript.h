@@ -6,6 +6,8 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
+#include <utils/Exception.h>
+#include <Luau/Location.h>
 #include <string>
 #include <vector>
 #include <limits>
@@ -33,13 +35,34 @@ public:
 
 struct LuaScriptOptions
 {
-	LuaScriptOptions() : max_num_interrupts(std::numeric_limits<size_t>::max()), script_output_handler(NULL) {}
+	LuaScriptOptions() : max_num_interrupts(std::numeric_limits<size_t>::max()), script_output_handler(NULL), userdata(NULL) {}
 
 	size_t max_num_interrupts;
 
 	std::vector<LuaCFunction> c_funcs;
 
 	LuaScriptOutputHandler* script_output_handler;
+	
+	void* userdata;
+};
+
+
+class LuaScriptParseError
+{
+public:
+	LuaScriptParseError(const std::string& msg_, Luau::Location location_) : msg(msg_), location(location_) {}
+
+	std::string msg;
+	Luau::Location location;
+};
+
+
+class LuaScriptExcepWithLocation : public glare::Exception
+{
+public:
+	LuaScriptExcepWithLocation(const std::string& msg_) : glare::Exception(msg_) {}
+	
+	std::vector<LuaScriptParseError> errors;
 };
 
 
@@ -63,4 +86,6 @@ public:
 	LuaScriptOptions options;
 
 	LuaScriptOutputHandler* script_output_handler;
+
+	void* userdata;
 };
