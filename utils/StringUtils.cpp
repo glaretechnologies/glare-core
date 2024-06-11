@@ -1155,6 +1155,35 @@ const std::string getLineFromBuffer(const std::string& str, size_t charindex)
 }
 
 
+size_t getCharIndexForLinePosition(const std::string& str, size_t line, size_t column)
+{
+	const size_t str_size = str.size();
+	size_t cur_line = 0;
+	size_t i = 0;
+	for(; i<str_size; ++i)
+	{
+		if(str[i] == '\n')
+		{
+			cur_line++;
+			i++; // Advance past '\n' char
+		}
+
+		if(cur_line == line)
+			break;
+	}
+	if(i >= str_size)
+		throw glare::Exception("Invalid line or column num");
+
+	// i is now at the start of the target line
+	assert(cur_line == line);
+	const size_t res_index = i + column;
+	if(res_index >= str_size)
+		throw glare::Exception("Invalid line or column num");
+
+	return res_index;
+}
+
+
 const std::vector<unsigned char> convertHexToBinary(const std::string& hex)
 {
 	if(hex.size() % 2 != 0)
@@ -1482,6 +1511,21 @@ const std::vector<std::string> splitIntoLines(const std::string& s)
 #include "TestUtils.h"
 #include "Timer.h"
 #include "ConPrint.h"
+#include <functional>
+
+
+static void testExceptionExpected(std::function<void()> test_func)
+{
+	try
+	{
+		test_func(); // Execute the test code.
+		failTest("Excep expected");
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint("Caught expected excep: " + e.what());
+	}
+}
 
 
 void StringUtils::test()
@@ -2795,6 +2839,18 @@ void StringUtils::test()
 	testAssert(!containsStringCaseInvariant("Abc", "abcd"));
 	testAssert(!containsStringCaseInvariant("", "a"));
 
+	//========================== getCharIndexForLinePosition ==========================
+	testAssert(getCharIndexForLinePosition("abc", /*line=*/0, /*col=*/0) == 0);
+	testAssert(getCharIndexForLinePosition("abc", /*line=*/0, /*col=*/1) == 1);
+	testAssert(getCharIndexForLinePosition("abc", /*line=*/0, /*col=*/2) == 2);
+	testAssert(getCharIndexForLinePosition("abc\ndef", /*line=*/1, /*col=*/0) == 4);
+	testAssert(getCharIndexForLinePosition("abc\ndef", /*line=*/1, /*col=*/1) == 5);
+	testAssert(getCharIndexForLinePosition("abc\ndef", /*line=*/1, /*col=*/2) == 6);
+	testAssert(getCharIndexForLinePosition("abc\ndef\nghi", /*line=*/2, /*col=*/0) == 8);
+	testExceptionExpected([&]() { getCharIndexForLinePosition("abc", /*line=*/0, /*col=*/3); });
+	testExceptionExpected([&]() { getCharIndexForLinePosition("abc", /*line=*/1, /*col=*/1); });
+	testExceptionExpected([&]() { getCharIndexForLinePosition("abc\ndef", /*line=*/2, /*col=*/0); });
+	testExceptionExpected([&]() { getCharIndexForLinePosition("abc\ndef", /*line=*/2, /*col=*/10); });
 
 
 
