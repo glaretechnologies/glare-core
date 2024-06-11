@@ -6087,6 +6087,7 @@ void OpenGLEngine::draw()
 				{
 					mat.materialise_lower_z = ob->aabb_ws.min_[2];
 					mat.materialise_upper_z = ob->aabb_ws.max_[2];
+					updateMaterialDataOnGPU(*ob, z);
 					if(current_time - mat.materialise_start_time > 3.0)
 					{
 						// Materialise effect has finished
