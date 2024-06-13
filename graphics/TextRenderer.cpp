@@ -54,7 +54,6 @@ TextRendererFontFaceRef TextRendererFontFaceSizeSet::getFontFaceForSize(int font
 }
 
 
-
 static void drawCharToBitmap(ImageMapUInt8& map,
 	FT_Bitmap* bitmap,
 	int start_dest_x,
@@ -215,16 +214,10 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 
 	FT_GlyphSlot slot = face->glyph;
 
-	// The pen position in 26.6 fixed-point cartesian space coordinates
+	// The pen position in 26.6 fixed-point coordinates
 	FT_Vector pen;
 	pen.x = 0;
 	pen.y = 0;
-
-	FT_Matrix matrix;
-	matrix.xx = (FT_Fixed)(1.0 * 0x10000L); // Coords are in 16.16 fixed point
-	matrix.xy = (FT_Fixed)(0.0 * 0x10000L);
-	matrix.yx = (FT_Fixed)(0.0 * 0x10000L);
-	matrix.yy = (FT_Fixed)(1.0 * 0x10000L);
 
 	for(size_t i=0; i<text.size();)
 	{
@@ -237,7 +230,7 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 
 		const FT_UInt glyph_index = FT_Get_Char_Index(face, code_point);
 
-		FT_Set_Transform(face, &matrix, &pen); // set transformation
+		FT_Set_Transform(face, /*matrix=*/NULL, &pen); // Set transformation.  Use null matrix to get the identity matrix
 
 		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
 		if(error == 0) // If no errors:
@@ -271,6 +264,7 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 }
 
 
+// Get the size information for a single character glyph.
 TextRendererFontFace::SizeInfo TextRendererFontFace::getGlyphSize(const string_view text, bool render_SDF)
 {
 	FT_GlyphSlot slot = face->glyph;
@@ -281,6 +275,9 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getGlyphSize(const string_v
 	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(text);
 
 	const FT_UInt glyph_index = FT_Get_Char_Index(face, code_point);
+
+	FT_Set_Transform(face, /*matrix=*/NULL, /*translation=*/NULL); // Set transformation.  Use null matrix to get the identity matrix,
+	// and null translation for the zero vector.
 
 	// NOTE: could try FT_LOAD_BITMAP_METRICS_ONLY or similar to just get glyph metrics without doing actual rendering.  Don't think it will work for SDF rendering though.
 	FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
@@ -315,12 +312,13 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getGlyphSize(const string_v
 }
 
 
+// Get the size information for a string with multiple characters/glyphs
 // Assumes not doing SDF rendering
 TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_view text)
 {
 	FT_GlyphSlot slot = face->glyph;
 
-	// The pen position in 26.6 cartesian space coordinates
+	// The pen position in 26.6 coordinates
 	FT_Vector pen;
 	pen.x = 0;
 	pen.y = 0;
@@ -329,6 +327,8 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 	Vec2i max_bounds(0, 0);
 	int min_bitmap_left = 0;
 	int max_bitmap_top = 0;
+
+	FT_Set_Transform(face, /*matrix=*/NULL, /*translation=*/NULL); // Set transformation.  Use null matrix to get the identity matrix
 
 	for(size_t i=0; i<text.size();)
 	{
@@ -346,11 +346,11 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 		{
 			// See https://freetype.org/freetype2/docs/tutorial/step2.html
 			const Vec2i p(pen.x / 64, pen.y / 64);
-			Vec2i char_min_bounds(
+			const Vec2i char_min_bounds(
 				p.x + face->glyph->metrics.horiBearingX                                 / 64,
 				p.y + (face->glyph->metrics.horiBearingY - face->glyph->metrics.height) / 64
 			);
-			Vec2i char_max_bounds(
+			const Vec2i char_max_bounds(
 				p.x + (face->glyph->metrics.horiBearingX + face->glyph->metrics.width) / 64,
 				p.y + face->glyph->metrics.horiBearingY                                / 64
 			);
