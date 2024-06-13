@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 static const float TOOLTIP_Z = -0.999f; // -1 is near clip plane
+static const int tooltip_font_size_px = 12;
 
 
 GLUI::GLUI()
@@ -200,8 +201,8 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 				tooltip_overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1); // Compensate for OpenGL loading textures upside down (row 0 in OpenGL is considered to be at the bottom of texture)
 				tooltip_overlay_ob->material.tex_translation = Vec2f(0, 1);
 
-				const float scale_y = 70.0f / opengl_engine->getViewPortWidth() / y_scale; // ~50 px high
-				const float scale_x = 70.0f / opengl_engine->getViewPortWidth() * ((float)tex->xRes() / (float)tex->yRes());
+				const float scale_y = 50.0f / opengl_engine->getViewPortWidth() / y_scale; // ~50 px high
+				const float scale_x = 50.0f / opengl_engine->getViewPortWidth() * ((float)tex->xRes() / (float)tex->yRes());
 					
 				//const float scale_x = 0.5f * (float)tex->xRes() / opengl_engine->getViewPortWidth();
 				//const float scale_y = 0.5f * (float)tex->yRes() / opengl_engine->getViewPortWidth() / y_scale;
@@ -307,7 +308,7 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 
 OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 {
-	TextRendererFontFaceRef font = fonts->getFontFaceForSize(18);
+	TextRendererFontFaceRef font = fonts->getFontFaceForSize(tooltip_font_size_px);
 
 	const TextRendererFontFace::SizeInfo size_info = font->getTextSize(tooltip_text);
 
