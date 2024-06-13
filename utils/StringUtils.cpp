@@ -1163,13 +1163,14 @@ size_t getCharIndexForLinePosition(const std::string& str, size_t line, size_t c
 	for(; i<str_size; ++i)
 	{
 		if(str[i] == '\n')
-		{
 			cur_line++;
-			i++; // Advance past '\n' char
-		}
 
 		if(cur_line == line)
+		{
+			if(str[i] == '\n')
+				i++; // Advance past '\n' char to start of actual line
 			break;
+		}
 	}
 	if(i >= str_size)
 		throw glare::Exception("Invalid line or column num");
@@ -2847,6 +2848,13 @@ void StringUtils::test()
 	testAssert(getCharIndexForLinePosition("abc\ndef", /*line=*/1, /*col=*/1) == 5);
 	testAssert(getCharIndexForLinePosition("abc\ndef", /*line=*/1, /*col=*/2) == 6);
 	testAssert(getCharIndexForLinePosition("abc\ndef\nghi", /*line=*/2, /*col=*/0) == 8);
+
+	// Test with empty lines
+	testAssert(getCharIndexForLinePosition("abc\n\ndef", /*line=*/0, /*col=*/2) == 2);
+	testAssert(getCharIndexForLinePosition("abc\n\ndef", /*line=*/1, /*col=*/0) == 4);
+	testAssert(getCharIndexForLinePosition("abc\n\ndef", /*line=*/2, /*col=*/0) == 5);
+	testAssert(getCharIndexForLinePosition("abc\n\ndef", /*line=*/2, /*col=*/1) == 6);
+
 	testExceptionExpected([&]() { getCharIndexForLinePosition("abc", /*line=*/0, /*col=*/3); });
 	testExceptionExpected([&]() { getCharIndexForLinePosition("abc", /*line=*/1, /*col=*/1); });
 	testExceptionExpected([&]() { getCharIndexForLinePosition("abc\ndef", /*line=*/2, /*col=*/0); });
