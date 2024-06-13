@@ -180,23 +180,29 @@ void GLUIText::updateGLTransform()
 
 
 // Get position to lower left of unicode character with given index.  char_index is allowed to be == text.size(), in which case get position past last character.
-Vec2f GLUIText::getCharPos(GLUI& /*glui*/, int char_index) const
+Vec2f GLUIText::getCharPos(GLUI& glui, int char_index) const
+{
+	return botleft + getRelativeCharPos(glui, char_index);
+}
+
+
+Vec2f GLUIText::getRelativeCharPos(GLUI& /*glui*/, int char_index) const
 {
 	const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
 
 	if(char_index >= 0 && char_index < (int)char_positions_fc.size())
 	{
-		return botleft + Vec2f(char_positions_fc[char_index].pos.x * x_scale, 0);
+		return Vec2f(char_positions_fc[char_index].pos.x * x_scale, 0);
 	}
 	else if(char_index >= (int)char_positions_fc.size())
 	{
 		if(char_positions_fc.empty())
-			return botleft;
+			return Vec2f(0.f);
 		else
-			return botleft + Vec2f((char_positions_fc.back().pos.x + char_positions_fc.back().hori_advance) * x_scale, 0);
+			return Vec2f((char_positions_fc.back().pos.x + char_positions_fc.back().hori_advance) * x_scale, 0);
 	}
 	else
-		return botleft;
+		return Vec2f(0.f);
 }
 
 

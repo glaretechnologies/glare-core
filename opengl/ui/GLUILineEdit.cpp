@@ -237,7 +237,12 @@ void GLUILineEdit::updateTextTransform()
 		const float margin_x = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
 		const float margin_y = margin_x;
 
-		const Vec2f text_botleft = botleft + Vec2f(margin_x, margin_y);
+		Vec2f rel_cursor_pos = glui_text->getRelativeCharPos(*glui, cursor_pos);
+
+		// Shift text left if cursor position would be to right of line edit.
+		const float max_rel_cursor_x = args.width - margin_x * 2; // glui->getUIWidthForDevIndepPixelWidth(15);
+		const float left_shift_amount = myMax(0.f, rel_cursor_pos.x - max_rel_cursor_x);
+		const Vec2f text_botleft = botleft + Vec2f(margin_x, margin_y) - Vec2f(left_shift_amount, 0);
 
 		glui_text->setPos(text_botleft);
 

@@ -67,6 +67,9 @@ public:
 	// Get position to lower left of unicode character with given index.  char_index is allowed to be == text.size(), in which case get position past last character.
 	Vec2f getCharPos(GLUI& glui, int char_index) const; 
 
+	// Get position relative to bottom left of text.
+	Vec2f getRelativeCharPos(GLUI& glui, int char_index) const; 
+
 	int cursorPosForUICoords(GLUI& glui, const Vec2f& coords);
 
 	Rect2f getRect() const { return rect; }
