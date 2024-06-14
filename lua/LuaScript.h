@@ -77,6 +77,8 @@ public:
 	LuaScript(LuaVM* lua_vm, const LuaScriptOptions& options, const std::string& script_src);
 	~LuaScript();
 
+	void exec(); // Excecute top-level Lua code.
+
 	LuaVM* lua_vm;
 
 	lua_State* thread_state;

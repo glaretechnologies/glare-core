@@ -328,7 +328,7 @@ void LuaUtils::test()
 	
 			const std::string src = "t = { x = 123.0, b=true, s = 'abc', v1 = {x=7, z=8}, m1 = {10, 11, 12, 13} }   t2 = { 100, 200, 300 }";
 			LuaScript script(&vm, LuaScriptOptions(), src);
-
+			script.exec();
 			
 
 			lua_getglobal(script.thread_state, "t"); // Pushes onto the stack the value of the global name. Returns the type of that value.

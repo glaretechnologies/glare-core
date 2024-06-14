@@ -81,9 +81,6 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 			lua_pushcfunction(thread_state, options.c_funcs[i].func, /*debugname=*/options.c_funcs[i].func_name.c_str());
 			lua_setglobal(thread_state, options.c_funcs[i].func_name.c_str());
 		}
-
-		// Execute script main code
-		lua_call(thread_state, /*nargs=*/0, LUA_MULTRET);
 	}
 	catch(Luau::ParseErrors& e)
 	{
@@ -131,4 +128,18 @@ LuaScript::~LuaScript()
 {
 	if(thread_ref != LUA_NOREF)
 		lua_unref(lua_vm->state, thread_ref);
+}
+
+
+void LuaScript::exec()
+{
+	try
+	{
+		// Execute script main code
+		lua_call(thread_state, /*nargs=*/0, LUA_MULTRET);
+	}
+	catch(std::exception& e)
+	{
+		throw glare::Exception(e.what());
+	}
 }

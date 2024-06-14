@@ -34,42 +34,42 @@ static int testFunc(lua_State* state)
 }
 
 
-static int createObjectLuaFunc(lua_State* state)
-{
-	conPrint("----createObjectLuaFunc()----");
-	LuaUtils::printStack(state);
-
-	int val_type = lua_getfield(state, /*index=*/1, /*field key=*/"name");
-	if(val_type == LUA_TSTRING)
-	{
-		size_t stringlen = 0;
-		//const char* str = luaL_checklstring(state, /*index=*/-1, &stringlen);
-		const char* str = lua_tolstring(state, /*index=*/-1, &stringlen); // May return NULL if not a string
-
-		LuaUtils::printStack(state);
-		if(str)
-		{
-			//size_t stringlen = 0;
-			//const char* str = lua_tolstring(state, /*index=*/1, &stringlen);
-
-			conPrint("str: " + std::string(str, stringlen));
-		}
-	}
-	lua_pop(state, 1); // Pop the string off the stack
-	LuaUtils::printStack(state);
-
-	val_type = lua_getfield(state, /*index=*/1, /*field key=*/"mass");
-	if(val_type == LUA_TNUMBER)
-	{
-		const double mass = lua_tonumber(state, /*index=*/-1);
-		printVar(mass);
-	}
-	lua_pop(state, 1); // Pop mass value off stack
-
-	LuaUtils::printStack(state);
-
-	return 0;
-}
+//static int createObjectLuaFunc(lua_State* state)
+//{
+//	conPrint("----createObjectLuaFunc()----");
+//	LuaUtils::printStack(state);
+//
+//	int val_type = lua_getfield(state, /*index=*/1, /*field key=*/"name");
+//	if(val_type == LUA_TSTRING)
+//	{
+//		size_t stringlen = 0;
+//		//const char* str = luaL_checklstring(state, /*index=*/-1, &stringlen);
+//		const char* str = lua_tolstring(state, /*index=*/-1, &stringlen); // May return NULL if not a string
+//
+//		LuaUtils::printStack(state);
+//		if(str)
+//		{
+//			//size_t stringlen = 0;
+//			//const char* str = lua_tolstring(state, /*index=*/1, &stringlen);
+//
+//			conPrint("str: " + std::string(str, stringlen));
+//		}
+//	}
+//	lua_pop(state, 1); // Pop the string off the stack
+//	LuaUtils::printStack(state);
+//
+//	val_type = lua_getfield(state, /*index=*/1, /*field key=*/"mass");
+//	if(val_type == LUA_TNUMBER)
+//	{
+//		const double mass = lua_tonumber(state, /*index=*/-1);
+//		printVar(mass);
+//	}
+//	lua_pop(state, 1); // Pop mass value off stack
+//
+//	LuaUtils::printStack(state);
+//
+//	return 0;
+//}
 
 
 // Assume that table is at the top of stack.  From https://www.lua.org/pil/25.1.html
@@ -170,6 +170,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 		const std::string src((const char*)data, size);
 		LuaScript script(&vm, options, src);
+		script.exec();
 	}
 	catch(glare::Exception& e)
 	{
@@ -217,6 +218,7 @@ void LuaTests::test()
 	
 			const std::string src = "";
 			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 		}
 		catch(glare::Exception& e)
 		{
@@ -230,6 +232,7 @@ void LuaTests::test()
 	
 			const std::string src = "print('hello')";
 			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 		}
 		catch(glare::Exception& e)
 		{
@@ -243,6 +246,7 @@ void LuaTests::test()
 
 			const std::string src = "print('hello'";
 			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 
 			failTest("Expected excep.");
 		}
@@ -261,6 +265,7 @@ void LuaTests::test()
 			{
 				const std::string src = "print('hello'";
 				LuaScript script(&vm, LuaScriptOptions(), src);
+				script.exec();
 				failTest("Expected excep.");
 			}
 			catch(glare::Exception& e)
@@ -271,6 +276,7 @@ void LuaTests::test()
 			{
 				const std::string src = "print('hello')";
 				LuaScript script(&vm, LuaScriptOptions(), src);
+				script.exec();
 			}
 		}
 		catch(glare::Exception& e)
@@ -288,6 +294,7 @@ void LuaTests::test()
 
 			const std::string src = "z = 0 \n for i=1, 100000000 do z = z + 1 end ";
 			LuaScript script(&vm, options, src);
+			script.exec();
 
 			failTest("Expected excep.");
 		}
@@ -304,10 +311,10 @@ void LuaTests::test()
 			vm.max_total_mem_allowed = 500000;
 
 			LuaScriptOptions options;
-			//options.max_num_interrupts = 1000;
 
 			const std::string src = "my_table = {} \n for i=1, 100000000 do  my_table[i] = 'boo' end ";
 			LuaScript script(&vm, options, src);
+			script.exec();
 
 			failTest("Expected excep.");
 		}
@@ -324,6 +331,7 @@ void LuaTests::test()
 
 			const std::string src = "assert(false, 'assert failed')";
 			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 
 			failTest("Expected excep.");
 		}
@@ -339,6 +347,7 @@ void LuaTests::test()
 
 			const std::string src = "error('error called woop woop')";
 			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 
 			failTest("Expected excep.");
 		}
@@ -361,6 +370,7 @@ void LuaTests::test()
 
 			const std::string src = "print('test123')";
 			LuaScript script(&vm, options, src);
+			script.exec();
 
 			testAssert(handler.buf == "test123\n");
 		}
@@ -381,6 +391,7 @@ void LuaTests::test()
 
 			const std::string src = "local z = testFunc(1.0, 2.0)  \n    print(string.format('testFunc result: %i', z))   \n   assert(z == 3.0, 'z == 3.0')";
 			LuaScript script(&vm, options, src);
+			script.exec();
 		}
 		catch(glare::Exception& e)
 		{
@@ -420,6 +431,7 @@ void LuaTests::test()
 				LuaScriptOptions options;
 				const std::string src = "x = 1.0";
 				LuaScript script(&vm, options, src);
+				script.exec();
 			}
 		}
 		catch(glare::Exception& e)
@@ -474,6 +486,7 @@ void LuaTests::test()
 				"   return t.hello                  \n"
 				"end";
 			LuaScript script(&vm, options, src);
+			script.exec();
 
 
 			Timer timer;
@@ -486,13 +499,9 @@ void LuaTests::test()
 				// Create a table ('test_table')
 				lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/1); // Create table
 
-				LuaUtils::printStack(script.thread_state);
-
 				// Set table UID field
 				lua_pushnumber(script.thread_state, 123.0);
 				lua_rawsetfield(script.thread_state, /*table index=*/-2, "uid"); // pops value (123.0) from stack
-
-				LuaUtils::printStack(script.thread_state);
 
 				lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/2); // Create metatable
 			
@@ -500,18 +509,12 @@ void LuaTests::test()
 				lua_pushcfunction(script.thread_state, glareLuaIndexMetaMethod, /*debugname=*/"glareLuaIndexMetaMethod");
 				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__index"); // pops value (glareLuaIndexMetaMethod) from stack
 
-				LuaUtils::printStack(script.thread_state);
-
 				// Set glareLuaNewIndexMetaMethod as __newindex metamethod
 				lua_pushcfunction(script.thread_state, glareLuaNewIndexMetaMethod, /*debugname=*/"glareLuaNewIndexMetaMethod");
 				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__newindex"); // pops value (glareLuaNewIndexMetaMethod) from stack
 
-				LuaUtils::printStack(script.thread_state);
-
 				// Assign metatable to test_table
 				lua_setmetatable(script.thread_state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
-
-				LuaUtils::printStack(script.thread_state);
 
 				// Call function
 				lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/0);
@@ -542,6 +545,7 @@ void LuaTests::test()
 				//"   assert(t.testattribute == 100.0, 't.testattribute == 100.0')                          \n"
 				"end";
 			LuaScript script(&vm, options, src);
+			script.exec();
 
 			// Create a method table with testMethod as a key.
 			// Then create a metatable m, set m.__index = method table
@@ -619,6 +623,7 @@ void LuaTests::test()
 				//"   assert(t.testattribute == 100.0, 't.testattribute == 100.0')                          \n"
 				"end";
 			LuaScript script(&vm, options, src);
+			script.exec();
 
 			try
 			{
@@ -669,9 +674,11 @@ void LuaTests::test()
 
 			const std::string src = FileUtils::readEntireFileTextMode("C:\\code\\glare-core\\lua\\test.luau");
 			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 
 			const std::string src2 = FileUtils::readEntireFileTextMode("C:\\code\\glare-core\\lua\\test2.luau");
 			LuaScript script2(&vm, LuaScriptOptions(), src2);
+			script2.exec();
 
 			{
 				/* push functions and arguments */
