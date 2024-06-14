@@ -15,7 +15,7 @@ Copyright Glare Technologies Limited 2024 -
 /*=====================================================================
 WeakRefCounted
 --------------
-A eference-counted object, that may have both strong and weak references to it.
+A reference-counted object, that may have both strong and weak references to it.
 
 _________________________                       ________________________________
 |  WeakRefCounted       |                       |  WeakRefCountedControlBlock  |

@@ -14,9 +14,15 @@ Copyright Glare Technologies Limited 2024 -
 /*=====================================================================
 WeakReference
 -------------
-Handle to a reference-counted object, that may have both strong and weak references to it.
-Referenced object will be automatically deleted when no refs to it remain.
+A non-owning (weak) reference to a reference-counted object.
+Referenced object will be automatically deleted when no strong refs to it remain.
 T should be a subclass of WeakRefCounted or implement the same interface.
+
+A weak reference does not prevent the object being destroyed, so before
+accessing the object, the control block is checked to see if the object is still alive.
+Use getPtrIfAlive() or upgradeToStrongRef() to do this check.
+
+Similar to std::weak_ptr.
 =====================================================================*/
 template <class T>
 class WeakReference
