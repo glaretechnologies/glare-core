@@ -14,6 +14,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "VRef.h"
 #include "RefCounted.h"
 #include "ThreadSafeRefCounted.h"
+#include "WeakRefCounted.h"
+#include "WeakReference.h"
 #include "MyThread.h"
 #include "ConPrint.h"
 #include "Timer.h"
@@ -169,8 +171,63 @@ public:
 };
 
 
+class TestWeakRefCountedClass : public WeakRefCounted
+{
+public:
+	TestWeakRefCountedClass(int* i_)
+	:	i(i_)
+	{
+		(*i)++;
+	}
+	~TestWeakRefCountedClass()
+	{
+		(*i)--;
+	}
+
+private:
+	int* i;
+};
+
+
 void run()
 {
+	/////////////////////// Test weak references ///////////////////////
+	{
+		int i = 0;
+		Reference<TestWeakRefCountedClass> strongref = new TestWeakRefCountedClass(&i); // Make strong reference
+
+		testAssert(i == 1);
+		testAssert(strongref->getRefCount() == 1);
+		testAssert(strongref->control_block->ob_is_alive);
+
+
+		// Make weak reference
+		WeakReference<TestWeakRefCountedClass> weakref(strongref);
+
+		testAssert(strongref->control_block.ptr() == weakref.control_block.ptr());
+
+		testAssert(strongref->getRefCount() == 1);
+		testAssert(weakref.control_block->ob_is_alive);
+
+
+		// Upgrade weak reference to strong ref
+		Reference<TestWeakRefCountedClass> strongref2 = weakref.upgradeToStrongRef();
+		testAssert(strongref2.nonNull());
+		testAssert(strongref2.ptr() == strongref.ptr());
+		testAssert(strongref->getRefCount() == 2);
+
+		strongref2 = NULL; // Destroy strong ref 2.
+
+		// Destroy strong ref.  This should destroy the referenced object as well.
+		strongref = NULL;
+		testAssert(i == 0);
+
+		testAssert(weakref.control_block->ob_is_alive == false);
+
+		testAssert(weakref.upgradeToStrongRef().isNull());
+	}
+
+	/////////////////////// Test Reference ///////////////////////
 	{
 		int i = 0;
 		// Basic Reference test
