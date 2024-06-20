@@ -50,8 +50,8 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 		compile_options.typeInfoLevel = 0;
 		compile_options.coverageLevel = 0;
 		compile_options.vectorLib = NULL;
-		compile_options.vectorCtor = NULL;
-		compile_options.vectorType = NULL;
+		compile_options.vectorCtor = "Vec3f";
+		compile_options.vectorType = "Vec3f";
 		compile_options.mutableGlobals = NULL;
 
 		// Use C++ compilation API instead of C API so we can get error locations via the Luau::ParseError/Luau::ParseErrors exceptions.
@@ -142,4 +142,14 @@ void LuaScript::exec()
 	{
 		throw glare::Exception(e.what());
 	}
+}
+
+
+std::string LuaScriptExcepWithLocation::messageWithLocations()
+{
+	std::string msg;// = what();
+
+	for(size_t i=0; i<errors.size(); ++i)
+		msg += "Line " + toString(errors[i].location.begin.line + 1) + ", col " + toString(errors[i].location.begin.column + 1) + ": " + errors[i].msg + "\n";
+	return msg;
 }

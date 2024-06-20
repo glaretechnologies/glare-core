@@ -61,6 +61,8 @@ class LuaScriptExcepWithLocation : public glare::Exception
 {
 public:
 	LuaScriptExcepWithLocation(const std::string& msg_) : glare::Exception(msg_) {}
+
+	std::string messageWithLocations();
 	
 	std::vector<LuaScriptParseError> errors;
 };

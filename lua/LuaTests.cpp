@@ -130,6 +130,35 @@ static int glareLuaIndexMetaMethod(lua_State* state)
 }
 
 
+// C++ implemenetation of __namecall.  Used when a table method is called.
+#if 0
+static int glareLuaNameCallMetaMethod(lua_State* state)
+{
+	testAssert(lua_istable(state, 1));
+
+	// Assuming arg 1 is table, get uid field from it
+	lua_rawgetfield(state, 1, "uid"); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+
+	//int isnum;
+	//const double uid = lua_tonumberx(state, -1, &isnum);
+	lua_pop(state, 1); // Pop uid from stack
+
+	size_t stringlen = 0;
+	const char* key_str = lua_tolstring(state, /*index=*/2, &stringlen); // May return NULL if not a string
+
+	if(key_str)
+	if(stringEqual(key_str, "testMethod"))
+	{
+		lua_pushcfunction(state, testMethod, "testMethod");
+		return 1;
+	}
+
+	lua_pushnil(state);
+	return 1; // Count of returned values
+}
+#endif
+
+
 // C++ implemenetation of __newindex.  Used when a value is assigned to a table field.
 static int glareLuaNewIndexMetaMethod(lua_State* state)
 {
@@ -284,24 +313,27 @@ void LuaTests::test()
 			failTest("Failed:" + e.what());
 		}
 
-		//========================== Test script interruption ==========================
+		//========================== Test vector type ==========================
 		try
 		{
 			LuaVM vm;
 
 			LuaScriptOptions options;
-			options.max_num_interrupts = 1000;
 
-			const std::string src = "z = 0 \n for i=1, 100000000 do z = z + 1 end ";
+			//const std::string src = "print(v)  \n  print(v.Y)  \n  print(v.Z)";
+			//const std::string src = "print(tostring(v.x))  \n  print(tostring(v.y))  \n  print(tostring(v.z))";
+			//const std::string src = "local v = vector(1, 2, 3)  \n   local a = v.x    \n    ";
+			const std::string src = "function testVecFunc(v : Vec3f) print(tostring(v.x)) end ";
 			LuaScript script(&vm, options, src);
 			script.exec();
-
-			failTest("Expected excep.");
+			
+			lua_getglobal(script.thread_state, "testVecFunc");  // Push function to be called onto stack
+			lua_pushvector(script.thread_state, 1.0, 2.0, 3.0);
+			lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/0);
 		}
 		catch(glare::Exception& e)
 		{
-			// Expected
-			conPrint("Got expected excep: " + e.what());
+			failTest("Failed:" + e.what());
 		}
 
 		//========================== Test maximum memory usage ==========================
@@ -607,6 +639,78 @@ void LuaTests::test()
 			failTest("Failed:" + e.what());
 		}
 
+		//========================== Test method call syntax with __namecall ==========================
+#if 0
+		//NOTE: only works with 'reflected metadata tables'
+		try
+		{
+			LuaVM vm;
+			LuaScriptOptions options;
+			TestLuaScriptOutputHandler handler;
+			options.script_output_handler = &handler;
+
+			// t:testMethod(x) is syntactic sugar for t.testMethod(t, x)           (See https://stackoverflow.com/a/18809740)
+			const std::string src = 
+				"function testFuncTakingTable(t)    \n"
+				"   assert(t:testMethod(123.0) == 246.0, 't:testMethod(123.0) == 246.0')                  \n"
+				"end";
+			LuaScript script(&vm, options, src);
+			script.exec();
+
+			// Create a method table with testMethod as a key.
+			// Then create a metatable m, set m.__index = method table
+			// We will store a reference to the metatable in the TestClassMetaTable global variable.
+
+			try
+			{
+				lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/2); // Create metatable, push onto stack
+
+				// Set glareLuaNameCallMetaMethod as __namecall method on metatable
+				lua_pushcfunction(script.thread_state, glareLuaNameCallMetaMethod, /*debugname=*/"glareLuaNameCallMetaMethod");
+				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__namecall"); // pops value from stack
+
+				// Set glareLuaIndexMetaMethod as __index method on metatable
+				//lua_pushcfunction(script.thread_state, glareLuaIndexMetaMethod, /*debugname=*/"glareLuaIndexMetaMethod");
+				//lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__index"); // pops value from stack
+
+				lua_setreadonly(script.thread_state, /*index=*/-1, /*enabled=*/1);
+
+				// store a reference to the metatable in the TestClassMetaTable global variable.
+				//lua_setglobal(script.thread_state, "TestClassMetaTable"); // Pops a value from the stack and sets it as the new value of global name
+
+				const int TestClassMetaTable_ref = lua_ref(script.thread_state, -1); // Get reference to metatable (does not pop)
+				lua_pop(script.thread_state, 1); // Pop metatable from stack
+
+				Timer timer;
+
+				const int num_iters = 1;
+				for(int i=0; i<num_iters; ++i)
+				{
+					lua_getglobal(script.thread_state, "testFuncTakingTable");  // Push function to be called onto stack
+
+					// Create a table ('test_table')
+					lua_createtable(script.thread_state, /*num array elems=*/0, /*num non-array elems=*/1); // Create table
+
+					// Assign metatable to test_table
+					lua_getref(script.thread_state, TestClassMetaTable_ref); // Pushes TestClassMetaTable_ref onto the stack.
+					lua_setmetatable(script.thread_state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
+
+					// Call function
+					lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/0);
+				}
+
+				conPrint("testFuncTakingTable with eager method table call took " + doubleToStringNSigFigs(timer.elapsed() / num_iters * 1.0e9, 4) + " ns");
+			}
+			catch(std::exception& e) // Catch lua_exception
+			{
+				failTest("Failed: std::exception: " + std::string(e.what()));
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+#endif
 		//========================== Test method call syntax ==========================
 		// Test with lazy __index function approach
 		try
@@ -631,7 +735,7 @@ void LuaTests::test()
 
 				// Set glareLuaIndexMetaMethod as __index method on metatable
 				lua_pushcfunction(script.thread_state, glareLuaIndexMetaMethod, /*debugname=*/"glareLuaIndexMetaMethod");
-				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__index"); // pops value (testMethod) from stack
+				lua_rawsetfield(script.thread_state, /*table index=*/-2, /*key=*/"__index"); // pops value from stack
 
 				// store a reference to the metatable in the TestClassMetaTable global variable.
 				lua_setglobal(script.thread_state, "TestClassMetaTable"); // Pops a value from the stack and sets it as the new value of global name

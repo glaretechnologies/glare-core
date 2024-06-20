@@ -8,8 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
-struct lua_State;
-typedef int (*lua_CFunction)(lua_State* L);
+#include <lualib.h>
 
 
 /*=====================================================================
@@ -25,15 +24,58 @@ public:
 
 	static void setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, int table_index, const char* field_key);
 
+	// Assumes table is on top of stack
+	static inline void setLightUserDataAsTableField(lua_State* state, const char* field_key, void* val);
+	// Assumes table is on top of stack
+	static inline void setNumberAsTableField(lua_State* state, const char* field_key, double x);
+	
+	static void* getTableLightUserDataField(lua_State* state, int table_index, const char* key);
+
 	static double getTableNumberField(lua_State* state, int table_index, const char* key);
 	static double getTableNumberFieldWithDefault(lua_State* state, int table_index, const char* key, double default_val);
 	static double getTableNumberArrayElem(lua_State* state, int table_index, const int elem_index);
 	static bool tableHasBoolField(lua_State* state, int table_index, const char* key);
 	static bool getTableBoolFieldWithDefault(lua_State* state, int table_index, const char* key, bool default_val);
+	
+	// Convert a Lua string on the stack at index into a std::string
+	static std::string getString(lua_State* state, int index);
 	static std::string getTableStringField(lua_State* state, int table_index, const char* key);
+	static std::string getTableStringFieldWithEmptyDefault(lua_State* state, int table_index, const char* key);
+
+	// Convert a Vec3d on the Lua stack at the given index to a Vec3d.  Does not alter Lua stack.
+	static Vec3f getVec3f(lua_State* state, int index);
+	static Vec3d getVec3d(lua_State* state, int index);
 	static Vec3d getTableVec3dField(lua_State* state, int table_index, const char* key);
 	static Vec3f getTableVec3fFieldWithDefault(lua_State* state, int table_index, const char* key, const Vec3f& default_val);
 	static Matrix2f getTableMatrix2fFieldWithDefault(lua_State* state, int table_index, const char* key, const Matrix2f& default_val);
 
+	static void pushVec3f(lua_State* state, const Vec3f& v);
+	static void pushVec3d(lua_State* state, const Vec3d& v);
+	static void pushMatrix2f(lua_State* state, const Matrix2f& m);
+	static inline void pushString(lua_State* state, const std::string& s);
+
 	static void test();
 };
+
+
+
+// Assumes table is on top of stack.
+inline void LuaUtils::setLightUserDataAsTableField(lua_State* state, const char* field_key, void* val)
+{
+	lua_pushlightuserdata(state, val);
+	lua_rawsetfield(state, /*table index=*/-2, field_key);
+}
+
+
+// Assumes table is on top of stack.
+void LuaUtils::setNumberAsTableField(lua_State* state, const char* field_key, double x)
+{
+	lua_pushnumber(state, x);
+	lua_rawsetfield(state, /*table index=*/-2, field_key);
+}
+
+
+void LuaUtils::pushString(lua_State* state, const std::string& s)
+{
+	lua_pushlstring(state, s.c_str(), s.size());
+}

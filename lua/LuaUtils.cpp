@@ -112,16 +112,39 @@ void LuaUtils::setCFunctionAsTableField(lua_State* state, lua_CFunction fn, cons
 }
 
 
-double LuaUtils::getTableNumberField(lua_State* state, int table_index, const char* key)
+void* LuaUtils::getTableLightUserDataField(lua_State* state, int table_index, const char* key)
 {
 	// Check if the value on the stack is actually a table, otherwise hit assert in lua_rawgetfield.
 	if(!lua_istable(state, table_index))
 		throw glare::Exception("Value was not a table");
 
 	lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
-	const double val = lua_tonumber(state, -1);
+	void* val = lua_tolightuserdata(state, -1);
 	lua_pop(state, 1);
 	return val;
+}
+
+
+double LuaUtils::getTableNumberField(lua_State* state, int table_index, const char* key)
+{
+	// Check if the value on the stack is actually a table, otherwise hit assert in lua_rawgetfield.
+	if(!lua_istable(state, table_index))
+		throw glare::Exception("Value was not a table");
+
+	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+	// lua_tonumber will update in-place a non-number value (such as a string) on the stack, which we don't want to do.
+	// So just throw an error if the value is not a number.
+	if(value_type == LUA_TNUMBER)
+	{
+		const double val = lua_tonumber(state, -1);
+		lua_pop(state, 1);
+		return val;
+	}
+	else
+	{
+		lua_pop(state, 1);
+		throw glare::Exception("Value is not a number");
+	}
 }
 
 
@@ -131,10 +154,20 @@ double LuaUtils::getTableNumberArrayElem(lua_State* state, int table_index, cons
 	if(!lua_istable(state, table_index))
 		throw glare::Exception("Value was not a table");
 
-	lua_rawgeti(state, table_index, elem_index); // Push value onto stack
-	const double val = lua_tonumber(state, -1);
-	lua_pop(state, 1);
-	return val;
+	const int value_type = lua_rawgeti(state, table_index, elem_index); // Push value onto stack
+	// lua_tonumber will update in-place a non-number value (such as a string) on the stack, which we don't want to do.
+	// So just throw an error if the value is not a number.
+	if(value_type == LUA_TNUMBER)
+	{
+		const double val = lua_tonumber(state, -1);
+		lua_pop(state, 1);
+		return val;
+	}
+	else
+	{
+		lua_pop(state, 1);
+		throw glare::Exception("Value is not a number");
+	}
 }
 
 
@@ -145,16 +178,23 @@ double LuaUtils::getTableNumberFieldWithDefault(lua_State* state, int table_inde
 		throw glare::Exception("Value was not a table");
 
 	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
-	if(value_type == LUA_TNIL)
+	if(value_type == LUA_TNUMBER)
+	{
+		const double val = lua_tonumber(state, -1);
+		lua_pop(state, 1);
+		return val;
+	}
+	else if(value_type == LUA_TNIL)
 	{
 		lua_pop(state, 1);
 		return default_val;
 	}
 	else
 	{
-		const double val = lua_tonumber(state, -1);
+		// lua_tonumber will update in-place a non-number value (such as a string) on the stack, which we don't want to do.
+		// So just throw an error.
 		lua_pop(state, 1);
-		return val;
+		throw glare::Exception("Value is not a number");
 	}
 }
 
@@ -165,10 +205,10 @@ bool LuaUtils::tableHasBoolField(lua_State* state, int table_index, const char* 
 	if(!lua_istable(state, table_index))
 		throw glare::Exception("Value was not a table");
 
-	lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
-	const bool val = lua_isboolean(state, -1);
+	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+	const bool is_bool = value_type == LUA_TBOOLEAN;
 	lua_pop(state, 1);
-	return val;
+	return is_bool;
 }
 
 
@@ -178,8 +218,8 @@ bool LuaUtils::getTableBoolFieldWithDefault(lua_State* state, int table_index, c
 	if(!lua_istable(state, table_index))
 		throw glare::Exception("Value was not a table");
 
-	lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
-	if(lua_isboolean(state, -1))
+	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+	if(value_type == LUA_TBOOLEAN)
 	{
 		const bool val = lua_toboolean(state, -1);
 		lua_pop(state, 1);
@@ -193,26 +233,109 @@ bool LuaUtils::getTableBoolFieldWithDefault(lua_State* state, int table_index, c
 }
 
 
+std::string LuaUtils::getString(lua_State* state, int index)
+{
+	if(!lua_isstring(state, index))
+		throw glare::Exception("Value was not a string");
+
+	size_t len;
+	const char* s = lua_tolstring(state, index, &len);
+	if(s)
+		return std::string(s, len);
+	else
+		throw glare::Exception("Value was not a string");
+}
+
+
 std::string LuaUtils::getTableStringField(lua_State* state, int table_index, const char* key)
 {
 	// Check if the value on the stack is actually a table, otherwise hit assert in lua_rawgetfield.
 	if(!lua_istable(state, table_index))
 		throw glare::Exception("Value was not a table");
 
-	lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
-	size_t len;
-	const char* s = lua_tolstring(state, -1, &len);
-	if(s)
+	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+	if(value_type == LUA_TSTRING)
 	{
-		const std::string res(s, len);
-		lua_pop(state, 1);
-		return res;
+		size_t len;
+		const char* s = lua_tolstring(state, -1, &len);
+		if(s)
+		{
+			const std::string res(s, len);
+			lua_pop(state, 1);
+			return res;
+		}
+		else
+		{
+			lua_pop(state, 1);
+			throw glare::Exception("Value was not a string");
+		}
 	}
 	else
 	{
 		lua_pop(state, 1);
+		throw glare::Exception("Value was not a string");
+	}
+}
+
+
+std::string LuaUtils::getTableStringFieldWithEmptyDefault(lua_State* state, int table_index, const char* key)
+{
+	// Check if the value on the stack is actually a table, otherwise hit assert in lua_rawgetfield.
+	if(!lua_istable(state, table_index))
+		throw glare::Exception("Value was not a table");
+
+	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+	if(value_type == LUA_TSTRING)
+	{
+		size_t len;
+		const char* s = lua_tolstring(state, -1, &len);
+		if(s)
+		{
+			const std::string res(s, len);
+			lua_pop(state, 1);
+			return res;
+		}
+		else
+		{
+			lua_pop(state, 1);
+			return std::string();
+		}
+	}
+	else if(value_type == LUA_TNIL)
+	{
+		lua_pop(state, 1);
 		return std::string();
 	}
+	else
+	{
+		lua_pop(state, 1);
+		throw glare::Exception("Value was not a string");
+	}
+}
+
+
+Vec3f LuaUtils::getVec3f(lua_State* state, int index)
+{
+	const float* data = lua_tovector(state, index); // Will return NULL if value does not have vector type.
+	if(data)
+		return Vec3f(data[0], data[1], data[2]);
+	else
+		throw glare::Exception("Value was not a vector");
+
+	/*const float x = (float)getTableNumberField(state, index, "x");
+	const float y = (float)getTableNumberField(state, index, "y");
+	const float z = (float)getTableNumberField(state, index, "z");
+	
+	return Vec3f(x, y, z);*/
+}
+
+Vec3d LuaUtils::getVec3d(lua_State* state, int index)
+{
+	const double x = getTableNumberField(state, index, "x");
+	const double y = getTableNumberField(state, index, "y");
+	const double z = getTableNumberField(state, index, "z");
+	
+	return Vec3d(x, y, z);
 }
 
 
@@ -225,13 +348,9 @@ Vec3d LuaUtils::getTableVec3dField(lua_State* state, int table_index, const char
 	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
 	if(value_type == LUA_TTABLE)
 	{
-		const double x = getTableNumberField(state, -1, "x");
-		const double y = getTableNumberField(state, -1, "y");
-		const double z = getTableNumberField(state, -1, "z");
-
+		const Vec3d v = getVec3d(state, -1);
 		lua_pop(state, 1);
-
-		return Vec3d(x, y, z);
+		return v;
 	}
 	else
 	{
@@ -250,20 +369,44 @@ Vec3f LuaUtils::getTableVec3fFieldWithDefault(lua_State* state, int table_index,
 	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call).  Returns the type of the pushed value.
 	
 	Vec3f res;
-	if(value_type == LUA_TTABLE)
+	/*if(value_type == LUA_TTABLE)
 	{
 		const double x = getTableNumberField(state, -1, "x");
 		const double y = getTableNumberField(state, -1, "y");
 		const double z = getTableNumberField(state, -1, "z");
 
 		res = Vec3f((float)x, (float)y, (float)z);
+	}*/
+	if(value_type == LUA_TVECTOR)
+	{
+		/*res = getVec3f(state, 
+		const double x = getTableNumberField(state, -1, "x");
+		const double y = getTableNumberField(state, -1, "y");
+		const double z = getTableNumberField(state, -1, "z");
+
+		res = Vec3f((float)x, (float)y, (float)z);*/
+		const float* data = lua_tovector(state, -1); // Will return NULL if value does not have vector type.
+		if(data)
+		{
+			lua_pop(state, 1); // Pop field
+			return Vec3f(data[0], data[1], data[2]);
+		}
+		else
+		{
+			lua_pop(state, 1); // Pop field
+			throw glare::Exception("Value was not a vector");
+		}
+	}
+	else if(value_type == LUA_TNIL)
+	{
+		lua_pop(state, 1); // Pop field
+		return default_val;
 	}
 	else
-		res = default_val;
-
-	lua_pop(state, 1); // Pop field
-
-	return res;
+	{
+		lua_pop(state, 1); // Pop field
+		throw glare::Exception("Value was not a vector");
+	}
 }
 
 
@@ -274,8 +417,6 @@ Matrix2f LuaUtils::getTableMatrix2fFieldWithDefault(lua_State* state, int table_
 		throw glare::Exception("Value was not a table");
 
 	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call).  Returns the type of the pushed value.
-	
-	Matrix2f res;
 	if(value_type == LUA_TTABLE)
 	{
 		const double x = getTableNumberArrayElem(state, -1, /*elem index=*/1);
@@ -283,14 +424,47 @@ Matrix2f LuaUtils::getTableMatrix2fFieldWithDefault(lua_State* state, int table_
 		const double z = getTableNumberArrayElem(state, -1, /*elem index=*/3);
 		const double w = getTableNumberArrayElem(state, -1, /*elem index=*/4);
 
-		res = Matrix2f((float)x, (float)y, (float)z, (float)w);
+		lua_pop(state, 1); // Pop field
+		return Matrix2f((float)x, (float)y, (float)z, (float)w);
 	}
 	else
-		res = default_val;
+	{
+		lua_pop(state, 1); // Pop field
+		return default_val;
+	}
+}
 
-	lua_pop(state, 1); // Pop field
 
-	return res;
+void LuaUtils::pushVec3f(lua_State* state, const Vec3f& v)
+{
+	//lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/3);
+	//setNumberAsTableField(state, "x", v.x);
+	//setNumberAsTableField(state, "y", v.y);
+	//setNumberAsTableField(state, "z", v.z);
+
+	lua_pushvector(state, v.x, v.y, v.z);
+}
+
+
+void LuaUtils::pushVec3d(lua_State* state, const Vec3d& v)
+{
+	lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/3);
+
+	setNumberAsTableField(state, "x", v.x);
+	setNumberAsTableField(state, "y", v.y);
+	setNumberAsTableField(state, "z", v.z);
+}
+
+
+void LuaUtils::pushMatrix2f(lua_State* state, const Matrix2f& m)
+{
+	lua_createtable(state, /*num array elems=*/4, /*num non-array elems=*/0);
+
+	for(int i=0; i<4; ++i)
+	{
+		lua_pushnumber(state, m.e[i]);
+		lua_rawseti(state, /*table index=*/-2, i);
+	}
 }
 
 
@@ -326,7 +500,8 @@ void LuaUtils::test()
 		{
 			LuaVM vm;
 	
-			const std::string src = "t = { x = 123.0, b=true, s = 'abc', v1 = {x=7, z=8}, m1 = {10, 11, 12, 13} }   t2 = { 100, 200, 300 }";
+			const std::string src = "t = { x = 123.0, b=true, s = 'abc', v1d = {x=7, y=8, z=9}, v1f = Vec3f(7, 8, 9), m1 = {10, 11, 12, 13} }  " 
+				"t2 = { 100, 200, 300 } v3 = Vec3f(1, 2, 3)  v3d = {x=101, y=102, z=103}  s2 = \"abc\"  ";
 			LuaScript script(&vm, LuaScriptOptions(), src);
 			script.exec();
 			
@@ -337,7 +512,13 @@ void LuaUtils::test()
 
 			//----------------------------------- Test getTableNumberField -----------------------------------
 			testAssert(getTableNumberField(script.thread_state, /*table index=*/-1, "x") == 123.0);
-			testAssert(getTableNumberField(script.thread_state, /*table index=*/-1, "xdfgfdg") == 0.0);
+			//testAssert(getTableNumberField(script.thread_state, /*table index=*/-1, "xdfgfdg") == 0.0);
+
+			// Test on a table field that is not present
+			testExceptionExpected([&]() { getTableNumberField(script.thread_state, /*table index=*/-1, "xdfgfdg"); });
+
+			// Test on a table field that is not a number
+			testExceptionExpected([&]() { getTableNumberField(script.thread_state, /*table index=*/-1, "s"); });
 
 			// Test getTableNumberField on a value that is not a table.
 			lua_pushnumber(script.thread_state, 123.0);
@@ -349,7 +530,12 @@ void LuaUtils::test()
 
 			//----------------------------------- Test getTableNumberFieldWithDefault -----------------------------------
 			testAssert(getTableNumberFieldWithDefault(script.thread_state, /*table index=*/-1, "x", /*default val=*/-1.0) == 123.0);
+
+			// Test on a table field that is not present
 			testAssert(getTableNumberFieldWithDefault(script.thread_state, /*table index=*/-1, "xsdfdsf", /*default val=*/-1.0) == -1.0);
+
+			// Test on a table field that is not a number
+			testExceptionExpected([&]() { getTableNumberFieldWithDefault(script.thread_state, /*table index=*/-1, "s", /*default val=*/-1.0); });
 
 			// Test getTableNumberFieldWithDefault on a value that is not a table.
 			lua_pushnumber(script.thread_state, 123.0);
@@ -389,8 +575,9 @@ void LuaUtils::test()
 
 			//----------------------------------- Test getTableStringField -----------------------------------
 			testAssert(getTableStringField(script.thread_state, /*table index=*/-1, "s") == "abc");
-			testAssert(getTableStringField(script.thread_state, /*table index=*/-1, "sxxsdfgdsfg") == "");
-			testAssert(getTableStringField(script.thread_state, /*table index=*/-1, "x") == "123"); // Type conversion
+			testExceptionExpected([&]() { getTableStringField(script.thread_state, /*table index=*/-1, "sxxsdfgdsfg"); });
+			//testAssert(getTableStringField(script.thread_state, /*table index=*/-1, "x") == "123"); // Type conversion
+			testExceptionExpected([&]() { getTableStringField(script.thread_state, /*table index=*/-1, "x"); }); // Test on value that is not a string
 
 			// Test getTableStringField on a value that is not a table.
 			lua_pushnumber(script.thread_state, 123.0);
@@ -399,10 +586,21 @@ void LuaUtils::test()
 
 			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size
 
+			//----------------------------------- Test getTableStringFieldWithEmptyDefault -----------------------------------
+			testAssert(getTableStringFieldWithEmptyDefault(script.thread_state, /*table index=*/-1, "s") == "abc");
+			testAssert(getTableStringFieldWithEmptyDefault(script.thread_state, /*table index=*/-1, "sxxsdfgdsfg") == "");
+			testExceptionExpected([&]() { getTableStringFieldWithEmptyDefault(script.thread_state, /*table index=*/-1, "x"); }); // Test on value that is not a string
+
+			// Test getTableStringFieldWithEmptyDefault on a value that is not a table.
+			lua_pushnumber(script.thread_state, 123.0);
+			testExceptionExpected([&]() { getTableStringFieldWithEmptyDefault(script.thread_state, /*table index=*/-1, "x"); });
+			lua_pop(script.thread_state, 1); // Pop 123.0
+
+			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size
+
 
 			//----------------------------------- Test getTableVec3dField -----------------------------------
-			testAssert(getTableVec3dField(script.thread_state, /*table index=*/-1, "v1") == Vec3d(7.0, 0.0, 8.0));
-			//testAssert(getTableVec3dField(script.thread_state, /*table index=*/-1, "vdfgdfg") == Vec3d(0.0));
+			testAssert(getTableVec3dField(script.thread_state, /*table index=*/-1, "v1d") == Vec3d(7.0, 8.0, 9.0));
 			testExceptionExpected([&]() { getTableVec3dField(script.thread_state, /*table index=*/-1, "vdfgdfg"); });
 
 			// Test getTableVec3dField on a value that is not a table.
@@ -413,8 +611,11 @@ void LuaUtils::test()
 			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size
 
 
+			
+
+
 			//----------------------------------- Test getTableVec3fFieldWithDefault -----------------------------------
-			testAssert(getTableVec3fFieldWithDefault(script.thread_state, /*table index=*/-1, "v1", /*default val=*/Vec3f(-1.f)) == Vec3f(7.0f, 0.0f, 8.0f));
+			testAssert(getTableVec3fFieldWithDefault(script.thread_state, /*table index=*/-1, "v1f", /*default val=*/Vec3f(-1.f)) == Vec3f(7.0f, 8.0f, 9.0f));
 			testAssert(getTableVec3fFieldWithDefault(script.thread_state, /*table index=*/-1, "zz", /*default val=*/Vec3f(-1.f)) == Vec3f(-1.f));
 
 			// Test getTableVec3fFieldWithDefault on a value that is not a table.
@@ -440,6 +641,42 @@ void LuaUtils::test()
 
 			lua_pop(script.thread_state, 1); // Pop t
 
+
+			//----------------------------------- Test getVec3f -----------------------------------
+			lua_getglobal(script.thread_state, "v3"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testAssert(getVec3f(script.thread_state, /*table index=*/-1) == Vec3f(1.0f, 2.0f, 3.0f));
+			lua_pop(script.thread_state, 1); // Pop v3
+
+			// Test getVec3f on a value that is not a Vec3f
+			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testExceptionExpected([&]() { getVec3f(script.thread_state, /*table index=*/-1); });
+			lua_pop(script.thread_state, 1); // Pop t2
+
+
+			//----------------------------------- Test getVec3d -----------------------------------
+			lua_getglobal(script.thread_state, "v3d"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testAssert(getVec3d(script.thread_state, /*table index=*/-1) == Vec3d(101, 102, 103));
+			lua_pop(script.thread_state, 1); // Pop v3d
+
+			// Test getVec3d on a value that is not a Vec3f
+			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testExceptionExpected([&]() { getVec3d(script.thread_state, /*table index=*/-1); });
+			lua_pop(script.thread_state, 1); // Pop t2
+
+
+
+			//----------------------------------- Test getString -----------------------------------
+			lua_getglobal(script.thread_state, "s2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testAssert(getString(script.thread_state, /*table index=*/-1) == "abc");
+			lua_pop(script.thread_state, 1); // Pop s2
+
+			// Test getString on a value that is not a string
+			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testExceptionExpected([&]() { getString(script.thread_state, /*table index=*/-1); });
+			lua_pop(script.thread_state, 1); // Pop t2
+
+
+
 			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
 			printStack(script.thread_state);
 			initial_stack_size = lua_gettop(script.thread_state);
@@ -449,7 +686,8 @@ void LuaUtils::test()
 			testAssert(getTableNumberArrayElem(script.thread_state, /*table index=*/-1, 1) == 100.0);
 			testAssert(getTableNumberArrayElem(script.thread_state, /*table index=*/-1, 2) == 200.0);
 			testAssert(getTableNumberArrayElem(script.thread_state, /*table index=*/-1, 3) == 300.0);
-			testAssert(getTableNumberArrayElem(script.thread_state, /*table index=*/-1, 100) == 0.0); // out of bounds
+			//testAssert(getTableNumberArrayElem(script.thread_state, /*table index=*/-1, 100) == 0.0); // out of bounds
+			testExceptionExpected([&]() { getTableNumberArrayElem(script.thread_state, /*table index=*/-1, 100); }); // out of bounds
 
 			// Test getTableNumberArrayElem on a value that is not a table.
 			lua_pushnumber(script.thread_state, 123.0);
