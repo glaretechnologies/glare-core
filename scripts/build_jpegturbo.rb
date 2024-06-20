@@ -6,7 +6,6 @@
 require 'fileutils'
 require 'net/http'
 require './script_utils.rb'
-require './config-lib.rb'
 require './cmake.rb'
 
 
@@ -19,6 +18,7 @@ LibJpeg Turbo build
 $configurations = [ :release, :debug ]
 $forcerebuild = false
 $build_epoch = 1
+$vs_version = 2022
 
 
 def printUsage()
