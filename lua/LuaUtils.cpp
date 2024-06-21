@@ -125,6 +125,15 @@ std::string LuaUtils::getCallStackAsString(lua_State* state)
 }
 
 
+bool LuaUtils::isFunctionDefined(lua_State* state, const char* func_name)
+{
+	lua_getglobal(state, func_name); // Push function onto stack (or nil if it isn't defined)
+	const bool is_defined = lua_isfunction(state, -1);
+	lua_pop(state, 1); // Pop function off stack
+	return is_defined;
+}
+
+
 static std::string errorContextString(lua_State* state)
 {
 	return "\n" + LuaUtils::getCallStackAsString(state);
