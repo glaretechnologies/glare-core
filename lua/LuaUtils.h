@@ -22,6 +22,8 @@ public:
 	static void printTable(lua_State* state, int table_index, int spaces = 4);
 	static void printStack(lua_State* state);
 
+	static std::string getCallStackAsString(lua_State* state);
+
 	static void setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, int table_index, const char* field_key);
 
 	// Assumes table is on top of stack
@@ -42,6 +44,7 @@ public:
 	static std::string getTableStringField(lua_State* state, int table_index, const char* key);
 	static std::string getTableStringFieldWithEmptyDefault(lua_State* state, int table_index, const char* key);
 
+	static float getFloat(lua_State* state, int index);
 	// Convert a Vec3d on the Lua stack at the given index to a Vec3d.  Does not alter Lua stack.
 	static Vec3f getVec3f(lua_State* state, int index);
 	static Vec3d getVec3d(lua_State* state, int index);
@@ -53,6 +56,7 @@ public:
 	static void pushVec3d(lua_State* state, const Vec3d& v);
 	static void pushMatrix2f(lua_State* state, const Matrix2f& m);
 	static inline void pushString(lua_State* state, const std::string& s);
+	
 
 	static void test();
 };

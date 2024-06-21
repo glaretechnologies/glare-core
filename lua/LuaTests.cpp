@@ -24,13 +24,22 @@ Copyright Glare Technologies Limited 2024 -
 // Adds two numbers together
 static int testFunc(lua_State* state)
 {
-  const int a = lua_tointeger(state, 1); // First argument
-  const int b = lua_tointeger(state, 2); // Second argument
-  const int result = a + b;
+	const int a = lua_tointeger(state, 1); // First argument
+	const int b = lua_tointeger(state, 2); // Second argument
+	const int result = a + b;
 
-  lua_pushinteger(state, result);
 
-  return 1; // Count of returned values
+	lua_pushinteger(state, result);
+
+	return 1; // Count of returned values
+}
+
+
+static int testCallStackPrintFunc(lua_State* state)
+{
+	conPrint(LuaUtils::getCallStackAsString(state));
+
+	return 0; // Count of returned values
 }
 
 
@@ -386,6 +395,37 @@ void LuaTests::test()
 		catch(glare::Exception& e)
 		{
 			conPrint("Got expected excep: " + e.what()); // Expected
+		}
+
+		//========================== Test getCallStackAsString() ==========================
+		try
+		{
+			LuaVM vm;
+
+			LuaScriptOptions options;
+			options.c_funcs.push_back(LuaCFunction(testCallStackPrintFunc, "testCallStackPrintFunc"));
+
+			const std::string src = 
+				"function f()   \n"              // line 1
+				"   testCallStackPrintFunc() \n" // line 2
+				"end            \n"				 // line 3
+				"function g()   \n"				 // line 4
+				"     f()       \n"				 // line 5
+				"end            \n"				 // line 6
+				"function h()   \n"				 // line 7
+				"    g()       \n"				 // line 8
+				"end            \n"				 // line 9
+				"h()         \n";				 // line 10
+			LuaScript script(&vm, options, src);
+			script.exec();
+		}
+		catch(LuaScriptExcepWithLocation& e)
+		{
+			failTest("Failed:" + e.messageWithLocations());
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
 		}
 		
 		//========================== Test LuaScriptOutputHandler ==========================
