@@ -25,6 +25,7 @@ public:
 	static std::string getCallStackAsString(lua_State* state);
 
 	static bool isFunctionDefined(lua_State* state, const char* func_name);
+	static int getRefToFunction(lua_State* state, const char* func_name); // Returns LUA_NOREF if function was not defined.
 
 	static void setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, int table_index, const char* field_key);
 

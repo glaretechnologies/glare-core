@@ -397,6 +397,78 @@ void LuaTests::test()
 			conPrint("Got expected excep: " + e.what()); // Expected
 		}
 
+		//========================== Test calling a Lua function from lua ==========================
+		try
+		{
+			LuaVM vm;
+
+			const std::string src = "function f(x) return x + 1 end    local y = f(1)  print(tostring(y))";
+
+			TestLuaScriptOutputHandler handler;
+			LuaScriptOptions options;
+			options.script_output_handler = &handler;
+
+			LuaScript script(&vm, options, src);
+			script.exec();
+
+			testAssert(handler.buf == "2\n");
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+		//========================== Test calling a Lua function from C ==========================
+		try
+		{
+			LuaVM vm;
+
+			const std::string src = "function f(x) return x + 1 end";
+
+			TestLuaScriptOutputHandler handler;
+			LuaScriptOptions options;
+			LuaScript script(&vm, options, src);
+			script.exec();
+
+			Timer timer;
+			const int num_iters = 1000;
+			for(int i=0; i<num_iters; ++i)
+			{
+				lua_getglobal(script.thread_state, "f"); // pushes onto stack
+				lua_pushnumber(script.thread_state, 10.0);
+				lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/1);
+
+				testAssert(lua_isnumber(script.thread_state, -1));
+				testAssert(lua_tonumber(script.thread_state, -1) == 11.0);
+				lua_pop(script.thread_state, 1);
+			}
+			conPrint("calling function via name string took " + doubleToStringNSigFigs(timer.elapsed() / num_iters * 1.0e9, 5) + " ns");
+
+
+			//------------- Try calling using a reference to the function -------------
+
+			// Get reference to function
+			lua_getglobal(script.thread_state, "f"); // pushes onto stack
+			int f_ref = lua_ref(script.thread_state, /*stack index=*/-1);
+			lua_pop(script.thread_state, 1);
+
+			timer.reset();
+			for(int i=0; i<num_iters; ++i)
+			{
+				lua_getref(script.thread_state, f_ref); // Pushes f_ref onto the stack.
+				lua_pushnumber(script.thread_state, 10.0);
+				lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/1);
+				testAssert(lua_isnumber(script.thread_state, -1));
+				testAssert(lua_tonumber(script.thread_state, -1) == 11.0);
+				lua_pop(script.thread_state, 1);
+			}
+			conPrint("calling function via ref took " + doubleToStringNSigFigs(timer.elapsed() / num_iters * 1.0e9, 5) + " ns");
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
 		//========================== Test getCallStackAsString() ==========================
 		try
 		{

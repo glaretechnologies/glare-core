@@ -134,6 +134,19 @@ bool LuaUtils::isFunctionDefined(lua_State* state, const char* func_name)
 }
 
 
+int LuaUtils::getRefToFunction(lua_State* state, const char* func_name)
+{
+	lua_getglobal(state, func_name); // Push function onto stack (or nil if it isn't defined)
+	
+	int ref = LUA_NOREF;
+	if(lua_isfunction(state, -1)) // If function was defined
+		ref = lua_ref(state, /*index=*/-1); // Get reference to func (does not pop)
+	
+	lua_pop(state, 1);
+	return ref;
+}
+
+
 static std::string errorContextString(lua_State* state)
 {
 	return "\n" + LuaUtils::getCallStackAsString(state);
