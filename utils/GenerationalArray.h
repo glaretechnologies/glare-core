@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "Reference.h"
 #include <vector>
+#include <stddef.h> // for NULL
 
 
 namespace glare
