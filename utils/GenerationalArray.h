@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "Reference.h"
 #include <vector>
-#include <stddef.h> // for NULL
 
 
 namespace glare
@@ -61,7 +60,7 @@ public:
 	{
 		assert(handle.gen == vec[handle.index].gen); // If the handle is valid, the handle generation should be current.
 
-		vec[handle.index].ob = NULL;
+		vec[handle.index].ob = nullptr;
 		vec[handle.index].gen = gen++;
 
 		// Add slot index to free list
@@ -73,7 +72,7 @@ public:
 		if(vec[handle.index].gen == handle.gen)
 			return vec[handle.index].ob;
 		else
-			return NULL;
+			return nullptr;
 	}
 	
 private:
