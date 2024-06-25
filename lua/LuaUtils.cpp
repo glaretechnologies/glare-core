@@ -318,6 +318,21 @@ const char* LuaUtils::getStringConstCharPtr(lua_State* state, int index)
 	}
 }
 
+const char* LuaUtils::getStringAndAtom(lua_State* state, int index, int& atom_out)
+{
+	if(!lua_isstring(state, index))
+		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+
+	const char* s = lua_tostringatom(state, index, &atom_out);
+	if(s)
+		return s;
+	else
+	{
+		assert(0);  // Shouldn't get here
+		throw glare::Exception("Value was not a string");
+	}
+}
+
 std::string LuaUtils::getString(lua_State* state, int index)
 {
 	if(!lua_isstring(state, index))
