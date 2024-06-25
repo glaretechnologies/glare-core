@@ -413,10 +413,28 @@ std::string LuaUtils::getTableStringFieldWithEmptyDefault(lua_State* state, int 
 }
 
 
+bool LuaUtils::getBool(lua_State* state, int index)
+{
+	if(lua_isboolean(state, index))
+		return lua_toboolean(state, index) != 0;
+	else
+		throw glare::Exception("Value was not a boolean (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+}
+
+
 float LuaUtils::getFloat(lua_State* state, int index)
 {
 	if(lua_isnumber(state, index))
 		return (float)lua_tonumber(state, index);
+	else
+		throw glare::Exception("Value was not a number (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+}
+
+
+double LuaUtils::getDouble(lua_State* state, int index)
+{
+	if(lua_isnumber(state, index))
+		return lua_tonumber(state, index);
 	else
 		throw glare::Exception("Value was not a number (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
 }
@@ -614,7 +632,7 @@ void LuaUtils::test()
 			LuaVM vm;
 	
 			const std::string src = "t = { x = 123.0, b=true, s = 'abc', v1d = {x=7, y=8, z=9}, v1f = Vec3f(7, 8, 9), m1 = {10, 11, 12, 13} }  " 
-				"t2 = { 100, 200, 300, 'a' } v3 = Vec3f(1, 2, 3)  v3d = {x=101, y=102, z=103}  s2 = \"abc\" n = 567.0   m2 = {10, 11, 12, 13} ";
+				"t2 = { 100, 200, 300, 'a' } v3 = Vec3f(1, 2, 3)  v3d = {x=101, y=102, z=103}  s2 = \"abc\" n = 567.0   m2 = {10, 11, 12, 13} b1 = true   b2 = false";
 			LuaScript script(&vm, LuaScriptOptions(), src);
 			script.exec();
 			
@@ -758,14 +776,50 @@ void LuaUtils::test()
 
 			const int initial_stack_size = lua_gettop(script.thread_state);
 
+			//----------------------------------- Test getBool -----------------------------------
+			lua_getglobal(script.thread_state, "b1"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testAssert(getBool(script.thread_state, /*table index=*/-1) == true);
+			lua_pop(script.thread_state, 1); // Pop b1
+
+			lua_getglobal(script.thread_state, "b2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testAssert(getBool(script.thread_state, /*table index=*/-1) == false);
+			lua_pop(script.thread_state, 1); // Pop b2
+
+			// Test getBool on a value that is not a bool
+			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testExceptionExpected([&]() { getBool(script.thread_state, /*table index=*/-1); });
+			lua_pop(script.thread_state, 1); // Pop t2
+
+			// Test getBool on a non-existent value
+			lua_getglobal(script.thread_state, "dklfgjhdfkjgh"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testExceptionExpected([&]() { getBool(script.thread_state, /*table index=*/-1); });
+			lua_pop(script.thread_state, 1); // Pop nil
+
+
 			//----------------------------------- Test getFloat -----------------------------------
 			lua_getglobal(script.thread_state, "n"); // Pushes onto the stack the value of the global name. Returns the type of that value.
 			testAssert(getFloat(script.thread_state, /*table index=*/-1) == 567.f);
-			lua_pop(script.thread_state, 1); // Pop v3
+			lua_pop(script.thread_state, 1); // Pop n
 
 			// Test getFloat on a value that is not a number
 			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
 			testExceptionExpected([&]() { getFloat(script.thread_state, /*table index=*/-1); });
+			lua_pop(script.thread_state, 1); // Pop t2
+
+			// Test getFloat on a non-existent value
+			lua_getglobal(script.thread_state, "dklfgjhdfkjgh"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testExceptionExpected([&]() { getFloat(script.thread_state, /*table index=*/-1); });
+			lua_pop(script.thread_state, 1); // Pop nil
+
+
+			//----------------------------------- Test getDouble -----------------------------------
+			lua_getglobal(script.thread_state, "n"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testAssert(getDouble(script.thread_state, /*table index=*/-1) == 567.f);
+			lua_pop(script.thread_state, 1); // Pop n
+
+			// Test getDouble on a value that is not a number
+			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
+			testExceptionExpected([&]() { getDouble(script.thread_state, /*table index=*/-1); });
 			lua_pop(script.thread_state, 1); // Pop t2
 
 
