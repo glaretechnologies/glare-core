@@ -42,6 +42,9 @@ public:
 	static bool tableHasBoolField(lua_State* state, int table_index, const char* key);
 	static bool getTableBoolFieldWithDefault(lua_State* state, int table_index, const char* key, bool default_val);
 	
+	// Get a const char* pointer to a string value on the Lua stack.  Only valid for the lifetime of the stack object.
+	// Throws exception if value on stack is not a string.
+	static const char* getStringConstCharPtr(lua_State* state, int index);
 	// Convert a Lua string on the stack at index into a std::string
 	static std::string getString(lua_State* state, int index);
 	static std::string getTableStringField(lua_State* state, int table_index, const char* key);
@@ -51,6 +54,7 @@ public:
 	// Convert a Vec3d on the Lua stack at the given index to a Vec3d.  Does not alter Lua stack.
 	static Vec3f getVec3f(lua_State* state, int index);
 	static Vec3d getVec3d(lua_State* state, int index);
+	static Matrix2f getMatrix2f(lua_State* state, int index);
 	static Vec3d getTableVec3dField(lua_State* state, int table_index, const char* key);
 	static Vec3f getTableVec3fFieldWithDefault(lua_State* state, int table_index, const char* key, const Vec3f& default_val);
 	static Matrix2f getTableMatrix2fFieldWithDefault(lua_State* state, int table_index, const char* key, const Matrix2f& default_val);
