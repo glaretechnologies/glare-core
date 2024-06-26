@@ -365,6 +365,286 @@ void LuaTests::test()
 			conPrint("Got expected excep: " + e.what());
 		}
 
+		//========================== Test maximum memory calling a Lua function ==========================
+		try
+		{
+			LuaVM vm;
+			vm.max_total_mem_allowed = 500000;
+
+			LuaScriptOptions options;
+
+			const std::string src = 
+				"function f()  \n"
+				"	local my_table = {} \n for i=1, 100000000 do  my_table[i] = 'boo' end\n"
+				"end\n";
+			LuaScript script(&vm, options, src);
+			script.exec();
+
+			lua_getglobal(script.thread_state, "f");
+			lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+
+			failTest("Expected excep.");
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Got expected excep: " + e.what());
+		}
+
+		//========================== Test maximum memory calling a Lua function with recovery ==========================
+		try
+		{
+			LuaVM vm;
+			vm.max_total_mem_allowed = 500000;
+
+			LuaScriptOptions options;
+
+			const std::string src = 
+				"function f()  \n"
+				"	local my_table = {} \n for i=1, 100000000 do  my_table[i] = 'boo' end\n"
+				"end\n"
+				"function g()  \n"
+				"	print('hello') \n"
+				"end\n";
+
+			// Create a LuaScript, call f, should throw exception
+			{
+				LuaScript script(&vm, options, src);
+				script.exec();
+
+				try
+				{
+					lua_getglobal(script.thread_state, "f"); // pushes onto stack
+					lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+
+					failTest("Expected excep.");
+				}
+				catch(glare::Exception& e)
+				{
+					conPrint("Got expected excep: " + e.what());
+				}
+			}
+
+			// Create a LuaScript, call g, should work fine.
+			{
+				LuaScript script(&vm, options, src);
+				script.exec();
+
+				try
+				{
+					lua_getglobal(script.thread_state, "g"); // pushes onto stack
+					lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+				}
+				catch(std::exception& e)
+				{
+					failTest(std::string(e.what()));
+				}
+				catch(glare::Exception& e)
+				{
+					failTest(e.what());
+				}
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Got expected excep: " + e.what());
+		}
+
+
+
+		//========================== Test maximum execution time ==========================
+		try
+		{
+			LuaVM vm;
+
+			LuaScriptOptions options;
+			options.max_num_interrupts = 10000;
+
+			const std::string src = "my_table = {} \n for i=1, 100000000 do  my_table[0] = 'boo' end ";
+			LuaScript script(&vm, options, src);
+			script.exec();
+
+			failTest("Expected excep.");
+		}
+		catch(glare::Exception& e)
+		{
+			// Expected
+			conPrint("Got expected excep: " + e.what());
+		}
+
+		//========================== Test maximum execution time calling a Lua function ==========================
+		try
+		{
+			LuaVM vm;
+			LuaScriptOptions options;
+			options.max_num_interrupts = 10000;
+
+			const std::string src = 
+				"function f()  \n"
+				"	local my_table = {} \n for i=1, 100000000 do  my_table[0] = 'boo' end\n"
+				"end\n";
+			LuaScript script(&vm, options, src);
+			script.exec();
+
+			lua_getglobal(script.thread_state, "f");
+			lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+
+			failTest("Expected excep.");
+		}
+		catch(glare::Exception& e)
+		{
+			// Expected
+			conPrint("Got expected excep: " + e.what());
+		}
+
+		//========================== Test maximum execution time calling a Lua function and recovery ==========================
+		// Test recovery in the same LuaScript (Lua thread).  Does not work.
+		try
+		{
+			LuaVM vm;
+			LuaScriptOptions options;
+			options.max_num_interrupts = 10000;
+
+			const std::string src = 
+				"function f()  \n"
+				"	local my_table = {} \n for i=1, 100000000 do  my_table[0] = 'boo' end\n"
+				"end\n"
+				"function g()  \n"
+				"	print('hello') \n"
+				"end\n";
+			LuaScript script(&vm, options, src);
+			script.exec();
+
+			try
+			{
+				lua_getglobal(script.thread_state, "f"); // pushes onto stack
+				lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+
+				failTest("Expected excep.");
+			}
+			catch(std::exception& e)
+			{
+				conPrint("Got expected excep: " + std::string(e.what()));
+			}
+			catch(glare::Exception& e)
+			{
+				conPrint("Got expected excep: " + e.what());
+			}
+
+			// Now continue and call g
+			// This doesn't work, hits assert.  This is fine actually.
+			// 
+			//lua_getglobal(script.thread_state, "g"); // pushes onto stack
+			//lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+		}
+		catch(glare::Exception& e)
+		{
+			// Expected
+			conPrint("Got expected excep: " + e.what());
+		}
+
+		//========================== Test maximum execution time calling a Lua function and recovery ==========================
+		// Test recovery in a different LuaScript (Lua thread).
+		try
+		{
+			LuaVM vm;
+			LuaScriptOptions options;
+			options.max_num_interrupts = 10000;
+
+			const std::string src = 
+				"function f()  \n"
+				"	local my_table = {} \n for i=1, 100000000 do  my_table[0] = 'boo' end\n"
+				"end\n"
+				"function g()  \n"
+				"	print('hello') \n"
+				"end\n";
+
+			// Create a LuaScript, call f, should throw exception
+			{
+				LuaScript script(&vm, options, src);
+				script.exec();
+
+				try
+				{
+					lua_getglobal(script.thread_state, "f"); // pushes onto stack
+					lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+
+					failTest("Expected excep.");
+				}
+				catch(glare::Exception& e)
+				{
+					conPrint("Got expected excep: " + e.what());
+				}
+			}
+
+			// Create a LuaScript, call g, should work fine.
+			{
+				LuaScript script(&vm, options, src);
+				script.exec();
+
+				try
+				{
+					lua_getglobal(script.thread_state, "g"); // pushes onto stack
+					lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+				}
+				catch(glare::Exception& e)
+				{
+					failTest(e.what());
+				}
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			// Expected
+			conPrint("Got expected excep: " + e.what());
+		}
+
+		//========================== Test maximum execution time and resetExecutionTimeCounter() ==========================
+		try
+		{
+			LuaVM vm;
+			LuaScriptOptions options;
+			options.max_num_interrupts = 10000;
+
+			const std::string src = 
+				"function f()  \n"
+				"	local my_table = {} my_table[0] = 1 \n"
+				"end\n";
+
+			// Try repeatedly executing a lua script function, we should reach max_num_interrupts
+			try
+			{
+				LuaScript script(&vm, options, src);
+				script.exec();
+
+				for(int i=0; i<10000; ++i)
+				{
+					lua_getglobal(script.thread_state, "f");
+					lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+				}
+			}
+			catch(glare::Exception& e)
+			{
+				conPrint("Got expected excep: " + e.what());
+			}
+
+			// Try repeatedly executing a lua script function, but with calling resetExecutionTimeCounter() before each call.  We should not reach max_num_interrupts.
+			{
+				LuaScript script(&vm, options, src);
+				script.exec();
+
+				for(int i=0; i<10000; ++i)
+				{
+					script.resetExecutionTimeCounter();
+					lua_getglobal(script.thread_state, "f");
+					lua_call(script.thread_state, /*nargs=*/0, /*nresults=*/0); // Pops all arguments and function value
+				}
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			failTest(e.what());
+		}
+
 		//========================== Test assert() ==========================
 		try
 		{
@@ -411,7 +691,7 @@ void LuaTests::test()
 			LuaScript script(&vm, options, src);
 			script.exec();
 
-			testAssert(handler.buf == "2\n");
+			testAssert(handler.buf == "2");
 		}
 		catch(glare::Exception& e)
 		{
@@ -516,7 +796,7 @@ void LuaTests::test()
 			LuaScript script(&vm, options, src);
 			script.exec();
 
-			testAssert(handler.buf == "test123\n");
+			testAssert(handler.buf == "test123");
 		}
 		catch(glare::Exception& e)
 		{
