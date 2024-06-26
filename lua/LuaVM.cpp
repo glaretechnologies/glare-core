@@ -90,7 +90,7 @@ static int glareLuaPrint(lua_State* L)
 			handler->printFromLuaScript(script, s, l);
 			lua_pop(L, 1); // pop result
 		}
-		handler->printFromLuaScript(script, "\n", 1);
+		//handler->printFromLuaScript(script, "\n", 1);
 	}
 	return 0; // Return number of results left on stack
 }
