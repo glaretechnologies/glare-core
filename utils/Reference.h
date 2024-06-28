@@ -195,6 +195,12 @@ public:
 		return ob != 0;
 	}
 
+	// Recommended to use explicit operator bool here: https://quuxplusone.github.io/blog/2023/04/08/most-ctors-should-be-explicit/#you-should-never-declare-convers
+	explicit inline operator bool () const
+	{
+		return ob != 0;
+	}
+
 	/// NOTE: These upcast functions are not needed any more.  Valid conversions will be done automatically by the compiler.
 	template <class T2>
 	inline const Reference<T2> upcast() const
