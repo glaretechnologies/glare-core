@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "Reference.h"
 #include "../maths/mathstypes.h"
 #include <vector>
-#include <uchar.h> // For size_t
+#include <stddef.h> // For size_t
 
 
 namespace glare
