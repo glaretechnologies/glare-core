@@ -1512,21 +1512,7 @@ const std::vector<std::string> splitIntoLines(const std::string& s)
 #include "TestUtils.h"
 #include "Timer.h"
 #include "ConPrint.h"
-#include <functional>
-
-
-static void testExceptionExpected(std::function<void()> test_func)
-{
-	try
-	{
-		test_func(); // Execute the test code.
-		failTest("Excep expected");
-	}
-	catch(glare::Exception& e)
-	{
-		conPrint("Caught expected excep: " + e.what());
-	}
-}
+#include "TestExceptionUtils.h"
 
 
 void StringUtils::test()
