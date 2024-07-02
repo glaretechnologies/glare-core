@@ -16,6 +16,7 @@ class LuaScript;
 struct lua_State;
 typedef int (*lua_CFunction)(lua_State* L);
 
+
 struct LuaCFunction
 {
 	LuaCFunction() {}
@@ -25,6 +26,7 @@ struct LuaCFunction
 	std::string func_name;
 };
 
+
 class LuaScriptOutputHandler
 {
 public:
@@ -32,7 +34,6 @@ public:
 
 	virtual void errorOccurred(LuaScript* script, const std::string& msg) {}
 };
-
 
 
 struct LuaScriptOptions
