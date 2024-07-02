@@ -123,15 +123,17 @@ static int glareLuaIndexMetaMethod(lua_State* state)
 	const char* key_str = lua_tolstring(state, /*index=*/2, &stringlen); // May return NULL if not a string
 
 	if(key_str)
-	if(stringEqual(key_str, "testMethod"))
 	{
-		lua_pushcfunction(state, testMethod, "testMethod");
-		return 1;
-	}
-	else if(stringEqual(key_str, "testattribute"))
-	{
-		lua_pushnumber(state, 100.0);
-		return 1;
+		if(stringEqual(key_str, "testMethod"))
+		{
+			lua_pushcfunction(state, testMethod, "testMethod");
+			return 1;
+		}
+		else if(stringEqual(key_str, "testattribute"))
+		{
+			lua_pushnumber(state, 100.0);
+			return 1;
+		}
 	}
 
 	lua_pushnil(state);
