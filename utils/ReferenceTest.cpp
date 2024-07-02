@@ -191,6 +191,36 @@ private:
 
 void run()
 {
+	/////////////////////// Test setAsNotIndependentlyHeapAllocated() ///////////////////////
+	{
+		int i = 0;
+		{
+			TestClass testob(&i);
+			testob.setAsNotIndependentlyHeapAllocated();
+			testAssert(i == 1);
+
+			// Create a reference to testob and then destroy the reference.
+			// Without the setAsNotIndependentlyHeapAllocated call, this would incorrectly destroy testob.
+			Reference<TestClass> ref = &testob;
+			ref = NULL;
+		}
+		testAssert(i == 0);
+	}
+
+	/////////////////////// Test setAsNotIndependentlyHeapAllocated() on ThreadSafeRefCounted ///////////////////////
+	{
+		{
+			ThreadSafeTestClass testob;
+			testob.setAsNotIndependentlyHeapAllocated();
+
+			// Create a reference to testob and then destroy the reference.
+			// Without the setAsNotIndependentlyHeapAllocated call, this would incorrectly destroy testob.
+			Reference<ThreadSafeTestClass> ref = &testob;
+			ref = NULL;
+		}
+	}
+
+
 	/////////////////////// Test weak references ///////////////////////
 	{
 		int i = 0;
