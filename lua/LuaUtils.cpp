@@ -156,6 +156,7 @@ static std::string errorContextString(lua_State* state)
 static std::string luaTypeString(lua_State* state, int type)
 {
 	// Check type enum value is in bounds of luaT_typenames
+	assert(type >= 0 && type < 11);
 	if(type < 0 || type >= 11)
 		throw glare::Exception("Internal error, invalid type");
 	return std::string(lua_typename(state, type));
@@ -174,7 +175,7 @@ void LuaUtils::setCFunctionAsTableField(lua_State* state, lua_CFunction fn, cons
 static void checkValueIsTable(lua_State* state, int table_index)
 {
 	if(!lua_istable(state, table_index))
-		throw glare::Exception("Value was not a table (had type " + luaTypeString(state, table_index) + ")" + errorContextString(state));
+		throw glare::Exception("Value was not a table (had type " + luaTypeString(state, lua_type(state, table_index)) + ")" + errorContextString(state));
 }
 
 
@@ -605,21 +606,7 @@ void LuaUtils::pushMatrix2f(lua_State* state, const Matrix2f& m)
 #include "LuaVM.h"
 #include "LuaScript.h"
 #include "../utils/TestUtils.h"
-#include <functional>
-
-
-static void testExceptionExpected(std::function<void()> test_func)
-{
-	try
-	{
-		test_func(); // Execute the test code.
-		failTest("Excep expected");
-	}
-	catch(glare::Exception& e)
-	{
-		conPrint("Caught expected excep: " + e.what());
-	}
-}
+#include "../utils/TestExceptionUtils.h"
 
 
 void LuaUtils::test()
