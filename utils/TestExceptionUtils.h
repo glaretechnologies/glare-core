@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 
 // Use like:
 // testExceptionExpected([&]() { doTestThatThrowsExcep(); });
-static void testExceptionExpected(std::function<void()> test_func)
+inline void testExceptionExpected(std::function<void()> test_func)
 {
 	try
 	{
@@ -30,7 +30,7 @@ static void testExceptionExpected(std::function<void()> test_func)
 
 // Use like:
 // testThrowsExcepContainingString([&]() { doTestThatThrowsExcep(); }, "msg that should be in exception");
-static void testThrowsExcepContainingString(std::function<void()> test_func, const std::string& str)
+inline void testThrowsExcepContainingString(std::function<void()> test_func, const std::string& str)
 {
 	try
 	{

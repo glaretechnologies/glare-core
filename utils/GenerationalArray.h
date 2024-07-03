@@ -78,7 +78,7 @@ public:
 	}
 	
 private:
-	const size_t getFreeIndex()
+	size_t getFreeIndex()
 	{
 		// return from free list
 		if(free_list.empty())

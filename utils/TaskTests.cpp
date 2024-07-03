@@ -18,6 +18,7 @@ Generated at 2011-10-05 22:32:02 +0100
 #include "../utils/StringUtils.h"
 //#include "../utils/FixedSizeAllocator.h"
 #include "../utils/Timer.h"
+#include "../utils/Lock.h"
 
 
 namespace glare
@@ -504,6 +505,7 @@ void TaskTests::test()
 
 		m.runTaskGroup(group);
 
+		Lock lock(group->num_unfinished_tasks_mutex);
 		testAssert(group->num_unfinished_tasks == 0);
 		testAssert(m.getNumUnfinishedTasks() == 0);
 		testAssert(exec_counter == N);
