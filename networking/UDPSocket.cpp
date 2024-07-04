@@ -128,6 +128,17 @@ void UDPSocket::closeSocket()
 }
 
 
+void UDPSocket::ungracefulShutdown()
+{
+	if(isSockHandleValid(socket_handle))
+	{
+		::shutdown(socket_handle, 2); // 2 == SD_BOTH
+		doCloseSocket(socket_handle); // Close the socket.  This will cause the socket to return from any blocking calls.
+		socket_handle = nullSocketHandle();
+	}
+}
+
+
 // listen to/send from a particular port
 void UDPSocket::bindToPort(int port, bool reuse_address) 
 {

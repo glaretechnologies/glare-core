@@ -40,6 +40,10 @@ public:
 
 	void closeSocket();
 
+	// Calls shutdown on the socket, then closes the socket handle.
+	// This will cause the socket to return from any blocking calls.
+	virtual void ungracefulShutdown();
+
 	void bindToPort(int port, bool reuse_address = false); // listen to/send from a particular port.  Creates the socket.
 
 	int getThisEndPort() const;
