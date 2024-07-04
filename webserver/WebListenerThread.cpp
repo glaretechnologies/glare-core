@@ -139,7 +139,7 @@ void WebListenerThread::doRun()
 	// Kill the child WorkerThread threads now
 	thread_manager.killThreadsBlocking();
 
-	conPrint("WebListenerThread terminated.");
+	conPrint("WebListenerThread terminating.");
 }
 
 
