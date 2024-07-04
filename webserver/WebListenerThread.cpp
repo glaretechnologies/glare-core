@@ -45,7 +45,7 @@ void WebListenerThread::doRun()
 
 		const int MAX_NUM_ATTEMPTS = 600;
 		bool bound = false;
-		for(int i=0; i<MAX_NUM_ATTEMPTS; ++i)
+		for(int i=0; (i<MAX_NUM_ATTEMPTS) && !should_quit; ++i)
 		{
 			// Create new socket
 			sock = new MySocket();
@@ -68,6 +68,8 @@ void WebListenerThread::doRun()
 
 		conPrint("WebListenerThread: Bound socket to port " + toString(listenport) + " successfully.");
 
+		m_sock = sock;
+
 		int next_thread_id = 0;
 		
 		struct tls* tls_context = NULL;
@@ -80,7 +82,7 @@ void WebListenerThread::doRun()
 				throw MySocketExcep("tls_configure failed: " + getTLSErrorString(tls_context));
 		}
 
-		while(1)
+		while(!should_quit)
 		{
 			try
 			{
@@ -138,6 +140,16 @@ void WebListenerThread::doRun()
 	thread_manager.killThreadsBlocking();
 
 	conPrint("WebListenerThread terminated.");
+}
+
+
+void WebListenerThread::kill()
+{
+	should_quit = 1;
+
+	MySocketRef sock = this->m_sock;
+	if(sock)
+		sock->ungracefulShutdown();
 }
 
 

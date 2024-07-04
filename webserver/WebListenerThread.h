@@ -10,8 +10,10 @@ Copyright Glare Technologies Limited 2021 -
 #include <Reference.h>
 #include <Platform.h>
 #include <ThreadManager.h>
+#include <AtomicInt.h>
 class PrintOutput;
 class ThreadMessageSink;
+class MySocket;
 struct tls_config;
 
 
@@ -34,7 +36,9 @@ public:
 
 	virtual ~WebListenerThread();
 
-	virtual void doRun();
+	virtual void doRun() override;
+
+	virtual void kill() override;
 
 private:
 	int listenport;
@@ -46,6 +50,9 @@ private:
 	Reference<SharedRequestHandler> shared_request_handler;
 
 	struct tls_config* tls_configuration;
+
+	Reference<MySocket> m_sock;
+	glare::AtomicInt should_quit;
 };
 
 
