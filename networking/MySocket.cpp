@@ -713,7 +713,7 @@ bool MySocket::readable(double timeout_s)
 
 
 // Block until either the socket is readable or the event_fd is signalled (becomes readable). 
-// Returns true if the socket was readable, false if the event_fd was signalled.
+// Returns true if the socket was readable or an error occurred with the socket, false if the event_fd was signalled.
 bool MySocket::readable(EventFD& event_fd)  
 {	
 #if defined(_WIN32) || defined(__APPLE__)
@@ -749,36 +749,8 @@ bool MySocket::readable(EventFD& event_fd)
 	//conPrint("poll_fds[0].revents & POLLRDHUP: " + toString((int)poll_fds[0].revents & POLLRDHUP));
 	//conPrint("poll_fds[0].revents & POLLERR:   " + toString((int)poll_fds[0].revents & POLLERR));
 
-	// Return if socket was readable.
-	return (poll_fds[0].revents & POLLIN) || (poll_fds[0].revents & POLLRDHUP);
-	
-	// Make read socket set, add event_fd as well as the socket handle.
-	/*fd_set read_sockset;
-	FD_ZERO(&read_sockset);
-	FD_SET(sockethandle, &read_sockset);
-	FD_SET(event_fd.efd, &read_sockset);
-
-	fd_set error_sockset;
-	FD_ZERO(&error_sockset);
-	FD_SET(sockethandle, &error_sockset);
-	FD_SET(event_fd.efd, &error_sockset);
-
-	// Get number of handles that are ready to read from
-	const int num = select(
-		myMax((int)sockethandle, (int)event_fd.efd) + 1, // 'nfds is the highest-numbered file descriptor in any of the three sets, plus 1.'
-		&read_sockset, // Read fds
-		NULL, // Write fds
-		&error_sockset, // Error fds
-		NULL // timout - use NULL to block indefinitely.
-	);
-
-	if(num == SOCKET_ERROR)
-		throw MySocketExcep("select failed: " + Networking::getError());
-
-	if(FD_ISSET(sockethandle, &error_sockset))
-		throw MySocketExcep(Networking::getError()); 
-
-	return FD_ISSET(sockethandle, &read_sockset);*/
+	// Return if socket was readable or if an error occurred on the socket
+	return poll_fds[0].revents != 0;
 #endif
 }
 

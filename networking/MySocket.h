@@ -148,7 +148,7 @@ public:
 
 	bool readable(double timeout_s); // Block until socket becomes readable, or the timeout is reached.
 	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).
-	// Returns true if the socket was readable, false if the event_fd was signalled.
+	// Returns true if the socket was readable or an error occurred with the socket, false if the event_fd was signalled.
 
 	// Determines if bytes are reordered into network byte order in readInt32(), writeInt32() etc..
 	// Network byte order is enabled by default.
