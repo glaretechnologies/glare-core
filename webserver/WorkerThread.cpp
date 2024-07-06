@@ -10,7 +10,6 @@ Copyright Glare Technologies Limited 2022 -
 #include "RequestInfo.h"
 #include "WebsiteExcep.h"
 #include "Escaping.h"
-#include "Log.h"
 #include "RequestHandler.h"
 #include <ConPrint.h>
 #include <Clock.h>
@@ -515,7 +514,7 @@ static void moveToFrontOfBuffer(std::vector<char>& socket_buffer, size_t request
 
 void WorkerThread::handleWebsocketConnection(RequestInfo& request_info)
 {
-	if(VERBOSE) print("WorkerThread: Connection upgraded to websocket connection.");
+	if(VERBOSE) conPrint("WorkerThread: Connection upgraded to websocket connection.");
 
 	socket->setNoDelayEnabled(true); // For websocket connections, we will want to send out lots of little packets with low latency.  So disable Nagle's algorithm, e.g. send coalescing.
 	socket->enableTCPKeepAlive(30.0f); // Keep alive the connection.
@@ -606,7 +605,7 @@ void WorkerThread::doRun()
 	}
 	catch(std::exception& e) // catch std::bad_alloc etc..
 	{
-		print(std::string("Caught std::exception: ") + e.what());
+		conPrint(std::string("Caught std::exception: ") + e.what());
 	}
 
 	// Remove thread-local OpenSSL error state, to avoid leaking it.

@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "WorkerThread.h"
 #include "RequestHandler.h"
-#include "Log.h"
 #include <ConPrint.h>
 #include <MySocket.h>
 #include <Lock.h>
@@ -128,11 +127,11 @@ void WebListenerThread::doRun()
 	}
 	catch(MySocketExcep& e)
 	{
-		print("WebListenerThread: " + e.what());
+		conPrint("WebListenerThread: " + e.what());
 	}
 	catch(glare::Exception& e)
 	{
-		print("WebListenerThread glare::Exception: " + e.what());
+		conPrint("WebListenerThread glare::Exception: " + e.what());
 	}
 	
 
