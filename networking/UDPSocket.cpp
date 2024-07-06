@@ -290,7 +290,7 @@ size_t UDPSocket::readPacket(unsigned char* buf, size_t buflen, IPAddress& sende
 		if(errno == EAGAIN || errno == EWOULDBLOCK)
 			return 0; // Then socket was marked as non-blocking and there was no data to be read.
 		
-		throw MySocketExcep("error while reading from socket.  Error code == " + Networking::getError());
+		throw MySocketExcep("Error while reading from UDP socket: " + Networking::getError());
 #endif
 	}
 
