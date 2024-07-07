@@ -32,7 +32,7 @@ class LuaScriptOutputHandler
 public:
 	virtual void printFromLuaScript(LuaScript* script, const char* s, size_t len) {}
 
-	virtual void errorOccurred(LuaScript* script, const std::string& msg) {}
+	virtual void errorOccurredFromLuaScript(LuaScript* script, const std::string& msg) {}
 };
 
 
