@@ -296,6 +296,29 @@ const std::string RFC822FormatedString(time_t t)
 }
 
 
+std::string get12HourClockLocalTimeOfDayString()
+{
+	const time_t t = time(NULL);
+	struct tm local_time;
+#ifdef _WIN32
+	localtime_s(&local_time, &t);
+#else
+	localtime_r(&t, &local_time);
+#endif
+	// 0:30   ->   0:30 am
+	// 1:30   ->   1:30 am
+	// ...
+	// 11:30   ->  11:30 am
+	// 12:30   ->  12:30 pm
+	// 13:30   ->   1:30 pm
+	// ...
+	// 23:30   ->  11:30 pm
+	const int use_hour = (local_time.tm_hour <= 12) ? local_time.tm_hour : (local_time.tm_hour - 12);
+	return toString(use_hour) + ":" + twoDigitString(local_time.tm_min) + ":" + twoDigitString(local_time.tm_sec) + 
+		((local_time.tm_hour < 12) ? " am" : " pm");
+}
+
+
 } // end namespace Clock
 
 

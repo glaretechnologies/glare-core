@@ -41,6 +41,9 @@ const std::string getAsciiTime(time_t t); // Get current time as nicely formatte
 const std::string RFC822FormatedString(); // Returns the current time, formatted.
 const std::string RFC822FormatedString(time_t t); // Get time, formatted
 
+
+std::string get12HourClockLocalTimeOfDayString(); // E.g. "2:34:50 pm"
+
 /*
 	day = Day of month (1 – 31).
 	month = Month (0 – 11; January = 0).
