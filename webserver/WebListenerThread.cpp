@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "WebListenerThread.h"
 
 
-#include "WorkerThread.h"
+#include "WebWorkerThread.h"
 #include "RequestHandler.h"
 #include <ConPrint.h>
 #include <MySocket.h>

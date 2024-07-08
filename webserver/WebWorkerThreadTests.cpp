@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #if BUILD_TESTS
 
 
-#include "WorkerThread.h"
+#include "WebWorkerThread.h"
 #include "TestUtils.h"
 #include "WebListenerThread.h"
 #include "ResponseUtils.h"

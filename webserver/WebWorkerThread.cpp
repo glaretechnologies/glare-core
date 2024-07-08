@@ -1,9 +1,9 @@
 /*=====================================================================
-WorkerThread.cpp
-----------------
-Copyright Glare Technologies Limited 2022 -
+WebWorkerThread.cpp
+-------------------
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
-#include "WorkerThread.h"
+#include "WebWorkerThread.h"
 
 
 #include <ResponseUtils.h>
