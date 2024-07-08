@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2022 -
 #include <EventFD.h>
 #include <ThreadManager.h>
 #include <SocketInterface.h>
+#include <AtomicInt.h>
 #include <set>
 #include <string>
 #include <vector>
@@ -44,7 +45,9 @@ public:
 
 	virtual ~WorkerThread();
 
-	virtual void doRun();
+	virtual void doRun() override;
+
+	virtual void kill() override;
 
 	friend class WorkerThreadTests;
 	friend void testHandleSingleRequest(const uint8_t* data, size_t size);
@@ -76,6 +79,8 @@ private:
 	size_t request_start_index; // Start index of request that we current processing.
 
 	bool tls_connection;
+
+	glare::AtomicInt should_quit;
 };
 
 

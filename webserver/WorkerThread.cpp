@@ -529,7 +529,7 @@ void WorkerThread::doRunMainLoop()
 	request_start_index = 0; // Index in socket_buffer of the start of the current request.
 	size_t double_crlf_scan_position = 0; // Index in socket_buffer of the last place we looked for a double CRLF.
 	// Loop to handle multiple requests (HTTP persistent connection)
-	while(true)
+	while(!should_quit)
 	{
 		// Read up to 'read_chunk_size' bytes of data from the socket.  Note that we may read multiple requests at once.
 		const size_t old_socket_buffer_size = socket_buffer.size();
@@ -612,6 +612,16 @@ void WorkerThread::doRun()
 	// NOTE: have to destroy socket first, before calling ERR_remove_thread_state(), otherwise memory will just be reallocated.
 	socket = NULL;
 	ERR_remove_thread_state(/*thread id=*/NULL); // Set thread ID to null to use current thread.
+}
+
+
+void WorkerThread::kill()
+{
+	should_quit = true;
+	
+	Reference<SocketInterface> socket_ = socket;
+	if(socket_)
+		socket_->ungracefulShutdown();
 }
 
 
