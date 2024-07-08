@@ -432,12 +432,12 @@ float LuaUtils::getFloat(lua_State* state, int index)
 }
 
 
-double LuaUtils::getDouble(lua_State* state, int index)
+double LuaUtils::getDoubleArg(lua_State* state, int index)
 {
 	if(lua_isnumber(state, index))
 		return lua_tonumber(state, index);
 	else
-		throw glare::Exception("Value was not a number (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+		throw glare::Exception("Argument " + toString(index) + " was not a number (argument had type '" + luaTypeString(state, lua_type(state, index)) + "')" + errorContextString(state));
 }
 
 
@@ -799,14 +799,14 @@ void LuaUtils::test()
 			lua_pop(script.thread_state, 1); // Pop nil
 
 
-			//----------------------------------- Test getDouble -----------------------------------
+			//----------------------------------- Test getDoubleArg -----------------------------------
 			lua_getglobal(script.thread_state, "n"); // Pushes onto the stack the value of the global name. Returns the type of that value.
-			testAssert(getDouble(script.thread_state, /*table index=*/-1) == 567.f);
+			testAssert(getDoubleArg(script.thread_state, /*table index=*/-1) == 567.f);
 			lua_pop(script.thread_state, 1); // Pop n
 
-			// Test getDouble on a value that is not a number
+			// Test getDoubleArg on a value that is not a number
 			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
-			testExceptionExpected([&]() { getDouble(script.thread_state, /*table index=*/-1); });
+			testExceptionExpected([&]() { getDoubleArg(script.thread_state, /*table index=*/-1); });
 			lua_pop(script.thread_state, 1); // Pop t2
 
 

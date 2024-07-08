@@ -53,7 +53,7 @@ public:
 
 	static bool getBool(lua_State* state, int index);
 	static float getFloat(lua_State* state, int index);
-	static double getDouble(lua_State* state, int index);
+	static double getDoubleArg(lua_State* state, int index);
 	// Convert a Vec3d on the Lua stack at the given index to a Vec3d.  Does not alter Lua stack.
 	static Vec3f getVec3f(lua_State* state, int index);
 	static Vec3d getVec3d(lua_State* state, int index);
