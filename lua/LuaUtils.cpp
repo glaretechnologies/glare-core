@@ -134,16 +134,22 @@ bool LuaUtils::isFunctionDefined(lua_State* state, const char* func_name)
 }
 
 
-int LuaUtils::getRefToFunction(lua_State* state, const char* func_name)
+LuaUtils::LuaFuncRefAndPtr LuaUtils::getRefToFunction(lua_State* state, const char* func_name)
 {
 	lua_getglobal(state, func_name); // Push function onto stack (or nil if it isn't defined)
 	
-	int ref = LUA_NOREF;
+	LuaFuncRefAndPtr res;
+	res.ref = LUA_NOREF;
+	res.func_ptr = nullptr;
+
 	if(lua_isfunction(state, -1)) // If function was defined
-		ref = lua_ref(state, /*index=*/-1); // Get reference to func (does not pop)
+	{
+		res.ref = lua_ref(state, /*index=*/-1); // Get reference to func (does not pop)
+		res.func_ptr = lua_topointer(state, /*index=*/-1); // Get pointer to func (does not pop)
+	}
 	
 	lua_pop(state, 1);
-	return ref;
+	return res;
 }
 
 
