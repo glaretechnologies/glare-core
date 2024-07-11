@@ -102,15 +102,15 @@ public:
 
 	inline T& operator[] (size_t index);
 	
-	inline T* data() const { return const_cast<T*>(data_); }
+	inline T* data() const { return const_cast<T*>(ArrayRef<T>::data_); }
 
 	//-----------------------------------------------------------------
 	// iterator stuff
 	//-----------------------------------------------------------------
 	typedef T* iterator;
 
-	inline iterator begin() { return data_; }
-	inline iterator end() { return data_ + len; }
+	inline iterator begin() { return data(); }
+	inline iterator end() { return data() + len; }
 };
 
 
