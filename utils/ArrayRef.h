@@ -19,6 +19,8 @@ ArrayRef
 A (pointer, size) pair.
 Offers a read-only view on a contiguous array of values.
 Idea based on LLVM's ArrayRef.
+
+Use MutableArrayRef (defined below) for a read/write view.
 ======================================================================================*/
 template <class T>
 class ArrayRef
@@ -37,10 +39,11 @@ public:
 	template <size_t A>
 	inline ArrayRef(const js::Vector<T, A>& a)  : data_(a.data()), len(a.size()) {}
 
-	inline T& operator[] (size_t index);
 	inline const T& operator[] (size_t index) const;
 
 	inline size_t size() const { return len; }
+
+	inline size_t dataSizeBytes() const { return len * sizeof(T); }
 	
 	inline const T* data() const { return data_; }
 
@@ -60,7 +63,7 @@ public:
 	inline const_iterator begin() const { return data_; }
 	inline const_iterator end() const { return data_ + len; }
 
-private:
+protected:
 	const T* data_;
 	size_t len;
 };
@@ -73,16 +76,53 @@ ArrayRef<T>::ArrayRef(const T* newdata, size_t len_)
 
 
 template <class T>
-T& ArrayRef<T>::operator[] (size_t index)
+const T& ArrayRef<T>::operator[] (size_t index) const
 {
 	assert(index < len);
 	return data_[index];
 }
 
 
+
+/*======================================================================================
+MutableArrayRef
+---------------
+A (pointer, size) pair.
+Offers a read/write view on a contiguous array of values.
+Idea based on LLVM's MutableArrayRef.
+
+Make it inherit from ArrayRef so that we can pass a MutableArrayRef to a function taking ArrayRef parameters.
+(This makes sense as something providing read/write can also provide read-only access)
+======================================================================================*/
 template <class T>
-const T& ArrayRef<T>::operator[] (size_t index) const
+class MutableArrayRef : public ArrayRef<T>
 {
-	assert(index < len);
-	return data_[index];
+public:
+	inline MutableArrayRef(T* data, size_t len);
+
+	inline T& operator[] (size_t index);
+	
+	inline T* data() const { return const_cast<T*>(data_); }
+
+	//-----------------------------------------------------------------
+	// iterator stuff
+	//-----------------------------------------------------------------
+	typedef T* iterator;
+
+	inline iterator begin() { return data_; }
+	inline iterator end() { return data_ + len; }
+};
+
+
+template <class T>
+MutableArrayRef<T>::MutableArrayRef(T* newdata, size_t len_)
+:	ArrayRef<T>(newdata, len_)
+{}
+
+
+template <class T>
+T& MutableArrayRef<T>::operator[] (size_t index)
+{
+	assert(index < ArrayRef<T>::len);
+	return (const_cast<T*>(ArrayRef<T>::data_))[index];
 }
