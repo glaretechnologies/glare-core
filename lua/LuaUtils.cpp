@@ -169,10 +169,12 @@ static std::string luaTypeString(lua_State* state, int type)
 }
 
 
-void LuaUtils::setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, int table_index, const char* field_key)
+void LuaUtils::setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, const char* field_key)
 {
+	assert(lua_istable(state, -1));
+
 	lua_pushcfunction(state, fn, debugname);
-	lua_rawsetfield(state, table_index, field_key); // pops value (function) from stack
+	lua_rawsetfield(state, /*table_index=*/-2, field_key); // pops value (function) from stack
 }
 
 
@@ -591,6 +593,12 @@ void LuaUtils::pushVec3d(lua_State* state, const Vec3d& v)
 	setNumberAsTableField(state, "x", v.x);
 	setNumberAsTableField(state, "y", v.y);
 	setNumberAsTableField(state, "z", v.z);
+
+	LuaScript* lua_script = static_cast<LuaScript*>(lua_getthreaddata(state));
+
+	// Assign Vec3d metatable to the table
+	lua_getref(state, lua_script->Vec3dMetaTable_ref); // Push Vec3dMetaTable onto stack
+	lua_setmetatable(state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
 }
 
 

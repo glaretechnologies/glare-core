@@ -32,8 +32,8 @@ public:
 	};
 	static LuaFuncRefAndPtr getRefToFunction(lua_State* state, const char* func_name);
 
-	static void setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, int table_index, const char* field_key);
-
+	// Assumes table is on top of stack.
+	static void setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, const char* field_key);
 	// Assumes table is on top of stack
 	static inline void setLightUserDataAsTableField(lua_State* state, const char* field_key, void* val);
 	// Assumes table is on top of stack
@@ -81,6 +81,8 @@ public:
 // Assumes table is on top of stack.
 inline void LuaUtils::setLightUserDataAsTableField(lua_State* state, const char* field_key, void* val)
 {
+	assert(lua_istable(state, -1));
+
 	lua_pushlightuserdata(state, val);
 	lua_rawsetfield(state, /*table index=*/-2, field_key);
 }
@@ -89,6 +91,8 @@ inline void LuaUtils::setLightUserDataAsTableField(lua_State* state, const char*
 // Assumes table is on top of stack.
 void LuaUtils::setNumberAsTableField(lua_State* state, const char* field_key, double x)
 {
+	assert(lua_istable(state, -1));
+
 	lua_pushnumber(state, x);
 	lua_rawsetfield(state, /*table index=*/-2, field_key);
 }

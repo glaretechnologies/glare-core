@@ -14,7 +14,6 @@ typedef int (*lua_CFunction)(lua_State* L);
 /*=====================================================================
 LuaVM
 -----
-
 =====================================================================*/
 class LuaVM
 {
@@ -25,8 +24,8 @@ public:
 	// Call once you have finished adding global functions
 	void finishInitAndSandbox();
 
-	
-	void setCFunctionAsTableField(lua_CFunction fn, const char* debugname, int table_index, const char* field_key);
+	// Assumes table is on top of stack.
+	void setCFunctionAsTableField(lua_CFunction fn, const char* debugname, const char* field_key);
 
 	lua_State* state;
 
@@ -35,4 +34,6 @@ public:
 	int64 max_total_mem_allowed;
 
 	bool init_finished;
+
+	int Vec3dMetaTable_ref;
 };

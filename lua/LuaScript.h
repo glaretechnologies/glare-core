@@ -99,4 +99,6 @@ public:
 	LuaScriptOutputHandler* script_output_handler;
 
 	void* userdata;
+
+	int Vec3dMetaTable_ref;
 };

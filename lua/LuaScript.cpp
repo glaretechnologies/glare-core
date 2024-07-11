@@ -30,6 +30,8 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 		if(!lua_vm->init_finished)
 			lua_vm->finishInitAndSandbox();
 
+		this->Vec3dMetaTable_ref = lua_vm->Vec3dMetaTable_ref;
+
 		// conPrint("---------LuaScript::LuaScript()------------");
 		thread_state = lua_newthread(lua_vm->state); // Creates a new thread, pushes it on the stack, and returns a pointer to a lua_State that represents this new thread
 		if(!thread_state)

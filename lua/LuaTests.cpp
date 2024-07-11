@@ -233,6 +233,16 @@ public:
 
 	std::string buf;
 };
+class PrinterTestLuaScriptOutputHandler : public LuaScriptOutputHandler
+{
+public:
+	virtual void printFromLuaScript(LuaScript* lua_script, const char* s, size_t len) override
+	{
+		conPrint(std::string(s, len));
+		buf += std::string(s, len);
+	}
+	std::string buf;
+};
 
 
 void LuaTests::test()
@@ -324,23 +334,121 @@ void LuaTests::test()
 			failTest("Failed:" + e.what());
 		}
 
-		//========================== Test vector type ==========================
+		//========================== Test vector (Vec3f) type ==========================
 		try
 		{
 			LuaVM vm;
 
+			PrinterTestLuaScriptOutputHandler output_handler;
 			LuaScriptOptions options;
+			options.script_output_handler = &output_handler;
 
 			//const std::string src = "print(v)  \n  print(v.Y)  \n  print(v.Z)";
 			//const std::string src = "print(tostring(v.x))  \n  print(tostring(v.y))  \n  print(tostring(v.z))";
 			//const std::string src = "local v = vector(1, 2, 3)  \n   local a = v.x    \n    ";
-			const std::string src = "function testVecFunc(v : Vec3f) print(tostring(v.x)) end ";
+			const std::string src = "function testVecFunc(v : Vec3f) print(tostring(v.y)) end ";
 			LuaScript script(&vm, options, src);
 			script.exec();
 			
 			lua_getglobal(script.thread_state, "testVecFunc");  // Push function to be called onto stack
-			lua_pushvector(script.thread_state, 1.0, 2.0, 3.0);
+			lua_pushvector(script.thread_state, 10.0, 20.0, 30.0);
 			lua_call(script.thread_state, /*nargs=*/1, /*nresults=*/0);
+
+			testAssert(output_handler.buf == "20");
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+		try
+		{
+			LuaVM vm;
+
+			PrinterTestLuaScriptOutputHandler output_handler;
+			LuaScriptOptions options;
+			options.script_output_handler = &output_handler;
+
+			{
+			//const std::string src = "local v = Vec3f(10, 20, 30)      print(v.z)";
+			const std::string src = "local v1 = Vec3f(10, 20, 30)   local v2 = Vec3f(1, 2, 3)   local v3 = v1 + v2     print(v3.z)";
+			LuaScript script(&vm, options, src);
+			script.exec();
+			testAssert(output_handler.buf == "33");
+			}
+
+			// Test other operators
+			{
+			const std::string src = 
+				"local v1 = Vec3f(10, 20, 30)   \n"
+				"local v2 = Vec3f(1, 2, 3)          \n"
+				"local v3 = v1 + v2     assert(v3.y == 22.0)     \n"
+				"local v4 = v1 - v2     assert(v4.y == 18.0)     \n"
+				"local v5 = -v1			assert(v5.y == -20.0)    \n" // Check unary minus
+				"assert(v1 == Vec3f(10, 20, 30))                 \n" // Check equality operator
+				"assert(v1 == v1)                                \n" // Check equality operator
+				"assert(v1 + v2 == Vec3f(11, 22, 33))            \n" // Check equality operator
+				"";
+			LuaScript script(&vm, options, src);
+			script.exec();
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+		//========================== Test Vec3d type ==========================
+		// Test Vec3d constructor
+		try
+		{
+			LuaVM vm;
+
+			PrinterTestLuaScriptOutputHandler output_handler;
+			LuaScriptOptions options;
+			options.script_output_handler = &output_handler;
+
+			const std::string src = "local v1 = Vec3d(10, 20, 30) print(v1.z)";
+			LuaScript script(&vm, options, src);
+			script.exec();
+			
+			testAssert(output_handler.buf == "30");
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+		// Test addition operator etc.
+		try
+		{
+			LuaVM vm;
+
+			PrinterTestLuaScriptOutputHandler output_handler;
+			LuaScriptOptions options;
+			options.script_output_handler = &output_handler;
+
+			{
+			output_handler.buf.clear();
+			const std::string src = "local v1 = Vec3d(10, 20, 30)   local v2 = Vec3d(1, 2, 3)   local v3 = v1 + v2     print(v3.y)";
+			LuaScript script(&vm, options, src);
+			script.exec();
+			testAssert(output_handler.buf == "22");
+			}
+			{
+			const std::string src = 
+				"local v1 = Vec3d(10, 20, 30)   \n"
+				"local v2 = Vec3d(1, 2, 3)          \n"
+				"local v3 = v1 + v2     assert(v3.y == 22.0)     \n" // v3 = (11, 22, 33)
+				"local v4 = v1 - v2     assert(v4.y == 18.0)     \n"
+				"local v5 = -v1			assert(v5.y == -20.0)    \n" // Check unary minus
+				"assert(v1 == Vec3d(10, 20, 30))                 \n" // Check equality operator
+				"assert(v1 == v1)                                \n" // Check equality operator
+				"assert(v1 + v2 == Vec3d(11, 22, 33))            \n" // Check equality operator
+				"local v6 = v3 + v1     assert(v6 == Vec3d(21, 42, 63))     \n" // Check operators work on Vec3d returned from operator.
+				"";
+			LuaScript script(&vm, options, src);
+			script.exec();
+			}
 		}
 		catch(glare::Exception& e)
 		{

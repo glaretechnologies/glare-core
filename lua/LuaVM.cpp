@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "LuaScript.h"
+#include "LuaUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
@@ -96,6 +97,50 @@ static int glareLuaPrint(lua_State* L)
 }
 
 
+static int Vec3dConstructor(lua_State* state)
+{
+	Vec3d v;
+	v.x = LuaUtils::getDoubleArg(state, /*index=*/1);
+	v.y = LuaUtils::getDoubleArg(state, /*index=*/2);
+	v.z = LuaUtils::getDoubleArg(state, /*index=*/3);
+
+	LuaUtils::pushVec3d(state, v);
+
+	return 1; // Return number of results left on stack
+}
+
+static int Vec3dAdd(lua_State* state)
+{
+	const Vec3d v_a = LuaUtils::getVec3d(state, /*index=*/1);
+	const Vec3d v_b = LuaUtils::getVec3d(state, /*index=*/2);
+	LuaUtils::pushVec3d(state, v_a + v_b);
+	return 1; // Return number of results left on stack
+}
+
+static int Vec3dSub(lua_State* state)
+{
+	const Vec3d v_a = LuaUtils::getVec3d(state, /*index=*/1);
+	const Vec3d v_b = LuaUtils::getVec3d(state, /*index=*/2);
+	LuaUtils::pushVec3d(state, v_a - v_b);
+	return 1; // Return number of results left on stack
+}
+
+static int Vec3dUnaryMinus(lua_State* state)
+{
+	const Vec3d v_a = LuaUtils::getVec3d(state, /*index=*/1);
+	LuaUtils::pushVec3d(state, -v_a);
+	return 1; // Return number of results left on stack
+}
+
+static int Vec3dEqualityOperator(lua_State* state)
+{
+	const Vec3d v_a = LuaUtils::getVec3d(state, /*index=*/1);
+	const Vec3d v_b = LuaUtils::getVec3d(state, /*index=*/2);
+	lua_pushboolean(state, v_a == v_b);
+	return 1; // Return number of results left on stack
+}
+
+
 LuaVM::LuaVM()
 :	state(NULL),
 	total_allocated(0),
@@ -114,7 +159,7 @@ LuaVM::LuaVM()
 
 	try
 	{
-		state = lua_newstate(glareLuaAlloc, /*userdata=*/this);
+		state = lua_newstate(glareLuaAlloc, /*ud (auxiliary data to `frealloc')=*/this);
 		if(!state)
 			throw glare::Exception("lua_newstate failed.");
 
@@ -123,6 +168,23 @@ LuaVM::LuaVM()
 		// Override print.  We will supply our own implementation so print() calls don't output to stdout.
 		lua_pushcfunction(state, glareLuaPrint, /*debugname=*/"glareLuaPrint");
 		lua_setglobal(state, "print");
+
+		lua_pushcfunction(state, Vec3dConstructor, /*debugname=*/"Vec3d");
+		lua_setglobal(state, "Vec3d");
+
+		//--------------------------- Create Vec3d Metatable ---------------------------
+		lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/4); // Create metatable
+			
+		setCFunctionAsTableField(Vec3dAdd,              /*debugname=*/"Vec3dAdd",              /*key=*/"__add");
+		setCFunctionAsTableField(Vec3dSub,              /*debugname=*/"Vec3dSub",              /*key=*/"__sub");
+		setCFunctionAsTableField(Vec3dUnaryMinus,       /*debugname=*/"Vec3dUnaryMinus",       /*key=*/"__unm");
+		setCFunctionAsTableField(Vec3dEqualityOperator, /*debugname=*/"Vec3dEqualityOperator", /*key=*/"__eq");
+
+		lua_setreadonly(state, /*index=*/-1, /*enabled=*/1); // Set metatable as read-only.
+
+		Vec3dMetaTable_ref = lua_ref(state, /*index=*/-1); // Get reference to metatable.  Does not pop.
+		lua_pop(state, 1); // Pop metatable from stack
+		//--------------------------- End create Vec3d Metatable ---------------------------
 
 		lua_callbacks(state)->interrupt = glareLuaInterrupt;
 	}
@@ -154,8 +216,11 @@ void LuaVM::finishInitAndSandbox()
 }
 
 
-void LuaVM::setCFunctionAsTableField(lua_CFunction fn, const char* debugname, int table_index, const char* field_key)
+// Assumes table is on top of stack.
+void LuaVM::setCFunctionAsTableField(lua_CFunction fn, const char* debugname, const char* field_key)
 {
+	assert(lua_istable(state, -1));
+
 	lua_pushcfunction(state, fn, debugname);
-	lua_rawsetfield(state, table_index, field_key); // pops value (function) from stack
+	lua_rawsetfield(state, /*table_index=*/-2, field_key); // pops value (function) from stack
 }
