@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/ConPrint.h"
 #include "../utils/Sort.h"
 #include "../utils/IncludeHalf.h"
+#include "../utils/StackAllocator.h"
 #include <vector>
 
 
@@ -120,12 +121,15 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 
 // No normals version
 Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, 
-	const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec2f, 16>& uvs, const js::Vector<uint32, 16>& indices)
+	ArrayRef<float> vert_pos_and_uvs, ArrayRef<uint32> indices, glare::StackAllocator& stack_allocator)
 {
+	const int NUM_COMPONENTS = 5;
+	assert(vert_pos_and_uvs.size() % NUM_COMPONENTS == 0);
+
 	Reference<OpenGLMeshRenderData> meshdata_ref = new OpenGLMeshRenderData();
 	OpenGLMeshRenderData& meshdata = *meshdata_ref;
 
-	meshdata.has_uvs = !uvs.empty();
+	meshdata.has_uvs = true;
 	meshdata.has_shading_normals = false;
 	meshdata.batches.resize(1);
 	meshdata.batches[0].material_index = 0;
@@ -135,28 +139,22 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 	meshdata.aabb_os = js::AABBox::emptyAABBox();
 	meshdata.num_materials_referenced = 1;
 
-	const size_t vertices_size = vertices.size();
+	const size_t num_vertices = vert_pos_and_uvs.size() / NUM_COMPONENTS;
 
-	const int NUM_COMPONENTS = 5;
-	js::Vector<float, 16> combined_vert_data(NUM_COMPONENTS * vertices_size);
-	for(size_t i=0; i<vertices_size; ++i)
+	for(size_t i=0; i<num_vertices; ++i)
 	{
-		combined_vert_data[i*NUM_COMPONENTS + 0] = vertices[i].x;
-		combined_vert_data[i*NUM_COMPONENTS + 1] = vertices[i].y;
-		combined_vert_data[i*NUM_COMPONENTS + 2] = vertices[i].z;
-		combined_vert_data[i*NUM_COMPONENTS + 3] = uvs[i].x;
-		combined_vert_data[i*NUM_COMPONENTS + 4] = uvs[i].y;
-
-		meshdata.aabb_os.enlargeToHoldPoint(Vec4f(vertices[i].x, vertices[i].y, vertices[i].z, 1.f));
+		const Vec4f vertpos(vert_pos_and_uvs[i*NUM_COMPONENTS + 0], vert_pos_and_uvs[i*NUM_COMPONENTS + 1], vert_pos_and_uvs[i*NUM_COMPONENTS + 2], 1.f);
+		meshdata.aabb_os.enlargeToHoldPoint(vertpos);
 	}
 
-
-	if(vertices_size < 65536)
+	if(num_vertices < 65536)
 	{
 		meshdata.setIndexType(GL_UNSIGNED_SHORT);
 
 		const size_t indices_size = indices.size();
-		js::Vector<uint16, 16> index_buf(indices_size); // Build array of uint16 indices.
+		// Build array of uint16 indices.
+		glare::StackAllocation index_buf_allocation(sizeof(uint16) * indices_size, /*alignment=*/16, stack_allocator);
+		MutableArrayRef<uint16> index_buf((uint16*)index_buf_allocation.ptr, indices_size);
 		for(size_t i=0; i<indices_size; ++i)
 		{
 			assert(indices[i] < 65536);
@@ -203,7 +201,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 	uv_attrib.offset = (uint32)(sizeof(float) * 3); // after position.
 	spec.attributes.push_back(uv_attrib);
 
-	meshdata.vbo_handle = allocator.allocateVertexDataSpace(vert_stride, combined_vert_data.data(), combined_vert_data.dataSizeBytes());
+	meshdata.vbo_handle = allocator.allocateVertexDataSpace(vert_stride, vert_pos_and_uvs.data(), vert_pos_and_uvs.dataSizeBytes());
 
 	allocator.getOrCreateAndAssignVAOForMesh(meshdata, spec);
 

@@ -20,7 +20,8 @@ static const int tooltip_font_size_px = 12;
 
 GLUI::GLUI()
 :	callbacks(NULL),
-	mouse_over_text_input_widget(false)
+	mouse_over_text_input_widget(false),
+	stack_allocator(NULL)
 {
 }
 
@@ -31,12 +32,15 @@ GLUI::~GLUI()
 }
 
 
-void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, const TextRendererFontFaceSizeSetRef& fonts_, const TextRendererFontFaceSizeSetRef& emoji_fonts_)
+void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ratio_, 
+	const TextRendererFontFaceSizeSetRef& fonts_, const TextRendererFontFaceSizeSetRef& emoji_fonts_,
+	glare::StackAllocator* stack_allocator_)
 {
 	opengl_engine = opengl_engine_;
 	device_pixel_ratio = device_pixel_ratio_;
 	fonts = fonts_;
 	emoji_fonts = emoji_fonts_;
+	stack_allocator = stack_allocator_;
 
 	tooltip_overlay_ob = new OverlayObject();
 	tooltip_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();

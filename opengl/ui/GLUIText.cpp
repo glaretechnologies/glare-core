@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/StringUtils.h"
 #include "../utils/UTF8Utils.h"
 #include "../utils/RuntimeCheck.h"
+#include "../utils/StackAllocator.h"
 
 
 static inline Vec2f toVec2f(const Vec3f& v)
@@ -22,75 +23,112 @@ static inline Vec2f toVec2f(const Vec3f& v)
 }
 
 
+static inline void setVec2f(MutableArrayRef<float> array, size_t index, const Vec2f& v)
+{
+	array[index + 0] = v.x;
+	array[index + 1] = v.y;
+}
+static inline void setVec3f(MutableArrayRef<float> array, size_t index, const Vec3f& v)
+{
+	array[index + 0] = v.x;
+	array[index + 1] = v.y;
+	array[index + 2] = v.z;
+}
+
 Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(Reference<OpenGLEngine>& opengl_engine, FontCharTexCache* font_char_text_cache, 
 	TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float vert_pos_scale, bool render_SDF, 
+	glare::StackAllocator& stack_allocator,
 	Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out)
 {
 	// Make mesh data
 	rect_os_out = Rect2f(Vec2f(0.f), Vec2f(0.f));
 	char_positions_font_coords_out.clear();
 
-	const size_t num_codepoints = UTF8Utils::numCodePointsInString(text);
+	const size_t text_size = text.size();
 
-	js::Vector<Vec3f, 16> verts(num_codepoints * 4);
-	js::Vector<Vec2f, 16> uvs(num_codepoints * 4);
-	js::Vector<uint32, 16> indices(num_codepoints * 6); // num_codepoints * 2 tris/code point * 3 indices/tri
-
-	size_t cur_string_byte_i = 0;
-	Vec3f cur_char_pos(0.f);
-	for(size_t i=0; i<num_codepoints; ++i)
+	// Do a pass over text to count number of glyph quads
+	size_t num_quads = 0;
+	for(size_t cur_string_byte_i = 0; cur_string_byte_i < text_size; )
 	{
-		runtimeCheck(cur_string_byte_i < text.size());
+		if(text[cur_string_byte_i] != '\n') // Don't draw a glyph for newlines
+			num_quads++;
+
 		const size_t char_num_bytes = UTF8Utils::numBytesForChar(text[cur_string_byte_i]);
-		if(cur_string_byte_i + char_num_bytes > text.size())
-			throw glare::Exception("Invalid UTF-8 string.");
-		const string_view substring(text.data() + cur_string_byte_i, char_num_bytes);
-		const CharTexInfo info = font_char_text_cache->getCharTexture(opengl_engine, fonts, emoji_fonts, substring, font_size_px, render_SDF);
-		atlas_texture_out = info.tex;
-		
+		cur_string_byte_i += char_num_bytes;
+	}
 
-		// NOTE: min and max y texcoords are interchanged with increasing y downwards, due to texture effectively being flipped vertically when loaded into OpenGL.
-		uvs[i*4 + 0] = Vec2f(info.atlas_glyph_min_texcoords.x, info.atlas_glyph_max_texcoords.y); // bot left vertex
-		uvs[i*4 + 1] = Vec2f(info.atlas_glyph_min_texcoords.x, info.atlas_glyph_min_texcoords.y); // top left vertex
-		uvs[i*4 + 2] = Vec2f(info.atlas_glyph_max_texcoords.x, info.atlas_glyph_min_texcoords.y); // top right vertex
-		uvs[i*4 + 3] = Vec2f(info.atlas_glyph_max_texcoords.x, info.atlas_glyph_max_texcoords.y); // bot right vertex
+	// Allocate space for vertex and index data.
+	const size_t NUM_COMPONENTS = 5; // 3 pos coords + 2 uv coords
+	glare::StackAllocation verts_and_uvs_buf(sizeof(float) * num_quads * 4 * NUM_COMPONENTS, /*alignment=*/16, stack_allocator); // num verts = num_quads * 4
+	MutableArrayRef<float> verts_and_uvs((float*)verts_and_uvs_buf.ptr, verts_and_uvs_buf.size / sizeof(float));
 
+	glare::StackAllocation indices_buf(sizeof(uint32) * num_quads * 6, /*alignment=*/16, stack_allocator); // num_indices = num_quads * 2 tris/quad * 3 indices/tri = num_quads * 6
+	MutableArrayRef<uint32> indices((uint32*)indices_buf.ptr, indices_buf.size / sizeof(uint32));
 
-		const Vec3f min_pos = (cur_char_pos + Vec3f((float)info.size_info.min_bounds.x, (float)info.size_info.min_bounds.y, 0)) * vert_pos_scale;
-		const Vec3f max_pos = (cur_char_pos + Vec3f((float)info.size_info.max_bounds.x, (float)info.size_info.max_bounds.y, 0)) * vert_pos_scale;
-		
-		verts[i*4 + 0] = min_pos;                                // bot left vertex
-		verts[i*4 + 1] = Vec3f(min_pos.x, max_pos.y, min_pos.z); // top left vertex
-		verts[i*4 + 2] = max_pos;                                // top right vertex
-		verts[i*4 + 3] = Vec3f(max_pos.x, min_pos.y, min_pos.z); // bot right vertex
+	Vec3f cur_char_pos(0.f);
+	size_t quad_i = 0;
+	for(size_t cur_string_byte_i = 0; cur_string_byte_i < text_size; )
+	{
+		const size_t char_num_bytes = UTF8Utils::numBytesForChar(text[cur_string_byte_i]);
 
-
-		CharPositionInfo pos_info;
-		pos_info.pos = Vec2f(cur_char_pos.x, 0.f);
-		pos_info.hori_advance = info.size_info.hori_advance;
-		char_positions_font_coords_out.push_back(pos_info);
-
-		cur_char_pos.x += info.size_info.hori_advance;
-
-		if(i == 0)
-			rect_os_out = Rect2f(toVec2f(min_pos), toVec2f(max_pos));
+		if(text[cur_string_byte_i] == '\n')
+		{
+			cur_char_pos.x = 0;
+			cur_char_pos.y -= font_size_px * 1.2f; // Standard line height factor is ~1.2 apparently: https://developer.mozilla.org/en-US/docs/Web/CSS/line-height
+		}
 		else
 		{
-			rect_os_out.enlargeToHoldPoint(toVec2f(min_pos));
-			rect_os_out.enlargeToHoldPoint(toVec2f(max_pos));
-		}
+			if(cur_string_byte_i + char_num_bytes > text_size)
+				throw glare::Exception("Invalid UTF-8 string.");
+			const string_view substring(text.data() + cur_string_byte_i, char_num_bytes);
 
-		indices[i*6 + 0] = (uint32)i*4 + 0;
-		indices[i*6 + 1] = (uint32)i*4 + 1;
-		indices[i*6 + 2] = (uint32)i*4 + 2;
-		indices[i*6 + 3] = (uint32)i*4 + 0;
-		indices[i*6 + 4] = (uint32)i*4 + 2;
-		indices[i*6 + 5] = (uint32)i*4 + 3;
+			const CharTexInfo info = font_char_text_cache->getCharTexture(opengl_engine, fonts, emoji_fonts, substring, font_size_px, render_SDF);
+			atlas_texture_out = info.tex;
+
+			const Vec3f min_pos = (cur_char_pos + Vec3f((float)info.size_info.min_bounds.x, (float)info.size_info.min_bounds.y, 0)) * vert_pos_scale;
+			const Vec3f max_pos = (cur_char_pos + Vec3f((float)info.size_info.max_bounds.x, (float)info.size_info.max_bounds.y, 0)) * vert_pos_scale;
+		
+			setVec3f(verts_and_uvs, (quad_i*4 + 0) * NUM_COMPONENTS, min_pos);                                // bot left vertex
+			setVec3f(verts_and_uvs, (quad_i*4 + 1) * NUM_COMPONENTS, Vec3f(min_pos.x, max_pos.y, min_pos.z)); // top left vertex
+			setVec3f(verts_and_uvs, (quad_i*4 + 2) * NUM_COMPONENTS, max_pos);                                // top right vertex
+			setVec3f(verts_and_uvs, (quad_i*4 + 3) * NUM_COMPONENTS, Vec3f(max_pos.x, min_pos.y, min_pos.z)); // bot right vertex
+
+			// NOTE: min and max y texcoords are interchanged with increasing y downwards, due to texture effectively being flipped vertically when loaded into OpenGL.
+			const int UV_OFFSET = 3;
+			setVec2f(verts_and_uvs, (quad_i*4 + 0) * NUM_COMPONENTS + UV_OFFSET, Vec2f(info.atlas_glyph_min_texcoords.x, info.atlas_glyph_max_texcoords.y)); // bot left vertex
+			setVec2f(verts_and_uvs, (quad_i*4 + 1) * NUM_COMPONENTS + UV_OFFSET, Vec2f(info.atlas_glyph_min_texcoords.x, info.atlas_glyph_min_texcoords.y)); // top left vertex
+			setVec2f(verts_and_uvs, (quad_i*4 + 2) * NUM_COMPONENTS + UV_OFFSET, Vec2f(info.atlas_glyph_max_texcoords.x, info.atlas_glyph_min_texcoords.y)); // top right vertex
+			setVec2f(verts_and_uvs, (quad_i*4 + 3) * NUM_COMPONENTS + UV_OFFSET, Vec2f(info.atlas_glyph_max_texcoords.x, info.atlas_glyph_max_texcoords.y)); // bot right vertex
+
+			CharPositionInfo pos_info;
+			pos_info.pos = Vec2f(cur_char_pos.x, cur_char_pos.y);
+			pos_info.hori_advance = info.size_info.hori_advance;
+			char_positions_font_coords_out.push_back(pos_info);
+
+			cur_char_pos.x += info.size_info.hori_advance;
+
+			if(quad_i == 0)
+				rect_os_out = Rect2f(toVec2f(min_pos), toVec2f(max_pos));
+			else
+			{
+				rect_os_out.enlargeToHoldPoint(toVec2f(min_pos));
+				rect_os_out.enlargeToHoldPoint(toVec2f(max_pos));
+			}
+
+			indices[quad_i*6 + 0] = (uint32)quad_i*4 + 0;
+			indices[quad_i*6 + 1] = (uint32)quad_i*4 + 1;
+			indices[quad_i*6 + 2] = (uint32)quad_i*4 + 2;
+			indices[quad_i*6 + 3] = (uint32)quad_i*4 + 0;
+			indices[quad_i*6 + 4] = (uint32)quad_i*4 + 2;
+			indices[quad_i*6 + 5] = (uint32)quad_i*4 + 3;
+
+			quad_i++;
+		}
 
 		cur_string_byte_i += char_num_bytes;
 	}
 
-	return GLMeshBuilding::buildMeshRenderData(*opengl_engine->vert_buf_allocator, verts, uvs, indices);
+	return GLMeshBuilding::buildMeshRenderData(*opengl_engine->vert_buf_allocator, verts_and_uvs, indices, stack_allocator);
 }
 
 
@@ -110,7 +148,7 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 		OpenGLTextureRef atlas_texture;
 
 		Reference<OpenGLMeshRenderData> mesh_data = makeMeshDataForText(opengl_engine_, glui.font_char_text_cache.ptr(), glui.getFonts(), glui.getEmojiFonts(), text, font_size_px, /*vert_pos_scale=*/1.f, 
-			/*render_SDF=*/false,
+			/*render_SDF=*/false, *glui.stack_allocator,
 			/*rect os out=*/rect_os, /*atlas texture out=*/atlas_texture, /*char_positions_font_coords_out=*/char_positions_fc);
 
 		const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
@@ -238,7 +276,7 @@ int GLUIText::cursorPosForUICoords(GLUI& /*glui*/, const Vec2f& coords)
 		if(dist < closest_dist)
 		{
 			best_cursor_pos = (int)char_positions_fc.size();
-			assert(best_cursor_pos == UTF8Utils::numCodePointsInString(text));
+			assert(best_cursor_pos == (int)UTF8Utils::numCodePointsInString(text));
 			closest_dist = dist;
 		}
 	}

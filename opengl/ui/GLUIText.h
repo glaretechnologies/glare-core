@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2024 -
 class GLUI;
 class FontCharTexCache;
 class TextRendererFontFaceSizeSet;
+namespace glare { class StackAllocator; }
 
 
 /*=====================================================================
@@ -53,6 +54,7 @@ public:
 
 	static Reference<OpenGLMeshRenderData> makeMeshDataForText(Reference<OpenGLEngine>& opengl_engine, FontCharTexCache* font_char_text_cache, 
 		TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float vert_pos_scale, bool render_SDF, 
+		glare::StackAllocator& stack_allocator,
 		Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out);
 
 

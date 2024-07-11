@@ -19,6 +19,7 @@ Copyright Glare Technologies Limited 2021 -
 
 class GLUIMouseWheelEvent;
 class GLUICallbacks;
+namespace glare { class StackAllocator; }
 
 
 /*=====================================================================
@@ -38,7 +39,9 @@ public:
 	~GLUI();
 
 	// device_pixel_ratio is basically a scale factor for sizes in pixels.
-	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, const TextRendererFontFaceSizeSetRef& fonts, const TextRendererFontFaceSizeSetRef& emoji_fonts);
+	void create(Reference<OpenGLEngine>& opengl_engine, float device_pixel_ratio, 
+		const TextRendererFontFaceSizeSetRef& fonts, const TextRendererFontFaceSizeSetRef& emoji_fonts,
+		glare::StackAllocator* stack_allocator);
 
 	void destroy();
 
@@ -90,6 +93,7 @@ public:
 
 	FontCharTexCacheRef font_char_text_cache;
 
+	glare::StackAllocator* stack_allocator;
 private:
 	GLARE_DISABLE_COPY(GLUI);
 

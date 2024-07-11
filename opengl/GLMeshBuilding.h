@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2022 -
 
 #include <utils/Reference.h>
 #include <utils/Vector.h>
+#include <utils/ArrayRef.h>
 #include <maths/vec2.h>
 #include <maths/vec3.h>
 class OpenGLMeshRenderData;
@@ -15,6 +16,7 @@ class VBO;
 class BatchedMesh;
 class VertexBufferAllocator;
 namespace Indigo { class Mesh; }
+namespace glare { class StackAllocator; }
 
 
 /*=====================================================================
@@ -30,8 +32,8 @@ public:
 		const js::Vector<uint32, 16>& indices);
 
 	// Build OpenGLMeshRenderData from vectors of just vertices, uvs and indices.
-	static Reference<OpenGLMeshRenderData> buildMeshRenderData(VertexBufferAllocator& allocator, const js::Vector<Vec3f, 16>& vertices, const js::Vector<Vec2f, 16>& uvs, 
-		const js::Vector<uint32, 16>& indices);
+	static Reference<OpenGLMeshRenderData> buildMeshRenderData(VertexBufferAllocator& allocator, ArrayRef<float> vert_pos_and_uvs, ArrayRef<uint32> indices,
+		glare::StackAllocator& stack_allocator);
 
 
 	// Build OpenGLMeshRenderData from an Indigo::Mesh.
