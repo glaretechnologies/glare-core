@@ -110,7 +110,7 @@ public:
 	typedef T* iterator;
 
 	inline iterator begin() { return data(); }
-	inline iterator end() { return data() + len; }
+	inline iterator end() { return data() + ArrayRef<T>::len; }
 };
 
 
