@@ -29,6 +29,8 @@ public:
 
 	void clear(); // Resizes buffer to zero, resets read_index to zero.
 
+	uint8 readUInt8();
+
 	virtual int32 readInt32();
 	virtual uint32 readUInt32();
 	virtual void readData(void* buf, size_t num_bytes);

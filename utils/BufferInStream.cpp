@@ -55,6 +55,18 @@ void BufferInStream::clear() // Resizes buffer to zero, resets read_index to zer
 }
 
 
+uint8 BufferInStream::readUInt8()
+{
+	if(!canReadNBytes(sizeof(uint8)))
+		throw glare::Exception("Read past end of buffer.");
+
+	uint8 x;
+	std::memcpy(&x, &buf[read_index], sizeof(x));
+	read_index += sizeof(x);
+	return x;
+}
+
+
 int32 BufferInStream::readInt32()
 {
 	if(!canReadNBytes(sizeof(int32)))

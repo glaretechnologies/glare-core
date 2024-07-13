@@ -175,6 +175,8 @@ LuaVM::LuaVM()
 		//--------------------------- Create Vec3d Metatable ---------------------------
 		lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/4); // Create metatable
 			
+		LuaUtils::setNumberAsTableField(state, "uid", 1); // Set metatable UID (for serialisation)
+
 		setCFunctionAsTableField(Vec3dAdd,              /*debugname=*/"Vec3dAdd",              /*key=*/"__add");
 		setCFunctionAsTableField(Vec3dSub,              /*debugname=*/"Vec3dSub",              /*key=*/"__sub");
 		setCFunctionAsTableField(Vec3dUnaryMinus,       /*debugname=*/"Vec3dUnaryMinus",       /*key=*/"__unm");

@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <lualib.h>
 #include <Luau/Common.h>
 #include <limits>
+#include <../src/lstate.h>
 
 
 static std::string valueShortString(lua_State* state, int index)
@@ -122,6 +123,12 @@ std::string LuaUtils::getCallStackAsString(lua_State* state)
 	}
 	s += "----------------------------------";
 	return s;
+}
+
+
+int LuaUtils::freeStackCapacity(lua_State* state)
+{
+	return (int)(state->ci->top - state->top);
 }
 
 

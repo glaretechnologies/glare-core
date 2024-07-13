@@ -24,6 +24,8 @@ public:
 
 	static std::string getCallStackAsString(lua_State* state);
 
+	static int freeStackCapacity(lua_State* state);
+
 	static bool isFunctionDefined(lua_State* state, const char* func_name);
 	struct LuaFuncRefAndPtr
 	{

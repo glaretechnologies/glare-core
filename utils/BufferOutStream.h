@@ -21,6 +21,8 @@ public:
 	BufferOutStream();
 	virtual ~BufferOutStream();
 
+	void writeUInt8(uint8 x);
+
 	virtual void writeInt32(int32 x) override;
 	virtual void writeUInt32(uint32 x) override;
 	virtual void writeData(const void* data, size_t num_bytes) override;

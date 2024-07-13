@@ -20,6 +20,21 @@ BufferOutStream::~BufferOutStream()
 }
 
 
+void BufferOutStream::writeUInt8(uint8 x)
+{
+	try
+	{
+		const size_t pos = buf.size(); // Get position to write to (also current size of buffer)
+		buf.resize(pos + sizeof(x)); // Resize buffer to make room for new uint32
+		std::memcpy(&buf[pos], &x, sizeof(x)); // Copy x to buffer.
+	}
+	catch(std::bad_alloc&)
+	{
+		throw glare::Exception("Memory alloc failure while writing to buffer.");
+	}
+}
+
+
 void BufferOutStream::writeInt32(int32 x)
 {
 	try
