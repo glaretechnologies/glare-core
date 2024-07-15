@@ -27,6 +27,7 @@ public:
 	virtual void readData(void* buf, size_t num_bytes) override;
 	virtual bool endOfStream() override;
 
+	uint8 readUInt8();
 	uint16 readUInt16();
 
 	// RandomAccessInStream interface:

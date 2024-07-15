@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include <utils/BufferOutStream.h>
 #include <utils/BufferInStream.h>
+#include <utils/BufferViewInStream.h>
 #include <utils/HashMap.h>
 struct lua_State;
 
@@ -32,7 +33,7 @@ public:
 	// Pushes deserialised lua value onto top of stack
 	// metatable_uid_to_ref_map is a map from metatable UID (each metatable will have a UID value stored in it at 'uid'), to metatable reference.
 	// This is used for setting the metatable of deserialised tables.
-	static void deserialise(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferInStream& serialised_data);
+	static void deserialise(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferViewInStream& serialised_data);
 	
 	static void test();
 };

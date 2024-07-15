@@ -19,7 +19,7 @@ static const uint8 GLARE_LUA_VECTOR		= 4;
 
 
 static void serialiseValue(lua_State* state, int stack_index, int depth, const LuaSerialisation::SerialisationOptions& options, BufferOutStream& serialised);
-static void deserialiseValue(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferInStream& serialised);
+static void deserialiseValue(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferViewInStream& serialised);
 
 
 static void serialiseString(lua_State* state, int stack_index, const LuaSerialisation::SerialisationOptions& options, BufferOutStream& serialised)
@@ -163,7 +163,7 @@ static void serialiseValue(lua_State* state, int stack_index, int depth, const L
 }
 
 
-static void deserialiseString(lua_State* state, BufferInStream& serialised)
+static void deserialiseString(lua_State* state, BufferViewInStream& serialised)
 {
 	const uint32 len = serialised.readUInt32();
 
@@ -179,7 +179,7 @@ static void deserialiseString(lua_State* state, BufferInStream& serialised)
 }
 
 
-static void deserialiseBool(lua_State* state, BufferInStream& serialised)
+static void deserialiseBool(lua_State* state, BufferViewInStream& serialised)
 {
 	const uint8 val = serialised.readUInt8();
 
@@ -190,7 +190,7 @@ static void deserialiseBool(lua_State* state, BufferInStream& serialised)
 }
 
 
-static void deserialiseNumber(lua_State* state, BufferInStream& serialised)
+static void deserialiseNumber(lua_State* state, BufferViewInStream& serialised)
 {
 	double x;
 	serialised.readData(&x, sizeof(double));
@@ -202,7 +202,7 @@ static void deserialiseNumber(lua_State* state, BufferInStream& serialised)
 }
 
 
-static void deserialiseVector(lua_State* state, BufferInStream& serialised)
+static void deserialiseVector(lua_State* state, BufferViewInStream& serialised)
 {
 	float v[3];
 	serialised.readData(v, sizeof(float) * 3);
@@ -214,7 +214,7 @@ static void deserialiseVector(lua_State* state, BufferInStream& serialised)
 }
 
 
-static void deserialiseTable(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferInStream& serialised)
+static void deserialiseTable(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferViewInStream& serialised)
 {
 	const uint32 metatable_uid = serialised.readUInt32();
 	int metatable_ref = -1;
@@ -258,7 +258,7 @@ static void deserialiseTable(lua_State* state, HashMap<uint32, int>& metatable_u
 
 
 // Pushes the deserialised Lua value onto the top of the Lua stack
-static void deserialiseValue(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferInStream& serialised)
+static void deserialiseValue(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferViewInStream& serialised)
 {
 	const int t = serialised.readUInt8();
 	switch (t)
@@ -295,7 +295,7 @@ void LuaSerialisation::serialise(lua_State* state, int stack_index, const Serial
 }
 
 
-void LuaSerialisation::deserialise(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferInStream& serialised)
+void LuaSerialisation::deserialise(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferViewInStream& serialised)
 {
 	// Read version
 	/*const uint32 version =*/ serialised.readUInt32();
@@ -373,8 +373,7 @@ void LuaSerialisation::test()
 			// Deserialise it
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -401,8 +400,7 @@ void LuaSerialisation::test()
 			// Deserialise it
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -429,8 +427,7 @@ void LuaSerialisation::test()
 			// Deserialise it
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -457,8 +454,7 @@ void LuaSerialisation::test()
 			// Deserialise it
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -485,8 +481,7 @@ void LuaSerialisation::test()
 			// Deserialise it
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -516,8 +511,7 @@ void LuaSerialisation::test()
 			// Deserialise it
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -593,8 +587,7 @@ void LuaSerialisation::test()
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 			metatable_uid_to_ref_map[1] = vm.Vec3dMetaTable_ref;
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -625,8 +618,7 @@ void LuaSerialisation::test()
 			// Deserialise it
 			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 			testAssert(instream.endOfStream());
 
@@ -678,8 +670,7 @@ void LuaSerialisation::test()
 
 			printVar(LuaUtils::freeStackCapacity(script.thread_state));
 
-			BufferInStream instream;
-			instream.buf = serialised.buf;
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
 			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
 
 			printVar(LuaUtils::freeStackCapacity(script.thread_state));

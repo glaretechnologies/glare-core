@@ -86,6 +86,18 @@ void BufferViewInStream::advanceReadIndex(size_t n)
 }
 
 
+uint8 BufferViewInStream::readUInt8()
+{
+	if(!canReadNBytes(sizeof(uint8)))
+		throw glare::Exception("Read past end of buffer.");
+
+	uint8 x;
+	std::memcpy(&x, data.data() + read_index, sizeof(x));
+	read_index += sizeof(x);
+	return x;
+}
+
+
 uint16 BufferViewInStream::readUInt16()
 {
 	if(!canReadNBytes(sizeof(uint16)))
