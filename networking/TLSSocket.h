@@ -67,7 +67,7 @@ Kind of a wrapper around LibTLS: http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-
 
 Tests in TLSSocketTests.
 =====================================================================*/
-class TLSSocket : public SocketInterface
+class TLSSocket final : public SocketInterface
 {
 public:
 #if defined(_WIN32)

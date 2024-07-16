@@ -19,7 +19,7 @@ Image
 A floating point tri-component image class.
 Each component is stored as a 32-bit float.
 =====================================================================*/
-class Image : public Map2D
+class Image final : public Map2D
 {
 public:
 	Image();

@@ -16,7 +16,7 @@ FileInStream
 ------------
 
 =====================================================================*/
-class FileInStream : public RandomAccessInStream
+class FileInStream final : public RandomAccessInStream
 {
 public:
 	FileInStream(const std::string& path); // Throws glare::Exception on failure.

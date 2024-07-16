@@ -59,7 +59,7 @@ TCP socket class.
 Blocking.
 Does both client and server sockets.
 =====================================================================*/
-class MySocket : public SocketInterface
+class MySocket final : public SocketInterface
 {
 public:
 #if defined(_WIN32)

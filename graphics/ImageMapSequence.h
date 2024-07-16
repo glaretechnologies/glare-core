@@ -17,7 +17,7 @@ namespace glare { class TaskManager; }
 
 
 template <class V, class ComponentValueTraits>
-class ImageMapSequence : public Map2D
+class ImageMapSequence final : public Map2D
 {
 public:
 	virtual ~ImageMapSequence() {}

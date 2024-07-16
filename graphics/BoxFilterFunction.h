@@ -10,7 +10,7 @@
 /*=====================================================================
 
 =====================================================================*/
-class BoxFilterFunction : public FilterFunction
+class BoxFilterFunction final : public FilterFunction
 {
 public:
 	BoxFilterFunction();

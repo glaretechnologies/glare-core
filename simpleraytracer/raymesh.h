@@ -141,7 +141,7 @@ RayMesh
 -------
 
 =====================================================================*/
-class RayMesh : public Geometry
+class RayMesh final : public Geometry
 {
 public:
 	GLARE_ALIGNED_16_NEW_DELETE

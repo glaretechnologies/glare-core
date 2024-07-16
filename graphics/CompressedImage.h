@@ -22,7 +22,7 @@ For example for BPTC Texture Compression: https://www.khronos.org/opengl/wiki/BP
 
 This class pretty much just holds compressed data, for uploading to OpenGL.
 =====================================================================*/
-class CompressedImage : public Map2D
+class CompressedImage final : public Map2D
 {
 public:
 	CompressedImage(size_t width, size_t height, size_t N);

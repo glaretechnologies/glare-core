@@ -17,7 +17,7 @@ GaussianFilterFunction
 ----------------------
 
 =====================================================================*/
-class GaussianFilterFunction : public FilterFunction
+class GaussianFilterFunction final : public FilterFunction
 {
 public:
 	/*=====================================================================

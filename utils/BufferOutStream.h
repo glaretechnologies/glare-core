@@ -15,7 +15,7 @@ BufferOutStream
 ---------------
 Output stream that writes to a buffer.
 =====================================================================*/
-class BufferOutStream : public RandomAccessOutStream
+class BufferOutStream final : public RandomAccessOutStream
 {
 public:
 	BufferOutStream();

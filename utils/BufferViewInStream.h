@@ -16,7 +16,7 @@ BufferViewInStream
 Input stream that reads from a buffer.
 Just holds a pointer to the buffer.
 =====================================================================*/
-class BufferViewInStream : public RandomAccessInStream
+class BufferViewInStream final : public RandomAccessInStream
 {
 public:
 	BufferViewInStream(const ArrayRef<uint8> data);

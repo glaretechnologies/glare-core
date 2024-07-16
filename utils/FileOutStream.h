@@ -16,7 +16,7 @@ FileOutStream
 -------------
 
 =====================================================================*/
-class FileOutStream : public OutStream
+class FileOutStream final : public OutStream
 {
 public:
 	FileOutStream(const std::string& path, std::ios_base::openmode openmode = std::ios::binary);

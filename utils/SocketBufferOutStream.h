@@ -16,7 +16,7 @@ SocketBufferOutStream
 ---------------------
 Like BufferOutStream, but does any htonl conversion that MySocket does.
 =====================================================================*/
-class SocketBufferOutStream : public RandomAccessOutStream
+class SocketBufferOutStream final : public RandomAccessOutStream
 {
 public:
 	enum UseNetworkByteOrder

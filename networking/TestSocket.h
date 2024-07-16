@@ -18,7 +18,7 @@ TestSocket
 ----------
 
 =====================================================================*/
-class TestSocket : public SocketInterface
+class TestSocket final : public SocketInterface
 {
 public:
 	TestSocket();

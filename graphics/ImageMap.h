@@ -83,7 +83,7 @@ public:
 
 
 template <class V, class ComponentValueTraits>
-class ImageMap : public Map2D
+class ImageMap final : public Map2D
 {
 public:
 	inline ImageMap();

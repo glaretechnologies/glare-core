@@ -21,7 +21,7 @@ See https://tools.ietf.org/html/rfc6455 for the websocket specification.
 
 The write methods append data to a local buffer, which is written to the underlying socket in the flush() method.
 =====================================================================*/
-class WebSocket : public SocketInterface
+class WebSocket final : public SocketInterface
 {
 public:
 	WebSocket(SocketInterfaceRef underlying_socket);

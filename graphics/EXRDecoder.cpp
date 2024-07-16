@@ -88,7 +88,7 @@ public:
 };
 
 
-class EXRDecoderThreadPoolProvider : public IlmThread::ThreadPoolProvider
+class EXRDecoderThreadPoolProvider final : public IlmThread::ThreadPoolProvider
 {
 public:
 	EXRDecoderThreadPoolProvider(glare::TaskManager* task_manager_)
@@ -125,7 +125,7 @@ public:
 
 
 // Based on NullThreadPoolProvider in OpenEXR\src\lib\IlmThread\IlmThreadPool.cpp
-class MyNullThreadPoolProvider : public IlmThread::ThreadPoolProvider
+class MyNullThreadPoolProvider final : public IlmThread::ThreadPoolProvider
 {
 public:
 	virtual ~MyNullThreadPoolProvider() {}
@@ -157,7 +157,7 @@ void EXRDecoder::clearTaskManager()
 }
 
 
-class EXRDecoderInputStream : public Imf::IStream
+class EXRDecoderInputStream final : public Imf::IStream
 {
 public:
 	EXRDecoderInputStream(const ArrayRef<uint8> data, const std::string& filename_) : Imf::IStream(filename_.c_str()), filename(filename_), stream(data) {}

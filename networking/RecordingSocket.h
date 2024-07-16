@@ -17,7 +17,7 @@ RecordingSocket
 A wrapper around an underlying socket, that records data read from it to a buffer.
 The buffer can be written do disk.
 =====================================================================*/
-class RecordingSocket : public SocketInterface
+class RecordingSocket final : public SocketInterface
 {
 public:
 	RecordingSocket(const Reference<SocketInterface> underlying_socket);

@@ -18,7 +18,7 @@ BufferInStream
 --------------
 Input stream that reads from a buffer
 =====================================================================*/
-class BufferInStream : public RandomAccessInStream
+class BufferInStream final : public RandomAccessInStream
 {
 public:
 	BufferInStream();
