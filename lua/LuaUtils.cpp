@@ -366,6 +366,23 @@ std::string LuaUtils::getString(lua_State* state, int index)
 }
 
 
+std::string LuaUtils::getStringArg(lua_State* state, int index)
+{
+	if(!lua_isstring(state, index))
+		throw glare::Exception("Argument " + toString(index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+
+	size_t len;
+	const char* s = lua_tolstring(state, index, &len);
+	if(s)
+		return std::string(s, len);
+	else
+	{
+		assert(0);  // Shouldn't get here
+		throw glare::Exception("Value was not a string");
+	}
+}
+
+
 std::string LuaUtils::getTableStringField(lua_State* state, int table_index, const char* key)
 {
 	checkValueIsTable(state, table_index);

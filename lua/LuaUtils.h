@@ -55,6 +55,7 @@ public:
 	static const char* getStringAndAtom(lua_State* state, int index, int& atom_out);
 	// Convert a Lua string on the stack at index into a std::string
 	static std::string getString(lua_State* state, int index);
+	static std::string getStringArg(lua_State* state, int index); // Same as getString except exception message calls the value an argument.
 	static std::string getTableStringField(lua_State* state, int table_index, const char* key);
 	static std::string getTableStringFieldWithEmptyDefault(lua_State* state, int table_index, const char* key);
 
