@@ -16,6 +16,7 @@ static const uint8 GLARE_LUA_BOOL		= 1;
 static const uint8 GLARE_LUA_NUMBER		= 2;
 static const uint8 GLARE_LUA_TABLE		= 3;
 static const uint8 GLARE_LUA_VECTOR		= 4;
+static const uint8 GLARE_LUA_NIL		= 5;
 
 
 static void serialiseValue(lua_State* state, int stack_index, int depth, const LuaSerialisation::SerialisationOptions& options, BufferOutStream& serialised);
@@ -33,6 +34,12 @@ static void serialiseString(lua_State* state, int stack_index, const LuaSerialis
 	serialised.writeUInt8(GLARE_LUA_STRING);
 	serialised.writeUInt32((uint32)len);
 	serialised.writeData(data, len);
+}
+
+
+static void serialiseNil(lua_State* state, int stack_index, const LuaSerialisation::SerialisationOptions& options, BufferOutStream& serialised)
+{
+	serialised.writeUInt8(GLARE_LUA_NIL);
 }
 
 
@@ -140,6 +147,9 @@ static void serialiseValue(lua_State* state, int stack_index, int depth, const L
 	const int t = lua_type(state, stack_index);
 	switch (t)
 	{
+		case LUA_TNIL:
+			serialiseNil(state, stack_index, options, serialised);
+			break;
 		case LUA_TSTRING:
 			serialiseString(state, stack_index, options, serialised);
 			break;
@@ -214,6 +224,15 @@ static void deserialiseVector(lua_State* state, BufferViewInStream& serialised)
 }
 
 
+static void deserialiseNil(lua_State* state, BufferViewInStream& serialised)
+{
+	if(!lua_checkstack(state, /*size=*/1)) // Make sure there is space for the nil on the Lua stack
+		throw glare::Exception("Failed to alloc lua stack space");
+
+	lua_pushnil(state);
+}
+
+
 static void deserialiseTable(lua_State* state, HashMap<uint32, int>& metatable_uid_to_ref_map, BufferViewInStream& serialised)
 {
 	const uint32 metatable_uid = serialised.readUInt32();
@@ -278,6 +297,9 @@ static void deserialiseValue(lua_State* state, HashMap<uint32, int>& metatable_u
 		case GLARE_LUA_VECTOR:
 			deserialiseVector(state, serialised);
 			break;
+		case GLARE_LUA_NIL:
+			deserialiseNil(state, serialised);
+			break;
 		default:
 			throw glare::Exception("Error while deserialising, invalid type " + toString(t));
 	}
@@ -314,6 +336,57 @@ void LuaSerialisation::deserialise(lua_State* state, HashMap<uint32, int>& metat
 #include "../utils/TestExceptionUtils.h"
 
 
+//========================== Fuzzing ==========================
+#if 1
+// Command line:
+// C:\fuzz_corpus\lua_serialisation C:\code\glare-core\testfiles\lua\serialisation_fuzz_seeds
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		LuaVM vm;
+		vm.max_total_mem_allowed = 16 * 1024 * 1024;
+
+		LuaScriptOptions script_options;
+		script_options.max_num_interrupts = 1000;
+
+		const std::string src((const char*)data, size);
+		LuaScript script(&vm, script_options, src);
+		script.exec();
+
+		lua_getglobal(script.thread_state, "a");
+
+		//LuaUtils::printStack(script.thread_state);
+
+		if(lua_gettop(script.thread_state) >= 1)
+		{
+			LuaSerialisation::SerialisationOptions options;
+			options.max_depth = 16;
+			options.max_serialised_size_B = 64 * 1024;
+		
+			BufferOutStream serialised;
+			LuaSerialisation::serialise(script.thread_state, /*stack index=*/-1, options, serialised);
+
+			// Deserialise
+			BufferViewInStream buffer_in_stream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
+			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
+			LuaSerialisation::deserialise(script.thread_state, metatable_uid_to_ref_map, buffer_in_stream);
+
+			testAssert(buffer_in_stream.endOfStream());
+		}
+	}
+	catch(glare::Exception& /*e*/)
+	{
+		// conPrint("Excep: " + e.what());
+	}
+
+	return 0; // Non-zero return values are reserved for future use.
+}
+#endif
+//========================== End fuzzing ==========================
+
+
 class PrinterLuaSerialisationOutputHandler : public LuaScriptOutputHandler
 {
 public:
@@ -347,7 +420,9 @@ void LuaSerialisation::test()
 			"t3 = { a = t1 }    " // nested table
 			"circ_table = { a = nil }      " // table with circular reference
 			"circ_table.a = circ_table     " // make the circular reference
-			"deep_table = { a = { b = { c = { d = { e = { f = { g = { a = { b = { c = { d = { e = { f = { g = { a = { b = { c = { d = { e = { f = { g = 1.0} } } } } } } }}}}}}}}}}}}}}"
+			"deep_table = { a = { b = { c = { d = { e = { f = { g = { a = { b = { c = { d = { e = { f = { g = { a = { b = { c = { d = { e = { f = { g = 1.0} } } } } } } }}}}}}}}}}}}}}    \n"
+			"function someFunc() return 1.0 end   \n"
+			"nilval = nil"
 			"";
 
 		PrinterLuaSerialisationOutputHandler handler;
@@ -631,6 +706,52 @@ void LuaSerialisation::test()
 
 			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size
 			lua_pop(script.thread_state, 1); // pop v3
+		}
+
+		// Serialise and deserialise nil
+		{
+			lua_getglobal(script.thread_state, "nilval"); // push onto stack
+			const int initial_stack_size = lua_gettop(script.thread_state);
+
+			BufferOutStream serialised;
+			serialise(script.thread_state, /*stack index=*/-1, SerialisationOptions(), serialised);
+
+			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size
+
+			lua_pop(script.thread_state, 1);
+
+			// Deserialise it
+			HashMap<uint32, int> metatable_uid_to_ref_map(/*empty key=*/std::numeric_limits<uint32>::max());
+
+			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
+			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
+			testAssert(instream.endOfStream());
+
+			// nil should be on the stack now
+			testAssert(lua_type(script.thread_state, -1) == LUA_TNIL);
+
+			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size
+			lua_pop(script.thread_state, 1); // pop nil
+		}
+
+		// Test trying to serialise a function fails with an exception thrown.
+		{
+			lua_getglobal(script.thread_state, "someFunc"); // push onto stack
+
+			LuaUtils::printStack(script.thread_state);
+			const int initial_stack_size = lua_gettop(script.thread_state);
+
+			SerialisationOptions options;
+
+			testThrowsExcepContainingString([&]() {
+				BufferOutStream serialised;
+				serialise(script.thread_state, /*stack index=*/-1, options, serialised);
+			}, "function");
+
+			testAssert(lua_gettop(script.thread_state) == initial_stack_size);
+			lua_settop(script.thread_state, initial_stack_size); // Restore stack
+
+			lua_pop(script.thread_state, 1);
 		}
 	}
 	catch(glare::Exception& e)
