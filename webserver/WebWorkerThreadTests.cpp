@@ -411,7 +411,7 @@ public:
 };
 
 
-#if FUZZING
+#if 0 // FUZZING
 
 // Direct fuzzing of WorkerThread::handleSingleRequest()
 // Command line:
