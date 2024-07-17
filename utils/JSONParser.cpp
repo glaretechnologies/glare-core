@@ -601,7 +601,6 @@ std::string JSONParser::errorContext(Parser& p)
 // Command line:
 // C:\fuzz_corpus\json -max_len=1000000 -seed=1
 
-// We will use the '!' character to break apart the input buffer into different 'packets'.
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
