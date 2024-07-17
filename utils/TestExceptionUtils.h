@@ -40,6 +40,9 @@ inline void testThrowsExcepContainingString(std::function<void()> test_func, con
 	catch(glare::Exception& e)
 	{
 		conPrint("Caught expected excep: " + e.what());
-		testAssert(StringUtils::containsString(e.what(), str));
+		if(!StringUtils::containsString(e.what(), str))
+		{
+			TestUtils::printMessageAndFail("Test failed: the exception message '" + e.what() + "' did not contain the string '" + str + "'.");
+		}
 	}
 }
