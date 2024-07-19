@@ -87,11 +87,8 @@ AsyncTextureLoader::~AsyncTextureLoader()
 AsyncTextureLoadingHandle AsyncTextureLoader::startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler)
 {
 #if EMSCRIPTEN
-	const bool use_TLS = server_hostname != "localhost"; // Don't use TLS on localhost for now, for testing.
-	const std::string protocol = use_TLS ? "https" : "http";
-
 	const int em_handle = emscripten_async_wget2(
-		(protocol + "://" + server_hostname + url_path_prefix + local_path).c_str(), local_path.c_str(),  
+		(url_path_prefix + local_path).c_str(), local_path.c_str(),  
 		/*requesttype =*/"GET", /*POST params=*/"", /*userdata arg=*/this, 
 		onTextureDataLoad, onTextureDataError, onTextureDataProgress
 	);
