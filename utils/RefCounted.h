@@ -12,6 +12,13 @@ Copyright Glare Technologies Limited 2021 -
 #include <cassert>
 
 
+#if defined(__x86_64__) || defined(__ia64__) || defined(_M_X64) // If atomic int is 64-bit:
+#define RC_NOT_INDEP_HEAP_ALLOC_REFVAL 0xDADB0DAFDADB0DAull
+#else
+#define RC_NOT_INDEP_HEAP_ALLOC_REFVAL 0x3DADB0DAull
+#endif
+
+
 ///
 /// This is a 'mixin' class that adds a refcount and a few methods to increment and decrement the ref count etc..
 /// Derive from this to make a class reference-counted.
@@ -24,7 +31,7 @@ public:
 	// We don't want a virtual destructor in this class as we don't want to force derived classes to be polymorphic (e.g. to require a vtable).
 	~RefCounted()
 	{
-		assert(refcount == 0 || refcount == 0xDADB0DAFDADB0DAull);
+		assert(refcount == 0 || refcount == RC_NOT_INDEP_HEAP_ALLOC_REFVAL);
 	}
 
 	/// Increment reference count
@@ -55,7 +62,7 @@ public:
 	// This idea is from Jolt physics Reference.h.
 	inline void setAsNotIndependentlyHeapAllocated()
 	{
-		refcount += 0xDADB0DAFDADB0DAull;
+		refcount += RC_NOT_INDEP_HEAP_ALLOC_REFVAL;
 	}
 	
 private:

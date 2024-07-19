@@ -10,6 +10,13 @@ Copyright Glare Technologies Limited 2020 -
 #include <cassert>
 
 
+#if defined(__x86_64__) || defined(__ia64__) || defined(_M_X64) // If atomic int is 64-bit:
+#define TSRC_NOT_INDEP_HEAP_ALLOC_REFVAL 0xDADB0DAFDADB0DAull
+#else
+#define TSRC_NOT_INDEP_HEAP_ALLOC_REFVAL 0x3DADB0DAull
+#endif
+
+
 /*=====================================================================
 ThreadSafeRefCounted
 --------------------
@@ -24,7 +31,7 @@ public:
 	// We don't want a virtual destructor in this class as we don't want to force derived classes to be polymorphic (e.g. to require a vtable).
 	~ThreadSafeRefCounted()
 	{
-		assert(refcount == 0 || refcount == 0xDADB0DAFDADB0DAull);
+		assert(refcount == 0 || refcount == TSRC_NOT_INDEP_HEAP_ALLOC_REFVAL);
 	}
 
 	// Returns previous reference count
@@ -49,7 +56,7 @@ public:
 	// This idea is from Jolt physics Reference.h.
 	inline void setAsNotIndependentlyHeapAllocated()
 	{
-		refcount += 0xDADB0DAFDADB0DAull;
+		refcount += TSRC_NOT_INDEP_HEAP_ALLOC_REFVAL;
 	}
 	
 private:
