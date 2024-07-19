@@ -163,7 +163,7 @@ LuaVM::LuaVM()
 		if(!state)
 			throw glare::Exception("lua_newstate failed.");
 
-		luaL_openlibs(state);
+		luaL_openlibs(state); // Open all built-in Luau libraries
 
 		// Override print.  We will supply our own implementation so print() calls don't output to stdout.
 		lua_pushcfunction(state, glareLuaPrint, /*debugname=*/"glareLuaPrint");
