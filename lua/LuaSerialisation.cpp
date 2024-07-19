@@ -337,7 +337,7 @@ void LuaSerialisation::deserialise(lua_State* state, HashMap<uint32, int>& metat
 
 
 //========================== Fuzzing ==========================
-#if 1
+#if 0
 // Command line:
 // C:\fuzz_corpus\lua_serialisation C:\code\glare-core\testfiles\lua\serialisation_fuzz_seeds
 
