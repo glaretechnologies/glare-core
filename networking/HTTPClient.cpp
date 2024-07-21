@@ -1,32 +1,28 @@
 /*=====================================================================
 HTTPClient.cpp
 --------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "HTTPClient.h"
 
 
-#if USING_LIBRESSL
-
-
-#include "MySocket.h"
 #include "URL.h"
 #include "TLSSocket.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Parser.h"
 #include "../utils/Exception.h"
-#include "../utils/Base64.h"
-#include "../utils/Clock.h"
+#include "../utils/RuntimeCheck.h"
 #include "../maths/CheckedMaths.h"
 #include <tls.h>
 #include <cstring>
 #include <limits>
 
 
-
 HTTPClient::HTTPClient()
 :	max_data_size(std::numeric_limits<size_t>::max()),
-	max_socket_buffer_size(std::numeric_limits<size_t>::max())
+	max_socket_buffer_size(1 << 16),
+	keepalive_socket(false),
+	connected_port(-1)
 {}
 
 
@@ -34,18 +30,77 @@ HTTPClient::~HTTPClient()
 {}
 
 
+void HTTPClient::connectAndEnableKeepAlive(const std::string& protocol, const std::string& hostname, int port)
+{
+	connect(protocol, hostname, port);
+
+	this->socket->enableTCPKeepAlive(/*period=*/5.0);
+	keepalive_socket = true;
+}
+
+
+static void checkSchemeValid(const std::string& scheme)
+{
+	if(!(scheme == "http" || scheme == "https"))
+		throw glare::Exception("Invalid scheme");
+}
+
+
+// Port = -1 means use default port for protocol.
+void HTTPClient::connect(const std::string& protocol, const std::string& hostname, int port)
+{
+	this->socket = nullptr;
+	this->connected_scheme.clear();
+	this->connected_hostname.clear();
+	this->connected_port = -1;
+
+	if(test_socket)
+		this->socket = test_socket;
+	else
+	{
+		if(protocol == "https")
+		{
+			MySocketRef plain_socket = new MySocket();
+			this->socket = plain_socket; // Store in this->socket so we can interrupt in kill() while connecting.
+			plain_socket->connect(hostname, (port == -1) ? 443 : port);
+
+			TLSConfig client_tls_config;
+
+			tls_config_insecure_noverifycert(client_tls_config.config); // TEMP: try and work out how to remove this call.
+
+			this->socket = new TLSSocket(plain_socket, client_tls_config.config, hostname);
+		}
+		else
+		{
+			// Assume http (non-TLS)
+			this->socket = new MySocket(hostname, (port == -1) ? 80 : port);
+		}
+	}
+
+	this->connected_scheme = protocol;
+	this->connected_hostname = hostname;
+	this->connected_port = port;
+}
+
+
+void HTTPClient::resetConnection()
+{
+	this->socket = NULL;
+	socket_buffer.clear();
+}
+
+
 // Handle the HTTP response.
-// The response header is in [socket_buffer[request_start_index], socket_buffer[request_start_index + response_header_size])
-HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, RequestType request_type, int num_redirects_done, std::string& data_out)
+// The response header is in [socket_buffer[0], socket_buffer[response_header_size])
+HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, RequestType request_type, int num_redirects_done, StreamingDataHandler& response_data_handler)
 {
 	// conPrint(std::string(&socket_buffer[0], &socket_buffer[0] + response_header_size));
 
-	assert(response_header_size > 0);
+	runtimeCheck(response_header_size > 0);
+	runtimeCheck(response_header_size <= socket_buffer.size());
 
 	// Parse request
-	assert(response_header_size <= socket_buffer.size());
-	Parser parser(socket_buffer.data(), response_header_size);
-
+	Parser parser((const char*)socket_buffer.data(), response_header_size);
 
 	//------------- Parse HTTP version ---------------
 	if(!parser.parseString("HTTP/"))
@@ -87,9 +142,9 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 	//conPrint("Response code: " + toString(code));
 	//conPrint("Response message: '" + response_msg.to_string() + "'");
 	
-	HTTPClient::ResponseInfo file_info;
-	file_info.response_code = code;
-	file_info.response_message = toString(response_msg);
+	HTTPClient::ResponseInfo response_info;
+	response_info.response_code = code;
+	response_info.response_message = toString(response_msg);
 
 	// Parse response headers:
 	uint64 content_length = 0;
@@ -138,7 +193,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "content-type"))
 		{
-			file_info.mime_type = toString(field_value);
+			response_info.mime_type = toString(field_value);
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "transfer-encoding"))
 		{
@@ -163,7 +218,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		if(request_type == RequestType_Get)
 		{
 			// conPrint("Redirecting to '" + location + "'...");
-			return doDownloadFile(toString(location), num_redirects_done + 1, data_out);
+			return doDownloadFile(toString(location), num_redirects_done + 1, response_data_handler);
 		}
 		else
 			throw glare::Exception("Redirect received for POST request, not supported currently.");
@@ -174,17 +229,31 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		if(content_length > max_data_size)
 			throw glare::Exception("Content length (" + toString(content_length) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 
-		data_out.resize(content_length);
+		response_data_handler.haveContentLength(content_length);
 
 		// Copy any body data we have from socket_buffer to data_out.
 		const size_t body_data_read = socket_buffer.size() - response_header_size;
-		if(body_data_read > 0)
-			std::memcpy(&data_out[0], &socket_buffer[response_header_size], body_data_read);
+		const size_t use_content_read_B = myMin(body_data_read, content_length);
+		if(use_content_read_B > 0)
+			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, use_content_read_B));
 
 		// Now read rest of data from socket, and write to data_out
-		const size_t remaining_data = content_length - body_data_read;
-		if(remaining_data > 0)
-			socket->readData(&data_out[body_data_read], remaining_data);
+		runtimeCheck(content_length >= use_content_read_B);
+		size_t remaining_data = content_length - use_content_read_B;
+		while(remaining_data > 0)
+		{
+			// Read chunks of data from socket, pass to response_data_handler.handleData().
+			const size_t MAX_READ_SIZE = 1 << 14; // TODO: use min() with max_socket_buffer_size here?
+			
+			const size_t read_size = myMin(remaining_data, MAX_READ_SIZE);
+			socket_buffer.resize(read_size);
+			socket->readDataChecked(socket_buffer, /*buf index=*/0, /*num bytes=*/read_size);
+
+			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, read_size));
+
+			runtimeCheck(remaining_data >= read_size);
+			remaining_data -= read_size;
+		}
 	}
 	else
 	{
@@ -196,32 +265,26 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 			while(1)
 			{
 				const size_t chunk_line_end_index = readUntilCRLF(chunk_line_start_index); // Read the entire chunk description line.
-				assert(chunk_line_end_index >= chunk_line_start_index + 2); // Should have at least the CRLF
+				runtimeCheck(chunk_line_end_index >= chunk_line_start_index + 2); // Should have at least the CRLF at the end of the chunk description line.
 
 				// Parse the chunk description line
-				Parser size_parser(&socket_buffer[chunk_line_start_index], chunk_line_end_index - chunk_line_start_index);
+				runtimeCheck((chunk_line_start_index < socket_buffer.size()) && (chunk_line_end_index <= socket_buffer.size()));
+				Parser size_parser((const char*)&socket_buffer[chunk_line_start_index], chunk_line_end_index - chunk_line_start_index);
 				string_view size_str;
 				size_parser.parseToCharOrEOF(';', size_str);
-				size_t chunk_size;
-				try
+				size_t chunk_size = 0;
+				if(size_parser.eof())
 				{
-					if(size_parser.eof())
-					{
-						assert(size_str.size() >= 2);
-						chunk_size = ::hexStringToUInt64(toString(string_view(size_str.data(), size_str.size() - 2))); // trim off CRLF
-					}
-					else
-						chunk_size = ::hexStringToUInt64(toString(size_str));
+					runtimeCheck(size_str.size() >= 2);
+					chunk_size = ::hexStringToUInt64(toString(string_view(size_str.data(), size_str.size() - 2))); // trim off CRLF
 				}
-				catch(StringUtilsExcep& e)
-				{
-					throw glare::Exception(e.what());
-				}
+				else
+					chunk_size = ::hexStringToUInt64(toString(size_str));
 
 				// Download chunk (and CRLF after it) and copy chunk to data_out
 				if(chunk_size > 0)
 				{
-					const size_t chunk_and_crlf_size = chunk_size + 2;
+					const size_t chunk_and_crlf_size  = CheckedMaths::addUnsignedInts(chunk_size, (size_t)2);
 					const size_t required_buffer_size = CheckedMaths::addUnsignedInts(chunk_line_end_index, chunk_and_crlf_size);
 					if(socket_buffer.size() < required_buffer_size) // If we haven't read enough data yet:
 					{
@@ -231,18 +294,10 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 						// Read remaining data
 						const size_t current_amount_read = socket_buffer.size();
 						socket_buffer.resize(required_buffer_size);
-						socket->readData(&socket_buffer[current_amount_read], required_buffer_size - current_amount_read);
+						socket->readDataChecked(socket_buffer, /*buf index=*/current_amount_read, /*num bytes=*/required_buffer_size - current_amount_read);
 					}
 
-					// Copy chunk to data_out
-					const size_t data_out_write_i = data_out.size();
-
-					const size_t new_size = data_out_write_i + chunk_size;
-					if(new_size > max_data_size)
-						throw glare::Exception("Chunked content length (" + toString(content_length) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
-
-					data_out.resize(new_size);
-					std::memcpy(&data_out[data_out_write_i], &socket_buffer[chunk_line_end_index], chunk_size);
+					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(chunk_line_end_index, chunk_size));
 
 					chunk_line_start_index = chunk_line_end_index + chunk_and_crlf_size; // Advance past chunk line + chunk data.
 				}
@@ -257,33 +312,29 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		{
 			// Server didn't send a valid content length, so just keep reading until server closes the connection
 			
-			// Copy any body data we have from socket_buffer to data_out.
+			// Pass any data we have already in socket_buffer to handleData().
 			const size_t body_data_read = socket_buffer.size() - response_header_size;
 			if(body_data_read > max_data_size)
 				throw glare::Exception("Body length (" + toString(body_data_read) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
-			data_out.resize(body_data_read);
+
 			if(body_data_read > 0)
-				std::memcpy(&data_out[0], &socket_buffer[response_header_size], body_data_read);
+				response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, body_data_read));
 
 			while(1)
 			{
-				// Read up to READ_SIZE additional bytes, append to end of data_out.
-				const size_t READ_SIZE = 64 * 1024;
-				const size_t write_pos = data_out.size();
-				data_out.resize(write_pos + READ_SIZE);
-				const size_t amount_read = socket->readSomeBytes(&data_out[write_pos], READ_SIZE);
-				data_out.resize(write_pos + amount_read); // Trim down based on amount actually read.
-
-				if(data_out.size() > max_data_size)
-					throw glare::Exception("Body length (" + toString(data_out.size()) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
-
-				if(amount_read == 0) // Connection was gracefully closed
-					break;
+				// Read up to MAX_READ_SIZE additional bytes, pass to data handler.
+				const size_t MAX_READ_SIZE = 16 * 1024;
+				socket_buffer.resize(MAX_READ_SIZE);
+				const size_t amount_read = socket->readSomeBytesChecked(socket_buffer, /*buf index=*/0, /*max num bytes=*/MAX_READ_SIZE);
+				if(amount_read > 0)
+					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, amount_read));
+				else
+					break; // Else connection was gracefully closed
 			}
 		}
 	}
 
-	return file_info;
+	return response_info;
 }
 
 
@@ -309,9 +360,9 @@ size_t HTTPClient::readUntilCRLF(size_t scan_start_index)
 			throw glare::Exception("Exceeded max_socket_buffer_size (" + toString(max_socket_buffer_size) + " B)");
 
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
-		const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size); // Read up to 'read_chunk_size' bytes.
+		const size_t num_bytes_read = socket->readSomeBytesChecked(socket_buffer, /*buf index=*/old_socket_buffer_size, /*max num bytes=*/read_chunk_size); // Read up to 'read_chunk_size' bytes.
 		if(num_bytes_read == 0) // if connection was closed gracefully:
-			throw glare::Exception("Failed to find a CRLF before socket was closed."); // Connection was closed before we got to a CRLF.
+			throw HTTPClientExcep("Failed to find a CRLF before socket was closed.", HTTPClientExcep::ExcepType_ConnectionClosedGracefully); // Connection was closed before we got to a CRLF.
 		socket_buffer.resize(old_socket_buffer_size + num_bytes_read); // Trim the buffer down so it only extends to what we actually read.
 	}
 }
@@ -336,37 +387,63 @@ size_t HTTPClient::readUntilCRLFCRLF(size_t scan_start_index)
 			throw glare::Exception("Exceeded max_socket_buffer_size (" + toString(max_socket_buffer_size) + " B)");
 
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
-		const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size); // Read up to 'read_chunk_size' bytes.
+		const size_t num_bytes_read = socket->readSomeBytesChecked(socket_buffer, /*buf index=*/old_socket_buffer_size, /*max num bytes=*/read_chunk_size); // Read up to 'read_chunk_size' bytes.
 		if(num_bytes_read == 0) // if connection was closed gracefully:
-			throw glare::Exception("Failed to find a CRLF before socket was closed."); // Connection was closed before we got to a CRLF.
+			throw HTTPClientExcep("Failed to find a CRLF before socket was closed.", HTTPClientExcep::ExcepType_ConnectionClosedGracefully); // Connection was closed before we got to a CRLF.
 		socket_buffer.resize(old_socket_buffer_size + num_bytes_read); // Trim the buffer down so it only extends to what we actually read.
 	}
 }
 
 
+class StreamToStringDataHandler : public StreamingDataHandler
+{
+public:
+	StreamToStringDataHandler(std::string& combined_data_, size_t max_data_size_) : combined_data(combined_data_), max_data_size(max_data_size_) {}
+
+	virtual void haveContentLength(uint64 content_length)
+	{
+		if(content_length > max_data_size)
+			throw glare::Exception("Content length (" + toString(content_length) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
+
+		combined_data.reserve(content_length);
+	}
+	virtual void handleData(ArrayRef<uint8> data)
+	{
+		if(data.size() > 0)
+		{
+			const size_t cur_len = combined_data.size();
+			const size_t new_len = CheckedMaths::addUnsignedInts(cur_len, data.size());
+
+			if(new_len > max_data_size)
+				throw glare::Exception("Data size (" + toString(new_len) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
+
+			combined_data.resize(new_len);
+			checkedArrayRefMemcpy(MutableArrayRef<uint8>((uint8*)combined_data.data(), combined_data.size()), /*dest index=*/cur_len, /*src=*/data, /*src index=*/0, /*size=*/data.size());
+		}
+	}
+
+	std::string& combined_data;
+	size_t max_data_size;
+};
+
+
 HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out) // Throws glare::Exception on failure.
+{
+	StreamToStringDataHandler handler(data_out, max_data_size);
+	return sendPost(url, post_content, content_type, handler);
+}
+
+
+HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, StreamingDataHandler& response_data_handler) // Throws glare::Exception on failure.
 {
 	socket_buffer.clear();
 	
 	const URL url_components = URL::parseURL(url);
 
-	if(url_components.scheme == "https")
-	{
-		MySocketRef plain_socket = new MySocket();
-		this->socket = plain_socket; // Store in this->socket so we can interrupt in kill().
-		plain_socket->connect(url_components.host, (url_components.port == -1) ? 443 : url_components.port);
+	checkSchemeValid(url_components.scheme);
 
-		TLSConfig client_tls_config;
-
-		tls_config_insecure_noverifycert(client_tls_config.config); // TEMP: try and work out how to remove this call.
-
-		this->socket = new TLSSocket(plain_socket, client_tls_config.config, url_components.host);
-	}
-	else
-	{
-		// Assume http (non-TLS)
-		this->socket = new MySocket(url_components.host, (url_components.port == -1) ? 80 : url_components.port);;
-	}
+	if(this->socket.isNull() || (this->connected_scheme != url_components.scheme) || (this->connected_hostname != url_components.host) || (this->connected_port != url_components.port)) // If not connected yet, or connected to wrong host
+		connect(url_components.scheme, url_components.host, url_components.port);
 
 	const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
 
@@ -375,31 +452,39 @@ HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std:
 		additional_header_lines += additional_headers[i] + "\r\n";
 
 	// Send request
-	const std::string request = "POST " + path_and_query + " HTTP/1.1\r\n"
+	const std::string request_header = "POST " + path_and_query + " HTTP/1.1\r\n"
 		"Host: " + url_components.host + "\r\n"
 		"Content-Type: " + content_type + "\r\n"
 		"Content-Length: " + toString(post_content.size()) + "\r\n" +
 		((!user_agent.empty()) ? (std::string("User-Agent: ") + user_agent + "\r\n") : std::string("")) + // Write user_agent header if set.
 		additional_header_lines +
-		"Connection: close\r\n"
-		"\r\n" + 
-		post_content;
+		"Connection: " + (keepalive_socket ? std::string("Keep-Alive") : std::string("Close")) + "\r\n"
+		"\r\n";
 
-	this->socket->writeData(request.data(), request.size());
+	this->socket->writeData(request_header.data(), request_header.size());
+	this->socket->writeData(post_content.data(),   post_content.size());
 
 	const size_t CRLFCRLF_end_i = readUntilCRLFCRLF(/*scan_start_index=*/0);
 
-	return handleResponse(CRLFCRLF_end_i, RequestType_Post, /*num_redirects_done=*/0, data_out);
+	return handleResponse(CRLFCRLF_end_i, RequestType_Post, /*num_redirects_done=*/0, response_data_handler);
+}
+
+
+HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, StreamingDataHandler& response_data_handler) // Throws glare::Exception on failure.
+{
+	return doDownloadFile(url, /*num_redirects_done=*/0, response_data_handler);
 }
 
 
 HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::string& data_out)
 {
-	return doDownloadFile(url, /*num_redirects_done=*/0, data_out);
+	StreamToStringDataHandler handler(data_out, max_data_size);
+
+	return doDownloadFile(url, /*num_redirects_done=*/0, handler);
 }
 
 
-HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int num_redirects_done, std::string& data_out)
+HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int num_redirects_done, StreamingDataHandler& response_data_handler)
 {
 	socket_buffer.clear();
 	if(num_redirects_done >= 10)
@@ -407,41 +492,37 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 
 	const URL url_components = URL::parseURL(url);
 
-	if(url_components.scheme == "https")
-	{
-		MySocketRef plain_socket = new MySocket();
-		this->socket = plain_socket; // Store in this->socket so we can interrupt in kill().
-		plain_socket->connect(url_components.host, (url_components.port == -1) ? 443 : url_components.port);
+	checkSchemeValid(url_components.scheme);
 
-		TLSConfig client_tls_config;
-
-		tls_config_insecure_noverifycert(client_tls_config.config); // TEMP: try and work out how to remove this call.
-
-		this->socket = new TLSSocket(plain_socket, client_tls_config.config, url_components.host);
-	}
-	else
-	{
-		// Assume http (non-TLS)
-		this->socket = new MySocket(url_components.host, (url_components.port == -1) ? 80 : url_components.port);;
-	}
+	if(this->socket.isNull() || (this->connected_scheme != url_components.scheme) || (this->connected_hostname != url_components.host) || (this->connected_port != url_components.port)) // If not connected yet, or connected to wrong host:
+		connect(url_components.scheme, url_components.host, url_components.port);
 		
 	const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
 
 	// Send request
-	std::string additional_header_lines;
+	std::string request;
+	request.reserve(2048);
+	request += "GET ";
+	request += path_and_query;
+	request += " HTTP/1.1\r\n";
+	request += "Host: ";
+	request += url_components.host;
+	request += "\r\n";
 	for(size_t i=0; i<additional_headers.size(); ++i)
-		additional_header_lines += additional_headers[i] + "\r\n";
+	{
+		request += additional_headers[i];
+		request += "\r\n";
+	}
+	request += "Connection: ";
+	request += keepalive_socket ? "Keep-Alive" : "Close";
+	request += "\r\n";
+	request += "\r\n";
 
-	const std::string request = "GET " + path_and_query + " HTTP/1.1\r\n"
-		"Host: " + url_components.host + "\r\n" +
-		additional_header_lines +
-		"Connection: close\r\n"
-		"\r\n";
 	this->socket->writeData(request.data(), request.size());
 
 	const size_t CRLFCRLF_end_i = readUntilCRLFCRLF(/*scan_start_index=*/0);
 
-	return handleResponse(CRLFCRLF_end_i, RequestType_Get, num_redirects_done, data_out);
+	return handleResponse(CRLFCRLF_end_i, RequestType_Get, num_redirects_done, response_data_handler);
 }
 
 
@@ -456,8 +537,66 @@ void HTTPClient::kill()
 #if BUILD_TESTS
 
 
+#include "../networking/TestSocket.h"
 #include "../utils/TestUtils.h"
 #include "../utils/MyThread.h"
+
+
+//========================== Fuzzing ==========================
+#if 0
+// Command line:
+// C:\fuzz_corpus\http_client C:\code\glare-core\testfiles\fuzz_seeds\http_client
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		// Insert some data into the buffers of a test socket.
+		TestSocketRef test_socket = new TestSocket();
+
+		std::vector<uint8> buf;
+		buf.reserve(2048);
+
+		size_t i = 0;
+		while(i < size)
+		{
+			if(data[i] == '!')
+			{
+				// Break
+				test_socket->buffers.push_back(buf);
+				buf.resize(0);
+			}
+			else if(data[i] == '|')
+			{
+				break;
+			}
+			else
+			{
+				buf.push_back(data[i]);
+			}
+
+			i++;
+		}
+
+		if(!buf.empty())
+			test_socket->buffers.push_back(buf);
+
+		HTTPClient client;
+		client.max_data_size = 1 << 16;
+		client.max_socket_buffer_size = 1 << 16;
+		client.test_socket = test_socket;
+		std::string resdata;
+		client.downloadFile("https://someurl", resdata);
+	}
+	catch(glare::Exception& /*e*/)
+	{
+		//conPrint("Excep: " + e.what());
+	}
+
+	return 0; // Non-zero return values are reserved for future use.
+}
+#endif
+//========================== End fuzzing ==========================
 
 
 class HTTPClientTestThread : public MyThread
@@ -534,6 +673,3 @@ void HTTPClient::test()
 
 
 #endif // BUILD_TESTS
-
-
-#endif // USING_LIBRESSL

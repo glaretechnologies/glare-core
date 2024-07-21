@@ -74,7 +74,7 @@ private:
 	
 	Reference<SocketInterface> socket;
 	
-	std::vector<char> socket_buffer;
+	std::vector<uint8> socket_buffer;
 	Reference<RequestHandler> request_handler;
 	size_t request_start_index; // Start index of request that we current processing.
 

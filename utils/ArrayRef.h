@@ -1,13 +1,14 @@
 /*=====================================================================
 ArrayRef.h
 ----------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
 
 #include "SmallArray.h"
 #include "SmallVector.h"
+#include "RuntimeCheck.h"
 #include "Vector.h"
 #include <vector>
 #include <assert.h>
@@ -51,22 +52,28 @@ public:
 
 	inline const T& back() const { assert(len >= 1); return data_[len - 1]; }
 
+	inline ArrayRef<T> getSlice(size_t slice_offset, size_t slice_len) const;
+
+	// Does runtime checks to see if the slice is in bounds, throws glare::Exception if not.
+	inline ArrayRef<T> getSliceChecked(size_t slice_offset, size_t slice_len) const;
+
 	//-----------------------------------------------------------------
 	// iterator stuff
 	//-----------------------------------------------------------------
-	typedef T* iterator;
 	typedef const T* const_iterator;
-
-	inline iterator begin() { return data_; }
-	inline iterator end() { return data_ + len; }
 
 	inline const_iterator begin() const { return data_; }
 	inline const_iterator end() const { return data_ + len; }
+
+	
 
 protected:
 	const T* data_;
 	size_t len;
 };
+
+
+void doArrayRefTests();
 
 
 template <class T>
@@ -82,6 +89,23 @@ const T& ArrayRef<T>::operator[] (size_t index) const
 	return data_[index];
 }
 
+
+template<class T>
+ArrayRef<T> ArrayRef<T>::getSlice(size_t slice_offset, size_t slice_len) const
+{
+	return ArrayRef<T>(data_ + slice_offset, slice_len);
+}
+
+
+template<class T>
+ArrayRef<T> ArrayRef<T>::getSliceChecked(size_t slice_offset, size_t slice_len) const
+{
+	runtimeCheck(
+		!Maths::unsignedIntAdditionWraps(slice_offset, slice_len) && 
+		((slice_offset + slice_len) <= len)
+	);
+	return ArrayRef<T>(data_ + slice_offset, slice_len);
+}
 
 
 /*======================================================================================
@@ -99,6 +123,8 @@ class MutableArrayRef : public ArrayRef<T>
 {
 public:
 	inline MutableArrayRef(T* data, size_t len);
+
+	inline MutableArrayRef(std::vector<T>& v)    : ArrayRef<T>(v.data(), v.size()) {}
 
 	inline T& operator[] (size_t index);
 	
@@ -126,3 +152,15 @@ T& MutableArrayRef<T>::operator[] (size_t index)
 	assert(index < ArrayRef<T>::len);
 	return (const_cast<T*>(ArrayRef<T>::data_))[index];
 }
+
+
+
+
+template <class T>
+inline bool areDisjoint(ArrayRef<T> a, ArrayRef<T> b)
+{
+	return (a.end() <= b.begin()) || (b.end() <= a.begin());
+}
+
+
+void checkedArrayRefMemcpy(MutableArrayRef<uint8> dest, size_t dest_start_index, ArrayRef<uint8> src, size_t src_start_index, size_t size_B);

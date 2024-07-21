@@ -1,21 +1,22 @@
 /*=====================================================================
 RuntimeCheck.cpp
 ----------------
-Copyright Glare Technologies Limited 2022 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "RuntimeCheck.h"
 
 
-void _doRuntimeCheck(bool b, const char* message)
+#include "Exception.h"
+#include <assert.h>
+
+
+void runtimeCheckFailed(const char* message)
 {
-	assert(b);
-	if(!b)
-	{
+	assert(false);
 #if defined(_WIN32)
-		__debugbreak();
+	__debugbreak();
 #endif
-		throw glare::Exception(std::string(message));
-	}
+	throw glare::Exception("RUNTIME CHECK FAILED: " + std::string(message));
 }
 
 

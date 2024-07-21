@@ -1,7 +1,7 @@
 /*=====================================================================
 URL.h
 -----
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
@@ -14,6 +14,9 @@ Copyright Glare Technologies Limited 2020 -
 URL
 ---
 Parsed URL, broken into the components.
+
+https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
+https://datatracker.ietf.org/doc/html/rfc3986
 =====================================================================*/
 class URL
 {

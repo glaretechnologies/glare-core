@@ -1,20 +1,47 @@
 /*=====================================================================
 HTTPClient.h
 ------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
 
 #include "SocketInterface.h"
+#include "../utils/Exception.h"
 #include <string>
 #include <vector>
+
+
+class StreamingDataHandler
+{
+public:
+	virtual void haveContentLength(uint64 /*content_length*/) {};
+	virtual void handleData(ArrayRef<uint8> data) = 0;
+};
+
+
+class HTTPClientExcep : public glare::Exception
+{
+public:
+	enum ExcepType
+	{
+		ExcepType_ConnectionClosedGracefully,
+		ExcepType_Other
+	};
+
+	HTTPClientExcep(const std::string& message_, ExcepType excep_type_ = ExcepType_Other) : glare::Exception(message_), excep_type(excep_type_) {}
+
+	ExcepType excepType() const { return excep_type; }
+private:
+	ExcepType excep_type;
+};
+
 
 
 /*=====================================================================
 HTTPClient
 ----------
-Downloads a file with HTTP, or makes a HTTP post.
+Downloads a file with HTTP 1.1, or makes a HTTP 1.1 post.
 Can do HTTPS as well.
 Can handle redirects.
 =====================================================================*/
@@ -23,6 +50,9 @@ class HTTPClient
 public:
 	HTTPClient();
 	~HTTPClient();
+
+	void connectAndEnableKeepAlive(const std::string& protocol, const std::string& hostname, int port); // Port = -1 means use default port.
+	void resetConnection();
 
 	enum RequestType
 	{
@@ -44,21 +74,34 @@ public:
 	size_t max_data_size;
 	size_t max_socket_buffer_size;
 
-	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out); // Throws glare::Exception on failure.
+	SocketInterfaceRef test_socket;
 
+	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.
+	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out); // Throws glare::Exception on failure.
+	
+
+	ResponseInfo downloadFile(const std::string& url, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.
 	ResponseInfo downloadFile(const std::string& url, std::string& data_out); // Throws glare::Exception on failure.
+	
 
 	void kill(); // Interrupt download.  Can be called from another thread.
 
 	static void test();
 
 private:
-	ResponseInfo doDownloadFile(const std::string& url, int num_redirects_done, std::string& data_out); // Throws glare::Exception on failure.
+	void connect(const std::string& protocol, const std::string& hostname, int port); // Port = -1 means use default port for protocol.
+	ResponseInfo doDownloadFile(const std::string& url, int num_redirects_done, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.
 
 	size_t readUntilCRLF(size_t scan_start_index);
 	size_t readUntilCRLFCRLF(size_t scan_start_index);
-	HTTPClient::ResponseInfo handleResponse(size_t request_header_size, RequestType request_type, int num_redirects_done, std::string& data_out);
-	std::vector<char> socket_buffer;
+	HTTPClient::ResponseInfo handleResponse(size_t request_header_size, RequestType request_type, int num_redirects_done, StreamingDataHandler& response_data_handler);
+	std::vector<uint8> socket_buffer;
 
 	SocketInterfaceRef socket;
+
+	std::string connected_scheme;
+	std::string connected_hostname;
+	int connected_port;
+
+	bool keepalive_socket;
 };

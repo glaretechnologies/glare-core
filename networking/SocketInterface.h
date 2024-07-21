@@ -42,6 +42,8 @@ public:
 	// Returns zero if connection was closed gracefully.
 	virtual size_t readSomeBytes(void* buffer, size_t max_num_bytes) = 0;
 
+	size_t readSomeBytesChecked(MutableArrayRef<uint8> buf, size_t buf_index, size_t max_num_bytes);
+
 	virtual void setNoDelayEnabled(bool enabled) = 0; // NoDelay option is off by default.
 
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.

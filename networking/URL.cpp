@@ -1,7 +1,7 @@
 /*=====================================================================
 URL.cpp
 -------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "URL.h"
 
@@ -10,6 +10,96 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/StringUtils.h"
 #include "../utils/Parser.h"
 #include "../utils/Exception.h"
+
+
+// https://datatracker.ietf.org/doc/html/rfc3986#section-3.1
+static void checkSchemeValid(const std::string& scheme)
+{
+	for(size_t i=0; i<scheme.size(); ++i)
+	{
+		const char c = scheme[i];
+		const bool valid = isAlphaNumeric(c) || (c == '+') || (c == '-') || (c == '.');
+		if(!valid)
+			throw glare::Exception("invalid char in scheme: '" + std::string(1, c) + "'");
+	}
+}
+
+
+// Check host is valid
+// https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2
+static void checkHostValid(const std::string& host)
+{
+	for(size_t i=0; i<host.size(); ++i)
+	{
+		const char c = host[i];
+
+		// ':' character is used in IPv6 addresses, '[', and ']' enclose IPv6 addresses.
+		// '%' to allow percent encoding
+		const bool valid = isAlphaNumeric(c) || (c == '-') || (c == '.') || (c == ':') || (c == '[') || (c == ']') || (c == '%');
+		if(!valid)
+			throw glare::Exception("invalid or unhandled char in host: '" + std::string(1, c) + "'");
+	}
+}
+
+
+// Unreserved Characters: https://datatracker.ietf.org/doc/html/rfc3986#section-2.3
+inline static bool isUnreserved(char c)
+{
+	return isAlphaNumeric(c) || (c == '-') || (c == '.') || (c == '_') || (c == '~');
+}
+
+
+// https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
+inline static bool isSubDelim(char c)
+{
+	return 
+		(c == '!') || (c == '$') || (c == '&') || (c == '\'') || (c == '(') || (c == ')') || 
+		(c == '*') || (c == '+') || (c == ',') || (c == ';')  || (c == '=');
+}
+
+
+// pchar         = unreserved / pct-encoded / sub-delims / ":" / "@"
+inline static bool isPChar(char c)
+{
+	return isUnreserved(c) || (c == '%') || isSubDelim(c) || (c == ':') || (c == '@');
+}
+
+
+// https://datatracker.ietf.org/doc/html/rfc3986#section-3.3
+static void checkURLPathValid(const std::string& path)
+{
+	for(size_t i=0; i<path.size(); ++i)
+	{
+		const char c = path[i];
+		const bool valid = isPChar(c) || (c == '/');
+		if(!valid)
+			throw glare::Exception("invalid or unhandled char in URL path: '" + std::string(1, c) + "'");
+	}
+}
+
+
+static void checkURLQueryValid(const std::string& query)
+{
+	for(size_t i=0; i<query.size(); ++i)
+	{
+		const char c = query[i];
+		const bool valid = isPChar(c) || (c == '/') || (c == '?');
+		if(!valid)
+			throw glare::Exception("invalid or unhandled char in URL query: '" + std::string(1, c) + "'");
+	}
+}
+
+
+static void checkFragmentValid(const std::string& fragment)
+{
+	for(size_t i=0; i<fragment.size(); ++i)
+	{
+		const char c = fragment[i];
+		const bool valid = isPChar(c) || (c == '/') || (c == '?');
+		if(!valid)
+			throw glare::Exception("invalid or unhandled char in URL fragment: '" + std::string(1, c) + "'");
+	}
+}
 
 
 URL URL::parseURL(const std::string& url) // throws glare::Exception
@@ -25,6 +115,8 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 	{
 		result.scheme = url.substr(0, scheme_terminator_pos);
 		parser.setCurrentPos(scheme_terminator_pos + 3);
+
+		checkSchemeValid(result.scheme);
 	}
 
 	//---------------- Parse host ----------------
@@ -35,6 +127,8 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 	{}
 
 	result.host = url.substr(host_start, parser.currentPos() - host_start);
+
+	checkHostValid(result.host);
 
 	//---------------- Parse port ----------------
 	if(parser.currentIsChar(':'))
@@ -54,6 +148,8 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 		{}
 
 		result.path = url.substr(path_start, parser.currentPos() - path_start);
+
+		checkURLPathValid(result.path);
 	}
 
 	//---------------- Parse query ----------------
@@ -66,6 +162,8 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 		{}
 
 		result.query = url.substr(query_start, parser.currentPos() - query_start);
+
+		checkURLQueryValid(result.query);
 	}
 
 	//---------------- Parse fragment ----------------
@@ -74,6 +172,8 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 		parser.consume('#');
 		// Fragment is remaining part of string.
 		result.fragment = url.substr(parser.currentPos(), url.size() - parser.currentPos());
+
+		checkFragmentValid(result.fragment);
 	}
 
 	return result;
@@ -147,6 +247,31 @@ std::map<std::string, std::string> URL::parseQuery(const std::string& query)
 
 
 #include "../utils/TestUtils.h"
+#include "../utils/TestExceptionUtils.h"
+
+
+//========================== Fuzzing ==========================
+#if 0
+// Command line:
+// C:\fuzz_corpus\url
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		const std::string s((const char*)data, size);
+		URL::parseURL(s);
+	}
+	catch(glare::Exception& e)
+	{
+		//conPrint("Excep: " + e.what());
+	}
+
+	return 0; // Non-zero return values are reserved for future use.
+}
+#endif
+//========================== End fuzzing ==========================
+
 
 #define testAssert2(expr) (TestUtils::doTestAssert((expr), (#expr), (__LINE__), (__FILE__)))
 
@@ -292,6 +417,13 @@ void URL::test()
 		testStringsEqual(url.query, "");
 		testStringsEqual(url.fragment, "");
 	}
+
+	// Test some invalid chars
+	testThrowsExcepContainingString([&]() {  parseURL("sch\nemez://a.b.c:80/d/e/f?g=h&i=k#lmn"); }, "scheme");
+	testThrowsExcepContainingString([&]() {  parseURL("schemez://a.\n.c:80/d/e/f?g=h&i=k#lmn"); }, "host");
+	testThrowsExcepContainingString([&]() {  parseURL("schemez://a.b.c:80/d/\n/f?g=h&i=k#lmn"); }, "path");
+	testThrowsExcepContainingString([&]() {  parseURL("schemez://a.b.c:80/d/e/f?g=\n&i=k#lmn"); }, "query");
+	testThrowsExcepContainingString([&]() {  parseURL("schemez://a.b.c:80/d/e/f?g=h&i=k#l\nn"); }, "fragment");
 }
 
 

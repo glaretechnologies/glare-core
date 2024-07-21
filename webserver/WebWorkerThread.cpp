@@ -156,7 +156,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 	// Parse request
 	runtimeCheck(request_start_index <= socket_buffer.size());
 	runtimeCheck(request_start_index + request_header_size <= socket_buffer.size());
-	Parser parser(socket_buffer.data() + request_start_index, request_header_size);
+	Parser parser((const char*)socket_buffer.data() + request_start_index, request_header_size);
 
 	// Parse HTTP verb (GET, POST etc..)
 	RequestInfo request_info;
@@ -424,13 +424,14 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				const size_t current_buf_size = socket_buffer.size();
 				socket_buffer.resize(required_buffer_size);
 
-				socket->readData(&socket_buffer[current_buf_size], required_buffer_size - current_buf_size);
+				socket->readDataChecked(socket_buffer, /*buf index=*/current_buf_size, /*num bytes=*/required_buffer_size - current_buf_size);
 			}
 
-			// Read post content from socket
+			// Copy data to request_info.post_content.
 			request_info.post_content.resize(content_length);
-			runtimeCheck((request_start_index + request_header_size + (size_t)content_length) <= socket_buffer.size());
-			std::memcpy(&request_info.post_content[0], &socket_buffer[request_start_index + request_header_size], content_length);
+			checkedArrayRefMemcpy(
+				/*dest=*/MutableArrayRef<uint8>((uint8*)request_info.post_content.data(), request_info.post_content.size()), /*dest start index=*/0, 
+				/*src=*/socket_buffer, /*src start index=*/request_header_size, /*size_B=*/content_length);
 
 			//conPrint("Read content:");
 			//conPrint(post_content);
@@ -486,29 +487,32 @@ then resize buffer to socket_buffer.size() - request_start.
 
 |         req 0                    |         req 1            |                req 2
 |----------------------------------|--------------------------|--------------------------------
-															  ^               ^               ^
-										   request start index    double_crlf_scan_position   socket_buffer.size()
+                                                              ^               ^               ^
+                                           request start index    double_crlf_scan_position   socket_buffer.size()
 
 =>
 
 
-				   |                req 2
-				   |--------------------------------
-				   ^               ^               ^
+                   |                req 2
+                   |--------------------------------
+                   ^               ^               ^
 request start index    double_crlf_scan_position   socket_buffer.size()
 
 */
-static void moveToFrontOfBuffer(std::vector<char>& socket_buffer, size_t request_start)
+static void moveToFrontOfBuffer(std::vector<uint8>& socket_buffer, size_t request_start)
 {
-	assert(request_start < socket_buffer.size());
-	if(request_start < socket_buffer.size())
-	{
-		const size_t len = socket_buffer.size() - request_start; // num bytes to copy
-		for(size_t i=0; i<len; ++i)
-			socket_buffer[i] = socket_buffer[request_start + i];
+	runtimeCheck(request_start < socket_buffer.size());
 
-		socket_buffer.resize(len);
-	}
+	const size_t len = socket_buffer.size() - request_start; // num bytes to copy
+	for(size_t i=0; i<len; ++i)
+		socket_buffer[i] = socket_buffer[request_start + i];
+
+	// request_start + i 
+	// < request_start + len														[as i < len]
+	// < request_start + (socket_buffer.size() - request_start)						[len = socket_buffer.size() - request_start]
+	// < socket_buffer.size()
+
+	socket_buffer.resize(len);
 }
 
 
@@ -535,7 +539,7 @@ void WorkerThread::doRunMainLoop()
 		const size_t old_socket_buffer_size = socket_buffer.size();
 		const size_t read_chunk_size = 2048;
 		socket_buffer.resize(old_socket_buffer_size + read_chunk_size);
-		const size_t num_bytes_read = socket->readSomeBytes(&socket_buffer[old_socket_buffer_size], read_chunk_size); // Read up to 'read_chunk_size' bytes.
+		const size_t num_bytes_read = socket->readSomeBytesChecked(socket_buffer, /*buf index=*/old_socket_buffer_size, /*max num bytes=*/read_chunk_size); // Read up to 'read_chunk_size' bytes.
 		//print("thread_id " + toString(thread_id) + ": read " + toString(num_bytes_read) + " bytes.");
 		if(num_bytes_read == 0) // if connection was closed gracefully
 			return;
@@ -569,7 +573,7 @@ void WorkerThread::doRunMainLoop()
 					}
 				}
 
-		assert(double_crlf_scan_position >= request_start_index);
+		runtimeCheck(double_crlf_scan_position >= request_start_index);
 			
 		// If the latest request does not start at byte zero in the buffer,
 		// And there is some data stored for the request to actually move,

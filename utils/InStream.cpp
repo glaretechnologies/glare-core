@@ -7,7 +7,22 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Exception.h"
+#include "RuntimeCheck.h"
 #include "StringUtils.h"
+
+
+void InStream::readDataChecked(MutableArrayRef<uint8> buf, size_t buf_index, size_t num_bytes)
+{
+	if(num_bytes > 0)
+	{
+		runtimeCheck(
+			!Maths::unsignedIntAdditionWraps(buf_index, num_bytes) &&
+			((buf_index + num_bytes) <= buf.size())
+		);
+
+		readData(buf.data() + buf_index, num_bytes);
+	}
+}
 
 
 float InStream::readFloat()

@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
+#include "ArrayRef.h"
 #include <string>
 
 
@@ -30,6 +31,8 @@ public:
 
 	// Read 'num_bytes' bytes to buf.  Buf must point at a buffer of at least num_bytes bytes.
 	virtual void readData(void* buf, size_t num_bytes) = 0;
+
+	void readDataChecked(MutableArrayRef<uint8> buf, size_t buf_index, size_t num_bytes);
 
 	// Read float
 	float readFloat();

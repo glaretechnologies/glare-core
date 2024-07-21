@@ -177,9 +177,11 @@ static void testPacketBreaksWithRequest(const std::string& request, int expected
 		
 		Reference<TestRequestHandler> request_handler = new TestRequestHandler();
 		Reference<web::WorkerThread> worker = new web::WorkerThread(0, test_socket, request_handler, /*tls connection=*/false);
-		ThreadManager thread_manager;
-		thread_manager.addThread(worker);
-		thread_manager.killThreadsBlocking();
+		//ThreadManager thread_manager;
+		//thread_manager.addThread(worker);
+		//thread_manager.killThreadsBlocking();
+
+		worker->doRun();
 
 		testAssert(request_handler->num_requests_handled == expected_num_requests);
 	}
@@ -441,7 +443,11 @@ static void testHandleSingleRequest(const uint8_t* data, size_t size)
 			// Insert a double CRLF on the end manually
 			worker->socket_buffer.resize(size + 4);
 			request_header_size = size + 4;
+
+			// Copy the fuzz input data
 			std::memcpy(worker->socket_buffer.data(), data, size);
+
+			// Add the CRLFCRLF
 			worker->socket_buffer[size+0] = '\r';
 			worker->socket_buffer[size+1] = '\n';
 			worker->socket_buffer[size+2] = '\r';
