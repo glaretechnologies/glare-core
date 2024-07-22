@@ -40,6 +40,8 @@ public:
 	static inline void setLightUserDataAsTableField(lua_State* state, const char* field_key, void* val);
 	// Assumes table is on top of stack
 	static inline void setNumberAsTableField(lua_State* state, const char* field_key, double x);
+	// Assumes table is on top of stack
+	static void setStringAsTableField(lua_State* state, const char* field_key, const std::string& s);
 	
 	static void* getTableLightUserDataField(lua_State* state, int table_index, const char* key);
 
@@ -55,9 +57,14 @@ public:
 	static const char* getStringAndAtom(lua_State* state, int index, int& atom_out);
 	// Convert a Lua string on the stack at index into a std::string
 	static std::string getString(lua_State* state, int index);
+	static const char* getStringPointerAndLen(lua_State* state, int index, size_t& len_out);
+	
 	static std::string getStringArg(lua_State* state, int index); // Same as getString except exception message calls the value an argument.
 	static std::string getTableStringField(lua_State* state, int table_index, const char* key);
 	static std::string getTableStringFieldWithEmptyDefault(lua_State* state, int table_index, const char* key);
+
+	static void checkValueIsTable(lua_State* state, int index);
+	static void checkArgIsFunction(lua_State* state, int index);
 
 	static bool getBool(lua_State* state, int index);
 	static float getFloat(lua_State* state, int index);

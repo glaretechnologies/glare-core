@@ -187,10 +187,17 @@ void LuaUtils::setCFunctionAsTableField(lua_State* state, lua_CFunction fn, cons
 
 // Check if the value on the stack is actually a table, otherwise we will hit an assert in lua_rawgetfield.
 // Throws Exception if not a table.
-static void checkValueIsTable(lua_State* state, int table_index)
+void LuaUtils::checkValueIsTable(lua_State* state, int index)
 {
-	if(!lua_istable(state, table_index))
-		throw glare::Exception("Value was not a table (had type " + luaTypeString(state, lua_type(state, table_index)) + ")" + errorContextString(state));
+	if(!lua_istable(state, index))
+		throw glare::Exception("Value was not a table (had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+}
+
+
+void LuaUtils::checkArgIsFunction(lua_State* state, int table_index)
+{
+	if(lua_type(state, /*index=*/table_index) != LUA_TFUNCTION)
+		throw glare::Exception("Argument " + toString(table_index) + " must be a function" + errorContextString(state));
 }
 
 
@@ -359,10 +366,20 @@ std::string LuaUtils::getString(lua_State* state, int index)
 	if(s)
 		return std::string(s, len);
 	else
-	{
-		assert(0);  // Shouldn't get here
-		throw glare::Exception("Value was not a string");
-	}
+		runtimeCheckFailed("Value was not a string");
+}
+
+
+const char* LuaUtils::getStringPointerAndLen(lua_State* state, int index, size_t& len_out)
+{
+	if(!lua_isstring(state, index))
+		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+
+	const char* s = lua_tolstring(state, index, &len_out);
+	if(s)
+		return s;
+	else
+		runtimeCheckFailed("Value was not a string");
 }
 
 
@@ -635,6 +652,15 @@ void LuaUtils::pushMatrix2f(lua_State* state, const Matrix2f& m)
 		lua_pushnumber(state, m.e[i]);
 		lua_rawseti(state, /*table index=*/-2, i);
 	}
+}
+
+
+void LuaUtils::setStringAsTableField(lua_State* state, const char* field_key, const std::string& s)
+{
+	assert(lua_istable(state, -1));
+
+	lua_pushlstring(state, s.c_str(), s.size());
+	lua_rawsetfield(state, /*table index=*/-2, field_key);
 }
 
 

@@ -9,7 +9,8 @@ Copyright Glare Technologies Limited 2024 -
 #include "Platform.h"
 
 
-GLARE_NO_INLINE void runtimeCheckFailed(const char* message);
+// Throws glare::Exception.
+[[noreturn]] GLARE_NO_INLINE void runtimeCheckFailed(const char* message);
 
 inline void _doRuntimeCheck(bool b, const char* message)
 {
