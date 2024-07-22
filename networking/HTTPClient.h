@@ -45,7 +45,7 @@ Downloads a file with HTTP 1.1, or makes a HTTP 1.1 post.
 Can do HTTPS as well.
 Can handle redirects.
 =====================================================================*/
-class HTTPClient
+class HTTPClient : public ThreadSafeRefCounted
 {
 public:
 	HTTPClient();
@@ -71,17 +71,18 @@ public:
 
 	std::vector<std::string> additional_headers; // Such as "X-CC-Api-Key: YOUR_API_KEY".  Don't include CRLF in the header.
 
-	size_t max_data_size;
-	size_t max_socket_buffer_size;
+	size_t max_data_size; // Maximum accepted size for content-length, also max size data_out will be resized to in sendPost() and downloadFile() functions.
+	size_t max_socket_buffer_size; // Maximum size that the internal buffer socket_buffer can be resized to.  Chunked transfer encoding will 
+	// fail with an error message if a chunk exceeds this size.
 
 	SocketInterfaceRef test_socket;
 
 	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.
-	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out); // Throws glare::Exception on failure.
+	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::vector<uint8>& data_out); // Throws glare::Exception on failure.
 	
 
 	ResponseInfo downloadFile(const std::string& url, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.
-	ResponseInfo downloadFile(const std::string& url, std::string& data_out); // Throws glare::Exception on failure.
+	ResponseInfo downloadFile(const std::string& url, std::vector<uint8>& data_out); // Throws glare::Exception on failure.
 	
 
 	void kill(); // Interrupt download.  Can be called from another thread.

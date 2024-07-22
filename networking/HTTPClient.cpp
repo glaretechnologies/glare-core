@@ -398,7 +398,7 @@ size_t HTTPClient::readUntilCRLFCRLF(size_t scan_start_index)
 class StreamToStringDataHandler : public StreamingDataHandler
 {
 public:
-	StreamToStringDataHandler(std::string& combined_data_, size_t max_data_size_) : combined_data(combined_data_), max_data_size(max_data_size_) {}
+	StreamToStringDataHandler(std::vector<uint8>& combined_data_, size_t max_data_size_) : combined_data(combined_data_), max_data_size(max_data_size_) {}
 
 	virtual void haveContentLength(uint64 content_length)
 	{
@@ -418,16 +418,16 @@ public:
 				throw glare::Exception("Data size (" + toString(new_len) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 
 			combined_data.resize(new_len);
-			checkedArrayRefMemcpy(MutableArrayRef<uint8>((uint8*)combined_data.data(), combined_data.size()), /*dest index=*/cur_len, /*src=*/data, /*src index=*/0, /*size=*/data.size());
+			checkedArrayRefMemcpy(combined_data, /*dest index=*/cur_len, /*src=*/data, /*src index=*/0, /*size=*/data.size());
 		}
 	}
 
-	std::string& combined_data;
+	std::vector<uint8>& combined_data;
 	size_t max_data_size;
 };
 
 
-HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out) // Throws glare::Exception on failure.
+HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::vector<uint8>& data_out) // Throws glare::Exception on failure.
 {
 	StreamToStringDataHandler handler(data_out, max_data_size);
 	return sendPost(url, post_content, content_type, handler);
@@ -476,7 +476,7 @@ HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, Stream
 }
 
 
-HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::string& data_out)
+HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::vector<uint8>& data_out)
 {
 	StreamToStringDataHandler handler(data_out, max_data_size);
 
@@ -613,7 +613,8 @@ public:
 			try
 			{
 				HTTPClient client;
-				std::string data;
+				client.setAsNotIndependentlyHeapAllocated();
+				std::vector<uint8> data;
 				client.downloadFile(path, data);
 				//conPrint(data);
 				conPrintStr(".");
@@ -638,21 +639,24 @@ void HTTPClient::test()
 		
 		{
 			HTTPClient client;
-			std::string data;
+			client.setAsNotIndependentlyHeapAllocated();
+			std::vector<uint8> data;
 			client.downloadFile("http://www.cbloom.com/rants.html", data);
-			conPrint(data);
+			//conPrint(data);
 		}
 		{
 			HTTPClient client;
-			std::string data;
+			client.setAsNotIndependentlyHeapAllocated();
+			std::vector<uint8> data;
 			client.downloadFile("https://forwardscattering.org/post/3", data);
-			conPrint(data);
+			//conPrint(data);
 		}
 		{
 			HTTPClient client;
-			std::string data;
+			client.setAsNotIndependentlyHeapAllocated();
+			std::vector<uint8> data;
 			client.downloadFile("https://docs.python.org/3/library/urllib.parse.html", data);
-			conPrint(data);
+			//conPrint(data);
 		}
 	}
 	catch(glare::Exception& e)

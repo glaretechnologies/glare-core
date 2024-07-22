@@ -303,6 +303,7 @@ static void testRangeRequestAndResponse(web::Range range, const MemMappedFile& f
 	try
 	{
 		HTTPClient client;
+		client.setAsNotIndependentlyHeapAllocated();
 		
 		std::string range_header;
 		range_header = "range: bytes=" + toString(range.start) + "-";
@@ -311,7 +312,7 @@ static void testRangeRequestAndResponse(web::Range range, const MemMappedFile& f
 
 		client.additional_headers.push_back(range_header);
 
-		std::string response;
+		std::vector<uint8> response;
 		HTTPClient::ResponseInfo info = client.downloadFile("http://localhost:" + toString(port) + "/", response);
 		if(expect_206_response)
 			testAssert(info.response_code == 206);
