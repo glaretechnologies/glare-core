@@ -85,7 +85,7 @@ public:
 	std::vector<FormField> post_fields;
 	std::vector<Cookie> cookies;
 
-	std::string post_content; // For POST request type.
+	std::vector<uint8> post_content; // For POST request type.
 
 	std::vector<Range> ranges;
 

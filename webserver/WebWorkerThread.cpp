@@ -430,14 +430,14 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			// Copy data to request_info.post_content.
 			request_info.post_content.resize(content_length);
 			checkedArrayRefMemcpy(
-				/*dest=*/MutableArrayRef<uint8>((uint8*)request_info.post_content.data(), request_info.post_content.size()), /*dest start index=*/0, 
-				/*src=*/socket_buffer, /*src start index=*/request_header_size, /*size_B=*/content_length);
+				/*dest=*/request_info.post_content, /*dest start index=*/0, 
+				/*src=*/socket_buffer, /*src start index=*/request_start_index + request_header_size, /*size_B=*/content_length);
 
 			//conPrint("Read content:");
 			//conPrint(post_content);
 
 			// Parse form data.  NOTE: We don't always want to do this presumably, we're not always handling form posts.
-			Parser form_parser(request_info.post_content.c_str(), request_info.post_content.size());
+			Parser form_parser((const char*)request_info.post_content.data(), request_info.post_content.size());
 
 			while(!form_parser.eof())
 			{
