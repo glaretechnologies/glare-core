@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "DatabaseKey.h"
 #include "ArrayRef.h"
 #include "Platform.h"
-#include "HashMapInsertOnly2.h"
+#include "Hasher.h"
 #include "Vector.h"
 #include "FileInStream.h"
 #include <string>

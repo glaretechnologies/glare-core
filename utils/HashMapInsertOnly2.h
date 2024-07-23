@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "HashMapInsertOnly2Iterators.h"
+#include "Hasher.h"
 #include "Vector.h"
 #include "GlareAllocator.h"
 #include <functional>
@@ -17,21 +18,6 @@ Copyright Glare Technologies Limited 2021 -
 #pragma warning(push)
 #pragma warning(disable:4127) // Disable 'conditional expression is constant' warnings in the if(std::is_pod<Key>::value ...) code below.
 #endif
-
-
-// Implemented using FNV-1a hash.
-// See https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
-// FNV is a good hash function for smaller key lengths.
-// For longer key lengths, use something like xxhash.
-// See http://aras-p.info/blog/2016/08/02/Hash-Functions-all-the-way-down/ for a performance comparison.
-//
-static inline size_t hashBytes(const uint8* data, size_t len)
-{
-	uint64 hash = 14695981039346656037ULL;
-	for(size_t i=0; i<len; ++i)
-		hash = (hash ^ data[i]) * 1099511628211ULL;
-	return hash;
-}
 
 
 /*=====================================================================

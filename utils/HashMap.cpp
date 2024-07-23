@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "ConPrint.h"
 #include "TestUtils.h"
 #include "Timer.h"
+#include "Hasher.h"
 #include "StringUtils.h"
 #include "../maths/PCG32.h"
 
@@ -44,6 +45,67 @@ struct TestIdentityHashFunc
 void testHashMap()
 {
 	conPrint("testHashMap()");
+
+	// Test hash function performance
+	{
+		const int N = 1000000;
+		{
+			Timer timer;
+			uint64 v = 0;
+			for(int i=0; i<N; ++i)
+			{
+				std::hash<uint64> h;
+				uint64 hashval = h(v);
+				v ^= hashval;
+			}
+			double elapsed = timer.elapsed();
+			conPrint("std::hash (uint64) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint(toString(v));
+		}
+
+		{
+			Timer timer;
+			uint64 v = 0;
+			for(int i=0; i<N; ++i)
+			{
+				uint64 hashval = hashBytes((const uint8*)&v, sizeof(uint64));
+				v ^= hashval;
+			}
+			double elapsed = timer.elapsed();
+			conPrint("hashBytes (uint64) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint(toString(v));
+		}
+
+		{
+			Timer timer;
+			uint32 v = 0;
+			for(int i=0; i<N; ++i)
+			{
+				std::hash<uint32> h;
+				uint32 hashval = h(v);
+				v ^= hashval;
+			}
+			double elapsed = timer.elapsed();
+			conPrint("std::hash (uint32) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint(toString(v));
+		}
+
+		{
+			Timer timer;
+			uint32 v = 0;
+			for(int i=0; i<N; ++i)
+			{
+				uint32 hashval = hashBytes((const uint8*)&v, sizeof(uint32));
+				v ^= hashval;
+			}
+			double elapsed = timer.elapsed();
+			conPrint("hashBytes (uint32) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint(toString(v));
+		}
+	}
+
+
+
 
 	// For each bucket i, find an item that hashes to bucket i, add it, then remove it.
 	{
