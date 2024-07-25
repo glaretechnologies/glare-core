@@ -59,7 +59,21 @@ void testHashMap()
 				v ^= hashval;
 			}
 			double elapsed = timer.elapsed();
-			conPrint("std::hash (uint64) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint("std::hash<uint64> took  " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint(toString(v));
+		}
+
+		{
+			Timer timer;
+			uint64 v = 0;
+			for(int i=0; i<N; ++i)
+			{
+				HasherOb<uint64> h;
+				uint64 hashval = h(v);
+				v ^= hashval;
+			}
+			double elapsed = timer.elapsed();
+			conPrint("HasherOb<uint64> took   " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
 			conPrint(toString(v));
 		}
 
@@ -72,7 +86,7 @@ void testHashMap()
 				v ^= hashval;
 			}
 			double elapsed = timer.elapsed();
-			conPrint("hashBytes (uint64) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint("hashBytes (uint64) took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
 			conPrint(toString(v));
 		}
 

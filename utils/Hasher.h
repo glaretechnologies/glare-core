@@ -33,3 +33,16 @@ static inline size_t hashBytes(const uint8* data, size_t len)
 
 #endif
 }
+
+
+template <class T>
+class HasherOb
+{
+public:
+	inline size_t operator() (const T& v)
+	{
+		//static_assert(std::is_trivial<T>, "HasherOb can only handle trivial types.");
+
+		return hashBytes((const uint8*)&v, sizeof(T));
+	}
+};
