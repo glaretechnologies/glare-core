@@ -92,11 +92,11 @@ void testHashMap()
 
 		{
 			Timer timer;
-			uint32 v = 0;
+			size_t v = 0;
 			for(int i=0; i<N; ++i)
 			{
 				std::hash<uint32> h;
-				uint32 hashval = h(v);
+				size_t hashval = h((uint32)v);
 				v ^= hashval;
 			}
 			double elapsed = timer.elapsed();
@@ -106,10 +106,10 @@ void testHashMap()
 
 		{
 			Timer timer;
-			uint32 v = 0;
+			size_t v = 0;
 			for(int i=0; i<N; ++i)
 			{
-				uint32 hashval = hashBytes((const uint8*)&v, sizeof(uint32));
+				size_t hashval = hashBytes((const uint8*)&v, sizeof(uint32));
 				v ^= hashval;
 			}
 			double elapsed = timer.elapsed();
