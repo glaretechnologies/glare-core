@@ -169,6 +169,7 @@ bool hasLastChar(const std::string& s, char c);
 
 const std::string eatPrefix(const std::string& s, const std::string& prefix);
 const std::string eatSuffix(const std::string& s, const std::string& suffix);
+void removeSuffixInPlace(std::string& s, const std::string& suffix); // Removes suffix from s, if present.
 
 int getNumMatches(const std::string& s, char target);
 

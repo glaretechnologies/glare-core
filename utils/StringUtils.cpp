@@ -798,6 +798,13 @@ const std::string eatSuffix(const std::string& s, const std::string& suffix)
 }
 
 
+void removeSuffixInPlace(std::string& s, const std::string& suffix)
+{
+	if(::hasSuffix(s, suffix))
+		s.resize(s.size() - suffix.size());
+}
+
+
 const std::string toLowerCase(const std::string& text)
 {
 	std::string lowerstr = text;
@@ -2704,6 +2711,31 @@ void StringUtils::test()
 	testAssert(!::hasSuffix("test", "atest"));
 	testAssert(!::hasSuffix("test", "aest"));
 	testAssert(!::hasSuffix("test", "ast"));
+
+
+	//======================== removeSuffixInPlace() ==========================
+	{
+		std::string s = "abcdef";
+		removeSuffixInPlace(s, "");
+		testAssert(s == "abcdef");
+		removeSuffixInPlace(s, "X");
+		testAssert(s == "abcdef");
+		removeSuffixInPlace(s, "Xabcdef");
+		testAssert(s == "abcdef");
+		removeSuffixInPlace(s, "Xbcdef");
+		testAssert(s == "abcdef");
+		removeSuffixInPlace(s, "def");
+		testAssert(s == "abc");
+		removeSuffixInPlace(s, "c");
+		testAssert(s == "ab");
+		removeSuffixInPlace(s, "ab");
+		testAssert(s == "");
+		removeSuffixInPlace(s, "a");
+		testAssert(s == "");
+		removeSuffixInPlace(s, "");
+		testAssert(s == "");
+	}
+
 
 	testAssert(::hasLastChar("t", 't'));
 	testAssert(!::hasLastChar("t", 'a'));
