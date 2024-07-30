@@ -650,7 +650,7 @@ void LuaUtils::pushMatrix2f(lua_State* state, const Matrix2f& m)
 	for(int i=0; i<4; ++i)
 	{
 		lua_pushnumber(state, m.e[i]);
-		lua_rawseti(state, /*table index=*/-2, i);
+		lua_rawseti(state, /*table index=*/-2, 1 + i);
 	}
 }
 
