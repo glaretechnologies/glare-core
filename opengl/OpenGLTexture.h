@@ -144,6 +144,8 @@ public:
 
 	int getNumMipMapLevelsAllocated() const { return num_mipmap_levels_allocated; }
 
+	GLint getInternalFormat() const { return gl_internal_format; }
+
 
 	/// Increment reference count
 	inline void incRefCount() const

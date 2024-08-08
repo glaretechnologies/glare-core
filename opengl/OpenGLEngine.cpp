@@ -4171,26 +4171,45 @@ void OpenGLEngine::updateAllMaterialDataOnGPU(GLObject& object) // Don't reassig
 }
 
 
+// If a GLObject is inserted in the world, then shader progs will be assigned to the materials.
+// Assigned shader progs are required for rebuildDenormalisedDrawData().
+static bool areShadersAssigned(const GLObject& ob)
+{
+	for(size_t i=0; i<ob.materials.size(); ++i)
+		if(ob.materials[i].shader_prog.isNull())
+			return false;
+	return true;
+}
+
+
 void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 {
-	if(mat.material_data_index >= 0) // Object may have not been inserted into engine yet, so material_data_index might not have been set yet.
+	if(areShadersAssigned(ob))
 	{
-		assert(use_multi_draw_indirect);
+		if(mat.material_data_index >= 0) // Object may have not been inserted into engine yet, so material_data_index might not have been set yet.
+		{
+			assert(use_multi_draw_indirect);
 
-		PhongUniforms uniforms;
-		setUniformsForPhongProg(mat, *ob.mesh_data, uniforms);
+			PhongUniforms uniforms;
+			setUniformsForPhongProg(mat, *ob.mesh_data, uniforms);
 
-		phong_buffer->updateData(/*dest offset=*/mat.material_data_index * sizeof(PhongUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PhongUniforms));
-	}
+			phong_buffer->updateData(/*dest offset=*/mat.material_data_index * sizeof(PhongUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PhongUniforms));
+		}
+
+		// Since texture may have changed from one with alpha to one without, or vice-versa, we may need to assign a new shader.
+		assignShaderProgToMaterial(mat, ob.mesh_data->has_vert_colours, /*uses instancing=*/ob.instance_matrix_vbo.nonNull(), ob.mesh_data->usesSkinning(), ob.mesh_data->has_vert_tangents);
+
+		rebuildDenormalisedDrawData(ob);
 
 #if UNIFORM_BUF_PER_MAT_SUPPORT
-	if(mat.uniform_buf_ob.nonNull())
-	{
-		PhongUniforms uniforms;
-		setUniformsForPhongProg(mat, *ob.mesh_data, uniforms);
-		mat.uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
-	}
+		if(mat.uniform_buf_ob.nonNull())
+		{
+			PhongUniforms uniforms;
+			setUniformsForPhongProg(mat, *ob.mesh_data, uniforms);
+			mat.uniform_buf_ob->updateData(0, &uniforms, sizeof(PhongUniforms));
+		}
 #endif
+	}
 }
 
 
