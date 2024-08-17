@@ -232,20 +232,20 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		response_data_handler.haveContentLength(content_length);
 
 		// Copy any body data we have from socket_buffer to data_out.
-		const size_t body_data_read = socket_buffer.size() - response_header_size;
-		const size_t use_content_read_B = myMin(body_data_read, content_length);
+		const uint64 body_data_read = socket_buffer.size() - response_header_size;
+		const uint64 use_content_read_B = myMin(body_data_read, content_length);
 		if(use_content_read_B > 0)
 			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, use_content_read_B));
 
 		// Now read rest of data from socket, and write to data_out
 		runtimeCheck(content_length >= use_content_read_B);
-		size_t remaining_data = content_length - use_content_read_B;
+		uint64 remaining_data = content_length - use_content_read_B;
 		while(remaining_data > 0)
 		{
 			// Read chunks of data from socket, pass to response_data_handler.handleData().
-			const size_t MAX_READ_SIZE = 1 << 14; // TODO: use min() with max_socket_buffer_size here?
+			const uint64 MAX_READ_SIZE = 1 << 14; // TODO: use min() with max_socket_buffer_size here?
 			
-			const size_t read_size = myMin(remaining_data, MAX_READ_SIZE);
+			const size_t read_size = (size_t)myMin(remaining_data, MAX_READ_SIZE);
 			socket_buffer.resize(read_size);
 			socket->readDataChecked(socket_buffer, /*buf index=*/0, /*num bytes=*/read_size);
 
