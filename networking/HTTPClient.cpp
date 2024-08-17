@@ -434,6 +434,18 @@ HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std:
 }
 
 
+HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out)
+{
+	std::vector<uint8> vec_data;
+	StreamToStringDataHandler handler(vec_data, max_data_size);
+	ResponseInfo response = sendPost(url, post_content, content_type, handler);
+
+	data_out.assign((const char*)vec_data.data(), vec_data.size());
+
+	return response;
+}
+
+
 HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, StreamingDataHandler& response_data_handler) // Throws glare::Exception on failure.
 {
 	socket_buffer.clear();
@@ -481,6 +493,19 @@ HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::v
 	StreamToStringDataHandler handler(data_out, max_data_size);
 
 	return doDownloadFile(url, /*num_redirects_done=*/0, handler);
+}
+
+
+HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::string& data_out)
+{
+	std::vector<uint8> data_vec;
+	StreamToStringDataHandler handler(data_vec, max_data_size);
+
+	ResponseInfo response = doDownloadFile(url, /*num_redirects_done=*/0, handler);
+
+	data_out.assign((const char*)data_vec.data(), data_vec.size());
+
+	return response;
 }
 
 
@@ -650,7 +675,12 @@ void HTTPClient::test()
 			std::vector<uint8> data;
 			client.downloadFile("https://forwardscattering.org/post/3", data);
 			//conPrint(data);
+
+			std::string string_data;
+			client.downloadFile("https://forwardscattering.org/post/3", string_data);
+			conPrint(string_data);
 		}
+
 		{
 			HTTPClient client;
 			client.setAsNotIndependentlyHeapAllocated();

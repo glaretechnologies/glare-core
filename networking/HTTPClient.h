@@ -79,10 +79,12 @@ public:
 
 	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.
 	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::vector<uint8>& data_out); // Throws glare::Exception on failure.
+	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out); // Throws glare::Exception on failure.
 	
 
 	ResponseInfo downloadFile(const std::string& url, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.
 	ResponseInfo downloadFile(const std::string& url, std::vector<uint8>& data_out); // Throws glare::Exception on failure.
+	ResponseInfo downloadFile(const std::string& url, std::string& data_out); // Throws glare::Exception on failure.
 	
 
 	void kill(); // Interrupt download.  Can be called from another thread.
