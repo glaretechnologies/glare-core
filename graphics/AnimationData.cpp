@@ -12,17 +12,10 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/ContainerUtils.h"
+#include "../utils/RuntimeCheck.h"
 #include <unordered_map>
 #include <algorithm>
 #include <set>
-
-
-// Throws an exception if b is false.
-static inline void checkProperty(bool b, const char* on_false_message)
-{
-	if(!b)
-		throw glare::Exception(std::string(on_false_message));
-}
 
 
 AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity())/*, is_joint_node(false)*/ {}
