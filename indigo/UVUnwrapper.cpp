@@ -23,6 +23,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/bitmap.h"
 #include "../graphics/Drawing.h"
+#include "../graphics/ShelfPack.h"
 #include "../maths/PCG32.h"
 #include "../maths/Matrix4f.h"
 #include "../maths/Matrix2.h"
@@ -45,21 +46,6 @@ struct Patch
 	Vec2f max_bound;
 };
 
-
-struct AreaGreaterThan
-{
-	bool operator() (const BinRect& a, const BinRect& b)
-	{
-		return a.area() > b.area();
-	}
-};
-
-struct Shelf
-{
-	float top_y;
-	float height; // Set if closed.
-	float right_x;
-};
 
 struct VertUVs
 {
@@ -88,109 +74,6 @@ struct VertUVsLessThan
 
 	int num_sets;
 };
-
-
-void UVUnwrapper::shelfPack(std::vector<BinRect>& rects)
-{
-	// Do initial sort of rectangles in descending area order.
-	std::sort(rects.begin(), rects.end(), AreaGreaterThan());
-
-	// Get sum area of rectangles
-	float sum_A = 0;
-	for(size_t i=0; i<rects.size(); ++i)
-		sum_A += rects[i].area();
-
-	// Choose a maximum width (x value) based on the sum of rectangle areas.
-	const float max_x = std::sqrt(sum_A) * 1.2f;
-
-	std::vector<Shelf> shelves;
-
-	for(size_t i=0; i<rects.size(); ++i)
-	{
-		BinRect& rect = rects[i];
-
-		float min_leftover_height = std::numeric_limits<float>::infinity();
-		size_t best_shelf = 0;
-		bool best_rotated = false;
-
-		// Find best shelf to put rectangle on
-		for(size_t s=0; s<shelves.size(); ++s)
-		{
-			// Try in initial orientation
-			if(shelves[s].right_x + rect.w <= max_x)
-			{
-				const float leftover_height = shelves[s].height - rect.h; 
-				if(leftover_height >= 0 &&  // If fits in height in this orientation
-					leftover_height < min_leftover_height) // And this is the smallest leftover height so far:
-				{
-					min_leftover_height = leftover_height;
-					best_shelf = s;
-					best_rotated = false;
-				}
-			}
-
-			// Try in rotated orientation 
-			if(shelves[s].right_x + rect.h <= max_x)
-			{
-				const float leftover_height = shelves[s].height - rect.w; 
-				if(leftover_height >= 0 && // If fits in height in this orientation
-					leftover_height < min_leftover_height) // And this is the smallest leftover height so far:
-				{
-					min_leftover_height = leftover_height;
-					best_shelf = s;
-					best_rotated = true;
-				}
-			}
-		}
-
-		if(min_leftover_height != std::numeric_limits<float>::infinity()) // If we found a shelf to store the rect on:
-		{
-			// Store the rectangle
-			const float rot_rect_w = best_rotated ? rect.h : rect.w; // width of possibly-rotated rectangle.
-
-			rect.pos = Vec2f(shelves[best_shelf].right_x, shelves[best_shelf].top_y);
-			rect.rotated = best_rotated;
-
-			shelves[best_shelf].right_x += rot_rect_w;
-
-			assert(/*rot_rect_h=*/(best_rotated ? rect.w : rect.h) <= shelves[best_shelf].height);
-		}
-		else
-		{
-			// If we couldn't find a shelf to store the rect on, create a new shelf, and store the rectangle on the shelf
-
-			const float rect_w = myMax(rect.w, rect.h); // sideways w
-			const float rect_h = myMin(rect.w, rect.h); // sideways h
-
-			shelves.push_back(Shelf());
-			if(shelves.size() == 1)
-				shelves.back().top_y = 0;
-			else
-				shelves.back().top_y = shelves[shelves.size() - 2].top_y + shelves[shelves.size() - 2].height; // top y = bottom y of preview shelf
-			shelves.back().height = rect_h;
-			shelves.back().right_x = rect_w;
-
-			rect.pos = Vec2f(0, shelves.back().top_y);
-			rect.rotated = rect_w != rect.w;
-		}
-	}
-
-	// Now that we have packed all rectangles, scale so coordinates fill [0, 1]^2
-
-	// Get the max right_x from all shelves
-	float max_right_x = 0;
-	for(size_t s=0; s<shelves.size(); ++s)
-		max_right_x = myMax(max_right_x, shelves[s].right_x);
-
-	const float cur_y = shelves.back().top_y + shelves.back().height;
-
-	for(size_t i=0; i<rects.size(); ++i)
-	{
-		rects[i].pos.x /= max_right_x;
-		rects[i].pos.y /= cur_y;
-		rects[i].scale = Vec2f(1 / max_right_x, 1 / cur_y);
-	}
-}
 
 
 
@@ -815,7 +698,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 	{
 		rects[i].w = patches[i].max_bound.x - patches[i].min_bound.x;
 		rects[i].h = patches[i].max_bound.y - patches[i].min_bound.y;
-		rects[i].index = (int)i;
+		//rects[i].index = (int)i;
 	}
 
 
@@ -838,7 +721,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 	}
 
 	// Do bin packing
-	shelfPack(rects);
+	ShelfPack::shelfPack(rects);
 
 	// Shrink rectangles to remove margins,
 	// and adjust position so margins are on all sides.
@@ -932,7 +815,7 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 	for(size_t i=0; i<rects.size(); ++i)
 	{
 		const BinRect& rect = rects[i];
-		const Patch& patch = patches[rect.index];
+		const Patch& patch = patches[i];
 
 		// Work out mapping from Patch UV coords to final, shared UV coords
 		Matrix2f patch_to_uv_matrix;
@@ -1246,51 +1129,6 @@ static UVUnwrapper::Results testUnwrappingWithMesh(const std::string& path)
 void UVUnwrapper::test()
 {
 	conPrint("UVUnwrapper::test()");
-
-	//========================== Test bin packing =====================================
-	if(false)
-	{
-		PCG32 rng(1);
-
-		std::vector<BinRect> rects(100);
-		for(size_t i=0; i<rects.size(); ++i)
-		{
-			rects[i].w = rng.unitRandom();
-			rects[i].h = rng.unitRandom();
-			rects[i].index = (int)i;
-		}
-
-		// Do bin packing
-		shelfPack(rects);
-
-		// Draw results
-		const int W = 1000;
-		Bitmap bitmap(W, W, 3, NULL);
-		bitmap.zero();
-		for(size_t i=0; i<rects.size(); ++i)
-		{
-			int r = (int)(rng.unitRandom() * 255);
-			int g = (int)(rng.unitRandom() * 255);
-			int b = (int)(100 + rng.unitRandom() * 155);
-
-			const int sx = (int)(rects[i].pos.x * W);
-			const int sy = (int)(rects[i].pos.y * W);
-			const int endx = sx + (int)((rects[i].rotatedWidth())  * rects[i].scale.x * W);
-			const int endy = sy + (int)((rects[i].rotatedHeight()) * rects[i].scale.y * W);
-			for(int y=sy; y<endy; ++y)
-			for(int x=sx; x<endx; ++x)
-			{
-				if(x >= 0 && x < W && y >= 0 && y < W)
-				{
-					bitmap.getPixelNonConst(x, y)[0] = (uint8)r;
-					bitmap.getPixelNonConst(x, y)[1] = (uint8)g;
-					bitmap.getPixelNonConst(x, y)[2] = (uint8)b;
-				}
-			}
-		}
-
-		PNGDecoder::write(bitmap, "binpacking.png");
-	}
 
 	// Test a single quad, with no existing UVs
 	{
