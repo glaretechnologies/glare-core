@@ -24,6 +24,7 @@ Copyright Glare Technologies Limited 2023 -
 #include <utils/FileUtils.h>
 #include <utils/ConPrint.h>
 #include <utils/StringUtils.h>
+#include <utils/StackAllocator.h>
 #include <GL/gl3w.h>
 #include <SDL_opengl.h>
 #include <SDL.h>
@@ -284,7 +285,9 @@ int main(int, char**)
 
 		gl_ui->callbacks = new TestBedGLUICallbacks();
 
-		gl_ui->create(opengl_engine, /*device pixel ratio=*/1.f, fonts, emoji_fonts);
+		glare::StackAllocator stack_allocator(1024 * 1024 * 16);
+
+		gl_ui->create(opengl_engine, /*device pixel ratio=*/1.f, fonts, emoji_fonts, &stack_allocator);
 		
 		
 		std::vector<GLUITextRef> texts;
@@ -373,16 +376,16 @@ int main(int, char**)
 		//	create_args.font_size_px = 60;
 		//	
 		//	gl_ui->addWidget(text_view);
-		//}
+
 		// Add text-view widget
-		{
-			GLUITextView::CreateArgs create_args;
-			create_args.max_width = gl_ui->getUIWidthForDevIndepPixelWidth(100);
-			GLUITextViewRef text_view = new GLUITextView(*gl_ui, opengl_engine, "abcdefghijklmnopqrstuvwxyz", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
-			create_args.font_size_px = 60;
-			
-			gl_ui->addWidget(text_view);
-		}
+		//{
+		//	GLUITextView::CreateArgs create_args;
+		//	create_args.max_width = gl_ui->getUIWidthForDevIndepPixelWidth(100);
+		//	GLUITextViewRef text_view = new GLUITextView(*gl_ui, opengl_engine, "abcdefghijklmnopqrstuvwxyz", /*botleft=*/Vec2f(0.0f, 0.1f), create_args);
+		//	create_args.font_size_px = 60;
+		//	
+		//	gl_ui->addWidget(text_view);
+		//}
 #endif
 
 
@@ -460,7 +463,7 @@ int main(int, char**)
 					OpenGLTextureRef atlas_texture;
 					std::vector<GLUIText::CharPositionInfo> char_positions_font_coords;
 					Reference<OpenGLMeshRenderData> meshdata = GLUIText::makeMeshDataForText(opengl_engine, gl_ui->font_char_text_cache.ptr(), gl_ui->getFonts(), gl_ui->getEmojiFonts(), use_text, 
-						/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, rect_os, atlas_texture, char_positions_font_coords);
+						/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, stack_allocator, rect_os, atlas_texture, char_positions_font_coords);
 
 					GLObjectRef opengl_ob = opengl_engine->allocateObject();
 					opengl_ob->mesh_data = meshdata;
@@ -489,7 +492,7 @@ int main(int, char**)
 					OpenGLTextureRef atlas_texture;
 					std::vector<GLUIText::CharPositionInfo> char_positions_font_coords;
 					Reference<OpenGLMeshRenderData> meshdata = GLUIText::makeMeshDataForText(opengl_engine, gl_ui->font_char_text_cache.ptr(), gl_ui->getFonts(), gl_ui->getEmojiFonts(), use_text, 
-						/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, rect_os, atlas_texture, char_positions_font_coords);
+						/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, stack_allocator, rect_os, atlas_texture, char_positions_font_coords);
 
 					GLObjectRef opengl_ob = opengl_engine->allocateObject();
 					opengl_ob->mesh_data = meshdata;
@@ -542,7 +545,7 @@ int main(int, char**)
 				OpenGLTextureRef atlas_texture;
 				std::vector<GLUIText::CharPositionInfo> char_positions_font_coords;
 				Reference<OpenGLMeshRenderData> meshdata = GLUIText::makeMeshDataForText(opengl_engine, gl_ui->font_char_text_cache.ptr(), gl_ui->getFonts(), gl_ui->getEmojiFonts(), lines[i], 
-					/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, rect_os, atlas_texture, char_positions_font_coords);
+					/*font size px=*/font_size_px, /*vert_pos_scale=*/(1.f / font_size_px), /*render_SDF=*/true, stack_allocator, rect_os, atlas_texture, char_positions_font_coords);
 
 				GLObjectRef opengl_ob = opengl_engine->allocateObject();
 				opengl_ob->mesh_data = meshdata;
@@ -613,10 +616,14 @@ int main(int, char**)
 		GLTFLoadedData gltf_data;
 		Timer timer2;
 		//BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile("C:\\Users\\nick\\Downloads\\SciFiHelmet.gltf", gltf_data);
-		BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile(model_dir + "/DamagedHelmet.gltf", gltf_data);
+	//	BatchedMeshRef batched_mesh = FormatDecoderGLTF::loadGLTFFile(model_dir + "/DamagedHelmet.gltf", gltf_data);
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\files\\Saeule_6row_obj_4065354431801582820.bmesh");
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\room2_WindowsFLAT_glb_13600392068904710101.bmesh");
 		//BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\models\\Station_Cleaned__OMPTIMIZED__CENTRAL_FLIPPED__noBin_glb_13427799269604943069.bmesh");
+
+
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile("D:\\tempfiles\\chunk_256_0_0.bmesh", mem_allocator.ptr());
+
 		conPrint("loadGLTFFile time: " + timer2.elapsedString());
 
 		// Simplify mesh
@@ -659,7 +666,10 @@ int main(int, char**)
 				Matrix4f::uniformScaleMatrix(0.02f);
 			ob->materials.resize(test_mesh_data->num_materials_referenced);
 
-			{
+
+			ob->materials[0].albedo_texture = opengl_engine->getTexture("D:\\tempfiles\\atlas_256_0_0.png");
+
+			/*{
 				TextureParams params;
 				params.use_sRGB = false;
 				params.allow_compression = false;
@@ -677,7 +687,7 @@ int main(int, char**)
 			}
 			
 			ob->materials[0].emission_texture = opengl_engine->getTexture(model_dir + "/Default_emissive.jpg");
-			ob->materials[0].emission_scale = 3.0f; // 3.0e9f;
+			ob->materials[0].emission_scale = 3.0f; // 3.0e9f;*/
 			opengl_engine->addObjectAndLoadTexturesImmediately(ob);
 		}
 #if 0
@@ -835,6 +845,8 @@ int main(int, char**)
 		{
 			doOneMainLoopIter();
 		}
+
+		gl_ui = nullptr;
 
 		SDL_Quit();
 
@@ -998,12 +1010,12 @@ static void doOneMainLoopIter(/*double time, void *userData*/)
 
 
 			// Rotate ob
-			if(main_test_ob.nonNull())
+			/*if(main_test_ob.nonNull())
 			{
 				main_test_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 1) * Matrix4f::rotationAroundZAxis(Maths::pi_2<float>() + (float)timer->elapsed() * 0.4f) * Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) *
 					Matrix4f::uniformScaleMatrix(0.7f);
 				opengl_engine->updateObjectTransformData(*main_test_ob);
-			}
+			}*/
 
 			gl_ui->think();
 
