@@ -150,6 +150,8 @@ public:
 	// This image must have >= 3 channels.
 	inline Reference<ImageMap<V, ComponentValueTraits> > extract3ChannelImage() const;
 
+	inline Reference<ImageMap<V, ComponentValueTraits> > rotateCounterClockwise() const; // Returns a new image - the image rotated 90 degrees counter-clockwise.
+
 	inline void zero(); // Set all pixels to zero.
 	inline void set(V value); // Set all pixel components to value.
 	inline void setFromComponentValues(const V* component_values); // Set all pixels to values in component_values.  component_values must have size >= N.
@@ -1233,6 +1235,20 @@ Reference<ImageMap<V, VTraits> > ImageMap<V, VTraits>::extract3ChannelImage() co
 		new_im->getPixel(i)[1] = getPixel(i)[1];
 		new_im->getPixel(i)[2] = getPixel(i)[2];
 	}
+
+	return new_im;
+}
+
+
+template <class V, class VTraits>
+Reference<ImageMap<V, VTraits> > ImageMap<V, VTraits>::rotateCounterClockwise() const
+{
+	Reference<ImageMap<V, VTraits> > new_im = new ImageMap<V, VTraits>(getHeight(), getWidth(), getN());
+
+	for(size_t sy=0; sy<height; ++sy)
+	for(size_t sx=0; sx<width;  ++sx)
+	for(size_t c=0; c<N; ++c)
+		new_im->getPixel(height - 1 - sy, sx)[c] = getPixel(sx, sy)[c];
 
 	return new_im;
 }
