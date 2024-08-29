@@ -150,7 +150,7 @@ public:
 	// This image must have >= 3 channels.
 	inline Reference<ImageMap<V, ComponentValueTraits> > extract3ChannelImage() const;
 
-	inline Reference<ImageMap<V, ComponentValueTraits> > rotateCounterClockwise() const; // Returns a new image - the image rotated 90 degrees counter-clockwise.
+	inline Reference<ImageMap<V, ComponentValueTraits> > rotateClockwise() const; // Returns a new image - the image rotated 90 degrees clockwise.
 
 	inline void zero(); // Set all pixels to zero.
 	inline void set(V value); // Set all pixel components to value.
@@ -1241,7 +1241,7 @@ Reference<ImageMap<V, VTraits> > ImageMap<V, VTraits>::extract3ChannelImage() co
 
 
 template <class V, class VTraits>
-Reference<ImageMap<V, VTraits> > ImageMap<V, VTraits>::rotateCounterClockwise() const
+Reference<ImageMap<V, VTraits> > ImageMap<V, VTraits>::rotateClockwise() const
 {
 	Reference<ImageMap<V, VTraits> > new_im = new ImageMap<V, VTraits>(getHeight(), getWidth(), getN());
 

@@ -174,6 +174,18 @@ void ImageMapTests::test()
 {
 	conPrint("ImageMapTests::test()");
 
+
+	// Test rotateCounterClockwise
+	/*{
+		Map2DRef map = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
+
+		testAssert(map.isType<ImageMapUInt8>());
+		PNGDecoder::write(*map.downcastToPtr<ImageMapUInt8>()->rotateClockwise(), "italy_bolsena_flag_flowers_stairs_01_rotated.jpg");
+	}*/
+
+
+
+
 	// Test UInt8 map with single channel
 	{
 		const int W = 10;
