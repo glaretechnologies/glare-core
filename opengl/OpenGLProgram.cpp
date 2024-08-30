@@ -87,6 +87,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glBindAttribLocation(program, 9, "joint");
 	glBindAttribLocation(program, 10, "weight");
 	glBindAttribLocation(program, 11, "tangent_in");
+	glBindAttribLocation(program, 12, "combined_mat_index_in");
 
 	glLinkProgram(program);
 
@@ -118,13 +119,19 @@ void OpenGLProgram::forceFinishLinkAndDoPostLinkCode()
 	GLint program_ok;
 	glGetProgramiv(program, GL_LINK_STATUS, &program_ok);
 
-	const std::string log = getLog(program);
+	std::string combined_log;
+	if(vert_shader)
+		combined_log += vert_shader->getLog(); // AMD drivers don't print anything useful in the program link log, we need to print out the log from the shaders as well.
+	if(frag_shader)
+		combined_log += frag_shader->getLog();
 
-	if(!isAllWhitespace(log))
-		conPrint("shader program '" + prog_name + "' log:\n" + log);
+	combined_log += getLog(program);
+
+	if(!isAllWhitespace(combined_log))
+		conPrint("shader program '" + prog_name + "' log:\n" + combined_log);
 
 	if(!program_ok)
-		throw glare::Exception("Failed to link shader program '" + prog_name + "': " + log);
+		throw glare::Exception("Failed to link shader program '" + prog_name + "': " + combined_log);
 
 	model_matrix_loc   = glGetUniformLocation(program, "model_matrix");
 	view_matrix_loc    = glGetUniformLocation(program, "view_matrix");

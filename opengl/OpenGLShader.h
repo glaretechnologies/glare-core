@@ -24,6 +24,8 @@ public:
 	OpenGLShader(const std::string& path, const std::string& version_directive, const std::string& preprocessor_defines, /*GLenum*/unsigned int shader_type);
 	~OpenGLShader();
 
+	std::string getLog();
+
 	GLuint shader;
 private:
 	GLARE_DISABLE_COPY(OpenGLShader);

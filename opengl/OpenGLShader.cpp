@@ -65,3 +65,19 @@ OpenGLShader::~OpenGLShader()
 {
 	glDeleteShader(shader);
 }
+
+
+std::string OpenGLShader::getLog()
+{
+	// Get log length including null terminator
+	GLint log_length = 0;
+	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
+
+	std::string log;
+	if(log_length > 0)
+	{
+		log.resize(log_length - 1);
+		glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
+	}
+	return log;
+}
