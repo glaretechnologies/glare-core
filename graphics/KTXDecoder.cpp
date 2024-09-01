@@ -233,7 +233,14 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 		const size_t N = 3;
 		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, N);
 
-		if(vkFormat == VK_FORMAT_BC6H_UFLOAT_BLOCK)
+		/*if(vkFormat == VK_FORMAT_R8G8B8_SRGB)
+		{
+			image->gl_type = GL_UNSIGNED_BYTE; // correct?
+			image->gl_type_size = 1; // not sure
+			image->gl_internal_format = GL_SRGB8;
+			image->gl_format = GL_RGB;
+		}
+		else */if(vkFormat == VK_FORMAT_BC6H_UFLOAT_BLOCK)
 		{
 			image->gl_type = GL_RGB; // correct?
 			image->gl_type_size = 0; // not sure
@@ -401,15 +408,16 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 	uint32 vk_format;
 	switch(format)
 	{
-		case Format_BC1:  vk_format = VK_FORMAT_BC1_RGB_UNORM_BLOCK; break;
-		case Format_BC3:  vk_format = VK_FORMAT_BC3_UNORM_BLOCK;     break;
-		case Format_BC6H: vk_format = VK_FORMAT_BC6H_UFLOAT_BLOCK;   break;
+		// case Format_SRGB_Uint8: vk_format = VK_FORMAT_R8G8B8_SRGB;         break;
+		case Format_BC1:        vk_format = VK_FORMAT_BC1_RGB_UNORM_BLOCK; break;
+		case Format_BC3:        vk_format = VK_FORMAT_BC3_UNORM_BLOCK;     break;
+		case Format_BC6H:       vk_format = VK_FORMAT_BC6H_UFLOAT_BLOCK;   break;
 		default: throw glare::Exception("Invalid format");
 	}
 
 
 	file.writeUInt32(vk_format); // vkFormat
-	file.writeUInt32(1); // glTypeSize: For formats whose Vulkan names have the suffix _BLOCK it must equal 1
+	file.writeUInt32(1); // typeSize: For formats whose Vulkan names have the suffix _BLOCK it must equal 1.  Also is 1 for any 8 bit format. (https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html#_typesize)
 	file.writeUInt32((uint32)w); // pixelWidth: The size of the texture image for level 0, in pixels.
 	file.writeUInt32((uint32)h); // pixelHeight
 	file.writeUInt32(0); // pixelDepth: For 2D and cubemap textures, pixelDepth must be 0.
@@ -442,7 +450,7 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 
 	js::Vector<uint8, 16> compressed_data;
 
-	for(int i=(int)level_image_data.size() - 1; i>=0; --i)
+	for(int i=(int)level_image_data.size() - 1; i>=0; --i) // "Mip levels in the array are ordered from the level with the smallest size images, levelp to that with the largest size images, levelbase"
 	{
 		const std::vector<uint8>& level_i_data = level_image_data[i];
 
@@ -500,7 +508,9 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 #include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/FileUtils.h"
-
+#include "../utils/TaskManager.h"
+#include "TextRenderer.h"
+#include "DXTCompression.h"
 
 #if 0
 // Command line:
@@ -529,12 +539,168 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif
 
 
+static void makeMipMapTestTexture()
+{
+#if !SERVER
+	glare::TaskManager task_manager;
+
+	TextRendererRef text_renderer = new TextRenderer();
+
+	const int font_size_px = 14;
+	TextRendererFontFaceRef font = new TextRendererFontFace(text_renderer, 
+		TestUtils::getTestReposDir() + "/testfiles/fonts/TruenoLight-E2pg.otf", font_size_px);
+
+	const int small_font_size_px = 8;
+	TextRendererFontFaceRef small_font = new TextRendererFontFace(text_renderer, 
+		TestUtils::getTestReposDir() + "/testfiles/fonts/TruenoLight-E2pg.otf", small_font_size_px);
+
+
+	// A 'categorical' colour palette
+	const float v = 0.3f;
+	Colour3f cols[] = { 
+		Colour3f(1, v, v),
+		Colour3f(v, 1, v),
+		Colour3f(v, 0.5f, 1),
+
+		Colour3f(1, 1, 0),
+		Colour3f(0, 1, 1),
+		Colour3f(1, 0, 1),
+
+		Colour3f(1, 0.6f, 0),
+		Colour3f(0, 0.6f, 1),
+		Colour3f(0.6f, 0, 1),
+
+		Colour3f(0.4f, 0.2f, 0.7f),
+		Colour3f(0.5, 0.5, 0.5),
+
+		Colour3f(1.f),
+		Colour3f(1.f),
+		Colour3f(1.f),
+		Colour3f(1.f),
+		Colour3f(1.f),
+		Colour3f(1.f)
+	};
+
+	const int W = 1024; // Texture width
+
+	std::vector<std::vector<uint8>> level_image_data;
+
+	int level_W = W;
+	int level = 0;
+	while(level_W != 0)
+	{
+		ImageMapUInt8Ref im = new ImageMapUInt8(level_W, level_W, 3);
+
+		const Colour3f level_col = cols[level];
+
+		for(size_t y=0; y<level_W; ++y)
+		for(size_t x=0; x<level_W; ++x)
+		{
+			Colour3f background_col;
+			background_col = level_col * 0.9f;
+
+			im->getPixel(x, y)[0] = (uint8)(background_col.r * 255.01f);
+			im->getPixel(x, y)[1] = (uint8)(background_col.g * 255.01f);
+			im->getPixel(x, y)[2] = (uint8)(background_col.b * 255.01f);
+		}
+
+		if(level_W >= 8)
+		{
+			if(level <= 5)
+			{
+				const size_t line_w = (level_W < 4) ? 4 : 2;
+
+				// Draw horizontal lines
+				const size_t gap_w = (level <= 3) ? (level_W / 4) : level_W;
+				for(size_t starty=0; starty<level_W; starty += gap_w)
+				{
+					for(size_t y=starty; y<starty + line_w; ++y)
+					{
+						Colour3f line_col = (starty == 0) ? (level_col * 0.5f) : (level_col * 0.82f);
+						for(size_t x=0; x<level_W; ++x)
+						{
+							im->getPixel(x, y)[0] = (uint8)(line_col.r * 255.01f);
+							im->getPixel(x, y)[1] = (uint8)(line_col.g * 255.01f);
+							im->getPixel(x, y)[2] = (uint8)(line_col.b * 255.01f);
+						}
+					}
+				}
+				// Draw vertical lines
+				for(size_t startx=0; startx<level_W; startx += gap_w)
+				{
+					for(size_t x=startx; x<startx + line_w; ++x)
+					{
+						Colour3f line_col = (startx == 0) ? (level_col * 0.5f) : (level_col * 0.75f);
+						for(size_t y=0; y<level_W; ++y)
+						{
+							im->getPixel(x, y)[0] = (uint8)(line_col.r * 255.01f);
+							im->getPixel(x, y)[1] = (uint8)(line_col.g * 255.01f);
+							im->getPixel(x, y)[2] = (uint8)(line_col.b * 255.01f);
+						}
+					}
+				}
+			}
+
+			// Draw mip level as repeating text
+			Colour3f font_col = level_col * 0.6f;
+			if(level < 4)
+			{
+				int cell_w_px = level_W / 4;
+				for(size_t y=0; y<=level_W; y += cell_w_px)
+				for(size_t x=0; x<=level_W; x += cell_w_px)
+				{
+					font->drawText(*im, toString(level), (int)x + cell_w_px/2 - 4, (int)y - cell_w_px/2 + font_size_px/2 + /*line w/2=*/2, font_col, false);
+				}
+			}
+			else if(level < 8)
+			{
+				small_font->drawText(*im, toString(level), level_W/2 - 4, level_W/2 + small_font_size_px/2, font_col, false);
+			}
+				
+			// Draw (x, y) coords for lower MIP levels.
+			if(level < 2)
+			{
+				Colour3f xy_font_col = level_col * 0.3f;
+				for(size_t y=0; y<=level_W; y += level_W / 2)
+				for(size_t x=0; x<=level_W; x += level_W / 2)
+				{
+					float tex_x = (float)x / level_W;
+					float tex_y = 1.f - (float)y / level_W;
+						
+					const int text_padding_px = 5;
+					font->drawText(*im, "x=" + doubleToStringMaxNDecimalPlaces(tex_x, 2) + ", y=" + doubleToStringMaxNDecimalPlaces(tex_y, 2), (int)x + text_padding_px, (int)y - text_padding_px, xy_font_col, false);
+				}
+			}
+		}
+
+		const size_t compressed_size_B = DXTCompression::getCompressedSizeBytes(level_W, level_W, 3);
+
+		// Compress data
+		std::vector<uint8> level_data(compressed_size_B);
+		DXTCompression::TempData temp_data;
+		DXTCompression::compress(&task_manager, temp_data, level_W, level_W, 3,
+			im->getData(), level_data.data(), level_data.size());
+
+		level_image_data.push_back(level_data);
+
+		level_W /= 2;
+		level++;
+	}
+
+	KTXDecoder::writeKTX2File(KTXDecoder::Format::Format_BC1, /*supercompression=*/false, (int)W, (int)W, level_image_data, "d:/tempfiles/miptest.ktx2");
+#endif
+}
+
+
 void KTXDecoder::test()
 {
 	conPrint("KTXDecoder::test()");
 
 	try
 	{
+		if(false)
+			makeMipMapTestTexture();
+
 		//----------------------------------- Test KTX files in ktxtest-master  -------------------------------------------
 		{
 			const std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testfiles/ktx/ktxtest-master", "ktx");

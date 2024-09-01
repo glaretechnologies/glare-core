@@ -41,6 +41,7 @@ public:
 
 	enum Format
 	{
+		//Format_SRGB_Uint8,
 		Format_BC1, // Aka DXT1 (DXT without alpha)
 		Format_BC3, // Aka DXT5 (DXT with alpha)
 		Format_BC6H
