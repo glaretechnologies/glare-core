@@ -1086,35 +1086,33 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g01.png");
 			testAssert(map->numChannels() == 1);
-			testAssert(map->getBytesPerPixel() == 1);
 		}
 
 		// 2 bit (4 level) grayscale
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g02.png");
 			testAssert(map->numChannels() == 1);
-			testAssert(map->getBytesPerPixel() == 1);
 		}
 
 		// 8 bit (256 level) grayscale 
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g08.png");
 			testAssert(map->numChannels() == 1);
-			testAssert(map->getBytesPerPixel() == 1);
 		}
 
 		// 16 bit (64k level) grayscale
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn0g16.png");
 			testAssert(map->numChannels() == 1);
-			testAssert(map->getBytesPerPixel() == 2);
+			//testAssert(map->getBytesPerPixel() == 2);
+			testAssert(map.isType<ImageMapUInt16>());
 		}
 
 		// 3x8 bits rgb color
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn2c08.png");
 			testAssert(map->numChannels() == 3);
-			testAssert(map->getBytesPerPixel() == 3);
+			//testAssert(map->getBytesPerPixel() == 3);
 		}
 
 		// 3x16 bits rgb color
@@ -1122,20 +1120,21 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn2c16.png");
 			testAssert(map->numChannels() == 3 || map->numChannels() == 4);
-			testAssert(map->getBytesPerPixel() == 6 || map->getBytesPerPixel() == 8);
+			//testAssert(map->getBytesPerPixel() == 6 || map->getBytesPerPixel() == 8);
+			testAssert(map.isType<ImageMapUInt16>());
 		}
 
 		// 1 bit (2 color) paletted - will get converted to RGB
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn3p01.png");
-			testAssert(map->getBytesPerPixel() == 3);
+			testAssert(map->numChannels() == 3);
 		}
 
 		// 8 bit (256 color) paletted - will get converted to RGB
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn3p08.png");
 			testAssert(map->numChannels() == 3);
-			testAssert(map->getBytesPerPixel() == 3);
+			//testAssert(map->getBytesPerPixel() == 3);
 
 			PNGDecoder::write(*map.downcast<ImageMapUInt8>(), "test.png");
 		}
@@ -1145,7 +1144,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn4a08.png");
 			testAssert(map->numChannels() == 2 || map->numChannels() == 4);
-			testAssert(map->getBytesPerPixel() == 2 || map->getBytesPerPixel() == 4);
+			//testAssert(map->getBytesPerPixel() == 2 || map->getBytesPerPixel() == 4);
 			testAssert(map->hasAlphaChannel());
 		}
 
@@ -1154,21 +1153,21 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn4a16.png");
 			testAssert(map->numChannels() == 2 || map->numChannels() == 4);
-			testAssert(map->getBytesPerPixel() == 4 || map->getBytesPerPixel() == 8);
+			//testAssert(map->getBytesPerPixel() == 4 || map->getBytesPerPixel() == 8);
 			testAssert(map->hasAlphaChannel());
 		}
 
 		// 3x8 bits rgb color + 8 bit alpha-channel 
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn6a08.png");
-			testAssert(map->getBytesPerPixel() == 4);
+			//testAssert(map->getBytesPerPixel() == 4);
 			testAssert(map->hasAlphaChannel());
 		}
 
 		// 3x16 bits rgb color + 16 bit alpha-channel
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basn6a16.png");
-			testAssert(map->getBytesPerPixel() == 8);
+			//testAssert(map->getBytesPerPixel() == 8);
 			testAssert(map->hasAlphaChannel());
 		}
 
@@ -1176,19 +1175,19 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		// black & white
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi0g01.png");
-			testAssert(map->getBytesPerPixel() == 1);
+			//testAssert(map->getBytesPerPixel() == 1);
 		}
 
 		// 2 bit (4 level) grayscale
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi0g02.png");
-			testAssert(map->getBytesPerPixel() == 1);
+			//testAssert(map->getBytesPerPixel() == 1);
 		}
 
 		// 8 bit (256 level) grayscale 
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi0g08.png");
-			testAssert(map->getBytesPerPixel() == 1);
+			//testAssert(map->getBytesPerPixel() == 1);
 		}
 
 		// 16 bit (64k level) grayscale
@@ -1201,7 +1200,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		// 3x8 bits rgb color
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi2c08.png");
-			testAssert(map->getBytesPerPixel() == 3);
+			//testAssert(map->getBytesPerPixel() == 3);
 		}
 
 		// 3x16 bits rgb color
@@ -1209,19 +1208,20 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi2c16.png");
 			testAssert(map->numChannels() == 3 || map->numChannels() == 4);
-			testAssert(map->getBytesPerPixel() == 6 || map->getBytesPerPixel() == 8);
+			//testAssert(map->getBytesPerPixel() == 6 || map->getBytesPerPixel() == 8);
+			testAssert(map.isType<ImageMapUInt16>());
 }
 
 		// 1 bit (2 color) paletted - will get converted to RGB
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi3p01.png");
-			testAssert(map->getBytesPerPixel() == 3);
+			testAssert(map->numChannels() == 3);
 		}
 
 		// 8 bit (256 color) paletted - will get converted to RGB
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi3p08.png");
-			testAssert(map->getBytesPerPixel() == 3);
+			testAssert(map->numChannels() == 3);
 		}
 
 		// 8 bit grayscale + 8 bit alpha-channel
@@ -1229,7 +1229,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi4a08.png");
 			testAssert(map->numChannels() == 2 || map->numChannels() == 4);
-			testAssert(map->getBytesPerPixel() == 2 || map->getBytesPerPixel() == 4);
+			//testAssert(map->getBytesPerPixel() == 2 || map->getBytesPerPixel() == 4);
 			testAssert(map->hasAlphaChannel());
 		}
 
@@ -1238,21 +1238,22 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi4a16.png");
 			testAssert(map->numChannels() == 2 || map->numChannels() == 4);
-			testAssert(map->getBytesPerPixel() == 4 || map->getBytesPerPixel() == 8);
+			//testAssert(map->getBytesPerPixel() == 4 || map->getBytesPerPixel() == 8);
 			testAssert(map->hasAlphaChannel());
 		}
 
 		// 3x8 bits rgb color + 8 bit alpha-channel 
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi6a08.png");
-			testAssert(map->getBytesPerPixel() == 4);
+			//testAssert(map->getBytesPerPixel() == 4);
 			testAssert(map->hasAlphaChannel());
 		}
 
 		// 3x16 bits rgb color + 16 bit alpha-channel
 		{
 			Map2DRef map = PNGDecoder::decode(png_suite_dir + "/basi6a16.png");
-			testAssert(map->getBytesPerPixel() == 8);
+			//testAssert(map->getBytesPerPixel() == 8);
+			testAssert(map.isType<ImageMapUInt16>());
 			testAssert(map->hasAlphaChannel());
 		}
 	}
@@ -1327,7 +1328,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		Reference<Map2D> im = decode(path);
 		testAssert(im->getMapWidth() == 20);
 		testAssert(im->getMapHeight() == 10);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
@@ -1351,7 +1352,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		Reference<Map2D> im = decode(path);
 		testAssert(im->getMapWidth() == 20);
 		testAssert(im->getMapHeight() == 10);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 		testAssert(dynamic_cast<ImageMapUInt8*>(im.getPointer()) != NULL);
 		testAssert(dynamic_cast<ImageMapUInt8*>(im.getPointer())->getPixel(5, 5)[0] == 125);
 	}

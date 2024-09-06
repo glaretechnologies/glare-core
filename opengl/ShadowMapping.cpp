@@ -61,7 +61,7 @@ void ShadowMapping::init(OpenGLEngine* opengl_engine)
 	// We will use a 16-bit depth format as I haven't seen any noticable issues with it so far, compared to a 32-bit format.
 	depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, /*opengl_engine=*/NULL,
 		ArrayRef<uint8>(NULL, 0),
-		OpenGLTexture::Format_Depth_Uint16, // Uint16,
+		OpenGLTextureFormat::Format_Depth_Uint16, // Uint16,
 		OpenGLTexture::Filtering_PCF
 	);
 
@@ -72,7 +72,7 @@ void ShadowMapping::init(OpenGLEngine* opengl_engine)
 	for(int i=0; i<2; ++i)
 		static_depth_tex[i] = new OpenGLTexture(static_w, static_h, /*opengl_engine=*/NULL,
 			ArrayRef<uint8>(NULL, 0), // 
-			OpenGLTexture::Format_Depth_Uint16,
+			OpenGLTextureFormat::Format_Depth_Uint16,
 			OpenGLTexture::Filtering_PCF // nearest filtering
 		);
 

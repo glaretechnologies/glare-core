@@ -63,42 +63,22 @@ public:
 		Wrapping_Clamp
 	};
 
-	enum Format
-	{
-		Format_Greyscale_Uint8,
-		Format_Greyscale_Float,
-		Format_Greyscale_Half,
-		Format_SRGB_Uint8,
-		Format_SRGBA_Uint8,
-		Format_RGB_Linear_Uint8,
-		Format_RGBA_Linear_Uint8,
-		Format_RGB_Linear_Float,
-		Format_RGB_Linear_Half,
-		Format_RGBA_Linear_Half,
-		Format_Depth_Float,
-		Format_Depth_Uint16,
-		Format_Compressed_RGB_Uint8,
-		Format_Compressed_RGBA_Uint8,
-		Format_Compressed_SRGB_Uint8,
-		Format_Compressed_SRGBA_Uint8,
-		Format_Compressed_BC6 // BC6 half-float unsigned format: e.g. GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
-	};
-
 	OpenGLTexture();
 
 	// Create texture.  Uploads tex_data to texture if tex_data is non-null.
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 		ArrayRef<uint8> tex_data,
-		Format format,
+		OpenGLTextureFormat format,
 		Filtering filtering,
 		Wrapping wrapping = Wrapping_Repeat,
 		bool has_mipmaps = true,
-		int MSAA_samples = -1);
+		int MSAA_samples = -1,
+		int num_array_images = 0); // 0 if not a array
 
 	// Create texture, specify exact GL formats
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 		ArrayRef<uint8> tex_data,
-		Format format,
+		OpenGLTextureFormat format,
 		GLint gl_internal_format,
 		GLenum gl_format,
 		Filtering filtering,
@@ -107,7 +87,7 @@ public:
 	~OpenGLTexture();
 
 	
-	void createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format);
+	void createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, OpenGLTextureFormat format);
 
 
 	//--------------------------------------------- Updating existing texture ---------------------------------------------
@@ -116,7 +96,7 @@ public:
 	// Load into a texture that has already had its format, filtering and wrapping modes set.
 	void loadIntoExistingTexture(int mipmap_level, size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed);
 
-	void loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t src_row_stride_B, ArrayRef<uint8> src_tex_data, bool bind_needed);
+	void loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t z, size_t region_w, size_t region_h, size_t region_d, size_t src_row_stride_B, ArrayRef<uint8> src_tex_data, bool bind_needed);
 
 	void setTWrappingEnabled(bool wrapping_enabled);
 
@@ -184,7 +164,7 @@ public:
 
 	GLuint texture_handle;
 
-	static void getGLFormat(Format format, GLint& internal_format, GLenum& gl_format, GLenum& type);
+	static void getGLFormat(OpenGLTextureFormat format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 private:
 	GLARE_DISABLE_COPY(OpenGLTexture);
 
@@ -195,7 +175,7 @@ private:
 		bool has_mipmaps
 	);
 
-	Format format;
+	OpenGLTextureFormat format;
 	GLint gl_internal_format; // sized GL internal format (num channels)
 	GLenum gl_format; // GL format (order of RGBA channels etc..)
 	GLenum gl_type; // Type of pixel channel (GL_UNSIGNED_BYTE, GL_HALF_FLOAT etc..)
@@ -203,6 +183,7 @@ private:
 	Filtering filtering;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
+	int num_array_images;
 	int num_mipmap_levels_allocated;
 	int MSAA_samples;
 	GLenum texture_target; // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE

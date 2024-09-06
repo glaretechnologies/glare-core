@@ -143,8 +143,6 @@ public:
 	// task_manager may be NULL
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override;
 #endif
-	inline virtual size_t getBytesPerPixel() const override;
-
 	inline virtual size_t getByteSize() const override;
 
 	// This image must have >= 3 channels.
@@ -1113,13 +1111,6 @@ Reference<ImageMap<float, FloatComponentValueTraits> > ImageMap<V, VTraits>::res
 
 
 #endif // MAP2D_FILTERING_SUPPORT
-
-
-template <class V, class VTraits>
-size_t ImageMap<V, VTraits>::getBytesPerPixel() const
-{
-	return sizeof(V) * N;
-}
 
 
 template <class V, class VTraits>

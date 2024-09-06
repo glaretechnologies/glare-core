@@ -21,6 +21,19 @@ Contains Mipmap data, that is possibly compressed.
 =====================================================================*/
 
 
+/*
+	Layout of mipmap_data:
+	im 0, im 1 are the different array images ('layers').
+
+	Mip level 0                                               Mip level 1                              Mip level 2
+	----------------------------------------------------------------------------------------------------
+	|im 0         |  im 1        |  im 2        |   im 3      |im 0    |  im 1   |  im 2  |   im 3  |  ...
+	----------------------------------------------------------------------------------------------------
+	^<------------------------------------------------------->^
+	|                     level_size[0]                       |
+	offset[0]                                             offset[1]
+		 
+*/
 class TextureFrameData
 {
 public:
@@ -29,27 +42,60 @@ public:
 };
 
 
+enum OpenGLTextureFormat
+{
+	Format_Greyscale_Uint8,
+	Format_Greyscale_Float,
+	Format_Greyscale_Half,
+	Format_SRGB_Uint8,
+	Format_SRGBA_Uint8,
+	Format_RGB_Linear_Uint8,
+	Format_RGBA_Linear_Uint8,
+	Format_RGB_Linear_Float,
+	Format_RGB_Linear_Half,
+	Format_RGBA_Linear_Half,
+	Format_Depth_Float,
+	Format_Depth_Uint16,
+	Format_Compressed_RGB_Uint8,   // BC1 / DXT1, linear sRGB colour space
+	Format_Compressed_RGBA_Uint8,  // BC3 / DXT5, linear sRGB colour space
+	Format_Compressed_SRGB_Uint8,  // BC1 / DXT1, non-linear sRGB colour space
+	Format_Compressed_SRGBA_Uint8, // BC3 / DXT5, non-linear sRGB colour space
+	Format_Compressed_BC6 // BC6H half-float unsigned format: e.g. GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+};
+
+
+bool isCompressed(OpenGLTextureFormat format);
+size_t bytesPerBlock(OpenGLTextureFormat format);
+
 class TextureData : public ThreadSafeRefCounted
 {
 public:
-	TextureData() : frame_durations_equal(false), num_mip_levels(1), data_is_compressed(false) {}
+	TextureData() : frame_durations_equal(false), num_array_images(0), D(1) {}
 
-	inline size_t totalCPUMemUsage() const;
+	size_t totalCPUMemUsage() const;
 
-	size_t W, H, bytes_pp;
+	void setAllocator(const Reference<glare::Allocator>& /*al*/) { }// { data.setAllocator(al); } // TODO
 
-	size_t num_mip_levels; // Number of mip levels present in texture data.
-	// Generally equal to level_offsets.size(), apart from when converted_image points to a compressed image, 
-	// in which case is equal to converted_image->mipmap_level_data.size().
+	size_t numMipLevels() const { return level_offsets.empty() ? 1 : level_offsets.size(); }
 
-	bool data_is_compressed;
+	bool isCompressed() const { return ::isCompressed(format); };
+
+	size_t numChannels() const;
+
+	static size_t computeNumMipLevels(size_t W, size_t H);
+	static size_t computeNum4PixelBlocksForLevel(size_t base_W, size_t base_H, size_t level);
+	
+	OpenGLTextureFormat format;
+	size_t W, H;
+	size_t D; // Depth.  Will be != 1 for array images.
+	size_t num_array_images; // 0 if not array image
 
 	struct LevelOffsetData
 	{
 		LevelOffsetData() {}
 		LevelOffsetData(size_t offset_, size_t level_size_) : offset(offset_), level_size(level_size_) {}
-		size_t offset; // Offset in frames[i].mipmap_data.  Same for all frames.
-		size_t level_size; // Size (in bytes) of level data in frames[i].mipmap_data.  Same for all frames.
+		size_t offset; // Offset in frames[i].mipmap_data.  Same for all frames.  In bytes.  Offset over all array images/layers.
+		size_t level_size; // Size (in bytes) of level data in frames[i].mipmap_data.  Same for all frames.  Size of all array image/layers together.
 	};
 
 	std::vector<LevelOffsetData> level_offsets;
@@ -63,21 +109,3 @@ public:
 	double last_frame_end_time;
 	size_t num_frames; // == frames.size() == frame_end_times.size()
 };
-
-
-size_t TextureData::totalCPUMemUsage() const
-{
-	size_t sum = 0;
-
-	for(size_t i=0; i<frames.size(); ++i)
-	{
-		sum += frames[i].mipmap_data.dataSizeBytes();
-		
-		if(frames[i].converted_image.nonNull())
-			sum += frames[i].converted_image->getByteSize();
-	}
-
-	sum += frame_end_times.capacity() * sizeof(double);
-
-	return sum;
-}

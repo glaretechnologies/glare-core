@@ -747,7 +747,7 @@ void GIFDecoder::test()
 			Reference<Map2D> im = GIFDecoder::decode(resized_gif_path);
 			testAssert(im->getMapWidth() == 620 / 3);
 			testAssert(im->getMapHeight() == 409 / 3);
-			testAssert(im->getBytesPerPixel() == 3);
+			testAssert(im->numChannels() == 3);
 		}
 
 		{
@@ -757,7 +757,7 @@ void GIFDecoder::test()
 			Reference<Map2D> im = GIFDecoder::decode(resized_gif_path);
 			testAssert(im->getMapWidth() == 479 / 2);
 			testAssert(im->getMapHeight() == 479 / 2);
-			testAssert(im->getBytesPerPixel() == 3);
+			testAssert(im->numChannels() == 3);
 		}
 		
 		// GIFDecoder::resizeGIF("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\The_Third_Eye__420_gif_14700668946248627369.gif", TestUtils::getTestReposDir() + "/testfiles/gifs/The_Third_Eye_resized.gif", 256);
@@ -781,12 +781,12 @@ void GIFDecoder::test()
 		im = GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/gifs/https_58_47_47media.giphy.com_47media_47X93e1eC2J2hjy_47giphy.gif");
 		testAssert(im->getMapWidth() == 620);
 		testAssert(im->getMapHeight() == 409);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 
 		im = GIFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/gifs/fire.gif");
 		testAssert(im->getMapWidth() == 30);
 		testAssert(im->getMapHeight() == 60);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";

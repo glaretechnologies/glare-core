@@ -21,6 +21,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "GifDecoder.h"
 #include "RGBEDecoder.h"
 #include "KTXDecoder.h"
+#include "BasisDecoder.h"
 #include "../graphics/Map2D.h"
 
 
@@ -71,6 +72,10 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 	else if(hasExtension(path, "ktx2"))
 	{
 		return KTXDecoder::decodeKTX2(path);
+	}
+	else if(hasExtension(path, "basis"))
+	{
+		return BasisDecoder::decode(path);
 	}
 	else
 	{

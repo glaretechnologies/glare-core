@@ -85,8 +85,6 @@ public:
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override;
 #endif
 
-	virtual size_t getBytesPerPixel() const override;
-
 	virtual size_t getByteSize() const override;
 
 	virtual bool isDXTImageMap() const override { return true; }

@@ -39,6 +39,7 @@ OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	num_array_images(0),
 	MSAA_samples(-1),
 	num_mipmap_levels_allocated(0),
 	format(Format_SRGB_Uint8),
@@ -59,20 +60,22 @@ OpenGLTexture::OpenGLTexture()
 // Allocate uninitialised texture
 OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 	ArrayRef<uint8> tex_data,
-	Format format_,
+	OpenGLTextureFormat format_,
 	Filtering filtering_,
 	Wrapping wrapping_,
 	bool has_mipmaps_,
-	int MSAA_samples_)
+	int MSAA_samples_,
+	int num_array_images_)
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	num_array_images(num_array_images_),
 	num_mipmap_levels_allocated(0),
 	refcount(0),
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0),
 	is_bindless_tex_resident(false),
-	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D)
+	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : ((num_array_images_ > 0) ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D))
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 
@@ -91,7 +94,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 
 OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
 	ArrayRef<uint8> tex_data,
-	Format format_,
+	OpenGLTextureFormat format_,
 	GLint gl_internal_format_,
 	GLenum gl_format_,
 	Filtering filtering_,
@@ -99,6 +102,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	num_array_images(0),
 	MSAA_samples(-1),
 	num_mipmap_levels_allocated(0),
 	refcount(0),
@@ -152,7 +156,7 @@ bool OpenGLTexture::hasAlpha() const
 
 // internal_format is used as an argument to glTexStorage2D(), so as per https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage2D.xhtml
 // We want to set it to a 'sized internal format'.
-void OpenGLTexture::getGLFormat(Format format_, GLint& internal_format, GLenum& gl_format, GLenum& type)
+void OpenGLTexture::getGLFormat(OpenGLTextureFormat format_, GLint& internal_format, GLenum& gl_format, GLenum& type)
 {
 	switch(format_)
 	{
@@ -421,7 +425,7 @@ static void setPixelStoreAlignment(size_t tex_xres, GLenum gl_format, GLenum typ
 }
 
 
-void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, Format format_)
+void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, OpenGLTextureFormat format_)
 {
 	assert(tex_data.size() == 6);
 
@@ -570,6 +574,15 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			this->num_mipmap_levels_allocated = 1;
 #endif // end if !EMSCRIPTEN
 		}
+		else if(texture_target == GL_TEXTURE_2D_ARRAY)
+		{
+			glBindTexture(texture_target, texture_handle);
+
+			// Allocate / specify immutable storage for the texture.
+			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
+			glTexStorage3D(texture_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*depth=*/num_array_images);
+			this->num_mipmap_levels_allocated = num_levels;
+		}
 		else
 		{
 			glBindTexture(texture_target, texture_handle);
@@ -675,10 +688,10 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 void OpenGLTexture::loadIntoExistingTexture(int mipmap_level, size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed)
 {
-	loadRegionIntoExistingTexture(mipmap_level, /*x=*/0, /*y=*/0, tex_xres, tex_yres, row_stride_B, tex_data, bind_needed);
+	loadRegionIntoExistingTexture(mipmap_level, /*x=*/0, /*y=*/0, /*z=*/0, tex_xres, tex_yres, /*region depth=*/1, row_stride_B, tex_data, bind_needed);
 
 #if 0
-	glBindTexture(GL_TEXTURE_2D, texture_handle);
+	glBindTexture(texture_target, texture_handle);
 
 	if(tex_data.data() != NULL)
 	{
@@ -730,55 +743,81 @@ void OpenGLTexture::loadIntoExistingTexture(int mipmap_level, size_t tex_xres, s
 }
 
 
-void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, size_t src_row_stride_B, ArrayRef<uint8> src_tex_data, bool bind_needed)
+void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t z, size_t region_w, size_t region_h, size_t region_d, size_t src_row_stride_B, ArrayRef<uint8> src_tex_data, bool bind_needed)
 {
 	assert(mipmap_level < num_mipmap_levels_allocated);
 
 	if(bind_needed)
-		glBindTexture(GL_TEXTURE_2D, texture_handle);
+		glBindTexture(texture_target, texture_handle);
 
 	if(src_tex_data.data() != NULL)
 	{
-		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8 ||
-			format == Format_Compressed_BC6)
+		if(texture_target == GL_TEXTURE_2D_ARRAY)
 		{
-			glCompressedTexSubImage2D(
-				GL_TEXTURE_2D,
-				mipmap_level, // LOD level
-				(GLsizei)x, // x offset
-				(GLsizei)y, // y offset
-				(GLsizei)region_w, (GLsizei)region_h, // width, height
-				gl_internal_format, // internal format
-				(GLsizei)src_tex_data.size(),
-				src_tex_data.data()
-			);
+			if(isCompressed(format))
+			{
+				glCompressedTexSubImage3D(
+					GL_TEXTURE_2D_ARRAY,
+					mipmap_level, // LOD level
+					(GLsizei)x, // x offset
+					(GLsizei)y, // y offset
+					(GLsizei)z, // z offset
+					(GLsizei)region_w, (GLsizei)region_h, // subimage width, height
+					(GLsizei)region_d, // subimage depth
+					gl_internal_format, // internal format
+					(GLsizei)src_tex_data.size(),
+					src_tex_data.data()
+				);
+			}
+			else
+			{
+				// TODO
+				assert(0);
+				throw glare::Exception("unupported");
+			}
 		}
 		else
 		{
-			const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
+			if(isCompressed(format))
+			{
+				glCompressedTexSubImage2D(
+					GL_TEXTURE_2D,
+					mipmap_level, // LOD level
+					(GLsizei)x, // x offset
+					(GLsizei)y, // y offset
+					(GLsizei)region_w, (GLsizei)region_h, // width, height
+					gl_internal_format, // internal format
+					(GLsizei)src_tex_data.size(),
+					src_tex_data.data()
+				);
+			}
+			else
+			{
+				const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
 
-			assert(region_w * pixel_size_B <= src_row_stride_B);
-			assert(src_tex_data.size() >= src_row_stride_B * region_h);
+				assert(region_w * pixel_size_B <= src_row_stride_B);
+				assert(src_tex_data.size() >= src_row_stride_B * region_h);
 
-			setPixelStoreAlignment(src_tex_data.data(), src_row_stride_B);
+				setPixelStoreAlignment(src_tex_data.data(), src_row_stride_B);
 
-			// Set row stride if needed (not tightly packed)
-			if(src_row_stride_B != region_w * pixel_size_B) // If not tightly packed or region w != src image w:
-				glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(src_row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
+				// Set row stride if needed (not tightly packed)
+				if(src_row_stride_B != region_w * pixel_size_B) // If not tightly packed or region w != src image w:
+					glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(src_row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
 
-			glTexSubImage2D(
-				GL_TEXTURE_2D,
-				mipmap_level, // LOD level
-				(GLsizei)x, // x offset
-				(GLsizei)y, // y offset
-				(GLsizei)region_w, (GLsizei)region_h,
-				gl_format,
-				gl_type,
-				src_tex_data.data()
-			);
+				glTexSubImage2D(
+					GL_TEXTURE_2D,
+					mipmap_level, // LOD level
+					(GLsizei)x, // x offset
+					(GLsizei)y, // y offset
+					(GLsizei)region_w, (GLsizei)region_h,
+					gl_format,
+					gl_type,
+					src_tex_data.data()
+				);
 
-			if(src_row_stride_B != region_w * pixel_size_B)
-				glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
+				if(src_row_stride_B != region_w * pixel_size_B)
+					glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
+			}
 		}
 	}
 }
@@ -786,14 +825,14 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 
 void OpenGLTexture::setTWrappingEnabled(bool wrapping_enabled)
 {
-	glBindTexture(GL_TEXTURE_2D, texture_handle);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapping_enabled ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	glBindTexture(texture_target, texture_handle);
+	glTexParameteri(texture_target, GL_TEXTURE_WRAP_T, wrapping_enabled ? GL_REPEAT : GL_CLAMP_TO_EDGE);
 }
 
 
 void OpenGLTexture::buildMipMaps()
 {
-	glBindTexture(GL_TEXTURE_2D, texture_handle);
+	glBindTexture(texture_target, texture_handle);
 	glGenerateMipmap(texture_target);
 }
 
@@ -804,7 +843,7 @@ void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
 #if defined(EMSCRIPTEN)
 	assert(0); // glGetTexImage isn't supported in OpenGL ES, try glReadPixels?
 #else
-	glGetTexImage(GL_TEXTURE_2D, mipmap_level, gl_format, gl_type, (void*)buffer.data());
+	glGetTexImage(texture_target, mipmap_level, gl_format, gl_type, (void*)buffer.data());
 #endif
 }
 
@@ -812,13 +851,13 @@ void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
 void OpenGLTexture::bind()
 {
 	assert(texture_handle != 0);
-	glBindTexture(GL_TEXTURE_2D, texture_handle);
+	glBindTexture(texture_target, texture_handle);
 }
 
 
 void OpenGLTexture::unbind()
 {
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(texture_target, 0);
 }
 
 
@@ -826,7 +865,7 @@ void OpenGLTexture::unbind()
 void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t level_H, ArrayRef<uint8> tex_data, bool bind_needed)
 {
 	if(bind_needed)
-		glBindTexture(GL_TEXTURE_2D, texture_handle);
+		glBindTexture(texture_target, texture_handle);
 
 	if(mipmap_level == 0)
 	{

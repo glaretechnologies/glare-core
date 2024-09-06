@@ -13,14 +13,12 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/StringUtils.h"
 
 
-CompressedImage::CompressedImage(size_t width_, size_t height_, size_t N_)
-:	width(width_), height(height_), N(N_), gamma(2.2f), ds_over_2(0.5f / width_), dt_over_2(0.5f / height_),
-	gl_type(0),
-	gl_type_size(0),
-	gl_internal_format(0),
-	gl_format(0)
+CompressedImage::CompressedImage(size_t width_, size_t height_, OpenGLTextureFormat format)
 {
-	assert(N == 3 || N == 4);
+	texture_data = new TextureData();
+	texture_data->format = format;
+	texture_data->W = width_;
+	texture_data->H = height_;
 }
 
 
@@ -128,18 +126,9 @@ Reference<Map2D> CompressedImage::resizeMidQuality(const int /*new_width*/, cons
 #endif
 
 
-size_t CompressedImage::getBytesPerPixel() const
-{
-	return N; // NOTE: this gives the uncompressed size.
-}
-
-
 size_t CompressedImage::getByteSize() const
 {
-	size_t sum = 0;
-	for(size_t i=0; i<mipmap_level_data.size(); ++i)
-		sum += mipmap_level_data[i].dataSizeBytes();
-	return sum;
+	return texture_data->totalCPUMemUsage();
 }
 
 

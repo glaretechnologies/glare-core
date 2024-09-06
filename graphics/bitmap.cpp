@@ -160,9 +160,9 @@ void Bitmap::blitToImage(int src_start_x, int src_start_y, int src_end_x, int sr
 
 void Bitmap::setFromImageMap(const ImageMap<uint8_t, UInt8ComponentValueTraits>& image_map)
 {
-	this->resize(image_map.getMapWidth(), image_map.getMapHeight(), image_map.getBytesPerPixel());
+	this->resize(image_map.getMapWidth(), image_map.getMapHeight(), image_map.getN());
 
-	const size_t image_map_size_B = image_map.getMapWidth() * image_map.getMapHeight() * image_map.getBytesPerPixel();
+	const size_t image_map_size_B = image_map.getMapWidth() * image_map.getMapHeight() * image_map.getN();
 	if(image_map_size_B > 0)
 		std::memcpy(this->getPixelNonConst(0, 0), image_map.getData(), image_map_size_B);
 }

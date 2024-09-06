@@ -201,7 +201,7 @@ void BMPDecoder::test()
 		
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -215,7 +215,7 @@ void BMPDecoder::test()
 
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 1);
+		testAssert(im->numChannels() == 1);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -228,7 +228,7 @@ void BMPDecoder::test()
 		Reference<Map2D> im = BMPDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/BMPs/top_to_bottom.BMP");
 		testAssert(im->getMapWidth() == 372);
 		testAssert(im->getMapHeight() == 379);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 	}
 	catch(ImFormatExcep& e)
 	{

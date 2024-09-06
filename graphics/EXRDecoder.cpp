@@ -702,7 +702,6 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->getMapWidth() == W);
 			testAssert(im->getMapHeight() == H);
 			testAssert(im->numChannels() == 3);
-			testAssert(im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*3 : sizeof(half)*3));
 			for(size_t y=0; y<image.getHeight(); ++y)
 				for(size_t x=0; x<image.getWidth(); ++x)
 				{
@@ -730,7 +729,6 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->getMapWidth() == W);
 			testAssert(im->getMapHeight() == H);
 			testAssert(im->numChannels() == 4);
-			testAssert(im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*4 : sizeof(half)*4));
 
 			const bool is_half = im.isType<ImageMap<half, HalfComponentValueTraits> >();
 			testAssert(im.isType<ImageMapFloat>() || is_half);
@@ -777,7 +775,6 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->getMapWidth() == W);
 			testAssert(im->getMapHeight() == H);
 			testAssert(im->numChannels() == 3);
-			testAssert(im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*3 : sizeof(half)*3));
 			for(unsigned int y=0; y<image.getHeight(); ++y)
 			for(unsigned int x=0; x<image.getWidth(); ++x)
 			{
@@ -806,7 +803,6 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->getMapWidth() == W);
 			testAssert(im->getMapHeight() == H);
 			testAssert(im->numChannels() == 1);
-			testAssert(im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*1 : sizeof(half)*1));
 			for(unsigned int y=0; y<image.getHeight(); ++y)
 			for(unsigned int x=0; x<image.getWidth(); ++x)
 			{
@@ -836,7 +832,6 @@ static void testSavingWithOptions(EXRDecoder::SaveOptions options, int i)
 			testAssert(im->getMapWidth() == W);
 			testAssert(im->getMapHeight() == H);
 			testAssert(im->numChannels() == N);
-			testAssert(im->getBytesPerPixel() == ((options.bit_depth == EXRDecoder::BitDepth_32) ? sizeof(float)*N : sizeof(half)*N));
 			for(unsigned int y=0; y<image.getHeight(); ++y)
 			for(unsigned int x=0; x<image.getWidth(); ++x)
 			{
@@ -862,7 +857,7 @@ static void doMainEXRTests()
 	try
 	{
 		Map2DRef map = EXRDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/EXRs/uffizi_small_16bit_1channel.exr");
-		testAssert(map->getBytesPerPixel() == 2);
+		//testAssert(map->getBytesPerPixel() == 2);
 		testAssert(map->numChannels() == 1);
 		testAssert(map->getMapWidth() == 600);
 		testAssert(map->getMapHeight() == 300);

@@ -20,7 +20,7 @@ RenderBuffer
 class RenderBuffer : public RefCounted
 {
 public:
-	RenderBuffer(size_t tex_xres, size_t tex_yres, int MSAA_samples, OpenGLTexture::Format format);
+	RenderBuffer(size_t tex_xres, size_t tex_yres, int MSAA_samples, OpenGLTextureFormat format);
 	~RenderBuffer();
 
 	void bind();

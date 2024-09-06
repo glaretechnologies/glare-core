@@ -73,8 +73,6 @@ public:
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override { assert(0); return NULL; }
 #endif
 
-	virtual size_t getBytesPerPixel() const override { assert(0); return 1; }; // Get the uncompressed number of bytes per pixel.
-
 	virtual size_t getByteSize() const override { assert(0); return 1; }; // Get total size of image in bytes.  Returns the compressed size if the image is compressed.
 
 	virtual float getGamma() const override { assert(0); return 1; };

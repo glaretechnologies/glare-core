@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "Map2D.h"
 #include "image.h"
 #include "ImageMap.h"
+#include "TextureData.h"
 #include "../utils/AllocatorVector.h"
 namespace glare { class TaskManager; }
 
@@ -25,7 +26,7 @@ This class pretty much just holds compressed data, for uploading to OpenGL.
 class CompressedImage final : public Map2D
 {
 public:
-	CompressedImage(size_t width, size_t height, size_t N);
+	CompressedImage(size_t width, size_t height, OpenGLTextureFormat format);
 	virtual ~CompressedImage();
 
 	
@@ -44,13 +45,13 @@ public:
 
 	virtual Value getDerivs(Coord s, Coord t, Value& dv_ds_out, Value& dv_dt_out) const override;
 
-	virtual size_t getMapWidth() const override { return width; }
-	virtual size_t getMapHeight() const override { return height; }
-	virtual size_t numChannels() const override { return N; }
+	virtual size_t getMapWidth() const override { return texture_data->W; }
+	virtual size_t getMapHeight() const override { return texture_data->H; }
+	virtual size_t numChannels() const override { return texture_data->numChannels(); }
 
 	virtual bool takesOnlyUnitIntervalValues() const override { return false; }
 
-	virtual bool hasAlphaChannel() const override { return N == 4; }
+	virtual bool hasAlphaChannel() const override { return numChannels() == 4; }
 	virtual Reference<Map2D> extractAlphaChannel() const override;
 	virtual bool isAlphaChannelAllWhite() const override;
 
@@ -66,32 +67,19 @@ public:
 
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override;
 #endif
-	virtual size_t getBytesPerPixel() const override;
-
 	virtual size_t getByteSize() const override;
 
-	virtual float getGamma() const override { return gamma; }
+	virtual float getGamma() const override { return 2.2f; } //gamma; }
 
 	virtual bool isDXTImageMap() const override { return false; }
 	//====================== End Map2D interface ======================
 	
-	// Get num components per pixel.
-	inline size_t getN() const { return N; }
-
-	void setAllocator(const Reference<glare::Allocator>& al) { mipmap_level_data.setAllocator(al); }
-	Reference<glare::Allocator>& getAllocator() { return mipmap_level_data.getAllocator(); }
+	void setAllocator(const Reference<glare::Allocator>& al) {texture_data->setAllocator(al); }
+	// Reference<glare::Allocator>& getAllocator() { return texture_data->getAllocator(); }
 
 	static void test();
 
-//private:
-	size_t width, height, N;
-	glare::AllocatorVector<glare::AllocatorVector<uint8, 16>, 16> mipmap_level_data;
-	float gamma, ds_over_2, dt_over_2;
-
-	uint32 gl_type;
-	uint32 gl_type_size;
-	uint32 gl_internal_format;
-	uint32 gl_format;
+	Reference<TextureData> texture_data;
 };
 
 

@@ -78,7 +78,7 @@ void TextureProcessingTests::testBuildingTexDataForImage(glare::Allocator* alloc
 			// Compute the size of the compressed data for this level
 			const size_t level_W = myMax((size_t)1, tex_data->W / ((size_t)1 << k));
 			const size_t level_H = myMax((size_t)1, tex_data->H / ((size_t)1 << k));
-			const size_t level_size = result_should_be_compressed ? DXTCompression::getCompressedSizeBytes(level_W, level_H, tex_data->bytes_pp) : (level_W * level_H * tex_data->bytes_pp);
+			const size_t level_size = result_should_be_compressed ? DXTCompression::getCompressedSizeBytes(level_W, level_H, N) : (level_W * level_H * N);
 
 			testAssert(tex_data->level_offsets[k].level_size == level_size);
 

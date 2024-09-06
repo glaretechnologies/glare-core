@@ -395,7 +395,7 @@ void TGADecoder::test()
 		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A.tga");
 		testAssert(im->getMapWidth() == 128);
 		testAssert(im->getMapHeight() == 256);
-		testAssert(im->getBytesPerPixel() == 4);
+		testAssert(im->numChannels() == 4);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -408,7 +408,7 @@ void TGADecoder::test()
 		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testfiles/TGAs/T_AcaciaNeedles_A_no_RLE.tga");
 		testAssert(im->getMapWidth() == 128);
 		testAssert(im->getMapHeight() == 256);
-		testAssert(im->getBytesPerPixel() == 4);
+		testAssert(im->numChannels() == 4);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -422,7 +422,7 @@ void TGADecoder::test()
 		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -435,7 +435,7 @@ void TGADecoder::test()
 		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 1);
+		testAssert(im->numChannels() == 1);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -448,7 +448,7 @@ void TGADecoder::test()
 		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_with_RLE.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 	}
 	catch(ImFormatExcep& e)
 	{
@@ -461,7 +461,7 @@ void TGADecoder::test()
 		Reference<Map2D> im = TGADecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_greyscale_with_RLE.tga");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 1);
+		testAssert(im->numChannels() == 1);
 	}
 	catch(ImFormatExcep& e)
 	{

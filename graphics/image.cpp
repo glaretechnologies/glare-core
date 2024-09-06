@@ -737,12 +737,6 @@ Reference<Map2D> Image::resizeMidQuality(const int new_width, const int new_heig
 #endif
 
 
-size_t Image::getBytesPerPixel() const
-{
-	return sizeof(ColourType);
-}
-
-
 static const uint32 IMAGE_SERIALISATION_VERSION = 1;
 
 

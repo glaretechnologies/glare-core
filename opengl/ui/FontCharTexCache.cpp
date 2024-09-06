@@ -141,7 +141,7 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 #if !defined(EMSCRIPTEN)
 		// NOTE: On web/emscripten this gives the error 'WebGL: INVALID_OPERATION: texSubImage2D: ArrayBufferView not big enough for request' on web, work out what is happening.
 		// I can't see any errors on my side.
-		atlas->tex->loadRegionIntoExistingTexture(/*mipmap level=*/0, topleft.x, topleft.y, /*region w=*/(size_t)region_w, /*region h=*/(size_t)region_h, 
+		atlas->tex->loadRegionIntoExistingTexture(/*mipmap level=*/0, topleft.x, topleft.y, /*z=*/0, /*region w=*/(size_t)region_w, /*region h=*/(size_t)region_h, /*region depth=*/1,
 			row_stride_B, ArrayRef<uint8>(atlas->imagemap->getPixel(topleft.x, topleft.y), /*len=*/region_h * atlas->imagemap->getWidth() * atlas->imagemap->getN()), /*bind needed=*/true);
 #else
 		// TEMP: update whole texture (for debugging)

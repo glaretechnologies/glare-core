@@ -86,8 +86,6 @@ public:
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const = 0;
 #endif
 
-	virtual size_t getBytesPerPixel() const = 0; // Get the uncompressed number of bytes per pixel.
-
 	virtual size_t getByteSize() const = 0; // Get total size of image in bytes.  Returns the compressed size if the image is compressed.
 
 	virtual float getGamma() const = 0;

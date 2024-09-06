@@ -526,7 +526,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
 			testAssert(im->getMapWidth() == 750);
 			testAssert(im->getMapHeight() == 1152);
-			testAssert(im->getBytesPerPixel() == 3);
+			testAssert(im->numChannels() == 3);
 
 			// Try saving it.
 		
@@ -537,7 +537,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			im = JPEGDecoder::decode(base_dir_path, save_path);
 			testAssert(im->getMapWidth() == 750);
 			testAssert(im->getMapHeight() == 1152);
-			testAssert(im->getBytesPerPixel() == 3);
+			testAssert(im->numChannels() == 3);
 		}
 		catch(ImFormatExcep& e)
 		{
@@ -562,7 +562,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/jpegs/Channel_digital_image_CMYK_color.jpg");
 			testAssert(im->getMapWidth() == 500);
 			testAssert(im->getMapHeight() == 333);
-			testAssert(im->getBytesPerPixel() == 3);
+			testAssert(im->numChannels() == 3);
 
 			// Try saving it.
 			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
@@ -572,7 +572,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			im = JPEGDecoder::decode(base_dir_path, save_path);
 			testAssert(im->getMapWidth() == 500);
 			testAssert(im->getMapHeight() == 333);
-			testAssert(im->getBytesPerPixel() == 3);
+			testAssert(im->numChannels() == 3);
 		}
 		catch(ImFormatExcep& e)
 		{
@@ -587,7 +587,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testfiles/jpegs/italy_bolsena_flag_flowers_stairs_01_greyscale.jpg");
 			testAssert(im->getMapWidth() == 375);
 			testAssert(im->getMapHeight() == 576);
-			testAssert(im->getBytesPerPixel() == 1);
+			testAssert(im->numChannels() == 1);
 
 			// Try saving it.
 			testAssert(dynamic_cast<const ImageMapUInt8*>(im.getPointer()) != NULL);
@@ -597,7 +597,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			im = JPEGDecoder::decode(base_dir_path, save_path);
 			testAssert(im->getMapWidth() == 375);
 			testAssert(im->getMapHeight() == 576);
-			testAssert(im->getBytesPerPixel() == 1);
+			testAssert(im->numChannels() == 1);
 		}
 		catch(ImFormatExcep& e)
 		{
