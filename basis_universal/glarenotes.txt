@@ -1,0 +1,12 @@
+Checked out from https://github.com/BinomialLLC/basis_universal master
+on 4th Sep 2024.
+
+ALso did this:
+#if BASISD_SUPPORT_KTX2_ZSTD
+//#include "../zstd/zstd.h"
+//GLARE NEW
+#include <zstd.h>
+#endif
+
+
+And added BASIS_NO_IMAGE_READERS in basisu_enc.cpp (Disabled jpg and png loading support)
