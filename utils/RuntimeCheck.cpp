@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "Exception.h"
+#include "ConPrint.h"
 #include <assert.h>
 
 
@@ -16,6 +17,7 @@ void runtimeCheckFailed(const char* message)
 #if defined(_WIN32)
 	__debugbreak();
 #endif
+	conPrint("RUNTIME CHECK FAILED: " + std::string(message));
 	throw glare::Exception("RUNTIME CHECK FAILED: " + std::string(message));
 }
 
