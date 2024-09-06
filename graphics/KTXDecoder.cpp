@@ -17,6 +17,8 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/Vector.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/BufferViewInStream.h"
+#include "../utils/ArrayRef.h"
+#include "../maths/CheckedMaths.h"
 #include <memory.h>
 #include <zstd.h>
 
@@ -25,6 +27,12 @@ Copyright Glare Technologies Limited 2023 -
 // See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
 #define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT						0x83F0
 #define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
+
+// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt
+#define GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT					0x8C4C
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT				0x8C4D
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT				0x8C4E
+#define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT				0x8C4F
 
 
 // Adapted from https://stackoverflow.com/questions/105252/how-do-i-convert-between-big-endian-and-little-endian-values-in-c
@@ -64,7 +72,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path, glare::Allocator* m
 }
 
 
-Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
+Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* /*mem_allocator*/)
 {
 	try
 	{
@@ -84,9 +92,9 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, gla
 		else
 			throw glare::Exception("invalid endianness value.");
 
-		const uint32 glType = readUInt32(file, swap_endianness);
-		const uint32 glTypeSize = readUInt32(file, swap_endianness);
-		const uint32 glFormat = readUInt32(file, swap_endianness);
+		/*const uint32 glType =*/ readUInt32(file, swap_endianness);
+		/*const uint32 glTypeSize =*/ readUInt32(file, swap_endianness);
+		/*const uint32 glFormat =*/ readUInt32(file, swap_endianness);
 		const uint32 glInternalFormat = readUInt32(file, swap_endianness);
 		/*const uint32 glBaseInternalFormat =*/ readUInt32(file, swap_endianness);
 		const uint32 pixelWidth = readUInt32(file, swap_endianness);
@@ -106,44 +114,87 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, gla
 		if(numberOfFaces != 1)
 			throw glare::Exception("numberOfFaces != 1 not supported.");
 
+		if(pixelWidth > 1000000)
+			throw ImFormatExcep("Invalid width: " + toString(pixelWidth));
+		if(pixelHeight > 1000000)
+			throw ImFormatExcep("Invalid height: " + toString(pixelHeight));
+
+		const size_t max_num_pixels = 1 << 27;
+		if(((size_t)pixelWidth * (size_t)pixelHeight) > max_num_pixels)
+			throw ImFormatExcep("invalid width, height, num_images: (too many pixels): " + toString(pixelWidth) + ", " + toString(pixelHeight));
+
 		// Skip key-value data
 		file.advanceReadIndex(bytesOfKeyValueData);
-
-		const size_t N = 3;
-		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, N);
-
-		image->gl_type = glType;
-		image->gl_type_size = glTypeSize;
-		image->gl_internal_format = glInternalFormat;
-		image->gl_format = glFormat;
 
 		const uint32 use_num_mipmap_levels = myMax(1u, numberOfMipmapLevels);
 		if(use_num_mipmap_levels > 32)
 			throw glare::Exception("Too many mipmap levels.");
 
-		image->mipmap_level_data.resize(use_num_mipmap_levels);
+		if(use_num_mipmap_levels > TextureData::computeNumMipLevels(pixelWidth, pixelHeight))
+			throw glare::Exception("Too many mipmap levels.");
+
+
+		OpenGLTextureFormat format;
+		if(glInternalFormat == GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT)
+		{
+			format = OpenGLTextureFormat::Format_Compressed_RGB_Uint8;
+		}
+		else if(glInternalFormat == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
+		{
+			format = OpenGLTextureFormat::Format_Compressed_RGBA_Uint8;
+		}
+		else if(glInternalFormat == GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT)
+		{
+			format = OpenGLTextureFormat::Format_Compressed_SRGB_Uint8;
+		}
+		else if(glInternalFormat == GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT)
+		{
+			format = OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8;
+		}
+		else if(glInternalFormat == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
+		{
+			format = OpenGLTextureFormat::Format_Compressed_BC6;
+		}
+		else
+			throw glare::Exception("unhandled glInternalFormat: " + toString(glInternalFormat));
+
+		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, format);
+		image->texture_data->level_offsets.resize(use_num_mipmap_levels);
+
+
+		// Compute level offsets and total data size.
+		size_t offset = 0;
+		for(uint32 lvl = 0; lvl < use_num_mipmap_levels; ++lvl)
+		{
+			const size_t expected_blocks = TextureData::computeNum4PixelBlocksForLevel(pixelWidth, pixelHeight, lvl);
+			const size_t expected_level_size = expected_blocks * bytesPerBlock(image->texture_data->format);
+
+			image->texture_data->level_offsets[lvl].offset = offset;
+			image->texture_data->level_offsets[lvl].level_size = expected_level_size;
+
+			offset += expected_level_size;
+		}
+		const size_t total_data_size = offset;
+
+		
+		image->texture_data->frames.resize(1);
+		image->texture_data->frames[0].mipmap_data.resize(total_data_size);
+		MutableArrayRef<uint8> data_ref(image->texture_data->frames[0].mipmap_data.data(), image->texture_data->frames[0].mipmap_data.size());
 
 		// for each mipmap_level in numberOfMipmapLevels
 		for(uint32 lvl = 0; lvl < use_num_mipmap_levels; ++lvl)
 		{
 			const uint32 image_size = readUInt32(file, swap_endianness);
 
+			if(image_size != image->texture_data->level_offsets[lvl].level_size)
+				throw glare::Exception("Unexpected mip image size.");
+
 			if(!file.canReadNBytes((size_t)image_size))
 				throw glare::Exception("MIP image size is too large");
 
-			// Assume there are no array elements (this is not an array texture)
-			glare::AllocatorVector<uint8, 16>& cur_level_data = image->mipmap_level_data[lvl];
-			cur_level_data.setAllocator(mem_allocator);
-			cur_level_data.resize(image_size);
+			file.readDataChecked(/*dest buf=*/data_ref, /*dest offset=*/image->texture_data->level_offsets[lvl].offset, image_size);
 
-			file.readData(cur_level_data.data(), image_size);
-
-			//for(uint32 face = 0; face < myMax(1u, numberOfFaces); ++face)
-			//{
-			//	// Assume pixelDepth is 0 or 1 (e.g. not used)
-			//}
-
-			// Read mipPadding
+			// Skip mipPadding
 			file.setReadIndex(Maths::roundUpToMultipleOfPowerOf2(file.getReadIndex(), (size_t)4));
 		}
 
@@ -171,7 +222,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2(const std::string& path, glare::Allocato
 }
 
 
-Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
+Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size, glare::Allocator* /*mem_allocator*/)
 {
 	try
 	{
@@ -187,7 +238,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 		const uint32 pixelWidth					= file.readUInt32(); // The size of the texture image for level 0, in pixels.
 		const uint32 pixelHeight				= file.readUInt32();
 		const uint32 pixelDepth					= file.readUInt32(); // For 2D and cubemap textures, pixelDepth must be 0.
-		const uint32 layerCount					= file.readUInt32(); // layerCount specifies the number of array elements. If the texture is not an array texture, layerCount must equal 0.
+		const uint32 layerCount				= file.readUInt32(); // layerCount specifies the number of array elements. If the texture is not an array texture, layerCount must equal 0.
 		const uint32 faceCount					= file.readUInt32(); // faceCount specifies the number of cubemap faces
 		const uint32 levelCount					= file.readUInt32(); // levelCount specifies the number of levels in the Mip Level Array
 		const uint32 supercompressionScheme		= file.readUInt32();
@@ -207,6 +258,14 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 		if(layerCount > 100) // Fail on excessively large files.
 			throw glare::Exception("Invalid layerCount: " + toString(layerCount));
 
+		if(pixelWidth > 1000000)
+			throw ImFormatExcep("Invalid width: " + toString(pixelWidth));
+		if(pixelHeight > 1000000)
+			throw ImFormatExcep("Invalid height: " + toString(pixelHeight));
+
+		const size_t max_num_pixels = 1 << 27;
+		if(((size_t)pixelWidth * (size_t)pixelHeight) > max_num_pixels)
+			throw ImFormatExcep("invalid width, height, num_images: (too many pixels): " + toString(pixelWidth) + ", " + toString(pixelHeight));
 
 		/*const uint32 dfdByteOffset =*/ file.readUInt32();
 		/*const uint32 dfdByteLength =*/ file.readUInt32();
@@ -230,60 +289,62 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 
 		file.readData(level_data.data(), level_data.size() * sizeof(LevelData));
 
-		const size_t N = 3;
-		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, N);
-
-		/*if(vkFormat == VK_FORMAT_R8G8B8_SRGB)
+		OpenGLTextureFormat format;
+		if(vkFormat == VK_FORMAT_BC6H_UFLOAT_BLOCK)
 		{
-			image->gl_type = GL_UNSIGNED_BYTE; // correct?
-			image->gl_type_size = 1; // not sure
-			image->gl_internal_format = GL_SRGB8;
-			image->gl_format = GL_RGB;
-		}
-		else */if(vkFormat == VK_FORMAT_BC6H_UFLOAT_BLOCK)
-		{
-			image->gl_type = GL_RGB; // correct?
-			image->gl_type_size = 0; // not sure
-			image->gl_internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
-			image->gl_format = GL_RGB;
+			format = OpenGLTextureFormat::Format_Compressed_BC6;
 		}
 		else if(vkFormat == VK_FORMAT_BC1_RGB_UNORM_BLOCK) // Aka DXT1 (DXT without alpha)
 		{
-			image->gl_type = GL_UNSIGNED_BYTE; // correct?
-			image->gl_type_size = 0; // not sure
-			image->gl_internal_format = GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT;
-			image->gl_format = GL_RGB;
+			format = OpenGLTextureFormat::Format_Compressed_SRGB_Uint8;
 		}
 		else if(vkFormat == VK_FORMAT_BC3_UNORM_BLOCK) // Aka DXT5 (DXT with alpha)
 		{
-			image->gl_type = GL_UNSIGNED_BYTE; // correct?
-			image->gl_type_size = 0; // not sure
-			image->gl_internal_format = GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-			image->gl_format = GL_RGBA;
+			format = OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8;
 		}
 		else
 			throw glare::Exception("Unhandled vkFormat " + toString(vkFormat) + ".");
 
-		
-		image->mipmap_level_data.resize(use_num_mipmap_levels);
+		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, format);
 
-		// Read levels in reverse order, since lowest level mipmap (smallest) should be first in file.
+		// Build level_offsets
+		size_t offset = 0;
+		for(size_t i=0; i<use_num_mipmap_levels; ++i)
+		{
+			const uint64 use_level_size = level_data[i].uncompressedByteLength;
+
+			const size_t expected_blocks = TextureData::computeNum4PixelBlocksForLevel(pixelWidth, pixelHeight, i);
+			const size_t expected_image_size = expected_blocks * bytesPerBlock(image->texture_data->format);
+			if(use_level_size != expected_image_size)
+				throw glare::Exception("Unexpected mip image size.");
+
+			TextureData::LevelOffsetData tex_level_data;
+			tex_level_data.offset = offset; // Compute offset we will store at
+			tex_level_data.level_size = use_level_size;
+			image->texture_data->level_offsets.push_back(tex_level_data);
+
+			offset += use_level_size;
+		}
+
+		const size_t total_size = offset;
+
+		image->texture_data->frames.resize(1);
+		image->texture_data->frames[0].mipmap_data.resizeNoCopy(total_size); // TODO: check against some reasonable max size first.
+		MutableArrayRef<uint8> data_ref(image->texture_data->frames[0].mipmap_data.data(), image->texture_data->frames[0].mipmap_data.size());
+
+		// Read mip levels in reverse order, since lowest level mipmap (smallest) should be first in file.
 		for(int lvl = (int)use_num_mipmap_levels - 1; lvl >= 0; --lvl)
 		{
 			file.setReadIndex(level_data[lvl].byteOffset); // TODO: check this has a reasonable value - past header etc.
-			
-			// Assume there are no array elements (this is not an array texture)
-			glare::AllocatorVector<uint8, 16>& cur_level_data = image->mipmap_level_data[lvl];
-			cur_level_data.setAllocator(mem_allocator);
 
 			if(level_data[lvl].uncompressedByteLength > 100000000) // Fail on excessively large files.
 				throw glare::Exception("uncompressedByteLength is too large: " + toString(level_data[lvl].uncompressedByteLength));
 
-			cur_level_data.resize(level_data[lvl].uncompressedByteLength);
+			const size_t dest_offset = image->texture_data->level_offsets[lvl].offset;
 
 			if(supercompressionScheme == 0) // If no compression:
 			{
-				file.readData(cur_level_data.data(), level_data[lvl].uncompressedByteLength);
+				file.readDataChecked(/*dest buf=*/data_ref, /*dest offset=*/dest_offset, level_data[lvl].uncompressedByteLength);
 			}
 			else if(supercompressionScheme == 2) // ZSTD compression:
 			{
@@ -298,7 +359,8 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 					throw glare::Exception("decompressed_size did not match uncompressedByteLength");
 
 				// Decompress data into 'cur_level_data' buffer.
-				const size_t res = ZSTD_decompress(/*dest=*/cur_level_data.data(), /*dest capacity=*/decompressed_size, /*src=*/file.currentReadPtr(), /*compressed size=*/level_data[lvl].byteLength);
+				MutableArrayRef<uint8> dest_array_ref = data_ref.getSliceChecked(dest_offset, decompressed_size);
+				const size_t res = ZSTD_decompress(/*dest=*/dest_array_ref.data(), /*dest capacity=*/dest_array_ref.size(), /*src=*/file.currentReadPtr(), /*compressed size=*/level_data[lvl].byteLength);
 				if(ZSTD_isError(res))
 					throw glare::Exception("Decompression of buffer failed: " + toString(res));
 				if(res < decompressed_size)
@@ -323,6 +385,8 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 // Only handles VK_FORMAT_BC6H_UFLOAT_BLOCK format currently.
 void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::string& path_out)
 {
+	throw glare::Exception("KTXDecoder::supercompressKTX2File disabled");
+#if 0
 	CompressedImageRef image;
 	if(hasExtension(path_in, "ktx"))
 		image = KTXDecoder::decode(path_in).downcast<CompressedImage>();
@@ -339,7 +403,7 @@ void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::st
 	file.writeUInt32(0); // pixelDepth: For 2D and cubemap textures, pixelDepth must be 0.
 	file.writeUInt32(0); // layerCount: layerCount specifies the number of array elements. If the texture is not an array texture, layerCount must equal 0.
 	file.writeUInt32(1); // faceCount specifies the number of cubemap faces: For non cubemaps this must be 1
-	file.writeUInt32((uint32)image->mipmap_level_data.size()); // levelCount: levelCount specifies the number of levels in the Mip Level Array
+	file.writeUInt32((uint32)image->/*mipmap_level_data*/mip_level_info.size()); // levelCount: levelCount specifies the number of levels in the Mip Level Array
 	file.writeUInt32(2); // supercompressionScheme: Use 2 = zstd
 
 	file.writeUInt32(0); // dfdByteOffset
@@ -359,14 +423,14 @@ void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::st
 		uint64 uncompressedByteLength; // levels[p].uncompressedByteLength is the number of bytes of pixel data in LOD levelp after reflation from supercompression.
 	};
 
-	std::vector<LevelData> level_data(image->mipmap_level_data.size());
+	std::vector<LevelData> level_data(image->/*mipmap_level_data*/mip_level_info.size());
 
 	const size_t mip_level_byte_start = file.getWriteIndex() + level_data.size() * sizeof(LevelData);
 	size_t level_byte_write_i = mip_level_byte_start;
 
 	js::Vector<uint8, 16> compressed_data;
 
-	for(int i=(int)image->mipmap_level_data.size() - 1; i>=0; --i)
+	for(int i=(int)image->/*mipmap_level_data*/mip_level_info.size() - 1; i>=0; --i)
 	{
 		const glare::AllocatorVector<uint8, 16>& level_i_data = image->mipmap_level_data[i];
 
@@ -397,6 +461,7 @@ void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::st
 
 	// Write mipmap level data
 	file.writeData(compressed_data.data(), compressed_data.size());
+#endif
 }
 
 
@@ -514,7 +579,7 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 
 #if 0
 // Command line:
-// C:\fuzz_corpus\ktx N:\indigo\trunk\testfiles\ktx
+// C:\fuzz_corpus\ktx c:/code/glare-core/testfiles\ktx
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
@@ -701,6 +766,27 @@ void KTXDecoder::test()
 		if(false)
 			makeMipMapTestTexture();
 
+		//{
+		//	//----------------------------------- Test loading a KTX array texture -------------------------------------------
+		//	Reference<Map2D> im = KTXDecoder::decodeKTX2("d:/tempfiles/chunk_basis_array_texture.ktx2");
+		//	testAssert(im->getMapWidth() == 128);
+		//	testAssert(im->getMapHeight() == 128);
+		//	testAssert(im.isType<CompressedImage>());
+		//	testAssert(im.downcastToPtr<CompressedImage>()->texture_data->level_offsets.size() == 8);
+		//}
+		{
+			//----------------------------------- Test loading KTX files -------------------------------------------
+			Reference<Map2D> im = KTXDecoder::decodeKTX2(TestUtils::getTestReposDir() + "/testfiles/ktx/save.01.ktx2");
+			testAssert(im->getMapWidth() == 512);
+			testAssert(im->getMapHeight() == 512);
+			testAssert(im.isType<CompressedImage>());
+			CompressedImage* com_im = im.downcastToPtr<CompressedImage>();
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_SRGB_Uint8);
+			testAssert(com_im->texture_data->level_offsets.size() == 10);
+			testAssert(com_im->texture_data->D == 1);
+			testAssert(com_im->texture_data->num_array_images == 0);
+		}
+#if 1
 		//----------------------------------- Test KTX files in ktxtest-master  -------------------------------------------
 		{
 			const std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir() + "/testfiles/ktx/ktxtest-master", "ktx");
@@ -729,30 +815,35 @@ void KTXDecoder::test()
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->mipmap_level_data.size() == 1); // no mipmaps.
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 1); // no mipmaps.
 
 		im = KTXDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->mipmap_level_data.size() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
 
 		//----------------------------------- Test loading KTX2 files -------------------------------------------
 		im = KTXDecoder::decodeKTX2(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_no_mipmap.KTX2");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->mipmap_level_data.size() == 1); // no mipmaps.
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 1); // no mipmaps.
 
 		im = KTXDecoder::decodeKTX2(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX2");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->mipmap_level_data.size() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
 		
 		
 
 		//---------------------------------- Test supercompressKTX2File -------------------------------------------
+		if(0)
 		{
 			const std::string src_path  = TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX2";
 			const std::string dest_path = PlatformUtils::getTempDirPath() + "/lightmap_BC6H_with_mipmaps_supercompressed.KTX2";
@@ -764,11 +855,12 @@ void KTXDecoder::test()
 			testAssert(im->getMapWidth() == 512);
 			testAssert(im->getMapHeight() == 512);
 			testAssert(im.isType<CompressedImage>());
-			testAssert(im.downcastToPtr<CompressedImage>()->mipmap_level_data.size() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
+			testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
 
 			conPrint("raw KTX2 file size:             " + toString(FileUtils::getFileSize(src_path)));
 			conPrint("supercompressed KTX2 file size: " + toString(FileUtils::getFileSize(dest_path)));
 		}
+#endif
 	}
 	catch(ImFormatExcep& e)
 	{
