@@ -119,16 +119,33 @@ void OpenGLProgram::forceFinishLinkAndDoPostLinkCode()
 	GLint program_ok;
 	glGetProgramiv(program, GL_LINK_STATUS, &program_ok);
 
+	// AMD drivers don't print anything useful in the program link log, we need to print out the log from the shaders as well.
 	std::string combined_log;
 	if(vert_shader)
-		combined_log += vert_shader->getLog(); // AMD drivers don't print anything useful in the program link log, we need to print out the log from the shaders as well.
+	{
+		const std::string log = vert_shader->getLog();
+		if(!isAllWhitespace(log))
+		{
+			combined_log += vert_shader->path + ": \n" + log;
+			conPrint(vert_shader->path + ": \n" + log);
+		}
+	}
 	if(frag_shader)
-		combined_log += frag_shader->getLog();
+	{
+		const std::string log = frag_shader->getLog();
+		if(!isAllWhitespace(log))
+		{
+			combined_log += frag_shader->path + ": \n" + log;
+			conPrint(frag_shader->path + ": \n" + log);
+		}
+	}
 
-	combined_log += getLog(program);
-
-	if(!isAllWhitespace(combined_log))
-		conPrint("shader program '" + prog_name + "' log:\n" + combined_log);
+	const std::string program_log = getLog(program);
+	if(!isAllWhitespace(program_log))
+	{
+		combined_log += program_log;
+		conPrint("shader program '" + prog_name + "' log:\n" + program_log);
+	}
 
 	if(!program_ok)
 		throw glare::Exception("Failed to link shader program '" + prog_name + "': " + combined_log);

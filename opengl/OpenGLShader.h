@@ -27,6 +27,7 @@ public:
 	std::string getLog();
 
 	GLuint shader;
+	const std::string path;
 private:
 	GLARE_DISABLE_COPY(OpenGLShader);
 };

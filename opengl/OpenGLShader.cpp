@@ -13,8 +13,9 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/StringUtils.h"
 
 
-OpenGLShader::OpenGLShader(const std::string& path, const std::string& version_directive, const std::string& preprocessor_defines, GLenum shader_type)
-:	shader(0)
+OpenGLShader::OpenGLShader(const std::string& path_, const std::string& version_directive, const std::string& preprocessor_defines, GLenum shader_type)
+:	shader(0),
+	path(path_)
 {
 	shader = glCreateShader(shader_type);
 	if(shader == 0)
