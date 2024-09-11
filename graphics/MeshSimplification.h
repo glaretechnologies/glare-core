@@ -1,7 +1,7 @@
 /*=====================================================================
 MeshSimplification.h
 --------------------
-Copyright Glare Technologies Limited 2022
+Copyright Glare Technologies Limited 2024
 =====================================================================*/
 #pragma once
 
