@@ -49,6 +49,7 @@ public:
 
 	inline Vector& operator=(const Vector& other);
 	inline void swapWith(Vector& other);
+	inline void takeFrom(Vector& other);
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
 	inline void reserveNoCopy(size_t N); // Make sure capacity is at least N.  Don't copy existing objects.
@@ -304,6 +305,30 @@ void Vector<T, alignment>::swapWith(Vector& other)
 	mySwap(e, other.e);
 	mySwap(size_, other.size_);
 	mySwap(capacity_, other.capacity_);
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
+void Vector<T, alignment>::takeFrom(Vector& other)
+{
+	assert(capacity_ >= size_);
+
+	if(this == &other)
+		return;
+
+	T* old_e = e;
+	e = other.e;
+	size_ = other.size_;
+	capacity_ = other.capacity_;
+
+	if(old_e)
+		free(old_e);
+	other.e = NULL;
+	other.size_ = 0;
+	other.capacity_ = 0;
 
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);

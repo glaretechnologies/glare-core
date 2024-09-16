@@ -31,6 +31,7 @@ class AllocatorVector
 public:
 	inline AllocatorVector(); // Initialise as an empty vector.
 	explicit inline AllocatorVector(size_t count); // Initialise with default initialisation.
+	explicit inline AllocatorVector(size_t count, const Reference<glare::Allocator>& al); // Initialise with default initialisation.
 	inline AllocatorVector(size_t count, const T& val); // Initialise with count copies of val.
 	inline AllocatorVector(const T* begin, const T* end); // Range constructor
 	inline AllocatorVector(const AllocatorVector& other); // Initialise as a copy of other
@@ -38,6 +39,7 @@ public:
 
 	inline AllocatorVector& operator=(const AllocatorVector& other);
 	inline void swapWith(AllocatorVector& other); // Important note: other should have the same allocator set.
+	inline void takeFrom(AllocatorVector& other); // Important note: other should have the same allocator set.
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
 	inline void reserveNoCopy(size_t N); // Make sure capacity is at least N.  Don't copy existing objects.
@@ -106,6 +108,32 @@ AllocatorVector<T, alignment>::AllocatorVector(size_t count)
 :	e(0),
 	size_(count),
 	capacity_(count)
+{
+	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
+
+	if(count > 0)
+	{
+		// Allocate new memory
+		e = static_cast<T*>(alloc(sizeof(T) * count));
+
+		// Initialise elements
+		// NOTE: We use the constructor form without parentheses, in order to avoid default (zero) initialisation of POD types. 
+		// See http://stackoverflow.com/questions/620137/do-the-parentheses-after-the-type-name-make-a-difference-with-new for more info.
+		for(T* elem=e; elem<e + count; ++elem)
+			::new (elem) T;
+	}
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template<class T, size_t alignment>
+inline AllocatorVector<T, alignment>::AllocatorVector(size_t count, const Reference<glare::Allocator>& al)
+:	e(0),
+	size_(count),
+	capacity_(count),
+	allocator(al)
 {
 	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
 
@@ -262,6 +290,34 @@ void AllocatorVector<T, alignment>::swapWith(AllocatorVector& other)
 	mySwap(e, other.e);
 	mySwap(size_, other.size_);
 	mySwap(capacity_, other.capacity_);
+
+	assert(capacity_ >= size_);
+	assert(size_ > 0 ? (e != NULL) : true);
+}
+
+
+template <class T, size_t alignment>
+void AllocatorVector<T, alignment>::takeFrom(AllocatorVector& other)
+{
+	assert(other.getAllocator() == getAllocator());
+
+	assert(capacity_ >= size_);
+
+	if(this == &other)
+		return;
+
+	T* old_e = e;
+	e = other.e;
+	size_ = other.size_;
+	capacity_ = other.capacity_;
+
+	if(old_e)
+		free(old_e);
+	other.e = NULL;
+	other.size_ = 0;
+	other.capacity_ = 0;
+
+	allocator = other.getAllocator();
 
 	assert(capacity_ >= size_);
 	assert(size_ > 0 ? (e != NULL) : true);
