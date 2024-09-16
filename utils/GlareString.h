@@ -1,6 +1,6 @@
 /*=====================================================================
-String.h
---------
+GlareString.h
+-------------
 Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
@@ -12,9 +12,9 @@ Copyright Glare Technologies Limited 2024 -
 
 
 /*=====================================================================
-String
-------
-
+glare::String
+-------------
+String class with the small string optimisation.
 =====================================================================*/
 namespace glare
 {

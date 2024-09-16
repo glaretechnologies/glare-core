@@ -1,14 +1,9 @@
 /*=====================================================================
-String.cpp
-----------
+GlareString.cpp
+---------------
 Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
-
-
-#include <string>
-
 #include "GlareString.h"
-
 
 
 #if BUILD_TESTS
@@ -22,8 +17,7 @@ Copyright Glare Technologies Limited 2024 -
 
 void glare::String::test()
 {
-
-	conPrint("String::test()");
+	conPrint("glare::String::test()");
 
 	//--------------------- Test String() ---------------------
 	{
@@ -367,7 +361,7 @@ void glare::String::test()
 		testAssert(s != "");
 	}
 
-	conPrint("String::test() done.");
+	conPrint("glare::String::test() done.");
 }
 
 
