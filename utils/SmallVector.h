@@ -62,7 +62,7 @@ public:
 private:
 	inline bool storingOnHeap() const { return capacity_ > N; }
 
-	T* e;
+	T* e; // Either points at direct or at memory on the heap.
 	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
 	size_t capacity_;
 	// We can't just use an array of T here as then the T objects will need to be constructed.  Instead we just want space for N T objects.
@@ -267,7 +267,16 @@ bool SmallVector<T, N>::empty() const
 template <class T, int N>
 void SmallVector<T, N>::push_back(const T& t)
 {
-	resize(size_ + 1, t); // TODO: write explicit code here?
+	if(size_ == capacity_)
+	{
+		const size_t new_capacity = myMax(size_ + 1, 2 * capacity_);
+		reserve(new_capacity);
+	}
+
+	// Construct e[size_] from t
+	::new ((e + size_)) T(t);
+
+	size_++;
 }
 
 

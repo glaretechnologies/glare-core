@@ -639,6 +639,8 @@ void test()
 
 		testAssert(ob_count == 1);
 	}
+
+	conPrint("SmallVectorTest() done.");
 }
 
 
