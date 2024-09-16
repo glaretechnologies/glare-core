@@ -64,6 +64,9 @@ namespace BitUtils
 	template <class T> 
 	inline void zeroBit(T& x, const T bitflag);
 
+	template <class T> 
+	inline T getWithBitZeroed(const T x, const T bitflag);
+
 	// Sets the bit to 1 or 0 depending on should_set, in place.
 	template <class T> 
 	inline void setOrZeroBit(T& x, const T bitflag, bool should_set);
@@ -184,6 +187,13 @@ namespace BitUtils
 	void zeroBit(T& x, const T bitflag)
 	{
 		x = x & ~bitflag; // AND with the bitwise negation of the bitflag.
+	}
+
+
+	template <class T>
+	T getWithBitZeroed(const T x, const T bitflag)
+	{
+		return x & ~bitflag; // AND with the bitwise negation of the bitflag.
 	}
 
 
