@@ -130,6 +130,9 @@ public:
 	
 	inline T* data() const { return const_cast<T*>(ArrayRef<T>::data_); }
 
+	// Does runtime checks to see if the slice is in bounds, throws glare::Exception if not.
+	inline MutableArrayRef<T> getSliceChecked(size_t slice_offset, size_t slice_len) const;
+
 	//-----------------------------------------------------------------
 	// iterator stuff
 	//-----------------------------------------------------------------
@@ -154,6 +157,15 @@ T& MutableArrayRef<T>::operator[] (size_t index)
 }
 
 
+template<class T>
+MutableArrayRef<T> MutableArrayRef<T>::getSliceChecked(size_t slice_offset, size_t slice_len) const
+{
+	runtimeCheck(
+		!Maths::unsignedIntAdditionWraps(slice_offset, slice_len) && 
+		((slice_offset + slice_len) <= len)
+	);
+	return MutableArrayRef<T>(data() + slice_offset, slice_len);
+}
 
 
 template <class T>
