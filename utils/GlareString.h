@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2024 -
 glare::String
 -------------
 String class with the small string optimisation.
+Only works on little-endian systems currently.
 =====================================================================*/
 namespace glare
 {
@@ -31,18 +32,26 @@ public:
 	inline String& operator=(const String& other);
 
 	static const uint32 ON_HEAP_BIT = 31u;
-	static const uint32 ON_HEAP_BIT_MASK = 1u << 31u;
+	static const uint32 ON_HEAP_BIT_MASK = 1u << ON_HEAP_BIT;
+
+	// Size is stored in 31 bits, so max size is 2^31 - 1.
+	static const size_t MAX_CAPACITY = (1u << 31) - 1;
+
+	static const uint32 DIRECT_CAPACITY = 14;
 
 	inline void reserve(size_t M); // Make sure capacity is at least M.
+	
 	//inline void resize(size_t new_size); // Resize to size N, using default constructor if N > size().
 	inline void resize(size_t new_size, char val = 0); // Resize to size new_size, using copies of val if new_size > size().
-	inline size_t capacity() const { return storingOnHeap() ? capacity_storage : 14; }
+	inline void resizeNoCopy(size_t new_size); // Resizes, but doesn't copy old data or initialise new data.  It does however null-terminate the string.
+	// Only use if new data is going to be completely written to before reading from it.
+
+	inline size_t capacity() const { return storingOnHeap() ? capacity_storage : DIRECT_CAPACITY; }
 	inline size_t size() const { return storingOnHeap() ? (on_heap_and_size & ~ON_HEAP_BIT_MASK) : (on_heap_and_size >> 24u); }
 	inline bool empty() const { return size() == 0; }
 
-	inline char* data() { return storingOnHeap() ? e : (char*)&e; }
-	inline const char* data() const { return storingOnHeap() ? e : (char*)&e; }
-
+	inline char*       data()        { return storingOnHeap() ? e : (char*)&e; }
+	inline const char* data()  const { return storingOnHeap() ? e : (char*)&e; }
 	inline const char* c_str() const { return storingOnHeap() ? e : (char*)&e; }
 
 	inline void push_back(char t);
@@ -63,6 +72,11 @@ public:
 	static void test();
 	
 private:
+	char* allocOnHeapForSize(size_t n);  // Allocate new memory on heap, with room for null terminator. So actually allocates n + 1 bytes.
+	// Also throws exception if n > MAX_CAPACITY
+
+	inline void reserveNoCopy(size_t M); // Make sure capacity is at least M.  Doesn't copy old data.
+
 	/*
 	Stored on heap layout:
 	|------------------------------------------------
@@ -90,7 +104,7 @@ private:
 
 	inline void setHeapBitAndSizeForDirectStorage(size_t s)
 	{
-		assert(s <= 14);
+		assert(s <= DIRECT_CAPACITY);
 		on_heap_and_size = (on_heap_and_size & 0x00FFFFFFu) // Clear most significant byte
 			| ((uint32)s << 24);
 	}
@@ -108,13 +122,13 @@ private:
 
 
 String::String()
-:	on_heap_and_size(0), e(nullptr), capacity_storage(16)
+:	on_heap_and_size(0), e(nullptr), capacity_storage(DIRECT_CAPACITY)
 {}
 
 
 String::String(size_t count, char val)
 {
-	if(count <= 14)
+	if(count <= DIRECT_CAPACITY)
 	{
 		e = nullptr;
 		capacity_storage = 0;
@@ -132,7 +146,7 @@ String::String(size_t count, char val)
 	else
 	{
 		// Use heap storage
-		e = static_cast<char*>(MemAlloc::alignedSSEMalloc(count + 1)); // Allocate new memory on heap, with room for null terminator
+		e = allocOnHeapForSize(count); // Allocate new memory on heap
 
 		for(size_t i=0; i<count; ++i)
 			e[i] = val;
@@ -149,7 +163,7 @@ String::String(const char* str)
 {
 	const size_t count = std::strlen(str);
 
-	if(count <= 14)
+	if(count <= DIRECT_CAPACITY)
 	{
 		// Store directly
 		std::memcpy(&e, str, count + 1); // Copy null terminator as well.
@@ -158,8 +172,9 @@ String::String(const char* str)
 	}
 	else
 	{
+
 		// Use heap storage
-		e = static_cast<char*>(MemAlloc::alignedSSEMalloc(count + 1)); // Allocate new memory on heap, with room for null terminator
+		e = allocOnHeapForSize(count); // Allocate new memory on heap.
 
 		std::memcpy(e, str, count + 1); // Copy null terminator as well.
 
@@ -180,7 +195,7 @@ String::String(const String& other)
 	else
 	{
 		const uint32 use_size = (uint32)other.size();
-		e = static_cast<char*>(MemAlloc::alignedSSEMalloc(use_size + 1)); // Allocate new memory on heap, + 1 for null terminator
+		e = allocOnHeapForSize(use_size); // Allocate new memory on heap.
 		capacity_storage = use_size;
 		setHeapBitAndSizeForHeapStorage(use_size);
 
@@ -213,7 +228,7 @@ String& String::operator=(const String& other)
 	else
 	{
 		const uint32 use_size = (uint32)other.size();
-		e = static_cast<char*>(MemAlloc::alignedSSEMalloc(use_size + 1)); // Allocate new memory on heap, + 1 for null terminator
+		e = allocOnHeapForSize(use_size); // Allocate new memory on heap, + 1 for null terminator
 		capacity_storage = use_size;
 		setHeapBitAndSizeForHeapStorage(use_size);
 
@@ -228,10 +243,10 @@ void String::reserve(size_t n)
 {
 	if(n > capacity()) // If need to expand capacity:
 	{
-		if(n > 14)
+		if(n > DIRECT_CAPACITY)
 		{
 			// Allocate new memory
-			char* new_e = static_cast<char*>(MemAlloc::alignedSSEMalloc(n + 1)); // + 1 for null terminator
+			char* new_e = allocOnHeapForSize(n);
 
 			const size_t cur_size = size();
 
@@ -246,6 +261,28 @@ void String::reserve(size_t n)
 			{
 				std::memcpy(new_e, (char*)&e, cur_size + 1);  // Copy data from direct storage to heap, including null terminator
 			}
+
+			e = new_e;
+			capacity_storage = (uint32)n;
+			setHeapBitAndSizeForHeapStorage(cur_size);
+		}
+	}
+}
+
+
+void String::reserveNoCopy(size_t n)
+{
+	if(n > capacity()) // If need to expand capacity:
+	{
+		if(n > DIRECT_CAPACITY)
+		{
+			// Allocate new memory
+			char* new_e = allocOnHeapForSize(n);
+
+			const size_t cur_size = size();
+
+			if(storingOnHeap()) // If we were storing on heap:
+				MemAlloc::alignedFree(e); // Free old buffer.
 
 			e = new_e;
 			capacity_storage = (uint32)n;
@@ -272,7 +309,7 @@ void String::resize(size_t new_size)
 	}
 	else // Else if we are currently storing directly (not on heap):
 	{
-		if(new_size > 14) // If won't fit in direct storage:
+		if(new_size > DIRECT_CAPACITY) // If won't fit in direct storage:
 		{
 			// We need to start storing on the heap
 			reserve(new_size);
@@ -318,7 +355,7 @@ void String::resize(size_t new_size, const char val)
 	}
 	else // Else if we are currently storing directly (not on heap):
 	{
-		if(new_size > 14) // If won't fit in direct storage:
+		if(new_size > DIRECT_CAPACITY) // If won't fit in direct storage:
 		{
 			// We need to start storing on the heap
 			reserve(new_size);
@@ -337,6 +374,48 @@ void String::resize(size_t new_size, const char val)
 			char* const direct = (char*)&e;
 			for(size_t i=old_size; i<new_size; ++i)
 				direct[i] = val;
+			direct[new_size] = '\0'; // null terminate
+		}
+	}
+}
+
+
+void String::resizeNoCopy(size_t new_size)
+{
+	if(storingOnHeap())
+	{
+		if(new_size <= capacity_storage)
+		{
+			// We could free the heap data and store directly, but just keep on the heap for now.
+			
+			setHeapBitAndSizeForHeapStorage(new_size);
+			
+			e[new_size] = '\0'; // null terminate
+		}
+		else // else new_size > capacity_:
+		{
+			reserveNoCopy(new_size);
+			setHeapBitAndSizeForHeapStorage(new_size);
+
+			e[new_size] = '\0'; // null terminate
+		}
+	}
+	else // Else if we are currently storing directly (not on heap):
+	{
+		if(new_size > DIRECT_CAPACITY) // If won't fit in direct storage:
+		{
+			// We need to start storing on the heap
+			reserveNoCopy(new_size);
+			setHeapBitAndSizeForHeapStorage(new_size);
+
+			e[new_size] = '\0'; // null terminate
+		}
+		else
+		{
+			setHeapBitAndSizeForDirectStorage(new_size);
+
+			// Initialise new data
+			char* const direct = (char*)&e;
 			direct[new_size] = '\0'; // null terminate
 		}
 	}
@@ -377,7 +456,6 @@ void String::pop_back()
 {
 	assert(size() >= 1);
 
-	// TODO: handle direct storage
 	const size_t new_size = size() - 1;
 	if(storingOnHeap())
 	{
