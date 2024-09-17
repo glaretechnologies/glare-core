@@ -50,6 +50,8 @@ public:
 	inline Vec3<Real> transposeMult(const Vec3<Real>& rhs) const;
 
 
+	inline static const Matrix3 scaleMatrix(Real x_scale, Real y_scale, Real z_scale);
+
 	inline static const Matrix3 rotationMatrix(const Vec3<Real>& unit_axis, Real angle);
 
 	inline static const Matrix3 rotationAroundXAxis(Real angle);
@@ -581,6 +583,14 @@ bool Matrix3<Real>::invert()
 	if(invertible)
 		*this = inv;
 	return invertible;
+}
+
+
+template <class Real>
+const Matrix3<Real> Matrix3<Real>::scaleMatrix(Real x_scale, Real y_scale, Real z_scale)
+{
+	const Real elems[9] = { x_scale, 0, 0, 0, y_scale, 0, 0, 0, z_scale };
+	return Matrix3f(elems);
 }
 
 
