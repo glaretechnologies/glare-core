@@ -8,15 +8,52 @@ Copyright Glare Technologies Limited 2024
 
 #include "BatchedMesh.h"
 #include "../meshoptimizer/src/meshoptimizer.h"
+#include "../maths/PCG32.h"
 #include "../utils/StringUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Timer.h"
+#include "../utils/TaskManager.h"
+#include "../utils/ShouldCancelCallback.h"
+#include "../utils/StandardPrintOutput.h"
+#include "../utils/HashMapInsertOnly2.h"
+#include "../simpleraytracer/raymesh.h"
 #include <algorithm>
 
 
 namespace MeshSimplification
 {
+
+// Build new vertex data, that consists of vertices that are actually indexed by indices.
+// Copies the (used) vertex data from mesh->vertex_data.
+// Also updates simplified_indices to use new indices.
+void discardUnusedVertices(const BatchedMesh* mesh, js::Vector<uint32, 16>& simplified_indices, 
+	glare::AllocatorVector<uint8, 16>& new_vertex_data_out)
+{
+	new_vertex_data_out.resizeNoCopy(mesh->vertex_data.size());
+	const size_t vertex_size_B = mesh->vertexSize();
+
+	std::vector<unsigned int> new_vert_index(mesh->numVerts(), 0xFFFFFFFFu); // Map from old vert index to new vert index, or -1 if not used
+
+	uint32 new_vertex_data_write_i = 0;
+	for(size_t i=0; i<simplified_indices.size(); ++i)
+	{
+		const uint32 v_i = simplified_indices[i];
+		uint32 new_v_i = new_vert_index[v_i];
+		if(new_v_i == 0xFFFFFFFFu)
+		{
+			new_v_i = new_vertex_data_write_i++;
+			new_vert_index[v_i] = new_v_i;
+
+			// Copy vert data to new_vertex_data
+			std::memcpy(&new_vertex_data_out[new_v_i * vertex_size_B], &mesh->vertex_data[v_i * vertex_size_B], vertex_size_B);
+		}
+
+		simplified_indices[i] = new_v_i;
+	}
+	const uint32 new_num_verts = new_vertex_data_write_i;
+	new_vertex_data_out.resize(new_num_verts * vertex_size_B); // Trim down to verts actually used.
+}
 
 
 // target_error represents the error relative to mesh extents that can be tolerated, e.g. 0.01 = 1% deformation
@@ -116,11 +153,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 #if 0 //-------------------------- Do simplification for all batches at once: --------------------------
 
-	glare::AllocatorVector<uint8, 16> new_vertex_data(mesh.vertex_data.size());
-	uint32 new_vertex_data_write_i = 0;
 	std::vector<BatchedMesh::IndicesBatch> new_batches;
-
-	std::vector<unsigned int> new_vert_index(mesh.numVerts(), 0xFFFFFFFFu); // Map from old vert index to new vert index, or -1 if not used
 
 	const BatchedMesh::VertAttribute& pos_attr = mesh.getAttribute(BatchedMesh::VertAttribute_Position);
 	if(pos_attr.component_type != BatchedMesh::ComponentType_Float)
@@ -202,6 +235,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	}
 
 	assert(res_num_indices <= simplified_indices.size());
+	simplified_indices.resize(res_num_indices);
 
 	//js::Vector<uint8, 16> vertex_data;
 	//std::vector<uint32> indices;
@@ -214,28 +248,10 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		vertex_size); // vertex_size
 	*/
 
-	// Copy vertices used by the simplified indices to new_vertex_data, if they are not in there already.
-	// Update simplified_indices to use the new indices as we do this.
-	for(size_t i=0; i<res_num_indices; ++i)
-	{
-		const uint32 v_i = simplified_indices[i];
-		uint32 new_v_i;
-		if(new_vert_index[v_i] == 0xFFFFFFFFu)
-		{
-			new_v_i = new_vertex_data_write_i++;
-			new_vert_index[v_i] = new_v_i;
+	glare::AllocatorVector<uint8, 16> new_vertex_data;
+	discardUnusedVertices(&mesh, simplified_indices, new_vertex_data);
 
-			new_vert_mat_index[new_v_i] = vert_mat_index[v_i];
-
-			// Copy vert data to new_vertex_data
-			std::memcpy(&new_vertex_data[new_v_i * vertex_size], &mesh.vertex_data[v_i * vertex_size], vertex_size);
-		}
-		else
-			new_v_i = new_vert_index[v_i];
-
-		simplified_indices[i] = new_v_i;
-	}
-
+	// Sort triangles (indices) by material
 	struct IndexAndMat
 	{
 		uint32 index;
@@ -291,8 +307,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	for(size_t i=0; i<res_num_indices; ++i)
 		simplified_indices[i] = v[i].index;
 
-	const uint32 new_num_verts = new_vertex_data_write_i;
-	new_vertex_data.resize(new_num_verts * vertex_size); // Trim down to verts actually used.
+	const size_t new_num_verts = new_vertex_data.size() / mesh.vertexSize();
 
 #ifndef NDEBUG
 	// Check all indices are in-bounds
@@ -306,7 +321,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	simplified_mesh->setIndexDataFromIndices(simplified_indices, new_num_verts);
 
 	// Copy new vertex data
-	simplified_mesh->vertex_data = new_vertex_data;
+	simplified_mesh->vertex_data.takeFrom(new_vertex_data);
 
 	simplified_mesh->batches = new_batches;
 
@@ -317,11 +332,8 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 	js::Vector<uint32, 16> new_indices;
 	new_indices.reserve(mesh.numIndices());
-	glare::AllocatorVector<uint8, 16> new_vertex_data(mesh.vertex_data.size());
-	uint32 new_vertex_data_write_i = 0;
-	std::vector<BatchedMesh::IndicesBatch> new_batches;
 
-	std::vector<unsigned int> new_vert_index(mesh.numVerts(), 0xFFFFFFFFu); // Map from old vert index to new vert index, or -1 if not used
+	std::vector<BatchedMesh::IndicesBatch> new_batches;
 
 	const BatchedMesh::VertAttribute& pos_attr = mesh.getAttribute(BatchedMesh::VertAttribute_Position);
 	if(pos_attr.component_type != BatchedMesh::ComponentType_Float)
@@ -359,6 +371,10 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		}
 		else
 		{
+			unsigned int options = meshopt_SimplifyErrorAbsolute;
+			if(mesh.batches.size() > 1)
+				options |= meshopt_SimplifySparse;
+
 			if(!use_attributes)
 			{
 				res_num_indices = meshopt_simplify(/*destination=*/simplified_indices.data(), temp_batch_indices.data(), temp_batch_indices.size(),
@@ -367,7 +383,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 					mesh.vertexSize(), // vert stride
 					target_index_count,
 					target_error,
-					meshopt_SimplifySparse | meshopt_SimplifyErrorAbsolute, // options
+					options,
 					&result_error
 				);
 			}
@@ -385,7 +401,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 					NULL, // vertex lock
 					target_index_count,
 					target_error,
-					meshopt_SimplifySparse | meshopt_SimplifyErrorAbsolute, // options
+					options,
 					&result_error
 				);
 			}
@@ -404,27 +420,6 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 			vertex_size); // vertex_size
 		*/
 
-		// Copy vertices used by the simplified indices to new_vertex_data, if they are not in there already.
-		// Update simplified_indices to use the new indices as we do this.
-		for(size_t i=0; i<res_num_indices; ++i)
-		{
-			const uint32 v_i = simplified_indices[i];
-			uint32 new_v_i;
-			if(new_vert_index[v_i] == 0xFFFFFFFFu)
-			{
-				new_v_i = new_vertex_data_write_i++;
-				new_vert_index[v_i] = new_v_i;
-
-				// Copy vert data to new_vertex_data
-				std::memcpy(&new_vertex_data[new_v_i * vertex_size], &mesh.vertex_data[v_i * vertex_size], vertex_size);
-			}
-			else
-				new_v_i = new_vert_index[v_i];
-
-			simplified_indices[i] = new_v_i;
-		}
-
-
 		// Add simplified indices to new_indices
 		const size_t write_i = new_indices.size();
 		new_indices.resize(write_i + res_num_indices);
@@ -438,8 +433,10 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		new_batches.push_back(new_batch);
 	}
 
-	const uint32 new_num_verts = new_vertex_data_write_i;
-	new_vertex_data.resize(new_num_verts * vertex_size); // Trim down to verts actually used.
+	glare::AllocatorVector<uint8, 16> new_vertex_data;
+	discardUnusedVertices(&mesh, new_indices, new_vertex_data);
+
+	const size_t new_num_verts = new_vertex_data.size() / mesh.vertexSize();
 
 #ifndef NDEBUG
 	// Check all indices are in-bounds
@@ -453,7 +450,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	simplified_mesh->setIndexDataFromIndices(new_indices, new_num_verts);
 
 	// Copy new vertex data
-	simplified_mesh->vertex_data = new_vertex_data;
+	simplified_mesh->vertex_data.takeFrom(new_vertex_data);
 
 	simplified_mesh->batches = new_batches;
 
@@ -463,7 +460,10 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 	if(true)
 	{
-		conPrint("-------------- simplified mesh ------------");
+		if(sloppy)
+			conPrint("-------------- sloppy simplified mesh ------------");
+		else
+			conPrint("-------------- simplified mesh ------------");
 		conPrint("Original num indices: " + toString(mesh.numIndices()));
 		conPrint("new num indices:      " + toString(simplified_mesh->numIndices()));
 		conPrint("reduction ratio:      " + toString((float)mesh.numIndices() / simplified_mesh->numIndices()));
@@ -475,6 +475,495 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	}
 
 	return simplified_mesh;
+}
+
+
+struct EdgeKey
+{
+	EdgeKey(){}
+	EdgeKey(const Vec3f& a, const Vec3f& b) : start(a), end(b) {}
+
+	Vec3f start;
+	Vec3f end;
+
+	inline bool operator == (const EdgeKey& other) const { return start == other.start && end == other.end; }
+	inline bool operator != (const EdgeKey& other) const { return start != other.start || end != other.end; }
+};
+
+class EdgeKeyHash
+{
+public:
+	inline size_t operator()(const EdgeKey& v) const
+	{
+		return hashBytes((const uint8*)&v, sizeof(EdgeKey));
+	}
+};
+
+struct EdgeInfo
+{
+	EdgeInfo() : processed(false) {}
+
+	SmallVector<uint32, 2> adjacent_polys;
+	bool processed;
+};
+
+struct Triangle
+{
+	Triangle() : keep(false), processed(false) {}
+	int edge_i[3];
+	bool keep;
+	bool processed;
+};
+
+
+
+static const uint32_t mod3_table[] = { 0, 1, 2, 0, 1, 2 };
+
+inline static uint32 mod3(uint32 x)
+{
+	return mod3_table[x];
+}
+
+
+BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh_, float target_error)
+{
+	Timer timer;
+
+	const BatchedMesh& mesh = *mesh_;
+
+	const BatchedMesh::VertAttribute& pos_attr = mesh.getAttribute(BatchedMesh::VertAttribute_Position);
+	if(pos_attr.component_type != BatchedMesh::ComponentType_Float)
+		throw glare::Exception("Mesh simplification needs float position type.");
+
+	// Build adjacency info, build tris vector.
+	
+	const size_t vertex_size_B = mesh.vertexSize(); // In bytes
+	const size_t triangles_in_size = mesh.numIndices() / 3;
+
+	const Vec3f inf_vec(std::numeric_limits<float>::infinity());
+	HashMapInsertOnly2<EdgeKey, int, EdgeKeyHash> edge_indices_map(EdgeKey(inf_vec, inf_vec),
+		triangles_in_size * 2 // expected_num_items
+	);
+
+	std::vector<EdgeInfo> edges;
+	edges.reserve(triangles_in_size * 2);
+
+	std::vector<Triangle> tris(triangles_in_size);
+
+	for(size_t t = 0; t < triangles_in_size; ++t) // For each triangle
+	{
+		const size_t v0_i = t * 3; // index of v0
+		for(unsigned int z = 0; z < 3; ++z) // For each edge:
+		{
+			const size_t vz  = mesh.getIndexAsUInt32(v0_i + z);
+			const size_t vz1 = mesh.getIndexAsUInt32(v0_i + mod3(z + 1));
+
+			// Get vertex positions at either end of the edge.
+			Vec3f vz_pos, vz1_pos;
+			std::memcpy(&vz_pos,  &mesh.vertex_data[pos_attr.offset_B + vertex_size_B * vz ], sizeof(Vec3f));
+			std::memcpy(&vz1_pos, &mesh.vertex_data[pos_attr.offset_B + vertex_size_B * vz1], sizeof(Vec3f));
+
+			EdgeKey edge_key;
+			if(vz_pos < vz1_pos)
+			{
+				edge_key.start = vz_pos;
+				edge_key.end = vz1_pos;
+			}
+			else
+			{
+				edge_key.start = vz1_pos;
+				edge_key.end = vz_pos;
+			}
+
+			auto result = edge_indices_map.find(edge_key); // Lookup edge
+			if(result == edge_indices_map.end()) // If edge not added yet:
+			{
+				const size_t edge_i = edges.size();
+				edges.resize(edge_i + 1);
+
+				edges[edge_i].adjacent_polys.push_back((uint32)t); // Add this tri to the list of polys adjacent to edge.
+					
+				edge_indices_map.insert(std::make_pair(edge_key, (int)edge_i)); // Add edge index to map
+
+				tris[t].edge_i[z] = (int)edge_i;
+			}
+			else
+			{
+				edges[result->second].adjacent_polys.push_back((uint32)t); // Add this tri to the list of polys adjacent to edge.
+
+				tris[t].edge_i[z] = (int)result->second;
+			}
+		}
+	}
+	
+	std::vector<size_t> patch_tris;
+	patch_tris.reserve(triangles_in_size);
+
+	std::vector<size_t> patch_tris_to_process;
+	bool all_components_kept = true;
+
+	for(size_t initial_i=0; initial_i<triangles_in_size; ++initial_i)
+	{
+		if(!tris[initial_i].processed)
+		{
+			// Start a patch
+			patch_tris.clear();
+
+			js::AABBox component_aabb = js::AABBox::emptyAABBox();
+
+			tris[initial_i].processed = true;
+			patch_tris_to_process.clear();
+
+			patch_tris_to_process.push_back(initial_i);
+
+			while(!patch_tris_to_process.empty())
+			{
+				const size_t tri_i = patch_tris_to_process.back();
+				Triangle& tri = tris[tri_i];
+				patch_tris_to_process.pop_back();
+
+				patch_tris.push_back(tri_i);
+
+				for(int i=0; i<3; ++i)
+				{
+					const uint32 vi = mesh.getIndexAsUInt32(tri_i * 3 + i);
+					Vec3f v_pos;
+					std::memcpy(&v_pos, &mesh.vertex_data[pos_attr.offset_B + vertex_size_B * vi], sizeof(Vec3f));
+
+					component_aabb.enlargeToHoldPoint(v_pos.toVec4fPoint());
+				}
+
+				// Add adjacent polygons to poly_i to polys_to_process, if applicable
+				for(int e=0; e<3; ++e)
+				{
+					// Check for adjacent polygons where the other polygon shares the edge with this polygon.
+					const int edge_i = tri.edge_i[e];
+					EdgeInfo& edge = edges[edge_i];
+					if(!edge.processed) // edge.adjacent_polys can be large, so avoid processing more than once.
+					{
+						for(size_t q=0; q<edge.adjacent_polys.size(); ++q)
+						{
+							const size_t adj_tri_i = edge.adjacent_polys[q];
+							if((adj_tri_i == tri_i) || tris[adj_tri_i].processed)
+								continue;
+
+							patch_tris_to_process.push_back(adj_tri_i); // Add the adjacent poly to set of polys to add to patch.
+
+							tris[adj_tri_i].processed = true;
+						}
+						edge.processed = true;
+					}
+				}
+			}
+
+			if(component_aabb.longestLength() >= target_error)
+			{
+				for(size_t i=0; i<patch_tris.size(); ++i)
+					tris[patch_tris[i]].keep = true;
+			}
+			else
+				all_components_kept = false;
+		}
+	}
+
+	if(all_components_kept)
+	{
+		if(true)
+		{
+			conPrint("-------------- removeSmallComponents ------------");
+			conPrint("No components removed.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(4));
+		}
+
+		return mesh_;
+	}
+	else
+	{
+		BatchedMeshRef simplified_mesh = new BatchedMesh();
+		simplified_mesh->vert_attributes = mesh.vert_attributes;
+		simplified_mesh->aabb_os = mesh.aabb_os;
+
+		js::Vector<uint32, 16> simplified_indices;
+		simplified_indices.reserve(mesh.numIndices());
+
+		for(size_t b=0; b<mesh.batches.size(); ++b)
+		{
+			const BatchedMesh::IndicesBatch& batch = mesh.batches[b];
+
+			BatchedMesh::IndicesBatch new_batch;
+			new_batch.indices_start = (uint32)simplified_indices.size();
+
+			assert(batch.indices_start % 3 == 0);
+			assert(batch.num_indices   % 3 == 0);
+			for(uint32 i=batch.indices_start; i != batch.indices_start + batch.num_indices; i += 3)
+			{
+				const uint32 tri_i = i / 3;
+				if(tris[tri_i].keep)
+				{
+					simplified_indices.push_back(mesh.getIndexAsUInt32(i));
+					simplified_indices.push_back(mesh.getIndexAsUInt32(i+1));
+					simplified_indices.push_back(mesh.getIndexAsUInt32(i+2));
+				}
+			}
+
+			new_batch.num_indices = (uint32)simplified_indices.size() - new_batch.indices_start;
+			new_batch.material_index = batch.material_index;
+			if(new_batch.num_indices > 0)
+				simplified_mesh->batches.push_back(new_batch);
+		}
+
+		glare::AllocatorVector<uint8, 16> new_vertex_data;
+		discardUnusedVertices(&mesh ,simplified_indices, new_vertex_data);
+		
+		const size_t new_num_verts = new_vertex_data.size() / mesh.vertexSize();
+
+		// Copy new index data
+		simplified_mesh->setIndexDataFromIndices(simplified_indices, new_num_verts);
+
+		// Copy new vertex data
+		simplified_mesh->vertex_data.takeFrom(new_vertex_data);
+
+		simplified_mesh->animation_data = mesh.animation_data;
+
+		if(true)
+		{
+			conPrint("-------------- removeSmallComponents ------------");
+			conPrint("Original num indices: " + toString(mesh.numIndices()));
+			conPrint("new num indices:      " + toString(simplified_mesh->numIndices()));
+			conPrint("reduction ratio:      " + toString((float)mesh.numIndices() / simplified_mesh->numIndices()));
+			conPrint("Original num verts:   " + toString(mesh.numVerts()));
+			conPrint("new num verts:        " + toString(simplified_mesh->numVerts()));
+			conPrint("reduction ratio:      " + toString((float)mesh.numVerts() / simplified_mesh->numVerts()));
+
+			conPrint("Simplification took " + timer.elapsedStringMSWIthNSigFigs(4));
+		}
+
+		return simplified_mesh;
+	}
+}
+
+
+BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskManager& task_manager)
+{
+#if RAYMESH_TRACING_SUPPORT
+	RayMesh raymesh("raymesh", false);
+	raymesh.fromBatchedMesh(*mesh);
+
+	Geometry::BuildOptions options;
+	options.compute_is_planar = false;
+	DummyShouldCancelCallback should_cancel_callback;
+	StandardPrintOutput print_output;
+	raymesh.build(options, should_cancel_callback, print_output, /*verbose=*/true, task_manager);
+
+	std::vector<uint32> num_tri_hits(mesh->numIndices() / 3);
+
+	Timer timer;
+
+	std::vector<Ray> rays;
+	std::vector<Vec4f> hit_positions;
+
+	const int num_dirs = 32;
+	const int res = 1024;
+	PCG32 rng(1);
+	for(int q=0; q<num_dirs; ++q)
+	{
+		// Pick a random direction towards the mesh
+		const Vec4f dir = normalise(Vec4f(-1.f + 2 * rng.unitRandom(), -1.f + 2 * rng.unitRandom(), -1.f + 2 * rng.unitRandom(), 0));
+		//const Vec4f dir(1,0.0001,00.0001,0);
+
+		// Get vectors orthogonal to direction
+		const Matrix4f mat = Matrix4f::constructFromVectorStatic(dir);
+
+		// Get extents of mesh along orthogonal vectors, giving a rectangle
+		const Vec4f i = mat.getColumn(0);
+		const Vec4f j = mat.getColumn(1);
+
+		js::AABBox dir_basis_aabb = mesh->aabb_os.transformedAABB(mat.getTranspose());
+
+		const float min_i = dir_basis_aabb.min_[0];
+		const float min_j = dir_basis_aabb.min_[1];
+		const float min_d = dir_basis_aabb.min_[2];
+		const float max_i = dir_basis_aabb.max_[0];
+		const float max_j = dir_basis_aabb.max_[1];
+
+		printVar(min_i);
+		printVar(min_j);
+		printVar(max_i);
+		printVar(max_j);
+		
+		for(int py=0; py<res; ++py)
+		for(int px=0; px<res; ++px)
+		{
+			const float fx = (float)px / (res - 1);
+			const float fy = (float)py / (res - 1);
+
+			// Sample point in rectangle
+			Vec4f p = Vec4f(0,0,0,1) +
+				dir * (min_d - 10.f) +
+				i * (min_i + fx * (max_i - min_i)) +
+				j * (min_j + fy * (max_j - min_j));
+
+			HitInfo hitinfo;
+			Ray ray(p, dir, 0.f, 1.e30f);
+			rays.push_back(ray);
+			const double dist = raymesh.traceRay(ray, hitinfo);
+			if(dist > 0)
+			{
+				num_tri_hits[hitinfo.sub_elem_index]++;
+				hit_positions.push_back(ray.pointf((float)dist));
+			}
+		}
+	}
+
+	//for(size_t i=0; i<num_tri_hits.size(); ++i)
+	//	conPrint("tri " + toString(i) + ": " + toString(num_tri_hits[i]) + " hits");
+
+	const int num_rays = num_dirs * res * res;
+	conPrint("Shooting " + toString(num_rays) + " rays took " + timer.elapsedStringNSigFigs(4));
+
+
+	// Remove all triangles from mesh that didn't get hit.
+
+	BatchedMeshRef simplified_mesh = new BatchedMesh();
+	simplified_mesh->vert_attributes = mesh->vert_attributes;
+	simplified_mesh->aabb_os = mesh->aabb_os;
+
+	js::Vector<uint32, 16> simplified_indices;
+	simplified_indices.reserve(mesh->numIndices());
+
+	for(size_t b=0; b<mesh->batches.size(); ++b)
+	{
+		const BatchedMesh::IndicesBatch& batch = mesh->batches[b];
+
+		BatchedMesh::IndicesBatch new_batch;
+		new_batch.indices_start = (uint32)simplified_indices.size();
+
+		assert(batch.indices_start % 3 == 0);
+		assert(batch.num_indices   % 3 == 0);
+		for(uint32 i=batch.indices_start; i != batch.indices_start + batch.num_indices; i += 3)
+		{
+			const uint32 tri_i = i / 3;
+			if(num_tri_hits[tri_i] > 0)
+			{
+				simplified_indices.push_back(mesh->getIndexAsUInt32(i));
+				simplified_indices.push_back(mesh->getIndexAsUInt32(i+1));
+				simplified_indices.push_back(mesh->getIndexAsUInt32(i+2));
+			}
+		}
+
+		new_batch.num_indices = (uint32)simplified_indices.size() - new_batch.indices_start;
+		new_batch.material_index = batch.material_index;
+		if(new_batch.num_indices > 0)
+			simplified_mesh->batches.push_back(new_batch);
+	}
+
+	const size_t vertex_size_B = mesh->vertexSize();
+
+	glare::AllocatorVector<uint8, 16> new_vertex_data;
+
+	discardUnusedVertices(mesh.ptr(), simplified_indices, new_vertex_data);
+
+	//TEMP: Add hit visualisation
+	if(false)
+	{
+		BatchedMesh::IndicesBatch batch;
+		batch.indices_start = (uint32)simplified_indices.size();
+
+		for(size_t i=0; i<hit_positions.size(); ++i)
+		{
+			const Vec4f hitpos = hit_positions[i];
+			uint32 v = (uint32)(new_vertex_data.size() / vertex_size_B);
+			simplified_indices.push_back(v);
+			simplified_indices.push_back(v+1);
+			simplified_indices.push_back(v+2);
+
+			// Add 3 vertices
+			new_vertex_data.resize(new_vertex_data.size() + vertex_size_B * 3);
+
+			Vec3f v0(hitpos);
+			Vec3f v1(hitpos - Vec4f(0.3f, 0, 0.f, 0));
+			Vec3f v2(hitpos + Vec4f(0, 0, 0.05f, 0));
+
+			std::memcpy(&new_vertex_data[v       * vertex_size_B], &v0, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 1) * vertex_size_B], &v1, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 2) * vertex_size_B], &v2, sizeof(Vec3f));
+
+			Vec3f normal(0,0,1);
+			const size_t normal_offset_B = 12;
+			std::memcpy(&new_vertex_data[v       * vertex_size_B + normal_offset_B], &normal, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 1) * vertex_size_B + normal_offset_B], &normal, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 2) * vertex_size_B + normal_offset_B], &normal, sizeof(Vec3f));
+		}
+
+		batch.num_indices = (uint32)simplified_indices.size() - batch.indices_start;
+		batch.material_index = 0;
+		simplified_mesh->batches.push_back(batch);
+	}
+	//TEMP: Add ray visualisation
+	if(false)
+	{
+		BatchedMesh::IndicesBatch batch;
+		batch.indices_start = (uint32)simplified_indices.size();
+
+		for(size_t i=0; i<rays.size(); ++i)
+		{
+			const Ray& ray = rays[i];
+			uint32 v = (uint32)(new_vertex_data.size() / vertex_size_B);
+			simplified_indices.push_back(v);
+			simplified_indices.push_back(v+1);
+			simplified_indices.push_back(v+2);
+
+			// Add 3 vertices
+			new_vertex_data.resize(new_vertex_data.size() + vertex_size_B * 3);
+
+			Vec3f v0(ray.startPos());
+			Vec3f v1(ray.startPos() - Vec4f(0, 0, 0.2f, 0));
+			Vec3f v2(ray.startPos() + ray.unitDir() * 5.f);
+
+			std::memcpy(&new_vertex_data[v       * vertex_size_B], &v0, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 1) * vertex_size_B], &v1, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 2) * vertex_size_B], &v2, sizeof(Vec3f));
+
+			Vec3f normal(0,0,1);
+			const size_t normal_offset_B = 12;
+			std::memcpy(&new_vertex_data[v       * vertex_size_B + normal_offset_B], &normal, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 1) * vertex_size_B + normal_offset_B], &normal, sizeof(Vec3f));
+			std::memcpy(&new_vertex_data[(v + 2) * vertex_size_B + normal_offset_B], &normal, sizeof(Vec3f));
+		}
+
+		batch.num_indices = (uint32)simplified_indices.size() - batch.indices_start;
+		batch.material_index = 0;
+		simplified_mesh->batches.push_back(batch);
+	}
+
+	//for(size_t i=0; i<simplified_indices.size(); ++i)
+	//	conPrint("simplified_indices[" + toString(i) + ": " + toString(simplified_indices[i]));
+
+	// Copy new index data
+	simplified_mesh->setIndexDataFromIndices(simplified_indices, new_vertex_data.size() / vertex_size_B);
+
+	// Copy new vertex data
+	simplified_mesh->vertex_data.takeFrom(new_vertex_data);
+
+	simplified_mesh->animation_data = mesh->animation_data;
+
+	if(true)
+	{
+		conPrint("-------------- removeInvisibleTriangles ------------");
+		conPrint("Original num indices: " + toString(mesh->numIndices()));
+		conPrint("new num indices:      " + toString(simplified_mesh->numIndices()));
+		conPrint("reduction ratio:      " + toString((float)mesh->numIndices() / simplified_mesh->numIndices()));
+		conPrint("Original num verts:   " + toString(mesh->numVerts()));
+		conPrint("new num verts:        " + toString(simplified_mesh->numVerts()));
+		conPrint("reduction ratio:      " + toString((float)mesh->numVerts() / simplified_mesh->numVerts()));
+
+		conPrint("Simplification took " + timer.elapsedStringMSWIthNSigFigs(4));
+	}
+
+
+	return simplified_mesh;
+#else // RAYMESH_TRACING_SUPPORT
+	throw glare::Exception("unsupported.");
+#endif
 }
 
 
@@ -608,7 +1097,25 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 void test()
 {
-	buildLODVersions("D:\\models\\dancedevil_glb_16934124793649044515.bmesh");
+
+
+	glare::TaskManager task_manager;
+
+	{
+		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh", NULL);
+		BatchedMeshRef simplified_mesh1 = removeSmallComponents(mesh, 0.1f);
+		BatchedMeshRef simplified_mesh3 = buildSimplifiedMesh(*mesh, /*target_reduction_ratio=*/10.f, /*target error=*/0.4f, false);
+		BatchedMeshRef simplified_mesh2 = removeInvisibleTriangles(mesh, task_manager);
+	}
+	
+	//{
+	//	BatchedMeshRef mesh = BatchedMesh::readFromFile("C:\\Users\\nick\\AppData\\Roaming\\Substrata/server_data/server_resources/Valhalla_gltf_10539081704724699996.bmesh", NULL);
+	//	//BatchedMeshRef simplified_mesh = removeSmallComponents(*mesh, 0.1f);
+	//	BatchedMeshRef simplified_mesh = buildSimplifiedMesh(*mesh, /*target_reduction_ratio=*/10.f, /*target error=*/0.1f, true);
+	//}
+
+
+//	buildLODVersions("D:\\models\\dancedevil_glb_16934124793649044515.bmesh");
 
 	/*try
 	{
