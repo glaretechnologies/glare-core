@@ -5,6 +5,7 @@ Copyright Glare Technologies Limited 2020
 =====================================================================*/
 #pragma once
 
+
 #include "AnimationData.h"
 #include <physics/jscol_aabbox.h>
 #include <ThreadSafeRefCounted.h>
@@ -98,9 +99,10 @@ public:
 		VertAttribute_UV_1		= 4,
 		VertAttribute_Joints	= 5, // Indices of joint nodes for skinning
 		VertAttribute_Weights	= 6, // weights for skinning
-		VertAttribute_Tangent	= 7
+		VertAttribute_Tangent	= 7,
+		VertAttribute_MatIndex	= 8, // Index of original material for combined meshes.
 	};
-	static const uint32 MAX_VERT_ATTRIBUTE_TYPE_VALUE = 7;
+	static const uint32 MAX_VERT_ATTRIBUTE_TYPE_VALUE = 8;
 
 	struct VertAttribute
 	{
@@ -188,14 +190,15 @@ size_t BatchedMesh::vertAttributeTypeNumComponents(VertAttributeType t)
 {
 	switch(t)
 	{
-	case VertAttribute_Position: return 3;
-	case VertAttribute_Normal:   return 3;
-	case VertAttribute_Colour:   return 3;
-	case VertAttribute_UV_0:     return 2;
-	case VertAttribute_UV_1:     return 2;
-	case VertAttribute_Joints:   return 4; // 4 joints per vert, following GLTF
-	case VertAttribute_Weights:  return 4; // 4 weights per vert, following GLTF
-	case VertAttribute_Tangent:  return 4; // x,y,z,w
+	case VertAttribute_Position:  return 3;
+	case VertAttribute_Normal:    return 3;
+	case VertAttribute_Colour:    return 3;
+	case VertAttribute_UV_0:      return 2;
+	case VertAttribute_UV_1:      return 2;
+	case VertAttribute_Joints:    return 4; // 4 joints per vert, following GLTF
+	case VertAttribute_Weights:   return 4; // 4 weights per vert, following GLTF
+	case VertAttribute_Tangent:   return 4; // x,y,z,w
+	case VertAttribute_MatIndex:  return 1;
 	};
 	assert(0);
 	return 1;

@@ -1031,7 +1031,7 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 
 		const uint32 MAX_VERTEX_DATA_SIZE = 1 << 29; // 512 MB
 		if(header.vertex_data_size_B > MAX_VERTEX_DATA_SIZE)
-			throw glare::Exception("Invalid vertex_data_size_B (too large).");
+			throw glare::Exception("Invalid vertex_data_size_B (" + toString(header.vertex_data_size_B) + ", too large, max is " + toString(MAX_VERTEX_DATA_SIZE) + ").");
 
 		mesh_out.vertex_data.resize(header.vertex_data_size_B);
 
