@@ -1356,28 +1356,21 @@ void RayMesh::fromBatchedMesh(const BatchedMesh& mesh)
 			const Vec4f v2pos = loadUnalignedVec4f(&vertices[vertex_indices[2]].pos.x);
 			const float cross_prod_len = ::crossProduct(maskWToZero(v1pos - v0pos), maskWToZero(v2pos - v0pos)).length();
 
-			if(cross_prod_len < MIN_TRIANGLE_AREA_TIMES_TWO)
-			{
-				// conPrint("WARNING: Ignoring degenerate triangle. (triangle area: " + doubleToStringScientific(getTriArea(vertPos(vertex_indices[0]), vertPos(vertex_indices[1]), vertPos(vertex_indices[2]))) + ")");
-			}
-			else
-			{
-				// Add a triangle
-				RayMeshTriangle& dest_tri = this->triangles[dest_tri_i];
+			// Add a triangle
+			RayMeshTriangle& dest_tri = this->triangles[dest_tri_i];
 
-				dest_tri.vertex_indices[0] = vertex_indices[0];
-				dest_tri.vertex_indices[1] = vertex_indices[1];
-				dest_tri.vertex_indices[2] = vertex_indices[2];
+			dest_tri.vertex_indices[0] = vertex_indices[0];
+			dest_tri.vertex_indices[1] = vertex_indices[1];
+			dest_tri.vertex_indices[2] = vertex_indices[2];
 
-				dest_tri.uv_indices[0] = 0;
-				dest_tri.uv_indices[1] = 0;
-				dest_tri.uv_indices[2] = 0;
+			dest_tri.uv_indices[0] = 0;
+			dest_tri.uv_indices[1] = 0;
+			dest_tri.uv_indices[2] = 0;
 
-				dest_tri.inv_cross_magnitude = 1.f / cross_prod_len;
-				dest_tri.setMatIndexAndUseShadingNormals(mat_index, use_shading_normals_enum);
+			dest_tri.inv_cross_magnitude = 1.f / cross_prod_len;
+			dest_tri.setMatIndexAndUseShadingNormals(mat_index, use_shading_normals_enum);
 
-				dest_tri_i++;
-			}
+			dest_tri_i++;
 		}
 	}
 
