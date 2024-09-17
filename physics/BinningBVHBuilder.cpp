@@ -1125,7 +1125,7 @@ void BinningBVHBuilder::doBuild(
 #if BUILD_TESTS
 
 
-#include "BVHBuilderTests.h"
+#include "BVHBuilderTestUtils.h"
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
@@ -1216,7 +1216,7 @@ static void testOnAllIGMeshes(bool comprehensive_tests, bool test_near_build_fai
 				result_nodes
 			);
 
-			BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, tris.size(), /*duplicate_prims_allowed=*/true);
+			BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, tris.size(), /*duplicate_prims_allowed=*/true);
 		}
 		catch(Indigo::IndigoException& e)
 		{
@@ -1272,7 +1272,7 @@ static void testWithNumObsAndMaxDepth(int num_objects, int max_depth, int max_nu
 		const double elapsed = timer.elapsed();
 		conPrint("BinningBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
-		BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
 
 		const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
 		conPrint("SAH_cost: " + toString(SAH_cost));
@@ -1364,7 +1364,7 @@ void BinningBVHBuilder::test(bool comprehensive_tests)
 			min_time = myMin(min_time, elapsed);
 			conPrint("BinningBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
-			BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
+			BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
 
 			const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
 			conPrint("SAH_cost: " + toString(SAH_cost));

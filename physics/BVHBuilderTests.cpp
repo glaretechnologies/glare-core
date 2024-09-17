@@ -7,6 +7,7 @@ Generated at 2015-09-28 16:25:21 +0100
 #include "BVHBuilderTests.h"
 
 
+#include "BVHBuilderTestUtils.h"
 #include "NonBinningBVHBuilder.h"
 #include "BinningBVHBuilder.h"
 #include "SBVHBuilder.h"
@@ -35,155 +36,6 @@ Generated at 2015-09-28 16:25:21 +0100
 
 namespace BVHBuilderTests
 {
-
-
-// Recursively walk down tree, making sure that node AABBs are correct.
-// Returns reference node AABB
-#if 0
-static js::AABBox checkNode(const js::Vector<ResultNode, 64>& result_nodes, int node_index, const BVHBuilder::ResultObIndicesVec& result_indices, const js::Vector<js::AABBox, 16>& aabbs)
-{
-	testAssert(node_index >= 0 && node_index < (int)result_nodes.size());
-	const ResultNode& node = result_nodes[node_index];
-	if(node.interior)
-	{
-		const js::AABBox left_aabb  = checkNode(result_nodes, node.left,  result_indices, aabbs);
-		const js::AABBox right_aabb = checkNode(result_nodes, node.right, result_indices, aabbs);
-
-		js::AABBox combined_aabb = left_aabb;
-		combined_aabb.enlargeToHoldAABBox(right_aabb);
-
-		testAssert(combined_aabb == node.aabb);
-
-		return combined_aabb;
-	}
-	else // Else if leaf:
-	{
-		// Compute AABB of leaf from leaf object AABBs
-		js::AABBox leaf_geom_aabb = js::AABBox::emptyAABBox();
-		for(int i=node.left; i<node.right; ++i)
-			leaf_geom_aabb.enlargeToHoldAABBox(aabbs[result_indices[i]]);
-
-		//testAssert(aabb == node.aabb);
-		testAssert(leaf_geom_aabb.containsAABBox(node.aabb));
-
-		return leaf_geom_aabb;
-	}
-}
-#endif
-
-
-void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultNode, 64>& result_nodes, size_t num_obs/*const js::Vector<js::AABBox, 16>& aabbs*/, bool duplicate_prims_allowed)
-{
-	//checkNode(result_nodes, /*node_index=*/0, result_ob_indices, aabbs);
-
-	// Test that the resulting object indices are a permutation of the original indices.
-	std::vector<bool> seen(num_obs, false);
-	for(int z=0; z<(int)result_ob_indices.size(); ++z)
-	{
-		const uint32 ob_i = result_ob_indices[z];
-		testAssert(ob_i < (uint32)num_obs);
-		if(!duplicate_prims_allowed)
-			testAssert(!seen[ob_i]);
-		seen[ob_i] = true;
-	}
-
-	for(int z=0; z<(int)num_obs; ++z)
-		testAssert(seen[z]);
-	
-	// Test that the result nodes object ranges cover all leaf objects, e.g. test that each object is in a leaf node.
-	std::vector<bool> ob_in_leaf(result_ob_indices.size(), false);
-	for(int n=0; n<(int)result_nodes.size(); ++n)
-	{
-		const ResultNode& node = result_nodes[n];
-		if(node.interior) 
-		{
-			// TODO: check AABB
-			testAssert(node.left >= 0  && node.left  < (int)result_nodes.size());
-			testAssert(node.right >= 0 && node.right < (int)result_nodes.size());
-		}
-		else // Else if leaf node:
-		{
-			testAssert(node.left >= 0);
-			testAssert(node.left <= node.right);
-			testAssert(node.right <= (int)result_ob_indices.size());
-
-			for(int z = node.left; z < node.right; ++z)
-			{
-				if(!duplicate_prims_allowed)
-					testAssert(!ob_in_leaf[z]);
-				ob_in_leaf[z] = true;
-			}
-		}
-	}
-
-	for(int z=0; z<(int)result_ob_indices.size(); ++z)
-		testAssert(ob_in_leaf[z]);
-}
-
-
-#ifndef NO_EMBREE
-static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultInteriorNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
-{
-	// Test that the resulting object indices are a permutation of the original indices.
-	std::vector<bool> seen(aabbs.size(), false);
-	for(int z=0; z<(int)result_ob_indices.size(); ++z)
-	{
-		const uint32 ob_i = result_ob_indices[z];
-		testAssert(ob_i < (uint32)aabbs.size());
-		if(!duplicate_prims_allowed)
-			testAssert(!seen[ob_i]);
-		seen[ob_i] = true;
-	}
-
-	for(int z=0; z<(int)aabbs.size(); ++z)
-		testAssert(seen[z]);
-
-	// Test that the result nodes object ranges cover all leaf objects, e.g. test that each object is in a leaf node.
-	std::vector<bool> ob_in_leaf(result_ob_indices.size(), false);
-	for(int n=0; n<(int)result_nodes.size(); ++n)
-	{
-		const ResultInteriorNode& node = result_nodes[n];
-		if(node.leftChildIsInterior())
-		{
-			// TODO: check AABB
-			testAssert(node.left >= 0  && node.left  < (int)result_nodes.size());
-		}
-		else
-		{
-			testAssert(node.left >= 0);
-			testAssert(node.left_num_prims > 0);
-			
-			for(int z = node.left; z < node.left + node.left_num_prims; ++z)
-			{
-				if(!duplicate_prims_allowed)
-					testAssert(!ob_in_leaf[z]);
-				ob_in_leaf[z] = true;
-			}
-		}
-
-		if(node.rightChildIsInterior())
-		{
-			// TODO: check AABB
-			testAssert(node.right >= 0  && node.right  < (int)result_nodes.size());
-		}
-		else
-		{
-			testAssert(node.right >= 0);
-			testAssert(node.right_num_prims > 0);
-
-			for(int z = node.right; z < node.right + node.right_num_prims; ++z)
-			{
-				if(!duplicate_prims_allowed)
-					testAssert(!ob_in_leaf[z]);
-				ob_in_leaf[z] = true;
-			}
-		}
-	}
-
-	for(int z=0; z<(int)result_ob_indices.size(); ++z)
-		testAssert(ob_in_leaf[z]);
-}
-#endif // #ifndef NO_EMBREE
 
 
 class TestShouldCancelCallback : public ShouldCancelCallback
@@ -282,7 +134,7 @@ static void testBVHBuildersWithTriangles(glare::TaskManager& task_manager, const
 			);
 
 			const bool duplicate_prims_allowed = builders[i].isType<SBVHBuilder>();
-			testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs.size(), duplicate_prims_allowed);
+			BVHBuilderTestUtils::testResultsValid(builders[i]->getResultObjectIndices(), result_nodes, aabbs.size(), duplicate_prims_allowed);
 		}
 	}
 
@@ -391,7 +243,7 @@ static void testBVHBuilderWithNRandomObjectsGetResults(glare::TaskManager& task_
 		result_nodes_out
 	);
 
-	testResultsValid(builder->getResultObjectIndices(), result_nodes_out, aabbs, /*duplicate_prims_allowed=*/false);
+	BVHBuilderTestUtils::testResultsValid(builder->getResultObjectIndices(), result_nodes_out, aabbs, /*duplicate_prims_allowed=*/false);
 }
 #endif
 
@@ -427,7 +279,7 @@ void test()
 
 		BVHBuilder::printResultNodes(result_nodes);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		BVHBuilderTestUtils::testResultsValid(builder, result_nodes, num_objects);
 	}*/
 
 
@@ -458,7 +310,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		BVHBuilderTestUtils::testResultsValid(builder, result_nodes, num_objects);
 	}*/
 
 
@@ -486,7 +338,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -513,7 +365,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -541,7 +393,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 1 && !result_nodes[0].interior); // Should just be one leaf node.
 	}
 
@@ -574,7 +426,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		BVHBuilderTestUtils::testResultsValid(builder, result_nodes, num_objects);
 	}*/
 
 	//==========================================
@@ -606,7 +458,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder, result_nodes, num_objects);
+		BVHBuilderTestUtils::testResultsValid(builder, result_nodes, num_objects);
 	}*/
 
 
@@ -640,7 +492,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 	}
 
 	//====================================================================
@@ -673,7 +525,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 	}
 
 	//====================================================================
@@ -710,7 +562,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 5);
 		testAssert(result_nodes[0].left == 1);
 		testAssert(result_nodes[0].right == 2);
@@ -769,7 +621,7 @@ void test()
 			result_nodes
 		);
 
-		testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs);
 		testAssert(result_nodes.size() == 5);
 		testAssert(result_nodes[0].left == 1);
 		testAssert(result_nodes[0].right == 2);
@@ -1099,7 +951,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			min_time = myMin(min_time, elapsed);
 			conPrint("Embree: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
-			testResultsValid(builder.getResultObjectIndices(), result_interior_nodes, aabbs, /*duplicate_prims_allowed=*/DO_SBVH_BUILD);
+			BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_interior_nodes, aabbs, /*duplicate_prims_allowed=*/DO_SBVH_BUILD);
 #endif
 #endif
 			//--------------------------------------
@@ -1124,7 +976,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			min_time = myMin(min_time, elapsed);
 			conPrint("BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
-			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/false);
+			BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/false);
 #endif
 			//--------------------------------------
 
@@ -1149,7 +1001,7 @@ tri	{v=0x000000000810fff0 {{x=0x000000000810fff0 {0.0515251160, 0.0506747477, 0.
 			min_time = myMin(min_time, elapsed);
 			conPrint("SBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
-			testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/true);
+			BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs, /*duplicate_prims_allowed=*/true);
 #endif
 			//--------------------------------------
 		}
