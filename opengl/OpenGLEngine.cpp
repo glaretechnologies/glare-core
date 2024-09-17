@@ -113,6 +113,7 @@ enum TextureUnitIndices
 	METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX,
 	EMISSION_TEXTURE_UNIT_INDEX,
 	NORMAL_MAP_TEXTURE_UNIT_INDEX,
+	COMBINED_ARRAY_TEXTURE_UNIT_INDEX,
 
 	MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX,
 	MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX,
@@ -322,7 +323,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	alpha_blended_objects(NULL),
 	water_objects(NULL),
 	decal_objects(NULL),
-	overlay_world_to_camera_space_matrix(Matrix4f::identity())
+	overlay_world_to_camera_space_matrix(Matrix4f::identity()),
+	collect_stats(true)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -1449,6 +1451,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.backface_albedo_tex_location	= prog->getUniformLocation("backface_albedo_tex");
 	prog->uniform_locations.transmission_tex_location		= prog->getUniformLocation("transmission_tex");
 	prog->uniform_locations.normal_map_location				= prog->getUniformLocation("normal_map");
+	prog->uniform_locations.combined_array_tex_location		= prog->getUniformLocation("combined_array_tex");
 	prog->uniform_locations.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
 	prog->uniform_locations.specular_env_tex_location		= prog->getUniformLocation("specular_env_tex");
 	prog->uniform_locations.lightmap_tex_location			= prog->getUniformLocation("lightmap_tex");
@@ -1832,7 +1835,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 			noise_tex = new OpenGLTexture(W, W, this, 
 				ArrayRef<uint8>((const uint8*)data.data(), data.size() * sizeof(float)), 
-				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+				OpenGLTextureFormat::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
 
 			conPrint("noise_tex creation took " + timer.elapsedString());
 		}
@@ -1864,7 +1867,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
 			fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)fbm_imagemap->getData(), fbm_imagemap->numPixels() * sizeof(float)),
-				OpenGLTexture::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+				OpenGLTextureFormat::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
@@ -2567,7 +2570,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define DECAL " + toString(key.decal) + "\n" +
 		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n" +
 		"#define VERT_TANGENTS " + toString(key.vert_tangents) + "\n" + 
-		"#define SDF_TEXT " + toString(key.sdf_text) + "\n";
+		"#define SDF_TEXT " + toString(key.sdf_text) + "\n" +
+		"#define COMBINED " + toString(key.combined) + "\n";
 }
 
 
@@ -3035,14 +3039,14 @@ void OpenGLEngine::buildOutlineTextures()
 
 	outline_solid_tex = new OpenGLTexture(outline_tex_w, outline_tex_h, this,
 		buf,
-		OpenGLTexture::Format_RGB_Linear_Uint8,
+		OpenGLTextureFormat::Format_RGB_Linear_Uint8,
 		OpenGLTexture::Filtering_Bilinear,
 		OpenGLTexture::Wrapping_Clamp // Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 	);
 
 	outline_edge_tex = new OpenGLTexture(outline_tex_w, outline_tex_h, this,
 		buf,
-		OpenGLTexture::Format_RGBA_Linear_Uint8,
+		OpenGLTextureFormat::Format_RGBA_Linear_Uint8,
 		OpenGLTexture::Filtering_Bilinear
 	);
 
@@ -3381,6 +3385,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.decal = material.decal;
 	key_args.participating_media = material.participating_media;
 	key_args.sdf_text = material.sdf_text;
+	key_args.combined = material.combined;
 
 	const ProgramKey key(material.participating_media ? "participating_media" : (material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"))), key_args);
 
@@ -6274,7 +6279,7 @@ void OpenGLEngine::draw()
 	const OpenGLTexture::Format col_buffer_format = EXT_color_buffer_float_support ? OpenGLTexture::Format_RGBA_Linear_Half : OpenGLTexture::Format_RGBA_Linear_Uint8;
 	const bool col_buf_is_floating_point = EXT_color_buffer_float_support;
 #else
-	const OpenGLTexture::Format col_buffer_format = OpenGLTexture::Format_RGB_Linear_Half;
+	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
 	const bool col_buf_is_floating_point = true;
 #endif
 
@@ -6331,7 +6336,7 @@ void OpenGLEngine::draw()
 			);
 
 			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
-			const OpenGLTexture::Format normal_buffer_format = OpenGLTexture::Format_RGB_Linear_Uint8;
+			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Uint8;
 
 			main_normal_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -6342,11 +6347,11 @@ void OpenGLEngine::draw()
 				/*MSAA_samples=*/1
 			);
 
-			const OpenGLTexture::Format transparent_accum_format = col_buffer_format;
+			const OpenGLTextureFormat transparent_accum_format = col_buffer_format;
 #if defined(EMSCRIPTEN)
-			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_RGBA_Linear_Uint8; // Shouldn't be used.
+			const OpenGLTextureFormat av_transmittance_format = OpenGLTexture::Format_RGBA_Linear_Uint8; // Shouldn't be used.
 #else
-			const OpenGLTexture::Format av_transmittance_format = OpenGLTexture::Format_Greyscale_Half;
+			const OpenGLTextureFormat av_transmittance_format = OpenGLTextureFormat::Format_Greyscale_Half;
 #endif
 
 			if(use_order_indep_transparency)
@@ -6371,7 +6376,7 @@ void OpenGLEngine::draw()
 			}
 
 
-			const OpenGLTexture::Format depth_format = OpenGLTexture::Format_Depth_Float;
+			const OpenGLTextureFormat depth_format = OpenGLTextureFormat::Format_Depth_Float;
 
 			main_depth_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -7639,7 +7644,6 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			batch_draw_info.reserve(current_scene->objects.size());
 			batch_draw_info.resize(0);
 
-			uint64 num_frustum_culled = 0;
 			{
 				const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
 				const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
@@ -7691,11 +7695,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 							}
 						}
 					}
-					else
-						num_frustum_culled++;
 				} // End for each object in scene
-
-				this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 			}
 			//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
 
@@ -8040,7 +8040,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 				num_frustum_culled++;
 		} // End for each object in scene
 
-		this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
+		if(current_scene->collect_stats)
+			this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
 	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
 
@@ -8110,13 +8111,16 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
 	}
 
-	last_num_prog_changes = num_prog_changes;
-	last_num_batches_bound = num_batches_bound;
-	last_num_vao_binds = num_vao_binds;
-	last_num_vbo_binds = num_vbo_binds;
-	last_num_index_buf_binds = num_index_buf_binds;
-	last_num_indices_drawn = this->num_indices_submitted;
-	last_num_backface_culling_changes = num_backface_culling_changes;
+	if(current_scene->collect_stats)
+	{
+		last_num_prog_changes = num_prog_changes;
+		last_num_batches_bound = num_batches_bound;
+		last_num_vao_binds = num_vao_binds;
+		last_num_vbo_binds = num_vbo_binds;
+		last_num_index_buf_binds = num_index_buf_binds;
+		last_num_indices_drawn = this->num_indices_submitted;
+		last_num_backface_culling_changes = num_backface_culling_changes;
+	}
 	this->num_indices_submitted = 0;
 
 	flushDrawCommandsAndUnbindPrograms();
@@ -8624,7 +8628,7 @@ void OpenGLEngine::drawAuroraTex()
 	{
 		aurora_tex = new OpenGLTexture(AURORA_TEX_W, AURORA_TEX_W, /*opengl_engine=*/this,
 			ArrayRef<uint8>(NULL, 0),
-			OpenGLTexture::Format_RGB_Linear_Uint8,
+			OpenGLTextureFormat::Format_RGB_Linear_Uint8,
 			OpenGLTexture::Filtering_Bilinear
 		);
 
@@ -8997,6 +9001,7 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	glUniform1i(program.uniform_locations.backface_albedo_tex_location, BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.transmission_tex_location, TRANSMISSION_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.normal_map_location, NORMAL_MAP_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.combined_array_tex_location, COMBINED_ARRAY_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.main_colour_texture_location, MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.main_normal_texture_location, MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX);
@@ -9144,6 +9149,11 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 			uniforms.normal_map = opengl_mat.normal_map->getBindlessTextureHandle();
 		else
 			uniforms.normal_map = 0;
+
+		if(opengl_mat.combined_array_texture.nonNull())
+			uniforms.combined_array_tex = opengl_mat.combined_array_texture->getBindlessTextureHandle();
+		else
+			uniforms.combined_array_tex = 0;
 	}
 
 	uniforms.flags =
@@ -9190,6 +9200,9 @@ void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) co
 
 	if(opengl_mat.normal_map.nonNull())
 		bindTextureToTextureUnit(*opengl_mat.normal_map, NORMAL_MAP_TEXTURE_UNIT_INDEX);
+
+	if(opengl_mat.combined_array_texture.nonNull())
+		bindTextureToTextureUnit(*opengl_mat.combined_array_texture, COMBINED_ARRAY_TEXTURE_UNIT_INDEX);
 }
 
 
@@ -9365,9 +9378,11 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		//assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.blue_noise_tex_location) == BLUE_NOISE_TEXTURE_UNIT_INDEX);
 		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.diffuse_tex_location) == DIFFUSE_TEXTURE_UNIT_INDEX);
 		if(settings.render_sun_and_clouds)
+		{
 			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
-		if(this->cirrus_tex.nonNull())
-			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+			if(this->cirrus_tex.nonNull())
+				assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+		}
 
 		assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
 		assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX) == fbm_tex->texture_handle);
@@ -9893,7 +9908,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 		const size_t tex_xres = face_maps[0]->getMapWidth();
 		const size_t tex_yres = face_maps[0]->getMapHeight();
 		Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-		opengl_tex->createCubeMap(tex_xres, tex_yres, tex_data, OpenGLTexture::Format_RGB_Linear_Float);
+		opengl_tex->createCubeMap(tex_xres, tex_yres, tex_data, OpenGLTextureFormat::Format_RGB_Linear_Float);
 
 		//this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 

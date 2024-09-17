@@ -129,6 +129,7 @@ public:
 		participating_media(false),
 		alpha_blend(false),
 		sdf_text(false),
+		combined(false),
 		draw_into_depth_buffer(false),
 		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
@@ -164,6 +165,7 @@ public:
 	bool participating_media;
 	bool alpha_blend;
 	bool sdf_text;
+	bool combined; // Is this a material on a combined object, consisting of multiple objects combined into a single object, using an atlas texture.
 
 	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.  True by default.
 
@@ -176,6 +178,7 @@ public:
 	Reference<OpenGLTexture> transmission_texture;
 	Reference<OpenGLTexture> emission_texture;
 	Reference<OpenGLTexture> normal_map;
+	Reference<OpenGLTexture> combined_array_texture;
 
 	Reference<OpenGLProgram> shader_prog;
 	Reference<OpenGLProgram> depth_draw_shader_prog;
@@ -510,6 +513,8 @@ public:
 	// If false, the scene is rendered directly to the framebuffer set by setTargetFrameBuffer().
 	bool render_to_main_render_framebuffer; // True by default
 
+	bool collect_stats; // Typically we are only interested in render stats for the main scene.
+
 	bool cloud_shadows; // True by default
 
 	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
@@ -678,6 +683,7 @@ struct PhongUniforms
 	uint64 backface_albedo_tex; // Bindless texture handle
 	uint64 transmission_tex; // Bindless texture handle
 	uint64 normal_map; // Bindless texture handle
+	uint64 combined_array_tex; // Bindless texture handle
 
 	int flags;
 	float roughness;
@@ -914,7 +920,7 @@ public:
 	Reference<OpenGLTexture> loadCubeMap(const std::vector<Reference<Map2D> >& face_maps, const TextureParams& params = TextureParams());
 
 	// If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
-	// Otherwise load the texure from map2d into OpenGL immediately.
+	// Otherwise load the texture from map2d into OpenGL immediately.
 	Reference<OpenGLTexture> getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, const TextureParams& params = TextureParams());
 
 	void addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& tex); // Adds to opengl_textures.  Assigns texture to all inserted objects that are using it according to opengl_mat.tex_path.

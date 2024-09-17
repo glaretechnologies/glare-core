@@ -24,6 +24,7 @@ struct UniformLocations
 	int backface_albedo_tex_location;
 	int transmission_tex_location;
 	int normal_map_location;
+	int combined_array_tex_location;
 	int cosine_env_tex_location;
 	int specular_env_tex_location;
 	int lightmap_tex_location;
@@ -77,11 +78,11 @@ struct ProgramKeyArgs
 {
 	ProgramKeyArgs() : alpha_test(false), vert_colours(false), instance_matrices(false), lightmapping(false), gen_planar_uvs(false), draw_planar_uv_grid(false), convert_albedo_from_srgb(false), skinning(false),
 		imposter(false), imposterable(false), use_wind_vert_shader(false), simple_double_sided(false), materialise_effect(false), geomorphing(false), terrain(false), decal(false), participating_media(false), 
-		vert_tangents(false), sdf_text(false), fancy_double_sided(false)
+		vert_tangents(false), sdf_text(false), fancy_double_sided(false), combined(false)
 	{}
 
 	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposter, imposterable, 
-		use_wind_vert_shader, simple_double_sided, materialise_effect, geomorphing, terrain, decal, participating_media, vert_tangents, sdf_text, fancy_double_sided;
+		use_wind_vert_shader, simple_double_sided, materialise_effect, geomorphing, terrain, decal, participating_media, vert_tangents, sdf_text, fancy_double_sided, combined;
 };
 
 
@@ -110,6 +111,7 @@ struct ProgramKey
 		vert_tangents				= args.vert_tangents;
 		sdf_text					= args.sdf_text;
 		fancy_double_sided			= args.fancy_double_sided;
+		combined					= args.combined;
 
 		rebuildKeyVal();
 	}
@@ -118,20 +120,20 @@ struct ProgramKey
 		", lightmapping: " + toString(lightmapping) + ", gen_planar_uvs: " + toString(gen_planar_uvs) + ", draw_planar_uv_grid_: " + toString(draw_planar_uv_grid) + 
 		", convert_albedo_from_srgb: " + toString(convert_albedo_from_srgb) + ", skinning: " + toString(skinning) + ", imposter: " + toString(imposter) + ", imposterable: " + toString(imposterable) + ", use_wind_vert_shader: " + toString(use_wind_vert_shader) + 
 		", simple_double_sided: " + toString(simple_double_sided) + ", materialise_effect: " + toString(materialise_effect) + ", geomorphing: " + toString(geomorphing) + ", terrain: " + toString(terrain) + ", decal: " + toString(decal) +
-		", participating_media: " + toString(participating_media) + ", vert_tangents: " + toString(vert_tangents) + ", sdf_text: " + toString(sdf_text) + ", fancy_double_sided: " + toString(fancy_double_sided); }
+		", participating_media: " + toString(participating_media) + ", vert_tangents: " + toString(vert_tangents) + ", sdf_text: " + toString(sdf_text) + ", fancy_double_sided: " + toString(fancy_double_sided) + ", combined: " + toString(combined); }
 
 	std::string program_name;
 
 	// NOTE: if changing any of these fields, need to call rebuildKeyVal() afterwards.
 	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, convert_albedo_from_srgb, skinning, imposter, 
-		imposterable, use_wind_vert_shader, simple_double_sided, materialise_effect, geomorphing, terrain, decal, participating_media, vert_tangents, sdf_text, fancy_double_sided;
+		imposterable, use_wind_vert_shader, simple_double_sided, materialise_effect, geomorphing, terrain, decal, participating_media, vert_tangents, sdf_text, fancy_double_sided, combined;
 	// convert_albedo_from_srgb is unfortunately needed for GPU-decoded video frame textures, which are sRGB but not marked as sRGB.
 
 	void rebuildKeyVal()
 	{
 		keyval = (alpha_test   ? 1 : 0) | (vert_colours   ? 2 : 0) | (  instance_matrices ? 4 : 0) | (  lightmapping ? 8 : 0) | (  gen_planar_uvs ? 16 : 0) | (  draw_planar_uv_grid ? 32 : 0) | (  convert_albedo_from_srgb ? 64 : 0) | 
 			(  skinning ? 128 : 0) | (  imposterable ? 256 : 0) | (  use_wind_vert_shader ? 512 : 0) | (  simple_double_sided ? 1024 : 0) | (  materialise_effect ? 2048 : 0) | (  geomorphing ? 4096 : 0) | (terrain ? 8192 : 0) | 
-			(imposter ? 16384 : 0) | (decal ? 32768 : 0) | (participating_media ? 65536 : 0) | (vert_tangents ? 131072 : 0) | (sdf_text ? 262144 : 0) | (fancy_double_sided ? 524288 : 0);
+			(imposter ? 16384 : 0) | (decal ? 32768 : 0) | (participating_media ? 65536 : 0) | (vert_tangents ? 131072 : 0) | (sdf_text ? 262144 : 0) | (fancy_double_sided ? 524288 : 0) | (combined ? 1048576 : 0);
 	}
 
 	uint32 keyval;

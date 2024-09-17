@@ -60,6 +60,7 @@ struct MaterialData
 	sampler2D backface_albedo_tex;
 	sampler2D transmission_tex;
 	sampler2D normal_map;
+	sampler2DArray combined_array_tex;
 #else
 	float padding0;
 	float padding1;
@@ -75,6 +76,8 @@ struct MaterialData
 	float padding11;
 	float padding12;
 	float padding13;
+	float padding14;
+	float padding15;
 #endif
 
 	int flags;
