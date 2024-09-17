@@ -23,4 +23,23 @@
 		</Expand>
 	</Type>
 
+	<Type Name="glare::String">
+		<!-- Depending on if the on-heap bit is set (See glare::String::storingOnHeap()), display the string from direct storage or the heap -->
+		<DisplayString Condition="(on_heap_and_size &amp; (1u &lt;&lt; 31)) != 0">heap str={e}, size={on_heap_and_size &amp; ~(1u &lt;&lt; 31)}</DisplayString>
+		
+		<DisplayString Condition="(on_heap_and_size &amp; (1u &lt;&lt; 31)) == 0">direct str={(char*)(&amp;e)}, size={on_heap_and_size &gt;&gt; 24u}</DisplayString>
+		
+		<StringView    Condition="(on_heap_and_size &amp; (1u &lt;&lt; 31)) != 0">e,s8</StringView>
+		
+
+		<Expand>
+			<Item Name="on heap">((on_heap_and_size &amp; (1u &lt;&lt; 31)) != 0) ? true : false</Item>
+			<Item Name="size">((on_heap_and_size &amp; (1u &lt;&lt; 31)) != 0) ? (on_heap_and_size &amp; ~(1u &lt;&lt; 31)) : (on_heap_and_size &gt;&gt; 24u)</Item>
+			<Item Name="capacity">((on_heap_and_size &amp; (1u &lt;&lt; 31)) != 0) ? capacity_storage : DIRECT_CAPACITY</Item>
+			
+			<Item Name="str" Condition="(on_heap_and_size &amp; (1u &lt;&lt; 31)) != 0">e</Item>
+			<Item Name="str" Condition="(on_heap_and_size &amp; (1u &lt;&lt; 31)) == 0">(char*)(&amp;e)</Item>
+		</Expand>
+	</Type>
+	
 </AutoVisualizer>
