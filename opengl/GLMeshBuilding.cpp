@@ -1099,24 +1099,25 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 
 	// Make OpenGL vertex attributes.
 	// NOTE: we need to make the opengl attributes in this particular order, with all present up to and including any attribute that is enabled.
-	// The index order must bt the same as for the glBindAttribLocation calls in OpenGLProgram::OpenGLProgram().
+	// The index order must be the same as for the glBindAttribLocation calls in OpenGLProgram::OpenGLProgram().
 
 	const uint32 num_bytes_per_vert = (uint32)mesh->vertexSize();
 
-	const BatchedMesh::VertAttribute* pos_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Position); // vertex attribute index = 0
-	const BatchedMesh::VertAttribute* normal_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Normal); // 1
-	const BatchedMesh::VertAttribute* uv0_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_0); // 2
-	const BatchedMesh::VertAttribute* colour_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Colour); // 3
-	const BatchedMesh::VertAttribute* uv1_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_UV_1); // 4
+	const BatchedMesh::VertAttribute* pos_attr			= mesh->findAttribute(BatchedMesh::VertAttribute_Position); // vertex attribute index = 0
+	const BatchedMesh::VertAttribute* normal_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Normal); // 1
+	const BatchedMesh::VertAttribute* uv0_attr			= mesh->findAttribute(BatchedMesh::VertAttribute_UV_0); // 2
+	const BatchedMesh::VertAttribute* colour_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Colour); // 3
+	const BatchedMesh::VertAttribute* uv1_attr			= mesh->findAttribute(BatchedMesh::VertAttribute_UV_1); // 4
 	// 5, 6, 7, 8 - instancing
-	const BatchedMesh::VertAttribute* joints_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Joints); // 9
-	const BatchedMesh::VertAttribute* weights_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Weights); // 10
-	const BatchedMesh::VertAttribute* tangent_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_Tangent); // 11
+	const BatchedMesh::VertAttribute* joints_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Joints); // 9
+	const BatchedMesh::VertAttribute* weights_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Weights); // 10
+	const BatchedMesh::VertAttribute* tangent_attr		= mesh->findAttribute(BatchedMesh::VertAttribute_Tangent); // 11
+	const BatchedMesh::VertAttribute* mat_index_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_MatIndex); // 12
 
 	if(!pos_attr)
 		throw glare::Exception("Pos attribute not present.");
 
-	// Work out the max vertex attribute index used, then only specifiy attributes up to that index.
+	// Work out the max vertex attribute index used, then only specify attributes up to that index.
 	int max_attribute_index = 0;
 	if(normal_attr)							max_attribute_index = 1;
 	if(uv0_attr)							max_attribute_index = 2;
@@ -1126,6 +1127,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	if(joints_attr)							max_attribute_index = 9;
 	if(weights_attr)						max_attribute_index = 10;
 	if(tangent_attr)						max_attribute_index = 11;
+	if(mat_index_attr)						max_attribute_index = 12;
 
 	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
 
@@ -1261,6 +1263,19 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		tangent_attrib.stride = num_bytes_per_vert;
 		tangent_attrib.offset = (uint32)(tangent_attr ? tangent_attr->offset_B : 0);
 		opengl_render_data->vertex_spec.attributes.push_back(tangent_attrib);
+	}
+
+	if(max_attribute_index >= 12)
+	{
+		// mat_index_attr
+		VertexAttrib mat_index_attrib;
+		mat_index_attrib.enabled = mat_index_attr != NULL;
+		mat_index_attrib.num_comps = 1;
+		mat_index_attrib.type = mat_index_attr ? componentTypeGLEnum(mat_index_attr->component_type) : GL_FLOAT;
+		mat_index_attrib.normalised = false;
+		mat_index_attrib.stride = num_bytes_per_vert;
+		mat_index_attrib.offset = (uint32)(mat_index_attr ? mat_index_attr->offset_B : 0);
+		opengl_render_data->vertex_spec.attributes.push_back(mat_index_attrib);
 	}
 
 	opengl_render_data->vertex_spec.checkValid();
