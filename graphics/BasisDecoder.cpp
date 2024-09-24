@@ -107,7 +107,7 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 
 		const size_t bytes_per_block = bytesPerBlock(image->texture_data->format);
 
-		// Build level_offsets
+		// Build level_offsets (byte offset of each MIP level in mipmap_data)
 		image->texture_data->level_offsets.resize(num_mip_levels);
 		size_t offset = 0;
 		for(uint32 lvl=0; lvl<num_mip_levels; ++lvl)
