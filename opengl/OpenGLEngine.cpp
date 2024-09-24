@@ -148,6 +148,26 @@ static inline uint32 indexTypeSizeBytes(GLenum index_type)
 }
 
 
+// For grouping OpenGL API calls into groups in RenderDoc.
+class DebugGroup
+{
+public:
+	DebugGroup(const char* name)
+	{
+#if BUILD_TESTS
+		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, /*id=*/0, /*length=*/(GLsizei)std::strlen(name), name);
+#endif
+	}
+
+	~DebugGroup()
+	{
+#if BUILD_TESTS
+		glPopDebugGroup();
+#endif
+	}
+};
+
+
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), decal(false),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
@@ -5937,6 +5957,7 @@ void OpenGLEngine::draw()
 	ZoneScoped; // Tracy profiler
 	TracyGpuZone("OpenGLEngine_draw");
 	TracyGpuCollect;
+	DebugGroup debug_group("draw()");
 
 	if(!init_succeeded)
 		return;
@@ -6751,6 +6772,8 @@ void OpenGLEngine::draw()
 		// Don't bother doing bloom if we don't have a floating-point colour buffer (may happen in some web browsers), doesn't seem to be visible anyway.
 		if((current_scene->bloom_strength > 0) && col_buf_is_floating_point)
 		{
+			DebugGroup debug_group2("bloom");
+
 			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 			glDisable(GL_DEPTH_TEST); // Don't depth test
 
@@ -6817,6 +6840,7 @@ void OpenGLEngine::draw()
 		}
 
 		// Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer
+		DebugGroup debug_group3("imaging");
 
 		// Bind requested target frame buffer as output buffer
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
@@ -6918,6 +6942,7 @@ void OpenGLEngine::draw()
 void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_elapsed_ns_out)
 {
 	assertCurrentProgramIsZero();
+	DebugGroup debug_group("renderToShadowMapDepthBuffer()");
 
 	if(shadow_mapping.nonNull())
 	{
@@ -6952,6 +6977,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 
 		for(int ti=0; ti<shadow_mapping->numDynamicDepthTextures(); ++ti)
 		{
+			DebugGroup debug_group2("dynamic depth draw");
 			// Timer timer;
 
 			glViewport(0, ti*per_map_h, shadow_mapping->dynamic_w, per_map_h);
@@ -7145,6 +7171,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 		ob set 0 etc..
 		*/
 		{
+			DebugGroup debug_group2("static depth draw");
+
 			// Bind the non-current ('other') static depth map.  We will render to that.
 			const int other_index = (shadow_mapping->cur_static_depth_tex + 1) % 2;
 
@@ -7420,6 +7448,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 // Draw background env map if there is one. (or if we are using a non-standard env shader)
 void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
+	DebugGroup debug_group("drawBackgroundEnvMap()");
+
 	if(this->current_scene->env_ob.nonNull() && this->current_scene->env_ob->materials[0].shader_prog.nonNull())
 	{
 		if((this->current_scene->env_ob->materials[0].shader_prog.ptr() != this->env_prog.ptr()) || this->current_scene->env_ob->materials[0].albedo_texture.nonNull())
@@ -7475,6 +7505,8 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 // These batches will be sorted by distance from camera and drawn in far to near order.
 void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
+	DebugGroup debug_group("drawAlphaBlendedObjects()");
+
 	if(!current_scene->alpha_blended_objects.empty())
 	{
 		ZoneScopedN("Draw participating media obs"); // Tracy profiler
@@ -7584,6 +7616,8 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 
 void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
+	DebugGroup debug_group("drawDecals()");
+
 	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
 #if EMSCRIPTEN // Crashing chrome currently.
 	if(0)
@@ -7774,6 +7808,8 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 
 void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
+	DebugGroup debug_group("drawWaterObjects()");
+
 	if(current_scene->draw_water)
 	{
 		if(current_scene->render_to_main_render_framebuffer)
@@ -7957,6 +7993,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	ZoneScopedN("Draw opaque obs"); // Tracy profiler
+	DebugGroup debug_group("Draw opaque obs");
 
 	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	//glEnable(GL_BLEND);
@@ -8139,6 +8176,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	ZoneScopedN("Draw transparent obs"); // Tracy profiler
+	DebugGroup debug_group("Draw transparent obs");
 	assertCurrentProgramIsZero();
 
 	if(current_scene->render_to_main_render_framebuffer)
@@ -8326,6 +8364,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 	// Then draw again with depth testing, so they look proper when not occluded by another object.
 
 	assertCurrentProgramIsZero();
+	DebugGroup debug_group("drawAlwaysVisibleObjects()");
 
 	if(!current_scene->always_visible_objects.empty())
 	{
@@ -8416,6 +8455,7 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 	if(!selected_objects.empty() && current_scene->render_to_main_render_framebuffer) // Only do when render_to_main_render_framebuffer is true, to avoid constantly reallocing outline textures as viewport size changes.
 	{
 		assertCurrentProgramIsZero();
+		DebugGroup debug_group("generateOutlineTexture()");
 	
 		// Make outline textures if they have not been created, or are the wrong size.
 		if(outline_tex_w != myMax<size_t>(16, viewport_w) || outline_tex_h != myMax<size_t>(16, viewport_h))
@@ -8489,6 +8529,7 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 	if(!selected_objects.empty() && current_scene->render_to_main_render_framebuffer)
 	{
 		assertCurrentProgramIsZero();
+		DebugGroup debug_group("drawOutlinesAroundSelectedObjects()");
 
 		main_render_framebuffer->bindForDrawing();
 		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
@@ -8538,6 +8579,7 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 {
 	assertCurrentProgramIsZero();
+	DebugGroup debug_group("drawUIOverlayObjects()");
 
 	if(current_scene->render_to_main_render_framebuffer)
 	{
@@ -8621,6 +8663,8 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 void OpenGLEngine::drawAuroraTex()
 {
+	DebugGroup debug_group("drawAuroraTex()");
+
 	OpenGLProgram::useNoPrograms(); // Unbind any programs before we start changing framebuffer and z-buffer options.
 
 	const int AURORA_TEX_W = 512;
