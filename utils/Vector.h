@@ -36,7 +36,7 @@ Has some slightly different semantics:
 Doesn't do default (zero) initialisation of POD types.
 Unit tests for this class are in VectorUnitTests.cpp
 =====================================================================*/
-template <class T, size_t alignment>
+template <class T, size_t alignment = 16>
 class Vector
 {
 public:
@@ -64,6 +64,7 @@ public:
 	inline bool nonEmpty() const;
 	inline void clear(); // Resize to size zero, does not free mem.
 	inline void clearAndFreeMem(); // Set size to zero, but also frees actual array memory.
+	inline void append(Vector& other);
 
 	inline void clearAndSetCapacity(size_t N);
 
@@ -562,6 +563,18 @@ void Vector<T, alignment>::clearAndFreeMem() // Set size to zero, but also frees
 	e = NULL;
 	size_ = 0;
 	capacity_ = 0;
+}
+
+
+template<class T, size_t alignment>
+inline void Vector<T, alignment>::append(Vector& other)
+{
+	// NOTE: Could copy-construct new elements instead of constructing and using assignnment operator?
+	const size_t s = size();
+	const size_t other_size = other.size();
+	resize(s + other_size);
+	for(size_t i=0; i<other_size; ++i)
+		e[s + i] = other[i];
 }
 
 
