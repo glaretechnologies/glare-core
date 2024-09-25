@@ -24,7 +24,7 @@ namespace glare { class TaskManager; }
 
 struct OpenGLTextureLoadingProgress
 {
-	OpenGLTextureLoadingProgress() : num_mip_levels(0), next_mip_level(0), level_next_y(0) {}
+	OpenGLTextureLoadingProgress() : num_mip_levels(0), next_mip_level(0), level_next_y(0), level_next_z(0) {}
 
 	bool loadingInProgress() { return tex_data.nonNull(); }
 	bool done() { return next_mip_level >= num_mip_levels; }
@@ -36,6 +36,8 @@ struct OpenGLTextureLoadingProgress
 	size_t num_mip_levels; // Num MIP levels to load into the texture
 	size_t next_mip_level;
 	size_t level_next_y;
+
+	size_t level_next_z;
 };
 
 

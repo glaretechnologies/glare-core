@@ -13,12 +13,16 @@ in mat4 instance_matrix_in;
 #endif
 
 #if SKINNING
-in vec4 joint;
+in ivec4 joint;
 in vec4 weight;
 #endif
 
 #if VERT_TANGENTS
 in vec4 tangent_in;
+#endif
+
+#if COMBINED
+in int combined_mat_index_in;
 #endif
 
 out vec3 normal_ws; // world space
@@ -52,6 +56,10 @@ out mat4 world_to_ob;
 #if VERT_TANGENTS
 out vec3 tangent_ws;
 out vec3 bitangent_ws;
+#endif
+
+#if COMBINED
+flat out int combined_mat_index;
 #endif
 
 flat out ivec4 light_indices_0;
@@ -142,6 +150,10 @@ vec3 newPosGivenWind(vec3 pos_ws, vec3 normal_ws)
 void main()
 {
 
+#if COMBINED
+	combined_mat_index = combined_mat_index_in;
+#endif
+
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
 	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
 	int joints_base_index = ob_and_mat_indices[gl_DrawID * 4 + 1];
@@ -191,10 +203,10 @@ void main()
 #if SKINNING
 	// See https://www.khronos.org/files/gltf20-reference-guide.pdf
 	mat4 skin_matrix =
-		weight.x * joint_matrix[joints_base_index + int(joint.x)] +
-		weight.y * joint_matrix[joints_base_index + int(joint.y)] +
-		weight.z * joint_matrix[joints_base_index + int(joint.z)] +
-		weight.w * joint_matrix[joints_base_index + int(joint.w)];
+		weight.x * joint_matrix[joints_base_index + joint.x] +
+		weight.y * joint_matrix[joints_base_index + joint.y] +
+		weight.z * joint_matrix[joints_base_index + joint.z] +
+		weight.w * joint_matrix[joints_base_index + joint.w];
 
 
 	model_skin_matrix = model_matrix * skin_matrix;

@@ -619,18 +619,37 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
 			setPixelStoreAlignment(xres, gl_format, gl_type);
 
-			// NOTE: can't use glTexImage2D on immutable storage, have to use glTexSubImage2D instead.
-			glTexSubImage2D(
-				texture_target,
-				0, // LOD level
-				0, // x offset
-				0, // y offset
-				(GLsizei)xres, // width
-				(GLsizei)yres, // height
-				gl_format,
-				gl_type,
-				tex_data.data()
-			);
+			if(texture_target == GL_TEXTURE_2D_ARRAY)
+			{
+				glTexSubImage3D(
+					texture_target,
+					0, // LOD level
+					0, // x offset
+					0, // y offset
+					0, // z offset
+					(GLsizei)xres, // width
+					(GLsizei)yres, // height
+					(GLsizei)num_array_images, // depth
+					gl_format,
+					gl_type,
+					tex_data.data()
+				);
+			}
+			else
+			{
+				// NOTE: can't use glTexImage2D on immutable storage, have to use glTexSubImage2D instead.
+				glTexSubImage2D(
+					texture_target,
+					0, // LOD level
+					0, // x offset
+					0, // y offset
+					(GLsizei)xres, // width
+					(GLsizei)yres, // height
+					gl_format,
+					gl_type,
+					tex_data.data()
+				);
+			}
 		}
 	}
 
@@ -773,7 +792,7 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 			{
 				// TODO
 				assert(0);
-				throw glare::Exception("unupported");
+				throw glare::Exception("unsupported");
 			}
 		}
 		else
@@ -834,6 +853,13 @@ void OpenGLTexture::buildMipMaps()
 {
 	glBindTexture(texture_target, texture_handle);
 	glGenerateMipmap(texture_target);
+}
+
+
+void OpenGLTexture::setDebugName(const std::string& name)
+{
+	// See https://www.khronos.org/opengl/wiki/Debug_Output#Object_names
+	glObjectLabel(GL_TEXTURE, texture_handle, (GLsizei)name.size(), name.c_str());
 }
 
 

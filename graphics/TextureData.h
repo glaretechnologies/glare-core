@@ -80,6 +80,8 @@ public:
 
 	bool isCompressed() const { return ::isCompressed(format); };
 
+	bool isArrayTexture() const { return num_array_images > 0; }
+
 	size_t numChannels() const;
 
 	static size_t computeNumMipLevels(size_t W, size_t H);
@@ -87,8 +89,8 @@ public:
 	
 	OpenGLTextureFormat format;
 	size_t W, H;
-	size_t D; // Depth.  Will be != 1 for array images.
-	size_t num_array_images; // 0 if not array image
+	size_t D; // Depth.  May be > 1 for array images.
+	size_t num_array_images; // 0 if not array image, >= 1 if array image.
 
 	struct LevelOffsetData
 	{

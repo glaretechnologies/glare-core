@@ -73,7 +73,7 @@ public:
 		Wrapping wrapping = Wrapping_Repeat,
 		bool has_mipmaps = true,
 		int MSAA_samples = -1,
-		int num_array_images = 0); // 0 if not a array
+		int num_array_images = 0); // 0 if not a array, >= 1 if an array texture.
 
 	// Create texture, specify exact GL formats
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
@@ -101,6 +101,8 @@ public:
 	void setTWrappingEnabled(bool wrapping_enabled);
 
 	void buildMipMaps();
+
+	void setDebugName(const std::string& name);
 	//---------------------------------------------------------------------------------------------------------------------
 
 	void readBackTexture(int mipmap_level, ArrayRef<uint8> buffer);
@@ -118,7 +120,7 @@ public:
 
 	size_t getByteSize() const;
 
-	GLenum getTextureTarget() const { return texture_target; } // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE.
+	GLenum getTextureTarget() const { return texture_target; } // e.g. GL_TEXTURE_2D, GL_TEXTURE_2D_MULTISAMPLE or GL_TEXTURE_2D_ARRAY.
 
 	Filtering getFiltering() const { return filtering; }
 
@@ -186,7 +188,7 @@ private:
 	int num_array_images;
 	int num_mipmap_levels_allocated;
 	int MSAA_samples;
-	GLenum texture_target; // e.g. GL_TEXTURE_2D or GL_TEXTURE_2D_MULTISAMPLE
+	GLenum texture_target; // e.g. GL_TEXTURE_2D, GL_TEXTURE_2D_MULTISAMPLE or GL_TEXTURE_2D_ARRAY
 public:
 	mutable int64 refcount;
 

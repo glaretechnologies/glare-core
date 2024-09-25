@@ -40,14 +40,19 @@ uniform sampler2D metallic_roughness_tex;
 uniform sampler2D emission_tex;
 uniform sampler2D normal_map;
 
-#if FANCY_DOUBLE_SIDED
-uniform sampler2D backface_albedo_tex;
+#if FANCY_DOUBLE_SIDED || COMBINED
+uniform sampler2D backface_albedo_tex; // For COMBINED we will use backface_albedo_tex for mat info
 #endif
 
 #if FANCY_DOUBLE_SIDED || SDF_TEXT
 uniform sampler2D transmission_tex;
 #endif
 
+#endif
+
+#if COMBINED
+flat in int combined_mat_index;
+uniform sampler2DArray combined_array_tex;
 #endif
 
 
@@ -413,6 +418,12 @@ vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
 }
 
 
+ivec2 matInfoPixelCoords(int index)
+{
+	return ivec2(index % 128, index / 128);
+}
+
+
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -464,10 +475,65 @@ void main()
 		use_normal_ws = N_g;
 	}
 
-	// Get normal from normal map if we have one
-	if((MAT_UNIFORM.flags & HAVE_NORMAL_MAP_FLAG) != 0)
+
+#if COMBINED
+	vec2 main_tex_coords = use_texture_coords;
+
+	/*
+	struct OutputMatInfo
 	{
-		vec2 st = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
+		Matrix2f tex_matrix; // 0, 1, 2, 3
+		float emission_lum_flux_or_lum; // 4
+		float roughness; // 5
+		float metallic; // 6
+		Colour3f colour_rgb; // 7, 8, 9
+		uint32 flags // 10
+		float array_image_index // 11
+	};
+	*/
+	#define OUTPUT_MAT_INFO_FLOATS 12
+	int mat_info_begin = combined_mat_index * OUTPUT_MAT_INFO_FLOATS;
+
+	// For COMBINED we will use backface_albedo_tex for mat info
+	 
+	// Apply WorldMaterial tex_matrix
+	{
+		mat2 tex_matrix = mat2(
+			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 0), /*lod=*/0).x,
+			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 1), /*lod=*/0).x,
+			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 2), /*lod=*/0).x,
+			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 3), /*lod=*/0).x
+		);
+		main_tex_coords = tex_matrix * main_tex_coords;
+	}
+	main_tex_coords.y *= -1.0; // Negate y coord to compensate for atlas texture being loaded upside down as OpenGL considers it.
+
+	int use_flags = (texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 10), /*lod=*/0).x != 0.f) ? 2 : 0;
+
+	float use_roughness     = texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 5), /*lod=*/0).x;
+	float use_metallic_frac = texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 6), /*lod=*/0).x;
+
+	vec4 use_diffuse_colour = vec4(
+		texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 7), /*lod=*/0).x,
+		texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 8), /*lod=*/0).x,
+		texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 9), /*lod=*/0).x,
+		1.0
+	);
+
+	float array_image_index = texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 11), /*lod=*/0).x;
+
+#else // else if !COMBINED:
+	vec2 main_tex_coords = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
+	int use_flags = MAT_UNIFORM.flags;
+	vec4 use_diffuse_colour = MAT_UNIFORM.diffuse_colour;
+	float use_metallic_frac = MAT_UNIFORM.metallic_frac;
+	float use_roughness     = MAT_UNIFORM.roughness;
+#endif
+
+	// Get normal from normal map if we have one
+	if((use_flags & HAVE_NORMAL_MAP_FLAG) != 0)
+	{
+		vec2 st = main_tex_coords;
 		vec3 norm_map_v = texture(NORMAL_MAP, st).xyz;
 		norm_map_v = norm_map_v * 2.0 - vec3(1.0);
 #if VERT_TANGENTS
@@ -568,12 +634,16 @@ void main()
 	// The sun contribution diffuse colour may use the transmission texture.  The reflected light colour may be the front or backface albedo texture.
 
 
-	vec2 main_tex_coords = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
-
 	vec4 sun_texture_diffuse_col;
 	vec4 refl_texture_diffuse_col;
-	if((MAT_UNIFORM.flags & HAVE_TEXTURE_FLAG) != 0)
+
+	if((use_flags & HAVE_TEXTURE_FLAG) != 0)
 	{
+#if COMBINED
+	sun_texture_diffuse_col = texture(combined_array_tex, vec3(main_tex_coords, array_image_index));
+	refl_texture_diffuse_col = sun_texture_diffuse_col;
+#else
+
 #if FANCY_DOUBLE_SIDED
 		// Work out if we are seeing the front or back face of the material
 		float frag_to_cam_dot_normal = dot(frag_to_cam_ws, unit_normal_ws);
@@ -609,6 +679,8 @@ void main()
 		c2 = c * c;
 		refl_texture_diffuse_col = c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
 #endif
+
+#endif // end if !COMBINED
 	}
 	else
 	{
@@ -617,8 +689,8 @@ void main()
 	}
 
 	// Final diffuse colour = texture diffuse colour * constant diffuse colour
-	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * MAT_UNIFORM.diffuse_colour; // diffuse_colour is linear sRGB already.
-	vec4 refl_diffuse_col = refl_texture_diffuse_col * MAT_UNIFORM.diffuse_colour;
+	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * use_diffuse_colour; // diffuse_colour is linear sRGB already.
+	vec4 refl_diffuse_col = refl_texture_diffuse_col * use_diffuse_colour;
 
 
 #if TERRAIN
@@ -727,11 +799,11 @@ void main()
 	if(dot(unit_normal_ws, cam_to_pos_ws) > 0.0)
 		unit_normal_ws = -unit_normal_ws;
 
-	float final_metallic_frac = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.metallic_frac * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).b) : MAT_UNIFORM.metallic_frac;
+	float final_metallic_frac = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (use_metallic_frac * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).b) : use_metallic_frac;
 
 	// final_metallic_frac *= (1.f - snow_frac);
 
-	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (MAT_UNIFORM.roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : MAT_UNIFORM.roughness;
+	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (use_roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : use_roughness;
 	float final_roughness = max(0.04, unclamped_roughness); // Avoid too small roughness values resulting in glare/bloom artifacts
 
 	// final_roughness = mix(final_roughness, 0.6f, snow_frac);
@@ -1063,10 +1135,10 @@ void main()
 			materialise_coords = pos_ws.xy;
 	}
 
-	float sweep_speed_factor = 1.0;
-	float sweep_frac = (pos_ws.z - MAT_UNIFORM.materialise_lower_z) / (MAT_UNIFORM.materialise_upper_z - MAT_UNIFORM.materialise_lower_z);
-	float materialise_stage = fbmMix(materialise_coords * 0.2) * 0.4 + sweep_frac;
-	float use_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor - materialise_stage - 0.3;
+	float sweep_speed_factor = 3.0;
+	float sweep_frac = (pos_ws.z - MAT_UNIFORM.materialise_lower_z) / (MAT_UNIFORM.materialise_upper_z - MAT_UNIFORM.materialise_lower_z); // Fraction up the object this fragment is
+	float materialise_stage = fbmMix(materialise_coords * 0.2) * 0.4 + sweep_frac; // At what fraction of the effect time [0, 1], should this fragment be materialised (opaque?)
+	float use_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor - materialise_stage - 0.0; // Fraction through effect we are for this fragment
 
 	float band_1_centre = 0.1;
 	float band_2_centre = 0.8;

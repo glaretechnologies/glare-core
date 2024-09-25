@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/ArrayRef.h"
 #include "../utils/RuntimeCheck.h"
 #include "../utils/IncludeHalf.h"
+#include "../utils/FileUtils.h"
 #include <vector>
 
 
@@ -71,7 +72,7 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const 
 				format = (bytes_pp == 3) ? OpenGLTexture::Format_RGB_Linear_Uint8 : OpenGLTexture::Format_RGBA_Linear_Uint8;
 		}*/
 
-		if(texture_data.num_array_images > 1)
+		if(texture_data.isArrayTexture())
 		{
 			// Array texture!
 			return new OpenGLTexture(W, H, opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0), /*format=*/format, texture_params.filtering, texture_params.wrapping, 
@@ -224,6 +225,9 @@ void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, c
 
 	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), texture_params);
 	opengl_tex->key = key;
+#if BUILD_TESTS
+	opengl_tex->setDebugName(FileUtils::getFilename(path).substr(0, 100)); // AMD drivers generate errors if the debug name is too long.
+#endif
 
 	loading_progress.path = path;
 	loading_progress.tex_data = tex_data;
@@ -246,78 +250,111 @@ static void doPartialUploadOfLevel(OpenGLTextureLoadingProgress& loading_progres
 
 	if(data_is_compressed)
 	{
-		const size_t rounded_up_H = Maths::roundUpToMultipleOfPowerOf2(level_H, block_size);
-		runtimeCheck(rounded_up_H > 0);
-		const size_t compressed_bytes_per_row = level_data.size() / rounded_up_H;
-		assert(level_data.size() % compressed_bytes_per_row == 0);
-
-		// Compute max_num_rows: max number of rows we can upload before we hit MAX_UPLOAD_SIZE, approximately.  
-		runtimeCheck(compressed_bytes_per_row > 0);
-		const size_t raw_num_rows = Maths::roundedUpDivide(max_num_bytes, compressed_bytes_per_row); // Round up so we always upload at least 1 row.
-		const size_t max_num_rows = Maths::roundUpToMultipleOfPowerOf2(raw_num_rows, block_size); // Round up to a multiple of the block size if we are using a block-based compression format, 
-		// since opengl requires the region height to be a multiple of the format's block height.
-		runtimeCheck(max_num_rows > 0);
-	
-		const size_t cur_y = loading_progress.level_next_y;
-		assert(cur_y < level_H);
-		const size_t rows_remaining = level_H - cur_y;
-		const size_t rows_to_upload = myMin(rows_remaining, max_num_rows);
-		runtimeCheck(rows_to_upload > 0);
-		//if(rows_to_upload == 0)
-		//	return rows_to_upload;
-
-		const size_t src_offset = cur_y * compressed_bytes_per_row;
-		const size_t rows_to_upload_size_B = Maths::roundUpToMultipleOfPowerOf2(rows_to_upload, block_size) * compressed_bytes_per_row; // Rounding to account for compression block size.
-		runtimeCheck(src_offset + rows_to_upload_size_B <= level_data.size());
-
-		// conPrint("Uploading mip level " + toString(k) + ", rows [" + toString(cur_y) + ", " + toString(cur_y + rows_to_upload) + ") (" + toString(rows_to_upload) + " rows) of tex " + opengl_tex->key.path);
-
-		opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/cur_y, /*z=*/0, /*region_w=*/level_W, /*region_h=*/rows_to_upload, /*region depth=*/level_D, /*row stride (B) (not used for compressed textures)=*/compressed_bytes_per_row, 
-			ArrayRef<uint8>(level_data.data() + src_offset/*&level_data[src_offset]*/, rows_to_upload_size_B), // tex data
-			/*bind_needed=*/false
-		);
-
-		total_bytes_uploaded_in_out += rows_to_upload_size_B;
-		loading_progress.level_next_y = cur_y + rows_to_upload;
-		if(loading_progress.level_next_y >= level_H) // If we have uploaded all rows for this MIP level:
+		if(level_D > 1)
 		{
-			loading_progress.next_mip_level++; // Advance to row 0 of next MIP level.
-			loading_progress.level_next_y = 0;
+			// Just upload whole image/slices at a time for now.
+			const size_t slice_size_B = level_data.size() / level_D;
+			const size_t slices_remaining = level_D - loading_progress.level_next_z;
+			runtimeCheck(slice_size_B > 0);
+			const size_t slices_to_upload = myMin(slices_remaining, Maths::roundedUpDivide(max_num_bytes, slice_size_B));
+			const size_t src_offset = slice_size_B * loading_progress.level_next_z;
+			opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/0, /*z=*/loading_progress.level_next_z, /*region_w=*/level_W, /*region_h=*/level_H, /*region depth=*/slices_to_upload, /*row stride (B) (not used for compressed textures)=*/4, 
+				level_data.getSliceChecked(src_offset, slice_size_B * slices_to_upload), // tex data
+				/*bind_needed=*/false
+			);
+
+			total_bytes_uploaded_in_out += slice_size_B * slices_to_upload;
+
+			loading_progress.level_next_z += slices_to_upload;
+			if(loading_progress.level_next_z >= level_D)
+			{
+				loading_progress.next_mip_level++; // Advance to image/slice 0 of next MIP level.
+				loading_progress.level_next_z = 0;
+			}
+		}
+		else
+		{
+			const size_t rounded_up_H = Maths::roundUpToMultipleOfPowerOf2(level_H, block_size);
+			runtimeCheck(rounded_up_H > 0);
+			const size_t compressed_bytes_per_row = level_data.size() / rounded_up_H;
+			assert(level_data.size() % compressed_bytes_per_row == 0);
+
+			// Compute max_num_rows: max number of rows we can upload before we hit MAX_UPLOAD_SIZE, approximately.  
+			runtimeCheck(compressed_bytes_per_row > 0);
+			const size_t raw_num_rows = Maths::roundedUpDivide(max_num_bytes, compressed_bytes_per_row); // Round up so we always upload at least 1 row.
+			const size_t max_num_rows = Maths::roundUpToMultipleOfPowerOf2(raw_num_rows, block_size); // Round up to a multiple of the block size if we are using a block-based compression format, 
+			// since opengl requires the region height to be a multiple of the format's block height.
+			runtimeCheck(max_num_rows > 0);
+	
+			const size_t cur_y = loading_progress.level_next_y;
+			assert(cur_y < level_H);
+			const size_t rows_remaining = level_H - cur_y;
+			const size_t rows_to_upload = myMin(rows_remaining, max_num_rows);
+			runtimeCheck(rows_to_upload > 0);
+			//if(rows_to_upload == 0)
+			//	return rows_to_upload;
+
+			const size_t src_offset = cur_y * compressed_bytes_per_row;
+			const size_t rows_to_upload_size_B = Maths::roundUpToMultipleOfPowerOf2(rows_to_upload, block_size) * compressed_bytes_per_row; // Rounding to account for compression block size.
+			runtimeCheck(src_offset + rows_to_upload_size_B <= level_data.size());
+
+			// conPrint("Uploading mip level " + toString(k) + ", rows [" + toString(cur_y) + ", " + toString(cur_y + rows_to_upload) + ") (" + toString(rows_to_upload) + " rows) of tex " + opengl_tex->key.path);
+
+			opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/cur_y, /*z=*/0, /*region_w=*/level_W, /*region_h=*/rows_to_upload, /*region depth=*/level_D, /*row stride (B) (not used for compressed textures)=*/compressed_bytes_per_row, 
+				ArrayRef<uint8>(level_data.data() + src_offset/*&level_data[src_offset]*/, rows_to_upload_size_B), // tex data
+				/*bind_needed=*/false
+			);
+
+			total_bytes_uploaded_in_out += rows_to_upload_size_B;
+			loading_progress.level_next_y = cur_y + rows_to_upload;
+			if(loading_progress.level_next_y >= level_H) // If we have uploaded all rows for this MIP level:
+			{
+				loading_progress.next_mip_level++; // Advance to row 0 of next MIP level.
+				loading_progress.level_next_y = 0;
+			}
 		}
 	}
 	else
 	{
-		const size_t bytes_per_row = level_data.size() / level_H;
-		assert(level_data.size() % bytes_per_row == 0);
-
-		// Compute max_num_rows: max number of rows we can upload before we hit MAX_UPLOAD_SIZE, approximately.  
-		runtimeCheck(bytes_per_row > 0);
-		const size_t max_num_rows = Maths::roundedUpDivide(max_num_bytes, bytes_per_row); // Round up so we always upload at least 1 row.
-		runtimeCheck(max_num_rows > 0);
-
-		const size_t cur_y = loading_progress.level_next_y;
-		assert(cur_y < level_H);
-		const size_t rows_remaining = level_H - cur_y;
-		const size_t rows_to_upload = myMin(rows_remaining, max_num_rows);
-		runtimeCheck(rows_to_upload > 0);
-
-		const size_t src_offset = cur_y * bytes_per_row;
-		const size_t rows_to_upload_size_B = rows_to_upload * bytes_per_row;
-		runtimeCheck(src_offset + rows_to_upload_size_B <= level_data.size());
-
-		// conPrint("Uploading mip level " + toString(k) + ", rows [" + toString(cur_y) + ", " + toString(cur_y + rows_to_upload) + ") (" + toString(rows_to_upload) + " rows) of tex " + opengl_tex->key.path);
-
-		opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/cur_y, /*z=*/0, /*region_w=*/level_W, /*region_h=*/rows_to_upload, /*region depth=*/level_D, /*row stride (B)=*/bytes_per_row, 
-			ArrayRef<uint8>(level_data.data() + src_offset, rows_to_upload_size_B), // tex data
-			/*bind_needed=*/false
-		);
-
-		total_bytes_uploaded_in_out += rows_to_upload_size_B;
-		loading_progress.level_next_y = cur_y + rows_to_upload;
-		if(loading_progress.level_next_y >= level_H) // If we have uploaded all rows for this MIP level:
+		if(level_D > 1)
 		{
-			loading_progress.next_mip_level++; // Advance to row 0 of next MIP level.
-			loading_progress.level_next_y = 0;
+			throw glare::Exception("Loading uncompressed array textures not currently supported.");
+			// TODO
+		}
+		else
+		{
+			const size_t bytes_per_row = level_data.size() / level_H;
+			assert(level_data.size() % bytes_per_row == 0);
+
+			// Compute max_num_rows: max number of rows we can upload before we hit MAX_UPLOAD_SIZE, approximately.  
+			runtimeCheck(bytes_per_row > 0);
+			const size_t max_num_rows = Maths::roundedUpDivide(max_num_bytes, bytes_per_row); // Round up so we always upload at least 1 row.
+			runtimeCheck(max_num_rows > 0);
+
+			const size_t cur_y = loading_progress.level_next_y;
+			assert(cur_y < level_H);
+			const size_t rows_remaining = level_H - cur_y;
+			const size_t rows_to_upload = myMin(rows_remaining, max_num_rows);
+			runtimeCheck(rows_to_upload > 0);
+
+			const size_t src_offset = cur_y * bytes_per_row;
+			const size_t rows_to_upload_size_B = rows_to_upload * bytes_per_row;
+			runtimeCheck(src_offset + rows_to_upload_size_B <= level_data.size());
+
+			// conPrint("Uploading mip level " + toString(k) + ", rows [" + toString(cur_y) + ", " + toString(cur_y + rows_to_upload) + ") (" + toString(rows_to_upload) + " rows) of tex " + opengl_tex->key.path);
+
+			opengl_tex->loadRegionIntoExistingTexture((int)level, /*x=*/0, /*y=*/cur_y, /*z=*/0, /*region_w=*/level_W, /*region_h=*/rows_to_upload, /*region depth=*/level_D, /*row stride (B)=*/bytes_per_row, 
+				ArrayRef<uint8>(level_data.data() + src_offset, rows_to_upload_size_B), // tex data
+				/*bind_needed=*/false
+			);
+
+			total_bytes_uploaded_in_out += rows_to_upload_size_B;
+			loading_progress.level_next_y = cur_y + rows_to_upload;
+			if(loading_progress.level_next_y >= level_H) // If we have uploaded all rows for this MIP level:
+			{
+				loading_progress.next_mip_level++; // Advance to row 0 of next MIP level.
+				loading_progress.level_next_y = 0;
+			}
 		}
 	}
 }
@@ -375,8 +412,7 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 			const size_t k = loading_progress.next_mip_level;
 			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-
-			const size_t level_D = (texture_data->num_array_images == 0) ? 1 : texture_data->num_array_images;
+			const size_t level_D = texture_data->D;
 
 			const void* src_data = NULL;
 			size_t src_data_size = 0;
