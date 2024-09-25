@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2020
 #include "../dll/include/IndigoMesh.h"
 #include "../maths/vec3.h"
 #include "../maths/vec2.h"
+#include "../maths/CheckedMaths.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Sort.h"
@@ -1247,10 +1248,24 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 {
 	BatchedMesh& mesh = *this;
 
-	const uint32 num_verts = (uint32)mesh.numVerts();
-	const BatchedMesh::ComponentType the_index_type = mesh.index_type;
-	const size_t num_indices = mesh.numIndices();
-	const size_t num_tris = num_indices / 3;
+	// Check vertex data size
+	if(vertexSize() == 0)
+		throw glare::Exception("Invalid vertexSize(): was zero.");
+
+	if((vertex_data.size() % vertexSize()) != 0)
+		throw glare::Exception("Invalid vertex_data size, is not a multiple of vertexSize().");
+
+	const uint32 num_verts = (uint32)numVerts();
+
+
+	// Check index data size
+	if((index_data.size() % componentTypeSize(this->index_type)) != 0)
+		throw glare::Exception("Invalid index_data size, is not a multiple of index type size.");
+
+	const size_t num_indices = numIndices();
+
+	//NOTE: require num_indices to be a multiple of 3?
+
 
 
 	// Check batch index ranges are in range.
@@ -1258,55 +1273,50 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 	{
 		const IndicesBatch& batch = batches[b];
 
-		if((size_t)batch.indices_start + (size_t)batch.num_indices > num_indices)
+		if(CheckedMaths::addUnsignedInts(batch.indices_start, batch.num_indices) > num_indices)
 			throw glare::Exception("Invalid batch index range");
 
 		if(batch.material_index >= 10000)
 			throw glare::Exception("Too many materials referenced.");
 	}
 
-
-	const uint8* const index_data_uint8  = (const uint8*)mesh.index_data.data();
-	const uint16* const index_data_uint16 = (const uint16*)mesh.index_data.data();
-	const uint32* const index_data_uint32 = (const uint32*)mesh.index_data.data();
-
-	for(size_t t = 0; t < num_tris; ++t)
+	// Check vertex indices are in range
+	if(index_type == BatchedMesh::ComponentType_UInt8)
 	{
-		uint32 vertex_indices[3];
-		if(the_index_type == BatchedMesh::ComponentType_UInt8)
-		{
-			vertex_indices[0] = index_data_uint8[t*3 + 0];
-			vertex_indices[1] = index_data_uint8[t*3 + 1];
-			vertex_indices[2] = index_data_uint8[t*3 + 2];
-		}
-		else if(the_index_type == BatchedMesh::ComponentType_UInt16)
-		{
-			vertex_indices[0] = index_data_uint16[t*3 + 0];
-			vertex_indices[1] = index_data_uint16[t*3 + 1];
-			vertex_indices[2] = index_data_uint16[t*3 + 2];
-		}
-		else if(the_index_type == BatchedMesh::ComponentType_UInt32)
-		{
-			vertex_indices[0] = index_data_uint32[t*3 + 0];
-			vertex_indices[1] = index_data_uint32[t*3 + 1];
-			vertex_indices[2] = index_data_uint32[t*3 + 2];
-		}
-		else
-			throw glare::Exception("Invalid index_type.");
-
-		for(unsigned int v = 0; v < 3; ++v)
-			if(vertex_indices[v] >= num_verts)
-				throw glare::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(vertex_indices[v]) + ", num verts: " + toString(num_verts) + ")");
+		const uint8* const index_data_uint8  = (const uint8*)index_data.data();
+		for(size_t i = 0; i < num_indices; ++i)
+			if(index_data_uint8[i] >= num_verts)
+				throw glare::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(index_data_uint8[i]) + ", num verts: " + toString(num_verts) + ")");
 	}
+	else if(index_type == BatchedMesh::ComponentType_UInt16)
+	{
+		const uint16* const index_data_uint16 = (const uint16*)index_data.data();
+		for(size_t i = 0; i < num_indices; ++i)
+			if(index_data_uint16[i] >= num_verts)
+				throw glare::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(index_data_uint16[i]) + ", num verts: " + toString(num_verts) + ")");
+	}
+	else if(index_type == BatchedMesh::ComponentType_UInt32)
+	{
+		const uint32* const index_data_uint32 = (const uint32*)index_data.data();
+		for(size_t i = 0; i < num_indices; ++i)
+			if(index_data_uint32[i] >= num_verts)
+				throw glare::Exception("Triangle vertex index is out of bounds.  (vertex index=" + toString(index_data_uint32[i]) + ", num verts: " + toString(num_verts) + ")");
+	}
+	else
+		throw glare::Exception("Invalid index_type.");
+
 
 	glare::AllocatorVector<uint8, 16>& vert_data = mesh.vertex_data;
 	const size_t vert_size_B = mesh.vertexSize();
 
 
-	// Check vertex attributes are in bounds.  This is checked implicitly in readFromFile() with the way the attribute offset_B is calculated etc., but check again explictly anyway.
+	// Check vertex attributes are in bounds.  This is checked implicitly in readFromFile() with the way the attribute offset_B is calculated etc., but check again explicitly anyway.
 	for(size_t i=0; i<vert_attributes.size(); ++i)
 	{
 		const VertAttribute& attr = vert_attributes[i];
+
+		checkProperty(CheckedMaths::addUnsignedInts(attr.offset_B, vertAttributeSize(attr)) <= vert_size_B, "vertex attribute is invalid");
+
 		if(num_verts > 0)
 		{
 			checkProperty((num_verts - 1) * vert_size_B + attr.offset_B + vertAttributeSize(attr) <= mesh.vertex_data.size(), "vertex attribute is out of bounds");
