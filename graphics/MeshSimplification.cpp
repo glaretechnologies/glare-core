@@ -845,9 +845,9 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 		const Vec4f dir(std::cos(theta) * sin_phi, std::sin(theta) * sin_phi, cos_phi, 0);
 
 		glare::AtomicInt next_ray_i(0);
-		for(size_t i=0; i<task_group->tasks.size(); ++i)
+		for(size_t t=0; t<task_group->tasks.size(); ++t)
 		{
-			ShootRaysTask* task = task_group->tasks[i].downcastToPtr<ShootRaysTask>();
+			ShootRaysTask* task = task_group->tasks[t].downcastToPtr<ShootRaysTask>();
 			task->dir = dir;
 			task->mesh = mesh.ptr();
 			task->raymesh = &raymesh;
