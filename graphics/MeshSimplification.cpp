@@ -742,6 +742,72 @@ BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh_, float target_er
 }
 
 
+struct ShootRaysTask : public glare::Task
+{
+	GLARE_ALIGNED_16_NEW_DELETE
+
+	virtual void run(size_t /*thread_index*/)
+	{
+		// Get vectors orthogonal to direction
+		const Matrix4f mat = Matrix4f::constructFromVectorStatic(dir);
+
+		// Get extents of mesh along orthogonal vectors, giving a rectangle
+		const Vec4f basis_i = mat.getColumn(0);
+		const Vec4f basis_j = mat.getColumn(1);
+
+		js::AABBox dir_basis_aabb = mesh->aabb_os.transformedAABB(mat.getTranspose());
+
+		const float min_i = dir_basis_aabb.min_[0];
+		const float min_j = dir_basis_aabb.min_[1];
+		const float min_d = dir_basis_aabb.min_[2];
+		const float max_i = dir_basis_aabb.max_[0];
+		const float max_j = dir_basis_aabb.max_[1];
+
+		while(1)
+		{
+			const int num_rays_per_atomic_access = 16;
+			const int next_i = (int)((*next_ray_i) += num_rays_per_atomic_access);
+			if(next_i >= res * res)
+				return;
+
+			assert(next_i + num_rays_per_atomic_access < res * res);
+			for(int i=next_i; i<next_i + num_rays_per_atomic_access; ++i)
+			{
+				const int px = i % res;
+				const int py = i / res;
+
+				const float fx = (float)px / (res - 1);
+				const float fy = (float)py / (res - 1);
+
+				// Sample point in rectangle
+				const Vec4f p = Vec4f(0,0,0,1) +
+					dir * (min_d - 10.f) +
+					basis_i * (min_i + fx * (max_i - min_i)) +
+					basis_j * (min_j + fy * (max_j - min_j));
+
+				HitInfo hitinfo;
+				const Ray ray(p, dir, 0.f, 1.e30f);
+				//rays.push_back(ray);
+				const double dist = raymesh->traceRay(ray, hitinfo);
+				if(dist > 0)
+				{
+					(*num_tri_hits)[hitinfo.sub_elem_index]++;
+					//hit_positions.push_back(ray.pointf((float)dist));
+				}
+			}
+		}
+	}
+
+
+	Vec4f dir;
+	const BatchedMesh* mesh;
+	const RayMesh* raymesh;
+	int res;
+	glare::AtomicInt* next_ray_i;
+	std::vector<glare::AtomicInt>* num_tri_hits;
+};
+
+
 BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskManager& task_manager)
 {
 #if RAYMESH_TRACING_SUPPORT
@@ -754,71 +820,51 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 	StandardPrintOutput print_output;
 	raymesh.build(options, should_cancel_callback, print_output, /*verbose=*/true, task_manager);
 
-	std::vector<uint32> num_tri_hits(mesh->numIndices() / 3);
+	std::vector<glare::AtomicInt> num_tri_hits(mesh->numIndices() / 3);
 
 	Timer timer;
 
 	std::vector<Ray> rays;
 	std::vector<Vec4f> hit_positions;
 
+	
+	glare::TaskGroupRef task_group = new glare::TaskGroup();
+	for(size_t i=0; i<myMax<size_t>(1, task_manager.getConcurrency()); ++i)
+		task_group->tasks.push_back(new ShootRaysTask());
+
 	const int num_dirs = 32;
 	const int res = 1024;
-	PCG32 rng(1);
-	for(int q=0; q<num_dirs; ++q)
+	for(int i=0; i<num_dirs; ++i)
 	{
-		// Pick a random direction towards the mesh
-		const Vec4f dir = normalise(Vec4f(-1.f + 2 * rng.unitRandom(), -1.f + 2 * rng.unitRandom(), -1.f + 2 * rng.unitRandom(), 0));
-		//const Vec4f dir(1,0.0001,00.0001,0);
+		// Pick a direction using the Fibonacci lattice:  (https://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/#more-3069)
+		const float cos_phi = 1 - 2 * (i + 0.5f) / num_dirs;
+		const float sin_phi = std::sqrt(1 - Maths::square(cos_phi)); // sin(phi)^2 + cos(phi)^2 = 1   =>   sin(phi)^2 = 1 - cos(phi)^2   =>    sin(phi) = sqrt(1 - cos(phi)^2)
+		const float golden_ratio = (float)((1.0 + std::sqrt(5.0)) / 2.0);
+		const float theta = 2.f * Maths::pi<float>() * i / golden_ratio;
 
-		// Get vectors orthogonal to direction
-		const Matrix4f mat = Matrix4f::constructFromVectorStatic(dir);
+		const Vec4f dir(std::cos(theta) * sin_phi, std::sin(theta) * sin_phi, cos_phi, 0);
 
-		// Get extents of mesh along orthogonal vectors, giving a rectangle
-		const Vec4f i = mat.getColumn(0);
-		const Vec4f j = mat.getColumn(1);
-
-		js::AABBox dir_basis_aabb = mesh->aabb_os.transformedAABB(mat.getTranspose());
-
-		const float min_i = dir_basis_aabb.min_[0];
-		const float min_j = dir_basis_aabb.min_[1];
-		const float min_d = dir_basis_aabb.min_[2];
-		const float max_i = dir_basis_aabb.max_[0];
-		const float max_j = dir_basis_aabb.max_[1];
-
-		printVar(min_i);
-		printVar(min_j);
-		printVar(max_i);
-		printVar(max_j);
-		
-		for(int py=0; py<res; ++py)
-		for(int px=0; px<res; ++px)
+		glare::AtomicInt next_ray_i(0);
+		for(size_t i=0; i<task_group->tasks.size(); ++i)
 		{
-			const float fx = (float)px / (res - 1);
-			const float fy = (float)py / (res - 1);
-
-			// Sample point in rectangle
-			Vec4f p = Vec4f(0,0,0,1) +
-				dir * (min_d - 10.f) +
-				i * (min_i + fx * (max_i - min_i)) +
-				j * (min_j + fy * (max_j - min_j));
-
-			HitInfo hitinfo;
-			Ray ray(p, dir, 0.f, 1.e30f);
-			rays.push_back(ray);
-			const double dist = raymesh.traceRay(ray, hitinfo);
-			if(dist > 0)
-			{
-				num_tri_hits[hitinfo.sub_elem_index]++;
-				hit_positions.push_back(ray.pointf((float)dist));
-			}
+			ShootRaysTask* task = task_group->tasks[i].downcastToPtr<ShootRaysTask>();
+			task->dir = dir;
+			task->mesh = mesh.ptr();
+			task->raymesh = &raymesh;
+			task->res = res;
+			task->next_ray_i = &next_ray_i;
+			task->num_tri_hits = &num_tri_hits;
 		}
+
+		task_manager.runTaskGroup(task_group);
 	}
 
 	//for(size_t i=0; i<num_tri_hits.size(); ++i)
 	//	conPrint("tri " + toString(i) + ": " + toString(num_tri_hits[i]) + " hits");
 
 	const int num_rays = num_dirs * res * res;
-	conPrint("Shooting " + toString(num_rays) + " rays took " + timer.elapsedStringNSigFigs(4));
+	const double ray_shooting_time_elapsed = timer.elapsed();
+	
 
 
 	// Remove all triangles from mesh that didn't get hit.
@@ -949,6 +995,7 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 	if(true)
 	{
 		conPrint("-------------- removeInvisibleTriangles ------------");
+		conPrint("Shot " + toString(num_rays) + " rays in " + doubleToStringNSigFigs(ray_shooting_time_elapsed, 4) + " s (" + doubleToStringNSigFigs(num_rays / ray_shooting_time_elapsed * 1.0e-6, 4) + " M rays/sec)");
 		conPrint("Original num indices: " + toString(mesh->numIndices()));
 		conPrint("new num indices:      " + toString(simplified_mesh->numIndices()));
 		conPrint("reduction ratio:      " + toString((float)mesh->numIndices() / simplified_mesh->numIndices()));
