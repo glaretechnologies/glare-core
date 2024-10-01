@@ -770,7 +770,7 @@ struct ShootRaysTask : public glare::Task
 			if(next_i >= res * res)
 				return;
 
-			assert(next_i + num_rays_per_atomic_access < res * res);
+			assert(next_i + num_rays_per_atomic_access <= res * res);
 			for(int i=next_i; i<next_i + num_rays_per_atomic_access; ++i)
 			{
 				const int px = i % res;
