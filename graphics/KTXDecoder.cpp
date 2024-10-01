@@ -576,6 +576,8 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 #include "../utils/TaskManager.h"
 #include "TextRenderer.h"
 #include "DXTCompression.h"
+#include <encoder/basisu_comp.h>
+
 
 #if 0
 // Command line:
@@ -649,12 +651,13 @@ static void makeMipMapTestTexture()
 	const int W = 1024; // Texture width
 
 	std::vector<std::vector<uint8>> level_image_data;
-
+	std::vector<ImageMapUInt8Ref> level_images;
 	int level_W = W;
 	int level = 0;
 	while(level_W != 0)
 	{
 		ImageMapUInt8Ref im = new ImageMapUInt8(level_W, level_W, 3);
+		level_images.push_back(im);
 
 		const Colour3f level_col = cols[level];
 
@@ -753,6 +756,60 @@ static void makeMipMapTestTexture()
 	}
 
 	KTXDecoder::writeKTX2File(KTXDecoder::Format::Format_BC1, /*supercompression=*/false, (int)W, (int)W, level_image_data, "d:/tempfiles/miptest.ktx2");
+
+
+	// Save to basis file as well, as an array texture.
+	{
+		basisu::basisu_encoder_init(); // Can be called multiple times harmlessly.
+		basisu::basis_compressor_params params;
+
+		params.m_source_mipmap_images.resize(1);
+
+		for(size_t i=0; i<level_images.size(); ++i)
+		{
+			const ImageMapUInt8Ref level_im = level_images[i];
+			
+			basisu::image img(level_im->getData(), (uint32)level_im->getWidth(), (uint32)level_im->getHeight(), (uint32)3);
+
+			if(i == 0)
+				params.m_source_images.push_back(img);
+			else
+				params.m_source_mipmap_images[0].push_back(img);
+		}
+
+
+		params.m_tex_type = basist::cBASISTexType2DArray;
+		
+		params.m_perceptual = true;
+	
+		params.m_write_output_basis_files = true;
+		params.m_out_filename = "d:/tempfiles/miptest_array_texture.basis";
+		params.m_create_ktx2_file = false;
+
+		params.m_mip_gen = false; // Generate mipmaps for each source image
+		params.m_mip_srgb = false; // Convert image to linear before filtering, then back to sRGB
+
+		params.m_quality_level = 255;
+
+		// Need to be set if m_quality_level is not explicitly set.
+		//params.m_max_endpoint_clusters = 16128;
+		//params.m_max_selector_clusters = 16128;
+
+		basisu::job_pool jpool(PlatformUtils::getNumLogicalProcessors());
+		params.m_pJob_pool = &jpool;
+
+		basisu::basis_compressor basisCompressor;
+		basisu::enable_debug_printf(false);
+
+		const bool res = basisCompressor.init(params);
+		if(!res)
+			throw glare::Exception("Failed to create basisCompressor");
+
+		basisu::basis_compressor::error_code result = basisCompressor.process();
+
+		if(result != basisu::basis_compressor::cECSuccess)
+			throw glare::Exception("basisCompressor.process() failed.");
+	}
 #endif
 }
 
