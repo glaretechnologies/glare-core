@@ -56,7 +56,7 @@ class PaddingAllocator : public glare::Allocator
 		MemAlloc::alignedFree(ptr);
 	}
 
-	virtual std::string getDiagnostics() const { return std::string(); }
+	virtual glare::String getDiagnostics() const { return glare::String(); }
 };
 
 

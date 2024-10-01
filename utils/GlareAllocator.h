@@ -8,8 +8,7 @@ Copyright Glare Technologies Limited 2018 -
 
 #include "ThreadSafeRefCounted.h"
 #include "MemAlloc.h"
-#include <string>
-#include <cstring> // for size_t
+#include "GlareString.h"
 
 
 namespace glare
@@ -23,7 +22,7 @@ public:
 	virtual void* alloc(size_t size, size_t alignment) = 0;
 	virtual void free(void* ptr) = 0;
 
-	virtual std::string getDiagnostics() const = 0;
+	virtual glare::String getDiagnostics() const = 0;
 };
 
 
@@ -39,7 +38,7 @@ class MallocAllocator : public glare::Allocator
 		MemAlloc::alignedFree(ptr);
 	}
 
-	virtual std::string getDiagnostics() const { return "MallocAllocator [no info]\n"; }
+	virtual glare::String getDiagnostics() const { return glare::String("MallocAllocator [no info]\n"); }
 };
 
 

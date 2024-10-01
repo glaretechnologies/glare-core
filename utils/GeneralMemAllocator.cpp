@@ -126,17 +126,19 @@ void GeneralMemAllocator::free(void* ptr)
 }
 
 
-std::string GeneralMemAllocator::getDiagnostics() const
+glare::String GeneralMemAllocator::getDiagnostics() const
 {
 	Lock lock(mutex);
 
-	std::string s;
+	glare::String s;
 	for(size_t i=0; i<arenas.size(); ++i)
 	{
 		const Arena* arena = arenas[i];
 		
-		s += "Arena " + toString(i) + ": num allocated blocks: " + toString(arena->best_fit_allocator.getNumAllocatedBlocks()) + " (" + toString(arena->best_fit_allocator.getAllocatedSpace() / (1 << 20)) + 
+		const std::string arena_str = "Arena " + toString(i) + ": num allocated blocks: " + toString(arena->best_fit_allocator.getNumAllocatedBlocks()) + " (" + toString(arena->best_fit_allocator.getAllocatedSpace() / (1 << 20)) + 
 			" MB), num free blocks: " + toString(arena->best_fit_allocator.getNumFreeBlocks()) + " (" + toString(arena->best_fit_allocator.getFreeSpace() / (1 << 20)) + " MB)\n";
+
+		s += glare::String(arena_str.c_str());
 	}
 
 	return s;
