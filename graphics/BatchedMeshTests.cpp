@@ -20,14 +20,18 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/PlatformUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
+#include "../maths/vec2.h"
 #include <algorithm>
+#include "../meshoptimizer/src/meshoptimizer.h"
+#include <zstd.h>
 
 
-static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
+static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh, bool do_meshopt_test = true)
 {
 	try
 	{
 		const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp678.bmesh";
+		//const std::string temp_path = "d:/tempfiles/temp.bmesh";
 
 		// Write without compression, read back from disk, and check unchanged in round trip.
 		{
@@ -63,6 +67,46 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh)
 			testAssert(batched_mesh.vert_attributes == batched_mesh2->vert_attributes);
 
 			testAssert(batched_mesh == *batched_mesh2);
+		}
+
+		// Write with compression and MeshOpt, read back from disk, and check unchanged in round trip.
+		if(do_meshopt_test)
+		{
+			BatchedMesh::WriteOptions write_options;
+			write_options.use_compression = true;
+			write_options.use_meshopt = true;
+			batched_mesh.writeToFile(temp_path, write_options);
+
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
+
+			testAssert(batched_mesh.index_data.size() == batched_mesh2->index_data.size());
+
+			// With MeshOpt, indices of a triangles can be 'rotated'.  So check the indices are the same up to rotation.
+			js::Vector<uint32> mesh_uint32_indices;
+			batched_mesh.toUInt32Indices(mesh_uint32_indices);
+
+			js::Vector<uint32> mesh2_uint32_indices;
+			batched_mesh2->toUInt32Indices(mesh2_uint32_indices);
+
+			testAssert(mesh_uint32_indices.size() == mesh2_uint32_indices.size());
+			for(size_t i=0; i<mesh_uint32_indices.size()/3; ++i)
+			{
+				uint32 a0 = mesh_uint32_indices[i*3 + 0];
+				uint32 a1 = mesh_uint32_indices[i*3 + 1];
+				uint32 a2 = mesh_uint32_indices[i*3 + 2];
+				uint32 b0 = mesh2_uint32_indices[i*3 + 0];
+				uint32 b1 = mesh2_uint32_indices[i*3 + 1];
+				uint32 b2 = mesh2_uint32_indices[i*3 + 2];
+
+				testAssert(
+					(a0 == b0 && a1 == b1 && a2 == b2) ||
+					(a0 == b1 && a1 == b2 && a2 == b0) ||
+					(a0 == b2 && a1 == b0 && a2 == b1)
+				);
+			}
+
+			testAssert(batched_mesh.vertex_data == batched_mesh2->vertex_data);
+			testAssert(batched_mesh.vert_attributes == batched_mesh2->vert_attributes);
 		}
 	}
 	catch(glare::Exception& e)
@@ -139,7 +183,7 @@ static void perfTestWithMesh(const std::string& path)
 	BatchedMesh::WriteOptions write_options;
 	write_options.use_compression = true;
 
-	const int compression_levels[] ={ 1, 3, 6 };// , 9, 20};
+	const int compression_levels[] = { 1, 3, 6, 9, 12, 15, 19, 20};
 
 	for(size_t i=0; i<staticArrayNumElems(compression_levels); ++i)
 	{
@@ -182,7 +226,7 @@ inline static const Indigo::Vec3f BMeshUnpackNormal(const uint32 packed_normal)
 
 #if 0
 // Command line:
-// C:\fuzz_corpus\bmesh -max_len=1000000
+// C:\fuzz_corpus\bmesh c:/code/glare-core/testfiles\bmesh -max_len=1000000
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
@@ -195,10 +239,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
 	{
-		BatchedMesh batched_mesh;
-		BatchedMesh::readFromData(data, size, batched_mesh);
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromData(data, size, /*allocator=*/NULL);
 
-		batched_mesh.checkValidAndSanitiseMesh();
+		batched_mesh->checkValidAndSanitiseMesh();
 	}
 	catch(glare::Exception& )
 	{
@@ -208,9 +251,196 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif
 
 
+static BatchedMeshRef makeMesh()
+{
+	BatchedMeshRef mesh = new BatchedMesh();
+	mesh->vert_attributes.resize(1);
+	mesh->vert_attributes[0].type = BatchedMesh::VertAttribute_Position;
+	mesh->vert_attributes[0].component_type = BatchedMesh::ComponentType_Float;
+	mesh->vert_attributes[0].offset_B = 0;
+
+	mesh->batches.resize(1);
+	mesh->batches[0].indices_start = 0;
+	mesh->batches[0].num_indices = 9;
+	mesh->batches[0].material_index = 0;
+
+	mesh->index_type = BatchedMesh::ComponentType_UInt8;
+	mesh->index_data.push_back(0);
+	mesh->index_data.push_back(1);
+	mesh->index_data.push_back(2);
+
+	const float vert_positions[] = { 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f };
+	mesh->vertex_data.resize(sizeof(vert_positions));
+	std::memcpy(mesh->vertex_data.data(), vert_positions, sizeof(vert_positions));
+
+	mesh->aabb_os = js::AABBox(Vec4f(0,0,0,1), Vec4f(1,1,1,1));
+	return mesh;
+}
+
+
 void BatchedMeshTests::test()
 {
 	conPrint("BatchedMeshTests::test()");
+
+
+	//--------------------------------- Test writing and reading meshes, including with MeshOpt filtering and encoding. ----------------------------
+	// Test with uint8 indices
+	{
+		BatchedMeshRef mesh = makeMesh();
+
+		testWritingAndReadingMesh(*mesh);
+	}
+
+	// Test with uint16 indices
+	{
+		BatchedMeshRef mesh = makeMesh();
+
+		mesh->index_type = BatchedMesh::ComponentType_UInt16;
+		const uint16 indices[] = { 0, 1, 2 };
+		mesh->index_data.resize(sizeof(indices));
+		std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
+
+		testWritingAndReadingMesh(*mesh);
+	}
+
+	// Test with uint32 indices
+	{
+		BatchedMeshRef mesh = makeMesh();
+
+		mesh->index_type = BatchedMesh::ComponentType_UInt32;
+		const uint32 indices[] = { 0, 1, 2 };
+		mesh->index_data.resize(sizeof(indices));
+		std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
+
+		testWritingAndReadingMesh(*mesh);
+	}
+
+	// Test with float uvs
+	{
+		BatchedMeshRef mesh = makeMesh();
+
+		mesh->vert_attributes.clear();
+		mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_Position, BatchedMesh::ComponentType_Float, /*offset_B=*/0));
+		mesh->vert_attributes.push_back(BatchedMesh::VertAttribute(BatchedMesh::VertAttribute_UV_0, BatchedMesh::ComponentType_Float, /*offset_B=*/sizeof(Vec3f)));
+
+		const float vert_data[] = { 
+			0.f, 0.f, 0.f, 0.f, 0.f,
+			1.f, 0.f, 0.f, 1.f, 0.f,
+			1.f, 0.f, 0.f, 1.f, 0.f
+		};
+		mesh->vertex_data.resize(sizeof(vert_data));
+		std::memcpy(mesh->vertex_data.data(), vert_data, sizeof(vert_data));
+		
+		testWritingAndReadingMesh(*mesh);
+	}
+
+	// Test writing and reading of a more complex mesh.
+	{
+		BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/chunk_128_0_2.bmesh", NULL);
+
+		{
+			const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp456.bmesh";
+			BatchedMesh::WriteOptions options;
+			options.compression_level = 19;
+			options.use_meshopt = true;
+			options.pos_mantissa_bits = 14;
+			options.uv_mantissa_bits = 8;
+			batched_mesh->writeToFile(temp_path, options);
+
+
+			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, NULL);
+			testAssert(batched_mesh->index_type == batched_mesh2->index_type);
+
+			js::Vector<uint32> mesh_uint32_indices;
+			batched_mesh->toUInt32Indices(mesh_uint32_indices);
+
+			js::Vector<uint32> mesh2_uint32_indices;
+			batched_mesh2->toUInt32Indices(mesh2_uint32_indices);
+
+			testAssert(mesh_uint32_indices.size() == mesh2_uint32_indices.size());
+			for(size_t i=0; i<mesh_uint32_indices.size()/3; ++i)
+			{
+				uint32 a0 = mesh_uint32_indices[i*3 + 0];
+				uint32 a1 = mesh_uint32_indices[i*3 + 1];
+				uint32 a2 = mesh_uint32_indices[i*3 + 2];
+				uint32 b0 = mesh2_uint32_indices[i*3 + 0];
+				uint32 b1 = mesh2_uint32_indices[i*3 + 1];
+				uint32 b2 = mesh2_uint32_indices[i*3 + 2];
+
+				testAssert(
+					(a0 == b0 && a1 == b1 && a2 == b2) ||
+					(a0 == b1 && a1 == b2 && a2 == b0) ||
+					(a0 == b2 && a1 == b0 && a2 == b1)
+				);
+			}
+
+			// Test UVs are similar
+			for(size_t i=0; i<batched_mesh->numVerts(); ++i)
+			{
+				Vec2f mesh_uv;
+				std::memcpy(&mesh_uv, batched_mesh->vertex_data.data() + i * batched_mesh->vertexSize() + batched_mesh->getAttribute(BatchedMesh::VertAttribute_UV_0).offset_B, sizeof(Vec2f));
+				
+				Vec2f mesh2_uv;
+				std::memcpy(&mesh2_uv, batched_mesh2->vertex_data.data() + i * batched_mesh2->vertexSize() + batched_mesh2->getAttribute(BatchedMesh::VertAttribute_UV_0).offset_B, sizeof(Vec2f));
+
+				// TODO
+			}
+
+			// Test mat indices are the same
+			for(size_t i=0; i<batched_mesh->numVerts(); ++i)
+			{
+				uint32 mesh_idx;
+				std::memcpy(&mesh_idx, batched_mesh->vertex_data.data() + i * batched_mesh->vertexSize() + batched_mesh->getAttribute(BatchedMesh::VertAttribute_MatIndex).offset_B, sizeof(uint32));
+				
+				uint32 mesh2_idx;
+				std::memcpy(&mesh2_idx, batched_mesh2->vertex_data.data() + i * batched_mesh2->vertexSize() + batched_mesh2->getAttribute(BatchedMesh::VertAttribute_MatIndex).offset_B, sizeof(uint32));
+				
+				testAssert(mesh_idx == mesh2_idx);
+			}
+
+
+			// Perf test
+			/*{
+				int trials = 100;
+				for(int i=0; i<trials; ++i)
+				{
+					Timer timer;
+					BatchedMeshRef batched_mesh3 = BatchedMesh::readFromFile("D:\\tempfiles\\main_world\\chunk_128_4_-1_meshopt.bmesh", NULL);
+					double elapsed = timer.elapsed();
+					printVar(elapsed);
+				}
+			}*/
+		}
+	}
+
+
+	// Test loading all bmesh files in server_resources.
+	if(false)
+	{
+		std::vector<std::string> paths = FileUtils::getFilesInDirWithExtensionFullPathsRecursive("C:\\Users\\nick\\AppData\\Roaming\\Substrata\\server_data\\server_resources", "bmesh");
+		std::sort(paths.begin(), paths.end());
+
+		for(size_t i=0; i<paths.size(); ++i)
+		{
+			const std::string path = paths[i];
+			conPrint(path);
+
+			try
+			{
+				BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(path, NULL);
+
+				batched_mesh->checkValidAndSanitiseMesh();
+			}
+			catch(glare::Exception& e)
+			{
+				conPrint("Excep: " + e.what());
+			}
+
+			//testWritingAndReadingMesh(batched_mesh);
+			//testIndigoMeshConversion(batched_mesh);
+		}
+	}
+
 
 	//----------------------------------- Test handling of some invalid files -----------------------------------
 	// channel.target_node out of bounds
@@ -397,13 +627,13 @@ void BatchedMeshTests::test()
 			GLTFLoadedData data;
 			Reference<BatchedMesh> batched_mesh = FormatDecoderGLTF::loadGLTFFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Avocado.gltf", data);
 
-			testWritingAndReadingMesh(*batched_mesh);
+			testWritingAndReadingMesh(*batched_mesh, /*do_meshopt_test=*/false);
 		}
 		{
 			GLTFLoadedData data;
 			Reference<BatchedMesh> batched_mesh = FormatDecoderGLTF::loadGLTFFile(TestUtils::getTestReposDir() + "/testfiles/gltf/duck/Duck.gltf", data);
 
-			testWritingAndReadingMesh(*batched_mesh);
+			testWritingAndReadingMesh(*batched_mesh, /*do_meshopt_test=*/false);
 		}
 
 #if 0

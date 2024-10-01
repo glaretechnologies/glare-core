@@ -43,9 +43,12 @@ public:
 	/// @throws glare::Exception on failure.
 	struct WriteOptions
 	{
-		WriteOptions() : use_compression(true), compression_level(3) {}
+		WriteOptions() : use_compression(true), use_meshopt(false), compression_level(3), pos_mantissa_bits(16), uv_mantissa_bits(10) {}
 		bool use_compression;
+		bool use_meshopt;
 		int compression_level; // Zstandard compression level.  Zstandard defualt compression level is 3.
+		int pos_mantissa_bits; // For meshopt filtering.  Should be >= 1 and <= 24.
+		int uv_mantissa_bits;  // For meshopt filtering.  Should be >= 1 and <= 24.
 	};
 	void writeToFile(const std::string& dest_path, const WriteOptions& write_options = WriteOptions()) const;
 
@@ -149,6 +152,7 @@ public:
 	// The index type will depend on num_verts. (will be ComponentType_UInt8 for num_verts < 128 etc..) 
 	void setIndexDataFromIndices(const js::Vector<uint32, 16>& uint32_indices, size_t num_verts);
 
+	void toUInt32Indices(js::Vector<uint32, 16>& uint32_indices_out) const;
 
 	std::vector<VertAttribute> vert_attributes;
 

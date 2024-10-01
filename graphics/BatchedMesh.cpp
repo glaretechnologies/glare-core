@@ -22,6 +22,7 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/HashMapInsertOnly2.h"
 #include "../utils/BufferViewInStream.h"
 #include "../utils/RuntimeCheck.h"
+#include "../meshoptimizer/src/meshoptimizer.h"
 #include <limits>
 #include <zstd.h>
 
@@ -493,6 +494,32 @@ void BatchedMesh::setIndexDataFromIndices(const js::Vector<uint32, 16>& uint32_i
 }
 
 
+void BatchedMesh::toUInt32Indices(js::Vector<uint32, 16>& uint32_indices_out) const
+{
+	const size_t num_indices = numIndices();
+	uint32_indices_out.resize(num_indices);
+
+	if(index_type == ComponentType_UInt8)
+	{
+		const uint8* const src = index_data.data();
+		for(size_t i=0; i<num_indices; ++i)
+			uint32_indices_out[i] = (uint32)(src[i]);
+	}
+	else if(index_type  == ComponentType_UInt16)
+	{
+		const uint16* const src = (const uint16*)index_data.data();
+
+		for(size_t i=0; i<num_indices; ++i)
+			uint32_indices_out[i] = (uint32)(src[i]);
+	}
+	else
+	{
+		assert(index_type  == ComponentType_UInt32);
+		std::memcpy(uint32_indices_out.data(), index_data.data(), index_data.size());
+	}
+}
+
+
 void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 {
 	const size_t num_verts = numVerts();
@@ -705,11 +732,13 @@ void BatchedMesh::operator = (const BatchedMesh& other)
 
 
 static const uint32 MAGIC_NUMBER = 12456751;
-static const uint32 FORMAT_VERSION = 1;
+static const uint32 FORMAT_VERSION = 2;
+// Version 2: Added meshopt encoding and filtering.
 
 static const uint32 ANIMATION_DATA_CHUNK = 10000;
 
 static const uint32 FLAG_USE_COMPRESSION = 1;
+static const uint32 FLAG_USE_MESHOPT = 2;
 
 
 struct BatchedMeshHeader
@@ -731,6 +760,73 @@ struct BatchedMeshHeader
 static_assert(sizeof(BatchedMeshHeader) == sizeof(uint32) * 15, "sizeof(BatchedMeshHeader) == sizeof(uint32) * 15");
 
 
+static void getAttributeData(const BatchedMesh& mesh, const BatchedMesh::VertAttribute& attr, js::Vector<uint8>& data_out)
+{
+	const size_t vert_size = mesh.vertexSize(); // in bytes
+	const size_t num_verts = mesh.numVerts();
+
+	const size_t attr_size = mesh.vertAttributeSize(attr);
+
+	data_out.resize(attr_size * num_verts);
+	uint8* dst_ptr = data_out.data();
+
+	const uint8* src_ptr = mesh.vertex_data.data() + attr.offset_B;
+
+	for(size_t i=0; i<num_verts; ++i) // For each vertex
+	{
+		std::memcpy(dst_ptr, src_ptr, attr_size);
+
+		src_ptr += vert_size;
+		dst_ptr += attr_size;
+	}
+}
+
+
+static void encodeAndCompressData(const BatchedMesh& mesh, const js::Vector<uint8>& filtered_data_in, js::Vector<uint8>& compressed_data_out, int compression_level)
+{
+	const size_t attr_size = filtered_data_in.size() / mesh.numVerts();
+	const size_t bound = meshopt_encodeVertexBufferBound(mesh.numVerts(), attr_size);
+	js::Vector<uint8> buf(bound);
+
+	const size_t res_encoded_vert_buf_size = meshopt_encodeVertexBuffer(buf.data(), buf.size(), filtered_data_in.data(), mesh.numVerts(), attr_size);
+	buf.resize(res_encoded_vert_buf_size);
+
+	conPrint("meshopt res_encoded_vert_buf_size: " + toString(res_encoded_vert_buf_size) + " B");
+
+	const size_t compressed_bound = ZSTD_compressBound(buf.size());
+	compressed_data_out.resizeNoCopy(compressed_bound);
+
+	const size_t compressed_size = ZSTD_compress(compressed_data_out.data(), compressed_data_out.size(), buf.data(), buf.size(), compression_level);
+	compressed_data_out.resize(compressed_size);
+}
+
+
+static void readAndDecompressData(BufferViewInStream& file, size_t max_decompressed_size, glare::AllocatorVector<uint8>& decompressed_out)
+{
+	const size_t compressed_size = file.readUInt32();
+	if(!file.canReadNBytes(compressed_size))
+		throw glare::Exception("Invalid compressed_size");
+	const size_t decompressed_size = ZSTD_getFrameContentSize(file.currentReadPtr(), compressed_size);
+	if(decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN || decompressed_size == ZSTD_CONTENTSIZE_ERROR)
+		throw glare::Exception("Failed to get decompressed_size");
+
+	if(decompressed_size > max_decompressed_size) // Sanity check decompressed_size
+		throw glare::Exception("decompressed_size too large.");
+
+	decompressed_out.resizeNoCopy(decompressed_size);
+	const size_t res = ZSTD_decompress(/*des=*/decompressed_out.data(), decompressed_out.size(), file.currentReadPtr(), compressed_size);
+	if(ZSTD_isError(res))
+		throw glare::Exception("Decompression of buffer failed: " + toString(res));
+	if(res < decompressed_size)
+		throw glare::Exception("Decompression of buffer failed: not enough bytes in result");
+
+	file.advanceReadIndex(compressed_size);
+}
+
+
+static const bool PRINT_STATS = true;
+
+
 void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws glare::Exception on failure
 {
 	//Timer write_timer;
@@ -741,7 +837,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 	header.magic_number = MAGIC_NUMBER;
 	header.format_version = FORMAT_VERSION;
 	header.header_size = sizeof(BatchedMeshHeader);
-	header.flags = write_options.use_compression ? FLAG_USE_COMPRESSION : 0;
+	header.flags = (write_options.use_compression ? FLAG_USE_COMPRESSION : 0) | (write_options.use_meshopt ? FLAG_USE_MESHOPT : 0);
 	header.num_vert_attributes = (uint32)vert_attributes.size();
 	header.num_batches = (uint32)batches.size();
 	header.index_type = (uint32)index_type;
@@ -767,145 +863,322 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 	// Write the rest of the data compressed
 	if(write_options.use_compression)
 	{
-		// We will write the index data and vertex data into separate compressed buffers, for a few reasons:
-		// * Since we're processing in two parts, can reuse smaller buffers.
-		// * Buffers for each part can be 4-byte aligned, without using padding
-		// * Resulting compressed size is smaller (as measured with perf tests)
-
-		js::Vector<uint8, 16> filtered_data_vec;
-		filtered_data_vec.reserve(myMax(index_data.size(), vertex_data.size()));
-
-		const size_t compressed_bound = myMax(ZSTD_compressBound(index_data.size()), ZSTD_compressBound(vertex_data.size())); // Make the buffer large enough that we don't need to resize it later.
-		js::Vector<uint8, 16> compressed_data(compressed_bound);
-
-		//size_t total_compressed_size = 0;
-		Timer timer;
-		timer.pause();
-
+		if(write_options.use_meshopt)
 		{
-			// Build filtered index data.
-			filtered_data_vec.resizeNoCopy(index_data.size());
+			//------------------------------------ Write indices ------------------------------------
+			{
+				const size_t num_indices = numIndices();
+				js::Vector<uint32> uint32_indices;
+				if(index_type == ComponentType_UInt8)
+				{
+					uint32_indices.resizeNoCopy(num_indices);
+					const uint8* const src = index_data.data();
+					for(size_t i=0; i<num_indices; ++i)
+						uint32_indices[i] = (uint32)(src[i]);
+				}
+				else if(index_type  == ComponentType_UInt16)
+				{
+					uint32_indices.resizeNoCopy(num_indices);
+					const uint16* const src = (const uint16*)index_data.data();
+					for(size_t i=0; i<num_indices; ++i)
+						uint32_indices[i] = (uint32)(src[i]);
+				}
+				else
+				{
+					assert(index_type  == ComponentType_UInt32);
+				}
+				const uint32* uint32_indices_data = uint32_indices.empty() ? (const uint32*)this->index_data.data() : uint32_indices.data();
+
+				meshopt_encodeIndexVersion(1);
+
+				const size_t index_buffer_bound = meshopt_encodeIndexBufferBound(num_indices, numVerts());
+				js::Vector<uint8> encoded_indices(index_buffer_bound);
 			
-			uint32 last_index = 0;
-			const size_t num_indices = index_data.size() / componentTypeSize(index_type);
-			if(index_type == ComponentType_UInt8)
-			{
-				const uint8* const index_data_uint8    = (const uint8*)index_data.data();
-					  uint8* const filtered_index_data = (uint8*)filtered_data_vec.data();
-				for(size_t i=0; i<num_indices; ++i)
-				{
-					const uint8 index = index_data_uint8[i];
-					assert(index <= (uint8)std::numeric_limits<int8>::max());
-					const int8 rel_index = (int8)((int32)index - (int32)last_index);
-					filtered_index_data[i] = rel_index;
-					last_index = index;
-				}
-			}
-			else if(index_type == ComponentType_UInt16)
-			{
-				const uint16* const index_data_uint16   = (const uint16*)index_data.data();
-					  uint16* const filtered_index_data = (uint16*)filtered_data_vec.data();
-				for(size_t i=0; i<num_indices; ++i)
-				{
-					const uint16 index = index_data_uint16[i];
-					assert(index <= (uint16)std::numeric_limits<int16>::max());
-					const int16 rel_index = (int16)((int32)index - (int32)last_index);
-					filtered_index_data[i] = rel_index;
-					last_index = index;
-				}
-			}
-			else if(index_type == ComponentType_UInt32)
-			{
-				const uint32* const index_data_uint32   = (const uint32*)index_data.data();
-					  uint32* const filtered_index_data = (uint32*)filtered_data_vec.data();
-				for(size_t i=0; i<num_indices; ++i)
-				{
-					const uint32 index = index_data_uint32[i];
-					assert(index <= (uint32)std::numeric_limits<int32>::max());
-					const int32 rel_index = (int32)((int32)index - (int32)last_index);
-					filtered_index_data[i] = rel_index;
-					last_index = index;
-				}
-			}
-			else
-			{
-				assert(0);
+				const size_t res_encoded_index_buf_size = meshopt_encodeIndexBuffer(encoded_indices.data(), encoded_indices.size(), uint32_indices_data, num_indices);
+				encoded_indices.resize(res_encoded_index_buf_size);
+
+				const size_t compressed_bound = ZSTD_compressBound(encoded_indices.size());
+				js::Vector<uint8> compressed_data(compressed_bound);
+
+				// Compress the index buffer with Zstandard
+				const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), encoded_indices.data(), encoded_indices.size(), write_options.compression_level);
+				if(ZSTD_isError(compressed_size))
+					throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
+
+				conPrint("meshopt index compressed_size: " + toString(compressed_size) + " B");
+
+				// Now write compressed data to disk
+				file.writeUInt32((uint32)compressed_size);
+				file.writeData(compressed_data.data(), compressed_size);
 			}
 
-			// Compress the index buffer with zstandard
-			timer.unpause();
-			const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data_vec.data(), filtered_data_vec.size(),
-				write_options.compression_level // compression level
-			);
-			if(ZSTD_isError(compressed_size))
-				throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
-			timer.pause();
+			// Compress and write vertex data
+			{
+				// Throw an excep if there is an attribute we don't support encoding of yet.
+				if(findAttribute(VertAttribute_Colour))
+					throw glare::Exception("VertAttribute_Colour not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_UV_1))
+					throw glare::Exception("VertAttribute_UV_1 not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_Joints))
+					throw glare::Exception("VertAttribute_Joints not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_Weights))
+					throw glare::Exception("VertAttribute_Weights not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_Tangent))
+					throw glare::Exception("VertAttribute_Tangent not handled with meshopt encoding.");
 
-			// Write compressed size as uint64
-			file.writeUInt64(compressed_size);
+				const size_t num_verts = numVerts();
+				js::Vector<uint8> attr_data;
 
-			// Now write compressed data to disk
-			file.writeData(compressed_data.data(), compressed_size);
-		
-			//total_compressed_size += compressed_size;
+				//--------------------------------------- Compress and write positions ---------------------------------------
+				{
+					const VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
+					getAttributeData(*this, pos_attr, attr_data);
+
+					// meshopt filter
+					js::Vector<uint8> filtered(attr_data.size());
+					meshopt_encodeFilterExp(filtered.data(), /*count=*/num_verts, /*stride=*/vertAttributeSize(pos_attr),
+						/*bits=*/write_options.pos_mantissa_bits, (const float*)attr_data.data(), meshopt_EncodeExpSharedComponent);
+
+					js::Vector<uint8> compressed_data;
+					encodeAndCompressData(*this, filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level);
+
+					// Write to output stream / disk
+					file.writeUInt32((uint32)compressed_data.size());
+					file.writeData(compressed_data.data(), compressed_data.size());
+				}
+
+				//--------------------------------------- Compress and write normals ---------------------------------------
+				{
+					const VertAttribute* normal_attr = findAttribute(VertAttribute_Normal);
+					if(normal_attr)
+					{
+						getAttributeData(*this, *normal_attr, attr_data);
+
+						// Unpack normals:
+						js::Vector<Vec4f> unpacked_n(num_verts);
+						if(normal_attr->component_type == ComponentType_PackedNormal)
+						{
+							for(size_t i=0; i<num_verts; ++i)
+								unpacked_n[i] = batchedMeshUnpackNormal(((const uint32*)attr_data.data())[i]);
+						}
+						else if(normal_attr->component_type == ComponentType_Float)
+						{
+							for(size_t i=0; i<num_verts; ++i)
+								unpacked_n[i] = Vec4f(((const float*)attr_data.data())[0], ((const float*)attr_data.data())[1], ((const float*)attr_data.data())[2], 0);
+						}
+						else
+							throw glare::Exception("Unhandled normal component type");
+
+						// meshopt filter
+						js::Vector<uint8> filtered(num_verts * 4);
+						meshopt_encodeFilterOct(filtered.data(), /*count=*/num_verts, /*stride=*/4, /*bits=*/8, (const float*)unpacked_n.data());
+
+						js::Vector<uint8> compressed_data;
+						encodeAndCompressData(*this, filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level);
+
+						// Write to output stream / disk
+						file.writeUInt32((uint32)compressed_data.size());
+						file.writeData(compressed_data.data(), compressed_data.size());
+					}
+				}
+				
+				//--------------------------------------- Compress and write UV 0 ---------------------------------------
+				{
+					const VertAttribute* attr = findAttribute(VertAttribute_UV_0);
+					if(attr)
+					{
+						getAttributeData(*this, *attr, attr_data);
+
+						// meshopt filter
+						js::Vector<uint8> filtered(num_verts * sizeof(Vec2f));
+						if(attr->component_type == ComponentType_Half)
+						{
+							js::Vector<float> float_uvs(num_verts * 2);
+							for(size_t i=0; i<num_verts*2; ++i)
+								float_uvs[i] = (float)(((const half*)attr_data.data())[i]);
+
+							meshopt_encodeFilterExp(filtered.data(), /*count=*/num_verts, /*stride=*/sizeof(Vec2f), /*bits=*/write_options.uv_mantissa_bits, 
+								float_uvs.data(), /*meshopt_EncodeExpSharedComponent*/meshopt_EncodeExpSharedVector); // NOTE: NaNs wreck all UVs with meshopt_EncodeExpSharedComponent
+						}
+						else if(attr->component_type == ComponentType_Float)
+						{
+							meshopt_encodeFilterExp(filtered.data(), /*count=*/num_verts, /*stride=*/vertAttributeSize(*attr), /*bits=*/write_options.uv_mantissa_bits, 
+								(const float*)attr_data.data(), /*meshopt_EncodeExpSharedComponent*/meshopt_EncodeExpSharedVector); // NOTE: NaNs wreck all UVs with meshopt_EncodeExpSharedComponent
+						}
+						else
+							throw glare::Exception("Unhandled UV 0 type.");
+
+						js::Vector<uint8> compressed_data;
+						encodeAndCompressData(*this, filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level);
+
+						// Write to output stream / disk
+						file.writeUInt32((uint32)compressed_data.size());
+						file.writeData(compressed_data.data(), compressed_data.size());
+
+						if(PRINT_STATS) conPrint("UV 0: compressed size: " + toString(compressed_data.size()) + " B");
+					}
+				}
+
+				//--------------------------------------- Compress and write mat index ---------------------------------------
+				{
+					const VertAttribute* attr = findAttribute(VertAttribute_MatIndex);
+					if(attr)
+					{
+						getAttributeData(*this, *attr, attr_data);
+
+						js::Vector<uint8> compressed_data;
+						encodeAndCompressData(*this, attr_data, /*compressed_data_out=*/compressed_data, write_options.compression_level);
+
+						// Write to output stream / disk
+						file.writeUInt32((uint32)compressed_data.size());
+						file.writeData(compressed_data.data(), compressed_data.size());
+					}
+				}
+
+				// TODO: other attributes
+			}
 		}
-
-		// Build de-interleaved vertex data, compress it and then write it to disk.
+		else
 		{
-			filtered_data_vec.resizeNoCopy(vertex_data.size());
+			// We will write the index data and vertex data into separate compressed buffers, for a few reasons:
+			// * Since we're processing in two parts, can reuse smaller buffers.
+			// * Buffers for each part can be 4-byte aligned, without using padding
+			// * Resulting compressed size is smaller (as measured with perf tests)
 
-			/*
-			Separate interleaved vertex data into separate arrays
+			js::Vector<uint8, 16> filtered_data_vec;
+			filtered_data_vec.reserve(myMax(index_data.size(), vertex_data.size()));
 
-			p0 n0 c0 p1 n1 c1 p2 n2 c2 p3 n3 c3 ... pN nN cN
-			=>
-			p0 p1 p2 p3 ... pN n0 n1 n2 n3 ... nN c0 c1 c2 c3 ... cN
-			*/
-			const size_t vert_size = vertexSize(); // in bytes
-			assert(vert_size % 4 == 0);
-			const size_t num_verts = vertex_data.size() / vert_size;
+			const size_t compressed_bound = myMax(ZSTD_compressBound(index_data.size()), ZSTD_compressBound(vertex_data.size())); // Make the buffer large enough that we don't need to resize it later.
+			js::Vector<uint8, 16> compressed_data(compressed_bound);
 
-			size_t attr_offset = 0;
-			uint8* dst_ptr = filtered_data_vec.data();
-			for(size_t b=0; b<vert_attributes.size(); ++b)
-			{
-				const size_t attr_size = vertAttributeSize(vert_attributes[b]);
-				assert(attr_size % 4 == 0);
-				const uint8* src_ptr = vertex_data.data() + attr_offset;
-
-				for(size_t i=0; i<num_verts; ++i) // For each vertex
-				{
-					// Copy data for this attribute, for this vertex, to filtered_data
-					assert(src_ptr + attr_size <= vertex_data.data() + vertex_data.size());
-					assert(dst_ptr + attr_size <= filtered_data_vec.data() + filtered_data_vec.size());
-
-					copyUInt32s(dst_ptr, src_ptr, attr_size);
-
-					src_ptr += vert_size;
-					dst_ptr += attr_size;
-				}
-
-				attr_offset += attr_size;
-			}
-
-			// Compress the vertex data with zstandard
-			timer.unpause();
-			const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data_vec.data(), filtered_data_vec.size(),
-				write_options.compression_level // compression level
-			);
-			if(ZSTD_isError(compressed_size))
-				throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
+			//size_t total_compressed_size = 0;
+			Timer timer;
 			timer.pause();
 
-			// Write compressed size as uint64
-			file.writeUInt64(compressed_size);
+			{
+				// Build filtered index data.
+				filtered_data_vec.resizeNoCopy(index_data.size());
+			
+				uint32 last_index = 0;
+				const size_t num_indices = index_data.size() / componentTypeSize(index_type);
+				if(index_type == ComponentType_UInt8)
+				{
+					const uint8* const index_data_uint8    = (const uint8*)index_data.data();
+						  uint8* const filtered_index_data = (uint8*)filtered_data_vec.data();
+					for(size_t i=0; i<num_indices; ++i)
+					{
+						const uint8 index = index_data_uint8[i];
+						assert(index <= (uint8)std::numeric_limits<int8>::max());
+						const int8 rel_index = (int8)((int32)index - (int32)last_index);
+						filtered_index_data[i] = rel_index;
+						last_index = index;
+					}
+				}
+				else if(index_type == ComponentType_UInt16)
+				{
+					const uint16* const index_data_uint16   = (const uint16*)index_data.data();
+						  uint16* const filtered_index_data = (uint16*)filtered_data_vec.data();
+					for(size_t i=0; i<num_indices; ++i)
+					{
+						const uint16 index = index_data_uint16[i];
+						assert(index <= (uint16)std::numeric_limits<int16>::max());
+						const int16 rel_index = (int16)((int32)index - (int32)last_index);
+						filtered_index_data[i] = rel_index;
+						last_index = index;
+					}
+				}
+				else if(index_type == ComponentType_UInt32)
+				{
+					const uint32* const index_data_uint32   = (const uint32*)index_data.data();
+						  uint32* const filtered_index_data = (uint32*)filtered_data_vec.data();
+					for(size_t i=0; i<num_indices; ++i)
+					{
+						const uint32 index = index_data_uint32[i];
+						assert(index <= (uint32)std::numeric_limits<int32>::max());
+						const int32 rel_index = (int32)((int32)index - (int32)last_index);
+						filtered_index_data[i] = rel_index;
+						last_index = index;
+					}
+				}
+				else
+				{
+					assert(0);
+				}
 
-			// Now write compressed data to disk
-			file.writeData(compressed_data.data(), compressed_size);
+				// Compress the index buffer with zstandard
+				timer.unpause();
+				const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data_vec.data(), filtered_data_vec.size(),
+					write_options.compression_level // compression level
+				);
+				if(ZSTD_isError(compressed_size))
+					throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
+				timer.pause();
 
-			//total_compressed_size += compressed_size;
+				// Write compressed size as uint64
+				file.writeUInt64(compressed_size);
+
+				// Now write compressed data to disk
+				file.writeData(compressed_data.data(), compressed_size);
+		
+				//total_compressed_size += compressed_size;
+			}
+
+			// Build de-interleaved vertex data, compress it and then write it to disk.
+			{
+				filtered_data_vec.resizeNoCopy(vertex_data.size());
+
+				/*
+				Separate interleaved vertex data into separate arrays
+
+				p0 n0 c0 p1 n1 c1 p2 n2 c2 p3 n3 c3 ... pN nN cN
+				=>
+				p0 p1 p2 p3 ... pN n0 n1 n2 n3 ... nN c0 c1 c2 c3 ... cN
+				*/
+				const size_t vert_size = vertexSize(); // in bytes
+				runtimeCheck(vert_size % 4 == 0);
+				const size_t num_verts = vertex_data.size() / vert_size;
+
+				size_t attr_offset = 0;
+				uint8* dst_ptr = filtered_data_vec.data();
+				for(size_t b=0; b<vert_attributes.size(); ++b)
+				{
+					const size_t attr_size = vertAttributeSize(vert_attributes[b]);
+					runtimeCheck(attr_size % 4 == 0);
+					const uint8* src_ptr = vertex_data.data() + attr_offset;
+
+					for(size_t i=0; i<num_verts; ++i) // For each vertex
+					{
+						// Copy data for this attribute, for this vertex, to filtered_data
+						assert(src_ptr + attr_size <= vertex_data.data() + vertex_data.size());
+						assert(dst_ptr + attr_size <= filtered_data_vec.data() + filtered_data_vec.size());
+
+						copyUInt32s(dst_ptr, src_ptr, attr_size);
+
+						src_ptr += vert_size;
+						dst_ptr += attr_size;
+					}
+
+					attr_offset += attr_size;
+				}
+
+				// Compress the vertex data with Zstandard
+				timer.unpause();
+				const size_t compressed_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), filtered_data_vec.data(), filtered_data_vec.size(),
+					write_options.compression_level // compression level
+				);
+				if(ZSTD_isError(compressed_size))
+					throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
+				timer.pause();
+
+				// Write compressed size as uint64
+				file.writeUInt64(compressed_size);
+
+				// Now write compressed data to disk
+				file.writeData(compressed_data.data(), compressed_size);
+
+				//total_compressed_size += compressed_size;
+			}
 		}
-
 		
 		//const size_t uncompressed_size = index_data.size() + vertex_data.size();
 		//const double compression_speed = uncompressed_size / timer.elapsed();
@@ -957,7 +1230,7 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 		if(header.magic_number != MAGIC_NUMBER)
 			throw glare::Exception("Invalid magic number.");
 
-		if(header.format_version < FORMAT_VERSION)
+		if(header.format_version > FORMAT_VERSION)
 			throw glare::Exception("Unsupported format version " + toString(header.format_version) + ".");
 
 		
@@ -1011,7 +1284,7 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 
 
 		// Check header index type
-		if(header.index_type > MAX_COMPONENT_TYPE_VALUE)
+		if(!(header.index_type == ComponentType_UInt8 || header.index_type == ComponentType_UInt16 || header.index_type == ComponentType_UInt32))
 			throw glare::Exception("Invalid index type value.");
 
 		mesh_out.index_type = (ComponentType)header.index_type;
@@ -1043,123 +1316,291 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 		const bool compression = (header.flags & FLAG_USE_COMPRESSION) != 0;
 		if(compression)
 		{
-			glare::AllocatorVector<uint8, 16> plaintext;
-			plaintext.setAllocator(mem_allocator);
-			plaintext.resizeNoCopy(myMax(header.index_data_size_B, header.vertex_data_size_B)); // Make sure large enough so we don't need to resize later.
-
-			Timer timer;
-			timer.pause();
+			if((header.flags & FLAG_USE_MESHOPT) != 0)
 			{
-				const uint64 index_data_compressed_size = file.readUInt64();
-				if(!file.canReadNBytes(index_data_compressed_size)) // Check index_data_compressed_size is valid, while taking care with wraparound
-					throw glare::Exception("index_data_compressed_size was invalid.");
-
-				// Decompress index data into plaintext buffer.
-				timer.unpause();
-				const size_t res = ZSTD_decompress(/*dest=*/plaintext.begin(), /*dest capacity=*/header.index_data_size_B, /*src=*/file.currentReadPtr(), /*compressed size=*/index_data_compressed_size);
-				if(ZSTD_isError(res))
-					throw glare::Exception(std::string("Decompression of index buffer failed: ") + ZSTD_getErrorName(res));
-				if(res < (size_t)header.index_data_size_B)
-					throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
-				timer.pause();
-
-				// Unfilter indices, place in mesh_out.index_data.
-				const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
-				if(header.index_type == ComponentType_UInt8)
+				//--------------------------------------- decompress vertex indices ---------------------------------------
 				{
-					int32 last_index = 0;
-					const int8* filtered_index_data_int8 = (const int8*)plaintext.data();
-					uint8* index_data = (uint8*)mesh_out.index_data.data();
-					for(size_t i=0; i<num_indices; ++i)
-					{
-						int8 index = (int8)last_index + filtered_index_data_int8[i];
-						index_data[i] = index;
-						last_index = index;
-					}
-				}
-				else if(header.index_type == ComponentType_UInt16)
-				{
-					int32 last_index = 0;
-					const int16* filtered_index_data_int16 = (const int16*)plaintext.data(); // Note that we know plaintext.data() is 16-byte aligned.
-					uint16* index_data = (uint16*)mesh_out.index_data.data();
-					for(size_t i=0; i<num_indices; ++i)
-					{
-						int16 index = (int16)last_index + filtered_index_data_int16[i];
-						index_data[i] = index;
-						last_index = index;
-					}
-				}
-				else if(header.index_type == ComponentType_UInt32)
-				{
-					int32 last_index = 0;
-					const int32* filtered_index_data_int32 = (const int32*)plaintext.data(); // Note that we know plaintext.data() is 16-byte aligned.
-					uint32* index_data = (uint32*)mesh_out.index_data.data();
-					for(size_t i=0; i<num_indices; ++i)
-					{
-						int32 index = (int32)last_index + filtered_index_data_int32[i];
-						index_data[i] = index;
-						last_index = index;
-					}
-				}
-				else
-					throw glare::Exception("Invalid index component type " + toString((int)header.index_type));
+					glare::AllocatorVector<uint8> decompressed(mem_allocator);
+					readAndDecompressData(file, MAX_INDEX_DATA_SIZE, decompressed);
 
-				file.advanceReadIndex(index_data_compressed_size);
+					//--------------------------------------- Decode index buffer with meshopt ---------------------------------------
+					const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
+					if(header.index_type == ComponentType_UInt8)
+					{
+						// Decode to uint32 indices, then convert to uint8.
+						glare::AllocatorVector<uint32> uint32_indices(num_indices, mem_allocator);
+						if(meshopt_decodeIndexBuffer(/*dest=*/uint32_indices.data(), /*index count=*/num_indices, /*index size=*/sizeof(uint32), decompressed.data(), decompressed.size()) != 0)
+							throw glare::Exception("meshopt_decodeIndexBuffer failed.");
+
+						runtimeCheck(batched_mesh->index_data.size() == num_indices);
+						uint8* const dest_indices = batched_mesh->index_data.data();
+						for(size_t i=0; i<num_indices; ++i)
+							dest_indices[i] = (uint8)uint32_indices[i];
+					}
+					else if(header.index_type == ComponentType_UInt16)
+					{
+						runtimeCheck(batched_mesh->index_data.size() == num_indices * sizeof(uint16));
+						if(meshopt_decodeIndexBuffer(/*dest=*/batched_mesh->index_data.data(), /*index count=*/num_indices, /*index size=*/sizeof(uint16), decompressed.data(), decompressed.size()) != 0)
+							throw glare::Exception("meshopt_decodeIndexBuffer failed.");
+					}
+					else if(header.index_type == ComponentType_UInt32)
+					{
+						runtimeCheck(batched_mesh->index_data.size() == num_indices * sizeof(uint32));
+						if(meshopt_decodeIndexBuffer(/*dest=*/batched_mesh->index_data.data(), /*index count=*/num_indices, /*index size=*/sizeof(uint32), decompressed.data(), decompressed.size()) != 0)
+							throw glare::Exception("meshopt_decodeIndexBuffer failed.");
+					}
+					else
+						runtimeCheck(0);
+				}
+
+				//--------------------------------------- decompress vertex data ---------------------------------------
+				{
+					const size_t num_verts = batched_mesh->numVerts();
+					const size_t vert_size = batched_mesh->vertexSize();
+
+					glare::AllocatorVector<uint8> decompressed(mem_allocator);
+
+					//--------------------- decompress positions ---------------------
+					{
+						const VertAttribute& pos_attr = batched_mesh->getAttribute(VertAttribute_Position);
+						checkProperty(pos_attr.component_type == ComponentType_Float, "mat index must be uint32");
+						readAndDecompressData(file, MAX_VERTEX_DATA_SIZE, decompressed);
+
+						// meshopt decode
+						glare::AllocatorVector<Vec3f> decoded(num_verts);
+						if(meshopt_decodeVertexBuffer(/*destination=*/decoded.data(), num_verts, /*vertex size=*/sizeof(Vec3f), decompressed.data(), decompressed.size()) != 0)
+							throw glare::Exception("meshopt_decodeVertexBuffer failed.");
+
+						meshopt_decodeFilterExp(decoded.data(), num_verts, /*stride=*/sizeof(Vec3f));
+
+						// Finally, write to mesh vertex buffer
+						uint8* const dest_ptr = batched_mesh->vertex_data.data() + pos_attr.offset_B;
+						for(size_t i=0; i<num_verts; ++i)
+							std::memcpy(dest_ptr + i * vert_size, &decoded[i], sizeof(Vec3f));
+					}
+
+					//--------------------- decompress normals, if present ---------------------
+					const VertAttribute* normal_attr = batched_mesh->findAttribute(VertAttribute_Normal);
+					if(normal_attr)
+					{
+						checkProperty(normal_attr->component_type == ComponentType_PackedNormal, "Normals must have ComponentType_PackedNormal");
+
+						// Writing to disk: filterOct -> encodeVertexBuffer -> zstd compress
+						// Reading from disk: zstd decompression -> decodeVertexBuffer -> decodeFilterOct
+
+						readAndDecompressData(file, MAX_VERTEX_DATA_SIZE, decompressed);
+
+						// meshopt decode
+						const size_t stride = 4;
+						glare::AllocatorVector<int8> decoded(num_verts * stride);
+						if(meshopt_decodeVertexBuffer(/*destination=*/decoded.data(), num_verts, /*vertex size=*/stride, decompressed.data(), decompressed.size()) != 0)
+							throw glare::Exception("meshopt_decodeVertexBuffer failed.");
+
+						meshopt_decodeFilterOct(decoded.data(), num_verts, /*stride=*/stride);
+
+						// Finally, pack normals and write to mesh vertex buffer.
+						// TODO: just use normalised int8 format for normals, instead of the 10-bit packing?
+						uint8* const dest_ptr = batched_mesh->vertex_data.data() + normal_attr->offset_B;
+						for(size_t i=0; i<num_verts; ++i)
+						{
+							const Vec4f v = Vec4f(
+								decoded[i * 4 + 0],
+								decoded[i * 4 + 1],
+								decoded[i * 4 + 2],
+								decoded[i * 4 + 3]
+							) * (1.f / 127.0f);
+
+							const uint32 packed_n = batchedMeshPackNormalWithW(v);
+
+							std::memcpy(dest_ptr + i * vert_size, &packed_n, sizeof(uint32));
+						}
+					}
+
+					//--------------------- decompress uv0 ---------------------
+					const VertAttribute* uv0_attr = batched_mesh->findAttribute(VertAttribute_UV_0);
+					if(uv0_attr)
+					{
+						checkProperty(uv0_attr->component_type == ComponentType_Float || uv0_attr->component_type == ComponentType_Half, "uv0 must be float or half");
+						readAndDecompressData(file, MAX_VERTEX_DATA_SIZE, decompressed);
+
+						// meshopt decode
+						const size_t attr_size = sizeof(Vec2f);
+
+						glare::AllocatorVector<Vec2f> decoded(num_verts * 2);
+						if(meshopt_decodeVertexBuffer(/*destination=*/decoded.data(), num_verts, /*vertex size=*/attr_size, decompressed.data(), decompressed.size()) != 0)
+							throw glare::Exception("meshopt_decodeVertexBuffer failed.");
+
+						meshopt_decodeFilterExp(decoded.data(), num_verts, /*stride=*/attr_size);
+
+						// Finally, write to mesh vertex buffer
+						
+						uint8* const dest_ptr = batched_mesh->vertex_data.data() + uv0_attr->offset_B;
+						if(uv0_attr->component_type == ComponentType_Half)
+						{
+							for(size_t i=0; i<num_verts; ++i)
+							{
+								const half half_uv[2] = { (half)decoded[i].x, (half)decoded[i].y };
+								std::memcpy(dest_ptr + i * vert_size, &half_uv, sizeof(half) * 2);
+							}
+						}
+						else
+						{
+							for(size_t i=0; i<num_verts; ++i)
+								std::memcpy(dest_ptr + i * vert_size, &decoded[i], sizeof(Vec2f));
+						}
+					}
+
+					//--------------------- decompress mat index ---------------------
+					const VertAttribute* mat_index_attr = batched_mesh->findAttribute(VertAttribute_MatIndex);
+					if(mat_index_attr)
+					{
+						checkProperty(mat_index_attr->component_type == ComponentType_UInt32, "mat index must be uint32");
+						readAndDecompressData(file, MAX_VERTEX_DATA_SIZE, decompressed);
+
+						// meshopt decode
+						glare::AllocatorVector<uint8> decoded(num_verts * sizeof(uint32));
+						if(meshopt_decodeVertexBuffer(/*destination=*/decoded.data(), num_verts, /*vertex size=*/sizeof(uint32), decompressed.data(), decompressed.size()) != 0)
+							throw glare::Exception("meshopt_decodeVertexBuffer failed.");
+
+						// Finally, write to mesh vertex buffer
+						uint8* const dest_ptr = batched_mesh->vertex_data.data() + mat_index_attr->offset_B;
+						for(size_t i=0; i<num_verts; ++i)
+							std::memcpy(dest_ptr + i * vert_size, &decoded[i * sizeof(uint32)], sizeof(uint32)); // TODO: don't use memcpy?
+					}
+
+					// Throw an excep if there is an attribute we don't support decoding of yet.
+					if(batched_mesh->findAttribute(VertAttribute_Colour))
+						throw glare::Exception("VertAttribute_Colour not handled with meshopt encoding.");
+					if(batched_mesh->findAttribute(VertAttribute_UV_1))
+						throw glare::Exception("VertAttribute_UV_1 not handled with meshopt encoding.");
+					if(batched_mesh->findAttribute(VertAttribute_Joints))
+						throw glare::Exception("VertAttribute_Joints not handled with meshopt encoding.");
+					if(batched_mesh->findAttribute(VertAttribute_Weights))
+						throw glare::Exception("VertAttribute_Weights not handled with meshopt encoding.");
+					if(batched_mesh->findAttribute(VertAttribute_Tangent))
+						throw glare::Exception("VertAttribute_Tangent not handled with meshopt encoding.");
+				}
 			}
+			else
+			{
+				glare::AllocatorVector<uint8, 16> plaintext;
+				plaintext.setAllocator(mem_allocator);
+				plaintext.resizeNoCopy(myMax(header.index_data_size_B, header.vertex_data_size_B)); // Make sure large enough so we don't need to resize later.
+
+				Timer timer;
+				timer.pause();
+				{
+					const uint64 index_data_compressed_size = file.readUInt64();
+					if(!file.canReadNBytes(index_data_compressed_size)) // Check index_data_compressed_size is valid, while taking care with wraparound
+						throw glare::Exception("index_data_compressed_size was invalid.");
+
+					// Decompress index data into plaintext buffer.
+					timer.unpause();
+					const size_t res = ZSTD_decompress(/*dest=*/plaintext.begin(), /*dest capacity=*/header.index_data_size_B, /*src=*/file.currentReadPtr(), /*compressed size=*/index_data_compressed_size);
+					if(ZSTD_isError(res))
+						throw glare::Exception(std::string("Decompression of index buffer failed: ") + ZSTD_getErrorName(res));
+					if(res < (size_t)header.index_data_size_B)
+						throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
+					timer.pause();
+
+					// Unfilter indices, place in mesh_out.index_data.
+					const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
+					if(header.index_type == ComponentType_UInt8)
+					{
+						int32 last_index = 0;
+						const int8* filtered_index_data_int8 = (const int8*)plaintext.data();
+						uint8* index_data = (uint8*)mesh_out.index_data.data();
+						for(size_t i=0; i<num_indices; ++i)
+						{
+							int8 index = (int8)last_index + filtered_index_data_int8[i];
+							index_data[i] = index;
+							last_index = index;
+						}
+					}
+					else if(header.index_type == ComponentType_UInt16)
+					{
+						int32 last_index = 0;
+						const int16* filtered_index_data_int16 = (const int16*)plaintext.data(); // Note that we know plaintext.data() is 16-byte aligned.
+						uint16* index_data = (uint16*)mesh_out.index_data.data();
+						for(size_t i=0; i<num_indices; ++i)
+						{
+							int16 index = (int16)last_index + filtered_index_data_int16[i];
+							index_data[i] = index;
+							last_index = index;
+						}
+					}
+					else if(header.index_type == ComponentType_UInt32)
+					{
+						int32 last_index = 0;
+						const int32* filtered_index_data_int32 = (const int32*)plaintext.data(); // Note that we know plaintext.data() is 16-byte aligned.
+						uint32* index_data = (uint32*)mesh_out.index_data.data();
+						for(size_t i=0; i<num_indices; ++i)
+						{
+							int32 index = (int32)last_index + filtered_index_data_int32[i];
+							index_data[i] = index;
+							last_index = index;
+						}
+					}
+					else
+						throw glare::Exception("Invalid index component type " + toString((int)header.index_type));
+
+					file.advanceReadIndex(index_data_compressed_size);
+				}
 
 		
-			// Decompress and de-filter vertex data.
-			{
-				const uint64 vertex_data_compressed_size = file.readUInt64();
-				if(!file.canReadNBytes(vertex_data_compressed_size)) // Check vertex_data_compressed_size is valid, while taking care with wraparound
-					throw glare::Exception("vertex_data_compressed_size was invalid.");
-
-				// Decompress data into plaintext buffer.
-				timer.unpause();
-				const size_t res = ZSTD_decompress(plaintext.begin(), header.vertex_data_size_B, file.currentReadPtr(), vertex_data_compressed_size);
-				if(ZSTD_isError(res))
-					throw glare::Exception(std::string("Decompression of index buffer failed: ") + ZSTD_getErrorName(res));
-				if(res < (size_t)header.vertex_data_size_B)
-					throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
-				timer.pause();
-				// const double elapsed = timer.elapsed();
-				// conPrint("Decompression took   " + doubleToStringNSigFigs(elapsed, 4) + " (" + doubleToStringNSigFigs(((double)((size_t)header.index_data_size_B + header.vertex_data_size_B) / (1024ull*1024ull)) / elapsed, 4) + "MB/s)");
-
-				/*
-				Read de-interleaved vertex data, and interleave it.
-			
-				p0 p1 p2 p3 ... pN n0 n1 n2 n3 ... nN c0 c1 c2 c3 ... cN
-				=>
-				p0 n0 c0 p1 n1 c1 p2 n2 c2 p3 n3 c3 ... pN nN cN
-				*/
-				const size_t vert_size = mesh_out.vertexSize(); // in bytes
-				assert(vert_size % 4 == 0);
-				const size_t num_verts = mesh_out.vertex_data.size() / vert_size;
-
-				const uint8* src_ptr = plaintext.data();
-				size_t attr_offset = 0;
-				for(size_t b=0; b<mesh_out.vert_attributes.size(); ++b)
+				// Decompress and de-filter vertex data.
 				{
-					const size_t attr_size = vertAttributeSize(mesh_out.vert_attributes[b]);
-					assert(attr_size % 4 == 0);
-					uint8* dst_ptr = mesh_out.vertex_data.data() + attr_offset;
+					const uint64 vertex_data_compressed_size = file.readUInt64();
+					if(!file.canReadNBytes(vertex_data_compressed_size)) // Check vertex_data_compressed_size is valid, while taking care with wraparound
+						throw glare::Exception("vertex_data_compressed_size was invalid.");
 
-					for(size_t i=0; i<num_verts; ++i) // For each vertex
+					// Decompress data into plaintext buffer.
+					timer.unpause();
+					const size_t res = ZSTD_decompress(plaintext.begin(), header.vertex_data_size_B, file.currentReadPtr(), vertex_data_compressed_size);
+					if(ZSTD_isError(res))
+						throw glare::Exception(std::string("Decompression of index buffer failed: ") + ZSTD_getErrorName(res));
+					if(res < (size_t)header.vertex_data_size_B)
+						throw glare::Exception("Decompression of index buffer failed: not enough bytes in result");
+					timer.pause();
+					// const double elapsed = timer.elapsed();
+					// conPrint("Decompression took   " + doubleToStringNSigFigs(elapsed, 4) + " (" + doubleToStringNSigFigs(((double)((size_t)header.index_data_size_B + header.vertex_data_size_B) / (1024ull*1024ull)) / elapsed, 4) + "MB/s)");
+
+					/*
+					Read de-interleaved vertex data, and interleave it.
+			
+					p0 p1 p2 p3 ... pN n0 n1 n2 n3 ... nN c0 c1 c2 c3 ... cN
+					=>
+					p0 n0 c0 p1 n1 c1 p2 n2 c2 p3 n3 c3 ... pN nN cN
+					*/
+					const size_t vert_size = mesh_out.vertexSize(); // in bytes
+					assert(vert_size % 4 == 0);
+					const size_t num_verts = mesh_out.vertex_data.size() / vert_size;
+
+					const uint8* src_ptr = plaintext.data();
+					size_t attr_offset = 0;
+					for(size_t b=0; b<mesh_out.vert_attributes.size(); ++b)
 					{
-						// Copy data for this attribute, for this vertex, to filtered_data
-						assert(src_ptr + attr_size <= plaintext.data() + plaintext.size());
-						assert(dst_ptr + attr_size <= mesh_out.vertex_data.data() + mesh_out.vertex_data.size());
+						const size_t attr_size = vertAttributeSize(mesh_out.vert_attributes[b]);
+						assert(attr_size % 4 == 0);
+						uint8* dst_ptr = mesh_out.vertex_data.data() + attr_offset;
 
-						copyUInt32s(dst_ptr, src_ptr, attr_size);
+						for(size_t i=0; i<num_verts; ++i) // For each vertex
+						{
+							// Copy data for this attribute, for this vertex, to filtered_data
+							assert(src_ptr + attr_size <= plaintext.data() + plaintext.size());
+							assert(dst_ptr + attr_size <= mesh_out.vertex_data.data() + mesh_out.vertex_data.size());
 
-						src_ptr += attr_size;
-						dst_ptr += vert_size;
+							copyUInt32s(dst_ptr, src_ptr, attr_size);
+
+							src_ptr += attr_size;
+							dst_ptr += vert_size;
+						}
+
+						attr_offset += attr_size;
 					}
 
-					attr_offset += attr_size;
+					file.advanceReadIndex(vertex_data_compressed_size);
 				}
-
-				file.advanceReadIndex(vertex_data_compressed_size);
 			}
 		}
 		else // else if !compression:
