@@ -455,6 +455,29 @@ void glare::String::test()
 		testAssert(s.c_str()[s.size()] == '\0');
 	}
 
+	//--------------------- operator += ---------------------
+	{
+		glare::String s("abc");
+		s += glare::String("def");
+		testAssert(s.size() == 6);
+		testAssert(s.capacity() == 14);
+		testAssert(s.storingOnHeap() == false);
+		testAssert(s == "abcdef");
+		testAssert(s.c_str()[s.size()] == '\0');
+	}
+
+	// Test += triggering allocation on heap
+	{
+		glare::String s("abc");
+		s += glare::String(30, 'a');
+		testAssert(s.size() == 33);
+		testAssert(s.capacity() == 33);
+		testAssert(s.storingOnHeap() == true);
+		for(size_t i=3; i<s.size(); ++i)
+			testAssert(s[i] == 'a');
+		testAssert(s.c_str()[s.size()] == '\0');
+	}
+
 	//--------------------- operator == (const String&) ---------------------
 	{
 		glare::String s("0123456789");

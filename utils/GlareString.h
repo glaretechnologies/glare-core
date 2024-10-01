@@ -56,6 +56,9 @@ public:
 
 	inline void push_back(char t);
 	inline void pop_back();
+
+	inline void operator += (const String& other);
+
 	inline char& operator[](size_t index);
 	inline char operator[](size_t index) const;
 
@@ -470,6 +473,25 @@ void String::pop_back()
 		char* const direct = (char*)&e;
 		direct[new_size] = '\0'; // null terminate
 	}
+}
+
+
+void String::operator += (const String& other)
+{
+	const size_t old_size = size();
+	const size_t other_size = other.size();
+	reserve(old_size + other_size);
+
+	const char* const src  = other.data();
+	      char* const dest = data();
+	for(size_t i=0; i<other_size; ++i)
+		dest[old_size + i] = src[i];
+	dest[old_size + other_size] = '\0'; // null terminate
+
+	if(storingOnHeap())
+		setHeapBitAndSizeForHeapStorage(old_size + other_size);
+	else
+		setHeapBitAndSizeForDirectStorage(old_size + other_size);
 }
 
 
