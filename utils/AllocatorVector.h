@@ -25,11 +25,12 @@ AllocatorVector
 Similar to js::Vector, but stores a reference to an allocator object,
 which if the reference is non-null, does all allocation and deallocation for the vector.
 =====================================================================*/
-template <class T, size_t alignment>
+template <class T, size_t alignment = 16>
 class AllocatorVector
 {
 public:
 	inline AllocatorVector(); // Initialise as an empty vector.
+	explicit inline AllocatorVector(const Reference<glare::Allocator>& al); // Initialise as an empty vector.
 	explicit inline AllocatorVector(size_t count); // Initialise with default initialisation.
 	explicit inline AllocatorVector(size_t count, const Reference<glare::Allocator>& al); // Initialise with default initialisation.
 	inline AllocatorVector(size_t count, const T& val); // Initialise with count copies of val.
@@ -98,6 +99,17 @@ AllocatorVector<T, alignment>::AllocatorVector()
 :	e(0),
 	size_(0),
 	capacity_(0)
+{
+	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
+}
+
+
+template<class T, size_t alignment>
+inline AllocatorVector<T, alignment>::AllocatorVector(const Reference<glare::Allocator>& al)
+:	e(0),
+	size_(0),
+	capacity_(0),
+	allocator(al)
 {
 	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
 }

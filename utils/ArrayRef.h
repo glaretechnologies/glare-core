@@ -8,8 +8,9 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "SmallArray.h"
 #include "SmallVector.h"
-#include "RuntimeCheck.h"
 #include "Vector.h"
+#include "AllocatorVector.h"
+#include "RuntimeCheck.h"
 #include <vector>
 #include <assert.h>
 
@@ -39,6 +40,9 @@ public:
 
 	template <size_t A>
 	inline ArrayRef(const js::Vector<T, A>& a)  : data_(a.data()), len(a.size()) {}
+
+	template <size_t A>
+	inline ArrayRef(const glare::AllocatorVector<T, A>& a)  : data_(a.data()), len(a.size()) {}
 
 	inline const T& operator[] (size_t index) const;
 
