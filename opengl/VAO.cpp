@@ -33,8 +33,7 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 	{
 		const VertexAttrib& attribute = vertex_spec.attributes[i];
 
-		if(attribute.type == GL_UNSIGNED_BYTE || attribute.type == GL_UNSIGNED_SHORT || attribute.type == GL_UNSIGNED_INT ||
-			attribute.type == GL_BYTE || attribute.type == GL_SHORT || attribute.type == GL_INT)
+		if(attribute.integer_attribute)
 		{
 			glVertexAttribIFormat(
 				(uint32)i, // index

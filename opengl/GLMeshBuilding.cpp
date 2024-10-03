@@ -1232,7 +1232,8 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		VertexAttrib joints_attrib;
 		joints_attrib.enabled = joints_attr != NULL;
 		joints_attrib.num_comps = 4;
-		joints_attrib.type = joints_attr ? componentTypeGLEnum(joints_attr->component_type) : GL_FLOAT;
+		joints_attrib.type = joints_attr ? componentTypeGLEnum(joints_attr->component_type) : GL_UNSIGNED_INT;
+		joints_attrib.integer_attribute = true;
 		joints_attrib.normalised = false;
 		joints_attrib.stride = num_bytes_per_vert;
 		joints_attrib.offset = (uint32)(joints_attr ? joints_attr->offset_B : 0);
@@ -1272,6 +1273,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		mat_index_attrib.enabled = mat_index_attr != NULL;
 		mat_index_attrib.num_comps = 1;
 		mat_index_attrib.type = mat_index_attr ? componentTypeGLEnum(mat_index_attr->component_type) : GL_FLOAT;
+		mat_index_attrib.integer_attribute = true;
 		mat_index_attrib.normalised = false;
 		mat_index_attrib.stride = num_bytes_per_vert;
 		mat_index_attrib.offset = (uint32)(mat_index_attr ? mat_index_attr->offset_B : 0);

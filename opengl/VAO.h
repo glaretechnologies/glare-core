@@ -17,7 +17,7 @@ class VBO;
 
 struct VertexAttrib
 {
-	VertexAttrib() : instancing(false) {}
+	VertexAttrib() : instancing(false), integer_attribute(false) {}
 	bool enabled;
 	int num_comps;
 	GLenum type;
@@ -25,6 +25,7 @@ struct VertexAttrib
 	uint32 stride;
 	uint32 offset;
 	bool instancing;
+	bool integer_attribute; // If true, use glVertexAttribIFormat, otherwise glVertexAttribFormat, which converts values to floats.
 
 	Reference<VBO> vbo; // VBO to be bound for this attribute.  Can be left to NULL in which case the usual mesh data vert_vbo will be used.  Only used on Mac.
 
@@ -58,6 +59,11 @@ struct VertexAttrib
 		if(!instancing && other.instancing)
 			return true;
 		if(!other.instancing && instancing)
+			return false;
+
+		if(!integer_attribute && other.integer_attribute)
+			return true;
+		if(!other.integer_attribute && integer_attribute)
 			return false;
 
 		return false;
