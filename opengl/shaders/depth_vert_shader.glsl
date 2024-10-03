@@ -22,7 +22,7 @@ in mat4 instance_matrix_in;
 #endif
 
 #if SKINNING
-in vec4 joint;
+in ivec4 joint;
 in vec4 weight;
 #endif
 
@@ -148,10 +148,10 @@ void main()
 
 #if SKINNING
 	mat4 skin_matrix =
-		weight.x * joint_matrix[joints_base_index + int(joint.x)] +
-		weight.y * joint_matrix[joints_base_index + int(joint.y)] +
-		weight.z * joint_matrix[joints_base_index + int(joint.z)] +
-		weight.w * joint_matrix[joints_base_index + int(joint.w)];
+		weight.x * joint_matrix[joints_base_index + joint.x] +
+		weight.y * joint_matrix[joints_base_index + joint.y] +
+		weight.z * joint_matrix[joints_base_index + joint.z] +
+		weight.w * joint_matrix[joints_base_index + joint.w];
 
 	mat4 model_skin_matrix = model_matrix * skin_matrix;
 
