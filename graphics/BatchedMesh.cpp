@@ -782,8 +782,11 @@ static void getAttributeData(const BatchedMesh& mesh, const BatchedMesh::VertAtt
 }
 
 
+// Encode some raw vertex data for an attribute with meshopt (using meshopt_encodeVertexBuffer),
+// then compress with Zstandard.
 static void encodeAndCompressData(const BatchedMesh& mesh, const js::Vector<uint8>& filtered_data_in, js::Vector<uint8>& compressed_data_out, int compression_level)
 {
+	runtimeCheck(mesh.numVerts() > 0);
 	const size_t attr_size = filtered_data_in.size() / mesh.numVerts();
 	const size_t bound = meshopt_encodeVertexBufferBound(mesh.numVerts(), attr_size);
 	js::Vector<uint8> buf(bound);
@@ -830,6 +833,10 @@ static const bool PRINT_STATS = true;
 void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws glare::Exception on failure
 {
 	//Timer write_timer;
+
+	const size_t num_verts = numVerts();
+	if(num_verts == 0)
+		throw glare::Exception("BatchedMesh::writeToFile(): mesh must have at least one vertex.");
 
 	FileOutStream file(dest_path);
 
@@ -926,7 +933,6 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				if(findAttribute(VertAttribute_Tangent))
 					throw glare::Exception("VertAttribute_Tangent not handled with meshopt encoding.");
 
-				const size_t num_verts = numVerts();
 				js::Vector<uint8> attr_data;
 
 				//--------------------------------------- Compress and write positions ---------------------------------------
@@ -1136,7 +1142,6 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				*/
 				const size_t vert_size = vertexSize(); // in bytes
 				runtimeCheck(vert_size % 4 == 0);
-				const size_t num_verts = vertex_data.size() / vert_size;
 
 				size_t attr_offset = 0;
 				uint8* dst_ptr = filtered_data_vec.data();

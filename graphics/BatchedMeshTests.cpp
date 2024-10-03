@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/PlatformUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
+#include "../utils/TestExceptionUtils.h"
 #include "../maths/vec2.h"
 #include <algorithm>
 #include "../meshoptimizer/src/meshoptimizer.h"
@@ -284,6 +285,27 @@ void BatchedMeshTests::test()
 
 
 	//--------------------------------- Test writing and reading meshes, including with MeshOpt filtering and encoding. ----------------------------
+	// Test a mesh with zero vertices
+	{
+		BatchedMeshRef mesh = makeMesh();
+		mesh->vertex_data.clear();
+
+		const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp678.bmesh";
+
+		BatchedMesh::WriteOptions write_options;
+		write_options.use_compression = true;
+		write_options.use_meshopt = true;
+		testExceptionExpected([&]() { mesh->writeToFile(temp_path, write_options); }); // Should throw excep writing with zero vertices
+	}
+
+	// Test a mesh with zero indices
+	{
+		BatchedMeshRef mesh = makeMesh();
+		mesh->index_data.clear();
+
+		testWritingAndReadingMesh(*mesh);
+	}
+
 	// Test with uint8 indices
 	{
 		BatchedMeshRef mesh = makeMesh();
