@@ -144,7 +144,7 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords)
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += texture(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z));
+		sum += textureGrad(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z), vec2(0.0, 0.0), vec2(0.0, 0.0));
 	}
 	return sum * (1.f / 16.0);
 }
@@ -156,7 +156,7 @@ float sampleStaticDepthMap(mat2 R, vec3 shadow_coords)
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += texture(static_depth_tex, vec3(st.x, st.y, shadow_coords.z));
+		sum += textureGrad(static_depth_tex, vec3(st.x, st.y, shadow_coords.z), vec2(0.0, 0.0), vec2(0.0, 0.0));
 	}
 	return sum * (1.f / 16.0);
 }
