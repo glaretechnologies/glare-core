@@ -34,6 +34,8 @@ using namespace basisu;
 namespace basisu
 {
 
+#if !defined(EMSCRIPTEN)
+
 struct cpu_info
 {
 	cpu_info() { memset(this, 0, sizeof(*this)); }
@@ -122,13 +124,22 @@ static void get_cpuinfo(cpu_info &info)
 	}
 }
 
+
+#endif // end #if !defined(EMSCRIPTEN)
+
 void detect_sse41()
 {
+#if defined(EMSCRIPTEN)
+	// GLARE NEW:
+	// Emscripten/WASM supports SSE4.1, but doesn't support CPUID, so just enable SSE4.1 support.
+	g_cpu_supports_sse41 = true; 
+#else
 	cpu_info info;
 	get_cpuinfo(info);
 
 	// Check for everything from SSE to SSE 4.1
 	g_cpu_supports_sse41 = info.m_has_sse && info.m_has_sse2 && info.m_has_sse3 && info.m_has_ssse3 && info.m_has_sse41;
+#endif
 }
 
 } // namespace basisu

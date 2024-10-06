@@ -10,3 +10,6 @@ ALso did this:
 
 
 And added BASIS_NO_IMAGE_READERS in basisu_enc.cpp (Disabled jpg and png loading support)
+
+Also added some #if defined(EMSCRIPTEN) stuff in 
+C:\code\glare-core\basis_universal\encoder\basisu_kernels_sse.cpp
