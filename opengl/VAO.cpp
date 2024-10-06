@@ -13,6 +13,11 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/ConPrint.h"
 
 
+#ifndef GL_DOUBLE
+#define GL_DOUBLE                         0x140A
+#endif
+
+
 VAO::VAO(const VertexSpec& vertex_spec_)
 :	handle(0),
 	current_bound_vert_vbo(NULL),
@@ -35,6 +40,8 @@ VAO::VAO(const VertexSpec& vertex_spec_)
 
 		if(attribute.integer_attribute)
 		{
+			assert(attribute.type == GL_BYTE || attribute.type == GL_UNSIGNED_BYTE || attribute.type == GL_SHORT || attribute.type == GL_UNSIGNED_SHORT || attribute.type == GL_INT || attribute.type == GL_UNSIGNED_INT);
+
 			glVertexAttribIFormat(
 				(uint32)i, // index
 				attribute.num_comps, // size - "Specifies the number of components per generic vertex attribute"
@@ -108,37 +115,53 @@ VAO::VAO(const Reference<VBO>& vertex_data, const Reference<VBO>& vert_indices_b
 	//conPrint("---------------------");
 	for(size_t i=0; i<vertex_spec.attributes.size(); ++i)
 	{
-		if(vertex_spec.attributes[i].vbo.nonNull()) // If this attribute uses its own vertex buffer, bind it
+		const VertexAttrib& attribute = vertex_spec.attributes[i];
+
+		if(attribute.vbo.nonNull()) // If this attribute uses its own vertex buffer, bind it
 		{
 			if(vertex_data.nonNull())
 				vertex_data->unbind();
-			vertex_spec.attributes[i].vbo->bind();
+			attribute.vbo->bind();
 		}
 
-		//conPrint("attribute " + toString(i) + ", num_comps: " + toString(vertex_spec.attributes[i].num_comps) + ", type: " + toHexString(vertex_spec.attributes[i].type) + ", stride: " + toString(vertex_spec.attributes[i].stride) + ", offset: " + 
-		//	toString((uint64)vertex_spec.attributes[i].offset) + ", enabled: " + boolToString(vertex_spec.attributes[i].enabled));
+		//conPrint("attribute " + toString(i) + ", num_comps: " + toString(attribute.num_comps) + ", type: " + toHexString(attribute.type) + ", integer_attribute: " + toString(attribute.integer_attribute) + ", stride: " + toString(attribute.stride) + ", offset: " + 
+		//	toString((uint64)attribute.offset) + ", enabled: " + boolToString(attribute.enabled));
 
-		glVertexAttribPointer(
-			(uint32)i, // index
-			vertex_spec.attributes[i].num_comps, // size - "Specifies the number of components per generic vertex attribute"
-			vertex_spec.attributes[i].type, // type
-			vertex_spec.attributes[i].normalised, // normalised
-			vertex_spec.attributes[i].stride, // stride
-			(void*)(uint64)vertex_spec.attributes[i].offset // pointer (offset)
-		);
+		if(attribute.integer_attribute)
+		{
+			assert(attribute.type == GL_BYTE || attribute.type == GL_UNSIGNED_BYTE || attribute.type == GL_SHORT || attribute.type == GL_UNSIGNED_SHORT || attribute.type == GL_INT || attribute.type == GL_UNSIGNED_INT);
 
+			glVertexAttribIPointer(
+				(uint32)i, // index
+				attribute.num_comps, // size - "Specifies the number of components per generic vertex attribute"
+				attribute.type, // type
+				attribute.stride, // stride
+				(void*)(uint64)attribute.offset // pointer (offset)
+			);
+		}
+		else
+		{
+			glVertexAttribPointer(
+				(uint32)i, // index
+				attribute.num_comps, // size - "Specifies the number of components per generic vertex attribute"
+				attribute.type, // type
+				attribute.normalised, // normalised
+				attribute.stride, // stride
+				(void*)(uint64)attribute.offset // pointer (offset)
+			);
+		}
 		
-		if(vertex_spec.attributes[i].enabled)
+		if(attribute.enabled)
 			glEnableVertexAttribArray((uint32)i);
 		else
 			glDisableVertexAttribArray((uint32)i);
 
-		if(vertex_spec.attributes[i].instancing)
+		if(attribute.instancing)
 			glVertexAttribDivisor((GLuint)i, 1);
 
-		if(vertex_spec.attributes[i].vbo.nonNull())
+		if(attribute.vbo.nonNull())
 		{
-			vertex_spec.attributes[i].vbo->unbind();
+			attribute.vbo->unbind();
 			if(vertex_data.nonNull())
 				vertex_data->bind();
 		}
@@ -211,6 +234,11 @@ void VertexSpec::checkValid() const
 	for(size_t i=0; i<attributes.size(); ++i)
 	{
 		const VertexAttrib& attr = attributes[i];
+
+		if(attr.type == GL_FLOAT || attr.type == GL_HALF_FLOAT || attr.type == GL_DOUBLE || attr.type == GL_FIXED)
+			assert(attr.normalised == false); // Normalised must be false for floating-point types: https://www.khronos.org/opengl/wiki/Vertex_Specification
+
+
 		size_t data_type_size;
 		if(attr.type == GL_FLOAT)
 			data_type_size = 4;
