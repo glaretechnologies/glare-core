@@ -42,7 +42,22 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh, bool do_m
 
 			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
 
-			testAssert(batched_mesh == *batched_mesh2);
+			if(batched_mesh.index_type == BatchedMesh::ComponentType_UInt8)
+			{
+				testAssert(batched_mesh.vert_attributes == batched_mesh2->vert_attributes);
+				testAssert(batched_mesh.batches == batched_mesh2->batches);
+				//testAssert(batched_mesh.index_type == batched_mesh2->index_type);
+				testAssert(batched_mesh.vertex_data == batched_mesh2->vertex_data);
+				testAssert(batched_mesh.aabb_os == batched_mesh2->aabb_os);
+				
+				js::Vector<uint32> indices_a;
+				js::Vector<uint32> indices_b;
+				batched_mesh.toUInt32Indices(indices_a);
+				batched_mesh2->toUInt32Indices(indices_b);
+				testAssert(indices_a == indices_b);
+			}
+			else
+				testAssert(batched_mesh == *batched_mesh2);
 		}
 
 		// Write with compression, read back from disk, and check unchanged in round trip.
@@ -53,21 +68,32 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh, bool do_m
 
 			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
 
-			testAssert(batched_mesh.index_data.size() == batched_mesh2->index_data.size());
-			if(batched_mesh.index_data != batched_mesh2->index_data)
+			if(batched_mesh.index_type == BatchedMesh::ComponentType_UInt8)
 			{
-				for(size_t i=0; i<batched_mesh.index_data.size(); ++i)
-				{
-					conPrint("");
-					conPrint("batched_mesh .index_data[" + toString(i) + "]: " + toString(batched_mesh.index_data[i]));
-					conPrint("batched_mesh2.index_data[" + toString(i) + "]: " + toString(batched_mesh2->index_data[i]));
-				}
+				js::Vector<uint32> indices_a;
+				js::Vector<uint32> indices_b;
+				batched_mesh.toUInt32Indices(indices_a);
+				batched_mesh2->toUInt32Indices(indices_b);
+				testAssert(indices_a == indices_b);
 			}
-			testAssert(batched_mesh.index_data == batched_mesh2->index_data);
+			else
+			{
+				testAssert(batched_mesh.index_data.size() == batched_mesh2->index_data.size());
+				if(batched_mesh.index_data != batched_mesh2->index_data)
+				{
+					for(size_t i=0; i<batched_mesh.index_data.size(); ++i)
+					{
+						conPrint("");
+						conPrint("batched_mesh .index_data[" + toString(i) + "]: " + toString(batched_mesh.index_data[i]));
+						conPrint("batched_mesh2.index_data[" + toString(i) + "]: " + toString(batched_mesh2->index_data[i]));
+					}
+				}
+				testAssert(batched_mesh.index_data == batched_mesh2->index_data);
+				testAssert(batched_mesh == *batched_mesh2);
+			}
+			
 			testAssert(batched_mesh.vertex_data == batched_mesh2->vertex_data);
 			testAssert(batched_mesh.vert_attributes == batched_mesh2->vert_attributes);
-
-			testAssert(batched_mesh == *batched_mesh2);
 		}
 
 		// Write with compression and MeshOpt, read back from disk, and check unchanged in round trip.
@@ -80,7 +106,7 @@ static void testWritingAndReadingMesh(const BatchedMesh& batched_mesh, bool do_m
 
 			BatchedMeshRef batched_mesh2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
 
-			testAssert(batched_mesh.index_data.size() == batched_mesh2->index_data.size());
+			testAssert(batched_mesh.numIndices() == batched_mesh2->numIndices());
 
 			// With MeshOpt, indices of a triangles can be 'rotated'.  So check the indices are the same up to rotation.
 			js::Vector<uint32> mesh_uint32_indices;
@@ -265,10 +291,13 @@ static BatchedMeshRef makeMesh()
 	mesh->batches[0].num_indices = 9;
 	mesh->batches[0].material_index = 0;
 
-	mesh->index_type = BatchedMesh::ComponentType_UInt8;
-	mesh->index_data.push_back(0);
+	mesh->index_type = BatchedMesh::ComponentType_UInt16;
+	const uint16 indices[] = { 0, 1, 2 };
+	mesh->index_data.resize(sizeof(indices));
+	std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
+	/*mesh->index_data.push_back(0);
 	mesh->index_data.push_back(1);
-	mesh->index_data.push_back(2);
+	mesh->index_data.push_back(2);*/
 
 	const float vert_positions[] = { 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f };
 	mesh->vertex_data.resize(sizeof(vert_positions));
@@ -309,6 +338,11 @@ void BatchedMeshTests::test()
 	// Test with uint8 indices
 	{
 		BatchedMeshRef mesh = makeMesh();
+
+		mesh->index_type = BatchedMesh::ComponentType_UInt8;
+		const uint8 indices[] = { 0, 1, 2 };
+		mesh->index_data.resize(sizeof(indices));
+		std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
 
 		testWritingAndReadingMesh(*mesh);
 	}

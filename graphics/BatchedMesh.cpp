@@ -37,6 +37,22 @@ BatchedMesh::~BatchedMesh()
 }
 
 
+std::string BatchedMesh::componentTypeString(BatchedMesh::ComponentType t)
+{
+	switch(t)
+	{
+	case BatchedMesh::ComponentType_Float:			return "ComponentType_Float";
+	case BatchedMesh::ComponentType_Half:			return "ComponentType_Half";
+	case BatchedMesh::ComponentType_UInt8:			return "ComponentType_UInt8";
+	case BatchedMesh::ComponentType_UInt16:			return "ComponentType_UInt16";
+	case BatchedMesh::ComponentType_UInt32:			return "ComponentType_UInt32";
+	case BatchedMesh::ComponentType_PackedNormal:	return "ComponentType_PackedNormal";
+	};
+	assert(0);
+	return "";
+}
+
+
 struct BMeshTakeFirstElement
 {
 	inline uint32 operator() (const std::pair<uint32, uint32>& pair) const { return pair.first; }
@@ -461,17 +477,9 @@ void BatchedMesh::setIndexDataFromIndices(const js::Vector<uint32, 16>& uint32_i
 	// Build index data
 	const size_t num_indices = uint32_indices.size();
 
-	if(num_verts < 128)
-	{
-		this->index_type = ComponentType_UInt8;
-
-		index_data.resize(num_indices * sizeof(uint8));
-
-		uint8* const dest_indices = index_data.data();
-		for(size_t i=0; i<num_indices; ++i)
-			dest_indices[i] = (uint8)uint32_indices[i];
-	}
-	else if(num_verts < 32768)
+	// Don't use uint8s for indices as it may be slow on some platforms: 
+	// https://github.com/microsoft/angle/wiki/Getting-Good-Performance-From-ANGLE#--avoid-triggering-buffer-format-conversion
+	if(num_verts < 32768)
 	{
 		this->index_type = ComponentType_UInt16;
 
@@ -1293,16 +1301,22 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 			throw glare::Exception("Invalid index type value.");
 
 		mesh_out.index_type = (ComponentType)header.index_type;
+		// Use uint16 instead of uint8 indices, uint8 indices may be slow on some platforms.
+		if(mesh_out.index_type == ComponentType_UInt8)
+			mesh_out.index_type = ComponentType_UInt16;
 
 		// Check total index data size is a multiple of each index size.
-		if(header.index_data_size_B % componentTypeSize(mesh_out.index_type) != 0)
+		if(header.index_data_size_B % componentTypeSize((ComponentType)header.index_type) != 0)
 			throw glare::Exception("Invalid index_data_size_B.");
+
+		const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
 
 		const uint32 MAX_INDEX_DATA_SIZE = 1 << 29; // 512 MB
 		if(header.index_data_size_B > MAX_INDEX_DATA_SIZE)
 			throw glare::Exception("Invalid index_data_size_B (too large).");
 
-		mesh_out.index_data.resize(header.index_data_size_B);
+
+		mesh_out.index_data.resize(num_indices * componentTypeSize(mesh_out.index_type));
 
 		// Check total vert data size is a multiple of each vertex size.  Note that vertexSize() should be > 0 since we have set mesh_out.vert_attributes and checked there is at least one attribute.
 		if(header.vertex_data_size_B % mesh_out.vertexSize() != 0)
@@ -1329,21 +1343,10 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 					readAndDecompressData(file, MAX_INDEX_DATA_SIZE, decompressed);
 
 					//--------------------------------------- Decode index buffer with meshopt ---------------------------------------
-					const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
-					if(header.index_type == ComponentType_UInt8)
+					// Note that we are converting uint8 indices to uint16 indices.
+					if(header.index_type == ComponentType_UInt8 || header.index_type == ComponentType_UInt16)
 					{
-						// Decode to uint32 indices, then convert to uint8.
-						glare::AllocatorVector<uint32> uint32_indices(num_indices, mem_allocator);
-						if(meshopt_decodeIndexBuffer(/*dest=*/uint32_indices.data(), /*index count=*/num_indices, /*index size=*/sizeof(uint32), decompressed.data(), decompressed.size()) != 0)
-							throw glare::Exception("meshopt_decodeIndexBuffer failed.");
-
-						runtimeCheck(batched_mesh->index_data.size() == num_indices);
-						uint8* const dest_indices = batched_mesh->index_data.data();
-						for(size_t i=0; i<num_indices; ++i)
-							dest_indices[i] = (uint8)uint32_indices[i];
-					}
-					else if(header.index_type == ComponentType_UInt16)
-					{
+						assert(mesh_out.index_type == ComponentType_UInt16);
 						runtimeCheck(batched_mesh->index_data.size() == num_indices * sizeof(uint16));
 						if(meshopt_decodeIndexBuffer(/*dest=*/batched_mesh->index_data.data(), /*index count=*/num_indices, /*index size=*/sizeof(uint16), decompressed.data(), decompressed.size()) != 0)
 							throw glare::Exception("meshopt_decodeIndexBuffer failed.");
@@ -1509,12 +1512,11 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 					timer.pause();
 
 					// Unfilter indices, place in mesh_out.index_data.
-					const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
 					if(header.index_type == ComponentType_UInt8)
 					{
 						int32 last_index = 0;
 						const int8* filtered_index_data_int8 = (const int8*)plaintext.data();
-						uint8* index_data = (uint8*)mesh_out.index_data.data();
+						uint16* index_data = (uint16*)mesh_out.index_data.data(); // We are converting uint8 indices to uint16
 						for(size_t i=0; i<num_indices; ++i)
 						{
 							int8 index = (int8)last_index + filtered_index_data_int8[i];
@@ -1547,7 +1549,7 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 						}
 					}
 					else
-						throw glare::Exception("Invalid index component type " + toString((int)header.index_type));
+						throw glare::Exception("Invalid index component type.");
 
 					file.advanceReadIndex(index_data_compressed_size);
 				}
@@ -1610,7 +1612,21 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 		}
 		else // else if !compression:
 		{
-			file.readData(mesh_out.index_data.data(),  mesh_out.index_data.dataSizeBytes());
+			if(header.index_type == ComponentType_UInt8)
+			{
+				// Read uint8s, convert to uint16s.
+				js::Vector<uint8> temp_data(num_indices);
+				file.readData(temp_data.data(), num_indices);
+
+				uint16* const dest = (uint16*)mesh_out.index_data.data();
+				for(size_t i=0; i<num_indices; ++i)
+					dest[i] = temp_data[i];
+			}
+			else
+			{
+				file.readData(mesh_out.index_data.data(),  mesh_out.index_data.dataSizeBytes());
+			}
+
 			file.readData(mesh_out.vertex_data.data(), mesh_out.vertex_data.dataSizeBytes());
 		}
 

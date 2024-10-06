@@ -129,6 +129,7 @@ public:
 	};
 
 	inline static size_t componentTypeSize(ComponentType t); // In bytes.
+	static std::string componentTypeString(ComponentType t);
 	inline static size_t vertAttributeTypeNumComponents(VertAttributeType t);
 	inline static size_t vertAttributeSize(const VertAttribute& attr); // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
