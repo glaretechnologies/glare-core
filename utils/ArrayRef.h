@@ -166,7 +166,7 @@ MutableArrayRef<T> MutableArrayRef<T>::getSliceChecked(size_t slice_offset, size
 {
 	runtimeCheck(
 		!Maths::unsignedIntAdditionWraps(slice_offset, slice_len) && 
-		((slice_offset + slice_len) <= len)
+		((slice_offset + slice_len) <= ArrayRef<T>::len)
 	);
 	return MutableArrayRef<T>(data() + slice_offset, slice_len);
 }
