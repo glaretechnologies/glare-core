@@ -711,6 +711,7 @@ struct MaterialCommonUniforms
 	Vec4f sun_spec_rad_times_solid_angle; // spectral rad * 1.0e-9 * solid angle
 	Vec4f sun_and_sky_av_spec_rad; // spectral rad * 1.0e-9
 	Vec4f air_scattering_coeffs;
+	Vec4f mat_common_campos_ws;
 	float near_clip_dist;
 	float far_clip_dist;
 	float time;

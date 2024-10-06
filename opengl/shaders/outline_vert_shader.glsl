@@ -3,7 +3,7 @@ in vec3 position_in;
 in vec3 normal_in;
 
 #if SKINNING
-in ivec4 joint;
+in uvec4 joint;
 in vec4 weight;
 #endif
 
@@ -24,10 +24,10 @@ void main()
 #if SKINNING
 	// See https://www.khronos.org/files/gltf20-reference-guide.pdf
 	mat4 skin_matrix =
-		weight.x * joint_matrix[joint.x] +
-		weight.y * joint_matrix[joint.y] +
-		weight.z * joint_matrix[joint.z] +
-		weight.w * joint_matrix[joint.w];
+		weight.x * joint_matrix[int(joint.x)] +
+		weight.y * joint_matrix[int(joint.y)] +
+		weight.z * joint_matrix[int(joint.z)] +
+		weight.w * joint_matrix[int(joint.w)];
 
 	gl_Position = proj_matrix * (view_matrix * (model_matrix * (skin_matrix * vec4(position_in, 1.0))));
 #else

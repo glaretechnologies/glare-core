@@ -154,14 +154,14 @@ class DebugGroup
 public:
 	DebugGroup(const char* name)
 	{
-#if BUILD_TESTS
+#if BUILD_TESTS && !defined(EMSCRIPTEN)
 		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, /*id=*/0, /*length=*/(GLsizei)std::strlen(name), name);
 #endif
 	}
 
 	~DebugGroup()
 	{
-#if BUILD_TESTS
+#if BUILD_TESTS && !defined(EMSCRIPTEN)
 		glPopDebugGroup();
 #endif
 	}
@@ -2001,6 +2001,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 #if defined(EMSCRIPTEN)
 		preprocessor_defines += "precision mediump float;\n"; // WebGL needs this stuff.
 		preprocessor_defines += "precision mediump sampler2DShadow;\n";
+		preprocessor_defines += "precision mediump sampler2DArray;\n";
 #endif
 
 		int use_glsl_version = 330;
@@ -6260,6 +6261,7 @@ void OpenGLEngine::draw()
 	common_uniforms.sun_spec_rad_times_solid_angle = this->sun_spec_rad_times_solid_angle * 1.0e-9f;
 	common_uniforms.sun_and_sky_av_spec_rad = this->sun_and_sky_av_spec_rad * 1.0e-9f;
 	common_uniforms.air_scattering_coeffs = this->air_scattering_coeffs;
+	common_uniforms.mat_common_campos_ws = campos_ws;
 	common_uniforms.near_clip_dist = this->current_scene->near_draw_dist;
 	common_uniforms.far_clip_dist = this->current_scene->max_draw_dist;
 	common_uniforms.time = this->current_time;
@@ -6297,7 +6299,7 @@ void OpenGLEngine::draw()
 
 
 #if defined(EMSCRIPTEN)
-	const OpenGLTexture::Format col_buffer_format = EXT_color_buffer_float_support ? OpenGLTexture::Format_RGBA_Linear_Half : OpenGLTexture::Format_RGBA_Linear_Uint8;
+	const OpenGLTextureFormat col_buffer_format = EXT_color_buffer_float_support ? OpenGLTextureFormat::Format_RGBA_Linear_Half : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
 	const bool col_buf_is_floating_point = EXT_color_buffer_float_support;
 #else
 	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
@@ -6370,7 +6372,7 @@ void OpenGLEngine::draw()
 
 			const OpenGLTextureFormat transparent_accum_format = col_buffer_format;
 #if defined(EMSCRIPTEN)
-			const OpenGLTextureFormat av_transmittance_format = OpenGLTexture::Format_RGBA_Linear_Uint8; // Shouldn't be used.
+			const OpenGLTextureFormat av_transmittance_format = OpenGLTextureFormat::Format_RGBA_Linear_Uint8; // Shouldn't be used as we don't do order-independent transparency in Emscripten.
 #else
 			const OpenGLTextureFormat av_transmittance_format = OpenGLTextureFormat::Format_Greyscale_Half;
 #endif

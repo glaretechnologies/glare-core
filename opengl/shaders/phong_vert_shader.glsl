@@ -13,7 +13,7 @@ in mat4 instance_matrix_in;
 #endif
 
 #if SKINNING
-in ivec4 joint;
+in uvec4 joint;
 in vec4 weight;
 #endif
 
@@ -22,11 +22,11 @@ in vec4 tangent_in;
 #endif
 
 #if COMBINED
-in int combined_mat_index_in;
+in uint combined_mat_index_in;
 #endif
 
 out vec3 normal_ws; // world space
-out vec3 pos_cs;
+//out vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
 out vec3 pos_os;
 #endif
@@ -35,7 +35,6 @@ out vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
 out vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
-out vec3 cam_to_pos_ws;
 
 #if VERT_COLOURS
 out vec3 vert_colour;
@@ -151,7 +150,7 @@ void main()
 {
 
 #if COMBINED
-	combined_mat_index = combined_mat_index_in;
+	combined_mat_index = int(combined_mat_index_in);
 #endif
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -183,8 +182,7 @@ void main()
 	vec4 pos_cs_vec4 = view_matrix * vec4(pos_ws, 1.0);
 	gl_Position = proj_matrix * pos_cs_vec4;
 
-	cam_to_pos_ws = pos_ws - campos_ws.xyz;
-	pos_cs = pos_cs_vec4.xyz;
+	//pos_cs = pos_cs_vec4.xyz;
 
 #if NUM_DEPTH_TEXTURES > 0
 	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
@@ -198,22 +196,20 @@ void main()
 
 #else // else if !INSTANCE_MATRICES:
 
-	mat4 model_skin_matrix;
-	mat4 normal_skin_matrix;
 #if SKINNING
 	// See https://www.khronos.org/files/gltf20-reference-guide.pdf
 	mat4 skin_matrix =
-		weight.x * joint_matrix[joints_base_index + joint.x] +
-		weight.y * joint_matrix[joints_base_index + joint.y] +
-		weight.z * joint_matrix[joints_base_index + joint.z] +
-		weight.w * joint_matrix[joints_base_index + joint.w];
+		weight.x * joint_matrix[joints_base_index + int(joint.x)] +
+		weight.y * joint_matrix[joints_base_index + int(joint.y)] +
+		weight.z * joint_matrix[joints_base_index + int(joint.z)] +
+		weight.w * joint_matrix[joints_base_index + int(joint.w)];
 
 
-	model_skin_matrix = model_matrix * skin_matrix;
-	normal_skin_matrix = normal_matrix * skin_matrix;// * transpose(skin_matrix);
+	mat4 model_skin_matrix = model_matrix * skin_matrix;
+	mat4 normal_skin_matrix = normal_matrix * skin_matrix;// * transpose(skin_matrix);
 #else
-	model_skin_matrix = model_matrix;
-	normal_skin_matrix = normal_matrix;
+	mat4 model_skin_matrix = model_matrix;
+	mat4 normal_skin_matrix = normal_matrix;
 #endif
 
 	vec3 final_pos_os = position_in;
@@ -237,10 +233,8 @@ void main()
 	pos_os = final_pos_os;
 #endif
 
-	cam_to_pos_ws = pos_ws - campos_ws.xyz;
-
 	vec4 pos_cs_vec4 = view_matrix * vec4(pos_ws, 1.0);
-	pos_cs = pos_cs_vec4.xyz;
+	//pos_cs = pos_cs_vec4.xyz;
 
 	gl_Position = proj_matrix * pos_cs_vec4;
 

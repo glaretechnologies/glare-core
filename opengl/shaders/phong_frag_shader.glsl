@@ -1,6 +1,6 @@
 
 in vec3 normal_ws;
-in vec3 pos_cs;
+//in vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
 in vec3 pos_os;
 #endif
@@ -9,7 +9,6 @@ in vec2 texture_coords;
 #if NUM_DEPTH_TEXTURES > 0
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
-in vec3 cam_to_pos_ws;
 #if VERT_COLOURS
 in vec3 vert_colour;
 #endif
@@ -57,8 +56,8 @@ uniform sampler2DArray combined_array_tex;
 
 
 
-uniform mediump sampler2DShadow dynamic_depth_tex;
-uniform mediump sampler2DShadow static_depth_tex;
+uniform sampler2DShadow dynamic_depth_tex;
+uniform sampler2DShadow static_depth_tex;
 uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
@@ -273,7 +272,10 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias)
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += texture(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias));
+		// Use textureGrad to specify explicit texture coordinate derivatives.
+		// Without this, the ANGLE D3D11 backend will flatten the branches and execute all depth map lookups, so that it can calculate derivatives.
+		// We don't actually need these derivatives since we are just doing bilinear filtering with no mipmaps.
+		sum += textureGrad(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), vec2(0.0, 0.0), vec2(0.0, 0.0));
 	}
 	return sum * (1.f / 16.f);
 }
@@ -286,7 +288,7 @@ float sampleStaticDepthMap(mat2 R, vec3 shadow_coords, float bias)
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += texture(static_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias));
+		sum += textureGrad(static_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), vec2(0.0, 0.0), vec2(0.0, 0.0));
 	}
 	return sum * (1.f / 16.f);
 }
@@ -581,6 +583,8 @@ void main()
 	// snow_frac = 0;
 #endif
 
+	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
+	vec3 cam_to_pos_ws = pos_ws - mat_common_campos_ws.xyz;
 
 #if DECAL
 	vec4 decal_col;
@@ -628,7 +632,9 @@ void main()
 	float sun_light_cos_theta_factor = max(0.f, light_cos_theta);
 #endif
 
-	vec3 frag_to_cam_ws = normalize(-cam_to_pos_ws);
+	float cam_to_pos_dist = length(cam_to_pos_ws);
+	vec3 unit_cam_to_pos_ws = cam_to_pos_ws / cam_to_pos_dist;
+	vec3 frag_to_cam_ws = -unit_cam_to_pos_ws;
 
 	// We will get two diffuse colours - one for the sun contribution, and one for reflected light from the same hemisphere the camera is in.
 	// The sun contribution diffuse colour may use the transmission texture.  The reflected light colour may be the front or backface albedo texture.
@@ -792,8 +798,6 @@ void main()
 		sun_diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
 	}
 #endif
-
-	vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
 
 	// Flip normal into hemisphere camera is in.
 	if(dot(unit_normal_ws, cam_to_pos_ws) > 0.0)
@@ -1178,8 +1182,7 @@ void main()
 
 #if DEPTH_FOG
 	// Blend with background/fog colour
-	float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
-	vec3 transmission = exp(air_scattering_coeffs.xyz * -dist_);
+	vec3 transmission = exp(air_scattering_coeffs.xyz * -cam_to_pos_dist);
 
 	col.xyz *= transmission;
 	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission); // Add in-scattered sky+sunlight
