@@ -159,8 +159,10 @@ public:
 		ScopeProfiler _scope("BinningBuildSubtreeTask", (int)thread_index);
 
 		// Flush denormals to zero.  This is important otherwise w values storing low integer values get interpreted as denormals, which drastically reduces performance.
+#if !defined(EMSCRIPTEN)
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#endif
 
 		// Allocate a new chunk if needed.
 		if(builder.per_thread_temp_info[thread_index].result_chunk == NULL)
@@ -561,8 +563,10 @@ public:
 			return;
 
 		// Flush denormals to zero.  This is important otherwise w values storing low integer values get interpreted as denormals, which drastically reduces performance.
+#if !defined(EMSCRIPTEN)
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#endif
 
 		const js::AABBox centroid_aabb = this->centroid_aabb_;
 		const BinningOb* const objects = objects_->data();

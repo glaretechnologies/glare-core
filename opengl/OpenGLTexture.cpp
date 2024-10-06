@@ -858,8 +858,10 @@ void OpenGLTexture::buildMipMaps()
 
 void OpenGLTexture::setDebugName(const std::string& name)
 {
+#if !defined(EMSCRIPTEN)
 	// See https://www.khronos.org/opengl/wiki/Debug_Output#Object_names
 	glObjectLabel(GL_TEXTURE, texture_handle, (GLsizei)name.size(), name.c_str());
+#endif
 }
 
 

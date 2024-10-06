@@ -50,16 +50,20 @@ struct SetFlushDenormsMode
 {
 	SetFlushDenormsMode()
 	{
+#if !defined(EMSCRIPTEN)
 		this->old_flush_zero_mode     = _MM_GET_FLUSH_ZERO_MODE();
 		this->old_denormals_zero_mode = _MM_GET_DENORMALS_ZERO_MODE();
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#endif
 	}
 	~SetFlushDenormsMode()
 	{
+#if !defined(EMSCRIPTEN)
 		// Restore old mode
 		_MM_SET_FLUSH_ZERO_MODE(old_flush_zero_mode);
 		_MM_SET_DENORMALS_ZERO_MODE(old_denormals_zero_mode);
+#endif
 	}
 
 	unsigned int old_flush_zero_mode, old_denormals_zero_mode;
