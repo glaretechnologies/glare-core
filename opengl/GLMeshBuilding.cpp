@@ -1047,7 +1047,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildIndigoMesh(VertexBufferAllo
 }
 
 
-inline static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
+static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 {
 	switch(t)
 	{
@@ -1272,7 +1272,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		VertexAttrib mat_index_attrib;
 		mat_index_attrib.enabled = mat_index_attr != NULL;
 		mat_index_attrib.num_comps = 1;
-		mat_index_attrib.type = mat_index_attr ? componentTypeGLEnum(mat_index_attr->component_type) : GL_FLOAT;
+		mat_index_attrib.type = mat_index_attr ? componentTypeGLEnum(mat_index_attr->component_type) : GL_UNSIGNED_INT;
 		mat_index_attrib.integer_attribute = true;
 		mat_index_attrib.normalised = false;
 		mat_index_attrib.stride = num_bytes_per_vert;
