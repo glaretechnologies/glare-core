@@ -22,6 +22,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../graphics/PerlinNoise.h"
 #include "../graphics/EXRDecoder.h"
 #include "../graphics/imformatdecoder.h"
+#include "../graphics/CompressedImage.h"
 #include "../indigo/TextureServer.h"
 #include "../utils/TestUtils.h"
 #include "../maths/vec3.h"
@@ -10021,9 +10022,17 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 		assert(params.use_mipmaps == false);
 	}
 
-	// Process texture data
-	const bool use_compression = params.allow_compression && this->DXTTextureCompressionSupportedAndEnabled() && params.use_mipmaps && OpenGLTexture::areTextureDimensionsValidForCompression(map2d); // The non mip-mapping code-path doesn't allow compression
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), this->main_task_manager, use_compression, params.use_mipmaps);
+	// Build or get texture data
+	Reference<TextureData> texture_data;
+	if(const CompressedImage* compressed_img = dynamic_cast<const CompressedImage*>(&map2d))
+	{
+		texture_data = compressed_img->texture_data; // If the image map just holds already compressed data, use it.
+	}
+	else
+	{
+		const bool use_compression = params.allow_compression && this->DXTTextureCompressionSupportedAndEnabled() && params.use_mipmaps && OpenGLTexture::areTextureDimensionsValidForCompression(map2d); // The non mip-mapping code-path doesn't allow compression
+		texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), this->main_task_manager, use_compression, params.use_mipmaps);
+	}
 
 	OpenGLTextureLoadingProgress loading_progress;
 	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params, texture_data, loading_progress);
