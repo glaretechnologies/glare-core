@@ -54,10 +54,6 @@ Copyright Glare Technologies Limited 2023 -
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT				0x84FF
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT			0x8E8F
 
-// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
-#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT				0x83F0
-#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT			0x83F3
-
 // https://developer.download.nvidia.com/opengl/specs/GL_NVX_gpu_memory_info.txt
 #define GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX			0x9047
 #define GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX		0x9048
@@ -1710,6 +1706,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	}
 
 	this->texture_compression_s3tc_support = false;
+	this->texture_compression_ETC_support = false;
 	this->GL_ARB_bindless_texture_support = false;
 	this->GL_ARB_clip_control_support = false;
 	this->GL_ARB_shader_storage_buffer_object_support = false;
@@ -1731,6 +1728,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 #if EMSCRIPTEN
 		if(stringEqual(ext, "WEBGL_compressed_texture_s3tc")) this->texture_compression_s3tc_support = true;
+		if(stringEqual(ext, "WEBGL_compressed_texture_etc")) this->texture_compression_ETC_support = true; // See https://registry.khronos.org/webgl/specs/latest/2.0/#5.37, ("No ETC2 and EAC compressed texture formats")
 		if(stringEqual(ext, "EXT_color_buffer_float")) this->EXT_color_buffer_float_support = true;
 #endif
 	}
@@ -10002,7 +10000,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 
 
 // If the texture identified by key has been loaded into OpenGL, then return the OpenGL texture.
-// Otherwise load the texure from map2d into OpenGL immediately.
+// Otherwise load the texture from map2d into OpenGL immediately.
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, const TextureParams& params)
 {
 	auto res = this->opengl_textures.find(key);
@@ -10024,7 +10022,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 	}
 
 	// Process texture data
-	const bool use_compression = params.allow_compression && this->textureCompressionSupportedAndEnabled() && params.use_mipmaps && OpenGLTexture::areTextureDimensionsValidForCompression(map2d); // The non mip-mapping code-path doesn't allow compression
+	const bool use_compression = params.allow_compression && this->DXTTextureCompressionSupportedAndEnabled() && params.use_mipmaps && OpenGLTexture::areTextureDimensionsValidForCompression(map2d); // The non mip-mapping code-path doesn't allow compression
 	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), this->main_task_manager, use_compression, params.use_mipmaps);
 
 	OpenGLTextureLoadingProgress loading_progress;
@@ -10507,6 +10505,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "OpenGL version: " + opengl_version + "\n";
 	s += "GLSL version: " + glsl_version + "\n";
 	s += "texture s3tc support: " + boolToString(texture_compression_s3tc_support) + "\n";
+	s += "texture ETC support: " + boolToString(texture_compression_ETC_support) + "\n";
 	s += "GL_KHR_parallel_shader_compile: " + boolToString(parallel_shader_compile_support) + "\n";
 #if EMSCRIPTEN
 	s += "EXT_color_buffer_float_support: " + boolToString(EXT_color_buffer_float_support) + "\n";

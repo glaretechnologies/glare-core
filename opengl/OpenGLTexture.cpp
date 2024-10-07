@@ -150,7 +150,13 @@ OpenGLTexture::~OpenGLTexture()
 bool OpenGLTexture::hasAlpha() const
 {
 	//assert(texture_handle != 0);
-	return format == Format_SRGBA_Uint8 || format == Format_RGBA_Linear_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGBA_Uint8;
+	return 
+		format == Format_SRGBA_Uint8 ||
+		format == Format_RGBA_Linear_Uint8 ||
+		format == Format_Compressed_DXT_SRGBA_Uint8 ||
+		format == Format_Compressed_DXT_RGBA_Uint8 ||
+		format == Format_Compressed_ETC2_RGBA_Uint8 ||
+		format == Format_Compressed_ETC2_SRGBA_Uint8;
 }
 
 
@@ -220,28 +226,48 @@ void OpenGLTexture::getGLFormat(OpenGLTextureFormat format_, GLint& internal_for
 		gl_format = GL_DEPTH_COMPONENT;
 		type = GL_UNSIGNED_SHORT;
 		break;
-	case Format_Compressed_RGB_Uint8:
+	case Format_Compressed_DXT_RGB_Uint8:
 		internal_format = GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT;
 		gl_format = GL_RGB;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case Format_Compressed_RGBA_Uint8:
+	case Format_Compressed_DXT_RGBA_Uint8:
 		internal_format = GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case Format_Compressed_SRGB_Uint8:
+	case Format_Compressed_DXT_SRGB_Uint8:
 		internal_format = GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT;
 		gl_format = GL_RGB;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case Format_Compressed_SRGBA_Uint8:
+	case Format_Compressed_DXT_SRGBA_Uint8:
 		internal_format = GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT;
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
 	case Format_Compressed_BC6:
 		internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+		gl_format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
+		break;
+	case Format_Compressed_ETC2_RGB_Uint8:
+		internal_format = GL_COMPRESSED_RGB8_ETC2;
+		gl_format = GL_RGB;
+		type = GL_UNSIGNED_BYTE;
+		break;
+	case Format_Compressed_ETC2_RGBA_Uint8:
+		internal_format = GL_COMPRESSED_RGBA8_ETC2_EAC;
+		gl_format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
+		break;
+	case Format_Compressed_ETC2_SRGB_Uint8:
+		internal_format = GL_COMPRESSED_SRGB8_ETC2;
+		gl_format = GL_RGB;
+		type = GL_UNSIGNED_BYTE;
+		break;
+	case Format_Compressed_ETC2_SRGBA_Uint8:
+		internal_format = GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC;
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
@@ -492,7 +518,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 	assert(yres > 0);
 
 #if EMSCRIPTEN
-	if(format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8 || format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_BC6) // if a compressed format:
+	if(isCompressed(format))
 		if((xres % 4 != 0) || (yres % 4 != 0))
 			throw glare::Exception("Compressed texture dimensions must be multiples of 4 in WebGL");
 #endif
@@ -596,7 +622,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 	if(tex_data.data() != NULL)
 	{
-		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
+		if(isCompressed(format))
 		{
 			// NOTE: xres and yres don't have to be a multiple of 4, as long as we are setting the whole MIP level: See https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
 			// "CompressedTexSubImage2D will result in an INVALID_OPERATION error only if one of the following conditions occurs:
@@ -900,7 +926,7 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t 
 		assert(level_W == this->xres && level_H == this->yres);
 	}
 
-	if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8 || format == Format_Compressed_BC6)
+	if(isCompressed(format))
 	{
 		glCompressedTexSubImage2D(
 			GL_TEXTURE_2D,

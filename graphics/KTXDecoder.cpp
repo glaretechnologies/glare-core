@@ -137,19 +137,19 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, gla
 		OpenGLTextureFormat format;
 		if(glInternalFormat == GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_RGB_Uint8;
+			format = OpenGLTextureFormat::Format_Compressed_DXT_RGB_Uint8;
 		}
 		else if(glInternalFormat == GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_RGBA_Uint8;
+			format = OpenGLTextureFormat::Format_Compressed_DXT_RGBA_Uint8;
 		}
 		else if(glInternalFormat == GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_SRGB_Uint8;
+			format = OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8;
 		}
 		else if(glInternalFormat == GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8;
+			format = OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8;
 		}
 		else if(glInternalFormat == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
 		{
@@ -296,11 +296,11 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 		}
 		else if(vkFormat == VK_FORMAT_BC1_RGB_UNORM_BLOCK) // Aka DXT1 (DXT without alpha)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_SRGB_Uint8;
+			format = OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8;
 		}
 		else if(vkFormat == VK_FORMAT_BC3_UNORM_BLOCK) // Aka DXT5 (DXT with alpha)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8;
+			format = OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8;
 		}
 		else
 			throw glare::Exception("Unhandled vkFormat " + toString(vkFormat) + ".");
@@ -838,7 +838,7 @@ void KTXDecoder::test()
 			testAssert(im->getMapHeight() == 512);
 			testAssert(im.isType<CompressedImage>());
 			CompressedImage* com_im = im.downcastToPtr<CompressedImage>();
-			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_SRGB_Uint8);
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
 			testAssert(com_im->texture_data->level_offsets.size() == 10);
 			testAssert(com_im->texture_data->D == 1);
 			testAssert(com_im->texture_data->num_array_images == 0);

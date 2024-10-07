@@ -932,7 +932,7 @@ public:
 
 	Reference<TextureServer>& getTextureServer() { return texture_server; } // May be NULL
 
-	bool textureCompressionSupportedAndEnabled() const { return texture_compression_s3tc_support && settings.compress_textures; }
+	bool DXTTextureCompressionSupportedAndEnabled() const { return texture_compression_s3tc_support && settings.compress_textures; }
 
 	TextureAllocator& getTextureAllocator() { return texture_allocator; }
 	//------------------------------- End texture loading ------------------------------------
@@ -1341,6 +1341,7 @@ public:
 	std::string glsl_version;
 
 	bool texture_compression_s3tc_support;
+	bool texture_compression_ETC_support;
 	bool GL_ARB_bindless_texture_support;
 	bool GL_ARB_clip_control_support;
 	bool GL_ARB_shader_storage_buffer_object_support;

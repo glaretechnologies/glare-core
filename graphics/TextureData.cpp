@@ -8,11 +8,17 @@ Copyright Glare Technologies Limited 2024 -
 
 bool isCompressed(OpenGLTextureFormat format)
 {
-	return format == Format_Compressed_RGB_Uint8 ||
-		format == Format_Compressed_RGBA_Uint8 ||
-		format == Format_Compressed_SRGB_Uint8 ||
-		format == Format_Compressed_SRGBA_Uint8 ||
-		format == Format_Compressed_BC6;
+	return 
+		format == Format_Compressed_DXT_RGB_Uint8 ||
+		format == Format_Compressed_DXT_RGBA_Uint8 ||
+		format == Format_Compressed_DXT_SRGB_Uint8 ||
+		format == Format_Compressed_DXT_SRGBA_Uint8 ||
+		format == Format_Compressed_BC6 ||
+		format == Format_Compressed_ETC2_RGB_Uint8 ||
+		format == Format_Compressed_ETC2_RGBA_Uint8 ||
+		format == Format_Compressed_ETC2_SRGB_Uint8 ||
+		format == Format_Compressed_ETC2_SRGBA_Uint8;
+
 };
 
 
@@ -20,11 +26,15 @@ size_t bytesPerBlock(OpenGLTextureFormat format)
 {
 	switch(format)
 	{
-		case Format_Compressed_RGB_Uint8: return 8;
-		case Format_Compressed_RGBA_Uint8: return 16;
-		case Format_Compressed_SRGB_Uint8: return 8;
-		case Format_Compressed_SRGBA_Uint8: return 16;
+		case Format_Compressed_DXT_RGB_Uint8: return 8;
+		case Format_Compressed_DXT_RGBA_Uint8: return 16;
+		case Format_Compressed_DXT_SRGB_Uint8: return 8;
+		case Format_Compressed_DXT_SRGBA_Uint8: return 16;
 		case Format_Compressed_BC6: return 16;
+		case Format_Compressed_ETC2_RGB_Uint8: return 8;
+		case Format_Compressed_ETC2_RGBA_Uint8: return 16;
+		case Format_Compressed_ETC2_SRGB_Uint8: return 8;
+		case Format_Compressed_ETC2_SRGBA_Uint8: return 16;
 		default:
 			assert(0);
 			return 1;
@@ -48,11 +58,15 @@ size_t TextureData::numChannels() const
 		case Format_RGBA_Linear_Half: return 4;
 		case Format_Depth_Float: return 1;
 		case Format_Depth_Uint16: return 1;
-		case Format_Compressed_RGB_Uint8: return 3;
-		case Format_Compressed_RGBA_Uint8: return 4;
-		case Format_Compressed_SRGB_Uint8: return 3;
-		case Format_Compressed_SRGBA_Uint8: return 4;
+		case Format_Compressed_DXT_RGB_Uint8: return 3;
+		case Format_Compressed_DXT_RGBA_Uint8: return 4;
+		case Format_Compressed_DXT_SRGB_Uint8: return 3;
+		case Format_Compressed_DXT_SRGBA_Uint8: return 4;
 		case Format_Compressed_BC6: return 3;
+		case Format_Compressed_ETC2_RGB_Uint8: return 3;
+		case Format_Compressed_ETC2_RGBA_Uint8: return 4;
+		case Format_Compressed_ETC2_SRGB_Uint8: return 3;
+		case Format_Compressed_ETC2_SRGBA_Uint8: return 4;
 		default:
 			assert(0);
 			return 1;

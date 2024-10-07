@@ -56,11 +56,15 @@ enum OpenGLTextureFormat
 	Format_RGBA_Linear_Half,
 	Format_Depth_Float,
 	Format_Depth_Uint16,
-	Format_Compressed_RGB_Uint8,   // BC1 / DXT1, linear sRGB colour space
-	Format_Compressed_RGBA_Uint8,  // BC3 / DXT5, linear sRGB colour space
-	Format_Compressed_SRGB_Uint8,  // BC1 / DXT1, non-linear sRGB colour space
-	Format_Compressed_SRGBA_Uint8, // BC3 / DXT5, non-linear sRGB colour space
-	Format_Compressed_BC6 // BC6H half-float unsigned format: e.g. GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+	Format_Compressed_DXT_RGB_Uint8,   // BC1 / DXT1, linear sRGB colour space
+	Format_Compressed_DXT_RGBA_Uint8,  // BC3 / DXT5, linear sRGB colour space
+	Format_Compressed_DXT_SRGB_Uint8,  // BC1 / DXT1, non-linear sRGB colour space
+	Format_Compressed_DXT_SRGBA_Uint8, // BC3 / DXT5, non-linear sRGB colour space
+	Format_Compressed_BC6, // BC6H half-float unsigned format: i.e. GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+	Format_Compressed_ETC2_RGB_Uint8,   // i.e. GL_COMPRESSED_RGB8_ETC2
+	Format_Compressed_ETC2_RGBA_Uint8,  // i.e. GL_COMPRESSED_RGBA8_ETC2_EAC 
+	Format_Compressed_ETC2_SRGB_Uint8,  // i.e. GL_COMPRESSED_SRGB8_ETC2
+	Format_Compressed_ETC2_SRGBA_Uint8  // i.e. GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC
 };
 
 

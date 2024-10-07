@@ -23,10 +23,16 @@ class BasisDecoder
 public:
 	static void init();
 
-	// throws ImFormatExcep on failure
-	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL);
+	struct BasisDecoderOptions
+	{
+		BasisDecoderOptions() : ETC_support(false) {}
+		bool ETC_support;
+	};
 
-	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL);
+	// throws ImFormatExcep on failure
+	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL, const BasisDecoderOptions& options = BasisDecoderOptions());
+
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL, const BasisDecoderOptions& options = BasisDecoderOptions());
 
 	static void test();
 };

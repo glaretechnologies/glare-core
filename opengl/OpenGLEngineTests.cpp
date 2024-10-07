@@ -123,7 +123,7 @@ static void doTextureChunkedLoadingTestForMap2D(OpenGLEngine& engine, const std:
 
 	const std::string key = engine.getTextureServer()->keyForPath(tex_path); // Get canonical path.  May throw TextureServerExcep
 
-	const bool use_compression = opengl_engine->textureCompressionSupportedAndEnabled();
+	const bool use_compression = opengl_engine->DXTTextureCompressionSupportedAndEnabled();
 	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(map.ptr(), engine.mem_allocator.ptr(), engine.getMainTaskManager(), use_compression, /*build mipmaps=*/true);
 
 	OpenGLTextureLoadingProgress loading_progress;

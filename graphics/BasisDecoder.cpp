@@ -32,12 +32,12 @@ void BasisDecoder::init()
 
 
 // throws ImFormatExcep on failure
-Reference<Map2D> BasisDecoder::decode(const std::string& path, glare::Allocator* mem_allocator)
+Reference<Map2D> BasisDecoder::decode(const std::string& path, glare::Allocator* mem_allocator, const BasisDecoderOptions& options)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize(), mem_allocator);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), mem_allocator, options);
 	}
 	catch(glare::Exception& e)
 	{
@@ -46,7 +46,7 @@ Reference<Map2D> BasisDecoder::decode(const std::string& path, glare::Allocator*
 }
 
 
-Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
+Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator, const BasisDecoderOptions& options)
 {
 	try
 	{
@@ -87,15 +87,31 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 
 		OpenGLTextureFormat format;
 		basist::transcoder_texture_format dest_basis_format;
-		if(!image_0_info.m_alpha_flag)
+		if(!image_0_info.m_alpha_flag) // If no alpha:
 		{
-			format = OpenGLTextureFormat::Format_Compressed_SRGB_Uint8;
-			dest_basis_format = basist::transcoder_texture_format::cTFBC1_RGB; // BC1 a.k.a. DXT1.
+			if(options.ETC_support)
+			{
+				format = OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8;
+				dest_basis_format = basist::transcoder_texture_format::cTFETC1_RGB;
+			}
+			else
+			{
+				format = OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8;
+				dest_basis_format = basist::transcoder_texture_format::cTFBC1_RGB; // BC1 a.k.a. DXT1.
+			}
 		}
-		else
+		else // else if alpha:
 		{
-			format = OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8;
-			dest_basis_format = basist::transcoder_texture_format::cTFBC3_RGBA; // BC3 a.k.a  DXT5
+			if(options.ETC_support)
+			{
+				format = OpenGLTextureFormat::Format_Compressed_ETC2_SRGBA_Uint8;
+				dest_basis_format = basist::transcoder_texture_format::cTFETC2_RGBA;
+			}
+			else
+			{
+				format = OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8;
+				dest_basis_format = basist::transcoder_texture_format::cTFBC3_RGBA; // BC3 a.k.a  DXT5
+			}
 		}
 
 		CompressedImageRef image = new CompressedImage(image_0_info.m_orig_width, image_0_info.m_orig_height, format);
@@ -331,7 +347,7 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->D == 1);
 			testAssert(com_im->texture_data->num_array_images == 0);
 
-			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_SRGB_Uint8);
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
 		}
 			
 		//----------------------------------- Test loading a texture with alpha -------------------------------------------
@@ -350,7 +366,7 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->D == 1);
 			testAssert(com_im->texture_data->num_array_images == 0);
 
-			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8);
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8);
 		}
 
 		//----------------------------------- Test loading an array texture -------------------------------------------
@@ -366,7 +382,7 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->D == 6);
 			testAssert(com_im->texture_data->num_array_images == 6);
 
-			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_SRGB_Uint8);
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
 		}
 		
 	}

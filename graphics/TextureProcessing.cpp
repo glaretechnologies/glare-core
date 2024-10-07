@@ -635,7 +635,7 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 	{
 		const bool do_compression = allow_compression && !is_one_dim_col_lookup_tex;
 		if(do_compression)
-			texture_data->format = (converted_image->getN() == 3) ? OpenGLTextureFormat::Format_Compressed_SRGB_Uint8 : OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8;
+			texture_data->format = (converted_image->getN() == 3) ? OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8 : OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8;
 		else
 			texture_data->format = (converted_image->getN() == 3) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_SRGBA_Uint8;
 
@@ -686,7 +686,7 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 
 	OpenGLTextureFormat format;
 	if(do_compression)
-		format = (imagemap_0->getN() == 3) ? OpenGLTextureFormat::Format_Compressed_SRGB_Uint8 : OpenGLTextureFormat::Format_Compressed_SRGBA_Uint8;
+		format = (imagemap_0->getN() == 3) ? OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8 : OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8;
 	else
 		format = (imagemap_0->getN() == 3) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_SRGBA_Uint8;
 	texture_data->format = format;
