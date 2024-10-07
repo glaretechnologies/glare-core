@@ -24,13 +24,16 @@ in vec3 bitangent_ws;
 flat in ivec4 light_indices_0;
 flat in ivec4 light_indices_1;
 
+#if COMBINED
+flat in int combined_mat_index;
+#endif
+
 #if DECAL
 in mat4 world_to_ob;
 
 uniform sampler2D main_colour_texture; // source texture
 uniform sampler2D main_normal_texture;
 uniform sampler2D main_depth_texture;
-
 #endif
 
 #if !USE_BINDLESS_TEXTURES
@@ -47,13 +50,11 @@ uniform sampler2D backface_albedo_tex; // For COMBINED we will use backface_albe
 uniform sampler2D transmission_tex;
 #endif
 
-#endif
-
 #if COMBINED
-flat in int combined_mat_index;
 uniform sampler2DArray combined_array_tex;
 #endif
 
+#endif // end #if !USE_BINDLESS_TEXTURES
 
 
 uniform sampler2DShadow dynamic_depth_tex;
@@ -86,22 +87,12 @@ uniform sampler2D lightmap_tex;
 
 flat in int material_index;
 
-
 layout(std430) buffer PhongUniforms
 {
 	MaterialData material_data[];
 };
 
-//#define MAT_UNIFORM mat_data
-#define MAT_UNIFORM					material_data[material_index]
-
-#define DIFFUSE_TEX					MAT_UNIFORM.diffuse_tex
-#define METALLIC_ROUGHNESS_TEX		MAT_UNIFORM.metallic_roughness_tex
-#define LIGHTMAP_TEX				MAT_UNIFORM.lightmap_tex
-#define EMISSION_TEX				MAT_UNIFORM.emission_tex
-#define BACKFACE_ALBEDO_TEX			MAT_UNIFORM.backface_albedo_tex
-#define TRANSMISSION_TEX			MAT_UNIFORM.transmission_tex
-#define NORMAL_MAP					MAT_UNIFORM.normal_map
+#define MAT_UNIFORM material_data[material_index]
 
 //----------------------------------------------------------------------------------------------------------------------------
 #else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
@@ -114,7 +105,11 @@ layout (std140) uniform PhongUniforms
 
 #define MAT_UNIFORM mat_data.matdata
 
+#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+//----------------------------------------------------------------------------------------------------------------------------
+
 #if USE_BINDLESS_TEXTURES
+
 #define DIFFUSE_TEX					MAT_UNIFORM.diffuse_tex
 #define METALLIC_ROUGHNESS_TEX		MAT_UNIFORM.metallic_roughness_tex
 #define LIGHTMAP_TEX				MAT_UNIFORM.lightmap_tex
@@ -122,8 +117,10 @@ layout (std140) uniform PhongUniforms
 #define BACKFACE_ALBEDO_TEX			MAT_UNIFORM.backface_albedo_tex
 #define TRANSMISSION_TEX			MAT_UNIFORM.transmission_tex
 #define NORMAL_MAP					MAT_UNIFORM.normal_map
+#define COMBINED_ARRAY_TEX			MAT_UNIFORM.combined_array_tex
 
 #else
+
 #define DIFFUSE_TEX					diffuse_tex
 #define METALLIC_ROUGHNESS_TEX		metallic_roughness_tex
 #define LIGHTMAP_TEX				lightmap_tex
@@ -131,10 +128,11 @@ layout (std140) uniform PhongUniforms
 #define BACKFACE_ALBEDO_TEX			backface_albedo_tex
 #define TRANSMISSION_TEX			transmission_tex
 #define NORMAL_MAP					normal_map
+#define COMBINED_ARRAY_TEX			combined_array_tex
+
 #endif
 
-#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
-//----------------------------------------------------------------------------------------------------------------------------
+
 
 #if BLOB_SHADOWS
 uniform int num_blob_positions;
@@ -501,28 +499,28 @@ void main()
 	// Apply WorldMaterial tex_matrix
 	{
 		mat2 tex_matrix = mat2(
-			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 0), /*lod=*/0).x,
-			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 1), /*lod=*/0).x,
-			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 2), /*lod=*/0).x,
-			texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 3), /*lod=*/0).x
+			texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 0), /*lod=*/0).x,
+			texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 1), /*lod=*/0).x,
+			texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 2), /*lod=*/0).x,
+			texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 3), /*lod=*/0).x
 		);
 		main_tex_coords = tex_matrix * main_tex_coords;
 	}
 	main_tex_coords.y *= -1.0; // Negate y coord to compensate for atlas texture being loaded upside down as OpenGL considers it.
 
-	int use_flags = (texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 10), /*lod=*/0).x != 0.f) ? 2 : 0;
+	int use_flags = (texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 10), /*lod=*/0).x != 0.f) ? 2 : 0;
 
-	float use_roughness     = texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 5), /*lod=*/0).x;
-	float use_metallic_frac = texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 6), /*lod=*/0).x;
+	float use_roughness     = texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 5), /*lod=*/0).x;
+	float use_metallic_frac = texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 6), /*lod=*/0).x;
 
 	vec4 use_diffuse_colour = vec4(
-		texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 7), /*lod=*/0).x,
-		texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 8), /*lod=*/0).x,
-		texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 9), /*lod=*/0).x,
+		texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 7), /*lod=*/0).x,
+		texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 8), /*lod=*/0).x,
+		texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 9), /*lod=*/0).x,
 		1.0
 	);
 
-	float array_image_index = texelFetch(backface_albedo_tex, matInfoPixelCoords(mat_info_begin + 11), /*lod=*/0).x;
+	float array_image_index = texelFetch(BACKFACE_ALBEDO_TEX, matInfoPixelCoords(mat_info_begin + 11), /*lod=*/0).x;
 
 #else // else if !COMBINED:
 	vec2 main_tex_coords = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
@@ -646,7 +644,7 @@ void main()
 	if((use_flags & HAVE_TEXTURE_FLAG) != 0)
 	{
 #if COMBINED
-	sun_texture_diffuse_col = texture(combined_array_tex, vec3(main_tex_coords, array_image_index));
+	sun_texture_diffuse_col = texture(COMBINED_ARRAY_TEX, vec3(main_tex_coords, array_image_index));
 	refl_texture_diffuse_col = sun_texture_diffuse_col;
 #else
 
