@@ -20,11 +20,6 @@ Copyright Glare Technologies Limited 2024 -
 #include <transcoder/basisu_transcoder.h>
 
 
-// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
-#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT						0x83F0
-#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT					0x83F3
-
-
 void BasisDecoder::init()
 {
 	basist::basisu_transcoder_init();
@@ -241,7 +236,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 }
 #endif
 
-
+#if 0
 void writeBasisFile(const ImageMapUInt8& map, const std::string& dest_path)
 {
 	basisu::basisu_encoder_init(); // Can be called multiple times harmlessly.
@@ -283,7 +278,7 @@ void writeBasisFile(const ImageMapUInt8& map, const std::string& dest_path)
 
 	conPrint("Basisu compression and writing of file took " + timer.elapsedStringNSigFigs(3));
 }
-
+#endif
 
 void BasisDecoder::test()
 {
@@ -291,7 +286,6 @@ void BasisDecoder::test()
 
 	BasisDecoder::init();
 
-	
 	{
 		Timer timer;
 		basist::basisu_transcoder_init();
@@ -349,6 +343,26 @@ void BasisDecoder::test()
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
 		}
+		// Load and transcode to ETC
+		{
+			conPrint("----------------------");
+			Timer timer;
+			BasisDecoder::BasisDecoderOptions options;
+			options.ETC_support = true;
+			Reference<Map2D> im = BasisDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/basis/italy_bolsena_flag_flowers_stairs_01.basis", /*allocator=*/nullptr, options);
+			conPrint("Reading italy_bolsena_flag_flowers_stairs_01.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
+
+			testAssert(im->getMapWidth() == 750);
+			testAssert(im->getMapHeight() == 1152);
+			testAssert(im->numChannels() == 3);
+			testAssert(im.isType<CompressedImage>());
+			CompressedImage* com_im = im.downcastToPtr<CompressedImage>();
+			testAssert(com_im->texture_data->level_offsets.size() == 11);
+			testAssert(com_im->texture_data->D == 1);
+			testAssert(com_im->texture_data->num_array_images == 0);
+
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8);
+		}
 			
 		//----------------------------------- Test loading a texture with alpha -------------------------------------------
 		{
@@ -368,6 +382,26 @@ void BasisDecoder::test()
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8);
 		}
+		// Load and transcode to ETC
+		{
+			conPrint("----------------------");
+			Timer timer;
+			BasisDecoder::BasisDecoderOptions options;
+			options.ETC_support = true;
+			Reference<Map2D> im = BasisDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/basis/Fencing_Iron.basis", /*allocator=*/nullptr, options);
+			conPrint("Reading Fencing_Iron.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
+
+			testAssert(im->getMapWidth() == 256);
+			testAssert(im->getMapHeight() == 286);
+			testAssert(im->numChannels() == 4);
+			testAssert(im.isType<CompressedImage>());
+			CompressedImage* com_im = im.downcastToPtr<CompressedImage>();
+			testAssert(com_im->texture_data->level_offsets.size() == 9);
+			testAssert(com_im->texture_data->D == 1);
+			testAssert(com_im->texture_data->num_array_images == 0);
+
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGBA_Uint8);
+		}
 
 		//----------------------------------- Test loading an array texture -------------------------------------------
 		{
@@ -383,6 +417,23 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->num_array_images == 6);
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
+		}
+		// Load and transcode to ETC
+		{
+			conPrint("----------------------");
+			BasisDecoder::BasisDecoderOptions options;
+			options.ETC_support = true;
+			Reference<Map2D> im = BasisDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/basis/chunk_basis_array_texture.basis", /*allocator=*/nullptr, options);
+			testAssert(im->getMapWidth() == 128);
+			testAssert(im->getMapHeight() == 128);
+			testAssert(im->numChannels() == 3);
+			testAssert(im.isType<CompressedImage>());
+			CompressedImage* com_im = im.downcastToPtr<CompressedImage>();
+			testAssert(com_im->texture_data->level_offsets.size() == 8);
+			testAssert(com_im->texture_data->D == 6);
+			testAssert(com_im->texture_data->num_array_images == 6);
+
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8);
 		}
 		
 	}

@@ -759,6 +759,7 @@ static void makeMipMapTestTexture()
 
 
 	// Save to basis file as well, as an array texture.
+#if 0
 	{
 		basisu::basisu_encoder_init(); // Can be called multiple times harmlessly.
 		basisu::basis_compressor_params params;
@@ -810,6 +811,8 @@ static void makeMipMapTestTexture()
 		if(result != basisu::basis_compressor::cECSuccess)
 			throw glare::Exception("basisCompressor.process() failed.");
 	}
+#endif
+
 #endif
 }
 
