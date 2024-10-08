@@ -812,12 +812,12 @@ static void encodeAndCompressData(const BatchedMesh& mesh, const js::Vector<uint
 }
 
 
-static void readAndDecompressData(BufferViewInStream& file, size_t max_decompressed_size, glare::AllocatorVector<uint8>& decompressed_out)
+static void readAndDecompressData(BufferViewInStream& file, uint64 max_decompressed_size, glare::AllocatorVector<uint8>& decompressed_out)
 {
 	const size_t compressed_size = file.readUInt32();
 	if(!file.canReadNBytes(compressed_size))
 		throw glare::Exception("Invalid compressed_size");
-	const size_t decompressed_size = ZSTD_getFrameContentSize(file.currentReadPtr(), compressed_size);
+	const uint64 decompressed_size = ZSTD_getFrameContentSize(file.currentReadPtr(), compressed_size);
 	if(decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN || decompressed_size == ZSTD_CONTENTSIZE_ERROR)
 		throw glare::Exception("Failed to get decompressed_size");
 
