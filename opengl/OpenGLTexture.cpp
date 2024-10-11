@@ -24,6 +24,11 @@ Copyright Glare Technologies Limited 2022 -
 #define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT				0x8C4E
 #define GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT				0x8C4F
 
+#define GL_COMPRESSED_RGB8_ETC2									0x9274
+#define GL_COMPRESSED_RGBA8_ETC2_EAC							0x9278
+#define GL_COMPRESSED_SRGB8_ETC2								0x9275
+#define GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC						0x9279
+
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT							0x84FE
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT						0x84FF
 #define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT					0x8E8F
@@ -884,7 +889,7 @@ void OpenGLTexture::buildMipMaps()
 
 void OpenGLTexture::setDebugName(const std::string& name)
 {
-#if !defined(EMSCRIPTEN)
+#if !defined(OSX) && !defined(EMSCRIPTEN)
 	// See https://www.khronos.org/opengl/wiki/Debug_Output#Object_names
 	glObjectLabel(GL_TEXTURE, texture_handle, (GLsizei)name.size(), name.c_str());
 #endif

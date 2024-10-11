@@ -24,7 +24,7 @@ OpenGLShader::OpenGLShader(const std::string& path_, const std::string& version_
 	if(shader == 0)
 		throw glare::Exception("Failed to create OpenGL shader.");
 
-#if !defined(EMSCRIPTEN)
+#if !defined(OSX) && !defined(EMSCRIPTEN)
 	const std::string shader_name = FileUtils::getFilename(path_).substr(0, 100);
 	glObjectLabel(GL_SHADER, shader, (GLsizei)shader_name.size(), shader_name.c_str());
 #endif
