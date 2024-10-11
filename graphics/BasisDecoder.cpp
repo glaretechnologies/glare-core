@@ -216,6 +216,10 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 // Command line:
 // C:\fuzz_corpus\basis c:\code\glare-core\testfiles\basis
 
+#ifndef BASISU_NO_HEADER_OR_DATA_CRC16_CHECKS
+#error should define BASISU_NO_HEADER_OR_DATA_CRC16_CHECKS
+#endif
+
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
 	BasisDecoder::init();
@@ -226,7 +230,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
 	{
-		BasisDecoder::decodeFromBuffer(data, size);
+		BasisDecoder::BasisDecoderOptions options;
+		options.ETC_support = false;
+		BasisDecoder::decodeFromBuffer(data, size, /*mem_allocator=*/NULL, options);
+
+		options.ETC_support = true;
+		BasisDecoder::decodeFromBuffer(data, size, /*mem_allocator=*/NULL, options);
 	}
 	catch(glare::Exception&)
 	{
