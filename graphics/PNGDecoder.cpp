@@ -94,6 +94,7 @@ static void pngdecoder_warning_func(png_structp /*png*/, const char* /*msg*/)
 }
 
 
+#if !WUFFS_SUPPORT
 static void pngdecoder_read_data(png_structp png_ptr, png_bytep data, png_size_t length)
 {
 	BufferViewInStream* stream = (BufferViewInStream*)png_get_io_ptr(png_ptr);
@@ -107,6 +108,8 @@ static void pngdecoder_read_data(png_structp png_ptr, png_bytep data, png_size_t
 		throw ImFormatExcep("Error while processing PNG file: " + e.what());
 	}
 }
+#endif  // !WUFFS_SUPPORT
+
 #endif // LIBPNG_SUPPORT
 
 
@@ -404,7 +407,8 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 #endif // WUFFS_SUPPORT
 
 
-#if LIBPNG_SUPPORT
+#if !WUFFS_SUPPORT
+
 static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStream& buffer_view_in_stream)
 {
 	std::vector<png_bytep> row_pointers;
@@ -531,7 +535,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStr
 		throw e; // rethrow
 	}
 }
-#endif // LIBPNG_SUPPORT
+#endif // !WUFFS_SUPPORT
 
 
 Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
@@ -540,10 +544,8 @@ Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size, gla
 
 #if WUFFS_SUPPORT
 	return doDecodeFromBufferWithWuffs(buffer_view_in_stream, mem_allocator);
-#elif LIBPNG_SUPPORT
-	return doDecodeFromBufferLibPNG(buffer_view_in_stream);
 #else
-#error Either WUFFS_SUPPORT or LIBPNG_SUPPORT must be defined.
+	return doDecodeFromBufferLibPNG(buffer_view_in_stream);
 #endif
 }
 
@@ -1411,7 +1413,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		//const std::string path = TestUtils::getTestReposDir() + "/testfiles/pngs/Excited.png";
 		MemMappedFile file(path);
 
-#if LIBPNG_SUPPORT
+#if !WUFFS_SUPPORT
 		{
 			double min_time = 1.0e10;
 			for(int i=0; i<16; ++i)
