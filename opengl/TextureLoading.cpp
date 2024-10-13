@@ -42,29 +42,39 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const 
 
 		OpenGLTextureFormat format = texture_data.format;
 
-		// Remove or add sRGB-ness as needed
+		// Remove or add sRGB non-linearity as needed
 		if(!texture_params.use_sRGB)
 		{
-			if(format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8)
+			if(format == OpenGLTextureFormat::Format_SRGB_Uint8)
+				format = OpenGLTextureFormat::Format_RGB_Linear_Uint8;
+			else if(format == OpenGLTextureFormat::Format_SRGBA_Uint8)
+				format = OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
+
+			else if(format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_DXT_RGB_Uint8;
-			if(format == OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8)
+			else if(format == OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_DXT_RGBA_Uint8;
 
-			if(format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8)
+			else if(format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_ETC2_RGB_Uint8;
-			if(format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGBA_Uint8)
+			else if(format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGBA_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_ETC2_RGBA_Uint8;
 		}
 		else
 		{
-			if(format == OpenGLTextureFormat::Format_Compressed_DXT_RGB_Uint8)
+			if(format == OpenGLTextureFormat::Format_RGB_Linear_Uint8)
+				format = OpenGLTextureFormat::Format_SRGB_Uint8;
+			else if(format == OpenGLTextureFormat::Format_RGBA_Linear_Uint8)
+				format = OpenGLTextureFormat::Format_SRGBA_Uint8;
+
+			else if(format == OpenGLTextureFormat::Format_Compressed_DXT_RGB_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8;
-			if(format == OpenGLTextureFormat::Format_Compressed_DXT_RGBA_Uint8)
+			else if(format == OpenGLTextureFormat::Format_Compressed_DXT_RGBA_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8;
 
-			if(format == OpenGLTextureFormat::Format_Compressed_ETC2_RGB_Uint8)
+			else if(format == OpenGLTextureFormat::Format_Compressed_ETC2_RGB_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8;
-			if(format == OpenGLTextureFormat::Format_Compressed_ETC2_RGBA_Uint8)
+			else if(format == OpenGLTextureFormat::Format_Compressed_ETC2_RGBA_Uint8)
 				format = OpenGLTextureFormat::Format_Compressed_ETC2_SRGBA_Uint8;
 		}
 
