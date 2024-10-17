@@ -151,14 +151,14 @@ class DebugGroup
 public:
 	DebugGroup(const char* name)
 	{
-#if BUILD_TESTS && !defined(EMSCRIPTEN)
+#if BUILD_TESTS && !defined(EMSCRIPTEN) && !defined(__APPLE__)
 		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, /*id=*/0, /*length=*/(GLsizei)std::strlen(name), name);
 #endif
 	}
 
 	~DebugGroup()
 	{
-#if BUILD_TESTS && !defined(EMSCRIPTEN)
+#if BUILD_TESTS && !defined(EMSCRIPTEN) && !defined(__APPLE__)
 		glPopDebugGroup();
 #endif
 	}
