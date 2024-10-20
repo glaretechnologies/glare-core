@@ -509,7 +509,7 @@ void TextRenderer::test()
 
 		const std::string text = euro + "A" + gamma;
 
-		TextRendererFontFace::SizeInfo size_info = font->getTextSize(text);
+		/*TextRendererFontFace::SizeInfo size_info = */ font->getTextSize(text);
 
 		font->drawText(*map, text, 10, 250, Colour3f(1,1,1), /*render_SDF=*/false);
 
@@ -532,7 +532,7 @@ void TextRenderer::test()
 		TextRendererFontFaceRef font = new TextRendererFontFace(text_renderer, TestUtils::getTestReposDir() + "/testfiles/fonts/Freedom-10eM.ttf", 30);
 
 		const std::string text = "The quick brown fox jumps over the lazy dog. 1234567890";
-		TextRendererFontFace::SizeInfo size_info = font->getTextSize(text);
+		/*TextRendererFontFace::SizeInfo size_info = */ font->getTextSize(text);
 		font->drawText(*map, text, 10, 250, Colour3f(1,1,1), /*render_SDF=*/false);
 
 		if(WRITE_IMAGES)
@@ -553,7 +553,7 @@ void TextRenderer::test()
 		TextRendererFontFaceRef font = new TextRendererFontFace(text_renderer, TestUtils::getTestReposDir() + "/testfiles/fonts/TruenoLight-E2pg.otf", 30);
 
 		const std::string text = "The quick brown fox jumps over the lazy dog. 1234567890";
-		TextRendererFontFace::SizeInfo size_info = font->getTextSize(text);
+		/*TextRendererFontFace::SizeInfo size_info = */ font->getTextSize(text);
 		font->drawText(*map, text, 10, 250, Colour3f(1,1,1), /*render_SDF=*/false);
 
 		if(WRITE_IMAGES)

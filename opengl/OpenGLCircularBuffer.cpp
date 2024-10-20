@@ -87,7 +87,7 @@ void* OpenGLCircularBuffer::getRangeForCPUWriting(size_t range_size_B)
 	}
 	else
 	{
-		const size_t free_size_at_end = size - used_end;
+		[[maybe_unused]] const size_t free_size_at_end = size - used_end;
 		assert(range_size_B <= free_size_at_end);
 
 		void* write_ptr = (uint8*)buffer + used_end;

@@ -505,8 +505,8 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 }
 
 static int num_textures_created = 0;
-static int num_texture_views_created = 0;
-static int num_non_tex_views_created = 0;
+[[maybe_unused]] static int num_texture_views_created = 0;
+[[maybe_unused]] static int num_non_tex_views_created = 0;
 
 // Create texture, given that xres, yres, gl_internal_format etc. have been set.
 void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data, 
