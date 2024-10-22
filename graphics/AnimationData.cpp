@@ -797,10 +797,6 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 	this->readFromStream(stream); // Read in animation data.  The old nodes have the correct sizing, the new nodes are associated with the correct animation data.
 
-	printVar(old_joint_nodes == joint_nodes);
-	printVar(old_sorted_nodes == sorted_nodes);
-
-
 	std::unordered_map<std::string, int> new_bone_names_to_index;
 	for(size_t z=0; z<nodes.size(); ++z)
 		new_bone_names_to_index.insert(std::make_pair(nodes[z].name, (int)z));

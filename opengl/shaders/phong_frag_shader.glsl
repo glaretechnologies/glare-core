@@ -270,10 +270,10 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias)
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		// Use textureGrad to specify explicit texture coordinate derivatives.
+		// Use textureLod to specify the LOD level explictly.
 		// Without this, the ANGLE D3D11 backend will flatten the branches and execute all depth map lookups, so that it can calculate derivatives.
 		// We don't actually need these derivatives since we are just doing bilinear filtering with no mipmaps.
-		sum += textureGrad(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), vec2(0.0, 0.0), vec2(0.0, 0.0));
+		sum += textureLod(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), /*lod=*/0.0);
 	}
 	return sum * (1.f / 16.f);
 }
@@ -286,7 +286,7 @@ float sampleStaticDepthMap(mat2 R, vec3 shadow_coords, float bias)
 	for(int i = 0; i < 16; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += textureGrad(static_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), vec2(0.0, 0.0), vec2(0.0, 0.0));
+		sum += textureLod(static_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), /*lod=*/0.0);
 	}
 	return sum * (1.f / 16.f);
 }
