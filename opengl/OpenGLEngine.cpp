@@ -4947,6 +4947,7 @@ void OpenGLEngine::flushDrawCommandsAndUnbindPrograms()
 {
 	if(use_multi_draw_indirect)
 		submitBufferedDrawCommands();
+	glActiveTexture(GL_TEXTURE0);
 	OpenGLProgram::useNoPrograms();
 	this->current_bound_prog = NULL;
 	this->current_bound_prog_index = 0;
@@ -5276,18 +5277,26 @@ z_ndc = (-(f/2 - n/2))(f-n) + 1/2 = (-(f-n)/2)/(f-n) + 1/2 = -1/2 + 1/2 = 0
 */
 
 
+// Binds texture to specified texture unit.  Doesn't reset active texture unit back to zero.
+static inline void bindTextureToTextureUnitRaw(const OpenGLTexture& texture, int texture_unit_index)
+{
+	glActiveTexture(GL_TEXTURE0 + texture_unit_index); // Specifies which texture unit to make active
+	glBindTexture(/*target=*/texture.getTextureTarget(), /*texture=*/texture.texture_handle);
+}
+
+
 static inline void bindTextureToTextureUnit(const OpenGLTexture& texture, int texture_unit_index)
 {
-	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
-	glBindTexture(texture.getTextureTarget(), texture.texture_handle);
+	glActiveTexture(GL_TEXTURE0 + texture_unit_index); // Specifies which texture unit to make active
+	glBindTexture(/*target=*/texture.getTextureTarget(), /*texture=*/texture.texture_handle);
 	glActiveTexture(GL_TEXTURE0); // Change the active texture unit index back to zero, so we don't accidentally change the binding when creating new textures etc.
 }
 
 
 static inline void unbindTextureFromTextureUnit(const OpenGLTexture& texture, int texture_unit_index)
 {
-	glActiveTexture(GL_TEXTURE0 + texture_unit_index);
-	glBindTexture(texture.getTextureTarget(), 0);
+	glActiveTexture(GL_TEXTURE0 + texture_unit_index); // Specifies which texture unit to make active
+	glBindTexture(/*target=*/texture.getTextureTarget(), /*texture=*/0);
 	glActiveTexture(GL_TEXTURE0);
 }
 
@@ -5962,6 +5971,7 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	glActiveTexture(GL_TEXTURE0);
 	glUseProgram(0);
 	VAO::unbind();
 	assertCurrentProgramIsZero();
@@ -6901,7 +6911,7 @@ void OpenGLEngine::draw()
 
 
 	VAO::unbind(); // Unbind any bound VAO, so that its vertex and index buffers don't get accidentally overridden.
-	
+	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit), while loading data into textures or creating new textures, outside of this draw() call.
 
 	if(query_profiling_enabled)
 	{
@@ -9226,28 +9236,28 @@ void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) co
 	assert(!this->use_bindless_textures);
 
 	if(opengl_mat.albedo_texture.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.lightmap_texture.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.lightmap_texture, LIGHTMAP_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.lightmap_texture, LIGHTMAP_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.backface_albedo_texture.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.backface_albedo_texture, BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.backface_albedo_texture, BACKFACE_ALBEDO_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.transmission_texture.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.transmission_texture, TRANSMISSION_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.transmission_texture, TRANSMISSION_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.metallic_roughness_texture.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.metallic_roughness_texture, METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.metallic_roughness_texture, METALLIC_ROUGHNESS_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.emission_texture.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.emission_texture, EMISSION_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.emission_texture, EMISSION_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.normal_map.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.normal_map, NORMAL_MAP_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.normal_map, NORMAL_MAP_TEXTURE_UNIT_INDEX);
 
 	if(opengl_mat.combined_array_texture.nonNull())
-		bindTextureToTextureUnit(*opengl_mat.combined_array_texture, COMBINED_ARRAY_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnitRaw(*opengl_mat.combined_array_texture, COMBINED_ARRAY_TEXTURE_UNIT_INDEX);
 }
 
 
@@ -9699,7 +9709,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				else
 				{
 					assert(prog->uniform_locations.diffuse_tex_location >= 0);
-					bindTextureToTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX);
+					bindTextureToTextureUnitRaw(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX);
 				}
 
 				// Just set IMPOSTER_TEX_HAS_MULTIPLE_ANGLES flag which is the only one used in depth_frag_shader.glsl

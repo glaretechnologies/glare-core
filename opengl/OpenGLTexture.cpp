@@ -456,6 +456,16 @@ static void setPixelStoreAlignment(size_t tex_xres, GLenum gl_format, GLenum typ
 }
 
 
+#ifndef NDEBUG
+static int getActiveTextureUnit()
+{
+	GLint active_tex = 0;
+	glGetIntegerv(GL_ACTIVE_TEXTURE, &active_tex);
+	return active_tex;
+}
+#endif
+
+
 void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, OpenGLTextureFormat format_)
 {
 	assert(tex_data.size() == 6);
@@ -474,6 +484,8 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 
 	glGenTextures(1, &texture_handle);
 	assert(texture_handle != 0);
+
+	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit).
 	glBindTexture(GL_TEXTURE_CUBE_MAP, texture_handle);
 
 
@@ -535,6 +547,8 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 	const bool is_MSAA_tex = this->texture_target == GL_TEXTURE_2D_MULTISAMPLE;
 
+	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit).
+
 #if USE_TEXTURE_VIEWS
 	//const bool res_is_valid_for_tex_view = (xres == yres) && Maths::isPowerOfTwo(xres) && (xres >= 4) && (xres <= 1024);
 	bool res_is_valid_for_tex_view;
@@ -588,13 +602,14 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			
 		}
 		
+		glBindTexture(texture_target, texture_handle);
+
 		if(is_MSAA_tex)
 		{
 #if defined(EMSCRIPTEN)
 			// glTexStorage2DMultisample is OpenGL ES 3.1+: https://registry.khronos.org/OpenGL-Refpages/es3.1/html/glTexStorage2DMultisample.xhtml
 			assert(0);
 #else // else if !EMSCRIPTEN:
-			glBindTexture(texture_target, texture_handle);
 
 #if defined(OSX) // glTexStorage2DMultisample isn't defined on Mac.
 			glTexImage2DMultisample(texture_target, MSAA_samples, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*fixedsamplelocations=*/GL_FALSE);
@@ -607,8 +622,6 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		}
 		else if(texture_target == GL_TEXTURE_2D_ARRAY)
 		{
-			glBindTexture(texture_target, texture_handle);
-
 			// Allocate / specify immutable storage for the texture.
 			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
 			glTexStorage3D(texture_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres, /*depth=*/num_array_images);
@@ -616,8 +629,6 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		}
 		else
 		{
-			glBindTexture(texture_target, texture_handle);
-
 			// Allocate / specify immutable storage for the texture.
 			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
 			glTexStorage2D(texture_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);
@@ -798,7 +809,10 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 	assert(mipmap_level < num_mipmap_levels_allocated);
 
 	if(bind_needed)
+	{
+		assert(getActiveTextureUnit() == GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit).
 		glBindTexture(texture_target, texture_handle);
+	}
 
 	if(src_tex_data.data() != NULL)
 	{
