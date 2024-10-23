@@ -135,7 +135,7 @@ public:
 	inline size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t numVerts() const;
 	inline size_t numIndices() const; // Equal to num triangles * 3.
-	inline uint32 getIndexAsUInt32(size_t i) const;
+	inline uint32 getIndexAsUInt32(size_t i) const; // Slow, for debugging
 
 	js::AABBox computeAABB() const;
 
@@ -154,6 +154,8 @@ public:
 	void setIndexDataFromIndices(const js::Vector<uint32, 16>& uint32_indices, size_t num_verts);
 
 	void toUInt32Indices(js::Vector<uint32, 16>& uint32_indices_out) const;
+
+	Vec4f getVertexPosition(uint32 vert_index) const; // for debugging
 
 	std::vector<VertAttribute> vert_attributes;
 

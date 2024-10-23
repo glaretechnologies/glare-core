@@ -458,7 +458,7 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 #endif //-------------------------------------- End else do simplification for each batch separately. -----------------------------------------
 
-	if(true)
+	if(false)
 	{
 		if(sloppy)
 			conPrint("-------------- sloppy simplified mesh ------------");
@@ -668,7 +668,7 @@ BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh_, float target_er
 
 	if(all_components_kept)
 	{
-		if(true)
+		if(false)
 		{
 			conPrint("-------------- removeSmallComponents ------------");
 			conPrint("No components removed.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(4));
@@ -724,7 +724,7 @@ BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh_, float target_er
 
 		simplified_mesh->animation_data = mesh.animation_data;
 
-		if(true)
+		if(false)
 		{
 			conPrint("-------------- removeSmallComponents ------------");
 			conPrint("Original num indices: " + toString(mesh.numIndices()));
@@ -818,7 +818,7 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 	options.compute_is_planar = false;
 	DummyShouldCancelCallback should_cancel_callback;
 	StandardPrintOutput print_output;
-	raymesh.build(options, should_cancel_callback, print_output, /*verbose=*/true, task_manager);
+	raymesh.build(options, should_cancel_callback, print_output, /*verbose=*/false, task_manager);
 
 	std::vector<glare::AtomicInt> num_tri_hits(mesh->numIndices() / 3);
 
@@ -992,7 +992,7 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 
 	simplified_mesh->animation_data = mesh->animation_data;
 
-	if(true)
+	if(false)
 	{
 		conPrint("-------------- removeInvisibleTriangles ------------");
 		conPrint("Shot " + toString(num_rays) + " rays in " + doubleToStringNSigFigs(ray_shooting_time_elapsed, 4) + " s (" + doubleToStringNSigFigs(num_rays / ray_shooting_time_elapsed * 1.0e-6, 4) + " M rays/sec)");

@@ -528,6 +528,20 @@ void BatchedMesh::toUInt32Indices(js::Vector<uint32, 16>& uint32_indices_out) co
 }
 
 
+Vec4f BatchedMesh::getVertexPosition(uint32 vert_index) const
+{
+	const BatchedMesh::VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
+	runtimeCheck(pos_attr.type == ComponentType_Float);
+
+	const size_t stride = vertexSize();
+
+	Vec4f vertpos;
+	std::memcpy(vertpos.x, &vertex_data[pos_attr.offset_B + stride * vert_index], sizeof(float) * 3);
+	vertpos.x[3] = 1.f;
+	return vertpos;
+}
+
+
 void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 {
 	const size_t num_verts = numVerts();
@@ -802,7 +816,7 @@ static void encodeAndCompressData(const BatchedMesh& mesh, const js::Vector<uint
 	const size_t res_encoded_vert_buf_size = meshopt_encodeVertexBuffer(buf.data(), buf.size(), filtered_data_in.data(), mesh.numVerts(), attr_size);
 	buf.resize(res_encoded_vert_buf_size);
 
-	conPrint("meshopt res_encoded_vert_buf_size: " + toString(res_encoded_vert_buf_size) + " B");
+	// conPrint("meshopt res_encoded_vert_buf_size: " + toString(res_encoded_vert_buf_size) + " B");
 
 	const size_t compressed_bound = ZSTD_compressBound(buf.size());
 	compressed_data_out.resizeNoCopy(compressed_bound);
@@ -835,7 +849,7 @@ static void readAndDecompressData(BufferViewInStream& file, uint64 max_decompres
 }
 
 
-static const bool PRINT_STATS = true;
+static const bool PRINT_STATS = false;
 
 
 void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws glare::Exception on failure
@@ -920,7 +934,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				if(ZSTD_isError(compressed_size))
 					throw glare::Exception(std::string("Compression failed: ") + ZSTD_getErrorName(compressed_size));
 
-				conPrint("meshopt index compressed_size: " + toString(compressed_size) + " B");
+				// conPrint("meshopt index compressed_size: " + toString(compressed_size) + " B");
 
 				// Now write compressed data to disk
 				file.writeUInt32((uint32)compressed_size);
@@ -1691,6 +1705,8 @@ size_t BatchedMesh::getTotalMemUsage() const
 js::AABBox BatchedMesh::computeAABB() const
 {
 	const BatchedMesh::VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
+	runtimeCheck(pos_attr.type == ComponentType_Float);
+
 	const size_t stride = vertexSize();
 	const size_t num_verts = numVerts();
 
