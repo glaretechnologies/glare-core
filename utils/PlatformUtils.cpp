@@ -748,7 +748,7 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 	// Call once with an empty/null buffer, to get the required buffer size.
 	const DWORD required_size_with_terminator = GetEnvironmentVariable(varname_w.c_str(), NULL, 0);
 	if(required_size_with_terminator == 0)
-		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
+		throw PlatformUtilsExcep("getEnvironmentVariable failed for name '" + varname + "': " + getLastErrorString());
 
 	std::vector<wchar_t> buf(required_size_with_terminator);
 
@@ -759,7 +759,7 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 	);
 
 	if((res == 0) || res != (required_size_with_terminator - 1))
-		throw PlatformUtilsExcep("getEnvironmentVariable failed: " + getLastErrorString());
+		throw PlatformUtilsExcep("getEnvironmentVariable failed for name '" + varname + "': " + getLastErrorString());
 
 	const std::wstring resstring(buf.data());
 
@@ -768,7 +768,7 @@ const std::string PlatformUtils::getEnvironmentVariable(const std::string& varna
 #else
 	const char* env_val = getenv(varname.c_str());
 	if(env_val == NULL)
-		throw PlatformUtilsExcep("getEnvironmentVariable failed.");
+		throw PlatformUtilsExcep("getEnvironmentVariable: no such env var '" + varname + "'");
 	return std::string(env_val);
 #endif
 }
