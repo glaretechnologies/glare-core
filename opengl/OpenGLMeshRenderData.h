@@ -48,6 +48,7 @@ public:
 
 	void setIndexType(GLenum the_index_type) { index_type = the_index_type; updateIndexTypeBits(); }
 	GLenum getIndexType() const { return index_type; }
+	uint32 getIndexTypeSize() const { return (index_type == /*GL_UNSIGNED_BYTE=*/0x1401) ? 1 : ((index_type == /*GL_UNSIGNED_SHORT=*/0x1403) ? 2 : 4); }
 	uint32 computeIndexTypeBits(GLenum the_index_type) const { return (the_index_type == /*GL_UNSIGNED_BYTE=*/0x1401) ? 0 : ((the_index_type == /*GL_UNSIGNED_SHORT=*/0x1403) ? 1 : 2); }
 	void updateIndexTypeBits() { index_type_bits = computeIndexTypeBits(index_type); }
 

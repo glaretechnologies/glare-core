@@ -1206,3 +1206,165 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeSpriteQuad(VertexBuff
 
 	return mesh_data;
 }
+
+
+static void addCuboidMesh(const Vec3f& min, const Vec3f& max, js::Vector<Vec3f, 16>& verts, js::Vector<uint32, 16>& indices)
+{
+	const uint32 start_verts_size   = (uint32)verts.size();
+	const uint32 start_indices_size = (uint32)indices.size();
+
+	verts.resize(start_verts_size + 24); // 6 faces * 4 verts/face
+	indices.resize(start_indices_size + 6 * 6); // two tris per face, 6 faces
+
+	for(int face = 0; face < 6; ++face)
+	{
+		indices[start_indices_size + face*6 + 0] = start_verts_size + face*4 + 0; 
+		indices[start_indices_size + face*6 + 1] = start_verts_size + face*4 + 1; 
+		indices[start_indices_size + face*6 + 2] = start_verts_size + face*4 + 2; 
+		indices[start_indices_size + face*6 + 3] = start_verts_size + face*4 + 0;
+		indices[start_indices_size + face*6 + 4] = start_verts_size + face*4 + 2;
+		indices[start_indices_size + face*6 + 5] = start_verts_size + face*4 + 3;
+	}
+
+	int face = 0;
+
+	// x = min.x face
+	{
+		Vec3f v0(min.x, min.y, min.z);
+		Vec3f v1(min.x, min.y, max.z);
+		Vec3f v2(min.x, max.y, max.z);
+		Vec3f v3(min.x, max.y, min.z);
+
+		verts[start_verts_size + face*4 + 0] = v0;
+		verts[start_verts_size + face*4 + 1] = v1;
+		verts[start_verts_size + face*4 + 2] = v2;
+		verts[start_verts_size + face*4 + 3] = v3;
+
+		face++;
+	}
+
+	// x = max.x face
+	{
+		Vec3f v0(max.x, min.y, min.z);
+		Vec3f v1(max.x, max.y, min.z);
+		Vec3f v2(max.x, max.y, max.z);
+		Vec3f v3(max.x, min.y, max.z);
+
+		verts[start_verts_size + face*4 + 0] = v0;
+		verts[start_verts_size + face*4 + 1] = v1;
+		verts[start_verts_size + face*4 + 2] = v2;
+		verts[start_verts_size + face*4 + 3] = v3;
+
+		face++;
+	}
+
+	// y = min.y face
+	{
+		Vec3f v0(min.x, min.y, min.z);
+		Vec3f v1(max.x, min.y, min.z);
+		Vec3f v2(max.x, min.y, max.z);
+		Vec3f v3(min.x, min.y, max.z);
+
+		verts[start_verts_size + face*4 + 0] = v0;
+		verts[start_verts_size + face*4 + 1] = v1;
+		verts[start_verts_size + face*4 + 2] = v2;
+		verts[start_verts_size + face*4 + 3] = v3;
+
+		face++;
+	}
+
+	// y = max.y face
+	{
+		Vec3f v0(min.x, max.y, min.z);
+		Vec3f v1(min.x, max.y, max.z);
+		Vec3f v2(max.x, max.y, max.z);
+		Vec3f v3(max.x, max.y, min.z);
+
+		verts[start_verts_size + face*4 + 0] = v0;
+		verts[start_verts_size + face*4 + 1] = v1;
+		verts[start_verts_size + face*4 + 2] = v2;
+		verts[start_verts_size + face*4 + 3] = v3;
+
+		face++;
+	}
+
+	// z = min.z face
+	{
+		Vec3f v0(min.x, min.y, min.z);
+		Vec3f v1(min.x, max.y, min.z);
+		Vec3f v2(max.x, max.y, min.z);
+		Vec3f v3(max.x, min.y, min.z);
+
+		verts[start_verts_size + face*4 + 0] = v0;
+		verts[start_verts_size + face*4 + 1] = v1;
+		verts[start_verts_size + face*4 + 2] = v2;
+		verts[start_verts_size + face*4 + 3] = v3;
+
+		face++;
+	}
+
+	// z = max.z face
+	{
+		Vec3f v0(min.x, min.y, max.z);
+		Vec3f v1(max.x, min.y, max.z);
+		Vec3f v2(max.x, max.y, max.z);
+		Vec3f v3(min.x, max.y, max.z);
+
+		verts[start_verts_size + face*4 + 0] = v0;
+		verts[start_verts_size + face*4 + 1] = v1;
+		verts[start_verts_size + face*4 + 2] = v2;
+		verts[start_verts_size + face*4 + 3] = v3;
+
+		face++;
+	}
+}
+
+
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCuboidEdgeAABBMesh(VertexBufferAllocator& allocator, const Vec4f& span, float edge_width)
+{
+	// Make with cuboids along edges.
+
+	js::Vector<Vec3f> verts;
+	js::Vector<uint32> indices;
+
+	// Along x axis, y=0, z=0
+	addCuboidMesh(Vec3f(0.f), Vec3f(span[0], edge_width, edge_width), verts, indices);
+
+	// Along x axis, y=span.y edge, z=0
+	addCuboidMesh(Vec3f(0.f, span[1] - edge_width, 0.f), Vec3f(span[0], span[1], edge_width), verts, indices);
+
+	// Along x axis, y=0, z = span.z edge
+	addCuboidMesh(Vec3f(0.f, 0.f, span[2] - edge_width), Vec3f(span[0], edge_width, span[2]), verts, indices);
+
+	// Along x axis, y=span.y edge, z = span.z edge
+	addCuboidMesh(Vec3f(0.f, span[1] - edge_width, span[2] - edge_width), Vec3f(span[0], span[1], span[2]), verts, indices);
+
+
+	// Along y axis, x=0, z=0
+	addCuboidMesh(Vec3f(0.f), Vec3f(edge_width, span[1], edge_width), verts, indices);
+
+	// Along y axis, x=span.x edge, z=0
+	addCuboidMesh(Vec3f(span[0] - edge_width, 0.f, 0.f), Vec3f(span[0], span[1], edge_width), verts, indices);
+
+	// Along y axis, x=0, z = span.z edge
+	addCuboidMesh(Vec3f(0.f, 0.f, span[2] - edge_width), Vec3f(edge_width, span[1], span[2]), verts, indices);
+
+	// Along y axis, x=span.x edge, z = span.z edge
+	addCuboidMesh(Vec3f(span[0] - edge_width, 0.f, span[2] - edge_width), Vec3f(span[0], span[1], span[2]), verts, indices);
+
+
+	// Along z axis, x=0, y=0
+	addCuboidMesh(Vec3f(0.f), Vec3f(edge_width, edge_width, span[2]), verts, indices);
+
+	// Along z axis, x=span.x edge, y=0
+	addCuboidMesh(Vec3f(span[0] - edge_width, 0.f, 0.f), Vec3f(span[0], edge_width, span[2]), verts, indices);
+
+	// Along z axis, x=0, y = span.y edge
+	addCuboidMesh(Vec3f(0.f, span[1] - edge_width, 0.f), Vec3f(edge_width, span[1], span[2]), verts, indices);
+
+	// Along z axis, x=span.x edge, y = span.y edge
+	addCuboidMesh(Vec3f(span[0] - edge_width, span[1] - edge_width, 0.f), Vec3f(span[0], span[1], span[2]), verts, indices);
+
+
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, indices);
+}

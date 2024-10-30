@@ -209,6 +209,66 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBuffer
 }
 
 
+Reference<OpenGLMeshRenderData> GLMeshBuilding::buildMeshRenderData(VertexBufferAllocator& allocator, const js::Vector<Vec3f, 16>& vertices, ArrayRef<uint32> indices)
+{
+	Reference<OpenGLMeshRenderData> meshdata_ref = new OpenGLMeshRenderData();
+	OpenGLMeshRenderData& meshdata = *meshdata_ref;
+
+	meshdata.has_uvs = false;
+	meshdata.has_shading_normals = false;
+	meshdata.batches.resize(1);
+	meshdata.batches[0].material_index = 0;
+	meshdata.batches[0].num_indices = (uint32)indices.size();
+	meshdata.batches[0].prim_start_offset_B = 0;
+
+	meshdata.aabb_os = js::AABBox::emptyAABBox();
+	meshdata.num_materials_referenced = 1;
+
+	const size_t num_vertices = vertices.size();
+
+	for(size_t i=0; i<num_vertices; ++i)
+		meshdata.aabb_os.enlargeToHoldPoint(vertices[i].toVec4fPoint());
+
+	if(num_vertices < 65536)
+	{
+		meshdata.setIndexType(GL_UNSIGNED_SHORT);
+
+		// Build array of uint16 indices.
+		js::Vector<uint16> index_buf(indices.size());
+		for(size_t i=0; i<indices.size(); ++i)
+		{
+			assert(indices[i] < 65536);
+			index_buf[i] = (uint16)indices[i];
+		}
+		meshdata.indices_vbo_handle = allocator.allocateIndexDataSpace(index_buf.data(), index_buf.dataSizeBytes());
+	}
+	else
+	{
+		meshdata.setIndexType(GL_UNSIGNED_INT);
+
+		meshdata.indices_vbo_handle = allocator.allocateIndexDataSpace(indices.data(), indices.dataSizeBytes());
+	}
+
+	const uint32 vert_stride = (uint32)sizeof(Vec3f); // also vertex size.
+
+	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
+	VertexAttrib pos_attrib;
+	pos_attrib.enabled = true;
+	pos_attrib.num_comps = 3;
+	pos_attrib.type = GL_FLOAT;
+	pos_attrib.normalised = false;
+	pos_attrib.stride = vert_stride;
+	pos_attrib.offset = 0;
+	meshdata.vertex_spec.attributes.push_back(pos_attrib);
+
+	meshdata.vbo_handle = allocator.allocateVertexDataSpace(vert_stride, vertices.data(), vertices.dataSizeBytes());
+
+	allocator.getOrCreateAndAssignVAOForMesh(meshdata, meshdata.vertex_spec);
+
+	return meshdata_ref;
+}
+
+
 /*
 When the triangle and quad vertex_indices and uv_indices are the same,
 and the triangles and quads are (mostly) sorted by material, we can 

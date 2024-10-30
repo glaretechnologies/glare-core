@@ -35,6 +35,9 @@ public:
 	static Reference<OpenGLMeshRenderData> buildMeshRenderData(VertexBufferAllocator& allocator, ArrayRef<float> vert_pos_and_uvs, ArrayRef<uint32> indices,
 		glare::StackAllocator& stack_allocator);
 
+	// Build OpenGLMeshRenderData from vectors of just vertices (positions), and indices.
+	static Reference<OpenGLMeshRenderData> buildMeshRenderData(VertexBufferAllocator& allocator, const js::Vector<Vec3f, 16>& vertices, ArrayRef<uint32> indices);
+
 
 	// Build OpenGLMeshRenderData from an Indigo::Mesh.
 	static Reference<OpenGLMeshRenderData> buildIndigoMesh(VertexBufferAllocator* allocator, const Reference<Indigo::Mesh>& mesh_, bool skip_opengl_calls);
