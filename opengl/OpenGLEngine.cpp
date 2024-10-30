@@ -3487,8 +3487,9 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 	//assert(object->mesh_data->vert_vao.nonNull());
 
 	// Check object material indices are in-bounds, so we don't have to check in inner draw loop.
-	for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
-		if(object->mesh_data->batches[i].material_index >= object->materials.size())
+	const ArrayRef<OpenGLBatch> use_src_batches = object->getUsedBatches();
+	for(size_t i=0; i<use_src_batches.size(); ++i)
+		if(use_src_batches[i].material_index >= object->materials.size())
 			throw glare::Exception("GLObject material_index is out of bounds.");
 
 
@@ -3640,12 +3641,12 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 		object.mesh_data->index_type_bits
 	);
 
-	//object.batch_program_indices.resize(object.mesh_data->batches.size());
-	object.batch_draw_info.resize(object.mesh_data->batches.size());
+	const ArrayRef<OpenGLBatch> use_src_batches = object.getUsedBatches();
+	object.batch_draw_info.resize(use_src_batches.size());
 
-	for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
+	for(size_t i=0; i<use_src_batches.size(); ++i)
 	{
-		const OpenGLMaterial& mat = object.materials[object.mesh_data->batches[i].material_index];
+		const OpenGLMaterial& mat = object.materials[use_src_batches[i].material_index];
 
 		const bool backface_culling = !mat.simple_double_sided && !mat.fancy_double_sided;
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
@@ -3659,10 +3660,13 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 			(mat.shader_prog->isBuilt()     ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 		//assert(mat.material_data_index != -1);
-		object.batch_draw_info[i].material_data_index = mat.material_data_index;
+		if(use_multi_draw_indirect && mat.shader_prog->supports_MDI)
+			object.batch_draw_info[i].material_data_or_mat_index = mat.material_data_index;
+		else
+			object.batch_draw_info[i].material_data_or_mat_index = use_src_batches[i].material_index;
 	
-		object.batch_draw_info[i].prim_start_offset_B = object.mesh_data->batches[i].prim_start_offset_B;
-		object.batch_draw_info[i].num_indices = object.mesh_data->batches[i].num_indices;
+		object.batch_draw_info[i].prim_start_offset_B = use_src_batches[i].prim_start_offset_B;
+		object.batch_draw_info[i].num_indices         = use_src_batches[i].num_indices;
 	}
 
 #if DO_INDIVIDUAL_VAO_ALLOC
@@ -3697,30 +3701,30 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 	if(settings.shadow_mapping)
 	{
 		const uint32 index_type_size_B = indexTypeSizeBytes(object.mesh_data->getIndexType());
+		const ArrayRef<OpenGLBatch> use_src_batches = object.getUsedBatches();
 
 		// Do a pass to get number of batches required
 		OpenGLProgram* prev_depth_prog = NULL;
 		size_t num_batches_required = 0;
 		uint32 next_contiguous_offset = 0;
-		for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
+		for(size_t i=0; i<use_src_batches.size(); ++i)
 		{
-			const uint32 mat_index = object.mesh_data->batches[i].material_index;
+			const uint32 mat_index = use_src_batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
-				(object.mesh_data->batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
+				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
 					num_batches_required++;
 				prev_depth_prog = cur_depth_prog;
 			}
-			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset_B + object.mesh_data->batches[i].num_indices * index_type_size_B;
+			next_contiguous_offset = use_src_batches[i].prim_start_offset_B + use_src_batches[i].num_indices * index_type_size_B;
 		}
 		// Finish last batch
 		if(prev_depth_prog)
 			num_batches_required++;
 
 		object.depth_draw_batches.resize(num_batches_required);
-		object.depth_draw_batch_material_indices.resize(num_batches_required);
 
 		size_t dest_batch_i = 0;
 		prev_depth_prog = NULL;
@@ -3729,12 +3733,12 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		current_batch.material_index = 0;
 		current_batch.prim_start_offset_B = 0;
 		current_batch.num_indices = 0;
-		for(size_t i=0; i<object.mesh_data->batches.size(); ++i)
+		for(size_t i=0; i<use_src_batches.size(); ++i)
 		{
-			const uint32 mat_index = object.mesh_data->batches[i].material_index;
+			const uint32 mat_index = use_src_batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
-				(object.mesh_data->batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
+				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				// The depth-draw material changed.  So finish the batch.
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.
@@ -3744,25 +3748,27 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 						(prev_depth_prog->isBuilt() ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
-					object.depth_draw_batches[dest_batch_i].material_data_index = object.materials[current_batch.material_index].material_data_index;
-					object.depth_draw_batches[dest_batch_i].prim_start_offset_B = current_batch.prim_start_offset_B;
-					object.depth_draw_batches[dest_batch_i].num_indices         = current_batch.num_indices;
+					if(use_multi_draw_indirect && prev_depth_prog->supports_MDI)
+						object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = object.materials[current_batch.material_index].material_data_index;
+					else
+						object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = current_batch.material_index;
 
-					object.depth_draw_batch_material_indices[dest_batch_i]      = current_batch.material_index;
+					object.depth_draw_batches[dest_batch_i].prim_start_offset_B        = current_batch.prim_start_offset_B;
+					object.depth_draw_batches[dest_batch_i].num_indices                = current_batch.num_indices;
 
 					dest_batch_i++;
 				}
 
 				// Start new batch
 				current_batch.material_index = mat_index;
-				current_batch.prim_start_offset_B = object.mesh_data->batches[i].prim_start_offset_B;
+				current_batch.prim_start_offset_B = use_src_batches[i].prim_start_offset_B;
 				current_batch.num_indices = 0;
 
 				prev_depth_prog = cur_depth_prog;
 			}
-			next_contiguous_offset = object.mesh_data->batches[i].prim_start_offset_B + object.mesh_data->batches[i].num_indices * index_type_size_B;
+			next_contiguous_offset = use_src_batches[i].prim_start_offset_B + use_src_batches[i].num_indices * index_type_size_B;
 
-			current_batch.num_indices += object.mesh_data->batches[i].num_indices;
+			current_batch.num_indices += use_src_batches[i].num_indices;
 		}
 
 		// Finish last batch
@@ -3773,12 +3779,13 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 				(prev_depth_prog->isBuilt() ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
-			object.depth_draw_batches[dest_batch_i].material_data_index = object.materials[current_batch.material_index].material_data_index;
+			if(use_multi_draw_indirect && prev_depth_prog->supports_MDI)
+				object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = object.materials[current_batch.material_index].material_data_index;
+			else
+				object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = current_batch.material_index;
 			object.depth_draw_batches[dest_batch_i].prim_start_offset_B = current_batch.prim_start_offset_B;
 			object.depth_draw_batches[dest_batch_i].num_indices         = current_batch.num_indices;
 
-			object.depth_draw_batch_material_indices[dest_batch_i]      = current_batch.material_index;
-			
 			dest_batch_i++;
 		}
 		assert(dest_batch_i == num_batches_required);
@@ -3791,7 +3798,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 			//assert(object.materials[object.depth_draw_batches[i].material_index].depth_draw_shader_prog.nonNull());
 		}
 
-		// conPrint("Collapsed " + toString(object.mesh_data->batches.size()) + " batches to " + toString(object.depth_draw_batches.size()) + " depth-draw batches");
+		// conPrint("Collapsed " + toString(object.getUsedBatches().size()) + " batches to " + toString(object.depth_draw_batches.size()) + " depth-draw batches");
 	}
 }
 
@@ -7567,9 +7574,9 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
-					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].participating_media || ob->materials[ob->mesh_data->batches[z].material_index].alpha_blend);
+					const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].participating_media || ob->materials[ob->getUsedBatches()[z].material_index].alpha_blend);
 #endif
 					if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If alpha-blend bit is set, and program has finished building:
 					{
@@ -7715,9 +7722,9 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 							const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-							const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
-							assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
+							const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+							assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 
 							// Check the denormalised vao_and_vbo_key is correct
 							const uint32 vao_id = ob->mesh_data->vao_data_index;
@@ -7921,9 +7928,9 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-						const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
-						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].water);
+						const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].water);
 
 						// Check the denormalised vao_and_vbo_key is correct
 						const uint32 vao_id = ob->mesh_data->vao_data_index;
@@ -8059,9 +8066,9 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-					const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
-					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
+					const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 
 					// Check the denormalised vao_and_vbo_key is correct
 					const uint32 vao_id = ob->mesh_data->vao_data_index;
@@ -8279,9 +8286,9 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 				const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
 
 #ifndef NDEBUG
-				const bool backface_culling = !ob->materials[ob->mesh_data->batches[z].material_index].simple_double_sided && !ob->materials[ob->mesh_data->batches[z].material_index].fancy_double_sided;
-				assert(prog_index_and_backface_culling_flag == (ob->materials[ob->mesh_data->batches[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-				assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->mesh_data->batches[z].material_index].transparent);
+				const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+				assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+				assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 #endif
 				if(BitUtils::areBitsSet(prog_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG)) // If transparent bit is set, and program has finished building:
 				{
@@ -8813,6 +8820,23 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 	ob->ob_to_world_matrix = AABBObjectTransform(min_, max_);
 
 	ob->mesh_data = cube_meshdata;
+	ob->materials.resize(1);
+	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
+	ob->materials[0].alpha = col[3];
+	ob->materials[0].transparent = col[3] < 1.f;
+	return ob;
+}
+
+
+GLObjectRef OpenGLEngine::makeCuboidEdgeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col)
+{
+	GLObjectRef ob = allocateObject();
+
+	ob->ob_to_world_matrix = Matrix4f::translationMatrix(min_);
+
+	const Vec4f span = max_ - min_;
+	const float edge_width = myMin(1.f, span[0] * 0.1f);
+	ob->mesh_data = MeshPrimitiveBuilding::makeCuboidEdgeAABBMesh(*vert_buf_allocator, span, edge_width);
 	ob->materials.resize(1);
 	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
 	ob->materials[0].alpha = col[3];
@@ -9647,7 +9671,8 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		const OpenGLProgram* const prog = this->prog_vector[batch.getProgramIndex()].ptr();
 		if(prog->uses_phong_uniforms)
 		{
-			const OpenGLMaterial& opengl_mat = ob.materials[ob.mesh_data->batches[batch_index].material_index];
+			assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
+			const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index]; // This is the non-MDI case, so material_data_or_mat_index is the index into ob.materials
 
 #if UNIFORM_BUF_PER_MAT_SUPPORT
 	
@@ -9685,7 +9710,8 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 			assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, depth-draw mats would be handled in (use_MDI_and_prog_supports_MDI) branch above.
 
 			// Slow, non-MDI path:
-			const OpenGLMaterial& opengl_mat = ob.materials[ob.depth_draw_batch_material_indices[batch_index]];
+			assert(batch.material_data_or_mat_index == ob.depth_draw_batches[batch_index].material_data_or_mat_index);
+			const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index]; // This is the non-MDI case, so material_data_or_mat_index is the index into ob.materials
 
 			//const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
 			//glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
@@ -9744,7 +9770,8 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		else // Else shader created by user code:
 		{
 			// Slow path:
-			const OpenGLMaterial& opengl_mat = ob.materials[ob.mesh_data->batches[batch_index].material_index];
+			assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
+			const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index];
 
 			if(prog->time_loc >= 0)
 				glUniform1f(prog->time_loc, this->current_time);
@@ -9832,7 +9859,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 		// Push back per-ob-vert-data and material indices to mat_and_ob_indices_buffer.
 		doCheck((ob.per_ob_vert_data_index >= 0) && ((size_t)ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
-		doCheck((batch.material_data_index >= 0) && ((size_t)batch.material_data_index < this->phong_buffer->byteSize() / sizeof(PhongUniforms)));
+		doCheck((batch.material_data_or_mat_index >= 0) && ((size_t)batch.material_data_or_mat_index < this->phong_buffer->byteSize() / sizeof(PhongUniforms)));
 #ifndef NDEBUG
 		//const OpenGLMaterial& opengl_mat = ob.materials[is_depth_draw ? ob.depth_draw_batch_material_indices[batch_index] : ob.mesh_data->batches[batch_index].material_index];
 		//assert(batch.material_data_index == opengl_mat.material_data_index);
@@ -9846,7 +9873,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		this->ob_and_mat_indices_buffer.resize(write_i + 4);
 		this->ob_and_mat_indices_buffer[write_i + 0] = ob.per_ob_vert_data_index;
 		this->ob_and_mat_indices_buffer[write_i + 1] = ob.joint_matrices_base_index;
-		this->ob_and_mat_indices_buffer[write_i + 2] = batch.material_data_index;
+		this->ob_and_mat_indices_buffer[write_i + 2] = batch.material_data_or_mat_index;
 		this->ob_and_mat_indices_buffer[write_i + 3] = 0;
 
 		//conPrint("   appended draw call.");

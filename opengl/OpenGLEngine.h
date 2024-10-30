@@ -49,6 +49,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/GeneralMemAllocator.h"
 #include "../utils/ThreadManager.h"
 #include "../utils/SmallArray.h"
+#include "../utils/Array.h"
 #include "../utils/LinearIterSet.h"
 #include "../physics/HashedGrid2.h"
 #include <assert.h>
@@ -266,7 +267,7 @@ struct GlInstanceInfo
 struct GLObjectBatchDrawInfo
 {
 	uint32 program_index_and_flags;
-	uint32 material_data_index;
+	uint32 material_data_or_mat_index; // If rendering this material with MDI, this is the material data index.  Otherwise it's just the index into ob->materials array.
 	uint32 prim_start_offset_B; // Offset in bytes from the start of the index buffer.
 	uint32 num_indices;
 
@@ -292,6 +293,8 @@ struct GLObject
 	void enableInstancing(VertexBufferAllocator& allocator, const void* instance_matrix_data, size_t instance_matrix_data_size); // Enables instancing attributes, and builds vert_vao.
 
 	void setSingleMaterial(const OpenGLMaterial& mat) { materials.resize(1); materials[0] = mat; }
+
+	ArrayRef<OpenGLBatch> getUsedBatches() const { return use_batches.nonEmpty() ? ArrayRef<OpenGLBatch>(use_batches) : ArrayRef<OpenGLBatch>(mesh_data->batches); }
 
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
@@ -332,8 +335,6 @@ struct GLObject
 	
 	std::vector<OpenGLMaterial> materials;
 
-	SmallArray<uint32, 1> depth_draw_batch_material_indices; // For the slow path where we need to get the material used by the depth draw batch
-
 	int object_type; // 0 = tri mesh
 	float line_width;
 
@@ -351,6 +352,8 @@ struct GLObject
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 	js::Vector<Matrix4f, 16> joint_matrices;
+
+	glare::Array<OpenGLBatch> use_batches; // If non-empty, these batches are used instead of the batches in the mesh data.  See getUsedBatches().
 
 	static const int MAX_NUM_LIGHT_INDICES = 8;
 	int light_indices[MAX_NUM_LIGHT_INDICES];
@@ -1015,6 +1018,7 @@ public:
 	Reference<OpenGLMeshRenderData> getSpriteQuadMeshData() { return sprite_quad_meshdata; }
 
 	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
+	GLObjectRef makeCuboidEdgeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
 	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
 	GLObjectRef makeSphereObject(float radius, const Colour4f& col);
 	GLObjectRef makeCylinderObject(float radius, const Colour4f& col); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
