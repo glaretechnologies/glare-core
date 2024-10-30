@@ -24,7 +24,8 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh, float target_error);
 
-BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskManager& task_manager);
+// index_map_out is a map from old to new index.
+BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<uint32>& index_map_out, glare::TaskManager& task_manager);
 
 void test();
 

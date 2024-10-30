@@ -808,7 +808,7 @@ struct ShootRaysTask : public glare::Task
 };
 
 
-BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskManager& task_manager)
+BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<uint32>& index_map_out, glare::TaskManager& task_manager)
 {
 #if RAYMESH_TRACING_SUPPORT
 	RayMesh raymesh("raymesh", false);
@@ -876,6 +876,34 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 	js::Vector<uint32, 16> simplified_indices;
 	simplified_indices.reserve(mesh->numIndices());
 
+	index_map_out.resize(mesh->numIndices() + 1); // Plus one so we can remap end indices (one past last element).
+
+	/*
+	the new index = the number of kept vert indices preceding.
+
+	0 1 2 3 4 5 6 7 8 9 10 11
+	a b c d e f g h i j k  l
+
+	0 1 2 3 4
+	b d e h j
+	
+	map:
+	map[0] = 0    // a     preceding kept:   {}
+	map[1] = 0    // b                       {}
+	map[2] = 1    // c                       {b}
+	map[3] = 1    // d                       {b}
+	map[4] = 2    // e                       {b, d}
+	map[5] = 3    // f                       {b, d, e}
+	map[6] = 3    // g                       {b, d, e}
+	map[7] = 3    // h                       {b, d, e}
+	map[8] = 4    // i                       {b, d, e, h}
+	map[9] = 4    // j                       {b, d, e, h}
+	map[10] = 5   // k                       {b, d, e, h, j}
+	map[11] = 5   // l                       {b, d, e, h, j}
+	map[12] = 5   // end                     {b, d, e, h, j}
+	*/
+
+	uint32 last_new_index = 0;
 	for(size_t b=0; b<mesh->batches.size(); ++b)
 	{
 		const BatchedMesh::IndicesBatch& batch = mesh->batches[b];
@@ -888,11 +916,22 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 		for(uint32 i=batch.indices_start; i != batch.indices_start + batch.num_indices; i += 3)
 		{
 			const uint32 tri_i = i / 3;
-			if(num_tri_hits[tri_i] > 0)
+			if(num_tri_hits[tri_i] > 0) // If keep tri:
 			{
 				simplified_indices.push_back(mesh->getIndexAsUInt32(i));
+				index_map_out[i] = last_new_index++;
+
 				simplified_indices.push_back(mesh->getIndexAsUInt32(i+1));
+				index_map_out[i+1] = last_new_index++;
+
 				simplified_indices.push_back(mesh->getIndexAsUInt32(i+2));
+				index_map_out[i+2] = last_new_index++;
+			}
+			else
+			{
+				index_map_out[i]   = last_new_index;
+				index_map_out[i+1] = last_new_index;
+				index_map_out[i+2] = last_new_index;
 			}
 		}
 
@@ -901,6 +940,9 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, glare::TaskMa
 		if(new_batch.num_indices > 0)
 			simplified_mesh->batches.push_back(new_batch);
 	}
+
+	index_map_out.back() = last_new_index;
+
 
 	const size_t vertex_size_B = mesh->vertexSize();
 
@@ -1152,7 +1194,9 @@ void test()
 		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh", NULL);
 		BatchedMeshRef simplified_mesh1 = removeSmallComponents(mesh, 0.1f);
 		BatchedMeshRef simplified_mesh3 = buildSimplifiedMesh(*mesh, /*target_reduction_ratio=*/10.f, /*target error=*/0.4f, false);
-		BatchedMeshRef simplified_mesh2 = removeInvisibleTriangles(mesh, task_manager);
+
+		std::vector<uint32> index_map;
+		BatchedMeshRef simplified_mesh2 = removeInvisibleTriangles(mesh, index_map, task_manager);
 	}
 	
 	//{
