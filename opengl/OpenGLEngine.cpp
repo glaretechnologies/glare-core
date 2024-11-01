@@ -5971,7 +5971,7 @@ inline static void setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum 
 void OpenGLEngine::draw()
 {
 	ZoneScoped; // Tracy profiler
-	TracyGpuZone("OpenGLEngine_draw");
+	TracyGpuZone("OpenGLEngine::draw");
 	TracyGpuCollect;
 	DebugGroup debug_group("draw()");
 
@@ -6668,6 +6668,7 @@ void OpenGLEngine::draw()
 	if(current_scene->render_to_main_render_framebuffer)
 	{
 		ZoneScopedN("Post process"); // Tracy profiler
+		TracyGpuZone("Post process");
 
 		// We have rendered to main_render_framebuffer / main_colour_texture / main_normal_texture / main_depth_texture.
 
@@ -6791,6 +6792,7 @@ void OpenGLEngine::draw()
 		if((current_scene->bloom_strength > 0) && col_buf_is_floating_point)
 		{
 			DebugGroup debug_group2("bloom");
+			TracyGpuZone("bloom");
 
 			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 			glDisable(GL_DEPTH_TEST); // Don't depth test
@@ -6864,6 +6866,8 @@ void OpenGLEngine::draw()
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 
 		{
+			TracyGpuZone("imaging");
+
 			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 			glDisable(GL_DEPTH_TEST); // Don't depth test
 
@@ -6938,22 +6942,24 @@ void OpenGLEngine::draw()
 		last_render_GPU_time = elapsed_ns * 1.0e-9;
 	}
 
-	last_draw_CPU_time = profile_timer.elapsed();
-	last_anim_update_duration = anim_update_duration;
-	last_depth_map_gen_GPU_time = shadow_depth_drawing_elapsed_ns * 1.0e-9;
-
-	num_frames_since_fps_timer_reset++;
-	if(fps_display_timer.elapsed() > 1.0)
+	if(current_scene->collect_stats)
 	{
-		last_fps = num_frames_since_fps_timer_reset / fps_display_timer.elapsed();
-		num_frames_since_fps_timer_reset = 0;
-		fps_display_timer.reset();
+		last_draw_CPU_time = profile_timer.elapsed();
+		last_anim_update_duration = anim_update_duration;
+		last_depth_map_gen_GPU_time = shadow_depth_drawing_elapsed_ns * 1.0e-9;
+
+		num_frames_since_fps_timer_reset++;
+		if(fps_display_timer.elapsed() > 1.0)
+		{
+			last_fps = num_frames_since_fps_timer_reset / fps_display_timer.elapsed();
+			num_frames_since_fps_timer_reset = 0;
+			fps_display_timer.reset();
+		}
 	}
 
 	add_debug_obs = false;
 
 	//PerformanceAPI_EndEvent();
-	FrameMark; // Tracy profiler
 }
 
 
@@ -6961,6 +6967,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 {
 	assertCurrentProgramIsZero();
 	DebugGroup debug_group("renderToShadowMapDepthBuffer()");
+	TracyGpuZone("renderToShadowMapDepthBuffer");
 
 	if(shadow_mapping.nonNull())
 	{
@@ -7467,6 +7474,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	DebugGroup debug_group("drawBackgroundEnvMap()");
+	TracyGpuZone("drawBackgroundEnvMap");
 
 	if(this->current_scene->env_ob.nonNull() && this->current_scene->env_ob->materials[0].shader_prog.nonNull())
 	{
@@ -7524,6 +7532,7 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	DebugGroup debug_group("drawAlphaBlendedObjects()");
+	TracyGpuZone("drawAlphaBlendedObjects");
 
 	if(!current_scene->alpha_blended_objects.empty())
 	{
@@ -7635,6 +7644,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	DebugGroup debug_group("drawDecals()");
+	TracyGpuZone("drawDecals");
 
 	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
 #if EMSCRIPTEN // Crashing chrome currently.
@@ -7827,6 +7837,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	DebugGroup debug_group("drawWaterObjects()");
+	TracyGpuZone("drawWaterObjects");
 
 	if(current_scene->draw_water)
 	{
@@ -8012,6 +8023,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 {
 	ZoneScopedN("Draw opaque obs"); // Tracy profiler
 	DebugGroup debug_group("Draw opaque obs");
+	TracyGpuZone("Draw opaque obs");
 
 	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	//glEnable(GL_BLEND);
@@ -8195,6 +8207,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 {
 	ZoneScopedN("Draw transparent obs"); // Tracy profiler
 	DebugGroup debug_group("Draw transparent obs");
+	TracyGpuZone("Draw transparent obs");
 	assertCurrentProgramIsZero();
 
 	if(current_scene->render_to_main_render_framebuffer)
@@ -8383,6 +8396,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 
 	assertCurrentProgramIsZero();
 	DebugGroup debug_group("drawAlwaysVisibleObjects()");
+	TracyGpuZone("drawAlwaysVisibleObjects");
 
 	if(!current_scene->always_visible_objects.empty())
 	{
@@ -8598,6 +8612,7 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 {
 	assertCurrentProgramIsZero();
 	DebugGroup debug_group("drawUIOverlayObjects()");
+	TracyGpuZone("drawUIOverlayObjects");
 
 	if(current_scene->render_to_main_render_framebuffer)
 	{
@@ -8682,6 +8697,7 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 void OpenGLEngine::drawAuroraTex()
 {
 	DebugGroup debug_group("drawAuroraTex()");
+	TracyGpuZone("drawAuroraTex");
 
 	OpenGLProgram::useNoPrograms(); // Unbind any programs before we start changing framebuffer and z-buffer options.
 

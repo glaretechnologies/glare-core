@@ -25,6 +25,7 @@ Copyright Glare Technologies Limited 2020
 #include "../meshoptimizer/src/meshoptimizer.h"
 #include <limits>
 #include <zstd.h>
+#include <tracy/Tracy.hpp>
 
 
 BatchedMesh::BatchedMesh()
@@ -1246,6 +1247,8 @@ Reference<BatchedMesh> BatchedMesh::readFromFile(const std::string& src_path, gl
 
 Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_len, glare::Allocator* mem_allocator)
 {
+	ZoneScoped; // Tracy profiler
+
 	try
 	{
 		BufferViewInStream file(ArrayRef<uint8>((const uint8*)data, data_len));
@@ -1724,6 +1727,8 @@ js::AABBox BatchedMesh::computeAABB() const
 
 void BatchedMesh::checkValidAndSanitiseMesh()
 {
+	ZoneScoped; // Tracy profiler
+
 	BatchedMesh& mesh = *this;
 
 	// Check vertex data size
@@ -1914,6 +1919,8 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 // We want the indices_start of the new batches to be in ascending order. (for later depth-draw optimisations that merge batches together)
 void BatchedMesh::optimise()
 {
+	ZoneScoped; // Tracy profiler
+
 	// Timer timer;
 	const size_t batches_size = batches.size();
 	if(batches_size == 1)

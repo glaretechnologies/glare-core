@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/IncludeHalf.h"
 #include "../utils/StackAllocator.h"
 #include <vector>
+#include <tracy/Tracy.hpp>
 
 
 static const bool MEM_PROFILE = false;
@@ -1125,6 +1126,8 @@ static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 
 Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAllocator* allocator, const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const VBORef& instancing_matrix_data/*bool instancing*/)
 {
+	ZoneScoped; // Tracy profiler
+
 	if(mesh_->index_data.empty())
 		throw glare::Exception("Mesh empty.");
 

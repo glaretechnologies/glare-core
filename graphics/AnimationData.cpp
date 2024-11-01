@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <unordered_map>
 #include <algorithm>
 #include <set>
+#include <tracy/Tracy.hpp>
 
 
 AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity())/*, is_joint_node(false)*/ {}
@@ -241,6 +242,8 @@ void AnimationData::writeToStream(OutStream& stream) const
 
 void AnimationData::readFromStream(InStream& stream)
 {
+	ZoneScoped; // Tracy profiler
+
 	const uint32 version = stream.readUInt32();
 	if(version > ANIMATION_DATA_VERSION)
 		throw glare::Exception("Invalid animation data version: " + toString(version));

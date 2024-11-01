@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "graphics/TextureProcessing.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include <tracy/Tracy.hpp>
 
 
 // See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
@@ -912,6 +913,8 @@ void OpenGLTexture::setDebugName(const std::string& name)
 
 void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
 {
+	ZoneScopedN("TerrainScattering::rebuildDetailMaskMapSection"); // Tracy profiler
+
 	bind();
 #if defined(EMSCRIPTEN)
 	assert(0); // glGetTexImage isn't supported in OpenGL ES, try glReadPixels?
