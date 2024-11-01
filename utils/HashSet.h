@@ -7,7 +7,8 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "HashSetIterators.h"
-#include "Vector.h"
+#include "../maths/mathstypes.h"
+#include <assert.h>
 #include <functional>
 #include <type_traits>
 
