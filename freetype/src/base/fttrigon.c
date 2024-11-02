@@ -416,6 +416,15 @@
   FT_EXPORT_DEF( FT_Fixed )
   FT_Vector_Length( FT_Vector*  vec )
   {
+#if 1
+      //NICK GLARE NEW:
+      // len * 65536 = sqrtf(x*x + y*y) * 65536 = sqrt((vx / 65536) * (vx / 65536) + (vy / 65536) * (vy / 65536)) * 65536
+      // = sqrt((vx*vx + vy*vy) / 2^32) * 65536
+      // = sqrt((vx*vx + vy*vy) / 2^32) * sqrt(2^32)
+      // = sqrt((vx*vx + vy*vy) / 2^32 * 2^32)
+      // = sqrt(vx*vx + vy*vy)
+      return (FT_UInt32)sqrt((float)vec->x*(float)vec->x + (float)vec->y*(float)vec->y);
+#else
     FT_Int     shift;
     FT_Vector  v;
 
@@ -445,6 +454,7 @@
       return ( v.x + ( 1L << ( shift - 1 ) ) ) >> shift;
 
     return (FT_Fixed)( (FT_UInt32)v.x << -shift );
+#endif
   }
 
 

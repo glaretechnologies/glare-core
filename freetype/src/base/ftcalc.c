@@ -38,6 +38,8 @@
 #include <freetype/internal/ftdebug.h>
 #include <freetype/internal/ftobjs.h>
 
+#include <math.h> // NICK GLARE NEW
+
 
 #ifdef FT_MULFIX_ASSEMBLER
 #undef FT_MulFix
@@ -819,9 +821,24 @@
 
   /* documentation is in ftcalc.h */
 
+  // This function normalizes a vector and returns its original length
   FT_BASE_DEF( FT_UInt32 )
   FT_Vector_NormLen( FT_Vector*  vector )
   {
+      // NICK GLARE NEW:
+      // vx' = (x / len) * 65536 = (x * 65536) / len = ((vx / 65536) * 65536) / len = vx / len = vx / (sqrt(vx*vx + vy*vy) / 65536)
+      // = 65536 * vx / (sqrt(vx*vx + vy*vy)
+      // 
+      const float vx = (float)vector->x;
+      const float vy = (float)vector->y;
+      const float vlen = sqrtf(vx*vx + vy*vy);
+      const float scale_factor = 65536.f / vlen;
+      vector->x = (FT_Pos)(vx * scale_factor);
+      vector->y = (FT_Pos)(vy * scale_factor);
+      return (FT_UInt32)vlen;
+
+#if 0
+
     FT_Int32   x_ = vector->x;
     FT_Int32   y_ = vector->y;
     FT_Int32   b, z;
@@ -910,6 +927,7 @@
       l <<= -shift;
 
     return l;
+#endif
   }
 
 

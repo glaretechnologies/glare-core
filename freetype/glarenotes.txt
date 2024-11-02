@@ -9,3 +9,8 @@ include\freetype\config\ftoption.h has been modified to define FT_CONFIG_OPTION_
 Also undefined FT_CONFIG_OPTION_MAC_FONTS.
 
 Defined FT_CONFIG_OPTION_SYSTEM_ZLIB to use the existing zlib.
+
+
+
+Added some optimisations for SDK rendering (use float instead of fixed point) in 
+ftcalc.c and fttrigon.c
