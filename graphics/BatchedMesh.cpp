@@ -532,7 +532,7 @@ void BatchedMesh::toUInt32Indices(js::Vector<uint32, 16>& uint32_indices_out) co
 Vec4f BatchedMesh::getVertexPosition(uint32 vert_index) const
 {
 	const BatchedMesh::VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
-	runtimeCheck(pos_attr.type == ComponentType_Float);
+	runtimeCheck(pos_attr.component_type == ComponentType_Float);
 
 	const size_t stride = vertexSize();
 
