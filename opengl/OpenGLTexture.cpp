@@ -808,6 +808,7 @@ void OpenGLTexture::loadIntoExistingTexture(int mipmap_level, size_t tex_xres, s
 void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, size_t y, size_t z, size_t region_w, size_t region_h, size_t region_d, size_t src_row_stride_B, ArrayRef<uint8> src_tex_data, bool bind_needed)
 {
 	assert(mipmap_level < num_mipmap_levels_allocated);
+	ZoneScoped; // Tracy profiler
 
 	if(bind_needed)
 	{
@@ -897,6 +898,8 @@ void OpenGLTexture::setTWrappingEnabled(bool wrapping_enabled)
 
 void OpenGLTexture::buildMipMaps()
 {
+	ZoneScoped; // Tracy profiler
+
 	glBindTexture(texture_target, texture_handle);
 	glGenerateMipmap(texture_target);
 }

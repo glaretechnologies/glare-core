@@ -54,7 +54,7 @@ public:
 	FontCharTexCache();
 	virtual ~FontCharTexCache();
 
-	// Get info about a character drawn onto the atlast texture.  Adds it to atlas if not already on there.
+	// Get info about a character drawn onto the atlas texture.  Adds it to atlas if not already on there.
 	CharTexInfo getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts, const string_view charstring, int font_size_px, bool render_SDF);
 
 	void writeAtlasToDiskDebug(const std::string& path);

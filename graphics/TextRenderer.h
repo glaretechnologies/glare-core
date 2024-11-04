@@ -51,6 +51,8 @@ public:
 	TextRendererFontFace(TextRendererRef renderer, const std::string& font_file_path, int font_size_pixels);
 	~TextRendererFontFace();
 
+	void drawGlyph(ImageMapUInt8& map, const string_view char_text, int x, int y, const Colour3f& col, bool render_SDF);
+
 	// Draw text at (x, y).
 	// The y coordinate give the position of the text baseline.
 	// Col is used if the font is greyscale.  If the font is a colour font (e.g. Emoji), the font colour is used.
@@ -74,7 +76,7 @@ public:
 
 	// Get size info for a single character glyph
 	// Throws glare::Exception on failure, for example on invalid UTF-8 string.
-	SizeInfo getGlyphSize(const string_view text, bool render_SDF);
+	SizeInfo getGlyphSize(const string_view char_text, bool render_SDF);
 
 	// Get size info for a string that may have multiple characters.
 	// NOTE: just about as slow as drawText().
@@ -91,6 +93,8 @@ public:
 	TextRendererRef renderer;
 	struct FT_FaceRec_* face;
 	int font_size_pixels;
+
+	unsigned int cur_loaded_glyph_index;
 };
 
 

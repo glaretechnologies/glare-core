@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/UTF8Utils.h"
 #include "../utils/RuntimeCheck.h"
 #include "../utils/StackAllocator.h"
+#include <tracy/Tracy.hpp>
 
 
 static inline Vec2f toVec2f(const Vec3f& v)
@@ -40,6 +41,8 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(Reference<OpenGLEn
 	glare::StackAllocator& stack_allocator,
 	Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out)
 {
+	ZoneScoped; // Tracy profiler
+
 	// Make mesh data
 	rect_os_out = Rect2f(Vec2f(0.f), Vec2f(0.f));
 	char_positions_font_coords_out.clear();

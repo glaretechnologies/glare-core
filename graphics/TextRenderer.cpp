@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/RuntimeCheck.h"
 #include "../utils/Timer.h"
 #include <freetype/freetype.h>
+#include <tracy/Tracy.hpp>
 
 
 TextRenderer::TextRenderer()
@@ -61,6 +62,7 @@ static void drawCharToBitmap(ImageMapUInt8& map,
 	const Colour3f& col
 )
 {
+	ZoneScoped; // Tracy profiler
 	const int end_dest_x = start_dest_x + bitmap->width;
 	const int end_dest_y = start_dest_y + bitmap->rows;
 
@@ -176,8 +178,11 @@ static std::string getFreeTypeErrorString(FT_Error err)
 
 
 TextRendererFontFace::TextRendererFontFace(TextRendererRef renderer_, const std::string& font_file_path, int font_size_pixels_)
-:	font_size_pixels(font_size_pixels_)
+:	font_size_pixels(font_size_pixels_),
+	cur_loaded_glyph_index(std::numeric_limits<FT_UInt>::max())
 {
+	ZoneScoped; // Tracy profiler
+
 	renderer = renderer_;
 
 	FT_Error error = FT_New_Face(renderer->library, font_file_path.c_str(), /*face index=*/0, &face); // Create face object
@@ -208,8 +213,41 @@ TextRendererFontFace::~TextRendererFontFace()
 }
 
 
+void TextRendererFontFace::drawGlyph(ImageMapUInt8& map, const string_view char_text, int draw_x, int draw_y, const Colour3f& col, bool render_SDF)
+{
+	ZoneScoped; // Tracy profiler
+
+	Lock lock(renderer->mutex);
+
+	FT_GlyphSlot slot = face->glyph;
+
+	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(char_text);
+	const FT_UInt glyph_index = FT_Get_Char_Index(face, code_point);
+
+	FT_Set_Transform(face, /*matrix=*/NULL, /*translation=*/NULL); // Set transformation.  Use null matrix to get the identity matrix,
+	// and null translation for the zero vector.
+
+	if(this->cur_loaded_glyph_index != glyph_index)
+	{
+		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
+		if(error != 0)
+			throw glare::Exception("FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
+		this->cur_loaded_glyph_index = glyph_index;
+	}
+
+	FT_Error error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
+	if(error != 0)
+		throw glare::Exception("FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
+	
+	// Now, draw to our target surface (convert position)
+	drawCharToBitmap(map, &slot->bitmap, /*start_dest_x=*/draw_x + slot->bitmap_left, draw_y - slot->bitmap_top, col);
+}
+
+
 void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, int draw_x, int draw_y, const Colour3f& col, bool render_SDF)
 {
+	ZoneScoped; // Tracy profiler
+
 	Lock lock(renderer->mutex);
 
 	FT_GlyphSlot slot = face->glyph;
@@ -232,30 +270,32 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 
 		FT_Set_Transform(face, /*matrix=*/NULL, &pen); // Set transformation.  Use null matrix to get the identity matrix
 
-		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
-		if(error == 0) // If no errors:
+		if(this->cur_loaded_glyph_index != glyph_index)
 		{
-			error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
-			if(error == 0) // If no errors:
-			{
-				// now, draw to our target surface (convert position)
-				drawCharToBitmap(map, &slot->bitmap, /*start_dest_x=*/draw_x + slot->bitmap_left, draw_y - slot->bitmap_top, col);
-
-				// increment pen position
-				pen.x += slot->advance.x;
-				pen.y += slot->advance.y;
-			}
-			else
+			FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
+			if(error != 0)
 			{
 #ifndef NDEBUG
 				conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
 #endif
 			}
+			this->cur_loaded_glyph_index = glyph_index;
+		}
+
+		FT_Error error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
+		if(error == 0) // If no errors:
+		{
+			// now, draw to our target surface (convert position)
+			drawCharToBitmap(map, &slot->bitmap, /*start_dest_x=*/draw_x + slot->bitmap_left, draw_y - slot->bitmap_top, col);
+
+			// increment pen position
+			pen.x += slot->advance.x;
+			pen.y += slot->advance.y;
 		}
 		else
 		{
 #ifndef NDEBUG
-			conPrint("Warning: FT_Load_Glyph failed: " + getFreeTypeErrorString(error));
+			conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
 #endif
 		}
 
@@ -267,6 +307,8 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 // Get the size information for a single character glyph.
 TextRendererFontFace::SizeInfo TextRendererFontFace::getGlyphSize(const string_view text, bool render_SDF)
 {
+	ZoneScoped; // Tracy profiler
+
 	FT_GlyphSlot slot = face->glyph;
 
 	if(text.empty())
@@ -283,6 +325,7 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getGlyphSize(const string_v
 	FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
 	if(error != 0)
 		throw glare::Exception("Error calling FT_Load_Glyph: " + getFreeTypeErrorString(error));
+	this->cur_loaded_glyph_index = glyph_index;
 
 	error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
 	if(error != 0)
@@ -316,6 +359,8 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getGlyphSize(const string_v
 // Assumes not doing SDF rendering
 TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_view text)
 {
+	ZoneScoped; // Tracy profiler
+
 	FT_GlyphSlot slot = face->glyph;
 
 	// The pen position in 26.6 coordinates
@@ -342,6 +387,7 @@ TextRendererFontFace::SizeInfo TextRendererFontFace::getTextSize(const string_vi
 		const FT_UInt glyph_index = FT_Get_Char_Index(face, code_point);
 
 		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER); // load glyph image into the slot (erase previous one)
+		this->cur_loaded_glyph_index = glyph_index;
 		if(error == 0) // If no errors:
 		{
 			// See https://freetype.org/freetype2/docs/tutorial/step2.html

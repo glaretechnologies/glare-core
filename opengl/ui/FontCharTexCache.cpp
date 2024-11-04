@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "../../graphics/PNGDecoder.h"
 #include "../../utils/UTF8Utils.h"
+#include <tracy/Tracy.hpp>
 
 
 FontCharTexCache::FontCharTexCache()
@@ -28,6 +29,8 @@ static inline bool codePointIsEmoji(uint32 code_point)
 
 CharTexInfo FontCharTexCache::getCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const string_view charstring, int font_size_px, bool render_SDF)
 {
+	ZoneScoped; // Tracy profiler
+
 	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(charstring);
 	const bool is_emoji = codePointIsEmoji(code_point);
 
@@ -110,7 +113,7 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 	const Vec2i topleft_plus_margin = topleft + Vec2i(margin_px);
 
 	// Draw character glyph onto image map
-	font->drawText(*atlas->imagemap, charstring, topleft_plus_margin.x - size_info.bitmap_left, /*baseline y=*/topleft_plus_margin.y + size_info.bitmap_top, Colour3f(1.f), render_SDF);
+	font->drawGlyph(*atlas->imagemap, charstring, topleft_plus_margin.x - size_info.bitmap_left, /*baseline y=*/topleft_plus_margin.y + size_info.bitmap_top, Colour3f(1.f), render_SDF);
 
 	// Draw border around glyph
 	if(is_emoji)
@@ -177,6 +180,8 @@ static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, c
 CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_engine, TextRendererFontFaceSizeSet* text_renderer_fonts_, TextRendererFontFaceSizeSet* text_renderer_emoji_fonts_, 
 	const string_view charstring, int font_size_px, bool render_SDF)
 {
+	ZoneScoped; // Tracy profiler
+
 	const uint32 code_point = UTF8Utils::codePointForUTF8CharString(charstring);
 	const bool is_emoji = codePointIsEmoji(code_point);
 	TextRendererFontFaceSizeSet* use_font_set = is_emoji ? text_renderer_emoji_fonts_ : text_renderer_fonts_;
@@ -286,28 +291,59 @@ void FontCharTexCache::test()
 
 	//const bool WRITE_IMAGES = true;
 
-	TextRendererRef text_renderer = new TextRenderer();
+	{
+		TextRendererRef text_renderer = new TextRenderer();
 
-	TextRendererFontFaceSizeSetRef fonts       = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Segoeui.ttf");
-	TextRendererFontFaceSizeSetRef emoji_fonts = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Seguiemj.ttf");
+		TextRendererFontFaceSizeSetRef fonts       = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Segoeui.ttf");
+		TextRendererFontFaceSizeSetRef emoji_fonts = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Seguiemj.ttf");
 
-	FontCharTexCacheRef cache = new FontCharTexCache();
+		FontCharTexCacheRef cache = new FontCharTexCache();
 
-	CharTexInfo info;
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "A", 42, /*render SDF=*/true);
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "B", 42, /*render SDF=*/true);
+		CharTexInfo info;
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "A", 42, /*render SDF=*/true);
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "B", 42, /*render SDF=*/true);
 
-	const std::string grinning_face = UTF8Utils::encodeCodePoint(0x1F600);
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), grinning_face, 42, /*render SDF=*/true);
+		const std::string grinning_face = UTF8Utils::encodeCodePoint(0x1F600);
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), grinning_face, 42, /*render SDF=*/true);
 
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "C", 42, /*render SDF=*/true);
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "C", 42, /*render SDF=*/true);
 
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "H", 42, /*render SDF=*/false);
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "E", 42, /*render SDF=*/false);
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "L", 42, /*render SDF=*/false);
-	info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "O", 42, /*render SDF=*/false);
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "H", 42, /*render SDF=*/false);
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "E", 42, /*render SDF=*/false);
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "L", 42, /*render SDF=*/false);
+		info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), "O", 42, /*render SDF=*/false);
 
-	cache->writeAtlasToDiskDebug("test_font_atlas.png");
+		cache->writeAtlasToDiskDebug("test_font_atlas.png");
+	}
+
+	// Perf test
+	{
+		TextRendererRef text_renderer = new TextRenderer();
+
+		TextRendererFontFaceSizeSetRef fonts       = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Segoeui.ttf");
+		TextRendererFontFaceSizeSetRef emoji_fonts = new TextRendererFontFaceSizeSet(text_renderer, PlatformUtils::getFontsDirPath() + "/Seguiemj.ttf");
+
+		
+		for(int z=0; z<100; ++z)
+		{
+			FontCharTexCacheRef cache = new FontCharTexCache();
+			Timer timer;
+			for(int i=0; i<26; ++i)
+			{
+				char c = (char)('a' + i);
+				CharTexInfo info;
+				info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), std::string(1, c), /*font size (px)=*/20, /*render SDF=*/true);
+				c = (char)('A' + i);
+				info = cache->getCharTexture(/*opengl engine=*/NULL, fonts.ptr(), emoji_fonts.ptr(), std::string(1, c), /*font size (px)=*/20, /*render SDF=*/true);
+			}
+			conPrint("getCharTexture calls took " + timer.elapsedStringMSWIthNSigFigs(5));
+			//cache->writeAtlasToDiskDebug("d:/files/test_font_atlas.png");
+		}
+		
+
+		
+	}
+
 
 	conPrint("FontCharTexCache::test() done");
 }

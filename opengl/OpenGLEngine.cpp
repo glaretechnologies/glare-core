@@ -10057,6 +10057,8 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 // Otherwise load the texture from map2d into OpenGL immediately.
 Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const OpenGLTextureKey& key, const Map2D& map2d, const TextureParams& params)
 {
+	ZoneScoped; // Tracy profiler
+
 	auto res = this->opengl_textures.find(key);
 	if(res != this->opengl_textures.end())// if this map has already been loaded into an OpenGL Texture:
 	{
