@@ -423,7 +423,7 @@
       // = sqrt((vx*vx + vy*vy) / 2^32) * sqrt(2^32)
       // = sqrt((vx*vx + vy*vy) / 2^32 * 2^32)
       // = sqrt(vx*vx + vy*vy)
-      return (FT_UInt32)sqrt((float)vec->x*(float)vec->x + (float)vec->y*(float)vec->y);
+      return (FT_UInt32)sqrtf((float)vec->x*(float)vec->x + (float)vec->y*(float)vec->y);
 #else
     FT_Int     shift;
     FT_Vector  v;
