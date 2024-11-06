@@ -190,10 +190,10 @@ void main()
 			materialise_coords = pos_ws.xy;
 	}
 
-	float sweep_speed_factor = 1.0;
+	float sweep_speed_factor = 3.0;
 	float sweep_frac = (pos_ws.z - MAT_UNIFORM.materialise_lower_z) / (MAT_UNIFORM.materialise_upper_z - MAT_UNIFORM.materialise_lower_z);
 	float materialise_stage = fbmMix(materialise_coords * 0.2) * 0.4 + sweep_frac;
-	float use_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor - materialise_stage - 0.3;
+	float use_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor - materialise_stage - 0.0;
 
 	float band_1_centre = 0.1;
 	float band_2_centre = 0.8;
