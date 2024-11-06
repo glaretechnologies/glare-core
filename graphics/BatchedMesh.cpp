@@ -1708,7 +1708,7 @@ size_t BatchedMesh::getTotalMemUsage() const
 js::AABBox BatchedMesh::computeAABB() const
 {
 	const BatchedMesh::VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
-	runtimeCheck(pos_attr.type == ComponentType_Float);
+	runtimeCheck(pos_attr.component_type == ComponentType_Float);
 
 	const size_t stride = vertexSize();
 	const size_t num_verts = numVerts();
