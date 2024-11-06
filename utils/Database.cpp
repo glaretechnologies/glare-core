@@ -67,7 +67,7 @@ Set record len to std::numeric_limits<uint32>::max().
 
 
 Database::Database()
-:	file_in(NULL), file_out(NULL), next_unused_key(0), append_offset(std::numeric_limits<uint64>::max())
+:	file_in(NULL), file_out(NULL), next_unused_key(0), append_offset(std::numeric_limits<size_t>::max())
 {}
 
 
