@@ -118,7 +118,7 @@ private:
 		on_heap_and_size = (1u << 31) | (uint32)s;
 	}
 
-	char* e; // Either points at direct or at memory on the heap.
+	char* e;
 	uint32 capacity_storage;
 	uint32 on_heap_and_size; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
 };
