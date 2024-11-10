@@ -22,6 +22,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLCircularBuffer.h"
 #include "AsyncTextureLoader.h"
 #include "TextureAllocator.h"
+#include "Query.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/AnimationData.h"
@@ -1154,7 +1155,7 @@ private:
 	void checkMDIGPUDataCorrect();
 	int allocPerObVertDataBufferSpot();
 	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used);
-	void renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_elapsed_ns);
+	void renderToShadowMapDepthBuffer();
 	void drawUIOverlayObjects(const Matrix4f& reverse_z_matrix);
 	void generateOutlineTexture(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawOutlinesAroundSelectedObjects();
@@ -1198,9 +1199,6 @@ private:
 	
 	js::Vector<OverlayObject*, 16> temp_obs;
 
-#if !defined(OSX)
-	GLuint timer_query_id;
-#endif
 
 	//uint64 num_face_groups_submitted;
 	uint32 num_indices_submitted;
@@ -1384,6 +1382,10 @@ private:
 	uint32 num_vao_binds;
 	uint32 num_vbo_binds;
 	uint32 num_index_buf_binds;
+
+	QueryRef dynamic_depth_draw_gpu_timer;
+	QueryRef static_depth_draw_gpu_timer;
+	QueryRef draw_opaque_obs_gpu_timer;
 	
 	uint32 last_num_prog_changes;
 	uint32 last_num_batches_bound;
@@ -1394,10 +1396,15 @@ private:
 	uint32 last_num_backface_culling_changes;
 
 	uint32 depth_draw_last_num_prog_changes;
+	uint32 depth_draw_last_num_backface_culling_changes;
 	uint32 depth_draw_last_num_batches_bound;
 	uint32 depth_draw_last_num_vao_binds;
 	uint32 depth_draw_last_num_vbo_binds;
 	uint32 depth_draw_last_num_indices_drawn;
+
+	double last_dynamic_depth_draw_GPU_time;
+	double last_static_depth_draw_GPU_time;
+	double last_draw_opaque_obs_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
 
@@ -1408,8 +1415,6 @@ private:
 
 
 	double last_anim_update_duration;
-	double last_depth_map_gen_GPU_time;
-	double last_render_GPU_time;
 	double last_draw_CPU_time;
 	double last_fps;
 

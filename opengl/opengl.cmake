@@ -63,6 +63,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/UniformBufOb.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/UniformBufOb.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/WGL.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/WGL.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/Query.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/Query.h
 )
 
 

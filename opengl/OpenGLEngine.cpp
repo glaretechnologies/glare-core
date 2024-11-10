@@ -458,8 +458,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	tex_CPU_mem_usage(0),
 	tex_GPU_mem_usage(0),
 	last_anim_update_duration(0),
-	last_depth_map_gen_GPU_time(0),
-	last_render_GPU_time(0),
 	last_draw_CPU_time(0),
 	last_fps(0),
 	query_profiling_enabled(false),
@@ -473,10 +471,14 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_backface_culling_changes(0),
 	num_index_buf_binds(0),
 	depth_draw_last_num_prog_changes(0),
+	depth_draw_last_num_backface_culling_changes(0),
 	depth_draw_last_num_batches_bound(0),
 	depth_draw_last_num_vao_binds(0),
 	depth_draw_last_num_vbo_binds(0),
 	depth_draw_last_num_indices_drawn(0),
+	last_dynamic_depth_draw_GPU_time(0),
+	last_static_depth_draw_GPU_time(0),
+	last_draw_opaque_obs_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	next_program_index(0),
 	use_bindless_textures(false),
@@ -1811,10 +1813,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
 	glDisable(GL_CULL_FACE);	// Disable backface culling
 
-#if !defined(OSX)
-	if(query_profiling_enabled)
-		glGenQueries(1, &timer_query_id);
-#endif
+	this->dynamic_depth_draw_gpu_timer = new Query();
+	this->static_depth_draw_gpu_timer = new Query();
+	this->draw_opaque_obs_gpu_timer = new Query();
 
 	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(*vert_buf_allocator);
 	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(*vert_buf_allocator);
@@ -3631,6 +3632,12 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 }
 
 
+static inline bool backfaceCullMat(const OpenGLMaterial& mat)
+{
+	return !mat.simple_double_sided && !mat.fancy_double_sided;
+}
+
+
 void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 {
 	// Build misc draw info.
@@ -3648,7 +3655,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 	{
 		const OpenGLMaterial& mat = object.materials[use_src_batches[i].material_index];
 
-		const bool backface_culling = !mat.simple_double_sided && !mat.fancy_double_sided;
+		const bool backface_culling = backfaceCullMat(mat);
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
 			(mat.shader_prog->supports_MDI  ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
 			(mat.transparent                ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
@@ -3705,18 +3712,22 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 		// Do a pass to get number of batches required
 		OpenGLProgram* prev_depth_prog = NULL;
+		bool prev_backface_cull = true;
 		size_t num_batches_required = 0;
 		uint32 next_contiguous_offset = 0;
 		for(size_t i=0; i<use_src_batches.size(); ++i)
 		{
 			const uint32 mat_index = use_src_batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
+			const bool cur_backface_cull = backfaceCullMat(object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
+				(cur_backface_cull != prev_backface_cull) || // or backface culling differs:
 				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
 					num_batches_required++;
 				prev_depth_prog = cur_depth_prog;
+				prev_backface_cull = cur_backface_cull;
 			}
 			next_contiguous_offset = use_src_batches[i].prim_start_offset_B + use_src_batches[i].num_indices * index_type_size_B;
 		}
@@ -3728,6 +3739,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 		size_t dest_batch_i = 0;
 		prev_depth_prog = NULL;
+		prev_backface_cull = true;
 		next_contiguous_offset = 0;
 		OpenGLBatch current_batch;
 		current_batch.material_index = 0;
@@ -3737,15 +3749,18 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		{
 			const uint32 mat_index = use_src_batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
+			const bool cur_backface_cull = backfaceCullMat(object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
+				(cur_backface_cull != prev_backface_cull) || // or backface culling differs:
 				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				// The depth-draw material changed.  So finish the batch.
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.
 				{
 					object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
-						(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG : 0) |
-						(prev_depth_prog->isBuilt() ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
+						(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
+						(prev_backface_cull            ? BACKFACE_CULLING_BITFLAG          : 0) |
+						(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
 					if(use_multi_draw_indirect && prev_depth_prog->supports_MDI)
@@ -3765,6 +3780,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 				current_batch.num_indices = 0;
 
 				prev_depth_prog = cur_depth_prog;
+				prev_backface_cull = cur_backface_cull;
 			}
 			next_contiguous_offset = use_src_batches[i].prim_start_offset_B + use_src_batches[i].num_indices * index_type_size_B;
 
@@ -3775,8 +3791,9 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		if(prev_depth_prog)
 		{
 			object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
-				(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG : 0) |
-				(prev_depth_prog->isBuilt() ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
+				(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
+				(prev_backface_cull            ? BACKFACE_CULLING_BITFLAG          : 0) |
+				(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
 			if(use_multi_draw_indirect && prev_depth_prog->supports_MDI)
@@ -6125,7 +6142,6 @@ void OpenGLEngine::draw()
 	Timer profile_timer;
 
 	this->draw_time = draw_timer.elapsed();
-	uint64 shadow_depth_drawing_elapsed_ns = 0;
 	double anim_update_duration = 0;
 
 
@@ -6303,15 +6319,11 @@ void OpenGLEngine::draw()
 
 	//=============== Render to shadow map depth buffer if needed ===============
 	if(current_scene->shadow_mapping)
-		renderToShadowMapDepthBuffer(shadow_depth_drawing_elapsed_ns);
+		renderToShadowMapDepthBuffer();
 
 
 	bindStandardShadowMappingDepthTextures(); // Rebind now that the shadow maps have been redrawn, and hence cur_static_depth_tex has changed.
 
-
-#if !defined(OSX) && !defined(EMSCRIPTEN)
-	if(query_profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id); // Start measuring everything else after depth buffer drawing:
-#endif
 
 
 #if defined(EMSCRIPTEN)
@@ -6926,27 +6938,20 @@ void OpenGLEngine::draw()
 
 	if(query_profiling_enabled)
 	{
-		//const double cpu_time = profile_timer.elapsed();
-		uint64 elapsed_ns = 0;
-#if !defined(OSX) && !defined(EMSCRIPTEN)
-		glEndQuery(GL_TIME_ELAPSED);
-		glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
-#endif
-		/*conPrint("anim_update_duration: " + doubleToStringNDecimalPlaces(anim_update_duration * 1.0e3, 4) + " ms");
-		conPrint("Frame times: CPU: " + doubleToStringNDecimalPlaces(cpu_time * 1.0e3, 4) + 
-			" ms, depth map gen on GPU: " + doubleToStringNDecimalPlaces(shadow_depth_drawing_elapsed_ns * 1.0e-6, 4) + 
-			" ms, GPU: " + doubleToStringNDecimalPlaces(elapsed_ns * 1.0e-6, 4) + " ms.");
-		conPrint("Submitted: face groups: " + toString(num_face_groups_submitted) + ", faces: " + toString(num_indices_submitted / 3) + ", aabbs: " + toString(num_aabbs_submitted) + ", " + 
-			toString(current_scene->objects.size() - num_frustum_culled) + "/" + toString(current_scene->objects.size()) + " obs");*/
+		if(dynamic_depth_draw_gpu_timer->waitingForResult() && dynamic_depth_draw_gpu_timer->checkResultAvailable())
+			last_dynamic_depth_draw_GPU_time = dynamic_depth_draw_gpu_timer->getTimeElapsed();
 
-		last_render_GPU_time = elapsed_ns * 1.0e-9;
+		if(static_depth_draw_gpu_timer->waitingForResult() && static_depth_draw_gpu_timer->checkResultAvailable())
+			last_static_depth_draw_GPU_time = static_depth_draw_gpu_timer->getTimeElapsed();
+
+		if(draw_opaque_obs_gpu_timer->waitingForResult() && draw_opaque_obs_gpu_timer->checkResultAvailable())
+			last_draw_opaque_obs_GPU_time = draw_opaque_obs_gpu_timer->getTimeElapsed();
 	}
 
 	if(current_scene->collect_stats)
 	{
 		last_draw_CPU_time = profile_timer.elapsed();
 		last_anim_update_duration = anim_update_duration;
-		last_depth_map_gen_GPU_time = shadow_depth_drawing_elapsed_ns * 1.0e-9;
 
 		num_frames_since_fps_timer_reset++;
 		if(fps_display_timer.elapsed() > 1.0)
@@ -6963,7 +6968,7 @@ void OpenGLEngine::draw()
 }
 
 
-void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_elapsed_ns_out)
+void OpenGLEngine::renderToShadowMapDepthBuffer()
 {
 	assertCurrentProgramIsZero();
 	DebugGroup debug_group("renderToShadowMapDepthBuffer()");
@@ -6973,9 +6978,9 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 	{
 		ZoneScopedN("Shadow depth draw"); // Tracy profiler
 
-#if !defined(OSX) && !defined(EMSCRIPTEN)
-		if(query_profiling_enabled) glBeginQuery(GL_TIME_ELAPSED, timer_query_id);
-#endif
+		if(query_profiling_enabled && current_scene->collect_stats && dynamic_depth_draw_gpu_timer->isIdle())
+			dynamic_depth_draw_gpu_timer->beginTimerQuery();
+
 		//-------------------- Draw dynamic depth textures ----------------
 		shadow_mapping->bindDepthTexFrameBufferAsTarget();
 
@@ -6983,9 +6988,6 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 
 		glClearDepthf(1.f);
 		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
-
-		// We will draw both back and front faces to the depth buffer.  Just drawing backfaces results in light leaks in some cases, and also incorrect shadowing for objects with no volume.
-		glDisable(GL_CULL_FACE);
 
 		// Use opengl-default clip coords
 #if !defined(OSX) && !defined(EMSCRIPTEN)
@@ -6996,6 +6998,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 		const int per_map_h = shadow_mapping->dynamic_h / shadow_mapping->numDynamicDepthTextures();
 
 		num_prog_changes = 0;
+		uint32 num_backface_culling_changes = 0;
 		uint32 num_batches_bound = 0;
 		num_vao_binds = 0;
 		num_vbo_binds = 0;
@@ -7143,25 +7146,53 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 			sortBatchDrawInfos();
 
 			// Draw sorted batches
+			uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
+			glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+
 			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
 			const size_t batch_draw_info_size = batch_draw_info.size();
 			for(size_t z=0; z<batch_draw_info_size; ++z)
 			{
 				const BatchDrawInfo& info = batch_draw_info_data[z];
-				const uint32 prog_index = info.ob->depth_draw_batches[info.batch_i].getProgramIndex();
-
-				const bool program_changed = checkUseProgram(prog_index);
-				if(program_changed)
+				const GLObjectBatchDrawInfo& batch = info.ob->depth_draw_batches[info.batch_i];
+				const uint32 prog_index_and_backface_culling = batch.getProgramIndexAndBackfaceCulling();
+				if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
 				{
+					ZoneScopedN("changing prog"); // Tracy profiler
+
+					if(use_multi_draw_indirect)
+						submitBufferedDrawCommands(); // Flush existing draw commands
+
+					const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
+					const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
+					if(backface_culling != prev_backface_culling)
+					{
+						if(backface_culling != 0)
+							glEnable(GL_CULL_FACE);
+						else
+							glDisable(GL_CULL_FACE);
+						num_backface_culling_changes++;
+					}
+
+					const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
 					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+					prog->useProgram();
+					current_bound_prog = prog;
+					current_bound_prog_index = prog_index;
+					current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
 					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+					num_prog_changes++;
+
+					current_prog_index_and_backface_culling = prog_index_and_backface_culling;
 				}
+
 				bindMeshData(*info.ob);
 				num_batches_bound++;
-				
-				drawBatchWithDenormalisedData(*info.ob, info.ob->depth_draw_batches[info.batch_i], info.batch_i);
+
+				drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
 			}
-			
+
 			flushDrawCommandsAndUnbindPrograms();
 
 			// conPrint("Level " + toString(ti) + ": " + toString(num_drawn) + " / " + toString(current_scene_obs_size) + " obs drawn, " + toString(num_too_small) + " too small, " + toString(num_frustum_culled) + 
@@ -7169,6 +7200,9 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 		}
 
 		shadow_mapping->unbindFrameBuffer();
+
+		if(query_profiling_enabled && dynamic_depth_draw_gpu_timer->isRunning())
+			dynamic_depth_draw_gpu_timer->endTimerQuery();
 		//-------------------- End draw dynamic depth textures ----------------
 
 		//-------------------- Draw static depth textures ----------------
@@ -7197,6 +7231,9 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 		*/
 		{
 			DebugGroup debug_group2("static depth draw");
+
+			if(query_profiling_enabled && current_scene->collect_stats && static_depth_draw_gpu_timer->isIdle())
+				static_depth_draw_gpu_timer->beginTimerQuery();
 
 			// Bind the non-current ('other') static depth map.  We will render to that.
 			const int other_index = (shadow_mapping->cur_static_depth_tex + 1) % 2;
@@ -7405,23 +7442,51 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 				sortBatchDrawInfos();
 
 				// Draw sorted batches
+				uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
+				glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+
 				const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
 				const size_t batch_draw_info_size = batch_draw_info.size();
 				for(size_t z=0; z<batch_draw_info_size; ++z)
 				{
 					const BatchDrawInfo& info = batch_draw_info_data[z];
-					const uint32 prog_index = info.ob->depth_draw_batches[info.batch_i].getProgramIndex();
-
-					const bool program_changed = checkUseProgram(prog_index);
-					if(program_changed)
+					const GLObjectBatchDrawInfo& batch = info.ob->depth_draw_batches[info.batch_i];
+					const uint32 prog_index_and_backface_culling = batch.getProgramIndexAndBackfaceCulling();
+					if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
 					{
+						ZoneScopedN("changing prog"); // Tracy profiler
+
+						if(use_multi_draw_indirect)
+							submitBufferedDrawCommands(); // Flush existing draw commands
+
+						const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
+						const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
+						if(backface_culling != prev_backface_culling)
+						{
+							if(backface_culling != 0)
+								glEnable(GL_CULL_FACE);
+							else
+								glDisable(GL_CULL_FACE);
+							num_backface_culling_changes++;
+						}
+
+						const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
 						const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+						prog->useProgram();
+						current_bound_prog = prog;
+						current_bound_prog_index = prog_index;
+						current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
 						setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+						num_prog_changes++;
+
+						current_prog_index_and_backface_culling = prog_index_and_backface_culling;
 					}
+
 					bindMeshData(*info.ob);
 					num_batches_bound++;
 					
-					drawBatchWithDenormalisedData(*info.ob, info.ob->depth_draw_batches[info.batch_i], info.batch_i);
+					drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
 				}
 
 				flushDrawCommandsAndUnbindPrograms();
@@ -7434,14 +7499,18 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 
 			if(shadow_mapping_frame_num % 12 == 11) // If we just finished drawing to our 'other' depth map, swap cur and other
 				shadow_mapping->setCurStaticDepthTex((shadow_mapping->cur_static_depth_tex + 1) % 2); // Swap cur and other
+
+			if(query_profiling_enabled && static_depth_draw_gpu_timer->isRunning())
+				static_depth_draw_gpu_timer->endTimerQuery();
 		}
 		//-------------------- End draw static depth textures ----------------
 
-		depth_draw_last_num_prog_changes = num_prog_changes;
-		depth_draw_last_num_batches_bound = num_batches_bound;
-		depth_draw_last_num_vao_binds = num_vao_binds;
-		depth_draw_last_num_vbo_binds = num_vbo_binds;
-		depth_draw_last_num_indices_drawn = num_indices_submitted;
+		this->depth_draw_last_num_prog_changes = num_prog_changes;
+		this->depth_draw_last_num_backface_culling_changes = num_backface_culling_changes;
+		this->depth_draw_last_num_batches_bound = num_batches_bound;
+		this->depth_draw_last_num_vao_binds = num_vao_binds;
+		this->depth_draw_last_num_vbo_binds = num_vbo_binds;
+		this->depth_draw_last_num_indices_drawn = num_indices_submitted;
 		this->num_indices_submitted = 0;
 
 
@@ -7453,14 +7522,6 @@ void OpenGLEngine::renderToShadowMapDepthBuffer(uint64& shadow_depth_drawing_ela
 		{
 			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 			glDepthFunc(GL_GREATER);
-		}
-#endif
-
-#if !defined(OSX) && !defined(EMSCRIPTEN)
-		if(query_profiling_enabled)
-		{
-			glEndQuery(GL_TIME_ELAPSED);
-			glGetQueryObjectui64v(timer_query_id, GL_QUERY_RESULT, &shadow_depth_drawing_elapsed_ns_out); // Blocks
 		}
 #endif
 
@@ -8025,6 +8086,10 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	DebugGroup debug_group("Draw opaque obs");
 	TracyGpuZone("Draw opaque obs");
 
+	if(query_profiling_enabled && current_scene->collect_stats && draw_opaque_obs_gpu_timer->isIdle())
+		draw_opaque_obs_gpu_timer->beginTimerQuery();
+
+
 	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -8138,7 +8203,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	for(size_t i=0; i<batch_draw_info_size; ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info_data[i];
-		const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
+		const GLObjectBatchDrawInfo& batch = info.ob->batch_draw_info[info.batch_i];
+		const uint32 prog_index_and_backface_culling = batch.getProgramIndexAndBackfaceCulling();
 		if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
 		{
 			ZoneScopedN("changing prog"); // Tracy profiler
@@ -8175,7 +8241,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		bindMeshData(*info.ob);
 		num_batches_bound++;
 
-		drawBatchWithDenormalisedData(*info.ob, info.ob->batch_draw_info[info.batch_i], info.batch_i);
+		drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
 	}
 
 	if(current_scene->collect_stats)
@@ -8198,6 +8264,9 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	if(draw_wireframes)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
 #endif
+
+	if(query_profiling_enabled && draw_opaque_obs_gpu_timer->isRunning())
+		draw_opaque_obs_gpu_timer->endTimerQuery();
 
 	//conPrint("Draw opaque batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 }
@@ -10530,6 +10599,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num multi-draw-indirect calls: " + toString(num_multi_draw_indirect_calls) + "\n";
 	s += "\n";
 	s += "depth draw num prog changes: " + toString(depth_draw_last_num_prog_changes) + "\n";
+	s += "depth draw num backface culling changes: " + toString(depth_draw_last_num_backface_culling_changes) + "\n";
 	s += "depth draw num VAO binds: " + toString(depth_draw_last_num_vao_binds) + "\n";
 	s += "depth draw num VBO binds: " + toString(depth_draw_last_num_vbo_binds) + "\n";
 	s += "depth draw num batches bound: " + toString(depth_draw_last_num_batches_bound) + "\n";
@@ -10541,8 +10611,11 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";
 	s += "Processed " + toString(last_num_animated_obs_processed) + " / " + toString(current_scene->animated_objects.size()) + " animated obs\n";
 	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
-	s += "last_depth_map_gen_GPU_time: " + doubleToStringNSigFigs(last_depth_map_gen_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "last_render_GPU_time: " + doubleToStringNSigFigs(last_render_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "\n";
+	s += "dynamic depth draw GPU time: " + doubleToStringNSigFigs(last_dynamic_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "static depth draw GPU time : " + doubleToStringNSigFigs(last_static_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "draw opaque obs GPU time : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "\n";
 
 	const GLMemUsage mem_usage = this->getTotalMemUsage();
 	s += "geometry CPU mem usage: " + getNiceByteSize(mem_usage.geom_cpu_usage) + "\n";
