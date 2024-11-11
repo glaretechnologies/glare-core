@@ -33,6 +33,17 @@ vec3 toNonLinear(vec3 x)
 }
 
 
+// From https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+vec3 ACESFilm(vec3 x)
+{
+	float a = 2.51f;
+	float b = 0.03f;
+	float c = 2.43f;
+	float d = 0.59f;
+	float e = 0.14f;
+	return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.f, 1.f);
+}
+
 
 void main()
 {
@@ -102,5 +113,6 @@ void main()
 	}
 	
 	float alpha = 1.f;
-	colour_out = vec4(toNonLinear(col.xyz), alpha);
+	colour_out = vec4(toNonLinear(ACESFilm(col.xyz * 0.65)), alpha);
+	//colour_out = vec4(toNonLinear(col.xyz), alpha);
 }
