@@ -402,12 +402,12 @@ vec2 unorm8x3_to_snorm12x2(vec3 u) {
 }
 
 // See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
-float getDepthFromDepthTexture(float px, float py)
+float getDepthFromDepthTexture(vec2 pos_ss)
 {
 #if USE_REVERSE_Z
-	return near_clip_dist / texture(main_depth_texture, vec2(px, py)).x;
+	return near_clip_dist / texture(main_depth_texture, pos_ss).x;
 #else
-	return -near_clip_dist / (texture(main_depth_texture, vec2(px, py)).x - 1.0);
+	return -near_clip_dist / (texture(main_depth_texture, pos_ss).x - 1.0);
 #endif
 }
 #endif
@@ -421,6 +421,15 @@ vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
 ivec2 matInfoPixelCoords(int index)
 {
 	return ivec2(index % 128, index / 128);
+}
+
+// Returns coords in [0, 1] for visible positions
+vec2 cameraToScreenSpace(vec3 pos_cs)
+{
+	return vec2(
+		pos_cs.x / -pos_cs.z * l_over_w + 0.5,
+		pos_cs.y / -pos_cs.z * l_over_h + 0.5
+	);
 }
 
 
@@ -474,6 +483,43 @@ void main()
 		N_g = cross(dp_dx, dp_dy);
 		use_normal_ws = N_g;
 	}
+
+
+	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
+	vec3 cam_to_pos_ws = pos_ws - mat_common_campos_ws.xyz;
+
+
+	// Note that this code updates use_texture_coords. 
+#if DECAL
+	{
+		// Compute world-space position and normal of existing fragment based on normal and depth buffer.
+
+		// image coordinates of this fragment
+		vec2 pos_ss = cameraToScreenSpace(pos_cs);
+
+		float dir_dot_forwards = -normalize(pos_cs).z;
+
+		vec3 src_normal_encoded = texture(main_normal_texture, pos_ss).xyz; // Encoded as a RGB8 texture (converted to floating point)
+		vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
+
+		float depth = getDepthFromDepthTexture(pos_ss); // Get depth from depth buffer for existing fragment
+		vec3 src_pos_ws = mat_common_campos_ws.xyz + normalize(cam_to_pos_ws) / dir_dot_forwards * depth; // position in world space of existing fragment TODO: take into acount cos(theta)?
+
+		vec3 pos_os = (world_to_ob * vec4(src_pos_ws, 1.0)).xyz; // Transform src position in world space into position in decal object space.
+
+		use_texture_coords.x = pos_os.x;
+		use_texture_coords.y = pos_os.y;
+
+		if(pos_os.x < 0.0 || pos_os.x > 1.0 || pos_os.y < 0.0 || pos_os.y > 1.0 || pos_os.z < 0.0 || pos_os.z > 1.0)
+			discard;
+
+		vec3 src_normal_decal_space = normalize((world_to_ob * vec4(src_normal_ws, 0.0)).xyz);
+		if(src_normal_decal_space.z < 0.1)
+			discard;
+
+		use_normal_ws = src_normal_ws;
+	}
+#endif
 
 
 #if COMBINED
@@ -581,43 +627,8 @@ void main()
 	// snow_frac = 0;
 #endif
 
-	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
-	vec3 cam_to_pos_ws = pos_ws - mat_common_campos_ws.xyz;
+	
 
-#if DECAL
-	vec4 decal_col;
-	{
-		// Compute world-space position and normal of existing fragment based on normal and depth buffer.
-
-		// image coordinates of this fragment
-		float px = pos_cs.x / -pos_cs.z * l_over_w + 0.5;
-		float py = pos_cs.y / -pos_cs.z * l_over_h + 0.5;
-
-		float dir_dot_forwards = -normalize(pos_cs).z;
-
-		vec3 src_normal_encoded = texture(main_normal_texture, vec2(px, py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
-		vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
-
-		// cam_to_pos_ws = pos_ws - campos_ws
-		// campos_ws = pos_ws - cam_to_pos_ws
-		vec3 campos_ws = pos_ws - cam_to_pos_ws; // camera position to decal fragment position
-		float depth = getDepthFromDepthTexture(px, py); // Get depth from depth buffer for existing fragment
-		vec3 src_pos_ws = campos_ws + normalize(cam_to_pos_ws) / dir_dot_forwards * depth; // position in world space of existing fragment TODO: take into acount cos(theta)?
-
-		vec3 pos_os = (world_to_ob * vec4(src_pos_ws, 1.0)).xyz; // Transform src position in world space into position in decal object space.
-
-		use_texture_coords.x = pos_os.x;
-		use_texture_coords.y = pos_os.y;
-		if(pos_os.x < 0.0 || pos_os.x > 1.0 || pos_os.y < 0.0 || pos_os.y > 1.0 || pos_os.z < 0.0 || pos_os.z > 1.0)
-			discard;
-
-		vec3 src_normal_decal_space = normalize((world_to_ob * vec4(src_normal_ws, 0.0)).xyz);
-		if(src_normal_decal_space.z < 0.1)
-			discard;
-
-		use_normal_ws = src_normal_ws;
-	}
-#endif
 
 
 	vec3 unit_normal_ws = normalize(use_normal_ws);
