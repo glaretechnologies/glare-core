@@ -234,6 +234,7 @@ float getDepthFromDepthTexture(float px, float py)
 }
 
 
+// Returns coords in [0, 1] for visible positions
 vec2 cameraToScreenSpace(vec3 pos_cs)
 {
 	return vec2(
