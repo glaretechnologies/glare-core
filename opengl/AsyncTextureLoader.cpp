@@ -23,13 +23,13 @@ static void onTextureDataLoad(unsigned int em_handle, void* userdata_arg, const 
 
 	try
 	{
-		OpenGLTextureRef texture = loader->opengl_engine->getTexture(path); // Load the texture from disk into OpenGL
-
 		auto res = loader->tex_info.find(em_handle);
 		assert(res != loader->tex_info.end());
 		if(res != loader->tex_info.end())
 		{
 			AsyncTextureLoader::LoadingTexInfo* loading_tex_info = res->second.ptr();
+
+			OpenGLTextureRef texture = loader->opengl_engine->getTexture(path, loading_tex_info->params); // Load the texture from disk into OpenGL
 
 			loading_tex_info->handler->textureLoaded(texture, std::string(path));
 
@@ -84,7 +84,7 @@ AsyncTextureLoader::~AsyncTextureLoader()
 
 // local_path should be a path relative to the 'data' directory, for example "resources/foam_windowed.ktx2"
 // Returns request handle
-AsyncTextureLoadingHandle AsyncTextureLoader::startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler)
+AsyncTextureLoadingHandle AsyncTextureLoader::startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler, const TextureParams& params)
 {
 #if EMSCRIPTEN
 	const int em_handle = emscripten_async_wget2(
@@ -96,6 +96,7 @@ AsyncTextureLoadingHandle AsyncTextureLoader::startLoadingTexture(const std::str
 	Reference<LoadingTexInfo> loading_tex_info = new LoadingTexInfo();
 	loading_tex_info->emscripten_handle = em_handle;
 	loading_tex_info->handler = handler;
+	loading_tex_info->params = params;
 	tex_info[em_handle] = loading_tex_info;
 
 	AsyncTextureLoadingHandle handle;
@@ -106,7 +107,7 @@ AsyncTextureLoadingHandle AsyncTextureLoader::startLoadingTexture(const std::str
 	const std::string full_local_path = local_path_prefix + local_path;
 	try
 	{
-		OpenGLTextureRef texture = opengl_engine->getTexture(full_local_path); // Load the texture from disk into OpenGL
+		OpenGLTextureRef texture = opengl_engine->getTexture(full_local_path, params); // Load the texture from disk into OpenGL
 
 		handler->textureLoaded(texture, local_path);
 	}

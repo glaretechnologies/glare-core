@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
+#include "OpenGLTexture.h"
 #include <utils/ThreadSafeRefCounted.h>
 #include <utils/Reference.h>
 #include <string>
@@ -52,13 +53,14 @@ public:
 	
 	// local_path should be a path relative to the 'data' directory, for example "resources/foam_windowed.ktx2"
 	// handler->textureLoaded will be called when the texture is loaded.
-	AsyncTextureLoadingHandle startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler);
+	AsyncTextureLoadingHandle startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler, const TextureParams& params);
 	void cancelLoadingTexture(AsyncTextureLoadingHandle loading_handle);
 
 	struct LoadingTexInfo : public RefCounted
 	{
 		AsyncTextureLoadedHandler* handler;
 		int emscripten_handle;
+		TextureParams params;
 	};
 
 	std::map<int, Reference<LoadingTexInfo>> tex_info; // Map from emscripten_handle to LoadingTexInfo ref.
