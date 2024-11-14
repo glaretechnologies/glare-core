@@ -29,6 +29,8 @@ template <class T>
 class ArrayRef
 {
 public:
+	explicit inline ArrayRef() : data_(nullptr), len(0) {}
+
 	inline ArrayRef(const T* data, size_t len);
 
 	template <int N>
