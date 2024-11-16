@@ -53,7 +53,7 @@ public:
 	
 	// local_path should be a path relative to the 'data' directory, for example "resources/foam_windowed.ktx2"
 	// handler->textureLoaded will be called when the texture is loaded.
-	AsyncTextureLoadingHandle startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler, const TextureParams& params);
+	AsyncTextureLoadingHandle startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler, const TextureParams& params = TextureParams());
 	void cancelLoadingTexture(AsyncTextureLoadingHandle loading_handle);
 
 	struct LoadingTexInfo : public RefCounted
