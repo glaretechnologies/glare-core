@@ -115,7 +115,7 @@ void encode(const void* data_, size_t datalen, std::string& res_out)
 }
 
 
-void decode(const std::string& s, std::vector<unsigned char>& data_out)
+void decode(const string_view s, std::vector<unsigned char>& data_out)
 {
 	const size_t input_length = s.size();
 	if(input_length % 4 != 0)

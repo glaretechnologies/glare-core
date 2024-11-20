@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2020 -
 #pragma once
 
 
+#include "string_view.h"
 #include <string>
 #include <vector>
 
@@ -20,7 +21,7 @@ namespace Base64
 	void encode(const void* data, size_t datalen, std::string& res_out);
 
 	// Throws glare::Exception on failure.
-	void decode(const std::string& s, std::vector<unsigned char>& data_out);
+	void decode(const string_view s, std::vector<unsigned char>& data_out);
 
 	void test();
 }
