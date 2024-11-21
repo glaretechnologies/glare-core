@@ -51,6 +51,14 @@ void writeStringElemToXML(std::string& xml, const string_view elem_name, const s
 }
 
 
+void writeUInt32ToXML(std::string& xml, const string_view elem_name, uint32 val, int tab_depth)
+{
+	appendTabsAndElemOpenTag(xml, elem_name, tab_depth);
+	xml += toString(val);
+	appendElemCloseTag(xml, elem_name);
+}
+
+
 void writeUInt64ToXML(std::string& xml, const string_view elem_name, uint64 val, int tab_depth)
 {
 	appendTabsAndElemOpenTag(xml, elem_name, tab_depth);

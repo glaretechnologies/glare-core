@@ -21,6 +21,7 @@ namespace XMLWriteUtils
 {
 	void writeColour3fToXML(std::string& xml, const string_view elem_name, const Colour3f& col, int tab_depth);
 	void writeStringElemToXML(std::string& xml, const string_view elem_name, const std::string& string_val, int tab_depth);
+	void writeUInt32ToXML(std::string& xml, const string_view elem_name, uint32 val, int tab_depth);
 	void writeUInt64ToXML(std::string& xml, const string_view elem_name, uint64 val, int tab_depth);
 	void writeInt32ToXML(std::string& xml, const string_view elem_name, int32 val, int tab_depth);
 	void writeFloatToXML(std::string& xml, const string_view elem_name, float val, int tab_depth);
