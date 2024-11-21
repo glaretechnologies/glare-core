@@ -24,7 +24,7 @@ float stringToFloat(const std::string& s) // throws StringUtilsExcep
 		double_conversion::StringToDoubleConverter::NO_FLAGS,
 		std::numeric_limits<float>::quiet_NaN(), // empty string value
 		std::numeric_limits<float>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
-		NULL, // infinity symbol
+		"Inf", // Infinity symbol
 		NULL // NaN symbol
 	);
 
@@ -42,7 +42,7 @@ double stringToDouble(const std::string& s) // throws StringUtilsExcep
 		double_conversion::StringToDoubleConverter::NO_FLAGS,
 		std::numeric_limits<double>::quiet_NaN(), // empty string value
 		std::numeric_limits<double>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
-		NULL, // infinity symbol
+		"Inf", // Infinity symbol
 		NULL // NaN symbol
 	);
 
@@ -1590,6 +1590,55 @@ void StringUtils::test()
 	testAssert(hasPrefix("ab", std::string("a")));
 
 
+	//================================ Test stringToFloat ================================
+	testAssert(stringToFloat("123.456") == 123.456f);
+
+	testAssert(stringToFloat("Inf") == std::numeric_limits<float>::infinity());
+	testAssert(stringToFloat("-Inf") == -std::numeric_limits<float>::infinity());
+
+	//-------- Test string to float for invalid strings --------
+	try
+	{
+		stringToFloat("NaN");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat("bleh");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat("-z631.3543");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat("");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+	try
+	{
+		stringToFloat(" ");
+		failTest("");
+	}
+	catch(StringUtilsExcep& )
+	{}
+
+
+
 	//==================================== floatToString ====================================
 	{
 		std::string s = floatToString(123.4567f);
@@ -1653,6 +1702,9 @@ void StringUtils::test()
 	{
 		testAssert(::epsEqual(::stringToFloat(::floatToString(123.456f)), 123.456f));
 
+		testAssert(::floatToString(std::numeric_limits<float>::infinity()) == "Inf");
+
+
 		testAssert(::floatToStringNDecimalPlaces(123.456f, 0) == "123");
 		testAssert(::floatToStringNDecimalPlaces(123.234f, 1) == "123.2");
 		testAssert(::floatToStringNDecimalPlaces(123.234f, 2) == "123.23");
@@ -1691,41 +1743,7 @@ void StringUtils::test()
 
 
 
-	//================= Test string to float for invalid strings ================================
-
-	try
-	{
-		stringToFloat("bleh");
-		failTest("");
-	}
-	catch(StringUtilsExcep& )
-	{}
-
-	// assert(epsEqual(stringToDouble("-631.3543e52"), -631.3543e52));
-
-	try
-	{
-		stringToFloat("-z631.3543");
-		failTest("");
-	}
-	catch(StringUtilsExcep& )
-	{}
-
-	try
-	{
-		stringToFloat("");
-		failTest("");
-	}
-	catch(StringUtilsExcep& )
-	{}
-
-	try
-	{
-		stringToFloat(" ");
-		failTest("");
-	}
-	catch(StringUtilsExcep& )
-	{}
+	
 
 	//==================================== doubleToString ====================================
 	{

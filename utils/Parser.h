@@ -34,6 +34,7 @@ public:
 	bool parseInt(int32& result_out);
 	bool parseInt64(int64& result_out);
 	bool parseUnsignedInt(uint32& result_out);
+	bool parseUInt64(uint64& result_out);
 	bool parseFloat(float& result_out);
 	bool parseDouble(double& result_out);
 	inline void parseWhiteSpace();

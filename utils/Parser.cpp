@@ -261,6 +261,37 @@ bool Parser::parseUnsignedInt(uint32& result_out)
 }
 
 
+bool Parser::parseUInt64(uint64& result_out)
+{
+	uint64 x = 0;
+
+	size_t pos = this->currentpos;
+	const size_t initial_pos = this->currentpos;
+	
+	for( ;pos < textsize && ::isNumeric(text[pos]); ++pos)
+	{
+		const uint64 digit_val = (uint64)text[pos] - (uint64)'0';
+
+		// Check that we won't overflow:
+		static_assert(1844674407370955161 == std::numeric_limits<uint64>::max() / 10ull);
+		if(x > 1844674407370955161)
+			return false;
+		x *= 10ull;
+
+		// We have an overflow if x + digit_val > std::numeric_limits<uint64>::max()
+		// so if x > std::numeric_limits<uint64>::max() - digit_val
+		if(x > (std::numeric_limits<uint64>::max() - digit_val))
+			return false;
+
+		x += digit_val;
+	}
+
+	result_out = x;
+	this->currentpos = pos;
+	return pos != initial_pos;
+}
+
+
 bool Parser::parseFloat(float& result_out)
 {
 	if(eof())
@@ -270,7 +301,7 @@ bool Parser::parseFloat(float& result_out)
 		double_conversion::StringToDoubleConverter::ALLOW_TRAILING_JUNK,
 		std::numeric_limits<float>::quiet_NaN(), // empty string value
 		std::numeric_limits<float>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
-		NULL, // infinity symbol
+		"Inf", // infinity symbol
 		NULL // NaN symbol
 	);
 
@@ -361,7 +392,7 @@ bool Parser::parseDouble(double& result_out)
 		double_conversion::StringToDoubleConverter::ALLOW_TRAILING_JUNK,
 		std::numeric_limits<double>::quiet_NaN(), // empty string value
 		std::numeric_limits<double>::quiet_NaN(), // junk string value.  We'll use this to detect failed parses.
-		NULL, // infinity symbol
+		"Inf", // infinity symbol
 		NULL // NaN symbol
 	);
 
@@ -618,12 +649,33 @@ static void testFailsToParseUnsignedInt(const std::string& s)
 }
 
 
+static void testFailsToParseUInt64(const std::string& s)
+{
+	Parser p(s.c_str(), s.length());
+
+	uint64 x;
+	testAssert(!p.parseUInt64(x));
+	testAssert(p.currentPos() == 0);
+}
+
+
 static void testParseUnsignedInt(const std::string& s, uint32 target)
 {
 	Parser p(s.c_str(), s.length());
 
 	uint32 x;
 	testAssert(p.parseUnsignedInt(x));
+	testAssert(p.currentPos() == s.length());
+	testAssert(x == target);
+}
+
+
+static void testParseUInt64(const std::string& s, uint64 target)
+{
+	Parser p(s.c_str(), s.length());
+
+	uint64 x;
+	testAssert(p.parseUInt64(x));
 	testAssert(p.currentPos() == s.length());
 	testAssert(x == target);
 }
@@ -658,6 +710,17 @@ static void testParseFloat(const std::string& s, float target)
 	testAssert(p.parseFloat(x));
 	testAssert(p.currentPos() == s.length());
 	testAssert(x == target);
+}
+
+
+static void testParseDouble(const std::string& s, double target)
+{
+	Parser p(s);
+
+	double x;
+	testAssert(p.parseDouble(x));
+	testAssert(p.currentPos() == s.length());
+	testEqual(x, target);
 }
 
 
@@ -1069,6 +1132,61 @@ void Parser::doUnitTests()
 	testFailsToParseUnsignedInt("1000000000000");
 	testFailsToParseUnsignedInt("1000000000000000");
 
+
+	//================== parseUInt64 =======================
+
+	// Test some failure cases
+	testFailsToParseUInt64("");
+	testFailsToParseUInt64(" ");
+	testFailsToParseUInt64("a");
+	testFailsToParseUInt64("aa");
+	testFailsToParseUInt64("-");
+	testFailsToParseUInt64("+");
+	testFailsToParseUInt64("--");
+	testFailsToParseUInt64("++");
+	testFailsToParseUInt64(" 1");
+	testFailsToParseUInt64(" -");
+	testFailsToParseUInt64(" +");
+
+	testFailsToParseUInt64("-1");
+	testFailsToParseUInt64("-123");
+
+
+	// Test some valid integers with non-numeric chars after integer
+	//for(int i=0; i<10000; ++i)
+	//	testParseUnsignedIntFromLongerString(::int32ToString(i) + "a", i);
+
+	// Test some valid uints
+	testParseUInt64("0", 0);
+
+	for(int i=0; i<10000; ++i)
+		testParseUInt64(::int32ToString(i), i);
+
+	// Test very large integer but valid 64-bit integers
+	// Note that 18446744073709551615 is the largest representable 64 bit uint.
+	testAssert(std::numeric_limits<uint64>::max() == 18446744073709551615ull);
+
+	testParseUInt64("18446744073709551611", 18446744073709551611ull);
+	testParseUInt64("18446744073709551612", 18446744073709551612ull);
+	testParseUInt64("18446744073709551613", 18446744073709551613ull);
+	testParseUInt64("18446744073709551614", 18446744073709551614ull);
+	testParseUInt64("18446744073709551615", 18446744073709551615ull);
+
+	// Test very large integers that are too large
+	testFailsToParseUInt64("18446744073709551616");
+	testFailsToParseUInt64("18446744073709551617");
+	testFailsToParseUInt64("18446744073709551618");
+	testFailsToParseUInt64("18446744073709551619");
+	testFailsToParseUInt64("18446744073709551620");
+	testFailsToParseUInt64("18446744073709551621");
+	testFailsToParseUInt64("18446744073709551622");
+	testFailsToParseUInt64("18446744073709551623");
+	testFailsToParseUInt64("18446744073709551624");
+	testFailsToParseUInt64("18446744073709551625");
+
+	testFailsToParseUInt64("100000000000000000000");
+	testFailsToParseUInt64("100000000000000000000000");
+
 	
 	//================== parseFloat=======================
 
@@ -1153,6 +1271,9 @@ void Parser::doUnitTests()
 	testParseFloat("-1.23E-30", -1.23e-30f);
 	testParseFloat("-1.23e-30f", -1.23e-30f);
 	testParseFloat("-1.23E-30F", -1.23e-30f);
+
+	testParseFloat("Inf", std::numeric_limits<float>::infinity());
+	testParseFloat("-Inf", -std::numeric_limits<float>::infinity());
 
 
 	//================== parseString =======================
@@ -1487,6 +1608,10 @@ void Parser::doUnitTests()
 		assert(p.parseDouble(f));
 		assert(f == .6);
 		p.parseWhiteSpace();
+
+		testParseDouble("Inf", std::numeric_limits<double>::infinity());
+		testParseDouble("-Inf", -std::numeric_limits<double>::infinity());
+
 	}
 
 	}
