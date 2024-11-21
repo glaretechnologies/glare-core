@@ -14,8 +14,8 @@ Copyright Glare Technologies Limited 2023 -
 
 struct MouseCursorState
 {
-	Vec2i cursor_pos; // Relative to widget
-	Vec2f gl_coords;
+	Vec2i cursor_pos; // Pixel coordinates of mouse cursor relative to widget
+	Vec2f gl_coords; // OpenGL coordinates of cursor position
 	bool ctrl_key_down;
 	bool alt_key_down;
 };

@@ -70,6 +70,13 @@ void GLUIImage::setColour(Colour3f colour_)
 }
 
 
+void GLUIImage::setAlpha(float alpha)
+{
+	if(overlay_ob.nonNull())
+		overlay_ob->material.alpha = alpha;
+}
+
+
 void GLUIImage::setMouseOverColour(Colour3f colour_)
 {
 	mouseover_colour = colour_;

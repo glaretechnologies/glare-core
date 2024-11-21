@@ -32,6 +32,7 @@ public:
 	~GLUIImage();
 
 	void setColour(Colour3f colour_);
+	void setAlpha(float alpha);
 	void setMouseOverColour(Colour3f colour_);
 
 	const Vec2f& getPos() const { return pos; }
