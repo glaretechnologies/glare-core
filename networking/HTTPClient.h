@@ -15,7 +15,7 @@ Copyright Glare Technologies Limited 2024 -
 class StreamingDataHandler
 {
 public:
-	virtual void haveContentLength(uint64 /*content_length*/) {};
+	virtual void haveContentLength(uint64 /*content_length*/) {}; // Called when the server sends a valid content-length.
 	virtual void handleData(ArrayRef<uint8> data) = 0;
 };
 
