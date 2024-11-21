@@ -1,13 +1,14 @@
 /*=====================================================================
 XMLParseUtils.cpp
 -----------------
-Copyright Glare Technologies Limited 2019 -
+Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #include "XMLParseUtils.h"
 
 
 #include <Exception.h>
 #include <Parser.h>
+#include <pugixml.hpp>
 #include <sstream>
 #include <cstring>
 
@@ -86,27 +87,72 @@ uint32 XMLParseUtils::parseUInt(pugi::xml_node elem, const char* elemname)
 }
 
 
-uint32 XMLParseUtils::parseUInt(const char* text)
+uint64 XMLParseUtils::parseUInt64Directly(pugi::xml_node elem)
 {
-	Parser parser(text, std::strlen(text));
+	const char* const child_text = elem.child_value();
+
+	Parser parser(child_text, std::strlen(child_text));
 
 	// Parse any whitespace preceding the number
 	parser.parseWhiteSpace();
 
 	// Parse the number
-	unsigned int value = 0;
-	if(!parser.parseUnsignedInt(value))
-		throw glare::Exception("Failed to parse unsigned integer from '" + std::string(text) + "'.");
+	uint64 value = 0;
+	if(!parser.parseUInt64(value))
+		throw glare::Exception("Failed to parse unsigned integer from '" + std::string(child_text) + "'." + elemContext(elem));
 
 	// Parse any trailing whitespace
 	parser.parseWhiteSpace();
 
 	// We should be at the end of the string now
 	if(parser.notEOF())
-		throw glare::Exception("Parse error while parsing unsigned integer from '" + std::string(text) + "'.");
+		throw glare::Exception("Parse error while parsing unsigned integer from '" + std::string(child_text) + "'." + elemContext(elem));
 
 	return value;
 }
+
+
+uint64 XMLParseUtils::parseUInt64(pugi::xml_node elem, const char* elemname)
+{
+	pugi::xml_node childnode = elem.child(elemname);
+	if(!childnode)
+		throw glare::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
+
+	return parseUInt64Directly(childnode);
+}
+
+
+uint64 XMLParseUtils::parseUInt64WithDefault(pugi::xml_node elem, const char* elemname, uint64 default_val)
+{
+	pugi::xml_node childnode = elem.child(elemname);
+	if(childnode)
+		return parseUInt64Directly(childnode);
+	else
+		return default_val;
+}
+
+
+//uint32 XMLParseUtils::parseUInt(const char* text)
+//{
+//	Parser parser(text, std::strlen(text));
+//
+//	// Parse any whitespace preceding the number
+//	parser.parseWhiteSpace();
+//
+//	// Parse the number
+//	unsigned int value = 0;
+//	if(!parser.parseUnsignedInt(value))
+//		throw glare::Exception("Failed to parse unsigned integer from '" + std::string(text) + "'.");
+//
+//	// Parse any trailing whitespace
+//	parser.parseWhiteSpace();
+//
+//	// We should be at the end of the string now
+//	if(parser.notEOF())
+//		throw glare::Exception("Parse error while parsing unsigned integer from '" + std::string(text) + "'.");
+//
+//	return value;
+//}
 
 
 const std::string XMLParseUtils::parseString(pugi::xml_node parent_elem, const char* child_elem_name)
@@ -175,6 +221,24 @@ double XMLParseUtils::parseDoubleWithDefault(pugi::xml_node parent_elem, const c
 }
 
 
+float XMLParseUtils::parseFloatDirectly(pugi::xml_node elem)
+{
+	return (float)parseDoubleDirectly(elem);
+}
+
+
+float XMLParseUtils::parseFloat(pugi::xml_node elem, const char* elemname)
+{
+	return (float)parseDouble(elem, elemname);
+}
+
+
+float XMLParseUtils::parseFloatWithDefault(pugi::xml_node elem, const char* elemname, float default_val)
+{
+	return (float)parseDoubleWithDefault(elem, elemname, default_val);
+}
+
+
 bool XMLParseUtils::parseBoolDirectly(pugi::xml_node elem)
 {
 	const char* const child_text = elem.child_value();
@@ -217,6 +281,136 @@ bool XMLParseUtils::parseBoolWithDefault(pugi::xml_node parent_elem, const char*
 		return parseBoolDirectly(child);
 	else
 		return default_val;
+}
+
+
+Colour3f XMLParseUtils::parseColour3fWithDefault(pugi::xml_node elem, const char* elemname, const Colour3f& default_val)
+{
+	pugi::xml_node childnode = elem.child(elemname);
+	if(!childnode)
+		return default_val;
+
+	const char* const child_text = childnode.child_value();
+
+	Parser parser(child_text, std::strlen(child_text));
+
+	parser.parseWhiteSpace();
+
+	Colour3f v;
+	if(!parser.parseFloat(v.r))
+		throw glare::Exception("Failed to parse Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+	parser.parseWhiteSpace();
+	if(!parser.parseFloat(v.g))
+		throw glare::Exception("Failed to parse Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+	parser.parseWhiteSpace();
+	if(!parser.parseFloat(v.b))
+		throw glare::Exception("Failed to parse Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+	parser.parseWhiteSpace();
+
+	// We should be at the end of the string now
+	if(parser.notEOF())
+		throw glare::Exception("Parse error while parsing Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+
+	return v;
+}
+
+
+Vec3d XMLParseUtils::parseVec3dDirectly(pugi::xml_node elem)
+{
+	const char* const child_text = elem.child_value();
+
+	Parser parser(child_text, std::strlen(child_text));
+
+	parser.parseWhiteSpace();
+
+	Vec3d v;
+	if(!parser.parseDouble(v.x))
+		throw glare::Exception("Failed to parse Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(elem));
+	parser.parseWhiteSpace();
+	if(!parser.parseDouble(v.y))
+		throw glare::Exception("Failed to parse Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(elem));
+	parser.parseWhiteSpace();
+	if(!parser.parseDouble(v.z))
+		throw glare::Exception("Failed to parse Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(elem));
+	parser.parseWhiteSpace();
+
+	// We should be at the end of the string now
+	if(parser.notEOF())
+		throw glare::Exception("Parse error while parsing Vec3 from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(elem));
+
+	return v;
+}
+
+
+Vec3d XMLParseUtils::parseVec3d(pugi::xml_node elem, const char* elemname)
+{
+	pugi::xml_node childnode = elem.child(elemname);
+	if(!childnode)
+		throw glare::Exception(std::string("could not find element '") + elemname + "'." + elemContext(elem));
+
+	return parseVec3dDirectly(childnode);
+}
+
+
+Vec3d XMLParseUtils::parseVec3dWithDefault(pugi::xml_node elem, const char* elemname, const Vec3d& default_val)
+{
+	pugi::xml_node child = elem.child(elemname);
+	if(child)
+		return parseVec3dDirectly(child);
+	else
+		return default_val;
+}
+
+
+Vec3f XMLParseUtils::parseVec3fDirectly(pugi::xml_node elem)
+{
+	return toVec3f(parseVec3dDirectly(elem));
+}
+
+
+Vec3f XMLParseUtils::parseVec3f(pugi::xml_node elem, const char* elemname)
+{
+	return toVec3f(parseVec3d(elem, elemname));
+}
+
+
+Vec3f XMLParseUtils::parseVec3fWithDefault(pugi::xml_node elem, const char* elemname, const Vec3f& default_val)
+{
+	return toVec3f(parseVec3dWithDefault(elem, elemname, toVec3d(default_val)));
+}
+
+
+Matrix2f XMLParseUtils::parseMatrix2f(pugi::xml_node elem, const char* elemname)
+{
+	pugi::xml_node childnode = elem.child(elemname);
+	if(!childnode)
+		throw glare::Exception(std::string("could not find element '") + elemname + "'." + XMLParseUtils::elemContext(elem));
+
+	const char* const child_text = childnode.child_value();
+
+	Parser parser(child_text, std::strlen(child_text));
+
+	parser.parseWhiteSpace();
+
+	Matrix2f m;
+	if(!parser.parseFloat(m.e[0]))
+		throw glare::Exception("Failed to parse Matrix2f from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+	parser.parseWhiteSpace();
+	if(!parser.parseFloat(m.e[1]))
+		throw glare::Exception("Failed to parse Matrix2f from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+	parser.parseWhiteSpace();
+	if(!parser.parseFloat(m.e[2]))
+		throw glare::Exception("Failed to parse Matrix2f from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+	parser.parseWhiteSpace();
+	if(!parser.parseFloat(m.e[3]))
+		throw glare::Exception("Failed to parse Matrix2f from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+	parser.parseWhiteSpace();
+
+	// We should be at the end of the string now
+	if(parser.notEOF())
+		throw glare::Exception("Parse error while parsing Matrix2f from '" + std::string(std::string(child_text)) + "'." + XMLParseUtils::elemContext(childnode));
+
+	return m;
 }
 
 
