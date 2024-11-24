@@ -1407,7 +1407,13 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		if(buffer_view.byte_offset + buffer_view.byte_length > buffer.data_size) // NOTE: have to be careful handling unsigned wraparound here
 			throw glare::Exception("Image buffer view too large.");
 
-		const std::string path = saveImageForMimeType(image.name, image.mime_type, (const uint8*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length, write_images_to_disk);
+		std::string use_name;
+		if(!image.name.empty())
+			use_name = image.name;
+		else
+			use_name = removeDotAndExtension(buffer_view.name); // Texture filenames seem to be stored in the buffer views sometimes.
+
+		const std::string path = saveImageForMimeType(use_name, image.mime_type, (const uint8*)buffer.binary_data + buffer_view.byte_offset, buffer_view.byte_length, write_images_to_disk);
 
 		image.uri = path; // Update GLTF image to use URI on disk
 	}
