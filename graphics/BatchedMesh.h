@@ -53,7 +53,9 @@ public:
 	void writeToFile(const std::string& dest_path, const WriteOptions& write_options = WriteOptions()) const;
 
 	/// Read a BatchedMesh object from disk.
+	/// Memory allocator param can be null.
 	/// @param src_path			Path on disk to read from.
+	/// @param mem_allocator	Memory allocator.  Can be null.
 	/// @param mesh_out			Mesh object to read to.
 	/// @throws glare::Exception on failure.
 	static Reference<BatchedMesh> readFromFile(const std::string& src_path, glare::Allocator* mem_allocator);
