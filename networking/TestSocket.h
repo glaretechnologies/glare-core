@@ -34,9 +34,9 @@ public:
 	virtual void startGracefulShutdown() {}
 
 
-	virtual void setNoDelayEnabled(bool enabled) {} // NoDelay option is off by default.
-	virtual void enableTCPKeepAlive(float period) {}
-	virtual void setAddressReuseEnabled(bool enabled) {}
+	virtual void setNoDelayEnabled(bool /*enabled*/) {} // NoDelay option is off by default.
+	virtual void enableTCPKeepAlive(float /*period*/) {}
+	virtual void setAddressReuseEnabled(bool /*enabled*/) {}
 
 	virtual IPAddress getOtherEndIPAddress() const{ return IPAddress(); }
 	virtual int getOtherEndPort() const { return 0; }
@@ -44,8 +44,8 @@ public:
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
 	//void enableTCPKeepAlive(float period);
 
-	bool readable(double timeout_s) { return true; }
-	bool readable(EventFD& event_fd) { return true; } // Block until either the socket is readable or the event_fd is signalled (becomes readable).
+	bool readable(double /*timeout_s*/) { return true; }
+	bool readable(EventFD& /*event_fd*/) { return true; } // Block until either the socket is readable or the event_fd is signalled (becomes readable).
 	// Returns true if the socket was readable, false if the event_fd was signalled.
 
 
