@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "StringUtils.h"
+#include "../webserver/Escaping.h"
 
 
 namespace XMLWriteUtils
@@ -42,11 +43,49 @@ void writeColour3fToXML(std::string& xml, const string_view elem_name, const Col
 }
 
 
+// Returns true if there is leading or trailing whitespace, or contiguous blocks of whitespace.
+static bool needCData(const std::string& s)
+{
+	// An empty string does not need a CDATA section.
+	if(s.empty())
+		return false;
+
+	assert(s.size() >= 1);
+
+	// Check for leading whitespace
+	if(::isWhitespace(s[0]))
+		return true;
+
+	// Check for trailing whitespace
+	if(::isWhitespace(s[s.size() - 1]))
+		return true;
+
+	// Check for contiguous blocks of more than one whitespace character.
+	bool prev_was_ws = false;
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		const bool current_is_ws = ::isWhitespace(s[i]);
+		if(current_is_ws && prev_was_ws)
+			return true;
+
+		prev_was_ws = current_is_ws;
+	}
+
+	return false;
+}
+
+
 void writeStringElemToXML(std::string& xml, const string_view elem_name, const std::string& string_val, int tab_depth)
 {
 	appendTabsAndElemOpenTag(xml, elem_name, tab_depth);
-	if(!string_val.empty())
+	if(needCData(string_val))
+	{
 		xml += "<![CDATA[" + string_val + "]]>";
+	}
+	else
+	{
+		xml += web::Escaping::HTMLEscape(string_val);
+	}
 	appendElemCloseTag(xml, elem_name);
 }
 
