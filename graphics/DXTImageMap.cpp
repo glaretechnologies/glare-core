@@ -949,12 +949,6 @@ Reference<Map2D> DXTImageMap::resizeMidQuality(const int /*new_width*/, const in
 #endif // MAP2D_FILTERING_SUPPORT
 
 
-size_t DXTImageMap::getBytesPerPixel() const
-{
-	return N; // NOTE: this gives the uncompressed size.
-}
-
-
 size_t DXTImageMap::getByteSize() const
 {
 	return data.dataSizeBytes();

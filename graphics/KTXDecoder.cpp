@@ -574,9 +574,11 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 #include "../utils/ConPrint.h"
 #include "../utils/FileUtils.h"
 #include "../utils/TaskManager.h"
+#if !IS_INDIGO
 #include "TextRenderer.h"
+#endif
 #include "DXTCompression.h"
-#include <encoder/basisu_comp.h>
+//#include <encoder/basisu_comp.h>
 
 
 #if 0
@@ -608,7 +610,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 static void makeMipMapTestTexture()
 {
-#if !SERVER
+#if !SERVER && !IS_INDIGO
 	glare::TaskManager task_manager;
 
 	TextRendererRef text_renderer = new TextRenderer();

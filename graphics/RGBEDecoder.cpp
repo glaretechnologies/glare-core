@@ -264,7 +264,6 @@ void RGBEDecoder::test()
 		Reference<Map2D> im = RGBEDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/hdrs/brickweave.hdr");
 		testAssert(im->getMapWidth() == 256);
 		testAssert(im->getMapHeight() == 256);
-		testAssert(im->getBytesPerPixel() == sizeof(float) * 3);
 
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";

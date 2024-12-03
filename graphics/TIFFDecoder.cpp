@@ -239,7 +239,7 @@ void TIFFDecoder::test()
 		Reference<Map2D> im = decode(path);
 		testAssert(im->getMapWidth() == W);
 		testAssert(im->getMapHeight() == H);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
@@ -270,7 +270,7 @@ void TIFFDecoder::test()
 		Reference<Map2D> im = decode(path);
 		testAssert(im->getMapWidth() == W);
 		testAssert(im->getMapHeight() == H);
-		testAssert(im->getBytesPerPixel() == 3 * 2);
+		testAssert(im->numChannels() == 3);
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
@@ -289,7 +289,7 @@ void TIFFDecoder::test()
 		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 
 		testAssert(dynamic_cast<ImageMapUInt8*>(im.getPointer()) != NULL);
 		const std::string path = tempdir + "/temp.tiff";
@@ -299,7 +299,7 @@ void TIFFDecoder::test()
 		Reference<Map2D> im2 = decode(path);
 		testAssert(im2->getMapWidth() == im->getMapWidth());
 		testAssert(im2->getMapHeight() == im2->getMapHeight());
-		testAssert(im2->getBytesPerPixel() == im2->getBytesPerPixel());
+		testAssert(im2->numChannels() == im2->numChannels());
 	}
 	catch(PlatformUtils::PlatformUtilsExcep& e)
 	{
@@ -316,7 +316,7 @@ void TIFFDecoder::test()
 		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
-		testAssert(im->getBytesPerPixel() == 3);
+		testAssert(im->numChannels() == 3);
 
 		// This file Uses LZW compression according to Windows
 		testAssert(TIFFDecoder::isTiffCompressed(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff"));

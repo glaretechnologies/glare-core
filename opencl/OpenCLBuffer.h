@@ -12,6 +12,7 @@ Generated at Tue May 15 13:27:16 +0100 2012
 #include "OpenCLCommandQueue.h"
 #include "../utils/Platform.h"
 #include "../utils/Vector.h"
+#include "../utils/AllocatorVector.h"
 
 
 /*=====================================================================
@@ -39,6 +40,9 @@ public:
 	template<typename T, size_t align>
 	void allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCommandQueueRef& command_queue, const js::Vector<T, align>& src_vec, cl_mem_flags flags, bool blocking_write);
 
+	template<typename T, size_t align>
+	void allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCommandQueueRef& command_queue, const glare::AllocatorVector<T, align>& src_vec, cl_mem_flags flags, bool blocking_write);
+
 	template<typename T>
 	void allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCommandQueueRef& command_queue, const std::vector<T>& src_vec, cl_mem_flags flags, bool blocking_write);
 
@@ -48,6 +52,9 @@ public:
 
 	template<typename T, size_t align>
 	void allocFrom(OpenCLContextRef& context, const js::Vector<T, align>& src_vec, cl_mem_flags flags);
+
+	template<typename T, size_t align>
+	void allocFrom(OpenCLContextRef& context, const glare::AllocatorVector<T, align>& src_vec, cl_mem_flags flags);
 
 	template<typename T>
 	void allocFrom(OpenCLContextRef& context, const std::vector<T>& src_vec, cl_mem_flags flags);
@@ -95,6 +102,12 @@ void OpenCLBuffer::allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCom
 	allocOrResizeAndCopyFrom(context, command_queue, src_vec.data(), src_vec.size() * sizeof(T), flags_, blocking_write);
 }
 
+template<typename T, size_t align>
+void OpenCLBuffer::allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCommandQueueRef& command_queue, const glare::AllocatorVector<T, align>& src_vec, cl_mem_flags flags_, bool blocking_write)
+{
+	allocOrResizeAndCopyFrom(context, command_queue, src_vec.data(), src_vec.size() * sizeof(T), flags_, blocking_write);
+}
+
 template<typename T>
 void OpenCLBuffer::allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCommandQueueRef& command_queue, const std::vector<T>& src_vec, cl_mem_flags flags_, bool blocking_write)
 {
@@ -104,6 +117,12 @@ void OpenCLBuffer::allocOrResizeAndCopyFrom(OpenCLContextRef& context, OpenCLCom
 
 template<typename T, size_t align>
 void OpenCLBuffer::allocFrom(OpenCLContextRef& context, const js::Vector<T, align>& src_vec, cl_mem_flags flags_)
+{
+	allocFrom(context, src_vec.data(), src_vec.size() * sizeof(T), flags_);
+}
+
+template<typename T, size_t align>
+void OpenCLBuffer::allocFrom(OpenCLContextRef& context, const glare::AllocatorVector<T, align>& src_vec, cl_mem_flags flags_)
 {
 	allocFrom(context, src_vec.data(), src_vec.size() * sizeof(T), flags_);
 }

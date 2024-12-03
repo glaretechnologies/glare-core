@@ -7,7 +7,6 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "StringUtils.h"
-#include "../webserver/Escaping.h"
 
 
 namespace XMLWriteUtils
@@ -22,7 +21,11 @@ inline void appendTabsAndElemOpenTag(std::string& xml, const string_view elem_na
 {
 	xml.append(tab_depth, '\t');
 	xml += "<";
+#if __cplusplus >= 201703L // If c++ version is >= c++17:
 	xml += elem_name;
+#else
+	xml += toString(elem_name);
+#endif
 	xml += ">";
 }
 
@@ -30,7 +33,11 @@ inline void appendTabsAndElemOpenTag(std::string& xml, const string_view elem_na
 inline void appendElemCloseTag(std::string& xml, const string_view elem_name)
 {
 	xml += "</";
+#if __cplusplus >= 201703L // If c++ version is >= c++17:
 	xml += elem_name;
+#else
+	xml += toString(elem_name);
+#endif
 	xml += ">\n";
 }
 
@@ -75,6 +82,33 @@ static bool needCData(const std::string& s)
 }
 
 
+
+/*
+Replace "<" with "&lt;" etc..
+From Escaping::HTMLEscape in webserver/Escaping.cpp
+*/
+static const std::string XMLEscape(const std::string& s)
+{
+	std::string result;
+	result.reserve(s.size());
+
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		if(s[i] == '<')
+			result += "&lt;";
+		else if(s[i] == '>')
+			result += "&gt;";
+		else if(s[i] == '"')
+			result += "&quot;";
+		else if(s[i] == '&')
+			result += "&amp;";
+		else
+			result.push_back(s[i]);
+	}
+	return result;
+}
+
+
 void writeStringElemToXML(std::string& xml, const string_view elem_name, const std::string& string_val, int tab_depth)
 {
 	appendTabsAndElemOpenTag(xml, elem_name, tab_depth);
@@ -84,7 +118,7 @@ void writeStringElemToXML(std::string& xml, const string_view elem_name, const s
 	}
 	else
 	{
-		xml += web::Escaping::HTMLEscape(string_val);
+		xml += XMLEscape(string_val);
 	}
 	appendElemCloseTag(xml, elem_name);
 }
