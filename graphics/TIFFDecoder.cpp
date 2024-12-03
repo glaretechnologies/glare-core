@@ -286,7 +286,7 @@ void TIFFDecoder::test()
 
 	try
 	{
-		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff");
+		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/tiff/ColorChecker_sRGB_from_Ref_lzw.tiff");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->numChannels() == 3);
@@ -313,19 +313,19 @@ void TIFFDecoder::test()
 
 	try
 	{
-		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff");
+		Reference<Map2D> im = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/tiff/ColorChecker_sRGB_from_Ref_lzw.tiff");
 		testAssert(im->getMapWidth() == 1080);
 		testAssert(im->getMapHeight() == 768);
 		testAssert(im->numChannels() == 3);
 
 		// This file Uses LZW compression according to Windows
-		testAssert(TIFFDecoder::isTiffCompressed(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_lzw.tiff"));
+		testAssert(TIFFDecoder::isTiffCompressed(TestUtils::getTestReposDir() + "/testfiles/tiff/ColorChecker_sRGB_from_Ref_lzw.tiff"));
 
-		testAssert(!TIFFDecoder::isTiffCompressed(TestUtils::getTestReposDir() + "/testscenes/ColorChecker_sRGB_from_Ref_small_uncompressed.tiff"));
+		testAssert(!TIFFDecoder::isTiffCompressed(TestUtils::getTestReposDir() + "/testfiles/tiff/ColorChecker_sRGB_from_Ref_small_uncompressed.tiff"));
 
 		// Test Unicode path
 		const std::string euro = "\xE2\x82\xAC";
-		Reference<Map2D> im2 = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testscenes/" + euro + ".tiff");
+		Reference<Map2D> im2 = TIFFDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/tiff/" + euro + ".tiff");
 	}
 	catch(ImFormatExcep& e)
 	{

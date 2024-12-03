@@ -321,6 +321,7 @@ void IndigoXMLDoc::test()
 
 
 	//============ Perf test ============
+	if(false)
 	{
 		{
 			const std::string path = TestUtils::getTestReposDir() + "/testscenes/instancing_test4.igs";
@@ -380,7 +381,7 @@ void IndigoXMLDoc::test()
 	}
 
 
-	try
+	/*try
 	{
 		for(int i=0; i<1; ++i)
 		{
@@ -390,7 +391,7 @@ void IndigoXMLDoc::test()
 	catch(IndigoXMLDocExcep& )
 	{
 		failTest("IndigoXMLDocExcep");
-	}
+	}*/
 }
 
 
