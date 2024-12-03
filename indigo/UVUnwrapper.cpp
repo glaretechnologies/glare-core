@@ -1414,26 +1414,26 @@ void UVUnwrapper::test()
 
 	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/bmesh/Cube_obj_11907297875084081315.bmesh");
 	
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/quad_and_two_tris.igmesh");
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/quad_and_two_tris.igmesh");
 
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_15695509023332119054.igmesh"); // Cornell box
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/cornell_box.igmesh"); // Cornell box
 
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_8712782933216481855.igmesh"); // Teapot
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/teapot.igmesh"); // Teapot
 
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_7820800558917143365.igmesh"); // Solid silhouette from SketchUp
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/person_silhouette.igmesh"); // Solid silhouette from SketchUp
 
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_2070916308_812.igmesh"); // A tilted prism
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/tilted_prism.igmesh"); // A tilted prism
 
 	// testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/cv_baking_meshes/mesh_11825449379137060526.igmesh"); // CV parcel #1
 		
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/cube_subdivision_test/mesh_2667395502_1108.igmesh"); // A cuboid
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/cuboid.igmesh"); // A cuboid
 
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_4047492550_812.igmesh"); // A tall cuboid
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/tall_cuboid.igmesh"); // A tall cuboid
 
-	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_12875754190445396881.igmesh"); // A single quad
+	testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/single_quad.igmesh"); // A single quad
 
 	{
-		UVUnwrapper::Results results = testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testscenes/mesh_10343428050135156342.igmesh"); // Tesselated quad (400 quads)
+		UVUnwrapper::Results results = testUnwrappingWithMesh(TestUtils::getTestReposDir() + "/testfiles/igmesh/tesellated_quad.igmesh"); // Tesselated quad (400 quads)
 		testAssert(results.num_patches == 1);
 	}
 
