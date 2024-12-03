@@ -164,15 +164,19 @@ void convertCSVToArrayLiteral(const std::string& CSV_path, const std::string& de
 #if BUILD_TESTS
 
 
+#include "../indigo/IndigoTestUtils.h"
 #include "../utils/TestUtils.h"
+#include "../utils/ConPrint.h"
 
 
 void ArrayLiteralUtils::test()
 {
+	conPrint("ArrayLiteralUtils::test()");
+
 	try
 	{
 		CSVData data;
-		loadCSVFile(TestUtils::getTestReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", data);
+		loadCSVFile(IndigoTestUtils::getIndigoReposDir() + "/data/CIE/cie2006-xyzbar-390+1+830.csv.txt", data);
 		testAssert(data.data.getWidth() == 3 && data.data.getHeight() == 441);
 
 		testAssert(data.data.elem(0, 0) == 0.00295242);
@@ -191,6 +195,8 @@ void ArrayLiteralUtils::test()
 	{
 		failTest(e.what());
 	}
+
+	conPrint("ArrayLiteralUtils::test() done.");
 }
 
 

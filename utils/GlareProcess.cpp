@@ -407,6 +407,7 @@ void glare::Process::test()
 		failTest(e.what());
 	}*/
 
+	conPrint("Process::test() done.");
 }
 
 
