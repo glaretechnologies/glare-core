@@ -122,6 +122,7 @@ public:
 	inline virtual size_t getMapWidth() const override { return width; }
 	inline virtual size_t getMapHeight() const override { return height; }
 	inline virtual size_t numChannels() const override { return N; }
+	inline virtual double uncompressedBitsPerChannel() const override { return (double)sizeof(V) * 8; }
 
 	inline virtual bool takesOnlyUnitIntervalValues() const override { return !ComponentValueTraits::isFloatingPoint(); }
 

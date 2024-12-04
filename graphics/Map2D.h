@@ -55,6 +55,7 @@ public:
 	virtual size_t getMapWidth() const = 0;
 	virtual size_t getMapHeight() const = 0;
 	virtual size_t numChannels() const = 0;
+	virtual double uncompressedBitsPerChannel() const = 0;
 
 	virtual bool takesOnlyUnitIntervalValues() const = 0;
 
@@ -68,7 +69,7 @@ public:
 
 	virtual Reference<Image> convertToImage() const = 0;
 
-	// Put various Map2D functions behind the MAP2D_FILTERING_SUPPORT flag.  
+	// Put various Map2D functions behind the MAP2D_FILTERING_SUPPORT flag.
 	// This is so programs can use Map2D, ImageMap etc..without having to compile in TaskManager support, GaussianImageFilter support etc..
 #if MAP2D_FILTERING_SUPPORT
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const = 0;

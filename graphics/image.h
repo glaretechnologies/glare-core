@@ -105,6 +105,7 @@ public:
 	virtual size_t getMapWidth() const override { return getWidth(); }
 	virtual size_t getMapHeight() const override { return getHeight(); }
 	virtual size_t numChannels() const override { return 3; }
+	virtual double uncompressedBitsPerChannel() const override { return 32; }
 
 	virtual const Colour4f pixelColour(size_t x, size_t y) const override;
 

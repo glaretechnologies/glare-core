@@ -88,6 +88,8 @@ public:
 
 	size_t numChannels() const;
 
+	double uncompressedBitsPerChannel() const;
+
 	static size_t computeNumMipLevels(size_t W, size_t H);
 	static size_t computeNum4PixelBlocksForLevel(size_t base_W, size_t base_H, size_t level);
 	

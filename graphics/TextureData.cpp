@@ -72,6 +72,37 @@ size_t TextureData::numChannels() const
 			return 1;
 	}
 }
+
+double TextureData::uncompressedBitsPerChannel() const
+{
+	switch(format)
+	{
+		case Format_Greyscale_Uint8: return 8;
+		case Format_Greyscale_Float: return 32;
+		case Format_Greyscale_Half: return 16;
+		case Format_SRGB_Uint8: return 8;
+		case Format_SRGBA_Uint8: return 8;
+		case Format_RGB_Linear_Uint8: return 8;
+		case Format_RGBA_Linear_Uint8: return 8;
+		case Format_RGB_Linear_Float: return 32;
+		case Format_RGB_Linear_Half: return 16;
+		case Format_RGBA_Linear_Half: return 16;
+		case Format_Depth_Float: return 32; // ?
+		case Format_Depth_Uint16: return 16;
+		case Format_Compressed_DXT_RGB_Uint8: return 8;
+		case Format_Compressed_DXT_RGBA_Uint8: return 8;
+		case Format_Compressed_DXT_SRGB_Uint8: return 8;
+		case Format_Compressed_DXT_SRGBA_Uint8: return 8;
+		case Format_Compressed_BC6: return 16;
+		case Format_Compressed_ETC2_RGB_Uint8: return 8;
+		case Format_Compressed_ETC2_RGBA_Uint8: return 8;
+		case Format_Compressed_ETC2_SRGB_Uint8: return 8;
+		case Format_Compressed_ETC2_SRGBA_Uint8: return 8;
+		default:
+			assert(0);
+			return 8;
+	}
+}
 	
 
 size_t TextureData::totalCPUMemUsage() const

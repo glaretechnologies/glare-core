@@ -48,6 +48,7 @@ public:
 	virtual size_t getMapWidth() const override { return texture_data->W; }
 	virtual size_t getMapHeight() const override { return texture_data->H; }
 	virtual size_t numChannels() const override { return texture_data->numChannels(); }
+	virtual double uncompressedBitsPerChannel() const override { return texture_data->uncompressedBitsPerChannel(); }
 
 	virtual bool takesOnlyUnitIntervalValues() const override { return false; }
 

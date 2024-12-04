@@ -46,6 +46,7 @@ public:
 	virtual size_t getMapWidth() const override { assert(0); return 1; }
 	virtual size_t getMapHeight() const override { assert(0); return 1; }
 	virtual size_t numChannels() const override { assert(0); return 1; }
+	virtual double uncompressedBitsPerChannel() const override { assert(0); return 8; }
 
 	virtual bool takesOnlyUnitIntervalValues() const override { assert(0); return true; }
 
