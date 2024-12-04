@@ -8,6 +8,7 @@ Contains some convenience methods for working with std::vectors, std::sets etc..
 #pragma once
 
 
+#include "AllocatorVector.h"
 #include "../maths/mathstypes.h"
 #include <vector>
 #include <set>
@@ -23,6 +24,19 @@ template <typename T>
 void append(std::vector<T>& v1, const std::vector<T>& v2)
 {
 	v1.insert(v1.end(), v2.begin(), v2.end());
+}
+
+
+// Append v2 to the back of v1.
+// Note that this procedure modifies v1.
+template <typename T, size_t align>
+void append(glare::AllocatorVector<T, align>& v1, const glare::AllocatorVector<T, align>& v2)
+{
+	const size_t write_i = v1.size();
+	const size_t v2_size = v2.size();
+	v1.resize(write_i + v2_size);
+	for(size_t i=0; i<v2_size; ++i)
+		v1[write_i + i] = v2[i];
 }
 
 
