@@ -19,6 +19,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Lock.h"
 #include "../utils/Timer.h"
 #include "../utils/ProfilerStore.h"
+#include "../utils/CircularBuffer.h"
 #include <algorithm>
 
 
@@ -445,7 +446,7 @@ void SBVHBuilder::build(
 	
 	
 	// Reserve working space for each thread.
-	per_thread_temp_info.resize(task_manager->getNumThreads());
+	per_thread_temp_info.resize(task_manager->getConcurrency());
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
 		per_thread_temp_info[i].build_failed = false;
 
@@ -1936,17 +1937,18 @@ void SBVHBuilder::doBuild(
 
 
 #include "BVHBuilderTests.h"
+#include "BVHBuilderTestUtils.h"
+#if IS_INDIGO
+#include "indigo/IndigoTestUtils.h"
+#endif
 #include "../dll/include/IndigoMesh.h"
 #include "../dll/include/IndigoException.h"
 #include "../dll/IndigoStringUtils.h"
 #include "../utils/TestUtils.h"
 #include "../utils/StandardPrintOutput.h"
-#include "../utils/StringUtils.h"
-#include "../utils/ConPrint.h"
 #include "../utils/Vector.h"
+#include "../utils/ContainerUtils.h"
 #include "../maths/PCG32.h"
-#include "../utils/TaskManager.h"
-#include "../utils/Timer.h"
 #include "../utils/Plotter.h"
 #include "../utils/FileUtils.h"
 
@@ -2006,7 +2008,7 @@ static void testSBVHWithNumObsAndMaxDepth(int num_objects, int max_depth, int ma
 		const double elapsed = timer.elapsed();
 		conPrint("BinningBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
-		BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
+		BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/false);
 
 		const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
 		conPrint("SAH_cost: " + toString(SAH_cost));
@@ -2051,9 +2053,14 @@ void SBVHBuilder::test(bool comprehensive_tests)
 	{
 		Timer timer;
 		std::vector<std::string> files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(TestUtils::getTestReposDir(), "igmesh");
+#if IS_INDIGO
+		std::vector<std::string> indigo_files = FileUtils::getFilesInDirWithExtensionFullPathsRecursive(IndigoTestUtils::getIndigoReposDir(), "igmesh");
+		ContainerUtils::append(files, indigo_files);
+#endif
+
 		std::sort(files.begin(), files.end());
 
-		const size_t num_to_test = comprehensive_tests ? files.size() : 40;
+		const size_t num_to_test = comprehensive_tests ? files.size() : myMin<size_t>(40, files.size());
 		for(size_t i=0; i<num_to_test; ++i)
 		{
 			Indigo::Mesh mesh;
@@ -2106,7 +2113,7 @@ void SBVHBuilder::test(bool comprehensive_tests)
 					result_nodes
 				);
 
-				BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, tris.size(), /*duplicate_prims_allowed=*/true);
+				BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, tris.size(), /*duplicate_prims_allowed=*/true);
 			}
 			catch(Indigo::IndigoException& e)
 			{
@@ -2169,7 +2176,7 @@ void SBVHBuilder::test(bool comprehensive_tests)
 			min_time = myMin(min_time, elapsed);
 			conPrint("SBVHBuilder: BVH building for " + toString(num_objects) + " objects took " + toString(elapsed) + " s");
 
-			BVHBuilderTests::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/true);
+			BVHBuilderTestUtils::testResultsValid(builder.getResultObjectIndices(), result_nodes, aabbs.size(), /*duplicate_prims_allowed=*/true);
 
 			const float SAH_cost = BVHBuilder::getSAHCost(result_nodes, intersection_cost);
 			conPrint("SAH_cost: " + toString(SAH_cost));

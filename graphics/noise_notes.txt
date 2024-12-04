@@ -1,3 +1,5 @@
+ // Disabled for now due to interface mismatch between BVHBuilderTestUtils::testResultsValid and the ResultInteriorNodes.
+
 
 // Return 8 bits of hash
 /*static inline const uint64 hash(int x, int y, int z)

@@ -280,7 +280,7 @@ void BinningBVHBuilder::build(
 
 
 	
-	per_thread_temp_info.resize(myMax<size_t>(1, task_manager->getNumThreads()));
+	per_thread_temp_info.resize(task_manager->getConcurrency());
 	for(size_t i = 0; i < per_thread_temp_info.size(); ++i)
 	{
 		per_thread_temp_info[i].result_chunk = NULL;
@@ -664,9 +664,10 @@ static void searchForBestSplit(glare::TaskManager& task_manager, const js::AABBo
 	if(N >= task_N) // If there are enough objects, do parallel binning:
 	{
 		const int MAX_NUM_TASKS = 64;
-		const int num_tasks = myClamp((int)task_manager.getNumThreads(), 1, MAX_NUM_TASKS);
+		const int num_tasks = myMin((int)task_manager.getConcurrency(), MAX_NUM_TASKS);
 
-		Reference<BinTask> tasks[MAX_NUM_TASKS];
+		glare::TaskGroupRef task_group = new glare::TaskGroup();
+		task_group->tasks.resize(num_tasks);
 		
 		const int num_per_task = Maths::roundedUpDivide(N, num_tasks);
 
@@ -674,8 +675,8 @@ static void searchForBestSplit(glare::TaskManager& task_manager, const js::AABBo
 
 		for(int i=0; i<num_tasks; ++i)
 		{
-			tasks[i] = new BinTask();
-			BinTask* task = tasks[i].ptr();
+			task_group->tasks[i] = new BinTask();
+			BinTask* task = (BinTask*)task_group->tasks[i].ptr();
 			task->objects_ = &objects_;
 			task->centroid_aabb_ = centroid_aabb;
 			task->begin = begin;
@@ -686,24 +687,18 @@ static void searchForBestSplit(glare::TaskManager& task_manager, const js::AABBo
 
 			assert(task->task_begin >= begin && task->task_begin <= end && task->task_end >= task->task_begin && task->task_end <= end);
 		}
-		task_manager.addTasks(ArrayRef<glare::TaskRef>((Reference<glare::Task>*)tasks, num_tasks));
+		task_manager.runTaskGroup(task_group);
 		
-		// Try and execute the tasks in this thread, so that we know we will make progress on these tasks.
-		for(int i=0; i<num_tasks; ++i)
-			tasks[i]->run(/*thread index (not used)=*/0);
-
-		// Wait until all tasks are done.
-		num_done_condition.wait();
-
 
 		// Merge bucket AABBs and counts from each task
 		for(int t=0; t<num_tasks; ++t)
 		{
+			BinTask* task = (BinTask*)task_group->tasks[t].ptr();
 			for(int i=0; i<num_buckets; ++i)
 			{
 				for(int z=0; z<3; ++z)
-					bucket_aabbs[z*max_B + i].enlargeToHoldAABBox(tasks[t]->bucket_aabbs_[z*max_B + i]);
-				counts[i] = counts[i] + tasks[t]->counts_[i];
+					bucket_aabbs[z*max_B + i].enlargeToHoldAABBox(task->bucket_aabbs_[z*max_B + i]);
+				counts[i] = counts[i] + task->counts_[i];
 			}
 		}
 

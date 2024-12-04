@@ -101,7 +101,7 @@ void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, c
 
 
 #ifndef NO_EMBREE
-static void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultInteriorNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
+void testResultsValid(const BVHBuilder::ResultObIndicesVec& result_ob_indices, const js::Vector<ResultInteriorNode, 64>& result_nodes, const js::Vector<js::AABBox, 16>& aabbs, bool duplicate_prims_allowed)
 {
 	// Test that the resulting object indices are a permutation of the original indices.
 	std::vector<bool> seen(aabbs.size(), false);

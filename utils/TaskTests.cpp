@@ -228,8 +228,8 @@ void testForLoopTaskRun(TaskManager& task_manager, size_t N)
 			testAssert(touch_count[i] == 0);
 	}
 
-	// Test runParallelForTasks() that takes an array
-	/*{
+	// Test runParallelForTasks() that takes a task group
+	{
 		testAssert(task_manager.areAllTasksComplete());
 
 		std::vector<int> touch_count(N, 0);
@@ -237,21 +237,21 @@ void testForLoopTaskRun(TaskManager& task_manager, size_t N)
 		ForLoopTaskClosure closure;
 		closure.touch_count = &touch_count;
 
-		std::vector<Reference<Task> > tasks;
+		TaskGroupRef task_group = new TaskGroup();
 
-		task_manager.runParallelForTasks<ForLoopTask2, ForLoopTaskClosure>(&closure, 0, (int)N, tasks);
+		task_manager.runParallelForTasks<ForLoopTask2, ForLoopTaskClosure>(&closure, 0, (int)N, task_group);
 		testAssert(task_manager.areAllTasksComplete());
 
 		for(size_t i=0; i<N; ++i)
 			testAssert(touch_count[i] == 1);
 
 		// Run again
-		task_manager.runParallelForTasks<ForLoopTask2, ForLoopTaskClosure>(&closure, 0, (int)N, tasks);
+		task_manager.runParallelForTasks<ForLoopTask2, ForLoopTaskClosure>(&closure, 0, (int)N, task_group);
 		testAssert(task_manager.areAllTasksComplete());
 
 		for(size_t i=0; i<N; ++i)
 			testAssert(touch_count[i] == 2);
-	}*/
+	}
 }
 
 

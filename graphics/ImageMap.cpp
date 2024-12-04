@@ -323,7 +323,7 @@ Reference<Map2D> ImageMap<V, VTraits>::resizeMidQuality(const int new_width, con
 
 	if(task_manager)
 	{
-		const int num_tasks = myClamp<int>((int)task_manager->getNumThreads(), 1, new_height); // We want at least one task, but no more than the number of rows in the new image.
+		const int num_tasks = myMin<int>((int)task_manager->getConcurrency(), new_height); // We want at least one task, but no more than the number of rows in the new image.
 
 		glare::TaskGroupRef group = new glare::TaskGroup();
 		group->tasks.resize(num_tasks);

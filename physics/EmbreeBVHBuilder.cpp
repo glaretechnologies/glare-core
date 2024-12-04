@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/Lock.h"
 #include "../utils/Timer.h"
 #include "../utils/ProfilerStore.h"
+#include "../utils/CircularBuffer.h"
 
 
 static const js::AABBox empty_aabb = js::AABBox::emptyAABBox();

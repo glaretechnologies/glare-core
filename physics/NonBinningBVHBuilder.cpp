@@ -372,8 +372,8 @@ void NonBinningBVHBuilder::build(
 	split_left_half_area.resizeNoCopy(num_objects);
 
 	// Reserve working space for each thread.
-	const int initial_result_buf_reserve_cap = 2 * num_objects / (int)task_manager->getNumThreads();
-	per_thread_temp_info.resize(task_manager->getNumThreads());
+	const int initial_result_buf_reserve_cap = 2 * num_objects / (int)task_manager->getConcurrency();
+	per_thread_temp_info.resize(task_manager->getConcurrency());
 	for(size_t i=0; i<per_thread_temp_info.size(); ++i)
 		per_thread_temp_info[i].result_buf.reserve(initial_result_buf_reserve_cap);
 

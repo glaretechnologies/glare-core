@@ -71,7 +71,7 @@ public:
 	void cancelAndWaitForTasksToComplete();
 
 	size_t getNumThreads() const { return threads.size(); }
-	size_t getConcurrency() const { return threads.size() + 1; } // Number of tasks to make in order to use all threads (including calling thread).
+	size_t getConcurrency() const { return threads.size() + 1; } // Number of tasks to make in order to use all threads (including calling thread).  Will return a value >= 1.
 
 	bool areAllThreadsBusy();
 
@@ -81,13 +81,14 @@ public:
 
 	/*
 	Creates and runs some tasks in parallel.
-	Stores references to the tasks in the tasks vector, and reuses them if the references are non-null.
+	Stores references to the tasks in the task group, and reuses them if the references are non-null.
+	group must be non-null.
 
 	Task type must implement 
 	set(const TaskClosure* closure, size_t begin, size_t end)
 	*/
-	//template <class Task, class TaskClosure>
-	//void runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks);
+	template <class Task, class TaskClosure>
+	void runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, glare::TaskGroupRef group);
 
 	/*
 	In this method, each task has a particular offset and stride, where stride = num tasks.
@@ -127,7 +128,7 @@ void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, 
 		return;
 
 	const size_t num_indices = end - begin;
-	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
+	const size_t num_tasks = myMin(num_indices, getConcurrency());
 	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
 
 	glare::TaskGroupRef group = new glare::TaskGroup();
@@ -150,37 +151,32 @@ void TaskManager::runParallelForTasks(const TaskClosure& closure, size_t begin, 
 }
 
 
-// TEMP disabled with taskgroup refactor:
+template <class TaskType, class TaskClosure>
+void TaskManager::runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, glare::TaskGroupRef group)
+{
+	assert(group);
 
-//template <class TaskType, class TaskClosure>
-//void TaskManager::runParallelForTasks(const TaskClosure* closure, size_t begin, size_t end, std::vector<TaskRef>& tasks)
-//{
-//	if(begin >= end)
-//		return;
-//
-//	const size_t num_indices = end - begin;
-//	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
-//	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
-//
-//	glare::TaskGroupRef group = new glare::TaskGroup();
-//	group->tasks.resize(num_tasks);
-//
-//	//tasks.resize(num_tasks);
-//
-//	for(size_t t=0; t<num_tasks; ++t)
-//	{
-//		if(tasks[t].isNull())
-//			tasks[t] = new TaskType();
-//		const size_t task_begin = myMin(begin + t       * num_indices_per_task, end);
-//		const size_t task_end   = myMin(begin + (t + 1) * num_indices_per_task, end);
-//		assert(task_begin >= begin && task_end <= end);
-//		tasks[t].downcastToPtr<TaskType>()->set(closure, task_begin, task_end);
-//
-//		//tasks[t]->processed = 0;
-//	}
-//
-//	runTasks(tasks); // Blocks
-//}
+	if(begin >= end)
+		return;
+
+	const size_t num_indices = end - begin;
+	const size_t num_tasks = myMin(num_indices, getConcurrency());
+	const size_t num_indices_per_task = Maths::roundedUpDivide(num_indices, num_tasks);
+
+	group->tasks.resize(num_tasks);
+
+	for(size_t t=0; t<num_tasks; ++t)
+	{
+		if(group->tasks[t].isNull())
+			group->tasks[t] = new TaskType();
+		const size_t task_begin = myMin(begin + t       * num_indices_per_task, end);
+		const size_t task_end   = myMin(begin + (t + 1) * num_indices_per_task, end);
+		assert(task_begin >= begin && task_end <= end);
+		group->tasks[t].downcastToPtr<TaskType>()->set(closure, task_begin, task_end);
+	}
+
+	runTaskGroup(group); // Blocks
+}
 
 
 template <class TaskType, class TaskClosure> 
@@ -190,7 +186,7 @@ void TaskManager::runParallelForTasksInterleaved(const TaskClosure& closure, siz
 		return;
 
 	const size_t num_indices = end - begin;
-	const size_t num_tasks = myMax<size_t>(1, myMin(num_indices, getNumThreads()));
+	const size_t num_tasks = myMin(num_indices, getConcurrency());
 	
 	glare::TaskGroupRef group = new glare::TaskGroup();
 	group->tasks.reserve(num_tasks);

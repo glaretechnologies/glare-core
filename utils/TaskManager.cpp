@@ -35,8 +35,11 @@ TaskManager::TaskManager(const std::string& name_, size_t num_threads)
 
 void TaskManager::init(size_t num_threads)
 {
-	task_queue_head = NULL;
-	task_queue_tail = NULL;
+	{
+		Lock lock(queue_mutex);
+		task_queue_head = NULL;
+		task_queue_tail = NULL;
+	}
 
 	if(num_threads == std::numeric_limits<size_t>::max()) // If auto-choosing num threads
 		threads.resize(myMax<unsigned int>(1, PlatformUtils::getNumLogicalProcessors()) - 1); // Since we will process work on the calling thread of runTaskGroup, we only need getNumLogicalProcessors() - 1 worker threads.
@@ -202,7 +205,10 @@ void TaskManager::runTaskGroup(TaskGroupRef task_group)
 	if(task_group->tasks.empty())
 		return;
 
-	task_group->num_unfinished_tasks = (int)task_group->tasks.size();
+	{
+		Lock lock(task_group->num_unfinished_tasks_mutex);
+		task_group->num_unfinished_tasks = (int)task_group->tasks.size();
+	}
 
 	for(size_t i=0; i<task_group->tasks.size(); ++i)
 		task_group->tasks[i]->task_group = task_group.ptr();
@@ -255,7 +261,7 @@ void TaskManager::runTaskGroup(TaskGroupRef task_group)
 
 		if(run_task)
 		{
-			task_group->tasks[i]->run(/*thread index TEMP=*/666);
+			task_group->tasks[i]->run(/*thread index=*/threads.size());
 
 			taskFinished();
 
@@ -328,12 +334,18 @@ void TaskManager::waitForTasksToComplete()
 	if(threads.empty()) // If there are zero worker threads:
 	{
 		// Do the work in this thread!
+		Lock lock(queue_mutex);
+
 		while(task_queue_head)
 		{
 			TaskRef task = dequeueTaskInternal();
 			task->run(0);
-			num_unfinished_tasks--;
-			assert(num_unfinished_tasks >= 0);
+
+			{
+				Lock lock2(num_unfinished_tasks_mutex);
+				num_unfinished_tasks--;
+				assert(num_unfinished_tasks >= 0);
+			}
 		}
 	}
 	else

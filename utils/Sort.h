@@ -511,7 +511,7 @@ namespace Sort
 		|--------t0-------|--------t1---------| ..   |----------t_{n-1}----|
 		*/
 
-		const int num_tasks = (int)task_manager.getNumThreads();
+		const int num_tasks = (int)task_manager.getConcurrency();
 		glare::TaskGroupRef group = new glare::TaskGroup();
 		group->tasks.resize(num_tasks);
 
@@ -903,7 +903,7 @@ namespace Sort
 	}
 
 	template<class T, class GetKey>
-	inline void radixSort32BitKey(T* __restrict data, T* __restrict working_space, size_t num_items, GetKey getKey, uint32* temp_counts, size_t temp_counts_size)
+	inline void radixSort32BitKey(T* __restrict data, T* __restrict working_space, size_t num_items, GetKey getKey, uint32* temp_counts, [[maybe_unused]] size_t temp_counts_size)
 	{
 		assert(num_items <= std::numeric_limits<uint32>::max());
 
