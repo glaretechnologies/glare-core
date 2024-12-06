@@ -372,6 +372,18 @@ std::string getStringForGLInternalFormat(GLint internal_format)
 }
 
 
+std::string getStringForTextureTarget(GLenum texture_target)
+{
+	switch(texture_target)
+	{
+		case GL_TEXTURE_2D: return "GL_TEXTURE_2D";
+		case GL_TEXTURE_2D_MULTISAMPLE: return "GL_TEXTURE_2D_MULTISAMPLE";
+		case GL_TEXTURE_2D_ARRAY: return  "GL_TEXTURE_2D_ARRAY";
+		default: return "[Unknown]";
+	};
+}
+
+
 static size_t getAlignment(size_t data)
 {
 	if(data % 8 == 0)

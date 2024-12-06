@@ -43,6 +43,7 @@ struct OpenGLTextureKeyHash
 
 
 std::string getStringForGLInternalFormat(GLint internal_format);
+std::string getStringForTextureTarget(GLenum texture_target);
 
 
 // Instead of inheriting from RefCounted, will implement custom decRefCount() etc.. that calls textureBecameUnused().
