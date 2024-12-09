@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "IncludeOpenGL.h"
-#include <ConPrint.h>
+#include <utils/ConPrint.h>
 #include <cstring> // For memcpy
 
 

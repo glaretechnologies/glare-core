@@ -13,8 +13,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/StringUtils.h"
 #include "../utils/RuntimeCheck.h"
 #include "../utils/ConPrint.h"
+#include "../utils/Vector.h"
 #include "../maths/mathstypes.h"
-#include <Vector.h>
 
 
 VertexBufferAllocator::VertexBufferAllocator(bool use_grouped_vbo_allocator_)

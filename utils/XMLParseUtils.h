@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
-#include <Platform.h>
+#include "Platform.h"
 #include "../graphics/colour3.h"
 #include "../maths/Matrix2.h"
 #include <string>

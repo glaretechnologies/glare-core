@@ -7,13 +7,13 @@ Copyright Glare Technologies Limited 2023 -
 
 
 #include "OpenGLEngine.h"
-#include <MemMappedFile.h>
-#include <Exception.h>
-#include <StringUtils.h>
-#include <ConPrint.h>
-#include <FileUtils.h>
-#include <PlatformUtils.h>
-#include <Lock.h>
+#include <utils/MemMappedFile.h>
+#include <utils/Exception.h>
+#include <utils/StringUtils.h>
+#include <utils/ConPrint.h>
+#include <utils/FileUtils.h>
+#include <utils/PlatformUtils.h>
+#include <utils/Lock.h>
 
 
 ShaderFileWatcherThread::ShaderFileWatcherThread(const std::string& watch_dir_, OpenGLEngine* gl_engine_)

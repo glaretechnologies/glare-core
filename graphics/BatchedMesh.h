@@ -8,11 +8,11 @@ Copyright Glare Technologies Limited 2020
 
 #include "AnimationData.h"
 #include <physics/jscol_aabbox.h>
-#include <ThreadSafeRefCounted.h>
-#include <Platform.h>
-#include <Reference.h>
-#include <Vector.h>
-#include <AllocatorVector.h>
+#include <utils/ThreadSafeRefCounted.h>
+#include <utils/Platform.h>
+#include <utils/Reference.h>
+#include <utils/Vector.h>
+#include <utils/AllocatorVector.h>
 #include <vector>
 #include <string>
 
@@ -76,6 +76,7 @@ public:
 	[[nodiscard]] static Reference<BatchedMesh> buildFromIndigoMesh(const Indigo::Mesh& mesh);
 	
 	// Build an Indigo::Mesh from this BatchedMesh.
+	Reference<Indigo::Mesh> buildIndigoMesh() const;
 	void buildIndigoMesh(Indigo::Mesh& mesh_out) const;
 
 

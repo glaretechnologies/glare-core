@@ -731,6 +731,16 @@ void BatchedMesh::buildIndigoMesh(Indigo::Mesh& mesh_out) const
 }
 
 
+Reference<Indigo::Mesh> BatchedMesh::buildIndigoMesh() const
+{
+	Reference<Indigo::Mesh> indigo_mesh = new Indigo::Mesh();
+
+	buildIndigoMesh(*indigo_mesh);
+
+	return indigo_mesh;
+}
+
+
 bool BatchedMesh::operator == (const BatchedMesh& other) const
 {
 	return

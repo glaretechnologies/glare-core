@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
-#include <AtomicInt.h>
+#include <utils/AtomicInt.h>
 #include <cassert>
 
 

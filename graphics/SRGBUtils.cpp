@@ -48,7 +48,7 @@ Colour3f toNonLinearSRGB(const Colour3f& c)
 #if BUILD_TESTS
 
 
-#include "TestUtils.h"
+#include "../utils/TestUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
 #include "../utils/ConPrint.h"

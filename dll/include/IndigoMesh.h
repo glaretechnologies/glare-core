@@ -9,8 +9,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "IndigoString.h"
 #include "IndigoGeometryUtils.h"
 #include "IndigoThreadSafeRefCounted.h"
-#include <Platform.h>
-#include <Reference.h>
+#include <utils/Platform.h>
+#include <utils/Reference.h>
 
 
 namespace Indigo

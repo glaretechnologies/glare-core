@@ -444,7 +444,7 @@ float TextRendererFontFace::getFaceAscender()
 #include <utils/TaskManager.h>
 #include <utils/StringUtils.h>
 #include <utils/TestUtils.h>
-#include <PlatformUtils.h>
+#include <utils/PlatformUtils.h>
 
 
 class DrawTextTestTask : public glare::Task

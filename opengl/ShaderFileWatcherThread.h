@@ -6,8 +6,8 @@ Copyright Glare Technologies Limited 2023 -
 #pragma once
 
 
-#include <MessageableThread.h>
-#include <Reference.h>
+#include <utils/MessageableThread.h>
+#include <utils/Reference.h>
 #include <string>
 
 
