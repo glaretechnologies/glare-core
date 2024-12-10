@@ -282,7 +282,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 #include <utils/TaskManager.h>
 #include <utils/StringUtils.h>
 #include <utils/TestUtils.h>
-#include <PlatformUtils.h>
+#include <utils/PlatformUtils.h>
 
 
 void FontCharTexCache::test()
