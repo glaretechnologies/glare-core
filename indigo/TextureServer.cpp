@@ -421,7 +421,7 @@ void TextureServer::test(const std::string& indigo_base_dir)
 	try
 	{
 		TextureServer server(/*use_canonical_path_keys=*/true);
-		Reference<Map2D> map = new Image(16, 16);
+		Reference<Map2D> map = new ImageMapUInt8(16, 16, 3);
 
 		const std::string name = "TEXNAME";
 
@@ -445,10 +445,10 @@ void TextureServer::test(const std::string& indigo_base_dir)
 	{
 		TextureServer server(/*use_canonical_path_keys=*/true);
 		
-		Reference<Map2D> a = new Image(16, 16);
+		Reference<Map2D> a = new ImageMapUInt8(16, 16, 3);
 		server.insertTextureForRawName(a, "a");
 
-		Reference<Map2D> b = new Image(16, 16);
+		Reference<Map2D> b = new ImageMapUInt8(16, 16, 3);
 		server.insertTextureForRawName(b, "b");
 
 		testAssert(server.numTextures() == 2);

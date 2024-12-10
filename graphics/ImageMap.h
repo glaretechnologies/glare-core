@@ -130,7 +130,9 @@ public:
 	inline virtual Reference<Map2D> extractAlphaChannel() const override;
 	inline virtual bool isAlphaChannelAllWhite() const override;
 
+#if IMAGE_CLASS_SUPPORT
 	inline virtual Reference<Image> convertToImage() const override;
+#endif
 
 	inline virtual Reference<Map2D> extractChannelZero() const override;
 	
@@ -923,6 +925,7 @@ Reference<ImageMapFloat> ImageMap<V, VTraits>::extractChannelZeroLinear() const
 }
 
 
+#if IMAGE_CLASS_SUPPORT
 template <class V, class VTraits>
 Reference<Image> ImageMap<V, VTraits>::convertToImage() const
 {
@@ -947,7 +950,7 @@ Reference<Image> ImageMap<V, VTraits>::convertToImage() const
 		}
 	return Reference<Image>(image);
 }
-
+#endif
 
 #if MAP2D_FILTERING_SUPPORT
 

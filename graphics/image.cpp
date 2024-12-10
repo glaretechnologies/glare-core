@@ -639,11 +639,13 @@ Image::Value Image::getDerivs(Coord /*s*/, Coord /*t*/, Value& dv_ds_out, Value&
 }
 
 
+#if IMAGE_CLASS_SUPPORT
 Reference<Image> Image::convertToImage() const
 {
 	// Return copy of this image.
 	return Reference<Image>(new Image(*this));
 }
+#endif
 
 
 Reference<Map2D> Image::extractChannelZero() const

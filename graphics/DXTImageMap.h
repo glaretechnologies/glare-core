@@ -72,7 +72,9 @@ public:
 	virtual Reference<Map2D> extractAlphaChannel() const override;
 	virtual bool isAlphaChannelAllWhite() const override;
 
+#if IMAGE_CLASS_SUPPORT
 	virtual Reference<Image> convertToImage() const override;
+#endif
 
 	virtual Reference<Map2D> extractChannelZero() const override;
 

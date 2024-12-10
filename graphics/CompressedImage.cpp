@@ -95,11 +95,13 @@ Reference<ImageMapFloat> CompressedImage::extractChannelZeroLinear() const
 }
 
 
+#if IMAGE_CLASS_SUPPORT
 Reference<Image> CompressedImage::convertToImage() const
 {
 	assert(0);
 	return Reference<Image>();
 }
+#endif
 
 
 #if MAP2D_FILTERING_SUPPORT

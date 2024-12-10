@@ -123,7 +123,9 @@ public:
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const override;
 
+#if IMAGE_CLASS_SUPPORT
 	virtual Reference<Image> convertToImage() const override;
+#endif
 
 #if MAP2D_FILTERING_SUPPORT
 	virtual Reference<Map2D> getBlurredLinearGreyScaleImage(glare::TaskManager& task_manager) const override;

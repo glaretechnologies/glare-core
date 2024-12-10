@@ -67,7 +67,9 @@ public:
 
 	virtual Reference<ImageMap<float, FloatComponentValueTraits> > extractChannelZeroLinear() const = 0;
 
+#if IMAGE_CLASS_SUPPORT
 	virtual Reference<Image> convertToImage() const = 0;
+#endif
 
 	// Put various Map2D functions behind the MAP2D_FILTERING_SUPPORT flag.
 	// This is so programs can use Map2D, ImageMap etc..without having to compile in TaskManager support, GaussianImageFilter support etc..
