@@ -94,7 +94,7 @@ public:
 	struct FT_FaceRec_* face;
 	int font_size_pixels;
 
-	unsigned int cur_loaded_glyph_index;
+	unsigned int cur_loaded_glyph_index; // Currently loaded glyph with identity transformation
 };
 
 

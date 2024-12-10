@@ -270,17 +270,15 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 
 		FT_Set_Transform(face, /*matrix=*/NULL, &pen); // Set transformation.  Use null matrix to get the identity matrix
 
-		if(this->cur_loaded_glyph_index != glyph_index)
+		// Note that we can't use cur_loaded_glyph_index as we probably have a non-indentity transform
+		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
+		if(error != 0)
 		{
-			FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
-			if(error != 0)
-			{
 #ifndef NDEBUG
-				conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
+			conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
 #endif
-			}
-			this->cur_loaded_glyph_index = glyph_index;
 		}
+		this->cur_loaded_glyph_index = std::numeric_limits<FT_UInt>::max(); // The loaded glyph probably doesn't have the identity transformation.
 
 		FT_Error error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
 		if(error == 0) // If no errors:
@@ -483,6 +481,31 @@ void TextRenderer::test()
 	conPrint("TextRenderer::test()");
 
 	const bool WRITE_IMAGES = false;
+
+	//-------------------------------------- Test drawText with a repeated letter. --------------------------------------
+	// There was a bug with this where the second letter wouldn't draw due to use of cur_loaded_glyph_index.
+#ifdef _WIN32
+	try
+	{
+		ImageMapUInt8Ref map = new ImageMapUInt8(1000, 500, 4);
+		map->set(0);
+
+		TextRendererRef text_renderer = new TextRenderer();
+		TextRendererFontFaceRef font = new TextRendererFontFace(text_renderer, PlatformUtils::getFontsDirPath() + "/Segoeui.ttf", 30);
+
+		const std::string text = "abbc";
+		TextRendererFontFace::SizeInfo size_info = font->getTextSize(text);
+		font->drawText(*map, text, -size_info.bitmap_left, size_info.bitmap_top, Colour3f(1,1,1), /*render_SDF=*/false);
+
+		if(WRITE_IMAGES)
+			PNGDecoder::write(*map, "repeating letter test.png");
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+#endif
+	
 
 	//-------------------------------------- Test rendering with a TTF file and SDF rendering --------------------------------------
 #ifdef _WIN32
