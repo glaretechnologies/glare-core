@@ -280,7 +280,7 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 		}
 		this->cur_loaded_glyph_index = std::numeric_limits<FT_UInt>::max(); // The loaded glyph probably doesn't have the identity transformation.
 
-		FT_Error error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
+		error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
 		if(error == 0) // If no errors:
 		{
 			// now, draw to our target surface (convert position)
