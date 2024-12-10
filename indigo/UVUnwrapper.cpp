@@ -1092,7 +1092,7 @@ static UVUnwrapper::Results testUnwrappingWithMesh(Indigo::MeshRef mesh, const M
 static UVUnwrapper::Results testUnwrappingWithMesh(const std::string& path)
 {
 	// Load mesh
-	Indigo::MeshRef indigo_mesh = new Indigo::Mesh();
+	Indigo::MeshRef indigo_mesh;
 	//MeshLoader::loadMesh(path, *mesh, 1.f);
 
 	try
@@ -1101,6 +1101,7 @@ static UVUnwrapper::Results testUnwrappingWithMesh(const std::string& path)
 		{
 			try
 			{
+				indigo_mesh = new Indigo::Mesh();
 				Indigo::Mesh::readFromFile(toIndigoString(path), *indigo_mesh);
 			}
 			catch(Indigo::IndigoException& e)
@@ -1112,7 +1113,7 @@ static UVUnwrapper::Results testUnwrappingWithMesh(const std::string& path)
 		{
 			BatchedMeshRef batched_mesh = BatchedMesh::readFromFile(path, NULL);
 
-			batched_mesh->buildIndigoMesh(*indigo_mesh);
+			indigo_mesh = batched_mesh->buildIndigoMesh();
 		}
 		else
 			throw glare::Exception("unhandled model format: " + path);

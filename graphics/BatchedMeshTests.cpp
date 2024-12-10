@@ -148,19 +148,18 @@ static void testIndigoMeshConversion(const BatchedMesh& batched_mesh)
 	try
 	{
 		// Test conversion to Indigo mesh
-		Indigo::Mesh indigo_mesh;
-		batched_mesh.buildIndigoMesh(indigo_mesh);
+		Indigo::MeshRef indigo_mesh = batched_mesh.buildIndigoMesh();
 
-		testEqual(indigo_mesh.vert_positions.size(), batched_mesh.numVerts());
-		testAssert(indigo_mesh.vert_normals.size() == 0 || batched_mesh.numVerts());
-		testEqual(indigo_mesh.triangles.size(), batched_mesh.numIndices() / 3);
+		testEqual(indigo_mesh->vert_positions.size(), batched_mesh.numVerts());
+		testAssert(indigo_mesh->vert_normals.size() == 0 || batched_mesh.numVerts());
+		testEqual(indigo_mesh->triangles.size(), batched_mesh.numIndices() / 3);
 
 		// Convert Indigo mesh back to batched mesh
-		BatchedMeshRef batched_mesh2 = BatchedMesh::buildFromIndigoMesh(indigo_mesh);
+		BatchedMeshRef batched_mesh2 = BatchedMesh::buildFromIndigoMesh(*indigo_mesh);
 
 		bool has_NaN = false;
-		for(size_t i=0; i<indigo_mesh.uv_pairs.size(); ++i)
-			if(isNAN(indigo_mesh.uv_pairs[i].x) || isNAN(indigo_mesh.uv_pairs[i].y))
+		for(size_t i=0; i<indigo_mesh->uv_pairs.size(); ++i)
+			if(isNAN(indigo_mesh->uv_pairs[i].x) || isNAN(indigo_mesh->uv_pairs[i].y))
 				has_NaN = true;
 
 		if(!has_NaN)
@@ -630,13 +629,12 @@ void BatchedMeshTests::test()
 			testWritingAndReadingMesh(*batched_mesh);
 
 			// Test conversion back to Indigo mesh
-			Indigo::Mesh indigo_mesh2;
-			batched_mesh->buildIndigoMesh(indigo_mesh2);
-			testAssert(indigo_mesh2.vert_positions.size() == m.vert_positions.size());
-			testAssert(indigo_mesh2.vert_normals.size() == m.vert_normals.size());
-			testAssert(indigo_mesh2.uv_pairs.size() == 8); // Will get expanded to one per vert.
-			testAssert(indigo_mesh2.triangles.size() == 6); // Quads will get converted to tris.
-			testAssert(indigo_mesh2.triangles[0].vertex_indices[0] == 0 && indigo_mesh2.triangles[0].vertex_indices[1] == 1 && indigo_mesh2.triangles[0].vertex_indices[2] == 2);
+			Indigo::MeshRef indigo_mesh2 = batched_mesh->buildIndigoMesh();
+			testAssert(indigo_mesh2->vert_positions.size() == m.vert_positions.size());
+			testAssert(indigo_mesh2->vert_normals.size() == m.vert_normals.size());
+			testAssert(indigo_mesh2->uv_pairs.size() == 8); // Will get expanded to one per vert.
+			testAssert(indigo_mesh2->triangles.size() == 6); // Quads will get converted to tris.
+			testAssert(indigo_mesh2->triangles[0].vertex_indices[0] == 0 && indigo_mesh2->triangles[0].vertex_indices[1] == 1 && indigo_mesh2->triangles[0].vertex_indices[2] == 2);
 
 			testIndigoMeshConversion(*batched_mesh);
 		}
