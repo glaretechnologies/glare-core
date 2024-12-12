@@ -252,6 +252,40 @@ bool Matrix4f::getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const
 }
 
 
+void Matrix4f::getUpperLeftAdjugateTranspose(Matrix4f& adjugate_trans_out) const 
+{
+	/*
+	A^-1 = (1/det(A)) adj(A)
+	so
+	A^-1^T = (1/det(A)) adj(A)^T
+
+	so adj(A)^T is A^-1^T without the (1/det(A))factor, e.g. stuff in getUpperLeftInverseTranspose() above without the recip_det factor.
+	*/
+
+	Vec4f c0 = getColumn(0);
+	Vec4f c1 = getColumn(1);
+	Vec4f c2 = getColumn(2);
+
+	const Vec4f c0_201 = swizzle<2, 0, 1, 3>(c0);
+	const Vec4f c0_120 = swizzle<1, 2, 0, 3>(c0);
+	const Vec4f c1_201 = swizzle<2, 0, 1, 3>(c1);
+	const Vec4f c1_120 = swizzle<1, 2, 0, 3>(c1);
+	const Vec4f c2_201 = swizzle<2, 0, 1, 3>(c2);
+	const Vec4f c2_120 = swizzle<1, 2, 0, 3>(c2);
+	
+	c0 = mul(c1_120, c2_201) - mul(c2_120, c1_201);
+	c1 = mul(c2_120, c0_201) - mul(c0_120, c2_201);
+	c2 = mul(c0_120, c1_201) - mul(c1_120, c0_201);
+
+	assert(c0[3] == 0.0f && c1[3] == 0.0f && c2[3] == 0.0f);
+
+	adjugate_trans_out.setColumn(0, c0);
+	adjugate_trans_out.setColumn(1, c1);
+	adjugate_trans_out.setColumn(2, c2);
+	adjugate_trans_out.setColumn(3, Vec4f(0,0,0,1));
+}
+
+
 void Matrix4f::setToRotationMatrix(const Vec4f& unit_axis, float angle)
 {
 	assert(unit_axis.isUnitLength());
@@ -713,6 +747,190 @@ void Matrix4f::test()
 		testAssert(isInverse(R, upper_left_inv));
 	}
 
+	// Test transformations of normals
+	{
+		const Vec4f v[3] = { Vec4f(0,0,0,1), Vec4f(1,0,0,1), Vec4f(0,1,0,1) }; // Triangle in x-y plane
+
+		const Vec4f N = normalise(crossProduct(v[1] - v[0], v[2] - v[0]));
+
+		const Matrix4f M = Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f);
+
+		Vec4f M_v[3] = 
+		{
+			M * v[0],
+			M * v[1],
+			M * v[2]
+		};
+
+		Matrix4f upper_left_inv_T;
+		testAssert(M.getUpperLeftInverseTranspose(upper_left_inv_T));
+
+		const Vec4f transformed_N = upper_left_inv_T * N;
+		printVar(transformed_N.length());
+
+		const Vec4f ref_transformed_N = normalise(crossProduct(M_v[1] - M_v[0], M_v[2] - M_v[0]));
+
+		testAssert(epsEqual(transformed_N, ref_transformed_N));
+	}
+
+	{
+		const Vec4f v[3] = { Vec4f(0,0,0,1), Vec4f(1,0,0,1), Vec4f(0,1,0,1) }; // Triangle in x-y plane
+
+		const Vec4f N = normalise(crossProduct(v[1] - v[0], v[2] - v[0]));
+
+		const Matrix4f M = Matrix4f::scaleMatrix(1.f, 2.f, 3.f) * Matrix4f::rotationMatrix(normalise(Vec4f(0.5f, 0.6f, 0.7f, 0)), 0.3f);
+
+		Vec4f M_v[3] = 
+		{
+			M * v[0],
+			M * v[1],
+			M * v[2]
+		};
+
+		Matrix4f upper_left_inv_T;
+		testAssert(M.getUpperLeftInverseTranspose(upper_left_inv_T));
+
+		const Vec4f transformed_N = upper_left_inv_T * N;
+		printVar(transformed_N.length());
+
+		const Vec4f ref_transformed_N = normalise(crossProduct(M_v[1] - M_v[0], M_v[2] - M_v[0]));
+
+		testAssert(epsEqual(normalise(transformed_N), ref_transformed_N));
+	}
+
+	// Test with reflection matrix
+	{
+		const Vec4f v[3] = { Vec4f(0,0,0,1), Vec4f(1,0,0,1), Vec4f(0,1,0,1) }; // Triangle in x-y plane
+
+		const Vec4f N = normalise(crossProduct(v[1] - v[0], v[2] - v[0]));
+
+		// M reflects along z axis.
+		const float e[] = 
+		{
+			1,0,0,0,
+			0,1,0,0,
+			0,0,-1,0,
+			0,0,0,1
+		};
+		const Matrix4f M = Matrix4f::fromRowMajorData(e);
+
+
+		Vec4f M_v[3] = 
+		{
+			M * v[0],
+			M * v[1],
+			M * v[2]
+		};
+
+		Matrix4f upper_left_inv_T;
+		testAssert(M.getUpperLeftInverseTranspose(upper_left_inv_T));
+
+		const Vec4f transformed_N = upper_left_inv_T * N;
+		printVar(transformed_N.length());
+
+		const Vec4f ref_transformed_N = normalise(crossProduct(M_v[1] - M_v[0], M_v[2] - M_v[0]));
+
+//		testAssert(epsEqual(normalise(transformed_N), ref_transformed_N));   // Not equal!!
+	}
+
+	{
+		const Vec4f v[3] = { Vec4f(0,0,0,1), Vec4f(1,0,0,1), Vec4f(0,0,1,1) }; // Triangle in x-z plane
+
+		const Vec4f N = normalise(crossProduct(v[1] - v[0], v[2] - v[0]));
+
+		// M reflects along z axis.
+		const float e[] = 
+		{
+			1,0,0,0,
+			0,1,0,0,
+			0,0,-1,0,
+			0,0,0,1
+		};
+		const Matrix4f M = Matrix4f::fromRowMajorData(e);
+
+
+		Vec4f M_v[3] = 
+		{
+			M * v[0],
+			M * v[1],
+			M * v[2]
+		};
+
+		Matrix4f upper_left_inv_T;
+		testAssert(M.getUpperLeftInverseTranspose(upper_left_inv_T));
+
+		const Vec4f transformed_N = upper_left_inv_T * N;
+		printVar(transformed_N.length());
+
+		const Vec4f ref_transformed_N = normalise(crossProduct(M_v[1] - M_v[0], M_v[2] - M_v[0]));
+
+//		testAssert(epsEqual(normalise(transformed_N), ref_transformed_N));   // Not equal!!
+	}
+
+	// Test adjugate transpose applied to a reflection matrix
+	{
+		const Vec4f v[3] = { Vec4f(0,0,0,1), Vec4f(1,0,0,1), Vec4f(0,1,0,1) }; // Triangle in x-y plane
+
+		const Vec4f N = normalise(crossProduct(v[1] - v[0], v[2] - v[0]));
+
+		// M reflects along z axis.
+		const float e[] = 
+		{
+			1,0,0,0,
+			0,1,0,0,
+			0,0,-1,0,
+			0,0,0,1
+		};
+		const Matrix4f M = Matrix4f::fromRowMajorData(e);
+
+		const Vec4f M_v[3] = 
+		{
+			M * v[0],
+			M * v[1],
+			M * v[2]
+		};
+
+		Matrix4f adj_trans_M;
+		M.getUpperLeftAdjugateTranspose(adj_trans_M);
+
+		const Vec4f transformed_N = adj_trans_M * N;
+		printVar(transformed_N.length());
+
+		const Vec4f ref_transformed_N = normalise(crossProduct(M_v[1] - M_v[0], M_v[2] - M_v[0]));
+
+		testAssert(epsEqual(normalise(transformed_N), ref_transformed_N));
+	}
+
+	// Test adjugate transpose for scaling matrix
+	{
+		const Vec4f v[3] = { Vec4f(0,0,0,1), Vec4f(1,0,0,1), Vec4f(0,1,0,1) }; // Triangle in x-y plane
+
+		const Vec4f N = normalise(crossProduct(v[1] - v[0], v[2] - v[0]));
+
+		const Matrix4f M = Matrix4f::scaleMatrix(2.f, 3.f, 4.f);
+
+		const Vec4f M_v[3] = 
+		{
+			M * v[0],
+			M * v[1],
+			M * v[2]
+		};
+
+		Matrix4f adj_trans_M;
+		M.getUpperLeftAdjugateTranspose(adj_trans_M);
+
+		const Vec4f transformed_N = adj_trans_M * N;
+		printVar(transformed_N.length());
+
+	/*	conPrint((adj_trans_M * Vec4f(1,0,0,0)).toString());
+		conPrint((adj_trans_M * Vec4f(0,1,0,0)).toString());
+		conPrint((adj_trans_M * Vec4f(0,0,1,0)).toString());*/
+
+		const Vec4f ref_transformed_N = normalise(crossProduct(M_v[1] - M_v[0], M_v[2] - M_v[0]));
+
+		testAssert(epsEqual(normalise(transformed_N), ref_transformed_N));
+	}
+
 	//{
 	//	const float e[16] = {
 	//		0.949394524f, 0.31114384f, 0.0428893045f, 0.000000000f, 
@@ -726,6 +944,30 @@ void Matrix4f::test()
 	//	testAssert(m.getInverseForAffine3Matrix(inv));
 	//	testAssert(isInverse(m, inv));
 	//}
+
+	//---------------------------- Test getUpperLeftAdjugateTranspose ---------------------------------
+	{
+		// Example from https://en.wikipedia.org/wiki/Adjugate_matrix
+		const float e[] = {
+			-3.f, 2.f, -5.f, 0,
+			-1.f, 0, -2, 0,
+			3, -4, 1, 0,
+			0, 0, 0, 1};
+		const Matrix4f m = Matrix4f::fromRowMajorData(e);
+
+		Matrix4f adj_trans;
+		m.getUpperLeftAdjugateTranspose(adj_trans);
+
+		const float expected_adj_trans_e[] = {
+			-8, -5, 4, 0,
+			18, 12, -6, 0,
+			-4, -1, 2, 0,
+			0, 0, 0, 1
+		};
+		const Matrix4f expected = Matrix4f::fromRowMajorData(expected_adj_trans_e);
+		
+		testAssert(epsEqual(adj_trans, expected));
+	}
 
 	//---------------------------- Test setToRotationMatrix -----------------------------------------
 	{

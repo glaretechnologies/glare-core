@@ -93,9 +93,16 @@ public:
 
 	bool getUpperLeftInverse(Matrix4f& inverse_out, float& det_out) const;
 
-	// Asumming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the inverse.
+	// Assuming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the inverse via inverse_out.
+	// Returns true if upper-left 3x3 matrix could be inverted, otherwise false.
 	bool getInverseForAffine3Matrix(Matrix4f& inverse_out) const;
+
+	// Assuming that this matrix is the concatenation of a 3x3 rotation/scale/shear matrix and a translation matrix, return the transpose of the inverse (= inverse of transpose if invertible) via inverse_trans_out.
+	// Returns true if upper-left 3x3 matrix could be inverted, otherwise false.
 	bool getUpperLeftInverseTranspose(Matrix4f& inverse_trans_out) const;
+
+	// Get the transposed adjugate matrix (= the cofactor matrix) of the upper-left 3x3 sub-matrix.  This is the inverse without the 1/det(A) factor.  See https://en.wikipedia.org/wiki/Adjugate_matrix
+	void getUpperLeftAdjugateTranspose(Matrix4f& adjugate_trans_out) const;
 
 	inline float upperLeftDeterminant() const;
 
