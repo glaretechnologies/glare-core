@@ -20,7 +20,9 @@ Copyright Glare Technologies Limited 2023 -
 #include "../graphics/ImageMap.h"
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/PerlinNoise.h"
+#ifndef NO_EXR_SUPPORT
 #include "../graphics/EXRDecoder.h"
+#endif
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/CompressedImage.h"
 #include "../indigo/TextureServer.h"
@@ -43,7 +45,6 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/Sort.h"
 #include "../utils/RuntimeCheck.h"
 #include "../utils/BestFitAllocator.h"
-#include "../utils/BitUtils.h"
 #include "../utils/PlatformUtils.h"
 #include <algorithm>
 #include "superluminal/PerformanceAPI.h"
@@ -82,8 +83,9 @@ Copyright Glare Technologies Limited 2023 -
 #define USE_DRAW_INDIRECT_BUFFER_FOR_MDI 1
 
 
-// mat_common_flags values
+// mat_common_flags values.  Should be same as in common_frag_structures.glsl
 #define CLOUD_SHADOWS_FLAG					1
+#define DO_SSAO_FLAG						2
 
 
 static const size_t max_num_joint_matrices_per_ob = 256; // Max num joint matrices per object.
@@ -126,8 +128,12 @@ enum TextureUnitIndices
 	DETAIL_3_TEXTURE_UNIT_INDEX,
 	DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX,
 
-	AURORA_TEXTURE_UNIT_INDEX
+	AURORA_TEXTURE_UNIT_INDEX,
 	//SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
+	SSAO_OUTPUT_TEXTURE_UNIT_INDEX,
+	PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX,
+	PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX,
+	PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX
 };
 
 
@@ -168,7 +174,7 @@ public:
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), decal(false),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
-	depth_draw_depth_bias(0)
+	depth_draw_depth_bias(0), determinant_positive(true)
 {
 	for(int i=0; i<MAX_NUM_LIGHT_INDICES; ++i)
 		light_indices[i] = -1;
@@ -363,7 +369,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 
 	env_ob = engine.allocateObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
-	env_ob->ob_to_world_inv_transpose_matrix = Matrix4f::identity();
+	env_ob->ob_to_world_normal_matrix = Matrix4f::identity();
+	env_ob->determinant_positive = true;
 	env_ob->materials.resize(1);
 }
 
@@ -468,10 +475,10 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_num_vbo_binds(0),
 	last_num_index_buf_binds(0),
 	last_num_indices_drawn(0),
-	last_num_backface_culling_changes(0),
+	last_num_face_culling_changes(0),
 	num_index_buf_binds(0),
 	depth_draw_last_num_prog_changes(0),
-	depth_draw_last_num_backface_culling_changes(0),
+	depth_draw_last_num_face_culling_changes(0),
 	depth_draw_last_num_batches_bound(0),
 	depth_draw_last_num_vao_binds(0),
 	depth_draw_last_num_vbo_binds(0),
@@ -479,6 +486,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_dynamic_depth_draw_GPU_time(0),
 	last_static_depth_draw_GPU_time(0),
 	last_draw_opaque_obs_GPU_time(0),
+	last_depth_pre_pass_GPU_time(0),
+	last_compute_ssao_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	next_program_index(0),
 	use_bindless_textures(false),
@@ -523,6 +532,10 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 
 OpenGLEngine::~OpenGLEngine()
 {
+	for(size_t i=0; i<texture_debug_preview_overlay_obs.size(); ++i)
+		removeOverlayObject(texture_debug_preview_overlay_obs[i]);
+	texture_debug_preview_overlay_obs.clear();
+
 	if(async_texture_loader)
 	{
 		for(size_t i=0; i<loading_handles.size(); ++i)
@@ -1259,6 +1272,9 @@ static_assert(staticArrayNumElems(sun_spec_rad_data) == 100 * 3, "staticArrayNum
 // Return blended map.
 static Map2DRef loadAndBlendMaps(const std::string& path_0, const std::string& path_1, float w0, float w1)
 {
+#ifdef NO_EXR_SUPPORT
+	throw glare::Exception("loadAndBlendMaps(): EXR support disabled.");
+#else
 	Map2DRef map_0 = EXRDecoder::decode(path_0);
 	Map2DRef map_1 = EXRDecoder::decode(path_1);
 
@@ -1279,6 +1295,7 @@ static Map2DRef loadAndBlendMaps(const std::string& path_0, const std::string& p
 	}
 
 	return map_0;
+#endif
 }
 
 
@@ -1404,7 +1421,7 @@ const Vec4f OpenGLEngine::getSunDir() const
 void OpenGLEngine::setEnvMapTransform(const Matrix3f& transform)
 {
 	this->current_scene->env_ob->ob_to_world_matrix = Matrix4f(transform, Vec3f(0.f));
-	this->current_scene->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(/*inverse trans out=*/this->current_scene->env_ob->ob_to_world_inv_transpose_matrix);
+	this->current_scene->env_ob->ob_to_world_matrix.getUpperLeftInverseTranspose(/*inverse trans out=*/this->current_scene->env_ob->ob_to_world_normal_matrix);
 }
 
 
@@ -1488,6 +1505,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
 	prog->uniform_locations.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
+	prog->uniform_locations.ssao_output_tex_location		= prog->getUniformLocation("ssao_output_tex");
 	//prog->uniform_locations.snow_ice_normal_map_location	= prog->getUniformLocation("snow_ice_normal_map");
 
 	prog->uniform_locations.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
@@ -1816,6 +1834,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->dynamic_depth_draw_gpu_timer = new Query();
 	this->static_depth_draw_gpu_timer = new Query();
 	this->draw_opaque_obs_gpu_timer = new Query();
+	this->depth_pre_pass_gpu_timer = new Query();
+	this->compute_ssao_gpu_timer = new Query();
 
 	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(*vert_buf_allocator);
 	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(*vert_buf_allocator);
@@ -2206,6 +2226,51 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			}
 		}
 
+		// TEMP: preview prepass output (prepass_colour_copy_texture)
+		if(false)
+		{
+			{
+				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
+				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-0.95f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
+				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+				//texture_debug_preview_overlay_ob->material.albedo_texture = prepass_colour_copy_texture;
+
+				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
+
+				addOverlayObject(texture_debug_preview_overlay_ob);
+			}
+
+			// Preview prepass_normal_copy_texture
+			{
+				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
+				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-0.3f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
+				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(0.1f);
+				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+				//texture_debug_preview_overlay_ob->material.albedo_texture = prepass_normal_copy_texture;
+
+				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
+
+				addOverlayObject(texture_debug_preview_overlay_ob);
+			}
+
+			{
+				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
+				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.4f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
+				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+				//texture_debug_preview_overlay_ob->material.albedo_texture = prepass_colour_copy_texture;
+
+				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
+
+				addOverlayObject(texture_debug_preview_overlay_ob);
+			}
+		}
+
+
 		// Outline stuff
 		{
 			outline_solid_framebuffer = new FrameBuffer();
@@ -2262,7 +2327,7 @@ void OpenGLEngine::startAsyncLoadingData(AsyncTextureLoader* async_texture_loade
 		for(int i=0; i<32; ++i)
 		{
 			const std::string filename = "save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2";
-			loading_handles.push_back(async_texture_loader->startLoadingTexture(/*local path=*/"/gl_data/caustics/" + filename, /*handler=*/this)); // TODO: hold onto result loading handle and cancel
+			loading_handles.push_back(async_texture_loader->startLoadingTexture(/*local path=*/"/gl_data/caustics/" + filename, /*handler=*/this, TextureParams())); // TODO: hold onto result loading handle and cancel
 		}
 		
 		//conPrint("Load caustics took " + timer.elapsedString());
@@ -2391,6 +2456,10 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	edge_extract_col_location			= edge_extract_prog->getUniformLocation("col");
 	edge_extract_line_width_location	= edge_extract_prog->getUniformLocation("line_width");
 
+	//------------------------------------------- Build compute-SSAO prog -------------------------------------------
+	if(settings.ssao)
+		compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);
+	
 
 	if(settings.render_to_offscreen_renderbuffers)
 	{
@@ -3191,9 +3260,12 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
-	const bool invertible = to_world.getUpperLeftInverseTranspose(/*result=*/object.ob_to_world_inv_transpose_matrix); // Compute inverse matrix
-	if(!invertible)
-		object.ob_to_world_inv_transpose_matrix = object.ob_to_world_matrix; // If not invertible, just use to-world matrix.
+	// (Ma) x (Mb) = detM M^-1^T (a x b) = cofM (a x b)           [from wikipedia: https://en.wikipedia.org/wiki/Cross_product, see also https://github.com/graphitemaster/normals_revisited]
+	// Also cofM^T = adjM    =>   cofM = adjM^T
+	to_world.getUpperLeftAdjugateTranspose(/*result=*/object.ob_to_world_normal_matrix);
+
+	object.determinant_positive = to_world.upperLeftDeterminant() >= 0.f;
+
 	// Hopefully we won't encounter non-invertible matrices here anyway.
 
 	object.aabb_ws = object.mesh_data->aabb_os.transformedAABBFast(to_world);
@@ -3206,7 +3278,7 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 	{
 		PerObjectVertUniforms uniforms;
 		uniforms.model_matrix = object.ob_to_world_matrix;
-		uniforms.normal_matrix = object.ob_to_world_inv_transpose_matrix;
+		uniforms.normal_matrix = object.ob_to_world_normal_matrix;
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
@@ -3246,7 +3318,7 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 	{
 		PerObjectVertUniforms uniforms;
 		uniforms.model_matrix = object.ob_to_world_matrix;
-		uniforms.normal_matrix = object.ob_to_world_inv_transpose_matrix;
+		uniforms.normal_matrix = object.ob_to_world_normal_matrix;
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
@@ -3481,6 +3553,15 @@ int OpenGLEngine::allocPerObVertDataBufferSpot()
 }
 
 
+static void checkMaterial(const OpenGLMaterial& mat)
+{
+	if(mat.albedo_texture && mat.albedo_texture->getTextureTarget() != GL_TEXTURE_2D)
+	{
+		conPrint("ERROR: mat.albedo_texture texture type (target) is not a GL_TEXTURE_2D, target is " + getStringForTextureTarget(mat.albedo_texture->getTextureTarget()) + ", will not render correctly.");
+	}
+}
+
+
 void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 {
 	assert(object->mesh_data.nonNull());
@@ -3499,6 +3580,9 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 		object->per_ob_vert_data_index = allocPerObVertDataBufferSpot();
 
 	object->random_num = rng.nextUInt();
+
+	for(size_t i=0; i<object->materials.size(); ++i)
+		checkMaterial(object->materials[i]);
 
 	// Build materials
 	for(size_t i=0; i<object->materials.size(); ++i)
@@ -3638,6 +3722,12 @@ static inline bool backfaceCullMat(const OpenGLMaterial& mat)
 }
 
 
+static inline uint32 faceCullBits(const GLObject& object, const OpenGLMaterial& mat)
+{
+	return backfaceCullMat(mat) ? (object.determinant_positive ? CULL_BACKFACE_BITS : CULL_FRONTFACE_BITS) : 0;
+}
+
+
 void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 {
 	// Build misc draw info.
@@ -3655,7 +3745,8 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 	{
 		const OpenGLMaterial& mat = object.materials[use_src_batches[i].material_index];
 
-		const bool backface_culling = backfaceCullMat(mat);
+		const uint32 face_culling_bits = faceCullBits(object, mat);
+
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
 			(mat.shader_prog->supports_MDI  ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
 			(mat.transparent                ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
@@ -3663,7 +3754,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 			(mat.decal                      ? MATERIAL_DECAL_BITFLAG            : 0) |
 			(mat.participating_media        ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
 			(mat.alpha_blend                ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
-			(backface_culling               ? BACKFACE_CULLING_BITFLAG          : 0) |
+			(face_culling_bits             << MATERIAL_FACE_CULLING_BIT_INDEX)       |
 			(mat.shader_prog->isBuilt()     ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 		//assert(mat.material_data_index != -1);
@@ -3712,22 +3803,22 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 		// Do a pass to get number of batches required
 		OpenGLProgram* prev_depth_prog = NULL;
-		bool prev_backface_cull = true;
+		uint32 prev_face_cull = CULL_BACKFACE_BITS;
 		size_t num_batches_required = 0;
 		uint32 next_contiguous_offset = 0;
 		for(size_t i=0; i<use_src_batches.size(); ++i)
 		{
 			const uint32 mat_index = use_src_batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
-			const bool cur_backface_cull = backfaceCullMat(object.materials[mat_index]);
+			const uint32 cur_face_cull = faceCullBits(object, object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
-				(cur_backface_cull != prev_backface_cull) || // or backface culling differs:
+				(cur_face_cull != prev_face_cull) || // or face culling differs:
 				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
 					num_batches_required++;
 				prev_depth_prog = cur_depth_prog;
-				prev_backface_cull = cur_backface_cull;
+				prev_face_cull = cur_face_cull;
 			}
 			next_contiguous_offset = use_src_batches[i].prim_start_offset_B + use_src_batches[i].num_indices * index_type_size_B;
 		}
@@ -3739,7 +3830,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 		size_t dest_batch_i = 0;
 		prev_depth_prog = NULL;
-		prev_backface_cull = true;
+		prev_face_cull = CULL_BACKFACE_BITS;
 		next_contiguous_offset = 0;
 		OpenGLBatch current_batch;
 		current_batch.material_index = 0;
@@ -3749,9 +3840,9 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		{
 			const uint32 mat_index = use_src_batches[i].material_index;
 			OpenGLProgram* cur_depth_prog = getBuiltDepthDrawProgForMat(object.materials[mat_index]);
-			const bool cur_backface_cull = backfaceCullMat(object.materials[mat_index]);
+			const uint32 cur_face_cull = faceCullBits(object, object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
-				(cur_backface_cull != prev_backface_cull) || // or backface culling differs:
+				(cur_face_cull != prev_face_cull) || // or face culling differs:
 				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				// The depth-draw material changed.  So finish the batch.
@@ -3759,7 +3850,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 				{
 					object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
 						(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
-						(prev_backface_cull            ? BACKFACE_CULLING_BITFLAG          : 0) |
+						(prev_face_cull               << MATERIAL_FACE_CULLING_BIT_INDEX)       |
 						(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
@@ -3780,7 +3871,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 				current_batch.num_indices = 0;
 
 				prev_depth_prog = cur_depth_prog;
-				prev_backface_cull = cur_backface_cull;
+				prev_face_cull = cur_face_cull;
 			}
 			next_contiguous_offset = use_src_batches[i].prim_start_offset_B + use_src_batches[i].num_indices * index_type_size_B;
 
@@ -3792,7 +3883,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		{
 			object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
 				(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
-				(prev_backface_cull            ? BACKFACE_CULLING_BITFLAG          : 0) |
+				(prev_face_cull               << MATERIAL_FACE_CULLING_BIT_INDEX)       |
 				(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
@@ -4741,7 +4832,7 @@ static const Matrix4f frustumMatrix(GLdouble left,
 	GLdouble right,
 	GLdouble bottom,
 	GLdouble top,
-	GLdouble zNear,
+	GLdouble zNear, // zNear, zFar: Specify the distances to the near and far depth clipping planes.  Both distances must be positive.
 	GLdouble zFar)
 {
 	double A = (right + left) / (right - left);
@@ -4769,13 +4860,13 @@ static const Matrix4f infiniteFrustumMatrix(GLdouble left,
 {
 	double A = (right + left) / (right - left);
 	double B = (top + bottom) / (top - bottom);
-	double C = -1; // = -(zFar + zNear) / (zFar - zNear) as zFar goes to infinity:
-	double D =  -(2 * zNear); // = -(2 * zFar * zNear) / (zFar - zNear) as zFar goes to infinity:
+	//     C = -1 = -(zFar + zNear) / (zFar - zNear) as zFar goes to infinity:
+	double D = -2 * zNear; // = -(2 * zFar * zNear) / (zFar - zNear) as zFar goes to infinity:
 
 	float e[16] = {
 		(float)(2*zNear / (right - left)), 0, (float)A, 0,
 		0, (float)(2*zNear / (top - bottom)), (float)B, 0,
-		0, 0, (float)C, (float)D,
+		0, 0, -1.f, (float)D,
 		0, 0, -1.f, 0 };
 
 	return Matrix4f::fromRowMajorData(e);
@@ -5114,7 +5205,7 @@ Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
 			Vec4f(1, 0, 0, 0), // col 0
 			Vec4f(0, 1, 0, 0), // col 1
 			Vec4f(0, 0, -0.5f, 0), // col 2
-			Vec4f(0, 0, 0.5f, 1.f) // col 3
+			Vec4f(0, 0, 0.5f, 1) // col 3
 		);
 		return reverse_matrix;
 	}
@@ -5125,15 +5216,19 @@ Matrix4f OpenGLEngine::getReverseZMatrixOrIdentity() const
 /*
 Calculations for recovering depth values from depth buffer
 ----------------------------------------------------------
-
+let 
 raw_proj_matrix = 
 (2n(r-l)    0         A       0)
 (0          2n(t-b)   B       0)
 (0          0         -1     -2n)
 (0          0         -1      0)
 
+[From infiniteFrustumMatrix()]
+
 and
 v' = raw_proj_matrix v
+
+where v = (x, y, z, w), v' = (x', y', z', w')
 
 Then
 z' = -z -2nw   = -z - 2n
@@ -5142,7 +5237,6 @@ w' = -z
 
 Case where we are using a reverse-z depth buffer:
 -------------------------------------------------
-
 let 
 reverse_z_matrix = 
 (1        0         0       0)
@@ -5150,7 +5244,10 @@ reverse_z_matrix =
 (0        0       -1/2      1/2)
 (0        0         0       1)
 
+[from getReverseZMatrixOrIdentity()]
+
 and v'' = reverse_z_matrix v'
+where v = (x'', y'', z'', w'')
 
 Then
 z'' = -1/2 z' + 1/2 w'
@@ -5171,13 +5268,16 @@ so
 *************
 depth = -z = -(-n / z_ndc) = n / z_ndc = n / z_01
 *************
+also
+z_01 = n / depth
+
 
 Examples:
-Suppose z = -n             (near plane)
+Suppose z = -n             (fragment on near plane)
 Then z_ndc = -n / (-n) = 1
 z_01 = 1
 
-Suppose z = -inf           (far plane)
+Suppose z = -inf           (fragment on 'far plane')
 Then z_ndc = -n / (-inf) = 0
 z_01 = 0
 
@@ -5929,6 +6029,28 @@ OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_
 }
 
 
+OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shader_dir)
+{
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"compute_ssao",
+		new OpenGLShader(use_shader_dir + "/compute_ssao_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/compute_ssao_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(prog);
+	getUniformLocations(prog); // Make sure any unused uniforms have their locations set to -1.
+
+	compute_ssao_normal_tex_location = prog->getUniformLocation("normal_tex");
+	compute_ssao_depth_tex_location = prog->getUniformLocation("depth_tex");
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+	return prog;
+}
+
+
 void OpenGLEngine::addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int /*num_clip_planes_used*/)
 {
 #if BUILD_TESTS
@@ -6100,6 +6222,16 @@ void OpenGLEngine::draw()
 		catch(glare::Exception& e)
 		{
 			conPrint("Error while reloading aurora prog: " + e.what());
+		}
+
+		// Try and reload compute_ssao_prog
+		try
+		{
+			this->compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);;
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading build SSAO prog: " + e.what());
 		}
 
 		// Reload shaders on all objects
@@ -6282,6 +6414,9 @@ void OpenGLEngine::draw()
 	const Matrix4f indigo_to_opengl_cam_matrix = current_scene->use_z_up ? Matrix4f(e) : Matrix4f::identity();
 
 	const Matrix4f main_view_matrix = indigo_to_opengl_cam_matrix * current_scene->world_to_camera_space_matrix;
+#if BUILD_TESTS
+	this->debug_last_main_view_matrix = main_view_matrix;
+#endif
 
 	this->sun_dir_cam_space = main_view_matrix * sun_dir;
 
@@ -6302,7 +6437,7 @@ void OpenGLEngine::draw()
 	common_uniforms.env_phi = this->sun_phi;
 	common_uniforms.water_level_z = this->current_scene->water_level_z;
 	common_uniforms.camera_type = (int)this->current_scene->camera_type;
-	common_uniforms.mat_common_flags = this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0;
+	common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (this->settings.ssao ? DO_SSAO_FLAG : 0);
 	common_uniforms.padding_a0 = common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
@@ -6335,7 +6470,7 @@ void OpenGLEngine::draw()
 #endif
 
 	//=============== Allocate or reallocate buffers for drawing to ===============
-	// We will render to renderbuffers (main_colour_renderbuffer, main_normal_copy_texture) etc. attached to main_render_framebuffer.
+	// We will render to renderbuffers (main_colour_renderbuffer, main_normal_renderbuffer) etc. attached to main_render_framebuffer.
 	// We use renderbuffers as opposed to textures, as OpenGL ES 3.0 doesn't support multisample textures, whereas it does support multisample renderbuffers.
 	// Also renderbuffers offer a bit more flexibility to the OpenGL implementation which could help with performance.
 	//
@@ -6461,6 +6596,48 @@ void OpenGLEngine::draw()
 			main_render_copy_framebuffer->attachTexture(*main_depth_copy_texture, GL_DEPTH_ATTACHMENT);
 
 
+			//----------------- Prepass render buffers / textures / framebuffers -----------------
+			if(settings.ssao)
+			{
+				const int prepass_xres = xres / 2;
+				const int prepass_yres = yres / 2;
+				const int prepass_msaa_samples = 1;
+			
+				prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
+				prepass_normal_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, normal_buffer_format);
+				prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
+				prepass_framebuffer = new FrameBuffer();
+				prepass_framebuffer->attachRenderBuffer(*prepass_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
+				prepass_framebuffer->attachRenderBuffer(*prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
+				prepass_framebuffer->attachRenderBuffer(*prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+
+				prepass_colour_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+				prepass_colour_copy_texture->setDebugName("prepass_colour_copy_texture");
+				prepass_normal_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), normal_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+				prepass_normal_copy_texture->setDebugName("prepass_normal_copy_texture");
+				prepass_depth_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), depth_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+				prepass_depth_copy_texture->setDebugName("prepass_depth_copy_texture");
+				prepass_copy_framebuffer = new FrameBuffer();
+				prepass_copy_framebuffer->attachTexture(*prepass_colour_copy_texture, GL_COLOR_ATTACHMENT0);
+				prepass_copy_framebuffer->attachTexture(*prepass_normal_copy_texture, GL_COLOR_ATTACHMENT1);
+				prepass_copy_framebuffer->attachTexture(*prepass_depth_copy_texture, GL_DEPTH_ATTACHMENT);
+
+				compute_ssao_output_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
+					OpenGLTextureFormat::Format_RGBA_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+				compute_ssao_output_texture->setDebugName("compute_ssao_output_texture");
+				compute_ssao_output_framebuffer = new FrameBuffer();
+				compute_ssao_output_framebuffer->attachTexture(*compute_ssao_output_texture, GL_COLOR_ATTACHMENT0);
+
+
+				//TEMP:
+				if(texture_debug_preview_overlay_obs.size() >= 3)
+				{
+					texture_debug_preview_overlay_obs[0]->material.albedo_texture = prepass_colour_copy_texture;
+					texture_debug_preview_overlay_obs[1]->material.albedo_texture = prepass_normal_copy_texture;
+					texture_debug_preview_overlay_obs[2]->material.albedo_texture = compute_ssao_output_texture;
+				}
+			}
+
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
 		}
 
@@ -6506,12 +6683,12 @@ void OpenGLEngine::draw()
 	
 	
 	//================= Compute projection matrix from camera settings =================
-	const double z_far  = current_scene->max_draw_dist;
-	const double z_near = current_scene->near_draw_dist;
+	const double z_far  = current_scene->max_draw_dist;  // Distance to far clipping plane
+	const double z_near = current_scene->near_draw_dist; // Distance to near clipping plane
 
 	// The usual OpenGL projection matrix and w divide maps z values to [-1, 1] after the w divide.  See http://www.songho.ca/opengl/gl_projectionmatrix.html
 	// Use a 'z-reversal matrix', to Change this mapping to [0, 1] while reversing values.  See https://dev.theomader.com/depth-precision/ for details.
-	const Matrix4f reverse_z_matrix = getReverseZMatrixOrIdentity();
+	const Matrix4f reverse_z_matrix     = getReverseZMatrixOrIdentity();
 
 	Matrix4f proj_matrix;
 	if(current_scene->camera_type == OpenGLScene::CameraType_Perspective)
@@ -6527,7 +6704,7 @@ void OpenGLEngine::draw()
 		const double y_min = z_near * (-h + unit_shift_up);
 		const double y_max = z_near * ( h + unit_shift_up);
 
-		const Matrix4f raw_proj_matrix = infiniteFrustumMatrix(x_min, x_max, y_min, y_max, z_near);
+		const Matrix4f raw_proj_matrix     = infiniteFrustumMatrix(x_min, x_max, y_min, y_max, z_near);
 		if(use_reverse_z)
 		{
 			proj_matrix = reverse_z_matrix * raw_proj_matrix;
@@ -6652,6 +6829,21 @@ void OpenGLEngine::draw()
 	// Draw background env map if there is one. (or if we are using a non-standard env shader)
 	drawBackgroundEnvMap(view_matrix, proj_matrix);
 
+	if(settings.ssao)
+	{
+		common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0); // Disable reading from SSAO output texture for the prepass
+		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
+
+		// drawDepthPrePass(view_matrix, proj_matrix);
+		drawColourAndDepthPrePass(view_matrix, proj_matrix);
+
+		computeSSAO(proj_matrix);
+
+		// Restore flags
+		common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (this->settings.ssao ? DO_SSAO_FLAG : 0);
+		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
+	}
+
 	//================= Draw non-transparent (opaque) batches from objects =================
 	drawNonTransparentMaterialBatches(view_matrix, proj_matrix);
 
@@ -6701,16 +6893,19 @@ void OpenGLEngine::draw()
 		
 		All blurred low res buffers are then read from and added to the resulting buffer.
 		*/
+		const int use_main_viewport_w = myMax(16, main_viewport_w);
+		const int use_main_viewport_h = myMax(16, main_viewport_h);
+
 		if(downsize_target_textures.empty() ||
-			((int)downsize_framebuffers[0]->xRes() != (main_viewport_w/2) || (int)downsize_framebuffers[0]->yRes() != (main_viewport_h/2))
+			((int)downsize_framebuffers[0]->xRes() != (use_main_viewport_w/2) || (int)downsize_framebuffers[0]->yRes() != (use_main_viewport_h/2))
 			)
 		{
 			conPrint("(Re)Allocing downsize_framebuffers etc..");
 
 			// Use main viewport w + h for this.  This is because we don't want to keep reallocating these textures for random setViewport calls.
 			//assert(main_viewport_w > 0);
-			int w = myMax(16, main_viewport_w);
-			int h = myMax(16, main_viewport_h);
+			int w = use_main_viewport_w;
+			int h = use_main_viewport_h;
 
 			downsize_target_textures.resize(NUM_BLUR_DOWNSIZES);
 			downsize_framebuffers   .resize(NUM_BLUR_DOWNSIZES);
@@ -6946,6 +7141,12 @@ void OpenGLEngine::draw()
 
 		if(draw_opaque_obs_gpu_timer->waitingForResult() && draw_opaque_obs_gpu_timer->checkResultAvailable())
 			last_draw_opaque_obs_GPU_time = draw_opaque_obs_gpu_timer->getTimeElapsed();
+
+		if(depth_pre_pass_gpu_timer->waitingForResult() && depth_pre_pass_gpu_timer->checkResultAvailable())
+			last_depth_pre_pass_GPU_time = depth_pre_pass_gpu_timer->getTimeElapsed();
+		
+		if(compute_ssao_gpu_timer->waitingForResult() && compute_ssao_gpu_timer->checkResultAvailable())
+			last_compute_ssao_GPU_time = compute_ssao_gpu_timer->getTimeElapsed();
 	}
 
 	if(current_scene->collect_stats)
@@ -6965,6 +7166,32 @@ void OpenGLEngine::draw()
 	add_debug_obs = false;
 
 	//PerformanceAPI_EndEvent();
+}
+
+
+inline static void setFaceCulling(uint32 culling_bits)
+{
+	if(culling_bits != 0)
+	{
+		assert((culling_bits == SHIFTED_CULL_BACKFACE_BITS) || (culling_bits == SHIFTED_CULL_FRONTFACE_BITS));
+
+		glEnable(GL_CULL_FACE);
+		glCullFace((culling_bits == SHIFTED_CULL_BACKFACE_BITS) ? GL_BACK : GL_FRONT);
+	}
+	else
+		glDisable(GL_CULL_FACE);
+}
+
+
+inline static std::string faceCullingBitsDescrip(uint32 culling_bits)
+{
+	if(culling_bits != 0)
+	{
+		assert((culling_bits == SHIFTED_CULL_BACKFACE_BITS) || (culling_bits == SHIFTED_CULL_FRONTFACE_BITS));
+		return (culling_bits == SHIFTED_CULL_BACKFACE_BITS) ? "GL_BACK" : "GL_FRONT";
+	}
+	else
+		return "No culling";
 }
 
 
@@ -6998,7 +7225,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 		const int per_map_h = shadow_mapping->dynamic_h / shadow_mapping->numDynamicDepthTextures();
 
 		num_prog_changes = 0;
-		uint32 num_backface_culling_changes = 0;
+		uint32 num_face_culling_changes = 0;
 		uint32 num_batches_bound = 0;
 		num_vao_binds = 0;
 		num_vbo_binds = 0;
@@ -7127,10 +7354,10 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 					const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
 					for(size_t z=0; z<ob_depth_draw_batches_size; ++z)
 					{
-						const uint32 prog_index_and_backface_culling = ob_depth_draw_batches[z].getProgramIndexAndBackfaceCulling();
+						const uint32 prog_index_and_face_culling = ob_depth_draw_batches[z].getProgramIndexAndFaceCulling();
 
 						BatchDrawInfo info(
-							prog_index_and_backface_culling,
+							prog_index_and_face_culling,
 							ob->vao_and_vbo_key,
 							ob, // object ptr
 							(uint32)z // batch index
@@ -7146,8 +7373,9 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 			sortBatchDrawInfos();
 
 			// Draw sorted batches
-			uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
-			glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+			uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
 
 			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
 			const size_t batch_draw_info_size = batch_draw_info.size();
@@ -7155,36 +7383,35 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 			{
 				const BatchDrawInfo& info = batch_draw_info_data[z];
 				const GLObjectBatchDrawInfo& batch = info.ob->depth_draw_batches[info.batch_i];
-				const uint32 prog_index_and_backface_culling = batch.getProgramIndexAndBackfaceCulling();
-				if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
+				const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
+				if(prog_index_and_face_culling != current_prog_index_and_face_culling)
 				{
-					ZoneScopedN("changing prog"); // Tracy profiler
+					ZoneScopedN("changing prog or face culling"); // Tracy profiler
 
 					if(use_multi_draw_indirect)
 						submitBufferedDrawCommands(); // Flush existing draw commands
 
-					const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
-					const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
-					if(backface_culling != prev_backface_culling)
+					const uint32 face_culling      = prog_index_and_face_culling         & ISOLATE_FACE_CULLING_MASK;
+					const uint32 prev_face_culling = current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
+					if(face_culling != prev_face_culling)
 					{
-						if(backface_culling != 0)
-							glEnable(GL_CULL_FACE);
-						else
-							glDisable(GL_CULL_FACE);
-						num_backface_culling_changes++;
+						setFaceCulling(face_culling);
+						num_face_culling_changes++;
 					}
 
-					const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
-					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+					const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+					if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
+					{
+						const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+						prog->useProgram();
+						current_bound_prog = prog;
+						current_bound_prog_index = prog_index;
+						current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+						setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+						num_prog_changes++;
+					}
 
-					prog->useProgram();
-					current_bound_prog = prog;
-					current_bound_prog_index = prog_index;
-					current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-					num_prog_changes++;
-
-					current_prog_index_and_backface_culling = prog_index_and_backface_culling;
+					current_prog_index_and_face_culling = prog_index_and_face_culling;
 				}
 
 				bindMeshData(*info.ob);
@@ -7422,10 +7649,10 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 							const GLObjectBatchDrawInfo* const ob_depth_draw_batches = ob->depth_draw_batches.data();
 							for(size_t z = 0; z < ob_depth_draw_batches_size; ++z)
 							{
-								const uint32 prog_index_and_backface_culling = ob_depth_draw_batches[z].getProgramIndexAndBackfaceCulling();
+								const uint32 prog_index_and_face_culling = ob_depth_draw_batches[z].getProgramIndexAndFaceCulling();
 
 								BatchDrawInfo info(
-									prog_index_and_backface_culling,
+									prog_index_and_face_culling,
 									ob->vao_and_vbo_key,
 									ob, // object ptr
 									(uint32)z // batch index
@@ -7442,8 +7669,9 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 				sortBatchDrawInfos();
 
 				// Draw sorted batches
-				uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
-				glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+				uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
+				glEnable(GL_CULL_FACE);
+				glCullFace(GL_BACK);
 
 				const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
 				const size_t batch_draw_info_size = batch_draw_info.size();
@@ -7451,36 +7679,35 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 				{
 					const BatchDrawInfo& info = batch_draw_info_data[z];
 					const GLObjectBatchDrawInfo& batch = info.ob->depth_draw_batches[info.batch_i];
-					const uint32 prog_index_and_backface_culling = batch.getProgramIndexAndBackfaceCulling();
-					if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
+					const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
+					if(prog_index_and_face_culling != current_prog_index_and_face_culling)
 					{
 						ZoneScopedN("changing prog"); // Tracy profiler
 
 						if(use_multi_draw_indirect)
 							submitBufferedDrawCommands(); // Flush existing draw commands
 
-						const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
-						const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
-						if(backface_culling != prev_backface_culling)
+						const uint32 face_culling      = prog_index_and_face_culling         & ISOLATE_FACE_CULLING_MASK;
+						const uint32 prev_face_culling = current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
+						if(face_culling != prev_face_culling)
 						{
-							if(backface_culling != 0)
-								glEnable(GL_CULL_FACE);
-							else
-								glDisable(GL_CULL_FACE);
-							num_backface_culling_changes++;
+							setFaceCulling(face_culling);
+							num_face_culling_changes++;
 						}
 
-						const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
-						const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+						const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+						if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
+						{
+							const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+							prog->useProgram();
+							current_bound_prog = prog;
+							current_bound_prog_index = prog_index;
+							current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+							setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+							num_prog_changes++;
+						}
 
-						prog->useProgram();
-						current_bound_prog = prog;
-						current_bound_prog_index = prog_index;
-						current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-						setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-						num_prog_changes++;
-
-						current_prog_index_and_backface_culling = prog_index_and_backface_culling;
+						current_prog_index_and_face_culling = prog_index_and_face_culling;
 					}
 
 					bindMeshData(*info.ob);
@@ -7506,7 +7733,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 		//-------------------- End draw static depth textures ----------------
 
 		this->depth_draw_last_num_prog_changes = num_prog_changes;
-		this->depth_draw_last_num_backface_culling_changes = num_backface_culling_changes;
+		this->depth_draw_last_num_face_culling_changes = num_face_culling_changes;
 		this->depth_draw_last_num_batches_bound = num_batches_bound;
 		this->depth_draw_last_num_vao_binds = num_vao_binds;
 		this->depth_draw_last_num_vbo_binds = num_vbo_binds;
@@ -7641,11 +7868,12 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
 				{
 					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+					const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
 
 #ifndef NDEBUG
-					const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+					const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+					assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].participating_media || ob->materials[ob->getUsedBatches()[z].material_index].alpha_blend);
 #endif
 					if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If alpha-blend bit is set, and program has finished building:
@@ -7657,7 +7885,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 						const uint32 dist_i = bitCast<uint32>(dist_f);
 						const uint32 distval = std::numeric_limits<uint32>::max() - dist_i;
 						BatchDrawInfoWithDist info(
-							prog_index_and_backface_culling_flag,
+							prog_index_and_face_culling_flag,
 							ob->vao_and_vbo_key,
 							distval,
 							ob // object ptr
@@ -7790,11 +8018,12 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 						for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 						{
 							const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-							const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+							const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
 
 #ifndef NDEBUG
-							const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-							assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+							const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+							const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+							assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 
 							// Check the denormalised vao_and_vbo_key is correct
@@ -7809,7 +8038,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 							if(BitUtils::isBitSet(prog_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG))
 							{
 								BatchDrawInfo info(
-									prog_index_and_backface_culling_flag,
+									prog_index_and_face_culling_flag,
 									ob->vao_and_vbo_key,
 									ob, // object ptr
 									(uint32)z // batch_i
@@ -7825,8 +8054,9 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			sortBatchDrawInfos();
 
 			// Draw sorted batches
-			uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
-			glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+			uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
 
 #if !defined(EMSCRIPTEN)
 			if(draw_wireframes)
@@ -7839,37 +8069,34 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			for(size_t i=0; i<batch_draw_info_size; ++i)
 			{
 				const BatchDrawInfo& info = batch_draw_info_data[i];
-				const uint32 prog_index_and_backface_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndBackfaceCulling();
-				if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
+				const uint32 prog_index_and_face_culling = info.ob->batch_draw_info[info.batch_i].getProgramIndexAndFaceCulling();
+				if(prog_index_and_face_culling != current_prog_index_and_face_culling)
 				{
 					ZoneScopedN("changing prog"); // Tracy profiler
 
 					if(use_multi_draw_indirect)
 						submitBufferedDrawCommands(); // Flush existing draw commands
 
-					const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
-					const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
-					if(backface_culling != prev_backface_culling)
+					const uint32 face_culling      = prog_index_and_face_culling         & ISOLATE_FACE_CULLING_MASK;
+					const uint32 prev_face_culling = current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
+					if(face_culling != prev_face_culling)
 					{
-						if(backface_culling != 0)
-							glEnable(GL_CULL_FACE);
-						else
-							glDisable(GL_CULL_FACE);
+						setFaceCulling(face_culling);
 					}
 
+					const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+					if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
+					{
+						const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+						prog->useProgram();
+						current_bound_prog = prog;
+						current_bound_prog_index = prog_index;
+						current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+						setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+						num_prog_changes++;
+					}
 
-					// conPrint("---- Changed to program " + prog->prog_name + " ----");
-					const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
-					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
-
-					prog->useProgram();
-					current_bound_prog = prog;
-					current_bound_prog_index = prog_index;
-					current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-					num_prog_changes++;
-
-					current_prog_index_and_backface_culling = prog_index_and_backface_culling;
+					current_prog_index_and_face_culling = prog_index_and_face_culling;
 				}
 
 				bindMeshData(*info.ob);
@@ -7997,11 +8224,12 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 					{
 						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-						const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+						const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
 
 #ifndef NDEBUG
-						const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-						assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+						const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+						const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+						assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].water);
 
 						// Check the denormalised vao_and_vbo_key is correct
@@ -8015,7 +8243,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 						if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If water bit is set and program is finished building:
 						{
 							BatchDrawInfo info(
-								prog_index_and_backface_culling_flag,
+								prog_index_and_face_culling_flag,
 								ob->vao_and_vbo_key,
 								ob, // object ptr
 								(uint32)z // batch_i
@@ -8140,11 +8368,12 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 				{
 					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-					const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+					const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
 
 #ifndef NDEBUG
-					const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-					assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+					const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+					assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 
 					// Check the denormalised vao_and_vbo_key is correct
@@ -8159,7 +8388,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_ALPHA_BLEND_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
 					{
 						BatchDrawInfo info(
-							prog_index_and_backface_culling_flag,
+							prog_index_and_face_culling_flag,
 							ob->vao_and_vbo_key,
 							ob, // object ptr
 							(uint32)z // batch_i
@@ -8185,17 +8414,21 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	num_vao_binds = 0;
 	num_vbo_binds = 0;
 	num_index_buf_binds = 0;
-	uint32 num_backface_culling_changes = 0;
+	uint32 num_face_culling_changes = 0;
 
 	assertCurrentProgramIsZero();
 
-	uint32 current_prog_index_and_backface_culling = std::numeric_limits<uint32>::max();
-	glEnable(GL_CULL_FACE); // std::numeric_limits<uint32>::max will have BACKFACE_CULLING_BITFLAG bit set.
+	uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 
 #if !defined(EMSCRIPTEN)
 	if(draw_wireframes)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
+
+	// conPrint("================================================================================");
+	// conPrint("OpenGLEngine::drawNonTransparentMaterialBatches()");
 
 	//Timer timer3;
 	const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
@@ -8204,38 +8437,38 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	{
 		const BatchDrawInfo& info = batch_draw_info_data[i];
 		const GLObjectBatchDrawInfo& batch = info.ob->batch_draw_info[info.batch_i];
-		const uint32 prog_index_and_backface_culling = batch.getProgramIndexAndBackfaceCulling();
-		if(prog_index_and_backface_culling != current_prog_index_and_backface_culling)
+		const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
+		if(prog_index_and_face_culling != current_prog_index_and_face_culling)
 		{
-			ZoneScopedN("changing prog"); // Tracy profiler
+			ZoneScopedN("changing prog or face culling"); // Tracy profiler
 
 			if(use_multi_draw_indirect)
 				submitBufferedDrawCommands(); // Flush existing draw commands
 
-			const uint32 backface_culling      = prog_index_and_backface_culling         & BACKFACE_CULLING_BITFLAG;
-			const uint32 prev_backface_culling = current_prog_index_and_backface_culling & BACKFACE_CULLING_BITFLAG;
-			if(backface_culling != prev_backface_culling)
+			const uint32 face_culling = prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
+			if(face_culling != (current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK)) // If face culling changed:
 			{
-				if(backface_culling != 0)
-					glEnable(GL_CULL_FACE);
-				else
-					glDisable(GL_CULL_FACE);
-				num_backface_culling_changes++;
+				// conPrint("Setting face culling to " + faceCullingBitsDescrip(face_culling));
+				setFaceCulling(face_culling);
+				num_face_culling_changes++;
 			}
 
+			const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+			if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If program index changed:
+			{
+				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
 
-			// conPrint("---- Changed to program " + prog->prog_name + " ----");
-			const uint32 prog_index = prog_index_and_backface_culling & ISOLATE_PROG_INDEX_MASK;
-			const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+				// conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 
-			prog->useProgram();
-			current_bound_prog = prog;
-			current_bound_prog_index = prog_index;
-			current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-			setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-			num_prog_changes++;
+				prog->useProgram();
+				current_bound_prog = prog;
+				current_bound_prog_index = prog_index;
+				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+				num_prog_changes++;
+			}
 
-			current_prog_index_and_backface_culling = prog_index_and_backface_culling;
+			current_prog_index_and_face_culling = prog_index_and_face_culling;
 		}
 
 		bindMeshData(*info.ob);
@@ -8252,7 +8485,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		last_num_vbo_binds = num_vbo_binds;
 		last_num_index_buf_binds = num_index_buf_binds;
 		last_num_indices_drawn = this->num_indices_submitted;
-		last_num_backface_culling_changes = num_backface_culling_changes;
+		last_num_face_culling_changes = num_face_culling_changes;
 	}
 	this->num_indices_submitted = 0;
 
@@ -8365,17 +8598,18 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 			for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 			{
 				const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-				const uint32 prog_index_and_backface_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK;
+				const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
 
 #ifndef NDEBUG
-				const bool backface_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-				assert(prog_index_and_backface_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (backface_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+				const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+				const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+				assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 				assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 #endif
 				if(BitUtils::areBitsSet(prog_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG)) // If transparent bit is set, and program has finished building:
 				{
 					BatchDrawInfo info(
-						prog_index_and_backface_culling_flag,
+						prog_index_and_face_culling_flag,
 						ob->vao_and_vbo_key,
 						ob, // object ptr
 						(uint32)z // batch_i
@@ -8452,6 +8686,530 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 
 		main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1); // Restore normal buffer binding
 		main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1); // Restore normal texture binding
+	}
+}
+
+
+void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	if(current_scene->render_to_main_render_framebuffer)
+	{
+		ZoneScopedN("colour and depth pre-pass"); // Tracy profiler
+		DebugGroup debug_group("colour and depth pre-pass");
+		TracyGpuZone("colour and depth pre-pass");
+
+		if(query_profiling_enabled && current_scene->collect_stats && depth_pre_pass_gpu_timer->isIdle())
+			depth_pre_pass_gpu_timer->beginTimerQuery();
+
+		assertCurrentProgramIsZero();
+
+		prepass_framebuffer->bindForDrawing();
+		assert(prepass_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == prepass_colour_renderbuffer->buffer_name);
+		assert(prepass_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == prepass_normal_renderbuffer->buffer_name);
+		assert(prepass_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == prepass_depth_renderbuffer->buffer_name);
+		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+
+
+		glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
+		glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
+		glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+
+		//Timer timer;
+		batch_draw_info.reserve(current_scene->objects.size());
+		batch_draw_info.resize(0);
+
+		uint64 num_frustum_culled = 0;
+		{
+			ZoneScopedN("frustum culling"); // Tracy profiler
+
+			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+			const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+			const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+			const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+			const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+			for(size_t i=0; i<current_scene_obs_size; ++i)
+			{
+				// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+				if(i + 16 < current_scene_obs_size)
+				{	
+					_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+					_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+				}
+
+				const GLObject* const ob = current_scene_obs[i].ptr();
+				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+				{
+					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+					{
+						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+						const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
+
+	#ifndef NDEBUG
+						//const bool face_culling = !ob->materials[ob->depth_draw_batches[z].material_data_or_mat_index].simple_double_sided && !ob->materials[ob->depth_draw_batches[z].material_data_or_mat_index].fancy_double_sided;
+						//assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (face_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+						//assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
+
+						// Check the denormalised vao_and_vbo_key is correct
+						const uint32 vao_id = ob->mesh_data->vao_data_index;
+						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+						const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+						const uint32 index_type_bits = ob->mesh_data->index_type_bits;
+						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+	#endif
+						// Draw primitives for the given material
+						// If transparent bit is not set, and water bit is not set, and decal bit is not set, and the program has finished building:
+						if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_ALPHA_BLEND_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
+						{
+							BatchDrawInfo info(
+								prog_index_and_face_culling_flag,
+								ob->vao_and_vbo_key,
+								ob, // object ptr
+								(uint32)z // batch_i
+							);
+							batch_draw_info.push_back(info);
+						}
+					}
+				}
+				else
+					num_frustum_culled++;
+			} // End for each object in scene
+
+			if(current_scene->collect_stats)
+				this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
+		}
+		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+		sortBatchDrawInfos();
+
+		// Draw sorted batches
+		num_prog_changes = 0;
+		uint32 num_batches_bound = 0;
+		num_vao_binds = 0;
+		num_vbo_binds = 0;
+		num_index_buf_binds = 0;
+		uint32 num_face_culling_changes = 0;
+
+		assertCurrentProgramIsZero();
+
+		uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+
+	#if !defined(EMSCRIPTEN)
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	#endif
+
+		//Timer timer3;
+		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+		const size_t batch_draw_info_size = batch_draw_info.size();
+		for(size_t i=0; i<batch_draw_info_size; ++i)
+		{
+			const BatchDrawInfo& info = batch_draw_info_data[i];
+			const GLObjectBatchDrawInfo& batch = info.ob->batch_draw_info[info.batch_i];
+			const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
+			if(prog_index_and_face_culling != current_prog_index_and_face_culling)
+			{
+				ZoneScopedN("changing prog"); // Tracy profiler
+
+				if(use_multi_draw_indirect)
+					submitBufferedDrawCommands(); // Flush existing draw commands
+
+				const uint32 face_culling      = prog_index_and_face_culling         & ISOLATE_FACE_CULLING_MASK;
+				const uint32 prev_face_culling = current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
+				if(face_culling != prev_face_culling)
+				{
+					setFaceCulling(face_culling);
+					num_face_culling_changes++;
+				}
+
+				const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+				if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
+				{
+					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+					prog->useProgram();
+					current_bound_prog = prog;
+					current_bound_prog_index = prog_index;
+					current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+					setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+					num_prog_changes++;
+				}
+
+				current_prog_index_and_face_culling = prog_index_and_face_culling;
+			}
+
+			bindMeshData(*info.ob);
+			num_batches_bound++;
+
+			drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
+		}
+
+		/*if(current_scene->collect_stats)
+		{
+			last_num_prog_changes = num_prog_changes;
+			last_num_batches_bound = num_batches_bound;
+			last_num_vao_binds = num_vao_binds;
+			last_num_vbo_binds = num_vbo_binds;
+			last_num_index_buf_binds = num_index_buf_binds;
+			last_num_indices_drawn = this->num_indices_submitted;
+			last_num_face_culling_changes = num_face_culling_changes;
+		}
+		this->num_indices_submitted = 0;*/
+
+		flushDrawCommandsAndUnbindPrograms();
+
+		glDisable(GL_CULL_FACE); // Restore
+
+	#if !defined(EMSCRIPTEN)
+		if(draw_wireframes)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+	#endif
+
+		if(query_profiling_enabled && depth_pre_pass_gpu_timer->isRunning())
+			depth_pre_pass_gpu_timer->endTimerQuery();
+
+
+		// Copy depth buffer from main render framebuffer to render copy framebuffer.
+		// This will copy main_depth_texture to main_depth_copy_texture.
+		//if(current_scene->render_to_main_render_framebuffer)
+		//{
+		//	// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
+		//	// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
+		//	//
+		//	// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
+		//	// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
+		//	// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
+		//	// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
+		//	//
+		//	// 
+		//	main_render_framebuffer->bindForReading();
+
+		//	main_render_copy_framebuffer->bindForDrawing();
+
+		//	//--------------- Copy depth buffer. ---------------
+		//	//glReadBuffer(GL_COLOR_ATTACHMENT0);
+		//	//setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+		//	glReadBuffer(GL_COLOR_ATTACHMENT0); // Shouldn't be used.
+		//	glDrawBuffers(0, nullptr);
+
+		//	glBlitFramebuffer(
+		//		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+		//		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+		//		GL_DEPTH_BUFFER_BIT,
+		//		GL_NEAREST
+		//	);
+		//}
+
+		// Restore viewport
+		glViewport(0, 0, viewport_w, viewport_h);
+	}
+}
+
+
+void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	ZoneScopedN("Depth pre-pass"); // Tracy profiler
+	DebugGroup debug_group("Depth pre-pass");
+	TracyGpuZone("Depth pre-pass");
+
+	if(query_profiling_enabled && current_scene->collect_stats && depth_pre_pass_gpu_timer->isIdle())
+		depth_pre_pass_gpu_timer->beginTimerQuery();
+
+	assertCurrentProgramIsZero();
+
+	if(current_scene->render_to_main_render_framebuffer)
+	{
+		main_render_framebuffer->bindForDrawing();
+		//assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
+		//assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == main_normal_renderbuffer->buffer_name); // Check main normal renderbuffer is attached at GL_COLOR_ATTACHMENT1.
+		//setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffers.
+	}
+	else
+	{
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+		//setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+	}
+
+	glDrawBuffers(/*num=*/0, NULL); // Don't draw to any colour buffers. (there are none attached to the frame buffer anyway)
+	
+
+	//Timer timer;
+	batch_draw_info.reserve(current_scene->objects.size());
+	batch_draw_info.resize(0);
+
+	uint64 num_frustum_culled = 0;
+	{
+		ZoneScopedN("frustum culling"); // Tracy profiler
+
+		const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+		const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+		const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+		const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+		const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+		for(size_t i=0; i<current_scene_obs_size; ++i)
+		{
+			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+			if(i + 16 < current_scene_obs_size)
+			{	
+				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+			}
+
+			const GLObject* const ob = current_scene_obs[i].ptr();
+			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+			{
+				const size_t ob_batch_draw_info_size                  = ob->depth_draw_batches/*batch_draw_info*/.size();
+				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->depth_draw_batches/*batch_draw_info*/.data();
+				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+				{
+					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+					const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
+
+#ifndef NDEBUG
+					//const bool face_culling = !ob->materials[ob->depth_draw_batches[z].material_data_or_mat_index].simple_double_sided && !ob->materials[ob->depth_draw_batches[z].material_data_or_mat_index].fancy_double_sided;
+					//assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (face_culling ? BACKFACE_CULLING_BITFLAG : 0)));
+					//assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
+
+					// Check the denormalised vao_and_vbo_key is correct
+					const uint32 vao_id = ob->mesh_data->vao_data_index;
+					const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+					const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+					const uint32 index_type_bits = ob->mesh_data->index_type_bits;
+					assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+#endif
+					// Draw primitives for the given material
+					// If transparent bit is not set, and water bit is not set, and decal bit is not set, and the program has finished building:
+					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_ALPHA_BLEND_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
+					{
+						BatchDrawInfo info(
+							prog_index_and_face_culling_flag,
+							ob->vao_and_vbo_key,
+							ob, // object ptr
+							(uint32)z // batch_i
+						);
+						batch_draw_info.push_back(info);
+					}
+				}
+			}
+			else
+				num_frustum_culled++;
+		} // End for each object in scene
+
+		if(current_scene->collect_stats)
+			this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
+	}
+	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+	sortBatchDrawInfos();
+
+	// Draw sorted batches
+	num_prog_changes = 0;
+	uint32 num_batches_bound = 0;
+	num_vao_binds = 0;
+	num_vbo_binds = 0;
+	num_index_buf_binds = 0;
+	uint32 num_face_culling_changes = 0;
+
+	assertCurrentProgramIsZero();
+
+	uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+
+#if !defined(EMSCRIPTEN)
+	if(draw_wireframes)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
+
+	//Timer timer3;
+	const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
+	const size_t batch_draw_info_size = batch_draw_info.size();
+	for(size_t i=0; i<batch_draw_info_size; ++i)
+	{
+		const BatchDrawInfo& info = batch_draw_info_data[i];
+		const GLObjectBatchDrawInfo& batch = info.ob->depth_draw_batches/*batch_draw_info*/[info.batch_i];
+		const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
+		if(prog_index_and_face_culling != current_prog_index_and_face_culling)
+		{
+			ZoneScopedN("changing prog"); // Tracy profiler
+
+			if(use_multi_draw_indirect)
+				submitBufferedDrawCommands(); // Flush existing draw commands
+
+			const uint32 face_culling      = prog_index_and_face_culling         & ISOLATE_FACE_CULLING_MASK;
+			const uint32 prev_face_culling = current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
+			if(face_culling != prev_face_culling)
+			{
+				setFaceCulling(face_culling);
+				num_face_culling_changes++;
+			}
+
+			const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+			if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
+			{
+				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+				prog->useProgram();
+				current_bound_prog = prog;
+				current_bound_prog_index = prog_index;
+				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+				num_prog_changes++;
+			}
+
+			current_prog_index_and_face_culling = prog_index_and_face_culling;
+		}
+
+		bindMeshData(*info.ob);
+		num_batches_bound++;
+
+		drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
+	}
+
+	/*if(current_scene->collect_stats)
+	{
+		last_num_prog_changes = num_prog_changes;
+		last_num_batches_bound = num_batches_bound;
+		last_num_vao_binds = num_vao_binds;
+		last_num_vbo_binds = num_vbo_binds;
+		last_num_index_buf_binds = num_index_buf_binds;
+		last_num_indices_drawn = this->num_indices_submitted;
+		last_num_face_culling_changes = num_face_culling_changes;
+	}
+	this->num_indices_submitted = 0;*/
+
+	flushDrawCommandsAndUnbindPrograms();
+
+	glDisable(GL_CULL_FACE); // Restore
+
+#if !defined(EMSCRIPTEN)
+	if(draw_wireframes)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+#endif
+
+	if(query_profiling_enabled && depth_pre_pass_gpu_timer->isRunning())
+		depth_pre_pass_gpu_timer->endTimerQuery();
+
+
+	// Copy depth buffer from main render framebuffer to render copy framebuffer.
+	// This will copy main_depth_texture to main_depth_copy_texture.
+	if(current_scene->render_to_main_render_framebuffer)
+	{
+		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
+		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
+		//
+		// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
+		// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
+		// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
+		// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
+		//
+		// 
+		main_render_framebuffer->bindForReading();
+
+		main_render_copy_framebuffer->bindForDrawing();
+
+		//--------------- Copy depth buffer. ---------------
+		//glReadBuffer(GL_COLOR_ATTACHMENT0);
+		//setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+		glReadBuffer(GL_COLOR_ATTACHMENT0); // Shouldn't be used.
+		glDrawBuffers(0, nullptr);
+
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+			GL_DEPTH_BUFFER_BIT,
+			GL_NEAREST
+		);
+	}
+}
+
+
+// Blits from prepass_framebuffer to prepass_copy_framebuffer
+// Computes SSAO, writes output to compute_ssao_output_framebuffer / compute_ssao_output_texture
+void OpenGLEngine::computeSSAO(const Matrix4f& proj_matrix)
+{
+	if(current_scene->render_to_main_render_framebuffer)
+	{
+		assertCurrentProgramIsZero();
+
+		ZoneScopedN("computeSSAO"); // Tracy profiler
+		TracyGpuZone("computeSSAO");
+		DebugGroup debug_group("computeSSAO");
+		
+		if(query_profiling_enabled && current_scene->collect_stats && compute_ssao_gpu_timer->isIdle())
+			compute_ssao_gpu_timer->beginTimerQuery();
+		
+
+		//---------------------- Blit from prepass_framebuffer to prepass_copy_framebuffer ----------------------
+		prepass_framebuffer->bindForReading();
+		prepass_copy_framebuffer->bindForDrawing();
+
+		// Copy colour and depth buffer
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
+			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+			GL_NEAREST
+		);
+
+		// Copy normal buffer.
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
+		//--------------------------------------------------
+
+
+		glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
+
+		compute_ssao_output_framebuffer->bindForDrawing();
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+
+
+		glDepthMask(GL_FALSE); // Don't write to z-buffer
+		glDisable(GL_DEPTH_TEST); // Disable depth testing
+
+		// Position quad to cover viewport
+		const float use_z = 0.5f; // Use a z value that will be in the clip volume for both default and reverse z.
+		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, use_z, 0));
+
+		const OpenGLMeshRenderData& mesh_data = *outline_quad_meshdata;
+		bindMeshData(mesh_data);
+		for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+		{
+			checkUseProgram(compute_ssao_prog.ptr());
+
+			glUniformMatrix4fv(compute_ssao_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
+
+			bindTextureUnitToSampler(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, compute_ssao_prog->uniform_locations.diffuse_tex_location);
+			bindTextureUnitToSampler(*prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, compute_ssao_normal_tex_location);
+			bindTextureUnitToSampler(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, compute_ssao_depth_tex_location);
+
+			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+		}
+
+		flushDrawCommandsAndUnbindPrograms();
+
+		glEnable(GL_DEPTH_TEST); // Restore depth testing
+		glDepthMask(GL_TRUE); // Restore
+
+		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
+
+		if(query_profiling_enabled && compute_ssao_gpu_timer->isRunning())
+			compute_ssao_gpu_timer->endTimerQuery();
 	}
 }
 
@@ -8941,6 +9699,7 @@ GLObjectRef OpenGLEngine::makeSphereObject(float radius, const Colour4f& col)
 	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
 	ob->materials[0].alpha = col[3];
 	ob->materials[0].transparent = col[3] < 1.f;
+	ob->materials[0].simple_double_sided = true;
 	return ob;
 }
 
@@ -9184,7 +9943,9 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	glUniform1i(program.uniform_locations.detail_heightmap_0_location, DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
 	
 	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
-	
+
+	glUniform1i(program.uniform_locations.ssao_output_tex_location, SSAO_OUTPUT_TEXTURE_UNIT_INDEX);
+
 	//glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
 
@@ -9249,6 +10010,9 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 
 	if(this->aurora_tex.nonNull())
 		bindTextureToTextureUnit(*this->aurora_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
+	
+	if(this->compute_ssao_output_texture.nonNull())
+		bindTextureToTextureUnit(*this->compute_ssao_output_texture, /*texture_unit_index=*/SSAO_OUTPUT_TEXTURE_UNIT_INDEX);
 
 	//if(snow_ice_normal_map.nonNull())
 	//	bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
@@ -9453,7 +10217,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			{
 				PerObjectVertUniforms uniforms;
 				uniforms.model_matrix = ob.ob_to_world_matrix;
-				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
+				uniforms.normal_matrix = ob.ob_to_world_normal_matrix;
 				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
@@ -9462,7 +10226,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			else
 			{
 				glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_normal_matrix.e); // inverse transpose model matrix
 			}
 
 			if(shader_prog->uses_skinning)
@@ -9693,7 +10457,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 }
 
 
-void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index)
+void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, [[maybe_unused]] uint32 batch_index)
 {
 	const uint32 prim_start_offset = batch.prim_start_offset_B;
 	const uint32 num_indices = batch.num_indices;
@@ -9726,7 +10490,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 			{
 				PerObjectVertUniforms uniforms;
 				uniforms.model_matrix = ob.ob_to_world_matrix;
-				uniforms.normal_matrix = ob.ob_to_world_inv_transpose_matrix;
+				uniforms.normal_matrix = ob.ob_to_world_normal_matrix;
 				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
@@ -9735,7 +10499,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 			else
 			{
 				glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_inv_transpose_matrix.e); // inverse transpose model matrix
+				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_normal_matrix.e);
 			}
 
 			if(shader_prog->uses_skinning)
@@ -10303,7 +11067,7 @@ void OpenGLEngine::checkMDIGPUDataCorrect()
 					per_ob_vert_data_buffer->readData(ob->per_ob_vert_data_index * sizeof(PerObjectVertUniforms), &uniforms, sizeof(PerObjectVertUniforms));
 
 					doCheck(uniforms.model_matrix  == ob->ob_to_world_matrix);
-					doCheck(uniforms.normal_matrix == ob->ob_to_world_inv_transpose_matrix);
+					doCheck(uniforms.normal_matrix == ob->ob_to_world_normal_matrix);
 				}
 
 
@@ -10401,6 +11165,18 @@ void OpenGLEngine::setCurrentScene(const Reference<OpenGLScene>& scene)
 //	else
 //		glDisable(GL_MULTISAMPLE);
 //}
+
+
+void OpenGLEngine::setSSAOEnabled(bool ssao_enabled)
+{
+	settings.ssao = ssao_enabled;
+
+	if(settings.ssao && !compute_ssao_prog)
+	{
+		const std::string use_shader_dir = data_dir + "/shaders";
+		compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);
+	}
+}
 
 
 bool OpenGLEngine::openglDriverVendorIsIntel() const
@@ -10591,7 +11367,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num prog changes: " + toString(last_num_prog_changes) + "\n";
 	s += "Num VAO binds: " + toString(last_num_vao_binds) + "\n";
 	s += "Num VBO binds: " + toString(last_num_vbo_binds) + "\n";
-	s += "Num backface culling changes: " + toString(last_num_backface_culling_changes) + "\n";
+	s += "Num face culling changes: " + toString(last_num_face_culling_changes) + "\n";
 	s += "Num index buf binds: " + toString(last_num_index_buf_binds) + "\n";
 	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
 	s += "tris drawn: " + uInt32ToStringCommaSeparated(last_num_indices_drawn / 3) + "\n";
@@ -10599,7 +11375,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num multi-draw-indirect calls: " + toString(num_multi_draw_indirect_calls) + "\n";
 	s += "\n";
 	s += "depth draw num prog changes: " + toString(depth_draw_last_num_prog_changes) + "\n";
-	s += "depth draw num backface culling changes: " + toString(depth_draw_last_num_backface_culling_changes) + "\n";
+	s += "depth draw num face culling changes: " + toString(depth_draw_last_num_face_culling_changes) + "\n";
 	s += "depth draw num VAO binds: " + toString(depth_draw_last_num_vao_binds) + "\n";
 	s += "depth draw num VBO binds: " + toString(depth_draw_last_num_vbo_binds) + "\n";
 	s += "depth draw num batches bound: " + toString(depth_draw_last_num_batches_bound) + "\n";
@@ -10612,9 +11388,12 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Processed " + toString(last_num_animated_obs_processed) + " / " + toString(current_scene->animated_objects.size()) + " animated obs\n";
 	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
 	s += "\n";
-	s += "dynamic depth draw GPU time: " + doubleToStringNSigFigs(last_dynamic_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "static depth draw GPU time : " + doubleToStringNSigFigs(last_static_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "draw opaque obs GPU time : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "----GPU times----\n";
+	s += "dynamic depth draw: " + doubleToStringNSigFigs(last_dynamic_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "static depth draw : " + doubleToStringNSigFigs(last_static_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "pre-pass          : " + doubleToStringNSigFigs(last_depth_pre_pass_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "compute SSAO      : " + doubleToStringNSigFigs(last_compute_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "\n";
 
 	const GLMemUsage mem_usage = this->getTotalMemUsage();

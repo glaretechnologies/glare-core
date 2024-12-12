@@ -250,19 +250,25 @@ struct GlInstanceInfo
 // Bit 28: material is water
 // Bit 27: material is a decal
 // Bit 26: material is alpha blended
-// Bit 25: material has backface culling.  (has to go last)
-// Bits 0-24: program index
+// Bits 24-25: face culling type (0 = none, 1 = cull backface, 2 = cull frontface).  (has to go last)
+// Bits 0-23: program index
 #define PROGRAM_FINISHED_BUILDING_BITFLAG				(1u << 31)
 #define PROG_SUPPORTS_MDI_BITFLAG						(1u << 30)
 #define MATERIAL_TRANSPARENT_BITFLAG					(1u << 29)
 #define MATERIAL_WATER_BITFLAG							(1u << 28)
 #define MATERIAL_DECAL_BITFLAG							(1u << 27)
 #define MATERIAL_ALPHA_BLEND_BITFLAG					(1u << 26)
-#define BACKFACE_CULLING_BITFLAG						(1u << 25)
 
+#define MATERIAL_FACE_CULLING_BIT_INDEX					24u
+#define ISOLATE_FACE_CULLING_MASK						((1u << 24u) | (1u << 25u))
+#define ISOLATE_PROG_INDEX_MASK							0x00FFFFFF // Zero out top 8 bits
+#define ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK		0x03FFFFFF // Zero out top 6 bits
 
-#define ISOLATE_PROG_INDEX_MASK							0x01FFFFFF // Zero out top 7 bits
-#define ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK	0x03FFFFFF // Zero out top 6 bits
+#define CULL_BACKFACE_BITS								1u
+#define CULL_FRONTFACE_BITS								2u
+
+#define SHIFTED_CULL_BACKFACE_BITS						(CULL_BACKFACE_BITS  << MATERIAL_FACE_CULLING_BIT_INDEX)
+#define SHIFTED_CULL_FRONTFACE_BITS						(CULL_FRONTFACE_BITS << MATERIAL_FACE_CULLING_BIT_INDEX)
 
 
 struct GLObjectBatchDrawInfo
@@ -272,8 +278,8 @@ struct GLObjectBatchDrawInfo
 	uint32 prim_start_offset_B; // Offset in bytes from the start of the index buffer.
 	uint32 num_indices;
 
-	inline uint32 getProgramIndex()                   const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }
-	inline uint32 getProgramIndexAndBackfaceCulling() const { return program_index_and_flags & ISOLATE_PROG_INDEX_AND_BACKFACE_CULLING_MASK; }
+	inline uint32 getProgramIndex()               const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }
+	inline uint32 getProgramIndexAndFaceCulling() const { return program_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK; }
 };
 
 
@@ -298,7 +304,7 @@ struct GLObject
 	ArrayRef<OpenGLBatch> getUsedBatches() const { return use_batches.nonEmpty() ? ArrayRef<OpenGLBatch>(use_batches) : ArrayRef<OpenGLBatch>(mesh_data->batches); }
 
 	Matrix4f ob_to_world_matrix;
-	Matrix4f ob_to_world_inv_transpose_matrix; // inverse transpose of upper-left part of to-world matrix.
+	Matrix4f ob_to_world_normal_matrix; // Adjugate transpose of upper-left part of ob-to-world matrix.
 
 	js::AABBox aabb_ws;
 
@@ -350,6 +356,8 @@ struct GLObject
 	float morph_end_dist;
 
 	float depth_draw_depth_bias; // Distance to move fragment position towards sun when drawing to depth buffer.
+
+	bool determinant_positive;
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 	js::Vector<Matrix4f, 16> joint_matrices;
@@ -431,7 +439,7 @@ class OpenGLEngineSettings
 public:
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), render_to_offscreen_renderbuffers(true), screenspace_refl_and_refr(true), depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
 		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
-		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false) {}
+		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao(false) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -453,6 +461,8 @@ public:
 
 	// For working around a bug on Mac with changing the phong uniform buffer between rendering batches (see https://issues.chromium.org/issues/338348430)
 	bool use_multiple_phong_uniform_bufs;
+
+	bool ssao;
 };
 
 
@@ -529,15 +539,14 @@ public:
 
 	js::Vector<Vec4f, 16> blob_shadow_locations;
 	Vec4f grass_pusher_sphere_pos;
-private:
+public:
 	float use_sensor_width;
 	float use_sensor_height;
-	
 	float lens_sensor_dist;
 	float render_aspect_ratio;
 	float lens_shift_up_distance;
 	float lens_shift_right_distance;
-
+private:
 	// These enum values should match the defines in common_frag_structures.glsl
 	enum CameraType
 	{
@@ -609,8 +618,8 @@ If the actual ID exceeds the allocated number of bits, rendering will still be c
 
              bits allocated    bit index (0 = least significant bit)
 program_index:     8 bits      24
-backface_cull:     1 bit       23
-VAO id:	           9 bits      14
+face_culling:      2 bits      22
+VAO id:	           8 bits      14
 vert VBO id:       6 bits      8
 index VBO id:      6 bits      2
 index type bits:   2 bits      0
@@ -618,19 +627,24 @@ index type bits:   2 bits      0
 
 inline uint32 makeVAOAndVBOKey(uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits)
 {
-	return ((vao_id & 511u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits;
+	return ((vao_id & 255u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits;
 }
 
 struct BatchDrawInfo
 {
+	// To form prog_vao_key:
+	// prog_index_and_face_culling_bits is laid out as documented in 'program_index_and_flags' section above.
+	// Get lower 8 buts of program index (which is at bit 0), shift left to bit position 24.
+	// Get 2 face culling bits (which are at bits 24 and 25), shift right from bit 24 to 22.
+
 	BatchDrawInfo() {}
-	BatchDrawInfo(uint32 prog_index_and_backface_culling_flag, uint32 vao_and_vbo_key, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((prog_index_and_backface_culling_flag & 511u) << 23) | vao_and_vbo_key),
+	BatchDrawInfo(uint32 prog_index_and_face_culling_bits, uint32 vao_and_vbo_key, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> 2) | vao_and_vbo_key),
 		batch_i(batch_i_), ob(ob_)
 	{}
 
-	BatchDrawInfo(uint32 prog_index_and_backface_culling_flag, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((prog_index_and_backface_culling_flag & 511u) << 23) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)),
+	BatchDrawInfo(uint32 prog_index_and_face_culling_bits, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
+	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> 2) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)),
 		batch_i(batch_i_), ob(ob_)
 	{
 		assert(index_type_bits <= 2);
@@ -657,8 +671,8 @@ struct BatchDrawInfo
 struct BatchDrawInfoWithDist
 {
 	BatchDrawInfoWithDist() {}
-	BatchDrawInfoWithDist(uint32 prog_index_and_backface_culling_flag, uint32 vao_and_vbo_key, uint32 dist_, const GLObject* ob_)
-	:	prog_vao_key(((prog_index_and_backface_culling_flag & 511u) << 23) | vao_and_vbo_key),
+	BatchDrawInfoWithDist(uint32 prog_index_and_face_culling_bits, uint32 vao_and_vbo_key, uint32 dist_, const GLObject* ob_)
+	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> 2) | vao_and_vbo_key),
 		dist(dist_),
 		ob(ob_)
 	{}
@@ -1074,6 +1088,8 @@ public:
 	//----------------------------------- Settings ----------------------------------------
 	//void setMSAAEnabled(bool enabled);
 
+	void setSSAOEnabled(bool ssao_enabled);
+
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
 	//----------------------------------------------------------------------------------------
@@ -1128,6 +1144,7 @@ private:
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
 	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
+	OpenGLProgramRef buildComputeSSAOProg(const std::string& use_shader_dir);
 public:
 	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }
@@ -1161,6 +1178,9 @@ private:
 	void drawOutlinesAroundSelectedObjects();
 	void drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawColourAndDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void computeSSAO(const Matrix4f& proj_matrix);
 	void drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
@@ -1254,6 +1274,10 @@ private:
 	int edge_extract_col_location;
 	int edge_extract_line_width_location;
 
+	Reference<OpenGLProgram> compute_ssao_prog;
+	int compute_ssao_normal_tex_location;
+	int compute_ssao_depth_tex_location;
+
 	Colour4f outline_colour;
 	float outline_width_px;
 
@@ -1275,6 +1299,7 @@ public:
 	//Reference<TerrainSystem> terrain_system;
 private:
 	OverlayObjectRef clear_buf_overlay_ob;
+	std::vector<OverlayObjectRef> texture_debug_preview_overlay_obs;
 
 	double draw_time;
 	Timer draw_timer;
@@ -1313,6 +1338,24 @@ private:
 	OpenGLTextureRef main_normal_copy_texture;
 	OpenGLTextureRef transparent_accum_copy_texture;
 	OpenGLTextureRef av_transmittance_copy_texture;
+
+
+	// Prepass will render to prepass_framebuffer, prepass_colour_renderbuffer, prepass_depth_renderbuffer.
+	// Then blit to prepass_copy_framebuffer, prepass_colour_copy_texture, prepass_colour_depth_texture
+	// Then SSAO is computed, reading from prepass_copy_framebuffer and writing to compute_ssao_output_framebuffer.
+	Reference<FrameBuffer> prepass_framebuffer;
+	Reference<RenderBuffer> prepass_colour_renderbuffer;
+	Reference<RenderBuffer> prepass_normal_renderbuffer;
+	Reference<RenderBuffer> prepass_depth_renderbuffer;
+
+	Reference<FrameBuffer> prepass_copy_framebuffer;
+	OpenGLTextureRef prepass_colour_copy_texture;
+	OpenGLTextureRef prepass_normal_copy_texture;
+	OpenGLTextureRef prepass_depth_copy_texture;
+
+	Reference<FrameBuffer> compute_ssao_output_framebuffer;
+	OpenGLTextureRef compute_ssao_output_texture;
+
 
 	std::unordered_set<GLObject*> selected_objects;
 
@@ -1386,6 +1429,8 @@ private:
 	QueryRef dynamic_depth_draw_gpu_timer;
 	QueryRef static_depth_draw_gpu_timer;
 	QueryRef draw_opaque_obs_gpu_timer;
+	QueryRef depth_pre_pass_gpu_timer;
+	QueryRef compute_ssao_gpu_timer;
 	
 	uint32 last_num_prog_changes;
 	uint32 last_num_batches_bound;
@@ -1393,10 +1438,10 @@ private:
 	uint32 last_num_vbo_binds;
 	uint32 last_num_index_buf_binds;
 	uint32 last_num_indices_drawn;
-	uint32 last_num_backface_culling_changes;
+	uint32 last_num_face_culling_changes;
 
 	uint32 depth_draw_last_num_prog_changes;
-	uint32 depth_draw_last_num_backface_culling_changes;
+	uint32 depth_draw_last_num_face_culling_changes;
 	uint32 depth_draw_last_num_batches_bound;
 	uint32 depth_draw_last_num_vao_binds;
 	uint32 depth_draw_last_num_vbo_binds;
@@ -1405,6 +1450,8 @@ private:
 	double last_dynamic_depth_draw_GPU_time;
 	double last_static_depth_draw_GPU_time;
 	double last_draw_opaque_obs_GPU_time;
+	double last_depth_pre_pass_GPU_time;
+	double last_compute_ssao_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
 
@@ -1514,6 +1561,9 @@ private:
 
 	AsyncTextureLoader* async_texture_loader;
 	std::vector<AsyncTextureLoadingHandle> loading_handles;
+
+public:
+	Matrix4f debug_last_main_view_matrix;
 };
 
 
