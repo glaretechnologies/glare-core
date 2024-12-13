@@ -1108,6 +1108,7 @@ private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const;
 	void assignLightsToObject(GLObject& ob);
 	void assignLightsToAllObjects();
+	void setObjectTransformData(GLObject& object); // Sets object ob_to_world_inv_transpose_matrix and aabb_ws, then updates object data on GPU.
 public:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
 private:

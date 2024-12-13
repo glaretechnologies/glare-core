@@ -117,6 +117,8 @@ public:
 	inline void setToIdentity();
 	inline static const Matrix4f identity();
 
+	inline void negateInPlace();
+
 	const std::string rowString(int row_index) const;
 	const std::string toString() const;
 
@@ -899,4 +901,13 @@ inline Matrix4f translationMulUniformScaleMatrix(const Vec4f& translation, float
 	m.setColumn(2, Vec4f(0,0,scale,0));
 	m.setColumn(3, setWToOne(translation));
 	return m;
+}
+
+
+void Matrix4f::negateInPlace()
+{
+	setColumn(0, -getColumn(0));
+	setColumn(1, -getColumn(1));
+	setColumn(2, -getColumn(2));
+	setColumn(3, -getColumn(3));
 }

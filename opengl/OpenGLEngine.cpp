@@ -3253,25 +3253,26 @@ struct LightDistComparator
 };
 
 
-// Updates object ob_to_world_inv_transpose_matrix and aabb_ws.
-void OpenGLEngine::updateObjectTransformData(GLObject& object)
+// Sets object ob_to_world_inv_transpose_matrix and aabb_ws, then updates object data on GPU.
+void OpenGLEngine::setObjectTransformData(GLObject& object)
 {
 	assert(::isFinite(object.ob_to_world_matrix.e[0]));
 
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
-	// (Ma) x (Mb) = detM M^-1^T (a x b) = cofM (a x b)           [from wikipedia: https://en.wikipedia.org/wiki/Cross_product, see also https://github.com/graphitemaster/normals_revisited]
-	// Also cofM^T = adjM    =>   cofM = adjM^T
+	// We will use sign(det(M)) adj(M)^T for the normal matrix, see
+	// 'Transforming normals: adjugate transpose vs inverse transpose' - https://forwardscattering.org/post/62
 	to_world.getUpperLeftAdjugateTranspose(/*result=*/object.ob_to_world_normal_matrix);
 
 	object.determinant_positive = to_world.upperLeftDeterminant() >= 0.f;
 
-	// Hopefully we won't encounter non-invertible matrices here anyway.
+	// Apply sign(det(M)) factor
+	if(!object.determinant_positive)
+		object.ob_to_world_normal_matrix.negateInPlace();
 
 	object.aabb_ws = object.mesh_data->aabb_os.transformedAABBFast(to_world);
 
 	assignLightsToObject(object);
-
 
 	// Update object data on GPU
 	if(use_multi_draw_indirect)
@@ -3308,6 +3309,20 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 			}
 		}
 	}
+}
+
+
+// Updates object ob_to_world_inv_transpose_matrix and aabb_ws etc.
+void OpenGLEngine::updateObjectTransformData(GLObject& object)
+{
+	// If the determinant sign changes, then we need to change back-face culling to front-face culling and vice versa.
+	// That is done in rebuildDenormalisedDrawData().
+	const bool old_det_positive = object.determinant_positive;
+
+	setObjectTransformData(object);
+
+	if(object.determinant_positive != old_det_positive)
+		rebuildDenormalisedDrawData(object);
 }
 
 
@@ -3661,10 +3676,11 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 #endif
 	}
 
-	rebuildObjectDepthDrawBatches(*object);
+	// Compute world space AABB of object etc.
+	// setObjectTransformData() needs to go before rebuildObjectDepthDrawBatches etc. since we need to set determinant_positive.
+	setObjectTransformData(*object);
 
-	// Compute world space AABB of object
-	updateObjectTransformData(*object.getPointer());
+	rebuildObjectDepthDrawBatches(*object);
 
 	rebuildDenormalisedDrawData(*object);
 }
@@ -8438,6 +8454,11 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		const BatchDrawInfo& info = batch_draw_info_data[i];
 		const GLObjectBatchDrawInfo& batch = info.ob->batch_draw_info[info.batch_i];
 		const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
+
+		[[maybe_unused]] const uint32 info_culling_bits = (info.prog_vao_key & ((1 << 22u) | (1 << 23u))) >> 22u;
+		[[maybe_unused]] const uint32 batch_culling_bits = (prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK) >> MATERIAL_FACE_CULLING_BIT_INDEX;
+		assert(info_culling_bits == batch_culling_bits);
+
 		if(prog_index_and_face_culling != current_prog_index_and_face_culling)
 		{
 			ZoneScopedN("changing prog or face culling"); // Tracy profiler
