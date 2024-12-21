@@ -857,11 +857,13 @@ Reference<ImageMapFloat> DXTImageMap::extractChannelZeroLinear() const
 }
 
 
+#if IMAGE_CLASS_SUPPORT
 Reference<Image> DXTImageMap::convertToImage() const
 {
 	assert(0);
 	return Reference<Image>();
 }
+#endif
 
 
 #if MAP2D_FILTERING_SUPPORT
