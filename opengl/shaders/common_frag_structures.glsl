@@ -2,7 +2,7 @@
 // Should be the same layout as in OpenGLEngine.h
 layout (std140) uniform MaterialCommonUniforms
 {
-	mat4 frag_view_matrix;
+	mat4 frag_view_matrix; // World space to camera space matrix
 	vec4 sundir_cs; // Dir to sun.
 	vec4 sundir_ws; // Dir to sun.
 	vec4 sun_spec_rad_times_solid_angle;
@@ -27,6 +27,7 @@ layout (std140) uniform MaterialCommonUniforms
 
 // mat_common_flags values
 #define CLOUD_SHADOWS_FLAG					1
+#define DO_SSAO_FLAG						2
 
 
 // MaterialData flag values
@@ -37,6 +38,7 @@ layout (std140) uniform MaterialCommonUniforms
 #define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
 #define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
 #define HAVE_NORMAL_MAP_FLAG				64
+#define SIMPLE_DOUBLE_SIDED_FLAG			128
 
 
 #define CameraType_Identity					0
@@ -89,12 +91,13 @@ struct MaterialData
 	float end_fade_out_distance;
 
 	float materialise_lower_z; // For imposters: begin_fade_in_distance.
-	float materialise_upper_z; // For imposters: end_fade_in_distance.     For participating media and decals: dopacity/dt
-	float materialise_start_time; // For participating media and decals: spawn time
+	float materialise_upper_z; // For imposters: end_fade_in_distance.
+	float materialise_start_time; // For participating media and decals which use dopacity_dt: spawn time
+
+	float dopacity_dt; // dopacity/dt
 
 	float padding_b0;
 	float padding_b1;
-	float padding_b2;
 };
 
 

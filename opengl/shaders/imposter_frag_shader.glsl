@@ -461,8 +461,6 @@ void main()
 	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission);
 #endif
 
-	col *= 3.0; // tone-map
-
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, 1.0);
 #else

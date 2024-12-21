@@ -53,8 +53,7 @@ out mat4 world_to_ob;
 #endif
 
 #if VERT_TANGENTS
-out vec3 tangent_ws;
-out vec3 bitangent_ws;
+out vec4 tangent_ws;
 #endif
 
 #if COMBINED
@@ -190,8 +189,8 @@ void main()
 #endif
 
 #if VERT_TANGENTS
-	tangent_ws = (instance_matrix_in * vec4(tangent_in.xyz, 0.0)).xyz;
-	bitangent_ws = cross(normal_ws.xyz, tangent_ws.xyz) * tangent_in.w; // Following GLTF spec
+	// Should the tangent w be the object-space tangent w or the world-space tangent w? GLTF spec is unclear.
+	tangent_ws = vec4(normalize((instance_matrix_in * vec4(tangent_in.xyz, 0.0)).xyz), tangent_in.w);
 #endif
 
 #else // else if !INSTANCE_MATRICES:
@@ -217,11 +216,12 @@ void main()
 
 	pos_ws = (model_skin_matrix  * vec4(final_pos_os, 1.0)).xyz;
 
-	normal_ws = (normal_skin_matrix * vec4(final_normal_in, 0.0)).xyz;
+	// Normalize normal_ws here in the vertex shader, as that is what the default normal mapping (MikkTSpace) algorithm seems to require.
+	// See 'Pixel Shader Transformation' section at http://www.mikktspace.com/
+	normal_ws = normalize((normal_skin_matrix * vec4(final_normal_in, 0.0)).xyz);
 
 #if VERT_TANGENTS
-	tangent_ws = (normal_skin_matrix * vec4(tangent_in.xyz, 0.0)).xyz;
-	bitangent_ws = cross(normal_ws.xyz, tangent_ws.xyz) * tangent_in.w; // Following GLTF spec
+	tangent_ws = vec4(normalize((model_skin_matrix * vec4(tangent_in.xyz, 0.0)).xyz), tangent_in.w);
 #endif
 
 
@@ -276,19 +276,35 @@ void main()
 	/*
 	We need to compute the world-to-object matrix for decals.
 	ob_to_world = T R S
-	world_to_ob = S^-1 R^-1 T^-1
+	so 
+	world_to_ob = ob_to_world^-1 = S^-1 R^-1 T^-1
 
-	normal_ob_to_world = (R S)^-1^T
-	= (S^-1 R^-1)^T
+	normal_skin_matrix = adj(R S)^T
 
-	normal_ob_to_world^T = (S^-1 R^-1)^T^T = S^-1 R^-1
-	world_to_ob = normal_ob_to_world^T T^-1
+	normal_skin_matrix = adj(R S)^T = (det(R S) (R S)^-1)^T      [by defn of adj]
+
+	normal_skin_matrix = det(R S) (R S)^-1^T = det(R S) (S^-1 R^-1)^T
+
+	normal_skin_matrix / det(R S) =  (S^-1 R^-1)^T
+
+	normal_skin_matrix^T / det(R S) = S^-1 R^-1
+
+	S^-1 R^-1 = normal_skin_matrix^T / det(R S)
+
+	world_to_ob = S^-1 R^-1 T^-1 = normal_skin_matrix^T / det(R S) T^-1
 	*/
+
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+	float model_matrix_upper_left_det  = per_object_data[per_ob_data_index].model_matrix_upper_left_det;
+#else
+	float model_matrix_upper_left_det  = per_object_data.model_matrix_upper_left_det;
+#endif
+
 	mat4 inverse_translation;
 	inverse_translation[0] = vec4(1,0,0,0);
 	inverse_translation[1] = vec4(0,1,0,0);
 	inverse_translation[2] = vec4(0,0,1,0);
 	inverse_translation[3] = vec4(-model_skin_matrix[3].xyz, 1.0); // set col 3
-	world_to_ob = transpose(normal_skin_matrix) * inverse_translation;
+	world_to_ob = transpose(normal_skin_matrix / model_matrix_upper_left_det) * inverse_translation;
 #endif
 }

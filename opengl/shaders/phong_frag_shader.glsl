@@ -17,8 +17,7 @@ in vec2 lightmap_coords;
 #endif
 
 #if VERT_TANGENTS
-in vec3 tangent_ws;
-in vec3 bitangent_ws;
+in vec4 tangent_ws;
 #endif
 
 flat in ivec4 light_indices_0;
@@ -32,7 +31,7 @@ flat in int combined_mat_index;
 in mat4 world_to_ob;
 
 uniform sampler2D main_colour_texture; // source texture
-uniform sampler2D main_normal_texture;
+uniform usampler2D main_normal_texture;
 uniform sampler2D main_depth_texture;
 #endif
 
@@ -72,6 +71,9 @@ uniform sampler2D detail_heightmap_0; // rock
 
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
+
+uniform sampler2D ssao_output_tex;
+uniform sampler2D ssao_specular_output_tex;
 
 // uniform sampler2D snow_ice_normal_map;
 
@@ -154,7 +156,7 @@ layout (std140) uniform LightDataStorage
 
 
 layout(location = 0) out vec4 colour_out;
-layout(location = 1) out vec3 normal_out;
+layout(location = 1) out uvec3 normal_out;
 
 
 float square(float x) { return x*x; }
@@ -374,13 +376,13 @@ vec2 float32x3_to_oct(in vec3 v) {
 
 
 // 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
-vec3 snorm12x2_to_unorm8x3(vec2 f) {
+uvec3 snorm12x2_to_unorm8x3(vec2 f) {
 	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047.0 + 2047.0));
 	float t = floor(u.y / 256.0);
 	// If storing to GL_RGB8UI, omit the final division
-	return floor(vec3(u.x / 16.0,
-		fract(u.x / 16.0) * 256.0 + t,
-		u.y - t * 256.0)) / 255.0;
+	return uvec3(uint(u.x / 16.0),
+		uint(fract(u.x / 16.0) * 256.0 + t),
+		uint(u.y - t * 256.0)) /*/ 255.0*/; // TEMP
 }
 
 
@@ -393,8 +395,9 @@ vec3 oct_to_float32x3(vec2 e) {
 }
 
 // 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
-vec2 unorm8x3_to_snorm12x2(vec3 u) {
-	u *= 255.0;
+vec2 unorm8x3_to_snorm12x2(uvec3 u_) {
+	//	u *= 255.0;
+	vec3 u = vec3(u_);
 	u.y *= (1.0 / 16.0);
 	vec2 s = vec2(u.x * 16.0 + floor(u.y),
 		fract(u.y) * (16.0 * 256.0) + u.z);
@@ -489,7 +492,7 @@ void main()
 	vec3 cam_to_pos_ws = pos_ws - mat_common_campos_ws.xyz;
 
 
-	// Note that this code updates use_texture_coords. 
+	// Note that this code updates use_texture_coords and use_normal_ws.
 #if DECAL
 	{
 		// Compute world-space position and normal of existing fragment based on normal and depth buffer.
@@ -499,11 +502,11 @@ void main()
 
 		float dir_dot_forwards = -normalize(pos_cs).z;
 
-		vec3 src_normal_encoded = texture(main_normal_texture, pos_ss).xyz; // Encoded as a RGB8 texture (converted to floating point)
+		uvec3 src_normal_encoded = texture(main_normal_texture, pos_ss).xyz; // Encoded as a RGB8 texture (converted to floating point)
 		vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
 
 		float depth = getDepthFromDepthTexture(pos_ss); // Get depth from depth buffer for existing fragment
-		vec3 src_pos_ws = mat_common_campos_ws.xyz + normalize(cam_to_pos_ws) / dir_dot_forwards * depth; // position in world space of existing fragment TODO: take into acount cos(theta)?
+		vec3 src_pos_ws = mat_common_campos_ws.xyz + normalize(cam_to_pos_ws) * (depth / dir_dot_forwards); // position in world space of existing fragment TODO: take into account cos(theta)?
 
 		vec3 pos_os = (world_to_ob * vec4(src_pos_ws, 1.0)).xyz; // Transform src position in world space into position in decal object space.
 
@@ -513,9 +516,14 @@ void main()
 		if(pos_os.x < 0.0 || pos_os.x > 1.0 || pos_os.y < 0.0 || pos_os.y > 1.0 || pos_os.z < 0.0 || pos_os.z > 1.0)
 			discard;
 
-		vec3 src_normal_decal_space = normalize((world_to_ob * vec4(src_normal_ws, 0.0)).xyz);
-		if(src_normal_decal_space.z < 0.1)
-			discard;
+
+		if((MAT_UNIFORM.flags & SIMPLE_DOUBLE_SIDED_FLAG) == 0) // If not double-sided:
+		{
+			// Only faces with normals oriented in the +z direction should receive the decal.
+			vec3 src_normal_decal_space = normalize((world_to_ob * vec4(src_normal_ws, 0.0)).xyz);
+			if(src_normal_decal_space.z < 0.1)
+				discard;
+		}
 
 		use_normal_ws = src_normal_ws;
 	}
@@ -583,8 +591,10 @@ void main()
 		vec3 norm_map_v = texture(NORMAL_MAP, st).xyz;
 		norm_map_v = norm_map_v * 2.0 - vec3(1.0);
 #if VERT_TANGENTS
+		vec3 bitangent_ws = cross(use_normal_ws, tangent_ws.xyz) * tangent_ws.w; // From GLTF spec
+
 		use_normal_ws = normalize(
-			tangent_ws    * norm_map_v.x + 
+			tangent_ws.xyz   * norm_map_v.x + 
 			bitangent_ws  * norm_map_v.y + 
 			use_normal_ws * norm_map_v.z
 		);
@@ -608,6 +618,7 @@ void main()
 		vec3 dp_ds = dp_dx * dxy_dst[0].x + dp_dy * dxy_dst[0].y;
 		vec3 dp_dt = dp_dx * dxy_dst[1].x + dp_dy * dxy_dst[1].y;
 
+		use_normal_ws = normalize(use_normal_ws); // removeComponentInDir requires a unit direction.
 		dp_ds = normalize(removeComponentInDir(dp_ds, use_normal_ws));
 		dp_dt = normalize(removeComponentInDir(dp_dt, use_normal_ws));
 
@@ -1071,7 +1082,26 @@ void main()
 	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
 #endif
 
-#if BLOB_SHADOWS
+	// Apply SSAO
+	vec4 ss_indirect_irradiance = vec4(0.0);
+	vec4 ss_specular_refl_spec_rad = vec4(0.0);
+	if((mat_common_flags & DO_SSAO_FLAG) != 0)
+	{
+		vec4 ssao_val = texture(ssao_output_tex, cameraToScreenSpace(pos_cs));
+
+		ss_indirect_irradiance = ssao_val;
+
+		ss_specular_refl_spec_rad = texture(ssao_specular_output_tex, cameraToScreenSpace(pos_cs));
+
+		//sky_irradiance.xyz *= ssao_val.xyz;
+		//sky_irradiance.xyz += ssao_val.xyz * 10;
+
+		float ao = ssao_val.w;
+		sky_irradiance.xyz *= ao * ao;
+	}
+
+
+#if 0 // BLOB_SHADOWS
 	for(int i=0; i<num_blob_positions; ++i)
 	{
 		vec3 pos_to_blob_centre = blob_positions[i].xyz - pos_ws;
@@ -1181,11 +1211,21 @@ void main()
 
 	vec4 col =
 		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
+		
+		//ss_indirect_irradiance * refl_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) + // Screen-space indirect irradiance * diffuse BRDF (col / PI)
+		//ss_specular_refl_spec_rad * refl_fresnel +
+
 		refl_fresnel * spec_refl_light + // Specular reflection of sky
-		sun_light * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * sun light
-		sun_light * specular + // sun light * specular microfacet terms
+		sun_light * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * direct sun light
+		sun_light * specular + // direct sun light * specular microfacet terms
 		local_light_radiance + // Reflected light from local light sources.
 		emission_col;
+
+	if((mat_common_flags & DO_SSAO_FLAG) == 0)
+	{
+		// If this is the prepass:
+//		col += sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac);  // Diffuse substrate part of BRDF * incoming radiance from sky
+	}
 	
 	//vec4 col = (sun_light + 3000000000.0)  * diffuse_col;
 
@@ -1261,8 +1301,6 @@ void main()
 	//------------------------------- End apply underwater effects ---------------------------
 
 
-	col *= 3.0; // tone-map
-
 #if SDF_TEXT
 	float half_w = (fwidth(use_texture_coords.x) + fwidth(use_texture_coords.y)) * 30.0f;
 	float dist_field_tex_val = texture(TRANSMISSION_TEX, use_texture_coords).w;
@@ -1279,9 +1317,8 @@ void main()
 
 #if DECAL
 	// materialise_start_time = particle spawn time
-	// materialise_upper_z = dopacity/dt
 	float life_time = time - MAT_UNIFORM.materialise_start_time;
-	float overall_alpha_factor = max(0.0, min(1.0, refl_diffuse_col.w + life_time * MAT_UNIFORM.materialise_upper_z));
+	float overall_alpha_factor = max(0.0, min(1.0, refl_diffuse_col.w + life_time * MAT_UNIFORM.dopacity_dt));
 
 	colour_out.w = overall_alpha_factor;
 #endif

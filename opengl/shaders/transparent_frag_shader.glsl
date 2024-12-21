@@ -387,8 +387,6 @@ void main()
 #endif
 	}
 
-	col *= 3.0; // tone-map
-
 #if ORDER_INDEPENDENT_TRANSPARENCY
 	
 	#if DO_POST_PROCESSING

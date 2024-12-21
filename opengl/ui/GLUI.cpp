@@ -57,8 +57,9 @@ void GLUI::destroy()
 {
 	if(!widgets.empty())
 	{
-		conPrint("Warning: " + toString(widgets.size()) + " widgets still in GLUI upon destruction.");
-		assert(0);
+		conPrint("WARNING: " + toString(widgets.size()) + " widgets still in GLUI upon destruction.");
+	//	assert(0);
+		widgets.clear();
 	}
 
 	if(tooltip_overlay_ob.nonNull())

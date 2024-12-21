@@ -131,6 +131,7 @@ enum TextureUnitIndices
 	AURORA_TEXTURE_UNIT_INDEX,
 	//SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
 	SSAO_OUTPUT_TEXTURE_UNIT_INDEX,
+	SSAO_SPECULAR_OUTPUT_TEXTURE_UNIT_INDEX,
 	PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX,
 	PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX,
 	PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX
@@ -172,7 +173,7 @@ public:
 
 
 GLObject::GLObject() noexcept
-	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false), decal(false),
+	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
 	depth_draw_depth_bias(0), determinant_positive(true)
 {
@@ -488,6 +489,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_draw_opaque_obs_GPU_time(0),
 	last_depth_pre_pass_GPU_time(0),
 	last_compute_ssao_GPU_time(0),
+	last_decal_copy_buffers_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	next_program_index(0),
 	use_bindless_textures(false),
@@ -1506,6 +1508,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
 	prog->uniform_locations.ssao_output_tex_location		= prog->getUniformLocation("ssao_output_tex");
+	prog->uniform_locations.ssao_specular_output_tex_location		= prog->getUniformLocation("ssao_specular_output_tex");
 	//prog->uniform_locations.snow_ice_normal_map_location	= prog->getUniformLocation("snow_ice_normal_map");
 
 	prog->uniform_locations.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
@@ -1836,6 +1839,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->draw_opaque_obs_gpu_timer = new Query();
 	this->depth_pre_pass_gpu_timer = new Query();
 	this->compute_ssao_gpu_timer = new Query();
+	this->decal_copy_buffers_timer = new Query();
 
 	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(*vert_buf_allocator);
 	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(*vert_buf_allocator);
@@ -3264,7 +3268,8 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 	// 'Transforming normals: adjugate transpose vs inverse transpose' - https://forwardscattering.org/post/62
 	to_world.getUpperLeftAdjugateTranspose(/*result=*/object.ob_to_world_normal_matrix);
 
-	object.determinant_positive = to_world.upperLeftDeterminant() >= 0.f;
+	const float upper_left_det = to_world.upperLeftDeterminant();
+	object.determinant_positive = upper_left_det >= 0.f;
 
 	// Apply sign(det(M)) factor
 	if(!object.determinant_positive)
@@ -3283,6 +3288,7 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
+		uniforms.model_matrix_upper_left_det = upper_left_det;
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
@@ -3326,7 +3332,7 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 }
 
 
-void OpenGLEngine::objectTransformDataChanged(GLObject& object)
+void OpenGLEngine::objectTransformDataChanged(GLObject& object, float ob_to_world_determinant)
 {
 	// Update object data on GPU
 	if(use_multi_draw_indirect)
@@ -3337,6 +3343,7 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
+		uniforms.model_matrix_upper_left_det = ob_to_world_determinant;
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
@@ -3699,13 +3706,16 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_water_mat = false;
 	bool have_partic_media_mat = false;
 	bool have_alpha_blend_mat = false;
+	bool have_decal_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
-		have_transparent_mat    = have_transparent_mat    || object->materials[i].transparent;
-		have_materialise_effect = have_materialise_effect || object->materials[i].materialise_effect;
-		have_water_mat          = have_water_mat          || object->materials[i].water;
-		have_partic_media_mat   = have_partic_media_mat   || object->materials[i].participating_media;
-		have_alpha_blend_mat    = have_alpha_blend_mat    || object->materials[i].alpha_blend;
+		const OpenGLMaterial& mat = object->materials[i];
+		have_transparent_mat    = have_transparent_mat    || mat.transparent;
+		have_materialise_effect = have_materialise_effect || mat.materialise_effect;
+		have_water_mat          = have_water_mat          || mat.water;
+		have_partic_media_mat   = have_partic_media_mat   || mat.participating_media;
+		have_alpha_blend_mat    = have_alpha_blend_mat    || mat.alpha_blend;
+		have_decal_mat          = have_decal_mat          || mat.decal;
 	}
 
 	if(have_transparent_mat)
@@ -3723,7 +3733,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	if(object->always_visible)
 		current_scene->always_visible_objects.insert(object);
 
-	if(object->decal)
+	if(have_decal_mat)
 		current_scene->decal_objects.insert(object);
 
 	const AnimationData& anim_data = object->mesh_data->animation_data;
@@ -6056,6 +6066,7 @@ OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shade
 	);
 	addProgram(prog);
 	getUniformLocations(prog); // Make sure any unused uniforms have their locations set to -1.
+	setStandardTextureUnitUniformsForProgram(*prog);
 
 	compute_ssao_normal_tex_location = prog->getUniformLocation("normal_tex");
 	compute_ssao_depth_tex_location = prog->getUniformLocation("depth_tex");
@@ -6538,7 +6549,8 @@ void OpenGLEngine::draw()
 			);
 
 			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
-			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Uint8;
+			// Use an integer format, so that MSAA downsampling gives valid normals.
+			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGB_Integer_Uint8;
 
 			main_normal_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -6641,16 +6653,22 @@ void OpenGLEngine::draw()
 				compute_ssao_output_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
 					OpenGLTextureFormat::Format_RGBA_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 				compute_ssao_output_texture->setDebugName("compute_ssao_output_texture");
+
+				compute_ssao_specular_output_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
+					OpenGLTextureFormat::Format_RGB_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+				compute_ssao_specular_output_texture->setDebugName("compute_ssao_specular_output_texture");
+
 				compute_ssao_output_framebuffer = new FrameBuffer();
 				compute_ssao_output_framebuffer->attachTexture(*compute_ssao_output_texture, GL_COLOR_ATTACHMENT0);
+				compute_ssao_output_framebuffer->attachTexture(*compute_ssao_specular_output_texture, GL_COLOR_ATTACHMENT1);
 
 
 				//TEMP:
 				if(texture_debug_preview_overlay_obs.size() >= 3)
 				{
 					texture_debug_preview_overlay_obs[0]->material.albedo_texture = prepass_colour_copy_texture;
-					texture_debug_preview_overlay_obs[1]->material.albedo_texture = prepass_normal_copy_texture;
-					texture_debug_preview_overlay_obs[2]->material.albedo_texture = compute_ssao_output_texture;
+					texture_debug_preview_overlay_obs[1]->material.albedo_texture = compute_ssao_output_texture;
+					texture_debug_preview_overlay_obs[2]->material.albedo_texture = compute_ssao_specular_output_texture;
 				}
 			}
 
@@ -7163,6 +7181,9 @@ void OpenGLEngine::draw()
 		
 		if(compute_ssao_gpu_timer->waitingForResult() && compute_ssao_gpu_timer->checkResultAvailable())
 			last_compute_ssao_GPU_time = compute_ssao_gpu_timer->getTimeElapsed();
+
+		if(decal_copy_buffers_timer->waitingForResult() && decal_copy_buffers_timer->checkResultAvailable())
+			last_decal_copy_buffers_GPU_time = decal_copy_buffers_timer->getTimeElapsed();
 	}
 
 	if(current_scene->collect_stats)
@@ -7960,6 +7981,9 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 	{
 		assertCurrentProgramIsZero();
 
+		if(query_profiling_enabled && current_scene->collect_stats && decal_copy_buffers_timer->isIdle())
+			decal_copy_buffers_timer->beginTimerQuery();
+
 		main_render_framebuffer->bindForReading();
 
 		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == this->main_depth_renderbuffer->buffer_name);
@@ -7977,7 +8001,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		glBlitFramebuffer(
 			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
 			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_DEPTH_BUFFER_BIT, // GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+			GL_DEPTH_BUFFER_BIT,
 			GL_NEAREST
 		);
 
@@ -7993,6 +8017,12 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		);
 
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+
+		// Stop timer
+		if(query_profiling_enabled && decal_copy_buffers_timer->isRunning())
+			decal_copy_buffers_timer->endTimerQuery();
+
+
 
 		// Restore main render buffer binding
 		main_render_framebuffer->bindForDrawing();
@@ -8051,7 +8081,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 #endif
 							// Draw primitives for the given material
 							//if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // NOTE: check for decal bitflag? or just assume all decal object materials are decals.
-							if(BitUtils::isBitSet(prog_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG))
+							if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_DECAL_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If decal bit is set and program is finished building:
 							{
 								BatchDrawInfo info(
 									prog_index_and_face_culling_flag,
@@ -9196,7 +9226,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& proj_matrix)
 		glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
 
 		compute_ssao_output_framebuffer->bindForDrawing();
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
 
 
 		glDepthMask(GL_FALSE); // Don't write to z-buffer
@@ -9692,14 +9722,14 @@ GLObjectRef OpenGLEngine::makeAABBObject(const Vec4f& min_, const Vec4f& max_, c
 }
 
 
-GLObjectRef OpenGLEngine::makeCuboidEdgeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col)
+GLObjectRef OpenGLEngine::makeCuboidEdgeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col, float edge_width_scale)
 {
 	GLObjectRef ob = allocateObject();
 
 	ob->ob_to_world_matrix = Matrix4f::translationMatrix(min_);
 
 	const Vec4f span = max_ - min_;
-	const float edge_width = myMin(1.f, span[0] * 0.1f);
+	const float edge_width = myMin(1.f, span[0] * edge_width_scale);
 	ob->mesh_data = MeshPrimitiveBuilding::makeCuboidEdgeAABBMesh(*vert_buf_allocator, span, edge_width);
 	ob->materials.resize(1);
 	ob->materials[0].albedo_linear_rgb = toLinearSRGB(Colour3f(col[0], col[1], col[2]));
@@ -9966,6 +9996,7 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.ssao_output_tex_location, SSAO_OUTPUT_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.ssao_specular_output_tex_location, SSAO_SPECULAR_OUTPUT_TEXTURE_UNIT_INDEX);
 
 	//glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
@@ -10035,6 +10066,9 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	if(this->compute_ssao_output_texture.nonNull())
 		bindTextureToTextureUnit(*this->compute_ssao_output_texture, /*texture_unit_index=*/SSAO_OUTPUT_TEXTURE_UNIT_INDEX);
 
+	if(this->compute_ssao_specular_output_texture.nonNull())
+		bindTextureToTextureUnit(*this->compute_ssao_specular_output_texture, /*texture_unit_index=*/SSAO_SPECULAR_OUTPUT_TEXTURE_UNIT_INDEX);
+
 	//if(snow_ice_normal_map.nonNull())
 	//	bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
@@ -10048,6 +10082,7 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 #define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
 #define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
 #define HAVE_NORMAL_MAP_FLAG				64
+#define SIMPLE_DOUBLE_SIDED_FLAG			128
 
 
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const
@@ -10112,7 +10147,8 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0) |
 		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0) |
 		(opengl_mat.imposter_tex_has_multiple_angles		? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	: 0) |
-		(opengl_mat.normal_map.nonNull()					? HAVE_NORMAL_MAP_FLAG				: 0);
+		(opengl_mat.normal_map.nonNull()					? HAVE_NORMAL_MAP_FLAG				: 0) |
+		(opengl_mat.simple_double_sided						? SIMPLE_DOUBLE_SIDED_FLAG			: 0);
 
 	uniforms.roughness					= opengl_mat.roughness;
 	uniforms.fresnel_scale				= opengl_mat.fresnel_scale;
@@ -10122,6 +10158,7 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 	uniforms.materialise_lower_z		= opengl_mat.materialise_lower_z;
 	uniforms.materialise_upper_z		= opengl_mat.materialise_upper_z;
 	uniforms.materialise_start_time		= opengl_mat.materialise_start_time;
+	uniforms.dopacity_dt				= opengl_mat.dopacity_dt;
 }
 
 
@@ -11415,6 +11452,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "pre-pass          : " + doubleToStringNSigFigs(last_depth_pre_pass_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "compute SSAO      : " + doubleToStringNSigFigs(last_compute_ssao_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "\n";
 
 	const GLMemUsage mem_usage = this->getTotalMemUsage();

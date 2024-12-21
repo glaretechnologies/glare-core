@@ -951,8 +951,6 @@ void main()
 
 
 
-	col *= 3.0; // tone-map
-
 	//TEMP
 	//vec2 o_ss = cameraToScreenSpace(pos_cs); // Get current fragment screen space position
 	//col = vec3(getDepthFromDepthTexture(o_ss.x, o_ss.y)) * 0.001;

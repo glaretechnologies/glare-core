@@ -19,8 +19,8 @@ void main()
 	if(have_texture != 0)
 	{
 		vec4 texcol = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
-		colour_out = vec4(texcol.x, texcol.y, texcol.z, texcol.w) * diffuse_colour;
+		colour_out = vec4(texcol.x, texcol.y, texcol.z, texcol.w) * diffuse_colour * vec4(vec3(1.0 / 3.0), 1.0); // 1/3 is to adjust for tonemapping scale by 3.
 	}
 	else
-		colour_out = diffuse_colour;
+		colour_out = diffuse_colour * vec4(vec3(1.0 / 3.0), 1.0); // 1/3 is to adjust for tonemapping scale by 3.
 }

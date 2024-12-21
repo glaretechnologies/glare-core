@@ -31,7 +31,8 @@ struct PerObjectVertUniformsStruct
 
 	float depth_draw_depth_bias;
 
+	float model_matrix_upper_left_det;
+
 	float padding_po1;
 	float padding_po2;
-	float padding_po3;
 };

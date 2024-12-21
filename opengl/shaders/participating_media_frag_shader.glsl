@@ -361,9 +361,8 @@ void main()
 	vec4 front_tex_col = texture(TRANSMISSION_TEX, main_tex_coords);
 
 	// materialise_start_time = particle spawn time
-	// materialise_upper_z = dopacity/dt
 	float life_time = time - MAT_UNIFORM.materialise_start_time;
-	float overall_alpha_factor = max(0.0, min(1.0, MAT_UNIFORM.diffuse_colour.w + life_time * MAT_UNIFORM.materialise_upper_z));
+	float overall_alpha_factor = max(0.0, min(1.0, MAT_UNIFORM.diffuse_colour.w + life_time * MAT_UNIFORM.dopacity_dt));
 
 	float alpha = up_tex_col.a * overall_alpha_factor;
 
@@ -383,8 +382,6 @@ void main()
 	col.xyz *= transmission;
 	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission);
 #endif
-
-	col *= 3.0; // tone-map
 
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, alpha);

@@ -139,6 +139,7 @@ public:
 		materialise_lower_z(0),
 		materialise_upper_z(1),
 		materialise_start_time(-20000),
+		dopacity_dt(0),
 		material_data_index(-1)
 	{}
 
@@ -196,8 +197,10 @@ public:
 
 	float materialise_lower_z;
 	float materialise_upper_z;
-	float materialise_start_time;
-	
+	float materialise_start_time; // For participating media and decals which use dopacity_dt: spawn time
+
+	float dopacity_dt;
+
 	uint64 userdata;
 
 	// Kind-of user-data.  Only used in OpenGLEngine::addOpenGLTexture() and OpenGLEngine::assignLoadedTextureToObMaterials() currently, which should be removed/refactored:
@@ -304,7 +307,7 @@ struct GLObject
 	ArrayRef<OpenGLBatch> getUsedBatches() const { return use_batches.nonEmpty() ? ArrayRef<OpenGLBatch>(use_batches) : ArrayRef<OpenGLBatch>(mesh_data->batches); }
 
 	Matrix4f ob_to_world_matrix;
-	Matrix4f ob_to_world_normal_matrix; // Adjugate transpose of upper-left part of ob-to-world matrix.
+	Matrix4f ob_to_world_normal_matrix; // Sign of the determinant * adjugate transpose of upper-left part of ob-to-world matrix.  sign(det(M)) (adj(M)^T)
 
 	js::AABBox aabb_ws;
 
@@ -336,7 +339,6 @@ struct GLObject
 	bool always_visible; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	bool draw_to_mask_map; // Draw to terrain mask map?
 	bool is_imposter;
-	bool decal;
 	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
 	js::Vector<GlInstanceInfo, 16> instance_info; // Used for updating instance + imposter matrices.
 	
@@ -714,9 +716,9 @@ struct PhongUniforms
 	float materialise_upper_z;
 	float materialise_start_time;
 
+	float dopacity_dt; // dopacity/dt
 	float padding_b0;
 	float padding_b1;
-	float padding_b2;
 };
 
 
@@ -799,9 +801,9 @@ struct PerObjectVertUniforms
 
 	float depth_draw_depth_bias;
 
+	float model_matrix_upper_left_det;
 	float padding_po1;
 	float padding_po2;
-	float padding_po3;
 };
 
 
@@ -893,7 +895,7 @@ public:
 
 	//---------------------------- Updating objects ------------------------------------------
 	void updateObjectTransformData(GLObject& object); // Updates object ob_to_world_inv_transpose_matrix and aabb_ws, then updates object data on GPU.
-	void objectTransformDataChanged(GLObject& object); // Just update object data on GPU.
+	void objectTransformDataChanged(GLObject& object, float ob_to_world_determinant); // Just update object data on GPU.
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
 	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
@@ -1033,7 +1035,7 @@ public:
 	Reference<OpenGLMeshRenderData> getSpriteQuadMeshData() { return sprite_quad_meshdata; }
 
 	GLObjectRef makeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
-	GLObjectRef makeCuboidEdgeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col);
+	GLObjectRef makeCuboidEdgeAABBObject(const Vec4f& min_, const Vec4f& max_, const Colour4f& col, float edge_width_scale = 0.1f);
 	GLObjectRef makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale);
 	GLObjectRef makeSphereObject(float radius, const Colour4f& col);
 	GLObjectRef makeCylinderObject(float radius, const Colour4f& col); // A cylinder from (0,0,0), to (0,0,1) with radius 1;
@@ -1356,6 +1358,7 @@ private:
 
 	Reference<FrameBuffer> compute_ssao_output_framebuffer;
 	OpenGLTextureRef compute_ssao_output_texture;
+	OpenGLTextureRef compute_ssao_specular_output_texture;
 
 
 	std::unordered_set<GLObject*> selected_objects;
@@ -1432,6 +1435,7 @@ private:
 	QueryRef draw_opaque_obs_gpu_timer;
 	QueryRef depth_pre_pass_gpu_timer;
 	QueryRef compute_ssao_gpu_timer;
+	QueryRef decal_copy_buffers_timer;
 	
 	uint32 last_num_prog_changes;
 	uint32 last_num_batches_bound;
@@ -1453,6 +1457,7 @@ private:
 	double last_draw_opaque_obs_GPU_time;
 	double last_depth_pre_pass_GPU_time;
 	double last_compute_ssao_GPU_time;
+	double last_decal_copy_buffers_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
 

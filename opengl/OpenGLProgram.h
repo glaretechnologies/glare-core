@@ -32,6 +32,7 @@ struct UniformLocations
 	int cirrus_tex_location; // Just for water reflection of cirrus
 	int aurora_tex_location;
 	int ssao_output_tex_location;
+	int ssao_specular_output_tex_location;
 	int detail_tex_0_location;
 	int detail_tex_1_location;
 	int detail_tex_2_location;

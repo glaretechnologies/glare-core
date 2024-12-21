@@ -197,8 +197,6 @@ void main()
 
 #endif // RENDER_SUN_AND_SKY
 
-	col *= 3.0; // tone-map
-
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, 1);
 #else

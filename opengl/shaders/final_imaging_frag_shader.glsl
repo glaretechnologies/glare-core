@@ -113,6 +113,6 @@ void main()
 	}
 	
 	float alpha = 1.f;
-	colour_out = vec4(toNonLinear(ACESFilm(col.xyz * 0.65)), alpha);
-	//colour_out = vec4(toNonLinear(col.xyz), alpha);
+	colour_out = vec4(toNonLinear(ACESFilm(col.xyz * (3.0 * 0.65))), alpha);
+	//colour_out = vec4(toNonLinear(3.0 * col.xyz), alpha); // linear tonemapping
 }
