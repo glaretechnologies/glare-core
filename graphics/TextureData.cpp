@@ -52,6 +52,7 @@ size_t TextureData::numChannels() const
 		case Format_SRGB_Uint8: return 3;
 		case Format_SRGBA_Uint8: return 4;
 		case Format_RGB_Linear_Uint8: return 3;
+		case Format_RGB_Integer_Uint8: return 3;
 		case Format_RGBA_Linear_Uint8: return 4;
 		case Format_RGB_Linear_Float: return 3;
 		case Format_RGB_Linear_Half: return 3;
@@ -83,6 +84,7 @@ double TextureData::uncompressedBitsPerChannel() const
 		case Format_SRGB_Uint8: return 8;
 		case Format_SRGBA_Uint8: return 8;
 		case Format_RGB_Linear_Uint8: return 8;
+		case Format_RGB_Integer_Uint8: return 8;
 		case Format_RGBA_Linear_Uint8: return 8;
 		case Format_RGB_Linear_Float: return 32;
 		case Format_RGB_Linear_Half: return 16;

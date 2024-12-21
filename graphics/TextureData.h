@@ -50,6 +50,7 @@ enum OpenGLTextureFormat
 	Format_SRGB_Uint8,
 	Format_SRGBA_Uint8,
 	Format_RGB_Linear_Uint8,
+	Format_RGB_Integer_Uint8,
 	Format_RGBA_Linear_Uint8,
 	Format_RGB_Linear_Float,
 	Format_RGB_Linear_Half,

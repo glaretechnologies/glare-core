@@ -202,6 +202,11 @@ void OpenGLTexture::getGLFormat(OpenGLTextureFormat format_, GLint& internal_for
 		gl_format = GL_RGB;
 		type = GL_UNSIGNED_BYTE;
 		break;
+	case Format_RGB_Integer_Uint8:
+		internal_format = GL_RGB8UI;
+		gl_format = GL_RGB_INTEGER;
+		type = GL_UNSIGNED_BYTE;
+		break;
 	case Format_RGBA_Linear_Uint8:
 		internal_format = GL_RGBA8;
 		gl_format = GL_RGBA;
