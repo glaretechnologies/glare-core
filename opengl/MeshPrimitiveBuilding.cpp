@@ -109,15 +109,17 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBu
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh(VertexBufferAllocator& allocator)
 {
 	const int res = 20;
+	const int verts_per_angle = 4 + 4 + 3;
+	const int indices_per_angle = 6 + 6 + 3;
 
 	js::Vector<Vec3f, 16> verts;
-	verts.resize(res * 4 * 2);
+	verts.resize(res * verts_per_angle);
 	js::Vector<Vec3f, 16> normals;
-	normals.resize(res * 4 * 2);
+	normals.resize(res * verts_per_angle);
 	js::Vector<Vec2f, 16> uvs;
-	uvs.resize(res * 4 * 2);
+	uvs.resize(res * verts_per_angle);
 	js::Vector<uint32, 16> indices;
-	indices.resize(res * 6 * 2); // two tris per quad
+	indices.resize(res * indices_per_angle);
 
 	const Vec3f dir(1,0,0);
 	const Vec3f basis_i(0,1,0);
@@ -128,43 +130,42 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh(VertexBuf
 	const float shaft_len = length * 0.8f;
 	const float head_r = length * 0.04f;
 
-	// Draw cylinder for shaft of arrow
 	for(int i=0; i<res; ++i)
 	{
 		const float angle      = i       * Maths::get2Pi<float>() / res;
 		const float next_angle = (i + 1) * Maths::get2Pi<float>() / res;
 
-		// Define quad
+		// Define cylinder for shaft of arrow
 		{
 			Vec3f normal1(basis_i * cos(angle     ) + basis_j * sin(angle     ));
 			Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
 
-			normals[i*8 + 0] = normal1;
-			normals[i*8 + 1] = normal2;
-			normals[i*8 + 2] = normal2;
-			normals[i*8 + 3] = normal1;
+			normals[i*verts_per_angle + 0] = normal1;
+			normals[i*verts_per_angle + 1] = normal2;
+			normals[i*verts_per_angle + 2] = normal2;
+			normals[i*verts_per_angle + 3] = normal1;
 
 			Vec3f v0((basis_i * cos(angle     ) + basis_j * sin(angle     )) * shaft_r);
 			Vec3f v1((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r);
 			Vec3f v2((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * shaft_r + dir * shaft_len);
 			Vec3f v3((basis_i * cos(angle     ) + basis_j * sin(angle     )) * shaft_r + dir * shaft_len);
 
-			verts[i*8 + 0] = v0;
-			verts[i*8 + 1] = v1;
-			verts[i*8 + 2] = v2;
-			verts[i*8 + 3] = v3;
+			verts[i*verts_per_angle + 0] = v0;
+			verts[i*verts_per_angle + 1] = v1;
+			verts[i*verts_per_angle + 2] = v2;
+			verts[i*verts_per_angle + 3] = v3;
 
-			uvs[i*8 + 0] = Vec2f(0.f);
-			uvs[i*8 + 1] = Vec2f(0.f);
-			uvs[i*8 + 2] = Vec2f(0.f);
-			uvs[i*8 + 3] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 0] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 1] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 2] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 3] = Vec2f(0.f);
 
-			indices[i*12 + 0] = i*8 + 0; 
-			indices[i*12 + 1] = i*8 + 1; 
-			indices[i*12 + 2] = i*8 + 2; 
-			indices[i*12 + 3] = i*8 + 0;
-			indices[i*12 + 4] = i*8 + 2;
-			indices[i*12 + 5] = i*8 + 3;
+			indices[i*indices_per_angle + 0] = i*verts_per_angle + 0; 
+			indices[i*indices_per_angle + 1] = i*verts_per_angle + 1; 
+			indices[i*indices_per_angle + 2] = i*verts_per_angle + 2; 
+			indices[i*indices_per_angle + 3] = i*verts_per_angle + 0;
+			indices[i*indices_per_angle + 4] = i*verts_per_angle + 2;
+			indices[i*indices_per_angle + 5] = i*verts_per_angle + 3;
 		}
 
 		// Define arrow head
@@ -174,32 +175,51 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DArrowMesh(VertexBuf
 			Vec3f normal1(basis_i * cos(angle     ) + basis_j * sin(angle     ));
 			Vec3f normal2(basis_i * cos(next_angle) + basis_j * sin(next_angle));
 
-			normals[i*8 + 4] = normal1;
-			normals[i*8 + 5] = normal2;
-			normals[i*8 + 6] = normal2;
-			normals[i*8 + 7] = normal1;
+			normals[i*verts_per_angle + 4] = normal1;
+			normals[i*verts_per_angle + 5] = normal2;
+			normals[i*verts_per_angle + 6] = normal2;
+			normals[i*verts_per_angle + 7] = normal1;
 
 			Vec3f v0((basis_i * cos(angle     ) + basis_j * sin(angle     )) * head_r + dir * shaft_len);
 			Vec3f v1((basis_i * cos(next_angle) + basis_j * sin(next_angle)) * head_r + dir * shaft_len);
 			Vec3f v2(dir * length);
 			Vec3f v3(dir * length);
 
-			verts[i*8 + 4] = v0;
-			verts[i*8 + 5] = v1;
-			verts[i*8 + 6] = v2;
-			verts[i*8 + 7] = v3;
+			verts[i*verts_per_angle + 4] = v0;
+			verts[i*verts_per_angle + 5] = v1;
+			verts[i*verts_per_angle + 6] = v2;
+			verts[i*verts_per_angle + 7] = v3;
 
-			uvs[i*8 + 4] = Vec2f(0.f);
-			uvs[i*8 + 5] = Vec2f(0.f);
-			uvs[i*8 + 6] = Vec2f(0.f);
-			uvs[i*8 + 7] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 4] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 5] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 6] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 7] = Vec2f(0.f);
 
-			indices[i*12 +  6] = i*8 + 4; 
-			indices[i*12 +  7] = i*8 + 5; 
-			indices[i*12 +  8] = i*8 + 6; 
-			indices[i*12 +  9] = i*8 + 4;
-			indices[i*12 + 10] = i*8 + 6;
-			indices[i*12 + 11] = i*8 + 7;
+			indices[i*indices_per_angle +  6] = i*verts_per_angle + 4; 
+			indices[i*indices_per_angle +  7] = i*verts_per_angle + 5; 
+			indices[i*indices_per_angle +  8] = i*verts_per_angle + 6; 
+			indices[i*indices_per_angle +  9] = i*verts_per_angle + 4;
+			indices[i*indices_per_angle + 10] = i*verts_per_angle + 6;
+			indices[i*indices_per_angle + 11] = i*verts_per_angle + 7;
+		}
+
+		// Draw disc on bottom of arrow head
+		{
+			normals[i*verts_per_angle +  8] = -dir;
+			normals[i*verts_per_angle +  9] = -dir;
+			normals[i*verts_per_angle + 10] = -dir;
+
+			verts[i*verts_per_angle +  8] = dir * shaft_len;
+			verts[i*verts_per_angle +  9] = (basis_i * cos(next_angle) + basis_j * sin(next_angle)) * head_r + dir * shaft_len;
+			verts[i*verts_per_angle + 10] = (basis_i * cos(     angle) + basis_j * sin(     angle)) * head_r + dir * shaft_len;
+
+			uvs[i*verts_per_angle +  8] = Vec2f(0.f);
+			uvs[i*verts_per_angle +  9] = Vec2f(0.f);
+			uvs[i*verts_per_angle + 10] = Vec2f(0.f);
+
+			indices[i*indices_per_angle + 12] = i*verts_per_angle +  8; 
+			indices[i*indices_per_angle + 13] = i*verts_per_angle +  9; 
+			indices[i*indices_per_angle + 14] = i*verts_per_angle + 10; 
 		}
 	}
 
