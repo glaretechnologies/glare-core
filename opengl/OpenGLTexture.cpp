@@ -212,6 +212,11 @@ void OpenGLTexture::getGLFormat(OpenGLTextureFormat format_, GLint& internal_for
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
+	case Format_RGBA_Integer_Uint8:
+		internal_format = GL_RGBA8UI;
+		gl_format = GL_RGBA_INTEGER;
+		type = GL_UNSIGNED_BYTE;
+		break;
 	case Format_RGB_Linear_Float:
 		internal_format = GL_RGB32F;
 		gl_format = GL_RGB;
@@ -330,6 +335,8 @@ static double getInternalPixelSizeB(GLint internal_format)
 		case GL_SRGB8_ALPHA8: return 4;
 		case GL_RGB8: return 3;
 		case GL_RGBA8: return 4;
+		case GL_RGB8UI: return 3;
+		case GL_RGBA8UI: return 4;
 		case GL_RGB32F: return 12;
 		case GL_RGBA32F: return 16;
 		case GL_RGB16F: return 6;
@@ -341,8 +348,17 @@ static double getInternalPixelSizeB(GLint internal_format)
 		case GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT: return 0.5; // 8 bytes per 4*4 pixel block
 		case GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: return 1; // 16 bytes per 4*4 pixel block
 		case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT: return 1; // 16 bytes per 4*4 pixel block
+
+		case GL_COMPRESSED_RGB8_ETC2: return 0.5;  // 8 bytes per 4*4 pixel block
+		case GL_COMPRESSED_RGBA8_ETC2_EAC: return 1; // 16 bytes per 4*4 pixel block
+		case GL_COMPRESSED_SRGB8_ETC2: return 0.5;
+		case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC: return 1;
+
 		default:
 		{
+#ifndef NDEBUG
+			conPrint("unimplemented getInternalPixelSizeB for " + toString(internal_format));
+#endif
 			assert(0);
 			return 1;
 		}
@@ -361,6 +377,8 @@ std::string getStringForGLInternalFormat(GLint internal_format)
 		case GL_SRGB8_ALPHA8: return "GL_SRGB8_ALPHA8";
 		case GL_RGB8: return "GL_RGB8";
 		case GL_RGBA8: return "GL_RGBA8";
+		case GL_RGB8UI: return "GL_RGB8UI";
+		case GL_RGBA8UI: return "GL_RGBA8UI";
 		case GL_RGB32F: return "GL_RGB32F";
 		case GL_RGBA32F: return "GL_RGBA32F";
 		case GL_RGB16F: return "GL_RGB16F";
@@ -372,6 +390,12 @@ std::string getStringForGLInternalFormat(GLint internal_format)
 		case GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT: return "GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT";
 		case GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: return "GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT";
 		case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT: return "GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT";
+
+		case GL_COMPRESSED_RGB8_ETC2: return "GL_COMPRESSED_RGB8_ETC2";
+		case GL_COMPRESSED_RGBA8_ETC2_EAC: return "GL_COMPRESSED_RGB8_ETC2";
+		case GL_COMPRESSED_SRGB8_ETC2: return "GL_COMPRESSED_SRGB8_ETC2";
+		case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC: return "GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC";
+
 		default: return "[Unknown]";
 	};
 }
