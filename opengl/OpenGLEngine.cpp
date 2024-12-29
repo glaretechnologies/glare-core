@@ -2019,6 +2019,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		preprocessor_defines += "#define ORDER_INDEPENDENT_TRANSPARENCY " + (use_order_indep_transparency ? std::string("1") : std::string("0")) + "\n";
 
+#if defined(EMSCRIPTEN)
+		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT 0\n";
+#else
+		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT 1\n";
+#endif
+
 		if(use_bindless_textures)
 			preprocessor_defines += "#extension GL_ARB_bindless_texture : require\n";
 
@@ -2026,6 +2032,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		preprocessor_defines += "precision mediump float;\n"; // WebGL needs this stuff.
 		preprocessor_defines += "precision mediump sampler2DShadow;\n";
 		preprocessor_defines += "precision mediump sampler2DArray;\n";
+		preprocessor_defines += "precision mediump usampler2D;\n";
 #endif
 
 		int use_glsl_version = 330;
@@ -6550,7 +6557,12 @@ void OpenGLEngine::draw()
 
 			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
 			// Use an integer format, so that MSAA downsampling gives valid normals.
+			// However Format_RGB_Integer_Uint8 isn't supported as a renderbuffer format in OpenGL ES, see https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glRenderbufferStorage.xhtml
+#if EMSCRIPTEN
+			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Uint8; 
+#else
 			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGB_Integer_Uint8;
+#endif
 
 			main_normal_copy_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(NULL, 0), // data
@@ -10217,7 +10229,7 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	if(shader_prog.uses_phong_uniforms)
 	{
 		// Set blob shadows location data
-		glUniform1i(shader_prog.uniform_locations.num_blob_positions_location, (int)current_scene->blob_shadow_locations.size());
+		glUniform1i(shader_prog.uniform_locations.num_blob_positions_location, settings.ssao ? 0 : (int)current_scene->blob_shadow_locations.size()); // When SSAO is enabled, don't do blob shadows.
 
 		if(current_scene->blob_shadow_locations.size() > 0) // Avoid call with count=0.  (this causes an error in Emscripten, and is unneeded)
 			glUniform4fv(shader_prog.uniform_locations.blob_positions_location, (int)current_scene->blob_shadow_locations.size(), (const float*)current_scene->blob_shadow_locations.data());
@@ -10368,7 +10380,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
 			if(this->cirrus_tex.nonNull())
 				assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
-		}
+	}
 
 		assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
 		assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX) == fbm_tex->texture_handle);
@@ -11492,6 +11504,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "SSBO support: " + boolToString(GL_ARB_shader_storage_buffer_object_support) + "\n";
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";
 	s += "total available GPU VBO mem (amd): " + getNiceByteSize(total_available_GPU_VBO_mem_B) + "\n";
+	s += "settings.ssao: " + boolToString(settings.ssao) + "\n";
 
 	if(main_colour_renderbuffer.nonNull())
 		s += "main_colour_renderbuffer (offscreen): " + toString(main_colour_renderbuffer->xRes()) + " x " + toString(main_colour_renderbuffer->yRes()) + ", MSAA samples: " + toString(main_colour_renderbuffer->MSAASamples()) + "\n";
