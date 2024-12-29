@@ -27,7 +27,7 @@ static const std::string getLog(GLuint program)
 	if(log_length > 0)
 	{
 		log.resize(log_length - 1);
-		glGetProgramInfoLog(program, log_length, NULL, &log[0]);
+		glGetProgramInfoLog(program, log_length, NULL, log.data());
 	}
 	return log;
 }

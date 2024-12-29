@@ -86,7 +86,7 @@ std::string OpenGLShader::getLog()
 	if(log_length > 0)
 	{
 		log.resize(log_length - 1);
-		glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
+		glGetShaderInfoLog(shader, log_length, NULL, log.data());
 	}
 	return log;
 }
