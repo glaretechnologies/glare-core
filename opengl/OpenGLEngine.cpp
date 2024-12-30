@@ -175,7 +175,7 @@ public:
 GLObject::GLObject() noexcept
 	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
-	depth_draw_depth_bias(0), determinant_positive(true)
+	depth_draw_depth_bias(0), ob_to_world_matrix_determinant(1.f)
 {
 	for(int i=0; i<MAX_NUM_LIGHT_INDICES; ++i)
 		light_indices[i] = -1;
@@ -371,7 +371,6 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	env_ob = engine.allocateObject();
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
 	env_ob->ob_to_world_normal_matrix = Matrix4f::identity();
-	env_ob->determinant_positive = true;
 	env_ob->materials.resize(1);
 }
 
@@ -3264,7 +3263,7 @@ struct LightDistComparator
 };
 
 
-// Sets object ob_to_world_inv_transpose_matrix and aabb_ws, then updates object data on GPU.
+// Sets object ob_to_world_normal_matrix, ob_to_world_matrix_determinant and aabb_ws, then updates object data on GPU.
 void OpenGLEngine::setObjectTransformData(GLObject& object)
 {
 	assert(::isFinite(object.ob_to_world_matrix.e[0]));
@@ -3276,10 +3275,10 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 	to_world.getUpperLeftAdjugateTranspose(/*result=*/object.ob_to_world_normal_matrix);
 
 	const float upper_left_det = to_world.upperLeftDeterminant();
-	object.determinant_positive = upper_left_det >= 0.f;
+	object.ob_to_world_matrix_determinant = upper_left_det;
 
 	// Apply sign(det(M)) factor
-	if(!object.determinant_positive)
+	if(upper_left_det < 0.f)
 		object.ob_to_world_normal_matrix.negateInPlace();
 
 	object.aabb_ws = object.mesh_data->aabb_os.transformedAABBFast(to_world);
@@ -3330,16 +3329,16 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 {
 	// If the determinant sign changes, then we need to change back-face culling to front-face culling and vice versa.
 	// That is done in rebuildDenormalisedDrawData().
-	const bool old_det_positive = object.determinant_positive;
+	const bool old_det_positive = object.ob_to_world_matrix_determinant >= 0.f;
 
 	setObjectTransformData(object);
 
-	if(object.determinant_positive != old_det_positive)
+	if((object.ob_to_world_matrix_determinant >= 0.f) != old_det_positive)
 		rebuildDenormalisedDrawData(object);
 }
 
 
-void OpenGLEngine::objectTransformDataChanged(GLObject& object, float ob_to_world_determinant)
+void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 {
 	// Update object data on GPU
 	if(use_multi_draw_indirect)
@@ -3350,7 +3349,7 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object, float ob_to_worl
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
-		uniforms.model_matrix_upper_left_det = ob_to_world_determinant;
+		uniforms.model_matrix_upper_left_det = object.ob_to_world_matrix_determinant;
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
@@ -3757,7 +3756,7 @@ static inline bool backfaceCullMat(const OpenGLMaterial& mat)
 
 static inline uint32 faceCullBits(const GLObject& object, const OpenGLMaterial& mat)
 {
-	return backfaceCullMat(mat) ? (object.determinant_positive ? CULL_BACKFACE_BITS : CULL_FRONTFACE_BITS) : 0;
+	return backfaceCullMat(mat) ? ((object.ob_to_world_matrix_determinant >= 0.f) ? CULL_BACKFACE_BITS : CULL_FRONTFACE_BITS) : 0;
 }
 
 
@@ -7924,7 +7923,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 
 #ifndef NDEBUG
 					const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-					const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+					const uint32 face_culling_bits = face_culling ? ((ob->ob_to_world_matrix_determinant >= 0.f) ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
 					assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_ALPHA_BLEND_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].participating_media || ob->materials[ob->getUsedBatches()[z].material_index].alpha_blend);
 #endif
@@ -8083,7 +8082,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 
 #ifndef NDEBUG
 							const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-							const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+							const uint32 face_culling_bits = face_culling ? ((ob->ob_to_world_matrix_determinant >= 0.f) ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
 							assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 
@@ -8289,7 +8288,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 
 #ifndef NDEBUG
 						const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-						const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+						const uint32 face_culling_bits = face_culling ? ((ob->ob_to_world_matrix_determinant >= 0.f) ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
 						assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_WATER_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].water);
 
@@ -8433,7 +8432,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 #ifndef NDEBUG
 					const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-					const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+					const uint32 face_culling_bits = face_culling ? ((ob->ob_to_world_matrix_determinant >= 0.f) ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
 					assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 					assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 
@@ -8668,7 +8667,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 
 #ifndef NDEBUG
 				const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-				const uint32 face_culling_bits = face_culling ? (ob->determinant_positive ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+				const uint32 face_culling_bits = face_culling ? ((ob->ob_to_world_matrix_determinant >= 0.f) ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
 				assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
 				assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 #endif
@@ -10294,6 +10293,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
+				uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else
@@ -10567,6 +10567,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
+				uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else

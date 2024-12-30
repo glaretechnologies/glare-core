@@ -359,7 +359,7 @@ struct GLObject
 
 	float depth_draw_depth_bias; // Distance to move fragment position towards sun when drawing to depth buffer.
 
-	bool determinant_positive;
+	float ob_to_world_matrix_determinant;
 
 	js::Vector<GLObjectAnimNodeData, 16> anim_node_data;
 	js::Vector<Matrix4f, 16> joint_matrices;
@@ -895,7 +895,7 @@ public:
 
 	//---------------------------- Updating objects ------------------------------------------
 	void updateObjectTransformData(GLObject& object); // Updates object ob_to_world_inv_transpose_matrix and aabb_ws, then updates object data on GPU.
-	void objectTransformDataChanged(GLObject& object, float ob_to_world_determinant); // Just update object data on GPU.
+	void objectTransformDataChanged(GLObject& object); // Just update object data on GPU.
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
 	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
@@ -1110,7 +1110,7 @@ private:
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const;
 	void assignLightsToObject(GLObject& ob);
 	void assignLightsToAllObjects();
-	void setObjectTransformData(GLObject& object); // Sets object ob_to_world_inv_transpose_matrix and aabb_ws, then updates object data on GPU.
+	void setObjectTransformData(GLObject& object); // Sets object ob_to_world_normal_matrix, ob_to_world_matrix_determinant and aabb_ws, then updates object data on GPU.
 public:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
 private:
