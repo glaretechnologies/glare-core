@@ -45,6 +45,8 @@ public:
 
 	// NOTE: Framebuffer must be bound before calling this.
 	GLuint getAttachedTextureName(GLenum attachment_point);
+	
+	bool isComplete();
 
 
 	// Will return 0 if texture has not been bound yet.

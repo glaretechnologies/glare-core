@@ -2019,7 +2019,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		preprocessor_defines += "#define ORDER_INDEPENDENT_TRANSPARENCY " + (use_order_indep_transparency ? std::string("1") : std::string("0")) + "\n";
 
-#if defined(EMSCRIPTEN)
+#if defined(EMSCRIPTEN) || defined(__APPLE__)
 		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT 0\n";
 #else
 		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT 1\n";
@@ -6558,7 +6558,8 @@ void OpenGLEngine::draw()
 			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
 			// Use an integer format, so that MSAA downsampling gives valid normals.
 			// However Format_RGB_Integer_Uint8 isn't supported as a renderbuffer format in OpenGL ES, see https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glRenderbufferStorage.xhtml
-#if EMSCRIPTEN
+			// It also doesn't work properly on Apple machines. (shader doesn't output anything, just black output)
+#if defined(EMSCRIPTEN) || defined(__APPLE__)
 			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Uint8; 
 #else
 			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGB_Integer_Uint8;
@@ -6628,12 +6629,14 @@ void OpenGLEngine::draw()
 			main_render_framebuffer->attachRenderBuffer(*main_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
 			main_render_framebuffer->attachRenderBuffer(*main_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
 			main_render_framebuffer->attachRenderBuffer(*main_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+			assert(main_render_framebuffer->isComplete());
 
 
 			main_render_copy_framebuffer = new FrameBuffer();
 			main_render_copy_framebuffer->attachTexture(*main_colour_copy_texture, GL_COLOR_ATTACHMENT0);
 			main_render_copy_framebuffer->attachTexture(*main_normal_copy_texture, GL_COLOR_ATTACHMENT1);
 			main_render_copy_framebuffer->attachTexture(*main_depth_copy_texture, GL_DEPTH_ATTACHMENT);
+			assert(main_render_copy_framebuffer->isComplete());
 
 
 			//----------------- Prepass render buffers / textures / framebuffers -----------------

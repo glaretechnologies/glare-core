@@ -141,3 +141,12 @@ GLuint FrameBuffer::getAttachedTextureName(GLenum attachment_point)
 	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
 	return (GLuint)name;
 }
+
+
+bool FrameBuffer::isComplete()
+{
+	bindForDrawing(); // Bind this frame buffer
+	
+	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	return is_complete == GL_FRAMEBUFFER_COMPLETE;
+}
