@@ -251,7 +251,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
 	vec3 scattering = vec3(0.4, 0.4, 0.1);
 
-	vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 3.0); // Get colour value at refracted ground position, undo tonemapping.
+	vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz; // Get colour value at refracted ground position.
 //return src_col;
 	vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
 	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
@@ -440,7 +440,7 @@ void main()
 			float px = refracted_dir_cs.x / -refracted_dir_cs.z * l_over_w + 0.5;
 			float py = refracted_dir_cs.y / -refracted_dir_cs.z * l_over_h + 0.5;
 
-			vec3 src_col = texture(main_colour_texture, vec2(px, py)).xyz * (1.0 / 3.0); // Get colour value at refracted ground position, undo tonemapping.
+			vec3 src_col = texture(main_colour_texture, vec2(px, py)).xyz; // Get colour value at refracted ground position.
 
 			col = src_col;
 		}
@@ -615,7 +615,7 @@ void main()
 				// Take the final point as the midpoint (in screen space) of the interval in which the intersection lies
 				t = (lower_t + upper_t) * 0.5f;
 				vec2 cur_ss = o_ss + dir_ss * t;
-				spec_refl_light_already_fogged = texture(main_colour_texture, cur_ss).xyz * (1.0 / 3.0); // Undo tonemapping
+				spec_refl_light_already_fogged = texture(main_colour_texture, cur_ss).xyz;
 
 				//spec_refl_light_already_fogged = vec3(100000000.0);//TEMP HACK
 			}
