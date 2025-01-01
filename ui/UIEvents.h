@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2023 -
 
 struct MouseCursorState
 {
-	Vec2i cursor_pos; // Pixel coordinates of mouse cursor relative to widget
+	Vec2i cursor_pos; // Physical pixel coordinates of mouse cursor relative to widget
 	Vec2f gl_coords; // OpenGL coordinates of cursor position
 	bool ctrl_key_down;
 	bool alt_key_down;
@@ -129,7 +129,7 @@ class MouseEvent
 public:
 	MouseEvent() : cursor_pos(0, 0), gl_coords(0, 0), accepted(false), modifiers(0), button(MouseButton::None), button_state(0) {}
 
-	Vec2i cursor_pos;
+	Vec2i cursor_pos; // GLWidget physical pixel coordinates
 	Vec2f gl_coords;
 	uint32 modifiers;
 	MouseButton button;
@@ -144,7 +144,7 @@ class MouseWheelEvent
 public:
 	MouseWheelEvent() : modifiers(0), accepted(false) {}
 
-	Vec2i cursor_pos;
+	Vec2i cursor_pos; // GLWidget physical pixel coordinates
 	Vec2f gl_coords;
 	Vec2i angle_delta;
 	uint32 modifiers;
