@@ -523,6 +523,10 @@ void main()
 
 	// Note that this code updates use_texture_coords and use_normal_ws.
 #if DECAL
+	#if NUM_DEPTH_TEXTURES > 0
+	vec3 decal_shadow_tex_coords[NUM_DEPTH_TEXTURES];
+	#endif
+
 	{
 		// Compute world-space position and normal of existing fragment based on normal and depth buffer.
 
@@ -554,6 +558,12 @@ void main()
 		}
 
 		use_normal_ws = src_normal_ws;
+		pos_cs.z = -depth; // Update pos_cs (used for shadow mapping)
+
+		#if NUM_DEPTH_TEXTURES > 0
+		for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
+			decal_shadow_tex_coords[i] = (frag_shadow_texture_matrix[i] * vec4(src_pos_ws, 1.0)).xyz;
+		#endif
 	}
 #endif
 
@@ -962,6 +972,12 @@ void main()
 
 #define VISUALISE_CASCADES 0
 
+#if DECAL
+	#define final_shadow_tex_coords decal_shadow_tex_coords
+#else
+	#define final_shadow_tex_coords shadow_tex_coords
+#endif
+
 	if(sun_light_cos_theta_factor != 0.0) // Avoid doing shadow map lookups for faces facing away from sun.
 	{
 		float samples_scale = 1.f;
@@ -980,12 +996,12 @@ void main()
 		{
 			if(dist < DEPTH_TEXTURE_SCALE_MULT) // if dynamic_depth_tex_index == 0:
 			{
-				float tex_0_vis = sampleDynamicDepthMap(R, shadow_tex_coords[0], /*bias=*/depth_map_0_bias);
+				float tex_0_vis = sampleDynamicDepthMap(R, final_shadow_tex_coords[0], /*bias=*/depth_map_0_bias);
 
 				float edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT;
 				if(dist > edge_dist)
 				{
-					float tex_1_vis = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
+					float tex_1_vis = sampleDynamicDepthMap(R, final_shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
 
 					float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT, dist);
 					sun_vis_factor = mix(tex_0_vis, tex_1_vis, blend_factor);
@@ -999,14 +1015,14 @@ void main()
 			}
 			else
 			{
-				sun_vis_factor = sampleDynamicDepthMap(R, shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
+				sun_vis_factor = sampleDynamicDepthMap(R, final_shadow_tex_coords[1], /*bias=*/depth_map_1_bias);
 
 				float edge_dist = 0.6f * (DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT);
 
 				// Blending with static shadow map 0
 				if(dist > edge_dist)
 				{
-					vec3 static_shadow_cds = shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
+					vec3 static_shadow_cds = final_shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
 
 					float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds, static_depth_map_bias); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
 
@@ -1032,21 +1048,21 @@ void main()
 				{
 					static_depth_tex_index = 0;
 					cascade_end_dist = 64.0;
-					shadow_cds      = shadow_tex_coords[0 + NUM_DYNAMIC_DEPTH_TEXTURES];
-					next_shadow_cds = shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
+					shadow_cds      = final_shadow_tex_coords[0 + NUM_DYNAMIC_DEPTH_TEXTURES];
+					next_shadow_cds = final_shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
 				}
 				else if(l1dist < 256.0)
 				{
 					static_depth_tex_index = 1;
 					cascade_end_dist = 256.0;
-					shadow_cds      = shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
-					next_shadow_cds = shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
+					shadow_cds      = final_shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
+					next_shadow_cds = final_shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
 				}
 				else
 				{
 					static_depth_tex_index = 2;
 					cascade_end_dist = 1024.0;
-					shadow_cds = shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
+					shadow_cds = final_shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
 					next_shadow_cds = vec3(0.0); // Suppress warning about being possibly uninitialised.
 				}
 

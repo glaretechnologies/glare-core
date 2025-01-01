@@ -22,6 +22,8 @@ layout (std140) uniform MaterialCommonUniforms
 	float padding_a0;
 	float padding_a1;
 	float padding_a2;
+
+	mat4 frag_shadow_texture_matrix[5];
 };
 
 

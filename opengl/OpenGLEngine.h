@@ -745,6 +745,8 @@ struct MaterialCommonUniforms
 	float padding_a0;
 	float padding_a1;
 	float padding_a2;
+
+	Matrix4f shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
 };
 
 

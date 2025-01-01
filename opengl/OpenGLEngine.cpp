@@ -6861,6 +6861,12 @@ void OpenGLEngine::draw()
 		uniforms.wind_strength = current_scene->wind_strength;
 
 		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));
+
+
+		// Set shadow_texture_matrix in MaterialCommonUniforms
+		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+			common_uniforms.shadow_texture_matrix[i] = tex_matrices[i];
+		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 
 
