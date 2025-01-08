@@ -927,11 +927,17 @@ const std::string removeDotAndExtension(const std::string& filename)
 
 bool hasPrefix(const std::string& s, const string_view& prefix)
 {
-	if(prefix.length() > s.length())
+	const size_t s_len      = s.length();
+	const size_t prefix_len = prefix.length();
+
+	if(prefix_len > s_len)
 		return false;
 
-	for(size_t i=0; i<prefix.length(); i++)
-		if(prefix[i] != s[i])
+	const char* const s_data      = s.data();
+	const char* const prefix_data = prefix.data();
+
+	for(size_t i=0; i<prefix_len; i++)
+		if(prefix_data[i] != s_data[i])
 			return false;
 
 	return true;
@@ -1526,6 +1532,21 @@ void StringUtils::test()
 {
 	conPrint("StringUtils::test()");
 
+	// Perf test hasPrefix
+	if(false)
+	{
+		Timer timer;
+		int sum = 0;
+		const std::string s = "aaaaaaaaaaaabbbbbbbbbbbbbccccccccccccccc";
+		for(int i=0; i<1000000; ++i)
+		{
+			string_view prefix = (i%2 == 0) ? "aaaaaaa" : "aaaaaaaa";
+			sum += hasPrefix(s, prefix) ? 1 : 0;
+		}
+		conPrint("Elasped: " + timer.elapsedStringMSWIthNSigFigs(5));
+		printVar(sum);
+	}
+
 	//==================================== Test stripHeadWhitespace ====================================
 	testAssert(stripHeadWhitespace("a") == "a");
 	testAssert(stripHeadWhitespace("a ") == "a ");
@@ -1586,6 +1607,7 @@ void StringUtils::test()
 	testAssert(!hasPrefix("", "a"));
 	testAssert(!hasPrefix("a", "ab"));
 	testAssert(!hasPrefix("ab", "abc"));
+	testAssert(hasPrefix("aaaaaaaaaaaabbbbbbbbbbbbbccccccccccccccc", "aaaaaaaaaaaabbbbbbbbbbbbb"));
 
 	testAssert(hasPrefix("ab", std::string("a")));
 

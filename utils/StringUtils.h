@@ -23,7 +23,7 @@ public:
 
 
 //====================== String to Number conversion ======================
-// These functions ignore the current locale.  Decimal seperator is always considered to be '.'.
+// These functions ignore the current locale.  Decimal separator is always considered to be '.'.
 
 float stringToFloat(const std::string& s); // throws StringUtilsExcep
 double stringToDouble(const std::string& s); // throws StringUtilsExcep
@@ -173,7 +173,7 @@ void removeSuffixInPlace(std::string& s, const std::string& suffix); // Removes 
 
 int getNumMatches(const std::string& s, char target);
 
-// Replaces all occurences of src with dest in string s.
+// Replaces all occurrences of src with dest in string s.
 void replaceChar(std::string& s, char src, char dest);
 
 // If first_char_index is >= s.size(), then returns ""
