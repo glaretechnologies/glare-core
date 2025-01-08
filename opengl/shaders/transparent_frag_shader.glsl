@@ -77,8 +77,7 @@ layout (std140) uniform LightDataStorage
 #if ORDER_INDEPENDENT_TRANSPARENCY
 // Various outputs for order-independent transparency.
 layout(location = 0) out vec4 transmittance_out;
-layout(location = 1) out vec4 accum_out;
-layout(location = 2) out float av_transmittance_out;
+layout(location = 1) out vec4 accum_out; // Emitted and in-scattered spectral radiance
 #else
 layout(location = 0) out vec4 colour_out;
 #endif
@@ -226,7 +225,6 @@ void main()
 		col = emission_col;
 #if ORDER_INDEPENDENT_TRANSPARENCY
 		transmittance_out = vec4(1, 1, 1, 1);
-		av_transmittance_out = 1.0;
 #else
 		alpha = 0.0; // For completely additive blending (hologram shader), we don't multiply by alpha in the fragment shader, and set a fragment colour with alpha = 0, so dest factor = 1 - 0 = 1.
 #endif
@@ -373,12 +371,6 @@ void main()
 #if ORDER_INDEPENDENT_TRANSPARENCY
 		float T = 1.f - spec_refl_fresnel; // transmittance
 		transmittance_out = transmission_col * T;
-
-		// For computing the average transmittance (used for order-independent transparency), don't take spec_refl_fresnel into account so much, or our glass will be too dark at grazing angles.
-		float use_T = 0.8f + T * 0.2f;
-		vec4 use_transmittance = transmission_col * use_T;
-
-		av_transmittance_out = (use_transmittance.r + use_transmittance.g + use_transmittance.b) * (1.0 / 3.0);
 #else
 		col += transmission_col * 0.5 * sun_and_sky_av_spec_rad;
 

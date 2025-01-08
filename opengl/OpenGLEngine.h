@@ -1336,13 +1336,13 @@ private:
 	Reference<RenderBuffer> main_normal_renderbuffer;
 	Reference<RenderBuffer> main_depth_renderbuffer;
 	Reference<RenderBuffer> transparent_accum_renderbuffer;
-	Reference<RenderBuffer> av_transmittance_renderbuffer;
+	Reference<RenderBuffer> total_transmittance_renderbuffer;
 
 	OpenGLTextureRef main_colour_copy_texture;
 	OpenGLTextureRef main_depth_copy_texture;
 	OpenGLTextureRef main_normal_copy_texture;
 	OpenGLTextureRef transparent_accum_copy_texture;
-	OpenGLTextureRef av_transmittance_copy_texture;
+	OpenGLTextureRef total_transmittance_copy_texture;
 
 
 	// Prepass will render to prepass_framebuffer, prepass_colour_renderbuffer, prepass_depth_renderbuffer.
