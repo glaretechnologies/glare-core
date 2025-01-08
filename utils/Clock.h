@@ -26,7 +26,7 @@ double getCurTimeRealSec();
 double getTimeSinceInit(); // In seconds, since init() was called.
 
 
-time_t getSecsSince1970();
+time_t getSecsSince1970(); // Seconds since midnight, January 1, 1970 UTC.
 
 
 // Returns a string like '2 h, 24 m, 12 s'
