@@ -2650,11 +2650,17 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			const size_t byte_stride = (buf_view.byte_stride != 0) ? buf_view.byte_stride : value_size_B;
 
 			checkAccessorBounds(byte_stride, offset_B, value_size_B, output_accessor, buffer);
-			checkProperty(num_components == 3 || num_components == 4, "Animation: num components must be 3 or 4.");
+			checkProperty(num_components == 1 || num_components == 3 || num_components == 4, "Animation: num components must be 1, 3 or 4.");
 
 			output_data.resize(output_accessor.count, Vec4f(0.f));
 			
-			if(num_components == 3)
+			if(num_components == 1)
+			{
+				// This seems to be used by morph targets, that we don't support currently.  Just read and convert to vec4s.
+				for(size_t i=0; i<output_accessor.count; ++i)
+					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float)); // other components should already be zeroed.
+			}
+			else if(num_components == 3)
 			{
 				for(size_t i=0; i<output_accessor.count; ++i)
 					std::memcpy(&output_data[i], offset_base + byte_stride * i, sizeof(float) * 3); // W component should already be zeroed.
