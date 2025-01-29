@@ -35,6 +35,12 @@ public:
 
 	~ComObHandle() { if(ptr) ptr->Release(); }
 
+	// Recommended to use explicit operator bool here: https://quuxplusone.github.io/blog/2023/04/08/most-ctors-should-be-explicit/#you-should-never-declare-convers
+	explicit inline operator bool () const
+	{
+		return ptr != 0;
+	}
+
 	void operator = (const ComObHandle& other)
 	{
 		T* old_ptr = ptr;
