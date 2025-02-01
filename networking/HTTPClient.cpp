@@ -32,10 +32,9 @@ HTTPClient::~HTTPClient()
 
 void HTTPClient::connectAndEnableKeepAlive(const std::string& protocol, const std::string& hostname, int port)
 {
-	connect(protocol, hostname, port);
+	this->keepalive_socket = true;
 
-	this->socket->enableTCPKeepAlive(/*period=*/5.0);
-	keepalive_socket = true;
+	connect(protocol, hostname, port);
 }
 
 
@@ -76,6 +75,9 @@ void HTTPClient::connect(const std::string& protocol, const std::string& hostnam
 			this->socket = new MySocket(hostname, (port == -1) ? 80 : port);
 		}
 	}
+
+	if(this->keepalive_socket)
+		this->socket->enableTCPKeepAlive(/*period=*/5.0);
 
 	this->connected_scheme = protocol;
 	this->connected_hostname = hostname;
