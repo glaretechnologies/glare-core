@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "RequestInfo.h"
-#include <SocketInterface.h>
+#include <networking/SocketInterface.h>
 #include <string>
 #include <ThreadSafeRefCounted.h>
 #include <Exception.h>
@@ -51,7 +51,7 @@ public:
 
 	virtual void handleRequest(const RequestInfo& request_info, ReplyInfo& reply_info) = 0;
 
-	virtual void handleWebSocketConnection(const RequestInfo& request_info, Reference<SocketInterface>& socket) { throw glare::Exception("Not handling websocket connections"); }
+	virtual void handleWebSocketConnection(const RequestInfo& /*request_info*/, Reference<SocketInterface>& /*socket*/) { throw glare::Exception("Not handling websocket connections"); }
 };
 
 

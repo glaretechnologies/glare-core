@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "StringUtils.h"
 #include "WebsiteExcep.h"
 #include "TestUtils.h"
-#include "MySocket.h"
+#include "networking/MySocket.h"
 #include "Parser.h"
 #if TLS_SUPPORT
 #include <TLSSocket.h>

@@ -17,23 +17,23 @@ Copyright Glare Technologies Limited 2021 -
 #include "WebsiteExcep.h"
 #include "Escaping.h"
 #include "RequestHandler.h"
-#include <mathstypes.h>
+#include <maths/mathstypes.h>
 #include <ConPrint.h>
 #include <Clock.h>
 #include <AESEncryption.h>
 #include <SHA256.h>
 #include <Base64.h>
 #include <Exception.h>
-#include <MySocket.h>
-#include <HTTPClient.h>
+#include <networking/MySocket.h>
+#include <networking/HTTPClient.h>
 #include <Lock.h>
 #include <StringUtils.h>
 #include <PlatformUtils.h>
-#include <TestSocket.h>
+#include <networking/TestSocket.h>
 #include <KillThreadMessage.h>
 #include <Parser.h>
 #include <MemMappedFile.h>
-#include <PCG32.h>
+#include <maths/PCG32.h>
 
 
 namespace web

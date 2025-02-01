@@ -9,14 +9,14 @@ Copyright Glare Technologies Limited 2021 -
 #include "WebWorkerThread.h"
 #include "RequestHandler.h"
 #include <ConPrint.h>
-#include <MySocket.h>
+#include <networking/MySocket.h>
 #include <Lock.h>
 #include <StringUtils.h>
 #include <PlatformUtils.h>
 #include <KillThreadMessage.h>
 #include <Exception.h>
 #include <tls.h>
-#include <TLSSocket.h>
+#include <networking/TLSSocket.h>
 
 
 namespace web

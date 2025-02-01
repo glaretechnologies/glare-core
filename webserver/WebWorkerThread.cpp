@@ -17,7 +17,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <SHA256.h>
 #include <Base64.h>
 #include <Exception.h>
-#include <MySocket.h>
+#include <networking/MySocket.h>
 #include <Lock.h>
 #include <StringUtils.h>
 #include <PlatformUtils.h>

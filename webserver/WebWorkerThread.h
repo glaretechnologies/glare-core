@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <MyThread.h>
 #include <EventFD.h>
 #include <ThreadManager.h>
-#include <SocketInterface.h>
+#include <networking/SocketInterface.h>
 #include <AtomicInt.h>
 #include <set>
 #include <string>

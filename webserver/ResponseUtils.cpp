@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <ConPrint.h>
 #include <Clock.h>
 #include <Exception.h>
-#include <MySocket.h>
+#include <networking/MySocket.h>
 #include <Lock.h>
 #include <StringUtils.h>
 #include <PlatformUtils.h>
