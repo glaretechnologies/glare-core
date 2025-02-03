@@ -144,7 +144,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 	//conPrint("Response code: " + toString(code));
 	//conPrint("Response message: '" + response_msg.to_string() + "'");
 	
-	HTTPClient::ResponseInfo response_info;
+	ResponseInfo response_info;
 	response_info.response_code = code;
 	response_info.response_message = toString(response_msg);
 
@@ -237,7 +237,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		const uint64 body_data_read = socket_buffer.size() - response_header_size;
 		const uint64 use_content_read_B = myMin(body_data_read, content_length);
 		if(use_content_read_B > 0)
-			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, use_content_read_B));
+			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, use_content_read_B), response_info);
 
 		// Now read rest of data from socket, and write to data_out
 		runtimeCheck(content_length >= use_content_read_B);
@@ -251,7 +251,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 			socket_buffer.resize(read_size);
 			socket->readDataChecked(socket_buffer, /*buf index=*/0, /*num bytes=*/read_size);
 
-			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, read_size));
+			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, read_size), response_info);
 
 			runtimeCheck(remaining_data >= read_size);
 			remaining_data -= read_size;
@@ -299,7 +299,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 						socket->readDataChecked(socket_buffer, /*buf index=*/current_amount_read, /*num bytes=*/required_buffer_size - current_amount_read);
 					}
 
-					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(chunk_line_end_index, chunk_size));
+					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(chunk_line_end_index, chunk_size), response_info);
 
 					chunk_line_start_index = chunk_line_end_index + chunk_and_crlf_size; // Advance past chunk line + chunk data.
 				}
@@ -320,7 +320,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				throw glare::Exception("Body length (" + toString(body_data_read) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 
 			if(body_data_read > 0)
-				response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, body_data_read));
+				response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, body_data_read), response_info);
 
 			while(1)
 			{
@@ -329,7 +329,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				socket_buffer.resize(MAX_READ_SIZE);
 				const size_t amount_read = socket->readSomeBytesChecked(socket_buffer, /*buf index=*/0, /*max num bytes=*/MAX_READ_SIZE);
 				if(amount_read > 0)
-					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, amount_read));
+					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, amount_read), response_info);
 				else
 					break; // Else connection was gracefully closed
 			}
@@ -397,19 +397,19 @@ size_t HTTPClient::readUntilCRLFCRLF(size_t scan_start_index)
 }
 
 
-class StreamToStringDataHandler : public StreamingDataHandler
+class StreamToStringDataHandler : public HTTPClient::StreamingDataHandler
 {
 public:
 	StreamToStringDataHandler(std::vector<uint8>& combined_data_, size_t max_data_size_) : combined_data(combined_data_), max_data_size(max_data_size_) {}
 
-	virtual void haveContentLength(uint64 content_length)
+	virtual void haveContentLength(uint64 content_length) override
 	{
 		if(content_length > max_data_size)
 			throw glare::Exception("Content length (" + toString(content_length) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 
 		combined_data.reserve(content_length);
 	}
-	virtual void handleData(ArrayRef<uint8> data)
+	virtual void handleData(ArrayRef<uint8> data, const HTTPClient::ResponseInfo& /*response_info*/) override
 	{
 		if(data.size() > 0)
 		{

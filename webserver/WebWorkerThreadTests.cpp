@@ -409,7 +409,7 @@ class TestDummyRequestHandler : public RequestHandler
 public:
 	TestDummyRequestHandler() {}
 
-	virtual void handleRequest(const RequestInfo& request_info, ReplyInfo& reply_info)
+	virtual void handleRequest(const RequestInfo& /*request_info*/, ReplyInfo& /*reply_info*/) override
 	{}
 };
 

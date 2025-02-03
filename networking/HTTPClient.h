@@ -12,12 +12,6 @@ Copyright Glare Technologies Limited 2024 -
 #include <vector>
 
 
-class StreamingDataHandler
-{
-public:
-	virtual void haveContentLength(uint64 /*content_length*/) {}; // Called when the server sends a valid content-length.
-	virtual void handleData(ArrayRef<uint8> data) = 0;
-};
 
 
 class HTTPClientExcep : public glare::Exception
@@ -51,6 +45,24 @@ public:
 	HTTPClient();
 	~HTTPClient();
 
+	struct ResponseInfo
+	{
+		int response_code;
+		std::string response_message;
+		std::string mime_type;
+	};
+
+
+	class StreamingDataHandler
+	{
+	public:
+		virtual void haveContentLength(uint64 /*content_length*/) {}; // Called when the server sends a valid content-length.
+		virtual void handleData(ArrayRef<uint8> data, const ResponseInfo& response_info) = 0;
+	};
+
+
+
+
 	void connectAndEnableKeepAlive(const std::string& protocol, const std::string& hostname, int port); // Port = -1 means use default port.
 	void resetConnection();
 
@@ -58,13 +70,6 @@ public:
 	{
 		RequestType_Get,
 		RequestType_Post
-	};
-
-	struct ResponseInfo
-	{
-		int response_code;
-		std::string response_message;
-		std::string mime_type;
 	};
 
 	std::string user_agent;
@@ -97,7 +102,7 @@ private:
 
 	size_t readUntilCRLF(size_t scan_start_index);
 	size_t readUntilCRLFCRLF(size_t scan_start_index);
-	HTTPClient::ResponseInfo handleResponse(size_t request_header_size, RequestType request_type, int num_redirects_done, StreamingDataHandler& response_data_handler);
+	ResponseInfo handleResponse(size_t request_header_size, RequestType request_type, int num_redirects_done, StreamingDataHandler& response_data_handler);
 	std::vector<uint8> socket_buffer;
 
 	SocketInterfaceRef socket;
