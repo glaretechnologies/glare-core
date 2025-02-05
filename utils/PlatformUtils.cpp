@@ -830,7 +830,7 @@ static HKEY convertRegKey(PlatformUtils::RegHKey key)
 bool PlatformUtils::doesRegKeyAndValueExist(RegHKey key, const std::string &subkey_, const std::string &valuename_)
 {
 	const HKEY hKey = convertRegKey(key);
-	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 	
 	HKEY reg_key_handle;
@@ -856,7 +856,7 @@ bool PlatformUtils::doesRegKeyAndValueExist(RegHKey key, const std::string &subk
 std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &subkey_, const std::string &valuename_)
 {
 	const HKEY hKey = convertRegKey(key);
-	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 	
 	HKEY reg_key_handle;
@@ -883,12 +883,13 @@ std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &subke
 void PlatformUtils::setStringRegKey(RegHKey key, const std::string& subkey_, const std::string& valuename_, const std::string& new_valuedata_)
 {
 	const HKEY hKey = convertRegKey(key);
-	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
-	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
+	const std::wstring subkey        = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring valuename     = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 	const std::wstring new_valuedata = StringUtils::UTF8ToPlatformUnicodeEncoding(new_valuedata_);
 
+	// Use RegCreateKeyEx so the key will be created if it does not exist.  If it does already exist it will just be opened.
 	HKEY reg_key_handle;
-	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_SET_VALUE, &reg_key_handle);
+	LONG result = RegCreateKeyEx(hKey, subkey.c_str(), /*Reserved=*/0, /*lpClass=*/nullptr, /*dwOptions=*/0, /*samDesired=*/KEY_SET_VALUE, /*lpSecurityAttributes=*/nullptr, &reg_key_handle, /*lpdwDisposition=*/nullptr);
 	if(result != ERROR_SUCCESS)
 		throw PlatformUtilsExcep("Failed to open registry key: " + getErrorStringForCode(result));
 
@@ -905,11 +906,12 @@ void PlatformUtils::setStringRegKey(RegHKey key, const std::string& subkey_, con
 void PlatformUtils::setDWordRegKey(RegHKey key, const std::string& subkey_, const std::string& valuename_, uint32 new_valuedata)
 {
 	const HKEY hKey = convertRegKey(key);
-	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 
+	// Use RegCreateKeyEx so the key will be created if it does not exist.  If it does already exist it will just be opened.
 	HKEY reg_key_handle;
-	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_SET_VALUE, &reg_key_handle);
+	LONG result = RegCreateKeyEx(hKey, subkey.c_str(), /*Reserved=*/0, /*lpClass=*/nullptr, /*dwOptions=*/0, /*samDesired=*/KEY_SET_VALUE, /*lpSecurityAttributes=*/nullptr, &reg_key_handle, /*lpdwDisposition=*/nullptr);
 	if(result != ERROR_SUCCESS)
 		throw PlatformUtilsExcep("Failed to open registry key: " + getErrorStringForCode(result));
 
@@ -926,7 +928,7 @@ void PlatformUtils::setDWordRegKey(RegHKey key, const std::string& subkey_, cons
 uint32 PlatformUtils::getDWordRegKey(RegHKey key, const std::string &subkey_, const std::string &valuename_)
 {
 	const HKEY hKey = convertRegKey(key);
-	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 
 	HKEY reg_key_handle;
