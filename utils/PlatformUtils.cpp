@@ -902,6 +902,27 @@ void PlatformUtils::setStringRegKey(RegHKey key, const std::string& subkey_, con
 }
 
 
+void PlatformUtils::setDWordRegKey(RegHKey key, const std::string& subkey_, const std::string& valuename_, uint32 new_valuedata)
+{
+	const HKEY hKey = convertRegKey(key);
+	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
+
+	HKEY reg_key_handle;
+	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_SET_VALUE, &reg_key_handle);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to open registry key: " + getErrorStringForCode(result));
+
+	result = RegSetValueExW(reg_key_handle, valuename.c_str(), /*reserved=*/0, REG_DWORD, (const BYTE*)&new_valuedata, /*size in bytes, including null terminator=*/4);
+	if(result != ERROR_SUCCESS)
+		throw PlatformUtilsExcep("Failed to set registry key: " + getErrorStringForCode(result));
+
+	// Close key.
+	result = RegCloseKey(reg_key_handle);
+	assert(result == ERROR_SUCCESS);
+}
+
+
 uint32 PlatformUtils::getDWordRegKey(RegHKey key, const std::string &subkey_, const std::string &valuename_)
 {
 	const HKEY hKey = convertRegKey(key);

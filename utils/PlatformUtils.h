@@ -161,6 +161,7 @@ std::string getStringRegKey(RegHKey key, const std::string &subkey, const std::s
 uint32 getDWordRegKey(RegHKey key, const std::string& subkey, const std::string& valuename);
 
 void setStringRegKey(RegHKey key, const std::string& subkey, const std::string& valuename, const std::string& new_valuedata);
+void setDWordRegKey(RegHKey key, const std::string& subkey, const std::string& valuename, uint32 new_valuedata);
 #endif
 
 
