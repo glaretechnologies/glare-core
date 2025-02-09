@@ -80,6 +80,8 @@ public:
 	size_t max_socket_buffer_size; // Maximum size that the internal buffer socket_buffer can be resized to.  Chunked transfer encoding will 
 	// fail with an error message if a chunk exceeds this size.
 
+	bool enable_TCP_nodelay;
+
 	SocketInterfaceRef test_socket;
 
 	ResponseInfo sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, StreamingDataHandler& response_data_handler); // Throws glare::Exception on failure.

@@ -22,7 +22,8 @@ HTTPClient::HTTPClient()
 :	max_data_size(std::numeric_limits<size_t>::max()),
 	max_socket_buffer_size(1 << 16),
 	keepalive_socket(false),
-	connected_port(-1)
+	connected_port(-1),
+	enable_TCP_nodelay(false)
 {}
 
 
@@ -62,6 +63,8 @@ void HTTPClient::connect(const std::string& protocol, const std::string& hostnam
 			MySocketRef plain_socket = new MySocket();
 			this->socket = plain_socket; // Store in this->socket so we can interrupt in kill() while connecting.
 			plain_socket->connect(hostname, (port == -1) ? 443 : port);
+			if(enable_TCP_nodelay) 
+				plain_socket->setNoDelayEnabled(true);
 
 			TLSConfig client_tls_config;
 
