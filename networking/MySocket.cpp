@@ -805,7 +805,7 @@ void MySocket::setNoDelayEnabled(bool enabled_)
 		TCP_NODELAY, // option name
 		(const char*)&enabled, // value
 		sizeof(enabled) // size of value buffer
-		) != 0)
+	) != 0)
 		throw MySocketExcep("setsockopt failed, error: " + Networking::getError());
 }
 
