@@ -1,19 +1,20 @@
 /*=====================================================================
 EmscriptenSettingsStore.cpp
 ---------------------------
-Copyright Glare Technologies Limited 2023 -
+Copyright Glare Technologies Limited 2025 -
 =====================================================================*/
 #include "EmscriptenSettingsStore.h"
+
+
+#if EMSCRIPTEN
 
 
 #include <utils/PlatformUtils.h>
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
-#if EMSCRIPTEN
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #include <string>
-#endif
 
 
 EmscriptenSettingsStore::EmscriptenSettingsStore()
@@ -23,8 +24,6 @@ EmscriptenSettingsStore::EmscriptenSettingsStore()
 EmscriptenSettingsStore::~EmscriptenSettingsStore()
 {}
 
-
-#if EMSCRIPTEN
 
 // When running under Emscripten, e.g. in the web browser, we will store the settings in localStorage.  See https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API
 

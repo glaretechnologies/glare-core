@@ -6,6 +6,9 @@ Copyright Glare Technologies Limited 2025 -
 #include "RegistrySettingsStore.h"
 
 
+#ifdef _WIN32
+
+
 #include <utils/PlatformUtils.h>
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
@@ -18,9 +21,6 @@ RegistrySettingsStore::RegistrySettingsStore(const std::string& organisation_nam
 
 RegistrySettingsStore::~RegistrySettingsStore()
 {}
-
-
-#ifdef _WIN32
 
 
 void RegistrySettingsStore::getRegSubKeyAndValueName(const std::string& setting_key, std::string& subkey_out, std::string& value_name_out)

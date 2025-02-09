@@ -13,7 +13,8 @@ Copyright Glare Technologies Limited 2025 -
 /*=====================================================================
 EmscriptenSettingsStore
 -----------------------
-
+When running under Emscripten, e.g. in the web browser, we will store the settings in localStorage.
+See https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API
 =====================================================================*/
 class EmscriptenSettingsStore final : public SettingsStore
 {
