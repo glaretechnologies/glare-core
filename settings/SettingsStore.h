@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2023 -
 #pragma once
 
 
+#include "../utils/RefCounted.h"
 #include <string>
 
 
@@ -14,7 +15,7 @@ SettingsStore
 -------------
 Interface for a store for settings, like QSettings.
 =====================================================================*/
-class SettingsStore
+class SettingsStore : public RefCounted
 {
 public:
 	virtual ~SettingsStore();
