@@ -77,6 +77,8 @@ public:
 	UnsafeString getURLParam(const std::string& key) const; // Returns empty string if key not present.
 	int getURLIntParam(const std::string& key) const; // Throws WebsiteExcep on failure
 
+	std::string getHostHeader() const; // Returns host header, or empty string if not present.
+
 	std::string verb;
 	std::string path;
 

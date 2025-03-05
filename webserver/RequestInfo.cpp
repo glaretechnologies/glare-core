@@ -89,4 +89,14 @@ int RequestInfo::getURLIntParam(const std::string& key) const // Throws WebsiteE
 }
 
 
+std::string RequestInfo::getHostHeader() const
+{
+	for(size_t i=0; i<headers.size(); ++i)
+		if(StringUtils::equalCaseInsensitive(headers[i].key, "host"))
+			return toString(headers[i].value);
+
+	return std::string();
+}
+
+
 } // end namespace web
