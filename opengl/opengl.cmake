@@ -73,6 +73,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSAODebugging.h
 set(opengl_ui
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIButton.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIButton.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUITextButton.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUITextButton.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUI.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUI.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIImage.cpp 

@@ -73,6 +73,7 @@ public:
 	float getViewportMinMaxY();
 
 	float getUIWidthForDevIndepPixelWidth(float pixel_w);
+	float getDevIndepPixelWIdthForUIWidth(float ui_width);
 
 	OpenGLTextureRef makeToolTipTexture(const std::string& text);
 

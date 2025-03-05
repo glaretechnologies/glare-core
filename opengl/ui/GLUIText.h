@@ -62,6 +62,7 @@ public:
 	void setAlpha(float alpha);
 
 	void setPos(const Vec2f& botleft);
+	Vec2f getPos() const { return botleft; }
 
 	// Call when e.g. viewport has changed
 	void updateGLTransform();

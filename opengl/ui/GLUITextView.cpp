@@ -125,7 +125,6 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 		}
 
 		// Create the line text objects
-		rect = Rect2f(Vec2f(0.f), Vec2f(0.f));
 		float cur_line_y_offset = 0;
 		for(size_t i=0; i<line_begin_end_bytes.size(); ++i)
 		{
@@ -147,44 +146,27 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			glui_text->setPos(textpos);
 			glui_texts.push_back(glui_text);
 
-			if(i == 0)
-				rect = glui_text->getRect();
-			else
-				rect.enlargeToHoldRect(glui_text->getRect());
-
 			cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
 		}
 
+		recomputeRect();
 		updateOverlayObTransforms();
 	}
 }
 
 
-void GLUITextView::viewportResized()
-{
-	// Max width in pixel coords will have changed, so recreate text.
-
-	std::string old_text = text;
-	text = "";
-	setText(*glui, old_text);
-}
-
-
 void GLUITextView::updateOverlayObTransforms()
 {
-	if(background_overlay_ob.nonNull())
-	{
-		const float margin_x = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
-		const float margin_y = margin_x;
-		const float background_w = rect.getWidths().x + margin_x*2;
-		const float background_h = rect.getWidths().y + margin_y*2;
+	recomputeRect();
 
-		const Vec2f text_lower_left_pos = /*glui_text->getRect()*/rect.getMin();
-		const Vec2f lower_left_pos = text_lower_left_pos - Vec2f(margin_x, margin_y);
+	if(background_overlay_ob.nonNull() && !glui_texts.empty())
+	{
+		const Rect2f background_rect = computeBackgroundRect();
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
 		const float z = 0.1f;
-		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(lower_left_pos.x, lower_left_pos.y * y_scale, z) * Matrix4f::scaleMatrix(background_w, background_h * y_scale, 1);
+		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(background_rect.getMin().x, background_rect.getMin().y * y_scale, z) * 
+			Matrix4f::scaleMatrix(background_rect.getWidths().x, background_rect.getWidths().y * y_scale, 1);
 	}
 
 	// Update selection ob
@@ -225,7 +207,41 @@ void GLUITextView::updateOverlayObTransforms()
 }
 
 
-void GLUITextView::setColour(const Colour3f& col)
+void GLUITextView::recomputeRect()
+{
+	if(glui_texts.empty())
+		rect = Rect2f(Vec2f(0.f), Vec2f(0.f));
+	else
+	{
+		rect = glui_texts[0]->getRect();
+		for(size_t i=1; i<glui_texts.size(); ++i)
+			rect.enlargeToHoldRect(glui_texts[i]->getRect());
+	}
+}
+
+
+Rect2f GLUITextView::computeBackgroundRect() const
+{
+	if(glui_texts.empty())
+		return Rect2f(Vec2f(0.f), Vec2f(0.f));
+
+	// Get bottom line of text baseline position
+	const Vec2f text_lower_left_pos = glui_texts.back()->getPos(); // Not counting descenders
+
+	const Vec2f text_upper_right = rect.getMax();
+	const Vec2f text_widths = text_upper_right - text_lower_left_pos;
+
+	const float margin_x = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
+	const float margin_y = margin_x;
+	const float background_w = text_widths.x + margin_x*2;
+	const float background_h = text_widths.y + margin_y*2;
+
+	const Vec2f lower_left_pos = text_lower_left_pos - Vec2f(margin_x, margin_y);
+	return Rect2f(lower_left_pos, lower_left_pos + Vec2f(background_w, background_h));
+}
+
+
+void GLUITextView::setTextColour(const Colour3f& col)
 {
 	args.text_colour = col;
 	
@@ -234,10 +250,17 @@ void GLUITextView::setColour(const Colour3f& col)
 }
 
 
-void GLUITextView::setAlpha(float alpha)
+void GLUITextView::setTextAlpha(float alpha)
 {
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->setAlpha(alpha);
+}
+
+
+void GLUITextView::setBackgroundColour(const Colour3f& col)
+{
+	if(background_overlay_ob)
+		background_overlay_ob->material.albedo_linear_rgb = col;
 }
 
 
@@ -252,6 +275,8 @@ void GLUITextView::updateGLTransform(GLUI& /*glui_*/)
 {
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->updateGLTransform();
+
+	recomputeRect();
 
 	updateOverlayObTransforms();
 }
@@ -292,14 +317,16 @@ void GLUITextView::setPos(GLUI& /*glui_*/, const Vec2f& new_botleft)
 
 		glui_texts[i]->setPos(textpos);
 		cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
-
-		if(i == 0)
-			rect = glui_texts[i]->getRect();
-		else
-			rect.enlargeToHoldRect(glui_texts[i]->getRect());
 	}
 
+	recomputeRect();
 	updateOverlayObTransforms();
+}
+
+
+float GLUITextView::getPaddingWidth() const
+{
+	return glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
 }
 
 
@@ -333,19 +360,18 @@ bool GLUITextView::isVisible()
 	return visible;
 }
 
-//
-//const Vec2f GLUITextView::getDims() const
-//{
-//	if(glui_text.nonNull())
-//		return glui_text->getDims();
-//	else
-//		return Vec2f(0.f);
-//}
 
-
+// Get rect of just text
 const Rect2f GLUITextView::getRect() const
 {
 	return rect;
+}
+
+
+// Get rect of background box behind text
+const Rect2f GLUITextView::getBackgroundRect() const
+{
+	return computeBackgroundRect();
 }
 
 
@@ -354,26 +380,29 @@ void GLUITextView::handleMousePress(MouseEvent& event)
 	if(!visible)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(args.text_selectable)
 	{
-		//conPrint("GLUITextView taking keyboard focus");
-		glui->setKeyboardFocusWidget(this);
-
-		for(size_t i=0; i<glui_texts.size(); ++i)
+		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
+		if(rect.inClosedRectangle(coords))
 		{
-			GLUIText* glui_text = glui_texts[i].ptr();
-			if(glui_text->getRect().inClosedRectangle(coords))
+			//conPrint("GLUITextView taking keyboard focus");
+			glui->setKeyboardFocusWidget(this);
+
+			for(size_t i=0; i<glui_texts.size(); ++i)
 			{
-				this->selection_start = glui_text->cursorPosForUICoords(*glui, coords);
-				this->selection_end = -1;
-				this->selection_start_text_index = i;
+				GLUIText* glui_text = glui_texts[i].ptr();
+				if(glui_text->getRect().inClosedRectangle(coords))
+				{
+					this->selection_start = glui_text->cursorPosForUICoords(*glui, coords);
+					this->selection_end = -1;
+					this->selection_start_text_index = i;
+				}
 			}
+
+			updateOverlayObTransforms(); // Redraw since cursor visible will have changed
+
+			event.accepted = true;
 		}
-
-		updateOverlayObTransforms(); // Redraw since cursor visible will have changed
-
-		event.accepted = true;
 	}
 }
 
@@ -388,23 +417,26 @@ void GLUITextView::handleMouseDoubleClick(MouseEvent& event)
 	if(!visible)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(args.text_selectable)
 	{
-		for(size_t i=0; i<glui_texts.size(); ++i)
+		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
+		if(rect.inClosedRectangle(coords))
 		{
-			GLUIText* glui_text = glui_texts[i].ptr();
-			if(glui_text->getRect().inClosedRectangle(coords))
+			for(size_t i=0; i<glui_texts.size(); ++i)
 			{
-				const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, coords);
+				GLUIText* glui_text = glui_texts[i].ptr();
+				if(glui_text->getRect().inClosedRectangle(coords))
+				{
+					const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, coords);
 				
-				this->selection_start = TextEditingUtils::getPrevStartOfNonWhitespaceCursorPos(glui_text->getText(), click_cursor_pos);
+					this->selection_start = TextEditingUtils::getPrevStartOfNonWhitespaceCursorPos(glui_text->getText(), click_cursor_pos);
 				
-				this->selection_end = TextEditingUtils::getNextEndOfNonWhitespaceCursorPos(glui_text->getText(), click_cursor_pos);
+					this->selection_end = TextEditingUtils::getNextEndOfNonWhitespaceCursorPos(glui_text->getText(), click_cursor_pos);
 
-				this->selection_start_text_index = i;
+					this->selection_start_text_index = i;
 				
-				updateOverlayObTransforms(); // Redraw since selection region has changed.
+					updateOverlayObTransforms(); // Redraw since selection region has changed.
+				}
 			}
 		}
 	}
@@ -416,16 +448,19 @@ void GLUITextView::doHandleMouseMoved(MouseEvent& mouse_event)
 	if(!visible)
 		return;
 
-	// If left mouse button is down, update selection region
-	if((this->selection_start != -1) && (mouse_event.button_state & (uint32)MouseButton::Left) != 0)
+	if(args.text_selectable)
 	{
-		if(selection_start_text_index < glui_texts.size())
+		// If left mouse button is down, update selection region
+		if((this->selection_start != -1) && (mouse_event.button_state & (uint32)MouseButton::Left) != 0)
 		{
-			const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
+			if(selection_start_text_index < glui_texts.size())
+			{
+				const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
 			
-			this->selection_end = glui_texts[selection_start_text_index]->cursorPosForUICoords(*glui, coords);
+				this->selection_end = glui_texts[selection_start_text_index]->cursorPosForUICoords(*glui, coords);
 			
-			updateOverlayObTransforms(); // Redraw since selection region may have changed.
+				updateOverlayObTransforms(); // Redraw since selection region may have changed.
+			}
 		}
 	}
 }
@@ -433,9 +468,12 @@ void GLUITextView::doHandleMouseMoved(MouseEvent& mouse_event)
 
 void GLUITextView::handleLosingKeyboardFocus()
 {
-	// Clear selection
-	this->selection_start = this->selection_end = -1;
-	updateOverlayObTransforms(); // Redraw
+	if(args.text_selectable)
+	{
+		// Clear selection
+		this->selection_start = this->selection_end = -1;
+		updateOverlayObTransforms(); // Redraw
+	}
 }
 
 
@@ -447,5 +485,6 @@ GLUITextView::CreateArgs::CreateArgs():
 	padding_px(10),
 	font_size_px(14),
 	line_0_x_offset(0),
-	max_width(100000)
+	max_width(100000),
+	text_selectable(true)
 {}
