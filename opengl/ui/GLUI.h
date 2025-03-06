@@ -71,6 +71,7 @@ public:
 
 
 	float getViewportMinMaxY();
+	float getYScale();
 
 	float getUIWidthForDevIndepPixelWidth(float pixel_w);
 	float getDevIndepPixelWIdthForUIWidth(float ui_width);

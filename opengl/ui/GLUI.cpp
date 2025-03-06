@@ -303,6 +303,12 @@ float GLUI::getViewportMinMaxY()
 }
 
 
+float GLUI::getYScale()
+{
+	return 1.f / opengl_engine->getViewPortAspectRatio();
+}
+
+
 float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 {
 	// 2 factor is because something spanning the full viewport ranges from y=-1 to 1.
