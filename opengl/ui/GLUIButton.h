@@ -42,12 +42,15 @@ public:
 		// For non-toggleable buttons:
 		Colour3f button_colour;
 		Colour3f mouseover_button_colour;
+
+		Colour3f pressed_colour;
 	};
 
 	GLUIButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args);
 	~GLUIButton();
 
 	virtual void handleMousePress(MouseEvent& event) override;
+	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
@@ -62,9 +65,12 @@ public:
 
 	bool toggleable;
 	bool toggled;
+	bool pressed;
 
 private:
 	GLARE_DISABLE_COPY(GLUIButton);
+
+	void updateButtonColour(const Vec2f mouse_ui_coords);
 
 	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;

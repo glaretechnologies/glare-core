@@ -31,7 +31,6 @@ GLUIText
 class GLUIText : public RefCounted
 {
 public:
-	// botleft is in GL UI coords (see GLUI.h)
 	struct CreateArgs
 	{
 		CreateArgs() : colour(1.f), alpha(1.f), font_size_px(14), z(0) {}
@@ -39,9 +38,10 @@ public:
 		Colour3f colour;
 		float alpha;
 		float z; // -1 = near clip plane, 1 = far clip plane
-		int font_size_px;
+		int font_size_px; // In device-independent pixels. (e.g. will be multiplied by device pixel ration to get actual pixel size)
 	};
 
+	// botleft is in GL UI coords (see GLUI.h)
 	GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUIText(); // Removes overlay_ob from opengl engine.
 

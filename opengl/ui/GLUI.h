@@ -88,6 +88,11 @@ public:
 	void setKeyboardFocusWidget(GLUIWidgetRef widget);
 
 
+	Vec2f getLastMouseUICoords() const { return last_mouse_ui_coords; }
+
+	float getDevicePixelRatio() { return device_pixel_ratio; }
+
+
 	Reference<OpenGLEngine> opengl_engine;
 	
 
@@ -113,6 +118,8 @@ private:
 	float device_pixel_ratio;
 
 	bool mouse_over_text_input_widget;
+
+	Vec2f last_mouse_ui_coords;
 };
 
 

@@ -303,6 +303,12 @@ inline Vec2<Real> operator * (Real a, const Vec2<Real>& v)
 }
 
 
+template <class T>
+inline Vec2<T> div(const Vec2<T>& a, const Vec2<T>& b)
+{
+	return Vec2<T>(a.x / b.x, a.y / b.y);
+}
+
 
 template <class T>
 inline const Vec2<T> min(const Vec2<T>& a, const Vec2<T>& b)

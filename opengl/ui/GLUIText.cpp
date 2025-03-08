@@ -140,7 +140,7 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 	opengl_engine = opengl_engine_;
 
 	text_colour = args.colour;
-	font_size_px = args.font_size_px;
+	font_size_px = (int)((float)args.font_size_px * glui.getDevicePixelRatio());
 	botleft = botleft_;
 	text = text_;
 	z = args.z;

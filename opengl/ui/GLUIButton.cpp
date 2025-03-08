@@ -25,6 +25,7 @@ GLUIButton::CreateArgs::CreateArgs()
 
 	// For non-toggleable buttons:
 	button_colour = Colour3f(1.f);
+	pressed_colour = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
 	mouseover_button_colour = toLinearSRGB(Colour3f(0.9f));
 }
 
@@ -32,7 +33,8 @@ GLUIButton::CreateArgs::CreateArgs()
 GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args_)
 :	handler(NULL),
 	toggleable(false),
-	toggled(false)
+	toggled(false),
+	pressed(false)
 {
 	glui = &glui_;
 	opengl_engine = opengl_engine_;
@@ -75,15 +77,10 @@ void GLUIButton::handleMousePress(MouseEvent& event)
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inOpenRectangle(coords))
 	{
-		if(toggleable)
-		{
-			toggled = !toggled;
+		pressed = true;
 
-			if(toggled)
-				overlay_ob->material.albedo_linear_rgb = args.toggled_colour;
-			else
-				overlay_ob->material.albedo_linear_rgb = args.untoggled_colour;
-		}
+		if(toggleable)
+			toggled = !toggled;
 
 		if(handler)
 		{
@@ -94,6 +91,18 @@ void GLUIButton::handleMousePress(MouseEvent& event)
 				event.accepted = true;
 		}
 	}
+
+	updateButtonColour(coords);
+}
+
+
+void GLUIButton::handleMouseRelease(MouseEvent& event)
+{
+	pressed = false;
+
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
+
+	updateButtonColour(coords);
 }
 
 
@@ -108,31 +117,16 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 	{
 		if(rect.inOpenRectangle(coords)) // If mouse over widget:
 		{
-			if(toggleable)
-			{
-				if(toggled)
-					overlay_ob->material.albedo_linear_rgb = args.mouseover_toggled_colour;
-				else
-					overlay_ob->material.albedo_linear_rgb = args.mouseover_untoggled_colour;
-			}
-			else
-				overlay_ob->material.albedo_linear_rgb = args.mouseover_button_colour;
-
 			mouse_event.accepted = true;
 		}
 		else
 		{
-			if(toggleable)
-			{
-				if(toggled)
-					overlay_ob->material.albedo_linear_rgb = args.toggled_colour;
-				else
-					overlay_ob->material.albedo_linear_rgb = args.untoggled_colour;
-			}
-			else
-				overlay_ob->material.albedo_linear_rgb = args.button_colour;
+			// For now, allow button to remain pressed even when mouse pointer moves off it.
+			// pressed = false;
 		}
 	}
+
+	updateButtonColour(coords);
 }
 
 
@@ -151,15 +145,7 @@ void GLUIButton::setToggled(bool toggled_)
 {
 	toggled = toggled_;
 
-	if(toggleable)
-	{
-		if(toggled)
-			overlay_ob->material.albedo_linear_rgb = args.toggled_colour;
-		else
-			overlay_ob->material.albedo_linear_rgb = args.untoggled_colour;
-	}
-	else
-		overlay_ob->material.albedo_linear_rgb = args.button_colour;
+	updateButtonColour(glui->getLastMouseUICoords());
 }
 
 
@@ -173,4 +159,26 @@ void GLUIButton::setVisible(bool visible)
 bool GLUIButton::isVisible()
 {
 	return overlay_ob->draw;
+}
+
+
+void GLUIButton::updateButtonColour(const Vec2f mouse_ui_coords)
+{
+	if(overlay_ob)
+	{
+		if(rect.inOpenRectangle(mouse_ui_coords)) // If mouse over widget:
+		{
+			if(toggleable)
+				overlay_ob->material.albedo_linear_rgb = toggled ? args.mouseover_toggled_colour : args.mouseover_untoggled_colour;
+			else
+				overlay_ob->material.albedo_linear_rgb = pressed ? args.pressed_colour : args.mouseover_button_colour;
+		}
+		else // else if mouse not over widget:
+		{
+			if(toggleable)
+				overlay_ob->material.albedo_linear_rgb = toggled ? args.toggled_colour : args.untoggled_colour;
+			else
+				overlay_ob->material.albedo_linear_rgb = pressed ? args.pressed_colour : args.button_colour;
+		}
+	}
 }

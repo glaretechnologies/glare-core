@@ -21,7 +21,8 @@ static const int tooltip_font_size_px = 12;
 GLUI::GLUI()
 :	callbacks(NULL),
 	mouse_over_text_input_widget(false),
-	stack_allocator(NULL)
+	stack_allocator(NULL),
+	last_mouse_ui_coords(0.f)
 {
 }
 
@@ -178,7 +179,9 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 	const float y_scale = 1 / opengl_engine->getViewPortAspectRatio();
 	const Vec2f coords = UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
-	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0); // Move offscreen by defualt.
+	this->last_mouse_ui_coords = coords;
+
+	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0); // Move offscreen by default.
 
 	bool new_mouse_over_text_input_widget = false;
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)

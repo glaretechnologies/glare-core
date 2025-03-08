@@ -115,6 +115,15 @@ const std::string& GLUILineEdit::getText() const
 }
 
 
+void GLUILineEdit::setWidth(float width)
+{
+	args.width = width;
+
+	this->last_viewport_dims = Vec2i(0); // Force recreate rounded-corner rect
+	updateOverlayObTransforms();
+}
+
+
 void GLUILineEdit::clear()
 {
 	text.clear();

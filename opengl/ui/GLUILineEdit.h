@@ -52,10 +52,11 @@ public:
 	void setText(GLUI& glui, const std::string& new_text);
 	const std::string& getText() const;
 
+	void setWidth(float width);
+
 	void clear();
 
 	void setVisible(bool visible);
-
 	virtual bool isVisible() override;
 
 	//const Vec2f getDims() const;
