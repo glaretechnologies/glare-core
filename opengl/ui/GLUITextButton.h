@@ -29,6 +29,7 @@ public:
 		CreateArgs();
 
 		std::string tooltip;
+		int font_size_px; // default = 14 pixels.
 
 		Colour3f background_colour;
 		Colour3f text_colour;

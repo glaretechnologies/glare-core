@@ -331,7 +331,7 @@ float GLUI::getDevIndepPixelWIdthForUIWidth(float ui_width)
 
 OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 {
-	TextRendererFontFaceRef font = fonts->getFontFaceForSize(tooltip_font_size_px);
+	TextRendererFontFaceRef font = fonts->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio));
 
 	const TextRendererFontFace::SizeInfo size_info = font->getTextSize(tooltip_text);
 

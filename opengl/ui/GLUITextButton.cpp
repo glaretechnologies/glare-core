@@ -17,6 +17,8 @@ Copyright Glare Technologies Limited 2025 -
 
 GLUITextButton::CreateArgs::CreateArgs()
 {
+	font_size_px = 14;
+
 	background_colour           = Colour3f(1.f);
 	mouseover_background_colour = toLinearSRGB(Colour3f(0.8f));
 
@@ -38,6 +40,7 @@ GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engi
 	text_args.text_colour = args.text_colour;
 	text_args.padding_px = 8;
 	text_args.text_selectable = false;
+	text_args.font_size_px = args.font_size_px;
 	text_view = new GLUITextView(glui_, opengl_engine_, button_text, botleft, text_args);
 	glui->addWidget(text_view);
 
