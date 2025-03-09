@@ -24,13 +24,6 @@ Copyright Glare Technologies Limited 2022 -
 #include <vector>
 
 
-#define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT			0x8E8F
-
-// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
-#define GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT				0x83F0
-#define GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT			0x83F3
-
-
 Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params)
 {
 	const int frame_i = 0;
@@ -452,11 +445,13 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 				src_data		= static_cast<const ImageMapFloat*>(src_map)->getData();
 				src_data_size	= static_cast<const ImageMapFloat*>(src_map)->getDataSize() * sizeof(float);
 			}
+#ifndef NO_EXR_SUPPORT
 			else if(dynamic_cast<const ImageMap<half, HalfComponentValueTraits>*>(src_map))
 			{
 				src_data		= static_cast<const ImageMap<half, HalfComponentValueTraits>*>(src_map)->getData();
 				src_data_size	= static_cast<const ImageMap<half, HalfComponentValueTraits>*>(src_map)->getDataSize() * sizeof(half);
 			}
+#endif
 			else
 			{
 				runtimeCheck(0);
