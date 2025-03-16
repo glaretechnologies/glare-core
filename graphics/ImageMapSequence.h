@@ -15,7 +15,11 @@ template<class T, class TTraits> class ImageMap;
 namespace glare { class TaskManager; }
 
 
-
+/*=====================================================================
+ImageMapSequence
+----------------
+A sequence of one or more images, all with the same dimensions and bit depths.
+=====================================================================*/
 template <class V, class ComponentValueTraits>
 class ImageMapSequence final : public Map2D
 {
@@ -43,12 +47,12 @@ public:
 	virtual Value getDerivs(Coord /*s*/, Coord /*t*/, Value& /*dv_ds_out*/, Value& /*dv_dt_out*/) const override { assert(0); return 0.f; }
 
 
-	virtual size_t getMapWidth() const override { assert(0); return 1; }
-	virtual size_t getMapHeight() const override { assert(0); return 1; }
-	virtual size_t numChannels() const override { assert(0); return 1; }
-	virtual double uncompressedBitsPerChannel() const override { assert(0); return 8; }
+	virtual size_t getMapWidth() const override { runtimeCheck(!images.empty()); return images[0]->getMapWidth(); }
+	virtual size_t getMapHeight() const override { runtimeCheck(!images.empty()); return images[0]->getMapHeight(); }
+	virtual size_t numChannels() const override { runtimeCheck(!images.empty()); return images[0]->numChannels(); }
+	virtual double uncompressedBitsPerChannel() const override { runtimeCheck(!images.empty()); return images[0]->uncompressedBitsPerChannel(); }
 
-	virtual bool takesOnlyUnitIntervalValues() const override { assert(0); return true; }
+	virtual bool takesOnlyUnitIntervalValues() const override { runtimeCheck(!images.empty()); return images[0]->takesOnlyUnitIntervalValues(); }
 
 	virtual Reference<Map2D> extractChannelZero() const override { assert(0); return NULL; }
 
@@ -73,7 +77,7 @@ public:
 	// Return a new, resized version of this image.
 	// Scaling is assumed to be mostly the same in each dimension.
 	// Resizing is medium quality, as it needs to be fast for large images (env maps)
-	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override { assert(0); return NULL; }
+	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const override;
 #endif
 
 	virtual size_t getByteSize() const override { assert(0); return 1; }; // Get total size of image in bytes.  Returns the compressed size if the image is compressed.
@@ -93,3 +97,19 @@ private:
 
 typedef ImageMapSequence<uint8, UInt8ComponentValueTraits> ImageMapSequenceUInt8;
 typedef Reference<ImageMapSequenceUInt8> ImageMapSequenceUInt8Ref;
+
+
+template<class V, class ComponentValueTraits>
+inline Reference<Map2D> ImageMapSequence<V, ComponentValueTraits>::resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const
+{
+	Reference<ImageMapSequence<V, ComponentValueTraits>> new_seq = new ImageMapSequence<V, ComponentValueTraits>();
+
+	new_seq->images.resize(images.size());
+	for(size_t i=0; i<images.size(); ++i)
+		new_seq->images[i] = this->images[i]->resizeMidQuality(new_width, new_height, task_manager).downcast<ImageMap<uint8, UInt8ComponentValueTraits>>();
+
+	new_seq->frame_durations   = this->frame_durations;
+	new_seq->frame_start_times = this->frame_start_times;
+
+	return new_seq;
+}
