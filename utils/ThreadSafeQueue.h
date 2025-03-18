@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "Lock.h"
 #include "Condition.h"
 #include "CircularBuffer.h"
+#include "Vector.h"
 
 
 /*=====================================================================
@@ -47,6 +48,8 @@ public:
 	// Suspends calling thread until queue is non-empty, or wait_time_seconds has elapsed.
 	// Returns true if object dequeued, false if timeout occured.
 	bool dequeueWithTimeout(double wait_time_seconds, T& t_out);
+
+	void dequeueAllItems(js::Vector<T, 16>& items_out); // Does not block
 
 	// Thread-safe:
 	inline bool empty() const;
@@ -233,4 +236,19 @@ bool ThreadSafeQueue<T>::dequeueWithTimeout(double wait_time_seconds, T& t_out)
 	assert(!queue.empty()); // We have exited from while(queue.empty()) loop, and we still hold the mutex, so queue should be non-empty.
 	unlockedDequeue(t_out);
 	return true;
+}
+
+
+template<class T>
+inline void ThreadSafeQueue<T>::dequeueAllItems(js::Vector<T, 16>& items_out)
+{
+	items_out.resize(0);
+
+	Lock lock(mutex); // Lock queue
+
+	while(!queue.empty())
+	{
+		items_out.push_back(queue.front());
+		queue.pop_front();
+	}
 }
