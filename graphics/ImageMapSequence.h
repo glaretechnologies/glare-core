@@ -106,7 +106,7 @@ inline Reference<Map2D> ImageMapSequence<V, ComponentValueTraits>::resizeMidQual
 
 	new_seq->images.resize(images.size());
 	for(size_t i=0; i<images.size(); ++i)
-		new_seq->images[i] = this->images[i]->resizeMidQuality(new_width, new_height, task_manager).downcast<ImageMap<uint8, UInt8ComponentValueTraits>>();
+		new_seq->images[i] = this->images[i]->resizeMidQuality(new_width, new_height, task_manager).downcast<ImageMap<V, ComponentValueTraits>>();
 
 	new_seq->frame_durations   = this->frame_durations;
 	new_seq->frame_start_times = this->frame_start_times;
