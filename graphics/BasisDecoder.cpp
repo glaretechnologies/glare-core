@@ -52,14 +52,17 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		if(!transcoder.validate_header(data, (uint32)size))
 			throw glare::Exception("validate_header failed");
 
+		basist::basisu_file_info file_info;
+		transcoder.get_file_info(data, (uint32)size, file_info);
+
 		const uint32 num_images = transcoder.get_total_images(data, (uint32)size);
 		checkProperty(num_images > 0, "require num_images > 0");
 
 		const basist::basis_texture_type texture_type = transcoder.get_texture_type(data, (uint32)size);
-		if(!(texture_type == basist::cBASISTexType2D || texture_type == basist::cBASISTexType2DArray))
-			throw glare::Exception("invalid texture type");
+		if(!(texture_type == basist::cBASISTexType2D || texture_type == basist::cBASISTexType2DArray || texture_type == basist::cBASISTexTypeVideoFrames))
+			throw glare::Exception("invalid/unsupported texture type");
 
-		checkProperty(transcoder.get_tex_format(data, (uint32)size) == basist::basis_tex_format::cETC1S, "tex format must be cETC1S");
+		checkProperty(transcoder.get_basis_tex_format(data, (uint32)size) == basist::basis_tex_format::cETC1S, "tex format must be cETC1S");
 
 		basist::basisu_image_info image_0_info;
 		transcoder.get_image_info(data, (uint32)size, image_0_info, /*image index=*/0);
@@ -74,10 +77,8 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		if(image_0_info.m_orig_height > 1000000)
 			throw ImFormatExcep("Invalid height: " + toString(image_0_info.m_orig_height));
 
-		const size_t use_D = (num_images == 0) ? 1 : num_images;
-
 		const size_t max_num_pixels = 1 << 27;
-		if(((size_t)image_0_info.m_orig_width * (size_t)image_0_info.m_orig_height * use_D) > max_num_pixels)
+		if(((size_t)image_0_info.m_orig_width * (size_t)image_0_info.m_orig_height * (size_t)num_images) > max_num_pixels)
 			throw ImFormatExcep("invalid width, height, num_images: (too many pixels): " + toString(image_0_info.m_orig_width) + ", " + toString(image_0_info.m_orig_height));
 
 		OpenGLTextureFormat format;
@@ -109,12 +110,23 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 			}
 		}
 
+		const bool multi_frame = texture_type == basist::cBASISTexTypeVideoFrames; // Is this transcoded from an animated GIF?
+
 		CompressedImageRef image = new CompressedImage(image_0_info.m_orig_width, image_0_info.m_orig_height, format);
-		image->texture_data->frames.resize(1);
+		image->texture_data->frames.resize(multi_frame ? num_images : 1);
 		image->texture_data->W = image_0_info.m_orig_width;
 		image->texture_data->H = image_0_info.m_orig_height;
-		image->texture_data->D = use_D;
+		image->texture_data->D = multi_frame ? 1 : num_images;
 		image->texture_data->num_array_images = (texture_type == basist::cBASISTexType2DArray) ? num_images : 0;
+
+		if(multi_frame)
+		{
+			const double frame_time_s = file_info.m_us_per_frame * 1.0e-6;
+			image->texture_data->frame_durations_equal = true;
+			image->texture_data->recip_frame_duration = 1.0 / frame_time_s;
+			image->texture_data->last_frame_end_time = frame_time_s * num_images;
+			image->texture_data->num_frames = num_images;
+		}
 
 		const size_t bytes_per_block = bytesPerBlock(image->texture_data->format);
 
@@ -131,7 +143,7 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 				throw glare::Exception("Unexpected level_info.m_total_blocks.");
 
 			const size_t single_im_level_size_B = level_info.m_total_blocks * bytes_per_block; // For a single image
-			const size_t total_level_size_B = single_im_level_size_B * num_images;
+			const size_t total_level_size_B = single_im_level_size_B * (multi_frame ? 1 : num_images);
 
 			image->texture_data->level_offsets[lvl].offset = offset;
 			image->texture_data->level_offsets[lvl].level_size = total_level_size_B;
@@ -139,10 +151,11 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 			offset += total_level_size_B;
 		}
 
-		const size_t all_images_total_size_B = offset; // Sum over all Mip levels.
+		const size_t frame_total_size_B = offset; // Sum over all Mip levels.
 
 		// Allocate image data
-		image->texture_data->frames[0].mipmap_data.resize(all_images_total_size_B);
+		for(size_t i=0; i<image->texture_data->frames.size(); ++i)
+			image->texture_data->frames[i].mipmap_data.resize(frame_total_size_B);
 
 		for(uint32 im = 0; im < num_images; ++im)
 		{
@@ -158,7 +171,7 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 
 
 		/*
-		mipmap_data layout:
+		mipmap_data layout, for an array image:
 
 		Mip level 0                                               Mip level 1                              Mip level 2
 		----------------------------------------------------------------------------------------------------
@@ -167,18 +180,31 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		^<------------------------------------------------------->^
 		|                     level_size[0]                       |
 		offset[0]                                             offset[1]
+
+
+
+		mipmap_data layout, for a multi-frame image (e.g. animated gif)
+
+		-----------------------------------------------------------------------------------------    -----------------------------------------------------------------------------------------
+		|im 0 mip 0                         |     im 0 mip 1          | im 0 mip 2 |  ...      |    |im 1 mip 0                         |      im 1 mip 1           | im 1 mip 2 |  ...      |   ...
+		-----------------------------------------------------------------------------------------    -----------------------------------------------------------------------------------------
+		^<--------------------------------->^
+		|       level_size[0]               |       level_size[1]     |
+		offset[0]                        offset[1]                offset[2]
 		*/
 		for(uint32 lvl=0; lvl<num_mip_levels; ++lvl)
 		{
 			for(uint32 im = 0; im < num_images; ++im)
 			{
-				const size_t per_image_level_size_B = image->texture_data->level_offsets[lvl].level_size / num_images;
-				const size_t dest_lvl_offset_B = image->texture_data->level_offsets[lvl].offset + per_image_level_size_B * im;
+				const size_t per_image_level_size_B = image->texture_data->level_offsets[lvl].level_size / (multi_frame ? 1 : num_images);
+				const size_t dest_lvl_offset_B = image->texture_data->level_offsets[lvl].offset + (multi_frame ? 0 : (per_image_level_size_B * im));
 
-				runtimeCheck(dest_lvl_offset_B <= image->texture_data->frames[0].mipmap_data.size());
-				const uint8* dest_output_blocks = image->texture_data->frames[0].mipmap_data.data() + dest_lvl_offset_B; // Get destination/write pointer
+				const size_t frame_index = multi_frame ? im : 0;
+				runtimeCheck(frame_index < image->texture_data->frames.size());
+				runtimeCheck(dest_lvl_offset_B <= image->texture_data->frames[frame_index].mipmap_data.size());
+				const uint8* dest_output_blocks = image->texture_data->frames[frame_index].mipmap_data.data() + dest_lvl_offset_B; // Get destination/write pointer
 
-				runtimeCheck((CheckedMaths::addUnsignedInts(dest_lvl_offset_B, per_image_level_size_B)) <= image->texture_data->frames[0].mipmap_data.size());
+				runtimeCheck((CheckedMaths::addUnsignedInts(dest_lvl_offset_B, per_image_level_size_B)) <= image->texture_data->frames[frame_index].mipmap_data.size());
 				const uint32 output_num_blocks = (uint32)(per_image_level_size_B / bytes_per_block);
 
 				if(!transcoder.transcode_image_level(data, (uint32)size,
@@ -245,7 +271,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 }
 #endif
 
-#if 0
+#if !GUI_CLIENT
 void writeBasisFile(const ImageMapUInt8& map, const std::string& dest_path)
 {
 	basisu::basisu_encoder_init(); // Can be called multiple times harmlessly.
@@ -258,13 +284,15 @@ void writeBasisFile(const ImageMapUInt8& map, const std::string& dest_path)
 
 	Timer timer;
 
-	params.m_write_output_basis_files = true;
+	params.m_write_output_basis_or_ktx2_files = true;
 	params.m_out_filename = dest_path;
 
 	params.m_mip_gen = true; // Generate mipmaps for each source image
 	params.m_mip_srgb = true; // Convert image to linear before filtering, then back to sRGB
 
-	params.m_quality_level = 255;
+	params.m_etc1s_quality_level = 255;
+
+	params.m_debug = false;
 
 	// Need to be set if m_quality_level is not explicitly set.
 	//params.m_max_endpoint_clusters = 16128;
@@ -312,14 +340,16 @@ void BasisDecoder::test()
 
 			conPrint("Writing Fencing_Iron.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
 		}*/
-		/*{
+#if !GUI_CLIENT
+		{
 			Timer timer;
 
 			Reference<Map2D> im = JPEGDecoder::decode(".", TestUtils::getTestReposDir() + "/testfiles/italy_bolsena_flag_flowers_stairs_01.jpg");
-			writeBasisFile(*im.downcastToPtr<ImageMapUInt8>(), "d:/tempfiles/italy_bolsena_flag_flowers_stairs_01.basis");
+			writeBasisFile(*im.downcastToPtr<ImageMapUInt8>(), "d:/files/italy_bolsena_flag_flowers_stairs_01.basis");
 
 			conPrint("Writing italy_bolsena_flag_flowers_stairs_01.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
-		}*/
+		}
+#endif
 
 		//----------------------------------- Test time to load a JPG and do DXT compression for comparison -------------------------------------------
 		/*{
