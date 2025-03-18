@@ -88,6 +88,8 @@ public:
 
 	bool isArrayTexture() const { return num_array_images > 0; }
 
+	bool isMultiFrame() const { return frames.size() > 1; } // e.g. is animated
+
 	size_t numChannels() const;
 
 	double uncompressedBitsPerChannel() const;
