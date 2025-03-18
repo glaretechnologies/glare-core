@@ -20,7 +20,7 @@ Implements the SettingsStore interface using QSettings.
 class QSettingsStore final : public SettingsStore
 {
 public:
-	QSettingsStore(QSettings* settings);
+	QSettingsStore(QSettings* settings); // Does not take ownership of settings.
 	virtual ~QSettingsStore();
 
 	virtual bool		getBoolValue(const std::string& key, bool default_value) override;
