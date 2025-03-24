@@ -1,15 +1,19 @@
 /*=====================================================================
 PBO.cpp
 -------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2025 -
 =====================================================================*/
 #include "PBO.h"
 
 
-PBO::PBO()
+#include "IncludeOpenGL.h"
+
+
+PBO::PBO(size_t size_, bool for_upload)
 :	buffer_name(0),
-	buffer_type(GL_PIXEL_UNPACK_BUFFER),
-	size(0)
+	buffer_type(for_upload ? GL_PIXEL_UNPACK_BUFFER : GL_PIXEL_PACK_BUFFER),
+	size(size_),
+	mapped_ptr(nullptr)
 {
 	// Create new buffer
 	glGenBuffers(1, &buffer_name);
@@ -18,7 +22,7 @@ PBO::PBO()
 	glBindBuffer(buffer_type, buffer_name);
 
 	// Upload vertex data to the video device
-	//glBufferData(buffer_type, size, data, usage);
+	glBufferData(buffer_type, size, nullptr, for_upload ? GL_STREAM_DRAW : /*GL_STREAM_READ*/GL_STREAM_READ);
 
 	// Unbind buffer
 	glBindBuffer(buffer_type, 0);
@@ -27,26 +31,35 @@ PBO::PBO()
 
 PBO::~PBO()
 {
+	assert(!mapped_ptr);
+
 	glDeleteBuffers(1, &buffer_name);
 }
 
 
-void PBO::updateData(const void* data, size_t new_size)
+void* PBO::map()
 {
-	// From http://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/
-	// Update the buffers that OpenGL uses for rendering.
-	// There are much more sophisticated means to stream data from the CPU to the GPU,
-	// but this is outside the scope of this tutorial.
-	// http://www.opengl.org/wiki/Buffer_Object_Streaming
+	assert(!mapped_ptr);
 
-	glBindBuffer(buffer_type, buffer_name);
-	glBufferData(buffer_type, size, NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
-	glBufferSubData(buffer_type, 0, new_size, data);
-	this->size = new_size;
+	bind();
+	mapped_ptr = glMapBuffer(buffer_type, (buffer_type == GL_PIXEL_UNPACK_BUFFER) ? GL_WRITE_ONLY : GL_READ_ONLY);
+	unbind();
+	return mapped_ptr;
 }
 
 
-void PBO::bind()
+void PBO::unmap()
+{
+	assert(mapped_ptr);
+
+	bind();
+	glUnmapBuffer(buffer_type);
+	mapped_ptr = nullptr;
+	unbind();
+}
+
+
+void PBO::bind() const
 {
 	glBindBuffer(buffer_type, buffer_name);
 }
@@ -54,6 +67,5 @@ void PBO::bind()
 
 void PBO::unbind()
 {
-	// Unbind buffer
 	glBindBuffer(buffer_type, 0);
 }
