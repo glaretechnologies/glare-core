@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "BasicOpenGLTypes.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include <stddef.h> // for size_t
 
 
 /*=====================================================================
