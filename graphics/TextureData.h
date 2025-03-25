@@ -34,12 +34,6 @@ Contains Mipmap data, that is possibly compressed.
 	offset[0]                                             offset[1]
 		 
 */
-class TextureFrameData
-{
-public:
-	glare::AllocatorVector<uint8, 16> mipmap_data; // Data for all mip-map levels, possibly compressed.
-	Reference<const Map2D> converted_image; // May reference an image directly if we are not computing mipmaps for it, or a CompressedImage.
-};
 
 
 enum OpenGLTextureFormat
@@ -72,6 +66,8 @@ enum OpenGLTextureFormat
 
 bool isCompressed(OpenGLTextureFormat format);
 size_t bytesPerBlock(OpenGLTextureFormat format);
+size_t numChannels(OpenGLTextureFormat format);
+
 
 class TextureData : public ThreadSafeRefCounted
 {
@@ -88,7 +84,9 @@ public:
 
 	bool isArrayTexture() const { return num_array_images > 0; }
 
-	bool isMultiFrame() const { return frames.size() > 1; } // e.g. is animated
+	bool isMultiFrame() const { return num_frames > 1; } // e.g. is animated
+
+	size_t numFrames() const { return num_frames; }
 
 	size_t numChannels() const;
 
@@ -106,18 +104,24 @@ public:
 	{
 		LevelOffsetData() {}
 		LevelOffsetData(size_t offset_, size_t level_size_) : offset(offset_), level_size(level_size_) {}
-		size_t offset; // Offset in frames[i].mipmap_data.  Same for all frames.  In bytes.  Offset over all array images/layers.
-		size_t level_size; // Size (in bytes) of level data in frames[i].mipmap_data.  Same for all frames.  Size of all array image/layers together.
+		size_t offset; // Offset (in bytes) from the start of the current frame data to the data for the given MIP level. Same for all frames.  In bytes.
+		size_t level_size; // Size (in bytes) of the given MIP level data for the current frame.
 	};
 
 	std::vector<LevelOffsetData> level_offsets;
 
-	std::vector<TextureFrameData> frames; // will have 1 element for non-animated images, more than 1 for animated gifs etc..
+	glare::AllocatorVector<uint8, 16> mipmap_data;
+	
+	Reference<const Map2D> converted_image; // May reference an image directly if we are not computing mipmaps for it.
 
 	std::vector<double> frame_end_times;
 
 	bool frame_durations_equal;
 	double recip_frame_duration; // Set if frame_durations_equal is true.
 	double last_frame_end_time;
-	size_t num_frames; // == frames.size() == frame_end_times.size()
+	size_t num_frames; // will have 1 frame for non-animated images, more than 1 for animated gifs etc..
+	size_t frame_size_B;
 };
+
+
+typedef Reference<TextureData> TextureDataRef;

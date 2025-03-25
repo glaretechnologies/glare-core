@@ -87,10 +87,10 @@ void TextureProcessingTests::testBuildingTexDataForImage(glare::Allocator* alloc
 			if(k + 1 < tex_data->level_offsets.size())
 				next_offset = tex_data->level_offsets[k + 1].offset;
 			else
-				next_offset = tex_data->frames[0].mipmap_data.size();
+				next_offset = tex_data->mipmap_data.size();
 
 			testAssert(offset + level_size <= next_offset);
-			testAssert(offset + level_size <= tex_data->frames[0].mipmap_data.size());
+			testAssert(offset + level_size <= tex_data->mipmap_data.size());
 		}
 	}
 }
@@ -170,11 +170,11 @@ void TextureProcessingTests::testLoadingAnimatedFile(const std::string& path, gl
 			testAssert(texdata->W == seq->images[0]->getMapWidth());
 			testAssert(texdata->H == seq->images[0]->getMapHeight());
 
-			testAssert(texdata->frames.size() == seq->images.size());
-			for(size_t i=0; i<texdata->frames.size(); ++i)
+			testAssert(texdata->numFrames() == seq->images.size());
+		/*	for(size_t i=0; i<texdata->numFrames(); ++i)
 			{
 				testAssert(texdata->frames[i].mipmap_data.size() > 0);
-			}
+			}*/
 		}
 		catch(glare::Exception& e)
 		{

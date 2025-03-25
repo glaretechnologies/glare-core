@@ -50,6 +50,6 @@ private:
 	static void downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H, size_t N, const uint8* prev_level_image_data, float alpha_scale, size_t level_W, size_t level_H, uint8* data_out, float& alpha_coverage_out);
 
 	// Uses task_manager for multi-threading if non-null.
-	static void buildMipMapDataForImageFrame(size_t total_compressed_size, bool do_compression, js::Vector<uint8, 16>& temp_tex_buf_a, js::Vector<uint8, 16>& temp_tex_buf_b, 
+	static void buildMipMapDataForImageFrame(bool do_compression, js::Vector<uint8, 16>& temp_tex_buf_a, js::Vector<uint8, 16>& temp_tex_buf_b, 
 		DXTCompression::TempData& compress_temp_data, TextureData* texture_data, size_t cur_frame_i, const ImageMapUInt8* source_image, glare::TaskManager* task_manager);
 };

@@ -37,7 +37,8 @@ void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef t
 		const size_t level_offset = texture_data->level_offsets[k].offset;
 		const size_t level_size   = texture_data->level_offsets[k].level_size;
 
-		const size_t row_stride_B = level_W * texture_data->numChannels() * texture_data->uncompressedBitsPerChannel() / 8; // not used for compressed textures
+		runtimeCheck(level_H > 0);
+		const size_t row_stride_B = level_size / level_H; // not used for compressed textures.  Assume packed.
 
 		opengl_tex->loadRegionIntoExistingTexture(/*mipmap level=*/(int)k, /*x=*/0, /*y=*/0, /*z=*/0, /*region_w=*/level_W, /*region_h=*/level_H, /*region depth=*/level_D, 
 			row_stride_B, // not used for compressed textures

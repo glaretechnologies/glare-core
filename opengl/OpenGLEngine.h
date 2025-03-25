@@ -23,6 +23,10 @@ Copyright Glare Technologies Limited 2023 -
 #include "AsyncTextureLoader.h"
 #include "TextureAllocator.h"
 #include "Query.h"
+#include "PBOPool.h"
+#include "VBOPool.h"
+#include "PBOAsyncTextureUploader.h"
+#include "AsyncGeometryUploader.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/AnimationData.h"
@@ -154,7 +158,7 @@ public:
 	bool hologram; // E.g. just emission, no light scattering.
 	bool gen_planar_uvs; // Generate planar UVs.  Useful for voxels.
 	bool draw_planar_uv_grid;
-	bool convert_albedo_from_srgb;
+	bool convert_albedo_from_srgb; // If true, diffuse colour (including texture colour) is treated as non-linear sRGB, and manually converted to linear sRGB in fragment shader.  Not needed when using a sRGB texture type.
 	bool use_wind_vert_shader;
 	bool simple_double_sided; // If false, back-face culling is done on this material.  If true, back face is rendered like front face.
 	bool fancy_double_sided; // Are we using BACKFACE_ALBEDO_TEX and TRANSMISSION_TEX?  For leaves etc.
@@ -1572,6 +1576,14 @@ private:
 
 public:
 	Matrix4f debug_last_main_view_matrix;
+
+	PBOPool pbo_pool;
+
+	PBOAsyncTextureUploader pbo_async_tex_loader;
+
+	VBOPool vbo_pool;
+
+	AsyncGeometryUploader async_geom_loader;
 };
 
 

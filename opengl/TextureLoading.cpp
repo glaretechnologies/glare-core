@@ -21,14 +21,13 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/RuntimeCheck.h"
 #include "../utils/IncludeHalf.h"
 #include "../utils/FileUtils.h"
+#include "../maths/CheckedMaths.h"
 #include <vector>
 
 
 Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params)
 {
-	const int frame_i = 0;
-	
-	if(!texture_data.frames[0].mipmap_data.empty()) // If the texture data is processed data we processed ourselves:
+	if(!texture_data.converted_image) // If the texture data is processed data we processed ourselves:
 	{
 		const size_t W = texture_data.W;
 		const size_t H = texture_data.H;
@@ -100,9 +99,9 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const 
 	}
 	else // Else if we don't have data we processed ourselves, image will not have been processed and is just stored in converted_image.
 	{
-		runtimeCheck(texture_data.frames[frame_i].converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
+		runtimeCheck(texture_data.converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
 
-		return createUninitialisedTextureForMap2D(*texture_data.frames[frame_i].converted_image, opengl_engine, texture_params);
+		return createUninitialisedTextureForMap2D(*texture_data.converted_image, opengl_engine, texture_params);
 	}
 }
 
@@ -200,29 +199,29 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 
 	const size_t W = texture_data.W;
 	const size_t H = texture_data.H;
-	if(!texture_data.frames[frame_i].mipmap_data.empty()) // If the texture data has been processed into mip levels:
+	if(!texture_data.mipmap_data.empty()) // If the texture data has been processed into mip levels:
 	{
 		for(size_t k=0; k<texture_data.level_offsets.size(); ++k) // For each mipmap level:
 		{
 			const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
 			const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-			const size_t level_offset = texture_data.level_offsets[k].offset;
+			const size_t level_offset = texture_data.level_offsets[k].offset + texture_data.frame_size_B * frame_i; // Offset for level k and frame frame_i.
 			const size_t level_size   = texture_data.level_offsets[k].level_size;
 
-			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.frames[frame_i].mipmap_data[level_offset], level_size), /*bind_needed=*/false);
+			runtimeCheck(CheckedMaths::addUnsignedInts(level_offset, level_size) <= texture_data.mipmap_data.size());
+
+			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.mipmap_data[level_offset], level_size), /*bind_needed=*/false);
 		}
 
 		//opengl_tex->unbind();
 	}
 	else // Else if not using a compressed texture format:
 	{
-		runtimeCheck(texture_data.frames[frame_i].converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
-		if(dynamic_cast<const ImageMapUInt8*>(texture_data.frames[frame_i].converted_image.ptr()))
+		runtimeCheck(texture_data.converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
+		if(const ImageMapUInt8* image_map_uint8 = dynamic_cast<const ImageMapUInt8*>(texture_data.converted_image.ptr()))
 		{
-			const ImageMapUInt8* image_map_uint8 = static_cast<const ImageMapUInt8*>(texture_data.frames[frame_i].converted_image.ptr());
-
 			opengl_tex->loadIntoExistingTexture(/*mipmap level=*/0, W, H, 
-				W * texture_data.frames[frame_i].converted_image->numChannels(), // row stride (B)
+				W * texture_data.converted_image->numChannels(), // row stride (B)
 				ArrayRef<uint8>(image_map_uint8->getData(), image_map_uint8->getDataSize()), /*bind_needed=*/false);
 		}
 		else
@@ -387,8 +386,9 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 
 	opengl_tex->bind();
 
-	const size_t frame_i = 0;
-	if(!texture_data->frames[frame_i].mipmap_data.empty()) // If the texture data has data we compressed in TextureProcessing
+	// NOTE: assuming we are always loading from frame 0.
+
+	if(!texture_data->converted_image) // If the texture data has data we compressed in TextureProcessing
 	{
 		while((loading_progress.next_mip_level < loading_progress.num_mip_levels) && (total_bytes_uploaded_in_out < max_total_upload_bytes))
 		{
@@ -404,12 +404,12 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 			const size_t level_offset = texture_data->level_offsets[k].offset;
 			const size_t level_size   = texture_data->level_offsets[k].level_size;
 			
-			runtimeCheck(level_offset < texture_data->frames[frame_i].mipmap_data.size());
-			runtimeCheck(level_offset + level_size <= texture_data->frames[frame_i].mipmap_data.size());
+			runtimeCheck(level_offset < texture_data->mipmap_data.size());
+			runtimeCheck(level_offset + level_size <= texture_data->mipmap_data.size());
 
 			const size_t level_D = texture_data->D;
 
-			const ArrayRef<uint8> level_data(texture_data->frames[frame_i].mipmap_data.data() + level_offset, level_size);
+			const ArrayRef<uint8> level_data(texture_data->mipmap_data.data() + level_offset, level_size);
 			
 			doPartialUploadOfLevel(loading_progress, opengl_tex, texture_data->isCompressed(), k, level_W, level_H, level_D, /*block size=*/4, 
 				level_data, total_bytes_uploaded_in_out, max_total_upload_bytes);
@@ -417,9 +417,9 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 	}
 	else
 	{
-		runtimeCheck(texture_data->frames[frame_i].converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
+		runtimeCheck(texture_data->converted_image.nonNull()); // We should have a reference to the original (or converted) uncompressed image.
 
-		const Map2D* src_map = texture_data->frames[frame_i].converted_image.ptr();
+		const Map2D* src_map = texture_data->converted_image.ptr();
 		while((loading_progress.next_mip_level < loading_progress.num_mip_levels) && (total_bytes_uploaded_in_out < max_total_upload_bytes))
 		{
 			const size_t W = src_map->getMapWidth();
@@ -438,18 +438,18 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 			else if(dynamic_cast<const ImageMapUInt8*>(src_map))
 			{
 				src_data		= static_cast<const ImageMapUInt8*>(src_map)->getData();
-				src_data_size	= static_cast<const ImageMapUInt8*>(src_map)->getDataSize() * sizeof(uint8);
+				src_data_size	= static_cast<const ImageMapUInt8*>(src_map)->getDataSizeB();
 			}
 			else if(dynamic_cast<const ImageMapFloat*>(src_map))
 			{
 				src_data		= static_cast<const ImageMapFloat*>(src_map)->getData();
-				src_data_size	= static_cast<const ImageMapFloat*>(src_map)->getDataSize() * sizeof(float);
+				src_data_size	= static_cast<const ImageMapFloat*>(src_map)->getDataSizeB();
 			}
 #ifndef NO_EXR_SUPPORT
 			else if(dynamic_cast<const ImageMap<half, HalfComponentValueTraits>*>(src_map))
 			{
 				src_data		= static_cast<const ImageMap<half, HalfComponentValueTraits>*>(src_map)->getData();
-				src_data_size	= static_cast<const ImageMap<half, HalfComponentValueTraits>*>(src_map)->getDataSize() * sizeof(half);
+				src_data_size	= static_cast<const ImageMap<half, HalfComponentValueTraits>*>(src_map)->getDataSizeB();
 			}
 #endif
 			else
@@ -471,7 +471,7 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 		}
 
 
-		if(texture_data->frames.size() > 1)
+		if(texture_data->isMultiFrame())
 		{
 			// If this is texture data for an animated texture (Gif), then keep it around.
 			// We need to keep around animated texture data like this, for now, since during animation different frames will be loaded into the OpenGL texture from the tex data.

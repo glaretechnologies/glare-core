@@ -384,16 +384,12 @@ static float computeAlphaCoverage(const uint8* level_image_data, size_t level_W,
 // Stores the possibly-DXT compressed image data in texture_data->frames[cur_frame_i].compressed_data.
 // Uses task_manager for multi-threading if non-null.
 // Called by buildUInt8MapTextureData() and buildUInt8MapSequenceTextureData() to do the actual downsizing and compression work.
-void TextureProcessing::buildMipMapDataForImageFrame(size_t total_compressed_size, bool do_compression, js::Vector<uint8, 16>& temp_tex_buf_a, js::Vector<uint8, 16>& temp_tex_buf_b, 
+void TextureProcessing::buildMipMapDataForImageFrame(bool do_compression, js::Vector<uint8, 16>& temp_tex_buf_a, js::Vector<uint8, 16>& temp_tex_buf_b, 
 	DXTCompression::TempData& compress_temp_data, TextureData* texture_data, size_t cur_frame_i, const ImageMapUInt8* source_image, glare::TaskManager* task_manager)
 {
 	const size_t W			= texture_data->W;
 	const size_t H			= texture_data->H;
 	const size_t bytes_pp	= texture_data->numChannels();
-
-	TextureFrameData& frame_data = texture_data->frames[cur_frame_i];
-
-	frame_data.mipmap_data.resize(total_compressed_size);
 
 	float level_0_alpha_coverage = 0;
 	for(size_t k=0; ; ++k) // For each mipmap level:
@@ -474,21 +470,22 @@ void TextureProcessing::buildMipMapDataForImageFrame(size_t total_compressed_siz
 			}
 		}
 
+		const size_t frame_offset_B = texture_data->frame_size_B * cur_frame_i;
 		
-		const size_t level_offset = texture_data->level_offsets[k].offset;
+		const size_t level_offset = texture_data->level_offsets[k].offset + frame_offset_B;
 		const size_t level_size   = texture_data->level_offsets[k].level_size;
 		if(do_compression)
 		{
 			runtimeCheck((level_size == DXTCompression::getCompressedSizeBytes(level_W, level_H, bytes_pp)) && 
-				(level_offset + level_size <= frame_data.mipmap_data.size()));
+				(level_offset + level_size <= texture_data->mipmap_data.size()));
 
 			DXTCompression::compress(task_manager, compress_temp_data, level_W, level_H, bytes_pp, /*src data=*/level_uncompressed_data,
-				/*dst data=*/&frame_data.mipmap_data[level_offset], /*dst size=*/level_size);
+				/*dst data=*/&texture_data->mipmap_data[level_offset], /*dst size=*/level_size);
 		}
 		else
 		{
-			runtimeCheck((level_size == level_W * level_H * bytes_pp) && (level_offset + level_size <= frame_data.mipmap_data.size()) && (level_size <= level_uncompressed_data_size));
-			std::memcpy(&frame_data.mipmap_data[level_offset], level_uncompressed_data, level_size); // TODO: could avoid copy
+			runtimeCheck((level_size == level_W * level_H * bytes_pp) && (level_offset + level_size <= texture_data->mipmap_data.size()) && (level_size <= level_uncompressed_data_size));
+			std::memcpy(&texture_data->mipmap_data[level_offset], level_uncompressed_data, level_size); // TODO: could avoid copy
 		}
 
 		// If we have just finished computing the last mipmap level, we are done.
@@ -539,8 +536,6 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 	}
 	else
 	{
-		//is_8_bit = false;
-
 		Reference<const Map2D> final_map = map;
 
 		// Convert 32-bit floating point images to half-precision floating point (16-bit) images.
@@ -559,11 +554,22 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 		}
 
 		Reference<TextureData> texture_data = new TextureData();
-		texture_data->frames.resize(1);
-		texture_data->frames[0].converted_image = final_map;
+		texture_data->num_frames = 1;
+		texture_data->converted_image = final_map;
 		texture_data->W = final_map->getMapWidth();
 		texture_data->H = final_map->getMapHeight();
-		texture_data->format = (final_map->numChannels() == 3) ? OpenGLTextureFormat::Format_RGB_Linear_Half : OpenGLTextureFormat::Format_RGBA_Linear_Half;
+		texture_data->frame_size_B = final_map->getByteSize();
+		texture_data->level_offsets.push_back(TextureData::LevelOffsetData(/*offset=*/0, texture_data->frame_size_B));
+
+		if(final_map->numChannels() == 1)
+			texture_data->format = OpenGLTextureFormat::Format_Greyscale_Half;
+		else if(final_map->numChannels() == 3)
+			texture_data->format = OpenGLTextureFormat::Format_RGB_Linear_Half;
+		else if(final_map->numChannels() == 4)
+			texture_data->format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
+		else
+			throw glare::Exception("Unhandled number of components for floating-point image: " + toString(final_map->numChannels()));
+
 		return texture_data;
 	}
 }
@@ -577,9 +583,9 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 
 	// conPrint("Creating new OpenGL texture.");
 	Reference<TextureData> texture_data = new TextureData();
-	texture_data->frames.resize(1);
-	if(general_mem_allocator) 
-		texture_data->frames[0].mipmap_data.setAllocator(general_mem_allocator);
+	texture_data->num_frames = 1;
+	if(general_mem_allocator)
+		texture_data->mipmap_data.setAllocator(general_mem_allocator);
 
 	// If we have a 1 or 2 bytes per pixel texture, convert to 3 or 4.
 	// Handling such textures without converting them here would have to be done in the shaders, which we don't do currently.
@@ -647,11 +653,16 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 		DXTCompression::TempData compress_temp_data;
 
 		// Stores possibly-DXT compressed image data in texture_data->frames[cur_frame_i].mipmap_data.
-		buildMipMapDataForImageFrame(total_compressed_size, do_compression, temp_tex_buf_a, temp_tex_buf_b, compress_temp_data, texture_data.ptr(), /*cur frame i=*/0, /*source image=*/converted_image.ptr(), task_manager);
+		texture_data->mipmap_data.resize(total_compressed_size);
+		texture_data->frame_size_B = total_compressed_size;
+
+		buildMipMapDataForImageFrame(/*total_compressed_size, */do_compression, temp_tex_buf_a, temp_tex_buf_b, compress_temp_data, texture_data.ptr(), /*cur frame i=*/0, /*source image=*/converted_image.ptr(), task_manager);
 	}
 	else
 	{
-		texture_data->frames[0].converted_image = converted_image;
+		texture_data->converted_image = converted_image;
+		texture_data->frame_size_B = converted_image->getByteSize();
+		texture_data->level_offsets.push_back(TextureData::LevelOffsetData(/*offset=*/0, texture_data->frame_size_B));
 
 		texture_data->format = (converted_image->getN() == 3) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_SRGBA_Uint8;
 	}
@@ -670,10 +681,9 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 		throw glare::Exception("zero sized image not allowed.");
 
 	Reference<TextureData> texture_data = new TextureData();
-	texture_data->frames.resize(seq->images.size());
+	texture_data->num_frames = seq->images.size();
 	if(general_mem_allocator)
-		for(size_t i=0; i<texture_data->frames.size(); ++i)
-			texture_data->frames[i].mipmap_data.setAllocator(general_mem_allocator);
+		texture_data->mipmap_data.setAllocator(general_mem_allocator);
 
 	const ImageMapUInt8* imagemap_0 = seq->images[0].ptr();
 
@@ -694,11 +704,15 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 	size_t total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size;
 	computeMipLevelOffsets(texture_data.ptr(), do_compression, total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size);
 
+	texture_data->mipmap_data.resize(total_compressed_size * seq->images.size()); // Allocate space for mipmap data
+	texture_data->frame_size_B = total_compressed_size;
+
+
 	js::Vector<uint8, 16> temp_tex_buf_a(temp_tex_buf_a_size);
 	js::Vector<uint8, 16> temp_tex_buf_b(temp_tex_buf_b_size);
 	DXTCompression::TempData compress_temp_data;
 
-	for(size_t frame_i = 0; frame_i != texture_data->frames.size(); ++frame_i)
+	for(size_t frame_i = 0; frame_i != texture_data->num_frames; ++frame_i)
 	{
 		const ImageMapUInt8* imagemap = seq->images[frame_i].ptr();
 
@@ -707,14 +721,18 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 
 		if(build_mipmaps)
 		{
-			buildMipMapDataForImageFrame(total_compressed_size, do_compression, temp_tex_buf_a, temp_tex_buf_b, compress_temp_data, texture_data.ptr(), /*cur frame i=*/frame_i, /*source image=*/imagemap, task_manager);
+			buildMipMapDataForImageFrame(do_compression, temp_tex_buf_a, temp_tex_buf_b, compress_temp_data, texture_data.ptr(), /*cur frame i=*/frame_i, /*source image=*/imagemap, task_manager);
 		}
 		else
 		{
 			if(imagemap->getN() != 3 && imagemap->getN() != 4)
 				throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 
-			texture_data->frames[frame_i].converted_image = seq->images[frame_i];
+
+			// TODO: handle
+			assert(0);
+			throw glare::Exception("TODO: handle non-mipmapped loading of animated textures again");
+			//texture_data->frames[frame_i].converted_image = seq->images[frame_i];
 		}
 	}
 
@@ -726,8 +744,6 @@ Reference<TextureData> TextureProcessing::buildUInt8MapSequenceTextureData(const
 		texture_data->frame_end_times[i] = seq->frame_start_times[i] + frame_durations[i];
 
 	texture_data->last_frame_end_time = texture_data->frame_end_times.back();
-	texture_data->num_frames = texture_data->frame_end_times.size();
-	runtimeCheck(texture_data->num_frames == texture_data->frames.size());
 
 	// See if the frame durations are equal
 	texture_data->frame_durations_equal = false;

@@ -177,9 +177,9 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, gla
 		const size_t total_data_size = offset;
 
 		
-		image->texture_data->frames.resize(1);
-		image->texture_data->frames[0].mipmap_data.resize(total_data_size);
-		MutableArrayRef<uint8> data_ref(image->texture_data->frames[0].mipmap_data.data(), image->texture_data->frames[0].mipmap_data.size());
+		image->texture_data->mipmap_data.resize(total_data_size);
+		image->texture_data->frame_size_B = total_data_size;
+		MutableArrayRef<uint8> data_ref(image->texture_data->mipmap_data.data(), image->texture_data->mipmap_data.size());
 
 		// for each mipmap_level in numberOfMipmapLevels
 		for(uint32 lvl = 0; lvl < use_num_mipmap_levels; ++lvl)
@@ -328,9 +328,9 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 
 		const size_t total_size = offset;
 
-		image->texture_data->frames.resize(1);
-		image->texture_data->frames[0].mipmap_data.resizeNoCopy(total_size); // TODO: check against some reasonable max size first.
-		MutableArrayRef<uint8> data_ref(image->texture_data->frames[0].mipmap_data.data(), image->texture_data->frames[0].mipmap_data.size());
+		image->texture_data->mipmap_data.resizeNoCopy(total_size); // TODO: check against some reasonable max size first.
+		image->texture_data->frame_size_B = total_size;
+		MutableArrayRef<uint8> data_ref(image->texture_data->mipmap_data.data(), image->texture_data->mipmap_data.size());
 
 		// Read mip levels in reverse order, since lowest level mipmap (smallest) should be first in file.
 		for(int lvl = (int)use_num_mipmap_levels - 1; lvl >= 0; --lvl)

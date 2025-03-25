@@ -42,7 +42,7 @@ size_t bytesPerBlock(OpenGLTextureFormat format)
 }
 
 
-size_t TextureData::numChannels() const
+size_t numChannels(OpenGLTextureFormat format)
 {
 	switch(format)
 	{
@@ -74,6 +74,13 @@ size_t TextureData::numChannels() const
 			return 1;
 	}
 }
+
+
+size_t TextureData::numChannels() const
+{
+	return ::numChannels(this->format);
+}
+
 
 double TextureData::uncompressedBitsPerChannel() const
 {
@@ -111,15 +118,10 @@ double TextureData::uncompressedBitsPerChannel() const
 
 size_t TextureData::totalCPUMemUsage() const
 {
-	size_t sum = 0;
+	size_t sum = mipmap_data.dataSizeBytes();
 
-	for(size_t i=0; i<frames.size(); ++i)
-	{
-		sum += frames[i].mipmap_data.dataSizeBytes();
-		
-		if(frames[i].converted_image.nonNull())
-			sum += frames[i].converted_image->getByteSize();
-	}
+	if(converted_image)
+		sum += converted_image->getByteSize();
 
 	sum += frame_end_times.capacity() * sizeof(double);
 

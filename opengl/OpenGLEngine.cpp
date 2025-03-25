@@ -2310,6 +2310,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		thread_manager.addThread(new ShaderFileWatcherThread(data_dir, this));
 #endif
 
+		pbo_pool.init();
+		vbo_pool.init();
 
 		init_succeeded = true;
 	}
@@ -2351,7 +2353,7 @@ void OpenGLEngine::textureLoaded(Reference<OpenGLTexture> texture, const std::st
 
 	if(hasPrefix(local_filename, "/gl_data/caustics/save."))
 	{
-		const std::string index_str = local_filename.substr(std::string("/gl_data/caustics/save.").size(), 2); // TOOD: do without alloc
+		const std::string index_str = local_filename.substr(std::string("/gl_data/caustics/save.").size(), 2); // TODO: do without alloc
 		try
 		{
 			const int index = stringToInt(index_str) - 1; // parse, convert to 0-based index
@@ -9620,7 +9622,7 @@ void OpenGLEngine::drawAuroraTex()
 		GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
 		{
-			conPrint("Error: renderMaskMap(): framebuffer is not complete.");
+			conPrint("Error: drawAuroraTex(): framebuffer is not complete.");
 			assert(0);
 		}
 

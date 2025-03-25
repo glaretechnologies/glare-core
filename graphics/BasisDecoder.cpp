@@ -113,7 +113,7 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		const bool multi_frame = texture_type == basist::cBASISTexTypeVideoFrames; // Is this transcoded from an animated GIF?
 
 		CompressedImageRef image = new CompressedImage(image_0_info.m_orig_width, image_0_info.m_orig_height, format);
-		image->texture_data->frames.resize(multi_frame ? num_images : 1);
+		image->texture_data->num_frames = multi_frame ? num_images : 1;
 		image->texture_data->W = image_0_info.m_orig_width;
 		image->texture_data->H = image_0_info.m_orig_height;
 		image->texture_data->D = multi_frame ? 1 : num_images;
@@ -125,7 +125,6 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 			image->texture_data->frame_durations_equal = true;
 			image->texture_data->recip_frame_duration = 1.0 / frame_time_s;
 			image->texture_data->last_frame_end_time = frame_time_s * num_images;
-			image->texture_data->num_frames = num_images;
 		}
 
 		const size_t bytes_per_block = bytesPerBlock(image->texture_data->format);
@@ -154,8 +153,8 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		const size_t frame_total_size_B = offset; // Sum over all Mip levels.
 
 		// Allocate image data
-		for(size_t i=0; i<image->texture_data->frames.size(); ++i)
-			image->texture_data->frames[i].mipmap_data.resize(frame_total_size_B);
+		image->texture_data->mipmap_data.resize(frame_total_size_B * image->texture_data->num_frames);
+		image->texture_data->frame_size_B = frame_total_size_B;
 
 		for(uint32 im = 0; im < num_images; ++im)
 		{
@@ -185,6 +184,7 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 
 		mipmap_data layout, for a multi-frame image (e.g. animated gif)
 
+		Image 0                                                                                      Image 1
 		-----------------------------------------------------------------------------------------    -----------------------------------------------------------------------------------------
 		|im 0 mip 0                         |     im 0 mip 1          | im 0 mip 2 |  ...      |    |im 1 mip 0                         |      im 1 mip 1           | im 1 mip 2 |  ...      |   ...
 		-----------------------------------------------------------------------------------------    -----------------------------------------------------------------------------------------
@@ -196,16 +196,27 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		{
 			for(uint32 im = 0; im < num_images; ++im)
 			{
-				const size_t per_image_level_size_B = image->texture_data->level_offsets[lvl].level_size / (multi_frame ? 1 : num_images);
-				const size_t dest_lvl_offset_B = image->texture_data->level_offsets[lvl].offset + (multi_frame ? 0 : (per_image_level_size_B * im));
+				size_t image_level_size_B;
+				size_t dest_offset_B;
+				if(multi_frame)
+				{
+					image_level_size_B = image->texture_data->level_offsets[lvl].level_size;
+					dest_offset_B      = image->texture_data->level_offsets[lvl].offset + image->texture_data->frame_size_B * im;
+				}
+				else
+				{
+					image_level_size_B = image->texture_data->level_offsets[lvl].level_size / num_images;
+					dest_offset_B      = image->texture_data->level_offsets[lvl].offset + image_level_size_B * im;
+				}
 
-				const size_t frame_index = multi_frame ? im : 0;
-				runtimeCheck(frame_index < image->texture_data->frames.size());
-				runtimeCheck(dest_lvl_offset_B <= image->texture_data->frames[frame_index].mipmap_data.size());
-				const uint8* dest_output_blocks = image->texture_data->frames[frame_index].mipmap_data.data() + dest_lvl_offset_B; // Get destination/write pointer
 
-				runtimeCheck((CheckedMaths::addUnsignedInts(dest_lvl_offset_B, per_image_level_size_B)) <= image->texture_data->frames[frame_index].mipmap_data.size());
-				const uint32 output_num_blocks = (uint32)(per_image_level_size_B / bytes_per_block);
+
+
+				runtimeCheck(dest_offset_B <= image->texture_data->mipmap_data.size());
+				const uint8* dest_output_blocks = image->texture_data->mipmap_data.data() + dest_offset_B; // Get destination/write pointer
+
+				runtimeCheck((CheckedMaths::addUnsignedInts(dest_offset_B, image_level_size_B)) <= image->texture_data->mipmap_data.size());
+				const uint32 output_num_blocks = (uint32)(image_level_size_B / bytes_per_block);
 
 				if(!transcoder.transcode_image_level(data, (uint32)size,
 					/*image_index=*/im, /*level index=*/lvl, (void*)dest_output_blocks, output_num_blocks,

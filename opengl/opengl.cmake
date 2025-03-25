@@ -67,6 +67,16 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/Query.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/Query.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSAODebugging.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSAODebugging.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBO.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBO.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOPool.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOPool.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/VBOPool.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/VBOPool.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOAsyncTextureUploader.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOAsyncTextureUploader.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncGeometryUploader.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncGeometryUploader.h
 )
 
 

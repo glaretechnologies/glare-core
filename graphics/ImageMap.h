@@ -185,6 +185,7 @@ public:
 	inline V* getPixel(size_t i);
 	inline const V* getPixel(size_t i) const;
 	inline size_t getDataSize() const { return data.size(); }
+	inline size_t getDataSizeB() const { return data.size() * sizeof(V); }
 	inline size_t numPixels() const { return width * height; }
 
 	inline void setPixel(size_t x, size_t y, const V* new_pixel_data);

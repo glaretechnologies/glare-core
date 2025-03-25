@@ -857,74 +857,71 @@ void OpenGLTexture::loadRegionIntoExistingTexture(int mipmap_level, size_t x, si
 		glBindTexture(texture_target, texture_handle);
 	}
 
-	if(src_tex_data.data() != NULL)
+	if(texture_target == GL_TEXTURE_2D_ARRAY)
 	{
-		if(texture_target == GL_TEXTURE_2D_ARRAY)
+		if(isCompressed(format))
 		{
-			if(isCompressed(format))
-			{
-				glCompressedTexSubImage3D(
-					GL_TEXTURE_2D_ARRAY,
-					mipmap_level, // LOD level
-					(GLsizei)x, // x offset
-					(GLsizei)y, // y offset
-					(GLsizei)z, // z offset
-					(GLsizei)region_w, (GLsizei)region_h, // subimage width, height
-					(GLsizei)region_d, // subimage depth
-					gl_internal_format, // internal format
-					(GLsizei)src_tex_data.size(),
-					src_tex_data.data()
-				);
-			}
-			else
-			{
-				// TODO
-				assert(0);
-				throw glare::Exception("unsupported");
-			}
+			glCompressedTexSubImage3D(
+				GL_TEXTURE_2D_ARRAY,
+				mipmap_level, // LOD level
+				(GLsizei)x, // x offset
+				(GLsizei)y, // y offset
+				(GLsizei)z, // z offset
+				(GLsizei)region_w, (GLsizei)region_h, // subimage width, height
+				(GLsizei)region_d, // subimage depth
+				gl_internal_format, // internal format
+				(GLsizei)src_tex_data.size(),
+				src_tex_data.data()
+			);
 		}
 		else
 		{
-			if(isCompressed(format))
-			{
-				glCompressedTexSubImage2D(
-					GL_TEXTURE_2D,
-					mipmap_level, // LOD level
-					(GLsizei)x, // x offset
-					(GLsizei)y, // y offset
-					(GLsizei)region_w, (GLsizei)region_h, // width, height
-					gl_internal_format, // internal format
-					(GLsizei)src_tex_data.size(),
-					src_tex_data.data()
-				);
-			}
-			else
-			{
-				const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
+			// TODO
+			assert(0);
+			throw glare::Exception("unsupported");
+		}
+	}
+	else
+	{
+		if(isCompressed(format))
+		{
+			glCompressedTexSubImage2D(
+				GL_TEXTURE_2D,
+				mipmap_level, // LOD level
+				(GLsizei)x, // x offset
+				(GLsizei)y, // y offset
+				(GLsizei)region_w, (GLsizei)region_h, // width, height
+				gl_internal_format, // internal format
+				(GLsizei)src_tex_data.size(),
+				src_tex_data.data()
+			);
+		}
+		else
+		{
+			const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
 
-				assert(region_w * pixel_size_B <= src_row_stride_B);
-				assert(src_tex_data.size() >= src_row_stride_B * region_h);
+			runtimeCheck(region_w * pixel_size_B <= src_row_stride_B);
+			runtimeCheck(src_tex_data.size() >= src_row_stride_B * region_h);
 
-				setPixelStoreAlignment(src_tex_data.data(), src_row_stride_B);
+			setPixelStoreAlignment(src_tex_data.data(), src_row_stride_B);
 
-				// Set row stride if needed (not tightly packed)
-				if(src_row_stride_B != region_w * pixel_size_B) // If not tightly packed or region w != src image w:
-					glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(src_row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
+			// Set row stride if needed (not tightly packed)
+			if(src_row_stride_B != region_w * pixel_size_B) // If not tightly packed or region w != src image w:
+				glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(src_row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
 
-				glTexSubImage2D(
-					GL_TEXTURE_2D,
-					mipmap_level, // LOD level
-					(GLsizei)x, // x offset
-					(GLsizei)y, // y offset
-					(GLsizei)region_w, (GLsizei)region_h,
-					gl_format,
-					gl_type,
-					src_tex_data.data()
-				);
+			glTexSubImage2D(
+				GL_TEXTURE_2D,
+				mipmap_level, // LOD level
+				(GLsizei)x, // x offset
+				(GLsizei)y, // y offset
+				(GLsizei)region_w, (GLsizei)region_h,
+				gl_format,
+				gl_type,
+				src_tex_data.data()
+			);
 
-				if(src_row_stride_B != region_w * pixel_size_B)
-					glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
-			}
+			if(src_row_stride_B != region_w * pixel_size_B)
+				glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
 		}
 	}
 }

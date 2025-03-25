@@ -30,6 +30,11 @@ public:
 
 	void updateData(size_t offset, const void* data, size_t data_size);
 
+	void* map();
+	void unmap();
+
+	void* getMappedPtr() { return mapped_ptr; }
+
 	void bind() const;
 	void unbind();
 
@@ -41,6 +46,8 @@ private:
 	GLuint buffer_name;
 	GLenum buffer_type;
 	size_t size; // in bytes
+
+	void* mapped_ptr;
 };
 
 
