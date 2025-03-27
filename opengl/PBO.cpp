@@ -39,23 +39,32 @@ PBO::~PBO()
 
 void* PBO::map()
 {
+#if EMSCRIPTEN
+	assert(!"PBO::map() not supported in emscripten.");
+	return nullptr;
+#else
 	assert(!mapped_ptr);
 
 	bind();
 	mapped_ptr = glMapBuffer(buffer_type, (buffer_type == GL_PIXEL_UNPACK_BUFFER) ? GL_WRITE_ONLY : GL_READ_ONLY);
 	unbind();
 	return mapped_ptr;
+#endif
 }
 
 
 void PBO::unmap()
 {
+#if EMSCRIPTEN
+	assert(!"PBO::unmap() not supported in emscripten.");
+#else
 	assert(mapped_ptr);
 
 	bind();
 	glUnmapBuffer(buffer_type);
 	mapped_ptr = nullptr;
 	unbind();
+#endif
 }
 
 

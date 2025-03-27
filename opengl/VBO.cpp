@@ -76,23 +76,32 @@ void VBO::updateData(size_t offset, const void* data, size_t data_size)
 
 void* VBO::map()
 {
+#if EMSCRIPTEN
+	assert(!"VBO::map() not supported in emscripten.");
+	return nullptr;
+#else
 	assert(!mapped_ptr);
 
 	bind();
 	mapped_ptr = glMapBuffer(buffer_type, GL_WRITE_ONLY);
 	unbind();
 	return mapped_ptr;
+#endif
 }
 
 
 void VBO::unmap()
 {
+#if EMSCRIPTEN
+	assert(!"VBO::unmap() not supported in emscripten.");
+#else
 	assert(mapped_ptr);
 
 	bind();
 	glUnmapBuffer(buffer_type);
 	unbind();
 	mapped_ptr = nullptr;
+#endif
 }
 
 
