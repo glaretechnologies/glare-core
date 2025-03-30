@@ -466,7 +466,7 @@ void main()
 #else
 	colour_out = vec4(toNonLinear(col.xyz), 1.0);
 #endif
-	colour_out.w = diffuse_col.a;
+	colour_out.w = 1.0; // Imposters aren't rendered with alpha blending, so just use alpha=1.
 
 	normal_out = vec3(0.0, 0.0, 0.0); // TODO: use normal_ws and snorm12x2_to_unorm8x3 etc.
 }

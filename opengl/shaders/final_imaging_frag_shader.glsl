@@ -115,10 +115,10 @@ void main()
 			blur_col_6 * (1.0 / 8.0) +
 			blur_col_7 * (3.0 / 8.0);
 
-		col += blur_col * bloom_strength;
+		col.xyz += (blur_col * bloom_strength).xyz; // Leave alpha as-is.
 	}
 	
-	float alpha = 1.f;
+	float alpha = col.w;
 	colour_out = vec4(toNonLinear(ACESFilm(col.xyz * (3.0 * 0.65))), alpha);
 	//colour_out = vec4(toNonLinear(3.0 * col.xyz), alpha); // linear tonemapping
 }

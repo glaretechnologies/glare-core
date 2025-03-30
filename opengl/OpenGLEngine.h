@@ -153,7 +153,7 @@ public:
 	float emission_scale; // [0, inf).  Spectral radiance * 1.0e-9
 
 	bool imposter; // Use imposter shader?
-	bool imposterable; // Fade out with distance
+	bool imposterable; // Fade out with distance, for transition to imposter.
 	bool transparent; // Material is transparent (e.g. glass).  Should use transparent shader.
 	bool hologram; // E.g. just emission, no light scattering.
 	bool gen_planar_uvs; // Generate planar UVs.  Useful for voxels.
@@ -592,6 +592,8 @@ public:
 	Planef frustum_clip_planes[6];
 	int num_frustum_clip_planes; // <= 6
 	js::AABBox frustum_aabb;
+
+	Matrix4f last_view_matrix;
 };
 
 
@@ -645,12 +647,12 @@ struct BatchDrawInfo
 
 	BatchDrawInfo() {}
 	BatchDrawInfo(uint32 prog_index_and_face_culling_bits, uint32 vao_and_vbo_key, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> 2) | vao_and_vbo_key),
+	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - 22)) | vao_and_vbo_key),
 		batch_i(batch_i_), ob(ob_)
 	{}
 
 	BatchDrawInfo(uint32 prog_index_and_face_culling_bits, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> 2) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)),
+	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - 22)) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)),
 		batch_i(batch_i_), ob(ob_)
 	{
 		assert(index_type_bits <= 2);
@@ -678,7 +680,7 @@ struct BatchDrawInfoWithDist
 {
 	BatchDrawInfoWithDist() {}
 	BatchDrawInfoWithDist(uint32 prog_index_and_face_culling_bits, uint32 vao_and_vbo_key, uint32 dist_, const GLObject* ob_)
-	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> 2) | vao_and_vbo_key),
+	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - 22)) | vao_and_vbo_key),
 		dist(dist_),
 		ob(ob_)
 	{}
@@ -1575,8 +1577,6 @@ private:
 	std::vector<AsyncTextureLoadingHandle> loading_handles;
 
 public:
-	Matrix4f debug_last_main_view_matrix;
-
 	PBOPool pbo_pool;
 
 	PBOAsyncTextureUploader pbo_async_tex_loader;

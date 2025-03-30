@@ -47,7 +47,7 @@ uint countSetBits(uint v)
 {
     v = v - ((v >> 1u) & 0x55555555u);
     v = (v & 0x33333333u) + ((v >> 2u) & 0x33333333u);
-    return ((v + (v >> 4u) & 0xF0F0F0Fu) * 0x1010101u) >> 24u;
+    return (((v + (v >> 4u)) & 0xF0F0F0Fu) * 0x1010101u) >> 24u;
 }
 
 
@@ -75,7 +75,7 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 
 
 	//vec3 n_p = normalize((frag_view_matrix * vec4(src_normal_ws, 0)).xyz); // View space 'fragment' normal
-	vec3 n_p = Vec3f(normalise(gl_engine.debug_last_main_view_matrix * src_normal_ws.toVec4fVector()));
+	vec3 n_p = Vec3f(normalise(gl_engine.getCurrentScene()->last_view_matrix * src_normal_ws.toVec4fVector()));
 
 	vec3 p = viewSpaceFromScreenSpacePos(texture_coords, gl_engine, depth_querier); // View space 'fragment' position
 	vec3 unit_p = normalize(p);
@@ -161,3 +161,30 @@ void SSAODebugging::addDebugObjects(OpenGLEngine& gl_engine)
 {
 
 }
+
+
+#if BUILD_TESTS
+
+
+#include <utils/TestUtils.h>
+
+
+///countSetBits
+void SSAODebugging::test()
+{
+	testAssert(countSetBits(0) == 0);
+	testAssert(countSetBits(0x1) == 1);
+
+	for(int i=0; i<32; ++i)
+		testAssert(countSetBits(0x1 << i) == 1);
+
+//	for(uint32 i=0; i<std::numeric_limits<uint32>::max(); ++i)
+//	{
+//		testAssert(countSetBits(i) == _mm_popcnt_u32(i));
+//	}
+//
+//	testAssert(countSetBits(std::numeric_limits<uint32>::max()) == _mm_popcnt_u32(std::numeric_limits<uint32>::max()));
+
+}
+
+#endif

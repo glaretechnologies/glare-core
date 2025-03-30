@@ -1351,7 +1351,7 @@ void main()
 	float dist_field_tex_val = texture(TRANSMISSION_TEX, use_texture_coords).w;
 	float alpha = smoothstep(0.5f - half_w, 0.5f + half_w, dist_field_tex_val);
 #else
-	float alpha = 1.f;
+	float alpha = use_diffuse_colour.w; // Use alpha of material constant colour, for alpha cutout techniques.
 #endif
 	
 #if DO_POST_PROCESSING

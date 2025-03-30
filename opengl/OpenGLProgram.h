@@ -76,6 +76,7 @@ struct UserUniformInfo
 };
 
 
+// Options that affect the compilation of programs.  The combined options are used as a key to look up programs.
 struct ProgramKeyArgs
 {
 	ProgramKeyArgs() : alpha_test(false), vert_colours(false), instance_matrices(false), lightmapping(false), gen_planar_uvs(false), draw_planar_uv_grid(false), convert_albedo_from_srgb(false), skinning(false),

@@ -5097,7 +5097,7 @@ void OpenGLEngine::flushDrawCommandsAndUnbindPrograms()
 	glActiveTexture(GL_TEXTURE0);
 	OpenGLProgram::useNoPrograms();
 	this->current_bound_prog = NULL;
-	this->current_bound_prog_index = 0;
+	this->current_bound_prog_index = std::numeric_limits<uint32>::max();
 }
 
 
@@ -6447,9 +6447,7 @@ void OpenGLEngine::draw()
 	const Matrix4f indigo_to_opengl_cam_matrix = current_scene->use_z_up ? Matrix4f(e) : Matrix4f::identity();
 
 	const Matrix4f main_view_matrix = indigo_to_opengl_cam_matrix * current_scene->world_to_camera_space_matrix;
-#if BUILD_TESTS
-	this->debug_last_main_view_matrix = main_view_matrix;
-#endif
+	current_scene->last_view_matrix = main_view_matrix;
 
 	this->sun_dir_cam_space = main_view_matrix * sun_dir;
 
@@ -7851,7 +7849,7 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 			Matrix4f use_proj_mat;
 			if(current_scene->camera_type == OpenGLScene::CameraType_Orthographic)
 			{
-				// Use a perpective transformation for rendering the env sphere, with a narrow field of view, to provide just a hint of texture detail.
+				// Use a perspective transformation for rendering the env sphere, with a narrow field of view, to provide just a hint of texture detail.
 				const float w = 0.01f;
 				use_proj_mat = frustumMatrix(-w, w, -w, w, 0.5, 100);
 			}
@@ -9529,7 +9527,13 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// For web rendering, where we have a framebuffer with alpha, and the OpenGL canvas is composited over another element, the standard glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	// doesn't work well because you end up with a framebuffer with alpha < 1 where the UI is rendered over an opaque element, wherewas we want alpha to be 1 in that case.
+	// So use glBlendFuncSeparate
+
+	//glBlendFunc(/*source (incoming) factor=*/GL_SRC_ALPHA, /*destination factor=*/GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(/*source (incoming) RGB factor=*/GL_SRC_ALPHA, /*destination RGB factor=*/GL_ONE_MINUS_SRC_ALPHA, /*src alpha factor=*/GL_ONE, /*dest alpha factor=*/GL_ONE);
 
 	// Instead of using the depth buffer, use the Painter's algorithm - draw objects from far to near.
 	glDisable(GL_DEPTH_TEST); // Disable depth testing
