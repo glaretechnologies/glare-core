@@ -43,6 +43,8 @@ struct GLTFBuffer : public RefCounted
 	size_t data_size;
 	std::string uri;
 	std::vector<unsigned char> decoded_base64_data;
+
+	std::vector<uint8> copied_data;
 };
 typedef Reference<GLTFBuffer> GLTFBufferRef;
 
@@ -1688,12 +1690,21 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 	
 	// Read binary buffer chunk header
 	// First determine the offset of the binary buffer chunk header
-	const size_t bin_buf_chunk_header_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(json_chunk_end, 4);
-	GLBChunkHeader bin_buf_header;
+
+	// Try with the correct 4-byte alignment of the BIN chunk
+	size_t bin_buf_chunk_header_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(json_chunk_end, 4);
 	stream.setReadIndex(bin_buf_chunk_header_offset); // NOTE: bin_buf_chunk_header_offset may be invalid, in which case setReadIndex() will throw an exception.
+	GLBChunkHeader bin_buf_header;
 	stream.readData(&bin_buf_header, sizeof(GLBChunkHeader));
 	if(bin_buf_header.chunk_type != CHUNK_TYPE_BIN)
-		throw glare::Exception("Expected BIN chunk type");
+	{
+		// Try again without 4-byte alignment, some files may incorrectly not have 4-byte alignment for the BIN chunk.  See for example https://x.com/SubstrataVr/status/1906356996921811188
+		bin_buf_chunk_header_offset = json_chunk_end;
+		stream.setReadIndex(bin_buf_chunk_header_offset);
+		stream.readData(&bin_buf_header, sizeof(GLBChunkHeader));
+		if(bin_buf_header.chunk_type != CHUNK_TYPE_BIN)
+			throw glare::Exception("Expected BIN chunk type");
+	}
 
 	// Check binary buffer chunk_length is valid:
 	if(!stream.canReadNBytes(bin_buf_header.chunk_length)) // bin_buf_chunk_header_offset + sizeof(GLBChunkHeader) + bin_buf_header.chunk_length > file_size)
@@ -1701,7 +1712,19 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 
 	// Make a buffer object for it
 	GLTFBufferRef buffer = new GLTFBuffer();
-	buffer->binary_data = (const uint8*)file_data + bin_buf_chunk_header_offset + sizeof(GLBChunkHeader);
+
+	if((bin_buf_chunk_header_offset % 4) == 0) // if properly 4-byte aligned (should be the case for valid GLB files):
+		buffer->binary_data = (const uint8*)file_data + bin_buf_chunk_header_offset + sizeof(GLBChunkHeader);
+	else // else if not properly 4-byte aligned:
+	{
+		// Copy to a temporary buffer with proper alignment.  Do this because a bunch of code processing the vertices etc. requires correct (4-byte) alignment.
+		// Note that bin_buf_header.chunk_length has been checked above in the stream.canReadNBytes() call.
+		buffer->copied_data.resize(bin_buf_header.chunk_length);
+		std::memcpy(buffer->copied_data.data(), (const uint8*)file_data + bin_buf_chunk_header_offset + sizeof(GLBChunkHeader), bin_buf_header.chunk_length);
+
+		buffer->binary_data = buffer->copied_data.data();
+	}
+
 	buffer->data_size = bin_buf_header.chunk_length;
 
 	if(false)
@@ -3363,6 +3386,34 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 void FormatDecoderGLTF::test()
 {
 	conPrint("FormatDecoderGLTF::test()");
+
+	//================= Test writeBatchedMeshToGLBFile =================
+	/*try
+	{
+		// Read a GLTF file from disk
+		const std::string path = "C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources/lambo_glb_14580587703686830024.bmesh";
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh = BatchedMesh::readFromFile(path, nullptr);
+
+		GLTFWriteOptions options;
+		writeBatchedMeshToGLTFFile(*mesh, "d:/models/lambo_exported.gltf", options);
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	return;*/
+
+	//----------------------------------- Test handling of a GLB file with misaligned BIN chunk -----------------------------------
+	try
+	{
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh = loadGLBFile(TestUtils::getTestReposDir() + "/testfiles/gltf/Blob_incorrect_BIN_chunk_alignment.glb", data);
+		testAssert(mesh->numIndices() == 6046 * 3);
+	}
+	catch(glare::Exception&)
+	{}
 
 	//----------------------------------- Test handling of some invalid files -----------------------------------
 	// channel.target_node out of bounds
