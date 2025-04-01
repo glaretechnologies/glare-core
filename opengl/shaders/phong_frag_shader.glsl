@@ -1197,7 +1197,17 @@ void main()
 	vec4 emission_col = MAT_UNIFORM.emission_colour;
 	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
 	{
-		emission_col *= texture(EMISSION_TEX, main_tex_coords);
+		vec4 emission_tex_col = texture(EMISSION_TEX, main_tex_coords);
+
+#if CONVERT_ALBEDO_FROM_SRGB
+		// Texture value is in non-linear sRGB, convert to linear sRGB.
+		// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
+		vec4 c = emission_tex_col;
+		vec4 c2 = c * c;
+		emission_tex_col = c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
+#endif
+
+		emission_col *= emission_tex_col;
 	}
 
 
