@@ -520,7 +520,6 @@ void WorkerThread::handleWebsocketConnection(RequestInfo& request_info)
 {
 	if(VERBOSE) conPrint("WorkerThread: Connection upgraded to websocket connection.");
 
-	socket->setNoDelayEnabled(true); // For websocket connections, we will want to send out lots of little packets with low latency.  So disable Nagle's algorithm, e.g. send coalescing.
 	socket->enableTCPKeepAlive(30.0f); // Keep alive the connection.
 
 	this->request_handler->handleWebSocketConnection(request_info, socket);
