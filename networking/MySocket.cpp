@@ -182,6 +182,9 @@ void MySocket::createClientSideSocket()
 			//conPrint("Warning: setsockopt failed.");
 		}
 	}
+
+	// Disable Nagle's algorithm by default (delayed packet sending), as it causes too many problems, slowing down TLS handshakes etc.
+	setNoDelayEnabled(true);
 }
 
 
@@ -455,6 +458,9 @@ MySocketRef MySocket::acceptConnection() // throw (MySocketExcep)
 	//-----------------------------------------------------------------
 	new_socket->otherend_ipaddr = IPAddress((const sockaddr&)client_addr);
 	new_socket->otherend_port = Networking::getPortFromSockAddr((const sockaddr&)client_addr);
+
+	// Disable Nagle's algorithm by default (delayed packet sending), as it causes too many problems, slowing down TLS handshakes etc.
+	new_socket->setNoDelayEnabled(true);
 
 	return new_socket;
 }
