@@ -98,11 +98,14 @@ void GLUIButton::handleMousePress(MouseEvent& event)
 
 void GLUIButton::handleMouseRelease(MouseEvent& event)
 {
-	pressed = false;
+	if(pressed)
+	{
+		pressed = false;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
+		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 
-	updateButtonColour(coords);
+		updateButtonColour(coords);
+	}
 }
 
 
