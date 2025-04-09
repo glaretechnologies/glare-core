@@ -16,11 +16,13 @@ void main()
 	if(pos.x < clip_min_coords.x || pos.y < clip_min_coords.y || pos.x > clip_max_coords.x || pos.y > clip_max_coords.y)
 		discard;
 
+	float COLOUR_SCALE = 0.5; // to adjust for tonemapping scale
+
 	if(have_texture != 0)
 	{
 		vec4 texcol = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
-		colour_out = vec4(texcol.x, texcol.y, texcol.z, texcol.w) * diffuse_colour * vec4(vec3(1.0 / 3.0), 1.0); // 1/3 is to adjust for tonemapping scale by 3.
+		colour_out = vec4(texcol.x, texcol.y, texcol.z, texcol.w) * diffuse_colour * vec4(vec3(COLOUR_SCALE), 1.0);
 	}
 	else
-		colour_out = diffuse_colour * vec4(vec3(1.0 / 3.0), 1.0); // 1/3 is to adjust for tonemapping scale by 3.
+		colour_out = diffuse_colour * vec4(vec3(COLOUR_SCALE), 1.0);
 }
