@@ -1238,6 +1238,7 @@ private:
 	std::string preprocessor_defines;
 	std::string preprocessor_defines_with_common_vert_structs;
 	std::string preprocessor_defines_with_common_frag_structs;
+	std::string frag_utils_glsl;
 	std::string version_directive;
 
 	// Map from preprocessor defs to built program.

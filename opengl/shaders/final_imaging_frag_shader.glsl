@@ -26,13 +26,6 @@ in vec2 pos; // [0, 1] x [0, 1]
 out vec4 colour_out;
 
 
-vec3 toNonLinear(vec3 x)
-{
-	// Approximation to pow(x, 0.4545).  Max error of ~0.004 over [0, 1].
-	return 0.124445006f*x*x + -0.35056138f*x + 1.2311935*sqrt(x);
-}
-
-
 // From https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
 {

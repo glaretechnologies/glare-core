@@ -124,12 +124,6 @@ float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
 	return start_to_plane_dist / -ray_unitdir.z;
 }
 
-vec3 toNonLinear(vec3 x)
-{
-	// Approximation to pow(x, 0.4545).  Max error of ~0.004 over [0, 1].
-	return 0.124445006f*x*x + -0.35056138f*x + 1.2311935*sqrt(x);
-}
-
 float fbm(vec2 p)
 {
 	return (texture(fbm_tex, p).x - 0.5) * 2.f;
