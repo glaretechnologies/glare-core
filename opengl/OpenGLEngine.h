@@ -136,6 +136,7 @@ public:
 		alpha_blend(false),
 		sdf_text(false),
 		combined(false),
+		overlay_target_is_nonlinear(true),
 		draw_into_depth_buffer(false),
 		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
@@ -173,6 +174,7 @@ public:
 	bool alpha_blend;
 	bool sdf_text;
 	bool combined; // Is this a material on a combined object, consisting of multiple objects combined into a single object, using an atlas texture.
+	bool overlay_target_is_nonlinear;
 
 	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.  True by default.
 
@@ -1271,6 +1273,7 @@ private:
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;
 	int overlay_have_texture_location;
+	int overlay_target_is_nonlinear_location;
 	int overlay_diffuse_tex_location;
 	int overlay_texture_matrix_location;
 	int overlay_clip_min_coords_location;
@@ -1416,9 +1419,6 @@ public:
 	OpenGLEngineSettings settings;
 
 	uint64 shadow_mapping_frame_num;
-
-	bool are_8bit_textures_sRGB; // If true, load textures as sRGB, otherwise treat them as in an 8-bit colour space.  Defaults to true.
-	// Currently compressed textures are always treated as sRGB.
 
 	bool add_debug_obs;
 private:

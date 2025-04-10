@@ -249,11 +249,7 @@ void main()
 			texture_diffuse_col = texture(DIFFUSE_TEX, matdata.texture_upper_left_matrix_col0 * use_texture_coords.x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation);
 
 #if CONVERT_ALBEDO_FROM_SRGB
-		// Texture value is in non-linear sRGB, convert to linear sRGB.
-		// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
-		vec4 c = texture_diffuse_col;
-		vec4 c2 = c * c;
-		texture_diffuse_col = c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
+		texture_diffuse_col = fastApproxNonLinearSRGBToLinearSRGB(texture_diffuse_col);
 #endif
 	}
 	else

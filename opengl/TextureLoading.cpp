@@ -113,9 +113,9 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 	{
 		OpenGLTextureFormat format;
 		if(map2d.numChannels() <= 3)
-			format = (opengl_engine->are_8bit_textures_sRGB && texture_params.use_sRGB) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_RGB_Linear_Uint8;
+			format = texture_params.use_sRGB ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_RGB_Linear_Uint8;
 		else if(map2d.numChannels() == 4)
-			format = (opengl_engine->are_8bit_textures_sRGB && texture_params.use_sRGB) ? OpenGLTextureFormat::Format_SRGBA_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
+			format = texture_params.use_sRGB ? OpenGLTextureFormat::Format_SRGBA_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
 		else
 			throw glare::Exception("Texture has unhandled number of components: " + toString(map2d.numChannels()));
 

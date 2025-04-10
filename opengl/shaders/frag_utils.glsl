@@ -18,3 +18,12 @@ vec3 toNonLinear(vec3 v)
 {
 	return fastApproxLinearSRGBToNonLinearSRGB(v);
 }
+
+
+
+// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
+vec3 fastApproxNonLinearSRGBToLinearSRGB(vec3 c)
+{
+	vec3 c2 = c * c;
+	return c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
+}

@@ -3,6 +3,7 @@ uniform vec4 diffuse_colour;
 uniform mat3 texture_matrix;
 uniform sampler2D diffuse_tex;
 uniform int have_texture;
+uniform int overlay_target_is_nonlinear;
 uniform vec2 clip_min_coords;
 uniform vec2 clip_max_coords;
 
@@ -25,5 +26,9 @@ void main()
 	else
 		colour_out = diffuse_colour;
 
-	colour_out = vec4(toNonLinear(colour_out.xyz), colour_out.w);
+	// For the substrata minimap, webgl doesn't allow a non-linear sRGB framebuffer, so we use a linear framebuffer.  So we have support for not doing toNonLinear().
+	if(overlay_target_is_nonlinear != 0) // If overlay target is non-linear:
+		colour_out.xyz = toNonLinear(colour_out.xyz);
+
+	colour_out = vec4(colour_out.xyz, colour_out.w);
 }

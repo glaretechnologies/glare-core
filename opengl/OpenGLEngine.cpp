@@ -457,7 +457,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	texture_server(NULL),
 	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
 	outline_width_px(3.0f),
-	are_8bit_textures_sRGB(true),
 	outline_tex_w(0),
 	outline_tex_h(0),
 	last_num_obs_in_frustum(0),
@@ -2375,10 +2374,14 @@ void OpenGLEngine::textureLoaded(Reference<OpenGLTexture> texture, const std::st
 
 void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 {
+	this->frag_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/frag_utils.glsl");
+
 	this->preprocessor_defines_with_common_vert_structs = preprocessor_defines;
 	preprocessor_defines_with_common_vert_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_vert_structures.glsl");
+
 	this->preprocessor_defines_with_common_frag_structs = preprocessor_defines;
 	preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_frag_structures.glsl");
+	preprocessor_defines_with_common_frag_structs += frag_utils_glsl;
 
 	//------------------------------------------- Build fallback progs -------------------------------------------
 	// Will be used if we hit a shader compilation error later
@@ -2396,7 +2399,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	overlay_prog = new OpenGLProgram(
 		"overlay",
 		new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+		new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -2404,6 +2407,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 	overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
 	overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
+	overlay_target_is_nonlinear_location	= overlay_prog->getUniformLocation("overlay_target_is_nonlinear");
 	overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
 	overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
 	overlay_clip_min_coords_location	= overlay_prog->getUniformLocation("clip_min_coords");
@@ -2527,7 +2531,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		final_imaging_prog = new OpenGLProgram(
 			"final_imaging",
 			new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
@@ -6917,10 +6921,6 @@ void OpenGLEngine::draw()
 	//================= Draw outlines around selected objects =================
 	drawOutlinesAroundSelectedObjects();
 
-	//================= Draw UI overlay objects =================
-	drawUIOverlayObjects(reverse_z_matrix);
-	
-
 	if(current_scene->render_to_main_render_framebuffer)
 	{
 		ZoneScopedN("Post process"); // Tracy profiler
@@ -7178,6 +7178,11 @@ void OpenGLEngine::draw()
 				unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
 		}
 	} // End if(current_scene->render_to_main_render_framebuffer)
+
+
+	//================= Draw UI overlay objects =================
+	// We will do this after the final imaging shader runs above, so that the UI is drawn over transparent objects.
+	drawUIOverlayObjects(reverse_z_matrix);
 
 
 	VAO::unbind(); // Unbind any bound VAO, so that its vertex and index buffers don't get accidentally overridden.
@@ -9488,6 +9493,7 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 			glUniform4f(overlay_diffuse_colour_location, 1, 1, 1, 1);
 			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
 			glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+			glUniform1i(this->overlay_target_is_nonlinear_location, opengl_mat.overlay_target_is_nonlinear ? 1 : 0);
 
 			const Matrix3f identity = Matrix3f::identity();
 			glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, identity.e);
@@ -9513,23 +9519,14 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	DebugGroup debug_group("drawUIOverlayObjects()");
 	TracyGpuZone("drawUIOverlayObjects");
 
-	if(current_scene->render_to_main_render_framebuffer)
-	{
-		main_render_framebuffer->bindForDrawing();
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
-	}
-	else
-	{
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
-	}
-
+	// Bind requested target frame buffer as output buffer
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+	setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targeting default framebuffer
 
 	glEnable(GL_BLEND);
 
 	// For web rendering, where we have a framebuffer with alpha, and the OpenGL canvas is composited over another element, the standard glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	// doesn't work well because you end up with a framebuffer with alpha < 1 where the UI is rendered over an opaque element, wherewas we want alpha to be 1 in that case.
+	// doesn't work well because you end up with a framebuffer with alpha < 1 where the UI is rendered over an opaque element, whereas we want alpha to be 1 in that case.
 	// So use glBlendFuncSeparate
 
 	//glBlendFunc(/*source (incoming) factor=*/GL_SRC_ALPHA, /*destination factor=*/GL_ONE_MINUS_SRC_ALPHA);
@@ -9569,6 +9566,7 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob_to_cam.e);
 				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+				glUniform1i(this->overlay_target_is_nonlinear_location, opengl_mat.overlay_target_is_nonlinear ? 1 : 0);
 
 				glUniform2f(overlay_clip_min_coords_location, ob->clip_region.getMin().x, ob->clip_region.getMin().y);
 				glUniform2f(overlay_clip_max_coords_location, ob->clip_region.getMax().x, ob->clip_region.getMax().y);
