@@ -1730,10 +1730,15 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->texture_compression_s3tc_support = false;
 	this->texture_compression_ETC_support = false;
 	this->GL_ARB_bindless_texture_support = false;
-	this->GL_ARB_clip_control_support = false;
+	this->clip_control_support = false;
 	this->GL_ARB_shader_storage_buffer_object_support = false;
 	this->parallel_shader_compile_support = false;
 	this->EXT_color_buffer_float_support = false;
+#if EMSCRIPTEN
+	this->float_texture_filtering_support = false; // Filtering of floating point textures is not available by default in WebGL, but can be enabled by OES_texture_float_linear extension.
+#else
+	this->float_texture_filtering_support = true;
+#endif
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -1744,7 +1749,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		// conPrint("Extension " + toString(i) + ": " + std::string(ext));
 		if(stringEqual(ext, "GL_EXT_texture_compression_s3tc")) this->texture_compression_s3tc_support = true;
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
-		if(stringEqual(ext, "GL_ARB_clip_control")) this->GL_ARB_clip_control_support = true;
+		if(stringEqual(ext, "GL_ARB_clip_control")) this->clip_control_support = true;
 		if(stringEqual(ext, "GL_ARB_shader_storage_buffer_object")) this->GL_ARB_shader_storage_buffer_object_support = true;
 		if(stringEqual(ext, "GL_KHR_parallel_shader_compile")) parallel_shader_compile_support = true;
 
@@ -1752,6 +1757,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(stringEqual(ext, "WEBGL_compressed_texture_s3tc")) this->texture_compression_s3tc_support = true;
 		if(stringEqual(ext, "WEBGL_compressed_texture_etc")) this->texture_compression_ETC_support = true; // See https://registry.khronos.org/webgl/specs/latest/2.0/#5.37, ("No ETC2 and EAC compressed texture formats")
 		if(stringEqual(ext, "EXT_color_buffer_float")) this->EXT_color_buffer_float_support = true;
+		if(stringEqual(ext, "EXT_clip_control")) this->clip_control_support = true;
+		if(stringEqual(ext, "OES_texture_float_linear")) this->float_texture_filtering_support = true;
 #endif
 	}
 
@@ -1908,8 +1915,25 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
-			fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)fbm_imagemap->getData(), fbm_imagemap->numPixels() * sizeof(float)),
-				OpenGLTextureFormat::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+			if(float_texture_filtering_support)
+			{
+				conPrint("Using float FBM GPU texture");
+				fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>((const uint8*)fbm_imagemap->getData(), fbm_imagemap->numPixels() * sizeof(float)),
+					OpenGLTextureFormat::Format_Greyscale_Float, OpenGLTexture::Filtering_Fancy);
+			}
+			else
+			{
+				conPrint("Using uint8 FBM GPU texture");
+
+				// Convert to something we do support
+				ImageMapUInt8 new_map(W, W, 3);
+				for(size_t i=0; i<W*W; ++i)
+					new_map.getPixel(i)[0] = new_map.getPixel(i)[1] = new_map.getPixel(i)[2] = (uint8)(myMax(0.f, fbm_imagemap->getPixel(i)[0] * 255.01f));
+
+				fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>(new_map.getData(), new_map.getDataSizeB()),
+					OpenGLTextureFormat::Format_RGB_Linear_Uint8, OpenGLTexture::Filtering_Fancy); // Format_Greyscale_Uint8 isn't working for some reason, just use RGB.
+			}
+
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
@@ -1966,7 +1990,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		// Avoid this crash by just not using them.
 		use_bindless_textures = settings.allow_bindless_textures && GL_ARB_bindless_texture_support && !is_intel_vendor && !is_ati_vendor;
 
-		use_reverse_z = GL_ARB_clip_control_support;
+		use_reverse_z = clip_control_support;
 
 		use_multi_draw_indirect = false;
 #if !defined(OSX) && !defined(EMSCRIPTEN)
