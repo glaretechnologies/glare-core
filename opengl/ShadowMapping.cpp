@@ -23,7 +23,18 @@ ShadowMapping::~ShadowMapping()
 
 void ShadowMapping::init(OpenGLEngine* opengl_engine)
 {
-	const int initial_base_res = 2048;
+	int initial_base_res = 2048;
+	if(opengl_engine->settings.shadow_mapping_detail == OpenGLEngineSettings::ShadowMappingDetail_low)
+		initial_base_res = 1024;
+	else if(opengl_engine->settings.shadow_mapping_detail == OpenGLEngineSettings::ShadowMappingDetail_medium)
+		initial_base_res = 2048;
+	else if(opengl_engine->settings.shadow_mapping_detail == OpenGLEngineSettings::ShadowMappingDetail_high)
+		initial_base_res = 8192;
+	else
+	{
+		assert(0);
+	}
+
 	dynamic_w = initial_base_res;
 	dynamic_h = initial_base_res * numDynamicDepthTextures();
 

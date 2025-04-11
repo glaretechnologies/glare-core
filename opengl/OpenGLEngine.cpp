@@ -6473,7 +6473,8 @@ void OpenGLEngine::draw()
 	common_uniforms.water_level_z = this->current_scene->water_level_z;
 	common_uniforms.camera_type = (int)this->current_scene->camera_type;
 	common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (this->settings.ssao ? DO_SSAO_FLAG : 0);
-	common_uniforms.padding_a0 = common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+	common_uniforms.shadow_map_samples_xy_scale = this->shadow_mapping ? (2048.f / this->shadow_mapping->dynamic_w) : 1.f; // Shadow map sample pattern is scaled for 2048^2 textures.
+	common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 
@@ -6541,10 +6542,11 @@ void OpenGLEngine::draw()
 
 		if(main_colour_copy_texture.isNull())
 		{
-			conPrint("Allocing main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
-
 			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
 
+			printVar(EXT_color_buffer_float_support);
+			conPrint("Allocing main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
+			conPrint("MSAA samples " + toString(msaa_samples) + ", col buffer format: " + std::string(textureFormatString(col_buffer_format)));
 
 
 			main_colour_copy_texture = new OpenGLTexture(xres, yres, this,

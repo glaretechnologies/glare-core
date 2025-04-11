@@ -67,6 +67,7 @@ enum OpenGLTextureFormat
 bool isCompressed(OpenGLTextureFormat format);
 size_t bytesPerBlock(OpenGLTextureFormat format);
 size_t numChannels(OpenGLTextureFormat format);
+const char* textureFormatString(OpenGLTextureFormat format);
 
 
 class TextureData : public ThreadSafeRefCounted

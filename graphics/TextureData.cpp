@@ -76,6 +76,40 @@ size_t numChannels(OpenGLTextureFormat format)
 }
 
 
+const char* textureFormatString(OpenGLTextureFormat format)
+{
+	switch(format)
+	{
+		case Format_Greyscale_Uint8: return "Format_Greyscale_Uint8";
+		case Format_Greyscale_Float: return "Format_Greyscale_Float";
+		case Format_Greyscale_Half: return "Format_Greyscale_Half";
+		case Format_SRGB_Uint8: return "Format_SRGB_Uint8";
+		case Format_SRGBA_Uint8: return "Format_SRGBA_Uint8";
+		case Format_RGB_Linear_Uint8: return "Format_RGB_Linear_Uint8";
+		case Format_RGB_Integer_Uint8: return "Format_RGB_Integer_Uint8";
+		case Format_RGBA_Linear_Uint8: return "Format_RGBA_Linear_Uint8";
+		case Format_RGBA_Integer_Uint8: return "Format_RGBA_Integer_Uint8";
+		case Format_RGB_Linear_Float: return "Format_RGB_Linear_Float";
+		case Format_RGB_Linear_Half: return "Format_RGB_Linear_Half";
+		case Format_RGBA_Linear_Half: return "Format_RGBA_Linear_Half";
+		case Format_Depth_Float: return "Format_Depth_Float";
+		case Format_Depth_Uint16: return "Format_Depth_Uint16";
+		case Format_Compressed_DXT_RGB_Uint8: return "Format_Compressed_DXT_RGB_Uint8";
+		case Format_Compressed_DXT_RGBA_Uint8: return "Format_Compressed_DXT_RGBA_Uint8";
+		case Format_Compressed_DXT_SRGB_Uint8: return "Format_Compressed_DXT_SRGB_Uint8";
+		case Format_Compressed_DXT_SRGBA_Uint8: return "Format_Compressed_DXT_SRGBA_Uint8";
+		case Format_Compressed_BC6: return "Format_Compressed_BC6";
+		case Format_Compressed_ETC2_RGB_Uint8: return "Format_Compressed_ETC2_RGB_Uint8";
+		case Format_Compressed_ETC2_RGBA_Uint8: return "Format_Compressed_ETC2_RGBA_Uint8";
+		case Format_Compressed_ETC2_SRGB_Uint8: return "Format_Compressed_ETC2_SRGB_Uint8";
+		case Format_Compressed_ETC2_SRGBA_Uint8: return "Format_Compressed_ETC2_SRGBA_Uint8";
+		default:
+			assert(0);
+			return "Unknown";
+	}
+}
+
+
 size_t TextureData::numChannels() const
 {
 	return ::numChannels(this->format);

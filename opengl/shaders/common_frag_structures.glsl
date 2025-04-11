@@ -19,7 +19,7 @@ layout (std140) uniform MaterialCommonUniforms
 	int camera_type; // OpenGLScene::CameraType
 
 	int mat_common_flags;
-	float padding_a0;
+	float shadow_map_samples_xy_scale;
 	float padding_a1;
 	float padding_a2;
 

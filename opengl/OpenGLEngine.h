@@ -445,12 +445,21 @@ struct OverlayObjectHash
 class OpenGLEngineSettings
 {
 public:
-	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), compress_textures(false), render_to_offscreen_renderbuffers(true), screenspace_refl_and_refr(true), depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
+	enum ShadowMappingDetail
+	{
+		ShadowMappingDetail_low, // for mobile
+		ShadowMappingDetail_medium, // standard desktop
+		ShadowMappingDetail_high // high-spec desktop
+	};
+
+
+	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), shadow_mapping_detail(ShadowMappingDetail_medium), compress_textures(false), render_to_offscreen_renderbuffers(true), screenspace_refl_and_refr(true), depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
 		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
 		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao(false) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
+	ShadowMappingDetail shadow_mapping_detail;
 	bool compress_textures;
 	//bool use_final_image_buffer; // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing.
 	bool render_to_offscreen_renderbuffers;  // Render to an off-screen buffer, which can be used for post-processing.  Required for bloom post-processing and screen-space reflections.
@@ -750,7 +759,7 @@ struct MaterialCommonUniforms
 	int camera_type; // OpenGLScene::CameraType
 
 	int mat_common_flags;
-	float padding_a0;
+	float shadow_map_samples_xy_scale;
 	float padding_a1;
 	float padding_a2;
 

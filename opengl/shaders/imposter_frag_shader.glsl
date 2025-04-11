@@ -299,7 +299,7 @@ void main()
 	float samples_scale = 1.f;
 
 	float pattern_theta = pixel_hash * 6.283185307179586;
-	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
+	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta)) * shadow_map_samples_xy_scale;
 
 	sun_vis_factor = 0.0;
 
