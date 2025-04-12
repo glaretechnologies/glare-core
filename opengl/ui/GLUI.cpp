@@ -324,7 +324,7 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 // ui_width = 2 * device_pixel_ratio * pixel_w / (float)opengl_engine->getViewPortWidth();
 // pixel_w = ui_width * opengl_engine->getViewPortWidth() / (2 * device_pixel_ratio)
 
-float GLUI::getDevIndepPixelWIdthForUIWidth(float ui_width)
+float GLUI::getDevIndepPixelWidthForUIWidth(float ui_width)
 {
 	return ui_width * (float)opengl_engine->getViewPortWidth() / (2 * device_pixel_ratio);
 }
