@@ -1348,7 +1348,7 @@ void OpenGLEngine::loadMapsForSunDir()
 		}
 
 		TextureParams tex_params;
-		tex_params.filtering = OpenGLTexture::Filtering_Bilinear;
+		tex_params.filtering = float_texture_filtering_support ? OpenGLTexture::Filtering_Bilinear : OpenGLTexture::Filtering_Nearest;
 		tex_params.use_mipmaps = false;
 		tex_params.allow_compression = false;
 		this->cosine_env_tex = loadCubeMap(face_maps, tex_params);
@@ -1364,7 +1364,7 @@ void OpenGLEngine::loadMapsForSunDir()
 		);
 
 		TextureParams tex_params;
-		tex_params.filtering = OpenGLTexture::Filtering_Bilinear;
+		tex_params.filtering = float_texture_filtering_support ? OpenGLTexture::Filtering_Bilinear : OpenGLTexture::Filtering_Nearest;
 		tex_params.use_mipmaps = false;
 		tex_params.allow_compression = false;
 		this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("specular reflection map" + toString(sun_theta)), *specular_refl_map, tex_params);
@@ -1381,7 +1381,7 @@ void OpenGLEngine::loadMapsForSunDir()
 		);
 
 		TextureParams tex_params;
-		tex_params.filtering = OpenGLTexture::Filtering_Bilinear;
+		tex_params.filtering = float_texture_filtering_support ? OpenGLTexture::Filtering_Bilinear : OpenGLTexture::Filtering_Nearest;
 		tex_params.wrapping = OpenGLTexture::Wrapping_Repeat;
 		tex_params.allow_compression = false;
 		tex_params.use_mipmaps = false;
@@ -10932,7 +10932,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 }
 
 
-Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps, const TextureParams& /*params*/)
+Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<Map2D> >& face_maps, const TextureParams& params)
 {
 	if(dynamic_cast<const ImageMapFloat*>(face_maps[0].getPointer()))
 	{
@@ -10950,7 +10950,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 		const size_t tex_xres = face_maps[0]->getMapWidth();
 		const size_t tex_yres = face_maps[0]->getMapHeight();
 		Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-		opengl_tex->createCubeMap(tex_xres, tex_yres, tex_data, OpenGLTextureFormat::Format_RGB_Linear_Float);
+		opengl_tex->createCubeMap(tex_xres, tex_yres, tex_data, OpenGLTextureFormat::Format_RGB_Linear_Float, params.filtering);
 
 		//this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 
