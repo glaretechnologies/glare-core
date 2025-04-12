@@ -209,11 +209,12 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 				tooltip_overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1); // Compensate for OpenGL loading textures upside down (row 0 in OpenGL is considered to be at the bottom of texture)
 				tooltip_overlay_ob->material.tex_translation = Vec2f(0, 1);
 
-				const float scale_y = 50.0f / opengl_engine->getViewPortWidth() / y_scale; // ~50 px high
-				const float scale_x = 50.0f / opengl_engine->getViewPortWidth() * ((float)tex->xRes() / (float)tex->yRes());
-					
-				//const float scale_x = 0.5f * (float)tex->xRes() / opengl_engine->getViewPortWidth();
-				//const float scale_y = 0.5f * (float)tex->yRes() / opengl_engine->getViewPortWidth() / y_scale;
+				// This should give 1:1 texel : screen-space pixels.
+				const Vec2f ui_dimensions = Vec2f(tex->xRes(), tex->yRes()) * 2 / opengl_engine->getViewPortWidth();
+
+				const Vec2f gl_dims = OpenGLCoordsForUICoords(ui_dimensions);
+				const float scale_x = gl_dims.x;
+				const float scale_y = gl_dims.y;
 
 				const float mouse_pointer_h_gl = 40.f / opengl_engine->getViewPortHeight();
 
