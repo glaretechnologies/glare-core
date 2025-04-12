@@ -27,13 +27,15 @@ GLUITextButton::CreateArgs::CreateArgs()
 }
 
 
-GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& button_text, const Vec2f& botleft, const Vec2f& /*dims*/, const CreateArgs& args_)
+GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& button_text_, const Vec2f& botleft, const Vec2f& /*dims*/, const CreateArgs& args_)
 :	handler(NULL)
 {
 	glui = &glui_;
 	opengl_engine = opengl_engine_;
 	tooltip = args_.tooltip;
 	args = args_;
+	m_botleft = botleft;
+	button_text = button_text_;
 
 	GLUITextView::CreateArgs text_args;
 	text_args.background_colour = args.background_colour;
@@ -96,6 +98,27 @@ void GLUITextButton::doHandleMouseMoved(MouseEvent& mouse_event)
 void GLUITextButton::updateGLTransform(GLUI& gl_ui)
 {
 	text_view->updateGLTransform(gl_ui);
+
+	this->rect = text_view->getBackgroundRect();
+}
+
+
+void GLUITextButton::rebuild()
+{
+	const bool old_visible = text_view->isVisible();
+
+	glui->removeWidget(text_view);
+	text_view = nullptr;
+
+	GLUITextView::CreateArgs text_args;
+	text_args.background_colour = args.background_colour;
+	text_args.text_colour = args.text_colour;
+	text_args.padding_px = 8;
+	text_args.text_selectable = false;
+	text_args.font_size_px = args.font_size_px;
+	text_view = new GLUITextView(*glui, opengl_engine, button_text, m_botleft, text_args);
+	text_view->setVisible(old_visible);
+	glui->addWidget(text_view);
 
 	this->rect = text_view->getBackgroundRect();
 }

@@ -90,7 +90,11 @@ public:
 
 	Vec2f getLastMouseUICoords() const { return last_mouse_ui_coords; }
 
-	float getDevicePixelRatio() { return device_pixel_ratio; }
+	void setUIScale(float ui_scale_) { ui_scale = ui_scale_; }
+	float getUIScale() const { return ui_scale; }
+
+	void setCurrentDevicePixelRatio(float new_device_pixel_ratio);
+	float getDevicePixelRatio() const { return device_pixel_ratio; }
 
 
 	Reference<OpenGLEngine> opengl_engine;
@@ -116,6 +120,7 @@ private:
 	std::map<std::string, OpenGLTextureRef> tooltip_textures;
 
 	float device_pixel_ratio;
+	float ui_scale;
 
 	bool mouse_over_text_input_widget;
 

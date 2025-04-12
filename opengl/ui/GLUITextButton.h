@@ -45,6 +45,8 @@ public:
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void updateGLTransform(GLUI& glui) override; // Called when e.g. the viewport changes size
 
+	void rebuild();
+
 	void setPos(const Vec2f& botleft);
 
 	void setVisible(bool visible);
@@ -61,6 +63,8 @@ private:
 	GLUITextViewRef text_view;
 
 	CreateArgs args;
+	Vec2f m_botleft;
+	std::string button_text;
 };
 
 

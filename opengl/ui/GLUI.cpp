@@ -39,6 +39,7 @@ void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ra
 {
 	opengl_engine = opengl_engine_;
 	device_pixel_ratio = device_pixel_ratio_;
+	ui_scale = 1.0f;
 	fonts = fonts_;
 	emoji_fonts = emoji_fonts_;
 	stack_allocator = stack_allocator_;
@@ -317,7 +318,7 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 {
 	// 2 factor is because something spanning the full viewport ranges from y=-1 to 1.
 
-	return 2 * device_pixel_ratio * pixel_w / (float)opengl_engine->getViewPortWidth();
+	return 2 * device_pixel_ratio * ui_scale * pixel_w / (float)opengl_engine->getViewPortWidth();
 }
 
 
@@ -326,13 +327,13 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 
 float GLUI::getDevIndepPixelWidthForUIWidth(float ui_width)
 {
-	return ui_width * (float)opengl_engine->getViewPortWidth() / (2 * device_pixel_ratio);
+	return ui_width * (float)opengl_engine->getViewPortWidth() / (2 * device_pixel_ratio * ui_scale);
 }
 
 
 OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 {
-	TextRendererFontFaceRef font = fonts->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio));
+	TextRendererFontFaceRef font = fonts->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
 
 	const TextRendererFontFace::SizeInfo size_info = font->getTextSize(tooltip_text);
 
@@ -379,5 +380,19 @@ void GLUI::setKeyboardFocusWidget(GLUIWidgetRef widget)
 			else
 				callbacks->stopTextInput();
 		}
+	}
+}
+
+
+void GLUI::setCurrentDevicePixelRatio(float new_device_pixel_ratio)
+{
+	// conPrint("GLUI::setCurrentDevicePixelRatio: new_device_pixel_ratio: " + toString(new_device_pixel_ratio));
+
+	device_pixel_ratio = new_device_pixel_ratio;
+
+	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	{
+		GLUIWidget* widget = it->ptr();
+		widget->updateGLTransform(*this);
 	}
 }
