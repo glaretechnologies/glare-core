@@ -82,7 +82,7 @@ AsyncTextureLoader::~AsyncTextureLoader()
 }
 
 
-// local_path should be a path relative to the 'data' directory, for example "resources/foam_windowed.ktx2"
+// local_path should be a path relative to the 'data' directory, for example "resources/foam_windowed.basis"
 // Returns request handle
 AsyncTextureLoadingHandle AsyncTextureLoader::startLoadingTexture(const std::string& local_path, AsyncTextureLoadedHandler* handler, const TextureParams& params)
 {

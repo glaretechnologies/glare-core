@@ -2361,7 +2361,7 @@ void OpenGLEngine::startAsyncLoadingData(AsyncTextureLoader* async_texture_loade
 		water_caustics_textures.resize(32);
 		for(int i=0; i<32; ++i)
 		{
-			const std::string filename = "save." + ::leftPad(toString(1 + i), '0', 2) + ".ktx2";
+			const std::string filename = "save." + ::leftPad(toString(1 + i), '0', 2) + ".basis";
 			loading_handles.push_back(async_texture_loader->startLoadingTexture(/*local path=*/"/gl_data/caustics/" + filename, /*handler=*/this, TextureParams())); // TODO: hold onto result loading handle and cancel
 		}
 		

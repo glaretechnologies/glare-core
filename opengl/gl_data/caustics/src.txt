@@ -1,6 +1,6 @@
 Original textures by Jos Stam
 https://www.dgp.toronto.edu/public_user/stam/reality/Research/PeriodicCaustics/index.html
-Converted to ktx2 format something like:
+Converted to basis format.
 
 
 Code to convert caustic textures
@@ -13,3 +13,7 @@ for(int i=0; i<32; ++i)
 
 	PNGDecoder::write(*im.downcast<ImageMapUInt8>(), "C:\\Users\\nick\\Downloads\\caus3 (1)\\save." + ::leftPad(toString(1 + i), '0', 2) + ".png");
 }
+
+
+
+See substrata\gui_client\ResourceProcessing.cpp / .h to convert from .png to .basis.
