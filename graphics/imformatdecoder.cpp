@@ -35,7 +35,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../graphics/Map2D.h"
 
 
-Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir, const std::string& path) // throws ImFormatExcep on failure
+Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir, const std::string& path, const ImageDecodingOptions& options) // throws ImFormatExcep on failure
 {
 	if(false)
 	{}
@@ -97,7 +97,9 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 #ifndef NO_BASIS_SUPPORT
 	else if(hasExtension(path, "basis"))
 	{
-		return BasisDecoder::decode(path);
+		BasisDecoder::BasisDecoderOptions basis_options;
+		basis_options.ETC_support = options.ETC_support;
+		return BasisDecoder::decode(path, /*mem allocator=*/nullptr, basis_options);
 	}
 #endif
 #endif

@@ -4449,7 +4449,10 @@ Reference<OpenGLTexture> OpenGLEngine::getTexture(const std::string& tex_path, c
 		}
 		else
 		{
-			map = ImFormatDecoder::decodeImage(".", tex_path);
+			ImFormatDecoder::ImageDecodingOptions options;
+			options.ETC_support = this->texture_compression_ETC_support;
+
+			map = ImFormatDecoder::decodeImage(".", tex_path, options);
 		}
 
 		Reference<OpenGLTexture> opengl_tex = this->getOrLoadOpenGLTextureForMap2D(texture_key, *map, params);
