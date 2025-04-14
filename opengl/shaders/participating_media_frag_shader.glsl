@@ -94,73 +94,6 @@ layout (std140) uniform PhongUniforms
 out vec4 colour_out;
 
 
-vec2 samples[16] = vec2[](
-	vec2(-0.00033789, -0.00072656),
-	vec2(0.00056445, -0.00064844),
-	vec2(0.000013672, -0.00054883),
-	vec2(-0.00058594, -0.00011914),
-	vec2(-0.00017773, -0.00021094),
-	vec2(0.00019336, -0.00019336),
-	vec2(-0.000019531, -0.000058594),
-	vec2(-0.00022070, 0.00014453),
-	vec2(0.000089844, 0.000068359),
-	vec2(0.00036328, 0.000058594),
-	vec2(0.00061328, 0.000087891),
-	vec2(-0.0000078125, 0.00028906),
-	vec2(-0.00089453, 0.00043750),
-	vec2(-0.00022852, 0.00058984),
-	vec2(0.00019336, 0.00042188),
-	vec2(0.00071289, -0.00025977)
-	);
-
-float fbm(vec2 p)
-{
-	return (texture(fbm_tex, p).x - 0.5) * 2.f;
-}
-
-vec2 rot(vec2 p)
-{
-	float theta = 1.618034 * 3.141592653589 * 2.0;
-	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
-}
-
-float fbmMix(vec2 p)
-{
-	return 
-		fbm(p) +
-		fbm(rot(p * 2.0)) * 0.5;
-}
-
-float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords)
-{
-	float sum = 0.0;
-	for(int i = 0; i < 16; ++i)
-	{
-		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += textureLod(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z), /*lod=*/0.0);
-	}
-	return sum * (1.f / 16.0);
-}
-
-
-float sampleStaticDepthMap(mat2 R, vec3 shadow_coords)
-{
-	float sum = 0.0;
-	for(int i = 0; i < 16; ++i)
-	{
-		vec2 st = shadow_coords.xy + R * samples[i];
-		sum += textureLod(static_depth_tex, vec3(st.x, st.y, shadow_coords.z), /*lod=*/0.0);
-	}
-	return sum * (1.f / 16.0);
-}
-
-float square(float x) { return x*x; }
-float pow4(float x) { return (x*x)*(x*x); }
-float pow5(float x) { return x*x*x*x*x; }
-float pow6(float x) { return x*x*x*x*x*x; }
-
-
-
 void main()
 {
 	vec2 main_tex_coords = texture_coords;
@@ -197,109 +130,12 @@ void main()
 	sun_front_factor *= norm_factor;
 
 	// Shadow mapping
-	float sun_vis_factor;
 #if SHADOW_MAPPING
-
-	float samples_scale = 1.f;
-
 	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 128.f)).x;
 
-	float pattern_theta = pixel_hash * 6.283185307179586;
-	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta)) * shadow_map_samples_xy_scale;
-
-	sun_vis_factor = 0.0;
-
-	float dist = -pos_cs.z;
-	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
-	{
-		if(dist < DEPTH_TEXTURE_SCALE_MULT) // if dynamic_depth_tex_index == 0:
-		{
-			float tex_0_vis = sampleDynamicDepthMap(R, shadow_tex_coords[0]);
-
-			float edge_dist = 0.8f * DEPTH_TEXTURE_SCALE_MULT;
-			if(dist > edge_dist)
-			{
-				float tex_1_vis = sampleDynamicDepthMap(R, shadow_tex_coords[1]);
-
-				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT, dist);
-				sun_vis_factor = mix(tex_0_vis, tex_1_vis, blend_factor);
-			}
-			else
-				sun_vis_factor = tex_0_vis;
-		}
-		else
-		{
-			sun_vis_factor = sampleDynamicDepthMap(R, shadow_tex_coords[1]);
-
-			float edge_dist = 0.6f * (DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT);
-
-			// Blending with static shadow map 0
-			if(dist > edge_dist)
-			{
-				vec3 static_shadow_cds = shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
-
-				float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
-
-				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
-				sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
-			}
-		}
-	}
-	else
-	{
-		float l1dist = dist;
-
-		if(l1dist < 1024.0)
-		{
-			int static_depth_tex_index;
-			float cascade_end_dist;
-			vec3 shadow_cds, next_shadow_cds;
-			if(l1dist < 64.0)
-			{
-				static_depth_tex_index = 0;
-				cascade_end_dist = 64.0;
-				shadow_cds      = shadow_tex_coords[0 + NUM_DYNAMIC_DEPTH_TEXTURES];
-				next_shadow_cds = shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
-			}
-			else if(l1dist < 256.0)
-			{
-				static_depth_tex_index = 1;
-				cascade_end_dist = 256.0;
-				shadow_cds      = shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
-				next_shadow_cds = shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
-			}
-			else
-			{
-				static_depth_tex_index = 2;
-				cascade_end_dist = 1024.0;
-				shadow_cds = shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
-				next_shadow_cds = vec3(0.0); // Suppress warning about being possibly uninitialised.
-			}
-
-			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds); // NOTE: had cap and bias
-
-#if DO_STATIC_SHADOW_MAP_CASCADE_BLENDING
-			if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
-			{
-				float edge_dist = 0.7f * cascade_end_dist;
-
-				// Blending with static shadow map static_depth_tex_index + 1
-				if(l1dist > edge_dist)
-				{
-					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds); // NOTE: had cap and bias
-
-					float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
-					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
-				}
-			}
-#endif
-		}
-		else
-			sun_vis_factor = 1.0;
-	}
-
+	float sun_vis_factor = getShadowMappingSunVisFactor(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale);
 #else
-	sun_vis_factor = 1.0;
+	float sun_vis_factor = 1.0;
 #endif
 
 	// Apply cloud shadows
@@ -313,7 +149,7 @@ void main()
 		cum_tex_coords.x += time * 0.002;
 
 		vec2 cumulus_coords = vec2(cum_tex_coords.x * 2.0 + 2.3453, cum_tex_coords.y * 2.0 + 1.4354);
-		float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
+		float cumulus_val = max(0.f, fbmMix(cumulus_coords, fbm_tex) - 0.3f);
 
 		float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
 		sun_vis_factor *= cumulus_trans;
@@ -338,12 +174,12 @@ void main()
 	vec3 rear_sky_irradiance  = texture(cosine_env_tex, forw_ws).xyz  ;
 	vec3 front_sky_irradiance = texture(cosine_env_tex, -forw_ws).xyz ;
 
-	up_factor    += up_sky_irradiance    * (1.0 / 3.141592653589793) * (1.0 / 6.0); // Is 1/6 the correct factor here?
-	bot_factor   += down_sky_irradiance  * (1.0 / 3.141592653589793) * (1.0 / 6.0);
-	left_factor  += left_sky_irradiance  * (1.0 / 3.141592653589793) * (1.0 / 6.0);
-	right_factor += right_sky_irradiance * (1.0 / 3.141592653589793) * (1.0 / 6.0);
-	rear_factor  += rear_sky_irradiance  * (1.0 / 3.141592653589793) * (1.0 / 6.0);
-	front_factor += front_sky_irradiance * (1.0 / 3.141592653589793) * (1.0 / 6.0);
+	up_factor    += up_sky_irradiance    * (1.0 / 3.141592653589793) * (1.0 / 2.0); // Is 1/6 the correct factor here?
+	bot_factor   += down_sky_irradiance  * (1.0 / 3.141592653589793) * (1.0 / 2.0);
+	left_factor  += left_sky_irradiance  * (1.0 / 3.141592653589793) * (1.0 / 2.0);
+	right_factor += right_sky_irradiance * (1.0 / 3.141592653589793) * (1.0 / 2.0);
+	rear_factor  += rear_sky_irradiance  * (1.0 / 3.141592653589793) * (1.0 / 2.0);
+	front_factor += front_sky_irradiance * (1.0 / 3.141592653589793) * (1.0 / 2.0);
 
 	// Sample sprite textures for the different light directions
 	vec4 up_tex_col    = texture(DIFFUSE_TEX, main_tex_coords);

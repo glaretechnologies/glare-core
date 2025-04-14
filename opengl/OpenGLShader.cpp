@@ -55,7 +55,13 @@ OpenGLShader::OpenGLShader(const std::string& path_, const std::string& version_
 		}
 
 		// TEMP: dump full shader to disk
-		// FileUtils::writeEntireFileTextMode(FileUtils::getFilename(path), processed_src);
+#if EMSCRIPTEN
+		// conPrint("---------------------------------Dumping OpenGL shader '" + path_ + "'----------------------------------------");
+		// conPrint(processed_src);
+		// conPrint("---------------------------------End OpenGL shader '" + path_ + "'----------------------------------------");
+#else
+		// FileUtils::writeEntireFileTextMode("d:/files/" + FileUtils::getFilename(path) + "_processed.glsl", processed_src);
+#endif
 
 		glShaderSource(shader, (GLsizei)strings.size(), strings.data(), lengths.data());
 
@@ -86,7 +92,8 @@ std::string OpenGLShader::getLog()
 	if(log_length > 0)
 	{
 		log.resize(log_length - 1);
-		glGetShaderInfoLog(shader, log_length, NULL, log.data());
+		if(log_length >= 1)
+			glGetShaderInfoLog(shader, log_length, NULL, &log[0]);
 	}
 	return log;
 }

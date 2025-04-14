@@ -83,64 +83,6 @@ layout(location = 0) out vec4 colour_out;
 #endif
 
 
-float square(float x) { return x*x; }
-float pow4(float x) { return (x*x)*(x*x); }
-float pow5(float x) { return x*x*x*x*x; }
-float pow6(float x) { return x*x*x*x*x*x; }
-
-float fresnelApprox(float cos_theta_i, float n2)
-{
-	//float r_0 = square((1.0 - n2) / (1.0 + n2));
-	//return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i); // https://en.wikipedia.org/wiki/Schlick%27s_approximation
-
-	float sintheta_i = sqrt(1.0 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
-	float sintheta_t = sintheta_i / n2; // Use Snell's law to get sin(theta_t)
-
-	float costheta_t = sqrt(1.0 - sintheta_t*sintheta_t); // Get cos(theta_t)
-
-	float a2 = square(cos_theta_i - n2*costheta_t);
-	float b2 = square(cos_theta_i + n2*costheta_t);
-
-	float c2 = square(n2*cos_theta_i - costheta_t);
-	float d2 = square(costheta_t + n2*cos_theta_i);
-
-	return 0.5 * (a2*d2 + b2*c2) / (b2*d2);
-}
-
-float trowbridgeReitzPDF(float cos_theta, float alpha2)
-{
-	return cos_theta * alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
-}
-
-float alpha2ForRoughness(float r)
-{
-	return pow4(r);
-}
-
-float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
-{
-	float start_to_plane_dist = raystart.z - plane_h;
-
-	return start_to_plane_dist / -ray_unitdir.z;
-}
-
-float fbm(vec2 p)
-{
-	return (texture(fbm_tex, p).x - 0.5) * 2.f;
-}
-
-vec2 rot(vec2 p)
-{
-	float theta = 1.618034 * 3.141592653589 * 2.0;
-	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
-}
-
-float fbmMix(vec2 p)
-{
-	return 
-		fbm(p) +
-		fbm(rot(p * 2.0)) * 0.5;
-}
 
 
 void main()
@@ -331,7 +273,7 @@ void main()
 
 				vec2 cumulus_coords = vec2(p.x * 2.0 + 2.3453, p.y * 2.0 + 1.4354);
 
-				float cumulus_val = max(0.f, fbmMix(cumulus_coords) - 0.3f);
+				float cumulus_val = max(0.f, fbmMix(cumulus_coords, fbm_tex) - 0.3f);
 
 				float dist_factor = 1.f - smoothstep(80000.0, 160000.0, cumulus_ray_t);
 

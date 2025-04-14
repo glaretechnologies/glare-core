@@ -18,40 +18,6 @@ uniform sampler2D aurora_tex;
 out vec4 colour_out;
 
 
-float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
-{
-	float start_to_plane_dist = raystart.z - plane_h;
-
-	return start_to_plane_dist / -ray_unitdir.z;
-}
-
-vec2 rot(vec2 p)
-{
-	float theta = 1.618034 * 3.141592653589 * 2.0;
-	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
-}
-
-float fbm(vec2 p)
-{
-	return (texture(fbm_tex, p).x - 0.5) * 2.f;
-}
-
-//float noise(vec2 p)
-//{
-//	return (texture(noise_tex, p).x - 0.5) * 2.f;
-//}
-
-float fbmMix(vec2 p)
-{
-	return 
-		fbm(p) +
-		fbm(rot(p * 2.0)) * 0.5;
-}
-
-float length2(vec2 v)
-{
-	return dot(v, v);
-}
 
 
 void main()
@@ -142,7 +108,7 @@ void main()
 		p.x += time * 0.002;
 	
 		vec2 coarse_noise_coords = vec2(p.x * 0.16, p.y * 0.20);
-		float course_detail = fbmMix(vec2(coarse_noise_coords));
+		float course_detail = fbmMix(vec2(coarse_noise_coords), fbm_tex);
 
 		cirrus_cloudfrac = max(course_detail * 0.9, 0.f) * texture(cirrus_tex, p).x * 1.5;
 	}
@@ -157,7 +123,7 @@ void main()
 
 			vec2 cumulus_coords = vec2(p.x * 2.0 + 2.3453, p.y * 2.0 + 1.4354);
 			
-			float cumulus_val = max(0.f, min(1.0, fbmMix(cumulus_coords) * 1.6 - 0.3f));
+			float cumulus_val = max(0.f, min(1.0, fbmMix(cumulus_coords, fbm_tex) * 1.6 - 0.3f));
 			//cumulus_alpha = max(0.f, cumulus_val - 0.7f);
 
 			cumulus_edge = smoothstep(0.0001, 0.1, cumulus_val) - smoothstep(0.2, 0.6, cumulus_val) * 0.5;

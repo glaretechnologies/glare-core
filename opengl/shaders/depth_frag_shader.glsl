@@ -72,60 +72,6 @@ layout (std140) uniform DepthUniforms
 
 
 
-#if MATERIALISE_EFFECT
-float length2(vec2 v) { return dot(v, v); }
-
-float fbm(vec2 p)
-{
-	return (texture(fbm_tex, p).x - 0.5) * 2.f;
-}
-
-vec2 rot(vec2 p)
-{
-	float theta = 1.618034 * 3.141592653589 * 2.0;
-	return vec2(cos(theta) * p.x - sin(theta) * p.y, sin(theta) * p.x + cos(theta) * p.y);
-}
-
-float fbmMix(vec2 p)
-{
-	return 
-		fbm(p) +
-		fbm(rot(p * 2.0)) * 0.5;
-}
-
-// https://www.shadertoy.com/view/MdcfDj
-#define M1 1597334677U     //1719413*929
-#define M2 3812015801U     //140473*2467*11
-
-float hash( uvec2 q )
-{
-	q *= uvec2(M1, M2); 
-
-	uint n = (q.x ^ q.y) * M1;
-
-	return float(n) * (1.0/float(0xffffffffU));
-}
-
-// https://www.shadertoy.com/view/cscSW8
-#define SQRT_3 1.7320508
-
-vec2 closestHexCentre(vec2 p)
-{
-	vec2 grid_p = vec2(p.x, p.y * (1.0 / SQRT_3));
-
-	// Alternating rows of hexagon centres form their own rectanglular lattices.
-	// Find closest hexagon centre on each lattice.
-	vec2 p_1 = (floor((grid_p + vec2(1,1)) * 0.5) * 2.0            ) * vec2(1, SQRT_3);
-	vec2 p_2 = (floor( grid_p              * 0.5) * 2.0 + vec2(1,1)) * vec2(1, SQRT_3);
-
-	// Now return the closest centre from the two lattices.
-	float d_1 = length2(p - p_1);
-	float d_2 = length2(p - p_2);
-	return d_1 < d_2 ? p_1 : p_2;
-}
-#endif // MATERIALISE_EFFECT
-
-
 void main()
 {
 #if ALPHA_TEST
@@ -192,7 +138,7 @@ void main()
 
 	float sweep_speed_factor = 3.0;
 	float sweep_frac = (pos_ws.z - MAT_UNIFORM.materialise_lower_z) / (MAT_UNIFORM.materialise_upper_z - MAT_UNIFORM.materialise_lower_z);
-	float materialise_stage = fbmMix(materialise_coords * 0.2) * 0.4 + sweep_frac;
+	float materialise_stage = fbmMix(materialise_coords * 0.2, fbm_tex) * 0.4 + sweep_frac;
 	float use_frac = (time - MAT_UNIFORM.materialise_start_time) * sweep_speed_factor - materialise_stage - 0.0;
 
 	float band_1_centre = 0.1;

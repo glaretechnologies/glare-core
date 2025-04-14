@@ -2396,6 +2396,33 @@ void OpenGLEngine::textureLoaded(Reference<OpenGLTexture> texture, const std::st
 }
 
 
+static std::string preprocessorDefsForKey(const ProgramKey& key)
+{
+	return 
+		"#define ALPHA_TEST " + toString(key.alpha_test) + "\n" +
+		"#define VERT_COLOURS " + toString(key.vert_colours) + "\n" +
+		"#define INSTANCE_MATRICES " + toString(key.instance_matrices) + "\n" +
+		"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" +
+		"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
+		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
+		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" +
+		"#define SKINNING " + toString(key.skinning) + "\n" +
+		"#define IMPOSTER " + toString(key.imposter) + "\n" +
+		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
+		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
+		"#define SIMPLE_DOUBLE_SIDED " + toString(key.simple_double_sided) + "\n" + 
+		"#define FANCY_DOUBLE_SIDED " + toString(key.fancy_double_sided) + "\n" + 
+		"#define MATERIALISE_EFFECT " + toString(key.materialise_effect) + "\n" + 
+		"#define BLOB_SHADOWS " + toString(1) + "\n" +
+		"#define TERRAIN " + toString(key.terrain) + "\n" + 
+		"#define DECAL " + toString(key.decal) + "\n" +
+		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n" +
+		"#define VERT_TANGENTS " + toString(key.vert_tangents) + "\n" + 
+		"#define SDF_TEXT " + toString(key.sdf_text) + "\n" +
+		"#define COMBINED " + toString(key.combined) + "\n";
+}
+
+
 void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 {
 	this->frag_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/frag_utils.glsl");
@@ -2420,22 +2447,25 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	this->env_prog = buildEnvProgram(use_shader_dir);
 
 	//------------------------------------------- Build overlay prog -------------------------------------------
-	overlay_prog = new OpenGLProgram(
-		"overlay",
-		new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex(),
-		/*wait for build to complete=*/true
-	);
-	addProgram(overlay_prog);
+	{
+		const std::string key_defs = preprocessorDefsForKey(ProgramKey("overlay", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+		overlay_prog = new OpenGLProgram(
+			"overlay",
+			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/overlay_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
+		);
+		addProgram(overlay_prog);
 
-	overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
-	overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
-	overlay_target_is_nonlinear_location	= overlay_prog->getUniformLocation("overlay_target_is_nonlinear");
-	overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
-	overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
-	overlay_clip_min_coords_location	= overlay_prog->getUniformLocation("clip_min_coords");
-	overlay_clip_max_coords_location	= overlay_prog->getUniformLocation("clip_max_coords");
+		overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
+		overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
+		overlay_target_is_nonlinear_location	= overlay_prog->getUniformLocation("overlay_target_is_nonlinear");
+		overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
+		overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
+		overlay_clip_min_coords_location	= overlay_prog->getUniformLocation("clip_min_coords");
+		overlay_clip_max_coords_location	= overlay_prog->getUniformLocation("clip_max_coords");
+	}
 
 	//------------------------------------------- Build clear prog -------------------------------------------
 	clear_prog = new OpenGLProgram(
@@ -2552,33 +2582,36 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
 		
 		//------------------------------------------- Build final_imaging_prog -------------------------------------------
-		final_imaging_prog = new OpenGLProgram(
-			"final_imaging",
-			new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex(),
-			/*wait for build to complete=*/true
-		);
-		addProgram(final_imaging_prog);
-		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
-		assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
-		assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
-
-		// Note that even if use_order_indep_transparency is false, we still need to create these user uniforms, because FINAL_IMAGING_BLUR_TEX_UNIFORM_START is hard-coded and refers to user uniforms past these.
-		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
-		assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
-		if(use_order_indep_transparency)
-			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
-
-		final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "total_transmittance_texture");
-		assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX);
-		if(use_order_indep_transparency)
-			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
-
-		for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 		{
-			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "blur_tex_" + toString(i));
-			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i);
+			const std::string key_defs = preprocessorDefsForKey(ProgramKey("final_imaging", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+			final_imaging_prog = new OpenGLProgram(
+				"final_imaging",
+				new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+				new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
+				getAndIncrNextProgramIndex(),
+				/*wait for build to complete=*/true
+			);
+			addProgram(final_imaging_prog);
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
+			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
+			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+
+			// Note that even if use_order_indep_transparency is false, we still need to create these user uniforms, because FINAL_IMAGING_BLUR_TEX_UNIFORM_START is hard-coded and refers to user uniforms past these.
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
+			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
+			if(use_order_indep_transparency)
+				assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+
+			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "total_transmittance_texture");
+			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX);
+			if(use_order_indep_transparency)
+				assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
+
+			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+			{
+				final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "blur_tex_" + toString(i));
+				assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i);
+			}
 		}
 	}
 
@@ -2676,33 +2709,6 @@ void OpenGLEngine::expandJointMatricesBuffer(size_t min_extra_needed)
 }
 
 
-static std::string preprocessorDefsForKey(const ProgramKey& key)
-{
-	return 
-		"#define ALPHA_TEST " + toString(key.alpha_test) + "\n" +
-		"#define VERT_COLOURS " + toString(key.vert_colours) + "\n" +
-		"#define INSTANCE_MATRICES " + toString(key.instance_matrices) + "\n" +
-		"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" +
-		"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
-		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
-		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" +
-		"#define SKINNING " + toString(key.skinning) + "\n" +
-		"#define IMPOSTER " + toString(key.imposter) + "\n" +
-		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
-		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
-		"#define SIMPLE_DOUBLE_SIDED " + toString(key.simple_double_sided) + "\n" + 
-		"#define FANCY_DOUBLE_SIDED " + toString(key.fancy_double_sided) + "\n" + 
-		"#define MATERIALISE_EFFECT " + toString(key.materialise_effect) + "\n" + 
-		"#define BLOB_SHADOWS " + toString(1) + "\n" +
-		"#define TERRAIN " + toString(key.terrain) + "\n" + 
-		"#define DECAL " + toString(key.decal) + "\n" +
-		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n" +
-		"#define VERT_TANGENTS " + toString(key.vert_tangents) + "\n" + 
-		"#define SDF_TEXT " + toString(key.sdf_text) + "\n" +
-		"#define COMBINED " + toString(key.combined) + "\n";
-}
-
-
 static const bool PRINT_PROG_BUILD_TIMES = false;
 
 
@@ -2760,14 +2766,92 @@ void OpenGLEngine::finishBuildingProg(OpenGLProgram* prog)
 }
 
 
+OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir)
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey("env", ProgramKeyArgs()));
+
+	OpenGLProgramRef new_env_prog = new OpenGLProgram(
+		"env",
+		new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(new_env_prog);
+
+	getUniformLocations(new_env_prog);
+	setStandardTextureUnitUniformsForProgram(*new_env_prog);
+
+	env_diffuse_colour_location		= new_env_prog->getUniformLocation("diffuse_colour");
+	env_have_texture_location		= new_env_prog->getUniformLocation("have_texture");
+	env_texture_matrix_location		= new_env_prog->getUniformLocation("texture_matrix");
+	env_campos_ws_location			= new_env_prog->getUniformLocation("env_campos_ws");
+
+	bindUniformBlockToProgram(new_env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+
+	return new_env_prog;
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_dir)
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey("draw_aurora_tex", ProgramKeyArgs()));
+
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"draw_aurora_tex",
+		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(prog);
+
+	getUniformLocations(prog);
+	setStandardTextureUnitUniformsForProgram(*prog);
+
+	checkUniformBlockSize(prog, "MaterialCommonUniforms",	sizeof(MaterialCommonUniforms));
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+	return prog;
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shader_dir)
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey("compute_ssao", ProgramKeyArgs()));
+
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"compute_ssao",
+		new OpenGLShader(use_shader_dir + "/compute_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/compute_ssao_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(prog);
+	getUniformLocations(prog); // Make sure any unused uniforms have their locations set to -1.
+	setStandardTextureUnitUniformsForProgram(*prog);
+
+	compute_ssao_normal_tex_location = prog->getUniformLocation("normal_tex");
+	compute_ssao_depth_tex_location = prog->getUniformLocation("depth_tex");
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+	return prog;
+}
+
+
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(progs[key] == NULL)
 	{
 		Timer timer;
 
-		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
-		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
+		const std::string key_defs = preprocessorDefsForKey(key);
+		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
+		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
@@ -2849,8 +2933,9 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 	{
 		Timer timer;
 
-		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
-		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
+		const std::string key_defs = preprocessorDefsForKey(key);
+		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
+		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
@@ -2930,8 +3015,9 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 	{
 		Timer timer;
 
-		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
-		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
+		const std::string key_defs = preprocessorDefsForKey(key);
+		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
+		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
@@ -2989,8 +3075,9 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 	{
 		Timer timer;
 
-		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
-		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
+		const std::string key_defs = preprocessorDefsForKey(key);
+		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
+		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
@@ -3047,8 +3134,9 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	{
 		Timer timer;
 
-		const std::string use_vert_defs = preprocessor_defines_with_common_vert_structs + preprocessorDefsForKey(key);
-		const std::string use_frag_defs = preprocessor_defines_with_common_frag_structs + preprocessorDefsForKey(key);
+		const std::string key_defs = preprocessorDefsForKey(key);
+		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
+		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
@@ -6041,77 +6129,6 @@ void OpenGLEngine::addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const 
 	addDebugLine(frustum_verts_ws[1] + t, frustum_verts_ws[5] + t, line_rad, line_col);
 	addDebugLine(frustum_verts_ws[2] + t, frustum_verts_ws[6] + t, line_rad, line_col);
 	addDebugLine(frustum_verts_ws[3] + t, frustum_verts_ws[7] + t, line_rad, line_col);
-}
-
-
-OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir)
-{
-	OpenGLProgramRef new_env_prog = new OpenGLProgram(
-		"env",
-		new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex(),
-		/*wait for build to complete=*/true
-	);
-	addProgram(new_env_prog);
-
-	getUniformLocations(new_env_prog);
-	setStandardTextureUnitUniformsForProgram(*new_env_prog);
-
-	env_diffuse_colour_location		= new_env_prog->getUniformLocation("diffuse_colour");
-	env_have_texture_location		= new_env_prog->getUniformLocation("have_texture");
-	env_texture_matrix_location		= new_env_prog->getUniformLocation("texture_matrix");
-	env_campos_ws_location			= new_env_prog->getUniformLocation("env_campos_ws");
-
-	bindUniformBlockToProgram(new_env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
-
-	return new_env_prog;
-}
-
-
-OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_dir)
-{
-	OpenGLProgramRef prog = new OpenGLProgram(
-		"draw_aurora_tex",
-		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex(),
-		/*wait for build to complete=*/true
-	);
-	addProgram(prog);
-
-	getUniformLocations(prog);
-	setStandardTextureUnitUniformsForProgram(*prog);
-
-	checkUniformBlockSize(prog, "MaterialCommonUniforms",	sizeof(MaterialCommonUniforms));
-
-	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
-	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
-
-	return prog;
-}
-
-
-OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shader_dir)
-{
-	OpenGLProgramRef prog = new OpenGLProgram(
-		"compute_ssao",
-		new OpenGLShader(use_shader_dir + "/compute_ssao_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/compute_ssao_frag_shader.glsl", version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
-		getAndIncrNextProgramIndex(),
-		/*wait for build to complete=*/true
-	);
-	addProgram(prog);
-	getUniformLocations(prog); // Make sure any unused uniforms have their locations set to -1.
-	setStandardTextureUnitUniformsForProgram(*prog);
-
-	compute_ssao_normal_tex_location = prog->getUniformLocation("normal_tex");
-	compute_ssao_depth_tex_location = prog->getUniformLocation("depth_tex");
-
-	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
-	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
-
-	return prog;
 }
 
 

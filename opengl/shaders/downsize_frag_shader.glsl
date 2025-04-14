@@ -59,6 +59,8 @@ vec4 resolveTotalTransTextureSample(ivec2 px_coords)
 }
 
 
+
+
 void main()
 {
 #if DOWNSIZE_FROM_MAIN_BUF && (MAIN_BUFFER_MSAA_SAMPLES > 1)
