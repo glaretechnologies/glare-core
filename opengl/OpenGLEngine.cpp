@@ -6776,16 +6776,39 @@ void OpenGLEngine::draw()
 
 		// Draw to all colour buffers: colour and normal buffer.
 		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+
+		// Clear colour render buffer
+		{
+			const float clear_val[4] = { current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f};
+			glClearBufferfv(GL_COLOR, /*drawbuffer=*/0, clear_val);
+		}
+
+		// Clear normal render buffer.  Note that we have to use the uint version for clearing the normal buffer if it's a uint format.
+		if(normal_texture_is_uint)
+		{
+			const GLuint clear_val[] = { 0, 0, 0, 0 };
+			glClearBufferuiv(GL_COLOR, /*drawbuffer=*/1, clear_val);
+		}
+		else
+		{
+			const float clear_val[4] = { 0, 0, 0, 0 };
+			glClearBufferfv(GL_COLOR, /*drawbuffer=*/1, clear_val);
+		}
+	}
+	else
+	{
+		// Clear colour render buffer
+		{
+			const float clear_val[4] = { current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f};
+			glClearBufferfv(GL_COLOR, /*drawbuffer=*/0, clear_val);
+		}
 	}
 
-
-	// NOTE: We want to clear here first, even if the scene node is null.
-	// Clearing here fixes the bug with the OpenGL widget buffer not being initialised properly and displaying garbled mem on OS X.
-	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
-
-	glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	// Clear depth buffer
+	{
+		const float val = use_reverse_z ? 0.0f : 1.f; // For reversed-z, the 'far' z value is 0, instead of 1.
+		glClearBufferfv(GL_DEPTH, /*drawbuffer=*/0, &val);
+	}
 	
 	glLineWidth(1);
 
