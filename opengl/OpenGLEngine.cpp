@@ -489,6 +489,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_compute_ssao_GPU_time(0),
 	last_decal_copy_buffers_GPU_time(0),
 	last_num_animated_obs_processed(0),
+	last_num_decal_batches_drawn(0),
 	next_program_index(0),
 	use_bindless_textures(false),
 	use_multi_draw_indirect(false),
@@ -1990,7 +1991,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		// Avoid this crash by just not using them.
 		use_bindless_textures = settings.allow_bindless_textures && GL_ARB_bindless_texture_support && !is_intel_vendor && !is_ati_vendor;
 
+#if EMSCRIPTEN
+		use_reverse_z = false; // Can't use reverse-z currently because glClipControl doesn't work in Emscripten: https://github.com/emscripten-core/emscripten/issues/24105
+#else
 		use_reverse_z = clip_control_support;
+#endif
 
 		use_multi_draw_indirect = false;
 #if !defined(OSX) && !defined(EMSCRIPTEN)
@@ -1998,6 +2003,21 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			use_multi_draw_indirect = true; // Our multi-draw-indirect code uses bindless textures and gl_DrawID, which requires GLSL 4.60 (or ARB_shader_draw_parameters)
 #endif
 
+		// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
+		// Use an integer format, so that MSAA downsampling gives valid normals.
+		// 
+		// Format_RGB_Integer_Uint8 (GL_RGB8UI) isn't supported as a renderbuffer format in OpenGL ES (see https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glRenderbufferStorage.xhtml),
+		// so use GL_RGB8AUI, which is supported in OpenGL ES.
+		// However, "GL_INVALID_OPERATION is generated if internalformat is a signed or unsigned integer format and samples is greater than 0.", so we can't use an integer format with MSAA in OpenGL ES.
+		// 
+		// Int formats also doesn't work properly on Apple machines. (shader doesn't output anything, just black output)
+#if EMSCRIPTEN
+		normal_texture_is_uint = (settings.msaa_samples <= 1); // Only use if MSAA is off.
+#elif defined(__APPLE__)
+		normal_texture_is_uint = false;
+#else
+		normal_texture_is_uint = true;
+#endif
 
 		// On OS X, we can't just not define things, we need to define them as zero or we get GLSL syntax errors.
 		preprocessor_defines += "#define SHADOW_MAPPING " + (settings.shadow_mapping ? std::string("1") : std::string("0")) + "\n";
@@ -2041,11 +2061,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		preprocessor_defines += "#define ORDER_INDEPENDENT_TRANSPARENCY " + (use_order_indep_transparency ? std::string("1") : std::string("0")) + "\n";
 
-#if defined(EMSCRIPTEN) || defined(__APPLE__)
-		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT 0\n";
-#else
-		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT 1\n";
-#endif
+		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT " + (normal_texture_is_uint ? std::string("1") : std::string("0")) + "\n";
+
 
 		if(use_bindless_textures)
 			preprocessor_defines += "#extension GL_ARB_bindless_texture : require\n";
@@ -2069,8 +2086,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 #endif
 
 #if defined(EMSCRIPTEN)
-		use_glsl_version = 300; // WebGL 2 uses OpenGL ES 3.0, which uses GLSL v3.00.
-		this->version_directive = "#version " + toString(use_glsl_version) + " es";
+		this->version_directive = "#version 300 es"; // WebGL 2 uses OpenGL ES 3.0, which uses GLSL v3.00.
 #else
 		this->version_directive = "#version " + toString(use_glsl_version) + " core";
 #endif
@@ -2276,7 +2292,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			}
 
 			// Preview prepass_normal_copy_texture
-			{
+			/*{
 				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
 				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-0.3f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
 				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
@@ -2300,7 +2316,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
 
 				addOverlayObject(texture_debug_preview_overlay_ob);
-			}
+			}*/
 		}
 
 
@@ -6308,7 +6324,8 @@ void OpenGLEngine::draw()
 		// Try and reload compute_ssao_prog
 		try
 		{
-			this->compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);;
+			if(settings.ssao)
+				this->compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);;
 		}
 		catch(glare::Exception& e)
 		{
@@ -6540,14 +6557,14 @@ void OpenGLEngine::draw()
 	bindStandardShadowMappingDepthTextures(); // Rebind now that the shadow maps have been redrawn, and hence cur_static_depth_tex has changed.
 
 
-
-#if defined(EMSCRIPTEN)
-	const OpenGLTextureFormat col_buffer_format = EXT_color_buffer_float_support ? OpenGLTextureFormat::Format_RGBA_Linear_Half : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
-	const bool col_buf_is_floating_point = EXT_color_buffer_float_support;
+#if EMSCRIPTEN
+	// NOTE: EXT_color_buffer_half_float is included in WebGL 2: See https://emscripten.org/docs/optimizing/Optimizing-WebGL.html#optimizing-load-times-and-other-best-practices
+	// However RGB16F is not supported as a render buffer format, just RGBA16F.  See https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
+	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
 #else
 	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
-	const bool col_buf_is_floating_point = true;
 #endif
+	const bool col_buf_is_floating_point = true;
 
 	//=============== Allocate or reallocate buffers for drawing to ===============
 	// We will render to renderbuffers (main_colour_renderbuffer, main_normal_renderbuffer) etc. attached to main_render_framebuffer.
@@ -6588,13 +6605,15 @@ void OpenGLEngine::draw()
 		{
 			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
 
+			const OpenGLTextureFormat normal_buffer_format = normal_texture_is_uint ? OpenGLTextureFormat::Format_RGBA_Integer_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
+
 			printVar(EXT_color_buffer_float_support);
 			conPrint("Allocing main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
-			conPrint("MSAA samples " + toString(msaa_samples) + ", col buffer format: " + std::string(textureFormatString(col_buffer_format)));
-
+			conPrint("AA MSAA samples " + toString(msaa_samples) + ", col buffer format: " + std::string(textureFormatString(col_buffer_format)));
+			conPrint("normal buffer format: " + std::string(textureFormatString(normal_buffer_format)));
 
 			main_colour_copy_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
+				ArrayRef<uint8>(), // data
 				col_buffer_format,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp,
@@ -6602,18 +6621,8 @@ void OpenGLEngine::draw()
 				/*MSAA_samples=*/1
 			);
 
-			// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
-			// Use an integer format, so that MSAA downsampling gives valid normals.
-			// However Format_RGB_Integer_Uint8 isn't supported as a renderbuffer format in OpenGL ES, see https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glRenderbufferStorage.xhtml
-			// It also doesn't work properly on Apple machines. (shader doesn't output anything, just black output)
-#if defined(EMSCRIPTEN) || defined(__APPLE__)
-			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Uint8; 
-#else
-			const OpenGLTextureFormat normal_buffer_format = OpenGLTextureFormat::Format_RGB_Integer_Uint8;
-#endif
-
 			main_normal_copy_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
+				ArrayRef<uint8>(), // data
 				normal_buffer_format,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp,
@@ -6631,7 +6640,7 @@ void OpenGLEngine::draw()
 			if(use_order_indep_transparency)
 			{
 				transparent_accum_copy_texture = new OpenGLTexture(xres, yres, this,
-					ArrayRef<uint8>(NULL, 0), // data
+					ArrayRef<uint8>(), // data
 					transparent_accum_format,
 					OpenGLTexture::Filtering_Nearest,
 					OpenGLTexture::Wrapping_Clamp,
@@ -6640,7 +6649,7 @@ void OpenGLEngine::draw()
 				);
 
 				total_transmittance_copy_texture = new OpenGLTexture(xres, yres, this,
-					ArrayRef<uint8>(NULL, 0), // data
+					ArrayRef<uint8>(), // data
 					total_transmittance_format,
 					OpenGLTexture::Filtering_Nearest,
 					OpenGLTexture::Wrapping_Clamp,
@@ -6653,13 +6662,17 @@ void OpenGLEngine::draw()
 			const OpenGLTextureFormat depth_format = OpenGLTextureFormat::Format_Depth_Float;
 
 			main_depth_copy_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(NULL, 0), // data
+				ArrayRef<uint8>(), // data
 				depth_format,
 				OpenGLTexture::Filtering_Nearest,
 				OpenGLTexture::Wrapping_Clamp,
 				false, // has_mipmaps
 				/*MSAA_samples=*/1
 			);
+
+
+			if(texture_debug_preview_overlay_obs.size() >= 1)
+				texture_debug_preview_overlay_obs[0]->material.albedo_texture = main_depth_copy_texture;
 
 		
 			// Allocate renderbuffers.  Note that these must have the same format as the textures, otherwise the glBlitFramebuffer copies will fail in WebGL.
@@ -6726,12 +6739,12 @@ void OpenGLEngine::draw()
 
 
 				//TEMP:
-				if(texture_debug_preview_overlay_obs.size() >= 3)
+				/*if(texture_debug_preview_overlay_obs.size() >= 3)
 				{
 					texture_debug_preview_overlay_obs[0]->material.albedo_texture = prepass_colour_copy_texture;
 					texture_debug_preview_overlay_obs[1]->material.albedo_texture = compute_ssao_output_texture;
 					texture_debug_preview_overlay_obs[2]->material.albedo_texture = compute_ssao_specular_output_texture;
-				}
+				}*/
 			}
 
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
@@ -7038,7 +7051,7 @@ void OpenGLEngine::draw()
 				h = myMax(1, h / 2);
 
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
-				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
+				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				downsize_framebuffers[i] = new FrameBuffer();
 				downsize_framebuffers[i]->attachTexture(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
 
@@ -7050,7 +7063,7 @@ void OpenGLEngine::draw()
 				}
 
 
-				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(NULL, 0), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
+				blur_target_textures_x[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers_x[i] = new FrameBuffer();
 				blur_framebuffers_x[i]->attachTexture(*blur_target_textures_x[i], GL_COLOR_ATTACHMENT0);
 
@@ -8041,132 +8054,135 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 	DebugGroup debug_group("drawDecals()");
 	TracyGpuZone("drawDecals");
 
+	this->last_num_decal_batches_drawn = 0;
+
 	// We will need to copy the depth buffer and normal buffer again, to capture the results of drawing the water.
-#if EMSCRIPTEN // Crashing chrome currently.
-	if(0)
-#else
-	if(!current_scene->decal_objects.empty() && current_scene->render_to_main_render_framebuffer) // Only do buffer copying if we have some decals to draw.
-#endif
+	if(!current_scene->decal_objects.empty() && current_scene->render_to_main_render_framebuffer)
 	{
 		assertCurrentProgramIsZero();
 
-		if(query_profiling_enabled && current_scene->collect_stats && decal_copy_buffers_timer->isIdle())
-			decal_copy_buffers_timer->beginTimerQuery();
+		ZoneScopedN("Draw decal obs"); // Tracy profiler
 
-		main_render_framebuffer->bindForReading();
-
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == this->main_depth_renderbuffer->buffer_name);
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
-		
-		main_render_copy_framebuffer->bindForDrawing();
-
-		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT) == this->main_depth_copy_texture->texture_handle);
-		assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
-
-		//---------------------- Copy depth renderbuffer to depth texture ----------------------
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_DEPTH_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-		//---------------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ----------------------
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-	
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
-
-		// Stop timer
-		if(query_profiling_enabled && decal_copy_buffers_timer->isRunning())
-			decal_copy_buffers_timer->endTimerQuery();
-
-
-
-		// Restore main render buffer binding
-		main_render_framebuffer->bindForDrawing();
-		assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for decal shader (don't write to normal buffer).
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		glDepthMask(GL_FALSE); // Disable writing to depth buffer, or nearby decals will occlude each other.
+		//Timer timer;
+		batch_draw_info.resize(0);
 
 		{
-			ZoneScopedN("Draw decal obs"); // Tracy profiler
-
-			//Timer timer;
-			batch_draw_info.reserve(current_scene->objects.size());
-			batch_draw_info.resize(0);
-
+			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
+			const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+			const js::AABBox frustum_aabb = current_scene->frustum_aabb;
+			const GLObjectRef* const current_decal_obs = current_scene->decal_objects.vector.data();
+			const size_t current_decal_obs_size        = current_scene->decal_objects.vector.size();
+			for(size_t i=0; i<current_decal_obs_size; ++i)
 			{
-				const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
-				const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
-				const js::AABBox frustum_aabb = current_scene->frustum_aabb;
-				const GLObjectRef* const current_decal_obs = current_scene->decal_objects.vector.data();
-				const size_t current_decal_obs_size        = current_scene->decal_objects.vector.size();
-				for(size_t i=0; i<current_decal_obs_size; ++i)
-				{
-					// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
-					if(i + 16 < current_decal_obs_size)
-					{	
-						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws), _MM_HINT_T0);
-						_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
-					}
+				// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+				if(i + 16 < current_decal_obs_size)
+				{	
+					_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+					_mm_prefetch((const char*)(&current_decal_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+				}
 
-					const GLObject* const ob = current_decal_obs[i].ptr();
-					if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+				const GLObject* const ob = current_decal_obs[i].ptr();
+				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+				{
+					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
 					{
-						const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
-						const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
-						for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
-						{
-							const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-							const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
+						const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+						const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
 
 #ifndef NDEBUG
-							const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
-							const uint32 face_culling_bits = face_culling ? ((ob->ob_to_world_matrix_determinant >= 0.f) ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
-							assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
-							assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
+						const bool face_culling = !ob->materials[ob->getUsedBatches()[z].material_index].simple_double_sided && !ob->materials[ob->getUsedBatches()[z].material_index].fancy_double_sided;
+						const uint32 face_culling_bits = face_culling ? ((ob->ob_to_world_matrix_determinant >= 0.f) ? SHIFTED_CULL_BACKFACE_BITS : SHIFTED_CULL_FRONTFACE_BITS) : 0;
+						assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | face_culling_bits));
+						assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
 
-							// Check the denormalised vao_and_vbo_key is correct
-							const uint32 vao_id = ob->mesh_data->vao_data_index;
-							const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
-							const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-							const uint32 index_type_bits = ob->mesh_data->index_type_bits;
-							assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
+						// Check the denormalised vao_and_vbo_key is correct
+						const uint32 vao_id = ob->mesh_data->vao_data_index;
+						const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
+						const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
+						const uint32 index_type_bits = ob->mesh_data->index_type_bits;
+						assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
 #endif
-							// Draw primitives for the given material
-							//if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // NOTE: check for decal bitflag? or just assume all decal object materials are decals.
-							if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_DECAL_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If decal bit is set and program is finished building:
-							{
-								BatchDrawInfo info(
-									prog_index_and_face_culling_flag,
-									ob->vao_and_vbo_key,
-									ob, // object ptr
-									(uint32)z // batch_i
-								);
-								batch_draw_info.push_back(info);
-							}
+						// Draw primitives for the given material
+						//if((prog_index_and_flags & (MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG)) == 0) // NOTE: check for decal bitflag? or just assume all decal object materials are decals.
+						if(BitUtils::areBitsSet(prog_index_and_flags, MATERIAL_DECAL_BITFLAG | PROGRAM_FINISHED_BUILDING_BITFLAG)) // If decal bit is set and program is finished building:
+						{
+							BatchDrawInfo info(
+								prog_index_and_face_culling_flag,
+								ob->vao_and_vbo_key,
+								ob, // object ptr
+								(uint32)z // batch_i
+							);
+							batch_draw_info.push_back(info);
 						}
 					}
-				} // End for each object in scene
-			}
-			//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+				}
+			} // End for each object in scene
+		}
+		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+
+		if(batch_draw_info.nonEmpty()) // Only do buffer copying if we have some decals to draw.
+		{
+			if(query_profiling_enabled && current_scene->collect_stats && decal_copy_buffers_timer->isIdle())
+				decal_copy_buffers_timer->beginTimerQuery();
+
+			main_render_framebuffer->bindForReading();
+
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == this->main_depth_renderbuffer->buffer_name);
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
+		
+			main_render_copy_framebuffer->bindForDrawing();
+
+			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT) == this->main_depth_copy_texture->texture_handle);
+			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
+
+			//---------------------- Copy depth renderbuffer to depth texture ----------------------
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+			glBlitFramebuffer(
+				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+				GL_DEPTH_BUFFER_BIT,
+				GL_NEAREST
+			);
+
+			//---------------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ----------------------
+			glReadBuffer(GL_COLOR_ATTACHMENT1);
+			setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	
+			glBlitFramebuffer(
+				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
+				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
+				GL_COLOR_BUFFER_BIT,
+				GL_NEAREST
+			);
+
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+
+			// Stop timer
+			if(query_profiling_enabled && decal_copy_buffers_timer->isRunning())
+				decal_copy_buffers_timer->endTimerQuery();
+
+
+
+			// Restore main render buffer binding
+			main_render_framebuffer->bindForDrawing();
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for decal shader (don't write to normal buffer).
+
+
+
+
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+			glDepthMask(GL_FALSE); // Disable writing to depth buffer, or nearby decals will occlude each other.
+
 
 			sortBatchDrawInfos();
+
 
 			// Draw sorted batches
 			uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
@@ -8230,9 +8246,10 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			if(draw_wireframes)
 				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
 #endif
-
-			//conPrint("Draw decal batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 		}
+
+		this->last_num_decal_batches_drawn = (uint32)batch_draw_info.size();
+		//conPrint("Draw decal batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 	}
 }
 
@@ -8250,8 +8267,8 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 			// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
 			//
 			// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
-			// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
-			// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
+			// "the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer.
+			// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers.
 			// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
 			//
 			// 
@@ -8259,11 +8276,13 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 
 			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
 			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
+			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT)  == this->main_depth_renderbuffer->buffer_name);
 
 			main_render_copy_framebuffer->bindForDrawing();
 
 			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT0) == this->main_colour_copy_texture->texture_handle);
 			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
+			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT)  == this->main_depth_copy_texture->texture_handle);
 
 			//--------------- Copy colour buffer (attachment 0) and depth buffer. ---------------
 			glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -11512,7 +11531,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "depth draw num batches bound: " + toString(depth_draw_last_num_batches_bound) + "\n";
 	s += "depth draw tris drawn: " + uInt32ToStringCommaSeparated(depth_draw_last_num_indices_drawn / 3) + "\n";
 	s += "\n";
-	
+	s += "decal batches drawn: " + toString(last_num_decal_batches_drawn) + "\n";
+	s += "\n";
 
 	s += "FPS: " + doubleToStringNDecimalPlaces(last_fps, 1) + "\n";
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";

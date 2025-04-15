@@ -1425,6 +1425,7 @@ public:
 	bool use_reverse_z;
 	bool use_scatter_shader; // Use scatter shader for data updates
 	bool use_order_indep_transparency;
+	bool normal_texture_is_uint;
 
 	OpenGLEngineSettings settings;
 
@@ -1479,6 +1480,8 @@ private:
 	double last_decal_copy_buffers_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
+
+	uint32 last_num_decal_batches_drawn;
 
 	uint32 num_multi_draw_indirect_calls;
 

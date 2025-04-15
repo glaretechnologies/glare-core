@@ -86,30 +86,34 @@ uniform sampler2D emission_tex;
 
 
 layout(location = 0) out vec4 colour_out;
+#if NORMAL_TEXTURE_IS_UINT
+layout(location = 1) out uvec4 normal_out;
+#else
 layout(location = 1) out vec3 normal_out;
+#endif
 
 
 
 // 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1+2.
 // Returns +- 1
-vec2 signNotZero(vec2 v) {
-	return vec2(((v.x >= 0.0) ? 1.0 : -1.0), ((v.y >= 0.0) ? 1.0 : -1.0));
-}
+//vec2 signNotZero(vec2 v) {
+//	return vec2(((v.x >= 0.0) ? 1.0 : -1.0), ((v.y >= 0.0) ? 1.0 : -1.0));
+//}
 
-vec3 oct_to_float32x3(vec2 e) {
-	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
-	if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
-	return normalize(v);
-}
-
-// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
-vec2 unorm8x3_to_snorm12x2(vec3 u) {
-	u *= 255.0;
-	u.y *= (1.0 / 16.0);
-	vec2 s = vec2(u.x * 16.0 + floor(u.y),
-		fract(u.y) * (16.0 * 256.0) + u.z);
-	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
-}
+//vec3 oct_to_float32x3(vec2 e) {
+//	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+//	if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
+//	return normalize(v);
+//}
+//
+//// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
+//vec2 unorm8x3_to_snorm12x2(vec3 u) {
+//	u *= 255.0;
+//	u.y *= (1.0 / 16.0);
+//	vec2 s = vec2(u.x * 16.0 + floor(u.y),
+//		fract(u.y) * (16.0 * 256.0) + u.z);
+//	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
+//}
 
 
 
@@ -117,22 +121,22 @@ vec2 unorm8x3_to_snorm12x2(vec3 u) {
 // 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1.
 
 // Assume normalized input. Output is on [-1, 1] for each component.
-vec2 float32x3_to_oct(in vec3 v) {
-	// Project the sphere onto the octahedron, and then onto the xy plane
-	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
-	// Reflect the folds of the lower hemisphere over the diagonals
-	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * signNotZero(p)) : p;
-}
+//vec2 float32x3_to_oct(in vec3 v) {
+//	// Project the sphere onto the octahedron, and then onto the xy plane
+//	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
+//	// Reflect the folds of the lower hemisphere over the diagonals
+//	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * signNotZero(p)) : p;
+//}
 
 // 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
-vec3 snorm12x2_to_unorm8x3(vec2 f) {
-	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047.0 + 2047.0));
-	float t = floor(u.y / 256.0);
-	// If storing to GL_RGB8UI, omit the final division
-	return floor(vec3(u.x / 16.0,
-		fract(u.x / 16.0) * 256.0 + t,
-		u.y - t * 256.0)) / 255.0;
-}
+//vec3 snorm12x2_to_unorm8x3(vec2 f) {
+//	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047.0 + 2047.0));
+//	float t = floor(u.y / 256.0);
+//	// If storing to GL_RGB8UI, omit the final division
+//	return floor(vec3(u.x / 16.0,
+//		fract(u.x / 16.0) * 256.0 + t,
+//		u.y - t * 256.0)) / 255.0;
+//}
 
 
 
@@ -179,8 +183,8 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 
 	vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz; // Get colour value at refracted ground position.
 //return src_col;
-	vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
-	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
+	//vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
+	//vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
 
 	//--------------- Apply caustic texture ---------------
 	// Caustics are projected onto a plane normal to the direction to the sun.
@@ -202,7 +206,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	// TODO: compute inscatter_radiance better.
 	// It should depend on the sun+sky colour, but also take into account attenuation through water giving a blue tint.
 	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
-	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d);
+	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d/*100.f*/); // TEMP HACK IMPORTANT
 	vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
 
 	vec3 attentuated_col = src_col * exp_optical_depth;

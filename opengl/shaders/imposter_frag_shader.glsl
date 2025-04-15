@@ -38,7 +38,11 @@ layout (std140) uniform PhongUniforms
 
 
 layout(location = 0) out vec4 colour_out;
+#if NORMAL_TEXTURE_IS_UINT
+layout(location = 1) out uvec4 normal_out;
+#else
 layout(location = 1) out vec3 normal_out;
+#endif
 
 
 float fresnelApproxCheap(float cos_theta_i, float n2)
@@ -260,5 +264,10 @@ void main()
 #endif
 	colour_out.w = 1.0; // Imposters aren't rendered with alpha blending, so just use alpha=1.
 
-	normal_out = vec3(0.0, 0.0, 0.0); // TODO: use normal_ws and snorm12x2_to_unorm8x3 etc.
+	// TODO: use normal_ws and snorm12x2_to_unorm8x3 etc.
+#if NORMAL_TEXTURE_IS_UINT
+	normal_out = uvec4(0, 0, 0, 0);
+#else
+	normal_out = vec3(0.0, 0.0, 0.0);
+#endif
 }

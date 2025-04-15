@@ -343,3 +343,42 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 
 
 #endif // end if SHADOW_MAPPING
+
+
+
+// Converts a unit vector to a point in octahedral representation ('oct').
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1.
+
+// Returns +- 1
+vec2 signNotZero(vec2 v) {
+	return vec2(((v.x >= 0.0) ? 1.0 : -1.0), ((v.y >= 0.0) ? 1.0 : -1.0));
+}
+// Assume normalized input. Output is on [-1, 1] for each component.
+vec2 float32x3_to_oct(in vec3 v) {
+	// Project the sphere onto the octahedron, and then onto the xy plane
+	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
+	// Reflect the folds of the lower hemisphere over the diagonals
+	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * signNotZero(p)) : p;
+}
+
+
+#if NORMAL_TEXTURE_IS_UINT
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
+uvec4 snorm12x2_to_unorm8x3(vec2 f) {
+	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047.0 + 2047.0));
+	float t = floor(u.y / 256.0);
+	// If storing to GL_RGB8UI, omit the final division
+	return uvec4(uint(u.x / 16.0),
+		uint(fract(u.x / 16.0) * 256.0 + t),
+		uint(u.y - t * 256.0),
+		0);
+}
+#else
+vec3 snorm12x2_to_unorm8x3(vec2 f) {
+	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047.0 + 2047.0));
+	float t = floor(u.y / 256.0);
+	return vec3(uint(u.x / 16.0),
+		uint(fract(u.x / 16.0) * 256.0 + t),
+		uint(u.y - t * 256.0)) / 255.0;
+}
+#endif
