@@ -50,6 +50,11 @@ Copyright Glare Technologies Limited 2023 -
 #include "superluminal/PerformanceAPI.h"
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyOpenGL.hpp>
+#if EMSCRIPTEN
+#define GL_GLEXT_PROTOTYPES 1
+#include <GLES3/gl2ext.h>
+#define glClipControl glClipControlEXT
+#endif
 
 
 // https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_filter_anisotropic.txt
@@ -72,6 +77,10 @@ Copyright Glare Technologies Limited 2023 -
 #ifndef GL_COMPUTE_SHADER
 #define GL_COMPUTE_SHADER								0x91B9
 #endif
+
+#define GL_LOWER_LEFT									0x8CA1
+#define GL_ZERO_TO_ONE									0x935F
+#define GL_NEGATIVE_ONE_TO_ONE							0x935E
 
 
 // Use circular buffers for feeding draw commands and object indices to multi-draw-indirect?
@@ -1991,11 +2000,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		// Avoid this crash by just not using them.
 		use_bindless_textures = settings.allow_bindless_textures && GL_ARB_bindless_texture_support && !is_intel_vendor && !is_ati_vendor;
 
-#if EMSCRIPTEN
-		use_reverse_z = false; // Can't use reverse-z currently because glClipControl doesn't work in Emscripten: https://github.com/emscripten-core/emscripten/issues/24105
-#else
+
 		use_reverse_z = clip_control_support;
-#endif
+
 
 		use_multi_draw_indirect = false;
 #if !defined(OSX) && !defined(EMSCRIPTEN)
@@ -2335,7 +2342,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		// Change clip space z range from [-1, 1] to [0, 1], in order to improve z-buffer precision.
 		// See https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 		// and https://developer.nvidia.com/content/depth-precision-visualized
-#if !defined(OSX) && !defined(EMSCRIPTEN)
+#if !defined(OSX)
 		if(use_reverse_z)
 			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 #endif
@@ -6761,7 +6768,7 @@ void OpenGLEngine::draw()
 
 	glViewport(0, 0, viewport_w, viewport_h); // Viewport may have been changed by shadow mapping.
 	
-#if !defined(OSX) && !defined(EMSCRIPTEN)
+#if !defined(OSX)
 	if(use_reverse_z)
 		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 #endif
@@ -7359,7 +7366,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
 
 		// Use opengl-default clip coords
-#if !defined(OSX) && !defined(EMSCRIPTEN)
+#if !defined(OSX)
 		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
 #endif
 		glDepthFunc(GL_LESS);
@@ -7886,7 +7893,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 		glDisable(GL_CULL_FACE);
 
 		// Restore clip coord range and depth comparison func
-#if !defined(OSX) && !defined(EMSCRIPTEN)
+#if !defined(OSX)
 		if(use_reverse_z)
 		{
 			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
