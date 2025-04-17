@@ -1412,6 +1412,7 @@ public:
 
 	bool texture_compression_s3tc_support;
 	bool texture_compression_ETC_support;
+	bool texture_compression_BC6H_support;
 	bool GL_ARB_bindless_texture_support;
 	bool clip_control_support;
 	bool GL_ARB_shader_storage_buffer_object_support;

@@ -1739,6 +1739,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 	this->texture_compression_s3tc_support = false;
 	this->texture_compression_ETC_support = false;
+#if defined(OSX) || EMSCRIPTEN
+	this->texture_compression_BC6H_support = false; // Initial value, can be enabled by EXT_texture_compression_bptc detection below.
+#else
+	this->texture_compression_BC6H_support = true;
+#endif
 	this->GL_ARB_bindless_texture_support = false;
 	this->clip_control_support = false;
 	this->GL_ARB_shader_storage_buffer_object_support = false;
@@ -1769,6 +1774,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(stringEqual(ext, "EXT_color_buffer_float")) this->EXT_color_buffer_float_support = true;
 		if(stringEqual(ext, "EXT_clip_control")) this->clip_control_support = true;
 		if(stringEqual(ext, "OES_texture_float_linear")) this->float_texture_filtering_support = true;
+		if(stringEqual(ext, "EXT_texture_compression_bptc")) this->texture_compression_BC6H_support = true;
 #endif
 	}
 
@@ -3617,13 +3623,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 
 	const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha() && !material.decal && !material.alpha_blend;
 
-	// Lightmapping doesn't work properly on Mac currently, because lightmaps use the BC6H format, which isn't supported on mac.
-	// This results in lightmaps rendering black, so it's better to just not use lightmaps for now.
-#if 0 //def OSX
-	const bool uses_lightmapping = false;
-#else
-	const bool uses_lightmapping = material.lightmap_texture.nonNull();
-#endif
+	const bool uses_lightmapping = this->texture_compression_BC6H_support && material.lightmap_texture.nonNull();
 
 	ProgramKeyArgs key_args;
 	key_args.alpha_test = alpha_test;
@@ -6614,7 +6614,6 @@ void OpenGLEngine::draw()
 
 			const OpenGLTextureFormat normal_buffer_format = normal_texture_is_uint ? OpenGLTextureFormat::Format_RGBA_Integer_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
 
-			printVar(EXT_color_buffer_float_support);
 			conPrint("Allocing main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
 			conPrint("AA MSAA samples " + toString(msaa_samples) + ", col buffer format: " + std::string(textureFormatString(col_buffer_format)));
 			conPrint("normal buffer format: " + std::string(textureFormatString(normal_buffer_format)));
@@ -11493,6 +11492,15 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 }
 
 
+static void addMemUsageForTexture(GLMemUsage& usage, const OpenGLTexture* tex)
+{
+	usage.texture_gpu_usage += tex->getByteSize();
+
+	if(tex->texture_data)
+		usage.texture_cpu_usage += tex->texture_data->totalCPUMemUsage();
+}
+
+
 GLMemUsage OpenGLEngine::getTotalMemUsage() const
 {
 	GLMemUsage sum;
@@ -11508,10 +11516,7 @@ GLMemUsage OpenGLEngine::getTotalMemUsage() const
 	{
 		const OpenGLTexture* tex = i->second.value.ptr();
 		
-		sum.texture_gpu_usage += tex->getByteSize();
-
-		if(tex->texture_data.nonNull())
-			sum.texture_cpu_usage += tex->texture_data->totalCPUMemUsage();
+		addMemUsageForTexture(sum, tex);
 	}
 
 	// Get sum memory usage of unused (cached) textures.
@@ -11588,7 +11593,21 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Textures: " + toString(opengl_textures.numUsedItems()) + " / " + toString(opengl_textures.numUnusedItems()) + " / " + toString(opengl_textures.size()) + " (active / cached / total)\n";
 	s += "Textures CPU mem: " + getMBSizeString(tex_usage_CPU_active) + " / " + getMBSizeString(mem_usage.sum_unused_tex_cpu_usage) + " / " + getMBSizeString(mem_usage.texture_cpu_usage) + " (active / cached / total)\n";
 	s += "Textures GPU mem: " + getMBSizeString(tex_usage_GPU_active) + " / " + getMBSizeString(mem_usage.sum_unused_tex_gpu_usage) + " / " + getMBSizeString(mem_usage.texture_gpu_usage) + " (active / cached / total)\n";
+
 	
+	if(false)
+	{
+		// Print out textures with mem usage.
+		s += "------------------------ texture GPU usage ------------------------\n";
+		for(auto i = opengl_textures.begin(); i != opengl_textures.end(); ++i)
+		{
+			const OpenGLTexture* tex = i->second.value.ptr();
+		
+			s += ::rightSpacePad(FileUtils::getFilename(tex->key.path).substr(0, 40) + ": ", 40) + uInt32ToStringCommaSeparated((uint32)tex->getByteSize()) + " B\n";
+		}
+		s += "------------------------------------------------------------------\n";
+	}
+
 	s += "num bindless resident: " + toString(OpenGLTexture::getNumResidentTextures()) + "\n";
 	
 	if(per_ob_vert_data_buffer.nonNull())
@@ -11604,6 +11623,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "GLSL version: " + glsl_version + "\n";
 	s += "texture s3tc support: " + boolToString(texture_compression_s3tc_support) + "\n";
 	s += "texture ETC support: " + boolToString(texture_compression_ETC_support) + "\n";
+	s += "texture BC6H support: " + boolToString(texture_compression_BC6H_support) + "\n";
 	s += "GL_KHR_parallel_shader_compile: " + boolToString(parallel_shader_compile_support) + "\n";
 #if EMSCRIPTEN
 	s += "EXT_color_buffer_float_support: " + boolToString(EXT_color_buffer_float_support) + "\n";

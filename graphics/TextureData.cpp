@@ -13,7 +13,7 @@ bool isCompressed(OpenGLTextureFormat format)
 		format == Format_Compressed_DXT_RGBA_Uint8 ||
 		format == Format_Compressed_DXT_SRGB_Uint8 ||
 		format == Format_Compressed_DXT_SRGBA_Uint8 ||
-		format == Format_Compressed_BC6 ||
+		format == Format_Compressed_BC6H ||
 		format == Format_Compressed_ETC2_RGB_Uint8 ||
 		format == Format_Compressed_ETC2_RGBA_Uint8 ||
 		format == Format_Compressed_ETC2_SRGB_Uint8 ||
@@ -30,7 +30,7 @@ size_t bytesPerBlock(OpenGLTextureFormat format)
 		case Format_Compressed_DXT_RGBA_Uint8: return 16;
 		case Format_Compressed_DXT_SRGB_Uint8: return 8;
 		case Format_Compressed_DXT_SRGBA_Uint8: return 16;
-		case Format_Compressed_BC6: return 16;
+		case Format_Compressed_BC6H: return 16;
 		case Format_Compressed_ETC2_RGB_Uint8: return 8;
 		case Format_Compressed_ETC2_RGBA_Uint8: return 16;
 		case Format_Compressed_ETC2_SRGB_Uint8: return 8;
@@ -64,7 +64,7 @@ size_t numChannels(OpenGLTextureFormat format)
 		case Format_Compressed_DXT_RGBA_Uint8: return 4;
 		case Format_Compressed_DXT_SRGB_Uint8: return 3;
 		case Format_Compressed_DXT_SRGBA_Uint8: return 4;
-		case Format_Compressed_BC6: return 3;
+		case Format_Compressed_BC6H: return 3;
 		case Format_Compressed_ETC2_RGB_Uint8: return 3;
 		case Format_Compressed_ETC2_RGBA_Uint8: return 4;
 		case Format_Compressed_ETC2_SRGB_Uint8: return 3;
@@ -98,7 +98,7 @@ const char* textureFormatString(OpenGLTextureFormat format)
 		case Format_Compressed_DXT_RGBA_Uint8: return "Format_Compressed_DXT_RGBA_Uint8";
 		case Format_Compressed_DXT_SRGB_Uint8: return "Format_Compressed_DXT_SRGB_Uint8";
 		case Format_Compressed_DXT_SRGBA_Uint8: return "Format_Compressed_DXT_SRGBA_Uint8";
-		case Format_Compressed_BC6: return "Format_Compressed_BC6";
+		case Format_Compressed_BC6H: return "Format_Compressed_BC6H";
 		case Format_Compressed_ETC2_RGB_Uint8: return "Format_Compressed_ETC2_RGB_Uint8";
 		case Format_Compressed_ETC2_RGBA_Uint8: return "Format_Compressed_ETC2_RGBA_Uint8";
 		case Format_Compressed_ETC2_SRGB_Uint8: return "Format_Compressed_ETC2_SRGB_Uint8";
@@ -138,7 +138,7 @@ double TextureData::uncompressedBitsPerChannel() const
 		case Format_Compressed_DXT_RGBA_Uint8: return 8;
 		case Format_Compressed_DXT_SRGB_Uint8: return 8;
 		case Format_Compressed_DXT_SRGBA_Uint8: return 8;
-		case Format_Compressed_BC6: return 16;
+		case Format_Compressed_BC6H: return 16;
 		case Format_Compressed_ETC2_RGB_Uint8: return 8;
 		case Format_Compressed_ETC2_RGBA_Uint8: return 8;
 		case Format_Compressed_ETC2_SRGB_Uint8: return 8;

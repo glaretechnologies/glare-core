@@ -262,7 +262,7 @@ void OpenGLTexture::getGLFormat(OpenGLTextureFormat format_, GLint& internal_for
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case Format_Compressed_BC6:
+	case Format_Compressed_BC6H:
 		internal_format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
 		gl_format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
@@ -508,11 +508,12 @@ static int getActiveTextureUnit()
 #endif
 
 
-void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, OpenGLTextureFormat format_, Filtering filtering)
+void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, OpenGLTextureFormat format_, Filtering filtering_)
 {
 	assert(tex_data.size() == 6);
 
 	this->format = format_;
+	this->filtering = filtering_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
 	this->num_mipmap_levels_allocated = 1;
@@ -583,10 +584,8 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			throw glare::Exception("Compressed texture dimensions must be multiples of 4 in WebGL");
 #endif
 
-#ifdef OSX
-	if(this->format == Format_Compressed_BC6)
-		throw glare::Exception("Don't support BC6 texture format on Mac");
-#endif
+	if((this->format == Format_Compressed_BC6H) && opengl_engine && !opengl_engine->texture_compression_BC6H_support)
+		throw glare::Exception("Tried to load BC6H texture but BC6H format is not supported");
 
 	const bool is_MSAA_tex = this->texture_target == GL_TEXTURE_2D_MULTISAMPLE;
 

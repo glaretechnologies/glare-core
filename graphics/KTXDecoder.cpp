@@ -153,7 +153,7 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, gla
 		}
 		else if(glInternalFormat == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_BC6;
+			format = OpenGLTextureFormat::Format_Compressed_BC6H;
 		}
 		else
 			throw glare::Exception("unhandled glInternalFormat: " + toString(glInternalFormat));
@@ -292,7 +292,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 		OpenGLTextureFormat format;
 		if(vkFormat == VK_FORMAT_BC6H_UFLOAT_BLOCK)
 		{
-			format = OpenGLTextureFormat::Format_Compressed_BC6;
+			format = OpenGLTextureFormat::Format_Compressed_BC6H;
 		}
 		else if(vkFormat == VK_FORMAT_BC1_RGB_UNORM_BLOCK) // Aka DXT1 (DXT without alpha)
 		{
@@ -877,14 +877,14 @@ void KTXDecoder::test()
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6H);
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 1); // no mipmaps.
 
 		im = KTXDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6H);
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
 
 		//----------------------------------- Test loading KTX2 files -------------------------------------------
@@ -892,14 +892,14 @@ void KTXDecoder::test()
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6H);
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 1); // no mipmaps.
 
 		im = KTXDecoder::decodeKTX2(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX2");
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
-		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6);
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6H);
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 10); // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1 = 10 levels
 		
 		
