@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2023 -
 
 
 #include "ImageMap.h"
+#include "ImageMapUInt1.h"
 #include <vector>
 
 
@@ -87,6 +88,79 @@ public:
 	}
 
 
+	void build(const ImageMapUInt1& image_map, int channel)
+	{
+		const size_t W = image_map.getWidth();
+		this->image_w = (uint32)W;
+
+		size_t total_num_uint32s = 0;
+		size_t layer_W = W;
+		int layer = 0;
+		while(layer_W >= 1)
+		{
+			const size_t layer_num_bits = layer_W*layer_W;
+			const size_t layer_num_uint32s = Maths::roundedUpDivide<size_t>(layer_num_bits, 32);
+			layer_info[layer].offset = (uint32)total_num_uint32s;
+			layer_info[layer].width  = (uint32)layer_W;
+			total_num_uint32s += layer_num_uint32s;
+			layer++;
+			layer_W /= 2;
+		}
+
+		data.resize(total_num_uint32s);
+		const int num_layers = layer;
+		this->num_levels = num_layers;
+
+		layer_W = W;
+		for(layer = 0; layer < num_layers; ++layer)
+		{
+			const size_t write_i = (size_t)layer_info[layer].offset;
+	
+			if(layer == 0)
+			{
+				assert(write_i == 0);
+				// Taking advantage of the fact that both data and image_map.data are vectors of 32-bit uints used in the same way.
+				assert(image_map.data.v.size() >= layer_W * layer_W / 32);
+				for(size_t i=0; i<layer_W * layer_W / 32; ++i)
+					data[i] = image_map.data.v[i];
+			}
+			else
+			{
+				// Read from previous level
+				const size_t prev_level_offset = layer_info[layer - 1].offset;
+				const size_t prev_level_width  = layer_info[layer - 1].width;
+
+				const uint32* const prev_level_data = &data[prev_level_offset];
+
+				for(size_t y=0; y<layer_W; ++y)
+				for(size_t x=0; x<layer_W; ++x)
+				{
+					const size_t prev_bit_index_0_0 = x*2 +     y*2      *prev_level_width;
+					const size_t prev_bit_index_1_0 = prev_bit_index_0_0 + 1;                     // x*2 + 1 + y*2      *prev_level_width;
+					const size_t prev_bit_index_0_1 = prev_bit_index_0_0 + prev_level_width;      // x*2 +     (y*2 + 1)*prev_level_width;
+					const size_t prev_bit_index_1_1 = prev_bit_index_0_0 + 1 + prev_level_width;  // x*2 + 1 + (y*2 + 1)*prev_level_width;
+
+					const uint32 non_zero = 
+						((prev_level_data[prev_bit_index_0_0/32] >> (prev_bit_index_0_0%32)) & 0x1) | 
+						((prev_level_data[prev_bit_index_1_0/32] >> (prev_bit_index_1_0%32)) & 0x1) | 
+						((prev_level_data[prev_bit_index_0_1/32] >> (prev_bit_index_0_1%32)) & 0x1) | 
+						((prev_level_data[prev_bit_index_1_1/32] >> (prev_bit_index_1_1%32)) & 0x1);
+
+					if(non_zero != 0)
+					{
+						const size_t index = x + y*layer_W;
+						const size_t uint_index    = index / 32;
+						const size_t in_uint_index = index % 32;
+						data[write_i + uint_index] |= (1 << in_uint_index);
+					}
+				}
+			}
+
+			layer_W /= 2;
+		}
+	}
+
+
 	void build(const ImageMapUInt8& image_map, int channel)
 	{
 		const size_t W = image_map.getWidth();
@@ -117,6 +191,7 @@ public:
 	
 			if(layer == 0)
 			{
+				assert(write_i == 0);
 				for(size_t y=0; y<layer_W; ++y)
 				for(size_t x=0; x<layer_W; ++x)
 				{
@@ -124,7 +199,7 @@ public:
 					const size_t uint_index    = bit_index / 32;
 					const size_t in_uint_index = bit_index % 32;
 					if(image_map.getPixel(x, y)[channel] > 0)
-						data[write_i + uint_index] |= (1 << in_uint_index);
+						data[uint_index] |= (1 << in_uint_index);
 				}
 			}
 			else
