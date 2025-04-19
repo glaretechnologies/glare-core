@@ -26,6 +26,8 @@ public:
 	// Bits are intialised to zero.
 	inline explicit BitVector(size_t num_bits_) : v(/*count=*/Maths::roundedUpDivide<size_t>(num_bits_, 32), /*val=*/0), num_bits(num_bits_) {}
 
+	inline bool operator == (const BitVector& other) const { return num_bits == other.num_bits && v == other.v; }
+
 	inline void setAllBits(uint32 newval);
 
 	inline void resize(size_t new_num_bits);
