@@ -328,6 +328,7 @@ static double getInternalPixelSizeB(GLint internal_format)
 {
 	switch(internal_format)
 	{
+		case GL_R8: return 1;
 		case GL_RGB: return 3;
 		case GL_R32F: return 4;
 		case GL_R16F: return 2;
@@ -370,6 +371,7 @@ std::string getStringForGLInternalFormat(GLint internal_format)
 {
 	switch(internal_format)
 	{
+		case GL_R8: return "GL_R8";
 		case GL_RGB: return "GL_RGB";
 		case GL_R32F: return "GL_R32F";
 		case GL_R16F: return  "GL_R16F";

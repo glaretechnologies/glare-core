@@ -1942,12 +1942,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 				conPrint("Using uint8 FBM GPU texture");
 
 				// Convert to something we do support
-				ImageMapUInt8 new_map(W, W, 3);
+				ImageMapUInt8 new_map(W, W, 1);
 				for(size_t i=0; i<W*W; ++i)
-					new_map.getPixel(i)[0] = new_map.getPixel(i)[1] = new_map.getPixel(i)[2] = (uint8)(myMax(0.f, fbm_imagemap->getPixel(i)[0] * 255.01f));
+					new_map.getPixel(i)[0] = (uint8)(myMax(0.f, fbm_imagemap->getPixel(i)[0] * 255.01f));
 
 				fbm_tex = new OpenGLTexture(W, W, this, ArrayRef<uint8>(new_map.getData(), new_map.getDataSizeB()),
-					OpenGLTextureFormat::Format_RGB_Linear_Uint8, OpenGLTexture::Filtering_Fancy); // Format_Greyscale_Uint8 isn't working for some reason, just use RGB.
+					OpenGLTextureFormat::Format_Greyscale_Uint8, OpenGLTexture::Filtering_Fancy);
 			}
 
 			conPrint("fbm_tex creation took " + timer.elapsedString());
