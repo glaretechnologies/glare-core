@@ -833,6 +833,8 @@ static void encodeAndCompressData(const BatchedMesh& mesh, const js::Vector<uint
 	compressed_data_out.resizeNoCopy(compressed_bound);
 
 	const size_t compressed_size = ZSTD_compress(compressed_data_out.data(), compressed_data_out.size(), buf.data(), buf.size(), compression_level);
+	if(ZSTD_isError(compressed_size))
+		throw glare::Exception("ZSTD_compress failed: " + std::string(ZSTD_getErrorName(compressed_size)));
 	compressed_data_out.resize(compressed_size);
 }
 
@@ -1518,8 +1520,7 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 			}
 			else
 			{
-				glare::AllocatorVector<uint8, 16> plaintext;
-				plaintext.setAllocator(mem_allocator);
+				glare::AllocatorVector<uint8, 16> plaintext(mem_allocator);
 				plaintext.resizeNoCopy(myMax(header.index_data_size_B, header.vertex_data_size_B)); // Make sure large enough so we don't need to resize later.
 
 				Timer timer;
