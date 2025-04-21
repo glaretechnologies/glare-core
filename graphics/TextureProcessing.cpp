@@ -542,7 +542,7 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 		if(dynamic_cast<const ImageMapFloat*>(map))
 		{
 			const ImageMapFloat* const image_map_float = static_cast<const ImageMapFloat*>(map);
-			Reference<ImageMap<half, HalfComponentValueTraits> > half_image = new ImageMap<half, HalfComponentValueTraits>(map->getMapWidth(), map->getMapHeight(), map->numChannels());
+			Reference<ImageMap<half, HalfComponentValueTraits> > half_image = new ImageMap<half, HalfComponentValueTraits>(map->getMapWidth(), map->getMapHeight(), map->numChannels(), general_mem_allocator);
 
 			const float* const src = image_map_float->getData();
 			half*  const dst = half_image->getData();

@@ -72,7 +72,7 @@ Reference<Map2D> KTXDecoder::decode(const std::string& path, glare::Allocator* m
 }
 
 
-Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* /*mem_allocator*/)
+Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -159,6 +159,7 @@ Reference<Map2D> KTXDecoder::decodeFromBuffer(const void* data, size_t size, gla
 			throw glare::Exception("unhandled glInternalFormat: " + toString(glInternalFormat));
 
 		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, format);
+		image->setAllocator(mem_allocator);
 		image->texture_data->level_offsets.resize(use_num_mipmap_levels);
 
 
@@ -222,7 +223,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2(const std::string& path, glare::Allocato
 }
 
 
-Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size, glare::Allocator* /*mem_allocator*/)
+Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
 {
 	try
 	{
@@ -306,6 +307,7 @@ Reference<Map2D> KTXDecoder::decodeKTX2FromBuffer(const void* data, size_t size,
 			throw glare::Exception("Unhandled vkFormat " + toString(vkFormat) + ".");
 
 		CompressedImageRef image = new CompressedImage(pixelWidth, pixelHeight, format);
+		image->setAllocator(mem_allocator);
 
 		// Build level_offsets
 		size_t offset = 0;

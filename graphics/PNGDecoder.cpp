@@ -239,9 +239,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 			throw ImFormatExcep("main: image is too large (to configure work buffer)");
 
 
-		glare::AllocatorVector<uint8, 16> workbuf_array;
-		if(mem_allocator)
-			workbuf_array.setAllocator(mem_allocator);
+		glare::AllocatorVector<uint8, 16> workbuf_array(mem_allocator);
 		workbuf_array.resizeNoCopy(workbuf_len); // NOTE: does not zero memory
 		const wuffs_base__slice_u8 workbuf_slice = wuffs_base__make_slice_u8(workbuf_array.data(), workbuf_len);
 

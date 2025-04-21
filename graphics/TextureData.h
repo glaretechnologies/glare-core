@@ -77,7 +77,7 @@ public:
 
 	size_t totalCPUMemUsage() const;
 
-	void setAllocator(const Reference<glare::Allocator>& /*al*/) { }// { data.setAllocator(al); } // TODO
+	void setAllocator(const Reference<glare::Allocator>& al) { mipmap_data.setAllocator(al); }
 
 	size_t numMipLevels() const { return level_offsets.empty() ? 1 : level_offsets.size(); }
 

@@ -77,7 +77,7 @@ public:
 	virtual bool isDXTImageMap() const override { return false; }
 	//====================== End Map2D interface ======================
 	
-	void setAllocator(const Reference<glare::Allocator>& al) {texture_data->setAllocator(al); }
+	void setAllocator(const Reference<glare::Allocator>& al) { texture_data->setAllocator(al); }
 	// Reference<glare::Allocator>& getAllocator() { return texture_data->getAllocator(); }
 
 	static void test();
