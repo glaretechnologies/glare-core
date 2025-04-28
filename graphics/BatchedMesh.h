@@ -43,12 +43,13 @@ public:
 	/// @throws glare::Exception on failure.
 	struct WriteOptions
 	{
-		WriteOptions() : use_compression(true), use_meshopt(false), compression_level(3), pos_mantissa_bits(16), uv_mantissa_bits(10) {}
+		WriteOptions() : use_compression(true), use_meshopt(false), compression_level(3), pos_mantissa_bits(16), uv_mantissa_bits(10), meshopt_vertex_version(1) {}
 		bool use_compression;
 		bool use_meshopt;
 		int compression_level; // Zstandard compression level.  Zstandard defualt compression level is 3.
 		int pos_mantissa_bits; // For meshopt filtering.  Should be >= 1 and <= 24.
 		int uv_mantissa_bits;  // For meshopt filtering.  Should be >= 1 and <= 24.
+		int meshopt_vertex_version; // Can be 0 or 1.  Default is 1.
 	};
 	void writeToFile(const std::string& dest_path, const WriteOptions& write_options = WriteOptions()) const;
 
@@ -69,6 +70,10 @@ public:
 
 	// Reorders vertex index batches so that batches sharing the same material are grouped together, then merges them.
 	void optimise();
+
+	void doMeshOptimizerOptimisations();
+
+	[[nodiscard]] Reference<BatchedMesh> buildQuantisedMesh() const;
 
 	// Builds a BatchedMesh from an Indigo::Mesh.
 	// Any quads are converted to triangles.
@@ -92,9 +97,10 @@ public:
 		ComponentType_UInt8			= 2,
 		ComponentType_UInt16		= 3,
 		ComponentType_UInt32		= 4,
-		ComponentType_PackedNormal	= 5 // GL_INT_2_10_10_10_REV
+		ComponentType_PackedNormal	= 5, // GL_INT_2_10_10_10_REV
+		ComponentType_Oct16			= 6  // Octahedral encoding in 16 bits (oct16).  Stored as snorm8 * 2. (See 'A Survey of Efficient Representations for Independent Unit Vectors')
 	};
-	static const uint32 MAX_COMPONENT_TYPE_VALUE = 5;
+	static const uint32 MAX_COMPONENT_TYPE_VALUE = 6;
 
 	enum VertAttributeType
 	{
@@ -190,6 +196,7 @@ size_t BatchedMesh::componentTypeSize(ComponentType t)
 	case ComponentType_UInt16:			return 2;
 	case ComponentType_UInt32:			return 4;
 	case ComponentType_PackedNormal:	return 4; // GL_INT_2_10_10_10_REV
+	case ComponentType_Oct16:			return 2;
 	};
 	assert(0);
 	return 1;
@@ -219,6 +226,8 @@ size_t BatchedMesh::vertAttributeSize(const VertAttribute& attr)
 {
 	if(attr.component_type == ComponentType_PackedNormal) // Special case, has 3 components packed into 4 bytes.
 		return 4;
+	else if(attr.component_type == ComponentType_Oct16) // Special case, packed into 2 bytes.
+		return 2;
 	else
 		return vertAttributeTypeNumComponents(attr.type) * componentTypeSize(attr.component_type);
 }
