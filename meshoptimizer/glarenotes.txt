@@ -1,3 +1,2 @@
-Downloaded from https://github.com/zeux/meshoptimizer
-https://github.com/zeux/meshoptimizer/commit/40b5d79a210e995cf5174640b3cdbf9e13b30557
-9th Sep 2024.
+meshoptimizer-0.23
+Downloaded from https://github.com/zeux/meshoptimizer on 21 april 2025.
