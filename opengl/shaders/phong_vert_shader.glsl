@@ -1,6 +1,12 @@
 
-in vec3 position_in; // object-space position
+#if POSITION_W_IS_OCT16_NORMAL
+in vec4 position_in; // object-space vertex position (xyz) and oct16 normal (w).
+#else
+in vec3 position_in; // object-space vertex position
+#endif
+#if !POSITION_W_IS_OCT16_NORMAL
 in vec3 normal_in;
+#endif
 in vec2 texture_coords_0_in;
 #if VERT_COLOURS
 in vec3 vert_colours_in;
@@ -145,6 +151,7 @@ vec3 newPosGivenWind(vec3 pos_ws, vec3 normal_ws)
 }
 #endif
 
+
 void main()
 {
 
@@ -156,23 +163,31 @@ void main()
 	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
 	int joints_base_index = ob_and_mat_indices[gl_DrawID * 4 + 1];
 	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
-	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
-	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
+	uint joint_index_mask = 0xFFFFFFFF;
+	mat4 model_matrix     = per_object_data[per_ob_data_index].model_matrix;
+	mat4 normal_matrix    = per_object_data[per_ob_data_index].normal_matrix;
+	float uv_scale        = per_object_data[per_ob_data_index].uv_scale;
+	vec4 dequantise_scale = per_object_data[per_ob_data_index].dequantise_scale;
+	vec4 dequantise_trans = per_object_data[per_ob_data_index].dequantise_translation;
 #else
 	int joints_base_index = 0;
-	mat4 model_matrix =  per_object_data.model_matrix;
-	mat4 normal_matrix = per_object_data.normal_matrix;
+	uint joint_index_mask = 0xFF; // Without MDI, joint_matrix has max length 256.  Make sure we don't read out-of-bounds.
+	mat4 model_matrix     = per_object_data.model_matrix;
+	mat4 normal_matrix    = per_object_data.normal_matrix;
+	float uv_scale        = per_object_data.uv_scale;
+	vec4 dequantise_scale = per_object_data.dequantise_scale;
+	vec4 dequantise_trans = per_object_data.dequantise_translation;
 #endif
 
 #if INSTANCE_MATRICES
 
 #if GENERATE_PLANAR_UVS
-	pos_os = position_in;
+	pos_os = position_in.xyz;
 #endif
 
 	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
 
-	pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
+	pos_ws = (instance_matrix_in * vec4(position_in.xyz, 1.0)).xyz;
 
 #if USE_WIND_VERT_SHADER
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
@@ -198,10 +213,10 @@ void main()
 #if SKINNING
 	// See https://www.khronos.org/files/gltf20-reference-guide.pdf
 	mat4 skin_matrix =
-		weight.x * joint_matrix[joints_base_index + int(joint.x)] +
-		weight.y * joint_matrix[joints_base_index + int(joint.y)] +
-		weight.z * joint_matrix[joints_base_index + int(joint.z)] +
-		weight.w * joint_matrix[joints_base_index + int(joint.w)];
+		weight.x * joint_matrix[joints_base_index + int(joint.x & joint_index_mask)] +
+		weight.y * joint_matrix[joints_base_index + int(joint.y & joint_index_mask)] +
+		weight.z * joint_matrix[joints_base_index + int(joint.z & joint_index_mask)] +
+		weight.w * joint_matrix[joints_base_index + int(joint.w & joint_index_mask)];
 
 
 	mat4 model_skin_matrix = model_matrix * skin_matrix;
@@ -211,10 +226,15 @@ void main()
 	mat4 normal_skin_matrix = normal_matrix;
 #endif
 
-	vec3 final_pos_os = position_in;
-	vec3 final_normal_in = normal_in;
+	vec4 final_pos_os = dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans;
 
-	pos_ws = (model_skin_matrix  * vec4(final_pos_os, 1.0)).xyz;
+#if POSITION_W_IS_OCT16_NORMAL
+	vec3 final_normal_in = decodeNormalFromPositionW(position_in.w);
+#else
+	vec3 final_normal_in = normal_in;
+#endif
+
+	pos_ws = (model_skin_matrix * final_pos_os).xyz;
 
 	// Normalize normal_ws here in the vertex shader, as that is what the default normal mapping (MikkTSpace) algorithm seems to require.
 	// See 'Pixel Shader Transformation' section at http://www.mikktspace.com/
@@ -230,7 +250,7 @@ void main()
 #endif // end if USE_WIND_VERT_SHADER
 
 #if GENERATE_PLANAR_UVS
-	pos_os = final_pos_os;
+	pos_os = final_pos_os.xyz;
 #endif
 
 	vec4 pos_cs_vec4 = view_matrix * vec4(pos_ws, 1.0);
@@ -248,7 +268,7 @@ void main()
 #if TERRAIN
 	texture_coords = pos_ws.xy;
 #else
-	texture_coords = texture_coords_0_in;
+	texture_coords = texture_coords_0_in * uv_scale;
 #endif
 
 #if VERT_COLOURS
@@ -261,7 +281,7 @@ void main()
 #endif
 
 #if LIGHTMAPPING
-	lightmap_coords = lightmap_coords_in;
+	lightmap_coords = lightmap_coords_in * uv_scale;
 #endif
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT

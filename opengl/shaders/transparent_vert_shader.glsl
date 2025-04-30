@@ -1,6 +1,14 @@
 
-in vec3 position_in;
+#if POSITION_W_IS_OCT16_NORMAL
+in vec4 position_in; // object-space vertex position (xyz) and oct16 normal (w).
+#else
+in vec3 position_in; // object-space vertex position
+#endif
+
+#if !POSITION_W_IS_OCT16_NORMAL
 in vec3 normal_in;
+#endif
+
 in vec2 texture_coords_0_in;
 #if INSTANCE_MATRICES
 in mat4 instance_matrix_in;
@@ -56,9 +64,13 @@ void main()
 	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
 	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
 	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
+	vec4 dequantise_scale = per_object_data[per_ob_data_index].dequantise_scale;
+	vec4 dequantise_trans = per_object_data[per_ob_data_index].dequantise_translation;
 #else
 	mat4 model_matrix  = per_object_data.model_matrix;
 	mat4 normal_matrix = per_object_data.normal_matrix;
+	vec4 dequantise_scale = per_object_data.dequantise_scale;
+	vec4 dequantise_trans = per_object_data.dequantise_translation;
 #endif
 
 #if INSTANCE_MATRICES //-------------------------
@@ -75,18 +87,27 @@ void main()
 	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
 	normal_cs = (view_matrix * (instance_matrix_in * vec4(normal_in, 0.0))).xyz;
 #else //-------- else if !INSTANCE_MATRICES:
-	gl_Position = proj_matrix * (view_matrix * (model_matrix * vec4(position_in, 1.0)));
+
+	vec4 pos_ws_vec4 = model_matrix * (dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans);
+	pos_ws = pos_ws_vec4.xyz;
+
+	gl_Position = proj_matrix * (view_matrix * pos_ws_vec4);
 
 #if GENERATE_PLANAR_UVS
-	pos_os = position_in;
+	pos_os = (dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans).xyz;
 #endif
 
-	pos_ws = (model_matrix  * vec4(position_in, 1.0)).xyz;
-	cam_to_pos_ws = pos_ws - campos_ws.xyz;
-	pos_cs = (view_matrix * (model_matrix  * vec4(position_in, 1.0))).xyz;
+	cam_to_pos_ws = pos_ws_vec4.xyz - campos_ws.xyz;
+	pos_cs = (view_matrix * pos_ws_vec4).xyz;
  
-	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
-	normal_cs = (view_matrix * (normal_matrix * vec4(normal_in, 0.0))).xyz;
+#if POSITION_W_IS_OCT16_NORMAL
+	vec3 final_normal_in = decodeNormalFromPositionW(position_in.w);
+#else
+	vec3 final_normal_in = normal_in;
+#endif
+
+	normal_ws = (normal_matrix * vec4(final_normal_in, 0.0)).xyz;
+	normal_cs = (view_matrix * (normal_matrix * vec4(final_normal_in, 0.0))).xyz;
 #endif //-------------------------
 	//texture_coords = texture_coords_0_in;
 

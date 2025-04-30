@@ -248,6 +248,8 @@ void VertexSpec::checkValid() const
 			data_type_size = 2;
 		else if(attr.type == GL_BYTE)
 			data_type_size = 1;
+		else if(attr.type == GL_UNSIGNED_BYTE)
+			data_type_size = 1;
 		else if(attr.type == GL_SHORT)
 			data_type_size = 2;
 		else if(attr.type == GL_UNSIGNED_SHORT)

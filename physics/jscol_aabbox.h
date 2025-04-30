@@ -55,6 +55,8 @@ public:
 	inline float getSurfaceArea() const;
 	inline float getHalfSurfaceArea() const;
 
+	GLARE_STRONG_INLINE Vec4f span() const { return max_ - min_; }
+
 	inline float axisLength(unsigned int axis) const { return max_.x[axis] - min_.x[axis]; }
 	inline unsigned int longestAxis() const;
 	inline float longestLength() const; // Length along longest axis

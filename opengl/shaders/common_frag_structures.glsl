@@ -1,4 +1,6 @@
 
+
+// Data that is shared between all objects, and is updated once per frame.
 // Should be the same layout as in OpenGLEngine.h
 layout (std140) uniform MaterialCommonUniforms
 {
@@ -49,6 +51,7 @@ layout (std140) uniform MaterialCommonUniforms
 #define CameraType_DiagonalOrthographic		3
 
 
+// Data that is specific to a single object.
 struct MaterialData
 {
 	vec4 diffuse_colour;

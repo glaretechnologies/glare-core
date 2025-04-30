@@ -114,14 +114,20 @@ void main()
 	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
 	int joints_base_index = ob_and_mat_indices[gl_DrawID * 4 + 1];
 	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
+	uint joint_index_mask = 0xFFFFFFFF;
 	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
 	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
 	float depth_draw_depth_bias = per_object_data[per_ob_data_index].depth_draw_depth_bias;
+	vec4 dequantise_scale = per_object_data[per_ob_data_index].dequantise_scale;
+	vec4 dequantise_trans = per_object_data[per_ob_data_index].dequantise_translation;
 #else
 	int joints_base_index = 0;
+	uint joint_index_mask = 0xFF; // Without MDI, joint_matrix has max length 256.  Make sure we don't read out-of-bounds.
 	mat4 model_matrix  = per_object_data.model_matrix;
 	mat4 normal_matrix = per_object_data.normal_matrix;
 	float depth_draw_depth_bias = per_object_data.depth_draw_depth_bias;
+	vec4 dequantise_scale = per_object_data.dequantise_scale;
+	vec4 dequantise_trans = per_object_data.dequantise_translation;
 #endif
 
 #if INSTANCE_MATRICES // -----------------
@@ -148,10 +154,10 @@ void main()
 
 #if SKINNING
 	mat4 skin_matrix =
-		weight.x * joint_matrix[joints_base_index + int(joint.x)] +
-		weight.y * joint_matrix[joints_base_index + int(joint.y)] +
-		weight.z * joint_matrix[joints_base_index + int(joint.z)] +
-		weight.w * joint_matrix[joints_base_index + int(joint.w)];
+		weight.x * joint_matrix[joints_base_index + int(joint.x & joint_index_mask)] +
+		weight.y * joint_matrix[joints_base_index + int(joint.y & joint_index_mask)] +
+		weight.z * joint_matrix[joints_base_index + int(joint.z & joint_index_mask)] +
+		weight.w * joint_matrix[joints_base_index + int(joint.w & joint_index_mask)];
 
 	mat4 model_skin_matrix = model_matrix * skin_matrix;
 
@@ -160,7 +166,7 @@ void main()
 	vec3 normal_ws = (model_skin_matrix * vec4(normal_in, 0.0)).xyz;
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 #else
-	pos_ws    = (model_skin_matrix * vec4(position_in, 1.0)).xyz;
+	pos_ws    = (model_skin_matrix * (dequantise_scale * vec4(position_in, 1.0) + dequantise_trans)).xyz;
 	normal_ws = (model_skin_matrix * vec4(normal_in, 0.0)).xyz;
 #endif
 
@@ -215,7 +221,7 @@ void main()
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #else // else if !IMPOSTER:
 	
-	pos_ws =    (model_matrix  * vec4(position_in, 1.0)).xyz;
+	pos_ws =    (model_matrix  * (dequantise_scale * vec4(position_in, 1.0) + dequantise_trans)).xyz;
 	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
 
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));

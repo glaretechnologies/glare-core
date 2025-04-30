@@ -315,6 +315,9 @@ struct GLObject
 	Matrix4f ob_to_world_matrix;
 	Matrix4f ob_to_world_normal_matrix; // Sign of the determinant * adjugate transpose of upper-left part of ob-to-world matrix.  sign(det(M)) (adj(M)^T)
 
+	// A scaling and translation transformation if position vert attribute coords are uint16.
+	Vec4f dequantise_scale; 
+	Vec4f dequantise_translation;
 	js::AABBox aabb_ws;
 
 	SmallArray<GLObjectBatchDrawInfo, 4> batch_draw_info;
@@ -816,12 +819,15 @@ struct PerObjectVertUniforms
 	Matrix4f model_matrix; // ob_to_world_matrix
 	Matrix4f normal_matrix; // ob_to_world_inv_transpose_matrix
 
+	Vec4f dequantise_scale;
+	Vec4f dequantise_translation;
+
 	int light_indices[8];
 
 	float depth_draw_depth_bias;
-
 	float model_matrix_upper_left_det;
-	float padding_po1;
+	float uv_scale;
+
 	float padding_po2;
 };
 
@@ -917,7 +923,7 @@ public:
 	void objectTransformDataChanged(GLObject& object); // Just update object data on GPU.
 	const js::AABBox getAABBWSForObjectWithTransform(GLObject& object, const Matrix4f& to_world);
 
-	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
+	void newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents, bool position_w_is_oct16_normal);
 	void objectMaterialsUpdated(GLObject& object);
 	void updateAllMaterialDataOnGPU(GLObject& object); // Don't reassign shaders, just upload material data to GPU for each material
 	void materialTextureChanged(GLObject& object, OpenGLMaterial& mat);  // Update material data on GPU
@@ -1131,7 +1137,7 @@ private:
 	void assignLightsToAllObjects();
 	void setObjectTransformData(GLObject& object); // Sets object ob_to_world_normal_matrix, ob_to_world_matrix_determinant and aabb_ws, then updates object data on GPU.
 public:
-	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents);
+	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents, bool position_w_is_oct16_normal);
 private:
 	// Set uniforms that are the same for every batch for the duration of this frame.
 	void setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat);
@@ -1249,6 +1255,7 @@ private:
 	std::string preprocessor_defines;
 	std::string preprocessor_defines_with_common_vert_structs;
 	std::string preprocessor_defines_with_common_frag_structs;
+	std::string vert_utils_glsl;
 	std::string frag_utils_glsl;
 	std::string version_directive;
 

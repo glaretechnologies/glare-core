@@ -1118,6 +1118,7 @@ static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 	case BatchedMesh::ComponentType_UInt16:			return GL_UNSIGNED_SHORT;
 	case BatchedMesh::ComponentType_UInt32:			return GL_UNSIGNED_INT;
 	case BatchedMesh::ComponentType_PackedNormal:	return GL_INT_2_10_10_10_REV;
+	case BatchedMesh::ComponentType_Oct16:			return GL_UNSIGNED_SHORT;
 	};
 	assert(0);
 	return 1;
@@ -1144,7 +1145,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		opengl_render_data->setIndexType(componentTypeGLEnum(mesh->index_type));
 	}
 	else
-		throw glare::Exception("OpenGLEngine::buildBatchedMesh(): Invalid index type.");
+		throw glare::Exception("GLMeshBuilding::buildBatchedMesh(): Invalid index type.");
 
 
 	// Make OpenGL batches
@@ -1178,7 +1179,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	const BatchedMesh::VertAttribute* mat_index_attr	= mesh->findAttribute(BatchedMesh::VertAttribute_MatIndex); // 12
 
 	if(!pos_attr)
-		throw glare::Exception("Pos attribute not present.");
+		throw glare::Exception("GLMeshBuilding::buildBatchedMesh(): Pos attribute not present.");
 
 	// Work out the max vertex attribute index used, then only specify attributes up to that index.
 	int max_attribute_index = 0;
@@ -1195,42 +1196,72 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	// NOTE: The order of these attributes should be the same as in OpenGLProgram constructor with the glBindAttribLocations.
 
 	VertexAttrib pos_attrib;
-	pos_attrib.enabled = true;
-	pos_attrib.num_comps = 3;
-	pos_attrib.type = componentTypeGLEnum(pos_attr->component_type);
-	pos_attrib.normalised = false;
-	pos_attrib.stride = num_bytes_per_vert;
-	pos_attrib.offset = (uint32)pos_attr->offset_B;
-	opengl_render_data->vertex_spec.attributes.push_back(pos_attrib);
 
-	if(max_attribute_index >= 1)
+	if((pos_attr->component_type == BatchedMesh::ComponentType_UInt16) && normal_attr && (normal_attr->component_type == BatchedMesh::ComponentType_Oct16))
 	{
+		pos_attrib.enabled = true;
+		pos_attrib.num_comps = 4; // Store the normal as the w component of the position vector.
+		pos_attrib.type = componentTypeGLEnum(pos_attr->component_type);
+		pos_attrib.normalised = false;
+		pos_attrib.stride = num_bytes_per_vert;
+		pos_attrib.offset = (uint32)pos_attr->offset_B;
+		opengl_render_data->vertex_spec.attributes.push_back(pos_attrib);
+
+		// Add disabled normal attribute
 		VertexAttrib normal_attrib;
-		normal_attrib.enabled = normal_attr != NULL;
+		normal_attrib.enabled = false;
 		normal_attrib.num_comps = 3;
 		normal_attrib.type = GL_FLOAT;
 		normal_attrib.normalised = false;
-		if(normal_attr)
-		{
-			if(normal_attr->component_type == BatchedMesh::ComponentType_Float)
-			{
-				normal_attrib.num_comps = 3;
-				normal_attrib.type = GL_FLOAT;
-				normal_attrib.normalised = false;
-			}
-			else if(normal_attr->component_type == BatchedMesh::ComponentType_PackedNormal)
-			{
-				normal_attrib.num_comps = 4;
-				normal_attrib.type = GL_INT_2_10_10_10_REV;
-				normal_attrib.normalised = true;
-			}
-			else
-				throw glare::Exception("Unhandled normal attr component type.");
-		}
-	
 		normal_attrib.stride = num_bytes_per_vert;
-		normal_attrib.offset = (uint32)(normal_attr ? normal_attr->offset_B : 0);
+		normal_attrib.offset = 0; // (uint32)(normal_attr ? normal_attr->offset_B : 0); // Set 0 offset so alignment check works
 		opengl_render_data->vertex_spec.attributes.push_back(normal_attrib);
+	}
+	else
+	{
+		pos_attrib.enabled = true;
+		pos_attrib.num_comps = 3;
+		pos_attrib.type = componentTypeGLEnum(pos_attr->component_type);
+		pos_attrib.normalised = false;
+		pos_attrib.stride = num_bytes_per_vert;
+		pos_attrib.offset = (uint32)pos_attr->offset_B;
+		opengl_render_data->vertex_spec.attributes.push_back(pos_attrib);
+
+		if(max_attribute_index >= 1)
+		{
+			VertexAttrib normal_attrib;
+			normal_attrib.enabled = normal_attr != NULL;
+			normal_attrib.num_comps = 3;
+			normal_attrib.type = GL_FLOAT;
+			normal_attrib.normalised = false;
+			if(normal_attr)
+			{
+				if(normal_attr->component_type == BatchedMesh::ComponentType_Float)
+				{
+					normal_attrib.num_comps = 3;
+					normal_attrib.type = GL_FLOAT;
+					normal_attrib.normalised = false;
+				}
+				else if(normal_attr->component_type == BatchedMesh::ComponentType_PackedNormal)
+				{
+					normal_attrib.num_comps = 4;
+					normal_attrib.type = GL_INT_2_10_10_10_REV;
+					normal_attrib.normalised = true;
+				}
+				else if(normal_attr->component_type == BatchedMesh::ComponentType_UInt8)
+				{
+					normal_attrib.num_comps = 3;
+					normal_attrib.type = GL_BYTE; // NOTE: treating as signed byte
+					normal_attrib.normalised = true;
+				}
+				else
+					throw glare::Exception("GLMeshBuilding::buildBatchedMesh(): Unhandled normal attr component type.");
+			}
+	
+			normal_attrib.stride = num_bytes_per_vert;
+			normal_attrib.offset = (uint32)(normal_attr ? normal_attr->offset_B : 0);
+			opengl_render_data->vertex_spec.attributes.push_back(normal_attrib);
+		}
 	}
 
 	if(max_attribute_index >= 2)
@@ -1239,7 +1270,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		uv_attrib.enabled = uv0_attr != NULL;
 		uv_attrib.num_comps = 2;
 		uv_attrib.type = uv0_attr ? componentTypeGLEnum(uv0_attr->component_type) : GL_FLOAT;
-		uv_attrib.normalised = false;
+		uv_attrib.normalised = uv0_attr && (uv0_attr->component_type == BatchedMesh::ComponentType_UInt16);
 		uv_attrib.stride = num_bytes_per_vert;
 		uv_attrib.offset = (uint32)(uv0_attr ? uv0_attr->offset_B : 0);
 		opengl_render_data->vertex_spec.attributes.push_back(uv_attrib);
@@ -1360,11 +1391,13 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	}
 
 
-	opengl_render_data->has_uvs				= uv0_attr     != NULL;
-	opengl_render_data->has_shading_normals = normal_attr  != NULL;
-	opengl_render_data->has_vert_colours	= colour_attr  != NULL;
-	opengl_render_data->has_vert_tangents   = tangent_attr != NULL;
-
+	opengl_render_data->has_uvs                    = uv0_attr     != NULL;
+	opengl_render_data->has_shading_normals        = normal_attr  != NULL;
+	opengl_render_data->has_vert_colours           = colour_attr  != NULL;
+	opengl_render_data->has_vert_tangents          = tangent_attr != NULL;
+	opengl_render_data->pos_coords_quantised       = pos_attr && pos_attr->component_type == BatchedMesh::ComponentType_UInt16;
+	opengl_render_data->uvs_are_scaled_uint16      = uv0_attr && uv0_attr->component_type == BatchedMesh::ComponentType_UInt16;
+	opengl_render_data->position_w_is_oct16_normal = (pos_attr->component_type == BatchedMesh::ComponentType_UInt16) && normal_attr && (normal_attr->component_type == BatchedMesh::ComponentType_Oct16);
 	opengl_render_data->aabb_os = mesh->aabb_os;
 
 	opengl_render_data->num_materials_referenced = largest_material_index + 1;

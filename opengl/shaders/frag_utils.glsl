@@ -361,9 +361,9 @@ vec2 float32x3_to_oct(in vec3 v) {
 	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * signNotZero(p)) : p;
 }
 
-
+// Optimized snorm12×2 packing into unorm8×3
+// From 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
 #if NORMAL_TEXTURE_IS_UINT
-// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
 uvec4 snorm12x2_to_unorm8x3(vec2 f) {
 	vec2 u = vec2(round(clamp(f, -1.0, 1.0) * 2047.0 + 2047.0));
 	float t = floor(u.y / 256.0);

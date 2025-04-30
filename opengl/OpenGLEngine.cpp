@@ -2448,16 +2448,19 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define PARTICIPATING_MEDIA " + toString(key.participating_media) + "\n" +
 		"#define VERT_TANGENTS " + toString(key.vert_tangents) + "\n" + 
 		"#define SDF_TEXT " + toString(key.sdf_text) + "\n" +
-		"#define COMBINED " + toString(key.combined) + "\n";
+		"#define COMBINED " + toString(key.combined) + "\n" +
+		"#define POSITION_W_IS_OCT16_NORMAL " + toString(key.position_w_is_oct16_normal) + "\n";
 }
 
 
 void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 {
+	this->vert_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/vert_utils.glsl");
 	this->frag_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/frag_utils.glsl");
 
 	this->preprocessor_defines_with_common_vert_structs = preprocessor_defines;
 	preprocessor_defines_with_common_vert_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_vert_structures.glsl");
+	preprocessor_defines_with_common_vert_structs += vert_utils_glsl;
 
 	this->preprocessor_defines_with_common_frag_structs = preprocessor_defines;
 	preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_frag_structures.glsl");
@@ -2511,20 +2514,25 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		const std::string use_preprocessor_defines = preprocessor_defines + "#define SKINNING 0\n";
 		outline_prog_no_skinning = new OpenGLProgram(
 			"outline_prog_no_skinning",
-			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
 			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
 		addProgram(outline_prog_no_skinning);
 		getUniformLocations(outline_prog_no_skinning); // Make sure any unused uniforms have their locations set to -1.
+
+		bindUniformBlockToProgram(outline_prog_no_skinning, "SharedVertUniforms",		SHARED_VERT_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(outline_prog_no_skinning, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+
 		outline_prog_no_skinning->is_outline = true;
+		outline_prog_no_skinning->uses_vert_uniform_buf_obs = true;
 	}
 
 	//------------------------------------------- Build outline (with skinning) prog -------------------------------------------
 	{
-		const std::string use_preprocessor_defines_vert = preprocessor_defines + "#define SKINNING 1\n";
-		const std::string use_preprocessor_defines_frag = preprocessor_defines + "#define SKINNING 1\n";
+		const std::string use_preprocessor_defines_vert = preprocessor_defines_with_common_vert_structs + "#define SKINNING 1\n";
+		const std::string use_preprocessor_defines_frag = preprocessor_defines                          + "#define SKINNING 1\n";
 		outline_prog_with_skinning = new OpenGLProgram(
 			"outline_prog_with_skinning",
 			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, use_preprocessor_defines_vert, GL_VERTEX_SHADER),
@@ -2535,10 +2543,13 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		addProgram(outline_prog_with_skinning);
 		getUniformLocations(outline_prog_with_skinning); // Make sure any unused uniforms have their locations set to -1.
 
+		bindUniformBlockToProgram(outline_prog_with_skinning, "SharedVertUniforms",		SHARED_VERT_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(outline_prog_with_skinning, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 		bindUniformBlockToProgram(outline_prog_with_skinning, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
 
 		outline_prog_with_skinning->is_outline = true;
 		outline_prog_with_skinning->uses_skinning = true;
+		outline_prog_with_skinning->uses_vert_uniform_buf_obs = true;
 	}
 
 	//------------------------------------------- Build edge extract prog -------------------------------------------
@@ -3415,6 +3426,17 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 
 	const Matrix4f& to_world = object.ob_to_world_matrix;
 
+	if(!object.mesh_data->pos_coords_quantised)
+	{
+		object.dequantise_scale = Vec4f(1.f);
+		object.dequantise_translation = Vec4f(0.f);
+	}
+	else
+	{
+		object.dequantise_scale = setWToOne(div(object.mesh_data->aabb_os.span(), Vec4f(65535.f)));
+		object.dequantise_translation = maskWToZero(object.mesh_data->aabb_os.min_);
+	}
+
 	// We will use sign(det(M)) adj(M)^T for the normal matrix, see
 	// 'Transforming normals: adjugate transpose vs inverse transpose' - https://forwardscattering.org/post/62
 	to_world.getUpperLeftAdjugateTranspose(/*result=*/object.ob_to_world_normal_matrix);
@@ -3440,6 +3462,9 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
 		uniforms.model_matrix_upper_left_det = upper_left_det;
+		uniforms.uv_scale = object.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+		uniforms.dequantise_scale = object.dequantise_scale;
+		uniforms.dequantise_translation = object.dequantise_translation;
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
@@ -3495,6 +3520,9 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
 		uniforms.model_matrix_upper_left_det = object.ob_to_world_matrix_determinant;
+		uniforms.uv_scale = object.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+		uniforms.dequantise_scale = object.dequantise_scale;
+		uniforms.dequantise_translation = object.dequantise_translation;
 
 		assert(object.per_ob_vert_data_index >= 0);
 		if(object.per_ob_vert_data_index >= 0)
@@ -3611,7 +3639,7 @@ void OpenGLEngine::assignLightsToAllObjects()
 }
 
 
-void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents)
+void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents, bool position_w_is_oct16_normal)
 {
 	// If the client code has already set a special non-basic shader program (like a grid shader), don't overwrite it.
 	if(!material.auto_assign_shader)
@@ -3646,6 +3674,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.participating_media = material.participating_media;
 	key_args.sdf_text = material.sdf_text;
 	key_args.combined = material.combined;
+	key_args.position_w_is_oct16_normal = position_w_is_oct16_normal;
 
 	const ProgramKey key(material.participating_media ? "participating_media" : (material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"))), key_args);
 
@@ -3753,7 +3782,8 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 
 	// Build materials
 	for(size_t i=0; i<object->materials.size(); ++i)
-		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
+		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
+			object->mesh_data->position_w_is_oct16_normal);
 
 
 	const AnimationData& anim_data = object->mesh_data->animation_data;
@@ -4277,7 +4307,8 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					mat.albedo_texture = opengl_texture;
 
 					// Texture may have an alpha channel, in which case we want to assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
+						object->mesh_data->position_w_is_oct16_normal);
 
 					rebuildDenormalisedDrawData(*object);
 
@@ -4307,7 +4338,8 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					mat.lightmap_texture = opengl_texture;
 
 					// Now that we have a lightmap, assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
+					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
+						object->mesh_data->position_w_is_oct16_normal);
 
 					rebuildDenormalisedDrawData(*object);
 
@@ -4427,13 +4459,14 @@ bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 }
 
 
-void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents)
+void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents, bool position_w_is_oct16_normal)
 {
 	assignShaderProgToMaterial(mat,
 		use_vert_colours,
 		uses_instancing,
 		uses_skinning,
-		use_vert_tangents
+		use_vert_tangents,
+		position_w_is_oct16_normal
 	);
 }
 
@@ -4446,7 +4479,8 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 	bool have_materialise_effect = false;
 	for(size_t i=0; i<object.materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object.materials[i], object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning(), object.mesh_data->has_vert_tangents);
+		assignShaderProgToMaterial(object.materials[i], object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning(), object.mesh_data->has_vert_tangents, 
+			object.mesh_data->position_w_is_oct16_normal);
 		have_transparent_mat = have_transparent_mat || object.materials[i].transparent;
 		have_materialise_effect = have_materialise_effect || object.materials[i].materialise_effect;
 	}
@@ -4508,7 +4542,7 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 		}
 
 		// Since texture may have changed from one with alpha to one without, or vice-versa, we may need to assign a new shader.
-		assignShaderProgToMaterial(mat, ob.mesh_data->has_vert_colours, /*uses instancing=*/ob.instance_matrix_vbo.nonNull(), ob.mesh_data->usesSkinning(), ob.mesh_data->has_vert_tangents);
+		assignShaderProgToMaterial(mat, ob.mesh_data->has_vert_colours, /*uses instancing=*/ob.instance_matrix_vbo.nonNull(), ob.mesh_data->usesSkinning(), ob.mesh_data->has_vert_tangents, ob.mesh_data->position_w_is_oct16_normal);
 
 		rebuildDenormalisedDrawData(ob);
 
@@ -6347,7 +6381,8 @@ void OpenGLEngine::draw()
 			{
 				GLObject* const object = it->ptr();
 				for(size_t i=0; i<object->materials.size(); ++i)
-					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents);
+					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
+						object->mesh_data->position_w_is_oct16_normal);
 
 				rebuildDenormalisedDrawData(*object);
 				rebuildObjectDepthDrawBatches(*object);
@@ -6407,7 +6442,7 @@ void OpenGLEngine::draw()
 					{
 						// Materialise effect has finished
 						mat.materialise_effect = false;
-						assignShaderProgToMaterial(mat, ob->mesh_data->has_vert_colours, /*uses instancing=*/ob->instance_matrix_vbo.nonNull(), ob->mesh_data->usesSkinning(), ob->mesh_data->has_vert_tangents);
+						assignShaderProgToMaterial(mat, ob->mesh_data->has_vert_colours, /*uses instancing=*/ob->instance_matrix_vbo.nonNull(), ob->mesh_data->usesSkinning(), ob->mesh_data->has_vert_tangents, ob->mesh_data->position_w_is_oct16_normal);
 
 						rebuildDenormalisedDrawData(*ob);
 						rebuildObjectDepthDrawBatches(*ob);
@@ -9301,7 +9336,7 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 
 // Blits from prepass_framebuffer to prepass_copy_framebuffer
 // Computes SSAO, writes output to compute_ssao_output_framebuffer / compute_ssao_output_texture
-void OpenGLEngine::computeSSAO(const Matrix4f& proj_matrix)
+void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 {
 	if(current_scene->render_to_main_render_framebuffer)
 	{
@@ -10399,6 +10434,9 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
 				uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
+				uniforms.uv_scale = ob.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+				uniforms.dequantise_scale = ob.dequantise_scale;
+				uniforms.dequantise_translation = ob.dequantise_translation;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else
@@ -10673,6 +10711,9 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
 				uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
+				uniforms.uv_scale = ob.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+				uniforms.dequantise_scale = ob.dequantise_scale;
+				uniforms.dequantise_translation = ob.dequantise_translation;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 			}
 			else
@@ -11451,6 +11492,23 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 		Planef(Vec4f(0,-1,0,0), -botleft_pos.y), // bottom plane..  Note that dist is along vector (with negative component).
 		Planef(Vec4f(0, 1,0,0), botleft_pos.y + world_capture_width) // top
 	};
+
+	//================= Update shared vert uniforms buffer =================
+	// Just set the uniforms that the outline shaders need. (don't need shadow_texture_matrix)
+	{
+		SharedVertUniforms uniforms;
+		uniforms.proj_matrix = proj_matrix;
+		uniforms.view_matrix = view_matrix;
+
+		uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
+		uniforms.vert_sundir_ws = this->sun_dir;
+		uniforms.grass_pusher_sphere_pos = current_scene->grass_pusher_sphere_pos;
+		uniforms.vert_uniforms_time = current_time;
+		uniforms.wind_strength = current_scene->wind_strength;
+
+		this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(SharedVertUniforms));;
+	}
+
 
 	// Use outline shader (the shader that draws the flat colour for the object, before edge detection)
 	glViewport(0, 0, (int)mask_map_texture.xRes(), (int)mask_map_texture.yRes()); // Make viewport same size as texture.

@@ -1,9 +1,11 @@
 
+// Data that is shared between all objects, and is updated once per frame.
 // Should be the same as SharedVertUniforms in OpenGLEngine.h
 layout (std140) uniform SharedVertUniforms
 {
 	mat4 proj_matrix; // same for all objects
 	mat4 view_matrix; // same for all objects
+
 	//#if NUM_DEPTH_TEXTURES > 0
 	mat4 shadow_texture_matrix[5]; // same for all objects
 	//#endif
@@ -20,11 +22,15 @@ layout (std140) uniform SharedVertUniforms
 };
 
 
+// Data that is specific to a single object.
 // Should be the same as PerObjectVertUniforms in OpenGLEngine.h
 struct PerObjectVertUniformsStruct
 {
 	mat4 model_matrix; // ob_to_world_matrix
 	mat4 normal_matrix; // ob_to_world_inv_transpose_matrix
+
+	vec4 dequantise_scale;
+	vec4 dequantise_translation;
 
 	ivec4 light_indices_0;
 	ivec4 light_indices_1;
@@ -33,6 +39,7 @@ struct PerObjectVertUniformsStruct
 
 	float model_matrix_upper_left_det;
 
-	float padding_po1;
+	float uv_scale;
+
 	float padding_po2;
 };
