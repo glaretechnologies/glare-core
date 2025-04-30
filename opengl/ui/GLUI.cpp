@@ -211,7 +211,7 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 				tooltip_overlay_ob->material.tex_translation = Vec2f(0, 1);
 
 				// This should give 1:1 texel : screen-space pixels.
-				const Vec2f ui_dimensions = Vec2f(tex->xRes(), tex->yRes()) * 2 / opengl_engine->getViewPortWidth();
+				const Vec2f ui_dimensions = Vec2f((float)tex->xRes(), (float)tex->yRes()) * 2 / (float)opengl_engine->getViewPortWidth();
 
 				const Vec2f gl_dims = OpenGLCoordsForUICoords(ui_dimensions);
 				const float scale_x = gl_dims.x;
