@@ -45,6 +45,8 @@ public:
 	inline Real norm() const { return std::sqrt(a*a + b*b); }
 	inline Real norm2() const { return a*a + b*b; }
 
+	inline const Complex adjoint() const { return Complex(a, -b); }
+
 	// value = a + b*i
 	Real a, b;
 };
