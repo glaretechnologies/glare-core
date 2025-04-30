@@ -140,26 +140,26 @@ public:
 	inline static size_t componentTypeSize(ComponentType t); // In bytes.
 	static std::string componentTypeString(ComponentType t);
 	inline static size_t vertAttributeTypeNumComponents(VertAttributeType t);
-	inline static size_t vertAttributeSize(const VertAttribute& attr); // In bytes.  Guaranteed to be a multiple of 4.
-	inline size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
+	inline static size_t vertAttributeSize(const VertAttribute& attr); // In bytes.
+	size_t vertexSize() const; // In bytes.  Guaranteed to be a multiple of 4.
 	inline size_t numVerts() const;
 	inline size_t numIndices() const; // Equal to num triangles * 3.
 	inline uint32 getIndexAsUInt32(size_t i) const; // Slow, for debugging
 
 	js::AABBox computeAABB() const;
 
-	// Find the attribute identified by 'type'.  Returns NULL if not present.
-	const VertAttribute* findAttribute(VertAttributeType type) const;
+	// Find the attribute identified by 'attr_type'.  Returns NULL if not present.
+	const VertAttribute* findAttribute(VertAttributeType attr_type) const;
 
-	// Find the attribute identified by 'type'.  Throws glare::Exception if attribute not present.
-	const VertAttribute& getAttribute(VertAttributeType type) const;
+	// Find the attribute identified by 'attr_type'.  Throws glare::Exception if attribute not present.
+	const VertAttribute& getAttribute(VertAttributeType attr_type) const;
 
 	size_t numMaterialsReferenced() const;
 
 	size_t getTotalMemUsage() const;
 
 	// Sets index_data and index_type.
-	// The index type will depend on num_verts. (will be ComponentType_UInt8 for num_verts < 128 etc..) 
+	// The index type will depend on num_verts. (will be ComponentType_UInt16 for num_verts < 32768) 
 	void setIndexDataFromIndices(const js::Vector<uint32, 16>& uint32_indices, size_t num_verts);
 
 	void toUInt32Indices(js::Vector<uint32, 16>& uint32_indices_out) const;
@@ -230,15 +230,6 @@ size_t BatchedMesh::vertAttributeSize(const VertAttribute& attr)
 		return 2;
 	else
 		return vertAttributeTypeNumComponents(attr.type) * componentTypeSize(attr.component_type);
-}
-
-
-size_t BatchedMesh::vertexSize() const // in bytes
-{
-	size_t sum = 0;
-	for(size_t i=0; i<vert_attributes.size(); ++i)
-		sum += vertAttributeSize(vert_attributes[i]);
-	return sum;
 }
 
 

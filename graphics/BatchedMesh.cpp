@@ -38,6 +38,27 @@ BatchedMesh::~BatchedMesh()
 }
 
 
+size_t BatchedMesh::vertexSize() const // in bytes
+{
+	size_t cur_offset = 0;
+	for(size_t i=0; i<vert_attributes.size(); ++i)
+	{
+		// Special case for an oct16 normal immediately following a uint16*3 position, put at offset 6:
+		if(i == 1 && 
+			(vert_attributes[0].type == VertAttribute_Position) && (vert_attributes[0].component_type == ComponentType_UInt16) &&
+			(vert_attributes[1].type == VertAttribute_Normal)   && (vert_attributes[1].component_type == ComponentType_Oct16))
+		{
+			cur_offset = sizeof(uint16) * 3;
+		}
+
+		cur_offset += vertAttributeSize(vert_attributes[i]);
+		
+		cur_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(cur_offset, 4); // In general attributes should be 4-byte aligned, and vertex sizes should be multiples of 4, so align current offset.
+	}
+	return cur_offset;
+}
+
+
 std::string BatchedMesh::componentTypeString(BatchedMesh::ComponentType t)
 {
 	switch(t)
@@ -1311,31 +1332,24 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 				throw glare::Exception("Invalid vert attribute component type value.");
 			mesh_out.vert_attributes[i].component_type = (ComponentType)component_type;
 
+			// Special case for an oct16 normal immediately following a uint16*3 position, put at offset 6:
+			if(i == 1 && 
+				(mesh_out.vert_attributes[0].type == VertAttribute_Position) && (mesh_out.vert_attributes[0].component_type == ComponentType_UInt16) &&
+				(mesh_out.vert_attributes[1].type == VertAttribute_Normal)   && (mesh_out.vert_attributes[1].component_type == ComponentType_Oct16))
+			{
+				cur_offset = sizeof(uint16) * 3;
+			}
+
 			mesh_out.vert_attributes[i].offset_B = cur_offset;
+			
 			const size_t vert_attr_size_B = vertAttributeSize(mesh_out.vert_attributes[i]);
 			cur_offset += vert_attr_size_B;
+			cur_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(cur_offset, 4);
 		}
+		runtimeCheck(mesh_out.vertexSize() == cur_offset);
 
 		if((cur_offset % 4) != 0)
 			throw glare::Exception("Invalid vertex size (" + toString(cur_offset) + " B): must be a multiple of 4 bytes.");
-
-		// Check attribute sizes
-		// In general we will require each attribute to be a multiple of 4 bytes, apart from our special packing of pos and normal as (uint16*3, oct16) in uint16 * 4
-		size_t size_check_attr_start = 0;
-		if((mesh_out.vert_attributes.size() >= 2) && 
-			(mesh_out.vert_attributes[0].type == VertAttribute_Position) && (mesh_out.vert_attributes[0].component_type == ComponentType_UInt16) &&
-			(mesh_out.vert_attributes[1].type == VertAttribute_Normal)   && (mesh_out.vert_attributes[1].component_type == ComponentType_Oct16))
-		{
-			size_check_attr_start = 2;
-		}
-
-		for(size_t i=size_check_attr_start; i<mesh_out.vert_attributes.size(); ++i)
-		{
-			const size_t vert_attr_size_B = vertAttributeSize(mesh_out.vert_attributes[i]);
-			if((vert_attr_size_B % 4) != 0)
-				throw glare::Exception("Invalid vert attribute: size must be a multiple of 4 bytes.");
-		}
-
 		
 		// Read batches
 		if(header.num_batches > MAX_NUM_BATCHES)
@@ -2208,7 +2222,7 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 			throw glare::Exception("BatchedMesh::buildQuantisedMesh(): Only ComponentType_PackedNormal for normal attribute handled currently");
 
 		// new_normal_attr = VertAttribute(VertAttribute_Normal, ComponentType_PackedNormal, /*offset_B=*/new_mesh->vertexSize()); // keep as ComponentType_PackedNormal
-		new_normal_attr = VertAttribute(VertAttribute_Normal, ComponentType_Oct16, /*offset_B=*/new_mesh->vertexSize());
+		new_normal_attr = VertAttribute(VertAttribute_Normal, ComponentType_Oct16, /*offset_B=*/sizeof(uint16) * 3);
 		new_mesh->vert_attributes.push_back(new_normal_attr);
 	}
 

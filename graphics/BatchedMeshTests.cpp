@@ -312,6 +312,132 @@ void BatchedMeshTests::test()
 	conPrint("BatchedMeshTests::test()");
 
 
+	//--------------------------------- Test --------------------------------------
+	/*{
+		Reference<BatchedMesh> mesh = BatchedMesh::readFromFile("d:/models/optimized_dressed_fix7_offset4_glb_4474648345850208925.bmesh", nullptr);
+
+		mesh->doMeshOptimizerOptimisations();
+
+		BatchedMesh::WriteOptions options;
+		mesh->writeToFile("d:/models/optimized_dressed_fix7_offset4_glb_4474648345850208925_optimised.bmesh", options);
+	}*/
+
+
+
+	//--------------------------------- Test --------------------------------------
+	/*{
+		Reference<BatchedMesh> mesh = BatchedMesh::readFromFile("d:/models/aphrodite_of_milos.bmesh", nullptr);
+
+		Reference<BatchedMesh> quantised = mesh->buildQuantisedMesh();
+
+		BatchedMesh::WriteOptions options;
+		options.compression_level = 19;
+		options.use_meshopt = true;
+		quantised->writeToFile("d:/models/aphrodite_of_milos_quantised.bmesh", options);
+	}*/
+
+
+	//--------------------------------- Test buildQuantisedMesh --------------------------------------
+
+	// Test with a mesh that has position and uv0, but no normals.
+	{
+		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/image_cube_12956189774619553609.bmesh", NULL);
+
+		Reference<BatchedMesh> quantised = mesh->buildQuantisedMesh();
+		testAssert(quantised->vert_attributes.size() == 2);
+		testAssert(quantised->vert_attributes[0].offset_B == 0);
+		testAssert(quantised->vert_attributes[1].offset_B == 8);
+		testAssert(quantised->vertexSize() == sizeof(uint16) * 6); // pos.x, pos.y, pos.z, padding, u, v
+
+		// Test saving and loading the quantised mesh
+		const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp678.bmesh";
+		{
+			BatchedMesh::WriteOptions write_options;
+			write_options.use_meshopt = true;
+			quantised->writeToFile(temp_path, write_options);
+
+			Reference<BatchedMesh> quantised2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
+			
+			testAssert(quantised2->vert_attributes.size() == 2);
+			testAssert(quantised2->vert_attributes[0].offset_B == 0);
+			testAssert(quantised2->vert_attributes[1].offset_B == 8);
+			testAssert(quantised2->vertexSize() == sizeof(uint16) * 6); // pos.x, pos.y, pos.z, padding, u, v
+		}
+	}
+		
+	// Test with a mesh that has position, normal and uv0
+	{
+		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/chunk_128_0_2.bmesh", NULL);
+
+		Reference<BatchedMesh> quantised = mesh->buildQuantisedMesh();
+
+		testAssert(quantised->vert_attributes.size() == 4);
+		testAssert(quantised->vert_attributes[0].offset_B == 0);
+		testAssert(quantised->vert_attributes[1].offset_B == 6);
+		testAssert(quantised->vert_attributes[2].offset_B == 8);
+		testAssert(quantised->vertexSize() == sizeof(uint16) * 6 + sizeof(uint32)); // pos.x, pos.y, pos.z, normal, u, v, mat_index
+
+		// Test saving and loading the quantised mesh
+		const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp678.bmesh";
+		{
+			BatchedMesh::WriteOptions write_options;
+			write_options.use_meshopt = true;
+			quantised->writeToFile(temp_path, write_options);
+
+			Reference<BatchedMesh> quantised2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
+			
+			testAssert(quantised2->vert_attributes.size() == 4);
+			testAssert(quantised2->vert_attributes[0].offset_B == 0);
+			testAssert(quantised2->vert_attributes[1].offset_B == 6);
+			testAssert(quantised2->vert_attributes[2].offset_B == 8);
+			testAssert(quantised2->vertexSize() == sizeof(uint16) * 6 + sizeof(uint32)); // pos.x, pos.y, pos.z, normal, u, v, mat_index
+		}
+	}
+
+	// Test with a mesh with just quantised vertex positions, no normals or UVs.
+	{
+		Indigo::Mesh m;
+		
+		m.vert_positions.resize(8);
+		for(size_t i=0; i<8; ++i)
+			m.vert_positions[i] = Indigo::Vec3f((float)i, 2.f, 3.f);
+
+		m.triangles.push_back(Indigo::Triangle());
+		m.triangles.back().vertex_indices[0] = 0; m.triangles.back().vertex_indices[1] = 1; m.triangles.back().vertex_indices[2] = 2;
+		m.triangles.back().uv_indices[0] = 0;     m.triangles.back().uv_indices[1] = 0;     m.triangles.back().uv_indices[2] = 0;
+		m.triangles.back().tri_mat_index = 0;
+
+		m.triangles.push_back(Indigo::Triangle());
+		m.triangles.back().vertex_indices[0] = 5; m.triangles.back().vertex_indices[1] = 2; m.triangles.back().vertex_indices[2] = 7;
+		m.triangles.back().uv_indices[0] = 0; m.triangles.back().uv_indices[1] = 0; m.triangles.back().uv_indices[2] = 0;
+		m.triangles.back().tri_mat_index = 0;
+
+		m.endOfModel();
+
+		BatchedMeshRef batched_mesh = BatchedMesh::buildFromIndigoMesh(m);
+
+		Reference<BatchedMesh> quantised = batched_mesh->buildQuantisedMesh();
+		testAssert(quantised->vertexSize() == sizeof(uint16) * 4);// The uint16*3 should be padded up to 8 bytes.
+		testAssert(quantised->vert_attributes.size() == 1);
+		testAssert(quantised->vert_attributes[0].offset_B == 0);
+
+		// Test saving and loading the quantised mesh
+		const std::string temp_path = PlatformUtils::getTempDirPath() + "/temp678.bmesh";
+		{
+			BatchedMesh::WriteOptions write_options;
+			write_options.use_meshopt = true;
+			quantised->writeToFile(temp_path, write_options);
+
+			Reference<BatchedMesh> quantised2 = BatchedMesh::readFromFile(temp_path, /*mem allocator=*/NULL);
+			
+			testAssert(quantised2->vertexSize() == sizeof(uint16) * 4);// The uint16*3 should be padded up to 8 bytes.
+			testAssert(quantised2->vert_attributes.size() == 1);
+			testAssert(quantised2->vert_attributes[0].offset_B == 0);
+		}
+	}
+
+
+
 	//--------------------------------- Test writing and reading meshes, including with MeshOpt filtering and encoding. ----------------------------
 	// Test a mesh with zero vertices
 	{
