@@ -18,7 +18,6 @@ namespace Clock
 void init();
 
 
-// This is time in seconds since commencement of program.
 // IMPORTANT NOTE: must call Clock::init() first.
 double getCurTimeRealSec();
 
