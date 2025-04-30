@@ -66,6 +66,17 @@ static inline float horizontalAdd(const __m128& v)
 }
 
 
+//   v - d/||d|| * dot(v, d/||d||)
+// = v - d/||d|| * dot(v, d) / ||d||
+// = v - d * dot(v, d) / ||d||^2
+GLARE_STRONG_INLINE const Vec4f removeComponentInNonUnitDir(const Vec4f& v, const Vec4f& dir)
+{
+	//assert(unit_dir.isUnitLength());
+	return v - dir * dot(v, dir) / dir.length2();
+}
+
+
+
 void Vec4f::test()
 {
 	conPrint("Vec4f::test()");
@@ -290,6 +301,14 @@ void Vec4f::test()
 		const Vec4f b(1, 2, 3, 4);
 
 		testAssert(epsEqual(removeComponentInDir(b, a), Vec4f(0, 2, 3, 4)));
+	}
+	{
+		const Vec4f a(2, 0, 0, 0);
+
+		const Vec4f b(1, 2, 3, 4);
+
+		const Vec4f c = removeComponentInNonUnitDir(b, a);
+		testAssert(epsEqual(c, Vec4f(0, 2, 3, 4)));
 	}
 
 	// Test unary operator -

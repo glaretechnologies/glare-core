@@ -36,6 +36,8 @@ public:
 
 	GLARE_STRONG_INLINE void set(float x_, float y_, float z_, float w_) { v = _mm_set_ps(w_, z_, y_, x_); }
 
+	GLARE_STRONG_INLINE static Vec4f zero() { return Vec4f(_mm_setzero_ps()); }
+
 	GLARE_STRONG_INLINE Vec4f& operator = (const Vec4f& a);
 
 	GLARE_STRONG_INLINE float& operator [] (unsigned int index);
@@ -550,7 +552,12 @@ GLARE_STRONG_INLINE Vec4f UIntToVec4f(const Vec4i& v)
 
 GLARE_STRONG_INLINE const Vec4f maskWToZero(const Vec4f& a)
 {
-	return _mm_and_ps(a.v, bitcastToVec4f(Vec4i(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0)).v);
+#if COMPILE_SSE4_CODE
+	return _mm_blend_ps(_mm_setzero_ps(), a.v, 0x7);
+#else
+	const Vec4f v1 = shuffle<2, 2, 0, 0>(a, Vec4f::zero()); // [z, z, 0, 0]
+	return shuffle<0, 1, 0, 2>(a, v1); // [x, y, z, 1]
+#endif
 }
 
 
