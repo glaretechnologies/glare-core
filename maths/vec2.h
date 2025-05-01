@@ -316,7 +316,7 @@ inline const Vec2<T> min(const Vec2<T>& a, const Vec2<T>& b)
 	return Vec2<T>(
 		myMin(a.x, b.x),
 		myMin(a.y, b.y)
-		);
+	);
 }
 
 
