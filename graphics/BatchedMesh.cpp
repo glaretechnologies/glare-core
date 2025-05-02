@@ -1832,14 +1832,17 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 
 	const size_t num_indices = numIndices();
 
-	//NOTE: require num_indices to be a multiple of 3?
-
+	if((num_indices % 3) != 0)
+		throw glare::Exception("num_indices is not a multiple of 3");
 
 
 	// Check batch index ranges are in range.
 	for(size_t b=0; b<batches.size(); ++b)
 	{
 		const IndicesBatch& batch = batches[b];
+
+		if((batch.num_indices % 3) != 0)
+			throw glare::Exception("batch.num_indices is not a multiple of 3");
 
 		if(CheckedMaths::addUnsignedInts(batch.indices_start, batch.num_indices) > num_indices)
 			throw glare::Exception("Invalid batch index range");
@@ -2126,14 +2129,21 @@ void BatchedMesh::doMeshOptimizerOptimisations()
 	const size_t num_verts = this->numVerts();
 	const size_t vert_size = this->vertexSize();
 
+	if((this->numIndices() % 3) != 0)
+		throw glare::Exception("BatchedMesh::doMeshOptimizerOptimisations(): num indices must be a multiple of 3.");
+
 	if(!(index_type == ComponentType_UInt16 || index_type == ComponentType_UInt32))
 		throw glare::Exception("BatchedMesh::doMeshOptimizerOptimisations(): index type must be uint16 or uint32.");
 
 	//--------------------------- Run meshopt_optimizeVertexCache ---------------------------
 	// "If index buffer contains multiple ranges for multiple draw calls, this functions needs to be called on each range individually."
-	glare::AllocatorVector<uint8, 16> reordered_index_data(index_data.size());
+	glare::AllocatorVector<uint8, 16> reordered_index_data = index_data; // Batches may not cover all indices, so make sure we init reordered_index_data with valid data.
 	for(size_t i=0; i<batches.size(); ++i)
 	{
+		// Check num indices is a multiple of 3, otherwise meshopt can crash.
+		if((batches[i].num_indices % 3) != 0)
+			throw glare::Exception("BatchedMesh::doMeshOptimizerOptimisations(): batch num indices must be a multiple of 3.");
+
 		if(index_type == ComponentType_UInt16)
 		{
 			meshopt_optimizeVertexCache<uint16>(/*destination=*/(uint16*)(reordered_index_data.data()) + batches[i].indices_start, /*indices=*/(const uint16*)(index_data.data()) + batches[i].indices_start,
@@ -2193,7 +2203,7 @@ void BatchedMesh::doMeshOptimizerOptimisations()
 		index_data = reordered_index_data;
 	}
 
-	glare::AllocatorVector<uint8, 16> reordered_vertex_data(vertex_data.size());
+	glare::AllocatorVector<uint8, 16> reordered_vertex_data = vertex_data;
 	if(index_type == ComponentType_UInt16)
 	{
 		const size_t res = meshopt_optimizeVertexFetch(/*destination=*/reordered_vertex_data.data(), /*indices=*/(uint16*)index_data.data(), /*index count=*/numIndices(), 
