@@ -73,22 +73,30 @@ void main()
 	vec4 dequantise_trans = per_object_data.dequantise_translation;
 #endif
 
+	vec4 final_pos_os = dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans;
+
+#if POSITION_W_IS_OCT16_NORMAL
+	vec3 final_normal_in = decodeNormalFromPositionW(position_in.w);
+#else
+	vec3 final_normal_in = normal_in;
+#endif
+
 #if INSTANCE_MATRICES //-------------------------
-	gl_Position = proj_matrix * (view_matrix * (instance_matrix_in * vec4(position_in, 1.0)));
+	gl_Position = proj_matrix * (view_matrix * (instance_matrix_in * final_pos_os));
 
 #if GENERATE_PLANAR_UVS
 	pos_os = position_in;
 #endif
 
-	pos_ws = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
+	pos_ws = (instance_matrix_in * final_pos_os).xyz;
 	cam_to_pos_ws = pos_ws - campos_ws.xyz;
-	pos_cs = (view_matrix * (instance_matrix_in * vec4(position_in, 1.0))).xyz;
+	pos_cs = (view_matrix * (instance_matrix_in * final_pos_os)).xyz;
 
-	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
-	normal_cs = (view_matrix * (instance_matrix_in * vec4(normal_in, 0.0))).xyz;
+	normal_ws = (instance_matrix_in * vec4(final_normal_in, 0.0)).xyz;
+	normal_cs = (view_matrix * (instance_matrix_in * vec4(final_normal_in, 0.0))).xyz;
 #else //-------- else if !INSTANCE_MATRICES:
 
-	vec4 pos_ws_vec4 = model_matrix * (dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans);
+	vec4 pos_ws_vec4 = model_matrix * final_pos_os;
 	pos_ws = pos_ws_vec4.xyz;
 
 	gl_Position = proj_matrix * (view_matrix * pos_ws_vec4);
@@ -100,12 +108,6 @@ void main()
 	cam_to_pos_ws = pos_ws_vec4.xyz - campos_ws.xyz;
 	pos_cs = (view_matrix * pos_ws_vec4).xyz;
  
-#if POSITION_W_IS_OCT16_NORMAL
-	vec3 final_normal_in = decodeNormalFromPositionW(position_in.w);
-#else
-	vec3 final_normal_in = normal_in;
-#endif
-
 	normal_ws = (normal_matrix * vec4(final_normal_in, 0.0)).xyz;
 	normal_cs = (view_matrix * (normal_matrix * vec4(final_normal_in, 0.0))).xyz;
 #endif //-------------------------

@@ -3462,7 +3462,8 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
 		uniforms.model_matrix_upper_left_det = upper_left_det;
-		uniforms.uv_scale = object.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+		uniforms.uv0_scale = object.mesh_data->uv0_scale;
+		uniforms.uv1_scale = object.mesh_data->uv1_scale;
 		uniforms.dequantise_scale = object.dequantise_scale;
 		uniforms.dequantise_translation = object.dequantise_translation;
 
@@ -3520,7 +3521,8 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 			uniforms.light_indices[i] = object.light_indices[i];
 		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
 		uniforms.model_matrix_upper_left_det = object.ob_to_world_matrix_determinant;
-		uniforms.uv_scale = object.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+		uniforms.uv0_scale = object.mesh_data->uv0_scale;
+		uniforms.uv1_scale = object.mesh_data->uv1_scale;
 		uniforms.dequantise_scale = object.dequantise_scale;
 		uniforms.dequantise_translation = object.dequantise_translation;
 
@@ -10434,7 +10436,8 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
 				uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
-				uniforms.uv_scale = ob.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+				uniforms.uv0_scale = ob.mesh_data->uv0_scale;
+				uniforms.uv1_scale = ob.mesh_data->uv1_scale;
 				uniforms.dequantise_scale = ob.dequantise_scale;
 				uniforms.dequantise_translation = ob.dequantise_translation;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
@@ -10711,7 +10714,8 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 					uniforms.light_indices[i] = ob.light_indices[i];
 				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
 				uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
-				uniforms.uv_scale = ob.mesh_data->uvs_are_scaled_uint16 ? 8.f : 1.f;
+				uniforms.uv0_scale = ob.mesh_data->uv0_scale;
+				uniforms.uv1_scale = ob.mesh_data->uv1_scale;
 				uniforms.dequantise_scale = ob.dequantise_scale;
 				uniforms.dequantise_translation = ob.dequantise_translation;
 				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));

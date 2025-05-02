@@ -29,6 +29,8 @@ Copyright Glare Technologies Limited 2020
 
 
 BatchedMesh::BatchedMesh()
+:	uv0_scale(1),
+	uv1_scale(1)
 {
 }
 
@@ -787,8 +789,9 @@ void BatchedMesh::operator = (const BatchedMesh& other)
 
 
 static const uint32 MAGIC_NUMBER = 12456751;
-static const uint32 FORMAT_VERSION = 2;
+static const uint32 FORMAT_VERSION = 3;
 // Version 2: Added meshopt encoding and filtering.
+// Version 3: Added uv0_scale, uv1_scale
 
 static const uint32 ANIMATION_DATA_CHUNK = 10000;
 
@@ -893,6 +896,9 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 	header.aabb_max = Vec3f(aabb_os.max_);
 
 	file.writeData(&header, sizeof(BatchedMeshHeader));
+
+	file.writeFloat(uv0_scale);
+	file.writeFloat(uv1_scale);
 
 	// Write vert attributes
 	for(size_t i=0; i<vert_attributes.size(); ++i)
@@ -1303,6 +1309,19 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 			throw glare::Exception("Header size too large.");
 		file.setReadIndex(header.header_size);
 
+		Reference<BatchedMesh> batched_mesh = new BatchedMesh();
+		if(mem_allocator)
+		{
+			batched_mesh->vertex_data.setAllocator(mem_allocator);
+			batched_mesh->index_data.setAllocator(mem_allocator);
+		}
+
+		if(header.format_version >= 3)
+		{
+			batched_mesh->uv0_scale = file.readFloat();
+			batched_mesh->uv1_scale = file.readFloat();
+		}
+
 
 		// Read vert attributes
 		if(header.num_vert_attributes == 0)
@@ -1310,12 +1329,6 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 		if(header.num_vert_attributes > MAX_NUM_VERT_ATTRIBUTES)
 			throw glare::Exception("Too many vert attributes.");
 		
-		Reference<BatchedMesh> batched_mesh = new BatchedMesh();
-		if(mem_allocator)
-		{
-			batched_mesh->vertex_data.setAllocator(mem_allocator);
-			batched_mesh->index_data.setAllocator(mem_allocator);
-		}
 
 		BatchedMesh& mesh_out = *batched_mesh;
 		mesh_out.vert_attributes.resize(header.num_vert_attributes);
@@ -2374,30 +2387,70 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 	copyAttribute(old_colour_attr, new_colour_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
 
 
+	// Returns uv_scale
 	auto convertUVs = [](const BatchedMesh::VertAttribute* old_uv_attr, BatchedMesh::VertAttribute& new_uv_attr, BatchedMesh* new_mesh, const BatchedMesh* old_mesh,
-		size_t num_verts, size_t old_vert_size, size_t new_vert_size) -> void
+		size_t num_verts, size_t old_vert_size, size_t new_vert_size) -> float
 	{
+		float uv_scale = 1.f;
 		if(old_uv_attr)
 		{
 			if(old_uv_attr->component_type == ComponentType_Float)
 			{
-				// Convert to uint16*2 with 1/8x scale
+				// Get smallest UV values
+				Vec2f smallest_uvs(std::numeric_limits<float>::max());
+				Vec2f largest_uvs(-std::numeric_limits<float>::max());
+				for(size_t i=0; i<num_verts; ++i)
+				{
+					Vec2f old_val;
+					std::memcpy(&old_val, &old_mesh->vertex_data[old_uv_attr->offset_B + i * old_vert_size], sizeof(Vec2f));
+					smallest_uvs = min(old_val, smallest_uvs);
+					largest_uvs  = max(old_val, largest_uvs);
+				}
+
+				// Compute a translation to make UV values >= 0 while leaving them equal mod 1.
+				const Vec2f uv_translation = Vec2f(Maths::fract(smallest_uvs.x), Maths::fract(smallest_uvs.y)) - smallest_uvs;
+				const Vec2f largest_translated_uv = largest_uvs + uv_translation;
+				const float max_use_uv_coord = std::ceil(myMax(largest_translated_uv.x, largest_translated_uv.y));
+				const float quantisation_scale = 1.f / max_use_uv_coord;
+				uv_scale = max_use_uv_coord / 65535.f;
+
+				// Convert to uint16*2 with quantisation_scale
 				assert(new_uv_attr.component_type == ComponentType_UInt16);
 				for(size_t i=0; i<num_verts; ++i)
 				{
 					Vec2f old_val;
 					std::memcpy(&old_val, &old_mesh->vertex_data[old_uv_attr->offset_B + i * old_vert_size], sizeof(Vec2f));
 
+					const Vec2f new_val = (old_val + uv_translation) * quantisation_scale;
 					const uint16 quantised[2] = {
-						(uint16)meshopt_quantizeUnorm(Maths::fract(old_val.x) * 0.125f, /*bits=*/16),
-						(uint16)meshopt_quantizeUnorm(Maths::fract(old_val.y) * 0.125f, /*bits=*/16)
+						(uint16)meshopt_quantizeUnorm(new_val.x, /*bits=*/16),
+						(uint16)meshopt_quantizeUnorm(new_val.y, /*bits=*/16)
 					};
 					std::memcpy(&new_mesh->vertex_data[new_uv_attr.offset_B + i * new_vert_size], quantised, sizeof(uint16) * 2);
 				}
 			}
 			else if(old_uv_attr->component_type == ComponentType_Half)
 			{
-				// Convert to uint16*2 with 1/8x scale
+				// Get smallest UV values
+				Vec2f smallest_uvs(std::numeric_limits<float>::max());
+				Vec2f largest_uvs(-std::numeric_limits<float>::max());
+				for(size_t i=0; i<num_verts; ++i)
+				{
+					half old_half_val[2];
+					std::memcpy(&old_half_val, &old_mesh->vertex_data[old_uv_attr->offset_B + i * old_vert_size], sizeof(half) * 2);
+					const Vec2f old_val((float)old_half_val[0], (float)old_half_val[1]);
+					smallest_uvs = min(old_val, smallest_uvs);
+					largest_uvs  = max(old_val, largest_uvs);
+				}
+
+				// Compute a translation to make UV values >= 0 while leaving them equal mod 1.
+				const Vec2f uv_translation = Vec2f(Maths::fract(smallest_uvs.x), Maths::fract(smallest_uvs.y)) - smallest_uvs;
+				const Vec2f largest_translated_uv = largest_uvs + uv_translation;
+				const float max_use_uv_coord = std::ceil(myMax(largest_translated_uv.x, largest_translated_uv.y));
+				const float quantisation_scale = 1.f / max_use_uv_coord;
+				uv_scale = max_use_uv_coord / 65535.f;
+
+				// Convert to uint16*2 with quantisation_scale
 				assert(new_uv_attr.component_type == ComponentType_UInt16);
 				for(size_t i=0; i<num_verts; ++i)
 				{
@@ -2405,24 +2458,24 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 					std::memcpy(&old_half_val, &old_mesh->vertex_data[old_uv_attr->offset_B + i * old_vert_size], sizeof(half) * 2);
 
 					Vec2f old_val((float)old_half_val[0], (float)old_half_val[1]);
+					const Vec2f new_val = (old_val + uv_translation) * quantisation_scale;
 					const uint16 quantised[2] = {
-						(uint16)meshopt_quantizeUnorm(Maths::fract(old_val.x) * 0.125f, /*bits=*/16),
-						(uint16)meshopt_quantizeUnorm(Maths::fract(old_val.y) * 0.125f, /*bits=*/16)
+						(uint16)meshopt_quantizeUnorm(new_val.x, /*bits=*/16),
+						(uint16)meshopt_quantizeUnorm(new_val.y, /*bits=*/16)
 					};
 					std::memcpy(&new_mesh->vertex_data[new_uv_attr.offset_B + i * new_vert_size], quantised, sizeof(uint16) * 2);
 				}
-
-				//for(size_t i=0; i<num_verts; ++i)
-				//	std::memcpy(&new_mesh->vertex_data[new_uv0_attr.offset_B + i * new_vert_size], &this->vertex_data[old_uv_attr->offset_B + i * old_vert_size], sizeof(half) * 2);
 			}
 		}
+
+		return uv_scale;
 	};
 
 	// UV 0
-	convertUVs(old_uv0_attr, new_uv0_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
+	new_mesh->uv0_scale = convertUVs(old_uv0_attr, new_uv0_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
 
 	// UV 1
-	convertUVs(old_uv1_attr, new_uv1_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
+	new_mesh->uv1_scale = convertUVs(old_uv1_attr, new_uv1_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
 
 	// Joints
 	copyAttribute(old_joints_attr, new_joints_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);

@@ -33,7 +33,7 @@ public:
 class OpenGLMeshRenderData // : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false), has_vert_tangents(false), pos_coords_quantised(false), uvs_are_scaled_uint16(false), position_w_is_oct16_normal(false), num_materials_referenced(0), refcount(0), index_type_bits(0) {}
+	OpenGLMeshRenderData() : has_vert_colours(false), has_vert_tangents(false), pos_coords_quantised(false), position_w_is_oct16_normal(false), uv0_scale(1), uv1_scale(1), num_materials_referenced(0), refcount(0), index_type_bits(0) {}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 
@@ -76,8 +76,10 @@ public:
 	bool has_vert_colours;
 	bool has_vert_tangents;
 	bool pos_coords_quantised;
-	bool uvs_are_scaled_uint16;
 	bool position_w_is_oct16_normal;
+
+	float uv0_scale; // dequantisation scale
+	float uv1_scale; // dequantisation scale
 private:
 	GLenum index_type; // One of GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, or GL_UNSIGNED_INT.
 public:

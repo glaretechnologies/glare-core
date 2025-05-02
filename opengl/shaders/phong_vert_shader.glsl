@@ -166,7 +166,8 @@ void main()
 	uint joint_index_mask = 0xFFFFFFFF;
 	mat4 model_matrix     = per_object_data[per_ob_data_index].model_matrix;
 	mat4 normal_matrix    = per_object_data[per_ob_data_index].normal_matrix;
-	float uv_scale        = per_object_data[per_ob_data_index].uv_scale;
+	float uv0_scale        = per_object_data[per_ob_data_index].uv0_scale;
+	float uv1_scale        = per_object_data[per_ob_data_index].uv1_scale;
 	vec4 dequantise_scale = per_object_data[per_ob_data_index].dequantise_scale;
 	vec4 dequantise_trans = per_object_data[per_ob_data_index].dequantise_translation;
 #else
@@ -174,20 +175,30 @@ void main()
 	uint joint_index_mask = 0xFF; // Without MDI, joint_matrix has max length 256.  Make sure we don't read out-of-bounds.
 	mat4 model_matrix     = per_object_data.model_matrix;
 	mat4 normal_matrix    = per_object_data.normal_matrix;
-	float uv_scale        = per_object_data.uv_scale;
+	float uv0_scale       = per_object_data.uv0_scale;
+	float uv1_scale       = per_object_data.uv1_scale;
 	vec4 dequantise_scale = per_object_data.dequantise_scale;
 	vec4 dequantise_trans = per_object_data.dequantise_translation;
 #endif
 
+	vec4 final_pos_os = dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans;
+
+#if POSITION_W_IS_OCT16_NORMAL
+	vec3 final_normal_in = decodeNormalFromPositionW(position_in.w);
+#else
+	vec3 final_normal_in = normal_in;
+#endif
+
+
 #if INSTANCE_MATRICES
 
 #if GENERATE_PLANAR_UVS
-	pos_os = position_in.xyz;
+	pos_os = final_pos_os.xyz;
 #endif
 
-	normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
+	normal_ws = (instance_matrix_in * vec4(final_normal_in, 0.0)).xyz;
 
-	pos_ws = (instance_matrix_in * vec4(position_in.xyz, 1.0)).xyz;
+	pos_ws = (instance_matrix_in * final_pos_os).xyz;
 
 #if USE_WIND_VERT_SHADER
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
@@ -226,14 +237,6 @@ void main()
 	mat4 normal_skin_matrix = normal_matrix;
 #endif
 
-	vec4 final_pos_os = dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans;
-
-#if POSITION_W_IS_OCT16_NORMAL
-	vec3 final_normal_in = decodeNormalFromPositionW(position_in.w);
-#else
-	vec3 final_normal_in = normal_in;
-#endif
-
 	pos_ws = (model_skin_matrix * final_pos_os).xyz;
 
 	// Normalize normal_ws here in the vertex shader, as that is what the default normal mapping (MikkTSpace) algorithm seems to require.
@@ -268,7 +271,7 @@ void main()
 #if TERRAIN
 	texture_coords = pos_ws.xy;
 #else
-	texture_coords = texture_coords_0_in * uv_scale;
+	texture_coords = texture_coords_0_in * uv0_scale;
 #endif
 
 #if VERT_COLOURS
@@ -281,7 +284,7 @@ void main()
 #endif
 
 #if LIGHTMAPPING
-	lightmap_coords = lightmap_coords_in * uv_scale;
+	lightmap_coords = lightmap_coords_in * uv1_scale;
 #endif
 
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT

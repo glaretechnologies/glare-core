@@ -826,9 +826,9 @@ struct PerObjectVertUniforms
 
 	float depth_draw_depth_bias;
 	float model_matrix_upper_left_det;
-	float uv_scale;
 
-	float padding_po2;
+	float uv0_scale;
+	float uv1_scale;
 };
 
 

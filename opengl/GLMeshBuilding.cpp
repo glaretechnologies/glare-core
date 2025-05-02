@@ -1270,7 +1270,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		uv_attrib.enabled = uv0_attr != NULL;
 		uv_attrib.num_comps = 2;
 		uv_attrib.type = uv0_attr ? componentTypeGLEnum(uv0_attr->component_type) : GL_FLOAT;
-		uv_attrib.normalised = uv0_attr && (uv0_attr->component_type == BatchedMesh::ComponentType_UInt16);
+		uv_attrib.normalised = false;
 		uv_attrib.stride = num_bytes_per_vert;
 		uv_attrib.offset = (uint32)(uv0_attr ? uv0_attr->offset_B : 0);
 		opengl_render_data->vertex_spec.attributes.push_back(uv_attrib);
@@ -1290,6 +1290,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 
 	if(max_attribute_index >= 4)
 	{
+		// UV 1 (lightmap UVs)
 		VertexAttrib lightmap_uv_attrib;
 		lightmap_uv_attrib.enabled = uv1_attr != NULL;
 		lightmap_uv_attrib.num_comps = 2;
@@ -1396,8 +1397,9 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 	opengl_render_data->has_vert_colours           = colour_attr  != NULL;
 	opengl_render_data->has_vert_tangents          = tangent_attr != NULL;
 	opengl_render_data->pos_coords_quantised       = pos_attr && pos_attr->component_type == BatchedMesh::ComponentType_UInt16;
-	opengl_render_data->uvs_are_scaled_uint16      = uv0_attr && uv0_attr->component_type == BatchedMesh::ComponentType_UInt16;
 	opengl_render_data->position_w_is_oct16_normal = (pos_attr->component_type == BatchedMesh::ComponentType_UInt16) && normal_attr && (normal_attr->component_type == BatchedMesh::ComponentType_Oct16);
+	opengl_render_data->uv0_scale = mesh->uv0_scale;
+	opengl_render_data->uv1_scale = mesh->uv1_scale;
 	opengl_render_data->aabb_os = mesh->aabb_os;
 
 	opengl_render_data->num_materials_referenced = largest_material_index + 1;

@@ -39,7 +39,6 @@ struct PerObjectVertUniformsStruct
 
 	float model_matrix_upper_left_det;
 
-	float uv_scale;
-
-	float padding_po2;
+	float uv0_scale;
+	float uv1_scale;
 };

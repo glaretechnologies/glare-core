@@ -46,7 +46,7 @@ public:
 		WriteOptions() : use_compression(true), use_meshopt(false), compression_level(3), pos_mantissa_bits(16), uv_mantissa_bits(10), meshopt_vertex_version(1) {}
 		bool use_compression;
 		bool use_meshopt;
-		int compression_level; // Zstandard compression level.  Zstandard defualt compression level is 3.
+		int compression_level; // Zstandard compression level.  Zstandard default compression level is 3.
 		int pos_mantissa_bits; // For meshopt filtering.  Should be >= 1 and <= 24.
 		int uv_mantissa_bits;  // For meshopt filtering.  Should be >= 1 and <= 24.
 		int meshopt_vertex_version; // Can be 0 or 1.  Default is 1.
@@ -178,6 +178,9 @@ public:
 	glare::AllocatorVector<uint8, 16> vertex_data;
 
 	js::AABBox aabb_os; // An AABB that contains the vertex positions.
+
+	float uv0_scale; // dequantisation uv0 scale
+	float uv1_scale; // dequantisation uv1 scale
 
 	AnimationData animation_data;
 };
