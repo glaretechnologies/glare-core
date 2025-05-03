@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2020
 
 
 namespace Indigo { class Mesh; }
+class OutStream;
 
 
 /*=====================================================================
@@ -43,15 +44,18 @@ public:
 	/// @throws glare::Exception on failure.
 	struct WriteOptions
 	{
-		WriteOptions() : use_compression(true), use_meshopt(false), compression_level(3), pos_mantissa_bits(16), uv_mantissa_bits(10), meshopt_vertex_version(1) {}
+		WriteOptions() : use_compression(true), use_meshopt(false), compression_level(3), pos_mantissa_bits(16), uv_mantissa_bits(10), meshopt_vertex_version(1), write_mesh_version_2(false) {}
 		bool use_compression;
 		bool use_meshopt;
 		int compression_level; // Zstandard compression level.  Zstandard default compression level is 3.
 		int pos_mantissa_bits; // For meshopt filtering.  Should be >= 1 and <= 24.
 		int uv_mantissa_bits;  // For meshopt filtering.  Should be >= 1 and <= 24.
 		int meshopt_vertex_version; // Can be 0 or 1.  Default is 1.
+		bool write_mesh_version_2; // Write an older batched mesh version for backwards compatibility.  Default is false.
 	};
 	void writeToFile(const std::string& dest_path, const WriteOptions& write_options = WriteOptions()) const;
+
+	void writeToOutStream(OutStream& out_stream, const WriteOptions& write_options) const;
 
 	/// Read a BatchedMesh object from disk.
 	/// Memory allocator param can be null.

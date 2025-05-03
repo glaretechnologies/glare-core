@@ -819,6 +819,28 @@ struct BatchedMeshHeader
 static_assert(sizeof(BatchedMeshHeader) == sizeof(uint32) * 15, "sizeof(BatchedMeshHeader) == sizeof(uint32) * 15");
 
 
+static void getAttributeData(const BatchedMesh& mesh, const BatchedMesh::VertAttribute& attr, glare::AllocatorVector<uint8>& data_out)
+{
+	const size_t vert_size = mesh.vertexSize(); // in bytes
+	const size_t num_verts = mesh.numVerts();
+
+	const size_t attr_size = mesh.vertAttributeSize(attr);
+
+	data_out.resize(attr_size * num_verts);
+	uint8* dst_ptr = data_out.data();
+
+	const uint8* src_ptr = mesh.vertex_data.data() + attr.offset_B;
+
+	for(size_t i=0; i<num_verts; ++i) // For each vertex
+	{
+		std::memcpy(dst_ptr, src_ptr, attr_size);
+
+		src_ptr += vert_size;
+		dst_ptr += attr_size;
+	}
+}
+
+
 // Encode some raw vertex data for an attribute with meshopt (using meshopt_encodeVertexBuffer),
 // then compress with Zstandard.
 static void encodeAndCompressData(const BatchedMesh& mesh, const glare::AllocatorVector<uint8>& filtered_data_in, js::Vector<uint8>& compressed_data_out, int compression_level, int meshopt_vertex_version)
@@ -874,19 +896,31 @@ static const bool PRINT_STATS = false;
 
 void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& write_options) const // throws glare::Exception on failure
 {
-	//Timer write_timer;
-
 	const size_t num_verts = numVerts();
 	if(num_verts == 0)
 		throw glare::Exception("BatchedMesh::writeToFile(): mesh must have at least one vertex.");
 
 	FileOutStream file(dest_path);
 
+	writeToOutStream(file, write_options);
+}
+
+
+void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_options) const
+{
+	//Timer write_timer;
+
+	const size_t num_verts = numVerts();
+	if(num_verts == 0)
+		throw glare::Exception("BatchedMesh::writeToOutStream(): mesh must have at least one vertex.");
+
+	const bool compress_vert_attributes_together = !write_options.write_mesh_version_2;
+
 	BatchedMeshHeader header;
 	header.magic_number = MAGIC_NUMBER;
 	header.format_version = FORMAT_VERSION;
 	header.header_size = sizeof(BatchedMeshHeader);
-	header.flags = (write_options.use_compression ? FLAG_USE_COMPRESSION : 0) | (write_options.use_meshopt ? FLAG_USE_MESHOPT : 0) | FLAG_COMPRESS_VERT_ATTRIBUTES_TOGETHER;
+	header.flags = (write_options.use_compression ? FLAG_USE_COMPRESSION : 0) | (write_options.use_meshopt ? FLAG_USE_MESHOPT : 0) | (compress_vert_attributes_together ? FLAG_COMPRESS_VERT_ATTRIBUTES_TOGETHER : 0);
 	header.num_vert_attributes = (uint32)vert_attributes.size();
 	header.num_batches = (uint32)batches.size();
 	header.index_type = (uint32)index_type;
@@ -937,7 +971,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				}
 				else
 				{
-					assert(index_type  == ComponentType_UInt32);
+					assert(index_type == ComponentType_UInt32);
 				}
 				const uint32* uint32_indices_data = uint32_indices.empty() ? (const uint32*)this->index_data.data() : uint32_indices.data();
 
@@ -965,6 +999,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 			}
 
 			// Compress and write vertex data
+			if(compress_vert_attributes_together)
 			{
 				// We will compress all attributes together.
 				glare::AllocatorVector<uint8, 16> combined_filtered = vertex_data;
@@ -995,7 +1030,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 					}
 				}
 				else
-					runtimeCheck(0);
+					throw glare::Exception("BatchedMesh::writeToFile(): pos_attr must be float or uint16.");
 
 				//--------------------------------------- filter normals ---------------------------------------
 				{
@@ -1104,7 +1139,132 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				file.writeData(compressed_data.data(), compressed_data.size());
 
 				if(PRINT_STATS) conPrint("combined attribute compressed size: " + toString(compressed_data.size()) + " B");
-				if(PRINT_STATS) conPrint("File offset after writing attributes: " + toString(file.getWriteIndex()) + " B");
+				//if(PRINT_STATS) conPrint("File offset after writing attributes: " + toString(file.getWriteIndex()) + " B");
+			}
+			else // else if !compress_vert_attributes_together:
+			{
+				// Throw an excep if there is an attribute we don't support encoding of yet.
+				if(findAttribute(VertAttribute_Colour))
+					throw glare::Exception("VertAttribute_Colour not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_UV_1))
+					throw glare::Exception("VertAttribute_UV_1 not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_Joints))
+					throw glare::Exception("VertAttribute_Joints not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_Weights))
+					throw glare::Exception("VertAttribute_Weights not handled with meshopt encoding.");
+				if(findAttribute(VertAttribute_Tangent))
+					throw glare::Exception("VertAttribute_Tangent not handled with meshopt encoding.");
+
+				glare::AllocatorVector<uint8> attr_data;
+
+				//--------------------------------------- Compress and write positions ---------------------------------------
+				{
+					const VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
+					getAttributeData(*this, pos_attr, attr_data);
+
+					// meshopt filter
+					glare::AllocatorVector<uint8> filtered(attr_data.size());
+					meshopt_encodeFilterExp(filtered.data(), /*count=*/num_verts, /*stride=*/vertAttributeSize(pos_attr),
+						/*bits=*/write_options.pos_mantissa_bits, (const float*)attr_data.data(), meshopt_EncodeExpSharedComponent);
+
+					js::Vector<uint8> compressed_data;
+					encodeAndCompressData(*this, filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level, write_options.meshopt_vertex_version);
+
+					// Write to output stream / disk
+					file.writeUInt32((uint32)compressed_data.size());
+					file.writeData(compressed_data.data(), compressed_data.size());
+				}
+
+				//--------------------------------------- Compress and write normals ---------------------------------------
+				{
+					const VertAttribute* normal_attr = findAttribute(VertAttribute_Normal);
+					if(normal_attr)
+					{
+						getAttributeData(*this, *normal_attr, attr_data);
+
+						// Unpack normals:
+						js::Vector<Vec4f> unpacked_n(num_verts);
+						if(normal_attr->component_type == ComponentType_PackedNormal)
+						{
+							for(size_t i=0; i<num_verts; ++i)
+								unpacked_n[i] = batchedMeshUnpackNormal(((const uint32*)attr_data.data())[i]);
+						}
+						else if(normal_attr->component_type == ComponentType_Float)
+						{
+							for(size_t i=0; i<num_verts; ++i)
+								unpacked_n[i] = Vec4f(((const float*)attr_data.data())[0], ((const float*)attr_data.data())[1], ((const float*)attr_data.data())[2], 0);
+						}
+						else
+							throw glare::Exception("Unhandled normal component type");
+
+						// meshopt filter
+						glare::AllocatorVector<uint8> filtered(num_verts * 4);
+						meshopt_encodeFilterOct(filtered.data(), /*count=*/num_verts, /*stride=*/4, /*bits=*/8, (const float*)unpacked_n.data());
+
+						js::Vector<uint8> compressed_data;
+						encodeAndCompressData(*this, filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level, write_options.meshopt_vertex_version);
+
+						// Write to output stream / disk
+						file.writeUInt32((uint32)compressed_data.size());
+						file.writeData(compressed_data.data(), compressed_data.size());
+					}
+				}
+				
+				//--------------------------------------- Compress and write UV 0 ---------------------------------------
+				{
+					const VertAttribute* attr = findAttribute(VertAttribute_UV_0);
+					if(attr)
+					{
+						getAttributeData(*this, *attr, attr_data);
+
+						// meshopt filter
+						glare::AllocatorVector<uint8> filtered(num_verts * sizeof(Vec2f));
+						if(attr->component_type == ComponentType_Half)
+						{
+							js::Vector<float> float_uvs(num_verts * 2);
+							for(size_t i=0; i<num_verts*2; ++i)
+								float_uvs[i] = (float)(((const half*)attr_data.data())[i]);
+
+							meshopt_encodeFilterExp(filtered.data(), /*count=*/num_verts, /*stride=*/sizeof(Vec2f), /*bits=*/write_options.uv_mantissa_bits, 
+								float_uvs.data(), /*meshopt_EncodeExpSharedComponent*/meshopt_EncodeExpSharedVector); // NOTE: NaNs wreck all UVs with meshopt_EncodeExpSharedComponent
+						}
+						else if(attr->component_type == ComponentType_Float)
+						{
+							meshopt_encodeFilterExp(filtered.data(), /*count=*/num_verts, /*stride=*/vertAttributeSize(*attr), /*bits=*/write_options.uv_mantissa_bits, 
+								(const float*)attr_data.data(), /*meshopt_EncodeExpSharedComponent*/meshopt_EncodeExpSharedVector); // NOTE: NaNs wreck all UVs with meshopt_EncodeExpSharedComponent
+						}
+						else
+							throw glare::Exception("Unhandled UV 0 type.");
+
+						js::Vector<uint8> compressed_data;
+						encodeAndCompressData(*this, filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level, write_options.meshopt_vertex_version);
+
+						// Write to output stream / disk
+						file.writeUInt32((uint32)compressed_data.size());
+						file.writeData(compressed_data.data(), compressed_data.size());
+
+						if(PRINT_STATS) conPrint("UV 0: compressed size: " + toString(compressed_data.size()) + " B");
+					}
+				}
+
+				//--------------------------------------- Compress and write mat index ---------------------------------------
+				{
+					const VertAttribute* attr = findAttribute(VertAttribute_MatIndex);
+					if(attr)
+					{
+						getAttributeData(*this, *attr, attr_data);
+
+						js::Vector<uint8> compressed_data;
+						//glare::AllocatorVector<uint8> use_attr_data
+						encodeAndCompressData(*this, attr_data, /*compressed_data_out=*/compressed_data, write_options.compression_level, write_options.meshopt_vertex_version);
+
+						// Write to output stream / disk
+						file.writeUInt32((uint32)compressed_data.size());
+						file.writeData(compressed_data.data(), compressed_data.size());
+					}
+				}
+
+				// TODO: other attributes
 			}
 		}
 		else
@@ -1211,7 +1371,7 @@ void BatchedMesh::writeToFile(const std::string& dest_path, const WriteOptions& 
 				for(size_t b=0; b<vert_attributes.size(); ++b)
 				{
 					const size_t attr_size = vertAttributeSize(vert_attributes[b]);
-					runtimeCheck(attr_size % 4 == 0);
+					checkProperty(attr_size % 4 == 0, "attribute sizes must be a multiple of 4 when saving without meshopt.");
 					const uint8* src_ptr = vertex_data.data() + attr_offset;
 
 					for(size_t i=0; i<num_verts; ++i) // For each vertex
