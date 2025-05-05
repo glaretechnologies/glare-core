@@ -21,6 +21,7 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include "../utils/TestExceptionUtils.h"
+#include "../utils/BufferOutStream.h"
 #include "../maths/vec2.h"
 #include <algorithm>
 #include "../meshoptimizer/src/meshoptimizer.h"
@@ -260,6 +261,29 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 	return 0;
 }
 
+
+static void fuzzWritingMeshToStream(BatchedMeshRef batched_mesh)
+{
+	BufferOutStream buffer_out_stream;
+
+	// Write without meshoptimizer compression
+	BatchedMesh::WriteOptions options;
+	options.use_meshopt = false;
+	batched_mesh->writeToOutStream(buffer_out_stream, options);
+
+	// Write with meshoptimizer compression
+	buffer_out_stream.clear();
+	options.use_meshopt = true;
+	batched_mesh->writeToOutStream(buffer_out_stream, options);
+
+	// Write with meshoptimizer compression, but writing to old format.
+	buffer_out_stream.clear();
+	options.use_meshopt = true;
+	options.write_mesh_version_2 = true;
+	batched_mesh->writeToOutStream(buffer_out_stream, options);
+}
+
+
 //static int iter = 0;
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
@@ -268,6 +292,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 		BatchedMeshRef batched_mesh = BatchedMesh::readFromData(data, size, /*allocator=*/NULL);
 
 		batched_mesh->checkValidAndSanitiseMesh();
+
+		fuzzWritingMeshToStream(batched_mesh);
+
+		batched_mesh->doMeshOptimizerOptimisations();
+
+		batched_mesh = batched_mesh->buildQuantisedMesh(BatchedMesh::QuantiseOptions());
+
+		fuzzWritingMeshToStream(batched_mesh);
 	}
 	catch(glare::Exception& )
 	{
@@ -287,16 +319,27 @@ static BatchedMeshRef makeMesh()
 
 	mesh->batches.resize(1);
 	mesh->batches[0].indices_start = 0;
-	mesh->batches[0].num_indices = 9;
+	mesh->batches[0].num_indices = 3;
 	mesh->batches[0].material_index = 0;
 
-	mesh->index_type = BatchedMesh::ComponentType_UInt16;
-	const uint16 indices[] = { 0, 1, 2 };
-	mesh->index_data.resize(sizeof(indices));
-	std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
-	/*mesh->index_data.push_back(0);
-	mesh->index_data.push_back(1);
-	mesh->index_data.push_back(2);*/
+	//{
+	//	mesh->index_type = BatchedMesh::ComponentType_UInt8;
+	//	const uint8 indices[] = { 0, 1, 2 };
+	//	mesh->index_data.resize(sizeof(indices));
+	//	std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
+	//}
+	//{
+	//	mesh->index_type = BatchedMesh::ComponentType_UInt16;
+	//	const uint16 indices[] = { 0, 1, 2 };
+	//	mesh->index_data.resize(sizeof(indices));
+	//	std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
+	//}
+	{
+		mesh->index_type = BatchedMesh::ComponentType_UInt32;
+		const uint32 indices[] = { 0, 1, 2 };
+		mesh->index_data.resize(sizeof(indices));
+		std::memcpy(mesh->index_data.data(), indices, sizeof(indices));
+	}
 
 	const float vert_positions[] = { 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f };
 	mesh->vertex_data.resize(sizeof(vert_positions));
@@ -310,6 +353,60 @@ static BatchedMeshRef makeMesh()
 void BatchedMeshTests::test()
 {
 	conPrint("BatchedMeshTests::test()");
+
+
+	//--------------------------------- Test --------------------------------------
+	{
+		Reference<BatchedMesh> mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/chunk_128_0_0_no_mesh_opt.bmesh", /*mem allocator=*/NULL);
+
+		//mesh->doMeshOptimizerOptimisations();
+
+		{
+			BatchedMesh::WriteOptions options;
+			options.write_mesh_version_2 = true; // Write older batched mesh version for backwards compatibility
+			options.compression_level = 19;
+			options.use_meshopt = true;
+			options.meshopt_vertex_version = 0; // For backwards compat.
+			options.pos_mantissa_bits = 14;
+			options.uv_mantissa_bits = 8;
+			mesh->writeToFile("d:/models/chunk_128_0_0_saved_old.bmesh", options);
+		}
+
+		BatchedMesh::QuantiseOptions quantise_options;
+		quantise_options.pos_bits = 13;
+		quantise_options.uv_bits = 7;
+		mesh = mesh->buildQuantisedMesh(quantise_options);
+
+		{
+			BatchedMesh::WriteOptions options;
+			options.compression_level = 19;
+			options.use_meshopt = true;
+			mesh->writeToFile("d:/models/chunk_128_0_0_saved_new.bmesh", options);
+		}
+	}
+
+
+	/*{
+		BatchedMeshRef mesh = makeMesh();
+		BatchedMesh::WriteOptions options;
+		options.use_meshopt = false;
+		mesh->writeToFile("uint32_indices.bmesh", options);
+		options.use_meshopt = true;
+		mesh->writeToFile("uint32_indices_meshopt.bmesh", options);
+	}*/
+
+	//{
+	//	BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/crash-b3f4213fe9600cb20e3718a9d1cc12c0e4890e19", /*mem allocator=*/NULL);
+	//	mesh->checkValidAndSanitiseMesh();
+	//	mesh->doMeshOptimizerOptimisations();
+	//}
+	//
+	//{
+	//	BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/uint32_indices_meshopt.bmesh", /*mem allocator=*/NULL);
+	//	testAssert(mesh->numVerts() == 3);
+	//	mesh->checkValidAndSanitiseMesh();
+	//	mesh->doMeshOptimizerOptimisations();
+	//}
 
 
 	//--------------------------------- Test --------------------------------------
@@ -336,6 +433,14 @@ void BatchedMeshTests::test()
 		quantised->writeToFile("d:/models/aphrodite_of_milos_quantised.bmesh", options);
 	}*/
 
+	//-------------------------------------- Test mesh opt optimisation --------------------------------------
+	// This mesh optimises very slowly due to a large number of batches (~20K)
+//	{
+//		BatchedMeshRef mesh = BatchedMesh::readFromFile("d:/models/bad_apple_gds_gltf_6702597202647741355.bmesh", NULL);
+//
+//		mesh->doMeshOptimizerOptimisations();
+//	}
+
 
 	//--------------------------------- Test buildQuantisedMesh --------------------------------------
 
@@ -343,7 +448,7 @@ void BatchedMeshTests::test()
 	{
 		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/image_cube_12956189774619553609.bmesh", NULL);
 
-		Reference<BatchedMesh> quantised = mesh->buildQuantisedMesh();
+		Reference<BatchedMesh> quantised = mesh->buildQuantisedMesh(BatchedMesh::QuantiseOptions());
 		testAssert(quantised->vert_attributes.size() == 2);
 		testAssert(quantised->vert_attributes[0].offset_B == 0);
 		testAssert(quantised->vert_attributes[1].offset_B == 8);
@@ -369,7 +474,7 @@ void BatchedMeshTests::test()
 	{
 		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/chunk_128_0_2.bmesh", NULL);
 
-		Reference<BatchedMesh> quantised = mesh->buildQuantisedMesh();
+		Reference<BatchedMesh> quantised = mesh->buildQuantisedMesh(BatchedMesh::QuantiseOptions());
 
 		testAssert(quantised->vert_attributes.size() == 4);
 		testAssert(quantised->vert_attributes[0].offset_B == 0);
@@ -416,7 +521,7 @@ void BatchedMeshTests::test()
 
 		BatchedMeshRef batched_mesh = BatchedMesh::buildFromIndigoMesh(m);
 
-		Reference<BatchedMesh> quantised = batched_mesh->buildQuantisedMesh();
+		Reference<BatchedMesh> quantised = batched_mesh->buildQuantisedMesh(BatchedMesh::QuantiseOptions());
 		testAssert(quantised->vertexSize() == sizeof(uint16) * 4);// The uint16*3 should be padded up to 8 bytes.
 		testAssert(quantised->vert_attributes.size() == 1);
 		testAssert(quantised->vert_attributes[0].offset_B == 0);

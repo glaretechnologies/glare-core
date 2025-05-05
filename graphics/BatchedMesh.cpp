@@ -914,11 +914,12 @@ void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_op
 	if(num_verts == 0)
 		throw glare::Exception("BatchedMesh::writeToOutStream(): mesh must have at least one vertex.");
 
+	const uint32 version_to_write = write_options.write_mesh_version_2 ? 2 : FORMAT_VERSION;
 	const bool compress_vert_attributes_together = !write_options.write_mesh_version_2;
 
 	BatchedMeshHeader header;
 	header.magic_number = MAGIC_NUMBER;
-	header.format_version = FORMAT_VERSION;
+	header.format_version = version_to_write;
 	header.header_size = sizeof(BatchedMeshHeader);
 	header.flags = (write_options.use_compression ? FLAG_USE_COMPRESSION : 0) | (write_options.use_meshopt ? FLAG_USE_MESHOPT : 0) | (compress_vert_attributes_together ? FLAG_COMPRESS_VERT_ATTRIBUTES_TOGETHER : 0);
 	header.num_vert_attributes = (uint32)vert_attributes.size();
@@ -931,8 +932,11 @@ void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_op
 
 	file.writeData(&header, sizeof(BatchedMeshHeader));
 
-	file.writeFloat(uv0_scale);
-	file.writeFloat(uv1_scale);
+	if(version_to_write >= 3)
+	{
+		file.writeFloat(uv0_scale);
+		file.writeFloat(uv1_scale);
+	}
 
 	// Write vert attributes
 	for(size_t i=0; i<vert_attributes.size(); ++i)
@@ -1007,129 +1011,6 @@ void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_op
 				if(vertex_size % 4 != 0)
 					throw glare::Exception("Vertex size must be a multiple of 4 bytes for meshopt compression.");
 
-				//--------------------------------------- filter positions ---------------------------------------
-				const VertAttribute& pos_attr = getAttribute(VertAttribute_Position);
-				checkProperty(pos_attr.offset_B == 0, "pos_attr.offset_B != 0");
-				if(pos_attr.component_type == ComponentType_Float)
-				{
-					// meshopt filter
-					//meshopt_encodeFilterExp(/*destination=*/combined_filtered.data(), /*count=*/num_verts, /*stride=*/vertex_size,
-					//	/*bits=*/write_options.pos_mantissa_bits, /*data=*/(const float*)vertex_data.data(), meshopt_EncodeExpSharedComponent);
-				}
-				else if(pos_attr.component_type == ComponentType_UInt16)
-				{
-					// Leave as-is, apart from zeroing out some of the least significant bits if requested.
-					const int num_bits_to_zero = myMax(0, 16 - write_options.pos_mantissa_bits);
-					for(size_t i=0; i<num_verts; ++i)
-					{
-						uint16* pos = (uint16*)(combined_filtered.data() + i * vertex_size);
-						
-						pos[0] = (pos[0] >> num_bits_to_zero) << num_bits_to_zero;
-						pos[1] = (pos[1] >> num_bits_to_zero) << num_bits_to_zero;
-						pos[2] = (pos[2] >> num_bits_to_zero) << num_bits_to_zero;
-					}
-				}
-				else
-					throw glare::Exception("BatchedMesh::writeToFile(): pos_attr must be float or uint16.");
-
-				//--------------------------------------- filter normals ---------------------------------------
-				{
-					const VertAttribute* normal_attr = findAttribute(VertAttribute_Normal);
-					if(normal_attr)
-					{
-						// Unpack normals:
-						//js::Vector<Vec4f> unpacked_n(num_verts);
-						//js::Vector<uint8> temp_filtered(num_verts * 4);
-						if(normal_attr->component_type == ComponentType_PackedNormal)
-						{
-							// Leave as-is
-							
-							//for(size_t i=0; i<num_verts; ++i)
-							//	unpacked_n[i] = batchedMeshUnpackNormal(((const uint32*)vertex_data[normal_attr->offset_B + i * vertex_size])[i]);
-							//
-							//// meshopt filter
-							//meshopt_encodeFilterOct(/*destination=*/temp_filtered.data(), /*count=*/num_verts, /*stride=*/4, /*bits=*/8, /*data=*/(const float*)unpacked_n.data());
-							//
-							//// Copy temp-filtered data to combined_filtered
-							//for(size_t i=0; i<num_verts; ++i)
-							//	std::memcpy(&combined_filtered[normal_attr->offset_B + i * vertex_size], &temp_filtered[i * num_verts * 4], sizeof(uint8) * 3);
-						}
-						else if(normal_attr->component_type == ComponentType_Float)
-						{
-						//	for(size_t i=0; i<num_verts; ++i)
-						//		unpacked_n[i] = Vec4f(
-						//			((const float*)vertex_data[normal_attr->offset_B + i * vertex_size])[0], 
-						//			((const float*)vertex_data[normal_attr->offset_B + i * vertex_size])[1], 
-						//			((const float*)vertex_data[normal_attr->offset_B + i * vertex_size])[2], 0);
-						//
-						//	// meshopt filter
-						//	meshopt_encodeFilterOct(/*destination=*/temp_filtered.data(), /*count=*/num_verts, /*stride=*/4, /*bits=*/8, (const float*)unpacked_n.data());
-						//
-						//	// TODO: Copy temp-filtered data to filtered
-						}
-						else if(normal_attr->component_type == ComponentType_UInt8)
-						{
-							// leave as-is
-						}
-						else if(normal_attr->component_type == ComponentType_Oct16)
-						{
-							// leave as-is
-						}
-						else
-							throw glare::Exception("BatchedMesh::writeToFile(): Unhandled normal component type: " + componentTypeString(normal_attr->component_type));
-					}
-				}
-
-				auto filterUVs = [](const BatchedMesh::VertAttribute* uv_attr, glare::AllocatorVector<uint8, 16>& combined_filtered, const BatchedMesh* mesh, size_t num_verts, size_t vert_size, int uv_mantissa_bits) -> void
-				{
-					if(uv_attr)
-					{
-						if(uv_attr->component_type == ComponentType_Half)
-						{
-						//	// Convert half data to float temporarily
-						//	js::Vector<Vec2f> float_uvs(num_verts);
-						//	for(size_t i=0; i<num_verts; ++i)
-						//	{
-						//		const half* half_uv0 = (const half*)(&mesh->vertex_data[uv_attr->offset_B + i * vert_size]);
-						//		float_uvs[i].x = (float)half_uv0[0];
-						//		float_uvs[i].y = (float)half_uv0[1];
-						//	}
-						//
-						//	meshopt_encodeFilterExp(/*destination=*/combined_filtered.data() + uv_attr->offset_B, /*count=*/num_verts, /*stride=*/vert_size, /*bits=*/uv_mantissa_bits,
-						//		/*data=*/(const float*)float_uvs.data(), /*meshopt_EncodeExpSharedComponent*/meshopt_EncodeExpSharedVector); // NOTE: NaNs wreck all UVs with meshopt_EncodeExpSharedComponent
-						}
-						else if(uv_attr->component_type == ComponentType_Float)
-						{
-						//	//meshopt_encodeFilterExp(filtered.data(), /*count=*/num_verts, /*stride=*/vertAttributeSize(*attr), /*bits=*/write_options.uv_mantissa_bits, 
-						//	//	(const float*)attr_data.data(), /*meshopt_EncodeExpSharedComponent*/meshopt_EncodeExpSharedVector); // NOTE: NaNs wreck all UVs with meshopt_EncodeExpSharedComponent
-						//
-						//	meshopt_encodeFilterExp(/*destination=*/combined_filtered.data() + uv_attr->offset_B, /*count=*/num_verts, /*stride=*/vert_size, /*bits=*/uv_mantissa_bits,
-						//		/*data=*/(const float*)(mesh->vertex_data.data() + uv_attr->offset_B), /*meshopt_EncodeExpSharedComponent*/meshopt_EncodeExpSharedVector); // NOTE: NaNs wreck all UVs with meshopt_EncodeExpSharedComponent
-						}
-						else if(uv_attr->component_type == ComponentType_UInt16)
-						{
-							// zero-out some lower bits of the uvs
-							for(size_t i=0; i<num_verts; ++i)
-							{
-								uint16* uv = (uint16*)(combined_filtered.data() + uv_attr->offset_B + i * vert_size);
-								const int bits_to_zero = myMax(0, 16 - uv_mantissa_bits);
-								uv[0] = (uv[0] >> bits_to_zero) << bits_to_zero;
-								uv[1] = (uv[1] >> bits_to_zero) << bits_to_zero;
-							}
-						}
-						else
-							throw glare::Exception("Unhandled UV 0 type.");
-					}
-				};
-
-				//--------------------------------------- filter UV 0 ---------------------------------------
-				const VertAttribute* uv0_attr = findAttribute(VertAttribute_UV_0);
-				filterUVs(uv0_attr, combined_filtered, this, num_verts, vertex_size, write_options.uv_mantissa_bits);
-
-				//--------------------------------------- filter UV 1 ---------------------------------------
-				const VertAttribute* uv1_attr = findAttribute(VertAttribute_UV_1);
-				filterUVs(uv1_attr, combined_filtered, this, num_verts, vertex_size, write_options.uv_mantissa_bits);
-
 				// Compress combined, filtered data with meshopt_encodeVertexBuffer and zstd.				
 				js::Vector<uint8> compressed_data;
 				encodeAndCompressData(*this, combined_filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level, write_options.meshopt_vertex_version);
@@ -1173,6 +1054,8 @@ void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_op
 					// Write to output stream / disk
 					file.writeUInt32((uint32)compressed_data.size());
 					file.writeData(compressed_data.data(), compressed_data.size());
+
+					if(PRINT_STATS) conPrint("positions: compressed size: " + toString(compressed_data.size()) + " B");
 				}
 
 				//--------------------------------------- Compress and write normals ---------------------------------------
@@ -1207,6 +1090,8 @@ void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_op
 						// Write to output stream / disk
 						file.writeUInt32((uint32)compressed_data.size());
 						file.writeData(compressed_data.data(), compressed_data.size());
+
+						if(PRINT_STATS) conPrint("vert normals: compressed size: " + toString(compressed_data.size()) + " B");
 					}
 				}
 				
@@ -1261,6 +1146,8 @@ void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_op
 						// Write to output stream / disk
 						file.writeUInt32((uint32)compressed_data.size());
 						file.writeData(compressed_data.data(), compressed_data.size());
+
+						if(PRINT_STATS) conPrint("Mat index: compressed size: " + toString(compressed_data.size()) + " B");
 					}
 				}
 
@@ -2381,7 +2268,7 @@ void BatchedMesh::doMeshOptimizerOptimisations()
 }
 
 
-Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
+Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh(const QuantiseOptions& quantise_options) const
 {
 	Reference<BatchedMesh> new_mesh = new BatchedMesh();
 
@@ -2492,6 +2379,7 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 	if(old_pos_attr.component_type == ComponentType_Float)
 	{
 		const Vec4f scale = div(Vec4f(65535.f), (this->aabb_os.max_ - this->aabb_os.min_));
+		const uint16 num_bits_to_zero = (uint16)myMax(0, 16 - quantise_options.pos_bits);
 
 		for(size_t i=0; i<num_verts; ++i)
 		{
@@ -2501,7 +2389,10 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 			const Vec4f scaled_and_clamped = clamp((src.toVec4fVector() - this->aabb_os.min_) * scale, Vec4f(0), Vec4f(65535.f)); // Scale to [0.f, 65535.f]
 			uint16 quantised_v[3];
 			for(int c=0; c<3; ++c)
-				quantised_v[c] = (uint16)(scaled_and_clamped[c] + 0.5f);
+			{
+				const uint16 quantised = (uint16)(scaled_and_clamped[c] + 0.5f);
+				quantised_v[c] = (quantised >> num_bits_to_zero) << num_bits_to_zero; // zero out some of the least significant bits if requested.
+			}
 
 			std::memcpy(&new_mesh->vertex_data[new_pos_attrib.offset_B + i * new_vert_size], quantised_v, sizeof(uint16) * 3); // Copy to new vertex data
 		}
@@ -2559,7 +2450,7 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 
 	// Returns uv_scale
 	auto convertUVs = [](const BatchedMesh::VertAttribute* old_uv_attr, BatchedMesh::VertAttribute& new_uv_attr, BatchedMesh* new_mesh, const BatchedMesh* old_mesh,
-		size_t num_verts, size_t old_vert_size, size_t new_vert_size) -> float
+		size_t num_verts, size_t old_vert_size, size_t new_vert_size, int uv_bits) -> float
 	{
 		float uv_scale = 1.f;
 		if(old_uv_attr)
@@ -2584,6 +2475,8 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 				const float quantisation_scale = 1.f / max_use_uv_coord;
 				uv_scale = max_use_uv_coord / 65535.f;
 
+				const uint16 num_bits_to_zero = (uint16)myMax(0, 16 - uv_bits);
+
 				// Convert to uint16*2 with quantisation_scale
 				assert(new_uv_attr.component_type == ComponentType_UInt16);
 				for(size_t i=0; i<num_verts; ++i)
@@ -2592,10 +2485,13 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 					std::memcpy(&old_val, &old_mesh->vertex_data[old_uv_attr->offset_B + i * old_vert_size], sizeof(Vec2f));
 
 					const Vec2f new_val = (old_val + uv_translation) * quantisation_scale;
-					const uint16 quantised[2] = {
+					uint16 quantised[2] = {
 						(uint16)meshopt_quantizeUnorm(new_val.x, /*bits=*/16),
 						(uint16)meshopt_quantizeUnorm(new_val.y, /*bits=*/16)
 					};
+					quantised[0] = (quantised[0] >> num_bits_to_zero) << num_bits_to_zero; // zero out some of the least significant bits if requested.
+					quantised[1] = (quantised[1] >> num_bits_to_zero) << num_bits_to_zero; // zero out some of the least significant bits if requested.
+
 					std::memcpy(&new_mesh->vertex_data[new_uv_attr.offset_B + i * new_vert_size], quantised, sizeof(uint16) * 2);
 				}
 			}
@@ -2620,6 +2516,8 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 				const float quantisation_scale = 1.f / max_use_uv_coord;
 				uv_scale = max_use_uv_coord / 65535.f;
 
+				const uint16 num_bits_to_zero = (uint16)myMax(0, 16 - uv_bits);
+
 				// Convert to uint16*2 with quantisation_scale
 				assert(new_uv_attr.component_type == ComponentType_UInt16);
 				for(size_t i=0; i<num_verts; ++i)
@@ -2629,10 +2527,13 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 
 					Vec2f old_val((float)old_half_val[0], (float)old_half_val[1]);
 					const Vec2f new_val = (old_val + uv_translation) * quantisation_scale;
-					const uint16 quantised[2] = {
+					uint16 quantised[2] = {
 						(uint16)meshopt_quantizeUnorm(new_val.x, /*bits=*/16),
 						(uint16)meshopt_quantizeUnorm(new_val.y, /*bits=*/16)
 					};
+					quantised[0] = (quantised[0] >> num_bits_to_zero) << num_bits_to_zero; // zero out some of the least significant bits if requested.
+					quantised[1] = (quantised[1] >> num_bits_to_zero) << num_bits_to_zero; // zero out some of the least significant bits if requested.
+
 					std::memcpy(&new_mesh->vertex_data[new_uv_attr.offset_B + i * new_vert_size], quantised, sizeof(uint16) * 2);
 				}
 			}
@@ -2642,10 +2543,10 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 	};
 
 	// UV 0
-	new_mesh->uv0_scale = convertUVs(old_uv0_attr, new_uv0_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
+	new_mesh->uv0_scale = convertUVs(old_uv0_attr, new_uv0_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size, quantise_options.uv_bits);
 
 	// UV 1
-	new_mesh->uv1_scale = convertUVs(old_uv1_attr, new_uv1_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
+	new_mesh->uv1_scale = convertUVs(old_uv1_attr, new_uv1_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size, quantise_options.uv_bits);
 
 	// Joints
 	copyAttribute(old_joints_attr, new_joints_attr, new_mesh.ptr(), this, num_verts, old_vert_size, new_vert_size);
@@ -2666,8 +2567,6 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh() const
 	new_mesh->index_type = this->index_type;
 	new_mesh->aabb_os = this->aabb_os;
 	new_mesh->animation_data = this->animation_data;
-
-	new_mesh->doMeshOptimizerOptimisations();
 
 	return new_mesh;
 }
