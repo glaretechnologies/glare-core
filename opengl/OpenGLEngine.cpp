@@ -2511,11 +2511,10 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		
 	//------------------------------------------- Build outline (no skinning) prog -------------------------------------------
 	{
-		const std::string use_preprocessor_defines = preprocessor_defines + "#define SKINNING 0\n";
 		outline_prog_no_skinning = new OpenGLProgram(
 			"outline_prog_no_skinning",
-			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(use_shader_dir + "/outline_vert_shader.glsl", version_directive, preprocessor_defines_with_common_vert_structs + "#define SKINNING 0\n", GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/outline_frag_shader.glsl", version_directive, preprocessor_defines                          + "#define SKINNING 0\n", GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
@@ -7493,7 +7492,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 			// Update shared uniforms
 			{
 				SharedVertUniforms uniforms;
-				std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
+				std::memset((void*)&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
 				uniforms.proj_matrix = proj_matrix;
 				uniforms.view_matrix = view_matrix;
 				uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);
@@ -7788,7 +7787,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 				// Update shared uniforms
 				{
 					SharedVertUniforms uniforms;
-					std::memset(&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
+					std::memset((void*)&uniforms, 0, sizeof(SharedVertUniforms)); // Zero because we are not going to set all uniforms.
 					uniforms.proj_matrix = proj_matrix;
 					uniforms.view_matrix = view_matrix;
 					uniforms.campos_ws = current_scene->cam_to_world.getColumn(3);

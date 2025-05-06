@@ -28,10 +28,10 @@ void main()
 #if SKINNING
 	// See https://www.khronos.org/files/gltf20-reference-guide.pdf
 	mat4 skin_matrix =
-		weight.x * joint_matrix[int(joint.x & 0xFF)] +
-		weight.y * joint_matrix[int(joint.y & 0xFF)] +
-		weight.z * joint_matrix[int(joint.z & 0xFF)] +
-		weight.w * joint_matrix[int(joint.w & 0xFF)];
+		weight.x * joint_matrix[int(joint.x & 0xFFu)] +
+		weight.y * joint_matrix[int(joint.y & 0xFFu)] +
+		weight.z * joint_matrix[int(joint.z & 0xFFu)] +
+		weight.w * joint_matrix[int(joint.w & 0xFFu)];
 
 	gl_Position = proj_matrix * (view_matrix * (per_object_data.model_matrix * (skin_matrix * pos_os)));
 #else

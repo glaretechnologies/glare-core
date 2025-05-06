@@ -114,7 +114,7 @@ void main()
 	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
 	int joints_base_index = ob_and_mat_indices[gl_DrawID * 4 + 1];
 	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
-	uint joint_index_mask = 0xFFFFFFFF;
+	uint joint_index_mask = 0xFFFFFFFFu;
 	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
 	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
 	float depth_draw_depth_bias = per_object_data[per_ob_data_index].depth_draw_depth_bias;
@@ -122,7 +122,7 @@ void main()
 	vec4 dequantise_trans = per_object_data[per_ob_data_index].dequantise_translation;
 #else
 	int joints_base_index = 0;
-	uint joint_index_mask = 0xFF; // Without MDI, joint_matrix has max length 256.  Make sure we don't read out-of-bounds.
+	uint joint_index_mask = 0xFFu; // Without MDI, joint_matrix has max length 256.  Make sure we don't read out-of-bounds.
 	mat4 model_matrix  = per_object_data.model_matrix;
 	mat4 normal_matrix = per_object_data.normal_matrix;
 	float depth_draw_depth_bias = per_object_data.depth_draw_depth_bias;
