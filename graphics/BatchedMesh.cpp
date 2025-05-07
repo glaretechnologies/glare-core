@@ -1497,13 +1497,6 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 					if(meshopt_decodeVertexBuffer(/*destination=*/batched_mesh->vertex_data.data(), num_verts, /*vertex size=*/vert_size, decompressed.data(), decompressed.size()) != 0)
 						throw glare::Exception("meshopt_decodeVertexBuffer failed.");
 
-					//--------------------- unfilter positions ---------------------
-					const VertAttribute& pos_attr = batched_mesh->getAttribute(VertAttribute_Position);	
-					if(pos_attr.component_type == ComponentType_Float)
-					{
-						//meshopt_decodeFilterExp(batched_mesh->vertex_data.data(), /*count=*/num_verts, /*stride=*/vert_size);
-					}
-
 				}
 				else // else if attributes were compressed separately (old style):
 				{
