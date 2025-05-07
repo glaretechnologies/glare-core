@@ -7,7 +7,9 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "VBO.h"
-#include "../utils/Lock.h"
+#include <utils/Lock.h>
+#include <utils/StringUtils.h>
+#include <utils/ConPrint.h>
 
 
 VBOPool::VBOPool()
@@ -66,6 +68,27 @@ void VBOPool::init()
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
+
+	for(int i=0; i<1; ++i)
+	{
+		VBOInfo info;
+		info.vbo = new VBO(nullptr, 16 * 1024 * 1024);
+		info.vbo->map();
+		vbo_infos.push_back(info);
+	}
+
+	for(int i=0; i<1; ++i)
+	{
+		VBOInfo info;
+		info.vbo = new VBO(nullptr, 32 * 1024 * 1024);
+		info.vbo->map();
+		vbo_infos.push_back(info);
+	}
+
+	size_t total_size = 0;
+	for(size_t i=0; i<vbo_infos.size(); ++i)
+		total_size += vbo_infos[i].vbo->getSize();
+	conPrint("Total VBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
 }
 
 

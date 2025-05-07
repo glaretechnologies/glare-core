@@ -2362,8 +2362,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		thread_manager.addThread(new ShaderFileWatcherThread(data_dir, this));
 #endif
 
+
+#if !EMSCRIPTEN
+		// We don't use the PBO and VBO pools on the web, so don't alloc the buffers.
 		pbo_pool.init();
 		vbo_pool.init();
+#endif
 
 		init_succeeded = true;
 	}
