@@ -6654,8 +6654,8 @@ void OpenGLEngine::draw()
 
 			const OpenGLTextureFormat normal_buffer_format = normal_texture_is_uint ? OpenGLTextureFormat::Format_RGBA_Integer_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
 
-			conPrint("Allocing main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
-			conPrint("AA MSAA samples " + toString(msaa_samples) + ", col buffer format: " + std::string(textureFormatString(col_buffer_format)));
+			conPrint("Allocating main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
+			conPrint("MSAA samples " + toString(msaa_samples) + ", col buffer format: " + std::string(textureFormatString(col_buffer_format)));
 			conPrint("normal buffer format: " + std::string(textureFormatString(normal_buffer_format)));
 
 			main_colour_copy_texture = new OpenGLTexture(xres, yres, this,
@@ -11179,7 +11179,7 @@ void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference
 	if(opengl_tex->texture_data.nonNull())
 		this->tex_CPU_mem_usage += opengl_tex->texture_data->totalCPUMemUsage();
 
-	this->tex_GPU_mem_usage += opengl_tex->getByteSize();
+	this->tex_GPU_mem_usage += opengl_tex->getTotalStorageSizeB();
 
 	textureBecameUsed(opengl_tex.ptr());
 
@@ -11203,8 +11203,8 @@ void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 			this->tex_CPU_mem_usage -= tex->texture_data->totalCPUMemUsage();
 		}
 
-		assert(this->tex_GPU_mem_usage >= tex->getByteSize());
-		this->tex_GPU_mem_usage -= tex->getByteSize();
+		assert(this->tex_GPU_mem_usage >= tex->getTotalStorageSizeB());
+		this->tex_GPU_mem_usage -= tex->getTotalStorageSizeB();
 
 		this->opengl_textures.erase(it);
 	}
@@ -11338,6 +11338,26 @@ void OpenGLEngine::textureBecameUsed(const OpenGLTexture* tex)
 }
 
 
+static glare::AtomicInt total_gpu_mem_allocated;
+
+
+void OpenGLEngine::GPUMemAllocated(size_t size)
+{
+	total_gpu_mem_allocated += size;
+
+	// conPrint("Allocated " + uInt64ToStringCommaSeparated(size) + " B of GPU mem.    Total allocated: " + uInt64ToStringCommaSeparated(total_gpu_mem_allocated));
+}
+
+
+void OpenGLEngine::GPUMemFreed(size_t size)
+{
+	assert(total_gpu_mem_allocated >= (int64)size);
+	total_gpu_mem_allocated -= size;
+
+	// conPrint("Freed " + uInt64ToStringCommaSeparated(size) + " B of GPU mem.    Total allocated: " + uInt64ToStringCommaSeparated(total_gpu_mem_allocated));
+}
+
+
 void OpenGLEngine::trimTextureUsage()
 {
 	ZoneScoped; // Tracy profiler
@@ -11357,8 +11377,8 @@ void OpenGLEngine::trimTextureUsage()
 				this->tex_CPU_mem_usage -= removed_tex->texture_data->totalCPUMemUsage();
 			}
 
-			assert(this->tex_GPU_mem_usage >= removed_tex->getByteSize());
-			this->tex_GPU_mem_usage -= removed_tex->getByteSize();
+			assert(this->tex_GPU_mem_usage >= removed_tex->getTotalStorageSizeB());
+			this->tex_GPU_mem_usage -= removed_tex->getTotalStorageSizeB();
 		}
 	}
 }
@@ -11559,7 +11579,7 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 
 static void addMemUsageForTexture(GLMemUsage& usage, const OpenGLTexture* tex)
 {
-	usage.texture_gpu_usage += tex->getByteSize();
+	usage.texture_gpu_usage += tex->getTotalStorageSizeB();
 
 	if(tex->texture_data)
 		usage.texture_cpu_usage += tex->texture_data->totalCPUMemUsage();
@@ -11593,7 +11613,7 @@ GLMemUsage OpenGLEngine::getTotalMemUsage() const
 		{
 			const OpenGLTexture* tex = i->second.value.ptr();
 
-			const size_t tex_gpu_usage = tex->getByteSize();
+			const size_t tex_gpu_usage = tex->getTotalStorageSizeB();
 			sum.sum_unused_tex_gpu_usage += tex_gpu_usage;
 
 			if(tex->texture_data.nonNull())
@@ -11668,7 +11688,7 @@ std::string OpenGLEngine::getDiagnostics() const
 		{
 			const OpenGLTexture* tex = i->second.value.ptr();
 		
-			s += ::rightSpacePad(FileUtils::getFilename(tex->key.path).substr(0, 40) + ": ", 40) + uInt32ToStringCommaSeparated((uint32)tex->getByteSize()) + " B\n";
+			s += ::rightSpacePad(FileUtils::getFilename(tex->key.path).substr(0, 40) + ": ", 40) + uInt32ToStringCommaSeparated((uint32)tex->getTotalStorageSizeB()) + " B\n";
 		}
 		s += "------------------------------------------------------------------\n";
 	}

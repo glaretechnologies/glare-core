@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "IncludeOpenGL.h"
+#include "OpenGLEngine.h"
 
 
 PBO::PBO(size_t size_, bool for_upload)
@@ -26,6 +27,8 @@ PBO::PBO(size_t size_, bool for_upload)
 
 	// Unbind buffer
 	glBindBuffer(buffer_type, 0);
+
+	OpenGLEngine::GPUMemAllocated(size);
 }
 
 
@@ -34,6 +37,8 @@ PBO::~PBO()
 	assert(!mapped_ptr);
 
 	glDeleteBuffers(1, &buffer_name);
+
+	OpenGLEngine::GPUMemFreed(size);
 }
 
 

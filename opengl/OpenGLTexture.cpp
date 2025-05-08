@@ -57,7 +57,8 @@ OpenGLTexture::OpenGLTexture()
 	gl_type(GL_UNSIGNED_BYTE),
 	gl_internal_format(GL_RGB),
 	filtering(Filtering_Fancy),
-	texture_target(GL_TEXTURE_2D)
+	texture_target(GL_TEXTURE_2D),
+	total_storage_size_B(0)
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 }
@@ -81,7 +82,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0),
 	is_bindless_tex_resident(false),
-	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : ((num_array_images_ > 0) ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D))
+	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : ((num_array_images_ > 0) ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D)),
+	total_storage_size_B(0)
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 
@@ -115,7 +117,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	m_opengl_engine(opengl_engine),
 	bindless_tex_handle(0),
 	is_bindless_tex_resident(false),
-	texture_target(GL_TEXTURE_2D)
+	texture_target(GL_TEXTURE_2D),
+	total_storage_size_B(0)
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 
@@ -150,6 +153,8 @@ OpenGLTexture::~OpenGLTexture()
 		glDeleteTextures(1, &texture_handle);
 		texture_handle = 0;
 	}
+
+	OpenGLEngine::GPUMemFreed(getTotalStorageSizeB());
 }
 
 
@@ -320,50 +325,6 @@ static size_t getPixelSizeB(GLenum gl_format, GLenum type)
 	}
 
 	return component_size * num_components;
-}
-
-
-// Compute number of bytes per pixel used for the texture on the GPU.
-static double getInternalPixelSizeB(GLint internal_format)
-{
-	switch(internal_format)
-	{
-		case GL_R8: return 1;
-		case GL_RGB: return 3;
-		case GL_R32F: return 4;
-		case GL_R16F: return 2;
-		case GL_SRGB8: return 3;
-		case GL_SRGB8_ALPHA8: return 4;
-		case GL_RGB8: return 3;
-		case GL_RGBA8: return 4;
-		case GL_RGB8UI: return 3;
-		case GL_RGBA8UI: return 4;
-		case GL_RGB32F: return 12;
-		case GL_RGBA32F: return 16;
-		case GL_RGB16F: return 6;
-		case GL_RGBA16F: return 8;
-		case GL_DEPTH_COMPONENT32: return 4;
-		case GL_DEPTH_COMPONENT16: return 2;
-		case GL_EXT_COMPRESSED_RGB_S3TC_DXT1_EXT: return 0.5; // 8 bytes per 4*4 pixel block
-		case GL_EXT_COMPRESSED_RGBA_S3TC_DXT5_EXT: return 1; // 16 bytes per 4*4 pixel block
-		case GL_EXT_COMPRESSED_SRGB_S3TC_DXT1_EXT: return 0.5; // 8 bytes per 4*4 pixel block
-		case GL_EXT_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: return 1; // 16 bytes per 4*4 pixel block
-		case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT: return 1; // 16 bytes per 4*4 pixel block
-
-		case GL_COMPRESSED_RGB8_ETC2: return 0.5;  // 8 bytes per 4*4 pixel block
-		case GL_COMPRESSED_RGBA8_ETC2_EAC: return 1; // 16 bytes per 4*4 pixel block
-		case GL_COMPRESSED_SRGB8_ETC2: return 0.5;
-		case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC: return 1;
-
-		default:
-		{
-#ifndef NDEBUG
-			conPrint("unimplemented getInternalPixelSizeB for " + toString(internal_format));
-#endif
-			assert(0);
-			return 1;
-		}
-	};
 }
 
 
@@ -560,6 +521,9 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 	const GLint gl_filtering = (filtering == Filtering_Nearest) ? GL_NEAREST : GL_LINEAR; // We don't support trilinear on cube maps currently.
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, gl_filtering);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, gl_filtering);
+
+	this->total_storage_size_B = computeTotalStorageSizeB();
+	OpenGLEngine::GPUMemAllocated(getTotalStorageSizeB());
 }
 
 static int num_textures_created = 0;
@@ -684,6 +648,11 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 	{
 		if(isCompressed(format))
 		{
+			runtimeCheck(texture_target == GL_TEXTURE_2D); // Check this is not GL_TEXTURE_2D_MULTISAMPLE or GL_TEXTURE_2D_ARRAY.
+
+			const size_t storage_size_B = TextureData::computeStorageSizeB(xres, yres, format, /*include MIP levels=*/false);
+			runtimeCheck(tex_data.size() >= storage_size_B);
+
 			// NOTE: xres and yres don't have to be a multiple of 4, as long as we are setting the whole MIP level: See https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt
 			// "CompressedTexSubImage2D will result in an INVALID_OPERATION error only if one of the following conditions occurs:
 			// * <width> is not a multiple of four, and <width> plus <xoffset> is not equal to TEXTURE_WIDTH;"
@@ -700,13 +669,14 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		}
 		else
 		{
-			assert(tex_data.size() >= (size_t)getInternalPixelSizeB(gl_internal_format) * xres * yres);
-
 			assert((uint64)tex_data.data() % 4 == 0); // Assume the texture data is at least 4-byte aligned.
 			setPixelStoreAlignment(xres, gl_format, gl_type);
 
 			if(texture_target == GL_TEXTURE_2D_ARRAY)
 			{
+				const size_t storage_size_B = TextureData::computeStorageSizeB(xres, yres, format, /*include MIP levels=*/false) * num_array_images;
+				runtimeCheck(tex_data.size() >= storage_size_B);
+
 				glTexSubImage3D(
 					texture_target,
 					0, // LOD level
@@ -723,6 +693,9 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			}
 			else
 			{
+				const size_t storage_size_B = TextureData::computeStorageSizeB(xres, yres, format, /*include MIP levels=*/false);
+				runtimeCheck(tex_data.size() >= storage_size_B);
+
 				// NOTE: can't use glTexImage2D on immutable storage, have to use glTexSubImage2D instead.
 				glTexSubImage2D(
 					texture_target,
@@ -788,63 +761,15 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			assert(0);
 		}
 	}
+
+	this->total_storage_size_B = computeTotalStorageSizeB();
+	OpenGLEngine::GPUMemAllocated(getTotalStorageSizeB());
 }
 
 
 void OpenGLTexture::loadIntoExistingTexture(int mipmap_level, size_t tex_xres, size_t tex_yres, size_t row_stride_B, ArrayRef<uint8> tex_data, bool bind_needed)
 {
 	loadRegionIntoExistingTexture(mipmap_level, /*x=*/0, /*y=*/0, /*z=*/0, tex_xres, tex_yres, /*region depth=*/1, row_stride_B, tex_data, bind_needed);
-
-#if 0
-	glBindTexture(texture_target, texture_handle);
-
-	if(tex_data.data() != NULL)
-	{
-		if(format == Format_Compressed_SRGB_Uint8 || format == Format_Compressed_SRGBA_Uint8 || format == Format_Compressed_RGB_Uint8 || format == Format_Compressed_RGBA_Uint8)
-		{
-			glCompressedTexSubImage2D(
-				GL_TEXTURE_2D,
-				mipmap_level, // LOD level
-				0, // x offset
-				0, // y offset
-				(GLsizei)tex_xres, (GLsizei)tex_yres,
-				gl_internal_format, // internal format
-				(GLsizei)tex_data.size(),
-				tex_data.data()
-			);
-		}
-		else
-		{
-			const size_t pixel_size_B = getPixelSizeB(gl_format, gl_type);
-
-			// Set row stride if needed (not tightly packed)
-			if(row_stride_B != tex_xres * pixel_size_B) // If not tightly packed:
-				glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(row_stride_B / pixel_size_B)); // If greater than 0, GL_UNPACK_ROW_LENGTH defines the number of pixels in a row
-
-			setPixelStoreAlignment(tex_data.data(), row_stride_B);
-
-			// NOTE: can't use glTexImage2D on immutable storage.
-			glTexSubImage2D(
-				GL_TEXTURE_2D,
-				mipmap_level, // LOD level
-				0, // x offset
-				0, // y offset
-				(GLsizei)tex_xres, // width
-				(GLsizei)tex_yres, // height
-				gl_format,
-				gl_type,
-				tex_data.data()
-			);
-
-			if(row_stride_B != tex_xres * pixel_size_B)
-				glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // Restore to default
-		}
-
-		// Generate mipmaps if needed
-		//if(filtering == Filtering_Fancy)
-		//	glGenerateMipmap(GL_TEXTURE_2D);
-	}
-#endif
 }
 
 
@@ -981,6 +906,7 @@ void OpenGLTexture::unbind()
 
 
 // Updating existing texture
+// TODO: remove this method, combine with loadIntoExistingTexture().  The only tricky thing is that loadIntoExistingTexture() requires a row stride.
 void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t level_H, ArrayRef<uint8> tex_data, bool bind_needed)
 {
 	if(bind_needed)
@@ -1023,15 +949,14 @@ void OpenGLTexture::setMipMapLevelData(int mipmap_level, size_t level_W, size_t 
 }
 
 
-size_t OpenGLTexture::getByteSize() const
+size_t OpenGLTexture::computeTotalStorageSizeB() const
 {
-	const double pixel_size_B = getInternalPixelSizeB(gl_internal_format);
-	double total_size = xres * yres * pixel_size_B;
+	size_t total_size = TextureData::computeStorageSizeB(xres, yres, format, /*include MIP levels=*/num_mipmap_levels_allocated > 1) * myMax(MSAA_samples, 1) * myMax(num_array_images, 1);
 
-	if(num_mipmap_levels_allocated > 1)
-		total_size = total_size * 1.333333; // Space for Mipmaps.
+	if(texture_target == GL_TEXTURE_CUBE_MAP)
+		total_size *= 6;
 
-	return (size_t)total_size;
+	return total_size;
 }
 
 

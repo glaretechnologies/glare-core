@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "IncludeOpenGL.h"
+#include "OpenGLEngine.h"
 
 
 VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage)
@@ -26,6 +27,8 @@ VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage)
 
 	// Unbind buffer
 	glBindBuffer(buffer_type, 0);
+
+	OpenGLEngine::GPUMemAllocated(size);
 }
 
 
@@ -34,6 +37,8 @@ VBO::~VBO()
 	assert(!mapped_ptr);
 
 	glDeleteBuffers(1, &buffer_name);
+
+	OpenGLEngine::GPUMemFreed(size);
 }
 
 

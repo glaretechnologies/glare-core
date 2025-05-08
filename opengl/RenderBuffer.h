@@ -38,6 +38,7 @@ public:
 	GLuint buffer_name;
 	size_t xres, yres;
 	int MSAA_samples;
+	size_t storage_size;
 };
 
 

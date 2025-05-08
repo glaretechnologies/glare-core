@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "IncludeOpenGL.h"
+#include "OpenGLEngine.h"
 
 
 RenderBuffer::RenderBuffer(size_t tex_xres, size_t tex_yres, int MSAA_samples_, OpenGLTextureFormat format)
@@ -35,12 +36,17 @@ RenderBuffer::RenderBuffer(size_t tex_xres, size_t tex_yres, int MSAA_samples_, 
 	}
 
 	unbind();
+
+	storage_size = TextureData::computeStorageSizeB(tex_xres, tex_yres, format, /*include MIP levels=*/false) * myMax(MSAA_samples, 1);
+	OpenGLEngine::GPUMemAllocated(storage_size);
 }
 
 
 RenderBuffer::~RenderBuffer()
 {
 	glDeleteRenderbuffers(1, &buffer_name);
+
+	OpenGLEngine::GPUMemFreed(storage_size);
 }
 
 

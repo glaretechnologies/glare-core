@@ -65,7 +65,8 @@ enum OpenGLTextureFormat
 
 
 bool isCompressed(OpenGLTextureFormat format);
-size_t bytesPerBlock(OpenGLTextureFormat format);
+size_t bytesPerPixel(OpenGLTextureFormat format); // For non block-compressed formats
+size_t bytesPerBlock(OpenGLTextureFormat format); // For block-compressed formats
 size_t numChannels(OpenGLTextureFormat format);
 const char* textureFormatString(OpenGLTextureFormat format);
 
@@ -95,6 +96,7 @@ public:
 
 	static size_t computeNumMipLevels(size_t W, size_t H);
 	static size_t computeNum4PixelBlocksForLevel(size_t base_W, size_t base_H, size_t level);
+	static size_t computeStorageSizeB(size_t W, size_t H, OpenGLTextureFormat format, bool include_mip_levels);
 	
 	OpenGLTextureFormat format;
 	size_t W, H;

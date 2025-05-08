@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "IncludeOpenGL.h"
+#include "OpenGLEngine.h"
 
 
 // For emscripten
@@ -26,6 +27,8 @@ UniformBufOb::UniformBufOb()
 UniformBufOb::~UniformBufOb()
 {
 	glDeleteBuffers(1, &handle);
+
+	OpenGLEngine::GPUMemAllocated(allocated_size);
 }
 
 
@@ -52,6 +55,8 @@ void UniformBufOb::allocate(size_t size_B)
 	glBufferData(GL_UNIFORM_BUFFER, size_B, NULL, GL_DYNAMIC_DRAW); // allocate mem
 
 	this->allocated_size = size_B;
+
+	OpenGLEngine::GPUMemAllocated(size_B);
 }
 
 

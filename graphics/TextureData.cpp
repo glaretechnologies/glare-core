@@ -22,8 +22,37 @@ bool isCompressed(OpenGLTextureFormat format)
 };
 
 
+size_t bytesPerPixel(OpenGLTextureFormat format)
+{
+	assert(!isCompressed(format));
+
+	switch(format)
+	{
+		case Format_Greyscale_Uint8: return 1;
+		case Format_Greyscale_Float: return 4;
+		case Format_Greyscale_Half: return 2;
+		case Format_SRGB_Uint8: return 3;
+		case Format_SRGBA_Uint8: return 4;
+		case Format_RGB_Linear_Uint8: return 3;
+		case Format_RGB_Integer_Uint8: return 3;
+		case Format_RGBA_Linear_Uint8: return 4;
+		case Format_RGBA_Integer_Uint8: return 4;
+		case Format_RGB_Linear_Float: return 12;
+		case Format_RGB_Linear_Half: return 6;
+		case Format_RGBA_Linear_Half: return 8;
+		case Format_Depth_Float: return 4;
+		case Format_Depth_Uint16: return 2;
+		default:
+			assert(0);
+			return 1;
+	}
+}
+
+
 size_t bytesPerBlock(OpenGLTextureFormat format)
 {
+	assert(isCompressed(format));
+
 	switch(format)
 	{
 		case Format_Compressed_DXT_RGB_Uint8: return 8;
@@ -182,11 +211,60 @@ size_t TextureData::computeNumMipLevels(size_t W, size_t H)
 
 size_t TextureData::computeNum4PixelBlocksForLevel(size_t base_W, size_t base_H, size_t level)
 {
-	const size_t expected_w = myMax<size_t>(1, base_W / ((size_t)1 << level));
-	const size_t expected_h = myMax<size_t>(1, base_H / ((size_t)1 << level));
+	const size_t level_w = myMax<size_t>(1, base_W >> level);        assert(level_w == myMax<size_t>(1, base_W / ((size_t)1 << level)));
+	const size_t level_h = myMax<size_t>(1, base_H >> level);        assert(level_h == myMax<size_t>(1, base_H / ((size_t)1 << level)));
+	
+	const size_t level_x_blocks = Maths::roundedUpDivide<size_t>(level_w, 4);
+	const size_t level_y_blocks = Maths::roundedUpDivide<size_t>(level_h, 4);
 
-	const size_t expected_x_blocks = Maths::roundedUpDivide<size_t>(expected_w, 4);
-	const size_t expected_y_blocks = Maths::roundedUpDivide<size_t>(expected_h, 4);
+	return level_x_blocks * level_y_blocks;
+}
 
-	return expected_x_blocks * expected_y_blocks;
+
+size_t TextureData::computeStorageSizeB(size_t W, size_t H, OpenGLTextureFormat format, bool include_mip_levels)
+{
+	if(::isCompressed(format))
+	{
+		const size_t block_B = bytesPerBlock(format);
+		if(include_mip_levels)
+		{
+			size_t sum_num_blocks = 0;
+			while(1)
+			{
+				const size_t x_blocks = Maths::roundedUpDivide<size_t>(W, 4);
+				const size_t y_blocks = Maths::roundedUpDivide<size_t>(H, 4);
+				sum_num_blocks += x_blocks * y_blocks;
+
+				if(W == 1 && H == 1)
+					break;
+
+				W = myMax<size_t>(1, W / 2);
+				H = myMax<size_t>(1, H / 2);
+			}
+			return sum_num_blocks * block_B;
+		}
+		else
+			return block_B * computeNum4PixelBlocksForLevel(W, H, /*level=*/0);
+	}
+	else
+	{
+		const size_t pixel_B = bytesPerPixel(format);
+		if(include_mip_levels)
+		{
+			size_t sum_num_pixels = 0;
+			while(1)
+			{
+				sum_num_pixels += W * H;
+
+				if(W == 1 && H == 1)
+					break;
+
+				W = myMax<size_t>(1, W / 2);
+				H = myMax<size_t>(1, H / 2);
+			}
+			return sum_num_pixels * pixel_B;
+		}
+		else
+			return pixel_B * W * H;
+	}
 }

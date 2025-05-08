@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "IncludeOpenGL.h"
+#include "OpenGLEngine.h"
 #include <utils/ConPrint.h>
 #include <cstring> // For memcpy
 
@@ -29,6 +30,8 @@ SSBO::SSBO()
 SSBO::~SSBO()
 {
 	glDeleteBuffers(1, &handle);
+
+	OpenGLEngine::GPUMemFreed(allocated_size);
 }
 
 
@@ -61,6 +64,8 @@ void SSBO::allocate(size_t size_B, bool map_memory)
 
 		this->allocated_size = size_B;
 	}
+
+	OpenGLEngine::GPUMemAllocated(size_B);
 }
 
 

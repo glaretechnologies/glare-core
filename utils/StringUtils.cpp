@@ -588,11 +588,11 @@ const std::string uInt32ToStringCommaSeparated(uint32 x)
 	const int num_digits = numDigitsUInt32(x);
 
 	int num_chars;
-	if(x < 1000)
+	if(x < 1'000)
 		num_chars = num_digits;
-	else if(x < 1000000)
+	else if(x < 1'000'000)
 		num_chars = num_digits + 1;
-	else if(x < 1000000000)
+	else if(x < 1'000'000'000)
 		num_chars = num_digits + 2;
 	else
 		num_chars = num_digits + 3;
@@ -608,6 +608,47 @@ const std::string uInt32ToStringCommaSeparated(uint32 x)
 		{
 			const uint32 x_div_10 = x / 10u;
 			const uint32 last_digit = x - x_div_10*10;
+			buffer[i] = '0' + (char)last_digit;
+			x = x_div_10;
+		}
+		i--;
+	}
+
+	return std::string(buffer, buffer + num_chars);
+}
+
+
+const std::string uInt64ToStringCommaSeparated(uint64 x)
+{
+	const int num_digits = numDigitsUInt64(x);
+
+	int num_chars;
+	if(x < 1'000)
+		num_chars = num_digits;
+	else if(x < 1'000'000)
+		num_chars = num_digits + 1;
+	else if(x < 1'000'000'000)
+		num_chars = num_digits + 2;
+	else if(x < 1'000'000'000'000ull)
+		num_chars = num_digits + 3;
+	else if(x < 1'000'000'000'000'000ull)
+		num_chars = num_digits + 4;
+	else if(x < 1'000'000'000'000'000'000ull)
+		num_chars = num_digits + 5;
+	else
+		num_chars = num_digits + 6;
+
+	char buffer[32];
+	int i = num_chars - 1;
+
+	while(i >= 0) // Work from right to left
+	{
+		if(((num_chars - i) % 4) == 0)
+			buffer[i] = ',';
+		else
+		{
+			const uint64 x_div_10 = x / 10ull;
+			const uint64 last_digit = x - x_div_10*10ull;
 			buffer[i] = '0' + (char)last_digit;
 			x = x_div_10;
 		}
@@ -2043,6 +2084,62 @@ void StringUtils::test()
 
 	testAssert(uInt32ToStringCommaSeparated(4294967294u) == "4,294,967,294");
 	testAssert(uInt32ToStringCommaSeparated(4294967295u) == "4,294,967,295"); // max representable uint32
+
+	//=========================== Test uInt64ToStringCommaSeparated() ====================================
+
+	testAssert(uInt64ToStringCommaSeparated(1234) == "1,234");
+	testAssert(uInt64ToStringCommaSeparated(0) == "0");
+	testAssert(uInt64ToStringCommaSeparated(1) == "1");
+	testAssert(uInt64ToStringCommaSeparated(9) == "9");
+	testAssert(uInt64ToStringCommaSeparated(10) == "10");
+	testAssert(uInt64ToStringCommaSeparated(11) == "11");
+	testAssert(uInt64ToStringCommaSeparated(99) == "99");
+	testAssert(uInt64ToStringCommaSeparated(100) == "100");
+	testAssert(uInt64ToStringCommaSeparated(101) == "101");
+	testAssert(uInt64ToStringCommaSeparated(999) == "999");
+	testAssert(uInt64ToStringCommaSeparated(1000) == "1,000");
+	testAssert(uInt64ToStringCommaSeparated(1001) == "1,001");
+	testAssert(uInt64ToStringCommaSeparated(9999) == "9,999");
+	testAssert(uInt64ToStringCommaSeparated(10000) == "10,000");
+	testAssert(uInt64ToStringCommaSeparated(10001) == "10,001");
+	testAssert(uInt64ToStringCommaSeparated(99999) == "99,999");
+	testAssert(uInt64ToStringCommaSeparated(100000) == "100,000");
+	testAssert(uInt64ToStringCommaSeparated(100001) == "100,001");
+	testAssert(uInt64ToStringCommaSeparated(999999) == "999,999");
+
+	testAssert(uInt64ToStringCommaSeparated(1234567) == "1,234,567");
+
+	testAssert(uInt64ToStringCommaSeparated(1000000) == "1,000,000");
+	testAssert(uInt64ToStringCommaSeparated(1000001) == "1,000,001");
+	testAssert(uInt64ToStringCommaSeparated(9999999) == "9,999,999");
+	testAssert(uInt64ToStringCommaSeparated(10000000) == "10,000,000");
+	testAssert(uInt64ToStringCommaSeparated(10000001) == "10,000,001");
+	testAssert(uInt64ToStringCommaSeparated(99999999) == "99,999,999");
+	testAssert(uInt64ToStringCommaSeparated(100000000) == "100,000,000");
+	testAssert(uInt64ToStringCommaSeparated(100000001) == "100,000,001");
+	testAssert(uInt64ToStringCommaSeparated(999999999) == "999,999,999");
+
+	testAssert(uInt64ToStringCommaSeparated(1000000000) == "1,000,000,000");
+	testAssert(uInt64ToStringCommaSeparated(1000000001) == "1,000,000,001");
+
+	testAssert(uInt64ToStringCommaSeparated(999'999'999) == "999,999,999");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'000) == "1,000,000,000");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'001) == "1,000,000,001");
+
+	testAssert(uInt64ToStringCommaSeparated(999'999'999'999ull) == "999,999,999,999");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'000'000ull) == "1,000,000,000,000");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'000'001ull) == "1,000,000,000,001");
+
+	testAssert(uInt64ToStringCommaSeparated(999'999'999'999'999ull) == "999,999,999,999,999");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'000'000'000ull) == "1,000,000,000,000,000");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'000'000'001ull) == "1,000,000,000,000,001");
+
+	testAssert(uInt64ToStringCommaSeparated(999'999'999'999'999'999ull) == "999,999,999,999,999,999");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'000'000'000'000ull) == "1,000,000,000,000,000,000");
+	testAssert(uInt64ToStringCommaSeparated(1'000'000'000'000'000'001ull) == "1,000,000,000,000,000,001");
+
+	testAssert(uInt64ToStringCommaSeparated(18'446'744'073'709'551'614ull) == "18,446,744,073,709,551,614");
+	testAssert(uInt64ToStringCommaSeparated(18'446'744'073'709'551'615ull) == "18,446,744,073,709,551,615"); // max representable uint64
 
 
 	//=========================== Test uInt64ToString() ====================================

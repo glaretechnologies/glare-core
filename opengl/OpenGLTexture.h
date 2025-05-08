@@ -120,7 +120,7 @@ public:
 
 	int MSAASamples() const { return MSAA_samples; }
 
-	size_t getByteSize() const;
+	size_t getTotalStorageSizeB() const { return total_storage_size_B; }
 
 	GLenum getTextureTarget() const { return texture_target; } // e.g. GL_TEXTURE_2D, GL_TEXTURE_2D_MULTISAMPLE or GL_TEXTURE_2D_ARRAY.
 
@@ -170,6 +170,8 @@ public:
 
 	static void getGLFormat(OpenGLTextureFormat format, GLint& internal_format, GLenum& gl_format, GLenum& type);
 private:
+	size_t computeTotalStorageSizeB() const;
+
 	GLARE_DISABLE_COPY(OpenGLTexture);
 
 	// Create texture, given that xres, yres, MSAA_samples, gl_internal_format etc. have been set.
@@ -191,6 +193,7 @@ private:
 	int num_mipmap_levels_allocated;
 	int MSAA_samples;
 	GLenum texture_target; // e.g. GL_TEXTURE_2D, GL_TEXTURE_2D_MULTISAMPLE or GL_TEXTURE_2D_ARRAY
+	size_t total_storage_size_B;
 public:
 	mutable int64 refcount;
 

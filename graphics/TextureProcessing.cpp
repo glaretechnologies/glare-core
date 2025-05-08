@@ -303,8 +303,8 @@ int TextureProcessing::computeNumMIPLevels(size_t W, size_t H)
 	{
 		num_levels++;
 
-		const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
-		const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+		const size_t level_W = myMax((size_t)1, W >> k);      assert(level_W == myMax((size_t)1, W / ((size_t)1 << k)));
+		const size_t level_H = myMax((size_t)1, H >> k);      assert(level_H == myMax((size_t)1, H / ((size_t)1 << k)));
 
 		if(level_W == 1 && level_H == 1)
 			break;
@@ -339,8 +339,8 @@ static void computeMipLevelOffsets(TextureData* texture_data, bool do_compressio
 	size_t cur_offset = 0;
 	for(size_t k=0; ; ++k)
 	{
-		const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
-		const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+		const size_t level_W = myMax((size_t)1, W >> k);      assert(level_W == myMax((size_t)1, W / ((size_t)1 << k)));
+		const size_t level_H = myMax((size_t)1, H >> k);      assert(level_H == myMax((size_t)1, H / ((size_t)1 << k)));
 
 		const size_t level_uncompressed_tex_size = level_W * level_H * bytes_pp;
 
@@ -395,8 +395,8 @@ void TextureProcessing::buildMipMapDataForImageFrame(bool do_compression, js::Ve
 	for(size_t k=0; ; ++k) // For each mipmap level:
 	{
 		// See https://www.khronos.org/opengl/wiki/Texture#Mipmap_completeness
-		const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
-		const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
+		const size_t level_W = myMax((size_t)1, W >> k);      assert(level_W == myMax((size_t)1, W / ((size_t)1 << k)));
+		const size_t level_H = myMax((size_t)1, H >> k);      assert(level_H == myMax((size_t)1, H / ((size_t)1 << k)));
 
 		// conPrint("Building mipmap level " + toString(k) + " data, dims: " + toString(level_W) + " x " + toString(level_H));
 

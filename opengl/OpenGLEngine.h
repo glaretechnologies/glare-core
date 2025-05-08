@@ -1182,6 +1182,8 @@ public:
 
 	void textureBecameUnused(const OpenGLTexture* tex);
 	void textureBecameUsed(const OpenGLTexture* tex);
+	static void GPUMemAllocated(size_t size);
+	static void GPUMemFreed(size_t size);
 private:
 	void trimTextureUsage();
 	void bindMeshData(const OpenGLMeshRenderData& mesh_data);
