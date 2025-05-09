@@ -1,2 +1,2 @@
-meshoptimizer-0.23
-Downloaded from https://github.com/zeux/meshoptimizer on 21 april 2025.
+meshoptimizer master
+Cloned from https://github.com/zeux/meshoptimizer on 10 May 2025.
