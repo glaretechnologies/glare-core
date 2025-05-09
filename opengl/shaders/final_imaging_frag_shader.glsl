@@ -26,18 +26,6 @@ in vec2 pos; // [0, 1] x [0, 1]
 out vec4 colour_out;
 
 
-// From https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
-vec3 ACESFilm(vec3 x)
-{
-	float a = 2.51f;
-	float b = 0.03f;
-	float c = 2.43f;
-	float d = 0.59f;
-	float e = 0.14f;
-	return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.f, 1.f);
-}
-
-
 void main()
 {
 #if MAIN_BUFFER_MSAA_SAMPLES > 1
@@ -112,6 +100,6 @@ void main()
 	}
 	
 	float alpha = col.w;
-	colour_out = vec4(toNonLinear(ACESFilm(col.xyz * (3.0 * 0.65))), alpha);
+	colour_out = vec4(toneMapToNonLinear(col.xyz), alpha);
 	//colour_out = vec4(toNonLinear(3.0 * col.xyz), alpha); // linear tonemapping
 }

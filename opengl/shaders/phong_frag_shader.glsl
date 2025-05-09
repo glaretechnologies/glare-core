@@ -1027,7 +1027,7 @@ void main()
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, alpha); // toNonLinear will be done after adding blurs etc.
 #else
-	colour_out = vec4(toNonLinear(col.xyz), alpha);
+	colour_out = vec4(toneMapToNonLinear(col.xyz), alpha);
 #endif
 
 #if DECAL

@@ -260,7 +260,7 @@ void main()
 #if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, 1.0);
 #else
-	colour_out = vec4(toNonLinear(col.xyz), 1.0);
+	colour_out = vec4(toneMapToNonLinear(col.xyz), 1.0);
 #endif
 	colour_out.w = 1.0; // Imposters aren't rendered with alpha blending, so just use alpha=1.
 

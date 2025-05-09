@@ -890,7 +890,7 @@ void main()
 #if DO_POST_PROCESSING
 	colour_out = vec4(col, 1.f);
 #else
-	colour_out = vec4(toNonLinear(col), 1.f);
+	colour_out = vec4(toneMapToNonLinear(col.xyz), 1.0);
 #endif
 
 	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal_ws));

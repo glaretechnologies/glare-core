@@ -327,7 +327,7 @@ void main()
 	#if DO_POST_PROCESSING
 	colour_out = vec4(col.xyz, alpha);
 	#else
-	colour_out = vec4(toNonLinear(col.xyz), alpha);
+	colour_out = vec4(toneMapToNonLinear(col.xyz), alpha);
 	#endif
 #endif
 
