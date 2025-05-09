@@ -308,22 +308,11 @@ inline static uint32 batchedMeshPackNormalWithW(const Vec4f& normal)
 }
 
 
+// Treat the rightmost 10 bits of x as a signed number, sign extend.
 inline int convertToSigned(uint32 x)
 {
-	// Treat the rightmost 10 bits of x as a signed number, sign extend
-	if((x & 512) != 0)
-	{
-		// If sign bit was set:
-		// want to map all 11_1111_1111 (1023) to -1.
-		// Want to map 10_0000_0000 (512) to -512
-		// So can do this by subtracing 1024.
-		return (int)x - 1024;
-	}
-	else
-	{
-		// Sign bit (left bit) was 0
-		return (int)x;
-	}
+	// We will sign-extend using the right shift operator, which has implementation-defined behaviour, but should sign-extend when using two's complement numbers.
+	return ((int)x << 22) >> 22;
 }
 
 

@@ -774,8 +774,18 @@ void BatchedMeshTests::test()
 
 
 
+		// Test convertToSigned
+		{
+			testAssert(convertToSigned(0) == 0);
+			testAssert(convertToSigned(1) == 1);
+			testAssert(convertToSigned(511) == 511);
+			testAssert(convertToSigned(512) == -512); // 512 = 0b100000000 = -512 when treated as signed
+			testAssert(convertToSigned(1023) == -1); // 1023 = 0b111111111 = -1 when treated as signed
 
-
+			// Test right shift does sign extension
+			static_assert(((int)512 << 22) >> 22 == -512);
+			static_assert(((int)1023 << 22) >> 22 == -1);
+		}
 
 
 		// Test BMeshPackNormal
