@@ -847,13 +847,12 @@ static void encodeAndCompressData(const BatchedMesh& mesh, const glare::Allocato
 {
 	runtimeCheck(mesh.numVerts() > 0);
 
-	meshopt_encodeVertexVersion(meshopt_vertex_version); // Set vertex version just before we call meshopt_encodeVertexBuffer().
-
 	const size_t attr_size = filtered_data_in.size() / mesh.numVerts();
 	const size_t bound = meshopt_encodeVertexBufferBound(mesh.numVerts(), attr_size);
 	js::Vector<uint8> buf(bound);
 
-	const size_t res_encoded_vert_buf_size = meshopt_encodeVertexBuffer(buf.data(), buf.size(), filtered_data_in.data(), mesh.numVerts(), attr_size);
+	// Note 2 is the default meshopt compression level.
+	const size_t res_encoded_vert_buf_size = meshopt_encodeVertexBufferLevel(buf.data(), buf.size(), filtered_data_in.data(), mesh.numVerts(), attr_size, /*compression level=*/2, /*vertex version=*/meshopt_vertex_version);
 	buf.resize(res_encoded_vert_buf_size);
 
 	// conPrint("meshopt res_encoded_vert_buf_size: " + toString(res_encoded_vert_buf_size) + " B");
