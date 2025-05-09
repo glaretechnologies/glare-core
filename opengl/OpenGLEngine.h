@@ -1221,6 +1221,7 @@ private:
 	void finishBuildingProg(OpenGLProgram* prog);
 	void bindStandardTexturesToTextureUnits();
 	void bindStandardShadowMappingDepthTextures();
+	static size_t getTotalGPUMemAllocated();
 
 	bool init_succeeded;
 	std::string initialisation_error_msg;

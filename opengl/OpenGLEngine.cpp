@@ -11358,6 +11358,12 @@ void OpenGLEngine::GPUMemFreed(size_t size)
 }
 
 
+size_t OpenGLEngine::getTotalGPUMemAllocated()
+{
+	return (size_t)total_gpu_mem_allocated;
+}
+
+
 void OpenGLEngine::trimTextureUsage()
 {
 	ZoneScoped; // Tracy profiler
@@ -11667,6 +11673,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "compute SSAO      : " + doubleToStringNSigFigs(last_compute_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "\n";
+
+	s += "Total GPU mem usage: " + getMBSizeString(this->getTotalGPUMemAllocated()) + "\n";
 
 	const GLMemUsage mem_usage = this->getTotalMemUsage();
 	s += "geometry CPU mem usage: " + getNiceByteSize(mem_usage.geom_cpu_usage) + "\n";
