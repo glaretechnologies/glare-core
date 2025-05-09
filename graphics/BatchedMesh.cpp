@@ -848,6 +848,8 @@ static void encodeAndCompressData(const BatchedMesh& mesh, const glare::Allocato
 	runtimeCheck(mesh.numVerts() > 0);
 
 	const size_t attr_size = filtered_data_in.size() / mesh.numVerts();
+	checkProperty(attr_size <= 256, "Attribute or vertex size too large for meshoptimizer."); // meshopt assumes vertex size is <= 256 B and may crash if over.
+
 	const size_t bound = meshopt_encodeVertexBufferBound(mesh.numVerts(), attr_size);
 	js::Vector<uint8> buf(bound);
 
@@ -1010,7 +1012,7 @@ void BatchedMesh::writeToOutStream(OutStream& file, const WriteOptions& write_op
 				if(vertex_size % 4 != 0)
 					throw glare::Exception("Vertex size must be a multiple of 4 bytes for meshopt compression.");
 
-				// Compress combined, filtered data with meshopt_encodeVertexBuffer and zstd.				
+				// Compress combined, filtered data with meshopt_encodeVertexBuffer and zstd.
 				js::Vector<uint8> compressed_data;
 				encodeAndCompressData(*this, combined_filtered, /*compressed_data_out=*/compressed_data, write_options.compression_level, write_options.meshopt_vertex_version);
 
@@ -1490,6 +1492,8 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 				{
 					glare::AllocatorVector<uint8> decompressed(mem_allocator);
 					readAndDecompressData(file, MAX_VERTEX_DATA_SIZE, decompressed);
+
+					checkProperty(vert_size <= 256, "vertex size too large for meshoptimizer."); // meshopt assumes vertex size is <= 256 B and may crash if over.
 
 					// meshopt decode
 					runtimeCheck(batched_mesh->vertex_data.size() == num_verts * vert_size);
