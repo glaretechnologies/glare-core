@@ -37,6 +37,7 @@ public:
 
 	// attachment_point is GL_DEPTH_ATTACHMENT, GL_COLOR_ATTACHMENT0 etc..
 	void attachTexture(OpenGLTexture& tex, GLenum attachment_point);
+	void detachTexture(OpenGLTexture& tex, GLenum attachment_point); // detach the attached texture
 
 	void attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachment_point);
 

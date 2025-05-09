@@ -101,6 +101,20 @@ void FrameBuffer::attachTexture(OpenGLTexture& tex, GLenum attachment_point)
 }
 
 
+void FrameBuffer::detachTexture(OpenGLTexture& tex, GLenum attachment_point)
+{
+	bindForDrawing(); // Bind this frame buffer
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
+		attachment_point,
+		tex.getTextureTarget(),
+		0, // texture
+		0); // mipmap level
+
+	unbind();
+}
+
+
 void FrameBuffer::attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachment_point)
 {
 	xres = render_buffer.xRes();
