@@ -263,38 +263,46 @@ void TextRendererFontFace::drawText(ImageMapUInt8& map, const string_view text, 
 		if(i + num_bytes > text.size())
 			throw glare::Exception("Invalid UTF-8 string.");
 
-		const string_view substring(&text[i], text.size() - i);
-		const uint32 code_point = UTF8Utils::codePointForUTF8CharString(substring);
-
-		const FT_UInt glyph_index = FT_Get_Char_Index(face, code_point);
-
-		FT_Set_Transform(face, /*matrix=*/NULL, &pen); // Set transformation.  Use null matrix to get the identity matrix
-
-		// Note that we can't use cur_loaded_glyph_index as we probably have a non-indentity transform
-		FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
-		if(error != 0)
+		if(text[i] == '\n')
 		{
-#ifndef NDEBUG
-			conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
-#endif
-		}
-		this->cur_loaded_glyph_index = std::numeric_limits<FT_UInt>::max(); // The loaded glyph probably doesn't have the identity transformation.
-
-		error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
-		if(error == 0) // If no errors:
-		{
-			// now, draw to our target surface (convert position)
-			drawCharToBitmap(map, &slot->bitmap, /*start_dest_x=*/draw_x + slot->bitmap_left, draw_y - slot->bitmap_top, col);
-
-			// increment pen position
-			pen.x += slot->advance.x;
-			pen.y += slot->advance.y;
+			pen.x = 0;
+			draw_y += (int)(font_size_pixels * 1.5f);
 		}
 		else
 		{
+			const string_view substring(&text[i], text.size() - i);
+			const uint32 code_point = UTF8Utils::codePointForUTF8CharString(substring);
+
+			const FT_UInt glyph_index = FT_Get_Char_Index(face, code_point);
+
+			FT_Set_Transform(face, /*matrix=*/NULL, &pen); // Set transformation.  Use null matrix to get the identity matrix
+
+			// Note that we can't use cur_loaded_glyph_index as we probably have a non-identity transform
+			FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_COLOR); // load glyph image into the slot (erase previous one)
+			if(error != 0)
+			{
 #ifndef NDEBUG
-			conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
+				conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
 #endif
+			}
+			this->cur_loaded_glyph_index = std::numeric_limits<FT_UInt>::max(); // The loaded glyph probably doesn't have the identity transformation.
+
+			error = FT_Render_Glyph(slot, render_SDF ? FT_RENDER_MODE_SDF : FT_RENDER_MODE_NORMAL);
+			if(error == 0) // If no errors:
+			{
+				// now, draw to our target surface (convert position)
+				drawCharToBitmap(map, &slot->bitmap, /*start_dest_x=*/draw_x + slot->bitmap_left, draw_y - slot->bitmap_top, col);
+
+				// increment pen position
+				pen.x += slot->advance.x;
+				pen.y += slot->advance.y;
+			}
+			else
+			{
+#ifndef NDEBUG
+				conPrint("Warning: FT_Render_Glyph failed: " + getFreeTypeErrorString(error));
+#endif
+			}
 		}
 
 		i += num_bytes;
