@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "OpenGLTexture.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/ArrayRef.h"
 class OpenGLShader;
 class QGLContext;
 class RenderBuffer;
@@ -47,8 +48,15 @@ public:
 	// NOTE: Framebuffer must be bound before calling this.
 	GLuint getAttachedTextureName(GLenum attachment_point);
 	
+	GLenum checkCompletenessStatus();
 	bool isComplete();
 
+	void discardContents(ArrayRef<GLenum> attachments);
+	void discardContents(GLenum attachment_a);
+	void discardContents(GLenum attachment_a, GLenum attachment_b);
+	void discardContents(GLenum attachment_a, GLenum attachment_b, GLenum attachment_c);
+
+	static void discardDefaultFrameBufferContents(); // Discards colour and depth from default framebuffer.
 
 	// Will return 0 if texture has not been bound yet.
 	size_t xRes() const { return xres; }

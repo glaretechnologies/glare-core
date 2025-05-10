@@ -11,6 +11,11 @@ Copyright Glare Technologies Limited 2024 -
 #if CHECK_GL_CONTEXT
 #include <QtOpenGL/QGLWidget>
 #endif
+#if EMSCRIPTEN
+#define GL_GLEXT_PROTOTYPES 1
+#include <GLES3/gl2ext.h>
+#define glClipControl glClipControlEXT
+#endif
 
 
 FrameBuffer::FrameBuffer()
@@ -157,10 +162,58 @@ GLuint FrameBuffer::getAttachedTextureName(GLenum attachment_point)
 }
 
 
-bool FrameBuffer::isComplete()
+GLenum FrameBuffer::checkCompletenessStatus()
 {
 	bindForDrawing(); // Bind this frame buffer
-	
-	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	return is_complete == GL_FRAMEBUFFER_COMPLETE;
+	return glCheckFramebufferStatus(GL_FRAMEBUFFER);
+}
+
+
+bool FrameBuffer::isComplete()
+{
+	return checkCompletenessStatus() == GL_FRAMEBUFFER_COMPLETE;
+}
+
+
+void FrameBuffer::discardContents(ArrayRef<GLenum> attachments)
+{
+#if EMSCRIPTEN
+	bindForDrawing(); // Bind this frame buffer
+
+	glDiscardFramebufferEXT(GL_FRAMEBUFFER, /*num attachments=*/(GLsizei)attachments.size(), /*attachments=*/attachments.data());
+
+	unbind();
+#endif
+}
+
+
+void FrameBuffer::discardContents(GLenum attachment_a)
+{
+	const GLenum attachments[] = { attachment_a };
+	discardContents(ArrayRef<GLenum>(attachments, staticArrayNumElems(attachments)));
+}
+
+
+void FrameBuffer::discardContents(GLenum attachment_a, GLenum attachment_b)
+{
+	const GLenum attachments[] = { attachment_a, attachment_b };
+	discardContents(ArrayRef<GLenum>(attachments, staticArrayNumElems(attachments)));
+}
+
+
+void FrameBuffer::discardContents(GLenum attachment_a, GLenum attachment_b, GLenum attachment_c)
+{
+	const GLenum attachments[] = { attachment_a, attachment_b, attachment_c};
+	discardContents(ArrayRef<GLenum>(attachments, staticArrayNumElems(attachments)));
+}
+
+
+void FrameBuffer::discardDefaultFrameBufferContents()
+{
+#if EMSCRIPTEN
+	glBindFramebuffer(GL_FRAMEBUFFER, 0); // Bind the default framebuffer
+
+	const GLenum attachments[2] = { GL_COLOR_EXT, GL_DEPTH_EXT };
+	glDiscardFramebufferEXT(GL_FRAMEBUFFER, /*num attachments=*/staticArrayNumElems(attachments), /*attachments=*/attachments);
+#endif
 }

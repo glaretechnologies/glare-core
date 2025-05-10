@@ -17,8 +17,8 @@ class OpenGLEngine;
 
 
 /*=====================================================================
-FrameBuffer
----------
+ShadowMapping
+-------------
 See http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-16-shadow-mapping/
 
 For 'static' shadow maps (wider view, updated less often), objects are randomly divided into 4 sets, with each set being draw onto the depth map on different frames.
@@ -62,8 +62,8 @@ public:
 	
 	int dynamic_w, dynamic_h;
 	int static_w, static_h;
-	Reference<FrameBuffer> frame_buffer;
-	Reference<OpenGLTexture> depth_tex;
+	Reference<FrameBuffer> dynamic_frame_buffer;
+	Reference<OpenGLTexture> dynamic_depth_tex;
 	
 	// There are 2 static depth maps: One is accumulated to over multiple frames, while the other is used for lookups.
 	int cur_static_depth_tex; // 0 or 1
@@ -71,10 +71,6 @@ public:
 	Reference<OpenGLTexture> static_depth_tex[2];
 
 	Vec4f vol_centres[NUM_STATIC_DEPTH_TEXTURES * 2];
-
-	//Reference<OpenGLTexture> col_tex;
-
-	//Reference<FrameBuffer> blur_fb;
 };
 
 #ifdef _WIN32

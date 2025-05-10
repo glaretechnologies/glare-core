@@ -2265,7 +2265,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 					tex_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
 					tex_preview_overlay_ob->material.shader_prog = this->overlay_prog;
 
-					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->depth_tex; // static_depth_tex[0];
+					tex_preview_overlay_ob->material.albedo_texture = shadow_mapping->dynamic_depth_tex; // static_depth_tex[0];
 
 					tex_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 
@@ -6611,7 +6611,6 @@ void OpenGLEngine::draw()
 #else
 	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
 #endif
-	const bool col_buf_is_floating_point = true;
 
 	//=============== Allocate or reallocate buffers for drawing to ===============
 	// We will render to renderbuffers (main_colour_renderbuffer, main_normal_renderbuffer) etc. attached to main_render_framebuffer.
@@ -7175,8 +7174,7 @@ void OpenGLEngine::draw()
 		// 	conPrintStr(" " + toString(normed_weight));
 		// }
 
-		// Don't bother doing bloom if we don't have a floating-point colour buffer (may happen in some web browsers), doesn't seem to be visible anyway.
-		if((current_scene->bloom_strength > 0) && col_buf_is_floating_point)
+		if(current_scene->bloom_strength > 0)
 		{
 			DebugGroup debug_group2("bloom");
 			TracyGpuZone("bloom");
@@ -7305,6 +7303,14 @@ void OpenGLEngine::draw()
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 				unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
 		}
+
+		// Now that we are done rendering, and we have run the final imaging pass that writes to target framebuffer, we don't need
+		// the contents of main_render_framebuffer or main_render_copy_framebuffer any more.
+		// NOTE: code disabled until it will actually be used (e.g. offscreen rendering is done on mobile)
+		// main_render_framebuffer     ->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
+		// main_render_copy_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
+		// glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0); // Restore framebuffer binding
+
 	} // End if(current_scene->render_to_main_render_framebuffer)
 
 
@@ -8315,6 +8321,9 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			if(draw_wireframes)
 				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
 #endif
+
+			// main_render_copy_framebuffer->discardContents(GL_DEPTH_ATTACHMENT, GL_DEPTH_ATTACHMENT);
+			// main_render_framebuffer->bindForDrawing(); // Restore framebuffer binding
 		}
 
 		this->last_num_decal_batches_drawn = (uint32)batch_draw_info.size();
@@ -8502,6 +8511,12 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 		if(draw_wireframes)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
 #endif
+
+		if(current_scene->render_to_main_render_framebuffer)
+		{
+			// main_render_copy_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
+			// main_render_framebuffer->bindForDrawing(); // Restore framebuffer binding
+		}
 
 		//glDepthMask(GL_TRUE); // Restore writing to depth buffer.
 
@@ -8728,17 +8743,17 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 		{
 			main_render_framebuffer->attachRenderBuffer(*total_transmittance_renderbuffer, GL_COLOR_ATTACHMENT0); // Replaces color buffer as GL_COLOR_ATTACHMENT0
 			main_render_framebuffer->attachRenderBuffer(*transparent_accum_renderbuffer, GL_COLOR_ATTACHMENT1); // Replaces normal buffer as GL_COLOR_ATTACHMENT1
-		}
-
-		if(use_order_indep_transparency)
 			setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to two colour buffers:  total_transmittance, transparent_accum.
+		}
 		else
-			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+		{
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer
+		}
 	}
 	else
 	{
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targeting default framebuffer
 	}
 
 	if(use_order_indep_transparency && current_scene->render_to_main_render_framebuffer)
@@ -8891,6 +8906,8 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 
 
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Restore to no framebuffers bound for reading.
+
+		// main_render_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Discard total_transmittance and transparent_accum now it has been copied out of
 
 		// Restore render buffer bindings for main_render_framebuffer and main_render_copy_framebuffer
 		main_render_framebuffer->attachRenderBuffer(*main_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
@@ -10165,7 +10182,7 @@ void OpenGLEngine::bindStandardShadowMappingDepthTextures()
 {
 	if(shadow_mapping.nonNull())
 	{
-		bindTextureToTextureUnit(*this->shadow_mapping->depth_tex,                                                    /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*this->shadow_mapping->dynamic_depth_tex,                                            /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
 	}
 }
@@ -10390,7 +10407,7 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 	// Check standard textures are correctly bound to standard texture units
 	if(shadow_mapping.nonNull())
 	{
-		assert(getBoundTexture2D(DEPTH_TEX_TEXTURE_UNIT_INDEX)        == this->shadow_mapping->depth_tex->texture_handle);
+		assert(getBoundTexture2D(DEPTH_TEX_TEXTURE_UNIT_INDEX)        == this->shadow_mapping->dynamic_depth_tex->texture_handle);
 		assert(getBoundTexture2D(STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX) == this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex]->texture_handle);
 	}
 

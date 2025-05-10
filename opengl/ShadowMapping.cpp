@@ -23,6 +23,8 @@ ShadowMapping::~ShadowMapping()
 
 void ShadowMapping::init(OpenGLEngine* opengl_engine)
 {
+	cur_static_depth_tex = 0;
+
 	int initial_base_res = 2048;
 	if(opengl_engine->settings.shadow_mapping_detail == OpenGLEngineSettings::ShadowMappingDetail_low)
 		initial_base_res = 1024;
@@ -63,81 +65,56 @@ void ShadowMapping::init(OpenGLEngine* opengl_engine)
 	conPrint("Shadow map res: dynamic: " + toString(dynamic_w) + " x " + toString(dynamic_h) + ", static: " + toString(static_w) + " x " + toString(static_h));
 
 
-	// Create frame buffer
-	frame_buffer = new FrameBuffer();
-	for(int i=0; i<2; ++i)
-		static_frame_buffer[i] = new FrameBuffer();
-
-	// Create depth tex
-	// We will use a 16-bit depth format as I haven't seen any noticable issues with it so far, compared to a 32-bit format.
-	depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, /*opengl_engine=*/NULL,
-		ArrayRef<uint8>(NULL, 0),
-		OpenGLTextureFormat::Format_Depth_Uint16, // Uint16,
+	// Create depth textures
+	// We will use a 16-bit depth format as I haven't seen any noticeable issues with it so far, compared to a 32-bit format.
+	dynamic_depth_tex = new OpenGLTexture(dynamic_w, dynamic_h, /*opengl_engine=*/NULL,
+		ArrayRef<uint8>(),
+		OpenGLTextureFormat::Format_Depth_Uint16,
 		OpenGLTexture::Filtering_PCF
 	);
 
-	// OpenGLTexture::Filtering_Nearest, OpenGLTexture::Filtering_PCF
-
-	cur_static_depth_tex = 0;
-
 	for(int i=0; i<2; ++i)
 		static_depth_tex[i] = new OpenGLTexture(static_w, static_h, /*opengl_engine=*/NULL,
-			ArrayRef<uint8>(NULL, 0), // 
+			ArrayRef<uint8>(),
 			OpenGLTextureFormat::Format_Depth_Uint16,
-			OpenGLTexture::Filtering_PCF // nearest filtering
+			OpenGLTexture::Filtering_PCF
 		);
 
-	//col_tex = new OpenGLTexture();
-	//col_tex->load(w, h, NULL, NULL, 
-	//	GL_RGB32F_ARB, // internal format
-	//	GL_RGB, // format
-	//	GL_FLOAT, // type
-	//	true // nearest filtering
-	//);
-
-	// Attach depth texture to frame buffer
-	frame_buffer->bindForDrawing();
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_tex->texture_handle, /*mipmap level=*/0);
-
-	GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+	// Create dynamic frame buffer
 	{
-		throw glare::Exception("Error: ShadowMapping framebuffer is not complete: " + toHexString(is_complete));
-		//conPrint("Error: framebuffer is not complete.");
-		//assert(0);
-	}
+		dynamic_frame_buffer = new FrameBuffer();
 
-	FrameBuffer::unbind();
+		// Attach depth texture to frame buffer
+		dynamic_frame_buffer->attachTexture(*dynamic_depth_tex, GL_DEPTH_ATTACHMENT);
+	
+		const GLenum is_complete = dynamic_frame_buffer->checkCompletenessStatus();
+		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+			throw glare::Exception("Error: dynamic ShadowMapping framebuffer is not complete: " + toHexString(is_complete));
+	}
 
 	// Attach static depth textures to static frame buffers
 	for(int i=0; i<2; ++i)
 	{
-		static_frame_buffer[i]->bindForDrawing();
+		static_frame_buffer[i] = new FrameBuffer();
+		static_frame_buffer[i]->attachTexture(*static_depth_tex[i], GL_DEPTH_ATTACHMENT);
 
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_depth_tex[i]->texture_handle, /*mipmap level=*/0);
-
-		is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		const GLenum is_complete = static_frame_buffer[i]->checkCompletenessStatus();
 		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
-		{
-			throw glare::Exception("Error: static ShadowMapping framebuffer is not complete.");
-			//conPrint("Error: static framebuffer is not complete.");
-			//assert(0);
-		}
+			throw glare::Exception("Error: static ShadowMapping framebuffer is not complete: " + toHexString(is_complete));
 
 		// Because the static depth textures will take a few frames to be fully filled, and will be used for rendering for a few frames first, clear them so as not to show garbage.
 		// Clear texture while it is bound to a framebuffer
 		glClearDepthf(1.f);
 		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
-
-		FrameBuffer::unbind();
 	}
+
+	FrameBuffer::unbind();
 }
 
 
 void ShadowMapping::bindDepthTexFrameBufferAsTarget()
 {
-	frame_buffer->bindForDrawing();
+	dynamic_frame_buffer->bindForDrawing();
 }
 
 
