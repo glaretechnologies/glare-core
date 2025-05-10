@@ -2374,7 +2374,11 @@ Reference<BatchedMesh> BatchedMesh::buildQuantisedMesh(const QuantiseOptions& qu
 	// Pos attribute
 	if(old_pos_attr.component_type == ComponentType_Float)
 	{
-		const Vec4f scale = div(Vec4f(65535.f), (this->aabb_os.max_ - this->aabb_os.min_));
+		Vec4f scale = div(Vec4f(65535.f), this->aabb_os.span());
+		for(int c=0; c<4; ++c)
+			if(this->aabb_os.span()[c] == 0.f)
+				scale[c] = 0.f; // Multiply by 0 instead of Inf
+
 		const uint16 num_bits_to_zero = (uint16)myMax(0, 16 - quantise_options.pos_bits);
 
 		for(size_t i=0; i<num_verts; ++i)
