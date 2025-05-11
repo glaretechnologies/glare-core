@@ -176,8 +176,6 @@ bool GLUI::handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEve
 
 bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 {
-	// Convert from gl_coords to UI x/y coords
-	const float y_scale = 1 / opengl_engine->getViewPortAspectRatio();
 	const Vec2f coords = UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
 	this->last_mouse_ui_coords = coords;
