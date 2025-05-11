@@ -43,6 +43,8 @@ layout (std140) uniform MaterialCommonUniforms
 #define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
 #define HAVE_NORMAL_MAP_FLAG				64
 #define SIMPLE_DOUBLE_SIDED_FLAG			128
+#define SWIZZLE_ALBEDO_TEX_R_TO_RGB_FLAG	256
+#define CONVERT_ALBEDO_FROM_SRGB_FLAG		512
 
 
 #define CameraType_Identity					0

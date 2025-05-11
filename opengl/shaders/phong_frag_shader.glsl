@@ -511,12 +511,18 @@ void main()
 		sun_texture_diffuse_col = texture(DIFFUSE_TEX, main_tex_coords);
 		refl_texture_diffuse_col = sun_texture_diffuse_col;
 #endif
+		if((use_flags & SWIZZLE_ALBEDO_TEX_R_TO_RGB_FLAG) != 0)
+		{
+			sun_texture_diffuse_col.xyz  = vec3(sun_texture_diffuse_col.x);
+			refl_texture_diffuse_col.xyz = vec3(refl_texture_diffuse_col.x);
+		}
 
-#if CONVERT_ALBEDO_FROM_SRGB
-		// Texture value is in non-linear sRGB, convert to linear sRGB.
-		sun_texture_diffuse_col.xyz  = fastApproxNonLinearSRGBToLinearSRGB(sun_texture_diffuse_col.xyz);
-		refl_texture_diffuse_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(refl_texture_diffuse_col.xyz);
-#endif
+		if((use_flags & CONVERT_ALBEDO_FROM_SRGB_FLAG) != 0)
+		{
+			// Texture value is in non-linear sRGB, convert to linear sRGB.
+			sun_texture_diffuse_col.xyz  = fastApproxNonLinearSRGBToLinearSRGB(sun_texture_diffuse_col.xyz);
+			refl_texture_diffuse_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(refl_texture_diffuse_col.xyz);
+		}
 
 #endif // end if !COMBINED
 	}
@@ -859,13 +865,8 @@ void main()
 	{
 		vec4 emission_tex_col = texture(EMISSION_TEX, main_tex_coords);
 
-#if CONVERT_ALBEDO_FROM_SRGB
-		// Texture value is in non-linear sRGB, convert to linear sRGB.
-		// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html, expression for C_lin_3.
-		vec4 c = emission_tex_col;
-		vec4 c2 = c * c;
-		emission_tex_col = c * c2 * 0.305306011f + c2 * 0.682171111f + c * 0.012522878f;
-#endif
+		if((MAT_UNIFORM.flags & CONVERT_ALBEDO_FROM_SRGB_FLAG) != 0) // TODO: use different flag for emission
+			emission_tex_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(emission_tex_col.xyz);
 
 		emission_col *= emission_tex_col;
 	}

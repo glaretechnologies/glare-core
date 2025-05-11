@@ -112,7 +112,9 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 	if(dynamic_cast<const ImageMapUInt8*>(&map2d))
 	{
 		OpenGLTextureFormat format;
-		if(map2d.numChannels() <= 3)
+		if(map2d.numChannels() == 1)
+			format = OpenGLTextureFormat::Format_Greyscale_Uint8;
+		else if(map2d.numChannels() <= 3)
 			format = texture_params.use_sRGB ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_RGB_Linear_Uint8;
 		else if(map2d.numChannels() == 4)
 			format = texture_params.use_sRGB ? OpenGLTextureFormat::Format_SRGBA_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;

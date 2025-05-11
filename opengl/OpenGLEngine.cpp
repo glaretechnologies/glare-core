@@ -2438,7 +2438,6 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define LIGHTMAPPING " + toString(key.lightmapping) + "\n" +
 		"#define GENERATE_PLANAR_UVS " + toString(key.gen_planar_uvs) + "\n" +
 		"#define DRAW_PLANAR_UV_GRID " + toString(key.draw_planar_uv_grid) + "\n" +
-		"#define CONVERT_ALBEDO_FROM_SRGB " + toString(key.convert_albedo_from_srgb) + "\n" +
 		"#define SKINNING " + toString(key.skinning) + "\n" +
 		"#define IMPOSTER " + toString(key.imposter) + "\n" +
 		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
@@ -3163,7 +3162,6 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	key.lightmapping = false;
 	key.gen_planar_uvs = false; // relevant?
 	key.draw_planar_uv_grid = false;
-	key.convert_albedo_from_srgb = false;
 	// relevant: key.skinning
 	// relevant: use_wind_vert_shader
 	key.simple_double_sided = false; // for now
@@ -3666,7 +3664,6 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.lightmapping = uses_lightmapping;
 	key_args.gen_planar_uvs = material.gen_planar_uvs;
 	key_args.draw_planar_uv_grid = material.draw_planar_uv_grid;
-	key_args.convert_albedo_from_srgb = material.convert_albedo_from_srgb;
 	key_args.skinning = uses_skinning;
 	key_args.imposter = material.imposter;
 	key_args.imposterable = material.imposterable;
@@ -3763,6 +3760,37 @@ static void checkMaterial(const OpenGLMaterial& mat)
 }
 
 
+// MaterialData flag values
+#define HAVE_SHADING_NORMALS_FLAG			1
+#define HAVE_TEXTURE_FLAG					2
+#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
+#define HAVE_EMISSION_TEX_FLAG				8
+#define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
+#define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
+#define HAVE_NORMAL_MAP_FLAG				64
+#define SIMPLE_DOUBLE_SIDED_FLAG			128
+#define SWIZZLE_ALBEDO_TEX_R_TO_RGB_FLAG	256 // If the texture is a single channel texture, we want to make it render as greyscale (as opposed to red), e.g. set tex_col.x,y,z = tex_col.x in the frag shader.
+#define CONVERT_ALBEDO_FROM_SRGB_FLAG		512 // convert albedo texture colour from non-linear sRGB to linear sRGB in frag shader
+
+
+static int computeUniformFlagsForMat(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data)
+{
+	const bool swizzle_albedo_tex_r_to_rgb = opengl_mat.albedo_texture && (opengl_mat.albedo_texture->getInternalFormat() == GL_R8);
+	
+	return
+		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
+		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
+		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0) |
+		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0) |
+		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0) |
+		(opengl_mat.imposter_tex_has_multiple_angles		? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	: 0) |
+		(opengl_mat.normal_map.nonNull()					? HAVE_NORMAL_MAP_FLAG				: 0) |
+		(opengl_mat.simple_double_sided						? SIMPLE_DOUBLE_SIDED_FLAG			: 0) |
+		(swizzle_albedo_tex_r_to_rgb						? SWIZZLE_ALBEDO_TEX_R_TO_RGB_FLAG	: 0) |
+		(opengl_mat.convert_albedo_from_srgb				? CONVERT_ALBEDO_FROM_SRGB_FLAG		: 0);
+}
+
+
 void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 {
 	assert(object->mesh_data.nonNull());
@@ -3787,8 +3815,12 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 
 	// Build materials
 	for(size_t i=0; i<object->materials.size(); ++i)
+	{
 		assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
 			object->mesh_data->position_w_is_oct16_normal);
+
+		object->materials[i].uniform_flags = computeUniformFlagsForMat(object->materials[i], *object->mesh_data);
+	}
 
 
 	const AnimationData& anim_data = object->mesh_data->animation_data;
@@ -4315,6 +4347,8 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
 						object->mesh_data->position_w_is_oct16_normal);
 
+					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
+
 					rebuildDenormalisedDrawData(*object);
 
 					//if(use_multi_draw_indirect) 
@@ -4325,6 +4359,8 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 				{
 					mat.metallic_roughness_texture = opengl_texture;
 
+					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
+
 					//if(use_multi_draw_indirect) 
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
@@ -4332,6 +4368,8 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 				if(object->materials[i].normal_map_path == path)
 				{
 					mat.normal_map = opengl_texture;
+
+					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
 
 					updateMaterialDataOnGPU(*object, /*mat index=*/i);
 				}
@@ -4346,6 +4384,8 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
 						object->mesh_data->position_w_is_oct16_normal);
 
+					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
+
 					rebuildDenormalisedDrawData(*object);
 
 					//if(use_multi_draw_indirect) 
@@ -4355,6 +4395,8 @@ void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Ref
 				if(object->materials[i].emission_tex_path == path)
 				{
 					mat.emission_texture = opengl_texture;
+
+					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
 
 					//if(use_multi_draw_indirect) 
 						updateMaterialDataOnGPU(*object, /*mat index=*/i);
@@ -4484,10 +4526,14 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 	bool have_materialise_effect = false;
 	for(size_t i=0; i<object.materials.size(); ++i)
 	{
-		assignShaderProgToMaterial(object.materials[i], object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning(), object.mesh_data->has_vert_tangents, 
+		OpenGLMaterial& mat = object.materials[i];
+
+		assignShaderProgToMaterial(mat, object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning(), object.mesh_data->has_vert_tangents, 
 			object.mesh_data->position_w_is_oct16_normal);
-		have_transparent_mat = have_transparent_mat || object.materials[i].transparent;
-		have_materialise_effect = have_materialise_effect || object.materials[i].materialise_effect;
+		have_transparent_mat = have_transparent_mat || mat.transparent;
+		have_materialise_effect = have_materialise_effect || mat.materialise_effect;
+
+		mat.uniform_flags = computeUniformFlagsForMat(mat, *object.mesh_data);
 	}
 
 	if(have_transparent_mat)
@@ -4548,6 +4594,8 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 
 		// Since texture may have changed from one with alpha to one without, or vice-versa, we may need to assign a new shader.
 		assignShaderProgToMaterial(mat, ob.mesh_data->has_vert_colours, /*uses instancing=*/ob.instance_matrix_vbo.nonNull(), ob.mesh_data->usesSkinning(), ob.mesh_data->has_vert_tangents, ob.mesh_data->position_w_is_oct16_normal);
+
+		mat.uniform_flags = computeUniformFlagsForMat(mat, *ob.mesh_data);
 
 		rebuildDenormalisedDrawData(ob);
 
@@ -6386,8 +6434,12 @@ void OpenGLEngine::draw()
 			{
 				GLObject* const object = it->ptr();
 				for(size_t i=0; i<object->materials.size(); ++i)
+				{
 					assignShaderProgToMaterial(object->materials[i], object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
 						object->mesh_data->position_w_is_oct16_normal);
+
+					object->materials[i].uniform_flags = computeUniformFlagsForMat(object->materials[i], *object->mesh_data);
+				}
 
 				rebuildDenormalisedDrawData(*object);
 				rebuildObjectDepthDrawBatches(*object);
@@ -6448,6 +6500,8 @@ void OpenGLEngine::draw()
 						// Materialise effect has finished
 						mat.materialise_effect = false;
 						assignShaderProgToMaterial(mat, ob->mesh_data->has_vert_colours, /*uses instancing=*/ob->instance_matrix_vbo.nonNull(), ob->mesh_data->usesSkinning(), ob->mesh_data->has_vert_tangents, ob->mesh_data->position_w_is_oct16_normal);
+
+						mat.uniform_flags = computeUniformFlagsForMat(mat, *ob->mesh_data);
 
 						rebuildDenormalisedDrawData(*ob);
 						rebuildObjectDepthDrawBatches(*ob);
@@ -10250,16 +10304,6 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 }
 
 
-// MaterialData flag values
-#define HAVE_SHADING_NORMALS_FLAG			1
-#define HAVE_TEXTURE_FLAG					2
-#define HAVE_METALLIC_ROUGHNESS_TEX_FLAG	4
-#define HAVE_EMISSION_TEX_FLAG				8
-#define IS_HOLOGRAM_FLAG					16 // e.g. no light scattering, just emission
-#define IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	32
-#define HAVE_NORMAL_MAP_FLAG				64
-#define SIMPLE_DOUBLE_SIDED_FLAG			128
-
 
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const
 {
@@ -10275,56 +10319,19 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, con
 
 	if(this->use_bindless_textures)
 	{
-		if(opengl_mat.albedo_texture.nonNull())
-			uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
-		else
-			uniforms.diffuse_tex = 0;
-
-		if(opengl_mat.metallic_roughness_texture.nonNull())
-			uniforms.metallic_roughness_tex = opengl_mat.metallic_roughness_texture->getBindlessTextureHandle();
-		else
-			uniforms.metallic_roughness_tex = 0;
-
-		if(opengl_mat.lightmap_texture.nonNull())
-			uniforms.lightmap_tex = opengl_mat.lightmap_texture->getBindlessTextureHandle();
-		else
-			uniforms.lightmap_tex = 0;
-
-		if(opengl_mat.emission_texture.nonNull())
-			uniforms.emission_tex = opengl_mat.emission_texture->getBindlessTextureHandle();
-		else
-			uniforms.emission_tex = 0;
-
-		if(opengl_mat.backface_albedo_texture.nonNull())
-			uniforms.backface_albedo_tex = opengl_mat.backface_albedo_texture->getBindlessTextureHandle();
-		else
-			uniforms.backface_albedo_tex = 0;
-
-		if(opengl_mat.transmission_texture.nonNull())
-			uniforms.transmission_tex = opengl_mat.transmission_texture->getBindlessTextureHandle();
-		else
-			uniforms.transmission_tex = 0;
-
-		if(opengl_mat.normal_map.nonNull())
-			uniforms.normal_map = opengl_mat.normal_map->getBindlessTextureHandle();
-		else
-			uniforms.normal_map = 0;
-
-		if(opengl_mat.combined_array_texture.nonNull())
-			uniforms.combined_array_tex = opengl_mat.combined_array_texture->getBindlessTextureHandle();
-		else
-			uniforms.combined_array_tex = 0;
+		uniforms.diffuse_tex            = opengl_mat.albedo_texture             ? opengl_mat.albedo_texture            ->getBindlessTextureHandle() : 0;
+		uniforms.metallic_roughness_tex = opengl_mat.metallic_roughness_texture ? opengl_mat.metallic_roughness_texture->getBindlessTextureHandle() : 0;
+		uniforms.lightmap_tex           = opengl_mat.lightmap_texture           ? opengl_mat.lightmap_texture          ->getBindlessTextureHandle() : 0;
+		uniforms.emission_tex           = opengl_mat.emission_texture           ? opengl_mat.emission_texture          ->getBindlessTextureHandle() : 0;
+		uniforms.backface_albedo_tex    = opengl_mat.backface_albedo_texture    ? opengl_mat.backface_albedo_texture   ->getBindlessTextureHandle() : 0;
+		uniforms.transmission_tex       = opengl_mat.transmission_texture       ? opengl_mat.transmission_texture      ->getBindlessTextureHandle() : 0;
+		uniforms.normal_map             = opengl_mat.normal_map                 ? opengl_mat.normal_map                ->getBindlessTextureHandle() : 0;
+		uniforms.combined_array_tex     = opengl_mat.combined_array_texture     ? opengl_mat.combined_array_texture    ->getBindlessTextureHandle() : 0;
 	}
 
-	uniforms.flags =
-		(mesh_data.has_shading_normals						? HAVE_SHADING_NORMALS_FLAG			: 0) |
-		(opengl_mat.albedo_texture.nonNull()				? HAVE_TEXTURE_FLAG					: 0) |
-		(opengl_mat.metallic_roughness_texture.nonNull()	? HAVE_METALLIC_ROUGHNESS_TEX_FLAG	: 0) |
-		(opengl_mat.emission_texture.nonNull()				? HAVE_EMISSION_TEX_FLAG			: 0) |
-		(opengl_mat.hologram								? IS_HOLOGRAM_FLAG					: 0) |
-		(opengl_mat.imposter_tex_has_multiple_angles		? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES	: 0) |
-		(opengl_mat.normal_map.nonNull()					? HAVE_NORMAL_MAP_FLAG				: 0) |
-		(opengl_mat.simple_double_sided						? SIMPLE_DOUBLE_SIDED_FLAG			: 0);
+	
+	assert(opengl_mat.uniform_flags == computeUniformFlagsForMat(opengl_mat, mesh_data)); // Check our cached flags are correct
+	uniforms.flags						= opengl_mat.uniform_flags;
 
 	uniforms.roughness					= opengl_mat.roughness;
 	uniforms.fresnel_scale				= opengl_mat.fresnel_scale;

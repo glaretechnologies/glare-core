@@ -111,6 +111,7 @@ public:
 		alpha(1.f),
 		emission_linear_rgb(0.7f, 0.7f, 0.7f),
 		emission_scale(0.f),
+		uniform_flags(0),
 		roughness(0.5f),
 		tex_matrix(1,0,0,1),
 		tex_translation(0,0),
@@ -159,7 +160,8 @@ public:
 	bool hologram; // E.g. just emission, no light scattering.
 	bool gen_planar_uvs; // Generate planar UVs.  Useful for voxels.
 	bool draw_planar_uv_grid;
-	bool convert_albedo_from_srgb; // If true, diffuse colour (including texture colour) is treated as non-linear sRGB, and manually converted to linear sRGB in fragment shader.  Not needed when using a sRGB texture type.
+	bool convert_albedo_from_srgb; // If true, diffuse colour (including texture colour) is treated as non-linear sRGB, and manually converted to linear sRGB in fragment shader.  Not needed when using a sRGB texture type.  
+	// convert_albedo_from_srgb is unfortunately needed for GPU-decoded video frame textures, which are sRGB but not marked as sRGB.
 	bool use_wind_vert_shader;
 	bool simple_double_sided; // If false, back-face culling is done on this material.  If true, back face is rendered like front face.
 	bool fancy_double_sided; // Are we using BACKFACE_ALBEDO_TEX and TRANSMISSION_TEX?  For leaves etc.
@@ -194,6 +196,8 @@ public:
 
 	Matrix2f tex_matrix;
 	Vec2f tex_translation;
+
+	int uniform_flags;
 
 	float roughness;
 	float fresnel_scale;

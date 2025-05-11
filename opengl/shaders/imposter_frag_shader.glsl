@@ -166,9 +166,8 @@ void main()
 		else
 			texture_diffuse_col = texture(DIFFUSE_TEX, matdata.texture_upper_left_matrix_col0 * use_texture_coords.x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation);
 
-#if CONVERT_ALBEDO_FROM_SRGB
-		texture_diffuse_col = fastApproxNonLinearSRGBToLinearSRGB(texture_diffuse_col);
-#endif
+		if((matdata.flags & CONVERT_ALBEDO_FROM_SRGB_FLAG) != 0)
+			texture_diffuse_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(texture_diffuse_col.xyz);
 	}
 	else
 		texture_diffuse_col = vec4(1.f);

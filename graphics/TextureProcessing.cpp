@@ -45,8 +45,97 @@ void TextureProcessing::downSampleToNextMipMapLevel(size_t prev_W, size_t prev_H
 	assert((src_W == 1) || ((level_W - 1) * 2 + 1 < src_W));
 	assert((src_H == 1) || ((level_H - 1) * 2 + 1 < src_H));
 
-	assert(N == 3 || N == 4);
-	if(N == 3)
+	assert(N == 1 || N == 3 || N == 4);
+	if(N == 1)
+	{
+		if(src_W == 1)
+		{
+			// This is 1xN texture being downsized to 1xfloor(N/2)
+			assert(level_W == 1 && src_H > 1);
+			assert((level_H - 1) * 2 + 1 < src_H);
+
+			for(int y=0; y<(int)level_H; ++y)
+			{
+				int val[1] = { 0 };
+				size_t sx = 0;
+				size_t sy = y*2;
+				{
+					const uint8* src = src_data + (sx + src_W * sy) * N;
+					val[0] += src[0];
+				}
+				sy = y*2 + 1;
+				{
+					const uint8* src = src_data + (sx + src_W * sy) * N;
+					val[0] += src[0];
+				}
+				uint8* const dest_pixel = dst_data + (0 + level_W * y) * N;
+				dest_pixel[0] = (uint8)(val[0] / 2);
+			}
+		}
+		else if(src_H == 1)
+		{
+			// This is Nx1 texture being downsized to floor(N/2)x1
+			assert(level_H == 1 && src_W > 1);
+			assert((level_W - 1) * 2 + 1 < src_W);
+
+			for(int x=0; x<(int)level_W; ++x)
+			{
+				int val[1] = { 0 };
+				int sx = x*2;
+				int sy = 0;
+				{
+					const uint8* src = src_data + (sx + src_W * sy) * N;
+					val[0] += src[0];
+				}
+				sx = x*2 + 1;
+				{
+					const uint8* src = src_data + (sx + src_W * sy) * N;
+					val[0] += src[0];
+				}
+				uint8* const dest_pixel = dst_data + (x + level_W * 0) * N;
+				dest_pixel[0] = (uint8)(val[0] / 2);
+			}
+		}
+		else
+		{
+			assert(src_W >= 2 && src_H >= 2);
+			assert((level_W - 1) * 2 + 1 < src_W);
+			assert((level_H - 1) * 2 + 1 < src_H);
+
+			// In this case all reads should be in-bounds
+			for(int y=0; y<(int)level_H; ++y)
+				for(int x=0; x<(int)level_W; ++x)
+				{
+					int val[1] = { 0 };
+					int sx = x*2;
+					int sy = y*2;
+					{
+						const uint8* src = src_data + (sx + src_W * sy) * N;
+						val[0] += src[0];
+					}
+					sx = x*2 + 1;
+					{
+						const uint8* src = src_data + (sx + src_W * sy) * N;
+						val[0] += src[0];
+					}
+					sx = x*2;
+					sy = y*2 + 1;
+					{
+						const uint8* src = src_data + (sx + src_W * sy) * N;
+						val[0] += src[0];
+					}
+					sx = x*2 + 1;
+					{
+						const uint8* src = src_data + (sx + src_W * sy) * N;
+						val[0] += src[0];
+					}
+
+					uint8* const dest_pixel = dst_data + (x + level_W * y) * N;
+					dest_pixel[0] = (uint8)(val[0] / 4);
+				}
+		}
+	}
+	else if(N == 3)
 	{
 		if(src_W == 1)
 		{
@@ -590,7 +679,7 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 	// If we have a 1 or 2 bytes per pixel texture, convert to 3 or 4.
 	// Handling such textures without converting them here would have to be done in the shaders, which we don't do currently.
 	Reference<const ImageMapUInt8> converted_image;
-	if(imagemap->getN() == 1)
+	if(allow_compression && (imagemap->getN() == 1))
 	{
 		// Convert to RGB:
 		ImageMapUInt8Ref new_image = new ImageMapUInt8(imagemap->getWidth(), imagemap->getHeight(), 3);
@@ -627,9 +716,16 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 	else
 		converted_image = imagemap;
 
-	assert(converted_image->getN() >= 3);
-	if(converted_image->getN() != 3 && converted_image->getN() != 4)
-		throw glare::Exception("Texture has unhandled number of components: " + toString(converted_image->getN()));
+	if(allow_compression)
+	{
+		if(converted_image->getN() != 3 && converted_image->getN() != 4)
+			throw glare::Exception("Doing compression: texture has unhandled number of components: " + toString(converted_image->getN()));
+	}
+	else
+	{
+		if(converted_image->getN() != 1 && converted_image->getN() != 3 && converted_image->getN() != 4)
+			throw glare::Exception("texture has unhandled number of components: " + toString(converted_image->getN()));
+	}
 
 	// Try and load as a DXT texture compression
 	const size_t W = converted_image->getWidth();
@@ -643,7 +739,7 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 		if(do_compression)
 			texture_data->format = (converted_image->getN() == 3) ? OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8 : OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8;
 		else
-			texture_data->format = (converted_image->getN() == 3) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_SRGBA_Uint8;
+			texture_data->format = (converted_image->getN() == 1) ? OpenGLTextureFormat::Format_Greyscale_Uint8 : ((converted_image->getN() == 3) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_SRGBA_Uint8);
 
 		size_t total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size;
 		computeMipLevelOffsets(texture_data.ptr(), do_compression, total_compressed_size, temp_tex_buf_a_size, temp_tex_buf_b_size);
@@ -664,7 +760,7 @@ Reference<TextureData> TextureProcessing::buildUInt8MapTextureData(const ImageMa
 		texture_data->frame_size_B = converted_image->getByteSize();
 		texture_data->level_offsets.push_back(TextureData::LevelOffsetData(/*offset=*/0, texture_data->frame_size_B));
 
-		texture_data->format = (converted_image->getN() == 3) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_SRGBA_Uint8;
+		texture_data->format = (converted_image->getN() == 1) ? OpenGLTextureFormat::Format_Greyscale_Uint8 : ((converted_image->getN() == 3) ? OpenGLTextureFormat::Format_SRGB_Uint8 : OpenGLTextureFormat::Format_SRGBA_Uint8);
 	}
 
 	return texture_data;

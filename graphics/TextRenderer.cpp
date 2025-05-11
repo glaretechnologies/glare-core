@@ -68,7 +68,8 @@ static void drawCharToBitmap(ImageMapUInt8& map,
 
 	const int w = (int)map.getWidth();
 	const int h = (int)map.getHeight();
-	assert(map.getN() >= 3);
+	const int N = (int)map.getN();
+	runtimeCheck(map.getN() == 1 || map.getN() >= 3);
 
 	runtimeCheck(bitmap->pitch >= 0); // Pitch can apparently be negative sometimes
 
@@ -86,7 +87,16 @@ static void drawCharToBitmap(ImageMapUInt8& map,
 
 				uint8* pixel = map.getPixel(destx, desty);
 
-				if(map.getN() == 3)
+				if(N == 1)
+				{
+					// Get blended result of existing colour and 'col', where blend factor = font greyscale value.
+					const float src_col = pixel[0] * (1.f / 255.f);
+
+					const float new_col = Maths::lerp(src_col, col.r, (float)v * (1.0f / 255.f));
+			
+					pixel[0] = (uint8)(new_col * 255.01f);
+				}
+				else if(N == 3)
 				{
 					// Get blended result of existing colour and 'col', where blend factor = font greyscale value.
 					const Colour3f src_col(
@@ -126,7 +136,17 @@ static void drawCharToBitmap(ImageMapUInt8& map,
 
 				uint8* pixel = map.getPixel(destx, desty);
 
-				if(map.getN() == 3)
+				if(N == 1)
+				{
+					// Get blended result of existing colour and colour from font, where blend factor = font alpha.
+					const float src_col      = pixel[0] * (1.f / 255.f);
+					const float font_rgb_col = src[2]   * (1.f / 255.f); // Convert from BGRA.  NOTE: just using red channel
+					const float font_alpha_f = (float)src[3] * (1.0f / 255.f);
+					const float new_col = Maths::lerp(src_col, font_rgb_col, font_alpha_f);
+			
+					pixel[0] = (uint8)(new_col * 255.01f);
+				}
+				else if(N == 3)
 				{
 					// Get blended result of existing colour and colour from font, where blend factor = font alpha.
 					const Colour3f src_col(
