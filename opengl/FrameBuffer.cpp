@@ -14,7 +14,6 @@ Copyright Glare Technologies Limited 2024 -
 #if EMSCRIPTEN
 #define GL_GLEXT_PROTOTYPES 1
 #include <GLES3/gl2ext.h>
-#define glClipControl glClipControlEXT
 #endif
 
 

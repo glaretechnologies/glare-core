@@ -2305,7 +2305,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			}
 
 			// Preview prepass_normal_copy_texture
-			/*{
+			{
 				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
 				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-0.3f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
 				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
@@ -2329,7 +2329,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
 
 				addOverlayObject(texture_debug_preview_overlay_ob);
-			}*/
+			}
 		}
 
 
@@ -7466,7 +7466,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 
 		// Use opengl-default clip coords
 #if !defined(OSX)
-		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+		if(use_reverse_z)
+			glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
 #endif
 		glDepthFunc(GL_LESS);
 
