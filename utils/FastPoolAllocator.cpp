@@ -7,18 +7,20 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "MemAlloc.h"
+#include "Lock.h"
 #include "StringUtils.h"
 #include "ConPrint.h"
 
 
-static const size_t block_capacity = 1024; // Max num objects per block.
-
-
-glare::FastPoolAllocator::FastPoolAllocator(size_t ob_alloc_size_, size_t alignment_)
+glare::FastPoolAllocator::FastPoolAllocator(size_t ob_alloc_size_, size_t alignment_, size_t block_capacity_)
 :	ob_alloc_size(Maths::roundUpToMultipleOfPowerOf2<size_t>(ob_alloc_size_, alignment_)),
-	alignment(alignment_)
+	alignment(alignment_),
+	block_capacity(block_capacity_),
+	block_capacity_num_bits(BitUtils::highestSetBitIndex(block_capacity_)),
+	block_capacity_mask(block_capacity_ - 1)
 {
 	assert(Maths::isPowerOfTwo(alignment_));
+	assert(Maths::isPowerOfTwo(block_capacity_));
 }
 
 
@@ -27,7 +29,7 @@ glare::FastPoolAllocator::~FastPoolAllocator()
 	const size_t num_allocated_obs = numAllocatedObs();
 	if(num_allocated_obs > 0)
 	{
-		conPrint(toString(num_allocated_obs) + " obs still allocated in PoolAllocator destructor!");
+		conPrint(toString(num_allocated_obs) + " obs still allocated in FastPoolAllocator destructor!");
 		assert(0);
 	}
 
@@ -59,13 +61,13 @@ glare::FastPoolAllocator::AllocResult glare::FastPoolAllocator::alloc()
 	if(free_indices.size() > 0)
 	{
 		// There was at least one free index:
-		const int index = free_indices[0];
-		size_t block_i    = (size_t)index / block_capacity;
-		size_t in_block_i = (size_t)index % block_capacity;
+		const int index = free_indices.back();
+		const size_t block_i    = (size_t)index >> block_capacity_num_bits;
+		const size_t in_block_i = (size_t)index & block_capacity_mask;
+		assert(block_i    == (size_t)index / block_capacity);
+		assert(in_block_i == (size_t)index % block_capacity);
 
-		// Remove slot from free indices.
-		free_indices[0] = free_indices.back(); // Replace with last free index
-		free_indices.pop_back(); // Remove old last free index
+		free_indices.pop_back();
 
 		AllocResult alloc_res;
 		alloc_res.ptr = blocks[block_i].data + ob_alloc_size * in_block_i;
@@ -78,10 +80,12 @@ glare::FastPoolAllocator::AllocResult glare::FastPoolAllocator::alloc()
 		const size_t new_block_index = blocks.size();
 		blocks.push_back(BlockInfo());
 
-		size_t insert_index = free_indices.size();
+		const size_t insert_index = free_indices.size();
 		free_indices.resize(insert_index + block_capacity - 1);
+
+		// Add in reverse order so that the lowest slots are at the back of free_indices, where we will pop first.
 		for(size_t i=1; i<block_capacity; ++i) // Don't add slot 0, we will use that one.
-			free_indices[insert_index + i - 1] = (int)(new_block_index * block_capacity + i);
+			free_indices[insert_index + i - 1] = (int)(new_block_index * block_capacity + (block_capacity - i));
 
 		BlockInfo& new_block = blocks[new_block_index];
 		new_block.data = (uint8*)MemAlloc::alignedMalloc(block_capacity * ob_alloc_size, alignment);
@@ -108,35 +112,8 @@ void glare::FastPoolAllocator::free(int allocation_index)
 
 
 #include "TestUtils.h"
-#include "ConPrint.h"
-#include "StringUtils.h"
 #include "Timer.h"
 #include "Reference.h"
-
-
-/*struct PoolAllocatorTestStruct : public RefCounted
-{
-	int a, b, c, d;
-
-	Reference<glare::Allocator> allocator;
-};
-
-
-// Template specialisation of destroyAndFreeOb for WMFFrameInfo.
-template <>
-inline void destroyAndFreeOb<PoolAllocatorTestStruct>(PoolAllocatorTestStruct* ob)
-{
-	Reference<glare::Allocator> allocator = ob->allocator;
-
-	// Destroy object
-	ob->~PoolAllocatorTestStruct();
-
-	// Free object mem
-	if(allocator.nonNull())
-		ob->allocator->free(ob);
-	else
-		delete ob;
-}*/
 
 
 void glare::testFastPoolAllocator()
@@ -144,7 +121,7 @@ void glare::testFastPoolAllocator()
 	conPrint("glare::testFastPoolAllocator()");
 
 	{
-		FastPoolAllocator pool(/*ob alloc size=*/4, /*alignment=*/4);
+		FastPoolAllocator pool(/*ob alloc size=*/4, /*alignment=*/4, /*block capacity=*/64);
 
 		FastPoolAllocator::AllocResult a = pool.alloc();
 		FastPoolAllocator::AllocResult b = pool.alloc();
@@ -176,25 +153,34 @@ void glare::testFastPoolAllocator()
 		testAssert(pool.numAllocatedObs() == 0);
 	}
 
-	// Test with references 
-	/*{
-		Reference<PoolAllocator<PoolAllocatorTestStruct>> pool = new PoolAllocator<PoolAllocatorTestStruct>(16);
-		
-		testAssert(pool->numAllocatedObs() == 0);
+	if(false)
+	{
+		FastPoolAllocator pool(/*ob alloc size=*/4, /*alignment=*/4, /*block capacity=*/64);
 
+		std::vector<int> indices;
+
+		for(int z=0; z<10; ++z)
 		{
-			void* mem = pool->alloc(sizeof(PoolAllocatorTestStruct), 16);
-			Reference<PoolAllocatorTestStruct> a = ::new (mem) PoolAllocatorTestStruct();
-			a->allocator = pool;
+			conPrint("-----");
+			const int N = 10 + z;
+			for(int i=0; i<N; ++i)
+			{
+				FastPoolAllocator::AllocResult res = pool.alloc();
+				conPrint("Allocated index " + toString(res.index));
+				indices.push_back(res.index);
+			}
 
-			testAssert(pool->numAllocatedObs() == 1);
+			testAssert(pool.numAllocatedObs() == N);
+
+			for(int i=0; i<N; ++i)
+				pool.free(indices[i]);
+			indices.clear();
+
+			testAssert(pool.numAllocatedObs() == 0);
 		}
-		testAssert(pool->numAllocatedObs() == 0);
+	}
 
-		testAssert(pool->getRefCount() == 1);
-	}*/
-
-	conPrint("glare::FastPoolAllocator() done.");
+	conPrint("glare::testFastPoolAllocator() done.");
 }
 
 

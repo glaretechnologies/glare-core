@@ -11,14 +11,15 @@ Copyright Glare Technologies Limited 2022 -
 #include "ConPrint.h"
 
 
-static const size_t block_capacity = 1024; // Max num objects per block.
-
-
-glare::PoolAllocator::PoolAllocator(size_t ob_alloc_size_, size_t alignment_)
+glare::PoolAllocator::PoolAllocator(size_t ob_alloc_size_, size_t alignment_, size_t block_capacity_)
 :	ob_alloc_size(Maths::roundUpToMultipleOfPowerOf2<size_t>(ob_alloc_size_, alignment_)),
-	alignment(alignment_)
+	alignment(alignment_),
+	block_capacity(block_capacity_),
+	block_capacity_num_bits(BitUtils::highestSetBitIndex(block_capacity_)),
+	block_capacity_mask(block_capacity_ - 1)
 {
 	assert(Maths::isPowerOfTwo(alignment_));
+	assert(Maths::isPowerOfTwo(block_capacity_));
 }
 
 
@@ -61,8 +62,10 @@ glare::PoolAllocator::AllocResult glare::PoolAllocator::alloc()
 	{
 		// There was at least one free index:
 		const int index = *res;
-		size_t block_i    = (size_t)index / block_capacity;
-		size_t in_block_i = (size_t)index % block_capacity;
+		const size_t block_i    = (size_t)index >> block_capacity_num_bits;
+		const size_t in_block_i = (size_t)index & block_capacity_mask;
+		assert(block_i    == (size_t)index / block_capacity);
+		assert(in_block_i == (size_t)index % block_capacity);
 
 		free_indices.erase(res); // Remove slot from free indices.
 
@@ -145,7 +148,7 @@ void glare::testPoolAllocator()
 	conPrint("glare::testPoolAllocator()");
 
 	{
-		PoolAllocator pool(/*ob alloc size=*/4, /*alignment=*/4);
+		PoolAllocator pool(/*ob alloc size=*/4, /*alignment=*/4, /*block capacity=*/16);
 
 		PoolAllocator::AllocResult a = pool.alloc();
 		PoolAllocator::AllocResult b = pool.alloc();

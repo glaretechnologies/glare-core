@@ -9,9 +9,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "Platform.h"
 #include "ThreadSafeRefCounted.h"
 #include "Mutex.h"
-#include "Lock.h"
 #include "Vector.h"
-#include <vector>
 
 
 /*=====================================================================
@@ -30,7 +28,9 @@ namespace glare
 class FastPoolAllocator : public ThreadSafeRefCounted
 {
 public:
-	FastPoolAllocator(size_t ob_alloc_size_, size_t alignment_);
+	// alignment must be a power of 2.
+	// block_capacity must be a power of 2.
+	FastPoolAllocator(size_t ob_alloc_size_, size_t alignment, size_t block_capacity);
 
 	virtual ~FastPoolAllocator();
 
@@ -41,7 +41,7 @@ public:
 	struct AllocResult
 	{
 		void* ptr;
-		int32 index;
+		int index;
 	};
 
 	struct BlockInfo
@@ -49,16 +49,20 @@ public:
 		uint8* data;
 	};
 
-	virtual AllocResult alloc();
+	AllocResult alloc();
 
-	virtual void free(int allocation_index);
+	void free(int allocation_index);
 
 
 	mutable Mutex mutex;
 	js::Vector<BlockInfo, 16> blocks	GUARDED_BY(mutex);
 	size_t ob_alloc_size, alignment;
+	
+	size_t block_capacity; // Max num objects per block
+	size_t block_capacity_num_bits;
+	size_t block_capacity_mask;
 
-	std::vector<int> free_indices;
+	js::Vector<int, 16> free_indices;
 };
 
 

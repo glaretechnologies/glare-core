@@ -21,6 +21,9 @@ Thread-safe.
 
 Uses a set so we can keep free indices sorted by index, and allocate the 
 next object at the lowest index, hopefully packing objects closely together.
+
+See also FastPoolAllocator for an allocator that uses a vector instead of 
+a set for the free indices.
 =====================================================================*/
 namespace glare
 {
@@ -29,7 +32,9 @@ namespace glare
 class PoolAllocator : public ThreadSafeRefCounted // public glare::Allocator
 {
 public:
-	PoolAllocator(size_t ob_alloc_size_, size_t alignment_);
+	// alignment must be a power of 2.
+	// block_capacity must be a power of 2.
+	PoolAllocator(size_t ob_alloc_size_, size_t alignment_, size_t block_capacity);
 
 	virtual ~PoolAllocator();
 
@@ -48,9 +53,9 @@ public:
 		uint8* data;
 	};
 
-	virtual AllocResult alloc();
+	AllocResult alloc();
 
-	virtual void free(int allocation_index);
+	void free(int allocation_index);
 
 
 	mutable Mutex mutex;
@@ -58,6 +63,10 @@ public:
 	size_t ob_alloc_size, alignment;
 
 	std::set<int> free_indices;
+
+	size_t block_capacity; // Max num objects per block
+	size_t block_capacity_num_bits;
+	size_t block_capacity_mask;
 };
 
 

@@ -35,6 +35,7 @@ public:
 	inline void reserve(size_t M); // Make sure capacity is at least M.
 	inline void resize(size_t new_size); // Resize to size N, using default constructor if N > size().
 	inline void resize(size_t new_size, const T& val); // Resize to size new_size, using copies of val if new_size > size().
+	inline void clear() { resize(0); }
 	inline size_t capacity() const;
 	inline size_t size() const;
 	inline bool empty() const;
